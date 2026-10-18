@@ -4,8 +4,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Caller } from '../src/domain/shared/caller.js';
 import { OPERATOR, operatorCaller } from './support/core-fixtures.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
-import { unwrap } from './support/result.js';
-import { newKey } from './support/keys.js';
+import { unwrap } from '../src/testing/result.js';
+import { newKey } from '../src/testing/keys.js';
 
 // Clear requests on a real Postgres (decision 0032): one per trierarch, ship
 // and repository, read by fleet:read and by their trierarch, confirmed by it,

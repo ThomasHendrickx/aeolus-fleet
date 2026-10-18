@@ -8,8 +8,8 @@ import { addViewerShip, crewAboard, deliveryIdOf, historyUseCases, initialiseFle
 import { shipWithScopes } from './crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from './in-memory.js';
 import { valueIdOf } from './label-fixtures.js';
-import { newKey } from './keys.js';
-import { unwrap } from './result.js';
+import { newKey } from '../../src/testing/keys.js';
+import { unwrap } from '../../src/testing/result.js';
 
 /**
  * A fleet for read reach (decision 0034): reader, with fleet:read, and near

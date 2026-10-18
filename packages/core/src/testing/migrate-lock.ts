@@ -1,4 +1,4 @@
-import { createPrismaClient, type Db } from '../../src/adapters/prisma/client.js';
+import { createPrismaClient, type Db } from '../adapters/prisma/client.js';
 
 /** The advisory lock Prisma Migrate holds on a database while it migrates. */
 const PRISMA_MIGRATE_LOCK = 72_707_369;

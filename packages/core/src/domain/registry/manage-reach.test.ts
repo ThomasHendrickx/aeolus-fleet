@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { crewAboard } from '../../../test/support/core-fixtures.js';
 import { aCrewSettings, shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
-import { unwrap } from '../../../test/support/result.js';
+import { unwrap } from '../../testing/result.js';
 import type { Crew } from '../shared/caller.js';
 
 /**

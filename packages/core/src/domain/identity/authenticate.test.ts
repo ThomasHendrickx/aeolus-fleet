@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { addAgentShip, crewShip, identityUseCases, initialiseFleet, OPERATOR, openLeaseOf } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
-import { unwrap } from '../../../test/support/result.js';
+import { unwrap } from '../../testing/result.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 

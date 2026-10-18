@@ -5,8 +5,8 @@ import type { MessageId } from '@aeolus-fleet/common';
 import { crewOfToken, deliveryIdOf } from '../../../test/support/core-fixtures.js';
 import { aCrewSettings, shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { historyScenario, type HistoryScenario } from '../../../test/support/history-scenario.js';
-import { newKey } from '../../../test/support/keys.js';
-import { refusalOf, unwrap } from '../../../test/support/result.js';
+import { newKey } from '../../testing/keys.js';
+import { refusalOf, unwrap } from '../../testing/result.js';
 import type { Caller, Crew } from './caller.js';
 import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
 

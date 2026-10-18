@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { POSTGRES_IMAGE, REAPER_IMAGE, TEST_IMAGES } from './container-images.js';
+import { POSTGRES_IMAGE, REAPER_IMAGE, TEST_IMAGES } from '../src/testing/container-images.js';
 
 /** The registry an image name pulls from: its first part when that names a host, else Docker Hub. */
 function registryOf(image: string): string {

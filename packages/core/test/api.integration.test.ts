@@ -13,10 +13,10 @@ import type { AppRouter } from '../src/index.js';
 import { appRouter } from '../src/adapters/trpc/router.js';
 import { createUseCases } from '../src/wiring.js';
 import { FLEET_MCP_URL, FLEET_URL, OPERATOR, secretIn, SESSION_MODEL } from './support/core-fixtures.js';
-import { createMigratedDatabase } from './support/database.js';
-import { unwrap } from './support/result.js';
+import { createMigratedDatabase } from '../src/testing/database.js';
+import { unwrap } from '../src/testing/result.js';
 import { createTestClock } from './support/postgres-core.js';
-import { newKey } from './support/keys.js';
+import { newKey } from '../src/testing/keys.js';
 import { wholeShips } from './support/ships.js';
 
 // The API from HTTP to Postgres and back: scopes are checked at the door, the

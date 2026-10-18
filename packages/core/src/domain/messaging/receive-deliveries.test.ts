@@ -11,14 +11,14 @@ import {
   modelOf,
 } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
-import { unwrap } from '../../../test/support/result.js';
+import { unwrap } from '../../testing/result.js';
 import { endLease } from '../registry/public.js';
 import type { Caller, Crew } from '../shared/caller.js';
 import { shipActor } from '../shared/events.js';
 import { ok } from '../shared/result.js';
 import type { Selector } from '../shared/selector.js';
 import { RECEIVE_WAIT_MS } from './receive-deliveries.js';
-import { newKey } from '../../../test/support/keys.js';
+import { newKey } from '../../testing/keys.js';
 
 let core: InMemoryCore;
 let useCases: ReturnType<typeof messagingUseCases>;

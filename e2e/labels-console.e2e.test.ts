@@ -9,10 +9,10 @@ import { createApp } from '../packages/core/src/app.js';
 import type { Caller } from '../packages/core/src/domain/shared/caller.js';
 import { createUseCases, type UseCases } from '../packages/core/src/wiring.js';
 import { FLEET_URL, OPERATOR, operatorCaller } from '../packages/core/test/support/core-fixtures.js';
-import { createMigratedDatabase } from '../packages/core/test/support/database.js';
-import { newKey } from '../packages/core/test/support/keys.js';
+import { createMigratedDatabase } from '../packages/core/src/testing/database.js';
+import { newKey } from '../packages/core/src/testing/keys.js';
 import { createTestClock } from '../packages/core/test/support/postgres-core.js';
-import { unwrap } from '../packages/core/test/support/result.js';
+import { unwrap } from '../packages/core/src/testing/result.js';
 import { signIn } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 

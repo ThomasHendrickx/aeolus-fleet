@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { historyScenario, type HistoryScenario } from '../../../test/support/history-scenario.js';
-import { unwrap } from '../../../test/support/result.js';
+import { unwrap } from '../../testing/result.js';
 import { SYSTEM, recordEvent } from './events.js';
 import { TIMELINE_LIMIT } from './read-ship-timeline.js';
 import { ok } from './result.js';

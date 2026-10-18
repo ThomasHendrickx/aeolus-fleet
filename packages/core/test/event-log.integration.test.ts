@@ -9,7 +9,7 @@ import type { FleetEvent } from '../src/domain/shared/events.js';
 import { SYSTEM } from '../src/domain/shared/events.js';
 import { refuse } from '../src/domain/shared/errors.js';
 import { ok } from '../src/domain/shared/result.js';
-import { createMigratedDatabase } from './support/database.js';
+import { createMigratedDatabase } from '../src/testing/database.js';
 
 // The event log's stream position on a real Postgres. Event ids are taken when
 // an event is written, not when its transaction commits, so they cannot tell a

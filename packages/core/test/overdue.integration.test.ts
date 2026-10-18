@@ -11,9 +11,9 @@ import type { Caller, Crew } from '../src/domain/shared/caller.js';
 import type { UnitOfWork } from '../src/domain/shared/unit-of-work.js';
 import { createUseCases, type UseCases } from '../src/wiring.js';
 import { OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
-import { newKey } from './support/keys.js';
+import { newKey } from '../src/testing/keys.js';
 import { createPostgresCore, racingUnitOfWork, type PostgresCore } from './support/postgres-core.js';
-import { unwrap } from './support/result.js';
+import { unwrap } from '../src/testing/result.js';
 
 // The 10 and 60 minute clocks on a real Postgres (decision 0040), on a test
 // clock: argo is told at the time, not before, and once, also when two passes

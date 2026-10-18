@@ -13,10 +13,10 @@ import {
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { carriedText, labelIdOf, valueIdOf } from '../../../test/support/label-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
-import { unwrap } from '../../../test/support/result.js';
+import { unwrap } from '../../testing/result.js';
 import type { Caller, Crew } from '../shared/caller.js';
 import type { Selector } from '../shared/selector.js';
-import { newKey } from '../../../test/support/keys.js';
+import { newKey } from '../../testing/keys.js';
 import { createDeclareNetworkRules } from './declare-network-rules.js';
 import { createRegisterNetworkPlugin } from './register-network-plugin.js';
 import { createSetNetworkRules } from './set-network-rules.js';

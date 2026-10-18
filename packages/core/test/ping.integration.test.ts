@@ -8,8 +8,8 @@ import { createPingShip } from '../src/domain/messaging/ping-ship.js';
 import type { Caller, Crew } from '../src/domain/shared/caller.js';
 import { OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
 import { createPostgresCore, racingUnitOfWork, type PostgresCore } from './support/postgres-core.js';
-import { unwrap } from './support/result.js';
-import { newKey } from './support/keys.js';
+import { unwrap } from '../src/testing/result.js';
+import { newKey } from '../src/testing/keys.js';
 
 // Ping and pong on a real Postgres: what a ping stores, that pings racing for
 // one ship store one, and that a pong acknowledges the ping and marks the

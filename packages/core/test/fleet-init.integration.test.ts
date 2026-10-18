@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { argon2idPasswordHasher } from '../src/adapters/crypto/passwords.js';
 import { OPERATOR } from './support/core-fixtures.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
-import { unwrap } from './support/result.js';
+import { unwrap } from '../src/testing/result.js';
 
 let core: PostgresCore | undefined;
 

@@ -10,10 +10,10 @@ import type { AppRouter } from '../src/index.js';
 import type { Caller } from '../src/domain/shared/caller.js';
 import { createUseCases, type UseCases } from '../src/wiring.js';
 import { FLEET_URL, OPERATOR, operatorCaller, secretOf, SESSION_MODEL } from './support/core-fixtures.js';
-import { createMigratedDatabase } from './support/database.js';
-import { newKey } from './support/keys.js';
+import { createMigratedDatabase } from '../src/testing/database.js';
+import { newKey } from '../src/testing/keys.js';
 import { createTestClock } from './support/postgres-core.js';
-import { refusalOf, unwrap } from './support/result.js';
+import { refusalOf, unwrap } from '../src/testing/result.js';
 
 // Read reach from HTTP to Postgres and back (decision 0034): reader, with
 // fleet:read, and near carry team a; far carries team b; the networking

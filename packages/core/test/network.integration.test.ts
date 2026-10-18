@@ -9,9 +9,9 @@ import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
 import type { Caller } from '../src/domain/shared/caller.js';
 import type { Crew } from '../src/domain/shared/caller.js';
 import { OPERATOR, operatorCaller, secretOf, SESSION_MODEL } from './support/core-fixtures.js';
-import { newKey } from './support/keys.js';
+import { newKey } from '../src/testing/keys.js';
 import { createPostgresCore, everyRow, heldUnitOfWork, type PostgresCore } from './support/postgres-core.js';
-import { refusalOf, unwrap } from './support/result.js';
+import { refusalOf, unwrap } from '../src/testing/result.js';
 
 // The fleet's network rules on a real Postgres (decision 0034): the settings
 // kept with their version; a refused send stores nothing but its record, in

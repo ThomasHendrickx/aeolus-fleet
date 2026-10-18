@@ -3,7 +3,7 @@ import { createPrismaUnitOfWork, type PrismaTx } from '../../src/adapters/prisma
 import type { Clock } from '../../src/domain/shared/clock.js';
 import type { UnitOfWork } from '../../src/domain/shared/unit-of-work.js';
 import { createUseCases, type UseCases } from '../../src/wiring.js';
-import { createMigratedDatabase } from './database.js';
+import { createMigratedDatabase } from '../../src/testing/database.js';
 
 export interface TestClock extends Clock {
   set(iso: string): void;

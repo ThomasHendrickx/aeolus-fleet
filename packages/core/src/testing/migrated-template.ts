@@ -1,4 +1,4 @@
-import { createPrismaClient } from '../../src/adapters/prisma/client.js';
+import { createPrismaClient } from '../adapters/prisma/client.js';
 import { prisma } from './prisma-cli.js';
 
 /**

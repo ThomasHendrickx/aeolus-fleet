@@ -16,10 +16,10 @@ import type { Selector } from '../src/domain/shared/selector.js';
 import type { UnitOfWork } from '../src/domain/shared/unit-of-work.js';
 import { createUseCases, systemClock, type UseCases } from '../src/wiring.js';
 import { OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
-import { createMigratedDatabase } from './support/database.js';
+import { createMigratedDatabase } from '../src/testing/database.js';
 import { everyRow, heldUnitOfWork } from './support/postgres-core.js';
-import { unwrap } from './support/result.js';
-import { newKey } from './support/keys.js';
+import { unwrap } from '../src/testing/result.js';
+import { newKey } from '../src/testing/keys.js';
 import { waitingWakeups } from './support/waiting-wakeups.js';
 import { aCrewSettings } from './support/crew-fixtures.js';
 

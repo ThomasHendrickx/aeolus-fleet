@@ -8,8 +8,8 @@ import type { Caller, Crew } from '../src/domain/shared/caller.js';
 import type { Selector } from '../src/domain/shared/selector.js';
 import { OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
 import { createPostgresCore, heldUnitOfWork, type PostgresCore } from './support/postgres-core.js';
-import { unwrap } from './support/result.js';
-import { newKey } from './support/keys.js';
+import { unwrap } from '../src/testing/result.js';
+import { newKey } from '../src/testing/keys.js';
 
 // Retire and re-crew on a real Postgres: a crewed ship's lease ends first,
 // its direct deliveries are abandoned and its type deliveries stay, a

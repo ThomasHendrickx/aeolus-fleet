@@ -1,4 +1,4 @@
-import type { Result } from '../../src/domain/shared/result.js';
+import type { Result } from '../domain/shared/result.js';
 
 /** The value of an ok result. Fails the test with the domain's refusal otherwise. */
 export function unwrap<T, E>(result: Result<T, E>): T {

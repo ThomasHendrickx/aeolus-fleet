@@ -9,8 +9,8 @@ import { createPrismaClient, type PrismaClient } from '../packages/core/src/adap
 import { createApp } from '../packages/core/src/app.js';
 import type { AppRouter } from '../packages/core/src/index.js';
 import { FLEET_URL } from '../packages/core/test/support/core-fixtures.js';
-import { createMigratedDatabase } from '../packages/core/test/support/database.js';
-import { newKey } from '../packages/core/test/support/keys.js';
+import { createMigratedDatabase } from '../packages/core/src/testing/database.js';
+import { newKey } from '../packages/core/src/testing/keys.js';
 import { createTestClock } from '../packages/core/test/support/postgres-core.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 

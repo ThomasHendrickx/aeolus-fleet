@@ -1,3 +1,4 @@
+import { FLEET_URL, OPERATOR } from '../../src/testing/fleet.js';
 import {
   idSchema,
   SCOPES,
@@ -115,7 +116,7 @@ import { createReadShipMessages } from '../../src/domain/shared/read-ship-messag
 import { createReadShipTimeline } from '../../src/domain/shared/read-ship-timeline.js';
 import type { Recipient } from '../../src/domain/shared/selector.js';
 import type { InMemoryCore } from './in-memory.js';
-import { unwrap } from './result.js';
+import { unwrap } from '../../src/testing/result.js';
 
 /** The identity use cases, wired to the in-memory core. */
 export function identityUseCases(core: InMemoryCore) {
@@ -148,8 +149,6 @@ export function identityUseCases(core: InMemoryCore) {
   };
 }
 
-/** The fleet's public URL in tests: where ships reach it. */
-export const FLEET_URL = 'https://fleet.example.com';
 
 /** The fleet's MCP URL, which starting prompts carry in tests: /mcp under the public URL. */
 export const FLEET_MCP_URL = `${FLEET_URL}/mcp`;
@@ -305,10 +304,6 @@ export function argoIdOf(core: InMemoryCore, fleetId: FleetId): ShipId {
   return argo.id;
 }
 
-/** argo as the caller, holding every scope, as its secret or console session makes it. */
-export function operatorCaller(fleet: FleetInitialised): Caller {
-  return { shipId: fleet.operatorShipId, fleetId: fleet.fleetId, kind: 'operator', scopes: [...SCOPES] };
-}
 
 /** The id of the delivery a send stored for the message. */
 export function deliveryIdOf(core: InMemoryCore, messageId: MessageId): DeliveryId {
@@ -319,13 +314,6 @@ export function deliveryIdOf(core: InMemoryCore, messageId: MessageId): Delivery
   return delivery.id;
 }
 
-/** The ship secret a use case issued; a commission that comes again issues none. */
-export function secretOf(secret: string | null): string {
-  if (secret === null) {
-    throw new Error('No ship secret was issued');
-  }
-  return secret;
-}
 
 /** The ship secret a starting prompt holds. */
 export function secretIn(prompt: string | null): string {
@@ -355,8 +343,6 @@ export function shipIdIn(prompt: string): ShipId {
   return parsed.data;
 }
 
-/** The operator's login in tests: what fleet init asks for, and sign-in takes. */
-export const OPERATOR = { email: 'operator@example.com', password: 'correct horse battery staple' };
 
 /** Initialises a fleet named `test fleet` through the use case, so argo and the operator account exist. */
 export async function initialiseFleet(core: InMemoryCore, name = 'test fleet'): Promise<FleetInitialised> {
@@ -561,3 +547,5 @@ export const SESSION_MODEL = 'claude-opus-5-5';
 export function modelOf(caller: { kind: string }): { model?: string } {
   return caller.kind === 'operator' ? {} : { model: SESSION_MODEL };
 }
+
+export { FLEET_URL, OPERATOR, operatorCaller, secretOf } from '../../src/testing/fleet.js';

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { deliveryIdOf } from '../../../test/support/core-fixtures.js';
 import { historyScenario, type HistoryScenario } from '../../../test/support/history-scenario.js';
-import { unwrap } from '../../../test/support/result.js';
+import { unwrap } from '../../testing/result.js';
 import { PREVIEW_LENGTH } from './read-ship-messages.js';
 import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
 

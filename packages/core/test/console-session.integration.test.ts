@@ -11,8 +11,8 @@ import { ok } from '../src/domain/shared/result.js';
 import { createUseCases } from '../src/wiring.js';
 import { OPERATOR, secretOf } from './support/core-fixtures.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
-import { unwrap } from './support/result.js';
-import { newKey } from './support/keys.js';
+import { unwrap } from '../src/testing/result.js';
+import { newKey } from '../src/testing/keys.js';
 
 // The identity use cases on a real Postgres through the Prisma adapters:
 // takeover, sign-out, resetting the password, rollback, concurrency and restart.

@@ -12,8 +12,8 @@ import {
   registryUseCases,
 } from './core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from './in-memory.js';
-import { unwrap } from './result.js';
-import { newKey } from './keys.js';
+import { unwrap } from '../../src/testing/result.js';
+import { newKey } from '../../src/testing/keys.js';
 
 /**
  * A fleet for the history reads: argo, scout and lookout of type reviewer and

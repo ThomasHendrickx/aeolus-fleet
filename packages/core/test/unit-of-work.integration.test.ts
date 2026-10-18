@@ -6,7 +6,7 @@ import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
 import type { Fleet } from '../src/domain/registry/fleet.js';
 import { refuse } from '../src/domain/shared/errors.js';
 import { ok } from '../src/domain/shared/result.js';
-import { createMigratedDatabase } from './support/database.js';
+import { createMigratedDatabase } from '../src/testing/database.js';
 
 // The unit of work on a real Postgres: a use case's writes commit together
 // when it succeeds, and none of them stay when it refuses or fails.

@@ -5,8 +5,8 @@ import { createMarkDone } from '../src/domain/messaging/mark-done.js';
 import { isCrew, type Caller, type Crew } from '../src/domain/shared/caller.js';
 import { OPERATOR, operatorCaller, secretOf, modelOf } from './support/core-fixtures.js';
 import { createPostgresCore, racingUnitOfWork, type PostgresCore } from './support/postgres-core.js';
-import { unwrap } from './support/result.js';
-import { newKey } from './support/keys.js';
+import { unwrap } from '../src/testing/result.js';
+import { newKey } from '../src/testing/keys.js';
 
 // argo's inbox on a real Postgres: the messages to argo, open, done or all,
 // read and unread, marked done under the console session's lease, and a

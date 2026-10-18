@@ -11,8 +11,8 @@ import type { Caller, Crew } from '../src/domain/shared/caller.js';
 import type { Selector } from '../src/domain/shared/selector.js';
 import { OPERATOR, operatorCaller, secretOf, modelOf } from './support/core-fixtures.js';
 import { createPostgresCore, racingUnitOfWork, type PostgresCore } from './support/postgres-core.js';
-import { unwrap } from './support/result.js';
-import { newKey } from './support/keys.js';
+import { unwrap } from '../src/testing/result.js';
+import { newKey } from '../src/testing/keys.js';
 
 // Needs attention on a real Postgres: the undeliverable deliveries listed
 // oldest first, a dismiss, and a resend that stores a new message naming the

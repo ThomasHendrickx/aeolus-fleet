@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
-import { unwrap } from '../../../test/support/result.js';
+import { unwrap } from '../../testing/result.js';
 import { createCreateFleet } from './create-fleet.js';
 import { createGetInstallationFleet, type GetInstallationFleet } from './get-installation-fleet.js';
 

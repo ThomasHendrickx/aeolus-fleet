@@ -9,8 +9,8 @@ import { createSetOwner } from '../src/domain/registry/set-owner.js';
 import type { Caller } from '../src/domain/shared/caller.js';
 import { OPERATOR, operatorCaller } from './support/core-fixtures.js';
 import { createPostgresCore, everyRow, type PostgresCore } from './support/postgres-core.js';
-import { unwrap } from './support/result.js';
-import { newKey } from './support/keys.js';
+import { unwrap } from '../src/testing/result.js';
+import { newKey } from '../src/testing/keys.js';
 
 // Owners on a real Postgres (decision 0045): every ship but argo and the
 // viewer has one, set and changed with its event in the same transaction.

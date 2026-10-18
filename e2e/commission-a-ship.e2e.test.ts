@@ -10,9 +10,9 @@ import type { AppRouter } from '../packages/core/src/index.js';
 import { createUseCases, type UseCases } from '../packages/core/src/wiring.js';
 import type { Caller } from '../packages/core/src/domain/shared/caller.js';
 import { FLEET_URL, OPERATOR, operatorCaller, secretIn, shipIdIn } from '../packages/core/test/support/core-fixtures.js';
-import { createMigratedDatabase } from '../packages/core/test/support/database.js';
+import { createMigratedDatabase } from '../packages/core/src/testing/database.js';
 import { createTestClock } from '../packages/core/test/support/postgres-core.js';
-import { unwrap } from '../packages/core/test/support/result.js';
+import { unwrap } from '../packages/core/src/testing/result.js';
 import { signIn, openRowMenu } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 

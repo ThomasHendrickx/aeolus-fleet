@@ -8,8 +8,8 @@ import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/cl
 import { createApp } from '../src/app.js';
 import type { AppRouter } from '../src/index.js';
 import { FLEET_URL } from './support/core-fixtures.js';
-import { createMigratedDatabase } from './support/database.js';
-import { newKey } from './support/keys.js';
+import { createMigratedDatabase } from '../src/testing/database.js';
+import { newKey } from '../src/testing/keys.js';
 
 // The guide from HTTP to Postgres and back (decision 0024): the installation
 // sets it, each console session of its audience reads it with where it is,

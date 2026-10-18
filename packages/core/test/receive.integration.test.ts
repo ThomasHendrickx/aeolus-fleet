@@ -13,10 +13,10 @@ import type { Selector } from '../src/domain/shared/selector.js';
 import type { UnitOfWork } from '../src/domain/shared/unit-of-work.js';
 import { createUseCases, systemClock, type UseCases } from '../src/wiring.js';
 import { OPERATOR, operatorCaller, modelOf, secretOf } from './support/core-fixtures.js';
-import { createMigratedDatabase } from './support/database.js';
+import { createMigratedDatabase } from '../src/testing/database.js';
 import { heldUnitOfWork, racingUnitOfWork } from './support/postgres-core.js';
-import { unwrap } from './support/result.js';
-import { newKey } from './support/keys.js';
+import { unwrap } from '../src/testing/result.js';
+import { newKey } from '../src/testing/keys.js';
 
 // Receiving and acknowledging on a real Postgres, with the listener and the
 // wake-ups the server runs: what a claim stores, the order and the limit of a

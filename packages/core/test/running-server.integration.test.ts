@@ -12,9 +12,9 @@ import type { Caller } from '../src/domain/shared/caller.js';
 import type { AppRouter } from '../src/index.js';
 import { createUseCases } from '../src/wiring.js';
 import { FLEET_URL, OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
-import { createMigratedDatabase } from './support/database.js';
-import { unwrap } from './support/result.js';
-import { newKey } from './support/keys.js';
+import { createMigratedDatabase } from '../src/testing/database.js';
+import { unwrap } from '../src/testing/result.js';
+import { newKey } from '../src/testing/keys.js';
 
 // The server as it runs, from HTTP to Postgres: its listener wakes a waiting
 // receive as soon as a send commits, and a delivery survives a stop and a

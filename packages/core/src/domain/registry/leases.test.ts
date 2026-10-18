@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { addAgentShip, crewAboard, deliveryInFlight, initialiseFleet } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
-import { unwrap } from '../../../test/support/result.js';
+import { unwrap } from '../../testing/result.js';
 import type { Crew } from '../shared/caller.js';
 import { shipActor, SYSTEM, type Actor } from '../shared/events.js';
 import { ok } from '../shared/result.js';

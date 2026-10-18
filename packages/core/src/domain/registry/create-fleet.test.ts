@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { identityUseCases, initialiseFleet, registryUseCases, withInstallationSettings } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
-import { newKey } from '../../../test/support/keys.js';
-import { unwrap } from '../../../test/support/result.js';
+import { newKey } from '../../testing/keys.js';
+import { unwrap } from '../../testing/result.js';
 import type { Caller } from '../shared/caller.js';
 import { createCreateFleet, type CreateFleet } from './create-fleet.js';
 

@@ -5,8 +5,8 @@ import { createChangeLabelValues } from '../src/domain/registry/change-label-val
 import type { Caller } from '../src/domain/shared/caller.js';
 import { OPERATOR, operatorCaller } from './support/core-fixtures.js';
 import { createPostgresCore, heldUnitOfWork, type PostgresCore } from './support/postgres-core.js';
-import { unwrap } from './support/result.js';
-import { newKey } from './support/keys.js';
+import { unwrap } from '../src/testing/result.js';
+import { newKey } from '../src/testing/keys.js';
 import { aCrewSettings } from './support/crew-fixtures.js';
 import { wholeShips } from './support/ships.js';
 

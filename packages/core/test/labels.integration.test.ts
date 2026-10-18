@@ -8,9 +8,9 @@ import { createDeleteLabel } from '../src/domain/registry/delete-label.js';
 import { createRetireShip } from '../src/domain/registry/retire-ship.js';
 import type { Caller } from '../src/domain/shared/caller.js';
 import { OPERATOR, operatorCaller } from './support/core-fixtures.js';
-import { newKey } from './support/keys.js';
+import { newKey } from '../src/testing/keys.js';
 import { createPostgresCore, heldUnitOfWork, type PostgresCore } from './support/postgres-core.js';
-import { refusalOf, unwrap } from './support/result.js';
+import { refusalOf, unwrap } from '../src/testing/result.js';
 import { wholeShips } from './support/ships.js';
 
 // Labels on a real Postgres (decision 0031): a key once per fleet, even when
