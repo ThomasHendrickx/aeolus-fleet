@@ -14,7 +14,8 @@ export type ReadOnBehalf = (
  * Use case: the reader a plugin ship reads as on behalf of a named ship
  * (decision 0034): the named ship with fleet:read only, so every fleet:read
  * read filters by that ship's read reach whatever its own scopes, with the
- * plugin kept as the one that asked. The plugin needs fleet:read itself. argo
+ * plugin kept as the one that asked. The plugin needs fleet:read and
+ * fleet:on-behalf itself: fleet:read alone reads only as its own ship. argo
  * and the viewer are never named: their read is the whole fleet, which a
  * plugin would gain by naming them.
  */
@@ -22,6 +23,9 @@ export function createReadOnBehalf(deps: { ships: Pick<ShipRepository, 'find'> }
   return async (caller, { shipId }) => {
     if (!hasScope(caller, 'fleet:read')) {
       return refuse('SCOPE_NOT_HELD', 'Reading on behalf of a ship needs the fleet:read scope');
+    }
+    if (!hasScope(caller, 'fleet:on-behalf')) {
+      return refuse('SCOPE_NOT_HELD', 'Reading on behalf of a ship needs the fleet:on-behalf scope');
     }
     const ship = await deps.ships.find(caller.fleetId, shipId);
     if (ship?.retiredAt !== null) {
