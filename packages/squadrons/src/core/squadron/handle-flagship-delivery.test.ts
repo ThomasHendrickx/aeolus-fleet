@@ -616,12 +616,26 @@ describe('the flagship proxying between its squadron and its forming ship (decis
     expect(sent[0]?.payload).toContain('coder-zz11');
   });
 
+  it('tells the forming ship, not argo, of a message it keeps, in a headline naming the sender and the squadron in the body', async () => {
+    held = formedByTechLead();
+    const unknown = delivery(STRANGER, { contentType: 'text/plain', payload: 'Build login' });
+
+    await expect(handle(held, unknown)).resolves.toEqual({ isOk: true, value: 'kept' });
+
+    expect(told).toEqual([]);
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toMatchObject({ selector: { kind: 'ship', shipId: FORMING }, contentType: 'text/markdown', idempotencyKey: `kept-${unknown.deliveryId}` });
+    expect(sent[0]?.payload.split('\n')[0]).toBe('reviewer-01 sent a flagship a message it does not handle');
+    expect(sent[0]?.payload).toContain('team-a1b2c3');
+    expect(acked).toEqual([unknown.deliveryId]);
+  });
+
   it('keeps a relay from a ship that is neither a member nor the forming ship, and sends nothing on', async () => {
     held = formedByTechLead();
 
     await expect(handle(held, delivery(STRANGER, { contentType: RELAY, payload: { squadron: 'team-a1b2c3', payload: 'Hi.' } }))).resolves.toEqual({ isOk: true, value: 'kept' });
 
-    expect(sent).toEqual([]);
+    expect(sent.filter((each) => each.contentType === RELAY)).toEqual([]);
   });
 });
 
