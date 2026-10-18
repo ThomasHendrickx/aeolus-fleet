@@ -652,6 +652,8 @@ model Event {
   @@index([fleetId, shipId])
   @@index([fleetId, messageId])
   @@index([fleetId, deliveryId])
+  /// The health reads take a fleet's events since a time (decision 0042).
+  @@index([fleetId, occurredAt])
   @@map("events")
 }
 
