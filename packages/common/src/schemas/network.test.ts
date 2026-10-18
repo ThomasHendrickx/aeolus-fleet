@@ -156,6 +156,7 @@ describe('reachRefusalsOutputSchema', () => {
       at: '2026-10-09T19:00:00.000Z',
       sender: { id: newId('ship'), name: 'planner', labels: [carried], owner: { id: newId('ship'), name: 'thomas' } },
       recipient: { kind: 'ship', ship: { id: newId('ship'), name: 'vault', labels: [], owner: null } },
+      verb: 'send',
       settingsVersion: 2,
       whilePluginUnavailable: null,
     };
@@ -169,6 +170,7 @@ describe('reachRefusalsOutputSchema', () => {
       at: '2026-10-09T19:00:00.000Z',
       sender: { id: newId('ship'), name: 'planner', labels: [], owner: null },
       recipient: { kind: 'type', type: 'keeper', ships: [{ id: newId('ship'), name: 'vault', labels: [], owner: null }] },
+      verb: 'send',
       settingsVersion: 2,
       whilePluginUnavailable: null,
     };
@@ -182,6 +184,7 @@ describe('reachRefusalsOutputSchema', () => {
       at: '2026-10-10T08:00:00.000Z',
       sender: { id: newId('ship'), name: 'planner', labels: [], owner: null },
       recipient: { kind: 'ship', ship: { id: newId('ship'), name: 'vault', labels: [], owner: null } },
+      verb: 'send',
       settingsVersion: 2,
       whilePluginUnavailable: 'block-all',
     };
@@ -195,6 +198,7 @@ describe('reachRefusalsOutputSchema', () => {
       at: '2026-10-09T19:00:00.000Z',
       sender: { id: newId('ship'), name: 'planner', labels: [] },
       recipient: { kind: 'ship', ship: { id: newId('ship'), name: 'vault', labels: [], owner: null } },
+      verb: 'send',
       settingsVersion: 2,
       whilePluginUnavailable: null,
     };
@@ -208,6 +212,7 @@ describe('reachRefusalsOutputSchema', () => {
       at: '2026-10-10T08:00:00.000Z',
       sender: { id: newId('ship'), name: 'planner', labels: [], owner: null },
       recipient: { kind: 'ship', ship: { id: newId('ship'), name: 'vault', labels: [], owner: null } },
+      verb: 'send',
       settingsVersion: 2,
       whilePluginUnavailable: 'open-all',
     };

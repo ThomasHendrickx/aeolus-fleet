@@ -212,6 +212,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_network_verbs$/),
       expect.stringMatching(/^\d{14}_built_in_rules$/),
       expect.stringMatching(/^\d{14}_network_rules_a_list$/),
+      expect.stringMatching(/^\d{14}_verb_on_reach_refusals$/),
     ]);
   });
 });

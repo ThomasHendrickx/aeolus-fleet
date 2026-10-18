@@ -565,6 +565,30 @@ describe('the network rules a list migration', () => {
   });
 });
 
+describe('the verb on reach refusals migration', () => {
+  const MIGRATIONS = fileURLToPath(new URL('../src/adapters/prisma/migrations', import.meta.url));
+  const verbOnRefusals = readdirSync(MIGRATIONS).find((name) => name.endsWith('_verb_on_reach_refusals'));
+
+  it('makes every refusal from before verbs a refused send, as only sends were checked', async () => {
+    const url = await createMigratedDatabase();
+    const client = createPrismaClient(url);
+    const fleetId = newId('fleet');
+    const refusalId = newId('reachRefusal');
+    const ship = { id: newId('ship'), name: 'planner', labels: [], owner: null };
+    try {
+      await client.$executeRawUnsafe('ALTER TABLE "reach_refusals" DROP COLUMN "verb"');
+      await client.fleet.create({ data: { id: fleetId, name: 'old fleet', createdAt: now } });
+      await client.$executeRaw`INSERT INTO "reach_refusals" ("id", "fleet_id", "at", "sender", "recipient", "settings_version") VALUES (${refusalId}, ${fleetId}, ${now}, ${JSON.stringify(ship)}::jsonb, ${JSON.stringify({ kind: 'ship', ship })}::jsonb, 2)`;
+
+      await executeSqlFile(url, `${MIGRATIONS}/${verbOnRefusals ?? 'missing'}/migration.sql`);
+
+      await expect(client.reachRefusal.findMany({ select: { id: true, verb: true } })).resolves.toEqual([{ id: refusalId, verb: 'send' }]);
+    } finally {
+      await client.$disconnect();
+    }
+  });
+});
+
 describe('the owners on reach refusals migration', () => {
   const MIGRATIONS = fileURLToPath(new URL('../src/adapters/prisma/migrations', import.meta.url));
   const ownersOnRefusals = readdirSync(MIGRATIONS).find((name) => name.endsWith('_owners_on_reach_refusals'));

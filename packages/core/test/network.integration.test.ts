@@ -244,6 +244,7 @@ describe('a send under network rules', () => {
           at: core.clock.now(),
           sender: { id: vault.shipId, name: 'vault', labels: [label(sensitive, 'sensitive')], owner: { id: argo.shipId, name: 'argo' } },
           recipient: { kind: 'ship', ship: { id: planner.shipId, name: 'planner', labels: [label(shared, 'shared')], owner: { id: argo.shipId, name: 'argo' } } },
+          verb: 'send',
           settingsVersion: 3,
           whilePluginUnavailable: null,
         },
