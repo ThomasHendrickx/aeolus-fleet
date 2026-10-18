@@ -73,6 +73,8 @@ import {
   reachRefusalsOutputSchema,
   explainReachInputSchema,
   setOwnerInputSchema,
+  connectPluginInputSchema,
+  connectPluginOutputSchema,
   setOwnerOutputSchema,
   explainReachOutputSchema,
   registerNetworkPluginInputSchema,
@@ -413,6 +415,15 @@ export const fleetRouter = router({
     .output(setOwnerOutputSchema)
     .mutation(async ({ ctx, input }) => {
       okOrThrow(await ctx.useCases.setOwner(ctx.caller, input));
+      return {};
+    }),
+
+  /** Connects a ship as a plugin, which then reads every ship until a release or retire ends it: argo's alone, by its kind, no scope (decision 0034). */
+  connectPlugin: authenticatedProcedure
+    .input(connectPluginInputSchema)
+    .output(connectPluginOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.connectPlugin(ctx.caller, input));
       return {};
     }),
 
