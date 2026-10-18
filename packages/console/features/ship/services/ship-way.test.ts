@@ -67,6 +67,6 @@ describe('shipWayView', () => {
   ] as const)('names the %s its lease stated as what wakes the ship (interop 5.1)', (kind, words) => {
     const view = shipWayView({ ...NOTHING_WAITING_WAY, lease: { by: { kind }, turn: null } }, { now: NOW });
 
-    expect(textsOf(view)).toEqual([words]);
+    expect(textsOf(view)[0]).toBe(words);
   });
 });

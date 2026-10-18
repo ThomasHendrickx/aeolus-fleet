@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { deliveryStateSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
-import { messageRecipientSchema } from './history.js';
+import { leaseWakerSchema, messageRecipientSchema } from './history.js';
 import { isOneLine } from './report.js';
 
 /**
@@ -96,6 +96,20 @@ export const pushReceivedDeliverySchema = receivedDeliverySchema.extend({
 
 export type PushReceivedDelivery = z.infer<typeof pushReceivedDeliverySchema>;
 
+/**
+ * Input of `ship.pushReceive`: at most how many deliveries to take, 1 to 10,
+ * one without it, and what wakes the ship, kept from the lease's first push
+ * receive (interop 5.1).
+ */
+export const pushReceiveInputSchema = z
+  .object({ max: z.int().min(1).max(RECEIVE_MAX_UPPER_BOUND).optional(), waker: leaseWakerSchema.optional() })
+  .optional();
+
+export type PushReceiveInput = z.infer<typeof pushReceiveInputSchema>;
+
+/** The channel of a hand-over: 1 to 32 of a-z, 0-9, `/`, `.` and `-`, such as `tmux` or `tools/call`. */
+const CHANNEL = /^[a-z0-9/.-]{1,32}$/;
+
 /** Output of `ship.pushReceive`: the deliveries taken, none when the wait ended without one. */
 export const pushReceiveOutputSchema = z.object({
   deliveries: z.array(pushReceivedDeliverySchema).max(RECEIVE_MAX_UPPER_BOUND),
@@ -107,12 +121,14 @@ export type PushReceiveOutput = z.infer<typeof pushReceiveOutputSchema>;
  * Input of `ship.handed`: the delivery the computer side handed to the agent,
  * and the number of that hand-over, counting from 1 under the crew's lease.
  * Once more: it hands a confirmed message once more, after the turn that took
- * it died (decision 0040).
+ * it died (decision 0040). The channel it handed it through, kept with
+ * DeliveryHanded (interop 5.1).
  */
 export const handedInputSchema = z.object({
   deliveryId: idSchema('delivery'),
   handOverNumber: z.int().positive(),
   isOnceMore: z.boolean().optional(),
+  channel: z.string().regex(CHANNEL, 'A channel is 1 to 32 of a-z, 0-9, /, . and -').optional(),
 });
 
 export type HandedInput = z.infer<typeof handedInputSchema>;

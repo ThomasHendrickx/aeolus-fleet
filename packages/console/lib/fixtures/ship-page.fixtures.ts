@@ -232,7 +232,7 @@ export const SQUADRON_MESSAGES: ListedMessage[] = [
 ];
 
 /** What a step says of itself beyond who and when: nothing, unless the example sets it. */
-const PLAIN_STEP = { by: null, handOverNumber: null, isAgain: false, isOnceMore: false, overdue: null, leaseEnd: null } as const;
+const PLAIN_STEP = { by: null, handOverNumber: null, channel: null, isAgain: false, isOnceMore: false, overdue: null, leaseEnd: null } as const;
 
 type StepFields = Pick<DeliveryHistoryEntry, 'type' | 'occurredAt' | 'ship' | 'location' | 'harness' | 'attempts'>;
 

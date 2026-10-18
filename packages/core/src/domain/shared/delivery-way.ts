@@ -5,6 +5,7 @@ import {
   type DeliveryHolder,
   type DeliveryState,
   type LeaseEndReason,
+  type LeaseWaker,
   type OverdueClock,
   type ShipId,
   type TurnState,
@@ -28,6 +29,8 @@ export interface WayLease {
   trierarch: HistoryParty | null;
   /** From its first push receive until it ends. */
   isPushed: boolean;
+  /** What wakes the ship, as its first push receive stated it (interop 5.1); null when it stated none. */
+  waker: LeaseWaker | null;
   isEnded: boolean;
   /** Why it ended, as its LeaseRevoked says; null while open. */
   endReason: LeaseEndReason | null;
@@ -64,15 +67,26 @@ export interface DeliveryWay {
 }
 
 /**
- * The part that receives and hands over for a pushed lease's session: its
- * trierarch, or else the plugin watcher of a session crewed by hand. A pull
- * lease has none: its agent receives itself.
+ * The part that receives and hands over for a pushed lease's session: what
+ * its first push receive stated wakes it (interop 5.1), else its trierarch,
+ * or else the plugin watcher of a session crewed by hand. A trierarch stated
+ * by a session no trierarch crewed names none to show, so it reads as the
+ * lease shows. A pull lease has none: its agent receives itself.
  */
-export function computerSideOf(lease: Pick<WayLease, 'isPushed' | 'trierarch'>): ComputerSide | null {
+export function computerSideOf(lease: Pick<WayLease, 'isPushed' | 'trierarch' | 'waker'>): ComputerSide | null {
   if (!lease.isPushed) {
     return null;
   }
-  return lease.trierarch ? { kind: 'trierarch', trierarch: lease.trierarch } : { kind: 'pluginWatcher' };
+  switch (lease.waker) {
+    case 'personApp':
+    case 'gateway':
+    case 'adapter':
+    case 'pluginWatcher':
+      return { kind: lease.waker };
+    case 'trierarch':
+    case null:
+      return lease.trierarch ? { kind: 'trierarch', trierarch: lease.trierarch } : { kind: 'pluginWatcher' };
+  }
 }
 
 function isOverdueClock(value: unknown): value is OverdueClock {
@@ -95,7 +109,7 @@ export function deliveryStepOf(
   }
   const lease = typeof details.leaseId === 'string' ? read.leases.get(details.leaseId) : undefined;
   const isTakenBySession = type === 'DeliveryReceived' || type === 'DeliveryHanded';
-  const { attempts, handOverNumber, clock, minutes } = details;
+  const { attempts, handOverNumber, channel, clock, minutes } = details;
   return [
     {
       seq: event.seq,
@@ -107,6 +121,7 @@ export function deliveryStepOf(
       attempts: typeof attempts === 'number' ? attempts : null,
       by: isTakenBySession && lease ? computerSideOf(lease) : null,
       handOverNumber: typeof handOverNumber === 'number' ? handOverNumber : null,
+      channel: typeof channel === 'string' ? channel : null,
       isAgain: details.again === true,
       isOnceMore: details.onceMore === true,
       overdue: type === 'DeliveryOverdue' && isOverdueClock(clock) && typeof minutes === 'number' ? { clock, minutes } : null,

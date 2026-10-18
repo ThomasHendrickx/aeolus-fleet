@@ -2,7 +2,7 @@ import type { ComputerSide, MessageId, ShipWay } from '@aeolus-fleet/common';
 
 import { relativeTime, sinceTime } from '../../../lib/relative-time';
 import type { DeliveryStepState } from './delivery-history';
-import { deliveryStatus, type WayLine, type WayMachine } from './message-way';
+import { deliveryStatus, holderWordsOf, type WayLine, type WayMachine } from './message-way';
 
 /**
  * A ship's side of the way as its header shows it (#756): which part serves
@@ -25,11 +25,9 @@ export interface ShipWayView {
 
 function sideLine(by: ComputerSide | null): WayLine {
   if (by === null) {
-    return { icon: 'pull', tone: 'neutral', text: 'No trierarch, no plugin (pull)' };
+    return { icon: 'pull', tone: 'neutral', text: 'Pull: nobody wakes it' };
   }
-  return by.kind === 'trierarch'
-    ? { icon: 'computer', tone: 'neutral', text: `Trierarch on ${by.trierarch.name}` }
-    : { icon: 'watcher', tone: 'neutral', text: 'Plugin watcher' };
+  return { ...holderWordsOf(by), tone: 'neutral' };
 }
 
 /** "Trierarch on mac-mini silent since 10:02", when the trierarch plugin says its machine is silent. */

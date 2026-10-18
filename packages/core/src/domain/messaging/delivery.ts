@@ -39,8 +39,8 @@ export interface DeliveryHandOver {
  * with the crew's ship and lease. A hand-over by a push receive's crew keeps
  * its number. Either change is caused by the receiving ship.
  */
-function countAttempt(delivery: Delivery, attempt: { crew: CrewOfShip; at: Date; handOverNumber: number | null }): DeliveryHandOver {
-  const { crew, at, handOverNumber } = attempt;
+function countAttempt(delivery: Delivery, attempt: { crew: CrewOfShip; at: Date; handOverNumber: number | null; channel?: string }): DeliveryHandOver {
+  const { crew, at, handOverNumber, channel } = attempt;
   const attempts = delivery.attempts + 1;
   const concerns = {
     fleetId: delivery.fleetId,
@@ -49,7 +49,7 @@ function countAttempt(delivery: Delivery, attempt: { crew: CrewOfShip; at: Date;
     shipId: crew.shipId,
     messageId: delivery.messageId,
     deliveryId: delivery.id,
-    details: { leaseId: crew.leaseId, attempts, ...(handOverNumber !== null && { handOverNumber }) },
+    details: { leaseId: crew.leaseId, attempts, ...(handOverNumber !== null && { handOverNumber }), ...(channel !== undefined && { channel }) },
   };
 
   if (attempts >= UNDELIVERABLE_AT_ATTEMPT) {
@@ -119,6 +119,8 @@ export interface HandOver {
   crew: CrewOfShip;
   handOverNumber: number;
   isOnceMore: boolean;
+  /** The channel the computer side handed it through, kept with DeliveryHanded (interop 5.1). */
+  channel?: string;
   at: Date;
 }
 
@@ -159,7 +161,7 @@ export function handOverDelivery(
           `Delivery ${delivery.id} is acknowledged, not in flight: its agent confirmed it, so hand it only once more, after its turn died`,
         );
       }
-      const { outcome, delivery: changed, events } = countAttempt(delivery, { crew, at, handOverNumber });
+      const { outcome, delivery: changed, events } = countAttempt(delivery, { crew, at, handOverNumber, ...(handOver.channel === undefined ? {} : { channel: handOver.channel }) });
       return ok({ state: outcome, delivery: changed, events });
     }
     case 'pending':
@@ -214,7 +216,7 @@ function handOnceMore(
         shipId: crew.shipId,
         messageId: delivery.messageId,
         deliveryId: delivery.id,
-        details: { leaseId: crew.leaseId, attempts: delivery.attempts, handOverNumber, onceMore: true },
+        details: { leaseId: crew.leaseId, attempts: delivery.attempts, handOverNumber, onceMore: true, ...(handOver.channel !== undefined && { channel: handOver.channel }) },
       },
     ],
   });

@@ -145,14 +145,29 @@ export const leaseEndReasonSchema = z.enum(LEASE_END_REASONS);
 export type LeaseEndReason = z.infer<typeof leaseEndReasonSchema>;
 
 /**
+ * What wakes a pushed ship, as its first push receive states it (decision
+ * 0040, interop 5.1): the trierarch, the plugin watcher, a person's app, the
+ * gateway, or an app's own adapter.
+ */
+export const LEASE_WAKERS = ['trierarch', 'pluginWatcher', 'personApp', 'gateway', 'adapter'] as const;
+
+export const leaseWakerSchema = z.enum(LEASE_WAKERS);
+
+export type LeaseWaker = z.infer<typeof leaseWakerSchema>;
+
+/**
  * The computer side of a pushed lease, which receives and hands over for its
  * session (decision 0040): the trierarch that crewed it, named by its ship,
- * which is named for its computer, or the plugin watcher of a session crewed
- * by hand.
+ * which is named for its computer, the plugin watcher of a session crewed
+ * by hand, or what the lease stated wakes it: a person's app, the gateway or
+ * an app's adapter.
  */
 export const computerSideSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('trierarch'), trierarch: partySchema }),
   z.object({ kind: z.literal('pluginWatcher') }),
+  z.object({ kind: z.literal('personApp') }),
+  z.object({ kind: z.literal('gateway') }),
+  z.object({ kind: z.literal('adapter') }),
 ]);
 
 export type ComputerSide = z.infer<typeof computerSideSchema>;
@@ -183,6 +198,8 @@ export const deliveryHistoryEntrySchema = z.object({
   by: computerSideSchema.nullable(),
   /** The number of a pushed hand-over; null for a plain receive's (pulled). */
   handOverNumber: z.int().min(1).nullable(),
+  /** The channel a pushed hand-over went through, as its computer side named it (interop 5.1); null when it named none. */
+  channel: z.string().nullable(),
   /** A push receive of a delivery its crew already held: nothing changed. */
   isAgain: z.boolean(),
   /** A confirmed message handed once more after its turn died. */

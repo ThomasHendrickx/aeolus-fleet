@@ -1,4 +1,4 @@
-import type { FleetId, IdGenerator, LeaseId, ShipId, ShipKind } from '@aeolus-fleet/common';
+import type { FleetId, IdGenerator, LeaseId, LeaseWaker, ShipId, ShipKind } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, shipActor, type Actor, type EventLog } from '../shared/events.js';
@@ -123,23 +123,25 @@ export async function holdLease(
  * Marks the crew's lease pushed (decision 0040): from its first push receive
  * until it ends, the computer side takes its deliveries and the agent's plain
  * receive answers nothing. The first mark writes LeasePushed, caused by the
- * crew's ship; a lease already pushed, or one that has ended, stays as it
- * was. Call it first in the unit of work, before the lease is held.
+ * crew's ship, with what wakes the ship when the push receive states it
+ * (interop 5.1); a lease already pushed, or one that has ended, stays as it
+ * was, its waker included. Call it first in the unit of work, before the
+ * lease is held.
  */
 export async function markLeasePushed(
   deps: { tx: { leases: Pick<LeaseRepository, 'markPushed'>; events: EventLog }; ids: IdGenerator },
-  crew: { fleetId: FleetId; shipId: ShipId; leaseId: LeaseId; at: Date },
+  crew: { fleetId: FleetId; shipId: ShipId; leaseId: LeaseId; at: Date; waker?: LeaseWaker },
 ): Promise<void> {
   const { tx, ids } = deps;
-  const { fleetId, shipId, leaseId, at } = crew;
-  if (await tx.leases.markPushed({ fleetId, leaseId, at })) {
+  const { fleetId, shipId, leaseId, at, waker } = crew;
+  if (await tx.leases.markPushed({ fleetId, leaseId, at, waker: waker ?? null })) {
     await recordEvent({ events: tx.events, ids }, {
       fleetId,
       type: 'LeasePushed',
       occurredAt: at,
       actor: shipActor(shipId),
       shipId,
-      details: { leaseId },
+      details: { leaseId, ...(waker === undefined ? {} : { waker }) },
     });
   }
 }

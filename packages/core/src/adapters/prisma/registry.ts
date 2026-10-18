@@ -494,12 +494,12 @@ export function createPrismaLeaseRepository(db: Db): LeaseRepository {
         },
       });
     },
-    markPushed: async ({ fleetId, leaseId, at }) => {
+    markPushed: async ({ fleetId, leaseId, at, waker }) => {
       // An update before the lease is held FOR SHARE, so two marks take turns
       // on the row lock instead of each waiting for the other's share. A lease
       // already pushed matches nothing and locks nothing.
       const marked = await db.$executeRaw`
-        UPDATE leases SET pushed_at = ${at}
+        UPDATE leases SET pushed_at = ${at}, waker = ${waker}::lease_waker
         WHERE fleet_id = ${fleetId} AND id = ${leaseId} AND ended_at IS NULL AND pushed_at IS NULL`;
       return marked > 0;
     },

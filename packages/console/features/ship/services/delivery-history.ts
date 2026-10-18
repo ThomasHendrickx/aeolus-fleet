@@ -50,9 +50,20 @@ export function offsetTime(storedAt: Date, at: Date): string {
   return elapsedMs < MINUTE_MS ? `+${String(Math.floor(elapsedMs / SECOND_MS))} s` : `+${duration(storedAt, at)}`;
 }
 
-/** "the trierarch on mac-mini", "the plugin watcher": the computer side of a pushed ship, by its trierarch's computer. */
+/** "the trierarch on mac-mini", "the plugin watcher", "the gateway": the computer side of a pushed ship, a trierarch by its computer. */
 export function computerSideWords(side: ComputerSide): string {
-  return side.kind === 'trierarch' ? `the trierarch on ${side.trierarch.name}` : 'the plugin watcher';
+  switch (side.kind) {
+    case 'trierarch':
+      return `the trierarch on ${side.trierarch.name}`;
+    case 'pluginWatcher':
+      return 'the plugin watcher';
+    case 'personApp':
+      return "the person's app";
+    case 'gateway':
+      return 'the gateway';
+    case 'adapter':
+      return 'the adapter';
+  }
 }
 
 /** ", session on hetzner-1": where the session it was handed to ran, its description when it gave one. */
@@ -123,7 +134,7 @@ function handed(entry: DeliveryHistoryEntry): SentencePart[] {
   const number = entry.handOverNumber === null ? '' : ` (no. ${String(entry.handOverNumber)})`;
   return entry.isOnceMore
     ? [text('Handed once more to '), ...shipOf(entry), text(`${number}: its turn died.`)]
-    : [text('Handed to '), ...shipOf(entry), text(number), ...byWhom(entry), text('.')];
+    : [text('Handed to '), ...shipOf(entry), text(number), ...byWhom(entry), ...(entry.channel === null ? [] : [text(` via ${entry.channel}`)]), text('.')];
 }
 
 /** "Handed 4 times, never confirmed; fifth refused: undeliverable.": a pushed one counts hand-overs, a pulled one receives. */

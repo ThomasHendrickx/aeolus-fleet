@@ -1,4 +1,4 @@
-import type { IdGenerator } from '@aeolus-fleet/common';
+import type { IdGenerator, LeaseWaker } from '@aeolus-fleet/common';
 
 import { holdLease, markLeasePushed, type HoldLeaseTx, type LeaseRepository, type Ship } from '../registry/public.js';
 import type { Crew } from '../shared/caller.js';
@@ -38,7 +38,7 @@ export interface DeliveriesPushReceived {
 
 export type PushReceiveDeliveries = (
   crew: Crew,
-  input: { max?: number },
+  input: { max?: number; waker?: LeaseWaker },
 ) => Promise<Result<DeliveriesPushReceived, ReceiveRefusal>>;
 
 interface PushReceiptDeps {
@@ -55,11 +55,11 @@ interface PushReceiptDeps {
  */
 async function pushReceiptForCrew(
   deps: PushReceiptDeps,
-  receipt: { crew: Crew; max: number },
+  receipt: { crew: Crew; max: number; waker?: LeaseWaker },
 ): Promise<Result<{ ship: Ship; deliveries: PushReceivedDelivery[] }, ReceiveRefusal>> {
   const { tx, ids, at } = deps;
-  const { crew, max } = receipt;
-  await markLeasePushed({ tx, ids }, { fleetId: crew.fleetId, shipId: crew.shipId, leaseId: crew.leaseId, at });
+  const { crew, max, waker } = receipt;
+  await markLeasePushed({ tx, ids }, { fleetId: crew.fleetId, shipId: crew.shipId, leaseId: crew.leaseId, at, ...(waker === undefined ? {} : { waker }) });
   const ship = await holdLease(tx, crew);
   if (!ship.isOk) {
     return ship;
@@ -103,6 +103,8 @@ async function pushReceiptForCrew(
  * the agent. Its own in flight comes again first, changing nothing, so a
  * restart or a lost answer loses nothing. From its first push receive until
  * it ends, the lease is pushed: the agent's plain receive answers nothing.
+ * Its first push receive may state what wakes the ship, kept with the lease
+ * (interop 5.1).
  * When nothing is there it waits as a receive does, about 25 seconds.
  */
 export function createPushReceiveDeliveries(deps: {
@@ -121,7 +123,7 @@ export function createPushReceiveDeliveries(deps: {
     }
     return waitForDeliveries(
       { clock: deps.clock, wakeups: deps.wakeups, waitMs },
-      { crew, look: () => deps.uow.run((tx) => pushReceiptForCrew({ tx, ids: deps.ids, at: deps.clock.now() }, { crew, max: max.value })) },
+      { crew, look: () => deps.uow.run((tx) => pushReceiptForCrew({ tx, ids: deps.ids, at: deps.clock.now() }, { crew, max: max.value, ...(input.waker === undefined ? {} : { waker: input.waker }) })) },
     );
   };
 }

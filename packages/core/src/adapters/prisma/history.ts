@@ -13,6 +13,7 @@ import {
   leaseEndReasonSchema,
   locationKindSchema,
   turnStateSchema,
+  leaseWakerSchema,
   type FleetId,
   type LeaseId,
   type ShipId,
@@ -422,6 +423,7 @@ const wayLeaseRow = z.object({
   locationDescription: z.string().nullable(),
   harness: z.string().nullable(),
   isPushed: z.boolean(),
+  waker: leaseWakerSchema.nullable(),
   isEnded: z.boolean(),
   turn: turnStateSchema.nullable(),
   turnAt: z.date().nullable(),
@@ -444,7 +446,7 @@ async function wayLeases(db: Db, of: { fleetId: FleetId; leaseIds: string[] }): 
   const rows = z.array(wayLeaseRow).parse(
     await db.$queryRaw`
       SELECT l.id, l.location::text AS location, l.location_description AS "locationDescription", l.harness,
-             l.pushed_at IS NOT NULL AS "isPushed", l.ended_at IS NOT NULL AS "isEnded",
+             l.pushed_at IS NOT NULL AS "isPushed", l.waker::text AS waker, l.ended_at IS NOT NULL AS "isEnded",
              l.turn::text AS turn, l.turn_at AS "turnAt",
              cb.id AS "crewedById", cb.name AS "crewedByName", cb.kind AS "crewedByKind",
              (SELECT r.details->>'reason' FROM events r
@@ -470,6 +472,7 @@ async function wayLeases(db: Db, of: { fleetId: FleetId; leaseIds: string[] }): 
         trierarch:
           row.crewedById !== null && row.crewedByName !== null && row.crewedByKind !== 'operator' ? { id: row.crewedById, name: row.crewedByName } : null,
         isPushed: row.isPushed,
+        waker: row.waker,
         isEnded: row.isEnded,
         endReason: leaseEndReasonSchema.nullable().catch(null).parse(row.endReason),
         turn: row.turn !== null && row.turnAt !== null ? { state: row.turn, at: row.turnAt } : null,
