@@ -46,6 +46,7 @@ describe('scopeNameSchema', () => {
     ['an empty action', 'squadrons:'],
     ['two colons', 'squadrons:form:now'],
     ['a space', 'squadrons: form'],
+    ['an unknown scope of a core namespace', 'fleet:write'],
     ['nothing', ''],
   ])('rejects %s', (_what, scope) => {
     expect(scopeNameSchema.safeParse(scope).success).toBe(false);
