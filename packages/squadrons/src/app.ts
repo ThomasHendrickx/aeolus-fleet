@@ -37,6 +37,7 @@ import type { Catalogue } from './core/catalogue/catalogue.js';
 import { createConnect, type Connect } from './core/management/connect.js';
 import { createReadConnection, type ReadConnection } from './core/management/read-connection.js';
 import { createAuthenticateOperator } from './core/operator/authenticate-operator.js';
+import { NO_LIMITS, type SquadronLimits } from './core/squadron/limits.js';
 import { createFormSquadron, type FormSquadron } from './core/squadron/form-squadron.js';
 import { createHandleFlagshipDelivery } from './core/squadron/handle-flagship-delivery.js';
 import { createHandleManagementDelivery } from './core/squadron/handle-management-delivery.js';
@@ -98,6 +99,8 @@ export function createSquadronsApp(options: {
   logger?: FastifyServerOptions['logger'];
   /** The installation token (decision 0021): unset, the installation is open and every fleet is served. */
   installationToken?: string;
+  /** squadrons' limits on forming (question 9); none unless given. */
+  limits?: SquadronLimits;
 }): SquadronsApp {
   const prisma = createPrismaClient(options.databaseUrl);
   const server = Fastify({ logger: options.logger ?? true });
@@ -132,7 +135,7 @@ export function createSquadronsApp(options: {
   // One catalogue per fleet: a refresh for a fleet squadrons served earlier never reaches the one it serves now.
   const catalogues = new Map<FleetId, Catalogue>();
   const catalogueOf = (fleetId: FleetId): Catalogue => catalogues.get(fleetId) ?? { templates: [], blueprints: [], problems: [] };
-  const formSquadron = createFormSquadron({ door, management: store, squadrons, attempts, catalogue: catalogueOf, random: cryptoRandomNames, clock });
+  const formSquadron = createFormSquadron({ door, management: store, squadrons, attempts, catalogue: catalogueOf, random: cryptoRandomNames, clock, limits: options.limits ?? NO_LIMITS });
   // A new squadron's flagship starts receiving at once, not at the next rescan.
   const formAndWatch: FormSquadron = async (input) => {
     const formed = await formSquadron(input);
@@ -172,7 +175,7 @@ export function createSquadronsApp(options: {
   const forceStandDown = createForceStandDown({ door, management: store, squadrons, clock });
   const removeMember = createRemoveMember({ door, management: store, squadrons, clock });
   const newCrewLine = createNewCrewLine({ door, management: store, squadrons });
-  const addMember = createAddMember({ door, management: store, squadrons, attempts, random: cryptoRandomNames, clock });
+  const addMember = createAddMember({ door, management: store, squadrons, attempts, random: cryptoRandomNames, clock, limits: options.limits ?? NO_LIMITS });
   // Each member gets its stand-down at once, not at the next rescan.
   const standDown: StandDown = async (input) => {
     const stood = await standDownOnly(input);
@@ -349,7 +352,7 @@ export function createSquadronsApp(options: {
         door,
         management: store,
         squadrons,
-        handle: createHandleFlagshipDelivery({ door, squadrons, messages: keptMessages, operator, relays: createPrismaRelayLog(prisma), management: store, standDown: standDownOnly, advanceStandDowns, clock }),
+        handle: createHandleFlagshipDelivery({ door, squadrons, messages: keptMessages, operator, relays: createPrismaRelayLog(prisma), management: store, standDown: standDownOnly, addMember, removeMember, advanceStandDowns, clock }),
         advanceStandDowns,
         // Only given up: a forming in flight holds its attempt unfinished too.
         recoverFormations: async (fleetId) => {

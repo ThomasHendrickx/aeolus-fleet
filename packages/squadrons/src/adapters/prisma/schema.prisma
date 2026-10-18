@@ -77,8 +77,11 @@ model Member {
   releasingSince     DateTime? @map("releasing_since") @db.Timestamptz(3)
   /// The values of its template's parameters, its role's with the form's over them, that fill its charter (#343).
   parameters         Json      @default("{}")
+  /// The key of the add-member request it was added by (decision 0017); null for any other member.
+  addKey             String?   @map("add_key")
   squadron    Squadron  @relation(fields: [fleetId, squadronId], references: [fleetId, id])
 
+  @@unique([fleetId, squadronId, addKey])
   @@index([fleetId, squadronId])
   @@map("members")
 }

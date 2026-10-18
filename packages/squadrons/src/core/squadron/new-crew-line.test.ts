@@ -104,7 +104,7 @@ const newCrewLine = createNewCrewLine({ door, management, squadrons });
 beforeEach(() => {
   held = aSquadron();
   crew = { fleetId: FLEET, shipId: MANAGEMENT, name: 'squadrons', crewToken: 'aeolus_ct_v1_management', crewedAt: FORMED };
-  ship = { status: 'crewed', scopes: [], lastSeenAt: null, crewedSince: FORMED, reportedAt: null, openDeliveries: 0, inFlightDeliveries: 0, hasCrewRequest: false };
+  ship = { status: 'crewed', scopes: [], lastSeenAt: null, crewedSince: FORMED, reportedAt: null, openDeliveries: 0, inFlightDeliveries: 0, hasCrewRequest: false, ownerShipId: null };
   calls.length = 0;
 });
 

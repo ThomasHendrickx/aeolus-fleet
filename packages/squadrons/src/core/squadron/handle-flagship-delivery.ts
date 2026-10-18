@@ -6,24 +6,29 @@ import { fillParameters } from '../catalogue/member-crew.js';
 import type { FleetDoor, FleetRefusal, ManagementCrewStore, OutgoingMessage, ReceivedMessage } from '../management/ports.js';
 import type { Clock } from '../shared/clock.js';
 import { err, ok, type Result } from '../shared/result.js';
+import type { AddMember } from './add-member.js';
 import type { AdvanceStandDowns } from './advance-stand-downs.js';
 import { CHECK_IN, checkInText, ON_STATION, ROLE, STAND_DOWN, STOOD_DOWN } from './check-in.js';
 import { FORM_SCOPE } from './form-messages.js';
 import type { FlagshipMessageLog, OperatorNotices, Relay, RelayLog, SquadronRepository } from './ports.js';
-import { ARGO_NAME, REFUSED, RELAY, STANDING_DOWN } from './proxy-messages.js';
+import { ADD_MEMBER, ARGO_NAME, MEMBER_ADDED, MEMBER_REMOVED, REFUSED, RELAY, REMOVE_MEMBER, SCALE_SCOPE, STANDING_DOWN } from './proxy-messages.js';
+import { contactOf, contactSelector, isFromContact, type Contact } from './squadron-contact.js';
+import type { RemoveMember } from './remove-member.js';
 import type { StandDown } from './stand-down.js';
 import type { Member, Squadron } from './squadron.js';
 
 export type FlagshipDelivery = ReceivedMessage;
 
-/** What the flagship did: answered a check-in, took a member on station, recorded a stood-down, stood its squadron down, relayed between its squadron and its forming ship, refused a relay, kept a message it does not handle, or answered argo's ping with pong. */
-export type FlagshipOutcome = 'answered' | 'on-station' | 'stood-down' | 'standing-down' | 'relayed' | 'refused' | 'kept' | 'ponged';
+/** What the flagship did: answered a check-in, took a member on station, recorded a stood-down, stood its squadron down, added or removed a member, relayed between its squadron and its contact, refused a request, kept a message it does not handle, or answered argo's ping with pong. */
+export type FlagshipOutcome = 'answered' | 'on-station' | 'stood-down' | 'standing-down' | 'member-added' | 'member-removed' | 'relayed' | 'refused' | 'kept' | 'ponged';
 
 export type HandleFlagshipDelivery = (squadron: Squadron, delivery: FlagshipDelivery) => Promise<Result<FlagshipOutcome, FleetRefusal>>;
 
 const checkInPayload = z.object({ squadron: z.string(), model: z.string().optional() });
 const onStationPayload = z.object({ squadron: z.string(), role: z.string() });
 const stoodDownPayload = z.object({ squadron: z.string() });
+const addMemberPayload = z.object({ squadron: z.string(), role: z.string(), parameters: z.record(z.string(), z.string()).optional(), key: z.string().min(1) });
+const removeMemberPayload = z.object({ squadron: z.string(), member: z.string() });
 const relayPayload = z.object({
   squadron: z.string(),
   to: z.union([z.object({ member: z.string() }), z.object({ role: z.string() })]).optional(),
@@ -73,6 +78,10 @@ function roleMessage(squadron: Squadron, answering: { member: Member; checkIn: F
   };
 }
 
+/** What the contact may ask of the flagship by message, with the scope it needs, as the refusals name it. */
+const STANDING_DOWN_ASK = { scope: FORM_SCOPE, does: 'stands it down', doing: 'Standing a squadron down' };
+const SCALING_ASK = { scope: SCALE_SCOPE, does: 'adds and removes its members', doing: 'Adding and removing members' };
+
 /** Where the forming ship's relay goes: the member whose relay it answers, else the member or role it names. */
 function relayTarget(
   squadron: Squadron,
@@ -104,15 +113,19 @@ function relayTarget(
  * stands down, a member's stood-down is recorded and acked, then the
  * stand-downs advance, so the member is retired when it holds no open deliveries;
  * a check-in then is answered with a role message saying the squadron stands
- * down. The flagship is the proxy between its squadron and its forming ship,
- * argo for a squadron argo formed (decision 0017): a member's relay goes on to
- * the forming ship, and the forming ship's relay to the member it answers or
- * names, or one ship of the role it names. The forming ship, while it holds
- * squadrons:form, or argo stands a sailing squadron down by message; any other
- * ship is refused. A flagship supports only these messages: anything else,
- * from outside or from a member, is acknowledged and kept for the squadron
- * page, never forwarded, and the forming ship is told (argo for a squadron
- * argo formed), so no message disappears or goes unseen. A ping from argo gets pong instead of ack, as on any ship
+ * down. The flagship is the proxy between its squadron and its contact
+ * (decision 0017): its forming ship, argo for a squadron argo formed, and once
+ * the forming ship is retired that ship's owner, argo when it has none (0.R).
+ * A member's relay goes on to the contact, and the contact's relay to the
+ * member it answers or names, or one ship of the role it names. The contact,
+ * while it holds squadrons:form, or argo stands a sailing squadron down by
+ * message, and the contact while it holds squadrons:scale, or argo, adds a
+ * member of a role, crewed by request, and removes a member by name; any
+ * other ship is refused. A request to add that comes again under its key is
+ * answered with the member it added. A flagship supports only these
+ * messages: anything else, from outside or from a member, is acknowledged and
+ * kept for the squadron page, never forwarded, and the contact is told, so no
+ * message disappears or goes unseen. A ping from argo gets pong instead of ack, as on any ship
  * (blueprint, "Ping"). A delivery is acked only after it is handled; the delivery id keys
  * every step, so one that comes again gets the same answer and no second change.
  */
@@ -125,6 +138,8 @@ export function createHandleFlagshipDelivery(deps: {
   /** squadrons' own ship, which reads the forming ship's scopes from the fleet. */
   management: Pick<ManagementCrewStore, 'find'>;
   standDown: StandDown;
+  addMember: AddMember;
+  removeMember: RemoveMember;
   advanceStandDowns: AdvanceStandDowns;
   clock: Clock;
 }): HandleFlagshipDelivery {
@@ -140,9 +155,9 @@ export function createHandleFlagshipDelivery(deps: {
     return sent.isOk ? ok('refused') : err(sent.error);
   };
 
-  // A member's relay goes on to the forming ship, argo for a squadron argo formed, recorded so its answer comes back.
-  const relayToFormingShip = async (squadron: Squadron, relay: { member: Member; delivery: FlagshipDelivery; payload: string }): Promise<Result<FlagshipOutcome, FleetRefusal>> => {
-    const { member, delivery } = relay;
+  // A member's relay goes on to the squadron's contact, recorded so its answer comes back.
+  const relayToContact = async (squadron: Squadron, relay: { contact: Contact; member: Member; delivery: FlagshipDelivery; payload: string }): Promise<Result<FlagshipOutcome, FleetRefusal>> => {
+    const { contact, member, delivery } = relay;
     const payload = JSON.stringify({ squadron: squadron.id, member: { name: member.name, role: member.role }, messageId: delivery.messageId, payload: relay.payload });
     if (payloadBytes(payload) > PAYLOAD_MAX_BYTES) {
       return answerRefused(squadron, {
@@ -152,7 +167,7 @@ export function createHandleFlagshipDelivery(deps: {
       });
     }
     const sent = await deps.door.send(squadron.flagship.crewToken, {
-      selector: squadron.formingShip === null ? { kind: 'ship', name: ARGO_NAME } : { kind: 'ship', shipId: squadron.formingShip.shipId },
+      selector: contactSelector(contact),
       contentType: RELAY,
       idempotencyKey: `relay-${delivery.deliveryId}`,
       payload,
@@ -164,8 +179,8 @@ export function createHandleFlagshipDelivery(deps: {
     return ok('relayed');
   };
 
-  // The forming ship's relay goes to the member it answers, or to the member or role it names.
-  const relayFromFormingShip = async (squadron: Squadron, relayed: { delivery: FlagshipDelivery; relay: z.infer<typeof relayPayload> }): Promise<Result<FlagshipOutcome, FleetRefusal>> => {
+  // The contact's relay goes to the member it answers, or to the member or role it names.
+  const relayFromContact = async (squadron: Squadron, relayed: { delivery: FlagshipDelivery; relay: z.infer<typeof relayPayload> }): Promise<Result<FlagshipOutcome, FleetRefusal>> => {
     const { delivery, relay } = relayed;
     const answered = delivery.inReplyTo === null ? undefined : await deps.relays.find(squadron.fleetId, delivery.inReplyTo);
     const target = relayTarget(squadron, { answered, to: relay.to });
@@ -182,13 +197,21 @@ export function createHandleFlagshipDelivery(deps: {
     return sent.isOk ? ok('relayed') : err(sent.error);
   };
 
-  // Whether the sender may stand the squadron down: argo always, its forming ship while it holds squadrons:form, read from the fleet.
-  const mayStandDown = async (squadron: Squadron, delivery: FlagshipDelivery): Promise<Result<{ code: string; message: string } | undefined, FleetRefusal>> => {
+  // Whether the sender may ask this of the flagship: argo always; its contact, the forming ship or once that is retired its owner, while it holds the scope, read from the fleet.
+  const mayAsk = async (
+    squadron: Squadron,
+    asking: { delivery: FlagshipDelivery; ask: typeof STANDING_DOWN_ASK },
+  ): Promise<Result<{ code: string; message: string } | undefined, FleetRefusal>> => {
+    const { delivery, ask } = asking;
     if (delivery.senderName === ARGO_NAME) {
       return ok(undefined);
     }
-    if (squadron.formingShip?.shipId !== delivery.senderShipId) {
-      return ok({ code: 'NOT_FORMING_SHIP', message: `Only the ship that formed ${squadron.id}, or argo, stands it down` });
+    const contact = await contactOf(deps, squadron);
+    if (!contact.isOk) {
+      return contact;
+    }
+    if (contact.value.kind === 'argo' || !isFromContact(contact.value, delivery)) {
+      return ok({ code: 'NOT_FORMING_SHIP', message: `Only the ship that formed ${squadron.id}, its owner once it is retired, or argo ${ask.does}` });
     }
     const crew = await deps.management.find(squadron.fleetId);
     if (!crew) {
@@ -198,7 +221,7 @@ export function createHandleFlagshipDelivery(deps: {
     if (!sender.isOk) {
       return err(sender.error);
     }
-    return ok(sender.value.scopes.includes(FORM_SCOPE) ? undefined : { code: 'NEEDS_SCOPE', message: `Standing a squadron down needs ${FORM_SCOPE}, which ${delivery.senderName} does not hold` });
+    return ok(sender.value.scopes.includes(ask.scope) ? undefined : { code: 'NEEDS_SCOPE', message: `${ask.doing} needs ${ask.scope}, which ${delivery.senderName} does not hold` });
   };
 
   return async (squadron, delivery) => {
@@ -228,12 +251,16 @@ export function createHandleFlagshipDelivery(deps: {
         headline: `${senderName} sent a flagship a message it does not handle`,
         body: `- Squadron: \`${squadron.id}\`\n- From: ${senderName}\n- Content type: \`${contentType}\`\n\nsquadrons keeps it for the squadron page; nothing was forwarded.`,
       };
-      // A squadron a ship formed tells its forming ship, the squadron's one contact outside it; argo's is told as argo.
-      if (squadron.formingShip === null) {
+      const contact = await contactOf(deps, squadron);
+      if (!contact.isOk) {
+        return err(contact.error);
+      }
+      // The squadron's one contact outside it is told: argo as argo, any other contact by message.
+      if (contact.value.kind === 'argo') {
         await deps.operator.tell({ fleetId: squadron.fleetId, ...notice, key: `kept-${deliveryId}` });
       } else {
         const told = await deps.door.send(crewToken, {
-          selector: { kind: 'ship', shipId: squadron.formingShip.shipId },
+          selector: contactSelector(contact.value),
           contentType: MARKDOWN_CONTENT_TYPE,
           idempotencyKey: `kept-${deliveryId}`,
           payload: argoMessage(notice),
@@ -252,11 +279,19 @@ export function createHandleFlagshipDelivery(deps: {
 
     if (delivery.contentType === RELAY) {
       const relay = parsedPayload(relayPayload, delivery.payload);
-      const isFromFormingShip = squadron.formingShip === null ? delivery.senderName === ARGO_NAME : delivery.senderShipId === squadron.formingShip.shipId;
-      if (relay?.squadron !== squadron.id || (!member && !isFromFormingShip)) {
+      if (relay?.squadron !== squadron.id) {
         return keep();
       }
-      const relayed = member ? await relayToFormingShip(squadron, { member, delivery, payload: relay.payload }) : await relayFromFormingShip(squadron, { delivery, relay });
+      const contact = await contactOf(deps, squadron);
+      if (!contact.isOk) {
+        return err(contact.error);
+      }
+      if (!member && !isFromContact(contact.value, delivery)) {
+        return keep();
+      }
+      const relayed = member
+        ? await relayToContact(squadron, { contact: contact.value, member, delivery, payload: relay.payload })
+        : await relayFromContact(squadron, { delivery, relay });
       return relayed.isOk ? acked(relayed.value) : err(relayed.error);
     }
 
@@ -264,7 +299,7 @@ export function createHandleFlagshipDelivery(deps: {
       if (parsedPayload(stoodDownPayload, delivery.payload)?.squadron !== squadron.id) {
         return keep();
       }
-      const allowed = await mayStandDown(squadron, delivery);
+      const allowed = await mayAsk(squadron, { delivery, ask: STANDING_DOWN_ASK });
       if (!allowed.isOk) {
         return err(allowed.error);
       }
@@ -295,6 +330,79 @@ export function createHandleFlagshipDelivery(deps: {
         await deps.advanceStandDowns(squadron.fleetId);
       }
       return handled;
+    }
+
+    if (delivery.contentType === ADD_MEMBER && !member) {
+      const add = parsedPayload(addMemberPayload, delivery.payload);
+      if (add?.squadron !== squadron.id) {
+        return keep();
+      }
+      const allowed = await mayAsk(squadron, { delivery, ask: SCALING_ASK });
+      if (!allowed.isOk) {
+        return err(allowed.error);
+      }
+      if (allowed.value) {
+        const refused = await answerRefused(squadron, { delivery, ...allowed.value });
+        return refused.isOk ? acked(refused.value) : refused;
+      }
+      // A request that comes again under its key finds the member it added, and gets the same answer.
+      const repeated = squadron.members.find((each) => each.addKey === add.key);
+      let added: { name: string; role: string } | undefined = repeated && { name: repeated.name, role: repeated.role };
+      if (!added) {
+        const adding = await deps.addMember({
+          fleetId: squadron.fleetId,
+          squadronId: squadron.id,
+          role: add.role,
+          ...(add.parameters === undefined ? {} : { member: { parameters: add.parameters } }),
+          byMessage: { key: add.key },
+        });
+        if (!adding.isOk) {
+          const refused = await answerRefused(squadron, { delivery, code: adding.error.kind, message: adding.error.message });
+          return refused.isOk ? acked(refused.value) : refused;
+        }
+        added = { name: adding.value.name, role: adding.value.role };
+      }
+      const answered = await deps.door.send(crewToken, {
+        selector: { kind: 'ship', shipId: delivery.senderShipId },
+        contentType: MEMBER_ADDED,
+        inReplyTo: delivery.messageId,
+        idempotencyKey: `member-added-${delivery.deliveryId}`,
+        payload: JSON.stringify({ squadron: squadron.id, key: add.key, member: { name: added.name, role: added.role } }),
+      });
+      return answered.isOk ? acked('member-added') : err(answered.error);
+    }
+
+    if (delivery.contentType === REMOVE_MEMBER && !member) {
+      const remove = parsedPayload(removeMemberPayload, delivery.payload);
+      if (remove?.squadron !== squadron.id) {
+        return keep();
+      }
+      const allowed = await mayAsk(squadron, { delivery, ask: SCALING_ASK });
+      if (!allowed.isOk) {
+        return err(allowed.error);
+      }
+      const removing = squadron.members.find((each) => each.name === remove.member);
+      const refusal = allowed.value ?? (removing ? undefined : { code: 'NO_SUCH_MEMBER', message: `The squadron ${squadron.id} has no member ${remove.member}` });
+      if (refusal) {
+        const refused = await answerRefused(squadron, { delivery, ...refusal });
+        return refused.isOk ? acked(refused.value) : refused;
+      }
+      // A member removed already, retired or being released, is answered removed again and changes nothing.
+      if (removing?.retiredAt === null && removing.releasingSince === null) {
+        const removed = await deps.removeMember({ fleetId: squadron.fleetId, squadronId: squadron.id, shipId: removing.shipId });
+        if (!removed.isOk) {
+          const refused = await answerRefused(squadron, { delivery, code: removed.error.kind, message: removed.error.message });
+          return refused.isOk ? acked(refused.value) : refused;
+        }
+      }
+      const answered = await deps.door.send(crewToken, {
+        selector: { kind: 'ship', shipId: delivery.senderShipId },
+        contentType: MEMBER_REMOVED,
+        inReplyTo: delivery.messageId,
+        idempotencyKey: `member-removed-${delivery.deliveryId}`,
+        payload: JSON.stringify({ squadron: squadron.id, member: remove.member }),
+      });
+      return answered.isOk ? acked('member-removed') : err(answered.error);
     }
 
     if (delivery.contentType === CHECK_IN) {

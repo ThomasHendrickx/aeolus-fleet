@@ -6,6 +6,7 @@ import type { FleetDoor, FleetRefusal, ManagementCrewStore } from '../management
 import { err, ok, type Result } from '../shared/result.js';
 import { createFormSquadron, type FormSquadron } from './form-squadron.js';
 import { createRecoverFormations } from './recover-formations.js';
+import { NO_LIMITS, type SquadronLimits } from './limits.js';
 import type { Squadron } from './squadron.js';
 import { issuedPrompt, memberCrewLines } from '../../../test/support/management-fakes.js';
 import { memoryAttempts } from '../../../test/support/memory-attempts.js';
@@ -103,7 +104,7 @@ function fakeFleet() {
     getShip: (_crewToken, { shipId }) =>
       Promise.resolve(
         shipId === MANAGEMENT
-          ? ok({ status: 'crewed' as const, scopes: state.managementScopes, lastSeenAt: AT, crewedSince: AT, reportedAt: null, openDeliveries: 0, inFlightDeliveries: 0, hasCrewRequest: false })
+          ? ok({ status: 'crewed' as const, scopes: state.managementScopes, lastSeenAt: AT, crewedSince: AT, reportedAt: null, openDeliveries: 0, inFlightDeliveries: 0, hasCrewRequest: false, ownerShipId: null })
           : err({ code: 'NOT_FOUND', message: 'not used' }),
       ),
     deregister: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
@@ -205,7 +206,7 @@ const SQUADRON_SUFFIX_LENGTH = 6;
 let suffixes: string[];
 let form: FormSquadron;
 
-function formWith(overrides: { store?: ManagementCrewStore; catalogue?: Catalogue } = {}): FormSquadron {
+function formWith(overrides: { store?: ManagementCrewStore; catalogue?: Catalogue; limits?: SquadronLimits } = {}): FormSquadron {
   return createFormSquadron({
     door: fleet.door,
     management: overrides.store ?? managementStore,
@@ -216,6 +217,7 @@ function formWith(overrides: { store?: ManagementCrewStore; catalogue?: Catalogu
     // The names come from the list; an attempt's longer suffix only tells attempts apart.
     random: { suffix: (length) => (length > SQUADRON_SUFFIX_LENGTH ? 'attempt0' : (suffixes.shift() ?? 'zzzzzz').slice(0, length)) },
     clock: { now: () => AT },
+    limits: overrides.limits ?? NO_LIMITS,
   });
 }
 
@@ -629,5 +631,69 @@ describe('forming for a ship that asked by message (decision 0017)', () => {
     assert(!formed.isOk);
     expect(formed.error.message).toContain('planner-1');
     expect(fleet.state.ships).toEqual([]);
+  });
+});
+
+describe("squadrons' limits on forming (question 9)", () => {
+  const FORMING: ShipId = 'shp_01m3tbfspe96yf1rnr4ank9f00';
+  function crewedByRequest(): Catalogue {
+    const roles = blueprintVersion.roles.map((role) => ({ ...role, crew: { workspace: { kind: 'worktree' as const, repository: 'hemma' } } }));
+    return { ...catalogue, blueprints: [{ ...blueprintVersion, roles }] };
+  }
+  const byTechLead = (key: string) => ({ ...fromHemmaFeature, formingShip: { shipId: FORMING, name: 'tech-lead', formKey: key } });
+  const limited = (limits: Partial<SquadronLimits>) => formWith({ catalogue: crewedByRequest(), limits: { ...NO_LIMITS, ...limits } });
+
+  it("refuses a squadron over the fleet's limit, naming it, and commissions nothing", async () => {
+    unwrapped(await limited({ perFleet: 1 })(fromHemmaFeature));
+    const ships = fleet.state.ships.length;
+
+    const refused = await limited({ perFleet: 1 })({ ...fromHemmaFeature, squadronId: 'second' });
+
+    expect(refused).toEqual({ isOk: false, error: { kind: 'LIMIT_REACHED', message: "The fleet is at squadrons' limit of 1 squadrons, so nothing was formed" } });
+    expect(fleet.state.ships).toHaveLength(ships);
+  });
+
+  it("does not count a disbanded squadron toward the fleet's limit", async () => {
+    unwrapped(await limited({ perFleet: 1 })(fromHemmaFeature));
+    squadrons.held.forEach((each) => {
+      each.state = 'disbanded';
+    });
+    suffixes = ['p1p1', 'p2p2', 'p3p3'];
+
+    await expect(limited({ perFleet: 1 })({ ...fromHemmaFeature, squadronId: 'second' })).resolves.toMatchObject({ isOk: true });
+  });
+
+  it("refuses a forming ship over its limit, naming it, and forms for another ship", async () => {
+    unwrapped(await limited({ perFormingShip: 1 })(byTechLead('form-1')));
+
+    const refused = await limited({ perFormingShip: 1 })({ ...byTechLead('form-2'), squadronId: 'second' });
+    suffixes = ['p1p1', 'p2p2', 'p3p3'];
+    const forArgo = await limited({ perFormingShip: 1 })({ ...fromHemmaFeature, squadronId: 'third' });
+
+    expect(refused).toEqual({
+      isOk: false,
+      error: { kind: 'LIMIT_REACHED', message: "tech-lead is at squadrons' limit of 1 squadrons per forming ship, so nothing was formed" },
+    });
+    expect(forArgo).toMatchObject({ isOk: true });
+  });
+
+  it('counts the squadrons argo formed in the console toward argo\'s limit as a forming ship', async () => {
+    unwrapped(await limited({ perFormingShip: 1 })(fromHemmaFeature));
+
+    await expect(limited({ perFormingShip: 1 })({ ...fromHemmaFeature, squadronId: 'second' })).resolves.toMatchObject({
+      isOk: false,
+      error: { kind: 'LIMIT_REACHED', message: "argo is at squadrons' limit of 1 squadrons per forming ship, so nothing was formed" },
+    });
+  });
+
+  it('refuses a blueprint that forms more members than the limit per squadron, and forms one at the limit', async () => {
+    const refused = await limited({ membersPerSquadron: 2 })(fromHemmaFeature);
+    const atLimit = await limited({ membersPerSquadron: 3 })(fromHemmaFeature);
+
+    expect(refused).toEqual({
+      isOk: false,
+      error: { kind: 'LIMIT_REACHED', message: "The blueprint forms 3 members, over squadrons' limit of 2 per squadron, so nothing was formed" },
+    });
+    expect(atLimit).toMatchObject({ isOk: true });
   });
 });

@@ -94,6 +94,7 @@ The flagship handles check-in, on-station and stood-down from its own members, a
 | `HOST`, `PORT` | no | Where it listens; `127.0.0.1:4100` by default |
 | `LOG_LEVEL` | no | `info` by default |
 | `INSTALLATION_TOKEN` | no | The token a hosting service presents to squadrons' installation procedures, at least 32 characters (docs/squadrons.md, "Switched per fleet"). Unset: they do not exist and every fleet is served, as self-hosted squadrons needs |
+| `SQUADRONS_PER_FLEET`, `SQUADRONS_PER_FORMING_SHIP`, `MEMBERS_PER_SQUADRON` | no | squadrons' limits on forming, each a whole number of at least 1 (docs/squadrons.md, "Limits"). Unset: no limit |
 
 The template repositories are no part of this configuration: the operator adds them in the console, under Settings (docs/squadrons.md, "Template repositories"). squadrons reads them through GitHub's API at `api.github.com` and keeps no files, so the host needs no `git` and no disk for them.
 

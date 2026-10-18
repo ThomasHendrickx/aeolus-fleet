@@ -186,6 +186,7 @@ const FORM_CODES = {
   SQUADRON_ID_TAKEN: 'CONFLICT',
   MANAGEMENT_SHIP_NOT_CREWED: 'PRECONDITION_FAILED',
   FORMING_FAILED: 'BAD_GATEWAY',
+  LIMIT_REACHED: 'FORBIDDEN',
 } as const satisfies Record<string, TRPCError['code']>;
 
 /** The refusals of listing, as the API states them. */
@@ -215,6 +216,7 @@ const ADD_CODES = {
   NOT_SAILING: 'CONFLICT',
   ROLE_NOT_FOUND: 'BAD_REQUEST',
   ADDING_FAILED: 'BAD_GATEWAY',
+  LIMIT_REACHED: 'FORBIDDEN',
 } as const satisfies Record<string, TRPCError['code']>;
 
 /** The refusals of removing a member, as the API states them. */

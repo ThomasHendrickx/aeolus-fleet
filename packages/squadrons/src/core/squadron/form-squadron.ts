@@ -8,6 +8,7 @@ import { ok, type Result } from '../shared/result.js';
 import type { FormationAttempts, RandomNames, SquadronRepository } from './ports.js';
 import { memberCrewLines } from './crew-lines.js';
 import { beginFormation } from './formation.js';
+import { formingOverLimit, type SquadronLimits } from './limits.js';
 import { isGrantable } from './scopes.js';
 import { crewSettingsOf, formedCrewOf, memberParametersOf, overLimitOf, resolveMachineLabels, type MemberForm } from './member-crew-request.js';
 import type { Member, Squadron } from './squadron.js';
@@ -16,7 +17,7 @@ const SQUADRON_SUFFIX_LENGTH = 6;
 const MEMBER_SUFFIX_LENGTH = 4;
 
 export type FormRefusal = DomainError<
-  'BLUEPRINT_NOT_FOUND' | 'INVALID_SQUADRON_ID' | 'SQUADRON_ID_TAKEN' | 'MANAGEMENT_SHIP_NOT_CREWED' | 'FORMING_FAILED'
+  'BLUEPRINT_NOT_FOUND' | 'INVALID_SQUADRON_ID' | 'SQUADRON_ID_TAKEN' | 'MANAGEMENT_SHIP_NOT_CREWED' | 'FORMING_FAILED' | 'LIMIT_REACHED'
 >;
 
 export interface FormedSquadron {
@@ -55,7 +56,8 @@ function isHandle(value: string): boolean {
  * fleet several times, it is no single transaction: the attempt, and each ship
  * by name before it is commissioned, are recorded first, so that a start after
  * a crash retires what an unfinished attempt commissioned (recover-formations).
- * The squadron is stored and its attempt finished together.
+ * The squadron is stored and its attempt finished together. squadrons'
+ * limits (question 9) are checked before anything is commissioned.
  */
 export function createFormSquadron(deps: {
   door: FleetDoor;
@@ -66,6 +68,7 @@ export function createFormSquadron(deps: {
   catalogue: (fleetId: FleetId) => Catalogue;
   random: RandomNames;
   clock: Clock;
+  limits: SquadronLimits;
 }): FormSquadron {
   return async (input) => {
     const crew = await deps.management.find(input.fleetId);
@@ -96,6 +99,10 @@ export function createFormSquadron(deps: {
         return { role, index, number: offset + 1, slot, crew: template && formedCrewOf({ template, role, form }), parameters: memberParametersOf({ role, form }) };
       }),
     );
+    const over = formingOverLimit(deps.limits, { squadrons: await deps.squadrons.list(crew.fleetId), formingShip: input.formingShip ?? null, members: slots.length });
+    if (over !== undefined) {
+      return refuse('LIMIT_REACHED', `${over}, so nothing was formed`);
+    }
     // The form's members are checked before anything is commissioned, so a wrong one forms nothing (#371).
     const unknown = Object.keys(input.members ?? {}).find((key) => !slots.some((each) => each.slot === key));
     if (unknown !== undefined) {

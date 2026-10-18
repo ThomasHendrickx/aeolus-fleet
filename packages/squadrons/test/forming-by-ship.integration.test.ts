@@ -30,6 +30,11 @@ const CHECK_IN = 'application/vnd.aeolus.squadron.check-in+json';
 const ROLE = 'application/vnd.aeolus.squadron.role+json';
 const ON_STATION = 'application/vnd.aeolus.squadron.on-station+json';
 const STAND_DOWN = 'application/vnd.aeolus.squadron.stand-down+json';
+const REFUSED = 'application/vnd.aeolus.squadron.refused+json';
+const ADD_MEMBER = 'application/vnd.aeolus.squadron.add-member+json';
+const MEMBER_ADDED = 'application/vnd.aeolus.squadron.member-added+json';
+const REMOVE_MEMBER = 'application/vnd.aeolus.squadron.remove-member+json';
+const MEMBER_REMOVED = 'application/vnd.aeolus.squadron.member-removed+json';
 /** A live change shows within this. */
 const LIVE_TIMEOUT_MS = 20_000;
 
@@ -220,5 +225,66 @@ describe('a ship holding squadrons:form (decision 0017)', () => {
     const toLead = unwrap(await fleetUseCases.explainReach(argo, { fromShipId: flagshipId, toShipId: lead.shipId }));
     const fromOutsider = unwrap(await fleetUseCases.explainReach(argo, { fromShipId: outsider.shipId, toShipId: flagshipId }));
     expect([toFlagship.send.map(({ shipId }) => shipId), toLead.send.map(({ shipId }) => shipId), fromOutsider.send]).toEqual([[flagshipId], [lead.shipId], []]);
+  });
+
+  /** The tech lead's form request for login-flow, answered formed. */
+  async function formLoginFlow(techLead: Awaited<ReturnType<typeof crewed>>): Promise<void> {
+    await techLead.call('send', {
+      selector: { kind: 'ship', name: 'squadrons' },
+      contentType: FORM,
+      payload: JSON.stringify({ blueprint: `${REPO}#delivery@1`, squadronId: 'login-flow', members: { 'builder-1': { parameters: { area: 'the login flow' } } }, key: 'form-1' }),
+      idempotencyKey: 'form-1',
+    });
+    await techLead.awaitDelivery(FORMED);
+  }
+
+  /** login-flow's member checks in and comes on station, so the squadron sails. */
+  async function sail(): Promise<void> {
+    const memberShipId = idSchema('ship').parse((await squadronOf('login-flow'))?.members[0]?.shipId);
+    const member = await crewed({ shipId: memberShipId, secret: unwrap(await fleetUseCases.getStartingPrompt(argo, { shipId: memberShipId })).secret });
+    await member.call('send', { selector: { kind: 'ship', name: 'login-flow' }, contentType: CHECK_IN, payload: JSON.stringify({ squadron: 'login-flow' }), idempotencyKey: 'check-in-1' });
+    const role = await member.awaitDelivery(ROLE);
+    await member.call('send', { selector: { kind: 'ship', name: 'login-flow' }, contentType: ON_STATION, payload: JSON.stringify({ squadron: 'login-flow', role: 'builder' }), inReplyTo: role.messageId, idempotencyKey: 'on-station-1' });
+    await expect.poll(async () => (await squadronOf('login-flow'))?.state, { timeout: LIVE_TIMEOUT_MS }).toBe('sailing');
+  }
+
+  it('adds and removes a member by message for a ship holding squadrons:scale, and refuses it without the scope', async () => {
+    const lead = unwrap(await fleetUseCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'tech-lead', type: 'lead', scopes: ['squadrons:form'] }));
+    const techLead = await crewed({ shipId: lead.shipId, secret: secretOf(lead.secret) });
+    await formLoginFlow(techLead);
+    await sail();
+    const addBuilder = { selector: { kind: 'ship', name: 'login-flow' }, contentType: ADD_MEMBER, payload: JSON.stringify({ squadron: 'login-flow', role: 'builder', parameters: { area: 'the signup flow' }, key: 'add-1' }) };
+
+    await techLead.call('send', { ...addBuilder, idempotencyKey: 'add-1' });
+    const refused = await techLead.awaitDelivery(REFUSED);
+    unwrap(await fleetUseCases.grantScopes(argo, { shipId: lead.shipId, grant: ['squadrons:scale'], revoke: [] }));
+    await techLead.call('send', { ...addBuilder, idempotencyKey: 'add-2' });
+    const added = await techLead.awaitDelivery(MEMBER_ADDED);
+    const { member } = z.object({ member: z.object({ name: z.string(), role: z.string() }) }).parse(JSON.parse(added.payload));
+    await techLead.call('send', { selector: { kind: 'ship', name: 'login-flow' }, contentType: REMOVE_MEMBER, payload: JSON.stringify({ squadron: 'login-flow', member: member.name }), idempotencyKey: 'remove-1' });
+    await techLead.awaitDelivery(MEMBER_REMOVED);
+
+    expect(JSON.parse(refused.payload)).toMatchObject({ squadron: 'login-flow', code: 'NEEDS_SCOPE' });
+    expect(member.role).toBe('builder');
+    expect((await squadronOf('login-flow'))?.members.map(({ name }) => name)).toEqual([expect.any(String), member.name]);
+    const removed = await fleetDatabase.ship.findFirstOrThrow({ where: { name: member.name }, select: { id: true } });
+    await expect(fleetDatabase.crewRequest.count({ where: { shipId: removed.id } })).resolves.toBe(0);
+  });
+
+  it("sends a member's relay to the forming ship's owner once the forming ship is retired (0.R)", async () => {
+    const thomas = unwrap(await fleetUseCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person' }));
+    const lead = unwrap(await fleetUseCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'tech-lead', type: 'lead', scopes: ['squadrons:form'] }));
+    unwrap(await fleetUseCases.setOwner(argo, { shipId: lead.shipId, ownerShipId: thomas.shipId }));
+    const techLead = await crewed({ shipId: lead.shipId, secret: secretOf(lead.secret) });
+    await formLoginFlow(techLead);
+    const memberShipId = idSchema('ship').parse((await squadronOf('login-flow'))?.members[0]?.shipId);
+    const member = await crewed({ shipId: memberShipId, secret: unwrap(await fleetUseCases.getStartingPrompt(argo, { shipId: memberShipId })).secret });
+    unwrap(await fleetUseCases.retireShip(argo, { shipId: lead.shipId }));
+    const owner = await crewed({ shipId: thomas.shipId, secret: secretOf(thomas.secret) });
+
+    await member.call('send', { selector: { kind: 'ship', name: 'login-flow' }, contentType: RELAY, payload: JSON.stringify({ squadron: 'login-flow', payload: 'Which branch?' }), idempotencyKey: 'relay-1' });
+    const asked = await owner.awaitDelivery(RELAY);
+
+    expect(JSON.parse(asked.payload)).toMatchObject({ squadron: 'login-flow', member: { role: 'builder' }, payload: 'Which branch?' });
   });
 });
