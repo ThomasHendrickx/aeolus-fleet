@@ -105,7 +105,7 @@ The operator runs the fleet: commissions ships, watches it sail, answers what re
 
 ### The agent (a ship's crew)
 
-An agent session crews exactly one ship at a time. It experiences Aeolus only through the ship contract (fifteen calls, see Components), and never needs to know where other ships run.
+An agent session crews exactly one ship at a time. It experiences Aeolus only through the ship contract (see Components), and never needs to know where other ships run.
 
 | Job to be done | What Aeolus gives them |
 | --- | --- |
@@ -114,6 +114,8 @@ An agent session crews exactly one ship at a time. It experiences Aeolus only th
 | Get work and messages | `receive`: pull the next deliveries, including everything that arrived while no session crewed the ship. Each is handed to the crew at once, one attempt per receive. On a pushed ship the agent never receives: its messages come into its turn by themselves (decision 0040) |
 | Know when work waits, without taking it | `inbox`: how many deliveries the next `receive` would hand the crew, and how many of them are forced and not handed over yet (0040), waiting up to 25 seconds while there are none. Claims nothing, so a watcher can ask as often as it likes and wake the session only when work waits |
 | Reach any other ship or the operator | `send`: address a ship by id or name, any ship of a type, or later a group, stating the model the session runs, get an OK only once the message is durably stored |
+| Find who it can work with | `discover`: the ships and types it can send to now, each ship with its name, type, kind, status and statement (decision 0047) |
+| Say what its ship is and offers | `setStatement`: a summary and capabilities, read by the ships that can send to it (decision 0047) |
 | Say what it is doing | `report`: working, blocked or idle, with a short note, and optionally its details for structured status. The console and anyone with `fleet:read` who reads the ship (decision 0034) see it; calling it again with the same state, note and details still counts as a report |
 | Pick up where the last crew left off | `reportLog`: its own report, details included, and the last report of the ship's previous crew, read-only |
 | Leave cleanly | `deregister`: end the session and invalidate the secret. The ship and its inbox stay; the next crew needs a new starting prompt |
@@ -217,6 +219,7 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `ShipClaimed` | Registry | Lease starts, pending deliveries become receivable; details hold the session's location and harness |
 | `LeaseRevoked` | Registry | Ship awaits a new crew, its in-flight deliveries return to pending |
 | `TurnReported` | Registry | The hooks of a pushed ship reported its session's turn changed, idle or busy (decision 0040): kept with the lease, written at the time the hooks saw it; details hold the lease and the turn |
+| `StatementSet` | Registry | The crew stated what its ship is and offers, or changed it (decision 0047): details hold the lease, the statement's version and how many capabilities, never the statement. The same statement again writes none |
 | `ShipReported` | Registry | The crew's report changed: details hold its state, its note and the version of its details, never the details themselves. A report with the same state, note and details only moves when it was reported, with no event |
 | `OwnerSet` | Registry | A ship got its owner at commission: the owner and how (inherited, named by a plugin, argo by default) (decision 0045) |
 | `OwnerChanged` | Registry | argo changed a ship's owner, or its owner's ship retired and it fell to argo: the old and new owner and why (decision 0045) |
@@ -432,6 +435,8 @@ Aeolus ships as an npm monorepo, installed with configuration. v1 runs on a sing
 | `notHandled` | The hooks or the trierarch report the turn a confirmed message was handed once more to died too, with the reason they judged so (one line, at most 200 characters, optional) | Only after once more; it shows on the ship's page with that reason; again changes nothing |
 | `ack` | Confirms a delivery is handled | Only the ship holding the delivery can ack it; on a pushed ship the hook acks a received or handed delivery when it comes into the agent's turn |
 | `report` | Says what the crew is doing: working, blocked or idle, a short note and optionally its details, set whole (`details`) or merge-patched (`detailsPatch`) | Kept with the lease; an event only when the state, note or details change; details over 16 KB after the change are refused and nothing is stored (decision 0028) |
+| `discover` | Answers the ships the caller may send to now, checked as a send (decision 0034), each with its name, type, kind, status and statement, and per type how many of its ships it reaches; the caller, the viewer and retired ships left out | Needs `messages:send`. Answers ships, never rules, and records nothing. A ship's statement is its crew's while one is stated, else its commission note, saying which (decision 0047) |
+| `setStatement` | States what the crew's ship is and offers: a summary and capabilities, set whole | Kept with the lease, at most 64 KB, versioned with an event on a change; the same statement again changes nothing; it goes when the lease ends |
 | `turn` | The hooks or the trierarch report the session's turn, idle or busy, with the time they saw it | Kept with the lease at that time; the same turn again or an older report changes nothing |
 | `inbox` | Says how many deliveries the crew's next `receive` would hand it, and how many of them are forced and not handed over yet (pending, or received and not handed), waiting up to 25 seconds while there are none | Claims nothing |
 | `reportLog` | Reads the crew's own report and the last report of the ship's previous crew, details included | No scope beyond being the crew; the previous crew's report is read-only |
