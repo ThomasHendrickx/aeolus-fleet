@@ -8,7 +8,7 @@ import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import type { ScopeNamespaceRepository, ShipRepository } from './ports.js';
 import { grantScopes, type GrantScopesRefusal } from './scope-grant.js';
-import type { ScopeNamespace } from './scope-namespace.js';
+import { lockNamedNamespaces } from './named-namespaces.js';
 
 export interface GrantScopesTx {
   ships: Pick<ShipRepository, 'find' | 'findForUpdate' | 'setScopes'>;
@@ -37,16 +37,7 @@ export function createGrantScopes(deps: { uow: UnitOfWork<GrantScopesTx>; clock:
       if (!ship) {
         return refuse('SHIP_NOT_FOUND', `Ship ${input.shipId} does not exist`);
       }
-      const namespaces = new Map<string, { namespace: ScopeNamespace; declarerName: string }>();
-      const named = [...new Set([...input.grant, ...input.revoke].filter((scope) => scope.includes(':')).map((scope) => scope.slice(0, scope.indexOf(':'))))].toSorted();
-      for (const name of named) {
-        await tx.scopeNamespaces.lockNamespace(fleetId, name);
-        const namespace = await tx.scopeNamespaces.find(fleetId, name);
-        if (namespace) {
-          const declarer = await tx.ships.find(fleetId, namespace.declaredBy);
-          namespaces.set(name, { namespace, declarerName: declarer?.name ?? namespace.declaredBy });
-        }
-      }
+      const namespaces = await lockNamedNamespaces(tx, { fleetId, scopes: [...input.grant, ...input.revoke] });
       const granted = grantScopes(
         { ship, granter: caller, grant: input.grant, revoke: input.revoke, at: deps.clock.now(), actor: shipActor(caller.shipId) },
         { namespaces },

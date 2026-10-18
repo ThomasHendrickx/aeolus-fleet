@@ -72,8 +72,12 @@ export function grantScopes(
   });
 }
 
-/** Whether the granter may grant or revoke the scope: a core scope it holds, or a declared plugin scope when it is argo or the declarer. */
-function mayGrant(
+/**
+ * Whether the granter may grant or revoke the scope, at commission or on a
+ * live ship: a core scope it holds, or a declared plugin scope when it is
+ * argo or the declarer.
+ */
+export function mayGrant(
   scope: string,
   at: { granter: { shipId: ShipId; kind: ShipKind; scopes: readonly ScopeName[] }; namespaces: ReadonlyMap<string, { namespace: ScopeNamespace; declarerName: string }> },
 ): Result<null, DomainError<'INVALID_SCOPE' | 'SCOPE_NOT_DECLARED' | 'SCOPE_NOT_HELD' | 'PLUGIN_SCOPE_NOT_YOURS'>> {

@@ -9,11 +9,12 @@ import { idempotencyKey } from '../shared/idempotency-key.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { appliedLimits, type AppliedLimitsTx } from './applied-limits.js';
+import { lockNamedNamespaces, type NamedNamespacesTx } from './named-namespaces.js';
 import type { ShipRepository } from './ports.js';
 import { commissionShip, type CommissionRefusal } from './ship.js';
 import { issueStartingPrompt, type StartingPromptTx } from './starting-prompt.js';
 
-export interface CommissionShipTx extends StartingPromptTx, AppliedLimitsTx {
+export interface CommissionShipTx extends StartingPromptTx, AppliedLimitsTx, NamedNamespacesTx {
   ships: ShipRepository;
 }
 
@@ -57,8 +58,9 @@ function commissionRequestText(input: CommissionShipInput): string {
  * it states another kind (only argo commissions a person or app ship). The ship
  * awaits crew and gets its first starting prompt, all in one transaction. The
  * caller's scope (fleet:manage) is checked before this runs. The ship gets
- * the agent scopes and any fleet scopes asked for; any caller with
- * fleet:manage may give them (ADR 0016). The caller's idempotency key makes
+ * the agent scopes and the scopes asked for, each one the caller's ship may
+ * grant, read from the server (decision 0046); each plugin namespace they
+ * name is locked after the name. The caller's idempotency key makes
  * a retry safe: the same key with the same request answers the ship it
  * commissioned, with no secret, and changes nothing; the same key with another
  * request is refused.
@@ -110,9 +112,10 @@ export function createCommissionShip(deps: {
         return refuse('SHIP_NOT_FOUND', `Ship ${caller.shipId} or its fleet's argo does not exist`);
       }
       await tx.ships.lockName(fleetId, input.name);
+      const namespaces = await lockNamedNamespaces(tx, { fleetId, scopes: input.scopes ?? [] });
       const commissioned = commissionShip(
         { ...input, id: deps.ids('ship'), fleetId, commissioner, argoShipId: argo.id, at, actor, commission: { by: caller.shipId, idempotencyKey: key.value, requestHash } },
-        { activeShipNamed: await tx.ships.findActiveByName(fleetId, input.name) },
+        { activeShipNamed: await tx.ships.findActiveByName(fleetId, input.name), namespaces },
       );
       if (!commissioned.isOk) {
         return commissioned;
