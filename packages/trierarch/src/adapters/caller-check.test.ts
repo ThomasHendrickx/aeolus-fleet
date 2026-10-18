@@ -12,8 +12,8 @@ import { createCallerCheck } from './caller-check.js';
 
 // Who may call a ship's socket (decision 0026): a process of its ship's own
 // session, or of the trierarch itself, resolved from the peer of the
-// connection on the real kernel. Linux only: elsewhere no peer resolves, so
-// every call is refused.
+// connection on the real kernel: Linux and macOS. Elsewhere no peer resolves,
+// so every call is refused.
 
 const NODE = process.execPath;
 /** A process that connects to the socket and stays, writing its pid first where it is told to. */
@@ -85,16 +85,18 @@ function aDetached(pidFile: string, within: { root?: string } = {}): void {
   spawn('sh', ['-c', script, NODE, CONNECTS, path, join(folder, pidFile), join(folder, within.root ?? 'no-root.pid')], { stdio: 'ignore' }).unref();
 }
 
-describe.runIf(process.platform === 'linux')("the caller check of a ship's socket on Linux", () => {
+const canResolvePeers = process.platform === 'linux' || process.platform === 'darwin';
+
+describe.runIf(canResolvePeers)(`the caller check of a ship's socket on this machine (${process.platform})`, () => {
   it("lets the trierarch's own processes call", async () => {
-    const mayCall = createCallerCheck({ platform: 'linux', sessionRootOf: () => Promise.resolve(undefined) });
+    const mayCall = createCallerCheck({ platform: process.platform, sessionRootOf: () => Promise.resolve(undefined) });
     aChild();
 
     await expect(mayCall(shipId, await theConnection())).resolves.toBe(true);
   });
 
   it("refuses a process outside the ship's session and the trierarch", async () => {
-    const mayCall = createCallerCheck({ platform: 'linux', sessionRootOf: () => Promise.resolve(undefined) });
+    const mayCall = createCallerCheck({ platform: process.platform, sessionRootOf: () => Promise.resolve(undefined) });
     aDetached('outside.pid');
 
     await expect(mayCall(shipId, await theConnection())).resolves.toBe(false);
@@ -103,7 +105,7 @@ describe.runIf(process.platform === 'linux')("the caller check of a ship's socke
   it("lets a process of the ship's own session call, under its session's root", async () => {
     aDetached('session-child.pid', { root: 'session.pid' });
     const root = await pidIn('session.pid');
-    const mayCall = createCallerCheck({ platform: 'linux', sessionRootOf: (ship) => Promise.resolve(ship === shipId ? root : undefined) });
+    const mayCall = createCallerCheck({ platform: process.platform, sessionRootOf: (ship) => Promise.resolve(ship === shipId ? root : undefined) });
 
     await expect(mayCall(shipId, await theConnection())).resolves.toBe(true);
   });
@@ -111,13 +113,13 @@ describe.runIf(process.platform === 'linux')("the caller check of a ship's socke
   it("refuses a process of another ship's session", async () => {
     aDetached('session-child.pid', { root: 'session.pid' });
     const root = await pidIn('session.pid');
-    const mayCall = createCallerCheck({ platform: 'linux', sessionRootOf: (ship) => Promise.resolve(ship === shipId ? undefined : root) });
+    const mayCall = createCallerCheck({ platform: process.platform, sessionRootOf: (ship) => Promise.resolve(ship === shipId ? undefined : root) });
 
     await expect(mayCall(shipId, await theConnection())).resolves.toBe(false);
   });
 
   it('refuses a connection whose other end is gone', async () => {
-    const mayCall = createCallerCheck({ platform: 'linux', sessionRootOf: () => Promise.resolve(undefined) });
+    const mayCall = createCallerCheck({ platform: process.platform, sessionRootOf: () => Promise.resolve(undefined) });
     aChild();
     const connection = await theConnection();
     for (const child of children) {
@@ -131,7 +133,7 @@ describe.runIf(process.platform === 'linux')("the caller check of a ship's socke
 
 describe('the caller check where no peer resolves', () => {
   it('refuses every call, never allows', async () => {
-    const mayCall = createCallerCheck({ platform: 'darwin', sessionRootOf: () => Promise.resolve(process.pid) });
+    const mayCall = createCallerCheck({ platform: 'freebsd', sessionRootOf: () => Promise.resolve(process.pid) });
     aChild();
 
     await expect(mayCall(shipId, await theConnection())).resolves.toBe(false);

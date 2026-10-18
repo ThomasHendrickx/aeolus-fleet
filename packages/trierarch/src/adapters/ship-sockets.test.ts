@@ -216,8 +216,8 @@ describe("a caller outside the ship's session (the caller check)", () => {
     expect(logged).toEqual([`${shipId} POST /api/v1/ship/send 403`]);
   });
 
-  it.runIf(process.platform === 'linux')("gets 403 on Linux when it is a process outside the ship's session and the trierarch, with nothing forwarded", async () => {
-    const checked = createShipSockets({ root, fleetUrl, crewTokenOf: () => Promise.resolve(CREW_TOKEN), mayCall: createCallerCheck({ platform: 'linux', sessionRootOf: () => Promise.resolve(undefined) }), log: () => undefined });
+  it.runIf(process.platform === 'linux' || process.platform === 'darwin')("gets 403 when it is a process outside the ship's session and the trierarch, with nothing forwarded", async () => {
+    const checked = createShipSockets({ root, fleetUrl, crewTokenOf: () => Promise.resolve(CREW_TOKEN), mayCall: createCallerCheck({ platform: process.platform, sessionRootOf: () => Promise.resolve(undefined) }), log: () => undefined });
     const socket = await checked.open(newId('ship'));
     const answered = join(root, 'answered');
     // Started by a shell that ends at once, so curl has another parent than this process.
