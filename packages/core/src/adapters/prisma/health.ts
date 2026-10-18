@@ -36,7 +36,9 @@ const turnRow = z.object({ lease_id: z.string(), turn: turnStateSchema, occurred
 const deliveryRow = z.object({
   id: idSchema('delivery'),
   message_id: idSchema('message'),
+  sender_ship_id: idSchema('ship'),
   recipient_ship_id: idSchema('ship').nullable(),
+  claimed_by_ship_id: idSchema('ship').nullable(),
   recipient_type: z.string().nullable(),
   reachable_ship_ids: z.array(idSchema('ship')),
   created_at: z.date(),
@@ -44,9 +46,17 @@ const deliveryRow = z.object({
 
 const machineRow = z.object({ ship_id: idSchema('ship'), machine_id: idSchema('ship'), machine_name: z.string(), last_seen_at: z.date().nullable() });
 
-const acknowledgedRow = z.object({ sent_at: z.date(), acknowledged_at: z.date() });
+const acknowledgedRow = z.object({
+  sent_at: z.date(),
+  acknowledged_at: z.date(),
+  id: idSchema('delivery'),
+  sender_ship_id: idSchema('ship'),
+  recipient_ship_id: idSchema('ship').nullable(),
+  recipient_type: z.string().nullable(),
+  claimed_by_ship_id: idSchema('ship').nullable(),
+});
 
-function recipientOf(row: z.infer<typeof deliveryRow>): DeliveryRecord['recipient'] {
+function recipientOf(row: Pick<z.infer<typeof deliveryRow>, 'id' | 'recipient_ship_id' | 'recipient_type'>): DeliveryRecord['recipient'] {
   if (row.recipient_ship_id !== null) {
     return { kind: 'ship', shipId: row.recipient_ship_id };
   }
@@ -81,7 +91,8 @@ export function createPrismaHealthRecords(db: Db): HealthRecords {
       // stuck state since then has the event that took it out.
       const deliveries = z.array(deliveryRow).parse(
         await db.$queryRaw`
-          SELECT d.id, d.message_id, d.recipient_ship_id, d.recipient_type, d.reachable_ship_ids, d.created_at FROM deliveries d
+          SELECT d.id, d.message_id, m.sender_ship_id, d.recipient_ship_id, d.recipient_type, d.claimed_by_ship_id, d.reachable_ship_ids, d.created_at FROM deliveries d
+          JOIN messages m ON m.fleet_id = d.fleet_id AND m.id = d.message_id
           WHERE d.fleet_id = ${fleetId}
             AND (d.state IN ('pending', 'received', 'handed', 'undeliverable')
               OR d.id IN (SELECT e.delivery_id FROM events e WHERE e.fleet_id = ${fleetId} AND e.occurred_at >= ${since} AND e.delivery_id IS NOT NULL))`,
@@ -124,7 +135,9 @@ export function createPrismaHealthRecords(db: Db): HealthRecords {
         deliveries: deliveries.map((delivery) => ({
           deliveryId: delivery.id,
           messageId: delivery.message_id,
+          senderId: delivery.sender_ship_id,
           recipient: recipientOf(delivery),
+          claimedBy: delivery.claimed_by_ship_id,
           reachableShipIds: delivery.reachable_ship_ids,
           sentAt: delivery.created_at,
           steps: steps.get(delivery.id) ?? [],
@@ -136,12 +149,17 @@ export function createPrismaHealthRecords(db: Db): HealthRecords {
     acknowledged: async (fleetId, since) => {
       const rows = z.array(acknowledgedRow).parse(
         await db.$queryRaw`
-          SELECT d.created_at AS sent_at, e.occurred_at AS acknowledged_at
+          SELECT d.created_at AS sent_at, e.occurred_at AS acknowledged_at, d.id, m.sender_ship_id, d.recipient_ship_id, d.recipient_type, d.claimed_by_ship_id
           FROM events e
           JOIN deliveries d ON d.fleet_id = e.fleet_id AND d.id = e.delivery_id
+          JOIN messages m ON m.fleet_id = d.fleet_id AND m.id = d.message_id
           WHERE e.fleet_id = ${fleetId} AND e.type = 'DeliveryAcknowledged' AND e.occurred_at > ${since}`,
       );
-      return rows.map((row) => ({ sentAt: row.sent_at, acknowledgedAt: row.acknowledged_at }));
+      return rows.map((row) => ({
+        sentAt: row.sent_at,
+        acknowledgedAt: row.acknowledged_at,
+        message: { senderId: row.sender_ship_id, recipient: recipientOf(row), claimedBy: row.claimed_by_ship_id },
+      }));
     },
   };
 }

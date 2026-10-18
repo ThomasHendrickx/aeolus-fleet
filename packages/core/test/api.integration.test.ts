@@ -17,6 +17,7 @@ import { createMigratedDatabase } from './support/database.js';
 import { unwrap } from './support/result.js';
 import { createTestClock } from './support/postgres-core.js';
 import { newKey } from './support/keys.js';
+import { wholeShips } from './support/ships.js';
 
 // The API from HTTP to Postgres and back: scopes are checked at the door, the
 // console session travels as a cookie, and health says nothing about fleets.
@@ -370,7 +371,7 @@ describe('the fleet procedures at the API', () => {
 
     expect(prompt).toContain(`Fleet MCP URL: ${FLEET_MCP_URL}`);
     expect(prompt).toContain(`Ship id: ${shipId}`);
-    const listed = await asArgo.fleet.list.query();
+    const listed = wholeShips(await asArgo.fleet.list.query());
     expect(listed.find((ship) => ship.id === shipId)).toEqual({
       id: shipId,
       name: 'scout',
@@ -567,7 +568,7 @@ describe('the ship procedures at the API', () => {
 
     await client().ship.register.mutate({ shipId, secret, location: { kind: 'OTHER', description: 'a ci runner' }, harness: 'claude-code' });
 
-    const listed = await (await signedInArgo()).fleet.list.query();
+    const listed = wholeShips(await (await signedInArgo()).fleet.list.query());
     expect(listed.find((ship) => ship.id === shipId)).toMatchObject({
       status: 'crewed',
       startingPrompt: { isClaimed: true },
@@ -975,7 +976,7 @@ describe('fleet.release and ship.deregister at the API', () => {
     await expect(
       refusalOf(client().ship.register.mutate({ shipId, secret, location: { kind: 'CLOUD' }, harness: 'claude-code' })),
     ).resolves.toEqual({ code: 'UNAUTHORIZED', message: 'Wrong ship id or secret' });
-    const listed = await asArgo.fleet.list.query();
+    const listed = wholeShips(await asArgo.fleet.list.query());
     expect(listed.find((ship) => ship.id === shipId)).toMatchObject({ status: 'awaitingCrew', startingPrompt: null });
   });
 
@@ -988,7 +989,7 @@ describe('fleet.release and ship.deregister at the API', () => {
     await expect(
       codeOf(client().ship.register.mutate({ shipId, secret, location: { kind: 'CLOUD' }, harness: 'claude-code' })),
     ).resolves.toBe('UNAUTHORIZED');
-    const listed = await (await signedInArgo()).fleet.list.query();
+    const listed = wholeShips(await (await signedInArgo()).fleet.list.query());
     expect(listed.find((ship) => ship.id === shipId)).toMatchObject({ status: 'awaitingCrew', startingPrompt: null });
   });
 
@@ -1616,7 +1617,7 @@ describe("the operator's account at the API", () => {
       email: OPERATOR.email,
       session: { device: 'Mac · Chrome', since: clock.now().toISOString() },
     });
-    const argo = (await asArgo.fleet.list.query()).find((ship) => ship.kind === 'operator');
+    const argo = wholeShips(await asArgo.fleet.list.query()).find((ship) => ship.kind === 'operator');
     expect(argo?.location).toEqual({ kind: 'OTHER', description: 'Mac · Chrome' });
   });
 
@@ -1648,7 +1649,7 @@ describe('last seen at the API', () => {
     const asArgo = await signedInArgo();
     clock.advance(5_000);
 
-    const ships = await asArgo.fleet.list.query();
+    const ships = wholeShips(await asArgo.fleet.list.query());
 
     expect(ships.find((ship) => ship.id === shipId)?.lastSeenAt).toBe(seenAt);
     expect(ships.find((ship) => ship.kind === 'operator')?.lastSeenAt).toBe(clock.now().toISOString());
@@ -1794,7 +1795,7 @@ describe('ship names and types with a colon at the API', () => {
       .object({ deliveries: z.array(z.object({ payload: z.string() })) })
       .parse(await received.json());
     expect(deliveries.map((delivery) => delivery.payload).sort()).toEqual(['By name', 'By type']);
-    const listed = await asArgo.fleet.list.query();
+    const listed = wholeShips(await asArgo.fleet.list.query());
     expect(listed.find((ship) => ship.id === shipId)).toMatchObject({ name: 'hemma-a1b2:lookout', type: 'hemma:planner' });
   });
 });
@@ -1812,7 +1813,7 @@ describe('ships with fleet scopes at the API', () => {
   it('list the ship with the scopes it was commissioned with', async () => {
     const { shipId } = await commissionedAndCrewed('scoped-watcher', ['fleet:read']);
 
-    const listed = await (await signedInArgo()).fleet.list.query();
+    const listed = wholeShips(await (await signedInArgo()).fleet.list.query());
 
     expect(listed.find((ship) => ship.id === shipId)?.scopes).toEqual(['messages:send', 'messages:receive', 'fleet:read']);
   });
@@ -1820,7 +1821,7 @@ describe('ships with fleet scopes at the API', () => {
   it('let a ship with fleet:read read the fleet with its crew token', async () => {
     const { asShip } = await commissionedAndCrewed('scoped-reader', ['fleet:read']);
 
-    const listed = await asShip.fleet.list.query();
+    const listed = wholeShips(await asShip.fleet.list.query());
 
     expect(listed.map((ship) => ship.name)).toContain('scoped-reader');
   });
@@ -1969,7 +1970,7 @@ describe('labels at the API', () => {
     await asLabeller.fleet.assignLabel.mutate({ shipId: testerId, valueId: test ?? newId('labelValue') });
 
     const labels = await asLabeller.fleet.labels.query();
-    const selected = await asLabeller.fleet.list.query({ valueIds: [build ?? newId('labelValue')] });
+    const selected = wholeShips(await asLabeller.fleet.list.query({ valueIds: [build ?? newId('labelValue')] }));
 
     expect(labels.find((label) => label.id === stage.labelId)).toMatchObject({ key: 'api-stage', values: stage.values });
     expect(selected.map((ship) => [ship.id, ship.labels.map((label) => label.value)])).toEqual([[builderId, ['build']]]);

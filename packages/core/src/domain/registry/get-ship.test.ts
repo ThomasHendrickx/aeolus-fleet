@@ -13,6 +13,7 @@ import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-
 import { unwrap } from '../../../test/support/result.js';
 import type { Caller } from '../shared/caller.js';
 import { newKey } from '../../../test/support/keys.js';
+import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
 
 const commissionedAt = new Date('2026-09-29T12:00:00.000Z');
 
@@ -118,5 +119,24 @@ describe('getting one ship', () => {
       isOk: false,
       error: { kind: 'SHIP_NOT_FOUND' },
     });
+  });
+});
+
+describe('getting one ship within read reach (decision 0034)', () => {
+  let fleet: ReadReachScenario;
+
+  beforeEach(async () => {
+    fleet = await readReachScenario();
+    await fleet.readRulesApply();
+  });
+
+  it('gives a ship outside read reach by its name, type and status only', async () => {
+    const { status } = unwrap(await fleet.registry.getShip(fleet.argo, { shipId: fleet.far.shipId }));
+
+    expect(unwrap(await fleet.registry.getShip(fleet.reader, { shipId: fleet.far.shipId }))).toEqual({ id: fleet.far.shipId, name: 'far', type: 'keeper', status, isInReadReach: false });
+  });
+
+  it('gives a ship within read reach whole', async () => {
+    expect(unwrap(await fleet.registry.getShip(fleet.reader, { shipId: fleet.near.shipId }))).toEqual(unwrap(await fleet.registry.getShip(fleet.argo, { shipId: fleet.near.shipId })));
   });
 });

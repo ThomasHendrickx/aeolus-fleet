@@ -1,4 +1,5 @@
 import type { MessageId, ShipDetail, ShipId } from '@aeolus-fleet/common';
+import { isInReadReach } from '@aeolus-fleet/common/rules';
 import { skipToken, useQueries, useQuery } from '@tanstack/react-query';
 
 import { LAST_SEEN_REFRESH_MS } from './fleet';
@@ -7,12 +8,16 @@ import { useTRPC } from './trpc';
 /**
  * One ship for its page, or for a dialog's numbers: the overview's facts,
  * when it was commissioned, crewed and retired, and its deliveries in flight
- * and open. Idle while no ship is given.
+ * and open. Idle while no ship is given; null for a ship the session does not
+ * read whole (decision 0034).
  */
 export function useShip(shipId: ShipId | undefined) {
   const trpc = useTRPC();
   return useQuery(
-    trpc.fleet.ship.queryOptions(shipId === undefined ? skipToken : { shipId }, { refetchInterval: LAST_SEEN_REFRESH_MS }),
+    trpc.fleet.ship.queryOptions(shipId === undefined ? skipToken : { shipId }, {
+      refetchInterval: LAST_SEEN_REFRESH_MS,
+      select: (ship): ShipDetail | null => (isInReadReach(ship) ? ship : null),
+    }),
   );
 }
 
@@ -25,7 +30,7 @@ export function useShips(shipIds: readonly ShipId[]): ReadonlyMap<string, ShipDe
   const ships = useQueries({ queries: shipIds.map((shipId) => trpc.fleet.ship.queryOptions({ shipId }, { refetchInterval: LAST_SEEN_REFRESH_MS })) });
   const byId = new Map<string, ShipDetail>();
   for (const ship of ships) {
-    if (ship.data) {
+    if (ship.data && isInReadReach(ship.data)) {
       byId.set(ship.data.id, ship.data);
     }
   }

@@ -2,7 +2,7 @@
  * The health records (decision 0042) over the in-memory state: what the
  * stuck rule reads, as the Postgres adapter reads it from its tables.
  */
-import type { FleetId, TurnState } from '@aeolus-fleet/common';
+import type { FleetId, MessageId, ShipId, TurnState } from '@aeolus-fleet/common';
 
 import type { HealthRecords } from '../../src/domain/shared/health.js';
 import { isConsoleShip } from '../../src/domain/registry/public.js';
@@ -17,6 +17,13 @@ function isTurnState(value: unknown): value is TurnState {
 
 export function createInMemoryHealthRecords(state: InMemoryState): HealthRecords {
   const eventsOf = (fleetId: FleetId) => state.events.filter((event) => event.fleetId === fleetId);
+  const senderOf = (messageId: MessageId): ShipId => {
+    const message = state.messages.find((held) => held.id === messageId);
+    if (!message) {
+      throw new Error(`no message ${messageId} in the state`);
+    }
+    return message.senderShipId;
+  };
   const lastSeenOf = (fleetId: FleetId, lease: { id: string; startedAt: Date }) =>
     state.leaseSeen.find((seen) => seen.fleetId === fleetId && seen.leaseId === lease.id)?.at ?? lease.startedAt;
 
@@ -60,7 +67,9 @@ export function createInMemoryHealthRecords(state: InMemoryState): HealthRecords
           ({ delivery, events: its }): DeliveryRecord => ({
             deliveryId: delivery.id,
             messageId: delivery.messageId,
+            senderId: senderOf(delivery.messageId),
             recipient: delivery.recipient,
+            claimedBy: delivery.claimedByShipId,
             reachableShipIds: delivery.reachableShipIds ?? [],
             sentAt: delivery.createdAt,
             steps: its.flatMap((event) => stateStepOf(event) ?? []),
@@ -81,7 +90,15 @@ export function createInMemoryHealthRecords(state: InMemoryState): HealthRecords
         .filter((event) => event.type === 'DeliveryAcknowledged' && event.occurredAt > since)
         .flatMap((event) => {
           const delivery = state.deliveries.find((held) => held.fleetId === fleetId && held.id === event.deliveryId);
-          return delivery === undefined ? [] : [{ sentAt: delivery.createdAt, acknowledgedAt: event.occurredAt }];
+          return delivery === undefined
+            ? []
+            : [
+                {
+                  sentAt: delivery.createdAt,
+                  acknowledgedAt: event.occurredAt,
+                  message: { senderId: senderOf(delivery.messageId), recipient: delivery.recipient, claimedBy: delivery.claimedByShipId },
+                },
+              ];
         });
       return Promise.resolve(acknowledged);
     },

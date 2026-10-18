@@ -41,10 +41,10 @@ export const Commissioning: Story = { args: { isPending: true } };
 export const Failed: Story = { args: { error: 'An active ship is already named reviewer-01.' } };
 /** At the fleet's ship limit (canvas 12.1): the dialog says so and commissions nothing. */
 export const AtShipLimit: Story = { args: { shipLimit: 10, accountUrl: 'https://pagasae.aeolus-fleet.dev/account' } };
-/** Fleet access: reading the fleet includes every message's payload, so its switch says so. */
+/** Fleet access: reading the fleet reads the ships and messages in read reach (decision 0034), so its switch says so. */
 export const FleetAccess: Story = {
   play: async () => {
-    const label = await screen.findByText('Read the fleet, every message included');
+    const label = await screen.findByText('Read the ships and messages in its read reach');
     await waitFor(async () => {
       await expect(label).toBeVisible();
     });

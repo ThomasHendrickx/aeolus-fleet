@@ -1,5 +1,8 @@
+import type { ReadReachOf } from '../registry/public.js';
 import type { Caller } from './caller.js';
+import { eventsRead } from './events-read.js';
 import type { FleetEventFeed, SequencedEvent } from './events.js';
+import type { ShipHistory } from './history.js';
 
 /**
  * The most missed events a browser is sent one by one. Further behind, loading
@@ -12,17 +15,18 @@ export const REPLAY_LIMIT = 1000;
  * fleet again and follow from `seq`. The number is read before the browser
  * loads, so whatever commits in between is in what it loads or comes after.
  */
-export type FleetEventsRead = { kind: 'events'; events: SequencedEvent[] } | { kind: 'resync'; seq: number };
+export type FleetEventsRead = { kind: 'events'; events: SequencedEvent[]; lastSeq: number } | { kind: 'resync'; seq: number };
 
 export type ReadFleetEvents = (caller: Caller, afterSeq: number | undefined) => Promise<FleetEventsRead>;
 
 /**
  * Use case: the caller's fleet events after a position, for the live fleet
  * view. Without a position, or more than REPLAY_LIMIT behind, the browser is
- * told to load the fleet again. The caller's scope (fleet:read) is checked
- * before this runs.
+ * told to load the fleet again. Only the events the caller reads (decision
+ * 0034), with the number of the last it went through, read or not, to follow
+ * from next. The caller's scope (fleet:read) is checked before this runs.
  */
-export function createReadFleetEvents(deps: { feed: FleetEventFeed }): ReadFleetEvents {
+export function createReadFleetEvents(deps: { feed: FleetEventFeed; history: Pick<ShipHistory, 'messageParties'>; readReach: ReadReachOf }): ReadFleetEvents {
   const resync = async (caller: Caller): Promise<FleetEventsRead> => ({
     kind: 'resync',
     seq: await deps.feed.lastSeq(caller.fleetId),
@@ -32,7 +36,11 @@ export function createReadFleetEvents(deps: { feed: FleetEventFeed }): ReadFleet
     if (afterSeq === undefined) {
       return resync(caller);
     }
-    const events = await deps.feed.after(caller.fleetId, { seq: afterSeq, limit: REPLAY_LIMIT + 1 });
-    return events.length > REPLAY_LIMIT ? resync(caller) : { kind: 'events', events };
+    const gone = await deps.feed.after(caller.fleetId, { seq: afterSeq, limit: REPLAY_LIMIT + 1 });
+    if (gone.length > REPLAY_LIMIT) {
+      return resync(caller);
+    }
+    const events = await eventsRead(deps, { fleetId: caller.fleetId, reach: await deps.readReach(caller), events: gone });
+    return { kind: 'events', events, lastSeq: gone.at(-1)?.seq ?? afterSeq };
   };
 }

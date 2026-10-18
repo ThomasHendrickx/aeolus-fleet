@@ -110,6 +110,8 @@ export interface ShipRepository {
   findActiveByNameForShare(fleetId: FleetId, name: string): Promise<Ship | undefined>;
   /** Whether at least one ship of the fleet with this type is not retired and receives: the viewer ship receives nothing (decision 0022). */
   hasActiveShipOfType(fleetId: FleetId, type: string): Promise<boolean>;
+  /** Every ship of the fleet, retired ones and the viewer ship included. By id. */
+  list(fleetId: FleetId): Promise<Ship[]>;
   /** The fleet's ships that are not retired and receive, argo included, never the viewer ship (decision 0022). By id. */
   listActive(fleetId: FleetId): Promise<Ship[]>;
   /** The fleet's ships of the type that may take a type delivery: not retired, never the viewer ship. By id. */

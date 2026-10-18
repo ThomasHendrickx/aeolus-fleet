@@ -6,7 +6,8 @@ import { crewOfToken, deliveryIdOf } from '../../../test/support/core-fixtures.j
 import { aCrewSettings, shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { historyScenario, type HistoryScenario } from '../../../test/support/history-scenario.js';
 import { newKey } from '../../../test/support/keys.js';
-import { unwrap } from '../../../test/support/result.js';
+import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
+import { refusalOf, unwrap } from '../../../test/support/result.js';
 import type { Crew } from './caller.js';
 
 let scene: HistoryScenario;
@@ -125,5 +126,53 @@ describe("reading a ship's side of the way", () => {
       isOk: false,
       error: { kind: 'SHIP_NOT_FOUND' },
     });
+  });
+});
+
+describe("reading the way of a ship outside read reach (decision 0034)", () => {
+  let fleet: ReadReachScenario;
+
+  beforeEach(async () => {
+    fleet = await readReachScenario();
+    await fleet.readRulesApply();
+  });
+
+  it('refuses it as not reachable, one fixed message, no reasons', async () => {
+    expect(refusalOf(await fleet.history.readShipWay(fleet.reader, { shipId: fleet.far.shipId }))).toEqual({
+      kind: 'NOT_REACHABLE',
+      message: 'The network rules do not allow this read',
+    });
+  });
+
+  it('records the refusal for argo: reader and ship with their labels and owners then, the verb read, the settings version and when', async () => {
+    await fleet.history.readShipWay(fleet.reader, { shipId: fleet.far.shipId });
+
+    const [refusal] = fleet.core.state.reachRefusals;
+    const recipient = refusal?.recipient.kind === 'ship' ? refusal.recipient.ship : undefined;
+
+    expect({
+      count: fleet.core.state.reachRefusals.length,
+      at: refusal?.at,
+      sender: [refusal?.sender.id, refusal?.sender.labels.map(({ key, value }) => `${key}=${value}`), refusal?.sender.owner?.name],
+      recipient: [recipient?.id, recipient?.labels.map(({ key, value }) => `${key}=${value}`)],
+      verb: refusal?.verb,
+      settingsVersion: refusal?.settingsVersion,
+      whilePluginUnavailable: refusal?.whilePluginUnavailable,
+    }).toEqual({
+      count: 1,
+      at: fleet.core.clock.now(),
+      sender: [fleet.reader.shipId, ['team=a'], 'argo'],
+      recipient: [fleet.far.shipId, ['team=b']],
+      verb: 'read',
+      settingsVersion: 3,
+      whilePluginUnavailable: null,
+    });
+  });
+
+  it('reads the way of a ship within read reach, and of itself, recording nothing', async () => {
+    unwrap(await fleet.history.readShipWay(fleet.reader, { shipId: fleet.near.shipId }));
+    unwrap(await fleet.history.readShipWay(fleet.far, { shipId: fleet.far.shipId }));
+
+    expect(fleet.core.state.reachRefusals).toEqual([]);
   });
 });

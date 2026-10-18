@@ -1,10 +1,13 @@
-import type { ComputerSide, DeliveryId, DeliveryState, MessageId, ShipId } from '@aeolus-fleet/common';
+import type { ComputerSide, DeliveryId, DeliveryState, IdGenerator, MessageId, ShipId } from '@aeolus-fleet/common';
 
+import { checkRead, type CheckReadTx, type NotReachable } from '../registry/public.js';
 import type { Caller } from './caller.js';
+import type { Clock } from './clock.js';
 import { computerSideOf, deliveryWayOf, type DeliveryWay, type WayLease } from './delivery-way.js';
 import { refuse, type DomainError } from './errors.js';
 import type { ShipHistory } from './history.js';
 import { ok, type Result } from './result.js';
+import type { UnitOfWork } from './unit-of-work.js';
 
 /** The ship's side of the way (#756): which part serves it, its turn, and what waits for it. */
 export interface ShipWay {
@@ -21,20 +24,28 @@ export interface ShipWay {
   } | null;
 }
 
-export type ReadShipWay = (caller: Caller, input: { shipId: ShipId }) => Promise<Result<ShipWay, DomainError<'SHIP_NOT_FOUND'>>>;
+export type ReadShipWay = (caller: Caller, input: { shipId: ShipId }) => Promise<Result<ShipWay, DomainError<'SHIP_NOT_FOUND'> | NotReachable>>;
 
 /**
  * Use case: one ship's side of the way: the trierarch or plugin watcher that
  * receives and hands over for its pushed lease, or none on a pull lease, the
  * turn its hooks reported, and its oldest delivery waiting, with its way, as
- * the clocks count it. The caller's scope (fleet:read) is checked before this
- * runs.
+ * the clocks count it. A ship outside the caller's read reach is refused,
+ * and the refusal recorded (decision 0034). The caller's scope (fleet:read) is
+ * checked before this runs.
  */
-export function createReadShipWay(deps: { history: ShipHistory }): ReadShipWay {
+export function createReadShipWay(deps: { history: ShipHistory; uow: UnitOfWork<CheckReadTx>; clock: Clock; ids: IdGenerator }): ReadShipWay {
   return async (caller, { shipId }) => {
     const found = await deps.history.shipWay(caller.fleetId, shipId);
     if (!found) {
       return refuse('SHIP_NOT_FOUND', `No ship ${shipId} in this fleet`);
+    }
+    // A refused read commits its record, then refuses.
+    const checked = await deps.uow.run(async (tx) =>
+      ok(await checkRead({ tx, ids: deps.ids }, { fleetId: caller.fleetId, readerShipId: caller.shipId, shipId, at: deps.clock.now() })),
+    );
+    if (checked.isOk && !checked.value.isOk) {
+      return checked.value;
     }
     const { lease, waiting } = found;
     const [oldestId] = waiting;

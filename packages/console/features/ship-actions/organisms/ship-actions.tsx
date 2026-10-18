@@ -136,7 +136,7 @@ export function ShipActions({ ship, layout = 'buttons', compose, crewLineFlow: C
   // Pending only until the connection is known and, when connected, until the list first answers: a refetch never hides known actions.
   const isMembershipPending = connection === 'unknown' || (connection === 'connected' && !squadrons.isFetched);
   return (
-    <CrewLineFlow of={squadron && member ? { squadronId: squadron.id, member, ship: memberDetail.data } : undefined}>
+    <CrewLineFlow of={squadron && member ? { squadronId: squadron.id, member, ship: memberDetail.data ?? undefined } : undefined}>
       {(crewLine) => (
         <ShipActionsOf ship={ship} layout={layout} compose={compose} squadron={squadron} member={member} isMembershipPending={isMembershipPending} crewLine={crewLine} />
       )}

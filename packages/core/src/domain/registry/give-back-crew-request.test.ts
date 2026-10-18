@@ -7,6 +7,7 @@ import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-
 import { newKey } from '../../../test/support/keys.js';
 import { unwrap } from '../../../test/support/result.js';
 import type { Caller } from '../shared/caller.js';
+import { wholeShips } from '../../../test/support/ships.js';
 
 // A trierarch gives back a crew request it tried to fulfil and failed, while
 // its assignment is not final (#382): the request is unassigned again, its
@@ -85,7 +86,7 @@ describe('a trierarch giving back a crew request', () => {
   it('shows on the request in the fleet list, by trierarch, with the settings version, the reason and when', async () => {
     unwrap(await giveBack(trierarch));
 
-    const listed = (await registry.listFleet(argo)).find((ship) => ship.id === scoutId);
+    const listed = wholeShips(await registry.listFleet(argo)).find((ship) => ship.id === scoutId);
 
     expect(listed?.crewRequest?.givenBack).toEqual([{ trierarch: { id: trierarch.shipId, name: 'mac-mini' }, settingsVersion: 1, reason: REASON, givenBackAt: core.clock.now() }]);
   });

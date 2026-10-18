@@ -10,6 +10,7 @@ import { OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
 import { createPostgresCore, everyRow, racingUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
 import { newKey } from './support/keys.js';
+import { wholeShips } from './support/ships.js';
 
 // The fleet use cases on a real Postgres through the Prisma adapters: what a
 // commission stores, which events it writes, the name rules under concurrency,
@@ -376,7 +377,7 @@ describe('listing the fleet on Postgres', () => {
       await core.useCases.sendMessage(crew, { selector: { kind: 'ship', name: 'argo' }, payload: 'Done', model: 'claude-opus-5-5', idempotencyKey: newKey() }),
     );
 
-    const listed = (await core.useCases.listFleet(argo)).find((ship) => ship.id === shipId);
+    const listed = wholeShips(await core.useCases.listFleet(argo)).find((ship) => ship.id === shipId);
     expect(listed).toMatchObject({ harness: 'claude-code', model: { id: 'claude-opus-5-5', statedAt: core.clock.now() } });
   });
 
@@ -396,7 +397,7 @@ describe('listing the fleet on Postgres', () => {
 
     unwrap(await core.useCases.resendDelivery(argo, { deliveryId: idSchema('delivery').parse(deliveryId) }));
 
-    const listed = (await core.useCases.listFleet(argo)).find((ship) => ship.id === shipId);
+    const listed = wholeShips(await core.useCases.listFleet(argo)).find((ship) => ship.id === shipId);
     expect(listed?.model).toEqual({ id: 'claude-opus-5-5', statedAt });
   });
 
@@ -457,7 +458,7 @@ describe('listing the fleet on Postgres', () => {
 
     unwrap(await core.useCases.releaseShip(argo, { shipId }));
 
-    const listed = (await core.useCases.listFleet(argo)).find((ship) => ship.id === shipId);
+    const listed = wholeShips(await core.useCases.listFleet(argo)).find((ship) => ship.id === shipId);
     expect(listed).toMatchObject({ status: 'awaitingCrew', awaitingCrewSince: releasedAt });
   });
 
@@ -467,7 +468,7 @@ describe('listing the fleet on Postgres', () => {
 
     unwrap(await core.useCases.getStartingPrompt(argo, { shipId }));
 
-    const listed = await core.useCases.listFleet(argo);
+    const listed = wholeShips(await core.useCases.listFleet(argo));
     expect(listed.find((ship) => ship.id === shipId)?.startingPrompt).toEqual({
       issuedAt: core.clock.now(),
       isClaimed: false,
@@ -487,7 +488,7 @@ describe('listing the fleet on Postgres', () => {
       data: { invalidatedAt: core.clock.now() },
     });
 
-    const listed = await core.useCases.listFleet(argo);
+    const listed = wholeShips(await core.useCases.listFleet(argo));
 
     expect(listed.find((ship) => ship.name === 'lookout')?.retiredAt).toEqual(core.clock.now());
     expect(listed.map((ship) => [ship.name, ship.status, ship.startingPrompt?.isClaimed ?? null, ship.location])).toEqual([
@@ -512,7 +513,7 @@ describe('listing the fleet on Postgres', () => {
       },
     });
 
-    const listed = await core.useCases.listFleet(argo);
+    const listed = wholeShips(await core.useCases.listFleet(argo));
 
     expect(listed.map((ship) => ship.name)).toEqual(['argo']);
   });

@@ -280,7 +280,7 @@ describe('the rule each reach names (decision 0034)', () => {
     }
   }
 
-  it('names argo for every ship argo reaches and for argo, by every verb', async () => {
+  it('names argo for every ship argo reaches by every verb, and for argo by send and manage: a ship reads argo only by a rule (#866)', async () => {
     await setRules([]);
     await openOff();
 
@@ -289,7 +289,7 @@ describe('the rule each reach names (decision 0034)', () => {
 
     expect([fromArgo, toArgo]).toEqual([
       { send: [{ shipId: vault.shipId, rule: { builtIn: 'argo' } }], read: [{ shipId: vault.shipId, rule: { builtIn: 'argo' } }], manage: [{ shipId: vault.shipId, rule: { builtIn: 'argo' } }] },
-      { send: [{ shipId: argo.shipId, rule: { builtIn: 'argo' } }], read: [{ shipId: argo.shipId, rule: { builtIn: 'argo' } }], manage: [{ shipId: argo.shipId, rule: { builtIn: 'argo' } }] },
+      { send: [{ shipId: argo.shipId, rule: { builtIn: 'argo' } }], read: [], manage: [{ shipId: argo.shipId, rule: { builtIn: 'argo' } }] },
     ]);
   });
 

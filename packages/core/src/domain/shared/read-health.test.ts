@@ -4,6 +4,7 @@ import { crewAboard, deliveryIdOf } from '../../../test/support/core-fixtures.js
 import { historyScenario, type HistoryScenario } from '../../../test/support/history-scenario.js';
 import { newKey } from '../../../test/support/keys.js';
 import { unwrap } from '../../../test/support/result.js';
+import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
 
 const SECOND_MS = 1_000;
 const MINUTE_MS = 60 * SECOND_MS;
@@ -152,5 +153,40 @@ describe('reading the fleet health', () => {
 
   it('answers no median when nothing was acknowledged in the last 24 hours', async () => {
     await expect(readHealth()).resolves.toMatchObject({ acknowledged: { count: 0, medianMs: null } });
+  });
+});
+
+describe('reading the fleet health within read reach (decision 0034)', () => {
+  let fleet: ReadReachScenario;
+
+  beforeEach(async () => {
+    fleet = await readReachScenario();
+    await fleet.readRulesApply();
+  });
+
+  it('counts only the stuck deliveries whose message the caller reads, now and in the trend', async () => {
+    await fleet.send(fleet.near, { kind: 'type', type: 'keeper' });
+    await fleet.send(fleet.argo, { kind: 'type', type: 'keeper' });
+    unwrap(await fleet.registry.retireShip(fleet.argo, { shipId: fleet.far.shipId }));
+
+    const [read, all] = [await fleet.history.readHealth(fleet.reader), await fleet.history.readHealth(fleet.argo)];
+
+    expect([read.stuck.map((place) => place.count), read.stuckPerHour.at(-1)?.count, all.stuck.map((place) => place.count)]).toEqual([[1], 1, [2]]);
+  });
+
+  it('counts only the acknowledged deliveries whose message the caller reads', async () => {
+    const toNear = await fleet.send(fleet.far, { kind: 'ship', shipId: fleet.near.shipId });
+    const toFar = await fleet.send(fleet.argo, { kind: 'ship', shipId: fleet.far.shipId });
+    for (const [crew, messageId] of [
+      [fleet.near, toNear],
+      [fleet.far, toFar],
+    ] as const) {
+      unwrap(await fleet.messaging.receiveDeliveries(crew, { max: 10 }));
+      unwrap(await fleet.messaging.acknowledgeDelivery(crew, { deliveryId: deliveryIdOf(fleet.core, messageId) }));
+    }
+
+    const [read, all] = [await fleet.history.readHealth(fleet.reader), await fleet.history.readHealth(fleet.argo)];
+
+    expect([read.acknowledged.count, all.acknowledged.count]).toEqual([1, 2]);
   });
 });

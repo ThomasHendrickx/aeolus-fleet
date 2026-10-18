@@ -445,6 +445,13 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         const found = state.ships.find((held) => held.fleetId === fleetId && held.name === name && held.retiredAt === null);
         return Promise.resolve(found && { ...found });
       },
+      list: (fleetId) =>
+        Promise.resolve(
+          state.ships
+            .filter((held) => held.fleetId === fleetId)
+            .sort((first, second) => first.id.localeCompare(second.id))
+            .map((held) => structuredClone(held)),
+        ),
       listActive: (fleetId) =>
         Promise.resolve(
           state.ships
@@ -1502,6 +1509,17 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         crew: crewOf(lease),
       });
     },
+    messageParties: (fleetId, messageIds) =>
+      Promise.resolve(
+        new Map(
+          state.deliveries
+            .filter((delivery) => delivery.fleetId === fleetId && messageIds.includes(delivery.messageId))
+            .flatMap((delivery) => {
+              const message = messageOf(fleetId, delivery.messageId);
+              return message ? [[message.id, { senderId: message.senderShipId, recipient: delivery.recipient, claimedBy: delivery.claimedByShipId }] as const] : [];
+            }),
+        ),
+      ),
     inbox: (fleetId, { shipId, filter }) =>
       Promise.resolve(
         state.deliveries

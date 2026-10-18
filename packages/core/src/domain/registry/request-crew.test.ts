@@ -8,6 +8,7 @@ import { valueIdOf } from '../../../test/support/label-fixtures.js';
 import { unwrap } from '../../../test/support/result.js';
 import type { Caller } from '../shared/caller.js';
 import { newKey } from '../../../test/support/keys.js';
+import { wholeShips } from '../../../test/support/ships.js';
 
 let core: InMemoryCore;
 let registry: ReturnType<typeof registryUseCases>;
@@ -106,7 +107,7 @@ describe('a crew request read with the ship', () => {
   it('is listed with the fleet by its settings version and when it was requested, never its settings', async () => {
     unwrap(await registry.requestCrew(argo, { shipId: scoutId, settings }));
 
-    const listed = (await registry.listFleet(argo)).find((ship) => ship.id === scoutId);
+    const listed = wholeShips(await registry.listFleet(argo)).find((ship) => ship.id === scoutId);
 
     expect(listed?.crewRequest).toEqual({ settingsVersion: 1, requestedAt: core.clock.now(), assignedTo: null, status: null, reason: null, crewedBy: null, attempt: 0, sessionStartedAt: null, givenBack: [] });
   });

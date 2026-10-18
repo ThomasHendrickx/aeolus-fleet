@@ -5,6 +5,7 @@ import { OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
 import { newKey } from './support/keys.js';
+import { wholeShips } from './support/ships.js';
 
 // A crew's report on a real Postgres: stored with its lease, shown with the
 // ship, an event only when it changes, and none for the ship's next crew.
@@ -31,7 +32,7 @@ afterEach(async () => {
 });
 
 async function listedReport() {
-  return (await core.useCases.listFleet(argo)).find((ship) => ship.id === scout.shipId)?.report;
+  return wholeShips(await core.useCases.listFleet(argo)).find((ship) => ship.id === scout.shipId)?.report;
 }
 
 async function reportEvents(): Promise<number> {

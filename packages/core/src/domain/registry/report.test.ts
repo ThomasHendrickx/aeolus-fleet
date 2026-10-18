@@ -6,6 +6,7 @@ import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-
 import { unwrap } from '../../../test/support/result.js';
 import type { Caller, Crew } from '../shared/caller.js';
 import { newKey } from '../../../test/support/keys.js';
+import { wholeShips } from '../../../test/support/ships.js';
 
 let core: InMemoryCore;
 let useCases: ReturnType<typeof registryUseCases>;
@@ -31,7 +32,7 @@ function storedReport() {
 }
 
 async function listedReport() {
-  return (await useCases.listFleet(argo)).find((ship) => ship.id === scoutId)?.report;
+  return wholeShips(await useCases.listFleet(argo)).find((ship) => ship.id === scoutId)?.report;
 }
 
 describe("a crew's report", () => {

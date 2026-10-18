@@ -3,7 +3,8 @@ import type { MessageId } from '@aeolus-fleet/common';
 import type { Caller } from './caller.js';
 import { refuse, type DomainError } from './errors.js';
 import { deliveryWayOf, type DeliveryWay } from './delivery-way.js';
-import type { DeliveryChange, HistoryMessage, HistoryReply, ShipHistory } from './history.js';
+import { readsMessage, type ReadReachOf } from '../registry/public.js';
+import { partiesOf, type DeliveryChange, type HistoryMessage, type HistoryReply, type ShipHistory } from './history.js';
 import { ok, type Result } from './result.js';
 
 export type MessageDetail = HistoryMessage & {
@@ -20,12 +21,14 @@ export type ReadMessage = (
  * Use case: one message of the caller's fleet: its envelope, its whole
  * payload, its replies, and its delivery's way through: who holds it, since
  * when, the clocks that speak for it and every step newest first, from the
- * event log. The caller's scope (fleet:read) is checked before this runs.
+ * event log. A message outside the caller's read reach is answered as none,
+ * so its existence does not show (decision 0034). The caller's scope
+ * (fleet:read) is checked before this runs.
  */
-export function createReadMessage(deps: { history: ShipHistory }): ReadMessage {
+export function createReadMessage(deps: { history: ShipHistory; readReach: ReadReachOf }): ReadMessage {
   return async (caller, { messageId }) => {
     const found = await deps.history.message(caller.fleetId, messageId);
-    if (!found) {
+    if (!found || !readsMessage(await deps.readReach(caller), partiesOf(found, found.delivery.claimedBy))) {
       return refuse('MESSAGE_NOT_FOUND', `No message ${messageId} in this fleet`);
     }
     const { history, replies, lease, overdue, crew, ...message } = found;

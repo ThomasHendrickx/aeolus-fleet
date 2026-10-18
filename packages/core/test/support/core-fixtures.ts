@@ -66,6 +66,7 @@ import { createGetShip } from '../../src/domain/registry/get-ship.js';
 import { createGetStartingPrompt } from '../../src/domain/registry/get-starting-prompt.js';
 import { createInitialiseFleet, type FleetInitialised } from '../../src/domain/registry/initialise-fleet.js';
 import { createListFleet } from '../../src/domain/registry/list-fleet.js';
+import { createReadReachOf } from '../../src/domain/registry/read-reach.js';
 import { createRecrewShip } from '../../src/domain/registry/recrew-ship.js';
 import { createReleaseShip } from '../../src/domain/registry/release-ship.js';
 import { createSetOwner } from '../../src/domain/registry/set-owner.js';
@@ -182,7 +183,7 @@ export function registryUseCases(core: InMemoryCore) {
     readAssignedCrewRequests: createReadAssignedCrewRequests({ crewRequests: core.crewRequests, ships: core.ships }),
     explainCrewRequest: createExplainCrewRequest(deps),
     requestWorktreeClear: createRequestWorktreeClear(deps),
-    readClearRequests: createReadClearRequests({ clearRequests: core.clearRequests }),
+    readClearRequests: createReadClearRequests({ clearRequests: core.clearRequests, readReach: readReachOf(core) }),
     confirmWorktreeCleared: createConfirmWorktreeCleared(deps),
     defineLabel: createDefineLabel(deps),
     setNetworkRules: createSetNetworkRules(deps),
@@ -214,29 +215,41 @@ export function registryUseCases(core: InMemoryCore) {
     setFleetLimits: createSetFleetLimits({ uow: core.uow, clock: core.clock, ids: core.ids }),
     readFleetLimits: createReadFleetLimits({ limits: core.fleetLimitReads, clock: core.clock }),
     getInstallationFleet: createGetInstallationFleet({ fleets: core.installationFleets, settings: core.installationSettings, health: core.health, clock: core.clock }),
-    listFleet: createListFleet({ listing: core.listing }),
-    getShip: createGetShip({ listing: core.listing }),
+    listFleet: createListFleet({ listing: core.listing, readReach: readReachOf(core) }),
+    getShip: createGetShip({ listing: core.listing, readReach: readReachOf(core) }),
     whoami: createWhoami({ ships: core.ships }),
     report: createReport({ uow: core.uow, clock: core.clock, ids: core.ids }),
     reportTurn: createReportTurn({ uow: core.uow, clock: core.clock, ids: core.ids }),
     reportLog: createReadReportLog({ leases: core.leases }),
-    readFleetEvents: createReadFleetEvents({ feed: core.feed }),
+    readFleetEvents: createReadFleetEvents({ feed: core.feed, history: core.history, readReach: readReachOf(core) }),
     // Nothing wakes a follow here: it ends at its wait.
-    followFleet: createFollowFleet({ feed: core.feed, clock: core.clock, wakeups: { watch: () => ({ next: () => Promise.resolve('timedOut'), stop: () => undefined }) } }),
+    followFleet: createFollowFleet({
+      feed: core.feed,
+      clock: core.clock,
+      wakeups: { watch: () => ({ next: () => Promise.resolve('timedOut'), stop: () => undefined }) },
+      history: core.history,
+      readReach: readReachOf(core),
+    }),
   };
+}
+
+/** What a caller reads (decision 0034), worked out from the in-memory core. */
+export function readReachOf(core: InMemoryCore) {
+  return createReadReachOf({ uow: core.uow, clock: core.clock });
 }
 
 /** The history reads for the ship page, wired to the in-memory core. */
 export function historyUseCases(core: InMemoryCore) {
+  const readReach = readReachOf(core);
   return {
-    readShipTimeline: createReadShipTimeline({ history: core.history }),
-    readShipMessages: createReadShipMessages({ history: core.history }),
-    readMessage: createReadMessage({ history: core.history }),
-    readShipWay: createReadShipWay({ history: core.history }),
-    readNeedsAttention: createReadNeedsAttention({ history: core.history }),
-    readOverdue: createReadOverdue({ history: core.history }),
-    readNoShipCanTake: createReadNoShipCanTake({ history: core.history }),
-    readHealth: createReadHealth({ health: core.health, clock: core.clock }),
+    readShipTimeline: createReadShipTimeline({ history: core.history, readReach }),
+    readShipMessages: createReadShipMessages({ history: core.history, readReach }),
+    readMessage: createReadMessage({ history: core.history, readReach }),
+    readShipWay: createReadShipWay({ history: core.history, uow: core.uow, clock: core.clock, ids: core.ids }),
+    readNeedsAttention: createReadNeedsAttention({ history: core.history, readReach }),
+    readOverdue: createReadOverdue({ history: core.history, readReach }),
+    readNoShipCanTake: createReadNoShipCanTake({ history: core.history, readReach }),
+    readHealth: createReadHealth({ health: core.health, clock: core.clock, readReach }),
     readInbox: createReadInbox({ history: core.history, ships: core.ships }),
   };
 }

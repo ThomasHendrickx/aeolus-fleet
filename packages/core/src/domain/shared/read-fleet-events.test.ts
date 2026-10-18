@@ -1,7 +1,7 @@
 import type { FleetId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
+import { initialiseFleet, operatorCaller, registryUseCases, readReachOf } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../../test/support/result.js';
 import type { Caller } from './caller.js';
@@ -9,6 +9,7 @@ import { ok } from './result.js';
 import { SYSTEM, recordEvent } from './events.js';
 import { createReadFleetEvents, REPLAY_LIMIT, type ReadFleetEvents } from './read-fleet-events.js';
 import { newKey } from '../../../test/support/keys.js';
+import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
 
 let core: InMemoryCore;
 let fleetId: FleetId;
@@ -20,7 +21,7 @@ beforeEach(async () => {
   const fleet = await initialiseFleet(core);
   fleetId = fleet.fleetId;
   argo = operatorCaller(fleet);
-  readFleetEvents = createReadFleetEvents({ feed: core.feed });
+  readFleetEvents = createReadFleetEvents({ feed: core.feed, history: core.history, readReach: readReachOf(core) });
 });
 
 /** Appends this many events to the fleet, each in its own unit of work. */
@@ -54,11 +55,12 @@ describe('reading the fleet events', () => {
     expect(read).toEqual({
       kind: 'events',
       events: core.state.events.slice(position).map((event, index) => ({ ...event, seq: position + index + 1 })),
+      lastSeq: eventCount(),
     });
   });
 
   it('gives no events to a browser that is up to date', async () => {
-    await expect(readFleetEvents(argo, eventCount())).resolves.toEqual({ kind: 'events', events: [] });
+    await expect(readFleetEvents(argo, eventCount())).resolves.toEqual({ kind: 'events', events: [], lastSeq: eventCount() });
   });
 
   it(`replays up to ${String(REPLAY_LIMIT)} missed events`, async () => {
@@ -80,6 +82,21 @@ describe('reading the fleet events', () => {
   it("reads only the caller's fleet", async () => {
     const elsewhere = { ...argo, fleetId: core.ids('fleet') };
 
-    await expect(readFleetEvents(elsewhere, 0)).resolves.toEqual({ kind: 'events', events: [] });
+    await expect(readFleetEvents(elsewhere, 0)).resolves.toEqual({ kind: 'events', events: [], lastSeq: 0 });
+  });
+});
+
+describe('reading the fleet events within read reach (decision 0034)', () => {
+  it('answers only the events the caller reads, and the last seq of every event it went through', async () => {
+    const fleet: ReadReachScenario = await readReachScenario();
+    await fleet.readRulesApply();
+    const { lastSeq: from } = unwrap(await fleet.registry.followFleet(fleet.argo, {}));
+    const withNear = await fleet.send(fleet.far, { kind: 'ship', shipId: fleet.near.shipId });
+    await fleet.send(fleet.far, { kind: 'ship', shipId: fleet.argo.shipId });
+    const { lastSeq } = unwrap(await fleet.registry.followFleet(fleet.argo, {}));
+
+    const read = await fleet.registry.readFleetEvents(fleet.reader, from);
+
+    expect(read.kind === 'events' && [new Set(read.events.map((event) => event.messageId)), read.lastSeq]).toEqual([new Set([withNear]), lastSeq]);
   });
 });

@@ -7,6 +7,7 @@ import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-
 import { unwrap } from '../../../test/support/result.js';
 import type { Caller } from '../shared/caller.js';
 import { newKey } from '../../../test/support/keys.js';
+import { wholeShips } from '../../../test/support/ships.js';
 
 let core: InMemoryCore;
 let registry: ReturnType<typeof registryUseCases>;
@@ -76,7 +77,7 @@ describe('an assigned crew request read with the ship', () => {
     unwrap(await registry.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarch.shipId }));
     unwrap(await registry.reportCrewStatus(trierarch, { shipId: scoutId, status: 'crewing' }));
 
-    const listed = (await registry.listFleet(argo)).find((ship) => ship.id === scoutId);
+    const listed = wholeShips(await registry.listFleet(argo)).find((ship) => ship.id === scoutId);
 
     expect(listed?.crewRequest).toMatchObject({ assignedTo: { id: trierarch.shipId, name: 'mac-mini' }, status: 'crewing' });
   });
@@ -90,7 +91,7 @@ describe('an assigned crew request read with the ship', () => {
   });
 
   it('is listed unassigned, with no status, before the plugin assigns it', async () => {
-    const listed = (await registry.listFleet(argo)).find((ship) => ship.id === scoutId);
+    const listed = wholeShips(await registry.listFleet(argo)).find((ship) => ship.id === scoutId);
 
     expect(listed?.crewRequest).toMatchObject({ assignedTo: null, status: null });
   });
@@ -104,7 +105,7 @@ describe('who crewed the ship of a crew request', () => {
   }
 
   it('is none while no session crews it', async () => {
-    const listed = (await registry.listFleet(argo)).find((ship) => ship.id === scoutId);
+    const listed = wholeShips(await registry.listFleet(argo)).find((ship) => ship.id === scoutId);
 
     expect(listed?.crewRequest).toMatchObject({ crewedBy: null });
   });
@@ -112,7 +113,7 @@ describe('who crewed the ship of a crew request', () => {
   it('is argo for a crew argo set up by hand, from the starting prompt the lease claimed with', async () => {
     await crewedWithPromptFrom(argo);
 
-    const listed = (await registry.listFleet(argo)).find((ship) => ship.id === scoutId);
+    const listed = wholeShips(await registry.listFleet(argo)).find((ship) => ship.id === scoutId);
 
     expect(listed?.crewRequest).toMatchObject({ crewedBy: { id: argo.shipId, name: 'argo' } });
   });

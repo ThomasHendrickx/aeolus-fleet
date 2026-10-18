@@ -27,7 +27,7 @@ function aLease(ship: ShipRecord, overrides: Partial<LeaseRecord> = {}): LeaseRe
 }
 
 function aDelivery(recipient: Recipient, overrides: Partial<DeliveryRecord> = {}): DeliveryRecord {
-  return { deliveryId: newId('delivery'), messageId: newId('message'), recipient, reachableShipIds: [], sentAt: hoursAgo(2), steps: [], ...overrides };
+  return { deliveryId: newId('delivery'), messageId: newId('message'), senderId: newId('ship'), recipient, claimedBy: null, reachableShipIds: [], sentAt: hoursAgo(2), steps: [], ...overrides };
 }
 
 function toShip(ship: ShipRecord): Recipient {

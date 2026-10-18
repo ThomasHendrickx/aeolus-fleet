@@ -21,7 +21,8 @@ import {
   operatorInboxOutputSchema,
   pingShipInputSchema,
   pingShipOutputSchema,
-  shipDetailOutputSchema,
+  shipOutputSchema,
+  isInReadReach,
   shipInputSchema,
   shipMessagesOutputSchema,
   shipWayOutputSchema,
@@ -91,6 +92,7 @@ import { tracked, type TrackedEnvelope } from '@trpc/server';
 // here; the declarations the build emits need a path to reach it by.
 import type {} from '@trpc/server/unstable-core-do-not-import';
 
+import type { ListedShip } from '../../domain/registry/list-fleet.js';
 import type { PingStatus } from '../../domain/registry/ping-status.js';
 import type { ShipFacts } from '../../domain/registry/ports.js';
 import type { DeliveryWay } from '../../domain/shared/delivery-way.js';
@@ -364,7 +366,7 @@ export const fleetRouter = router({
   clearRequests: anyScopeProcedure('fleet:read', 'crew:run')
     .meta({
       description: [
-        "Needs fleet:read or crew:run. The pending clear requests: with fleet:read every trierarch's, with crew:run those to your ship.",
+        "Needs fleet:read or crew:run. The pending clear requests: with fleet:read every trierarch's for the ships in your read reach (decision 0034), with crew:run those to your ship.",
         'Each names the trierarch, the worktree by its ship and repository, who asked and when.',
       ].join(' '),
     })
@@ -447,28 +449,14 @@ export const fleetRouter = router({
     .meta({
       description: [
         'Needs fleet:read. Every ship of the fleet, argo included: id, name, type, kind, status, scopes, labels, where its session runs and in which harness, when it was last seen, its last ping, and its current model (the last its sessions stated). Never a secret.',
-        'With valueIds (label value ids, from fleet_labels or fleet_findLabelValue), only the ships that carry every one of them: exact matches, combined with AND.',
+        'A ship outside your read reach shows its id, name, type and status only, with isInReadReach false (decision 0034).',
+        'With valueIds (label value ids, from fleet_labels or fleet_findLabelValue), only the ships in your read reach that carry every one of them: exact matches, combined with AND.',
       ].join(' '),
     })
     .input(fleetListInputSchema)
     .output(fleetListOutputSchema)
     .query(async ({ ctx, input }) =>
-      (await ctx.useCases.listFleet(ctx.caller, { valueIds: input?.valueIds })).map((ship) => ({
-        ...ship,
-        startingPrompt: ship.startingPrompt && {
-          issuedAt: ship.startingPrompt.issuedAt.toISOString(),
-          isClaimed: ship.startingPrompt.isClaimed,
-        },
-        lastSeenAt: ship.lastSeenAt?.toISOString() ?? null,
-        ping: pingOutputOf(ship.ping),
-        scopes: [...ship.scopes],
-        labels: [...ship.labels],
-        report: ship.report && { ...ship.report, reportedAt: ship.report.reportedAt.toISOString() },
-        crewRequest: crewRequestOutputOf(ship.crewRequest),
-        model: ship.model && { id: ship.model.id, statedAt: ship.model.statedAt.toISOString() },
-        awaitingCrewSince: ship.awaitingCrewSince?.toISOString() ?? null,
-        retiredAt: ship.retiredAt?.toISOString() ?? null,
-      })),
+      (await ctx.useCases.listFleet(ctx.caller, { valueIds: input?.valueIds })).map((ship) => (isInReadReach(ship) ? listedShipOutputOf(ship) : ship)),
     ),
 
   /** The fleet's labels, each with its values and its owner (decision 0031). */
@@ -676,12 +664,16 @@ export const fleetRouter = router({
     .meta({
       description: [
         'Needs fleet:read, or crew:run for a ship whose crew request is assigned to yours. One ship of the fleet, retired ones included: as fleet_list shows it, plus when it was commissioned, crewed and retired, and its open and in-flight deliveries.',
+        'A ship outside your read reach, and not assigned to yours, shows its id, name, type and status only, with isInReadReach false (decision 0034).',
       ].join(' '),
     })
     .input(shipInputSchema)
-    .output(shipDetailOutputSchema)
+    .output(shipOutputSchema)
     .query(async ({ ctx, input }) => {
       const ship = okOrThrow(await ctx.useCases.getShip(ctx.caller, input));
+      if (!isInReadReach(ship)) {
+        return ship;
+      }
       return {
         ...ship,
         startingPrompt: ship.startingPrompt && {
@@ -859,8 +851,8 @@ export const fleetRouter = router({
     .meta({
       description: [
         'Needs fleet:read. The fleet\'s events after afterSeq, oldest first, up to max (1 to 100, 100 when left out):',
-        'each with its seq, type, time, the ship that caused it and the ship, message and delivery it concerns, never its details.',
-        'Pass the lastSeq it answers as afterSeq next, so you miss nothing across reconnects.',
+        'each with its seq, type, time, the ship that caused it and the ship, message and delivery it concerns, never its details. Only the events in your read reach (decision 0034): a message\'s through its sender or recipient, any other through the ship it concerns.',
+        'Pass the lastSeq it answers as afterSeq next, so you miss nothing across reconnects: it counts the events you do not read too.',
         'Without afterSeq it answers no events and the current lastSeq to start from.',
         'With waitSeconds (0 to 25) it waits while none has come, and answers as soon as one commits.',
       ].join(' '),
@@ -894,9 +886,9 @@ export const fleetRouter = router({
             yield tracked(String(read.seq), { kind: 'resync' } satisfies FleetStreamItem);
           } else {
             for (const event of read.events) {
-              afterSeq = event.seq;
               yield tracked(String(event.seq), { kind: 'event', event: liveEventOf(event) } satisfies FleetStreamItem);
             }
+            afterSeq = read.lastSeq;
           }
           if (!(await watch.next(stopped))) {
             return;
@@ -908,6 +900,26 @@ export const fleetRouter = router({
       }
     }),
 });
+
+/** A ship as fleet_list answers it, its times in ISO 8601. */
+function listedShipOutputOf(ship: ListedShip) {
+  return {
+    ...ship,
+    startingPrompt: ship.startingPrompt && {
+      issuedAt: ship.startingPrompt.issuedAt.toISOString(),
+      isClaimed: ship.startingPrompt.isClaimed,
+    },
+    lastSeenAt: ship.lastSeenAt?.toISOString() ?? null,
+    ping: pingOutputOf(ship.ping),
+    scopes: [...ship.scopes],
+    labels: [...ship.labels],
+    report: ship.report && { ...ship.report, reportedAt: ship.report.reportedAt.toISOString() },
+    crewRequest: crewRequestOutputOf(ship.crewRequest),
+    model: ship.model && { id: ship.model.id, statedAt: ship.model.statedAt.toISOString() },
+    awaitingCrewSince: ship.awaitingCrewSince?.toISOString() ?? null,
+    retiredAt: ship.retiredAt?.toISOString() ?? null,
+  };
+}
 
 /** An event as the browser hears it: never its details. */
 function liveEventOf(event: SequencedEvent) {

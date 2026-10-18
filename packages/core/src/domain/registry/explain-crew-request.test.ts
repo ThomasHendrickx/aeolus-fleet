@@ -7,6 +7,7 @@ import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-
 import { unwrap } from '../../../test/support/result.js';
 import type { Caller } from '../shared/caller.js';
 import { newKey } from '../../../test/support/keys.js';
+import { wholeShips } from '../../../test/support/ships.js';
 
 let core: InMemoryCore;
 let registry: ReturnType<typeof registryUseCases>;
@@ -82,7 +83,7 @@ describe('the reason on an unassigned crew request', () => {
   it('is listed with the ship', async () => {
     unwrap(await registry.explainCrewRequest(plugin, { shipId: scoutId, reason: NO_ROOM }));
 
-    const listed = (await registry.listFleet(argo)).find((ship) => ship.id === scoutId);
+    const listed = wholeShips(await registry.listFleet(argo)).find((ship) => ship.id === scoutId);
 
     expect(listed?.crewRequest).toMatchObject({ reason: NO_ROOM });
   });

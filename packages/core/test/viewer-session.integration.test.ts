@@ -13,6 +13,7 @@ import { createMigratedDatabase } from './support/database.js';
 import { newKey } from './support/keys.js';
 import { createTestClock } from './support/postgres-core.js';
 import { unwrap } from './support/result.js';
+import { wholeShips } from './support/ships.js';
 
 // The viewer ship from HTTP to Postgres and back (decision 0022): the
 // installation creates a fleet with one and issues viewer tickets; each
@@ -92,7 +93,7 @@ describe('a fleet the installation creates with a viewer', () => {
   it('has the viewer ship: named viewer, crewed, reading the fleet only', async () => {
     const cookie = await signIn(demoFleet, 'operator');
 
-    const ships = await consoleWith(cookie).fleet.list.query();
+    const ships = wholeShips(await consoleWith(cookie).fleet.list.query());
 
     expect(ships.find((ship) => ship.kind === 'viewer')).toMatchObject({ name: 'viewer', type: 'viewer', status: 'crewed', scopes: ['fleet:read'] });
   });
@@ -207,7 +208,7 @@ describe('what a viewer session reads on Postgres', () => {
     const usedAt = clock.now();
     await first.console.session.query();
 
-    const ships = await first.fleet.list.query();
+    const ships = wholeShips(await first.fleet.list.query());
 
     expect(ships.find((ship) => ship.kind === 'viewer')).toMatchObject({ status: 'crewed', lastSeenAt: usedAt.toISOString(), location: null });
   });

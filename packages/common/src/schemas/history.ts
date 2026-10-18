@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { deliveryStateSchema, eventTypeSchema, locationKindSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
-import { listedShipSchema } from './fleet.js';
+import { listedShipSchema, shipOutsideReadReachSchema } from './fleet.js';
 import { crewRequestSchema, crewStatusSchema } from './crew-request.js';
 import { reportSchema } from './report.js';
 import { turnStateSchema } from './turn.js';
@@ -53,6 +53,9 @@ export const shipDetailOutputSchema = listedShipSchema.extend({
 });
 
 export type ShipDetail = z.infer<typeof shipDetailOutputSchema>;
+
+/** Output of `fleet.ship`: the ship whole, or outside the caller's read reach its name, type and status only (decision 0034). */
+export const shipOutputSchema = z.union([shipDetailOutputSchema, shipOutsideReadReachSchema]);
 
 /** One event on a ship's timeline: its number, type and time, its parties and its small flat details. */
 export const timelineEntrySchema = z.object({

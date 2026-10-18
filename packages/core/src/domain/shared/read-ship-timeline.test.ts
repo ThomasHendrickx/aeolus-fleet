@@ -5,6 +5,7 @@ import { unwrap } from '../../../test/support/result.js';
 import { SYSTEM, recordEvent } from './events.js';
 import { TIMELINE_LIMIT } from './read-ship-timeline.js';
 import { ok } from './result.js';
+import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
 
 let scene: HistoryScenario;
 
@@ -100,5 +101,31 @@ describe("reading a ship's timeline", () => {
       isOk: false,
       error: { kind: 'SHIP_NOT_FOUND' },
     });
+  });
+});
+
+describe("reading the timeline of a ship outside read reach (decision 0034)", () => {
+  let fleet: ReadReachScenario;
+
+  beforeEach(async () => {
+    fleet = await readReachScenario();
+    await fleet.readRulesApply();
+  });
+
+  it('gives only the events of the messages it reads, none about the ship itself', async () => {
+    const withNear = await fleet.send(fleet.far, { kind: 'ship', shipId: fleet.near.shipId });
+    await fleet.send(fleet.far, { kind: 'ship', shipId: fleet.argo.shipId });
+
+    const timeline = unwrap(await fleet.history.readShipTimeline(fleet.reader, { shipId: fleet.far.shipId }));
+
+    expect(new Set(timeline.map((entry) => entry.message?.id ?? null))).toEqual(new Set([withNear]));
+  });
+
+  it("gives argo every event of the ship's timeline", async () => {
+    await fleet.send(fleet.far, { kind: 'ship', shipId: fleet.argo.shipId });
+
+    const timeline = unwrap(await fleet.history.readShipTimeline(fleet.argo, { shipId: fleet.far.shipId }));
+
+    expect(timeline.some((entry) => entry.message === null)).toBe(true);
   });
 });

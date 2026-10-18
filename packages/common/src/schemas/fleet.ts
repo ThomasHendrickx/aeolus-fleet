@@ -205,8 +205,21 @@ export const listedShipSchema = z.object({
 
 export type ListedShip = z.infer<typeof listedShipSchema>;
 
-/** Output of `fleet.list`: every ship in the caller's fleet, `argo` included. */
-export const fleetListOutputSchema = z.array(listedShipSchema);
+/** A ship outside the caller's read reach (decision 0034): its name, type and status only. */
+export const shipOutsideReadReachSchema = z.object({
+  id: idSchema('ship'),
+  name: z.string(),
+  type: z.string(),
+  status: shipStatusSchema,
+  isInReadReach: z.literal(false),
+});
+
+export type ShipOutsideReadReach = z.infer<typeof shipOutsideReadReachSchema>;
+
+export { isInReadReach } from '../rules/read-reach.js';
+
+/** Output of `fleet.list`: every ship in the caller's fleet, `argo` included, those outside its read reach by name, type and status only. */
+export const fleetListOutputSchema = z.array(z.union([listedShipSchema, shipOutsideReadReachSchema]));
 
 /** Up to 15 digits: every number below 2^53, so it stays an exact JavaScript number. */
 const STREAM_POSITION_PATTERN = /^\d{1,15}$/;

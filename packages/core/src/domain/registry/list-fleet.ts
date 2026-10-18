@@ -1,6 +1,7 @@
 import type { LabelValueId, Scope, ShipId, ShipKind, ShipStatus } from '@aeolus-fleet/common';
 
 import type { Caller } from '../shared/caller.js';
+import { readsShip, type ReadReachOf } from './read-reach.js';
 import type { Location } from './lease.js';
 import { pingStatusOf, type PingStatus } from './ping-status.js';
 import type { CrewRequest } from './crew-request.js';
@@ -56,17 +57,40 @@ export interface ListedShip {
   retiredAt: Date | null;
 }
 
-export type ListFleet = (caller: Caller, input?: { valueIds?: readonly LabelValueId[] }) => Promise<ListedShip[]>;
+/** A ship outside the caller's read reach: its name, type and status only (decision 0034). */
+export interface ShipOutsideReadReach {
+  id: ShipId;
+  name: string;
+  type: string;
+  status: ShipStatus;
+  isInReadReach: false;
+}
+
+export function outsideReadReach({ id, name, type, status }: Pick<ListedShip, 'id' | 'name' | 'type' | 'status'>): ShipOutsideReadReach {
+  return { id, name, type, status, isInReadReach: false };
+}
+
+export type ListFleet = (caller: Caller, input?: { valueIds?: readonly LabelValueId[] }) => Promise<(ListedShip | ShipOutsideReadReach)[]>;
 
 /**
  * Use case: every ship of the caller's fleet, `argo` included, oldest first,
  * or with label value ids only the ships that carry every one of them
- * (decision 0031). Never a secret, a crew token or their hashes. The
- * caller's scope (fleet:read) is checked before this runs.
+ * (decision 0031). A ship outside the caller's read reach shows its name,
+ * type and status only, and no label value ever matches it, so the labels it
+ * carries do not show (decision 0034). Never a secret, a crew token or their
+ * hashes. The caller's scope (fleet:read) is checked before this runs.
  */
-export function createListFleet(deps: { listing: FleetListing }): ListFleet {
-  return async (caller, input) =>
-    (await deps.listing.ships(caller.fleetId)).filter((facts) => carriesEvery(facts.labels, input?.valueIds)).map(listedShipOf);
+export function createListFleet(deps: { listing: FleetListing; readReach: ReadReachOf }): ListFleet {
+  return async (caller, input) => {
+    const reach = await deps.readReach(caller);
+    return (await deps.listing.ships(caller.fleetId)).flatMap((facts): (ListedShip | ShipOutsideReadReach)[] => {
+      const listed = listedShipOf(facts);
+      if (readsShip(reach, facts.ship.id)) {
+        return carriesEvery(facts.labels, input?.valueIds) ? [listed] : [];
+      }
+      return input?.valueIds === undefined || input.valueIds.length === 0 ? [outsideReadReach(listed)] : [];
+    });
+  };
 }
 
 /** A ship as the fleet snapshot shows it, from what the listing read about it. */

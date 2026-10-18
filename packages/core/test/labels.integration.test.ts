@@ -11,6 +11,7 @@ import { OPERATOR, operatorCaller } from './support/core-fixtures.js';
 import { newKey } from './support/keys.js';
 import { createPostgresCore, heldUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { refusalOf, unwrap } from './support/result.js';
+import { wholeShips } from './support/ships.js';
 
 // Labels on a real Postgres (decision 0031): a key once per fleet, even when
 // two ships define it at once; a label and each value with its own id, the
@@ -57,7 +58,7 @@ async function labels() {
 }
 
 async function carried() {
-  return (await core.useCases.listFleet(argo)).flatMap((ship) => ship.labels.map((label) => `${ship.name}:${label.key}=${label.value}`));
+  return wholeShips(await core.useCases.listFleet(argo)).flatMap((ship) => ship.labels.map((label) => `${ship.name}:${label.key}=${label.value}`));
 }
 
 function labelEvents() {

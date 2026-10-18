@@ -7,7 +7,7 @@
   - `#`, a value the ship on the other side carries too, on the same label or the owner on both sides. A `#` on one side only is refused.
   An unknown id matches none. Allow-only: no deny rules, no precedence, never by type. Limits in 0037.
 - **Built-in rules**, core's own, seeded at fleet create, shown first in the rule list, marked built-in:
-  - argo to and from every ship, every verb. Never off: a bad rule set must not lock argo out.
+  - argo to and from every ship, every verb, except that a ship reads argo only by a rule, so argo's messages are not every ship's. Never off: a bad rule set must not lock argo out.
   - the owner's ship to the ships it owns, every verb. Never off: a human is always responsible (0045).
   - an answer to the sender of the message it answers (inReplyTo, a delivery to it or one of its type it claimed), send. Never off: an allowed send must be able to get its answer.
   - the viewer reads every ship. argo may turn it off.

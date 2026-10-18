@@ -67,6 +67,7 @@ import { createGetStartingPrompt, type GetStartingPrompt } from './domain/regist
 import { createGetShip, type GetShip } from './domain/registry/get-ship.js';
 import { createInitialiseFleet, type InitialiseFleet } from './domain/registry/initialise-fleet.js';
 import { createListFleet, type ListFleet } from './domain/registry/list-fleet.js';
+import { createReadReachOf } from './domain/registry/read-reach.js';
 import { createListFleets, type ListFleets } from './domain/registry/list-fleets.js';
 import { createRecrewShip, type RecrewShip } from './domain/registry/recrew-ship.js';
 import { createReleaseShip, type ReleaseShip } from './domain/registry/release-ship.js';
@@ -254,6 +255,7 @@ export function createUseCases(options: {
   const clock = options.clock ?? systemClock;
   const ids = options.ids ?? createIdGenerator();
   const uow = createPrismaUnitOfWork(prisma);
+  const readReach = createReadReachOf({ uow, clock });
   // A fleet delete and a retire grow with the fleet's history and the ship's pending deliveries.
   const bulkUow = createPrismaBulkUnitOfWork(prisma);
   const secrets = { hasher: sha256Hasher, random: cryptoRandomTokens };
@@ -303,8 +305,8 @@ export function createUseCases(options: {
     renameShip: createRenameShip({ uow, clock, ids }),
     setOwner: createSetOwner({ uow, clock, ids }),
     recrewShip: createRecrewShip({ uow, clock, ids, secrets }),
-    listFleet: createListFleet({ listing: createPrismaFleetListing(prisma) }),
-    getShip: createGetShip({ listing: createPrismaFleetListing(prisma) }),
+    listFleet: createListFleet({ listing: createPrismaFleetListing(prisma), readReach }),
+    getShip: createGetShip({ listing: createPrismaFleetListing(prisma), readReach }),
     claimShip: createClaimShip({ uow, clock, ids, secrets }),
     whoami: createWhoami({ ships: createPrismaShipRepository(prisma) }),
     report: createReport({ uow, clock, ids }),
@@ -318,7 +320,7 @@ export function createUseCases(options: {
     readAssignedCrewRequests: createReadAssignedCrewRequests({ crewRequests: createPrismaCrewRequestRepository(prisma), ships: createPrismaShipRepository(prisma) }),
     explainCrewRequest: createExplainCrewRequest({ uow, clock, ids }),
     requestWorktreeClear: createRequestWorktreeClear({ uow, clock, ids }),
-    readClearRequests: createReadClearRequests({ clearRequests: createPrismaClearRequestRepository(prisma) }),
+    readClearRequests: createReadClearRequests({ clearRequests: createPrismaClearRequestRepository(prisma), readReach }),
     confirmWorktreeCleared: createConfirmWorktreeCleared({ uow, clock, ids }),
     defineLabel: createDefineLabel({ uow, clock, ids }),
     setNetworkRules: createSetNetworkRules({ uow, clock, ids }),
@@ -366,20 +368,22 @@ export function createUseCases(options: {
     markRead: createMarkRead({ uow, clock }),
     markDone: createMarkDone({ uow, clock, ids }),
     replyToMessage: createReplyToMessage({ uow, clock, ids, hasher: sha256Hasher }),
-    readFleetEvents: createReadFleetEvents({ feed: createPrismaFleetEventFeed(prisma) }),
+    readFleetEvents: createReadFleetEvents({ feed: createPrismaFleetEventFeed(prisma), history: createPrismaShipHistory(prisma), readReach }),
     followFleet: createFollowFleet({
       feed: createPrismaFleetEventFeed(prisma),
       clock,
+      history: createPrismaShipHistory(prisma),
+      readReach,
       wakeups: options.fleetEventWakeups ?? fleetEventWakeupsOf(createFleetEventWakeups()),
     }),
-    readShipTimeline: createReadShipTimeline({ history: createPrismaShipHistory(prisma) }),
-    readShipMessages: createReadShipMessages({ history: createPrismaShipHistory(prisma) }),
-    readMessage: createReadMessage({ history: createPrismaShipHistory(prisma) }),
-    readShipWay: createReadShipWay({ history: createPrismaShipHistory(prisma) }),
-    readNeedsAttention: createReadNeedsAttention({ history: createPrismaShipHistory(prisma) }),
-    readOverdue: createReadOverdue({ history: createPrismaShipHistory(prisma) }),
-    readNoShipCanTake: createReadNoShipCanTake({ history: createPrismaShipHistory(prisma) }),
-    readHealth: createReadHealth({ health: createPrismaHealthRecords(prisma), clock }),
+    readShipTimeline: createReadShipTimeline({ history: createPrismaShipHistory(prisma), readReach }),
+    readShipMessages: createReadShipMessages({ history: createPrismaShipHistory(prisma), readReach }),
+    readMessage: createReadMessage({ history: createPrismaShipHistory(prisma), readReach }),
+    readShipWay: createReadShipWay({ history: createPrismaShipHistory(prisma), uow, clock, ids }),
+    readNeedsAttention: createReadNeedsAttention({ history: createPrismaShipHistory(prisma), readReach }),
+    readOverdue: createReadOverdue({ history: createPrismaShipHistory(prisma), readReach }),
+    readNoShipCanTake: createReadNoShipCanTake({ history: createPrismaShipHistory(prisma), readReach }),
+    readHealth: createReadHealth({ health: createPrismaHealthRecords(prisma), clock, readReach }),
     readInbox: createReadInbox({ history: createPrismaShipHistory(prisma), ships: createPrismaShipRepository(prisma) }),
     signIn: createSignIn({
       uow,

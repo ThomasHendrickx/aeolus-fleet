@@ -248,6 +248,23 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
       };
     },
 
+    messageParties: async (fleetId, messageIds) => {
+      const rows = await db.delivery.findMany({
+        where: { fleetId, messageId: { in: [...messageIds] } },
+        select: { messageId: true, recipientShipId: true, recipientType: true, claimedByShipId: true, message: { select: { senderShipId: true } } },
+      });
+      return new Map(
+        rows.map((row) => [
+          idSchema('message').parse(row.messageId),
+          {
+            senderId: idSchema('ship').parse(row.message.senderShipId),
+            recipient: row.recipientShipId === null ? { kind: 'type', type: z.string().parse(row.recipientType) } : { kind: 'ship', shipId: idSchema('ship').parse(row.recipientShipId) },
+            claimedBy: row.claimedByShipId === null ? null : idSchema('ship').parse(row.claimedByShipId),
+          },
+        ]),
+      );
+    },
+
     inbox: async (fleetId, { shipId, filter }) => {
       const rows = await db.delivery.findMany({
         where: {

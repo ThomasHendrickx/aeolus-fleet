@@ -1,3 +1,4 @@
+import { isInReadReach } from '@aeolus-fleet/common';
 import type { FleetId, ShipId } from '@aeolus-fleet/common';
 import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -72,7 +73,7 @@ async function aFormedSquadron(): Promise<{ flagship: ShipId; member: ShipId }> 
 
 /** The label values a ship carries, as `key=value`. */
 async function labelsOf(shipId: ShipId): Promise<string[]> {
-  const ship = (await useCases.listFleet(argo)).find((each) => each.id === shipId);
+  const ship = (await useCases.listFleet(argo)).filter(isInReadReach).find((each) => each.id === shipId);
   return (ship?.labels ?? []).map((label) => `${label.key}=${label.value}`).sort();
 }
 

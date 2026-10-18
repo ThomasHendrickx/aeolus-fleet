@@ -5,6 +5,7 @@ import { deliveryIdOf } from '../../../test/support/core-fixtures.js';
 import { historyScenario, type HistoryScenario } from '../../../test/support/history-scenario.js';
 import { unwrap } from '../../../test/support/result.js';
 import type { Crew } from './caller.js';
+import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
 
 const MINUTE = 60_000;
 
@@ -92,5 +93,33 @@ describe('reading the overdue deliveries', () => {
     await after(MINUTE);
 
     expect((await scene.history.readOverdue(scene.argo)).map((entry) => entry.deliveryId)).toEqual([toScout, toLookout]);
+  });
+});
+
+describe('reading the overdue deliveries within read reach (decision 0034)', () => {
+  let fleet: ReadReachScenario;
+
+  beforeEach(async () => {
+    fleet = await readReachScenario();
+    await fleet.readRulesApply();
+  });
+
+  it('lists only the deliveries whose message the caller reads', async () => {
+    const toNear = await fleet.send(fleet.argo, { kind: 'ship', shipId: fleet.near.shipId });
+    const toFar = await fleet.send(fleet.argo, { kind: 'ship', shipId: fleet.far.shipId });
+    for (const [crew, messageId] of [
+      [fleet.near, toNear],
+      [fleet.far, toFar],
+    ] as const) {
+      const deliveryId = deliveryIdOf(fleet.core, messageId);
+      unwrap(await fleet.messaging.pushReceiveDeliveries(crew, {}));
+      unwrap(await fleet.messaging.handOverDelivery(crew, { deliveryId, handOverNumber: 1 }));
+    }
+    fleet.core.clock.advance(11 * MINUTE);
+    await fleet.messaging.tellOverdueDeliveries();
+
+    const [read, all] = [await fleet.history.readOverdue(fleet.reader), await fleet.history.readOverdue(fleet.argo)];
+
+    expect([read.map((entry) => entry.message.id), all.length]).toEqual([[toNear], 2]);
   });
 });
