@@ -19,6 +19,11 @@ import { runCommand } from './run-command.js';
  */
 export type CallerCheck = (shipId: ShipId, connection: Socket) => Promise<boolean>;
 
+/** The process a ship's session runs under on this machine, as its session runtime knows it; none while it runs no session. */
+export interface SessionRoots {
+  sessionRootOf(shipId: ShipId): Promise<number | undefined>;
+}
+
 const SOCKET_LINK = /^socket:\[(\d+)\]$/;
 /** Deeper than any real process tree: a walk that goes on longer is not trusted. */
 const MOST_ANCESTORS = 4096;

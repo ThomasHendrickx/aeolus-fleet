@@ -92,7 +92,7 @@ export async function runTrierarch(input: { paths: TrierarchPaths; homeDirectory
     root: paths.sockets,
     fleetUrl: crew.fleetUrl,
     crewTokenOf: async (shipId) => (await state.load()).entries[shipId]?.crewToken,
-    mayCall: createCallerCheck({ platform: process.platform, sessionRootOf: () => Promise.resolve(undefined) }),
+    mayCall: createCallerCheck({ platform: process.platform, sessionRootOf: (shipId) => sessions.sessionRootOf(shipId) }),
     log: (line) => {
       logger.info(`fleet call ${line}`);
     },

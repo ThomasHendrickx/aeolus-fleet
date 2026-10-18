@@ -6,6 +6,7 @@ import { setTimeout as wait } from 'node:timers/promises';
 import { idSchema, type ShipId } from '@aeolus-fleet/common';
 
 import type { ObservedSession, SessionRuntime } from '../core/ports.js';
+import type { SessionRoots } from './caller-check.js';
 import { heldCommand } from './held-command.js';
 import { shipHome } from './paths.js';
 import { runCommand, type CommandResult } from './run-command.js';
@@ -99,7 +100,7 @@ function envFileOf(env: Readonly<Record<string, string>>): string {
  * own, so the container's monitor is not in the service's control group and a
  * restart or upgrade ends no session (#479, #537).
  */
-export function createContainerRuntime(options: ContainerRuntimeOptions): SessionRuntime {
+export function createContainerRuntime(options: ContainerRuntimeOptions): SessionRuntime & SessionRoots {
   const owner = options.owner ?? CONTAINER_OWNER;
   const launch = options.launch ?? [];
   const run = options.run ?? runCommand;
@@ -211,6 +212,12 @@ export function createContainerRuntime(options: ContainerRuntimeOptions): Sessio
       // An exited container printed its last screen as it ended.
       const logged = await runtime(['logs', containerName(shipId)]);
       return logged.status === 0 ? logged.stdout : '';
+    },
+    // The container's first process as the host sees it: every process of the session runs under it; 0 once it runs no more.
+    sessionRootOf: async (shipId) => {
+      const inspected = await runtime(['inspect', '--format', '{{.State.Pid}}', containerName(shipId)]);
+      const pid = Number(inspected.stdout.trim());
+      return inspected.status === 0 && Number.isInteger(pid) && pid > 1 ? pid : undefined;
     },
   };
 }

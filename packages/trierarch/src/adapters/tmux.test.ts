@@ -8,7 +8,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { newId } from '../../test/support/in-memory.js';
 import { sessionRuntimeContract } from '../../test/support/session-runtime-contract.js';
 import { runCommand } from './run-command.js';
-import type { SessionRuntime } from '../core/ports.js';
 import { HOLD_AFTER_EXIT_MS } from './held-command.js';
 import { createTmux, sessionsLaunch } from './tmux.js';
 
