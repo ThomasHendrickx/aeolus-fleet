@@ -399,7 +399,7 @@ export class InMemoryHarness implements HarnessPort {
 
   constructor(private readonly processes: InMemoryProcesses) {}
 
-  prepareIdentity(at: { folder: string; identity: Identity }): Promise<void> {
+  prepareIdentity(at: { folder: string; identity: Identity; crewToken: string }): Promise<void> {
     this.identities.set(at.folder, at.identity);
     return Promise.resolve();
   }

@@ -1794,7 +1794,7 @@ describe('a running ship whose identity is gone (#659)', () => {
     await trierarch.harness.removeIdentity({ shipId, folder: SCOUT_FOLDER });
     await trierarch.pass();
     if (identity !== undefined) {
-      await trierarch.harness.prepareIdentity({ folder: SCOUT_FOLDER, identity });
+      await trierarch.harness.prepareIdentity({ folder: SCOUT_FOLDER, identity, crewToken: trierarch.fleet.shipOf(shipId).crewToken ?? '' });
     }
     trierarch.clock.advance(MINUTE_MS);
     await trierarch.pass();

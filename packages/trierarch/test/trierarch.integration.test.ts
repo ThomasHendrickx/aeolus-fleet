@@ -31,6 +31,7 @@ import { createTrust } from '../src/adapters/trust.js';
 import { initTrierarch } from '../src/cli/init.js';
 import type { ObservedSession, SessionRuntime } from '../src/core/ports.js';
 import { RESTART_DELAYS_MS } from '../src/core/restart-policy.js';
+import { createShipSockets, type ShipSockets } from '../src/adapters/ship-sockets.js';
 import { createRunPass } from '../src/core/run-pass.js';
 import { CONFIGURATION } from './support/in-memory.js';
 import { NO_TERMINAL_QUESTIONS } from '@aeolus-fleet/common';
@@ -52,6 +53,8 @@ let server: FastifyInstance;
 let address: string;
 let home: string;
 let paths: TrierarchPaths;
+/** The ships' sockets of the trierarch under test, closed after each test. */
+let openSockets: ShipSockets | undefined;
 let repository: string;
 let pluginData: string;
 
@@ -141,6 +144,8 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  await openSockets?.closeAll();
+  openSockets = undefined;
   await server.close();
   await database.$disconnect();
   rmSync(home, { recursive: true, force: true });
@@ -185,13 +190,15 @@ async function aTrierarchOnTheFleet(claudeCodeFlags: readonly string[] = CONFIGU
   const clock = at.clock ?? { now: () => new Date() };
   const logger = { warn: () => undefined, action: () => undefined };
   const setup = { configuration, version: '0.0.0', adapterFlags: adapterFlagsOf(configuration), riskyFlags: riskyFlagsOf(configuration) };
+  const sockets = createShipSockets({ root: paths.sockets, fleetUrl: address, crewTokenOf: async (shipId) => (await state.load()).entries[shipId]?.crewToken, log: () => undefined });
+  openSockets = sockets;
   // A new run pass over the same files is the trierarch started again.
-  const aRunPass = () => createRunPass({ fleet, harnesses: { 'claude-code': harness }, processes: sessions, workspace, trust: createTrust({ configuration, homeDirectory: home, env: {}, managedSettings: join(home, 'managed') }), state, setup, clock, logger, refuseModel: () => Promise.resolve(), newLaunchId: randomUUID });
+  const aRunPass = () => createRunPass({ fleet, harnesses: { 'claude-code': harness }, processes: sessions, workspace, trust: createTrust({ configuration, homeDirectory: home, env: {}, managedSettings: join(home, 'managed') }), state, setup, clock, logger, refuseModel: () => Promise.resolve(), newLaunchId: randomUUID, sockets });
   const pass = aRunPass();
   const leasesOf = (shipId: ShipId) => database.lease.count({ where: { shipId, endedAt: null } });
   const worktree = join(paths.worktrees, 'aeolus-fleet', 'scout');
 
-  return { useCases, argo, trierarchShip, scout, pass, aRunPass, leasesOf, worktree };
+  return { useCases, argo, trierarchShip, scout, pass, aRunPass, leasesOf, worktree, sockets };
 }
 
 describe('the trierarch on a real fleet', () => {

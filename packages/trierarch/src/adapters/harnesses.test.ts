@@ -51,7 +51,7 @@ describe('the harnesses a trierarch offers', () => {
 
       renameSync(join(cache, '0.25.0'), join(cache, '0.25.1'));
       const shipId = newId('ship');
-      await harnesses[harness]?.prepareIdentity({ folder, identity: { fleetUrl: 'https://fleet.example.com', shipId, shipName: 'scout', socket: `/home/thomas/.aeolus/trierarch/sockets/${shipId}/fleet.sock` } });
+      await harnesses[harness]?.prepareIdentity({ folder, identity: { fleetUrl: 'https://fleet.example.com', shipId, shipName: 'scout', socket: `/home/thomas/.aeolus/trierarch/sockets/${shipId}/fleet.sock` }, crewToken: 'aeolus_ct_v1_of_the_crew' });
 
       await expect(harnesses[harness]?.hasIdentity({ shipId, folder })).resolves.toBe(true);
     } finally {

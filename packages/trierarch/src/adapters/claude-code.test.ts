@@ -84,6 +84,8 @@ function harness(at: { pluginRoot?: string } = {}) {
 }
 
 const shipId = newId('ship');
+/** Handed to the plugin on stdin, which keeps only the lease it stands for. */
+const CREW_TOKEN = 'aeolus_ct_v1_of_the_crew';
 const identity = { fleetUrl: 'https://fleet.example.com', shipId, shipName: 'scout', socket: `/home/thomas/.aeolus/trierarch/sockets/${shipId}/fleet.sock` };
 
 const parsed = (text: string | undefined): unknown => (text === undefined ? undefined : JSON.parse(text));
@@ -101,7 +103,7 @@ describe('Claude Code as a harness', () => {
   });
 
   it("writes the folder's identity through the plugin, saying the trierarch wakes it, with the squadron", async () => {
-    await harness().prepareIdentity({ folder, identity: { ...identity, squadron: 'hemma-feature-a1b2c3' } });
+    await harness().prepareIdentity({ folder, identity: { ...identity, squadron: 'hemma-feature-a1b2c3' }, crewToken: CREW_TOKEN });
 
     const path = (await runCommand('bash', { args: [`${PLUGIN_ROOT}/scripts/aeolus-identity.sh`, 'path'], env: { AEOLUS_FOLDER: folder, AEOLUS_DATA: data, AEOLUS_CREWS: crews } })).stdout.trim();
     const written = readFileSync(path, 'utf8');
@@ -113,7 +115,7 @@ describe('Claude Code as a harness', () => {
   });
 
   it("writes the folder's identity in ~/.aeolus/crews/claude-code, outside the plugin's data folder (#658)", async () => {
-    await harness().prepareIdentity({ folder, identity });
+    await harness().prepareIdentity({ folder, identity, crewToken: CREW_TOKEN });
 
     expect(readFileSync(join(crews, `${createHash('sha256').update(folder).digest('hex').slice(0, 32)}.identity`), 'utf8')).toContain(`socket=${identity.socket}\n`);
   });
@@ -126,7 +128,7 @@ describe('Claude Code as a harness', () => {
   });
 
   it("finds the folder's identity, and none once it is removed", async () => {
-    await harness().prepareIdentity({ folder, identity });
+    await harness().prepareIdentity({ folder, identity, crewToken: CREW_TOKEN });
     await expect(harness().hasIdentity({ shipId, folder })).resolves.toBe(true);
 
     await harness().removeIdentity({ shipId, folder });
@@ -458,7 +460,7 @@ describe('Claude Code as a harness', () => {
   });
 
   it("reads the turn from the plugin's turn marker: unknown before the first prompt, then busy or idle", async () => {
-    await harness().prepareIdentity({ folder, identity });
+    await harness().prepareIdentity({ folder, identity, crewToken: CREW_TOKEN });
     await expect(harness().turnOf({ shipId, folder })).resolves.toBe('unknown');
 
     const marked = await runCommand('bash', {
@@ -490,7 +492,7 @@ describe("Claude Code's launch window, from the launch marker its session's hook
   const seen = (model?: string) => harness().launchSeen({ shipId, folder, launchId: LAUNCH_ID, ...(model !== undefined && { model }) });
 
   beforeEach(async () => {
-    await harness().prepareIdentity({ folder, identity });
+    await harness().prepareIdentity({ folder, identity, crewToken: CREW_TOKEN });
   });
 
   it('starts a session with its launch id, the marker of an earlier launch cleared first', async () => {
@@ -620,15 +622,15 @@ describe('Claude Code in containers, each ship with a home of its own (decision 
   const identityFile = () => `.aeolus/crews/claude-code/${createHash('sha256').update(folder).digest('hex').slice(0, 32)}.identity`;
 
   it("keeps each ship's identity in its own home alone, never in the host's home or another ship's", async () => {
-    await inContainers().prepareIdentity({ folder, identity });
-    await inContainers().prepareIdentity({ folder, identity: otherIdentity });
+    await inContainers().prepareIdentity({ folder, identity, crewToken: CREW_TOKEN });
+    await inContainers().prepareIdentity({ folder, identity: otherIdentity, crewToken: CREW_TOKEN });
 
     const scoutHome = filesIn(join(homes, shipId));
     expect({ scoutHome, host: filesIn(crews), holdsOther: readFileSync(join(homes, shipId, identityFile()), 'utf8').includes('lookout') }).toEqual({ scoutHome: [identityFile()], host: [], holdsOther: false });
   });
 
   it("finds the identity in the ship's own home, and none in another ship's", async () => {
-    await inContainers().prepareIdentity({ folder, identity });
+    await inContainers().prepareIdentity({ folder, identity, crewToken: CREW_TOKEN });
 
     await expect(inContainers().hasIdentity({ shipId, folder })).resolves.toBe(true);
     await expect(inContainers().hasIdentity({ shipId: other, folder })).resolves.toBe(false);
@@ -675,7 +677,7 @@ describe('Claude Code in containers, each ship with a home of its own (decision 
 
   it("clears the launch marker in the ship's own home before a launch", async () => {
     const inShipHome = { AEOLUS_FOLDER: folder, AEOLUS_DATA: join(homes, shipId, '.claude', 'plugins', 'data', 'aeolus-aeolus-fleet'), AEOLUS_CREWS: join(homes, shipId, '.aeolus', 'crews', 'claude-code') };
-    const written = await runCommand('bash', { args: [`${PLUGIN_ROOT}/scripts/aeolus-identity.sh`, 'write', '--wake-by', 'trierarch', '--socket', identity.socket, identity.fleetUrl, shipId, identity.shipName], env: inShipHome });
+    const written = await runCommand('bash', { args: [`${PLUGIN_ROOT}/scripts/aeolus-identity.sh`, 'write', '--wake-by', 'trierarch', '--socket', identity.socket, identity.fleetUrl, shipId, identity.shipName], env: inShipHome, input: CREW_TOKEN });
     expect(written.status).toBe(0);
     const marked = await runCommand('bash', {
       args: [`${PLUGIN_ROOT}/scripts/aeolus-launch.sh`],
@@ -691,8 +693,8 @@ describe('Claude Code in containers, each ship with a home of its own (decision 
   });
 
   it("removes the ship's home with its identity, as a release does, and leaves another ship's", async () => {
-    await inContainers().prepareIdentity({ folder, identity });
-    await inContainers().prepareIdentity({ folder, identity: otherIdentity });
+    await inContainers().prepareIdentity({ folder, identity, crewToken: CREW_TOKEN });
+    await inContainers().prepareIdentity({ folder, identity: otherIdentity, crewToken: CREW_TOKEN });
 
     await inContainers().removeIdentity({ shipId, folder });
 
