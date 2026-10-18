@@ -42,6 +42,8 @@ export interface PushedCrew {
   shipId: ShipId;
   leaseId: LeaseId;
   pushedAt: Date;
+  /** Whether its ship is a person's: a person away is not stuck, so its clocks never run (interop 5.1). */
+  isPerson: boolean;
   /** The turn its hooks last reported, since when; null before the first report. */
   turn: { state: TurnState; at: Date } | null;
   waiting: WaitingDelivery[];
@@ -65,6 +67,9 @@ export interface Overdue {
  * lease with no turn reported is idle since it was pushed.
  */
 export function overdueDelivery(crew: PushedCrew, now: Date): Overdue | undefined {
+  if (crew.isPerson) {
+    return undefined;
+  }
   const oldestFirst = crew.waiting.toSorted((first, second) => first.sentAt.getTime() - second.sentAt.getTime() || first.deliveryId.localeCompare(second.deliveryId));
   for (const delivery of oldestFirst) {
     const { clock, minutes, from } = clockOf(delivery, crew);

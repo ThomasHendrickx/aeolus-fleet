@@ -231,14 +231,16 @@ class FleetAt {
     if (crewed.length === 0) {
       return takers.some((ship) => ship.isPerson) ? undefined : { cause: 'waitingForCrew', place: placeOf(delivery.recipient) };
     }
-    const leases = crewed.flatMap((ship) => this.leaseOf(ship.shipId) ?? []);
+    // A person away is not stuck (interop 5.1): only the clocks of other crewed ships speak for it.
+    const leases = crewed.filter((ship) => !ship.isPerson).flatMap((ship) => this.leaseOf(ship.shipId) ?? []);
     const overdue = this.overdueOn({ state: 'pending', since }, leases);
     return overdue === undefined ? undefined : { cause: 'stalledInFlight', place: { kind: 'ship', shipId: overdue.shipId } };
   }
 
   private whyInFlightStuck(delivery: { state: 'received' | 'handed'; since: Date; leaseId: LeaseId | null }): { cause: StuckCause; place: StuckPlace } | undefined {
     const lease = this.records.leases.find((held) => held.leaseId === delivery.leaseId);
-    if (lease === undefined) {
+    if (lease === undefined || this.records.ships.some((ship) => ship.shipId === lease.shipId && ship.isPerson)) {
+      // A person away is not stuck (interop 5.1): handed and not opened is a fact with its age, not trouble.
       return undefined;
     }
     const isStalled = isPushedAt(lease, this.at) ? this.overdueOn(delivery, [lease]) !== undefined : isQuietSinceHandOver(lease, { delivery, at: this.at });

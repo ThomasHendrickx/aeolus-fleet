@@ -636,6 +636,7 @@ const pushedCrewSqlRow = z.object({
   lease_id: idSchema('lease'),
   ship_id: idSchema('ship'),
   pushed_at: z.date(),
+  is_person: z.boolean(),
   turn: turnStateSchema.nullable(),
   turn_at: z.date().nullable(),
 });
@@ -648,6 +649,7 @@ export function toPushedCrewFromSql(fleetId: FleetId, row: unknown): PushedCrew 
     shipId: lease.ship_id,
     leaseId: lease.lease_id,
     pushedAt: lease.pushed_at,
+    isPerson: lease.is_person,
     turn: lease.turn === null || lease.turn_at === null ? null : { state: lease.turn, at: lease.turn_at },
     waiting: [],
   };
