@@ -5,6 +5,7 @@ import {
   messageInputSchema,
   messageOutputSchema,
   shipDetailOutputSchema,
+  shipOutputSchema,
   shipInputSchema,
   shipMessagesOutputSchema,
   shipTimelineOutputSchema,
@@ -248,5 +249,13 @@ describe('messageOutputSchema', () => {
     const way = { ...message.delivery.way, holder: { kind: 'session' } };
 
     expect(messageOutputSchema.safeParse({ ...message, delivery: { ...message.delivery, way } }).success).toBe(false);
+  });
+});
+
+describe('shipOutputSchema', () => {
+  it('accepts a ship outside read reach by its name, type and status only (decision 0034)', () => {
+    const outside = { id: createIdGenerator()('ship'), name: 'vault', type: 'keeper', status: 'retired', isInReadReach: false };
+
+    expect(shipOutputSchema.parse(outside)).toEqual(outside);
   });
 });

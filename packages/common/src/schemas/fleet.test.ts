@@ -6,6 +6,7 @@ import {
   fleetEventsInputSchema,
   fleetLimitsOutputSchema,
   fleetListOutputSchema,
+  isInReadReach,
   fleetStreamItemSchema,
   getStartingPromptInputSchema,
   pingStateSchema,
@@ -229,6 +230,18 @@ describe('fleetListOutputSchema', () => {
 
   it('accepts ships with their status and prompt state', () => {
     expect(fleetListOutputSchema.parse([ship])).toEqual([ship]);
+  });
+
+  it('accepts a ship outside read reach by its name, type and status only, beside whole ones (decision 0034)', () => {
+    const outside = { id: newId('ship'), name: 'vault', type: 'keeper', status: 'crewed', isInReadReach: false };
+
+    expect(fleetListOutputSchema.parse([ship, outside])).toEqual([ship, outside]);
+  });
+
+  it('tells a whole ship from one outside read reach', () => {
+    const listed = fleetListOutputSchema.parse([ship, { id: newId('ship'), name: 'vault', type: 'keeper', status: 'crewed', isInReadReach: false }]);
+
+    expect(listed.map(isInReadReach)).toEqual([true, false]);
   });
 
   it('accepts a crewed ship with the location its session reported', () => {
