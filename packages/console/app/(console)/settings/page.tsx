@@ -1,9 +1,9 @@
 'use client';
 
-import { NetworkingPluginConnection } from '../../../features/settings/organisms/networking-plugin-connection';
-import { SquadronsConnection } from '../../../features/settings/organisms/squadrons-connection';
-import { TemplateRepositories } from '../../../features/settings/organisms/template-repositories';
-import { TrierarchPluginConnection } from '../../../features/settings/organisms/trierarch-plugin-connection';
+import { NetworkingPluginConnection } from '../../../features/settings/ui/organisms/networking-plugin-connection';
+import { SquadronsConnection } from '../../../features/settings/ui/organisms/squadrons-connection';
+import { TemplateRepositories } from '../../../features/settings/ui/organisms/template-repositories';
+import { TrierarchPluginConnection } from '../../../features/settings/ui/organisms/trierarch-plugin-connection';
 import { ListPage } from '../../../components/organisms/list-page';
 import { useConsoleFrame } from '../../../lib/console-frame';
 import { useNeedsAttention } from '../../../lib/needs-attention';

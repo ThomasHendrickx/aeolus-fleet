@@ -1,9 +1,9 @@
 import { Link2 } from 'lucide-react';
 
-import type { ShownConnection } from '../../../lib/shown-connection';
-import { Button } from '../../../components/atoms/button';
-import { InlineError } from '../../../components/molecules/inline-error';
-import { LoadingSkeleton } from '../../../components/molecules/loading-skeleton';
+import type { ShownConnection } from '../../../../lib/shown-connection';
+import { Button } from '../../../../components/atoms/button';
+import { InlineError } from '../../../../components/molecules/inline-error';
+import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
 
 interface SquadronsConnectionProps {
   /** Squadrons as the web app's server reads it; undefined while it loads. */

@@ -1,10 +1,10 @@
 import { Link2, ShipWheel } from 'lucide-react';
 import Link from 'next/link';
 
-import type { ShownConnection } from '../../../lib/shown-connection';
-import { Button } from '../../../components/atoms/button';
-import { InlineError } from '../../../components/molecules/inline-error';
-import { LoadingSkeleton } from '../../../components/molecules/loading-skeleton';
+import type { ShownConnection } from '../../../../lib/shown-connection';
+import { Button } from '../../../../components/atoms/button';
+import { InlineError } from '../../../../components/molecules/inline-error';
+import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
 
 interface TrierarchPluginConnectionProps {
   /** The trierarch plugin as the web app's server reads it; undefined while it loads. */
