@@ -65,6 +65,8 @@ interface FleetShip {
   secret: string;
   isRetired: boolean;
   isCrewed: boolean;
+  /** The scopes it was commissioned with. */
+  scopes: string[];
 }
 
 function fakeFleet() {
@@ -82,6 +84,8 @@ function fakeFleet() {
     refuseCrewRequests: false,
     /** How many retires of each name the fleet refuses as busy, storing nothing (#736, #738). */
     retiresRefused: new Map<string, number>(),
+    /** The scopes squadrons' own ship holds, as fleet.ship answers them. */
+    managementScopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:commission', 'fleet:manage'],
   };
   let next = 0;
   const door: FleetDoor = {
@@ -94,9 +98,14 @@ function fakeFleet() {
       return Promise.resolve(ok({ crewToken: `aeolus_ct_v1_${ship.name}` }));
     },
     whoami: () => Promise.resolve(err({ code: 'UNAUTHORIZED', message: 'not used' })),
-    getShip: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
+    getShip: (_crewToken, { shipId }) =>
+      Promise.resolve(
+        shipId === MANAGEMENT
+          ? ok({ status: 'crewed' as const, scopes: state.managementScopes, lastSeenAt: AT, crewedSince: AT, reportedAt: null, openDeliveries: 0, inFlightDeliveries: 0, hasCrewRequest: false })
+          : err({ code: 'NOT_FOUND', message: 'not used' }),
+      ),
     deregister: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
-    commission: (crewToken, { name, type, idempotencyKey }): Promise<Result<{ shipId: ShipId; prompt: string | null; secret: string | null; crewLines: { harness: string; line: string }[] | null }, FleetRefusal>> => {
+    commission: (crewToken, { name, type, idempotencyKey, scopes }): Promise<Result<{ shipId: ShipId; prompt: string | null; secret: string | null; crewLines: { harness: string; line: string }[] | null }, FleetRefusal>> => {
       if (crewToken !== 'aeolus_ct_v1_management') {
         return Promise.resolve(err({ code: 'UNAUTHORIZED', message: 'Call with the crew token register gave you' }));
       }
@@ -113,7 +122,7 @@ function fakeFleet() {
       next += 1;
       const shipId: ShipId = `shp_01m3tbfspe96yf1rnr4ank${String(next).padStart(4, '0')}`;
       const secret = `aeolus_sk_v1_${name}`;
-      state.ships.push({ shipId, name, type, secret, isRetired: false, isCrewed: false });
+      state.ships.push({ shipId, name, type, secret, isRetired: false, isCrewed: false, scopes: [...(scopes ?? [])] });
       state.keys.set(idempotencyKey, shipId);
       if (state.answersLost.delete(name)) {
         return Promise.resolve(err({ code: 'UNAVAILABLE', message: 'The fleet did not answer' }));
@@ -274,6 +283,30 @@ describe('forming a squadron', () => {
       { name: 'implementer-q8r2', role: 'implementer', type: 'hemma-feature-a1b2c3:implementer', onStationAt: null, checkIn: null },
     ]);
     expect(JSON.stringify(stored)).not.toContain('aeolus_sk_v1_planner');
+  });
+
+  it('commissions each member with the scopes its template names, and the flagship with none (decision 0017)', async () => {
+    const granting = { ...catalogue, templates: [templateVersion('planner'), { ...templateVersion('implementer', ['done']), scopes: ['fleet:read', 'squadrons:form'] }] };
+
+    unwrapped(await formWith({ catalogue: granting })(fromHemmaFeature));
+
+    expect(fleet.state.ships.map(({ name, scopes }) => ({ name, scopes }))).toEqual([
+      { name: 'hemma-feature-a1b2c3', scopes: [] },
+      { name: 'planner-k3x9', scopes: [] },
+      { name: 'implementer-m4p7', scopes: ['fleet:read', 'squadrons:form'] },
+      { name: 'implementer-q8r2', scopes: ['fleet:read', 'squadrons:form'] },
+    ]);
+  });
+
+  it('refuses a template scope its own ship does not hold, outside its own namespace, naming it, and commissions nothing', async () => {
+    const granting = { ...catalogue, templates: [templateVersion('planner'), { ...templateVersion('implementer', ['done']), scopes: ['messages:force'] }] };
+
+    const formed = await formWith({ catalogue: granting })(fromHemmaFeature);
+
+    expect(formed).toMatchObject({ isOk: false, error: { kind: 'FORMING_FAILED' } });
+    assert(!formed.isOk);
+    expect(formed.error.message).toContain('messages:force');
+    expect(fleet.state.ships).toEqual([]);
   });
 
   it('takes the squadron id the operator gives', async () => {
