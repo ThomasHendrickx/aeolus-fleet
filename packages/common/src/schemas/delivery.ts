@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
+import { deliveryStateSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
+import { messageRecipientSchema } from './history.js';
 import { isOneLine } from './report.js';
 
 /**
@@ -183,3 +185,21 @@ export type InboxInput = z.infer<typeof inboxInputSchema>;
 export const inboxOutputSchema = z.object({ waiting: z.int().min(0), forced: z.int().min(0) });
 
 export type InboxOutput = z.infer<typeof inboxOutputSchema>;
+
+/** Input of `ship.sentMessage`: a message the caller sent. */
+export const sentMessageInputSchema = z.object({ messageId: idSchema('message') });
+
+export type SentMessageInput = z.infer<typeof sentMessageInputSchema>;
+
+/**
+ * Output of `ship.sentMessage`: where the delivery of a message its sender
+ * sent stands, and since when, with its recipient by name or type. No payload.
+ */
+export const sentMessageOutputSchema = z.object({
+  messageId: idSchema('message'),
+  sentAt: z.iso.datetime(),
+  recipient: messageRecipientSchema,
+  delivery: z.object({ deliveryId: idSchema('delivery'), state: deliveryStateSchema, since: z.iso.datetime() }),
+});
+
+export type SentMessageOutput = z.infer<typeof sentMessageOutputSchema>;

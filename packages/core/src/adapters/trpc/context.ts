@@ -93,6 +93,7 @@ import type { UnassignLabel } from '../../domain/registry/unassign-label.js';
 import type { FollowFleet } from '../../domain/shared/follow-fleet.js';
 import type { ReadInbox } from '../../domain/shared/read-inbox.js';
 import type { ReadMessage } from '../../domain/shared/read-message.js';
+import type { ReadSentMessage } from '../../domain/shared/read-sent-message.js';
 import type { ReadNeedsAttention } from '../../domain/shared/read-needs-attention.js';
 import type { ReadHealth } from '../../domain/shared/read-health.js';
 import type { ReadShipWay } from '../../domain/shared/read-ship-way.js';
@@ -184,6 +185,7 @@ export interface UseCases {
   readShipTimeline: ReadShipTimeline;
   readShipMessages: ReadShipMessages;
   readMessage: ReadMessage;
+  sentMessage: ReadSentMessage;
   readShipWay: ReadShipWay;
   readNeedsAttention: ReadNeedsAttention;
   readHealth: ReadHealth;

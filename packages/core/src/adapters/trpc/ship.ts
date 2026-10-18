@@ -20,6 +20,8 @@ import {
   setStatementInputSchema,
   setStatementOutputSchema,
   discoverOutputSchema,
+  sentMessageInputSchema,
+  sentMessageOutputSchema,
   turnInputSchema,
   turnOutputSchema,
   receiveInputSchema,
@@ -388,6 +390,25 @@ export const shipRouter = router({
     })
     .output(discoverOutputSchema)
     .query(async ({ ctx }) => okOrThrow(await ctx.useCases.discover(ctx.caller))),
+
+  /**
+   * Where the delivery of a message the caller sent stands, and since when
+   * (interop 3.5). Needs messages:send; its own messages only, and no payload.
+   */
+  sentMessage: scopedProcedure('messages:send')
+    .meta({
+      description: [
+        'Needs messages:send. For a message you sent, by its messageId: where its delivery stands (its state: pending, received, handed, acknowledged,',
+        'handled, notHandled, undeliverable, dismissed or abandoned) and since when, with its recipient by name or type. No payload comes back.',
+        'A message another ship sent, or one the fleet does not have, is refused as MESSAGE_NOT_FOUND.',
+      ].join(' '),
+    })
+    .input(sentMessageInputSchema)
+    .output(sentMessageOutputSchema)
+    .query(async ({ ctx, input }) => {
+      const sent = okOrThrow(await ctx.useCases.sentMessage(ctx.caller, input));
+      return { ...sent, sentAt: sent.sentAt.toISOString(), delivery: { ...sent.delivery, since: sent.delivery.since.toISOString() } };
+    }),
 
   /**
    * How many deliveries wait for the crew: what its next receive would hand
