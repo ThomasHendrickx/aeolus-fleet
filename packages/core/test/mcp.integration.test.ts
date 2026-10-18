@@ -276,7 +276,7 @@ describe('the ship tools at /mcp', () => {
 
     const { events } = await call(session, { tool: followed, arguments: { crewToken, afterSeq: lastSeq } });
 
-    expect(events.map((event) => event.type)).toEqual(['ShipCommissioned', 'StartingPromptIssued']);
+    expect(events.map((event) => event.type)).toEqual(['ShipCommissioned', 'OwnerSet', 'StartingPromptIssued']);
   });
 
   it('refuses every fleet tool but its own to a ship with only crew:run', async () => {

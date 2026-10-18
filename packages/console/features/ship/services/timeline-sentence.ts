@@ -171,6 +171,18 @@ export function timelineSentence(entry: TimelineEntry, shipId: string): Timeline
         icon: 'commissioned',
       };
     }
+    case 'OwnerSet':
+      return {
+        parts: [text(stringDetail(entry, 'how') === 'inherited' ? "Owner set: its commissioner's owner" : 'Owner set: argo by default')],
+        tone: 'ended',
+        icon: 'commissioned',
+      };
+    case 'OwnerChanged':
+      return {
+        parts: stringDetail(entry, 'why') === 'ownerRetired' ? [text('Owner retired: argo owns it now')] : [text('Owner changed'), ...by(entry.actor)],
+        tone: 'ended',
+        icon: 'renamed',
+      };
     case 'StartingPromptIssued':
       return { parts: [text('Starting prompt issued')], tone: 'ended', icon: 'prompt' };
     case 'ShipClaimed':

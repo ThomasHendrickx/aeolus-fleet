@@ -89,7 +89,7 @@ describe('commissioning a ship', () => {
     expect(JSON.stringify(core.state)).not.toContain(`"${secret}"`);
   });
 
-  it('writes ShipCommissioned and StartingPromptIssued, caused by the commissioning ship', async () => {
+  it('writes ShipCommissioned, OwnerSet and StartingPromptIssued, caused by the commissioning ship', async () => {
     const { shipId } = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
     const credential = core.state.credentials.find((held) => held.shipId === shipId);
 
@@ -102,6 +102,7 @@ describe('commissioning a ship', () => {
         shipId,
         details: { name: 'scout', type: 'reviewer', kind: 'agent', scopes: 'messages:send messages:receive' },
       }),
+      expect.objectContaining({ type: 'OwnerSet', actor: { kind: 'ship', shipId: argoId }, shipId, details: { ownerShipId: argoId, how: 'argoByDefault' } }),
       expect.objectContaining({
         fleetId,
         type: 'StartingPromptIssued',

@@ -375,7 +375,7 @@ export async function hostedFleetWithViewer(core: InMemoryCore): Promise<{ fleet
 /** Adds the fleet's viewer ship straight to the in-memory state, as an installation's create with a viewer would. */
 export function addViewerShip(core: InMemoryCore, ship: { fleetId: FleetId }): { shipId: ShipId } {
   const shipId = core.ids('ship');
-  core.state.ships.push({ id: shipId, fleetId: ship.fleetId, name: 'viewer', type: 'viewer', kind: 'viewer', scopes: ['fleet:read'], note: null, createdAt: core.clock.now(), retiredAt: null, commission: null });
+  core.state.ships.push({ id: shipId, fleetId: ship.fleetId, name: 'viewer', type: 'viewer', kind: 'viewer', scopes: ['fleet:read'], note: null, createdAt: core.clock.now(), retiredAt: null, commission: null, owner: null });
   return { shipId };
 }
 
@@ -398,6 +398,8 @@ export function addAgentShip(
     createdAt: at,
     retiredAt,
     commission: null,
+    // argo's, as the owners migration made every ship from before owners (decision 0045).
+    owner: core.state.ships.find((held) => held.fleetId === fleetId && held.kind === 'operator')?.id ?? null,
   });
   core.state.credentials.push({
     id: core.ids('credential'),

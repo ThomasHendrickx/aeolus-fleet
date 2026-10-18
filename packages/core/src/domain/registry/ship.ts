@@ -36,7 +36,12 @@ export interface Ship {
    * Null for the operator ship, which the fleet's initialisation creates.
    */
   commission: { by: ShipId; idempotencyKey: string; requestHash: string } | null;
+  /** The ship that answers for it, a person's ship or argo (decision 0045); null for argo and the viewer. */
+  owner: ShipId | null;
 }
+
+/** How a ship got its owner at commission: its commissioner's owner, or argo when the commissioner has none. */
+export type OwnerSetHow = 'inherited' | 'argoByDefault';
 
 /** The operator ship's name. Reserved: no other ship can take it. */
 export const OPERATOR_SHIP_NAME = 'argo';
@@ -55,6 +60,7 @@ export function operatorShip(input: { id: ShipId; fleetId: FleetId; createdAt: D
     note: null,
     retiredAt: null,
     commission: null,
+    owner: null,
   };
 }
 
@@ -79,6 +85,7 @@ export function viewerShip(input: { id: ShipId; fleetId: FleetId; createdAt: Dat
     note: null,
     retiredAt: null,
     commission: null,
+    owner: null,
   };
 }
 
@@ -115,8 +122,9 @@ export function commissionShip(
     name: string;
     type: string;
     kind?: CommissionedShipKind;
-    /** The kind of the ship that commissions it. */
-    commissionerKind: ShipKind;
+    /** The ship that commissions it, and the fleet's argo: the new ship's owner is the commissioner's owner, argo by default (decision 0045). */
+    commissioner: Ship;
+    argoShipId: ShipId;
     note?: string;
     /** fleet:read, fleet:manage, crew:assign and/or crew:run, added to the agent scopes (ADR 0002, decision 0029). */
     fleetScopes?: readonly FleetScope[];
@@ -127,7 +135,7 @@ export function commissionShip(
   fleet: { activeShipNamed: Ship | undefined },
 ): Result<{ ship: Ship; events: NewEvent[] }, CommissionRefusal> {
   const { kind = 'agent' } = input;
-  if (kind !== 'agent' && input.commissionerKind !== 'operator') {
+  if (kind !== 'agent' && input.commissioner.kind !== 'operator') {
     return refuse('KIND_COMMISSIONED_BY_ARGO_ONLY', `Only argo commissions a ${kind} ship: commission an agent ship instead`);
   }
   const name = shipName(input.name);
@@ -151,6 +159,7 @@ export function commissionShip(
   }
 
   const { id, fleetId, at, actor } = input;
+  const owner = ownerAtCommission(input.commissioner, input.argoShipId);
   const ship: Ship = {
     id,
     fleetId,
@@ -162,6 +171,7 @@ export function commissionShip(
     createdAt: at,
     retiredAt: null,
     commission: input.commission,
+    owner: owner.ownerShipId,
   };
   return ok({
     ship,
@@ -174,8 +184,14 @@ export function commissionShip(
         shipId: id,
         details: { name: ship.name, type: ship.type, kind: ship.kind, scopes: ship.scopes.join(' ') },
       },
+      { fleetId, type: 'OwnerSet', occurredAt: at, actor, shipId: id, details: owner },
     ],
   });
+}
+
+/** The commissioner's owner, inherited; argo when the commissioner has none, as argo itself has none. */
+function ownerAtCommission(commissioner: Ship, argoShipId: ShipId): { ownerShipId: ShipId; how: OwnerSetHow } {
+  return commissioner.owner === null ? { ownerShipId: argoShipId, how: 'argoByDefault' } : { ownerShipId: commissioner.owner, how: 'inherited' };
 }
 
 /**

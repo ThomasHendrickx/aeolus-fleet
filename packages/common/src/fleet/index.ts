@@ -88,6 +88,8 @@ export type DeliveryState = z.infer<typeof deliveryStateSchema>;
 export const EVENT_TYPES = [
   'FleetInitialised',
   'ShipCommissioned',
+  'OwnerSet',
+  'OwnerChanged',
   'ShipClaimed',
   'LeaseRevoked',
   'CredentialRevoked',

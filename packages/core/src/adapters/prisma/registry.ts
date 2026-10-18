@@ -233,10 +233,11 @@ export function createPrismaLabelRepository(db: Db): LabelRepository {
 export function createPrismaShipRepository(db: Db): ShipRepository {
   return {
     create: async (ship) => {
-      const { commission, ...columns } = ship;
+      const { commission, owner, ...columns } = ship;
       await db.ship.create({
         data: {
           ...columns,
+          ownerShipId: owner,
           scopes: [...ship.scopes],
           commissionedBy: commission?.by ?? null,
           commissionKey: commission?.idempotencyKey ?? null,
@@ -286,7 +287,7 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
       // ship wait, but not the foreign key checks of rows that point at the
       // ship (a new lease, secret or event), so those never deadlock with it.
       const [row] = await db.$queryRaw<unknown[]>`
-        SELECT id, fleet_id, name, type, kind::text AS kind, scopes, note, created_at, retired_at, commissioned_by, commission_key, commission_request_hash
+        SELECT id, fleet_id, name, type, kind::text AS kind, scopes, note, created_at, retired_at, commissioned_by, commission_key, commission_request_hash, owner_ship_id
         FROM ships
         WHERE fleet_id = ${fleetId} AND id = ${shipId}
         FOR NO KEY UPDATE`;
@@ -297,7 +298,7 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
       // FOR NO KEY UPDATE to change it, such as a retire, wait for the send,
       // while other sends to the ship share the lock.
       const [row] = await db.$queryRaw<unknown[]>`
-        SELECT id, fleet_id, name, type, kind::text AS kind, scopes, note, created_at, retired_at, commissioned_by, commission_key, commission_request_hash
+        SELECT id, fleet_id, name, type, kind::text AS kind, scopes, note, created_at, retired_at, commissioned_by, commission_key, commission_request_hash, owner_ship_id
         FROM ships
         WHERE fleet_id = ${fleetId} AND id = ${shipId}
         FOR SHARE`;
@@ -307,7 +308,7 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
       // Read committed: a send that waited for a retire checks the ship again
       // once it is free, and no longer finds it by its name.
       const [row] = await db.$queryRaw<unknown[]>`
-        SELECT id, fleet_id, name, type, kind::text AS kind, scopes, note, created_at, retired_at, commissioned_by, commission_key, commission_request_hash
+        SELECT id, fleet_id, name, type, kind::text AS kind, scopes, note, created_at, retired_at, commissioned_by, commission_key, commission_request_hash, owner_ship_id
         FROM ships
         WHERE fleet_id = ${fleetId} AND name = ${name} AND retired_at IS NULL
         FOR SHARE`;
@@ -563,7 +564,7 @@ export function createPrismaFleetListing(db: Db): FleetListing {
       // valid per ship (partial unique indexes), so neither join multiplies rows.
       const rows = await db.$queryRaw<unknown[]>`
         SELECT s.id, s.fleet_id, s.name, s.type, s.kind::text AS kind, s.scopes, s.note, s.created_at, s.retired_at,
-               s.commissioned_by, s.commission_key, s.commission_request_hash,
+               s.commissioned_by, s.commission_key, s.commission_request_hash, s.owner_ship_id,
                l.location::text AS lease_location, l.location_description AS lease_location_description,
                l.harness AS lease_harness, l.started_at AS lease_started_at, l.last_seen_at AS lease_last_seen_at,
                l.report_state::text AS report_state, l.report_note, l.reported_at, l.report_details, l.report_details_version,
@@ -610,7 +611,7 @@ export function createPrismaFleetListing(db: Db): FleetListing {
     ship: async (fleetId, shipId) => {
       const [row] = await db.$queryRaw<unknown[]>`
         SELECT s.id, s.fleet_id, s.name, s.type, s.kind::text AS kind, s.scopes, s.note, s.created_at, s.retired_at,
-               s.commissioned_by, s.commission_key, s.commission_request_hash,
+               s.commissioned_by, s.commission_key, s.commission_request_hash, s.owner_ship_id,
                l.location::text AS lease_location, l.location_description AS lease_location_description,
                l.harness AS lease_harness, l.started_at AS lease_started_at, l.last_seen_at AS lease_last_seen_at,
                l.report_state::text AS report_state, l.report_note, l.reported_at, l.report_details, l.report_details_version,

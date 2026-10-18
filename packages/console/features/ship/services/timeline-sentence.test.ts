@@ -481,6 +481,32 @@ describe('timelineSentence', () => {
     });
   });
 
+  it('says how a ship got its owner at commission (decision 0045)', () => {
+    expect(onScoutsPage(anEntry('OwnerSet', { actor: argo, details: { ownerShipId: 'shp_argo', how: 'argoByDefault' } }))).toEqual({
+      sentence: 'Owner set: argo by default',
+      tone: 'ended',
+      icon: 'commissioned',
+    });
+    expect(onScoutsPage(anEntry('OwnerSet', { actor: argo, details: { ownerShipId: 'shp_thomas', how: 'inherited' } }))).toEqual({
+      sentence: "Owner set: its commissioner's owner",
+      tone: 'ended',
+      icon: 'commissioned',
+    });
+  });
+
+  it('says a ship changed owner, by argo or because its owner retired', () => {
+    expect(onScoutsPage(anEntry('OwnerChanged', { actor: argo, details: { why: 'setByArgo' } }))).toEqual({
+      sentence: 'Owner changed by argo',
+      tone: 'ended',
+      icon: 'renamed',
+    });
+    expect(onScoutsPage(anEntry('OwnerChanged', { actor: argo, details: { why: 'ownerRetired' } }))).toEqual({
+      sentence: 'Owner retired: argo owns it now',
+      tone: 'ended',
+      icon: 'renamed',
+    });
+  });
+
   it('says which label and value a ship was given or lost, and by whom', () => {
     expect(onScoutsPage(anEntry('LabelAssigned', { actor: argo, details: { key: 'os', value: 'macos' } }))).toEqual({
       sentence: 'Labelled os=macos by argo',

@@ -95,8 +95,12 @@ model Ship {
   commissionedBy        String?   @map("commissioned_by")
   commissionKey         String?   @map("commission_key")
   commissionRequestHash String?   @map("commission_request_hash")
+  /// The ship that answers for it, a person's ship or argo (decision 0045); null for argo and the viewer.
+  ownerShipId           String?   @map("owner_ship_id")
 
   fleet             Fleet            @relation(fields: [fleetId], references: [id])
+  owner             Ship?            @relation("ShipOwner", fields: [fleetId, ownerShipId], references: [fleetId, id], onDelete: Restrict)
+  ownedShips        Ship[]           @relation("ShipOwner")
   leases            Lease[]
   credentials       Credential[]
   sentMessages      Message[]        @relation("MessageSender")
@@ -126,6 +130,7 @@ model Ship {
   @@unique([fleetId], map: "ships_fleet_id_operator_key", where: raw("kind = 'operator'::ship_kind"))
   /// At most one viewer ship per fleet (decision 0022).
   @@unique([fleetId], map: "ships_fleet_id_viewer_key", where: raw("kind = 'viewer'::ship_kind"))
+  @@index([fleetId, ownerShipId])
   @@map("ships")
 }
 

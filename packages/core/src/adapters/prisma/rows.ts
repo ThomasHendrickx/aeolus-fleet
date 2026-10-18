@@ -65,6 +65,7 @@ const shipRow = z.object({
   commissionedBy: idSchema('ship').nullable(),
   commissionKey: z.string().nullable(),
   commissionRequestHash: z.string().nullable(),
+  ownerShipId: idSchema('ship').nullable(),
 });
 
 /** The commission's three columns, set together for an agent ship and null for argo. */
@@ -74,8 +75,8 @@ function commissionOf(columns: { by: ShipId | null; idempotencyKey: string | nul
 }
 
 export function toShip(row: unknown): Ship {
-  const { commissionedBy, commissionKey, commissionRequestHash, ...ship } = shipRow.parse(row);
-  return { ...ship, commission: commissionOf({ by: commissionedBy, idempotencyKey: commissionKey, requestHash: commissionRequestHash }) };
+  const { commissionedBy, commissionKey, commissionRequestHash, ownerShipId, ...ship } = shipRow.parse(row);
+  return { ...ship, commission: commissionOf({ by: commissionedBy, idempotencyKey: commissionKey, requestHash: commissionRequestHash }), owner: ownerShipId };
 }
 
 const shipSqlRow = z
@@ -92,6 +93,7 @@ const shipSqlRow = z
     commissioned_by: idSchema('ship').nullable(),
     commission_key: z.string().nullable(),
     commission_request_hash: z.string().nullable(),
+    owner_ship_id: idSchema('ship').nullable(),
   })
   .transform(
     (row): Ship => ({
@@ -105,6 +107,7 @@ const shipSqlRow = z
       createdAt: row.created_at,
       retiredAt: row.retired_at,
       commission: commissionOf({ by: row.commissioned_by, idempotencyKey: row.commission_key, requestHash: row.commission_request_hash }),
+      owner: row.owner_ship_id,
     }),
   );
 

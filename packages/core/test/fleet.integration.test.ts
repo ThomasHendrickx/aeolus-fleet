@@ -82,12 +82,13 @@ describe('commissioning a ship on Postgres', () => {
     await expect(core.prisma.lease.count({ where: { shipId } })).resolves.toBe(0);
   });
 
-  it('writes ShipCommissioned and StartingPromptIssued in the same transaction, caused by argo', async () => {
+  it('writes ShipCommissioned, OwnerSet and StartingPromptIssued in the same transaction, caused by argo', async () => {
     const { shipId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
     const credential = await core.prisma.credential.findFirst({ where: { shipId } });
 
     await expect(eventsAbout(shipId)).resolves.toEqual([
       ['ShipCommissioned', argoId, { name: 'scout', type: 'reviewer', kind: 'agent', scopes: 'messages:send messages:receive' }],
+      ['OwnerSet', argoId, { ownerShipId: argoId, how: 'argoByDefault' }],
       ['StartingPromptIssued', argoId, { credentialId: credential?.id }],
     ]);
   });
@@ -239,6 +240,7 @@ describe('getting a starting prompt on Postgres', () => {
     const [issued] = await validSecretsOfScout();
     await expect(eventsAbout(scoutId)).resolves.toEqual([
       ['ShipCommissioned', argoId, { name: 'scout', type: 'reviewer', kind: 'agent', scopes: 'messages:send messages:receive' }],
+      ['OwnerSet', argoId, { ownerShipId: argoId, how: 'argoByDefault' }],
       ['StartingPromptIssued', argoId, { credentialId: previous?.id }],
       ['CredentialRevoked', argoId, { credentialId: previous?.id }],
       ['StartingPromptIssued', argoId, { credentialId: issued?.id }],

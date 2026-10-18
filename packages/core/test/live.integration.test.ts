@@ -155,6 +155,7 @@ describe('following the fleet live', () => {
     await expect.poll(() => heard(following)).toEqual([
       'resync',
       'ShipCommissioned',
+      'OwnerSet',
       'StartingPromptIssued',
       'ShipClaimed',
       'CredentialRevoked',
@@ -166,6 +167,7 @@ describe('following the fleet live', () => {
       start + 3,
       start + 4,
       start + 5,
+      start + 6,
     ]);
     expect(following.items[1]?.item).toMatchObject({
       kind: 'event',
@@ -184,13 +186,15 @@ describe('following the fleet live', () => {
 
     await commissionScout('lookout');
     const back = await follow({ cookie, lastEventId: String(reached) });
-    await expect.poll(() => heard(back)).toEqual(['ShipCommissioned', 'StartingPromptIssued']);
+    await expect.poll(() => heard(back)).toEqual(['ShipCommissioned', 'OwnerSet', 'StartingPromptIssued']);
     await commissionScout('pilot');
 
     await expect.poll(() => heard(back)).toEqual([
       'ShipCommissioned',
+      'OwnerSet',
       'StartingPromptIssued',
       'ShipCommissioned',
+      'OwnerSet',
       'StartingPromptIssued',
     ]);
     expect(Number(back.items[0]?.trackedId)).toBe(reached + 1);
@@ -208,7 +212,7 @@ describe('following the fleet live', () => {
     }
     await commissionScout('helmsman');
 
-    await expect.poll(() => heard(following), { timeout: 10_000 }).toEqual(['resync', 'ShipCommissioned', 'StartingPromptIssued']);
+    await expect.poll(() => heard(following), { timeout: 10_000 }).toEqual(['resync', 'ShipCommissioned', 'OwnerSet', 'StartingPromptIssued']);
   });
 
   it('refuses a browser that is not signed in', async () => {
