@@ -197,7 +197,8 @@ export type SetBuiltInRuleRefusal = DomainError<'BUILT_IN_RULE_FIXED' | 'NOT_THE
 /**
  * A built-in rule turned on or off, as its own action (decision 0034): the
  * viewer reading by argo, open for one verb by the fleet's networking plugin.
- * argo, the owner and the answer are never off, so turning them is refused.
+ * argo, the owner, the answer and a connected plugin's reading are never off,
+ * so turning them is refused.
  * A change moves the version and writes BuiltInRuleChanged; a rule already
  * as asked changes nothing.
  */
@@ -206,7 +207,7 @@ export function setBuiltInRule(
   change: { input: SetBuiltInRuleInput; caller: { shipId: ShipId; isOperator: boolean }; at: Date; actor: Actor },
 ): Result<{ settings: NetworkSettings; events: NewEvent[] }, SetBuiltInRuleRefusal> {
   const { input, caller } = change;
-  if (input.rule === 'argo' || input.rule === 'owner' || input.rule === 'answer') {
+  if (input.rule === 'argo' || input.rule === 'owner' || input.rule === 'answer' || input.rule === 'pluginRead') {
     return refuse('BUILT_IN_RULE_FIXED', `The built-in rule ${input.rule} is never off (decision 0034)`);
   }
   if (input.rule === 'viewerRead' && !caller.isOperator) {

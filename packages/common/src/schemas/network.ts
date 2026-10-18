@@ -69,17 +69,18 @@ export const setNetworkRulesInputSchema = z.object({ rules: z.array(networkRuleS
 
 /**
  * The built-in rules, core's own (decision 0034): argo to and from every ship,
- * the owner's ship to the ships it owns, and an answer to the sender of the
- * message it answers, which are never off; the viewer reading every ship,
+ * the owner's ship to the ships it owns, an answer to the sender of the
+ * message it answers, and a connected plugin's ship reading every ship, which
+ * are never off; the viewer reading every ship,
  * which argo turns off or on; and open, every ship to every ship, one per
  * verb, which the networking plugin turns off or on.
  */
-export const BUILT_IN_RULES = ['argo', 'owner', 'answer', 'viewerRead', 'open'] as const;
+export const BUILT_IN_RULES = ['argo', 'owner', 'answer', 'pluginRead', 'viewerRead', 'open'] as const;
 
 export type BuiltInRule = (typeof BUILT_IN_RULES)[number];
 
 /** The built-in rules that are never off. */
-export const FIXED_BUILT_IN_RULES = ['argo', 'owner', 'answer'] as const satisfies readonly BuiltInRule[];
+export const FIXED_BUILT_IN_RULES = ['argo', 'owner', 'answer', 'pluginRead'] as const satisfies readonly BuiltInRule[];
 
 /** Input of `fleet.setBuiltInRule` (fleet:network): a built-in rule turned on or off, open for one verb, which it names and no other rule does. */
 export const setBuiltInRuleInputSchema = z
@@ -93,7 +94,7 @@ export type SetBuiltInRuleInput = z.infer<typeof setBuiltInRuleInputSchema>;
  * other rule does, and whether it is on; the fixed ones always are.
  */
 export const builtInRuleStateSchema = z.union([
-  z.object({ rule: z.enum(['argo', 'owner', 'answer', 'viewerRead']), isOn: z.boolean() }),
+  z.object({ rule: z.enum(['argo', 'owner', 'answer', 'pluginRead', 'viewerRead']), isOn: z.boolean() }),
   z.object({ rule: z.literal('open'), verb: z.enum(NETWORK_VERBS), isOn: z.boolean() }),
 ]);
 

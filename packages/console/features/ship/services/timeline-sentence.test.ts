@@ -480,6 +480,14 @@ describe('timelineSentence', () => {
     });
   });
 
+  it('says argo connected the ship as a plugin, which reads every ship', () => {
+    expect(onScoutsPage(anEntry('PluginConnected', { actor: argo, details: {} }))).toEqual({ sentence: 'Connected as a plugin: reads every ship by argo', tone: 'ended', icon: 'fleet' });
+  });
+
+  it('says the ship is no longer a connected plugin, and why', () => {
+    expect(onScoutsPage(anEntry('PluginDisconnected', { actor: argo, details: { why: 'released' } })).sentence).toBe('No longer a connected plugin: released by argo');
+  });
+
   it('says the networking plugin unregistered, back to all-to-all', () => {
     expect(onScoutsPage(anEntry('NetworkPluginUnregistered', { actor: argo, details: { version: 5 } }))).toEqual({
       sentence: 'Networking plugin unregistered: every ship reaches every ship, version 5 by argo',
