@@ -30,6 +30,22 @@ export const SCOPES = [
 export const scopeSchema = z.enum(SCOPES);
 export type Scope = z.infer<typeof scopeSchema>;
 
+/** What each core scope allows, on one line (decision 0046). */
+export const CORE_SCOPE_DESCRIPTIONS: Readonly<Record<Scope, string>> = {
+  'messages:send': 'Send, answer and ask other ships',
+  'messages:receive': 'Receive and confirm the deliveries to its own ship',
+  'messages:force': 'Send a forced message, which comes first',
+  'fleet:read': 'Read ships, timelines, messages, labels, events and fleet-wide views',
+  'fleet:manage': 'Commission, rename, release, recrew and retire ships; starting prompts, pings, crew requests and worktree clears',
+  'crew:assign': 'Assign crew requests to trierarchs and explain why none fits',
+  'crew:run': 'Crew the ships whose crew requests are assigned to its ship',
+  'labels:define': 'Define labels, change their values and declare network rules on them',
+  'labels:assign': 'Assign and unassign the values of labels its ship owns',
+  'fleet:network': "The networking plugin's calls: the fleet's network rules",
+  'scopes:declare': 'Take up one plugin namespace and declare its scopes',
+  'scopes:grant': 'Grant and revoke scopes on a live ship, within what its ship may grant',
+};
+
 /** The namespaces core reserves and enforces; every other one is a plugin's (decision 0046). */
 export const CORE_NAMESPACES = ['messages', 'fleet', 'crew', 'labels', 'scopes'] as const;
 

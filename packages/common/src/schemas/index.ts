@@ -18,6 +18,7 @@ export * from './operator-inbox.js';
 export * from './ping.js';
 export * from './question.js';
 export * from './report.js';
+export * from './scopes.js';
 export * from './turn.js';
 export * from './ship.js';
 export * from './statement.js';

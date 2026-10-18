@@ -26,6 +26,7 @@ import {
   createPrismaNoticeRepository,
 } from './adapters/prisma/installation.js';
 import { createPrismaDeclaredNetworkRulesRepository, createPrismaReachRefusalRepository } from './adapters/prisma/network.js';
+import { createPrismaScopeNamespaceRepository } from './adapters/prisma/scope-namespaces.js';
 import { createPrismaBulkUnitOfWork, createPrismaCallers, createPrismaUnitOfWork } from './adapters/prisma/unit-of-work.js';
 import { createAuthenticate, type Authenticate } from './domain/identity/authenticate.js';
 import { createDismissNotice, type DismissNotice } from './domain/identity/dismiss-notice.js';
@@ -89,6 +90,7 @@ import { createConfirmWorktreeCleared, type ConfirmWorktreeCleared } from './dom
 import { createReadClearRequests, type ReadClearRequests } from './domain/registry/read-clear-requests.js';
 import { createRequestWorktreeClear, type RequestWorktreeClear } from './domain/registry/request-worktree-clear.js';
 import { createExplainCrewRequest, type ExplainCrewRequest } from './domain/registry/explain-crew-request.js';
+import { createDeclareScopes, type DeclareScopes } from './domain/registry/declare-scopes.js';
 import { createDefineLabel, type DefineLabel } from './domain/registry/define-label.js';
 import { createExplainReach, type ExplainReach } from './domain/registry/explain-reach.js';
 import { createReadReachRefusals, type ReadReachRefusals } from './domain/registry/read-reach-refusals.js';
@@ -103,6 +105,7 @@ import { createChangeLabelValues, type ChangeLabelValues } from './domain/regist
 import { createAssignLabel, type AssignLabel } from './domain/registry/assign-label.js';
 import { createUnassignLabel, type UnassignLabel } from './domain/registry/unassign-label.js';
 import { createListLabels, type ListLabels } from './domain/registry/list-labels.js';
+import { createListScopes, type ListScopes } from './domain/registry/list-scopes.js';
 import { createDeleteLabel, type DeleteLabel } from './domain/registry/delete-label.js';
 import { createFindLabelValue, type FindLabelValue } from './domain/registry/find-label-value.js';
 import { createReadReportLog, type ReadReportLog } from './domain/registry/report-log.js';
@@ -163,6 +166,8 @@ export interface UseCases {
   confirmWorktreeCleared: ConfirmWorktreeCleared;
   explainCrewRequest: ExplainCrewRequest;
   defineLabel: DefineLabel;
+  declareScopes: DeclareScopes;
+  listScopes: ListScopes;
   setNetworkRules: SetNetworkRules;
   registerNetworkPlugin: RegisterNetworkPlugin;
   unregisterNetworkPlugin: UnregisterNetworkPlugin;
@@ -329,6 +334,8 @@ export function createUseCases(options: {
     readClearRequests: createReadClearRequests({ clearRequests: createPrismaClearRequestRepository(prisma), readReach }),
     confirmWorktreeCleared: createConfirmWorktreeCleared({ uow, clock, ids }),
     defineLabel: createDefineLabel({ uow, clock, ids }),
+    declareScopes: createDeclareScopes({ uow, clock, ids }),
+    listScopes: createListScopes({ scopeNamespaces: createPrismaScopeNamespaceRepository(prisma), ships: createPrismaShipRepository(prisma) }),
     setNetworkRules: createSetNetworkRules({ uow, clock, ids }),
     registerNetworkPlugin: createRegisterNetworkPlugin({ uow, clock, ids }),
     unregisterNetworkPlugin: createUnregisterNetworkPlugin({ uow, clock, ids }),

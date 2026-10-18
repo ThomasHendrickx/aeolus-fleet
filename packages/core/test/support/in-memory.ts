@@ -208,6 +208,8 @@ export interface InMemoryCore {
   reachRefusals: ReachRefusalRepository;
   /** The rules ships declared, read outside a unit of work. */
   declaredNetworkRules: DeclaredNetworkRulesRepository;
+  /** The plugin namespaces, read outside a unit of work. */
+  scopeNamespaces: ScopeNamespaceRepository;
   callers: CallerLookup;
   accounts: OperatorAccountLookup;
   listing: FleetListing;
@@ -1827,7 +1829,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
   };
 
-  return { state, uow, fleets: tx.fleets, pushedCrews, ships: tx.ships, leases: tx.leases, crewRequests: tx.crewRequests, clearRequests: tx.clearRequests, labels: tx.labels, reachRefusals: tx.reachRefusals, declaredNetworkRules: tx.declaredNetworkRules, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, health: createInMemoryHealthRecords(state), notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeups };
+  return { state, uow, fleets: tx.fleets, pushedCrews, ships: tx.ships, leases: tx.leases, crewRequests: tx.crewRequests, clearRequests: tx.clearRequests, labels: tx.labels, reachRefusals: tx.reachRefusals, declaredNetworkRules: tx.declaredNetworkRules, scopeNamespaces: tx.scopeNamespaces, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, health: createInMemoryHealthRecords(state), notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeups };
 }
 
 /** The tables whose rows belong to a fleet by their fleet id: all but the fleets and the installation's requests. */

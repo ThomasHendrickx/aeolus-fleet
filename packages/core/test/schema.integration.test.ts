@@ -119,6 +119,7 @@ describe('migrations', () => {
       'operators',
       'overdue_deliveries',
       'reach_refusals',
+      'scope_namespaces',
       'ship_labels',
       'ships',
       'sign_in_tickets',

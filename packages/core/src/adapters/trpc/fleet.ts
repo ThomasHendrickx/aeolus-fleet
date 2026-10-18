@@ -64,6 +64,8 @@ import {
   assignLabelInputSchema,
   changeLabelValuesInputSchema,
   changeLabelValuesOutputSchema,
+  declareScopesInputSchema,
+  declareScopesOutputSchema,
   defineLabelInputSchema,
   defineLabelOutputSchema,
   deleteLabelInputSchema,
@@ -85,6 +87,7 @@ import {
   fleetListInputSchema,
   labelWriteOutputSchema,
   labelsOutputSchema,
+  scopesOutputSchema,
   unassignLabelInputSchema,
 } from '@aeolus-fleet/common';
 import { tracked, type TrackedEnvelope } from '@trpc/server';
@@ -466,6 +469,33 @@ export const fleetRouter = router({
     })
     .output(labelsOutputSchema)
     .query(async ({ ctx }) => (await ctx.useCases.listLabels(ctx.caller)).map((label) => ({ ...label, values: [...label.values] }))),
+
+  /** Every namespace of the fleet and its scopes, core first (decision 0046). */
+  scopes: scopedProcedure('fleet:read')
+    .meta({
+      description: [
+        "Needs fleet:read. The fleet's scopes by namespace: the core namespaces first (messages, fleet, crew, labels, scopes), declared by no ship,",
+        'then each plugin namespace by name, with the ship that declared it by id and name. Each scope with its one-line description.',
+      ].join(' '),
+    })
+    .output(scopesOutputSchema)
+    .query(async ({ ctx }) => (await ctx.useCases.listScopes(ctx.caller)).map((namespace) => ({ ...namespace, scopes: [...namespace.scopes] }))),
+
+  /** Takes up the caller's plugin namespace with its whole list of scopes (decision 0046). */
+  declareScopes: scopedProcedure('scopes:declare')
+    .meta({
+      description: [
+        'Needs scopes:declare. Takes up one plugin namespace for your ship, for good, with its whole list of scopes: each <namespace>:<action> with a one-line description, at most 20.',
+        'Call it again with the whole list to add scopes or change descriptions; removing a scope a ship holds is CONFLICT. Core stores your scopes and never checks them: your plugin enforces them.',
+        'A core namespace is refused; a namespace another ship took, or a second namespace, is CONFLICT. The namespace goes when your ship retires.',
+      ].join(' '),
+    })
+    .input(declareScopesInputSchema)
+    .output(declareScopesOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { namespace, scopes } = okOrThrow(await ctx.useCases.declareScopes(ctx.caller, input));
+      return { namespace, scopes: [...scopes] };
+    }),
 
   /** Defines a label the caller's ship then owns (decision 0031). */
   defineLabel: scopedProcedure('labels:define')

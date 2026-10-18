@@ -53,6 +53,7 @@ model Fleet {
   shipLabels       ShipLabel[]
   networkSettings  NetworkSettings?
   declaredNetworkRules DeclaredNetworkRules[]
+  scopeNamespaces  ScopeNamespace[]
   reachRefusals    ReachRefusal[]
   credentials      Credential[]
   messages         Message[]
@@ -120,6 +121,7 @@ model Ship {
   ownedLabels       Label[]          @relation("LabelOwner")
   labels            ShipLabel[]      @relation("ShipLabelShip")
   declaredNetworkRules DeclaredNetworkRules[]
+  declaredNamespace ScopeNamespace?
 
   @@unique([fleetId, id])
   /// An idempotency key is used once per commissioning ship.
@@ -393,6 +395,24 @@ model DeclaredNetworkRules {
 
   @@id([fleetId, shipId])
   @@map("declared_network_rules")
+}
+
+/// A plugin's namespace (decision 0046): taken up for good by the ship that
+/// declared it, one per ship and unique in the fleet, with its whole list of
+/// scopes and their descriptions as JSON, in order. It goes when its declarer
+/// retires.
+model ScopeNamespace {
+  fleetId    String @map("fleet_id")
+  namespace  String
+  declaredBy String @map("declared_by")
+  scopes     Json
+
+  fleet    Fleet @relation(fields: [fleetId], references: [id])
+  declarer Ship  @relation(fields: [fleetId, declaredBy], references: [fleetId, id])
+
+  @@id([fleetId, namespace])
+  @@unique([fleetId, declaredBy])
+  @@map("scope_namespaces")
 }
 
 /// A send the network rules refused (decision 0034), recorded in the

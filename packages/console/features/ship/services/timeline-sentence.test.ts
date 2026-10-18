@@ -447,6 +447,18 @@ describe('timelineSentence', () => {
     });
   });
 
+  it('says a plugin declared its namespace and how many scopes (decision 0046)', () => {
+    expect(onScoutsPage(anEntry('ScopesDeclared', { actor: scout, details: { namespace: 'squadrons', scopes: 2 } }))).toEqual({
+      sentence: 'Scopes declared: namespace squadrons, 2 scopes by scout',
+      tone: 'ended',
+      icon: 'fleet',
+    });
+  });
+
+  it('says one scope in the singular', () => {
+    expect(onScoutsPage(anEntry('ScopesDeclared', { actor: scout, details: { namespace: 'squadrons', scopes: 1 } })).sentence).toBe('Scopes declared: namespace squadrons, 1 scope by scout');
+  });
+
   it('says a networking plugin registered, what happens while it is unavailable, at which version', () => {
     expect(onScoutsPage(anEntry('NetworkPluginRegistered', { actor: argo, details: { version: 4, whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 120 } }))).toEqual({
       sentence: 'Networking plugin registered: while unavailable keep-latest, version 4 by argo',
