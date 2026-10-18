@@ -65,6 +65,7 @@ import { createSetInstallationSettings } from '../../src/domain/registry/set-ins
 import { createReadFleetLimits } from '../../src/domain/shared/read-fleet-limits.js';
 import { createDeregister } from '../../src/domain/registry/deregister.js';
 import { createGetShip } from '../../src/domain/registry/get-ship.js';
+import { createReadOnBehalf } from '../../src/domain/registry/read-on-behalf.js';
 import { createGetStartingPrompt } from '../../src/domain/registry/get-starting-prompt.js';
 import { createInitialiseFleet, type FleetInitialised } from '../../src/domain/registry/initialise-fleet.js';
 import { createListFleet } from '../../src/domain/registry/list-fleet.js';
@@ -225,6 +226,7 @@ export function registryUseCases(core: InMemoryCore) {
     getInstallationFleet: createGetInstallationFleet({ fleets: core.installationFleets, settings: core.installationSettings, health: core.health, clock: core.clock }),
     listFleet: createListFleet({ listing: core.listing, readReach: readReachOf(core) }),
     getShip: createGetShip({ listing: core.listing, readReach: readReachOf(core) }),
+    readOnBehalf: createReadOnBehalf({ ships: core.ships }),
     whoami: createWhoami({ ships: core.ships }),
     report: createReport({ uow: core.uow, clock: core.clock, ids: core.ids }),
     setStatement: createSetStatement({ uow: core.uow, clock: core.clock, ids: core.ids }),
