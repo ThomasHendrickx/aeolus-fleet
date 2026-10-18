@@ -2209,6 +2209,16 @@ describe('network rules at the API', () => {
     await expect(refusalOf(asArgo.fleet.setBuiltInRule.mutate({ rule: 'owner', isOn: false }))).resolves.toEqual({ code: 'FORBIDDEN', message: 'The built-in rule owner is never off (decision 0034)' });
     await expect(codeOf(asArgo.fleet.setBuiltInRule.mutate({ rule: 'open', isOn: false }))).resolves.toBe('BAD_REQUEST');
   });
+
+  it('let argo read the built-in rules as they are now, and refuse a ship without fleet:network with FORBIDDEN', async () => {
+    const asArgo = await signedInArgo();
+    await asArgo.fleet.setBuiltInRule.mutate({ rule: 'viewerRead', isOn: false });
+    const reader = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:read'])}` });
+
+    await expect(asArgo.fleet.builtInRules.query()).resolves.toContainEqual({ rule: 'viewerRead', isOn: false });
+    await asArgo.fleet.setBuiltInRule.mutate({ rule: 'viewerRead', isOn: true });
+    await expect(refusalOf(reader.fleet.builtInRules.query())).resolves.toEqual({ code: 'FORBIDDEN', message: 'This call needs the fleet:network scope' });
+  });
 });
 
 describe('the networking plugin at the API', () => {
