@@ -7,6 +7,7 @@ import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, shipActor } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
+import { checkManage, keepingReachRefusal, type CheckManageTx, type NotReachable } from './check-reach.js';
 import { removeClearRequestsOf } from './clear-request.js';
 import { removeCrewRequest } from './crew-request.js';
 import { retireLabelsWith } from './label.js';
@@ -17,17 +18,17 @@ import type { ClearRequestRepository, CrewRequestRepository, DeclaredNetworkRule
 import { changeOwner, checkCanRetire, type RetireRefusal } from './ship.js';
 import { releaseWithDeclarer } from './scope-namespace.js';
 
-export interface RetireShipTx extends LeaseTx, CredentialTx {
+export interface RetireShipTx extends LeaseTx, CredentialTx, Omit<CheckManageTx, 'ships' | 'leases' | 'labels' | 'networkSettings'> {
   ships: ShipRepository;
   crewRequests: CrewRequestRepository;
   clearRequests: ClearRequestRepository;
   labels: LabelRepository;
-  networkSettings: Pick<NetworkSettingsRepository, 'findForUpdate' | 'save'>;
+  networkSettings: Pick<NetworkSettingsRepository, 'find' | 'findForShare' | 'findForUpdate' | 'save'>;
   declaredNetworkRules: Pick<DeclaredNetworkRulesRepository, 'find' | 'save'>;
   scopeNamespaces: Pick<ScopeNamespaceRepository, 'findByDeclarer' | 'lockNamespace' | 'remove'>;
 }
 
-export type RetireShipRefusal = DomainError<'SHIP_NOT_FOUND'> | RetireRefusal;
+export type RetireShipRefusal = DomainError<'SHIP_NOT_FOUND'> | NotReachable | RetireRefusal;
 
 export type RetireShip = (
   caller: Caller,
@@ -54,7 +55,10 @@ export type RetireShip = (
  * with it: all-to-all (decision 0035). A plugin namespace it declared goes,
  * and its scopes leave every ship, one ScopesChanged each (decision 0046).
  * The caller's scope (fleet:manage) is
- * checked before this runs.
+ * checked before this runs, and manage reach on the ship here (decision
+ * 0034), a refusal storing only its record. That check reads the network
+ * settings without a lock: retire takes them exclusively later, after the
+ * ships it owns, and a shared hold taken first would deadlock two retires.
  *
  * It locks the ship first, as a release does (FOR NO KEY UPDATE). A send to
  * the ship holds it FOR SHARE while it resolves the selector, so the two
@@ -68,11 +72,18 @@ export function createRetireShip(deps: {
   ids: IdGenerator;
 }): RetireShip {
   return (caller, { shipId }) =>
-    deps.uow.run(async (tx): Promise<Result<{ abandonedDeliveries: number }, RetireShipRefusal>> => {
+    keepingReachRefusal(deps.uow, async (tx): Promise<Result<{ abandonedDeliveries: number }, RetireShipRefusal>> => {
       const { fleetId } = caller;
       const ship = await tx.ships.findForUpdate(fleetId, shipId);
       if (!ship) {
         return refuse('SHIP_NOT_FOUND', `Ship ${shipId} does not exist`);
+      }
+      const managed = await checkManage(
+        { tx, ids: deps.ids },
+        { fleetId, managerShipId: caller.shipId, shipId, at: deps.clock.now(), settings: await tx.networkSettings.find(fleetId) },
+      );
+      if (!managed.isOk) {
+        return managed;
       }
       const retirable = checkCanRetire(ship);
       if (!retirable.isOk) {

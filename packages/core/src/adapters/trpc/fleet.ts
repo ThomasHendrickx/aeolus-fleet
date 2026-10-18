@@ -104,7 +104,7 @@ import type { DeliveryWay } from '../../domain/shared/delivery-way.js';
 import type { SequencedEvent } from '../../domain/shared/events.js';
 import { describedHealth } from './health.js';
 import { presentStartingPrompt } from './starting-prompt-text.js';
-import { anyScopeProcedure, checkCallerStillHolds, okOrThrow, router, scopedCrewCallerProcedure, scopedProcedure } from './trpc.js';
+import { anyScopeProcedure, authenticatedProcedure, checkCallerStillHolds, okOrThrow, router, scopedCrewCallerProcedure, scopedProcedure } from './trpc.js';
 
 /** A crew request as the API answers it: its times in ISO 8601, and when its session started as `startedAt`. */
 function crewRequestOutputOf<T extends { requestedAt: Date; sessionStartedAt: Date | null; givenBack: ShipFacts['crewRequestGivenBack'] }>(request: T | null) {
@@ -408,8 +408,8 @@ export const fleetRouter = router({
       return {};
     }),
 
-  /** Gives a ship a new owner, an active person's ship or argo: argo's only (decision 0045). */
-  setOwner: scopedProcedure('fleet:manage')
+  /** Gives a ship a new owner, an active person's ship or argo: argo's alone, by its kind, no scope (decisions 0045, 0046). */
+  setOwner: authenticatedProcedure
     .input(setOwnerInputSchema)
     .output(setOwnerOutputSchema)
     .mutation(async ({ ctx, input }) => {

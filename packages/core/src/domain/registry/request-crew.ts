@@ -7,20 +7,21 @@ import { recordEvent, shipActor, type EventLog } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { machineLabelsOf, requestCrew, type RequestCrewRefusal } from './crew-request.js';
+import { checkManage, keepingReachRefusal, type CheckManageTx, type NotReachable } from './check-reach.js';
 import type { CrewRequestRepository, LabelRepository, ShipRepository } from './ports.js';
 import type { JsonObject } from './report-details.js';
 
-export interface RequestCrewTx {
-  ships: Pick<ShipRepository, 'findForUpdate'>;
+export interface RequestCrewTx extends Omit<CheckManageTx, 'ships' | 'labels'> {
+  ships: Pick<ShipRepository, 'find' | 'findForUpdate'>;
   crewRequests: CrewRequestRepository;
-  labels: Pick<LabelRepository, 'findByValueForShare'>;
+  labels: Pick<LabelRepository, 'findByValueForShare' | 'carriedBy' | 'find'>;
   events: EventLog;
 }
 
 export type RequestCrew = (
   caller: Caller,
   input: { shipId: ShipId; settings: JsonObject },
-) => Promise<Result<{ settingsVersion: number }, DomainError<'SHIP_NOT_FOUND'> | RequestCrewRefusal>>;
+) => Promise<Result<{ settingsVersion: number }, DomainError<'SHIP_NOT_FOUND'> | NotReachable | RequestCrewRefusal>>;
 
 /**
  * Use case: a requester asks that a ship be kept crewed, with these settings,
@@ -33,10 +34,14 @@ export type RequestCrew = (
  */
 export function createRequestCrew(deps: { uow: UnitOfWork<RequestCrewTx>; clock: Clock; ids: IdGenerator }): RequestCrew {
   return (caller, input) =>
-    deps.uow.run(async (tx): Promise<Result<{ settingsVersion: number }, DomainError<'SHIP_NOT_FOUND'> | RequestCrewRefusal>> => {
+    keepingReachRefusal(deps.uow, async (tx): Promise<Result<{ settingsVersion: number }, DomainError<'SHIP_NOT_FOUND'> | NotReachable | RequestCrewRefusal>> => {
       const ship = await tx.ships.findForUpdate(caller.fleetId, input.shipId);
       if (!ship) {
         return refuse('SHIP_NOT_FOUND', `Ship ${input.shipId} does not exist`);
+      }
+      const managed = await checkManage({ tx, ids: deps.ids }, { fleetId: caller.fleetId, managerShipId: caller.shipId, shipId: ship.id, at: deps.clock.now() });
+      if (!managed.isOk) {
+        return managed;
       }
       const current = await tx.crewRequests.find(caller.fleetId, ship.id);
       const labelValues = new Set<LabelValueId>();

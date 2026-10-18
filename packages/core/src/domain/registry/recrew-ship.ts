@@ -8,14 +8,15 @@ import { shipActor } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { endLease, type LeaseTx } from './leases.js';
+import { checkManage, keepingReachRefusal, type CheckManageTx, type NotReachable } from './check-reach.js';
 import type { ShipRepository } from './ports.js';
 import type { ReleaseShipTx } from './release-ship.js';
 import { checkCanRelease, type ReleaseRefusal } from './ship.js';
 import { issueStartingPrompt, type IssuedStartingPrompt, type StartingPromptTx } from './starting-prompt.js';
 
-export type RecrewShipTx = ReleaseShipTx & StartingPromptTx & LeaseTx & { ships: ShipRepository };
+export type RecrewShipTx = ReleaseShipTx & StartingPromptTx & LeaseTx & CheckManageTx & { ships: ShipRepository };
 
-export type RecrewShipRefusal = DomainError<'SHIP_NOT_FOUND'> | ReleaseRefusal;
+export type RecrewShipRefusal = DomainError<'SHIP_NOT_FOUND'> | NotReachable | ReleaseRefusal;
 
 export type RecrewShip = (
   caller: Caller,
@@ -37,11 +38,15 @@ export function createRecrewShip(deps: {
   secrets: Omit<SecretTools, 'ids'>;
 }): RecrewShip {
   return (caller, { shipId }) =>
-    deps.uow.run(async (tx): Promise<Result<IssuedStartingPrompt, RecrewShipRefusal>> => {
+    keepingReachRefusal(deps.uow, async (tx): Promise<Result<IssuedStartingPrompt, RecrewShipRefusal>> => {
       const { fleetId } = caller;
       const ship = await tx.ships.findForUpdate(fleetId, shipId);
       if (!ship) {
         return refuse('SHIP_NOT_FOUND', `Ship ${shipId} does not exist`);
+      }
+      const managed = await checkManage({ tx, ids: deps.ids }, { fleetId: fleetId, managerShipId: caller.shipId, shipId: ship.id, at: deps.clock.now() });
+      if (!managed.isOk) {
+        return managed;
       }
       const actor = shipActor(caller.shipId);
       const at = deps.clock.now();

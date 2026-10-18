@@ -64,7 +64,7 @@ const FINAL_STATUSES: ReadonlySet<CrewStatus> = new Set(['running', 'restarting'
 
 type NotFound = DomainError<'CREW_REQUEST_NOT_FOUND'>;
 type Releasing = DomainError<'CREW_REQUEST_RELEASING'>;
-type NotTheCallers = DomainError<'CREW_REQUEST_NOT_ASSIGNED_TO_CALLER'>;
+export type NotTheCallers = DomainError<'CREW_REQUEST_NOT_ASSIGNED_TO_CALLER'>;
 
 export type RequestCrewRefusal = CrewRequestShipRefusal | Releasing | DomainError<'CREW_REQUEST_SETTINGS_TOO_LARGE'> | DomainError<'CREW_REQUEST_SETTINGS_INVALID'>;
 

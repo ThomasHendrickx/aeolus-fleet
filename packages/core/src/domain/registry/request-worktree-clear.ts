@@ -7,15 +7,16 @@ import { recordEvent, shipActor, type EventLog } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { requestWorktreeClear, type RequestWorktreeClearRefusal } from './clear-request.js';
+import { checkManage, keepingReachRefusal, type CheckManageTx, type NotReachable } from './check-reach.js';
 import type { ClearRequestRepository, ShipRepository } from './ports.js';
 
-export interface RequestWorktreeClearTx {
+export interface RequestWorktreeClearTx extends Omit<CheckManageTx, 'ships'> {
   ships: Pick<ShipRepository, 'find' | 'findForUpdate'>;
   clearRequests: ClearRequestRepository;
   events: EventLog;
 }
 
-export type RequestWorktreeClearUseCaseRefusal = DomainError<'SHIP_NOT_FOUND'> | RequestWorktreeClearRefusal;
+export type RequestWorktreeClearUseCaseRefusal = DomainError<'SHIP_NOT_FOUND'> | NotReachable | RequestWorktreeClearRefusal;
 
 export type RequestWorktreeClear = (
   caller: Caller,
@@ -30,7 +31,7 @@ export type RequestWorktreeClear = (
  */
 export function createRequestWorktreeClear(deps: { uow: UnitOfWork<RequestWorktreeClearTx>; clock: Clock; ids: IdGenerator }): RequestWorktreeClear {
   return (caller, input) =>
-    deps.uow.run(async (tx): Promise<Result<undefined, RequestWorktreeClearUseCaseRefusal>> => {
+    keepingReachRefusal(deps.uow, async (tx): Promise<Result<undefined, RequestWorktreeClearUseCaseRefusal>> => {
       const { fleetId } = caller;
       const trierarch = await tx.ships.findForUpdate(fleetId, input.trierarchShipId);
       if (!trierarch) {
@@ -38,6 +39,10 @@ export function createRequestWorktreeClear(deps: { uow: UnitOfWork<RequestWorktr
       }
       if (!(await tx.ships.find(fleetId, input.shipId))) {
         return refuse('SHIP_NOT_FOUND', `Ship ${input.shipId} does not exist`);
+      }
+      const managed = await checkManage({ tx, ids: deps.ids }, { fleetId: fleetId, managerShipId: caller.shipId, shipId: input.shipId, at: deps.clock.now() });
+      if (!managed.isOk) {
+        return managed;
       }
       const key = { trierarchShipId: trierarch.id, shipId: input.shipId, repository: input.repository };
       const requested = requestWorktreeClear(
