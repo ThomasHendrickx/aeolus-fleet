@@ -23,6 +23,7 @@ function aTemplate(overrides: Partial<TemplateVersion> = {}): TemplateVersion {
     handoffs: [],
     crew: {},
     parameters: [],
+    scopes: [],
     ...overrides,
   };
 }

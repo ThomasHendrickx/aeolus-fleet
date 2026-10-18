@@ -32,6 +32,7 @@ function aSquadron(state: SquadronState): Squadron {
     members: [aMember(PLANNER, 'planner'), aMember(TESTER, 'tester')],
     formedAt: FORMED,
     sailedAt: null,
+    formingShip: null,
   };
 }
 

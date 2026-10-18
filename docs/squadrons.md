@@ -25,6 +25,7 @@ An example: [tester.yaml](squadrons-example/.aeolus/squadrons/templates/tester.y
 | `handoffs` | no | Hand-off names (handles) with what each carries; a blueprint binds each to a role |
 | `parameters` | no | Parameter names (handles) with what each stands for, used as `{{name}}` in `charter` and `crew.firstPrompt`; see [Crew settings](#crew-settings). A placeholder the template does not declare is refused |
 | `crew` | no | How its members are crewed, and the model they run (`crew.model`); see [Crew settings](#crew-settings) |
+| `scopes` | no | The scopes its members get at commission, each `<namespace>:<action>`, at most 20. squadrons grants them within the subset rule: scopes its own ship holds, and its own namespace `squadrons` (decision 0017). Forming a blueprint with a template that names any other scope is refused before anything is commissioned |
 
 ## Squadron blueprint
 
@@ -130,16 +131,29 @@ The other two messages of this convention, `application/vnd.aeolus.squadron.stan
 
 A ship's Messages tab in the console says each of these five in words, by its content type: "Checked in at its flagship", "Given the role: reviewer", "Took up the role: reviewer", "Asked to stand down", "Stood down". The message sheet keeps the payload, formatted and raw. Any other JSON payload shows there as its top-level fields in one compact line. The server knows none of these types.
 
+## Forming by a ship
+
+A ship holding `squadrons:form` forms a squadron by message, and stands it down (decision 0017). That ship is the squadron's forming ship: the sender as the fleet names it, never a name in a payload. A squadron argo forms in the console has argo as its forming ship. These messages travel like any other; the content types are reserved by convention between squadrons and the ships it serves, not by Aeolus.
+
+1. The forming ship sends squadrons' own ship (`squadrons`) `application/vnd.aeolus.squadron.form+json`: `{ "blueprint": "<repository>#<name>@<n>", "squadronId"?, "members"?: { "<role>-<n>": { "parameters": { ... } } }, "key": "<new per form>" }`.
+2. squadrons reads the sender's scopes from the fleet (`fleet.ship`). It answers, `inReplyTo` the request, with `application/vnd.aeolus.squadron.formed+json`: `{ "key", "squadronId", "flagship" }`, or `application/vnd.aeolus.squadron.form-refused+json`: `{ "key", "code", "message" }`. It refuses a sender without `squadrons:form` (`NEEDS_SCOPE`), a request that is no such JSON (`INVALID_FORM_REQUEST`), and whatever forming refuses, before anything is commissioned. A ship's members are crewed by crew requests only: no crew line, which holds a secret, travels in a message, so a role whose crew settings name no workspace is refused. squadrons keeps its first answer per forming ship and key: a request that repeats a key gets it again and forms nothing.
+   The flagship and every member get the forming ship's owner: squadrons names the forming ship on each commission (`ownerOf`), which takes `fleet:on-behalf` (decision 0045). squadrons declares no reach rule for it: an `owner=#` to `owner=#` rule in force lets the flagship and its forming ship reach each other.
+3. A member never sends to the forming ship. It sends its flagship `application/vnd.aeolus.squadron.relay+json`: `{ "squadron", "payload" }`. The flagship sends the forming ship the same content type: `{ "squadron", "member": { "name", "role" }, "messageId", "payload" }`, where `messageId` is the member's message. A payload that does not fit 64 KB with that envelope is refused to the member with `application/vnd.aeolus.squadron.refused+json`: `{ "squadron", "code", "message" }`, asking for a reference.
+4. The forming ship answers a relay with a relay of its own, `inReplyTo` the relay it answers: `{ "squadron", "payload" }`. The flagship sends it to the member, `inReplyTo` the member's message, as `{ "squadron", "from", "payload" }`. The forming ship may also send its flagship a relay naming a member or a role, `{ "squadron", "to": { "member": "<name>" } | { "role": "<role>" }, "payload" }`: the flagship sends it on to that member, or to one ship of the role (a message to the role's type).
+5. The forming ship stands its squadron down by sending the flagship `application/vnd.aeolus.squadron.stand-down+json`: `{ "squadron" }`. The flagship refuses any ship but the forming ship and argo, a forming ship that no longer holds `squadrons:form`, and a squadron that is not Sailing. It answers `application/vnd.aeolus.squadron.standing-down+json`: `{ "squadron" }`, then stands the squadron down as [Stand down](../packages/squadrons/README.md#stand-down) says.
+6. What a flagship tells argo of its squadron, a message it keeps, goes to the forming ship instead. For a squadron argo formed nothing changes.
+
 ## Lifecycle
 
 The lifecycle of a squadron and its members (states, transitions, stand down, force stand down, adding and removing members, a new crew line, health, and what squadrons does not handle) is described once, in [the squadrons package README](../packages/squadrons/README.md#lifecycle).
 
 ## Connection
 
-One squadrons install serves every fleet at its `FLEET_URL`, with one connection per fleet (decision 0021): each fleet's operator connects it for their own fleet, and works on that fleet only. squadrons starts not connected to a fleet: no management ship and no secret in its environment or files. The operator connects it in the console, Settings, Connect squadrons (argo only): the web app's server commissions the management ship, named `squadrons` of type `squadrons` with `fleet:read`, `fleet:commission`, `fleet:manage`, `labels:define`, `labels:assign` and `scopes:declare`, and hands its secret to squadrons, server to server. squadrons registers with it as a server, checks that the ship is of the operator's fleet and holds `fleet:read`, `fleet:commission` and `fleet:manage` (otherwise it lets the ship go and keeps nothing), and keeps only the crew token. The secret is never shown or stored.
+One squadrons install serves every fleet at its `FLEET_URL`, with one connection per fleet (decision 0021): each fleet's operator connects it for their own fleet, and works on that fleet only. squadrons starts not connected to a fleet: no management ship and no secret in its environment or files. The operator connects it in the console, Settings, Connect squadrons (argo only): the web app's server commissions the management ship, named `squadrons` of type `squadrons` with `fleet:read`, `fleet:commission`, `fleet:manage`, `labels:define`, `labels:assign`, `fleet:on-behalf` and `scopes:declare`, and hands its secret to squadrons, server to server. squadrons registers with it as a server, checks that the ship is of the operator's fleet and holds `fleet:read`, `fleet:commission` and `fleet:manage` (otherwise it lets the ship go and keeps nothing), and keeps only the crew token. The secret is never shown or stored.
 
 - **Not connected:** that fleet's forming and flagships wait, and the squadrons API answers its operator that squadrons is not connected.
 - **Connected:** squadrons crews each fleet's ship again with its kept crew token after a restart.
+- **Its namespace:** on every rescan, while its ship does not hold it, squadrons declares the namespace `squadrons` with `squadrons:form` and `squadrons:scale` (decisions 0017 and 0046), which it enforces itself. While another ship holds the namespace it declares nothing and argo is told once.
 - **Released:** when the operator releases the management ship, squadrons drops that fleet's crew token and is not connected to it; other fleets stay connected. Connect squadrons, the same button, releases the ship if a session still holds it, gives it a new starting prompt and connects again.
 
 ## Labels and reach

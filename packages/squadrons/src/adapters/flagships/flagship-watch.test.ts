@@ -23,6 +23,7 @@ const forming: Squadron = {
   members: [],
   formedAt: AT,
   sailedAt: null,
+  formingShip: null,
 };
 
 /** No formation to recover: what most tests need. */

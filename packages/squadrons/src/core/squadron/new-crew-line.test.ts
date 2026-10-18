@@ -37,12 +37,13 @@ function aSquadron(member: Member = aTester()): Squadron {
       memberNames: 'plain',
     },
     templates: [
-      { repository: REPO, name: 'tester', version: 4, file: 'squadrons/fixture.yaml', commit: 't4', committedAt: FORMED, description: 'Tests.', checkInMinutes: 30, model: 'claude-opus-5-5', launchNote: 'Start in the root.', charter: 'You test.', handoffs: [], crew: {}, parameters: [] },
+      { repository: REPO, name: 'tester', version: 4, file: 'squadrons/fixture.yaml', commit: 't4', committedAt: FORMED, description: 'Tests.', checkInMinutes: 30, model: 'claude-opus-5-5', launchNote: 'Start in the root.', charter: 'You test.', handoffs: [], crew: {}, parameters: [], scopes: [] },
     ],
     flagship: { shipId: 'shp_01m3tbfspe96yf1rnr4ank0000', name: 'team-a1b2c3', crewToken: 'aeolus_ct_v1_flagship' },
     members: [member],
     formedAt: FORMED,
     sailedAt: FORMED,
+    formingShip: null,
   };
 }
 

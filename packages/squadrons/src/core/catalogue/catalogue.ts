@@ -40,6 +40,8 @@ export interface TemplateVersion {
   crew: CrewDraft;
   /** What its `{{name}}` placeholders stand for: a blueprint role or the form fills them. */
   parameters: { name: string; description: string }[];
+  /** The scopes its ships get at commission, granted by squadrons within the subset rule (decision 0017). */
+  scopes: string[];
 }
 
 /** Where a role's template comes from: a repository, a template's name and its version. */

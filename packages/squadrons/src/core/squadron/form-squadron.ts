@@ -8,8 +8,9 @@ import { ok, type Result } from '../shared/result.js';
 import type { FormationAttempts, RandomNames, SquadronRepository } from './ports.js';
 import { memberCrewLines } from './crew-lines.js';
 import { beginFormation } from './formation.js';
+import { isGrantable } from './scopes.js';
 import { crewSettingsOf, formedCrewOf, memberParametersOf, overLimitOf, resolveMachineLabels, type MemberForm } from './member-crew-request.js';
-import type { Member } from './squadron.js';
+import type { Member, Squadron } from './squadron.js';
 
 const SQUADRON_SUFFIX_LENGTH = 6;
 const MEMBER_SUFFIX_LENGTH = 4;
@@ -32,6 +33,8 @@ export type FormSquadron = (input: {
   squadronId?: string;
   /** The form's crew settings and parameter values per member, by its role and number (`implementer-2`). */
   members?: Readonly<Record<string, MemberForm>>;
+  /** The ship that asked by message, as the fleet named the sender, and its form request's key; left out when argo forms in the console. */
+  formingShip?: Squadron['formingShip'];
 }) => Promise<Result<FormedSquadron, FormRefusal>>;
 
 function isHandle(value: string): boolean {
@@ -105,6 +108,22 @@ export function createFormSquadron(deps: {
         return refuse('FORMING_FAILED', `The ${over.text} of ${slot} is over ${String(over.maxKb)} KB once filled, so nothing was formed`);
       }
     }
+    // A ship's members are crewed by request only: no crew line, which holds a secret, travels in a message.
+    const uncrewed = input.formingShip ? slots.find((each) => each.crew?.workspace === undefined) : undefined;
+    if (uncrewed) {
+      return refuse('FORMING_FAILED', `The crew settings of ${uncrewed.slot} name no workspace, so it could get no crew request and nothing was formed`);
+    }
+    // Every scope a template names is one squadrons may grant, checked before anything is commissioned (decision 0017).
+    const own = await deps.door.getShip(crew.crewToken, { shipId: crew.shipId });
+    if (!own.isOk) {
+      return refuse('FORMING_FAILED', `The fleet refused a step, so nothing was formed: ${own.error.message}`);
+    }
+    for (const template of used) {
+      const ungranted = template?.scopes.find((scope) => !isGrantable(scope, own.value.scopes));
+      if (template && ungranted !== undefined) {
+        return refuse('FORMING_FAILED', `The template ${template.name}@${String(template.version)} names ${ungranted}, a scope squadrons cannot grant, so nothing was formed`);
+      }
+    }
     // Every machine label resolves before anything is commissioned, so an unknown one forms nothing.
     const labels = await resolveMachineLabels(deps.door, { crewToken: crew.crewToken, crews: slots.flatMap((each) => each.crew ?? []) });
     if (!labels.isOk) {
@@ -116,13 +135,13 @@ export function createFormSquadron(deps: {
       );
     }
 
-    const { attemptId, commission, retireCommissioned } = await beginFormation(deps, { crew, squadronId });
+    const { attemptId, commission, retireCommissioned } = await beginFormation(deps, { crew, squadronId, ownerOf: input.formingShip?.shipId });
     const failed = async (refusal: FleetRefusal): Promise<Result<never, FormRefusal>> => {
       await retireCommissioned();
       return refuse('FORMING_FAILED', `The fleet refused a step, so nothing was formed: ${refusal.message}`);
     };
 
-    const flagship = await commission('flagship', { names: () => squadronId, type: 'flagship' });
+    const flagship = await commission('flagship', { names: () => squadronId, type: 'flagship', scopes: [] });
     if (!flagship.isOk) {
       return failed(flagship.error);
     }
@@ -138,7 +157,7 @@ export function createFormSquadron(deps: {
         blueprint.memberNames === 'prefixed'
           ? () => `${squadronId}:${role.name}-${String(number)}`
           : () => `${role.name}-${deps.random.suffix(MEMBER_SUFFIX_LENGTH)}`;
-      const member = await commission(slot, { names, type: `${squadronId}:${role.name}` });
+      const member = await commission(slot, { names, type: `${squadronId}:${role.name}`, scopes: used[index]?.scopes ?? [] });
       if (!member.isOk) {
         return failed(member.error);
       }
@@ -165,6 +184,7 @@ export function createFormSquadron(deps: {
       members,
       formedAt: deps.clock.now(),
       sailedAt: null,
+      formingShip: input.formingShip ?? null,
     }, attemptId);
     return ok({ squadronId, flagship: { shipId: flagship.value.shipId, name: squadronId }, members: lines });
   };

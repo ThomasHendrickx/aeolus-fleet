@@ -18,7 +18,7 @@ export interface Formation {
    * the squadron, so a name drawn twice in one attempt never repeats another
    * ship's key; `names` draws a name, again when the fleet holds it already.
    */
-  commission: (slot: string, ship: { names: () => string; type: string }) => Promise<Result<{ shipId: ShipId; name: string } & IssuedPrompt, FleetRefusal>>;
+  commission: (slot: string, ship: { names: () => string; type: string; scopes: readonly string[] }) => Promise<Result<{ shipId: ShipId; name: string } & IssuedPrompt, FleetRefusal>>;
   /**
    * Retires every ship this attempt commissioned and finishes the attempt: it formed nothing.
    * When the fleet refuses a retire the attempt is given up unfinished, for recover-formations at a rescan.
@@ -32,13 +32,14 @@ export interface Formation {
  * attempt, and each ship by name before it is commissioned, are recorded
  * first, so that a start after a crash retires what an unfinished attempt
  * commissioned (recover-formations). The caller finishes the attempt together
- * with storing what it formed.
+ * with storing what it formed. A squadron a ship formed names that ship on
+ * each commission, so its ships get the forming ship's owner (decision 0045).
  */
 export async function beginFormation(
   deps: { door: FleetDoor; attempts: FormationAttempts; random: RandomNames; clock: Clock },
-  of: { crew: ManagementCrew; squadronId: string },
+  of: { crew: ManagementCrew; squadronId: string; ownerOf?: ShipId },
 ): Promise<Formation> {
-  const { crew, squadronId } = of;
+  const { crew, squadronId, ownerOf } = of;
   // The squadron, the start and a random suffix: attempts sort by start, and two begun in the same
   // instant (forming, then adding a member at once, or under a test's frozen clock) never share an id.
   const startedAt = deps.clock.now();
@@ -48,7 +49,7 @@ export async function beginFormation(
 
   // A lost answer is asked again under the same key, so the fleet commissions
   // no second ship; its repeat holds no secret, so the ship gets a new starting prompt.
-  const commissionOnce = async (ship: { name: string; type: string; idempotencyKey: string }): Promise<Result<{ shipId: ShipId } & IssuedPrompt, FleetRefusal>> => {
+  const commissionOnce = async (ship: { name: string; type: string; scopes: readonly string[]; ownerOf: ShipId | undefined; idempotencyKey: string }): Promise<Result<{ shipId: ShipId } & IssuedPrompt, FleetRefusal>> => {
     let made = await deps.door.commission(crew.crewToken, ship);
     if (!made.isOk && made.error.code === 'UNAVAILABLE') {
       made = await deps.door.commission(crew.crewToken, ship);
@@ -73,7 +74,7 @@ export async function beginFormation(
       for (let attempt = 0; attempt < NAME_ATTEMPTS; attempt += 1) {
         const shipName = ship.names();
         await deps.attempts.plan(attemptId, shipName);
-        const made = await commissionOnce({ name: shipName, type: ship.type, idempotencyKey: `${attemptId}:${slot}:${shipName}` });
+        const made = await commissionOnce({ name: shipName, type: ship.type, scopes: ship.scopes, ownerOf, idempotencyKey: `${attemptId}:${slot}:${shipName}` });
         if (made.isOk) {
           return ok({ ...made.value, name: shipName });
         }

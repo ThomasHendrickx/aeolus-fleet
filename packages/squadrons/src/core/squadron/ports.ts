@@ -79,3 +79,35 @@ export interface OperatorNotices {
 export interface RandomNames {
   suffix(length: number): string;
 }
+
+/** A form request squadrons refused: kept by its forming ship and key, so a repeat gets the first answer again. */
+export interface FormRefusal {
+  formingShipId: ShipId;
+  key: string;
+  code: string;
+  message: string;
+}
+
+/** Outbound port: the form requests squadrons refused, within one fleet. */
+export interface FormRefusals {
+  find(fleetId: FleetId, request: { formingShipId: ShipId; key: string }): Promise<FormRefusal | undefined>;
+  keep(refusal: FormRefusal & { fleetId: FleetId }): Promise<void>;
+}
+
+/** A member's relay the flagship sent on to its forming ship: the forming ship's answer to it goes back to that member's message. */
+export interface Relay {
+  fleetId: FleetId;
+  squadronId: string;
+  /** The message the flagship sent the forming ship. */
+  relayMessageId: MessageId;
+  memberShipId: ShipId;
+  /** The member's message it carried on. */
+  memberMessageId: MessageId;
+}
+
+/** Outbound port: the relays flagships sent on, within one fleet. */
+export interface RelayLog {
+  /** Recording one again, after a lost answer, changes nothing. */
+  record(relay: Relay): Promise<void>;
+  find(fleetId: FleetId, relayMessageId: MessageId): Promise<Relay | undefined>;
+}

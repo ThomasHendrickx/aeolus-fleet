@@ -40,6 +40,12 @@ export interface Squadron {
   members: Member[];
   formedAt: Date;
   sailedAt: Date | null;
+  /**
+   * The ship that formed it by message (decision 0017), as the fleet named the
+   * sender, and the key of its form request; null for a squadron argo formed
+   * in the console. The flagship proxies to it.
+   */
+  formingShip: { shipId: ShipId; name: string; formKey: string } | null;
 }
 
 /** The template version a member's role runs, as the squadron formed with it. */

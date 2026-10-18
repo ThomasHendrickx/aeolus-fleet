@@ -93,7 +93,7 @@ export function createAddMember(deps: {
     }
 
     const formation = await beginFormation(deps, { crew, squadronId });
-    const made = await formation.commission(`${role.name}-${String(number)}`, { names, type });
+    const made = await formation.commission(`${role.name}-${String(number)}`, { names, type, scopes: template?.scopes ?? [] });
     if (!made.isOk) {
       await formation.retireCommissioned();
       return refuse('ADDING_FAILED', `The fleet refused a step, so no member was added: ${made.error.message}`);

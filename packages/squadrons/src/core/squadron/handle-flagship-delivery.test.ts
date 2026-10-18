@@ -4,9 +4,11 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { FleetDoor, OutgoingMessage } from '../management/ports.js';
 import { err, ok } from '../shared/result.js';
 import { CHARTER_MAX_BYTES } from '../catalogue/catalogue.js';
-import { CHECK_IN, ON_STATION, ROLE, STOOD_DOWN } from './check-in.js';
+import { CHECK_IN, ON_STATION, ROLE, STAND_DOWN, STOOD_DOWN } from './check-in.js';
+import { RELAY, REFUSED, STANDING_DOWN } from './proxy-messages.js';
+import { createStandDown } from './stand-down.js';
 import { createHandleFlagshipDelivery, type FlagshipDelivery } from './handle-flagship-delivery.js';
-import type { FlagshipMessageLog, KeptMessage, OperatorNotices, SquadronRepository } from './ports.js';
+import type { FlagshipMessageLog, KeptMessage, OperatorNotices, Relay, RelayLog, SquadronRepository } from './ports.js';
 import type { Squadron } from './squadron.js';
 
 const FLEET: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8sv';
@@ -15,6 +17,7 @@ const PLANNER: ShipId = 'shp_01m3tbfspe96yf1rnr4ank0001';
 const TESTER: ShipId = 'shp_01m3tbfspe96yf1rnr4ank0002';
 const STRANGER: ShipId = 'shp_01m3tbfspe96yf1rnr4ank0009';
 const ARGO: ShipId = 'shp_01m3tbfspe96yf1rnr4ank0010';
+const FORMING: ShipId = 'shp_01m3tbfspe96yf1rnr4ank0011';
 const FORMED = new Date('2026-10-03T09:00:00.000Z');
 const NOW = new Date('2026-10-03T09:10:00.000Z');
 const REPO = 'example.com/templates';
@@ -42,7 +45,7 @@ function squadron(): Squadron {
       memberNames: 'plain',
     },
     templates: [
-      { repository: REPO, name: 'planner', version: 1, file: 'squadrons/fixture.yaml', commit: 'p1', committedAt: FORMED, description: 'Plans.', checkInMinutes: 120, model: null, launchNote: null, charter: 'You plan.', handoffs: [], crew: {}, parameters: [] },
+      { repository: REPO, name: 'planner', version: 1, file: 'squadrons/fixture.yaml', commit: 'p1', committedAt: FORMED, description: 'Plans.', checkInMinutes: 120, model: null, launchNote: null, charter: 'You plan.', handoffs: [], crew: {}, parameters: [], scopes: [] },
       {
         repository: REPO,
         name: 'tester',
@@ -57,7 +60,7 @@ function squadron(): Squadron {
         handoffs: [
           { name: 'on-fail', carries: 'failures' },
           { name: 'on-pass', carries: 'the run' },
-        ], crew: {}, parameters: [],
+        ], crew: {}, parameters: [], scopes: [],
       },
     ],
     flagship: { shipId: FLAGSHIP, name: 'team-a1b2c3', crewToken: 'aeolus_ct_v1_flagship' },
@@ -67,10 +70,14 @@ function squadron(): Squadron {
     ],
     formedAt: FORMED,
     sailedAt: null,
+    formingShip: null,
   };
 }
 
 let held: Squadron;
+const MANAGEMENT_CREW_TOKEN = 'aeolus_ct_v1_management';
+/** The scopes the forming ship holds now, as the fleet answers squadrons' own ship. */
+let formingShipScopes: string[];
 const acked: DeliveryId[] = [];
 const ponged: DeliveryId[] = [];
 let isPongRefused: boolean;
@@ -80,7 +87,12 @@ let isAckRefused: boolean;
 const door: FleetDoor = {
   register: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
   whoami: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
-  getShip: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
+  getShip: (crewToken, { shipId }) =>
+    Promise.resolve(
+      crewToken === MANAGEMENT_CREW_TOKEN && shipId === FORMING
+        ? ok({ status: 'crewed' as const, scopes: formingShipScopes, lastSeenAt: NOW, crewedSince: NOW, reportedAt: null, openDeliveries: 0, inFlightDeliveries: 0, hasCrewRequest: false })
+        : err({ code: 'FORBIDDEN', message: 'Needs fleet:read' }),
+    ),
   deregister: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
   commission: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
   requestCrew: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
@@ -140,6 +152,15 @@ const operator: OperatorNotices = {
   },
 };
 
+const relayed: Relay[] = [];
+const relays: RelayLog = {
+  record: (relay) => {
+    relayed.push(relay);
+    return Promise.resolve();
+  },
+  find: (_fleetId, relayMessageId) => Promise.resolve(relayed.find((each) => each.relayMessageId === relayMessageId)),
+};
+
 /** For each advance of the stand-downs, how many deliveries were acked by then. */
 const advances: number[] = [];
 
@@ -149,6 +170,9 @@ const handle = createHandleFlagshipDelivery({
   squadrons,
   messages,
   operator,
+  relays,
+  management: { find: (fleetId) => Promise.resolve({ fleetId, shipId: 'shp_01m3tbfspe96yf1rnr4ank9h1a', name: 'squadrons', crewToken: MANAGEMENT_CREW_TOKEN, crewedAt: FORMED }) },
+  standDown: createStandDown({ squadrons }),
   advanceStandDowns: () => {
     advances.push(acked.length);
     return Promise.resolve();
@@ -163,7 +187,7 @@ function delivery(from: ShipId, message: { contentType: string; payload: unknown
     deliveryId: `dlv_01m3tbfspe96yf1rnr4ank${String(next).padStart(4, '0')}`,
     messageId: `msg_01m3tbfspe96yf1rnr4ank${String(next).padStart(4, '0')}`,
     senderShipId: from,
-    senderName: from === STRANGER ? 'reviewer-01' : 'a-member',
+    senderName: from === STRANGER ? 'reviewer-01' : from === FORMING ? 'tech-lead' : from === ARGO ? 'argo' : 'a-member',
     contentType: message.contentType,
     payload: typeof message.payload === 'string' ? message.payload : JSON.stringify(message.payload),
     inReplyTo: message.inReplyTo ?? null,
@@ -180,6 +204,8 @@ beforeEach(() => {
   told.length = 0;
   isAckRefused = false;
   advances.length = 0;
+  relayed.length = 0;
+  formingShipScopes = ['messages:send', 'messages:receive', 'squadrons:form'];
   now = NOW;
 });
 
@@ -498,5 +524,182 @@ describe("argo's ping of the flagship", () => {
     await expect(handle(held, delivery(ARGO, { contentType: PING_CONTENT_TYPE, payload: 'ping' }))).resolves.toMatchObject({ isOk: false });
 
     expect(acked).toEqual([]);
+  });
+});
+
+describe('the flagship proxying between its squadron and its forming ship (decision 0017)', () => {
+  /** The squadron as a ship formed it by message. */
+  function formedByTechLead(): Squadron {
+    return { ...squadron(), formingShip: { shipId: FORMING, name: 'tech-lead', formKey: 'form-1' } };
+  }
+
+  it("sends a member's relay on to the forming ship, naming the squadron, the member, its role and its message", async () => {
+    held = formedByTechLead();
+    const relay = delivery(TESTER, { contentType: RELAY, payload: { squadron: 'team-a1b2c3', payload: 'Which branch?' } });
+
+    await expect(handle(held, relay)).resolves.toEqual({ isOk: true, value: 'relayed' });
+
+    expect(sent).toEqual([
+      {
+        selector: { kind: 'ship', shipId: FORMING },
+        contentType: RELAY,
+        idempotencyKey: `relay-${relay.deliveryId}`,
+        payload: JSON.stringify({ squadron: 'team-a1b2c3', member: { name: 'tester-m4p7', role: 'tester' }, messageId: relay.messageId, payload: 'Which branch?' }),
+      },
+    ]);
+    expect(acked).toEqual([relay.deliveryId]);
+  });
+
+  it("sends a member's relay on to argo for a squadron argo formed", async () => {
+    await handle(held, delivery(TESTER, { contentType: RELAY, payload: { squadron: 'team-a1b2c3', payload: 'Which branch?' } }));
+
+    expect(sent[0]?.selector).toEqual({ kind: 'ship', name: 'argo' });
+  });
+
+  it("refuses a member's relay that does not fit 64 KB with its envelope, asking for a reference, and sends nothing on", async () => {
+    held = formedByTechLead();
+    const relay = delivery(TESTER, { contentType: RELAY, payload: { squadron: 'team-a1b2c3', payload: 'x'.repeat(64 * 1024 - 100) } });
+
+    await handle(held, relay);
+
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toMatchObject({ selector: { kind: 'ship', shipId: TESTER }, contentType: REFUSED, inReplyTo: relay.messageId });
+    expect(JSON.parse(sent[0]?.payload ?? '')).toMatchObject({ squadron: 'team-a1b2c3', code: 'PAYLOAD_TOO_LARGE' });
+    expect(acked).toEqual([relay.deliveryId]);
+  });
+
+  it("sends the forming ship's answer to a relay to the member, as a reply to the member's message", async () => {
+    held = formedByTechLead();
+    const asked = delivery(TESTER, { contentType: RELAY, payload: { squadron: 'team-a1b2c3', payload: 'Which branch?' } });
+    await handle(held, asked);
+    sent.length = 0;
+    const answer = delivery(FORMING, { contentType: RELAY, payload: { squadron: 'team-a1b2c3', payload: 'main' }, inReplyTo: 'msg_01m3tbfspe96yf1rnr4ank0100' });
+
+    await expect(handle(held, answer)).resolves.toEqual({ isOk: true, value: 'relayed' });
+
+    expect(sent).toEqual([
+      {
+        selector: { kind: 'ship', shipId: TESTER },
+        contentType: RELAY,
+        inReplyTo: asked.messageId,
+        idempotencyKey: `relay-${answer.deliveryId}`,
+        payload: JSON.stringify({ squadron: 'team-a1b2c3', from: 'tech-lead', payload: 'main' }),
+      },
+    ]);
+  });
+
+  it("sends the forming ship's relay naming a member to that member", async () => {
+    held = formedByTechLead();
+
+    await handle(held, delivery(FORMING, { contentType: RELAY, payload: { squadron: 'team-a1b2c3', to: { member: 'planner-k3x9' }, payload: 'Plan the login.' } }));
+
+    expect(sent[0]).toMatchObject({ selector: { kind: 'ship', shipId: PLANNER }, contentType: RELAY });
+    expect(JSON.parse(sent[0]?.payload ?? '')).toEqual({ squadron: 'team-a1b2c3', from: 'tech-lead', payload: 'Plan the login.' });
+  });
+
+  it("sends the forming ship's relay naming a role to one ship of the role", async () => {
+    held = formedByTechLead();
+
+    await handle(held, delivery(FORMING, { contentType: RELAY, payload: { squadron: 'team-a1b2c3', to: { role: 'tester' }, payload: 'Test main.' } }));
+
+    expect(sent[0]?.selector).toEqual({ kind: 'type', type: 'team-a1b2c3:tester' });
+  });
+
+  it("refuses the forming ship's relay to a member the squadron does not have, naming it", async () => {
+    held = formedByTechLead();
+    const relay = delivery(FORMING, { contentType: RELAY, payload: { squadron: 'team-a1b2c3', to: { member: 'coder-zz11' }, payload: 'Code.' } });
+
+    await handle(held, relay);
+
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toMatchObject({ selector: { kind: 'ship', shipId: FORMING }, contentType: REFUSED, inReplyTo: relay.messageId });
+    expect(sent[0]?.payload).toContain('coder-zz11');
+  });
+
+  it('tells the forming ship, not argo, of a message it keeps, in a headline naming the sender and the squadron in the body', async () => {
+    held = formedByTechLead();
+    const unknown = delivery(STRANGER, { contentType: 'text/plain', payload: 'Build login' });
+
+    await expect(handle(held, unknown)).resolves.toEqual({ isOk: true, value: 'kept' });
+
+    expect(told).toEqual([]);
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toMatchObject({ selector: { kind: 'ship', shipId: FORMING }, contentType: 'text/markdown', idempotencyKey: `kept-${unknown.deliveryId}` });
+    expect(sent[0]?.payload.split('\n')[0]).toBe('reviewer-01 sent a flagship a message it does not handle');
+    expect(sent[0]?.payload).toContain('team-a1b2c3');
+    expect(acked).toEqual([unknown.deliveryId]);
+  });
+
+  it('keeps a relay from a ship that is neither a member nor the forming ship, and sends nothing on', async () => {
+    held = formedByTechLead();
+
+    await expect(handle(held, delivery(STRANGER, { contentType: RELAY, payload: { squadron: 'team-a1b2c3', payload: 'Hi.' } }))).resolves.toEqual({ isOk: true, value: 'kept' });
+
+    expect(sent.filter((each) => each.contentType === RELAY)).toEqual([]);
+  });
+});
+
+describe('standing a squadron down by message to its flagship (decision 0017)', () => {
+  function sailingFormedByTechLead(): Squadron {
+    return { ...squadron(), state: 'sailing', sailedAt: NOW, formingShip: { shipId: FORMING, name: 'tech-lead', formKey: 'form-1' } };
+  }
+
+  it('stands the squadron down for its forming ship holding squadrons:form, sends each member its stand-down and answers standing down', async () => {
+    held = sailingFormedByTechLead();
+    const standDown = delivery(FORMING, { contentType: STAND_DOWN, payload: { squadron: 'team-a1b2c3' } });
+
+    await expect(handle(held, standDown)).resolves.toEqual({ isOk: true, value: 'standing-down' });
+
+    expect(held.state).toBe('standing-down');
+    expect(advances).toHaveLength(1);
+    expect(sent).toEqual([
+      {
+        selector: { kind: 'ship', shipId: FORMING },
+        contentType: STANDING_DOWN,
+        inReplyTo: standDown.messageId,
+        idempotencyKey: `standing-down-${standDown.deliveryId}`,
+        payload: JSON.stringify({ squadron: 'team-a1b2c3' }),
+      },
+    ]);
+    expect(acked).toEqual([standDown.deliveryId]);
+  });
+
+  it('stands the squadron down for argo, whoever formed it', async () => {
+    held = sailingFormedByTechLead();
+
+    await expect(handle(held, delivery(ARGO, { contentType: STAND_DOWN, payload: { squadron: 'team-a1b2c3' } }))).resolves.toEqual({ isOk: true, value: 'standing-down' });
+
+    expect(held.state).toBe('standing-down');
+  });
+
+  it('refuses any other ship, and the squadron sails on', async () => {
+    held = sailingFormedByTechLead();
+    const standDown = delivery(STRANGER, { contentType: STAND_DOWN, payload: { squadron: 'team-a1b2c3' } });
+
+    await expect(handle(held, standDown)).resolves.toEqual({ isOk: true, value: 'refused' });
+
+    expect(held.state).toBe('sailing');
+    expect(sent[0]).toMatchObject({ selector: { kind: 'ship', shipId: STRANGER }, contentType: REFUSED, inReplyTo: standDown.messageId });
+    expect(JSON.parse(sent[0]?.payload ?? '')).toMatchObject({ squadron: 'team-a1b2c3', code: 'NOT_FORMING_SHIP' });
+  });
+
+  it('refuses its forming ship once it no longer holds squadrons:form, naming the scope', async () => {
+    held = sailingFormedByTechLead();
+    formingShipScopes = ['messages:send', 'messages:receive'];
+
+    await handle(held, delivery(FORMING, { contentType: STAND_DOWN, payload: { squadron: 'team-a1b2c3' } }));
+
+    expect(held.state).toBe('sailing');
+    expect(JSON.parse(sent[0]?.payload ?? '')).toMatchObject({ code: 'NEEDS_SCOPE' });
+    expect(sent[0]?.payload).toContain('squadrons:form');
+  });
+
+  it('refuses a squadron that is still forming: only a sailing squadron stands down by message', async () => {
+    held = { ...sailingFormedByTechLead(), state: 'forming', sailedAt: null };
+
+    await handle(held, delivery(FORMING, { contentType: STAND_DOWN, payload: { squadron: 'team-a1b2c3' } }));
+
+    expect(held.state).toBe('forming');
+    expect(JSON.parse(sent[0]?.payload ?? '')).toMatchObject({ code: 'NOT_SAILING' });
   });
 });

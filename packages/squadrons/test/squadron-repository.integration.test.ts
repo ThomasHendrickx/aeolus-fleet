@@ -48,6 +48,7 @@ const formed: Squadron = {
   ],
   formedAt: AT,
   sailedAt: null,
+  formingShip: null,
 };
 
 beforeEach(async () => {
@@ -59,6 +60,32 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await prisma.$disconnect();
+});
+
+const FORMING: ShipId = 'shp_01m3tbfspe96yf1rnr4ank0009';
+
+describe('storing a squadron', () => {
+  it('keeps the ship that formed it by message, by id and name, with the key of its form request (decision 0017)', async () => {
+    const squadrons = createPrismaSquadronRepository(prisma, clock);
+    const attempts = createPrismaFormationAttempts(prisma, clock);
+    await attempts.begin({ id: 'lead-team@1', fleetId: FLEET, squadronId: 'lead-team', startedAt: AT });
+    const byShip: Squadron = {
+      ...formed,
+      id: 'lead-team',
+      flagship: { shipId: 'shp_01m3tbfspe96yf1rnr4ank0010', name: 'lead-team', crewToken: 'aeolus_ct_v1_lead' },
+      members: [],
+      formedAt: LATER,
+      formingShip: { shipId: FORMING, name: 'tech-lead', formKey: 'form-1' },
+    };
+
+    await squadrons.create(byShip, 'lead-team@1');
+
+    const stored = await squadrons.list(FLEET);
+    expect(stored.map(({ id, formingShip }) => ({ id, formingShip }))).toEqual([
+      { id: 'team-a1b2c3', formingShip: null },
+      { id: 'lead-team', formingShip: { shipId: FORMING, name: 'tech-lead', formKey: 'form-1' } },
+    ]);
+  });
 });
 
 describe('updating a squadron', () => {

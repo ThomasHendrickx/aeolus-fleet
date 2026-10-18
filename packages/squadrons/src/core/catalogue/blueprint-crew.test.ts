@@ -24,6 +24,7 @@ function aTemplate(name: string, overrides: Partial<TemplateVersion> = {}): Temp
     handoffs: [],
     crew: {},
     parameters: [],
+    scopes: [],
     ...overrides,
   };
 }

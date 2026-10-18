@@ -92,6 +92,16 @@ describe('commissionShipInputSchema', () => {
     expect(commissionShipInputSchema.safeParse({ name: 'manager', type: 'squadron', scopes }).success).toBe(false);
   });
 
+  it("accepts the ship that asked a plugin's ship for this one, whose owner it gets (decision 0045)", () => {
+    const input = { name: 'login-flow', type: 'flagship', ownerOf: 'shp_01m3tbfspe96yf1rnr4ank0001', idempotencyKey: 'commission-login-flow' };
+
+    expect(commissionShipInputSchema.parse(input)).toEqual(input);
+  });
+
+  it('rejects an asking ship that is not a ship id', () => {
+    expect(commissionShipInputSchema.safeParse({ name: 'login-flow', type: 'flagship', ownerOf: 'tech-lead', idempotencyKey: 'commission-login-flow' }).success).toBe(false);
+  });
+
   it.each(['agent', 'person', 'app'])('accepts the kind %s', (kind) => {
     const input = { name: 'thomas', type: 'person', kind, idempotencyKey: 'commission-thomas' };
 

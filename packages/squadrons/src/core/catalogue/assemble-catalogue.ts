@@ -1,4 +1,4 @@
-import { crewSettingsSchema, LABEL_HANDLE_MAX_LENGTH, SHIP_HANDLE_MAX_LENGTH, SHIP_HANDLE_PATTERN, SHIP_LABELS_MAX, trierarchWorkspaceSchema } from '@aeolus-fleet/common';
+import { crewSettingsSchema, LABEL_HANDLE_MAX_LENGTH, scopeNameSchema, SHIP_HANDLE_MAX_LENGTH, SHIP_HANDLE_PATTERN, SHIP_LABELS_MAX, trierarchWorkspaceSchema } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import { err, ok, type Result } from '../shared/result.js';
@@ -8,6 +8,8 @@ import type { SourceFile, UnreadTag } from './ports.js';
 const MINUTES_PER_HOUR = 60;
 const CHECK_IN_MAX_MINUTES = 24 * MINUTES_PER_HOUR;
 const COUNT_MAX = 20;
+/** The most scopes a template names for its ships. */
+const TEMPLATE_SCOPES_MAX = 20;
 
 /**
  * Why a field is refused, as the operator reads it after the field's name:
@@ -117,10 +119,14 @@ const templateSchema = z.object({
   handoffs: handleRecord(text('what the hand-off carries'), 'a mapping of hand-off names, each to what it carries').optional(),
   parameters: handleRecord(text('what the parameter stands for'), 'a mapping of parameter names, each to what it stands for').optional(),
   crew: crewSchema.optional(),
+  scopes: z
+    .array(scopeNameSchema.or(z.never({ error: () => 'must be a scope <namespace>:<action>' })), expecting('a list of scopes, each <namespace>:<action>'))
+    .max(TEMPLATE_SCOPES_MAX, `must be at most ${String(TEMPLATE_SCOPES_MAX)} scopes`)
+    .optional(),
 });
 
-/** `<repository>#<name>@<n>`: a configured repository, a template's name, and its tag's version. */
-const templateReference = z
+/** `<repository>#<name>@<n>`: a configured repository, a template's or blueprint's name, and its tag's version. */
+export const templateReference = z
   .string(expecting('<repository>#<name>@<n>'))
   .regex(/^[^#\s]+#[a-z0-9:-]+@[1-9]\d*$/, 'must be <repository>#<name>@<n>')
   .transform((raw): TemplateReference => {
@@ -167,7 +173,7 @@ function templateOf(file: SourceFile): Result<TemplateVersion, string> {
   if (!parsed.success) {
     return err(firstIssue('template', parsed.error));
   }
-  const { description, checkIn: checkInMinutes, launchNote, charter, handoffs, parameters, crew } = parsed.data;
+  const { description, checkIn: checkInMinutes, launchNote, charter, handoffs, parameters, crew, scopes } = parsed.data;
   const declared = new Set(Object.keys(parameters ?? {}));
   for (const [field, used] of [
     ['charter', charter],
@@ -194,6 +200,7 @@ function templateOf(file: SourceFile): Result<TemplateVersion, string> {
     handoffs: Object.entries(handoffs ?? {}).map(([handoff, carries]) => ({ name: handoff, carries })),
     crew: crewOf(crew),
     parameters: Object.entries(parameters ?? {}).map(([parameter, description]) => ({ name: parameter, description })),
+    scopes: scopes ?? [],
   });
 }
 

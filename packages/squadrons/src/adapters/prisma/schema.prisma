@@ -43,9 +43,14 @@ model Squadron {
   flagshipCrewToken String    @map("flagship_crew_token")
   formedAt          DateTime  @map("formed_at") @db.Timestamptz(3)
   sailedAt          DateTime? @map("sailed_at") @db.Timestamptz(3)
+  /// The ship that formed it by message, and the key of its form request; null for a squadron argo formed in the console.
+  formingShipId     String?   @map("forming_ship_id")
+  formingShipName   String?   @map("forming_ship_name")
+  formKey           String?   @map("form_key")
   members           Member[]
 
   @@id([fleetId, id])
+  @@unique([fleetId, formingShipId, formKey])
   @@map("squadrons")
 }
 
@@ -169,4 +174,31 @@ model InstallationRequest {
 
   @@index([fleetId])
   @@map("installation_requests")
+}
+
+/// A form request squadrons refused, by its forming ship and key: a repeat of
+/// the key gets this first answer again (decision 0017).
+model FormRefusal {
+  fleetId       String   @map("fleet_id")
+  formingShipId String   @map("forming_ship_id")
+  key           String
+  code          String
+  message       String
+  refusedAt     DateTime @map("refused_at") @db.Timestamptz(3)
+
+  @@id([fleetId, formingShipId, key])
+  @@map("form_refusals")
+}
+
+/// A member's relay a flagship sent on to its forming ship, by the message it
+/// sent: the forming ship's answer goes back to the member's message (decision 0017).
+model Relay {
+  fleetId         String @map("fleet_id")
+  relayMessageId  String @map("relay_message_id")
+  squadronId      String @map("squadron_id")
+  memberShipId    String @map("member_ship_id")
+  memberMessageId String @map("member_message_id")
+
+  @@id([fleetId, relayMessageId])
+  @@map("relays")
 }

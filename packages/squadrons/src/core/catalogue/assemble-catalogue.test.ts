@@ -75,6 +75,7 @@ describe('a ship template', () => {
         ],
         crew: {},
         parameters: [],
+        scopes: [],
       },
     ]);
   });
@@ -83,6 +84,18 @@ describe('a ship template', () => {
     const [read] = catalogueOf([template({ name: 'planner', version: 1 }, planner)]).templates;
 
     expect(read).toMatchObject({ model: null, launchNote: null, handoffs: [], checkInMinutes: 120 });
+  });
+
+  it('reads the scopes its ships get (decision 0017)', () => {
+    const [read] = catalogueOf([template({ name: 'tester', version: 4 }, { ...tester, scopes: ['squadrons:form', 'fleet:read'] })]).templates;
+
+    expect(read?.scopes).toEqual(['squadrons:form', 'fleet:read']);
+  });
+
+  it('takes 20 scopes', () => {
+    const scopes = Array.from({ length: 20 }, (_, index) => `squadrons:action-${String(index)}`);
+
+    expect(catalogueOf([template({ name: 'tester', version: 4 }, { ...tester, scopes })]).templates[0]?.scopes).toEqual(scopes);
   });
 
   it('reads its crew block and its parameters, each machine label as its key and value (#343)', () => {
@@ -147,6 +160,9 @@ describe('a ship template', () => {
     { label: 'a workspace that names a path', content: { ...tester, crew: { workspace: { kind: 'folder', name: '/home/thomas/notes' } } }, field: 'crew.workspace' },
     { label: 'a parameter name that is no handle', content: { ...tester, parameters: { 'Reports To': 'x' } }, field: 'parameters' },
     { label: 'a placeholder in its charter it declares no parameter for', content: { ...tester, charter: 'Report to {{reports-to}}.' }, field: 'charter' },
+    { label: 'a scope that is no <namespace>:<action>', content: { ...tester, scopes: ['Squadrons'] }, field: 'scopes' },
+    { label: 'more than 20 scopes', content: { ...tester, scopes: Array.from({ length: 21 }, (_, index) => `squadrons:action-${String(index)}`) }, field: 'scopes' },
+    { label: 'scopes that are no list', content: { ...tester, scopes: 'squadrons:form' }, field: 'scopes' },
     { label: 'a placeholder in its first prompt it declares no parameter for', content: { ...tester, crew: { firstPrompt: 'Ask {{lead}}.' } }, field: 'crew.firstPrompt' },
   ])('is left out with a problem when it has $label', ({ content, field }) => {
     const { templates: read, problems } = catalogueOf([template({ name: 'tester', version: 4 }, content)]);
