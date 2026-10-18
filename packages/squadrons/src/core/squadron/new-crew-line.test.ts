@@ -43,6 +43,7 @@ function aSquadron(member: Member = aTester()): Squadron {
     members: [member],
     formedAt: FORMED,
     sailedAt: FORMED,
+    formingShip: null,
   };
 }
 

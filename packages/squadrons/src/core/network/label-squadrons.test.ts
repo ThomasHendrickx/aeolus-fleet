@@ -31,6 +31,7 @@ function aSquadron(n: number, { state = 'sailing', members = 1 }: { state?: Squa
     members: Array.from({ length: members }, (_, index) => aMember(shipIdOf(100 * n + index + 1))),
     formedAt: AT,
     sailedAt: AT,
+    formingShip: null,
   };
 }
 

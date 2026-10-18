@@ -31,6 +31,7 @@ function aSquadron(pinned: string | null): Squadron {
     members: [],
     formedAt: AT,
     sailedAt: null,
+    formingShip: null,
   };
 }
 

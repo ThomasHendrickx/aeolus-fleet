@@ -45,6 +45,7 @@ function aSquadron(state: SquadronState, memberNames: 'plain' | 'prefixed' = 'pl
     members: [aTester()],
     formedAt: FORMED,
     sailedAt: FORMED,
+    formingShip: null,
   };
 }
 

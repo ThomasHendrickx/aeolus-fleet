@@ -23,6 +23,7 @@ function aSquadron(state: SquadronState): Squadron {
     ],
     formedAt: FORMED,
     sailedAt: FORMED,
+    formingShip: null,
   };
 }
 

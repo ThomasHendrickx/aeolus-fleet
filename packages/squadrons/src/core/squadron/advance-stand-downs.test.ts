@@ -32,6 +32,7 @@ function aSquadron(state: SquadronState = 'standing-down'): Squadron {
     members: [aMember(PLANNER, { role: 'planner', onStationAt: FORMED }), aMember(TESTER, { role: 'tester', onStationAt: FORMED })],
     formedAt: FORMED,
     sailedAt: FORMED,
+    formingShip: null,
   };
 }
 

@@ -92,6 +92,10 @@ function squadronOf(row: Row): Squadron {
       })),
     formedAt: row.formedAt,
     sailedAt: row.sailedAt,
+    formingShip:
+      row.formingShipId === null || row.formingShipName === null || row.formKey === null
+        ? null
+        : { shipId: idSchema('ship').parse(row.formingShipId), name: row.formingShipName, formKey: row.formKey },
   };
 }
 
@@ -116,6 +120,9 @@ export function createPrismaSquadronRepository(db: PrismaClient, clock: { now():
           flagshipCrewToken: squadron.flagship.crewToken,
           formedAt: squadron.formedAt,
           sailedAt: squadron.sailedAt,
+          formingShipId: squadron.formingShip?.shipId ?? null,
+          formingShipName: squadron.formingShip?.name ?? null,
+          formKey: squadron.formingShip?.formKey ?? null,
           members: {
             // Each member's fleet comes from its squadron, through the relation.
             create: squadron.members.map((member, position) => ({

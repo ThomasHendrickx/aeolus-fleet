@@ -67,6 +67,7 @@ function squadron(): Squadron {
     ],
     formedAt: FORMED,
     sailedAt: null,
+    formingShip: null,
   };
 }
 

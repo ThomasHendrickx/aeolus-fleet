@@ -177,6 +177,7 @@ export function createFormSquadron(deps: {
       members,
       formedAt: deps.clock.now(),
       sailedAt: null,
+      formingShip: null,
     }, attemptId);
     return ok({ squadronId, flagship: { shipId: flagship.value.shipId, name: squadronId }, members: lines });
   };
