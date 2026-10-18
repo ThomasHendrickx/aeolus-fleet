@@ -48,6 +48,8 @@ export const shipDetailOutputSchema = listedShipSchema.extend({
   inFlightDeliveries: z.int().min(0),
   /** Its direct deliveries pending or in flight: what a retire abandons. */
   openDeliveries: z.int().min(0),
+  /** Its owner by id and name; null for argo and the viewer (decision 0045). */
+  owner: partySchema.nullable(),
 });
 
 export type ShipDetail = z.infer<typeof shipDetailOutputSchema>;

@@ -46,6 +46,7 @@ export const CREWED_SHIP: ShipDetail = {
   retiredAt: null,
   inFlightDeliveries: 1,
   openDeliveries: 2,
+  owner: ARGO,
 };
 
 export const AWAITING_SHIP: ShipDetail = {

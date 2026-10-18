@@ -21,6 +21,8 @@ export interface ShipDetail extends Omit<ListedShip, 'report' | 'crewRequest'> {
   inFlightDeliveries: number;
   /** Its direct deliveries pending or in flight: what a retire abandons. */
   openDeliveries: number;
+  /** Its owner by id and name; null for argo and the viewer (decision 0045). */
+  owner: { id: ShipId; name: string } | null;
 }
 
 export type GetShip = (
@@ -57,6 +59,7 @@ export function createGetShip(deps: { listing: FleetListing }): GetShip {
       openDeliveries: counts.open,
       commissionedAt: facts.ship.createdAt,
       crewedSince: facts.openLease?.startedAt ?? null,
+      owner: facts.owner,
     });
   };
 }

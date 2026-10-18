@@ -11,19 +11,24 @@ export interface ShipIdentity {
   fleetId: FleetId;
   name: string;
   type: string;
+  /** Its owner by id and name; null for argo and the viewer (decision 0045). */
+  owner: { id: ShipId; name: string } | null;
 }
 
 export type Whoami = (caller: Caller) => Promise<Result<ShipIdentity, DomainError<'SHIP_NOT_FOUND'>>>;
 
 /**
- * Use case: tells the caller which ship it crews: id, fleet, name and type.
+ * Use case: tells the caller which ship it crews: id, fleet, name, type and
+ * owner.
  * Any caller may ask, whatever its scopes: it learns only about itself.
  */
 export function createWhoami(deps: { ships: Pick<ShipRepository, 'find'> }): Whoami {
   return async (caller) => {
     const ship = await deps.ships.find(caller.fleetId, caller.shipId);
-    return ship
-      ? ok({ shipId: ship.id, fleetId: ship.fleetId, name: ship.name, type: ship.type })
-      : refuse('SHIP_NOT_FOUND', `Ship ${caller.shipId} does not exist`);
+    if (!ship) {
+      return refuse('SHIP_NOT_FOUND', `Ship ${caller.shipId} does not exist`);
+    }
+    const owner = ship.owner === null ? undefined : await deps.ships.find(caller.fleetId, ship.owner);
+    return ok({ shipId: ship.id, fleetId: ship.fleetId, name: ship.name, type: ship.type, owner: owner ? { id: owner.id, name: owner.name } : null });
   };
 }

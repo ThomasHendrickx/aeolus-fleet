@@ -351,6 +351,7 @@ describe('getting one ship on Postgres', () => {
         retiredAt: null,
         inFlightDeliveries: 0,
         openDeliveries: 0,
+        owner: { id: argoId, name: 'argo' },
       },
     });
   });

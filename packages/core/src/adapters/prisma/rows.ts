@@ -237,6 +237,7 @@ const shipFactsSqlRow = z.object({
   crew_request_is_final: z.boolean().nullable(),
   crewed_by_id: idSchema('ship').nullable(),
   crewed_by_name: z.string().nullable(),
+  owner_name: z.string().nullable(),
   labels: z.array(carriedLabelSchema),
   crew_request_given_back: z.array(
     z.object({ trierarchShipId: idSchema('ship'), trierarchName: z.string(), settingsVersion: z.int().min(1), reason: z.string(), givenBackAt: z.coerce.date() }),
@@ -272,6 +273,7 @@ export function toShipFacts(row: unknown): ShipFacts {
     crew_request_is_final,
     crewed_by_id,
     crewed_by_name,
+    owner_name,
     labels,
     crew_request_given_back,
   } = shipFactsSqlRow.parse(row);
@@ -317,6 +319,7 @@ export function toShipFacts(row: unknown): ShipFacts {
       crew_request_assigned_to && crew_request_assignee_name !== null ? { id: crew_request_assigned_to, name: crew_request_assignee_name } : null,
     labels,
     crewedBy: crewed_by_id && crewed_by_name !== null ? { id: crewed_by_id, name: crewed_by_name } : null,
+    owner: ship.owner && owner_name !== null ? { id: ship.owner, name: owner_name } : null,
     lastPing:
       ping_sent_at && ping_delivery_state
         ? { sentAt: ping_sent_at, deliveryState: ping_delivery_state, answeredWithPongAt: ping_answered_at }

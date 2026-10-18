@@ -552,6 +552,7 @@ describe('the ship procedures at the API', () => {
       fleetId,
       name: 'navigator',
       type: 'reviewer',
+      owner: { id: argoId, name: 'argo' },
     });
   });
 
@@ -585,6 +586,7 @@ describe('the ship procedures at the API', () => {
       fleetId,
       name: 'argo',
       type: 'operator',
+      owner: null,
     });
   });
 

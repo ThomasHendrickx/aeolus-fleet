@@ -265,6 +265,15 @@ export function agentCaller(ship: { fleetId: FleetId; shipId: ShipId }): Caller 
   return { ...ship, kind: 'agent', scopes: ['messages:send', 'messages:receive'] };
 }
 
+/** The id of the fleet's argo, which owns every ship the fixtures add (decision 0045). */
+export function argoIdOf(core: InMemoryCore, fleetId: FleetId): ShipId {
+  const argo = core.state.ships.find((ship) => ship.fleetId === fleetId && ship.kind === 'operator');
+  if (!argo) {
+    throw new Error(`Fleet ${fleetId} has no argo`);
+  }
+  return argo.id;
+}
+
 /** argo as the caller, holding every scope, as its secret or console session makes it. */
 export function operatorCaller(fleet: FleetInitialised): Caller {
   return { shipId: fleet.operatorShipId, fleetId: fleet.fleetId, kind: 'operator', scopes: [...SCOPES] };

@@ -79,6 +79,8 @@ export const whoamiOutputSchema = z.object({
   fleetId: idSchema('fleet'),
   name: z.string(),
   type: z.string(),
+  /** Its owner by id and name; null for argo and the viewer (decision 0045). */
+  owner: z.object({ id: idSchema('ship'), name: z.string() }).nullable(),
 });
 
 export type WhoamiOutput = z.infer<typeof whoamiOutputSchema>;
