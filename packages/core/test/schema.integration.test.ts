@@ -533,10 +533,12 @@ describe('the trierarch plugin crew:run migration', () => {
 describe('the on-behalf scope migration', () => {
   const MIGRATIONS = fileURLToPath(new URL('../src/adapters/prisma/migrations', import.meta.url));
   const onBehalf = readdirSync(MIGRATIONS).find((name) => name.endsWith('_on_behalf_scope'));
-  const squadronsScopes = ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'labels:define', 'labels:assign'];
-  const everyScopeBefore = ['messages:send', 'messages:receive', 'messages:force', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'scopes:declare', 'scopes:grant'];
+  const squadronsScopes = ['messages:send', 'messages:receive', 'fleet:read', 'fleet:commission', 'fleet:manage', 'labels:define', 'labels:assign', 'scopes:declare'];
+  const squadronsScopesAfter = ['messages:send', 'messages:receive', 'fleet:read', 'fleet:commission', 'fleet:manage', 'labels:define', 'labels:assign', 'fleet:on-behalf', 'scopes:declare'];
+  const everyScopeBefore = ['messages:send', 'messages:receive', 'messages:force', 'messages:resend', 'fleet:read', 'fleet:commission', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'scopes:declare', 'scopes:grant', 'squadrons:form'];
+  const everyScopeAfter = ['messages:send', 'messages:receive', 'messages:force', 'messages:resend', 'fleet:read', 'fleet:commission', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'fleet:on-behalf', 'scopes:declare', 'scopes:grant', 'squadrons:form'];
 
-  it("gives every fleet's argo and every active squadrons ship fleet:on-behalf, which squadrons reads on behalf of a named ship with, once, and no other ship (decisions 0017 and 0046)", async () => {
+  it("gives every fleet's argo and every active squadrons ship fleet:on-behalf in catalogue order, which squadrons reads on behalf of a named ship with, once, and no other ship (decisions 0017 and 0046)", async () => {
     const url = await createMigratedDatabase();
     const client = createPrismaClient(url);
     const fleetId = newId('fleet');
@@ -562,8 +564,8 @@ describe('the on-behalf scope migration', () => {
       const ships = await client.ship.findMany({ select: { id: true, scopes: true } });
       expect(new Map(ships.map(({ id, scopes }) => [id, scopes]))).toEqual(
         new Map([
-          [argoId, [...everyScopeBefore, 'fleet:on-behalf']],
-          [squadronsId, [...squadronsScopes, 'fleet:on-behalf']],
+          [argoId, everyScopeAfter],
+          [squadronsId, squadronsScopesAfter],
           [heldId, ['messages:send', 'messages:receive', 'fleet:on-behalf']],
           [retiredId, squadronsScopes],
           [scoutId, ['messages:send', 'messages:receive', 'fleet:read']],
