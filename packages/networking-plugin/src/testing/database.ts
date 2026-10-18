@@ -1,8 +1,8 @@
 import { createEmptyDatabase } from '@aeolus-fleet/core/testing';
 
-import { migrateDatabase } from '../../src/adapters/prisma/migrate.js';
+import { migrateDatabase } from '../adapters/prisma/migrate.js';
 
-/** A database of its own in the shared Postgres container, with the trierarch plugin's migrations applied. */
+/** A database of its own in the shared Postgres container, with the networking plugin's migrations applied. */
 export async function createPluginDatabase(): Promise<string> {
   const databaseUrl = await createEmptyDatabase();
   await migrateDatabase(databaseUrl);

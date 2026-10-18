@@ -5,9 +5,9 @@ import { z } from 'zod';
 import { createApp, createMigratedDatabase, createPrismaClient, createUseCases, FLEET_URL, newKey, OPERATOR, operatorCaller, secretOf, unwrap, type PrismaClient } from '@aeolus-fleet/core/testing';
 
 import { createSquadronsApp, type SquadronsApp } from '../src/app.js';
-import { createSquadronsDatabase } from './support/database.js';
-import { startFakeGithub, tagsAt, type FakeGithub } from './support/fake-github.js';
-import { seedRepository } from './support/repositories.js';
+import { createSquadronsDatabase } from '../src/testing/database.js';
+import { startFakeGithub, tagsAt, type FakeGithub } from '../src/testing/fake-github.js';
+import { seedRepository } from '../src/testing/repositories.js';
 
 // Forming a squadron at squadrons' API against a real fleet: its flagship and
 // members become ships of the fleet, the flagship crewed by squadrons, each

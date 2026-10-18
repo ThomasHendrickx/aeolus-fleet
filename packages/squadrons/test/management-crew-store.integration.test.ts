@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
 import { createPrismaManagementCrewStore } from '../src/adapters/prisma/management-crew-store.js';
 import type { ManagementCrew } from '../src/core/management/ports.js';
-import { createSquadronsDatabase } from './support/database.js';
+import { createSquadronsDatabase } from '../src/testing/database.js';
 
 // Each fleet's management ship crew token, in Postgres: one connection per
 // fleet in one install, the binding kept when the crew token is dropped.

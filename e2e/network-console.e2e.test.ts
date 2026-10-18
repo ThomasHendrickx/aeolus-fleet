@@ -12,8 +12,7 @@ import { createMigratedDatabase } from '../packages/core/src/testing/database.js
 import { newKey } from '../packages/core/src/testing/keys.js';
 import { createTestClock } from '../packages/core/test/support/postgres-core.js';
 import { refusalOf, unwrap } from '../packages/core/src/testing/result.js';
-import { createNetworkingPluginApp, type NetworkingPluginApp } from '../packages/networking-plugin/src/app.js';
-import { createPluginDatabase } from '../packages/networking-plugin/test/support/database.js';
+import { createNetworkingPluginApp, createPluginDatabase, type NetworkingPluginApp } from '@aeolus-fleet/networking-plugin/testing';
 import { signIn } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 

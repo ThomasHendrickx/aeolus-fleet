@@ -1,3 +1,4 @@
+import type { TrierarchReportDetails } from '@aeolus-fleet/common';
 import type { FastifyInstance } from 'fastify';
 import type { Browser, BrowserContext, Page } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -12,11 +13,7 @@ import { newKey } from '../packages/core/src/testing/keys.js';
 import { createMigratedDatabase } from '../packages/core/src/testing/database.js';
 import { createTestClock } from '../packages/core/test/support/postgres-core.js';
 import { unwrap } from '../packages/core/src/testing/result.js';
-import { createTrierarchPluginApp, type TrierarchPluginApp } from '../packages/trierarch-plugin/src/app.js';
-import { createRestFleet } from '../packages/trierarch/src/adapters/rest-fleet.js';
-import { EMPTY_STATE } from '../packages/trierarch/src/core/entry.js';
-import { createReportSelf } from '../packages/trierarch/src/core/report-self.js';
-import { createPluginDatabase } from '../packages/trierarch-plugin/test/support/database.js';
+import { createPluginDatabase, createTrierarchPluginApp, type TrierarchPluginApp } from '@aeolus-fleet/trierarch-plugin/testing';
 import { signIn } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
@@ -73,6 +70,42 @@ afterAll(async () => {
   await server.close();
   await database.$disconnect();
 });
+
+/** The machine's trierarch registering, as init makes it, over the ship REST API: core takes no part of the trierarch's train (decision 0049). */
+async function registerMachine(crew: { shipId: string; secret: string }): Promise<{ crewToken: string }> {
+  return z.object({ crewToken: z.string() }).parse(await shipCall({ crewToken: '', path: 'register', body: { ...crew, location: { kind: 'DEVICE' }, harness: 'aeolus-trierarch' } }));
+}
+
+/**
+ * The machine's trierarch reporting what it offers, as its run does: one
+ * harness that trusts its one repository and asks about no flag, as init
+ * makes it (#381, #403).
+ */
+async function reportMachine(crewToken: string, at: Pick<TrierarchReportDetails, 'version' | 'machine'>): Promise<void> {
+  const details: TrierarchReportDetails = {
+    harnesses: [{ harness: 'claude-code', options: { type: 'object', properties: {}, additionalProperties: false }, flags: [], riskyFlags: [] }],
+    workspaces: { repositories: ['aeolus-fleet'], folders: [] },
+    caps: { ships: 2, running: 1 },
+    kept: [],
+    orphans: [],
+    runtime: 'host',
+    ...at,
+  };
+  await shipCall({ crewToken, path: 'report', body: { state: 'idle', note: '0 of 2 running', details } });
+}
+
+async function shipCall(call: { crewToken: string; path: string; body: unknown }): Promise<unknown> {
+  const { crewToken, path, body } = call;
+  const response = await fetch(`${serverUrl}/api/v1/ship/${path}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...(crewToken === '' ? {} : { authorization: `Bearer ${crewToken}` }) },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    throw new Error(`ship/${path} answered ${String(response.status)}: ${await response.text()}`);
+  }
+  return response.json();
+}
 
 async function signedIn(): Promise<Page> {
   clock.advance(SIGN_IN_WINDOW_MS);
@@ -131,21 +164,9 @@ describe('Trierarchs in the console', () => {
     // The machine's trierarch, as init and run make it, from the setup line shown once: it registers and reports what it offers.
     const shipId = z.templateLiteral(['shp_', z.string()]).parse(/--ship-id (\S+)/.exec(setupLine)?.[1]);
     const secret = z.string().parse(/--secret (\S+)/.exec(setupLine)?.[1]);
-    const { crewToken } = await createRestFleet({ fleetUrl: serverUrl, crewToken: '' }).registerSelf({ shipId, secret });
+    const { crewToken } = await registerMachine({ shipId, secret });
     machine = { shipId, crewToken };
-    await createReportSelf({
-      fleet: createRestFleet({ fleetUrl: serverUrl, crewToken }),
-      processes: { list: () => Promise.resolve([]), stop: () => Promise.resolve() },
-      // Its harness trusts its repository and asks about no flag, as init makes it (#381, #403).
-      trust: { trusted: () => Promise.resolve({ 'claude-code': { repositories: ['aeolus-fleet'], folders: [], unacceptedFlags: [] } }) },
-      state: { load: () => Promise.resolve(EMPTY_STATE), save: () => Promise.resolve() },
-      setup: {
-        configuration: { caps: { ships: 2, running: 1 }, repositories: { 'aeolus-fleet': { path: '/srv/aeolus-fleet' } }, folders: {}, harnesses: { 'claude-code': { flags: [], options: {} } } },
-        version: '0.19.0',
-        adapterFlags: {},
-        riskyFlags: {},
-      },
-    })();
+    await reportMachine(crewToken, { version: '0.19.0' });
     const scout = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'implementer' }));
     const page = await signedIn();
     await page.goto(`/ships/${scout.shipId}`);
@@ -177,20 +198,7 @@ describe('Trierarchs in the console', () => {
   });
 
   it('labels the machine from what it reports, and a request for a machine none matches waits and says why (#102)', async () => {
-    await createReportSelf({
-      fleet: createRestFleet({ fleetUrl: serverUrl, crewToken: machine.crewToken }),
-      processes: { list: () => Promise.resolve([]), stop: () => Promise.resolve() },
-      // Its harness trusts its repository and asks about no flag, as init makes it (#381, #403).
-      trust: { trusted: () => Promise.resolve({ 'claude-code': { repositories: ['aeolus-fleet'], folders: [], unacceptedFlags: [] } }) },
-      state: { load: () => Promise.resolve(EMPTY_STATE), save: () => Promise.resolve() },
-      setup: {
-        configuration: { caps: { ships: 2, running: 1 }, repositories: { 'aeolus-fleet': { path: '/srv/aeolus-fleet' } }, folders: {}, harnesses: { 'claude-code': { flags: [], options: {} } } },
-        version: '0.20.0',
-        adapterFlags: {},
-        riskyFlags: {},
-        machine: { os: 'macos', arch: 'arm64' },
-      },
-    })();
+    await reportMachine(machine.crewToken, { version: '0.20.0', machine: { os: 'macos', arch: 'arm64' } });
     await plugin.assignOnce();
     const lookout = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'lookout', type: 'implementer' }));
     const page = await signedIn();

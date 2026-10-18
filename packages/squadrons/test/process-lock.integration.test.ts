@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { acquireProcessLock, type ProcessLock } from '../src/adapters/prisma/process-lock.js';
-import { createSquadronsDatabase } from './support/database.js';
+import { createSquadronsDatabase } from '../src/testing/database.js';
 
 // One squadrons process at a time: two share the flagships and would overwrite
 // each other, so a second process on the same database does not start.

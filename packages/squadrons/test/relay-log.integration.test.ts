@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
 import { createPrismaRelayLog } from '../src/adapters/prisma/relay-log.js';
-import { createSquadronsDatabase } from './support/database.js';
+import { createSquadronsDatabase } from '../src/testing/database.js';
 
 // The relays flagships sent on to their forming ships, kept in Postgres so the
 // forming ship's answer reaches the member after a restart too (decision 0017).

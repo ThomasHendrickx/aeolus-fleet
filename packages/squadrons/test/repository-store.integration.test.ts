@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
 import { createPrismaRepositoryStore } from '../src/adapters/prisma/repository-store.js';
 import type { TemplateRepository } from '../src/core/catalogue/template-repository.js';
-import { createSquadronsDatabase } from './support/database.js';
+import { createSquadronsDatabase } from '../src/testing/database.js';
 
 // The template repositories the operator set, in Postgres: one per fleet and
 // name, oldest first, each with its last fetch.

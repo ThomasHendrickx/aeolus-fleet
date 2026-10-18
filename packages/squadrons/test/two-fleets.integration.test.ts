@@ -6,9 +6,9 @@ import { z } from 'zod';
 import { argon2idPasswordHasher, createApp, createMigratedDatabase, createPrismaClient, createUseCases, FLEET_URL, newKey, OPERATOR, operatorCaller, secretOf, unwrap, type PrismaClient } from '@aeolus-fleet/core/testing';
 
 import { createSquadronsApp, type SquadronsApp } from '../src/app.js';
-import { createSquadronsDatabase } from './support/database.js';
-import { startFakeGithub, tagsAt, type FakeGithub } from './support/fake-github.js';
-import { seedRepository } from './support/repositories.js';
+import { createSquadronsDatabase } from '../src/testing/database.js';
+import { startFakeGithub, tagsAt, type FakeGithub } from '../src/testing/fake-github.js';
+import { seedRepository } from '../src/testing/repositories.js';
 
 // One squadrons install serving two fleets of one server, each connected with
 // its own management ship: neither fleet's operator ever sees the other's

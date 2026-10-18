@@ -6,9 +6,9 @@ import { z } from 'zod';
 import { createApp, createMigratedDatabase, createPrismaClient, createUseCases, FLEET_URL, newKey, OPERATOR, operatorCaller, secretOf, unwrap, type Caller, type PrismaClient } from '@aeolus-fleet/core/testing';
 
 import { createSquadronsApp, type SquadronsApp } from '../src/app.js';
-import { createSquadronsDatabase } from './support/database.js';
-import { startFakeGithub, tagsAt, type FakeGithub } from './support/fake-github.js';
-import { seedRepository } from './support/repositories.js';
+import { createSquadronsDatabase } from '../src/testing/database.js';
+import { startFakeGithub, tagsAt, type FakeGithub } from '../src/testing/fake-github.js';
+import { seedRepository } from '../src/testing/repositories.js';
 
 // The check-in against a real fleet: a member crewed with its crew line checks
 // in at its flagship, gets its role and charter back, confirms it, and the

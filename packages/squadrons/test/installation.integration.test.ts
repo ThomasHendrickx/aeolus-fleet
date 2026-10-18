@@ -7,9 +7,9 @@ import { createApp, createMigratedDatabase, createPrismaClient, createUseCases, 
 
 import { createPrismaClient as createSquadronsPrismaClient } from '../src/adapters/prisma/client.js';
 import { createSquadronsApp, type SquadronsApp } from '../src/app.js';
-import { createSquadronsDatabase } from './support/database.js';
-import { startFakeGithub, tagsAt, type FakeGithub } from './support/fake-github.js';
-import { seedRepository } from './support/repositories.js';
+import { createSquadronsDatabase } from '../src/testing/database.js';
+import { startFakeGithub, tagsAt, type FakeGithub } from '../src/testing/fake-github.js';
+import { seedRepository } from '../src/testing/repositories.js';
 
 // The installation API (decision 0021): a hosting service switches squadrons
 // on or off per fleet and deletes a fleet's records, with the installation

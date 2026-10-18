@@ -6,7 +6,7 @@ import { createPrismaFormationAttempts } from '../src/adapters/prisma/formation-
 import { createPrismaSquadronRepository } from '../src/adapters/prisma/squadron-repository.js';
 import { beginFormation } from '../src/core/squadron/formation.js';
 import type { Member, Squadron } from '../src/core/squadron/squadron.js';
-import { createSquadronsDatabase } from './support/database.js';
+import { createSquadronsDatabase } from '../src/testing/database.js';
 
 // Storing squadrons in Postgres: an update writes only what changed, so two
 // updates made from one snapshot, each to another member, keep both.
