@@ -30,7 +30,7 @@ beforeEach(async () => {
 describe('registering a networking plugin', () => {
   it("makes the caller's ship the fleet's networking plugin, with what it declared, at the next version", async () => {
     expect(unwrap(await registerNetworkPlugin(plugin, BLOCK_ALL))).toEqual({ version: 1 });
-    expect(core.state.networkSettings).toEqual([{ fleetId, rules: [], builtIns: BUILT_INS_ON, version: 1, plugin: { shipId: plugin.shipId, ...BLOCK_ALL } }]);
+    expect(core.state.networkSettings).toEqual([{ fleetId, rules: [], builtIns: BUILT_INS_ON, version: 1, plugin: { shipId: plugin.shipId, ...BLOCK_ALL, registeredAt: new Date('2026-10-10T08:00:00.000Z') } }]);
   });
 
   it('starts from no rules, as a fleet without a plugin has none, until it supplies its own', async () => {
@@ -58,7 +58,7 @@ describe('registering a networking plugin', () => {
     const keepLatest = { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 600 } as const;
 
     expect(unwrap(await registerNetworkPlugin(plugin, keepLatest))).toEqual({ version: 2 });
-    expect(core.state.networkSettings).toEqual([expect.objectContaining({ plugin: { shipId: plugin.shipId, ...keepLatest } })]);
+    expect(core.state.networkSettings).toEqual([expect.objectContaining({ plugin: { shipId: plugin.shipId, ...keepLatest, registeredAt: new Date('2026-10-10T08:00:00.000Z') } })]);
   });
 
   it('refuses a second plugin while one is registered, and stores nothing', async () => {
@@ -70,7 +70,7 @@ describe('registering a networking plugin', () => {
     const refused = await registerNetworkPlugin(second, { whileUnavailable: 'open-all', notRespondingAfterSeconds: 60 });
 
     expect(refusalOf(refused)).toEqual({ kind: 'NETWORK_PLUGIN_REGISTERED', message: 'The fleet already has a networking plugin; it unregisters first (decision 0035)' });
-    expect(core.state.networkSettings).toEqual([expect.objectContaining({ version: 1, plugin: { shipId: plugin.shipId, ...BLOCK_ALL } })]);
+    expect(core.state.networkSettings).toEqual([expect.objectContaining({ version: 1, plugin: { shipId: plugin.shipId, ...BLOCK_ALL, registeredAt: new Date('2026-10-10T08:00:00.000Z') } })]);
     expect(core.state.events).toEqual([]);
   });
 });

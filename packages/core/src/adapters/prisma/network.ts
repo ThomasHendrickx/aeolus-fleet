@@ -23,6 +23,7 @@ const settingsRowSchema = z.object({
   pluginShipId: idSchema('ship').nullable(),
   pluginWhileUnavailable: z.enum(WHILE_UNAVAILABLE).nullable(),
   pluginNotRespondingAfterSeconds: z.number().int().nullable(),
+  pluginRegisteredAt: z.date().nullable(),
   builtInViewerRead: z.boolean(),
   builtInOpenSend: z.boolean(),
   builtInOpenRead: z.boolean(),
@@ -61,6 +62,7 @@ export function createPrismaNetworkSettingsRepository(db: Db): NetworkSettingsRe
         pluginShipId: true,
         pluginWhileUnavailable: true,
         pluginNotRespondingAfterSeconds: true,
+        pluginRegisteredAt: true,
         builtInViewerRead: true,
         builtInOpenSend: true,
         builtInOpenRead: true,
@@ -70,11 +72,11 @@ export function createPrismaNetworkSettingsRepository(db: Db): NetworkSettingsRe
     if (!row) {
       return noNetworkSettings(fleetId);
     }
-    const { rules, version, pluginShipId, pluginWhileUnavailable, pluginNotRespondingAfterSeconds, ...builtIn } = settingsRowSchema.parse(row);
-    // The table's check keeps the three set together or none.
+    const { rules, version, pluginShipId, pluginWhileUnavailable, pluginNotRespondingAfterSeconds, pluginRegisteredAt, ...builtIn } = settingsRowSchema.parse(row);
+    // The table's check keeps the four set together or none.
     const plugin =
-      pluginShipId !== null && pluginWhileUnavailable !== null && pluginNotRespondingAfterSeconds !== null
-        ? { shipId: pluginShipId, whileUnavailable: pluginWhileUnavailable, notRespondingAfterSeconds: pluginNotRespondingAfterSeconds }
+      pluginShipId !== null && pluginWhileUnavailable !== null && pluginNotRespondingAfterSeconds !== null && pluginRegisteredAt !== null
+        ? { shipId: pluginShipId, whileUnavailable: pluginWhileUnavailable, notRespondingAfterSeconds: pluginNotRespondingAfterSeconds, registeredAt: pluginRegisteredAt }
         : null;
     const builtIns = { isViewerReadOn: builtIn.builtInViewerRead, open: { send: builtIn.builtInOpenSend, read: builtIn.builtInOpenRead, manage: builtIn.builtInOpenManage } };
     return { fleetId, rules, builtIns, version, plugin };
@@ -100,6 +102,7 @@ export function createPrismaNetworkSettingsRepository(db: Db): NetworkSettingsRe
         pluginShipId: plugin?.shipId ?? null,
         pluginWhileUnavailable: plugin?.whileUnavailable ?? null,
         pluginNotRespondingAfterSeconds: plugin?.notRespondingAfterSeconds ?? null,
+        pluginRegisteredAt: plugin?.registeredAt ?? null,
       };
       await db.networkSettings.upsert({ where: { fleetId }, create: { fleetId, ...kept }, update: kept });
     },

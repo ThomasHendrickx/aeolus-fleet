@@ -231,6 +231,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_on_behalf_scope$/),
       expect.stringMatching(/^\d{14}_events_fleet_id_occurred_at$/),
       expect.stringMatching(/^\d{14}_plugin_connections$/),
+      expect.stringMatching(/^\d{14}_network_plugin_registered_at$/),
     ]);
   });
 });
@@ -2234,6 +2235,23 @@ describe('network rules at the API', () => {
     await expect(declarer.fleet.declareNetworkRules.mutate({ rules })).resolves.toEqual({ rules: 1 });
     await expect((await networker()).fleet.declaredNetworkRules.query()).resolves.toContainEqual({ shipId, rules });
     await declarer.fleet.declareNetworkRules.mutate({ rules: [] });
+  });
+
+  it("let a ship with fleet:read read the fleet's networking plugin: its ship and when it registered, or null without one", async () => {
+    const reader = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:read'])}` });
+    await expect(reader.fleet.networkPlugin.query()).resolves.toBeNull();
+    const plugin = await networker();
+    const { shipId } = await plugin.ship.whoami.query();
+    const read = await reader.fleet.networkPlugin.query();
+
+    expect(read?.shipId).toBe(shipId);
+    expect(read?.registeredAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
+  it("refuse a read of the fleet's networking plugin without fleet:read, with FORBIDDEN", async () => {
+    const sender = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive'])}` });
+
+    await expect(refusalOf(sender.fleet.networkPlugin.query())).resolves.toEqual({ code: 'FORBIDDEN', message: 'This call needs the fleet:read scope' });
   });
 
   it('refuse a declaration without labels:define, and a read of declared rules without fleet:network, with FORBIDDEN', async () => {

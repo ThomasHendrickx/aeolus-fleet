@@ -10,6 +10,7 @@ import {
   NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MIN_SECONDS,
   NETWORK_RULES_MAX,
   NETWORK_VERBS,
+  networkPluginOutputSchema,
   REACH_REFUSALS_READ_MAX,
   reachRefusalsOutputSchema,
   registerNetworkPluginInputSchema,
@@ -252,5 +253,25 @@ describe('explainReachOutputSchema', () => {
 
   it('refuses a rule that is not built in, the plugin\'s or declared', () => {
     expect(explainReachOutputSchema.safeParse({ send: [{ shipId: newId('ship'), rule: { builtIn: 'everyone' } }], read: [], manage: [] }).success).toBe(false);
+  });
+});
+
+describe('networkPluginOutputSchema (interop I-3)', () => {
+  it("answers the plugin's ship and when it registered", () => {
+    const plugin = { shipId: newId('ship'), registeredAt: '2026-10-18T16:00:00.000Z' };
+
+    expect(networkPluginOutputSchema.parse(plugin)).toEqual(plugin);
+  });
+
+  it('answers none for a fleet without a networking plugin', () => {
+    expect(networkPluginOutputSchema.parse(null)).toBeNull();
+  });
+
+  it.each([
+    ['a label id for the ship', { shipId: newId('label'), registeredAt: '2026-10-18T16:00:00.000Z' }],
+    ['a registration date that is not ISO 8601', { shipId: newId('ship'), registeredAt: 'yesterday' }],
+    ['no registration date', { shipId: newId('ship') }],
+  ])('refuses %s', (_label, candidate) => {
+    expect(networkPluginOutputSchema.safeParse(candidate).success).toBe(false);
   });
 });

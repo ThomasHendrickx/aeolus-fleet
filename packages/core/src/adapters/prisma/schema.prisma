@@ -373,11 +373,12 @@ model NetworkSettings {
   builtInOpenRead                 Boolean @default(true) @map("built_in_open_read")
   builtInOpenManage               Boolean @default(true) @map("built_in_open_manage")
   version                         Int
-  /// The fleet's networking plugin (decision 0035): its ship and what it
-  /// declared, all three set or none.
-  pluginShipId                    String? @map("plugin_ship_id")
-  pluginWhileUnavailable          String? @map("plugin_while_unavailable")
-  pluginNotRespondingAfterSeconds Int?    @map("plugin_not_responding_after_seconds")
+  /// The fleet's networking plugin (decision 0035): its ship, what it
+  /// declared and when it first registered, all four set or none.
+  pluginShipId                    String?   @map("plugin_ship_id")
+  pluginWhileUnavailable          String?   @map("plugin_while_unavailable")
+  pluginNotRespondingAfterSeconds Int?      @map("plugin_not_responding_after_seconds")
+  pluginRegisteredAt              DateTime? @map("plugin_registered_at") @db.Timestamptz(3)
 
   fleet Fleet @relation(fields: [fleetId], references: [id])
 

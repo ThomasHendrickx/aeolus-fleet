@@ -180,6 +180,7 @@ describe('the ship calls at /api/v1', () => {
       '/fleet/setNetworkRules',
       '/fleet/registerNetworkPlugin',
       '/fleet/unregisterNetworkPlugin',
+      '/fleet/networkPlugin',
       '/fleet/setBuiltInRule',
       '/fleet/declareNetworkRules',
       '/fleet/declaredNetworkRules',

@@ -84,6 +84,7 @@ import {
   declareNetworkRulesInputSchema,
   declareNetworkRulesOutputSchema,
   declaredNetworkRulesOutputSchema,
+  networkPluginOutputSchema,
   setNetworkRulesOutputSchema,
   findLabelValueOutputSchema,
   fleetListInputSchema,
@@ -650,6 +651,20 @@ export const fleetRouter = router({
     })
     .output(setNetworkRulesOutputSchema)
     .mutation(async ({ ctx }) => okOrThrow(await ctx.useCases.unregisterNetworkPlugin(ctx.caller))),
+
+  /** The fleet's networking plugin, or none: what the gateway checks before it switches on for a fleet (interop I-3). */
+  networkPlugin: scopedProcedure('fleet:read')
+    .meta({
+      description: [
+        "Needs fleet:read. The fleet's networking plugin: its ship and registeredAt, when it first registered (registering again keeps it), or null when the fleet has none (decision 0035).",
+        'Without a networking plugin only the built-in rules hold, so a ship that needs rules beside them checks here first.',
+      ].join(' '),
+    })
+    .output(networkPluginOutputSchema)
+    .query(async ({ ctx }) => {
+      const plugin = okOrThrow(await ctx.useCases.readNetworkPlugin(ctx.caller));
+      return plugin === null ? null : { shipId: plugin.shipId, registeredAt: plugin.registeredAt.toISOString() };
+    }),
 
   /** A built-in rule turned on or off: the viewer reading by argo, open for one verb by the networking plugin (decision 0034). */
   setBuiltInRule: scopedProcedure('fleet:network')

@@ -50,6 +50,7 @@ import { createExplainReach } from '../../src/domain/registry/explain-reach.js';
 import { createDiscover } from '../../src/domain/registry/discover.js';
 import { createSetStatement } from '../../src/domain/registry/set-statement.js';
 import { createReadBuiltInRules } from '../../src/domain/registry/read-built-in-rules.js';
+import { createReadNetworkPlugin } from '../../src/domain/registry/read-network-plugin.js';
 import { createSetBuiltInRule } from '../../src/domain/registry/set-built-in-rule.js';
 import { createUnregisterNetworkPlugin } from '../../src/domain/registry/unregister-network-plugin.js';
 import { createClaimShip } from '../../src/domain/registry/claim-ship.js';
@@ -201,6 +202,7 @@ export function registryUseCases(core: InMemoryCore) {
     unregisterNetworkPlugin: createUnregisterNetworkPlugin(deps),
     setBuiltInRule: createSetBuiltInRule(deps),
     readBuiltInRules: createReadBuiltInRules(deps),
+    readNetworkPlugin: createReadNetworkPlugin(deps),
     readReachRefusals: createReadReachRefusals({ reachRefusals: core.reachRefusals }),
     declareNetworkRules: createDeclareNetworkRules({ uow: core.uow, clock: core.clock, ids: core.ids }),
     readDeclaredNetworkRules: createReadDeclaredNetworkRules({ declaredNetworkRules: core.declaredNetworkRules }),

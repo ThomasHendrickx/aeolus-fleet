@@ -279,7 +279,7 @@ describe('the networking plugin retired (decision 0035)', () => {
   it('leaves the settings as they are when another ship retires', async () => {
     unwrap(await registry.retireShip(argo, { shipId: scoutId }));
 
-    expect(core.state.networkSettings).toEqual([expect.objectContaining({ rules: [], version: 3, plugin: { shipId: plugin.shipId, whileUnavailable: 'block-all', notRespondingAfterSeconds: 120 } })]);
+    expect(core.state.networkSettings).toEqual([expect.objectContaining({ rules: [], version: 3, plugin: { shipId: plugin.shipId, whileUnavailable: 'block-all', notRespondingAfterSeconds: 120, registeredAt: new Date('2026-10-01T14:01:00.000Z') } })]);
     expect(eventsOfType('NetworkPluginUnregistered')).toEqual([]);
   });
 });
