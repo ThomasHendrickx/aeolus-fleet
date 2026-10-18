@@ -1,13 +1,13 @@
 'use client';
 
 import type { SelectorTerm } from '@aeolus-fleet/common';
-import { CircleAlert, Plus, X } from 'lucide-react';
+import { CircleAlert, Plus, UserRound, X } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { Fragment, useState } from 'react';
 
 import type { FilterGroup } from '../../../../lib/labels';
-import { TERM_MEANINGS, termKeyOf, type TermChip } from '../../../../lib/network-rules';
+import { OWNER_TERM_MEANINGS, TERM_MEANINGS, termKeyOf, type OwnerChip, type OwnerChoice, type TermChip } from '../../../../lib/network-rules';
 import { Button } from '../../../../components/atoms/button';
 import { Popover, PopoverContent, PopoverTrigger } from '../../../../components/atoms/popover';
 import { LabelChip } from '../../../../components/molecules/label-chip';
@@ -18,8 +18,12 @@ const LabelPicker = dynamic(() => import('../../../../components/molecules/label
 interface LabelSelectorFieldProps {
   /** What the side is, as a sentence starts it: "From ships with", "To ships with". */
   label: string;
-  /** The terms picked, as chips, in the order picked. */
+  /** The label terms picked, as chips, in the order picked. */
   picked: readonly TermChip[];
+  /** The owner terms picked, as chips, in the order picked (decision 0045). */
+  owners: readonly OwnerChip[];
+  /** The ships an owner term may name: argo and the person ships. */
+  ownerChoices: readonly OwnerChoice[];
   /** Terms whose value or label the fleet no longer has: they match no ship, so the side matches none (decision 0034). */
   unknown: readonly SelectorTerm[];
   /** Every key, by owner, each value with how many ships carry it. */
@@ -31,7 +35,7 @@ interface LabelSelectorFieldProps {
   problem?: string;
   onAdd: (term: SelectorTerm) => void;
   onRemove: (term: SelectorTerm) => void;
-  /** The testid stem: `<stem>-add`, `<stem>-popover`, `<stem>-value`. */
+  /** The testid stem: `<stem>-add`, `<stem>-value`, `<stem>-owner-add`, `<stem>-owner`. */
   testId: string;
   /** The popover's testid, shared by every side of a list. */
   popoverTestId: string;
@@ -41,17 +45,40 @@ interface LabelSelectorFieldProps {
  * One side of a network rule (decision 0034): the terms a ship must meet,
  * every one, joined by "and"; none picked is every ship. Each term a chip
  * with ×: an exact value, any value of a key (`key=*`) or the same value as
- * the other side (`key=#`); then Add label, a key and one of those. A value the
- * fleet no longer has shows as a warning, removable: while it is there the
- * side matches no ship. Props only.
+ * the other side (`key=#`); an owner (decision 0045) by its ship, any owner
+ * (`owner=*`) or the same owner as the other side (`owner=#`); then Add
+ * label, a key and one of those, and Add owner. A value or owner the fleet no
+ * longer has shows as a warning, removable: while it is there the side
+ * matches no ship. Props only.
  */
-export function LabelSelectorField({ label, picked, unknown, groups, max, isDisabled, problem, onAdd, onRemove, testId, popoverTestId }: LabelSelectorFieldProps) {
+export function LabelSelectorField({
+  label,
+  picked,
+  owners,
+  ownerChoices,
+  unknown,
+  groups,
+  max,
+  isDisabled,
+  problem,
+  onAdd,
+  onRemove,
+  testId,
+  popoverTestId,
+}: LabelSelectorFieldProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isOwnerOpen, setIsOwnerOpen] = useState(false);
+  const termCount = picked.length + owners.length + unknown.length;
+  const pickedOwners = new Set(owners.map((owner) => termKeyOf(owner.term)));
+  const ownerOptions = [
+    ...(['*', '#'] as const).map((value) => ({ term: { owner: value }, text: OWNER_TERM_MEANINGS[value] })),
+    ...ownerChoices.map((choice) => ({ term: { owner: choice.shipId }, text: choice.name })),
+  ];
   return (
     <div className="flex flex-col gap-1" data-testid={testId}>
       <span className="text-meta text-muted-foreground">{label}</span>
       <div className="flex min-h-(--size-control-sm) flex-wrap items-center gap-1.5">
-        {picked.length + unknown.length === 0 ? <span className="text-body">Every ship</span> : null}
+        {termCount === 0 ? <span className="text-body">Every ship</span> : null}
         {picked.map((chip, index) => (
           <Fragment key={termKeyOf(chip.term)}>
             {index === 0 ? null : <span className="text-meta text-muted-foreground">and</span>}
@@ -69,6 +96,12 @@ export function LabelSelectorField({ label, picked, unknown, groups, max, isDisa
             />
           </Fragment>
         ))}
+        {owners.map((owner, index) => (
+          <Fragment key={termKeyOf(owner.term)}>
+            {index === 0 && picked.length === 0 ? null : <span className="text-meta text-muted-foreground">and</span>}
+            <OwnerTermChip owner={owner} testId={`${testId}-owner`} {...(isDisabled === true ? {} : { onRemove: () => { onRemove(owner.term); } })} />
+          </Fragment>
+        ))}
         {unknown.map((term) => (
           <span
             key={termKeyOf(term)}
@@ -77,11 +110,11 @@ export function LabelSelectorField({ label, picked, unknown, groups, max, isDisa
             className="inline-flex h-5.5 items-center gap-1 rounded-sm border border-tone-attention-border bg-tone-attention-bg px-1.5 text-id text-tone-attention-fg [&_svg]:size-3"
           >
             <CircleAlert aria-hidden />
-            A removed label
+            {typeof term !== 'string' && 'owner' in term ? 'A removed owner' : 'A removed label'}
             {isDisabled === true ? null : (
               <button
                 type="button"
-                aria-label="Remove the removed label"
+                aria-label={typeof term !== 'string' && 'owner' in term ? 'Remove the removed owner' : 'Remove the removed label'}
                 onClick={() => {
                   onRemove(term);
                 }}
@@ -92,7 +125,7 @@ export function LabelSelectorField({ label, picked, unknown, groups, max, isDisa
             )}
           </span>
         ))}
-        {picked.length + unknown.length >= max ? null : (
+        {termCount >= max ? null : (
           <Popover open={isOpen} onOpenChange={setIsOpen}>
             <PopoverTrigger render={<Button type="button" variant="ghost" size="xs" icon={<Plus />} disabled={isDisabled} data-testid={`${testId}-add`} />}>Add label</PopoverTrigger>
             <PopoverContent align="start" sideOffset={6} className="w-80 p-2" data-testid={popoverTestId}>
@@ -121,6 +154,34 @@ export function LabelSelectorField({ label, picked, unknown, groups, max, isDisa
             </PopoverContent>
           </Popover>
         )}
+        {termCount >= max ? null : (
+          <Popover open={isOwnerOpen} onOpenChange={setIsOwnerOpen}>
+            <PopoverTrigger render={<Button type="button" variant="ghost" size="xs" icon={<Plus />} disabled={isDisabled} data-testid={`${testId}-owner-add`} />}>Add owner</PopoverTrigger>
+            <PopoverContent align="start" sideOffset={6} className="w-72 p-2" data-testid={`${popoverTestId}-owner`}>
+              <span className="block px-2 pt-1 pb-2 text-body font-medium">{label} the owner</span>
+              <ul className="flex flex-col">
+                {ownerOptions.map((option) => (
+                  <li key={termKeyOf(option.term)}>
+                    <button
+                      type="button"
+                      disabled={pickedOwners.has(termKeyOf(option.term))}
+                      data-testid={`${testId}-owner-option`}
+                      onClick={() => {
+                        setIsOwnerOpen(false);
+                        onAdd(option.term);
+                      }}
+                      className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-body hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring disabled:text-muted-foreground disabled:hover:bg-transparent"
+                    >
+                      <UserRound aria-hidden className="size-(--size-icon) shrink-0 text-muted-foreground" />
+                      {option.text}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 border-t border-border px-2 pt-2 text-meta text-muted-foreground">An owner is argo or a person&rsquo;s ship. # is the same owner as the other side.</p>
+            </PopoverContent>
+          </Popover>
+        )}
       </div>
       {problem === undefined ? null : (
         <p role="status" className="text-meta text-tone-attention-fg" data-testid={`${testId}-problem`}>
@@ -129,9 +190,40 @@ export function LabelSelectorField({ label, picked, unknown, groups, max, isDisa
       )}
       {unknown.length === 0 ? null : (
         <p role="alert" className="text-meta text-tone-attention-fg">
-          A label here was removed from the fleet: this side matches no ship until you remove it.
+          A label or owner here was removed from the fleet: this side matches no ship until you remove it.
         </p>
       )}
     </div>
+  );
+}
+
+/** One owner term as a chip: `owner=<name>`, `owner=*` or `owner=#` in mono, with what `*` and `#` mean in its title. */
+function OwnerTermChip({ owner, onRemove, testId }: { owner: OwnerChip; onRemove?: () => void; testId: string }) {
+  const { owner: value } = owner.term;
+  const title = value === '*' || value === '#' ? `${owner.text}. ${OWNER_TERM_MEANINGS[value]}` : `${owner.text}: ships it owns`;
+  return (
+    <span
+      role="group"
+      aria-label={title}
+      title={title}
+      data-testid={testId}
+      className="inline-flex h-5.5 max-w-full min-w-0 shrink-0 items-center gap-1 rounded-sm border border-border bg-secondary px-1.5 font-mono text-id whitespace-nowrap text-foreground [&_svg]:size-3 [&_svg]:shrink-0 [&_svg]:text-muted-foreground"
+    >
+      <UserRound aria-hidden />
+      <span className="truncate">
+        <span className="text-muted-foreground">owner=</span>
+        <span className="font-medium">{owner.text.slice('owner='.length)}</span>
+      </span>
+      {onRemove === undefined ? null : (
+        <button
+          type="button"
+          aria-label={`Remove ${owner.text}`}
+          onClick={onRemove}
+          className="-mr-1 ml-0.5 inline-flex size-4 items-center justify-center rounded-xs text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+        >
+          <X aria-hidden />
+        </button>
+      )}
+    </span>
   );
 }
