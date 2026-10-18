@@ -133,9 +133,9 @@ Each outside party is a ship, of kind app or person (decisions of 17 Oct):
 **MCP out:**
 
 1. A fleet ship sends a message to the CRM ship, of the content type the capability states, with the tool arguments as its JSON payload.
-2. The gateway receives it, acks it (0001), and calls `tools/call` with the vault's credential.
-3. It sends the result back as a reply naming the request (`inReplyTo`). It reports `handled`, or `notHandled` when the call failed (0040), so Health shows a failure.
-4. A crash between the ack and the call loses the call: the outside call runs at most once (MCP study, question 13).
+2. The gateway push receives it and hands it over by calling `tools/call` with the vault's credential; the server's first answer confirms it (5.2, I-7).
+3. It sends the result, an error result included, back as a reply naming the request (`inReplyTo`), then reports `handled`.
+4. A call that died before the server answered is handed again only where repeating is safe; otherwise it is not handled with "the call may have run" (5.2).
 
 **MCP in:**
 
