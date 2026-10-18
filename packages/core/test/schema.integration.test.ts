@@ -368,7 +368,7 @@ describe('the scope catalogue migration', () => {
   const catalogue = readdirSync(MIGRATIONS).find((name) => name.endsWith('_scope_catalogue'));
   const before = ['messages:send', 'messages:receive', 'messages:force', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'scopes:declare', 'scopes:grant'];
 
-  /** A fleet as the migration finds it: every holder of fleet:manage, both plugins, and ships it leaves alone. */
+  /** A fleet as the migration finds it: every holder of fleet:manage, both plugins, and ships it leaves alone, two of them of a plugin's type. */
   async function fleetBefore(client: PrismaClient) {
     const fleetId = newId('fleet');
     const ships = {
@@ -379,6 +379,8 @@ describe('the scope catalogue migration', () => {
       networking: newId('ship'),
       scout: newId('ship'),
       retired: newId('ship'),
+      ofSquadronsType: newId('ship'),
+      ofTrierarchPluginType: newId('ship'),
     };
     const earlier = newId('event');
     await client.fleet.create({ data: { id: fleetId, name: 'old fleet', createdAt: now, lastEventSeq: 1n } });
@@ -399,13 +401,15 @@ describe('the scope catalogue migration', () => {
         { id: ships.networking, fleetId, name: 'networking-plugin', type: 'networking-plugin', kind: 'agent', scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:network'], createdAt: now },
         { id: ships.scout, fleetId, name: 'scout', type: 'reviewer', kind: 'agent', scopes: ['messages:send', 'messages:receive', 'fleet:read'], createdAt: now },
         { id: ships.retired, fleetId, name: 'old-manager', type: 'manager', kind: 'agent', scopes: ['messages:send', 'messages:receive', 'fleet:manage'], createdAt: now, retiredAt: now },
+        { id: ships.ofSquadronsType, fleetId, name: 'formation', type: 'squadrons', kind: 'agent', scopes: ['messages:send', 'messages:receive'], createdAt: now },
+        { id: ships.ofTrierarchPluginType, fleetId, name: 'placer', type: 'trierarch-plugin', kind: 'agent', scopes: ['messages:send', 'messages:receive'], createdAt: now },
       ],
     });
     await client.event.create({ data: { id: earlier, fleetId, type: 'ShipCommissioned', occurredAt: now, shipId: ships.scout, details: {}, seq: 1n } });
     return { fleetId, ships, earlier };
   }
 
-  it("keeps what each holder of fleet:manage did, giving it fleet:commission and messages:resend, and puts both plugins on exactly their sets (decision 0046)", async () => {
+  it("keeps what each holder of fleet:manage did, giving it fleet:commission and messages:resend, and puts both plugins on exactly their sets, never another ship of a plugin's type (decision 0046)", async () => {
     const url = await createMigratedDatabase();
     const client = createPrismaClient(url);
     try {
@@ -421,6 +425,8 @@ describe('the scope catalogue migration', () => {
       expect(after.get(ships.networking)).toEqual(['messages:send', 'messages:receive', 'fleet:read', 'fleet:network']);
       expect(after.get(ships.scout)).toEqual(['messages:send', 'messages:receive', 'fleet:read']);
       expect(after.get(ships.retired)).toEqual(['messages:send', 'messages:receive', 'fleet:manage']);
+      expect(after.get(ships.ofSquadronsType)).toEqual(['messages:send', 'messages:receive']);
+      expect(after.get(ships.ofTrierarchPluginType)).toEqual(['messages:send', 'messages:receive']);
     } finally {
       await client.$disconnect();
     }
@@ -538,7 +544,7 @@ describe('the on-behalf scope migration', () => {
   const everyScopeBefore = ['messages:send', 'messages:receive', 'messages:force', 'messages:resend', 'fleet:read', 'fleet:commission', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'scopes:declare', 'scopes:grant', 'squadrons:form'];
   const everyScopeAfter = ['messages:send', 'messages:receive', 'messages:force', 'messages:resend', 'fleet:read', 'fleet:commission', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'fleet:on-behalf', 'scopes:declare', 'scopes:grant', 'squadrons:form'];
 
-  it("gives every fleet's argo and every active squadrons ship fleet:on-behalf in catalogue order, which squadrons reads on behalf of a named ship with, once, and no other ship (decisions 0017 and 0046)", async () => {
+  it("gives every fleet's argo and its active squadrons ship fleet:on-behalf in catalogue order, which squadrons reads on behalf of a named ship with, once, and no other ship, not even one of its type (decisions 0017 and 0046)", async () => {
     const url = await createMigratedDatabase();
     const client = createPrismaClient(url);
     const fleetId = newId('fleet');
@@ -547,10 +553,12 @@ describe('the on-behalf scope migration', () => {
     const heldId = newId('ship');
     const retiredId = newId('ship');
     const scoutId = newId('ship');
+    const ofSquadronsTypeId = newId('ship');
     try {
       await client.fleet.create({ data: { id: fleetId, name: 'old fleet', createdAt: now } });
       await client.ship.createMany({
         data: [
+          { id: ofSquadronsTypeId, fleetId, name: 'formation', type: 'squadrons', kind: 'agent', scopes: ['messages:send', 'messages:receive'], createdAt: now },
           { id: argoId, fleetId, name: 'argo', type: 'operator', kind: 'operator', scopes: everyScopeBefore, createdAt: now },
           { id: squadronsId, fleetId, name: 'squadrons', type: 'squadrons', kind: 'agent', scopes: squadronsScopes, createdAt: now },
           { id: heldId, fleetId, name: 'second-squadrons', type: 'squadrons', kind: 'agent', scopes: ['messages:send', 'messages:receive', 'fleet:on-behalf'], createdAt: now },
@@ -569,6 +577,7 @@ describe('the on-behalf scope migration', () => {
           [heldId, ['messages:send', 'messages:receive', 'fleet:on-behalf']],
           [retiredId, squadronsScopes],
           [scoutId, ['messages:send', 'messages:receive', 'fleet:read']],
+          [ofSquadronsTypeId, ['messages:send', 'messages:receive']],
         ]),
       );
     } finally {

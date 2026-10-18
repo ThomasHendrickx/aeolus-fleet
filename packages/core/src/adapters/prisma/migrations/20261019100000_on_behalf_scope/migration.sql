@@ -11,6 +11,8 @@ $$;
 
 -- argo holds every scope, and squadrons reads on behalf of a person's ship (decision 0017): every argo and every
 -- active squadrons ship gets fleet:on-behalf, its scopes kept in catalogue order, a plugin's own after them.
+-- Squadrons' ship is known by its name and type together, as the console connects it: types are not reserved,
+-- so another ship of type squadrons keeps what it holds.
 -- Every state change writes its event: each ship it changes gets
 -- ScopesChanged, by the system, taking the next number of its fleet's stream. Its id is an evt_ id as
 -- common/src/ids makes them: the time in milliseconds, then 80 random bits, in lowercase Crockford base32.
@@ -29,7 +31,7 @@ BEGIN
       SELECT array_agg("scope" ORDER BY coalesce(array_position(catalogue, "scope"), cardinality(catalogue) + 1), "place")
       FROM unnest(array_append("ships"."scopes", 'fleet:on-behalf')) WITH ORDINALITY AS u("scope", "place")
     )
-    WHERE ("kind" = 'operator' OR "type" = 'squadrons') AND "retired_at" IS NULL AND NOT ('fleet:on-behalf' = ANY("scopes"))
+    WHERE ("kind" = 'operator' OR ("name" = 'squadrons' AND "type" = 'squadrons')) AND "retired_at" IS NULL AND NOT ('fleet:on-behalf' = ANY("scopes"))
     RETURNING "fleet_id", "id"
   LOOP
     at := clock_timestamp();
