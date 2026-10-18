@@ -1,4 +1,4 @@
-import type { FleetDoor, FleetRefusal, ManagementCrewStore } from '../../core/management/ports.js';
+import type { FleetDoor, FleetRefusal, ManagementCrewStore, ScopeDoor } from '../../core/management/ports.js';
 import type { NetworkDoor } from '../../core/network/ports.js';
 import type { Result } from '../../core/shared/result.js';
 
@@ -58,5 +58,14 @@ export function watchNetworkLease(door: NetworkDoor, store: ManagementCrewStore)
     assignLabel: (crewToken, assignment) => watched(crewToken, door.assignLabel(crewToken, assignment)),
     unassignLabel: (crewToken, assignment) => watched(crewToken, door.unassignLabel(crewToken, assignment)),
     declareNetworkRules: (crewToken, declaration) => watched(crewToken, door.declareNetworkRules(crewToken, declaration)),
+  };
+}
+
+/** The scope calls, watching each fleet's management ship lease as the fleet door does. */
+export function watchScopeLease(door: ScopeDoor, store: ManagementCrewStore): ScopeDoor {
+  const watched = leaseWatcher(store);
+  return {
+    listScopes: (crewToken) => watched(crewToken, door.listScopes(crewToken)),
+    declareScopes: (crewToken, declaration) => watched(crewToken, door.declareScopes(crewToken, declaration)),
   };
 }

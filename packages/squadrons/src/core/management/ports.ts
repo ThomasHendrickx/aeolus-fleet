@@ -125,6 +125,23 @@ export interface FleetDoor {
   ): Promise<Result<{ messageId: MessageId }, FleetRefusal>>;
 }
 
+/** A namespace of the fleet as `fleet.scopes` lists it: by name, and the ship that declared it; null for a core one. */
+export interface DeclaredNamespace {
+  namespace: string;
+  declaredBy: ShipId | null;
+}
+
+/** Outbound port: the fleet's scope calls, as squadrons makes them for its management ship (decision 0046). */
+export interface ScopeDoor {
+  /** Every namespace of the fleet (fleet:read). */
+  listScopes(crewToken: string): Promise<Result<DeclaredNamespace[], FleetRefusal>>;
+  /** Takes up the crew token's ship's one plugin namespace with its whole list of scopes (scopes:declare). */
+  declareScopes(
+    crewToken: string,
+    declaration: { namespace: string; scopes: { scope: string; description: string }[] },
+  ): Promise<Result<undefined, FleetRefusal>>;
+}
+
 /** A ship as `fleet.ship` shows it: what squadrons reads of it. */
 export interface FleetShip {
   status: "awaitingCrew" | "crewed" | "retired";

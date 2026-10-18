@@ -141,6 +141,7 @@ One squadrons install serves every fleet at its `FLEET_URL`, with one connection
 
 - **Not connected:** that fleet's forming and flagships wait, and the squadrons API answers its operator that squadrons is not connected.
 - **Connected:** squadrons crews each fleet's ship again with its kept crew token after a restart.
+- **Its namespace:** on every rescan, while its ship does not hold it, squadrons declares the namespace `squadrons` with `squadrons:form` and `squadrons:scale` (decisions 0017 and 0046), which it enforces itself. While another ship holds the namespace it declares nothing and argo is told once.
 - **Released:** when the operator releases the management ship, squadrons drops that fleet's crew token and is not connected to it; other fleets stay connected. Connect squadrons, the same button, releases the ship if a session still holds it, gives it a new starting prompt and connects again.
 
 ## Labels and reach

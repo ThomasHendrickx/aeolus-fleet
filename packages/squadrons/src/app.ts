@@ -3,8 +3,9 @@ import { fastifyTRPCPlugin, type FastifyTRPCPluginOptions } from '@trpc/server/a
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 
 import { createFleetConsoleSessions } from './adapters/fleet/console-sessions.js';
-import { watchManagementLease, watchNetworkLease } from './adapters/fleet/lease-watching-door.js';
+import { watchManagementLease, watchNetworkLease, watchScopeLease } from './adapters/fleet/lease-watching-door.js';
 import { createRestFleetDoor } from './adapters/fleet/rest-fleet-door.js';
+import { createRestScopeDoor } from './adapters/fleet/rest-scope-door.js';
 import { createRestNetworkDoor } from './adapters/fleet/rest-network-door.js';
 import { sha256RequestHasher } from './adapters/crypto/request-hasher.js';
 import { createGithubRepositoryReader } from './adapters/github/github-repository-reader.js';
@@ -46,6 +47,7 @@ import type { FleetForgetter, InstallationMode } from './core/installation/ports
 import { createReadFleet } from './core/installation/read-fleet.js';
 import { createIsServed } from './core/installation/served.js';
 import { createDeclareNetworkRules } from './core/network/declare-network-rules.js';
+import { createDeclareNamespace } from './core/management/declare-namespace.js';
 import { createLabelSquadrons } from './core/network/label-squadrons.js';
 import type { Declarations } from './core/network/ports.js';
 import { createWithdrawNetworkRules } from './core/network/withdraw-network-rules.js';
@@ -209,9 +211,16 @@ export function createSquadronsApp(options: {
   const deleteFleet: DeleteFleet = (input) => turns.take(input.fleetId, () => deleteFleetOutsideTurns(input));
   const labelSquadrons = createLabelSquadrons({ door: network, fleetDoor: door, management: store, squadrons, operator });
   const declareNetworkRules = createDeclareNetworkRules({ door: network, management: store, declarations });
-  // Each rescan labels the fleet's squadrons, then declares their reach once the labels exist (#573); refusals are logged and the next rescan tries again.
+  const declareNamespace = createDeclareNamespace({ door: watchScopeLease(createRestScopeDoor(options.fleetUrl), store), management: store, operator });
+  // Each rescan declares squadrons' namespace while its ship does not hold it, labels the fleet's squadrons, then declares their reach once the labels exist (#573); refusals are logged and the next rescan tries again.
   const reach: FleetReach = {
     keep: async (fleetId) => {
+      const namespace = await declareNamespace(fleetId);
+      if (!namespace.isOk) {
+        server.log.warn({ fleet: fleetId, refusal: namespace.error }, 'declaring the squadrons namespace refused; the next rescan tries again');
+      } else if (namespace.value.isDeclared) {
+        server.log.info({ fleet: fleetId }, 'squadrons namespace declared');
+      }
       const labelled = await labelSquadrons(fleetId);
       if (!labelled.isOk) {
         server.log.warn({ fleet: fleetId, refusal: labelled.error }, 'squadron labels refused; the next rescan tries again');
