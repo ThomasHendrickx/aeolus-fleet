@@ -1,4 +1,4 @@
-import type { CommissionedShipKind, IdGenerator, ShipId } from '@aeolus-fleet/common';
+import type { CommissionedShipKind, FleetId, IdGenerator, ShipId } from '@aeolus-fleet/common';
 
 import type { SecretTools } from '../identity/public.js';
 import type { Caller } from '../shared/caller.js';
@@ -11,7 +11,7 @@ import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { appliedLimits, type AppliedLimitsTx } from './applied-limits.js';
 import { lockNamedNamespaces, type NamedNamespacesTx } from './named-namespaces.js';
 import type { ShipRepository } from './ports.js';
-import { commissionShip, type CommissionRefusal } from './ship.js';
+import { commissionShip, type CommissionRefusal, type Ship } from './ship.js';
 import { issueStartingPrompt, type StartingPromptTx } from './starting-prompt.js';
 
 export interface CommissionShipTx extends StartingPromptTx, AppliedLimitsTx, NamedNamespacesTx {
@@ -53,6 +53,26 @@ export type CommissionShip = (caller: Caller, input: CommissionShipInput) => Pro
 function commissionRequestText(input: CommissionShipInput): string {
   const scopes = [...new Set(input.scopes)].toSorted();
   return JSON.stringify({ name: input.name, type: input.type, kind: input.kind ?? 'agent', note: input.note ?? null, scopes, ownerOf: input.ownerOf ?? null });
+}
+
+/**
+ * The ship, read again once its owner is held FOR SHARE, so the owner the new
+ * ship gets is never a retired one. A retire locks the owner first: one that
+ * committed before has moved the ship to argo, so the owner read changed and
+ * its new owner is held instead; one after waits for this commission and finds
+ * the new ship among those it hands to argo.
+ */
+async function findWithOwnerHeld(tx: CommissionShipTx, ref: { fleetId: FleetId; shipId: ShipId }): Promise<Ship | undefined> {
+  let ship = await tx.ships.find(ref.fleetId, ref.shipId);
+  while (ship?.owner) {
+    const owner = ship.owner;
+    await tx.ships.findForShare(ref.fleetId, owner);
+    ship = await tx.ships.find(ref.fleetId, ref.shipId);
+    if (ship?.owner === owner) {
+      return ship;
+    }
+  }
+  return ship;
 }
 
 /**
@@ -110,12 +130,12 @@ export function createCommissionShip(deps: {
         }
       }
 
-      const commissioner = await tx.ships.find(fleetId, caller.shipId);
+      const commissioner = await findWithOwnerHeld(tx, { fleetId, shipId: caller.shipId });
       const argo = await tx.ships.findOperatorShip(fleetId);
       if (!commissioner || !argo) {
         return refuse('SHIP_NOT_FOUND', `Ship ${caller.shipId} or its fleet's argo does not exist`);
       }
-      const askingShip = input.ownerOf === undefined ? undefined : await tx.ships.find(fleetId, input.ownerOf);
+      const askingShip = input.ownerOf === undefined ? undefined : await findWithOwnerHeld(tx, { fleetId, shipId: input.ownerOf });
       if (input.ownerOf !== undefined && askingShip === undefined) {
         return refuse('SHIP_NOT_FOUND', `Ship ${input.ownerOf}, named as the ship that asked, does not exist`);
       }
