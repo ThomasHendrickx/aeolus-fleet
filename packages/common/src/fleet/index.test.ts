@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  CORE_NAMESPACES,
   deliveryStateSchema,
   eventTypeSchema,
   FLEET_SCOPES,
   locationKindSchema,
   SCOPES,
+  scopeNameSchema,
   scopeSchema,
   selectorKindSchema,
   shipKindSchema,
@@ -13,14 +15,45 @@ import {
 } from './index.js';
 
 describe('the scopes', () => {
-  it('are the message scopes, then the fleet scopes, and nothing else', () => {
-    expect(SCOPES).toEqual(['messages:send', 'messages:receive', 'messages:force', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network']);
+  it('are the message scopes, then the fleet scopes, then declaring and granting scopes, and nothing else (decision 0046)', () => {
+    expect(SCOPES).toEqual(['messages:send', 'messages:receive', 'messages:force', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'scopes:declare', 'scopes:grant']);
     expect(FLEET_SCOPES).toEqual(['fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network']);
   });
 });
 
+describe('the core namespaces', () => {
+  it('are messages, fleet, crew, labels and scopes, reserved for core (decision 0046)', () => {
+    expect(CORE_NAMESPACES).toEqual(['messages', 'fleet', 'crew', 'labels', 'scopes']);
+  });
+
+  it('name every core scope', () => {
+    expect(SCOPES.filter((scope) => !CORE_NAMESPACES.some((namespace) => scope.startsWith(`${namespace}:`)))).toEqual([]);
+  });
+});
+
+describe('scopeNameSchema', () => {
+  it.each(['squadrons:form', 'messages:send', 'a:b', 'x2-y:scale-up', `${'n'.repeat(32)}:${'a'.repeat(32)}`])('accepts %s, a namespace and an action (decision 0046)', (scope) => {
+    expect(scopeNameSchema.parse(scope)).toBe(scope);
+  });
+
+  it.each([
+    ['an upper case letter', 'Squadrons:form'],
+    ['a namespace starting with a digit', '2squadrons:form'],
+    ['an action starting with a hyphen', 'squadrons:-form'],
+    ['a namespace of 33 characters', `${'n'.repeat(33)}:form`],
+    ['an action of 33 characters', `squadrons:${'a'.repeat(33)}`],
+    ['no action', 'squadrons'],
+    ['an empty action', 'squadrons:'],
+    ['two colons', 'squadrons:form:now'],
+    ['a space', 'squadrons: form'],
+    ['nothing', ''],
+  ])('rejects %s', (_what, scope) => {
+    expect(scopeNameSchema.safeParse(scope).success).toBe(false);
+  });
+});
+
 describe('scopeSchema', () => {
-  it.each(['messages:send', 'messages:receive', 'messages:force', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network'])('accepts %s', (scope) => {
+  it.each(['messages:send', 'messages:receive', 'messages:force', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'scopes:declare', 'scopes:grant'])('accepts %s', (scope) => {
     expect(scopeSchema.parse(scope)).toBe(scope);
   });
 
