@@ -3,9 +3,10 @@ import { createServer } from 'node:http';
 /** The fleet's refusal while every pool connection is taken: nothing was stored (#542). */
 export const BUSY = { status: 503, body: { code: 'SERVICE_UNAVAILABLE', message: 'The fleet is busy; nothing was stored. Make the same call again (for send, with the same idempotency key).' } };
 
-/** One call a fleet received: its path and body, and when it came. */
+/** One call a fleet received: its path, its headers and body, and when it came. */
 export interface Asked {
   url: string;
+  headers: Readonly<Record<string, string | string[] | undefined>>;
   body: string;
   at: number;
 }
@@ -19,7 +20,7 @@ export async function aFleetAnswering(answers: readonly { status: number; body: 
       body += chunk.toString();
     });
     request.on('end', () => {
-      asked.push({ url: request.url ?? '', body, at: Date.now() });
+      asked.push({ url: request.url ?? '', headers: request.headers, body, at: Date.now() });
       const answer = answers[Math.min(asked.length, answers.length) - 1] ?? BUSY;
       response.writeHead(answer.status, { 'content-type': 'application/json' }).end(JSON.stringify(answer.body));
     });
