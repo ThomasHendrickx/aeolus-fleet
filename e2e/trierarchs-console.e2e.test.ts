@@ -104,7 +104,7 @@ describe('Trierarchs in the console', () => {
     await page.getByTestId('settings-trierarchs').getByText('Connected as').waitFor();
     expect(await answer.text()).not.toMatch(/aeolus_sk_v1/);
     const ship = await database.ship.findFirstOrThrow({ where: { name: 'trierarch-plugin', retiredAt: null } });
-    expect(ship).toMatchObject({ type: 'trierarch-plugin', scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:commission', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign'] });
+    expect(ship).toMatchObject({ type: 'trierarch-plugin', scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:commission', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign'] });
     await expect(isCrewed('trierarch-plugin')).resolves.toBe(true);
   });
 

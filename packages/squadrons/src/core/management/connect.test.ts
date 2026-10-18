@@ -56,8 +56,9 @@ describe('connecting squadrons', () => {
   });
 
   it.each([
-    ['fleet:manage', ['messages:send', 'messages:receive', 'fleet:read']],
-    ['fleet:read', ['messages:send', 'messages:receive', 'fleet:manage']],
+    ['fleet:manage', ['messages:send', 'messages:receive', 'fleet:read', 'fleet:commission']],
+    ['fleet:read', ['messages:send', 'messages:receive', 'fleet:commission', 'fleet:manage']],
+    ['fleet:commission, which commissions its squadrons\' ships', ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage']],
   ])('is refused for a ship without %s, and lets the ship go again', async (_missing, scopes) => {
     fleet.state.scopes = scopes;
 

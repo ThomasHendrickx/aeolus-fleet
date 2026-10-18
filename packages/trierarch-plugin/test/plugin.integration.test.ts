@@ -48,7 +48,7 @@ beforeEach(async () => {
       idempotencyKey: newKey(),
       name: 'trierarch-plugin',
       type: 'trierarch-plugin',
-      scopes: ['fleet:read', 'fleet:commission', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign'],
+      scopes: ['fleet:read', 'fleet:commission', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign'],
     }),
   );
   shipId = commissioned.shipId;

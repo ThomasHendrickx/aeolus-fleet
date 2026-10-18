@@ -38,6 +38,7 @@ function theRoleLabel(owner: ShipId = SHIP_ID): void {
 const WITHIN_A_SQUADRON = { verb: 'send', from: [{ labelId: SQUADRON, value: SAME_LABEL_VALUE }], to: [{ labelId: SQUADRON, value: SAME_LABEL_VALUE }] };
 const FLAGSHIP_TO_SQUADRONS = { verb: 'send', from: [FLAGSHIP], to: [SQUADRONS] };
 const SQUADRONS_TO_FLAGSHIP = { verb: 'send', from: [SQUADRONS], to: [FLAGSHIP] };
+const SQUADRONS_MANAGES_SQUADRONS = { verb: 'manage', from: [SQUADRONS], to: [{ labelId: SQUADRON, value: ANY_LABEL_VALUE }] };
 
 beforeEach(async () => {
   fleet = fakeNetworkFleet(new Set([CREW_TOKEN]));
@@ -49,22 +50,25 @@ beforeEach(async () => {
 });
 
 describe('squadrons declaring the network rules its squadrons need (#573)', () => {
-  it('declares squadron=# to squadron=#, and each flagship to and from its own ship', async () => {
+  it('declares squadron=# to squadron=#, each flagship to and from its own ship, and its own ship managing every squadron=* ship', async () => {
     theSquadronLabel();
     theRoleLabel();
 
     await expect(declare(FLEET_ID)).resolves.toEqual({ isOk: true, value: { isDeclared: true } });
 
-    expect(fleet.state.declarations).toEqual([[WITHIN_A_SQUADRON, FLAGSHIP_TO_SQUADRONS, SQUADRONS_TO_FLAGSHIP]]);
+    expect(fleet.state.declarations).toEqual([[WITHIN_A_SQUADRON, FLAGSHIP_TO_SQUADRONS, SQUADRONS_TO_FLAGSHIP, SQUADRONS_MANAGES_SQUADRONS]]);
   });
 
-  it('never declares any value of its labels, so no flagship reaches another', async () => {
+  it('never sends to any value of its labels, so no flagship reaches another', async () => {
     theSquadronLabel();
     theRoleLabel();
 
     await declare(FLEET_ID);
 
-    const terms = fleet.state.declarations.flat().flatMap((rule) => [...rule.from, ...rule.to]);
+    const terms = fleet.state.declarations
+      .flat()
+      .filter((rule) => rule.verb === 'send')
+      .flatMap((rule) => [...rule.from, ...rule.to]);
     expect(terms.some((term) => typeof term !== 'string' && 'value' in term && term.value === ANY_LABEL_VALUE)).toBe(false);
     expect(terms.some((term) => typeof term !== 'string' && 'labelId' in term && term.labelId === ROLE)).toBe(false);
   });
@@ -78,7 +82,7 @@ describe('squadrons declaring the network rules its squadrons need (#573)', () =
     expect(fleet.state.declarations).toHaveLength(1);
   });
 
-  it('declares only the flagship rules while the fleet has no squadron label, and all three once it has', async () => {
+  it('declares only the flagship rules while the fleet has no squadron label, and all four once it has', async () => {
     theRoleLabel();
 
     await declare(FLEET_ID);
@@ -87,7 +91,7 @@ describe('squadrons declaring the network rules its squadrons need (#573)', () =
 
     expect(fleet.state.declarations).toEqual([
       [FLAGSHIP_TO_SQUADRONS, SQUADRONS_TO_FLAGSHIP],
-      [WITHIN_A_SQUADRON, FLAGSHIP_TO_SQUADRONS, SQUADRONS_TO_FLAGSHIP],
+      [WITHIN_A_SQUADRON, FLAGSHIP_TO_SQUADRONS, SQUADRONS_TO_FLAGSHIP, SQUADRONS_MANAGES_SQUADRONS],
     ]);
   });
 
