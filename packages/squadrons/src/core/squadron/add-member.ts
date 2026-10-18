@@ -30,6 +30,8 @@ export type AddMember = (input: {
   role: string;
   /** The form's crew settings and parameter values for the member (#343). */
   member?: MemberForm;
+  /** Asked by message to the flagship, under the request's key: the member is crewed by request only, and keeps the key (decision 0017). */
+  byMessage?: { key: string };
 }) => Promise<Result<AddedMember, AddRefusal>>;
 
 /**
@@ -42,7 +44,10 @@ export type AddMember = (input: {
  * as at forming. It checks in like any member; the
  * squadron stays Sailing. The member is stored and its attempt finished in
  * one unit of work, so a crash before that retires the ship at the next
- * start and a crash after it keeps the member. squadrons' limit of members
+ * start and a crash after it keeps the member. Asked by message, the role
+ * must be crewed by request, as no crew line travels in a message, and the
+ * member keeps the request's key. A member of a squadron a ship formed gets
+ * that ship's owner (decision 0045). squadrons' limit of members
  * per squadron (question 9) is checked before anything is commissioned.
  */
 export function createAddMember(deps: {
@@ -54,7 +59,7 @@ export function createAddMember(deps: {
   clock: Clock;
   limits: SquadronLimits;
 }): AddMember {
-  return async ({ fleetId, squadronId, role: roleName, member: form }) => {
+  return async ({ fleetId, squadronId, role: roleName, member: form, byMessage }) => {
     const crew = await deps.management.find(fleetId);
     if (!crew) {
       return refuse('MANAGEMENT_SHIP_NOT_CREWED', 'squadrons is not connected: connect it in the console');
@@ -89,6 +94,9 @@ export function createAddMember(deps: {
     if (over) {
       return refuse('ADDING_FAILED', `The ${over.text} of ${role.name}-${String(number)} is over ${String(over.maxKb)} KB once filled, so no member was added`);
     }
+    if (byMessage && memberCrew?.workspace === undefined) {
+      return refuse('ADDING_FAILED', `The crew settings of ${role.name} name no workspace, so it could get no crew request and no member was added`);
+    }
     const labels = await resolveMachineLabels(deps.door, { crewToken: crew.crewToken, crews: memberCrew ? [memberCrew] : [] });
     if (!labels.isOk) {
       return refuse(
@@ -99,7 +107,7 @@ export function createAddMember(deps: {
       );
     }
 
-    const formation = await beginFormation(deps, { crew, squadronId });
+    const formation = await beginFormation(deps, { crew, squadronId, ownerOf: squadron.formingShip?.shipId });
     const made = await formation.commission(`${role.name}-${String(number)}`, { names, type, scopes: template?.scopes ?? [] });
     if (!made.isOk) {
       await formation.retireCommissioned();
@@ -118,7 +126,7 @@ export function createAddMember(deps: {
       before: squadron,
       after: {
         ...squadron,
-        members: [...squadron.members, { shipId, name, role: role.name, type, onStationAt: null, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null, releasingSince: null, parameters }],
+        members: [...squadron.members, { shipId, name, role: role.name, type, onStationAt: null, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null, releasingSince: null, parameters, ...(byMessage ? { addKey: byMessage.key } : {}) }],
       },
       finishesAttempt: formation.attemptId,
     });

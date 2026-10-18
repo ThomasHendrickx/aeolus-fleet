@@ -26,6 +26,8 @@ export interface Member {
   releasingSince: Date | null;
   /** The values of its template's parameters, its role's with the form's over them: the flagship fills its charter with them (#343). */
   parameters: Readonly<Record<string, string>>;
+  /** The key of the add-member request it was added by (decision 0017): a request that comes again finds it. Absent for any other member. */
+  addKey?: string;
 }
 
 /** A squadron, with the blueprint and templates it formed from as they were then. */

@@ -377,7 +377,7 @@ describe('adding a member by message to the flagship (decision 0017)', () => {
 
 function unwrapAdded<T>(result: { isOk: true; value: T } | { isOk: false; error: unknown }): T {
   if (!result.isOk) {
-    throw new Error(`Expected ok, got ${JSON.stringify(result.error)}`);
+    expect.fail(`Expected ok, got ${JSON.stringify(result.error)}`);
   }
   return result.value;
 }

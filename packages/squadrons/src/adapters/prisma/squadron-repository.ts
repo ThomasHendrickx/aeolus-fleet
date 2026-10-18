@@ -89,6 +89,7 @@ function squadronOf(row: Row): Squadron {
         retiredAt: member.retiredAt,
         releasingSince: member.releasingSince,
         parameters: parametersSchema.parse(member.parameters),
+        ...(member.addKey === null ? {} : { addKey: member.addKey }),
       })),
     formedAt: row.formedAt,
     sailedAt: row.sailedAt,
@@ -139,6 +140,7 @@ export function createPrismaSquadronRepository(db: PrismaClient, clock: { now():
               retiredAt: member.retiredAt,
               releasingSince: member.releasingSince,
               parameters: member.parameters,
+              addKey: member.addKey ?? null,
             })),
           },
         },
@@ -173,6 +175,7 @@ export function createPrismaSquadronRepository(db: PrismaClient, clock: { now():
                 retiredAt: member.retiredAt,
                 releasingSince: member.releasingSince,
                 parameters: member.parameters,
+                addKey: member.addKey ?? null,
               },
             }),
           );
