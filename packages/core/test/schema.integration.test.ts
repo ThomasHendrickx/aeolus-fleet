@@ -363,6 +363,47 @@ describe('the declare and grant scopes migration', () => {
   });
 });
 
+describe('the trierarch plugin crew:run migration', () => {
+  const MIGRATIONS = fileURLToPath(new URL('../src/adapters/prisma/migrations', import.meta.url));
+  const crewRun = readdirSync(MIGRATIONS).find((name) => name.endsWith('_trierarch_plugin_crew_run'));
+
+  it('gives every active trierarch-plugin ship crew:run, which it gives the trierarchs it commissions, once, and no other ship (decision 0046)', async () => {
+    const url = await createMigratedDatabase();
+    const client = createPrismaClient(url);
+    const fleetId = newId('fleet');
+    const pluginId = newId('ship');
+    const heldId = newId('ship');
+    const retiredId = newId('ship');
+    const scoutId = newId('ship');
+    const pluginScopes = ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'crew:assign', 'labels:define', 'labels:assign'];
+    try {
+      await client.fleet.create({ data: { id: fleetId, name: 'old fleet', createdAt: now } });
+      await client.ship.createMany({
+        data: [
+          { id: pluginId, fleetId, name: 'trierarch-plugin', type: 'trierarch-plugin', kind: 'agent', scopes: pluginScopes, createdAt: now },
+          { id: heldId, fleetId, name: 'second-plugin', type: 'trierarch-plugin', kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:run'], createdAt: now },
+          { id: retiredId, fleetId, name: 'old-plugin', type: 'trierarch-plugin', kind: 'agent', scopes: pluginScopes, createdAt: now, retiredAt: now },
+          { id: scoutId, fleetId, name: 'scout', type: 'reviewer', kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'], createdAt: now },
+        ],
+      });
+
+      await executeSqlFile(url, `${MIGRATIONS}/${crewRun ?? ''}/migration.sql`);
+
+      const ships = await client.ship.findMany({ select: { id: true, scopes: true } });
+      expect(new Map(ships.map(({ id, scopes }) => [id, scopes]))).toEqual(
+        new Map([
+          [pluginId, [...pluginScopes, 'crew:run']],
+          [heldId, ['messages:send', 'messages:receive', 'crew:run']],
+          [retiredId, pluginScopes],
+          [scoutId, ['messages:send', 'messages:receive', 'crew:assign']],
+        ]),
+      );
+    } finally {
+      await client.$disconnect();
+    }
+  });
+});
+
 describe('the rules only through a plugin migration', () => {
   const MIGRATIONS = fileURLToPath(new URL('../src/adapters/prisma/migrations', import.meta.url));
   const rulesThroughPlugin = readdirSync(MIGRATIONS).find((name) => name.endsWith('_network_rules_through_plugin'));

@@ -23,7 +23,7 @@ import { createPluginDatabase } from './support/database.js';
 
 // The trierarch plugin against a real fleet: it starts not connected, with no
 // secret anywhere; the operator connects it as its ship (fleet:read,
-// fleet:manage, crew:assign, labels:define, labels:assign), keeps the crew token in its own database and is
+// fleet:manage, crew:assign, crew:run, labels:define, labels:assign), keeps the crew token in its own database and is
 // connected again after a restart. Machines join through it.
 
 let fleetDatabaseUrl: string;
@@ -48,7 +48,7 @@ beforeEach(async () => {
       idempotencyKey: newKey(),
       name: 'trierarch-plugin',
       type: 'trierarch-plugin',
-      scopes: ['fleet:read', 'fleet:manage', 'crew:assign', 'labels:define', 'labels:assign'],
+      scopes: ['fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign'],
     }),
   );
   shipId = commissioned.shipId;

@@ -218,6 +218,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_declare_and_grant_scopes$/),
       expect.stringMatching(/^\d{14}_plugin_scopes$/),
       expect.stringMatching(/^\d{14}_scope_namespaces$/),
+      expect.stringMatching(/^\d{14}_trierarch_plugin_crew_run$/),
     ]);
   });
 });
