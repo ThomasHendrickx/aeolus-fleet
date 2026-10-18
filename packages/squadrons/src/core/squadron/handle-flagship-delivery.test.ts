@@ -4,8 +4,9 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { FleetDoor, OutgoingMessage } from '../management/ports.js';
 import { err, ok } from '../shared/result.js';
 import { CHARTER_MAX_BYTES } from '../catalogue/catalogue.js';
-import { CHECK_IN, ON_STATION, ROLE, STOOD_DOWN } from './check-in.js';
-import { RELAY, REFUSED } from './proxy-messages.js';
+import { CHECK_IN, ON_STATION, ROLE, STAND_DOWN, STOOD_DOWN } from './check-in.js';
+import { RELAY, REFUSED, STANDING_DOWN } from './proxy-messages.js';
+import { createStandDown } from './stand-down.js';
 import { createHandleFlagshipDelivery, type FlagshipDelivery } from './handle-flagship-delivery.js';
 import type { FlagshipMessageLog, KeptMessage, OperatorNotices, Relay, RelayLog, SquadronRepository } from './ports.js';
 import type { Squadron } from './squadron.js';
@@ -74,6 +75,9 @@ function squadron(): Squadron {
 }
 
 let held: Squadron;
+const MANAGEMENT_CREW_TOKEN = 'aeolus_ct_v1_management';
+/** The scopes the forming ship holds now, as the fleet answers squadrons' own ship. */
+let formingShipScopes: string[];
 const acked: DeliveryId[] = [];
 const ponged: DeliveryId[] = [];
 let isPongRefused: boolean;
@@ -83,7 +87,12 @@ let isAckRefused: boolean;
 const door: FleetDoor = {
   register: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
   whoami: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
-  getShip: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
+  getShip: (crewToken, { shipId }) =>
+    Promise.resolve(
+      crewToken === MANAGEMENT_CREW_TOKEN && shipId === FORMING
+        ? ok({ status: 'crewed' as const, scopes: formingShipScopes, lastSeenAt: NOW, crewedSince: NOW, reportedAt: null, openDeliveries: 0, inFlightDeliveries: 0, hasCrewRequest: false })
+        : err({ code: 'FORBIDDEN', message: 'Needs fleet:read' }),
+    ),
   deregister: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
   commission: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
   requestCrew: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
@@ -162,6 +171,8 @@ const handle = createHandleFlagshipDelivery({
   messages,
   operator,
   relays,
+  management: { find: (fleetId) => Promise.resolve({ fleetId, shipId: 'shp_01m3tbfspe96yf1rnr4ank9h1a', name: 'squadrons', crewToken: MANAGEMENT_CREW_TOKEN, crewedAt: FORMED }) },
+  standDown: createStandDown({ squadrons }),
   advanceStandDowns: () => {
     advances.push(acked.length);
     return Promise.resolve();
@@ -194,6 +205,7 @@ beforeEach(() => {
   isAckRefused = false;
   advances.length = 0;
   relayed.length = 0;
+  formingShipScopes = ['messages:send', 'messages:receive', 'squadrons:form'];
   now = NOW;
 });
 
@@ -610,5 +622,70 @@ describe('the flagship proxying between its squadron and its forming ship (decis
     await expect(handle(held, delivery(STRANGER, { contentType: RELAY, payload: { squadron: 'team-a1b2c3', payload: 'Hi.' } }))).resolves.toEqual({ isOk: true, value: 'kept' });
 
     expect(sent).toEqual([]);
+  });
+});
+
+describe('standing a squadron down by message to its flagship (decision 0017)', () => {
+  function sailingFormedByTechLead(): Squadron {
+    return { ...squadron(), state: 'sailing', sailedAt: NOW, formingShip: { shipId: FORMING, name: 'tech-lead', formKey: 'form-1' } };
+  }
+
+  it('stands the squadron down for its forming ship holding squadrons:form, sends each member its stand-down and answers standing down', async () => {
+    held = sailingFormedByTechLead();
+    const standDown = delivery(FORMING, { contentType: STAND_DOWN, payload: { squadron: 'team-a1b2c3' } });
+
+    await expect(handle(held, standDown)).resolves.toEqual({ isOk: true, value: 'standing-down' });
+
+    expect(held.state).toBe('standing-down');
+    expect(advances).toHaveLength(1);
+    expect(sent).toEqual([
+      {
+        selector: { kind: 'ship', shipId: FORMING },
+        contentType: STANDING_DOWN,
+        inReplyTo: standDown.messageId,
+        idempotencyKey: `standing-down-${standDown.deliveryId}`,
+        payload: JSON.stringify({ squadron: 'team-a1b2c3' }),
+      },
+    ]);
+    expect(acked).toEqual([standDown.deliveryId]);
+  });
+
+  it('stands the squadron down for argo, whoever formed it', async () => {
+    held = sailingFormedByTechLead();
+
+    await expect(handle(held, delivery(ARGO, { contentType: STAND_DOWN, payload: { squadron: 'team-a1b2c3' } }))).resolves.toEqual({ isOk: true, value: 'standing-down' });
+
+    expect(held.state).toBe('standing-down');
+  });
+
+  it('refuses any other ship, and the squadron sails on', async () => {
+    held = sailingFormedByTechLead();
+    const standDown = delivery(STRANGER, { contentType: STAND_DOWN, payload: { squadron: 'team-a1b2c3' } });
+
+    await expect(handle(held, standDown)).resolves.toEqual({ isOk: true, value: 'refused' });
+
+    expect(held.state).toBe('sailing');
+    expect(sent[0]).toMatchObject({ selector: { kind: 'ship', shipId: STRANGER }, contentType: REFUSED, inReplyTo: standDown.messageId });
+    expect(JSON.parse(sent[0]?.payload ?? '')).toMatchObject({ squadron: 'team-a1b2c3', code: 'NOT_FORMING_SHIP' });
+  });
+
+  it('refuses its forming ship once it no longer holds squadrons:form, naming the scope', async () => {
+    held = sailingFormedByTechLead();
+    formingShipScopes = ['messages:send', 'messages:receive'];
+
+    await handle(held, delivery(FORMING, { contentType: STAND_DOWN, payload: { squadron: 'team-a1b2c3' } }));
+
+    expect(held.state).toBe('sailing');
+    expect(JSON.parse(sent[0]?.payload ?? '')).toMatchObject({ code: 'NEEDS_SCOPE' });
+    expect(sent[0]?.payload).toContain('squadrons:form');
+  });
+
+  it('refuses a squadron that is still forming: only a sailing squadron stands down by message', async () => {
+    held = { ...sailingFormedByTechLead(), state: 'forming', sailedAt: null };
+
+    await handle(held, delivery(FORMING, { contentType: STAND_DOWN, payload: { squadron: 'team-a1b2c3' } }));
+
+    expect(held.state).toBe('forming');
+    expect(JSON.parse(sent[0]?.payload ?? '')).toMatchObject({ code: 'NOT_SAILING' });
   });
 });
