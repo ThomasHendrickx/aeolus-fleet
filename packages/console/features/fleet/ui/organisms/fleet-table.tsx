@@ -59,7 +59,7 @@ export interface FleetTableProps {
   /** Ready shows the ships, or the empty state when argo is the only ship. */
   state: 'ready' | 'loading' | 'error';
   /** The error state's technical reason and retry. */
-  error?: { detail?: string; retryNote?: string; onRetry: () => void };
+  error?: { detail?: string; onRetry: () => void };
   /** Ships that just appeared: their rows get --highlight and fade. */
   highlightedShipIds?: ReadonlySet<ShipId>;
   /** The time relative times are measured from. */
@@ -711,7 +711,6 @@ export function FleetTable({
         title="Couldn’t load the fleet"
         description="This page couldn’t reach the fleet server. Check that the server is running and reachable from this browser, then try again."
         detail={error?.detail}
-        retryNote={error?.retryNote}
         onRetry={error?.onRetry}
       />
     );

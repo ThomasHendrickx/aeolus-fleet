@@ -48,6 +48,5 @@ export const Page: Story = {
     description: 'This page couldn’t reach the fleet server. Nothing is lost; try again.',
     detail: 'Request timed out after 10 s',
     onRetry: fn(),
-    retryNote: 'Retrying in 12 s',
   },
 };

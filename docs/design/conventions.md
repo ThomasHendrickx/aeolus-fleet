@@ -85,9 +85,9 @@ Rules for cases the Design system page does not show. Names = parts and tokens o
 
 ## States
 - Every data view builds four states: ready, empty, loading, error.
-- Loading: keep chrome and headings; LoadingSkeleton in the content's shape; no page spinners; spinner only inside a busy Button; after 10 s show the error state.
+- Loading: keep chrome and headings; LoadingSkeleton in the content's shape; no page spinners; spinner only inside a busy Button.
 - Empty (EmptyState): title says what is empty; one sentence says what fills it; one action only if it can be done here. Page empty uses a dashed frame. Filtered empty: `No ships match “query”.` + Clear search.
-- Error (InlineError): page replaces content, keeps chrome, title `Couldn’t <verb> <thing>`, says whether anything was lost, technical reason in mono, Try again plus automatic retry. Section: where the action happened, says nothing changed. Field: under the field, names the broken rule.
+- Error (InlineError): page replaces content, keeps chrome, title `Couldn’t <verb> <thing>`, says whether anything was lost, technical reason in mono, Try again. Section: where the action happened, says nothing changed. Field: under the field, names the broken rule.
 - Busy dialog: action Button loading, other buttons disabled, dialog stays open; on failure show a section InlineError inside it and keep the input.
 - Voice in states: calm, factual, no blame, no exclamation marks, no "Oops". What happened, what did not change, what to do.
 - Live data: rows update in place, new rows get `--highlight`, never reorder under the pointer.

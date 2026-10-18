@@ -13,8 +13,6 @@ interface InlineErrorProps {
   detail?: string;
   /** Page and section: Try again. */
   onRetry?: () => void;
-  /** Page only: the automatic retry, such as "Retrying in 12 s". */
-  retryNote?: string;
   variant?: 'field' | 'section' | 'page';
   /** The field variant's id, for the field's aria-describedby. */
   id?: string;
@@ -33,7 +31,6 @@ export function InlineError({
   description,
   detail,
   onRetry,
-  retryNote,
   variant = 'section',
   id,
   className,
@@ -108,7 +105,6 @@ export function InlineError({
           <Button size="sm" icon={<RotateCw aria-hidden />} onClick={onRetry} className="max-sm:w-full">
             Try again
           </Button>
-          {retryNote ? <span className="text-meta text-muted-foreground">{retryNote}</span> : null}
         </div>
       ) : null}
     </div>
