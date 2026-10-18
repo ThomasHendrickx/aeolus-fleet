@@ -9,6 +9,7 @@ import { ok } from './result.js';
 import { SYSTEM, recordEvent } from './events.js';
 import { createReadFleetEvents, REPLAY_LIMIT, type ReadFleetEvents } from './read-fleet-events.js';
 import { newKey } from '../../../test/support/keys.js';
+import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
 
 let core: InMemoryCore;
 let fleetId: FleetId;
@@ -81,5 +82,20 @@ describe('reading the fleet events', () => {
     const elsewhere = { ...argo, fleetId: core.ids('fleet') };
 
     await expect(readFleetEvents(elsewhere, 0)).resolves.toEqual({ kind: 'events', events: [] });
+  });
+});
+
+describe('reading the fleet events within read reach (decision 0034)', () => {
+  it('answers only the events the caller reads, and the last seq of every event it went through', async () => {
+    const fleet: ReadReachScenario = await readReachScenario();
+    await fleet.readRulesApply();
+    const { lastSeq: from } = unwrap(await fleet.registry.followFleet(fleet.argo, {}));
+    const withNear = await fleet.send(fleet.far, { kind: 'ship', shipId: fleet.near.shipId });
+    await fleet.send(fleet.far, { kind: 'ship', shipId: fleet.argo.shipId });
+    const { lastSeq } = unwrap(await fleet.registry.followFleet(fleet.argo, {}));
+
+    const read = await fleet.registry.readFleetEvents(fleet.reader, from);
+
+    expect(read.kind === 'events' && [new Set(read.events.map((event) => event.messageId)), read.lastSeq]).toEqual([new Set([withNear]), lastSeq]);
   });
 });

@@ -7,6 +7,7 @@ import type { Caller } from './caller.js';
 import type { FleetNewsWatch } from './events.js';
 import { createFollowFleet, type FollowFleet } from './follow-fleet.js';
 import { newKey } from '../../../test/support/keys.js';
+import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
 
 let core: InMemoryCore;
 let argo: Caller;
@@ -116,5 +117,51 @@ describe('following the fleet', () => {
     { label: 'a negative wait', input: { waitSeconds: -1 }, kind: 'INVALID_FOLLOW_WAIT' },
   ])('refuses $label', async ({ input, kind }) => {
     await expect(followFleet(argo, { afterSeq: 0, ...input })).resolves.toMatchObject({ isOk: false, error: { kind } });
+  });
+});
+
+describe('following the fleet within read reach (decision 0034)', () => {
+  let fleet: ReadReachScenario;
+  let from: number;
+
+  beforeEach(async () => {
+    fleet = await readReachScenario();
+    await fleet.readRulesApply();
+    ({ lastSeq: from } = unwrap(await fleet.registry.followFleet(fleet.argo, {})));
+  });
+
+  it('answers only the events of the messages the caller reads, and the last seq of every event it went through', async () => {
+    const withNear = await fleet.send(fleet.far, { kind: 'ship', shipId: fleet.near.shipId });
+    await fleet.send(fleet.far, { kind: 'ship', shipId: fleet.argo.shipId });
+
+    const followed = unwrap(await fleet.registry.followFleet(fleet.reader, { afterSeq: from }));
+    const all = unwrap(await fleet.registry.followFleet(fleet.argo, { afterSeq: from }));
+
+    expect([new Set(followed.events.map((event) => event.messageId)), followed.lastSeq]).toEqual([new Set([withNear]), all.lastSeq]);
+  });
+
+  it('answers an event about a ship it reads, and not one about a ship outside its read reach', async () => {
+    unwrap(await fleet.registry.renameShip(fleet.argo, { shipId: fleet.near.shipId, name: 'near-2' }));
+    unwrap(await fleet.registry.renameShip(fleet.argo, { shipId: fleet.far.shipId, name: 'far-2' }));
+
+    const followed = unwrap(await fleet.registry.followFleet(fleet.reader, { afterSeq: from }));
+
+    expect(followed.events.map((event) => event.shipId)).toEqual([fleet.near.shipId]);
+  });
+
+  it('answers an event that concerns no ship to every reader', async () => {
+    unwrap(await fleet.registry.setBuiltInRule(fleet.argo, { rule: 'viewerRead', isOn: false }));
+
+    const followed = unwrap(await fleet.registry.followFleet(fleet.far, { afterSeq: from }));
+
+    expect(followed.events.map((event) => event.type)).toEqual(['BuiltInRuleChanged']);
+  });
+
+  it('answers no event once its wait passes, with the last seq past the events it does not read', async () => {
+    await fleet.send(fleet.far, { kind: 'ship', shipId: fleet.argo.shipId });
+
+    const followed = unwrap(await fleet.registry.followFleet(fleet.reader, { afterSeq: from, waitSeconds: 1 }));
+
+    expect(followed).toEqual({ events: [], lastSeq: unwrap(await fleet.registry.followFleet(fleet.argo, {})).lastSeq });
   });
 });
