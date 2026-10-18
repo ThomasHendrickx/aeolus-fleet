@@ -181,6 +181,9 @@ describe('the ship calls at /api/v1', () => {
       '/fleet/setBuiltInRule',
       '/fleet/declareNetworkRules',
       '/fleet/declaredNetworkRules',
+      '/fleet/scopes',
+      '/fleet/declareScopes',
+      '/fleet/grantScopes',
     ]);
   });
 
