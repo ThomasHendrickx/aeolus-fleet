@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { fn } from 'storybook/test';
 
-import { NOW, PING_TIMELINE, REVIEWER, TIMELINE } from '../../../lib/fixtures/ship-page.fixtures';
+import { NOW, PING_TIMELINE, REVIEWER, TIMELINE } from '../../../../lib/fixtures/ship-page.fixtures';
 import { ShipTimeline } from './ship-timeline';
 
 const meta = {

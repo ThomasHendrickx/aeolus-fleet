@@ -1,18 +1,18 @@
 import type { ListedMessage, MessageId, ShipId } from '@aeolus-fleet/common';
 import { ArrowDownLeft, ArrowUpRight, Mail, RotateCw } from 'lucide-react';
 
-import { classNames } from '../../../lib/class-names';
-import { messageLine } from '../lib/message-line';
-import { deliveryStatus } from '../lib/message-way';
-import { fullDateTime, relativeTime } from '../../../lib/relative-time';
-import { ship, text, type SentencePart } from '../../../lib/sentence';
-import { threadsOf } from '../lib/threads';
-import { Button } from '../../../components/atoms/button';
-import { EmptyState } from '../../../components/molecules/empty-state';
-import { InlineError } from '../../../components/molecules/inline-error';
-import { LoadingSkeleton } from '../../../components/molecules/loading-skeleton';
+import { classNames } from '../../../../lib/class-names';
+import { messageLine } from '../../services/message-line';
+import { deliveryStatus } from '../../services/message-way';
+import { fullDateTime, relativeTime } from '../../../../lib/relative-time';
+import { ship, text, type SentencePart } from '../../../../lib/sentence';
+import { threadsOf } from '../../services/threads';
+import { Button } from '../../../../components/atoms/button';
+import { EmptyState } from '../../../../components/molecules/empty-state';
+import { InlineError } from '../../../../components/molecules/inline-error';
+import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
 import { Sentence } from '../molecules/sentence';
-import { StatusBadge } from '../../../components/molecules/status-badge';
+import { StatusBadge } from '../../../../components/molecules/status-badge';
 
 interface MessageThreadsProps {
   /** The ship whose page this is: a message is sent by it or received. */

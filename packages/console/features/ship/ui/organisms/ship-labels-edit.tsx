@@ -6,15 +6,15 @@ import Link from 'next/link';
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
 
-import { classNames } from '../../../lib/class-names';
-import type { AssignKey, LabelChip as LabelChipData } from '../../../lib/labels';
-import { Button } from '../../../components/atoms/button';
-import { Popover, PopoverContent, PopoverTrigger } from '../../../components/atoms/popover';
-import { InlineError } from '../../../components/molecules/inline-error';
-import { LabelChip } from '../../../components/molecules/label-chip';
+import { classNames } from '../../../../lib/class-names';
+import type { AssignKey, LabelChip as LabelChipData } from '../../../../lib/labels';
+import { Button } from '../../../../components/atoms/button';
+import { Popover, PopoverContent, PopoverTrigger } from '../../../../components/atoms/popover';
+import { InlineError } from '../../../../components/molecules/inline-error';
+import { LabelChip } from '../../../../components/molecules/label-chip';
 
 // Loads when its popover first opens, not with the page.
-const LabelPicker = dynamic(() => import('../../../components/molecules/label-picker').then((module) => module.LabelPicker), { ssr: false });
+const LabelPicker = dynamic(() => import('../../../../components/molecules/label-picker').then((module) => module.LabelPicker), { ssr: false });
 
 interface ShipLabelsEditProps {
   /** The ship's labels as chips, yours first. */

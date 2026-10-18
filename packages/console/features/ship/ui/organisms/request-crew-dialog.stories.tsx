@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 
-import { MACHINE_LABELS, MACHINE_VALUES, OFFERS, SETTINGS } from '../../../lib/fixtures/machines.fixtures';
+import { MACHINE_LABELS, MACHINE_VALUES, OFFERS, SETTINGS } from '../../../../lib/fixtures/machines.fixtures';
 import { RequestCrewDialog } from './request-crew-dialog';
 
 const meta = {

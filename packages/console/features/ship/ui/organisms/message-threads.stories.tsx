@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, fn } from 'storybook/test';
 
 import { MessageThreads } from './message-threads';
-import { HANDED_MESSAGES, MESSAGES, NOW, REVIEWER, SQUADRON_MESSAGES } from '../../../lib/fixtures/ship-page.fixtures';
+import { HANDED_MESSAGES, MESSAGES, NOW, REVIEWER, SQUADRON_MESSAGES } from '../../../../lib/fixtures/ship-page.fixtures';
 
 const meta = {
   title: 'Organisms/MessageThreads',

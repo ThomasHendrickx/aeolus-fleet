@@ -1,8 +1,8 @@
 import type { ReportDetails as Details } from '@aeolus-fleet/common';
 import { ChevronRight } from 'lucide-react';
 
-import { reportDetailsJson, reportDetailsLabel } from '../../../lib/report';
-import { CodeBlock } from '../../../components/atoms/code-block';
+import { reportDetailsJson, reportDetailsLabel } from '../../../../lib/report';
+import { CodeBlock } from '../../../../components/atoms/code-block';
 
 /**
  * A report's details as the console shows a ship type it does not know

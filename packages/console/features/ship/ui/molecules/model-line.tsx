@@ -1,4 +1,4 @@
-import { harnessWord } from '../../../lib/harness';
+import { harnessWord } from '../../../../lib/harness';
 
 /**
  * What a crewed ship's session runs: its harness, read with the location

@@ -1,9 +1,9 @@
 import type { MessageId } from '@aeolus-fleet/common';
 import { AlarmClock, ChevronRight } from 'lucide-react';
 
-import { classNames } from '../../../lib/class-names';
-import type { ShipWayView } from '../lib/ship-way';
-import { StatusBadge } from '../../../components/molecules/status-badge';
+import { classNames } from '../../../../lib/class-names';
+import type { ShipWayView } from '../../services/ship-way';
+import { StatusBadge } from '../../../../components/molecules/status-badge';
 import { WayLineItem } from './way-lines';
 
 /**

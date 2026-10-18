@@ -3,18 +3,18 @@ import { CircleX, Clock, KeyRound, ListChecks, LoaderCircle, Pen, Power, RotateC
 import Link from 'next/link';
 import { Fragment, type ReactNode } from 'react';
 
-import { useConsoleConstants } from '../../../lib/console-constants';
-import { crewRequestAction, isRestartable, restartWords, type CrewRequestStage } from '../../../lib/crew-request';
-import type { SettingsRow } from '../../../lib/crew-settings-form';
-import { harnessWord } from '../../../lib/harness';
-import type { LabelChip as LabelChipData } from '../../../lib/labels';
-import { machineLabelsText, noMatchWords } from '../../../lib/machine-labels';
-import { fullDateTime, relativeTime, sinceTime } from '../../../lib/relative-time';
-import { capitalised, OPERATOR_NAME } from '../../../lib/sentence';
-import { Button } from '../../../components/atoms/button';
-import { InlineError } from '../../../components/molecules/inline-error';
-import { LabelChip } from '../../../components/molecules/label-chip';
-import { StatusBadge } from '../../../components/molecules/status-badge';
+import { useConsoleConstants } from '../../../../lib/console-constants';
+import { crewRequestAction, isRestartable, restartWords, type CrewRequestStage } from '../../../../lib/crew-request';
+import type { SettingsRow } from '../../../../lib/crew-settings-form';
+import { harnessWord } from '../../../../lib/harness';
+import type { LabelChip as LabelChipData } from '../../../../lib/labels';
+import { machineLabelsText, noMatchWords } from '../../../../lib/machine-labels';
+import { fullDateTime, relativeTime, sinceTime } from '../../../../lib/relative-time';
+import { capitalised, OPERATOR_NAME } from '../../../../lib/sentence';
+import { Button } from '../../../../components/atoms/button';
+import { InlineError } from '../../../../components/molecules/inline-error';
+import { LabelChip } from '../../../../components/molecules/label-chip';
+import { StatusBadge } from '../../../../components/molecules/status-badge';
 
 /** What the card is doing: the action whose call is out. */
 export type CrewRequestBusy = 'request' | 'remove' | 'restart' | undefined;

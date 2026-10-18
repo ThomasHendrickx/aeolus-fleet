@@ -16,10 +16,10 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-import { classNames } from '../../../lib/class-names';
-import type { DeliveryStepState } from '../lib/delivery-history';
-import type { WayIcon, WayLine, WayTone } from '../lib/message-way';
-import { StatusBadge } from '../../../components/molecules/status-badge';
+import { classNames } from '../../../../lib/class-names';
+import type { DeliveryStepState } from '../../services/delivery-history';
+import type { WayIcon, WayLine, WayTone } from '../../services/message-way';
+import { StatusBadge } from '../../../../components/molecules/status-badge';
 
 const ICONS: Record<WayIcon, LucideIcon> = {
   fleet: Server,

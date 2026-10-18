@@ -15,7 +15,7 @@ import { useCrewSettingsCheck, useMachines } from '../../../lib/trierarch-plugin
 import { showToast } from '../../../components/atoms/toast';
 
 // Dialogs load when first opened, not with the page.
-const RequestCrewDialog = lazyDialog(() => import('./request-crew-dialog').then((module) => module.RequestCrewDialog), (props) => props.isOpen);
+const RequestCrewDialog = lazyDialog(() => import('../ui/organisms/request-crew-dialog').then((module) => module.RequestCrewDialog), (props) => props.isOpen);
 
 /** The ship asked for, and the settings its request holds, for Edit. */
 interface RequestCrewFor {

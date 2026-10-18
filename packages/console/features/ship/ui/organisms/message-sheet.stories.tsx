@@ -18,7 +18,7 @@ import {
   UNDELIVERABLE_HISTORY,
   UNKNOWN_MESSAGE_ID,
   minutesAgo,
-} from '../../../lib/fixtures/ship-page.fixtures';
+} from '../../../../lib/fixtures/ship-page.fixtures';
 
 const meta = {
   title: 'Organisms/MessageSheet',

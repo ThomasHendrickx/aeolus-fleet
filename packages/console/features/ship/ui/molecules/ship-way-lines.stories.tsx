@@ -10,8 +10,8 @@ import {
   TRIERARCH_WAY,
   WATCHER_BUSY_WAY,
   minutesAgo,
-} from '../../../lib/fixtures/ship-page.fixtures';
-import { shipWayView } from '../lib/ship-way';
+} from '../../../../lib/fixtures/ship-page.fixtures';
+import { shipWayView } from '../../services/ship-way';
 import { ShipWayLines } from './ship-way-lines';
 
 const meta = {

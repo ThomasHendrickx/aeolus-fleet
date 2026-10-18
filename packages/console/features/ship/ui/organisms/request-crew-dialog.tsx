@@ -4,16 +4,16 @@ import type { CrewSettings } from '@aeolus-fleet/common';
 import { CircleX, Clock, LoaderCircle, RotateCw, ShipWheel } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 
-import { useConsoleConstants } from '../../../lib/console-constants';
-import { defaultValues, promptBytes, settingsOf, valuesOf, type CrewSettingsValues, type HarnessOffer } from '../../../lib/crew-settings-form';
-import type { MachineLabelsInput } from '../../../lib/machine-labels';
-import { secondsTime } from '../../../lib/relative-time';
-import type { SettingsCheck } from '../../../lib/trierarch-plugin-schemas';
-import { Button } from '../../../components/atoms/button';
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../components/atoms/dialog';
-import { dialogSurface } from '../../../components/atoms/dialog-surface';
-import { CrewSettingsFields } from '../../../components/molecules/crew-settings-fields';
-import { InlineError } from '../../../components/molecules/inline-error';
+import { useConsoleConstants } from '../../../../lib/console-constants';
+import { defaultValues, promptBytes, settingsOf, valuesOf, type CrewSettingsValues, type HarnessOffer } from '../../../../lib/crew-settings-form';
+import type { MachineLabelsInput } from '../../../../lib/machine-labels';
+import { secondsTime } from '../../../../lib/relative-time';
+import type { SettingsCheck } from '../../../../lib/trierarch-plugin-schemas';
+import { Button } from '../../../../components/atoms/button';
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../../components/atoms/dialog';
+import { dialogSurface } from '../../../../components/atoms/dialog-surface';
+import { CrewSettingsFields } from '../../../../components/molecules/crew-settings-fields';
+import { InlineError } from '../../../../components/molecules/inline-error';
 
 /** loading: the machines are being read; unreachable: the trierarch plugin does not answer; ready: the form. */
 export type RequestCrewDialogState = 'loading' | 'unreachable' | 'ready';

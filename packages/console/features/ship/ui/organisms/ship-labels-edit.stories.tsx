@@ -2,9 +2,9 @@ import { idSchema, SHIP_LABELS_MAX, type ListedShip } from '@aeolus-fleet/common
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { fn } from 'storybook/test';
 
-import { assignKeysOf, chipsOf, labelLimitOf } from '../../../lib/labels';
+import { assignKeysOf, chipsOf, labelLimitOf } from '../../../../lib/labels';
 import { ShipLabelsEdit } from './ship-labels-edit';
-import { AREA, BLUEPRINT, carried, COST, labelContext, labelledFleet, OS, PROJECT } from '../../../lib/fixtures/labels.fixtures';
+import { AREA, BLUEPRINT, carried, COST, labelContext, labelledFleet, OS, PROJECT } from '../../../../lib/fixtures/labels.fixtures';
 
 const FLEET = labelledFleet();
 const CONTEXT = labelContext(FLEET);

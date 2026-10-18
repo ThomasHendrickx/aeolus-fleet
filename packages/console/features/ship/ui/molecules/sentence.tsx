@@ -1,5 +1,5 @@
-import { OPERATOR_NAME, type SentencePart } from '../../../lib/sentence';
-import { ShipName } from '../../../components/molecules/ship-name';
+import { OPERATOR_NAME, type SentencePart } from '../../../../lib/sentence';
+import { ShipName } from '../../../../components/molecules/ship-name';
 
 /** Each part with a key from its content and how often that content came before it, so equal parts stay apart. */
 function keyed(parts: readonly SentencePart[]): { key: string; part: SentencePart }[] {

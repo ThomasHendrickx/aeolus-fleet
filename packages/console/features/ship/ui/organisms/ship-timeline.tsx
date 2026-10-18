@@ -21,12 +21,12 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-import { classNames } from '../../../lib/class-names';
-import { fullDateTime, relativeTime } from '../../../lib/relative-time';
-import { timelineSentence, type TimelineIcon, type TimelineTone } from '../lib/timeline-sentence';
-import { Button } from '../../../components/atoms/button';
-import { InlineError } from '../../../components/molecules/inline-error';
-import { LoadingSkeleton } from '../../../components/molecules/loading-skeleton';
+import { classNames } from '../../../../lib/class-names';
+import { fullDateTime, relativeTime } from '../../../../lib/relative-time';
+import { timelineSentence, type TimelineIcon, type TimelineTone } from '../../services/timeline-sentence';
+import { Button } from '../../../../components/atoms/button';
+import { InlineError } from '../../../../components/molecules/inline-error';
+import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
 import { Sentence } from '../molecules/sentence';
 
 /** Tile icons, named for what happened. StatusBadge's icons stay its own (docs/design/conventions.md). */

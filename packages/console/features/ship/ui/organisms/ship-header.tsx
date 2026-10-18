@@ -3,21 +3,21 @@ import { Archive, CircleAlert, Info, KeyRound, Plug, UserRound } from 'lucide-re
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
-import { useConsoleConstants } from '../../../lib/console-constants';
-import { classNames } from '../../../lib/class-names';
-import { clockTime, dayDate, duration, fullDateTime, lastSeen, relativeTime, shortDateTime } from '../../../lib/relative-time';
-import { Badge } from '../../../components/atoms/badge';
-import { Button } from '../../../components/atoms/button';
-import { CopyButton } from '../../../components/atoms/copy-button';
-import { Skeleton } from '../../../components/atoms/skeleton';
-import { EmptyState } from '../../../components/molecules/empty-state';
-import { LocationTag } from '../../../components/molecules/location-tag';
+import { useConsoleConstants } from '../../../../lib/console-constants';
+import { classNames } from '../../../../lib/class-names';
+import { clockTime, dayDate, duration, fullDateTime, lastSeen, relativeTime, shortDateTime } from '../../../../lib/relative-time';
+import { Badge } from '../../../../components/atoms/badge';
+import { Button } from '../../../../components/atoms/button';
+import { CopyButton } from '../../../../components/atoms/copy-button';
+import { Skeleton } from '../../../../components/atoms/skeleton';
+import { EmptyState } from '../../../../components/molecules/empty-state';
+import { LocationTag } from '../../../../components/molecules/location-tag';
 import { ModelLine } from '../molecules/model-line';
 import { PingStatus } from '../molecules/ping-status';
 import { ReportDetails } from '../molecules/report-details';
-import { ReportLine } from '../../../components/molecules/report-line';
-import { ShipName } from '../../../components/molecules/ship-name';
-import { StatusBadge } from '../../../components/molecules/status-badge';
+import { ReportLine } from '../../../../components/molecules/report-line';
+import { ShipName } from '../../../../components/molecules/ship-name';
+import { StatusBadge } from '../../../../components/molecules/status-badge';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 

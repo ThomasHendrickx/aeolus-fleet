@@ -11,7 +11,7 @@ import {
   REVIEWER,
   TYPE_HISTORY,
   UNDELIVERABLE_HISTORY,
-} from '../../../lib/fixtures/ship-page.fixtures';
+} from '../../../../lib/fixtures/ship-page.fixtures';
 
 const meta = {
   title: 'Organisms/DeliveryHistory',

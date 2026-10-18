@@ -1,7 +1,7 @@
 import type { ListedShip } from '@aeolus-fleet/common';
 
-import { fullDateTime } from '../../../lib/relative-time';
-import { pingLine } from '../../../lib/ping';
+import { fullDateTime } from '../../../../lib/relative-time';
+import { pingLine } from '../../../../lib/ping';
 
 /**
  * How a ship's last ping stands, under its Last seen: "Pinged 3 min ago, no

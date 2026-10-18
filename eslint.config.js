@@ -137,7 +137,6 @@ const featuresInTheOldLayout = [
   'network',
   'notices',
   'settings',
-  'ship',
   'ship-actions',
   'sign-in',
   'squadrons',

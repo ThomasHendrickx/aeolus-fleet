@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 
-import { MACHINE_LABELS, MACHINE_VALUES } from '../../../lib/fixtures/machines.fixtures';
-import { ARGO, minutesAgo, NOW, PLANNER } from '../../../lib/fixtures/ship-page.fixtures';
+import { MACHINE_LABELS, MACHINE_VALUES } from '../../../../lib/fixtures/machines.fixtures';
+import { ARGO, minutesAgo, NOW, PLANNER } from '../../../../lib/fixtures/ship-page.fixtures';
 import { CrewRequestCard } from './crew-request-card';
 
 const TRIERARCH = { ...PLANNER, name: 'trierarch-mac' };

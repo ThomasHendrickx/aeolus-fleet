@@ -9,7 +9,7 @@ import { useAssignLabel, useLabelContext, useUnassignLabel } from '../../../lib/
 import { assignKeysOf, canAssignLabelsTo, chipsOf, labelLimitOf } from '../../../lib/labels';
 import { Skeleton } from '../../../components/atoms/skeleton';
 import { ShipLabels } from '../../../components/molecules/ship-labels';
-import { ShipLabelsEdit } from './ship-labels-edit';
+import { ShipLabelsEdit } from '../ui/organisms/ship-labels-edit';
 
 /** The words a value goes by: "key=value", from your keys. */
 function textOf(keys: ReturnType<typeof assignKeysOf>, valueId: string): string {

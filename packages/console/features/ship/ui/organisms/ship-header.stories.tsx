@@ -3,15 +3,15 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { KeyRound } from 'lucide-react';
 import { expect, fn } from 'storybook/test';
 
-import { SQUADRONS_SHIP } from '../../../lib/connect-plugin';
-import { assignKeysOf, chipsOf, labelLimitOf } from '../../../lib/labels';
-import { Button } from '../../../components/atoms/button';
-import { ShipLabels } from '../../../components/molecules/ship-labels';
+import { SQUADRONS_SHIP } from '../../../../lib/connect-plugin';
+import { assignKeysOf, chipsOf, labelLimitOf } from '../../../../lib/labels';
+import { Button } from '../../../../components/atoms/button';
+import { ShipLabels } from '../../../../components/molecules/ship-labels';
 import { ShipHeader } from './ship-header';
-import { AREA, carried, labelContext, labelledFleet, PROJECT } from '../../../lib/fixtures/labels.fixtures';
+import { AREA, carried, labelContext, labelledFleet, PROJECT } from '../../../../lib/fixtures/labels.fixtures';
 import { ShipLabelsEdit } from './ship-labels-edit';
-import { ARGO_SHIP, AWAITING_SHIP, CREWED_SHIP, minutesAgo, NOW, PULL_WAY, RETIRED_SHIP, UNKNOWN_SHIP_ID, WATCHER_BUSY_WAY } from '../../../lib/fixtures/ship-page.fixtures';
-import { shipWayView } from '../lib/ship-way';
+import { ARGO_SHIP, AWAITING_SHIP, CREWED_SHIP, minutesAgo, NOW, PULL_WAY, RETIRED_SHIP, UNKNOWN_SHIP_ID, WATCHER_BUSY_WAY } from '../../../../lib/fixtures/ship-page.fixtures';
+import { shipWayView } from '../../services/ship-way';
 import { ShipWayLines } from '../molecules/ship-way-lines';
 
 const meta = {

@@ -14,7 +14,7 @@ import { machineLabelIdsOf } from '../../../lib/machine-labels';
 import { isUnclaimedPromptOut } from '../../../lib/starting-prompt';
 import { useHasTrierarchPlugin } from '../../../lib/trierarch-plugin';
 import { showToast } from '../../../components/atoms/toast';
-import { CrewRequestCard, type CrewRequestBusy } from './crew-request-card';
+import { CrewRequestCard, type CrewRequestBusy } from '../ui/organisms/crew-request-card';
 import { useRequestCrewFlow } from './request-crew-flow';
 
 // Dialogs load when first opened, not with the page.
