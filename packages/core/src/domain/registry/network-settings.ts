@@ -256,8 +256,10 @@ export interface ReachingLabel {
   valueId: LabelValueId;
 }
 
-/** A ship as a send's check sees it: its kind, for the argo exception, and the label values it carries. */
+/** A ship as a send's check sees it: its id and owner, for the owner exception, its kind, for the argo exception, and the label values it carries. */
 export interface ReachingShip {
+  id: ShipId;
+  owner: ShipId | null;
   kind: ShipKind;
   labels: readonly ReachingLabel[];
 }
@@ -265,13 +267,14 @@ export interface ReachingShip {
 /**
  * Whether the settings let the sender reach the recipient. With no rules,
  * every ship reaches every ship. The fixed exceptions hold whatever the
- * rules: argo reaches every ship and every ship reaches argo, and a ship
- * answers the sender of a message it received. Otherwise a rule must match
+ * rules: argo reaches every ship and every ship reaches argo, an owner's
+ * ship reaches the ships it owns (decision 0045), and a ship answers the
+ * sender of a message it received. Otherwise a rule must match
  * the sender with its `from` and the recipient with its `to`.
  */
 export function allowsReach(settings: Pick<NetworkSettings, 'rules'>, send: { sender: ReachingShip; recipient: ReachingShip; isAnswerToSender: boolean }): boolean {
   const { sender, recipient, isAnswerToSender } = send;
-  if (settings.rules === null || sender.kind === 'operator' || recipient.kind === 'operator' || isAnswerToSender) {
+  if (settings.rules === null || sender.kind === 'operator' || recipient.kind === 'operator' || recipient.owner === sender.id || isAnswerToSender) {
     return true;
   }
   return settings.rules.some((rule) => matches(rule.from, { ship: sender, otherSide: recipient }) && matches(rule.to, { ship: recipient, otherSide: sender }));
