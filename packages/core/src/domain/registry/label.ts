@@ -7,6 +7,7 @@ import {
   type LabelId,
   type LabelValueId,
   type ShipId,
+  type ShipKind,
 } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
@@ -314,14 +315,27 @@ function assignmentEvent(
   };
 }
 
-export type AssignLabelRefusal = NotTheOwner | DomainError<'SHIP_ALREADY_RETIRED' | 'SHIP_LABEL_LIMIT_REACHED'>;
+/** A ship the caller may not label: neither its own nor one it commissioned, and the caller is not argo. */
+export type NotYourShipToLabel = DomainError<'NOT_YOUR_SHIP_TO_LABEL'>;
+
+/**
+ * Whether the caller may put values on the ship or take them off (decision
+ * 0046): its own ship and the ships it commissioned; argo any ship.
+ */
+function checkMayLabel(ship: Ship, caller: { shipId: ShipId; kind: ShipKind }): Result<void, NotYourShipToLabel> {
+  return caller.kind === 'operator' || ship.id === caller.shipId || ship.commission?.by === caller.shipId
+    ? ok(undefined)
+    : refuse('NOT_YOUR_SHIP_TO_LABEL', `${ship.name} is neither your ship nor one it commissioned: only argo labels it`);
+}
+
+export type AssignLabelRefusal = NotTheOwner | NotYourShipToLabel | DomainError<'SHIP_ALREADY_RETIRED' | 'SHIP_LABEL_LIMIT_REACHED'>;
 
 /**
  * The owner gives a ship one of its label's values, by its id: the ship
  * holds a set of values, so it may carry several of one label. A value it
- * carries changes nothing. Any ship, the owner's own included, but never a
- * retired ship; argo and the viewer ship as any other (decision 0016). A ship
- * carries at most 20 values. LabelAssigned names the ship, with the label and the value.
+ * carries changes nothing. Its own ship and the ships it commissioned, argo
+ * any ship (decision 0046), but never a retired ship. A ship carries at most
+ * 20 values. LabelAssigned names the ship, with the label and the value.
  */
 export function assignLabel(
   {
@@ -337,6 +351,7 @@ export function assignLabel(
   },
   input: {
     callerShipId: ShipId;
+    callerKind: ShipKind;
     valueId: LabelValueId;
     at: Date;
     actor: Actor;
@@ -345,6 +360,10 @@ export function assignLabel(
   const owned = checkOwner({ label, ownerName }, { shipId: input.callerShipId, act: 'assigns' });
   if (!owned.isOk) {
     return owned;
+  }
+  const mayLabel = checkMayLabel(ship, { shipId: input.callerShipId, kind: input.callerKind });
+  if (!mayLabel.isOk) {
+    return mayLabel;
   }
   if (ship.retiredAt !== null) {
     return refuse('SHIP_ALREADY_RETIRED', `${ship.name} is retired`);
@@ -367,7 +386,7 @@ export function assignLabel(
   });
 }
 
-export type UnassignLabelRefusal = NotTheOwner;
+export type UnassignLabelRefusal = NotTheOwner | NotYourShipToLabel;
 
 /**
  * The owner takes one value of its label off a ship. A ship that does not
@@ -378,14 +397,17 @@ export function unassignLabel(
   {
     label,
     ownerName,
+    ship,
     carried,
   }: {
     label: Label;
     ownerName: string;
+    ship: Ship;
     carried: readonly ShipLabel[];
   },
   input: {
     callerShipId: ShipId;
+    callerKind: ShipKind;
     valueId: LabelValueId;
     at: Date;
     actor: Actor;
@@ -394,6 +416,10 @@ export function unassignLabel(
   const owned = checkOwner({ label, ownerName }, { shipId: input.callerShipId, act: 'unassigns' });
   if (!owned.isOk) {
     return owned;
+  }
+  const mayLabel = checkMayLabel(ship, { shipId: input.callerShipId, kind: input.callerKind });
+  if (!mayLabel.isOk) {
+    return mayLabel;
   }
   const current = carried.find((each) => each.valueId === input.valueId);
   if (!current) {
