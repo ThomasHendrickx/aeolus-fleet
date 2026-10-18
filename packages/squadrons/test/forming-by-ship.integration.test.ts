@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { idSchema } from '@aeolus-fleet/common';
+import { idSchema, NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS, SAME_LABEL_VALUE } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import { createApp } from '../../core/src/app.js';
@@ -190,5 +190,35 @@ describe('a ship holding squadrons:form (decision 0017)', () => {
     await member.awaitDelivery(STAND_DOWN);
 
     expect((await squadronOf('login-flow'))?.state).toBe('standing-down');
+  });
+
+  it("gives the squadron's ships the forming ship's owner, so an owner=# rule in force lets the flagship and the forming ship reach each other with open send off (decisions 0045, 0034)", async () => {
+    const thomas = unwrap(await fleetUseCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person' }));
+    const lead = unwrap(await fleetUseCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'tech-lead', type: 'lead', scopes: ['squadrons:form'] }));
+    unwrap(await fleetUseCases.setOwner(argo, { shipId: lead.shipId, ownerShipId: thomas.shipId }));
+    const outsider = unwrap(await fleetUseCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'outsider', type: 'lead' }));
+    const techLead = await crewed({ shipId: lead.shipId, secret: secretOf(lead.secret) });
+    await techLead.call('send', {
+      selector: { kind: 'ship', name: 'squadrons' },
+      contentType: FORM,
+      payload: JSON.stringify({ blueprint: `${REPO}#delivery@1`, squadronId: 'login-flow', members: { 'builder-1': { parameters: { area: 'the login flow' } } }, key: 'form-1' }),
+      idempotencyKey: 'form-1',
+    });
+    await techLead.awaitDelivery(FORMED);
+    const flagship = await fleetDatabase.ship.findFirstOrThrow({ where: { name: 'login-flow' }, select: { id: true, ownerShipId: true } });
+    const flagshipId = idSchema('ship').parse(flagship.id);
+
+    const plugin = unwrap(await fleetUseCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'networking', type: 'networking', scopes: ['fleet:network'] }));
+    const { crewToken } = unwrap(await fleetUseCases.claimShip({ shipId: plugin.shipId, secret: secretOf(plugin.secret), location: { kind: 'CLOUD' }, harness: 'aeolus-networking-plugin' }));
+    const networking = unwrap(await fleetUseCases.authenticate.byCrewToken(crewToken));
+    unwrap(await fleetUseCases.registerNetworkPlugin(networking, { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS }));
+    unwrap(await fleetUseCases.setNetworkRules(networking, { rules: [{ verb: 'send', from: [{ owner: SAME_LABEL_VALUE }], to: [{ owner: SAME_LABEL_VALUE }] }] }));
+    unwrap(await fleetUseCases.setBuiltInRule(networking, { rule: 'open', verb: 'send', isOn: false }));
+
+    expect(flagship.ownerShipId).toBe(thomas.shipId);
+    const toFlagship = unwrap(await fleetUseCases.explainReach(argo, { fromShipId: lead.shipId, toShipId: flagshipId }));
+    const toLead = unwrap(await fleetUseCases.explainReach(argo, { fromShipId: flagshipId, toShipId: lead.shipId }));
+    const fromOutsider = unwrap(await fleetUseCases.explainReach(argo, { fromShipId: outsider.shipId, toShipId: flagshipId }));
+    expect([toFlagship.send.map(({ shipId }) => shipId), toLead.send.map(({ shipId }) => shipId), fromOutsider.send]).toEqual([[flagshipId], [lead.shipId], []]);
   });
 });
