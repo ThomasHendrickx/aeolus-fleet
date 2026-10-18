@@ -66,6 +66,8 @@ import {
   changeLabelValuesOutputSchema,
   declareScopesInputSchema,
   declareScopesOutputSchema,
+  grantScopesInputSchema,
+  grantScopesOutputSchema,
   defineLabelInputSchema,
   defineLabelOutputSchema,
   deleteLabelInputSchema,
@@ -495,6 +497,22 @@ export const fleetRouter = router({
     .mutation(async ({ ctx, input }) => {
       const { namespace, scopes } = okOrThrow(await ctx.useCases.declareScopes(ctx.caller, input));
       return { namespace, scopes: [...scopes] };
+    }),
+
+  /** Grants and revokes scopes on a live ship, within what the caller's ship may grant (decision 0046). */
+  grantScopes: scopedProcedure('scopes:grant')
+    .meta({
+      description: [
+        'Needs scopes:grant. Grants and revokes scopes on a live agent, person or app ship at once; its crew holds them from its next call.',
+        "Each scope is one your ship holds (a core scope), or, for argo and a namespace's declarer only, a declared scope of that plugin namespace. Revoking follows the same rule.",
+        "messages:send and messages:receive are never revoked; argo's, the viewer's and your own ship's scopes are not changed here. Answers every scope the ship holds now.",
+      ].join(' '),
+    })
+    .input(grantScopesInputSchema)
+    .output(grantScopesOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { scopes } = okOrThrow(await ctx.useCases.grantScopes(ctx.caller, input));
+      return { scopes: [...scopes] };
     }),
 
   /** Defines a label the caller's ship then owns (decision 0031). */

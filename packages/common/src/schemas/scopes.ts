@@ -31,3 +31,13 @@ export const scopesOutputSchema = z.array(
     scopes: z.array(declaredScopeSchema),
   }),
 );
+
+/**
+ * Input of `fleet.grantScopes` (scopes:grant): the live ship, and the scopes
+ * granted and revoked at once, each within what the caller's ship may grant
+ * (decision 0046).
+ */
+export const grantScopesInputSchema = z.object({ shipId: idSchema('ship'), grant: z.array(z.string()), revoke: z.array(z.string()) });
+
+/** Output of `fleet.grantScopes`: every scope the ship holds now. */
+export const grantScopesOutputSchema = z.object({ scopes: z.array(scopeNameSchema) });

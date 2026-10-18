@@ -73,6 +73,7 @@ import type { AssignLabel } from '../../domain/registry/assign-label.js';
 import type { DeclareNetworkRules } from '../../domain/registry/declare-network-rules.js';
 import type { ChangeLabelValues } from '../../domain/registry/change-label-values.js';
 import type { DeclareScopes } from '../../domain/registry/declare-scopes.js';
+import type { GrantScopes } from '../../domain/registry/grant-scopes.js';
 import type { DefineLabel } from '../../domain/registry/define-label.js';
 import type { ExplainReach } from '../../domain/registry/explain-reach.js';
 import type { ReadDeclaredNetworkRules } from '../../domain/registry/read-declared-network-rules.js';
@@ -143,6 +144,7 @@ export interface UseCases {
   explainCrewRequest: ExplainCrewRequest;
   defineLabel: DefineLabel;
   declareScopes: DeclareScopes;
+  grantScopes: GrantScopes;
   listScopes: ListScopes;
   setNetworkRules: SetNetworkRules;
   registerNetworkPlugin: RegisterNetworkPlugin;

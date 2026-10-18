@@ -215,6 +215,9 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_network_rules_a_list$/),
       expect.stringMatching(/^\d{14}_verb_on_reach_refusals$/),
       expect.stringMatching(/^\d{14}_lease_statements$/),
+      expect.stringMatching(/^\d{14}_declare_and_grant_scopes$/),
+      expect.stringMatching(/^\d{14}_plugin_scopes$/),
+      expect.stringMatching(/^\d{14}_scope_namespaces$/),
     ]);
   });
 });
@@ -2005,7 +2008,7 @@ describe('scopes at the API (decision 0046)', () => {
 
     await expect(granter.fleet.grantScopes.mutate({ shipId: grantee.shipId, grant: ['fleet:read'], revoke: [] })).resolves.toEqual({ scopes: ['messages:send', 'messages:receive', 'fleet:read'] });
 
-    await expect(asGrantee.fleet.scopes.query()).resolves.toHaveLength(5);
+    await expect(asGrantee.fleet.scopes.query().then((listed) => listed.slice(0, 5).map(({ namespace }) => namespace))).resolves.toEqual(['messages', 'fleet', 'crew', 'labels', 'scopes']);
     await expect(refusalOf(sender.fleet.grantScopes.mutate({ shipId: grantee.shipId, grant: [], revoke: ['fleet:read'] }))).resolves.toEqual({
       code: 'FORBIDDEN',
       message: 'This call needs the scopes:grant scope',
