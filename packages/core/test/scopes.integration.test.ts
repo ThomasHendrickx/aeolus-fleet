@@ -151,3 +151,29 @@ describe('granting scopes on Postgres', () => {
     expect(scopes.includes('squadrons:scale')).toBe(outcome[0] === 'granted');
   });
 });
+
+describe("retiring a namespace's declarer on Postgres", () => {
+  const FORM = { scope: 'squadrons:form', description: 'Form a squadron by message' };
+
+  it('frees the namespace and takes its scopes off every ship in the same transaction, while a grant of them takes its turn', async () => {
+    const { shipId: declarerId } = unwrap(await core.useCases.commissionShip(argo(), { idempotencyKey: newKey(), name: 'squadrons', type: 'plugin' }));
+    const declarer = { shipId: declarerId, fleetId, kind: 'agent' as const, scopes: ['messages:send', 'messages:receive', 'scopes:declare'] };
+    unwrap(await core.useCases.declareScopes(declarer, { namespace: 'squadrons', scopes: [FORM] }));
+    const { shipId } = await claimedScout();
+    const { shipId: lookoutId } = unwrap(await core.useCases.commissionShip(argo(), { idempotencyKey: newKey(), name: 'lookout', type: 'reviewer' }));
+    unwrap(await core.useCases.grantScopes(argo(), { shipId, grant: ['squadrons:form'], revoke: [] }));
+
+    const [retired, granted] = await Promise.all([
+      core.useCases.retireShip(argo(), { shipId: declarerId }),
+      core.useCases.grantScopes(argo(), { shipId: lookoutId, grant: ['squadrons:form'], revoke: [] }),
+    ]);
+
+    expect(retired.isOk).toBe(true);
+    expect(['granted', 'SCOPE_NOT_DECLARED']).toContain(granted.isOk ? 'granted' : granted.error.kind);
+    await expect(core.prisma.scopeNamespace.count()).resolves.toBe(0);
+    await expect(core.prisma.ship.findMany({ where: { id: { in: [shipId, lookoutId] } }, select: { scopes: true } })).resolves.toEqual([
+      { scopes: ['messages:send', 'messages:receive'] },
+      { scopes: ['messages:send', 'messages:receive'] },
+    ]);
+  });
+});

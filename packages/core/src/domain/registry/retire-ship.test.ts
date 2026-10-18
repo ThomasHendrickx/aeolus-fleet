@@ -348,3 +348,62 @@ describe('a retired owner (decision 0045)', () => {
     expect(eventsOfType('OwnerChanged')).toEqual([]);
   });
 });
+
+describe("retiring a plugin namespace's declarer (decision 0046)", () => {
+  const FORM = { scope: 'squadrons:form', description: 'Form a squadron' };
+  const SCALE = { scope: 'squadrons:scale', description: 'Add and remove members' };
+
+  /** squadrons declares its namespace, then argo grants its scopes: scout both, lookout one. */
+  async function declaredAndGranted(): Promise<Caller> {
+    const squadrons = await shipWithScopes({ registry, argo }, { name: 'squadrons', type: 'squadrons', scopes: [] });
+    unwrap(await registry.declareScopes(squadrons, { namespace: 'squadrons', scopes: [FORM, SCALE] }));
+    unwrap(await registry.grantScopes(argo, { shipId: scoutId, grant: ['fleet:read', 'squadrons:form', 'squadrons:scale'], revoke: [] }));
+    unwrap(await registry.grantScopes(argo, { shipId: lookout.shipId, grant: ['squadrons:form'], revoke: [] }));
+    core.state.events.length = 0;
+    return squadrons;
+  }
+
+  const scopesOf = (shipId: ShipId) => core.state.ships.find((ship) => ship.id === shipId)?.scopes;
+
+  it('frees the namespace and takes its scopes off every active ship, keeping their other scopes', async () => {
+    const squadrons = await declaredAndGranted();
+
+    unwrap(await registry.retireShip(argo, { shipId: squadrons.shipId }));
+
+    expect(core.state.scopeNamespaces).toEqual([]);
+    expect(scopesOf(scoutId)).toEqual(['messages:send', 'messages:receive', 'fleet:read']);
+    expect(scopesOf(lookout.shipId)).toEqual(['messages:send', 'messages:receive']);
+  });
+
+  it('writes one ScopesChanged on each ship that lost scopes, caused by the retiring caller, naming what it lost', async () => {
+    const squadrons = await declaredAndGranted();
+
+    unwrap(await registry.retireShip(argo, { shipId: squadrons.shipId }));
+
+    const changed = core.state.events.filter((event) => event.type === 'ScopesChanged');
+    expect(changed.map(({ shipId, actor, details }) => ({ shipId, actor, details })).toSorted((first, second) => String(first.shipId).localeCompare(String(second.shipId)))).toEqual(
+      [
+        { shipId: scoutId, actor: { kind: 'ship', shipId: argo.shipId }, details: { added: '', removed: 'squadrons:form squadrons:scale' } },
+        { shipId: lookout.shipId, actor: { kind: 'ship', shipId: argo.shipId }, details: { added: '', removed: 'squadrons:form' } },
+      ].toSorted((first, second) => first.shipId.localeCompare(second.shipId)),
+    );
+  });
+
+  it('lets another ship declare the namespace then', async () => {
+    const squadrons = await declaredAndGranted();
+    unwrap(await registry.retireShip(argo, { shipId: squadrons.shipId }));
+    const successor = await shipWithScopes({ registry, argo }, { name: 'squadrons-two', type: 'squadrons', scopes: [] });
+
+    await expect(registry.declareScopes(successor, { namespace: 'squadrons', scopes: [FORM] })).resolves.toMatchObject({ isOk: true });
+  });
+
+  it("leaves the namespace and its scopes when a ship that declared nothing retires", async () => {
+    await declaredAndGranted();
+
+    unwrap(await registry.retireShip(argo, { shipId: lookout.shipId }));
+
+    expect(core.state.scopeNamespaces.map(({ namespace }) => namespace)).toEqual(['squadrons']);
+    expect(scopesOf(scoutId)).toEqual(['messages:send', 'messages:receive', 'fleet:read', 'squadrons:form', 'squadrons:scale']);
+    expect(core.state.events.filter((event) => event.type === 'ScopesChanged')).toEqual([]);
+  });
+});
