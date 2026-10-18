@@ -30,8 +30,8 @@ export type AddMember = (input: {
   role: string;
   /** The form's crew settings and parameter values for the member (#343). */
   member?: MemberForm;
-  /** Asked by message to the flagship, under the request's key: the member is crewed by request only, and keeps the key (decision 0017). */
-  byMessage?: { key: string };
+  /** Asked by message to the flagship, by its sender under its key: the member is crewed by request only, and keeps both (decision 0017). */
+  byMessage?: { by: ShipId; key: string };
 }) => Promise<Result<AddedMember, AddRefusal>>;
 
 /**
@@ -46,7 +46,7 @@ export type AddMember = (input: {
  * one unit of work, so a crash before that retires the ship at the next
  * start and a crash after it keeps the member. Asked by message, the role
  * must be crewed by request, as no crew line travels in a message, and the
- * member keeps the request's key. A member of a squadron a ship formed gets
+ * member keeps the request's sender and key. A member of a squadron a ship formed gets
  * that ship's owner (decision 0045). squadrons' limit of members
  * per squadron (question 9) is checked before anything is commissioned.
  */
@@ -126,7 +126,7 @@ export function createAddMember(deps: {
       before: squadron,
       after: {
         ...squadron,
-        members: [...squadron.members, { shipId, name, role: role.name, type, onStationAt: null, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null, releasingSince: null, parameters, ...(byMessage ? { addKey: byMessage.key } : {}) }],
+        members: [...squadron.members, { shipId, name, role: role.name, type, onStationAt: null, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null, releasingSince: null, parameters, ...(byMessage ? { addRequest: byMessage } : {}) }],
       },
       finishesAttempt: formation.attemptId,
     });
