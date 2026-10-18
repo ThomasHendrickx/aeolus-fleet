@@ -7,9 +7,9 @@ import type { CrewRequestRepository, ShipRepository } from './ports.js';
 /**
  * A crew request as its trierarch reads it: which ship, with what settings,
  * how it stands, whether its crew is final, and the ship's owner as it is
- * now, where its trouble goes (decision 0045).
+ * now, by id and name, where its trouble goes (decision 0045).
  */
-export type AssignedCrewRequest = Pick<CrewRequest, 'shipId' | 'settings' | 'settingsVersion' | 'requestedAt' | 'status' | 'isFinal'> & { ownerShipId: ShipId | null };
+export type AssignedCrewRequest = Pick<CrewRequest, 'shipId' | 'settings' | 'settingsVersion' | 'requestedAt' | 'status' | 'isFinal'> & { ownerShipId: ShipId | null; ownerName: string | null };
 
 export type ReadAssignedCrewRequests = (caller: Caller) => Promise<AssignedCrewRequest[]>;
 
@@ -22,15 +22,11 @@ export function createReadAssignedCrewRequests(deps: { crewRequests: Pick<CrewRe
   return async (caller) => {
     const requests = await deps.crewRequests.listAssignedTo(caller.fleetId, caller.shipId);
     return Promise.all(
-      requests.map(async ({ shipId, settings, settingsVersion, requestedAt, status, isFinal }) => ({
-        shipId,
-        settings,
-        settingsVersion,
-        requestedAt,
-        status,
-        isFinal,
-        ownerShipId: (await deps.ships.find(caller.fleetId, shipId))?.owner ?? null,
-      })),
+      requests.map(async ({ shipId, settings, settingsVersion, requestedAt, status, isFinal }) => {
+        const ownerShipId = (await deps.ships.find(caller.fleetId, shipId))?.owner ?? null;
+        const owner = ownerShipId === null ? undefined : await deps.ships.find(caller.fleetId, ownerShipId);
+        return { shipId, settings, settingsVersion, requestedAt, status, isFinal, ownerShipId: owner?.id ?? null, ownerName: owner?.name ?? null };
+      }),
     );
   };
 }
