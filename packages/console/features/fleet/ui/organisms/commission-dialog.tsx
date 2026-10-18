@@ -64,7 +64,7 @@ interface CommissionDialogProps {
 
 /** What each fleet scope lets a ship's session do, beside its name. */
 const FLEET_SCOPE_WORDS: Record<FleetScope, string> = {
-  'fleet:read': 'Read the fleet, every message included',
+  'fleet:read': 'Read the ships and messages in its read reach',
   'fleet:manage': 'Manage the fleet',
   'crew:assign': 'Assign crews',
   'crew:run': 'Run crews',
