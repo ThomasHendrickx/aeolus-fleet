@@ -16,8 +16,8 @@ import {
 
 describe('the scopes', () => {
   it('are the message scopes, then the fleet scopes, then declaring and granting scopes, and nothing else (decision 0046)', () => {
-    expect(SCOPES).toEqual(['messages:send', 'messages:receive', 'messages:force', 'messages:resend', 'fleet:read', 'fleet:commission', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'scopes:declare', 'scopes:grant']);
-    expect(FLEET_SCOPES).toEqual(['messages:resend', 'fleet:read', 'fleet:commission', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network']);
+    expect(SCOPES).toEqual(['messages:send', 'messages:receive', 'messages:force', 'messages:resend', 'fleet:read', 'fleet:commission', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'fleet:on-behalf', 'scopes:declare', 'scopes:grant']);
+    expect(FLEET_SCOPES).toEqual(['messages:resend', 'fleet:read', 'fleet:commission', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'fleet:on-behalf']);
   });
 });
 
@@ -54,7 +54,7 @@ describe('scopeNameSchema', () => {
 });
 
 describe('scopeSchema', () => {
-  it.each(['messages:send', 'messages:receive', 'messages:force', 'messages:resend', 'fleet:read', 'fleet:commission', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'scopes:declare', 'scopes:grant'])('accepts %s', (scope) => {
+  it.each(['messages:send', 'messages:receive', 'messages:force', 'messages:resend', 'fleet:read', 'fleet:commission', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'fleet:on-behalf', 'scopes:declare', 'scopes:grant'])('accepts %s', (scope) => {
     expect(scopeSchema.parse(scope)).toBe(scope);
   });
 

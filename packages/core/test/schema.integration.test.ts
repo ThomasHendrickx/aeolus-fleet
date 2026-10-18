@@ -889,7 +889,7 @@ describe('operator accounts', () => {
 });
 
 describe('scopes', () => {
-  it('are only the fourteen known ones', async () => {
+  it('are only the fifteen known ones', async () => {
     const id = await createShip(await createFleet());
 
     await expect(
@@ -898,9 +898,9 @@ describe('scopes', () => {
     await expect(
       database.ship.update({
         where: { id },
-        data: { scopes: ['messages:send', 'messages:receive', 'messages:force', 'messages:resend', 'fleet:read', 'fleet:commission', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'scopes:declare', 'scopes:grant'] },
+        data: { scopes: ['messages:send', 'messages:receive', 'messages:force', 'messages:resend', 'fleet:read', 'fleet:commission', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'fleet:on-behalf', 'scopes:declare', 'scopes:grant'] },
       }),
-    ).resolves.toMatchObject({ scopes: ['messages:send', 'messages:receive', 'messages:force', 'messages:resend', 'fleet:read', 'fleet:commission', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'scopes:declare', 'scopes:grant'] });
+    ).resolves.toMatchObject({ scopes: ['messages:send', 'messages:receive', 'messages:force', 'messages:resend', 'fleet:read', 'fleet:commission', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'fleet:on-behalf', 'scopes:declare', 'scopes:grant'] });
   });
 
   it('are never null', async () => {
