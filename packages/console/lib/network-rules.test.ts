@@ -7,6 +7,7 @@ import {
   addTerm,
   draftOf,
   isChanged,
+  ownerChoicesOf,
   removeRule,
   removeTerm,
   rulesOf,
@@ -14,6 +15,7 @@ import {
   hasSameValueOnOneSide,
   sameValueProblemOf,
   setRulesOn,
+  setVerb,
   supplyNote,
   type NetworkDraft,
 } from './network-rules';
@@ -44,7 +46,9 @@ function valueOf(label: ListedLabel, index: number): LabelValueId {
 
 const TEAM = aLabel('team', ['ops', 'research']);
 const TIER = aLabel('tier', ['sensitive']);
-const CONTEXT = labelContextOf([TEAM, TIER], { ships: [ARGO], isOperator: true });
+const ALICE: ListedShip = { ...ARGO, id: newId('ship'), name: 'alice', type: 'person', kind: 'person' };
+const PLANNER: ListedShip = { ...ARGO, id: newId('ship'), name: 'planner', type: 'planner', kind: 'agent' };
+const CONTEXT = labelContextOf([TEAM, TIER], { ships: [ARGO, ALICE, PLANNER], isOperator: true });
 const OPS = valueOf(TEAM, 0);
 const RESEARCH = valueOf(TEAM, 1);
 const SENSITIVE = valueOf(TIER, 0);
@@ -193,6 +197,70 @@ describe('a selector as the editor shows it', () => {
     const gone = newId('labelValue');
 
     expect(selectorOf([OPS, gone], CONTEXT)).toMatchObject({ unknown: [gone] });
+  });
+});
+
+describe("a rule's verb (decision 0034)", () => {
+  it('starts a new rule as a send rule', () => {
+    expect(onlyRule(addRule(setRulesOn({ kind: 'all-to-all' }, true), { newKey, limits: LIMITS })).verb).toBe('send');
+  });
+
+  it('turns a rule to read or manage, keeping its selectors, and saves it so', () => {
+    const draft = draftOf([{ verb: 'send', from: [OPS], to: [SENSITIVE] }], newKey);
+
+    const changed = setVerb(draft, { rule: onlyRule(draft).key, verb: 'manage' });
+
+    expect(rulesOf(changed)).toEqual([{ verb: 'manage', from: [OPS], to: [SENSITIVE] }]);
+  });
+});
+
+describe('a term of the owner (decision 0045)', () => {
+  const SAME_OWNER = { owner: '#' } as const;
+
+  it('offers argo and every person ship as an owner, and no other ship', () => {
+    expect(ownerChoicesOf(CONTEXT)).toEqual([
+      { shipId: ARGO.id, name: 'argo' },
+      { shipId: ALICE.id, name: 'alice' },
+    ]);
+  });
+
+  it('leaves a retired person ship out of the owners offered', () => {
+    const retired = { ...ALICE, status: 'retired' as const };
+
+    expect(ownerChoicesOf(labelContextOf([], { ships: [ARGO, retired], isOperator: true }))).toEqual([{ shipId: ARGO.id, name: 'argo' }]);
+  });
+
+  it('shows an owner by its ship as owner=name, any owner as owner=* and the same owner as owner=#, apart from the label chips', () => {
+    expect(selectorOf([OPS, { owner: ALICE.id }, { owner: '*' }, SAME_OWNER], CONTEXT)).toMatchObject({
+      chips: [{ term: OPS }],
+      owners: [
+        { term: { owner: ALICE.id }, text: 'owner=alice' },
+        { term: { owner: '*' }, text: 'owner=*' },
+        { term: SAME_OWNER, text: 'owner=#' },
+      ],
+      unknown: [],
+    });
+  });
+
+  it('counts an owner ship the fleet does not have: that side matches no ship', () => {
+    const gone = newId('ship');
+
+    expect(selectorOf([{ owner: gone }], CONTEXT)).toMatchObject({ owners: [], unknown: [{ owner: gone }] });
+  });
+
+  it('adds an owner term to a side once', () => {
+    const draft = draftOf([{ verb: 'read', from: [], to: [] }], newKey);
+    const at = { rule: onlyRule(draft).key, side: 'from' as const, term: { owner: ALICE.id }, limits: LIMITS };
+
+    expect(rulesOf(addTerm(addTerm(draft, at), at))).toEqual([{ verb: 'read', from: [{ owner: ALICE.id }], to: [] }]);
+  });
+
+  it('says the same owner needs the same owner on the other side, and keeps the draft from being saved', () => {
+    const draft = draftOf([{ verb: 'read', from: [SAME_OWNER], to: [OPS] }], newKey);
+
+    expect(sameValueProblemOf(onlyRule(draft), { side: 'from', context: CONTEXT })).toBe('owner=# needs owner=# on the other side: # matches the same owner there.');
+    expect(hasSameValueOnOneSide(draft)).toBe(true);
+    expect(hasSameValueOnOneSide(draftOf([{ verb: 'read', from: [SAME_OWNER], to: [SAME_OWNER] }], newKey))).toBe(false);
   });
 });
 

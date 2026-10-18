@@ -136,7 +136,7 @@ describe('the networking plugin in the console', () => {
   it('sets a rule from label values, which the plugin supplies to the fleet', async () => {
     const page = await signedIn();
     await page.getByTestId('nav-network').click();
-    await expect.poll(() => page.getByTestId('network-rules-state').textContent(), WITHIN).toContain('every ship may message every ship');
+    await expect.poll(() => page.getByTestId('network-rules-state').textContent(), WITHIN).toContain('every ship may send to, read and manage every ship');
 
     await page.getByTestId('network-rules-on').click();
     await page.getByTestId('network-rules-add').click();
@@ -146,6 +146,20 @@ describe('the networking plugin in the console', () => {
 
     await expect.poll(() => page.getByTestId('network-rules-note').textContent(), WITHIN).toContain('Saved');
     await expect.poll(async () => (await settings()).rules, WITHIN).toEqual([{ verb: 'send', from: [valueIds.get('team=ops')], to: [valueIds.get('tier=sensitive')] }]);
+  });
+
+  it("shows the built-in rules first, open off while argo's rules apply, and turns the viewer reading off as argo", async () => {
+    const page = await signedIn();
+    await page.getByTestId('nav-network').click();
+    const builtIns = page.getByTestId('network-built-in');
+    await builtIns.getByText('Open for send').waitFor(WITHIN);
+
+    await expect(page.locator('[data-testid="network-built-in"] ~ [data-testid="network-rules"]').count()).resolves.toBe(1);
+    await expect.poll(() => builtIns.getByTestId('network-built-in-rule').filter({ hasText: 'Open for send' }).getByTestId('network-built-in-rule-state').textContent(), WITHIN).toBe('Off');
+    await page.getByTestId('network-built-in-viewer-read').click();
+    await expect.poll(async () => (await settings()).builtInViewerRead, WITHIN).toBe(false);
+    await page.getByTestId('network-built-in-viewer-read').click();
+    await expect.poll(async () => (await settings()).builtInViewerRead, WITHIN).toBe(true);
   });
 
   it('shows the rules a plugin declares apart from argo\'s, live, with the plugin that declared them and nothing to edit, and leaves the fleet\'s rules as they were once it retires', async () => {
@@ -259,7 +273,7 @@ describe('the networking plugin in the console', () => {
     await page.getByTestId('network-rules-off').click();
     await page.getByTestId('network-rules-off-confirm').click();
 
-    await expect.poll(() => page.getByTestId('network-rules-state').textContent(), WITHIN).toContain('every ship may message every ship');
+    await expect.poll(() => page.getByTestId('network-rules-state').textContent(), WITHIN).toContain('every ship may send to, read and manage every ship');
     await expect
       .poll(async () => {
         const { rules, builtInOpenSend, builtInOpenRead, builtInOpenManage } = await settings();

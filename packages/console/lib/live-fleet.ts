@@ -74,6 +74,11 @@ export function isDeclaredRulesChange(type: EventType): boolean {
   return type === 'NetworkRulesDeclared';
 }
 
+/** A built-in rule turned on or off, or the networking plugin gone, which turns open on again, changes the built-in rules Network shows (decision 0034). */
+export function isBuiltInRulesChange(type: EventType): boolean {
+  return type === 'BuiltInRuleChanged' || type === 'NetworkPluginUnregistered';
+}
+
 /** The subscription's state as the live dot words it. */
 export function liveStateOf(status: 'idle' | 'connecting' | 'pending' | 'error'): LiveState {
   switch (status) {
@@ -157,6 +162,9 @@ export function useLiveFleet(): LiveFleet {
           }
           if (isDeclaredRulesChange(event.type)) {
             reload(trpc.fleet.declaredNetworkRules.queryKey());
+          }
+          if (isBuiltInRulesChange(event.type)) {
+            reload(trpc.fleet.builtInRules.queryKey());
           }
           if (!isShipChange(event.type)) {
             return;

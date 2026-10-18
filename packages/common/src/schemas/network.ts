@@ -88,6 +88,20 @@ export const setBuiltInRuleInputSchema = z
 
 export type SetBuiltInRuleInput = z.infer<typeof setBuiltInRuleInputSchema>;
 
+/**
+ * One built-in rule as it is now: open for one verb, which it names and no
+ * other rule does, and whether it is on; the fixed ones always are.
+ */
+export const builtInRuleStateSchema = z.union([
+  z.object({ rule: z.enum(['argo', 'owner', 'answer', 'viewerRead']), isOn: z.boolean() }),
+  z.object({ rule: z.literal('open'), verb: z.enum(NETWORK_VERBS), isOn: z.boolean() }),
+]);
+
+export type BuiltInRuleState = z.infer<typeof builtInRuleStateSchema>;
+
+/** Output of `fleet.builtInRules` (fleet:network): every built-in rule as it is now, in the order the rule list shows them, first (decision 0034). */
+export const builtInRulesOutputSchema = z.array(builtInRuleStateSchema);
+
 /** Output of `fleet.setNetworkRules`: the version the fleet's network settings have now. */
 export const setNetworkRulesOutputSchema = z.object({ version: z.int().min(1) });
 

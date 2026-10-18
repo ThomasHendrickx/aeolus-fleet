@@ -1,6 +1,6 @@
 'use client';
 
-import type { NetworkRule } from '@aeolus-fleet/common';
+import { NETWORK_VERBS, type NetworkRule, type NetworkVerb } from '@aeolus-fleet/common';
 import { ArrowRight, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -11,12 +11,15 @@ import {
   draftOf,
   hasSameValueOnOneSide,
   isChanged,
+  ownerChoicesOf,
   removeRule,
   removeTerm,
   rulesOf,
   sameValueProblemOf,
   selectorOf,
   setRulesOn,
+  setVerb,
+  VERB_WORDS,
   type NetworkLimits,
   type RuleSide,
 } from '../../../../lib/network-rules';
@@ -31,6 +34,7 @@ import {
 } from '../../../../components/atoms/alert-dialog';
 import { Button } from '../../../../components/atoms/button';
 import { dialogSurface } from '../../../../components/atoms/dialog-surface';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/atoms/select';
 import { InlineError } from '../../../../components/molecules/inline-error';
 import { LabelSelectorField } from '../molecules/label-selector-field';
 
@@ -54,6 +58,8 @@ const SIDES: readonly { side: RuleSide; label: string }[] = [
   { side: 'to', label: 'To ships with' },
 ];
 
+const isVerb = (value: unknown): value is NetworkVerb => NETWORK_VERBS.some((verb) => verb === value);
+
 const newKey = () => crypto.randomUUID();
 
 const withProblem = (problem: string | undefined) => (problem === undefined ? {} : { problem });
@@ -61,9 +67,9 @@ const withProblem = (problem: string | undefined) => (problem === undefined ? {}
 /**
  * The network rules, argo's alone (#260; decisions 0034, 0036): all-to-all
  * until argo sets rules; then each rule lets the ships meeting every term on
- * its left message those meeting every term on its right: an exact value,
- * any value of a key, or the same value as the other side. Argo and answers
- * to a received message always get through. The draft is this editor's own
+ * its left send to, read or manage, by its verb, those meeting every term on
+ * its right: an exact value, any value of a key, the same value as the other
+ * side, or an owner. The built-in rules hold beside them. The draft is this editor's own
  * until Save sends it whole; a failed save keeps it, and a same value on one
  * side only, which the fleet refuses, keeps Save off. Turning rules off
  * drops every rule, so it confirms first.
@@ -72,6 +78,7 @@ export function NetworkRulesEditor({ rules, context, limits, isSaving, saveError
   const [draft, setDraft] = useState(() => draftOf(rules, newKey));
   const [isConfirmingOff, setIsConfirmingOff] = useState(false);
   const groups = filterGroupsOf(context);
+  const ownerChoices = ownerChoicesOf(context);
   const hasChanges = isChanged(draft, rules);
 
   return (
@@ -82,11 +89,10 @@ export function NetworkRulesEditor({ rules, context, limits, isSaving, saveError
       {draft.kind === 'all-to-all' ? (
         <>
           <p className="text-body" data-testid="network-rules-state">
-            No rules: every ship may message every ship.
+            No rules: every ship may send to, read and manage every ship.
           </p>
           <p className="text-meta text-muted-foreground">
-            With rules, a ship may message another only when a rule allows it. Argo always reaches every ship and every ship reaches argo, and a ship may always answer
-            the sender of a message it received.
+            With rules, a ship may send to, read or manage another only when a rule of that verb or a built-in rule allows it.
           </p>
           <div>
             <Button
@@ -106,8 +112,8 @@ export function NetworkRulesEditor({ rules, context, limits, isSaving, saveError
         <>
           <p className="text-body" data-testid="network-rules-state">
             {draft.rules.length === 0
-              ? 'No rule allows anything yet: once saved, only argo and answers to a received message get through.'
-              : 'A ship may message another only when a rule allows it. Argo and answers to a received message always get through.'}
+              ? 'No rule allows anything yet: once saved, only the built-in rules hold.'
+              : 'A ship may send to, read or manage another only when a rule of that verb or a built-in rule allows it.'}
           </p>
           {draft.rules.length === 0 ? null : (
             <ul className="flex flex-col gap-2">
@@ -117,10 +123,38 @@ export function NetworkRulesEditor({ rules, context, limits, isSaving, saveError
                     const selector = selectorOf(rule[side], context);
                     return (
                       <div key={side} className="flex min-w-0 grow basis-0 items-start gap-3">
+                        {side === 'to' ? (
+                          <div className="flex shrink-0 flex-col gap-1">
+                            <span className="text-meta text-muted-foreground">Verb</span>
+                            <Select
+                              items={VERB_WORDS}
+                              value={rule.verb}
+                              disabled={isSaving}
+                              onValueChange={(picked) => {
+                                if (isVerb(picked)) {
+                                  setDraft(setVerb(draft, { rule: rule.key, verb: picked }));
+                                }
+                              }}
+                            >
+                              <SelectTrigger aria-label={`Verb of rule ${String(index + 1)}`} data-testid="network-rule-verb" size="sm">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {NETWORK_VERBS.map((verb) => (
+                                  <SelectItem key={verb} value={verb}>
+                                    {VERB_WORDS[verb]}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        ) : null}
                         {side === 'to' ? <ArrowRight aria-hidden className="mt-6 hidden size-(--size-icon) shrink-0 text-muted-foreground sm:block" /> : null}
                         <LabelSelectorField
                           label={label}
                           picked={selector.chips}
+                          owners={selector.owners}
+                          ownerChoices={ownerChoices}
                           unknown={selector.unknown}
                           groups={groups}
                           max={limits.selectorMax}
@@ -230,7 +264,7 @@ export function NetworkRulesEditor({ rules, context, limits, isSaving, saveError
           <AlertDialogHeader>
             <AlertDialogTitle>Remove all rules?</AlertDialogTitle>
             <AlertDialogDescription>
-              Every ship may message every ship again from now on. The rules are gone: to have them back, set them again.
+              Every ship may send to, read and manage every ship again from now on. The rules are gone: to have them back, set them again.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

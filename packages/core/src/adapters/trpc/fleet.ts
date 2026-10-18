@@ -75,6 +75,7 @@ import {
   registerNetworkPluginInputSchema,
   setNetworkRulesInputSchema,
   setBuiltInRuleInputSchema,
+  builtInRulesOutputSchema,
   declareNetworkRulesInputSchema,
   declareNetworkRulesOutputSchema,
   declaredNetworkRulesOutputSchema,
@@ -614,6 +615,11 @@ export const fleetRouter = router({
     .input(setBuiltInRuleInputSchema)
     .output(setNetworkRulesOutputSchema)
     .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.setBuiltInRule(ctx.caller, input))),
+
+  /** Every built-in rule as it is now, for argo's rule list, which shows them first (decision 0034). */
+  builtInRules: scopedProcedure('fleet:network')
+    .output(builtInRulesOutputSchema)
+    .query(async ({ ctx }) => okOrThrow(await ctx.useCases.readBuiltInRules(ctx.caller))),
 
   /** The caller declares the network rules it needs on the labels it owns, its whole list (decision 0037). */
   declareNetworkRules: scopedProcedure('labels:define')

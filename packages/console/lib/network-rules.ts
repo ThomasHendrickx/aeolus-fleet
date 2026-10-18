@@ -1,4 +1,4 @@
-import { isOwnerTerm, type LabelTerm, type NetworkRule, type NetworkVerb, type SelectorTerm } from '@aeolus-fleet/common';
+import { isOwnerTerm, type LabelTerm, type NetworkRule, type NetworkVerb, type OwnerTerm, type SelectorTerm, type ShipId } from '@aeolus-fleet/common';
 
 import { pickedChips, type LabelChip, type LabelContext } from './labels';
 import type { SavedRules } from './networking-plugin-schemas';
@@ -6,10 +6,14 @@ import type { SavedRules } from './networking-plugin-schemas';
 /**
  * The network rules as argo edits them in the networking plugin's editor
  * (decisions 0034, 0036): all-to-all (no rules), or a list of rules, each
- * letting the ships matching one label selector do its verb to those
- * matching another; a rule added here is a send rule. An empty list allows only the fixed exceptions, argo and replies.
+ * letting the ships matching one selector of label and owner terms do its
+ * verb, send, read or manage, to those matching another; a rule added here
+ * starts as a send rule. An empty list allows only the built-in rules.
  * Pure: the draft lives in the editor until Save sends it whole.
  */
+
+/** What each verb lets the ships on a rule's left do to those on its right, as the editor and the declared rules say it (decision 0034). */
+export const VERB_WORDS: Readonly<Record<NetworkVerb, string>> = { send: 'May send to', read: 'May read', manage: 'May manage' };
 
 /** One rule in the draft, with a key of its own so its row stays put while it changes. */
 export interface DraftRule {
@@ -59,6 +63,11 @@ export function addRule(draft: NetworkDraft, at: { newKey: () => string; limits:
     return draft;
   }
   return { kind: 'rules', rules: [...draft.rules, { key: at.newKey(), verb: 'send', from: [], to: [] }] };
+}
+
+/** Turns a rule to another verb, keeping its selectors. */
+export function setVerb(draft: NetworkDraft, at: { rule: string; verb: NetworkVerb }): NetworkDraft {
+  return changeRule(draft, { key: at.rule, change: (rule) => ({ ...rule, verb: at.verb }) });
 }
 
 export function removeRule(draft: NetworkDraft, key: string): NetworkDraft {
@@ -113,17 +122,49 @@ export interface TermChip extends Pick<LabelChip, 'labelId' | 'key' | 'value' | 
   term: LabelTerm;
 }
 
+/** What an owner term of any owner and one of the same owner match, as the picker offers them and their chips say. */
+export const OWNER_TERM_MEANINGS: Readonly<Record<'*' | '#', string>> = { '*': 'Any owner', '#': 'The same owner as the other side' };
+
+/** One owner term as a chip: `owner=<name>`, `owner=*` or `owner=#`, and the term it shows. */
+export interface OwnerChip {
+  term: OwnerTerm;
+  text: string;
+}
+
+/** A ship that may own others (decision 0045): argo or a person's ship. */
+export interface OwnerChoice {
+  shipId: ShipId;
+  name: string;
+}
+
+/** The owners an owner term may name: argo and every person ship that is not retired, in the fleet's order. */
+export function ownerChoicesOf(context: LabelContext): OwnerChoice[] {
+  return context.ships
+    .filter((ship) => (ship.kind === 'operator' || ship.kind === 'person') && ship.status !== 'retired')
+    .map((ship) => ({ shipId: ship.id, name: ship.name }));
+}
+
 /**
- * One side of a rule as the editor shows it: a chip per term, an exact value
- * as `key=value`, any value as `key=*` and the same value as the other side's
- * as `key=#`; and the terms whose value or label the fleet no longer has,
- * which match no ship (decision 0034), with any term of the owner, which
- * the editor does not show as a chip.
+ * One side of a rule as the editor shows it: a chip per label term, an exact
+ * value as `key=value`, any value as `key=*` and the same value as the other
+ * side's as `key=#`; a chip per owner term, `owner=<name>`, `owner=*` or
+ * `owner=#`; and the terms whose value, label or owner ship the fleet no
+ * longer has, which match no ship (decision 0034).
  */
-export function selectorOf(terms: readonly SelectorTerm[], context: LabelContext): { chips: TermChip[]; unknown: SelectorTerm[] } {
+export function selectorOf(terms: readonly SelectorTerm[], context: LabelContext): { chips: TermChip[]; owners: OwnerChip[]; unknown: SelectorTerm[] } {
   const chips: TermChip[] = [];
+  const owners: OwnerChip[] = [];
   const unknown: SelectorTerm[] = [];
   for (const term of terms) {
+    if (isOwnerTerm(term)) {
+      const owner = ownerChipOf(term, context);
+      if (owner === undefined) {
+        unknown.push(term);
+      } else {
+        owners.push(owner);
+      }
+      continue;
+    }
     const chip = chipOf(term, context);
     if (chip === undefined) {
       unknown.push(term);
@@ -131,13 +172,18 @@ export function selectorOf(terms: readonly SelectorTerm[], context: LabelContext
       chips.push(chip);
     }
   }
-  return { chips, unknown };
+  return { chips, owners, unknown };
 }
 
-function chipOf(term: SelectorTerm, context: LabelContext): TermChip | undefined {
-  if (isOwnerTerm(term)) {
-    return undefined;
+function ownerChipOf(term: OwnerTerm, context: LabelContext): OwnerChip | undefined {
+  if (term.owner === '*' || term.owner === '#') {
+    return { term, text: `owner=${term.owner}` };
   }
+  const ship = context.ships.find((each) => each.id === term.owner);
+  return ship === undefined ? undefined : { term, text: `owner=${ship.name}` };
+}
+
+function chipOf(term: LabelTerm, context: LabelContext): TermChip | undefined {
   if (typeof term === 'string') {
     const [chip] = pickedChips([term], context);
     return chip === undefined ? undefined : { labelId: chip.labelId, key: chip.key, value: chip.value, mark: chip.mark, ownerName: chip.ownerName, term };
@@ -162,19 +208,28 @@ function sameValueAlone(rule: DraftRule, side: RuleSide): Exclude<LabelTerm, str
   );
 }
 
-/** What the editor says under a side that holds a term of the same value the other side does not; undefined when none. */
+/** Whether a side holds the same owner and the other side does not: the fleet refuses that too, as `#` binds the owner on both sides. */
+function sameOwnerAlone(rule: DraftRule, side: RuleSide): boolean {
+  const hasSameOwner = (terms: readonly SelectorTerm[]) => terms.some((term) => isOwnerTerm(term) && term.owner === '#');
+  return hasSameOwner(rule[side]) && !hasSameOwner(rule[side === 'from' ? 'to' : 'from']);
+}
+
+/** What the editor says under a side that holds a term of the same value or owner the other side does not; undefined when none. */
 export function sameValueProblemOf(rule: DraftRule, at: { side: RuleSide; context: LabelContext }): string | undefined {
   const [term] = sameValueAlone(rule, at.side);
   if (term === undefined) {
-    return undefined;
+    return sameOwnerAlone(rule, at.side) ? 'owner=# needs owner=# on the other side: # matches the same owner there.' : undefined;
   }
   const key = at.context.labels.find((label) => label.id === term.labelId)?.key ?? term.labelId;
   return `${key}=# needs ${key}=# on the other side: # matches the same value there.`;
 }
 
-/** Whether a rule of the draft holds a term of the same value on one side only: the fleet refuses it, so the draft does not save. */
+/** Whether a rule of the draft holds a term of the same value or owner on one side only: the fleet refuses it, so the draft does not save. */
 export function hasSameValueOnOneSide(draft: NetworkDraft): boolean {
-  return draft.kind === 'rules' && draft.rules.some((rule) => sameValueAlone(rule, 'from').length + sameValueAlone(rule, 'to').length > 0);
+  return (
+    draft.kind === 'rules' &&
+    draft.rules.some((rule) => sameValueAlone(rule, 'from').length + sameValueAlone(rule, 'to').length > 0 || sameOwnerAlone(rule, 'from') || sameOwnerAlone(rule, 'to'))
+  );
 }
 
 /** What a save says of its supply. A race with a disconnect or a switch says only Saved: the page shows that state itself. */

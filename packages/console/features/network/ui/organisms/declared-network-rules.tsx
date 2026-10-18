@@ -3,7 +3,7 @@ import { ArrowRight, CircleAlert } from 'lucide-react';
 import { Fragment } from 'react';
 
 import type { LabelContext } from '../../../../lib/labels';
-import { selectorOf, TERM_MEANINGS, termKeyOf, type RuleSide } from '../../../../lib/network-rules';
+import { selectorOf, TERM_MEANINGS, termKeyOf, VERB_WORDS, type RuleSide } from '../../../../lib/network-rules';
 import { EmptyState } from '../../../../components/molecules/empty-state';
 import { InlineError } from '../../../../components/molecules/inline-error';
 import { LabelChip } from '../../../../components/molecules/label-chip';
@@ -56,6 +56,11 @@ export function DeclaredNetworkRules({ declared, error, onRetry, context }: Decl
                 >
                   {SIDES.map(({ side, label }) => (
                     <div key={side} className="flex min-w-0 grow basis-0 items-start gap-3">
+                      {side === 'to' ? (
+                        <span className="mt-6 shrink-0 text-meta text-muted-foreground" data-testid="network-declared-rule-verb">
+                          {VERB_WORDS[rule.verb]}
+                        </span>
+                      ) : null}
                       {side === 'to' ? <ArrowRight aria-hidden className="mt-6 hidden size-(--size-icon) shrink-0 text-muted-foreground sm:block" /> : null}
                       <Selector label={label} terms={rule[side]} context={context} testId={`network-declared-rule-${side}`} />
                     </div>
