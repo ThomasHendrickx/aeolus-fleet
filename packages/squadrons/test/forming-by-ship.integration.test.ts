@@ -76,7 +76,7 @@ beforeEach(async () => {
       idempotencyKey: newKey(),
       name: 'squadrons',
       type: 'squadrons',
-      scopes: ['fleet:read', 'fleet:manage', 'labels:define', 'labels:assign', 'scopes:declare'],
+      scopes: ['fleet:read', 'fleet:commission', 'fleet:manage', 'labels:define', 'labels:assign', 'scopes:declare'],
     }),
   );
   fleet = createApp({ databaseUrl: fleetDatabaseUrl, publicUrl: FLEET_URL, logger: false, receiveWaitMs: 500 });
