@@ -530,6 +530,85 @@ describe('the trierarch plugin crew:run migration', () => {
   });
 });
 
+describe('the on-behalf scope migration', () => {
+  const MIGRATIONS = fileURLToPath(new URL('../src/adapters/prisma/migrations', import.meta.url));
+  const onBehalf = readdirSync(MIGRATIONS).find((name) => name.endsWith('_on_behalf_scope'));
+  const squadronsScopes = ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'labels:define', 'labels:assign'];
+  const everyScopeBefore = ['messages:send', 'messages:receive', 'messages:force', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'scopes:declare', 'scopes:grant'];
+
+  it("gives every fleet's argo and every active squadrons ship fleet:on-behalf, which squadrons reads on behalf of a named ship with, once, and no other ship (decisions 0017 and 0046)", async () => {
+    const url = await createMigratedDatabase();
+    const client = createPrismaClient(url);
+    const fleetId = newId('fleet');
+    const argoId = newId('ship');
+    const squadronsId = newId('ship');
+    const heldId = newId('ship');
+    const retiredId = newId('ship');
+    const scoutId = newId('ship');
+    try {
+      await client.fleet.create({ data: { id: fleetId, name: 'old fleet', createdAt: now } });
+      await client.ship.createMany({
+        data: [
+          { id: argoId, fleetId, name: 'argo', type: 'operator', kind: 'operator', scopes: everyScopeBefore, createdAt: now },
+          { id: squadronsId, fleetId, name: 'squadrons', type: 'squadrons', kind: 'agent', scopes: squadronsScopes, createdAt: now },
+          { id: heldId, fleetId, name: 'second-squadrons', type: 'squadrons', kind: 'agent', scopes: ['messages:send', 'messages:receive', 'fleet:on-behalf'], createdAt: now },
+          { id: retiredId, fleetId, name: 'old-squadrons', type: 'squadrons', kind: 'agent', scopes: squadronsScopes, createdAt: now, retiredAt: now },
+          { id: scoutId, fleetId, name: 'scout', type: 'reviewer', kind: 'agent', scopes: ['messages:send', 'messages:receive', 'fleet:read'], createdAt: now },
+        ],
+      });
+
+      await executeSqlFile(url, `${MIGRATIONS}/${onBehalf ?? ''}/migration.sql`);
+
+      const ships = await client.ship.findMany({ select: { id: true, scopes: true } });
+      expect(new Map(ships.map(({ id, scopes }) => [id, scopes]))).toEqual(
+        new Map([
+          [argoId, [...everyScopeBefore, 'fleet:on-behalf']],
+          [squadronsId, [...squadronsScopes, 'fleet:on-behalf']],
+          [heldId, ['messages:send', 'messages:receive', 'fleet:on-behalf']],
+          [retiredId, squadronsScopes],
+          [scoutId, ['messages:send', 'messages:receive', 'fleet:read']],
+        ]),
+      );
+    } finally {
+      await client.$disconnect();
+    }
+  });
+
+  it('records ScopesChanged for each ship it changes, adding fleet:on-behalf, by the system, at the next numbers of its fleet', async () => {
+    const url = await createMigratedDatabase();
+    const client = createPrismaClient(url);
+    const fleetId = newId('fleet');
+    const argoId = newId('ship');
+    const squadronsId = newId('ship');
+    const heldId = newId('ship');
+    const earlier = newId('event');
+    try {
+      await client.fleet.create({ data: { id: fleetId, name: 'old fleet', createdAt: now, lastEventSeq: 1n } });
+      await client.ship.createMany({
+        data: [
+          { id: argoId, fleetId, name: 'argo', type: 'operator', kind: 'operator', scopes: everyScopeBefore, createdAt: now },
+          { id: squadronsId, fleetId, name: 'squadrons', type: 'squadrons', kind: 'agent', scopes: squadronsScopes, createdAt: now },
+          { id: heldId, fleetId, name: 'held-squadrons', type: 'squadrons', kind: 'agent', scopes: ['messages:send', 'messages:receive', 'fleet:on-behalf'], createdAt: now },
+        ],
+      });
+      await client.event.create({ data: { id: earlier, fleetId, type: 'ShipCommissioned', occurredAt: now, shipId: squadronsId, details: {}, seq: 1n } });
+
+      await executeSqlFile(url, `${MIGRATIONS}/${onBehalf ?? ''}/migration.sql`);
+
+      const recorded = await client.event.findMany({ where: { fleetId, id: { not: earlier } }, orderBy: { seq: 'asc' } });
+      expect(recorded.map(({ shipId }) => shipId).toSorted()).toEqual([argoId, squadronsId].toSorted());
+      for (const [at, event] of recorded.entries()) {
+        expect(event).toMatchObject({ type: 'ScopesChanged', actorShipId: null, details: { added: 'fleet:on-behalf', removed: '' }, seq: BigInt(at + 2) });
+        expect(idSchema('event').safeParse(event.id).success).toBe(true);
+        expect(event.id > earlier).toBe(true);
+      }
+      await expect(client.fleet.findUnique({ where: { id: fleetId }, select: { lastEventSeq: true } })).resolves.toEqual({ lastEventSeq: 3n });
+    } finally {
+      await client.$disconnect();
+    }
+  });
+});
+
 describe('the rules only through a plugin migration', () => {
   const MIGRATIONS = fileURLToPath(new URL('../src/adapters/prisma/migrations', import.meta.url));
   const rulesThroughPlugin = readdirSync(MIGRATIONS).find((name) => name.endsWith('_network_rules_through_plugin'));
