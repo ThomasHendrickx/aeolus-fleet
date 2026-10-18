@@ -1,7 +1,7 @@
 import type { TestProject } from 'vitest/node';
 
 // Types only: vitest loads a global setup outside the test environment, where a workspace package resolves to its unbuilt dist.
-import type {} from '@aeolus-fleet/core/testing';
+import type {} from '@aeolus-fleet/core/testing/postgres-global-setup';
 
 import { createPrismaClient } from '../adapters/prisma/client.js';
 import { migrateDatabase } from '../adapters/prisma/migrate.js';
