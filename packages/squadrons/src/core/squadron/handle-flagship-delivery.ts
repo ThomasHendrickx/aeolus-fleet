@@ -1,4 +1,4 @@
-import { isPingContentType } from '@aeolus-fleet/common';
+import { isPingContentType, PAYLOAD_MAX_BYTES, payloadBytes, type MessageId } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import { FLAGSHIP } from '../catalogue/catalogue.js';
@@ -8,19 +8,25 @@ import type { Clock } from '../shared/clock.js';
 import { err, ok, type Result } from '../shared/result.js';
 import type { AdvanceStandDowns } from './advance-stand-downs.js';
 import { CHECK_IN, checkInText, ON_STATION, ROLE, STOOD_DOWN } from './check-in.js';
-import type { FlagshipMessageLog, OperatorNotices, SquadronRepository } from './ports.js';
+import type { FlagshipMessageLog, OperatorNotices, Relay, RelayLog, SquadronRepository } from './ports.js';
+import { ARGO_NAME, REFUSED, RELAY } from './proxy-messages.js';
 import type { Member, Squadron } from './squadron.js';
 
 export type FlagshipDelivery = ReceivedMessage;
 
-/** What the flagship did: answered a check-in, took a member on station, recorded a stood-down, kept a message it does not handle, or answered argo's ping with pong. */
-export type FlagshipOutcome = 'answered' | 'on-station' | 'stood-down' | 'kept' | 'ponged';
+/** What the flagship did: answered a check-in, took a member on station, recorded a stood-down, relayed between its squadron and its forming ship, refused a relay, kept a message it does not handle, or answered argo's ping with pong. */
+export type FlagshipOutcome = 'answered' | 'on-station' | 'stood-down' | 'relayed' | 'refused' | 'kept' | 'ponged';
 
 export type HandleFlagshipDelivery = (squadron: Squadron, delivery: FlagshipDelivery) => Promise<Result<FlagshipOutcome, FleetRefusal>>;
 
 const checkInPayload = z.object({ squadron: z.string(), model: z.string().optional() });
 const onStationPayload = z.object({ squadron: z.string(), role: z.string() });
 const stoodDownPayload = z.object({ squadron: z.string() });
+const relayPayload = z.object({
+  squadron: z.string(),
+  to: z.union([z.object({ member: z.string() }), z.object({ role: z.string() })]).optional(),
+  payload: z.string(),
+});
 
 /** The payload, parsed as JSON and checked; undefined when it is neither. */
 function parsedPayload<T>(schema: z.ZodType<T>, payload: string): T | undefined {
@@ -65,6 +71,27 @@ function roleMessage(squadron: Squadron, answering: { member: Member; checkIn: F
   };
 }
 
+/** Where the forming ship's relay goes: the member whose relay it answers, else the member or role it names. */
+function relayTarget(
+  squadron: Squadron,
+  relay: { answered: Relay | undefined; to: z.infer<typeof relayPayload>['to'] },
+): Result<{ selector: OutgoingMessage['selector']; inReplyTo?: MessageId }, string> {
+  const { answered, to } = relay;
+  if (answered) {
+    return ok({ selector: { kind: 'ship', shipId: answered.memberShipId }, inReplyTo: answered.memberMessageId });
+  }
+  if (to === undefined) {
+    return err('A relay that answers no member\'s relay names a member or a role in to');
+  }
+  if ('role' in to) {
+    return squadron.blueprint.roles.some((each) => each.name === to.role)
+      ? ok({ selector: { kind: 'type', type: `${squadron.id}:${to.role}` } })
+      : err(`The squadron ${squadron.id} has no role ${to.role}`);
+  }
+  const named = squadron.members.find((each) => each.name === to.member && each.retiredAt === null);
+  return named ? ok({ selector: { kind: 'ship', shipId: named.shipId } }) : err(`The squadron ${squadron.id} has no member ${to.member}`);
+}
+
 /**
  * Use case: the flagship handles one delivery (docs/squadrons.md,
  * "Check-in"). A member's check-in for this squadron is acknowledged, kept
@@ -87,9 +114,64 @@ export function createHandleFlagshipDelivery(deps: {
   squadrons: SquadronRepository;
   messages: FlagshipMessageLog;
   operator: OperatorNotices;
+  relays: RelayLog;
   advanceStandDowns: AdvanceStandDowns;
   clock: Clock;
 }): HandleFlagshipDelivery {
+  const refuseRelay = async (squadron: Squadron, refusal: { delivery: FlagshipDelivery; code: string; message: string }): Promise<Result<FlagshipOutcome, FleetRefusal>> => {
+    const { delivery, code, message } = refusal;
+    const sent = await deps.door.send(squadron.flagship.crewToken, {
+      selector: { kind: 'ship', shipId: delivery.senderShipId },
+      contentType: REFUSED,
+      inReplyTo: delivery.messageId,
+      idempotencyKey: `refused-${delivery.deliveryId}`,
+      payload: JSON.stringify({ squadron: squadron.id, code, message }),
+    });
+    return sent.isOk ? ok('refused') : err(sent.error);
+  };
+
+  // A member's relay goes on to the forming ship, argo for a squadron argo formed, recorded so its answer comes back.
+  const relayToFormingShip = async (squadron: Squadron, relay: { member: Member; delivery: FlagshipDelivery; payload: string }): Promise<Result<FlagshipOutcome, FleetRefusal>> => {
+    const { member, delivery } = relay;
+    const payload = JSON.stringify({ squadron: squadron.id, member: { name: member.name, role: member.role }, messageId: delivery.messageId, payload: relay.payload });
+    if (payloadBytes(payload) > PAYLOAD_MAX_BYTES) {
+      return refuseRelay(squadron, {
+        delivery,
+        code: 'PAYLOAD_TOO_LARGE',
+        message: `With the relay's envelope the payload is over ${String(PAYLOAD_MAX_BYTES / 1024)} KB: send where the content lives (a path, a URL, a PR link)`,
+      });
+    }
+    const sent = await deps.door.send(squadron.flagship.crewToken, {
+      selector: squadron.formingShip === null ? { kind: 'ship', name: ARGO_NAME } : { kind: 'ship', shipId: squadron.formingShip.shipId },
+      contentType: RELAY,
+      idempotencyKey: `relay-${delivery.deliveryId}`,
+      payload,
+    });
+    if (!sent.isOk) {
+      return err(sent.error);
+    }
+    await deps.relays.record({ fleetId: squadron.fleetId, squadronId: squadron.id, relayMessageId: sent.value.messageId, memberShipId: member.shipId, memberMessageId: delivery.messageId });
+    return ok('relayed');
+  };
+
+  // The forming ship's relay goes to the member it answers, or to the member or role it names.
+  const relayFromFormingShip = async (squadron: Squadron, relayed: { delivery: FlagshipDelivery; relay: z.infer<typeof relayPayload> }): Promise<Result<FlagshipOutcome, FleetRefusal>> => {
+    const { delivery, relay } = relayed;
+    const answered = delivery.inReplyTo === null ? undefined : await deps.relays.find(squadron.fleetId, delivery.inReplyTo);
+    const target = relayTarget(squadron, { answered, to: relay.to });
+    if (!target.isOk) {
+      return refuseRelay(squadron, { delivery, code: 'NO_SUCH_MEMBER', message: target.error });
+    }
+    const sent = await deps.door.send(squadron.flagship.crewToken, {
+      selector: target.value.selector,
+      contentType: RELAY,
+      ...(target.value.inReplyTo === undefined ? {} : { inReplyTo: target.value.inReplyTo }),
+      idempotencyKey: `relay-${delivery.deliveryId}`,
+      payload: JSON.stringify({ squadron: squadron.id, from: delivery.senderName, payload: relay.payload }),
+    });
+    return sent.isOk ? ok('relayed') : err(sent.error);
+  };
+
   return async (squadron, delivery) => {
     const member = squadron.members.find((each) => each.shipId === delivery.senderShipId);
     const crewToken = squadron.flagship.crewToken;
@@ -125,6 +207,16 @@ export function createHandleFlagshipDelivery(deps: {
     if (isPingContentType(delivery.contentType)) {
       const ponged = await deps.door.pong(crewToken, delivery.deliveryId);
       return ponged.isOk ? ok('ponged') : err(ponged.error);
+    }
+
+    if (delivery.contentType === RELAY) {
+      const relay = parsedPayload(relayPayload, delivery.payload);
+      const isFromFormingShip = squadron.formingShip === null ? delivery.senderName === ARGO_NAME : delivery.senderShipId === squadron.formingShip.shipId;
+      if (relay?.squadron !== squadron.id || (!member && !isFromFormingShip)) {
+        return keep();
+      }
+      const relayed = member ? await relayToFormingShip(squadron, { member, delivery, payload: relay.payload }) : await relayFromFormingShip(squadron, { delivery, relay });
+      return relayed.isOk ? acked(relayed.value) : err(relayed.error);
     }
 
     if (delivery.contentType === CHECK_IN) {

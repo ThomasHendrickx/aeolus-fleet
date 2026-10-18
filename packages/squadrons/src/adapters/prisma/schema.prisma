@@ -189,3 +189,16 @@ model FormRefusal {
   @@id([fleetId, formingShipId, key])
   @@map("form_refusals")
 }
+
+/// A member's relay a flagship sent on to its forming ship, by the message it
+/// sent: the forming ship's answer goes back to the member's message (decision 0017).
+model Relay {
+  fleetId         String @map("fleet_id")
+  relayMessageId  String @map("relay_message_id")
+  squadronId      String @map("squadron_id")
+  memberShipId    String @map("member_ship_id")
+  memberMessageId String @map("member_message_id")
+
+  @@id([fleetId, relayMessageId])
+  @@map("relays")
+}

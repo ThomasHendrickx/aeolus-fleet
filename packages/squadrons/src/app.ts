@@ -19,6 +19,7 @@ import { createPrismaManagementCrewStore } from './adapters/prisma/management-cr
 import { createPrismaSquadronRepository } from './adapters/prisma/squadron-repository.js';
 import { createPrismaFlagshipMessageLog } from './adapters/prisma/flagship-message-log.js';
 import { createPrismaFormRefusals } from './adapters/prisma/form-refusals.js';
+import { createPrismaRelayLog } from './adapters/prisma/relay-log.js';
 import { createPrismaFormationAttempts } from './adapters/prisma/formation-attempts.js';
 import { createOperatorNotices } from './adapters/fleet/operator-notices.js';
 import { cryptoRandomNames } from './adapters/crypto/random-names.js';
@@ -348,7 +349,7 @@ export function createSquadronsApp(options: {
         door,
         management: store,
         squadrons,
-        handle: createHandleFlagshipDelivery({ door, squadrons, messages: keptMessages, operator, advanceStandDowns, clock }),
+        handle: createHandleFlagshipDelivery({ door, squadrons, messages: keptMessages, operator, relays: createPrismaRelayLog(prisma), advanceStandDowns, clock }),
         advanceStandDowns,
         // Only given up: a forming in flight holds its attempt unfinished too.
         recoverFormations: async (fleetId) => {
