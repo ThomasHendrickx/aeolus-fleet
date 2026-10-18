@@ -13,7 +13,7 @@ import {
   type ShipId,
 } from '@aeolus-fleet/common';
 
-import type { OverdueClock, WaitingState } from '../messaging/public.js';
+import type { OverdueClock } from '../messaging/public.js';
 import type { Location, MessageParties } from '../registry/public.js';
 import type { StandingOverdue, WayCrew, WayLease } from './delivery-way.js';
 import type { EventDetails } from './events.js';
@@ -67,12 +67,6 @@ export function withPing<T extends { contentType: string }>(message: T): WithPin
 
 /** A timeline entry as the read answers it, its message telling whether it is a ping. */
 export type ShownTimelineEntry = Omit<TimelineEntry, 'message'> & { message: WithPing<NonNullable<TimelineEntry['message']>> | null };
-
-/** A delivery no ship can take as it is answered, its message telling whether it is a ping. */
-export type ShownNoShipCanTakeEntry = Omit<NoShipCanTakeEntry, 'message'> & { message: WithPing<NoShipCanTakeEntry['message']> };
-
-/** An overdue delivery as it is answered, its message telling whether it is a ping. */
-export type ShownOverdueEntry = Omit<OverdueEntry, 'message'> & { message: WithPing<OverdueEntry['message']> };
 
 /** A delivery in Needs attention as it is answered, its message telling whether it is a ping. */
 export type ShownNeedsAttentionEntry = Omit<NeedsAttentionEntry, 'message'> & { message: WithPing<NeedsAttentionEntry['message']> };
@@ -187,32 +181,6 @@ export interface NeedsAttentionEntry {
 /** The delivery states Needs attention lists, each waiting for the operator to resend or dismiss it. */
 export type NeedsAttentionState = Extract<DeliveryState, 'undeliverable' | 'notHandled'>;
 
-/**
- * A delivery argo was told is overdue (decision 0040): the ship whose clock
- * ran out, the state it waits in, which clock, when argo was told, and its
- * whole message. Listed until it clears by itself.
- */
-export interface OverdueEntry {
-  deliveryId: DeliveryId;
-  ship: HistoryParty;
-  state: WaitingState;
-  clock: OverdueClock;
-  minutes: number;
-  toldAt: Date;
-  message: Omit<HistoryMessage, 'delivery'>;
-}
-
-/**
- * A pending delivery to a type no active ship can take (decision 0041): none
- * of the type is left, or none of the ships its sender may reach (decision
- * 0034). Its type and its whole message; listed until a ship can take it.
- */
-export interface NoShipCanTakeEntry {
-  deliveryId: DeliveryId;
-  type: string;
-  message: Omit<HistoryMessage, 'delivery'>;
-}
-
 /** A reply the inbox's ship sent to a message in its inbox. */
 export interface InboxReply {
   id: MessageId;
@@ -263,14 +231,6 @@ export interface ShipHistory {
   message(fleetId: FleetId, messageId: MessageId): Promise<MessageRead | undefined>;
   /** Every undeliverable or not handled delivery, oldest first by since when. */
   needsAttention(fleetId: FleetId): Promise<NeedsAttentionEntry[]>;
-  /**
-   * Every delivery argo was told is overdue that still stands, oldest told
-   * first: still in the state it was told in, on the lease it was told on,
-   * which has not ended.
-   */
-  overdue(fleetId: FleetId): Promise<OverdueEntry[]>;
-  /** Every pending delivery to a type no active ship can take, oldest sent first. */
-  noShipCanTake(fleetId: FleetId): Promise<NoShipCanTakeEntry[]>;
   /** What the ship's side of the way is read from: the open lease of the session crewing it and what waits for it. */
   shipWay(fleetId: FleetId, shipId: ShipId): Promise<ShipWayRead | undefined>;
   /** The messages addressed to the ship itself that the filter keeps, newest first. */

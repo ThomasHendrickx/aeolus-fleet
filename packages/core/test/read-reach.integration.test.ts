@@ -185,14 +185,14 @@ describe('the fleet:read procedures for a ship outside read reach (decision 0034
     ]);
   });
 
-  it('fleet.noShipCanTake and fleet.health count only the deliveries whose message it reads', async () => {
-    const [stuck, health] = [await reader.fleet.noShipCanTake.query(), await reader.fleet.health.query()];
+  it('fleet.health counts only the deliveries whose message it reads', async () => {
+    const health = await reader.fleet.health.query();
 
-    expect([stuck.map((entry) => entry.message.sender.id), health.stuck.map((place) => place.count)]).toEqual([[ids.near], [1]]);
+    expect(health.stuck.map((place) => place.count)).toEqual([1]);
   });
 
-  it('fleet.needsAttention and fleet.overdue answer nothing it does not read', async () => {
-    await expect(Promise.all([reader.fleet.needsAttention.query(), reader.fleet.overdue.query()])).resolves.toEqual([[], []]);
+  it('fleet.needsAttention answers nothing it does not read', async () => {
+    await expect(reader.fleet.needsAttention.query()).resolves.toEqual([]);
   });
 
   it('fleet.follow answers only the events it reads', async () => {
@@ -234,10 +234,8 @@ describe('a plugin reading on behalf of a named ship over HTTP (decision 0034)',
         as.fleet.message.query({ messageId: farToNear }),
         codeOf(as.fleet.message.query({ messageId: farToArgo })),
         codeOf(as.fleet.shipWay.query({ shipId: ids.far })),
-        as.fleet.noShipCanTake.query(),
         as.fleet.health.query(),
         as.fleet.needsAttention.query(),
-        as.fleet.overdue.query(),
         as.fleet.clearRequests.query(),
         as.fleet.inbox.query({ filter: 'all' }),
         as.fleet.follow.query({ afterSeq: readerFrom }),

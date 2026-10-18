@@ -1454,61 +1454,6 @@ describe('Needs attention at the API', () => {
   });
 });
 
-describe('the overdue deliveries at the API', () => {
-  it('list a delivery argo was told is overdue for fleet:read, and clear it once confirmed', async () => {
-    const asArgo = await signedInArgo();
-    const crew = client({ authorization: `Bearer ${await crewedShip()}` });
-    const { shipId } = await crew.ship.whoami.query();
-    const { messageId } = await asArgo.ship.send.mutate({ selector: { kind: 'ship', shipId }, payload: 'Rebase onto main.', idempotencyKey: `rebase-${newId('message')}` });
-    const [received] = (await crew.ship.pushReceive.mutate({})).deliveries;
-    const deliveryId = received?.deliveryId ?? '';
-    await crew.ship.handed.mutate({ deliveryId, handOverNumber: 1 });
-    clock.advance(10 * 60_000);
-    await createUseCases({ prisma: database, clock }).tellOverdueDeliveries();
-
-    const listed = (await asArgo.fleet.overdue.query()).find((entry) => entry.deliveryId === deliveryId);
-
-    expect(listed).toMatchObject({
-      ship: { id: shipId },
-      state: 'handed',
-      clock: 'notConfirmed',
-      minutes: 10,
-      toldAt: clock.now().toISOString(),
-      message: { id: messageId, payload: 'Rebase onto main.', isPing: false },
-    });
-    await crew.ship.ack.mutate({ deliveryId });
-    expect((await asArgo.fleet.overdue.query()).map((entry) => entry.deliveryId)).not.toContain(deliveryId);
-  });
-
-  it('refuse the list without fleet:read', async () => {
-    const agent = client({ authorization: `Bearer ${await crewedShip()}` });
-
-    await expect(codeOf(agent.fleet.overdue.query())).resolves.toBe('FORBIDDEN');
-  });
-});
-
-describe('the deliveries no ship can take at the API', () => {
-  it('list a pending delivery to a type whose last ship retired for fleet:read, and clear it once a ship of the type is commissioned', async () => {
-    const asArgo = await signedInArgo();
-    const type = `mapper-${newId('ship').slice(-6)}`;
-    const mapper = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), name: type, type });
-    const { messageId } = await asArgo.ship.send.mutate({ selector: { kind: 'type', type }, payload: 'Map the harbour.', idempotencyKey: newKey() });
-    await asArgo.fleet.retire.mutate({ shipId: mapper.shipId });
-
-    const listed = (await asArgo.fleet.noShipCanTake.query()).find((entry) => entry.message.id === messageId);
-
-    expect(listed).toMatchObject({ type, message: { id: messageId, recipient: { kind: 'type', type }, payload: 'Map the harbour.', isPing: false, sentAt: clock.now().toISOString() } });
-    await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), name: `${type}-2`, type });
-    expect((await asArgo.fleet.noShipCanTake.query()).map((entry) => entry.message.id)).not.toContain(messageId);
-  });
-
-  it('refuse the list without fleet:read', async () => {
-    const agent = client({ authorization: `Bearer ${await crewedShip()}` });
-
-    await expect(codeOf(agent.fleet.noShipCanTake.query())).resolves.toBe('FORBIDDEN');
-  });
-});
-
 describe('the fleet health at the API', () => {
   it('answer the stuck places, the trend and the acknowledged for fleet:read', async () => {
     const asArgo = await signedInArgo();

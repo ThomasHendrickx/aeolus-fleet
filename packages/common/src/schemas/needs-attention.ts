@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { idSchema } from '../ids/index.js';
-import { messageRecipientSchema, overdueClockSchema, partySchema } from './history.js';
+import { messageRecipientSchema, partySchema } from './history.js';
 
 /**
  * Inputs and outputs of Needs attention (docs/blueprint.md, 'Domain events'):
@@ -45,46 +45,6 @@ export type NeedsAttentionDelivery = z.infer<typeof needsAttentionDeliverySchema
 
 /** Output of `fleet.needsAttention`: every undeliverable or not handled delivery of the fleet, oldest first. */
 export const needsAttentionOutputSchema = z.array(needsAttentionDeliverySchema);
-
-/**
- * One delivery argo was told is overdue (decision 0040): the ship whose 10 or
- * 60 minute clock ran out, the state it waits in, which clock, when argo was
- * told, and its whole message. It clears by itself; nothing resends or
- * dismisses it.
- */
-export const overdueDeliverySchema = z.object({
-  deliveryId: idSchema('delivery'),
-  ship: partySchema,
-  state: z.enum(['pending', 'received', 'handed']),
-  /** Handed and not confirmed, or waiting while the session is idle or busy. */
-  clock: overdueClockSchema,
-  /** After how long it ran out: 10 or 60. */
-  minutes: z.int().min(1),
-  toldAt: isoTime,
-  message: needsAttentionDeliverySchema.shape.message,
-});
-
-export type OverdueDelivery = z.infer<typeof overdueDeliverySchema>;
-
-/** Output of `fleet.overdue`: every overdue delivery of the fleet that still stands, oldest told first. */
-export const overdueOutputSchema = z.array(overdueDeliverySchema);
-
-/**
- * One pending delivery to a type no active ship can take (decision 0041):
- * none of the type is left, or none its sender may reach (decision 0034). Its
- * type and its whole message. It clears by itself once a ship can take it;
- * nothing resends or dismisses it.
- */
-export const noShipCanTakeDeliverySchema = z.object({
-  deliveryId: idSchema('delivery'),
-  type: z.string(),
-  message: needsAttentionDeliverySchema.shape.message,
-});
-
-export type NoShipCanTakeDelivery = z.infer<typeof noShipCanTakeDeliverySchema>;
-
-/** Output of `fleet.noShipCanTake`: every pending delivery of the fleet no ship can take, oldest sent first. */
-export const noShipCanTakeOutputSchema = z.array(noShipCanTakeDeliverySchema);
 
 /** Input of `fleet.dismiss`: the undeliverable or not handled delivery the operator lets go. It stays in history, dismissed. */
 export const dismissDeliveryInputSchema = z.object({

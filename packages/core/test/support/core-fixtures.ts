@@ -107,9 +107,7 @@ import { createReadInbox } from '../../src/domain/shared/read-inbox.js';
 import { createReadMessage } from '../../src/domain/shared/read-message.js';
 import { createReadShipWay } from '../../src/domain/shared/read-ship-way.js';
 import { createReadNeedsAttention } from '../../src/domain/shared/read-needs-attention.js';
-import { createReadNoShipCanTake } from '../../src/domain/shared/read-no-ship-can-take.js';
 import { createReadHealth } from '../../src/domain/shared/read-health.js';
-import { createReadOverdue } from '../../src/domain/shared/read-overdue.js';
 import { createReadShipMessages } from '../../src/domain/shared/read-ship-messages.js';
 import { createReadShipTimeline } from '../../src/domain/shared/read-ship-timeline.js';
 import type { Recipient } from '../../src/domain/shared/selector.js';
@@ -259,8 +257,6 @@ export function historyUseCases(core: InMemoryCore) {
     readMessage: createReadMessage({ history: core.history, readReach }),
     readShipWay: createReadShipWay({ history: core.history, uow: core.uow, clock: core.clock, ids: core.ids }),
     readNeedsAttention: createReadNeedsAttention({ history: core.history, readReach }),
-    readOverdue: createReadOverdue({ history: core.history, readReach }),
-    readNoShipCanTake: createReadNoShipCanTake({ history: core.history, readReach }),
     readHealth: createReadHealth({ health: core.health, clock: core.clock, readReach }),
     readInbox: createReadInbox({ history: core.history, ships: core.ships }),
   };
