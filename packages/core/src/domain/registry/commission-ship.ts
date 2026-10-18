@@ -10,12 +10,14 @@ import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { appliedLimits, type AppliedLimitsTx } from './applied-limits.js';
 import { lockNamedNamespaces, type NamedNamespacesTx } from './named-namespaces.js';
+import { isPluginShip, type PluginShipTx } from './plugin-ship.js';
 import type { ShipRepository } from './ports.js';
 import { commissionShip, type CommissionRefusal } from './ship.js';
 import { issueStartingPrompt, type StartingPromptTx } from './starting-prompt.js';
 
-export interface CommissionShipTx extends StartingPromptTx, AppliedLimitsTx, NamedNamespacesTx {
+export interface CommissionShipTx extends StartingPromptTx, AppliedLimitsTx {
   ships: ShipRepository;
+  scopeNamespaces: NamedNamespacesTx['scopeNamespaces'] & PluginShipTx['scopeNamespaces'];
 }
 
 export interface CommissionShipInput {
@@ -25,6 +27,8 @@ export interface CommissionShipInput {
   kind?: CommissionedShipKind;
   note?: string;
   scopes?: readonly string[];
+  /** The ship that asked the caller, a plugin's ship, for this one: the new ship gets its owner (decision 0045). */
+  ownerOf?: ShipId;
   /** The caller's own key for this commission, so a retry never commissions twice. */
   idempotencyKey: string;
 }
@@ -50,7 +54,7 @@ export type CommissionShip = (caller: Caller, input: CommissionShipInput) => Pro
 /** The request as one text, so a repeat is known by its hash: the scopes in a fixed order, each once. */
 function commissionRequestText(input: CommissionShipInput): string {
   const scopes = [...new Set(input.scopes)].toSorted();
-  return JSON.stringify({ name: input.name, type: input.type, kind: input.kind ?? 'agent', note: input.note ?? null, scopes });
+  return JSON.stringify({ name: input.name, type: input.type, kind: input.kind ?? 'agent', note: input.note ?? null, scopes, ownerOf: input.ownerOf ?? null });
 }
 
 /**
@@ -60,7 +64,9 @@ function commissionRequestText(input: CommissionShipInput): string {
  * caller's scope (fleet:commission) is checked before this runs. The ship gets
  * the agent scopes and the scopes asked for, each one the caller's ship may
  * grant, read from the server (decision 0046); each plugin namespace they
- * name is locked after the name. The caller's idempotency key makes
+ * name is locked after the name. Its owner is the caller's owner; a plugin's
+ * ship may name the ship that asked it instead, whose owner it gets
+ * (decision 0045). The caller's idempotency key makes
  * a retry safe: the same key with the same request answers the ship it
  * commissioned, with no secret, and changes nothing; the same key with another
  * request is refused.
@@ -111,11 +117,15 @@ export function createCommissionShip(deps: {
       if (!commissioner || !argo) {
         return refuse('SHIP_NOT_FOUND', `Ship ${caller.shipId} or its fleet's argo does not exist`);
       }
+      const askingShip = input.ownerOf === undefined ? undefined : await tx.ships.find(fleetId, input.ownerOf);
+      if (input.ownerOf !== undefined && askingShip === undefined) {
+        return refuse('SHIP_NOT_FOUND', `Ship ${input.ownerOf}, named as the ship that asked, does not exist`);
+      }
       await tx.ships.lockName(fleetId, input.name);
       const namespaces = await lockNamedNamespaces(tx, { fleetId, scopes: input.scopes ?? [] });
       const commissioned = commissionShip(
-        { ...input, id: deps.ids('ship'), fleetId, commissioner, argoShipId: argo.id, at, actor, commission: { by: caller.shipId, idempotencyKey: key.value, requestHash } },
-        { activeShipNamed: await tx.ships.findActiveByName(fleetId, input.name), namespaces },
+        { ...input, id: deps.ids('ship'), fleetId, commissioner, argoShipId: argo.id, askingShip, at, actor, commission: { by: caller.shipId, idempotencyKey: key.value, requestHash } },
+        { activeShipNamed: await tx.ships.findActiveByName(fleetId, input.name), namespaces, isCommissionerPlugin: await isPluginShip(tx, commissioner) },
       );
       if (!commissioned.isOk) {
         return commissioned;
