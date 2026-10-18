@@ -184,6 +184,15 @@ describe('supplying the fleet (decision 0035)', () => {
     });
   });
 
+  it("saves argo's none as none and supplies the fleet an empty list with open on for every verb: all-to-all", async () => {
+    const address = await connected();
+    await dataOf(await mutate(address, { procedure: 'network.setRules', cookie, body: { rules: RULES } }));
+
+    await expect(dataOf(await mutate(address, { procedure: 'network.setRules', cookie, body: { rules: null } }))).resolves.toEqual({ rules: null, supply: 'supplied' });
+
+    await expect(settings()).resolves.toMatchObject({ rules: [], ...OPEN });
+  });
+
   it('registers again with what argo declares, keeping the rules', async () => {
     const address = await connected();
     await dataOf(await mutate(address, { procedure: 'network.setRules', cookie, body: { rules: RULES } }));
