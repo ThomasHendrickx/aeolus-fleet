@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { commissionedShipKindSchema, eventTypeSchema, fleetScopeSchema, locationKindSchema, scopeNameSchema, shipKindSchema, shipStatusSchema } from '../fleet/index.js';
+import { commissionedShipKindSchema, eventTypeSchema, locationKindSchema, scopeNameSchema, shipKindSchema, shipStatusSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
 import { SHIP_HANDLE_MAX_LENGTH, SHIP_HANDLE_MESSAGE, SHIP_HANDLE_PATTERN } from '../rules/ship-handle.js';
 import { idempotencyKeySchema } from './idempotency-key.js';
@@ -25,9 +25,8 @@ export const SHIP_NOTE_MAX_LENGTH = 500;
 
 /**
  * Input of `fleet.commission`. The note is free text for the operator;
- * whitespace around it is dropped. `fleetScopes` adds fleet:read,
- * fleet:manage, crew:assign and/or crew:run to the scopes every agent ship has; none
- * when left out.
+ * whitespace around it is dropped. `scopes` adds scopes, core or a
+ * plugin's, to the scopes every ship has; none when left out.
  * `idempotencyKey` is the caller's own key, as for a send: a retry with the
  * same key and the same request commissions no second ship.
  */
@@ -36,7 +35,7 @@ export const commissionShipInputSchema = z.object({
   type: shipHandleSchema,
   /** What the ship is; an agent when left out (decision 0044). */
   kind: commissionedShipKindSchema.optional(),
-  fleetScopes: z.array(fleetScopeSchema).optional(),
+  scopes: z.array(scopeNameSchema).optional(),
   note: z
     .string()
     .trim()

@@ -1,9 +1,7 @@
 import {
-  FLEET_SCOPES,
   type CommissionedShipKind,
   SCOPES,
   type FleetId,
-  type FleetScope,
   type LeaseId,
   type Scope,
   type ScopeName,
@@ -128,8 +126,8 @@ export function commissionShip(
     commissioner: Ship;
     argoShipId: ShipId;
     note?: string;
-    /** fleet:read, fleet:manage, crew:assign and/or crew:run, added to the agent scopes (ADR 0002, decision 0029). */
-    fleetScopes?: readonly FleetScope[];
+    /** Scopes added to the agent scopes (decision 0046). */
+    scopes?: readonly string[];
     at: Date;
     actor: Actor;
     commission: { by: ShipId; idempotencyKey: string; requestHash: string };
@@ -168,7 +166,7 @@ export function commissionShip(
     name: name.value,
     type: type.value,
     kind,
-    scopes: [...AGENT_SCOPES, ...FLEET_SCOPES.filter((scope) => input.fleetScopes?.includes(scope))],
+    scopes: SCOPES.filter((scope) => AGENT_SCOPES.includes(scope) || input.scopes?.includes(scope) === true),
     note: note.value,
     createdAt: at,
     retiredAt: null,

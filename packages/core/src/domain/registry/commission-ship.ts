@@ -1,4 +1,4 @@
-import { FLEET_SCOPES, type CommissionedShipKind, type FleetScope, type IdGenerator, type ShipId } from '@aeolus-fleet/common';
+import type { CommissionedShipKind, IdGenerator, ShipId } from '@aeolus-fleet/common';
 
 import type { SecretTools } from '../identity/public.js';
 import type { Caller } from '../shared/caller.js';
@@ -23,7 +23,7 @@ export interface CommissionShipInput {
   /** An agent when left out; only argo commissions a person or app ship (decision 0044). */
   kind?: CommissionedShipKind;
   note?: string;
-  fleetScopes?: readonly FleetScope[];
+  scopes?: readonly string[];
   /** The caller's own key for this commission, so a retry never commissions twice. */
   idempotencyKey: string;
 }
@@ -46,10 +46,10 @@ export type CommissionShipRefusal =
 
 export type CommissionShip = (caller: Caller, input: CommissionShipInput) => Promise<Result<CommissionedShip, CommissionShipRefusal>>;
 
-/** The request as one text, so a repeat is known by its hash: the fleet scopes in a fixed order, each once. */
+/** The request as one text, so a repeat is known by its hash: the scopes in a fixed order, each once. */
 function commissionRequestText(input: CommissionShipInput): string {
-  const fleetScopes = FLEET_SCOPES.filter((scope) => input.fleetScopes?.includes(scope));
-  return JSON.stringify({ name: input.name, type: input.type, kind: input.kind ?? 'agent', note: input.note ?? null, fleetScopes });
+  const scopes = [...new Set(input.scopes)].toSorted();
+  return JSON.stringify({ name: input.name, type: input.type, kind: input.kind ?? 'agent', note: input.note ?? null, scopes });
 }
 
 /**

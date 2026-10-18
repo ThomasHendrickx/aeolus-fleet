@@ -12,17 +12,17 @@ import type { FleetScope, ShipStatus } from '@aeolus-fleet/common';
 export interface PluginShip {
   name: string;
   type: string;
-  fleetScopes: FleetScope[];
+  scopes: FleetScope[];
 }
 
 /** Squadrons' management ship: it reads the fleet, commissions squadrons' ships and labels them for their reach. */
-export const SQUADRONS_SHIP: PluginShip = { name: 'squadrons', type: 'squadrons', fleetScopes: ['fleet:read', 'fleet:manage', 'labels:define', 'labels:assign'] };
+export const SQUADRONS_SHIP: PluginShip = { name: 'squadrons', type: 'squadrons', scopes: ['fleet:read', 'fleet:manage', 'labels:define', 'labels:assign'] };
 
 /** The trierarch plugin's ship: it reads the fleet, commissions machines' ships, assigns crew requests and labels machines (os and arch). */
-export const TRIERARCH_PLUGIN_SHIP: PluginShip = { name: 'trierarch-plugin', type: 'trierarch-plugin', fleetScopes: ['fleet:read', 'fleet:manage', 'crew:assign', 'labels:define', 'labels:assign'] };
+export const TRIERARCH_PLUGIN_SHIP: PluginShip = { name: 'trierarch-plugin', type: 'trierarch-plugin', scopes: ['fleet:read', 'fleet:manage', 'crew:assign', 'labels:define', 'labels:assign'] };
 
 /** The networking plugin's ship: it reads the fleet, registers as its networking plugin and supplies argo's rules. */
-export const NETWORKING_PLUGIN_SHIP: PluginShip = { name: 'networking-plugin', type: 'networking-plugin', fleetScopes: ['fleet:read', 'fleet:network'] };
+export const NETWORKING_PLUGIN_SHIP: PluginShip = { name: 'networking-plugin', type: 'networking-plugin', scopes: ['fleet:read', 'fleet:network'] };
 
 export interface PluginConnection {
   /** False when the plugin is off for this operator's fleet: the console then shows nothing of it. */
@@ -37,7 +37,7 @@ export interface ConnectCalls {
   status(): Promise<PluginConnection>;
   connect(handOver: { shipId: string; secret: string }): Promise<PluginConnection>;
   ships(): Promise<{ id: string; name: string; type: string; status: ShipStatus }[]>;
-  commission(ship: { name: string; type: string; fleetScopes: FleetScope[]; idempotencyKey: string }): Promise<{ shipId: string; secret: string | null }>;
+  commission(ship: { name: string; type: string; scopes: FleetScope[]; idempotencyKey: string }): Promise<{ shipId: string; secret: string | null }>;
   release(shipId: string): Promise<void>;
   startingPrompt(shipId: string): Promise<{ secret: string }>;
 }
@@ -78,7 +78,7 @@ export async function connectPlugin(calls: ConnectCalls, at: { ship: PluginShip;
     shipId = ship.id;
     secret = (await calls.startingPrompt(ship.id)).secret;
   } else {
-    const commissioned = await calls.commission({ name: wanted.name, type: wanted.type, fleetScopes: wanted.fleetScopes, idempotencyKey: newKey() });
+    const commissioned = await calls.commission({ name: wanted.name, type: wanted.type, scopes: wanted.scopes, idempotencyKey: newKey() });
     shipId = commissioned.shipId;
     secret = commissioned.secret ?? (await calls.startingPrompt(commissioned.shipId)).secret;
   }
