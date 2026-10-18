@@ -1,4 +1,4 @@
-import type { ConsoleSessionId, FleetId, LeaseId, Scope, ShipId, ShipKind } from '@aeolus-fleet/common';
+import type { ConsoleSessionId, FleetId, LeaseId, Scope, ScopeName, ShipId, ShipKind } from '@aeolus-fleet/common';
 
 /**
  * Who is calling. Every caller is a ship (ADR 0012), resolved from its crew
@@ -9,7 +9,8 @@ export interface Caller {
   shipId: ShipId;
   fleetId: FleetId;
   kind: ShipKind;
-  scopes: readonly Scope[];
+  /** Core scopes and plugin scopes; core checks only its own (decision 0046). */
+  scopes: readonly ScopeName[];
   /** Set when the caller signed in through the console rather than calling with a crew token. */
   consoleSessionId?: ConsoleSessionId;
 }

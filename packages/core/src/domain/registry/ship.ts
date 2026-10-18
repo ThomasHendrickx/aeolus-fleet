@@ -6,6 +6,7 @@ import {
   type FleetScope,
   type LeaseId,
   type Scope,
+  type ScopeName,
   type ShipId,
   type ShipKind,
   type ShipStatus,
@@ -26,7 +27,8 @@ export interface Ship {
   name: string;
   type: string;
   kind: ShipKind;
-  scopes: readonly Scope[];
+  /** Core scopes and plugin scopes (decision 0046). */
+  scopes: readonly ScopeName[];
   note: string | null;
   createdAt: Date;
   retiredAt: Date | null;

@@ -37,9 +37,20 @@ export const CORE_NAMESPACES = ['messages', 'fleet', 'crew', 'labels', 'scopes']
 const SCOPE_PART = '[a-z][a-z0-9-]{0,31}';
 export const SCOPE_NAME_PATTERN = new RegExp(`^${SCOPE_PART}:${SCOPE_PART}$`);
 
-/** Any scope a ship may hold, a core one or a plugin's: `<namespace>:<action>` (decision 0046). */
-export type ScopeName = `${string}:${string}`;
-export const scopeNameSchema = z.custom<ScopeName>((value) => typeof value === 'string' && SCOPE_NAME_PATTERN.test(value), { message: 'A scope is <namespace>:<action>' });
+/** Whether the namespace is one core reserves. */
+export function isCoreNamespace(namespace: string): boolean {
+  return CORE_NAMESPACES.some((core) => core === namespace);
+}
+
+/**
+ * Any scope a ship may hold (decision 0046): `<namespace>:<action>`, a core
+ * scope when its namespace is a core one, else a plugin's.
+ */
+export const scopeNameSchema = z
+  .string()
+  .regex(SCOPE_NAME_PATTERN, 'A scope is <namespace>:<action>')
+  .refine((scope) => !isCoreNamespace(scope.slice(0, scope.indexOf(':'))) || scopeSchema.safeParse(scope).success, 'No such core scope');
+export type ScopeName = z.infer<typeof scopeNameSchema>;
 
 /**
  * The scopes commissioning may add to an agent ship, beside sending and

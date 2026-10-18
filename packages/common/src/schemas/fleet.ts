@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { commissionedShipKindSchema, eventTypeSchema, fleetScopeSchema, locationKindSchema, scopeSchema, shipKindSchema, shipStatusSchema } from '../fleet/index.js';
+import { commissionedShipKindSchema, eventTypeSchema, fleetScopeSchema, locationKindSchema, scopeNameSchema, shipKindSchema, shipStatusSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
 import { SHIP_HANDLE_MAX_LENGTH, SHIP_HANDLE_MESSAGE, SHIP_HANDLE_PATTERN } from '../rules/ship-handle.js';
 import { idempotencyKeySchema } from './idempotency-key.js';
@@ -185,8 +185,8 @@ export const listedShipSchema = z.object({
   harness: z.string().nullable(),
   /** The last model the ship's sessions stated on a send, and when (ISO 8601 in UTC); null before any, and for argo. */
   model: z.object({ id: z.string(), statedAt: z.iso.datetime() }).nullable(),
-  /** What the ship may do, checked on every call: every agent ship sends and receives, argo has all. */
-  scopes: z.array(scopeSchema),
+  /** What the ship may do, checked on every call: every agent ship sends and receives, argo has every core scope; a plugin's scopes beside them (decision 0046). */
+  scopes: z.array(scopeNameSchema),
   /**
    * The crew's last report (ISO 8601 in UTC): its state, its note, when it
    * last reported and the version of its details, never the details

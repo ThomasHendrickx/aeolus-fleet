@@ -1,4 +1,4 @@
-import type { LabelValueId, Scope, ShipId, ShipKind, ShipStatus } from '@aeolus-fleet/common';
+import type { LabelValueId, ScopeName, ShipId, ShipKind, ShipStatus } from '@aeolus-fleet/common';
 
 import type { Caller } from '../shared/caller.js';
 import { readsShip, type ReadReachOf } from './read-reach.js';
@@ -30,8 +30,8 @@ export interface ListedShip {
   lastSeenAt: Date | null;
   /** The ship's last ping and how it stands; null before any ping. Observation only. */
   ping: PingStatus | null;
-  /** What the ship may do: every agent ship sends and receives, and may hold fleet scopes; argo has all. */
-  scopes: readonly Scope[];
+  /** What the ship may do: every agent ship sends and receives, and may hold fleet scopes and plugin scopes; argo has every core scope. */
+  scopes: readonly ScopeName[];
   /** The crew's last report with the version of its details, never the details; null until it reports, and while no session crews the ship. */
   report: Omit<ShipReport, 'details'> | null;
   /** The ship's crew request by its settings version and when it was requested, never its settings; null when it holds none. */
