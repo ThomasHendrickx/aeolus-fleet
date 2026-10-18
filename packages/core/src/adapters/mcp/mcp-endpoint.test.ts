@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
 import {
+  argoIdOf,
   addAgentShip,
   crewShip,
   FLEET_URL,
@@ -371,7 +372,7 @@ describe('a ship tool call', () => {
     const { crewToken } = z.object({ crewToken: z.string() }).parse(registered.structuredContent);
     const whoami = await callTool(client, { name: 'whoami', arguments: { crewToken } });
 
-    const expected = { shipId: agent.shipId, fleetId, name: 'scout', type: 'reviewer' };
+    const expected = { shipId: agent.shipId, fleetId, name: 'scout', type: 'reviewer', ownerShipId: argoIdOf(core, fleetId), ownerName: 'argo' };
     expect(whoami.structuredContent).toEqual(expected);
     expect(whoami.content.map((block): unknown => JSON.parse(block.text))).toEqual([expected]);
   });

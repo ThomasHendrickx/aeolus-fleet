@@ -232,8 +232,10 @@ describe('the v1 acceptance test, over MCP', () => {
     const lookoutId: ShipId = lookoutShip.shipId;
     await expect(eventsSinceLastStep()).resolves.toEqual([
       logged('ShipCommissioned', { actorShipId: argoId, shipId: scoutId }),
+      logged('OwnerSet', { actorShipId: argoId, shipId: scoutId }),
       logged('StartingPromptIssued', { actorShipId: argoId, shipId: scoutId }),
       logged('ShipCommissioned', { actorShipId: argoId, shipId: lookoutId }),
+      logged('OwnerSet', { actorShipId: argoId, shipId: lookoutId }),
       logged('StartingPromptIssued', { actorShipId: argoId, shipId: lookoutId }),
     ]);
 

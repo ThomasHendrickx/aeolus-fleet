@@ -50,6 +50,8 @@ describe('eventTypeSchema', () => {
     expect(eventTypeSchema.options).toEqual([
       'FleetInitialised',
       'ShipCommissioned',
+      'OwnerSet',
+      'OwnerChanged',
       'ShipClaimed',
       'LeaseRevoked',
       'CredentialRevoked',

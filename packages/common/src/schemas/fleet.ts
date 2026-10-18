@@ -105,6 +105,12 @@ export const renameShipInputSchema = z.object({ shipId: idSchema('ship'), name: 
 /** Output of `fleet.rename`: nothing; the OK is the answer. */
 export const renameShipOutputSchema = z.strictObject({});
 
+/** Input of `fleet.setOwner`: the ship and its new owner, an active person's ship or argo (decision 0045). argo's only. */
+export const setOwnerInputSchema = z.object({ shipId: idSchema('ship'), ownerShipId: idSchema('ship') });
+
+/** Output of `fleet.setOwner`: nothing; the OK is the answer. */
+export const setOwnerOutputSchema = z.strictObject({});
+
 /** Input of `fleet.retire`: the ship to end for good. Never argo. */
 export const retireShipInputSchema = z.object({ shipId: idSchema('ship') });
 

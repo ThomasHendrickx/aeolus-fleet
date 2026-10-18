@@ -6,16 +6,16 @@ import { useState } from 'react';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../../components/atoms/tabs';
 import { ComposeMessage } from '../../../../features/compose/organisms/compose-message';
-import { MessageThreads } from '../../../../features/ship/organisms/message-threads';
-import { ShipCrewRequest } from '../../../../features/ship/organisms/ship-crew-request';
-import { ShipSquadron } from '../../../../features/ship/organisms/ship-squadron';
+import { MessageThreads } from '../../../../features/ship/ui/organisms/message-threads';
+import { ShipCrewRequest } from '../../../../features/ship/state/ship-crew-request';
+import { ShipSquadron } from '../../../../features/ship/state/ship-squadron';
 import { ShipActions } from '../../../../features/ship-actions/organisms/ship-actions';
 import { NewCrewLineFlow } from '../../../../features/squadrons/organisms/get-new-crew-line';
-import { ShipHeader } from '../../../../features/ship/organisms/ship-header';
-import { ShipWayLines } from '../../../../features/ship/molecules/ship-way-lines';
-import { shipWayView } from '../../../../features/ship/lib/ship-way';
-import { ShipPageLabels } from '../../../../features/ship/organisms/ship-page-labels';
-import { ShipTimeline } from '../../../../features/ship/organisms/ship-timeline';
+import { ShipHeader } from '../../../../features/ship/ui/organisms/ship-header';
+import { ShipWayLines } from '../../../../features/ship/ui/molecules/ship-way-lines';
+import { shipWayView } from '../../../../features/ship/services/ship-way';
+import { ShipPageLabels } from '../../../../features/ship/state/ship-page-labels';
+import { ShipTimeline } from '../../../../features/ship/ui/organisms/ship-timeline';
 import { DetailPage } from '../../../../components/organisms/detail-page';
 import { useConsoleFrame } from '../../../../lib/console-frame';
 import { lazyDialog } from '../../../../lib/lazy-dialog';
@@ -30,10 +30,10 @@ import { useSquadrons } from '../../../../lib/squadrons-api';
 import { NotHandled } from './not-handled';
 import { useMachines } from '../../../../lib/trierarch-plugin';
 import { shipsInSquadrons } from '../../../../lib/squadrons-view';
-import { SHIP_TABS, type ShipTab } from '../../../../features/ship/lib/ship-tab';
+import { SHIP_TABS, type ShipTab } from '../../../../features/ship/services/ship-tab';
 
 // Dialogs load when first opened, not with the page.
-const MessageSheet = lazyDialog(() => import('../../../../features/ship/organisms/message-sheet').then((module) => module.MessageSheet), (props) => props.isOpen);
+const MessageSheet = lazyDialog(() => import('../../../../features/ship/ui/organisms/message-sheet').then((module) => module.MessageSheet), (props) => props.isOpen);
 
 /** The ship page's view in the URL: its tab and the open message. */
 function pathOf(shipId: ShipId, view: { tab: ShipTab; messageId?: MessageId }): string {

@@ -66,6 +66,7 @@ import { createInitialiseFleet, type FleetInitialised } from '../../src/domain/r
 import { createListFleet } from '../../src/domain/registry/list-fleet.js';
 import { createRecrewShip } from '../../src/domain/registry/recrew-ship.js';
 import { createReleaseShip } from '../../src/domain/registry/release-ship.js';
+import { createSetOwner } from '../../src/domain/registry/set-owner.js';
 import { createRenameShip } from '../../src/domain/registry/rename-ship.js';
 import { createRetireShip } from '../../src/domain/registry/retire-ship.js';
 import { createReport } from '../../src/domain/registry/report.js';
@@ -196,6 +197,7 @@ export function registryUseCases(core: InMemoryCore) {
     listLabels: createListLabels({ listing: core.listing }),
     findLabelValue: createFindLabelValue({ listing: core.listing }),
     renameShip: createRenameShip(deps),
+    setOwner: createSetOwner(deps),
     recrewShip: createRecrewShip(deps),
     claimShip: createClaimShip(deps),
     deregister: createDeregister(deps),
@@ -261,6 +263,15 @@ export function messagingUseCases(core: InMemoryCore) {
 /** An agent ship as the caller, holding the scopes commissioning gives it, as its crew token makes it. */
 export function agentCaller(ship: { fleetId: FleetId; shipId: ShipId }): Caller {
   return { ...ship, kind: 'agent', scopes: ['messages:send', 'messages:receive'] };
+}
+
+/** The id of the fleet's argo, which owns every ship the fixtures add (decision 0045). */
+export function argoIdOf(core: InMemoryCore, fleetId: FleetId): ShipId {
+  const argo = core.state.ships.find((ship) => ship.fleetId === fleetId && ship.kind === 'operator');
+  if (!argo) {
+    throw new Error(`Fleet ${fleetId} has no argo`);
+  }
+  return argo.id;
 }
 
 /** argo as the caller, holding every scope, as its secret or console session makes it. */
@@ -375,7 +386,7 @@ export async function hostedFleetWithViewer(core: InMemoryCore): Promise<{ fleet
 /** Adds the fleet's viewer ship straight to the in-memory state, as an installation's create with a viewer would. */
 export function addViewerShip(core: InMemoryCore, ship: { fleetId: FleetId }): { shipId: ShipId } {
   const shipId = core.ids('ship');
-  core.state.ships.push({ id: shipId, fleetId: ship.fleetId, name: 'viewer', type: 'viewer', kind: 'viewer', scopes: ['fleet:read'], note: null, createdAt: core.clock.now(), retiredAt: null, commission: null });
+  core.state.ships.push({ id: shipId, fleetId: ship.fleetId, name: 'viewer', type: 'viewer', kind: 'viewer', scopes: ['fleet:read'], note: null, createdAt: core.clock.now(), retiredAt: null, commission: null, owner: null });
   return { shipId };
 }
 
@@ -398,6 +409,8 @@ export function addAgentShip(
     createdAt: at,
     retiredAt,
     commission: null,
+    // argo's, as the owners migration made every ship from before owners (decision 0045).
+    owner: core.state.ships.find((held) => held.fleetId === fleetId && held.kind === 'operator')?.id ?? null,
   });
   core.state.credentials.push({
     id: core.ids('credential'),

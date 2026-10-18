@@ -65,6 +65,7 @@ const shipRow = z.object({
   commissionedBy: idSchema('ship').nullable(),
   commissionKey: z.string().nullable(),
   commissionRequestHash: z.string().nullable(),
+  ownerShipId: idSchema('ship').nullable(),
 });
 
 /** The commission's three columns, set together for an agent ship and null for argo. */
@@ -74,8 +75,8 @@ function commissionOf(columns: { by: ShipId | null; idempotencyKey: string | nul
 }
 
 export function toShip(row: unknown): Ship {
-  const { commissionedBy, commissionKey, commissionRequestHash, ...ship } = shipRow.parse(row);
-  return { ...ship, commission: commissionOf({ by: commissionedBy, idempotencyKey: commissionKey, requestHash: commissionRequestHash }) };
+  const { commissionedBy, commissionKey, commissionRequestHash, ownerShipId, ...ship } = shipRow.parse(row);
+  return { ...ship, commission: commissionOf({ by: commissionedBy, idempotencyKey: commissionKey, requestHash: commissionRequestHash }), owner: ownerShipId };
 }
 
 const shipSqlRow = z
@@ -92,6 +93,7 @@ const shipSqlRow = z
     commissioned_by: idSchema('ship').nullable(),
     commission_key: z.string().nullable(),
     commission_request_hash: z.string().nullable(),
+    owner_ship_id: idSchema('ship').nullable(),
   })
   .transform(
     (row): Ship => ({
@@ -105,6 +107,7 @@ const shipSqlRow = z
       createdAt: row.created_at,
       retiredAt: row.retired_at,
       commission: commissionOf({ by: row.commissioned_by, idempotencyKey: row.commission_key, requestHash: row.commission_request_hash }),
+      owner: row.owner_ship_id,
     }),
   );
 
@@ -234,6 +237,7 @@ const shipFactsSqlRow = z.object({
   crew_request_is_final: z.boolean().nullable(),
   crewed_by_id: idSchema('ship').nullable(),
   crewed_by_name: z.string().nullable(),
+  owner_name: z.string().nullable(),
   labels: z.array(carriedLabelSchema),
   crew_request_given_back: z.array(
     z.object({ trierarchShipId: idSchema('ship'), trierarchName: z.string(), settingsVersion: z.int().min(1), reason: z.string(), givenBackAt: z.coerce.date() }),
@@ -269,6 +273,7 @@ export function toShipFacts(row: unknown): ShipFacts {
     crew_request_is_final,
     crewed_by_id,
     crewed_by_name,
+    owner_name,
     labels,
     crew_request_given_back,
   } = shipFactsSqlRow.parse(row);
@@ -314,6 +319,7 @@ export function toShipFacts(row: unknown): ShipFacts {
       crew_request_assigned_to && crew_request_assignee_name !== null ? { id: crew_request_assigned_to, name: crew_request_assignee_name } : null,
     labels,
     crewedBy: crewed_by_id && crewed_by_name !== null ? { id: crewed_by_id, name: crewed_by_name } : null,
+    owner: ship.owner && owner_name !== null ? { id: ship.owner, name: owner_name } : null,
     lastPing:
       ping_sent_at && ping_delivery_state
         ? { sentAt: ping_sent_at, deliveryState: ping_delivery_state, answeredWithPongAt: ping_answered_at }

@@ -22,7 +22,7 @@ describe("reading a ship's timeline", () => {
 
     const timeline = await timelineOf();
 
-    expect(timeline.map((entry) => entry.type)).toEqual(['MessageAccepted', 'StartingPromptIssued', 'ShipCommissioned']);
+    expect(timeline.map((entry) => entry.type)).toEqual(['MessageAccepted', 'StartingPromptIssued', 'OwnerSet', 'ShipCommissioned']);
     const numbers = timeline.map((entry) => entry.seq);
     expect(numbers).toEqual([...numbers].sort((first, second) => second - first));
   });

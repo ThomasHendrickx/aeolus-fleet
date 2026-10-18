@@ -73,6 +73,7 @@ describe('the history reads on Postgres', () => {
       'MessageAccepted',
       'ShipClaimed',
       'StartingPromptIssued',
+      'OwnerSet',
       'ShipCommissioned',
     ]);
     expect(timeline[0]).toMatchObject({

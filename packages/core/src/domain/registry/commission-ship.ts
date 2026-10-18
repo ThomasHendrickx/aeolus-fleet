@@ -40,7 +40,9 @@ export interface CommissionedShip {
   startingPrompt: { issuedAt: Date; isClaimed: boolean } | null;
 }
 
-export type CommissionShipRefusal = CommissionRefusal | DomainError<'INVALID_IDEMPOTENCY_KEY' | 'IDEMPOTENCY_KEY_REUSED' | 'SHIP_LIMIT_REACHED'>;
+export type CommissionShipRefusal =
+  | CommissionRefusal
+  | DomainError<'INVALID_IDEMPOTENCY_KEY' | 'IDEMPOTENCY_KEY_REUSED' | 'SHIP_LIMIT_REACHED' | 'SHIP_NOT_FOUND'>;
 
 export type CommissionShip = (caller: Caller, input: CommissionShipInput) => Promise<Result<CommissionedShip, CommissionShipRefusal>>;
 
@@ -102,9 +104,14 @@ export function createCommissionShip(deps: {
         }
       }
 
+      const commissioner = await tx.ships.find(fleetId, caller.shipId);
+      const argo = await tx.ships.findOperatorShip(fleetId);
+      if (!commissioner || !argo) {
+        return refuse('SHIP_NOT_FOUND', `Ship ${caller.shipId} or its fleet's argo does not exist`);
+      }
       await tx.ships.lockName(fleetId, input.name);
       const commissioned = commissionShip(
-        { ...input, id: deps.ids('ship'), fleetId, commissionerKind: caller.kind, at, actor, commission: { by: caller.shipId, idempotencyKey: key.value, requestHash } },
+        { ...input, id: deps.ids('ship'), fleetId, commissioner, argoShipId: argo.id, at, actor, commission: { by: caller.shipId, idempotencyKey: key.value, requestHash } },
         { activeShipNamed: await tx.ships.findActiveByName(fleetId, input.name) },
       );
       if (!commissioned.isOk) {

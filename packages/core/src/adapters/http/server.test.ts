@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
 import {
+  argoIdOf,
   addAgentShip,
   crewShip,
   FLEET_URL,
@@ -314,7 +315,7 @@ describe('ship.register', () => {
     expect(registered.statusCode).toBe(200);
     expect(crewToken).toMatch(/^aeolus_ct_v1_./);
     expect(whoami.json()).toEqual({
-      result: { data: { shipId: agent.shipId, fleetId: fleetIdOf(core), name: 'scout', type: 'reviewer' } },
+      result: { data: { shipId: agent.shipId, fleetId: fleetIdOf(core), name: 'scout', type: 'reviewer', ownerShipId: argoIdOf(core, fleetIdOf(core)), ownerName: 'argo' } },
     });
   });
 

@@ -207,6 +207,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_force_scope$/),
       expect.stringMatching(/^\d{14}_forced_delivery$/),
       expect.stringMatching(/^\d{14}_person_and_app_ships$/),
+      expect.stringMatching(/^\d{14}_owners$/),
     ]);
   });
 });
@@ -551,6 +552,8 @@ describe('the ship procedures at the API', () => {
       fleetId,
       name: 'navigator',
       type: 'reviewer',
+      ownerShipId: argoId,
+      ownerName: 'argo',
     });
   });
 
@@ -584,6 +587,8 @@ describe('the ship procedures at the API', () => {
       fleetId,
       name: 'argo',
       type: 'operator',
+      ownerShipId: null,
+      ownerName: null,
     });
   });
 
@@ -1564,6 +1569,27 @@ describe('rename at the API', () => {
     await expect(codeOf(asArgo.fleet.rename.mutate({ shipId: argoId, name: 'helm' }))).resolves.toBe('FORBIDDEN');
     await expect(codeOf(asArgo.fleet.rename.mutate({ shipId, name: taken }))).resolves.toBe('CONFLICT');
     await expect(codeOf(reader.fleet.rename.mutate({ shipId, name: 'any' }))).resolves.toBe('FORBIDDEN');
+  });
+});
+
+describe('owners at the API (decision 0045)', () => {
+  it("let argo make a person's ship the owner of a ship", async () => {
+    const asArgo = await signedInArgo();
+    const { shipId } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), name: `owned-${newId('ship').slice(-6)}`, type: 'reviewer' });
+    const { shipId: ownerShipId } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), name: `person-${newId('ship').slice(-6)}`, type: 'person', kind: 'person' });
+
+    await expect(asArgo.fleet.setOwner.mutate({ shipId, ownerShipId })).resolves.toEqual({});
+  });
+
+  it('refuse any ship but argo, argo itself and an agent ship as the owner', async () => {
+    const asArgo = await signedInArgo();
+    const { shipId } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), name: `owned-${newId('ship').slice(-6)}`, type: 'reviewer' });
+    const { shipId: agentShipId } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), name: `agent-${newId('ship').slice(-6)}`, type: 'reviewer' });
+    const manager = client({ authorization: `Bearer ${await crewedShip(['fleet:read', 'fleet:manage'])}` });
+
+    await expect(codeOf(manager.fleet.setOwner.mutate({ shipId, ownerShipId: argoId }))).resolves.toBe('FORBIDDEN');
+    await expect(codeOf(asArgo.fleet.setOwner.mutate({ shipId: argoId, ownerShipId: argoId }))).resolves.toBe('FORBIDDEN');
+    await expect(codeOf(asArgo.fleet.setOwner.mutate({ shipId, ownerShipId: agentShipId }))).resolves.toBe('BAD_REQUEST');
   });
 });
 

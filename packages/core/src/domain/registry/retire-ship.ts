@@ -14,7 +14,7 @@ import { endLease, type LeaseTx } from './leases.js';
 import { withdrawWithRetiredShip } from './declared-network-rules.js';
 import { unregisterNetworkPlugin } from './network-settings.js';
 import type { ClearRequestRepository, CrewRequestRepository, DeclaredNetworkRulesRepository, LabelRepository, NetworkSettingsRepository, ShipRepository } from './ports.js';
-import { checkCanRetire, type RetireRefusal } from './ship.js';
+import { changeOwner, checkCanRetire, type RetireRefusal } from './ship.js';
 
 export interface RetireShipTx extends LeaseTx, CredentialTx {
   ships: ShipRepository;
@@ -46,7 +46,9 @@ export type RetireShip = (
  * assignment of it gone first (decision 0031). A retired trierarch clears
  * nothing: its pending clear requests go, one WorktreeClearRemoved each
  * (decision 0032). The network rules it declared go with its labels
- * (decision 0037). A retired networking plugin unregisters, its rules going
+ * (decision 0037). Each active ship it owned falls to argo, one
+ * OwnerChanged each, locked after the ship as a set owner locks the owner
+ * first (decision 0045). A retired networking plugin unregisters, its rules going
  * with it: all-to-all (decision 0035). The caller's scope (fleet:manage) is
  * checked before this runs.
  *
@@ -94,6 +96,17 @@ export function createRetireShip(deps: {
       });
       for (const { deliveryId, messageId } of abandoned) {
         await recordEvent(recorded, { fleetId, type: 'DeliveryAbandoned', occurredAt: at, actor, shipId, messageId, deliveryId });
+      }
+      const argo = await tx.ships.findOperatorShip(fleetId);
+      for (const ownedShip of await tx.ships.listActiveOwnedByForUpdate(fleetId, shipId)) {
+        // Never refused: an owned ship is active and never argo's own, and argo is always active.
+        const changed = changeOwner(ownedShip, { owner: argo, why: 'ownerRetired', at, actor });
+        if (changed.isOk && changed.value.ship.owner !== null && changed.value.ship.owner !== ownedShip.owner) {
+          await tx.ships.setOwner({ fleetId, shipId: ownedShip.id, ownerShipId: changed.value.ship.owner });
+          for (const event of changed.value.events) {
+            await recordEvent(recorded, event);
+          }
+        }
       }
       // A ship without a crew request has none to remove: nothing to do.
       const removed = removeCrewRequest({ ship, current: await tx.crewRequests.find(fleetId, shipId) }, { at, actor });

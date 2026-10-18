@@ -414,6 +414,20 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         }
         return Promise.resolve();
       },
+      listActiveOwnedByForUpdate: (fleetId, ownerShipId) =>
+        Promise.resolve(
+          state.ships
+            .filter((held) => held.fleetId === fleetId && held.owner === ownerShipId && held.retiredAt === null)
+            .toSorted((first, second) => first.id.localeCompare(second.id))
+            .map((held) => ({ ...held })),
+        ),
+      setOwner: ({ fleetId, shipId, ownerShipId }) => {
+        const found = ship(fleetId, shipId);
+        if (found) {
+          found.owner = ownerShipId;
+        }
+        return Promise.resolve();
+      },
       retire: ({ fleetId, shipId, at }) => {
         const found = state.ships.find((held) => held.fleetId === fleetId && held.id === shipId);
         if (!found) {
@@ -1131,11 +1145,16 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     const actor = state.ships.find((each) => each.fleetId === held.fleetId && each.id === actorShipId);
     return actor ? { id: actor.id, name: actor.name } : null;
   };
+  const ownerOf = (held: Ship): ShipFacts['owner'] => {
+    const owner = state.ships.find((each) => each.fleetId === held.fleetId && each.id === held.owner);
+    return owner ? { id: owner.id, name: owner.name } : null;
+  };
   const factsOf = (held: Ship): ShipFacts => {
     const secret = state.credentials.find((credential) => credential.shipId === held.id && credential.invalidatedAt === null);
     const lease = state.leases.find((open) => open.shipId === held.id && open.endedAt === null);
     return {
       ship: { ...held },
+      owner: ownerOf(held),
       openLease: lease
         ? {
             location: { ...lease.location },

@@ -116,6 +116,10 @@ export interface ShipRepository {
   listActiveOfType(fleetId: FleetId, type: string): Promise<Ship[]>;
   /** Gives the ship a new name. */
   rename(change: { fleetId: FleetId; shipId: ShipId; name: string }): Promise<void>;
+  /** The active ships the owner owns, each locked as findForUpdate locks it, by id (decision 0045). */
+  listActiveOwnedByForUpdate(fleetId: FleetId, ownerShipId: ShipId): Promise<Ship[]>;
+  /** Gives the ship a new owner (decision 0045). */
+  setOwner(change: { fleetId: FleetId; shipId: ShipId; ownerShipId: ShipId }): Promise<void>;
   /** Marks the ship retired at `at`: never claimed or addressed again, its name free. */
   retire(change: { fleetId: FleetId; shipId: ShipId; at: Date }): Promise<void>;
 }
@@ -306,6 +310,8 @@ export interface ShipFacts {
   crewRequest: CrewRequest | null;
   /** The trierarch ship its crew request is assigned to, by id and name; null while unassigned or without a request. */
   crewRequestAssignee: { id: ShipId; name: string } | null;
+  /** The ship's owner by id and name; null for argo and the viewer (decision 0045). */
+  owner: { id: ShipId; name: string } | null;
   /** The trierarchs that gave its crew request back, by id and name, oldest first (#382); none without a request. */
   crewRequestGivenBack: { trierarch: { id: ShipId; name: string }; settingsVersion: number; reason: string; givenBackAt: Date }[];
   /** The label values the ship carries, by key then value (decision 0031). */

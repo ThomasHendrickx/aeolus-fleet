@@ -57,12 +57,14 @@ describe('following the fleet', () => {
 
     expect(events.map((event) => event.type)).toEqual([
       'ShipCommissioned',
+      'OwnerSet',
       'StartingPromptIssued',
       'ShipCommissioned',
+      'OwnerSet',
       'StartingPromptIssued',
     ]);
-    expect(events.map((event) => event.seq)).toEqual([from + 1, from + 2, from + 3, from + 4]);
-    expect(last).toBe(from + 4);
+    expect(events.map((event) => event.seq)).toEqual([from + 1, from + 2, from + 3, from + 4, from + 5, from + 6]);
+    expect(last).toBe(from + 6);
   });
 
   it('answers at most max events, so the next call follows on from the last one', async () => {
@@ -70,11 +72,11 @@ describe('following the fleet', () => {
     await commission('scout');
     await commission('lookout');
 
-    const first = unwrap(await followFleet(argo, { afterSeq: from, max: 3 }));
-    const rest = unwrap(await followFleet(argo, { afterSeq: first.lastSeq, max: 3 }));
+    const first = unwrap(await followFleet(argo, { afterSeq: from, max: 5 }));
+    const rest = unwrap(await followFleet(argo, { afterSeq: first.lastSeq, max: 5 }));
 
-    expect(first.events).toHaveLength(3);
-    expect(rest.events.map((event) => event.seq)).toEqual([from + 4]);
+    expect(first.events).toHaveLength(5);
+    expect(rest.events.map((event) => event.seq)).toEqual([from + 6]);
   });
 
   it('answers no events and the same position when nothing came, without waiting', async () => {
@@ -104,7 +106,7 @@ describe('following the fleet', () => {
 
     const { events } = unwrap(await followFleet(argo, { afterSeq: from, waitSeconds: 25 }));
 
-    expect(events.map((event) => event.type)).toEqual(['ShipCommissioned', 'StartingPromptIssued']);
+    expect(events.map((event) => event.type)).toEqual(['ShipCommissioned', 'OwnerSet', 'StartingPromptIssued']);
   });
 
   it.each([

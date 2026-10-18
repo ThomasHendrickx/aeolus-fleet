@@ -36,7 +36,12 @@ export interface Ship {
    * Null for the operator ship, which the fleet's initialisation creates.
    */
   commission: { by: ShipId; idempotencyKey: string; requestHash: string } | null;
+  /** The ship that answers for it, a person's ship or argo (decision 0045); null for argo and the viewer. */
+  owner: ShipId | null;
 }
+
+/** How a ship got its owner at commission: its commissioner's owner, or argo when the commissioner has none. */
+export type OwnerSetHow = 'inherited' | 'argoByDefault';
 
 /** The operator ship's name. Reserved: no other ship can take it. */
 export const OPERATOR_SHIP_NAME = 'argo';
@@ -55,6 +60,7 @@ export function operatorShip(input: { id: ShipId; fleetId: FleetId; createdAt: D
     note: null,
     retiredAt: null,
     commission: null,
+    owner: null,
   };
 }
 
@@ -79,6 +85,7 @@ export function viewerShip(input: { id: ShipId; fleetId: FleetId; createdAt: Dat
     note: null,
     retiredAt: null,
     commission: null,
+    owner: null,
   };
 }
 
@@ -115,8 +122,9 @@ export function commissionShip(
     name: string;
     type: string;
     kind?: CommissionedShipKind;
-    /** The kind of the ship that commissions it. */
-    commissionerKind: ShipKind;
+    /** The ship that commissions it, and the fleet's argo: the new ship's owner is the commissioner's owner, argo by default (decision 0045). */
+    commissioner: Ship;
+    argoShipId: ShipId;
     note?: string;
     /** fleet:read, fleet:manage, crew:assign and/or crew:run, added to the agent scopes (ADR 0002, decision 0029). */
     fleetScopes?: readonly FleetScope[];
@@ -127,7 +135,7 @@ export function commissionShip(
   fleet: { activeShipNamed: Ship | undefined },
 ): Result<{ ship: Ship; events: NewEvent[] }, CommissionRefusal> {
   const { kind = 'agent' } = input;
-  if (kind !== 'agent' && input.commissionerKind !== 'operator') {
+  if (kind !== 'agent' && input.commissioner.kind !== 'operator') {
     return refuse('KIND_COMMISSIONED_BY_ARGO_ONLY', `Only argo commissions a ${kind} ship: commission an agent ship instead`);
   }
   const name = shipName(input.name);
@@ -151,6 +159,7 @@ export function commissionShip(
   }
 
   const { id, fleetId, at, actor } = input;
+  const owner = ownerAtCommission(input.commissioner, input.argoShipId);
   const ship: Ship = {
     id,
     fleetId,
@@ -162,6 +171,7 @@ export function commissionShip(
     createdAt: at,
     retiredAt: null,
     commission: input.commission,
+    owner: owner.ownerShipId,
   };
   return ok({
     ship,
@@ -174,8 +184,57 @@ export function commissionShip(
         shipId: id,
         details: { name: ship.name, type: ship.type, kind: ship.kind, scopes: ship.scopes.join(' ') },
       },
+      { fleetId, type: 'OwnerSet', occurredAt: at, actor, shipId: id, details: owner },
     ],
   });
+}
+
+/** Why a ship's owner changed: argo set it, or its owner's ship retired and it fell to argo. */
+export type OwnerChangedWhy = 'setByArgo' | 'ownerRetired';
+
+export type ChangeOwnerRefusal = DomainError<'SHIP_HAS_NO_OWNER' | 'SHIP_ALREADY_RETIRED' | 'INVALID_OWNER'>;
+
+/**
+ * The ship with its new owner and OwnerChanged (decision 0045). The owner is
+ * an active person's ship or argo; argo and the viewer have none, and a
+ * retired ship keeps the owner it had. The same owner again changes nothing
+ * and writes no event.
+ */
+export function changeOwner(
+  ship: Ship,
+  change: { owner: Ship | undefined; why: OwnerChangedWhy; at: Date; actor: Actor },
+): Result<{ ship: Ship; events: NewEvent[] }, ChangeOwnerRefusal> {
+  const { owner } = change;
+  if (isConsoleShip(ship)) {
+    return refuse('SHIP_HAS_NO_OWNER', `${ship.name} is the console's own ship: it has no owner`);
+  }
+  if (ship.retiredAt !== null) {
+    return refuse('SHIP_ALREADY_RETIRED', `${ship.name} is retired: it keeps the owner it had`);
+  }
+  if (owner?.retiredAt !== null || (owner.kind !== 'person' && owner.kind !== 'operator')) {
+    return refuse('INVALID_OWNER', "An owner is an active person's ship or argo");
+  }
+  if (ship.owner === owner.id) {
+    return ok({ ship, events: [] });
+  }
+  return ok({
+    ship: { ...ship, owner: owner.id },
+    events: [
+      {
+        fleetId: ship.fleetId,
+        type: 'OwnerChanged',
+        occurredAt: change.at,
+        actor: change.actor,
+        shipId: ship.id,
+        details: { fromShipId: ship.owner, toShipId: owner.id, why: change.why },
+      },
+    ],
+  });
+}
+
+/** The commissioner's owner, inherited; argo when the commissioner has none, as argo itself has none. */
+function ownerAtCommission(commissioner: Ship, argoShipId: ShipId): { ownerShipId: ShipId; how: OwnerSetHow } {
+  return commissioner.owner === null ? { ownerShipId: argoShipId, how: 'argoByDefault' } : { ownerShipId: commissioner.owner, how: 'inherited' };
 }
 
 /**

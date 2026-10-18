@@ -475,7 +475,7 @@ describe('the fleet actions at /api/v1/fleet', () => {
 
     const { events } = await ok(request('fleet/follow', { crewToken: reader.crewToken, body: { afterSeq: lastSeq } }), followed);
 
-    expect(events.map((event) => event.type)).toEqual(['ShipCommissioned', 'StartingPromptIssued']);
+    expect(events.map((event) => event.type)).toEqual(['ShipCommissioned', 'OwnerSet', 'StartingPromptIssued']);
   });
 
   it('serve a ship with fleet:manage a crew request: requested, replaced, read with the ship, and removed', async () => {

@@ -69,6 +69,8 @@ import {
   findLabelValueInputSchema,
   reachRefusalsOutputSchema,
   explainReachInputSchema,
+  setOwnerInputSchema,
+  setOwnerOutputSchema,
   explainReachOutputSchema,
   registerNetworkPluginInputSchema,
   setNetworkRulesInputSchema,
@@ -394,6 +396,15 @@ export const fleetRouter = router({
     .output(renameShipOutputSchema)
     .mutation(async ({ ctx, input }) => {
       okOrThrow(await ctx.useCases.renameShip(ctx.caller, input));
+      return {};
+    }),
+
+  /** Gives a ship a new owner, an active person's ship or argo: argo's only (decision 0045). */
+  setOwner: scopedProcedure('fleet:manage')
+    .input(setOwnerInputSchema)
+    .output(setOwnerOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.setOwner(ctx.caller, input));
       return {};
     }),
 

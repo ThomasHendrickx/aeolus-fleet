@@ -233,10 +233,11 @@ export function createPrismaLabelRepository(db: Db): LabelRepository {
 export function createPrismaShipRepository(db: Db): ShipRepository {
   return {
     create: async (ship) => {
-      const { commission, ...columns } = ship;
+      const { commission, owner, ...columns } = ship;
       await db.ship.create({
         data: {
           ...columns,
+          ownerShipId: owner,
           scopes: [...ship.scopes],
           commissionedBy: commission?.by ?? null,
           commissionKey: commission?.idempotencyKey ?? null,
@@ -286,18 +287,27 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
       // ship wait, but not the foreign key checks of rows that point at the
       // ship (a new lease, secret or event), so those never deadlock with it.
       const [row] = await db.$queryRaw<unknown[]>`
-        SELECT id, fleet_id, name, type, kind::text AS kind, scopes, note, created_at, retired_at, commissioned_by, commission_key, commission_request_hash
+        SELECT id, fleet_id, name, type, kind::text AS kind, scopes, note, created_at, retired_at, commissioned_by, commission_key, commission_request_hash, owner_ship_id
         FROM ships
         WHERE fleet_id = ${fleetId} AND id = ${shipId}
         FOR NO KEY UPDATE`;
       return row ? toShipFromSql(row) : undefined;
+    },
+    listActiveOwnedByForUpdate: async (fleetId, ownerShipId) => {
+      const rows = await db.$queryRaw<unknown[]>`
+        SELECT id, fleet_id, name, type, kind::text AS kind, scopes, note, created_at, retired_at, commissioned_by, commission_key, commission_request_hash, owner_ship_id
+        FROM ships
+        WHERE fleet_id = ${fleetId} AND owner_ship_id = ${ownerShipId} AND retired_at IS NULL
+        ORDER BY id
+        FOR NO KEY UPDATE`;
+      return rows.map(toShipFromSql);
     },
     findForShare: async (fleetId, shipId) => {
       // FOR SHARE, not FOR KEY SHARE: it makes a use case that locks the ship
       // FOR NO KEY UPDATE to change it, such as a retire, wait for the send,
       // while other sends to the ship share the lock.
       const [row] = await db.$queryRaw<unknown[]>`
-        SELECT id, fleet_id, name, type, kind::text AS kind, scopes, note, created_at, retired_at, commissioned_by, commission_key, commission_request_hash
+        SELECT id, fleet_id, name, type, kind::text AS kind, scopes, note, created_at, retired_at, commissioned_by, commission_key, commission_request_hash, owner_ship_id
         FROM ships
         WHERE fleet_id = ${fleetId} AND id = ${shipId}
         FOR SHARE`;
@@ -307,7 +317,7 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
       // Read committed: a send that waited for a retire checks the ship again
       // once it is free, and no longer finds it by its name.
       const [row] = await db.$queryRaw<unknown[]>`
-        SELECT id, fleet_id, name, type, kind::text AS kind, scopes, note, created_at, retired_at, commissioned_by, commission_key, commission_request_hash
+        SELECT id, fleet_id, name, type, kind::text AS kind, scopes, note, created_at, retired_at, commissioned_by, commission_key, commission_request_hash, owner_ship_id
         FROM ships
         WHERE fleet_id = ${fleetId} AND name = ${name} AND retired_at IS NULL
         FOR SHARE`;
@@ -323,6 +333,9 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
     },
     rename: async ({ fleetId, shipId, name }) => {
       await db.ship.updateMany({ where: { fleetId, id: shipId }, data: { name } });
+    },
+    setOwner: async ({ fleetId, shipId, ownerShipId }) => {
+      await db.ship.update({ where: { fleetId_id: { fleetId, id: shipId } }, data: { ownerShipId } });
     },
     retire: async ({ fleetId, shipId, at }) => {
       await db.ship.update({ where: { fleetId_id: { fleetId, id: shipId } }, data: { retiredAt: at } });
@@ -563,7 +576,7 @@ export function createPrismaFleetListing(db: Db): FleetListing {
       // valid per ship (partial unique indexes), so neither join multiplies rows.
       const rows = await db.$queryRaw<unknown[]>`
         SELECT s.id, s.fleet_id, s.name, s.type, s.kind::text AS kind, s.scopes, s.note, s.created_at, s.retired_at,
-               s.commissioned_by, s.commission_key, s.commission_request_hash,
+               s.commissioned_by, s.commission_key, s.commission_request_hash, s.owner_ship_id,
                l.location::text AS lease_location, l.location_description AS lease_location_description,
                l.harness AS lease_harness, l.started_at AS lease_started_at, l.last_seen_at AS lease_last_seen_at,
                l.report_state::text AS report_state, l.report_note, l.reported_at, l.report_details, l.report_details_version,
@@ -571,7 +584,7 @@ export function createPrismaFleetListing(db: Db): FleetListing {
                cr.settings AS crew_request_settings, cr.settings_version AS crew_request_settings_version,
                cr.requested_at AS crew_request_requested_at, cr.assigned_to_ship_id AS crew_request_assigned_to,
                cr.status::text AS crew_request_status, ca.name AS crew_request_assignee_name, cr.reason AS crew_request_reason, cr.attempt AS crew_request_attempt, cr.session_started_at AS crew_request_session_started_at, cr.is_final AS crew_request_is_final,
-               cb.id AS crewed_by_id, cb.name AS crewed_by_name,
+               cb.id AS crewed_by_id, cb.name AS crewed_by_name, o.name AS owner_name,
                p.sent_at AS ping_sent_at, p.delivery_state AS ping_delivery_state, p.answered_at AS ping_answered_at,
                lm.model AS last_model, lm.created_at AS last_model_stated_at,
                (SELECT max(cs.last_used_at) FROM console_sessions cs
@@ -584,6 +597,7 @@ export function createPrismaFleetListing(db: Db): FleetListing {
         LEFT JOIN credentials c ON c.fleet_id = s.fleet_id AND c.ship_id = s.id AND c.invalidated_at IS NULL
         LEFT JOIN crew_requests cr ON cr.fleet_id = s.fleet_id AND cr.ship_id = s.id
         LEFT JOIN ships ca ON ca.fleet_id = cr.fleet_id AND ca.id = cr.assigned_to_ship_id
+        LEFT JOIN ships o ON o.fleet_id = s.fleet_id AND o.id = s.owner_ship_id
         LEFT JOIN LATERAL (${crewedByOfShip}) cb ON true
         LEFT JOIN LATERAL (${lastPingOfShip}) p ON true
         LEFT JOIN LATERAL (${lastModelOfShip}) lm ON true
@@ -610,7 +624,7 @@ export function createPrismaFleetListing(db: Db): FleetListing {
     ship: async (fleetId, shipId) => {
       const [row] = await db.$queryRaw<unknown[]>`
         SELECT s.id, s.fleet_id, s.name, s.type, s.kind::text AS kind, s.scopes, s.note, s.created_at, s.retired_at,
-               s.commissioned_by, s.commission_key, s.commission_request_hash,
+               s.commissioned_by, s.commission_key, s.commission_request_hash, s.owner_ship_id,
                l.location::text AS lease_location, l.location_description AS lease_location_description,
                l.harness AS lease_harness, l.started_at AS lease_started_at, l.last_seen_at AS lease_last_seen_at,
                l.report_state::text AS report_state, l.report_note, l.reported_at, l.report_details, l.report_details_version,
@@ -618,7 +632,7 @@ export function createPrismaFleetListing(db: Db): FleetListing {
                cr.settings AS crew_request_settings, cr.settings_version AS crew_request_settings_version,
                cr.requested_at AS crew_request_requested_at, cr.assigned_to_ship_id AS crew_request_assigned_to,
                cr.status::text AS crew_request_status, ca.name AS crew_request_assignee_name, cr.reason AS crew_request_reason, cr.attempt AS crew_request_attempt, cr.session_started_at AS crew_request_session_started_at, cr.is_final AS crew_request_is_final,
-               cb.id AS crewed_by_id, cb.name AS crewed_by_name,
+               cb.id AS crewed_by_id, cb.name AS crewed_by_name, o.name AS owner_name,
                p.sent_at AS ping_sent_at, p.delivery_state AS ping_delivery_state, p.answered_at AS ping_answered_at,
                lm.model AS last_model, lm.created_at AS last_model_stated_at,
                (SELECT max(cs.last_used_at) FROM console_sessions cs
@@ -631,6 +645,7 @@ export function createPrismaFleetListing(db: Db): FleetListing {
         LEFT JOIN credentials c ON c.fleet_id = s.fleet_id AND c.ship_id = s.id AND c.invalidated_at IS NULL
         LEFT JOIN crew_requests cr ON cr.fleet_id = s.fleet_id AND cr.ship_id = s.id
         LEFT JOIN ships ca ON ca.fleet_id = cr.fleet_id AND ca.id = cr.assigned_to_ship_id
+        LEFT JOIN ships o ON o.fleet_id = s.fleet_id AND o.id = s.owner_ship_id
         LEFT JOIN LATERAL (${crewedByOfShip}) cb ON true
         LEFT JOIN LATERAL (${lastPingOfShip}) p ON true
         LEFT JOIN LATERAL (${lastModelOfShip}) lm ON true

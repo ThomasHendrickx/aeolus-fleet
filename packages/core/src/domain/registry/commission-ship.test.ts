@@ -54,6 +54,7 @@ describe('commissioning a ship', () => {
         retiredAt: null,
         // The hash itself is the repeat tests' concern; here, that it is kept with the key.
         commission: { by: argoId, idempotencyKey: 'commission-scout', requestHash: shipsNamed('scout')[0]?.commission?.requestHash ?? 'none' },
+        owner: argoId,
       },
     ]);
     expect(core.state.leases.filter((lease) => lease.shipId === shipId)).toEqual([]);
@@ -88,7 +89,7 @@ describe('commissioning a ship', () => {
     expect(JSON.stringify(core.state)).not.toContain(`"${secret}"`);
   });
 
-  it('writes ShipCommissioned and StartingPromptIssued, caused by the commissioning ship', async () => {
+  it('writes ShipCommissioned, OwnerSet and StartingPromptIssued, caused by the commissioning ship', async () => {
     const { shipId } = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
     const credential = core.state.credentials.find((held) => held.shipId === shipId);
 
@@ -101,6 +102,7 @@ describe('commissioning a ship', () => {
         shipId,
         details: { name: 'scout', type: 'reviewer', kind: 'agent', scopes: 'messages:send messages:receive' },
       }),
+      expect.objectContaining({ type: 'OwnerSet', actor: { kind: 'ship', shipId: argoId }, shipId, details: { ownerShipId: argoId, how: 'argoByDefault' } }),
       expect.objectContaining({
         fleetId,
         type: 'StartingPromptIssued',
@@ -203,6 +205,59 @@ describe('the kind of a new ship', () => {
     unwrap(await commissionShip(argo, { ...thomas, kind: 'person' }));
 
     await expect(commissionShip(argo, { ...thomas, kind: 'app' })).resolves.toMatchObject({ isOk: false, error: { kind: 'IDEMPOTENCY_KEY_REUSED' } });
+  });
+});
+
+describe('the owner of a new ship (decision 0045)', () => {
+  async function commissioned(caller: Caller, name: string): Promise<ShipId> {
+    return unwrap(await commissionShip(caller, { idempotencyKey: newKey(), name, type: 'squadron', fleetScopes: ['fleet:manage'] })).shipId;
+  }
+
+  function ownerSetOf(shipId: ShipId) {
+    return core.state.events.filter((event) => event.type === 'OwnerSet' && event.shipId === shipId).map((event) => event.details);
+  }
+
+  function asAgent(shipId: ShipId): Caller {
+    return { ...argo, shipId, kind: 'agent' };
+  }
+
+  it('is argo by default when argo commissions it, with OwnerSet', async () => {
+    const shipId = await commissioned(argo, 'scout');
+
+    expect(core.state.ships.find((ship) => ship.id === shipId)?.owner).toBe(argoId);
+    expect(ownerSetOf(shipId)).toEqual([{ ownerShipId: argoId, how: 'argoByDefault' }]);
+  });
+
+  it("is the commissioner's owner, inherited, with OwnerSet", async () => {
+    const thomas = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person' })).shipId;
+    const manager = await commissioned(argo, 'manager');
+    const held = core.state.ships.find((ship) => ship.id === manager);
+    if (held) {
+      held.owner = thomas;
+    }
+
+    const shipId = await commissioned(asAgent(manager), 'deputy');
+
+    expect(core.state.ships.find((ship) => ship.id === shipId)?.owner).toBe(thomas);
+    expect(ownerSetOf(shipId)).toEqual([{ ownerShipId: thomas, how: 'inherited' }]);
+  });
+
+  it('is argo, inherited, when the commissioner is argo\'s', async () => {
+    const manager = await commissioned(argo, 'manager');
+
+    const shipId = await commissioned(asAgent(manager), 'deputy');
+
+    expect(core.state.ships.find((ship) => ship.id === shipId)?.owner).toBe(argoId);
+    expect(ownerSetOf(shipId)).toEqual([{ ownerShipId: argoId, how: 'inherited' }]);
+  });
+
+  it('writes OwnerSet once: a repeat of the commission sets nothing again', async () => {
+    const scout = { idempotencyKey: 'commission-scout', name: 'scout', type: 'reviewer' };
+    const { shipId } = unwrap(await commissionShip(argo, scout));
+
+    unwrap(await commissionShip(argo, scout));
+
+    expect(ownerSetOf(shipId)).toHaveLength(1);
   });
 });
 
