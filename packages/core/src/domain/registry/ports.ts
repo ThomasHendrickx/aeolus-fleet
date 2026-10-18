@@ -13,6 +13,7 @@ import type { NetworkSettings } from './network-settings.js';
 import type { ReachRefusal } from './reach-refusal.js';
 import type { Ship } from './ship.js';
 import type { ShipReport } from './ship-report.js';
+import type { StatedStatement } from './statement.js';
 import type { Turn } from './turn.js';
 
 /** The crew a report speaks for: its ship and lease, in its fleet. */
@@ -154,6 +155,11 @@ export interface LeaseRepository {
   /** The lease's report, the lease locked until the unit of work ends; undefined once it has ended. */
   findReportForUpdate(fleetId: FleetId, leaseId: LeaseId): Promise<{ report: ShipReport | null } | undefined>;
   saveReport(change: { fleetId: FleetId; leaseId: LeaseId; report: ShipReport }): Promise<void>;
+  /** The lease's statement, the lease locked until the unit of work ends; undefined once it has ended (decision 0047). */
+  findStatementForUpdate(fleetId: FleetId, leaseId: LeaseId): Promise<{ stated: StatedStatement | null } | undefined>;
+  saveStatement(change: { fleetId: FleetId; leaseId: LeaseId; stated: StatedStatement }): Promise<void>;
+  /** Every open lease of the fleet by its ship, with the statement it holds, read without a lock: who is crewed now, and what each crew stated. */
+  listOpenStatements(fleetId: FleetId): Promise<{ shipId: ShipId; stated: StatedStatement | null }[]>;
   /** The open lease's turn, locked until the unit of work ends, so two turn reports take turns; undefined once it has ended. */
   findTurnForUpdate(fleetId: FleetId, leaseId: LeaseId): Promise<{ turn: Turn | null } | undefined>;
   saveTurn(change: { fleetId: FleetId; leaseId: LeaseId; turn: Turn }): Promise<void>;

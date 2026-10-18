@@ -110,6 +110,7 @@ export const EVENT_TYPES = [
   'DeliveryDismissed',
   'ShipRenamed',
   'ShipReported',
+  'StatementSet',
   'TurnReported',
   'SignInTicketIssued',
   'FleetLimitsChanged',

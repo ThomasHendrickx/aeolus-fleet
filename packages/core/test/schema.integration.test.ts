@@ -1125,8 +1125,10 @@ describe('the handed migration', () => {
       await before.fleet.create({ data: { id: fleetId, name: 'old fleet', createdAt: now, lastEventSeq: 2n } });
       // createMany: it returns no row, so it reads none of the columns later migrations add.
       await before.ship.createMany({ data: [{ id: shipId, fleetId, name: 'scout', type: 'reviewer', kind: 'agent', scopes: [], createdAt: now }] });
-      // createMany: it returns no row, so it reads none of the columns later migrations add.
-      await before.lease.createMany({ data: [{ ...lease(fleetId, shipId), id: leaseId }] });
+      // Raw: the generated client writes the defaults of columns later migrations add.
+      await before.$executeRaw`
+        INSERT INTO leases (id, fleet_id, ship_id, location, started_at)
+        VALUES (${leaseId}, ${fleetId}, ${shipId}, 'DEVICE', ${now})`;
       await before.message.create({
         data: { id: messageId, fleetId, senderShipId: shipId, selectorKind: 'ship', selectorShipId: shipId, payload: '{}', contentType: 'application/json', idempotencyKey: messageId, requestHash: messageId, createdAt: now },
       });

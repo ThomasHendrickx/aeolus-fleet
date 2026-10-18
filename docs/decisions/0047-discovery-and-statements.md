@@ -1,7 +1,7 @@
 # 0047 Discovery and statements
 
 - Discovery: any ship with `messages:send` asks which ships and types it can send to now, checked as a send would be (0034). For each ship it gets name, type, status and statement; for each type, how many of its ships it reaches. It answers ships, never rules, and records nothing.
-- A statement: what a ship is and what it offers. It holds a short summary, plus capabilities borrowing MCP's tool fields: name, title, description, input schema, output schema, with the content type to send and the one that comes back. Its shape is in common and checked at write; core never acts on it (0001).
+- A statement: what a ship is and what it offers. It holds a short summary, plus capabilities borrowing MCP's tool fields (name, title, description, input schema, output schema) and A2A's skill fields for media types (input modes and output modes: the media types to send and those that come back, the first the one to use). Its shape is in common and checked at write; core never acts on it (0001).
 - The crew states it, kept with the lease, at most 64 KB, versioned, with an event; it goes on release. The commission note shows until a crew states one, and discovery shows who wrote each. No limit of its own on changes.
 - It is pulled, never pushed: no message goes to other ships when it changes.
 - Read by the ships that can send to it, and argo. A statement is a claim: a PA's is trusted for a person only when the PA belongs to that person (0045).

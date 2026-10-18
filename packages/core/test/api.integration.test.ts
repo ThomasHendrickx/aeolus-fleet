@@ -214,6 +214,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_built_in_rules$/),
       expect.stringMatching(/^\d{14}_network_rules_a_list$/),
       expect.stringMatching(/^\d{14}_verb_on_reach_refusals$/),
+      expect.stringMatching(/^\d{14}_lease_statements$/),
     ]);
   });
 });
@@ -624,6 +625,74 @@ describe('the ship procedures at the API', () => {
     await expect(
       codeOf(client().ship.register.mutate({ shipId, secret, location: { kind: 'OTHER', description: ' ' }, harness: 'claude-code' })),
     ).resolves.toBe('BAD_REQUEST');
+  });
+});
+
+describe('statements and discovery at the API (decision 0047)', () => {
+  const REVIEWS = {
+    summary: 'Reviews pull requests of aeolus-fleet.',
+    capabilities: [{ name: 'review_pr', inputSchema: { type: 'object' }, inputModes: ['text/plain'], outputModes: ['text/markdown'] }],
+  };
+
+  /** A ship argo commissioned with a note, claimed through register: its id and crew token. */
+  async function crewed(name: string): Promise<{ shipId: ShipId; crewToken: string; crew: TRPCClient<AppRouter> }> {
+    const { shipId, prompt } = await (await signedInArgo()).fleet.commission.mutate({ idempotencyKey: newKey(), name, type: 'reviewer', note: `The ${name} of the fleet` });
+    const { crewToken } = await client().ship.register.mutate({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' }, harness: 'claude-code' });
+    return { shipId, crewToken, crew: client({ authorization: `Bearer ${crewToken}` }) };
+  }
+
+  async function statementOf(discoverer: TRPCClient<AppRouter>, shipId: ShipId) {
+    return (await discoverer.ship.discover.query()).ships.find((ship) => ship.id === shipId)?.statement;
+  }
+
+  it("let a crew state its ship's statement, which another crew and argo discover with its version", async () => {
+    const reviewer = await crewed('statement-reviewer');
+    const planner = await crewed('statement-planner');
+
+    await expect(reviewer.crew.ship.setStatement.mutate(REVIEWS)).resolves.toEqual({ version: 1 });
+
+    await expect(statementOf(planner.crew, reviewer.shipId)).resolves.toEqual({ by: 'crew', version: 1, ...REVIEWS });
+    await expect(statementOf(await signedInArgo(), reviewer.shipId)).resolves.toEqual({ by: 'crew', version: 1, ...REVIEWS });
+  });
+
+  it('show the commission note until a crew states one, and again once the ship is released', async () => {
+    const reviewer = await crewed('statement-released');
+    const planner = await crewed('statement-asker');
+    await expect(statementOf(planner.crew, reviewer.shipId)).resolves.toEqual({ by: 'commission', note: 'The statement-released of the fleet' });
+    await reviewer.crew.ship.setStatement.mutate(REVIEWS);
+
+    await (await signedInArgo()).fleet.release.mutate({ shipId: reviewer.shipId });
+
+    await expect(statementOf(planner.crew, reviewer.shipId)).resolves.toEqual({ by: 'commission', note: 'The statement-released of the fleet' });
+  });
+
+  it('refuse a statement over 64 KB with BAD_REQUEST naming the limit, storing nothing', async () => {
+    const reviewer = await crewed('statement-large');
+    const planner = await crewed('statement-reader');
+
+    const refused = await refusalOf(reviewer.crew.ship.setStatement.mutate({ summary: 'Large.', capabilities: [{ name: 'large', description: 'x'.repeat(64 * 1024) }] }));
+
+    expect(refused?.code).toBe('BAD_REQUEST');
+    expect(refused?.message).toContain('64 KB');
+    await expect(statementOf(planner.crew, reviewer.shipId)).resolves.toEqual({ by: 'commission', note: 'The statement-large of the fleet' });
+  });
+
+  it('refuse a capability with a field of its own with 400, over REST as the typed client cannot send one', async () => {
+    const reviewer = await crewed('statement-shape');
+
+    const response = await fetch(`${address}/api/v1/ship/setStatement`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${reviewer.crewToken}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ summary: 'Shaped.', capabilities: [{ name: 'shaped', cost: 3 }] }),
+    });
+
+    expect(response.status).toBe(400);
+  });
+
+  it('refuse discovery without messages:send with FORBIDDEN', async () => {
+    const reader = client({ authorization: `Bearer ${await crewedShip(['messages:receive'])}` });
+
+    await expect(codeOf(reader.ship.discover.query())).resolves.toBe('FORBIDDEN');
   });
 });
 

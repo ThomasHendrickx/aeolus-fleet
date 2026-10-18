@@ -75,6 +75,8 @@ import { createRenameShip, type RenameShip } from './domain/registry/rename-ship
 import { createSetOwner, type SetOwner } from './domain/registry/set-owner.js';
 import { createRetireShip, type RetireShip } from './domain/registry/retire-ship.js';
 import { createReport, type Report } from './domain/registry/report.js';
+import { createSetStatement, type SetStatement } from './domain/registry/set-statement.js';
+import { createDiscover, type Discover } from './domain/registry/discover.js';
 import { createReportTurn, type ReportTurn } from './domain/registry/report-turn.js';
 import { createRequestCrew, type RequestCrew } from './domain/registry/request-crew.js';
 import { createRemoveCrewRequest, type RemoveCrewRequest } from './domain/registry/remove-crew-request.js';
@@ -146,6 +148,8 @@ export interface UseCases {
   claimShip: ClaimShip;
   whoami: Whoami;
   report: Report;
+  setStatement: SetStatement;
+  discover: Discover;
   reportTurn: ReportTurn;
   requestCrew: RequestCrew;
   removeCrewRequest: RemoveCrewRequest;
@@ -310,6 +314,8 @@ export function createUseCases(options: {
     claimShip: createClaimShip({ uow, clock, ids, secrets }),
     whoami: createWhoami({ ships: createPrismaShipRepository(prisma) }),
     report: createReport({ uow, clock, ids }),
+    setStatement: createSetStatement({ uow, clock, ids }),
+    discover: createDiscover({ uow, clock }),
     reportTurn: createReportTurn({ uow, clock, ids }),
     requestCrew: createRequestCrew({ uow, clock, ids }),
     removeCrewRequest: createRemoveCrewRequest({ uow, clock, ids }),

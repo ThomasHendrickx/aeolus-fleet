@@ -13,6 +13,7 @@ import {
   locationKindSchema,
   scopeSchema,
   shipKindSchema,
+  statementSchema,
   type FleetId,
   type LeaseId,
   type ShipId,
@@ -28,6 +29,7 @@ import type { OperatorAccount } from '../../domain/identity/operator-account.js'
 import type { Delivery, Message } from '../../domain/messaging/message.js';
 import type { PushedCrew, WaitingDelivery } from '../../domain/messaging/overdue.js';
 import type { ShipReport } from '../../domain/registry/ship-report.js';
+import type { StatedStatement } from '../../domain/registry/statement.js';
 import type { Turn } from '../../domain/registry/turn.js';
 import type { ClearRequest } from '../../domain/registry/clear-request.js';
 import type { CrewRequest } from '../../domain/registry/crew-request.js';
@@ -190,6 +192,14 @@ export function toShipReport(row: unknown): ShipReport | null {
   return report_state && reported_at
     ? { state: report_state, note: report_note, reportedAt: reported_at, details: report_details, detailsVersion: report_details_version ?? 0 }
     : null;
+}
+
+const statementSqlRow = z.object({ statement: statementSchema.nullable(), statement_version: z.int() });
+
+/** A lease's statement columns as raw SQL reads them; null until its crew states one. */
+export function toStatedStatement(row: unknown): StatedStatement | null {
+  const { statement, statement_version } = statementSqlRow.parse(row);
+  return statement === null ? null : { statement, version: statement_version };
 }
 
 const turnSqlRow = z.object({ turn: turnStateSchema.nullable(), turn_at: z.date().nullable() });

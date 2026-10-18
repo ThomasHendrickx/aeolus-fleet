@@ -185,6 +185,10 @@ model Lease {
   reportDetails        Json?        @map("report_details")
   /// Moves by one each time the details change; 0 before any.
   reportDetailsVersion Int          @default(0) @map("report_details_version")
+  /// The crew's statement: what its ship is and offers, at most 64 KB, its shape common's; null until it states one (decision 0047).
+  statement            Json?
+  /// Moves by one each time the statement changes; 0 before any.
+  statementVersion     Int          @default(0) @map("statement_version")
   /// From the lease's first push receive: the computer side takes its deliveries, and the agent's plain receive answers nothing (decision 0040).
   pushedAt             DateTime?    @map("pushed_at") @db.Timestamptz(3)
   /// The session's turn as its hooks last reported it, and when they saw it change; null until they report (decision 0040).

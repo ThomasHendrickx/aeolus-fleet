@@ -359,6 +359,12 @@ export function timelineSentence(entry: TimelineEntry, shipId: string): Timeline
         icon: 'reported',
       };
     }
+    case 'StatementSet':
+      return {
+        parts: [text(`Stated what it is and offers: ${String(entry.details.capabilities ?? '')} capabilities, version ${String(entry.details.version ?? '')}`)],
+        tone: 'ended',
+        icon: 'reported',
+      };
     case 'TurnReported': {
       const turn = stringDetail(entry, 'turn');
       return { parts: [text(turn === 'busy' ? 'Turn started: busy' : 'Turn ended: idle')], tone: turn === 'busy' ? 'active' : 'ended', icon: 'reported' };

@@ -59,6 +59,7 @@ import { noNetworkSettings, type NetworkSettings } from '../../src/domain/regist
 import type { ReachRefusal } from '../../src/domain/registry/reach-refusal.js';
 import type { Ship } from '../../src/domain/registry/ship.js';
 import type { ShipReport } from '../../src/domain/registry/ship-report.js';
+import type { StatedStatement } from '../../src/domain/registry/statement.js';
 import type { Turn } from '../../src/domain/registry/turn.js';
 import type { ClearRequest } from '../../src/domain/registry/clear-request.js';
 import type { CrewRequest } from '../../src/domain/registry/crew-request.js';
@@ -110,6 +111,7 @@ export interface InMemoryState {
   leaseSeen: { fleetId: FleetId; leaseId: Lease['id']; at: Date }[];
   /** Each lease's crew report: the report columns, apart from the Lease. */
   leaseReports: { fleetId: FleetId; leaseId: Lease['id']; report: ShipReport }[];
+  leaseStatements: { fleetId: FleetId; leaseId: Lease['id']; stated: StatedStatement }[];
   leaseTurns: { fleetId: FleetId; leaseId: Lease['id']; turn: Turn }[];
   crewRequests: CrewRequest[];
   /** The pending clear requests (decision 0032). */
@@ -264,6 +266,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     deliveryReads: [],
     leaseSeen: [],
     leaseReports: [],
+    leaseStatements: [],
     leaseTurns: [],
     crewRequests: [],
     clearRequests: [],
@@ -688,6 +691,29 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         }
         return Promise.resolve();
       },
+      findStatementForUpdate: (fleetId, leaseId) => {
+        const isOpen = state.leases.some((held) => held.fleetId === fleetId && held.id === leaseId && held.endedAt === null);
+        const held = state.leaseStatements.find((each) => each.fleetId === fleetId && each.leaseId === leaseId);
+        return Promise.resolve(isOpen ? { stated: held ? structuredClone(held.stated) : null } : undefined);
+      },
+      saveStatement: ({ fleetId, leaseId, stated }) => {
+        const held = state.leaseStatements.find((each) => each.fleetId === fleetId && each.leaseId === leaseId);
+        if (held) {
+          held.stated = structuredClone(stated);
+        } else {
+          state.leaseStatements.push({ fleetId, leaseId, stated: structuredClone(stated) });
+        }
+        return Promise.resolve();
+      },
+      listOpenStatements: (fleetId) =>
+        Promise.resolve(
+          state.leases
+            .filter((held) => held.fleetId === fleetId && held.endedAt === null)
+            .map((lease) => {
+              const held = state.leaseStatements.find((each) => each.leaseId === lease.id);
+              return { shipId: lease.shipId, stated: held ? structuredClone(held.stated) : null };
+            }),
+        ),
       findTurnForUpdate: (fleetId, leaseId) => {
         const isOpen = state.leases.some((held) => held.fleetId === fleetId && held.id === leaseId && held.endedAt === null);
         const held = state.leaseTurns.find((each) => each.fleetId === fleetId && each.leaseId === leaseId);
@@ -1783,6 +1809,7 @@ const FLEET_TABLES = [
   'leaseSeen',
   'pushedLeases',
   'leaseReports',
+  'leaseStatements',
   'leaseTurns',
   'crewRequests',
   'clearRequests',
@@ -1813,6 +1840,7 @@ const TABLES = [
   'leaseSeen',
   'pushedLeases',
   'leaseReports',
+  'leaseStatements',
   'leaseTurns',
   'crewRequests',
   'clearRequests',
