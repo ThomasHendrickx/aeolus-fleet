@@ -39,6 +39,8 @@ export interface ConnectCalls {
   ships(): Promise<{ id: string; name: string; type: string; status: ShipStatus }[]>;
   commission(ship: { name: string; type: string; scopes: Scope[]; idempotencyKey: string }): Promise<{ shipId: string; secret: string | null }>;
   release(shipId: string): Promise<void>;
+  /** argo connects the ship as a plugin in the fleet: it reads every ship until a release or retire ends it (decision 0034). */
+  connectAsPlugin(shipId: string): Promise<void>;
   startingPrompt(shipId: string): Promise<{ secret: string }>;
 }
 
@@ -53,7 +55,10 @@ export class ConnectPluginError extends Error {
  * the plugin's name and type, else a new one with the plugin's scopes. A
  * crewed one is released first (its session is gone: the plugin holds no
  * token), and an existing one gets a new starting prompt, so a connect that
- * failed halfway is finished by the next one.
+ * failed halfway is finished by the next one. argo then connects the ship as
+ * a plugin in the fleet, after the release that would end it, and before the
+ * plugin gets the secret, so it reads every ship from its first call
+ * (decision 0034).
  */
 export async function connectPlugin(calls: ConnectCalls, at: { ship: PluginShip; newKey: () => string }): Promise<PluginConnection> {
   const { ship: wanted, newKey } = at;
@@ -82,5 +87,6 @@ export async function connectPlugin(calls: ConnectCalls, at: { ship: PluginShip;
     shipId = commissioned.shipId;
     secret = commissioned.secret ?? (await calls.startingPrompt(commissioned.shipId)).secret;
   }
+  await calls.connectAsPlugin(shipId);
   return calls.connect({ shipId, secret });
 }

@@ -50,6 +50,7 @@ import type { ListFleet } from '../../domain/registry/list-fleet.js';
 import type { RecrewShip } from '../../domain/registry/recrew-ship.js';
 import type { ReleaseShip } from '../../domain/registry/release-ship.js';
 import type { SetOwner } from '../../domain/registry/set-owner.js';
+import type { ConnectPlugin } from '../../domain/registry/connect-plugin.js';
 import type { RenameShip } from '../../domain/registry/rename-ship.js';
 import type { RetireShip } from '../../domain/registry/retire-ship.js';
 import type { Report } from '../../domain/registry/report.js';
@@ -122,6 +123,7 @@ export interface UseCases {
   retireShip: RetireShip;
   renameShip: RenameShip;
   setOwner: SetOwner;
+  connectPlugin: ConnectPlugin;
   recrewShip: RecrewShip;
   listFleet: ListFleet;
   getShip: GetShip;

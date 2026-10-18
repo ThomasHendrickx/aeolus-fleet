@@ -10,11 +10,13 @@ import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { endLease, type LeaseTx } from './leases.js';
 import { keepingReachRefusal, type NotReachable } from './check-reach.js';
 import { checkManagedOrAssigned, type ManagedOrAssignedTx } from './managed-or-assigned.js';
-import type { CrewRequestRepository, ShipRepository } from './ports.js';
+import { endPluginConnection } from './plugin-connection.js';
+import type { CrewRequestRepository, PluginConnectionRepository, ShipRepository } from './ports.js';
 import { checkCanRelease, type ReleaseRefusal } from './ship.js';
 
 export interface ReleaseShipTx extends LeaseTx, CredentialTx, Omit<ManagedOrAssignedTx, 'ships' | 'leases' | 'crewRequests'> {
   ships: ShipRepository;
+  pluginConnections: PluginConnectionRepository;
   crewRequests: Pick<CrewRequestRepository, 'find'>;
 }
 
@@ -30,7 +32,8 @@ export type ReleaseShip = (
  * session crewing it loses it, and the ship awaits a new crew (ADR 0010). In
  * one unit of work: the secret is invalidated, the lease ends and with it the
  * crew token, and the deliveries the lease held in flight return to pending,
- * their attempts kept. The next crew needs a new starting prompt. The caller's
+ * their attempts kept, and a plugin connection of the ship ends (decision
+ * 0034). The next crew needs a new starting prompt. The caller's
  * scope (fleet:manage or crew:run) is checked before this runs;
  * crew:run reaches only the ships whose crew requests are assigned to the
  * caller's ship, and fleet:manage the ships in its manage reach (decision
@@ -66,6 +69,7 @@ export function createReleaseShip(deps: {
         return lease;
       }
       await endLease({ tx, ids: deps.ids }, { fleetId, leaseId: lease.value.id, actor, at, reason: 'released' });
+      await endPluginConnection({ tx, ids: deps.ids }, { fleetId, shipId, why: 'released', at, actor });
       return ok(undefined);
     });
 }

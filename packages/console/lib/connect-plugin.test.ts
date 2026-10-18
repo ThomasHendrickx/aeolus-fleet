@@ -51,6 +51,10 @@ function fakes(start: { ships?: FleetShip[]; connection?: PluginConnection } = {
       state.done.push(`release ${shipId}`);
       return Promise.resolve();
     },
+    connectAsPlugin: (shipId) => {
+      state.done.push(`connect as plugin ${shipId}${state.handedOver.length > 0 ? ' after handing over' : ''}`);
+      return Promise.resolve();
+    },
     startingPrompt: (shipId) => {
       const ship = state.ships.find((each) => each.id === shipId);
       if (!ship) {
@@ -88,8 +92,20 @@ describe('connecting squadrons from the console', () => {
 
     await expect(connectPlugin(calls, { ship: SQUADRONS_SHIP, newKey })).resolves.toMatchObject({ isEnabled: true, state: 'connected', ship: { name: 'squadrons' } });
 
-    expect(state.done).toEqual(['commission squadrons']);
+    expect(state.done).toEqual(['commission squadrons', 'connect as plugin shp_1']);
     expect(state.handedOver).toEqual([{ shipId: 'shp_1', secret: 'aeolus_sk_v1_1' }]);
+  });
+
+  it('connects the ship as a plugin in the fleet before handing its secret over, after any release, so it reads every ship from its first call (decision 0034)', async () => {
+    const { state, calls } = fakes({
+      ships: [{ id: 'shp_7', name: 'squadrons', type: 'squadrons', status: 'crewed', secret: null }],
+      connection: { isEnabled: true, state: 'not-connected', ship: null, lastShipId: 'shp_7' },
+    });
+
+    await connectPlugin(calls, { ship: SQUADRONS_SHIP, newKey });
+
+    expect(state.done.filter((step) => step.startsWith('connect as plugin'))).toEqual(['connect as plugin shp_7']);
+    expect(state.done.indexOf('connect as plugin shp_7')).toBeGreaterThan(state.done.indexOf('release shp_7'));
   });
 
   it('does nothing while squadrons is connected', async () => {
@@ -107,14 +123,14 @@ describe('connecting squadrons from the console', () => {
     });
 
     await expect(connectPlugin(calls, { ship: SQUADRONS_SHIP, newKey })).resolves.toMatchObject({ isEnabled: true, state: 'connected', lastShipId: 'shp_7' });
-    expect(state.done).toEqual(['release shp_7', 'new prompt shp_7']);
+    expect(state.done).toEqual(['release shp_7', 'new prompt shp_7', 'connect as plugin shp_7']);
   });
 
   it('gives an active squadrons ship awaiting crew a new starting prompt: a connect that failed halfway is finished', async () => {
     const { state, calls } = fakes({ ships: [{ id: 'shp_3', name: 'squadrons', type: 'squadrons', status: 'awaitingCrew', secret: 'lost' }] });
 
     await expect(connectPlugin(calls, { ship: SQUADRONS_SHIP, newKey })).resolves.toMatchObject({ isEnabled: true, state: 'connected' });
-    expect(state.done).toEqual(['new prompt shp_3']);
+    expect(state.done).toEqual(['new prompt shp_3', 'connect as plugin shp_3']);
   });
 
   it('commissions a new one when the last one was retired', async () => {
@@ -125,7 +141,7 @@ describe('connecting squadrons from the console', () => {
 
     await connectPlugin(calls, { ship: SQUADRONS_SHIP, newKey });
 
-    expect(state.done).toEqual(['commission squadrons']);
+    expect(state.done).toEqual(['commission squadrons', 'connect as plugin shp_1']);
   });
 
   it('is refused when a ship named squadrons has another type, and changes nothing', async () => {
@@ -150,7 +166,7 @@ describe('connecting the trierarch plugin from the console', () => {
 
     await expect(connectPlugin(calls, { ship: TRIERARCH_PLUGIN_SHIP, newKey })).resolves.toMatchObject({ state: 'connected', ship: { name: 'trierarch-plugin' } });
 
-    expect(state.done).toEqual(['commission trierarch-plugin']);
+    expect(state.done).toEqual(['commission trierarch-plugin', 'connect as plugin shp_1']);
     expect(state.scopes).toEqual([['fleet:read', 'fleet:commission', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign']]);
   });
 
@@ -167,7 +183,7 @@ describe('connecting the networking plugin from the console', () => {
 
     await expect(connectPlugin(calls, { ship: NETWORKING_PLUGIN_SHIP, newKey })).resolves.toMatchObject({ state: 'connected', ship: { name: 'networking-plugin' } });
 
-    expect(state.done).toEqual(['commission networking-plugin']);
+    expect(state.done).toEqual(['commission networking-plugin', 'connect as plugin shp_1']);
     expect(state.scopes).toEqual([['fleet:read', 'fleet:network']]);
   });
 });

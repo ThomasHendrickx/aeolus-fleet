@@ -230,6 +230,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_reach_refusal_asked_by$/),
       expect.stringMatching(/^\d{14}_on_behalf_scope$/),
       expect.stringMatching(/^\d{14}_events_fleet_id_occurred_at$/),
+      expect.stringMatching(/^\d{14}_plugin_connections$/),
     ]);
   });
 });
@@ -354,10 +355,11 @@ describe('the fleet procedures at the API', () => {
   it('refuse every fleet procedure but its own to a ship with only crew:run', async () => {
     const crewToken = await crewedShip(['messages:send', 'messages:receive', 'crew:run']);
     const others = Object.entries(appRouter.fleet).filter(([name]) => !['ship', 'getStartingPrompt', 'release', 'reportCrewStatus', 'confirmCrewRelease', 'giveBackCrewRequest', 'assignedCrewRequests', 'clearRequests', 'confirmWorktreeCleared'].includes(name));
-    // argo's inbox takes the message scopes every agent ship holds, and setOwner no scope: each refuses any ship but argo once its input parses.
+    // argo's inbox takes the message scopes every agent ship holds, and setOwner and connectPlugin no scope: each refuses any ship but argo once its input parses.
     const deliveryId = newId('delivery');
     const inputs: Record<string, unknown> = {
       setOwner: { shipId: newId('ship'), ownerShipId: newId('ship') },
+      connectPlugin: { shipId: newId('ship') },
       markRead: { deliveryId, isRead: true },
       markDone: { deliveryId },
       reply: { deliveryId, payload: 'hi', idempotencyKey: newKey() },
@@ -1606,6 +1608,25 @@ describe('rename at the API', () => {
     await expect(codeOf(asArgo.fleet.rename.mutate({ shipId: argoId, name: 'helm' }))).resolves.toBe('FORBIDDEN');
     await expect(codeOf(asArgo.fleet.rename.mutate({ shipId, name: taken }))).resolves.toBe('CONFLICT');
     await expect(codeOf(reader.fleet.rename.mutate({ shipId, name: 'any' }))).resolves.toBe('FORBIDDEN');
+  });
+});
+
+describe('connecting a plugin at the API (decision 0034)', () => {
+  it('lets argo connect a ship as a plugin, again with no change', async () => {
+    const asArgo = await signedInArgo();
+    const { shipId } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), name: `plugin-${newId('ship').slice(-6)}`, type: 'squadrons' });
+
+    await expect(asArgo.fleet.connectPlugin.mutate({ shipId })).resolves.toEqual({});
+    await expect(asArgo.fleet.connectPlugin.mutate({ shipId })).resolves.toEqual({});
+  });
+
+  it("refuses any ship but argo, and argo's own ship as a plugin", async () => {
+    const asArgo = await signedInArgo();
+    const { shipId } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), name: `plugin-${newId('ship').slice(-6)}`, type: 'squadrons' });
+    const manager = client({ authorization: `Bearer ${await crewedShip(['fleet:read', 'fleet:manage'])}` });
+
+    await expect(codeOf(manager.fleet.connectPlugin.mutate({ shipId }))).resolves.toBe('FORBIDDEN');
+    await expect(codeOf(asArgo.fleet.connectPlugin.mutate({ shipId: argoId }))).resolves.toBe('BAD_REQUEST');
   });
 });
 

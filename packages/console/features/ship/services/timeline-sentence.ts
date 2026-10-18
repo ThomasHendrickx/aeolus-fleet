@@ -273,6 +273,10 @@ export function timelineSentence(entry: TimelineEntry, shipId: string): Timeline
       const changes = [...(granted === '' ? [] : [`granted ${granted}`]), ...(revoked === '' ? [] : [`revoked ${revoked}`])];
       return { parts: [text(`Scopes changed: ${changes.join(', ')}`), ...by(entry.actor)], tone: 'ended', icon: 'fleet' };
     }
+    case 'PluginConnected':
+      return { parts: [text('Connected as a plugin: reads every ship'), ...by(entry.actor)], tone: 'ended', icon: 'fleet' };
+    case 'PluginDisconnected':
+      return { parts: [text(`No longer a connected plugin: ${stringDetail(entry, 'why') ?? ''}`), ...by(entry.actor)], tone: 'ended', icon: 'fleet' };
     case 'NetworkPluginRegistered':
       return {
         parts: [text(`Networking plugin registered: while unavailable ${stringDetail(entry, 'whileUnavailable') ?? ''}, version ${String(entry.details.version ?? '')}`), ...by(entry.actor)],

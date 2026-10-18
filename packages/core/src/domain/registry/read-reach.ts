@@ -7,7 +7,7 @@ import type { Recipient } from '../shared/selector.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { rulesInForceAt, type CheckReachTx } from './check-reach.js';
 import { allowsReach, type ReachingShip } from './network-settings.js';
-import type { ShipRepository } from './ports.js';
+import type { PluginConnectionRepository, ShipRepository } from './ports.js';
 import type { Ship } from './ship.js';
 
 /**
@@ -21,6 +21,7 @@ export type ReadReach = { kind: 'every' } | { kind: 'some'; shipIds: ReadonlySet
 export interface ReadReachTx {
   networkSettings: CheckReachTx['networkSettings'];
   ships: Pick<ShipRepository, 'find' | 'list'>;
+  pluginConnections: Pick<PluginConnectionRepository, 'find'>;
   labels: Pick<CheckReachTx['labels'], 'carriedBy'>;
   leases: CheckReachTx['leases'];
 }
@@ -41,7 +42,8 @@ const EVERY: ReadReach = { kind: 'every' };
  * force, what the networking plugin declared while it does not respond, the
  * built-in rules, read rules only. A ship always reads itself. argo reads
  * every ship, as does every ship while open is on for read and the viewer
- * while its reading is on; otherwise each ship of the fleet, retired ones
+ * while its reading is on; a connected plugin reads every ship by its
+ * built-in rule; otherwise each ship of the fleet, retired ones
  * too, is read when a rule lets the caller read it.
  */
 export function createReadReachOf(deps: { uow: UnitOfWork<ReadReachTx>; clock: Clock }): ReadReachOf {
@@ -58,6 +60,9 @@ export function createReadReachOf(deps: { uow: UnitOfWork<ReadReachTx>; clock: C
       }
       const readerShip = await tx.ships.find(fleetId, caller.shipId);
       const reader = readerShip && (await reachingOf(tx, readerShip));
+      if (reader && (reader.isConnectedPlugin || reader.id === inForce.networkPluginShipId)) {
+        return ok(EVERY);
+      }
       const read: Ship[] = [];
       for (const ship of await tx.ships.list(fleetId)) {
         if (ship.id === caller.shipId || (reader && allowsReach(inForce, { verb: 'read', sender: reader, recipient: await reachingOf(tx, ship), isAnswerToSender: false }))) {
@@ -75,9 +80,10 @@ export function createReadReachOf(deps: { uow: UnitOfWork<ReadReachTx>; clock: C
   };
 }
 
-async function reachingOf(tx: Pick<ReadReachTx, 'labels'>, ship: Ship): Promise<ReachingShip> {
+async function reachingOf(tx: Pick<ReadReachTx, 'labels' | 'pluginConnections'>, ship: Ship): Promise<ReachingShip> {
   const labels = (await tx.labels.carriedBy(ship.fleetId, ship.id)).map(({ labelId, valueId }) => ({ labelId, valueId }));
-  return { id: ship.id, owner: ship.owner, kind: ship.kind, labels };
+  const isConnectedPlugin = (await tx.pluginConnections.find(ship.fleetId, ship.id)) !== undefined;
+  return { id: ship.id, owner: ship.owner, kind: ship.kind, isConnectedPlugin, labels };
 }
 
 export function readsShip(reach: ReadReach, shipId: ShipId): boolean {

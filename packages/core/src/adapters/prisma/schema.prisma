@@ -54,6 +54,7 @@ model Fleet {
   networkSettings  NetworkSettings?
   declaredNetworkRules DeclaredNetworkRules[]
   scopeNamespaces  ScopeNamespace[]
+  pluginConnections PluginConnection[]
   reachRefusals    ReachRefusal[]
   credentials      Credential[]
   messages         Message[]
@@ -122,6 +123,7 @@ model Ship {
   labels            ShipLabel[]      @relation("ShipLabelShip")
   declaredNetworkRules DeclaredNetworkRules[]
   declaredNamespace ScopeNamespace?
+  pluginConnection  PluginConnection?
 
   @@unique([fleetId, id])
   /// An idempotency key is used once per commissioning ship.
@@ -413,6 +415,20 @@ model ScopeNamespace {
   @@id([fleetId, namespace])
   @@unique([fleetId, declaredBy])
   @@map("scope_namespaces")
+}
+
+/// A plugin argo connected (decision 0034): its ship reads every ship of the
+/// fleet, whatever the rules, until a release or a retire of the ship ends it.
+model PluginConnection {
+  fleetId     String   @map("fleet_id")
+  shipId      String   @map("ship_id")
+  connectedAt DateTime @map("connected_at") @db.Timestamptz(3)
+
+  fleet Fleet @relation(fields: [fleetId], references: [id])
+  ship  Ship  @relation(fields: [fleetId, shipId], references: [fleetId, id])
+
+  @@id([fleetId, shipId])
+  @@map("plugin_connections")
 }
 
 /// A send the network rules refused (decision 0034), recorded in the

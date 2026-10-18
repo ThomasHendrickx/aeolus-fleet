@@ -76,6 +76,7 @@ import { createRecrewShip, type RecrewShip } from './domain/registry/recrew-ship
 import { createReleaseShip, type ReleaseShip } from './domain/registry/release-ship.js';
 import { createRenameShip, type RenameShip } from './domain/registry/rename-ship.js';
 import { createSetOwner, type SetOwner } from './domain/registry/set-owner.js';
+import { createConnectPlugin, type ConnectPlugin } from './domain/registry/connect-plugin.js';
 import { createRetireShip, type RetireShip } from './domain/registry/retire-ship.js';
 import { createReport, type Report } from './domain/registry/report.js';
 import { createSetStatement, type SetStatement } from './domain/registry/set-statement.js';
@@ -147,6 +148,7 @@ export interface UseCases {
   retireShip: RetireShip;
   renameShip: RenameShip;
   setOwner: SetOwner;
+  connectPlugin: ConnectPlugin;
   recrewShip: RecrewShip;
   listFleet: ListFleet;
   getShip: GetShip;
@@ -317,6 +319,7 @@ export function createUseCases(options: {
     retireShip: createRetireShip({ uow: bulkUow, clock, ids }),
     renameShip: createRenameShip({ uow, clock, ids }),
     setOwner: createSetOwner({ uow, clock, ids }),
+    connectPlugin: createConnectPlugin({ uow, clock, ids }),
     recrewShip: createRecrewShip({ uow, clock, ids, secrets }),
     listFleet: createListFleet({ listing: createPrismaFleetListing(prisma), readReach }),
     getShip: createGetShip({ listing: createPrismaFleetListing(prisma), readReach }),

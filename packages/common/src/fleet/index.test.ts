@@ -133,6 +133,8 @@ describe('eventTypeSchema', () => {
       'BuiltInRuleChanged',
       'ScopesDeclared',
       'ScopesChanged',
+      'PluginConnected',
+      'PluginDisconnected',
     ]);
   });
 });

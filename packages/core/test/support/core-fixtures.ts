@@ -74,6 +74,7 @@ import { createReadReachOf } from '../../src/domain/registry/read-reach.js';
 import { createRecrewShip } from '../../src/domain/registry/recrew-ship.js';
 import { createReleaseShip } from '../../src/domain/registry/release-ship.js';
 import { createSetOwner } from '../../src/domain/registry/set-owner.js';
+import { createConnectPlugin } from '../../src/domain/registry/connect-plugin.js';
 import { createRenameShip } from '../../src/domain/registry/rename-ship.js';
 import { createRetireShip } from '../../src/domain/registry/retire-ship.js';
 import { createReport } from '../../src/domain/registry/report.js';
@@ -212,6 +213,7 @@ export function registryUseCases(core: InMemoryCore) {
     findLabelValue: createFindLabelValue({ listing: core.listing }),
     renameShip: createRenameShip(deps),
     setOwner: createSetOwner(deps),
+    connectPlugin: createConnectPlugin(deps),
     recrewShip: createRecrewShip(deps),
     claimShip: createClaimShip(deps),
     deregister: createDeregister(deps),

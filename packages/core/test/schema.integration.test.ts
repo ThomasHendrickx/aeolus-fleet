@@ -118,6 +118,7 @@ describe('migrations', () => {
       'notices',
       'operators',
       'overdue_deliveries',
+      'plugin_connections',
       'reach_refusals',
       'scope_namespaces',
       'ship_labels',
@@ -614,6 +615,48 @@ describe('the on-behalf scope migration', () => {
         expect(event.id > earlier).toBe(true);
       }
       await expect(client.fleet.findUnique({ where: { id: fleetId }, select: { lastEventSeq: true } })).resolves.toEqual({ lastEventSeq: 3n });
+    } finally {
+      await client.$disconnect();
+    }
+  });
+});
+
+describe('the plugin connections migration', () => {
+  const MIGRATIONS = fileURLToPath(new URL('../src/adapters/prisma/migrations', import.meta.url));
+  const connections = readdirSync(MIGRATIONS).find((name) => name.endsWith('_plugin_connections'));
+
+  it('connects every active ship the console connects a plugin as, by name and type, with PluginConnected by the system, and no other ship (decision 0034)', async () => {
+    const url = await createMigratedDatabase();
+    const client = createPrismaClient(url);
+    const fleetId = newId('fleet');
+    const ids = { squadrons: newId('ship'), trierarchPlugin: newId('ship'), networking: newId('ship'), ofSquadronsType: newId('ship'), retired: newId('ship'), scout: newId('ship') };
+    const earlier = newId('event');
+    try {
+      // The migrated database has the table already: the migration makes it again, as on a database before it.
+      await client.$executeRawUnsafe('DROP TABLE "plugin_connections"');
+      await client.fleet.create({ data: { id: fleetId, name: 'old fleet', createdAt: now, lastEventSeq: 1n } });
+      await client.ship.createMany({
+        data: [
+          { id: ids.squadrons, fleetId, name: 'squadrons', type: 'squadrons', kind: 'agent', scopes: ['fleet:read'], createdAt: now },
+          { id: ids.trierarchPlugin, fleetId, name: 'trierarch-plugin', type: 'trierarch-plugin', kind: 'agent', scopes: ['fleet:read'], createdAt: now },
+          { id: ids.networking, fleetId, name: 'networking-plugin', type: 'networking-plugin', kind: 'agent', scopes: ['fleet:read'], createdAt: now },
+          { id: ids.ofSquadronsType, fleetId, name: 'formation', type: 'squadrons', kind: 'agent', scopes: [], createdAt: now },
+          { id: ids.retired, fleetId, name: 'old-squadrons', type: 'squadrons', kind: 'agent', scopes: [], createdAt: now, retiredAt: now },
+          { id: ids.scout, fleetId, name: 'scout', type: 'reviewer', kind: 'agent', scopes: [], createdAt: now },
+        ],
+      });
+      await client.event.create({ data: { id: earlier, fleetId, type: 'ShipCommissioned', occurredAt: now, shipId: ids.scout, details: {}, seq: 1n } });
+
+      await executeSqlFile(url, `${MIGRATIONS}/${connections ?? 'missing'}/migration.sql`);
+
+      const connected = await client.pluginConnection.findMany({ where: { fleetId }, select: { shipId: true } });
+      expect(connected.map(({ shipId }) => shipId).toSorted()).toEqual([ids.squadrons, ids.trierarchPlugin, ids.networking].toSorted());
+      const recorded = await client.event.findMany({ where: { fleetId, id: { not: earlier } }, orderBy: { seq: 'asc' } });
+      expect(recorded.map(({ shipId }) => shipId).toSorted()).toEqual([ids.squadrons, ids.trierarchPlugin, ids.networking].toSorted());
+      for (const [at, event] of recorded.entries()) {
+        expect(event).toMatchObject({ type: 'PluginConnected', actorShipId: null, details: {}, seq: BigInt(at + 2) });
+        expect(idSchema('event').safeParse(event.id).success).toBe(true);
+      }
     } finally {
       await client.$disconnect();
     }

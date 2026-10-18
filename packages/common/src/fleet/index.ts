@@ -206,6 +206,8 @@ export const EVENT_TYPES = [
   'BuiltInRuleChanged',
   'ScopesDeclared',
   'ScopesChanged',
+  'PluginConnected',
+  'PluginDisconnected',
 ] as const;
 export const eventTypeSchema = z.enum(EVENT_TYPES);
 export type EventType = z.infer<typeof eventTypeSchema>;

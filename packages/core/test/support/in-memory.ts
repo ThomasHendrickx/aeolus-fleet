@@ -49,6 +49,7 @@ import type {
   CrewRequestRepository,
   LabelRepository,
   DeclaredNetworkRulesRepository,
+  PluginConnectionRepository,
   ScopeNamespaceRepository,
   NetworkSettingsRepository,
   ReachRefusalRepository,
@@ -56,6 +57,7 @@ import type {
 } from '../../src/domain/registry/ports.js';
 import type { Label, ShipLabel } from '../../src/domain/registry/label.js';
 import type { DeclaredNetworkRules } from '../../src/domain/registry/declared-network-rules.js';
+import type { PluginConnection } from '../../src/domain/registry/plugin-connection.js';
 import type { ScopeNamespace } from '../../src/domain/registry/scope-namespace.js';
 import { noNetworkSettings, type NetworkSettings } from '../../src/domain/registry/network-settings.js';
 import type { ReachRefusal } from '../../src/domain/registry/reach-refusal.js';
@@ -128,6 +130,8 @@ export interface InMemoryState {
   declaredNetworkRules: DeclaredNetworkRules[];
   /** The plugin namespaces, one per declaring ship (decision 0046). */
   scopeNamespaces: ScopeNamespace[];
+  /** The plugins argo connected, one per ship (decision 0034). */
+  pluginConnections: PluginConnection[];
   /** The records of the sends the network rules refused, oldest first. */
   reachRefusals: ReachRefusal[];
   /** When the recipient read each delivery it read: the read_at column, apart from the Delivery's state. */
@@ -155,6 +159,7 @@ export interface InMemoryTx {
   networkSettings: NetworkSettingsRepository;
   declaredNetworkRules: DeclaredNetworkRulesRepository;
   scopeNamespaces: ScopeNamespaceRepository;
+  pluginConnections: PluginConnectionRepository;
   reachRefusals: ReachRefusalRepository;
   inFlightDeliveries: InFlightDeliveries;
   credentials: CredentialRepository;
@@ -282,6 +287,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     networkSettings: [],
     declaredNetworkRules: [],
     scopeNamespaces: [],
+    pluginConnections: [],
     reachRefusals: [],
     events: [],
     overdueDeliveries: [],
@@ -603,6 +609,17 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       },
       remove: (fleetId, namespace) => {
         state.scopeNamespaces.splice(0, state.scopeNamespaces.length, ...state.scopeNamespaces.filter((held) => held.fleetId !== fleetId || held.namespace !== namespace));
+        return Promise.resolve();
+      },
+    },
+    pluginConnections: {
+      find: (fleetId, shipId) => Promise.resolve(state.pluginConnections.find((held) => held.fleetId === fleetId && held.shipId === shipId)),
+      connect: (connection) => {
+        state.pluginConnections.push({ ...connection });
+        return Promise.resolve();
+      },
+      disconnect: (fleetId, shipId) => {
+        state.pluginConnections.splice(0, state.pluginConnections.length, ...state.pluginConnections.filter((held) => held.fleetId !== fleetId || held.shipId !== shipId));
         return Promise.resolve();
       },
     },
@@ -1815,6 +1832,7 @@ const FLEET_TABLES = [
   'networkSettings',
   'declaredNetworkRules',
   'scopeNamespaces',
+  'pluginConnections',
   'reachRefusals',
   'events',
   'overdueDeliveries',
@@ -1847,6 +1865,7 @@ const TABLES = [
   'networkSettings',
   'declaredNetworkRules',
   'scopeNamespaces',
+  'pluginConnections',
   'reachRefusals',
   'events',
   'overdueDeliveries',

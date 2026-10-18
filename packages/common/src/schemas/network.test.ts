@@ -118,10 +118,10 @@ describe('setNetworkRulesInputSchema', () => {
 });
 
 describe('the built-in rules (decision 0034)', () => {
-  it('are argo, the owner, the answer, the viewer reading and open, the first three never off', () => {
+  it("are argo, the owner, the answer, a connected plugin's reading, the viewer reading and open, the first four never off", () => {
     expect([BUILT_IN_RULES, FIXED_BUILT_IN_RULES]).toEqual([
-      ['argo', 'owner', 'answer', 'viewerRead', 'open'],
-      ['argo', 'owner', 'answer'],
+      ['argo', 'owner', 'answer', 'pluginRead', 'viewerRead', 'open'],
+      ['argo', 'owner', 'answer', 'pluginRead'],
     ]);
   });
 });
@@ -131,7 +131,7 @@ describe('setBuiltInRuleInputSchema', () => {
     expect(setBuiltInRuleInputSchema.parse({ rule: 'open', verb, isOn: false })).toEqual({ rule: 'open', verb, isOn: false });
   });
 
-  it.each(['argo', 'owner', 'answer', 'viewerRead'])('takes every other built-in rule without a verb, the server refusing the fixed ones: %s', (rule) => {
+  it.each(['argo', 'owner', 'answer', 'pluginRead', 'viewerRead'])('takes every other built-in rule without a verb, the server refusing the fixed ones: %s', (rule) => {
     expect(setBuiltInRuleInputSchema.parse({ rule, isOn: true })).toEqual({ rule, isOn: true });
   });
 

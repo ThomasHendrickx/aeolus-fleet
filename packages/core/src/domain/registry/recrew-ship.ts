@@ -9,6 +9,7 @@ import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { endLease, type LeaseTx } from './leases.js';
 import { checkManage, keepingReachRefusal, type CheckManageTx, type NotReachable } from './check-reach.js';
+import { endPluginConnection } from './plugin-connection.js';
 import type { ShipRepository } from './ports.js';
 import type { ReleaseShipTx } from './release-ship.js';
 import { checkCanRelease, type ReleaseRefusal } from './ship.js';
@@ -57,6 +58,7 @@ export function createRecrewShip(deps: {
         return lease;
       }
       await endLease({ tx, ids: deps.ids }, { fleetId, leaseId: lease.value.id, actor, at, reason: 'released' });
+      await endPluginConnection({ tx, ids: deps.ids }, { fleetId, shipId: ship.id, why: 'released', at, actor });
       return ok(
         await issueStartingPrompt(
           { tx, secrets: { ...deps.secrets, ids: deps.ids } },

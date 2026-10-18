@@ -6,7 +6,7 @@ import type { UnitOfWork } from '../shared/unit-of-work.js';
 import type { Recipient } from '../shared/selector.js';
 import type { CarriedLabel } from './label.js';
 import { allowsReach, isNetworkPluginResponding, rulesInForce, type NetworkSettings, type ReachingShip, type RulesInForce } from './network-settings.js';
-import type { LabelRepository, LeaseRepository, NetworkSettingsRepository, ReachRefusalRepository, ShipRepository } from './ports.js';
+import type { LabelRepository, LeaseRepository, NetworkSettingsRepository, PluginConnectionRepository, ReachRefusalRepository, ShipRepository } from './ports.js';
 import type { RefusedShip } from './reach-refusal.js';
 import type { Ship } from './ship.js';
 
@@ -14,6 +14,7 @@ import type { Ship } from './ship.js';
 export interface CheckReachTx {
   networkSettings: Pick<NetworkSettingsRepository, 'findForShare'>;
   ships: Pick<ShipRepository, 'find' | 'listActiveOfType'>;
+  pluginConnections: Pick<PluginConnectionRepository, 'find'>;
   labels: Pick<LabelRepository, 'carriedBy' | 'find'>;
   reachRefusals: ReachRefusalRepository;
   leases: Pick<LeaseRepository, 'findLastSeen'>;
@@ -220,10 +221,15 @@ export interface ShipAsItIs {
   labels: CarriedLabel[];
   /** Its owner's ship by id and name, none for argo and the viewer (decision 0045). */
   owner: { id: ShipId; name: string } | null;
+  /** Whether argo connected it as a plugin (decision 0034). */
+  isConnectedPlugin: boolean;
 }
 
 /** The ship with the label values it carries now, by key then value, with their texts, and its owner. */
-export async function shipAsItIs(tx: { labels: CheckReachTx['labels']; ships: Pick<ShipRepository, 'find'> }, ship: Ship): Promise<ShipAsItIs> {
+export async function shipAsItIs(
+  tx: { labels: CheckReachTx['labels']; ships: Pick<ShipRepository, 'find'>; pluginConnections: CheckReachTx['pluginConnections'] },
+  ship: Ship,
+): Promise<ShipAsItIs> {
   const labels: CarriedLabel[] = [];
   for (const carried of await tx.labels.carriedBy(ship.fleetId, ship.id)) {
     const label = await tx.labels.find(ship.fleetId, carried.labelId);
@@ -234,11 +240,12 @@ export async function shipAsItIs(tx: { labels: CheckReachTx['labels']; ships: Pi
   }
   labels.sort((first, second) => first.key.localeCompare(second.key) || first.value.localeCompare(second.value));
   const owner = ship.owner === null ? undefined : await tx.ships.find(ship.fleetId, ship.owner);
-  return { ship, labels, owner: owner ? { id: owner.id, name: owner.name } : null };
+  const isConnectedPlugin = (await tx.pluginConnections.find(ship.fleetId, ship.id)) !== undefined;
+  return { ship, labels, owner: owner ? { id: owner.id, name: owner.name } : null, isConnectedPlugin };
 }
 
-export function reaching({ ship, labels }: ShipAsItIs): ReachingShip {
-  return { id: ship.id, owner: ship.owner, kind: ship.kind, labels: labels.map(({ labelId, valueId }) => ({ labelId, valueId })) };
+export function reaching({ ship, labels, isConnectedPlugin }: ShipAsItIs): ReachingShip {
+  return { id: ship.id, owner: ship.owner, kind: ship.kind, isConnectedPlugin, labels: labels.map(({ labelId, valueId }) => ({ labelId, valueId })) };
 }
 
 function refused({ ship, labels, owner }: ShipAsItIs): RefusedShip {
