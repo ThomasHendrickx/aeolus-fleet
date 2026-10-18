@@ -13,7 +13,7 @@ import { FLEET_URL, OPERATOR, operatorCaller, secretOf, SESSION_MODEL } from './
 import { createMigratedDatabase } from './support/database.js';
 import { newKey } from './support/keys.js';
 import { createTestClock } from './support/postgres-core.js';
-import { unwrap } from './support/result.js';
+import { refusalOf, unwrap } from './support/result.js';
 
 // Read reach from HTTP to Postgres and back (decision 0034): reader, with
 // fleet:read, and near carry team a; far carries team b; the networking
@@ -28,7 +28,7 @@ let address: string;
 let useCases: UseCases;
 let argo: Caller;
 let reader: TRPCClient<AppRouter>;
-let ids: { reader: ShipId; near: ShipId; far: ShipId; trierarch: ShipId };
+let ids: { reader: ShipId; near: ShipId; far: ShipId; trierarch: ShipId; networking: ShipId };
 let teamB: LabelValueId;
 let farToNear: MessageId;
 let farToArgo: MessageId;
@@ -77,7 +77,7 @@ beforeAll(async () => {
   const ghost = await crewed({ name: 'ghost', type: 'ghost' });
   const trierarch = await crewed({ name: 'mac-mini', type: 'trierarch', fleetScopes: ['crew:run'] });
   const networking = await crewed({ name: 'networking', type: 'networking', fleetScopes: ['fleet:network'] });
-  ids = { reader: readerShip.shipId, near: near.shipId, far: far.shipId, trierarch: trierarch.shipId };
+  ids = { reader: readerShip.shipId, near: near.shipId, far: far.shipId, trierarch: trierarch.shipId, networking: networking.shipId };
   reader = client(readerShip.crewToken);
 
   const team = unwrap(await useCases.defineLabel(labeller.caller, { key: 'team', values: ['a', 'b'] }));
@@ -164,6 +164,17 @@ describe('the fleet:read procedures for a ship outside read reach (decision 0034
 
     const refusals = unwrap(await useCases.readReachRefusals(argo)).filter((refusal) => refusal.verb === 'read');
     expect([code, refusals.map(({ sender, recipient }) => [sender.id, recipient.kind === 'ship' ? recipient.ship.id : recipient.type])]).toEqual(['FORBIDDEN', [[ids.reader, ids.far]]]);
+  });
+
+  it('keeps a refused read on behalf with the plugin that asked beside the named ship, and a ship\'s own refused read with none', async () => {
+    const onBehalf: Caller = { fleetId: argo.fleetId, shipId: ids.reader, kind: 'agent', scopes: ['fleet:read'], askedBy: ids.networking };
+    refusalOf(await useCases.readShipWay(onBehalf, { shipId: ids.far }));
+
+    const refusals = unwrap(await useCases.readReachRefusals(argo)).filter((refusal) => refusal.verb === 'read');
+    expect(refusals.map(({ sender, askedBy }) => [sender.id, askedBy && [askedBy.id, askedBy.name]])).toEqual([
+      [ids.reader, [ids.networking, 'networking']],
+      [ids.reader, null],
+    ]);
   });
 
   it('fleet.noShipCanTake and fleet.health count only the deliveries whose message it reads', async () => {
