@@ -20,27 +20,42 @@ command="${1:-}"
 
 case "$command" in
   write)
-    usage="usage: aeolus-identity.sh write [--wake-by trierarch] <fleetUrl> <shipId> <shipName> [<squadronId>], the crew token on stdin"
+    usage="usage: aeolus-identity.sh write [--wake-by trierarch [--socket <path>]] <fleetUrl> <shipId> <shipName> [<squadronId>], the crew token on stdin unless a socket is given"
     wake_by=""
-    if [ "${2:-}" = --wake-by ]; then
-      [ "${3:-}" = trierarch ] || { echo "$usage" >&2; exit 2; }
-      wake_by=trierarch
-      set -- "$1" "${@:4}"
-    fi
-    { [ "$#" -eq 4 ] || [ "$#" -eq 5 ]; } || { echo "$usage" >&2; exit 2; }
+    socket=""
+    shift
+    while [ "$#" -gt 0 ]; do
+      case "$1" in
+        --wake-by) [ "${2:-}" = trierarch ] || { echo "$usage" >&2; exit 2; }; wake_by=trierarch; shift 2 ;;
+        --socket) [ -n "${2:-}" ] || { echo "$usage" >&2; exit 2; }; socket="$2"; shift 2 ;;
+        *) break ;;
+      esac
+    done
+    # Only a trierarch's folder calls over a socket: the trierarch adds the crew token (decision 0026).
+    [ -z "$socket" ] || [ "$wake_by" = trierarch ] || { echo "$usage" >&2; exit 2; }
+    { [ "$#" -eq 3 ] || [ "$#" -eq 4 ]; } || { echo "$usage" >&2; exit 2; }
     token=""
-    IFS= read -r token || true
-    [ -n "$token" ] || { echo "$usage" >&2; exit 2; }
+    if [ -z "$socket" ]; then
+      IFS= read -r token || true
+      [ -n "$token" ] || { echo "$usage" >&2; exit 2; }
+    fi
     folder="$(aeolus_folder)"
     mkdir -p "$(dirname "$file")"
     umask 077
-    printf 'fleetUrl=%s\nshipId=%s\nshipName=%s\ncrewToken=%s\nfolder=%s\n' "${2%/}" "$3" "$4" "$token" "$folder" > "$file.tmp"
+    printf 'fleetUrl=%s\nshipId=%s\nshipName=%s\n' "${1%/}" "$2" "$3" > "$file.tmp"
+    # A folder whose calls go over its trierarch's socket holds no crew token; any other keeps its own.
+    if [ -n "$socket" ]; then
+      printf 'socket=%s\n' "$socket" >> "$file.tmp"
+    else
+      printf 'crewToken=%s\n' "$token" >> "$file.tmp"
+    fi
+    printf 'folder=%s\n' "$folder" >> "$file.tmp"
     # A squadron member keeps its squadron: it checks in at the flagship of that name.
-    [ "$#" -eq 5 ] && printf 'squadron=%s\n' "$5" >> "$file.tmp"
+    [ "$#" -eq 4 ] && printf 'squadron=%s\n' "$4" >> "$file.tmp"
     # A trierarch's session: the trierarch wakes it, so the plugin asks for no watcher.
     [ -n "$wake_by" ] && printf 'wakeBy=%s\n' "$wake_by" >> "$file.tmp"
     mv "$file.tmp" "$file"
-    echo "aeolus: this folder now crews ${4} (${3}); identity file ${file}"
+    echo "aeolus: this folder now crews ${3} (${2}); identity file ${file}"
     ;;
   check-in)
     # The interval the flagship's role message gives, so the plugin can remind the member to report.
