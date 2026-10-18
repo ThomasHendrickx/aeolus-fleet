@@ -1667,63 +1667,6 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
           .map(({ entry }) => entry),
       );
     },
-    overdue: (fleetId) =>
-      Promise.resolve(
-        state.overdueDeliveries
-          .filter((told) => {
-            const delivery = state.deliveries.find((held) => held.fleetId === fleetId && held.id === told.deliveryId);
-            const lease = state.leases.find((held) => held.fleetId === fleetId && held.id === told.leaseId);
-            return (
-              told.fleetId === fleetId &&
-              lease?.endedAt === null &&
-              delivery?.state === told.state &&
-              (told.state === 'pending' || delivery.claimedByLeaseId === told.leaseId)
-            );
-          })
-          .toSorted((first, second) => first.at.getTime() - second.at.getTime())
-          .map((told) => {
-            const delivery = state.deliveries.find((held) => held.fleetId === fleetId && held.id === told.deliveryId);
-            const message = delivery && messageOf(fleetId, delivery.messageId);
-            if (!message) {
-              throw new Error(`Overdue ${told.deliveryId} without its message`);
-            }
-            const { id, sender, recipient, inReplyTo, sentAt, contentType, model, payload } = historyMessageOf(message);
-            return {
-              deliveryId: told.deliveryId,
-              ship: partyOf(fleetId, told.shipId),
-              state: told.state,
-              clock: told.clock,
-              minutes: told.minutes,
-              toldAt: told.at,
-              message: { id, sender, recipient, inReplyTo, sentAt, contentType, model, payload },
-            };
-          }),
-      ),
-    noShipCanTake: (fleetId) =>
-      Promise.resolve(
-        state.deliveries
-          .filter((delivery) => delivery.fleetId === fleetId && delivery.state === 'pending')
-          .flatMap((delivery) => {
-            const { recipient } = delivery;
-            if (recipient.kind !== 'type') {
-              return [];
-            }
-            const canTake = state.ships.some(
-              (held) =>
-                held.fleetId === fleetId &&
-                held.type === recipient.type &&
-                held.retiredAt === null &&
-                (delivery.reachableShipIds === undefined || delivery.reachableShipIds.length === 0 || delivery.reachableShipIds.includes(held.id)),
-            );
-            const message = messageOf(fleetId, delivery.messageId);
-            if (canTake || !message) {
-              return [];
-            }
-            const { id, sender, recipient: addressed, inReplyTo, sentAt, contentType, model, payload } = historyMessageOf(message);
-            return [{ deliveryId: delivery.id, type: recipient.type, message: { id, sender, recipient: addressed, inReplyTo, sentAt, contentType, model, payload } }];
-          })
-          .toSorted((first, second) => first.message.sentAt.getTime() - second.message.sentAt.getTime() || first.deliveryId.localeCompare(second.deliveryId)),
-      ),
     shipWay: (fleetId, shipId) => {
       const crewed = ship(fleetId, shipId);
       if (!crewed) {

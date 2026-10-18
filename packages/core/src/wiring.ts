@@ -131,9 +131,7 @@ import { createReadInbox, type ReadInbox } from './domain/shared/read-inbox.js';
 import { createReadMessage, type ReadMessage } from './domain/shared/read-message.js';
 import { createReadShipWay, type ReadShipWay } from './domain/shared/read-ship-way.js';
 import { createReadNeedsAttention, type ReadNeedsAttention } from './domain/shared/read-needs-attention.js';
-import { createReadNoShipCanTake, type ReadNoShipCanTake } from './domain/shared/read-no-ship-can-take.js';
 import { createReadHealth, type ReadHealth } from './domain/shared/read-health.js';
-import { createReadOverdue, type ReadOverdue } from './domain/shared/read-overdue.js';
 import { createReadShipMessages, type ReadShipMessages } from './domain/shared/read-ship-messages.js';
 import { createReadShipTimeline, type ReadShipTimeline } from './domain/shared/read-ship-timeline.js';
 
@@ -213,8 +211,6 @@ export interface UseCases {
   readMessage: ReadMessage;
   readShipWay: ReadShipWay;
   readNeedsAttention: ReadNeedsAttention;
-  readOverdue: ReadOverdue;
-  readNoShipCanTake: ReadNoShipCanTake;
   readHealth: ReadHealth;
   readInbox: ReadInbox;
   signIn: SignIn;
@@ -400,8 +396,6 @@ export function createUseCases(options: {
     readMessage: createReadMessage({ history: createPrismaShipHistory(prisma), readReach }),
     readShipWay: createReadShipWay({ history: createPrismaShipHistory(prisma), uow, clock, ids }),
     readNeedsAttention: createReadNeedsAttention({ history: createPrismaShipHistory(prisma), readReach }),
-    readOverdue: createReadOverdue({ history: createPrismaShipHistory(prisma), readReach }),
-    readNoShipCanTake: createReadNoShipCanTake({ history: createPrismaShipHistory(prisma), readReach }),
     readHealth: createReadHealth({ health: createPrismaHealthRecords(prisma), clock, readReach }),
     readInbox: createReadInbox({ history: createPrismaShipHistory(prisma), ships: createPrismaShipRepository(prisma) }),
     signIn: createSignIn({

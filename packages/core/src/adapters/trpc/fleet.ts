@@ -14,9 +14,7 @@ import {
   messageInputSchema,
   messageOutputSchema,
   needsAttentionOutputSchema,
-  noShipCanTakeOutputSchema,
   healthOutputSchema,
-  overdueOutputSchema,
   operatorInboxInputSchema,
   operatorInboxOutputSchema,
   pingShipInputSchema,
@@ -810,24 +808,6 @@ export const fleetRouter = router({
         since: entry.since.toISOString(),
         message: { ...entry.message, sentAt: entry.message.sentAt.toISOString() },
       })),
-    ),
-
-  /** The overdue deliveries argo was told of by the 10 and 60 minute clocks, oldest told first, until each clears. */
-  overdue: scopedProcedure('fleet:read')
-    .output(overdueOutputSchema)
-    .query(async ({ ctx }) =>
-      (await ctx.useCases.readOverdue(ctx.caller)).map((entry) => ({
-        ...entry,
-        toldAt: entry.toldAt.toISOString(),
-        message: { ...entry.message, sentAt: entry.message.sentAt.toISOString() },
-      })),
-    ),
-
-  /** The pending deliveries to a type no active ship can take, oldest sent first, until a ship can take each. */
-  noShipCanTake: scopedProcedure('fleet:read')
-    .output(noShipCanTakeOutputSchema)
-    .query(async ({ ctx }) =>
-      (await ctx.useCases.readNoShipCanTake(ctx.caller)).map((entry) => ({ ...entry, message: { ...entry.message, sentAt: entry.message.sentAt.toISOString() } })),
     ),
 
   /** The fleet's health (decision 0042): its stuck deliveries by cause and place, the 7-day trend and the acknowledged in 24 hours. */

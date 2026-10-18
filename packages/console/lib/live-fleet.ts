@@ -145,12 +145,9 @@ export function useLiveFleet(): LiveFleet {
             reload(trpc.fleet.shipMessages.pathKey());
             // A delivery to a type waits for every ship of the type; an overdue one clears as its delivery moves on.
             reload(trpc.fleet.shipWay.pathKey());
-            reload(trpc.fleet.overdue.queryKey());
             reload(trpc.fleet.message.queryKey({ messageId: event.messageId }));
             reload(trpc.fleet.inbox.pathKey());
             reload(INBOX_KEY);
-            // A send to a type, or a ship taking one, changes what no ship can take.
-            reload(trpc.fleet.noShipCanTake.queryKey());
             // A delivery that moves, or a new one, changes what is stuck.
             reload(trpc.fleet.health.queryKey());
           }
@@ -170,8 +167,6 @@ export function useLiveFleet(): LiveFleet {
             return;
           }
           reloadSnapshot();
-          // A commission or a retire changes which types an active ship has.
-          reload(trpc.fleet.noShipCanTake.queryKey());
           // A commission, a crew or a release changes why a delivery waits.
           reload(trpc.fleet.health.queryKey());
           const { shipId } = event;
