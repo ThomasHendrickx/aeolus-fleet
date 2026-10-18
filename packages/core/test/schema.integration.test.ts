@@ -319,6 +319,16 @@ describe('the force scope migration', () => {
   });
 });
 
+/** The network settings as they were before rules became a list: none, SQL NULL, was all-to-all then. */
+async function withRulesThatMayBeNone(client: PrismaClient): Promise<void> {
+  await client.$executeRawUnsafe('ALTER TABLE "network_settings" ALTER COLUMN "rules" DROP NOT NULL, ALTER COLUMN "rules" DROP DEFAULT');
+}
+
+/** The fleets' rules as none, which the client no longer writes. */
+async function withNoRules(client: PrismaClient, fleetIds: FleetId[]): Promise<void> {
+  await client.$executeRaw`UPDATE "network_settings" SET "rules" = NULL WHERE "fleet_id" = ANY(${fleetIds})`;
+}
+
 describe('the rules only through a plugin migration', () => {
   const MIGRATIONS = fileURLToPath(new URL('../src/adapters/prisma/migrations', import.meta.url));
   const rulesThroughPlugin = readdirSync(MIGRATIONS).find((name) => name.endsWith('_network_rules_through_plugin'));
@@ -331,6 +341,7 @@ describe('the rules only through a plugin migration', () => {
     const pluginId = newId('ship');
     const rules = [{ from: [], to: [] }];
     try {
+      await withRulesThatMayBeNone(client);
       await client.fleet.createMany({ data: [withoutPlugin, withPlugin].map((id) => ({ id, name: 'old fleet', createdAt: now })) });
       await client.ship.create({ data: { id: pluginId, fleetId: withPlugin, name: 'networking', type: 'networking', kind: 'agent', scopes: ['fleet:network'], createdAt: now } });
       // Rules argo set before only a plugin could, and a plugin's own.
@@ -373,6 +384,7 @@ describe('the cleared rules on record migration', () => {
     const pluginId = newId('ship');
     const rulesSet = newId('event');
     const rules = [{ from: [], to: [] }];
+    await withRulesThatMayBeNone(client);
     await client.fleet.createMany({ data: [argoRules, pluginRules, unregistered].map((id) => ({ id, name: 'old fleet', createdAt: now, lastEventSeq: 1n })) });
     await client.ship.create({ data: { id: pluginId, fleetId: pluginRules, name: 'networking', type: 'networking', kind: 'agent', scopes: ['fleet:network'], createdAt: now } });
     await client.networkSettings.createMany({
@@ -389,6 +401,7 @@ describe('the cleared rules on record migration', () => {
         { id: newId('event'), fleetId: unregistered, type: 'NetworkPluginUnregistered', occurredAt: now, details: { version: 2 }, seq: 1n },
       ],
     });
+    await withNoRules(client, [unregistered]);
     await execute(url, rulesThroughPlugin);
     return { argoRules, pluginRules, unregistered, rulesSet };
   }
@@ -493,6 +506,7 @@ describe('the built-in rules migration', () => {
     const [withRules, pluginWithoutRules, withoutPlugin] = [newId('fleet'), newId('fleet'), newId('fleet')];
     const plugin = { pluginWhileUnavailable: 'keep-latest', pluginNotRespondingAfterSeconds: 300 };
     try {
+      await withRulesThatMayBeNone(client);
       await client.fleet.createMany({ data: [withRules, pluginWithoutRules, withoutPlugin].map((id) => ({ id, name: 'old fleet', createdAt: now })) });
       const pluginIds = [newId('ship'), newId('ship')];
       await client.ship.createMany({
@@ -505,6 +519,7 @@ describe('the built-in rules migration', () => {
           { fleetId: withoutPlugin, version: 2 },
         ],
       });
+      await withNoRules(client, [pluginWithoutRules, withoutPlugin]);
       await executeSqlFile(url, `${MIGRATIONS}/${builtInRules ?? 'missing'}/migration.sql`);
 
       const open = (isOn: boolean) => ({ builtInViewerRead: true, builtInOpenSend: isOn, builtInOpenRead: isOn, builtInOpenManage: isOn });
@@ -517,6 +532,33 @@ describe('the built-in rules migration', () => {
           { fleetId: withoutPlugin, ...open(true) },
         ]),
       );
+    } finally {
+      await client.$disconnect();
+    }
+  });
+});
+
+describe('the network rules a list migration', () => {
+  const MIGRATIONS = fileURLToPath(new URL('../src/adapters/prisma/migrations', import.meta.url));
+  const rulesAList = readdirSync(MIGRATIONS).find((name) => name.endsWith('_network_rules_a_list'));
+
+  it('makes none an empty list, as open says all-to-all now, and keeps every list', async () => {
+    const url = await createMigratedDatabase();
+    const client = createPrismaClient(url);
+    const [none, list] = [newId('fleet'), newId('fleet')];
+    const rules = [{ verb: 'send', from: [], to: [] }];
+    try {
+      await withRulesThatMayBeNone(client);
+      await client.fleet.createMany({ data: [none, list].map((id) => ({ id, name: 'old fleet', createdAt: now })) });
+      await client.networkSettings.createMany({ data: [{ fleetId: none, version: 2 }, { fleetId: list, rules, version: 3 }] });
+      await withNoRules(client, [none]);
+
+      await executeSqlFile(url, `${MIGRATIONS}/${rulesAList ?? 'missing'}/migration.sql`);
+
+      await expect(client.networkSettings.findMany({ select: { fleetId: true, rules: true, version: true }, orderBy: { version: 'asc' } })).resolves.toEqual([
+        { fleetId: none, rules: [], version: 2 },
+        { fleetId: list, rules, version: 3 },
+      ]);
     } finally {
       await client.$disconnect();
     }

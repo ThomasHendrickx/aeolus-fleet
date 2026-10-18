@@ -71,8 +71,8 @@ describe('setNetworkRulesInputSchema', () => {
     expect(setNetworkRulesInputSchema.parse({ rules })).toEqual({ rules });
   });
 
-  it('takes none for no rules: all-to-all', () => {
-    expect(setNetworkRulesInputSchema.parse({ rules: null })).toEqual({ rules: null });
+  it('refuses none: the rules are a list, and open says all-to-all (decision 0034)', () => {
+    expect(setNetworkRulesInputSchema.safeParse({ rules: null }).success).toBe(false);
   });
 
   it('takes a term that holds a label with any value, and one that holds it with the same value as the other side', () => {

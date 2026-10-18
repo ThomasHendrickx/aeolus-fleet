@@ -17,10 +17,10 @@ export const OTHER_FLEET_ID: FleetId = 'flt_01m3tb1zgr5h2ffee12xnch8zz';
  * ping until answered with pong, which only a ping takes.
  */
 export function fakePluginFleet() {
-  /** The fleet's networking plugin, what it declared, or none; its rules, none for all-to-all; and open per verb (decision 0034). */
-  const network: { plugin: NetworkPluginDeclaration | null; rules: readonly NetworkRule[] | null; open: Record<NetworkVerb, boolean> } = {
+  /** The fleet's networking plugin, what it declared, or none; its rules; and open per verb (decision 0034). */
+  const network: { plugin: NetworkPluginDeclaration | null; rules: readonly NetworkRule[]; open: Record<NetworkVerb, boolean> } = {
     plugin: null,
-    rules: null,
+    rules: [],
     open: { send: true, read: true, manage: true },
   };
   const state = {
@@ -118,7 +118,7 @@ export function fakePluginFleet() {
         return notThePlugin();
       }
       state.plugin = null;
-      state.rules = null;
+      state.rules = [];
       state.open = { send: true, read: true, manage: true };
       state.version += 1;
       return Promise.resolve(ok(undefined));
@@ -139,7 +139,7 @@ export function fakePluginFleet() {
         held.reached();
         await held.released;
       }
-      state.rules = rules?.map((rule) => ({ verb: rule.verb, from: [...rule.from], to: [...rule.to] })) ?? null;
+      state.rules = rules.map((rule) => ({ verb: rule.verb, from: [...rule.from], to: [...rule.to] }));
       state.version += 1;
       return ok(undefined);
     },

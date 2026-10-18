@@ -39,12 +39,12 @@ describe("saving argo's rules", () => {
     await expect(parts.networks.find(FLEET_ID)).resolves.toMatchObject({ rules });
   });
 
-  it('keeps none apart from an empty list: none is all-to-all, an empty list only the fixed exceptions', async () => {
+  it('keeps none apart from an empty list: none is all-to-all with open on, an empty list only the built-in rules that are never off', async () => {
     await saveRules({ fleetId: FLEET_ID, rules: [] });
-    expect(parts.fleet.state.rules).toEqual([]);
+    expect([parts.fleet.state.rules, parts.fleet.state.open]).toEqual([[], { send: false, read: false, manage: false }]);
 
     await saveRules({ fleetId: FLEET_ID, rules: null });
-    expect(parts.fleet.state.rules).toBeNull();
+    expect([parts.fleet.state.rules, parts.fleet.state.open]).toEqual([[], { send: true, read: true, manage: true }]);
   });
 
   it('keeps what argo declared for while the plugin is unavailable', async () => {

@@ -34,7 +34,7 @@ beforeEach(async () => {
 describe('unregistering the networking plugin', () => {
   it('leaves the fleet without a plugin and without rules, open on again for every verb, at the next version', async () => {
     expect(unwrap(await unregisterNetworkPlugin(plugin))).toEqual({ version: 4 });
-    expect(core.state.networkSettings).toEqual([{ fleetId, rules: null, builtIns: BUILT_INS_ON, version: 4, plugin: null }]);
+    expect(core.state.networkSettings).toEqual([{ fleetId, rules: [], builtIns: BUILT_INS_ON, version: 4, plugin: null }]);
   });
 
   it('writes NetworkPluginUnregistered, caused by the plugin, with the version', async () => {

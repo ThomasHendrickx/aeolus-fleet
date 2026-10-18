@@ -59,7 +59,7 @@ describe('switching the networking plugin on or off acts on the fleet at once (T
     await setEnabled({ requestId: 'r-off', fleetId: FLEET, isEnabled: false });
 
     expect(parts.fleet.state.plugin).toBeNull();
-    expect(parts.fleet.state.rules).toBeNull();
+    expect([parts.fleet.state.rules, parts.fleet.state.open]).toEqual([[], { send: true, read: true, manage: true }]);
   });
 
   it('switched on again, it registers with what argo declared and supplies the rules it kept', async () => {

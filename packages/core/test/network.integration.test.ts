@@ -100,10 +100,10 @@ describe('the network settings', () => {
   });
 
   it('keep none once cleared, at the next version', async () => {
-    unwrap(await core.useCases.setNetworkRules(networking, { rules: [] }));
+    unwrap(await core.useCases.setNetworkRules(networking, { rules: [{ verb: 'send', from: [shared], to: [] }] }));
 
-    expect(unwrap(await core.useCases.setNetworkRules(networking, { rules: null }))).toEqual({ version: 4 });
-    await expect(core.prisma.networkSettings.findMany({ select: { rules: true, version: true } })).resolves.toEqual([{ rules: null, version: 4 }]);
+    expect(unwrap(await core.useCases.setNetworkRules(networking, { rules: [] }))).toEqual({ version: 4 });
+    await expect(core.prisma.networkSettings.findMany({ select: { rules: true, version: true } })).resolves.toEqual([{ rules: [], version: 4 }]);
   });
 
   it('write NetworkRulesSet with the change, in the same transaction', async () => {
@@ -127,7 +127,7 @@ describe('the networking plugin (decision 0035)', () => {
     expect(unwrap(await core.useCases.registerNetworkPlugin(plugin, { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 300 }))).toEqual({ version: 1 });
 
     await expect(core.prisma.networkSettings.findMany({ select: { rules: true, version: true, pluginShipId: true, pluginWhileUnavailable: true, pluginNotRespondingAfterSeconds: true } })).resolves.toEqual([
-      { rules: null, version: 1, pluginShipId: plugin.shipId, pluginWhileUnavailable: 'keep-latest', pluginNotRespondingAfterSeconds: 300 },
+      { rules: [], version: 1, pluginShipId: plugin.shipId, pluginWhileUnavailable: 'keep-latest', pluginNotRespondingAfterSeconds: 300 },
     ]);
     await expect(core.prisma.event.count({ where: { type: 'NetworkPluginRegistered' } })).resolves.toBe(1);
   });
@@ -145,7 +145,7 @@ describe('the networking plugin (decision 0035)', () => {
 
     expect(unwrap(await core.useCases.unregisterNetworkPlugin(plugin))).toEqual({ version: 3 });
     await expect(core.prisma.networkSettings.findMany({ select: { rules: true, version: true, pluginShipId: true, pluginWhileUnavailable: true, pluginNotRespondingAfterSeconds: true } })).resolves.toEqual([
-      { rules: null, version: 3, pluginShipId: null, pluginWhileUnavailable: null, pluginNotRespondingAfterSeconds: null },
+      { rules: [], version: 3, pluginShipId: null, pluginWhileUnavailable: null, pluginNotRespondingAfterSeconds: null },
     ]);
     await expect(core.prisma.event.count({ where: { type: 'NetworkPluginUnregistered' } })).resolves.toBe(1);
   });
@@ -204,7 +204,7 @@ describe('the networking plugin (decision 0035)', () => {
 
     unwrap(await core.useCases.retireShip(argo, { shipId: plugin.shipId }));
 
-    await expect(core.prisma.networkSettings.findMany({ select: { rules: true, version: true, pluginShipId: true } })).resolves.toEqual([{ rules: null, version: 2, pluginShipId: null }]);
+    await expect(core.prisma.networkSettings.findMany({ select: { rules: true, version: true, pluginShipId: true } })).resolves.toEqual([{ rules: [], version: 2, pluginShipId: null }]);
   });
 });
 

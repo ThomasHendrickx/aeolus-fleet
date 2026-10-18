@@ -37,7 +37,7 @@ describe('supplying a fleet the networking plugin serves', () => {
 
     await expect(supplyFleet(FLEET_ID)).resolves.toEqual({ isOk: true, value: 'supplied' });
     expect(fleet.state.plugin).toEqual({ whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 300 });
-    expect(fleet.state.rules).toBeNull();
+    expect([fleet.state.rules, fleet.state.open]).toEqual([[], { send: true, read: true, manage: true }]);
     expect(fleet.state.open).toEqual({ send: true, read: true, manage: true });
   });
 
@@ -97,7 +97,7 @@ describe('supplying a fleet the networking plugin serves', () => {
 
     await supplyFleet(FLEET_ID);
 
-    expect(fleet.state.rules).toBeNull();
+    expect([fleet.state.rules, fleet.state.open]).toEqual([[], { send: true, read: true, manage: true }]);
   });
 
   it('supplies nothing to a fleet it is not connected to', async () => {
@@ -133,7 +133,7 @@ describe('supplying a fleet the networking plugin does not serve (switched off)'
   it('unregisters: no plugin and no rules, all-to-all, and keeps the rules it holds for when it is on again', async () => {
     await expect(supplyFleet(FLEET_ID)).resolves.toEqual({ isOk: true, value: 'unregistered' });
     expect(fleet.state.plugin).toBeNull();
-    expect(fleet.state.rules).toBeNull();
+    expect([fleet.state.rules, fleet.state.open]).toEqual([[], { send: true, read: true, manage: true }]);
     await expect(networks.find(FLEET_ID)).resolves.toMatchObject({ rules: [{ verb: 'send', from: [TEAM_A], to: [TEAM_B] }] });
   });
 

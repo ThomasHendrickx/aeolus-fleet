@@ -268,7 +268,7 @@ describe('the networking plugin retired (decision 0035)', () => {
   it('unregisters: no plugin and no rules, open on again, all-to-all, at the next version, with NetworkPluginUnregistered caused by the retirer', async () => {
     unwrap(await registry.retireShip(argo, { shipId: plugin.shipId }));
 
-    expect(core.state.networkSettings).toEqual([{ fleetId, rules: null, builtIns: BUILT_INS_ON, version: 4, plugin: null }]);
+    expect(core.state.networkSettings).toEqual([{ fleetId, rules: [], builtIns: BUILT_INS_ON, version: 4, plugin: null }]);
     expect(eventsOfType('NetworkPluginUnregistered')).toEqual([
       expect.objectContaining({ actor: { kind: 'ship', shipId: argo.shipId }, shipId: plugin.shipId, details: { version: 4 } }),
     ]);

@@ -31,9 +31,9 @@ function value(text: string): LabelValueId {
   return valueIdOf(core, { key: 'trust', value: text });
 }
 
-/** Sets the rules as the networking plugin does: open for send off while rules apply, on for none. */
+/** Sets the rules as the networking plugin does: open for send off while rules apply, on for none, all-to-all. */
 async function setRules(rules: NetworkRule[] | null): Promise<void> {
-  unwrap(await registry.setNetworkRules(networking, { rules }));
+  unwrap(await registry.setNetworkRules(networking, { rules: rules ?? [] }));
   unwrap(await registry.setBuiltInRule(networking, { rule: 'open', verb: 'send', isOn: rules === null }));
 }
 

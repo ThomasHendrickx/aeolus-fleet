@@ -138,10 +138,22 @@ async function redeem(ticket: string): Promise<string> {
 }
 
 /** The fleet's network settings as the server holds them: what the plugin supplied. */
+/** Open on for every verb: every ship reaches every ship (decision 0034). */
+const OPEN = { builtInOpenSend: true, builtInOpenRead: true, builtInOpenManage: true };
+
 async function settings() {
   return fleetDatabase.networkSettings.findUnique({
     where: { fleetId: argo.fleetId },
-    select: { rules: true, version: true, pluginShipId: true, pluginWhileUnavailable: true, pluginNotRespondingAfterSeconds: true },
+    select: {
+      rules: true,
+      version: true,
+      pluginShipId: true,
+      pluginWhileUnavailable: true,
+      pluginNotRespondingAfterSeconds: true,
+      builtInOpenSend: true,
+      builtInOpenRead: true,
+      builtInOpenManage: true,
+    },
   });
 }
 
@@ -157,15 +169,15 @@ describe('supplying the fleet (decision 0035)', () => {
   it("registers as the fleet's networking plugin on connect, declaring keep-latest after 300 seconds, with no rules: all-to-all", async () => {
     await connected();
 
-    await expect(settings()).resolves.toMatchObject({ rules: null, pluginShipId: shipId, pluginWhileUnavailable: 'keep-latest', pluginNotRespondingAfterSeconds: 300 });
+    await expect(settings()).resolves.toMatchObject({ rules: [], ...OPEN, pluginShipId: shipId, pluginWhileUnavailable: 'keep-latest', pluginNotRespondingAfterSeconds: 300 });
   });
 
-  it('supplies the rules argo saves to the fleet at once, and reads them back', async () => {
+  it('supplies the rules argo saves to the fleet at once, turning open off for every verb, and reads them back', async () => {
     const address = await connected();
 
     await expect(dataOf(await mutate(address, { procedure: 'network.setRules', cookie, body: { rules: RULES } }))).resolves.toEqual({ rules: RULES, supply: 'supplied' });
 
-    await expect(settings()).resolves.toMatchObject({ rules: RULES });
+    await expect(settings()).resolves.toMatchObject({ rules: RULES, builtInOpenSend: false, builtInOpenRead: false, builtInOpenManage: false });
     await expect(dataOf(await query(address, { procedure: 'network.get', cookie }))).resolves.toEqual({
       rules: RULES,
       declaration: { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 300 },
@@ -319,7 +331,7 @@ describe('the installation (decision 0021)', () => {
     expect((await mutate(address, { procedure: 'network.setRules', cookie, body: { rules } })).status).toBe(200);
 
     await installation(address, { procedure: 'installation.setEnabled', body: { requestId: newKey(), fleetId, enabled: false } });
-    await expect(settings()).resolves.toMatchObject({ rules: null, pluginShipId: null });
+    await expect(settings()).resolves.toMatchObject({ rules: [], ...OPEN, pluginShipId: null });
 
     await installation(address, { procedure: 'installation.setEnabled', body: { requestId: newKey(), fleetId, enabled: true } });
     await expect(settings()).resolves.toMatchObject({ rules, pluginShipId: shipId });
@@ -333,7 +345,7 @@ describe('the installation (decision 0021)', () => {
 
     expect((await installation(address, { procedure: 'installation.delete', body: { requestId: newKey(), fleetId } })).status).toBe(200);
 
-    await expect(settings()).resolves.toMatchObject({ rules: null, pluginShipId: null });
+    await expect(settings()).resolves.toMatchObject({ rules: [], ...OPEN, pluginShipId: null });
   });
 
   it("forgets the fleet's connection and switch when the fleet is deleted", async () => {

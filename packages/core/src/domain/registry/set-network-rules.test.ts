@@ -67,26 +67,26 @@ describe('setting the network rules as the networking plugin', () => {
     expect(core.state.networkSettings).toEqual([{ fleetId, rules, builtIns: BUILT_INS_ON, version: 3, plugin: plugin() }]);
   });
 
-  it('keeps an empty list as rules that allow only the fixed exceptions', async () => {
+  it('keeps an empty list as rules that allow only the built-in rules', async () => {
     unwrap(await setNetworkRules(setter, { rules: [] }));
 
     expect(core.state.networkSettings).toEqual([{ fleetId, rules: [], builtIns: BUILT_INS_ON, version: 2, plugin: plugin() }]);
   });
 
-  it('clears the rules with none, back to all-to-all, moving the version', async () => {
+  it('clears the rules with an empty list, leaving the built-in rules as they are, moving the version', async () => {
     unwrap(await setNetworkRules(setter, { rules: [aRule()] }));
 
-    expect(unwrap(await setNetworkRules(setter, { rules: null }))).toEqual({ version: 3 });
-    expect(core.state.networkSettings).toEqual([{ fleetId, rules: null, builtIns: BUILT_INS_ON, version: 3, plugin: plugin() }]);
+    expect(unwrap(await setNetworkRules(setter, { rules: [] }))).toEqual({ version: 3 });
+    expect(core.state.networkSettings).toEqual([{ fleetId, rules: [], builtIns: BUILT_INS_ON, version: 3, plugin: plugin() }]);
   });
 
   it('writes NetworkRulesSet, caused by the setting ship, with the version and how many rules', async () => {
     unwrap(await setNetworkRules(setter, { rules: [aRule(), aRule()] }));
-    unwrap(await setNetworkRules(setter, { rules: null }));
+    unwrap(await setNetworkRules(setter, { rules: [] }));
 
     expect(core.state.events).toEqual([
       expect.objectContaining({ type: 'NetworkRulesSet', occurredAt: core.clock.now(), actor: { kind: 'ship', shipId: setter.shipId }, details: { version: 2, rules: 2 } }),
-      expect.objectContaining({ type: 'NetworkRulesSet', occurredAt: core.clock.now(), actor: { kind: 'ship', shipId: setter.shipId }, details: { version: 3, rules: null } }),
+      expect.objectContaining({ type: 'NetworkRulesSet', occurredAt: core.clock.now(), actor: { kind: 'ship', shipId: setter.shipId }, details: { version: 3, rules: 0 } }),
     ]);
   });
 
@@ -102,7 +102,7 @@ describe('setting the network rules as the networking plugin', () => {
     const refused = await setNetworkRules(setter, { rules });
 
     expect(refusalOf(refused)).toEqual({ kind: 'INVALID_NETWORK_RULES', message: 'A fleet holds at most 200 network rules of argo\'s plus the 0 its ships declared (decision 0037)' });
-    expect(core.state.networkSettings).toEqual([expect.objectContaining({ rules: null, version: 1 })]);
+    expect(core.state.networkSettings).toEqual([expect.objectContaining({ rules: [], version: 1 })]);
     expect(core.state.events).toEqual([]);
   });
 
@@ -131,7 +131,7 @@ describe('setting the network rules as the networking plugin', () => {
     const refused = await setNetworkRules(setter, { rules: [aRule(1, SHIP_LABELS_MAX + 1)] });
 
     expect(refusalOf(refused)).toEqual({ kind: 'INVALID_NETWORK_RULES', message: 'A selector holds at most 20 terms, as a ship carries no more label values (decision 0034)' });
-    expect(core.state.networkSettings).toEqual([expect.objectContaining({ rules: null, version: 1 })]);
+    expect(core.state.networkSettings).toEqual([expect.objectContaining({ rules: [], version: 1 })]);
   });
 
   it('refuses a selector that holds an exact value twice', async () => {
@@ -140,7 +140,7 @@ describe('setting the network rules as the networking plugin', () => {
     const refused = await setNetworkRules(setter, { rules: [{ verb: 'send', from: [valueId, valueId], to: [] }] });
 
     expect(refusalOf(refused)).toEqual({ kind: 'INVALID_NETWORK_RULES', message: `A selector holds each term once: ${valueId} twice (decision 0034)` });
-    expect(core.state.networkSettings).toEqual([expect.objectContaining({ rules: null, version: 1 })]);
+    expect(core.state.networkSettings).toEqual([expect.objectContaining({ rules: [], version: 1 })]);
   });
 
   it('keeps terms of any value and of the same value, the latter on both sides', async () => {
@@ -165,7 +165,7 @@ describe('setting the network rules as the networking plugin', () => {
     const refused = await setNetworkRules(setter, { rules: [{ verb: 'send', from: [{ labelId, value: SAME_LABEL_VALUE }], to: [] }] });
 
     expect(refusalOf(refused)).toEqual({ kind: 'INVALID_NETWORK_RULES', message: `A term of the same value binds its label on both sides: ${labelId}=# is on one side only (decision 0034)` });
-    expect(core.state.networkSettings).toEqual([expect.objectContaining({ rules: null, version: 1 })]);
+    expect(core.state.networkSettings).toEqual([expect.objectContaining({ rules: [], version: 1 })]);
   });
 
   it('refuses a term of the same value on the receiving side only', async () => {
@@ -209,10 +209,10 @@ describe('setting the network rules as the networking plugin', () => {
     const elsewhere = await hostedFleet(core, 'other@example.com');
 
     unwrap(await setNetworkRules(setter, { rules: [aRule()] }));
-    const refused = await setNetworkRules({ shipId: elsewhere.operatorShipId, fleetId: elsewhere.fleetId, kind: 'operator', scopes: argo.scopes }, { rules: null });
+    const refused = await setNetworkRules({ shipId: elsewhere.operatorShipId, fleetId: elsewhere.fleetId, kind: 'operator', scopes: argo.scopes }, { rules: [] });
 
     expect(refusalOf(refused)).toMatchObject({ kind: 'NOT_THE_NETWORK_PLUGIN' });
-    expect(core.state.networkSettings.map((settings) => [settings.fleetId, settings.version, settings.rules?.length ?? null])).toEqual([[fleetId, 2, 1]]);
+    expect(core.state.networkSettings.map((settings) => [settings.fleetId, settings.version, settings.rules.length])).toEqual([[fleetId, 2, 1]]);
   });
 });
 
@@ -238,7 +238,7 @@ describe('setting the network rules as any ship but the networking plugin (decis
     const refused = await setNetworkRules(caller(), { rules: [aRule()] });
 
     expect(refusalOf(refused)).toEqual({ kind: 'NOT_THE_NETWORK_PLUGIN', message: "Only the fleet's networking plugin does this (decision 0035)" });
-    expect(core.state.networkSettings).toEqual([expect.objectContaining({ rules: null, version: 1 })]);
+    expect(core.state.networkSettings).toEqual([expect.objectContaining({ rules: [], version: 1 })]);
     expect(core.state.events).toEqual([]);
   });
 });
