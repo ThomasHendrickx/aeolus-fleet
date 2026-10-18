@@ -53,11 +53,12 @@ jobs:
           AEOLUS_TEST_USER_SYSTEMD: '1'
 
   trierarch-macos:
-    # The trierarch runs on macOS too, where Linux CI misses its regressions
-    # (#559). On pushes only: a macOS runner costs about 10 times the
+    # The trierarch and the aeolus plugin's scripts run on macOS too, where
+    # Linux CI misses their regressions: BSD awk and sed for the scripts
+    # (#559, #916). On pushes only: a macOS runner costs about 10 times the
     # minutes (#566). The unit layer only: the runner has no Docker for the
     # integration layer's Testcontainers.
-    name: Trierarch unit tests on macOS
+    name: Trierarch and plugin unit tests on macOS
     if: github.event_name == 'push'
     runs-on: macos-latest
     steps:
@@ -69,7 +70,7 @@ jobs:
       - run: npm ci
       # The trierarch's tmux adapter is tested against the real tmux.
       - run: command -v tmux || brew install tmux
-      - run: npx vitest run --project trierarch:unit
+      - run: npx vitest run --project trierarch:unit --project plugin:unit
 
   storybook:
     # The console's parts must keep building in Storybook.
