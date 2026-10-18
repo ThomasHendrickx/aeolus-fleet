@@ -402,6 +402,41 @@ describe('the trierarch plugin crew:run migration', () => {
       await client.$disconnect();
     }
   });
+
+  it('records ScopesChanged for each ship it changes, adding crew:run, by the system, at the next numbers of its fleet', async () => {
+    const url = await createMigratedDatabase();
+    const client = createPrismaClient(url);
+    const fleetId = newId('fleet');
+    const pluginId = newId('ship');
+    const secondId = newId('ship');
+    const heldId = newId('ship');
+    const earlier = newId('event');
+    const pluginScopes = ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'crew:assign', 'labels:define', 'labels:assign'];
+    try {
+      await client.fleet.create({ data: { id: fleetId, name: 'old fleet', createdAt: now, lastEventSeq: 1n } });
+      await client.ship.createMany({
+        data: [
+          { id: pluginId, fleetId, name: 'trierarch-plugin', type: 'trierarch-plugin', kind: 'agent', scopes: pluginScopes, createdAt: now },
+          { id: secondId, fleetId, name: 'second-plugin', type: 'trierarch-plugin', kind: 'agent', scopes: pluginScopes, createdAt: now },
+          { id: heldId, fleetId, name: 'held-plugin', type: 'trierarch-plugin', kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:run'], createdAt: now },
+        ],
+      });
+      await client.event.create({ data: { id: earlier, fleetId, type: 'ShipCommissioned', occurredAt: now, shipId: pluginId, details: {}, seq: 1n } });
+
+      await executeSqlFile(url, `${MIGRATIONS}/${crewRun ?? ''}/migration.sql`);
+
+      const recorded = await client.event.findMany({ where: { fleetId, id: { not: earlier } }, orderBy: { seq: 'asc' } });
+      expect(recorded.map(({ shipId }) => shipId).toSorted()).toEqual([pluginId, secondId].toSorted());
+      for (const [at, event] of recorded.entries()) {
+        expect(event).toMatchObject({ type: 'ScopesChanged', actorShipId: null, details: { added: 'crew:run', removed: '' }, seq: BigInt(at + 2) });
+        expect(idSchema('event').safeParse(event.id).success).toBe(true);
+        expect(event.id > earlier).toBe(true);
+      }
+      await expect(client.fleet.findUnique({ where: { id: fleetId }, select: { lastEventSeq: true } })).resolves.toEqual({ lastEventSeq: 3n });
+    } finally {
+      await client.$disconnect();
+    }
+  });
 });
 
 describe('the rules only through a plugin migration', () => {
