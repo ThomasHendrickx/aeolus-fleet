@@ -4,6 +4,7 @@ import { deliveryIdOf } from '../../../test/support/core-fixtures.js';
 import { historyScenario, type HistoryScenario } from '../../../test/support/history-scenario.js';
 import { unwrap } from '../../../test/support/result.js';
 import { PREVIEW_LENGTH } from './read-ship-messages.js';
+import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
 
 let scene: HistoryScenario;
 
@@ -95,5 +96,32 @@ describe("reading a ship's messages", () => {
       isOk: false,
       error: { kind: 'SHIP_NOT_FOUND' },
     });
+  });
+});
+
+describe("reading the messages of a ship outside read reach (decision 0034)", () => {
+  let fleet: ReadReachScenario;
+
+  beforeEach(async () => {
+    fleet = await readReachScenario();
+    await fleet.readRulesApply();
+  });
+
+  it('lists only the messages it reads through the other side', async () => {
+    const withNear = await fleet.send(fleet.far, { kind: 'ship', shipId: fleet.near.shipId });
+    await fleet.send(fleet.far, { kind: 'ship', shipId: fleet.argo.shipId });
+    await fleet.send(fleet.argo, { kind: 'type', type: 'keeper' });
+
+    const listed = unwrap(await fleet.history.readShipMessages(fleet.reader, { shipId: fleet.far.shipId }));
+
+    expect(listed.map((message) => message.id)).toEqual([withNear]);
+  });
+
+  it('lists every message of a ship within read reach', async () => {
+    const sent = [await fleet.send(fleet.near, { kind: 'ship', shipId: fleet.far.shipId }), await fleet.send(fleet.argo, { kind: 'ship', shipId: fleet.near.shipId })];
+
+    const listed = unwrap(await fleet.history.readShipMessages(fleet.reader, { shipId: fleet.near.shipId }));
+
+    expect(listed.map((message) => message.id)).toEqual(sent.toReversed());
   });
 });

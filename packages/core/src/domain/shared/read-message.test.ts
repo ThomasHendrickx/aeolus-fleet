@@ -6,8 +6,9 @@ import { crewOfToken, deliveryIdOf } from '../../../test/support/core-fixtures.j
 import { aCrewSettings, shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { historyScenario, type HistoryScenario } from '../../../test/support/history-scenario.js';
 import { newKey } from '../../../test/support/keys.js';
-import { unwrap } from '../../../test/support/result.js';
+import { refusalOf, unwrap } from '../../../test/support/result.js';
 import type { Caller, Crew } from './caller.js';
+import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
 
 let scene: HistoryScenario;
 
@@ -245,5 +246,29 @@ describe("reading a message's way through", () => {
     const { replies } = await read(messageId);
 
     expect(replies.map((reply) => reply.sender.name)).toEqual(['scout', 'lookout']);
+  });
+});
+
+describe('reading one message within read reach (decision 0034)', () => {
+  let fleet: ReadReachScenario;
+
+  beforeEach(async () => {
+    fleet = await readReachScenario();
+    await fleet.readRulesApply();
+  });
+
+  it('reads a message through its sender and one through its recipient', async () => {
+    const fromNear = await fleet.send(fleet.near, { kind: 'ship', shipId: fleet.far.shipId });
+    const toNear = await fleet.send(fleet.far, { kind: 'ship', shipId: fleet.near.shipId });
+
+    const read = [unwrap(await fleet.history.readMessage(fleet.reader, { messageId: fromNear })), unwrap(await fleet.history.readMessage(fleet.reader, { messageId: toNear }))];
+
+    expect(read.map((message) => message.id)).toEqual([fromNear, toNear]);
+  });
+
+  it('answers a message between ships outside its read reach as no message, so its existence does not show', async () => {
+    const messageId = await fleet.send(fleet.far, { kind: 'ship', shipId: fleet.argo.shipId });
+
+    expect(refusalOf(await fleet.history.readMessage(fleet.reader, { messageId }))).toEqual({ kind: 'MESSAGE_NOT_FOUND', message: `No message ${messageId} in this fleet` });
   });
 });
