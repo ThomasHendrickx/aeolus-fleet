@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { createServer as createNetServer, type Server as NetServer } from 'node:net';
+import { createServer as createNetServer, type Server as NetServer, type Socket } from 'node:net';
 import { join } from 'node:path';
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -8,7 +8,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { newId } from '../../test/support/in-memory.js';
 import { buildTestSessionImage, rootlessPodman } from '../../test/support/podman.js';
 import { sessionRuntimeContract } from '../../test/support/session-runtime-contract.js';
-import type { SessionRuntime } from '../core/ports.js';
+import { createCallerCheck } from './caller-check.js';
 import { createContainerRuntime, MODEL_TOKEN_VARIABLE } from './container.js';
 import { heldCommand } from './held-command.js';
 import { runCommand, type CommandResult } from './run-command.js';
@@ -31,7 +31,7 @@ describe('the session runtime contract, on rootless Podman', () => {
   let homes: string;
   /** Where the ships' sockets are kept, one folder per ship, as the trierarch keeps them. */
   let sockets: string;
-  let runtime: SessionRuntime;
+  let runtime: ReturnType<typeof createContainerRuntime>;
   /** The ships' sockets a test listens on, closed after it. */
   const listening: NetServer[] = [];
 
@@ -127,6 +127,26 @@ describe('the session runtime contract, on rootless Podman', () => {
 
     await expect.poll(async () => runtime.screen(scout), { timeout: 5000 }).toContain('own socket');
     expect(await runtime.screen(scout)).not.toContain('other socket');
+  });
+
+  it.runIf(process.platform === 'linux')("lets the socket's caller check find a process of the ship's own container, in the container's own namespaces, and only for that ship (decision 0026)", async () => {
+    const [scout, other] = [newId('ship'), newId('ship')];
+    mkdirSync(join(sockets, scout), { mode: 0o700 });
+    const connections: Socket[] = [];
+    const server = createNetServer((connection) => connections.push(connection));
+    await new Promise<void>((resolve) => server.listen(join(sockets, scout, 'fleet.sock'), resolve));
+    listening.push(server);
+
+    // The test image holds no fleet client: its tmux, pointed at the socket, connects as one would.
+    await runtime.start({ shipId: scout, folder, command: ['sh', '-c', `tmux -S ${join(sockets, scout, 'fleet.sock')} list-sessions; sleep 30`] });
+
+    await expect.poll(() => connections.length, { timeout: 10_000 }).toBeGreaterThan(0);
+    const [connection] = connections;
+    const mayCall = createCallerCheck({ platform: 'linux', sessionRootOf: (shipId) => runtime.sessionRootOf(shipId) });
+    expect({ own: connection && (await mayCall(scout, connection)), other: connection && (await mayCall(other, connection)) }).toEqual({ own: true, other: false });
+    for (const each of connections) {
+      each.destroy();
+    }
   });
 
   it("makes the ship's home when it has none yet, for its owner alone", async () => {
