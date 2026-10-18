@@ -1,47 +1,11 @@
-import { createServer } from 'node:http';
-
 import { describe, expect, it } from 'vitest';
 
+import { aFleetAnswering, BUSY } from '../../../test/support/fake-fleet.js';
 import { createRestFleetDoor } from './rest-fleet-door.js';
-
-/** The fleet's refusal while every pool connection is taken: nothing was stored (#542). */
-const BUSY = { status: 503, body: { code: 'SERVICE_UNAVAILABLE', message: 'The fleet is busy; nothing was stored. Make the same call again (for send, with the same idempotency key).' } };
 
 const MESSAGE_ID = 'msg_01m3tbfspe96yf1rnr4ank9h1d';
 const SHIP_ID = 'shp_01m3tbfspe96yf1rnr4ank9h1a';
 const FLEET_ID = 'flt_01m3tbfspe96yf1rnr4ank9h1c';
-
-/** One call a fleet received: its path and body, and when it came. */
-interface Asked {
-  url: string;
-  body: string;
-  at: number;
-}
-
-/** A fleet that answers each call with the next of `answers`, the last one again once they run out, and records each call. */
-async function aFleetAnswering(answers: readonly { status: number; body: unknown }[], run: (fleetUrl: string, asked: Asked[]) => Promise<void>): Promise<void> {
-  const asked: Asked[] = [];
-  const server = createServer((request, response) => {
-    let body = '';
-    request.on('data', (chunk: Buffer) => {
-      body += chunk.toString();
-    });
-    request.on('end', () => {
-      asked.push({ url: request.url ?? '', body, at: Date.now() });
-      const answer = answers[Math.min(asked.length, answers.length) - 1] ?? BUSY;
-      response.writeHead(answer.status, { 'content-type': 'application/json' }).end(JSON.stringify(answer.body));
-    });
-  });
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  const address = server.address();
-  const port = typeof address === 'object' && address !== null ? address.port : 0;
-  try {
-    await run(`http://127.0.0.1:${String(port)}`, asked);
-  } finally {
-    server.closeAllConnections();
-    server.close();
-  }
-}
 
 const whoami = { status: 200, body: { shipId: SHIP_ID, fleetId: FLEET_ID, name: 'squadrons', type: 'squadrons' } };
 
