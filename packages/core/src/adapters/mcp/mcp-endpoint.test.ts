@@ -322,6 +322,7 @@ describe('the ship tools at /mcp', () => {
     ['handed', [/isOnceMore/, /once more/i, /turn died/i]],
     ['handled', [/hooks/i, /not the agent/i, /acknowledged/i, /ended by itself/i, /again is fine/i, /pong/i]],
     ['notHandled', [/hooks/i, /not the agent/i, /once more/i, /died too/i, /Needs attention/, /again is fine/i]],
+    ['notHandled', [/handed and not confirmed/i, /unsafe to hand again/i, /reason/]],
     ['turn', [/hooks/i, /not the agent/i, /idle/, /busy/, /at/, /late/i]],
     ['ack', [/deliveryId/, /not its messageId/i, /again is fine/i]],
     ['pong', [/ping/i, /deliveryId/, /application\/vnd\.aeolus\.ping/, /do not act on it/i, /instead of ack/i]],

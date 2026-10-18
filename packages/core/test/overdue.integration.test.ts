@@ -149,6 +149,27 @@ describe('the clocks on Postgres', () => {
   });
 });
 
+describe('a person ship on Postgres', () => {
+  it('is never told overdue, its delivery handed and not opened for hours (interop 5.1)', async () => {
+    const { shipId, secret } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person' }));
+    const { crewToken } = unwrap(await useCases.claimShip({ shipId, secret: secretOf(secret), location: { kind: 'DEVICE' }, harness: 'claude-code' }));
+    const thomas = unwrap(await useCases.authenticate.byCrewToken(crewToken));
+    unwrap(
+      await useCases.sendMessage(argo, { selector: { kind: 'ship', shipId }, payload: 'Your go on the release?', contentType: 'text/plain', idempotencyKey: newKey() }),
+    );
+    const [received] = unwrap(await useCases.pushReceiveDeliveries(thomas, {})).deliveries;
+    if (!received) {
+      throw new Error('The push receive took nothing');
+    }
+    unwrap(await useCases.handOverDelivery(thomas, { deliveryId: received.deliveryId, handOverNumber: 1 }));
+
+    core.clock.advance(180 * MINUTE);
+    await useCases.tellOverdueDeliveries();
+
+    await expect(overdueEvents()).resolves.toEqual([]);
+  });
+});
+
 describe('a restart of core', () => {
   it('tells nothing again: what argo was told is kept in Postgres', async () => {
     await handed();

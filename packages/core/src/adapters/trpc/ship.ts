@@ -251,7 +251,8 @@ export const shipRouter = router({
       description: [
         'For the plugin hooks or the trierarch, not the agent: says the turn a confirmed message was handed once more to died too, so it is not handled.',
         'Pass its deliveryId (dlv_...). The operator sees it in Needs attention, to resend or dismiss. Again is fine.',
-        'A delivery never handed once more is refused.',
+        'A delivery never handed once more is refused, except one handed and not confirmed that you judged unsafe to hand again,',
+        'such as an outside call that may have run: report it with the reason, which is then required.',
       ].join(' '),
     })
     .input(notHandledInputSchema)

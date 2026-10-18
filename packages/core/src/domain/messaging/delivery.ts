@@ -235,8 +235,12 @@ export type TurnEnd = 'handled' | 'notHandled';
  * the reason the crew gave goes with the event (#847).
  * The same report again is harmless: OK, and nothing changes. A delivery not
  * acknowledged yet, or that ended the other way, is refused, so a ping not
- * answered with pong stays handed. Not handled needs the once more first.
- * Only the crew holding the delivery reports it.
+ * answered with pong stays handed. Not handled needs the once more first,
+ * except for a delivery handed and not confirmed whose crew gives the reason
+ * it judged it unsafe to hand again, such as an outside call that may have
+ * run (interop 5.2): handing it again would repeat it, and handing it
+ * until the fifth attempt is a blind retry. Only the crew holding the
+ * delivery reports it.
  */
 export function endTurn(
   delivery: Delivery,
@@ -258,13 +262,14 @@ export function endTurn(
       if (delivery.state === end) {
         return ok({ delivery, events: [] });
       }
-      if (delivery.state !== 'acknowledged') {
+      const isStoppedUnconfirmed = end === 'notHandled' && delivery.state === 'handed' && reason !== undefined;
+      if (delivery.state !== 'acknowledged' && !isStoppedUnconfirmed) {
         return refuse(
           'DELIVERY_NOT_ACKNOWLEDGED',
-          `Delivery ${delivery.id} is ${delivery.state}, not acknowledged: report how its turn ended once the agent confirmed it`,
+          `Delivery ${delivery.id} is ${delivery.state}, not acknowledged: report how its turn ended once the agent confirmed it, or report a handed one not handled with the reason it is unsafe to hand again`,
         );
       }
-      if (end === 'notHandled' && delivery.handedOnceMoreAt === null) {
+      if (end === 'notHandled' && !isStoppedUnconfirmed && delivery.handedOnceMoreAt === null) {
         return refuse(
           'DELIVERY_NOT_HANDED_ONCE_MORE',
           `Delivery ${delivery.id} was never handed once more: hand it once more after its turn died, and report it not handled only if that turn dies too`,

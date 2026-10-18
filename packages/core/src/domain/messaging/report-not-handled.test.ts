@@ -101,6 +101,9 @@ function eventsOf(type: string) {
   return core.state.events.filter((event) => event.type === type);
 }
 
+/** Why a crew stops a delivery it handed and that was not confirmed: the outside call may have run. */
+const UNSAFE = 'the call may have run; its answer was lost';
+
 const reportNotHandled = (deliveryId: DeliveryId) => useCases.reportNotHandled(scout, { deliveryId });
 
 describe('not handled', () => {
@@ -156,6 +159,35 @@ describe('not handled', () => {
   });
 });
 
+describe('not handled, for a delivery handed and not confirmed (interop 5.2)', () => {
+  it('moves it to not handled when its crew gives the reason it judged it unsafe to hand again, counting no attempt', async () => {
+    const deliveryId = await received();
+    unwrap(await handOver(deliveryId, 1));
+
+    await expect(useCases.reportNotHandled(scout, { deliveryId, reason: UNSAFE })).resolves.toEqual(ok(undefined));
+    expect(stored(deliveryId)).toMatchObject({ state: 'notHandled', claimedByShipId: scoutId, claimedByLeaseId: scout.leaseId, attempts: 1 });
+  });
+
+  it('writes DeliveryNotHandled with that reason', async () => {
+    const deliveryId = await received();
+    unwrap(await handOver(deliveryId, 1));
+    core.state.events.length = 0;
+
+    unwrap(await useCases.reportNotHandled(scout, { deliveryId, reason: UNSAFE }));
+
+    expect(eventsOf('DeliveryNotHandled').map((event) => event.details)).toEqual([{ leaseId: scout.leaseId, reason: UNSAFE }]);
+  });
+
+  it('takes one handed by a plain receive as well', async () => {
+    const deliveryId = await sendTo(toScout());
+    unwrap(await useCases.receiveDeliveries(scout, {}));
+
+    unwrap(await useCases.reportNotHandled(scout, { deliveryId, reason: UNSAFE }));
+
+    expect(stored(deliveryId)).toMatchObject({ state: 'notHandled' });
+  });
+});
+
 describe('not handled, refused', () => {
   it('refuses an acknowledged delivery never handed once more: not handled means its turn died twice', async () => {
     const deliveryId = await acknowledged();
@@ -175,11 +207,22 @@ describe('not handled, refused', () => {
     expect(stored(deliveryId)).toMatchObject({ state: 'handled' });
   });
 
-  it('refuses a handed delivery not acknowledged', async () => {
+  it('refuses a handed delivery not acknowledged without a reason: only a crew that judged it unsafe to hand again stops it there', async () => {
     const deliveryId = await received();
     unwrap(await handOver(deliveryId, 1));
 
     await expect(reportNotHandled(deliveryId)).resolves.toMatchObject({ isOk: false, error: { kind: 'DELIVERY_NOT_ACKNOWLEDGED' } });
+    expect(stored(deliveryId)).toMatchObject({ state: 'handed' });
+  });
+
+  it('refuses a received delivery never handed, even with a reason: handing it is safe', async () => {
+    const deliveryId = await received();
+
+    await expect(useCases.reportNotHandled(scout, { deliveryId, reason: UNSAFE })).resolves.toMatchObject({
+      isOk: false,
+      error: { kind: 'DELIVERY_NOT_ACKNOWLEDGED' },
+    });
+    expect(stored(deliveryId)).toMatchObject({ state: 'received' });
   });
 
   it('refuses a pending delivery: it is not in flight', async () => {

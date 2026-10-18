@@ -139,8 +139,9 @@ const REASON_MESSAGE = `A reason is one line of at most ${String(NOT_HANDLED_REA
 
 /**
  * Input of `ship.notHandled`: the delivery handed once more whose turn died
- * too, and why the crew's computer side judged so (#847), which Needs
- * attention shows with the entry.
+ * too, or handed and not confirmed and unsafe to hand again, and why the
+ * crew's computer side judged so (#847), which Needs attention shows with the
+ * entry. The use case requires the reason for one not confirmed.
  */
 export const notHandledInputSchema = z.object({
   deliveryId: idSchema('delivery'),

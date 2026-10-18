@@ -13,9 +13,10 @@ export function createPrismaPushedCrews(db: Db): PushedCrews {
   return {
     waiting: async (fleetId: FleetId) => {
       const leases = await db.$queryRaw<unknown[]>`
-        SELECT id AS lease_id, ship_id, pushed_at, turn::text AS turn, turn_at
-        FROM leases
-        WHERE fleet_id = ${fleetId} AND ended_at IS NULL AND pushed_at IS NOT NULL`;
+        SELECT l.id AS lease_id, l.ship_id, l.pushed_at, s.kind::text = 'person' AS is_person, l.turn::text AS turn, l.turn_at
+        FROM leases l
+        JOIN ships s ON s.fleet_id = l.fleet_id AND s.id = l.ship_id
+        WHERE l.fleet_id = ${fleetId} AND l.ended_at IS NULL AND l.pushed_at IS NOT NULL`;
       if (leases.length === 0) {
         return [];
       }

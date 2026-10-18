@@ -1791,6 +1791,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
             shipId: lease.shipId,
             leaseId: lease.id,
             pushedAt: pushed.at,
+            isPerson: crewShip.kind === 'person',
             turn: turn && { ...turn },
             waiting: state.deliveries.filter(isWaiting).map((delivery) => ({
               deliveryId: delivery.id,
