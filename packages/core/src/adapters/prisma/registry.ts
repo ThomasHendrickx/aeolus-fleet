@@ -325,6 +325,9 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
     rename: async ({ fleetId, shipId, name }) => {
       await db.ship.updateMany({ where: { fleetId, id: shipId }, data: { name } });
     },
+    setOwner: async ({ fleetId, shipId, ownerShipId }) => {
+      await db.ship.update({ where: { fleetId_id: { fleetId, id: shipId } }, data: { ownerShipId } });
+    },
     retire: async ({ fleetId, shipId, at }) => {
       await db.ship.update({ where: { fleetId_id: { fleetId, id: shipId } }, data: { retiredAt: at } });
     },

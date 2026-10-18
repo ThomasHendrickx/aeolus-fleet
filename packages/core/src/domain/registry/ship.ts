@@ -189,6 +189,49 @@ export function commissionShip(
   });
 }
 
+/** Why a ship's owner changed: argo set it, or its owner's ship retired and it fell to argo. */
+export type OwnerChangedWhy = 'setByArgo' | 'ownerRetired';
+
+export type ChangeOwnerRefusal = DomainError<'SHIP_HAS_NO_OWNER' | 'SHIP_ALREADY_RETIRED' | 'INVALID_OWNER'>;
+
+/**
+ * The ship with its new owner and OwnerChanged (decision 0045). The owner is
+ * an active person's ship or argo; argo and the viewer have none, and a
+ * retired ship keeps the owner it had. The same owner again changes nothing
+ * and writes no event.
+ */
+export function changeOwner(
+  ship: Ship,
+  change: { owner: Ship | undefined; why: OwnerChangedWhy; at: Date; actor: Actor },
+): Result<{ ship: Ship; events: NewEvent[] }, ChangeOwnerRefusal> {
+  const { owner } = change;
+  if (isConsoleShip(ship)) {
+    return refuse('SHIP_HAS_NO_OWNER', `${ship.name} is the console's own ship: it has no owner`);
+  }
+  if (ship.retiredAt !== null) {
+    return refuse('SHIP_ALREADY_RETIRED', `${ship.name} is retired: it keeps the owner it had`);
+  }
+  if (owner?.retiredAt !== null || (owner.kind !== 'person' && owner.kind !== 'operator')) {
+    return refuse('INVALID_OWNER', "An owner is an active person's ship or argo");
+  }
+  if (ship.owner === owner.id) {
+    return ok({ ship, events: [] });
+  }
+  return ok({
+    ship: { ...ship, owner: owner.id },
+    events: [
+      {
+        fleetId: ship.fleetId,
+        type: 'OwnerChanged',
+        occurredAt: change.at,
+        actor: change.actor,
+        shipId: ship.id,
+        details: { fromShipId: ship.owner, toShipId: owner.id, why: change.why },
+      },
+    ],
+  });
+}
+
 /** The commissioner's owner, inherited; argo when the commissioner has none, as argo itself has none. */
 function ownerAtCommission(commissioner: Ship, argoShipId: ShipId): { ownerShipId: ShipId; how: OwnerSetHow } {
   return commissioner.owner === null ? { ownerShipId: argoShipId, how: 'argoByDefault' } : { ownerShipId: commissioner.owner, how: 'inherited' };

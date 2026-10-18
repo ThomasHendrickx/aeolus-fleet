@@ -66,6 +66,7 @@ import { createInitialiseFleet, type FleetInitialised } from '../../src/domain/r
 import { createListFleet } from '../../src/domain/registry/list-fleet.js';
 import { createRecrewShip } from '../../src/domain/registry/recrew-ship.js';
 import { createReleaseShip } from '../../src/domain/registry/release-ship.js';
+import { createSetOwner } from '../../src/domain/registry/set-owner.js';
 import { createRenameShip } from '../../src/domain/registry/rename-ship.js';
 import { createRetireShip } from '../../src/domain/registry/retire-ship.js';
 import { createReport } from '../../src/domain/registry/report.js';
@@ -196,6 +197,7 @@ export function registryUseCases(core: InMemoryCore) {
     listLabels: createListLabels({ listing: core.listing }),
     findLabelValue: createFindLabelValue({ listing: core.listing }),
     renameShip: createRenameShip(deps),
+    setOwner: createSetOwner(deps),
     recrewShip: createRecrewShip(deps),
     claimShip: createClaimShip(deps),
     deregister: createDeregister(deps),

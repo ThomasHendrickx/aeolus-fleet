@@ -414,6 +414,13 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         }
         return Promise.resolve();
       },
+      setOwner: ({ fleetId, shipId, ownerShipId }) => {
+        const found = ship(fleetId, shipId);
+        if (found) {
+          found.owner = ownerShipId;
+        }
+        return Promise.resolve();
+      },
       retire: ({ fleetId, shipId, at }) => {
         const found = state.ships.find((held) => held.fleetId === fleetId && held.id === shipId);
         if (!found) {
