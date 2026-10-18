@@ -8,6 +8,7 @@
  * fleet refused, until SIGINT or SIGTERM.
  * `aeolus-networking-plugin migrate`: migrates the database alone.
  */
+import { requireCoreVersion } from '../adapters/fleet/core-version.js';
 import { MigrationError, migrateDatabase } from '../adapters/prisma/migrate.js';
 import { createNetworkingPluginApp } from '../app.js';
 import { ConfigError, loadConfig, loadDatabaseUrl } from '../config.js';
@@ -16,6 +17,7 @@ const USAGE = 'Usage: aeolus-networking-plugin start | migrate';
 
 async function start(): Promise<void> {
   const config = loadConfig(process.env);
+  await requireCoreVersion(config.fleetUrl);
   await migrateDatabase(config.databaseUrl);
   const app = createNetworkingPluginApp({
     databaseUrl: config.databaseUrl,

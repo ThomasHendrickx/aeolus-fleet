@@ -6,6 +6,7 @@
  * connects squadrons in the console), then serves until SIGINT or SIGTERM. `aeolus-squadrons
  * migrate`: migrates the database alone.
  */
+import { requireCoreVersion } from '../adapters/fleet/core-version.js';
 import { MigrationError, migrateDatabase } from '../adapters/prisma/migrate.js';
 import { acquireProcessLock } from '../adapters/prisma/process-lock.js';
 import { createSquadronsApp } from '../app.js';
@@ -18,6 +19,7 @@ const FLAGSHIP_RESCAN_MS = 30_000;
 
 async function start(): Promise<void> {
   const config = loadConfig(process.env);
+  await requireCoreVersion(config.fleetUrl);
   const lock = await acquireProcessLock(config.databaseUrl, {
     onLost: (error) => {
       process.stderr.write(`squadrons lost its process lock, so another process could start: stopping. ${error.message}\n`);
