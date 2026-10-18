@@ -8,6 +8,7 @@
 import {
   ANY_LABEL_VALUE,
   NETWORK_RULES_MAX,
+  NETWORK_VERBS,
   SAME_LABEL_VALUE,
   SHIP_LABELS_MAX,
   isOwnerTerm,
@@ -17,6 +18,7 @@ import {
   type NetworkPluginDeclaration,
   type NetworkVerb,
   type SelectorTerm,
+  type SetBuiltInRuleInput,
   type ShipId,
   type ShipKind,
   type WhileUnavailable,
@@ -41,19 +43,33 @@ export interface NetworkPlugin extends NetworkPluginDeclaration {
   shipId: ShipId;
 }
 
+/**
+ * The built-in rules that can be off (decision 0034): the viewer reading
+ * every ship, argo's to switch, and open, every ship to every ship, one per
+ * verb, the networking plugin's to switch. A fleet starts with all on.
+ */
+export interface BuiltInSwitches {
+  isViewerReadOn: boolean;
+  open: Readonly<Record<NetworkVerb, boolean>>;
+}
+
 export interface NetworkSettings {
   fleetId: FleetId;
-  /** The rules every send is checked against; none is all-to-all, an empty list allows only the fixed exceptions. */
+  /** The rules every send is checked against; none is all-to-all, an empty list allows only the built-in rules. */
   rules: readonly NetworkRule[] | null;
+  builtIns: BuiltInSwitches;
   /** 0 until the fleet first changes its settings; one more on every change. */
   version: number;
   /** The fleet's networking plugin, or none: then the fleet has no rules, and nobody sets them. */
   plugin: NetworkPlugin | null;
 }
 
-/** A fleet that never set rules: none, at version 0, without a plugin. */
+/** Every built-in rule on: what a fleet starts with, and what no networking plugin leaves. */
+export const BUILT_INS_ON: BuiltInSwitches = { isViewerReadOn: true, open: { send: true, read: true, manage: true } };
+
+/** A fleet that never set rules: none, every built-in rule on, at version 0, without a plugin. */
 export function noNetworkSettings(fleetId: FleetId): NetworkSettings {
-  return { fleetId, rules: null, version: 0, plugin: null };
+  return { fleetId, rules: null, builtIns: BUILT_INS_ON, version: 0, plugin: null };
 }
 
 export type NotTheNetworkPlugin = DomainError<'NOT_THE_NETWORK_PLUGIN'>;
@@ -102,8 +118,9 @@ export function registerNetworkPlugin(
 }
 
 /**
- * The fleet's plugin goes, and its rules with it: no plugin is all-to-all
- * (decision 0035), at the next version, with NetworkPluginUnregistered. Only
+ * The fleet's plugin goes, and its rules with it, and the open rules are on
+ * again: no plugin is all-to-all (decision 0035), at the next version, with
+ * NetworkPluginUnregistered. The viewer reading stays as argo set it. Only
  * the plugin's own ship unregisters it; its retirement does too.
  */
 export function unregisterNetworkPlugin(
@@ -113,7 +130,7 @@ export function unregisterNetworkPlugin(
   if (current.plugin?.shipId !== change.shipId) {
     return refuseNotThePlugin();
   }
-  const settings: NetworkSettings = { fleetId: current.fleetId, rules: null, version: current.version + 1, plugin: null };
+  const settings: NetworkSettings = { fleetId: current.fleetId, rules: null, builtIns: { ...current.builtIns, open: BUILT_INS_ON.open }, version: current.version + 1, plugin: null };
   return ok({
     settings,
     events: [
@@ -170,6 +187,53 @@ export function setNetworkRules(
         occurredAt: change.at,
         actor: change.actor,
         details: { version: settings.version, rules: rules?.length ?? null },
+      },
+    ],
+  });
+}
+
+export type SetBuiltInRuleRefusal = DomainError<'BUILT_IN_RULE_FIXED' | 'NOT_THE_OPERATOR_SHIP'> | NotTheNetworkPlugin;
+
+/**
+ * A built-in rule turned on or off, as its own action (decision 0034): the
+ * viewer reading by argo, open for one verb by the fleet's networking plugin.
+ * argo, the owner and the answer are never off, so turning them is refused.
+ * A change moves the version and writes BuiltInRuleChanged; a rule already
+ * as asked changes nothing.
+ */
+export function setBuiltInRule(
+  current: NetworkSettings,
+  change: { input: SetBuiltInRuleInput; caller: { shipId: ShipId; isOperator: boolean }; at: Date; actor: Actor },
+): Result<{ settings: NetworkSettings; events: NewEvent[] }, SetBuiltInRuleRefusal> {
+  const { input, caller } = change;
+  if (input.rule === 'argo' || input.rule === 'owner' || input.rule === 'answer') {
+    return refuse('BUILT_IN_RULE_FIXED', `The built-in rule ${input.rule} is never off (decision 0034)`);
+  }
+  if (input.rule === 'viewerRead' && !caller.isOperator) {
+    return refuse('NOT_THE_OPERATOR_SHIP', 'Only argo turns the viewer reading on or off (decision 0034)');
+  }
+  if (input.rule === 'open' && current.plugin?.shipId !== caller.shipId) {
+    return refuseNotThePlugin();
+  }
+  // The input names a verb for open and for open only (common's schema).
+  const { verb } = input;
+  const builtIns: BuiltInSwitches =
+    input.rule === 'viewerRead' || verb === undefined
+      ? { ...current.builtIns, isViewerReadOn: input.rule === 'viewerRead' ? input.isOn : current.builtIns.isViewerReadOn }
+      : { ...current.builtIns, open: { ...current.builtIns.open, [verb]: input.isOn } };
+  if (builtIns.isViewerReadOn === current.builtIns.isViewerReadOn && NETWORK_VERBS.every((verb) => builtIns.open[verb] === current.builtIns.open[verb])) {
+    return ok({ settings: current, events: [] });
+  }
+  const settings: NetworkSettings = { ...current, builtIns, version: current.version + 1 };
+  return ok({
+    settings,
+    events: [
+      {
+        type: 'BuiltInRuleChanged',
+        fleetId: current.fleetId,
+        occurredAt: change.at,
+        actor: change.actor,
+        details: { rule: input.rule, ...(verb === undefined ? {} : { verb }), isOn: input.isOn, version: settings.version },
       },
     ],
   });
@@ -238,30 +302,31 @@ export function isNetworkPluginResponding(plugin: NetworkPlugin, crew: { lastSee
   return lastSeenAt !== undefined && now.getTime() - lastSeenAt.getTime() <= plugin.notRespondingAfterSeconds * MILLISECONDS_PER_SECOND;
 }
 
-/** The rules a send is checked against, and what the plugin declared when it is the reason. */
+/** The rules and built-in switches a send is checked against, and what the plugin declared when it is the reason. */
 export interface RulesInForce {
   rules: readonly NetworkRule[] | null;
+  builtIns: BuiltInSwitches;
   whilePluginUnavailable: Exclude<WhileUnavailable, 'open-all'> | null;
 }
 
 /**
  * The rules in force: the settings' own, unless the fleet's networking plugin
  * is not responding. Then what it declared applies: block-all leaves only
- * the fixed exceptions, open-all none (all-to-all), keep-latest the rules it
- * supplied last.
+ * the built-in rules that are never off and the viewer reading, open-all
+ * none (all-to-all), keep-latest the rules and switches it left last.
  */
 export function rulesInForce(settings: NetworkSettings, isPluginResponding: boolean): RulesInForce {
-  const { plugin, rules } = settings;
+  const { plugin, rules, builtIns } = settings;
   if (plugin === null || isPluginResponding) {
-    return { rules, whilePluginUnavailable: null };
+    return { rules, builtIns, whilePluginUnavailable: null };
   }
   switch (plugin.whileUnavailable) {
     case 'block-all':
-      return { rules: [], whilePluginUnavailable: 'block-all' };
+      return { rules: [], builtIns: { ...builtIns, open: { send: false, read: false, manage: false } }, whilePluginUnavailable: 'block-all' };
     case 'open-all':
-      return { rules: null, whilePluginUnavailable: null };
+      return { rules: null, builtIns, whilePluginUnavailable: null };
     case 'keep-latest':
-      return { rules, whilePluginUnavailable: 'keep-latest' };
+      return { rules, builtIns, whilePluginUnavailable: 'keep-latest' };
   }
 }
 
@@ -280,22 +345,28 @@ export interface ReachingShip {
 }
 
 /**
- * Whether the settings let the sender do the verb to the recipient. With no rules,
- * every ship reaches every ship. The fixed exceptions hold whatever the
- * rules: argo reaches every ship and every ship reaches argo, an owner's
- * ship reaches the ships it owns (decision 0045), and a ship answers the
- * sender of a message it received. Otherwise a rule must match
- * the sender with its `from` and the recipient with its `to`.
+ * Whether the settings let the sender do the verb to the recipient. With no
+ * rules, every ship reaches every ship. The built-in rules that are never off
+ * hold whatever the rules: argo reaches every ship and every ship reaches
+ * argo, an owner's ship reaches the ships it owns (decision 0045), and a ship
+ * answers the sender of a message it received. The viewer reads every ship
+ * while that is on, and every ship reaches every ship by a verb while open is
+ * on for it. Otherwise a rule of the verb must match the sender with its
+ * `from` and the recipient with its `to`.
  */
 export function allowsReach(
-  settings: Pick<NetworkSettings, 'rules'>,
+  settings: Pick<RulesInForce, 'rules' | 'builtIns'>,
   send: { verb: NetworkVerb; sender: ReachingShip; recipient: ReachingShip; isAnswerToSender: boolean },
 ): boolean {
   const { verb, sender, recipient, isAnswerToSender } = send;
-  if (settings.rules === null || sender.kind === 'operator' || recipient.kind === 'operator' || recipient.owner === sender.id || isAnswerToSender) {
+  const { rules, builtIns } = settings;
+  if (rules === null || sender.kind === 'operator' || recipient.kind === 'operator' || recipient.owner === sender.id || (verb === 'send' && isAnswerToSender)) {
     return true;
   }
-  return settings.rules.some(
+  if ((verb === 'read' && sender.kind === 'viewer' && builtIns.isViewerReadOn) || builtIns.open[verb]) {
+    return true;
+  }
+  return rules.some(
     (rule) => rule.verb === verb && matches(rule.from, { ship: sender, otherSide: recipient }) && matches(rule.to, { ship: recipient, otherSide: sender }),
   );
 }

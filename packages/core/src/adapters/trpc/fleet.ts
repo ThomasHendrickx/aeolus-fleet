@@ -74,6 +74,7 @@ import {
   explainReachOutputSchema,
   registerNetworkPluginInputSchema,
   setNetworkRulesInputSchema,
+  setBuiltInRuleInputSchema,
   declareNetworkRulesInputSchema,
   declareNetworkRulesOutputSchema,
   declaredNetworkRulesOutputSchema,
@@ -600,6 +601,19 @@ export const fleetRouter = router({
     })
     .output(setNetworkRulesOutputSchema)
     .mutation(async ({ ctx }) => okOrThrow(await ctx.useCases.unregisterNetworkPlugin(ctx.caller))),
+
+  /** A built-in rule turned on or off: the viewer reading by argo, open for one verb by the networking plugin (decision 0034). */
+  setBuiltInRule: scopedProcedure('fleet:network')
+    .meta({
+      description: [
+        "Needs fleet:network. Turns a built-in network rule on or off, as its own action with BuiltInRuleChanged (decision 0034).",
+        "open lets every ship reach every ship by one verb, send, read or manage: only the fleet's networking plugin turns it on or off, one verb at a time, and it is on again when the plugin unregisters or is retired.",
+        'viewerRead lets the viewer read every ship: only argo turns it on or off. argo, owner and answer are never off: turning them is refused. A rule already as asked changes nothing. Answers the version.',
+      ].join(' '),
+    })
+    .input(setBuiltInRuleInputSchema)
+    .output(setNetworkRulesOutputSchema)
+    .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.setBuiltInRule(ctx.caller, input))),
 
   /** The caller declares the network rules it needs on the labels it owns, its whole list (decision 0037). */
   declareNetworkRules: scopedProcedure('labels:define')

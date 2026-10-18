@@ -23,6 +23,10 @@ const settingsRowSchema = z.object({
   pluginShipId: idSchema('ship').nullable(),
   pluginWhileUnavailable: z.enum(WHILE_UNAVAILABLE).nullable(),
   pluginNotRespondingAfterSeconds: z.number().int().nullable(),
+  builtInViewerRead: z.boolean(),
+  builtInOpenSend: z.boolean(),
+  builtInOpenRead: z.boolean(),
+  builtInOpenManage: z.boolean(),
 });
 
 const refusedShipSchema = z.object({
@@ -49,18 +53,29 @@ export function createPrismaNetworkSettingsRepository(db: Db): NetworkSettingsRe
   const read = async (fleetId: FleetId): Promise<NetworkSettings> => {
     const row = await db.networkSettings.findUnique({
       where: { fleetId },
-      select: { rules: true, version: true, pluginShipId: true, pluginWhileUnavailable: true, pluginNotRespondingAfterSeconds: true },
+      select: {
+        rules: true,
+        version: true,
+        pluginShipId: true,
+        pluginWhileUnavailable: true,
+        pluginNotRespondingAfterSeconds: true,
+        builtInViewerRead: true,
+        builtInOpenSend: true,
+        builtInOpenRead: true,
+        builtInOpenManage: true,
+      },
     });
     if (!row) {
       return noNetworkSettings(fleetId);
     }
-    const { rules, version, pluginShipId, pluginWhileUnavailable, pluginNotRespondingAfterSeconds } = settingsRowSchema.parse(row);
+    const { rules, version, pluginShipId, pluginWhileUnavailable, pluginNotRespondingAfterSeconds, ...builtIn } = settingsRowSchema.parse(row);
     // The table's check keeps the three set together or none.
     const plugin =
       pluginShipId !== null && pluginWhileUnavailable !== null && pluginNotRespondingAfterSeconds !== null
         ? { shipId: pluginShipId, whileUnavailable: pluginWhileUnavailable, notRespondingAfterSeconds: pluginNotRespondingAfterSeconds }
         : null;
-    return { fleetId, rules, version, plugin };
+    const builtIns = { isViewerReadOn: builtIn.builtInViewerRead, open: { send: builtIn.builtInOpenSend, read: builtIn.builtInOpenRead, manage: builtIn.builtInOpenManage } };
+    return { fleetId, rules, builtIns, version, plugin };
   };
   return {
     findForShare: async (fleetId) => {
@@ -71,9 +86,13 @@ export function createPrismaNetworkSettingsRepository(db: Db): NetworkSettingsRe
       await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${fleetId}), hashtext('network-settings'))`;
       return read(fleetId);
     },
-    save: async ({ fleetId, rules, version, plugin }) => {
+    save: async ({ fleetId, rules, builtIns, version, plugin }) => {
       const kept = {
         rules: rules === null ? Prisma.DbNull : rules.map((rule) => ({ verb: rule.verb, from: [...rule.from], to: [...rule.to] })),
+        builtInViewerRead: builtIns.isViewerReadOn,
+        builtInOpenSend: builtIns.open.send,
+        builtInOpenRead: builtIns.open.read,
+        builtInOpenManage: builtIns.open.manage,
         version,
         pluginShipId: plugin?.shipId ?? null,
         pluginWhileUnavailable: plugin?.whileUnavailable ?? null,

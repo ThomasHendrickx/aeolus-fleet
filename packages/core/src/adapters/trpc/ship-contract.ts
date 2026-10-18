@@ -139,6 +139,7 @@ const FLEET_ACTIONS = [
   'setNetworkRules',
   'registerNetworkPlugin',
   'unregisterNetworkPlugin',
+  'setBuiltInRule',
   'declareNetworkRules',
   'declaredNetworkRules',
 ] as const;

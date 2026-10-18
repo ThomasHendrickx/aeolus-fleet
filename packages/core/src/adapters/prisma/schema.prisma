@@ -358,6 +358,12 @@ model ShipLabel {
 model NetworkSettings {
   fleetId                         String  @id @map("fleet_id")
   rules                           Json?
+  /// The built-in rules that can be off (decision 0034): the viewer reading,
+  /// argo's, and open per verb, the networking plugin's. On at fleet create.
+  builtInViewerRead               Boolean @default(true) @map("built_in_viewer_read")
+  builtInOpenSend                 Boolean @default(true) @map("built_in_open_send")
+  builtInOpenRead                 Boolean @default(true) @map("built_in_open_read")
+  builtInOpenManage               Boolean @default(true) @map("built_in_open_manage")
   version                         Int
   /// The fleet's networking plugin (decision 0035): its ship and what it
   /// declared, all three set or none.

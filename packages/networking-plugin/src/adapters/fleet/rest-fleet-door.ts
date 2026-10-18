@@ -122,6 +122,10 @@ export function createRestFleetDoor(fleetUrl: string, options: { busyWaitsMs?: r
       const set = await call({ path: '/fleet/setNetworkRules', method: 'POST', crewToken, body: { rules }, answers: z.unknown() });
       return set.isOk ? ok(undefined) : set;
     },
+    setBuiltInRule: async (crewToken, input) => {
+      const set = await call({ path: '/fleet/setBuiltInRule', method: 'POST', crewToken, body: input, answers: z.unknown() });
+      return set.isOk ? ok(undefined) : set;
+    },
     declaredNetworkRules: (crewToken) => call({ path: '/fleet/declaredNetworkRules', method: 'GET', crewToken, answers: declaredNetworkRulesOutputSchema }),
     follow: async (crewToken, { afterSeq, waitSeconds, signal }) => {
       const followed = await call({ path: '/fleet/follow', method: 'POST', crewToken, body: { afterSeq, waitSeconds }, answers: followFleetOutputSchema, signal });

@@ -67,6 +67,27 @@ export type NetworkRule = z.infer<typeof networkRuleSchema>;
 /** Input of `fleet.setNetworkRules` (fleet:network): every rule the fleet holds from now on, or none for all-to-all. */
 export const setNetworkRulesInputSchema = z.object({ rules: z.array(networkRuleSchema).nullable() });
 
+/**
+ * The built-in rules, core's own (decision 0034): argo to and from every ship,
+ * the owner's ship to the ships it owns, and an answer to the sender of the
+ * message it answers, which are never off; the viewer reading every ship,
+ * which argo turns off or on; and open, every ship to every ship, one per
+ * verb, which the networking plugin turns off or on.
+ */
+export const BUILT_IN_RULES = ['argo', 'owner', 'answer', 'viewerRead', 'open'] as const;
+
+export type BuiltInRule = (typeof BUILT_IN_RULES)[number];
+
+/** The built-in rules that are never off. */
+export const FIXED_BUILT_IN_RULES = ['argo', 'owner', 'answer'] as const satisfies readonly BuiltInRule[];
+
+/** Input of `fleet.setBuiltInRule` (fleet:network): a built-in rule turned on or off, open for one verb, which it names and no other rule does. */
+export const setBuiltInRuleInputSchema = z
+  .object({ rule: z.enum(BUILT_IN_RULES), verb: z.enum(NETWORK_VERBS).optional(), isOn: z.boolean() })
+  .refine((input) => (input.rule === 'open') === (input.verb !== undefined), { message: 'open names its verb, and no other built-in rule names one', path: ['verb'] });
+
+export type SetBuiltInRuleInput = z.infer<typeof setBuiltInRuleInputSchema>;
+
 /** Output of `fleet.setNetworkRules`: the version the fleet's network settings have now. */
 export const setNetworkRulesOutputSchema = z.object({ version: z.int().min(1) });
 
