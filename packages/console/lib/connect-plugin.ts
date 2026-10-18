@@ -18,8 +18,8 @@ export interface PluginShip {
 /** Squadrons' management ship: it reads the fleet, commissions squadrons' ships and labels them for their reach. */
 export const SQUADRONS_SHIP: PluginShip = { name: 'squadrons', type: 'squadrons', scopes: ['fleet:read', 'fleet:manage', 'labels:define', 'labels:assign'] };
 
-/** The trierarch plugin's ship: it reads the fleet, commissions machines' ships, assigns crew requests and labels machines (os and arch). */
-export const TRIERARCH_PLUGIN_SHIP: PluginShip = { name: 'trierarch-plugin', type: 'trierarch-plugin', scopes: ['fleet:read', 'fleet:manage', 'crew:assign', 'labels:define', 'labels:assign'] };
+/** The trierarch plugin's ship: it reads the fleet, commissions machines' ships with crew:run, assigns crew requests and labels machines (os and arch). */
+export const TRIERARCH_PLUGIN_SHIP: PluginShip = { name: 'trierarch-plugin', type: 'trierarch-plugin', scopes: ['fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign'] };
 
 /** The networking plugin's ship: it reads the fleet, registers as its networking plugin and supplies argo's rules. */
 export const NETWORKING_PLUGIN_SHIP: PluginShip = { name: 'networking-plugin', type: 'networking-plugin', scopes: ['fleet:read', 'fleet:network'] };
