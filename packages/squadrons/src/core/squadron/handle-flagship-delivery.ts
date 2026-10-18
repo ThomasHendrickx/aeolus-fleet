@@ -1,4 +1,4 @@
-import { isPingContentType, PAYLOAD_MAX_BYTES, payloadBytes, type MessageId } from '@aeolus-fleet/common';
+import { argoMessage, isPingContentType, MARKDOWN_CONTENT_TYPE, PAYLOAD_MAX_BYTES, payloadBytes, type MessageId } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import { FLAGSHIP } from '../catalogue/catalogue.js';
@@ -104,10 +104,15 @@ function relayTarget(
  * stands down, a member's stood-down is recorded and acked, then the
  * stand-downs advance, so the member is retired when it holds no open deliveries;
  * a check-in then is answered with a role message saying the squadron stands
- * down. A flagship supports only the squadron's messages: anything else,
+ * down. The flagship is the proxy between its squadron and its forming ship,
+ * argo for a squadron argo formed (decision 0017): a member's relay goes on to
+ * the forming ship, and the forming ship's relay to the member it answers or
+ * names, or one ship of the role it names. The forming ship, while it holds
+ * squadrons:form, or argo stands a sailing squadron down by message; any other
+ * ship is refused. A flagship supports only these messages: anything else,
  * from outside or from a member, is acknowledged and kept for the squadron
- * page, never forwarded, and argo is told, so no message disappears or goes
- * unseen. A ping from argo gets pong instead of ack, as on any ship
+ * page, never forwarded, and the forming ship is told (argo for a squadron
+ * argo formed), so no message disappears or goes unseen. A ping from argo gets pong instead of ack, as on any ship
  * (blueprint, "Ping"). A delivery is acked only after it is handled; the delivery id keys
  * every step, so one that comes again gets the same answer and no second change.
  */
@@ -219,12 +224,24 @@ export function createHandleFlagshipDelivery(deps: {
         inReplyTo,
         receivedAt: deps.clock.now(),
       });
-      await deps.operator.tell({
-        fleetId: squadron.fleetId,
+      const notice = {
         headline: `${senderName} sent a flagship a message it does not handle`,
         body: `- Squadron: \`${squadron.id}\`\n- From: ${senderName}\n- Content type: \`${contentType}\`\n\nsquadrons keeps it for the squadron page; nothing was forwarded.`,
-        key: `kept-${deliveryId}`,
-      });
+      };
+      // A squadron a ship formed tells its forming ship, the squadron's one contact outside it; argo's is told as argo.
+      if (squadron.formingShip === null) {
+        await deps.operator.tell({ fleetId: squadron.fleetId, ...notice, key: `kept-${deliveryId}` });
+      } else {
+        const told = await deps.door.send(crewToken, {
+          selector: { kind: 'ship', shipId: squadron.formingShip.shipId },
+          contentType: MARKDOWN_CONTENT_TYPE,
+          idempotencyKey: `kept-${deliveryId}`,
+          payload: argoMessage(notice),
+        });
+        if (!told.isOk) {
+          return err(told.error);
+        }
+      }
       return acked('kept');
     };
 
