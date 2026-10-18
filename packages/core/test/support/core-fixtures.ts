@@ -177,7 +177,7 @@ export function registryUseCases(core: InMemoryCore) {
     reportCrewStatus: createReportCrewStatus(deps),
     confirmCrewRelease: createConfirmCrewRelease(deps),
     giveBackCrewRequest: createGiveBackCrewRequest(deps),
-    readAssignedCrewRequests: createReadAssignedCrewRequests({ crewRequests: core.crewRequests }),
+    readAssignedCrewRequests: createReadAssignedCrewRequests({ crewRequests: core.crewRequests, ships: core.ships }),
     explainCrewRequest: createExplainCrewRequest(deps),
     requestWorktreeClear: createRequestWorktreeClear(deps),
     readClearRequests: createReadClearRequests({ clearRequests: core.clearRequests }),

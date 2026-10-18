@@ -130,7 +130,7 @@ describe('the fleet over REST', () => {
       (response) =>
         response
           .writeHead(200, { 'content-type': 'application/json' })
-          .end(JSON.stringify([{ shipId, settings: { harness: 'codex' }, settingsVersion: 2, requestedAt: '2026-10-10T09:00:00.000Z', status: 'crewing', isFinal: true }])),
+          .end(JSON.stringify([{ shipId, settings: { harness: 'codex' }, settingsVersion: 2, requestedAt: '2026-10-10T09:00:00.000Z', status: 'crewing', isFinal: true, ownerShipId: newId('ship') }])),
       async (fleetUrl) => {
         await expect(createRestFleet({ fleetUrl, crewToken: 'aeolus_ct_v1_x' }).assignedRequests()).resolves.toEqual([
           { shipId, settings: { harness: 'codex' }, settingsVersion: 2, status: 'crewing', isFinal: true },

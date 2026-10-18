@@ -311,7 +311,7 @@ export function createUseCases(options: {
     reportCrewStatus: createReportCrewStatus({ uow, clock, ids }),
     confirmCrewRelease: createConfirmCrewRelease({ uow, clock, ids }),
     giveBackCrewRequest: createGiveBackCrewRequest({ uow, clock, ids }),
-    readAssignedCrewRequests: createReadAssignedCrewRequests({ crewRequests: createPrismaCrewRequestRepository(prisma) }),
+    readAssignedCrewRequests: createReadAssignedCrewRequests({ crewRequests: createPrismaCrewRequestRepository(prisma), ships: createPrismaShipRepository(prisma) }),
     explainCrewRequest: createExplainCrewRequest({ uow, clock, ids }),
     requestWorktreeClear: createRequestWorktreeClear({ uow, clock, ids }),
     readClearRequests: createReadClearRequests({ clearRequests: createPrismaClearRequestRepository(prisma) }),

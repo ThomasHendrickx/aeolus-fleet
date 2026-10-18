@@ -1,9 +1,15 @@
+import type { ShipId } from '@aeolus-fleet/common';
+
 import type { Caller } from '../shared/caller.js';
 import type { CrewRequest } from './crew-request.js';
-import type { CrewRequestRepository } from './ports.js';
+import type { CrewRequestRepository, ShipRepository } from './ports.js';
 
-/** A crew request as its trierarch reads it: which ship, with what settings, how it stands, and whether its crew is final. */
-export type AssignedCrewRequest = Pick<CrewRequest, 'shipId' | 'settings' | 'settingsVersion' | 'requestedAt' | 'status' | 'isFinal'>;
+/**
+ * A crew request as its trierarch reads it: which ship, with what settings,
+ * how it stands, whether its crew is final, and the ship's owner as it is
+ * now, where its trouble goes (decision 0045).
+ */
+export type AssignedCrewRequest = Pick<CrewRequest, 'shipId' | 'settings' | 'settingsVersion' | 'requestedAt' | 'status' | 'isFinal'> & { ownerShipId: ShipId | null };
 
 export type ReadAssignedCrewRequests = (caller: Caller) => Promise<AssignedCrewRequest[]>;
 
@@ -12,14 +18,19 @@ export type ReadAssignedCrewRequests = (caller: Caller) => Promise<AssignedCrewR
  * ship first: its ships are this query, never a list kept on its ship
  * (decision 0029). Its scope (crew:run) is checked before this runs.
  */
-export function createReadAssignedCrewRequests(deps: { crewRequests: Pick<CrewRequestRepository, 'listAssignedTo'> }): ReadAssignedCrewRequests {
-  return async (caller) =>
-    (await deps.crewRequests.listAssignedTo(caller.fleetId, caller.shipId)).map(({ shipId, settings, settingsVersion, requestedAt, status, isFinal }) => ({
-      shipId,
-      settings,
-      settingsVersion,
-      requestedAt,
-      status,
-      isFinal,
-    }));
+export function createReadAssignedCrewRequests(deps: { crewRequests: Pick<CrewRequestRepository, 'listAssignedTo'>; ships: Pick<ShipRepository, 'find'> }): ReadAssignedCrewRequests {
+  return async (caller) => {
+    const requests = await deps.crewRequests.listAssignedTo(caller.fleetId, caller.shipId);
+    return Promise.all(
+      requests.map(async ({ shipId, settings, settingsVersion, requestedAt, status, isFinal }) => ({
+        shipId,
+        settings,
+        settingsVersion,
+        requestedAt,
+        status,
+        isFinal,
+        ownerShipId: (await deps.ships.find(caller.fleetId, shipId))?.owner ?? null,
+      })),
+    );
+  };
 }
