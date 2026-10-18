@@ -46,6 +46,8 @@ import { createReadReachRefusals } from '../../src/domain/registry/read-reach-re
 import { createRegisterNetworkPlugin } from '../../src/domain/registry/register-network-plugin.js';
 import { createSetNetworkRules } from '../../src/domain/registry/set-network-rules.js';
 import { createExplainReach } from '../../src/domain/registry/explain-reach.js';
+import { createDiscover } from '../../src/domain/registry/discover.js';
+import { createSetStatement } from '../../src/domain/registry/set-statement.js';
 import { createReadBuiltInRules } from '../../src/domain/registry/read-built-in-rules.js';
 import { createSetBuiltInRule } from '../../src/domain/registry/set-built-in-rule.js';
 import { createUnregisterNetworkPlugin } from '../../src/domain/registry/unregister-network-plugin.js';
@@ -219,6 +221,8 @@ export function registryUseCases(core: InMemoryCore) {
     getShip: createGetShip({ listing: core.listing, readReach: readReachOf(core) }),
     whoami: createWhoami({ ships: core.ships }),
     report: createReport({ uow: core.uow, clock: core.clock, ids: core.ids }),
+    setStatement: createSetStatement({ uow: core.uow, clock: core.clock, ids: core.ids }),
+    discover: createDiscover({ uow: core.uow, clock: core.clock }),
     reportTurn: createReportTurn({ uow: core.uow, clock: core.clock, ids: core.ids }),
     reportLog: createReadReportLog({ leases: core.leases }),
     readFleetEvents: createReadFleetEvents({ feed: core.feed, history: core.history, readReach: readReachOf(core) }),

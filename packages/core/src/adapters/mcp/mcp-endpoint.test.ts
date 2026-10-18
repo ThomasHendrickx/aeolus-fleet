@@ -41,6 +41,8 @@ const SHIP_TOOLS = [
   'report',
   'turn',
   'reportLog',
+  'setStatement',
+  'discover',
   'inbox',
   'deregister',
   'fleet_list',
