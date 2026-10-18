@@ -154,13 +154,104 @@ describe('the scopes of a new ship', () => {
     });
   });
 
-  it('lets a ship with fleet:manage commission a ship with fleet scopes: no rule beyond the scopes (ADR 0016)', async () => {
-    unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'manager', type: 'squadron', scopes: ['fleet:read', 'fleet:manage'] }));
-    const manager = { ...argo, shipId: shipsNamed('manager')[0]?.id ?? argo.shipId, kind: 'agent' as const };
+});
+
+describe('what a commission may grant (decision 0046)', () => {
+  const FORM = { scope: 'squadrons:form', description: 'Form a squadron by message' };
+
+  function scopesOf(name: string) {
+    return shipsNamed(name)[0]?.scopes;
+  }
+
+  async function shipCommissionedByArgo(name: string, scopes: string[]): Promise<Caller> {
+    const { shipId } = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name, type: 'squadron', scopes }));
+    return { fleetId, shipId, kind: 'agent', scopes: [] };
+  }
+
+  it('lets a ship commission a ship with core scopes its own ship holds', async () => {
+    const manager = await shipCommissionedByArgo('manager', ['fleet:read', 'fleet:manage']);
 
     unwrap(await commissionShip(manager, { idempotencyKey: newKey(), name: 'deputy', type: 'squadron', scopes: ['fleet:manage'] }));
 
     expect(scopesOf('deputy')).toEqual(['messages:send', 'messages:receive', 'fleet:manage']);
+  });
+
+  it('refuses a core scope the commissioner does not hold, naming it, and stores nothing', async () => {
+    const manager = await shipCommissionedByArgo('manager', ['fleet:manage']);
+    core.state.events.length = 0;
+
+    const refused = await commissionShip(manager, { idempotencyKey: newKey(), name: 'deputy', type: 'squadron', scopes: ['fleet:manage', 'crew:run'] });
+
+    expect(refused).toMatchObject({ isOk: false, error: { kind: 'SCOPE_NOT_HELD', message: 'Your ship does not hold crew:run, so it cannot grant it' } });
+    expect(shipsNamed('deputy')).toEqual([]);
+    expect(core.state.events).toEqual([]);
+  });
+
+  it('reads what the commissioner holds from the fleet, not from its call', async () => {
+    const manager = await shipCommissionedByArgo('manager', ['fleet:manage']);
+
+    const refused = await commissionShip({ ...manager, scopes: ['fleet:manage', 'fleet:read'] }, { idempotencyKey: newKey(), name: 'deputy', type: 'squadron', scopes: ['fleet:read'] });
+
+    expect(refused).toMatchObject({ isOk: false, error: { kind: 'SCOPE_NOT_HELD' } });
+  });
+
+  it('lets argo grant any core scope', async () => {
+    unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'herald', type: 'squadron', scopes: ['scopes:grant', 'messages:force'] }));
+
+    expect(scopesOf('herald')).toEqual(['messages:send', 'messages:receive', 'messages:force', 'scopes:grant']);
+  });
+
+  it('lets the declarer grant a scope of its own namespace, after the core scopes', async () => {
+    const squadrons = await shipCommissionedByArgo('squadrons', ['fleet:manage', 'scopes:declare']);
+    unwrap(await registryUseCases(core).declareScopes(squadrons, { namespace: 'squadrons', scopes: [FORM] }));
+
+    unwrap(await commissionShip(squadrons, { idempotencyKey: newKey(), name: 'former', type: 'reviewer', scopes: ['squadrons:form', 'fleet:manage'] }));
+
+    expect(scopesOf('former')).toEqual(['messages:send', 'messages:receive', 'fleet:manage', 'squadrons:form']);
+  });
+
+  it('lets argo grant a declared plugin scope', async () => {
+    const squadrons = await shipCommissionedByArgo('squadrons', ['scopes:declare']);
+    unwrap(await registryUseCases(core).declareScopes(squadrons, { namespace: 'squadrons', scopes: [FORM] }));
+
+    unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'former', type: 'reviewer', scopes: ['squadrons:form'] }));
+
+    expect(scopesOf('former')).toEqual(['messages:send', 'messages:receive', 'squadrons:form']);
+  });
+
+  it('refuses a plugin scope from a ship that did not declare its namespace, naming the declarer, and stores nothing', async () => {
+    const squadrons = await shipCommissionedByArgo('squadrons', ['scopes:declare']);
+    unwrap(await registryUseCases(core).declareScopes(squadrons, { namespace: 'squadrons', scopes: [FORM] }));
+    const manager = await shipCommissionedByArgo('manager', ['fleet:manage']);
+
+    const refused = await commissionShip(manager, { idempotencyKey: newKey(), name: 'former', type: 'reviewer', scopes: ['squadrons:form'] });
+
+    expect(refused).toMatchObject({
+      isOk: false,
+      error: { kind: 'PLUGIN_SCOPE_NOT_YOURS', message: 'Only argo and squadrons, which declared squadrons, grant squadrons:form' },
+    });
+    expect(shipsNamed('former')).toEqual([]);
+  });
+
+  it('refuses a plugin scope no plugin declared, even from argo, and stores nothing', async () => {
+    const refused = await commissionShip(argo, { idempotencyKey: newKey(), name: 'former', type: 'reviewer', scopes: ['squadrons:form'] });
+
+    expect(refused).toMatchObject({ isOk: false, error: { kind: 'SCOPE_NOT_DECLARED' } });
+    expect(shipsNamed('former')).toEqual([]);
+  });
+
+  it('refuses a malformed scope', async () => {
+    const refused = await commissionShip(argo, { idempotencyKey: newKey(), name: 'former', type: 'reviewer', scopes: ['Squadrons:form'] });
+
+    expect(refused).toMatchObject({ isOk: false, error: { kind: 'INVALID_SCOPE' } });
+  });
+
+  it('takes sending and receiving, which every ship holds, once', async () => {
+    const manager = await shipCommissionedByArgo('manager', ['fleet:manage']);
+
+    unwrap(await commissionShip(manager, { idempotencyKey: newKey(), name: 'deputy', type: 'squadron', scopes: ['messages:send'] }));
+
+    expect(scopesOf('deputy')).toEqual(['messages:send', 'messages:receive']);
   });
 });
 

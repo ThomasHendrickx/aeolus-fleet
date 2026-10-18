@@ -152,6 +152,30 @@ describe('granting scopes on Postgres', () => {
   });
 });
 
+describe('commissioning with plugin scopes on Postgres', () => {
+  const FORM = { scope: 'squadrons:form', description: 'Form a squadron by message' };
+  const SCALE = { scope: 'squadrons:scale', description: 'Add and remove members' };
+
+  it('lets a commission with a scope and a declaration removing it take turns: the ship is either commissioned holding it, or refused', async () => {
+    const { shipId: declarerId } = unwrap(await core.useCases.commissionShip(argo(), { idempotencyKey: newKey(), name: 'squadrons', type: 'plugin' }));
+    const declarer = { shipId: declarerId, fleetId, kind: 'agent' as const, scopes: ['messages:send', 'messages:receive', 'scopes:declare'] };
+    unwrap(await core.useCases.declareScopes(declarer, { namespace: 'squadrons', scopes: [FORM, SCALE] }));
+
+    const [commissioned, declared] = await Promise.all([
+      core.useCases.commissionShip(argo(), { idempotencyKey: newKey(), name: 'scaler', type: 'reviewer', scopes: ['squadrons:scale'] }),
+      core.useCases.declareScopes(declarer, { namespace: 'squadrons', scopes: [FORM] }),
+    ]);
+
+    const outcome = [commissioned.isOk ? 'commissioned' : commissioned.error.kind, declared.isOk ? 'declared' : declared.error.kind];
+    expect([
+      ['commissioned', 'SCOPE_HELD'],
+      ['SCOPE_NOT_DECLARED', 'declared'],
+    ]).toContainEqual(outcome);
+    const ships = await core.prisma.ship.findMany({ where: { fleetId, name: 'scaler' }, select: { scopes: true } });
+    expect(ships.map(({ scopes }) => scopes)).toEqual(outcome[0] === 'commissioned' ? [['messages:send', 'messages:receive', 'squadrons:scale']] : []);
+  });
+});
+
 describe("retiring a namespace's declarer on Postgres", () => {
   const FORM = { scope: 'squadrons:form', description: 'Form a squadron by message' };
 
