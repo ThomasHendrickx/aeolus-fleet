@@ -17,9 +17,9 @@ squadrons receives on every forming or sailing squadron's flagship. A member's c
 
 | From | To | When |
 | --- | --- | --- |
-| (none) | Forming | The operator forms a squadron from a blueprint version |
+| (none) | Forming | The operator forms a squadron from a blueprint version, or a ship forms one by message ([Forming by a ship](../../docs/squadrons.md#forming-by-a-ship)) |
 | Forming | Sailing | Every member is on station for the first time |
-| Sailing | Standing down | The operator stands it down |
+| Sailing | Standing down | The operator stands it down, or its forming ship or argo by message |
 | Standing down | Disbanded | Every member is retired: squadrons retires the flagship |
 | Forming, Sailing, Standing down | Disbanded | The operator forces the stand down |
 
@@ -49,7 +49,7 @@ squadrons receives on every forming or sailing squadron's flagship. A member's c
 
 ### Stand down
 
-The operator stands down a Sailing squadron. It goes Standing down and takes no new members.
+The operator stands down a Sailing squadron, or its forming ship or argo does by message ([Forming by a ship](../../docs/squadrons.md#forming-by-a-ship)). It goes Standing down and takes no new members.
 
 1. A member that never came on station holds no work: squadrons retires it at once, after its crew is released when it has a crew request (step 4).
 2. The flagship sends every other member `application/vnd.aeolus.squadron.stand-down+json`: `{ "squadron" }`, once each.
@@ -73,7 +73,7 @@ The operator forces the stand down of a Forming, Sailing or Standing down squadr
 
 ### The flagship's messages
 
-The flagship handles check-in, on-station and stood-down from its own members. Any other message, from outside or from a member, is acknowledged and kept for the squadron page (`squadrons.messages`), never forwarded, and argo is told, so none disappears or goes unseen. A ping from argo gets pong. Each delivery is acked only after it is handled, and handling one that comes again changes nothing twice. When the flagship is released or retired other than by its squadron disbanding, squadrons stops receiving on it and tells argo once.
+The flagship handles check-in, on-station and stood-down from its own members, and relays and stand-downs between its squadron and its forming ship ([Forming by a ship](../../docs/squadrons.md#forming-by-a-ship)). Any other message, from outside or from a member, is acknowledged and kept for the squadron page (`squadrons.messages`), never forwarded, and the forming ship is told (argo for a squadron argo formed), so none disappears or goes unseen. A ping from argo gets pong. Each delivery is acked only after it is handled, and handling one that comes again changes nothing twice. When the flagship is released or retired other than by its squadron disbanding, squadrons stops receiving on it and tells argo once.
 
 ### Not handled
 
