@@ -221,15 +221,26 @@ export function registryUseCases(core: InMemoryCore) {
     report: createReport({ uow: core.uow, clock: core.clock, ids: core.ids }),
     reportTurn: createReportTurn({ uow: core.uow, clock: core.clock, ids: core.ids }),
     reportLog: createReadReportLog({ leases: core.leases }),
-    readFleetEvents: createReadFleetEvents({ feed: core.feed }),
+    readFleetEvents: createReadFleetEvents({ feed: core.feed, history: core.history, readReach: readReachOf(core) }),
     // Nothing wakes a follow here: it ends at its wait.
-    followFleet: createFollowFleet({ feed: core.feed, clock: core.clock, wakeups: { watch: () => ({ next: () => Promise.resolve('timedOut'), stop: () => undefined }) } }),
+    followFleet: createFollowFleet({
+      feed: core.feed,
+      clock: core.clock,
+      wakeups: { watch: () => ({ next: () => Promise.resolve('timedOut'), stop: () => undefined }) },
+      history: core.history,
+      readReach: readReachOf(core),
+    }),
   };
+}
+
+/** What a caller reads (decision 0034), worked out from the in-memory core. */
+export function readReachOf(core: InMemoryCore) {
+  return createReadReachOf({ uow: core.uow, clock: core.clock });
 }
 
 /** The history reads for the ship page, wired to the in-memory core. */
 export function historyUseCases(core: InMemoryCore) {
-  const readReach = createReadReachOf({ uow: core.uow, clock: core.clock });
+  const readReach = readReachOf(core);
   return {
     readShipTimeline: createReadShipTimeline({ history: core.history, readReach }),
     readShipMessages: createReadShipMessages({ history: core.history, readReach }),

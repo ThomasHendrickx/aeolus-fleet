@@ -1,7 +1,7 @@
 import type { FleetId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
+import { initialiseFleet, operatorCaller, registryUseCases, readReachOf } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../../test/support/result.js';
 import type { Caller } from './caller.js';
@@ -21,7 +21,7 @@ beforeEach(async () => {
   const fleet = await initialiseFleet(core);
   fleetId = fleet.fleetId;
   argo = operatorCaller(fleet);
-  readFleetEvents = createReadFleetEvents({ feed: core.feed });
+  readFleetEvents = createReadFleetEvents({ feed: core.feed, history: core.history, readReach: readReachOf(core) });
 });
 
 /** Appends this many events to the fleet, each in its own unit of work. */
@@ -55,11 +55,12 @@ describe('reading the fleet events', () => {
     expect(read).toEqual({
       kind: 'events',
       events: core.state.events.slice(position).map((event, index) => ({ ...event, seq: position + index + 1 })),
+      lastSeq: eventCount(),
     });
   });
 
   it('gives no events to a browser that is up to date', async () => {
-    await expect(readFleetEvents(argo, eventCount())).resolves.toEqual({ kind: 'events', events: [] });
+    await expect(readFleetEvents(argo, eventCount())).resolves.toEqual({ kind: 'events', events: [], lastSeq: eventCount() });
   });
 
   it(`replays up to ${String(REPLAY_LIMIT)} missed events`, async () => {
@@ -81,7 +82,7 @@ describe('reading the fleet events', () => {
   it("reads only the caller's fleet", async () => {
     const elsewhere = { ...argo, fleetId: core.ids('fleet') };
 
-    await expect(readFleetEvents(elsewhere, 0)).resolves.toEqual({ kind: 'events', events: [] });
+    await expect(readFleetEvents(elsewhere, 0)).resolves.toEqual({ kind: 'events', events: [], lastSeq: 0 });
   });
 });
 

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
+import { initialiseFleet, operatorCaller, registryUseCases, readReachOf } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../../test/support/result.js';
 import type { Caller } from './caller.js';
@@ -31,7 +31,7 @@ beforeEach(async () => {
     },
     stop: () => undefined,
   };
-  followFleet = createFollowFleet({ feed: core.feed, clock: core.clock, wakeups: { watch: () => watch } });
+  followFleet = createFollowFleet({ feed: core.feed, clock: core.clock, wakeups: { watch: () => watch }, history: core.history, readReach: readReachOf(core) });
 });
 
 async function commission(name: string): Promise<void> {

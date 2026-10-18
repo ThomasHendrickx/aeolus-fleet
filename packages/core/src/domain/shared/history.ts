@@ -275,4 +275,6 @@ export interface ShipHistory {
   shipWay(fleetId: FleetId, shipId: ShipId): Promise<ShipWayRead | undefined>;
   /** The messages addressed to the ship itself that the filter keeps, newest first. */
   inbox(fleetId: FleetId, query: { shipId: ShipId; filter: InboxFilter }): Promise<InboxEntry[]>;
+  /** Each message's parties as read reach sees them, by id; a message the fleet does not have is left out. */
+  messageParties(fleetId: FleetId, messageIds: readonly MessageId[]): Promise<ReadonlyMap<MessageId, MessageParties>>;
 }

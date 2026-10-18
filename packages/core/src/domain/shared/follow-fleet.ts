@@ -1,9 +1,12 @@
 import { FOLLOW_MAX_DEFAULT, FOLLOW_MAX_LIMIT, FOLLOW_WAIT_MAX_SECONDS } from '@aeolus-fleet/common';
 
+import type { ReadReachOf } from '../registry/public.js';
 import type { Caller } from './caller.js';
 import type { Clock } from './clock.js';
 import { refuse, type DomainError } from './errors.js';
+import { eventsRead } from './events-read.js';
 import type { FleetEventFeed, FleetEventWakeups, FleetNewsWatch, SequencedEvent } from './events.js';
+import type { ShipHistory } from './history.js';
 import { ok, type Result } from './result.js';
 
 const SECOND_MS = 1_000;
@@ -13,7 +16,7 @@ export type FollowFleetRefusal = DomainError<'INVALID_FOLLOW_MAX' | 'INVALID_FOL
 export interface FleetFollowed {
   /** The events after the position, oldest first. */
   events: SequencedEvent[];
-  /** The number to follow from next: the last event's, the position itself when none came, or the newest without one. */
+  /** The number to follow from next: the last event's it went through, read or not, the position itself when none came, or the newest without one. */
   lastSeq: number;
 }
 
@@ -44,9 +47,17 @@ function checkedWaitMs(waitSeconds: number | undefined): Result<number, FollowFl
  * wait, and nothing after the position, it watches its fleet's wake-ups and
  * reads again on each until an event comes or the wait has passed; it starts
  * watching before it reads a second time, so an event committed in between is
- * answered. The caller's scope is checked before this runs.
+ * answered. It answers only the events the caller reads (decision 0034); one
+ * it does not read moves the position on and does not end a wait. The
+ * caller's scope is checked before this runs.
  */
-export function createFollowFleet(deps: { feed: FleetEventFeed; clock: Clock; wakeups: FleetEventWakeups }): FollowFleet {
+export function createFollowFleet(deps: {
+  feed: FleetEventFeed;
+  clock: Clock;
+  wakeups: FleetEventWakeups;
+  history: Pick<ShipHistory, 'messageParties'>;
+  readReach: ReadReachOf;
+}): FollowFleet {
   return async (caller, input) => {
     const max = checkedMax(input.max);
     if (!max.isOk) {
@@ -63,20 +74,27 @@ export function createFollowFleet(deps: { feed: FleetEventFeed; clock: Clock; wa
     }
 
     const until = deps.clock.now().getTime() + waitMs.value;
+    const reach = await deps.readReach(caller);
+    let position = afterSeq;
     let watch: FleetNewsWatch | undefined;
     try {
       for (;;) {
-        const events = await deps.feed.after(fleetId, { seq: afterSeq, limit: max.value });
+        const gone = await deps.feed.after(fleetId, { seq: position, limit: max.value });
+        position = gone.at(-1)?.seq ?? position;
+        const events = await eventsRead(deps, { fleetId, reach, events: gone });
         const remainingMs = until - deps.clock.now().getTime();
         if (events.length > 0 || remainingMs <= 0) {
-          return ok({ events, lastSeq: events.at(-1)?.seq ?? afterSeq });
+          return ok({ events, lastSeq: position });
+        }
+        if (gone.length > 0) {
+          continue;
         }
         if (watch === undefined) {
           watch = deps.wakeups.watch(fleetId);
           continue;
         }
         if ((await watch.next(remainingMs)) === 'timedOut') {
-          return ok({ events: [], lastSeq: afterSeq });
+          return ok({ events: [], lastSeq: position });
         }
       }
     } finally {

@@ -368,10 +368,12 @@ export function createUseCases(options: {
     markRead: createMarkRead({ uow, clock }),
     markDone: createMarkDone({ uow, clock, ids }),
     replyToMessage: createReplyToMessage({ uow, clock, ids, hasher: sha256Hasher }),
-    readFleetEvents: createReadFleetEvents({ feed: createPrismaFleetEventFeed(prisma) }),
+    readFleetEvents: createReadFleetEvents({ feed: createPrismaFleetEventFeed(prisma), history: createPrismaShipHistory(prisma), readReach }),
     followFleet: createFollowFleet({
       feed: createPrismaFleetEventFeed(prisma),
       clock,
+      history: createPrismaShipHistory(prisma),
+      readReach,
       wakeups: options.fleetEventWakeups ?? fleetEventWakeupsOf(createFleetEventWakeups()),
     }),
     readShipTimeline: createReadShipTimeline({ history: createPrismaShipHistory(prisma), readReach }),

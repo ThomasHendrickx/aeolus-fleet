@@ -894,9 +894,9 @@ export const fleetRouter = router({
             yield tracked(String(read.seq), { kind: 'resync' } satisfies FleetStreamItem);
           } else {
             for (const event of read.events) {
-              afterSeq = event.seq;
               yield tracked(String(event.seq), { kind: 'event', event: liveEventOf(event) } satisfies FleetStreamItem);
             }
+            afterSeq = read.lastSeq;
           }
           if (!(await watch.next(stopped))) {
             return;
