@@ -9,7 +9,7 @@ function aCore(body: unknown, status = 200): VersionFetch & { asked: string[] } 
   const asked: string[] = [];
   const fetch = (url: string) => {
     asked.push(url);
-    return Promise.resolve({ ok: status >= 200 && status < 300, status, json: () => Promise.resolve(body) });
+    return Promise.resolve({ status, json: () => Promise.resolve(body) });
   };
   return Object.assign(fetch, { asked });
 }
