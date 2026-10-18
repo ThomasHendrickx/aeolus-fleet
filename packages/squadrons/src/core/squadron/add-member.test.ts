@@ -54,7 +54,7 @@ let held: Squadron;
 let crew: ManagementCrew | undefined;
 const attempts = memoryAttempts();
 /** Every ship the fleet commissioned: name, type, whether retired. */
-let commissioned: { shipId: ShipId; name: string; type: string; isRetired: boolean }[];
+let commissioned: { shipId: ShipId; name: string; type: string; isRetired: boolean; ownerOf: ShipId | null }[];
 let isCommissionRefused: boolean;
 /** Each ship's crew request settings, as the fleet holds them. */
 let requests: Map<ShipId, unknown>;
@@ -77,12 +77,12 @@ const door: FleetDoor = {
   ack: notUsed,
   pong: notUsed,
   send: notUsed,
-  commission: (crewToken, { name, type }) => {
+  commission: (crewToken, { name, type, ownerOf }) => {
     if (crewToken !== 'aeolus_ct_v1_management' || isCommissionRefused) {
       return Promise.resolve(err({ code: 'INTERNAL_SERVER_ERROR', message: 'Internal error' }));
     }
     const shipId: ShipId = `shp_01m3tbfspe96yf1rnr4ank${String(commissioned.length + 10).padStart(4, '0')}`;
-    commissioned.push({ shipId, name, type, isRetired: false });
+    commissioned.push({ shipId, name, type, isRetired: false, ownerOf: ownerOf ?? null });
     return Promise.resolve(ok({ shipId, ...issuedPrompt(shipId, `aeolus_sk_v1_${name}`) }));
   },
   requestCrew: (_crewToken, { shipId, settings }) => {
@@ -333,3 +333,51 @@ describe("squadrons' limit of members per squadron (question 9)", () => {
     await expect(addWithin(1)({ fleetId: FLEET, squadronId: 'team-a1b2c3', role: 'tester' })).resolves.toMatchObject({ isOk: true });
   });
 });
+
+describe('adding a member by message to the flagship (decision 0017)', () => {
+  const FORMING: ShipId = 'shp_01m3tbfspe96yf1rnr4ank9f00';
+  /** A squadron a ship formed, its tester crewed by request. */
+  function formedByTechLead(): Squadron {
+    const squadron = aSquadron('sailing');
+    const roles = squadron.blueprint.roles.map((role) => ({ ...role, crew: { workspace: { kind: 'worktree' as const, repository: 'hemma' } } }));
+    return { ...squadron, blueprint: { ...squadron.blueprint, roles }, formingShip: { shipId: FORMING, name: 'tech-lead', formKey: 'form-1' } };
+  }
+
+  it("keeps the request's key with the member, so a request that comes again is known", async () => {
+    held = formedByTechLead();
+
+    unwrapAdded(await addMember({ fleetId: FLEET, squadronId: 'team-a1b2c3', role: 'tester', byMessage: { key: 'add-1' } }));
+
+    expect(held.members.map(({ name, addKey }) => ({ name, addKey }))).toEqual([
+      { name: 'tester-k3x9', addKey: undefined },
+      { name: 'tester-q8r2', addKey: 'add-1' },
+    ]);
+  });
+
+  it("commissions the member with the forming ship's owner (decision 0045)", async () => {
+    held = formedByTechLead();
+
+    await addMember({ fleetId: FLEET, squadronId: 'team-a1b2c3', role: 'tester', byMessage: { key: 'add-1' } });
+
+    expect(commissioned.map(({ ownerOf }) => ownerOf)).toEqual([FORMING]);
+  });
+
+  it('refuses a role whose crew settings name no workspace, and commissions nothing: no crew line travels in a message', async () => {
+    held = { ...formedByTechLead(), blueprint: aSquadron('sailing').blueprint };
+
+    const refused = await addMember({ fleetId: FLEET, squadronId: 'team-a1b2c3', role: 'tester', byMessage: { key: 'add-1' } });
+
+    expect(refused).toEqual({
+      isOk: false,
+      error: { kind: 'ADDING_FAILED', message: 'The crew settings of tester name no workspace, so it could get no crew request and no member was added' },
+    });
+    expect(commissioned).toEqual([]);
+  });
+});
+
+function unwrapAdded<T>(result: { isOk: true; value: T } | { isOk: false; error: unknown }): T {
+  if (!result.isOk) {
+    throw new Error(`Expected ok, got ${JSON.stringify(result.error)}`);
+  }
+  return result.value;
+}

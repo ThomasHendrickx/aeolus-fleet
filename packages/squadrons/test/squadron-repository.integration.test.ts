@@ -5,7 +5,7 @@ import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/cl
 import { createPrismaFormationAttempts } from '../src/adapters/prisma/formation-attempts.js';
 import { createPrismaSquadronRepository } from '../src/adapters/prisma/squadron-repository.js';
 import { beginFormation } from '../src/core/squadron/formation.js';
-import type { Squadron } from '../src/core/squadron/squadron.js';
+import type { Member, Squadron } from '../src/core/squadron/squadron.js';
 import { createSquadronsDatabase } from './support/database.js';
 
 // Storing squadrons in Postgres: an update writes only what changed, so two
@@ -109,6 +109,24 @@ describe('updating a squadron', () => {
     expect(stored?.members.map(({ onStationAt, checkIn }) => ({ onStationAt, checkIn }))).toEqual([
       { onStationAt: LATER, checkIn: null },
       { onStationAt: null, checkIn: { at: LATER, model: 'claude-opus-5-5' } },
+    ]);
+  });
+
+  it("keeps the key of the add-member request a member was added by, and none for any other", async () => {
+    const squadrons = createPrismaSquadronRepository(prisma, clock);
+    const [snapshot] = await squadrons.list(FLEET);
+    if (!snapshot) {
+      expect.fail('the squadron was not stored');
+    }
+    const added: Member = { shipId: 'shp_01m3tbfspe96yf1rnr4ank0003', name: 'tester-q8r2', role: 'tester', type: 'team-a1b2c3:tester', onStationAt: null, checkIn: null, standDownMessageId: null, stoodDownAt: null, retiredAt: null, releasingSince: null, parameters: {}, addKey: 'add-1' };
+
+    await squadrons.update({ before: snapshot, after: { ...snapshot, members: [...snapshot.members, added] } });
+
+    const [stored] = await squadrons.list(FLEET);
+    expect(stored?.members.map(({ name, addKey }) => ({ name, addKey }))).toEqual([
+      { name: 'planner-k3x9', addKey: undefined },
+      { name: 'tester-m4p7', addKey: undefined },
+      { name: 'tester-q8r2', addKey: 'add-1' },
     ]);
   });
 
