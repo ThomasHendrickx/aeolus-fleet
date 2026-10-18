@@ -1,4 +1,5 @@
-import { mkdtempSync, rmSync, statSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { createServer, request, type IncomingMessage, type Server } from 'node:http';
 import { join } from 'node:path';
 
@@ -6,6 +7,7 @@ import type { ShipId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { newId } from '../../test/support/in-memory.js';
+import { createCallerCheck } from './caller-check.js';
 import { createShipSockets, SHIP_CALL_MAX_BYTES, type ShipSockets } from './ship-sockets.js';
 
 // The socket of each ship the trierarch crews (decision 0026), on a real Unix
@@ -29,6 +31,8 @@ let calls: FleetCall[];
 let answer: { status: number; body: string };
 let tokens: Map<ShipId, string>;
 let logged: string[];
+/** Whether the caller check lets the caller through. */
+let isCallerLet: boolean;
 let sockets: ShipSockets;
 let shipId: ShipId;
 
@@ -60,7 +64,8 @@ beforeEach(async () => {
   shipId = newId('ship');
   tokens = new Map([[shipId, CREW_TOKEN]]);
   logged = [];
-  sockets = createShipSockets({ root, fleetUrl, crewTokenOf: (ship) => Promise.resolve(tokens.get(ship)), log: (line) => logged.push(line) });
+  isCallerLet = true;
+  sockets = createShipSockets({ root, fleetUrl, crewTokenOf: (ship) => Promise.resolve(tokens.get(ship)), mayCall: () => Promise.resolve(isCallerLet), log: (line) => logged.push(line) });
 });
 
 afterEach(async () => {
@@ -102,7 +107,7 @@ describe("a ship's socket", () => {
   });
 
   it('opens over a socket file a stopped trierarch left behind', async () => {
-    const first = createShipSockets({ root, fleetUrl, crewTokenOf: () => Promise.resolve(CREW_TOKEN), log: () => undefined });
+    const first = createShipSockets({ root, fleetUrl, crewTokenOf: () => Promise.resolve(CREW_TOKEN), mayCall: () => Promise.resolve(true), log: () => undefined });
     await first.open(shipId);
     await first.closeAll();
     const left = await sockets.open(shipId);
@@ -198,6 +203,29 @@ describe('a call the socket refuses, never forwarded', () => {
 
     await expect(callOver(socket, { method: 'POST', path: '/api/v1/ship/send', body: 'x'.repeat(SHIP_CALL_MAX_BYTES + 1) })).resolves.toMatchObject({ status: 413 });
     expect(calls).toEqual([]);
+  });
+});
+
+describe("a caller outside the ship's session (the caller check)", () => {
+  it('is refused with 403, never forwarded, and the call is logged', async () => {
+    isCallerLet = false;
+    const socket = await sockets.open(shipId);
+
+    await expect(callOver(socket, { method: 'POST', path: '/api/v1/ship/send', body: '{}' })).resolves.toMatchObject({ status: 403 });
+    expect(calls).toEqual([]);
+    expect(logged).toEqual([`${shipId} POST /api/v1/ship/send 403`]);
+  });
+
+  it.runIf(process.platform === 'linux')("gets 403 on Linux when it is a process outside the ship's session and the trierarch, with nothing forwarded", async () => {
+    const checked = createShipSockets({ root, fleetUrl, crewTokenOf: () => Promise.resolve(CREW_TOKEN), mayCall: createCallerCheck({ platform: 'linux', sessionRootOf: () => Promise.resolve(undefined) }), log: () => undefined });
+    const socket = await checked.open(newId('ship'));
+    const answered = join(root, 'answered');
+    // Started by a shell that ends at once, so curl has another parent than this process.
+    spawn('sh', ['-c', 'curl -s -o /dev/null -w "%{http_code}" --unix-socket "$0" http://trierarch/api/v1/ship/whoami > "$1.tmp" && mv "$1.tmp" "$1" &', socket, answered], { stdio: 'ignore' }).unref();
+
+    await expect.poll(() => (existsSync(answered) ? readFileSync(answered, 'utf8') : ''), { timeout: 5000 }).toBe('403');
+    expect(calls).toEqual([]);
+    await checked.closeAll();
   });
 });
 
