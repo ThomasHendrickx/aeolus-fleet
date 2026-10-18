@@ -556,6 +556,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     networkSettings: {
       // One unit of work runs at a time: nothing to hold.
       findForShare: (fleetId) => Promise.resolve(networkSettingsOf(fleetId)),
+      find: (fleetId) => Promise.resolve(networkSettingsOf(fleetId)),
       findForUpdate: (fleetId) => Promise.resolve(networkSettingsOf(fleetId)),
       save: (settings) => {
         const copy = structuredClone(settings);

@@ -27,9 +27,9 @@ beforeEach(async () => {
   ({ fleetId, operatorShipId: argoId } = fleet);
   argo = operatorCaller(fleet);
   registry = registryUseCases(core);
-  plugin = await shipWithScopes({ registry, argo }, { name: 'trierarch-plugin', type: 'trierarch-plugin', scopes: ['fleet:read', 'labels:define', 'labels:assign'] });
+  plugin = await shipWithScopes({ registry, argo }, { name: 'trierarch-plugin', type: 'trierarch-plugin', scopes: ['fleet:read', 'fleet:commission', 'labels:define', 'labels:assign'] });
   pluginId = plugin.shipId;
-  ({ shipId: builderId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'builder', type: 'implementer' })));
+  ({ shipId: builderId } = unwrap(await registry.commissionShip(plugin, { idempotencyKey: newKey(), name: 'builder', type: 'implementer' })));
   ({ labelId: osId } = unwrap(await registry.defineLabel(plugin, { key: 'os', values: ['macos', 'linux'] })));
   macos = valueIdOf(core, { key: 'os', value: 'macos' });
   linux = valueIdOf(core, { key: 'os', value: 'linux' });
@@ -76,7 +76,7 @@ describe('assigning a label', () => {
     expect(core.state.events).toEqual([]);
   });
 
-  it("puts its value on the owner's own ship too: the owner labels any ship (#573)", async () => {
+  it("puts its value on the owner's own ship too (#573)", async () => {
     unwrap(await registry.assignLabel(plugin, { shipId: pluginId, valueId: macos }));
 
     expect(core.state.shipLabels).toEqual([expect.objectContaining({ shipId: pluginId, valueId: macos })]);
@@ -114,13 +114,35 @@ describe('assigning a label', () => {
     expect(core.state.shipLabels).toEqual([]);
   });
 
-  it('takes argo and the viewer ship: Aeolus adds no policy', async () => {
-    const { shipId: viewerId } = addViewerShip(core, { fleetId });
+  it('puts its value on a ship it commissioned (decision 0046)', async () => {
+    unwrap(await registry.assignLabel(plugin, { shipId: builderId, valueId: linux }));
 
-    unwrap(await registry.assignLabel(plugin, { shipId: argoId, valueId: macos }));
-    unwrap(await registry.assignLabel(plugin, { shipId: viewerId, valueId: linux }));
+    expect(carriedText(core, builderId)).toEqual(['os=linux']);
+  });
 
-    expect([...carriedText(core, argoId), ...carriedText(core, viewerId)]).toEqual(['os=macos', 'os=linux']);
+  it.each(['a ship argo commissioned', 'argo', 'the viewer ship'] as const)('refuses %s, which is neither its own ship nor one it commissioned, and stores nothing (decision 0046)', async (which) => {
+    const shipId =
+      which === 'argo'
+        ? argoId
+        : which === 'the viewer ship'
+          ? addViewerShip(core, { fleetId }).shipId
+          : unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'stranger', type: 'implementer' })).shipId;
+    const name = core.state.ships.find((ship) => ship.id === shipId)?.name ?? shipId;
+
+    await expect(registry.assignLabel(plugin, { shipId, valueId: macos })).resolves.toEqual({
+      isOk: false,
+      error: { kind: 'NOT_YOUR_SHIP_TO_LABEL', message: `${name} is neither your ship nor one it commissioned: only argo labels it` },
+    });
+    expect(core.state.shipLabels).toEqual([]);
+  });
+
+  it('lets argo give any ship a value of a label argo owns (decision 0046)', async () => {
+    unwrap(await registry.defineLabel(argo, { key: 'tier', values: ['gold'] }));
+    const gold = valueIdOf(core, { key: 'tier', value: 'gold' });
+
+    unwrap(await registry.assignLabel(argo, { shipId: pluginId, valueId: gold }));
+
+    expect(carriedText(core, pluginId)).toEqual(['tier=gold']);
   });
 
   describe('at the most labels a ship carries', () => {

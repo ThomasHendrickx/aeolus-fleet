@@ -1,7 +1,8 @@
 import type { FleetId, IdGenerator, ShipId } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
-import { ok, type Result } from '../shared/result.js';
+import { err, ok, type Result } from '../shared/result.js';
+import type { UnitOfWork } from '../shared/unit-of-work.js';
 import type { Recipient } from '../shared/selector.js';
 import type { CarriedLabel } from './label.js';
 import { allowsReach, isNetworkPluginResponding, rulesInForce, type NetworkSettings, type ReachingShip, type RulesInForce } from './network-settings.js';
@@ -128,6 +129,76 @@ export async function checkRead(
     whilePluginUnavailable: inForce.whilePluginUnavailable,
   });
   return refuse('NOT_REACHABLE', 'The network rules do not allow this read');
+}
+
+/** The ports a manage call's reach check reads and writes, inside the call's unit of work. */
+export type CheckManageTx = CheckReadTx;
+
+/**
+ * Whether the manage rules let the manager manage the ship now (decision
+ * 0034): every fleet:manage call is checked on its target ship, argo
+ * reaching every ship and an owner's ship the ships it owns. A refusal is
+ * recorded here, in the call's unit of work, with the verb manage: its caller
+ * commits only the record. A call that already holds the fleet's network
+ * settings for update hands them in, so the check takes no second lock on
+ * them.
+ */
+export async function checkManage(
+  deps: { tx: CheckManageTx; ids: IdGenerator },
+  manage: { fleetId: FleetId; managerShipId: ShipId; shipId: ShipId; at: Date; settings?: NetworkSettings },
+): Promise<Result<undefined, NotReachable>> {
+  const { tx, ids } = deps;
+  const { fleetId, at } = manage;
+  const settings = manage.settings ?? (await tx.networkSettings.findForShare(fleetId));
+  const inForce = await rulesInForceAt(tx, { settings, now: at });
+  const managerShip = await tx.ships.find(fleetId, manage.managerShipId);
+  const managedShip = await tx.ships.find(fleetId, manage.shipId);
+  if (!managerShip || !managedShip) {
+    return ok(undefined);
+  }
+  const manager = await shipAsItIs(tx, managerShip);
+  const ship = await shipAsItIs(tx, managedShip);
+  if (allowsReach(inForce, { verb: 'manage', sender: reaching(manager), recipient: reaching(ship), isAnswerToSender: false })) {
+    return ok(undefined);
+  }
+  await tx.reachRefusals.record({
+    fleetId,
+    id: ids('reachRefusal'),
+    at,
+    sender: refused(manager),
+    recipient: { kind: 'ship', ship: refused(ship) },
+    verb: 'manage',
+    settingsVersion: settings.version,
+    whilePluginUnavailable: inForce.whilePluginUnavailable,
+  });
+  return refuse('NOT_REACHABLE', 'The network rules do not allow this manage');
+}
+
+/** Whether a refusal is the reach check's: its record commits, though the call is refused. */
+function isNotReachable(error: { kind: string }): error is NotReachable {
+  return error.kind === 'NOT_REACHABLE';
+}
+
+/**
+ * Runs a call in one unit of work that commits the record of a reach
+ * refusal: refused by the network rules, the call stores nothing but that
+ * record and answers the refusal; any other refusal rolls everything back.
+ */
+export async function keepingReachRefusal<Tx, T, E extends { kind: string }>(
+  uow: UnitOfWork<Tx>,
+  work: (tx: Tx) => Promise<Result<T, E | NotReachable>>,
+): Promise<Result<T, E | NotReachable>> {
+  const outcome = await uow.run(async (tx): Promise<Result<{ done: T } | { prevented: NotReachable }, E | NotReachable>> => {
+    const done = await work(tx);
+    if (done.isOk) {
+      return ok({ done: done.value });
+    }
+    return isNotReachable(done.error) ? ok({ prevented: done.error }) : err(done.error);
+  });
+  if (!outcome.isOk) {
+    return outcome;
+  }
+  return 'prevented' in outcome.value ? err(outcome.value.prevented) : ok(outcome.value.done);
 }
 
 /** The rules in force at the send: the plugin's crew last seen, read without a lock, says whether it responds. */

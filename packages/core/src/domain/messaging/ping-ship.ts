@@ -1,6 +1,6 @@
 import { PING_CONTENT_TYPE, type IdGenerator, type MessageId, type ShipId } from '@aeolus-fleet/common';
 
-import { findPingableShip, type PingableShipTx, type UnpingableShip } from '../registry/public.js';
+import { checkManage, findPingableShip, keepingReachRefusal, type CheckManageTx, type NotReachable, type PingableShipTx, type UnpingableShip } from '../registry/public.js';
 import type { Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { ok, type Result } from '../shared/result.js';
@@ -11,7 +11,7 @@ import { checkedSend, sendWithin, type SendMessageRefusal, type SendMessageTx } 
 /** What every ping says: the session answers it with pong, and does nothing else with it. */
 export const PING_PAYLOAD = 'Ping from argo: answer with pong(deliveryId).';
 
-export type PingShipTx = SendMessageTx & PingableShipTx;
+export type PingShipTx = SendMessageTx & PingableShipTx & CheckManageTx;
 
 export interface PingSent {
   /** The ship's open ping: the one this call sent, or the one already waiting. */
@@ -21,7 +21,7 @@ export interface PingSent {
   isNew: boolean;
 }
 
-export type PingShipRefusal = UnpingableShip | SendMessageRefusal;
+export type PingShipRefusal = UnpingableShip | NotReachable | SendMessageRefusal;
 
 export type PingShip = (caller: Caller, input: { shipId: ShipId }) => Promise<Result<PingSent, PingShipRefusal>>;
 
@@ -42,11 +42,15 @@ export function createPingShip(deps: {
   hasher: RequestHasher;
 }): PingShip {
   return (caller, input) =>
-    deps.uow.run(async (tx): Promise<Result<PingSent, PingShipRefusal>> => {
+    keepingReachRefusal(deps.uow, async (tx): Promise<Result<PingSent, PingShipRefusal>> => {
       const { fleetId } = caller;
       const ship = await findPingableShip(tx, { fleetId, shipId: input.shipId });
       if (!ship.isOk) {
         return ship;
+      }
+      const managed = await checkManage({ tx, ids: deps.ids }, { fleetId, managerShipId: caller.shipId, shipId: input.shipId, at: deps.clock.now() });
+      if (!managed.isOk) {
+        return managed;
       }
       const open = await tx.deliveries.findOpenPing(fleetId, input.shipId);
       if (open) {

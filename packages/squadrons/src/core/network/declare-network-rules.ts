@@ -1,4 +1,4 @@
-import { SAME_LABEL_VALUE, type FleetId, type NetworkRule } from '@aeolus-fleet/common';
+import { ANY_LABEL_VALUE, SAME_LABEL_VALUE, type FleetId, type NetworkRule } from '@aeolus-fleet/common';
 
 import type { ManagementCrewStore } from '../management/ports.js';
 import { refuse, type DomainError } from '../shared/errors.js';
@@ -15,6 +15,8 @@ export type DeclareNetworkRules = (fleetId: FleetId) => Promise<Result<{ isDecla
  * own squadron, `squadron=#` to `squadron=#`, and the flagships reach its own
  * ship and back, `squadron-role=flagship` to `squadron-role=squadrons` and the
  * reverse. Exact values only on squadron-role, so no flagship reaches another.
+ * Its own ship manages every ship of its squadrons, `squadron-role=squadrons`
+ * to `squadron=*` (decisions 0017, 0034): they are argo's, not its own.
  * A rule whose label the fleet does not have yet, or another ship owns, is
  * left out until the label pass defines it. Declared once per ship and rules
  * in this process; a fleet that did not answer is declared on the next pass.
@@ -44,7 +46,11 @@ export function createDeclareNetworkRules(deps: { door: NetworkDoor; management:
   };
 }
 
-/** The send rules on the labels squadrons owns: within a squadron on its squadron label, and between flagships and its own ship on squadron-role. */
+/**
+ * The rules on the labels squadrons owns: send within a squadron on its
+ * squadron label, send between flagships and its own ship on squadron-role,
+ * and manage from its own ship to every squadron's ships.
+ */
 function rulesOn(labels: { squadron: ListedLabel | undefined; role: ListedLabel | undefined }): NetworkRule[] {
   const rules: NetworkRule[] = [];
   if (labels.squadron !== undefined) {
@@ -56,6 +62,9 @@ function rulesOn(labels: { squadron: ListedLabel | undefined; role: ListedLabel 
   const squadrons = valueOf(SQUADRON_ROLE_LABEL.squadrons);
   if (flagship !== undefined && squadrons !== undefined) {
     rules.push({ verb: 'send', from: [flagship], to: [squadrons] }, { verb: 'send', from: [squadrons], to: [flagship] });
+  }
+  if (labels.squadron !== undefined && squadrons !== undefined) {
+    rules.push({ verb: 'manage', from: [squadrons], to: [{ labelId: labels.squadron.labelId, value: ANY_LABEL_VALUE }] });
   }
   return rules;
 }

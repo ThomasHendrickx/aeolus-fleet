@@ -22,9 +22,9 @@ beforeEach(async () => {
   const fleet = await initialiseFleet(core);
   argo = operatorCaller(fleet);
   registry = registryUseCases(core);
-  plugin = await shipWithScopes({ registry, argo }, { name: 'trierarch-plugin', type: 'trierarch-plugin', scopes: ['fleet:read', 'labels:define', 'labels:assign'] });
+  plugin = await shipWithScopes({ registry, argo }, { name: 'trierarch-plugin', type: 'trierarch-plugin', scopes: ['fleet:read', 'fleet:commission', 'labels:define', 'labels:assign'] });
   pluginId = plugin.shipId;
-  ({ shipId: builderId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'builder', type: 'implementer' })));
+  ({ shipId: builderId } = unwrap(await registry.commissionShip(plugin, { idempotencyKey: newKey(), name: 'builder', type: 'implementer' })));
   unwrap(await registry.defineLabel(plugin, { key: 'os', values: ['macos', 'linux'] }));
   unwrap(await registry.defineLabel(plugin, { key: 'project', values: ['hemma'] }));
   macos = valueIdOf(core, { key: 'os', value: 'macos' });
@@ -70,6 +70,28 @@ describe('unassigning a label', () => {
       error: { kind: 'NOT_THE_LABEL_OWNER', message: 'The label os is owned by trierarch-plugin: only its owner unassigns it' },
     });
     expect(carriedText(core, builderId)).toEqual(['os=linux', 'os=macos', 'project=hemma']);
+  });
+
+  it('refuses a ship it neither is nor commissioned, which keeps the value it carries from before (decision 0046)', async () => {
+    const { shipId: strangerId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'stranger', type: 'implementer' }));
+    const labelId = core.state.labels.find((label) => label.key === 'os')?.id ?? core.ids('label');
+    core.state.shipLabels.push({ fleetId: argo.fleetId, shipId: strangerId, labelId, valueId: macos });
+
+    await expect(registry.unassignLabel(plugin, { shipId: strangerId, valueId: macos })).resolves.toEqual({
+      isOk: false,
+      error: { kind: 'NOT_YOUR_SHIP_TO_LABEL', message: 'stranger is neither your ship nor one it commissioned: only argo labels it' },
+    });
+    expect(carriedText(core, strangerId)).toEqual(['os=macos']);
+  });
+
+  it('lets argo take a value of a label argo owns off any ship (decision 0046)', async () => {
+    unwrap(await registry.defineLabel(argo, { key: 'tier', values: ['gold'] }));
+    const gold = valueIdOf(core, { key: 'tier', value: 'gold' });
+    unwrap(await registry.assignLabel(argo, { shipId: pluginId, valueId: gold }));
+
+    unwrap(await registry.unassignLabel(argo, { shipId: pluginId, valueId: gold }));
+
+    expect(carriedText(core, pluginId)).toEqual([]);
   });
 
   it("takes its value off the owner's own ship too (#573)", async () => {

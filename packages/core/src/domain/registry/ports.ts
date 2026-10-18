@@ -243,6 +243,8 @@ export interface ClearRequestRepository {
 export interface NetworkSettingsRepository {
   /** The fleet's settings, held shared until the unit of work ends; none at version 0 when it never set rules. */
   findForShare(fleetId: FleetId): Promise<NetworkSettings>;
+  /** The fleet's settings as they stand, with no lock: for a call that takes them exclusively later, which a shared hold would deadlock against. */
+  find(fleetId: FleetId): Promise<NetworkSettings>;
   /** The fleet's settings, held exclusively until the unit of work ends, even before the fleet first set rules. */
   findForUpdate(fleetId: FleetId): Promise<NetworkSettings>;
   save(settings: NetworkSettings): Promise<void>;

@@ -86,6 +86,7 @@ export function createPrismaNetworkSettingsRepository(db: Db): NetworkSettingsRe
       await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${fleetId}), hashtext('network-settings'))`;
       return read(fleetId);
     },
+    find: read,
     save: async ({ fleetId, rules, builtIns, version, plugin }) => {
       const kept = {
         rules: rules.map((rule) => ({ verb: rule.verb, from: [...rule.from], to: [...rule.to] })),

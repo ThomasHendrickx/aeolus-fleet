@@ -1,4 +1,4 @@
-import { createIdGenerator, idSchema, type FleetId, type MessageId, type ShipId } from '@aeolus-fleet/common';
+import { createIdGenerator, idSchema, SCOPES, type FleetId, type MessageId, type ShipId } from '@aeolus-fleet/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { readdirSync } from 'node:fs';
@@ -357,6 +357,97 @@ describe('the declare and grant scopes migration', () => {
         { id: argoId, scopes: [...everyScopeBefore, 'scopes:declare', 'scopes:grant'] },
         { id: scoutId, scopes: ['messages:send', 'messages:receive'] },
       ]);
+    } finally {
+      await client.$disconnect();
+    }
+  });
+});
+
+describe('the scope catalogue migration', () => {
+  const MIGRATIONS = fileURLToPath(new URL('../src/adapters/prisma/migrations', import.meta.url));
+  const catalogue = readdirSync(MIGRATIONS).find((name) => name.endsWith('_scope_catalogue'));
+  const before = ['messages:send', 'messages:receive', 'messages:force', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'scopes:declare', 'scopes:grant'];
+
+  /** A fleet as the migration finds it: every holder of fleet:manage, both plugins, and ships it leaves alone. */
+  async function fleetBefore(client: PrismaClient) {
+    const fleetId = newId('fleet');
+    const ships = {
+      argo: newId('ship'),
+      manager: newId('ship'),
+      squadrons: newId('ship'),
+      trierarchPlugin: newId('ship'),
+      networking: newId('ship'),
+      scout: newId('ship'),
+      retired: newId('ship'),
+    };
+    const earlier = newId('event');
+    await client.fleet.create({ data: { id: fleetId, name: 'old fleet', createdAt: now, lastEventSeq: 1n } });
+    await client.ship.createMany({
+      data: [
+        { id: ships.argo, fleetId, name: 'argo', type: 'operator', kind: 'operator', scopes: before, createdAt: now },
+        { id: ships.manager, fleetId, name: 'manager', type: 'manager', kind: 'agent', scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'squadrons:form'], createdAt: now },
+        { id: ships.squadrons, fleetId, name: 'squadrons', type: 'squadrons', kind: 'agent', scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'labels:define', 'labels:assign'], createdAt: now },
+        {
+          id: ships.trierarchPlugin,
+          fleetId,
+          name: 'trierarch-plugin',
+          type: 'trierarch-plugin',
+          kind: 'agent',
+          scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign'],
+          createdAt: now,
+        },
+        { id: ships.networking, fleetId, name: 'networking-plugin', type: 'networking-plugin', kind: 'agent', scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:network'], createdAt: now },
+        { id: ships.scout, fleetId, name: 'scout', type: 'reviewer', kind: 'agent', scopes: ['messages:send', 'messages:receive', 'fleet:read'], createdAt: now },
+        { id: ships.retired, fleetId, name: 'old-manager', type: 'manager', kind: 'agent', scopes: ['messages:send', 'messages:receive', 'fleet:manage'], createdAt: now, retiredAt: now },
+      ],
+    });
+    await client.event.create({ data: { id: earlier, fleetId, type: 'ShipCommissioned', occurredAt: now, shipId: ships.scout, details: {}, seq: 1n } });
+    return { fleetId, ships, earlier };
+  }
+
+  it("keeps what each holder of fleet:manage did, giving it fleet:commission and messages:resend, and puts both plugins on exactly their sets (decision 0046)", async () => {
+    const url = await createMigratedDatabase();
+    const client = createPrismaClient(url);
+    try {
+      const { ships } = await fleetBefore(client);
+
+      await executeSqlFile(url, `${MIGRATIONS}/${catalogue ?? ''}/migration.sql`);
+
+      const after = new Map((await client.ship.findMany({ select: { id: true, scopes: true } })).map(({ id, scopes }) => [id, scopes]));
+      expect(after.get(ships.argo)).toEqual([...SCOPES]);
+      expect(after.get(ships.manager)).toEqual(['messages:send', 'messages:receive', 'messages:resend', 'fleet:read', 'fleet:commission', 'fleet:manage', 'squadrons:form']);
+      expect(after.get(ships.squadrons)).toEqual(['messages:send', 'messages:receive', 'fleet:read', 'fleet:commission', 'fleet:manage', 'labels:define', 'labels:assign', 'scopes:declare']);
+      expect(after.get(ships.trierarchPlugin)).toEqual(['messages:send', 'messages:receive', 'fleet:read', 'fleet:commission', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign']);
+      expect(after.get(ships.networking)).toEqual(['messages:send', 'messages:receive', 'fleet:read', 'fleet:network']);
+      expect(after.get(ships.scout)).toEqual(['messages:send', 'messages:receive', 'fleet:read']);
+      expect(after.get(ships.retired)).toEqual(['messages:send', 'messages:receive', 'fleet:manage']);
+    } finally {
+      await client.$disconnect();
+    }
+  });
+
+  it('records ScopesChanged for each ship it changes, what it added and took away, by the system, at the next numbers of its fleet', async () => {
+    const url = await createMigratedDatabase();
+    const client = createPrismaClient(url);
+    try {
+      const { fleetId, ships, earlier } = await fleetBefore(client);
+
+      await executeSqlFile(url, `${MIGRATIONS}/${catalogue ?? ''}/migration.sql`);
+
+      const recorded = await client.event.findMany({ where: { fleetId, id: { not: earlier } }, orderBy: { seq: 'asc' } });
+      expect(new Map(recorded.map(({ shipId, details }) => [shipId, details]))).toEqual(
+        new Map([
+          [ships.argo, { added: 'messages:resend fleet:commission', removed: '' }],
+          [ships.manager, { added: 'messages:resend fleet:commission', removed: '' }],
+          [ships.squadrons, { added: 'fleet:commission scopes:declare', removed: '' }],
+          [ships.trierarchPlugin, { added: 'fleet:commission', removed: 'fleet:manage' }],
+        ]),
+      );
+      for (const [at, event] of recorded.entries()) {
+        expect(event).toMatchObject({ type: 'ScopesChanged', actorShipId: null, seq: BigInt(at + 2) });
+        expect(idSchema('event').safeParse(event.id).success).toBe(true);
+      }
+      await expect(client.fleet.findUnique({ where: { id: fleetId }, select: { lastEventSeq: true } })).resolves.toEqual({ lastEventSeq: 5n });
     } finally {
       await client.$disconnect();
     }
@@ -798,7 +889,7 @@ describe('operator accounts', () => {
 });
 
 describe('scopes', () => {
-  it('are only the twelve known ones', async () => {
+  it('are only the fourteen known ones', async () => {
     const id = await createShip(await createFleet());
 
     await expect(
@@ -807,9 +898,9 @@ describe('scopes', () => {
     await expect(
       database.ship.update({
         where: { id },
-        data: { scopes: ['messages:send', 'messages:receive', 'messages:force', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'scopes:declare', 'scopes:grant'] },
+        data: { scopes: ['messages:send', 'messages:receive', 'messages:force', 'messages:resend', 'fleet:read', 'fleet:commission', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'scopes:declare', 'scopes:grant'] },
       }),
-    ).resolves.toMatchObject({ scopes: ['messages:send', 'messages:receive', 'messages:force', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'scopes:declare', 'scopes:grant'] });
+    ).resolves.toMatchObject({ scopes: ['messages:send', 'messages:receive', 'messages:force', 'messages:resend', 'fleet:read', 'fleet:commission', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'scopes:declare', 'scopes:grant'] });
   });
 
   it('are never null', async () => {

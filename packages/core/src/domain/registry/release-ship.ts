@@ -8,19 +8,17 @@ import { shipActor } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { endLease, type LeaseTx } from './leases.js';
-import { checkReaches } from './crew-request.js';
+import { keepingReachRefusal, type NotReachable } from './check-reach.js';
+import { checkManagedOrAssigned, type ManagedOrAssignedTx } from './managed-or-assigned.js';
 import type { CrewRequestRepository, ShipRepository } from './ports.js';
 import { checkCanRelease, type ReleaseRefusal } from './ship.js';
 
-export interface ReleaseShipTx extends LeaseTx, CredentialTx {
+export interface ReleaseShipTx extends LeaseTx, CredentialTx, Omit<ManagedOrAssignedTx, 'ships' | 'leases' | 'crewRequests'> {
   ships: ShipRepository;
   crewRequests: Pick<CrewRequestRepository, 'find'>;
 }
 
-export type ReleaseShipRefusal = DomainError<'SHIP_NOT_FOUND' | 'CREW_REQUEST_NOT_ASSIGNED_TO_CALLER'> | ReleaseRefusal;
-
-/** The scopes that release every ship; crew:run releases only the ships assigned to the caller's ship. */
-const RELEASE_SCOPES = ['fleet:manage'] as const;
+export type ReleaseShipRefusal = DomainError<'SHIP_NOT_FOUND' | 'CREW_REQUEST_NOT_ASSIGNED_TO_CALLER'> | NotReachable | ReleaseRefusal;
 
 export type ReleaseShip = (
   caller: Caller,
@@ -35,7 +33,8 @@ export type ReleaseShip = (
  * their attempts kept. The next crew needs a new starting prompt. The caller's
  * scope (fleet:manage or crew:run) is checked before this runs;
  * crew:run reaches only the ships whose crew requests are assigned to the
- * caller's ship.
+ * caller's ship, and fleet:manage the ships in its manage reach (decision
+ * 0034).
  *
  * Locks in the fleet's order: the ship, then its secret, then its lease. A
  * receive holding the lease makes the release wait, then the release returns
@@ -48,18 +47,18 @@ export function createReleaseShip(deps: {
   ids: IdGenerator;
 }): ReleaseShip {
   return (caller, { shipId }) =>
-    deps.uow.run(async (tx): Promise<Result<undefined, ReleaseShipRefusal>> => {
+    keepingReachRefusal(deps.uow, async (tx): Promise<Result<undefined, ReleaseShipRefusal>> => {
       const { fleetId } = caller;
       const ship = await tx.ships.findForUpdate(fleetId, shipId);
       if (!ship) {
         return refuse('SHIP_NOT_FOUND', `Ship ${shipId} does not exist`);
       }
-      const reaches = checkReaches(caller, { ship, current: await tx.crewRequests.find(fleetId, shipId), broadScopes: RELEASE_SCOPES });
+      const at = deps.clock.now();
+      const reaches = await checkManagedOrAssigned({ tx, ids: deps.ids }, { caller, ship, at });
       if (!reaches.isOk) {
         return reaches;
       }
       const actor = shipActor(caller.shipId);
-      const at = deps.clock.now();
 
       await revokeShipSecret({ tx, ids: deps.ids }, { fleetId, shipId, actor, at });
       const lease = checkCanRelease(ship, await tx.leases.findOpenForUpdate(fleetId, shipId));

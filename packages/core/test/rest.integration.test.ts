@@ -449,7 +449,7 @@ describe('the ship calls at /api/v1', () => {
 
 describe('the fleet actions at /api/v1/fleet', () => {
   it('let a ship with fleet:read and fleet:manage list the fleet, commission a ship and ping a crewed one', async () => {
-    const manager = await crewedWithFleetScopes(['fleet:read', 'fleet:manage']);
+    const manager = await crewedWithFleetScopes(['fleet:read', 'fleet:commission', 'fleet:manage']);
     const mooring = await commissioned();
     await register(mooring);
 
@@ -486,7 +486,7 @@ describe('the fleet actions at /api/v1/fleet', () => {
   });
 
   it('serve a ship with fleet:manage a crew request: requested, replaced, read with the ship, and removed', async () => {
-    const manager = await crewedWithFleetScopes(['fleet:read', 'fleet:manage']);
+    const manager = await crewedWithFleetScopes(['fleet:read', 'fleet:commission', 'fleet:manage']);
     const scout = await commissioned();
 
     await ok(request('fleet/crewRequest', { crewToken: manager.crewToken, body: { shipId: scout.shipId, settings: aCrewSettings({ harness: 'claude-code' }) } }), z.object({ settingsVersion: z.literal(1) }));
@@ -502,7 +502,7 @@ describe('the fleet actions at /api/v1/fleet', () => {
   });
 
   it('refuse a crew request whose settings no trierarch could take, with the reason, and store nothing (#809)', async () => {
-    const manager = await crewedWithFleetScopes(['fleet:read', 'fleet:manage']);
+    const manager = await crewedWithFleetScopes(['fleet:read', 'fleet:commission', 'fleet:manage']);
     const scout = await commissioned();
 
     await expect(
@@ -515,7 +515,7 @@ describe('the fleet actions at /api/v1/fleet', () => {
   });
 
   it('refuse a crew request with a machine label that is no label value of the fleet, with the reason, and store nothing (#811)', async () => {
-    const manager = await crewedWithFleetScopes(['fleet:read', 'fleet:manage']);
+    const manager = await crewedWithFleetScopes(['fleet:read', 'fleet:commission', 'fleet:manage']);
     const scout = await commissioned();
     const unknown = newId('labelValue');
 
@@ -580,7 +580,7 @@ describe('the fleet actions at /api/v1/fleet', () => {
   });
 
   it('serve a clear request: asked with fleet:manage, read with fleet:read and by its trierarch, confirmed by it (decision 0032)', async () => {
-    const manager = await crewedWithFleetScopes(['fleet:read', 'fleet:manage']);
+    const manager = await crewedWithFleetScopes(['fleet:read', 'fleet:commission', 'fleet:manage']);
     shipCount += 1;
     const machine = unwrap(
       await createUseCases({ prisma: database }).commissionShip(argo, { idempotencyKey: newKey(), name: `rest-trierarch-${shipCount}`, type: 'trierarch', scopes: ['crew:run'] }),

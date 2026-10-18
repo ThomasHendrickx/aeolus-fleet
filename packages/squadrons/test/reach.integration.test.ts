@@ -1,4 +1,4 @@
-import { isInReadReach } from '@aeolus-fleet/common';
+import { isInReadReach, NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS } from '@aeolus-fleet/common';
 import type { FleetId, ShipId } from '@aeolus-fleet/common';
 import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -143,7 +143,7 @@ beforeEach(async () => {
   argo = operatorCaller(founded);
   fleetId = founded.fleetId;
   const commissioned = unwrap(
-    await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', scopes: ['fleet:read', 'fleet:manage', 'labels:define', 'labels:assign'] }),
+    await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', scopes: ['fleet:read', 'fleet:commission', 'fleet:manage', 'labels:define', 'labels:assign'] }),
   );
   management = { shipId: commissioned.shipId, secret: secretOf(commissioned.secret) };
   fleet = createApp({ databaseUrl: fleetDatabaseUrl, publicUrl: FLEET_URL, logger: false, receiveWaitMs: 500 });
@@ -184,10 +184,26 @@ describe('the squadron reach against a real fleet (#573, decision 0037)', () => 
           { verb: 'send', from: [same], to: [same] },
           { verb: 'send', from: [await valueOf('flagship')], to: [await valueOf('squadrons')] },
           { verb: 'send', from: [await valueOf('squadrons')], to: [await valueOf('flagship')] },
+          { verb: 'manage', from: [await valueOf('squadrons')], to: [{ labelId: squadron, value: '*' }] },
         ],
       },
     ]);
     await expect(fleetDatabase.event.count({ where: { type: 'NetworkRulesDeclared' } })).resolves.toBe(1);
+  });
+
+  it("manages its squadrons' ships through the manage rule it declared, once the networking plugin supplies it and open manage is off (decision 0034)", async () => {
+    const { flagship, member } = await aFormedSquadron();
+    await expect.poll(() => declared()).toHaveLength(1);
+    const plugin = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'networking', type: 'networking', scopes: ['fleet:network'] }));
+    const { crewToken } = unwrap(await useCases.claimShip({ shipId: plugin.shipId, secret: secretOf(plugin.secret), location: { kind: 'CLOUD' }, harness: 'aeolus-networking-plugin' }));
+    const networking = unwrap(await useCases.authenticate.byCrewToken(crewToken));
+    unwrap(await useCases.registerNetworkPlugin(networking, { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS }));
+    unwrap(await useCases.setNetworkRules(networking, { rules: (await useCases.readDeclaredNetworkRules(networking)).flatMap(({ rules }) => rules) }));
+    unwrap(await useCases.setBuiltInRule(networking, { rule: 'open', verb: 'manage', isOn: false }));
+
+    const explained = unwrap(await useCases.explainReach(argo, { fromShipId: management.shipId }));
+
+    expect(explained.manage.map(({ shipId }) => shipId)).toEqual(expect.arrayContaining([flagship, member]));
   });
 
   it('withdraws the declared rules when switched off, keeping the labels, and declares them again once on', async () => {

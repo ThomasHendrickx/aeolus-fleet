@@ -1,8 +1,10 @@
-import type { FleetId, LabelValueId, MessageId, ShipId } from '@aeolus-fleet/common';
+import type { DeliveryId, FleetId, LabelValueId, MessageId, ShipId } from '@aeolus-fleet/common';
+
+import { UNDELIVERABLE_AT_ATTEMPT } from '../../src/domain/messaging/delivery.js';
 
 import type { Caller, Crew } from '../../src/domain/shared/caller.js';
 import type { Selector } from '../../src/domain/shared/selector.js';
-import { addViewerShip, crewAboard, historyUseCases, initialiseFleet, messagingUseCases, modelOf, operatorCaller, registryUseCases } from './core-fixtures.js';
+import { addViewerShip, crewAboard, deliveryIdOf, historyUseCases, initialiseFleet, messagingUseCases, modelOf, operatorCaller, registryUseCases } from './core-fixtures.js';
 import { shipWithScopes } from './crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from './in-memory.js';
 import { valueIdOf } from './label-fixtures.js';
@@ -28,9 +30,13 @@ export interface ReadReachScenario {
   messaging: ReturnType<typeof messagingUseCases>;
   history: ReturnType<typeof historyUseCases>;
   team(value: 'a' | 'b'): LabelValueId;
+  /** The ship carries team a or b, as the label's owner assigns it. */
+  carry(ship: { shipId: ShipId }, value: 'a' | 'b'): Promise<void>;
   /** The plugin's rules: team a reads team a; open stays on for send and manage, off for read. */
   readRulesApply(): Promise<void>;
   send(from: Caller, to: Selector): Promise<MessageId>;
+  /** A message from one ship to a crewed one, received without acknowledging it until undeliverable: its delivery. */
+  undeliverable(from: Caller, to: Crew): Promise<DeliveryId>;
 }
 
 export async function readReachScenario(): Promise<ReadReachScenario> {
@@ -45,7 +51,8 @@ export async function readReachScenario(): Promise<ReadReachScenario> {
     const caller = await shipWithScopes({ registry, argo }, ship);
     return { ...crewAboard(core, caller), scopes: caller.scopes };
   };
-  const labeller = await shipWithScopes({ registry, argo }, { name: 'labeller', type: 'labeller', scopes: ['labels:define', 'labels:assign'] });
+  // argo labels the ships: it labels any ship (decision 0046).
+  const labeller = argo;
   const reader = await crewed({ name: 'reader', type: 'reader', scopes: ['fleet:read'] });
   const near = await crewed({ name: 'near', type: 'reviewer', scopes: [] });
   const far = await crewed({ name: 'far', type: 'keeper', scopes: [] });
@@ -61,6 +68,14 @@ export async function readReachScenario(): Promise<ReadReachScenario> {
     unwrap(await registry.assignLabel(labeller, { shipId: ship.shipId, valueId: team(value) }));
   }
 
+  const send = async (from: Caller, to: Selector): Promise<MessageId> => {
+    core.clock.advance(1_000);
+    const { messageId } = unwrap(
+      await messaging.sendMessage(from, { selector: to, payload: 'Review the pull request', contentType: 'text/plain', ...modelOf(from), idempotencyKey: newKey() }),
+    );
+    return messageId;
+  };
+
   return {
     core,
     fleetId,
@@ -74,16 +89,20 @@ export async function readReachScenario(): Promise<ReadReachScenario> {
     messaging,
     history: historyUseCases(core),
     team,
+    carry: async (ship, value) => {
+      unwrap(await registry.assignLabel(labeller, { shipId: ship.shipId, valueId: team(value) }));
+    },
     readRulesApply: async () => {
       unwrap(await registry.setNetworkRules(networking, { rules: [{ verb: 'read', from: [team('a')], to: [team('a')] }] }));
       unwrap(await registry.setBuiltInRule(networking, { rule: 'open', verb: 'read', isOn: false }));
     },
-    send: async (from, to) => {
-      core.clock.advance(1_000);
-      const { messageId } = unwrap(
-        await messaging.sendMessage(from, { selector: to, payload: 'Review the pull request', contentType: 'text/plain', ...modelOf(from), idempotencyKey: newKey() }),
-      );
-      return messageId;
+    send,
+    undeliverable: async (from, to) => {
+      const deliveryId = deliveryIdOf(core, await send(from, { kind: 'ship', shipId: to.shipId }));
+      for (let claim = 1; claim <= UNDELIVERABLE_AT_ATTEMPT; claim += 1) {
+        unwrap(await messaging.receiveDeliveries(to, {}));
+      }
+      return deliveryId;
     },
   };
 }

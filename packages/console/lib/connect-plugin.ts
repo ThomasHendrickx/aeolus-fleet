@@ -1,4 +1,4 @@
-import type { FleetScope, ShipStatus } from '@aeolus-fleet/common';
+import type { Scope, ShipStatus } from '@aeolus-fleet/common';
 
 /**
  * Connecting a plugin from the console, squadrons (decision 0017), the
@@ -12,14 +12,14 @@ import type { FleetScope, ShipStatus } from '@aeolus-fleet/common';
 export interface PluginShip {
   name: string;
   type: string;
-  scopes: FleetScope[];
+  scopes: Scope[];
 }
 
 /** Squadrons' management ship: it reads the fleet, commissions squadrons' ships and labels them for their reach. */
-export const SQUADRONS_SHIP: PluginShip = { name: 'squadrons', type: 'squadrons', scopes: ['fleet:read', 'fleet:manage', 'labels:define', 'labels:assign'] };
+export const SQUADRONS_SHIP: PluginShip = { name: 'squadrons', type: 'squadrons', scopes: ['fleet:read', 'fleet:commission', 'fleet:manage', 'labels:define', 'labels:assign', 'scopes:declare'] };
 
 /** The trierarch plugin's ship: it reads the fleet, commissions machines' ships with crew:run, assigns crew requests and labels machines (os and arch). */
-export const TRIERARCH_PLUGIN_SHIP: PluginShip = { name: 'trierarch-plugin', type: 'trierarch-plugin', scopes: ['fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign'] };
+export const TRIERARCH_PLUGIN_SHIP: PluginShip = { name: 'trierarch-plugin', type: 'trierarch-plugin', scopes: ['fleet:read', 'fleet:commission', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign'] };
 
 /** The networking plugin's ship: it reads the fleet, registers as its networking plugin and supplies argo's rules. */
 export const NETWORKING_PLUGIN_SHIP: PluginShip = { name: 'networking-plugin', type: 'networking-plugin', scopes: ['fleet:read', 'fleet:network'] };
@@ -37,7 +37,7 @@ export interface ConnectCalls {
   status(): Promise<PluginConnection>;
   connect(handOver: { shipId: string; secret: string }): Promise<PluginConnection>;
   ships(): Promise<{ id: string; name: string; type: string; status: ShipStatus }[]>;
-  commission(ship: { name: string; type: string; scopes: FleetScope[]; idempotencyKey: string }): Promise<{ shipId: string; secret: string | null }>;
+  commission(ship: { name: string; type: string; scopes: Scope[]; idempotencyKey: string }): Promise<{ shipId: string; secret: string | null }>;
   release(shipId: string): Promise<void>;
   startingPrompt(shipId: string): Promise<{ secret: string }>;
 }

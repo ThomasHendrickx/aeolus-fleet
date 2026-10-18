@@ -7,12 +7,13 @@ import { refuse, type DomainError } from '../shared/errors.js';
 import { shipActor } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
-import { checkReaches } from './crew-request.js';
+import { keepingReachRefusal, type NotReachable } from './check-reach.js';
+import { checkManagedOrAssigned, type ManagedOrAssignedTx } from './managed-or-assigned.js';
 import type { CrewRequestRepository, LeaseRepository, ShipRepository } from './ports.js';
 import { checkCanIssueStartingPrompt } from './ship.js';
 import { issueStartingPrompt, type IssuedStartingPrompt, type StartingPromptTx } from './starting-prompt.js';
 
-export interface GetStartingPromptTx extends StartingPromptTx {
+export interface GetStartingPromptTx extends StartingPromptTx, Omit<ManagedOrAssignedTx, 'ships' | 'leases' | 'crewRequests'> {
   ships: ShipRepository;
   leases: LeaseRepository;
   crewRequests: Pick<CrewRequestRepository, 'find'>;
@@ -20,7 +21,7 @@ export interface GetStartingPromptTx extends StartingPromptTx {
 
 export type GetStartingPromptRefusal = DomainError<
   'SHIP_NOT_FOUND' | 'OPERATOR_SHIP_GETS_NO_STARTING_PROMPT' | 'SHIP_NOT_AWAITING_CREW' | 'CREW_REQUEST_NOT_ASSIGNED_TO_CALLER'
->;
+> | NotReachable;
 
 export type GetStartingPrompt = (
   caller: Caller,
@@ -32,7 +33,8 @@ export type GetStartingPrompt = (
  * crew. Its new secret invalidates any earlier one, so at most one is valid; a
  * prompt lost before use costs nothing. The caller's scope (fleet:manage or
  * crew:run) is checked before this runs; crew:run reaches only
- * the ships whose crew requests are assigned to the caller's ship.
+ * the ships whose crew requests are assigned to the caller's ship, and
+ * fleet:manage the ships in its manage reach (decision 0034).
  *
  * Locks in the fleet's order: the ship first, so concurrent prompts for one
  * ship take turns and the last one issued is the valid one; then its secret;
@@ -40,9 +42,6 @@ export type GetStartingPrompt = (
  * with the old secret meanwhile is seen, and the refusal rolls the revocation
  * back.
  */
-/** The scopes that reach every ship for a starting prompt; crew:run reaches only assigned ones. */
-const PROMPT_SCOPES = ['fleet:manage'] as const;
-
 export function createGetStartingPrompt(deps: {
   uow: UnitOfWork<GetStartingPromptTx>;
   clock: Clock;
@@ -50,18 +49,18 @@ export function createGetStartingPrompt(deps: {
   secrets: Omit<SecretTools, 'ids'>;
 }): GetStartingPrompt {
   return (caller, { shipId }) =>
-    deps.uow.run(async (tx): Promise<Result<IssuedStartingPrompt, GetStartingPromptRefusal>> => {
+    keepingReachRefusal(deps.uow, async (tx): Promise<Result<IssuedStartingPrompt, GetStartingPromptRefusal>> => {
       const { fleetId } = caller;
       const ship = await tx.ships.findForUpdate(fleetId, shipId);
       if (!ship) {
         return refuse('SHIP_NOT_FOUND', `Ship ${shipId} does not exist`);
       }
-      const reaches = checkReaches(caller, { ship, current: await tx.crewRequests.find(fleetId, shipId), broadScopes: PROMPT_SCOPES });
+      const at = deps.clock.now();
+      const reaches = await checkManagedOrAssigned({ tx, ids: deps.ids }, { caller, ship, at });
       if (!reaches.isOk) {
         return reaches;
       }
       const actor = shipActor(caller.shipId);
-      const at = deps.clock.now();
       await revokeShipSecret({ tx, ids: deps.ids }, { fleetId, shipId, actor, at });
       const lease = await tx.leases.findOpenForUpdate(fleetId, shipId);
       const allowed = checkCanIssueStartingPrompt(ship, { isCrewed: lease !== undefined });

@@ -13,7 +13,6 @@ import {
   registryUseCases,
   secretOf,
 } from '../../../test/support/core-fixtures.js';
-import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { labelIdOf, valueIdOf } from '../../../test/support/label-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../../test/support/result.js';
@@ -182,7 +181,7 @@ describe('listing the fleet', () => {
         location: null,
         lastSeenAt: null,
         ping: null,
-        scopes: ['messages:send', 'messages:receive', 'messages:force', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'scopes:declare', 'scopes:grant'],
+        scopes: ['messages:send', 'messages:receive', 'messages:force', 'messages:resend', 'fleet:read', 'fleet:commission', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'scopes:declare', 'scopes:grant'],
         report: null,
         crewRequest: null,
         labels: [],
@@ -390,7 +389,8 @@ describe('the labels a ship carries, and selecting ships by them', () => {
   let testerId: ShipId;
 
   beforeEach(async () => {
-    const plugin = await shipWithScopes({ registry: useCases, argo }, { name: 'trierarch-plugin', type: 'trierarch-plugin', scopes: ['fleet:read', 'labels:define', 'labels:assign'] });
+    // argo labels the ships: it labels any ship (decision 0046).
+    const plugin = argo;
     ({ shipId: builderId } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'builder', type: 'implementer' })));
     ({ shipId: testerId } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'tester', type: 'implementer' })));
     unwrap(await useCases.defineLabel(plugin, { key: 'os', values: ['macos', 'linux'] }));
@@ -412,7 +412,6 @@ describe('the labels a ship carries, and selecting ships by them', () => {
     expect(listed.map((ship) => [ship.name, ship.labels.map(({ key, value }) => `${key}=${value}`)])).toEqual([
       ['argo', []],
       ['scout', ['os=linux']],
-      ['trierarch-plugin', []],
       ['builder', ['os=macos', 'project=hemma']],
       ['tester', ['os=linux', 'os=macos']],
     ]);
@@ -436,7 +435,7 @@ describe('the labels a ship carries, and selecting ships by them', () => {
   });
 
   it('lists every ship when it selects by no value', async () => {
-    await expect(useCases.listFleet(argo, { valueIds: [] })).resolves.toHaveLength(5);
+    await expect(useCases.listFleet(argo, { valueIds: [] })).resolves.toHaveLength(4);
   });
 });
 
