@@ -216,6 +216,26 @@ describe('a send under network rules', () => {
     unwrap(await core.useCases.setNetworkRules(networking, { rules: [{ verb: 'send', from: [shared], to: [sensitive] }] }));
   });
 
+  it('discovered, answers exactly the ships a send would reach, read from the store, and records nothing (decision 0047)', async () => {
+    const before = await core.prisma.event.count();
+
+    const [fromPlanner, fromVault] = [unwrap(await core.useCases.discover(planner)), unwrap(await core.useCases.discover(vault))];
+
+    expect(fromPlanner).toEqual({
+      ships: [
+        { id: argo.shipId, name: 'argo', type: 'operator', kind: 'operator', status: 'crewed', statement: null },
+        { id: vault.shipId, name: 'vault', type: 'vault', kind: 'agent', status: 'awaitingCrew', statement: null },
+      ],
+      types: [
+        { type: 'operator', reachable: 1 },
+        { type: 'vault', reachable: 1 },
+      ],
+    });
+    expect(fromVault.ships.map((ship) => ship.name)).toEqual(['argo']);
+    await expect(core.prisma.event.count()).resolves.toBe(before);
+    await expect(core.prisma.reachRefusal.count()).resolves.toBe(0);
+  });
+
   it('goes through when a rule allows it', async () => {
     unwrap(await core.useCases.sendMessage(planner, aMessage(vault)));
 
