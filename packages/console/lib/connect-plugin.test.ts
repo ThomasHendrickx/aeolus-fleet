@@ -1,7 +1,7 @@
 import type { ShipStatus } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { ConnectPluginError, connectPlugin, NETWORKING_PLUGIN_SHIP, SQUADRONS_SHIP, TRIERARCH_PLUGIN_SHIP, type ConnectCalls, type PluginConnection } from './connect-plugin';
+import { ConnectPluginError, connectPlugin, GATEWAY_SHIP, NETWORKING_PLUGIN_SHIP, SQUADRONS_SHIP, TRIERARCH_PLUGIN_SHIP, type ConnectCalls, type PluginConnection } from './connect-plugin';
 
 interface FleetShip {
   id: string;
@@ -185,5 +185,16 @@ describe('connecting the networking plugin from the console', () => {
 
     expect(state.done).toEqual(['commission networking-plugin', 'connect as plugin shp_1']);
     expect(state.scopes).toEqual([['fleet:read', 'fleet:network']]);
+  });
+});
+
+describe('connecting the gateway from the console', () => {
+  it('commissions gateway with fleet:read, fleet:commission and fleet:on-behalf, the scopes it reads the fleet and commissions app proxy ships with, naming the owner argo picked (decisions 0044, 0045)', async () => {
+    const { calls, state } = fakes();
+
+    await expect(connectPlugin(calls, { ship: GATEWAY_SHIP, newKey })).resolves.toMatchObject({ state: 'connected', ship: { name: 'gateway' } });
+
+    expect(state.done).toEqual(['commission gateway', 'connect as plugin shp_1']);
+    expect(state.scopes).toEqual([['fleet:read', 'fleet:commission', 'fleet:on-behalf']]);
   });
 });
