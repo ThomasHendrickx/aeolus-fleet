@@ -15,6 +15,7 @@ import { noNetworkSettings, type NetworkSettings } from '../../domain/registry/n
 import type { DeclaredNetworkRulesRepository, NetworkSettingsRepository, ReachRefusalRepository } from '../../domain/registry/ports.js';
 import type { ReachRefusal, RefusedShip } from '../../domain/registry/reach-refusal.js';
 import type { Db } from './client.js';
+import { Prisma } from './generated/client.js';
 
 const settingsRowSchema = z.object({
   rules: z.array(networkRuleSchema),
@@ -40,6 +41,7 @@ const refusalRowSchema = z.object({
   fleetId: idSchema('fleet'),
   at: z.date(),
   sender: refusedShipSchema,
+  askedBy: refusedShipSchema.nullable(),
   recipient: z.discriminatedUnion('kind', [
     z.object({ kind: z.literal('ship'), ship: refusedShipSchema }),
     z.object({ kind: z.literal('type'), type: z.string(), ships: z.array(refusedShipSchema) }),
@@ -130,8 +132,8 @@ export function createPrismaDeclaredNetworkRulesRepository(db: Db): DeclaredNetw
 
 export function createPrismaReachRefusalRepository(db: Db): ReachRefusalRepository {
   return {
-    record: async ({ id, fleetId, at, sender, recipient, verb, settingsVersion, whilePluginUnavailable }) => {
-      await db.reachRefusal.create({ data: { id, fleetId, at, sender: shipJson(sender), recipient: recipientJson(recipient), verb, settingsVersion, whilePluginUnavailable } });
+    record: async ({ id, fleetId, at, sender, askedBy, recipient, verb, settingsVersion, whilePluginUnavailable }) => {
+      await db.reachRefusal.create({ data: { id, fleetId, at, sender: shipJson(sender), askedBy: askedBy === null ? Prisma.DbNull : shipJson(askedBy), recipient: recipientJson(recipient), verb, settingsVersion, whilePluginUnavailable } });
     },
     latest: async (fleetId, limit) => {
       const rows = await db.reachRefusal.findMany({ where: { fleetId }, orderBy: [{ at: 'desc' }, { id: 'desc' }], take: limit });

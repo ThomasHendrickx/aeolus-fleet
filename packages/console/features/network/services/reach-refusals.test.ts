@@ -14,6 +14,7 @@ function aRefusal(overrides: Partial<ReachRefusal> = {}): ReachRefusal {
     id: newId('reachRefusal'),
     at: '2026-10-10T09:30:00.000Z',
     sender: aRefusedShip('scout'),
+    askedBy: null,
     recipient: { kind: 'ship', ship: aRefusedShip('vault') },
     verb: 'send',
     settingsVersion: 4,

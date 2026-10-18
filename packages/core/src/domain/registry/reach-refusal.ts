@@ -21,6 +21,8 @@ export interface ReachRefusal {
   id: ReachRefusalId;
   at: Date;
   sender: RefusedShip;
+  /** The plugin ship that read on behalf of the sender (decision 0034), as it was then; null for the sender's own call. */
+  askedBy: RefusedShip | null;
   /** The ship it was for, or the type and each ship of it, none of which the sender may reach. */
   recipient: { kind: 'ship'; ship: RefusedShip } | { kind: 'type'; type: string; ships: readonly RefusedShip[] };
   /** What the sender tried to do: send, or read for a read refused rather than filtered (decision 0034). */

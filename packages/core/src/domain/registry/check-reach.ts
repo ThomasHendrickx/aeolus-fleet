@@ -61,7 +61,7 @@ export async function checkReach(
   }
   const sender = await shipAsItIs(tx, senderShip);
   const allows = (to: ShipAsItIs) => allowsReach(inForce, { verb: 'send', sender: reaching(sender), recipient: reaching(to), isAnswerToSender: send.isAnswerToSender });
-  const refusal = { fleetId, at: send.at, sender: refused(sender), verb: 'send' as const, settingsVersion: settings.version, whilePluginUnavailable: inForce.whilePluginUnavailable };
+  const refusal = { fleetId, at: send.at, sender: refused(sender), askedBy: null, verb: 'send' as const, settingsVersion: settings.version, whilePluginUnavailable: inForce.whilePluginUnavailable };
 
   if (recipient.kind === 'type') {
     const ships: ShipAsItIs[] = [];
@@ -102,7 +102,7 @@ export type CheckReadTx = Omit<CheckReachTx, 'ships'> & { ships: Pick<ShipReposi
  */
 export async function checkRead(
   deps: { tx: CheckReadTx; ids: IdGenerator },
-  read: { fleetId: FleetId; readerShipId: ShipId; shipId: ShipId; at: Date },
+  read: { fleetId: FleetId; readerShipId: ShipId; askedBy: ShipId | null; shipId: ShipId; at: Date },
 ): Promise<Result<undefined, NotReachable>> {
   const { tx, ids } = deps;
   const { fleetId, at } = read;
@@ -118,11 +118,13 @@ export async function checkRead(
   if (allowsReach(inForce, { verb: 'read', sender: reaching(reader), recipient: reaching(ship), isAnswerToSender: false })) {
     return ok(undefined);
   }
+  const askedBy = read.askedBy === null ? undefined : await tx.ships.find(fleetId, read.askedBy);
   await tx.reachRefusals.record({
     fleetId,
     id: ids('reachRefusal'),
     at,
     sender: refused(reader),
+    askedBy: askedBy ? refused(await shipAsItIs(tx, askedBy)) : null,
     recipient: { kind: 'ship', ship: refused(ship) },
     verb: 'read',
     settingsVersion: settings.version,
@@ -166,6 +168,7 @@ export async function checkManage(
     id: ids('reachRefusal'),
     at,
     sender: refused(manager),
+    askedBy: null,
     recipient: { kind: 'ship', ship: refused(ship) },
     verb: 'manage',
     settingsVersion: settings.version,

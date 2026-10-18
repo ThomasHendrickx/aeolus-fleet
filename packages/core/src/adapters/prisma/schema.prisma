@@ -424,6 +424,8 @@ model ReachRefusal {
   fleetId         String   @map("fleet_id")
   at              DateTime @db.Timestamptz(3)
   sender          Json
+  /// The plugin ship that read on behalf of the sender (decision 0034); null for the sender's own call.
+  askedBy         Json?    @map("asked_by")
   recipient       Json
   /// What the sender tried to do: send, read or manage (decision 0034).
   verb            String

@@ -23,6 +23,7 @@ function aRefusal(suffix: string, refusal: Partial<ReachRefusal> & { minutesAgo:
     id: idSchema('reachRefusal').parse(`rfs_01m4k000000000000000000${suffix.padStart(3, '0')}`),
     at: new Date(NOW.getTime() - minutesAgo * 60_000).toISOString(),
     sender: WEBSITE,
+    askedBy: null,
     recipient: { kind: 'ship', ship: HEMMA_API },
     verb: 'send',
     settingsVersion: 7,

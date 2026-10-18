@@ -13,6 +13,8 @@ export interface Caller {
   scopes: readonly ScopeName[];
   /** Set when the caller signed in through the console rather than calling with a crew token. */
   consoleSessionId?: ConsoleSessionId;
+  /** The plugin ship that reads on behalf of this ship, with this ship's read reach (decision 0034); absent for a ship's own call. */
+  askedBy?: ShipId;
 }
 
 /**
