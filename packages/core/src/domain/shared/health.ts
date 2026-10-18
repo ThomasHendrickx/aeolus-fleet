@@ -101,13 +101,18 @@ export function acknowledgedOf(deliveries: readonly AcknowledgedDelivery[], now:
 /**
  * Reads the fleet's health at `now`: its records over the trend's hours and
  * its acknowledged in the last 24, counting only the deliveries whose message
- * `reads` keeps, every one without it.
+ * `reads` keeps, every one without it. A ship `readsShip` leaves out is shown
+ * by name only, without the machine behind it (decision 0034).
  */
-export async function readHealthOf(records: HealthRecords, read: { fleetId: FleetId; now: Date; reads?: (message: MessageParties) => boolean }): Promise<Health> {
-  const { fleetId, now, reads = () => true } = read;
+export async function readHealthOf(
+  records: HealthRecords,
+  read: { fleetId: FleetId; now: Date; reads?: (message: MessageParties) => boolean; readsShip?: (shipId: ShipId) => boolean },
+): Promise<Health> {
+  const { fleetId, now, reads = () => true, readsShip = () => true } = read;
   const [facts, acknowledged] = await Promise.all([records.read(fleetId, healthSince(now)), records.acknowledged(fleetId, acknowledgedSince(now))]);
   const deliveries = facts.deliveries.filter(({ senderId, recipient, claimedBy }) => reads({ senderId, recipient, claimedBy }));
-  return healthOf({ ...facts, deliveries }, { acknowledged: acknowledgedOf(acknowledged.filter((delivery) => reads(delivery.message)), now), now });
+  const machines = facts.machines.filter(({ shipId }) => readsShip(shipId));
+  return healthOf({ ...facts, deliveries, machines }, { acknowledged: acknowledgedOf(acknowledged.filter((delivery) => reads(delivery.message)), now), now });
 }
 
 export function healthOf(facts: HealthFacts, read: { acknowledged: Acknowledged; now: Date }): Health {

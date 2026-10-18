@@ -189,4 +189,32 @@ describe('reading the fleet health within read reach (decision 0034)', () => {
 
     expect([read.acknowledged.count, all.acknowledged.count]).toEqual([1, 2]);
   });
+
+  it("shows a ship outside the caller's read reach without the machine behind it, by name only", async () => {
+    const macStudio = unwrap(await fleet.registry.commissionShip(fleet.argo, { idempotencyKey: newKey(), name: 'mac-studio', type: 'trierarch' })).shipId;
+    fleet.core.state.crewRequests.push({
+      fleetId: fleet.fleetId,
+      shipId: fleet.far.shipId,
+      settings: {},
+      settingsVersion: 1,
+      requestedAt: fleet.core.clock.now(),
+      assignedTo: macStudio,
+      status: 'crewing',
+      reason: null,
+      attempt: 0,
+      sessionStartedAt: null,
+      isFinal: false,
+      givenBack: [],
+    });
+    await fleet.send(fleet.reader, { kind: 'ship', shipId: fleet.far.shipId });
+    unwrap(await fleet.messaging.receiveDeliveries(fleet.far, { max: 10 }));
+    fleet.core.clock.advance(10 * MINUTE_MS);
+
+    const [read, all] = [await fleet.history.readHealth(fleet.reader), await fleet.history.readHealth(fleet.argo)];
+
+    expect([read.stuck.map(({ place }) => place), all.stuck.map(({ place }) => place.kind === 'ship' && place.machine?.id)]).toEqual([
+      [{ kind: 'ship', ship: { id: fleet.far.shipId, name: 'far' }, machine: null }],
+      [macStudio],
+    ]);
+  });
 });
