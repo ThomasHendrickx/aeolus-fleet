@@ -1,7 +1,7 @@
 import { isPingContentType, PING_CONTENT_TYPE, type IdGenerator, type MessageId } from '@aeolus-fleet/common';
 
 import { checkReach, resolveSelector, type CheckReachTx, type NotReachable, type ResolveSelectorTx, type UnresolvableSelector } from '../registry/public.js';
-import type { Caller } from '../shared/caller.js';
+import { hasScope, type Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, type EventLog } from '../shared/events.js';
@@ -36,6 +36,8 @@ export interface MessageToSend {
   idempotencyKey: string;
   /** The id of the message, in the same fleet, this one replies to. */
   inReplyTo?: MessageId;
+  /** A forced send: act now (decision 0040). It needs messages:force, and its delivery comes first. */
+  isForced?: boolean;
 }
 
 export interface MessageSent {
@@ -44,7 +46,7 @@ export interface MessageSent {
 }
 
 export type SendMessageRefusal =
-  | DomainError<'PAYLOAD_TOO_LARGE' | 'INVALID_CONTENT_TYPE' | 'INVALID_IDEMPOTENCY_KEY' | 'RESERVED_CONTENT_TYPE'>
+  | DomainError<'PAYLOAD_TOO_LARGE' | 'INVALID_CONTENT_TYPE' | 'INVALID_IDEMPOTENCY_KEY' | 'RESERVED_CONTENT_TYPE' | 'FORCE_NOT_ALLOWED'>
   | RepeatRefusal
   | UnresolvableSelector
   | AcceptRefusal
@@ -79,6 +81,10 @@ export type SendMessage = (caller: Caller, input: MessageToSend) => Promise<Resu
  * its unit of work commits only the refusal's record, and the sender gets a
  * refusal without reasons. argo, and an answer to the sender of a message the
  * ship received, always go through.
+ *
+ * A forced send (decision 0040) needs messages:force, checked before the unit
+ * of work starts, so a refusal stores nothing; it rides send reach as any
+ * send. Its delivery records that it was forced and comes first.
  */
 export function createSendMessage(deps: {
   uow: UnitOfWork<SendMessageTx>;
@@ -89,6 +95,9 @@ export function createSendMessage(deps: {
   return async (caller, input) => {
     if (input.contentType !== undefined && isPingContentType(input.contentType)) {
       return refuse('RESERVED_CONTENT_TYPE', `${PING_CONTENT_TYPE} is reserved for pings: ping a ship from the console`);
+    }
+    if (input.isForced === true && !hasScope(caller, 'messages:force')) {
+      return refuse('FORCE_NOT_ALLOWED', 'A forced send needs the messages:force scope');
     }
     const request = checkedSend(input, deps.hasher);
     if (!request.isOk) {
@@ -114,6 +123,7 @@ export interface CheckedSend {
   model: string | undefined;
   idempotencyKey: string;
   inReplyTo: MessageId | undefined;
+  isForced: boolean;
   requestHash: string;
 }
 
@@ -136,10 +146,11 @@ export function checkedSend(input: MessageToSend, hasher: RequestHasher): Result
     return key;
   }
   const { selector, inReplyTo } = input;
+  const isForced = input.isForced === true;
   const requestHash = hasher.hash(
-    sendRequestText({ selector, payload: text.value, contentType: mediaType.value, inReplyTo }),
+    sendRequestText({ selector, payload: text.value, contentType: mediaType.value, inReplyTo, isForced }),
   );
-  return ok({ selector, payload: text.value, contentType: mediaType.value, model: input.model, idempotencyKey: key.value, inReplyTo, requestHash });
+  return ok({ selector, payload: text.value, contentType: mediaType.value, model: input.model, idempotencyKey: key.value, inReplyTo, isForced, requestHash });
 }
 
 /** Sends a checked request inside the caller's unit of work, as {@link createSendMessage} describes. */
@@ -196,6 +207,7 @@ export async function sendWithin(
       idempotencyKey: send.request.idempotencyKey,
       requestHash,
       inReplyTo,
+      isForced: send.request.isForced,
       at,
     },
   );

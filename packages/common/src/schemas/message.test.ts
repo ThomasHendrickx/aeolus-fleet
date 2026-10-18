@@ -166,6 +166,14 @@ describe('sendInputSchema', () => {
     expect(sendInputSchema.parse(input)).toEqual(input);
   });
 
+  it('accepts a forced send: act now (decision 0040)', () => {
+    expect(sendInputSchema.parse({ ...input, isForced: true })).toEqual({ ...input, isForced: true });
+  });
+
+  it('refuses an isForced that is not true or false', () => {
+    expect(sendInputSchema.safeParse({ ...input, isForced: 'yes' }).success).toBe(false);
+  });
+
   it('accepts the message it replies to', () => {
     const inReplyTo = newId('message');
 

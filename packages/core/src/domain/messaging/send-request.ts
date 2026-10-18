@@ -8,16 +8,19 @@ export interface SendRequest {
   payload: string;
   contentType: string;
   inReplyTo: MessageId | undefined;
+  isForced: boolean;
 }
 
 /**
  * The request as one text, the same for the same request whatever order its
  * fields came in: the selector as sent (one ship by id and by name are two
- * requests), the payload, the content type and the message it replies to.
+ * requests), the payload, the content type, the message it replies to and,
+ * only when forced, the force, so a plain send keeps the text it always had.
  * Its hash is kept with the message to tell a repeat from a reused key.
  */
 export function sendRequestText(request: SendRequest): string {
-  return JSON.stringify([selectorFields(request.selector), request.payload, request.contentType, request.inReplyTo ?? null]);
+  const fields = [selectorFields(request.selector), request.payload, request.contentType, request.inReplyTo ?? null];
+  return JSON.stringify(request.isForced ? [...fields, 'forced'] : fields);
 }
 
 function selectorFields(selector: Selector): string[] {

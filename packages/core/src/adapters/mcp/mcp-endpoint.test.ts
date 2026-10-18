@@ -242,6 +242,7 @@ describe('the ship tools at /mcp', () => {
       'model',
       'idempotencyKey',
       'inReplyTo',
+      'isForced',
     ]);
     expect(inputSchema.properties.inReplyTo).toMatchObject({ pattern: '^msg_[0-7][0-9a-hjkmnp-tv-z]{25}$' });
   });

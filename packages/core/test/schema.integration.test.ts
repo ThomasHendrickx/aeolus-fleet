@@ -286,6 +286,39 @@ describe('the network scope migration', () => {
   });
 });
 
+describe('the force scope migration', () => {
+  const MIGRATIONS = fileURLToPath(new URL('../src/adapters/prisma/migrations', import.meta.url));
+  const forceScope = readdirSync(MIGRATIONS).find((name) => name.endsWith('_force_scope'));
+
+  it("gives every fleet's argo messages:force, as argo holds every scope, and no agent ship", async () => {
+    const url = await createMigratedDatabase();
+    const client = createPrismaClient(url);
+    const fleetId = newId('fleet');
+    const argoId = newId('ship');
+    const scoutId = newId('ship');
+    const everyScopeBefore = ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network'];
+    try {
+      // An argo from before the migration: every scope but messages:force.
+      await client.fleet.create({ data: { id: fleetId, name: 'old fleet', createdAt: now } });
+      await client.ship.createMany({
+        data: [
+          { id: argoId, fleetId, name: 'argo', type: 'operator', kind: 'operator', scopes: everyScopeBefore, createdAt: now },
+          { id: scoutId, fleetId, name: 'scout', type: 'reviewer', kind: 'agent', scopes: ['messages:send', 'messages:receive'], createdAt: now },
+        ],
+      });
+
+      await executeSqlFile(url, `${MIGRATIONS}/${forceScope ?? ''}/migration.sql`);
+
+      await expect(client.ship.findMany({ select: { id: true, scopes: true }, orderBy: { id: 'asc' } })).resolves.toEqual([
+        { id: argoId, scopes: [...everyScopeBefore, 'messages:force'] },
+        { id: scoutId, scopes: ['messages:send', 'messages:receive'] },
+      ]);
+    } finally {
+      await client.$disconnect();
+    }
+  });
+});
+
 describe('the rules only through a plugin migration', () => {
   const MIGRATIONS = fileURLToPath(new URL('../src/adapters/prisma/migrations', import.meta.url));
   const rulesThroughPlugin = readdirSync(MIGRATIONS).find((name) => name.endsWith('_network_rules_through_plugin'));
@@ -481,7 +514,7 @@ describe('operator accounts', () => {
 });
 
 describe('scopes', () => {
-  it('are only the nine known ones', async () => {
+  it('are only the ten known ones', async () => {
     const id = await createShip(await createFleet());
 
     await expect(
@@ -490,9 +523,9 @@ describe('scopes', () => {
     await expect(
       database.ship.update({
         where: { id },
-        data: { scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network'] },
+        data: { scopes: ['messages:send', 'messages:receive', 'messages:force', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network'] },
       }),
-    ).resolves.toMatchObject({ scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network'] });
+    ).resolves.toMatchObject({ scopes: ['messages:send', 'messages:receive', 'messages:force', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network'] });
   });
 
   it('are never null', async () => {

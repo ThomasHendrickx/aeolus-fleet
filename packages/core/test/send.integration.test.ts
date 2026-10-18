@@ -147,6 +147,7 @@ describe('sending a message on Postgres', () => {
       attempts: 0,
       handOverNumber: null,
       handedOnceMoreAt: null,
+      isForced: false,
       reachableShipIds: [],
       readAt: null,
       createdAt: core.clock.now(),

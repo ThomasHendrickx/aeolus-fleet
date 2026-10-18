@@ -63,6 +63,8 @@ export interface Delivery {
    * (decision 0040): only once, so none until then.
    */
   handedOnceMoreAt: Date | null;
+  /** Whether its message was forced (decision 0040): it comes first in receive and push receive. */
+  isForced: boolean;
   /**
    * For a type, under network rules: the ships of the type its sender may
    * reach, fixed at send time; only they may claim it (decision 0034).
@@ -88,6 +90,8 @@ export interface MessageToAccept {
   idempotencyKey: string;
   requestHash: string;
   inReplyTo: MessageId | undefined;
+  /** A forced send (decision 0040): its delivery comes first. */
+  isForced: boolean;
   /**
    * For a resend: the message it resends and the ship that resent it, the
    * operator. The sender stays the original one, so an answer goes back to
@@ -123,7 +127,9 @@ export type AcceptRefusal = DomainError<'IN_REPLY_TO_NOT_FOUND' | 'MODEL_REQUIRE
  * runs (docs/blueprint.md, "Model"); argo states none. A resend carries the
  * original message's model as it was, so it is not asked again; a ping is the
  * fleet's question, not a session's message, so it carries none. A type
- * delivery the network rules limit to some ships of the type keeps them.
+ * delivery the network rules limit to some ships of the type keeps them. A
+ * forced send's delivery records that it was forced, and MessageAccepted
+ * says so.
  */
 export function acceptMessage(
   fleet: { recipient: Recipient; repliedTo: Message | undefined; reachableShipIds?: readonly ShipId[] },
@@ -167,6 +173,7 @@ export function acceptMessage(
     attempts: 0,
     handOverNumber: null,
     handedOnceMoreAt: null,
+    isForced: send.isForced,
     ...(reachableShipIds && { reachableShipIds: [...reachableShipIds] }),
     createdAt: at,
   };
@@ -187,6 +194,7 @@ export function acceptMessage(
           recipientType: recipient.kind === 'type' ? recipient.type : null,
           model: send.model ?? null,
           ...(resendOf && { resendOf: resendOf.messageId }),
+          ...(send.isForced && { forced: true }),
         },
       },
     ],

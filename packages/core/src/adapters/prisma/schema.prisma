@@ -513,6 +513,8 @@ model Delivery {
   handOverNumber   Int?          @map("hand_over_number")
   /// When its crew handed it once more after the turn that took it died; only once (decision 0040).
   handedOnceMoreAt DateTime?     @map("handed_once_more_at") @db.Timestamptz(3)
+  /// Whether its message was forced: it comes first in receive and push receive (decision 0040).
+  isForced         Boolean       @default(false) @map("is_forced")
   reachableShipIds String[]      @default([]) @map("reachable_ship_ids")
   readAt           DateTime?     @map("read_at") @db.Timestamptz(3)
   createdAt        DateTime      @map("created_at") @db.Timestamptz(3)

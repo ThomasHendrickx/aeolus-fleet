@@ -236,6 +236,11 @@ function isInFlight(delivery: Delivery): boolean {
 }
 
 /** Oldest first, as Postgres orders them: by creation, then by id. */
+/** Forced deliveries before plain ones, keeping the order within each. */
+function byForce(first: Delivery, second: Delivery): number {
+  return Number(second.isForced) - Number(first.isForced);
+}
+
 function byAge(first: Delivery, second: Delivery): number {
   return first.createdAt.getTime() - second.createdAt.getTime() || first.id.localeCompare(second.id);
 }
@@ -893,7 +898,8 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
                 (recipient.kind === 'type' && recipient.type === type && (reachableShipIds?.includes(shipId) ?? true))),
           )
           .sort(byAge);
-        const claimable = [...inFlight, ...pending].slice(0, limit).flatMap((delivery) => {
+        // Forced first (decision 0040), then in flight, then pending: a stable sort keeps each group oldest first.
+        const claimable = [...inFlight, ...pending].sort(byForce).slice(0, limit).flatMap((delivery) => {
           const message = state.messages.find((held) => held.fleetId === fleetId && held.id === delivery.messageId);
           return message ? [{ delivery: structuredClone(delivery), message: structuredClone(message) }] : [];
         });

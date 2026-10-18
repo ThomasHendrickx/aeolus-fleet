@@ -560,6 +560,7 @@ const deliverySqlRow = z.object({
   attempts: z.int().nonnegative(),
   hand_over_number: z.int().positive().nullable(),
   handed_once_more_at: z.date().nullable(),
+  is_forced: z.boolean(),
   created_at: z.date(),
 });
 
@@ -577,6 +578,7 @@ export function toDeliveryFromSql(row: unknown): Delivery {
     attempts: delivery.attempts,
     handOverNumber: delivery.hand_over_number,
     handedOnceMoreAt: delivery.handed_once_more_at,
+    isForced: delivery.is_forced,
     createdAt: delivery.created_at,
   };
 }
