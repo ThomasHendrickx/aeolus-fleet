@@ -14,12 +14,14 @@ import { retireLabelsWith } from './label.js';
 import { endLease, type LeaseTx } from './leases.js';
 import { withdrawWithRetiredShip } from './declared-network-rules.js';
 import { unregisterNetworkPlugin } from './network-settings.js';
-import type { ClearRequestRepository, CrewRequestRepository, DeclaredNetworkRulesRepository, LabelRepository, NetworkSettingsRepository, ScopeNamespaceRepository, ShipRepository } from './ports.js';
+import { endPluginConnection } from './plugin-connection.js';
+import type { ClearRequestRepository, CrewRequestRepository, DeclaredNetworkRulesRepository, LabelRepository, NetworkSettingsRepository, PluginConnectionRepository, ScopeNamespaceRepository, ShipRepository } from './ports.js';
 import { changeOwner, checkCanRetire, type RetireRefusal } from './ship.js';
 import { releaseWithDeclarer } from './scope-namespace.js';
 
 export interface RetireShipTx extends LeaseTx, CredentialTx, Omit<CheckManageTx, 'ships' | 'leases' | 'labels' | 'networkSettings'> {
   ships: ShipRepository;
+  pluginConnections: PluginConnectionRepository;
   crewRequests: CrewRequestRepository;
   clearRequests: ClearRequestRepository;
   labels: LabelRepository;
@@ -100,6 +102,7 @@ export function createRetireShip(deps: {
       }
       const abandoned = await tx.inFlightDeliveries.abandonPendingTo(fleetId, shipId);
       await tx.ships.retire({ fleetId, shipId, at });
+      await endPluginConnection({ tx, ids: deps.ids }, { fleetId, shipId, why: 'retired', at, actor });
 
       await recordEvent(recorded, {
         fleetId,

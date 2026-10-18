@@ -42,6 +42,7 @@ function rowsOf(fleetId: FleetId): Record<keyof InMemoryState, number> {
     networkSettings: of(state.networkSettings),
     declaredNetworkRules: of(state.declaredNetworkRules),
     scopeNamespaces: of(state.scopeNamespaces),
+    pluginConnections: of(state.pluginConnections),
     reachRefusals: of(state.reachRefusals),
     deliveryReads: of(state.deliveryReads),
     events: of(state.events),

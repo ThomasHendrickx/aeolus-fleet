@@ -307,6 +307,8 @@ export function isNetworkPluginResponding(plugin: NetworkPlugin, crew: { lastSee
 export interface RulesInForce {
   rules: readonly NetworkRule[];
   builtIns: BuiltInSwitches;
+  /** The fleet's registered networking plugin's ship, responding or not: it reads as a connected plugin does (decision 0034). */
+  networkPluginShipId: ShipId | null;
   whilePluginUnavailable: Exclude<WhileUnavailable, 'open-all'> | null;
 }
 
@@ -319,16 +321,17 @@ export interface RulesInForce {
  */
 export function rulesInForce(settings: NetworkSettings, isPluginResponding: boolean): RulesInForce {
   const { plugin, rules, builtIns } = settings;
+  const networkPluginShipId = plugin?.shipId ?? null;
   if (plugin === null || isPluginResponding) {
-    return { rules, builtIns, whilePluginUnavailable: null };
+    return { rules, builtIns, networkPluginShipId, whilePluginUnavailable: null };
   }
   switch (plugin.whileUnavailable) {
     case 'block-all':
-      return { rules: [], builtIns: { ...builtIns, open: { send: false, read: false, manage: false } }, whilePluginUnavailable: 'block-all' };
+      return { rules: [], builtIns: { ...builtIns, open: { send: false, read: false, manage: false } }, networkPluginShipId, whilePluginUnavailable: 'block-all' };
     case 'open-all':
-      return { rules, builtIns: { ...builtIns, open: BUILT_INS_ON.open }, whilePluginUnavailable: null };
+      return { rules, builtIns: { ...builtIns, open: BUILT_INS_ON.open }, networkPluginShipId, whilePluginUnavailable: null };
     case 'keep-latest':
-      return { rules, builtIns, whilePluginUnavailable: 'keep-latest' };
+      return { rules, builtIns, networkPluginShipId, whilePluginUnavailable: 'keep-latest' };
   }
 }
 
@@ -338,11 +341,16 @@ export interface ReachingLabel {
   valueId: LabelValueId;
 }
 
-/** A ship as a send's check sees it: its id and owner, for the owner exception, its kind, for the argo exception, and the label values it carries. */
+/**
+ * A ship as a send's check sees it: its id and owner, for the owner exception,
+ * its kind, for the argo exception, whether argo connected it as a plugin, and
+ * the label values it carries.
+ */
 export interface ReachingShip {
   id: ShipId;
   owner: ShipId | null;
   kind: ShipKind;
+  isConnectedPlugin: boolean;
   labels: readonly ReachingLabel[];
 }
 
@@ -351,19 +359,20 @@ export interface ReachingShip {
  * when none does. The built-in rules that are never off hold whatever the
  * rules: argo reaches every ship and every ship reaches argo, but reads argo
  * only by a rule, so argo's messages are not every ship's to read; an owner's
- * ship reaches the ships it owns (decision 0045), and a ship answers the sender of
- * a message it received. The viewer reads every ship while that is on, and
+ * ship reaches the ships it owns (decision 0045), a ship answers the sender of
+ * a message it received, and a plugin argo connected, or the fleet's
+ * registered networking plugin, reads every ship. The viewer reads every ship while that is on, and
  * every ship reaches every ship by a verb while open is on for it. Otherwise
  * a rule of the verb must match the sender with its `from` and the recipient
  * with its `to`, named by its place in the list. The built-in rules come
  * first, in that order, as the rule list shows them.
  */
 export function reachRuleOf(
-  settings: Pick<RulesInForce, 'rules' | 'builtIns'>,
+  settings: Pick<RulesInForce, 'rules' | 'builtIns' | 'networkPluginShipId'>,
   send: { verb: NetworkVerb; sender: ReachingShip; recipient: ReachingShip; isAnswerToSender: boolean },
 ): ReachRule | undefined {
   const { verb, sender, recipient, isAnswerToSender } = send;
-  const { rules, builtIns } = settings;
+  const { rules, builtIns, networkPluginShipId } = settings;
   if (sender.kind === 'operator' || (recipient.kind === 'operator' && verb !== 'read')) {
     return { builtIn: 'argo' };
   }
@@ -372,6 +381,9 @@ export function reachRuleOf(
   }
   if (verb === 'send' && isAnswerToSender) {
     return { builtIn: 'answer' };
+  }
+  if (verb === 'read' && (sender.isConnectedPlugin || sender.id === networkPluginShipId)) {
+    return { builtIn: 'pluginRead' };
   }
   if (verb === 'read' && sender.kind === 'viewer' && builtIns.isViewerReadOn) {
     return { builtIn: 'viewerRead' };
@@ -390,7 +402,7 @@ export type ReachRule = { builtIn: BuiltInRule } | { index: number };
 
 /** Whether the settings let the sender do the verb to the recipient: some rule does (see reachRuleOf). */
 export function allowsReach(
-  settings: Pick<RulesInForce, 'rules' | 'builtIns'>,
+  settings: Pick<RulesInForce, 'rules' | 'builtIns' | 'networkPluginShipId'>,
   send: { verb: NetworkVerb; sender: ReachingShip; recipient: ReachingShip; isAnswerToSender: boolean },
 ): boolean {
   return reachRuleOf(settings, send) !== undefined;
