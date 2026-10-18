@@ -38,9 +38,10 @@ describe('supplying a fleet the networking plugin serves', () => {
     await expect(supplyFleet(FLEET_ID)).resolves.toEqual({ isOk: true, value: 'supplied' });
     expect(fleet.state.plugin).toEqual({ whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 300 });
     expect(fleet.state.rules).toBeNull();
+    expect(fleet.state.open).toEqual({ send: true, read: true, manage: true });
   });
 
-  it('registers with what argo declared, then supplies the whole list argo saved', async () => {
+  it('registers with what argo declared, then supplies the whole list argo saved, turning open off for every verb (decision 0034)', async () => {
     await connected();
     const rules = [{ verb: 'send' as const, from: [TEAM_A], to: [TEAM_B] }, { verb: 'send' as const, from: [], to: [TEAM_A] }];
     await networks.save(FLEET_ID, { rules, declaration: { whileUnavailable: 'block-all', notRespondingAfterSeconds: 120 } });
@@ -48,6 +49,17 @@ describe('supplying a fleet the networking plugin serves', () => {
     await expect(supplyFleet(FLEET_ID)).resolves.toEqual({ isOk: true, value: 'supplied' });
     expect(fleet.state.plugin).toEqual({ whileUnavailable: 'block-all', notRespondingAfterSeconds: 120 });
     expect(fleet.state.rules).toEqual(rules);
+    expect(fleet.state.open).toEqual({ send: false, read: false, manage: false });
+  });
+
+  it('turns open on again for every verb when argo saves no rules: all-to-all', async () => {
+    await connected();
+    await networks.save(FLEET_ID, { rules: [], declaration: { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 300 } });
+    await supplyFleet(FLEET_ID);
+    await networks.save(FLEET_ID, { rules: null, declaration: { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 300 } });
+
+    await expect(supplyFleet(FLEET_ID)).resolves.toEqual({ isOk: true, value: 'supplied' });
+    expect(fleet.state.open).toEqual({ send: true, read: true, manage: true });
   });
 
   it('supplies an empty list as an empty list: only the fixed exceptions, not all-to-all', async () => {

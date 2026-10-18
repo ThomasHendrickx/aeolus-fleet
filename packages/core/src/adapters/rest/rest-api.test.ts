@@ -200,6 +200,7 @@ describe('the OpenAPI spec at /api/v1/openapi.json', () => {
       ['/fleet/setNetworkRules', ['post']],
       ['/fleet/registerNetworkPlugin', ['post']],
       ['/fleet/unregisterNetworkPlugin', ['post']],
+      ['/fleet/setBuiltInRule', ['post']],
       ['/fleet/declareNetworkRules', ['post']],
       ['/fleet/declaredNetworkRules', ['get']],
     ]);

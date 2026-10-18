@@ -483,6 +483,46 @@ describe('the network verbs migration', () => {
   });
 });
 
+describe('the built-in rules migration', () => {
+  const MIGRATIONS = fileURLToPath(new URL('../src/adapters/prisma/migrations', import.meta.url));
+  const builtInRules = readdirSync(MIGRATIONS).find((name) => name.endsWith('_built_in_rules'));
+
+  it("turns open off for a fleet whose networking plugin set rules, as they alone applied, and leaves it on for every other fleet", async () => {
+    const url = await createMigratedDatabase();
+    const client = createPrismaClient(url);
+    const [withRules, pluginWithoutRules, withoutPlugin] = [newId('fleet'), newId('fleet'), newId('fleet')];
+    const plugin = { pluginWhileUnavailable: 'keep-latest', pluginNotRespondingAfterSeconds: 300 };
+    try {
+      await client.fleet.createMany({ data: [withRules, pluginWithoutRules, withoutPlugin].map((id) => ({ id, name: 'old fleet', createdAt: now })) });
+      const pluginIds = [newId('ship'), newId('ship')];
+      await client.ship.createMany({
+        data: [withRules, pluginWithoutRules].map((fleetId, index) => ({ id: pluginIds[index] ?? '', fleetId, name: 'networking', type: 'networking', kind: 'agent', scopes: ['fleet:network'], createdAt: now })),
+      });
+      await client.networkSettings.createMany({
+        data: [
+          { fleetId: withRules, rules: [], version: 3, pluginShipId: pluginIds[0], ...plugin },
+          { fleetId: pluginWithoutRules, version: 1, pluginShipId: pluginIds[1], ...plugin },
+          { fleetId: withoutPlugin, version: 2 },
+        ],
+      });
+      await executeSqlFile(url, `${MIGRATIONS}/${builtInRules ?? 'missing'}/migration.sql`);
+
+      const open = (isOn: boolean) => ({ builtInViewerRead: true, builtInOpenSend: isOn, builtInOpenRead: isOn, builtInOpenManage: isOn });
+      await expect(
+        client.networkSettings.findMany({ select: { fleetId: true, builtInViewerRead: true, builtInOpenSend: true, builtInOpenRead: true, builtInOpenManage: true } }),
+      ).resolves.toEqual(
+        expect.arrayContaining([
+          { fleetId: withRules, ...open(false) },
+          { fleetId: pluginWithoutRules, ...open(true) },
+          { fleetId: withoutPlugin, ...open(true) },
+        ]),
+      );
+    } finally {
+      await client.$disconnect();
+    }
+  });
+});
+
 describe('the owners on reach refusals migration', () => {
   const MIGRATIONS = fileURLToPath(new URL('../src/adapters/prisma/migrations', import.meta.url));
   const ownersOnRefusals = readdirSync(MIGRATIONS).find((name) => name.endsWith('_owners_on_reach_refusals'));

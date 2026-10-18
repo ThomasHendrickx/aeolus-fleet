@@ -45,8 +45,10 @@ function sameValue(key: string): SelectorTerm {
   return { labelId: labelIdOf(core, key), value: SAME_LABEL_VALUE };
 }
 
+/** Sets the rules as the networking plugin does: open for send off while rules apply, on for none. */
 async function setRules(rules: NetworkRule[] | null): Promise<void> {
   unwrap(await registry.setNetworkRules(networking, { rules }));
+  unwrap(await registry.setBuiltInRule(networking, { rule: 'open', verb: 'send', isOn: rules === null }));
 }
 
 function toShip(ship: Caller): Selector {
@@ -297,6 +299,24 @@ describe('a selector term of the owner (decision 0045)', () => {
   });
 });
 
+describe('the open rule (decision 0034)', () => {
+  beforeEach(async () => {
+    await setRules([]);
+  });
+
+  it('lets every ship send to every ship while it is on for send, whatever the rules', async () => {
+    unwrap(await registry.setBuiltInRule(networking, { rule: 'open', verb: 'send', isOn: true }));
+
+    await expect(sent(vault, aMessage(toShip(scout)))).resolves.toMatch(/^msg_/);
+  });
+
+  it('lets no send through while it is on only for read and manage', async () => {
+    expect(core.state.networkSettings[0]?.builtIns.open).toEqual({ send: false, read: true, manage: true });
+
+    expect(refusalOf(await messaging.sendMessage(vault, aMessage(toShip(scout))))).toEqual(NOT_REACHABLE);
+  });
+});
+
 describe('the fixed exceptions', () => {
   beforeEach(async () => {
     await setRules([]);
@@ -388,7 +408,7 @@ describe('the record of a refused send', () => {
         at: core.clock.now(),
         sender: { id: scout.shipId, name: 'scout', labels: [label('team', 'b'), label('trust', 'shared')], owner: { id: argo.shipId, name: 'argo' } },
         recipient: { kind: 'ship', ship: { id: vault.shipId, name: 'vault', labels: [label('trust', 'sensitive')], owner: { id: argo.shipId, name: 'argo' } } },
-        settingsVersion: 2,
+        settingsVersion: 3,
         whilePluginUnavailable: null,
       },
     ]);
@@ -402,7 +422,7 @@ describe('the record of a refused send', () => {
     const [refusal] = core.state.reachRefusals;
     const valuesOf = (labels: readonly { key: string; value: string }[] | undefined) => labels?.filter((label) => label.key === 'trust').map((label) => label.value);
     expect([valuesOf(refusal?.sender.labels), refusal?.recipient.kind === 'ship' ? valuesOf(refusal.recipient.ship.labels) : undefined]).toEqual([['shared'], ['sensitive']]);
-    expect(refusal?.settingsVersion).toBe(3);
+    expect(refusal?.settingsVersion).toBe(4);
   });
 
   it('keeps the owner each ship had then, by id and name', async () => {
@@ -423,7 +443,7 @@ describe('the record of a refused send', () => {
 
     refusalOf(await messaging.sendMessage(scout, aMessage(toShip(vault))));
 
-    expect(core.state.reachRefusals.map((refusal) => refusal.settingsVersion)).toEqual([3]);
+    expect(core.state.reachRefusals.map((refusal) => refusal.settingsVersion)).toEqual([4]);
   });
 
   it('is kept for every refusal, and for nothing that went through', async () => {
@@ -560,7 +580,7 @@ describe("the operator's resend of an undeliverable delivery", () => {
     refusalOf(await messaging.resendDelivery(argo, { deliveryId: deliveryIdOf(core, undeliverable.messageId) }));
 
     expect(core.state.reachRefusals.map((refusal) => [refusal.sender.name, refusal.recipient.kind === 'ship' ? refusal.recipient.ship.name : refusal.recipient.type, refusal.settingsVersion])).toEqual([
-      ['planner', 'vault', 3],
+      ['planner', 'vault', 4],
     ]);
   });
 });

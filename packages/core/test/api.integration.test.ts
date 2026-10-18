@@ -210,6 +210,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_owners$/),
       expect.stringMatching(/^\d{14}_owners_on_reach_refusals$/),
       expect.stringMatching(/^\d{14}_network_verbs$/),
+      expect.stringMatching(/^\d{14}_built_in_rules$/),
     ]);
   });
 });
@@ -2025,6 +2026,7 @@ describe('network rules at the API', () => {
   async function networker(): Promise<TRPCClient<AppRouter>> {
     asNetworker = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:network'])}` });
     await asNetworker.fleet.registerNetworkPlugin.mutate({ whileUnavailable: 'keep-latest', notRespondingAfterSeconds: NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS });
+    await asNetworker.fleet.setBuiltInRule.mutate({ rule: 'open', verb: 'send', isOn: false });
     return asNetworker;
   }
 
@@ -2184,7 +2186,17 @@ describe('network rules at the API', () => {
     expect(response.status).toBe(200);
     expect(withTerms.status).toBe(200);
     expect(z.object({ version: z.number() }).parse(await response.json()).version).toBeGreaterThan(0);
+    expect((await post('setBuiltInRule', { rule: 'open', verb: 'manage', isOn: false })).status).toBe(200);
     expect((await post('unregisterNetworkPlugin', {})).status).toBe(200);
+  });
+
+  it('let argo turn the viewer reading off and on, and refuse turning a built-in rule that is never off with FORBIDDEN naming decision 0034', async () => {
+    const asArgo = await signedInArgo();
+
+    const off = await asArgo.fleet.setBuiltInRule.mutate({ rule: 'viewerRead', isOn: false });
+    await expect(asArgo.fleet.setBuiltInRule.mutate({ rule: 'viewerRead', isOn: true })).resolves.toEqual({ version: off.version + 1 });
+    await expect(refusalOf(asArgo.fleet.setBuiltInRule.mutate({ rule: 'owner', isOn: false }))).resolves.toEqual({ code: 'FORBIDDEN', message: 'The built-in rule owner is never off (decision 0034)' });
+    await expect(codeOf(asArgo.fleet.setBuiltInRule.mutate({ rule: 'open', isOn: false }))).resolves.toBe('BAD_REQUEST');
   });
 });
 

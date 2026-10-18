@@ -3,12 +3,14 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
 import { createSendMessage } from '../src/domain/messaging/send-message.js';
+import { createSetBuiltInRule } from '../src/domain/registry/set-built-in-rule.js';
 import { createSetNetworkRules } from '../src/domain/registry/set-network-rules.js';
+import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
 import type { Caller } from '../src/domain/shared/caller.js';
 import type { Crew } from '../src/domain/shared/caller.js';
 import { OPERATOR, operatorCaller, secretOf, SESSION_MODEL } from './support/core-fixtures.js';
 import { newKey } from './support/keys.js';
-import { createPostgresCore, heldUnitOfWork, type PostgresCore } from './support/postgres-core.js';
+import { createPostgresCore, everyRow, heldUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { refusalOf, unwrap } from './support/result.js';
 
 // The fleet's network rules on a real Postgres (decision 0034): the settings
@@ -42,6 +44,7 @@ async function registeredPlugin(): Promise<Crew> {
   const { crewToken } = unwrap(await core.useCases.claimShip({ shipId, secret: secretOf(secret), location: { kind: 'CLOUD' }, harness: 'aeolus-networking-plugin' }));
   const crew = unwrap(await core.useCases.authenticate.byCrewToken(crewToken));
   unwrap(await core.useCases.registerNetworkPlugin(crew, { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS }));
+  unwrap(await core.useCases.setBuiltInRule(crew, { rule: 'open', verb: 'send', isOn: false }));
   return crew;
 }
 
@@ -90,23 +93,23 @@ describe('the network settings', () => {
     unwrap(await core.useCases.setNetworkRules(networking, { rules: [{ verb: 'send', from: [shared], to: [] }] }));
     const rules: NetworkRule[] = [{ verb: 'send', from: [shared, sensitive], to: [sensitive] }, { verb: 'read', from: [], to: [] }, { verb: 'manage', from: [], to: [] }];
 
-    expect(unwrap(await core.useCases.setNetworkRules(networking, { rules }))).toEqual({ version: 3 });
+    expect(unwrap(await core.useCases.setNetworkRules(networking, { rules }))).toEqual({ version: 4 });
     await expect(core.prisma.networkSettings.findMany({ select: { fleetId: true, rules: true, version: true } })).resolves.toEqual([
-      { fleetId: argo.fleetId, rules, version: 3 },
+      { fleetId: argo.fleetId, rules, version: 4 },
     ]);
   });
 
   it('keep none once cleared, at the next version', async () => {
     unwrap(await core.useCases.setNetworkRules(networking, { rules: [] }));
 
-    expect(unwrap(await core.useCases.setNetworkRules(networking, { rules: null }))).toEqual({ version: 3 });
-    await expect(core.prisma.networkSettings.findMany({ select: { rules: true, version: true } })).resolves.toEqual([{ rules: null, version: 3 }]);
+    expect(unwrap(await core.useCases.setNetworkRules(networking, { rules: null }))).toEqual({ version: 4 });
+    await expect(core.prisma.networkSettings.findMany({ select: { rules: true, version: true } })).resolves.toEqual([{ rules: null, version: 4 }]);
   });
 
   it('write NetworkRulesSet with the change, in the same transaction', async () => {
     unwrap(await core.useCases.setNetworkRules(networking, { rules: [] }));
 
-    await expect(core.prisma.event.findMany({ where: { type: 'NetworkRulesSet' }, select: { details: true } })).resolves.toEqual([{ details: { version: 2, rules: 0 } }]);
+    await expect(core.prisma.event.findMany({ where: { type: 'NetworkRulesSet' }, select: { details: true } })).resolves.toEqual([{ details: { version: 3, rules: 0 } }]);
   });
 });
 
@@ -150,6 +153,7 @@ describe('the networking plugin (decision 0035)', () => {
   it('not responding, its declaration applies, judged by its lease\'s last seen, and the refusal says so', async () => {
     unwrap(await core.useCases.registerNetworkPlugin(plugin, { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 120 }));
     unwrap(await core.useCases.setNetworkRules(plugin, { rules: [{ verb: 'send', from: [shared], to: [sensitive] }] }));
+    unwrap(await core.useCases.setBuiltInRule(plugin, { rule: 'open', verb: 'send', isOn: false }));
     unwrap(await core.useCases.claimShip({ shipId: plugin.shipId, secret: pluginSecret, location: { kind: 'SERVER' }, harness: 'aeolus-networking' }));
     core.clock.advance(120_000);
     refusalOf(await core.useCases.sendMessage(vault, aMessage(planner)));
@@ -161,6 +165,38 @@ describe('the networking plugin (decision 0035)', () => {
       { whilePluginUnavailable: null },
       { whilePluginUnavailable: 'keep-latest' },
     ]);
+  });
+
+  it('turns open off for a verb, kept with BuiltInRuleChanged in the same transaction, and on again when it unregisters', async () => {
+    unwrap(await core.useCases.registerNetworkPlugin(plugin, { whileUnavailable: 'block-all', notRespondingAfterSeconds: 120 }));
+    const switches = { builtInViewerRead: true, builtInOpenSend: true, builtInOpenRead: true, builtInOpenManage: true, version: true };
+
+    expect(unwrap(await core.useCases.setBuiltInRule(plugin, { rule: 'open', verb: 'read', isOn: false }))).toEqual({ version: 2 });
+    await expect(core.prisma.networkSettings.findMany({ select: switches })).resolves.toEqual([
+      { builtInViewerRead: true, builtInOpenSend: true, builtInOpenRead: false, builtInOpenManage: true, version: 2 },
+    ]);
+    await expect(core.prisma.event.findMany({ where: { type: 'BuiltInRuleChanged' }, select: { details: true } })).resolves.toEqual([
+      { details: { rule: 'open', verb: 'read', isOn: false, version: 2 } },
+    ]);
+
+    unwrap(await core.useCases.unregisterNetworkPlugin(plugin));
+    await expect(core.prisma.networkSettings.findMany({ select: switches })).resolves.toEqual([
+      { builtInViewerRead: true, builtInOpenSend: true, builtInOpenRead: true, builtInOpenManage: true, version: 3 },
+    ]);
+  });
+
+  it('stores nothing when BuiltInRuleChanged cannot be written', async () => {
+    unwrap(await core.useCases.registerNetworkPlugin(plugin, { whileUnavailable: 'block-all', notRespondingAfterSeconds: 120 }));
+    const before = await everyRow(core.prisma);
+    const failingSet = createSetBuiltInRule({
+      uow: { run: (work) => createPrismaUnitOfWork(core.prisma).run((tx) => work({ ...tx, events: { append: () => Promise.reject(new Error('disk full')) } })) },
+      clock: core.clock,
+      ids: newId,
+    });
+
+    await expect(failingSet(plugin, { rule: 'open', verb: 'send', isOn: false })).rejects.toThrow('disk full');
+
+    await expect(everyRow(core.prisma)).resolves.toBe(before);
   });
 
   it('retired, unregisters in the retirement\'s transaction', async () => {
@@ -208,7 +244,7 @@ describe('a send under network rules', () => {
           at: core.clock.now(),
           sender: { id: vault.shipId, name: 'vault', labels: [label(sensitive, 'sensitive')], owner: { id: argo.shipId, name: 'argo' } },
           recipient: { kind: 'ship', ship: { id: planner.shipId, name: 'planner', labels: [label(shared, 'shared')], owner: { id: argo.shipId, name: 'argo' } } },
-          settingsVersion: 2,
+          settingsVersion: 3,
           whilePluginUnavailable: null,
         },
     ]);
@@ -324,9 +360,9 @@ describe('a send and a change of rules', () => {
 
     const refused = await core.useCases.sendMessage(planner, aMessage(vault));
 
-    expect(unwrap(await change)).toEqual({ version: 3 });
+    expect(unwrap(await change)).toEqual({ version: 4 });
     expect(refusalOf(refused).kind).toBe('NOT_REACHABLE');
-    await expect(core.prisma.reachRefusal.findMany({ select: { settingsVersion: true } })).resolves.toEqual([{ settingsVersion: 3 }]);
+    await expect(core.prisma.reachRefusal.findMany({ select: { settingsVersion: true } })).resolves.toEqual([{ settingsVersion: 4 }]);
   });
 
   it('take turns: a change that comes while a send is under way waits for it, and the send goes through under the version it was checked against', async () => {
@@ -347,7 +383,7 @@ describe('a send and a change of rules', () => {
     const change = await core.useCases.setNetworkRules(networking, { rules: [] });
 
     expect(unwrap(await send).messageId).toMatch(/^msg_/);
-    expect(unwrap(change)).toEqual({ version: 3 });
+    expect(unwrap(change)).toEqual({ version: 4 });
     const events = await core.prisma.event.findMany({ where: { type: { in: ['MessageAccepted', 'NetworkRulesSet'] } }, orderBy: { seq: 'asc' }, select: { type: true } });
     expect(events.map((event) => event.type)).toEqual(['NetworkRulesSet', 'MessageAccepted', 'NetworkRulesSet']);
   });
@@ -362,12 +398,12 @@ describe('a send and a change of rules', () => {
     unwrap(await change);
 
     const events = await core.prisma.event.findMany({ where: { type: { in: ['MessageAccepted', 'NetworkRulesSet'] } }, orderBy: { seq: 'asc' }, select: { type: true, details: true } });
-    const changedAt = events.findIndex((event) => event.type === 'NetworkRulesSet' && JSON.stringify(event.details).includes('"version":3'));
+    const changedAt = events.findIndex((event) => event.type === 'NetworkRulesSet' && JSON.stringify(event.details).includes('"version":4'));
     expect(events.slice(changedAt + 1).map((event) => event.type)).not.toContain('MessageAccepted');
     const refusals = await core.prisma.reachRefusal.findMany({ select: { settingsVersion: true } });
     // The sends started after the change queue behind it: the race has both sides.
     expect(refusals.length).toBeGreaterThan(0);
-    expect(refusals.every((refusal) => refusal.settingsVersion === 3)).toBe(true);
+    expect(refusals.every((refusal) => refusal.settingsVersion === 4)).toBe(true);
     expect(results.filter((result) => result.isOk).length + refusals.length).toBe(sends.length);
     expect(results.filter((result) => !result.isOk).length).toBe(refusals.length);
   });
@@ -451,7 +487,7 @@ describe('declared network rules on Postgres (decision 0037)', () => {
     unwrap(await core.useCases.declareNetworkRules(labeller, { rules: [sameTrust(), sameTrust()] }));
     const plugin = await registeredPlugin();
 
-    expect(unwrap(await core.useCases.setNetworkRules(plugin, { rules: Array.from({ length: 202 }, sameTrust) }))).toEqual({ version: 2 });
+    expect(unwrap(await core.useCases.setNetworkRules(plugin, { rules: Array.from({ length: 202 }, sameTrust) }))).toEqual({ version: 3 });
     expect(refusalOf(await core.useCases.setNetworkRules(plugin, { rules: Array.from({ length: 203 }, sameTrust) }))).toMatchObject({ kind: 'INVALID_NETWORK_RULES' });
   });
 });

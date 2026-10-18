@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import { createIdGenerator } from '../ids/index.js';
 import {
+  BUILT_IN_RULES,
   explainReachInputSchema,
+  FIXED_BUILT_IN_RULES,
   explainReachOutputSchema,
   NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS,
   NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MIN_SECONDS,
@@ -12,6 +14,7 @@ import {
   reachRefusalsOutputSchema,
   registerNetworkPluginInputSchema,
   setNetworkRulesInputSchema,
+  setBuiltInRuleInputSchema,
   setNetworkRulesOutputSchema,
 } from './network.js';
 
@@ -110,6 +113,31 @@ describe('setNetworkRulesInputSchema', () => {
   it('refuses a rule without its verb, or with a verb that is not send, read or manage', () => {
     for (const rule of [{ from: [], to: [] }, { verb: 'force', from: [], to: [] }]) {
       expect(setNetworkRulesInputSchema.safeParse({ rules: [rule] }).success).toBe(false);
+    }
+  });
+});
+
+describe('the built-in rules (decision 0034)', () => {
+  it('are argo, the owner, the answer, the viewer reading and open, the first three never off', () => {
+    expect([BUILT_IN_RULES, FIXED_BUILT_IN_RULES]).toEqual([
+      ['argo', 'owner', 'answer', 'viewerRead', 'open'],
+      ['argo', 'owner', 'answer'],
+    ]);
+  });
+});
+
+describe('setBuiltInRuleInputSchema', () => {
+  it.each(['send', 'read', 'manage'])('takes open for one verb, on or off: %s', (verb) => {
+    expect(setBuiltInRuleInputSchema.parse({ rule: 'open', verb, isOn: false })).toEqual({ rule: 'open', verb, isOn: false });
+  });
+
+  it.each(['argo', 'owner', 'answer', 'viewerRead'])('takes every other built-in rule without a verb, the server refusing the fixed ones: %s', (rule) => {
+    expect(setBuiltInRuleInputSchema.parse({ rule, isOn: true })).toEqual({ rule, isOn: true });
+  });
+
+  it('refuses open without a verb, another rule with one, and a rule that is not built in', () => {
+    for (const input of [{ rule: 'open', isOn: false }, { rule: 'viewerRead', verb: 'read', isOn: false }, { rule: 'everyone', isOn: false }]) {
+      expect(setBuiltInRuleInputSchema.safeParse(input).success).toBe(false);
     }
   });
 });

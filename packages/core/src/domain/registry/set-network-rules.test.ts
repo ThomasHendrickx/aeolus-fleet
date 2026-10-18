@@ -6,7 +6,7 @@ import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { refusalOf, unwrap } from '../../../test/support/result.js';
 import type { Caller } from '../shared/caller.js';
-import type { NetworkRule } from './network-settings.js';
+import { BUILT_INS_ON, type NetworkRule } from './network-settings.js';
 import { createRegisterNetworkPlugin } from './register-network-plugin.js';
 import { createSetNetworkRules } from './set-network-rules.js';
 
@@ -56,7 +56,7 @@ describe('setting the network rules as the networking plugin', () => {
     const set = unwrap(await setNetworkRules(setter, { rules }));
 
     expect(set).toEqual({ version: 2 });
-    expect(core.state.networkSettings).toEqual([{ fleetId, rules, version: 2, plugin: plugin() }]);
+    expect(core.state.networkSettings).toEqual([{ fleetId, rules, builtIns: BUILT_INS_ON, version: 2, plugin: plugin() }]);
   });
 
   it('replaces the rules and moves the version on every set', async () => {
@@ -64,20 +64,20 @@ describe('setting the network rules as the networking plugin', () => {
     const rules = [aRule()];
 
     expect(unwrap(await setNetworkRules(setter, { rules }))).toEqual({ version: 3 });
-    expect(core.state.networkSettings).toEqual([{ fleetId, rules, version: 3, plugin: plugin() }]);
+    expect(core.state.networkSettings).toEqual([{ fleetId, rules, builtIns: BUILT_INS_ON, version: 3, plugin: plugin() }]);
   });
 
   it('keeps an empty list as rules that allow only the fixed exceptions', async () => {
     unwrap(await setNetworkRules(setter, { rules: [] }));
 
-    expect(core.state.networkSettings).toEqual([{ fleetId, rules: [], version: 2, plugin: plugin() }]);
+    expect(core.state.networkSettings).toEqual([{ fleetId, rules: [], builtIns: BUILT_INS_ON, version: 2, plugin: plugin() }]);
   });
 
   it('clears the rules with none, back to all-to-all, moving the version', async () => {
     unwrap(await setNetworkRules(setter, { rules: [aRule()] }));
 
     expect(unwrap(await setNetworkRules(setter, { rules: null }))).toEqual({ version: 3 });
-    expect(core.state.networkSettings).toEqual([{ fleetId, rules: null, version: 3, plugin: plugin() }]);
+    expect(core.state.networkSettings).toEqual([{ fleetId, rules: null, builtIns: BUILT_INS_ON, version: 3, plugin: plugin() }]);
   });
 
   it('writes NetworkRulesSet, caused by the setting ship, with the version and how many rules', async () => {
@@ -148,7 +148,7 @@ describe('setting the network rules as the networking plugin', () => {
     const rules = [{ verb: 'send' as const, from: [{ labelId, value: ANY_LABEL_VALUE }, { labelId, value: SAME_LABEL_VALUE }], to: [core.ids('labelValue'), { labelId, value: SAME_LABEL_VALUE }] }];
 
     expect(unwrap(await setNetworkRules(setter, { rules }))).toEqual({ version: 2 });
-    expect(core.state.networkSettings).toEqual([{ fleetId, rules, version: 2, plugin: plugin() }]);
+    expect(core.state.networkSettings).toEqual([{ fleetId, rules, builtIns: BUILT_INS_ON, version: 2, plugin: plugin() }]);
   });
 
   it('refuses a selector that holds a term of any value twice for one label', async () => {
