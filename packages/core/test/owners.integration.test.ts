@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { cryptoRandomTokens, sha256Hasher } from '../src/adapters/crypto/secrets.js';
 import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
 import { createCommissionShip } from '../src/domain/registry/commission-ship.js';
+import { createRetireShip } from '../src/domain/registry/retire-ship.js';
 import { createSetOwner } from '../src/domain/registry/set-owner.js';
 import type { Caller } from '../src/domain/shared/caller.js';
 import { OPERATOR, operatorCaller } from './support/core-fixtures.js';
@@ -103,6 +104,49 @@ describe('setting an owner on Postgres', () => {
     });
 
     await expect(failingSetOwner(argo, { shipId: scoutId, ownerShipId: thomasId })).rejects.toThrow('disk full');
+
+    await expect(everyRow(core.prisma)).resolves.toBe(before);
+  });
+});
+
+describe('a retired owner on Postgres', () => {
+  let scoutId: ShipId;
+  let thomasId: ShipId;
+
+  beforeEach(async () => {
+    ({ shipId: scoutId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' })));
+    ({ shipId: thomasId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person' })));
+    unwrap(await core.useCases.setOwner(argo, { shipId: scoutId, ownerShipId: thomasId }));
+  });
+
+  it("hands its ships to argo with OwnerChanged, in the retire's transaction", async () => {
+    unwrap(await core.useCases.retireShip(argo, { shipId: thomasId }));
+
+    await expect(ownerOf(scoutId)).resolves.toBe(argoId);
+    await expect(ownerEventsAbout(scoutId)).resolves.toEqual([
+      ['OwnerSet', { ownerShipId: argoId, how: 'argoByDefault' }],
+      ['OwnerChanged', { fromShipId: argoId, toShipId: thomasId, why: 'setByArgo' }],
+      ['OwnerChanged', { fromShipId: thomasId, toShipId: argoId, why: 'ownerRetired' }],
+    ]);
+  });
+
+  it('stores nothing, the owner not retired, when an OwnerChanged cannot be written', async () => {
+    const before = await everyRow(core.prisma);
+    const failingRetire = createRetireShip({
+      uow: {
+        run: (work) =>
+          createPrismaUnitOfWork(core.prisma).run((tx) =>
+            work({
+              ...tx,
+              events: { append: (event) => (event.type === 'OwnerChanged' ? Promise.reject(new Error('disk full')) : tx.events.append(event)) },
+            }),
+          ),
+      },
+      clock: core.clock,
+      ids: newId,
+    });
+
+    await expect(failingRetire(argo, { shipId: thomasId })).rejects.toThrow('disk full');
 
     await expect(everyRow(core.prisma)).resolves.toBe(before);
   });

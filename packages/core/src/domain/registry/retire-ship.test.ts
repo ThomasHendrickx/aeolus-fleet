@@ -305,3 +305,44 @@ describe('a ship that declared network rules retired (decision 0037)', () => {
     expect(eventsOfType('NetworkRulesDeclared')).toEqual([]);
   });
 });
+
+describe('a retired owner (decision 0045)', () => {
+  let thomasId: ShipId;
+
+  beforeEach(async () => {
+    ({ shipId: thomasId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person' })));
+    unwrap(await registry.setOwner(argo, { shipId: scoutId, ownerShipId: thomasId }));
+    unwrap(await registry.setOwner(argo, { shipId: lookout.shipId, ownerShipId: thomasId }));
+    core.state.events.length = 0;
+  });
+
+  function ownerOf(shipId: ShipId) {
+    return core.state.ships.find((held) => held.id === shipId)?.owner;
+  }
+
+  it('hands each active ship it owned to argo, with OwnerChanged on each', async () => {
+    unwrap(await registry.retireShip(argo, { shipId: thomasId }));
+
+    expect([ownerOf(scoutId), ownerOf(lookout.shipId)]).toEqual([argo.shipId, argo.shipId]);
+    expect(eventsOfType('OwnerChanged')).toEqual([
+      expect.objectContaining({ actor: { kind: 'ship', shipId: argo.shipId }, shipId: scoutId, details: { fromShipId: thomasId, toShipId: argo.shipId, why: 'ownerRetired' } }),
+      expect.objectContaining({ actor: { kind: 'ship', shipId: argo.shipId }, shipId: lookout.shipId, details: { fromShipId: thomasId, toShipId: argo.shipId, why: 'ownerRetired' } }),
+    ]);
+  });
+
+  it('leaves a retired ship it owned as it was', async () => {
+    unwrap(await retireScout());
+    core.state.events.length = 0;
+
+    unwrap(await registry.retireShip(argo, { shipId: thomasId }));
+
+    expect(ownerOf(scoutId)).toBe(thomasId);
+    expect(eventsOfType('OwnerChanged').map((event) => event.shipId)).toEqual([lookout.shipId]);
+  });
+
+  it('writes no OwnerChanged when the retired ship owns none', async () => {
+    unwrap(await retireScout());
+
+    expect(eventsOfType('OwnerChanged')).toEqual([]);
+  });
+});
