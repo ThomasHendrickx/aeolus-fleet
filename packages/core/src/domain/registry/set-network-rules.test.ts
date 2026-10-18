@@ -26,7 +26,7 @@ const DECLARATION = { whileUnavailable: 'keep-latest', notRespondingAfterSeconds
 
 /** The fleet's networking plugin as the settings hold it, once the setter registered. */
 function plugin() {
-  return { shipId: setter.shipId, ...DECLARATION };
+  return { shipId: setter.shipId, ...DECLARATION, registeredAt: new Date('2026-10-09T19:00:00.000Z') };
 }
 
 function valueIds(count: number): LabelValueId[] {

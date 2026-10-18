@@ -55,7 +55,7 @@ describe('unregistering the networking plugin', () => {
     const refused = await unregisterNetworkPlugin(argo);
 
     expect(refusalOf(refused)).toEqual({ kind: 'NOT_THE_NETWORK_PLUGIN', message: "Only the fleet's networking plugin does this (decision 0035)" });
-    expect(core.state.networkSettings).toEqual([expect.objectContaining({ version: 3, plugin: { shipId: plugin.shipId, whileUnavailable: 'block-all', notRespondingAfterSeconds: 120 } })]);
+    expect(core.state.networkSettings).toEqual([expect.objectContaining({ version: 3, plugin: { shipId: plugin.shipId, whileUnavailable: 'block-all', notRespondingAfterSeconds: 120, registeredAt: new Date('2026-10-10T08:00:00.000Z') } })]);
     expect(core.state.events).toEqual([]);
   });
 

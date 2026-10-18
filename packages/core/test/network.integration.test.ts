@@ -133,6 +133,16 @@ describe('the networking plugin (decision 0035)', () => {
     await expect(core.prisma.event.count({ where: { type: 'NetworkPluginRegistered' } })).resolves.toBe(1);
   });
 
+  it('is kept with when it first registered, which registering again keeps, read back from the store', async () => {
+    const registeredAt = core.clock.now();
+    unwrap(await core.useCases.registerNetworkPlugin(plugin, { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 300 }));
+    core.clock.advance(60_000);
+    unwrap(await core.useCases.registerNetworkPlugin(plugin, { whileUnavailable: 'block-all', notRespondingAfterSeconds: 120 }));
+
+    await expect(core.prisma.networkSettings.findMany({ select: { pluginRegisteredAt: true } })).resolves.toEqual([{ pluginRegisteredAt: registeredAt }]);
+    expect(unwrap(await core.useCases.readNetworkPlugin(argo))).toEqual({ shipId: plugin.shipId, registeredAt });
+  });
+
   it('alone sets the rules while registered', async () => {
     unwrap(await core.useCases.registerNetworkPlugin(plugin, { whileUnavailable: 'block-all', notRespondingAfterSeconds: 120 }));
 
@@ -148,6 +158,7 @@ describe('the networking plugin (decision 0035)', () => {
     await expect(core.prisma.networkSettings.findMany({ select: { rules: true, version: true, pluginShipId: true, pluginWhileUnavailable: true, pluginNotRespondingAfterSeconds: true } })).resolves.toEqual([
       { rules: [], version: 3, pluginShipId: null, pluginWhileUnavailable: null, pluginNotRespondingAfterSeconds: null },
     ]);
+    await expect(core.prisma.networkSettings.findMany({ select: { pluginRegisteredAt: true } })).resolves.toEqual([{ pluginRegisteredAt: null }]);
     await expect(core.prisma.event.count({ where: { type: 'NetworkPluginUnregistered' } })).resolves.toBe(1);
   });
 

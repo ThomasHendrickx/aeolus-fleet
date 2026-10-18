@@ -682,7 +682,7 @@ describe('the rules only through a plugin migration', () => {
       await client.networkSettings.createMany({
         data: [
           { fleetId: withoutPlugin, rules, version: 3 },
-          { fleetId: withPlugin, rules, version: 5, pluginShipId: pluginId, pluginWhileUnavailable: 'keep-latest', pluginNotRespondingAfterSeconds: 300 },
+          { fleetId: withPlugin, rules, version: 5, pluginShipId: pluginId, pluginWhileUnavailable: 'keep-latest', pluginNotRespondingAfterSeconds: 300, pluginRegisteredAt: now },
         ],
       });
 
@@ -724,7 +724,7 @@ describe('the cleared rules on record migration', () => {
     await client.networkSettings.createMany({
       data: [
         { fleetId: argoRules, rules, version: 3 },
-        { fleetId: pluginRules, rules, version: 5, pluginShipId: pluginId, pluginWhileUnavailable: 'keep-latest', pluginNotRespondingAfterSeconds: 300 },
+        { fleetId: pluginRules, rules, version: 5, pluginShipId: pluginId, pluginWhileUnavailable: 'keep-latest', pluginNotRespondingAfterSeconds: 300, pluginRegisteredAt: now },
         { fleetId: unregistered, version: 2 },
       ],
     });
@@ -838,7 +838,7 @@ describe('the built-in rules migration', () => {
     const url = await createMigratedDatabase();
     const client = createPrismaClient(url);
     const [withRules, pluginWithoutRules, withoutPlugin] = [newId('fleet'), newId('fleet'), newId('fleet')];
-    const plugin = { pluginWhileUnavailable: 'keep-latest', pluginNotRespondingAfterSeconds: 300 };
+    const plugin = { pluginWhileUnavailable: 'keep-latest', pluginNotRespondingAfterSeconds: 300, pluginRegisteredAt: now };
     try {
       await withRulesThatMayBeNone(client);
       await client.fleet.createMany({ data: [withRules, pluginWithoutRules, withoutPlugin].map((id) => ({ id, name: 'old fleet', createdAt: now })) });
@@ -1563,6 +1563,55 @@ describe('the owners migration', () => {
       ]);
     } finally {
       await after.$disconnect();
+    }
+  });
+});
+
+describe('the network plugin registered at migration', () => {
+  const MIGRATIONS = fileURLToPath(new URL('../src/adapters/prisma/migrations', import.meta.url));
+  const registeredAt = readdirSync(MIGRATIONS).find((name) => name.endsWith('_network_plugin_registered_at'));
+
+  it("sets a registered plugin's time to its first registration since the fleet's latest unregistration, and leaves a fleet without one empty", async () => {
+    const url = await createMigratedDatabase();
+    const client = createPrismaClient(url);
+    const [withPlugin, withoutPlugin] = [newId('fleet'), newId('fleet')];
+    const [pluginId, earlierId] = [newId('ship'), newId('ship')];
+    const at = (minutes: number) => new Date(now.getTime() + minutes * 60_000);
+    try {
+      // The database as it was before the column: the plugin columns without it.
+      await client.$executeRawUnsafe(`ALTER TABLE "network_settings" DROP CONSTRAINT "network_settings_plugin_whole", DROP COLUMN "plugin_registered_at",
+        ADD CONSTRAINT "network_settings_plugin_whole" CHECK (("plugin_ship_id" IS NULL) = ("plugin_while_unavailable" IS NULL) AND ("plugin_ship_id" IS NULL) = ("plugin_not_responding_after_seconds" IS NULL))`);
+      await client.fleet.createMany({ data: [withPlugin, withoutPlugin].map((id) => ({ id, name: 'old fleet', createdAt: now })) });
+      await client.ship.createMany({
+        data: [pluginId, earlierId].map((id) => ({ id, fleetId: withPlugin, name: id, type: 'networking', kind: 'agent', scopes: ['fleet:network'], createdAt: now })),
+      });
+      await client.$executeRawUnsafe(
+        `INSERT INTO "network_settings" ("fleet_id", "version", "plugin_ship_id", "plugin_while_unavailable", "plugin_not_responding_after_seconds") VALUES ($1, 5, $2, 'keep-latest', 300), ($3, 1, NULL, NULL, NULL)`,
+        withPlugin,
+        pluginId,
+        withoutPlugin,
+      );
+      // Registered, unregistered, another plugin in between, then registered and registered again: one event a minute.
+      const history: [string, string][] = [
+        ['NetworkPluginRegistered', pluginId],
+        ['NetworkPluginUnregistered', pluginId],
+        ['NetworkPluginRegistered', earlierId],
+        ['NetworkPluginUnregistered', earlierId],
+        ['NetworkPluginRegistered', pluginId],
+        ['NetworkPluginRegistered', pluginId],
+      ];
+      await client.event.createMany({
+        data: history.map(([type, shipId], index) => ({ id: newId('event'), fleetId: withPlugin, type, occurredAt: at(index + 1), shipId, details: {}, seq: BigInt(index + 1) })),
+      });
+
+      await executeSqlFile(url, `${MIGRATIONS}/${registeredAt ?? 'missing'}/migration.sql`);
+
+      await expect(client.networkSettings.findMany({ select: { fleetId: true, pluginRegisteredAt: true }, orderBy: { version: 'asc' } })).resolves.toEqual([
+        { fleetId: withoutPlugin, pluginRegisteredAt: null },
+        { fleetId: withPlugin, pluginRegisteredAt: at(5) },
+      ]);
+    } finally {
+      await client.$disconnect();
     }
   });
 });
