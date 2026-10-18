@@ -114,3 +114,40 @@ describe('declaring scopes on Postgres', () => {
     await expect(core.prisma.scopeNamespace.count()).resolves.toBe(0);
   });
 });
+
+describe('granting scopes on Postgres', () => {
+  const FORM = { scope: 'squadrons:form', description: 'Form a squadron by message' };
+  const SCALE = { scope: 'squadrons:scale', description: 'Add and remove members' };
+
+  it("stores the ship's new scopes and writes ScopesChanged in the same transaction, and the crew holds them at its next call", async () => {
+    const { shipId, crewToken } = await claimedScout();
+
+    unwrap(await core.useCases.grantScopes(argo(), { shipId, grant: ['fleet:read'], revoke: [] }));
+
+    await expect(core.prisma.ship.findUniqueOrThrow({ where: { id: shipId }, select: { scopes: true } })).resolves.toEqual({ scopes: ['messages:send', 'messages:receive', 'fleet:read'] });
+    await expect(core.prisma.event.findMany({ where: { type: 'ScopesChanged' }, select: { shipId: true, actorShipId: true, details: true } })).resolves.toEqual([
+      { shipId, actorShipId: argoId, details: { added: 'fleet:read', removed: '' } },
+    ]);
+    await expect(core.useCases.authenticate.byCrewToken(crewToken)).resolves.toMatchObject({ isOk: true, value: { scopes: ['messages:send', 'messages:receive', 'fleet:read'] } });
+  });
+
+  it('lets a grant of a scope and a declaration removing it take turns: the scope is either granted and kept, or removed and refused', async () => {
+    const { shipId: declarerId } = unwrap(await core.useCases.commissionShip(argo(), { idempotencyKey: newKey(), name: 'squadrons', type: 'plugin' }));
+    const declarer = { shipId: declarerId, fleetId, kind: 'agent' as const, scopes: ['messages:send', 'messages:receive', 'scopes:declare'] };
+    unwrap(await core.useCases.declareScopes(declarer, { namespace: 'squadrons', scopes: [FORM, SCALE] }));
+    const { shipId } = await claimedScout();
+
+    const [granted, declared] = await Promise.all([
+      core.useCases.grantScopes(argo(), { shipId, grant: ['squadrons:scale'], revoke: [] }),
+      core.useCases.declareScopes(declarer, { namespace: 'squadrons', scopes: [FORM] }),
+    ]);
+
+    const outcome = [granted.isOk ? 'granted' : granted.error.kind, declared.isOk ? 'declared' : declared.error.kind];
+    expect([
+      ['granted', 'SCOPE_HELD'],
+      ['SCOPE_NOT_DECLARED', 'declared'],
+    ]).toContainEqual(outcome);
+    const { scopes } = await core.prisma.ship.findUniqueOrThrow({ where: { id: shipId }, select: { scopes: true } });
+    expect(scopes.includes('squadrons:scale')).toBe(outcome[0] === 'granted');
+  });
+});

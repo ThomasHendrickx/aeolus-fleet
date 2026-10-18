@@ -1994,6 +1994,25 @@ describe('scopes at the API (decision 0046)', () => {
     await expect(codeOf(second.fleet.declareScopes.mutate({ namespace: 'api-taken', scopes: [] }))).resolves.toBe('CONFLICT');
   });
 
+  it('let a ship with scopes:grant grant a scope it holds, effective at the grantee\'s next call, and refuse a ship without', async () => {
+    const grantee = await agentShip();
+    const granteeToken = `aeolus_ct_v1_${newId('lease')}`;
+    await database.lease.create({ data: { id: newId('lease'), fleetId, shipId: grantee.shipId, location: 'DEVICE', crewTokenHash: sha256Hasher.hash(granteeToken), startedAt: clock.now() } });
+    const asGrantee = client({ authorization: `Bearer ${granteeToken}` });
+    const granter = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:read', 'scopes:grant'])}` });
+    const sender = client({ authorization: `Bearer ${await crewedShip()}` });
+    await expect(codeOf(asGrantee.fleet.scopes.query())).resolves.toBe('FORBIDDEN');
+
+    await expect(granter.fleet.grantScopes.mutate({ shipId: grantee.shipId, grant: ['fleet:read'], revoke: [] })).resolves.toEqual({ scopes: ['messages:send', 'messages:receive', 'fleet:read'] });
+
+    await expect(asGrantee.fleet.scopes.query()).resolves.toHaveLength(5);
+    await expect(refusalOf(sender.fleet.grantScopes.mutate({ shipId: grantee.shipId, grant: [], revoke: ['fleet:read'] }))).resolves.toEqual({
+      code: 'FORBIDDEN',
+      message: 'This call needs the scopes:grant scope',
+    });
+    await expect(codeOf(granter.fleet.grantScopes.mutate({ shipId: grantee.shipId, grant: ['fleet:manage'], revoke: [] }))).resolves.toBe('FORBIDDEN');
+  });
+
   it("list the fleet's namespaces to a ship with fleet:read, core first, and refuse a ship without", async () => {
     const reader = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:read'])}` });
     const sender = client({ authorization: `Bearer ${await crewedShip()}` });
