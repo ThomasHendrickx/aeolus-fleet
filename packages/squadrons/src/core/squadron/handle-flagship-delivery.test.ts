@@ -18,6 +18,7 @@ const TESTER: ShipId = 'shp_01m3tbfspe96yf1rnr4ank0002';
 const STRANGER: ShipId = 'shp_01m3tbfspe96yf1rnr4ank0009';
 const ARGO: ShipId = 'shp_01m3tbfspe96yf1rnr4ank0010';
 const FORMING: ShipId = 'shp_01m3tbfspe96yf1rnr4ank0011';
+const OWNER: ShipId = 'shp_01m3tbfspe96yf1rnr4ank0012';
 const FORMED = new Date('2026-10-03T09:00:00.000Z');
 const NOW = new Date('2026-10-03T09:10:00.000Z');
 const REPO = 'example.com/templates';
@@ -78,6 +79,11 @@ let held: Squadron;
 const MANAGEMENT_CREW_TOKEN = 'aeolus_ct_v1_management';
 /** The scopes the forming ship holds now, as the fleet answers squadrons' own ship. */
 let formingShipScopes: string[];
+/** Whether the forming ship is retired, and its owner, as the fleet answers squadrons' own ship. */
+let formingShipStatus: 'crewed' | 'retired';
+let formingShipOwner: ShipId | null;
+/** The scopes the forming ship's owner holds now. */
+let ownerScopes: string[];
 const acked: DeliveryId[] = [];
 const ponged: DeliveryId[] = [];
 let isPongRefused: boolean;
@@ -87,12 +93,16 @@ let isAckRefused: boolean;
 const door: FleetDoor = {
   register: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
   whoami: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
-  getShip: (crewToken, { shipId }) =>
-    Promise.resolve(
-      crewToken === MANAGEMENT_CREW_TOKEN && shipId === FORMING
-        ? ok({ status: 'crewed' as const, scopes: formingShipScopes, lastSeenAt: NOW, crewedSince: NOW, reportedAt: null, openDeliveries: 0, inFlightDeliveries: 0, hasCrewRequest: false })
-        : err({ code: 'FORBIDDEN', message: 'Needs fleet:read' }),
-    ),
+  getShip: (crewToken, { shipId }) => {
+    const ship = { lastSeenAt: NOW, crewedSince: NOW, reportedAt: null, openDeliveries: 0, inFlightDeliveries: 0, hasCrewRequest: false };
+    if (crewToken === MANAGEMENT_CREW_TOKEN && shipId === FORMING) {
+      return Promise.resolve(ok({ ...ship, status: formingShipStatus, scopes: formingShipScopes, ownerShipId: formingShipOwner }));
+    }
+    if (crewToken === MANAGEMENT_CREW_TOKEN && shipId === OWNER) {
+      return Promise.resolve(ok({ ...ship, status: 'crewed' as const, scopes: ownerScopes, ownerShipId: null }));
+    }
+    return Promise.resolve(err({ code: 'FORBIDDEN', message: 'Needs fleet:read' }));
+  },
   deregister: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
   commission: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
   requestCrew: () => Promise.resolve(err({ code: 'FORBIDDEN', message: 'not used' })),
@@ -187,7 +197,7 @@ function delivery(from: ShipId, message: { contentType: string; payload: unknown
     deliveryId: `dlv_01m3tbfspe96yf1rnr4ank${String(next).padStart(4, '0')}`,
     messageId: `msg_01m3tbfspe96yf1rnr4ank${String(next).padStart(4, '0')}`,
     senderShipId: from,
-    senderName: from === STRANGER ? 'reviewer-01' : from === FORMING ? 'tech-lead' : from === ARGO ? 'argo' : 'a-member',
+    senderName: from === STRANGER ? 'reviewer-01' : from === FORMING ? 'tech-lead' : from === ARGO ? 'argo' : from === OWNER ? 'thomas' : 'a-member',
     contentType: message.contentType,
     payload: typeof message.payload === 'string' ? message.payload : JSON.stringify(message.payload),
     inReplyTo: message.inReplyTo ?? null,
@@ -206,6 +216,9 @@ beforeEach(() => {
   advances.length = 0;
   relayed.length = 0;
   formingShipScopes = ['messages:send', 'messages:receive', 'squadrons:form'];
+  formingShipStatus = 'crewed';
+  formingShipOwner = OWNER;
+  ownerScopes = ['messages:send', 'messages:receive', 'squadrons:form'];
   now = NOW;
 });
 
@@ -701,5 +714,101 @@ describe('standing a squadron down by message to its flagship (decision 0017)', 
 
     expect(held.state).toBe('forming');
     expect(JSON.parse(sent[0]?.payload ?? '')).toMatchObject({ code: 'NOT_SAILING' });
+  });
+});
+
+describe('a retired forming ship: its owner takes its place (0.R)', () => {
+  function sailingFormedByTechLead(): Squadron {
+    return { ...squadron(), state: 'sailing', sailedAt: NOW, formingShip: { shipId: FORMING, name: 'tech-lead', formKey: 'form-1' } };
+  }
+
+  beforeEach(() => {
+    held = sailingFormedByTechLead();
+    formingShipStatus = 'retired';
+  });
+
+  it("sends a member's relay on to the forming ship's owner", async () => {
+    const relay = delivery(TESTER, { contentType: RELAY, payload: { squadron: 'team-a1b2c3', payload: 'Which branch?' } });
+
+    await expect(handle(held, relay)).resolves.toEqual({ isOk: true, value: 'relayed' });
+
+    expect(sent.map(({ selector }) => selector)).toEqual([{ kind: 'ship', shipId: OWNER }]);
+    expect(acked).toEqual([relay.deliveryId]);
+  });
+
+  it("sends a member's relay on to argo when the retired forming ship has no owner the fleet names", async () => {
+    formingShipOwner = null;
+
+    await handle(held, delivery(TESTER, { contentType: RELAY, payload: { squadron: 'team-a1b2c3', payload: 'Which branch?' } }));
+
+    expect(sent.map(({ selector }) => selector)).toEqual([{ kind: 'ship', name: 'argo' }]);
+  });
+
+  it('still sends to the forming ship while it is not retired', async () => {
+    formingShipStatus = 'crewed';
+
+    await handle(held, delivery(TESTER, { contentType: RELAY, payload: { squadron: 'team-a1b2c3', payload: 'Which branch?' } }));
+
+    expect(sent.map(({ selector }) => selector)).toEqual([{ kind: 'ship', shipId: FORMING }]);
+  });
+
+  it("sends the owner's relay naming a member on to that member", async () => {
+    await expect(
+      handle(held, delivery(OWNER, { contentType: RELAY, payload: { squadron: 'team-a1b2c3', to: { member: 'planner-k3x9' }, payload: 'Pause.' } })),
+    ).resolves.toEqual({ isOk: true, value: 'relayed' });
+
+    expect(sent[0]).toMatchObject({ selector: { kind: 'ship', shipId: PLANNER }, contentType: RELAY });
+    expect(JSON.parse(sent[0]?.payload ?? '')).toEqual({ squadron: 'team-a1b2c3', from: 'thomas', payload: 'Pause.' });
+  });
+
+  it('keeps a relay from the owner while the forming ship is not retired', async () => {
+    formingShipStatus = 'crewed';
+
+    await expect(handle(held, delivery(OWNER, { contentType: RELAY, payload: { squadron: 'team-a1b2c3', to: { member: 'planner-k3x9' }, payload: 'Pause.' } }))).resolves.toEqual({
+      isOk: true,
+      value: 'kept',
+    });
+  });
+
+  it('tells the owner of a message it keeps', async () => {
+    const unknown = delivery(STRANGER, { contentType: 'text/plain', payload: 'Build login' });
+
+    await handle(held, unknown);
+
+    expect(sent).toEqual([expect.objectContaining({ selector: { kind: 'ship', shipId: OWNER }, idempotencyKey: `kept-${unknown.deliveryId}` })]);
+  });
+
+  it('tells argo of a message it keeps when the retired forming ship has no owner the fleet names', async () => {
+    formingShipOwner = null;
+    const unknown = delivery(STRANGER, { contentType: 'text/plain', payload: 'Build login' });
+
+    await handle(held, unknown);
+
+    expect(sent).toEqual([]);
+    expect(told.map(({ key }) => key)).toEqual([`kept-${unknown.deliveryId}`]);
+  });
+
+  it('stands the squadron down for the owner holding squadrons:form', async () => {
+    await expect(handle(held, delivery(OWNER, { contentType: STAND_DOWN, payload: { squadron: 'team-a1b2c3' } }))).resolves.toEqual({ isOk: true, value: 'standing-down' });
+
+    expect(held.state).toBe('standing-down');
+  });
+
+  it('refuses the owner without squadrons:form, naming the scope', async () => {
+    ownerScopes = ['messages:send', 'messages:receive'];
+
+    await handle(held, delivery(OWNER, { contentType: STAND_DOWN, payload: { squadron: 'team-a1b2c3' } }));
+
+    expect(held.state).toBe('sailing');
+    expect(JSON.parse(sent[0]?.payload ?? '')).toMatchObject({ code: 'NEEDS_SCOPE' });
+  });
+
+  it('refuses the owner while the forming ship is not retired', async () => {
+    formingShipStatus = 'crewed';
+
+    await handle(held, delivery(OWNER, { contentType: STAND_DOWN, payload: { squadron: 'team-a1b2c3' } }));
+
+    expect(held.state).toBe('sailing');
+    expect(JSON.parse(sent[0]?.payload ?? '')).toMatchObject({ code: 'NOT_FORMING_SHIP' });
   });
 });
