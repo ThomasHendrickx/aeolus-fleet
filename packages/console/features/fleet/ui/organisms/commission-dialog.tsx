@@ -1,6 +1,6 @@
 'use client';
 
-import type { CrewSettings, FleetScope, ListedShip } from '@aeolus-fleet/common';
+import type { CrewSettings, ListedShip } from '@aeolus-fleet/common';
 import { isShipHandle } from '@aeolus-fleet/common/rules';
 import { CircleCheck, CircleX, Tag } from 'lucide-react';
 import { useId, useState } from 'react';
@@ -32,6 +32,14 @@ import { InlineError } from '../../../../components/molecules/inline-error';
 import { LimitNotice } from '../../../../components/molecules/limit-notice';
 import { shipLimitNotice } from '../../../../lib/limits';
 
+/** The scopes offered under one heading: the fleet scopes, or one plugin's under its ship's name, each with the fleet's description. */
+interface OfferedScopes {
+  title: string;
+  /** The plugin's namespace; null for the fleet scopes. */
+  namespace: string | null;
+  scopes: readonly { scope: string; description: string }[];
+}
+
 interface CommissionDialogProps {
   /** The fleet's active ships: their names are taken, their types suggested. */
   activeShips: readonly ListedShip[];
@@ -58,26 +66,14 @@ interface CommissionDialogProps {
     check?: SettingsCheck;
     onSettingsChange: (settings: CrewSettings | undefined) => void;
   };
+  /** What commissioning may grant, as the fleet describes it (decision 0046); undefined while it is read. */
+  scopeGroups?: readonly OfferedScopes[];
   /** The ship, and the crew request to write once it is commissioned: none when Request a crew is off. */
-  onSubmit: (ship: { name: string; type: string; note?: string; scopes?: FleetScope[] }, request: { settings: CrewSettings | Record<string, never> } | undefined) => void;
+  onSubmit: (ship: { name: string; type: string; note?: string; scopes?: string[] }, request: { settings: CrewSettings | Record<string, never> } | undefined) => void;
 }
 
-/** What each fleet scope lets a ship's session do, beside its name. */
-const FLEET_SCOPE_WORDS: Record<FleetScope, string> = {
-  'messages:resend': 'Resend stuck messages',
-  'fleet:read': 'Read the ships and messages in its read reach',
-  'fleet:commission': 'Commission ships',
-  'fleet:manage': 'Manage the ships in its manage reach',
-  'crew:assign': 'Assign crews',
-  'crew:run': 'Run crews',
-  'labels:define': 'Define labels',
-  'labels:assign': 'Assign labels',
-  'fleet:network': 'Set network rules',
-  'fleet:on-behalf': 'Read on behalf of a named ship',
-};
-
 /** The open dialog's fields: they start empty each time it opens. */
-function CommissionDialogBody({ activeShips, isPending, error, shipLimit, accountUrl, crewRequest, onSubmit }: Omit<CommissionDialogProps, 'isOpen' | 'onOpenChange'>) {
+function CommissionDialogBody({ activeShips, isPending, error, shipLimit, accountUrl, crewRequest, scopeGroups, onSubmit }: Omit<CommissionDialogProps, 'isOpen' | 'onOpenChange'>) {
   const constants = useConsoleConstants();
   const { shipHandleMaxLength, firstPromptMaxBytes } = constants;
   const nameId = useId();
@@ -89,7 +85,7 @@ function CommissionDialogBody({ activeShips, isPending, error, shipLimit, accoun
   const [name, setName] = useState('');
   const [type, setType] = useState('');
   const [note, setNote] = useState('');
-  const [fleetScopes, setFleetScopes] = useState<readonly FleetScope[]>([]);
+  const [grantedScopes, setGrantedScopes] = useState<readonly string[]>([]);
   // On by default while the trierarch plugin is connected, off otherwise (#245: Thomas's decision).
   const [isCrewRequested, setIsCrewRequested] = useState(crewRequest !== undefined);
   const [crewValues, setCrewValues] = useState<CrewSettingsValues>(() => defaultValues(crewRequest?.offers ?? []));
@@ -119,7 +115,7 @@ function CommissionDialogBody({ activeShips, isPending, error, shipLimit, accoun
             name,
             type: trimmedType,
             ...(note.trim() === '' ? {} : { note }),
-            ...(fleetScopes.length === 0 ? {} : { scopes: [...fleetScopes] }),
+            ...(grantedScopes.length === 0 ? {} : { scopes: [...grantedScopes] }),
           };
           // Without the trierarch plugin a request holds no settings: the ship waits on Needs crew, crewed by hand.
           onSubmit(ship, !isCrewRequested ? undefined : crewRequest === undefined ? { settings: {} } : crewSettings === undefined ? undefined : { settings: crewSettings });
@@ -208,24 +204,36 @@ function CommissionDialogBody({ activeShips, isPending, error, shipLimit, accoun
           }}
         />
       </div>
-      <fieldset className="flex flex-col gap-2">
-        <legend className="mb-1.5 text-body font-medium text-foreground">Fleet access</legend>
-        {constants.fleetScopes.map((scope) => (
-          <label key={scope} className="flex items-center justify-between gap-3 text-body text-foreground">
-            <span>
-              {FLEET_SCOPE_WORDS[scope]} <span className="font-mono text-id text-muted-foreground">{scope}</span>
-            </span>
-            <Switch
-              checked={fleetScopes.includes(scope)}
-              onCheckedChange={(isChecked) => {
-                setFleetScopes((held) => (isChecked ? [...held, scope] : held.filter((each) => each !== scope)));
-              }}
-              data-testid={`commission-${scope.replace(':', '-')}`}
-            />
-          </label>
-        ))}
-        <p className="text-meta text-muted-foreground">Every ship sends and receives. Fleet access lets its session act as the console does; crew ships lets a trierarch start their sessions. It cannot be changed later.</p>
-      </fieldset>
+      {scopeGroups === undefined ? (
+        <p className="text-meta text-muted-foreground" data-testid="commission-scopes-reading">
+          Reading the fleet&apos;s scopes.
+        </p>
+      ) : (
+        scopeGroups.map((group) => (
+          <fieldset key={group.namespace ?? ''} className="flex flex-col gap-2" data-testid={`commission-scopes-${group.namespace ?? 'fleet'}`}>
+            <legend className="mb-1.5 text-body font-medium text-foreground">
+              {group.title} {group.namespace === null ? null : <span className="font-mono text-id text-muted-foreground">{group.namespace}</span>}
+            </legend>
+            {group.scopes.map(({ scope, description }) => (
+              <label key={scope} className="flex items-center justify-between gap-3 text-body text-foreground">
+                <span>
+                  {description} <span className="font-mono text-id text-muted-foreground">{scope}</span>
+                </span>
+                <Switch
+                  checked={grantedScopes.includes(scope)}
+                  onCheckedChange={(isChecked) => {
+                    setGrantedScopes((held) => (isChecked ? [...held, scope] : held.filter((each) => each !== scope)));
+                  }}
+                  data-testid={`commission-${scope.replace(':', '-')}`}
+                />
+              </label>
+            ))}
+            {group.namespace === null ? (
+              <p className="text-meta text-muted-foreground">Every ship sends and receives. Fleet access lets its session act as the console does; crew ships lets a trierarch start their sessions. It cannot be changed later.</p>
+            ) : null}
+          </fieldset>
+        ))
+      )}
       <div className="flex flex-col gap-3 border-t border-border pt-4">
         <div className="flex items-center justify-between gap-3">
           <Label htmlFor={crewId}>Request a crew</Label>
