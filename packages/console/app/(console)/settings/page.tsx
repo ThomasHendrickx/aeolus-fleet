@@ -1,11 +1,13 @@
 'use client';
 
+import { GatewayConnection } from '../../../features/settings/ui/organisms/gateway-connection';
 import { NetworkingPluginConnection } from '../../../features/settings/ui/organisms/networking-plugin-connection';
 import { SquadronsConnection } from '../../../features/settings/ui/organisms/squadrons-connection';
 import { TemplateRepositories } from '../../../features/settings/ui/organisms/template-repositories';
 import { TrierarchPluginConnection } from '../../../features/settings/ui/organisms/trierarch-plugin-connection';
 import { ListPage } from '../../../components/organisms/list-page';
 import { useConsoleFrame } from '../../../lib/console-frame';
+import { useConnectGateway, useGatewaySettings } from '../../../lib/gateway';
 import { useNeedsAttention } from '../../../lib/needs-attention';
 import { useNow } from '../../../lib/now';
 import { useSignInWhenSessionEnds } from '../../../lib/session';
@@ -21,7 +23,8 @@ import { useConnectTrierarchPlugin, useTrierarchPluginSettings } from '../../../
  * connecting it, and once connected, the repositories it reads; without,
  * nothing of squadrons. Whenever Settings is offered, the trierarch plugin:
  * not set up, connecting it, or connected. With the networking plugin on for
- * the fleet, connecting it, and once connected, the way to Network.
+ * the fleet, connecting it, and once connected, the way to Network. With the
+ * gateway on for the fleet, connecting it, or the ship it is connected as.
  */
 export default function SettingsPage() {
   const now = useNow();
@@ -34,6 +37,8 @@ export default function SettingsPage() {
   const connectTrierarchPlugin = useConnectTrierarchPlugin();
   const networkingPlugin = useNetworkingPluginSettings();
   const connectNetworkingPlugin = useConnectNetworkingPlugin();
+  const gateway = useGatewaySettings();
+  const connectGateway = useConnectGateway();
   const liveFleet = useLiveFleet();
   const connection = useSquadronsConnection();
   const repositories = useRepositories();
@@ -90,6 +95,20 @@ export default function SettingsPage() {
           connectError={connectNetworkingPlugin.isError ? connectNetworkingPlugin.error.message : undefined}
           onConnect={() => {
             connectNetworkingPlugin.mutate();
+          }}
+        />
+      )}
+      {pluginNav.hasSettings && (
+        <GatewayConnection
+          settings={gateway.data}
+          loadError={gateway.isError ? gateway.error.message : undefined}
+          onRetry={() => {
+            void gateway.refetch();
+          }}
+          isConnecting={connectGateway.isPending}
+          connectError={connectGateway.isError ? connectGateway.error.message : undefined}
+          onConnect={() => {
+            connectGateway.mutate();
           }}
         />
       )}
