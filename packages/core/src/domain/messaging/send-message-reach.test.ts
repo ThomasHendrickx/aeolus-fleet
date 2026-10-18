@@ -257,6 +257,46 @@ describe('a selector term of the same value', () => {
   });
 });
 
+describe('a selector term of the owner (decision 0045)', () => {
+  let thomasId: ShipId;
+  let annaId: ShipId;
+
+  beforeEach(async () => {
+    const person = async (name: string) => unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name, type: 'person', kind: 'person' })).shipId;
+    thomasId = await person('thomas');
+    annaId = await person('anna');
+    unwrap(await registry.setOwner(argo, { shipId: planner.shipId, ownerShipId: thomasId }));
+    unwrap(await registry.setOwner(argo, { shipId: scout.shipId, ownerShipId: thomasId }));
+    unwrap(await registry.setOwner(argo, { shipId: vault.shipId, ownerShipId: annaId }));
+  });
+
+  it("holds for a ship that owner's ship owns, and for no other", async () => {
+    await setRules([{ verb: 'send', from: [{ owner: thomasId }], to: [] }]);
+
+    await expect(sent(planner, aMessage(toShip(vault)))).resolves.toMatch(/^msg_/);
+    expect(refusalOf(await messaging.sendMessage(vault, aMessage(toShip(planner))))).toEqual(NOT_REACHABLE);
+  });
+
+  it('holds for a ship with any owner, which every ship but argo and the viewer has', async () => {
+    await setRules([{ verb: 'send', from: [], to: [{ owner: ANY_LABEL_VALUE }] }]);
+
+    await expect(sent(vault, aMessage(toShip(planner)))).resolves.toMatch(/^msg_/);
+  });
+
+  it('lets ships with the same owner reach each other, and no ship with another owner', async () => {
+    await setRules([{ verb: 'send', from: [{ owner: SAME_LABEL_VALUE }], to: [{ owner: SAME_LABEL_VALUE }] }]);
+
+    await expect(sent(planner, aMessage(toShip(scout)))).resolves.toMatch(/^msg_/);
+    expect(refusalOf(await messaging.sendMessage(planner, aMessage(toShip(vault))))).toEqual(NOT_REACHABLE);
+  });
+
+  it('holds for no ship with an owner no ship has', async () => {
+    await setRules([{ verb: 'send', from: [{ owner: core.ids('ship') }], to: [] }]);
+
+    expect(refusalOf(await messaging.sendMessage(planner, aMessage(toShip(scout))))).toEqual(NOT_REACHABLE);
+  });
+});
+
 describe('the fixed exceptions', () => {
   beforeEach(async () => {
     await setRules([]);

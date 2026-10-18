@@ -79,6 +79,18 @@ describe('setNetworkRulesInputSchema', () => {
     expect(setNetworkRulesInputSchema.parse({ rules })).toEqual({ rules });
   });
 
+  it("takes a term of the owner: an owner's ship by its id, any owner, and the same owner as the other side", () => {
+    const rules = [{ verb: 'send', from: [{ owner: newId('ship') }, { owner: '*' }, { owner: '#' }], to: [{ owner: '#' }] }];
+
+    expect(setNetworkRulesInputSchema.parse({ rules })).toEqual({ rules });
+  });
+
+  it('refuses a term of the owner that is not a ship id, any or the same', () => {
+    for (const owner of [newId('labelValue'), 'argo']) {
+      expect(setNetworkRulesInputSchema.safeParse({ rules: [{ verb: 'send', from: [{ owner }], to: [] }] }).success).toBe(false);
+    }
+  });
+
   it('refuses a term of a label with a value written as text, not an id', () => {
     expect(setNetworkRulesInputSchema.safeParse({ rules: [{ verb: 'send', from: [{ labelId: newId('label'), value: 'shared' }], to: [] }] }).success).toBe(false);
   });

@@ -248,6 +248,18 @@ describe('a send under rules with terms of any value and of the same value', () 
     await expect(core.prisma.networkSettings.findMany({ select: { rules: true } })).resolves.toEqual([{ rules }]);
   });
 
+  it('keeps terms of the owner, and lets ships with the same owner reach each other, read from the store', async () => {
+    const rules = [{ verb: 'send' as const, from: [{ owner: SAME_LABEL_VALUE }], to: [{ owner: SAME_LABEL_VALUE }] }];
+    const { shipId: thomasId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person' }));
+    unwrap(await core.useCases.setOwner(argo, { shipId: scout.shipId, ownerShipId: thomasId }));
+
+    unwrap(await core.useCases.setNetworkRules(networking, { rules }));
+
+    await expect(core.prisma.networkSettings.findMany({ select: { rules: true } })).resolves.toEqual([{ rules }]);
+    unwrap(await core.useCases.sendMessage(vault, aMessage(planner)));
+    expect(refusalOf(await core.useCases.sendMessage(scout, aMessage(planner)))).toMatchObject({ kind: 'NOT_REACHABLE' });
+  });
+
   it('lets a ship carrying any value of the label send under a term of any value, and no ship without it', async () => {
     unwrap(await core.useCases.setNetworkRules(networking, { rules: [{ verb: 'send', from: [anyTrust()], to: [] }] }));
     const loner = await aShip('loner');

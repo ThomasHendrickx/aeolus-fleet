@@ -124,6 +124,17 @@ describe('declaring network rules', () => {
     expect(core.state.events).toEqual([]);
   });
 
+  it('refuses a term of the owner: it is on no label the ship owns, keeping and writing nothing', async () => {
+    const rule = { verb: 'send' as const, from: [{ owner: SAME_LABEL_VALUE }], to: [{ owner: SAME_LABEL_VALUE }] };
+
+    expect(refusalOf(await declareNetworkRules(squadrons, { rules: [rule] }))).toEqual({
+      kind: 'INVALID_NETWORK_RULES',
+      message: 'A declared rule holds only terms on labels the ship owns: owner=# is a term of the owner (decision 0037)',
+    });
+    expect(core.state.declaredNetworkRules).toEqual([]);
+    expect(core.state.events).toEqual([]);
+  });
+
   it('refuses an exact value of a label another ship owns', async () => {
     expect(refusalOf(await declareNetworkRules(trierarchPlugin, { rules: [{ verb: 'send', from: [alpha], to: [] }] }))).toEqual({
       kind: 'NOT_THE_LABEL_OWNER',

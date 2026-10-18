@@ -184,6 +184,27 @@ describe('setting the network rules as the networking plugin', () => {
     expect(refusalOf(refused)).toEqual({ kind: 'INVALID_NETWORK_RULES', message: `A term of the same value binds its label on both sides: ${squadron}=# is on one side only (decision 0034)` });
   });
 
+  it('keeps terms of the owner: a ship id, any owner, and the same owner on both sides', async () => {
+    const rules: NetworkRule[] = [{ verb: 'send', from: [{ owner: core.ids('ship') }, { owner: ANY_LABEL_VALUE }, { owner: SAME_LABEL_VALUE }], to: [{ owner: SAME_LABEL_VALUE }] }];
+
+    unwrap(await setNetworkRules(setter, { rules }));
+
+    expect(core.state.networkSettings[0]?.rules).toEqual(rules);
+  });
+
+  it('refuses a term of the same owner on one side only, and stores nothing', async () => {
+    const refused = await setNetworkRules(setter, { rules: [{ verb: 'send', from: [{ owner: SAME_LABEL_VALUE }], to: [] }] });
+
+    expect(refusalOf(refused)).toEqual({ kind: 'INVALID_NETWORK_RULES', message: 'A term of the same owner binds the owner on both sides: owner=# is on one side only (decision 0034)' });
+    expect(core.state.events).toEqual([]);
+  });
+
+  it('refuses a selector that holds a term of the owner twice', async () => {
+    const refused = await setNetworkRules(setter, { rules: [{ verb: 'send', from: [{ owner: ANY_LABEL_VALUE }, { owner: ANY_LABEL_VALUE }], to: [] }] });
+
+    expect(refusalOf(refused)).toEqual({ kind: 'INVALID_NETWORK_RULES', message: 'A selector holds each term once: owner=* twice (decision 0034)' });
+  });
+
   it("is the plugin of its own fleet only: another fleet's operator is refused there", async () => {
     const elsewhere = await hostedFleet(core, 'other@example.com');
 
