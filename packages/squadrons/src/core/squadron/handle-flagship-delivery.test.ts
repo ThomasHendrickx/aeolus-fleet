@@ -908,6 +908,16 @@ describe('scaling a squadron by message to its flagship (decision 0017)', () => 
     expect(JSON.parse(sent[0]?.payload ?? '')).toEqual({ squadron: 'team-a1b2c3', key: 'add-1', member: { name: 'tester-q8r2', role: 'tester' } });
   });
 
+  it('adds another member for another sender under the same key: a key repeats only its own sender\'s request', async () => {
+    await handle(held, addTester(FORMING));
+    sent.length = 0;
+
+    await handle(held, addTester(ARGO));
+
+    expect(commissioned).toHaveLength(2);
+    expect(JSON.parse(sent[0]?.payload ?? '')).toMatchObject({ key: 'add-1', member: { role: 'tester' } });
+  });
+
   it('adds a member for argo, whoever formed the squadron', async () => {
     await expect(handle(held, addTester(ARGO))).resolves.toEqual({ isOk: true, value: 'member-added' });
   });
