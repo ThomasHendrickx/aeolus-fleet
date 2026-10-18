@@ -348,8 +348,9 @@ export interface ReachingShip {
 /**
  * The rule that lets the sender do the verb to the recipient, or undefined
  * when none does. The built-in rules that are never off hold whatever the
- * rules: argo reaches every ship and every ship reaches argo, an owner's ship
- * reaches the ships it owns (decision 0045), and a ship answers the sender of
+ * rules: argo reaches every ship and every ship reaches argo, but reads argo
+ * only by a rule, so argo's messages are not every ship's to read; an owner's
+ * ship reaches the ships it owns (decision 0045), and a ship answers the sender of
  * a message it received. The viewer reads every ship while that is on, and
  * every ship reaches every ship by a verb while open is on for it. Otherwise
  * a rule of the verb must match the sender with its `from` and the recipient
@@ -362,7 +363,7 @@ export function reachRuleOf(
 ): ReachRule | undefined {
   const { verb, sender, recipient, isAnswerToSender } = send;
   const { rules, builtIns } = settings;
-  if (sender.kind === 'operator' || recipient.kind === 'operator') {
+  if (sender.kind === 'operator' || (recipient.kind === 'operator' && verb !== 'read')) {
     return { builtIn: 'argo' };
   }
   if (recipient.owner === sender.id) {
