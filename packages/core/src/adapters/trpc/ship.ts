@@ -23,6 +23,7 @@ import {
   turnInputSchema,
   turnOutputSchema,
   receiveInputSchema,
+  receiveReplyInputSchema,
   receiveOutputSchema,
   registerInputSchema,
   registerOutputSchema,
@@ -152,6 +153,28 @@ export const shipRouter = router({
     .output(receiveOutputSchema)
     .mutation(async ({ ctx, input }) => {
       const { deliveries } = okOrThrow(await ctx.useCases.receiveDeliveries(ctx.crew, { max: input?.max }));
+      return { deliveries: deliveries.map((delivery) => ({ ...delivery, sentAt: delivery.sentAt.toISOString() })) };
+    }),
+
+  /**
+   * Receives the reply to one message the crew names, for a crew with many
+   * requests open that waits on one of them: as receive does, one delivery
+   * at most.
+   */
+  receiveReply: scopedCrewProcedure('messages:receive')
+    .meta({
+      description: [
+        'Hands you the reply to one message: the oldest delivery whose message names messageId as its inReplyTo, with its message and its sender, as receive hands one.',
+        'Use it when you sent several requests and wait for the answer to one. Your other deliveries stay where they are.',
+        'With none there it waits about 25 seconds, then answers with none.',
+        'Until you ack it the reply stays yours: the next receiveReply or receive hands it to you again,',
+        'and after four without an ack it goes to the operator as undeliverable.',
+      ].join(' '),
+    })
+    .input(receiveReplyInputSchema)
+    .output(receiveOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { deliveries } = okOrThrow(await ctx.useCases.receiveReply(ctx.crew, input));
       return { deliveries: deliveries.map((delivery) => ({ ...delivery, sentAt: delivery.sentAt.toISOString() })) };
     }),
 

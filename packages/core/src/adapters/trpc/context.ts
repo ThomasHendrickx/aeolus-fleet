@@ -16,6 +16,7 @@ import type { ReportHandled } from '../../domain/messaging/report-handled.js';
 import type { ReportNotHandled } from '../../domain/messaging/report-not-handled.js';
 import type { PushReceiveDeliveries } from '../../domain/messaging/push-receive-deliveries.js';
 import type { ReceiveDeliveries } from '../../domain/messaging/receive-deliveries.js';
+import type { ReceiveReply } from '../../domain/messaging/receive-reply.js';
 import type { ReplyToMessage } from '../../domain/messaging/reply-to-message.js';
 import type { PingShip } from '../../domain/messaging/ping-ship.js';
 import type { ResendDelivery } from '../../domain/messaging/resend-delivery.js';
@@ -164,6 +165,7 @@ export interface UseCases {
   deregister: Deregister;
   sendMessage: SendMessage;
   receiveDeliveries: ReceiveDeliveries;
+  receiveReply: ReceiveReply;
   pushReceiveDeliveries: PushReceiveDeliveries;
   handOverDelivery: HandOverDelivery;
   reportHandled: ReportHandled;
