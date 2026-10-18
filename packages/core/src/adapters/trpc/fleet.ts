@@ -102,7 +102,7 @@ import type { DeliveryWay } from '../../domain/shared/delivery-way.js';
 import type { SequencedEvent } from '../../domain/shared/events.js';
 import { describedHealth } from './health.js';
 import { presentStartingPrompt } from './starting-prompt-text.js';
-import { anyScopeProcedure, authenticatedProcedure, checkCallerStillHolds, okOrThrow, router, scopedCrewCallerProcedure, scopedProcedure } from './trpc.js';
+import { anyScopeProcedure, authenticatedProcedure, callerStillHolding, okOrThrow, router, scopedCrewCallerProcedure, scopedProcedure } from './trpc.js';
 
 /** A crew request as the API answers it: its times in ISO 8601, and when its session started as `startedAt`. */
 function crewRequestOutputOf<T extends { requestedAt: Date; sessionStartedAt: Date | null; givenBack: ShipFacts['crewRequestGivenBack'] }>(request: T | null) {
@@ -899,8 +899,9 @@ export const fleetRouter = router({
    * number, which tRPC sends back as `lastEventId` when the browser
    * reconnects, so it misses none. Without a number, or too far behind, the
    * browser is told to load the fleet again first (`resync`). Each wake-up
-   * asks again whether the caller still holds, so a console session that ended
-   * hears no more.
+   * asks again whether the caller still holds, with fleet:read and, reading on
+   * behalf, fleet:on-behalf, so a session that ended or a revoked scope hears
+   * no more.
    */
   events: scopedProcedure('fleet:read')
     .input(fleetEventsInputSchema)
@@ -909,8 +910,9 @@ export const fleetRouter = router({
       const stopped = signal ?? new AbortController().signal;
       try {
         let afterSeq = input.lastEventId == null ? undefined : Number(input.lastEventId);
+        let reader = ctx.caller;
         do {
-          const read = await ctx.useCases.readFleetEvents(ctx.caller, afterSeq);
+          const read = await ctx.useCases.readFleetEvents(reader, afterSeq);
           if (read.kind === 'resync') {
             afterSeq = read.seq;
             yield tracked(String(read.seq), { kind: 'resync' } satisfies FleetStreamItem);
@@ -923,7 +925,7 @@ export const fleetRouter = router({
           if (!(await watch.next(stopped))) {
             return;
           }
-          await checkCallerStillHolds(ctx);
+          reader = await callerStillHolding(ctx, 'fleet:read');
         } while (!stopped.aborted);
       } finally {
         watch.stop();
