@@ -131,6 +131,7 @@ describe('eventTypeSchema', () => {
       'NetworkPluginRegistered',
       'NetworkPluginUnregistered',
       'BuiltInRuleChanged',
+      'ScopesDeclared',
     ]);
   });
 });
