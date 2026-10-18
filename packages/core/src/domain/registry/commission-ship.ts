@@ -57,7 +57,7 @@ function commissionRequestText(input: CommissionShipInput): string {
  * Use case: the caller commissions a ship in its own fleet, an agent unless
  * it states another kind (only argo commissions a person or app ship). The ship
  * awaits crew and gets its first starting prompt, all in one transaction. The
- * caller's scope (fleet:manage) is checked before this runs. The ship gets
+ * caller's scope (fleet:commission) is checked before this runs. The ship gets
  * the agent scopes and the scopes asked for, each one the caller's ship may
  * grant, read from the server (decision 0046); each plugin namespace they
  * name is locked after the name. The caller's idempotency key makes

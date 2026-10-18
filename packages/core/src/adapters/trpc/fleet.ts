@@ -149,10 +149,10 @@ function pingOutputOf(ping: PingStatus | null) {
  */
 export const fleetRouter = router({
   /** A new agent ship awaiting crew, and its first starting prompt: shown once. */
-  commission: scopedProcedure('fleet:manage')
+  commission: scopedProcedure('fleet:commission')
     .meta({
       description: [
-        'Needs fleet:manage. Commissions a new agent ship awaiting crew: name and type are handles (lowercase letters, digits, hyphens, colons).',
+        'Needs fleet:commission. Commissions a new agent ship awaiting crew: name and type are handles (lowercase letters, digits, hyphens, colons).',
         'scopes adds scopes to the two every ship has, each one your ship may grant: a core scope it holds (argo holds every one), or a declared scope of the namespace it declared. fleet_grantScopes changes them later.',
         'Answers its shipId, its first starting prompt, one crew line per harness (claude-code, codex) and its secret, shown only this once.',
         'idempotencyKey is a new unique string for every commission. Reuse one only to retry the same commission after an error or a lost answer:',
@@ -834,7 +834,7 @@ export const fleetRouter = router({
     .query(async ({ ctx }) => describedHealth(await ctx.useCases.readHealth(ctx.caller))),
 
   /** Lets an undeliverable or not handled delivery go: dismissed, kept in history. Dismissing it again is OK. */
-  dismiss: scopedProcedure('fleet:manage')
+  dismiss: scopedProcedure('messages:resend')
     .input(dismissDeliveryInputSchema)
     .output(dismissDeliveryOutputSchema)
     .mutation(async ({ ctx, input }) => {
@@ -847,7 +847,7 @@ export const fleetRouter = router({
    * to the same recipient that names the original, which is dismissed.
    * Answers the new message; a second resend of the delivery answers the same.
    */
-  resend: scopedProcedure('fleet:manage')
+  resend: scopedProcedure('messages:resend')
     .input(resendDeliveryInputSchema)
     .output(resendDeliveryOutputSchema)
     .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.resendDelivery(ctx.caller, input))),
