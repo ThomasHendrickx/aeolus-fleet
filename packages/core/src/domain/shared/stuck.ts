@@ -100,7 +100,11 @@ export function stateStepOf(event: Pick<FleetEvent, 'type' | 'occurredAt' | 'shi
 export interface DeliveryRecord {
   deliveryId: DeliveryId;
   messageId: MessageId;
+  /** Its message's sender, by which read reach reads it (decision 0034). */
+  senderId: ShipId;
   recipient: Recipient;
+  /** The ship that holds its claim, as the delivery records it; none while none does. */
+  claimedBy: ShipId | null;
   /** The ships of its type its sender could reach at send time; empty is every ship of the type (decision 0034). */
   reachableShipIds: readonly ShipId[];
   sentAt: Date;

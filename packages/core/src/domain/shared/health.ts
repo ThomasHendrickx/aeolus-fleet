@@ -6,6 +6,7 @@
  */
 import { ACKNOWLEDGED_HOURS, STUCK_TREND_HOURS, type FleetId, type ShipId } from '@aeolus-fleet/common';
 
+import type { MessageParties } from '../registry/public.js';
 import type { HistoryParty } from './history.js';
 import { stuckAt, stuckPerHour, stuckPlaces, type FleetRecords, type StuckPlaceCount } from './stuck.js';
 
@@ -16,10 +17,11 @@ export interface Machine extends HistoryParty {
   lastSeenAt: Date | null;
 }
 
-/** A delivery acknowledged in the window: when its message was sent and when it was acknowledged. */
+/** A delivery acknowledged in the window: when its message was sent and when it was acknowledged, and its message's parties. */
 export interface AcknowledgedDelivery {
   sentAt: Date;
   acknowledgedAt: Date;
+  message: MessageParties;
 }
 
 /** The deliveries acknowledged in the last 24 hours, the median from send to acknowledgement, and how many in each hour. */
@@ -96,10 +98,16 @@ export function acknowledgedOf(deliveries: readonly AcknowledgedDelivery[], now:
   return { count: inWindow.length, medianMs: medianOf(inWindow.map((delivery) => delivery.acknowledgedAt.getTime() - delivery.sentAt.getTime())), perHour };
 }
 
-/** Reads the fleet's health at `now`: its records over the trend's hours and its acknowledged in the last 24. */
-export async function readHealthOf(records: HealthRecords, read: { fleetId: FleetId; now: Date }): Promise<Health> {
-  const [facts, acknowledged] = await Promise.all([records.read(read.fleetId, healthSince(read.now)), records.acknowledged(read.fleetId, acknowledgedSince(read.now))]);
-  return healthOf(facts, { acknowledged: acknowledgedOf(acknowledged, read.now), now: read.now });
+/**
+ * Reads the fleet's health at `now`: its records over the trend's hours and
+ * its acknowledged in the last 24, counting only the deliveries whose message
+ * `reads` keeps, every one without it.
+ */
+export async function readHealthOf(records: HealthRecords, read: { fleetId: FleetId; now: Date; reads?: (message: MessageParties) => boolean }): Promise<Health> {
+  const { fleetId, now, reads = () => true } = read;
+  const [facts, acknowledged] = await Promise.all([records.read(fleetId, healthSince(now)), records.acknowledged(fleetId, acknowledgedSince(now))]);
+  const deliveries = facts.deliveries.filter(({ senderId, recipient, claimedBy }) => reads({ senderId, recipient, claimedBy }));
+  return healthOf({ ...facts, deliveries }, { acknowledged: acknowledgedOf(acknowledged.filter((delivery) => reads(delivery.message)), now), now });
 }
 
 export function healthOf(facts: HealthFacts, read: { acknowledged: Acknowledged; now: Date }): Health {
