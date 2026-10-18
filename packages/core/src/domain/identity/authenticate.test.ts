@@ -119,7 +119,7 @@ describe('authenticating with a console session', () => {
         shipId: argoId,
         fleetId,
         kind: 'operator',
-        scopes: ['messages:send', 'messages:receive', 'messages:force', 'fleet:read', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'scopes:declare', 'scopes:grant'],
+        scopes: ['messages:send', 'messages:receive', 'messages:force', 'messages:resend', 'fleet:read', 'fleet:commission', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'scopes:declare', 'scopes:grant'],
         consoleSessionId,
         leaseId,
       },
