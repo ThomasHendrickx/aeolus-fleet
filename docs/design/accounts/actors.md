@@ -2,7 +2,7 @@
 
 Design by designer-accounts, for Thomas. Thomas decided on 19 Oct that phase 2 is redesigned with pagasae not a ship, so pagasae needs a link of its own to core. The questions of phase 2's round 3 (P1 to P9, [`phase-2/README.md`](phase-2/README.md)) are on hold. This is phase 1 of that redesign: the purpose, the lessons to check against, the link between pagasae and core, and the questions, each with its context, a use case, options with what goes wrong, and a pick. No detailed decisions before Thomas agrees the purpose. No code.
 
-Every word is a term of the blueprint's Domain language (PR #972), except "actor", which question 1 puts to Thomas. Here it means whoever a call is authorised for and an event names: a ship, an account, or the installation.
+Every word is a term of the blueprint's Domain language (PR #972), with "actor" and "account token", which Thomas named in question 1. Here it means whoever a call is authorised for and an event names: a ship, an account, or the installation.
 
 ## 1. Purpose
 
@@ -134,7 +134,9 @@ What this part settles is how pagasae vouches for an account, so core can author
 | Core's clock and pagasae's differ | A small allowance on the life, so an account token is not refused for seconds |
 | An account's groups change | The next account token carries the new scopes; an account token already given keeps the old until it ends (question 3) |
 
-## 4. Questions for Thomas
+## 4. Questions for Thomas (answered, round 4)
+
+Thomas answered all nine on 19 Oct: (a) each, with notes under questions 4, 6 and 9. Phase 2 is reworked on them; see [`phase-2/README.md`](phase-2/README.md).
 
 **1. The principle, and the word for who a call acts for**
 
@@ -147,6 +149,8 @@ Use case: Mathilde retires an agent from the networking plugin's page without a 
 - (c) **Keep "every caller is a ship"**, and pagasae a non-ship exception like the installation. Goes wrong: P1 and P6 stay, and every human who administers needs a person ship. A9 holds, as today.
 
 Pick: (a).
+
+Decided (Thomas, round 4): (a). "Actor" and "account token" are the terms.
 
 The signed statement pagasae gives for an account (part 3) needs a word too. "Claim" is the field's word, but a crew already claims a ship (`ShipClaimed`), so this design says **account token**, after the crew token; it is Thomas's to name.
 
@@ -164,6 +168,8 @@ A9, for every option: an agent acts as its ship, with the same calls and any of 
 
 Pick: (a). Question 1 of `accounts.md` then reads: at most one person ship per account per fleet, and only when the human messages there. Question 3 (b) holds as "as their account, with their groups' scopes". Question 11 becomes: a person ship is commissioned when a human first messages in a fleet, on a group's allowance.
 
+Decided (Thomas, round 4): (a).
+
 **3. What core accepts from pagasae, and how a leaver is cut off**
 
 What it is: the account token of part 3: what it carries and how long it lives.
@@ -175,6 +181,8 @@ Use case: Burak leaves at 10:00. Mathilde disables him. His Claude holds an acco
 - (c) **A long account token (a day), cut off only by the push.** Goes wrong: a lost push leaves a leaver in for a day; a group change takes a day.
 
 Pick: (a).
+
+Decided (Thomas, round 4): (a).
 
 **4. What pagasae calls as itself, now that it is no ship** (replaces P1)
 
@@ -201,6 +209,8 @@ So no fleet management job is the installation's alone; what stays its alone is 
 
 Pick: (a).
 
+Decided (Thomas, round 4): (a). Thomas: needed, since pagasae goes across fleets.
+
 **5. How a rule reaches an account** (replaces P2 and P4)
 
 What it is: network rules select ships by labels or owner (0034). An account is no ship and has no labels in core.
@@ -214,6 +224,8 @@ Use case: a manage rule lets `group=engineering` manage `group=engineering`. Tho
 
 Pick: (a).
 
+Decided (Thomas, round 4): (a).
+
 **6. What argo still is**
 
 What it is: argo holds every scope so a fleet can always act (0053); with accounts as actors, someone could hold every scope without argo.
@@ -226,6 +238,8 @@ Use case: pagasae is misconfigured and every account token lacks scopes. Acme's 
 
 Pick: (a).
 
+Decided (Thomas, round 4): (a). Thomas: argo is the fail-safe, the final level that catches all, so no faulty or missed state goes missing and there is always a way out: for a ship that does not know what to do, for a ship with no owner. That is not delivery: Aeolus's second promise holds that no message is ever lost and the operator is not the fail-safe for delivery. argo is the catch-all owner and the way out.
+
 **7. Who may own a ship** (0045)
 
 What it is: an owner gets the ship's questions and trouble in its inbox (0038), so owners are ships today.
@@ -236,6 +250,8 @@ Use case: Thomas commissions an agent as his account. Who owns it, and where do 
 - (b) **An account may own**: its questions go to its person ship if it has one, else to argo. Goes wrong: questions for Thomas's agent land at argo; owner becomes two kinds.
 
 Pick: (a). Owning means receiving, which is a ship's. A9: owning is answering for a ship, not a right (0045, "a human is always responsible"); owners stay a person ship or argo, and an agent manages whatever its scopes and reach allow, owner or not.
+
+Decided (Thomas, round 4): (a).
 
 **8. What the decisions become**
 
@@ -255,6 +271,8 @@ What it is: the decisions that say "every caller is a ship", or follow from it.
 
 Pick: (a).
 
+Decided (Thomas, round 4): (a).
+
 **9. Can an agent manage the organisation?**
 
 What it is: question 2 of `accounts.md` put organisation rights (accounts, groups, which fleets, who may sign in as argo) on the account, in pagasae, where no fleet is. By A9 an agent must be able to do management jobs, and Thomas expects an MCP server to manage the organisation from outside later.
@@ -266,6 +284,8 @@ Use case: Acme runs an onboarding agent ship in its fleet. When HR hires Priya, 
 - (c) **Not now: organisation rights stay accounts'**, and an agent acts in fleets only. Goes wrong: A9 for the organisation: the onboarding agent cannot add Priya; recorded as a known gap until the MCP server comes.
 
 Pick: (a) when pagasae's MCP server is built, (c) until then. The fleet's management stays open to agents now; the organisation's opens with its MCP server.
+
+Decided (Thomas, round 4): (a). Thomas: for fleets without pagasae, argo is that way in.
 
 ## 5. What changes in phase 2's drafts
 
