@@ -686,11 +686,11 @@ export const fleetRouter = router({
     .query(async ({ ctx }) => okOrThrow(await ctx.useCases.readBuiltInRules(ctx.caller))),
 
   /** The caller declares the network rules it needs on the labels it owns, its whole list (decision 0037). */
-  declareNetworkRules: scopedProcedure('labels:define')
+  declareNetworkRules: actorScopedProcedure('labels:define')
     .meta({
       description: [
-        'Needs labels:define. Declares the network rules your ship needs, the whole list at once, replacing what you declared before; an empty list withdraws them (decision 0037).',
-        'Every term of every rule must be on a label your ship owns: a label value id of it, or { labelId, value: "*" } or { labelId, value: "#" } on it; a label or value the fleet does not have is refused.',
+        'Needs labels:define. Declares the network rules your ship, or the installation, needs, the whole list at once, replacing what you declared before; an empty list withdraws them (decision 0037; the installation, decision 0052). An account owns no label, so it declares none.',
+        'Every term of every rule must be on a label you own: a label value id of it, or { labelId, value: "*" } or { labelId, value: "#" } on it; a label or value the fleet does not have is refused.',
         'You declare at most 20 rules, each as fleet.setNetworkRules takes them but without a term of the owner, which is on no label. Declared rules are not in force by themselves: the fleet\'s networking plugin adds them to argo\'s rules when it supplies the list. Answers how many rules you declare now.',
       ].join(' '),
     })
@@ -698,17 +698,17 @@ export const fleetRouter = router({
     .output(declareNetworkRulesOutputSchema)
     .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.declareNetworkRules(ctx.caller, input))),
 
-  /** Every ship's declared rules, for the networking plugin to add to argo's (decision 0037). */
+  /** Every declarer's declared rules, for the networking plugin to add to argo's (decisions 0037, 0052). */
   declaredNetworkRules: scopedProcedure('fleet:network')
     .meta({
       description: [
-        'Needs fleet:network. The network rules the fleet\'s ships declared on the labels they own, each ship with its whole list (decision 0037).',
+        'Needs fleet:network. The network rules the fleet\'s ships and the installation declared on the labels they own, each ship or the installation as declarer with its whole list (decision 0037; the installation, decision 0052).',
         'The networking plugin adds them to argo\'s rules whenever it supplies the list.',
       ].join(' '),
     })
     .output(declaredNetworkRulesOutputSchema)
     .query(async ({ ctx }) =>
-      (await ctx.useCases.readDeclaredNetworkRules(ctx.caller)).map(({ shipId, rules }) => ({ shipId, rules: rules.map((rule) => ({ verb: rule.verb, from: [...rule.from], to: [...rule.to] })) })),
+      (await ctx.useCases.readDeclaredNetworkRules(ctx.caller)).map(({ declarer, rules }) => ({ declarer, rules: rules.map((rule) => ({ verb: rule.verb, from: [...rule.from], to: [...rule.to] })) })),
     ),
 
   /** The sends the network rules refused, newest first, of the ships the caller reads (decisions 0034, 0053). */

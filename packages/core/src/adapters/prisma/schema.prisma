@@ -53,6 +53,7 @@ model Fleet {
   shipLabels       ShipLabel[]
   networkSettings  NetworkSettings?
   declaredNetworkRules DeclaredNetworkRules[]
+  installationDeclaredNetworkRules InstallationDeclaredNetworkRules?
   scopeNamespaces  ScopeNamespace[]
   pluginConnections PluginConnection[]
   reachRefusals    ReachRefusal[]
@@ -413,6 +414,18 @@ model DeclaredNetworkRules {
 
   @@id([fleetId, shipId])
   @@map("declared_network_rules")
+}
+
+/// The network rules the installation declares on the labels it owns in one
+/// fleet (decisions 0037, 0052), its whole list as JSON; no row while it
+/// declares none.
+model InstallationDeclaredNetworkRules {
+  fleetId String @id @map("fleet_id")
+  rules   Json
+
+  fleet Fleet @relation(fields: [fleetId], references: [id])
+
+  @@map("installation_declared_network_rules")
 }
 
 /// A plugin's namespace (decision 0046): taken up for good by the ship that

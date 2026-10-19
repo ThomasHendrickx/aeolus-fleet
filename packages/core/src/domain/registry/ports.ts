@@ -5,7 +5,7 @@ import type { ClearRequest } from './clear-request.js';
 import type { CrewRequest } from './crew-request.js';
 import type { Fleet } from './fleet.js';
 import type { InstallationRequest } from './installation-request.js';
-import type { CarriedLabel, Label, ListedLabel, ShipLabel } from './label.js';
+import type { CarriedLabel, Label, LabelOwner, ListedLabel, ShipLabel } from './label.js';
 import type { FleetLimitSettings, InstallationSettings } from './limits.js';
 import type { Lease, Location } from './lease.js';
 import type { DeclaredNetworkRules } from './declared-network-rules.js';
@@ -254,11 +254,11 @@ export interface NetworkSettingsRepository {
 
 /** Each ship's declared network rules (decision 0037). */
 export interface DeclaredNetworkRulesRepository {
-  /** Every ship's declared rules in the fleet, by ship id: the order the ships were commissioned. */
+  /** Every declarer's declared rules in the fleet: the ships by id, the order they were commissioned, then the installation's. */
   list(fleetId: FleetId): Promise<DeclaredNetworkRules[]>;
-  /** The ship's declared rules; none while it declares none. */
-  find(fleetId: FleetId, shipId: ShipId): Promise<DeclaredNetworkRules | undefined>;
-  /** Keeps the ship's whole list from now on; an empty one keeps none. */
+  /** The declarer's declared rules; none while it declares none. */
+  find(fleetId: FleetId, declarer: LabelOwner): Promise<DeclaredNetworkRules | undefined>;
+  /** Keeps the declarer's whole list from now on; an empty one keeps none. */
   save(declared: DeclaredNetworkRules): Promise<void>;
 }
 

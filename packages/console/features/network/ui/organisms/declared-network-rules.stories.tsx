@@ -15,12 +15,12 @@ function valueOf(label: ListedLabel, value: string): LabelValueId {
 }
 
 const BY_SQUADRONS: DeclaredRules = {
-  shipId: OWNERS.squadrons.id,
+  declarerId: OWNERS.squadrons.id,
   declaredBy: 'squadrons',
   rules: [{ verb: 'send', from: [{ labelId: BLUEPRINT.id, value: '#' }], to: [{ labelId: BLUEPRINT.id, value: '#' }] }],
 };
 const BY_TRIERARCH_PLUGIN: DeclaredRules = {
-  shipId: OWNERS.trierarchPlugin.id,
+  declarerId: OWNERS.trierarchPlugin.id,
   declaredBy: 'trierarch-plugin',
   rules: [
     { verb: 'send', from: [{ labelId: OS.id, value: '*' }], to: [{ labelId: OS.id, value: '*' }] },

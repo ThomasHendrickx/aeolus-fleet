@@ -71,16 +71,16 @@ export function createExplainReach(deps: { uow: UnitOfWork<ExplainReachTx>; cloc
   };
 }
 
-/** A rule of the settings named as argo reads it: a declared one by its declarer and its place in that ship's list, any other as the plugin's. */
+/** A rule of the settings named as argo reads it: a declared one by its declarer and its place in that declarer's list, any other as the plugin's. */
 function namedRule(rule: SettingsRule, held: { rules: readonly NetworkRule[]; declared: readonly DeclaredNetworkRules[] }): ReachRule {
   if ('builtIn' in rule) {
     return rule;
   }
   const text = ruleText(held.rules[rule.index]);
-  for (const { shipId, rules } of held.declared) {
+  for (const { declarer, rules } of held.declared) {
     const index = rules.findIndex((each) => ruleText(each) === text);
     if (index !== -1) {
-      return { declared: shipId, index };
+      return { declared: declarer, index };
     }
   }
   return { plugin: rule.index };

@@ -37,7 +37,8 @@ export async function ownerNameOf(owner: LabelOwner, shipNameOf: (shipId: ShipId
   return owner.kind === 'installation' ? 'the installation' : ((await shipNameOf(owner.shipId)) ?? owner.shipId);
 }
 
-function isSameOwner(owner: LabelOwner, other: LabelOwner | undefined): boolean {
+/** Whether the other is the same owner: none, an account, is no owner. */
+export function isSameOwner(owner: LabelOwner, other: LabelOwner | undefined): boolean {
   return other !== undefined && (owner.kind === 'installation' ? other.kind === 'installation' : other.kind === 'ship' && other.shipId === owner.shipId);
 }
 

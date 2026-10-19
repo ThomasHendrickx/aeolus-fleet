@@ -1,4 +1,4 @@
-import type { DeliveryId, FleetId, NetworkPluginDeclaration, NetworkRule, SetBuiltInRuleInput, ShipId } from '@aeolus-fleet/common';
+import type { Declarer, DeliveryId, FleetId, NetworkPluginDeclaration, NetworkRule, SetBuiltInRuleInput, ShipId } from '@aeolus-fleet/common';
 
 import type { Result } from '../shared/result.js';
 
@@ -38,8 +38,8 @@ export interface FleetDoor {
   setNetworkRules(crewToken: string, rules: readonly NetworkRule[]): Promise<Result<undefined, FleetRefusal>>;
   /** Turns a built-in rule on or off; the plugin turns open on or off, one verb at a time (decision 0034). */
   setBuiltInRule(crewToken: string, input: SetBuiltInRuleInput): Promise<Result<undefined, FleetRefusal>>;
-  /** The rules the fleet's ships declared, each ship with its whole list (fleet:network, decision 0037). */
-  declaredNetworkRules(crewToken: string): Promise<Result<{ shipId: ShipId; rules: NetworkRule[] }[], FleetRefusal>>;
+  /** The rules the fleet's ships and the installation declared, each declarer with its whole list (fleet:network, decisions 0037, 0052). */
+  declaredNetworkRules(crewToken: string): Promise<Result<{ declarer: Declarer; rules: NetworkRule[] }[], FleetRefusal>>;
   /**
    * The types of the fleet's events after a position, and the position to
    * follow from next, waiting a while for one (fleet:read), until the signal
