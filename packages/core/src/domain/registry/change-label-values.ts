@@ -1,12 +1,12 @@
-import type { IdGenerator, LabelId } from '@aeolus-fleet/common';
+import type { IdGenerator, LabelId, ShipId } from '@aeolus-fleet/common';
 
-import type { ShipCaller } from '../shared/caller.js';
+import { actorOf, type Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
-import { recordEvent, shipActor, type EventLog } from '../shared/events.js';
+import { recordEvent, type EventLog } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
-import { changeLabelValues, type ChangeLabelValuesRefusal, type LabelValue } from './label.js';
+import { changeLabelValues, labelOwnerOf, ownerNameOf, type ChangeLabelValuesRefusal, type LabelValue } from './label.js';
 import type { LabelRepository, ShipRepository } from './ports.js';
 
 export interface ChangeLabelValuesTx {
@@ -17,7 +17,7 @@ export interface ChangeLabelValuesTx {
 
 export type ChangeLabelValuesFailure = DomainError<'LABEL_NOT_FOUND'> | ChangeLabelValuesRefusal;
 
-export type ChangeLabelValues = (caller: ShipCaller, input: { labelId: LabelId; values: readonly string[] }) => Promise<Result<{ values: readonly LabelValue[] }, ChangeLabelValuesFailure>>;
+export type ChangeLabelValues = (caller: Caller, input: { labelId: LabelId; values: readonly string[] }) => Promise<Result<{ values: readonly LabelValue[] }, ChangeLabelValuesFailure>>;
 
 /**
  * Use case: a label's owner gives it the values it has from now on (decision
@@ -34,13 +34,13 @@ export function createChangeLabelValues(deps: { uow: UnitOfWork<ChangeLabelValue
       if (!label) {
         return refuse('LABEL_NOT_FOUND', `The fleet has no label ${input.labelId}`);
       }
-      const nameOf = async (shipId: ShipCaller['shipId']) => (await tx.ships.find(fleetId, shipId))?.name ?? shipId;
+      const nameOf = async (shipId: ShipId) => (await tx.ships.find(fleetId, shipId))?.name ?? shipId;
       const carriers = await Promise.all(
         (await tx.labels.carriersOf(fleetId, label.id)).map(async (carried) => ({ valueId: carried.valueId, shipName: await nameOf(carried.shipId) })),
       );
       const changed = changeLabelValues(
-        { label, ownerName: await nameOf(label.ownerShipId), carriers },
-        { callerShipId: caller.shipId, values: input.values.map((value) => ({ value, newId: deps.ids('labelValue') })), at: deps.clock.now(), actor: shipActor(caller.shipId) },
+        { label, ownerName: await ownerNameOf(label.owner, nameOf), carriers },
+        { caller: labelOwnerOf(caller), values: input.values.map((value) => ({ value, newId: deps.ids('labelValue') })), at: deps.clock.now(), actor: actorOf(caller) },
       );
       if (!changed.isOk) {
         return changed;

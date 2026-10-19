@@ -479,7 +479,7 @@ export const fleetRouter = router({
     ),
 
   /** The fleet's labels, each with its values and its owner (decision 0031). */
-  labels: scopedProcedure('fleet:read')
+  labels: actorScopedProcedure('fleet:read')
     .meta({
       description: ["Needs fleet:read. The fleet's labels by key: each with its id, its values with their ids, and its owner ship, by id and name."].join(' '),
     })
@@ -530,7 +530,7 @@ export const fleetRouter = router({
     }),
 
   /** Defines a label the caller's ship then owns (decision 0031). */
-  defineLabel: scopedProcedure('labels:define')
+  defineLabel: actorScopedProcedure('labels:define')
     .meta({
       description: [
         'Needs labels:define. Defines a label your ship then owns: a key unique in the fleet and its values, 1 to 50, each once.',
@@ -546,7 +546,7 @@ export const fleetRouter = router({
     }),
 
   /** The owner gives its label the values it has from now on. */
-  changeLabelValues: scopedProcedure('labels:define')
+  changeLabelValues: actorScopedProcedure('labels:define')
     .meta({
       description: [
         "Needs labels:define, and only the label's owner changes it. Gives the label, by its id, every value it has from now on, adding and removing at once, within decision 0031's limits.",
@@ -588,7 +588,7 @@ export const fleetRouter = router({
     }),
 
   /** The owner deletes its label, freeing its key. */
-  deleteLabel: scopedProcedure('labels:define')
+  deleteLabel: actorScopedProcedure('labels:define')
     .meta({
       description: [
         "Needs labels:define, and only the label's owner deletes it. Deletes the label, by its id, with its values, freeing its key.",
@@ -603,7 +603,7 @@ export const fleetRouter = router({
     }),
 
   /** The ids of a label and one of its values, by their texts. */
-  findLabelValue: scopedProcedure('fleet:read')
+  findLabelValue: actorScopedProcedure('fleet:read')
     .meta({
       description: [
         'Needs fleet:read. The label id and the value id for a key and a value as people write them (os, macos): both lowercased, then matched exactly.',

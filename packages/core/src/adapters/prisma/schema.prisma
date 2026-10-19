@@ -319,10 +319,12 @@ model Label {
   id          String @id
   fleetId     String @map("fleet_id")
   key         String
-  ownerShipId String @map("owner_ship_id")
+  /// A ship or the installation (decision 0031); the installation's label names no owner ship.
+  ownerKind   LabelOwnerKind @default(ship) @map("owner_kind")
+  ownerShipId String?        @map("owner_ship_id")
 
   fleet    Fleet        @relation(fields: [fleetId], references: [id])
-  owner    Ship         @relation("LabelOwner", fields: [fleetId, ownerShipId], references: [fleetId, id])
+  owner    Ship?        @relation("LabelOwner", fields: [fleetId, ownerShipId], references: [fleetId, id])
   values   LabelValue[]
   carriers ShipLabel[]
 
@@ -931,4 +933,11 @@ enum EventActorKind {
   system
 
   @@map("event_actor_kind")
+}
+
+enum LabelOwnerKind {
+  ship
+  installation
+
+  @@map("label_owner_kind")
 }

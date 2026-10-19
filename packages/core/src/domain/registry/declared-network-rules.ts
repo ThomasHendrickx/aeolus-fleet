@@ -25,7 +25,7 @@ export type DeclareNetworkRulesRefusal = DomainError<'INVALID_NETWORK_RULES' | '
 /** The labels a declaration's terms name, as the fleet has them now, with each owner's name for a refusal. */
 export interface NamedLabels {
   labels: readonly Label[];
-  ownerNameOf: (shipId: ShipId) => string;
+  ownerNameOf: (label: Label) => string;
 }
 
 /** Every label and every exact value the rules' terms name, each once: what the caller looks up before declaring. */
@@ -99,7 +99,7 @@ function checkOwnedTerm(named: NamedLabels, declaring: { term: LabelTerm; shipId
   if (label === undefined) {
     return typeof term === 'string' ? refuse('LABEL_VALUE_NOT_FOUND', `The fleet has no label value ${term}`) : refuse('LABEL_NOT_FOUND', `The fleet has no label ${term.labelId}`);
   }
-  return label.ownerShipId === shipId
+  return label.owner.kind === 'ship' && label.owner.shipId === shipId
     ? ok(undefined)
-    : refuse('NOT_THE_LABEL_OWNER', `The label ${label.key} is owned by ${named.ownerNameOf(label.ownerShipId)}: only its owner declares rules on it (decision 0037)`);
+    : refuse('NOT_THE_LABEL_OWNER', `The label ${label.key} is owned by ${named.ownerNameOf(label)}: only its owner declares rules on it (decision 0037)`);
 }

@@ -281,7 +281,7 @@ describe('machine labels against a real fleet (#102)', () => {
     await apps[0]?.assignOnce();
 
     const labels = await useCases.listLabels(argo);
-    expect(labels.map((label) => ({ key: label.key, values: label.values.map((value) => value.value), owner: label.owner.name }))).toEqual([
+    expect(labels.map((label) => ({ key: label.key, values: label.values.map((value) => value.value), owner: label.owner.kind === 'ship' ? label.owner.name : label.owner.kind }))).toEqual([
       { key: 'arch', values: ['arm64', 'amd64'], owner: 'trierarch-plugin' },
       { key: 'os', values: ['macos', 'linux', 'windows'], owner: 'trierarch-plugin' },
       { key: 'trierarch', values: ['machine', 'plugin'], owner: 'trierarch-plugin' },

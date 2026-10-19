@@ -10,6 +10,7 @@ import {
   type ShipKind,
 } from '@aeolus-fleet/common';
 
+import type { Caller } from '../shared/caller.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import type { Actor, NewEvent } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
@@ -21,9 +22,30 @@ export interface LabelValue {
   value: string;
 }
 
+/** Who owns a label (decision 0031): the ship that defined it, or the installation; never an account. */
+export type LabelOwner = { kind: 'ship'; shipId: ShipId } | { kind: 'installation' };
+
+/** The owner an actor defines a label as: none for an account, which owns no label (decision 0031). */
+export function labelOwnerOf(caller: Caller): LabelOwner | undefined {
+  if (caller.kind === 'account') {
+    return undefined;
+  }
+  return caller.kind === 'installation' ? { kind: 'installation' } : { kind: 'ship', shipId: caller.shipId };
+}
+
+/** The owner as a refusal names it: a ship by its name, or the installation. */
+export async function ownerNameOf(owner: LabelOwner, shipNameOf: (shipId: ShipId) => Promise<string | undefined>): Promise<string> {
+  return owner.kind === 'installation' ? 'the installation' : ((await shipNameOf(owner.shipId)) ?? owner.shipId);
+}
+
+function isSameOwner(owner: LabelOwner, other: LabelOwner | undefined): boolean {
+  return other !== undefined && (owner.kind === 'installation' ? other.kind === 'installation' : other.kind === 'ship' && other.shipId === owner.shipId);
+}
+
 /**
  * A label (docs/blueprint.md, "Label"; decision 0031): a key with a defined
- * set of values, each with its own id, owned by the ship that defined it.
+ * set of values, each with its own id, owned by the ship or the installation
+ * that defined it.
  * Ids are for machines, key and value texts for people. Only its owner
  * changes its values and assigns them, to any ship, its own included. It
  * retires with its owner.
@@ -35,15 +57,15 @@ export interface Label {
   key: string;
   /** In the order the owner gave them, each once. */
   values: readonly LabelValue[];
-  ownerShipId: ShipId;
+  owner: LabelOwner;
 }
 
-/** A label as the fleet lists it: its id, key and values, and its owner by id and name. */
+/** A label as the fleet lists it: its id, key and values, and its owner: a ship by id and name, or the installation. */
 export interface ListedLabel {
   id: LabelId;
   key: string;
   values: readonly LabelValue[];
-  owner: { id: ShipId; name: string };
+  owner: { kind: 'ship'; id: ShipId; name: string } | { kind: 'installation' };
 }
 
 /** One value a ship carries, with its label: ids and texts. */
@@ -126,7 +148,7 @@ function labelEvent(
     fleetId: label.fleetId,
     occurredAt: change.at,
     actor: change.actor,
-    shipId: label.ownerShipId,
+    ...(label.owner.kind === 'ship' && { shipId: label.owner.shipId }),
     type: change.type,
     details: { labelId: label.id, key: label.key, ...change.details },
   };
@@ -140,20 +162,23 @@ function valuesDetails(values: readonly LabelValue[]): Record<string, string> {
   };
 }
 
-export type DefineLabelRefusal = InvalidKey | InvalidValue | InvalidValues | DomainError<'LABEL_KEY_TAKEN'>;
+export type DefineLabelRefusal = InvalidKey | InvalidValue | InvalidValues | DomainError<'LABEL_KEY_TAKEN' | 'ACCOUNT_OWNS_NO_LABEL'>;
 
 /**
- * A ship defines a label, owning it: a key unique in the fleet and its values,
- * the label and each value with its new id. A key the fleet has is refused,
- * naming its owner. LabelDefined names the owner, with the label and its
- * values.
+ * A ship or the installation defines a label, owning it: a key unique in the
+ * fleet and its values, the label and each value with its new id. An account
+ * owns no label, so it defines none (decision 0031). A key the fleet has is
+ * refused, naming its owner. LabelDefined names the owning ship, if a ship
+ * owns it, with the label and its values.
  */
 export function defineLabel(
   {
+    fleetId,
     owner,
     existing,
   }: {
-    owner: Pick<Ship, 'fleetId' | 'id'>;
+    fleetId: FleetId;
+    owner: LabelOwner | undefined;
     existing: { label: Label; ownerName: string } | undefined;
   },
   input: {
@@ -164,6 +189,9 @@ export function defineLabel(
     actor: Actor;
   },
 ): Result<{ label: Label; events: NewEvent[] }, DefineLabelRefusal> {
+  if (owner === undefined) {
+    return refuse('ACCOUNT_OWNS_NO_LABEL', 'A ship or the installation defines a label and owns it; an account does not');
+  }
   const key = labelKey(input.key);
   if (!key.isOk) {
     return key;
@@ -176,11 +204,11 @@ export function defineLabel(
     return refuse('LABEL_KEY_TAKEN', `The fleet has the label ${key.value} already, owned by ${existing.ownerName}`);
   }
   const label: Label = {
-    fleetId: owner.fleetId,
+    fleetId,
     id: input.id,
     key: key.value,
     values: withIds(input.values, []),
-    ownerShipId: owner.id,
+    owner,
   };
   return ok({
     label,
@@ -201,11 +229,11 @@ type NotTheOwner = DomainError<'NOT_THE_LABEL_OWNER'>;
 function checkOwner(
   { label, ownerName }: { label: Label; ownerName: string },
   caller: {
-    shipId: ShipId;
+    owner: LabelOwner | undefined;
     act: 'changes' | 'assigns' | 'unassigns' | 'deletes';
   },
 ): Result<void, NotTheOwner> {
-  return label.ownerShipId === caller.shipId
+  return isSameOwner(label.owner, caller.owner)
     ? ok(undefined)
     : refuse('NOT_THE_LABEL_OWNER', `The label ${label.key} is owned by ${ownerName}: only its owner ${caller.act} it`);
 }
@@ -229,13 +257,13 @@ export function changeLabelValues(
     carriers: readonly { valueId: LabelValueId; shipName: string }[];
   },
   input: {
-    callerShipId: ShipId;
+    caller: LabelOwner | undefined;
     values: readonly NewLabelValue[];
     at: Date;
     actor: Actor;
   },
 ): Result<{ label: Label; events: NewEvent[] }, ChangeLabelValuesRefusal> {
-  const owned = checkOwner({ label, ownerName }, { shipId: input.callerShipId, act: 'changes' });
+  const owned = checkOwner({ label, ownerName }, { owner: input.caller, act: 'changes' });
   if (!owned.isOk) {
     return owned;
   }
@@ -284,9 +312,9 @@ export type DeleteLabelRefusal = NotTheOwner | DomainError<'LABEL_CARRIED'>;
  */
 export function deleteLabel(
   { label, ownerName, carrierNames }: { label: Label; ownerName: string; carrierNames: readonly string[] },
-  input: { callerShipId: ShipId; at: Date; actor: Actor },
+  input: { caller: LabelOwner | undefined; at: Date; actor: Actor },
 ): Result<{ events: NewEvent[] }, DeleteLabelRefusal> {
-  const owned = checkOwner({ label, ownerName }, { shipId: input.callerShipId, act: 'deletes' });
+  const owned = checkOwner({ label, ownerName }, { owner: input.caller, act: 'deletes' });
   if (!owned.isOk) {
     return owned;
   }
@@ -322,8 +350,8 @@ export type NotYourShipToLabel = DomainError<'NOT_YOUR_SHIP_TO_LABEL'>;
  * Whether the caller may put values on the ship or take them off (decision
  * 0046): its own ship and the ships it commissioned; argo any ship.
  */
-function checkMayLabel(ship: Ship, caller: { shipId: ShipId; kind: ShipKind }): Result<void, NotYourShipToLabel> {
-  return caller.kind === 'operator' || ship.id === caller.shipId || ship.commission?.by === caller.shipId
+function checkMayLabel(ship: Ship, caller: { shipId: ShipId | null; kind: ShipKind | 'account' | 'installation' }): Result<void, NotYourShipToLabel> {
+  return caller.kind === 'operator' || (caller.shipId !== null && (ship.id === caller.shipId || ship.commission?.by === caller.shipId))
     ? ok(undefined)
     : refuse('NOT_YOUR_SHIP_TO_LABEL', `${ship.name} is neither your ship nor one it commissioned: only argo labels it`);
 }
@@ -350,18 +378,17 @@ export function assignLabel(
     carried: readonly ShipLabel[];
   },
   input: {
-    callerShipId: ShipId;
-    callerKind: ShipKind;
+    caller: { owner: LabelOwner | undefined; shipId: ShipId | null; kind: ShipKind | 'account' | 'installation' };
     valueId: LabelValueId;
     at: Date;
     actor: Actor;
   },
 ): Result<{ assignment: ShipLabel | undefined; events: NewEvent[] }, AssignLabelRefusal> {
-  const owned = checkOwner({ label, ownerName }, { shipId: input.callerShipId, act: 'assigns' });
+  const owned = checkOwner({ label, ownerName }, { owner: input.caller.owner, act: 'assigns' });
   if (!owned.isOk) {
     return owned;
   }
-  const mayLabel = checkMayLabel(ship, { shipId: input.callerShipId, kind: input.callerKind });
+  const mayLabel = checkMayLabel(ship, input.caller);
   if (!mayLabel.isOk) {
     return mayLabel;
   }
@@ -406,18 +433,17 @@ export function unassignLabel(
     carried: readonly ShipLabel[];
   },
   input: {
-    callerShipId: ShipId;
-    callerKind: ShipKind;
+    caller: { owner: LabelOwner | undefined; shipId: ShipId | null; kind: ShipKind | 'account' | 'installation' };
     valueId: LabelValueId;
     at: Date;
     actor: Actor;
   },
 ): Result<{ unassigned: ShipLabel | undefined; events: NewEvent[] }, UnassignLabelRefusal> {
-  const owned = checkOwner({ label, ownerName }, { shipId: input.callerShipId, act: 'unassigns' });
+  const owned = checkOwner({ label, ownerName }, { owner: input.caller.owner, act: 'unassigns' });
   if (!owned.isOk) {
     return owned;
   }
-  const mayLabel = checkMayLabel(ship, { shipId: input.callerShipId, kind: input.callerKind });
+  const mayLabel = checkMayLabel(ship, input.caller);
   if (!mayLabel.isOk) {
     return mayLabel;
   }

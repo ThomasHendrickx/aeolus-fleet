@@ -38,7 +38,7 @@ describe('defining a label', () => {
           { id: defined.values[0]?.id, value: 'macos' },
           { id: defined.values[1]?.id, value: 'linux' },
         ],
-        ownerShipId: pluginId,
+        owner: { kind: 'ship', shipId: pluginId },
       },
     ]);
   });
@@ -73,7 +73,7 @@ describe('defining a label', () => {
     const refused = await registry.defineLabel(argo, { key: 'os', values: ['linux'] });
 
     expect(refusalOf(refused)).toMatchObject({ kind: 'LABEL_KEY_TAKEN', message: 'The fleet has the label os already, owned by trierarch-plugin' });
-    expect(core.state.labels.map((label) => [label.key, label.values.map((value) => value.value), label.ownerShipId])).toEqual([['os', ['macos'], pluginId]]);
+    expect(core.state.labels.map((label) => [label.key, label.values.map((value) => value.value), label.owner])).toEqual([['os', ['macos'], { kind: 'ship', shipId: pluginId }]]);
     expect(core.state.events).toEqual([]);
   });
 
@@ -161,8 +161,8 @@ describe('a label the installation defines (decisions 0031, 0052)', () => {
     const defined = unwrap(await registry.defineLabel(installation, { key: 'group', values: ['sales', 'engineering'] }));
 
     expect(core.state.labels.find((label) => label.id === defined.labelId)?.owner).toEqual({ kind: 'installation' });
-    expect(core.state.events).toEqual([
-      expect.objectContaining({ type: 'LabelDefined', actor: { kind: 'installation' }, shipId: undefined, details: expect.objectContaining({ key: 'group' }) }),
+    expect(core.state.events.map(({ type, actor, shipId, details }) => ({ type, actor, shipId, key: details.key }))).toEqual([
+      { type: 'LabelDefined', actor: { kind: 'installation' }, shipId: undefined, key: 'group' },
     ]);
   });
 

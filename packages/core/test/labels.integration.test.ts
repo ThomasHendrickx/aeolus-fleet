@@ -54,7 +54,7 @@ afterEach(async () => {
 });
 
 async function labels() {
-  return (await core.useCases.listLabels(argo)).map((label) => ({ key: label.key, values: label.values.map((value) => value.value), owner: label.owner.id }));
+  return (await core.useCases.listLabels(argo)).map((label) => ({ key: label.key, values: label.values.map((value) => value.value), owner: label.owner.kind === 'ship' ? label.owner.id : label.owner.kind }));
 }
 
 async function carried() {
@@ -74,7 +74,7 @@ describe('labels on Postgres', () => {
 
     expect(changed.values.map((value) => value.id).slice(0, 2)).toEqual([macos, linux]);
     await expect(core.useCases.listLabels(argo)).resolves.toEqual([
-      { id: osId, key: 'os', values: [{ id: macos, value: 'macos' }, { id: linux, value: 'linux' }, { id: windows, value: 'windows' }], owner: { id: plugin.shipId, name: 'trierarch-plugin' } },
+      { id: osId, key: 'os', values: [{ id: macos, value: 'macos' }, { id: linux, value: 'linux' }, { id: windows, value: 'windows' }], owner: { kind: 'ship', id: plugin.shipId, name: 'trierarch-plugin' } },
     ]);
     await expect(carried()).resolves.toEqual(['builder:os=macos', 'builder:os=windows']);
     expect((await labelEvents()).map((event) => [event.type, event.shipId])).toEqual([

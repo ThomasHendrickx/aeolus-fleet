@@ -1,12 +1,12 @@
 import type { IdGenerator, LabelValueId, ShipId } from '@aeolus-fleet/common';
 
-import type { ShipCaller } from '../shared/caller.js';
+import { actorOf, isShipCaller, type Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
-import { recordEvent, shipActor, type EventLog } from '../shared/events.js';
+import { recordEvent, type EventLog } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
-import { assignLabel, type AssignLabelRefusal } from './label.js';
+import { assignLabel, labelOwnerOf, ownerNameOf, type AssignLabelRefusal } from './label.js';
 import type { LabelRepository, ShipRepository } from './ports.js';
 
 export interface AssignLabelTx {
@@ -17,7 +17,7 @@ export interface AssignLabelTx {
 
 export type AssignLabelFailure = DomainError<'SHIP_NOT_FOUND' | 'LABEL_VALUE_NOT_FOUND'> | AssignLabelRefusal;
 
-export type AssignLabel = (caller: ShipCaller, input: { shipId: ShipId; valueId: LabelValueId }) => Promise<Result<undefined, AssignLabelFailure>>;
+export type AssignLabel = (caller: Caller, input: { shipId: ShipId; valueId: LabelValueId }) => Promise<Result<undefined, AssignLabelFailure>>;
 
 /**
  * Use case: a label's owner gives a ship one of its values, by the value's id (decision 0031):
@@ -41,10 +41,9 @@ export function createAssignLabel(deps: { uow: UnitOfWork<AssignLabelTx>; clock:
       if (!label?.values.some((value) => value.id === input.valueId)) {
         return refuse('LABEL_VALUE_NOT_FOUND', `The fleet has no label value ${input.valueId}`);
       }
-      const owner = await tx.ships.find(fleetId, label.ownerShipId);
       const assigned = assignLabel(
-        { label, ownerName: owner?.name ?? label.ownerShipId, ship, carried: await tx.labels.carriedBy(fleetId, ship.id) },
-        { callerShipId: caller.shipId, callerKind: caller.kind, valueId: input.valueId, at: deps.clock.now(), actor: shipActor(caller.shipId) },
+        { label, ownerName: await ownerNameOf(label.owner, async (shipId) => (await tx.ships.find(fleetId, shipId))?.name), ship, carried: await tx.labels.carriedBy(fleetId, ship.id) },
+        { caller: { owner: labelOwnerOf(caller), shipId: isShipCaller(caller) ? caller.shipId : null, kind: caller.kind }, valueId: input.valueId, at: deps.clock.now(), actor: actorOf(caller) },
       );
       if (!assigned.isOk) {
         return assigned;

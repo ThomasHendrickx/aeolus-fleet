@@ -3,12 +3,12 @@ import type { LabelId, LabelValueId, NetworkRule, ShipId } from '@aeolus-fleet/c
 import type { FleetRefusal } from '../management/ports.js';
 import type { Result } from '../shared/result.js';
 
-/** A label of the fleet as `fleet.labels` lists it: its key, its values and the ship that owns it. */
+/** A label of the fleet as `fleet.labels` lists it: its key, its values and the ship that owns it, none for the installation's. */
 export interface ListedLabel {
   labelId: LabelId;
   key: string;
   values: { valueId: LabelValueId; value: string }[];
-  ownerShipId: ShipId;
+  ownerShipId: ShipId | null;
 }
 
 /** A ship of the fleet that is not retired, with the label values it carries. */

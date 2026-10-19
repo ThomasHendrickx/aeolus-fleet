@@ -134,6 +134,7 @@ const ERROR_CODES: Record<DomainErrorKind, TRPCError['code']> = {
   // The crew token belonged to that lease: it no longer authenticates anyone.
   LABEL_CARRIED: 'CONFLICT',
   LABEL_KEY_TAKEN: 'CONFLICT',
+  ACCOUNT_OWNS_NO_LABEL: 'FORBIDDEN',
   INVALID_SCOPE: 'BAD_REQUEST',
   INVALID_SCOPE_DESCRIPTION: 'BAD_REQUEST',
   CORE_NAMESPACE: 'BAD_REQUEST',

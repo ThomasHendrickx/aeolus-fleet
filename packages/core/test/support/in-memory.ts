@@ -55,7 +55,7 @@ import type {
   ReachRefusalRepository,
   ShipRepository,
 } from '../../src/domain/registry/ports.js';
-import type { Label, ShipLabel } from '../../src/domain/registry/label.js';
+import type { Label, ListedLabel, ShipLabel } from '../../src/domain/registry/label.js';
 import type { DeclaredNetworkRules } from '../../src/domain/registry/declared-network-rules.js';
 import type { PluginConnection } from '../../src/domain/registry/plugin-connection.js';
 import type { ScopeNamespace } from '../../src/domain/registry/scope-namespace.js';
@@ -648,7 +648,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       listOwnedByForUpdate: (fleetId, ownerShipId) =>
         Promise.resolve(
           state.labels
-            .filter((label) => label.fleetId === fleetId && label.ownerShipId === ownerShipId)
+            .filter((label) => label.fleetId === fleetId && label.owner.kind === 'ship' && label.owner.shipId === ownerShipId)
             .sort((first, second) => first.key.localeCompare(second.key))
             .map(copyOfLabel),
         ),
@@ -1382,9 +1382,14 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         state.labels
           .filter((label) => label.fleetId === fleetId)
           .sort((first, second) => first.key.localeCompare(second.key))
-          .map((label) => {
-            const owner = state.ships.find((each) => each.fleetId === fleetId && each.id === label.ownerShipId);
-            return { id: label.id, key: label.key, values: label.values.map((value) => ({ ...value })), owner: { id: label.ownerShipId, name: owner?.name ?? '' } };
+          .map((label): ListedLabel => {
+            const { owner } = label;
+            const values = label.values.map((value) => ({ ...value }));
+            if (owner.kind === 'installation') {
+              return { id: label.id, key: label.key, values, owner };
+            }
+            const ship = state.ships.find((each) => each.fleetId === fleetId && each.id === owner.shipId);
+            return { id: label.id, key: label.key, values, owner: { kind: 'ship', id: owner.shipId, name: ship?.name ?? '' } };
           }),
       ),
     deliveryCounts: (fleetId, shipId) => {

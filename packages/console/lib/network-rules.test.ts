@@ -33,7 +33,7 @@ const ARGO: ListedShip = {
 };
 
 function aLabel(key: string, values: string[]): ListedLabel {
-  return { id: newId('label'), key, values: values.map((value) => ({ id: newId('labelValue'), value })), owner: { id: ARGO.id, name: 'argo' } };
+  return { id: newId('label'), key, values: values.map((value) => ({ id: newId('labelValue'), value })), owner: { kind: 'ship', id: ARGO.id, name: 'argo' } };
 }
 
 function valueOf(label: ListedLabel, index: number): LabelValueId {

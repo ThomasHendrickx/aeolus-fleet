@@ -14,12 +14,12 @@ const valueId = (suffix: string) => idSchema('labelValue').parse(`lbv_01m3tbfspe
 
 /** The owners: argo's id is the one the fleet table stories give argo. */
 export const OWNERS = {
-  argo: { id: ownerId('h1aa'), name: 'argo' },
-  trierarchPlugin: { id: ownerId('k0tp'), name: 'trierarch-plugin' },
-  squadrons: { id: ownerId('k0sq'), name: 'squadrons' },
+  argo: { kind: 'ship', id: ownerId('h1aa'), name: 'argo' },
+  trierarchPlugin: { kind: 'ship', id: ownerId('k0tp'), name: 'trierarch-plugin' },
+  squadrons: { kind: 'ship', id: ownerId('k0sq'), name: 'squadrons' },
 } as const;
 
-function aLabel(key: string, definition: { suffix: string; values: string[]; owner: { id: ListedLabel['owner']['id']; name: string } }): ListedLabel {
+function aLabel(key: string, definition: { suffix: string; values: string[]; owner: ListedLabel['owner'] }): ListedLabel {
   return {
     id: labelId(`${definition.suffix}00`),
     key,

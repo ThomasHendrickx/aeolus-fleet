@@ -1,4 +1,4 @@
-import type { ListedLabel, ListedShip } from '@aeolus-fleet/common';
+import type { ListedLabel, ListedShip, ShipId } from '@aeolus-fleet/common';
 import { isLabelHandle, LABEL_HANDLE_MAX_LENGTH } from '@aeolus-fleet/common/rules';
 
 /**
@@ -44,6 +44,16 @@ export interface LabelContext {
   ships: readonly ListedShip[];
 }
 
+/** Whose a label is, as people read it: its owner ship's name, or the installation's (decision 0031). */
+export function labelOwnerName(owner: ListedLabel['owner']): string {
+  return owner.kind === 'ship' ? owner.name : 'the installation';
+}
+
+/** The ship that owns a label; none for the installation's. */
+function labelOwnerShipId(owner: ListedLabel['owner']): ShipId | undefined {
+  return owner.kind === 'ship' ? owner.id : undefined;
+}
+
 /**
  * The context chips and the filter read: whose each label is, and its mark.
  * The operator's own labels are argo's; a viewer owns none, so it sees every
@@ -53,10 +63,11 @@ export function labelContextOf(labels: readonly ListedLabel[], fleet: { ships: r
   const typeOf = new Map(fleet.ships.map((ship) => [ship.id, ship]));
   const ownerOf = new Map(
     labels.map((label) => {
-      const owner = typeOf.get(label.owner.id);
+      const ownerShipId = labelOwnerShipId(label.owner);
+      const owner = ownerShipId === undefined ? undefined : typeOf.get(ownerShipId);
       const isYours = fleet.isOperator && owner?.kind === 'operator';
       const mark: OwnerMark = isYours ? 'none' : (PLUGIN_MARKS[owner?.type ?? ''] ?? 'ship');
-      return [label.id, { name: label.owner.name, mark, isYours }];
+      return [label.id, { name: labelOwnerName(label.owner), mark, isYours }];
     }),
   );
   return { labels, ownerOf, ships: fleet.ships };
@@ -132,7 +143,7 @@ export function filterGroupsOf(context: LabelContext): FilterGroup[] {
   for (const label of context.labels) {
     const owner = context.ownerOf.get(label.id);
     const isYours = owner?.isYours ?? false;
-    const title = isYours ? 'Yours' : `By ${label.owner.name}`;
+    const title = isYours ? 'Yours' : `By ${labelOwnerName(label.owner)}`;
     const group = groups.get(title) ?? { title, isYours, keys: [] };
     group.keys.push({
       labelId: label.id,
@@ -160,7 +171,7 @@ export function pickedChips(valueIds: readonly string[], context: LabelContext):
       return [];
     }
     const owner = context.ownerOf.get(label.id);
-    return [{ labelId: label.id, valueId: value.id, key: label.key, value: value.value, mark: owner?.mark ?? 'ship', ownerName: owner?.name ?? label.owner.name }];
+    return [{ labelId: label.id, valueId: value.id, key: label.key, value: value.value, mark: owner?.mark ?? 'ship', ownerName: owner?.name ?? labelOwnerName(label.owner) }];
   });
 }
 
@@ -189,7 +200,7 @@ export function labelRowsOf(context: LabelContext): LabelRow[] {
       return {
         labelId: label.id,
         key: label.key,
-        owner: { name: label.owner.name, isYours: owner?.isYours ?? false, mark: owner?.mark ?? 'ship' },
+        owner: { name: labelOwnerName(label.owner), isYours: owner?.isYours ?? false, mark: owner?.mark ?? 'ship' },
         values: label.values.map((value) => ({ valueId: value.id, value: value.value, shipCount: active.filter(carries(value.id)).length })),
         shipCount: active.filter((ship) => ship.labels.some((carried) => carried.labelId === label.id)).length,
       };
@@ -265,7 +276,7 @@ export function listed(words: readonly string[]): string {
  */
 export function retiredLabelsOf(ship: Pick<ListedShip, 'id' | 'labels'>, context: LabelContext): { carried: string[]; owned?: { keys: string[]; carriers: string[] } } {
   const carried = ship.labels.map((each) => `${each.key}=${each.value}`);
-  const owned = context.labels.filter((label) => label.owner.id === ship.id);
+  const owned = context.labels.filter((label) => labelOwnerShipId(label.owner) === ship.id);
   if (owned.length === 0) {
     return { carried };
   }

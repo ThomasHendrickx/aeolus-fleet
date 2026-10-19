@@ -236,6 +236,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_account_cut_offs$/),
       expect.stringMatching(/^\d{14}_event_actors$/),
       expect.stringMatching(/^\d{14}_argos_jobs_as_scopes$/),
+      expect.stringMatching(/^\d{14}_installation_labels$/),
     ]);
   });
 });

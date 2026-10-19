@@ -206,8 +206,9 @@ export function createPrismaLabelRepository(db: Db): LabelRepository {
         FOR UPDATE OF l`;
       return rows.map(toLabelFromSql);
     },
-    save: async ({ fleetId, id, key, values, ownerShipId }) => {
-      await db.label.upsert({ where: { id }, create: { id, fleetId, key, ownerShipId }, update: {} });
+    save: async ({ fleetId, id, key, values, owner }) => {
+      const ownerColumns = owner.kind === 'ship' ? { ownerKind: owner.kind, ownerShipId: owner.shipId } : { ownerKind: owner.kind };
+      await db.label.upsert({ where: { id }, create: { id, fleetId, key, ...ownerColumns }, update: {} });
       await db.labelValue.deleteMany({ where: { fleetId, labelId: id, id: { notIn: values.map((value) => value.id) } } });
       for (const [position, value] of values.entries()) {
         await db.labelValue.upsert({
@@ -650,7 +651,7 @@ export function createPrismaFleetListing(db: Db): FleetListing {
       const rows = await db.$queryRaw<unknown[]>`
         SELECT ${labelColumns}, o.name AS owner_name
         FROM labels l
-        JOIN ships o ON o.fleet_id = l.fleet_id AND o.id = l.owner_ship_id
+        LEFT JOIN ships o ON o.fleet_id = l.fleet_id AND o.id = l.owner_ship_id
         WHERE l.fleet_id = ${fleetId}
         ORDER BY l.key`;
       return rows.map(toListedLabel);

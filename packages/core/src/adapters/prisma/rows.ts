@@ -34,7 +34,7 @@ import type { StatedStatement } from '../../domain/registry/statement.js';
 import type { Turn } from '../../domain/registry/turn.js';
 import type { ClearRequest } from '../../domain/registry/clear-request.js';
 import type { CrewRequest } from '../../domain/registry/crew-request.js';
-import type { Label, ListedLabel, ShipLabel } from '../../domain/registry/label.js';
+import type { Label, LabelOwner, ListedLabel, ShipLabel } from '../../domain/registry/label.js';
 import type { Actor, FleetEventNotice, SequencedEvent } from '../../domain/shared/events.js';
 import type { DeliveryNotice } from '../../domain/shared/notifier.js';
 import type { Fleet } from '../../domain/registry/fleet.js';
@@ -153,9 +153,14 @@ export function toCrewRequest(row: unknown): CrewRequest {
   return crewRequestRow.parse(row);
 }
 
+/** A label's owner as its columns hold it: a ship, or the installation with no ship. */
+function labelOwnerOf(owner_ship_id: ShipId | null): LabelOwner {
+  return owner_ship_id === null ? { kind: 'installation' } : { kind: 'ship', shipId: owner_ship_id };
+}
+
 const labelSqlRow = z
-  .object({ fleet_id: idSchema('fleet'), id: idSchema('label'), key: z.string(), values: z.array(labelValueSchema), owner_ship_id: idSchema('ship') })
-  .transform(({ fleet_id, id, key, values, owner_ship_id }): Label => ({ fleetId: fleet_id, id, key, values, ownerShipId: owner_ship_id }));
+  .object({ fleet_id: idSchema('fleet'), id: idSchema('label'), key: z.string(), values: z.array(labelValueSchema), owner_ship_id: idSchema('ship').nullable() })
+  .transform(({ fleet_id, id, key, values, owner_ship_id }): Label => ({ fleetId: fleet_id, id, key, values, owner: labelOwnerOf(owner_ship_id) }));
 
 /** A label as raw SQL returns it, in snake_case. */
 export function toLabelFromSql(row: unknown): Label {
@@ -165,8 +170,15 @@ export function toLabelFromSql(row: unknown): Label {
 const shipLabelRow = z.object({ fleetId: idSchema('fleet'), shipId: idSchema('ship'), labelId: idSchema('label'), valueId: idSchema('labelValue') });
 
 const listedLabelSqlRow = z
-  .object({ id: idSchema('label'), key: z.string(), values: z.array(labelValueSchema), owner_ship_id: idSchema('ship'), owner_name: z.string() })
-  .transform(({ id, key, values, owner_ship_id, owner_name }): ListedLabel => ({ id, key, values, owner: { id: owner_ship_id, name: owner_name } }));
+  .object({ id: idSchema('label'), key: z.string(), values: z.array(labelValueSchema), owner_ship_id: idSchema('ship').nullable(), owner_name: z.string().nullable() })
+  .transform(
+    ({ id, key, values, owner_ship_id, owner_name }): ListedLabel => ({
+      id,
+      key,
+      values,
+      owner: owner_ship_id === null ? { kind: 'installation' } : { kind: 'ship', id: owner_ship_id, name: owner_name ?? '' },
+    }),
+  );
 
 /** A label with its owner's name, as the fleet listing reads it. */
 export function toListedLabel(row: unknown): ListedLabel {

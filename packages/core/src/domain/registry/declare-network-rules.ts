@@ -6,7 +6,7 @@ import { recordEvent, shipActor, type EventLog } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { declareNetworkRules, namedInRules, type DeclareNetworkRulesRefusal } from './declared-network-rules.js';
-import type { Label } from './label.js';
+import { ownerNameOf, type Label } from './label.js';
 import type { NetworkRule } from './network-settings.js';
 import type { DeclaredNetworkRulesRepository, LabelRepository, ShipRepository } from './ports.js';
 
@@ -34,9 +34,9 @@ export function createDeclareNetworkRules(deps: { uow: UnitOfWork<DeclareNetwork
       const { labelIds, valueIds } = namedInRules(input.rules);
       const found = await Promise.all([...labelIds.map((labelId) => tx.labels.find(fleetId, labelId)), ...valueIds.map((valueId) => tx.labels.findByValueForShare(fleetId, valueId))]);
       const labels = found.filter((label): label is Label => label !== undefined);
-      const ownerNames = new Map(await Promise.all(labels.map(async (label) => [label.ownerShipId, (await tx.ships.find(fleetId, label.ownerShipId))?.name ?? label.ownerShipId] as const)));
+      const ownerNames = new Map(await Promise.all(labels.map(async (label) => [label.id, await ownerNameOf(label.owner, async (owner) => (await tx.ships.find(fleetId, owner))?.name)] as const)));
       const declared = declareNetworkRules(
-        { labels, ownerNameOf: (ownerShipId) => ownerNames.get(ownerShipId) ?? ownerShipId },
+        { labels, ownerNameOf: (label) => ownerNames.get(label.id) ?? 'its owner' },
         { fleetId, shipId, rules: input.rules, at: deps.clock.now(), actor: shipActor(shipId) },
       );
       if (!declared.isOk) {

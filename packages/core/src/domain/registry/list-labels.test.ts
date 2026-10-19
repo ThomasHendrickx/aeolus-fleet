@@ -28,8 +28,8 @@ describe("listing the fleet's labels", () => {
     const os = unwrap(await registry.defineLabel(argo, { key: 'os', values: ['macos', 'linux'] }));
 
     await expect(registry.listLabels(argo)).resolves.toEqual([
-      { id: os.labelId, key: 'os', values: os.values, owner: { id: argo.shipId, name: 'argo' } },
-      { id: project.labelId, key: 'project', values: project.values, owner: { id: pluginId, name: 'trierarch-plugin' } },
+      { id: os.labelId, key: 'os', values: os.values, owner: { kind: 'ship', id: argo.shipId, name: 'argo' } },
+      { id: project.labelId, key: 'project', values: project.values, owner: { kind: 'ship', id: pluginId, name: 'trierarch-plugin' } },
     ]);
   });
 
