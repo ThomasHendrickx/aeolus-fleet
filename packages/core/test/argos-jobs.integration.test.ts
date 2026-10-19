@@ -199,3 +199,13 @@ describe('explaining reach and reading refusals (fleet:explain)', () => {
     });
   });
 });
+
+describe("turning the viewer's reading off (fleet:network)", () => {
+  it('is done by an account holding fleet:network', async () => {
+    await anAccountHolding(['fleet:network']).fleet.setBuiltInRule.mutate({ rule: 'viewerRead', isOn: false });
+
+    await expect(database.event.findMany({ where: { fleetId, type: 'BuiltInRuleChanged' }, orderBy: { seq: 'desc' }, take: 1 })).resolves.toMatchObject([
+      { actorKind: 'account', details: { rule: 'viewerRead', isOn: false } },
+    ]);
+  });
+});

@@ -1,11 +1,11 @@
-import { FIXED_BUILT_IN_RULES, type FleetId } from '@aeolus-fleet/common';
+import { accountIdSchema, FIXED_BUILT_IN_RULES, type FleetId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { refusalOf, unwrap } from '../../testing/result.js';
-import type { ShipCaller } from '../shared/caller.js';
+import type { AccountCaller, ShipCaller } from '../shared/caller.js';
 import { BUILT_INS_ON } from './network-settings.js';
 
 let core: InMemoryCore;
@@ -81,11 +81,26 @@ describe('turning the viewer reading on or off (decision 0034)', () => {
     expect(core.state.events).toEqual([expect.objectContaining({ type: 'BuiltInRuleChanged', details: { rule: 'viewerRead', isOn: false, version: 2 } })]);
   });
 
-  it('refuses any ship but argo, the networking plugin too', async () => {
-    expect(refusalOf(await registry.setBuiltInRule(plugin, { rule: 'viewerRead', isOn: false }))).toEqual({
-      kind: 'NOT_THE_OPERATOR_SHIP',
-      message: 'Only argo turns the viewer reading on or off (decision 0034)',
-    });
+  it('lets any ship holding fleet:network turn it, not only argo, the event naming it (decision 0053)', async () => {
+    unwrap(await registry.setBuiltInRule(other, { rule: 'viewerRead', isOn: false }));
+
+    expect(builtIns()).toEqual({ ...BUILT_INS_ON, isViewerReadOn: false });
+    expect(core.state.events.map(({ actor }) => actor)).toEqual([{ kind: 'ship', shipId: other.shipId }]);
+  });
+
+  it('lets an account holding fleet:network turn it, the event naming the account', async () => {
+    const mathilde = accountIdSchema.parse('acc-mathilde');
+    const account: AccountCaller = { kind: 'account', accountId: mathilde, fleetId, scopes: ['fleet:network'], groupValues: [], personShipId: null, throughShipId: null };
+
+    unwrap(await registry.setBuiltInRule(account, { rule: 'viewerRead', isOn: false }));
+
+    expect(core.state.events.map(({ actor }) => actor)).toEqual([{ kind: 'account', accountId: mathilde, throughShipId: null }]);
+  });
+
+  it('refuses an account turning open, which only the networking plugin turns', async () => {
+    const account: AccountCaller = { kind: 'account', accountId: accountIdSchema.parse('acc-mathilde'), fleetId, scopes: ['fleet:network'], groupValues: [], personShipId: null, throughShipId: null };
+
+    expect(refusalOf(await registry.setBuiltInRule(account, { rule: 'open', verb: 'send', isOn: false })).kind).toBe('NOT_THE_NETWORK_PLUGIN');
     expect(builtIns()).toEqual(BUILT_INS_ON);
   });
 });
