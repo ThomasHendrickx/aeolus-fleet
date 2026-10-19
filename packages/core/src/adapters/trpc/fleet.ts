@@ -106,7 +106,7 @@ import type { DeliveryWay } from '../../domain/shared/delivery-way.js';
 import type { SequencedEvent } from '../../domain/shared/events.js';
 import { describedHealth } from './health.js';
 import { presentStartingPrompt } from './starting-prompt-text.js';
-import { actorAnyScopeProcedure, actorScopedProcedure, anyScopeProcedure, authenticatedProcedure, callerStillHolding, okOrThrow, router, scopedCrewCallerProcedure, scopedProcedure } from './trpc.js';
+import { actorAnyScopeProcedure, actorScopedProcedure, anyScopeProcedure, callerStillHolding, okOrThrow, router, scopedCrewCallerProcedure, scopedProcedure } from './trpc.js';
 
 /** A crew request as the API answers it: its times in ISO 8601, and when its session started as `startedAt`. */
 function crewRequestOutputOf<T extends { requestedAt: Date; sessionStartedAt: Date | null; givenBack: ShipFacts['crewRequestGivenBack'] }>(request: T | null) {
@@ -422,8 +422,8 @@ export const fleetRouter = router({
       return {};
     }),
 
-  /** Connects a ship as a plugin, which then reads every ship until a release or retire ends it: argo's alone, by its kind, no scope (decision 0034). */
-  connectPlugin: authenticatedProcedure
+  /** Connects a ship as a plugin, which then reads every ship until a release or retire ends it (decisions 0034, 0053). */
+  connectPlugin: actorScopedProcedure('fleet:connect')
     .input(connectPluginInputSchema)
     .output(connectPluginOutputSchema)
     .mutation(async ({ ctx, input }) => {
