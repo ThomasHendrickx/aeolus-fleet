@@ -238,6 +238,8 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 
 | Term | Meaning | Held by |
 | --- | --- | --- |
+| Actor | Whoever a call is authorised for and an event names: a ship, an account (by its account token) or the installation. Not a ship: only what sends or receives messages is a ship | core (to build) |
+| Account token | A short token pagasae signs for one account in one fleet, with the scopes and labels its groups give there; core checks it on every call and stores no account. Not a crew token | pagasae, core (to build) |
 | Scope | What a ship may do, `<namespace>:<action>`, stored with the ship, never in a message; the only source of rights (0046) | core |
 | Scope namespace | A plugin's scopes, declared once for good, enforced by the plugin (0046) | core |
 | Grant | Give a ship a scope, at commission or live with `scopes:grant`; a ship grants only scopes it holds (0046) | core |
