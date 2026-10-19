@@ -13,7 +13,7 @@
  */
 import type { FleetId } from '@aeolus-fleet/common';
 
-import type { EventLog, FleetEvent, FleetEventFeed } from '../../domain/shared/events.js';
+import type { Actor, EventLog, FleetEvent, FleetEventFeed } from '../../domain/shared/events.js';
 import type { Db } from './client.js';
 import { toLastEventSeq, toSequencedEvent } from './rows.js';
 
@@ -57,7 +57,7 @@ async function writeNumbered(db: Db, of: { fleetId: FleetId; events: FleetEvent[
       fleetId: event.fleetId,
       type: event.type,
       occurredAt: event.occurredAt,
-      actorShipId: event.actor.kind === 'ship' ? event.actor.shipId : null,
+      ...actorColumns(event.actor),
       shipId: event.shipId ?? null,
       messageId: event.messageId ?? null,
       deliveryId: event.deliveryId ?? null,
@@ -84,4 +84,17 @@ export function createPrismaFleetEventFeed(db: Db): FleetEventFeed {
       return rows.map(toSequencedEvent);
     },
   };
+}
+
+/** The actor as the event's columns hold it (decision 0057): an account by its id only. */
+function actorColumns(actor: Actor) {
+  switch (actor.kind) {
+    case 'ship':
+      return { actorKind: actor.kind, actorShipId: actor.shipId, actorAccountId: null, actorThroughShipId: null };
+    case 'account':
+      return { actorKind: actor.kind, actorShipId: null, actorAccountId: actor.accountId, actorThroughShipId: actor.throughShipId };
+    case 'installation':
+    case 'system':
+      return { actorKind: actor.kind, actorShipId: null, actorAccountId: null, actorThroughShipId: null };
+  }
 }

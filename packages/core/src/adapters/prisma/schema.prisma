@@ -112,6 +112,7 @@ model Ship {
   overdueDeliveries OverdueDelivery[]
   consoleSessions   ConsoleSession[]
   actorOfEvents     Event[]          @relation("EventActorShip")
+  actorThroughOfEvents Event[]       @relation("EventActorThroughShip")
   events            Event[]          @relation("EventShip")
   crewRequest       CrewRequest?     @relation("CrewRequestShip")
   assignedCrews     CrewRequest[]    @relation("CrewRequestAssignee")
@@ -658,7 +659,13 @@ model Event {
   fleetId     String   @map("fleet_id")
   type        String
   occurredAt  DateTime @map("occurred_at") @db.Timestamptz(3)
+  /// Who caused it (decision 0057): a ship, an account, the installation or the system.
+  actorKind   EventActorKind @default(system) @map("actor_kind")
   actorShipId String?  @map("actor_ship_id")
+  /// The account that caused it, by pagasae's id only: never an email.
+  actorAccountId String? @map("actor_account_id")
+  /// The ship that presented the account's token, a plugin's page or the gateway, if one did.
+  actorThroughShipId String? @map("actor_through_ship_id")
   shipId      String?  @map("ship_id")
   messageId   String?  @map("message_id")
   deliveryId  String?  @map("delivery_id")
@@ -670,6 +677,7 @@ model Event {
 
   fleet     Fleet     @relation(fields: [fleetId], references: [id])
   actorShip Ship?     @relation("EventActorShip", fields: [fleetId, actorShipId], references: [fleetId, id], onDelete: Restrict)
+  actorThroughShip Ship? @relation("EventActorThroughShip", fields: [fleetId, actorThroughShipId], references: [fleetId, id], onDelete: Restrict)
   ship      Ship?     @relation("EventShip", fields: [fleetId, shipId], references: [fleetId, id], onDelete: Restrict)
   message   Message?  @relation(fields: [fleetId, messageId], references: [fleetId, id], onDelete: Restrict)
   delivery  Delivery? @relation(fields: [fleetId, deliveryId], references: [fleetId, id], onDelete: Restrict)
@@ -678,6 +686,7 @@ model Event {
   /// Every foreign key has an index leading with its columns, so deleting a
   /// referenced row checks it with an index, not a scan (#331).
   @@index([fleetId, actorShipId])
+  @@index([actorThroughShipId, fleetId])
   @@index([fleetId, shipId])
   @@index([fleetId, messageId])
   @@index([fleetId, deliveryId])
@@ -912,4 +921,14 @@ model AccountCutOff {
   /// Forgetting finds the cut-offs that ended.
   @@index([forgetAt])
   @@map("account_cut_offs")
+}
+
+/// Who caused an event (decision 0057).
+enum EventActorKind {
+  ship
+  account
+  installation
+  system
+
+  @@map("event_actor_kind")
 }

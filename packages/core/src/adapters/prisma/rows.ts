@@ -1,4 +1,5 @@
 import {
+  accountIdSchema,
   themeSchema,
   deliveryStateSchema,
   crewRequestSettingsSchema,
@@ -34,7 +35,7 @@ import type { Turn } from '../../domain/registry/turn.js';
 import type { ClearRequest } from '../../domain/registry/clear-request.js';
 import type { CrewRequest } from '../../domain/registry/crew-request.js';
 import type { Label, ListedLabel, ShipLabel } from '../../domain/registry/label.js';
-import type { FleetEventNotice, SequencedEvent } from '../../domain/shared/events.js';
+import type { Actor, FleetEventNotice, SequencedEvent } from '../../domain/shared/events.js';
 import type { DeliveryNotice } from '../../domain/shared/notifier.js';
 import type { Fleet } from '../../domain/registry/fleet.js';
 import type { Lease } from '../../domain/registry/lease.js';
@@ -604,7 +605,10 @@ const eventRowSchema = z.object({
   fleetId: idSchema('fleet'),
   type: eventTypeSchema,
   occurredAt: z.date(),
+  actorKind: z.enum(['ship', 'account', 'installation', 'system']),
   actorShipId: idSchema('ship').nullable(),
+  actorAccountId: accountIdSchema.nullable(),
+  actorThroughShipId: idSchema('ship').nullable(),
   shipId: idSchema('ship').nullable(),
   messageId: idSchema('message').nullable(),
   deliveryId: idSchema('delivery').nullable(),
@@ -614,14 +618,26 @@ const eventRowSchema = z.object({
 
 /** An event row as Prisma reads it; a missing subject stays absent, as the core wrote it. */
 export function toSequencedEvent(row: unknown): SequencedEvent {
-  const { actorShipId, shipId, messageId, deliveryId, ...event } = eventRowSchema.parse(row);
+  const { actorKind, actorShipId, actorAccountId, actorThroughShipId, shipId, messageId, deliveryId, ...event } = eventRowSchema.parse(row);
   return {
     ...event,
-    actor: actorShipId === null ? { kind: 'system' } : { kind: 'ship', shipId: actorShipId },
+    actor: actorOf({ actorKind, actorShipId, actorAccountId, actorThroughShipId }),
     ...(shipId === null ? {} : { shipId }),
     ...(messageId === null ? {} : { messageId }),
     ...(deliveryId === null ? {} : { deliveryId }),
   };
+}
+
+/** The actor an event's columns name; the table's check keeps them consistent (decision 0057). */
+function actorOf(columns: Pick<z.infer<typeof eventRowSchema>, 'actorKind' | 'actorShipId' | 'actorAccountId' | 'actorThroughShipId'>): Actor {
+  const { actorKind, actorShipId, actorAccountId, actorThroughShipId } = columns;
+  if (actorKind === 'ship' && actorShipId !== null) {
+    return { kind: 'ship', shipId: actorShipId };
+  }
+  if (actorKind === 'account' && actorAccountId !== null) {
+    return { kind: 'account', accountId: actorAccountId, throughShipId: actorThroughShipId };
+  }
+  return actorKind === 'installation' ? { kind: 'installation' } : { kind: 'system' };
 }
 
 const abandonedDeliverySqlRow = z.object({ id: idSchema('delivery'), message_id: idSchema('message'), created_at: z.date() });

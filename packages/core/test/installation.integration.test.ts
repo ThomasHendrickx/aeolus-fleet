@@ -103,9 +103,9 @@ async function seedTraffic({ fleetId, from, copies }: { fleetId: FleetId; from: 
   // analyzes a real fleet's tables as they grow.
   await database.$executeRaw`ANALYZE messages, deliveries`;
   await database.$executeRaw`
-    INSERT INTO events (id, fleet_id, type, occurred_at, actor_ship_id, ship_id, message_id, delivery_id, details, seq)
+    INSERT INTO events (id, fleet_id, type, occurred_at, actor_kind, actor_ship_id, ship_id, message_id, delivery_id, details, seq)
     SELECT 'evt_7zzz' || lpad((n * ${EVENTS_PER_MESSAGE} + e)::text, 22, '0'), m.fleet_id, 'MessageAccepted', m.created_at,
-           m.sender_ship_id, m.selector_ship_id, ${idOf('msg')}, ${idOf('dlv')}, '{}'::jsonb, 1000000 + n * ${EVENTS_PER_MESSAGE} + e
+           'ship', m.sender_ship_id, m.selector_ship_id, ${idOf('msg')}, ${idOf('dlv')}, '{}'::jsonb, 1000000 + n * ${EVENTS_PER_MESSAGE} + e
     FROM messages m, generate_series(1, ${copies}) AS n, generate_series(0, ${EVENTS_PER_MESSAGE - 1}) AS e
     WHERE m.fleet_id = ${fleetId} AND m.id = ${from}`;
 }

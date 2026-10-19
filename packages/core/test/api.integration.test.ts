@@ -233,6 +233,8 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_plugin_connections$/),
       expect.stringMatching(/^\d{14}_network_plugin_registered_at$/),
       expect.stringMatching(/^\d{14}_lease_waker$/),
+      expect.stringMatching(/^\d{14}_account_cut_offs$/),
+      expect.stringMatching(/^\d{14}_event_actors$/),
     ]);
   });
 });
