@@ -182,7 +182,7 @@ describe('what a commission may grant (decision 0046)', () => {
 
     const refused = await commissionShip(manager, { idempotencyKey: newKey(), name: 'deputy', type: 'squadron', scopes: ['fleet:manage', 'crew:run'] });
 
-    expect(refused).toMatchObject({ isOk: false, error: { kind: 'SCOPE_NOT_HELD', message: 'Your ship does not hold crew:run, so it cannot grant it' } });
+    expect(refused).toMatchObject({ isOk: false, error: { kind: 'SCOPE_NOT_HELD', message: 'You do not hold crew:run, so you cannot grant it' } });
     expect(shipsNamed('deputy')).toEqual([]);
     expect(core.state.events).toEqual([]);
   });
@@ -219,7 +219,7 @@ describe('what a commission may grant (decision 0046)', () => {
     expect(scopesOf('former')).toEqual(['messages:send', 'messages:receive', 'squadrons:form']);
   });
 
-  it('refuses a plugin scope from a ship that did not declare its namespace, naming the declarer, and stores nothing', async () => {
+  it('refuses a plugin scope from a ship that neither holds it nor declared its namespace, and stores nothing', async () => {
     const squadrons = await shipCommissionedByArgo('squadrons', ['scopes:declare']);
     unwrap(await registryUseCases(core).declareScopes(squadrons, { namespace: 'squadrons', scopes: [FORM] }));
     const manager = await shipCommissionedByArgo('manager', ['fleet:manage']);
@@ -228,7 +228,7 @@ describe('what a commission may grant (decision 0046)', () => {
 
     expect(refused).toMatchObject({
       isOk: false,
-      error: { kind: 'PLUGIN_SCOPE_NOT_YOURS', message: 'Only argo and squadrons, which declared squadrons, grant squadrons:form' },
+      error: { kind: 'SCOPE_NOT_HELD', message: 'You do not hold squadrons:form, so you cannot grant it' },
     });
     expect(shipsNamed('former')).toEqual([]);
   });

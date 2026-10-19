@@ -130,7 +130,6 @@ export type CommissionRefusal = DomainError<
   | 'INVALID_SCOPE'
   | 'SCOPE_NOT_DECLARED'
   | 'SCOPE_NOT_HELD'
-  | 'PLUGIN_SCOPE_NOT_YOURS'
   | 'INVALID_OWNER'
 >;
 
@@ -205,7 +204,7 @@ export function commissionShip(
     return refuse('SHIP_NAME_TAKEN', `An active ship is already named ${name.value}`);
   }
   const asked = input.scopes ?? [];
-  const granter = { shipId: input.commissioner.id, kind: input.commissioner.kind, scopes: input.commissioner.scopes };
+  const granter = { shipId: input.commissioner.id, isOperator: input.commissioner.kind === 'operator', scopes: input.commissioner.scopes };
   for (const scope of asked) {
     const allowed = mayGrant(scope, { granter, namespaces: fleet.namespaces });
     if (!allowed.isOk) {

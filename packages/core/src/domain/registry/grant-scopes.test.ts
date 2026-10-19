@@ -82,7 +82,7 @@ describe('granting scopes on a live ship (decision 0046)', () => {
     unwrap(await registry.grantScopes(argo, { shipId: scout.shipId, grant: ['fleet:manage'], revoke: [] }));
     core.state.events.length = 0;
 
-    expect(refusalOf(await registry.grantScopes(assistant, { shipId: scout.shipId, ...change }))).toMatchObject({ kind: 'SCOPE_NOT_HELD', message: 'Your ship does not hold fleet:manage, so it cannot grant it' });
+    expect(refusalOf(await registry.grantScopes(assistant, { shipId: scout.shipId, ...change }))).toMatchObject({ kind: 'SCOPE_NOT_HELD', message: 'You do not hold fleet:manage, so you cannot grant it' });
     expect(scopesOf(scout.shipId)).toEqual(['messages:send', 'messages:receive', 'fleet:manage']);
     expect(core.state.events).toEqual([]);
   });

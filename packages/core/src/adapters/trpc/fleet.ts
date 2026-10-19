@@ -514,7 +514,7 @@ export const fleetRouter = router({
     }),
 
   /** Grants and revokes scopes on a live ship, within what the caller's ship may grant (decision 0046). */
-  grantScopes: scopedProcedure('scopes:grant')
+  grantScopes: actorScopedProcedure('scopes:grant')
     .meta({
       description: [
         'Needs scopes:grant. Grants and revokes scopes on a live agent, person or app ship at once; its crew holds them from its next call.',
