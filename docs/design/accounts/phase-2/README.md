@@ -51,7 +51,7 @@ flowchart LR
   agent -- "any scope, same calls" --> fleet
 ```
 
-An account acts in a fleet with the scopes and `group` values its account token carries; a person ship exists only to message and to own. pagasae is no ship: it signs account tokens and acts as the installation. An agent ship can hold any scope and do every management job through the same calls. argo is the fail-safe.
+An account acts in a fleet with the scopes and `group` values its account token carries; a person ship exists only to message and to own, and owns itself. pagasae is no ship: it signs account tokens and acts as the installation. An agent ship can hold any scope and do every management job through the same calls. argo is the fail-safe.
 
 ## Round 3, rewritten for the actor model
 
@@ -106,13 +106,13 @@ Pick: (a).
 
 **4. Whom does the gateway ask about a pending request?** (was P7)
 
-What it is: a question goes to the asker's owner (0038); the gateway's owner is argo.
+What it is: a question goes to the asker's owner (0038). The gateway's owner was argo, so every approval would reach argo; by Thomas's rule, a message that reaches argo is a failing made visible, so ordinary approvals must not go there.
 
-Use case: Acme wants Mathilde asked about outside MCP clients, not whoever signs in as argo.
+Use case: Acme wants Mathilde asked about outside MCP clients.
 
-- (a) **The gateway's owner**, as every ship asks: argo, until an actor holding `fleet:owner` makes Mathilde's person ship the gateway's owner. Every actor holding the approving scope, the onboarding agent included, sees the list and may decide. Goes wrong: one person is asked; when Mathilde is away, the others must look.
+- (a) **The gateway's owner is a person ship**, named when the gateway is connected (`fleet:connect`) and changed with `fleet:owner`: Mathilde's. Every actor holding the approving scope, the onboarding agent included, sees the list and may decide. A request reaches argo only if the gateway was left with no owner but argo, which is then a failing argo shows. Goes wrong: one person is asked; when Mathilde is away, the others must look at the list.
 - (b) **A question to every holder of the approving scope.** Goes wrong: the gateway must find them all, accounts included, which core does not list; every other question withdrawn once one decides.
-- (c) **argo always, and the list.** Goes wrong: Mathilde is never told.
+- (c) **argo, and the list.** Goes wrong: ordinary work routed to argo, which Thomas's rule calls wrong.
 
 Pick: (a).
 

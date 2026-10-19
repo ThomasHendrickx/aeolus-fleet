@@ -238,7 +238,7 @@ Use case: pagasae is misconfigured and every account token lacks scopes. Acme's 
 
 Pick: (a).
 
-Decided (Thomas, round 4): (a). Thomas: argo is the fail-safe, the final level that catches all, so no faulty or missed state goes missing and there is always a way out: for a ship that does not know what to do, for a ship with no owner. That is not delivery: Aeolus's second promise holds that no message is ever lost and the operator is not the fail-safe for delivery. argo is the catch-all owner and the way out.
+Decided (Thomas, round 4): (a). Thomas: argo is the fail-safe, the final level that catches all, so no faulty or missed state goes missing and there is always a way out: for a ship that does not know what to do, for a ship with no owner. That is not delivery: Aeolus's second promise holds that no message is ever lost and the operator is not the fail-safe for delivery. argo is the catch-all owner and the way out. And: "a message that reaches argo is a failing of the system, but it is visible through argo." So argo is where a system failure becomes visible and where the way out is, never a normal path; a design that routes ordinary work to argo is wrong.
 
 **7. Who may own a ship** (0045)
 

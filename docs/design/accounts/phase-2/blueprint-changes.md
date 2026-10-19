@@ -8,7 +8,7 @@ Replace "Every caller is a ship, people, apps and outside parties included: "One
 
 > - Everything that sends or receives messages is a ship, people, apps and outside parties included: "One network to connect all." (0044, 0057)
 > - Every call is authorised for an actor (a ship, an account or the installation) by scopes and reach, and every event names that actor. An agent ship can hold any scope any actor holds, so an AI can manage the fleet (0057).
-> - Nothing is argo's alone: argo is the fail-safe, the final level that catches all and the way out, not the holder of jobs no one else may do (0053, 0057).
+> - Nothing is argo's alone. A message that reaches argo is a failing of the system, but it is visible through argo (Thomas): argo is where a system failure becomes visible and where the way out is, never a normal path; a design that routes ordinary work to argo is wrong (0053, 0057).
 
 ## v1 scope
 
@@ -30,7 +30,7 @@ Replace the opening "Aeolus has two kinds of users with equal standing: the huma
 >
 > | Forgotten password | argo's own sign-in only: a server command resets it and ends argo's console sign-in |
 >
-> | The fail-safe | argo is the final level that catches all: the owner of every ship with no other, the way out for a ship that does not know what to do, permanent, with reach that is never off. It is not part of the delivery guarantee: no message is ever lost by the fleet itself (0057) |
+> | The fail-safe | A message that reaches argo is a failing of the system, but it is visible through argo (Thomas). argo is where a system failure becomes visible and where the way out is, never a normal path: the owner of a ship with no other, the way out for a ship that does not know what to do, permanent, with reach that is never off. It is not part of the delivery guarantee: no message is ever lost by the fleet itself (0057) |
 
 Add after the viewer ship:
 

@@ -400,3 +400,4 @@ In 0050's terms: core's email and password are **argo's own sign-in**, a sign-in
 ### Raised by flow 2.5
 
 **20. How does an outside MCP client learn that it was approved? Decided: (a).** (G32) The gateway keeps the authorize request as pending and asks argo with a question (0038). The browser shows "waiting for approval" and goes on by itself if the answer comes while it is open; closed, the human at the client connects again and is answered at once. A deny ends the next try with `access_denied`. How long a pending request is kept is phase 2's.
+ **Restated by Thomas's rule on argo** ("a message that reaches argo is a failing of the system"): the question goes to the gateway's owner, a person ship, not to argo (phase 2, round 5, question 4).

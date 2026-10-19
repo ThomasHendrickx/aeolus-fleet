@@ -59,7 +59,7 @@ sequenceDiagram
       N->>C: the fleet's rules again, the declared ones in force
     end
     alt sales lets its accounts message, and Charlotte has no person ship there
-      P->>C: as the installation: commission her person ship, owner argo, messaging scopes, group=sales
+      P->>C: as the installation: commission her person ship, owning itself, messaging scopes, group=sales
       C-->>P: the person ship (ShipCommissioned, OwnerSet)
       P->>P: link the account to the person ship
     end
@@ -322,7 +322,7 @@ sequenceDiagram
   participant MC as Outside MCP client
   participant G as Gateway
   participant C as core (fleet)
-  actor A as The gateway's owner (argo or a person)
+  actor A as The gateway's owner (a person ship)
   actor M as Mathilde (holds the approving scope)
   R->>MC: add Acme's MCP address
   MC->>G: OAuth authorize request (in the human's browser)
