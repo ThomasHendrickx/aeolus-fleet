@@ -63,3 +63,113 @@ Phase 1 left five points to phase 2; working through the drafts raised four more
 | P7 | Whom the gateway asks besides argo | Its owner, as every ship asks (0038): argo until argo makes an admin's person ship the gateway's owner | 0056 |
 | P8 | How long a pending request is kept | 7 days, then it expires and the next try answers `access_denied` | 0056 |
 | P9 | The last organisation admin | Cannot be disabled or lose the right, as argo cannot be retired: an organisation never ends up unmanageable | 0051 |
+
+## Questions for Thomas
+
+One question per design point above, each with what it is, a use case, what goes wrong under each option, and a pick. The actors are Acme's: Mathilde (IT, organisation admin), Charlotte (sales), Thomas (engineering's team lead), Burak (who leaves), Priya (a contractor from Northwind).
+
+**1. How does pagasae act in a fleet? (P1)**
+
+What it is: an organisation's accounts and groups live in pagasae, but scopes, labels and leases live in core, per fleet. Whenever an admin changes an account or a group, something must change the person ships in core.
+
+Use case: Mathilde adds Charlotte to the group "sales". In Acme's fleet, Charlotte needs a person ship with sales' scopes and the label `group=sales`.
+
+- (a) **pagasae as a plugin ship of its own in each fleet**, connected when the fleet is created, holding the scopes groups may give. Every change is a ship's call with its event. Goes wrong: that ship holds every scope a group may give (all of them on a fleet pagasae created), so a breach of pagasae acts widely; its security is pagasae's sign-in.
+- (b) **Through the installation procedures, with the installation token.** Goes wrong: a caller that is not a ship, so the fleet's events name no acting ship; the installation, which knows fleets only (0020), learns person ships, scopes and labels; a self-hosted fleet needs the token set.
+- (c) **Through argo**: pagasae asks argo with a question for each change. Goes wrong: every change waits on a human, so a leaver is not out at once (J2).
+
+Pick: (a).
+
+**2. How does a group give reach? (P2)**
+
+What it is: reach comes from network rules, which select ships by labels or owner (0034). A group must turn into something rules can select.
+
+Use case: "engineering sends to engineering", and "sales sends to the CRM" (`crm=app`).
+
+- (a) **pagasae defines the label `group`**, one value per group, assigns it on person ships, and declares rules on it (0037); a rule joining a group to another label, such as sales to the CRM, is a rule in the networking plugin. Goes wrong: a label's limits cap the groups giving anything in one fleet at 50 and one account's at 20 (0031); a group's reach lives in two places (pagasae's declared rules, the networking plugin's).
+- (b) **A selector by group in network rules**: core learns groups. Goes wrong: core knows ships, not accounts; a second way to select beside labels.
+- (c) **Groups give scopes only**; argo or the networking plugin labels person ships by hand. Goes wrong: one human's rights change in two places, and the second is forgotten when Charlotte moves.
+
+Pick: (a).
+
+**3. May one account get rights of its own, beside its groups? (P3)**
+
+What it is: whether rights can sit on one account directly, or only on groups.
+
+Use case: Priya needs `fleet:commission` for her three months, which no other contractor has.
+
+- (a) **Only groups; a group of one** ("priya-commission"). Goes wrong: small groups pile up and count toward the 50 per fleet.
+- (b) **Rights on the account beside its groups.** Goes wrong: two places to look for what Priya may do; a group change does not show her real rights.
+
+Pick: (a).
+
+**4. What does a commission check? (P4)**
+
+What it is: a new ship has no labels and no reach yet, so "within manage reach" cannot be checked against it. Labels give reach, so the labels a commission gives decide how far the new ship reaches.
+
+Use case: Thomas commissions an agent for engineering. It should carry `group=engineering`, which pagasae defined, not Thomas. He must not be able to give it `group=finance`.
+
+- (a) **Only label values the commissioner defined or carries itself**, the scopes it holds, and itself as owner when it is a person ship. Thomas gives `group=engineering` because his ship carries it; `group=finance` is refused. Goes wrong: Thomas cannot label a ship for a team he is not in, even when asked to; someone who carries that label must commission it.
+- (b) **The new ship must fall within the commissioner's manage reach**, with its labels. Goes wrong: a rule check on a ship that does not exist, and Thomas needs a manage rule even for his own agent.
+- (c) **Only labels it defined, as today (0031).** Goes wrong: Thomas's agent cannot carry `group=engineering`, so it gets none of engineering's reach unless pagasae labels it, and pagasae labels only person ships.
+
+Pick: (a).
+
+**5. The names of the scopes that replace argo's alone jobs (P5)**
+
+What it is: 0053 turns each argo-only job into a scope, and each needs a name in the catalogue (0046).
+
+Use case: Mathilde grants Thomas the right to change an owner, so he can hand a leaver's agent to a colleague.
+
+- (a) **`fleet:person`** (commission a person ship), **`fleet:owner`** (change an owner), **`fleet:explain`** (explain reach, read refusals), **`fleet:connect`** (connect a plugin), **`labels:any`** (assign any label's values). Goes wrong: `fleet:person` may read as "a person's rights" rather than "commission a person ship".
+- (b) **Other names, in a note.**
+
+Pick: (a).
+
+**6. How does pagasae release what a leaver's person ship owns? (P6)**
+
+What it is: a trierarch's app ship is owned by its human's person ship (0055). When Burak is disabled, pagasae must release it, but pagasae did not commission it and cannot label it (0031).
+
+Use case: Burak's laptop runs a trierarch for three of Acme's agent ships. Mathilde disables Burak.
+
+- (a) **Widen `fleet:on-behalf`**: a plugin manages on behalf of a named ship within that ship's reach (today: reads only), and may name the asking ship itself as owner at commission. pagasae releases Burak's trierarch on behalf of his person ship, through the owner rule. Goes wrong: any plugin holding `fleet:on-behalf` can act with a named ship's reach; argo grants it only to plugins, but it is a wider right.
+- (b) **The trierarch plugin releases them** when pagasae tells it. Goes wrong: two plugins must coordinate, and the trierarch plugin learns accounts.
+- (c) **A label on trierarch ships pagasae can manage.** Goes wrong: only the definer assigns a label, on ships it commissioned (0031); the trierarch plugin commissions them.
+
+Pick: (a).
+
+**7. Whom does the gateway ask about a pending request? (P7)**
+
+What it is: a question goes to the asker's owner (0038). The gateway's owner is argo today, so every request would go to argo.
+
+Use case: Acme wants Mathilde asked about outside MCP clients, not whoever signs in as argo.
+
+- (a) **The gateway's owner**, as every ship asks: argo, until a ship holding `fleet:owner` makes Mathilde's person ship the gateway's owner. Everyone holding the approving scope also sees the list on the gateway's page. Goes wrong: one person is asked; when Mathilde is away, the others must look at the page.
+- (b) **A question to every holder of the approving scope.** Goes wrong: the gateway must find them all, and withdraw every other question once one decides.
+- (c) **argo always, and the page.** Goes wrong: Mathilde is never told; requests wait until someone looks.
+
+Pick: (a).
+
+**8. How long is a pending request kept? (P8)**
+
+What it is: an outside MCP client's request, or a person's request for an outside MCP server, waits for a human.
+
+Use case: a supplier's agent asks on Friday; Mathilde is away for a week.
+
+- (a) **7 days**, then it expires and the next try asks anew. Goes wrong: a week's holiday lets it expire, and the supplier connects again.
+- (b) **30 days.** Goes wrong: stale requests pile up, and a client waits a month for a no.
+- (c) **Never expire.** Goes wrong: the list only grows.
+
+Pick: (a).
+
+**9. The last organisation admin (P9)**
+
+What it is: organisation rights sit on the account (0051). If no account holds them, nobody can manage the organisation.
+
+Use case: Mathilde is Acme's only organisation admin, and she leaves.
+
+- (a) **The last organisation admin cannot be disabled or lose the right**: Mathilde first makes someone else an admin. Goes wrong: if she is gone without doing so, the installation admin must help.
+- (b) **Allowed; the installation admin restores an admin.** Goes wrong: Acme is unmanaged until then, and self-hosted the installation admin is the self-hoster.
+- (c) **Allowed; the argo of any fleet may make an admin.** Goes wrong: organisation power sits in every fleet's argo, which question 2 rejected.
+
+Pick: (a).
