@@ -164,15 +164,29 @@ export interface AccountTokenSignatures {
   verify(token: string): Promise<AccountTokenClaims | undefined>;
 }
 
+/** An account pagasae cut off (decision 0058): its tokens issued before `cutOffAt` are refused until `forgetAt`. */
+export interface AccountCutOff {
+  accountId: AccountId;
+  cutOffAt: Date;
+  forgetAt: Date;
+}
+
 /**
  * Outbound port: the accounts pagasae cut off (decision 0058), kept by the
  * installation for every fleet it hosts, each until the longest token it
- * refuses has ended.
+ * refuses has ended. Not scoped by fleet: an account's tokens go to several
+ * fleets, and the cut-off holds in each (ADR 0007, the installation).
  */
-export interface AccountCutOffLookup {
-  /** When the account was last cut off, while that cut-off is kept; undefined otherwise. */
-  cutOffAt(accountId: AccountId): Promise<Date | undefined>;
+export interface AccountCutOffRepository {
+  /** Keeps the cut-off; one kept for the account with a later cut-off stays as it was. */
+  record(cutOff: AccountCutOff): Promise<void>;
+  /** When the account was last cut off, while that cut-off is kept at `at`; undefined otherwise. */
+  cutOffAt(accountId: AccountId, at: Date): Promise<Date | undefined>;
+  /** Forgets every cut-off kept no longer than `at`. */
+  forget(at: Date): Promise<void>;
 }
+
+export type AccountCutOffLookup = Pick<AccountCutOffRepository, 'cutOffAt'>;
 
 /** Outbound port: whether this installation hosts a fleet, so a token for any other is refused. */
 export interface HostedFleets {

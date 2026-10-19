@@ -51,7 +51,7 @@ export function createAuthenticateAccount(deps: {
     if (life > ACCOUNT_TOKEN_LIFE_MS + ACCOUNT_TOKEN_CLOCK_ALLOWANCE_MS || claims.issuedAt.getTime() > now + ACCOUNT_TOKEN_CLOCK_ALLOWANCE_MS) {
       return refuseInvalid();
     }
-    const cutOffAt = await deps.cutOffs.cutOffAt(claims.accountId);
+    const cutOffAt = await deps.cutOffs.cutOffAt(claims.accountId, deps.clock.now());
     if (cutOffAt !== undefined && claims.issuedAt < cutOffAt) {
       return refuseInvalid();
     }
