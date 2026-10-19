@@ -1,11 +1,12 @@
-import type { ShipId } from '@aeolus-fleet/common';
+import { accountIdSchema, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { hostedFleetWithViewer, initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { refusalOf, unwrap } from '../../testing/result.js';
-import type { ShipCaller } from '../shared/caller.js';
+import { readReachScenario } from '../../../test/support/read-reach-scenario.js';
+import type { AccountCaller, ShipCaller } from '../shared/caller.js';
 
 let core: InMemoryCore;
 let registry: ReturnType<typeof registryUseCases>;
@@ -95,14 +96,32 @@ describe('granting scopes on a live ship (decision 0046)', () => {
     expect(scopesOf(scout.shipId)).toEqual(['messages:send', 'messages:receive', 'squadrons:form']);
   });
 
-  it("refuses a plugin's scope to any granter but argo and its declarer, even one that holds it", async () => {
+  it("lets a granter holding a plugin's scope grant it, not only argo and its declarer (decision 0053)", async () => {
     const assistant = await granter(['squadrons:form']);
 
-    expect(refusalOf(await registry.grantScopes(assistant, { shipId: scout.shipId, grant: ['squadrons:form'], revoke: [] }))).toMatchObject({
-      kind: 'PLUGIN_SCOPE_NOT_YOURS',
-      message: 'Only argo and squadrons, which declared squadrons, grant squadrons:form',
+    unwrap(await registry.grantScopes(assistant, { shipId: scout.shipId, grant: ['squadrons:form'], revoke: [] }));
+
+    expect(scopesOf(scout.shipId)).toEqual(['messages:send', 'messages:receive', 'squadrons:form']);
+  });
+
+  it("refuses a plugin's scope to a granter that neither holds it nor declared it", async () => {
+    const assistant = await granter([]);
+
+    expect(refusalOf(await registry.grantScopes(assistant, { shipId: scout.shipId, grant: ['squadrons:form'], revoke: [] }))).toEqual({
+      kind: 'SCOPE_NOT_HELD',
+      message: 'You do not hold squadrons:form, so you cannot grant it',
     });
     expect(scopesOf(scout.shipId)).toEqual(['messages:send', 'messages:receive']);
+  });
+
+  it('lets an account grant the scopes its token carries, the event naming the account', async () => {
+    const mathilde = accountIdSchema.parse('acc-mathilde');
+    const account: AccountCaller = { kind: 'account', accountId: mathilde, fleetId: argo.fleetId, scopes: ['scopes:grant', 'fleet:read'], groupValues: [], personShipId: null, throughShipId: null };
+
+    unwrap(await registry.grantScopes(account, { shipId: scout.shipId, grant: ['fleet:read'], revoke: [] }));
+
+    expect(scopesOf(scout.shipId)).toEqual(['messages:send', 'messages:receive', 'fleet:read']);
+    expect(core.state.events.map(({ actor }) => actor)).toEqual([{ kind: 'account', accountId: mathilde, throughShipId: null }]);
   });
 
   it.each([
@@ -148,5 +167,21 @@ describe('granting scopes on a live ship (decision 0046)', () => {
 
     expect(refusalOf(await registry.grantScopes(argo, { shipId: scout.shipId, grant: ['fleet:read'], revoke: [] }))).toMatchObject({ kind: 'SHIP_ALREADY_RETIRED' });
     expect(refusalOf(await registry.grantScopes(argo, { shipId: 'shp_01m56kz0000000000000000000', grant: ['fleet:read'], revoke: [] }))).toMatchObject({ kind: 'SHIP_NOT_FOUND' });
+  });
+});
+
+describe('granting on a ship outside the granter\'s manage reach (decision 0053)', () => {
+  it('is refused as a manage the rules do not allow, recording the refusal and changing nothing', async () => {
+    const fleet = await readReachScenario();
+    unwrap(await fleet.registry.setBuiltInRule(fleet.networking, { rule: 'open', verb: 'manage', isOn: false }));
+    fleet.core.state.reachRefusals.length = 0;
+    const granting: ShipCaller = { ...fleet.near, scopes: ['scopes:grant', 'fleet:read'] };
+
+    await expect(fleet.registry.grantScopes(granting, { shipId: fleet.far.shipId, grant: ['fleet:read'], revoke: [] })).resolves.toEqual({
+      isOk: false,
+      error: { kind: 'NOT_REACHABLE', message: 'The network rules do not allow this manage' },
+    });
+    expect(fleet.core.state.ships.find((ship) => ship.id === fleet.far.shipId)?.scopes).not.toContain('fleet:read');
+    expect(fleet.core.state.reachRefusals.map(({ verb }) => verb)).toEqual(['manage']);
   });
 });

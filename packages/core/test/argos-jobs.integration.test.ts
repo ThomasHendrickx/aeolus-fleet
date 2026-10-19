@@ -209,3 +209,13 @@ describe("turning the viewer's reading off (fleet:network)", () => {
     ]);
   });
 });
+
+describe('granting scopes on a live ship (scopes:grant)', () => {
+  it('is done by an account holding scopes:grant and the scope it grants, the event naming it', async () => {
+    const scout = await anAgentHolding([]);
+
+    await anAccountHolding(['scopes:grant', 'fleet:read']).fleet.grantScopes.mutate({ shipId: scout.shipId, grant: ['fleet:read'], revoke: [] });
+
+    await expect(lastEventAbout(scout.shipId, 'ScopesChanged')).resolves.toMatchObject({ actorKind: 'account', details: { added: 'fleet:read' } });
+  });
+});
