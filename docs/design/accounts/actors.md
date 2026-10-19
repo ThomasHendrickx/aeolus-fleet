@@ -187,6 +187,18 @@ Use case: Burak is disabled; his person ship and his laptop's trierarch must be 
 - (c) **pagasae acts for the organisation admin who asked**, with that admin's account token. Goes wrong: an admin must hold every scope these need, and a directory change has no admin.
 - (d) **pagasae is a plugin ship** (phase 2's P1). Rejected by Thomas.
 
+What stays the installation's alone under (a), each tested against A9:
+
+| Call | Who may call it | Why |
+| --- | --- | --- |
+| Release, commission, grant, labels in a fleet | Any actor holding the scope, within reach: an agent ship, an account, the installation | Fleet management: a scope (A9) |
+| Create, list, get and delete fleets | The installation | Above every fleet: no fleet holds the scope, and a ship lives in one fleet. A ship that could delete its own fleet would end the fleet it acts in. Managing an organisation's fleets from an agent is question 9 |
+| Sign-in tickets, ending console sign-ins as argo | The installation | Signing humans in, not managing: a ship never signs in as argo, and argo's scopes are open to a ship anyway |
+| Cutting off an account's tokens | pagasae, which issued them | Signing humans in: it undoes what only the issuer vouched for. An agent acts as its ship and needs no account token |
+| Limits, notices, the guide | The installation | The hosting service's own settings across fleets (0020, 0023, 0024), not a fleet's management |
+
+So no fleet management job is the installation's alone; what stays its alone is above the fleet or is signing humans in.
+
 Pick: (a).
 
 **5. How a rule reaches an account** (replaces P2 and P4)
@@ -208,7 +220,7 @@ What it is: argo holds every scope so a fleet can always act (0053); with accoun
 
 Use case: pagasae is misconfigured and every account token lacks scopes. Acme's fleet must still be put right.
 
-- (a) **argo stays the fleet's own actor and inbox**: a permanent ship with every scope, its built-in reach, its inbox for what argo owns, signed in by allowed accounts or argo's own sign-in. Events name argo and the account that signed in. Goes wrong: two ways to hold every scope (argo, and an account whose groups give all), so argo's reason must be kept by policy, not by structure. A9 holds: an agent ship may hold every scope too, as a ship commissioned with argo-like scopes does today.
+- (a) **argo stays the fleet's own actor and inbox**: a permanent ship with every scope, its built-in reach, its inbox for what argo owns, signed in by allowed accounts or argo's own sign-in. Events name argo and the account that signed in. Goes wrong: nothing; by A9 an agent ship or an account may hold every scope too, so holding everything is not what makes argo. What makes argo is what no other actor has: it is permanent, its reach is built in and never off, and it has a way in that depends on nothing (argo's own sign-in, self-hosted). That is A7 kept by structure. Hosted, argo's way in is pagasae's sign-in ticket, so a hosted fleet's recovery depends on pagasae and the installation admin.
 - (b) **argo becomes an account with every scope.** Goes wrong: recovery then depends on pagasae; a self-hosted fleet without pagasae has no argo; and the fleet's one holder of everything would be a human's, against A9's spirit.
 - (c) **argo is an inbox only**, and its rights go to accounts. Goes wrong: the same as (b), and argo-owned ships' questions go to an inbox nobody acts from.
 
