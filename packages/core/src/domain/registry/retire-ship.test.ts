@@ -334,6 +334,13 @@ describe('a retired owner (decision 0045)', () => {
     ]);
   });
 
+  it('keeps a person ship that owns itself as its own owner once retired, as a retired ship keeps the owner it had', async () => {
+    unwrap(await registry.retireShip(argo, { shipId: thomasId }));
+
+    expect(ownerOf(thomasId)).toBe(thomasId);
+    expect(eventsOfType('OwnerChanged').map((event) => event.shipId)).toEqual([scoutId, lookout.shipId]);
+  });
+
   it('leaves a retired ship it owned as it was', async () => {
     unwrap(await retireScout());
     core.state.events.length = 0;

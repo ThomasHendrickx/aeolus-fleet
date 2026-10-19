@@ -164,7 +164,7 @@ describe('what a commission may grant (decision 0046)', () => {
   }
 
   async function shipCommissionedByArgo(name: string, scopes: string[]): Promise<ShipCaller> {
-    const { shipId } = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name, type: 'squadron', scopes }));
+    const { shipId } = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name, type: 'squadron', scopes: ['fleet:commission', ...scopes] }));
     return { fleetId, shipId, kind: 'agent', scopes: [] };
   }
 
@@ -261,7 +261,7 @@ describe('the kind of a new ship', () => {
   }
 
   beforeEach(async () => {
-    unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'manager', type: 'squadron', scopes: ['fleet:manage'] }));
+    unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'manager', type: 'squadron', scopes: ['fleet:commission', 'fleet:manage'] }));
   });
 
   it('is an agent when the commission states none', async () => {
@@ -278,11 +278,31 @@ describe('the kind of a new ship', () => {
     expect(core.state.events.find((event) => event.type === 'ShipCommissioned' && event.shipId === commissioned.shipId)?.details).toMatchObject({ kind });
   });
 
-  it.each(['person', 'app'] as const)('refuses any other ship a %s ship, storing nothing', async (kind) => {
+  it.each([
+    ['person', 'Commissioning a person ship needs the fleet:person scope (decision 0053)'],
+    ['app', 'Commissioning an app ship needs the fleet:on-behalf scope (decision 0044)'],
+  ] as const)('refuses the kind %s to a ship without its scope, naming it, storing nothing', async (kind, message) => {
     const refused = await commissionShip(manager(), { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind });
 
-    expect(refused).toMatchObject({ isOk: false, error: { kind: 'KIND_COMMISSIONED_BY_ARGO_ONLY' } });
+    expect(refused).toEqual({ isOk: false, error: { kind: 'SCOPE_NOT_HELD', message } });
     expect(shipsNamed('thomas')).toEqual([]);
+  });
+
+  it('lets an agent ship holding fleet:person commission a person ship, as argo does (decision 0053)', async () => {
+    const { shipId } = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'enroller', type: 'enroller', scopes: ['fleet:commission', 'fleet:person'] }));
+
+    unwrap(await commissionShip({ ...argo, shipId, kind: 'agent' }, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person' }));
+
+    expect(shipsNamed('thomas')[0]?.kind).toBe('person');
+  });
+
+  it('refuses an agent ship to a ship without fleet:commission, storing nothing', async () => {
+    const { shipId } = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'enroller', type: 'enroller', scopes: ['fleet:person'] }));
+
+    const refused = await commissionShip({ ...argo, shipId, kind: 'agent' }, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' });
+
+    expect(refused).toEqual({ isOk: false, error: { kind: 'SCOPE_NOT_HELD', message: 'Commissioning an agent ship needs the fleet:commission scope (decision 0046)' } });
+    expect(shipsNamed('scout')).toEqual([]);
   });
 
   it('lets a ship with fleet:manage commission an agent ship by its kind', async () => {
@@ -301,7 +321,7 @@ describe('the kind of a new ship', () => {
 
 describe('the owner of a new ship (decision 0045)', () => {
   async function commissioned(caller: ShipCaller, name: string): Promise<ShipId> {
-    return unwrap(await commissionShip(caller, { idempotencyKey: newKey(), name, type: 'squadron', scopes: ['fleet:manage'] })).shipId;
+    return unwrap(await commissionShip(caller, { idempotencyKey: newKey(), name, type: 'squadron', scopes: ['fleet:commission', 'fleet:manage'] })).shipId;
   }
 
   function ownerSetOf(shipId: ShipId) {
@@ -340,6 +360,22 @@ describe('the owner of a new ship (decision 0045)', () => {
 
     expect(core.state.ships.find((ship) => ship.id === shipId)?.owner).toBe(argoId);
     expect(ownerSetOf(shipId)).toEqual([{ ownerShipId: argoId, how: 'inherited' }]);
+  });
+
+  it('is the person ship itself, for a person ship, with OwnerSet saying so (decision 0052)', async () => {
+    const { shipId } = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person' }));
+
+    expect(core.state.ships.find((ship) => ship.id === shipId)?.owner).toBe(shipId);
+    expect(ownerSetOf(shipId)).toEqual([{ ownerShipId: shipId, how: 'itself' }]);
+  });
+
+  it('is the commissioner itself when a person ship commissions it (decision 0045)', async () => {
+    const thomas = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person', scopes: ['fleet:commission'] })).shipId;
+
+    const shipId = unwrap(await commissionShip({ ...argo, shipId: thomas, kind: 'person' }, { idempotencyKey: newKey(), name: 'helper', type: 'helper' })).shipId;
+
+    expect(core.state.ships.find((ship) => ship.id === shipId)?.owner).toBe(thomas);
+    expect(ownerSetOf(shipId)).toEqual([{ ownerShipId: thomas, how: 'commissioner' }]);
   });
 
   it('writes OwnerSet once: a repeat of the commission sets nothing again', async () => {
@@ -487,16 +523,16 @@ describe('an app ship commissioned by the gateway, with the owner argo picked (d
 
     const refused = await commissionShip(commissioner, { idempotencyKey: newKey(), name: 'crm', type: 'crm', kind: 'app' });
 
-    expect(refused).toMatchObject({ isOk: false, error: { kind: 'KIND_COMMISSIONED_BY_ARGO_ONLY' } });
+    expect(refused).toMatchObject({ isOk: false, error: { kind: 'SCOPE_NOT_HELD' } });
     expect(shipsNamed('crm')).toEqual([]);
   });
 
-  it('refuses a person ship from the gateway: only argo commissions a person ship', async () => {
+  it('refuses a person ship from the gateway, which does not hold fleet:person', async () => {
     const gateway = await theGateway();
 
     const refused = await commissionShip(gateway, { idempotencyKey: newKey(), name: 'charlotte', type: 'person', kind: 'person', owner: thomas });
 
-    expect(refused).toMatchObject({ isOk: false, error: { kind: 'KIND_COMMISSIONED_BY_ARGO_ONLY' } });
+    expect(refused).toMatchObject({ isOk: false, error: { kind: 'SCOPE_NOT_HELD', message: 'Commissioning a person ship needs the fleet:person scope (decision 0053)' } });
     expect(shipsNamed('charlotte')).toEqual([]);
   });
 
@@ -698,7 +734,7 @@ describe('a commission that comes again', () => {
   });
 
   it("keeps each commissioning ship's keys apart: another ship's same key commissions a new ship", async () => {
-    unwrap(await commissionShip(argo, { name: 'manager', type: 'squadron', scopes: ['fleet:manage'], idempotencyKey: 'commission-manager' }));
+    unwrap(await commissionShip(argo, { name: 'manager', type: 'squadron', scopes: ['fleet:commission', 'fleet:manage'], idempotencyKey: 'commission-manager' }));
     const manager = { ...argo, shipId: shipsNamed('manager')[0]?.id ?? argo.shipId, kind: 'agent' as const };
     unwrap(await commissionShip(argo, scout));
 
