@@ -51,6 +51,8 @@ Thomas decided, after reading the first version of this design:
 3. Entra and Google are outside management that plugs in later: the organisation connects its directory. They are not the foundation.
 4. So, before Google sign-in is ready, people sign in at the gateway with the organisation's own accounts.
 
+Then, on where it lives: "an organisation manages the user accounts within the whole. Pagasae is the account management unit." The organisation and its accounts live in pagasae, signing in by email as pagasae's sign-in links already do; the gateway signs people in through those accounts until an outside directory is connected; core keeps ships, scopes and owners. This decides question 2 and raises question 25: pagasae today serves hosted Aeolus only.
+
 Where the organisation sits among every other concept, and the gaps it answers or raises, is in [`domain-model.md`](domain-model.md). The questions in part 3 are the revised list.
 
 ### 1.4 The jobs
@@ -163,11 +165,11 @@ The first list had 14 questions. Organisation answers some, changes most, and ra
 | 9 Who comes in | Changed: 14 | The organisation's accounts, not the directory, decide |
 | 10 A leaver | Changed: 15 | The organisation disables the account |
 | 11 argo signing in at the gateway | Answered; what is left is 13 | The organisation's own accounts are the way in without an outside IdP (Thomas, point 2) |
-| 12 Where accounts live | Moot as asked; becomes 2 | Accounts live where the organisation lives |
+| 12 Where accounts live | Decided: 2 | In pagasae, with the organisation (Thomas) |
 | 13 A person from another organisation | Stands: 18 | Now also one human in two organisations |
 | 14 The words "account" and "owner" | Changed: 20 | "Account" now has its home; "owner", "session", "connect" and "role" remain |
 
-Questions 1 to 4 decide the shape; the rest wait on them, and their picks assume mine on 1 to 4.
+Questions 1, 3 and 4 decide the shape with question 2, which Thomas decided, and question 25, which it raises. The rest wait on them, and their picks assume mine.
 
 ### The shape
 
@@ -183,17 +185,9 @@ Options:
 
 Pick: (a). One model for every caller in a fleet, and the organisation gets the humans it manages. (b) gives a fleet two answers to "may this caller do that", which 0022 rejected. (c) cannot manage humans without a fleet, against Thomas's point 2.
 
-**2. Where does the organisation live: core, pagasae, or a component of its own?** (G8, G24, G25, G28)
+**2. Where does the organisation live?** (G8, G24, G25, G28) **Decided by Thomas: pagasae**, "the account management unit".
 
-Context: core is the fleet server, its API and argo's console, "nothing more" (0043), and the fleet is its tenant (0007). pagasae already keeps accounts outside core and signs them in to the console with a one-use ticket (0020), but it is private and hosted only. Organisation management must work self-hosted, without the gateway (Thomas, point 2).
-
-Options:
-
-- (a) **Core**: the organisation above the fleet in core's own store; core signs accounts in.
-- (b) **pagasae**: the hosted account app grows into it.
-- (c) **A component of its own**, open source like core, beside it as squadrons and the gateway are: it holds the organisation, its accounts, their sign-in and later the connected directory, and signs an account in to a fleet as a ship, as pagasae does today with tickets. pagasae then runs it for hosted Aeolus.
-
-Pick: (c). It keeps core's surface and tenancy as decided (0043, 0007), works self-hosted (unlike (b)), and generalises a pattern that already works: accounts outside, a ticket in, the ship inside. Its cost is one more process for a self-hoster, and its own release train (0049). (a) is the simpler install, at the price of reopening 0043 and 0007; it is the choice if Thomas weighs one process over core's surface.
+The options it chose from: (a) core, above the fleet; (b) pagasae; (c) a component of its own. My pick was (c), a component generalising pagasae's pattern; Thomas's (b) is that pattern in the component that already has it. pagasae holds the organisation, its accounts and their email sign-in, and later the connected directory. It signs an account in to a fleet as a ship with a one-use ticket, as it signs the operator in today (0020), and it is the identity provider the gateway signs people in with (question 11). Core keeps ships, scopes and owners, and its tenant stays the fleet (0007). What a self-hosted fleet uses is question 25.
 
 **3. One organisation with several fleets?** (G25, G26, G28)
 
@@ -259,13 +253,9 @@ Pick: (a). (c) is the path consent phishing abuses (part 2.2).
 
 ### Signing in
 
-**10. How do the organisation's own accounts sign in?** (G1, G13)
+**10. How do the organisation's own accounts sign in?** (G1, G13) **Answered by Thomas's lead: by email**, as pagasae's sign-in links do.
 
-Context: today core signs the operator in with email and password (0012), and pagasae with an email link. Thomas's point 2: it works with no outside IdP.
-
-Options: (a) email and password, and email link, as exist today; (b) email link only; (c) passkeys from the start.
-
-Pick: (a). Both are built and known; passkeys can come later without changing the model.
+The options were: (a) email and password, and email link; (b) email link only; (c) passkeys from the start. With (b), core's password sign-in for the operator goes with the operator account (questions 13 and 25), and a self-hoster needs a way to send mail (question 25). Passkeys can come later without changing the model.
 
 **11. How does the gateway sign people in?** (G13, G27)
 
@@ -273,11 +263,11 @@ Context: the gateway keeps one identity provider per fleet today (`IdentityProvi
 
 Options:
 
-- (a) **The organisation is the gateway's one identity provider** (OIDC): the gateway always federates to the organisation, and the organisation federates to Entra or Google once it connects its directory (17).
-- (b) **The gateway reads accounts** from the organisation directly.
-- (c) **The gateway federates to each directory** itself, as I-4 has it, and to the organisation for the rest.
+- (a) **pagasae is the gateway's one identity provider** (OIDC): the gateway always federates to pagasae, and pagasae federates to Entra or Google once the organisation connects its directory (17).
+- (b) **The gateway reads accounts** from pagasae directly.
+- (c) **The gateway federates to each directory** itself, as I-4 has it, and to pagasae for the rest.
 
-Pick: (a). One path for the gateway whatever the organisation connects; the directory sits with the organisation, which owns its humans. It changes I-4's "the gateway's OAuth server federates to the company IdP" to "through the organisation", and the gateway's `IdentityProvider` moves out.
+Pick: (a). It is Thomas's lead ("the gateway signs people in through those accounts until an outside directory is connected"), and it gives the gateway one path whatever the organisation connects. It changes I-4's "the gateway's OAuth server federates to the company IdP" to "through pagasae", and the gateway's `IdentityProvider` moves to pagasae.
 
 **12. How does the one address find the fleet?** (G12)
 
@@ -285,7 +275,7 @@ Context: Thomas decided one address for all fleets. The gateway's code serves on
 
 Options:
 
-- (a) **Sign in, find the organisation from the account, then the fleet**: straight in when the account has a person ship in one fleet; a choice among them when several. The token names the fleet it was issued for.
+- (a) **Sign in through pagasae, find the organisation from the account, then the fleet**: straight in when the account has a person ship in one fleet; a choice among them when several. The token names the fleet it was issued for.
 - (b) **Keep an endpoint per fleet** behind the one address, reached by a redirect after sign-in.
 - (c) **The person names the fleet.**
 
@@ -297,7 +287,7 @@ Context: the operator account is the fleet's one human, and argo has one console
 
 Options:
 
-- (a) **An account given the right to crew argo of a fleet**, by the organisation's admins (4). The operator account folds in. Still one console session at a time; the session names its account.
+- (a) **An account given the right to crew argo of a fleet**, by the organisation's admins (4), signed in by a ticket from pagasae, as a hosted operator is today. The operator account folds in. Still one console session at a time; the session names its account.
 - (b) **The operator account stays per fleet**, apart from the organisation's accounts.
 
 Pick: (a). One kind of human account, and argo's way in stays independent of any outside IdP through the organisation's own sign-in (J5). Since several accounts may hold it, the session naming its account says who acted as argo (G9).
@@ -320,7 +310,7 @@ Pick: (a). Access ends where the organisation ends it; ships and what they own s
 
 ### Hosted, directories and outside people
 
-**16. The pagasae account and the organisation's account?** (G14, G21, G28)
+**16. What becomes of the pagasae account?** (G14, G21, G28) Thomas's lead answers the home; what is left is how sign-up works.
 
 Context: a pagasae account is one email, one fleet, its operator; its email is kept again in core's operator account (G14).
 
@@ -329,7 +319,7 @@ Options:
 - (a) **Sign-up creates the organisation and its first account**, which administers it and may crew argo of its first fleet. pagasae keeps only what is hosted: the terms accepted, updates opt-in, the hosting service's own pages.
 - (b) **pagasae stays the account store** for hosted organisations.
 
-Pick: (a). One account per human, hosted or not. A self-hosted server command creates the organisation and its first account the same way.
+Pick: (a). One account per human, kept once, in pagasae. A self-hosted pagasae creates the organisation and its first account the same way (question 25).
 
 **17. A connected directory, later: beside the own sign-in, or instead?** (G13, G27)
 
@@ -393,3 +383,18 @@ Context: questions go to the owner's ship (0038); the console's questions UI is 
 Options: (a) a person's own app or chat, or the gateway's person tools (interop slice 3), shows their questions; notices and the guide stay argo's console's; (b) a person page in core.
 
 Pick: (a). Core keeps its surface (0043).
+
+### Raised by pagasae as the account management unit
+
+**25. What does a self-hosted fleet use for its organisation and accounts?** (G21, G28, G31)
+
+Context: pagasae is private (its README opens "Private") and hosted only: one account, one fleet, the early-access terms, the demo, the owner's pages for every fleet, mail through Resend. A self-hosted fleet today has no pagasae: a server command creates the fleet, argo and the operator account, who signs in to core with email and password (0012), and core has no installation procedures without a token (0020). Thomas's point 2 asks organisation management to work on its own, and Thomas's lead puts it in pagasae.
+
+Options:
+
+- (a) **pagasae is a component self-hosters run too.** It is published (its licence and visibility are Thomas's, 0049), its hosted parts (terms, updates opt-in, the demo, the owner's pages) are off unless configured, and it drives the self-hosted core through the installation procedures with its token, as it drives hosted core. Its sign-in mails links through a provider the self-hoster sets; without one, the link goes to the log, as it does locally today. Core's password sign-in and the server command that creates the operator go.
+- (b) **Self-hosted keeps core's operator account**, with no organisation: organisation management only for hosted fleets.
+- (c) **Core keeps a small organisation of its own** for self-hosted fleets, and pagasae for hosted ones.
+- (d) **Self-hosted fleets use the hosted pagasae** for their accounts.
+
+Pick: (a). One model hosted and self-hosted, in the component Thomas named, and core stays the fleet. Its costs: pagasae opens up and splits its hosted parts behind configuration; a self-hoster runs one more process and needs mail for sign-in; 0012's password sign-in and 0020's "a self-hosted server has none of them" change. (b) fails point 2 for every self-hoster. (c) gives accounts two homes and two models. (d) makes a self-hosted fleet depend on the hosting service for every sign-in, and its people's emails leave the self-hoster.
