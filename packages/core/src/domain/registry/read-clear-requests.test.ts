@@ -7,13 +7,13 @@ import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-
 import { newKey } from '../../testing/keys.js';
 import { readReachScenario } from '../../../test/support/read-reach-scenario.js';
 import { unwrap } from '../../testing/result.js';
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 
 let core: InMemoryCore;
 let registry: ReturnType<typeof registryUseCases>;
-let argo: Caller;
-let macMini: Caller;
-let macStudio: Caller;
+let argo: ShipCaller;
+let macMini: ShipCaller;
+let macStudio: ShipCaller;
 let scoutId: ShipId;
 
 beforeEach(async () => {

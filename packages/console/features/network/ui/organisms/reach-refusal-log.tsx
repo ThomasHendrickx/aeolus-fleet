@@ -1,7 +1,7 @@
 import type { ReachRefusal } from '@aeolus-fleet/common';
 
 import { chipsOf, type LabelContext } from '../../../../lib/labels';
-import { refusalCauseOf, refusalSentenceOf } from '../../services/reach-refusals';
+import { refusalCauseOf, refusalSentenceOf, refusedActorName } from '../../services/reach-refusals';
 import { fullDateTime, relativeTime } from '../../../../lib/relative-time';
 import { EmptyState } from '../../../../components/molecules/empty-state';
 import { InlineError } from '../../../../components/molecules/inline-error';
@@ -20,7 +20,11 @@ export interface ReachRefusalLogProps {
   now: Date;
 }
 
-type RefusedShip = ReachRefusal['sender'];
+/** A ship or an account of a refusal: its name and the labels it carried then. */
+interface RefusedParty {
+  name: string;
+  labels: Extract<ReachRefusal['recipient'], { kind: 'ship' }>['ship']['labels'];
+}
 
 /**
  * The reach refusals log on Network (design point 7 on #260; decision 0034):
@@ -74,7 +78,7 @@ function Refusal({ refusal, context, now }: { refusal: ReachRefusal; context: La
         </time>
       </div>
       <dl className="flex flex-col gap-1.5">
-        <ShipLabelsThen side="From" ship={refusal.sender} context={context} />
+        <ShipLabelsThen side="From" ship={{ name: refusedActorName(refusal.sender), labels: refusal.sender.kind === 'installation' ? [] : refusal.sender.labels }} context={context} />
         {recipientShips.map((ship) => (
           <ShipLabelsThen key={ship.id} side="To" ship={ship} context={context} />
         ))}
@@ -84,8 +88,8 @@ function Refusal({ refusal, context, now }: { refusal: ReachRefusal; context: La
   );
 }
 
-/** One ship of a refusal and the labels it carried then; "No labels" without any. */
-function ShipLabelsThen({ side, ship, context }: { side: 'From' | 'To'; ship: RefusedShip; context: LabelContext }) {
+/** One party of a refusal and the labels it carried then; "No labels" without any. */
+function ShipLabelsThen({ side, ship, context }: { side: 'From' | 'To'; ship: RefusedParty; context: LabelContext }) {
   const chips = chipsOf(ship, context);
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">

@@ -1,12 +1,12 @@
 import type { LabelId, LabelValueId } from '@aeolus-fleet/common';
 
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
 import type { FleetListing } from './ports.js';
 
 export type FindLabelValue = (
-  caller: Caller,
+  caller: ShipCaller,
   input: { key: string; value: string },
 ) => Promise<Result<{ labelId: LabelId; valueId: LabelValueId }, DomainError<'LABEL_VALUE_NOT_FOUND'>>>;
 

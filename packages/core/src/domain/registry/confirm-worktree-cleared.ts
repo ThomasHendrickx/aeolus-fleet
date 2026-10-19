@@ -1,6 +1,6 @@
 import type { ClearOutcome, IdGenerator, ShipId } from '@aeolus-fleet/common';
 
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, shipActor, type EventLog } from '../shared/events.js';
@@ -18,7 +18,7 @@ export interface ConfirmWorktreeClearedTx {
 export type ConfirmWorktreeClearedUseCaseRefusal = DomainError<'SHIP_NOT_FOUND'> | ConfirmWorktreeClearedRefusal;
 
 export type ConfirmWorktreeCleared = (
-  caller: Caller,
+  caller: ShipCaller,
   input: { shipId: ShipId; repository: string; outcome: ClearOutcome },
 ) => Promise<Result<undefined, ConfirmWorktreeClearedUseCaseRefusal>>;
 

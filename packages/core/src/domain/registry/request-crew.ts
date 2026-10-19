@@ -1,6 +1,6 @@
 import type { IdGenerator, LabelValueId, ShipId } from '@aeolus-fleet/common';
 
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, shipActor, type EventLog } from '../shared/events.js';
@@ -14,12 +14,12 @@ import type { JsonObject } from './report-details.js';
 export interface RequestCrewTx extends Omit<CheckManageTx, 'ships' | 'labels'> {
   ships: Pick<ShipRepository, 'find' | 'findForUpdate'>;
   crewRequests: CrewRequestRepository;
-  labels: Pick<LabelRepository, 'findByValueForShare' | 'carriedBy' | 'find'>;
+  labels: Pick<LabelRepository, 'findByValueForShare' | 'carriedBy' | 'find' | 'findByKey'>;
   events: EventLog;
 }
 
 export type RequestCrew = (
-  caller: Caller,
+  caller: ShipCaller,
   input: { shipId: ShipId; settings: JsonObject },
 ) => Promise<Result<{ settingsVersion: number }, DomainError<'SHIP_NOT_FOUND'> | NotReachable | RequestCrewRefusal>>;
 
@@ -39,7 +39,7 @@ export function createRequestCrew(deps: { uow: UnitOfWork<RequestCrewTx>; clock:
       if (!ship) {
         return refuse('SHIP_NOT_FOUND', `Ship ${input.shipId} does not exist`);
       }
-      const managed = await checkManage({ tx, ids: deps.ids }, { fleetId: caller.fleetId, managerShipId: caller.shipId, shipId: ship.id, at: deps.clock.now() });
+      const managed = await checkManage({ tx, ids: deps.ids }, { manager: caller, shipId: ship.id, at: deps.clock.now() });
       if (!managed.isOk) {
         return managed;
       }

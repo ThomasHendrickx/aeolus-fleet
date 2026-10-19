@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { idSchema } from '../ids/index.js';
+import { accountIdSchema } from './account-token.js';
 import { OPERATOR_EMAIL_MAX_LENGTH } from './console.js';
 import { healthOutputSchema } from './health.js';
 import { idempotencyKeySchema } from './idempotency-key.js';
@@ -118,3 +119,11 @@ export const installationFleetsSetLimitsInputSchema = z.strictObject({
   ships: fleetLimitSettingSchema.optional(),
   dailyMessages: fleetLimitSettingSchema.optional(),
 });
+
+/**
+ * Input of `installation.accounts.cutOff`: the account pagasae disabled, by
+ * its id only; every token of it issued before now is refused in every
+ * fleet of the installation until the longest has ended (decision 0058).
+ */
+export const installationAccountsCutOffInputSchema = z.strictObject({ accountId: accountIdSchema });
+export const installationAccountsCutOffOutputSchema = z.strictObject({});

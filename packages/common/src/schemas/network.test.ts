@@ -119,10 +119,10 @@ describe('setNetworkRulesInputSchema', () => {
 });
 
 describe('the built-in rules (decision 0034)', () => {
-  it("are argo, the owner, the answer, a connected plugin's reading, the viewer reading and open, the first four never off", () => {
+  it("are argo, the owner, the answer, a connected plugin's reading, the viewer reading, the installation's managing and open, all but the viewer reading and open never off", () => {
     expect([BUILT_IN_RULES, FIXED_BUILT_IN_RULES]).toEqual([
-      ['argo', 'owner', 'answer', 'pluginRead', 'viewerRead', 'open'],
-      ['argo', 'owner', 'answer', 'pluginRead'],
+      ['argo', 'owner', 'answer', 'pluginRead', 'viewerRead', 'installation', 'open'],
+      ['argo', 'owner', 'answer', 'pluginRead', 'installation'],
     ]);
   });
 });
@@ -132,7 +132,7 @@ describe('setBuiltInRuleInputSchema', () => {
     expect(setBuiltInRuleInputSchema.parse({ rule: 'open', verb, isOn: false })).toEqual({ rule: 'open', verb, isOn: false });
   });
 
-  it.each(['argo', 'owner', 'answer', 'pluginRead', 'viewerRead'])('takes every other built-in rule without a verb, the server refusing the fixed ones: %s', (rule) => {
+  it.each(['argo', 'owner', 'answer', 'pluginRead', 'viewerRead', 'installation'])('takes every other built-in rule without a verb, the server refusing the fixed ones: %s', (rule) => {
     expect(setBuiltInRuleInputSchema.parse({ rule, isOn: true })).toEqual({ rule, isOn: true });
   });
 
@@ -155,7 +155,7 @@ describe('reachRefusalsOutputSchema', () => {
     const refusal = {
       id: newId('reachRefusal'),
       at: '2026-10-09T19:00:00.000Z',
-      sender: { id: newId('ship'), name: 'planner', labels: [carried], owner: { id: newId('ship'), name: 'thomas' } },
+      sender: { kind: 'ship', id: newId('ship'), name: 'planner', labels: [carried], owner: { id: newId('ship'), name: 'thomas' } },
       askedBy: null,
       recipient: { kind: 'ship', ship: { id: newId('ship'), name: 'vault', labels: [], owner: null } },
       verb: 'send',
@@ -170,7 +170,7 @@ describe('reachRefusalsOutputSchema', () => {
     const refusal = {
       id: newId('reachRefusal'),
       at: '2026-10-09T19:00:00.000Z',
-      sender: { id: newId('ship'), name: 'planner', labels: [], owner: null },
+      sender: { kind: 'ship', id: newId('ship'), name: 'planner', labels: [], owner: null },
       askedBy: null,
       recipient: { kind: 'type', type: 'keeper', ships: [{ id: newId('ship'), name: 'vault', labels: [], owner: null }] },
       verb: 'send',
@@ -185,7 +185,7 @@ describe('reachRefusalsOutputSchema', () => {
     const refusal = {
       id: newId('reachRefusal'),
       at: '2026-10-10T08:00:00.000Z',
-      sender: { id: newId('ship'), name: 'planner', labels: [], owner: null },
+      sender: { kind: 'ship', id: newId('ship'), name: 'planner', labels: [], owner: null },
       askedBy: null,
       recipient: { kind: 'ship', ship: { id: newId('ship'), name: 'vault', labels: [], owner: null } },
       verb: 'send',
@@ -200,7 +200,7 @@ describe('reachRefusalsOutputSchema', () => {
     const refusal = {
       id: newId('reachRefusal'),
       at: '2026-10-09T19:00:00.000Z',
-      sender: { id: newId('ship'), name: 'planner', labels: [] },
+      sender: { kind: 'ship', id: newId('ship'), name: 'planner', labels: [] },
       askedBy: null,
       recipient: { kind: 'ship', ship: { id: newId('ship'), name: 'vault', labels: [], owner: null } },
       verb: 'send',
@@ -211,11 +211,57 @@ describe('reachRefusalsOutputSchema', () => {
     expect(reachRefusalsOutputSchema.safeParse([refusal]).success).toBe(false);
   });
 
+  it('answers an account refused by reach by its id only, with the group values it carried and its person ship then (decision 0057)', () => {
+    const group = { labelId: newId('label'), key: 'group', valueId: newId('labelValue'), value: 'engineering' };
+    const refusal = {
+      id: newId('reachRefusal'),
+      at: '2026-10-19T19:00:00.000Z',
+      sender: { kind: 'account', accountId: 'acc-mathilde', labels: [group], personShip: null },
+      askedBy: null,
+      recipient: { kind: 'ship', ship: { id: newId('ship'), name: 'vault', labels: [], owner: null } },
+      verb: 'manage',
+      settingsVersion: 2,
+      whilePluginUnavailable: null,
+    };
+
+    expect(reachRefusalsOutputSchema.parse([refusal])).toEqual([refusal]);
+  });
+
+  it('answers the installation refused by reach', () => {
+    const refusal = {
+      id: newId('reachRefusal'),
+      at: '2026-10-19T19:00:00.000Z',
+      sender: { kind: 'installation' },
+      askedBy: null,
+      recipient: { kind: 'ship', ship: { id: newId('ship'), name: 'vault', labels: [], owner: null } },
+      verb: 'manage',
+      settingsVersion: 2,
+      whilePluginUnavailable: null,
+    };
+
+    expect(reachRefusalsOutputSchema.parse([refusal])).toEqual([refusal]);
+  });
+
+  it('never answers an email for an account, even one handed to it', () => {
+    const refusal = {
+      id: newId('reachRefusal'),
+      at: '2026-10-19T19:00:00.000Z',
+      sender: { kind: 'account', accountId: 'acc-mathilde', email: 'mathilde@acme.example', labels: [], personShip: null },
+      askedBy: null,
+      recipient: { kind: 'ship', ship: { id: newId('ship'), name: 'vault', labels: [], owner: null } },
+      verb: 'manage',
+      settingsVersion: 2,
+      whilePluginUnavailable: null,
+    };
+
+    expect(reachRefusalsOutputSchema.parse([refusal])[0]?.sender).not.toHaveProperty('email');
+  });
+
   it('refuses open-all as what refused it: open-all refuses nothing', () => {
     const refusal = {
       id: newId('reachRefusal'),
       at: '2026-10-10T08:00:00.000Z',
-      sender: { id: newId('ship'), name: 'planner', labels: [], owner: null },
+      sender: { kind: 'ship', id: newId('ship'), name: 'planner', labels: [], owner: null },
       askedBy: null,
       recipient: { kind: 'ship', ship: { id: newId('ship'), name: 'vault', labels: [], owner: null } },
       verb: 'send',

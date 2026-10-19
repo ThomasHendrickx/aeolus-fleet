@@ -11,7 +11,7 @@ import {
 } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../testing/result.js';
-import type { Caller, Crew } from '../shared/caller.js';
+import type { ShipCaller, Crew } from '../shared/caller.js';
 import type { Selector } from '../shared/selector.js';
 import { UNDELIVERABLE_AT_ATTEMPT } from './delivery.js';
 import { newKey } from '../../testing/keys.js';
@@ -21,7 +21,7 @@ import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 let core: InMemoryCore;
 let useCases: ReturnType<typeof messagingUseCases>;
 let fleetId: FleetId;
-let argo: Caller;
+let argo: ShipCaller;
 let scoutId: ShipId;
 let scout: Crew;
 

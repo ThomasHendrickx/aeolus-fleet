@@ -1,6 +1,6 @@
 import { CORE_NAMESPACES, CORE_SCOPE_DESCRIPTIONS, SCOPES, type ShipId } from '@aeolus-fleet/common';
 
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import type { ScopeNamespaceRepository, ShipRepository } from './ports.js';
 import type { DeclaredScope } from './scope-namespace.js';
 
@@ -11,7 +11,7 @@ export interface ListedNamespace {
   scopes: readonly DeclaredScope[];
 }
 
-export type ListScopes = (caller: Caller) => Promise<ListedNamespace[]>;
+export type ListScopes = (caller: ShipCaller) => Promise<ListedNamespace[]>;
 
 /**
  * Use case: every namespace of the caller's fleet (decision 0046): the core

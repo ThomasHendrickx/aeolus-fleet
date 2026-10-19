@@ -1,5 +1,5 @@
 import { refuseEndedLease, type LeaseEnded } from '../registry/public.js';
-import type { Caller, Crew } from '../shared/caller.js';
+import type { ShipCaller, Crew } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
@@ -9,7 +9,7 @@ import type { CallerLookup } from './ports.js';
 
 export interface ConsoleSessionUse {
   /** argo, crewed under the lease the session holds, or the viewer ship, holding none. */
-  caller: Caller | Crew;
+  caller: ShipCaller | Crew;
   /** The session's new expiry: its idle limit after this use, never past the moment it ends by. */
   expiresAt: Date;
 }

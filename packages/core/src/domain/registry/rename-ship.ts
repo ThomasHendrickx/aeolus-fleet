@@ -1,9 +1,9 @@
 import type { IdGenerator, ShipId } from '@aeolus-fleet/common';
 
-import type { Caller } from '../shared/caller.js';
+import { actorOf, type Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
-import { recordEvent, shipActor, type EventLog } from '../shared/events.js';
+import { recordEvent, type EventLog } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { checkManage, keepingReachRefusal, type CheckManageTx, type NotReachable } from './check-reach.js';
@@ -38,7 +38,7 @@ export function createRenameShip(deps: { uow: UnitOfWork<RenameShipTx>; clock: C
       if (!ship) {
         return refuse('SHIP_NOT_FOUND', `Ship ${input.shipId} does not exist`);
       }
-      const managed = await checkManage({ tx, ids: deps.ids }, { fleetId, managerShipId: caller.shipId, shipId: ship.id, at: deps.clock.now() });
+      const managed = await checkManage({ tx, ids: deps.ids }, { manager: caller, shipId: ship.id, at: deps.clock.now() });
       if (!managed.isOk) {
         return managed;
       }
@@ -46,7 +46,7 @@ export function createRenameShip(deps: { uow: UnitOfWork<RenameShipTx>; clock: C
       const renamed = renameShip(ship, {
         name: input.name,
         at: deps.clock.now(),
-        actor: shipActor(caller.shipId),
+        actor: actorOf(caller),
         activeShipNamed: await tx.ships.findActiveByName(fleetId, input.name),
       });
       if (!renamed.isOk) {

@@ -1,6 +1,6 @@
 import type { Discovered } from '@aeolus-fleet/common';
 
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
@@ -17,7 +17,7 @@ export interface DiscoverTx {
   leases: Pick<LeaseRepository, 'findLastSeen' | 'listOpenStatements'>;
 }
 
-export type Discover = (caller: Caller) => Promise<Result<Discovered, never>>;
+export type Discover = (caller: ShipCaller) => Promise<Result<Discovered, never>>;
 
 /**
  * Use case: a ship asks which ships and types it may send to now (decision

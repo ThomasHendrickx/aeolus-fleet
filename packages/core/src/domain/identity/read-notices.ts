@@ -1,8 +1,8 @@
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import { isForSessionOf, type Notice } from './notice.js';
 import type { NoticeDismissals, NoticeRepository } from './ports.js';
 
-export type ReadNotices = (caller: Caller) => Promise<Notice[]>;
+export type ReadNotices = (caller: ShipCaller) => Promise<Notice[]>;
 
 /**
  * Use case: the notices a console session shows above every page (decision

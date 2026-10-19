@@ -7,7 +7,7 @@ import { createPrismaUnitOfWork, type PrismaTx } from '../src/adapters/prisma/un
 import { createHandOverDelivery } from '../src/domain/messaging/hand-over-delivery.js';
 import { createReportHandled } from '../src/domain/messaging/report-handled.js';
 import { createReportNotHandled } from '../src/domain/messaging/report-not-handled.js';
-import type { Caller, Crew } from '../src/domain/shared/caller.js';
+import type { ShipCaller, Crew } from '../src/domain/shared/caller.js';
 import type { UnitOfWork } from '../src/domain/shared/unit-of-work.js';
 import { createUseCases, systemClock, type UseCases } from '../src/wiring.js';
 import { OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
@@ -29,7 +29,7 @@ let databaseUrl: string;
 let prisma: PrismaClient;
 let useCases: UseCases;
 let fleetId: FleetId;
-let argo: Caller;
+let argo: ShipCaller;
 let scout: Crew;
 
 beforeEach(async () => {

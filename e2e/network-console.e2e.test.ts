@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { LabelId, LabelValueId } from '../packages/common/src/index.js';
 import { createPrismaClient, type PrismaClient } from '../packages/core/src/adapters/prisma/client.js';
 import { createApp } from '../packages/core/src/app.js';
-import type { Caller } from '../packages/core/src/domain/shared/caller.js';
+import type { ShipCaller } from '../packages/core/src/domain/shared/caller.js';
 import { createUseCases, type UseCases } from '../packages/core/src/wiring.js';
 import { FLEET_URL, OPERATOR, operatorCaller, secretOf, SESSION_MODEL } from '../packages/core/test/support/core-fixtures.js';
 import { createMigratedDatabase } from '../packages/core/src/testing/database.js';
@@ -37,7 +37,7 @@ const WITHIN = { timeout: 20_000 };
 
 let database: PrismaClient;
 let useCases: UseCases;
-let argo: Caller;
+let argo: ShipCaller;
 let server: FastifyInstance;
 let plugin: NetworkingPluginApp;
 let web: RunningWeb;
@@ -171,7 +171,7 @@ describe('the networking plugin in the console', () => {
     const { shipId } = unwrap(
       await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'crew-keeper', type: 'plugin', scopes: ['labels:define', 'labels:assign'] }),
     );
-    const keeper: Caller = { fleetId: argo.fleetId, shipId, kind: 'agent', scopes: ['labels:define', 'labels:assign'] };
+    const keeper: ShipCaller = { fleetId: argo.fleetId, shipId, kind: 'agent', scopes: ['labels:define', 'labels:assign'] };
     const crew = unwrap(await useCases.defineLabel(keeper, { key: 'crew', values: ['blue'] }));
     unwrap(await useCases.declareNetworkRules(keeper, { rules: [{ verb: 'send', from: [{ labelId: crew.labelId, value: '#' }], to: [{ labelId: crew.labelId, value: '#' }] }] }));
 

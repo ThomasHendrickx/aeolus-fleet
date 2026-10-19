@@ -1,7 +1,7 @@
 import { isPingContentType, type DeliveryId, type IdGenerator, type MessageId } from '@aeolus-fleet/common';
 
 import { checkReach, readsMessage, resolveSelector, type CheckReachTx, type ReadReachOf, type NotReachable, type ResolveSelectorTx, type UnresolvableSelector } from '../registry/public.js';
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, type EventLog } from '../shared/events.js';
@@ -33,7 +33,7 @@ export type ResendDeliveryRefusal =
   | AcceptRefusal;
 
 export type ResendDelivery = (
-  caller: Caller,
+  caller: ShipCaller,
   input: { deliveryId: DeliveryId },
 ) => Promise<Result<{ messageId: MessageId }, ResendDeliveryRefusal>>;
 

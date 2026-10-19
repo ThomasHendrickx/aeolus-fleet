@@ -2,7 +2,7 @@ import { NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS, type FleetScope, type 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
-import type { Caller } from '../src/domain/shared/caller.js';
+import type { ShipCaller } from '../src/domain/shared/caller.js';
 import { createUseCases, type UseCases } from '../src/wiring.js';
 import { OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
 import { createMigratedDatabase } from '../src/testing/database.js';
@@ -18,11 +18,11 @@ const clock = createTestClock('2026-10-18T09:00:00.000Z');
 
 let database: PrismaClient;
 let useCases: UseCases;
-let argo: Caller;
-let manager: Caller;
+let argo: ShipCaller;
+let manager: ShipCaller;
 let assign: (shipId: ShipId, value: 'a' | 'b') => Promise<void>;
 
-async function crewed(ship: { name: string; type: string; scopes?: FleetScope[] }): Promise<{ shipId: ShipId; caller: Caller }> {
+async function crewed(ship: { name: string; type: string; scopes?: FleetScope[] }): Promise<{ shipId: ShipId; caller: ShipCaller }> {
   const { shipId, secret } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: ship.name, type: ship.type, scopes: ship.scopes ?? [] }));
   const { crewToken } = unwrap(await useCases.claimShip({ shipId, secret: secretOf(secret), location: { kind: 'CLOUD' }, harness: 'claude-code' }));
   return { shipId, caller: unwrap(await useCases.authenticate.byCrewToken(crewToken)) };

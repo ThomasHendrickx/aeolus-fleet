@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { idSchema } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
-import { createApp, createMigratedDatabase, createPrismaClient, createUseCases, FLEET_URL, newKey, OPERATOR, operatorCaller, secretOf, unwrap, type Caller, type PrismaClient } from '@aeolus-fleet/core/testing';
+import { createApp, createMigratedDatabase, createPrismaClient, createUseCases, FLEET_URL, newKey, OPERATOR, operatorCaller, secretOf, unwrap, type ShipCaller, type PrismaClient } from '@aeolus-fleet/core/testing';
 
 import { createSquadronsApp, type SquadronsApp } from '../src/app.js';
 import { createSquadronsDatabase } from '../src/testing/database.js';
@@ -432,8 +432,8 @@ describe('removing a member with a crew request (#343)', () => {
     // A trierarch takes the request and starts the member's session, as the plugin and a machine do.
     const { shipId: pluginId } = unwrap(await fleetUseCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'trierarch-plugin', type: 'plugin', scopes: ['crew:assign'] }));
     const { shipId: trierarchId } = unwrap(await fleetUseCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] }));
-    const plugin: Caller = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['crew:assign'] };
-    const trierarch: Caller = { fleetId: argo.fleetId, shipId: trierarchId, kind: 'agent', scopes: ['crew:run'] };
+    const plugin: ShipCaller = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['crew:assign'] };
+    const trierarch: ShipCaller = { fleetId: argo.fleetId, shipId: trierarchId, kind: 'agent', scopes: ['crew:run'] };
     unwrap(await fleetUseCases.assignCrew(plugin, { shipId, trierarchShipId: trierarchId }));
     const member = await crewedMember(first?.crewLines[0]?.line ?? '');
     await member.call('send', {

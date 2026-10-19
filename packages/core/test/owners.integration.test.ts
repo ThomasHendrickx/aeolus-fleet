@@ -6,7 +6,7 @@ import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
 import { createCommissionShip } from '../src/domain/registry/commission-ship.js';
 import { createRetireShip } from '../src/domain/registry/retire-ship.js';
 import { createSetOwner } from '../src/domain/registry/set-owner.js';
-import type { Caller } from '../src/domain/shared/caller.js';
+import type { ShipCaller } from '../src/domain/shared/caller.js';
 import { OPERATOR, operatorCaller } from './support/core-fixtures.js';
 import { createPostgresCore, everyRow, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from '../src/testing/result.js';
@@ -20,7 +20,7 @@ const newId = createIdGenerator();
 let core: PostgresCore;
 let fleetId: FleetId;
 let argoId: ShipId;
-let argo: Caller;
+let argo: ShipCaller;
 
 beforeEach(async () => {
   core = await createPostgresCore();
@@ -155,7 +155,7 @@ describe('a retired owner on Postgres', () => {
 describe('a commission racing the retire of the owner it inherits on Postgres', () => {
   let thomasId: ShipId;
   let scoutId: ShipId;
-  let scout: Caller;
+  let scout: ShipCaller;
 
   beforeEach(async () => {
     ({ shipId: thomasId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person' })));
@@ -214,7 +214,7 @@ describe('a commission racing the retire of the owner it inherits on Postgres', 
 
 describe('the owner argo picked for an app ship the gateway commissions, on Postgres', () => {
   let thomasId: ShipId;
-  let gateway: Caller;
+  let gateway: ShipCaller;
 
   beforeEach(async () => {
     ({ shipId: thomasId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person' })));
@@ -268,7 +268,7 @@ describe('the owner read on Postgres', () => {
     const { shipId: scoutId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
     const { shipId: thomasId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person' }));
     unwrap(await core.useCases.setOwner(argo, { shipId: scoutId, ownerShipId: thomasId }));
-    const scout: Caller = { shipId: scoutId, fleetId, kind: 'agent', scopes: ['messages:send', 'messages:receive'] };
+    const scout: ShipCaller = { shipId: scoutId, fleetId, kind: 'agent', scopes: ['messages:send', 'messages:receive'] };
 
     await expect(core.useCases.whoami(scout)).resolves.toMatchObject({ isOk: true, value: { ownerShipId: thomasId, ownerName: 'thomas' } });
     await expect(core.useCases.getShip(argo, { shipId: scoutId })).resolves.toMatchObject({ isOk: true, value: { owner: { id: thomasId, name: 'thomas' } } });

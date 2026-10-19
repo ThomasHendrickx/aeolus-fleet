@@ -11,7 +11,7 @@ import {
 } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../testing/result.js';
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import { newKey } from '../../testing/keys.js';
 import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
 
@@ -20,7 +20,7 @@ const commissionedAt = new Date('2026-09-29T12:00:00.000Z');
 let core: InMemoryCore;
 let useCases: ReturnType<typeof registryUseCases>;
 let fleetId: FleetId;
-let argo: Caller;
+let argo: ShipCaller;
 let scoutId: ShipId;
 
 beforeEach(async () => {

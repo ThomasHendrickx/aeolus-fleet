@@ -14,7 +14,7 @@ import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { carriedText, labelIdOf, valueIdOf } from '../../../test/support/label-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../testing/result.js';
-import type { Caller, Crew } from '../shared/caller.js';
+import type { ShipCaller, Crew } from '../shared/caller.js';
 import type { Selector } from '../shared/selector.js';
 import { newKey } from '../../testing/keys.js';
 import { createDeclareNetworkRules } from './declare-network-rules.js';
@@ -26,7 +26,7 @@ let core: InMemoryCore;
 let registry: ReturnType<typeof registryUseCases>;
 let messaging: ReturnType<typeof messagingUseCases>;
 let fleetId: FleetId;
-let argo: Caller;
+let argo: ShipCaller;
 let scoutId: ShipId;
 let scoutSecret: string;
 let lookout: Crew;
@@ -172,7 +172,7 @@ describe('retiring a ship', () => {
 });
 
 describe('the labels of a retired ship', () => {
-  let plugin: Caller;
+  let plugin: ShipCaller;
   let pluginId: ShipId;
   let builderId: ShipId;
   let runnerId: ShipId;
@@ -256,7 +256,7 @@ describe('the clear requests of a retired trierarch (decision 0032)', () => {
 });
 
 describe('the networking plugin retired (decision 0035)', () => {
-  let plugin: Caller;
+  let plugin: ShipCaller;
 
   beforeEach(async () => {
     plugin = await shipWithScopes({ registry, argo }, { name: 'reach', type: 'networking', scopes: ['fleet:network'] });
@@ -285,7 +285,7 @@ describe('the networking plugin retired (decision 0035)', () => {
 });
 
 describe('a ship that declared network rules retired (decision 0037)', () => {
-  let squadrons: Caller;
+  let squadrons: ShipCaller;
 
   beforeEach(async () => {
     squadrons = await shipWithScopes({ registry, argo }, { name: 'squadrons', type: 'squadrons', scopes: ['labels:define', 'labels:assign'] });
@@ -356,7 +356,7 @@ describe("retiring a plugin namespace's declarer (decision 0046)", () => {
   const SCALE = { scope: 'squadrons:scale', description: 'Add and remove members' };
 
   /** squadrons declares its namespace, then argo grants its scopes: scout both, lookout one. */
-  async function declaredAndGranted(): Promise<Caller> {
+  async function declaredAndGranted(): Promise<ShipCaller> {
     const squadrons = await shipWithScopes({ registry, argo }, { name: 'squadrons', type: 'squadrons', scopes: [] });
     unwrap(await registry.declareScopes(squadrons, { namespace: 'squadrons', scopes: [FORM, SCALE] }));
     unwrap(await registry.grantScopes(argo, { shipId: scoutId, grant: ['fleet:read', 'squadrons:form', 'squadrons:scale'], revoke: [] }));

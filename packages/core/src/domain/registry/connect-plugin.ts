@@ -1,6 +1,6 @@
 import type { IdGenerator, ShipId } from '@aeolus-fleet/common';
 
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, shipActor, type EventLog } from '../shared/events.js';
@@ -17,7 +17,7 @@ export interface ConnectPluginTx {
 
 export type ConnectPluginUseCaseRefusal = DomainError<'NOT_THE_OPERATOR_SHIP' | 'SHIP_NOT_FOUND'> | ConnectPluginRefusal;
 
-export type ConnectPlugin = (caller: Caller, input: { shipId: ShipId }) => Promise<Result<undefined, ConnectPluginUseCaseRefusal>>;
+export type ConnectPlugin = (caller: ShipCaller, input: { shipId: ShipId }) => Promise<Result<undefined, ConnectPluginUseCaseRefusal>>;
 
 /**
  * Use case: argo, and only argo, connects a ship as a plugin of its fleet,

@@ -13,14 +13,14 @@ import {
 } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../testing/result.js';
-import type { Caller, Crew } from '../shared/caller.js';
+import type { ShipCaller, Crew } from '../shared/caller.js';
 import { newKey } from '../../testing/keys.js';
 
 let core: InMemoryCore;
 let useCases: ReturnType<typeof messagingUseCases>;
 let fleetId: FleetId;
 let argoId: ShipId;
-let operator: Caller;
+let operator: ShipCaller;
 let argo: Crew;
 let captain: Crew;
 

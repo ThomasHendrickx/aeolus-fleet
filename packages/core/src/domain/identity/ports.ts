@@ -1,6 +1,6 @@
-import type { ConsoleSessionId, CredentialId, FleetId, LeaseId, OperatorId, ShipId, Theme } from '@aeolus-fleet/common';
+import type { AccountId, AccountTokenClaims, ConsoleSessionId, CredentialId, FleetId, LeaseId, OperatorId, ShipId, Theme } from '@aeolus-fleet/common';
 
-import type { Caller, Crew } from '../shared/caller.js';
+import type { ShipCaller, Crew } from '../shared/caller.js';
 import type { ConsoleSession, ConsoleSessionEndReason } from './console-session.js';
 import type { Credential } from './credential.js';
 import type { Guide, GuideProgress } from './guide.js';
@@ -9,7 +9,7 @@ import type { OperatorAccount } from './operator-account.js';
 import type { SignInAs, SignInTicket } from './sign-in-ticket.js';
 
 /** The ship a crew token or a console session token belongs to, as the caller it makes. */
-export type AuthenticatedShip = Omit<Caller, 'consoleSessionId'>;
+export type AuthenticatedShip = Omit<ShipCaller, 'consoleSessionId'>;
 
 /** The ship a crew token crews, and the open lease the token belongs to. */
 export type AuthenticatedCrew = AuthenticatedShip & { leaseId: LeaseId };
@@ -118,7 +118,7 @@ export interface CallerLookup {
    * past the moment it ends by, and marks argo's lease seen `now`. Answers
    * the new expiry.
    */
-  useConsoleSession(use: { tokenHash: string; now: Date }): Promise<{ caller: Caller | Crew; expiresAt: Date } | undefined>;
+  useConsoleSession(use: { tokenHash: string; now: Date }): Promise<{ caller: ShipCaller | Crew; expiresAt: Date } | undefined>;
   /** Why the console session with this token hash ended; undefined when it has not, or no session has the hash. */
   consoleSessionEnding(tokenHash: string): Promise<ConsoleSessionEndReason | undefined>;
 }
@@ -149,4 +149,46 @@ export interface GuideProgressRepository {
   progress(of: { fleetId: FleetId; consoleSessionId: ConsoleSessionId }): Promise<GuideProgress | null>;
   /** Records the session's progress over any it recorded before. */
   record(progress: { fleetId: FleetId; consoleSessionId: ConsoleSessionId; at: Date } & GuideProgress): Promise<void>;
+}
+
+/**
+ * Outbound port: pagasae's signature on an account token (decision 0058).
+ * Core trusts one issuer and its published keys.
+ */
+export interface AccountTokenSignatures {
+  /**
+   * The token's claims when a key the issuer publishes signed it as an
+   * access token naming that issuer; undefined for any other token. Says
+   * nothing of its fleet, its end or a cut-off: the use case checks those.
+   */
+  verify(token: string): Promise<AccountTokenClaims | undefined>;
+}
+
+/** An account pagasae cut off (decision 0058): its tokens issued before `cutOffAt` are refused until `forgetAt`. */
+export interface AccountCutOff {
+  accountId: AccountId;
+  cutOffAt: Date;
+  forgetAt: Date;
+}
+
+/**
+ * Outbound port: the accounts pagasae cut off (decision 0058), kept by the
+ * installation for every fleet it hosts, each until the longest token it
+ * refuses has ended. Not scoped by fleet: an account's tokens go to several
+ * fleets, and the cut-off holds in each (ADR 0007, the installation).
+ */
+export interface AccountCutOffRepository {
+  /** Keeps the cut-off; one kept for the account with a later cut-off stays as it was. */
+  record(cutOff: AccountCutOff): Promise<void>;
+  /** When the account was last cut off, while that cut-off is kept at `at`; undefined otherwise. */
+  cutOffAt(accountId: AccountId, at: Date): Promise<Date | undefined>;
+  /** Forgets every cut-off kept no longer than `at`. */
+  forget(at: Date): Promise<void>;
+}
+
+export type AccountCutOffLookup = Pick<AccountCutOffRepository, 'cutOffAt'>;
+
+/** Outbound port: whether this installation hosts a fleet, so a token for any other is refused. */
+export interface HostedFleets {
+  isHosted(fleetId: FleetId): Promise<boolean>;
 }

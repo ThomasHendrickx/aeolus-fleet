@@ -12,7 +12,7 @@ import {
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { newKey } from '../../testing/keys.js';
 import { unwrap } from '../../testing/result.js';
-import type { Caller, Crew } from '../shared/caller.js';
+import type { ShipCaller, Crew } from '../shared/caller.js';
 import { SYSTEM } from '../shared/events.js';
 import type { Selector } from '../shared/selector.js';
 import { createTellOverdueDeliveries, type TellOverdueDeliveries } from './tell-overdue-deliveries.js';
@@ -23,7 +23,7 @@ let core: InMemoryCore;
 let useCases: ReturnType<typeof messagingUseCases>;
 let tellOverdueDeliveries: TellOverdueDeliveries;
 let fleetId: FleetId;
-let argo: Caller;
+let argo: ShipCaller;
 let scoutId: ShipId;
 let scout: Crew;
 

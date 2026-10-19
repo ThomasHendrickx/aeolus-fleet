@@ -7,7 +7,7 @@ import { aCrewSettings, shipWithScopes } from '../../../test/support/crew-fixtur
 import { historyScenario, type HistoryScenario } from '../../../test/support/history-scenario.js';
 import { newKey } from '../../testing/keys.js';
 import { refusalOf, unwrap } from '../../testing/result.js';
-import type { Caller, Crew } from './caller.js';
+import type { ShipCaller, Crew } from './caller.js';
 import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
 
 let scene: HistoryScenario;
@@ -87,7 +87,7 @@ describe("reading a message's way through", () => {
   const toScout = () => scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.scout.shipId } });
 
   /** The trierarch on mac-mini, and builder crewed by it from the starting prompt it got. */
-  async function crewedByTrierarch(): Promise<{ trierarch: Caller; builder: Crew }> {
+  async function crewedByTrierarch(): Promise<{ trierarch: ShipCaller; builder: Crew }> {
     const { registry, argo, core } = scene;
     const plugin = await shipWithScopes({ registry, argo }, { name: 'trierarch-plugin', type: 'plugin', scopes: ['crew:assign'] });
     const trierarch = await shipWithScopes({ registry, argo }, { name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] });

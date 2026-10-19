@@ -1,4 +1,4 @@
-import { idSchema, type ReachRefusal } from '@aeolus-fleet/common';
+import { accountIdSchema, idSchema, type ReachRefusal } from '@aeolus-fleet/common';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, fn, userEvent, within } from 'storybook/test';
 
@@ -7,7 +7,9 @@ import { ReachRefusalLog } from './reach-refusal-log';
 
 const NOW = new Date('2026-10-10T12:00:00.000Z');
 
-function aShip(name: string, ship: { suffix: string; labels?: ReachRefusal['sender']['labels'] }): ReachRefusal['sender'] {
+type RefusedShip = Extract<ReachRefusal['recipient'], { kind: 'ship' }>['ship'];
+
+function aShip(name: string, ship: { suffix: string; labels?: RefusedShip['labels'] }): RefusedShip {
   return { id: idSchema('ship').parse(`shp_01m4k0000000000000000000${ship.suffix}`), name, labels: ship.labels ?? [], owner: null };
 }
 
@@ -17,12 +19,17 @@ const WEBSITE = aShip('website-editor', { suffix: '03', labels: [carried(PROJECT
 const REVIEWER_1 = aShip('reviewer-1', { suffix: '04', labels: [carried(AREA, 'review')] });
 const REVIEWER_2 = aShip('reviewer-2', { suffix: '05', labels: [carried(AREA, 'review'), carried(PROJECT, 'aeolus')] });
 
+/** The ship as a refusal's sender. */
+function sending(ship: RefusedShip): ReachRefusal['sender'] {
+  return { kind: 'ship', ...ship };
+}
+
 function aRefusal(suffix: string, refusal: Partial<ReachRefusal> & { minutesAgo: number }): ReachRefusal {
   const { minutesAgo, ...rest } = refusal;
   return {
     id: idSchema('reachRefusal').parse(`rfs_01m4k000000000000000000${suffix.padStart(3, '0')}`),
     at: new Date(NOW.getTime() - minutesAgo * 60_000).toISOString(),
-    sender: WEBSITE,
+    sender: sending(WEBSITE),
     askedBy: null,
     recipient: { kind: 'ship', ship: HEMMA_API },
     verb: 'send',
@@ -32,11 +39,11 @@ function aRefusal(suffix: string, refusal: Partial<ReachRefusal> & { minutesAgo:
   };
 }
 
-const TO_A_TYPE = aRefusal('02', { minutesAgo: 40, sender: SCOUT, recipient: { kind: 'type', type: 'reviewer', ships: [REVIEWER_1, REVIEWER_2] } });
+const TO_A_TYPE = aRefusal('02', { minutesAgo: 40, sender: sending(SCOUT), recipient: { kind: 'type', type: 'reviewer', ships: [REVIEWER_1, REVIEWER_2] } });
 const REFUSALS = [
   aRefusal('01', { minutesAgo: 4 }),
   TO_A_TYPE,
-  aRefusal('03', { minutesAgo: 60 * 30, settingsVersion: 5, sender: SCOUT, whilePluginUnavailable: 'block-all' }),
+  aRefusal('03', { minutesAgo: 60 * 30, settingsVersion: 5, sender: sending(SCOUT), whilePluginUnavailable: 'block-all' }),
 ];
 
 const meta = {
@@ -88,10 +95,10 @@ export const WithALabelDeletedSince: Story = {
     refusals: [
       aRefusal('07', {
         minutesAgo: 3,
-        sender: aShip('scout-2', {
+        sender: sending(aShip('scout-2', {
           suffix: '07',
           labels: [{ labelId: idSchema('label').parse('lbl_01m4k0000000000000000000zz'), key: 'tier', valueId: idSchema('labelValue').parse('lbv_01m4k0000000000000000000zz'), value: 'gold' }],
-        }),
+        })),
       }),
     ],
   },
@@ -100,7 +107,23 @@ export const WithALabelDeletedSince: Story = {
   },
 };
 /** Neither ship carried a label then. */
-export const WithoutLabels: Story = { args: { refusals: [aRefusal('06', { minutesAgo: 1, sender: SCOUT, recipient: { kind: 'ship', ship: aShip('vault', { suffix: '06' }) } })] } };
+/** An account refused by reach: by its id only, with the group values its token carried (decision 0057). */
+export const ByAnAccount: Story = {
+  args: {
+    refusals: [
+      aRefusal('08', {
+        minutesAgo: 3,
+        verb: 'manage',
+        sender: { kind: 'account', accountId: accountIdSchema.parse('acc-mathilde'), labels: [carried(PROJECT, 'hemma')], personShip: null },
+      }),
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByText('Account acc-mathilde tried to reach hemma-api.')).toBeVisible();
+  },
+};
+
+export const WithoutLabels: Story = { args: { refusals: [aRefusal('06', { minutesAgo: 1, sender: sending(SCOUT), recipient: { kind: 'ship', ship: aShip('vault', { suffix: '06' }) } })] } };
 /** No send refused yet: one quiet line. */
 export const NoRefusals: Story = {
   args: { refusals: [] },
@@ -119,7 +142,7 @@ export const ReadFailed: Story = {
 };
 /** As many as argo reads at once, the latest 100. */
 export const Many: Story = {
-  args: { refusals: Array.from({ length: 100 }, (_, index) => aRefusal(String(index + 10), { minutesAgo: index * 7, sender: index % 2 === 0 ? SCOUT : WEBSITE })) },
+  args: { refusals: Array.from({ length: 100 }, (_, index) => aRefusal(String(index + 10), { minutesAgo: index * 7, sender: sending(index % 2 === 0 ? SCOUT : WEBSITE) })) },
 };
 /** On a phone the cards keep one column: the time and the labels wrap under the sentence. */
 export const Phone: Story = { globals: { viewport: { value: 'mobile1' } } };

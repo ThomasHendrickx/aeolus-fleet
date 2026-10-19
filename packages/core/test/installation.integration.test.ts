@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
 import { Prisma } from '../src/adapters/prisma/generated/client.js';
 import { createApp } from '../src/app.js';
-import type { Caller } from '../src/domain/shared/caller.js';
+import type { ShipCaller } from '../src/domain/shared/caller.js';
 import type { AppRouter } from '../src/index.js';
 import { createUseCases, type UseCases } from '../src/wiring.js';
 import { FLEET_URL, OPERATOR } from './support/core-fixtures.js';
@@ -70,7 +70,7 @@ async function codeOf(call: Promise<unknown>): Promise<string | undefined> {
 }
 
 /** argo of a fleet as the caller, as its console session makes it. */
-function argoOf(fleet: { fleetId: FleetId; operatorShipId: ShipId }): Caller {
+function argoOf(fleet: { fleetId: FleetId; operatorShipId: ShipId }): ShipCaller {
   return { fleetId: fleet.fleetId, shipId: fleet.operatorShipId, kind: 'operator', scopes: [...SCOPES] };
 }
 
@@ -103,9 +103,9 @@ async function seedTraffic({ fleetId, from, copies }: { fleetId: FleetId; from: 
   // analyzes a real fleet's tables as they grow.
   await database.$executeRaw`ANALYZE messages, deliveries`;
   await database.$executeRaw`
-    INSERT INTO events (id, fleet_id, type, occurred_at, actor_ship_id, ship_id, message_id, delivery_id, details, seq)
+    INSERT INTO events (id, fleet_id, type, occurred_at, actor_kind, actor_ship_id, ship_id, message_id, delivery_id, details, seq)
     SELECT 'evt_7zzz' || lpad((n * ${EVENTS_PER_MESSAGE} + e)::text, 22, '0'), m.fleet_id, 'MessageAccepted', m.created_at,
-           m.sender_ship_id, m.selector_ship_id, ${idOf('msg')}, ${idOf('dlv')}, '{}'::jsonb, 1000000 + n * ${EVENTS_PER_MESSAGE} + e
+           'ship', m.sender_ship_id, m.selector_ship_id, ${idOf('msg')}, ${idOf('dlv')}, '{}'::jsonb, 1000000 + n * ${EVENTS_PER_MESSAGE} + e
     FROM messages m, generate_series(1, ${copies}) AS n, generate_series(0, ${EVENTS_PER_MESSAGE - 1}) AS e
     WHERE m.fleet_id = ${fleetId} AND m.id = ${from}`;
 }

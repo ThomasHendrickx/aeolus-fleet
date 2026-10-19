@@ -1,11 +1,12 @@
 import { idSchema, type Scope } from '@aeolus-fleet/common';
 import { initTRPC, TRPCError } from '@trpc/server';
 
-import { hasScope, isCrew, type Caller, type Crew } from '../../domain/shared/caller.js';
+import { hasScope, isCrew, isShipCaller, type Caller, type ShipCaller, type Crew } from '../../domain/shared/caller.js';
 import type { DomainError, DomainErrorKind } from '../../domain/shared/errors.js';
 import type { Result } from '../../domain/shared/result.js';
 import { isFleetBusy } from '../prisma/fleet-busy.js';
 import type { Context } from './context.js';
+import { INSTALLATION_TOKEN_HEADER, isInstallationToken } from './installation-token.js';
 
 /** All a caller learns of a server failure, with the request's id; the log keeps the rest under that id. */
 export const INTERNAL_ERROR_MESSAGE = 'Internal error';
@@ -65,6 +66,8 @@ const t = initTRPC.context<Context>().meta<ProcedureMeta>().create({
 export const router = t.router;
 
 const ERROR_CODES: Record<DomainErrorKind, TRPCError['code']> = {
+  ACCOUNT_TOKEN_ENDED: 'UNAUTHORIZED',
+  ACCOUNT_TOKEN_INVALID: 'UNAUTHORIZED',
   DELIVERY_HELD_BY_ANOTHER_SHIP: 'FORBIDDEN',
   DELIVERY_NOT_FOUND: 'NOT_FOUND',
   DELIVERY_NOT_A_PING: 'CONFLICT',
@@ -340,12 +343,13 @@ async function crewOf(ctx: Context, bearer: string): Promise<Crew | undefined> {
 }
 
 /**
- * Resolves the caller from the crew token or the console session. A bearer
- * crew token wins over the cookie, and a wrong one fails rather than falling
- * back. The ship secret is no bearer: it works only for `register` (ADR 0015).
- * Using a console session keeps it, and its cookie, valid for another 30 days.
+ * Resolves the ship calling from the crew token or the console session. A
+ * bearer crew token wins over the cookie, and a wrong one fails rather than
+ * falling back. The ship secret is no bearer: it works only for `register`
+ * (ADR 0015). Using a console session keeps it, and its cookie, valid for
+ * another 30 days.
  */
-async function resolveCaller(ctx: Context): Promise<Caller | undefined> {
+async function resolveShip(ctx: Context): Promise<ShipCaller | undefined> {
   const { bearer, sessionToken } = ctx.credentials;
   if (bearer !== undefined) {
     return crewOf(ctx, bearer);
@@ -359,6 +363,53 @@ async function resolveCaller(ctx: Context): Promise<Caller | undefined> {
     await refuseIfSignedInElsewhere(ctx, sessionToken);
   }
   return undefined;
+}
+
+/**
+ * The account of an account token (decision 0058), checked on every call. A
+ * bearer crew token beside it names the ship that presented it, and a wrong
+ * one fails rather than being left out.
+ */
+async function accountOf(ctx: Context, accountToken: string): Promise<Caller> {
+  const { bearer } = ctx.credentials;
+  const through = bearer === undefined ? null : await crewOf(ctx, bearer);
+  if (through === undefined) {
+    throw new TRPCError({ code: 'UNAUTHORIZED', message: CALL_WITH_CREW_TOKEN });
+  }
+  return okOrThrow(await ctx.useCases.authenticateAccount(accountToken, { through }));
+}
+
+/**
+ * The installation acting in the fleet the `Aeolus-Fleet` header names
+ * (decision 0057), with the installation token, as the installation
+ * procedures take it: none on a server without one.
+ */
+async function installationIn(ctx: Context, fleet: string): Promise<Caller> {
+  const { configured, presented } = ctx.installation;
+  if (configured === undefined || !isInstallationToken({ configured, presented })) {
+    throw new TRPCError({ code: 'UNAUTHORIZED', message: `The Aeolus-Fleet header goes with the installation token in ${INSTALLATION_TOKEN_HEADER}` });
+  }
+  const fleetId = idSchema('fleet').safeParse(fleet);
+  if (!fleetId.success) {
+    throw new TRPCError({ code: 'BAD_REQUEST', message: 'The Aeolus-Fleet header names no fleet id' });
+  }
+  return okOrThrow(await ctx.useCases.authenticateInstallation({ fleetId: fleetId.data }));
+}
+
+/**
+ * Resolves the actor of a fleet call (decision 0057): the account of an
+ * account token, the installation with the fleet it acts in, or else the
+ * ship of the crew token or the console session.
+ */
+async function resolveCaller(ctx: Context): Promise<Caller | undefined> {
+  const { accountToken, fleet } = ctx.credentials;
+  if (accountToken !== undefined) {
+    return accountOf(ctx, accountToken);
+  }
+  if (fleet !== undefined) {
+    return installationIn(ctx, fleet);
+  }
+  return resolveShip(ctx);
 }
 
 /**
@@ -398,15 +449,31 @@ export async function callerStillHolding(ctx: Context, scope: Scope): Promise<Ca
 const CALL_WITH_CREW_TOKEN = 'Call with the crew token register gave you';
 
 /**
- * A procedure for any caller, whatever its scopes: the base of every scoped
- * procedure, and `whoami`, which tells a caller about itself. The caller comes
- * from the server, never from the request. Only a fleet:read read takes the
+ * A procedure for any ship, whatever its scopes: `whoami`, which tells a ship
+ * about itself, and the console's own. The caller comes from the server,
+ * never from the request: the crew token or the console session alone, so an
+ * account token makes no caller here. Only a fleet:read read takes the
  * `Aeolus-On-Behalf-Of` header (decision 0034); any other call refuses it.
  */
-export const authenticatedProcedure = callerProcedure({ isOnBehalfRead: false });
+export const authenticatedProcedure = callerProcedure({ isOnBehalfRead: false, resolve: resolveShip }).use(({ ctx, next }) =>
+  next({ ctx: { caller: shipOf(ctx.caller) } }),
+);
 
-/** The base of a fleet:read read, which a plugin may make on behalf of a named ship. */
-const readingProcedure = callerProcedure({ isOnBehalfRead: true });
+/** The base of a fleet call for any actor (decision 0057), and of a fleet:read read, which a plugin may make on behalf of a named ship. */
+const actorProcedure = callerProcedure({ isOnBehalfRead: false, resolve: resolveCaller });
+const readingProcedure = callerProcedure({ isOnBehalfRead: true, resolve: resolveCaller });
+
+/**
+ * The caller as a ship: a call that sends, receives or stores something on
+ * the calling ship is a ship's alone (decision 0057). An agent ship can make
+ * each of them, so no right is an account's or the installation's alone.
+ */
+function shipOf(caller: Caller): ShipCaller {
+  if (!isShipCaller(caller)) {
+    throw new TRPCError({ code: 'FORBIDDEN', message: 'Only a ship makes this call' });
+  }
+  return caller;
+}
 
 function refuseOnBehalfHeader(ctx: Context): void {
   if (ctx.credentials.onBehalfOf !== undefined) {
@@ -424,6 +491,9 @@ async function readerOf(ctx: Context, caller: Caller): Promise<Caller> {
   if (onBehalfOf === undefined) {
     return caller;
   }
+  if (!isShipCaller(caller)) {
+    throw new TRPCError({ code: 'BAD_REQUEST', message: 'Only a ship reads on behalf of another' });
+  }
   const shipId = idSchema('ship').safeParse(onBehalfOf);
   if (!shipId.success) {
     throw new TRPCError({ code: 'BAD_REQUEST', message: 'The Aeolus-On-Behalf-Of header names no ship id' });
@@ -431,7 +501,7 @@ async function readerOf(ctx: Context, caller: Caller): Promise<Caller> {
   return okOrThrow(await ctx.useCases.readOnBehalf(caller, { shipId: shipId.data }));
 }
 
-function callerProcedure(options: { isOnBehalfRead: boolean }) {
+function callerProcedure(options: { isOnBehalfRead: boolean; resolve: (ctx: Context) => Promise<Caller | undefined> }) {
   return publicProcedure.use(async ({ ctx, type, next }) => {
     if (!options.isOnBehalfRead) {
       refuseOnBehalfHeader(ctx);
@@ -446,7 +516,7 @@ function callerProcedure(options: { isOnBehalfRead: boolean }) {
     if ((type === 'mutation' || type === 'subscription') && bearer === undefined && sessionToken !== undefined) {
       checkConsoleOrigin(ctx);
     }
-    const caller = await resolveCaller(ctx);
+    const caller = await options.resolve(ctx);
     if (!caller) {
       const message = ctx.canUseConsoleSession ? 'Sign in, or call with the crew token register gave you' : CALL_WITH_CREW_TOKEN;
       throw new TRPCError({ code: 'UNAUTHORIZED', message });
@@ -486,32 +556,42 @@ export function scopedCrewProcedure(scope: Scope) {
 }
 
 /**
- * A procedure that needs the given scope. The caller and its scopes come from
- * the server, never from the request, and are checked before any use case runs.
+ * A fleet call any actor makes (decision 0057), needing the given scope. The
+ * caller and its scopes come from the server or the checked token, never from
+ * the request, and are checked before any use case runs, the same way for a
+ * ship, an account or the installation.
  */
+export function actorScopedProcedure(scope: Scope) {
+  return (scope === 'fleet:read' ? readingProcedure : actorProcedure).use(async ({ ctx, next }) => {
+    if (!hasScope(ctx.caller, scope)) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: `This call needs the ${scope} scope` });
+    }
+    return next({ ctx: { caller: await readerOf(ctx, ctx.caller) } });
+  });
+}
+
+/** A call a ship alone makes (see shipOf), needing the given scope, checked as for any actor first. */
 export function scopedProcedure(scope: Scope) {
-  return (scope === 'fleet:read' ? readingProcedure : authenticatedProcedure)
-    .use(async ({ ctx, next }) => {
-      if (!hasScope(ctx.caller, scope)) {
-        throw new TRPCError({ code: 'FORBIDDEN', message: `This call needs the ${scope} scope` });
-      }
-      return next({ ctx: { caller: await readerOf(ctx, ctx.caller) } });
-    });
+  return actorScopedProcedure(scope).use(({ ctx, next }) => next({ ctx: { caller: shipOf(ctx.caller) } }));
 }
 
 /**
- * A procedure that needs any one of the given scopes: the few fleet calls a
+ * A fleet call any actor makes with any one of the given scopes: the few a
  * trierarch makes with `crew:run` beside the scope the console uses
  * (decision 0029). Checked before any use case runs, as for one scope.
  */
+export function actorAnyScopeProcedure(...scopes: [Scope, Scope, ...Scope[]]) {
+  return (scopes.includes('fleet:read') ? readingProcedure : actorProcedure).use(async ({ ctx, next }) => {
+    if (!scopes.some((scope) => hasScope(ctx.caller, scope))) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: `This call needs the ${scopes.join(' or ')} scope` });
+    }
+    return next({ ctx: { caller: await readerOf(ctx, ctx.caller) } });
+  });
+}
+
+/** A call a ship alone makes with any one of the given scopes. */
 export function anyScopeProcedure(...scopes: [Scope, Scope, ...Scope[]]) {
-  return (scopes.includes('fleet:read') ? readingProcedure : authenticatedProcedure)
-    .use(async ({ ctx, next }) => {
-      if (!scopes.some((scope) => hasScope(ctx.caller, scope))) {
-        throw new TRPCError({ code: 'FORBIDDEN', message: `This call needs the ${scopes.join(' or ')} scope` });
-      }
-      return next({ ctx: { caller: await readerOf(ctx, ctx.caller) } });
-    });
+  return actorAnyScopeProcedure(...scopes).use(({ ctx, next }) => next({ ctx: { caller: shipOf(ctx.caller) } }));
 }
 
 /**

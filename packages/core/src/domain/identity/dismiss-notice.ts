@@ -1,4 +1,4 @@
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
@@ -7,7 +7,7 @@ import type { NoticeDismissals, NoticeRepository } from './ports.js';
 
 export type DismissNoticeRefusal = DomainError<'NOTICE_NOT_FOUND' | 'NOTICE_NOT_DISMISSIBLE'>;
 
-export type DismissNotice = (caller: Caller, input: { noticeId: string }) => Promise<Result<undefined, DismissNoticeRefusal>>;
+export type DismissNotice = (caller: ShipCaller, input: { noticeId: string }) => Promise<Result<undefined, DismissNoticeRefusal>>;
 
 /**
  * Use case: a console session dismisses a dismissible notice it sees, for

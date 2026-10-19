@@ -1,6 +1,6 @@
 import type { CrewStatus, IdGenerator, ShipId } from '@aeolus-fleet/common';
 
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, shipActor, type EventLog } from '../shared/events.js';
@@ -20,7 +20,7 @@ export type ReportCrewStatusRefusal = DomainError<
 >;
 
 export type ReportCrewStatus = (
-  caller: Caller,
+  caller: ShipCaller,
   input: { shipId: ShipId; status: CrewStatus; attempt?: number; startedAt?: string | null },
 ) => Promise<Result<undefined, ReportCrewStatusRefusal>>;
 

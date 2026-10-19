@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { cryptoRandomTokens, sha256Hasher } from '../src/adapters/crypto/secrets.js';
 import { createCommissionShip } from '../src/domain/registry/commission-ship.js';
 import { createRenameShip } from '../src/domain/registry/rename-ship.js';
-import type { Caller } from '../src/domain/shared/caller.js';
+import type { ShipCaller } from '../src/domain/shared/caller.js';
 import { OPERATOR, operatorCaller } from './support/core-fixtures.js';
 import { createPostgresCore, racingUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from '../src/testing/result.js';
@@ -17,7 +17,7 @@ import { newKey } from '../src/testing/keys.js';
 const newId = createIdGenerator();
 
 let core: PostgresCore;
-let argo: Caller;
+let argo: ShipCaller;
 let scoutId: ShipId;
 
 beforeEach(async () => {

@@ -5,13 +5,13 @@ import { hostedFleet, initialiseFleet, operatorCaller, registryUseCases } from '
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { refusalOf, unwrap } from '../../testing/result.js';
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 
 let core: InMemoryCore;
 let registry: ReturnType<typeof registryUseCases>;
 let fleetId: FleetId;
-let argo: Caller;
-let plugin: Caller;
+let argo: ShipCaller;
+let plugin: ShipCaller;
 let pluginId: ShipId;
 
 beforeEach(async () => {
@@ -80,7 +80,7 @@ describe('defining a label', () => {
   it('takes the same key in another fleet: a key is unique in its fleet', async () => {
     unwrap(await registry.defineLabel(plugin, { key: 'os', values: ['macos'] }));
     const other = await hostedFleet(core);
-    const otherArgo: Caller = { ...argo, fleetId: other.fleetId, shipId: other.operatorShipId };
+    const otherArgo: ShipCaller = { ...argo, fleetId: other.fleetId, shipId: other.operatorShipId };
 
     await expect(registry.defineLabel(otherArgo, { key: 'os', values: ['linux'] })).resolves.toMatchObject({ isOk: true });
   });

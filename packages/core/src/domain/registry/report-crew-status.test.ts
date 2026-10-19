@@ -5,14 +5,14 @@ import { initialiseFleet, operatorCaller, registryUseCases } from '../../../test
 import { aCrewSettings, shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../testing/result.js';
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import { newKey } from '../../testing/keys.js';
 
 let core: InMemoryCore;
 let registry: ReturnType<typeof registryUseCases>;
 let fleetId: FleetId;
-let argo: Caller;
-let trierarch: Caller;
+let argo: ShipCaller;
+let trierarch: ShipCaller;
 let scoutId: ShipId;
 
 beforeEach(async () => {
@@ -91,7 +91,7 @@ describe("the assigned trierarch's status", () => {
 });
 
 describe('a status refused', () => {
-  async function expectRefused({ caller, input }: { caller: Caller; input: Parameters<typeof registry.reportCrewStatus>[1] }, kind: string): Promise<void> {
+  async function expectRefused({ caller, input }: { caller: ShipCaller; input: Parameters<typeof registry.reportCrewStatus>[1] }, kind: string): Promise<void> {
     const before = structuredClone(core.state);
 
     await expect(registry.reportCrewStatus(caller, input)).resolves.toMatchObject({ isOk: false, error: { kind } });

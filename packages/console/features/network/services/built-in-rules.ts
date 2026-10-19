@@ -3,8 +3,8 @@ import type { BuiltInRuleState, NetworkVerb } from '@aeolus-fleet/common';
 /**
  * The built-in rules as Network shows them, first and apart from argo's own
  * (decision 0034): each as the fleet answers it, with what it allows and who
- * turns it. argo, the owner, the answer and a connected plugin's reading are
- * never off; argo turns the
+ * turns it. argo, the owner, the answer, a connected plugin's reading and the
+ * installation's managing are never off; argo turns the
  * viewer reading; the networking plugin turns open, per verb, off while
  * argo's rules apply and on for all-to-all.
  */
@@ -36,6 +36,8 @@ function rowOf(state: BuiltInRuleState): BuiltInRow {
       return { key: state.rule, name: 'Connected plugins read', meaning: 'A plugin argo connected reads every ship, whatever the rules.', isOn: state.isOn, turnedBy: 'never' };
     case 'viewerRead':
       return { key: state.rule, name: 'Viewer reads', meaning: 'The viewer reads every ship.', isOn: state.isOn, turnedBy: 'argo' };
+    case 'installation':
+      return { key: state.rule, name: 'Installation manages', meaning: 'The installation manages person ships and the ships they own, so a leaver is always released.', isOn: state.isOn, turnedBy: 'never' };
     case 'open':
       return { key: `open-${state.verb}`, name: `Open for ${state.verb}`, meaning: OPEN_MEANINGS[state.verb], isOn: state.isOn, turnedBy: 'plugin' };
   }

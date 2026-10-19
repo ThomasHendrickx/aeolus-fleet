@@ -8,7 +8,7 @@ import { createPrismaClient, type PrismaClient } from '../packages/core/src/adap
 import { createApp } from '../packages/core/src/app.js';
 import type { AppRouter } from '../packages/core/src/index.js';
 import { createUseCases, type UseCases } from '../packages/core/src/wiring.js';
-import type { Caller } from '../packages/core/src/domain/shared/caller.js';
+import type { ShipCaller } from '../packages/core/src/domain/shared/caller.js';
 import { FLEET_URL, OPERATOR, operatorCaller, secretIn, shipIdIn } from '../packages/core/test/support/core-fixtures.js';
 import { createMigratedDatabase } from '../packages/core/src/testing/database.js';
 import { createTestClock } from '../packages/core/test/support/postgres-core.js';
@@ -24,7 +24,7 @@ const clock = createTestClock('2026-09-29T12:00:00.000Z');
 
 let database: PrismaClient;
 let useCases: UseCases;
-let argo: Caller;
+let argo: ShipCaller;
 let server: FastifyInstance;
 let serverUrl: string;
 let web: RunningWeb;

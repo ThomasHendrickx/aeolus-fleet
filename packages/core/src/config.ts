@@ -36,6 +36,7 @@ const environmentSchema = z.object({
     .transform((origin) => new URL(origin).origin)
     .optional(),
   INSTALLATION_TOKEN: z.string().min(INSTALLATION_TOKEN_MIN_LENGTH, `must be at least ${String(INSTALLATION_TOKEN_MIN_LENGTH)} characters`).optional(),
+  ACCOUNT_TOKEN_ISSUER: z.url({ protocol: /^https$/, error: 'must be an https:// URL' }).optional(),
 });
 
 /** What `aeolus-core migrate` reads: the database alone. */
@@ -64,6 +65,11 @@ export interface Config {
    * self-hosted server.
    */
   installationToken: string | undefined;
+  /**
+   * pagasae's URL, the issuer whose account tokens core trusts, its keys
+   * fetched over HTTPS (decision 0058). Unset: no account token is trusted.
+   */
+  accountTokenIssuer: string | undefined;
 }
 
 export class ConfigError extends Error {
@@ -96,7 +102,7 @@ export function loadConfig(environment: Record<string, string | undefined>): Con
     throw configErrorOf(result.error);
   }
 
-  const { DATABASE_URL, PUBLIC_URL, HOST, PORT, LOG_LEVEL, TRUST_PROXY, COOKIE_DOMAIN, CONSOLE_ORIGIN, INSTALLATION_TOKEN } = result.data;
+  const { DATABASE_URL, PUBLIC_URL, HOST, PORT, LOG_LEVEL, TRUST_PROXY, COOKIE_DOMAIN, CONSOLE_ORIGIN, INSTALLATION_TOKEN, ACCOUNT_TOKEN_ISSUER } = result.data;
   return {
     databaseUrl: DATABASE_URL,
     publicUrl: PUBLIC_URL,
@@ -107,6 +113,7 @@ export function loadConfig(environment: Record<string, string | undefined>): Con
     cookieDomain: COOKIE_DOMAIN,
     consoleOrigin: CONSOLE_ORIGIN ?? new URL(PUBLIC_URL).origin,
     installationToken: INSTALLATION_TOKEN,
+    accountTokenIssuer: ACCOUNT_TOKEN_ISSUER,
   };
 }
 

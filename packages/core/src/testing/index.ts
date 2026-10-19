@@ -13,7 +13,7 @@ export { argon2idPasswordHasher } from '../adapters/crypto/passwords.js';
 export { createPrismaClient, type PrismaClient } from '../adapters/prisma/client.js';
 export { SHIP_PROTOCOL } from '../adapters/trpc/ship-protocol.js';
 export { createApp } from '../app.js';
-export type { Caller } from '../domain/shared/caller.js';
+export type { Caller, ShipCaller } from '../domain/shared/caller.js';
 export { createUseCases, type UseCases } from '../wiring.js';
 export { createCopyOf, createEmptyDatabase, createMigratedDatabase, executeSqlFile } from './database.js';
 export { FLEET_URL, OPERATOR, operatorCaller, secretOf } from './fleet.js';

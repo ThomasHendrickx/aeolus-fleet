@@ -3,13 +3,13 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { addAgentShip, crewAboard, deliveryInFlight, initialiseFleet, operatorCaller, withInstallationSettings } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
-import type { Caller } from './caller.js';
+import type { ShipCaller } from './caller.js';
 import { createReadFleetLimits, type ReadFleetLimits } from './read-fleet-limits.js';
 
 let core: InMemoryCore;
 let readLimits: ReadFleetLimits;
 let fleetId: FleetId;
-let argo: Caller;
+let argo: ShipCaller;
 
 beforeEach(async () => {
   core = createInMemoryCore('2026-10-04T12:00:00.000Z');

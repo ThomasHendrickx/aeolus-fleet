@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyServerOptions } from 'fastify';
 
 import type { RateLimit } from './adapters/http/rate-limiter.js';
 import { buildHttpServer } from './adapters/http/server.js';
+import { createAccountTokenSignatures } from './adapters/crypto/account-token-signatures.js';
 import { checkDatabase, createPrismaClient, latestMigration } from './adapters/prisma/client.js';
 import { listenForPendingDeliveries } from './adapters/prisma/delivery-notices.js';
 import { failureForLog } from './adapters/prisma/failure-log.js';
@@ -33,10 +34,34 @@ export interface AppOptions {
   installationToken?: string;
   /** How often the 10 and 60 minute clocks pass; every 30 seconds unless a test says otherwise. */
   overduePassMs?: number;
+  /** pagasae's URL, the issuer whose account tokens core trusts (decision 0058); unset, it trusts none. */
+  accountTokenIssuer?: string;
 }
 
 /** How often core runs the 10 and 60 minute clocks: argo hears of an overdue delivery within this of its clock running out. */
 const OVERDUE_PASS_MS = 30_000;
+
+/** How long core waits for pagasae's key set before it goes on with the keys it holds. */
+const KEY_SET_FETCH_TIMEOUT_MS = 5_000;
+
+/** Checks account tokens with the keys pagasae publishes at its `/.well-known/jwks.json`; none without an issuer. */
+function accountTokenSignaturesOf(issuer: string | undefined, clock: Clock) {
+  if (issuer === undefined) {
+    return undefined;
+  }
+  const keySetUrl = `${issuer.replace(/\/$/, '')}/.well-known/jwks.json`;
+  return createAccountTokenSignatures({
+    issuer,
+    now: () => clock.now(),
+    fetchKeySet: async () => {
+      const response = await fetch(keySetUrl, { signal: AbortSignal.timeout(KEY_SET_FETCH_TIMEOUT_MS) });
+      if (!response.ok) {
+        throw new Error(`pagasae answered ${String(response.status)} for its key set`);
+      }
+      return response.json();
+    },
+  });
+}
 
 /**
  * Wires adapters to use cases and returns the HTTP server, not yet listening.
@@ -56,6 +81,7 @@ export function createApp(options: AppOptions): FastifyInstance {
     wakeups,
     fleetEventWakeups: fleetEventWakeupsOf(fleetEvents),
     receiveWaitMs: options.receiveWaitMs,
+    accountTokenSignatures: accountTokenSignaturesOf(options.accountTokenIssuer, clock),
   });
   const server = buildHttpServer({
     useCases,

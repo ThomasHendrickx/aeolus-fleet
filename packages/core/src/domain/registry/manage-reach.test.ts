@@ -6,6 +6,7 @@ import { aCrewSettings, shipWithScopes } from '../../../test/support/crew-fixtur
 import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
 import { unwrap } from '../../testing/result.js';
 import type { Crew } from '../shared/caller.js';
+import { refusedShip } from '../../../test/support/refused-sender.js';
 
 /**
  * Manage reach (decision 0034, 0046): every fleet:manage call is checked
@@ -51,7 +52,7 @@ describe('a fleet:manage call outside manage reach', () => {
 
     const settingsVersion = fleet.core.state.networkSettings.find((settings) => settings.fleetId === fleet.fleetId)?.version;
     expect(
-      fleet.core.state.reachRefusals.map(({ verb, sender, recipient, settingsVersion: version }) => ({ verb, sender: sender.id, recipient: recipient.kind === 'ship' ? recipient.ship.id : null, version })),
+      fleet.core.state.reachRefusals.map(({ verb, sender, recipient, settingsVersion: version }) => ({ verb, sender: refusedShip(sender).id, recipient: recipient.kind === 'ship' ? recipient.ship.id : null, version })),
     ).toEqual([{ verb: 'manage', sender: manager.shipId, recipient: fleet.far.shipId, version: settingsVersion }]);
   });
 

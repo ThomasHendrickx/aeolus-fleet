@@ -20,6 +20,10 @@ import { createSetGuide } from '../../src/domain/identity/set-guide.js';
 import { createSetNotices } from '../../src/domain/identity/set-notices.js';
 import { createRedeemSignInTicket } from '../../src/domain/identity/redeem-sign-in-ticket.js';
 import { createAuthenticate } from '../../src/domain/identity/authenticate.js';
+import { createAuthenticateAccount } from '../../src/domain/identity/authenticate-account.js';
+import { createAuthenticateInstallation } from '../../src/domain/identity/authenticate-installation.js';
+import { createCutOffAccount } from '../../src/domain/identity/cut-off-account.js';
+import type { AccountCutOffRepository, HostedFleets } from '../../src/domain/identity/ports.js';
 import { createReadAccount } from '../../src/domain/identity/read-account.js';
 import { createResetOperatorPassword } from '../../src/domain/identity/reset-operator-password.js';
 import { createSignIn } from '../../src/domain/identity/sign-in.js';
@@ -103,7 +107,7 @@ import { createReadAssignedCrewRequests } from '../../src/domain/registry/read-a
 import { createExplainCrewRequest } from '../../src/domain/registry/explain-crew-request.js';
 import { createReadReportLog } from '../../src/domain/registry/report-log.js';
 import { createWhoami } from '../../src/domain/registry/whoami.js';
-import { isCrew, type Caller, type Crew } from '../../src/domain/shared/caller.js';
+import { isCrew, type ShipCaller, type Crew } from '../../src/domain/shared/caller.js';
 import { createReadFleetEvents } from '../../src/domain/shared/read-fleet-events.js';
 import { createFollowFleet } from '../../src/domain/shared/follow-fleet.js';
 import { createReadInbox } from '../../src/domain/shared/read-inbox.js';
@@ -129,7 +133,13 @@ export function identityUseCases(core: InMemoryCore) {
     random: core.random,
     passwords: core.passwords,
   };
+  // No pagasae signs here, and no cut-off is kept: the account-token tests wire their own.
+  const cutOffs: AccountCutOffRepository = { record: () => Promise.resolve(), cutOffAt: () => Promise.resolve(undefined), forget: () => Promise.resolve() };
+  const fleets: HostedFleets = { isHosted: (fleetId) => Promise.resolve(core.state.fleets.some((fleet) => fleet.id === fleetId)) };
   return {
+    authenticateAccount: createAuthenticateAccount({ signatures: { verify: () => Promise.resolve(undefined) }, cutOffs, fleets, clock: core.clock }),
+    authenticateInstallation: createAuthenticateInstallation({ fleets }),
+    cutOffAccount: createCutOffAccount({ cutOffs, clock: core.clock }),
     signIn: createSignIn(deps),
     signOut: createSignOut(deps),
     resetOperatorPassword: createResetOperatorPassword(deps),
@@ -292,7 +302,7 @@ export function messagingUseCases(core: InMemoryCore) {
 }
 
 /** An agent ship as the caller, holding the scopes commissioning gives it, as its crew token makes it. */
-export function agentCaller(ship: { fleetId: FleetId; shipId: ShipId }): Caller {
+export function agentCaller(ship: { fleetId: FleetId; shipId: ShipId }): ShipCaller {
   return { ...ship, kind: 'agent', scopes: ['messages:send', 'messages:receive'] };
 }
 

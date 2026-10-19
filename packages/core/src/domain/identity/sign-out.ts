@@ -1,7 +1,7 @@
 import type { IdGenerator } from '@aeolus-fleet/common';
 
 import { endLease, type LeaseTx } from '../registry/public.js';
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { shipActor } from '../shared/events.js';
 import { ok } from '../shared/result.js';
@@ -12,7 +12,7 @@ export interface SignOutTx extends LeaseTx {
   consoleSessions: ConsoleSessionRepository;
 }
 
-export type SignOut = (caller: Caller) => Promise<void>;
+export type SignOut = (caller: ShipCaller) => Promise<void>;
 
 /**
  * Use case: ends the caller's console session and releases the lease on `argo`

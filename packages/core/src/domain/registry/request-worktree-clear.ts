@@ -1,6 +1,6 @@
 import type { IdGenerator, ShipId } from '@aeolus-fleet/common';
 
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, shipActor, type EventLog } from '../shared/events.js';
@@ -19,7 +19,7 @@ export interface RequestWorktreeClearTx extends Omit<CheckManageTx, 'ships'> {
 export type RequestWorktreeClearUseCaseRefusal = DomainError<'SHIP_NOT_FOUND'> | NotReachable | RequestWorktreeClearRefusal;
 
 export type RequestWorktreeClear = (
-  caller: Caller,
+  caller: ShipCaller,
   input: { trierarchShipId: ShipId; shipId: ShipId; repository: string },
 ) => Promise<Result<undefined, RequestWorktreeClearUseCaseRefusal>>;
 
@@ -40,7 +40,7 @@ export function createRequestWorktreeClear(deps: { uow: UnitOfWork<RequestWorktr
       if (!(await tx.ships.find(fleetId, input.shipId))) {
         return refuse('SHIP_NOT_FOUND', `Ship ${input.shipId} does not exist`);
       }
-      const managed = await checkManage({ tx, ids: deps.ids }, { fleetId: fleetId, managerShipId: caller.shipId, shipId: input.shipId, at: deps.clock.now() });
+      const managed = await checkManage({ tx, ids: deps.ids }, { manager: caller, shipId: input.shipId, at: deps.clock.now() });
       if (!managed.isOk) {
         return managed;
       }

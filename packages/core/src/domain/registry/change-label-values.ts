@@ -1,6 +1,6 @@
 import type { IdGenerator, LabelId } from '@aeolus-fleet/common';
 
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, shipActor, type EventLog } from '../shared/events.js';
@@ -17,7 +17,7 @@ export interface ChangeLabelValuesTx {
 
 export type ChangeLabelValuesFailure = DomainError<'LABEL_NOT_FOUND'> | ChangeLabelValuesRefusal;
 
-export type ChangeLabelValues = (caller: Caller, input: { labelId: LabelId; values: readonly string[] }) => Promise<Result<{ values: readonly LabelValue[] }, ChangeLabelValuesFailure>>;
+export type ChangeLabelValues = (caller: ShipCaller, input: { labelId: LabelId; values: readonly string[] }) => Promise<Result<{ values: readonly LabelValue[] }, ChangeLabelValuesFailure>>;
 
 /**
  * Use case: a label's owner gives it the values it has from now on (decision
@@ -34,7 +34,7 @@ export function createChangeLabelValues(deps: { uow: UnitOfWork<ChangeLabelValue
       if (!label) {
         return refuse('LABEL_NOT_FOUND', `The fleet has no label ${input.labelId}`);
       }
-      const nameOf = async (shipId: Caller['shipId']) => (await tx.ships.find(fleetId, shipId))?.name ?? shipId;
+      const nameOf = async (shipId: ShipCaller['shipId']) => (await tx.ships.find(fleetId, shipId))?.name ?? shipId;
       const carriers = await Promise.all(
         (await tx.labels.carriersOf(fleetId, label.id)).map(async (carried) => ({ valueId: carried.valueId, shipName: await nameOf(carried.shipId) })),
       );

@@ -5,12 +5,12 @@ import { hostedFleet, initialiseFleet, operatorCaller, registryUseCases } from '
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../testing/result.js';
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 
 let core: InMemoryCore;
 let registry: ReturnType<typeof registryUseCases>;
-let argo: Caller;
-let plugin: Caller;
+let argo: ShipCaller;
+let plugin: ShipCaller;
 let pluginId: ShipId;
 
 beforeEach(async () => {

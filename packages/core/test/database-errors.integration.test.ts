@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
 import { LISTENER_APPLICATION_NAME } from '../src/adapters/prisma/delivery-notices.js';
 import { createApp } from '../src/app.js';
-import type { Caller } from '../src/domain/shared/caller.js';
+import type { ShipCaller } from '../src/domain/shared/caller.js';
 import type { AppRouter } from '../src/index.js';
 import { createUseCases } from '../src/wiring.js';
 import { runServerCommand } from './support/commands.js';
@@ -47,7 +47,7 @@ function databaseCodesIn(lines: Record<string, unknown>[], msg: string) {
 describe('a database error at the doors', () => {
   let databaseUrl: string;
   let database: PrismaClient;
-  let argo: Caller;
+  let argo: ShipCaller;
   let server: FastifyInstance;
   let address: string;
   const logLines: string[] = [];

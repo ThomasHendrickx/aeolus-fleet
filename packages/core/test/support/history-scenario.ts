@@ -1,6 +1,6 @@
 import type { FleetId, MessageId, ShipId } from '@aeolus-fleet/common';
 
-import type { Caller, Crew } from '../../src/domain/shared/caller.js';
+import type { ShipCaller, Crew } from '../../src/domain/shared/caller.js';
 import type { Selector } from '../../src/domain/shared/selector.js';
 import {
   crewAboard,
@@ -22,14 +22,14 @@ import { newKey } from '../../src/testing/keys.js';
 export interface HistoryScenario {
   core: InMemoryCore;
   fleetId: FleetId;
-  argo: Caller;
+  argo: ShipCaller;
   scout: Crew;
   lookout: Crew;
   planner: Crew;
   history: ReturnType<typeof historyUseCases>;
   registry: ReturnType<typeof registryUseCases>;
   messaging: ReturnType<typeof messagingUseCases>;
-  send(from: Caller, message: { to: Selector; payload?: string; inReplyTo?: MessageId }): Promise<MessageId>;
+  send(from: ShipCaller, message: { to: Selector; payload?: string; inReplyTo?: MessageId }): Promise<MessageId>;
   /** The crew's receive, as many as it gets in one call; returns the message ids. */
   receive(crew: Crew): Promise<MessageId[]>;
   ack(crew: Crew, messageId: MessageId): Promise<void>;

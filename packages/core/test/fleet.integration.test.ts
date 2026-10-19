@@ -5,7 +5,7 @@ import { cryptoRandomTokens, sha256Hasher } from '../src/adapters/crypto/secrets
 import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
 import { createCommissionShip } from '../src/domain/registry/commission-ship.js';
 import { createGetStartingPrompt } from '../src/domain/registry/get-starting-prompt.js';
-import type { Caller } from '../src/domain/shared/caller.js';
+import type { ShipCaller } from '../src/domain/shared/caller.js';
 import { OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
 import { createPostgresCore, everyRow, racingUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from '../src/testing/result.js';
@@ -21,7 +21,7 @@ const newId = createIdGenerator();
 let core: PostgresCore;
 let fleetId: FleetId;
 let argoId: ShipId;
-let argo: Caller;
+let argo: ShipCaller;
 
 beforeEach(async () => {
   core = await createPostgresCore();

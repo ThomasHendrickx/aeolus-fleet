@@ -7,7 +7,7 @@ import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-
 import { newKey } from '../../testing/keys.js';
 import { valueIdOf } from '../../../test/support/label-fixtures.js';
 import { refusalOf, unwrap } from '../../testing/result.js';
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import type { MessageToSend } from './send-message.js';
 
 /**
@@ -21,12 +21,12 @@ import type { MessageToSend } from './send-message.js';
 let core: InMemoryCore;
 let registry: ReturnType<typeof registryUseCases>;
 let messaging: ReturnType<typeof messagingUseCases>;
-let argo: Caller;
-let plugin: Caller;
+let argo: ShipCaller;
+let plugin: ShipCaller;
 let pluginToken: string;
-let planner: Caller;
-let scout: Caller;
-let vault: Caller;
+let planner: ShipCaller;
+let scout: ShipCaller;
+let vault: ShipCaller;
 
 const NOT_RESPONDING_AFTER_SECONDS = 120;
 const SECOND = 1000;
@@ -36,12 +36,12 @@ function value(text: string): LabelValueId {
   return valueIdOf(core, { key: 'trust', value: text });
 }
 
-function aMessage(to: Caller, overrides: Partial<MessageToSend> = {}): MessageToSend {
+function aMessage(to: ShipCaller, overrides: Partial<MessageToSend> = {}): MessageToSend {
   return { selector: { kind: 'ship', shipId: to.shipId }, payload: 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/260', idempotencyKey: newKey(), model: SESSION_MODEL, ...overrides };
 }
 
 /** The ship registers as the fleet's networking plugin and supplies its rules, turning open for send off: shared reaches shared. */
-async function registerAs(ship: Caller, whileUnavailable: WhileUnavailable): Promise<void> {
+async function registerAs(ship: ShipCaller, whileUnavailable: WhileUnavailable): Promise<void> {
   unwrap(await registry.registerNetworkPlugin(ship, { whileUnavailable, notRespondingAfterSeconds: NOT_RESPONDING_AFTER_SECONDS }));
   unwrap(await registry.setNetworkRules(ship, { rules: [{ verb: 'send', from: [value('shared')], to: [value('shared')] }] }));
   unwrap(await registry.setBuiltInRule(ship, { rule: 'open', verb: 'send', isOn: false }));
@@ -70,7 +70,7 @@ beforeEach(async () => {
   scout = await shipWithScopes({ registry, argo }, { name: 'scout', type: 'reviewer', scopes: [] });
   vault = await shipWithScopes({ registry, argo }, { name: 'vault', type: 'keeper', scopes: [] });
   unwrap(await registry.defineLabel(labeller, { key: 'trust', values: ['shared', 'sensitive'] }));
-  const carries: [Caller, string][] = [
+  const carries: [ShipCaller, string][] = [
     [planner, 'shared'],
     [scout, 'shared'],
     [vault, 'sensitive'],

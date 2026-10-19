@@ -14,9 +14,9 @@ import type { Context, FleetEventWatches, RequestCredentials, SessionCookie, Use
 import { appRouter, type AppRouter } from '../trpc/router.js';
 import { refusalBody, unexpectedFailure } from '../trpc/ship-contract.js';
 import { createRateLimiter, type RateLimit } from './rate-limiter.js';
-import { clearedSessionCookie, readBearer, readOnBehalfOf, readSessionToken, sessionCookie } from './request-credentials.js';
+import { clearedSessionCookie, readAccountToken, readBearer, readFleet, readOnBehalfOf, readSessionToken, sessionCookie } from './request-credentials.js';
 import { runningVersions } from './version.js';
-import { INSTALLATION_TOKEN_HEADER } from '../trpc/installation.js';
+import { INSTALLATION_TOKEN_HEADER } from '../trpc/installation-token.js';
 
 /** A header's one value: a header sent twice counts as not sent. */
 function headerValue(value: string | string[] | undefined): string | undefined {
@@ -217,6 +217,8 @@ export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
             bearer: readBearer(req.headers.authorization),
             sessionToken: readSessionToken(req.headers.cookie),
             onBehalfOf: readOnBehalfOf(req.headers),
+            accountToken: readAccountToken(req.headers),
+            fleet: readFleet(req.headers),
           },
           canUseConsoleSession: true,
           sessionCookie: {

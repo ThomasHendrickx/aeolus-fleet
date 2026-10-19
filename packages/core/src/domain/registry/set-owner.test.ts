@@ -4,12 +4,12 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../testing/result.js';
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import { newKey } from '../../testing/keys.js';
 
 let core: InMemoryCore;
 let registry: ReturnType<typeof registryUseCases>;
-let argo: Caller;
+let argo: ShipCaller;
 let argoId: ShipId;
 let scoutId: ShipId;
 let thomasId: ShipId;
@@ -62,7 +62,7 @@ describe("setting a ship's owner (decision 0045)", () => {
   });
 
   it('refuses any caller but argo, changing nothing', async () => {
-    const manager: Caller = { ...argo, shipId: scoutId, kind: 'agent' };
+    const manager: ShipCaller = { ...argo, shipId: scoutId, kind: 'agent' };
 
     await expect(registry.setOwner(manager, { shipId: scoutId, ownerShipId: thomasId })).resolves.toMatchObject({
       isOk: false,

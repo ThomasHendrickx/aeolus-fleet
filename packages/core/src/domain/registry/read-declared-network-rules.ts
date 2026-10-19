@@ -1,10 +1,10 @@
 import type { ShipId } from '@aeolus-fleet/common';
 
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import type { NetworkRule } from './network-settings.js';
 import type { DeclaredNetworkRulesRepository } from './ports.js';
 
-export type ReadDeclaredNetworkRules = (caller: Caller) => Promise<{ shipId: ShipId; rules: readonly NetworkRule[] }[]>;
+export type ReadDeclaredNetworkRules = (caller: ShipCaller) => Promise<{ shipId: ShipId; rules: readonly NetworkRule[] }[]>;
 
 /**
  * Use case: the fleet's networking plugin reads every ship's declared rules,

@@ -7,7 +7,7 @@ import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-
 import { newKey } from '../../testing/keys.js';
 import { valueIdOf } from '../../../test/support/label-fixtures.js';
 import { unwrap } from '../../testing/result.js';
-import type { Caller, Crew } from '../shared/caller.js';
+import type { ShipCaller, Crew } from '../shared/caller.js';
 
 /**
  * Discovery (decision 0047): planner asks which ships it may send to now.
@@ -17,7 +17,7 @@ import type { Caller, Crew } from '../shared/caller.js';
 let core: InMemoryCore;
 let registry: ReturnType<typeof registryUseCases>;
 let fleetId: FleetId;
-let argo: Caller;
+let argo: ShipCaller;
 let planner: Crew;
 let scoutId: ShipId;
 let scout: Crew;

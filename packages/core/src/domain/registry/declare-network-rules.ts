@@ -1,6 +1,6 @@
 import type { IdGenerator } from '@aeolus-fleet/common';
 
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { recordEvent, shipActor, type EventLog } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
@@ -17,7 +17,7 @@ export interface DeclareNetworkRulesTx {
   events: EventLog;
 }
 
-export type DeclareNetworkRules = (caller: Caller, input: { rules: readonly NetworkRule[] }) => Promise<Result<{ rules: number }, DeclareNetworkRulesRefusal>>;
+export type DeclareNetworkRules = (caller: ShipCaller, input: { rules: readonly NetworkRule[] }) => Promise<Result<{ rules: number }, DeclareNetworkRulesRefusal>>;
 
 /**
  * Use case: a ship declares the network rules it needs on the labels it owns,

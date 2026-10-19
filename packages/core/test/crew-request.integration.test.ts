@@ -2,7 +2,7 @@ import { createIdGenerator } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createChangeLabelValues } from '../src/domain/registry/change-label-values.js';
-import type { Caller } from '../src/domain/shared/caller.js';
+import type { ShipCaller } from '../src/domain/shared/caller.js';
 import { OPERATOR, operatorCaller } from './support/core-fixtures.js';
 import { createPostgresCore, heldUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from '../src/testing/result.js';
@@ -16,8 +16,8 @@ import { wholeShips } from './support/ships.js';
 const newId = createIdGenerator();
 
 let core: PostgresCore;
-let argo: Caller;
-let scoutId: Caller['shipId'];
+let argo: ShipCaller;
+let scoutId: ShipCaller['shipId'];
 
 beforeEach(async () => {
   core = await createPostgresCore();
@@ -140,8 +140,8 @@ describe('a crew request on Postgres', () => {
     const { shipId: trierarchId } = unwrap(
       await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] }),
     );
-    const plugin: Caller = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'] };
-    const trierarch: Caller = { fleetId: argo.fleetId, shipId: trierarchId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:run'] };
+    const plugin: ShipCaller = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'] };
+    const trierarch: ShipCaller = { fleetId: argo.fleetId, shipId: trierarchId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:run'] };
     unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ harness: 'codex' }) }));
 
     unwrap(await core.useCases.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarchId }));
@@ -176,7 +176,7 @@ describe('a crew request on Postgres', () => {
     const { shipId: pluginId } = unwrap(
       await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'navarch', type: 'navarch', scopes: ['crew:assign'] }),
     );
-    const plugin: Caller = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'] };
+    const plugin: ShipCaller = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'] };
     unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ harness: 'codex' }) }));
 
     unwrap(await core.useCases.explainCrewRequest(plugin, { shipId: scoutId, reason: 'no trierarch offers codex' }));
@@ -196,8 +196,8 @@ describe('a crew request on Postgres', () => {
     const { shipId: trierarchId } = unwrap(
       await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] }),
     );
-    const plugin: Caller = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'] };
-    const trierarch: Caller = { fleetId: argo.fleetId, shipId: trierarchId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:run'] };
+    const plugin: ShipCaller = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'] };
+    const trierarch: ShipCaller = { fleetId: argo.fleetId, shipId: trierarchId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:run'] };
     unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ harness: 'claude-code', options: { model: 'claude-opus-5-5' } }) }));
     unwrap(await core.useCases.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarchId }));
     unwrap(await core.useCases.reportCrewStatus(trierarch, { shipId: scoutId, status: 'crewing' }));
@@ -228,8 +228,8 @@ describe('a crew request on Postgres', () => {
     const { shipId: trierarchId } = unwrap(
       await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] }),
     );
-    const plugin: Caller = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'] };
-    const trierarch: Caller = { fleetId: argo.fleetId, shipId: trierarchId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:run'] };
+    const plugin: ShipCaller = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'] };
+    const trierarch: ShipCaller = { fleetId: argo.fleetId, shipId: trierarchId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:run'] };
     unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ harness: 'claude-code' }) }));
     unwrap(await core.useCases.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarchId }));
     unwrap(await core.useCases.reportCrewStatus(trierarch, { shipId: scoutId, status: 'running' }));
@@ -250,8 +250,8 @@ describe('a crew request on Postgres', () => {
     const { shipId: trierarchId } = unwrap(
       await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] }),
     );
-    const plugin: Caller = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'] };
-    const trierarch: Caller = { fleetId: argo.fleetId, shipId: trierarchId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:run'] };
+    const plugin: ShipCaller = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'] };
+    const trierarch: ShipCaller = { fleetId: argo.fleetId, shipId: trierarchId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:run'] };
     unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ harness: 'claude-code' }) }));
     unwrap(await core.useCases.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarchId }));
     unwrap(await core.useCases.reportCrewStatus(trierarch, { shipId: scoutId, status: 'running' }));

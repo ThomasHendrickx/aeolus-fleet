@@ -1,6 +1,6 @@
 import type { IdGenerator, ShipId } from '@aeolus-fleet/common';
 
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, shipActor, type EventLog } from '../shared/events.js';
@@ -17,7 +17,7 @@ export interface RemoveCrewRequestTx extends Omit<CheckManageTx, 'ships'> {
 }
 
 export type RemoveCrewRequest = (
-  caller: Caller,
+  caller: ShipCaller,
   input: { shipId: ShipId },
 ) => Promise<Result<undefined, DomainError<'SHIP_NOT_FOUND' | 'CREW_REQUEST_NOT_FOUND'> | NotReachable>>;
 
@@ -35,7 +35,7 @@ export function createRemoveCrewRequest(deps: { uow: UnitOfWork<RemoveCrewReques
       if (!ship) {
         return refuse('SHIP_NOT_FOUND', `Ship ${input.shipId} does not exist`);
       }
-      const managed = await checkManage({ tx, ids: deps.ids }, { fleetId: caller.fleetId, managerShipId: caller.shipId, shipId: ship.id, at: deps.clock.now() });
+      const managed = await checkManage({ tx, ids: deps.ids }, { manager: caller, shipId: ship.id, at: deps.clock.now() });
       if (!managed.isOk) {
         return managed;
       }

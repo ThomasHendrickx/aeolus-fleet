@@ -1,6 +1,6 @@
 import type { ShipId } from '@aeolus-fleet/common';
 
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import type { CrewRequest } from './crew-request.js';
 import type { CrewRequestRepository, ShipRepository } from './ports.js';
 
@@ -11,7 +11,7 @@ import type { CrewRequestRepository, ShipRepository } from './ports.js';
  */
 export type AssignedCrewRequest = Pick<CrewRequest, 'shipId' | 'settings' | 'settingsVersion' | 'requestedAt' | 'status' | 'isFinal'> & { ownerShipId: ShipId | null; ownerName: string | null };
 
-export type ReadAssignedCrewRequests = (caller: Caller) => Promise<AssignedCrewRequest[]>;
+export type ReadAssignedCrewRequests = (caller: ShipCaller) => Promise<AssignedCrewRequest[]>;
 
 /**
  * Use case: a trierarch reads the crew requests assigned to its ship, oldest

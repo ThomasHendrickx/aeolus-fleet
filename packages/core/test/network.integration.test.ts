@@ -6,12 +6,13 @@ import { createSendMessage } from '../src/domain/messaging/send-message.js';
 import { createSetBuiltInRule } from '../src/domain/registry/set-built-in-rule.js';
 import { createSetNetworkRules } from '../src/domain/registry/set-network-rules.js';
 import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
-import type { Caller } from '../src/domain/shared/caller.js';
+import type { ShipCaller } from '../src/domain/shared/caller.js';
 import type { Crew } from '../src/domain/shared/caller.js';
 import { OPERATOR, operatorCaller, secretOf, SESSION_MODEL } from './support/core-fixtures.js';
 import { newKey } from '../src/testing/keys.js';
 import { createPostgresCore, everyRow, heldUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { refusalOf, unwrap } from '../src/testing/result.js';
+import { refusedShip } from './support/refused-sender.js';
 
 // The fleet's network rules on a real Postgres (decision 0034): the settings
 // kept with their version; a refused send stores nothing but its record, in
@@ -22,16 +23,16 @@ import { refusalOf, unwrap } from '../src/testing/result.js';
 const newId = createIdGenerator();
 
 let core: PostgresCore;
-let argo: Caller;
-let planner: Caller;
-let vault: Caller;
-let labeller: Caller;
+let argo: ShipCaller;
+let planner: ShipCaller;
+let vault: ShipCaller;
+let labeller: ShipCaller;
 let trustId: LabelId;
 let shared: LabelValueId;
 let sensitive: LabelValueId;
 
 /** A ship the labeller commissions, so it may label it (decision 0046). */
-async function aShip(name: string): Promise<Caller> {
+async function aShip(name: string): Promise<ShipCaller> {
   const { shipId } = unwrap(await core.useCases.commissionShip(labeller, { idempotencyKey: newKey(), name, type: name }));
   return { fleetId: argo.fleetId, shipId, kind: 'agent', scopes: ['messages:send', 'messages:receive'] };
 }
@@ -49,7 +50,7 @@ async function registeredPlugin(): Promise<Crew> {
   return crew;
 }
 
-function aMessage(to: Caller, inReplyTo?: MessageId) {
+function aMessage(to: ShipCaller, inReplyTo?: MessageId) {
   return { selector: { kind: 'ship' as const, shipId: to.shipId }, payload: 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/260', idempotencyKey: newKey(), model: SESSION_MODEL, inReplyTo };
 }
 
@@ -115,7 +116,7 @@ describe('the network settings', () => {
 });
 
 describe('the networking plugin (decision 0035)', () => {
-  let plugin: Caller;
+  let plugin: ShipCaller;
   let pluginSecret: string;
 
   beforeEach(async () => {
@@ -274,7 +275,7 @@ describe('a send under network rules', () => {
           fleetId: argo.fleetId,
           id: read[0]?.id,
           at: core.clock.now(),
-          sender: { id: vault.shipId, name: 'vault', labels: [label(sensitive, 'sensitive')], owner: { id: argo.shipId, name: 'argo' } },
+          sender: { kind: 'ship', id: vault.shipId, name: 'vault', labels: [label(sensitive, 'sensitive')], owner: { id: argo.shipId, name: 'argo' } },
           askedBy: null,
           recipient: { kind: 'ship', ship: { id: planner.shipId, name: 'planner', labels: [label(shared, 'shared')], owner: { id: argo.shipId, name: 'argo' } } },
           verb: 'send',
@@ -302,7 +303,7 @@ describe('a send under network rules', () => {
 
 describe('a send under rules with terms of any value and of the same value', () => {
   let networking: Crew;
-  let scout: Caller;
+  let scout: ShipCaller;
 
   beforeEach(async () => {
     networking = await registeredPlugin();
@@ -347,7 +348,7 @@ describe('a send under rules with terms of any value and of the same value', () 
     unwrap(await core.useCases.sendMessage(planner, aMessage(scout)));
     expect(refusalOf(await core.useCases.sendMessage(planner, aMessage(vault)))).toMatchObject({ kind: 'NOT_REACHABLE' });
     const [refusal] = unwrap(await core.useCases.readReachRefusals(argo));
-    expect([refusal?.sender.labels.map((label) => label.value), refusal?.recipient.kind === 'ship' ? refusal.recipient.ship.labels.map((label) => label.value) : undefined]).toEqual([
+    expect([refusal && refusedShip(refusal.sender).labels.map((label) => label.value), refusal?.recipient.kind === 'ship' ? refusal.recipient.ship.labels.map((label) => label.value) : undefined]).toEqual([
       ['shared'],
       ['sensitive'],
     ]);

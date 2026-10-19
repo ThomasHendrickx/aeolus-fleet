@@ -19,7 +19,7 @@ import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-
 import { labelIdOf, valueIdOf } from '../../../test/support/label-fixtures.js';
 import { newKey } from '../../testing/keys.js';
 import { refusalOf, unwrap } from '../../testing/result.js';
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import { createExplainReach } from './explain-reach.js';
 
 /**
@@ -30,12 +30,12 @@ import { createExplainReach } from './explain-reach.js';
 let core: InMemoryCore;
 let registry: ReturnType<typeof registryUseCases>;
 let explainReach: ReturnType<typeof createExplainReach>;
-let argo: Caller;
-let planner: Caller;
-let scout: Caller;
-let vault: Caller;
-let labeller: Caller;
-let networking: Caller;
+let argo: ShipCaller;
+let planner: ShipCaller;
+let scout: ShipCaller;
+let vault: ShipCaller;
+let labeller: ShipCaller;
+let networking: ShipCaller;
 
 const SECOND = 1_000;
 const NOT_RESPONDING_AFTER_SECONDS = NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MIN_SECONDS;
@@ -259,7 +259,7 @@ describe('the ships an explain names', () => {
 
   it("leaves the fleet's viewer ship out, as it receives nothing", async () => {
     const hosted = await hostedFleetWithViewer(core);
-    const hostedArgo: Caller = { ...argo, fleetId: hosted.fleetId, shipId: hosted.operatorShipId };
+    const hostedArgo: ShipCaller = { ...argo, fleetId: hosted.fleetId, shipId: hosted.operatorShipId };
 
     const explained = unwrap(await explainReach(hostedArgo, { fromShipId: hosted.operatorShipId }));
 
@@ -349,7 +349,7 @@ describe('the rule each reach names (decision 0034)', () => {
 
   it('names the viewer reading for every ship the viewer reads, and open once argo turns it off', async () => {
     const hosted = await hostedFleetWithViewer(core);
-    const hostedArgo: Caller = { ...argo, fleetId: hosted.fleetId, shipId: hosted.operatorShipId };
+    const hostedArgo: ShipCaller = { ...argo, fleetId: hosted.fleetId, shipId: hosted.operatorShipId };
     const { shipId: lookoutId } = unwrap(await registry.commissionShip(hostedArgo, { idempotencyKey: newKey(), name: 'lookout', type: 'reviewer' }));
     const fromViewer = async () => unwrap(await explainReach(hostedArgo, { fromShipId: hosted.viewerShipId, toShipId: lookoutId }));
 

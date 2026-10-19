@@ -3,14 +3,14 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { initialiseFleet, operatorCaller, registryUseCases, readReachOf } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../testing/result.js';
-import type { Caller } from './caller.js';
+import type { ShipCaller } from './caller.js';
 import type { FleetNewsWatch } from './events.js';
 import { createFollowFleet, type FollowFleet } from './follow-fleet.js';
 import { newKey } from '../../testing/keys.js';
 import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
 
 let core: InMemoryCore;
-let argo: Caller;
+let argo: ShipCaller;
 /** What the next wait does: by default the whole wait passes on the clock. */
 let nextWait: (waitMs: number) => Promise<'woken' | 'timedOut'>;
 const waits: number[] = [];

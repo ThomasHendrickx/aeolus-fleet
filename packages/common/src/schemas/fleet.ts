@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { commissionedShipKindSchema, eventTypeSchema, locationKindSchema, scopeNameSchema, shipKindSchema, shipStatusSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
+import { accountIdSchema } from './account-token.js';
 import { SHIP_HANDLE_MAX_LENGTH, SHIP_HANDLE_MESSAGE, SHIP_HANDLE_PATTERN } from '../rules/ship-handle.js';
 import { idempotencyKeySchema } from './idempotency-key.js';
 import { listedCrewRequestSchema } from './crew-request.js';
@@ -246,8 +247,8 @@ export type FleetEventsInput = z.infer<typeof fleetEventsInputSchema>;
 
 /**
  * One committed event as the live fleet view hears it: its number in the
- * fleet's stream (commit order, without gaps), what happened and when, which
- * ship caused it, and which ship, message and delivery it concerns. Never its
+ * fleet's stream (commit order, without gaps), what happened and when, who
+ * caused it, and which ship, message and delivery it concerns. Never its
  * details.
  */
 export const liveFleetEventSchema = z.object({
@@ -256,8 +257,12 @@ export const liveFleetEventSchema = z.object({
   type: eventTypeSchema,
   /** ISO 8601 in UTC. */
   occurredAt: z.iso.datetime(),
-  /** The ship that caused it; null for the system. */
+  /** Who caused it (decision 0057): a ship, an account, the installation or the system. */
+  actorKind: z.enum(['ship', 'account', 'installation', 'system']),
+  /** The ship that caused it; null for any other actor. */
   actorShipId: idSchema('ship').nullable(),
+  /** The account that caused it, by its id only; null for any other actor. */
+  actorAccountId: accountIdSchema.nullable(),
   shipId: idSchema('ship').nullable(),
   messageId: idSchema('message').nullable(),
   deliveryId: idSchema('delivery').nullable(),

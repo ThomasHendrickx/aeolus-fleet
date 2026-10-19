@@ -1,6 +1,6 @@
 import type { IdGenerator, LabelId } from '@aeolus-fleet/common';
 
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { recordEvent, shipActor, type EventLog } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
@@ -20,7 +20,7 @@ export interface DefinedLabel {
   values: readonly LabelValue[];
 }
 
-export type DefineLabel = (caller: Caller, input: { key: string; values: readonly string[] }) => Promise<Result<DefinedLabel, DefineLabelRefusal>>;
+export type DefineLabel = (caller: ShipCaller, input: { key: string; values: readonly string[] }) => Promise<Result<DefinedLabel, DefineLabelRefusal>>;
 
 /**
  * Use case: the caller's ship defines a label it then owns (decision 0031).

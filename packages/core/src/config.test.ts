@@ -18,7 +18,17 @@ describe('loadConfig', () => {
       cookieDomain: undefined,
       consoleOrigin: publicUrl,
       installationToken: undefined,
+      accountTokenIssuer: undefined,
     });
+  });
+
+  it("reads pagasae's URL, the issuer whose account tokens core trusts; without one it trusts none", () => {
+    expect(loadConfig({ ...required, ACCOUNT_TOKEN_ISSUER: 'https://pagasae.example.com' }).accountTokenIssuer).toBe('https://pagasae.example.com');
+  });
+
+  it('refuses an account token issuer that is no https URL', () => {
+    expect(() => loadConfig({ ...required, ACCOUNT_TOKEN_ISSUER: 'pagasae' })).toThrow(/ACCOUNT_TOKEN_ISSUER/);
+    expect(() => loadConfig({ ...required, ACCOUNT_TOKEN_ISSUER: 'http://pagasae.example.com' })).toThrow(/ACCOUNT_TOKEN_ISSUER/);
   });
 
   it('reads the installation token, which opens the installation procedures; without one they are off', () => {

@@ -2,6 +2,8 @@ import { err, type Err } from './result.js';
 
 /** Every reason the domain refuses a request. */
 export type DomainErrorKind =
+  | 'ACCOUNT_TOKEN_ENDED'
+  | 'ACCOUNT_TOKEN_INVALID'
   | 'ASSIGNEE_NOT_ACTIVE'
   | 'BASE_SCOPE'
   | 'CLEAR_REQUEST_LIMIT_REACHED'

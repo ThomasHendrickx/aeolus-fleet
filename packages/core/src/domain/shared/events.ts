@@ -1,4 +1,5 @@
 import type {
+  AccountId,
   DeliveryId,
   EventId,
   EventType,
@@ -8,8 +9,16 @@ import type {
   ShipId,
 } from '@aeolus-fleet/common';
 
-/** Who caused a state change: a ship (`argo` included) or the system, such as a server command. */
-export type Actor = { kind: 'ship'; shipId: ShipId } | { kind: 'system' };
+/**
+ * Who caused a state change (decision 0057): a ship (`argo` included); an
+ * account, by its id only, with the ship that presented its token when one
+ * did; the installation; or the system, such as a server command.
+ */
+export type Actor =
+  | { kind: 'ship'; shipId: ShipId }
+  | { kind: 'account'; accountId: AccountId; throughShipId: ShipId | null }
+  | { kind: 'installation' }
+  | { kind: 'system' };
 
 export const SYSTEM: Actor = { kind: 'system' };
 

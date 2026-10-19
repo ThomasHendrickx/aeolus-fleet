@@ -5,13 +5,13 @@ import { crewAboard, initialiseFleet, operatorCaller, registryUseCases } from '.
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { newKey } from '../../testing/keys.js';
 import { unwrap } from '../../testing/result.js';
-import type { Caller, Crew } from '../shared/caller.js';
+import type { ShipCaller, Crew } from '../shared/caller.js';
 import { ok } from '../shared/result.js';
 
 let core: InMemoryCore;
 let useCases: ReturnType<typeof registryUseCases>;
 let fleetId: FleetId;
-let argo: Caller;
+let argo: ShipCaller;
 let scoutId: ShipId;
 let scout: Crew;
 

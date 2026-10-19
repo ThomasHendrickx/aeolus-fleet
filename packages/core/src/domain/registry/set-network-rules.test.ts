@@ -5,16 +5,16 @@ import { hostedFleet, initialiseFleet, operatorCaller, registryUseCases } from '
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { refusalOf, unwrap } from '../../testing/result.js';
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import { BUILT_INS_ON, type NetworkRule } from './network-settings.js';
 import { createRegisterNetworkPlugin } from './register-network-plugin.js';
 import { createSetNetworkRules } from './set-network-rules.js';
 
 let core: InMemoryCore;
 let fleetId: FleetId;
-let argo: Caller;
-let setter: Caller;
-let other: Caller;
+let argo: ShipCaller;
+let setter: ShipCaller;
+let other: ShipCaller;
 let setNetworkRules: ReturnType<typeof createSetNetworkRules>;
 
 /** A rule between selectors of fresh value ids: no label needs to exist, as an unknown id matches no ship. */

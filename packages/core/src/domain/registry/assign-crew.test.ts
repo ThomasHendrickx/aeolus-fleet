@@ -5,16 +5,16 @@ import { crewAboard, initialiseFleet, operatorCaller, registryUseCases } from '.
 import { aCrewSettings, shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../testing/result.js';
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import { newKey } from '../../testing/keys.js';
 import { wholeShips } from '../../../test/support/ships.js';
 
 let core: InMemoryCore;
 let registry: ReturnType<typeof registryUseCases>;
 let fleetId: FleetId;
-let argo: Caller;
-let plugin: Caller;
-let trierarch: Caller;
+let argo: ShipCaller;
+let plugin: ShipCaller;
+let trierarch: ShipCaller;
 let scoutId: ShipId;
 
 beforeEach(async () => {
@@ -98,7 +98,7 @@ describe('an assigned crew request read with the ship', () => {
 });
 
 describe('who crewed the ship of a crew request', () => {
-  async function crewedWithPromptFrom(caller: Caller): Promise<void> {
+  async function crewedWithPromptFrom(caller: ShipCaller): Promise<void> {
     const { secret } = unwrap(await registry.getStartingPrompt(caller, { shipId: scoutId }));
     core.clock.advance(1_000);
     unwrap(await registry.claimShip({ shipId: scoutId, secret, location: { kind: 'DEVICE' }, harness: 'claude-code' }));

@@ -1,6 +1,6 @@
 import { NETWORK_VERBS, type ExplainedReach, type ReachRule, type ShipId } from '@aeolus-fleet/common';
 
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
@@ -21,7 +21,7 @@ export interface ExplainReachTx {
 
 export type ExplainReachFailure = DomainError<'NOT_THE_OPERATOR_SHIP' | 'SHIP_NOT_FOUND'>;
 
-export type ExplainReach = (caller: Caller, input: { fromShipId: ShipId; toShipId?: ShipId }) => Promise<Result<ExplainedReach, ExplainReachFailure>>;
+export type ExplainReach = (caller: ShipCaller, input: { fromShipId: ShipId; toShipId?: ShipId }) => Promise<Result<ExplainedReach, ExplainReachFailure>>;
 
 /**
  * Use case: argo asks which ships a ship reaches now, per verb, or whether it

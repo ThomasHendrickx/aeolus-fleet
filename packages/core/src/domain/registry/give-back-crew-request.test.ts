@@ -6,7 +6,7 @@ import { aCrewSettings, shipWithScopes } from '../../../test/support/crew-fixtur
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { newKey } from '../../testing/keys.js';
 import { unwrap } from '../../testing/result.js';
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import { wholeShips } from '../../../test/support/ships.js';
 
 // A trierarch gives back a crew request it tried to fulfil and failed, while
@@ -18,9 +18,9 @@ const REASON = 'mac-mini: claude-code 2.1.293 refused claude-opus-5-5';
 let core: InMemoryCore;
 let registry: ReturnType<typeof registryUseCases>;
 let fleetId: FleetId;
-let argo: Caller;
-let plugin: Caller;
-let trierarch: Caller;
+let argo: ShipCaller;
+let plugin: ShipCaller;
+let trierarch: ShipCaller;
 let scoutId: ShipId;
 
 beforeEach(async () => {
@@ -40,7 +40,7 @@ beforeEach(async () => {
 });
 
 const crewRequestOf = (shipId: ShipId) => core.state.crewRequests.find((request) => request.fleetId === fleetId && request.shipId === shipId);
-const giveBack = (caller: Caller, at: { settingsVersion?: number; reason?: string } = {}) =>
+const giveBack = (caller: ShipCaller, at: { settingsVersion?: number; reason?: string } = {}) =>
   registry.giveBackCrewRequest(caller, { shipId: scoutId, settingsVersion: at.settingsVersion ?? 1, reason: at.reason ?? REASON });
 
 describe('a trierarch giving back a crew request', () => {

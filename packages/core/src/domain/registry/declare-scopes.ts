@@ -1,6 +1,6 @@
 import type { IdGenerator } from '@aeolus-fleet/common';
 
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { recordEvent, shipActor, type EventLog } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
@@ -21,7 +21,7 @@ export interface DeclaredNamespace {
 }
 
 export type DeclareScopes = (
-  caller: Caller,
+  caller: ShipCaller,
   input: { namespace: string; scopes: readonly { scope: string; description: string }[] },
 ) => Promise<Result<DeclaredNamespace, DeclareScopesRefusal>>;
 

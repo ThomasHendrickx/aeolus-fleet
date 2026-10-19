@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
 import { createSendMessage } from '../src/domain/messaging/send-message.js';
 import { createRetireShip } from '../src/domain/registry/retire-ship.js';
-import type { Caller, Crew } from '../src/domain/shared/caller.js';
+import type { ShipCaller, Crew } from '../src/domain/shared/caller.js';
 import type { Selector } from '../src/domain/shared/selector.js';
 import { OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
 import { createPostgresCore, heldUnitOfWork, type PostgresCore } from './support/postgres-core.js';
@@ -23,7 +23,7 @@ const newId = createIdGenerator();
 const CALL_TRANSACTION_SECONDS = 5;
 
 let core: PostgresCore;
-let argo: Caller;
+let argo: ShipCaller;
 let scoutId: ShipId;
 let scoutSecret: string;
 let lookout: Crew;

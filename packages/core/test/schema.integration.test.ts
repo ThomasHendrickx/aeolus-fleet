@@ -26,6 +26,36 @@ afterAll(async () => {
   await database.$disconnect();
 });
 
+/**
+ * The columns of events before the event actors migration (decision 0057):
+ * a test of an earlier migration reads only these, since the generated
+ * client knows the columns later migrations add.
+ */
+const EVENT_COLUMNS_BEFORE_ACTORS = { id: true, fleetId: true, type: true, occurredAt: true, actorShipId: true, shipId: true, messageId: true, deliveryId: true, details: true, seq: true } as const;
+
+interface EventBeforeActors {
+  id: string;
+  fleetId: string;
+  type: string;
+  occurredAt: Date;
+  actorShipId?: string;
+  shipId?: string;
+  messageId?: string;
+  deliveryId?: string;
+  details: object;
+  seq: bigint;
+}
+
+/** Writes events as an earlier migration's table holds them: raw, since the generated client writes the columns later migrations add. */
+async function insertEventsBeforeActors(client: PrismaClient, events: readonly EventBeforeActors[]): Promise<void> {
+  for (const event of events) {
+    await client.$executeRaw`
+      INSERT INTO events (id, fleet_id, type, occurred_at, actor_ship_id, ship_id, message_id, delivery_id, details, seq)
+      VALUES (${event.id}, ${event.fleetId}, ${event.type}, ${event.occurredAt}, ${event.actorShipId ?? null}, ${event.shipId ?? null},
+              ${event.messageId ?? null}, ${event.deliveryId ?? null}, ${JSON.stringify(event.details)}::jsonb, ${event.seq})`;
+  }
+}
+
 async function createFleet(): Promise<FleetId> {
   const id = newId('fleet');
   await database.fleet.create({ data: { id, name: 'test fleet', createdAt: now } });
@@ -97,6 +127,7 @@ describe('migrations', () => {
       ORDER BY t.table_name`;
 
     expect(tables.map((table) => table.table_name)).toEqual([
+      'account_cut_offs',
       'console_sessions',
       'credentials',
       'crew_request_give_backs',
@@ -126,8 +157,8 @@ describe('migrations', () => {
       'sign_in_tickets',
       'worktree_clear_requests',
     ]);
-    // The installation's settings, notices and guide belong to no fleet (decisions 0020, 0023 and 0024).
-    expect(tables.filter((table) => !table.hasFleetId).map((table) => table.table_name)).toEqual(['fleets', 'guides', 'installation_settings', 'notices']);
+    // The installation's settings, notices, guide and cut-off accounts belong to no fleet (decisions 0020, 0023, 0024 and 0058).
+    expect(tables.filter((table) => !table.hasFleetId).map((table) => table.table_name)).toEqual(['account_cut_offs', 'fleets', 'guides', 'installation_settings', 'notices']);
   });
 
   it('index every foreign key by its columns, so a delete checks each row it removes with an index, never a scan', async () => {
@@ -406,7 +437,7 @@ describe('the scope catalogue migration', () => {
         { id: ships.ofTrierarchPluginType, fleetId, name: 'placer', type: 'trierarch-plugin', kind: 'agent', scopes: ['messages:send', 'messages:receive'], createdAt: now },
       ],
     });
-    await client.event.create({ data: { id: earlier, fleetId, type: 'ShipCommissioned', occurredAt: now, shipId: ships.scout, details: {}, seq: 1n } });
+    await insertEventsBeforeActors(client, [{ id: earlier, fleetId, type: 'ShipCommissioned', occurredAt: now, shipId: ships.scout, details: {}, seq: 1n }]);
     return { fleetId, ships, earlier };
   }
 
@@ -441,7 +472,7 @@ describe('the scope catalogue migration', () => {
 
       await executeSqlFile(url, `${MIGRATIONS}/${catalogue ?? ''}/migration.sql`);
 
-      const recorded = await client.event.findMany({ where: { fleetId, id: { not: earlier } }, orderBy: { seq: 'asc' } });
+      const recorded = await client.event.findMany({ where: { fleetId, id: { not: earlier } }, orderBy: { seq: 'asc' } , select: EVENT_COLUMNS_BEFORE_ACTORS });
       expect(new Map(recorded.map(({ shipId, details }) => [shipId, details]))).toEqual(
         new Map([
           [ships.argo, { added: 'messages:resend fleet:commission', removed: '' }],
@@ -519,11 +550,11 @@ describe('the trierarch plugin crew:run migration', () => {
           { id: heldId, fleetId, name: 'held-plugin', type: 'trierarch-plugin', kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:run'], createdAt: now },
         ],
       });
-      await client.event.create({ data: { id: earlier, fleetId, type: 'ShipCommissioned', occurredAt: now, shipId: pluginId, details: {}, seq: 1n } });
+      await insertEventsBeforeActors(client, [{ id: earlier, fleetId, type: 'ShipCommissioned', occurredAt: now, shipId: pluginId, details: {}, seq: 1n }]);
 
       await executeSqlFile(url, `${MIGRATIONS}/${crewRun ?? ''}/migration.sql`);
 
-      const recorded = await client.event.findMany({ where: { fleetId, id: { not: earlier } }, orderBy: { seq: 'asc' } });
+      const recorded = await client.event.findMany({ where: { fleetId, id: { not: earlier } }, orderBy: { seq: 'asc' } , select: EVENT_COLUMNS_BEFORE_ACTORS });
       expect(recorded.map(({ shipId }) => shipId).toSorted()).toEqual([pluginId, secondId].toSorted());
       for (const [at, event] of recorded.entries()) {
         expect(event).toMatchObject({ type: 'ScopesChanged', actorShipId: null, details: { added: 'crew:run', removed: '' }, seq: BigInt(at + 2) });
@@ -603,11 +634,11 @@ describe('the on-behalf scope migration', () => {
           { id: heldId, fleetId, name: 'held-squadrons', type: 'squadrons', kind: 'agent', scopes: ['messages:send', 'messages:receive', 'fleet:on-behalf'], createdAt: now },
         ],
       });
-      await client.event.create({ data: { id: earlier, fleetId, type: 'ShipCommissioned', occurredAt: now, shipId: squadronsId, details: {}, seq: 1n } });
+      await insertEventsBeforeActors(client, [{ id: earlier, fleetId, type: 'ShipCommissioned', occurredAt: now, shipId: squadronsId, details: {}, seq: 1n }]);
 
       await executeSqlFile(url, `${MIGRATIONS}/${onBehalf ?? ''}/migration.sql`);
 
-      const recorded = await client.event.findMany({ where: { fleetId, id: { not: earlier } }, orderBy: { seq: 'asc' } });
+      const recorded = await client.event.findMany({ where: { fleetId, id: { not: earlier } }, orderBy: { seq: 'asc' } , select: EVENT_COLUMNS_BEFORE_ACTORS });
       expect(recorded.map(({ shipId }) => shipId).toSorted()).toEqual([argoId, squadronsId].toSorted());
       for (const [at, event] of recorded.entries()) {
         expect(event).toMatchObject({ type: 'ScopesChanged', actorShipId: null, details: { added: 'fleet:on-behalf', removed: '' }, seq: BigInt(at + 2) });
@@ -645,13 +676,13 @@ describe('the plugin connections migration', () => {
           { id: ids.scout, fleetId, name: 'scout', type: 'reviewer', kind: 'agent', scopes: [], createdAt: now },
         ],
       });
-      await client.event.create({ data: { id: earlier, fleetId, type: 'ShipCommissioned', occurredAt: now, shipId: ids.scout, details: {}, seq: 1n } });
+      await insertEventsBeforeActors(client, [{ id: earlier, fleetId, type: 'ShipCommissioned', occurredAt: now, shipId: ids.scout, details: {}, seq: 1n }]);
 
       await executeSqlFile(url, `${MIGRATIONS}/${connections ?? 'missing'}/migration.sql`);
 
       const connected = await client.pluginConnection.findMany({ where: { fleetId }, select: { shipId: true } });
       expect(connected.map(({ shipId }) => shipId).toSorted()).toEqual([ids.squadrons, ids.trierarchPlugin, ids.networking].toSorted());
-      const recorded = await client.event.findMany({ where: { fleetId, id: { not: earlier } }, orderBy: { seq: 'asc' } });
+      const recorded = await client.event.findMany({ where: { fleetId, id: { not: earlier } }, orderBy: { seq: 'asc' } , select: EVENT_COLUMNS_BEFORE_ACTORS });
       expect(recorded.map(({ shipId }) => shipId).toSorted()).toEqual([ids.squadrons, ids.trierarchPlugin, ids.networking].toSorted());
       for (const [at, event] of recorded.entries()) {
         expect(event).toMatchObject({ type: 'PluginConnected', actorShipId: null, details: {}, seq: BigInt(at + 2) });
@@ -728,13 +759,11 @@ describe('the cleared rules on record migration', () => {
         { fleetId: unregistered, version: 2 },
       ],
     });
-    await client.event.createMany({
-      data: [
+    await insertEventsBeforeActors(client, [
         { id: rulesSet, fleetId: argoRules, type: 'NetworkRulesSet', occurredAt: now, details: { version: 3, rules: 1 }, seq: 1n },
         { id: newId('event'), fleetId: pluginRules, type: 'NetworkRulesSet', occurredAt: now, details: { version: 5, rules: 1 }, seq: 1n },
         { id: newId('event'), fleetId: unregistered, type: 'NetworkPluginUnregistered', occurredAt: now, details: { version: 2 }, seq: 1n },
-      ],
-    });
+    ]);
     await withNoRules(client, [unregistered]);
     await execute(url, rulesThroughPlugin);
     return { argoRules, pluginRules, unregistered, rulesSet };
@@ -749,7 +778,7 @@ describe('the cleared rules on record migration', () => {
       await execute(url, clearedRulesOnRecord);
 
       await expect(client.networkSettings.findUnique({ where: { fleetId: argoRules }, select: { rules: true, version: true } })).resolves.toEqual({ rules: null, version: 4 });
-      const [recorded] = await client.event.findMany({ where: { fleetId: argoRules, id: { not: rulesSet } } });
+      const [recorded] = await client.event.findMany({ where: { fleetId: argoRules, id: { not: rulesSet } } , select: EVENT_COLUMNS_BEFORE_ACTORS });
       expect(recorded).toMatchObject({ type: 'NetworkRulesSet', actorShipId: null, shipId: null, details: { version: 4, rules: null }, seq: 2n });
       expect(idSchema('event').safeParse(recorded?.id).success).toBe(true);
       expect((recorded?.id ?? '') > rulesSet).toBe(true);
@@ -1386,7 +1415,7 @@ describe('events', () => {
     const fleetId = await createFleet();
     const event = (details: object) =>
       database.event.create({
-        data: { id: newId('event'), fleetId, type: 'FleetInitialised', occurredAt: now, details, seq: nextSeq() },
+        data: { id: newId('event'), fleetId, type: 'FleetInitialised', occurredAt: now, actorKind: 'system', details, seq: nextSeq() },
       });
 
     await expect(event(['name'])).rejects.toThrow(/events_details_object/);
@@ -1398,7 +1427,7 @@ describe('events', () => {
     const fleetId = await createFleet();
     const event = (ids: { actorShipId?: string; shipId?: string }) =>
       database.event.create({
-        data: { id: newId('event'), fleetId, type: 'ShipClaimed', occurredAt: now, details: {}, seq: nextSeq(), ...ids },
+        data: { id: newId('event'), fleetId, type: 'ShipClaimed', occurredAt: now, actorKind: ids.actorShipId === undefined ? 'system' : 'ship', details: {}, seq: nextSeq(), ...ids },
       });
 
     await expect(event({ actorShipId: shipOfAnotherFleet })).rejects.toThrow(/Foreign key constraint/);
@@ -1409,7 +1438,7 @@ describe('events', () => {
   it('take each number once per fleet', async () => {
     const fleetId = await createFleet();
     const event = () =>
-      database.event.create({ data: { id: newId('event'), fleetId, type: 'ShipClaimed', occurredAt: now, details: {}, seq: 1n } });
+      database.event.create({ data: { id: newId('event'), fleetId, type: 'ShipClaimed', occurredAt: now, actorKind: 'system', details: {}, seq: 1n } });
 
     await event();
     await expect(event()).rejects.toThrow(/Unique constraint/);
@@ -1419,7 +1448,7 @@ describe('events', () => {
     const fleetId = await createFleet();
     const id = newId('event');
     await database.event.create({
-      data: { id, fleetId, type: 'ShipCommissioned', occurredAt: now, details: {}, seq: nextSeq() },
+      data: { id, fleetId, type: 'ShipCommissioned', occurredAt: now, actorKind: 'system', details: {}, seq: nextSeq() },
     });
 
     await expect(database.event.update({ where: { id }, data: { type: 'ShipRetired' } })).rejects.toThrow(
@@ -1470,12 +1499,10 @@ describe('the handed migration', () => {
       await before.$executeRaw`
         INSERT INTO deliveries (id, fleet_id, message_id, recipient_ship_id, state, claimed_by_ship_id, claimed_by_lease_id, attempts, created_at)
         VALUES (${deliveryId}, ${fleetId}, ${messageId}, ${shipId}, 'delivered', ${shipId}, ${leaseId}, 2, ${now})`;
-      await before.event.createMany({
-        data: [
-          { id: claimed, fleetId, type: 'DeliveryClaimed', occurredAt: now, actorShipId: shipId, shipId, messageId, deliveryId, details: { leaseId, attempts: 2 }, seq: 1n },
-          { id: acknowledged, fleetId, type: 'DeliveryAcknowledged', occurredAt: now, actorShipId: shipId, shipId, messageId, deliveryId, details: { leaseId }, seq: 2n },
-        ],
-      });
+      await insertEventsBeforeActors(before, [
+        { id: claimed, fleetId, type: 'DeliveryClaimed', occurredAt: now, actorShipId: shipId, shipId, messageId, deliveryId, details: { leaseId, attempts: 2 }, seq: 1n },
+        { id: acknowledged, fleetId, type: 'DeliveryAcknowledged', occurredAt: now, actorShipId: shipId, shipId, messageId, deliveryId, details: { leaseId }, seq: 2n },
+      ]);
     } finally {
       await before.$disconnect();
     }
@@ -1600,9 +1627,10 @@ describe('the network plugin registered at migration', () => {
         ['NetworkPluginRegistered', pluginId],
         ['NetworkPluginRegistered', pluginId],
       ];
-      await client.event.createMany({
-        data: history.map(([type, shipId], index) => ({ id: newId('event'), fleetId: withPlugin, type, occurredAt: at(index + 1), shipId, details: {}, seq: BigInt(index + 1) })),
-      });
+      await insertEventsBeforeActors(
+        client,
+        history.map(([type, shipId], index) => ({ id: newId('event'), fleetId: withPlugin, type, occurredAt: at(index + 1), shipId, details: {}, seq: BigInt(index + 1) })),
+      );
 
       await executeSqlFile(url, `${MIGRATIONS}/${registeredAt ?? 'missing'}/migration.sql`);
 

@@ -1,6 +1,6 @@
 import type { DeliveryId, DeliveryState, MessageId } from '@aeolus-fleet/common';
 
-import type { Caller } from './caller.js';
+import type { ShipCaller } from './caller.js';
 import { deliveryWayOf } from './delivery-way.js';
 import { refuse, type DomainError } from './errors.js';
 import type { HistoryRecipient, ShipHistory } from './history.js';
@@ -15,7 +15,7 @@ export interface SentMessage {
 }
 
 export type ReadSentMessage = (
-  caller: Caller,
+  caller: ShipCaller,
   input: { messageId: MessageId },
 ) => Promise<Result<SentMessage, DomainError<'MESSAGE_NOT_FOUND'>>>;
 

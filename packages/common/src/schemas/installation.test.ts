@@ -12,6 +12,7 @@ import {
   installationOperatorsIssueSignInTicketOutputSchema,
   installationFleetsSetLimitsInputSchema,
   installationSettingsSchema,
+  installationAccountsCutOffInputSchema,
 } from './installation.js';
 
 const newId = createIdGenerator();
@@ -192,5 +193,19 @@ describe("a fleet's limits", () => {
   it('refuse a negative limit or an unknown setting', () => {
     expect(installationFleetsSetLimitsInputSchema.safeParse({ fleetId, ships: { kind: 'fleet', limit: -1 } }).success).toBe(false);
     expect(installationFleetsSetLimitsInputSchema.safeParse({ fleetId, ships: { kind: 'none' } }).success).toBe(false);
+  });
+});
+
+describe('installationAccountsCutOffInputSchema', () => {
+  it("takes the account pagasae cut off, by its id only (decision 0058)", () => {
+    expect(installationAccountsCutOffInputSchema.parse({ accountId: 'acc-burak' })).toEqual({ accountId: 'acc-burak' });
+  });
+
+  it.each([
+    ['no account', {}],
+    ['an empty account', { accountId: '' }],
+    ['an email beside it', { accountId: 'acc-burak', email: 'burak@acme.example' }],
+  ])('refuses %s', (_case, input) => {
+    expect(installationAccountsCutOffInputSchema.safeParse(input).success).toBe(false);
   });
 });

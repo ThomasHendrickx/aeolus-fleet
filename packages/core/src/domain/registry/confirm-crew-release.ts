@@ -1,6 +1,6 @@
 import type { IdGenerator, ShipId } from '@aeolus-fleet/common';
 
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, shipActor, type EventLog } from '../shared/events.js';
@@ -19,7 +19,7 @@ export type ConfirmCrewReleaseRefusal = DomainError<
   'SHIP_NOT_FOUND' | 'CREW_REQUEST_NOT_FOUND' | 'CREW_REQUEST_NOT_ASSIGNED_TO_CALLER' | 'CREW_REQUEST_NOT_RELEASING'
 >;
 
-export type ConfirmCrewRelease = (caller: Caller, input: { shipId: ShipId }) => Promise<Result<undefined, ConfirmCrewReleaseRefusal>>;
+export type ConfirmCrewRelease = (caller: ShipCaller, input: { shipId: ShipId }) => Promise<Result<undefined, ConfirmCrewReleaseRefusal>>;
 
 /**
  * Use case: the trierarch a releasing crew request is assigned to confirms it

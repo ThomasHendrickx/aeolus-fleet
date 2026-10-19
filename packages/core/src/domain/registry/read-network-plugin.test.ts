@@ -5,14 +5,14 @@ import { agentCaller, hostedFleet, initialiseFleet, operatorCaller, registryUseC
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../testing/result.js';
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import { createReadNetworkPlugin } from './read-network-plugin.js';
 
 let core: InMemoryCore;
 let registry: ReturnType<typeof registryUseCases>;
 let fleetId: FleetId;
-let argo: Caller;
-let plugin: Caller;
+let argo: ShipCaller;
+let plugin: ShipCaller;
 let readNetworkPlugin: ReturnType<typeof createReadNetworkPlugin>;
 
 beforeEach(async () => {

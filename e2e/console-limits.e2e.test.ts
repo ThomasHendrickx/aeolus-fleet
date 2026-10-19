@@ -6,7 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createPrismaClient, type PrismaClient } from '../packages/core/src/adapters/prisma/client.js';
 import { createApp } from '../packages/core/src/app.js';
-import type { Caller } from '../packages/core/src/domain/shared/caller.js';
+import type { ShipCaller } from '../packages/core/src/domain/shared/caller.js';
 import type { AppRouter } from '../packages/core/src/index.js';
 import { createUseCases, type UseCases } from '../packages/core/src/wiring.js';
 import { FLEET_URL, OPERATOR } from '../packages/core/test/support/core-fixtures.js';
@@ -27,7 +27,7 @@ const clock = createTestClock('2026-10-04T12:00:00.000Z');
 
 let database: PrismaClient;
 let core: UseCases;
-let argo: Caller;
+let argo: ShipCaller;
 let fleetId: string;
 let server: FastifyInstance;
 let serverUrl: string;

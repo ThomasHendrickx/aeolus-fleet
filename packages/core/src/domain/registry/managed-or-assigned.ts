@@ -1,6 +1,6 @@
 import type { IdGenerator } from '@aeolus-fleet/common';
 
-import { hasScope, type Caller } from '../shared/caller.js';
+import { hasScope, isShipCaller, type Caller } from '../shared/caller.js';
 import { refuse } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
 import { checkManage, type CheckManageTx, type NotReachable } from './check-reach.js';
@@ -23,11 +23,11 @@ export async function checkManagedOrAssigned(
 ): Promise<Result<undefined, NotTheCallers | NotReachable>> {
   const { tx, ids } = deps;
   const { caller, ship, at } = call;
-  if ((await tx.crewRequests.find(ship.fleetId, ship.id))?.assignedTo === caller.shipId) {
+  if (isShipCaller(caller) && (await tx.crewRequests.find(ship.fleetId, ship.id))?.assignedTo === caller.shipId) {
     return ok(undefined);
   }
   if (!hasScope(caller, 'fleet:manage')) {
     return refuse('CREW_REQUEST_NOT_ASSIGNED_TO_CALLER', `${ship.name}'s crew request is not assigned to your ship`);
   }
-  return checkManage({ tx, ids }, { fleetId: ship.fleetId, managerShipId: caller.shipId, shipId: ship.id, at });
+  return checkManage({ tx, ids }, { manager: caller, shipId: ship.id, at });
 }

@@ -2,7 +2,7 @@ import { createIdGenerator, idSchema, type DeliveryId, type MessageId } from '@a
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createMarkDone } from '../src/domain/messaging/mark-done.js';
-import { isCrew, type Caller, type Crew } from '../src/domain/shared/caller.js';
+import { isCrew, type ShipCaller, type Crew } from '../src/domain/shared/caller.js';
 import { OPERATOR, operatorCaller, secretOf, modelOf } from './support/core-fixtures.js';
 import { createPostgresCore, racingUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from '../src/testing/result.js';
@@ -15,7 +15,7 @@ import { newKey } from '../src/testing/keys.js';
 const newId = createIdGenerator();
 
 let core: PostgresCore;
-let operator: Caller;
+let operator: ShipCaller;
 let argo: Crew;
 let captain: Crew;
 

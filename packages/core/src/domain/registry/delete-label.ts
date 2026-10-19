@@ -1,6 +1,6 @@
 import type { IdGenerator, LabelId } from '@aeolus-fleet/common';
 
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, shipActor, type EventLog } from '../shared/events.js';
@@ -17,7 +17,7 @@ export interface DeleteLabelTx {
 
 export type DeleteLabelFailure = DomainError<'LABEL_NOT_FOUND'> | DeleteLabelRefusal;
 
-export type DeleteLabel = (caller: Caller, input: { labelId: LabelId }) => Promise<Result<undefined, DeleteLabelFailure>>;
+export type DeleteLabel = (caller: ShipCaller, input: { labelId: LabelId }) => Promise<Result<undefined, DeleteLabelFailure>>;
 
 /**
  * Use case: a label's owner deletes it, freeing its key (decision 0031). Its
@@ -34,7 +34,7 @@ export function createDeleteLabel(deps: { uow: UnitOfWork<DeleteLabelTx>; clock:
       if (!label) {
         return refuse('LABEL_NOT_FOUND', `The fleet has no label ${input.labelId}`);
       }
-      const nameOf = async (shipId: Caller['shipId']) => (await tx.ships.find(fleetId, shipId))?.name ?? shipId;
+      const nameOf = async (shipId: ShipCaller['shipId']) => (await tx.ships.find(fleetId, shipId))?.name ?? shipId;
       const carrierNames = await Promise.all((await tx.labels.carriersOf(fleetId, label.id)).map((carried) => nameOf(carried.shipId)));
       const deleted = deleteLabel(
         { label, ownerName: await nameOf(label.ownerShipId), carrierNames },

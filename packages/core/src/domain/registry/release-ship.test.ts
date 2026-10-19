@@ -15,7 +15,7 @@ import {
 } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../testing/result.js';
-import type { Caller, Crew } from '../shared/caller.js';
+import type { ShipCaller, Crew } from '../shared/caller.js';
 import type { Selector } from '../shared/selector.js';
 import { createReleaseShip } from './release-ship.js';
 import { newKey } from '../../testing/keys.js';
@@ -26,7 +26,7 @@ let messaging: ReturnType<typeof messagingUseCases>;
 let releaseShip: ReturnType<typeof createReleaseShip>;
 let fleetId: FleetId;
 let argoId: ShipId;
-let argo: Caller;
+let argo: ShipCaller;
 let scoutId: ShipId;
 let scoutSecret: string;
 let scoutCrewToken: string;
@@ -194,7 +194,7 @@ describe('releasing a crewed ship', () => {
 describe('a release refused', () => {
   /** Releases, expects the refusal, and proves the release left nothing behind. */
   async function expectRefused(
-    release: { caller: Caller; shipId: ShipId },
+    release: { caller: ShipCaller; shipId: ShipId },
     error: { kind: string; message?: string },
   ): Promise<void> {
     const before = structuredClone(core.state);

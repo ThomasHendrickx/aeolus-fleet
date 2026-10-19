@@ -5,7 +5,7 @@ import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
 import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
 import { createAnswerPing } from '../src/domain/messaging/answer-ping.js';
 import { createPingShip } from '../src/domain/messaging/ping-ship.js';
-import type { Caller, Crew } from '../src/domain/shared/caller.js';
+import type { ShipCaller, Crew } from '../src/domain/shared/caller.js';
 import { OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
 import { createPostgresCore, racingUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from '../src/testing/result.js';
@@ -18,7 +18,7 @@ import { newKey } from '../src/testing/keys.js';
 const ids = createIdGenerator();
 
 let core: PostgresCore;
-let argo: Caller;
+let argo: ShipCaller;
 let scout: Crew;
 
 beforeEach(async () => {

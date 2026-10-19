@@ -1,4 +1,4 @@
-import type { FleetId, NetworkVerb, ReachRefusalId, ShipId, WhileUnavailable } from '@aeolus-fleet/common';
+import type { AccountId, FleetId, NetworkVerb, ReachRefusalId, ShipId, WhileUnavailable } from '@aeolus-fleet/common';
 
 import type { CarriedLabel } from './label.js';
 
@@ -10,6 +10,17 @@ export interface RefusedShip {
   owner: { id: ShipId; name: string } | null;
 }
 
+/** An account as a refusal saw it: by its id only, the `group` values its token carried that the fleet defines, and its person ship then. */
+export interface RefusedAccount {
+  kind: 'account';
+  accountId: AccountId;
+  labels: readonly CarriedLabel[];
+  personShip: { id: ShipId; name: string } | null;
+}
+
+/** Who a refusal refused (decision 0057): a ship, an account, or the installation. */
+export type RefusedActor = ({ kind: 'ship' } & RefusedShip) | RefusedAccount | { kind: 'installation' };
+
 /**
  * The record of a send the network rules refused (decision 0034): who tried
  * to reach whom, both ships as they were at that moment, so a later rename,
@@ -20,7 +31,7 @@ export interface ReachRefusal {
   fleetId: FleetId;
   id: ReachRefusalId;
   at: Date;
-  sender: RefusedShip;
+  sender: RefusedActor;
   /** The plugin ship that read on behalf of the sender (decision 0034), as it was then; null for the sender's own call. */
   askedBy: RefusedShip | null;
   /** The ship it was for, or the type and each ship of it, none of which the sender may reach. */

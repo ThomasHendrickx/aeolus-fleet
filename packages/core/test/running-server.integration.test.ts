@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
 import { createApp } from '../src/app.js';
-import type { Caller } from '../src/domain/shared/caller.js';
+import type { ShipCaller } from '../src/domain/shared/caller.js';
 import type { AppRouter } from '../src/index.js';
 import { createUseCases } from '../src/wiring.js';
 import { FLEET_URL, OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
@@ -30,7 +30,7 @@ const SETTLE_MS = 300;
 
 let databaseUrl: string;
 let database: PrismaClient;
-let argo: Caller;
+let argo: ShipCaller;
 let running: FastifyInstance[];
 
 beforeEach(async () => {

@@ -7,7 +7,7 @@ import { createPrismaPushedCrews } from '../src/adapters/prisma/overdue.js';
 import { createPrismaFleetRepository } from '../src/adapters/prisma/registry.js';
 import { createPrismaUnitOfWork, type PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
 import { createTellOverdueDeliveries } from '../src/domain/messaging/tell-overdue-deliveries.js';
-import type { Caller, Crew } from '../src/domain/shared/caller.js';
+import type { ShipCaller, Crew } from '../src/domain/shared/caller.js';
 import type { UnitOfWork } from '../src/domain/shared/unit-of-work.js';
 import { createUseCases, type UseCases } from '../src/wiring.js';
 import { OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
@@ -28,7 +28,7 @@ const PASS_MS = 50;
 let core: PostgresCore;
 let useCases: UseCases;
 let fleetId: FleetId;
-let argo: Caller;
+let argo: ShipCaller;
 let scout: Crew;
 
 beforeEach(async () => {
