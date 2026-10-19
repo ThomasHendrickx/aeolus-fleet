@@ -123,7 +123,7 @@ What this part settles is how pagasae vouches for an account, so core can author
 
 | What goes wrong | What happens |
 | --- | --- |
-| pagasae is down | No new account tokens: nobody signs in through pagasae. Claims already given keep working until they end; messaging goes on; argo's own sign-in still works where it exists. Hosted fleets have no other way in for humans until pagasae is back |
+| pagasae is down | No new account tokens: nobody signs in through pagasae. Account tokens already given keep working until they end; messaging goes on; argo's own sign-in still works where it exists. Hosted fleets have no other way in for humans until pagasae is back |
 | pagasae rotates its key | It publishes the new key beside the old before signing with it; core fetches keys again when an account token names a key it does not know, at most once a minute, so a forged key id cannot make core fetch without end |
 | An account token for a leaver is still alive | Accepted until it ends, unless pagasae tells core first (question 3). The life of an account token is the longest a leaver keeps access |
 | An account token is stolen | Usable in its one fleet until it ends; that is why the life is short |
