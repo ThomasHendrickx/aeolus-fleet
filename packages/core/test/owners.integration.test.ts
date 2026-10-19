@@ -89,7 +89,7 @@ describe('setting an owner on Postgres', () => {
     await expect(ownerOf(scoutId)).resolves.toBe(thomasId);
     await expect(ownerEventsAbout(scoutId)).resolves.toEqual([
       ['OwnerSet', { ownerShipId: argoId, how: 'argoByDefault' }],
-      ['OwnerChanged', { fromShipId: argoId, toShipId: thomasId, why: 'setByArgo' }],
+      ['OwnerChanged', { fromShipId: argoId, toShipId: thomasId, why: 'set' }],
     ]);
   });
 
@@ -125,7 +125,7 @@ describe('a retired owner on Postgres', () => {
     await expect(ownerOf(scoutId)).resolves.toBe(argoId);
     await expect(ownerEventsAbout(scoutId)).resolves.toEqual([
       ['OwnerSet', { ownerShipId: argoId, how: 'argoByDefault' }],
-      ['OwnerChanged', { fromShipId: argoId, toShipId: thomasId, why: 'setByArgo' }],
+      ['OwnerChanged', { fromShipId: argoId, toShipId: thomasId, why: 'set' }],
       ['OwnerChanged', { fromShipId: thomasId, toShipId: argoId, why: 'ownerRetired' }],
     ]);
   });
