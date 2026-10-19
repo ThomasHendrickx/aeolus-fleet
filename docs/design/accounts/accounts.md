@@ -2,6 +2,8 @@
 
 Design by designer-accounts, for Thomas's approval. Phase 1: the purpose, the lessons to check against, and the questions, each with its context, options and pick. Phase 2 (the options for the model, the decided model and its flows, happy and unhappy paths) follows Thomas's answers. No code.
 
+The whole domain model, with accounts placed in it and the gaps it shows, is in [`domain-model.md`](domain-model.md).
+
 Inputs:
 
 | Input | Where |
