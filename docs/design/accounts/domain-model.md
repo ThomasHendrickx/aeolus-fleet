@@ -698,6 +698,8 @@ sequenceDiagram
 
 ### 2.5b An outside MCP client asks, waits for approval and calls (inbound)
 
+Phase 2 details this flow with every unhappy path in [F9](phase-2/flows.md#f9-an-outside-mcp-client-waits).
+
 The client asks with the OAuth authorize request. Today that works only when argo is signed in to the console in the same browser at that moment (gap G32). Drawn here is the case where argo is away, with the pick of question 20: the gateway keeps the request, asks argo with a question (0038), and the human at the client connects again.
 
 ```mermaid

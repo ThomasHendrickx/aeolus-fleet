@@ -303,3 +303,99 @@ sequenceDiagram
     P->>C: again until it lands
   end
 ```
+
+## F9 An outside MCP client waits
+
+Draft 0056. A supplier's ordering agent asks to reach Acme's fleet. It replaces `domain-model.md` 2.5b.
+
+```mermaid
+sequenceDiagram
+  actor R as Human at the client
+  participant MC as Outside MCP client
+  participant G as Gateway
+  participant C as core (fleet)
+  actor A as The gateway's owner (argo or a person)
+  actor M as Mathilde (holds the approving scope)
+  R->>MC: add Acme's MCP address
+  MC->>G: OAuth authorize request (in the human's browser)
+  alt outside party approved before
+    G-->>MC: code, then a token, at once
+  else denied, or the client unknown and unsafe (no client metadata)
+    G-->>MC: access_denied
+  else the same client already pending
+    G-->>R: waiting for approval (joins that request)
+  else new
+    G->>G: pending request, kept 7 days
+    G->>C: question (0038) to its owner: approve this outside MCP client?
+    C->>A: delivery of the question
+    G-->>R: waiting for approval
+    alt decided on the gateway's page first
+      M->>G: approve: owner Charlotte's person ship, scopes
+      G->>C: withdraw the question
+    else answered by the question
+      A->>C: answer: approve, owner and scopes
+      C->>G: delivery of the answer
+    end
+    alt approved
+      G->>C: commission and crew the proxy ship (kind app), owner and scopes
+      alt approved scopes beyond what the gateway's ship holds
+        C-->>G: refused, naming the scope
+        G->>C: question to its owner: approved, but the gateway cannot grant that scope
+      else commissioned
+        alt browser still open
+          G-->>MC: code, then a token
+        else browser closed
+          R->>MC: connect again
+          MC->>G: OAuth authorize request
+          G-->>MC: code at once, then a token
+        end
+      end
+    else denied
+      G-->>MC: access_denied, now or on the next try
+    else 7 days, no decision
+      G->>G: expired, question withdrawn
+      G-->>MC: access_denied on the next try, which asks anew
+    end
+  end
+  MC->>G: call a tool, as the outside party
+  G->>C: send as the proxy ship, within its scopes and reach
+```
+
+## F10 A person asks for an outside MCP server
+
+Draft 0056. Charlotte wants her PRD agent to read tickets from Linear's MCP server.
+
+```mermaid
+sequenceDiagram
+  actor CH as Charlotte
+  participant G as Gateway (person tools or its own page)
+  participant C as core (fleet)
+  actor M as Mathilde (holds the approving scope)
+  participant OS as Linear's MCP server
+  CH->>G: ask for Linear's MCP server, and why
+  alt already an outside party
+    G-->>CH: already approved: ask for reach if your ships do not reach it
+  else already pending
+    G-->>CH: waiting for approval (joins that request)
+  else new
+    G->>G: pending request, kept 7 days
+    G->>C: question (0038) to its owner
+    G-->>CH: waiting for approval
+    M->>G: decide on the gateway's page
+    alt approved: its credential, owner Charlotte's person ship, scopes
+      G->>OS: list its tools
+      alt the server answers
+        G->>C: commission and crew the proxy ship, statement one capability per tool
+        G->>C: message to Charlotte's person ship: approved
+      else no answer or the credential is refused
+        G-->>M: not added: the server's answer
+        Note over G,M: the request stays pending for Mathilde to try again
+      end
+    else denied
+      G->>C: message to Charlotte's person ship: denied, with Mathilde's note
+    else 7 days, no decision
+      G->>C: message to Charlotte's person ship: expired
+    end
+    G->>C: withdraw the question
+  end
+```
