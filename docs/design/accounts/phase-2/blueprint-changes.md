@@ -87,6 +87,10 @@ Change these rows (the rest as PR #972 has them):
 
 Add:
 
+> | Actor | Whoever a call is authorised for and an event names: a ship, an account (by its account token) or the installation. Not a ship: only what sends or receives messages is a ship (0057) | core |
+>
+> | Account token | A short token pagasae signs for one account in one fleet, with the scopes and labels its groups give there; core checks it on every call and stores no account. Not a crew token (0058) | pagasae, core |
+>
 > | Pending request | An outside MCP client's authorize request, or a person's request for an outside MCP server, kept by the gateway until an actor approves or denies it, or 7 days pass (0056) | gateway |
 
 ## Key flows
