@@ -6,7 +6,7 @@ import { createReceiverWakeups } from '../src/adapters/prisma/receiver-wakeups.j
 import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
 import { createHandOverDelivery } from '../src/domain/messaging/hand-over-delivery.js';
 import { createPushReceiveDeliveries } from '../src/domain/messaging/push-receive-deliveries.js';
-import type { Caller, Crew } from '../src/domain/shared/caller.js';
+import type { ShipCaller, Crew } from '../src/domain/shared/caller.js';
 import type { Selector } from '../src/domain/shared/selector.js';
 import { createUseCases, systemClock, type UseCases } from '../src/wiring.js';
 import { OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
@@ -29,7 +29,7 @@ let databaseUrl: string;
 let prisma: PrismaClient;
 let useCases: UseCases;
 let fleetId: FleetId;
-let argo: Caller;
+let argo: ShipCaller;
 let scout: Crew;
 let lookout: Crew;
 

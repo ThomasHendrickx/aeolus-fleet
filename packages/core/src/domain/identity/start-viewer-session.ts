@@ -1,7 +1,7 @@
 import type { FleetId, IdGenerator } from '@aeolus-fleet/common';
 
 import { findViewerShip, type ShipTx } from '../registry/public.js';
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import type { DomainError } from '../shared/errors.js';
 import { recordEvent, shipActor, type EventLog } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
@@ -54,6 +54,6 @@ export async function startViewerSession(
   });
   await recordEvent({ events: tx.events, ids }, { fleetId, type: 'ViewerSessionStarted', occurredAt: at, actor: shipActor(viewer.id), shipId: viewer.id, details: { device } });
 
-  const caller: Caller = { shipId: viewer.id, fleetId, kind: viewer.kind, scopes: viewer.scopes, consoleSessionId };
+  const caller: ShipCaller = { shipId: viewer.id, fleetId, kind: viewer.kind, scopes: viewer.scopes, consoleSessionId };
   return ok({ token, consoleSessionId, expiresAt, caller });
 }

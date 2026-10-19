@@ -1,6 +1,6 @@
 import type { Theme } from '@aeolus-fleet/common';
 
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
@@ -20,7 +20,7 @@ interface SessionView {
 /** The operator's account with this session, or a viewer's session alone: a viewer has no email and no theme (decision 0022). */
 export type AccountView = { kind: 'operator'; email: string; theme: Theme; session: SessionView } | { kind: 'viewer'; session: SessionView };
 
-export type ReadAccount = (caller: Caller) => Promise<Result<AccountView, DomainError<'NOT_THE_OPERATOR_SHIP'>>>;
+export type ReadAccount = (caller: ShipCaller) => Promise<Result<AccountView, DomainError<'NOT_THE_OPERATOR_SHIP'>>>;
 
 /**
  * Use case: the signed-in operator's account, for the AccountMenu: their

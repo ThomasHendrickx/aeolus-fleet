@@ -2,7 +2,7 @@ import type { DeliveryId, FleetId, LabelValueId, MessageId, ShipId } from '@aeol
 
 import { UNDELIVERABLE_AT_ATTEMPT } from '../../src/domain/messaging/delivery.js';
 
-import type { Caller, Crew } from '../../src/domain/shared/caller.js';
+import type { ShipCaller, Crew } from '../../src/domain/shared/caller.js';
 import type { Selector } from '../../src/domain/shared/selector.js';
 import { addViewerShip, crewAboard, deliveryIdOf, historyUseCases, initialiseFleet, messagingUseCases, modelOf, operatorCaller, registryUseCases } from './core-fixtures.js';
 import { shipWithScopes } from './crew-fixtures.js';
@@ -20,8 +20,8 @@ import { unwrap } from '../../src/testing/result.js';
 export interface ReadReachScenario {
   core: InMemoryCore;
   fleetId: FleetId;
-  argo: Caller;
-  viewer: Caller;
+  argo: ShipCaller;
+  viewer: ShipCaller;
   reader: Crew;
   near: Crew;
   far: Crew;
@@ -34,9 +34,9 @@ export interface ReadReachScenario {
   carry(ship: { shipId: ShipId }, value: 'a' | 'b'): Promise<void>;
   /** The plugin's rules: team a reads team a; open stays on for send and manage, off for read. */
   readRulesApply(): Promise<void>;
-  send(from: Caller, to: Selector): Promise<MessageId>;
+  send(from: ShipCaller, to: Selector): Promise<MessageId>;
   /** A message from one ship to a crewed one, received without acknowledging it until undeliverable: its delivery. */
-  undeliverable(from: Caller, to: Crew): Promise<DeliveryId>;
+  undeliverable(from: ShipCaller, to: Crew): Promise<DeliveryId>;
 }
 
 export async function readReachScenario(): Promise<ReadReachScenario> {
@@ -44,7 +44,7 @@ export async function readReachScenario(): Promise<ReadReachScenario> {
   const fleet = await initialiseFleet(core);
   const { fleetId } = fleet;
   const argo = operatorCaller(fleet);
-  const viewer: Caller = { fleetId, shipId: addViewerShip(core, { fleetId }).shipId, kind: 'viewer', scopes: ['fleet:read'] };
+  const viewer: ShipCaller = { fleetId, shipId: addViewerShip(core, { fleetId }).shipId, kind: 'viewer', scopes: ['fleet:read'] };
   const registry = registryUseCases(core);
   const messaging = messagingUseCases(core);
   const crewed = async (ship: { name: string; type: string; scopes: Parameters<typeof shipWithScopes>[1]['scopes'] }): Promise<Crew> => {
@@ -68,7 +68,7 @@ export async function readReachScenario(): Promise<ReadReachScenario> {
     unwrap(await registry.assignLabel(labeller, { shipId: ship.shipId, valueId: team(value) }));
   }
 
-  const send = async (from: Caller, to: Selector): Promise<MessageId> => {
+  const send = async (from: ShipCaller, to: Selector): Promise<MessageId> => {
     core.clock.advance(1_000);
     const { messageId } = unwrap(
       await messaging.sendMessage(from, { selector: to, payload: 'Review the pull request', contentType: 'text/plain', ...modelOf(from), idempotencyKey: newKey() }),

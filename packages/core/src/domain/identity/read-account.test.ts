@@ -3,11 +3,11 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { identityUseCases, initialiseFleet, OPERATOR } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../testing/result.js';
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 
 let core: InMemoryCore;
 let useCases: ReturnType<typeof identityUseCases>;
-let console: Caller;
+let console: ShipCaller;
 let signedInAt: Date;
 
 beforeEach(async () => {
@@ -28,7 +28,7 @@ describe("reading the operator's account", () => {
   });
 
   it('refuses a caller that is no console session', async () => {
-    const withoutSession: Caller = { shipId: console.shipId, fleetId: console.fleetId, kind: console.kind, scopes: console.scopes };
+    const withoutSession: ShipCaller = { shipId: console.shipId, fleetId: console.fleetId, kind: console.kind, scopes: console.scopes };
 
     await expect(useCases.readAccount(withoutSession)).resolves.toMatchObject({
       isOk: false,

@@ -1,6 +1,6 @@
 import type { IdGenerator, SetBuiltInRuleInput } from '@aeolus-fleet/common';
 
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { recordEvent, shipActor, type EventLog } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
@@ -13,7 +13,7 @@ export interface SetBuiltInRuleTx {
   events: EventLog;
 }
 
-export type SetBuiltInRule = (caller: Caller, input: SetBuiltInRuleInput) => Promise<Result<{ version: number }, SetBuiltInRuleRefusal>>;
+export type SetBuiltInRule = (caller: ShipCaller, input: SetBuiltInRuleInput) => Promise<Result<{ version: number }, SetBuiltInRuleRefusal>>;
 
 /**
  * Use case: a built-in rule turned on or off (decision 0034): the viewer

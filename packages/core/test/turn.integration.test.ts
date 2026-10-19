@@ -5,7 +5,7 @@ import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/cl
 import { createReceiverWakeups } from '../src/adapters/prisma/receiver-wakeups.js';
 import { createPrismaUnitOfWork, type PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
 import { createReportTurn } from '../src/domain/registry/report-turn.js';
-import type { Caller, Crew } from '../src/domain/shared/caller.js';
+import type { ShipCaller, Crew } from '../src/domain/shared/caller.js';
 import { createUseCases, systemClock, type UseCases } from '../src/wiring.js';
 import { OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
 import { createMigratedDatabase } from '../src/testing/database.js';
@@ -25,7 +25,7 @@ let databaseUrl: string;
 let prisma: PrismaClient;
 let useCases: UseCases;
 let fleetId: FleetId;
-let argo: Caller;
+let argo: ShipCaller;
 let scout: Crew;
 
 beforeEach(async () => {

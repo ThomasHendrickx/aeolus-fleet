@@ -13,7 +13,7 @@ import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-
 import { newKey } from '../../testing/keys.js';
 import { unwrap } from '../../testing/result.js';
 import { endLease } from '../registry/public.js';
-import type { Caller, Crew } from '../shared/caller.js';
+import type { ShipCaller, Crew } from '../shared/caller.js';
 import { shipActor } from '../shared/events.js';
 import { ok } from '../shared/result.js';
 import type { Selector } from '../shared/selector.js';
@@ -21,7 +21,7 @@ import type { Selector } from '../shared/selector.js';
 let core: InMemoryCore;
 let useCases: ReturnType<typeof messagingUseCases>;
 let fleetId: FleetId;
-let argo: Caller;
+let argo: ShipCaller;
 let scoutId: ShipId;
 let scout: Crew;
 let lookout: Crew;

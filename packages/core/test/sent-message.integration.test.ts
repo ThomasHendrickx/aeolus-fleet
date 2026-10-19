@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
 import { createReceiverWakeups } from '../src/adapters/prisma/receiver-wakeups.js';
-import type { Caller, Crew } from '../src/domain/shared/caller.js';
+import type { ShipCaller, Crew } from '../src/domain/shared/caller.js';
 import { createUseCases, systemClock, type UseCases } from '../src/wiring.js';
 import { OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
 import { createMigratedDatabase } from '../src/testing/database.js';
@@ -15,7 +15,7 @@ import { refusalOf, unwrap } from '../src/testing/result.js';
 
 let prisma: PrismaClient;
 let useCases: UseCases;
-let argo: Caller;
+let argo: ShipCaller;
 let scout: Crew;
 let lookout: Crew;
 

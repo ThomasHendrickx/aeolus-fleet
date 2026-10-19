@@ -6,7 +6,7 @@ import { z } from 'zod';
 
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
 import { createApp } from '../src/app.js';
-import type { Caller } from '../src/domain/shared/caller.js';
+import type { ShipCaller } from '../src/domain/shared/caller.js';
 import { createUseCases, type UseCases } from '../src/wiring.js';
 import { presentStartingPrompt } from '../src/adapters/trpc/starting-prompt-text.js';
 import { FLEET_URL, mcpUrlIn, OPERATOR, operatorCaller, secretIn, secretOf, shipIdIn } from './support/core-fixtures.js';
@@ -32,7 +32,7 @@ let server: FastifyInstance;
 let operator: UseCases;
 /** The URL the server answers on: where the starting prompts the operator is issued send a session. */
 let address: string;
-let argo: Caller;
+let argo: ShipCaller;
 const clients: Client[] = [];
 
 beforeAll(async () => {

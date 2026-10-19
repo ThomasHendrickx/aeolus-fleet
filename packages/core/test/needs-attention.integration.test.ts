@@ -7,7 +7,7 @@ import { createDismissDelivery } from '../src/domain/messaging/dismiss-delivery.
 import { createResendDelivery } from '../src/domain/messaging/resend-delivery.js';
 import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
 import { createReadReachOf } from '../src/domain/registry/read-reach.js';
-import type { Caller, Crew } from '../src/domain/shared/caller.js';
+import type { ShipCaller, Crew } from '../src/domain/shared/caller.js';
 import type { Selector } from '../src/domain/shared/selector.js';
 import { OPERATOR, operatorCaller, secretOf, modelOf } from './support/core-fixtures.js';
 import { createPostgresCore, racingUnitOfWork, type PostgresCore } from './support/postgres-core.js';
@@ -22,7 +22,7 @@ import { newKey } from '../src/testing/keys.js';
 const newId = createIdGenerator();
 
 let core: PostgresCore;
-let argo: Caller;
+let argo: ShipCaller;
 let scout: Crew;
 let planner: Crew;
 

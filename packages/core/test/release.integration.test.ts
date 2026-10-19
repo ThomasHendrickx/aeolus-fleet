@@ -8,7 +8,7 @@ import { createPrismaUnitOfWork, type PrismaTx } from '../src/adapters/prisma/un
 import { createReceiveDeliveries } from '../src/domain/messaging/receive-deliveries.js';
 import { createDeregister } from '../src/domain/registry/deregister.js';
 import { createReleaseShip } from '../src/domain/registry/release-ship.js';
-import type { Caller, Crew } from '../src/domain/shared/caller.js';
+import type { ShipCaller, Crew } from '../src/domain/shared/caller.js';
 import type { DomainError } from '../src/domain/shared/errors.js';
 import type { DeliveryNotice } from '../src/domain/shared/notifier.js';
 import type { Result } from '../src/domain/shared/result.js';
@@ -49,7 +49,7 @@ let listener: DeliveryListener;
 let notices: DeliveryNotice[];
 let useCases: UseCases;
 let fleetId: FleetId;
-let argo: Caller;
+let argo: ShipCaller;
 let scout: Crewed;
 let lookout: Crewed;
 
@@ -307,8 +307,8 @@ describe('a session its trierarch stops before it acks (#536)', () => {
     const { shipId: trierarchId } = unwrap(
       await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] }),
     );
-    const plugin: Caller = { fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'] };
-    const trierarch: Caller = { fleetId, shipId: trierarchId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:run'] };
+    const plugin: ShipCaller = { fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'] };
+    const trierarch: ShipCaller = { fleetId, shipId: trierarchId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:run'] };
     const { shipId } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'pilot', type: 'navigator' }));
     unwrap(await useCases.requestCrew(argo, { shipId, settings: aCrewSettings({ harness: 'claude-code' }) }));
     unwrap(await useCases.assignCrew(plugin, { shipId, trierarchShipId: trierarchId }));

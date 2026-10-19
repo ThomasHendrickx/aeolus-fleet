@@ -5,13 +5,13 @@ import { hostedFleetWithViewer, initialiseFleet, operatorCaller, registryUseCase
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { refusalOf, unwrap } from '../../testing/result.js';
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 
 let core: InMemoryCore;
 let registry: ReturnType<typeof registryUseCases>;
-let argo: Caller;
-let squadrons: Caller;
-let scout: Caller;
+let argo: ShipCaller;
+let squadrons: ShipCaller;
+let scout: ShipCaller;
 
 beforeEach(async () => {
   core = createInMemoryCore('2026-10-18T09:00:00.000Z');
@@ -34,7 +34,7 @@ beforeEach(async () => {
 const scopesOf = (shipId: ShipId) => core.state.ships.find((ship) => ship.id === shipId)?.scopes;
 
 /** A ship with scopes:grant beside the scopes given, as the caller its crew token resolves to. */
-async function granter(scopes: Caller['scopes']): Promise<Caller> {
+async function granter(scopes: ShipCaller['scopes']): Promise<ShipCaller> {
   const ship = await shipWithScopes({ registry, argo }, { name: 'granter', type: 'operator-assistant', scopes: [] });
   return { ...ship, scopes: [...ship.scopes, 'scopes:grant', ...scopes] };
 }
@@ -132,7 +132,7 @@ describe('granting scopes on a live ship (decision 0046)', () => {
 
   it("refuses to change the viewer's scopes", async () => {
     const fleet = await hostedFleetWithViewer(core);
-    const hostedArgo: Caller = { ...argo, fleetId: fleet.fleetId, shipId: fleet.operatorShipId };
+    const hostedArgo: ShipCaller = { ...argo, fleetId: fleet.fleetId, shipId: fleet.operatorShipId };
 
     expect(refusalOf(await registry.grantScopes(hostedArgo, { shipId: fleet.viewerShipId, grant: ['fleet:manage'], revoke: [] }))).toMatchObject({ kind: 'SHIP_SCOPES_FIXED' });
   });

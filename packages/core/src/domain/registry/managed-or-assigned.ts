@@ -1,6 +1,6 @@
 import type { IdGenerator } from '@aeolus-fleet/common';
 
-import { hasScope, type Caller } from '../shared/caller.js';
+import { hasScope, type ShipCaller } from '../shared/caller.js';
 import { refuse } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
 import { checkManage, type CheckManageTx, type NotReachable } from './check-reach.js';
@@ -19,7 +19,7 @@ export type ManagedOrAssignedTx = CheckManageTx & { crewRequests: Pick<CrewReque
  */
 export async function checkManagedOrAssigned(
   deps: { tx: ManagedOrAssignedTx; ids: IdGenerator },
-  call: { caller: Caller; ship: Ship; at: Date },
+  call: { caller: ShipCaller; ship: Ship; at: Date },
 ): Promise<Result<undefined, NotTheCallers | NotReachable>> {
   const { tx, ids } = deps;
   const { caller, ship, at } = call;

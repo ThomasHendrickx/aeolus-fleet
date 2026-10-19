@@ -6,7 +6,7 @@ import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-
 import { newKey } from '../../testing/keys.js';
 import { unwrap } from '../../testing/result.js';
 import type { DeliveryState } from '@aeolus-fleet/common';
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import { createCreateFleet } from './create-fleet.js';
 import { createListInstallationFleets, type ListInstallationFleets } from './list-installation-fleets.js';
 
@@ -116,7 +116,7 @@ describe('listing the fleets of the installation', () => {
 
   it("gives the time of the fleet's newest event as its last activity", async () => {
     core.clock.advance(DAY_MS);
-    const argo: Caller = { fleetId: hemma, shipId: hemmaArgo, kind: 'operator', scopes: [...SCOPES] };
+    const argo: ShipCaller = { fleetId: hemma, shipId: hemmaArgo, kind: 'operator', scopes: [...SCOPES] };
     unwrap(await registryUseCases(core).commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
 
     const listed = await listFleets();

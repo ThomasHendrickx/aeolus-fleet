@@ -1,6 +1,6 @@
 import { NETWORK_VERBS, type BuiltInRuleState } from '@aeolus-fleet/common';
 
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import type { NetworkSettingsRepository } from './ports.js';
@@ -9,7 +9,7 @@ export interface ReadBuiltInRulesTx {
   networkSettings: Pick<NetworkSettingsRepository, 'findForShare'>;
 }
 
-export type ReadBuiltInRules = (caller: Caller) => Promise<Result<BuiltInRuleState[], never>>;
+export type ReadBuiltInRules = (caller: ShipCaller) => Promise<Result<BuiltInRuleState[], never>>;
 
 /**
  * Use case: every built-in rule of the caller's fleet as it is now (decision

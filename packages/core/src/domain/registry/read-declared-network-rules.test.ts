@@ -5,18 +5,18 @@ import { agentCaller, hostedFleet, initialiseFleet, operatorCaller, registryUseC
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../testing/result.js';
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import { createDeclareNetworkRules } from './declare-network-rules.js';
 import type { NetworkRule } from './network-settings.js';
 import { createReadDeclaredNetworkRules } from './read-declared-network-rules.js';
 
 let core: InMemoryCore;
 let fleetId: FleetId;
-let argo: Caller;
+let argo: ShipCaller;
 let readDeclaredNetworkRules: ReturnType<typeof createReadDeclaredNetworkRules>;
 
 /** A ship that defines a label with the key and declares that every ship carrying it reaches every other. */
-async function declaring(name: string): Promise<{ ship: Caller; rules: NetworkRule[] }> {
+async function declaring(name: string): Promise<{ ship: ShipCaller; rules: NetworkRule[] }> {
   const ship = await shipWithScopes({ registry: registryUseCases(core), argo }, { name, type: name, scopes: ['labels:define', 'labels:assign'] });
   const { labelId } = unwrap(await registryUseCases(core).defineLabel(ship, { key: name, values: ['one'] }));
   const rules = [{ verb: 'send' as const, from: [{ labelId, value: ANY_LABEL_VALUE }], to: [{ labelId, value: ANY_LABEL_VALUE }] }];

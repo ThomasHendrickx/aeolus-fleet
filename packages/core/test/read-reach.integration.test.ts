@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
 import { createApp } from '../src/app.js';
 import type { AppRouter } from '../src/index.js';
-import type { Caller } from '../src/domain/shared/caller.js';
+import type { ShipCaller } from '../src/domain/shared/caller.js';
 import { createUseCases, type UseCases } from '../src/wiring.js';
 import { FLEET_URL, OPERATOR, operatorCaller, secretOf, SESSION_MODEL } from './support/core-fixtures.js';
 import { createMigratedDatabase } from '../src/testing/database.js';
@@ -26,7 +26,7 @@ let database: PrismaClient;
 let server: FastifyInstance;
 let address: string;
 let useCases: UseCases;
-let argo: Caller;
+let argo: ShipCaller;
 let reader: TRPCClient<AppRouter>;
 let plugin: { crewToken: string; on: (shipId: string) => TRPCClient<AppRouter> };
 let readerNamingNear: TRPCClient<AppRouter>;
@@ -44,14 +44,14 @@ function client(crewToken: string, headers: Record<string, string> = {}): TRPCCl
 const ON_BEHALF_OF = 'aeolus-on-behalf-of';
 
 /** A ship argo commissions and a session claims: its id, the caller it is and its crew token. */
-async function crewed(ship: { name: string; type: string; fleetScopes?: FleetScope[] }): Promise<{ shipId: ShipId; caller: Caller; crewToken: string }> {
+async function crewed(ship: { name: string; type: string; fleetScopes?: FleetScope[] }): Promise<{ shipId: ShipId; caller: ShipCaller; crewToken: string }> {
   const { name, type, fleetScopes = [] } = ship;
   const { shipId, secret } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name, type, scopes: fleetScopes }));
   const { crewToken } = unwrap(await useCases.claimShip({ shipId, secret: secretOf(secret), location: { kind: 'CLOUD' }, harness: 'claude-code' }));
   return { shipId, caller: unwrap(await useCases.authenticate.byCrewToken(crewToken)), crewToken };
 }
 
-async function send(from: Caller, to: ShipId | { type: string }): Promise<MessageId> {
+async function send(from: ShipCaller, to: ShipId | { type: string }): Promise<MessageId> {
   clock.advance(1_000);
   const selector = typeof to === 'string' ? { kind: 'ship' as const, shipId: to } : { kind: 'type' as const, type: to.type };
   return unwrap(await useCases.sendMessage(from, { selector, payload: 'Review the pull request', contentType: 'text/plain', ...(from.kind === 'operator' ? {} : { model: SESSION_MODEL }), idempotencyKey: newKey() })).messageId;
@@ -175,7 +175,7 @@ describe('the fleet:read procedures for a ship outside read reach (decision 0034
   });
 
   it('keeps a refused read on behalf with the plugin that asked beside the named ship, and a ship\'s own refused read with none', async () => {
-    const onBehalf: Caller = { fleetId: argo.fleetId, shipId: ids.reader, kind: 'agent', scopes: ['fleet:read'], askedBy: ids.networking };
+    const onBehalf: ShipCaller = { fleetId: argo.fleetId, shipId: ids.reader, kind: 'agent', scopes: ['fleet:read'], askedBy: ids.networking };
     refusalOf(await useCases.readShipWay(onBehalf, { shipId: ids.far }));
 
     const refusals = unwrap(await useCases.readReachRefusals(argo)).filter((refusal) => refusal.verb === 'read');

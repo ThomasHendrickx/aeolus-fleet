@@ -1,7 +1,7 @@
 import { idSchema, type DeliveryId, type MessageId, type ShipId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import type { Caller, Crew } from '../src/domain/shared/caller.js';
+import type { ShipCaller, Crew } from '../src/domain/shared/caller.js';
 import type { Selector } from '../src/domain/shared/selector.js';
 import { OPERATOR, operatorCaller, secretOf, modelOf } from './support/core-fixtures.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
@@ -15,7 +15,7 @@ import { aCrewSettings } from './support/crew-fixtures.js';
 // claimed, returned and claimed again.
 
 let core: PostgresCore;
-let argo: Caller;
+let argo: ShipCaller;
 let scout: Crew;
 let lookout: Crew;
 let planner: Crew;
@@ -39,7 +39,7 @@ afterEach(async () => {
   await core.close();
 });
 
-async function send(from: Caller, message: { to: Selector; payload?: string; inReplyTo?: MessageId }): Promise<MessageId> {
+async function send(from: ShipCaller, message: { to: Selector; payload?: string; inReplyTo?: MessageId }): Promise<MessageId> {
   core.clock.advance(1_000);
   const { to, payload = 'Review PR 48', inReplyTo } = message;
   return unwrap(
@@ -166,8 +166,8 @@ describe('the history reads on Postgres', () => {
     const { shipId: pluginId } = unwrap(
       await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'trierarch-plugin', type: 'plugin', scopes: ['crew:assign'] }),
     );
-    const trierarch: Caller = { fleetId: argo.fleetId, shipId: trierarchId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:run'] };
-    const plugin: Caller = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'] };
+    const trierarch: ShipCaller = { fleetId: argo.fleetId, shipId: trierarchId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:run'] };
+    const plugin: ShipCaller = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'] };
     const { shipId: builderId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'builder', type: 'builder' }));
     unwrap(await core.useCases.requestCrew(argo, { shipId: builderId, settings: aCrewSettings({ harness: 'claude-code' }) }));
     unwrap(await core.useCases.assignCrew(plugin, { shipId: builderId, trierarchShipId: trierarchId }));

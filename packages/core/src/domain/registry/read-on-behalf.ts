@@ -1,14 +1,14 @@
 import type { ShipId } from '@aeolus-fleet/common';
 
-import { hasScope, type Caller } from '../shared/caller.js';
+import { hasScope, type ShipCaller } from '../shared/caller.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
 import type { ShipRepository } from './ports.js';
 
 export type ReadOnBehalf = (
-  caller: Caller,
+  caller: ShipCaller,
   input: { shipId: ShipId },
-) => Promise<Result<Caller, DomainError<'SCOPE_NOT_HELD' | 'SHIP_NOT_FOUND' | 'SHIP_NOT_READ_ON_BEHALF'>>>;
+) => Promise<Result<ShipCaller, DomainError<'SCOPE_NOT_HELD' | 'SHIP_NOT_FOUND' | 'SHIP_NOT_READ_ON_BEHALF'>>>;
 
 /**
  * Use case: the reader a plugin ship reads as on behalf of a named ship

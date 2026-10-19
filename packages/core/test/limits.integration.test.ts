@@ -6,7 +6,7 @@ import { z } from 'zod';
 
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
 import { createApp } from '../src/app.js';
-import type { Caller } from '../src/domain/shared/caller.js';
+import type { ShipCaller } from '../src/domain/shared/caller.js';
 import type { AppRouter } from '../src/index.js';
 import { createUseCases, type UseCases } from '../src/wiring.js';
 import { FLEET_URL, OPERATOR } from './support/core-fixtures.js';
@@ -52,7 +52,7 @@ function installation() {
   return createTRPCClient<AppRouter>({ links: [httpBatchLink({ url: `${address}/trpc`, headers: { 'x-aeolus-installation-token': INSTALLATION_TOKEN } })] }).installation;
 }
 
-function argoOf(fleet: { fleetId: FleetId; operatorShipId: ShipId }): Caller {
+function argoOf(fleet: { fleetId: FleetId; operatorShipId: ShipId }): ShipCaller {
   return { fleetId: fleet.fleetId, shipId: fleet.operatorShipId, kind: 'operator', scopes: [...SCOPES] };
 }
 
@@ -169,7 +169,7 @@ describe('the limits at their boundary', () => {
   });
 
   it('change nothing while none is set', async () => {
-    const argo: Caller = { fleetId: homeFleet, shipId: homeArgo, kind: 'operator', scopes: [...SCOPES] };
+    const argo: ShipCaller = { fleetId: homeFleet, shipId: homeArgo, kind: 'operator', scopes: [...SCOPES] };
 
     const sends = await Promise.all(Array.from({ length: 5 }, () => core.sendMessage(argo, { selector: { kind: 'ship', name: 'argo' }, payload: 'Note', idempotencyKey: newKey() })));
 

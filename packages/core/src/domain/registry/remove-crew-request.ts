@@ -1,6 +1,6 @@
 import type { IdGenerator, ShipId } from '@aeolus-fleet/common';
 
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, shipActor, type EventLog } from '../shared/events.js';
@@ -17,7 +17,7 @@ export interface RemoveCrewRequestTx extends Omit<CheckManageTx, 'ships'> {
 }
 
 export type RemoveCrewRequest = (
-  caller: Caller,
+  caller: ShipCaller,
   input: { shipId: ShipId },
 ) => Promise<Result<undefined, DomainError<'SHIP_NOT_FOUND' | 'CREW_REQUEST_NOT_FOUND'> | NotReachable>>;
 

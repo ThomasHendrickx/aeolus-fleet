@@ -4,13 +4,13 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { hostedFleet, initialiseFleet, operatorCaller } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { refusalOf, unwrap } from '../../testing/result.js';
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import type { ReachRefusal } from './reach-refusal.js';
 import { createReadReachRefusals } from './read-reach-refusals.js';
 
 let core: InMemoryCore;
 let fleetId: FleetId;
-let argo: Caller;
+let argo: ShipCaller;
 let readReachRefusals: ReturnType<typeof createReadReachRefusals>;
 
 /** A refusal straight into the state, from planner to vault, at the clock's time. */
@@ -67,7 +67,7 @@ describe('reading the reach refusals', () => {
   });
 
   it('refuses every ship but argo, even one that sets the rules', async () => {
-    const setter: Caller = { fleetId, shipId: core.ids('ship') satisfies ShipId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:network'] };
+    const setter: ShipCaller = { fleetId, shipId: core.ids('ship') satisfies ShipId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:network'] };
 
     expect(refusalOf(await readReachRefusals(setter))).toEqual({ kind: 'NOT_THE_OPERATOR_SHIP', message: 'Only argo reads the reach refusals' });
   });

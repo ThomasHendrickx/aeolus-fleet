@@ -1,6 +1,6 @@
 import type { EventType, ShipId } from '@aeolus-fleet/common';
 
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { ok, type Result } from '../shared/result.js';
 import type { Recipient } from '../shared/selector.js';
@@ -33,7 +33,7 @@ export interface MessageParties {
   claimedBy: ShipId | null;
 }
 
-export type ReadReachOf = (caller: Caller) => Promise<ReadReach>;
+export type ReadReachOf = (caller: ShipCaller) => Promise<ReadReach>;
 
 const EVERY: ReadReach = { kind: 'every' };
 

@@ -1,7 +1,7 @@
 import { PING_CONTENT_TYPE, type IdGenerator, type MessageId, type ShipId } from '@aeolus-fleet/common';
 
 import { checkManage, findPingableShip, keepingReachRefusal, type CheckManageTx, type NotReachable, type PingableShipTx, type UnpingableShip } from '../registry/public.js';
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
@@ -23,7 +23,7 @@ export interface PingSent {
 
 export type PingShipRefusal = UnpingableShip | NotReachable | SendMessageRefusal;
 
-export type PingShip = (caller: Caller, input: { shipId: ShipId }) => Promise<Result<PingSent, PingShipRefusal>>;
+export type PingShip = (caller: ShipCaller, input: { shipId: ShipId }) => Promise<Result<PingSent, PingShipRefusal>>;
 
 /**
  * Use case: argo pings a crewed ship (`fleet.ping`), asking its session to

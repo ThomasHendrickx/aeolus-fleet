@@ -1,6 +1,6 @@
 import type { ShipId } from '@aeolus-fleet/common';
 
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import type { NetworkSettingsRepository } from './ports.js';
@@ -14,7 +14,7 @@ export interface RegisteredNetworkPlugin {
   registeredAt: Date;
 }
 
-export type ReadNetworkPlugin = (caller: Caller) => Promise<Result<RegisteredNetworkPlugin | null, never>>;
+export type ReadNetworkPlugin = (caller: ShipCaller) => Promise<Result<RegisteredNetworkPlugin | null, never>>;
 
 /**
  * Use case: the caller's fleet's networking plugin, its ship and when it

@@ -1,6 +1,6 @@
 import type { IdGenerator, NetworkPluginDeclaration } from '@aeolus-fleet/common';
 
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { recordEvent, shipActor, type EventLog } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
@@ -13,7 +13,7 @@ export interface RegisterNetworkPluginTx {
   events: EventLog;
 }
 
-export type RegisterNetworkPlugin = (caller: Caller, input: NetworkPluginDeclaration) => Promise<Result<{ version: number }, RegisterNetworkPluginRefusal>>;
+export type RegisterNetworkPlugin = (caller: ShipCaller, input: NetworkPluginDeclaration) => Promise<Result<{ version: number }, RegisterNetworkPluginRefusal>>;
 
 /**
  * Use case: the caller's ship becomes the fleet's networking plugin, saying

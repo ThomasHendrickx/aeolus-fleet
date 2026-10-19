@@ -5,7 +5,7 @@ import { initialiseFleet, operatorCaller, registryUseCases } from '../../../test
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { refusalOf, unwrap } from '../../testing/result.js';
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import { createRegisterNetworkPlugin } from './register-network-plugin.js';
 import { createSetNetworkRules } from './set-network-rules.js';
 import { createUnregisterNetworkPlugin } from './unregister-network-plugin.js';
@@ -13,8 +13,8 @@ import { BUILT_INS_ON } from './network-settings.js';
 
 let core: InMemoryCore;
 let fleetId: FleetId;
-let argo: Caller;
-let plugin: Caller;
+let argo: ShipCaller;
+let plugin: ShipCaller;
 let unregisterNetworkPlugin: ReturnType<typeof createUnregisterNetworkPlugin>;
 
 beforeEach(async () => {

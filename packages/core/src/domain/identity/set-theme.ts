@@ -1,6 +1,6 @@
 import type { Theme } from '@aeolus-fleet/common';
 
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
@@ -10,7 +10,7 @@ export interface SetThemeTx {
   operatorAccounts: Pick<OperatorAccountRepository, 'findForFleetForUpdate' | 'setTheme'>;
 }
 
-export type SetTheme = (caller: Caller, input: { theme: Theme }) => Promise<Result<undefined, DomainError<'NOT_THE_OPERATOR_SHIP'>>>;
+export type SetTheme = (caller: ShipCaller, input: { theme: Theme }) => Promise<Result<undefined, DomainError<'NOT_THE_OPERATOR_SHIP'>>>;
 
 /**
  * Use case: the operator chooses how the console looks (Light, Dark or

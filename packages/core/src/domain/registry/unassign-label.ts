@@ -1,6 +1,6 @@
 import type { IdGenerator, LabelValueId, ShipId } from '@aeolus-fleet/common';
 
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, shipActor, type EventLog } from '../shared/events.js';
@@ -17,7 +17,7 @@ export interface UnassignLabelTx {
 
 export type UnassignLabelFailure = DomainError<'SHIP_NOT_FOUND' | 'LABEL_VALUE_NOT_FOUND'> | UnassignLabelRefusal;
 
-export type UnassignLabel = (caller: Caller, input: { shipId: ShipId; valueId: LabelValueId }) => Promise<Result<undefined, UnassignLabelFailure>>;
+export type UnassignLabel = (caller: ShipCaller, input: { shipId: ShipId; valueId: LabelValueId }) => Promise<Result<undefined, UnassignLabelFailure>>;
 
 /**
  * Use case: a label's owner takes one of its values off a ship, by the value's id (decision 0031). Its scope

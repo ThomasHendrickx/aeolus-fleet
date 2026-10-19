@@ -4,14 +4,14 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { crewAboard, initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../testing/result.js';
-import type { Caller, Crew } from '../shared/caller.js';
+import type { ShipCaller, Crew } from '../shared/caller.js';
 import { newKey } from '../../testing/keys.js';
 import { wholeShips } from '../../../test/support/ships.js';
 
 let core: InMemoryCore;
 let useCases: ReturnType<typeof registryUseCases>;
 let fleetId: FleetId;
-let argo: Caller;
+let argo: ShipCaller;
 let scoutId: ShipId;
 let scout: Crew;
 

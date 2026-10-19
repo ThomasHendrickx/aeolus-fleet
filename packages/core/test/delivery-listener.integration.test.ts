@@ -8,7 +8,7 @@ import {
   type DeliveryListener,
 } from '../src/adapters/prisma/delivery-notices.js';
 import { createReceiverWakeups, type ReceiverWakeupHub } from '../src/adapters/prisma/receiver-wakeups.js';
-import type { Caller, Crew } from '../src/domain/shared/caller.js';
+import type { ShipCaller, Crew } from '../src/domain/shared/caller.js';
 import { createUseCases, systemClock, type UseCases } from '../src/wiring.js';
 import { OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
 import { createMigratedDatabase } from '../src/testing/database.js';
@@ -35,7 +35,7 @@ let wakeups: ReceiverWakeupHub;
 let listener: DeliveryListener;
 let listens: number;
 let errors: Error[];
-let argo: Caller;
+let argo: ShipCaller;
 let scout: Crew;
 
 beforeEach(async () => {

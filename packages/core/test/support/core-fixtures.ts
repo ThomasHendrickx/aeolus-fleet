@@ -103,7 +103,7 @@ import { createReadAssignedCrewRequests } from '../../src/domain/registry/read-a
 import { createExplainCrewRequest } from '../../src/domain/registry/explain-crew-request.js';
 import { createReadReportLog } from '../../src/domain/registry/report-log.js';
 import { createWhoami } from '../../src/domain/registry/whoami.js';
-import { isCrew, type Caller, type Crew } from '../../src/domain/shared/caller.js';
+import { isCrew, type ShipCaller, type Crew } from '../../src/domain/shared/caller.js';
 import { createReadFleetEvents } from '../../src/domain/shared/read-fleet-events.js';
 import { createFollowFleet } from '../../src/domain/shared/follow-fleet.js';
 import { createReadInbox } from '../../src/domain/shared/read-inbox.js';
@@ -292,7 +292,7 @@ export function messagingUseCases(core: InMemoryCore) {
 }
 
 /** An agent ship as the caller, holding the scopes commissioning gives it, as its crew token makes it. */
-export function agentCaller(ship: { fleetId: FleetId; shipId: ShipId }): Caller {
+export function agentCaller(ship: { fleetId: FleetId; shipId: ShipId }): ShipCaller {
   return { ...ship, kind: 'agent', scopes: ['messages:send', 'messages:receive'] };
 }
 

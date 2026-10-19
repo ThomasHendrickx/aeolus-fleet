@@ -1,6 +1,6 @@
 import type { ShipId } from '@aeolus-fleet/common';
 
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
 import { listedShipOf, outsideReadReach, type ListedShip, type ShipOutsideReadReach } from './list-fleet.js';
@@ -27,7 +27,7 @@ export interface ShipDetail extends Omit<ListedShip, 'report' | 'crewRequest'> {
 }
 
 export type GetShip = (
-  caller: Caller,
+  caller: ShipCaller,
   input: { shipId: ShipId },
 ) => Promise<Result<ShipDetail | ShipOutsideReadReach, DomainError<'SHIP_NOT_FOUND' | 'CREW_REQUEST_NOT_ASSIGNED_TO_CALLER'>>>;
 

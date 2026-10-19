@@ -1,7 +1,7 @@
 import { isPingContentType, PING_CONTENT_TYPE, type IdGenerator, type MessageId } from '@aeolus-fleet/common';
 
 import { checkReach, resolveSelector, type CheckReachTx, type NotReachable, type ResolveSelectorTx, type UnresolvableSelector } from '../registry/public.js';
-import { hasScope, type Caller } from '../shared/caller.js';
+import { hasScope, type ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, type EventLog } from '../shared/events.js';
@@ -53,7 +53,7 @@ export type SendMessageRefusal =
   | NotReachable
   | DomainError<'MESSAGE_LIMIT_REACHED'>;
 
-export type SendMessage = (caller: Caller, input: MessageToSend) => Promise<Result<MessageSent, SendMessageRefusal>>;
+export type SendMessage = (caller: ShipCaller, input: MessageToSend) => Promise<Result<MessageSent, SendMessageRefusal>>;
 
 /**
  * Use case: the calling ship sends a message (`send`). The sender is always
@@ -156,7 +156,7 @@ export function checkedSend(input: MessageToSend, hasher: RequestHasher): Result
 /** Sends a checked request inside the caller's unit of work, as {@link createSendMessage} describes. */
 export async function sendWithin(
   deps: { tx: SendMessageTx; clock: Clock; ids: IdGenerator },
-  send: { caller: Caller; request: CheckedSend },
+  send: { caller: ShipCaller; request: CheckedSend },
 ): Promise<Result<MessageSent, SendMessageRefusal>> {
   const { tx, clock, ids } = deps;
   const { fleetId, shipId: senderShipId } = send.caller;

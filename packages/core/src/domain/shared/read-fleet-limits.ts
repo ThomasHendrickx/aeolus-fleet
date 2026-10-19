@@ -1,6 +1,6 @@
 import type { FleetId } from '@aeolus-fleet/common';
 
-import type { Caller } from './caller.js';
+import type { ShipCaller } from './caller.js';
 import type { Clock } from './clock.js';
 import { nextUtcDayStart, utcDayStart } from './utc-day.js';
 
@@ -19,7 +19,7 @@ export interface FleetLimitsRead {
   dailyMessages: { limit: number | null; count: number; resetsAt: Date };
 }
 
-export type ReadFleetLimits = (caller: Caller) => Promise<FleetLimitsRead>;
+export type ReadFleetLimits = (caller: ShipCaller) => Promise<FleetLimitsRead>;
 
 /**
  * Use case: the caller's fleet's ship and daily message limits, with what

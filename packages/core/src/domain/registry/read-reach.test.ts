@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { newKey } from '../../testing/keys.js';
 import { idsOf, readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
 import { unwrap } from '../../testing/result.js';
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import { createReadReachOf, readsEvent, readsMessage, readsShip, type ReadReach } from './read-reach.js';
 
 let fleet: ReadReachScenario;
@@ -27,7 +27,7 @@ function everyShip(): ShipId[] {
   return fleet.core.state.ships.map((ship) => ship.id).sort();
 }
 
-async function shipsReadBy(caller: Caller): Promise<ShipId[]> {
+async function shipsReadBy(caller: ShipCaller): Promise<ShipId[]> {
   return shipsRead(await readReachOf(caller));
 }
 

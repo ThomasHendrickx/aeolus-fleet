@@ -6,7 +6,7 @@ import { listenForPendingDeliveries, type DeliveryListener } from '../src/adapte
 import { createReceiverWakeups, type ReceiverWakeupHub } from '../src/adapters/prisma/receiver-wakeups.js';
 import { createPrismaUnitOfWork, type PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
 import { createReceiveReply } from '../src/domain/messaging/receive-reply.js';
-import type { Caller, Crew } from '../src/domain/shared/caller.js';
+import type { ShipCaller, Crew } from '../src/domain/shared/caller.js';
 import type { Selector } from '../src/domain/shared/selector.js';
 import type { UnitOfWork } from '../src/domain/shared/unit-of-work.js';
 import { createUseCases, systemClock, type UseCases } from '../src/wiring.js';
@@ -33,7 +33,7 @@ let prisma: PrismaClient;
 let wakeups: ReceiverWakeupHub;
 let listener: DeliveryListener;
 let useCases: UseCases;
-let argo: Caller;
+let argo: ShipCaller;
 let scout: Crew;
 let lookout: Crew;
 

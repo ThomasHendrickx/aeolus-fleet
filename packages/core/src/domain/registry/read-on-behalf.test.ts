@@ -3,11 +3,11 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
 import { refusalOf, unwrap } from '../../testing/result.js';
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import { createReadOnBehalf, type ReadOnBehalf } from './read-on-behalf.js';
 
 let fleet: ReadReachScenario;
-let plugin: Caller;
+let plugin: ShipCaller;
 let readOnBehalf: ReadOnBehalf;
 
 beforeEach(async () => {

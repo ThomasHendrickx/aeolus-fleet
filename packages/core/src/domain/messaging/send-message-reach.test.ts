@@ -7,7 +7,7 @@ import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-
 import { newKey } from '../../testing/keys.js';
 import { labelIdOf, valueIdOf } from '../../../test/support/label-fixtures.js';
 import { refusalOf, unwrap } from '../../testing/result.js';
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import type { Selector } from '../shared/selector.js';
 import { UNDELIVERABLE_AT_ATTEMPT } from './delivery.js';
 import type { MessageToSend } from './send-message.js';
@@ -22,12 +22,12 @@ let core: InMemoryCore;
 let registry: ReturnType<typeof registryUseCases>;
 let messaging: ReturnType<typeof messagingUseCases>;
 let fleetId: FleetId;
-let argo: Caller;
-let planner: Caller;
-let scout: Caller;
-let vault: Caller;
-let labeller: Caller;
-let networking: Caller;
+let argo: ShipCaller;
+let planner: ShipCaller;
+let scout: ShipCaller;
+let vault: ShipCaller;
+let labeller: ShipCaller;
+let networking: ShipCaller;
 
 const NOT_REACHABLE = { kind: 'NOT_REACHABLE', message: 'The network rules do not allow this send' };
 
@@ -51,7 +51,7 @@ async function setRules(rules: NetworkRule[] | null): Promise<void> {
   unwrap(await registry.setBuiltInRule(networking, { rule: 'open', verb: 'send', isOn: rules === null }));
 }
 
-function toShip(ship: Caller): Selector {
+function toShip(ship: ShipCaller): Selector {
   return { kind: 'ship', shipId: ship.shipId };
 }
 
@@ -59,7 +59,7 @@ function aMessage(selector: Selector, overrides: Partial<MessageToSend> = {}): M
   return { selector, payload: 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/260', idempotencyKey: newKey(), model: SESSION_MODEL, ...overrides };
 }
 
-async function sent(caller: Caller, input: MessageToSend): Promise<MessageId> {
+async function sent(caller: ShipCaller, input: MessageToSend): Promise<MessageId> {
   return unwrap(await messaging.sendMessage(caller, input)).messageId;
 }
 
@@ -80,7 +80,7 @@ beforeEach(async () => {
   unwrap(await registry.registerNetworkPlugin(networking, { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS }));
   unwrap(await registry.defineLabel(labeller, { key: 'trust', values: ['shared', 'sensitive'] }));
   unwrap(await registry.defineLabel(labeller, { key: 'team', values: ['a', 'b'] }));
-  const carries: [Caller, string, string][] = [
+  const carries: [ShipCaller, string, string][] = [
     [planner, 'trust', 'shared'],
     [planner, 'team', 'a'],
     [scout, 'trust', 'shared'],
@@ -332,7 +332,7 @@ describe('the fixed exceptions', () => {
   });
 
   describe("an owner's ship (decision 0045)", () => {
-    let thomas: Caller;
+    let thomas: ShipCaller;
 
     beforeEach(async () => {
       const { shipId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person' }));
@@ -460,7 +460,7 @@ describe('the record of a refused send', () => {
 });
 
 describe('a send to a type while the fleet has network rules', () => {
-  let keeper: Caller;
+  let keeper: ShipCaller;
   const toKeepers: Selector = { kind: 'type', type: 'keeper' };
 
   beforeEach(async () => {
@@ -470,7 +470,7 @@ describe('a send to a type while the fleet has network rules', () => {
     await setRules([{ verb: 'send', from: [value('trust', 'shared')], to: [value('trust', 'shared')] }]);
   });
 
-  async function received(ship: Caller): Promise<MessageId[]> {
+  async function received(ship: ShipCaller): Promise<MessageId[]> {
     const crew = crewAboard(core, ship);
     return unwrap(await messaging.receiveDeliveries(crew, { max: 10 })).deliveries.map((delivery) => delivery.messageId);
   }

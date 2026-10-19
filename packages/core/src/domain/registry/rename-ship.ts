@@ -1,6 +1,6 @@
 import type { IdGenerator, ShipId } from '@aeolus-fleet/common';
 
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, shipActor, type EventLog } from '../shared/events.js';
@@ -18,7 +18,7 @@ export interface RenameShipTx extends Omit<CheckManageTx, 'ships'> {
 export type RenameShipRefusal = DomainError<'SHIP_NOT_FOUND'> | NotReachable | RenameRefusal;
 
 export type RenameShip = (
-  caller: Caller,
+  caller: ShipCaller,
   input: { shipId: ShipId; name: string },
 ) => Promise<Result<undefined, RenameShipRefusal>>;
 

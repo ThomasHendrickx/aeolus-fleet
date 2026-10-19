@@ -5,11 +5,11 @@ import { hostedFleet, initialiseFleet, operatorCaller, registryUseCases } from '
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../testing/result.js';
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 
 let core: InMemoryCore;
 let registry: ReturnType<typeof registryUseCases>;
-let argo: Caller;
+let argo: ShipCaller;
 
 beforeEach(async () => {
   core = createInMemoryCore('2026-10-18T09:00:00.000Z');
@@ -53,7 +53,7 @@ describe("listing the fleet's scopes (decision 0046)", () => {
 
   it("lists no other fleet's namespaces", async () => {
     const other = await hostedFleet(core);
-    const otherArgo: Caller = { ...argo, fleetId: other.fleetId, shipId: other.operatorShipId };
+    const otherArgo: ShipCaller = { ...argo, fleetId: other.fleetId, shipId: other.operatorShipId };
     unwrap(await registry.declareScopes(otherArgo, { namespace: 'squadrons', scopes: [] }));
 
     await expect(registry.listScopes(argo)).resolves.toHaveLength(5);

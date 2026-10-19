@@ -1,7 +1,7 @@
 import type { FleetId, Scope, ShipId } from '@aeolus-fleet/common';
 
 import type { JsonObject } from '../../src/domain/registry/report-details.js';
-import type { Caller } from '../../src/domain/shared/caller.js';
+import type { ShipCaller } from '../../src/domain/shared/caller.js';
 import { newKey } from '../../src/testing/keys.js';
 import type { registryUseCases } from './core-fixtures.js';
 import { unwrap } from '../../src/testing/result.js';
@@ -13,15 +13,15 @@ import { unwrap } from '../../src/testing/result.js';
  * (decision 0031).
  */
 export async function shipWithScopes(
-  { registry, argo }: { registry: ReturnType<typeof registryUseCases>; argo: Caller },
+  { registry, argo }: { registry: ReturnType<typeof registryUseCases>; argo: ShipCaller },
   ship: { name: string; type: string; scopes: Scope[] },
-): Promise<Caller> {
+): Promise<ShipCaller> {
   const added = ship.scopes.filter((scope) => scope !== 'messages:send' && scope !== 'messages:receive');
   const { shipId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: ship.name, type: ship.type, scopes: added }));
   return callerOf({ fleetId: argo.fleetId, shipId }, ['messages:send', 'messages:receive', ...added]);
 }
 
-function callerOf(ship: { fleetId: FleetId; shipId: ShipId }, scopes: Scope[]): Caller {
+function callerOf(ship: { fleetId: FleetId; shipId: ShipId }, scopes: Scope[]): ShipCaller {
   return { ...ship, kind: 'agent', scopes };
 }
 

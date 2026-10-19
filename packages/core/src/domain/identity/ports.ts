@@ -1,6 +1,6 @@
 import type { AccountTokenClaims, ConsoleSessionId, CredentialId, FleetId, LeaseId, OperatorId, ShipId, Theme } from '@aeolus-fleet/common';
 
-import type { Caller, Crew } from '../shared/caller.js';
+import type { ShipCaller, Crew } from '../shared/caller.js';
 import type { ConsoleSession, ConsoleSessionEndReason } from './console-session.js';
 import type { Credential } from './credential.js';
 import type { Guide, GuideProgress } from './guide.js';
@@ -9,7 +9,7 @@ import type { OperatorAccount } from './operator-account.js';
 import type { SignInAs, SignInTicket } from './sign-in-ticket.js';
 
 /** The ship a crew token or a console session token belongs to, as the caller it makes. */
-export type AuthenticatedShip = Omit<Caller, 'consoleSessionId'>;
+export type AuthenticatedShip = Omit<ShipCaller, 'consoleSessionId'>;
 
 /** The ship a crew token crews, and the open lease the token belongs to. */
 export type AuthenticatedCrew = AuthenticatedShip & { leaseId: LeaseId };
@@ -118,7 +118,7 @@ export interface CallerLookup {
    * past the moment it ends by, and marks argo's lease seen `now`. Answers
    * the new expiry.
    */
-  useConsoleSession(use: { tokenHash: string; now: Date }): Promise<{ caller: Caller | Crew; expiresAt: Date } | undefined>;
+  useConsoleSession(use: { tokenHash: string; now: Date }): Promise<{ caller: ShipCaller | Crew; expiresAt: Date } | undefined>;
   /** Why the console session with this token hash ended; undefined when it has not, or no session has the hash. */
   consoleSessionEnding(tokenHash: string): Promise<ConsoleSessionEndReason | undefined>;
 }

@@ -1,7 +1,7 @@
 import type { IdGenerator, ShipId } from '@aeolus-fleet/common';
 
 import { revokeShipSecret, type CredentialTx } from '../identity/public.js';
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, shipActor, type EventLog } from '../shared/events.js';
@@ -18,7 +18,7 @@ export interface GiveBackCrewRequestTx extends LeaseTx, CredentialTx {
 }
 
 export type GiveBack = (
-  caller: Caller,
+  caller: ShipCaller,
   input: { shipId: ShipId; settingsVersion: number; reason: string },
 ) => Promise<Result<undefined, DomainError<'SHIP_NOT_FOUND'> | GiveBackCrewRequestRefusal>>;
 

@@ -1,7 +1,7 @@
 import type { CommissionedShipKind, FleetId, IdGenerator, ShipId } from '@aeolus-fleet/common';
 
 import type { SecretTools } from '../identity/public.js';
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, shipActor } from '../shared/events.js';
@@ -49,7 +49,7 @@ export type CommissionShipRefusal =
   | CommissionRefusal
   | DomainError<'INVALID_IDEMPOTENCY_KEY' | 'IDEMPOTENCY_KEY_REUSED' | 'SHIP_LIMIT_REACHED' | 'SHIP_NOT_FOUND'>;
 
-export type CommissionShip = (caller: Caller, input: CommissionShipInput) => Promise<Result<CommissionedShip, CommissionShipRefusal>>;
+export type CommissionShip = (caller: ShipCaller, input: CommissionShipInput) => Promise<Result<CommissionedShip, CommissionShipRefusal>>;
 
 /** The request as one text, so a repeat is known by its hash: the scopes in a fixed order, each once. */
 function commissionRequestText(input: CommissionShipInput): string {

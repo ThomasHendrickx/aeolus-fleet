@@ -9,7 +9,7 @@ import { z } from 'zod';
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
 import { LISTENER_APPLICATION_NAME } from '../src/adapters/prisma/delivery-notices.js';
 import { createApp } from '../src/app.js';
-import type { Caller } from '../src/domain/shared/caller.js';
+import type { ShipCaller } from '../src/domain/shared/caller.js';
 import { createUseCases } from '../src/wiring.js';
 import { FLEET_URL, OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
 import { createMigratedDatabase } from '../src/testing/database.js';
@@ -88,7 +88,7 @@ async function slowMessageInserts(database: PrismaClient): Promise<void> {
 
 describe('a fleet whose connections are all in use', () => {
   let database: PrismaClient;
-  let argo: Caller;
+  let argo: ShipCaller;
   let server: FastifyInstance;
   let address: string;
 
@@ -189,7 +189,7 @@ describe('a fleet whose connections are all in use', () => {
 
 describe('a fleet whose connections are all in use when a console session is looked up', () => {
   let database: PrismaClient;
-  let argo: Caller;
+  let argo: ShipCaller;
   let server: FastifyInstance;
   let address: string;
 
@@ -354,7 +354,7 @@ async function untilListenerConnected(database: PrismaClient, user: string): Pro
 describe('a fleet whose database is too busy for a send', () => {
   let databaseUrl: string;
   let database: PrismaClient;
-  let argo: Caller;
+  let argo: ShipCaller;
   let server: FastifyInstance;
   let address: string;
 

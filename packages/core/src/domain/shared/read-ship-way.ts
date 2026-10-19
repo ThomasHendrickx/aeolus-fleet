@@ -1,7 +1,7 @@
 import type { ComputerSide, DeliveryId, DeliveryState, IdGenerator, MessageId, ShipId } from '@aeolus-fleet/common';
 
 import { checkRead, type CheckReadTx, type NotReachable } from '../registry/public.js';
-import type { Caller } from './caller.js';
+import type { ShipCaller } from './caller.js';
 import type { Clock } from './clock.js';
 import { computerSideOf, deliveryWayOf, type DeliveryWay, type WayLease } from './delivery-way.js';
 import { refuse, type DomainError } from './errors.js';
@@ -24,7 +24,7 @@ export interface ShipWay {
   } | null;
 }
 
-export type ReadShipWay = (caller: Caller, input: { shipId: ShipId }) => Promise<Result<ShipWay, DomainError<'SHIP_NOT_FOUND'> | NotReachable>>;
+export type ReadShipWay = (caller: ShipCaller, input: { shipId: ShipId }) => Promise<Result<ShipWay, DomainError<'SHIP_NOT_FOUND'> | NotReachable>>;
 
 /**
  * Use case: one ship's side of the way: the trierarch or plugin watcher that

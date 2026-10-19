@@ -5,11 +5,11 @@ import { initialiseFleet, operatorCaller, registryUseCases } from '../../../test
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { refusalOf, unwrap } from '../../testing/result.js';
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 
 let core: InMemoryCore;
 let registry: ReturnType<typeof registryUseCases>;
-let argo: Caller;
+let argo: ShipCaller;
 let osId: LabelId;
 let linux: LabelValueId;
 

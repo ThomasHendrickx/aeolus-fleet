@@ -1,6 +1,6 @@
 import type { IdGenerator } from '@aeolus-fleet/common';
 
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { recordEvent, shipActor, type EventLog } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
@@ -13,7 +13,7 @@ export interface UnregisterNetworkPluginTx {
   events: EventLog;
 }
 
-export type UnregisterNetworkPlugin = (caller: Caller) => Promise<Result<{ version: number }, NotTheNetworkPlugin>>;
+export type UnregisterNetworkPlugin = (caller: ShipCaller) => Promise<Result<{ version: number }, NotTheNetworkPlugin>>;
 
 /**
  * Use case: the fleet's networking plugin unregisters, as it does when it is

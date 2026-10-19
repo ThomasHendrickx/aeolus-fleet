@@ -5,7 +5,7 @@ import { cryptoRandomTokens, sha256Hasher } from '../src/adapters/crypto/secrets
 import { createPrismaUnitOfWork, type PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
 import { createClaimShip } from '../src/domain/registry/claim-ship.js';
 import { createGetStartingPrompt } from '../src/domain/registry/get-starting-prompt.js';
-import type { Caller } from '../src/domain/shared/caller.js';
+import type { ShipCaller } from '../src/domain/shared/caller.js';
 import type { UnitOfWork } from '../src/domain/shared/unit-of-work.js';
 import { OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
 import {
@@ -28,7 +28,7 @@ const onDevice = { kind: 'DEVICE' } as const;
 let core: PostgresCore;
 let fleetId: FleetId;
 let argoId: ShipId;
-let argo: Caller;
+let argo: ShipCaller;
 let scoutId: ShipId;
 let scoutSecret: string;
 

@@ -1,7 +1,7 @@
 import { SCOPES } from '@aeolus-fleet/common';
 
 import type { FleetInitialised } from '../domain/registry/initialise-fleet.js';
-import type { Caller } from '../domain/shared/caller.js';
+import type { ShipCaller } from '../domain/shared/caller.js';
 
 /** The fleet's public URL in tests: where ships reach it. */
 export const FLEET_URL = 'https://fleet.example.com';
@@ -10,7 +10,7 @@ export const FLEET_URL = 'https://fleet.example.com';
 export const OPERATOR = { email: 'operator@example.com', password: 'correct horse battery staple' };
 
 /** argo as the caller, holding every scope, as its secret or console session makes it. */
-export function operatorCaller(fleet: FleetInitialised): Caller {
+export function operatorCaller(fleet: FleetInitialised): ShipCaller {
   return { shipId: fleet.operatorShipId, fleetId: fleet.fleetId, kind: 'operator', scopes: [...SCOPES] };
 }
 

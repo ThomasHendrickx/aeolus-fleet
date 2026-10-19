@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
 import { LISTENER_APPLICATION_NAME } from '../src/adapters/prisma/delivery-notices.js';
 import { createApp } from '../src/app.js';
-import type { Caller } from '../src/domain/shared/caller.js';
+import type { ShipCaller } from '../src/domain/shared/caller.js';
 import { createUseCases, type UseCases } from '../src/wiring.js';
 import { FLEET_URL, OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
 import { createMigratedDatabase } from '../src/testing/database.js';
@@ -32,7 +32,7 @@ let database: PrismaClient;
 let server: FastifyInstance;
 let address: string;
 let useCases: UseCases;
-let argo: Caller;
+let argo: ShipCaller;
 const browsers: WebSocket[] = [];
 const streams: AbortController[] = [];
 

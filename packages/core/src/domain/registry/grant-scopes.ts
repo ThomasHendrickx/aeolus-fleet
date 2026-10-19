@@ -1,6 +1,6 @@
 import type { IdGenerator, ShipId } from '@aeolus-fleet/common';
 
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, shipActor, type EventLog } from '../shared/events.js';
@@ -17,7 +17,7 @@ export interface GrantScopesTx {
 }
 
 export type GrantScopes = (
-  caller: Caller,
+  caller: ShipCaller,
   input: { shipId: ShipId; grant: readonly string[]; revoke: readonly string[] },
 ) => Promise<Result<{ scopes: readonly string[] }, GrantScopesRefusal | DomainError<'SHIP_NOT_FOUND'>>>;
 

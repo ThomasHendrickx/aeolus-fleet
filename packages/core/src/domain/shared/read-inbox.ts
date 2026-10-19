@@ -1,10 +1,10 @@
 import type { InboxFilter } from '@aeolus-fleet/common';
 
 import { readsMessage, type ReadReachOf, type ShipRepository } from '../registry/public.js';
-import type { Caller } from './caller.js';
+import type { ShipCaller } from './caller.js';
 import type { InboxEntry, ShipHistory } from './history.js';
 
-export type ReadInbox = (caller: Caller, input: { filter: InboxFilter }) => Promise<InboxEntry[]>;
+export type ReadInbox = (caller: ShipCaller, input: { filter: InboxFilter }) => Promise<InboxEntry[]>;
 
 /**
  * Use case: the caller's own inbox, for the operator inbox of argo

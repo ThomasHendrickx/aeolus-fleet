@@ -1,6 +1,6 @@
 import type { IdGenerator } from '@aeolus-fleet/common';
 
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { recordEvent, shipActor, type EventLog } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
@@ -14,7 +14,7 @@ export interface SetNetworkRulesTx {
   events: EventLog;
 }
 
-export type SetNetworkRules = (caller: Caller, input: { rules: readonly NetworkRule[] }) => Promise<Result<{ version: number }, SetNetworkRulesRefusal>>;
+export type SetNetworkRules = (caller: ShipCaller, input: { rules: readonly NetworkRule[] }) => Promise<Result<{ version: number }, SetNetworkRulesRefusal>>;
 
 /**
  * Use case: the caller sets the fleet's network rules, the whole list beside

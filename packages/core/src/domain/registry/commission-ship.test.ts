@@ -11,7 +11,7 @@ import {
 } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../testing/result.js';
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import { createCommissionShip } from './commission-ship.js';
 import type { Ship } from './ship.js';
 import { newKey } from '../../testing/keys.js';
@@ -19,7 +19,7 @@ import { newKey } from '../../testing/keys.js';
 let core: InMemoryCore;
 let fleetId: FleetId;
 let argoId: ShipId;
-let argo: Caller;
+let argo: ShipCaller;
 let commissionShip: ReturnType<typeof registryUseCases>['commissionShip'];
 
 beforeEach(async () => {
@@ -163,7 +163,7 @@ describe('what a commission may grant (decision 0046)', () => {
     return shipsNamed(name)[0]?.scopes;
   }
 
-  async function shipCommissionedByArgo(name: string, scopes: string[]): Promise<Caller> {
+  async function shipCommissionedByArgo(name: string, scopes: string[]): Promise<ShipCaller> {
     const { shipId } = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name, type: 'squadron', scopes }));
     return { fleetId, shipId, kind: 'agent', scopes: [] };
   }
@@ -256,7 +256,7 @@ describe('what a commission may grant (decision 0046)', () => {
 });
 
 describe('the kind of a new ship', () => {
-  function manager(): Caller {
+  function manager(): ShipCaller {
     return { ...argo, shipId: shipsNamed('manager')[0]?.id ?? argo.shipId, kind: 'agent' };
   }
 
@@ -300,7 +300,7 @@ describe('the kind of a new ship', () => {
 });
 
 describe('the owner of a new ship (decision 0045)', () => {
-  async function commissioned(caller: Caller, name: string): Promise<ShipId> {
+  async function commissioned(caller: ShipCaller, name: string): Promise<ShipId> {
     return unwrap(await commissionShip(caller, { idempotencyKey: newKey(), name, type: 'squadron', scopes: ['fleet:manage'] })).shipId;
   }
 
@@ -308,7 +308,7 @@ describe('the owner of a new ship (decision 0045)', () => {
     return core.state.events.filter((event) => event.type === 'OwnerSet' && event.shipId === shipId).map((event) => event.details);
   }
 
-  function asAgent(shipId: ShipId): Caller {
+  function asAgent(shipId: ShipId): ShipCaller {
     return { ...argo, shipId, kind: 'agent' };
   }
 
@@ -367,7 +367,7 @@ describe('an owner named on behalf of the asking ship (decisions 0045, 0017)', (
   });
 
   /** A plugin's ship: it holds fleet:on-behalf, which argo granted it (decision 0045). */
-  async function aPluginShip(): Promise<Caller> {
+  async function aPluginShip(): Promise<ShipCaller> {
     const { shipId } = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', scopes: ['fleet:commission', 'fleet:on-behalf'] }));
     core.state.events.length = 0;
     return { fleetId, shipId, kind: 'agent', scopes: [] };
@@ -396,7 +396,7 @@ describe('an owner named on behalf of the asking ship (decisions 0045, 0017)', (
 
   it('is refused from a ship without fleet:on-behalf, even one that declared a namespace, and nothing is stored', async () => {
     const declarer = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'declarer', type: 'plugin', scopes: ['fleet:commission', 'scopes:declare'] })).shipId;
-    const caller: Caller = { fleetId, shipId: declarer, kind: 'agent', scopes: [] };
+    const caller: ShipCaller = { fleetId, shipId: declarer, kind: 'agent', scopes: [] };
     unwrap(await registryUseCases(core).declareScopes(caller, { namespace: 'reviews', scopes: [{ scope: 'reviews:ask', description: 'Ask for a review' }] }));
     core.state.events.length = 0;
 
@@ -447,7 +447,7 @@ describe('an app ship commissioned by the gateway, with the owner argo picked (d
   });
 
   /** The gateway's ship: argo granted it fleet:commission and fleet:on-behalf. */
-  async function theGateway(scopes: string[] = ['fleet:commission', 'fleet:on-behalf']): Promise<Caller> {
+  async function theGateway(scopes: string[] = ['fleet:commission', 'fleet:on-behalf']): Promise<ShipCaller> {
     const { shipId } = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'gateway', type: 'gateway', scopes }));
     core.state.events.length = 0;
     return { fleetId, shipId, kind: 'agent', scopes: [] };

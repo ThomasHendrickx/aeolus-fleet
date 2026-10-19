@@ -40,7 +40,7 @@ import type { Fleet } from '../../domain/registry/fleet.js';
 import type { Lease } from '../../domain/registry/lease.js';
 import type { ShipFacts } from '../../domain/registry/ports.js';
 import type { Ship } from '../../domain/registry/ship.js';
-import type { Caller, Crew } from '../../domain/shared/caller.js';
+import type { ShipCaller, Crew } from '../../domain/shared/caller.js';
 import type { Recipient } from '../../domain/shared/selector.js';
 
 // Maps database rows to domain objects. A row is outside data: each one is
@@ -493,9 +493,9 @@ const consoleSessionCallerSqlRow = z.object({ console_session_id: idSchema('cons
  * and the lease the session holds (a viewer session holds none), with the
  * expiry its use moved to.
  */
-export function toConsoleSessionCaller(row: unknown): { caller: Caller | Crew; expiresAt: Date } {
+export function toConsoleSessionCaller(row: unknown): { caller: ShipCaller | Crew; expiresAt: Date } {
   const { console_session_id, lease_id, expires_at } = consoleSessionCallerSqlRow.parse(row);
-  const caller: Caller = { ...toAuthenticatedShip(row), consoleSessionId: console_session_id };
+  const caller: ShipCaller = { ...toAuthenticatedShip(row), consoleSessionId: console_session_id };
   return { caller: lease_id === null ? caller : { ...caller, leaseId: lease_id }, expiresAt: expires_at };
 }
 

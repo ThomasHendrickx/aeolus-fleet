@@ -5,13 +5,13 @@ import { hostedFleet, initialiseFleet, operatorCaller, registryUseCases } from '
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { refusalOf, unwrap } from '../../testing/result.js';
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 
 let core: InMemoryCore;
 let registry: ReturnType<typeof registryUseCases>;
 let fleetId: FleetId;
-let argo: Caller;
-let squadrons: Caller;
+let argo: ShipCaller;
+let squadrons: ShipCaller;
 
 beforeEach(async () => {
   core = createInMemoryCore('2026-10-18T09:00:00.000Z');
@@ -155,7 +155,7 @@ describe('declaring scopes (decision 0046)', () => {
   it('takes the same namespace in another fleet: a namespace is unique in its fleet', async () => {
     unwrap(await registry.declareScopes(squadrons, { namespace: 'squadrons', scopes: [FORM] }));
     const other = await hostedFleet(core);
-    const otherArgo: Caller = { ...argo, fleetId: other.fleetId, shipId: other.operatorShipId };
+    const otherArgo: ShipCaller = { ...argo, fleetId: other.fleetId, shipId: other.operatorShipId };
 
     await expect(registry.declareScopes(otherArgo, { namespace: 'squadrons', scopes: [FORM] })).resolves.toMatchObject({ isOk: true });
   });

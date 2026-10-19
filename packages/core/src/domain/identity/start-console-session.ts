@@ -1,7 +1,7 @@
 import type { FleetId, IdGenerator } from '@aeolus-fleet/common';
 
 import { findOperatorShip, takeOverOperatorLease, type LeaseTx, type ShipTx } from '../registry/public.js';
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import type { DomainError } from '../shared/errors.js';
 import { shipActor } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
@@ -66,6 +66,6 @@ export async function startConsoleSession(
     endReason: null,
   });
 
-  const caller: Caller = { shipId: argo.id, fleetId: argo.fleetId, kind: argo.kind, scopes: argo.scopes, consoleSessionId };
+  const caller: ShipCaller = { shipId: argo.id, fleetId: argo.fleetId, kind: argo.kind, scopes: argo.scopes, consoleSessionId };
   return ok({ token, consoleSessionId, expiresAt, caller });
 }

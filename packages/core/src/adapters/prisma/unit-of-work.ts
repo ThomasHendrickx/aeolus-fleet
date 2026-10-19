@@ -153,7 +153,7 @@ function createUnitOfWork(prisma: PrismaClient, options: { timeout?: number }): 
   };
 }
 
-/** Caller lookups run outside a unit of work: each is one statement. */
+/** ShipCaller lookups run outside a unit of work: each is one statement. */
 export function createPrismaCallers(prisma: PrismaClient): CallerLookup {
   return createPrismaCallerLookup(prisma);
 }

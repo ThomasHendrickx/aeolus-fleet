@@ -6,7 +6,7 @@ import { listenForPendingDeliveries, type DeliveryListener } from '../src/adapte
 import { createPrismaUnitOfWork, type PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
 import type { DeliveryNotice } from '../src/domain/shared/notifier.js';
 import { createSendMessage, type MessageToSend } from '../src/domain/messaging/send-message.js';
-import type { Caller } from '../src/domain/shared/caller.js';
+import type { ShipCaller } from '../src/domain/shared/caller.js';
 import type { UnitOfWork } from '../src/domain/shared/unit-of-work.js';
 import { agentCaller, OPERATOR, operatorCaller } from './support/core-fixtures.js';
 import { createPostgresCore, racingUnitOfWork, type PostgresCore } from './support/postgres-core.js';
@@ -25,9 +25,9 @@ const KEY_REUSED = 'This idempotency key was already used for another message: s
 let core: PostgresCore;
 let fleetId: FleetId;
 let argoId: ShipId;
-let argo: Caller;
+let argo: ShipCaller;
 let scoutId: ShipId;
-let scout: Caller;
+let scout: ShipCaller;
 let listener: DeliveryListener;
 let notices: DeliveryNotice[];
 

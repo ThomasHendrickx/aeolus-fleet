@@ -1,7 +1,7 @@
 import { CLEAR_REQUESTS_PER_TRIERARCH_MAX } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import type { Caller } from '../src/domain/shared/caller.js';
+import type { ShipCaller } from '../src/domain/shared/caller.js';
 import { OPERATOR, operatorCaller } from './support/core-fixtures.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from '../src/testing/result.js';
@@ -12,9 +12,9 @@ import { newKey } from '../src/testing/keys.js';
 // gone with its retire, and never more than the limit, even at once.
 
 let core: PostgresCore;
-let argo: Caller;
-let trierarch: Caller;
-let scoutId: Caller['shipId'];
+let argo: ShipCaller;
+let trierarch: ShipCaller;
+let scoutId: ShipCaller['shipId'];
 
 beforeEach(async () => {
   core = await createPostgresCore();

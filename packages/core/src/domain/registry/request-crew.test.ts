@@ -6,14 +6,14 @@ import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { valueIdOf } from '../../../test/support/label-fixtures.js';
 import { unwrap } from '../../testing/result.js';
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import { newKey } from '../../testing/keys.js';
 import { wholeShips } from '../../../test/support/ships.js';
 
 let core: InMemoryCore;
 let registry: ReturnType<typeof registryUseCases>;
 let fleetId: FleetId;
-let argo: Caller;
+let argo: ShipCaller;
 let argoId: ShipId;
 let scoutId: ShipId;
 
@@ -180,7 +180,7 @@ describe('a crew request refused', () => {
 
   it("refuses a label value of another fleet: the caller's fleet scopes the labels (#811)", async () => {
     const other = await hostedFleetWithViewer(core);
-    const otherArgo: Caller = { shipId: other.operatorShipId, fleetId: other.fleetId, kind: 'operator', scopes: [...SCOPES] };
+    const otherArgo: ShipCaller = { shipId: other.operatorShipId, fleetId: other.fleetId, kind: 'operator', scopes: [...SCOPES] };
     unwrap(await registry.defineLabel(otherArgo, { key: 'os', values: ['macos'] }));
     const foreign = valueIdOf(core, { key: 'os', value: 'macos' });
     core.state.events.length = 0;
@@ -198,7 +198,7 @@ describe('a crew request refused', () => {
   it('refuses the viewer ship: no session crews it', async () => {
     const hosted = await hostedFleetWithViewer(core);
     const before = structuredClone(core.state);
-    const hostedArgo: Caller = { shipId: hosted.operatorShipId, fleetId: hosted.fleetId, kind: 'operator', scopes: [...SCOPES] };
+    const hostedArgo: ShipCaller = { shipId: hosted.operatorShipId, fleetId: hosted.fleetId, kind: 'operator', scopes: [...SCOPES] };
 
     await expect(registry.requestCrew(hostedArgo, { shipId: hosted.viewerShipId, settings })).resolves.toMatchObject({
       isOk: false,

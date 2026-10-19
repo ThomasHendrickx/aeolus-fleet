@@ -15,7 +15,7 @@ import {
 } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../testing/result.js';
-import type { Caller, Crew } from '../shared/caller.js';
+import type { ShipCaller, Crew } from '../shared/caller.js';
 import type { Selector } from '../shared/selector.js';
 import { createDeregister } from './deregister.js';
 import { createReleaseShip } from './release-ship.js';
@@ -26,7 +26,7 @@ let useCases: ReturnType<typeof registryUseCases>;
 let messaging: ReturnType<typeof messagingUseCases>;
 let deregister: ReturnType<typeof createDeregister>;
 let argoId: ShipId;
-let argo: Caller;
+let argo: ShipCaller;
 let scoutId: ShipId;
 let scoutSecret: string;
 let scoutCrewToken: string;

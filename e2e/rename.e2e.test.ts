@@ -5,7 +5,7 @@ import { z } from 'zod';
 
 import { createPrismaClient, type PrismaClient } from '../packages/core/src/adapters/prisma/client.js';
 import { createApp } from '../packages/core/src/app.js';
-import type { Caller } from '../packages/core/src/domain/shared/caller.js';
+import type { ShipCaller } from '../packages/core/src/domain/shared/caller.js';
 import { createUseCases, type UseCases } from '../packages/core/src/wiring.js';
 import { FLEET_URL, OPERATOR, operatorCaller } from '../packages/core/test/support/core-fixtures.js';
 import { createMigratedDatabase } from '../packages/core/src/testing/database.js';
@@ -25,7 +25,7 @@ const SIGN_IN_WINDOW_MS = 60_000;
 
 let database: PrismaClient;
 let useCases: UseCases;
-let argo: Caller;
+let argo: ShipCaller;
 let server: FastifyInstance;
 let web: RunningWeb;
 let browser: Browser;

@@ -1,6 +1,6 @@
 import type { IdGenerator, LabelValueId, ShipId } from '@aeolus-fleet/common';
 
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, shipActor, type EventLog } from '../shared/events.js';
@@ -19,7 +19,7 @@ export interface RequestCrewTx extends Omit<CheckManageTx, 'ships' | 'labels'> {
 }
 
 export type RequestCrew = (
-  caller: Caller,
+  caller: ShipCaller,
   input: { shipId: ShipId; settings: JsonObject },
 ) => Promise<Result<{ settingsVersion: number }, DomainError<'SHIP_NOT_FOUND'> | NotReachable | RequestCrewRefusal>>;
 

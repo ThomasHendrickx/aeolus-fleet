@@ -1,7 +1,7 @@
 import type { IdGenerator, ShipId } from '@aeolus-fleet/common';
 
 import { revokeShipSecret, type SecretTools } from '../identity/public.js';
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { shipActor } from '../shared/events.js';
@@ -20,7 +20,7 @@ export type RecrewShipTx = ReleaseShipTx & StartingPromptTx & LeaseTx & CheckMan
 export type RecrewShipRefusal = DomainError<'SHIP_NOT_FOUND'> | NotReachable | ReleaseRefusal;
 
 export type RecrewShip = (
-  caller: Caller,
+  caller: ShipCaller,
   input: { shipId: ShipId },
 ) => Promise<Result<IssuedStartingPrompt, RecrewShipRefusal>>;
 

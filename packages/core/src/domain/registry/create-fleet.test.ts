@@ -5,7 +5,7 @@ import { identityUseCases, initialiseFleet, registryUseCases, withInstallationSe
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { newKey } from '../../testing/keys.js';
 import { unwrap } from '../../testing/result.js';
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import { createCreateFleet, type CreateFleet } from './create-fleet.js';
 
 const HEMMA = { requestId: 'signup-1', name: 'hemma', operatorEmail: 'Lena@Example.com ' };
@@ -69,7 +69,7 @@ describe('creating a fleet for the installation', () => {
 
   it('gives a fleet that works: its argo commissions a ship', async () => {
     const { fleetId, operatorShipId } = unwrap(await createFleet(HEMMA));
-    const argo: Caller = { fleetId, shipId: operatorShipId, kind: 'operator', scopes: [...SCOPES] };
+    const argo: ShipCaller = { fleetId, shipId: operatorShipId, kind: 'operator', scopes: [...SCOPES] };
 
     const commissioned = unwrap(await registryUseCases(core).commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
 

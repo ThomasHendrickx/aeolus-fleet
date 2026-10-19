@@ -8,7 +8,7 @@ import { historyScenario, type HistoryScenario } from '../../../test/support/his
 import { newKey } from '../../testing/keys.js';
 import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
 import { refusalOf, unwrap } from '../../testing/result.js';
-import type { Caller, Crew } from './caller.js';
+import type { ShipCaller, Crew } from './caller.js';
 
 let scene: HistoryScenario;
 
@@ -201,7 +201,7 @@ describe("reading the way of a ship outside read reach (decision 0034)", () => {
   });
 
   it('records a read on behalf with the named ship as the reader and the plugin that asked beside it, as it was then', async () => {
-    const onBehalf: Caller = { fleetId: fleet.fleetId, shipId: fleet.reader.shipId, kind: 'agent', scopes: ['fleet:read'], askedBy: fleet.networking.shipId };
+    const onBehalf: ShipCaller = { fleetId: fleet.fleetId, shipId: fleet.reader.shipId, kind: 'agent', scopes: ['fleet:read'], askedBy: fleet.networking.shipId };
 
     await fleet.history.readShipWay(onBehalf, { shipId: fleet.far.shipId });
 

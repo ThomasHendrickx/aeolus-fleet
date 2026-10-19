@@ -12,7 +12,7 @@ import {
 } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../testing/result.js';
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import type { SendMessage } from './send-message.js';
 import { newKey } from '../../testing/keys.js';
 
@@ -20,9 +20,9 @@ let core: InMemoryCore;
 let sendMessage: SendMessage;
 let fleetId: FleetId;
 let argoId: ShipId;
-let argo: Caller;
+let argo: ShipCaller;
 let scoutId: ShipId;
-let scout: Caller;
+let scout: ShipCaller;
 
 beforeEach(async () => {
   core = createInMemoryCore('2026-09-29T12:00:00.000Z');
@@ -52,7 +52,7 @@ function aReview(overrides: Partial<Parameters<SendMessage>[1]> = {}): Parameter
 /** The model the scout's session runs, as it states it on every send. */
 const SCOUT_MODEL = 'claude-opus-5-5';
 
-async function sent(caller: Caller, input: Parameters<SendMessage>[1]): Promise<MessageId> {
+async function sent(caller: ShipCaller, input: Parameters<SendMessage>[1]): Promise<MessageId> {
   return unwrap(await sendMessage(caller, input)).messageId;
 }
 
@@ -359,7 +359,7 @@ describe('the model a session states', () => {
   });
 
   describe.each(['person', 'app'] as const)('from a %s ship, which states none (decision 0044)', (kind) => {
-    async function aShipOfKind(): Promise<Caller> {
+    async function aShipOfKind(): Promise<ShipCaller> {
       const { shipId } = unwrap(await registryUseCases(core).commissionShip(argo, { idempotencyKey: newKey(), name: 'thomas', type: kind, kind }));
       core.state.events.length = 0;
       return { fleetId, shipId, kind, scopes: ['messages:send', 'messages:receive'] };
@@ -570,7 +570,7 @@ describe('a forced send (decision 0040)', () => {
   });
 
   it('is sent by an agent ship that holds messages:force', async () => {
-    const forcing: Caller = { ...scout, scopes: [...scout.scopes, 'messages:force'] };
+    const forcing: ShipCaller = { ...scout, scopes: [...scout.scopes, 'messages:force'] };
 
     await sent(forcing, aReview({ selector: { kind: 'ship', shipId: argoId }, model: SCOUT_MODEL, isForced: true }));
 

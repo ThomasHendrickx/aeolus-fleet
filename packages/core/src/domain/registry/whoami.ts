@@ -1,6 +1,6 @@
 import type { FleetId, ShipId } from '@aeolus-fleet/common';
 
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
 import type { ShipRepository } from './ports.js';
@@ -16,7 +16,7 @@ export interface ShipIdentity {
   ownerName: string | null;
 }
 
-export type Whoami = (caller: Caller) => Promise<Result<ShipIdentity, DomainError<'SHIP_NOT_FOUND'>>>;
+export type Whoami = (caller: ShipCaller) => Promise<Result<ShipIdentity, DomainError<'SHIP_NOT_FOUND'>>>;
 
 /**
  * Use case: tells the caller which ship it crews: id, fleet, name, type and

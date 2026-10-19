@@ -1,6 +1,6 @@
 import type { IdGenerator, ShipId } from '@aeolus-fleet/common';
 
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, shipActor, type EventLog } from '../shared/events.js';
@@ -16,7 +16,7 @@ export interface SetOwnerTx {
 
 export type SetOwnerRefusal = DomainError<'NOT_THE_OPERATOR_SHIP' | 'SHIP_NOT_FOUND'> | ChangeOwnerRefusal;
 
-export type SetOwner = (caller: Caller, input: { shipId: ShipId; ownerShipId: ShipId }) => Promise<Result<undefined, SetOwnerRefusal>>;
+export type SetOwner = (caller: ShipCaller, input: { shipId: ShipId; ownerShipId: ShipId }) => Promise<Result<undefined, SetOwnerRefusal>>;
 
 /**
  * Use case: argo, and only argo, gives a ship a new owner, an active person's

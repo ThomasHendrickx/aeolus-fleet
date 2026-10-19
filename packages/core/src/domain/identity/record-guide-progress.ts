@@ -1,4 +1,4 @@
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
@@ -8,7 +8,7 @@ import type { GuideProgressRepository, GuideRepository } from './ports.js';
 
 export type RecordGuideProgressRefusal = DomainError<'GUIDE_NOT_FOUND' | 'GUIDE_STEP_NOT_FOUND'>;
 
-export type RecordGuideProgress = (caller: Caller, progress: GuideProgress) => Promise<Result<undefined, RecordGuideProgressRefusal>>;
+export type RecordGuideProgress = (caller: ShipCaller, progress: GuideProgress) => Promise<Result<undefined, RecordGuideProgressRefusal>>;
 
 /**
  * Use case: a console session records where it is in the guide, for itself

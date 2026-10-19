@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createReadReachOf } from '../src/domain/registry/read-reach.js';
 import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
-import type { Caller } from '../src/domain/shared/caller.js';
+import type { ShipCaller } from '../src/domain/shared/caller.js';
 import { OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from '../src/testing/result.js';
@@ -15,8 +15,8 @@ import { newKey } from '../src/testing/keys.js';
 
 let core: PostgresCore;
 let fleetId: FleetId;
-let argo: Caller;
-let plugin: Caller;
+let argo: ShipCaller;
+let plugin: ShipCaller;
 let pluginId: ShipId;
 
 beforeEach(async () => {
@@ -40,7 +40,7 @@ afterEach(async () => {
   await core.close();
 });
 
-async function readsOf(caller: Caller) {
+async function readsOf(caller: ShipCaller) {
   return (await createReadReachOf({ uow: createPrismaUnitOfWork(core.prisma), clock: core.clock })(caller)).kind;
 }
 

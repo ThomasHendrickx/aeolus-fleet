@@ -15,7 +15,7 @@ import {
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { newKey } from '../../testing/keys.js';
 import { unwrap } from '../../testing/result.js';
-import type { Caller, Crew } from '../shared/caller.js';
+import type { ShipCaller, Crew } from '../shared/caller.js';
 
 const MODEL = 'claude-opus-5-5';
 const LIMIT_REACHED = {
@@ -25,7 +25,7 @@ const LIMIT_REACHED = {
 
 let core: InMemoryCore;
 let fleetId: FleetId;
-let argo: Caller;
+let argo: ShipCaller;
 let scoutId: ShipId;
 let scout: Crew;
 let messaging: ReturnType<typeof messagingUseCases>;

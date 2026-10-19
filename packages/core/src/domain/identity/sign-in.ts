@@ -1,6 +1,6 @@
 import type { ConsoleSessionId, IdGenerator } from '@aeolus-fleet/common';
 
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import type { Result } from '../shared/result.js';
@@ -20,7 +20,7 @@ export interface SignedIn {
   token: string;
   consoleSessionId: ConsoleSessionId;
   expiresAt: Date;
-  caller: Caller;
+  caller: ShipCaller;
 }
 
 /** Only a wrong email or password in practice: the account's fleet always has its argo. */

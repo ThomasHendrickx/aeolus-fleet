@@ -1,6 +1,6 @@
 import type { LabelValueId, ScopeName, ShipId, ShipKind, ShipStatus } from '@aeolus-fleet/common';
 
-import type { Caller } from '../shared/caller.js';
+import type { ShipCaller } from '../shared/caller.js';
 import { readsShip, type ReadReachOf } from './read-reach.js';
 import type { Location } from './lease.js';
 import { pingStatusOf, type PingStatus } from './ping-status.js';
@@ -70,7 +70,7 @@ export function outsideReadReach({ id, name, type, status }: Pick<ListedShip, 'i
   return { id, name, type, status, isInReadReach: false };
 }
 
-export type ListFleet = (caller: Caller, input?: { valueIds?: readonly LabelValueId[] }) => Promise<(ListedShip | ShipOutsideReadReach)[]>;
+export type ListFleet = (caller: ShipCaller, input?: { valueIds?: readonly LabelValueId[] }) => Promise<(ListedShip | ShipOutsideReadReach)[]>;
 
 /**
  * Use case: every ship of the caller's fleet, `argo` included, oldest first,

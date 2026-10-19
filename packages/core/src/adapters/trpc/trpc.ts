@@ -1,7 +1,7 @@
 import { idSchema, type Scope } from '@aeolus-fleet/common';
 import { initTRPC, TRPCError } from '@trpc/server';
 
-import { hasScope, isCrew, type Caller, type Crew } from '../../domain/shared/caller.js';
+import { hasScope, isCrew, type ShipCaller, type Crew } from '../../domain/shared/caller.js';
 import type { DomainError, DomainErrorKind } from '../../domain/shared/errors.js';
 import type { Result } from '../../domain/shared/result.js';
 import { isFleetBusy } from '../prisma/fleet-busy.js';
@@ -345,7 +345,7 @@ async function crewOf(ctx: Context, bearer: string): Promise<Crew | undefined> {
  * back. The ship secret is no bearer: it works only for `register` (ADR 0015).
  * Using a console session keeps it, and its cookie, valid for another 30 days.
  */
-async function resolveCaller(ctx: Context): Promise<Caller | undefined> {
+async function resolveCaller(ctx: Context): Promise<ShipCaller | undefined> {
   const { bearer, sessionToken } = ctx.credentials;
   if (bearer !== undefined) {
     return crewOf(ctx, bearer);
@@ -383,7 +383,7 @@ export async function refuseIfSignedInElsewhere(ctx: Context, sessionToken: stri
  * (decision 0046). A subscription outlives the call that opened it, so it
  * asks again each time it has news.
  */
-export async function callerStillHolding(ctx: Context, scope: Scope): Promise<Caller> {
+export async function callerStillHolding(ctx: Context, scope: Scope): Promise<ShipCaller> {
   const caller = await resolveCaller(ctx);
   if (!caller) {
     throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Sign in, or call with the crew token register gave you' });
@@ -419,7 +419,7 @@ function refuseOnBehalfHeader(ctx: Context): void {
  * after the scope check, so the plugin's own scopes open the door, and the
  * named ship's read reach filters what it reads (decision 0034).
  */
-async function readerOf(ctx: Context, caller: Caller): Promise<Caller> {
+async function readerOf(ctx: Context, caller: ShipCaller): Promise<ShipCaller> {
   const { onBehalfOf } = ctx.credentials;
   if (onBehalfOf === undefined) {
     return caller;

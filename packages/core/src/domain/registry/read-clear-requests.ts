@@ -1,4 +1,4 @@
-import { hasScope, type Caller } from '../shared/caller.js';
+import { hasScope, type ShipCaller } from '../shared/caller.js';
 import type { ClearRequest } from './clear-request.js';
 import type { ClearRequestRepository } from './ports.js';
 import { readsShip, type ReadReachOf } from './read-reach.js';
@@ -6,7 +6,7 @@ import { readsShip, type ReadReachOf } from './read-reach.js';
 /** A pending clear request as it is read: whose, which worktree, who asked and when. */
 export type ListedClearRequest = Omit<ClearRequest, 'fleetId'>;
 
-export type ReadClearRequests = (caller: Caller) => Promise<ListedClearRequest[]>;
+export type ReadClearRequests = (caller: ShipCaller) => Promise<ListedClearRequest[]>;
 
 /**
  * Use case: the pending clear requests (decision 0032). A caller with

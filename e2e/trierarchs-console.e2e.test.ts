@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { createPrismaClient, type PrismaClient } from '../packages/core/src/adapters/prisma/client.js';
 import { createApp } from '../packages/core/src/app.js';
 import { createUseCases, type UseCases } from '../packages/core/src/wiring.js';
-import type { Caller } from '../packages/core/src/domain/shared/caller.js';
+import type { ShipCaller } from '../packages/core/src/domain/shared/caller.js';
 import { FLEET_URL, OPERATOR, operatorCaller } from '../packages/core/test/support/core-fixtures.js';
 import { newKey } from '../packages/core/src/testing/keys.js';
 import { createMigratedDatabase } from '../packages/core/src/testing/database.js';
@@ -32,7 +32,7 @@ const WITHIN = { timeout: 20_000 };
 
 let database: PrismaClient;
 let useCases: UseCases;
-let argo: Caller;
+let argo: ShipCaller;
 let serverUrl: string;
 /** The joined machine's setup line, shown once in the second test: the third runs its trierarch. */
 let setupLine = '';
