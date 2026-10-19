@@ -1,8 +1,8 @@
 import type { IdGenerator, SetBuiltInRuleInput } from '@aeolus-fleet/common';
 
-import type { ShipCaller } from '../shared/caller.js';
+import { actorOf, isShipCaller, type Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
-import { recordEvent, shipActor, type EventLog } from '../shared/events.js';
+import { recordEvent, type EventLog } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { setBuiltInRule, type SetBuiltInRuleRefusal } from './network-settings.js';
@@ -13,12 +13,12 @@ export interface SetBuiltInRuleTx {
   events: EventLog;
 }
 
-export type SetBuiltInRule = (caller: ShipCaller, input: SetBuiltInRuleInput) => Promise<Result<{ version: number }, SetBuiltInRuleRefusal>>;
+export type SetBuiltInRule = (caller: Caller, input: SetBuiltInRuleInput) => Promise<Result<{ version: number }, SetBuiltInRuleRefusal>>;
 
 /**
  * Use case: a built-in rule turned on or off (decision 0034): the viewer
- * reading by argo, open for one verb by the fleet's networking plugin. Its
- * scope (fleet:network, which argo holds) is checked before this runs. In one
+ * reading by any actor, open for one verb by the fleet's networking plugin.
+ * Its scope (fleet:network) is checked before this runs. In one
  * unit of work, holding the settings exclusively so no send is checked
  * halfway: the settings at their next version, and BuiltInRuleChanged. A rule
  * already as asked answers the version it has.
@@ -29,9 +29,9 @@ export function createSetBuiltInRule(deps: { uow: UnitOfWork<SetBuiltInRuleTx>; 
       const current = await tx.networkSettings.findForUpdate(caller.fleetId);
       const set = setBuiltInRule(current, {
         input,
-        caller: { shipId: caller.shipId, isOperator: caller.kind === 'operator' },
+        caller: { shipId: isShipCaller(caller) ? caller.shipId : null },
         at: deps.clock.now(),
-        actor: shipActor(caller.shipId),
+        actor: actorOf(caller),
       });
       if (!set.isOk) {
         return set;

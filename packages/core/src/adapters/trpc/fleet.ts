@@ -668,7 +668,7 @@ export const fleetRouter = router({
     }),
 
   /** A built-in rule turned on or off: the viewer reading by argo, open for one verb by the networking plugin (decision 0034). */
-  setBuiltInRule: scopedProcedure('fleet:network')
+  setBuiltInRule: actorScopedProcedure('fleet:network')
     .meta({
       description: [
         "Needs fleet:network. Turns a built-in network rule on or off, as its own action with BuiltInRuleChanged (decision 0034).",

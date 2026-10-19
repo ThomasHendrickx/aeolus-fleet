@@ -199,11 +199,12 @@ export function setNetworkRules(
   });
 }
 
-export type SetBuiltInRuleRefusal = DomainError<'BUILT_IN_RULE_FIXED' | 'NOT_THE_OPERATOR_SHIP'> | NotTheNetworkPlugin;
+export type SetBuiltInRuleRefusal = DomainError<'BUILT_IN_RULE_FIXED'> | NotTheNetworkPlugin;
 
 /**
  * A built-in rule turned on or off, as its own action (decision 0034): the
- * viewer reading by argo, open for one verb by the fleet's networking plugin.
+ * viewer reading by any actor holding fleet:network (decision 0053), open for
+ * one verb by the fleet's networking plugin.
  * argo, the owner, the answer, a connected plugin's reading and the
  * installation's managing are never off, so turning them is refused.
  * A change moves the version and writes BuiltInRuleChanged; a rule already
@@ -211,16 +212,13 @@ export type SetBuiltInRuleRefusal = DomainError<'BUILT_IN_RULE_FIXED' | 'NOT_THE
  */
 export function setBuiltInRule(
   current: NetworkSettings,
-  change: { input: SetBuiltInRuleInput; caller: { shipId: ShipId; isOperator: boolean }; at: Date; actor: Actor },
+  change: { input: SetBuiltInRuleInput; caller: { shipId: ShipId | null }; at: Date; actor: Actor },
 ): Result<{ settings: NetworkSettings; events: NewEvent[] }, SetBuiltInRuleRefusal> {
   const { input, caller } = change;
   if (input.rule === 'argo' || input.rule === 'owner' || input.rule === 'answer' || input.rule === 'pluginRead' || input.rule === 'installation') {
     return refuse('BUILT_IN_RULE_FIXED', `The built-in rule ${input.rule} is never off (decision 0034)`);
   }
-  if (input.rule === 'viewerRead' && !caller.isOperator) {
-    return refuse('NOT_THE_OPERATOR_SHIP', 'Only argo turns the viewer reading on or off (decision 0034)');
-  }
-  if (input.rule === 'open' && current.plugin?.shipId !== caller.shipId) {
+  if (input.rule === 'open' && (caller.shipId === null || current.plugin?.shipId !== caller.shipId)) {
     return refuseNotThePlugin();
   }
   // The input names a verb for open and for open only (common's schema).
