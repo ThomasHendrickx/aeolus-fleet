@@ -197,6 +197,8 @@ Mathilde, Acme's IT admin, has one account, mathilde@acme.com. She is an organis
 
 Nothing is left open here but question 4.
 
+**Restated by the actor model** ([`actors.md`](actors.md), round 4, question 2): a human acts as their account in every call that is not messaging, and a group's scopes and `group` label values ride in the account's token (0052, 0058). An account has at most one person ship per fleet, and only when a group lets it message there. Mathilde's admin work is her account's, not a person ship's; she has a person ship in Acme's fleet only if she messages there. The worry stays answered: one account, and signing in as argo is a second ship, not a second account.
+
 **2. Who manages the organisation, and how are those rights held? Decided: (a).** (G8, G29)
 
 Thomas: "The account created first is the organisation's admin and manages the organisation." Organisation rights sit on the account, in pagasae: the one place a right is not a scope, because there is no fleet there. Not everything is managed through a fleet. An MCP server to manage the organisation from outside may come later.
@@ -206,6 +208,8 @@ Thomas: "The account created first is the organisation's admin and manages the o
 **3. Does a human doing admin work in a fleet sign in as argo, or act as their own person ship? Decided: (b).** (G7, G9)
 
 Thomas: "The organisation admin is the organisation's; argo is the fleet's. Signing in as argo is something an account may be allowed to do." Admin work in a fleet is done as the human's own person ship, with the scopes their groups give (1); argo stays for the accounts allowed it (10).
+
+**Restated by the actor model**: admin work in a fleet is done as the human's account, with the scopes their groups give; argo stays for the accounts allowed it (10).
 
 **4. How does a change in a group reach the person ship? Decided: (a), rescope in place, at once, with the sign-in check as a backstop.** (G4, G33)
 
@@ -230,6 +234,8 @@ Options:
 - (d) **Retire and recommission (ship recycling).** A new person ship with the new scopes. Goes wrong: a new ship id; messages addressed to the old one and its history stay behind; the ships it owns (her PRD agent) fall to argo (0045). None of the five does this.
 
 Pick: (a), with the same check at every sign-in as a backstop. Rights land once and at once, and a removal is not held up by a live session. It is the pushed path Slack and GitHub take, and core needs nothing new. Who changes the person ship in the fleet (pagasae through the installation procedures, or a ship of pagasae's in each fleet holding what it grants, 0046) is phase 2's, as for question 11.
+
+**Restated by the actor model**: an account's rights change at its next account token, within 10 minutes, with nothing rescoped in the fleet; a person ship's `group` labels change at once (0052). The research's lesson holds: the same account, its rights changed in place.
 
 **5. Which of argo's jobs become grantable? Decided: all of them.** (G6, G10, G15)
 
@@ -291,7 +297,7 @@ Pick: (a). Requests are kept in one place, the same as a pending outside MCP cli
 
 **10. Which accounts may sign in as argo? Decided: (a).** (G2, G7, G9, G21) Accounts an organisation admin allows for that fleet, by a sign-in ticket from pagasae. Still one console sign-in at a time (0012); the sign-in names its account.
 
-**11. Who gets a person ship? Decided: (a), in Thomas's wording.** (G15) An admin adds an account in pagasae and gives it rights (scopes, reach); that commissions its person ship. Later a group may be allowed, and the account's first sign-in commissions the ship, still on an admin's allowance. How pagasae commissions in the fleet is phase 2's (question 4).
+**11. Who gets a person ship? Decided: (a), in Thomas's wording.** (G15) An admin adds an account in pagasae and gives it rights (scopes, reach); that commissions its person ship. Later a group may be allowed, and the account's first sign-in commissions the ship, still on an admin's allowance. How pagasae commissions in the fleet is phase 2's (question 4). **Restated by the actor model**: rights need no person ship; an account gets one in a fleet when a group lets it message there, or when it first owns a ship (0052, 0057), and pagasae commissions it as the installation.
 
 **12. A leaver? Decided: (a).** (G20) The organisation disables the account: access ends at once, and the ship stays, like an inbox that outlives a leaver. Moving its work to another ship is a possible later feature. What a leaver's computer keeps crewing is question 17.
 

@@ -1,7 +1,7 @@
 # 0053 Nothing is argo's alone (draft)
 
 - Every job argo does is a scope any actor can be granted (0057): a ship, an account through its groups, the installation. argo is the fail-safe (0057), not the holder of jobs no one else may do.
-- The jobs that were argo's alone become scopes (names R3, Thomas's to set):
+- The jobs that were argo's alone become scopes (their names: round 5, question 3):
 
 | Job | Was | Scope | Where |
 | --- | --- | --- | --- |

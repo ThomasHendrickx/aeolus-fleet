@@ -8,7 +8,7 @@
 - **A change of groups** lands at the account's next token, within 10 minutes; a token already given keeps what it said until it ends.
 - **pagasae down.** No new tokens: no new sign-ins through pagasae, and an account's calls stop as its last token ends. Messaging goes on; ships act as before; argo's own sign-in still works where it exists. Hosted, humans have no other way in until pagasae is back.
 - **Keys.** pagasae publishes a new key beside the old before signing with it, and drops the old once the last token it signed has ended. A leaked key is replaced at once, which ends every token signed with it.
-- **What core records.** The account's id and email in the events its calls write (0057, R9). Nothing else about accounts; the cut-off list only until it can be forgotten.
+- **What core records.** The account's id and email in the events its calls write (0057, round 5, question 9). Nothing else about accounts; the cut-off list only until it can be forgotten.
 
 Why: Thomas, round 4: (a) to each of questions 3 and 4 of `actors.md`. Kubernetes trusts its issuer's signature and claims and stores no users, and keeps tokens to minutes because they cannot be revoked; asking the issuer on every call (introspection) would stop every fleet's human calls whenever pagasae is down (`actors.md` part 2.2).
 
