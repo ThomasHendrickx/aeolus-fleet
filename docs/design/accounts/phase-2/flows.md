@@ -1,10 +1,10 @@
 # Accounts, phase 2: the flows that change
 
-Each flow shows its happy path and its unhappy paths, in the domain language. The drafts they follow are in this folder's [README](README.md).
+Each flow shows its happy path and its unhappy paths, in the domain language, on the actor model (0057): a ship, an account by its account token, or the installation. The drafts they follow are in this folder's [README](README.md).
 
 ## F1 Sign-up
 
-Draft 0051. Mathilde signs Acme up for hosted Aeolus.
+Drafts 0051, 0058. Mathilde signs Acme up for hosted Aeolus.
 
 ```mermaid
 sequenceDiagram
@@ -20,11 +20,11 @@ sequenceDiagram
     P-->>M: refused: ask for a new sign-in link
   end
   P->>P: organisation, Mathilde's account (organisation admin, allowed to sign in as argo of the first fleet)
-  P->>I: create the fleet, with pagasae connected (request id)
+  P->>I: create the fleet (request id)
   alt created
-    I->>C: fleet, argo, pagasae's plugin ship with the scopes groups may give
+    I->>C: fleet, argo, the installation's scopes there
     I-->>P: the fleet
-    P->>C: as pagasae's ship: define the label group
+    P->>C: as the installation: define the label group
     P-->>M: your organisation and its first fleet
   else installation refuses (fleet cap, name taken)
     I-->>P: refused, naming why
@@ -37,7 +37,7 @@ sequenceDiagram
 
 ## F2 An account joins a group
 
-Draft 0052. Mathilde adds Charlotte to Acme and to the group "sales", which gives `fleet:read` and the reach "sales sends to sales" in Acme's fleet.
+Draft 0052. Mathilde adds Charlotte to Acme and to the group "sales", which in Acme's fleet gives `fleet:read`, messaging, and the reach "sales sends to sales".
 
 ```mermaid
 sequenceDiagram
@@ -49,103 +49,104 @@ sequenceDiagram
   M->>P: add the account charlotte@acme.com, in the group sales
   alt Mathilde is not an organisation admin
     P-->>M: refused
-  else the account already has 20 groups giving something in this fleet
-    P-->>M: refused: at most 20 groups on one person ship (0031)
+  else the account would have more than 20 groups giving something in this fleet
+    P-->>M: refused: at most 20 (0031)
   else allowed
     P->>P: the account, in sales
-    alt no person ship for the account in the fleet
-      P->>C: commission a person ship (fleet:person), owner argo, scopes of sales
+    alt sales has no value of the label group yet
+      P->>C: as the installation: add the value sales to group, declare sales sends to sales
+      C->>N: NetworkRulesDeclared
+      N->>C: the fleet's rules again, the declared ones in force
+    end
+    alt sales lets its accounts message, and Charlotte has no person ship there
+      P->>C: as the installation: commission her person ship, owner argo, messaging scopes, group=sales
       C-->>P: the person ship (ShipCommissioned, OwnerSet)
       P->>P: link the account to the person ship
-    else a person ship already
-      P->>C: grant the scopes sales adds (ScopesChanged)
     end
-    alt sales has no value of the label group yet
-      P->>C: add the value sales to the label group
-    end
-    P->>C: assign group=sales on the person ship
-    P->>C: declare pagasae's rules, with sales sends to sales
-    C->>N: NetworkRulesDeclared
-    N->>C: the fleet's rules again, the declared ones in force
     P-->>M: Charlotte added
     P-->>CH: sign-in link
   end
-  alt core does not answer
-    P->>P: keep what is still to do, for this account and fleet
-    P->>C: the same change again until it lands
-    Note over P,C: the next sign-in checks it too (F5)
+  Note over P,C: Charlotte's rights are not written in the fleet: her account token carries sales' scopes and group=sales from her first sign-in
+  alt core does not answer pagasae
+    P->>P: keep what is still to do for this account and fleet
+    P->>C: again until it lands
   end
 ```
 
 ## F3 A group's rights change
 
-Draft 0052. Charlotte moves from sales to finance while she is signed in at the gateway and her agent is crewed.
+Draft 0052. Charlotte moves from sales to finance while she is signed in at the gateway with a person ship.
 
 ```mermaid
 sequenceDiagram
   actor M as Mathilde (organisation admin)
   participant P as pagasae
   participant C as core (fleet)
-  participant G as Gateway (crews Charlotte's person ship)
+  participant G as Gateway
   M->>P: move Charlotte from sales to finance
-  P->>C: revoke the scopes only sales gave, grant finance's (ScopesChanged)
-  P->>C: unassign group=sales, assign group=finance
+  P->>C: as the installation: her person ship's group=sales off, group=finance on
   P-->>M: moved
-  G->>C: Charlotte's next call, as her person ship
+  G->>C: a call with Charlotte's account token, issued before the move
+  C-->>G: allowed by sales' scopes until that token ends (at most 10 minutes)
+  G->>P: a fresh account token for Charlotte
+  P-->>G: finance's scopes and group=finance
+  G->>C: her next call
   alt within finance's scopes and reach
     C-->>G: OK
-  else needs a scope or reach sales gave
+  else needs a scope or reach only sales gave
     C-->>G: refused, without reasons
   end
   alt core did not answer pagasae
-    P->>C: the same change again until it lands
-    Note over P,G: at Charlotte's next sign-in pagasae checks her ship against her groups and puts right what differs
+    P->>C: the person ship's labels again until they land
+    Note over P,C: her account's rights do not wait on it: they ride on the token
   end
 ```
 
-## F4 An admin acts as their person ship
+## F4 An admin acts as their account
 
-Draft 0053. Thomas, engineering's team lead, is in the group "team leads", which gives `fleet:commission` and `fleet:manage`; a rule lets `group=engineering` manage `group=engineering`. He works from his Claude, signed in at the gateway. Mathilde, in "fleet admins", edits a rule on the networking plugin's page, signed in through pagasae.
+Drafts 0053, 0057. Thomas is in "team leads" (`fleet:commission`, `fleet:manage`), with a rule letting `group=engineering` manage `group=engineering`. He works from his Claude through the gateway. Mathilde edits a rule on the networking plugin's page. An agent ship does the same by call.
 
 ```mermaid
 sequenceDiagram
   actor T as Thomas
-  participant G as Gateway (crews Thomas's person ship)
+  participant G as Gateway
+  participant P as pagasae
   participant C as core (fleet)
   actor M as Mathilde
   participant N as Networking plugin (its page)
-  participant P as pagasae
   T->>G: commission an agent for engineering, labelled group=engineering
-  G->>C: commission, as Thomas's person ship
-  alt lacks fleet:commission
-    C-->>G: refused, naming the scope
-  else a label value it neither defined nor carries, or a scope it does not hold
-    C-->>G: refused, naming the value or the scope
-  else allowed
-    C-->>G: the agent ship, owner Thomas's person ship (OwnerSet)
+  alt Thomas's account has no person ship in this fleet
+    G->>P: Thomas will own a ship: his person ship
+    P->>C: as the installation: commission and link it
+    P-->>G: a fresh account token naming it
   end
-  G-->>T: the answer
+  G->>C: commission, with Thomas's account token
+  C->>C: check the token, then fleet:commission, labels it carries, owner his person ship
+  alt lacks the scope, or a label value it neither defined nor carries
+    C-->>G: refused, naming the scope or the value
+  else allowed
+    C-->>G: the agent ship, owner Thomas's person ship (OwnerSet, actor Thomas's account via the gateway)
+  end
   T->>G: retire the finance invoice agent
-  G->>C: retire, as Thomas's person ship
-  C->>C: manage reach: no rule lets group=engineering manage that ship
-  C-->>G: refused, without reasons
-  G-->>T: refused
+  G->>C: retire, with Thomas's account token
+  C-->>G: refused, without reasons (no manage rule reaches it)
   M->>N: open the networking plugin's page
   N->>P: sign Mathilde in
-  P-->>N: Mathilde's person ship in this fleet
+  P-->>N: her account token for this fleet
   M->>N: add a rule
-  alt her person ship holds the plugin's editing scope
+  alt her token holds the plugin's editing scope
     N->>C: the fleet's rules, as the networking plugin's ship
     C-->>N: in force (NetworkRulesSet)
-    N-->>M: saved, naming her person ship in its log
+    N-->>M: saved, naming her account in its log
   else it does not
-    N-->>M: the page shows the rules and no editing
+    N-->>M: the rules, and no editing
   end
+  Note over N,C: an agent ship holding the same scope calls the networking plugin with its crew token and does the same
 ```
 
 ## F5 Gateway sign-in
 
-Draft 0054. Charlotte adds the gateway's one address to her Claude.
+Drafts 0054, 0058. Charlotte adds the gateway's one address to her Claude.
 
 ```mermaid
 sequenceDiagram
@@ -159,8 +160,8 @@ sequenceDiagram
   G->>P: sign in (OpenID Connect)
   alt directory connected
     P->>H: sign in with your identity
-    H-->>P: identity from the identity provider
-  else not connected, or the identity provider fails and the account may sign in as argo
+    H-->>P: identity
+  else not connected, or it fails and the account may sign in as argo
     P-->>H: sign-in link
     H->>P: open the sign-in link
   end
@@ -171,34 +172,38 @@ sequenceDiagram
   alt account disabled
     P-->>G: refused
     G-->>MC: access_denied
-  else no person ship in any fleet
-    P-->>G: the account, no fleet
+  else no group gives anything in any fleet
     G-->>H: refused: ask an organisation admin
   else one or more fleets
-    P->>C: put the person ship right against its groups (0052)
-    P-->>G: the account, its organisation, its fleets with their person ships
     alt several fleets
       G->>H: pick a fleet
       H-->>G: Acme's main fleet
     end
-    G->>G: token naming that fleet
-    G-->>MC: code, then the token
-    alt the person ship is not crewed by the gateway yet
-      G->>C: crew the person ship (hold its lease)
-    else crewed by another crew (a pasted crew token)
-      C-->>G: refused: crewed
-      G-->>H: your ship is crewed elsewhere: release that crew?
-      H->>G: release it
-      G->>P: release Charlotte's person ship
-      P->>C: release, as pagasae's ship (LeaseRevoked)
-      G->>C: crew the person ship
+    G->>P: Charlotte's account token for that fleet
+    G-->>MC: code, then the gateway's token naming that fleet
+    MC->>G: read the fleet
+    G->>C: the call, with her account token
+    MC->>G: send to the CRM
+    alt she has a person ship
+      G->>C: crew it, if the gateway does not yet
+      alt crewed by a pasted crew token
+        C-->>G: refused: crewed
+        G-->>H: your ship is crewed elsewhere: release that crew?
+        H->>G: release it
+        G->>P: release Charlotte's person ship
+        P->>C: as the installation: release (LeaseRevoked)
+        G->>C: crew it
+      end
+      G->>C: send, as her person ship
+    else no group lets her message here
+      G-->>MC: refused: no messaging in this fleet
     end
-    MC->>G: send, read, answer, as Charlotte
-    G->>C: the call as her person ship
+  end
+  alt pagasae down
+    G-->>MC: calls go on until her account token ends, then fail: try later
+    Note over G,C: messaging through her person ship goes on: its lease is the gateway's
   end
 ```
-
-The last unhappy path is a person ship still crewed by a pasted crew token, today's only way in. The gateway asks the human, and pagasae, which manages the person ships it commissioned (0052), releases the old crew.
 
 ## F6 Console sign-in as argo
 
@@ -222,13 +227,13 @@ sequenceDiagram
     C-->>K: signed in as argo, by mathilde@acme.com
     M->>K: retire a ship
     K->>C: retire, as argo
-    C->>C: ShipRetired, its details naming Mathilde's account
+    C->>C: ShipRetired, actor argo, its details naming Mathilde's account
   else not allowed
     P-->>M: refused
   end
   T->>P: sign in as argo of Acme's fleet
   P-->>T: refused: not allowed for this fleet
-  Note over K,C: self-hosted without pagasae: the console's form takes argo's own email and password, and the sign-in says so. Wrong password: refused, as today. Hosted: no form.
+  Note over K,C: without pagasae, the console's form takes argo's own email and password, and the sign-in says so. Wrong password: refused. Hosted: no form.
 ```
 
 ## F7 A trierarch joins for an account
@@ -247,11 +252,16 @@ sequenceDiagram
   alt account disabled
     P-->>TP: refused
   else signed in
-    P-->>TP: Burak's person ship in this fleet
+    P-->>TP: Burak's account token for this fleet
     B->>TP: add this computer
-    alt his person ship lacks the plugin's scope to add a computer
+    alt his token lacks the plugin's scope to add a computer
       TP-->>B: refused
     else allowed
+      alt no person ship named in his token
+        TP->>P: Burak will own a ship: his person ship
+        P->>C: as the installation: commission and link it
+        P-->>TP: a fresh token naming it
+      end
       TP->>C: commission the trierarch's app ship, owner Burak's person ship (fleet:on-behalf)
       C-->>TP: the ship (ShipCommissioned, OwnerSet)
       TP-->>B: the starting prompt for aeolus-trierarch init
@@ -265,7 +275,7 @@ sequenceDiagram
 
 ## F8 An account is disabled
 
-Draft 0055. Burak leaves Acme. He was signed in at the gateway, allowed to sign in as argo, and his laptop's trierarch crews three agent ships.
+Drafts 0055, 0058. Burak leaves Acme. He was signed in at the gateway, allowed to sign in as argo, and his laptop's trierarch crews three agent ships.
 
 ```mermaid
 sequenceDiagram
@@ -280,12 +290,14 @@ sequenceDiagram
   alt Burak is the last organisation admin
     P-->>M: refused: the organisation needs one
   else disabled
-    P->>P: end his pagasae sign-ins, off the accounts allowed as argo
-    P->>G: account disabled
-    G->>G: end his tokens
+    P->>P: end his pagasae sign-ins, off the accounts allowed as argo, no new tokens
+    P->>I: cut off Burak's account tokens
+    I->>C: refuse them until the last has ended
     P->>I: end console sign-ins by Burak's account
-    P->>C: release his person ship (LeaseRevoked)
-    P->>C: release his trierarch's ship, on behalf of his person ship
+    P->>G: account disabled
+    G->>G: end his gateway tokens
+    P->>C: as the installation: release his person ship (LeaseRevoked)
+    P->>C: as the installation: release his trierarch's ship
     C->>C: and every lease it crewed (LeaseRevoked each)
     C-->>TP: the fleet's events: those crew requests given back
     TP->>C: assign them to another computer
@@ -294,13 +306,9 @@ sequenceDiagram
   L->>C: the next call with any of its crew tokens
   C-->>L: LEASE_ENDED
   L->>L: stop the sessions
-  alt the gateway missed the notice
-    G->>P: refresh Burak's token
-    P-->>G: refused: disabled
-  end
-  alt core does not answer pagasae
-    P->>P: keep what is still to do for Burak and this fleet
-    P->>C: again until it lands
+  alt the cut-off did not reach core
+    Note over P,C: his last account token ends within 10 minutes, and pagasae gives no new one
+    P->>I: the cut-off and releases again until they land
   end
 ```
 
@@ -320,7 +328,7 @@ sequenceDiagram
   MC->>G: OAuth authorize request (in the human's browser)
   alt outside party approved before
     G-->>MC: code, then a token, at once
-  else denied, or the client unknown and unsafe (no client metadata)
+  else denied, or the client unknown (no client metadata)
     G-->>MC: access_denied
   else the same client already pending
     G-->>R: waiting for approval (joins that request)
@@ -329,8 +337,8 @@ sequenceDiagram
     G->>C: question (0038) to its owner: approve this outside MCP client?
     C->>A: delivery of the question
     G-->>R: waiting for approval
-    alt decided on the gateway's page first
-      M->>G: approve: owner Charlotte's person ship, scopes
+    alt decided on the gateway's page first, by an actor holding the approving scope
+      M->>G: approve, with her account token: owner Charlotte's person ship, scopes
       G->>C: withdraw the question
     else answered by the question
       A->>C: answer: approve, owner and scopes
@@ -338,7 +346,7 @@ sequenceDiagram
     end
     alt approved
       G->>C: commission and crew the proxy ship (kind app), owner and scopes
-      alt approved scopes beyond what the gateway's ship holds
+      alt scopes beyond what the gateway's ship holds
         C-->>G: refused, naming the scope
         G->>C: question to its owner: approved, but the gateway cannot grant that scope
       else commissioned
@@ -372,7 +380,7 @@ sequenceDiagram
   participant C as core (fleet)
   actor M as Mathilde (holds the approving scope)
   participant OS as Linear's MCP server
-  CH->>G: ask for Linear's MCP server, and why
+  CH->>G: ask for Linear's MCP server, and why (her account token)
   alt already an outside party
     G-->>CH: already approved: ask for reach if your ships do not reach it
   else already pending
@@ -386,16 +394,51 @@ sequenceDiagram
       G->>OS: list its tools
       alt the server answers
         G->>C: commission and crew the proxy ship, statement one capability per tool
-        G->>C: message to Charlotte's person ship: approved
-      else no answer or the credential is refused
+        G->>CH: approved
+      else no answer, or the credential is refused
         G-->>M: not added: the server's answer
         Note over G,M: the request stays pending for Mathilde to try again
       end
     else denied
-      G->>C: message to Charlotte's person ship: denied, with Mathilde's note
+      G->>CH: denied, with Mathilde's note
     else 7 days, no decision
-      G->>C: message to Charlotte's person ship: expired
+      G->>CH: expired
     end
     G->>C: withdraw the question
+  end
+  Note over G,CH: the outcome reaches Charlotte as a message to her person ship, or on the gateway's page at her next sign-in when she has none
+```
+
+## F11 An account token is checked
+
+Draft 0058. Every call with an account token, its unhappy paths, and pagasae rotating its key.
+
+```mermaid
+sequenceDiagram
+  participant X as Gateway or a plugin's page
+  participant P as pagasae
+  participant C as core (fleet)
+  X->>P: an account token for Charlotte, for this fleet
+  P-->>X: the token: account, organisation, fleet, scopes, group values, person ship, 10 minutes, key id
+  X->>C: a call with the token
+  alt key id unknown to core
+    C->>P: pagasae's keys (at most once a minute)
+    P-->>C: the keys, old and new
+  end
+  alt signature bad, issuer or fleet wrong
+    C-->>X: refused
+  else ended (beyond 30 seconds of allowance)
+    C-->>X: refused: token ended
+    X->>P: a fresh one
+  else account cut off, token issued before the cut-off
+    C-->>X: refused
+  else valid
+    C->>C: authorise by its scopes and reach, as any actor
+    C-->>X: the answer, events naming Charlotte's account, through X
+  end
+  alt pagasae down
+    X->>P: a fresh token
+    P--xX: no answer
+    X-->>X: calls stop as the last token ends, messaging on her person ship goes on
   end
 ```
