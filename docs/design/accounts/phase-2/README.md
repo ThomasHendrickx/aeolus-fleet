@@ -66,6 +66,8 @@ Phase 1 left five points to phase 2; working through the drafts raised four more
 
 ## Questions for Thomas
 
+**On hold (Thomas, 19 Oct): phase 2 is redesigned with pagasae not a ship; see [`actors.md`](../actors.md). These picks are not recorded.**
+
 One question per design point above, each with what it is, a use case, what goes wrong under each option, and a pick. The actors are Acme's: Mathilde (IT, organisation admin), Charlotte (sales), Thomas (engineering's team lead), Burak (who leaves), Priya (a contractor from Northwind).
 
 **1. How does pagasae act in a fleet? (P1)**
