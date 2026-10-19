@@ -157,7 +157,7 @@ export const fleetRouter = router({
         'Needs fleet:commission. Commissions a new agent ship awaiting crew: name and type are handles (lowercase letters, digits, hyphens, colons).',
         'scopes adds scopes to the two every ship has, each one your ship may grant: a core scope it holds (argo holds every one), or a declared scope of the namespace it declared. fleet_grantScopes changes them later.',
         "ownerOf, which needs fleet:on-behalf, names the ship that asked it for this one: the new ship gets that ship's owner instead of yours.",
-        'kind is agent unless you state person or app: only argo commissions a person ship, and an app ship needs fleet:on-behalf as well.',
+        'kind is agent unless you state person or app: a person ship needs fleet:person instead and owns itself, and an app ship needs fleet:on-behalf as well.',
         "owner, which needs fleet:on-behalf and only for an app ship, names the owner argo picked for it: a person's ship or argo, never beside ownerOf.",
         'Answers its shipId, its first starting prompt, one crew line per harness (claude-code, codex) and its secret, shown only this once.',
         'idempotencyKey is a new unique string for every commission. Reuse one only to retry the same commission after an error or a lost answer:',

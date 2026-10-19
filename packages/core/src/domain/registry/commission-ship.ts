@@ -21,7 +21,7 @@ export interface CommissionShipTx extends StartingPromptTx, AppliedLimitsTx, Nam
 export interface CommissionShipInput {
   name: string;
   type: string;
-  /** An agent when left out; only argo commissions a person or app ship (decision 0044). */
+  /** An agent when left out; a person ship needs fleet:person, an app ship fleet:on-behalf too (decisions 0044, 0053). */
   kind?: CommissionedShipKind;
   note?: string;
   scopes?: readonly string[];
@@ -87,13 +87,14 @@ async function findWithOwnerHeld(tx: CommissionShipTx, ref: { fleetId: FleetId; 
 
 /**
  * Use case: the caller commissions a ship in its own fleet, an agent unless
- * it states another kind (only argo commissions a person ship; an app ship
- * also a caller holding fleet:on-behalf, the gateway). The ship
- * awaits crew and gets its first starting prompt, all in one transaction. The
- * caller's scope (fleet:commission) is checked before this runs. The ship gets
+ * it states another kind and holds the scope for it, read from the server
+ * (fleet:commission for an agent, with fleet:on-behalf for an app ship,
+ * fleet:person for a person ship, which owns itself). The ship
+ * awaits crew and gets its first starting prompt, all in one transaction. The ship gets
  * the agent scopes and the scopes asked for, each one the caller's ship may
  * grant, read from the server (decision 0046); each plugin namespace they
- * name is locked after the name. Its owner is the caller's owner; a caller
+ * name is locked after the name. Its owner is the caller's owner, or the
+ * caller when it is a person ship; a caller
  * holding fleet:on-behalf may name the ship that asked it instead, whose owner
  * it gets, or for an app ship the owner argo picked (decision 0045). The
  * caller's idempotency key makes
