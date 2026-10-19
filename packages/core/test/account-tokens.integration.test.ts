@@ -1,5 +1,4 @@
 import { createServer, type Server } from 'node:http';
-import type { AddressInfo } from 'node:net';
 
 import { ACCOUNT_TOKEN_HEADER, FLEET_HEADER, SCOPES, type FleetId, type LabelValueId, type ShipId } from '@aeolus-fleet/common';
 import { createTRPCClient, httpLink, TRPCClientError, type TRPCClient } from '@trpc/client';
@@ -72,7 +71,9 @@ async function refusalOf(call: Promise<unknown>): Promise<{ code: string | undef
     await call;
   } catch (error) {
     if (error instanceof TRPCClientError) {
-      return { code: (error.data as { code?: string } | undefined)?.code, message: error.message };
+      const data: unknown = error.data;
+      const code = typeof data === 'object' && data !== null && 'code' in data && typeof data.code === 'string' ? data.code : undefined;
+      return { code, message: error.message };
     }
     throw error;
   }
@@ -89,7 +90,11 @@ beforeAll(async () => {
     response.end(JSON.stringify(issuer.keySet()));
   });
   await new Promise<void>((listening) => keys.listen(0, '127.0.0.1', listening));
-  issuer = createTestIssuer(`http://127.0.0.1:${String((keys.address() as AddressInfo).port)}`);
+  const bound = keys.address();
+  if (bound === null || typeof bound === 'string') {
+    throw new Error('the key set server listens on no port');
+  }
+  issuer = createTestIssuer(`http://127.0.0.1:${String(bound.port)}`);
 
   const databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
@@ -107,7 +112,13 @@ beforeAll(async () => {
   const { crewToken: networkingToken } = unwrap(await useCases.claimShip({ shipId: networking.shipId, secret: secretOf(networking.secret), location: { kind: 'CLOUD' }, harness: 'claude-code' }));
   const plugin = unwrap(await useCases.authenticate.byCrewToken(networkingToken));
   const group = unwrap(await useCases.defineLabel(argo, { key: 'group', values: ['engineering', 'finance'] }));
-  const valueOf = (value: string): LabelValueId => group.values.find((held) => held.value === value)?.id ?? group.values[0]?.id ?? ('lbv_missing' as LabelValueId);
+  const valueOf = (value: string): LabelValueId => {
+    const held = group.values.find((candidate) => candidate.value === value);
+    if (held === undefined) {
+      throw new Error(`the label group has no value ${value}`);
+    }
+    return held.id;
+  };
   near = await commissioned('near');
   far = await commissioned('far');
   unwrap(await useCases.assignLabel(argo, { shipId: near, valueId: valueOf('engineering') }));
@@ -141,7 +152,7 @@ describe('a call with an account token', () => {
 
     const [renamed] = await database.event.findMany({ where: { fleetId, type: 'ShipRenamed', shipId: near } });
     expect(renamed).toMatchObject({ actorKind: 'account', actorAccountId: 'acc-mathilde', actorShipId: null, actorThroughShipId: null });
-    expect(JSON.stringify(renamed)).not.toContain('@');
+    expect(JSON.stringify(renamed, (_key, value: unknown) => (typeof value === 'bigint' ? value.toString() : value))).not.toContain('@');
   });
 
   it('names the ship that presented the token in the event', async () => {

@@ -1,6 +1,6 @@
-import { timingSafeEqual } from 'node:crypto';
-
 import {
+  installationAccountsCutOffInputSchema,
+  installationAccountsCutOffOutputSchema,
   installationFleetSchema,
   installationFleetsCreateInputSchema,
   installationFleetsCreateOutputSchema,
@@ -23,19 +23,10 @@ import { TRPCError } from '@trpc/server';
 import type { Guide, GuideStep } from '../../domain/identity/guide.js';
 import type { Notice } from '../../domain/identity/notice.js';
 import type { InstallationFleet } from '../../domain/registry/installation-fleet.js';
-import type { InstallationCredential } from './context.js';
+import { INSTALLATION_TOKEN_HEADER, isInstallationToken } from './installation-token.js';
 import { okOrThrow, publicProcedure, router } from './trpc.js';
 import { describedHealth } from './health.js';
 
-/** The header a hosting service presents the installation token in: apart from a crew token and a console session. */
-export const INSTALLATION_TOKEN_HEADER = 'x-aeolus-installation-token';
-
-/** Whether the presented token is the configured one, compared in constant time. */
-function isInstallationToken(credential: InstallationCredential & { configured: string }): boolean {
-  const configured = Buffer.from(credential.configured);
-  const presented = Buffer.from(credential.presented ?? '');
-  return presented.length === configured.length && timingSafeEqual(presented, configured);
-}
 
 /**
  * A procedure of the installation (docs/architecture.md, "Installation"):
@@ -100,6 +91,18 @@ export const installationRouter = router({
         ctx.log.info({ ...settings }, 'installation settings set');
         return settings;
       }),
+  }),
+  accounts: router({
+    /**
+     * Cuts off an account pagasae disabled (decision 0058): every token of it
+     * issued until now is refused in every fleet here, before it ends. Kept
+     * 11 minutes, past the longest such token. The account named only by its id.
+     */
+    cutOff: installationProcedure.input(installationAccountsCutOffInputSchema).output(installationAccountsCutOffOutputSchema).mutation(async ({ ctx, input }) => {
+      await ctx.useCases.cutOffAccount(input);
+      ctx.log.info({ accountId: input.accountId }, 'account cut off');
+      return {};
+    }),
   }),
   guide: router({
     /** The guide the console shows (decision 0024), or null. */

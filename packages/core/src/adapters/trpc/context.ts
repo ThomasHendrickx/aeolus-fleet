@@ -1,6 +1,9 @@
 import type { FleetId, SystemVersionOutput } from '@aeolus-fleet/common';
 
 import type { Authenticate } from '../../domain/identity/authenticate.js';
+import type { AuthenticateAccount } from '../../domain/identity/authenticate-account.js';
+import type { AuthenticateInstallation } from '../../domain/identity/authenticate-installation.js';
+import type { CutOffAccount } from '../../domain/identity/cut-off-account.js';
 import type { ReadAccount } from '../../domain/identity/read-account.js';
 import type { SetTheme } from '../../domain/identity/set-theme.js';
 import type { SignIn } from '../../domain/identity/sign-in.js';
@@ -118,6 +121,9 @@ export interface UseCases {
   readGuide: ReadGuide;
   recordGuideProgress: RecordGuideProgress;
   authenticate: Authenticate;
+  authenticateAccount: AuthenticateAccount;
+  authenticateInstallation: AuthenticateInstallation;
+  cutOffAccount: CutOffAccount;
   commissionShip: CommissionShip;
   getStartingPrompt: GetStartingPrompt;
   releaseShip: ReleaseShip;
@@ -215,6 +221,10 @@ export interface RequestCredentials {
   sessionToken?: string;
   /** The ship a plugin reads on behalf of, as the `Aeolus-On-Behalf-Of` header named it (decision 0034). */
   onBehalfOf?: string;
+  /** An account token pagasae signed, from the `Aeolus-Account-Token` header; a bearer crew token beside it names the ship that presented it (decision 0058). */
+  accountToken?: string;
+  /** The fleet the installation acts in, from the `Aeolus-Fleet` header, beside the installation token (decision 0057); tRPC only. */
+  fleet?: string;
 }
 
 /** Writes the console session cookie on the response. */

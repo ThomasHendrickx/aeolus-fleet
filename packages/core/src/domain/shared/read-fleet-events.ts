@@ -1,5 +1,5 @@
 import type { ReadReachOf } from '../registry/public.js';
-import type { ShipCaller } from './caller.js';
+import type { Caller } from './caller.js';
 import { eventsRead } from './events-read.js';
 import type { FleetEventFeed, SequencedEvent } from './events.js';
 import type { ShipHistory } from './history.js';
@@ -17,7 +17,7 @@ export const REPLAY_LIMIT = 1000;
  */
 export type FleetEventsRead = { kind: 'events'; events: SequencedEvent[]; lastSeq: number } | { kind: 'resync'; seq: number };
 
-export type ReadFleetEvents = (caller: ShipCaller, afterSeq: number | undefined) => Promise<FleetEventsRead>;
+export type ReadFleetEvents = (caller: Caller, afterSeq: number | undefined) => Promise<FleetEventsRead>;
 
 /**
  * Use case: the caller's fleet events after a position, for the live fleet
@@ -27,7 +27,7 @@ export type ReadFleetEvents = (caller: ShipCaller, afterSeq: number | undefined)
  * from next. The caller's scope (fleet:read) is checked before this runs.
  */
 export function createReadFleetEvents(deps: { feed: FleetEventFeed; history: Pick<ShipHistory, 'messageParties'>; readReach: ReadReachOf }): ReadFleetEvents {
-  const resync = async (caller: ShipCaller): Promise<FleetEventsRead> => ({
+  const resync = async (caller: Caller): Promise<FleetEventsRead> => ({
     kind: 'resync',
     seq: await deps.feed.lastSeq(caller.fleetId),
   });

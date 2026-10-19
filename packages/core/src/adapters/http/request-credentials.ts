@@ -1,14 +1,16 @@
 /**
  * How a request says who it is: a crew token as a bearer token, or the console
- * session cookie, and for a plugin's read, the ship it reads on behalf of. The
- * ship secret travels only in the body of `register`.
+ * session cookie, and for a plugin's read, the ship it reads on behalf of; an
+ * account token pagasae signed, or the installation token with the fleet it
+ * acts in (decision 0057). The ship secret travels only in the body of
+ * `register`.
  *
  * The console session cookie holds the random session token, never the ship secret.
  * httpOnly so scripts cannot read it, Secure so it only travels over HTTPS
  * (browsers accept it on http://localhost for development), SameSite=Strict so
  * no other site's page can make the browser send it.
  */
-import { ON_BEHALF_OF_HEADER } from '@aeolus-fleet/common';
+import { ACCOUNT_TOKEN_HEADER, FLEET_HEADER, ON_BEHALF_OF_HEADER } from '@aeolus-fleet/common';
 
 export const SESSION_COOKIE_NAME = 'aeolus_session';
 
@@ -46,10 +48,26 @@ export function clearedSessionCookie(domain?: string): string {
   return `${SESSION_COOKIE_NAME}=; Max-Age=0; ${scope(domain)}`;
 }
 
-/** The ship a plugin reads on behalf of, from the `Aeolus-On-Behalf-Of` header, if there is one (decision 0034). */
-export function readOnBehalfOf(headers: Readonly<Record<string, string | string[] | undefined>>): string | undefined {
-  const header = headers[ON_BEHALF_OF_HEADER];
+type Headers = Readonly<Record<string, string | string[] | undefined>>;
+
+function readHeader(headers: Headers, name: string): string | undefined {
+  const header = headers[name];
   return Array.isArray(header) ? header.join(',') : header;
+}
+
+/** The ship a plugin reads on behalf of, from the `Aeolus-On-Behalf-Of` header, if there is one (decision 0034). */
+export function readOnBehalfOf(headers: Headers): string | undefined {
+  return readHeader(headers, ON_BEHALF_OF_HEADER);
+}
+
+/** The account token from the `Aeolus-Account-Token` header, if there is one (decision 0058). */
+export function readAccountToken(headers: Headers): string | undefined {
+  return readHeader(headers, ACCOUNT_TOKEN_HEADER);
+}
+
+/** The fleet the installation acts in, from the `Aeolus-Fleet` header, if there is one (decision 0057). */
+export function readFleet(headers: Headers): string | undefined {
+  return readHeader(headers, FLEET_HEADER);
 }
 
 /** The token from an `Authorization: Bearer <token>` header, if there is one. */

@@ -16,7 +16,13 @@ import {
   createPrismaLeaseRepository,
   createPrismaShipRepository,
 } from './adapters/prisma/registry.js';
-import { createPrismaGuideProgress, createPrismaNoticeDismissals, createPrismaOperatorAccountLookup } from './adapters/prisma/identity.js';
+import {
+  createPrismaAccountCutOffs,
+  createPrismaGuideProgress,
+  createPrismaHostedFleets,
+  createPrismaNoticeDismissals,
+  createPrismaOperatorAccountLookup,
+} from './adapters/prisma/identity.js';
 import { createReceiverWakeups } from './adapters/prisma/receiver-wakeups.js';
 import {
   createPrismaFleetLimitReads,
@@ -29,6 +35,10 @@ import { createPrismaDeclaredNetworkRulesRepository, createPrismaReachRefusalRep
 import { createPrismaScopeNamespaceRepository } from './adapters/prisma/scope-namespaces.js';
 import { createPrismaBulkUnitOfWork, createPrismaCallers, createPrismaUnitOfWork } from './adapters/prisma/unit-of-work.js';
 import { createAuthenticate, type Authenticate } from './domain/identity/authenticate.js';
+import { createAuthenticateAccount, type AuthenticateAccount } from './domain/identity/authenticate-account.js';
+import { createAuthenticateInstallation, type AuthenticateInstallation } from './domain/identity/authenticate-installation.js';
+import { createCutOffAccount, type CutOffAccount } from './domain/identity/cut-off-account.js';
+import type { AccountTokenSignatures } from './domain/identity/ports.js';
 import { createDismissNotice, type DismissNotice } from './domain/identity/dismiss-notice.js';
 import { createGetGuide, type GetGuide } from './domain/identity/get-guide.js';
 import { createGetNotices, type GetNotices } from './domain/identity/get-notices.js';
@@ -235,6 +245,9 @@ export interface UseCases {
   recordGuideProgress: RecordGuideProgress;
   resetOperatorPassword: ResetOperatorPassword;
   authenticate: Authenticate;
+  authenticateAccount: AuthenticateAccount;
+  authenticateInstallation: AuthenticateInstallation;
+  cutOffAccount: CutOffAccount;
   createFleet: CreateFleet;
   deleteFleet: DeleteFleet;
   listInstallationFleets: ListInstallationFleets;
@@ -249,6 +262,9 @@ export interface UseCases {
 }
 
 export const systemClock: Clock = { now: () => new Date() };
+
+/** Where no pagasae signs account tokens, as on a self-hosted server: no account token is trusted. */
+const NO_ACCOUNT_TOKEN_SIGNATURES: AccountTokenSignatures = { verify: () => Promise.resolve(undefined) };
 
 /**
  * Wires every use case to Postgres through Prisma. The HTTP app and the server
@@ -267,6 +283,8 @@ export function createUseCases(options: {
   fleetEventWakeups?: FleetEventWakeups;
   /** How long a receive waits on an empty inbox; about 25 seconds unless a test says otherwise. */
   receiveWaitMs?: number;
+  /** pagasae's signatures on account tokens (decision 0058); without them, no account token is trusted. */
+  accountTokenSignatures?: AccountTokenSignatures;
 }): UseCases {
   const { prisma } = options;
   const clock = options.clock ?? systemClock;
@@ -281,6 +299,8 @@ export function createUseCases(options: {
   const dismissals = createPrismaNoticeDismissals(prisma);
   const guide = createPrismaGuideRepository(prisma);
   const guideProgress = createPrismaGuideProgress(prisma);
+  const accountCutOffs = createPrismaAccountCutOffs(prisma);
+  const hostedFleets = createPrismaHostedFleets(prisma);
 
   return {
     ping: createPing({ clock, fleets: createPrismaFleetCounter(prisma) }),
@@ -429,5 +449,13 @@ export function createUseCases(options: {
     setTheme: createSetTheme({ uow }),
     resetOperatorPassword: createResetOperatorPassword({ uow, clock, ids, passwords: argon2idPasswordHasher }),
     authenticate: createAuthenticate({ callers: createPrismaCallers(prisma), hasher: sha256Hasher, clock }),
+    authenticateAccount: createAuthenticateAccount({
+      signatures: options.accountTokenSignatures ?? NO_ACCOUNT_TOKEN_SIGNATURES,
+      cutOffs: accountCutOffs,
+      fleets: hostedFleets,
+      clock,
+    }),
+    authenticateInstallation: createAuthenticateInstallation({ fleets: hostedFleets }),
+    cutOffAccount: createCutOffAccount({ cutOffs: accountCutOffs, clock }),
   };
 }

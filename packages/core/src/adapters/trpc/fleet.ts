@@ -106,7 +106,7 @@ import type { DeliveryWay } from '../../domain/shared/delivery-way.js';
 import type { SequencedEvent } from '../../domain/shared/events.js';
 import { describedHealth } from './health.js';
 import { presentStartingPrompt } from './starting-prompt-text.js';
-import { anyScopeProcedure, authenticatedProcedure, callerStillHolding, okOrThrow, router, scopedCrewCallerProcedure, scopedProcedure } from './trpc.js';
+import { actorAnyScopeProcedure, actorScopedProcedure, anyScopeProcedure, authenticatedProcedure, callerStillHolding, okOrThrow, router, scopedCrewCallerProcedure, scopedProcedure } from './trpc.js';
 
 /** A crew request as the API answers it: its times in ISO 8601, and when its session started as `startedAt`. */
 function crewRequestOutputOf<T extends { requestedAt: Date; sessionStartedAt: Date | null; givenBack: ShipFacts['crewRequestGivenBack'] }>(request: T | null) {
@@ -209,7 +209,7 @@ export const fleetRouter = router({
    * stop working, and what it held in flight returns to pending for the next
    * crew. Never argo; a ship awaiting crew gets a new starting prompt instead.
    */
-  release: anyScopeProcedure('fleet:manage', 'crew:run')
+  release: actorAnyScopeProcedure('fleet:manage', 'crew:run')
     .meta({
       description: [
         'Needs fleet:manage, or crew:run for a ship whose crew request is assigned to yours. Frees a crewed ship from its session: its crew token and secret stop working, and what it held in flight returns to pending.',
@@ -405,7 +405,7 @@ export const fleetRouter = router({
    * history and session stay; a sender addressing the old name no longer
    * reaches it.
    */
-  rename: scopedProcedure('fleet:manage')
+  rename: actorScopedProcedure('fleet:manage')
     .input(renameShipInputSchema)
     .output(renameShipOutputSchema)
     .mutation(async ({ ctx, input }) => {
@@ -464,7 +464,7 @@ export const fleetRouter = router({
     }),
 
   /** Every ship of the caller's fleet with its status and prompt state, or the ships that carry the label values given. Never a secret. */
-  list: scopedProcedure('fleet:read')
+  list: actorScopedProcedure('fleet:read')
     .meta({
       description: [
         'Needs fleet:read. Every ship of the fleet, argo included: id, name, type, kind, status, scopes, labels, where its session runs and in which harness, when it was last seen, its last ping, and its current model (the last its sessions stated). Never a secret.',
@@ -906,7 +906,7 @@ export const fleetRouter = router({
    * browser: the same numbers the live stream sends, waiting up to
    * waitSeconds while none has come. A query: it changes nothing.
    */
-  follow: scopedProcedure('fleet:read')
+  follow: actorScopedProcedure('fleet:read')
     .meta({
       description: [
         'Needs fleet:read. The fleet\'s events after afterSeq, oldest first, up to max (1 to 100, 100 when left out):',
@@ -932,7 +932,7 @@ export const fleetRouter = router({
    * behalf, fleet:on-behalf, so a session that ended or a revoked scope hears
    * no more.
    */
-  events: scopedProcedure('fleet:read')
+  events: actorScopedProcedure('fleet:read')
     .input(fleetEventsInputSchema)
     .subscription(async function* ({ ctx, input, signal }): AsyncGenerator<TrackedEnvelope<FleetStreamItem>> {
       const watch = ctx.fleetEvents.watch(ctx.caller.fleetId);
@@ -994,7 +994,9 @@ function liveEventOf(event: SequencedEvent) {
     id: event.id,
     type: event.type,
     occurredAt: event.occurredAt.toISOString(),
+    actorKind: event.actor.kind,
     actorShipId: event.actor.kind === 'ship' ? event.actor.shipId : null,
+    actorAccountId: event.actor.kind === 'account' ? event.actor.accountId : null,
     shipId: event.shipId ?? null,
     messageId: event.messageId ?? null,
     deliveryId: event.deliveryId ?? null,

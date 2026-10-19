@@ -51,3 +51,9 @@ export const accountTokenClaimsSchema = z
     };
   });
 export type AccountTokenClaims = z.infer<typeof accountTokenClaimsSchema>;
+
+/** The request header whoever acts for a human presents the account's token in, beside its own crew token if it has one (decision 0058). */
+export const ACCOUNT_TOKEN_HEADER = 'aeolus-account-token';
+
+/** The request header the installation names the fleet it acts in with, beside its installation token (decision 0057). */
+export const FLEET_HEADER = 'aeolus-fleet';

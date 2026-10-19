@@ -20,6 +20,10 @@ import { createSetGuide } from '../../src/domain/identity/set-guide.js';
 import { createSetNotices } from '../../src/domain/identity/set-notices.js';
 import { createRedeemSignInTicket } from '../../src/domain/identity/redeem-sign-in-ticket.js';
 import { createAuthenticate } from '../../src/domain/identity/authenticate.js';
+import { createAuthenticateAccount } from '../../src/domain/identity/authenticate-account.js';
+import { createAuthenticateInstallation } from '../../src/domain/identity/authenticate-installation.js';
+import { createCutOffAccount } from '../../src/domain/identity/cut-off-account.js';
+import type { AccountCutOffRepository, HostedFleets } from '../../src/domain/identity/ports.js';
 import { createReadAccount } from '../../src/domain/identity/read-account.js';
 import { createResetOperatorPassword } from '../../src/domain/identity/reset-operator-password.js';
 import { createSignIn } from '../../src/domain/identity/sign-in.js';
@@ -129,7 +133,13 @@ export function identityUseCases(core: InMemoryCore) {
     random: core.random,
     passwords: core.passwords,
   };
+  // No pagasae signs here, and no cut-off is kept: the account-token tests wire their own.
+  const cutOffs: AccountCutOffRepository = { record: () => Promise.resolve(), cutOffAt: () => Promise.resolve(undefined), forget: () => Promise.resolve() };
+  const fleets: HostedFleets = { isHosted: (fleetId) => Promise.resolve(core.state.fleets.some((fleet) => fleet.id === fleetId)) };
   return {
+    authenticateAccount: createAuthenticateAccount({ signatures: { verify: () => Promise.resolve(undefined) }, cutOffs, fleets, clock: core.clock }),
+    authenticateInstallation: createAuthenticateInstallation({ fleets }),
+    cutOffAccount: createCutOffAccount({ cutOffs, clock: core.clock }),
     signIn: createSignIn(deps),
     signOut: createSignOut(deps),
     resetOperatorPassword: createResetOperatorPassword(deps),

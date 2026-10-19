@@ -1,7 +1,7 @@
 import { FOLLOW_MAX_DEFAULT, FOLLOW_MAX_LIMIT, FOLLOW_WAIT_MAX_SECONDS } from '@aeolus-fleet/common';
 
 import type { ReadReachOf } from '../registry/public.js';
-import type { ShipCaller } from './caller.js';
+import type { Caller } from './caller.js';
 import type { Clock } from './clock.js';
 import { refuse, type DomainError } from './errors.js';
 import { eventsRead } from './events-read.js';
@@ -21,7 +21,7 @@ export interface FleetFollowed {
 }
 
 export type FollowFleet = (
-  caller: ShipCaller,
+  caller: Caller,
   input: { afterSeq?: number; max?: number; waitSeconds?: number },
 ) => Promise<Result<FleetFollowed, FollowFleetRefusal>>;
 
