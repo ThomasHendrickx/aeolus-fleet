@@ -149,3 +149,24 @@ describe('changing an owner (fleet:owner)', () => {
     await expect(refusalOf(asInstallation().fleet.setOwner.mutate({ shipId: scout, ownerShipId: argo.shipId }))).resolves.toMatchObject({ code: 'FORBIDDEN' });
   });
 });
+
+describe('connecting a plugin (fleet:connect)', () => {
+  it('is done by an agent ship holding fleet:connect, the event naming it', async () => {
+    const connector = await anAgentHolding(['fleet:connect']);
+    const plugin = await anAgentHolding([]);
+
+    await connector.calls.fleet.connectPlugin.mutate({ shipId: plugin.shipId });
+
+    await expect(lastEventAbout(plugin.shipId, 'PluginConnected')).resolves.toMatchObject({ actorKind: 'ship', actorShipId: connector.shipId });
+  });
+
+  it('is refused to a ship without fleet:connect', async () => {
+    const manager = await anAgentHolding(['fleet:manage']);
+    const plugin = await anAgentHolding([]);
+
+    await expect(refusalOf(manager.calls.fleet.connectPlugin.mutate({ shipId: plugin.shipId }))).resolves.toEqual({
+      code: 'FORBIDDEN',
+      message: 'This call needs the fleet:connect scope',
+    });
+  });
+});
