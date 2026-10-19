@@ -142,3 +142,91 @@ sequenceDiagram
     N-->>M: the page shows the rules and no editing
   end
 ```
+
+## F5 Gateway sign-in
+
+Draft 0054. Charlotte adds the gateway's one address to her Claude.
+
+```mermaid
+sequenceDiagram
+  actor H as Charlotte
+  participant MC as Her Claude
+  participant G as Gateway (one address)
+  participant P as pagasae
+  participant C as core (fleet)
+  H->>MC: add the gateway's address
+  MC->>G: OAuth authorize request
+  G->>P: sign in (OpenID Connect)
+  alt directory connected
+    P->>H: sign in with your identity
+    H-->>P: identity from the identity provider
+  else not connected, or the identity provider fails and the account may sign in as argo
+    P-->>H: sign-in link
+    H->>P: open the sign-in link
+  end
+  alt email in several organisations
+    P->>H: which organisation?
+    H-->>P: Acme
+  end
+  alt account disabled
+    P-->>G: refused
+    G-->>MC: access_denied
+  else no person ship in any fleet
+    P-->>G: the account, no fleet
+    G-->>H: refused: ask an organisation admin
+  else one or more fleets
+    P->>C: put the person ship right against its groups (0052)
+    P-->>G: the account, its organisation, its fleets with their person ships
+    alt several fleets
+      G->>H: pick a fleet
+      H-->>G: Acme's main fleet
+    end
+    G->>G: token naming that fleet
+    G-->>MC: code, then the token
+    alt the person ship is not crewed by the gateway yet
+      G->>C: crew the person ship (hold its lease)
+    else crewed by another crew (a pasted crew token)
+      C-->>G: refused: crewed
+      G-->>H: your ship is crewed elsewhere: release that crew?
+      H->>G: release it
+      G->>P: release Charlotte's person ship
+      P->>C: release, as pagasae's ship (LeaseRevoked)
+      G->>C: crew the person ship
+    end
+    MC->>G: send, read, answer, as Charlotte
+    G->>C: the call as her person ship
+  end
+```
+
+The last unhappy path is a person ship still crewed by a pasted crew token, today's only way in. The gateway asks the human, and pagasae, which manages the person ships it commissioned (0052), releases the old crew.
+
+## F6 Console sign-in as argo
+
+Draft 0054. Mathilde signs in as argo of Acme's fleet; Thomas tries without being allowed; a self-hoster uses argo's own sign-in.
+
+```mermaid
+sequenceDiagram
+  actor M as Mathilde
+  actor T as Thomas
+  participant P as pagasae
+  participant K as Console
+  participant C as core (fleet)
+  M->>P: sign in as argo of Acme's fleet
+  alt allowed by an organisation admin
+    P->>C: sign-in ticket naming Mathilde's account (installation)
+    C-->>P: the ticket (2 minutes, one use)
+    P-->>M: to the console with the ticket
+    M->>K: redeem the ticket
+    K->>C: start the console sign-in as argo
+    C->>C: end any other console sign-in as argo, take argo's lease over
+    C-->>K: signed in as argo, by mathilde@acme.com
+    M->>K: retire a ship
+    K->>C: retire, as argo
+    C->>C: ShipRetired, its details naming Mathilde's account
+  else not allowed
+    P-->>M: refused
+  end
+  T->>P: sign in as argo of Acme's fleet
+  P-->>T: refused: not allowed for this fleet
+  Note over K,C: self-hosted without pagasae: the console's form takes argo's own email and password, and the sign-in says so. Wrong password: refused, as today. Hosted: no form.
+```
