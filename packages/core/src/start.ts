@@ -18,6 +18,7 @@ export async function start(): Promise<void> {
     cookieDomain: config.cookieDomain,
     consoleOrigin: config.consoleOrigin,
     installationToken: config.installationToken,
+    accountTokenIssuer: config.accountTokenIssuer,
   });
   for (const warning of startupWarnings(config)) {
     server.log.warn(warning);
