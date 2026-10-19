@@ -150,27 +150,27 @@ What Aeolus already has that they built on top: rights on the caller, not on a s
 
 ## 3. Questions for Thomas (answered 19 Oct)
 
-Every word is a term of the blueprint's Domain language (decision 0050, PR #972). Thomas answered on 19 Oct. A decided question keeps its number and says his pick, in his words where he gave them; it is recorded as a decision when phase 2 is approved. An open one is rewritten for what he asked, with its context, a use case, what goes wrong under each option, and a pick. The gap list in `domain-model.md` names the questions that take each gap up.
+Every word is a term of the blueprint's Domain language (decision 0050, PR #972). Thomas answered all 20 on 19 Oct, in two rounds. Each question keeps its number and says his pick, with his words where he gave them; it is recorded as a decision in phase 2. The ones he sent back the first time keep the context, use case, options and reasons he answered from. The gap list in `domain-model.md` names the question that closed each gap.
 
 | # | Question | Now |
 | --- | --- | --- |
 | 1 | One account, one person ship per fleet | Decided (a), with groups |
 | 2 | Who manages the organisation | Decided (a) |
 | 3 | Admin work in a fleet: argo or the human's own person ship | Decided (b) |
-| 4 | How a change in a group reaches the person ship | Research done; open for a pick |
+| 4 | How a change in a group reaches the person ship | Decided (a), after research |
 | 5 | Which of argo's jobs become grantable | Decided: all of them |
-| 6 | Which ships a person ship with admin scopes acts on | Open, rewritten |
-| 7 | How a person asks for an outside MCP server | Open, rewritten |
+| 6 | Which ships a person ship with admin scopes acts on | Decided (b) |
+| 7 | How a person asks for an outside MCP server | Decided (a), with the gateway's own page for people |
 | 8, 9, 10 | Gateway sign-in, the one address, who signs in as argo | Decided (a) |
 | 11 | Who gets a person ship | Decided (a), Thomas's wording |
 | 12 | A leaver | Decided (a) |
 | 13 | What sign-up creates | Decided (a), with the first fleet |
-| 14 | A connected directory | Open, rewritten |
-| 15 | A human from another organisation | Open, rewritten |
+| 14 | A connected directory | Decided (a) |
+| 15 | A human from another organisation | Decided (a) |
 | 16 | The outside party's owner | Decided (a) |
-| 17 | A leaver's computer | Open, rewritten |
+| 17 | A leaver's computer | Decided (b): a trierarch is linked to an account |
 | 18 | What a human sees | Decided (a), with where the inbox principle breaks |
-| 19 | A self-hosted fleet | Open, option (e) added |
+| 19 | A self-hosted fleet | Decided (e) |
 | 20 | How an outside MCP client learns it was approved | Decided (a) |
 
 ### The shape
@@ -207,7 +207,7 @@ Thomas: "The account created first is the organisation's admin and manages the o
 
 Thomas: "The organisation admin is the organisation's; argo is the fleet's. Signing in as argo is something an account may be allowed to do." Admin work in a fleet is done as the human's own person ship, with the scopes their groups give (1); argo stays for the accounts allowed it (10).
 
-**4. How does a change in a group reach the person ship? Research done; open for a pick.** (G4, G33)
+**4. How does a change in a group reach the person ship? Decided: (a), rescope in place, at once, with the sign-in check as a backstop.** (G4, G33)
 
 Thomas turned this into research: how do applications that sign people in through a directory map its groups to rights in the application, when membership changes? His two candidate paths for ships: retire and recommission the person ship (ship recycling), or rescope a ship with no session attached.
 
@@ -251,7 +251,9 @@ Decisions it touches:
 
 A ship still grants only what it holds (0046).
 
-**6. Which ships may a person ship with admin scopes act on? Open, rewritten.** (G10)
+**6. Which ships may a person ship with admin scopes act on? Decided: (b), within manage reach.** (G10)
+
+Thomas: the action itself checks scope where needed; for commissioning core does it, so the commission checks what is allowed.
 
 Who: a human doing admin work acts as their own person ship, with the scopes their groups give (questions 1, 3 and 5). "Where" means which of the fleet's ships those scopes act on.
 
@@ -263,9 +265,11 @@ Options:
 - (b) **Within manage reach (0034)**: every `fleet:manage` call is already checked against manage rules on the target ship. A rule letting `team=engineering` manage `team=engineering` keeps Thomas to engineering's ships. Goes wrong: a ship that does not exist yet has no labels, so a commission cannot be checked against reach; phase 2 must say which labels a new ship carries (such as its commissioner's) before it counts as reached.
 - (c) **A list of ships per admin**, kept beside reach. Goes wrong: two answers to "where", which 0034 closed.
 
-Pick: (b). Reach is already the where for managing. The open part is a new ship's labels at commission.
+Pick: (b). Reach is already the where for managing. Left for phase 2: which labels a new ship carries when the commission checks it.
 
-**7. How does a person ask for an outside MCP server? Open, rewritten.** (G15, G18)
+**7. How does a person ask for an outside MCP server? Decided: (a).** (G15, G18)
+
+Thomas: the gateway needs a basic UI of its own, for a person who signs in without an AI or an outside app. Basic but functional, and far from ugly. That is where Charlotte asks and sees "waiting for approval" when she has no chat at hand.
 
 What it is: an outside MCP server is a service outside the fleet, such as a ticket tracker's MCP server, that ships call through the gateway. Approving it, the gateway commissions a proxy ship (kind app) with an owner and scopes, and network rules say which ships reach it (`domain-model.md` 2.5a). An outside MCP client asks for itself (question 20). A person's own MCP client (Claude, ChatGPT) needs no approval at all: it signs in at the gateway as their account and acts as their person ship (2.2).
 
@@ -295,7 +299,7 @@ Pick: (a). Requests are kept in one place, the same as a pending outside MCP cli
 
 **13. What does pagasae's sign-up create? Decided: (a), with the first fleet.** (G21, G28) Sign-up creates the organisation, its first account (an organisation admin allowed to sign in as argo of the first fleet) and its first fleet: zero fleets has zero value. pagasae keeps beside it only what is hosted: the terms accepted, updates opt-in, the hosting service's own pages.
 
-**14. When the organisation connects Google Workspace or Entra, may its accounts still sign in by email? Open, rewritten.** (G13, G27)
+**14. When the organisation connects Google Workspace or Entra, may its accounts still sign in by email? Decided: (a), identity for everyone, the email sign-in link only for accounts allowed to sign in as argo.** (G13, G27)
 
 What connecting changes: until then, every account signs in by email: pagasae mails a sign-in link (question 8). Connecting the organisation's directory lets an account sign in with its identity instead: Charlotte picks "Sign in with Google", Google answers charlotte@acme.com, and pagasae finds her account. Acme's own rules then apply to her sign-in (its passwords, its second factor), and a human Acme suspends in Google can no longer sign in that way.
 
@@ -310,7 +314,7 @@ Options:
 
 Pick: (a), with (d) later. A leaver is out where the organisation ends him, and a way in without an identity provider stays (J5).
 
-**15. A human from another organisation? Open, rewritten.** (G22, G30)
+**15. A human from another organisation? Decided: (a), an account in Acme's organisation.** (G22, G30)
 
 What an outside party is: an approved outside MCP server or client (0050). It is software, not a human: it acts in the fleet as a proxy ship (kind app) the gateway commissions and crews for it, with an owner in the fleet who answers for it.
 
@@ -326,7 +330,9 @@ Pick: (a). One account belongs to one organisation, and Acme decides who is in i
 
 **16. The outside party's owner is kept twice. Decided: (a).** (G11) Core's owner is the one; the gateway reads it.
 
-**17. A leaver's computer. Open, rewritten.** (G17, G20)
+**17. A leaver's computer. Decided: (b).** (G17, G20)
+
+Thomas: trierarchs are apps and need an account linked to them. So a trierarch's app ship is linked to the account whose computer it runs on, and link (0050: an account joined to a person ship) widens to a trierarch's app ship; the glossary says so. Disabling the account releases that ship and the leases it crews.
 
 What it is: a trierarch runs on a computer, a laptop or a server. It crews its own app ship and starts the agent sessions there, each with a crew token (0026). Its ship is argo's (0045), and nothing ties a computer to an account.
 
@@ -350,7 +356,7 @@ Thomas's principle: a ship is like an email inbox; which client reads it does no
 - **A pushed lease** (0040) changes how a delivery is confirmed, as the crew's computer side says. What is delivered stays the same.
 - **Notices and the guide** address console sign-ins by kind (G23), and stay argo's console's.
 
-**19. What does a self-hosted fleet use for its organisation and accounts? Open, option (e) added.** (G21, G28, G31)
+**19. What does a self-hosted fleet use for its organisation and accounts? Decided: (e).** (G21, G28, G31)
 
 Thomas leans to (b): pagasae is personal at this stage, and (a) adds a lot of complexity for self-hosters; the one-line console plus core setup would be gone for good.
 
@@ -381,7 +387,9 @@ Pick: (e). It is (b) today with the door open:
 - The organisation has one model, pagasae's, wherever there is one; (c) gives accounts two homes.
 - No work now: a self-hosted pagasae is built when a self-hoster asks for an organisation.
 
-Its costs: once pagasae runs, argo has two ways in (core's own sign-in and pagasae's sign-in ticket), and the console sign-in must say which. And (e) bends 0050's "there is no operator account": core keeps an email and password that sign in as argo. Read as a sign-in of argo's own, with no organisation and no person ship, it is not an account; otherwise (e) reopens 0050, which is Thomas's call.
+Its costs: once pagasae runs, argo has two ways in (core's own sign-in and pagasae's sign-in ticket), and the console sign-in must say which.
+
+In 0050's terms: core's email and password are **argo's own sign-in**, a sign-in of the ship argo, with no organisation and no person ship. It is not an account (the only account is a human's in an organisation) and not an operator account (there is none); the operator is whoever signs in as argo by it. 0050 and the glossary say so.
 
 ### Raised by flow 2.5
 
