@@ -1,8 +1,10 @@
 import type {
+  AccountCutOffRepository,
   CallerLookup,
   ConsoleSessionRepository,
   CredentialRepository,
   GuideProgressRepository,
+  HostedFleets,
   NoticeDismissals,
   OperatorAccountLookup,
   OperatorAccountRepository,
@@ -239,5 +241,31 @@ export function createPrismaGuideProgress(db: Db): GuideProgressRepository {
         update: { step, state, recordedAt: at },
       });
     },
+  };
+}
+
+export function createPrismaAccountCutOffs(db: Db): AccountCutOffRepository {
+  return {
+    record: async ({ accountId, cutOffAt, forgetAt }) => {
+      // One statement, so two cut-offs of one account at once keep the later.
+      await db.$executeRaw`
+        INSERT INTO account_cut_offs (account_id, cut_off_at, forget_at)
+        VALUES (${accountId}, ${cutOffAt}, ${forgetAt})
+        ON CONFLICT (account_id) DO UPDATE SET cut_off_at = EXCLUDED.cut_off_at, forget_at = EXCLUDED.forget_at
+        WHERE account_cut_offs.cut_off_at < EXCLUDED.cut_off_at`;
+    },
+    cutOffAt: async (accountId, at) => {
+      const row = await db.accountCutOff.findFirst({ where: { accountId, forgetAt: { gt: at } }, select: { cutOffAt: true } });
+      return row?.cutOffAt;
+    },
+    forget: async (at) => {
+      await db.accountCutOff.deleteMany({ where: { forgetAt: { lte: at } } });
+    },
+  };
+}
+
+export function createPrismaHostedFleets(db: Db): HostedFleets {
+  return {
+    isHosted: async (fleetId) => (await db.fleet.count({ where: { id: fleetId } })) > 0,
   };
 }

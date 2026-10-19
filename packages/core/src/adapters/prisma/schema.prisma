@@ -899,3 +899,17 @@ model GuideProgress {
   @@index([fleetId])
   @@map("guide_progress")
 }
+
+/// An account pagasae cut off (decision 0058): its tokens issued before
+/// cut_off_at are refused in every fleet until forget_at, when the longest of
+/// them has ended. The installation's, not a fleet's: no fleet_id (ADR 0007).
+/// Never an email: the account by pagasae's id only.
+model AccountCutOff {
+  accountId String   @id @map("account_id")
+  cutOffAt  DateTime @map("cut_off_at") @db.Timestamptz(3)
+  forgetAt  DateTime @map("forget_at") @db.Timestamptz(3)
+
+  /// Forgetting finds the cut-offs that ended.
+  @@index([forgetAt])
+  @@map("account_cut_offs")
+}
