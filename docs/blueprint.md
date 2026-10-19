@@ -167,7 +167,9 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Organisation | pagasae's tenant: its accounts, its fleets and its directory. Not a fleet | pagasae (to build) |
 | Account | A human's account in an organisation, by email. The only account: no operator, viewer or ship account. Not an identity | pagasae |
 | Identity | A login at an identity provider (Google, Microsoft) that signs an account in. Not an account | pagasae (to build) |
+| Identity provider | A service such as Google or Microsoft whose logins an organisation accepts as its accounts' identities | pagasae (to build) |
 | Directory | The organisation's list of accounts, its own or read from its identity provider | pagasae (to build) |
+| Organisation admin | An account its organisation lets manage its accounts and link them to person ships | pagasae (to build) |
 | Installation admin | The human who runs an installation's hosting service (pagasae's `OWNER_EMAIL`). Not an owner | pagasae |
 | Operator | The human who signs in as argo, with their own account; there is no operator account | core |
 | Sign-in | A human logging in: console sign-in (as argo, or as the viewer), pagasae sign-in, gateway sign-in. Not a session | core, pagasae, gateway |
@@ -236,6 +238,7 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | --- | --- | --- |
 | Scope | What a ship may do, `<namespace>:<action>`, stored with the ship, never in a message; the only source of rights (0046) | core |
 | Scope namespace | A plugin's scopes, declared once for good, enforced by the plugin (0046) | core |
+| Grant | Give a ship a scope, at commission or live with `scopes:grant`; a ship grants only scopes it holds (0046) | core |
 | Reach | Where a ship may act: whom it may send to, read or manage, by network rules (0034) | core |
 | Verb | send (with force and discovery), read (with resend), manage (rename, release, recrew, retire, ping, crew request) | core |
 | Network rule | Lets ships matching one selection reach ships matching another by one verb; a selection is of label and owner terms, never type; allow-only (0034) | core, set by the networking plugin |
@@ -274,6 +277,7 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Switch | A hosting service turning a plugin on or off for a fleet (0021) | each plugin |
 | Gateway | The plugin that speaks MCP and A2A with the outside (0048) | gateway |
 | Outside party | An approved outside MCP server or client | gateway |
+| Approve | argo admitting an outside party to a fleet, naming its owner; the gateway then commissions its proxy ship | gateway |
 | Proxy ship | The app ship the gateway commissions for an outside party once argo approves it (0044) | core |
 
 ### Squadrons
