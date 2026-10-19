@@ -1,4 +1,4 @@
-import { createIdGenerator, type FleetId } from '@aeolus-fleet/common';
+import { accountIdSchema, createIdGenerator, type FleetId } from '@aeolus-fleet/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
@@ -228,5 +228,37 @@ describe('the event feed', () => {
     await expect(createPrismaFleetEventFeed(prisma).after(fleetId, { seq: 0, limit: 10 })).resolves.toEqual([
       { ...event, seq: 1 },
     ]);
+  });
+  it('gives an event an account as its actor, by its id only, with the ship it came through (decision 0057)', async () => {
+    const fleetId = await aFleet();
+    const gatewayId = newId('ship');
+    await prisma.ship.create({
+      data: { id: gatewayId, fleetId, name: 'gateway', type: 'gateway', kind: 'app', scopes: [], createdAt: new Date() },
+    });
+    const event: FleetEvent = {
+      ...anEvent(fleetId),
+      type: 'ShipRenamed',
+      actor: { kind: 'account', accountId: accountIdSchema.parse('acc-mathilde'), throughShipId: gatewayId },
+      details: {},
+    };
+    await appendInOwnUnit(event);
+
+    await expect(createPrismaFleetEventFeed(prisma).after(fleetId, { seq: 0, limit: 10 })).resolves.toEqual([{ ...event, seq: 1 }]);
+  });
+
+  it('gives an event an account as its actor when no ship presented its token', async () => {
+    const fleetId = await aFleet();
+    const event: FleetEvent = { ...anEvent(fleetId), actor: { kind: 'account', accountId: accountIdSchema.parse('acc-mathilde'), throughShipId: null } };
+    await appendInOwnUnit(event);
+
+    await expect(createPrismaFleetEventFeed(prisma).after(fleetId, { seq: 0, limit: 10 })).resolves.toEqual([{ ...event, seq: 1 }]);
+  });
+
+  it('gives an event the installation as its actor', async () => {
+    const fleetId = await aFleet();
+    const event: FleetEvent = { ...anEvent(fleetId), actor: { kind: 'installation' } };
+    await appendInOwnUnit(event);
+
+    await expect(createPrismaFleetEventFeed(prisma).after(fleetId, { seq: 0, limit: 10 })).resolves.toEqual([{ ...event, seq: 1 }]);
   });
 });
