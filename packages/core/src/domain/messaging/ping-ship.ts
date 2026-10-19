@@ -48,7 +48,7 @@ export function createPingShip(deps: {
       if (!ship.isOk) {
         return ship;
       }
-      const managed = await checkManage({ tx, ids: deps.ids }, { fleetId, managerShipId: caller.shipId, shipId: input.shipId, at: deps.clock.now() });
+      const managed = await checkManage({ tx, ids: deps.ids }, { manager: caller, shipId: input.shipId, at: deps.clock.now() });
       if (!managed.isOk) {
         return managed;
       }

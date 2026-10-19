@@ -45,7 +45,7 @@ export function createRecrewShip(deps: {
       if (!ship) {
         return refuse('SHIP_NOT_FOUND', `Ship ${shipId} does not exist`);
       }
-      const managed = await checkManage({ tx, ids: deps.ids }, { fleetId: fleetId, managerShipId: caller.shipId, shipId: ship.id, at: deps.clock.now() });
+      const managed = await checkManage({ tx, ids: deps.ids }, { manager: caller, shipId: ship.id, at: deps.clock.now() });
       if (!managed.isOk) {
         return managed;
       }

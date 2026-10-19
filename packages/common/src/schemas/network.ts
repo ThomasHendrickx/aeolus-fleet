@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { idSchema } from '../ids/index.js';
+import { accountIdSchema } from './account-token.js';
 import { carriedLabelSchema } from './label.js';
 
 /**
@@ -72,15 +73,16 @@ export const setNetworkRulesInputSchema = z.object({ rules: z.array(networkRuleS
  * the owner's ship to the ships it owns, an answer to the sender of the
  * message it answers, and a connected plugin's ship reading every ship, which
  * are never off; the viewer reading every ship,
- * which argo turns off or on; and open, every ship to every ship, one per
- * verb, which the networking plugin turns off or on.
+ * which argo turns off or on; the installation managing person ships and the
+ * ships they own, never off (decision 0020); and open, every ship to every
+ * ship, one per verb, which the networking plugin turns off or on.
  */
-export const BUILT_IN_RULES = ['argo', 'owner', 'answer', 'pluginRead', 'viewerRead', 'open'] as const;
+export const BUILT_IN_RULES = ['argo', 'owner', 'answer', 'pluginRead', 'viewerRead', 'installation', 'open'] as const;
 
 export type BuiltInRule = (typeof BUILT_IN_RULES)[number];
 
 /** The built-in rules that are never off. */
-export const FIXED_BUILT_IN_RULES = ['argo', 'owner', 'answer', 'pluginRead'] as const satisfies readonly BuiltInRule[];
+export const FIXED_BUILT_IN_RULES = ['argo', 'owner', 'answer', 'pluginRead', 'installation'] as const satisfies readonly BuiltInRule[];
 
 /** Input of `fleet.setBuiltInRule` (fleet:network): a built-in rule turned on or off, open for one verb, which it names and no other rule does. */
 export const setBuiltInRuleInputSchema = z
@@ -94,7 +96,7 @@ export type SetBuiltInRuleInput = z.infer<typeof setBuiltInRuleInputSchema>;
  * other rule does, and whether it is on; the fixed ones always are.
  */
 export const builtInRuleStateSchema = z.union([
-  z.object({ rule: z.enum(['argo', 'owner', 'answer', 'pluginRead', 'viewerRead']), isOn: z.boolean() }),
+  z.object({ rule: z.enum(['argo', 'owner', 'answer', 'pluginRead', 'viewerRead', 'installation']), isOn: z.boolean() }),
   z.object({ rule: z.literal('open'), verb: z.enum(NETWORK_VERBS), isOn: z.boolean() }),
 ]);
 
@@ -160,11 +162,27 @@ const refusedShipSchema = z.object({
  */
 export const ON_BEHALF_OF_HEADER = 'aeolus-on-behalf-of';
 
-/** One refused send: who tried to reach whom by which verb, both ships as they were with their owners, the settings version that refused it and when. */
+/**
+ * Who a refusal refused (decision 0057): a ship as it was; an account by
+ * its id only, never an email, with the `group` values its token carried
+ * that the fleet defines and its person ship then; or the installation.
+ */
+const refusedActorSchema = z.discriminatedUnion('kind', [
+  refusedShipSchema.extend({ kind: z.literal('ship') }),
+  z.object({
+    kind: z.literal('account'),
+    accountId: accountIdSchema,
+    labels: z.array(carriedLabelSchema),
+    personShip: z.object({ id: idSchema('ship'), name: z.string() }).nullable(),
+  }),
+  z.object({ kind: z.literal('installation') }),
+]);
+
+/** One refused call: who tried to reach whom by which verb, the actor and the ship as they were with their owners, the settings version that refused it and when. */
 export const reachRefusalSchema = z.object({
   id: idSchema('reachRefusal'),
   at: z.iso.datetime(),
-  sender: refusedShipSchema,
+  sender: refusedActorSchema,
   /** The plugin ship that read on behalf of the sender (decision 0034), as it was then; null for the sender's own call. */
   askedBy: refusedShipSchema.nullable(),
   recipient: z.discriminatedUnion('kind', [

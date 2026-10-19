@@ -1,4 +1,5 @@
 import type { AccountId, ConsoleSessionId, FleetId, LeaseId, Scope, ScopeName, ShipId, ShipKind } from '@aeolus-fleet/common';
+import type { Actor } from './events.js';
 
 /**
  * Who a call is authorised for: its actor (decision 0057). A ship, by its
@@ -68,4 +69,20 @@ export function isShipCaller(caller: Caller): caller is ShipCaller {
 /** Whether the caller crews its ship under a lease: a crew token's crew, or argo's console session. */
 export function isCrew(caller: Caller): caller is Crew {
   return 'leaseId' in caller;
+}
+
+/** The actor an event names for the caller (decision 0057): an account by its id only, with the ship that presented its token. */
+export function actorOf(caller: Caller): Actor {
+  switch (caller.kind) {
+    case 'account':
+      return { kind: 'account', accountId: caller.accountId, throughShipId: caller.throughShipId };
+    case 'installation':
+      return { kind: 'installation' };
+    case 'operator':
+    case 'viewer':
+    case 'agent':
+    case 'person':
+    case 'app':
+      return { kind: 'ship', shipId: caller.shipId };
+  }
 }

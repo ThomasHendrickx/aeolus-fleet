@@ -12,6 +12,7 @@ import { OPERATOR, operatorCaller, secretOf, SESSION_MODEL } from './support/cor
 import { newKey } from '../src/testing/keys.js';
 import { createPostgresCore, everyRow, heldUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { refusalOf, unwrap } from '../src/testing/result.js';
+import { refusedShip } from './support/refused-sender.js';
 
 // The fleet's network rules on a real Postgres (decision 0034): the settings
 // kept with their version; a refused send stores nothing but its record, in
@@ -274,7 +275,7 @@ describe('a send under network rules', () => {
           fleetId: argo.fleetId,
           id: read[0]?.id,
           at: core.clock.now(),
-          sender: { id: vault.shipId, name: 'vault', labels: [label(sensitive, 'sensitive')], owner: { id: argo.shipId, name: 'argo' } },
+          sender: { kind: 'ship', id: vault.shipId, name: 'vault', labels: [label(sensitive, 'sensitive')], owner: { id: argo.shipId, name: 'argo' } },
           askedBy: null,
           recipient: { kind: 'ship', ship: { id: planner.shipId, name: 'planner', labels: [label(shared, 'shared')], owner: { id: argo.shipId, name: 'argo' } } },
           verb: 'send',
@@ -347,7 +348,7 @@ describe('a send under rules with terms of any value and of the same value', () 
     unwrap(await core.useCases.sendMessage(planner, aMessage(scout)));
     expect(refusalOf(await core.useCases.sendMessage(planner, aMessage(vault)))).toMatchObject({ kind: 'NOT_REACHABLE' });
     const [refusal] = unwrap(await core.useCases.readReachRefusals(argo));
-    expect([refusal?.sender.labels.map((label) => label.value), refusal?.recipient.kind === 'ship' ? refusal.recipient.ship.labels.map((label) => label.value) : undefined]).toEqual([
+    expect([refusal && refusedShip(refusal.sender).labels.map((label) => label.value), refusal?.recipient.kind === 'ship' ? refusal.recipient.ship.labels.map((label) => label.value) : undefined]).toEqual([
       ['shared'],
       ['sensitive'],
     ]);

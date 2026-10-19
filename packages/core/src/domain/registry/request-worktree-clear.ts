@@ -40,7 +40,7 @@ export function createRequestWorktreeClear(deps: { uow: UnitOfWork<RequestWorktr
       if (!(await tx.ships.find(fleetId, input.shipId))) {
         return refuse('SHIP_NOT_FOUND', `Ship ${input.shipId} does not exist`);
       }
-      const managed = await checkManage({ tx, ids: deps.ids }, { fleetId: fleetId, managerShipId: caller.shipId, shipId: input.shipId, at: deps.clock.now() });
+      const managed = await checkManage({ tx, ids: deps.ids }, { manager: caller, shipId: input.shipId, at: deps.clock.now() });
       if (!managed.isOk) {
         return managed;
       }

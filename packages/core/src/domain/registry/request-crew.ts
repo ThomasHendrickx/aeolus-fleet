@@ -14,7 +14,7 @@ import type { JsonObject } from './report-details.js';
 export interface RequestCrewTx extends Omit<CheckManageTx, 'ships' | 'labels'> {
   ships: Pick<ShipRepository, 'find' | 'findForUpdate'>;
   crewRequests: CrewRequestRepository;
-  labels: Pick<LabelRepository, 'findByValueForShare' | 'carriedBy' | 'find'>;
+  labels: Pick<LabelRepository, 'findByValueForShare' | 'carriedBy' | 'find' | 'findByKey'>;
   events: EventLog;
 }
 
@@ -39,7 +39,7 @@ export function createRequestCrew(deps: { uow: UnitOfWork<RequestCrewTx>; clock:
       if (!ship) {
         return refuse('SHIP_NOT_FOUND', `Ship ${input.shipId} does not exist`);
       }
-      const managed = await checkManage({ tx, ids: deps.ids }, { fleetId: caller.fleetId, managerShipId: caller.shipId, shipId: ship.id, at: deps.clock.now() });
+      const managed = await checkManage({ tx, ids: deps.ids }, { manager: caller, shipId: ship.id, at: deps.clock.now() });
       if (!managed.isOk) {
         return managed;
       }

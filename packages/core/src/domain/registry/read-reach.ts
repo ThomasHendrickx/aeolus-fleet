@@ -1,11 +1,11 @@
-import type { EventType, ShipId } from '@aeolus-fleet/common';
+import type { EventType, ShipId, ShipKind } from '@aeolus-fleet/common';
 
-import type { ShipCaller } from '../shared/caller.js';
+import type { Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { ok, type Result } from '../shared/result.js';
 import type { Recipient } from '../shared/selector.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
-import { rulesInForceAt, type CheckReachTx } from './check-reach.js';
+import { actorAsItIs, rulesInForceAt, type CheckReachTx } from './check-reach.js';
 import { allowsReach, type ReachingShip } from './network-settings.js';
 import type { PluginConnectionRepository, ShipRepository } from './ports.js';
 import type { Ship } from './ship.js';
@@ -22,7 +22,7 @@ export interface ReadReachTx {
   networkSettings: CheckReachTx['networkSettings'];
   ships: Pick<ShipRepository, 'find' | 'list'>;
   pluginConnections: Pick<PluginConnectionRepository, 'find'>;
-  labels: Pick<CheckReachTx['labels'], 'carriedBy'>;
+  labels: CheckReachTx['labels'];
   leases: CheckReachTx['leases'];
 }
 
@@ -33,7 +33,7 @@ export interface MessageParties {
   claimedBy: ShipId | null;
 }
 
-export type ReadReachOf = (caller: ShipCaller) => Promise<ReadReach>;
+export type ReadReachOf = (caller: Caller) => Promise<ReadReach>;
 
 const EVERY: ReadReach = { kind: 'every' };
 
@@ -58,14 +58,17 @@ export function createReadReachOf(deps: { uow: UnitOfWork<ReadReachTx>; clock: C
       if (inForce.builtIns.open.read || (caller.kind === 'viewer' && inForce.builtIns.isViewerReadOn)) {
         return ok(EVERY);
       }
-      const readerShip = await tx.ships.find(fleetId, caller.shipId);
-      const reader = readerShip && (await reachingOf(tx, readerShip));
-      if (reader && (reader.isConnectedPlugin || reader.id === inForce.networkPluginShipId)) {
+      const reader = await actorAsItIs(tx, caller);
+      const readerShip = reader?.ship;
+      if (readerShip && (reader.reaching.kind !== 'account' && reader.reaching.kind !== 'installation') && (reader.reaching.isConnectedPlugin || readerShip.id === inForce.networkPluginShipId)) {
         return ok(EVERY);
       }
+      const ships = await tx.ships.list(fleetId);
+      const kinds = new Map(ships.map((ship) => [ship.id, ship.kind]));
       const read: Ship[] = [];
-      for (const ship of await tx.ships.list(fleetId)) {
-        if (ship.id === caller.shipId || (reader && allowsReach(inForce, { verb: 'read', sender: reader, recipient: await reachingOf(tx, ship), isAnswerToSender: false }))) {
+      for (const ship of ships) {
+        const recipient = await reachingOf(tx, { ship, ownerKind: ship.owner === null ? undefined : kinds.get(ship.owner) });
+        if (ship.id === readerShip?.id || (reader && allowsReach(inForce, { verb: 'read', sender: reader.reaching, recipient, isAnswerToSender: false }))) {
           read.push(ship);
         }
       }
@@ -76,14 +79,16 @@ export function createReadReachOf(deps: { uow: UnitOfWork<ReadReachTx>; clock: C
       });
     });
     // The work refuses nothing; were it to, the caller reads only itself.
-    return worked.isOk ? worked.value : { kind: 'some', shipIds: new Set([caller.shipId]), types: new Set() };
+    return worked.isOk ? worked.value : { kind: 'some', shipIds: new Set(caller.kind === 'account' || caller.kind === 'installation' ? [] : [caller.shipId]), types: new Set() };
   };
 }
 
-async function reachingOf(tx: Pick<ReadReachTx, 'labels' | 'pluginConnections'>, ship: Ship): Promise<ReachingShip> {
+/** A ship as a read check sees it, its owner's kind taken from the fleet's list rather than read again. */
+async function reachingOf(tx: Pick<ReadReachTx, 'labels' | 'pluginConnections'>, of: { ship: Ship; ownerKind: ShipKind | undefined }): Promise<ReachingShip> {
+  const { ship, ownerKind } = of;
   const labels = (await tx.labels.carriedBy(ship.fleetId, ship.id)).map(({ labelId, valueId }) => ({ labelId, valueId }));
   const isConnectedPlugin = (await tx.pluginConnections.find(ship.fleetId, ship.id)) !== undefined;
-  return { id: ship.id, owner: ship.owner, kind: ship.kind, isConnectedPlugin, labels };
+  return { id: ship.id, owner: ship.owner, kind: ship.kind, isConnectedPlugin, isOwnedByPerson: ownerKind === 'person', labels };
 }
 
 export function readsShip(reach: ReadReach, shipId: ShipId): boolean {

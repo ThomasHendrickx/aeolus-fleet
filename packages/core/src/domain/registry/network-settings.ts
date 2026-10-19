@@ -204,8 +204,8 @@ export type SetBuiltInRuleRefusal = DomainError<'BUILT_IN_RULE_FIXED' | 'NOT_THE
 /**
  * A built-in rule turned on or off, as its own action (decision 0034): the
  * viewer reading by argo, open for one verb by the fleet's networking plugin.
- * argo, the owner, the answer and a connected plugin's reading are never off,
- * so turning them is refused.
+ * argo, the owner, the answer, a connected plugin's reading and the
+ * installation's managing are never off, so turning them is refused.
  * A change moves the version and writes BuiltInRuleChanged; a rule already
  * as asked changes nothing.
  */
@@ -214,7 +214,7 @@ export function setBuiltInRule(
   change: { input: SetBuiltInRuleInput; caller: { shipId: ShipId; isOperator: boolean }; at: Date; actor: Actor },
 ): Result<{ settings: NetworkSettings; events: NewEvent[] }, SetBuiltInRuleRefusal> {
   const { input, caller } = change;
-  if (input.rule === 'argo' || input.rule === 'owner' || input.rule === 'answer' || input.rule === 'pluginRead') {
+  if (input.rule === 'argo' || input.rule === 'owner' || input.rule === 'answer' || input.rule === 'pluginRead' || input.rule === 'installation') {
     return refuse('BUILT_IN_RULE_FIXED', `The built-in rule ${input.rule} is never off (decision 0034)`);
   }
   if (input.rule === 'viewerRead' && !caller.isOperator) {
@@ -350,15 +350,59 @@ export interface ReachingLabel {
 
 /**
  * A ship as a send's check sees it: its id and owner, for the owner exception,
- * its kind, for the argo exception, whether argo connected it as a plugin, and
- * the label values it carries.
+ * its kind, for the argo exception, whether argo connected it as a plugin,
+ * whether its owner is a person ship, for the installation's rule, and the
+ * label values it carries.
  */
 export interface ReachingShip {
   id: ShipId;
   owner: ShipId | null;
   kind: ShipKind;
   isConnectedPlugin: boolean;
+  /** Whether it is owned by a person ship, a person ship owning itself (decision 0045). */
+  isOwnedByPerson: boolean;
   labels: readonly ReachingLabel[];
+}
+
+/**
+ * An account as a check sees it (decision 0057): the label values of `group`
+ * its token carries, and its person ship, which owns itself and through
+ * which the account owns: a selector's owner terms see the person ship as
+ * the account's owner.
+ */
+export interface ReachingAccount {
+  kind: 'account';
+  personShipId: ShipId | null;
+  labels: readonly ReachingLabel[];
+}
+
+/** The installation as a check sees it: no labels, no owner; it manages person ships and what they own by its built-in rule. */
+export interface ReachingInstallation {
+  kind: 'installation';
+}
+
+/** Whoever does the verb: a ship, an account or the installation (decision 0057). */
+export type ReachingActor = ReachingShip | ReachingAccount | ReachingInstallation;
+
+/** What a selector sees of an actor: the owner its owner terms test, and the label values it carries. */
+interface Selected {
+  owner: ShipId | null;
+  labels: readonly ReachingLabel[];
+}
+
+function selectedOf(actor: ReachingActor): Selected {
+  if (actor.kind === 'account') {
+    return { owner: actor.personShipId, labels: actor.labels };
+  }
+  return actor.kind === 'installation' ? { owner: null, labels: [] } : { owner: actor.owner, labels: actor.labels };
+}
+
+/** The ship the actor owns ships as: a ship itself, an account its person ship; the installation none. */
+function owningShipOf(actor: ReachingActor): ShipId | null {
+  if (actor.kind === 'account') {
+    return actor.personShipId;
+  }
+  return actor.kind === 'installation' ? null : actor.id;
 }
 
 /**
@@ -366,41 +410,46 @@ export interface ReachingShip {
  * when none does. The built-in rules that are never off hold whatever the
  * rules: argo reaches every ship and every ship reaches argo, but reads argo
  * only by a rule, so argo's messages are not every ship's to read; an owner's
- * ship reaches the ships it owns (decision 0045), a ship answers the sender of
- * a message it received, and a plugin argo connected, or the fleet's
- * registered networking plugin, reads every ship. The viewer reads every ship while that is on, and
- * every ship reaches every ship by a verb while open is on for it. Otherwise
- * a rule of the verb must match the sender with its `from` and the recipient
- * with its `to`, named by its place in the list. The built-in rules come
- * first, in that order, as the rule list shows them.
+ * ship reaches the ships it owns (decision 0045), and an account the ships
+ * its person ship owns; a ship answers the sender of a message it received;
+ * a plugin argo connected, or the fleet's registered networking plugin,
+ * reads every ship; and the installation manages person ships and the
+ * ships they own (decision 0020). The viewer reads every ship while that is
+ * on, and every actor reaches every ship by a verb while open is on for it.
+ * Otherwise a rule of the verb must match the sender with its `from` and
+ * the recipient with its `to`, named by its place in the list. The built-in
+ * rules come first, in that order, as the rule list shows them.
  */
 export function reachRuleOf(
   settings: Pick<RulesInForce, 'rules' | 'builtIns' | 'networkPluginShipId'>,
-  send: { verb: NetworkVerb; sender: ReachingShip; recipient: ReachingShip; isAnswerToSender: boolean },
+  send: { verb: NetworkVerb; sender: ReachingActor; recipient: ReachingShip; isAnswerToSender: boolean },
 ): ReachRule | undefined {
   const { verb, sender, recipient, isAnswerToSender } = send;
   const { rules, builtIns, networkPluginShipId } = settings;
   if (sender.kind === 'operator' || (recipient.kind === 'operator' && verb !== 'read')) {
     return { builtIn: 'argo' };
   }
-  if (recipient.owner === sender.id) {
+  const owningShip = owningShipOf(sender);
+  if (owningShip !== null && recipient.owner === owningShip) {
     return { builtIn: 'owner' };
   }
   if (verb === 'send' && isAnswerToSender) {
     return { builtIn: 'answer' };
   }
-  if (verb === 'read' && (sender.isConnectedPlugin || sender.id === networkPluginShipId)) {
+  if (verb === 'read' && sender.kind !== 'account' && sender.kind !== 'installation' && (sender.isConnectedPlugin || sender.id === networkPluginShipId)) {
     return { builtIn: 'pluginRead' };
   }
   if (verb === 'read' && sender.kind === 'viewer' && builtIns.isViewerReadOn) {
     return { builtIn: 'viewerRead' };
   }
+  if (verb === 'manage' && sender.kind === 'installation' && (recipient.kind === 'person' || recipient.isOwnedByPerson)) {
+    return { builtIn: 'installation' };
+  }
   if (builtIns.open[verb]) {
     return { builtIn: 'open' };
   }
-  const index = rules.findIndex(
-    (rule) => rule.verb === verb && matches(rule.from, { ship: sender, otherSide: recipient }) && matches(rule.to, { ship: recipient, otherSide: sender }),
-  );
+  const [from, to] = [selectedOf(sender), selectedOf(recipient)];
+  const index = rules.findIndex((rule) => rule.verb === verb && matches(rule.from, { actor: from, otherSide: to }) && matches(rule.to, { actor: to, otherSide: from }));
   return index === -1 ? undefined : { index };
 }
 
@@ -410,13 +459,13 @@ export type ReachRule = { builtIn: BuiltInRule } | { index: number };
 /** Whether the settings let the sender do the verb to the recipient: some rule does (see reachRuleOf). */
 export function allowsReach(
   settings: Pick<RulesInForce, 'rules' | 'builtIns' | 'networkPluginShipId'>,
-  send: { verb: NetworkVerb; sender: ReachingShip; recipient: ReachingShip; isAnswerToSender: boolean },
+  send: { verb: NetworkVerb; sender: ReachingActor; recipient: ReachingShip; isAnswerToSender: boolean },
 ): boolean {
   return reachRuleOf(settings, send) !== undefined;
 }
 
-/** A ship matches a selector when every term of it holds, combined with AND. */
-function matches(selector: readonly SelectorTerm[], sides: { ship: ReachingShip; otherSide: ReachingShip }): boolean {
+/** An actor matches a selector when every term of it holds, combined with AND. */
+function matches(selector: readonly SelectorTerm[], sides: { actor: Selected; otherSide: Selected }): boolean {
   return selector.every((term) => holds(term, sides));
 }
 
@@ -428,8 +477,8 @@ function matches(selector: readonly SelectorTerm[], sides: { ship: ReachingShip;
  * a ship owned by that ship, for a ship with an owner, or for a ship with the
  * same owner as the other side.
  */
-function holds(term: SelectorTerm, sides: { ship: ReachingShip; otherSide: ReachingShip }): boolean {
-  const { ship, otherSide } = sides;
+function holds(term: SelectorTerm, sides: { actor: Selected; otherSide: Selected }): boolean {
+  const { actor: ship, otherSide } = sides;
   if (typeof term === 'string') {
     return ship.labels.some((label) => label.valueId === term);
   }

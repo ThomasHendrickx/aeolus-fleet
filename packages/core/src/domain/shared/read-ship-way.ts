@@ -42,7 +42,7 @@ export function createReadShipWay(deps: { history: ShipHistory; uow: UnitOfWork<
     }
     // A refused read commits its record, then refuses.
     const checked = await deps.uow.run(async (tx) =>
-      ok(await checkRead({ tx, ids: deps.ids }, { fleetId: caller.fleetId, readerShipId: caller.shipId, askedBy: caller.askedBy ?? null, shipId, at: deps.clock.now() })),
+      ok(await checkRead({ tx, ids: deps.ids }, { reader: caller, askedBy: caller.askedBy ?? null, shipId, at: deps.clock.now() })),
     );
     if (checked.isOk && !checked.value.isOk) {
       return checked.value;

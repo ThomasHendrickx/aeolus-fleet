@@ -11,6 +11,7 @@ import type { ShipCaller } from '../shared/caller.js';
 import type { Selector } from '../shared/selector.js';
 import { UNDELIVERABLE_AT_ATTEMPT } from './delivery.js';
 import type { MessageToSend } from './send-message.js';
+import { refusedShip } from '../../../test/support/refused-sender.js';
 
 /**
  * The fleet's network rules on every send (decision 0034): planner (trust
@@ -407,7 +408,7 @@ describe('the record of a refused send', () => {
         fleetId,
         id: refusal?.id,
         at: core.clock.now(),
-        sender: { id: scout.shipId, name: 'scout', labels: [label('team', 'b'), label('trust', 'shared')], owner: { id: argo.shipId, name: 'argo' } },
+        sender: { kind: 'ship', id: scout.shipId, name: 'scout', labels: [label('team', 'b'), label('trust', 'shared')], owner: { id: argo.shipId, name: 'argo' } },
         askedBy: null,
         recipient: { kind: 'ship', ship: { id: vault.shipId, name: 'vault', labels: [label('trust', 'sensitive')], owner: { id: argo.shipId, name: 'argo' } } },
         verb: 'send',
@@ -424,7 +425,7 @@ describe('the record of a refused send', () => {
 
     const [refusal] = core.state.reachRefusals;
     const valuesOf = (labels: readonly { key: string; value: string }[] | undefined) => labels?.filter((label) => label.key === 'trust').map((label) => label.value);
-    expect([valuesOf(refusal?.sender.labels), refusal?.recipient.kind === 'ship' ? valuesOf(refusal.recipient.ship.labels) : undefined]).toEqual([['shared'], ['sensitive']]);
+    expect([valuesOf(refusal && refusedShip(refusal.sender).labels), refusal?.recipient.kind === 'ship' ? valuesOf(refusal.recipient.ship.labels) : undefined]).toEqual([['shared'], ['sensitive']]);
     expect(refusal?.settingsVersion).toBe(4);
   });
 
@@ -435,7 +436,7 @@ describe('the record of a refused send', () => {
     refusalOf(await messaging.sendMessage(scout, aMessage(toShip(vault))));
 
     const [refusal] = core.state.reachRefusals;
-    expect([refusal?.sender.owner, refusal?.recipient.kind === 'ship' ? refusal.recipient.ship.owner : undefined]).toEqual([
+    expect([refusal && refusedShip(refusal.sender).owner, refusal?.recipient.kind === 'ship' ? refusal.recipient.ship.owner : undefined]).toEqual([
       { id: argo.shipId, name: 'argo' },
       { id: thomasId, name: 'thomas' },
     ]);
@@ -455,7 +456,7 @@ describe('the record of a refused send', () => {
     refusalOf(await messaging.sendMessage(scout, aMessage(toShip(vault))));
     refusalOf(await messaging.sendMessage(planner, aMessage(toShip(vault))));
 
-    expect(core.state.reachRefusals.map((refusal) => refusal.sender.name)).toEqual(['scout', 'planner']);
+    expect(core.state.reachRefusals.map((refusal) => refusedShip(refusal.sender).name)).toEqual(['scout', 'planner']);
   });
 });
 
@@ -582,7 +583,7 @@ describe("the operator's resend of an undeliverable delivery", () => {
 
     refusalOf(await messaging.resendDelivery(argo, { deliveryId: deliveryIdOf(core, undeliverable.messageId) }));
 
-    expect(core.state.reachRefusals.map((refusal) => [refusal.sender.name, refusal.recipient.kind === 'ship' ? refusal.recipient.ship.name : refusal.recipient.type, refusal.settingsVersion])).toEqual([
+    expect(core.state.reachRefusals.map((refusal) => [refusedShip(refusal.sender).name, refusal.recipient.kind === 'ship' ? refusal.recipient.ship.name : refusal.recipient.type, refusal.settingsVersion])).toEqual([
       ['planner', 'vault', 4],
     ]);
   });

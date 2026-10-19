@@ -1,10 +1,9 @@
 import type { IdGenerator, ShipId } from '@aeolus-fleet/common';
 
 import { revokeShipSecret, type CredentialTx } from '../identity/public.js';
-import type { ShipCaller } from '../shared/caller.js';
+import { actorOf, type Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
-import { shipActor } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { endLease, type LeaseTx } from './leases.js';
@@ -23,7 +22,7 @@ export interface ReleaseShipTx extends LeaseTx, CredentialTx, Omit<ManagedOrAssi
 export type ReleaseShipRefusal = DomainError<'SHIP_NOT_FOUND' | 'CREW_REQUEST_NOT_ASSIGNED_TO_CALLER'> | NotReachable | ReleaseRefusal;
 
 export type ReleaseShip = (
-  caller: ShipCaller,
+  caller: Caller,
   input: { shipId: ShipId },
 ) => Promise<Result<undefined, ReleaseShipRefusal>>;
 
@@ -61,7 +60,7 @@ export function createReleaseShip(deps: {
       if (!reaches.isOk) {
         return reaches;
       }
-      const actor = shipActor(caller.shipId);
+      const actor = actorOf(caller);
 
       await revokeShipSecret({ tx, ids: deps.ids }, { fleetId, shipId, actor, at });
       const lease = checkCanRelease(ship, await tx.leases.findOpenForUpdate(fleetId, shipId));

@@ -9,6 +9,7 @@ import { newKey } from '../../testing/keys.js';
 import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
 import { refusalOf, unwrap } from '../../testing/result.js';
 import type { ShipCaller, Crew } from './caller.js';
+import { refusedShip } from '../../../test/support/refused-sender.js';
 
 let scene: HistoryScenario;
 
@@ -178,7 +179,7 @@ describe("reading the way of a ship outside read reach (decision 0034)", () => {
     expect({
       count: fleet.core.state.reachRefusals.length,
       at: refusal?.at,
-      sender: [refusal?.sender.id, refusal?.sender.labels.map(({ key, value }) => `${key}=${value}`), refusal?.sender.owner?.name],
+      sender: [refusal && refusedShip(refusal.sender).id, refusal && refusedShip(refusal.sender).labels.map(({ key, value }) => `${key}=${value}`), refusal && refusedShip(refusal.sender).owner?.name],
       recipient: [recipient?.id, recipient?.labels.map(({ key, value }) => `${key}=${value}`)],
       verb: refusal?.verb,
       settingsVersion: refusal?.settingsVersion,
@@ -205,7 +206,7 @@ describe("reading the way of a ship outside read reach (decision 0034)", () => {
 
     await fleet.history.readShipWay(onBehalf, { shipId: fleet.far.shipId });
 
-    expect(fleet.core.state.reachRefusals.map(({ sender, askedBy }) => [sender.id, askedBy?.id, askedBy?.name])).toEqual([[fleet.reader.shipId, fleet.networking.shipId, 'networking']]);
+    expect(fleet.core.state.reachRefusals.map(({ sender, askedBy }) => [refusedShip(sender).id, askedBy?.id, askedBy?.name])).toEqual([[fleet.reader.shipId, fleet.networking.shipId, 'networking']]);
   });
 
   it('reads the way of a ship within read reach, and of itself, recording nothing', async () => {

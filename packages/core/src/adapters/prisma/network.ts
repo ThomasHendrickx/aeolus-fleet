@@ -8,12 +8,12 @@
  * rules. The settings are read after the lock, so they are the latest
  * committed.
  */
-import { carriedLabelSchema, idSchema, NETWORK_VERBS, networkRuleSchema, WHILE_UNAVAILABLE, type FleetId } from '@aeolus-fleet/common';
+import { accountIdSchema, carriedLabelSchema, idSchema, NETWORK_VERBS, networkRuleSchema, WHILE_UNAVAILABLE, type FleetId } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import { noNetworkSettings, type NetworkSettings } from '../../domain/registry/network-settings.js';
 import type { DeclaredNetworkRulesRepository, NetworkSettingsRepository, ReachRefusalRepository } from '../../domain/registry/ports.js';
-import type { ReachRefusal, RefusedShip } from '../../domain/registry/reach-refusal.js';
+import type { ReachRefusal, RefusedActor, RefusedShip } from '../../domain/registry/reach-refusal.js';
 import type { Db } from './client.js';
 import { Prisma } from './generated/client.js';
 
@@ -37,11 +37,24 @@ const refusedShipSchema = z.object({
   owner: z.object({ id: idSchema('ship'), name: z.string() }).nullable(),
 });
 
+/** Who a refusal refused (decision 0057): a ship as before, an account by its id only, or the installation. */
+const refusedActorSchema = z.union([
+  // A ship's record kept before accounts were actors names no kind.
+  refusedShipSchema.extend({ kind: z.literal('ship').default('ship') }),
+  z.object({
+    kind: z.literal('account'),
+    accountId: accountIdSchema,
+    labels: z.array(carriedLabelSchema),
+    personShip: z.object({ id: idSchema('ship'), name: z.string() }).nullable(),
+  }),
+  z.object({ kind: z.literal('installation') }),
+]);
+
 const refusalRowSchema = z.object({
   id: idSchema('reachRefusal'),
   fleetId: idSchema('fleet'),
   at: z.date(),
-  sender: refusedShipSchema,
+  sender: refusedActorSchema,
   askedBy: refusedShipSchema.nullable(),
   recipient: z.discriminatedUnion('kind', [
     z.object({ kind: z.literal('ship'), ship: refusedShipSchema }),
@@ -136,7 +149,7 @@ export function createPrismaDeclaredNetworkRulesRepository(db: Db): DeclaredNetw
 export function createPrismaReachRefusalRepository(db: Db): ReachRefusalRepository {
   return {
     record: async ({ id, fleetId, at, sender, askedBy, recipient, verb, settingsVersion, whilePluginUnavailable }) => {
-      await db.reachRefusal.create({ data: { id, fleetId, at, sender: shipJson(sender), askedBy: askedBy === null ? Prisma.DbNull : shipJson(askedBy), recipient: recipientJson(recipient), verb, settingsVersion, whilePluginUnavailable } });
+      await db.reachRefusal.create({ data: { id, fleetId, at, sender: actorJson(sender), askedBy: askedBy === null ? Prisma.DbNull : shipJson(askedBy), recipient: recipientJson(recipient), verb, settingsVersion, whilePluginUnavailable } });
     },
     latest: async (fleetId, limit) => {
       const rows = await db.reachRefusal.findMany({ where: { fleetId }, orderBy: [{ at: 'desc' }, { id: 'desc' }], take: limit });
@@ -147,6 +160,17 @@ export function createPrismaReachRefusalRepository(db: Db): ReachRefusalReposito
 
 function shipJson(ship: RefusedShip) {
   return { id: ship.id, name: ship.name, labels: ship.labels.map((label) => ({ ...label })), owner: ship.owner === null ? null : { ...ship.owner } };
+}
+
+function actorJson(actor: RefusedActor) {
+  switch (actor.kind) {
+    case 'ship':
+      return { kind: actor.kind, ...shipJson(actor) };
+    case 'account':
+      return { kind: actor.kind, accountId: actor.accountId, labels: actor.labels.map((label) => ({ ...label })), personShip: actor.personShip === null ? null : { ...actor.personShip } };
+    case 'installation':
+      return { kind: actor.kind };
+  }
 }
 
 function recipientJson(recipient: ReachRefusal['recipient']) {

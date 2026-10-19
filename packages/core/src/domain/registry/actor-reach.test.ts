@@ -65,7 +65,7 @@ describe("an account's manage reach", () => {
     expect(fleet.core.state.reachRefusals.map(({ verb, sender }) => ({ verb, sender }))).toEqual([
       {
         verb: 'manage',
-        sender: { kind: 'account', accountId: MATHILDE, labels: [{ labelId: expect.any(String), key: 'group', valueId: group('engineering'), value: 'engineering' }], personShip: null },
+        sender: { kind: 'account', accountId: MATHILDE, labels: [{ labelId: labelIdOf(fleet.core, 'group'), key: 'group', valueId: group('engineering'), value: 'engineering' }], personShip: null },
       },
     ]);
   });
@@ -116,7 +116,7 @@ describe("an account's manage reach", () => {
 
 describe("an account's read reach", () => {
   it('reads in full only the ships a read rule on its group values lets it read', async () => {
-    const ships = unwrap(await fleet.registry.listFleet(mathilde, {}));
+    const ships = await fleet.registry.listFleet(mathilde, {});
 
     expect(ships.find((ship) => ship.id === fleet.near.shipId)).toHaveProperty('scopes');
     expect(ships.find((ship) => ship.id === fleet.far.shipId)).not.toHaveProperty('scopes');

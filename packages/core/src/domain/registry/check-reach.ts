@@ -1,13 +1,14 @@
 import type { FleetId, IdGenerator, ShipId } from '@aeolus-fleet/common';
 
+import type { AccountCaller, Caller } from '../shared/caller.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { err, ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import type { Recipient } from '../shared/selector.js';
 import type { CarriedLabel } from './label.js';
-import { allowsReach, isNetworkPluginResponding, rulesInForce, type NetworkSettings, type ReachingShip, type RulesInForce } from './network-settings.js';
+import { allowsReach, isNetworkPluginResponding, rulesInForce, type NetworkSettings, type ReachingActor, type ReachingShip, type RulesInForce } from './network-settings.js';
 import type { LabelRepository, LeaseRepository, NetworkSettingsRepository, PluginConnectionRepository, ReachRefusalRepository, ShipRepository } from './ports.js';
-import type { RefusedShip } from './reach-refusal.js';
+import type { RefusedActor, RefusedShip } from './reach-refusal.js';
 import type { Ship } from './ship.js';
 
 /** The ports a send's reach check reads and writes, inside the send's unit of work. */
@@ -15,7 +16,7 @@ export interface CheckReachTx {
   networkSettings: Pick<NetworkSettingsRepository, 'findForShare'>;
   ships: Pick<ShipRepository, 'find' | 'listActiveOfType'>;
   pluginConnections: Pick<PluginConnectionRepository, 'find'>;
-  labels: Pick<LabelRepository, 'carriedBy' | 'find'>;
+  labels: Pick<LabelRepository, 'carriedBy' | 'find' | 'findByKey'>;
   reachRefusals: ReachRefusalRepository;
   leases: Pick<LeaseRepository, 'findLastSeen'>;
 }
@@ -62,7 +63,7 @@ export async function checkReach(
   }
   const sender = await shipAsItIs(tx, senderShip);
   const allows = (to: ShipAsItIs) => allowsReach(inForce, { verb: 'send', sender: reaching(sender), recipient: reaching(to), isAnswerToSender: send.isAnswerToSender });
-  const refusal = { fleetId, at: send.at, sender: refused(sender), askedBy: null, verb: 'send' as const, settingsVersion: settings.version, whilePluginUnavailable: inForce.whilePluginUnavailable };
+  const refusal = { fleetId, at: send.at, sender: { kind: 'ship' as const, ...refused(sender) }, askedBy: null, verb: 'send' as const, settingsVersion: settings.version, whilePluginUnavailable: inForce.whilePluginUnavailable };
 
   if (recipient.kind === 'type') {
     const ships: ShipAsItIs[] = [];
@@ -98,25 +99,26 @@ export type CheckReadTx = Omit<CheckReachTx, 'ships'> & { ships: Pick<ShipReposi
 /**
  * Whether the read rules let the reader read one ship now, for a read that
  * a ship outside read reach refuses rather than filters (decision 0034). A
- * ship always reads itself. A refusal is recorded here, in the read's unit of
- * work, as a send's is, with the verb read: its caller commits only the record.
+ * ship always reads itself. The reader is any actor (decision 0057). A
+ * refusal is recorded here, in the read's unit of work, as a send's is, with
+ * the verb read: its caller commits only the record.
  */
 export async function checkRead(
   deps: { tx: CheckReadTx; ids: IdGenerator },
-  read: { fleetId: FleetId; readerShipId: ShipId; askedBy: ShipId | null; shipId: ShipId; at: Date },
+  read: { reader: Caller; askedBy: ShipId | null; shipId: ShipId; at: Date },
 ): Promise<Result<undefined, NotReachable>> {
   const { tx, ids } = deps;
-  const { fleetId, at } = read;
+  const { reader: caller, at } = read;
+  const { fleetId } = caller;
   const settings = await tx.networkSettings.findForShare(fleetId);
   const inForce = await rulesInForceAt(tx, { settings, now: at });
-  const readerShip = await tx.ships.find(fleetId, read.readerShipId);
+  const reader = await actorAsItIs(tx, caller);
   const readShip = await tx.ships.find(fleetId, read.shipId);
-  if (!readerShip || !readShip || readerShip.id === readShip.id) {
+  if (!reader || !readShip || reader.ship?.id === readShip.id) {
     return ok(undefined);
   }
-  const reader = await shipAsItIs(tx, readerShip);
   const ship = await shipAsItIs(tx, readShip);
-  if (allowsReach(inForce, { verb: 'read', sender: reaching(reader), recipient: reaching(ship), isAnswerToSender: false })) {
+  if (allowsReach(inForce, { verb: 'read', sender: reader.reaching, recipient: reaching(ship), isAnswerToSender: false })) {
     return ok(undefined);
   }
   const askedBy = read.askedBy === null ? undefined : await tx.ships.find(fleetId, read.askedBy);
@@ -124,7 +126,7 @@ export async function checkRead(
     fleetId,
     id: ids('reachRefusal'),
     at,
-    sender: refused(reader),
+    sender: reader.refused,
     askedBy: askedBy ? refused(await shipAsItIs(tx, askedBy)) : null,
     recipient: { kind: 'ship', ship: refused(ship) },
     verb: 'read',
@@ -140,35 +142,36 @@ export type CheckManageTx = CheckReadTx;
 /**
  * Whether the manage rules let the manager manage the ship now (decision
  * 0034): every fleet:manage call is checked on its target ship, argo
- * reaching every ship and an owner's ship the ships it owns. A refusal is
- * recorded here, in the call's unit of work, with the verb manage: its caller
- * commits only the record. A call that already holds the fleet's network
- * settings for update hands them in, so the check takes no second lock on
- * them.
+ * reaching every ship, an owner's ship the ships it owns, and the
+ * installation person ships and what they own. The manager is any actor
+ * (decision 0057). A refusal is recorded here, in the call's unit of work,
+ * with the verb manage: its caller commits only the record. A call that
+ * already holds the fleet's network settings for update hands them in, so
+ * the check takes no second lock on them.
  */
 export async function checkManage(
   deps: { tx: CheckManageTx; ids: IdGenerator },
-  manage: { fleetId: FleetId; managerShipId: ShipId; shipId: ShipId; at: Date; settings?: NetworkSettings },
+  manage: { manager: Caller; shipId: ShipId; at: Date; settings?: NetworkSettings },
 ): Promise<Result<undefined, NotReachable>> {
   const { tx, ids } = deps;
-  const { fleetId, at } = manage;
+  const { manager: caller, at } = manage;
+  const { fleetId } = caller;
   const settings = manage.settings ?? (await tx.networkSettings.findForShare(fleetId));
   const inForce = await rulesInForceAt(tx, { settings, now: at });
-  const managerShip = await tx.ships.find(fleetId, manage.managerShipId);
+  const manager = await actorAsItIs(tx, caller);
   const managedShip = await tx.ships.find(fleetId, manage.shipId);
-  if (!managerShip || !managedShip) {
+  if (!manager || !managedShip) {
     return ok(undefined);
   }
-  const manager = await shipAsItIs(tx, managerShip);
   const ship = await shipAsItIs(tx, managedShip);
-  if (allowsReach(inForce, { verb: 'manage', sender: reaching(manager), recipient: reaching(ship), isAnswerToSender: false })) {
+  if (allowsReach(inForce, { verb: 'manage', sender: manager.reaching, recipient: reaching(ship), isAnswerToSender: false })) {
     return ok(undefined);
   }
   await tx.reachRefusals.record({
     fleetId,
     id: ids('reachRefusal'),
     at,
-    sender: refused(manager),
+    sender: manager.refused,
     askedBy: null,
     recipient: { kind: 'ship', ship: refused(ship) },
     verb: 'manage',
@@ -221,6 +224,8 @@ export interface ShipAsItIs {
   labels: CarriedLabel[];
   /** Its owner's ship by id and name, none for argo and the viewer (decision 0045). */
   owner: { id: ShipId; name: string } | null;
+  /** Whether its owner is a person ship: a person ship owns itself (decision 0045). */
+  isOwnedByPerson: boolean;
   /** Whether argo connected it as a plugin (decision 0034). */
   isConnectedPlugin: boolean;
 }
@@ -241,11 +246,55 @@ export async function shipAsItIs(
   labels.sort((first, second) => first.key.localeCompare(second.key) || first.value.localeCompare(second.value));
   const owner = ship.owner === null ? undefined : await tx.ships.find(ship.fleetId, ship.owner);
   const isConnectedPlugin = (await tx.pluginConnections.find(ship.fleetId, ship.id)) !== undefined;
-  return { ship, labels, owner: owner ? { id: owner.id, name: owner.name } : null, isConnectedPlugin };
+  return { ship, labels, owner: owner ? { id: owner.id, name: owner.name } : null, isOwnedByPerson: owner?.kind === 'person', isConnectedPlugin };
 }
 
-export function reaching({ ship, labels, isConnectedPlugin }: ShipAsItIs): ReachingShip {
-  return { id: ship.id, owner: ship.owner, kind: ship.kind, isConnectedPlugin, labels: labels.map(({ labelId, valueId }) => ({ labelId, valueId })) };
+export function reaching({ ship, labels, isConnectedPlugin, isOwnedByPerson }: ShipAsItIs): ReachingShip {
+  return { id: ship.id, owner: ship.owner, kind: ship.kind, isConnectedPlugin, isOwnedByPerson, labels: labels.map(({ labelId, valueId }) => ({ labelId, valueId })) };
+}
+
+/** The label that carries an account's groups (decisions 0052, 0058): its token names the values by their texts. */
+export const GROUP_LABEL_KEY = 'group';
+
+/**
+ * The actor as a check sees it and as a refusal records it (decision 0057):
+ * a ship as it is now, undefined when it does not exist; an account with
+ * the values of the fleet's label `group` its token names, a text the fleet
+ * does not define matching nothing, and its person ship; or the
+ * installation.
+ */
+export async function actorAsItIs(
+  tx: { labels: CheckReachTx['labels']; ships: Pick<ShipRepository, 'find'>; pluginConnections: CheckReachTx['pluginConnections'] },
+  caller: Caller,
+): Promise<{ reaching: ReachingActor; refused: RefusedActor; ship?: Ship } | undefined> {
+  if (caller.kind === 'installation') {
+    return { reaching: { kind: 'installation' }, refused: { kind: 'installation' } };
+  }
+  if (caller.kind === 'account') {
+    const labels = await groupLabelsOf(tx, caller);
+    const personShip = caller.personShipId === null ? undefined : await tx.ships.find(caller.fleetId, caller.personShipId);
+    return {
+      reaching: { kind: 'account', personShipId: personShip?.id ?? null, labels: labels.map(({ labelId, valueId }) => ({ labelId, valueId })) },
+      refused: { kind: 'account', accountId: caller.accountId, labels, personShip: personShip ? { id: personShip.id, name: personShip.name } : null },
+    };
+  }
+  const ship = await tx.ships.find(caller.fleetId, caller.shipId);
+  if (!ship) {
+    return undefined;
+  }
+  const asItIs = await shipAsItIs(tx, ship);
+  return { reaching: reaching(asItIs), refused: { kind: 'ship', ...refused(asItIs) }, ship };
+}
+
+async function groupLabelsOf(tx: { labels: CheckReachTx['labels'] }, account: AccountCaller): Promise<CarriedLabel[]> {
+  const label = await tx.labels.findByKey(account.fleetId, GROUP_LABEL_KEY);
+  if (!label) {
+    return [];
+  }
+  return label.values
+    .filter((value) => account.groupValues.includes(value.value))
+    .map((value) => ({ labelId: label.id, key: label.key, valueId: value.id, value: value.value }))
+    .sort((first, second) => first.value.localeCompare(second.value));
 }
 
 function refused({ ship, labels, owner }: ShipAsItIs): RefusedShip {

@@ -82,7 +82,7 @@ export function createRetireShip(deps: {
       }
       const managed = await checkManage(
         { tx, ids: deps.ids },
-        { fleetId, managerShipId: caller.shipId, shipId, at: deps.clock.now(), settings: await tx.networkSettings.find(fleetId) },
+        { manager: caller, shipId, at: deps.clock.now(), settings: await tx.networkSettings.find(fleetId) },
       );
       if (!managed.isOk) {
         return managed;

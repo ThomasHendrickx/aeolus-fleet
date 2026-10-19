@@ -14,6 +14,7 @@ import { createMigratedDatabase } from '../src/testing/database.js';
 import { newKey } from '../src/testing/keys.js';
 import { createTestClock } from './support/postgres-core.js';
 import { refusalOf, unwrap } from '../src/testing/result.js';
+import { refusedShip } from './support/refused-sender.js';
 
 // Read reach from HTTP to Postgres and back (decision 0034): reader, with
 // fleet:read, and near carry team a; far carries team b; the networking
@@ -171,7 +172,7 @@ describe('the fleet:read procedures for a ship outside read reach (decision 0034
     const code = await codeOf(reader.fleet.shipWay.query({ shipId: ids.far }));
 
     const refusals = unwrap(await useCases.readReachRefusals(argo)).filter((refusal) => refusal.verb === 'read');
-    expect([code, refusals.map(({ sender, recipient }) => [sender.id, recipient.kind === 'ship' ? recipient.ship.id : recipient.type])]).toEqual(['FORBIDDEN', [[ids.reader, ids.far]]]);
+    expect([code, refusals.map(({ sender, recipient }) => [refusedShip(sender).id, recipient.kind === 'ship' ? recipient.ship.id : recipient.type])]).toEqual(['FORBIDDEN', [[ids.reader, ids.far]]]);
   });
 
   it('keeps a refused read on behalf with the plugin that asked beside the named ship, and a ship\'s own refused read with none', async () => {
@@ -179,7 +180,7 @@ describe('the fleet:read procedures for a ship outside read reach (decision 0034
     refusalOf(await useCases.readShipWay(onBehalf, { shipId: ids.far }));
 
     const refusals = unwrap(await useCases.readReachRefusals(argo)).filter((refusal) => refusal.verb === 'read');
-    expect(refusals.map(({ sender, askedBy }) => [sender.id, askedBy && [askedBy.id, askedBy.name]])).toEqual([
+    expect(refusals.map(({ sender, askedBy }) => [refusedShip(sender).id, askedBy && [askedBy.id, askedBy.name]])).toEqual([
       [ids.reader, [ids.networking, 'networking']],
       [ids.reader, null],
     ]);

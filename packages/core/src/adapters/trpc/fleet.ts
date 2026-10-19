@@ -101,6 +101,7 @@ import type {} from '@trpc/server/unstable-core-do-not-import';
 import type { ListedShip } from '../../domain/registry/list-fleet.js';
 import type { PingStatus } from '../../domain/registry/ping-status.js';
 import type { ShipFacts } from '../../domain/registry/ports.js';
+import type { RefusedActor } from '../../domain/registry/reach-refusal.js';
 import type { DeliveryWay } from '../../domain/shared/delivery-way.js';
 import type { SequencedEvent } from '../../domain/shared/events.js';
 import { describedHealth } from './health.js';
@@ -717,7 +718,7 @@ export const fleetRouter = router({
       okOrThrow(await ctx.useCases.readReachRefusals(ctx.caller)).map(({ id, at, sender, askedBy, recipient, verb, settingsVersion, whilePluginUnavailable }) => ({
         id,
         at: at.toISOString(),
-        sender: { ...sender, labels: [...sender.labels] },
+        sender: refusedActorOutputOf(sender),
         askedBy: askedBy && { ...askedBy, labels: [...askedBy.labels] },
         recipient:
           recipient.kind === 'ship'
@@ -979,6 +980,11 @@ function listedShipOutputOf(ship: ListedShip) {
     awaitingCrewSince: ship.awaitingCrewSince?.toISOString() ?? null,
     retiredAt: ship.retiredAt?.toISOString() ?? null,
   };
+}
+
+/** Who a refusal refused, as `fleet.reachRefusals` answers it: an account by its id only (decision 0057). */
+function refusedActorOutputOf(actor: RefusedActor) {
+  return actor.kind === 'installation' ? actor : { ...actor, labels: [...actor.labels] };
 }
 
 /** An event as the browser hears it: never its details. */
