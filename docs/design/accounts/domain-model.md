@@ -4,7 +4,7 @@ Design by designer-accounts, for Thomas. Thomas read phase 1 (`accounts.md`) and
 
 1. today's model across every component, one block per concept;
 2. the whole in the domain language (decision 0050): one overview and four flows of how organisation, accounts, fleets, ships of every kind, plugins, the gateway and outside parties act together;
-3. the gaps: every place where the model has no answer or two answers, each tied to the questions of `accounts.md` it touches.
+3. the gaps: every place where the model has no answer or two answers, in the domain language, those 0050 closed marked, each open one tied to the questions of `accounts.md` it touches.
 
 **Thomas decided (19 Oct): organisation is a concept Aeolus needs.**
 
@@ -654,86 +654,124 @@ sequenceDiagram
     P->>P: link the account to the person ship
     P-->>OA: linked
   end
-  Note over P,C: who commissions the person ship (argo alone, or an organisation admin through a grant) is a question of accounts.md
+  Note over P,C: who commissions the person ship (argo alone, or an organisation admin through a grant) is question 5 of accounts.md
 ```
 
-### 2.5 An outside party is approved and called
+### 2.5a An outside MCP server is added and called (outbound)
+
+The server never asks to join: argo, or an organisation admin given that grant (question 5), adds it on the gateway's page. Nothing waits on a human, so there is nothing to notify.
 
 ```mermaid
 sequenceDiagram
-  participant OP as Outside party
-  participant GW as Gateway
-  actor O as Operator
+  actor AP as argo or an organisation admin
+  participant GW as Gateway (its page)
   participant C as core (fleet)
   participant S as A ship
-  OP->>GW: ask to reach the fleet
-  GW->>O: approve this outside party?
-  alt refused
-    O-->>GW: no
-    GW-->>OP: refused
-  else approved
-    O-->>GW: approve, owner a person ship or argo, its scopes
-    GW->>C: commission the proxy ship (kind app), its owner and scopes
-    GW->>C: crew the proxy ship
-    GW-->>OP: approved
-  end
-  OP->>GW: call a capability of a ship
-  GW->>C: send as the proxy ship
+  participant OS as Outside MCP server
+  AP->>GW: approve the outside MCP server: its URL, credential, owner, scopes
+  GW->>C: commission the proxy ship (kind app), its owner and scopes
+  GW->>C: crew the proxy ship
+  GW->>OS: list its tools
+  GW->>C: statement of the proxy ship: one capability per tool
+  GW-->>AP: approved
+  S->>C: send a tool call to the proxy ship
   alt reach refuses
-    C-->>GW: refused, without reasons
-    GW-->>OP: refused
+    C-->>S: refused, without reasons
   else stored
-    C-->>GW: OK
-    C->>S: delivery
-    alt answered within the capability's deadline
-      S->>C: ack, then the answer
-      C->>GW: delivery of the answer
-      GW-->>OP: the answer
-    else deadline passed
-      GW-->>OP: no answer yet
+    C-->>S: OK
+    C->>GW: delivery, as the proxy ship's crew
+    GW->>OS: the tool call, with the credential
+    alt answered
+      OS-->>GW: the result
+      GW->>C: reply to the ship with the result
+      C->>S: delivery of the result
+    else no answer, and argo did not mark the tool repeatable
+      GW->>C: not handled: it may have run
+      Note over C: argo resends or dismisses
     end
   end
 ```
 
+### 2.5b An outside MCP client asks, waits for approval and calls (inbound)
+
+The client asks with the OAuth authorize request. Today that works only when argo is signed in to the console in the same browser at that moment (gap G32). Drawn here is the case where argo is away, with the pick of question 20: the gateway keeps the request, asks argo with a question (0038), and the human at the client connects again.
+
+```mermaid
+sequenceDiagram
+  actor R as Human at the client
+  participant MC as Outside MCP client
+  participant GW as Gateway
+  participant C as core (fleet)
+  actor AP as argo or an organisation admin
+  R->>MC: add the fleet's MCP address
+  MC->>GW: OAuth authorize request (in the human's browser)
+  alt outside party approved before
+    GW-->>MC: code, then a token, at once
+  else denied before
+    GW-->>MC: access_denied
+  else new
+    GW->>GW: keep the request as pending
+    GW->>C: question (0038) to argo: approve this outside MCP client?
+    GW-->>R: "waiting for approval"
+    C->>AP: delivery of the question
+    alt approved
+      AP->>C: answer: approve, its proxy ship's owner and scopes
+      C->>GW: delivery of the answer
+      GW->>C: commission and crew the proxy ship (kind app)
+      alt browser still open
+        GW-->>MC: code, then a token
+      else browser closed
+        R->>MC: connect again
+        MC->>GW: OAuth authorize request
+        GW-->>MC: code at once, then a token
+      end
+    else denied
+      AP->>C: answer: deny
+      C->>GW: delivery of the answer
+      GW-->>MC: access_denied, now or on the next try
+    else no answer
+      Note over GW,AP: the request stays pending, kept for a time phase 2 sets
+    end
+  end
+  MC->>GW: call a tool, as the outside party
+  GW->>C: send as the proxy ship, within its scopes and reach
+```
+
 ## 3. Gaps
 
-Each gap is a place where the model has no answer or two answers. "Organisation" says whether Thomas's decisions of 19 Oct (organisation, and pagasae as its home) answer or narrow it. "Questions" names the questions of the revised list in `accounts.md` (1 to 25) that take it up; every gap has at least one.
+Each gap is a place where the model has no answer or two answers, said in the domain language (decision 0050). "Closed or narrowed" says what Thomas's decisions of 19 Oct (organisation in pagasae, and the language of 0050) already settle. "Questions" names the questions of `accounts.md` (1 to 20) that take up what is left; a gap closed by 0050 needs none.
 
-| # | Gap | No answer or two answers | Organisation | Questions |
+| # | Gap | No answer or two answers | Closed or narrowed | Questions |
 | --- | --- | --- | --- | --- |
-| G1 | **What a human is.** A human appears as five unrelated things: an operator account (email), a pagasae account (email), pagasae's owner (a setting), a person ship (no identity at all), and a viewer session (anonymous). Nothing links them, and 0045 left "a person record beside the person's ship" out | No answer | Answers: a human is an account of the organisation | 1, 4, 14 |
-| G2 | **"Account" is taken three times.** The operator account (core), the pagasae account (pagasae), and the company Google or Microsoft account people sign in with; `console.account` also answers a viewer's session, which has no account | Two answers, three meanings | Narrows: one account, the organisation's; the operator and pagasae accounts fold in | 13, 16, 20 |
-| G3 | **"Owner" is taken three times.** A ship's owner (0045), a label's owner (0031: the ship that defined it, with rights to assign it), and pagasae's owner (the hosting service's runner). The first two are both ships but mean different things: answering for a ship, and holding rights over a label | Two answers, three meanings | No | 20 |
-| G4 | **"Role" is already taken.** A squadron member has a role, from its template (squadrons `Member`, 0017). Thomas's "roles" for humans would be a second meaning; 0046 rejected roles as a scope bundle | Two answers | Narrows: a role may be the organisation's, a fleet keeps scopes | 4, 6 |
-| G5 | **"Session" is taken three times.** The agent run crewing a ship (blueprint), the console session (core, `ses_`), and pagasae's session. A gateway sign-in will add a fourth | Two answers | No | 20 |
-| G6 | **"Connection" and "connect" mean three things.** argo's Connect of a plugin in core (`PluginConnection`: the plugin reads every ship), each plugin's own connection (its ship's crew token, `Connection`, `ManagementCrew`), and phase 1's "connect a person" | Two answers | No | 7, 20 |
-| G7 | **Rights that sit on a session, not on a ship.** The operator's way in is an account and a console session; the notices and the guide pick their audience by session kind (`operators`, `viewers`), not by scope; the gateway decides "argo approves" by the console session's `fleet:manage`, which works only because no other human has a console session; squadrons serves writes to the operator's session alone | Two answers: scopes and session kind | Narrows: argo's console session belongs to an account | 1, 5, 13, 24 |
-| G8 | **Rights outside any fleet, held by no ship.** The installation token (the hosting service), pagasae's owner (by email setting) and the pagasae account (deletes its fleet through the installation) act on fleets without being a ship. 0020 allows the hosting service as the one non-ship caller; the account and owner ride on it | Rights outside the model | Answers: organisation rights are pagasae's, beside the installation token pagasae already holds | 2, 4 |
-| G9 | **One human, several ships, unseen.** Several humans can share argo's password; many humans share the one viewer ship; nothing tells them apart in the events, which name only the ship | No answer for "who did it" | Narrows: each account crews argo as itself | 5, 13 |
-| G10 | **Things only argo can do.** Commission a person ship; change an owner; grant a plugin's scope; read refusals; explain reach; connect a plugin; edit the network (networking plugin); approve a party, register an OAuth client, set the identity provider and mark a tool (gateway); write in squadrons' pages; reset a password (a server command) | One holder for all of it | No | 5, 7 |
-| G11 | **The party's owner is kept twice.** The gateway stores the owner argo picked on the party (`Party.ownerShipId`), and core stores the proxy ship's owner (`Ship.ownerShipId`). argo can change the second with `fleet.setOwner`; the first then disagrees | Two answers | No | 19 |
-| G12 | **One address against one endpoint per fleet.** Thomas decided one gateway address for all fleets. The gateway serves one MCP endpoint per fleet, `/fleets/<alias>/mcp`, and binds every token to it (commit `916d431`, "one fleet URL", interop 1) | Two answers | Answers: sign in, find the organisation, then the fleet | 12 |
-| G13 | **The identity provider has no people.** The gateway keeps one IdP per fleet (issuer, client id) but nothing that says which IdP subject is which person ship, nor which directory (tenant) the fleet is. I-4 says "by argo's mapping"; the mapping exists nowhere | No answer | Answers: the accounts are the organisation's; a directory signs them in later | 11, 17 |
-| G14 | **A person's email lives in two places.** The pagasae account's email and the operator account's email are the same person, kept twice, in two stores; a change in one leaves the other | Two answers | Answers: one account, in pagasae | 16 |
-| G15 | **Who approves an MCP client is argo, by a console session, in the gateway's page; who approves a person is nobody.** Clients get a party and an app proxy ship at `/authorize`; a person's MCP client has no path to a person ship, though the interop table lists that case (interop 3.2) | No answer | Narrows: a person is an account; their MCP client signs in as it | 7, 9, 11, 14 |
-| G16 | **Plugin and trierarch ships are agents.** They are processes, not sessions with a model (squadrons states its package and version, 0018), yet their kind is agent because a commission defaults to it. "Be true to what a ship is" (0044) has no kind for them | No answer | No | 21 |
-| G17 | **The machine's human.** A trierarch runs on a person's machine, and the trierarch plugin's placement is "across people's machines" (0030), but the trierarch ship is argo's and nothing names whose machine it is. Placement by person has no fact to select on | No answer | Narrows: a machine could name an account | 22 |
-| G18 | **Where a person answers a question.** Questions go to the owner's ship (0038); argo answers in the console, whose questions UI is frozen (0043). A person ship's crew is "their app or a chat" or the gateway, but no component today shows a person their questions | No answer | No | 24 |
-| G19 | **The viewer is a ship, its humans are not.** Many viewer sessions crew one ship with no lease; a viewer is "anyone the hosting service hands a ticket". If a person needs a read-only look (J6), the viewer cannot tell them apart and reads every ship | Two answers for read-only: the viewer ship, or a person ship with `fleet:read` | Narrows: a person's read-only look is their person ship with `fleet:read` | 23 |
-| G20 | **A leaver's ships.** When a person leaves, their person ship's owned ships fall to argo only once the person ship is retired (0045). Nothing says who retires it, and the IdP has no way to tell the fleet | No answer | Narrows: the organisation disables the account | 15 |
-| G21 | **The first human of a fleet.** Self-hosted: a server command creates the operator account. Hosted: pagasae's sign-up creates it. With the gateway, the first person to sign in with the company account has no ship until someone connects them, and only argo can | No answer for who goes first | Answers: the organisation's first account, from pagasae's sign-up, hosted or self-hosted | 13, 16, 25 |
-| G22 | **Outside people.** A supplier's employee has no place: outside parties are app ships, a person ship is the organisation's own | No answer | No | 18 |
-| G23 | **Notices and the guide address operators and viewers only.** People signing in through the gateway are neither; their app shows its own (scope rework 0.6) | No answer | No | 24 |
-
-New gaps, from organisation:
-
-| # | Gap | No answer or two answers | Organisation | Questions |
-| --- | --- | --- | --- | --- |
-| G24 | **Organisation is prose only.** "One organisation, one fleet" (blueprint Principles, 0043) and "Organisation rules belong to the organisation" (blueprint Purpose) name it; no store holds it | No answer | Answers: in pagasae (Thomas's lead) | 2 |
-| G25 | **Two tenants.** The fleet is the tenant: every record has `fleet_id` and lookups before the fleet is known are named exceptions (0007). An organisation above its fleets is a second boundary, and an account is found before any fleet is | Two answers | Answers: the organisation lives in pagasae, so core's tenant stays the fleet (0007) | 2, 3 |
-| G26 | **The principle against several fleets.** "One organisation, one fleet, many actors" against an organisation that "has fleets" (Thomas's words of 19 Oct) | Two answers | Raised | 3 |
-| G27 | **The directory sits in the gateway, per fleet.** The gateway keeps one identity provider per fleet (`IdentityProvider`); the organisation's directory belongs to the organisation and serves every fleet and the console, not only the gateway | Two answers | Answers: the directory moves to pagasae | 11, 17 |
-| G28 | **The installation knows fleets, not organisations.** Fleet create names an operator email; limits and the fleet cap are per fleet and per installation (0020); notices address sessions. Who creates an organisation, and what is limited per organisation, has no place | No answer | Narrows: pagasae creates the fleets of an organisation through the installation; what is limited per organisation is pagasae's | 3, 16, 25 |
-| G29 | **Rights on an account.** Managing the organisation (its accounts, its fleets, its directory) happens above every fleet, where no ship is, so these rights sit on the account. That is the one place rights would not be a ship's (0012: every caller is a ship) | Two answers: account and ship | Raised | 4 |
-| G30 | **One human in two organisations.** A consultant works for two; Entra makes them a guest in the second. One account per organisation, or one human with accounts in several, has no answer | No answer | Raised | 18 |
-| G31 | **pagasae is hosted only and private.** Its README opens "Private"; it serves one account, one fleet, and assumes a hosting service (terms, the demo, the owner's pages). A self-hosted fleet has its operator account in core and no pagasae, so organisation management (Thomas's point 2) has no home there | No answer | Raised by Thomas's lead | 25 |
+| G1 | **What a human is.** A human appears as five unrelated things: the operator's email and password (core), pagasae's account (one email, one fleet), the installation admin (a setting), a person ship (no account), and the viewer's sign-ins (anonymous). Nothing links them | No answer | Closed by 0050: a human is an account in an organisation, linked to a person ship. Left: one person ship per fleet | 1 |
+| G2 | **Account means three things.** The operator's login in core, pagasae's account, and a Google or Microsoft login; `console.account` also answers the viewer's sign-in | Two answers | Closed by 0050: account is only a human's in the organisation; a Google or Microsoft login is an identity | 10, 13 |
+| G3 | **Owner means three things.** A ship's owner (0045), the ship that defined a label (0031), and pagasae's `OWNER_EMAIL` | Two answers | Closed by 0050: owner, definer, installation admin | none |
+| G4 | **Role for humans.** A squadron member has a role (0017); a role for humans would be a second meaning, and 0046 rejected scope bundles | Two answers | Closed by 0050: no role for humans; a human's rights in a fleet are their ship's scopes | 4 |
+| G5 | **Session means three things.** The agent run crewing a ship, the console's login (`ConsoleSession`, `ses_`), and pagasae's login; a gateway login would add a fourth | Two answers | Closed by 0050: session is only an agent run; every human login is a sign-in | none |
+| G6 | **Connect means three things.** argo connecting a plugin (`PluginConnection`), each plugin's stored connection, and phase 1's "connect a person" | Two answers | Closed by 0050: connect is argo's and the plugin's connection the same relation; an account is linked | 5 |
+| G7 | **Rights that sit on a sign-in, not on a ship.** Notices and the guide pick their audience by the kind of console sign-in, not by scope; the gateway decides "argo approves" by the console sign-in's `fleet:manage`, which works only because no other human signs in to the console; squadrons serves writes to argo's sign-in alone | Two answers: scopes and the kind of sign-in | Narrowed: argo's console sign-in names its account | 1, 3, 10, 18 |
+| G8 | **Rights outside any fleet, held by no ship.** The installation token (the hosting service), the installation admin and pagasae's account (it deletes its fleet through the installation) act on fleets without being a ship. 0020 allows the hosting service as the one caller that is not a ship | Rights outside the model | Narrowed: organisation rights are pagasae's, beside the installation token pagasae holds | 2 |
+| G9 | **One human, several ships, unseen.** Several humans can share argo's password; many share the viewer; the events name only the ship | No answer for "who did it" | Narrowed: each account signs in as argo as itself | 3, 10 |
+| G10 | **What only argo does.** Commission a person ship; change an owner; grant a plugin's scope; read refusals; explain reach; connect a plugin; edit the network (networking plugin); approve an outside party, register an OAuth client, set the identity provider and mark a tool (gateway); write on squadrons' pages; reset the password (a server command) | One holder for all of it | No | 3, 5 |
+| G11 | **The outside party's owner is kept twice.** The gateway stores the owner argo picked (`Party.ownerShipId`); core stores the proxy ship's owner. `fleet.setOwner` changes only core's | Two answers | No | 16 |
+| G12 | **One address against one endpoint per fleet.** Thomas decided one gateway address for all fleets; the gateway serves `/fleets/<alias>/mcp` per fleet and binds every token to it (`916d431`) | Two answers | Narrowed: gateway sign-in, the organisation, then the fleet | 9 |
+| G13 | **The identity provider has no accounts.** The gateway keeps one identity provider per fleet, but nothing says which identity is which person ship, nor which directory the fleet is. I-4 says "by argo's mapping"; the mapping exists nowhere | No answer | Narrowed by 0050: an identity signs an account in; the account is linked to a person ship | 8, 14 |
+| G14 | **A human's email lives in two places.** pagasae's account and core's operator login keep the same human's email | Two answers | Closed by 0050: both fold into the account, in pagasae | none |
+| G15 | **argo approves an MCP client on the gateway's page; nobody links a human.** A client gets an outside party and a proxy ship at `/authorize`; a human's MCP client has no path to a person ship, though interop 3.2 lists that case | No answer | Narrowed: a human is an account; their MCP client signs in as it and acts as their person ship | 1, 5, 7, 8, 11 |
+| G16 | **Plugin and trierarch ships are agents.** They are processes, not sessions with a model, yet a commission defaults to agent | No answer | Closed by 0050: kind plugin for plugins, kind app for the trierarch | none |
+| G17 | **The machine's human.** A trierarch runs on a human's machine and placement is "across people's machines" (0030), but nothing names whose machine it is | No answer | Narrowed: a machine could name an account | 17 |
+| G18 | **Where a human answers a question.** Questions go to the owner's ship (0038); argo answers in the console, whose questions UI is frozen (0043); no component shows a person their questions | No answer | No | 18 |
+| G19 | **A read-only look for a named human.** The viewer is "anyone with a viewer ticket" and reads every ship | Two answers | Closed by 0050: a named human gets a person ship with `fleet:read`; the viewer stays | none |
+| G20 | **A leaver's ships.** A person ship's owned ships fall to argo only once it is retired (0045); nothing says who retires it, and the identity provider cannot tell the fleet | No answer | Narrowed: the organisation disables the account | 12 |
+| G21 | **The first human of a fleet.** Self-hosted: a server command creates the operator's login. Hosted: pagasae's sign-up. With the gateway, the first human to sign in has no person ship until argo commissions one | No answer for who goes first | Narrowed: the organisation's first account, from pagasae's sign-up | 10, 13, 19 |
+| G22 | **Outside people.** A supplier's employee has no place: outside parties are app ships, a person ship is the organisation's own | No answer | No | 15 |
+| G23 | **Notices and the guide address argo's and the viewer's sign-ins only.** Humans signing in at the gateway are neither | No answer | No | 18 |
+| G24 | **Organisation is prose only.** "Organisation rules belong to the organisation" (blueprint Purpose); no store holds it | No answer | Closed by 0050: pagasae's tenant (accounts, fleets, directory). Left: building it | none |
+| G25 | **Two tenants.** The fleet is the tenant (0007); an organisation above its fleets is a second boundary, and an account is found before any fleet is | Two answers | Closed by 0050: the organisation is pagasae's tenant, the fleet core's | none |
+| G26 | **The principle against several fleets.** "One organisation, one fleet, many actors" against an organisation that has fleets | Two answers | Closed by 0050: "one organisation, many actors, across its fleets" | none |
+| G27 | **The directory sits in the gateway, per fleet.** The gateway keeps `IdentityProvider` per fleet; the directory belongs to the organisation and serves every fleet and argo's console | Two answers | Narrowed by 0050: the directory is the organisation's, in pagasae | 8, 14 |
+| G28 | **The installation knows fleets, not organisations.** Fleet create names the operator's email; limits are per fleet and per installation (0020); notices address sign-ins | No answer | Narrowed: pagasae creates an organisation's fleets through the installation; per-organisation limits are pagasae's | 13, 19 |
+| G29 | **Rights on an account.** Managing the organisation happens above every fleet, where no ship is, so these rights sit on the account: the one place rights would not be scopes | Two answers: account and ship | Narrowed by 0050: rights in a fleet are scopes; the organisation admin's rights are left | 2 |
+| G30 | **One human in two organisations.** A consultant works for two; Entra makes them a guest in the second | No answer | No | 15 |
+| G31 | **pagasae is hosted only and private.** A self-hosted fleet has argo's email and password in core and no pagasae, so organisation management has no home there | No answer | No | 19 |
+| G32 | **An outside MCP client waits for a human, and is never told.** Approving an outside party is a human step. An outside MCP server never asks (2.5a), but an MCP client asks with an OAuth authorize request, which today is answered only when argo is signed in to the console in that browser at that moment (gateway `oauth-routes.ts`). Nothing keeps the request while argo is away, nobody asks argo, and nothing tells the client the outcome; OAuth's code flow has no waiting approval | No answer | No | 7, 20 |

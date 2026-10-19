@@ -51,7 +51,7 @@ Thomas decided, after reading the first version of this design:
 3. Entra and Google are outside management that plugs in later: the organisation connects its directory. They are not the foundation.
 4. So, before Google sign-in is ready, people sign in at the gateway with the organisation's own accounts.
 
-Then, on where it lives: "an organisation manages the user accounts within the whole. Pagasae is the account management unit." The organisation and its accounts live in pagasae, signing in by email as pagasae's sign-in links already do; the gateway signs people in through those accounts until an outside directory is connected; core keeps ships, scopes and owners. This decides question 2 and raises question 25: pagasae today serves hosted Aeolus only.
+Then, on where it lives: "an organisation manages the user accounts within the whole. Pagasae is the account management unit." The organisation and its accounts live in pagasae, signing in by email as pagasae's sign-in links already do; the gateway signs people in through those accounts until an outside directory is connected; core keeps ships, scopes and owners. This decided where the organisation lives and raises question 19: pagasae today serves hosted Aeolus only.
 
 Where the organisation sits among every other concept, and the gaps it answers or raises, is in [`domain-model.md`](domain-model.md). The questions in part 3 are the revised list.
 
@@ -73,15 +73,15 @@ All in the blueprint's words. Each acts as a ship.
 
 | Human | Acts as | Today |
 | --- | --- | --- |
-| Whoever administers the organisation (accounts, fleets, later its directory) | nothing yet: the organisation has no record (question 4) | Nobody: the operator account is the fleet's one human |
+| Whoever administers the organisation (accounts, fleets, later its directory) | nothing yet: the organisation has no record (question 2) | Nobody: the operator account is the fleet's one human |
 | The operator | argo | One account, one session (0012) |
-| Another human doing admin work (an IT admin, a team lead who connects their team) | argo today, so as the operator; the question is what instead (questions 5 to 8) | No way in but argo's session |
+| Another human doing admin work (an IT admin, a team lead who links their team) | argo today, so as the operator; the question is what instead (questions 3 to 6) | No way in but argo's session |
 | A person in the organisation (Charlotte) | their person ship (0044) | A crew token pasted into their app; no sign-in |
 | The owner of a ship, an app or an outside party (0045) | their person ship, which reaches the ships it owns | Exists as a fact; answers questions and trouble |
 | A viewer | the viewer ship (0022) | A ticket from the hosting service |
 | A person from another organisation (a supplier's employee) | nothing yet: outside parties are app ships (I-5) | No way in |
 | The account holder at pagasae, who signs up for hosted Aeolus | becomes the fleet's operator, so argo | One account, one fleet |
-| The person who runs the hosting service (pagasae's "owner") | no ship: they act on the installation, not in a fleet (0020) | pagasae's owner pages |
+| The installation admin, who runs the hosting service (pagasae's `OWNER_EMAIL`) | no ship: they act on the installation, not in a fleet (0020) | pagasae's owner pages |
 
 ### 1.6 A good outcome
 
@@ -137,7 +137,8 @@ For lessons, not to copy.
 | **The holders of everything are few, and not used daily.** Both had to grow narrow roles because one all-powerful role sprawls | Microsoft: fewer than five Global Admins, fewer than ten privileged assignments, a warning card past that; "a specific set of permissions, over a specific scope, for a specific period of time". Google: more than one super admin, each with a second account for daily work, signing in as super admin only for specific tasks | [Entra best practices](https://learn.microsoft.com/en-us/entra/identity/role-based-access-control/best-practices), [Google admin accounts](https://knowledge.workspace.google.com/admin/users/security-best-practices-for-administrator-accounts) |
 | **Keep a way in that does not depend on federation.** | Microsoft: at least two cloud-only emergency access accounts, not tied to one person, alerted on every use, tested every 90 days. Google: super admins are not covered by the newer SSO profiles and sign in with their Google password | [emergency access](https://learn.microsoft.com/en-us/entra/identity/role-based-access-control/security-emergency-access), [super admin SSO](https://knowledge.workspace.google.com/admin/apps/super-administrator-sso) |
 | **Where an admin may act is a second axis beside what.** Both scope admin roles to a part of the organisation, and both found it hard to apply everywhere | Entra administrative units hold users, groups and devices; a role scoped to one applies there, not nested, and a group in a unit does not bring its members. Google: only some roles and privileges can be limited to an organisational unit | [administrative units](https://learn.microsoft.com/en-us/entra/identity/role-based-access-control/administrative-units), [Google prebuilt roles](https://knowledge.workspace.google.com/admin/users/prebuilt-administrator-roles) |
-| **Approving an app is the most abused path.** People asking is good; people granting for themselves is how consent phishing works | Microsoft: user consent can be off, limited to verified publishers and low-impact permissions, or on; risky requests step up to admin consent; the admin consent workflow lets a user ask with a justification and named reviewers decide, and being a reviewer "doesn't elevate their privileges". Consent phishing gets account-level access that a password reset does not remove. Google: apps are Trusted, Limited, Specific data or Blocked; users can request an unconfigured app, which lands in "Apps pending review" | [consent](https://learn.microsoft.com/en-us/entra/identity/enterprise-apps/user-admin-consent-overview), [admin consent workflow](https://learn.microsoft.com/en-us/entra/identity/enterprise-apps/configure-admin-consent-workflow), [illicit consent grants](https://learn.microsoft.com/en-us/defender-office-365/detect-and-remediate-illicit-consent-grants), [Google app access](https://knowledge.workspace.google.com/admin/apps/control-which-apps-access-google-workspace-data) |
+| **Approving an app is the most abused path.** People asking is good; people granting for themselves is how consent phishing works | Microsoft: user consent can be off, limited to verified publishers and low-impact permissions, or on; risky requests step up to admin consent; the admin consent workflow lets a user ask with a justification and named reviewers decide, and being a reviewer "doesn't elevate their privileges"; reviewers are emailed the request, and the user who asked is emailed when it is approved, denied or expires (after 1 to 30 days, the admin's setting). Consent phishing gets account-level access that a password reset does not remove. Google: apps are Trusted, Limited, Specific data or Blocked; users can request an unconfigured app, which lands in "Apps pending review" | [consent](https://learn.microsoft.com/en-us/entra/identity/enterprise-apps/user-admin-consent-overview), [admin consent workflow](https://learn.microsoft.com/en-us/entra/identity/enterprise-apps/configure-admin-consent-workflow), [illicit consent grants](https://learn.microsoft.com/en-us/defender-office-365/detect-and-remediate-illicit-consent-grants), [Google app access](https://knowledge.workspace.google.com/admin/apps/control-which-apps-access-google-workspace-data) |
+| **OAuth has no waiting approval in the code flow.** An authorize request ends in a redirect with a code or an error; a client not answered tries again. Only the device flow waits: its client polls and hears `authorization_pending` until a human decides | OAuth 2.1 and MCP's authorization use the code flow with PKCE; the device flow (RFC 8628) is for devices without a browser | [RFC 8628](https://www.rfc-editor.org/rfc/rfc8628), [MCP authorization](https://modelcontextprotocol.io/specification/draft/basic/authorization) |
 | **An app's owner can hold less than the app.** Owning is answering for it, not a right to widen it | An Entra app owner has Application Admin rights on that one app, and the app can hold more permissions than its owner, which Microsoft names elevation of privilege. Ownerless apps are found again through the audit log; keep at least two owners | [app owners](https://learn.microsoft.com/en-us/entra/identity/enterprise-apps/overview-assign-app-owners) |
 | **The directory decides who exists; leaving ends at the directory.** What the leaver owned is the hard part | Entra disables the account when HR records a termination, and lifecycle workflows can delete it days later. Google: suspend for a temporary block, delete only a leaver; only owned Drive files transfer, the rest is deleted, shared drives stay with the organisation | [HR provisioning](https://learn.microsoft.com/en-us/entra/identity/app-provisioning/plan-cloud-hr-provision), [Google delete a user](https://knowledge.workspace.google.com/admin/users/delete-or-remove-a-user-from-your-organization) |
 | **Assignment decides who may sign in to an app.** Otherwise everyone in the directory can | Entra's "assignment required": only assigned users sign in, and user consent is blocked for that app | [access management](https://learn.microsoft.com/en-us/entra/identity/enterprise-apps/what-is-access-management) |
@@ -146,161 +147,146 @@ For lessons, not to copy.
 
 What Aeolus already has that they built on top: rights on the caller, not on a session (scopes on the ship); a where beside the what for every call (reach), not only for admin roles; an owner on every ship with argo as the fallback, so no app is ownerless. What it lacks: a sign-in that is not argo's, and any way to share argo's work.
 
-## 3. Questions for Thomas (revised, 19 Oct)
+## 3. Questions for Thomas (revised in the domain language, 19 Oct)
 
-The first list had 14 questions. Organisation answers some, changes most, and raises new ones; the gap list in `domain-model.md` adds the rest. Each gap there names the questions here that take it up.
+Every word is a term of the blueprint's Domain language (decision 0050, PR #972). 0050 answered some questions of the earlier list of 25; the rest keep their context, options and pick, renumbered. The gap list in `domain-model.md` names the questions that take each gap up.
 
-**What became of the first 14:**
+**What became of the 25:**
 
-| First list | Now | Why |
+| Earlier | Now | Why |
 | --- | --- | --- |
-| 1 Account is a sign-in mapped to a ship | Changed: 1 | The account is the organisation's; in a fleet it acts as a ship |
-| 2 Admin as argo or as own person ship | Stands: 5 | Fleet admin work; organisation admin is the new 4 |
-| 3 Roles | Split: 4 and 6 | Rights over the organisation (4) differ from rights in a fleet (6) |
-| 4 Which argo-only jobs become grantable | Changed: 7 | "Connect a person" becomes giving an organisation's account a person ship in a fleet |
-| 5 Where an admin acts | Stands: 8 | |
-| 6 How a person asks for an app | Stands: 9 | |
-| 7 How the gateway finds the fleet | Changed: 11 and 12 | The gateway finds the organisation by its sign-in, then the fleet; the directory is later |
-| 8 A person in more than one fleet | Changed: 12 | Several fleets of one organisation are now possible (3) |
-| 9 Who comes in | Changed: 14 | The organisation's accounts, not the directory, decide |
-| 10 A leaver | Changed: 15 | The organisation disables the account |
-| 11 argo signing in at the gateway | Answered; what is left is 13 | The organisation's own accounts are the way in without an outside IdP (Thomas, point 2) |
-| 12 Where accounts live | Decided: 2 | In pagasae, with the organisation (Thomas) |
-| 13 A person from another organisation | Stands: 18 | Now also one human in two organisations |
-| 14 The words "account" and "owner" | Changed: 20 | "Account" now has its home; "owner", "session", "connect" and "role" remain |
+| 1 A human is an account and acts as a ship | Narrowed: 1 | 0050: an account is linked to a person ship, and a human's rights in a fleet are their ship's scopes. Left: at most one person ship per fleet |
+| 2 Where the organisation lives | Decided (Thomas): pagasae | |
+| 3 Several fleets per organisation | Decided (0050) | The principle reads "one organisation, many actors, across its fleets" |
+| 4 Organisation rights | 2 | |
+| 5 to 9 Admin work in a fleet | 3 to 7 | |
+| 10 How accounts sign in | Decided (Thomas): by email | |
+| 11, 12 The gateway's sign-in and its one address | 8, 9 | |
+| 13 Who crews argo | Narrowed: 10 | 0050: the operator account goes; the operator is the human who signs in as argo. Left: which accounts may |
+| 14, 15 Who gets a person ship, a leaver | 11, 12 | |
+| 16 What becomes of the pagasae account | Narrowed: 13 | 0050: it folds into the account. Left: what sign-up creates |
+| 17, 18 A directory, outside people | 14, 15 | |
+| 19 The outside party's owner kept twice | 16 | |
+| 20 The words | Decided (0050) | Each term one meaning |
+| 21 Plugin and trierarch ships are agents | Decided (0050) | Kind plugin for plugins, kind app for the trierarch |
+| 22 The machine's human | 17 | |
+| 23 A read-only look for one person | Decided (0050) | A person ship with `fleet:read`; the viewer stays |
+| 24 What a person sees outside argo's console | 18 | |
+| 25 What a self-hosted fleet uses | 19 | |
+| (new) | 20 | How an outside MCP client learns that it was approved (gap G32) |
 
-Questions 1, 3 and 4 decide the shape with question 2, which Thomas decided, and question 25, which it raises. The rest wait on them, and their picks assume mine.
+Questions 1 and 2 decide the shape with question 19. The rest wait on them, and their picks assume mine.
 
 ### The shape
 
-**1. A human is an account of the organisation, and in a fleet acts as a ship?** (gaps G1, G7, G15)
+**1. At most one person ship per account in a fleet?** (gaps G1, G7, G15)
 
-Context: today a human is five unlinked things (G1). Every caller in a fleet is a ship (0012), and a fleet's rights are scopes and reach (0034, 0046).
-
-Options:
-
-- (a) **An account belongs to one organisation.** In each fleet of the organisation it acts as at most one person ship; there its rights are that ship's scopes and reach, nothing else. Its rights over the organisation are question 4.
-- (b) **An account carries rights in fleets too**, beside its ships' scopes, as Entra users carry roles.
-- (c) **No account in Aeolus**: humans stay ships only, and the organisation is a label on ships.
-
-Pick: (a). One model for every caller in a fleet, and the organisation gets the humans it manages. (b) gives a fleet two answers to "may this caller do that", which 0022 rejected. (c) cannot manage humans without a fleet, against Thomas's point 2.
-
-**2. Where does the organisation live?** (G8, G24, G25, G28) **Decided by Thomas: pagasae**, "the account management unit".
-
-The options it chose from: (a) core, above the fleet; (b) pagasae; (c) a component of its own. My pick was (c), a component generalising pagasae's pattern; Thomas's (b) is that pattern in the component that already has it. pagasae holds the organisation, its accounts and their email sign-in, and later the connected directory. It signs an account in to a fleet as a ship with a one-use ticket, as it signs the operator in today (0020), and it is the identity provider the gateway signs people in with (question 11). Core keeps ships, scopes and owners, and its tenant stays the fleet (0007). What a self-hosted fleet uses is question 25.
-
-**3. One organisation with several fleets?** (G25, G26, G28)
-
-Context: the principle reads "one organisation, one fleet, many actors" (blueprint Principles), but Thomas listed "which fleets it has" in organisation management. A fleet is one network: one set of rules, one argo.
+Context: 0050 decided that an account is a human's account in an organisation, linked to a person ship, and that a human's rights in a fleet are their ship's scopes. Every caller in a fleet is a ship (0012); a fleet's rights are scopes and reach (0034, 0046).
 
 Options:
 
-- (a) **One fleet per organisation**, as the principle says.
-- (b) **Several fleets per organisation** (a test fleet beside the real one, a department kept apart), each its own network; the principle becomes "one network per fleet, an organisation has one or more".
-- (c) **Several, but only one in use at a time.**
+- (a) **At most one person ship per account in each fleet** of the organisation; its rights there are that ship's scopes and reach, nothing else. Its rights over the organisation are question 2.
+- (b) **Several person ships per account in a fleet**, one per purpose.
+- (c) **An account carries rights in fleets too**, beside its ship's scopes, as Entra users carry admin roles.
 
-Pick: (b). It is what Thomas's point 2 names, and an organisation keeps one set of humans across its fleets. It changes the principle's wording, which Thomas owns. (c) is (b) with a rule, against 0016.
+Pick: (a). One answer to "who is this human here", and the events name one ship per human. (b) splits one human's rights over ships for no job in part 1.4. (c) gives a fleet two answers to "may this caller do that", which 0050 closed.
 
-**4. Who administers the organisation, and how are those rights held?** (G4, G8, G29)
+**2. Who manages the organisation, and how are those rights held?** (G8, G29)
 
-Context: managing accounts, fleets and the directory happens above every fleet, where no ship is. Entra and Google answer with admin roles on the user, few holders of everything, narrower roles for daily work (part 2.2). 0046 rejected roles inside a fleet, where scopes do the work.
+Context: managing accounts, fleets and the directory happens above every fleet, where no ship is. Entra and Google answer with admin roles on the user, few holders of everything, narrower ones for daily work (part 2.2). 0050 keeps rights in a fleet as scopes and gives humans no role; the language names the holder an organisation admin.
 
 Options:
 
-- (a) **Organisation rights on the account**: a small fixed set (manage accounts, manage fleets, manage the directory, everything), held in the organisation, checked by it. The one place a right is not a ship's, because there is no fleet there.
+- (a) **Organisation rights on the account**: a small fixed set (manage accounts and their links, manage fleets, manage the directory, everything), held in the organisation, checked by pagasae. An account holding any of them is an organisation admin. The one place a right is not a scope, because there is no fleet there.
 - (b) **An organisation's fleet holds them**: one fleet is the organisation's own, and its argo or scopes there manage the rest.
 - (c) **Every argo** of the organisation's fleets manages the organisation.
 
-Pick: (a). It names the exception plainly instead of bending "every caller is a ship" (0012) to a place without ships. (b) makes one fleet special and its network a policy point for the organisation. (c) puts organisation power in every fleet's operator. Whether the set is called roles is question 20.
+Pick: (a). It names the exception plainly instead of bending "every caller is a ship" (0012) to a place without ships. (b) makes one fleet special and its network a policy point for the organisation. (c) puts organisation power in every fleet's operator. 0050 rules out calling the set roles; its name is Thomas's.
 
 ### Admin work in a fleet
 
-**5. Does a human doing admin work in a fleet act as argo, or as their own person ship?** (G7, G9, G10)
+**3. Does a human doing admin work in a fleet sign in as argo, or act as their own person ship?** (G7, G9, G10)
 
-Context: J4. argo holds every scope and has one session at a time (0012); its events say argo.
+Context: J4. argo holds every scope and has one console sign-in at a time (0012); its events say argo.
 
-Options: (a) several accounts crew argo, taking turns; (b) each admin acts as their own person ship, with scopes argo granted; argo stays for the few accounts given it (13); (c) one admin, argo.
+Options: (a) several accounts sign in as argo, taking turns; (b) each admin acts as their own person ship, with scopes argo granted; argo stays for the few accounts allowed it (10); (c) one admin, argo.
 
 Pick: (b). Every caller stays a ship, and events say which human acted. Few holders of everything, used rarely (part 2.2).
 
-**6. Rights in a fleet: scopes one by one, or bundles?** (G4)
+**4. Rights in a fleet: scopes one by one, or bundles?** (G4)
 
-Context: 0046 rejected stored roles in a fleet. The core catalogue has 14 scopes.
+Context: 0046 rejected stored bundles of scopes in a fleet, and 0050 gives humans no role. The core catalogue has 14 scopes.
 
-Options: (a) scopes one by one; (b) presets in the console that grant a set of scopes and store only the scopes; (c) stored roles, reopening 0046.
+Options: (a) scopes one by one; (b) presets in the console that grant a set of scopes and store only the scopes; (c) stored bundles, reopening 0046.
 
 Pick: (a), with (b) if granting by hand proves error-prone.
 
-**7. Which of argo's alone jobs become grantable?** (G6, G10, G15)
+**5. Which of argo's alone jobs become grantable?** (G6, G10, G15)
 
-Context: the gateway needs two done by others than argo: approve a party (J3), and give an organisation's account a person ship in this fleet (J2). The account already exists in the organisation; what is argo's today is commissioning the person ship (0044).
+Context: the gateway needs two done by others than argo: approve an outside party (J3), and commission a person ship for an account of the organisation so it can be linked (J2). The account already exists in the organisation; what is argo's today is commissioning the person ship (0044).
 
 Options: (a) those two, each a scope argo grants; the rest stays argo's until a need shows; (b) every argo-only job; (c) none.
 
 Pick: (a). It changes 0044 by one rule: a ship holding that scope commissions a person ship, for an account of the fleet's organisation only.
 
-**8. Where may such an admin act?** (no gap; stands)
+**6. Where may such an admin act?** (no gap; stands)
 
 Options: (a) fleet-wide; (b) within their manage reach (0034); (c) a list per admin.
 
 Pick: (b). Scope is what, network is where. Phase 2 works out how a ship that does not exist yet falls within reach.
 
-**9. How does a person ask for an app?** (G15, G18)
+**7. How does a person ask for an app?** (G15, G18)
 
-Options: (a) a question (0038) to whoever approves; (b) a request list in the gateway's page; (c) people approve for themselves.
+Options: (a) a question (0038) to whoever approves; (b) a request list on the gateway's page; (c) people approve for themselves.
 
 Pick: (a). (c) is the path consent phishing abuses (part 2.2).
 
 ### Signing in
 
-**10. How do the organisation's own accounts sign in?** (G1, G13) **Answered by Thomas's lead: by email**, as pagasae's sign-in links do.
-
-The options were: (a) email and password, and email link; (b) email link only; (c) passkeys from the start. With (b), core's password sign-in for the operator goes with the operator account (questions 13 and 25), and a self-hoster needs a way to send mail (question 25). Passkeys can come later without changing the model.
-
-**11. How does the gateway sign people in?** (G13, G27)
+**8. How does the gateway sign people in?** (G13, G27)
 
 Context: the gateway keeps one identity provider per fleet today (`IdentityProvider`) and would federate to it (I-4). Thomas's point 4: before Google is ready, people sign in with the organisation's accounts.
 
 Options:
 
-- (a) **pagasae is the gateway's one identity provider** (OIDC): the gateway always federates to pagasae, and pagasae federates to Entra or Google once the organisation connects its directory (17).
+- (a) **pagasae is the gateway's one identity provider** (OIDC): every gateway sign-in goes through pagasae, and pagasae accepts identities from Entra or Google once the organisation connects its directory (14).
 - (b) **The gateway reads accounts** from pagasae directly.
-- (c) **The gateway federates to each directory** itself, as I-4 has it, and to pagasae for the rest.
+- (c) **The gateway federates to each identity provider** itself, as I-4 has it, and to pagasae for the rest.
 
 Pick: (a). It is Thomas's lead ("the gateway signs people in through those accounts until an outside directory is connected"), and it gives the gateway one path whatever the organisation connects. It changes I-4's "the gateway's OAuth server federates to the company IdP" to "through pagasae", and the gateway's `IdentityProvider` moves to pagasae.
 
-**12. How does the one address find the fleet?** (G12)
+**9. How does the one address find the fleet?** (G12)
 
 Context: Thomas decided one address for all fleets. The gateway's code serves one endpoint per fleet, `/fleets/<alias>/mcp`, and binds each token to it (gateway `916d431`).
 
 Options:
 
-- (a) **Sign in through pagasae, find the organisation from the account, then the fleet**: straight in when the account has a person ship in one fleet; a choice among them when several. The token names the fleet it was issued for.
+- (a) **Gateway sign-in through pagasae, the organisation from the account, then the fleet**: straight in when the account is linked to a person ship in one fleet; a choice among them when several. The token names the fleet it was issued for.
 - (b) **Keep an endpoint per fleet** behind the one address, reached by a redirect after sign-in.
-- (c) **The person names the fleet.**
+- (c) **The human names the fleet.**
 
 Pick: (a). It is the Microsoft 365 behaviour Thomas named, and a token still binds to one fleet (RFC 8707), so the gateway's code changes where the endpoint comes from, not the binding.
 
-**13. Who crews argo?** (G2, G7, G9, G21)
+**10. Which accounts may sign in as argo?** (G2, G7, G9, G21)
 
-Context: the operator account is the fleet's one human, and argo has one console session at a time (0012). With an organisation, an account is a human.
+Context: 0050: the operator is the human who signs in as argo, and the operator account goes. argo has one console sign-in at a time (0012).
 
 Options:
 
-- (a) **An account given the right to crew argo of a fleet**, by the organisation's admins (4), signed in by a ticket from pagasae, as a hosted operator is today. The operator account folds in. Still one console session at a time; the session names its account.
-- (b) **The operator account stays per fleet**, apart from the organisation's accounts.
+- (a) **Accounts an organisation admin allows for that fleet**, signed in by a sign-in ticket from pagasae, as a hosted operator is today. Still one console sign-in at a time; the sign-in names its account.
+- (b) **One account per fleet**, the one that created it.
 
-Pick: (a). One kind of human account, and argo's way in stays independent of any outside IdP through the organisation's own sign-in (J5). Since several accounts may hold it, the session naming its account says who acted as argo (G9).
+Pick: (a). argo's way in stays independent of any identity provider through the organisation's own sign-in (J5). Since several accounts may hold it, the console sign-in naming its account says who acted as argo (G9).
 
-**14. Who gets a person ship?** (G15)
+**11. Who gets a person ship?** (G15)
 
-Context: 0044: only argo commissions person ships; ships created on first sign-in were rejected.
+Context: 0044: only argo commissions person ships; ships created at first sign-in were rejected.
 
-Options: (a) an admin gives an account a person ship (7) before the person reaches the fleet; (b) every account of the organisation gets one in every fleet at first sign-in; (c) a group of accounts named per fleet gets one at first sign-in.
+Options: (a) an admin commissions a person ship and links the account (5) before the human reaches the fleet; (b) every account of the organisation gets one in every fleet at its first gateway sign-in; (c) a group of accounts named per fleet gets one at first sign-in.
 
 Pick: (a). A ship exists because a human decided it; (c) can come with numbers.
 
-**15. A leaver?** (G20)
+**12. A leaver?** (G20)
 
 Context: 0045: a retired owner's ships fall to argo.
 
@@ -310,34 +296,32 @@ Pick: (a). Access ends where the organisation ends it; ships and what they own s
 
 ### Hosted, directories and outside people
 
-**16. What becomes of the pagasae account?** (G14, G21, G28) Thomas's lead answers the home; what is left is how sign-up works.
+**13. What does pagasae's sign-up create?** (G21, G28)
 
-Context: a pagasae account is one email, one fleet, its operator; its email is kept again in core's operator account (G14).
+Context: 0050 folds pagasae's account (one email, one fleet, its operator) into the account.
 
 Options:
 
-- (a) **Sign-up creates the organisation and its first account**, which administers it and may crew argo of its first fleet. pagasae keeps only what is hosted: the terms accepted, updates opt-in, the hosting service's own pages.
-- (b) **pagasae stays the account store** for hosted organisations.
+- (a) **Sign-up creates the organisation and its first account**, an organisation admin allowed to sign in as argo of its first fleet. pagasae keeps beside it only what is hosted: the terms accepted, updates opt-in, the hosting service's own pages.
+- (b) **Sign-up creates an account and a fleet**, as today, and the organisation later.
 
-Pick: (a). One account per human, kept once, in pagasae. A self-hosted pagasae creates the organisation and its first account the same way (question 25).
+Pick: (a). The organisation exists from the first account on, hosted or self-hosted (19).
 
-**17. A connected directory, later: beside the own sign-in, or instead?** (G13, G27)
+**14. A connected directory, later: beside the organisation's own sign-in, or instead?** (G13, G27)
 
 Context: Thomas's point 3. Google's super admins sign in with their Google password outside SSO; Microsoft keeps cloud-only emergency accounts (part 2.2).
 
-Options: (a) beside: an account signs in through the directory once connected, and the accounts that crew argo keep the own sign-in; (b) instead: every account then signs in only through the directory; (c) the directory also creates accounts (provisioning).
+Options: (a) beside: an account signs in with its identity once the directory is connected, and the accounts allowed to sign in as argo keep the own sign-in; (b) instead: every account then signs in only with its identity; (c) the directory also creates accounts (provisioning).
 
-Pick: (a), with (c) later when an organisation is large. The way in without an outside IdP stays (J5).
+Pick: (a), with (c) later when an organisation is large. The way in without an identity provider stays (J5).
 
-**18. A person from another organisation, and one human in two?** (G22, G30)
+**15. A human from another organisation, and one human in two?** (G22, G30)
 
-Options: (a) not yet: outside people come in as part of an approved party, and a human working for two organisations has an account in each; (b) an account of another organisation, invited into a fleet.
+Options: (a) not yet: outside people come in as part of an approved outside party, and a human working for two organisations has an account in each; (b) an account of another organisation, linked in a fleet.
 
 Pick: (a), until an organisation asks. Guests are the part of Entra that grows most unseen.
 
-### From the gap list
-
-**19. The party's owner is kept twice.** (G11)
+**16. The outside party's owner is kept twice.** (G11)
 
 Context: the gateway keeps the owner argo picked (`Party.ownerShipId`); core keeps the proxy ship's owner; `fleet.setOwner` changes only core's.
 
@@ -345,56 +329,44 @@ Options: (a) core's is the one; the gateway reads it; (b) the gateway's is the o
 
 Pick: (a). Every fact has one source of truth, and the owner is core's (0045).
 
-**20. The words.** (G2 to G6)
-
-Context: "account" (operator, pagasae, company), "owner" (a ship's, a label's, pagasae's), "role" (a squadron member's), "session" (an agent run, a console session, pagasae's), "connect" (argo's Connect, a plugin's connection).
-
-Options:
-
-- (a) **Each word one meaning, the others named in full**: "account" is the organisation's account; "owner" alone is a ship's owner, and a label's is always "the label's owner"; the organisation's rights of question 4 are not called roles, so "role" stays the squadron's; "session" is always qualified (agent session, console session); "connect" stays argo's Connect of a plugin, and a person is "given a person ship".
-- (b) **Leave the words as they are**, defined per context.
-
-Pick: (a), with Thomas naming the organisation's rights, since no blueprint word fits them.
-
-**21. Plugin and trierarch ships are of kind agent.** (G16)
-
-Context: 0044 asks to be true to what a ship is; an agent states a model, and these ships are processes.
-
-Options: (a) kind app, an application; (b) a new kind; (c) leave them agents.
-
-Pick: (a). The kinds already have the right word, and nothing reads kind for them. Outside accounts, it touches 0044 only.
-
-**22. The machine's human.** (G17)
+**17. The machine's human.** (G17)
 
 Options: (a) later, outside this design: a machine could name the account whose machine it is, once placement needs it; (b) now.
 
 Pick: (a).
 
-**23. A read-only look for one person.** (G19)
+**18. What a human sees, outside argo's console.** (G7, G18, G23)
 
-Options: (a) their person ship with `fleet:read`, within its read reach; the viewer stays the shared, anonymous look for the demo; (b) viewer sessions per account.
-
-Pick: (a). The viewer ship stays what 0022 made it.
-
-**24. What a person sees, outside argo's console.** (G7, G18, G23)
-
-Context: questions go to the owner's ship (0038); the console's questions UI is frozen (0043); notices and the guide address console sessions.
+Context: questions go to the owner's ship (0038); the console's questions UI is frozen (0043); notices and the guide address console sign-ins by audience.
 
 Options: (a) a person's own app or chat, or the gateway's person tools (interop slice 3), shows their questions; notices and the guide stay argo's console's; (b) a person page in core.
 
 Pick: (a). Core keeps its surface (0043).
 
-### Raised by pagasae as the account management unit
+**19. What does a self-hosted fleet use for its organisation and accounts?** (G21, G28, G31)
 
-**25. What does a self-hosted fleet use for its organisation and accounts?** (G21, G28, G31)
-
-Context: pagasae is private (its README opens "Private") and hosted only: one account, one fleet, the early-access terms, the demo, the owner's pages for every fleet, mail through Resend. A self-hosted fleet today has no pagasae: a server command creates the fleet, argo and the operator account, who signs in to core with email and password (0012), and core has no installation procedures without a token (0020). Thomas's point 2 asks organisation management to work on its own, and Thomas's lead puts it in pagasae.
+Context: pagasae is private (its README opens "Private") and hosted only: one account, one fleet, the early-access terms, the demo, the installation admin's pages for every fleet, mail through Resend. A self-hosted fleet today has no pagasae: a server command creates the fleet, argo and the operator's email and password, which sign in to core (0012), and core has no installation procedures without a token (0020). Thomas's point 2 asks organisation management to work on its own, and Thomas's lead puts it in pagasae.
 
 Options:
 
-- (a) **pagasae is a component self-hosters run too.** It is published (its licence and visibility are Thomas's, 0049), its hosted parts (terms, updates opt-in, the demo, the owner's pages) are off unless configured, and it drives the self-hosted core through the installation procedures with its token, as it drives hosted core. Its sign-in mails links through a provider the self-hoster sets; without one, the link goes to the log, as it does locally today. Core's password sign-in and the server command that creates the operator go.
-- (b) **Self-hosted keeps core's operator account**, with no organisation: organisation management only for hosted fleets.
+- (a) **pagasae is a component self-hosters run too.** It is published (its licence and visibility are Thomas's, 0049), its hosted parts (terms, updates opt-in, the demo, the installation admin's pages) are off unless configured, and it drives the self-hosted core through the installation procedures with its token, as it drives hosted core. Its sign-in mails sign-in links through a provider the self-hoster sets; without one, the link goes to the log, as it does locally today. Core's password sign-in and the server command that creates the operator's login go.
+- (b) **Self-hosted keeps core's email and password for argo**, with no organisation: organisation management only for hosted fleets.
 - (c) **Core keeps a small organisation of its own** for self-hosted fleets, and pagasae for hosted ones.
 - (d) **Self-hosted fleets use the hosted pagasae** for their accounts.
 
 Pick: (a). One model hosted and self-hosted, in the component Thomas named, and core stays the fleet. Its costs: pagasae opens up and splits its hosted parts behind configuration; a self-hoster runs one more process and needs mail for sign-in; 0012's password sign-in and 0020's "a self-hosted server has none of them" change. (b) fails point 2 for every self-hoster. (c) gives accounts two homes and two models. (d) makes a self-hosted fleet depend on the hosting service for every sign-in, and its people's emails leave the self-hoster.
+
+### Raised by flow 2.5
+
+**20. How does an outside MCP client learn that it was approved?** (G32)
+
+Context: approving an outside party is a human step, so it can take hours. For an outside MCP server there is nothing to learn: argo or an organisation admin adds it on the gateway's page, and the server never asks (`domain-model.md` 2.5a). An outside MCP client asks with the OAuth authorize request (2.5b). Today the gateway answers it only when argo is signed in to the console in the same browser at that moment (gateway `oauth-routes.ts`); otherwise the page says to sign in and reload. OAuth has no asynchronous approval: the authorize request ends in a redirect with a code or an error, and a client that was not answered tries again. Entra's admin consent workflow keeps the request, emails its reviewers, and emails the user who asked when it is approved, denied or expires (part 2.2).
+
+Options:
+
+- (a) **The gateway keeps the request and the client connects again.** The authorize request is kept as pending and argo is asked with a question (0038). The browser shows "waiting for approval" and goes on by itself when the answer comes while it is open; closed, the human at the client connects it again, and the gateway, finding the outside party approved, answers at once. A deny ends the next try with `access_denied`.
+- (b) **(a), and the gateway emails an address the human at the client gave.**
+- (c) **(a), and a message to the person ship** of the human at the client, when they signed in at the gateway with an account of the organisation.
+- (d) **Only argo signed in at that moment approves**, as today.
+
+Pick: (a). It is OAuth's own path (a client tries again) and needs no address and no new channel. (b) makes the gateway mail any address anyone types in, unverified. (c) helps only a human who already has an account, who then needs no outside party at all: their client acts as their person ship (`domain-model.md` 2.2). (d) makes every approval a meeting between the human at the client and argo. How long a pending request is kept is phase 2's.
