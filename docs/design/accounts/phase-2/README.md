@@ -88,7 +88,7 @@ Use case: "engineering sends to engineering", and "sales sends to the CRM" (`crm
 
 Pick: (a).
 
-Decided (Thomas, round 5): (a). Thomas adds: when a group is created, the installation also declares the default rule `group=X` reaches `group=X`, so members of a group reach each other without anyone writing it; rules across groups (sales to the CRM) stay in the networking plugin.
+Decided (Thomas, round 5): (a). Thomas adds: the installation declares the default rule `group=#` reaches `group=#` (0034's `#`: a value the other side carries too), one rule so members of the same group reach each other without anyone writing a rule per group; rules across groups (sales to the CRM) stay in the networking plugin.
 
 **2. May one account get rights of its own, beside its groups?** (was P3)
 
