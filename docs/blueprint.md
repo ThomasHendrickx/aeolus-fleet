@@ -28,7 +28,9 @@ Thomas's direction of 17 Oct 2026, beside the promises above, each with its deci
 
 - One organisation, many actors, across its fleets: humans, apps and agents in one network. Not the solo developer space (0043, 0050).
 - Remove the human as the glue: "humans still gate and steer on the critical points" (0038, 0045).
-- Every caller is a ship, people, apps and outside parties included: "One network to connect all." (0012, 0044)
+- Everything that sends or receives messages is a ship, people, apps and outside parties included: "One network to connect all." (0044, 0057)
+- Every call is authorised for an actor (a ship, an account or the installation) by scopes and reach, and every event names that actor. An agent ship can hold any scope any actor holds, so an AI can manage the fleet (0057).
+- Nothing is argo's alone. A message that reaches argo is a failing of the system, but it is visible through argo: argo is where a system failure becomes visible and where the way out is, never a normal path; a design that routes ordinary work to argo is wrong (0053, 0057).
 - Be true to what a ship is, of kind person, app or agent: "we need to be true on what it is." (0044)
 - Core is the fleet server, its API and argo's admin console, nothing more. Human interfaces and plugin pages live outside core (0043).
 - Level 3 MCP and A2A, both directions, is the end state, "soon rather than late" (0048).
@@ -48,14 +50,14 @@ The v1 acceptance criterion: two ships exchange messages back and forth through 
 | Packages | Three npm packages: `@aeolus-fleet/core`, `@aeolus-fleet/console` and `@aeolus-fleet/common`. The server exposes one tRPC API that the web app uses directly; ships reach the same procedures through a remote MCP endpoint or generated REST, so a session connects without installing anything. Your Hetzner setup lives in a separate private infra repo. `ship-sdk` and `cli` come later |
 | Leases | A session that registers holds the lease indefinitely. Only operator release or the ship's own `deregister` ends it. No heartbeats. The one exception is `argo`: signing in takes its lease over |
 | Pickup | The fleet does not care when, how or whether a ship picks up a message. It guarantees only that the message is always available |
-| Operator login | Email and password: one operator account, password stored with Argon2id. Initialising a fleet (a server command) asks for them. A forgotten password is reset with a server command. Signing in crews `argo`; `argo` has no secret and cannot be claimed any other way |
+| Signing in as argo | An account an organisation admin allows, by a sign-in ticket from pagasae that names it; or, where no pagasae runs, argo's own sign-in: an email and password `fleet:init` asks for and a server command resets (0054). Signing in crews `argo`; `argo` has no secret and cannot be claimed any other way |
 | Scopes | Every ship has scopes, stored on the server with the ship, never carried by it: what a ship may do. Reach says where (decision 0034). The catalogue, granting and plugin namespaces are decision 0046 |
 | Starting prompt | The ship's crew instructions for a chat: the fleet's MCP URL to connect in the chat app as a remote MCP server or connector without auth, the ship's id and secret, to register with location CLOUD and the chat as harness (`chatgpt` or `claude-chat`), and to keep the crew token in the conversation and never register again. One short line sends any other session to its crew line or to register. How to crew a ship comes from the fleet when the session connects (the ship protocol); what the ship works on, the operator adds |
 | Web UX | Designed separately in Claude Design, built with shadcn/ui on Base UI |
 
 ## Users
 
-Aeolus has two kinds of users with equal standing: the human operator and the agent crewing a ship. The operator is a ship too, so an agent's question to a human is just a message to `argo`.
+Aeolus serves humans and agents with equal standing. An agent crews a ship. A human acts as their account, and sends and receives through their person ship; the operator is whoever signs in as argo, the fleet's fail-safe.
 
 ### The operator ship (`argo`)
 
@@ -63,12 +65,13 @@ Every fleet has exactly one operator ship, named `argo`. The web console is how 
 
 | Rule | Behaviour |
 | --- | --- |
-| Created with the fleet | Initialising a fleet creates `argo` and the operator account. `argo` has no secret |
+| Created with the fleet | Initialising a fleet creates `argo`, and where no pagasae runs, argo's own sign-in. `argo` has no secret |
 | Permanent | `argo` can never be retired, released or renamed. The name `argo` is reserved: no other ship can take it |
 | Kind and scopes | `argo` is the only ship of kind `operator` and holds every scope; the other kinds are in decision 0044 |
-| Signing in | The operator signs in to the console with email and password and gets a session cookie. That session holds `argo`'s lease. The console is `argo`'s crew, so `argo` shows Crewed whether or not the operator is signed in. `register` with a secret is refused for `argo` |
+| Signing in | An account allowed to sign in as argo, with a sign-in ticket from pagasae, or argo's own sign-in, gets a session cookie. The console sign-in names its account, or says it is argo's own sign-in; every event argo's calls write carries it. That session holds `argo`'s lease. The console is `argo`'s crew, so `argo` shows Crewed whether or not anyone is signed in. `register` with a secret is refused for `argo` |
 | One session at a time | Signing in ends any other operator console session and takes `argo`'s lease over; viewer sessions run on. Its in-flight deliveries return to pending, so the new session receives them again |
-| Forgotten password | A server command resets it and ends every operator console session |
+| Forgotten password | argo's own sign-in only: a server command resets it and ends argo's console sign-in |
+| The fail-safe | A message that reaches argo is a failing of the system, but it is visible through argo. argo is where a system failure becomes visible and where the way out is, never a normal path: the owner of a ship with no other, the way out for a ship that does not know what to do, permanent, with reach that is never off (0057) |
 | Inbox | Messages to `argo` are the operator inbox. Opening one marks it read; Reply or Mark done acknowledges it |
 
 ### The viewer ship (`viewer`)
@@ -88,6 +91,25 @@ A fleet the installation creates with a viewer has one viewer ship, named `viewe
 | Console | A viewer session's console shows every page it reads and none of its writes: each write is removed, never disabled, unless the session's scopes allow it. The account menu names the viewer, reading only, with no theme switch and no link to a hosted account, and keeps Sign out |
 | In the fleet | The viewer ship shows its viewer chip, no device and no report, and offers only Copy ship id. It was last seen when its most recent viewer session was used |
 | Inbox | A viewer session reads argo's inbox, read-only, only the messages its read reach reads (decision 0034): opening a message marks nothing read, and it can't reply or mark done |
+
+### A person (human)
+
+A human of the organisation, with an account in pagasae. They act as their account, with the scopes their groups and their own rights give in each fleet, and have a person ship where they may message or own a ship (0052). Organisation rights never give fleet scopes.
+
+| Job to be done | What Aeolus gives them |
+| --- | --- |
+| Reach the fleet from any client | The gateway's one address: sign in once through pagasae, from Claude, ChatGPT, Cursor or the gateway's own page (0054) |
+| Answer what my ships ask | Questions to my person ship, in my client or on the gateway's page (0038) |
+| Get an outside MCP server my agents need | Ask through the gateway; see "waiting for approval"; learn the outcome (0056) |
+| Do admin work I was trusted with | My account holds the scopes my groups and own rights give, within its reach; nothing needs argo (0053) |
+
+### The organisation admin
+
+| Job to be done | What Aeolus gives them |
+| --- | --- |
+| Say who is in, with which rights | Accounts, groups and an account's own rights in pagasae, its page showing them together; landing at each account's next account token (0051, 0052) |
+| Take a leaver out | Disable the account: tokens cut off, sign-ins end, the person ships and linked trierarchs released, every ship stays (0055) |
+| Say who may act as argo | The accounts allowed to sign in as argo, per fleet (0054) |
 
 ### The operator (human)
 
@@ -124,17 +146,17 @@ What an agent never has to do: poll other agents, know their location, retry by 
 
 ## Access
 
-Two questions decide whether a ship may do something: may it do this at all, and may it do it to that ship? A scope answers the first, reach the second. A call needs both.
+Two questions decide whether an actor (a ship, an account or the installation, 0057) may do something: may it do this at all, and may it do it to that ship? A scope answers the first, reach the second. A call needs both.
 
-**Scopes say what.** A scope such as `messages:send` or `fleet:commission` is a permission stored with the ship on the server, never carried by a message. Every agent, person and app ship can send and receive. Everything else is granted: by whoever commissions the ship, or later on the live ship by a ship holding `scopes:grant`. A ship grants only scopes it holds itself, so no ship widens its own access. Plugins add scopes of their own, such as `squadrons:form`, and enforce them themselves. The full list, with what each scope allows and where it applies, is decision 0046.
+**Scopes say what.** A scope such as `messages:send` or `fleet:commission` is a permission stored with the ship on the server, or carried in an account's token that pagasae signs (0058), never carried by a message. Every agent, person and app ship can send and receive. Everything else is granted: by whoever commissions the ship, or later on the live ship by a ship holding `scopes:grant`. A ship grants only scopes it holds itself, so no ship widens its own access. Plugins add scopes of their own, such as `squadrons:form`, and enforce them themselves. The full list, with what each scope allows and where it applies, is decision 0046.
 
-**Reach says where.** Reach is set by network rules. Each rule names one verb, send, read or manage, and says that the ships matching one selector may do it to the ships matching another. A selector picks ships by their labels or their owner, never by their type. Rules only allow: when no rule matches, the call is refused.
+**Reach says where.** Reach is set by network rules. Each rule names one verb, send, read or manage, and says that the ships matching one selector may do it to the ships matching another. A selector picks ships by their labels or their owner, never by their type, and an account by the `group` values in its account token. Rules only allow: when no rule matches, the call is refused.
 
 - Send: sending a message, and with it a forced send and discovering who it can send to.
 - Read: what a ship sees with `fleet:read`. A ship outside its read reach shows only its name, type and status. Resending a stuck message needs read reach too.
 - Manage: renaming, releasing, recrewing, retiring and pinging a ship, and requesting its crew.
 
-**Owners.** Every ship except argo and the viewer has an owner: a person's ship, or argo. Its questions, gates and reported trouble go to its owner. The owner reaches the ships it owns by every verb. Only argo changes an owner.
+**Owners.** Every ship except argo and the viewer has an owner: a person's ship, or argo. Its questions, gates and reported trouble go to its owner. The owner reaches the ships it owns by every verb. A person ship owns itself and what it commissions; a ship an account commissions is owned by the account's person ship. An actor holding `fleet:owner` changes an owner, within its manage reach (0053).
 
 **The built-in rules.** Every fleet starts with a few rules of its own, shown first in the rule list (decision 0034 has their exact terms):
 
@@ -146,7 +168,7 @@ Two questions decide whether a ship may do something: may it do this at all, and
 
 The first three are never off, so argo can never be locked out and a sender always gets its answer.
 
-**argo's alone.** argo holds every scope and grants any of them. Only argo commissions person ships (a ship holding `fleet:commission` and `fleet:on-behalf`, the gateway, commissions app ships), changes an owner, grants a plugin's scope besides the plugin itself, sees the refused calls and asks which ships a ship reaches and by which rule. A refused sender learns only that it was refused, so a refusal never maps the rules.
+**argo is the fail-safe.** argo holds every scope and reaches every ship by a rule that is never off, so a fleet can always act; any other actor may hold every scope too. Nothing is argo's alone: commissioning a person ship (`fleet:person`), changing an owner (`fleet:owner`), explaining reach and reading refusals (`fleet:explain`), connecting a plugin (`fleet:connect`) and assigning any label (`labels:any`) are scopes, granted like any other, and a plugin's page checks the actor's scopes, not whether it is argo (0053). A grant, a change of owner and every manage call are checked against manage reach on the target. A commission grants only scopes the commissioner holds and gives only label values it defined or carries, so a new ship never reaches further than its commissioner can make it. A refused caller learns only that it was refused, so a refusal never maps the rules.
 
 **A worked example.** An organisation wants Charlotte and Thomas, but not Burak, to use its CRM, and gives Charlotte an agent that writes PRDs.
 
@@ -155,6 +177,8 @@ The first three are never off, so argo can never be locked out and a sender alwa
 3. With the networking plugin connected, the open rules are gone. argo adds one send rule in the networking plugin: from `crm=user` to `crm=app`.
 4. Charlotte and Thomas send to the CRM, and the CRM's answers reach them through the answer rule. Burak's send is refused: his ship carries no `crm` label. argo sees the refusal, and asking how Charlotte reaches the CRM names the send rule.
 5. argo commissions the PRD agent with only sending and receiving, and makes Charlotte's ship its owner. Charlotte reaches it by every verb through the owner rule. It answers Charlotte and can always reach argo, and any other ship only through a rule. It cannot commission ships, because it does not hold `fleet:commission`: its commission is refused, whatever its reach.
+
+With pagasae, step 1 is an organisation admin putting Charlotte, Thomas and Burak's accounts in groups that let them message; the installation commissions their person ships, labelled by group (0052).
 
 ## Domain language
 
@@ -186,14 +210,14 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Installation | One server and the fleets it hosts; a hosting service drives it with the installation token, a self-hosted server has none (0020) | core |
 | Hosting service | What runs an installation for others: pagasae for hosted Aeolus | pagasae |
 | Fleet | core's tenant: one set of ships, messages and history; every record has `fleet_id` (0007). Not an organisation | core |
-| Ship | A durable, addressable actor with an inbox; outlives any session. Every caller is a ship. Has a name, type, kind, scopes, owner and status | core |
+| Ship | A durable, addressable actor with an inbox; outlives any session. Everything that sends or receives messages is a ship. Has a name, type, kind, scopes, owner and status | core |
 | Ship id | `shp_…`, with its fleet's `flt_…` the public reference `{ shipId, fleetId }` | core |
 | Ship name | A handle: lowercase letters, digits, hyphens, colons (a prefix groups, as in `hemma:planner`), at most 48; unique among active ships, reusable after retirement; a rename never redirects a sent message | core |
 | Ship type | Free text (`reviewer`) for addressing, never interpreted. Not a kind | core |
 | Kind | What a ship is, by lifecycle, never by power: rights come only from scopes (0044) | core |
 | operator | Kind of argo alone, crewed by the operator's sign-in | core |
 | viewer | Kind of the viewer alone | core |
-| person | A human's ship, crewed by their own app or a chat, an account linked to it; only argo commissions it | core |
+| person | A human's ship for messaging and owning, linked to their account and owning itself, crewed by their own app, a chat or the gateway; commissioned with `fleet:person` (0052) | core |
 | agent | An AI session's ship, commissioned, crewed by a trierarch or a harness; the only kind that states a model | core |
 | app | Software in one fleet, commissioned: a trierarch, the gateway's proxy ships, own integrations | core |
 | plugin | Software installed once per installation, serving many fleets: squadrons, the networking plugin, the trierarch plugin, the gateway. argo connecting it is its commission | core |
@@ -238,7 +262,9 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 
 | Term | Meaning | Held by |
 | --- | --- | --- |
-| Scope | What a ship may do, `<namespace>:<action>`, stored with the ship, never in a message; the only source of rights (0046) | core |
+| Actor | Whoever a call is authorised for and an event names: a ship, an account (by its account token) or the installation. Not a ship: only what sends or receives messages is a ship (0057) | core |
+| Account token | A short token pagasae signs for one account in one fleet, with the scopes and labels its groups and own rights give there; core checks it on every call and stores no account. Not a crew token (0058) | pagasae, core |
+| Scope | What an actor may do, `<namespace>:<action>`, stored with a ship or carried in an account token, never in a message; the only source of rights (0046, 0057) | core |
 | Scope namespace | A plugin's scopes, declared once for good, enforced by the plugin (0046) | core |
 | Grant | Give a ship a scope, at commission or live with `scopes:grant`; a ship grants only scopes it holds (0046) | core |
 | Reach | Where a ship may act: whom it may send to, read or manage, by network rules (0034) | core |
@@ -274,13 +300,14 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 
 | Term | Meaning | Held by |
 | --- | --- | --- |
-| Connect | argo connecting a plugin to a fleet: its commission. Nothing else connects; an account is linked | core |
+| Connect | Connecting a plugin to a fleet (`fleet:connect`): its commission. Nothing else connects; an account is linked | core |
 | Connection | A plugin's stored side of connect: its ship and crew token per fleet | each plugin |
 | Switch | A hosting service turning a plugin on or off for a fleet (0021) | each plugin |
 | Gateway | The plugin that speaks MCP and A2A with the outside (0048) | gateway |
 | Outside party | An approved outside MCP server or client | gateway |
-| Approve | argo admitting an outside party to a fleet, naming its owner; the gateway then commissions its proxy ship | gateway |
-| Proxy ship | The app ship the gateway commissions for an outside party once argo approves it (0044) | core |
+| Approve | An actor holding the gateway's approving scope admitting an outside party to a fleet, naming its owner; the gateway then commissions its proxy ship (0056) | gateway |
+| Proxy ship | The app ship the gateway commissions for an outside party once it is approved (0044) | core |
+| Pending request | An outside MCP client's authorize request, or a person's request for an outside MCP server, kept by the gateway until an actor approves or denies it, or 7 days pass (0056) | gateway |
 
 ### Squadrons
 
@@ -452,7 +479,7 @@ A crash never loses a delivery: an unacknowledged delivery returns to pending un
 
 A hosting service such as pagasae drives the installation with its token (docs/architecture.md, "Installation"); a server without a token has no installation procedures. Each create and delete carries the caller's own request id: a replay under it answers what the first call answered, and a different request under a used id is refused.
 
-1. Create a fleet: a name and the operator's email, and whether it has a viewer. The fleet, its `argo`, the operator account and, with a viewer, the viewer ship come in one transaction, with their events. The operator has no password, so a password sign-in for that email fails like a wrong password. The email is unique across the installation. One account is one fleet and one operator.
+1. Create a fleet: a name, and whether it has a viewer. The fleet, its `argo`, the installation's scopes in it (0020) and, with a viewer, the viewer ship come in one transaction, with their events. Core knows no organisation and keeps no account: who may sign in as argo is pagasae's (0054).
 2. List the fleets, or get one: its id, name, operator email, when it was created, and its four measures:
    - **Ships:** its ships that are not retired, `argo` included.
    - **Messages:** every message row stored in the fleet in the last 7 days, of any kind and from any sender; the server never looks into messages for it.
@@ -474,10 +501,16 @@ A hosting service such as pagasae drives the installation with its token (docs/a
    - **Fleet cap:** creating a fleet is refused once the installation's fleets are at the cap.
 
    Each limit refuses exactly at its boundary, however many calls race for the last place. The console shows the fleet at a limit where the operator acts: Commission says the fleet is at its ship limit, and the overview and Compose say today's message limit is reached and when it resets, each with View limits on the hosted account. While any limit applies, the overview shows the fleet's ships against the ship limit and today's messages against the daily limit, with when it resets, as meters: neutral below a limit, At limit at it, Over limit above it (a limit lowered below use), and No limit for one not set; with no limit at all, none show.
-4. Sign the operator in: the hosting service asks for a sign-in ticket for the fleet's operator (one use, valid 2 minutes, stored as its hash) and sends the operator's browser to the console with it. The console redeems it and the session starts exactly as after a password sign-in: it takes argo's lease over and ends any previous session. A used, expired or unknown ticket shows that the sign-in did not go through, with a link back to the hosting service's sign-in. A hosted console never serves a password form: its sign-in page redirects to the hosting service at once, except after a sign-in elsewhere ended the session: then it says so first, with a link to the hosting service's sign-in. A hosted operator has no password, and the password reset command refuses them. A viewer ticket, for a fleet with a viewer only, is issued and redeemed the same way and starts a viewer session instead.
+4. Sign an account in as argo: the hosting service asks for a sign-in ticket naming the account (one use, valid 2 minutes, stored as its hash) and sends the operator's browser to the console with it. The console redeems it and the session starts exactly as after a password sign-in: it takes argo's lease over and ends any previous session. A used, expired or unknown ticket shows that the sign-in did not go through, with a link back to the hosting service's sign-in. A hosted console never serves a password form: its sign-in page redirects to the hosting service at once, except after a sign-in elsewhere ended the session: then it says so first, with a link to the hosting service's sign-in. A hosted fleet has no argo's own sign-in, and the password reset command refuses it. A viewer ticket, for a fleet with a viewer only, is issued and redeemed the same way and starts a viewer session instead.
 5. Delete a fleet: it is gone for good, in one transaction, with every record in it, which ends its console session and leases. No event survives it (the event log is the fleet's own), so the server logs the delete with the fleet's id, name and operator email. Nothing of the fleet stays behind: the record that answers a replayed delete keeps only the request's hash.
 6. Set notices: the installation sets what the console says above every page (decision 0023), replacing the notices it set before. Each is plain text with optional links, for everyone, for operators or for viewers, and dismissible or not. A console session shows the notices of its audience in the installation's order; dismissing one hides it for that session only. A link may sign out first: the session ends, then the browser goes on to the link, or to sign in.
 7. Set the guide: the installation sets one guide (decision 0024) for everyone, for operators or for viewers: steps in order, each on a console page, pointing at an element there, with a title and a text. It opens by itself on the first console page of a session of its audience. Next and Back go from page to page; Skip or Finish hide it for the rest of that session; Take the tour in the account menu opens it again. A step whose element is not on the page shows centred, so its count stays. The session's place in the guide is kept on the server.
+8. End console sign-ins by an account: every console sign-in as argo by that account ends, with its event (0055).
+9. Cut off an account's tokens: core refuses that account's tokens issued before now until the longest has ended (0058).
+
+### Accounts
+
+The flows of accounts, each with its happy and unhappy paths, are in [docs/design/accounts/phase-2/flows.md](design/accounts/phase-2/flows.md): sign-up, an account joins a group, a group's rights change, an admin acts as their account, gateway sign-in, console sign-in as argo, a trierarch joins for an account, an account is disabled, an outside MCP client waits, a person asks for an outside MCP server, an account token is checked (0051 to 0058).
 
 ### Launch a ship
 
