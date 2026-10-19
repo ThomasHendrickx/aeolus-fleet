@@ -230,3 +230,76 @@ sequenceDiagram
   P-->>T: refused: not allowed for this fleet
   Note over K,C: self-hosted without pagasae: the console's form takes argo's own email and password, and the sign-in says so. Wrong password: refused, as today. Hosted: no form.
 ```
+
+## F7 A trierarch joins for an account
+
+Draft 0055. Burak adds his laptop.
+
+```mermaid
+sequenceDiagram
+  actor B as Burak
+  participant TP as Trierarch plugin (its page)
+  participant P as pagasae
+  participant C as core (fleet)
+  participant L as Burak's laptop
+  B->>TP: open the trierarch plugin's page
+  TP->>P: sign Burak in
+  alt account disabled
+    P-->>TP: refused
+  else signed in
+    P-->>TP: Burak's person ship in this fleet
+    B->>TP: add this computer
+    alt his person ship lacks the plugin's scope to add a computer
+      TP-->>B: refused
+    else allowed
+      TP->>C: commission the trierarch's app ship, owner Burak's person ship (fleet:on-behalf)
+      C-->>TP: the ship (ShipCommissioned, OwnerSet)
+      TP-->>B: the starting prompt for aeolus-trierarch init
+      B->>L: aeolus-trierarch init with it
+      L->>C: register the trierarch's ship
+      C-->>L: crew token
+    end
+  end
+  Note over TP,C: a shared server joins as today, owned by argo, linked to no account
+```
+
+## F8 An account is disabled
+
+Draft 0055. Burak leaves Acme. He was signed in at the gateway, allowed to sign in as argo, and his laptop's trierarch crews three agent ships.
+
+```mermaid
+sequenceDiagram
+  actor M as Mathilde (organisation admin)
+  participant P as pagasae
+  participant G as Gateway
+  participant I as core (installation)
+  participant C as core (fleet)
+  participant TP as Trierarch plugin
+  participant L as Burak's laptop
+  M->>P: disable Burak's account
+  alt Burak is the last organisation admin
+    P-->>M: refused: the organisation needs one
+  else disabled
+    P->>P: end his pagasae sign-ins, off the accounts allowed as argo
+    P->>G: account disabled
+    G->>G: end his tokens
+    P->>I: end console sign-ins by Burak's account
+    P->>C: release his person ship (LeaseRevoked)
+    P->>C: release his trierarch's ship, on behalf of his person ship
+    C->>C: and every lease it crewed (LeaseRevoked each)
+    C-->>TP: the fleet's events: those crew requests given back
+    TP->>C: assign them to another computer
+    P-->>M: disabled
+  end
+  L->>C: the next call with any of its crew tokens
+  C-->>L: LEASE_ENDED
+  L->>L: stop the sessions
+  alt the gateway missed the notice
+    G->>P: refresh Burak's token
+    P-->>G: refused: disabled
+  end
+  alt core does not answer pagasae
+    P->>P: keep what is still to do for Burak and this fleet
+    P->>C: again until it lands
+  end
+```
