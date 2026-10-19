@@ -169,14 +169,15 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Identity | A login at an identity provider (Google, Microsoft) that signs an account in. Not an account | pagasae (to build) |
 | Identity provider | A service such as Google or Microsoft whose logins an organisation accepts as its accounts' identities | pagasae (to build) |
 | Directory | The organisation's list of accounts, its own or read from its identity provider | pagasae (to build) |
-| Organisation admin | An account its organisation lets manage its accounts and link them to person ships | pagasae (to build) |
+| Organisation admin | An account that manages its organisation: its accounts, groups, fleets and directory. The account created first is one. Its rights sit on the account, the one place a right is not a scope. Not argo, which is a fleet's | pagasae (to build) |
 | Group | A set of an organisation's accounts; in each fleet it yields scopes and reach for its accounts' person ships | pagasae (to build) |
 | Installation admin | The human who runs an installation's hosting service (pagasae's `OWNER_EMAIL`). Not an owner | pagasae |
-| Operator | The human who signs in as argo, with their own account; there is no operator account | core |
+| Operator | The human who signs in as argo, with their own account or by argo's own sign-in; there is no operator account | core |
 | Sign-in | A human logging in: console sign-in (as argo, or as the viewer), pagasae sign-in, gateway sign-in. Not a session | core, pagasae, gateway |
+| argo's own sign-in | Core's email and password that sign in as argo, with no organisation: the one-line self-hosted setup, and a way in that depends on nothing. Not an account | core |
 | Sign-in ticket | One use, 2 minutes, from the hosting service: a console sign-in as argo, or as the viewer (a viewer ticket) (0020, 0022) | core |
 | Sign-in link | A one-use link pagasae mails to sign an account in | pagasae |
-| Link | Joining an account to a person ship, so the human acts as that ship. Not connect | to build |
+| Link | Joining an account to a person ship, so the human acts as that ship, or to a trierarch's app ship, whose computer is that human's. Not connect | to build |
 
 ### Fleet and ships
 
