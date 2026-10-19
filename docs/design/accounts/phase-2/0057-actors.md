@@ -1,0 +1,20 @@
+# 0057 Actors (draft)
+
+- Everything that sends or receives messages is a ship: an address, an inbox, a lease, the delivery guarantee, an owner and a statement.
+- Every call is authorised for an actor by scopes and reach, and every event names that actor. An actor is:
+  - a ship, by its crew token, or by a console sign-in as argo or as the viewer;
+  - an account, by an account token pagasae signs for one fleet (0058); core stores no account;
+  - the installation, by the installation token.
+- One catalogue and one check for every actor (0046, 0034). An agent ship can hold any scope any actor holds and do every management job through the same calls, so an AI can manage the fleet. No fleet management job is any kind of actor's alone.
+- Reach: a rule's selector matches an actor by its labels or its owner, as it matches a ship. A ship carries its labels in the fleet; an account carries the values of its groups in its account token; the installation is reached and reaches as round 3 decides (R8).
+- What stays the installation's alone is above the fleet or signs humans in: creating, listing, getting and deleting fleets, sign-in tickets, ending console sign-ins as argo, cutting off an account's tokens (0058), and the installation's settings (limits, notices, the guide). In a fleet, the installation acts through the same calls as any actor, with the scopes argo gives it there.
+- A human acts as their account for every call that is not messaging. They have a person ship in a fleet only to send and receive there (0052), and their messages are that ship's.
+- A ship's owner is a ship: a person ship or argo (0045). A ship an account commissions is owned by the account's person ship, commissioned then if it has none.
+- argo is the fail-safe: the final level that catches all, so no faulty or missed state goes missing and there is always a way out. It is the catch-all owner, the way out for a ship that does not know what to do, and permanent, with built-in reach that is never off and, where no pagasae runs, the way in. Holding every scope is not what makes argo: any actor may hold every scope. argo is not part of the delivery guarantee: no message is ever lost by the fleet itself, and the operator is not the fail-safe for delivery.
+- Every event names its actor: the ship; or the account, by its id and its email then (R9), with the ship it came through when a plugin's page or the gateway presented the token; or the installation, with the account and the organisation admin who asked in its details.
+
+Why: the reason for "every caller is a ship" was that an AI can manage the fleet, and that stays. What a ship is needed for is messaging; what authorising and auditing need is a named actor with scopes. Joining them made pagasae a ship holding every scope in every fleet, widened `fleet:on-behalf` to manage, and gave every human who administers a person ship they never message from. Entra, Kubernetes and GitHub keep what acts apart from what receives, with one permission model for every kind of actor (`actors.md` part 2.2).
+
+Rejected: "every caller is a ship" with pagasae as an exception; humans acting as their person ships in every call; a message whose sender is not a ship; rights that only a human, pagasae or the installation can hold inside a fleet; argo as an account.
+
+Changes: 0012 (argo's way in, and the principle), 0020 (the installation acts in fleets), 0031 (a label belongs to the actor that defined it), 0034 (selectors match actors), 0037 (any actor that defined a label declares rules on it), 0044, 0045, 0046 (scopes held by ships and in account tokens).
