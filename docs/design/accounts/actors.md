@@ -36,7 +36,7 @@ The direction proposed to Thomas, not decided beyond pagasae:
 
 - Keep: everything that sends or receives messages is a ship.
 - Change "every caller is a ship" to: every call is authorised for an actor by scopes and reach, and every event names that actor.
-- Actors: a ship (its crew token or console sign-in), an account (vouched for by pagasae; core checks a signed claim with its scopes and never stores accounts), the installation.
+- Actors: a ship (its crew token or console sign-in), an account (vouched for by pagasae; core checks a signed account token with its scopes and never stores accounts), the installation.
 
 ### 1.4 The jobs
 
@@ -55,11 +55,11 @@ The direction proposed to Thomas, not decided beyond pagasae:
 
 At Acme:
 
-- Mathilde retires an agent from the networking plugin's page. She signs in through pagasae; the page calls core with her claim; the event names her account. She has no person ship in that fleet, because she never messages there.
+- Mathilde retires an agent from the networking plugin's page. She signs in through pagasae; the page calls core with her account token; the event names her account. She has no person ship in that fleet, because she never messages there.
 - Charlotte talks to the CRM's app ship from her Claude: she sends messages, so she has a person ship, and the gateway crews it.
-- Mathilde moves Charlotte from sales to finance. Charlotte's next claim carries finance's scopes; nothing is rescoped by a ship holding everything.
-- Burak leaves. His claims stop being accepted within a minute, his person ship and his trierarch are released, every ship stays.
-- pagasae is down for an hour. Fleets go on messaging; whoever signs in as argo by argo's own sign-in (self-hosted) still acts; claims already given keep working until they end.
+- Mathilde moves Charlotte from sales to finance. Charlotte's next account token carries finance's scopes; nothing is rescoped by a ship holding everything.
+- Burak leaves. His account tokens stop being accepted within a minute, his person ship and his trierarch are released, every ship stays.
+- pagasae is down for an hour. Fleets go on messaging; whoever signs in as argo by argo's own sign-in (self-hosted) still acts; account tokens already given keep working until they end.
 
 ### 1.6 Not this design's
 
@@ -93,7 +93,7 @@ For lessons, not to copy.
 | --- | --- | --- |
 | **What receives is not what acts.** An endpoint need not sign in | Exchange: a shared mailbox has no username or password and its account stays disabled; people sign in as themselves and act on it (Full Access, Send As, Send on Behalf). Slack: a bot token belongs to the app, not a person, and outlives the person who installed it | [shared mailboxes](https://learn.microsoft.com/en-us/exchange/collaboration/shared-mailboxes/shared-mailboxes), [Slack tokens](https://docs.slack.dev/authentication/tokens) |
 | **One permission model for every kind of actor** | Entra: users and applications both act through a security principal, and roles are granted to any kind the same way. Kubernetes: one RBAC whose subjects are users, groups or service accounts | [Entra principals](https://learn.microsoft.com/en-us/entra/identity-platform/app-objects-and-service-principals), [RBAC](https://kubernetes.io/docs/reference/access-authn-authz/rbac/) |
-| **The resource server need not store the humans** | Kubernetes has no object for a normal user: the API server checks an OIDC token's signature and expiry against the issuer's keys, without calling the issuer, and reads the user and groups from its claims. Service accounts, which are machines, are its own objects | [Kubernetes authentication](https://kubernetes.io/docs/reference/access-authn-authz/authentication/) |
+| **The resource server need not store the humans** | Kubernetes has no object for a normal user: the API server checks an OIDC token's signature and expiry against the issuer's keys, without calling the issuer, and reads the user and groups from its account tokens. Service accounts, which are machines, are its own objects | [Kubernetes authentication](https://kubernetes.io/docs/reference/access-authn-authz/authentication/) |
 | **Acting for someone is explicit and narrows** | GitHub: an app acts as itself (installation token) or for a user (user token), and then reaches only what both the user and the app may. Kubernetes impersonation needs its own grant | [GitHub on behalf of a user](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/authenticating-with-a-github-app-on-behalf-of-a-user), [impersonation](https://kubernetes.io/docs/reference/access-authn-authz/user-impersonation/) |
 | **The audit names who acted apart from what was acted on, and both parties when one acts for another** | Entra: `initiatedBy` (a user or an app) and `targetResources`. GitHub: `actor` and `user`. Kubernetes: `user` and `impersonatedUser` | [Entra audit](https://learn.microsoft.com/en-us/graph/api/resources/directoryaudit), [GitHub audit fields](https://docs.github.com/en/enterprise-cloud@latest/admin/monitoring-activity-in-your-enterprise/reviewing-audit-logs-for-your-enterprise/audit-log-events-for-your-enterprise) |
 | **A removed human keeps access until the token ends; keep tokens short** | Kubernetes: an id token "can't be revoked, it's like a certificate so it should be short-lived (only a few minutes)". Introspection (RFC 7662) revokes at once at the price of asking the issuer on every call | [Kubernetes authentication](https://kubernetes.io/docs/reference/access-authn-authz/authentication/), [RFC 7662](https://www.rfc-editor.org/rfc/rfc7662) |
@@ -107,15 +107,15 @@ What this part settles is how pagasae vouches for an account, so core can author
 ### 3.1 The shape
 
 - **Trust is set up once per installation.** Core is configured with pagasae's issuer and fetches its public keys from it, as it is configured with the installation token today. With none configured, core accepts no account: a self-hosted fleet with argo's own sign-in only (Q19 (e)). Adding pagasae later is setting it.
-- **pagasae signs a claim for one account in one fleet**: the account (an opaque id and its email, for events), its organisation, the fleet it is for (the audience, so it is refused in any other fleet), the scopes and labels its groups give there, and a short life. Whoever acts for the human presents it: the console, a plugin's page, the gateway, a human's MCP client.
-- **Core checks it on every call**: the signature against pagasae's keys, the audience against this fleet, the life against now. It then authorises the call by the claim's scopes and reach, as for a ship, and names the account as the actor of every event the call writes. It stores nothing else about the account. When a plugin's page or the gateway presents the claim, the event names the account and, in its details, the ship it came through: who acted, and through what.
+- **pagasae signs an account token for one account in one fleet**: the account (an opaque id and its email, for events), its organisation, the fleet it is for (the audience, so it is refused in any other fleet), the scopes and labels its groups give there, and a short life. Whoever acts for the human presents it: the console, a plugin's page, the gateway, a human's MCP client.
+- **Core checks it on every call**: the signature against pagasae's keys, the audience against this fleet, the life against now. It then authorises the call by the account token's scopes and reach, as for a ship, and names the account as the actor of every event the call writes. It stores nothing else about the account. When a plugin's page or the gateway presents the account token, the event names the account and, in its details, the ship it came through: who acted, and through what.
 - **pagasae acting as itself** (sign-up's fleet, a leaver's releases) uses the installation token, as the installation actor (question 4).
 
 ### 3.2 Hosted and self-hosted
 
 | | Hosted | Self-hosted, without pagasae | Self-hosted, with pagasae |
 | --- | --- | --- | --- |
-| Accounts in a fleet | Yes, through pagasae's claims | None: argo's own sign-in only | Yes, once core is configured with pagasae's issuer |
+| Accounts in a fleet | Yes, through pagasae's account tokens | None: argo's own sign-in only | Yes, once core is configured with pagasae's issuer |
 | Installation token | pagasae holds it | Unset (0020) | pagasae holds it |
 | argo | Signed in by allowed accounts | argo's own sign-in | Both (0054) |
 
@@ -123,13 +123,13 @@ What this part settles is how pagasae vouches for an account, so core can author
 
 | What goes wrong | What happens |
 | --- | --- |
-| pagasae is down | No new claims: nobody signs in through pagasae. Claims already given keep working until they end; messaging goes on; argo's own sign-in still works where it exists. Hosted fleets have no other way in for humans until pagasae is back |
-| pagasae rotates its key | It publishes the new key beside the old before signing with it; core fetches keys again when a claim names a key it does not know, at most once a minute, so a forged key id cannot make core fetch without end |
-| A claim for a leaver is still alive | Accepted until it ends, unless pagasae tells core first (question 3). The life of a claim is the longest a leaver keeps access |
-| A claim is stolen | Usable in its one fleet until it ends; that is why the life is short |
-| pagasae's signing key leaks | Anyone can vouch for any account in every fleet that trusts it, as the installation token can create and delete fleets today. Rotating the key ends every claim at once |
-| Core's clock and pagasae's differ | A small allowance on the life, so a claim is not refused for seconds |
-| An account's groups change | The next claim carries the new scopes; a claim already given keeps the old until it ends (question 3) |
+| pagasae is down | No new account tokens: nobody signs in through pagasae. Claims already given keep working until they end; messaging goes on; argo's own sign-in still works where it exists. Hosted fleets have no other way in for humans until pagasae is back |
+| pagasae rotates its key | It publishes the new key beside the old before signing with it; core fetches keys again when an account token names a key it does not know, at most once a minute, so a forged key id cannot make core fetch without end |
+| An account token for a leaver is still alive | Accepted until it ends, unless pagasae tells core first (question 3). The life of an account token is the longest a leaver keeps access |
+| An account token is stolen | Usable in its one fleet until it ends; that is why the life is short |
+| pagasae's signing key leaks | Anyone can vouch for any account in every fleet that trusts it, as the installation token can create and delete fleets today. Rotating the key ends every account token at once |
+| Core's clock and pagasae's differ | A small allowance on the life, so an account token is not refused for seconds |
+| An account's groups change | The next account token carries the new scopes; an account token already given keeps the old until it ends (question 3) |
 
 ## 4. Questions for Thomas
 
@@ -145,6 +145,8 @@ Use case: Mathilde retires an agent from the networking plugin's page without a 
 
 Pick: (a).
 
+The signed statement pagasae gives for an account (part 3) needs a word too. "Claim" is the field's word, but a crew already claims a ship (`ShipClaimed`), so this design says **account token**, after the crew token; it is Thomas's to name.
+
 **2. Does a human acting in a fleet act as their account?** (reopens questions 1, 3 and 11)
 
 What it is: phase 2 gives every human with rights in a fleet a person ship, and every call they make is that ship's. With accounts as actors, a person ship is needed only for messaging.
@@ -159,13 +161,13 @@ Pick: (a). Question 1 of `accounts.md` then reads: at most one person ship per a
 
 **3. What core accepts from pagasae, and how a leaver is cut off**
 
-What it is: the claim of part 3: what it carries and how long it lives.
+What it is: the account token of part 3: what it carries and how long it lives.
 
-Use case: Burak leaves at 10:00. Mathilde disables him. His Claude holds a claim given at 9:58.
+Use case: Burak leaves at 10:00. Mathilde disables him. His Claude holds an account token given at 9:58.
 
-- (a) **A short claim with scopes and labels, and a pushed cut-off**: lives 10 minutes; pagasae tells core "account disabled", and core refuses that account's claims until the longest of them has ended. Goes wrong: if the push is lost, Burak keeps access up to 10 minutes; core keeps a short list of cut-off accounts.
-- (b) **Core asks pagasae about every claim** (introspection). Goes wrong: every call waits on pagasae, and when pagasae is down nobody but argo's own sign-in can act in any fleet.
-- (c) **A long claim (a day), cut off only by the push.** Goes wrong: a lost push leaves a leaver in for a day; a group change takes a day.
+- (a) **A short account token with scopes and labels, and a pushed cut-off**: lives 10 minutes; pagasae tells core "account disabled", and core refuses that account's account tokens until the longest of them has ended. Goes wrong: if the push is lost, Burak keeps access up to 10 minutes; core keeps a short list of cut-off accounts.
+- (b) **Core asks pagasae about every account token** (introspection). Goes wrong: every call waits on pagasae, and when pagasae is down nobody but argo's own sign-in can act in any fleet.
+- (c) **A long account token (a day), cut off only by the push.** Goes wrong: a lost push leaves a leaver in for a day; a group change takes a day.
 
 Pick: (a).
 
@@ -176,7 +178,7 @@ What it is: some changes have no human asking at that moment: sign-up's first fl
 Use case: Burak is disabled; his person ship and his laptop's trierarch must be released in every fleet.
 
 - (a) **pagasae acts as the installation**, with the installation token, through a few new installation procedures for one fleet: release what a disabled account crews, and commission or release a person ship. Events name the installation as actor, and their details name the account and the organisation admin who asked. Goes wrong: the installation, which today knows only fleets, learns about person ships and releases.
-- (b) **pagasae acts for the organisation admin who asked**, with that admin's claim. Goes wrong: an admin must hold every scope these need, and a directory change has no admin.
+- (b) **pagasae acts for the organisation admin who asked**, with that admin's account token. Goes wrong: an admin must hold every scope these need, and a directory change has no admin.
 - (c) **pagasae is a plugin ship** (phase 2's P1). Rejected by Thomas.
 
 Pick: (a).
@@ -187,7 +189,7 @@ What it is: network rules select ships by labels or owner (0034). An account is 
 
 Use case: a manage rule lets `group=engineering` manage `group=engineering`. Thomas, as his account, retires an engineering agent, and must not retire a finance one.
 
-- (a) **The claim carries the account's labels**, the values of pagasae's label `group` for its groups; a rule's selector matches an account by them as it matches a ship. A commission gives only label values the actor carries or defined (P4 as it was). Goes wrong: a rule's selector now matches two kinds of actor, and argo reading the rules must know an account can match.
+- (a) **The account token carries the account's labels**, the values of pagasae's label `group` for its groups; a rule's selector matches an account by them as it matches a ship. A commission gives only label values the actor carries or defined (P4 as it was). Goes wrong: a rule's selector now matches two kinds of actor, and argo reading the rules must know an account can match.
 - (b) **An account acts with its person ship's reach.** Goes wrong: every human with rights needs a person ship again.
 - (c) **An account has scopes only, and reaches every ship.** Goes wrong: Thomas could retire finance's agent; reach stops saying where for humans.
 
@@ -197,7 +199,7 @@ Pick: (a).
 
 What it is: argo holds every scope so a fleet can always act (0053); with accounts as actors, someone could hold every scope without argo.
 
-Use case: pagasae is misconfigured and every claim lacks scopes. Acme's fleet must still be put right.
+Use case: pagasae is misconfigured and every account token lacks scopes. Acme's fleet must still be put right.
 
 - (a) **argo stays the fleet's own actor and inbox**: a permanent ship with every scope, its built-in reach, its inbox for what argo owns, signed in by allowed accounts or argo's own sign-in. Events name argo and the account that signed in. Goes wrong: two ways to hold every scope (argo, and an account whose groups give all), so argo's reason must be kept by policy, not by structure.
 - (b) **argo becomes an account with every scope.** Goes wrong: recovery then depends on pagasae; a self-hosted fleet without pagasae has no argo.
@@ -226,7 +228,7 @@ What it is: the decisions that say "every caller is a ship", or follow from it.
 | 0020 | The installation: fleets only | Also the actor pagasae acts as, for a few per-fleet procedures (question 4) |
 | 0044 | Only argo commissions person ships; kinds | A person ship exists for messaging only (question 2); commissioning one is a scope an account may hold |
 | 0045 | Owners are person ships or argo | Unchanged; an account owns through its person ship (question 7) |
-| 0046 | Scopes on ships; `fleet:on-behalf` for plugins | Scopes on ships and in claims; `fleet:on-behalf` stays as it was (P6 gone) |
+| 0046 | Scopes on ships; `fleet:on-behalf` for plugins | Scopes on ships and in account tokens; `fleet:on-behalf` stays as it was (P6 gone) |
 | 0034 | Selectors match ships | Selectors match ships and accounts by labels (question 5) |
 
 - (a) **These changes, written as decisions after Thomas agrees the purpose.** Goes wrong: six decisions move at once.
@@ -240,16 +242,16 @@ Not rewritten yet; this is what each would become under the picks above.
 
 | Draft or flow | Change |
 | --- | --- |
-| [0051](phase-2/0051-organisation.md) Organisation | pagasae is no plugin ship: it signs claims and acts as the installation (questions 3, 4). The organisation, accounts and organisation admin stand |
-| [0052](phase-2/0052-groups.md) Groups | A group gives scopes and labels in a claim, not on a person ship; a change lands at the next claim, no rescope. A person ship gets only what messaging needs, and its labels for message reach. P2's declared rules on `group` stand |
-| [0053](phase-2/0053-nothing-is-argos-alone.md) Nothing is argo's alone | Stands, with "actor" for "ship": a scope may be held by an account. P4's commission check applies to the actor's labels. Plugin pages check the claim's scopes |
-| [0054](phase-2/0054-sign-in.md) Sign-in | A sign-in yields a claim for one fleet. The gateway crews a person ship only for messaging. Console sign-in as argo unchanged |
-| [0055](phase-2/0055-leavers.md) Leavers | The cut-off push (question 3) ends claims; pagasae releases as the installation (question 4); P6's widening of `fleet:on-behalf` goes. The trierarch's link to its account stands |
+| [0051](phase-2/0051-organisation.md) Organisation | pagasae is no plugin ship: it signs account tokens and acts as the installation (questions 3, 4). The organisation, accounts and organisation admin stand |
+| [0052](phase-2/0052-groups.md) Groups | A group gives scopes and labels in an account token, not on a person ship; a change lands at the next account token, no rescope. A person ship gets only what messaging needs, and its labels for message reach. P2's declared rules on `group` stand |
+| [0053](phase-2/0053-nothing-is-argos-alone.md) Nothing is argo's alone | Stands, with "actor" for "ship": a scope may be held by an account. P4's commission check applies to the actor's labels. Plugin pages check the account token's scopes |
+| [0054](phase-2/0054-sign-in.md) Sign-in | A sign-in yields an account token for one fleet. The gateway crews a person ship only for messaging. Console sign-in as argo unchanged |
+| [0055](phase-2/0055-leavers.md) Leavers | The cut-off push (question 3) ends account tokens; pagasae releases as the installation (question 4); P6's widening of `fleet:on-behalf` goes. The trierarch's link to its account stands |
 | [0056](phase-2/0056-outside-parties.md) Outside parties | Approving is an account's scope too, from the gateway's page. Otherwise stands |
 | F1 Sign-up | No pagasae plugin ship at fleet create |
 | F2, F3 Groups | No commission or rescope for rights; a person ship only at the first message |
-| F4 Admin acts | Thomas and Mathilde act as their accounts, with claims; refusals the same |
-| F5 Gateway sign-in | A claim for the fleet; crewing the person ship only when the human messages |
+| F4 Admin acts | Thomas and Mathilde act as their accounts, with account tokens; refusals the same |
+| F5 Gateway sign-in | An account token for the fleet; crewing the person ship only when the human messages |
 | F6 Console sign-in as argo | Unchanged |
 | F7 Trierarch joins | The trierarch plugin's page acts for Burak's account; the ship's owner is his person ship (question 7) |
 | F8 Disabled | Cut-off push to core; releases as the installation |
