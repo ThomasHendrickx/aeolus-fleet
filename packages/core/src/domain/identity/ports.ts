@@ -1,4 +1,4 @@
-import type { ConsoleSessionId, CredentialId, FleetId, LeaseId, OperatorId, ShipId, Theme } from '@aeolus-fleet/common';
+import type { AccountTokenClaims, ConsoleSessionId, CredentialId, FleetId, LeaseId, OperatorId, ShipId, Theme } from '@aeolus-fleet/common';
 
 import type { Caller, Crew } from '../shared/caller.js';
 import type { ConsoleSession, ConsoleSessionEndReason } from './console-session.js';
@@ -149,4 +149,17 @@ export interface GuideProgressRepository {
   progress(of: { fleetId: FleetId; consoleSessionId: ConsoleSessionId }): Promise<GuideProgress | null>;
   /** Records the session's progress over any it recorded before. */
   record(progress: { fleetId: FleetId; consoleSessionId: ConsoleSessionId; at: Date } & GuideProgress): Promise<void>;
+}
+
+/**
+ * Outbound port: pagasae's signature on an account token (decision 0058).
+ * Core trusts one issuer and its published keys.
+ */
+export interface AccountTokenSignatures {
+  /**
+   * The token's claims when a key the issuer publishes signed it as an
+   * access token naming that issuer; undefined for any other token. Says
+   * nothing of its fleet, its end or a cut-off: the use case checks those.
+   */
+  verify(token: string): Promise<AccountTokenClaims | undefined>;
 }

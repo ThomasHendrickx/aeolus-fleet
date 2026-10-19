@@ -1,4 +1,7 @@
-import { generateKeyPairSync, randomUUID, sign, type JsonWebKey, type KeyObject } from 'node:crypto';
+import { generateKeyPairSync, randomUUID, sign, type KeyObject } from 'node:crypto';
+
+/** A public key as a key set publishes it. */
+export type PublishedKey = Record<string, unknown> & { kid: string };
 
 /**
  * A stand-in for pagasae signing account tokens (decision 0058), for tests:
@@ -9,7 +12,7 @@ import { generateKeyPairSync, randomUUID, sign, type JsonWebKey, type KeyObject 
 export interface TestIssuer {
   issuer: string;
   /** The published keys, as `<issuer>/.well-known/jwks.json` answers them. */
-  keySet(): { keys: JsonWebKey[] };
+  keySet(): { keys: PublishedKey[] };
   /** Publishes a new key beside the old ones and signs with it from now on; answers its key id. */
   rotate(algorithm?: SigningAlgorithm): string;
   /** Stops publishing a key. */
@@ -52,9 +55,9 @@ export function createTestIssuer(issuer = 'https://pagasae.test'): TestIssuer {
       if (!key) {
         throw new Error(`The test issuer holds no key ${options.keyId ?? ''}`);
       }
-      return signedToken(key, claims, options.type ?? 'at+jwt');
+      return signedToken(key, { claims, type: options.type ?? 'at+jwt' });
     },
-    signWithUnpublishedKey: (claims) => signedToken(newSigningKey('EdDSA'), claims, 'at+jwt'),
+    signWithUnpublishedKey: (claims) => signedToken(newSigningKey('EdDSA'), { claims, type: 'at+jwt' }),
   };
 }
 
@@ -63,11 +66,12 @@ function newSigningKey(algorithm: SigningAlgorithm): SigningKey {
   return { keyId: randomUUID(), algorithm, privateKey, publicKey };
 }
 
-function publicJwk(key: SigningKey): JsonWebKey {
+function publicJwk(key: SigningKey): PublishedKey {
   return { ...key.publicKey.export({ format: 'jwk' }), kid: key.keyId, alg: key.algorithm, use: 'sig' };
 }
 
-function signedToken(key: SigningKey, claims: Record<string, unknown>, type: string): string {
+function signedToken(key: SigningKey, token: { claims: Record<string, unknown>; type: string }): string {
+  const { claims, type } = token;
   const header = encode({ alg: key.algorithm, typ: type, kid: key.keyId });
   const body = encode(claims);
   const input = Buffer.from(`${header}.${body}`);
