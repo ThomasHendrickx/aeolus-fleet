@@ -102,3 +102,43 @@ sequenceDiagram
     Note over P,G: at Charlotte's next sign-in pagasae checks her ship against her groups and puts right what differs
   end
 ```
+
+## F4 An admin acts as their person ship
+
+Draft 0053. Thomas, engineering's team lead, is in the group "team leads", which gives `fleet:commission` and `fleet:manage`; a rule lets `group=engineering` manage `group=engineering`. He works from his Claude, signed in at the gateway. Mathilde, in "fleet admins", edits a rule on the networking plugin's page, signed in through pagasae.
+
+```mermaid
+sequenceDiagram
+  actor T as Thomas
+  participant G as Gateway (crews Thomas's person ship)
+  participant C as core (fleet)
+  actor M as Mathilde
+  participant N as Networking plugin (its page)
+  participant P as pagasae
+  T->>G: commission an agent for engineering, labelled group=engineering
+  G->>C: commission, as Thomas's person ship
+  alt lacks fleet:commission
+    C-->>G: refused, naming the scope
+  else a label value it neither defined nor carries, or a scope it does not hold
+    C-->>G: refused, naming the value or the scope
+  else allowed
+    C-->>G: the agent ship, owner Thomas's person ship (OwnerSet)
+  end
+  G-->>T: the answer
+  T->>G: retire the finance invoice agent
+  G->>C: retire, as Thomas's person ship
+  C->>C: manage reach: no rule lets group=engineering manage that ship
+  C-->>G: refused, without reasons
+  G-->>T: refused
+  M->>N: open the networking plugin's page
+  N->>P: sign Mathilde in
+  P-->>N: Mathilde's person ship in this fleet
+  M->>N: add a rule
+  alt her person ship holds the plugin's editing scope
+    N->>C: the fleet's rules, as the networking plugin's ship
+    C-->>N: in force (NetworkRulesSet)
+    N-->>M: saved, naming her person ship in its log
+  else it does not
+    N-->>M: the page shows the rules and no editing
+  end
+```

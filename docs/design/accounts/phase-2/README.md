@@ -57,7 +57,7 @@ Phase 1 left five points to phase 2; working through the drafts raised four more
 | P1 | How pagasae acts in a fleet | As a plugin ship connected to every fleet of the organisation, so every call it makes is a ship's and leaves its event; the installation token keeps only fleet create, list, get and delete, and ending console sign-ins (0020) | 0051 |
 | P2 | A label for a group, and reach for it | pagasae defines the label `group` in each fleet, one value per group, and declares the rules each group's reach names (0037) | 0052 |
 | P3 | Rights given to one account directly | No: rights come only from groups; a group of one does it | 0052 |
-| P4 | Which labels a new ship carries when the commission checks reach | The values the commission names, of labels the commissioner defines or carries itself; the new ship must fall within the commissioner's manage reach with them | 0053 |
+| P4 | What a commission checks, since a new ship has no reach yet | Only label values of labels the commissioner defined or carries itself, and itself as owner when it is a person ship: the new ship never reaches further than its commissioner can make it | 0053 |
 | P5 | Names of the scopes that replace argo's alone jobs | `fleet:person`, `fleet:owner`, `fleet:explain`, `fleet:connect`, `labels:any`; names are Thomas's | 0053 |
 | P6 | How pagasae releases what a leaver's person ship owns | On behalf of the person ship (`fleet:on-behalf`, widened from read to manage), through the owner rule | 0055 |
 | P7 | Whom the gateway asks besides argo | Its owner, as every ship asks (0038): argo until argo makes an admin's person ship the gateway's owner | 0056 |
