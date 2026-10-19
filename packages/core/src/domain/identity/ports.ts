@@ -1,4 +1,4 @@
-import type { AccountTokenClaims, ConsoleSessionId, CredentialId, FleetId, LeaseId, OperatorId, ShipId, Theme } from '@aeolus-fleet/common';
+import type { AccountId, AccountTokenClaims, ConsoleSessionId, CredentialId, FleetId, LeaseId, OperatorId, ShipId, Theme } from '@aeolus-fleet/common';
 
 import type { ShipCaller, Crew } from '../shared/caller.js';
 import type { ConsoleSession, ConsoleSessionEndReason } from './console-session.js';
@@ -162,4 +162,19 @@ export interface AccountTokenSignatures {
    * nothing of its fleet, its end or a cut-off: the use case checks those.
    */
   verify(token: string): Promise<AccountTokenClaims | undefined>;
+}
+
+/**
+ * Outbound port: the accounts pagasae cut off (decision 0058), kept by the
+ * installation for every fleet it hosts, each until the longest token it
+ * refuses has ended.
+ */
+export interface AccountCutOffLookup {
+  /** When the account was last cut off, while that cut-off is kept; undefined otherwise. */
+  cutOffAt(accountId: AccountId): Promise<Date | undefined>;
+}
+
+/** Outbound port: whether this installation hosts a fleet, so a token for any other is refused. */
+export interface HostedFleets {
+  isHosted(fleetId: FleetId): Promise<boolean>;
 }

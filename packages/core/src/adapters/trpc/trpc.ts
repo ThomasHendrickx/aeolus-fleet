@@ -65,6 +65,8 @@ const t = initTRPC.context<Context>().meta<ProcedureMeta>().create({
 export const router = t.router;
 
 const ERROR_CODES: Record<DomainErrorKind, TRPCError['code']> = {
+  ACCOUNT_TOKEN_ENDED: 'UNAUTHORIZED',
+  ACCOUNT_TOKEN_INVALID: 'UNAUTHORIZED',
   DELIVERY_HELD_BY_ANOTHER_SHIP: 'FORBIDDEN',
   DELIVERY_NOT_FOUND: 'NOT_FOUND',
   DELIVERY_NOT_A_PING: 'CONFLICT',
