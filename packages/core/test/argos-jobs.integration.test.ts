@@ -235,3 +235,33 @@ describe('the label group, which the installation defines and owns (decisions 00
     await expect(refusalOf(anAccountHolding(['labels:define']).fleet.defineLabel.mutate({ key: 'team', values: ['a'] }))).resolves.toMatchObject({ code: 'FORBIDDEN' });
   });
 });
+
+describe('assigning values of any label (labels:any)', () => {
+  it('lets the installation give a person ship values of its group label, and take them off again', async () => {
+    const { values } = await asInstallation().fleet.defineLabel.mutate({ key: 'group', values: ['sales', 'finance'] });
+    const sales = values.find((value) => value.value === 'sales')?.id ?? values[0]?.id;
+    const burak = await commissioned('burak-in-sales', 'person');
+    if (sales === undefined) {
+      throw new Error('the group label has no values');
+    }
+
+    await asInstallation().fleet.assignLabel.mutate({ shipId: burak, valueId: sales });
+    await expect(database.shipLabel.count({ where: { shipId: burak, valueId: sales } })).resolves.toBe(1);
+    await asInstallation().fleet.unassignLabel.mutate({ shipId: burak, valueId: sales });
+    await expect(database.shipLabel.count({ where: { shipId: burak } })).resolves.toBe(0);
+  });
+
+  it("lets an agent ship holding labels:any give a ship another owner's value", async () => {
+    const labeller = await anAgentHolding(['labels:assign', 'labels:any']);
+    const { values } = unwrap(await useCases.defineLabel(argo, { key: 'tier', values: ['gold'] }));
+    const scout = await commissioned('scout-in-gold');
+    const [gold] = values;
+    if (gold === undefined) {
+      throw new Error('the tier label has no values');
+    }
+
+    await labeller.calls.fleet.assignLabel.mutate({ shipId: scout, valueId: gold.id });
+
+    await expect(lastEventAbout(scout, 'LabelAssigned')).resolves.toMatchObject({ actorKind: 'ship', actorShipId: labeller.shipId });
+  });
+});
