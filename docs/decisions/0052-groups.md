@@ -1,7 +1,7 @@
-# 0052 Groups, an account's rights and its person ship (draft)
+# 0052 Groups, an account's rights and its person ship
 
 - A group is a set of an organisation's accounts, kept in pagasae (0051). An account sits in any number of groups; an organisation admin makes groups and puts accounts in them.
-- In each fleet, a group gives a set of scopes and a reach. An organisation admin may also give one account rights of its own in a fleet, beside its groups, so one person's exception needs no group of one (Thomas, round 5). The account's page in pagasae shows the aggregate, its groups' rights and its own, so what an account may do is seen in one place.
+- In each fleet, a group gives a set of scopes and a reach. An organisation admin may also give one account rights of its own in a fleet, beside its groups, so one person's exception needs no group of one (Thomas). The account's page in pagasae shows the aggregate, its groups' rights and its own, so what an account may do is seen in one place.
 - **Organisation rights never imply fleet scopes.** An organisation admin who manages accounts gets nothing in a fleet from that: with no group and no rights of its own there, the account cannot act in that fleet, administer its agents or message them, and has no person ship there.
 - **An account's rights in a fleet** are the scopes of all its groups there and its own, carried in its account token (0058), with the values of the label `group` for those groups and any it was given of its own. A change of groups lands at the account's next token, within 10 minutes. Nothing in the fleet is rescoped for it.
 - **Reach.** The installation defines the label `group` in each fleet, one value per group that gives anything there, and declares each group's reach as rules on that label (0037). When a group is created, the installation also declares its default rule, a send rule from `group=X` to `group=X`, so the members of a group reach each other without anyone writing it: "engineering sends to engineering" is a send rule from `group=engineering` to `group=engineering`. A rule joining a group to another label, such as "sales sends to the CRM" (`group=sales` to `crm=app`), is a rule in the networking plugin. A rule's selector matches an account by the values in its token, as it matches a ship by its labels (0057). The label's limits (50 values, 20 on one actor, 0031) cap the groups giving anything in one fleet at 50 and one account's at 20.
@@ -9,8 +9,6 @@
 - A person ship is never recommissioned to change rights: its id, its history and the ships it owns stay.
 - The fleet sees ships, scopes, labels, rules and account tokens. Groups, and which admin changed them, are pagasae's.
 
-Why: "Accounts sit in groups, and a group yields a set of scopes and network reach; the fleet only knows ships." With the actor model (0057), an account carries its rights in its token, so a group change needs no ship changed, and a person ship is what messaging needs. The research of `accounts.md` question 4 holds: the user stays and its rights change in place.
+Why: "Accounts sit in groups, and a group yields a set of scopes and network reach; the fleet only knows ships." With the actor model (0057), an account carries its rights in its token, so a group change needs no ship changed, and a person ship is what messaging needs. The research of `docs/design/accounts/accounts.md` question 4 holds: the user stays and its rights change in place.
 
 Rejected: a group of one for each person's exception (a mess, above all once groups come from a connected directory); groups in core; a selector by group; a person ship for every account with rights; rescoping person ships for rights other than messaging; retiring and recommissioning a person ship to change its rights.
-
-Changes: 0044 (person ships commissioned by the installation), 0045 (a person ship owns itself).

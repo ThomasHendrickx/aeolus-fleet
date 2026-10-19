@@ -1,4 +1,4 @@
-# 0055 Leavers and their computers (draft)
+# 0055 Leavers and their computers
 
 - An organisation admin disables an account; access ends at once, and every ship stays, like an inbox that outlives a leaver. Disabling:
   - cuts the account's tokens off in every installation of its fleets (0058), so a lost notice leaves at most one token's life;
@@ -13,5 +13,3 @@
 Why: "access ends at once, the ship stays, like an inbox that outlives a leaver." "trierarchs are apps and need an account linked to them": without it, a leaver's laptop keeps crewing the organisation's agents. Entra, Okta, Slack and GitHub deactivate rather than delete.
 
 Rejected: releasing every ship the person ship owns, wherever crewed; retiring the person ship on disable; finding a leaver's computers by hand; a link store beside the owner; leaving a released trierarch's leases running; widening `fleet:on-behalf` to manage (the installation releases with its own scopes).
-
-Changes: 0010 (a trierarch's release releases the leases it crewed), 0026, 0030 (a trierarch joins for an account), 0045 (a trierarch's ship may be owned by a person ship), 0046 (`fleet:on-behalf` names the asking account's person ship).

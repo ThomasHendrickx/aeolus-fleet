@@ -1,4 +1,4 @@
-# 0054 Sign-in through pagasae (draft)
+# 0054 Sign-in through pagasae
 
 - pagasae signs every account in. Until the organisation connects a directory, by a sign-in link mailed to the account's email. Once it connects one (Google Workspace, Entra; a later slice), every account signs in with its identity, and only the accounts allowed to sign in as argo keep the sign-in link beside it, as the way in when the identity provider fails. An email with accounts in several organisations is asked which one.
 - A sign-in gives the client an account token for one fleet (0058) and a fresh one before it ends. pagasae is the one identity provider of the gateway and of plugin pages (OpenID Connect); the gateway's identity provider per fleet goes, and interop I-4's "the gateway's OAuth server federates to the company IdP" becomes "through pagasae".
@@ -9,8 +9,6 @@
 - **argo's own sign-in.** Core keeps an email and password that sign in as argo, with no organisation: `fleet:init` asks for them, a server command resets them and ends argo's console sign-in. It is a sign-in of the ship argo, not an account and not an operator account (0050): the one-line self-hosted setup, and the way in where no pagasae runs. A self-hoster who adds pagasae keeps it. A hosted fleet has none (0020). The console sign-in says which way it came in.
 - A ship is like an email inbox: which client reads it does not matter to the network. Its exceptions, on purpose: one crew at a time (0010), so a human's clients share the gateway's one lease; argo opens only in core's console (0012); the viewer only with a viewer ticket (0022); a pushed lease confirms deliveries its own way (0040); notices and the guide stay argo's console's.
 
-Why: the gateway signs people in through the organisation's accounts "until an outside directory is connected", with one address "as Microsoft 365 does". Several humans may need argo, and the events must say which. argo's own sign-in keeps the self-hosted setup to one command and one human, and for fleets without pagasae, "argo is that way in" (Thomas, round 4).
+Why: the gateway signs people in through the organisation's accounts "until an outside directory is connected", with one address "as Microsoft 365 does". Several humans may need argo, and the events must say which. argo's own sign-in keeps the self-hosted setup to one command and one human, and for fleets without pagasae, "argo is that way in" (Thomas).
 
 Rejected: the gateway federating to each identity provider itself; an endpoint per fleet behind the one address; the human naming the fleet; one account per fleet allowed as argo; every account keeping the sign-in link once a directory is connected; identity only for every account; pagasae required for every self-hosted fleet; a person page in core (0043).
-
-Changes: 0012, 0020 (the sign-in ticket names its account), 0043, interop I-4.

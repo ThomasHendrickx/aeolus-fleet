@@ -1,4 +1,4 @@
-# 0051 Organisation (draft)
+# 0051 Organisation
 
 - An organisation is pagasae's tenant: its accounts, its groups (0052), its fleets and, later, its directory (0054). Every pagasae record carries its organisation, as every core record carries its fleet (0007).
 - An account is a human's, by email, in one organisation. One email may hold an account in several organisations, each its own; a sign-in with such an email asks which organisation. An account is active or disabled (0055); nothing is deleted yet.
@@ -9,6 +9,6 @@
 - A human from another organisation, such as a contractor, gets an account in the organisation that hires them, disabled when the work ends. No guests.
 - pagasae keeps beside the organisation only what is hosted: the terms accepted, updates opt-in, the installation admin's pages.
 
-Why: "an organisation manages the user accounts within the whole. Pagasae is the account management unit." "The account created first is the organisation's admin and manages the organisation." pagasae is not a ship (Thomas, 19 Oct); it goes across fleets, so it acts as the installation (round 4, question 4).
+Why: "an organisation manages the user accounts within the whole. Pagasae is the account management unit." "The account created first is the organisation's admin and manages the organisation." pagasae is not a ship; it goes across fleets, so it acts as the installation.
 
 Rejected: organisation rights held by a fleet or by every argo; guests; pagasae as a plugin ship in every fleet; new installation procedures for per-fleet work, which no ship could call; sign-up without a fleet.

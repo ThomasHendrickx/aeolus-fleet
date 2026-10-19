@@ -1,4 +1,4 @@
-# 0053 Nothing is argo's alone (draft)
+# 0053 Nothing is argo's alone
 
 - Every job argo does is a scope any actor can be granted (0057): a ship, an account through its groups, the installation. argo is the fail-safe (0057), not the holder of jobs no one else may do.
 - The jobs that were argo's alone become scopes (each documented in the scope catalogue, 0046):
@@ -20,5 +20,3 @@
 Why: "nothing argo does is argo-only; every job is a scope that can be granted." Thomas, on where an admin acts: "the action itself checks scope when needed; for commissioning, core does it, so the commission action checks what is allowed." Labels give reach, so a commission giving any label could give any reach.
 
 Rejected: a list of argo's alone jobs; plugin pages admitting argo alone; a list of ships per admin beside reach; a commission checked against reach of a ship not made yet; a new ship taking labels its commissioner does not carry or define.
-
-Changes: 0012, 0022, 0031, 0034, 0043, 0044, 0045, 0046, interop I-5.

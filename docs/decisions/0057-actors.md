@@ -1,4 +1,4 @@
-# 0057 Actors (draft)
+# 0057 Actors
 
 - Everything that sends or receives messages is a ship: an address, an inbox, a lease, the delivery guarantee, an owner and a statement.
 - Every call is authorised for an actor by scopes and reach, and every event names that actor. An actor is:
@@ -13,8 +13,6 @@
 - argo is the fail-safe. A message that reaches argo is a failing of the system, but it is visible through argo (Thomas): argo is where a system failure becomes visible and where the way out is, never a normal path, and a design that routes ordinary work to argo is wrong. It is the catch-all owner of a ship with no other, the way out for a ship that does not know what to do, and permanent, with built-in reach that is never off and, where no pagasae runs, the way in. Holding every scope is not what makes argo: any actor may hold every scope. argo is not part of the delivery guarantee: no message is ever lost by the fleet itself, and the operator is not the fail-safe for delivery.
 - Every event names its actor: the ship; or the account, by its id only (an email is personal data, and core stores none), with the ship it came through when a plugin's page or the gateway presented the token; or the installation, with the account and the organisation admin who asked in its details.
 
-Why: the reason for "every caller is a ship" was that an AI can manage the fleet, and that stays. What a ship is needed for is messaging; what authorising and auditing need is a named actor with scopes. Joining them made pagasae a ship holding every scope in every fleet, widened `fleet:on-behalf` to manage, and gave every human who administers a person ship they never message from. Entra, Kubernetes and GitHub keep what acts apart from what receives, with one permission model for every kind of actor (`actors.md` part 2.2).
+Why: the reason for "every caller is a ship" was that an AI can manage the fleet, and that stays. What a ship is needed for is messaging; what authorising and auditing need is a named actor with scopes. Joining them made pagasae a ship holding every scope in every fleet, widened `fleet:on-behalf` to manage, and gave every human who administers a person ship they never message from. Entra, Kubernetes and GitHub keep what acts apart from what receives, with one permission model for every kind of actor (`docs/design/accounts/actors.md` part 2.2).
 
 Rejected: "every caller is a ship" with pagasae as an exception; humans acting as their person ships in every call; a message whose sender is not a ship; rights that only a human, pagasae or the installation can hold inside a fleet; argo as an account.
-
-Changes: 0012 (argo's way in, and the principle), 0020 (the installation acts in fleets), 0031 (a label belongs to the actor that defined it), 0034 (selectors match actors), 0037 (any actor that defined a label declares rules on it), 0044, 0045, 0046 (scopes held by ships and in account tokens).

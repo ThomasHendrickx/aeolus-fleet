@@ -3,6 +3,7 @@
 - A claimed lease holds until operator release or ship deregister. A second claim fails. Exception: `argo` sign-in takes the lease over.
 - Release and deregister both end the lease, invalidate the secret and return in-flight deliveries. The next crew needs a new starting prompt.
 - A lost `register` reply leaves the ship crewed by an unheld token; the operator releases. Accepted for v1.
+- Releasing a trierarch's ship releases every lease it crewed, in the same unit of work, so no crew token on that computer keeps working (0055).
 - The session reports its location on claim: `DEVICE`, `CLOUD`, `SERVER`, or `OTHER` plus description. Stored, never interpreted.
 
 Why: Turn-based agents cannot heartbeat reliably; that is a ship class concern.

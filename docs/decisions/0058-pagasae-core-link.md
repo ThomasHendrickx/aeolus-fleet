@@ -1,4 +1,4 @@
-# 0058 The link between pagasae and core (draft)
+# 0058 The link between pagasae and core
 
 - **Trust.** Core is configured with pagasae's issuer, as with the installation token (0020), and fetches pagasae's public keys from it. With none configured, core accepts no account token: a self-hosted fleet with argo's own sign-in only (0054). Adding pagasae later is configuring it.
 - **The account token.** pagasae signs one for one account in one fleet. It carries: the account's id; its organisation; the fleet (its audience); the scopes and the values of the label `group` its groups give there (0052); the account's person ship in that fleet, if it has one; when it was issued; and its end, 10 minutes later. It names its key.
@@ -10,8 +10,6 @@
 - **Keys.** pagasae publishes a new key beside the old before signing with it, and drops the old once the last token it signed has ended. A leaked key is replaced at once, which ends every token signed with it.
 - **What core records.** The account's id in the events its calls write (0057). No email: it is personal data, and core stores none; a page that shows who acted asks pagasae. Nothing else about accounts; the cut-off list only until it can be forgotten.
 
-Why: Thomas, round 4: (a) to each of questions 3 and 4 of `actors.md`. Kubernetes trusts its issuer's signature and claims and stores no users, and keeps tokens to minutes because they cannot be revoked; asking the issuer on every call (introspection) would stop every fleet's human calls whenever pagasae is down (`actors.md` part 2.2).
+Why: a short token and a pushed cut-off keep a leaver out within minutes without every call waiting on pagasae (`docs/design/accounts/actors.md`, questions 3 and 4). Kubernetes trusts its issuer's signature and claims and stores no users, and keeps tokens to minutes because they cannot be revoked; asking the issuer on every call (introspection) would stop every fleet's human calls whenever pagasae is down (`docs/design/accounts/actors.md` part 2.2).
 
 Rejected: core keeping an account's email; core asking pagasae about every token; tokens living a day; core storing accounts or groups; a token valid in every fleet of the organisation.
-
-Changes: 0020 (the cut-off procedure), interop I-4.

@@ -1,9 +1,9 @@
 # 0045 Owners
 
-- Every ship but argo and the viewer has one owner: a person's ship (0044), or argo.
-- At commission the owner is the commissioner's owner, argo by default. Plugin and trierarch ships are argo's. A plugin ship with `fleet:on-behalf` may name instead the owner of the ship that asked it (squadrons names the forming ship's owner, 0017), or, commissioning an app ship (0044), the owner argo picked for it, a person's ship or argo (the gateway names the person inside who answers for the outside party). `OwnerSet` on the new ship names the owner and how it was set.
-- argo alone changes an owner (`fleet.setOwner`, `OwnerChanged`). When an owner's ship is retired, each ship it owned falls to argo with `OwnerChanged`.
-- argo counts as a human here, as the fallback: a human crews argo (0012).
+- Every ship but argo and the viewer has one owner: a person's ship (0044), or argo. A person ship owns itself (0052).
+- At commission the owner is the commissioner itself when it is a person ship; the account's person ship when an account commissions (0057); otherwise the commissioner's owner, argo by default. Plugin and trierarch ships are argo's. A plugin ship with `fleet:on-behalf` may name instead the owner of the ship that asked it (squadrons names the forming ship's owner, 0017), or, commissioning an app ship (0044), the owner its approver picked, a person's ship (the gateway names the person inside who answers for the outside party, 0056). `OwnerSet` on the new ship names the owner and how it was set.
+- An actor holding `fleet:owner` changes an owner, within its manage reach (`fleet.setOwner`, `OwnerChanged`, 0053). When an owner's ship is retired, each ship it owned falls to argo with `OwnerChanged`.
+- argo counts as a human here, as the fallback: a human crews argo (0012). A ship that falls to argo is a failing made visible, never a normal path (0057).
 - The owner is used in four places, all through what exists:
   - questions and gates go to the owner's ship (0038);
   - trouble a ship reports goes to the owner's ship (0026);

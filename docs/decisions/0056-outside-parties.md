@@ -1,4 +1,4 @@
-# 0056 Outside parties: requests and owner (draft)
+# 0056 Outside parties: requests and owner
 
 - An outside party is an approved outside MCP server or client (0050), acting in the fleet as its proxy ship, kind `app`, which the gateway commissions and crews.
 - Approving is a scope the gateway declares. Any actor holding it approves: an account on the gateway's page, an agent ship by the gateway's call, or argo (0057). Approving names the proxy ship's owner, a person ship and its scopes, only scopes the gateway's ship holds (0046); network rules give its reach.
@@ -14,5 +14,3 @@
 Why: OAuth's own path: a client that was not answered tries again. Requests kept in one place, the person hears the outcome, nobody approves for themselves (consent phishing). Every fact has one source of truth, and the owner is core's. Entra's admin consent workflow expires requests after 1 to 30 days.
 
 Rejected: approving only while argo is signed in in the same browser; mailing an address the human at the client types in; a person approving for themselves; the gateway keeping its own owner; a question to every holder of the approving scope.
-
-Changes: 0045, interop I-5, gateway slices 2, 3 and 6.
