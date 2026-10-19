@@ -70,7 +70,9 @@ What became of phase 2's design points P1 to P9 (round 3, on hold since 19 Oct):
 | P9 the last organisation admin | Question 6 |
 | New | Questions 7 (when an account has a person ship), 8 (what the installation may do in a fleet), 9 (what an event keeps about an account) |
 
-## Questions for Thomas (round 5)
+## Questions for Thomas (round 5, answered)
+
+Thomas answered all nine on 19 Oct; his answers and notes follow each pick.
 
 The actors are Acme's: Mathilde (IT, organisation admin), Charlotte (sales), Thomas (engineering's team lead), Burak (who leaves), Priya (a contractor from Northwind), and an onboarding agent ship. Each option is tested against Thomas's principle that an agent ship can hold any scope any actor holds.
 
@@ -86,6 +88,8 @@ Use case: "engineering sends to engineering", and "sales sends to the CRM" (`crm
 
 Pick: (a).
 
+Decided (Thomas, round 5): (a). Thomas adds: when a group is created, the installation also declares the default rule `group=X` reaches `group=X`, so members of a group reach each other without anyone writing it; rules across groups (sales to the CRM) stay in the networking plugin.
+
 **2. May one account get rights of its own, beside its groups?** (was P3)
 
 Use case: Priya needs `fleet:commission` for three months, which no other contractor has.
@@ -95,6 +99,8 @@ Use case: Priya needs `fleet:commission` for three months, which no other contra
 
 Pick: (a). An agent ship gets its scopes by grant, as today, so neither option limits it.
 
+Decided (Thomas, round 5): (b), not the pick. A group of one per person makes a mess, above all once groups come from a connected directory. The account's page in pagasae shows the aggregate, its groups' rights and its own, so what an account may do is seen in one place: that solves (b)'s "two places to look".
+
 **3. The names of the scopes that replace argo's alone jobs** (was P5)
 
 Use case: Mathilde's group "fleet admins" gets the right to change an owner, so she can hand a leaver's agent to a colleague; the onboarding agent gets the same scope by grant.
@@ -103,6 +109,8 @@ Use case: Mathilde's group "fleet admins" gets the right to change an owner, so 
 - (b) **Other names, in a note.**
 
 Pick: (a).
+
+Decided (Thomas, round 5): (a). The names are fine; documenting them matters most. Help pages in Aeolus come later, outside this design.
 
 **4. Whom does the gateway ask about a pending request?** (was P7)
 
@@ -116,6 +124,8 @@ Use case: Acme wants Mathilde asked about outside MCP clients.
 
 Pick: (a).
 
+Decided (Thomas, round 5): (a). It follows the application-owner rule, in the industry's sense: the owner answers for the application and is asked about it.
+
 **5. How long is a pending request kept?** (was P8)
 
 Use case: a supplier's agent asks on Friday; Mathilde is away for a week.
@@ -125,6 +135,8 @@ Use case: a supplier's agent asks on Friday; Mathilde is away for a week.
 - (c) **Never.** Goes wrong: the list only grows.
 
 Pick: (a).
+
+Decided (Thomas, round 5): (a). The decision says why 7 days and that Thomas decided it.
 
 **6. The last organisation admin** (was P9)
 
@@ -138,6 +150,8 @@ Use case: Mathilde is Acme's only organisation admin, and she leaves.
 
 Pick: (a).
 
+Decided (Thomas, round 5): (a).
+
 **7. When does an account have a person ship?** (new)
 
 What it is: under the actor model, rights need no ship; a person ship is for messaging, and for owning (`actors.md` 7).
@@ -149,6 +163,8 @@ Use case: Mathilde administers Acme's fleet and never messages. Charlotte sends 
 - (c) **Every account with any right in the fleet.** Goes wrong: Mathilde gets a ship she never uses, the cost the actor model removed.
 
 Pick: (a).
+
+Decided (Thomas, round 5): (a). Thomas's check: it is based on scopes. An organisation admin who manages accounts gets no fleet rights from that; without a group giving fleet scopes they cannot administer agents or message them, and have no person ship. Organisation rights never imply fleet scopes.
 
 **8. What may the installation do in a fleet?** (new, replaces P1)
 
@@ -162,6 +178,8 @@ Use case: Burak is disabled; the installation releases his person ship and his l
 
 Pick: (a).
 
+Decided (Thomas, round 5): (a).
+
 **9. What does an event keep about an account?** (new)
 
 What it is: core stores no account (0058), but its events must say which human acted (`actors.md` A2), and the events outlive the account.
@@ -173,3 +191,5 @@ Use case: a year after Burak left, Mathilde reads who retired a finance agent.
 - (c) **The email only.** Goes wrong: an email reused by a new human in the organisation reads as the old one.
 
 Pick: (a).
+
+Decided (Thomas, round 5): (b), not the pick. Events keep the account's id only. An email is personal data, and Aeolus does not store it in core.

@@ -224,7 +224,7 @@ sequenceDiagram
     M->>K: redeem the ticket
     K->>C: start the console sign-in as argo
     C->>C: end any other console sign-in as argo, take argo's lease over
-    C-->>K: signed in as argo, by mathilde@acme.com
+    C-->>K: signed in as argo, by Mathilde's account (its id)
     M->>K: retire a ship
     K->>C: retire, as argo
     C->>C: ShipRetired, actor argo, its details naming Mathilde's account
@@ -419,7 +419,7 @@ sequenceDiagram
   participant P as pagasae
   participant C as core (fleet)
   X->>P: an account token for Charlotte, for this fleet
-  P-->>X: the token: account, organisation, fleet, scopes, group values, person ship, 10 minutes, key id
+  P-->>X: the token: account id, organisation, fleet, scopes, group values, person ship, 10 minutes, key id
   X->>C: a call with the token
   alt key id unknown to core
     C->>P: pagasae's keys (at most once a minute)
