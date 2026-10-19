@@ -170,3 +170,32 @@ describe('connecting a plugin (fleet:connect)', () => {
     });
   });
 });
+
+describe('explaining reach and reading refusals (fleet:explain)', () => {
+  it('is done by an agent ship holding fleet:explain', async () => {
+    const explainer = await anAgentHolding(['fleet:explain']);
+    const scout = await commissioned('scout-explained');
+
+    const explained = await explainer.calls.fleet.explainReach.query({ fromShipId: scout, toShipId: argo.shipId });
+
+    expect(explained.send.map(({ shipId }) => shipId)).toEqual([argo.shipId]);
+    await expect(explainer.calls.fleet.reachRefusals.query()).resolves.toBeDefined();
+  });
+
+  it('is done by an account holding fleet:explain', async () => {
+    const scout = await commissioned('scout-explained-to-account');
+
+    await expect(anAccountHolding(['fleet:explain']).fleet.explainReach.query({ fromShipId: scout })).resolves.toBeDefined();
+    await expect(anAccountHolding(['fleet:explain']).fleet.reachRefusals.query()).resolves.toBeDefined();
+  });
+
+  it('is refused to a ship without fleet:explain, even one with fleet:read', async () => {
+    const reader = await anAgentHolding(['fleet:read']);
+
+    await expect(refusalOf(reader.calls.fleet.reachRefusals.query())).resolves.toEqual({ code: 'FORBIDDEN', message: 'This call needs the fleet:explain scope' });
+    await expect(refusalOf(reader.calls.fleet.explainReach.query({ fromShipId: argo.shipId }))).resolves.toEqual({
+      code: 'FORBIDDEN',
+      message: 'This call needs the fleet:explain scope',
+    });
+  });
+});

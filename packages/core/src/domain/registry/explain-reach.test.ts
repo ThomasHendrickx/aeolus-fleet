@@ -13,7 +13,7 @@ import {
 } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { crewAboard, hostedFleetWithViewer, initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
+import { crewAboard, hostedFleetWithViewer, initialiseFleet, operatorCaller, readReachOf, registryUseCases } from '../../../test/support/core-fixtures.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { labelIdOf, valueIdOf } from '../../../test/support/label-fixtures.js';
@@ -76,7 +76,7 @@ beforeEach(async () => {
   const fleet = await initialiseFleet(core);
   argo = operatorCaller(fleet);
   registry = registryUseCases(core);
-  explainReach = createExplainReach({ uow: core.uow, clock: core.clock });
+  explainReach = createExplainReach({ uow: core.uow, clock: core.clock, readReach: readReachOf(core) });
   // argo labels the ships: it labels any ship (decision 0046).
   labeller = argo;
   planner = await shipWithScopes({ registry, argo }, { name: 'planner', type: 'planner', scopes: [] });
@@ -223,11 +223,37 @@ describe('explaining reach while the networking plugin is not responding', () =>
   });
 });
 
-describe('who explains reach', () => {
-  it('refuses a ship that is not argo, even the networking plugin', async () => {
-    expect(refusalOf(await explainReach(networking, { fromShipId: scout.shipId }))).toEqual({
-      kind: 'NOT_THE_OPERATOR_SHIP',
-      message: 'Only argo explains reach',
+describe('who explains reach (decision 0053)', () => {
+  /** Shared ships read shared ships, and open read is off: planner reads planner and scout, never vault. */
+  async function readRulesApply(): Promise<void> {
+    unwrap(await registry.setNetworkRules(networking, { rules: [{ verb: 'read', from: [value('shared')], to: [value('shared')] }] }));
+    unwrap(await registry.setBuiltInRule(networking, { rule: 'open', verb: 'read', isOn: false }));
+  }
+
+  it('lets any actor holding fleet:explain explain reach, not only argo', async () => {
+    const explainer: ShipCaller = { ...planner, scopes: ['fleet:explain'] };
+
+    const explained = unwrap(await explainReach(explainer, { fromShipId: scout.shipId }));
+
+    expect(sendReach(explained)).toEqual(byId(argo, planner, vault, networking));
+  });
+
+  it('answers only the ships the explaining actor reads', async () => {
+    await readRulesApply();
+    const explainer: ShipCaller = { ...planner, scopes: ['fleet:explain'] };
+
+    const explained = unwrap(await explainReach(explainer, { fromShipId: scout.shipId }));
+
+    expect(sendReach(explained)).toEqual([planner.shipId]);
+  });
+
+  it('refuses to explain from a ship the explaining actor does not read', async () => {
+    await readRulesApply();
+    const explainer: ShipCaller = { ...planner, scopes: ['fleet:explain'] };
+
+    expect(refusalOf(await explainReach(explainer, { fromShipId: vault.shipId }))).toEqual({
+      kind: 'NOT_REACHABLE',
+      message: 'The network rules do not let you read the ship to explain from',
     });
   });
 });
