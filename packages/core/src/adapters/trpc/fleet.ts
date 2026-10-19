@@ -561,7 +561,7 @@ export const fleetRouter = router({
     }),
 
   /** The owner gives a ship one of its label's values. */
-  assignLabel: scopedProcedure('labels:assign')
+  assignLabel: actorScopedProcedure('labels:assign')
     .meta({
       description: [
         "Needs labels:assign, and only the label's owner assigns it. Gives a ship one of its values, by the value's id, beside the values the ship carries.",
@@ -576,7 +576,7 @@ export const fleetRouter = router({
     }),
 
   /** The owner takes its label off a ship. */
-  unassignLabel: scopedProcedure('labels:assign')
+  unassignLabel: actorScopedProcedure('labels:assign')
     .meta({
       description: ["Needs labels:assign, and only the label's owner unassigns it. Takes one of its values off a ship, by the value's id; a ship that does not carry it changes nothing."].join(' '),
     })

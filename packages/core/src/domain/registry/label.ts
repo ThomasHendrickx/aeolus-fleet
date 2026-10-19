@@ -7,7 +7,6 @@ import {
   type LabelId,
   type LabelValueId,
   type ShipId,
-  type ShipKind,
 } from '@aeolus-fleet/common';
 
 import type { Caller } from '../shared/caller.js';
@@ -343,17 +342,32 @@ function assignmentEvent(
   };
 }
 
-/** A ship the caller may not label: neither its own nor one it commissioned, and the caller is not argo. */
+/** A ship the caller may not label: neither its own nor one it commissioned, and the caller holds no labels:any. */
 export type NotYourShipToLabel = DomainError<'NOT_YOUR_SHIP_TO_LABEL'>;
 
 /**
- * Whether the caller may put values on the ship or take them off (decision
- * 0046): its own ship and the ships it commissioned; argo any ship.
+ * Who labels a ship: the label's owner on its own ship and the ships it
+ * commissioned, or an actor holding labels:any, whose manage reach the use
+ * case checks, on any ship (decisions 0031, 0053).
  */
-function checkMayLabel(ship: Ship, caller: { shipId: ShipId | null; kind: ShipKind | 'account' | 'installation' }): Result<void, NotYourShipToLabel> {
-  return caller.kind === 'operator' || (caller.shipId !== null && (ship.id === caller.shipId || ship.commission?.by === caller.shipId))
+export interface Labeller {
+  owner: LabelOwner | undefined;
+  shipId: ShipId | null;
+  canLabelAnyShip: boolean;
+}
+
+/** Whether the labeller may put the label's values on the ship or take them off. */
+function checkMayLabel({ label, ownerName, ship }: { label: Label; ownerName: string; ship: Ship }, labeller: Labeller & { act: 'assigns' | 'unassigns' }): Result<void, NotTheOwner | NotYourShipToLabel> {
+  if (labeller.canLabelAnyShip) {
+    return ok(undefined);
+  }
+  const owned = checkOwner({ label, ownerName }, { owner: labeller.owner, act: labeller.act });
+  if (!owned.isOk) {
+    return owned;
+  }
+  return labeller.shipId !== null && (ship.id === labeller.shipId || ship.commission?.by === labeller.shipId)
     ? ok(undefined)
-    : refuse('NOT_YOUR_SHIP_TO_LABEL', `${ship.name} is neither your ship nor one it commissioned: only argo labels it`);
+    : refuse('NOT_YOUR_SHIP_TO_LABEL', `${ship.name} is neither your ship nor one it commissioned: labelling it needs labels:any`);
 }
 
 export type AssignLabelRefusal = NotTheOwner | NotYourShipToLabel | DomainError<'SHIP_ALREADY_RETIRED' | 'SHIP_LABEL_LIMIT_REACHED'>;
@@ -378,17 +392,13 @@ export function assignLabel(
     carried: readonly ShipLabel[];
   },
   input: {
-    caller: { owner: LabelOwner | undefined; shipId: ShipId | null; kind: ShipKind | 'account' | 'installation' };
+    caller: Labeller;
     valueId: LabelValueId;
     at: Date;
     actor: Actor;
   },
 ): Result<{ assignment: ShipLabel | undefined; events: NewEvent[] }, AssignLabelRefusal> {
-  const owned = checkOwner({ label, ownerName }, { owner: input.caller.owner, act: 'assigns' });
-  if (!owned.isOk) {
-    return owned;
-  }
-  const mayLabel = checkMayLabel(ship, input.caller);
+  const mayLabel = checkMayLabel({ label, ownerName, ship }, { ...input.caller, act: 'assigns' });
   if (!mayLabel.isOk) {
     return mayLabel;
   }
@@ -433,17 +443,13 @@ export function unassignLabel(
     carried: readonly ShipLabel[];
   },
   input: {
-    caller: { owner: LabelOwner | undefined; shipId: ShipId | null; kind: ShipKind | 'account' | 'installation' };
+    caller: Labeller;
     valueId: LabelValueId;
     at: Date;
     actor: Actor;
   },
 ): Result<{ unassigned: ShipLabel | undefined; events: NewEvent[] }, UnassignLabelRefusal> {
-  const owned = checkOwner({ label, ownerName }, { owner: input.caller.owner, act: 'unassigns' });
-  if (!owned.isOk) {
-    return owned;
-  }
-  const mayLabel = checkMayLabel(ship, input.caller);
+  const mayLabel = checkMayLabel({ label, ownerName, ship }, { ...input.caller, act: 'unassigns' });
   if (!mayLabel.isOk) {
     return mayLabel;
   }

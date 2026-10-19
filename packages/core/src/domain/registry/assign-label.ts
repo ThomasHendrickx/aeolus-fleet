@@ -1,27 +1,29 @@
 import type { IdGenerator, LabelValueId, ShipId } from '@aeolus-fleet/common';
 
-import { actorOf, isShipCaller, type Caller } from '../shared/caller.js';
+import { actorOf, hasScope, isShipCaller, type Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, type EventLog } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { assignLabel, labelOwnerOf, ownerNameOf, type AssignLabelRefusal } from './label.js';
+import { checkManage, keepingReachRefusal, type CheckManageTx, type NotReachable } from './check-reach.js';
 import type { LabelRepository, ShipRepository } from './ports.js';
 
-export interface AssignLabelTx {
+export interface AssignLabelTx extends Omit<CheckManageTx, 'ships' | 'labels'> {
   ships: Pick<ShipRepository, 'find' | 'findForUpdate'>;
-  labels: Pick<LabelRepository, 'findByValueForShare' | 'carriedBy' | 'assign'>;
+  labels: Pick<LabelRepository, 'findByValueForShare' | 'carriedBy' | 'assign'> & CheckManageTx['labels'];
   events: EventLog;
 }
 
-export type AssignLabelFailure = DomainError<'SHIP_NOT_FOUND' | 'LABEL_VALUE_NOT_FOUND'> | AssignLabelRefusal;
+export type AssignLabelFailure = DomainError<'SHIP_NOT_FOUND' | 'LABEL_VALUE_NOT_FOUND'> | AssignLabelRefusal | NotReachable;
 
 export type AssignLabel = (caller: Caller, input: { shipId: ShipId; valueId: LabelValueId }) => Promise<Result<undefined, AssignLabelFailure>>;
 
 /**
  * Use case: a label's owner gives a ship one of its values, by the value's id (decision 0031):
- * its own ship or one it commissioned, argo any (decision 0046).
+ * its own ship or one it commissioned; an actor holding labels:any gives any
+ * label's value to a ship within its manage reach (decision 0053).
  * Its scope (labels:assign) is checked before this runs. In one unit of
  * work, locking the ship first, as a retire does, so two assignments to one
  * ship take turns at its label limit and a retired ship gets none; then
@@ -30,7 +32,7 @@ export type AssignLabel = (caller: Caller, input: { shipId: ShipId; valueId: Lab
  */
 export function createAssignLabel(deps: { uow: UnitOfWork<AssignLabelTx>; clock: Clock; ids: IdGenerator }): AssignLabel {
   return (caller, input) =>
-    deps.uow.run(async (tx): Promise<Result<undefined, AssignLabelFailure>> => {
+    keepingReachRefusal(deps.uow, async (tx): Promise<Result<undefined, AssignLabelFailure>> => {
       const { fleetId } = caller;
       const ship = await tx.ships.findForUpdate(fleetId, input.shipId);
       if (!ship) {
@@ -41,9 +43,17 @@ export function createAssignLabel(deps: { uow: UnitOfWork<AssignLabelTx>; clock:
       if (!label?.values.some((value) => value.id === input.valueId)) {
         return refuse('LABEL_VALUE_NOT_FOUND', `The fleet has no label value ${input.valueId}`);
       }
+      const at = deps.clock.now();
+      const labeller = { owner: labelOwnerOf(caller), shipId: isShipCaller(caller) ? caller.shipId : null, canLabelAnyShip: hasScope(caller, 'labels:any') };
+      if (labeller.canLabelAnyShip) {
+        const managed = await checkManage({ tx, ids: deps.ids }, { manager: caller, shipId: ship.id, at });
+        if (!managed.isOk) {
+          return managed;
+        }
+      }
       const assigned = assignLabel(
         { label, ownerName: await ownerNameOf(label.owner, async (shipId) => (await tx.ships.find(fleetId, shipId))?.name), ship, carried: await tx.labels.carriedBy(fleetId, ship.id) },
-        { caller: { owner: labelOwnerOf(caller), shipId: isShipCaller(caller) ? caller.shipId : null, kind: caller.kind }, valueId: input.valueId, at: deps.clock.now(), actor: actorOf(caller) },
+        { caller: labeller, valueId: input.valueId, at, actor: actorOf(caller) },
       );
       if (!assigned.isOk) {
         return assigned;
