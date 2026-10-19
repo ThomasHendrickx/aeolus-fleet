@@ -1,11 +1,11 @@
-import type { FleetId, ShipId } from '@aeolus-fleet/common';
+import { accountIdSchema, type FleetId, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { hostedFleet, initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { refusalOf, unwrap } from '../../testing/result.js';
-import type { ShipCaller } from '../shared/caller.js';
+import type { AccountCaller, InstallationCaller, ShipCaller } from '../shared/caller.js';
 
 let core: InMemoryCore;
 let registry: ReturnType<typeof registryUseCases>;
@@ -147,5 +147,61 @@ describe('defining a label', () => {
       isOk: false,
       error: { kind: 'INVALID_LABEL_VALUES' },
     });
+  });
+});
+
+describe('a label the installation defines (decisions 0031, 0052)', () => {
+  let installation: InstallationCaller;
+
+  beforeEach(() => {
+    installation = { kind: 'installation', fleetId, scopes: ['labels:define', 'labels:assign', 'labels:any'] };
+  });
+
+  it('is owned by the installation, LabelDefined naming it and no ship', async () => {
+    const defined = unwrap(await registry.defineLabel(installation, { key: 'group', values: ['sales', 'engineering'] }));
+
+    expect(core.state.labels.find((label) => label.id === defined.labelId)?.owner).toEqual({ kind: 'installation' });
+    expect(core.state.events).toEqual([
+      expect.objectContaining({ type: 'LabelDefined', actor: { kind: 'installation' }, shipId: undefined, details: expect.objectContaining({ key: 'group' }) }),
+    ]);
+  });
+
+  it('is listed with the installation as its owner', async () => {
+    unwrap(await registry.defineLabel(installation, { key: 'group', values: ['sales'] }));
+
+    expect((await registry.listLabels(argo)).map(({ key, owner }) => ({ key, owner }))).toEqual([{ key: 'group', owner: { kind: 'installation' } }]);
+  });
+
+  it('has its values changed and is deleted by the installation alone', async () => {
+    const { labelId } = unwrap(await registry.defineLabel(installation, { key: 'group', values: ['sales'] }));
+
+    expect(refusalOf(await registry.changeLabelValues(plugin, { labelId, values: ['sales', 'finance'] }))).toEqual({
+      kind: 'NOT_THE_LABEL_OWNER',
+      message: 'The label group is owned by the installation: only its owner changes it',
+    });
+    unwrap(await registry.changeLabelValues(installation, { labelId, values: ['sales', 'finance'] }));
+    unwrap(await registry.deleteLabel(installation, { labelId }));
+    expect(core.state.labels).toEqual([]);
+  });
+
+  it('keeps its key from a ship, naming the installation as its owner', async () => {
+    unwrap(await registry.defineLabel(installation, { key: 'group', values: ['sales'] }));
+
+    expect(refusalOf(await registry.defineLabel(plugin, { key: 'group', values: ['a'] }))).toEqual({
+      kind: 'LABEL_KEY_TAKEN',
+      message: 'The fleet has the label group already, owned by the installation',
+    });
+  });
+});
+
+describe('an account defining a label (decision 0031)', () => {
+  it('is refused: a ship or the installation owns a label, and an agent ship can define one', async () => {
+    const account: AccountCaller = { kind: 'account', accountId: accountIdSchema.parse('acc-mathilde'), fleetId, scopes: ['labels:define'], groupValues: [], personShipId: null, throughShipId: null };
+
+    expect(refusalOf(await registry.defineLabel(account, { key: 'team', values: ['a'] }))).toEqual({
+      kind: 'ACCOUNT_OWNS_NO_LABEL',
+      message: 'A ship or the installation defines a label and owns it; an account does not',
+    });
+    expect(core.state.labels).toEqual([]);
   });
 });

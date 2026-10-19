@@ -219,3 +219,19 @@ describe('granting scopes on a live ship (scopes:grant)', () => {
     await expect(lastEventAbout(scout.shipId, 'ScopesChanged')).resolves.toMatchObject({ actorKind: 'account', details: { added: 'fleet:read' } });
   });
 });
+
+describe('the label group, which the installation defines and owns (decisions 0031, 0052)', () => {
+  it('is defined, listed with the installation as its owner, changed and deleted by the installation', async () => {
+    const { labelId } = await asInstallation().fleet.defineLabel.mutate({ key: 'group-to-delete', values: ['sales'] });
+
+    const listed = await anAccountHolding(['fleet:read']).fleet.labels.query();
+    expect(listed.find((label) => label.id === labelId)?.owner).toEqual({ kind: 'installation' });
+    await asInstallation().fleet.changeLabelValues.mutate({ labelId, values: ['sales', 'finance'] });
+    await asInstallation().fleet.deleteLabel.mutate({ labelId });
+    await expect(database.label.count({ where: { id: labelId } })).resolves.toBe(0);
+  });
+
+  it('is refused to an account', async () => {
+    await expect(refusalOf(anAccountHolding(['labels:define']).fleet.defineLabel.mutate({ key: 'team', values: ['a'] }))).resolves.toMatchObject({ code: 'FORBIDDEN' });
+  });
+});
