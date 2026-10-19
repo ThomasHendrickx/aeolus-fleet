@@ -25,7 +25,7 @@ If the docs do not answer a behaviour question, stop and ask. Never decide produ
 - npm only (npm install, npm run, npm test). Never pnpm or yarn.
 - English for all code, names, comments, commits, paths and database fields.
 - No em dashes anywhere: code, docs, commits, PR text.
-- Use the ubiquitous language from the blueprint (ship, type, crew, lease, commission, release, retire, delivery). Invent no synonyms or new terms: name the concrete parts, and split a block that covers two things.
+- Use the domain language from the blueprint (ship, type, crew, lease, commission, release, retire, delivery). Invent no synonyms or new terms: name the concrete parts, and split a block that covers two things.
 
 ## Architecture rules
 

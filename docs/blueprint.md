@@ -1,6 +1,6 @@
 # Aeolus: product and domain architecture (v0)
 
-Owner: Thomas Hendrickx. Last updated 2026-10-17.
+Owner: Thomas Hendrickx. Last updated 2026-10-19.
 
 ## Purpose
 
@@ -26,7 +26,7 @@ Distribution: an open-source npm package plus configuration. Anyone can run thei
 
 Thomas's direction of 17 Oct 2026, beside the promises above, each with its decision record.
 
-- One organisation, one fleet, many actors: humans, apps and agents in one network. Not the solo developer space (0043).
+- One organisation, many actors, across its fleets: humans, apps and agents in one network. Not the solo developer space (0043, 0050).
 - Remove the human as the glue: "humans still gate and steer on the critical points" (0038, 0045).
 - Every caller is a ship, people, apps and outside parties included: "One network to connect all." (0012, 0044)
 - Be true to what a ship is, of kind person, app or agent: "we need to be true on what it is." (0044)
@@ -156,60 +156,163 @@ The first three are never off, so argo can never be locked out and a sender alwa
 4. Charlotte and Thomas send to the CRM, and the CRM's answers reach them through the answer rule. Burak's send is refused: his ship carries no `crm` label. argo sees the refusal, and asking how Charlotte reaches the CRM names the send rule.
 5. argo commissions the PRD agent with only sending and receiving, and makes Charlotte's ship its owner. Charlotte reaches it by every verb through the owner rule. It answers Charlotte and can always reach argo, and any other ship only through a rule. It cannot commission ships, because it does not hold `fleet:commission`: its commission is refused, whatever its reach.
 
-## Ubiquitous language
+## Domain language
 
-These terms mean the same thing in code, database, API, UI and conversation.
+One meaning per term in code, database, API, UI and talk (decision 0050). Other docs point here and never redefine a term. Held by names the component that stores it; "to build" marks one that does not exist yet.
 
-| Term | Meaning |
-| --- | --- |
-| Fleet | The tenant: one operator's ships, messages and history. A self-hosted installation runs one; a hosting installation creates many |
-| Installation | One server and the fleets it hosts. A service that hosts fleets for others (pagasae, for hosted Aeolus) creates, describes and deletes them through the installation procedures, with the installation token; a self-hosted server has none of them |
-| Operator | The human running the fleet, crewing the ship `argo` through the web console |
-| `argo` | The operator ship: permanent, one per fleet, holds every scope. Messages to `argo` are the operator inbox |
-| Scope | What a ship may do, `<namespace>:<action>`, stored on the server with the ship and checked before every call, together with reach for where. The catalogue, granting at commission or on a live ship, and plugin namespaces are decision 0046. No rights travel with a message |
-| Ship | A durable, addressable identity with an inbox. Outlives any session. Has a name, a type, a kind (operator, viewer, agent, person or app, decision 0044), an owner (decision 0045) and a status. The name is a handle (lowercase letters, digits, hyphens, colons, max 48 characters; a colon is an ordinary character, so a prefix can group ships, as in `hemma:planner`), unique among active ships and reusable after retirement |
-| Owner | The person's ship, or argo, that answers for a ship: its questions, gates and reported trouble go there, and it reaches the ships it owns. Set at commission, changed only by argo (decision 0045) |
-| Statement | What a ship is and offers: a summary plus capabilities with the content types to send and that come back, and for calls through the gateway each one's wait, deadline and repeatable mark, stated by its crew (decision 0047) |
-| Discovery | A ship asking which ships and types it can send to now, with each one's name, type, status and statement (decision 0047) |
-| Label | A key with a defined set of values (`os` with `macos` and `linux`), owned by the ship that defined it, for selecting ships: placement, filtering in the console, later reach. The label and each value have an id, for machines; key and value texts are for people. A key is unique in the fleet. A ship holds a set of values, several of one key if its owner gives them, given only by the label's owner, on any ship, its own included. A label retires with its owner, or its owner deletes it once no ship carries it. Never squadron membership, status, configuration or secrets (decision 0031) |
-| Label selection | Which ships the fleet list answers for a set of label value ids: the ships that carry every one of them. Exact matches, combined with AND |
-| Network rule | Lets the ships matching one selection send to, read or manage the ships matching another (decision 0034). A selection is of label and owner terms. Allow-only, never by type. Built-in rules, seeded at fleet create and shown first, let argo and the owner reach for every verb and an answer reach its sender (never off), the viewer read, and every ship reach every ship until the networking plugin removes that |
-| Declared rule | A network rule a ship declares on labels it owns, such as a plugin's for the ships it labels (decision 0037). Not in force by itself: the networking plugin adds every declared rule to argo's when it supplies the list. Argo sees them on Network apart from its own, each with the ship that declared it, and cannot edit them. Withdrawn by declaring none, or by retiring the ship |
-| Network settings | A fleet's rules (built-in, the networking plugin's and the declared ones) and its networking plugin, if any, with a version that moves on every change |
-| Networking plugin | The ship that alone sets the fleet's rules beside the built-ins, removing the open ones, declaring what holds while it is unavailable: block all (only the built-ins that are never off), open all, or keep the rules it set last (decision 0035). Unavailable while its ship holds no lease or its crew made no call for longer than it declared. One a fleet; unregistering or retiring it turns the open rules on again |
-| Reach refusal | The record of a send the network rules refused: who tried to reach whom, both ships' label values at that moment, the settings version, and what the networking plugin declared when it refused because the plugin was unavailable. Not an event; only argo reads it. The sender gets a refusal without reasons |
-| Ship type | A free label in v1 (e.g. `reviewer`). Becomes a stored ship class later. Used for addressing, never interpreted |
-| Session | The agent run currently crewing a ship. Replaceable: a new session claiming the ship inherits its inbox |
-| Notice | Plain text the installation shows above every console page to the sessions of its audience (everyone, operators or viewers), with optional links; dismissible for one session or not. It belongs to the installation, not to a fleet |
-| Guide | Steps the installation sets to walk the console sessions of its audience through the console, each on a page and pointing at an element there. It belongs to the installation, not to a fleet |
-| Console session | The operator's sign-in, crewing `argo`. It records the device it signed in from ("Mac · Chrome"), shown in the AccountMenu and as argo's location. The console's theme belongs to the operator's account, not the session |
-| Lease | The exclusive right of one session to crew a ship. In v1 it holds until the operator releases the ship. Every call its crew makes marks it last seen, which the console shows ("Last seen 20 s ago") so the operator can judge whether a session is alive before re-crewing; observation only, nothing acts on it but one thing: a send judges the networking plugin unavailable when its crew's last seen is older than it declared (decision 0035) |
-| Location | Where the current session runs, reported when it claims the ship: `DEVICE`, `CLOUD`, `SERVER`, or `OTHER` with a short description. Metadata of the session, never interpreted |
-| Harness | What the current session runs in, stated when it claims the ship: free text, with the known values `claude-code`, `claude-chat` and `codex`. Read together with the location: Claude Code on a device is not Claude Code in the cloud. Metadata of the session, never interpreted |
-| Model | The exact model id a session runs, such as `claude-opus-5-5`, stated on every send, since a session can switch model mid-session. Every ship states it except `argo`, which states none; a ping and a resend state none of their own. The message keeps it; a ship's current model is the last one its sessions stated. Self-reported, never verified, no policy |
-| Ship identity | `{ "shipId": "shp_…", "fleetId": "flt_…" }`: an extendable object with prefixed, time-ordered ids. The public id |
-| Ship secret | An opaque key `aeolus_sk_v1_<random>`, shown once in a starting prompt, stored only as a hash. At most one valid secret per ship. Used only to `register` |
-| Crew token | An opaque token `aeolus_ct_v1_<random>` returned by `register`, stored only as a hash. Identifies one session crewing one ship on every later call. Ends with the lease; a call with it afterwards is refused as lease ended, so the session knows its ship was released |
-| Message | An immutable envelope plus an opaque payload, sent by one ship to a selector. It can name the message it replies to, and a resend names the message it resends |
-| Selector | Who a message is for: `ship` (one ship, by id or by name; a name is resolved to the id at send time) or `type` (any ship of that type) in v1; `group` and `fleet` later |
-| Delivery | One message to one resolved recipient, with its own state: pending, received, handed, acknowledged, handled, not handled, undeliverable, dismissed, abandoned |
-| Overdue | A delivery to a pushed ship whose 10 or 60 minute clock ran out (decision 0040): handed and not confirmed for 10 minutes, or pending or received for 10 minutes while the session is idle or 60 while it is busy. A person ship runs no clocks. The fleet runs the clocks and tells argo once per lease and oldest delivery, with an event; on Health it is stalled in flight until it clears |
-| Stuck | A delivery that waits on something only a ship, a crew or the operator can change (decision 0042): undeliverable, no ship can take it, waiting for crew, or stalled in flight. One cause each, at one place (a ship, or a type), waiting since it entered its state. Read as facts, with no thresholds; a not handled delivery is never stuck |
-| Stalled in flight | A stuck delivery received or handed whose session or machine went quiet: overdue by the pushed clocks, or handed on a plain lease whose session has not been seen since the hand-over, for 10 minutes or more. Never at a person ship |
-| Acknowledgement | The receiving ship's confirmation that it has taken responsibility for a delivery. Only then is it done. Aeolus is responsible for distribution, not execution: a ship acknowledges a delivery as soon as it receives it. If the session dies after that, restarting it and recovering the work is the operator's responsibility, not the fleet's |
-| Ping | A message from `argo` to one crewed ship, with the reserved content type `application/vnd.aeolus.ping` and a fixed payload, delivered like any message. Its session answers with `pong` instead of `ack`, and does not act on it or reply with a message. "Last seen" proves the session's process still calls the fleet; an answered ping proves its model read the ping, at the cost of one turn. At most one ping per ship is open: while one waits unanswered, Ping shows that one instead of sending another. Observation only: no timeout, nothing acts on it (decision 0016) |
-| Pong | The ship's answer to a ping: it acknowledges the ping delivery and marks the lease last seen at that moment, in one transaction. A ping acknowledged with a plain `ack` is received but not answered with pong |
-| Report | A crew's latest word on its work: working, blocked or idle, with a short note (one line, at most 200 characters), optional details, and when it last reported. It belongs to the lease, so the ship's next crew starts with none, and can read the previous crew's last report. Every call of `report` sets when it last reported, even with the same state, note and details. Plain data: shown in the console and readable with `fleet:read` within read reach (decision 0034); Aeolus acts on none of it (decision 0016) |
-| Details | A report's structured part: one JSON object of at most 16 KB, stored without meaning, set whole or merge-patched by the crew, with a version that moves on every change. Its shape per ship type lives in common (decision 0028) |
-| Starting prompt | The ship's crew instructions for a chat, which the operator pastes into a chat: the fleet's MCP URL, ship id, ship secret, and how to register and keep the crew token. Getting a new one while an unclaimed prompt is still out needs no confirmation; the dialog states that the outstanding one stops working |
-| Crew line | The same identity in one line, one per harness with the `aeolus` plugin, shown with every starting prompt: `/aeolus:crew <fleetUrl> <shipId> <secret>` for Claude Code, `$aeolus-crew <fleetUrl> <shipId> <secret>` for Codex. The plugin registers, keeps the crew token for its folder, and wakes the session when work waits. A starting prompt is answered with its prompt, its crew lines and the secret itself, so a client that crews the ship for a session of its own (squadrons, the console connecting squadrons) reads the secret instead of parsing a line (decision 0019) |
-| Crew request | Declared state on a ship: "keep this ship crewed, with these settings" (harness, workspace, an optional squadron, an optional first prompt and options). Settings are one JSON object of at most 16 KB, refused unless they are crew settings whose machine labels are label values of the fleet, and never acted on by the server, with a version that moves on every request. At most one per ship, standing; never on argo, the viewer ship or a retired ship, and a retire removes it. Three parts with one writer each: the request by a requester with `fleet:manage` and manage reach, the assignment by the trierarch plugin (`@aeolus-fleet/trierarch-plugin`), the status (crewing, running, restarting, crashed, releasing, with the restart attempt and when the session started) by the assigned trierarch. Unassigned, it is the operator's to-do, with the trierarch plugin's reason when no trierarch can take it (one line, cleared on assignment). It shows who crewed the ship: the ship that got the starting prompt its crew claimed with, argo for a hand crew or its trierarch. Removing it releases the crew first (decision 0029) |
-| Clear request | A declared request that a trierarch clear a worktree it kept, naming it by the ship it belonged to and its repository, never a path. One per trierarch, ship and repository, at most 100 pending per trierarch; pending until the trierarch confirms it removed the worktree or kept none, never withdrawn; gone with a retired trierarch (decision 0032) |
-| Trierarch | A launcher: a plain process on a machine, not an AI, crewing a ship of type `trierarch` with `crew:run`. It starts, restarts, wakes and stops agent sessions for the ships whose crew requests are assigned to it, and reports what it can do. It never picks, commissions or retires (decision 0026). What it does: [trierarch.md](trierarch.md) |
-| Trierarch plugin | The trierarchs' plugin on the server side: an optional process beside squadrons, a ship of each fleet it serves. It brings machines in (commissions each trierarch's ship and gives its starting prompt) and assigns crew requests to trierarchs. Aeolus knows nothing about it beyond its ship (decision 0030) |
-| Assignment | Which trierarch crews a ship, the part of its crew request the trierarch plugin writes, only while unassigned (optimistic claim) |
-| Ship protocol | How a session crews a ship, from register to the end of its turn, sent by the fleet to every session that connects; the starting prompt says which ship and how a chat connects and registers |
-| Retire | End a ship for good. Its id can never be claimed or addressed again |
+### Organisation and humans
+
+| Term | Meaning | Held by |
+| --- | --- | --- |
+| Organisation | pagasae's tenant: its accounts, its fleets and its directory. Not a fleet | pagasae (to build) |
+| Account | A human's account in an organisation, by email. The only account: no operator, viewer or ship account. Not an identity | pagasae |
+| Identity | A login at an identity provider (Google, Microsoft) that signs an account in. Not an account | pagasae (to build) |
+| Directory | The organisation's list of accounts, its own or read from its identity provider | pagasae (to build) |
+| Installation admin | The human who runs an installation's hosting service (pagasae's `OWNER_EMAIL`). Not an owner | pagasae |
+| Operator | The human who signs in as argo, with their own account; there is no operator account | core |
+| Sign-in | A human logging in: console sign-in (as argo, or as the viewer), pagasae sign-in, gateway sign-in. Not a session | core, pagasae, gateway |
+| Sign-in ticket | One use, 2 minutes, from the hosting service: a console sign-in as argo, or as the viewer (a viewer ticket) (0020, 0022) | core |
+| Sign-in link | A one-use link pagasae mails to sign an account in | pagasae |
+| Link | Joining an account to a person ship, so the human acts as that ship. Not connect | to build |
+
+### Fleet and ships
+
+| Term | Meaning | Held by |
+| --- | --- | --- |
+| Installation | One server and the fleets it hosts; a hosting service drives it with the installation token, a self-hosted server has none (0020) | core |
+| Hosting service | What runs an installation for others: pagasae for hosted Aeolus | pagasae |
+| Fleet | core's tenant: one set of ships, messages and history; every record has `fleet_id` (0007). Not an organisation | core |
+| Ship | A durable, addressable actor with an inbox; outlives any session. Every caller is a ship. Has a name, type, kind, scopes, owner and status | core |
+| Ship id | `shp_…`, with its fleet's `flt_…` the public reference `{ shipId, fleetId }` | core |
+| Ship name | A handle: lowercase letters, digits, hyphens, colons (a prefix groups, as in `hemma:planner`), at most 48; unique among active ships, reusable after retirement; a rename never redirects a sent message | core |
+| Ship type | Free text (`reviewer`) for addressing, never interpreted. Not a kind | core |
+| Kind | What a ship is, by lifecycle, never by power: rights come only from scopes (0044) | core |
+| operator | Kind of argo alone, crewed by the operator's sign-in | core |
+| viewer | Kind of the viewer alone | core |
+| person | A human's ship, crewed by their own app or a chat, an account linked to it; only argo commissions it | core |
+| agent | An AI session's ship, commissioned, crewed by a trierarch or a harness; the only kind that states a model | core |
+| app | Software in one fleet, commissioned: a trierarch, the gateway's proxy ships, own integrations | core |
+| plugin | Software installed once per installation, serving many fleets: squadrons, the networking plugin, the trierarch plugin, the gateway. argo connecting it is its commission | core |
+| argo | The operator ship: one per fleet, permanent, every scope, no secret, name reserved; messages to it are argo's inbox (0012) | core |
+| Viewer | The ship `viewer` of a fleet created with one: permanent, `fleet:read` only, receives nothing; anyone with a viewer ticket signs in as it. A named person who reads only gets a person ship with `fleet:read` (0022) | core |
+| Owner | The person ship, or argo, that answers for a ship: its questions, gates and trouble go there, and it reaches the ships it owns. Only a ship has an owner (0045) | core |
+| Status | Awaiting crew, crewed or retired, derived from the lease | core |
+| Commission | Create a ship with its kind, scopes and owner | core |
+| Release | End a ship's lease; its secret stops working and it awaits crew | core |
+| Recrew | Release a crewed ship whose session is gone and get a fresh starting prompt, in one step | core |
+| Retire | End a ship for good: its id never claimed or addressed again | core |
+
+### Crew
+
+| Term | Meaning | Held by |
+| --- | --- | --- |
+| Crew | What holds a ship's lease: an agent session, a person's app, an app's adapter, argo's or the viewer's console sign-in | core |
+| Session | One agent run crewing a ship; replaceable, a new one inherits the inbox. Not a human's sign-in | core, trierarch |
+| Lease | One crew's exclusive right to a ship until release or deregister; argo's sign-in takes argo's over (0010) | core |
+| Last seen | When the crew last called the fleet; observation only, but for the networking plugin's availability (0035) | core |
+| Register | Claim a ship with its id and secret, stating location and harness; answers the crew token once | core |
+| Deregister | The crew ends its lease and the secret; ship and inbox stay | core |
+| Ship secret | `aeolus_sk_v1_<random>`, shown once, stored as a hash, one valid per ship, used only to register (0002) | core |
+| Crew token | `aeolus_ct_v1_<random>` from register, stored as a hash, names one crew on every later call, ends with the lease (0015) | core |
+| Starting prompt | Crew instructions for a chat: the fleet's MCP URL, ship id and secret, how to register and keep the crew token; a new one ends the outstanding one (0019) | core |
+| Crew line | The same in one line per harness with the `aeolus` plugin: `/aeolus:crew <fleetUrl> <shipId> <secret>`, `$aeolus-crew …` for Codex (0019) | core |
+| Ship protocol | How a crew works a ship from register to the end of its turn, sent by the fleet to every connecting session | core |
+| Location | Where the session runs: `DEVICE`, `CLOUD`, `SERVER`, or `OTHER` with a description; never interpreted | core |
+| Harness | What the session runs in: free text, known `claude-code`, `claude-chat`, `codex`; read with the location (0018) | core |
+| Model | The exact model id stated on every agent send, never on a ping or resend; self-reported, the last stated is the ship's (0018) | core |
+| Report | A crew's latest word: working, blocked or idle, a note of at most 200 characters, optional details; on the lease (0028) | core |
+| Details | A report's JSON part, at most 16 KB, versioned; its shape per ship type in common (0028) | core |
+| Statement | What a ship is and offers: a summary and capabilities, stated by its crew (0047) | core |
+| Discovery | A ship asking which ships and types it can send to now (0047) | core |
+| Ping | argo's `application/vnd.aeolus.ping` to a crewed ship, at most one open per ship; proves its model reads | core |
+| Pong | The answer to a ping: acks it and marks last seen | core |
+| Pushed | A lease whose computer side receives for it from its first push receive; its agent never receives (0040) | core |
+| Waker | What wakes a pushed crew: trierarch, plugin watcher, person app, gateway or adapter (0040) | core |
+| Turn | A pushed session's state, idle or busy, as its hooks report it (0040) | core |
+
+### Access
+
+| Term | Meaning | Held by |
+| --- | --- | --- |
+| Scope | What a ship may do, `<namespace>:<action>`, stored with the ship, never in a message; the only source of rights (0046) | core |
+| Scope namespace | A plugin's scopes, declared once for good, enforced by the plugin (0046) | core |
+| Reach | Where a ship may act: whom it may send to, read or manage, by network rules (0034) | core |
+| Verb | send (with force and discovery), read (with resend), manage (rename, release, recrew, retire, ping, crew request) | core |
+| Network rule | Lets ships matching one selection reach ships matching another by one verb; a selection is of label and owner terms, never type; allow-only (0034) | core, set by the networking plugin |
+| Built-in rule | A rule every fleet starts with, shown first: argo, the owner, an answer, and a ship of kind plugin reading every ship, never off; the viewer reading and open per verb, switchable (0034) | core |
+| Declared rule | A rule a ship declares on labels it defined; in force once the networking plugin supplies it (0037) | core |
+| Network settings | A fleet's rules, its networking plugin and a version | core |
+| Networking plugin | The plugin that alone sets the rules beside the built-ins, removing open, and declares what holds while it is unavailable (0035) | networking plugin |
+| Reach refusal | argo's record of a refused send; the sender learns only that it was refused | core |
+| Label | A key with defined values (`os`: `macos`, `linux`) for selecting ships; never membership, status, configuration or secrets (0031) | core |
+| Definer | The ship that defined a label: it alone changes, deletes and assigns it, and the label retires with it. Not an owner | core |
+| Label selection | The ships carrying every given label value, exact and AND | core |
+
+### Messages
+
+| Term | Meaning | Held by |
+| --- | --- | --- |
+| Message | An immutable envelope with an opaque payload of at most 64 KB and a content type, from one ship to a selector; may reply to or resend another | core |
+| Selector | Who a message is for: `ship` (id, or name resolved at send) or `type`; `group` and `fleet` later. Not a rule's selection | core |
+| Delivery | One message to one recipient, with its state: pending, received, handed, acknowledged, handled, not handled, undeliverable, dismissed, abandoned (0040) | core |
+| Acknowledgement | The receiver taking a delivery on receipt; Aeolus distributes, never executes (0001) | core |
+| Forced | A send with `messages:force`: comes first, stopping a busy turn (0040) | core |
+| Undeliverable | A delivery that failed five attempts, kept for argo to resend or dismiss | core |
+| Overdue | A pushed delivery whose 10 or 60 minute clock ran out (0040) | core |
+| Stuck | A delivery waiting on what only a ship, a crew or the operator can change, one cause each (0042) | core |
+| Inbox | A ship's deliveries; argo's is the operator's | core |
+| Question | A message of `application/vnd.aeolus.question+json` to the asker's owner's ship, open until answered (0038) | ships |
+| Answer | The owner's reply of `application/vnd.aeolus.answer+json` (0038) | ships |
+| Event | The record of a state change, written in its transaction, naming its actor | core |
+
+### Plugins and the gateway
+
+| Term | Meaning | Held by |
+| --- | --- | --- |
+| Connect | argo connecting a plugin to a fleet: its commission. Nothing else connects; an account is linked | core |
+| Connection | A plugin's stored side of connect: its ship and crew token per fleet | each plugin |
+| Switch | A hosting service turning a plugin on or off for a fleet (0021) | each plugin |
+| Gateway | The plugin that speaks MCP and A2A with the outside (0048) | gateway |
+| Outside party | An approved outside MCP server or client | gateway |
+| Proxy ship | The app ship the gateway commissions for an outside party once argo approves it (0044) | core |
+
+### Squadrons
+
+| Term | Meaning | Held by |
+| --- | --- | --- |
+| Squadron | Ships formed together from a squadron blueprint by a forming ship, led by a flagship (0017) | squadrons |
+| Squadron blueprint | Roles, ships per role, their template versions and hand-offs ([squadrons.md](squadrons.md)) | squadrons |
+| Ship template | A reusable role: charter, check-in interval, crew settings, scopes, hand-offs | squadrons |
+| Forming ship | The ship holding `squadrons:form` that formed the squadron | squadrons |
+| Flagship | The squadron's lead ship: members check in with it, it proxies to the forming ship | squadrons |
+| Member | A squadron's ship, with a role | squadrons |
+| Role | A member's part in its squadron, from a template. No human has a role: a human's rights are their ship's scopes | squadrons |
+| Charter | A role's instructions, given at check-in | squadrons |
+| Hand-off | A name a template declares and a blueprint binds to a role or the flagship | squadrons |
+| Check-in | A member's first message to its flagship, answered with its role; then a report each interval, late after one missed, silent after three | squadrons |
+| Stand-down | The flagship ending the squadron: members finish, say stood-down and are retired | squadrons |
+
+### Trierarch
+
+| Term | Meaning | Held by |
+| --- | --- | --- |
+| Trierarch | A plain process per machine, not an AI, crewing an app ship of type `trierarch` with `crew:run`; starts, restarts, wakes and stops sessions, never picks, commissions or retires (0026, [trierarch.md](trierarch.md)) | trierarch |
+| Trierarch plugin | The plugin that brings machines in and assigns crew requests (0030) | trierarch plugin |
+| Machine | A computer a trierarch runs on, labelled from its report | trierarch plugin |
+| Crew request | Declared state on a ship: keep it crewed with these settings; written by its requester, the trierarch plugin and the assigned trierarch (0029) | core |
+| Crew settings | Harness, workspace, squadron, first prompt and options, at most 16 KB (0027) | core |
+| Assignment | Which trierarch crews a ship, the trierarch plugin's part of the crew request | core |
+| Clear request | A request that a trierarch clear a worktree it kept, by ship and repository (0032) | core |
+| Worktree | A ship's git worktree a trierarch crews it in | trierarch |
+
+### Installation
+
+| Term | Meaning | Held by |
+| --- | --- | --- |
+| Notice | The installation's text above every console page for an audience: everyone, argo's sign-ins or the viewer's (0023) | core |
+| Guide | The installation's steps through the console for an audience (0024) | core |
+| Limits | A fleet's ship and daily message limits, from configuration (0020) | core |
+| Health | A fleet's stuck and overdue deliveries, read from delivery states (0041, 0042) | core |
 
 ## Domain architecture
 
