@@ -50,6 +50,7 @@ The direction proposed to Thomas, not decided beyond pagasae:
 | A6 | Messaging stays as it is: whatever sends or receives is a ship, with its inbox, lease and guarantee |
 | A7 | A fleet stays recoverable when pagasae or a permission is wrong (argo's reason, 0053) |
 | A8 | A leaver's access ends at once, including what pagasae vouched for before (question 12) |
+| A9 | **An agent can do any management job.** An agent ship can hold any scope a human or pagasae can, and do every management job through the same calls, so an AI can manage the fleet. No right is a human's or pagasae's alone (Thomas, 19 Oct) |
 
 ### 1.5 A good outcome
 
@@ -73,6 +74,7 @@ At Acme:
 
 | Lesson | Source |
 | --- | --- |
+| **The reason for "every caller is a ship" was that an AI can manage the fleet**: a ship commissioned with argo-like scopes does whatever argo does. That stays (A9): every option below is tested against it, and one that gives a right only a human or pagasae can hold goes wrong for that reason | 0012, Thomas 19 Oct |
 | **Scope says what, reach says where**, for every type of interaction. A selector picks ships by labels or owner, never by type | 0034, 0046 |
 | **Reach is defined over ships.** A rule's two selectors match ships' labels and owners; an actor that is not a ship has no labels in core today, so a rule cannot select it | 0034, 0031 |
 | **No rights travel with a message.** Core and the plugins police scopes | 0046 |
@@ -109,7 +111,8 @@ What this part settles is how pagasae vouches for an account, so core can author
 - **Trust is set up once per installation.** Core is configured with pagasae's issuer and fetches its public keys from it, as it is configured with the installation token today. With none configured, core accepts no account: a self-hosted fleet with argo's own sign-in only (Q19 (e)). Adding pagasae later is setting it.
 - **pagasae signs an account token for one account in one fleet**: the account (an opaque id and its email, for events), its organisation, the fleet it is for (the audience, so it is refused in any other fleet), the scopes and labels its groups give there, and a short life. Whoever acts for the human presents it: the console, a plugin's page, the gateway, a human's MCP client.
 - **Core checks it on every call**: the signature against pagasae's keys, the audience against this fleet, the life against now. It then authorises the call by the account token's scopes and reach, as for a ship, and names the account as the actor of every event the call writes. It stores nothing else about the account. When a plugin's page or the gateway presents the account token, the event names the account and, in its details, the ship it came through: who acted, and through what.
-- **pagasae acting as itself** (sign-up's fleet, a leaver's releases) uses the installation token, as the installation actor (question 4).
+- **pagasae acting as itself** (a leaver's releases, a person ship for a human who starts messaging) acts as the installation in that fleet, through the same fleet calls a ship makes, with scopes argo gives it there (question 4). The installation procedures stay what they are: fleets, and sign-in tickets.
+- **What only pagasae does is vouch for accounts**: issuing account tokens and cutting them off. That is signing humans in, not managing the fleet; no agent needs it, because an agent acts as its ship (A9).
 
 ### 3.2 Hosted and self-hosted
 
@@ -139,9 +142,9 @@ What it is: 0012's "every caller is a ship" becomes two rules: everything that s
 
 Use case: Mathilde retires an agent from the networking plugin's page without a person ship; the event names her account.
 
-- (a) **The two rules, and "actor" as the term**: a ship, an account or the installation. Goes wrong: a second kind of caller beside ships, which every check and every event must handle.
+- (a) **The two rules, and "actor" as the term**: a ship, an account or the installation. Goes wrong: a second kind of caller beside ships, which every check and every event must handle. A9 holds: a ship stays an actor, with any scope.
 - (b) **The two rules, and another word** ("principal", as Entra and Kubernetes say). Goes wrong: a word new to the fleet, where "actor" is already in its principles.
-- (c) **Keep "every caller is a ship"**, and pagasae a non-ship exception like the installation. Goes wrong: P1 and P6 stay, and every human who administers needs a person ship.
+- (c) **Keep "every caller is a ship"**, and pagasae a non-ship exception like the installation. Goes wrong: P1 and P6 stay, and every human who administers needs a person ship. A9 holds, as today.
 
 Pick: (a).
 
@@ -156,6 +159,8 @@ Use case: Mathilde administers Acme's fleet and never messages in it. Charlotte 
 - (a) **A human acts as their account in every call that is not messaging**; they have a person ship only when they send or receive (Charlotte yes, Mathilde no), and their messages are that ship's. Goes wrong: one human appears as two actors (their account, their person ship), so a history of "what did Charlotte do" reads both.
 - (b) **A human always acts as their person ship** (phase 2). Goes wrong: Mathilde needs a ship she never messages from, pagasae must rescope it, and the gateway holds its lease.
 - (c) **A human acts as their account for everything, messages included**, and a person ship is only their inbox. Goes wrong: a message whose sender is not a ship, which breaks answers, owners and reach for messages (A6).
+
+A9, for every option: an agent acts as its ship, with the same calls and any of the same scopes an account's groups give; nothing here is for accounts only.
 
 Pick: (a). Question 1 of `accounts.md` then reads: at most one person ship per account per fleet, and only when the human messages there. Question 3 (b) holds as "as their account, with their groups' scopes". Question 11 becomes: a person ship is commissioned when a human first messages in a fleet, on a group's allowance.
 
@@ -177,9 +182,10 @@ What it is: some changes have no human asking at that moment: sign-up's first fl
 
 Use case: Burak is disabled; his person ship and his laptop's trierarch must be released in every fleet.
 
-- (a) **pagasae acts as the installation**, with the installation token, through a few new installation procedures for one fleet: release what a disabled account crews, and commission or release a person ship. Events name the installation as actor, and their details name the account and the organisation admin who asked. Goes wrong: the installation, which today knows only fleets, learns about person ships and releases.
-- (b) **pagasae acts for the organisation admin who asked**, with that admin's account token. Goes wrong: an admin must hold every scope these need, and a directory change has no admin.
-- (c) **pagasae is a plugin ship** (phase 2's P1). Rejected by Thomas.
+- (a) **pagasae acts as the installation in the fleet, through the same fleet calls a ship makes** (release, commission, grant), authorised by scopes argo gives the installation in that fleet and checked against reach like any actor's. Events name the installation, and their details the account and the organisation admin who asked. A9 holds: an agent ship holding `fleet:manage` releases the same ships with the same call. Goes wrong: a third kind of actor beside ships and accounts, and argo gives it scopes in each fleet.
+- (b) **New installation procedures for one fleet**: release what a disabled account crews, commission or release a person ship. Goes wrong: A9; a second path for the same jobs, outside scopes and reach, which no ship can take.
+- (c) **pagasae acts for the organisation admin who asked**, with that admin's account token. Goes wrong: an admin must hold every scope these need, and a directory change has no admin.
+- (d) **pagasae is a plugin ship** (phase 2's P1). Rejected by Thomas.
 
 Pick: (a).
 
@@ -201,8 +207,8 @@ What it is: argo holds every scope so a fleet can always act (0053); with accoun
 
 Use case: pagasae is misconfigured and every account token lacks scopes. Acme's fleet must still be put right.
 
-- (a) **argo stays the fleet's own actor and inbox**: a permanent ship with every scope, its built-in reach, its inbox for what argo owns, signed in by allowed accounts or argo's own sign-in. Events name argo and the account that signed in. Goes wrong: two ways to hold every scope (argo, and an account whose groups give all), so argo's reason must be kept by policy, not by structure.
-- (b) **argo becomes an account with every scope.** Goes wrong: recovery then depends on pagasae; a self-hosted fleet without pagasae has no argo.
+- (a) **argo stays the fleet's own actor and inbox**: a permanent ship with every scope, its built-in reach, its inbox for what argo owns, signed in by allowed accounts or argo's own sign-in. Events name argo and the account that signed in. Goes wrong: two ways to hold every scope (argo, and an account whose groups give all), so argo's reason must be kept by policy, not by structure. A9 holds: an agent ship may hold every scope too, as a ship commissioned with argo-like scopes does today.
+- (b) **argo becomes an account with every scope.** Goes wrong: recovery then depends on pagasae; a self-hosted fleet without pagasae has no argo; and the fleet's one holder of everything would be a human's, against A9's spirit.
 - (c) **argo is an inbox only**, and its rights go to accounts. Goes wrong: the same as (b), and argo-owned ships' questions go to an inbox nobody acts from.
 
 Pick: (a).
@@ -216,7 +222,7 @@ Use case: Thomas commissions an agent as his account. Who owns it, and where do 
 - (a) **Owners stay ships**: a ship an account commissions is owned by the account's person ship, which is commissioned then if it has none, or by argo. Goes wrong: Thomas gets a person ship the moment he owns something, even if he never messages himself.
 - (b) **An account may own**: its questions go to its person ship if it has one, else to argo. Goes wrong: questions for Thomas's agent land at argo; owner becomes two kinds.
 
-Pick: (a). Owning means receiving, which is a ship's.
+Pick: (a). Owning means receiving, which is a ship's. A9: owning is answering for a ship, not a right (0045, "a human is always responsible"); owners stay a person ship or argo, and an agent manages whatever its scopes and reach allow, owner or not.
 
 **8. What the decisions become**
 
@@ -225,7 +231,7 @@ What it is: the decisions that say "every caller is a ship", or follow from it.
 | Decision | Today | Becomes under picks 1 to 7 |
 | --- | --- | --- |
 | 0012 | Every caller is a ship; argo crewed by the console | Every call is for an actor; argo as question 6 (a) |
-| 0020 | The installation: fleets only | Also the actor pagasae acts as, for a few per-fleet procedures (question 4) |
+| 0020 | The installation: fleets only | Also an actor in each fleet, with scopes argo gives it, through the same fleet calls (question 4) |
 | 0044 | Only argo commissions person ships; kinds | A person ship exists for messaging only (question 2); commissioning one is a scope an account may hold |
 | 0045 | Owners are person ships or argo | Unchanged; an account owns through its person ship (question 7) |
 | 0046 | Scopes on ships; `fleet:on-behalf` for plugins | Scopes on ships and in account tokens; `fleet:on-behalf` stays as it was (P6 gone) |
@@ -235,6 +241,18 @@ What it is: the decisions that say "every caller is a ship", or follow from it.
 - (b) **Only 0012 and 0020 now**, the rest when built. Goes wrong: the decisions disagree with each other until then.
 
 Pick: (a).
+
+**9. Can an agent manage the organisation?**
+
+What it is: question 2 of `accounts.md` put organisation rights (accounts, groups, which fleets, who may sign in as argo) on the account, in pagasae, where no fleet is. By A9 an agent must be able to do management jobs, and Thomas expects an MCP server to manage the organisation from outside later.
+
+Use case: Acme runs an onboarding agent ship in its fleet. When HR hires Priya, the agent should add her account to the group "contractors" without Mathilde.
+
+- (a) **pagasae's MCP server (later) accepts an agent ship of the organisation's fleets**, vouched for by core as pagasae is vouched for by core's trust in reverse: core signs a short token for the ship, and an organisation admin gives that ship organisation rights in pagasae. Goes wrong: trust in both directions between pagasae and core; organisation rights held by a ship, in a place that knows no ships.
+- (b) **An account for the agent**, as Kubernetes has service accounts. Goes wrong: 0050 made an account a human's; an agent with two identities (its ship and its account).
+- (c) **Not now: organisation rights stay accounts'**, and an agent acts in fleets only. Goes wrong: A9 for the organisation: the onboarding agent cannot add Priya; recorded as a known gap until the MCP server comes.
+
+Pick: (a) when pagasae's MCP server is built, (c) until then. The fleet's management stays open to agents now; the organisation's opens with its MCP server.
 
 ## 5. What changes in phase 2's drafts
 
