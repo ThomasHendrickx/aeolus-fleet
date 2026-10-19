@@ -255,7 +255,7 @@ export function commissionShip(
 }
 
 /** Why a ship's owner changed: argo set it, or its owner's ship retired and it fell to argo. */
-export type OwnerChangedWhy = 'setByArgo' | 'ownerRetired';
+export type OwnerChangedWhy = 'set' | 'ownerRetired';
 
 export type ChangeOwnerRefusal = DomainError<'SHIP_HAS_NO_OWNER' | 'SHIP_ALREADY_RETIRED' | 'INVALID_OWNER'>;
 

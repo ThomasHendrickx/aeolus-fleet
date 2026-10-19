@@ -74,7 +74,7 @@ async function commissioned(name: string, kind?: 'person'): Promise<ShipId> {
   return unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name, type: kind ?? 'keeper', ...(kind === undefined ? {} : { kind }) })).shipId;
 }
 
-async function ownerOf(shipId: ShipId): Promise<ShipId | null | undefined> {
+async function ownerOf(shipId: ShipId): Promise<string | null | undefined> {
   return (await database.ship.findUnique({ where: { id: shipId }, select: { ownerShipId: true } }))?.ownerShipId;
 }
 

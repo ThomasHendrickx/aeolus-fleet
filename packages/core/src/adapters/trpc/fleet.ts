@@ -413,8 +413,8 @@ export const fleetRouter = router({
       return {};
     }),
 
-  /** Gives a ship a new owner, an active person's ship or argo: argo's alone, by its kind, no scope (decisions 0045, 0046). */
-  setOwner: authenticatedProcedure
+  /** Gives a ship within the caller's manage reach a new owner, an active person's ship or argo (decisions 0045, 0053). */
+  setOwner: actorScopedProcedure('fleet:owner')
     .input(setOwnerInputSchema)
     .output(setOwnerOutputSchema)
     .mutation(async ({ ctx, input }) => {
