@@ -1,6 +1,6 @@
 import { NETWORK_VERBS, type ExplainedReach, type ReachRule, type ShipId } from '@aeolus-fleet/common';
 
-import type { ShipCaller } from '../shared/caller.js';
+import type { Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
@@ -8,6 +8,7 @@ import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { reaching, rulesInForceAt, shipAsItIs, type CheckReachTx } from './check-reach.js';
 import type { DeclaredNetworkRules } from './declared-network-rules.js';
 import { reachRuleOf, type NetworkRule, type ReachRule as SettingsRule } from './network-settings.js';
+import { readsShip, type ReadReachOf } from './read-reach.js';
 import type { DeclaredNetworkRulesRepository, ShipRepository } from './ports.js';
 
 export interface ExplainReachTx {
@@ -19,9 +20,9 @@ export interface ExplainReachTx {
   declaredNetworkRules: Pick<DeclaredNetworkRulesRepository, 'list'>;
 }
 
-export type ExplainReachFailure = DomainError<'NOT_THE_OPERATOR_SHIP' | 'SHIP_NOT_FOUND'>;
+export type ExplainReachFailure = DomainError<'NOT_REACHABLE' | 'SHIP_NOT_FOUND'>;
 
-export type ExplainReach = (caller: ShipCaller, input: { fromShipId: ShipId; toShipId?: ShipId }) => Promise<Result<ExplainedReach, ExplainReachFailure>>;
+export type ExplainReach = (caller: Caller, input: { fromShipId: ShipId; toShipId?: ShipId }) => Promise<Result<ExplainedReach, ExplainReachFailure>>;
 
 /**
  * Use case: argo asks which ships a ship reaches now, per verb, or whether it
@@ -31,21 +32,23 @@ export type ExplainReach = (caller: ShipCaller, input: { fromShipId: ShipId; toS
  * allows it: a built-in rule, a rule the plugin supplied, or a rule a ship
  * declared, named by its declarer, when the plugin supplied it as declared.
  * There is no message, so no answer to a sender. It records nothing: an
- * explain is not a send. Only argo.
+ * explain is not a send. Any actor holding fleet:explain asks, the scope
+ * checked before this runs, about the ships it reads (decision 0053).
  */
-export function createExplainReach(deps: { uow: UnitOfWork<ExplainReachTx>; clock: Clock }): ExplainReach {
-  return (caller, input) =>
-    deps.uow.run(async (tx): Promise<Result<ExplainedReach, ExplainReachFailure>> => {
-      if (caller.kind !== 'operator') {
-        return refuse('NOT_THE_OPERATOR_SHIP', 'Only argo explains reach');
-      }
+export function createExplainReach(deps: { uow: UnitOfWork<ExplainReachTx>; clock: Clock; readReach: ReadReachOf }): ExplainReach {
+  return async (caller, input) => {
+    const reads = await deps.readReach(caller);
+    return deps.uow.run(async (tx): Promise<Result<ExplainedReach, ExplainReachFailure>> => {
       const { fleetId } = caller;
       const from = await tx.ships.find(fleetId, input.fromShipId);
       if (from?.retiredAt !== null) {
         return refuse('SHIP_NOT_FOUND', 'The fleet has no active ship with this id to explain from');
       }
+      if (!readsShip(reads, from.id)) {
+        return refuse('NOT_REACHABLE', 'The network rules do not let you read the ship to explain from');
+      }
       const active = await tx.ships.listActive(fleetId);
-      const others = active.filter((ship) => ship.id !== from.id && (input.toShipId === undefined || ship.id === input.toShipId));
+      const others = active.filter((ship) => ship.id !== from.id && readsShip(reads, ship.id) && (input.toShipId === undefined || ship.id === input.toShipId));
       if (input.toShipId !== undefined && others.length === 0 && input.toShipId !== from.id) {
         return refuse('SHIP_NOT_FOUND', 'The fleet has no active ship with this id to explain reach to');
       }
@@ -65,6 +68,7 @@ export function createExplainReach(deps: { uow: UnitOfWork<ExplainReachTx>; cloc
       }
       return ok(explained);
     });
+  };
 }
 
 /** A rule of the settings named as argo reads it: a declared one by its declarer and its place in that ship's list, any other as the plugin's. */

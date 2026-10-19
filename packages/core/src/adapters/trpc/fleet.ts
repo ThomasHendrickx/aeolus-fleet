@@ -711,8 +711,8 @@ export const fleetRouter = router({
       (await ctx.useCases.readDeclaredNetworkRules(ctx.caller)).map(({ shipId, rules }) => ({ shipId, rules: rules.map((rule) => ({ verb: rule.verb, from: [...rule.from], to: [...rule.to] })) })),
     ),
 
-  /** The sends the network rules refused, newest first: argo's only (decision 0034). */
-  reachRefusals: scopedProcedure('fleet:read')
+  /** The sends the network rules refused, newest first, of the ships the caller reads (decisions 0034, 0053). */
+  reachRefusals: actorScopedProcedure('fleet:explain')
     .output(reachRefusalsOutputSchema)
     .query(async ({ ctx }) =>
       okOrThrow(await ctx.useCases.readReachRefusals(ctx.caller)).map(({ id, at, sender, askedBy, recipient, verb, settingsVersion, whilePluginUnavailable }) => ({
@@ -730,8 +730,8 @@ export const fleetRouter = router({
       })),
     ),
 
-  /** Which ships a ship reaches now, or whether it reaches one: argo's only, and never why (design on #260). */
-  explainReach: scopedProcedure('fleet:read')
+  /** Which ships a ship the caller reads reaches now, or whether it reaches one (design on #260, decision 0053). */
+  explainReach: actorScopedProcedure('fleet:explain')
     .input(explainReachInputSchema)
     .output(explainReachOutputSchema)
     .query(async ({ ctx, input }) => okOrThrow(await ctx.useCases.explainReach(ctx.caller, input))),
