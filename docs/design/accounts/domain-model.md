@@ -3,7 +3,7 @@
 Design by designer-accounts, for Thomas. Thomas read phase 1 (`accounts.md`) and saw gaps behind its questions. Before he answers them, this places accounts in the whole high-level domain model:
 
 1. today's model across every component, one block per concept;
-2. the same model with accounts as phase 1 proposes, the new parts marked;
+2. the whole in the domain language (decision 0050): one overview and four flows of how organisation, accounts, fleets, ships of every kind, plugins, the gateway and outside parties act together;
 3. the gaps: every place where the model has no answer or two answers, each tied to the questions of `accounts.md` it touches.
 
 **Thomas decided (19 Oct): organisation is a concept Aeolus needs.**
@@ -15,7 +15,7 @@ Design by designer-accounts, for Thomas. Thomas read phase 1 (`accounts.md`) and
 
 **And where it lives (Thomas, 19 Oct):** "an organisation manages the user accounts within the whole. Pagasae is the account management unit." The organisation and its accounts live in pagasae, signing in by email as pagasae's sign-in links already do; the gateway signs people in through those accounts until an outside directory is connected; core keeps ships, scopes and owners.
 
-Today "organisation" is only prose: the principle "one organisation, one fleet, many actors" (blueprint Principles, 0043) and "Organisation rules belong to the organisation" (blueprint Purpose). The fleet stands in for it (0007: the fleet is the tenant). Diagram 1 shows what stands in; diagram 2 places it; part 3 marks what it answers.
+Today "organisation" is only prose: the principle "one organisation, one fleet, many actors" (blueprint Principles, 0043) and "Organisation rules belong to the organisation" (blueprint Purpose). The fleet stands in for it (0007: the fleet is the tenant). Part 1 shows what stands in; part 2 places it; part 3 marks what it answers.
 
 Read from main of each repository on 19 Oct 2026: aeolus-fleet `0e2168ce`, aeolus-fleet-gateway `916d431`, aeolus-fleet-squadrons `870f745`, aeolus-fleet-networking-plugin `58365ca`, aeolus-fleet-trierarch-plugin `7eece35`, pagasae `2ea340a`. Paths below are in aeolus-fleet unless a repository is named. Names are the blueprint's and the code's; where the code's table name differs from the blueprint's word, the table says both.
 
@@ -474,157 +474,226 @@ Party "1" --> "*" ClientCall
 
 The gateway's sign-in today is for MCP clients only: argo approves each client at `/authorize`, signed in to the console; the gateway checks the console session holds `fleet:manage`, which only argo's does (gateway `src/adapters/http/oauth-routes.ts`). No person signs in through the gateway yet.
 
-## 2. With organisation and accounts, as the revised phase 1 proposes
+## 2. The whole, in the domain language
 
-New parts are marked `<<new>>`, and a part that goes is marked `<<goes>>`. Each part follows a pick in the revised question list of `accounts.md` (questions 1 to 25), named beside it. Parts that do not change are left out, so the diagram shows only where organisation and accounts attach. The organisation and its accounts live in pagasae (Thomas, question 2); a self-hosted fleet runs pagasae too (question 25, my pick).
+Every word below is a term of the blueprint's [Domain language](../../blueprint.md#domain-language) (decision 0050, PR in review). Parts marked "to build" do not exist yet; where the answers to `accounts.md` will place them, the diagram follows its picks.
+
+### 2.1 Overview
+
+Each arrow is labelled with what one part does to the other.
 
 ```mermaid
-classDiagram
-direction TB
+flowchart TB
+  human["Human"]
 
-namespace pagasae {
-  class Organisation {
-    <<new>>
-    name
-    its fleets, Q3
-  }
-  class Account {
-    today one email, one fleet
-    now: an account of one organisation, Q1 Q16
-    organisation rights 0..*, Q4
-  }
-  class SignInLink {
-    email sign-in, as today, Q10
-  }
-  class AccountSignIn {
-    <<new>>
-    OIDC provider for the gateway, Q11
-    sign-in tickets into a fleet, Q13
-  }
-  class ConnectedDirectory {
-    <<new>>
-    later: Entra or Google
-    beside the email sign-in, Q17
-  }
-  class HostedParts {
-    terms, updates, demo, owner's pages
-    off when self-hosted, Q25
-  }
-}
+  subgraph pagasae["pagasae"]
+    direction LR
+    admin["Installation admin"]
+    org["Organisation<br/>(to build)"]
+    acc["Account"]
+    orgadmin["Organisation admin<br/>(an account, to build)"]
+    dir["Directory<br/>(to build)"]
+    idp["Identity provider<br/>(to build)"]
+    idn["Identity"]
+  end
 
-namespace core_installation {
-  class Installation {
-    unchanged: hosts fleets
-    pagasae drives it, hosted or self-hosted, Q25
-  }
-}
+  subgraph core["core"]
+    direction LR
+    inst["Installation"]
+    subgraph fleet["Fleet"]
+      direction LR
+      argo["argo<br/>kind operator"]
+      viewer["viewer<br/>kind viewer"]
+      person["Person ship<br/>kind person"]
+      agent["Agent ship<br/>kind agent"]
+      app["App ship<br/>kind app"]
+      plug["Plugin ship<br/>kind plugin"]
+      scope["Scope"]
+      rule["Network rule<br/>and built-in rule"]
+      label["Label"]
+    end
+  end
 
-namespace core_humans {
-  class OperatorAccount {
-    <<goes>>
-    folds into Account, Q13
-  }
-  class ConsoleSession {
-    an account crewing argo, Q13
-  }
-}
+  subgraph plugins["Plugins: one install, many fleets"]
+    direction LR
+    sq["squadrons"]
+    np["Networking plugin"]
+    tp["Trierarch plugin"]
+    gw["Gateway"]
+  end
 
-namespace core_ships {
-  class Fleet
-  class Ship {
-    kind
-    scopes
-    owner
-  }
-  class Argo {
-    every scope
-  }
-  class PersonShip {
-    may hold granted admin scopes, Q5 Q7
-  }
-  class AppShip
-  class Scope
-  class AdminScope {
-    <<new>>
-    approve a party, Q7
-    give an account a person ship, Q7
-  }
-}
+  trier["Trierarch<br/>(an app ship's crew)"]
+  party["Outside party"]
 
-namespace core_network {
-  class NetworkRule {
-    manage reach bounds admin work, Q8
-  }
-}
+  human -- signs in with --> acc
+  human -- "signs in as (viewer ticket)" --> viewer
+  admin -- runs --> inst
+  org -- holds --> acc
+  org -- holds --> dir
+  dir -- reads --> idp
+  idp -- holds --> idn
+  idn -- signs in --> acc
+  org -- holds --> fleet
+  orgadmin -- links an account to --> person
+  acc -- signs in as --> argo
+  acc -- linked to --> person
 
-namespace core_messaging {
-  class Question {
-    a person asks for an app, Q9
-    the owner told of a leaver, Q15
-  }
-}
+  inst -- hosts --> fleet
+  argo -- connects --> plug
+  argo -- commissions --> person
+  argo -- approves --> party
+  person -- owns --> agent
+  scope -- granted to --> person
+  rule -- lets reach --> agent
+  plug -- defines --> label
 
-namespace gateway {
-  class GatewayAddress {
-    <<new>>
-    one address for all organisations
-    finds the fleet, Q12
-  }
-  class IdentityProvider {
-    <<goes>>
-    moves to ConnectedDirectory, Q11 Q17
-  }
-  class Party {
-    owner read from core, Q19
-    proxy ship
-  }
-}
+  plugins -- crews --> plug
+  np -- sets --> rule
+  sq -- commissions --> agent
+  tp -- "assigns crew requests to" --> trier
+  trier -- crews --> app
+  trier -- crews --> agent
 
-Installation ..> Fleet : creates for an organisation, driven by pagasae
-Organisation "1" --> "*" Fleet : by id, Q3
-Organisation "1" --> "*" Account
-Organisation "1" --> "0..1" ConnectedDirectory : later
-Account "1" --> "*" SignInLink
-SignInLink ..> AccountSignIn : signs the account in
-ConnectedDirectory ..> AccountSignIn : signs accounts in, Q17
-AccountSignIn ..> ConsoleSession : ticket, Q13
-
-Account "1" --> "*" PersonShip : at most one per fleet, Q1 Q14
-Account "*" --> "*" Argo : may crew, given per fleet, Q13
-Account ..> ConsoleSession : signs in, Q13
-ConsoleSession --> Argo
-OperatorAccount ..> Account : folds into
-
-GatewayAddress ..> AccountSignIn : signs people in through, Q11
-GatewayAddress ..> Fleet : among the organisation's, Q12
-GatewayAddress ..> PersonShip : crews, holds the lease
-
-Ship <|-- Argo
-Ship <|-- PersonShip
-Ship <|-- AppShip
-Scope <|-- AdminScope
-PersonShip "*" --> "*" AdminScope : granted by argo
-AdminScope ..> NetworkRule : within manage reach, Q8
-PersonShip ..> Party : approves, Q7
-Party "1" --> "1" AppShip : proxy ship
-PersonShip ..> Question : asks for an app, Q9
+  gw -- signs people in through --> acc
+  gw -- crews --> person
+  gw -- "commissions and crews (proxy ship)" --> app
+  party -- calls --> gw
 ```
 
-| New, changed or gone | Where | What | Pick |
-| --- | --- | --- | --- |
-| Organisation (new) | pagasae | The organisation: its accounts, its fleets (by id), who administers it, its connected directory later. Core never sees it | Thomas's lead; Q2, Q3 |
-| Account (changed) | pagasae | Today one email, one fleet, its operator. Now a human of one organisation: email, its organisation rights. In a fleet it acts as a ship, at most one person ship per fleet; its rights there are the ship's | Q1, Q4, Q14, Q16 |
-| Sign-in link (unchanged) | pagasae | The account's own sign-in, by email, with no outside IdP | Thomas's lead; Q10 |
-| Account sign-in (new) | pagasae | pagasae as the identity provider the gateway signs people in with (OIDC), and the issuer of sign-in tickets into a fleet's console | Q11, Q13 |
-| Connected directory (new, later) | pagasae | Entra or Google, connected by the organisation, signing its accounts in beside the email sign-in | Q17 |
-| Hosted parts (split) | pagasae | Terms, updates opt-in, the demo and the owner's pages: hosted only, off when a self-hoster runs pagasae | Q25 |
-| Identity provider (goes) | gateway | Moves to pagasae as the connected directory; the gateway federates only to pagasae | Q11, Q17 |
-| Operator account (goes) | core | Folds into the account: argo is crewed by an account given that right for a fleet, signed in by a ticket from pagasae; still one console session at a time | Q13, Q25 |
-| Installation (unchanged) | core | Still hosts fleets; pagasae creates them for an organisation. Core's tenancy stays the fleet (0007) | Q2 |
-| Gateway address (new) | gateway | One address for all organisations: sign in through pagasae, find the organisation, then the fleet (straight in when it has one, a choice among the account's fleets when several) | Thomas's decision; Q12 |
-| Admin scopes (new) | core | Two of argo's alone jobs as scopes argo grants: approve a party, give an organisation's account a person ship in this fleet | Q5, Q6, Q7 |
-| Party (changed) | gateway | Reads its owner from core instead of keeping its own | Q19 |
-| Network rule, question (used) | core | Manage reach bounds admin work; a person asks for an app; a leaver's owner is told | Q8, Q9, Q15 |
+Read it as:
+
+- **Humans.** A human signs in with their account, held by the organisation in pagasae, by email or later with an identity from the organisation's identity provider. The operator is the human whose account signs in as argo; a human with a viewer ticket signs in as the viewer.
+- **People in a fleet.** An organisation admin links an account to a person ship, which argo commissions. The person ship's scopes are that human's rights in the fleet; network rules say where they reach. A person ship owns ships, such as its agents.
+- **Plugins.** The installation admin installs a plugin once; argo connects it to each fleet, and that commissions its plugin ship, which reads every ship by a built-in rule. The plugin crews its own plugin ship.
+- **Crew.** The trierarch plugin assigns crew requests to trierarchs; a trierarch crews its own app ship and the agent ships it starts. squadrons commissions the agent ships of a squadron.
+- **The gateway.** It signs people in through their accounts and crews their person ships; argo approves an outside party and the gateway commissions its proxy ship, an app ship it crews for that party.
+
+### 2.2 A human signs in at the gateway and reaches their ship
+
+```mermaid
+sequenceDiagram
+  actor H as Human
+  participant GW as Gateway
+  participant P as pagasae
+  participant C as core (fleet)
+  H->>GW: open the gateway
+  GW->>P: gateway sign-in
+  alt by email
+    P-->>H: sign-in link
+    H->>P: open the sign-in link
+  else identity provider connected (to build)
+    P->>H: sign in at the identity provider
+    H-->>P: identity
+  end
+  P-->>GW: the account, its organisation, its fleets and the person ship linked in each
+  alt no person ship linked in any fleet
+    GW-->>H: refused: ask an organisation admin
+  else one or more fleets
+    H->>GW: pick a fleet (straight in when there is one)
+    GW->>C: crew the person ship (hold its lease)
+    H->>GW: send, read, answer a question
+    GW->>C: the call as the person ship
+    C->>C: scope says what, reach says where
+    alt allowed
+      C-->>GW: OK once stored
+      GW-->>H: done
+    else refused
+      C-->>GW: refused, without reasons
+      GW-->>H: refused
+    end
+  end
+```
+
+### 2.3 argo connects a plugin to a fleet
+
+```mermaid
+sequenceDiagram
+  actor IA as Installation admin
+  actor O as Operator
+  participant A as argo (console)
+  participant C as core (fleet)
+  participant PL as Plugin
+  IA->>PL: install once, switch on for the fleet
+  O->>A: console sign-in as argo
+  A->>PL: Connect
+  alt plugin switched off for the fleet
+    PL-->>A: refused
+  else switched on
+    A->>C: commission the plugin ship (kind plugin), owner argo
+    C-->>A: ship secret, once
+    A->>PL: ship secret
+    PL->>C: register
+    C-->>PL: crew token
+    PL->>PL: keep the connection (ship and crew token)
+    PL->>C: declare its scope namespace
+    C->>C: built-in rule: kind plugin reads every ship
+    PL-->>A: connected
+  end
+  Note over C,PL: a release or retire of the plugin ship ends the connection and its read
+```
+
+### 2.4 An organisation admin links a new person
+
+```mermaid
+sequenceDiagram
+  actor OA as Organisation admin
+  participant P as pagasae
+  actor H as New human
+  participant A as argo
+  participant C as core (fleet)
+  OA->>P: add an account (email) to the organisation
+  P-->>H: sign-in link
+  OA->>P: link the account to a person ship in a fleet
+  alt the account already has a person ship in that fleet
+    P-->>OA: refused: one person ship per fleet
+  else none yet
+    P->>A: ask argo to commission the person ship
+    A->>C: commission the person ship, its scopes, owner argo
+    C-->>A: the person ship
+    A-->>P: the person ship
+    P->>P: link the account to the person ship
+    P-->>OA: linked
+  end
+  Note over P,C: who commissions the person ship (argo alone, or an organisation admin through a grant) is a question of accounts.md
+```
+
+### 2.5 An outside party is approved and called
+
+```mermaid
+sequenceDiagram
+  participant OP as Outside party
+  participant GW as Gateway
+  actor O as Operator
+  participant C as core (fleet)
+  participant S as A ship
+  OP->>GW: ask to reach the fleet
+  GW->>O: approve this outside party?
+  alt refused
+    O-->>GW: no
+    GW-->>OP: refused
+  else approved
+    O-->>GW: approve, owner a person ship or argo, its scopes
+    GW->>C: commission the proxy ship (kind app), its owner and scopes
+    GW->>C: crew the proxy ship
+    GW-->>OP: approved
+  end
+  OP->>GW: call a capability of a ship
+  GW->>C: send as the proxy ship
+  alt reach refuses
+    C-->>GW: refused, without reasons
+    GW-->>OP: refused
+  else stored
+    C-->>GW: OK
+    C->>S: delivery
+    alt answered within the capability's deadline
+      S->>C: ack, then the answer
+      C->>GW: delivery of the answer
+      GW-->>OP: the answer
+    else deadline passed
+      GW-->>OP: no answer yet
+    end
+  end
+```
 
 ## 3. Gaps
 
