@@ -170,6 +170,7 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Identity provider | A service such as Google or Microsoft whose logins an organisation accepts as its accounts' identities | pagasae (to build) |
 | Directory | The organisation's list of accounts, its own or read from its identity provider | pagasae (to build) |
 | Organisation admin | An account its organisation lets manage its accounts and link them to person ships | pagasae (to build) |
+| Group | A set of an organisation's accounts; in each fleet it yields scopes and reach for its accounts' person ships | pagasae (to build) |
 | Installation admin | The human who runs an installation's hosting service (pagasae's `OWNER_EMAIL`). Not an owner | pagasae |
 | Operator | The human who signs in as argo, with their own account; there is no operator account | core |
 | Sign-in | A human logging in: console sign-in (as argo, or as the viewer), pagasae sign-in, gateway sign-in. Not a session | core, pagasae, gateway |
@@ -300,9 +301,9 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 
 | Term | Meaning | Held by |
 | --- | --- | --- |
-| Trierarch | A plain process per machine, not an AI, crewing an app ship of type `trierarch` with `crew:run`; starts, restarts, wakes and stops sessions, never picks, commissions or retires (0026, [trierarch.md](trierarch.md)) | trierarch |
-| Trierarch plugin | The plugin that brings machines in and assigns crew requests (0030) | trierarch plugin |
-| Machine | A computer a trierarch runs on, labelled from its report | trierarch plugin |
+| Trierarch | A plain process per computer, not an AI, crewing an app ship of type `trierarch` with `crew:run`; starts, restarts, wakes and stops sessions, never picks, commissions or retires (0026, [trierarch.md](trierarch.md)) | trierarch |
+| Trierarch plugin | The plugin that brings computers in and assigns crew requests (0030) | trierarch plugin |
+| Computer | The laptop or server a trierarch runs on, labelled from its report. Not "machine" | trierarch plugin |
 | Crew request | Declared state on a ship: keep it crewed with these settings; written by its requester, the trierarch plugin and the assigned trierarch (0029) | core |
 | Crew settings | Harness, workspace, squadron, first prompt and options, at most 16 KB (0027) | core |
 | Assignment | Which trierarch crews a ship, the trierarch plugin's part of the crew request | core |

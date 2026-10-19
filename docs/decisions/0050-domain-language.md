@@ -11,6 +11,7 @@
 - Kinds, by lifecycle, never by power, rights coming only from scopes: `operator` (argo), `viewer`, `person` (a human, an account linked to it), `agent` (an AI session, commissioned, crewed by a trierarch or a harness), `app` (software in one fleet, commissioned: the trierarch, the gateway's proxy ships, own integrations), `plugin` (software installed once per installation serving many fleets: squadrons, the networking plugin, the trierarch plugin, the gateway; argo connecting it is its commission). The fleet-wide read on connect is a built-in rule for kind `plugin`, so connection and kind are one fact. Changes 0034 and 0044.
 - The viewer keeps its name: the ship anyone with a viewer ticket signs in as, read-only. A named person who reads only gets a person ship with `fleet:read`.
 - Outside party: an approved outside MCP server or client.
+- Computer: the laptop or server a trierarch runs on. Never "machine".
 
 Why: one word for one thing, read the same way by humans and by the agents that read the blueprint on every task.
 
