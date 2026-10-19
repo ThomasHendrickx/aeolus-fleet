@@ -67,6 +67,7 @@ describe('commissioning a ship on Postgres', () => {
       note: 'reviews pull requests',
       createdAt: core.clock.now(),
       retiredAt: null,
+      commissionedByKind: 'ship',
       commissionedBy: argoId,
       commissionKey: 'commission-scout',
       commissionRequestHash: (await core.prisma.ship.findUnique({ where: { id: shipId } }))?.commissionRequestHash ?? 'none',

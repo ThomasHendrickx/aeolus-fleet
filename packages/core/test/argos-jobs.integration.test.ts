@@ -46,9 +46,11 @@ async function anAgentHolding(scopes: readonly Scope[]): Promise<{ shipId: ShipI
 }
 
 /** An account with the scopes given, by a token pagasae signs now: its client. */
-function anAccountHolding(scopes: readonly Scope[], account = 'acc-mathilde'): TRPCClient<AppRouter> {
+function anAccountHolding(scopes: readonly Scope[], account: { id?: string; personShipId?: ShipId } = {}): TRPCClient<AppRouter> {
+  const { id = 'acc-mathilde', personShipId } = account;
   const now = Math.floor(clock.now().getTime() / 1000);
-  const token = issuer.sign({ iss: issuer.issuer, aud: fleetId, sub: account, org: 'org-acme', scope: scopes.join(' '), group: [], iat: now, exp: now + 600 });
+  const personShip = personShipId === undefined ? {} : { person_ship: personShipId };
+  const token = issuer.sign({ iss: issuer.issuer, aud: fleetId, sub: id, org: 'org-acme', scope: scopes.join(' '), group: [], iat: now, exp: now + 600, ...personShip });
   return client({ [ACCOUNT_TOKEN_HEADER]: token });
 }
 
@@ -296,5 +298,44 @@ describe('the network rule the installation declares on its group label (decisio
     const sameGroup = { labelId, value: '#' };
 
     await expect(refusalOf(anAccountHolding(['labels:define']).fleet.declareNetworkRules.mutate({ rules: [{ verb: 'send', from: [sameGroup], to: [sameGroup] }] }))).resolves.toMatchObject({ code: 'FORBIDDEN' });
+  });
+});
+
+describe('a person ship the installation commissions for an account (decisions 0052, 0053)', () => {
+  const personShipFor = (account: string) => ({ name: `person-${account.slice(0, 12)}`, type: 'person', kind: 'person' as const, scopes: ['messages:send' as const, 'messages:receive' as const] });
+
+  it('owns itself, is kept as commissioned by the installation, and a retry under the same key answers the same ship', async () => {
+    const commissioned = await asInstallation().fleet.commission.mutate({ ...personShipFor('acc-01thomas0000'), idempotencyKey: 'person-acc-01thomas0000' });
+
+    const again = await asInstallation().fleet.commission.mutate({ ...personShipFor('acc-01thomas0000'), idempotencyKey: 'person-acc-01thomas0000' });
+
+    expect(again).toMatchObject({ shipId: commissioned.shipId, secret: null });
+    await expect(database.ship.findUnique({ where: { id: commissioned.shipId }, select: { kind: true, ownerShipId: true, commissionedByKind: true } })).resolves.toEqual({
+      kind: 'person',
+      ownerShipId: commissioned.shipId,
+      commissionedByKind: 'installation',
+    });
+  });
+
+  it('is released by the installation once crewed', async () => {
+    const commissioned = await asInstallation().fleet.commission.mutate({ ...personShipFor('acc-01burak00000'), idempotencyKey: 'person-acc-01burak00000' });
+    unwrap(await useCases.claimShip({ shipId: commissioned.shipId, secret: secretOf(commissioned.secret), location: { kind: 'CLOUD' }, harness: 'claude-code' }));
+
+    await asInstallation().fleet.release.mutate({ shipId: commissioned.shipId });
+
+    await expect(lastEventAbout(commissioned.shipId, 'LeaseRevoked')).resolves.toMatchObject({ actorKind: 'installation' });
+  });
+
+  it('lets the account commission an agent ship its person ship owns', async () => {
+    const person = await asInstallation().fleet.commission.mutate({ ...personShipFor('acc-01charlotte'), idempotencyKey: 'person-acc-01charlotte' });
+
+    const helper = await anAccountHolding(['fleet:commission'], { id: 'acc-01charlotte', personShipId: person.shipId }).fleet.commission.mutate({ name: 'charlottes-helper', type: 'helper', idempotencyKey: newKey() });
+
+    await expect(ownerOf(helper.shipId)).resolves.toBe(person.shipId);
+    await expect(database.ship.findUnique({ where: { id: helper.shipId }, select: { commissionedBy: true, commissionedByKind: true } })).resolves.toEqual({ commissionedBy: 'acc-01charlotte', commissionedByKind: 'account' });
+  });
+
+  it('refuses the installation an agent ship, as it does not hold fleet:commission', async () => {
+    await expect(refusalOf(asInstallation().fleet.commission.mutate({ name: 'not-a-person', type: 'helper', idempotencyKey: newKey() }))).resolves.toMatchObject({ code: 'FORBIDDEN' });
   });
 });

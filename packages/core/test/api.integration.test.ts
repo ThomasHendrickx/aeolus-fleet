@@ -110,7 +110,7 @@ async function agentShip(scopes: Scope[] = ['messages:send', 'messages:receive']
 /** Marks the ship commissioned by the client's ship, so that ship may label it (decision 0046). */
 async function commissionedBy(commissioner: TRPCClient<AppRouter>, ship: { shipId: ShipId }): Promise<{ shipId: ShipId }> {
   const { shipId: by } = await commissioner.ship.whoami.query();
-  await database.ship.update({ where: { id: ship.shipId }, data: { commissionedBy: by, commissionKey: newKey(), commissionRequestHash: 'labelled in a test' } });
+  await database.ship.update({ where: { id: ship.shipId }, data: { commissionedByKind: 'ship', commissionedBy: by, commissionKey: newKey(), commissionRequestHash: 'labelled in a test' } });
   return ship;
 }
 
@@ -238,6 +238,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_argos_jobs_as_scopes$/),
       expect.stringMatching(/^\d{14}_installation_labels$/),
       expect.stringMatching(/^\d{14}_installation_declared_network_rules$/),
+      expect.stringMatching(/^\d{14}_commissioning_actors$/),
     ]);
   });
 });
@@ -1893,7 +1894,7 @@ describe('ships with fleet scopes at the API', () => {
     expect(shipId).toMatch(/^shp_/);
     await expect(refusalOf(manager.fleet.commission.mutate({ idempotencyKey: newKey(), name: 'scoped-other', type: 'squadron' }))).resolves.toEqual({
       code: 'FORBIDDEN',
-      message: 'This call needs the fleet:commission scope',
+      message: 'This call needs the fleet:commission or fleet:person scope',
     });
   });
 });

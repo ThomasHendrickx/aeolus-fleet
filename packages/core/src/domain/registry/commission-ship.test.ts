@@ -1,4 +1,4 @@
-import type { FleetId, ShipId } from '@aeolus-fleet/common';
+import { accountIdSchema, type FleetId, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
@@ -11,7 +11,7 @@ import {
 } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../testing/result.js';
-import type { ShipCaller } from '../shared/caller.js';
+import type { AccountCaller, InstallationCaller, ShipCaller } from '../shared/caller.js';
 import { createCommissionShip } from './commission-ship.js';
 import type { Ship } from './ship.js';
 import { newKey } from '../../testing/keys.js';
@@ -53,7 +53,7 @@ describe('commissioning a ship', () => {
         createdAt: new Date('2026-09-29T12:00:00.000Z'),
         retiredAt: null,
         // The hash itself is the repeat tests' concern; here, that it is kept with the key.
-        commission: { by: argoId, idempotencyKey: 'commission-scout', requestHash: shipsNamed('scout')[0]?.commission?.requestHash ?? 'none' },
+        commission: { by: { kind: 'ship', shipId: argoId }, idempotencyKey: 'commission-scout', requestHash: shipsNamed('scout')[0]?.commission?.requestHash ?? 'none' },
         owner: argoId,
       },
     ]);
@@ -585,6 +585,100 @@ describe('an app ship commissioned by the gateway, with the owner argo picked (d
     unwrap(await commissionShip(gateway, { ...crm, owner: thomas }));
 
     await expect(commissionShip(gateway, { ...crm, owner: argoId })).resolves.toMatchObject({ isOk: false, error: { kind: 'IDEMPOTENCY_KEY_REUSED' } });
+  });
+});
+
+describe('a commission by the installation or an account (decisions 0053, 0057)', () => {
+  const MATHILDE = accountIdSchema.parse('acc-mathilde');
+  let installation: InstallationCaller;
+
+  function anAccount(change: Partial<AccountCaller> = {}): AccountCaller {
+    return { kind: 'account', accountId: MATHILDE, fleetId, scopes: ['fleet:commission', 'fleet:manage'], groupValues: [], personShipId: null, throughShipId: null, ...change };
+  }
+
+  function ownerSetOf(shipId: ShipId) {
+    return core.state.events.filter((event) => event.type === 'OwnerSet' && event.shipId === shipId).map((event) => event.details);
+  }
+
+  async function personShip(name: string): Promise<ShipId> {
+    return unwrap(await commissionShip(installation, { idempotencyKey: newKey(), name, type: 'person', kind: 'person' })).shipId;
+  }
+
+  beforeEach(() => {
+    installation = { kind: 'installation', fleetId, scopes: ['fleet:read', 'fleet:person', 'fleet:manage', 'labels:define', 'labels:assign', 'labels:any'] };
+  });
+
+  it('lets the installation commission a person ship that owns itself, with the scopes every ship has, kept as commissioned by the installation', async () => {
+    const commissioned = unwrap(await commissionShip(installation, { idempotencyKey: 'person-acc-mathilde', name: 'person-acc-mathild', type: 'person', kind: 'person', scopes: ['messages:send', 'messages:receive'] }));
+
+    expect(shipsNamed('person-acc-mathild')[0]).toMatchObject({
+      kind: 'person',
+      owner: commissioned.shipId,
+      scopes: ['messages:send', 'messages:receive'],
+      commission: { by: { kind: 'installation' }, idempotencyKey: 'person-acc-mathilde' },
+    });
+    expect(commissioned.secret).toMatch(/^aeolus_sk_v1_./);
+  });
+
+  it('names the installation as the actor of ShipCommissioned and OwnerSet', async () => {
+    const shipId = await personShip('thomas');
+
+    expect(core.state.events.filter((event) => event.shipId === shipId && (event.type === 'ShipCommissioned' || event.type === 'OwnerSet')).map((event) => event.actor)).toEqual([
+      { kind: 'installation' },
+      { kind: 'installation' },
+    ]);
+  });
+
+  it('refuses the installation an agent ship: it does not hold fleet:commission', async () => {
+    await expect(commissionShip(installation, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' })).resolves.toEqual({
+      isOk: false,
+      error: { kind: 'SCOPE_NOT_HELD', message: 'Commissioning an agent ship needs the fleet:commission scope (decision 0046)' },
+    });
+    expect(shipsNamed('scout')).toEqual([]);
+  });
+
+  it('refuses the installation a scope it does not hold, storing nothing', async () => {
+    const refused = await commissionShip(installation, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person', scopes: ['fleet:owner'] });
+
+    expect(refused).toMatchObject({ isOk: false, error: { kind: 'SCOPE_NOT_HELD' } });
+    expect(shipsNamed('thomas')).toEqual([]);
+  });
+
+  it('lets an account commission an agent ship owned by its person ship, with OwnerSet saying so (decision 0057)', async () => {
+    const personShipId = await personShip('mathilde');
+
+    const { shipId } = unwrap(await commissionShip(anAccount({ personShipId }), { idempotencyKey: newKey(), name: 'helper', type: 'helper', scopes: ['fleet:manage'] }));
+
+    expect(shipsNamed('helper')[0]).toMatchObject({ owner: personShipId, scopes: ['messages:send', 'messages:receive', 'fleet:manage'], commission: { by: { kind: 'account', accountId: MATHILDE } } });
+    expect(ownerSetOf(shipId)).toEqual([{ ownerShipId: personShipId, how: 'accountPersonShip' }]);
+  });
+
+  it('refuses an account without a person ship in the fleet, storing nothing', async () => {
+    await expect(commissionShip(anAccount(), { idempotencyKey: newKey(), name: 'helper', type: 'helper' })).resolves.toEqual({
+      isOk: false,
+      error: { kind: 'INVALID_OWNER', message: 'An account commissions a ship once it has a person ship in this fleet, which owns the ship (decision 0057)' },
+    });
+    expect(shipsNamed('helper')).toEqual([]);
+  });
+
+  it('refuses an account a scope it does not hold', async () => {
+    const personShipId = await personShip('mathilde');
+
+    await expect(commissionShip(anAccount({ personShipId }), { idempotencyKey: newKey(), name: 'helper', type: 'helper', scopes: ['fleet:owner'] })).resolves.toMatchObject({
+      isOk: false,
+      error: { kind: 'SCOPE_NOT_HELD' },
+    });
+  });
+
+  it("keeps each commissioning actor's keys apart, and answers a repeat by the same actor with the ship it commissioned", async () => {
+    const personShipId = await personShip('mathilde');
+    const first = unwrap(await commissionShip(installation, { idempotencyKey: 'same-key', name: 'thomas', type: 'person', kind: 'person' }));
+
+    const theAccounts = unwrap(await commissionShip(anAccount({ personShipId }), { idempotencyKey: 'same-key', name: 'helper', type: 'helper' }));
+    const again = unwrap(await commissionShip(installation, { idempotencyKey: 'same-key', name: 'thomas', type: 'person', kind: 'person' }));
+
+    expect(theAccounts.shipId).not.toBe(first.shipId);
+    expect(again).toMatchObject({ shipId: first.shipId, secret: null });
   });
 });
 

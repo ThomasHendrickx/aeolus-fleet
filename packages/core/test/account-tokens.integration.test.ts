@@ -272,7 +272,7 @@ describe('the installation acting in a fleet', () => {
   });
 
   it('is refused a call whose scope it does not hold there', async () => {
-    await expect(refusalOf(asInstallation(fleetId).fleet.list.query())).resolves.toEqual({ code: 'FORBIDDEN', message: 'This call needs the fleet:read scope' });
+    await expect(refusalOf(asInstallation(fleetId).fleet.setOwner.mutate({ shipId: near, ownerShipId: near }))).resolves.toEqual({ code: 'FORBIDDEN', message: 'This call needs the fleet:owner scope' });
   });
 
   it('is refused with a wrong installation token', async () => {

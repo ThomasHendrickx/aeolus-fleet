@@ -18,6 +18,7 @@ const shipRow = {
   note: null,
   createdAt: at,
   retiredAt: null,
+  commissionedByKind: null,
   commissionedBy: null,
   commissionKey: null,
   commissionRequestHash: null,
@@ -34,9 +35,17 @@ describe('mapping rows to domain objects', () => {
   });
 
   it('maps a ship row, leaving out columns the domain does not know', () => {
-    const { commissionedBy, commissionKey, commissionRequestHash, ownerShipId, ...columns } = shipRow;
-    expect([commissionedBy, commissionKey, commissionRequestHash, ownerShipId]).toEqual([null, null, null, null]);
+    const { commissionedByKind, commissionedBy, commissionKey, commissionRequestHash, ownerShipId, ...columns } = shipRow;
+    expect([commissionedByKind, commissionedBy, commissionKey, commissionRequestHash, ownerShipId]).toEqual([null, null, null, null, null]);
     expect(toShip({ ...shipRow, unknownColumn: 1 })).toEqual({ ...columns, commission: null, owner: null });
+  });
+
+  it.each([
+    { actor: 'a ship', columns: { commissionedByKind: 'ship', commissionedBy: shipId }, by: { kind: 'ship', shipId } },
+    { actor: 'an account, by its id', columns: { commissionedByKind: 'account', commissionedBy: 'acc-mathilde' }, by: { kind: 'account', accountId: 'acc-mathilde' } },
+    { actor: 'the installation', columns: { commissionedByKind: 'installation', commissionedBy: 'installation' }, by: { kind: 'installation' } },
+  ])('maps the commission by $actor', ({ columns, by }) => {
+    expect(toShip({ ...shipRow, ...columns, commissionKey: 'key', commissionRequestHash: 'hash' }).commission).toEqual({ by, idempotencyKey: 'key', requestHash: 'hash' });
   });
 
   it('maps a lease as raw SQL returns it, in snake_case', () => {

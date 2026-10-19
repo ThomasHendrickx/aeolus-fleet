@@ -61,7 +61,7 @@ import type { PluginConnection } from '../../src/domain/registry/plugin-connecti
 import type { ScopeNamespace } from '../../src/domain/registry/scope-namespace.js';
 import { noNetworkSettings, type NetworkSettings } from '../../src/domain/registry/network-settings.js';
 import type { ReachRefusal } from '../../src/domain/registry/reach-refusal.js';
-import type { Ship } from '../../src/domain/registry/ship.js';
+import { isSameCommissioner, type Ship } from '../../src/domain/registry/ship.js';
 import type { ShipReport } from '../../src/domain/registry/ship-report.js';
 import type { StatedStatement } from '../../src/domain/registry/statement.js';
 import type { Turn } from '../../src/domain/registry/turn.js';
@@ -418,7 +418,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       findByCommissionKey: ({ fleetId, by, idempotencyKey }) =>
         Promise.resolve(
           state.ships.find(
-            (found) => found.fleetId === fleetId && found.commission?.by === by && found.commission.idempotencyKey === idempotencyKey,
+            (found) => found.fleetId === fleetId && found.commission !== null && isSameCommissioner(found.commission.by, by) && found.commission.idempotencyKey === idempotencyKey,
           ),
         ),
       findActiveByName: (fleetId, name) =>
