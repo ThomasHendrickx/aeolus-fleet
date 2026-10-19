@@ -33,29 +33,242 @@ Read from main of each repository on 19 Oct 2026: aeolus-fleet `0e2168ce`, aeolu
 | gateway | Outside MCP servers and clients as proxy ships; OAuth server; the fleet's identity provider (interop; 0048) | aeolus-fleet-gateway, `src/adapters/prisma/schema.prisma` |
 | pagasae | The account app for hosted Aeolus: sign-up, one fleet per account, the owner's pages (0020) | pagasae, `prisma/schema.prisma` |
 
-### 1.2 Diagram: today
+### 1.2 Diagrams: today
 
-Each namespace is a component. Relations across components are by id only: no component reads another's store (0017, gateway schema header).
+One overview of the components and their main concepts, then one diagram per area. Relations across components are by id only: no component reads another's store (0017, gateway schema header). In the area diagrams a box drawn inside a component's frame lives there; a box outside every frame is core's unless it says otherwise.
+
+#### Overview
+
+```mermaid
+flowchart LR
+  subgraph PAG["pagasae (hosted only)"]
+    PA["pagasae account<br/>one email, one fleet"]
+    PO["pagasae's owner<br/>OWNER_EMAIL setting"]
+  end
+  ORG(["organisation<br/>prose only, no record"])
+  subgraph CORE["core"]
+    INST["installation<br/>hosts fleets"]
+    FLEET["fleet<br/>the tenant"]
+    OPA["operator account"]
+    CS["console session"]
+    SHIP["ship<br/>argo, viewer, agent, person, app"]
+    LEASE["lease<br/>the crew"]
+    ACC["scope, network rule, label, owner<br/>access"]
+    MSG["message and delivery"]
+  end
+  subgraph PLUG["plugins, each a ship of the fleet"]
+    SQ["squadrons<br/>squadron, member"]
+    NP["networking plugin<br/>argo's rules"]
+    TP["trierarch plugin<br/>assigns crew requests"]
+  end
+  TRI["trierarch<br/>one per machine, starts sessions"]
+  subgraph GW["gateway"]
+    PARTY["party<br/>an outside MCP server or client"]
+    IDP["identity provider<br/>one per fleet"]
+    EP["fleet endpoint<br/>/fleets/alias/mcp"]
+  end
+
+  PO -->|drives with the installation token| INST
+  PA -->|names| FLEET
+  PA -.->|stands in for| ORG
+  FLEET -.->|stands in for| ORG
+  INST -->|hosts many| FLEET
+  FLEET --> OPA
+  OPA -->|one live| CS
+  CS -->|crews argo or the viewer| SHIP
+  FLEET -->|has many| SHIP
+  SHIP -->|0 or 1| LEASE
+  SHIP --- ACC
+  SHIP -->|sends| MSG
+  MSG -->|delivered to| SHIP
+  SQ & NP & TP -->|crew their own ship| SHIP
+  NP -->|supplies rules| ACC
+  TRI -->|crews sessions of| LEASE
+  TP -->|assigns ships to| TRI
+  PARTY -->|one app proxy ship| SHIP
+  IDP -.->|stands in for its directory| ORG
+  EP -->|one per| FLEET
+```
+
+#### Fleet and ships
+
+Ships and their kinds, who crews them, and what they send.
+
+```mermaid
+classDiagram
+direction LR
+class Fleet {
+  name
+  limits
+}
+class Ship {
+  name, type
+  kind
+}
+class Argo {
+  kind operator
+  permanent, every scope
+}
+class ViewerShip {
+  kind viewer
+  fleet:read, receives nothing
+}
+class AgentShip {
+  kind agent
+  states a model
+}
+class PersonShip {
+  kind person
+  crewed by the person's app
+}
+class AppShip {
+  kind app
+  an application or outside party
+}
+class Credential {
+  ship secret, hashed
+  used only to register
+}
+class Lease {
+  crew token hash
+  location, harness
+  report, statement
+  waker
+}
+class CrewRequest {
+  settings, version
+  assignment, status
+}
+class ClearRequest {
+  ship, repository
+}
+class Trierarch {
+  trierarch component
+  one machine
+}
+class AgentSession {
+  trierarch component
+  harness, model
+}
+class Message {
+  selector ship or type
+  content type, payload
+  model, inReplyTo
+}
+class Delivery {
+  state
+  attempts, hand-over number
+}
+class Question {
+  a content type, no table
+}
+class Event {
+  every state change
+}
+Fleet "1" --> "*" Ship
+Ship <|-- Argo
+Ship <|-- ViewerShip
+Ship <|-- AgentShip
+Ship <|-- PersonShip
+Ship <|-- AppShip
+Ship "1" --> "0..1" Credential : valid secret
+Ship "1" --> "0..1" Lease : current crew
+Ship "1" --> "0..1" CrewRequest
+CrewRequest "*" --> "0..1" Ship : assigned trierarch ship
+ClearRequest "*" --> "1" Ship : trierarch ship
+Trierarch "1" --> "1" Ship : its trierarch ship
+Trierarch "1" --> "*" AgentSession : starts
+AgentSession "1" --> "1" Lease : crews, token held by the trierarch
+Ship "1" --> "*" Message : sends
+Message "1" --> "*" Delivery
+Delivery "*" --> "1" Ship : recipient
+Delivery "*" --> "0..1" Lease : claimed by
+Message <|-- Question
+Question ..> Ship : to the owner's ship
+Event "*" --> "1" Ship : actor
+```
+
+#### Access: scopes, rules, owners, labels
+
+What a ship may do (scopes) and where (reach, from network rules over labels and owners).
+
+```mermaid
+classDiagram
+direction LR
+class Ship {
+  scopes
+  owner
+}
+class Scope {
+  namespace:action
+}
+class ScopeNamespace {
+  one per plugin ship
+}
+class Label {
+  key
+}
+class LabelValue {
+  value
+}
+class NetworkSettings {
+  version
+  registered networking plugin
+  while unavailable
+}
+class BuiltInRule {
+  argo, owner, answer: never off
+  viewer read
+  open send, read, manage
+}
+class NetworkRule {
+  verb send, read or manage
+  from selector, to selector
+}
+class DeclaredNetworkRules {
+  on the ship's own labels
+}
+class PluginConnection {
+  argo's Connect
+  reads every ship
+}
+class ReachRefusal {
+  argo reads only
+}
+class FleetNetwork {
+  networking plugin component
+  argo's rules
+}
+Ship "*" --> "*" Scope : holds
+Ship "1" --> "0..1" ScopeNamespace : declares
+ScopeNamespace "1" --> "*" Scope
+Ship "*" --> "0..1" Ship : owner, a person ship or argo
+Label "*" --> "1" Ship : the label's owner
+Label "1" --> "*" LabelValue
+Ship "*" --> "*" LabelValue : carries
+NetworkSettings "1" --> "*" BuiltInRule
+NetworkSettings "1" --> "*" NetworkRule
+Ship "1" --> "0..1" DeclaredNetworkRules
+FleetNetwork ..> NetworkRule : supplies, with the declared ones
+NetworkRule ..> LabelValue : selects by
+NetworkRule ..> Ship : selects by owner
+Ship "1" --> "0..1" PluginConnection
+ReachRefusal ..> Ship : sender, recipient
+```
+
+#### Humans and sign-in
+
+Every way a human gets in today, and what stands in for the organisation.
 
 ```mermaid
 classDiagram
 direction TB
-
-namespace prose_only {
-  class Organisation {
-    <<implicit>>
-    no record in any component
-  }
-}
-
 namespace pagasae {
   class PagasaeAccount {
     email unique
-    fleetId 0..1
+    fleet 0..1
   }
-  class PagasaeSession {
-    cookie hash
-  }
+  class PagasaeSession
   class SignInLink {
     one use, mailed
   }
@@ -63,267 +276,156 @@ namespace pagasae {
     OWNER_EMAIL setting
   }
 }
-
-namespace core_installation {
+namespace core {
   class Installation {
     installation token
-    limits, fleet cap
   }
   class SignInTicket {
-    signInAs operator or viewer
+    as operator or viewer
     one use, 2 min
   }
-  class Notice {
-    audience everyone, operators, viewers
-  }
-  class Guide {
-    audience everyone, operators, viewers
-  }
-}
-
-namespace core_humans {
   class OperatorAccount {
     email unique in installation
     password hash 0..1
-    theme
   }
   class ConsoleSession {
     device
     lease 0..1
   }
-}
-
-namespace core_ships {
-  class Fleet {
-    name
-    limits
-  }
-  class Ship {
-    name, type
-    kind
-    scopes
-    owner
-  }
-  class Argo {
-    kind operator
-    every scope
-  }
-  class ViewerShip {
-    kind viewer
-    fleet:read
-  }
-  class AgentShip {
-    kind agent
-    states a model
-  }
+  class Argo
+  class ViewerShip
   class PersonShip {
-    kind person
+    no sign-in: a crew token pasted
   }
-  class AppShip {
-    kind app
+  class Notice {
+    audience by session kind
   }
-  class Credential {
-    ship secret, hashed
-  }
-  class Lease {
-    crew token hash
-    location, harness
-    report, statement
-    waker
-  }
-  class Scope {
-    namespace:action
-  }
-  class ScopeNamespace {
-    declared by one plugin ship
-  }
-  class Label {
-    key
-  }
-  class LabelValue {
-    value
-  }
-  class CrewRequest {
-    settings
-    assignment
-    status
-  }
-  class ClearRequest {
-    ship, repository
+  class Guide {
+    audience by session kind
   }
 }
+namespace gateway {
+  class IdentityProvider {
+    issuer, client id
+    one per fleet, no people
+  }
+  class OAuthClient {
+    an MCP client
+  }
+  class IssuedToken {
+    names its party
+  }
+}
+class Organisation {
+  <<implicit>>
+  no record
+}
+PagasaeAccount "1" --> "*" PagasaeSession
+PagasaeAccount "1" --> "*" SignInLink
+PagasaeOwner ..> Installation : drives
+PagasaeAccount ..> SignInTicket : asks one
+SignInTicket ..> ConsoleSession : starts
+OperatorAccount "1" --> "0..1" ConsoleSession : one live
+ConsoleSession "*" --> "1" Argo : one, holds the lease
+ConsoleSession "*" --> "1" ViewerShip : many, no lease
+Notice ..> ConsoleSession
+Guide ..> ConsoleSession
+OAuthClient "1" --> "*" IssuedToken
+IssuedToken ..> ConsoleSession : argo approved at /authorize
+PagasaeAccount ..> Organisation : stands in for
+OperatorAccount ..> Organisation : its one human
+IdentityProvider ..> Organisation : its directory
+```
 
-namespace core_network {
-  class NetworkSettings {
-    version
-    registered networking plugin
-  }
-  class BuiltInRule {
-    argo, owner, answer: never off
-    viewer read
-    open send, read, manage
-  }
-  class NetworkRule {
-    verb send, read or manage
-    from selector, to selector
-  }
-  class DeclaredNetworkRules {
-    rules on the ship's own labels
-  }
+#### Plugins and the gateway
+
+Each plugin is a ship of the fleet it serves, with its own store.
+
+```mermaid
+classDiagram
+direction LR
+namespace core {
+  class Ship
+  class AppShip
   class PluginConnection {
-    connected plugin reads every ship
+    argo's Connect
   }
-  class ReachRefusal {
-    argo reads only
-  }
+  class ScopeNamespace
+  class CrewRequest
 }
-
-namespace core_messaging {
-  class Message {
-    selector ship or type
-    payload, content type
-    model
-    inReplyTo
-  }
-  class Delivery {
-    state
-    attempts, hand-over number
-  }
-  class Question {
-    content type, no table
-  }
-  class Event {
-    actor ship
-  }
-}
-
-namespace plugins {
-  class PluginShipConnection {
-    crew token per fleet
-    switched per fleet
+namespace squadrons {
+  class SquadronsConnection {
+    ManagementCrew: crew token per fleet
+    switch per fleet
   }
   class Squadron {
-    forming ship
-    flagship
+    forming ship, flagship
   }
   class Member {
     role
   }
   class TemplateRepository {
-    templates and roles
+    templates and their roles
+  }
+}
+namespace networking_plugin {
+  class NetworkingConnection {
+    crew token, switch per fleet
   }
   class FleetNetwork {
     argo's rules
-    while unavailable
   }
 }
-
-namespace trierarch {
-  class Trierarch {
-    one machine
-    holds its sessions' crew tokens
-  }
-  class AgentSession {
-    harness, model
+namespace trierarch_plugin {
+  class TrierarchPluginConnection {
+    crew token, switch per fleet
   }
 }
-
 namespace gateway {
+  class GatewayConnection {
+    crew token, switch per fleet
+  }
   class Party {
-    kind mcp-server or mcp-client
+    mcp-server or mcp-client
     owner ship
-    proxy ship
-  }
-  class OAuthClient {
-    pre-registered by argo
-  }
-  class IssuedToken {
-    names its party
-    bound to one fleet endpoint
-  }
-  class FleetEndpoint {
-    /fleets/alias/mcp
-  }
-  class IdentityProvider {
-    issuer, client id
-    one per fleet
   }
   class ToolMark {
     argo's repeatable mark
   }
+  class OAuthClient
+  class IssuedToken
+  class FleetEndpoint {
+    /fleets/alias/mcp
+  }
+  class IdentityProvider {
+    one per fleet
+  }
+  class Call {
+    MCP out, by delivery
+  }
+  class ClientCall {
+    MCP in, by message
+  }
 }
-
-Installation "1" --> "*" Fleet : hosts
-Fleet ..> Organisation : stands in for, the tenant
-PagasaeAccount ..> Organisation : stands in for, one account one fleet
-OperatorAccount ..> Organisation : its one human
-IdentityProvider ..> Organisation : its directory, kept per fleet
-PagasaeOwner ..> Installation : drives with the token
-PagasaeAccount "1" --> "0..1" Fleet : names
-PagasaeAccount "1" --> "*" PagasaeSession
-PagasaeAccount ..> SignInTicket : asks one for its operator
-SignInTicket ..> ConsoleSession : redeemed, starts
-Notice ..> ConsoleSession : shown by session kind
-Guide ..> ConsoleSession : shown by session kind
-
-Fleet "1" --> "1" OperatorAccount
-Fleet "1" --> "1" Argo
-Fleet "1" --> "0..1" ViewerShip
-Fleet "1" --> "*" Ship
-OperatorAccount "1" --> "0..1" ConsoleSession : one live, crews argo
-ConsoleSession "*" --> "1" Ship : argo or the viewer
-ConsoleSession "0..1" --> "0..1" Lease : argo's only
-
-Ship <|-- Argo
-Ship <|-- ViewerShip
-Ship <|-- AgentShip
-Ship <|-- PersonShip
-Ship <|-- AppShip
-Ship "*" --> "0..1" Ship : owner, a person ship or argo
-Ship "1" --> "0..1" Credential : valid secret
-Ship "1" --> "0..1" Lease : current crew
-Ship "*" --> "*" Scope : holds
-ScopeNamespace "1" --> "*" Scope : declares
-Ship "1" --> "0..1" ScopeNamespace : declares
-Label "*" --> "1" Ship : owner, its definer
-Label "1" --> "*" LabelValue
-Ship "*" --> "*" LabelValue : carries
-Ship "1" --> "0..1" CrewRequest
-CrewRequest "*" --> "0..1" Ship : assigned trierarch
-
-Fleet "1" --> "1" NetworkSettings
-NetworkSettings "1" --> "*" BuiltInRule
-NetworkSettings "1" --> "*" NetworkRule : supplied by the plugin
-Ship "1" --> "0..1" DeclaredNetworkRules
-NetworkRule ..> LabelValue : selects by
-NetworkRule ..> Ship : selects by owner
+SquadronsConnection --> Ship : crews the plugin's ship
+NetworkingConnection --> Ship
+TrierarchPluginConnection --> Ship
+GatewayConnection --> Ship
 Ship "1" --> "0..1" PluginConnection : argo's Connect
-
-Ship "1" --> "*" Message : sends
-Message "1" --> "*" Delivery
-Delivery "*" --> "1" Ship : recipient
-Delivery "*" --> "0..1" Lease : claimed by
-Message <|-- Question
-Event "*" --> "1" Ship : actor
-
-PluginShipConnection "*" --> "1" Ship : crews the plugin's ship
+Ship "1" --> "0..1" ScopeNamespace : squadrons declares one
 Squadron "*" --> "1" Ship : forming ship
 Squadron "1" --> "*" Member
 Member "1" --> "1" Ship
-FleetNetwork ..> NetworkRule : supplies
-
-Trierarch "1" --> "1" Ship : its trierarch ship
-Trierarch "1" --> "*" AgentSession : starts
-AgentSession "1" --> "1" Lease : crews, token held by the trierarch
-
+TemplateRepository ..> Squadron : forms from
+TrierarchPluginConnection ..> CrewRequest : assigns
 Party "1" --> "1" AppShip : proxy ship
-Party "*" --> "1" Ship : owner
-Party "1" --> "0..1" OAuthClient : an MCP client's
-IssuedToken "*" --> "1" Party
-IssuedToken "*" --> "1" FleetEndpoint
-FleetEndpoint "*" --> "1" Fleet
-IdentityProvider "0..1" --> "1" Fleet
+Party "*" --> "1" Ship : owner, kept again
 Party "1" --> "*" ToolMark
+Party "1" --> "0..1" OAuthClient
+OAuthClient "1" --> "*" IssuedToken
+IssuedToken "*" --> "1" FleetEndpoint
+Party "1" --> "*" Call
+Party "1" --> "*" ClientCall
 ```
 
 ### 1.3 The concepts
