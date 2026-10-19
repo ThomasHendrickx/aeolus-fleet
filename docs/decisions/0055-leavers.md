@@ -1,0 +1,15 @@
+# 0055 Leavers and their computers
+
+- An organisation admin disables an account; access ends at once, and every ship stays, like an inbox that outlives a leaver. Disabling:
+  - cuts the account's tokens off in every installation of its fleets (0058), so a lost notice leaves at most one token's life;
+  - ends its pagasae sign-ins and refuses new ones, and tells the gateway, which ends its tokens there;
+  - ends a console sign-in as argo by that account, through the installation (0054), and takes it off the accounts allowed to sign in as argo;
+  - releases, as the installation (0057), the account's person ship in every fleet and every trierarch's app ship that person ship owns.
+- Nothing is retired. The person ship keeps its id, history and the ships it owns; questions and trouble for them still go to it until someone moves them (a later feature) or retires it (0045). Enabling the account again lets it sign in; its person ship is crewed again when it messages.
+- **A trierarch is an app and needs an account linked to it.** A human adds their computer on the trierarch plugin's page, signed in through pagasae as their account. The trierarch plugin commissions the trierarch's app ship owned by the account's person ship, named in the account token (`fleet:on-behalf`, naming the asking account's person ship as owner); with no person ship yet, pagasae commissions one first (0057). The link is that owner: one fact, kept by core. A computer that is no human's, such as a shared server, joins as today, owned by argo.
+- **Releasing a trierarch's ship releases every lease it crewed**, in the same unit of work, so every crew token on that computer stops working. Their crew requests stay, and the trierarch plugin places them on another computer as requests given back (0030). A computer offline then learns it at its next call (`LEASE_ENDED`) and stops.
+- When pagasae cannot reach an installation, it keeps what is still to do for the account and that fleet and tries again until it lands.
+
+Why: "access ends at once, the ship stays, like an inbox that outlives a leaver." "trierarchs are apps and need an account linked to them": without it, a leaver's laptop keeps crewing the organisation's agents. Entra, Okta, Slack and GitHub deactivate rather than delete.
+
+Rejected: releasing every ship the person ship owns, wherever crewed; retiring the person ship on disable; finding a leaver's computers by hand; a link store beside the owner; leaving a released trierarch's leases running; widening `fleet:on-behalf` to manage (the installation releases with its own scopes).
