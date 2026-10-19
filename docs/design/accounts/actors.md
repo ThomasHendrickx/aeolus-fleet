@@ -293,12 +293,12 @@ Not rewritten yet; this is what each would become under the picks above.
 
 | Draft or flow | Change |
 | --- | --- |
-| [0051](phase-2/0051-organisation.md) Organisation | pagasae is no plugin ship: it signs account tokens and acts as the installation (questions 3, 4). The organisation, accounts and organisation admin stand |
-| [0052](phase-2/0052-groups.md) Groups | A group gives scopes and labels in an account token, not on a person ship; a change lands at the next account token, no rescope. A person ship gets only what messaging needs, and its labels for message reach. P2's declared rules on `group` stand |
-| [0053](phase-2/0053-nothing-is-argos-alone.md) Nothing is argo's alone | Stands, with "actor" for "ship": a scope may be held by an account. P4's commission check applies to the actor's labels. Plugin pages check the account token's scopes |
-| [0054](phase-2/0054-sign-in.md) Sign-in | A sign-in yields an account token for one fleet. The gateway crews a person ship only for messaging. Console sign-in as argo unchanged |
-| [0055](phase-2/0055-leavers.md) Leavers | The cut-off push (question 3) ends account tokens; pagasae releases as the installation (question 4); P6's widening of `fleet:on-behalf` goes. The trierarch's link to its account stands |
-| [0056](phase-2/0056-outside-parties.md) Outside parties | Approving is an account's scope too, from the gateway's page. Otherwise stands |
+| [0051](../../decisions/0051-organisation.md) Organisation | pagasae is no plugin ship: it signs account tokens and acts as the installation (questions 3, 4). The organisation, accounts and organisation admin stand |
+| [0052](../../decisions/0052-groups.md) Groups | A group gives scopes and labels in an account token, not on a person ship; a change lands at the next account token, no rescope. A person ship gets only what messaging needs, and its labels for message reach. P2's declared rules on `group` stand |
+| [0053](../../decisions/0053-nothing-is-argos-alone.md) Nothing is argo's alone | Stands, with "actor" for "ship": a scope may be held by an account. P4's commission check applies to the actor's labels. Plugin pages check the account token's scopes |
+| [0054](../../decisions/0054-sign-in.md) Sign-in | A sign-in yields an account token for one fleet. The gateway crews a person ship only for messaging. Console sign-in as argo unchanged |
+| [0055](../../decisions/0055-leavers.md) Leavers | The cut-off push (question 3) ends account tokens; pagasae releases as the installation (question 4); P6's widening of `fleet:on-behalf` goes. The trierarch's link to its account stands |
+| [0056](../../decisions/0056-outside-parties.md) Outside parties | Approving is an account's scope too, from the gateway's page. Otherwise stands |
 | F1 Sign-up | No pagasae plugin ship at fleet create |
 | F2, F3 Groups | No commission or rescope for rights; a person ship only at the first message |
 | F4 Admin acts | Thomas and Mathilde act as their accounts, with account tokens; refusals the same |

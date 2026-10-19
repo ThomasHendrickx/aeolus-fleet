@@ -1,18 +1,18 @@
 # Accounts, phase 2: the decided model
 
-Thomas answered all 20 questions of [`accounts.md`](../accounts.md), then redesigned phase 2 with pagasae not a ship: the actor model of [`actors.md`](../actors.md), answered in round 4. This holds the detailed decisions as drafts in the domain language, the blueprint changes, and the flows that change, happy and unhappy paths. Nothing here is in force until Thomas approves it; then each draft becomes a decision file under `docs/decisions/` with its number, and the blueprint changes land with it. No code.
+Thomas answered all 20 questions of [`accounts.md`](../accounts.md), then redesigned phase 2 with pagasae not a ship: the actor model of [`actors.md`](../actors.md), answered in round 4, and round 5 below. The model is decided: decisions 0051 to 0058 in [`docs/decisions`](../../../decisions/README.md), and the blueprint. This folder keeps the flows, happy and unhappy paths, and the questions they came from. No code.
 
-| Part | Draft decision | Answers | Flows |
+| Part | Decision | Answers | Flows |
 | --- | --- | --- | --- |
-| 1 | [0057 Actors](0057-actors.md) | `actors.md` 1, 2, 4 to 9 | [F4](flows.md#f4-an-admin-acts-as-their-account) |
-| 2 | [0058 The link between pagasae and core](0058-pagasae-core-link.md) | `actors.md` 3, 4 | [F11](flows.md#f11-an-account-token-is-checked) |
-| 3 | [0051 Organisation](0051-organisation.md) | `accounts.md` 2, 13, 15, 19 | [F1](flows.md#f1-sign-up) |
-| 4 | [0052 Groups, an account's rights and its person ship](0052-groups.md) | 1, 4, 11 | [F2](flows.md#f2-an-account-joins-a-group), [F3](flows.md#f3-a-groups-rights-change) |
-| 5 | [0053 Nothing is argo's alone](0053-nothing-is-argos-alone.md) | 3, 5, 6 | [F4](flows.md#f4-an-admin-acts-as-their-account) |
-| 6 | [0054 Sign-in through pagasae](0054-sign-in.md) | 8, 9, 10, 14, 18, 19 | [F5](flows.md#f5-gateway-sign-in), [F6](flows.md#f6-console-sign-in-as-argo) |
-| 7 | [0055 Leavers and their computers](0055-leavers.md) | 12, 17 | [F7](flows.md#f7-a-trierarch-joins-for-an-account), [F8](flows.md#f8-an-account-is-disabled) |
-| 8 | [0056 Outside parties: requests and owner](0056-outside-parties.md) | 7, 16, 20 | [F9](flows.md#f9-an-outside-mcp-client-waits), [F10](flows.md#f10-a-person-asks-for-an-outside-mcp-server) |
-| 9 | [Blueprint changes](blueprint-changes.md) | all | |
+| 1 | [0057 Actors](../../../decisions/0057-actors.md) | `actors.md` 1, 2, 4 to 9 | [F4](flows.md#f4-an-admin-acts-as-their-account) |
+| 2 | [0058 The link between pagasae and core](../../../decisions/0058-pagasae-core-link.md) | `actors.md` 3, 4 | [F11](flows.md#f11-an-account-token-is-checked) |
+| 3 | [0051 Organisation](../../../decisions/0051-organisation.md) | `accounts.md` 2, 13, 15, 19 | [F1](flows.md#f1-sign-up) |
+| 4 | [0052 Groups, an account's rights and its person ship](../../../decisions/0052-groups.md) | 1, 4, 11 | [F2](flows.md#f2-an-account-joins-a-group), [F3](flows.md#f3-a-groups-rights-change) |
+| 5 | [0053 Nothing is argo's alone](../../../decisions/0053-nothing-is-argos-alone.md) | 3, 5, 6 | [F4](flows.md#f4-an-admin-acts-as-their-account) |
+| 6 | [0054 Sign-in through pagasae](../../../decisions/0054-sign-in.md) | 8, 9, 10, 14, 18, 19 | [F5](flows.md#f5-gateway-sign-in), [F6](flows.md#f6-console-sign-in-as-argo) |
+| 7 | [0055 Leavers and their computers](../../../decisions/0055-leavers.md) | 12, 17 | [F7](flows.md#f7-a-trierarch-joins-for-an-account), [F8](flows.md#f8-an-account-is-disabled) |
+| 8 | [0056 Outside parties: requests and owner](../../../decisions/0056-outside-parties.md) | 7, 16, 20 | [F9](flows.md#f9-an-outside-mcp-client-waits), [F10](flows.md#f10-a-person-asks-for-an-outside-mcp-server) |
+| 9 | [The blueprint](../../../blueprint.md): principles, users, access, domain language, installation | all | |
 
 ## The model in one picture
 
