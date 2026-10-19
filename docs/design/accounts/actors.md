@@ -196,6 +196,7 @@ What it is: network rules select ships by labels or owner (0034). An account is 
 Use case: a manage rule lets `group=engineering` manage `group=engineering`. Thomas, as his account, retires an engineering agent, and must not retire a finance one.
 
 - (a) **The account token carries the account's labels**, the values of pagasae's label `group` for its groups; a rule's selector matches an account by them as it matches a ship. A commission gives only label values the actor carries or defined (P4 as it was). Goes wrong: a rule's selector now matches two kinds of actor, and argo reading the rules must know an account can match.
+  A9 holds: a ship's labels meet the same rules, so an agent ship labelled `group=engineering` manages what Thomas does.
 - (b) **An account acts with its person ship's reach.** Goes wrong: every human with rights needs a person ship again.
 - (c) **An account has scopes only, and reaches every ship.** Goes wrong: Thomas could retire finance's agent; reach stops saying where for humans.
 
@@ -248,7 +249,7 @@ What it is: question 2 of `accounts.md` put organisation rights (accounts, group
 
 Use case: Acme runs an onboarding agent ship in its fleet. When HR hires Priya, the agent should add her account to the group "contractors" without Mathilde.
 
-- (a) **pagasae's MCP server (later) accepts an agent ship of the organisation's fleets**, vouched for by core as pagasae is vouched for by core's trust in reverse: core signs a short token for the ship, and an organisation admin gives that ship organisation rights in pagasae. Goes wrong: trust in both directions between pagasae and core; organisation rights held by a ship, in a place that knows no ships.
+- (a) **pagasae's MCP server (later) accepts an agent ship of the organisation's fleets**, vouched for by core: core signs a short token for the ship, which pagasae checks, the reverse of the account token; an organisation admin gives that ship organisation rights in pagasae. Goes wrong: trust in both directions between pagasae and core; organisation rights held by a ship, in a place that knows no ships.
 - (b) **An account for the agent**, as Kubernetes has service accounts. Goes wrong: 0050 made an account a human's; an agent with two identities (its ship and its account).
 - (c) **Not now: organisation rights stay accounts'**, and an agent acts in fleets only. Goes wrong: A9 for the organisation: the onboarding agent cannot add Priya; recorded as a known gap until the MCP server comes.
 
