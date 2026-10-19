@@ -41,6 +41,10 @@ function manifest(name: string): z.infer<typeof manifestSchema> {
   return manifestSchema.parse(JSON.parse(readFileSync(join(copy, 'packages', name, 'package.json'), 'utf8')));
 }
 
+function rawManifest(name: string): Record<string, unknown> {
+  return z.record(z.string(), z.unknown()).parse(JSON.parse(readFileSync(join(copy, 'packages', name, 'package.json'), 'utf8')));
+}
+
 function pluginManifest(path: string): Record<string, unknown> {
   return z.record(z.string(), z.unknown()).parse(JSON.parse(readFileSync(join(copy, path), 'utf8')));
 }
@@ -63,6 +67,25 @@ describe('setVersion', () => {
 
     expect(PUBLISHED_PACKAGES).toEqual(['common', 'core', 'console', 'squadrons', 'trierarch-plugin', 'networking-plugin', 'trierarch']);
     expect(PUBLISHED_PACKAGES.map((name) => manifest(name).version)).toEqual(['0.1.0', '0.1.0', '0.1.0', '0.1.0', '0.1.0', '0.1.0', '0.1.0']);
+  });
+
+  // The source condition points into src, which the tarball does not ship (#968).
+  it('removes the @aeolus-fleet/source condition from the exports, keeping types and default', () => {
+    setVersion(copy, '0.1.0');
+
+    expect(rawManifest('common').exports).toEqual({
+      '.': { types: './dist/index.d.ts', default: './dist/index.js' },
+      './rules': { types: './dist/rules/index.d.ts', default: './dist/rules/index.js' },
+    });
+    expect(rawManifest('trierarch').exports).toEqual({
+      '.': { types: './dist/index.d.ts', default: './dist/index.js' },
+    });
+  });
+
+  it.each(PUBLISHED_PACKAGES)('leaves %s no @aeolus-fleet/source condition anywhere in its exports', (name) => {
+    setVersion(copy, '0.1.0');
+
+    expect(JSON.stringify(rawManifest(name).exports ?? {})).not.toContain('@aeolus-fleet/source');
   });
 
   it('pins the networking plugin to common and the server at that version', () => {
