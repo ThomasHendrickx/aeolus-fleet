@@ -265,3 +265,36 @@ describe('assigning values of any label (labels:any)', () => {
     await expect(lastEventAbout(scout, 'LabelAssigned')).resolves.toMatchObject({ actorKind: 'ship', actorShipId: labeller.shipId });
   });
 });
+
+describe('the network rule the installation declares on its group label (decisions 0037, 0052)', () => {
+  it('is kept, read by the networking plugin with the installation as its declarer, and withdrawn with none', async () => {
+    const { labelId } = await asInstallation().fleet.defineLabel.mutate({ key: 'group-ruled', values: ['sales'] });
+    const sameGroup = { labelId, value: '#' };
+    const rules = [{ verb: 'send' as const, from: [sameGroup], to: [sameGroup] }];
+    const networking = await anAgentHolding(['fleet:network']);
+
+    await expect(asInstallation().fleet.declareNetworkRules.mutate({ rules })).resolves.toEqual({ rules: 1 });
+    await expect(networking.calls.fleet.declaredNetworkRules.query()).resolves.toContainEqual({ declarer: { kind: 'installation' }, rules });
+    await expect(database.installationDeclaredNetworkRules.count({ where: { fleetId } })).resolves.toBe(1);
+    await asInstallation().fleet.declareNetworkRules.mutate({ rules: [] });
+    await expect(database.installationDeclaredNetworkRules.count({ where: { fleetId } })).resolves.toBe(0);
+  });
+
+  it('writes NetworkRulesDeclared naming the installation', async () => {
+    const { labelId } = await asInstallation().fleet.defineLabel.mutate({ key: 'group-announced', values: ['sales'] });
+    const sameGroup = { labelId, value: '#' };
+
+    await asInstallation().fleet.declareNetworkRules.mutate({ rules: [{ verb: 'send', from: [sameGroup], to: [sameGroup] }] });
+
+    const [declared] = await database.event.findMany({ where: { fleetId, type: 'NetworkRulesDeclared' }, orderBy: { seq: 'desc' }, take: 1 });
+    expect(declared).toMatchObject({ actorKind: 'installation', shipId: null, details: { rules: 1 } });
+    await asInstallation().fleet.declareNetworkRules.mutate({ rules: [] });
+  });
+
+  it('is refused to an account, which owns no label', async () => {
+    const { labelId } = await asInstallation().fleet.defineLabel.mutate({ key: 'group-guarded', values: ['sales'] });
+    const sameGroup = { labelId, value: '#' };
+
+    await expect(refusalOf(anAccountHolding(['labels:define']).fleet.declareNetworkRules.mutate({ rules: [{ verb: 'send', from: [sameGroup], to: [sameGroup] }] }))).resolves.toMatchObject({ code: 'FORBIDDEN' });
+  });
+});

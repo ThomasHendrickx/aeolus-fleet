@@ -1,4 +1,4 @@
-import { ANY_LABEL_VALUE, DECLARED_NETWORK_RULES_MAX, SAME_LABEL_VALUE, type FleetId, type LabelId, type LabelValueId } from '@aeolus-fleet/common';
+import { accountIdSchema, ANY_LABEL_VALUE, DECLARED_NETWORK_RULES_MAX, SAME_LABEL_VALUE, type FleetId, type LabelId, type LabelValueId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
@@ -6,7 +6,7 @@ import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { valueIdOf } from '../../../test/support/label-fixtures.js';
 import { refusalOf, unwrap } from '../../testing/result.js';
-import type { ShipCaller } from '../shared/caller.js';
+import type { AccountCaller, InstallationCaller, ShipCaller } from '../shared/caller.js';
 import { createDeclareNetworkRules } from './declare-network-rules.js';
 import type { NetworkRule } from './network-settings.js';
 
@@ -44,7 +44,7 @@ describe('declaring network rules', () => {
     const rules = [sameSquadron(), { verb: 'read' as const, from: [alpha], to: [{ labelId: squadronId, value: ANY_LABEL_VALUE }] }];
 
     expect(unwrap(await declareNetworkRules(squadrons, { rules }))).toEqual({ rules: 2 });
-    expect(core.state.declaredNetworkRules).toEqual([{ fleetId, shipId: squadrons.shipId, rules }]);
+    expect(core.state.declaredNetworkRules).toEqual([{ fleetId, declarer: { kind: 'ship', shipId: squadrons.shipId }, rules }]);
   });
 
   it('replaces what the ship declared before, keeping what other ships declared', async () => {
@@ -55,8 +55,8 @@ describe('declaring network rules', () => {
     unwrap(await declareNetworkRules(squadrons, { rules: [sameSquadron()] }));
 
     await expect(core.declaredNetworkRules.list(fleetId)).resolves.toEqual([
-      { fleetId, shipId: squadrons.shipId, rules: [sameSquadron()] },
-      { fleetId, shipId: trierarchPlugin.shipId, rules: trierarchRules },
+      { fleetId, declarer: { kind: 'ship', shipId: squadrons.shipId }, rules: [sameSquadron()] },
+      { fleetId, declarer: { kind: 'ship', shipId: trierarchPlugin.shipId }, rules: trierarchRules },
     ]);
   });
 
@@ -158,5 +158,69 @@ describe('declaring network rules', () => {
       kind: 'LABEL_VALUE_NOT_FOUND',
       message: `The fleet has no label value ${unknown}`,
     });
+  });
+});
+
+describe('the installation declaring network rules (decision 0052)', () => {
+  let installation: InstallationCaller;
+  let group: LabelId;
+
+  /** Every ship of a group reaches the ships of its own group. */
+  function sameGroup(): NetworkRule {
+    return { verb: 'send', from: [{ labelId: group, value: SAME_LABEL_VALUE }], to: [{ labelId: group, value: SAME_LABEL_VALUE }] };
+  }
+
+  beforeEach(async () => {
+    installation = { kind: 'installation', fleetId, scopes: ['labels:define', 'labels:assign'] };
+    ({ labelId: group } = unwrap(await registryUseCases(core).defineLabel(installation, { key: 'group', values: ['sales', 'finance'] })));
+    core.state.events.length = 0;
+  });
+
+  it('keeps its rules on the label it defined, beside what the ships declared', async () => {
+    unwrap(await declareNetworkRules(squadrons, { rules: [sameSquadron()] }));
+
+    expect(unwrap(await declareNetworkRules(installation, { rules: [sameGroup()] }))).toEqual({ rules: 1 });
+    await expect(core.declaredNetworkRules.list(fleetId)).resolves.toContainEqual({ fleetId, declarer: { kind: 'installation' }, rules: [sameGroup()] });
+    await expect(core.declaredNetworkRules.list(fleetId)).resolves.toHaveLength(2);
+  });
+
+  it('withdraws them with an empty list', async () => {
+    unwrap(await declareNetworkRules(installation, { rules: [sameGroup()] }));
+
+    unwrap(await declareNetworkRules(installation, { rules: [] }));
+
+    expect(core.state.declaredNetworkRules).toEqual([]);
+  });
+
+  it('writes NetworkRulesDeclared caused by the installation, naming no ship', async () => {
+    unwrap(await declareNetworkRules(installation, { rules: [sameGroup()] }));
+
+    expect(core.state.events.map(({ type, actor, shipId, details }) => ({ type, actor, shipId, details }))).toEqual([
+      { type: 'NetworkRulesDeclared', actor: { kind: 'installation' }, shipId: undefined, details: { rules: 1 } },
+    ]);
+  });
+
+  it('refuses a term on a label a ship owns, naming its owner', async () => {
+    expect(refusalOf(await declareNetworkRules(installation, { rules: [sameSquadron()] }))).toEqual({
+      kind: 'NOT_THE_LABEL_OWNER',
+      message: 'The label squadron is owned by squadrons: only its owner declares rules on it (decision 0037)',
+    });
+  });
+
+  it("refuses a ship a term on the installation's label, naming the installation", async () => {
+    expect(refusalOf(await declareNetworkRules(squadrons, { rules: [sameGroup()] }))).toEqual({
+      kind: 'NOT_THE_LABEL_OWNER',
+      message: 'The label group is owned by the installation: only its owner declares rules on it (decision 0037)',
+    });
+  });
+
+  it('refuses an account: it owns no label to declare rules on', async () => {
+    const account: AccountCaller = { kind: 'account', accountId: accountIdSchema.parse('acc-mathilde'), fleetId, scopes: ['labels:define'], groupValues: ['sales'], personShipId: null, throughShipId: null };
+
+    expect(refusalOf(await declareNetworkRules(account, { rules: [sameGroup()] }))).toEqual({
+      kind: 'NOT_THE_LABEL_OWNER',
+      message: 'The label group is owned by the installation: only its owner declares rules on it (decision 0037)',
+    });
+    expect(core.state.declaredNetworkRules).toEqual([]);
   });
 });

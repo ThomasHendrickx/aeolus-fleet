@@ -1,11 +1,11 @@
-import { ANY_LABEL_VALUE, type FleetId } from '@aeolus-fleet/common';
+import { ANY_LABEL_VALUE, SAME_LABEL_VALUE, type FleetId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { agentCaller, hostedFleet, initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../testing/result.js';
-import type { ShipCaller } from '../shared/caller.js';
+import type { InstallationCaller, ShipCaller } from '../shared/caller.js';
 import { createDeclareNetworkRules } from './declare-network-rules.js';
 import type { NetworkRule } from './network-settings.js';
 import { createReadDeclaredNetworkRules } from './read-declared-network-rules.js';
@@ -42,9 +42,18 @@ describe('reading the declared network rules', () => {
     const trierarch = await declaring('trierarch');
 
     await expect(readDeclaredNetworkRules(argo)).resolves.toEqual([
-      { shipId: squadrons.ship.shipId, rules: squadrons.rules },
-      { shipId: trierarch.ship.shipId, rules: trierarch.rules },
+      { declarer: { kind: 'ship', shipId: squadrons.ship.shipId }, rules: squadrons.rules },
+      { declarer: { kind: 'ship', shipId: trierarch.ship.shipId }, rules: trierarch.rules },
     ]);
+  });
+
+  it('answers the installation as the declarer of the rules it declared', async () => {
+    const installation: InstallationCaller = { kind: 'installation', fleetId, scopes: ['labels:define'] };
+    const { labelId } = unwrap(await registryUseCases(core).defineLabel(installation, { key: 'group', values: ['sales'] }));
+    const rules = [{ verb: 'send' as const, from: [{ labelId, value: SAME_LABEL_VALUE }], to: [{ labelId, value: SAME_LABEL_VALUE }] }];
+    unwrap(await createDeclareNetworkRules({ uow: core.uow, clock: core.clock, ids: core.ids })(installation, { rules }));
+
+    await expect(readDeclaredNetworkRules(argo)).resolves.toEqual([{ declarer: { kind: 'installation' }, rules }]);
   });
 
   it("answers the caller's fleet only", async () => {

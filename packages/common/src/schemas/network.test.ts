@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createIdGenerator } from '../ids/index.js';
 import {
   BUILT_IN_RULES,
+  declaredNetworkRulesOutputSchema,
   explainReachInputSchema,
   FIXED_BUILT_IN_RULES,
   explainReachOutputSchema,
@@ -291,7 +292,10 @@ describe('explainReachOutputSchema', () => {
     const explained = {
       send: [{ shipId: newId('ship'), rule: { builtIn: 'owner' } }],
       read: [{ shipId: newId('ship'), rule: { plugin: 3 } }],
-      manage: [{ shipId: newId('ship'), rule: { declared: newId('ship'), index: 0 } }],
+      manage: [
+        { shipId: newId('ship'), rule: { declared: { kind: 'ship', shipId: newId('ship') }, index: 0 } },
+        { shipId: newId('ship'), rule: { declared: { kind: 'installation' }, index: 1 } },
+      ],
     };
 
     expect(explainReachOutputSchema.parse(explained)).toEqual(explained);
@@ -299,6 +303,23 @@ describe('explainReachOutputSchema', () => {
 
   it('refuses a rule that is not built in, the plugin\'s or declared', () => {
     expect(explainReachOutputSchema.safeParse({ send: [{ shipId: newId('ship'), rule: { builtIn: 'everyone' } }], read: [], manage: [] }).success).toBe(false);
+  });
+});
+
+describe('declaredNetworkRulesOutputSchema', () => {
+  const rules = [{ verb: 'send', from: [], to: [] }];
+
+  it('answers each declarer, a ship or the installation (decision 0052), with its whole list', () => {
+    const declared = [
+      { declarer: { kind: 'ship', shipId: newId('ship') }, rules },
+      { declarer: { kind: 'installation' }, rules },
+    ];
+
+    expect(declaredNetworkRulesOutputSchema.parse(declared)).toEqual(declared);
+  });
+
+  it('refuses a declarer that is neither a ship nor the installation', () => {
+    expect(declaredNetworkRulesOutputSchema.safeParse([{ declarer: { kind: 'account', accountId: 'acc-mathilde' }, rules }]).success).toBe(false);
   });
 });
 

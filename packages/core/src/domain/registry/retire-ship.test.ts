@@ -305,7 +305,7 @@ describe('a ship that declared network rules retired (decision 0037)', () => {
   it('leaves the declared rules as they are when another ship retires', async () => {
     unwrap(await registry.retireShip(argo, { shipId: scoutId }));
 
-    expect(core.state.declaredNetworkRules).toEqual([expect.objectContaining({ shipId: squadrons.shipId })]);
+    expect(core.state.declaredNetworkRules).toEqual([expect.objectContaining({ declarer: { kind: 'ship', shipId: squadrons.shipId } })]);
     expect(eventsOfType('NetworkRulesDeclared')).toEqual([]);
   });
 });

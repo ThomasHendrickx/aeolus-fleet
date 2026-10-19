@@ -19,7 +19,7 @@ import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-
 import { labelIdOf, valueIdOf } from '../../../test/support/label-fixtures.js';
 import { newKey } from '../../testing/keys.js';
 import { refusalOf, unwrap } from '../../testing/result.js';
-import type { ShipCaller } from '../shared/caller.js';
+import type { InstallationCaller, ShipCaller } from '../shared/caller.js';
 import { createExplainReach } from './explain-reach.js';
 
 /**
@@ -367,10 +367,26 @@ describe('the rule each reach names (decision 0034)', () => {
     const explained = unwrap(await explainReach(argo, { fromShipId: scout.shipId, toShipId: planner.shipId }));
 
     expect(explained).toEqual({
-      send: [{ shipId: planner.shipId, rule: { declared: labeller.shipId, index: 1 } }],
+      send: [{ shipId: planner.shipId, rule: { declared: { kind: 'ship', shipId: labeller.shipId }, index: 1 } }],
       read: [{ shipId: planner.shipId, rule: { plugin: 0 } }],
-      manage: [{ shipId: planner.shipId, rule: { declared: labeller.shipId, index: 0 } }],
+      manage: [{ shipId: planner.shipId, rule: { declared: { kind: 'ship', shipId: labeller.shipId }, index: 0 } }],
     });
+  });
+
+  it('names a rule the installation declared by the installation and its place in its list', async () => {
+    const installation: InstallationCaller = { kind: 'installation', fleetId: argo.fleetId, scopes: ['labels:define', 'labels:assign', 'labels:any', 'fleet:manage'] };
+    const { labelId: group } = unwrap(await registry.defineLabel(installation, { key: 'group', values: ['sales'] }));
+    const sales = valueIdOf(core, { key: 'group', value: 'sales' });
+    unwrap(await registry.assignLabel(argo, { shipId: scout.shipId, valueId: sales }));
+    unwrap(await registry.assignLabel(argo, { shipId: planner.shipId, valueId: sales }));
+    const declared: NetworkRule[] = [{ verb: 'send', from: [{ labelId: group, value: SAME_LABEL_VALUE }], to: [{ labelId: group, value: SAME_LABEL_VALUE }] }];
+    unwrap(await registry.declareNetworkRules(installation, { rules: declared }));
+    await setRules(declared);
+    await openOff();
+
+    const explained = unwrap(await explainReach(argo, { fromShipId: scout.shipId, toShipId: planner.shipId }));
+
+    expect(explained.send).toEqual([{ shipId: planner.shipId, rule: { declared: { kind: 'installation' }, index: 0 } }]);
   });
 
   it('names the viewer reading for every ship the viewer reads, and open once argo turns it off', async () => {

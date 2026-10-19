@@ -237,6 +237,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_event_actors$/),
       expect.stringMatching(/^\d{14}_argos_jobs_as_scopes$/),
       expect.stringMatching(/^\d{14}_installation_labels$/),
+      expect.stringMatching(/^\d{14}_installation_declared_network_rules$/),
     ]);
   });
 });
@@ -2238,7 +2239,7 @@ describe('network rules at the API', () => {
     const rules = [{ verb: 'send' as const, from: [{ labelId, value: SAME_LABEL_VALUE }], to: [{ labelId, value: SAME_LABEL_VALUE }] }];
 
     await expect(declarer.fleet.declareNetworkRules.mutate({ rules })).resolves.toEqual({ rules: 1 });
-    await expect((await networker()).fleet.declaredNetworkRules.query()).resolves.toContainEqual({ shipId, rules });
+    await expect((await networker()).fleet.declaredNetworkRules.query()).resolves.toContainEqual({ declarer: { kind: 'ship', shipId }, rules });
     await declarer.fleet.declareNetworkRules.mutate({ rules: [] });
   });
 
