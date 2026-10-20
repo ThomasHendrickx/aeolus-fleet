@@ -1,6 +1,6 @@
 import { CORE_NAMESPACES, CORE_SCOPE_DESCRIPTIONS, SCOPES, type ShipId } from '@aeolus-fleet/common';
 
-import type { ShipCaller } from '../shared/caller.js';
+import type { Caller } from '../shared/caller.js';
 import type { ScopeNamespaceRepository, ShipRepository } from './ports.js';
 import type { DeclaredScope } from './scope-namespace.js';
 
@@ -11,10 +11,11 @@ export interface ListedNamespace {
   scopes: readonly DeclaredScope[];
 }
 
-export type ListScopes = (caller: ShipCaller) => Promise<ListedNamespace[]>;
+export type ListScopes = (caller: Caller) => Promise<ListedNamespace[]>;
 
 /**
- * Use case: every namespace of the caller's fleet (decision 0046): the core
+ * Use case: every namespace of the caller's fleet (decision 0046), for any
+ * actor, so pagasae offers each plugin's scopes to its groups (0053): the core
  * namespaces first, each with its scopes in catalogue order, then each
  * plugin's by namespace, with its scopes as declared. The caller's scope
  * (fleet:read) is checked before this runs.
