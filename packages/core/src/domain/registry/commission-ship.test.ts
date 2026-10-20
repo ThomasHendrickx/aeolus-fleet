@@ -10,6 +10,7 @@ import {
   withInstallationSettings,
 } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
+import { valueIdOf } from '../../../test/support/label-fixtures.js';
 import { unwrap } from '../../testing/result.js';
 import type { AccountCaller, InstallationCaller, ShipCaller } from '../shared/caller.js';
 import { createCommissionShip } from './commission-ship.js';
@@ -679,6 +680,98 @@ describe('a commission by the installation or an account (decisions 0053, 0057)'
 
     expect(theAccounts.shipId).not.toBe(first.shipId);
     expect(again).toMatchObject({ shipId: first.shipId, secret: null });
+  });
+});
+
+describe('the label values a commission gives the new ship (decision 0053)', () => {
+  let installation: InstallationCaller;
+  let labeller: ShipCaller;
+
+  function value(key: string, text: string) {
+    return valueIdOf(core, { key, value: text });
+  }
+
+  function labelsOf(name: string): string[] {
+    const shipId = shipsNamed(name)[0]?.id;
+    return core.state.shipLabels
+      .filter((label) => label.shipId === shipId)
+      .map((label) => core.state.labels.flatMap((each) => each.values).find((each) => each.id === label.valueId)?.value ?? label.valueId)
+      .sort();
+  }
+
+  const NOT_YOURS = ({ key, owner, text }: { key: string; owner: string; text: string }) => ({
+    isOk: false,
+    error: {
+      kind: 'NOT_THE_LABEL_OWNER',
+      message: `The label ${key} is owned by ${owner}, and you carry no value ${text} of it: a commission gives only values of labels you defined or values you carry (decision 0053)`,
+    },
+  });
+
+  beforeEach(async () => {
+    installation = { kind: 'installation', fleetId, scopes: ['fleet:read', 'fleet:person', 'fleet:manage', 'labels:define', 'labels:assign', 'labels:any'] };
+    const registry = registryUseCases(core);
+    unwrap(await registry.defineLabel(installation, { key: 'group', values: ['sales', 'finance'] }));
+    unwrap(await registry.defineLabel(argo, { key: 'tier', values: ['gold', 'silver'] }));
+    const { shipId } = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'labeller', type: 'labeller', scopes: ['fleet:commission', 'labels:define', 'labels:assign'] }));
+    labeller = { fleetId, shipId, kind: 'agent', scopes: ['fleet:commission', 'labels:define', 'labels:assign'] };
+    unwrap(await registry.defineLabel(labeller, { key: 'squadron', values: ['alpha'] }));
+    unwrap(await registry.assignLabel(argo, { shipId, valueId: value('tier', 'gold') }));
+    core.state.events.length = 0;
+  });
+
+  it('lets the installation give a person ship values of its group label, with LabelAssigned naming it', async () => {
+    const { shipId } = unwrap(await commissionShip(installation, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person', valueIds: [value('group', 'sales'), value('group', 'finance')] }));
+
+    expect(labelsOf('thomas')).toEqual(['finance', 'sales']);
+    expect(core.state.events.filter((event) => event.type === 'LabelAssigned' && event.shipId === shipId).map((event) => event.actor)).toEqual([{ kind: 'installation' }, { kind: 'installation' }]);
+  });
+
+  it('lets a ship give a value of a label it defined', async () => {
+    unwrap(await commissionShip(labeller, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer', valueIds: [value('squadron', 'alpha')] }));
+
+    expect(labelsOf('scout')).toEqual(['alpha']);
+  });
+
+  it("lets a ship give a value it carries itself, of another's label", async () => {
+    unwrap(await commissionShip(labeller, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer', valueIds: [value('tier', 'gold')] }));
+
+    expect(labelsOf('scout')).toEqual(['gold']);
+  });
+
+  it('refuses a value of a label the ship neither defined nor carries a value of, naming it, storing nothing', async () => {
+    await expect(commissionShip(labeller, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer', valueIds: [value('tier', 'silver')] })).resolves.toEqual(NOT_YOURS({ key: 'tier', owner: 'argo', text: 'silver' }));
+    expect(shipsNamed('scout')).toEqual([]);
+    expect(core.state.events).toEqual([]);
+  });
+
+  it('refuses argo a value it neither defined nor carries: argo is no exception (decision 0053)', async () => {
+    await expect(commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer', valueIds: [value('squadron', 'alpha')] })).resolves.toEqual(NOT_YOURS({ key: 'squadron', owner: 'labeller', text: 'alpha' }));
+  });
+
+  it('lets an account give a value of group its token carries, and refuses one it does not', async () => {
+    const personShipId = unwrap(await commissionShip(installation, { idempotencyKey: newKey(), name: 'mathilde', type: 'person', kind: 'person' })).shipId;
+    const mathilde: AccountCaller = { kind: 'account', accountId: accountIdSchema.parse('acc-mathilde'), fleetId, scopes: ['fleet:commission'], groupValues: ['sales'], personShipId, throughShipId: null };
+
+    unwrap(await commissionShip(mathilde, { idempotencyKey: newKey(), name: 'helper', type: 'helper', valueIds: [value('group', 'sales')] }));
+    await expect(commissionShip(mathilde, { idempotencyKey: newKey(), name: 'other', type: 'helper', valueIds: [value('group', 'finance')] })).resolves.toEqual(NOT_YOURS({ key: 'group', owner: 'the installation', text: 'finance' }));
+
+    expect(labelsOf('helper')).toEqual(['sales']);
+  });
+
+  it('refuses a value the fleet does not have', async () => {
+    const unknown = core.ids('labelValue');
+
+    await expect(commissionShip(labeller, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer', valueIds: [unknown] })).resolves.toEqual({
+      isOk: false,
+      error: { kind: 'LABEL_VALUE_NOT_FOUND', message: `The fleet has no label value ${unknown}` },
+    });
+  });
+
+  it('refuses the same key with other values', async () => {
+    const scout = { idempotencyKey: 'commission-scout', name: 'scout', type: 'reviewer' };
+    unwrap(await commissionShip(labeller, { ...scout, valueIds: [value('squadron', 'alpha')] }));
+
+    await expect(commissionShip(labeller, { ...scout, valueIds: [value('tier', 'gold')] })).resolves.toMatchObject({ isOk: false, error: { kind: 'IDEMPOTENCY_KEY_REUSED' } });
   });
 });
 

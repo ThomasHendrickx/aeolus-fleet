@@ -339,3 +339,14 @@ describe('a person ship the installation commissions for an account (decisions 0
     await expect(refusalOf(asInstallation().fleet.commission.mutate({ name: 'not-a-person', type: 'helper', idempotencyKey: newKey() }))).resolves.toMatchObject({ code: 'FORBIDDEN' });
   });
 });
+
+describe('the group values of a person ship, given at its commission (decisions 0052, 0053)', () => {
+  it('are carried by the person ship from its commission', async () => {
+    const { values } = await asInstallation().fleet.defineLabel.mutate({ key: 'group-given', values: ['sales'] });
+    const sales = values.map((each) => each.id);
+
+    const person = await asInstallation().fleet.commission.mutate({ name: 'person-acc-01dana000', type: 'person', kind: 'person', valueIds: sales, idempotencyKey: 'person-acc-01dana000' });
+
+    await expect(database.shipLabel.findMany({ where: { shipId: person.shipId }, select: { valueId: true } })).resolves.toEqual(sales.map((valueId) => ({ valueId })));
+  });
+});

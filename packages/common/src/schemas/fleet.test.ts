@@ -85,6 +85,19 @@ describe('commissionShipInputSchema', () => {
     expect(commissionShipInputSchema.parse(input)).toEqual(input);
   });
 
+  it('accepts the label values to give the new ship, up to the 20 a ship carries (decision 0053)', () => {
+    const input = { name: 'thomas', type: 'person', kind: 'person', valueIds: Array.from({ length: 20 }, () => newId('labelValue')), idempotencyKey: 'person-thomas' };
+
+    expect(commissionShipInputSchema.parse(input)).toEqual(input);
+  });
+
+  it.each([
+    ['21 label values', Array.from({ length: 21 }, () => newId('labelValue'))],
+    ['a label id for a value', [newId('label')]],
+  ])('rejects %s', (_label, valueIds) => {
+    expect(commissionShipInputSchema.safeParse({ name: 'thomas', type: 'person', valueIds, idempotencyKey: 'person-thomas' }).success).toBe(false);
+  });
+
   it.each([
     ['an unknown core scope', ['fleet:own']],
     ['a scope with no action', ['squadrons']],
