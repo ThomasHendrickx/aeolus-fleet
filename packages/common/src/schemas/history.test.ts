@@ -50,6 +50,7 @@ describe('shipDetailOutputSchema', () => {
     commissionedAt: AT,
     crewedSince: AT,
     retiredAt: null,
+    ownerShipId: null,
     inFlightDeliveries: 1,
     openDeliveries: 3,
     owner: { id: newId('ship'), name: 'argo' },

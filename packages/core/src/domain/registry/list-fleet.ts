@@ -55,6 +55,8 @@ export interface ListedShip {
   awaitingCrewSince: Date | null;
   /** When the operator retired the ship; null while it is active. */
   retiredAt: Date | null;
+  /** The ship that owns it (decision 0045); null for argo and the viewer, which no ship owns. */
+  ownerShipId: ShipId | null;
 }
 
 /** A ship outside the caller's read reach: its name, type and status only (decision 0034). */
@@ -138,6 +140,7 @@ export function listedShipOf({
     model: lastModel,
     awaitingCrewSince: status === 'awaitingCrew' ? latestOf(ship.createdAt, lastLeaseEndedAt) : null,
     retiredAt: ship.retiredAt,
+    ownerShipId: ship.owner,
   };
 }
 

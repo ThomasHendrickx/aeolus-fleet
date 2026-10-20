@@ -29,7 +29,7 @@ const newKey = () => {
 
 const ARGO: ListedShip = {
   id: newId('ship'), name: 'argo', type: 'operator', kind: 'operator', status: 'crewed', startingPrompt: null, location: null, lastSeenAt: null, ping: null,
-  scopes: [], labels: [], report: null, harness: null, model: null, awaitingCrewSince: null, crewRequest: null, retiredAt: null,
+  scopes: [], labels: [], report: null, harness: null, model: null, awaitingCrewSince: null, crewRequest: null, retiredAt: null, ownerShipId: null,
 };
 
 function aLabel(key: string, values: string[]): ListedLabel {

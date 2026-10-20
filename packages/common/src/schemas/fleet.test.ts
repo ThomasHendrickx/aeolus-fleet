@@ -265,6 +265,7 @@ describe('fleetListOutputSchema', () => {
     harness: null,
     awaitingCrewSince: '2026-09-29T12:00:00.000Z',
     retiredAt: null,
+    ownerShipId: null,
   };
 
   it('accepts ships with their status and prompt state', () => {

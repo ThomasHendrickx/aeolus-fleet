@@ -351,6 +351,7 @@ describe('getting one ship on Postgres', () => {
         commissionedAt,
         crewedSince: crewedAt,
         retiredAt: null,
+        ownerShipId: argoId,
         inFlightDeliveries: 0,
         openDeliveries: 0,
         owner: { id: argoId, name: 'argo' },
@@ -428,6 +429,7 @@ describe('listing the fleet on Postgres', () => {
         model: null,
         awaitingCrewSince: null,
         retiredAt: null,
+        ownerShipId: null,
       },
       {
         id: shipId,
@@ -447,6 +449,7 @@ describe('listing the fleet on Postgres', () => {
         model: null,
         awaitingCrewSince: commissionedAt,
         retiredAt: null,
+        ownerShipId: argoId,
       },
     ]);
   });

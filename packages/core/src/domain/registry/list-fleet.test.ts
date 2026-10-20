@@ -201,6 +201,7 @@ describe('listing the fleet', () => {
         model: null,
         awaitingCrewSince: null,
         retiredAt: null,
+        ownerShipId: null,
       },
       {
         id: scoutId,
@@ -220,6 +221,7 @@ describe('listing the fleet', () => {
         model: null,
         awaitingCrewSince: commissionedAt,
         retiredAt: null,
+        ownerShipId: argoId,
       },
     ]);
   });

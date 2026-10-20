@@ -213,6 +213,8 @@ export const listedShipSchema = z.object({
   awaitingCrewSince: z.iso.datetime().nullable(),
   /** When the operator retired the ship (ISO 8601 in UTC); null while it is active. */
   retiredAt: z.iso.datetime().nullable(),
+  /** The ship that owns it (decision 0045); null for argo and the viewer, which no ship owns. */
+  ownerShipId: idSchema('ship').nullable(),
 });
 
 export type ListedShip = z.infer<typeof listedShipSchema>;

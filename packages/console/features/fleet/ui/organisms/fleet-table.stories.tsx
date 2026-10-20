@@ -32,7 +32,7 @@ function ship(suffix: string, changes: Partial<ListedShip> & Pick<ListedShip, 'n
     awaitingCrewSince: null,
     crewRequest: null,
     labels: [],
-    retiredAt: null,
+    retiredAt: null, ownerShipId: null,
     ...changes,
   };
 }

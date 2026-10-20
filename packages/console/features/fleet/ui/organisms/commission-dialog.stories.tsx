@@ -9,7 +9,7 @@ import { MACHINE_LABELS, OFFERS } from '../../../../lib/fixtures/machines.fixtur
 const newId = createIdGenerator();
 
 function aShip(name: string, type: string): ListedShip {
-  return { id: newId('ship'), name, type, kind: 'agent', status: 'crewed', startingPrompt: null, location: null, lastSeenAt: null, ping: null, scopes: ['messages:send', 'messages:receive'], report: null, harness: null, model: null, awaitingCrewSince: null, crewRequest: null, labels: [], retiredAt: null };
+  return { id: newId('ship'), name, type, kind: 'agent', status: 'crewed', startingPrompt: null, location: null, lastSeenAt: null, ping: null, scopes: ['messages:send', 'messages:receive'], report: null, harness: null, model: null, awaitingCrewSince: null, crewRequest: null, labels: [], retiredAt: null, ownerShipId: null };
 }
 
 /** The fleet scopes as fleet.scopes describes them, the core ones' descriptions from common. */

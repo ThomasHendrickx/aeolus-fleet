@@ -420,6 +420,7 @@ describe('the fleet procedures at the API', () => {
       model: null,
       awaitingCrewSince: clock.now().toISOString(),
       retiredAt: null,
+      ownerShipId: argoId,
     });
   });
 
