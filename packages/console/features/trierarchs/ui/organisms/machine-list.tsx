@@ -3,7 +3,6 @@ import { Plus, ShipWheel, Unplug } from 'lucide-react';
 import Link from 'next/link';
 
 import { spotsOf } from '../../../../lib/machines';
-import { SOURCE_URL } from '../../../../lib/source';
 import type { Machine } from '../../../../lib/trierarch-plugin-schemas';
 import { Button } from '../../../../components/atoms/button';
 import { EmptyState } from '../../../../components/molecules/empty-state';
@@ -11,8 +10,8 @@ import { InlineError } from '../../../../components/molecules/inline-error';
 import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
 import { MachineCard } from './machine-card';
 
-/** Where setting the trierarch plugin up is described: its README. */
-export const TRIERARCH_PLUGIN_SETUP_URL = `${SOURCE_URL}/tree/main/packages/trierarch-plugin#readme`;
+/** Where setting the trierarch plugin up is described: its README, in its own repository (decision 0049). */
+export const TRIERARCH_PLUGIN_SETUP_URL = 'https://github.com/ThomasHendrickx/aeolus-fleet-trierarch-plugin/tree/main/packages/trierarch-plugin#readme';
 
 interface MachineListProps {
   /** none: not set up or off for this fleet; not-connected: set up, not connected yet; unknown while its connection is read. */
