@@ -1,4 +1,4 @@
-import { SAME_LABEL_VALUE, type DeliveryId, type FleetId, type ShipId } from '@aeolus-fleet/common';
+import { accountIdSchema, SAME_LABEL_VALUE, type DeliveryId, type FleetId, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
@@ -14,7 +14,7 @@ import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { carriedText, labelIdOf, valueIdOf } from '../../../test/support/label-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../testing/result.js';
-import type { ShipCaller, Crew } from '../shared/caller.js';
+import type { AccountCaller, ShipCaller, Crew } from '../shared/caller.js';
 import type { Selector } from '../shared/selector.js';
 import { newKey } from '../../testing/keys.js';
 import { createDeclareNetworkRules } from './declare-network-rules.js';
@@ -165,6 +165,18 @@ describe('retiring a ship', () => {
     await registry.retireShip(argo, { shipId: argo.shipId });
 
     expect(core.state).toEqual(before);
+  });
+});
+
+describe('an account retiring a ship (decision 0057)', () => {
+  const THOMAS = accountIdSchema.parse('acc-thomas');
+  const thomas = (): AccountCaller => ({ kind: 'account', accountId: THOMAS, fleetId, scopes: ['fleet:manage'], groupValues: [], personShipId: null, throughShipId: lookout.shipId });
+
+  it('retires a ship in its manage reach, ShipRetired naming the account through the ship that presented it', async () => {
+    unwrap(await registry.retireShip(thomas(), { shipId: scoutId }));
+
+    expect((await registry.listFleet(argo)).find((ship) => ship.id === scoutId)).toMatchObject({ status: 'retired' });
+    expect(eventsOfType('ShipRetired')).toMatchObject([{ shipId: scoutId, actor: { kind: 'account', accountId: THOMAS, throughShipId: lookout.shipId } }]);
   });
 });
 

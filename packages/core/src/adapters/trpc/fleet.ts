@@ -234,7 +234,7 @@ export const fleetRouter = router({
    * its direct deliveries are abandoned, deliveries to its type stay for the
    * other ships of the type. Answers how many it abandoned.
    */
-  retire: scopedProcedure('fleet:manage')
+  retire: actorScopedProcedure('fleet:manage')
     .meta({
       description: [
         'Needs fleet:manage. Ends a ship permanently, never argo: its lease and secret end and its direct deliveries are abandoned.',

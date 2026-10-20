@@ -1,7 +1,7 @@
 import type { IdGenerator, ShipId } from '@aeolus-fleet/common';
 
 import { revokeShipSecret, type CredentialTx } from '../identity/public.js';
-import { actorOf, type ShipCaller } from '../shared/caller.js';
+import { actorOf, type Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent } from '../shared/events.js';
@@ -32,7 +32,7 @@ export interface RetireShipTx extends LeaseTx, CredentialTx, Omit<CheckManageTx,
 export type RetireShipRefusal = DomainError<'SHIP_NOT_FOUND'> | NotReachable | RetireRefusal;
 
 export type RetireShip = (
-  caller: ShipCaller,
+  caller: Caller,
   input: { shipId: ShipId },
 ) => Promise<Result<{ abandonedDeliveries: number }, RetireShipRefusal>>;
 
@@ -54,9 +54,9 @@ export type RetireShip = (
  * falls to argo, one OwnerChanged each, locked after the ship as a set owner
  * locks the owner first (decision 0045). A plugin namespace it declared goes,
  * and its scopes leave every ship, one ScopesChanged each (decision 0046).
- * The caller's scope (fleet:manage) is
- * checked before this runs, and manage reach on the ship here (decision
- * 0034), a refusal storing only its record. That check reads the network
+ * The caller, any actor (decision 0057), needs fleet:manage, checked before
+ * this runs, and manage reach on the ship here (decision 0034), a refusal
+ * storing only its record. That check reads the network
  * settings without a lock: retire takes them exclusively later, after the
  * ships it owns, and a shared hold taken first would deadlock two retires.
  *
