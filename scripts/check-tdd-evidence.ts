@@ -21,9 +21,6 @@ export const EXEMPT_UP_TO = '18905388af14b21cc57daf1935203bbb84e0f2b7';
 const PRODUCTION_FOLDERS = [
   'packages/core/src/',
   'packages/common/src/',
-  'packages/trierarch/src/',
-  'packages/squadrons/src/',
-  'packages/trierarch-plugin/src/',
 ];
 const TEST_FILE = /\.test\.tsx?$|(^|\/)(test|e2e)\//;
 /** A conventional commit of type feat or fix, with or without a scope or a breaking mark. */
