@@ -57,6 +57,15 @@ export function createPrismaVerifiedFactsRepository(db: Db): VerifiedFactsReposi
       });
     },
     list: async (fleetId) => (await db.verifiedFacts.findMany({ where: { fleetId } })).map(writtenOf),
+    listAbout: async (fleetId, shipId) => (await db.verifiedFacts.findMany({ where: { fleetId, shipId }, orderBy: [{ writtenAt: 'asc' }, { writerKind: 'asc' }, { writer: 'asc' }, { shipId: 'asc' }] })).map(writtenOf),
+    listBy: async (fleetId, shipId) => (await db.verifiedFacts.findMany({ where: { fleetId, writerKind: 'ship', writer: shipId }, orderBy: [{ writtenAt: 'asc' }, { writerKind: 'asc' }, { writer: 'asc' }, { shipId: 'asc' }] })).map(writtenOf),
+    // A transaction-level advisory lock on the fleet and the writer ship: shared for a set by it, exclusive for its retire.
+    holdWriter: async (fleetId, shipId) => {
+      await db.$executeRaw`SELECT pg_advisory_xact_lock_shared(hashtext(${fleetId}), hashtext(${`verified-facts-writer:${shipId}`}))`;
+    },
+    lockWriter: async (fleetId, shipId) => {
+      await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${fleetId}), hashtext(${`verified-facts-writer:${shipId}`}))`;
+    },
     remove: async (fleetId, { shipId, writer }) => {
       await db.verifiedFacts.deleteMany({ where: { fleetId, shipId, ...writerColumns(writer) } });
     },

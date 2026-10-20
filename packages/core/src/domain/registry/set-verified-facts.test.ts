@@ -122,6 +122,15 @@ describe('writing verified facts about a ship (decision 0059)', () => {
     await expect(registry.setVerifiedFacts(gateway, { shipId: core.ids('ship'), facts: [TLS_HOST] })).resolves.toMatchObject({ isOk: false, error: { kind: 'SHIP_NOT_FOUND' } });
   });
 
+  it('refuses a writer ship that is retired, storing nothing', async () => {
+    unwrap(await registry.retireShip(argo, { shipId: gateway.shipId }));
+    core.state.events.length = 0;
+
+    await expect(registry.setVerifiedFacts(gateway, { shipId: crmId, facts: [TLS_HOST] })).resolves.toMatchObject({ isOk: false, error: { kind: 'SHIP_ALREADY_RETIRED' } });
+    expect(factsAbout(crmId)).toEqual([]);
+    expect(core.state.events).toEqual([]);
+  });
+
   it('refuses a retired ship, storing nothing', async () => {
     unwrap(await registry.retireShip(argo, { shipId: crmId }));
     core.state.events.length = 0;

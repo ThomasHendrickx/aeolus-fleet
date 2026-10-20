@@ -509,6 +509,17 @@ describe('timelineSentence', () => {
     expect(onScoutsPage(anEntry('VerifiedFactsSet', { actor: argo, details: { facts: 2 } }))).toEqual({ sentence: 'Verified facts set: 2 by argo', tone: 'ended', icon: 'reported' });
   });
 
+  it('says the verified facts of a writer about the ship went, as the ship or the writer retired', () => {
+    expect(onScoutsPage(anEntry('VerifiedFactsRemoved', { actor: argo, details: { writerKind: 'ship', writer: 'shp_x', facts: 2, why: 'writerRetired' } }))).toEqual({
+      sentence: 'Verified facts removed: 2, their writer retired',
+      tone: 'ended',
+      icon: 'reported',
+    });
+    expect(onScoutsPage(anEntry('VerifiedFactsRemoved', { actor: argo, details: { writerKind: 'account', writer: 'acc-mathilde', facts: 1, why: 'shipRetired' } })).sentence).toBe(
+      'Verified facts removed: 1, the ship retired',
+    );
+  });
+
   it('says a writer withdrew its verified facts about the ship when it set none', () => {
     expect(onScoutsPage(anEntry('VerifiedFactsSet', { actor: argo, details: { facts: 0 } })).sentence).toBe('Verified facts withdrawn by argo');
   });

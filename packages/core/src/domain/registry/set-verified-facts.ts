@@ -26,7 +26,9 @@ export type SetVerifiedFacts = (caller: Caller, input: { shipId: ShipId; facts: 
  * at the edge; none withdraws them. Another writer's facts stay as they are.
  * The scope is checked before this runs; a refused reach keeps its record.
  * It locks the ship, as a retire does, so no fact is written about a ship a
- * retire already passed by, and two sets by one writer take turns.
+ * retire already passed by, and two sets by one writer take turns; then it
+ * holds a writer ship against its retire, refused once it is retired, so a
+ * retired writer leaves no fact behind.
  * VerifiedFactsSet in the same unit of work.
  */
 export function createSetVerifiedFacts(deps: { uow: UnitOfWork<SetVerifiedFactsTx>; clock: Clock; ids: IdGenerator }): SetVerifiedFacts {
@@ -43,6 +45,13 @@ export function createSetVerifiedFacts(deps: { uow: UnitOfWork<SetVerifiedFactsT
         return managed;
       }
       const writer = writerOf(caller);
+      if (writer.kind === 'ship') {
+        // After the ship written about, as a retire takes the writer's lock after every ship it locks: no deadlock.
+        await tx.verifiedFacts.holdWriter(fleetId, writer.shipId);
+        if ((await tx.ships.find(fleetId, writer.shipId))?.retiredAt !== null) {
+          return refuse('SHIP_ALREADY_RETIRED', 'Your ship is retired: it writes no facts');
+        }
+      }
       const current = await tx.verifiedFacts.find(fleetId, { shipId: ship.id, writer });
       const set = setVerifiedFacts(ship, { current, writer, facts: input.facts, at, actor: actorOf(caller) });
       if (!set.isOk) {

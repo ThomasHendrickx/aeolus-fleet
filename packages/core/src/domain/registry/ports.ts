@@ -294,6 +294,14 @@ export interface VerifiedFactsRepository {
   remove(fleetId: FleetId, key: { shipId: ShipId; writer: FactWriter }): Promise<void>;
   /** Every writer's facts about every ship of the fleet, in no order. */
   list(fleetId: FleetId): Promise<WrittenFacts[]>;
+  /** Every writer's facts about the ship. */
+  listAbout(fleetId: FleetId, shipId: ShipId): Promise<WrittenFacts[]>;
+  /** The ship's facts, as a writer, about every ship. */
+  listBy(fleetId: FleetId, shipId: ShipId): Promise<WrittenFacts[]>;
+  /** Holds a writer ship against its retire until commit: a set by it takes this, shared. */
+  holdWriter(fleetId: FleetId, shipId: ShipId): Promise<void>;
+  /** Locks a writer ship against every set by it until commit: its retire takes this. */
+  lockWriter(fleetId: FleetId, shipId: ShipId): Promise<void>;
 }
 
 /** Outbound port: the records of the sends the fleet's network rules refused (decision 0034). */

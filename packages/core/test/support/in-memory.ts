@@ -664,6 +664,12 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         return Promise.resolve();
       },
       list: (fleetId) => Promise.resolve(structuredClone(state.verifiedFacts.filter((held) => held.fleetId === fleetId))),
+      listAbout: (fleetId, shipId) => Promise.resolve(structuredClone(state.verifiedFacts.filter((held) => held.fleetId === fleetId && held.shipId === shipId))),
+      listBy: (fleetId, shipId) =>
+        Promise.resolve(structuredClone(state.verifiedFacts.filter((held) => held.fleetId === fleetId && held.writer.kind === 'ship' && held.writer.shipId === shipId))),
+      // One unit of work at a time: nothing to hold.
+      holdWriter: () => Promise.resolve(),
+      lockWriter: () => Promise.resolve(),
       remove: (fleetId, { shipId, writer }) => {
         state.verifiedFacts.splice(0, state.verifiedFacts.length, ...state.verifiedFacts.filter((held) => held.fleetId !== fleetId || held.shipId !== shipId || !isSameWriter(held.writer, writer)));
         return Promise.resolve();

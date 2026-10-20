@@ -26,6 +26,9 @@ export interface WrittenFacts {
 
 export type SetVerifiedFactsRefusal = DomainError<'SHIP_ALREADY_RETIRED'>;
 
+/** Why facts went without their writer withdrawing them: the ship they are about retired, or their writer did. */
+export type FactsRemovedWhy = 'shipRetired' | 'writerRetired';
+
 /** The writer a caller writes as. */
 export function writerOf(caller: Caller): FactWriter {
   switch (caller.kind) {
@@ -42,6 +45,18 @@ export function writerOf(caller: Caller): FactWriter {
   }
 }
 
+/** The writer as an event's details name it: its kind, and the ship's or account's id, or `installation`. */
+function writerDetails(writer: FactWriter): { writerKind: FactWriter['kind']; writer: string } {
+  switch (writer.kind) {
+    case 'ship':
+      return { writerKind: writer.kind, writer: writer.shipId };
+    case 'account':
+      return { writerKind: writer.kind, writer: writer.accountId };
+    case 'installation':
+      return { writerKind: writer.kind, writer: 'installation' };
+  }
+}
+
 /** Whether two writers are the same actor. */
 export function isSameWriter(writer: FactWriter, other: FactWriter): boolean {
   switch (writer.kind) {
@@ -52,6 +67,33 @@ export function isSameWriter(writer: FactWriter, other: FactWriter): boolean {
     case 'installation':
       return other.kind === 'installation';
   }
+}
+
+/**
+ * A ship retires (decision 0059): every writer's facts about it go, as the
+ * ship retired, and its own facts as a writer about every other ship, as
+ * their writer retired. One VerifiedFactsRemoved per set removed, on the ship
+ * it was about, naming the writer and how many facts, never their values.
+ */
+export function removeWithRetiredShip(
+  facts: { about: readonly WrittenFacts[]; by: readonly WrittenFacts[] },
+  retire: { at: Date; actor: Actor },
+): { removed: WrittenFacts[]; events: NewEvent[] } {
+  const removed = [
+    ...facts.about.map((written) => ({ written, why: 'shipRetired' as const })),
+    ...facts.by.filter((written) => !facts.about.some((about) => about.shipId === written.shipId && isSameWriter(about.writer, written.writer))).map((written) => ({ written, why: 'writerRetired' as const })),
+  ];
+  return {
+    removed: removed.map(({ written }) => written),
+    events: removed.map(({ written, why }) => ({
+      fleetId: written.fleetId,
+      type: 'VerifiedFactsRemoved',
+      occurredAt: retire.at,
+      actor: retire.actor,
+      shipId: written.shipId,
+      details: { ...writerDetails(written.writer), facts: written.facts.length, why },
+    })),
+  };
 }
 
 /**

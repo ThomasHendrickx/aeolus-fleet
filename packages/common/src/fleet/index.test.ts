@@ -180,6 +180,7 @@ describe('eventTypeSchema', () => {
       'PluginConnected',
       'PluginDisconnected',
       'VerifiedFactsSet',
+      'VerifiedFactsRemoved',
     ]);
   });
 });
