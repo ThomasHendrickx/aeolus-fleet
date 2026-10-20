@@ -25,7 +25,8 @@ export type RedeemSignInTicket = (input: {
 
 /**
  * Use case: the console redeems a sign-in ticket the installation issued. An
- * operator's ticket starts the session exactly as after a password sign-in:
+ * operator's ticket starts the session exactly as after a password sign-in,
+ * keeping the account it names, if any (decision 0054):
  * it takes argo's lease over and ends any previous session. A viewer's starts
  * a viewer session beside any others (decision 0022). A ticket signs in once and
  * only before it expires; used, expired and unknown tickets are one refusal,
@@ -45,7 +46,7 @@ export function createRedeemSignInTicket(deps: {
       if (redeemed === undefined) {
         return refuse('SIGN_IN_TICKET_INVALID', 'This sign-in link is used or expired: sign in again');
       }
-      const session = { fleetId: redeemed.fleetId, device: input.device ?? UNKNOWN_DEVICE, at };
+      const session = { fleetId: redeemed.fleetId, device: input.device ?? UNKNOWN_DEVICE, accountId: redeemed.accountId, at };
       const starting = { tx, ids: deps.ids, hasher: deps.hasher, random: deps.random };
       return redeemed.as === 'viewer' ? startViewerSession(starting, session) : startConsoleSession(starting, session);
     });

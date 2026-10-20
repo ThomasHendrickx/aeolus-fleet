@@ -1,4 +1,4 @@
-import type { FleetId } from '@aeolus-fleet/common';
+import type { AccountId, FleetId } from '@aeolus-fleet/common';
 
 /** Every sign-in ticket starts so: it says what it is, as a ship secret and a crew token do. */
 export const SIGN_IN_TICKET_PREFIX = 'aeolus_st_v1_';
@@ -18,6 +18,8 @@ export type SignInAs = 'operator' | 'viewer';
 export interface SignInTicket {
   fleetId: FleetId;
   as: SignInAs;
+  /** The account it signs in as argo, by its id only; null for argo's own or a viewer's ticket (decision 0054). */
+  accountId: AccountId | null;
   tokenHash: string;
   issuedAt: Date;
   expiresAt: Date;

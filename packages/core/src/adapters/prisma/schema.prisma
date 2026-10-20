@@ -764,6 +764,8 @@ model ConsoleSession {
   endsBy           DateTime?                @map("ends_by") @db.Timestamptz(3)
   /// The device it signed in from, as the browser told: "Mac · Chrome".
   device           String                   @default("Unknown device")
+  /// The account that signed in as argo, by its id only; null for argo's own sign-in and a viewer (decision 0054).
+  accountId        String?                  @map("account_id")
   tokenHash        String                   @unique @map("token_hash")
   createdAt        DateTime                 @map("created_at") @db.Timestamptz(3)
   lastUsedAt       DateTime                 @map("last_used_at") @db.Timestamptz(3)
@@ -796,6 +798,8 @@ model SignInTicket {
   fleetId   String    @map("fleet_id")
   /// Whom it signs in as: the operator or a viewer (decision 0022).
   signInAs  SignInAs  @map("sign_in_as")
+  /// The account it signs in as argo, by its id only; null for argo's own or a viewer's ticket (decision 0054).
+  accountId String?   @map("account_id")
   issuedAt  DateTime  @map("issued_at") @db.Timestamptz(3)
   expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
   /// When it signed in; null while unused.

@@ -473,6 +473,7 @@ const consoleSessionSqlRow = z
     idle_limit_seconds: z.number(),
     ends_by: z.date().nullable(),
     device: z.string(),
+    account_id: accountIdSchema.nullable(),
     token_hash: z.string(),
     created_at: z.date(),
     last_used_at: z.date(),
@@ -489,6 +490,7 @@ const consoleSessionSqlRow = z
       idleLimitMs: row.idle_limit_seconds * MS_PER_SECOND,
       endsBy: row.ends_by,
       device: row.device,
+      accountId: row.account_id,
       tokenHash: row.token_hash,
       createdAt: row.created_at,
       lastUsedAt: row.last_used_at,
@@ -531,16 +533,16 @@ export function toCrewTokenLease(row: unknown): CrewTokenLease {
   return is_open ? { isOpen: true, crew: toAuthenticatedCrew(row) } : { isOpen: false };
 }
 
-const consoleSessionCallerSqlRow = z.object({ console_session_id: idSchema('consoleSession'), lease_id: idSchema('lease').nullable(), expires_at: z.date() });
+const consoleSessionCallerSqlRow = z.object({ console_session_id: idSchema('consoleSession'), lease_id: idSchema('lease').nullable(), account_id: accountIdSchema.nullable(), expires_at: z.date() });
 
 /**
  * The caller of a console session: its ship, the session it came through,
- * and the lease the session holds (a viewer session holds none), with the
+ * the account that signed in as argo, if one did, and the lease the session holds (a viewer session holds none), with the
  * expiry its use moved to.
  */
 export function toConsoleSessionCaller(row: unknown): { caller: ShipCaller | Crew; expiresAt: Date } {
-  const { console_session_id, lease_id, expires_at } = consoleSessionCallerSqlRow.parse(row);
-  const caller: ShipCaller = { ...toAuthenticatedShip(row), consoleSessionId: console_session_id };
+  const { console_session_id, lease_id, account_id, expires_at } = consoleSessionCallerSqlRow.parse(row);
+  const caller: ShipCaller = { ...toAuthenticatedShip(row), consoleSessionId: console_session_id, ...(account_id === null ? {} : { signedInAccountId: account_id }) };
   return { caller: lease_id === null ? caller : { ...caller, leaseId: lease_id }, expiresAt: expires_at };
 }
 

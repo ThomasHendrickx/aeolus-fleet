@@ -78,7 +78,7 @@ export interface SignInTicketRepository {
    * otherwise. At most one redeem of a ticket ever answers, however many run
    * at once.
    */
-  redeem(tokenHash: string, at: Date): Promise<{ fleetId: FleetId; as: SignInAs } | undefined>;
+  redeem(tokenHash: string, at: Date): Promise<{ fleetId: FleetId; as: SignInAs; accountId: AccountId | null } | undefined>;
 }
 
 /** Outbound port: console sessions, always within one fleet. */

@@ -10,7 +10,7 @@ import type {
   OperatorAccountRepository,
   SignInTicketRepository,
 } from '../../domain/identity/ports.js';
-import { idSchema } from '@aeolus-fleet/common';
+import { accountIdSchema, idSchema } from '@aeolus-fleet/common';
 import { z } from 'zod';
 import type { Db } from './client.js';
 import {
@@ -128,14 +128,14 @@ export function createPrismaSignInTicketRepository(db: Db): SignInTicketReposito
       // One statement marks it used only while unused and unexpired: of redeems racing
       // for one ticket, the row lock lets exactly one see it so. Not scoped by fleet:
       // the ticket names it (ADR 0007).
-      const rows = z.array(z.object({ fleet_id: idSchema('fleet'), sign_in_as: z.enum(['operator', 'viewer']) })).parse(
+      const rows = z.array(z.object({ fleet_id: idSchema('fleet'), sign_in_as: z.enum(['operator', 'viewer']), account_id: accountIdSchema.nullable() })).parse(
         await db.$queryRaw`
           UPDATE sign_in_tickets SET used_at = ${at}
           WHERE token_hash = ${tokenHash} AND used_at IS NULL AND expires_at > ${at}
-          RETURNING fleet_id, sign_in_as::text AS sign_in_as`,
+          RETURNING fleet_id, sign_in_as::text AS sign_in_as, account_id`,
       );
       const [redeemed] = rows;
-      return redeemed && { fleetId: redeemed.fleet_id, as: redeemed.sign_in_as };
+      return redeemed && { fleetId: redeemed.fleet_id, as: redeemed.sign_in_as, accountId: redeemed.account_id };
     },
   };
 }
@@ -147,7 +147,7 @@ export function createPrismaConsoleSessionRepository(db: Db): ConsoleSessionRepo
     },
     find: async (fleetId, consoleSessionId) => {
       const [row] = await db.$queryRaw<unknown[]>`
-        SELECT id, fleet_id, ship_id, lease_id, idle_limit_seconds, ends_by, device, token_hash, created_at, last_used_at, expires_at, ended_at,
+        SELECT id, fleet_id, ship_id, lease_id, idle_limit_seconds, ends_by, device, account_id, token_hash, created_at, last_used_at, expires_at, ended_at,
           end_reason::text AS end_reason
         FROM console_sessions
         WHERE fleet_id = ${fleetId} AND id = ${consoleSessionId}`;
@@ -157,7 +157,7 @@ export function createPrismaConsoleSessionRepository(db: Db): ConsoleSessionRepo
       const [row] = await db.$queryRaw<unknown[]>`
         UPDATE console_sessions SET ended_at = ${at}, end_reason = ${reason}::console_session_end_reason
         WHERE fleet_id = ${fleetId} AND id = ${consoleSessionId} AND ended_at IS NULL
-        RETURNING id, fleet_id, ship_id, lease_id, idle_limit_seconds, ends_by, device, token_hash, created_at, last_used_at, expires_at, ended_at,
+        RETURNING id, fleet_id, ship_id, lease_id, idle_limit_seconds, ends_by, device, account_id, token_hash, created_at, last_used_at, expires_at, ended_at,
           end_reason::text AS end_reason`;
       return row ? toConsoleSession(row) : undefined;
     },
@@ -165,7 +165,7 @@ export function createPrismaConsoleSessionRepository(db: Db): ConsoleSessionRepo
       const rows = await db.$queryRaw<unknown[]>`
         UPDATE console_sessions SET ended_at = ${at}, end_reason = ${reason}::console_session_end_reason
         WHERE fleet_id = ${fleetId} AND ship_id = ${shipId} AND ended_at IS NULL
-        RETURNING id, fleet_id, ship_id, lease_id, idle_limit_seconds, ends_by, device, token_hash, created_at, last_used_at, expires_at, ended_at,
+        RETURNING id, fleet_id, ship_id, lease_id, idle_limit_seconds, ends_by, device, account_id, token_hash, created_at, last_used_at, expires_at, ended_at,
           end_reason::text AS end_reason`;
       return rows.map(toConsoleSession);
     },
@@ -205,7 +205,7 @@ export function createPrismaCallerLookup(db: Db): CallerLookup {
           FROM ships s
           WHERE cs.token_hash = ${tokenHash} AND cs.ended_at IS NULL AND cs.expires_at > ${now}
             AND s.fleet_id = cs.fleet_id AND s.id = cs.ship_id
-          RETURNING cs.id AS console_session_id, cs.lease_id, cs.expires_at, s.id AS ship_id, s.fleet_id, s.kind::text AS kind, s.scopes
+          RETURNING cs.id AS console_session_id, cs.lease_id, cs.account_id, cs.expires_at, s.id AS ship_id, s.fleet_id, s.kind::text AS kind, s.scopes
         ), seen AS (
           UPDATE leases l SET last_seen_at = GREATEST(COALESCE(l.last_seen_at, ${now}), ${now})
           FROM used WHERE l.id = used.lease_id AND l.ended_at IS NULL

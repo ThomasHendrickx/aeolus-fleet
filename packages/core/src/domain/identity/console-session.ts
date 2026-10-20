@@ -1,4 +1,4 @@
-import type { ConsoleSessionId, FleetId, LeaseId, ShipId } from '@aeolus-fleet/common';
+import type { AccountId, ConsoleSessionId, FleetId, LeaseId, ShipId } from '@aeolus-fleet/common';
 
 import type { Location } from '../registry/public.js';
 
@@ -19,6 +19,8 @@ export interface ConsoleSession {
   endsBy: Date | null;
   /** The device it signed in from, as the browser told: "Mac · Chrome". */
   device: string;
+  /** The account that signed in as argo, by its id only; null for argo's own sign-in and a viewer (decision 0054). */
+  accountId: AccountId | null;
   tokenHash: string;
   createdAt: Date;
   lastUsedAt: Date;

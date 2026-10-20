@@ -1,4 +1,4 @@
-import type { FleetId, IdGenerator } from '@aeolus-fleet/common';
+import type { AccountId, FleetId, IdGenerator } from '@aeolus-fleet/common';
 
 import { findViewerShip, type ShipTx } from '../registry/public.js';
 
@@ -17,12 +17,14 @@ export interface IssueSignInTicketTx extends ShipTx {
   events: EventLog;
 }
 
-export type IssueSignInTicketRefusal = DomainError<'FLEET_NOT_FOUND' | 'FLEET_HAS_NO_VIEWER'>;
+export type IssueSignInTicketRefusal = DomainError<'FLEET_NOT_FOUND' | 'FLEET_HAS_NO_VIEWER' | 'VIEWER_TICKET_NAMES_NO_ACCOUNT'>;
 
 export type IssueSignInTicket = (input: {
   fleetId: FleetId;
   /** Whom it signs in as: the operator when left out, or a viewer of a fleet with a viewer ship (decision 0022). */
   as?: SignInAs;
+  /** The account it signs in as argo, by its id only (decision 0054); argo's operator ticket when left out. */
+  account?: { id: AccountId };
 }) => Promise<Result<{ ticket: string }, IssueSignInTicketRefusal>>;
 
 /**
@@ -30,7 +32,9 @@ export type IssueSignInTicket = (input: {
  * operator, or for a viewer of a fleet with a viewer ship (docs/blueprint.md,
  * "Installation"; decision 0022): the hosting service hands it to the
  * person's browser, and the console redeems it for a session. Only
- * its hash is stored; it is valid 2 minutes and signs in once. Each ticket
+ * its hash is stored; it is valid 2 minutes and signs in once. An operator's
+ * ticket may name the account it signs in as argo, by its id only, never
+ * a viewer's (decision 0054). Each ticket
  * stands alone: a new one leaves an earlier unused one to expire.
  */
 export function createIssueSignInTicket(deps: {
@@ -40,10 +44,13 @@ export function createIssueSignInTicket(deps: {
   hasher: SecretHasher;
   random: RandomTokens;
 }): IssueSignInTicket {
-  return ({ fleetId, as = 'operator' }) =>
+  return ({ fleetId, as = 'operator', account }) =>
     deps.uow.run(async (tx): Promise<Result<{ ticket: string }, IssueSignInTicketRefusal>> => {
       if (!(await tx.operatorAccounts.findForFleet(fleetId))) {
         return refuse('FLEET_NOT_FOUND', `The installation hosts no fleet ${fleetId}`);
+      }
+      if (as === 'viewer' && account !== undefined) {
+        return refuse('VIEWER_TICKET_NAMES_NO_ACCOUNT', 'A viewer ticket names no account: the viewer is no account');
       }
       if (as === 'viewer') {
         const viewer = await findViewerShip(tx, fleetId);
@@ -56,6 +63,7 @@ export function createIssueSignInTicket(deps: {
       await tx.signInTickets.create({
         fleetId,
         as,
+        accountId: account?.id ?? null,
         tokenHash: deps.hasher.hash(ticket),
         issuedAt: at,
         expiresAt: new Date(at.getTime() + SIGN_IN_TICKET_VALID_MS),

@@ -1,4 +1,4 @@
-import type { Theme } from '@aeolus-fleet/common';
+import type { AccountId, Theme } from '@aeolus-fleet/common';
 
 import type { ShipCaller } from '../shared/caller.js';
 import { refuse, type DomainError } from '../shared/errors.js';
@@ -17,8 +17,13 @@ interface SessionView {
   since: Date;
 }
 
+/** The operator's session, with the account that signed in as argo, by its id, or none for argo's own sign-in (decision 0054). */
+interface OperatorSessionView extends SessionView {
+  accountId: AccountId | null;
+}
+
 /** The operator's account with this session, or a viewer's session alone: a viewer has no email and no theme (decision 0022). */
-export type AccountView = { kind: 'operator'; email: string; theme: Theme; session: SessionView } | { kind: 'viewer'; session: SessionView };
+export type AccountView = { kind: 'operator'; email: string; theme: Theme; session: OperatorSessionView } | { kind: 'viewer'; session: SessionView };
 
 export type ReadAccount = (caller: ShipCaller) => Promise<Result<AccountView, DomainError<'NOT_THE_OPERATOR_SHIP'>>>;
 
@@ -43,7 +48,7 @@ export function createReadAccount(deps: { uow: UnitOfWork<ReadAccountTx> }): Rea
         kind: 'operator',
         email: account.email,
         theme: account.theme,
-        session: { device: session.device, since: session.createdAt },
+        session: { device: session.device, since: session.createdAt, accountId: session.accountId },
       });
     });
 }

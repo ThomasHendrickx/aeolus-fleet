@@ -76,6 +76,8 @@ export function createSignIn(deps: {
       return startConsoleSession({ tx, ids: deps.ids, hasher: deps.hasher, random: deps.random }, {
         fleetId: account.fleetId,
         device: input.device ?? UNKNOWN_DEVICE,
+        // argo's own sign-in, by its email and password: no account (decision 0054).
+        accountId: null,
         at: deps.clock.now(),
       });
     });

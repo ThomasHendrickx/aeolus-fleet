@@ -1,4 +1,4 @@
-import type { FleetId, IdGenerator } from '@aeolus-fleet/common';
+import type { AccountId, FleetId, IdGenerator } from '@aeolus-fleet/common';
 
 import { findOperatorShip, takeOverOperatorLease, type LeaseTx, type ShipTx } from '../registry/public.js';
 import type { ShipCaller } from '../shared/caller.js';
@@ -19,14 +19,15 @@ export interface StartConsoleSessionTx extends LeaseTx, ShipTx {
  * in the caller's unit of work, however the operator proved who they are: a
  * password or a sign-in ticket. It ends the previous console session and
  * takes argo's lease over, so what argo held in flight returns to pending.
- * The session records the device it signed in from, also argo's location.
+ * The session records the device it signed in from, also argo's location,
+ * and the account that signed in as argo, if one did (decision 0054).
  */
 export async function startConsoleSession(
   deps: { tx: StartConsoleSessionTx; ids: IdGenerator; hasher: SecretHasher; random: RandomTokens },
-  input: { fleetId: FleetId; device: string; at: Date },
+  input: { fleetId: FleetId; device: string; accountId: AccountId | null; at: Date },
 ): Promise<Result<SignedIn, DomainError<'FLEET_NOT_FOUND' | 'NOT_THE_OPERATOR_SHIP'>>> {
   const { tx, ids } = deps;
-  const { fleetId, device, at } = input;
+  const { fleetId, device, accountId, at } = input;
   const found = await findOperatorShip(tx, fleetId);
   if (!found.isOk) {
     return found;
@@ -58,6 +59,7 @@ export async function startConsoleSession(
     idleLimitMs: CONSOLE_SESSION_IDLE_LIMIT_MS,
     endsBy: null,
     device,
+    accountId,
     tokenHash: deps.hasher.hash(token),
     createdAt: at,
     lastUsedAt: at,
@@ -66,6 +68,6 @@ export async function startConsoleSession(
     endReason: null,
   });
 
-  const caller: ShipCaller = { shipId: argo.id, fleetId: argo.fleetId, kind: argo.kind, scopes: argo.scopes, consoleSessionId };
+  const caller: ShipCaller = { shipId: argo.id, fleetId: argo.fleetId, kind: argo.kind, scopes: argo.scopes, consoleSessionId, ...(accountId === null ? {} : { signedInAccountId: accountId }) };
   return ok({ token, consoleSessionId, expiresAt, caller });
 }

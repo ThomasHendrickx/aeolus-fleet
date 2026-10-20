@@ -1110,7 +1110,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
           return Promise.resolve(undefined);
         }
         ticket.usedAt = at;
-        return Promise.resolve({ fleetId: ticket.fleetId, as: ticket.as });
+        return Promise.resolve({ fleetId: ticket.fleetId, as: ticket.as, accountId: ticket.accountId });
       },
     },
     installationSettings: installationSettingsRepository,
@@ -1196,7 +1196,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       if (lease) {
         markSeen(lease, at);
       }
-      const caller = { ...authenticated(owner), consoleSessionId: session.id };
+      const caller = { ...authenticated(owner), consoleSessionId: session.id, ...(session.accountId === null ? {} : { signedInAccountId: session.accountId }) };
       return Promise.resolve({ caller: session.leaseId === null ? caller : { ...caller, leaseId: session.leaseId }, expiresAt });
     },
     consoleSessionEnding: (tokenHash) =>
