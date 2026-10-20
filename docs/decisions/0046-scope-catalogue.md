@@ -15,6 +15,7 @@
 | `fleet:explain` | explain reach, read refusals (0034) | read reach of the ships asked about |
 | `fleet:connect` | connect a plugin (0034) | the fleet |
 | `labels:any` | assign values of any label (0031) | manage reach |
+| `fleet:verify` | write and withdraw its verified facts about a ship (0059) | manage reach |
 | `fleet:commission` | commission an agent, and with `fleet:on-behalf` an app ship (0044), granting only what it may grant | the new ship's owner (0045) |
 | `fleet:manage` | rename, release, recrew, retire, starting prompt, ping, crew request, clear a worktree | manage reach |
 | `crew:assign`, `crew:run` | as 0029 | any request; assignment |

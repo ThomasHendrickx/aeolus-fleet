@@ -253,6 +253,7 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Report | A crew's latest word: working, blocked or idle, a note of at most 200 characters, optional details; on the lease (0028) | core |
 | Details | A report's JSON part, at most 16 KB, versioned; its shape per ship type in common (0028) | core |
 | Statement | What a ship is and offers: a summary and capabilities, stated by its crew (0047) | core |
+| Verified fact | A fact an actor checked about a ship, stored as its writer wrote it, naming the writer (0059) | core |
 | Discovery | A ship asking which ships and types it can send to now (0047) | core |
 | Ping | argo's `application/vnd.aeolus.ping` to a crewed ship, at most one open per ship; proves its model reads | core |
 | Pong | The answer to a ping: acks it and marks last seen | core |
@@ -399,6 +400,7 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `ScopesChanged` | Registry | A live ship's scopes were granted or revoked: added, removed, by whom (decision 0046) |
 | `PluginConnected` | Registry | argo connected the ship as a plugin: it reads every ship, whatever the rules (decision 0034) |
 | `PluginDisconnected` | Registry | A plugin's connection ended: why, its ship released or retired (decision 0034) |
+| `VerifiedFactsSet` | Registry | A writer set its verified facts about the ship, or withdrew them: details hold how many, never their values; the actor is the writer (decision 0059) |
 | `CrewRequested` | Registry | A requester asked that the ship be kept crewed, or replaced the settings of its request: details hold the settings version, never the settings |
 | `CrewRequestExplained` | Registry | The trierarch plugin wrote why no trierarch can take the ship's unassigned crew request, or cleared it: details hold the reason |
 | `CrewAssigned` | Registry | The trierarch plugin assigned the ship's crew request to a trierarch: details hold the trierarch ship |

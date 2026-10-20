@@ -76,6 +76,8 @@ import {
   connectPluginInputSchema,
   connectPluginOutputSchema,
   setOwnerOutputSchema,
+  setVerifiedFactsInputSchema,
+  setVerifiedFactsOutputSchema,
   explainReachOutputSchema,
   applyNetworkRulesInputSchema,
   discardNetworkRulesDraftOutputSchema,
@@ -533,6 +535,22 @@ export const fleetRouter = router({
     .mutation(async ({ ctx, input }) => {
       const { scopes } = okOrThrow(await ctx.useCases.grantScopes(ctx.caller, input));
       return { scopes: [...scopes] };
+    }),
+
+  /** Sets the caller's verified facts about a ship within its manage reach, whole (decision 0059). */
+  setVerifiedFacts: actorScopedProcedure('fleet:verify')
+    .meta({
+      description: [
+        'Needs fleet:verify, and manage reach on the ship (decision 0059). Sets what your ship checked about a ship, whole, in place of the facts it wrote before; none withdraws them.',
+        "Each fact names what was checked (clientIdDocumentDomain, tlsHost, a2aCardDomain, or oauthSubject with the issuer it means something under) and the value the check found; at most 10, each once. Another writer's facts stay.",
+        'The fleet stores them as written, naming your ship as their writer, and checks nothing in them.',
+      ].join(' '),
+    })
+    .input(setVerifiedFactsInputSchema)
+    .output(setVerifiedFactsOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.setVerifiedFacts(ctx.caller, input));
+      return {};
     }),
 
   /** Defines a label the caller's ship then owns (decision 0031). */
