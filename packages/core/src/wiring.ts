@@ -456,6 +456,6 @@ export function createUseCases(options: {
       clock,
     }),
     authenticateInstallation: createAuthenticateInstallation({ fleets: hostedFleets }),
-    cutOffAccount: createCutOffAccount({ cutOffs: accountCutOffs, clock }),
+    cutOffAccount: createCutOffAccount({ cutOffs: accountCutOffs, uow, clock, ids }),
   };
 }

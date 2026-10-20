@@ -139,7 +139,7 @@ export function identityUseCases(core: InMemoryCore) {
   return {
     authenticateAccount: createAuthenticateAccount({ signatures: { verify: () => Promise.resolve(undefined) }, cutOffs, fleets, clock: core.clock }),
     authenticateInstallation: createAuthenticateInstallation({ fleets }),
-    cutOffAccount: createCutOffAccount({ cutOffs, clock: core.clock }),
+    cutOffAccount: createCutOffAccount({ cutOffs, uow: core.uow, clock: core.clock, ids: core.ids }),
     signIn: createSignIn(deps),
     signOut: createSignOut(deps),
     resetOperatorPassword: createResetOperatorPassword(deps),

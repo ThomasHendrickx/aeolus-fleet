@@ -169,6 +169,15 @@ export function createPrismaConsoleSessionRepository(db: Db): ConsoleSessionRepo
           end_reason::text AS end_reason`;
       return rows.map(toConsoleSession);
     },
+    endAllOfAccount: async (accountId, { at, reason }) => {
+      // Across the fleets of the installation on purpose: a cut-off belongs to the installation (decision 0055).
+      const rows = await db.$queryRaw<unknown[]>`
+        UPDATE console_sessions SET ended_at = ${at}, end_reason = ${reason}::console_session_end_reason
+        WHERE account_id = ${accountId} AND ended_at IS NULL
+        RETURNING id, fleet_id, ship_id, lease_id, idle_limit_seconds, ends_by, device, account_id, token_hash, created_at, last_used_at, expires_at, ended_at,
+          end_reason::text AS end_reason`;
+      return rows.map(toConsoleSession);
+    },
   };
 }
 

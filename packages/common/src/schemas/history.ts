@@ -140,7 +140,7 @@ export const overdueClockSchema = z.enum(OVERDUE_CLOCKS);
 export type OverdueClock = z.infer<typeof overdueClockSchema>;
 
 /** Why a lease ended, as its LeaseRevoked says. */
-export const LEASE_END_REASONS = ['released', 'retired', 'deregistered', 'takenOver', 'signedOut', 'passwordReset'] as const;
+export const LEASE_END_REASONS = ['released', 'retired', 'deregistered', 'takenOver', 'signedOut', 'passwordReset', 'accountCutOff'] as const;
 export const leaseEndReasonSchema = z.enum(LEASE_END_REASONS);
 export type LeaseEndReason = z.infer<typeof leaseEndReasonSchema>;
 

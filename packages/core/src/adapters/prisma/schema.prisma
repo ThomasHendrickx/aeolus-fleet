@@ -720,6 +720,7 @@ enum ConsoleSessionEndReason {
   takenOver
   signedOut
   passwordReset
+  accountCutOff
 
   @@map("console_session_end_reason")
 }

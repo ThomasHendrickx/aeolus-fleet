@@ -32,10 +32,11 @@ export interface ConsoleSession {
 
 /**
  * Why a console session ended: the operator signed in somewhere else and took
- * argo over, signed out, or the password was reset. An expired session never
+ * argo over, signed out, the password was reset, or the installation cut off
+ * the account it signed in as argo (decision 0055). An expired session never
  * ended; it simply stopped working.
  */
-export type ConsoleSessionEndReason = 'takenOver' | 'signedOut' | 'passwordReset';
+export type ConsoleSessionEndReason = 'takenOver' | 'signedOut' | 'passwordReset' | 'accountCutOff';
 
 /** The operator's console session stays valid this long after its last use. */
 export const CONSOLE_SESSION_IDLE_LIMIT_MS = 30 * 24 * 60 * 60 * 1000;

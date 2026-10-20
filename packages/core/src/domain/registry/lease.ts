@@ -78,7 +78,7 @@ export interface Lease {
  * or retired the ship, its crew deregistered, or, for argo, a sign-in took it
  * over, the operator signed out or the password was reset.
  */
-export type LeaseEndReason = 'released' | 'retired' | 'deregistered' | 'takenOver' | 'signedOut' | 'passwordReset';
+export type LeaseEndReason = 'released' | 'retired' | 'deregistered' | 'takenOver' | 'signedOut' | 'passwordReset' | 'accountCutOff';
 
 export type LeaseEnded = DomainError<'LEASE_ENDED'>;
 

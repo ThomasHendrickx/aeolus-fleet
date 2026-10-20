@@ -967,6 +967,14 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         }
         return Promise.resolve(open.map((session) => ({ ...session })));
       },
+      endAllOfAccount: (accountId, { at, reason }) => {
+        const open = state.consoleSessions.filter((held) => held.accountId === accountId && held.endedAt === null);
+        for (const session of open) {
+          session.endedAt = at;
+          session.endReason = reason;
+        }
+        return Promise.resolve(open.map((session) => ({ ...session })));
+      },
     },
     messages: {
       lockDailyCount: () => Promise.resolve(),
