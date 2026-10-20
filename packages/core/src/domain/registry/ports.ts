@@ -5,7 +5,7 @@ import type { ClearRequest } from './clear-request.js';
 import type { CrewRequest } from './crew-request.js';
 import type { Fleet } from './fleet.js';
 import type { InstallationRequest } from './installation-request.js';
-import type { CarriedLabel, Label, ListedLabel, ShipLabel } from './label.js';
+import type { CarriedLabel, Label, LabelOwner, ListedLabel, ShipLabel } from './label.js';
 import type { FleetLimitSettings, InstallationSettings } from './limits.js';
 import type { Lease, Location } from './lease.js';
 import type { DeclaredNetworkRules } from './declared-network-rules.js';
@@ -13,7 +13,7 @@ import type { NetworkSettings } from './network-settings.js';
 import type { PluginConnection } from './plugin-connection.js';
 import type { ReachRefusal } from './reach-refusal.js';
 import type { ScopeNamespace } from './scope-namespace.js';
-import type { Ship } from './ship.js';
+import type { Commissioner, Ship } from './ship.js';
 import type { ShipReport } from './ship-report.js';
 import type { StatedStatement } from './statement.js';
 import type { Turn } from './turn.js';
@@ -79,10 +79,10 @@ export interface ShipRepository {
   /** The ship of the fleet that is not retired and has this name. */
   findActiveByName(fleetId: FleetId, name: string): Promise<Ship | undefined>;
   /**
-   * Holds the lock on this commissioning ship's idempotency key until the unit
+   * Holds the lock on this commissioning actor's idempotency key until the unit
    * of work ends, so two commissions under one key never both find it unused.
    */
-  lockCommissionKey(key: { fleetId: FleetId; by: ShipId; idempotencyKey: string }): Promise<void>;
+  lockCommissionKey(key: { fleetId: FleetId; by: Commissioner; idempotencyKey: string }): Promise<void>;
   /**
    * Holds the fleet's ship-count lock until the unit of work ends, so two
    * commissions at the ship limit never both see room for one more.
@@ -90,8 +90,8 @@ export interface ShipRepository {
   lockShipCount(fleetId: FleetId): Promise<void>;
   /** The fleet's ships that are not retired, argo included. */
   countActive(fleetId: FleetId): Promise<number>;
-  /** The ship this commissioning ship commissioned under this idempotency key, retired or not. */
-  findByCommissionKey(key: { fleetId: FleetId; by: ShipId; idempotencyKey: string }): Promise<Ship | undefined>;
+  /** The ship this commissioning actor commissioned under this idempotency key, retired or not. */
+  findByCommissionKey(key: { fleetId: FleetId; by: Commissioner; idempotencyKey: string }): Promise<Ship | undefined>;
   /**
    * The ship, locked against a second lock until the unit of work ends: a use
    * case that locks it, such as a new starting prompt, locks it first. Lock
@@ -254,11 +254,11 @@ export interface NetworkSettingsRepository {
 
 /** Each ship's declared network rules (decision 0037). */
 export interface DeclaredNetworkRulesRepository {
-  /** Every ship's declared rules in the fleet, by ship id: the order the ships were commissioned. */
+  /** Every declarer's declared rules in the fleet: the ships by id, the order they were commissioned, then the installation's. */
   list(fleetId: FleetId): Promise<DeclaredNetworkRules[]>;
-  /** The ship's declared rules; none while it declares none. */
-  find(fleetId: FleetId, shipId: ShipId): Promise<DeclaredNetworkRules | undefined>;
-  /** Keeps the ship's whole list from now on; an empty one keeps none. */
+  /** The declarer's declared rules; none while it declares none. */
+  find(fleetId: FleetId, declarer: LabelOwner): Promise<DeclaredNetworkRules | undefined>;
+  /** Keeps the declarer's whole list from now on; an empty one keeps none. */
   save(declared: DeclaredNetworkRules): Promise<void>;
 }
 

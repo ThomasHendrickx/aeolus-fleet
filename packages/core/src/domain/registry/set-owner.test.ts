@@ -2,9 +2,12 @@ import type { ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
+import { readReachScenario } from '../../../test/support/read-reach-scenario.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../testing/result.js';
-import type { ShipCaller } from '../shared/caller.js';
+import { accountIdSchema } from '@aeolus-fleet/common';
+
+import type { AccountCaller, ShipCaller } from '../shared/caller.js';
 import { newKey } from '../../testing/keys.js';
 
 let core: InMemoryCore;
@@ -30,7 +33,7 @@ function ownerOf(shipId: ShipId) {
   return core.state.ships.find((held) => held.id === shipId)?.owner;
 }
 
-describe("setting a ship's owner (decision 0045)", () => {
+describe("setting a ship's owner (decisions 0045, 0053)", () => {
   it("makes a person's ship the owner, with OwnerChanged caused by argo", async () => {
     await expect(registry.setOwner(argo, { shipId: scoutId, ownerShipId: thomasId })).resolves.toEqual({ isOk: true, value: undefined });
 
@@ -41,7 +44,7 @@ describe("setting a ship's owner (decision 0045)", () => {
         occurredAt: core.clock.now(),
         actor: { kind: 'ship', shipId: argoId },
         shipId: scoutId,
-        details: { fromShipId: argoId, toShipId: thomasId, why: 'setByArgo' },
+        details: { fromShipId: argoId, toShipId: thomasId, why: 'set' },
       }),
     ]);
   });
@@ -61,15 +64,25 @@ describe("setting a ship's owner (decision 0045)", () => {
     expect(core.state.events).toEqual([]);
   });
 
-  it('refuses any caller but argo, changing nothing', async () => {
-    const manager: ShipCaller = { ...argo, shipId: scoutId, kind: 'agent' };
+  it('lets any ship holding fleet:owner change an owner within its manage reach, the event naming it, not only argo', async () => {
+    const { shipId: adminId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'admin', type: 'admin', scopes: ['fleet:owner'] }));
+    const admin: ShipCaller = { fleetId: argo.fleetId, shipId: adminId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'fleet:owner'] };
+    core.state.events.length = 0;
 
-    await expect(registry.setOwner(manager, { shipId: scoutId, ownerShipId: thomasId })).resolves.toMatchObject({
-      isOk: false,
-      error: { kind: 'NOT_THE_OPERATOR_SHIP' },
-    });
-    expect(ownerOf(scoutId)).toBe(argoId);
-    expect(core.state.events).toEqual([]);
+    unwrap(await registry.setOwner(admin, { shipId: scoutId, ownerShipId: thomasId }));
+
+    expect(ownerOf(scoutId)).toBe(thomasId);
+    expect(core.state.events.map(({ type, actor }) => ({ type, actor }))).toEqual([{ type: 'OwnerChanged', actor: { kind: 'ship', shipId: adminId } }]);
+  });
+
+  it('lets an account holding fleet:owner change an owner, the event naming the account by its id', async () => {
+    const mathilde = accountIdSchema.parse('acc-mathilde');
+    const account: AccountCaller = { kind: 'account', accountId: mathilde, fleetId: argo.fleetId, scopes: ['fleet:owner'], groupValues: [], personShipId: null, throughShipId: null };
+
+    unwrap(await registry.setOwner(account, { shipId: scoutId, ownerShipId: thomasId }));
+
+    expect(ownerOf(scoutId)).toBe(thomasId);
+    expect(core.state.events.map(({ actor }) => actor)).toEqual([{ kind: 'account', accountId: mathilde, throughShipId: null }]);
   });
 
   it('refuses an owner that is an agent ship: an owner is a person or argo', async () => {
@@ -119,5 +132,22 @@ describe("setting a ship's owner (decision 0045)", () => {
       isOk: false,
       error: { kind: 'SHIP_ALREADY_RETIRED' },
     });
+  });
+});
+
+describe("setting an owner outside the actor's manage reach (decisions 0034, 0053)", () => {
+  it('is refused as a manage the rules do not allow, recording the refusal and changing nothing', async () => {
+    const fleet = await readReachScenario();
+    const { shipId: personId } = unwrap(await fleet.registry.commissionShip(fleet.argo, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person' }));
+    unwrap(await fleet.registry.setBuiltInRule(fleet.networking, { rule: 'open', verb: 'manage', isOn: false }));
+    fleet.core.state.reachRefusals.length = 0;
+    const admin: ShipCaller = { ...fleet.near, scopes: ['fleet:owner'] };
+
+    await expect(fleet.registry.setOwner(admin, { shipId: fleet.far.shipId, ownerShipId: personId })).resolves.toEqual({
+      isOk: false,
+      error: { kind: 'NOT_REACHABLE', message: 'The network rules do not allow this manage' },
+    });
+    expect(fleet.core.state.ships.find((ship) => ship.id === fleet.far.shipId)?.owner).toBe(fleet.argo.shipId);
+    expect(fleet.core.state.reachRefusals.map(({ verb }) => verb)).toEqual(['manage']);
   });
 });

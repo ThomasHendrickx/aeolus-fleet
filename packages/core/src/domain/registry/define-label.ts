@@ -1,11 +1,11 @@
 import type { IdGenerator, LabelId } from '@aeolus-fleet/common';
 
-import type { ShipCaller } from '../shared/caller.js';
+import { actorOf, type Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
-import { recordEvent, shipActor, type EventLog } from '../shared/events.js';
+import { recordEvent, type EventLog } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
-import { defineLabel, type DefineLabelRefusal, type LabelValue } from './label.js';
+import { defineLabel, labelOwnerOf, ownerNameOf, type DefineLabelRefusal, type LabelValue } from './label.js';
 import type { LabelRepository, ShipRepository } from './ports.js';
 
 export interface DefineLabelTx {
@@ -20,7 +20,7 @@ export interface DefinedLabel {
   values: readonly LabelValue[];
 }
 
-export type DefineLabel = (caller: ShipCaller, input: { key: string; values: readonly string[] }) => Promise<Result<DefinedLabel, DefineLabelRefusal>>;
+export type DefineLabel = (caller: Caller, input: { key: string; values: readonly string[] }) => Promise<Result<DefinedLabel, DefineLabelRefusal>>;
 
 /**
  * Use case: the caller's ship defines a label it then owns (decision 0031).
@@ -34,15 +34,14 @@ export function createDefineLabel(deps: { uow: UnitOfWork<DefineLabelTx>; clock:
       const { fleetId } = caller;
       await tx.labels.lockKey(fleetId, input.key);
       const label = await tx.labels.findByKey(fleetId, input.key);
-      const owner = label && (await tx.ships.find(fleetId, label.ownerShipId));
       const defined = defineLabel(
-        { owner: { fleetId, id: caller.shipId }, existing: label && { label, ownerName: owner?.name ?? label.ownerShipId } },
+        { fleetId, owner: labelOwnerOf(caller), existing: label && { label, ownerName: await ownerNameOf(label.owner, async (shipId) => (await tx.ships.find(fleetId, shipId))?.name) } },
         {
           id: deps.ids('label'),
           key: input.key,
           values: input.values.map((value) => ({ value, newId: deps.ids('labelValue') })),
           at: deps.clock.now(),
-          actor: shipActor(caller.shipId),
+          actor: actorOf(caller),
         },
       );
       if (!defined.isOk) {

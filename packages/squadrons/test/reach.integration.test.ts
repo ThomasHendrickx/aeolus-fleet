@@ -74,7 +74,7 @@ async function labelsOf(shipId: ShipId): Promise<string[]> {
 
 /** Every rule the fleet holds declared, by the ship that declared it. */
 async function declared(): Promise<{ shipId: string; rules: unknown[] }[]> {
-  return (await useCases.readDeclaredNetworkRules(argo)).map(({ shipId, rules }) => ({ shipId, rules: [...rules] })).filter((each) => each.rules.length > 0);
+  return (await useCases.readDeclaredNetworkRules(argo)).map(({ declarer, rules }) => ({ shipId: declarer.kind === 'ship' ? declarer.shipId : declarer.kind, rules: [...rules] })).filter((each) => each.rules.length > 0);
 }
 
 /** The fleet down and up again on the same address: squadrons' calls meanwhile get no answer. */

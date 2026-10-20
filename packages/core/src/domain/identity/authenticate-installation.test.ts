@@ -17,7 +17,7 @@ describe('authenticating the installation in a fleet', () => {
   it('makes the installation the caller, with the scopes its jobs need there that the catalogue holds (decision 0020)', async () => {
     const authenticate = authenticateInstallationIn([fleetId]);
 
-    expect(unwrap(await authenticate({ fleetId }))).toEqual({ kind: 'installation', fleetId, scopes: ['fleet:manage', 'labels:define', 'labels:assign'] });
+    expect(unwrap(await authenticate({ fleetId }))).toEqual({ kind: 'installation', fleetId, scopes: ['fleet:read', 'fleet:manage', 'labels:define', 'labels:assign', 'fleet:person', 'labels:any'] });
   });
 
   it('refuses a fleet this installation does not host', async () => {

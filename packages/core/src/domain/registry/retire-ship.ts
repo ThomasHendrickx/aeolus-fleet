@@ -160,7 +160,7 @@ export function createRetireShip(deps: {
       for (const event of labels.events) {
         await recordEvent(recorded, event);
       }
-      const withdrawn = withdrawWithRetiredShip(await tx.declaredNetworkRules.find(fleetId, shipId), { at, actor });
+      const withdrawn = withdrawWithRetiredShip(await tx.declaredNetworkRules.find(fleetId, { kind: 'ship', shipId }), { at, actor });
       if (withdrawn !== undefined) {
         await tx.declaredNetworkRules.save(withdrawn.declared);
         for (const event of withdrawn.events) {

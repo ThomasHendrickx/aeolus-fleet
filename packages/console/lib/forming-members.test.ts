@@ -11,7 +11,7 @@ const PLUGIN: ListedShip = {
   id: newId('ship'), name: 'trierarch-plugin', type: 'trierarch-plugin', kind: 'agent', status: 'crewed', startingPrompt: null, location: null, lastSeenAt: null, ping: null,
   scopes: [], labels: [], report: null, harness: null, model: null, awaitingCrewSince: null, crewRequest: null, retiredAt: null,
 };
-const OS: ListedLabel = { id: newId('label'), key: 'os', values: [{ id: newId('labelValue'), value: 'linux' }, { id: newId('labelValue'), value: 'macos' }], owner: { id: PLUGIN.id, name: PLUGIN.name } };
+const OS: ListedLabel = { id: newId('label'), key: 'os', values: [{ id: newId('labelValue'), value: 'linux' }, { id: newId('labelValue'), value: 'macos' }], owner: { kind: 'ship', id: PLUGIN.id, name: PLUGIN.name } };
 const LINUX = OS.values[0]?.id ?? '';
 const CONTEXT = labelContextOf([OS], { ships: [PLUGIN], isOperator: true });
 

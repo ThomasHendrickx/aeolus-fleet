@@ -64,8 +64,10 @@ describe('unassigning a label', () => {
     expect(core.state.events).toEqual([]);
   });
 
-  it('refuses a ship that does not own the label, argo too', async () => {
-    await expect(registry.unassignLabel(argo, { shipId: builderId, valueId: macos })).resolves.toMatchObject({
+  it('refuses a ship that does not own the label and holds no labels:any', async () => {
+    const unassigner: ShipCaller = { ...argo, shipId: builderId, kind: 'agent', scopes: ['labels:assign'] };
+
+    await expect(registry.unassignLabel(unassigner, { shipId: builderId, valueId: macos })).resolves.toMatchObject({
       isOk: false,
       error: { kind: 'NOT_THE_LABEL_OWNER', message: 'The label os is owned by trierarch-plugin: only its owner unassigns it' },
     });
@@ -79,9 +81,15 @@ describe('unassigning a label', () => {
 
     await expect(registry.unassignLabel(plugin, { shipId: strangerId, valueId: macos })).resolves.toEqual({
       isOk: false,
-      error: { kind: 'NOT_YOUR_SHIP_TO_LABEL', message: 'stranger is neither your ship nor one it commissioned: only argo labels it' },
+      error: { kind: 'NOT_YOUR_SHIP_TO_LABEL', message: 'stranger is neither your ship nor one it commissioned: labelling it needs labels:any' },
     });
     expect(carriedText(core, strangerId)).toEqual(['os=macos']);
+  });
+
+  it("lets argo, which holds labels:any, take another owner's value off a ship (decision 0053)", async () => {
+    unwrap(await registry.unassignLabel(argo, { shipId: builderId, valueId: macos }));
+
+    expect(carriedText(core, builderId)).toEqual(['os=linux', 'project=hemma']);
   });
 
   it('lets argo take a value of a label argo owns off any ship (decision 0046)', async () => {

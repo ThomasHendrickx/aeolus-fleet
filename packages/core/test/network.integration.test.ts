@@ -506,7 +506,7 @@ describe('declared network rules on Postgres (decision 0037)', () => {
     unwrap(await core.useCases.declareNetworkRules(labeller, { rules: [sameTrust()] }));
     const plugin = await registeredPlugin();
 
-    await expect(core.useCases.readDeclaredNetworkRules(plugin)).resolves.toEqual([{ shipId: labeller.shipId, rules: [sameTrust()] }]);
+    await expect(core.useCases.readDeclaredNetworkRules(plugin)).resolves.toEqual([{ declarer: { kind: 'ship', shipId: labeller.shipId }, rules: [sameTrust()] }]);
     unwrap(await core.useCases.declareNetworkRules(labeller, { rules: [] }));
     await expect(core.useCases.readDeclaredNetworkRules(plugin)).resolves.toEqual([]);
     await expect(core.prisma.declaredNetworkRules.count()).resolves.toBe(0);

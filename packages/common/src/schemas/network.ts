@@ -121,8 +121,13 @@ export const declareNetworkRulesInputSchema = z.object({ rules: z.array(networkR
 /** Output of `fleet.declareNetworkRules`: how many rules the ship declares now. */
 export const declareNetworkRulesOutputSchema = z.object({ rules: z.int().min(0) });
 
-/** Output of `fleet.declaredNetworkRules` (fleet:network): each ship that declared rules, with its whole list. */
-export const declaredNetworkRulesOutputSchema = z.array(z.object({ shipId: idSchema('ship'), rules: z.array(networkRuleSchema) }));
+/** Who declared network rules (decisions 0037, 0052): a ship, or the installation on the labels it owns. */
+export const declarerSchema = z.discriminatedUnion('kind', [z.object({ kind: z.literal('ship'), shipId: idSchema('ship') }), z.object({ kind: z.literal('installation') })]);
+
+export type Declarer = z.infer<typeof declarerSchema>;
+
+/** Output of `fleet.declaredNetworkRules` (fleet:network): each declarer of rules, with its whole list. */
+export const declaredNetworkRulesOutputSchema = z.array(z.object({ declarer: declarerSchema, rules: z.array(networkRuleSchema) }));
 
 /**
  * What happens to sends while a fleet's networking plugin is unavailable
@@ -208,13 +213,13 @@ export const explainReachInputSchema = z.object({ fromShipId: idSchema('ship'), 
 /**
  * The rule that lets one ship reach another (decision 0034): a built-in rule;
  * a rule the networking plugin supplied, by its place in the fleet's list;
- * or a rule a ship declared, by its declarer and its place in that ship's
- * list (decision 0037).
+ * or a declared rule, by its declarer, a ship or the installation, and its
+ * place in that declarer's list (decision 0037).
  */
 export const reachRuleSchema = z.union([
   z.object({ builtIn: z.enum(BUILT_IN_RULES) }),
   z.object({ plugin: z.int().min(0) }),
-  z.object({ declared: idSchema('ship'), index: z.int().min(0) }),
+  z.object({ declared: declarerSchema, index: z.int().min(0) }),
 ]);
 
 export type ReachRule = z.infer<typeof reachRuleSchema>;

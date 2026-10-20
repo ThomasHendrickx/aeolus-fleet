@@ -13,8 +13,8 @@ function aRule(): NetworkRule {
   return { verb: 'send', from: [{ labelId: newId('label'), value: '#' }], to: [{ labelId: newId('label'), value: '#' }] };
 }
 
-function declaredBy(shipId: ShipId, rules: NetworkRule[] = [aRule()]): { shipId: ShipId; rules: NetworkRule[] } {
-  return { shipId, rules };
+function declaredBy(shipId: ShipId, rules: NetworkRule[] = [aRule()]): { declarer: { kind: 'ship'; shipId: ShipId }; rules: NetworkRule[] } {
+  return { declarer: { kind: 'ship', shipId }, rules };
 }
 
 describe('the declared rules Network shows', () => {
@@ -22,7 +22,7 @@ describe('the declared rules Network shows', () => {
     const squadrons = aListedShip('squadrons');
     const rules = [aRule(), aRule()];
 
-    expect(declaredRulesOf([declaredBy(squadrons.id, rules)], [squadrons])).toEqual([{ shipId: squadrons.id, declaredBy: 'squadrons', rules }]);
+    expect(declaredRulesOf([declaredBy(squadrons.id, rules)], [squadrons])).toEqual([{ declarerId: squadrons.id, declaredBy: 'squadrons', rules }]);
   });
 
   it('are listed by the name of the ship that declared them', () => {
@@ -32,6 +32,12 @@ describe('the declared rules Network shows', () => {
     const declared = declaredRulesOf([declaredBy(trierarchPlugin.id), declaredBy(squadrons.id)], [squadrons, trierarchPlugin]);
 
     expect(declared.map((each) => each.declaredBy)).toEqual(['squadrons', 'trierarch-plugin']);
+  });
+
+  it('name the installation for the rules it declared (decision 0052)', () => {
+    const rules = [aRule()];
+
+    expect(declaredRulesOf([{ declarer: { kind: 'installation' }, rules }], [])).toEqual([{ declarerId: 'installation', declaredBy: 'the installation', rules }]);
   });
 
   it('leave out a ship that declares none', () => {

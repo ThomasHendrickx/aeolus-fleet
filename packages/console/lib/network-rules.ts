@@ -1,6 +1,6 @@
 import { isOwnerTerm, type LabelTerm, type NetworkRule, type NetworkVerb, type OwnerTerm, type SelectorTerm, type ShipId } from '@aeolus-fleet/common';
 
-import { pickedChips, type LabelChip, type LabelContext } from './labels';
+import { labelOwnerName, pickedChips, type LabelChip, type LabelContext } from './labels';
 import type { SavedRules } from './networking-plugin-schemas';
 
 /**
@@ -193,7 +193,7 @@ function chipOf(term: LabelTerm, context: LabelContext): TermChip | undefined {
     return undefined;
   }
   const owner = context.ownerOf.get(label.id);
-  return { labelId: label.id, key: label.key, value: term.value, mark: owner?.mark ?? 'ship', ownerName: owner?.name ?? label.owner.name, term };
+  return { labelId: label.id, key: label.key, value: term.value, mark: owner?.mark ?? 'ship', ownerName: owner?.name ?? labelOwnerName(label.owner), term };
 }
 
 /**

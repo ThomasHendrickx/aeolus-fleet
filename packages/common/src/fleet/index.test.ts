@@ -15,9 +15,49 @@ import {
 } from './index.js';
 
 describe('the scopes', () => {
-  it('are the message scopes, then the fleet scopes, then declaring and granting scopes, and nothing else (decision 0046)', () => {
-    expect(SCOPES).toEqual(['messages:send', 'messages:receive', 'messages:force', 'messages:resend', 'fleet:read', 'fleet:commission', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'fleet:on-behalf', 'scopes:declare', 'scopes:grant']);
-    expect(FLEET_SCOPES).toEqual(['messages:resend', 'fleet:read', 'fleet:commission', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'fleet:on-behalf']);
+  it('are the message scopes, then the fleet scopes, then the scopes for what was argo\'s alone, then declaring and granting scopes, and nothing else (decisions 0046, 0053)', () => {
+    expect(SCOPES).toEqual([
+      'messages:send',
+      'messages:receive',
+      'messages:force',
+      'messages:resend',
+      'fleet:read',
+      'fleet:commission',
+      'fleet:manage',
+      'crew:assign',
+      'crew:run',
+      'labels:define',
+      'labels:assign',
+      'fleet:network',
+      'fleet:on-behalf',
+      'fleet:person',
+      'fleet:owner',
+      'fleet:explain',
+      'fleet:connect',
+      'labels:any',
+      'scopes:declare',
+      'scopes:grant',
+    ]);
+  });
+
+  it('let a commission grant every job argo had alone, so an agent ship can hold each (decision 0053)', () => {
+    expect(FLEET_SCOPES).toEqual([
+      'messages:resend',
+      'fleet:read',
+      'fleet:commission',
+      'fleet:manage',
+      'crew:assign',
+      'crew:run',
+      'labels:define',
+      'labels:assign',
+      'fleet:network',
+      'fleet:on-behalf',
+      'fleet:person',
+      'fleet:owner',
+      'fleet:explain',
+      'fleet:connect',
+      'labels:any',
+    ]);
   });
 });
 

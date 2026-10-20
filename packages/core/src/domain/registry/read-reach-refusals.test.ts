@@ -1,9 +1,10 @@
-import { REACH_REFUSALS_READ_MAX, type FleetId, type ShipId } from '@aeolus-fleet/common';
+import { accountIdSchema, REACH_REFUSALS_READ_MAX, type FleetId, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { hostedFleet, initialiseFleet, operatorCaller } from '../../../test/support/core-fixtures.js';
+import { hostedFleet, initialiseFleet, operatorCaller, readReachOf } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
-import { refusalOf, unwrap } from '../../testing/result.js';
+import { readReachScenario } from '../../../test/support/read-reach-scenario.js';
+import { unwrap } from '../../testing/result.js';
 import type { ShipCaller } from '../shared/caller.js';
 import type { ReachRefusal } from './reach-refusal.js';
 import { createReadReachRefusals } from './read-reach-refusals.js';
@@ -35,7 +36,7 @@ beforeEach(async () => {
   const fleet = await initialiseFleet(core);
   ({ fleetId } = fleet);
   argo = operatorCaller(fleet);
-  readReachRefusals = createReadReachRefusals({ reachRefusals: core.reachRefusals });
+  readReachRefusals = createReadReachRefusals({ reachRefusals: core.reachRefusals, readReach: readReachOf(core) });
 });
 
 describe('reading the reach refusals', () => {
@@ -66,9 +67,34 @@ describe('reading the reach refusals', () => {
     expect(unwrap(await readReachRefusals(argo))).toEqual([]);
   });
 
-  it('refuses every ship but argo, even one that sets the rules', async () => {
-    const setter: ShipCaller = { fleetId, shipId: core.ids('ship') satisfies ShipId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:network'] };
+});
 
-    expect(refusalOf(await readReachRefusals(setter))).toEqual({ kind: 'NOT_THE_OPERATOR_SHIP', message: 'Only argo reads the reach refusals' });
+describe('reading the reach refusals with fleet:explain (decision 0053)', () => {
+  it('answers any actor holding fleet:explain the refusals whose sender or recipient ship it reads, and no other', async () => {
+    const fleet = await readReachScenario();
+    await fleet.readRulesApply();
+    const read = createReadReachRefusals({ reachRefusals: fleet.core.reachRefusals, readReach: readReachOf(fleet.core) });
+    const asSeen = (ship: { shipId: ShipId }) => ({ id: ship.shipId, name: 'as it was', labels: [], owner: null });
+    const refusal = (sender: ReachRefusal['sender'], recipient: { shipId: ShipId }): ReachRefusal => ({
+      fleetId: fleet.fleetId,
+      id: fleet.core.ids('reachRefusal'),
+      at: fleet.core.clock.now(),
+      sender,
+      askedBy: null,
+      recipient: { kind: 'ship', ship: asSeen(recipient) },
+      verb: 'send',
+      settingsVersion: 1,
+      whilePluginUnavailable: null,
+    });
+    const toNear = refusal({ kind: 'ship', ...asSeen(fleet.far) }, fleet.near);
+    const fromNear = refusal({ kind: 'ship', ...asSeen(fleet.near) }, fleet.far);
+    const farToFar = refusal({ kind: 'ship', ...asSeen(fleet.far) }, fleet.far);
+    const accountToFar = refusal({ kind: 'account', accountId: accountIdSchema.parse('acc-mathilde'), labels: [], personShip: null }, fleet.far);
+    fleet.core.state.reachRefusals.push(toNear, fromNear, farToFar, accountToFar);
+    const explainer: ShipCaller = { ...fleet.reader, scopes: ['fleet:explain'] };
+
+    const answered = unwrap(await read(explainer));
+
+    expect(answered.map(({ id }) => id).toSorted()).toEqual([toNear.id, fromNear.id].toSorted());
   });
 });

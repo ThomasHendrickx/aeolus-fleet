@@ -18,7 +18,7 @@ const ARGO = aShip('argo', { kind: 'operator', type: 'operator' });
 const PLUGIN = aShip('trierarch-plugin', { type: 'trierarch-plugin' });
 
 function aLabel(definition: { key: string; values: string[] }, owner: ListedShip): ListedLabel {
-  return { id: newId('label'), key: definition.key, values: definition.values.map((value) => ({ id: newId('labelValue'), value })), owner: { id: owner.id, name: owner.name } };
+  return { id: newId('label'), key: definition.key, values: definition.values.map((value) => ({ id: newId('labelValue'), value })), owner: { kind: 'ship', id: owner.id, name: owner.name } };
 }
 
 const OS = aLabel({ key: 'os', values: ['macos', 'linux', 'windows'] }, PLUGIN);

@@ -22,7 +22,7 @@ const NOT_THE_PLUGIN = 'FORBIDDEN';
  * Use case: brings a fleet in line with what the networking plugin holds of
  * it (decision 0035, Thomas on #260). Served (switched on), it registers with
  * what argo declared, then supplies the whole list argo saved with every
- * rule the fleet's ships declared added (decision 0037), or none for
+ * rule the fleet's ships and the installation declared added (decision 0037), or none for
  * all-to-all, and turns the open rules off while argo's rules apply and on
  * for all-to-all (decision 0034). Not served (switched off), it unregisters, taking the rules from
  * the fleet and keeping its own for when it is on again; a fleet that says its

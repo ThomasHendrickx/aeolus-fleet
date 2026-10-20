@@ -164,7 +164,7 @@ export function fakePluginFleet() {
       if (!state.isAnswering) {
         return unavailable();
       }
-      return state.liveTokens.has(crewToken) ? Promise.resolve(ok(state.declared.map(({ shipId, rules }) => ({ shipId, rules: [...rules] })))) : released();
+      return state.liveTokens.has(crewToken) ? Promise.resolve(ok(state.declared.map(({ shipId, rules }) => ({ declarer: { kind: 'ship' as const, shipId }, rules: [...rules] })))) : released();
     },
     follow: (crewToken, from) => {
       if (!state.isAnswering) {

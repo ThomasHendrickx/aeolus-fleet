@@ -212,7 +212,7 @@ describe('the fleet:read procedures for a ship outside read reach (decision 0034
     await expect(reader.fleet.inbox.query({ filter: 'all' })).resolves.toEqual([]);
   });
 
-  it("fleet.reachRefusals and fleet.explainReach stay argo's", async () => {
+  it('fleet.reachRefusals and fleet.explainReach need fleet:explain, which reader does not hold (decision 0053)', async () => {
     await expect(Promise.all([codeOf(reader.fleet.reachRefusals.query()), codeOf(reader.fleet.explainReach.query({ fromShipId: ids.reader }))])).resolves.toEqual(['FORBIDDEN', 'FORBIDDEN']);
   });
 
@@ -240,7 +240,6 @@ describe('a plugin reading on behalf of a named ship over HTTP (decision 0034)',
         as.fleet.clearRequests.query(),
         as.fleet.inbox.query({ filter: 'all' }),
         as.fleet.follow.query({ afterSeq: readerFrom }),
-        codeOf(as.fleet.reachRefusals.query()),
       ]);
 
     expect(await asked(plugin.on(ids.reader))).toEqual(await asked(reader));

@@ -11,7 +11,8 @@
 import { accountIdSchema, carriedLabelSchema, idSchema, NETWORK_VERBS, networkRuleSchema, WHILE_UNAVAILABLE, type FleetId } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
-import { noNetworkSettings, type NetworkSettings } from '../../domain/registry/network-settings.js';
+import type { DeclaredNetworkRules } from '../../domain/registry/declared-network-rules.js';
+import { noNetworkSettings, type NetworkRule, type NetworkSettings } from '../../domain/registry/network-settings.js';
 import type { DeclaredNetworkRulesRepository, NetworkSettingsRepository, ReachRefusalRepository } from '../../domain/registry/ports.js';
 import type { ReachRefusal, RefusedActor, RefusedShip } from '../../domain/registry/reach-refusal.js';
 import type { Db } from './client.js';
@@ -122,26 +123,52 @@ export function createPrismaNetworkSettingsRepository(db: Db): NetworkSettingsRe
   };
 }
 
-/** Each ship's declared rules (decision 0037): one row per declaring ship, none while it declares none. */
+/**
+ * Each declarer's declared rules (decisions 0037, 0052): one row per declaring
+ * ship, and one per fleet for the installation, none while it declares none.
+ */
 export function createPrismaDeclaredNetworkRulesRepository(db: Db): DeclaredNetworkRulesRepository {
-  const declaredOf = (row: { fleetId: string; shipId: string; rules: unknown }) => ({
+  const rulesOf = (rules: unknown) => z.array(networkRuleSchema).parse(rules);
+  const keptOf = (rules: readonly NetworkRule[]) => ({ rules: rules.map((rule) => ({ verb: rule.verb, from: [...rule.from], to: [...rule.to] })) });
+  const shipsOf = (row: { fleetId: string; shipId: string; rules: unknown }): DeclaredNetworkRules => ({
     fleetId: idSchema('fleet').parse(row.fleetId),
-    shipId: idSchema('ship').parse(row.shipId),
-    rules: z.array(networkRuleSchema).parse(row.rules),
+    declarer: { kind: 'ship', shipId: idSchema('ship').parse(row.shipId) },
+    rules: rulesOf(row.rules),
+  });
+  const installationsOf = (row: { fleetId: string; rules: unknown }): DeclaredNetworkRules => ({
+    fleetId: idSchema('fleet').parse(row.fleetId),
+    declarer: { kind: 'installation' },
+    rules: rulesOf(row.rules),
   });
   return {
-    list: async (fleetId) => (await db.declaredNetworkRules.findMany({ where: { fleetId }, orderBy: { shipId: 'asc' } })).map(declaredOf),
-    find: async (fleetId, shipId) => {
-      const row = await db.declaredNetworkRules.findUnique({ where: { fleetId_shipId: { fleetId, shipId } } });
-      return row ? declaredOf(row) : undefined;
+    list: async (fleetId) => {
+      const ships = await db.declaredNetworkRules.findMany({ where: { fleetId }, orderBy: { shipId: 'asc' } });
+      const installation = await db.installationDeclaredNetworkRules.findUnique({ where: { fleetId } });
+      return [...ships.map(shipsOf), ...(installation ? [installationsOf(installation)] : [])];
     },
-    save: async ({ fleetId, shipId, rules }) => {
+    find: async (fleetId, declarer) => {
+      if (declarer.kind === 'installation') {
+        const row = await db.installationDeclaredNetworkRules.findUnique({ where: { fleetId } });
+        return row ? installationsOf(row) : undefined;
+      }
+      const row = await db.declaredNetworkRules.findUnique({ where: { fleetId_shipId: { fleetId, shipId: declarer.shipId } } });
+      return row ? shipsOf(row) : undefined;
+    },
+    save: async ({ fleetId, declarer, rules }) => {
+      if (declarer.kind === 'installation') {
+        if (rules.length === 0) {
+          await db.installationDeclaredNetworkRules.deleteMany({ where: { fleetId } });
+          return;
+        }
+        await db.installationDeclaredNetworkRules.upsert({ where: { fleetId }, create: { fleetId, ...keptOf(rules) }, update: keptOf(rules) });
+        return;
+      }
+      const { shipId } = declarer;
       if (rules.length === 0) {
         await db.declaredNetworkRules.deleteMany({ where: { fleetId, shipId } });
         return;
       }
-      const kept = { rules: rules.map((rule) => ({ verb: rule.verb, from: [...rule.from], to: [...rule.to] })) };
-      await db.declaredNetworkRules.upsert({ where: { fleetId_shipId: { fleetId, shipId } }, create: { fleetId, shipId, ...kept }, update: kept });
+      await db.declaredNetworkRules.upsert({ where: { fleetId_shipId: { fleetId, shipId } }, create: { fleetId, shipId, ...keptOf(rules) }, update: keptOf(rules) });
     },
   };
 }

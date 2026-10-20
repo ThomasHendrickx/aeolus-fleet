@@ -110,7 +110,7 @@ async function agentShip(scopes: Scope[] = ['messages:send', 'messages:receive']
 /** Marks the ship commissioned by the client's ship, so that ship may label it (decision 0046). */
 async function commissionedBy(commissioner: TRPCClient<AppRouter>, ship: { shipId: ShipId }): Promise<{ shipId: ShipId }> {
   const { shipId: by } = await commissioner.ship.whoami.query();
-  await database.ship.update({ where: { id: ship.shipId }, data: { commissionedBy: by, commissionKey: newKey(), commissionRequestHash: 'labelled in a test' } });
+  await database.ship.update({ where: { id: ship.shipId }, data: { commissionedByKind: 'ship', commissionedBy: by, commissionKey: newKey(), commissionRequestHash: 'labelled in a test' } });
   return ship;
 }
 
@@ -235,6 +235,10 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_lease_waker$/),
       expect.stringMatching(/^\d{14}_account_cut_offs$/),
       expect.stringMatching(/^\d{14}_event_actors$/),
+      expect.stringMatching(/^\d{14}_argos_jobs_as_scopes$/),
+      expect.stringMatching(/^\d{14}_installation_labels$/),
+      expect.stringMatching(/^\d{14}_installation_declared_network_rules$/),
+      expect.stringMatching(/^\d{14}_commissioning_actors$/),
     ]);
   });
 });
@@ -359,7 +363,7 @@ describe('the fleet procedures at the API', () => {
   it('refuse every fleet procedure but its own to a ship with only crew:run', async () => {
     const crewToken = await crewedShip(['messages:send', 'messages:receive', 'crew:run']);
     const others = Object.entries(appRouter.fleet).filter(([name]) => !['ship', 'getStartingPrompt', 'release', 'reportCrewStatus', 'confirmCrewRelease', 'giveBackCrewRequest', 'assignedCrewRequests', 'clearRequests', 'confirmWorktreeCleared'].includes(name));
-    // argo's inbox takes the message scopes every agent ship holds, and setOwner and connectPlugin no scope: each refuses any ship but argo once its input parses.
+    // argo's inbox takes the message scopes every agent ship holds: each refuses any ship but argo once its input parses.
     const deliveryId = newId('delivery');
     const inputs: Record<string, unknown> = {
       setOwner: { shipId: newId('ship'), ownerShipId: newId('ship') },
@@ -1890,7 +1894,7 @@ describe('ships with fleet scopes at the API', () => {
     expect(shipId).toMatch(/^shp_/);
     await expect(refusalOf(manager.fleet.commission.mutate({ idempotencyKey: newKey(), name: 'scoped-other', type: 'squadron' }))).resolves.toEqual({
       code: 'FORBIDDEN',
-      message: 'This call needs the fleet:commission scope',
+      message: 'This call needs the fleet:commission or fleet:person scope',
     });
   });
 });
@@ -2236,7 +2240,7 @@ describe('network rules at the API', () => {
     const rules = [{ verb: 'send' as const, from: [{ labelId, value: SAME_LABEL_VALUE }], to: [{ labelId, value: SAME_LABEL_VALUE }] }];
 
     await expect(declarer.fleet.declareNetworkRules.mutate({ rules })).resolves.toEqual({ rules: 1 });
-    await expect((await networker()).fleet.declaredNetworkRules.query()).resolves.toContainEqual({ shipId, rules });
+    await expect((await networker()).fleet.declaredNetworkRules.query()).resolves.toContainEqual({ declarer: { kind: 'ship', shipId }, rules });
     await declarer.fleet.declareNetworkRules.mutate({ rules: [] });
   });
 

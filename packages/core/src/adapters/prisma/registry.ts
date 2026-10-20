@@ -13,6 +13,7 @@ import type {
 import type { Db } from './client.js';
 import { Prisma } from './generated/client.js';
 import {
+  commissionerColumns,
   toAbandonedDelivery,
   toClearRequest,
   toCrewRequest,
@@ -91,6 +92,7 @@ export function createPrismaFleetRepository(db: Db): FleetRepository {
       await db.$executeRaw`DELETE FROM network_settings WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM reach_refusals WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM declared_network_rules WHERE fleet_id = ${fleetId}`;
+      await db.$executeRaw`DELETE FROM installation_declared_network_rules WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM scope_namespaces WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM plugin_connections WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM ship_labels WHERE fleet_id = ${fleetId}`;
@@ -206,8 +208,9 @@ export function createPrismaLabelRepository(db: Db): LabelRepository {
         FOR UPDATE OF l`;
       return rows.map(toLabelFromSql);
     },
-    save: async ({ fleetId, id, key, values, ownerShipId }) => {
-      await db.label.upsert({ where: { id }, create: { id, fleetId, key, ownerShipId }, update: {} });
+    save: async ({ fleetId, id, key, values, owner }) => {
+      const ownerColumns = owner.kind === 'ship' ? { ownerKind: owner.kind, ownerShipId: owner.shipId } : { ownerKind: owner.kind };
+      await db.label.upsert({ where: { id }, create: { id, fleetId, key, ...ownerColumns }, update: {} });
       await db.labelValue.deleteMany({ where: { fleetId, labelId: id, id: { notIn: values.map((value) => value.id) } } });
       for (const [position, value] of values.entries()) {
         await db.labelValue.upsert({
@@ -242,7 +245,7 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
           ...columns,
           ownerShipId: owner,
           scopes: [...ship.scopes],
-          commissionedBy: commission?.by ?? null,
+          ...commissionerColumns(commission?.by),
           commissionKey: commission?.idempotencyKey ?? null,
           commissionRequestHash: commission?.requestHash ?? null,
         },
@@ -271,10 +274,11 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
       // As for a name: a transaction-level advisory lock on the commissioning
       // ship and its key, so the second commission under one key waits and then
       // finds the ship the first one created.
-      await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${fleetId}), hashtext(${`${by}:${idempotencyKey}`}))`;
+      const { commissionedByKind, commissionedBy } = commissionerColumns(by);
+      await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${fleetId}), hashtext(${`${String(commissionedByKind)}:${String(commissionedBy)}:${idempotencyKey}`}))`;
     },
     findByCommissionKey: async ({ fleetId, by, idempotencyKey }) => {
-      const row = await db.ship.findFirst({ where: { fleetId, commissionedBy: by, commissionKey: idempotencyKey } });
+      const row = await db.ship.findFirst({ where: { fleetId, ...commissionerColumns(by), commissionKey: idempotencyKey } });
       return row ? toShip(row) : undefined;
     },
     find: async (fleetId, shipId) => {
@@ -290,7 +294,7 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
       // ship wait, but not the foreign key checks of rows that point at the
       // ship (a new lease, secret or event), so those never deadlock with it.
       const [row] = await db.$queryRaw<unknown[]>`
-        SELECT id, fleet_id, name, type, kind::text AS kind, scopes, note, created_at, retired_at, commissioned_by, commission_key, commission_request_hash, owner_ship_id
+        SELECT id, fleet_id, name, type, kind::text AS kind, scopes, note, created_at, retired_at, commissioned_by_kind::text AS commissioned_by_kind, commissioned_by, commission_key, commission_request_hash, owner_ship_id
         FROM ships
         WHERE fleet_id = ${fleetId} AND id = ${shipId}
         FOR NO KEY UPDATE`;
@@ -298,7 +302,7 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
     },
     listActiveOwnedByForUpdate: async (fleetId, ownerShipId) => {
       const rows = await db.$queryRaw<unknown[]>`
-        SELECT id, fleet_id, name, type, kind::text AS kind, scopes, note, created_at, retired_at, commissioned_by, commission_key, commission_request_hash, owner_ship_id
+        SELECT id, fleet_id, name, type, kind::text AS kind, scopes, note, created_at, retired_at, commissioned_by_kind::text AS commissioned_by_kind, commissioned_by, commission_key, commission_request_hash, owner_ship_id
         FROM ships
         WHERE fleet_id = ${fleetId} AND owner_ship_id = ${ownerShipId} AND retired_at IS NULL
         ORDER BY id
@@ -307,7 +311,7 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
     },
     listActiveHoldingInForUpdate: async (fleetId, namespace) => {
       const rows = await db.$queryRaw<unknown[]>`
-        SELECT id, fleet_id, name, type, kind::text AS kind, scopes, note, created_at, retired_at, commissioned_by, commission_key, commission_request_hash, owner_ship_id
+        SELECT id, fleet_id, name, type, kind::text AS kind, scopes, note, created_at, retired_at, commissioned_by_kind::text AS commissioned_by_kind, commissioned_by, commission_key, commission_request_hash, owner_ship_id
         FROM ships
         WHERE fleet_id = ${fleetId} AND retired_at IS NULL AND EXISTS (SELECT 1 FROM unnest(scopes) AS held(scope) WHERE starts_with(held.scope, ${`${namespace}:`}))
         ORDER BY id
@@ -319,7 +323,7 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
       // FOR NO KEY UPDATE to change it, such as a retire, wait for the send,
       // while other sends to the ship share the lock.
       const [row] = await db.$queryRaw<unknown[]>`
-        SELECT id, fleet_id, name, type, kind::text AS kind, scopes, note, created_at, retired_at, commissioned_by, commission_key, commission_request_hash, owner_ship_id
+        SELECT id, fleet_id, name, type, kind::text AS kind, scopes, note, created_at, retired_at, commissioned_by_kind::text AS commissioned_by_kind, commissioned_by, commission_key, commission_request_hash, owner_ship_id
         FROM ships
         WHERE fleet_id = ${fleetId} AND id = ${shipId}
         FOR SHARE`;
@@ -329,7 +333,7 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
       // Read committed: a send that waited for a retire checks the ship again
       // once it is free, and no longer finds it by its name.
       const [row] = await db.$queryRaw<unknown[]>`
-        SELECT id, fleet_id, name, type, kind::text AS kind, scopes, note, created_at, retired_at, commissioned_by, commission_key, commission_request_hash, owner_ship_id
+        SELECT id, fleet_id, name, type, kind::text AS kind, scopes, note, created_at, retired_at, commissioned_by_kind::text AS commissioned_by_kind, commissioned_by, commission_key, commission_request_hash, owner_ship_id
         FROM ships
         WHERE fleet_id = ${fleetId} AND name = ${name} AND retired_at IS NULL
         FOR SHARE`;
@@ -617,7 +621,7 @@ export function createPrismaFleetListing(db: Db): FleetListing {
       // valid per ship (partial unique indexes), so neither join multiplies rows.
       const rows = await db.$queryRaw<unknown[]>`
         SELECT s.id, s.fleet_id, s.name, s.type, s.kind::text AS kind, s.scopes, s.note, s.created_at, s.retired_at,
-               s.commissioned_by, s.commission_key, s.commission_request_hash, s.owner_ship_id,
+               s.commissioned_by_kind::text AS commissioned_by_kind, s.commissioned_by, s.commission_key, s.commission_request_hash, s.owner_ship_id,
                l.location::text AS lease_location, l.location_description AS lease_location_description,
                l.harness AS lease_harness, l.started_at AS lease_started_at, l.last_seen_at AS lease_last_seen_at,
                l.report_state::text AS report_state, l.report_note, l.reported_at, l.report_details, l.report_details_version,
@@ -650,7 +654,7 @@ export function createPrismaFleetListing(db: Db): FleetListing {
       const rows = await db.$queryRaw<unknown[]>`
         SELECT ${labelColumns}, o.name AS owner_name
         FROM labels l
-        JOIN ships o ON o.fleet_id = l.fleet_id AND o.id = l.owner_ship_id
+        LEFT JOIN ships o ON o.fleet_id = l.fleet_id AND o.id = l.owner_ship_id
         WHERE l.fleet_id = ${fleetId}
         ORDER BY l.key`;
       return rows.map(toListedLabel);
@@ -665,7 +669,7 @@ export function createPrismaFleetListing(db: Db): FleetListing {
     ship: async (fleetId, shipId) => {
       const [row] = await db.$queryRaw<unknown[]>`
         SELECT s.id, s.fleet_id, s.name, s.type, s.kind::text AS kind, s.scopes, s.note, s.created_at, s.retired_at,
-               s.commissioned_by, s.commission_key, s.commission_request_hash, s.owner_ship_id,
+               s.commissioned_by_kind::text AS commissioned_by_kind, s.commissioned_by, s.commission_key, s.commission_request_hash, s.owner_ship_id,
                l.location::text AS lease_location, l.location_description AS lease_location_description,
                l.harness AS lease_harness, l.started_at AS lease_started_at, l.last_seen_at AS lease_last_seen_at,
                l.report_state::text AS report_state, l.report_note, l.reported_at, l.report_details, l.report_details_version,

@@ -1,4 +1,4 @@
-import type { FleetId, ShipId } from '@aeolus-fleet/common';
+import { accountIdSchema, type FleetId, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
@@ -10,8 +10,9 @@ import {
   withInstallationSettings,
 } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
+import { valueIdOf } from '../../../test/support/label-fixtures.js';
 import { unwrap } from '../../testing/result.js';
-import type { ShipCaller } from '../shared/caller.js';
+import type { AccountCaller, InstallationCaller, ShipCaller } from '../shared/caller.js';
 import { createCommissionShip } from './commission-ship.js';
 import type { Ship } from './ship.js';
 import { newKey } from '../../testing/keys.js';
@@ -53,7 +54,7 @@ describe('commissioning a ship', () => {
         createdAt: new Date('2026-09-29T12:00:00.000Z'),
         retiredAt: null,
         // The hash itself is the repeat tests' concern; here, that it is kept with the key.
-        commission: { by: argoId, idempotencyKey: 'commission-scout', requestHash: shipsNamed('scout')[0]?.commission?.requestHash ?? 'none' },
+        commission: { by: { kind: 'ship', shipId: argoId }, idempotencyKey: 'commission-scout', requestHash: shipsNamed('scout')[0]?.commission?.requestHash ?? 'none' },
         owner: argoId,
       },
     ]);
@@ -164,7 +165,7 @@ describe('what a commission may grant (decision 0046)', () => {
   }
 
   async function shipCommissionedByArgo(name: string, scopes: string[]): Promise<ShipCaller> {
-    const { shipId } = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name, type: 'squadron', scopes }));
+    const { shipId } = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name, type: 'squadron', scopes: ['fleet:commission', ...scopes] }));
     return { fleetId, shipId, kind: 'agent', scopes: [] };
   }
 
@@ -182,7 +183,7 @@ describe('what a commission may grant (decision 0046)', () => {
 
     const refused = await commissionShip(manager, { idempotencyKey: newKey(), name: 'deputy', type: 'squadron', scopes: ['fleet:manage', 'crew:run'] });
 
-    expect(refused).toMatchObject({ isOk: false, error: { kind: 'SCOPE_NOT_HELD', message: 'Your ship does not hold crew:run, so it cannot grant it' } });
+    expect(refused).toMatchObject({ isOk: false, error: { kind: 'SCOPE_NOT_HELD', message: 'You do not hold crew:run, so you cannot grant it' } });
     expect(shipsNamed('deputy')).toEqual([]);
     expect(core.state.events).toEqual([]);
   });
@@ -219,7 +220,7 @@ describe('what a commission may grant (decision 0046)', () => {
     expect(scopesOf('former')).toEqual(['messages:send', 'messages:receive', 'squadrons:form']);
   });
 
-  it('refuses a plugin scope from a ship that did not declare its namespace, naming the declarer, and stores nothing', async () => {
+  it('refuses a plugin scope from a ship that neither holds it nor declared its namespace, and stores nothing', async () => {
     const squadrons = await shipCommissionedByArgo('squadrons', ['scopes:declare']);
     unwrap(await registryUseCases(core).declareScopes(squadrons, { namespace: 'squadrons', scopes: [FORM] }));
     const manager = await shipCommissionedByArgo('manager', ['fleet:manage']);
@@ -228,7 +229,7 @@ describe('what a commission may grant (decision 0046)', () => {
 
     expect(refused).toMatchObject({
       isOk: false,
-      error: { kind: 'PLUGIN_SCOPE_NOT_YOURS', message: 'Only argo and squadrons, which declared squadrons, grant squadrons:form' },
+      error: { kind: 'SCOPE_NOT_HELD', message: 'You do not hold squadrons:form, so you cannot grant it' },
     });
     expect(shipsNamed('former')).toEqual([]);
   });
@@ -261,7 +262,7 @@ describe('the kind of a new ship', () => {
   }
 
   beforeEach(async () => {
-    unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'manager', type: 'squadron', scopes: ['fleet:manage'] }));
+    unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'manager', type: 'squadron', scopes: ['fleet:commission', 'fleet:manage'] }));
   });
 
   it('is an agent when the commission states none', async () => {
@@ -278,11 +279,31 @@ describe('the kind of a new ship', () => {
     expect(core.state.events.find((event) => event.type === 'ShipCommissioned' && event.shipId === commissioned.shipId)?.details).toMatchObject({ kind });
   });
 
-  it.each(['person', 'app'] as const)('refuses any other ship a %s ship, storing nothing', async (kind) => {
+  it.each([
+    ['person', 'Commissioning a person ship needs the fleet:person scope (decision 0053)'],
+    ['app', 'Commissioning an app ship needs the fleet:on-behalf scope (decision 0044)'],
+  ] as const)('refuses the kind %s to a ship without its scope, naming it, storing nothing', async (kind, message) => {
     const refused = await commissionShip(manager(), { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind });
 
-    expect(refused).toMatchObject({ isOk: false, error: { kind: 'KIND_COMMISSIONED_BY_ARGO_ONLY' } });
+    expect(refused).toEqual({ isOk: false, error: { kind: 'SCOPE_NOT_HELD', message } });
     expect(shipsNamed('thomas')).toEqual([]);
+  });
+
+  it('lets an agent ship holding fleet:person commission a person ship, as argo does (decision 0053)', async () => {
+    const { shipId } = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'enroller', type: 'enroller', scopes: ['fleet:commission', 'fleet:person'] }));
+
+    unwrap(await commissionShip({ ...argo, shipId, kind: 'agent' }, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person' }));
+
+    expect(shipsNamed('thomas')[0]?.kind).toBe('person');
+  });
+
+  it('refuses an agent ship to a ship without fleet:commission, storing nothing', async () => {
+    const { shipId } = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'enroller', type: 'enroller', scopes: ['fleet:person'] }));
+
+    const refused = await commissionShip({ ...argo, shipId, kind: 'agent' }, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' });
+
+    expect(refused).toEqual({ isOk: false, error: { kind: 'SCOPE_NOT_HELD', message: 'Commissioning an agent ship needs the fleet:commission scope (decision 0046)' } });
+    expect(shipsNamed('scout')).toEqual([]);
   });
 
   it('lets a ship with fleet:manage commission an agent ship by its kind', async () => {
@@ -301,7 +322,7 @@ describe('the kind of a new ship', () => {
 
 describe('the owner of a new ship (decision 0045)', () => {
   async function commissioned(caller: ShipCaller, name: string): Promise<ShipId> {
-    return unwrap(await commissionShip(caller, { idempotencyKey: newKey(), name, type: 'squadron', scopes: ['fleet:manage'] })).shipId;
+    return unwrap(await commissionShip(caller, { idempotencyKey: newKey(), name, type: 'squadron', scopes: ['fleet:commission', 'fleet:manage'] })).shipId;
   }
 
   function ownerSetOf(shipId: ShipId) {
@@ -340,6 +361,22 @@ describe('the owner of a new ship (decision 0045)', () => {
 
     expect(core.state.ships.find((ship) => ship.id === shipId)?.owner).toBe(argoId);
     expect(ownerSetOf(shipId)).toEqual([{ ownerShipId: argoId, how: 'inherited' }]);
+  });
+
+  it('is the person ship itself, for a person ship, with OwnerSet saying so (decision 0052)', async () => {
+    const { shipId } = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person' }));
+
+    expect(core.state.ships.find((ship) => ship.id === shipId)?.owner).toBe(shipId);
+    expect(ownerSetOf(shipId)).toEqual([{ ownerShipId: shipId, how: 'itself' }]);
+  });
+
+  it('is the commissioner itself when a person ship commissions it (decision 0045)', async () => {
+    const thomas = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person', scopes: ['fleet:commission'] })).shipId;
+
+    const shipId = unwrap(await commissionShip({ ...argo, shipId: thomas, kind: 'person' }, { idempotencyKey: newKey(), name: 'helper', type: 'helper' })).shipId;
+
+    expect(core.state.ships.find((ship) => ship.id === shipId)?.owner).toBe(thomas);
+    expect(ownerSetOf(shipId)).toEqual([{ ownerShipId: thomas, how: 'commissioner' }]);
   });
 
   it('writes OwnerSet once: a repeat of the commission sets nothing again', async () => {
@@ -487,16 +524,16 @@ describe('an app ship commissioned by the gateway, with the owner argo picked (d
 
     const refused = await commissionShip(commissioner, { idempotencyKey: newKey(), name: 'crm', type: 'crm', kind: 'app' });
 
-    expect(refused).toMatchObject({ isOk: false, error: { kind: 'KIND_COMMISSIONED_BY_ARGO_ONLY' } });
+    expect(refused).toMatchObject({ isOk: false, error: { kind: 'SCOPE_NOT_HELD' } });
     expect(shipsNamed('crm')).toEqual([]);
   });
 
-  it('refuses a person ship from the gateway: only argo commissions a person ship', async () => {
+  it('refuses a person ship from the gateway, which does not hold fleet:person', async () => {
     const gateway = await theGateway();
 
     const refused = await commissionShip(gateway, { idempotencyKey: newKey(), name: 'charlotte', type: 'person', kind: 'person', owner: thomas });
 
-    expect(refused).toMatchObject({ isOk: false, error: { kind: 'KIND_COMMISSIONED_BY_ARGO_ONLY' } });
+    expect(refused).toMatchObject({ isOk: false, error: { kind: 'SCOPE_NOT_HELD', message: 'Commissioning a person ship needs the fleet:person scope (decision 0053)' } });
     expect(shipsNamed('charlotte')).toEqual([]);
   });
 
@@ -549,6 +586,192 @@ describe('an app ship commissioned by the gateway, with the owner argo picked (d
     unwrap(await commissionShip(gateway, { ...crm, owner: thomas }));
 
     await expect(commissionShip(gateway, { ...crm, owner: argoId })).resolves.toMatchObject({ isOk: false, error: { kind: 'IDEMPOTENCY_KEY_REUSED' } });
+  });
+});
+
+describe('a commission by the installation or an account (decisions 0053, 0057)', () => {
+  const MATHILDE = accountIdSchema.parse('acc-mathilde');
+  let installation: InstallationCaller;
+
+  function anAccount(change: Partial<AccountCaller> = {}): AccountCaller {
+    return { kind: 'account', accountId: MATHILDE, fleetId, scopes: ['fleet:commission', 'fleet:manage'], groupValues: [], personShipId: null, throughShipId: null, ...change };
+  }
+
+  function ownerSetOf(shipId: ShipId) {
+    return core.state.events.filter((event) => event.type === 'OwnerSet' && event.shipId === shipId).map((event) => event.details);
+  }
+
+  async function personShip(name: string): Promise<ShipId> {
+    return unwrap(await commissionShip(installation, { idempotencyKey: newKey(), name, type: 'person', kind: 'person' })).shipId;
+  }
+
+  beforeEach(() => {
+    installation = { kind: 'installation', fleetId, scopes: ['fleet:read', 'fleet:person', 'fleet:manage', 'labels:define', 'labels:assign', 'labels:any'] };
+  });
+
+  it('lets the installation commission a person ship that owns itself, with the scopes every ship has, kept as commissioned by the installation', async () => {
+    const commissioned = unwrap(await commissionShip(installation, { idempotencyKey: 'person-acc-mathilde', name: 'person-acc-mathild', type: 'person', kind: 'person', scopes: ['messages:send', 'messages:receive'] }));
+
+    expect(shipsNamed('person-acc-mathild')[0]).toMatchObject({
+      kind: 'person',
+      owner: commissioned.shipId,
+      scopes: ['messages:send', 'messages:receive'],
+      commission: { by: { kind: 'installation' }, idempotencyKey: 'person-acc-mathilde' },
+    });
+    expect(commissioned.secret).toMatch(/^aeolus_sk_v1_./);
+  });
+
+  it('names the installation as the actor of ShipCommissioned and OwnerSet', async () => {
+    const shipId = await personShip('thomas');
+
+    expect(core.state.events.filter((event) => event.shipId === shipId && (event.type === 'ShipCommissioned' || event.type === 'OwnerSet')).map((event) => event.actor)).toEqual([
+      { kind: 'installation' },
+      { kind: 'installation' },
+    ]);
+  });
+
+  it('refuses the installation an agent ship: it does not hold fleet:commission', async () => {
+    await expect(commissionShip(installation, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' })).resolves.toEqual({
+      isOk: false,
+      error: { kind: 'SCOPE_NOT_HELD', message: 'Commissioning an agent ship needs the fleet:commission scope (decision 0046)' },
+    });
+    expect(shipsNamed('scout')).toEqual([]);
+  });
+
+  it('refuses the installation a scope it does not hold, storing nothing', async () => {
+    const refused = await commissionShip(installation, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person', scopes: ['fleet:owner'] });
+
+    expect(refused).toMatchObject({ isOk: false, error: { kind: 'SCOPE_NOT_HELD' } });
+    expect(shipsNamed('thomas')).toEqual([]);
+  });
+
+  it('lets an account commission an agent ship owned by its person ship, with OwnerSet saying so (decision 0057)', async () => {
+    const personShipId = await personShip('mathilde');
+
+    const { shipId } = unwrap(await commissionShip(anAccount({ personShipId }), { idempotencyKey: newKey(), name: 'helper', type: 'helper', scopes: ['fleet:manage'] }));
+
+    expect(shipsNamed('helper')[0]).toMatchObject({ owner: personShipId, scopes: ['messages:send', 'messages:receive', 'fleet:manage'], commission: { by: { kind: 'account', accountId: MATHILDE } } });
+    expect(ownerSetOf(shipId)).toEqual([{ ownerShipId: personShipId, how: 'accountPersonShip' }]);
+  });
+
+  it('refuses an account without a person ship in the fleet, storing nothing', async () => {
+    await expect(commissionShip(anAccount(), { idempotencyKey: newKey(), name: 'helper', type: 'helper' })).resolves.toEqual({
+      isOk: false,
+      error: { kind: 'INVALID_OWNER', message: 'An account commissions a ship once it has a person ship in this fleet, which owns the ship (decision 0057)' },
+    });
+    expect(shipsNamed('helper')).toEqual([]);
+  });
+
+  it('refuses an account a scope it does not hold', async () => {
+    const personShipId = await personShip('mathilde');
+
+    await expect(commissionShip(anAccount({ personShipId }), { idempotencyKey: newKey(), name: 'helper', type: 'helper', scopes: ['fleet:owner'] })).resolves.toMatchObject({
+      isOk: false,
+      error: { kind: 'SCOPE_NOT_HELD' },
+    });
+  });
+
+  it("keeps each commissioning actor's keys apart, and answers a repeat by the same actor with the ship it commissioned", async () => {
+    const personShipId = await personShip('mathilde');
+    const first = unwrap(await commissionShip(installation, { idempotencyKey: 'same-key', name: 'thomas', type: 'person', kind: 'person' }));
+
+    const theAccounts = unwrap(await commissionShip(anAccount({ personShipId }), { idempotencyKey: 'same-key', name: 'helper', type: 'helper' }));
+    const again = unwrap(await commissionShip(installation, { idempotencyKey: 'same-key', name: 'thomas', type: 'person', kind: 'person' }));
+
+    expect(theAccounts.shipId).not.toBe(first.shipId);
+    expect(again).toMatchObject({ shipId: first.shipId, secret: null });
+  });
+});
+
+describe('the label values a commission gives the new ship (decision 0053)', () => {
+  let installation: InstallationCaller;
+  let labeller: ShipCaller;
+
+  function value(key: string, text: string) {
+    return valueIdOf(core, { key, value: text });
+  }
+
+  function labelsOf(name: string): string[] {
+    const shipId = shipsNamed(name)[0]?.id;
+    return core.state.shipLabels
+      .filter((label) => label.shipId === shipId)
+      .map((label) => core.state.labels.flatMap((each) => each.values).find((each) => each.id === label.valueId)?.value ?? label.valueId)
+      .sort();
+  }
+
+  const NOT_YOURS = ({ key, owner, text }: { key: string; owner: string; text: string }) => ({
+    isOk: false,
+    error: {
+      kind: 'NOT_THE_LABEL_OWNER',
+      message: `The label ${key} is owned by ${owner}, and you carry no value ${text} of it: a commission gives only values of labels you defined or values you carry (decision 0053)`,
+    },
+  });
+
+  beforeEach(async () => {
+    installation = { kind: 'installation', fleetId, scopes: ['fleet:read', 'fleet:person', 'fleet:manage', 'labels:define', 'labels:assign', 'labels:any'] };
+    const registry = registryUseCases(core);
+    unwrap(await registry.defineLabel(installation, { key: 'group', values: ['sales', 'finance'] }));
+    unwrap(await registry.defineLabel(argo, { key: 'tier', values: ['gold', 'silver'] }));
+    const { shipId } = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'labeller', type: 'labeller', scopes: ['fleet:commission', 'labels:define', 'labels:assign'] }));
+    labeller = { fleetId, shipId, kind: 'agent', scopes: ['fleet:commission', 'labels:define', 'labels:assign'] };
+    unwrap(await registry.defineLabel(labeller, { key: 'squadron', values: ['alpha'] }));
+    unwrap(await registry.assignLabel(argo, { shipId, valueId: value('tier', 'gold') }));
+    core.state.events.length = 0;
+  });
+
+  it('lets the installation give a person ship values of its group label, with LabelAssigned naming it', async () => {
+    const { shipId } = unwrap(await commissionShip(installation, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person', valueIds: [value('group', 'sales'), value('group', 'finance')] }));
+
+    expect(labelsOf('thomas')).toEqual(['finance', 'sales']);
+    expect(core.state.events.filter((event) => event.type === 'LabelAssigned' && event.shipId === shipId).map((event) => event.actor)).toEqual([{ kind: 'installation' }, { kind: 'installation' }]);
+  });
+
+  it('lets a ship give a value of a label it defined', async () => {
+    unwrap(await commissionShip(labeller, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer', valueIds: [value('squadron', 'alpha')] }));
+
+    expect(labelsOf('scout')).toEqual(['alpha']);
+  });
+
+  it("lets a ship give a value it carries itself, of another's label", async () => {
+    unwrap(await commissionShip(labeller, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer', valueIds: [value('tier', 'gold')] }));
+
+    expect(labelsOf('scout')).toEqual(['gold']);
+  });
+
+  it('refuses a value of a label the ship neither defined nor carries a value of, naming it, storing nothing', async () => {
+    await expect(commissionShip(labeller, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer', valueIds: [value('tier', 'silver')] })).resolves.toEqual(NOT_YOURS({ key: 'tier', owner: 'argo', text: 'silver' }));
+    expect(shipsNamed('scout')).toEqual([]);
+    expect(core.state.events).toEqual([]);
+  });
+
+  it('refuses argo a value it neither defined nor carries: argo is no exception (decision 0053)', async () => {
+    await expect(commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer', valueIds: [value('squadron', 'alpha')] })).resolves.toEqual(NOT_YOURS({ key: 'squadron', owner: 'labeller', text: 'alpha' }));
+  });
+
+  it('lets an account give a value of group its token carries, and refuses one it does not', async () => {
+    const personShipId = unwrap(await commissionShip(installation, { idempotencyKey: newKey(), name: 'mathilde', type: 'person', kind: 'person' })).shipId;
+    const mathilde: AccountCaller = { kind: 'account', accountId: accountIdSchema.parse('acc-mathilde'), fleetId, scopes: ['fleet:commission'], groupValues: ['sales'], personShipId, throughShipId: null };
+
+    unwrap(await commissionShip(mathilde, { idempotencyKey: newKey(), name: 'helper', type: 'helper', valueIds: [value('group', 'sales')] }));
+    await expect(commissionShip(mathilde, { idempotencyKey: newKey(), name: 'other', type: 'helper', valueIds: [value('group', 'finance')] })).resolves.toEqual(NOT_YOURS({ key: 'group', owner: 'the installation', text: 'finance' }));
+
+    expect(labelsOf('helper')).toEqual(['sales']);
+  });
+
+  it('refuses a value the fleet does not have', async () => {
+    const unknown = core.ids('labelValue');
+
+    await expect(commissionShip(labeller, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer', valueIds: [unknown] })).resolves.toEqual({
+      isOk: false,
+      error: { kind: 'LABEL_VALUE_NOT_FOUND', message: `The fleet has no label value ${unknown}` },
+    });
+  });
+
+  it('refuses the same key with other values', async () => {
+    const scout = { idempotencyKey: 'commission-scout', name: 'scout', type: 'reviewer' };
+    unwrap(await commissionShip(labeller, { ...scout, valueIds: [value('squadron', 'alpha')] }));
+
+    await expect(commissionShip(labeller, { ...scout, valueIds: [value('tier', 'gold')] })).resolves.toMatchObject({ isOk: false, error: { kind: 'IDEMPOTENCY_KEY_REUSED' } });
   });
 });
 
@@ -698,7 +921,7 @@ describe('a commission that comes again', () => {
   });
 
   it("keeps each commissioning ship's keys apart: another ship's same key commissions a new ship", async () => {
-    unwrap(await commissionShip(argo, { name: 'manager', type: 'squadron', scopes: ['fleet:manage'], idempotencyKey: 'commission-manager' }));
+    unwrap(await commissionShip(argo, { name: 'manager', type: 'squadron', scopes: ['fleet:commission', 'fleet:manage'], idempotencyKey: 'commission-manager' }));
     const manager = { ...argo, shipId: shipsNamed('manager')[0]?.id ?? argo.shipId, kind: 'agent' as const };
     unwrap(await commissionShip(argo, scout));
 

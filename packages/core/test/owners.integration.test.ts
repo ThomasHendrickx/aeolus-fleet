@@ -89,7 +89,7 @@ describe('setting an owner on Postgres', () => {
     await expect(ownerOf(scoutId)).resolves.toBe(thomasId);
     await expect(ownerEventsAbout(scoutId)).resolves.toEqual([
       ['OwnerSet', { ownerShipId: argoId, how: 'argoByDefault' }],
-      ['OwnerChanged', { fromShipId: argoId, toShipId: thomasId, why: 'setByArgo' }],
+      ['OwnerChanged', { fromShipId: argoId, toShipId: thomasId, why: 'set' }],
     ]);
   });
 
@@ -125,7 +125,7 @@ describe('a retired owner on Postgres', () => {
     await expect(ownerOf(scoutId)).resolves.toBe(argoId);
     await expect(ownerEventsAbout(scoutId)).resolves.toEqual([
       ['OwnerSet', { ownerShipId: argoId, how: 'argoByDefault' }],
-      ['OwnerChanged', { fromShipId: argoId, toShipId: thomasId, why: 'setByArgo' }],
+      ['OwnerChanged', { fromShipId: argoId, toShipId: thomasId, why: 'set' }],
       ['OwnerChanged', { fromShipId: thomasId, toShipId: argoId, why: 'ownerRetired' }],
     ]);
   });
@@ -264,7 +264,7 @@ describe('the owner argo picked for an app ship the gateway commissions, on Post
 });
 
 describe('the owner read on Postgres', () => {
-  it("shows the owner by id and name in whoami and the ship read, none for argo", async () => {
+  it("shows the owner by id and name in whoami and the ship read, a person ship its own, none for argo", async () => {
     const { shipId: scoutId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
     const { shipId: thomasId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person' }));
     unwrap(await core.useCases.setOwner(argo, { shipId: scoutId, ownerShipId: thomasId }));
@@ -272,7 +272,7 @@ describe('the owner read on Postgres', () => {
 
     await expect(core.useCases.whoami(scout)).resolves.toMatchObject({ isOk: true, value: { ownerShipId: thomasId, ownerName: 'thomas' } });
     await expect(core.useCases.getShip(argo, { shipId: scoutId })).resolves.toMatchObject({ isOk: true, value: { owner: { id: thomasId, name: 'thomas' } } });
-    await expect(core.useCases.getShip(argo, { shipId: thomasId })).resolves.toMatchObject({ isOk: true, value: { owner: { id: argoId, name: 'argo' } } });
+    await expect(core.useCases.getShip(argo, { shipId: thomasId })).resolves.toMatchObject({ isOk: true, value: { owner: { id: thomasId, name: 'thomas' } } });
     await expect(core.useCases.whoami(argo)).resolves.toMatchObject({ isOk: true, value: { ownerShipId: null, ownerName: null } });
   });
 });

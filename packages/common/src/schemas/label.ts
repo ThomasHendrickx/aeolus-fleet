@@ -63,12 +63,18 @@ export const unassignLabelInputSchema = assignLabelInputSchema;
 /** Output of the label assignments: nothing, the OK is the answer. */
 export const labelWriteOutputSchema = z.object({});
 
-/** One label of the fleet: its id, its key, its values with their ids and its owner by id and name. */
+/** Who owns a label (decision 0031): a ship by id and name, or the installation. */
+export const labelOwnerSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('ship'), id: idSchema('ship'), name: z.string() }),
+  z.object({ kind: z.literal('installation') }),
+]);
+
+/** One label of the fleet: its id, its key, its values with their ids and its owner. */
 export const listedLabelSchema = z.object({
   id: idSchema('label'),
   key: z.string(),
   values: z.array(labelValueSchema),
-  owner: z.object({ id: idSchema('ship'), name: z.string() }),
+  owner: labelOwnerSchema,
 });
 
 export type ListedLabel = z.infer<typeof listedLabelSchema>;

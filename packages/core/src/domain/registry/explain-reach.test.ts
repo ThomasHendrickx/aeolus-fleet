@@ -13,13 +13,13 @@ import {
 } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { crewAboard, hostedFleetWithViewer, initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
+import { crewAboard, hostedFleetWithViewer, initialiseFleet, operatorCaller, readReachOf, registryUseCases } from '../../../test/support/core-fixtures.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { labelIdOf, valueIdOf } from '../../../test/support/label-fixtures.js';
 import { newKey } from '../../testing/keys.js';
 import { refusalOf, unwrap } from '../../testing/result.js';
-import type { ShipCaller } from '../shared/caller.js';
+import type { InstallationCaller, ShipCaller } from '../shared/caller.js';
 import { createExplainReach } from './explain-reach.js';
 
 /**
@@ -76,7 +76,7 @@ beforeEach(async () => {
   const fleet = await initialiseFleet(core);
   argo = operatorCaller(fleet);
   registry = registryUseCases(core);
-  explainReach = createExplainReach({ uow: core.uow, clock: core.clock });
+  explainReach = createExplainReach({ uow: core.uow, clock: core.clock, readReach: readReachOf(core) });
   // argo labels the ships: it labels any ship (decision 0046).
   labeller = argo;
   planner = await shipWithScopes({ registry, argo }, { name: 'planner', type: 'planner', scopes: [] });
@@ -223,11 +223,37 @@ describe('explaining reach while the networking plugin is not responding', () =>
   });
 });
 
-describe('who explains reach', () => {
-  it('refuses a ship that is not argo, even the networking plugin', async () => {
-    expect(refusalOf(await explainReach(networking, { fromShipId: scout.shipId }))).toEqual({
-      kind: 'NOT_THE_OPERATOR_SHIP',
-      message: 'Only argo explains reach',
+describe('who explains reach (decision 0053)', () => {
+  /** Shared ships read shared ships, and open read is off: planner reads planner and scout, never vault. */
+  async function readRulesApply(): Promise<void> {
+    unwrap(await registry.setNetworkRules(networking, { rules: [{ verb: 'read', from: [value('shared')], to: [value('shared')] }] }));
+    unwrap(await registry.setBuiltInRule(networking, { rule: 'open', verb: 'read', isOn: false }));
+  }
+
+  it('lets any actor holding fleet:explain explain reach, not only argo', async () => {
+    const explainer: ShipCaller = { ...planner, scopes: ['fleet:explain'] };
+
+    const explained = unwrap(await explainReach(explainer, { fromShipId: scout.shipId }));
+
+    expect(sendReach(explained)).toEqual(byId(argo, planner, vault, networking));
+  });
+
+  it('answers only the ships the explaining actor reads', async () => {
+    await readRulesApply();
+    const explainer: ShipCaller = { ...planner, scopes: ['fleet:explain'] };
+
+    const explained = unwrap(await explainReach(explainer, { fromShipId: scout.shipId }));
+
+    expect(sendReach(explained)).toEqual([planner.shipId]);
+  });
+
+  it('refuses to explain from a ship the explaining actor does not read', async () => {
+    await readRulesApply();
+    const explainer: ShipCaller = { ...planner, scopes: ['fleet:explain'] };
+
+    expect(refusalOf(await explainReach(explainer, { fromShipId: vault.shipId }))).toEqual({
+      kind: 'NOT_REACHABLE',
+      message: 'The network rules do not let you read the ship to explain from',
     });
   });
 });
@@ -341,10 +367,26 @@ describe('the rule each reach names (decision 0034)', () => {
     const explained = unwrap(await explainReach(argo, { fromShipId: scout.shipId, toShipId: planner.shipId }));
 
     expect(explained).toEqual({
-      send: [{ shipId: planner.shipId, rule: { declared: labeller.shipId, index: 1 } }],
+      send: [{ shipId: planner.shipId, rule: { declared: { kind: 'ship', shipId: labeller.shipId }, index: 1 } }],
       read: [{ shipId: planner.shipId, rule: { plugin: 0 } }],
-      manage: [{ shipId: planner.shipId, rule: { declared: labeller.shipId, index: 0 } }],
+      manage: [{ shipId: planner.shipId, rule: { declared: { kind: 'ship', shipId: labeller.shipId }, index: 0 } }],
     });
+  });
+
+  it('names a rule the installation declared by the installation and its place in its list', async () => {
+    const installation: InstallationCaller = { kind: 'installation', fleetId: argo.fleetId, scopes: ['labels:define', 'labels:assign', 'labels:any', 'fleet:manage'] };
+    const { labelId: group } = unwrap(await registry.defineLabel(installation, { key: 'group', values: ['sales'] }));
+    const sales = valueIdOf(core, { key: 'group', value: 'sales' });
+    unwrap(await registry.assignLabel(argo, { shipId: scout.shipId, valueId: sales }));
+    unwrap(await registry.assignLabel(argo, { shipId: planner.shipId, valueId: sales }));
+    const declared: NetworkRule[] = [{ verb: 'send', from: [{ labelId: group, value: SAME_LABEL_VALUE }], to: [{ labelId: group, value: SAME_LABEL_VALUE }] }];
+    unwrap(await registry.declareNetworkRules(installation, { rules: declared }));
+    await setRules(declared);
+    await openOff();
+
+    const explained = unwrap(await explainReach(argo, { fromShipId: scout.shipId, toShipId: planner.shipId }));
+
+    expect(explained.send).toEqual([{ shipId: planner.shipId, rule: { declared: { kind: 'installation' }, index: 0 } }]);
   });
 
   it('names the viewer reading for every ship the viewer reads, and open once argo turns it off', async () => {

@@ -1,4 +1,4 @@
-import { scopeNameSchema, scopeSchema, type ScopeName, type ShipId, type ShipKind } from '@aeolus-fleet/common';
+import { scopeNameSchema, scopeSchema, type ScopeName, type ShipId } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
 import type { Actor, NewEvent } from '../shared/events.js';
@@ -10,14 +10,23 @@ import type { Ship } from './ship.js';
 const BASE_SCOPES: readonly ScopeName[] = ['messages:send', 'messages:receive'];
 
 export type GrantScopesRefusal = DomainError<
-  'INVALID_SCOPE' | 'BASE_SCOPE' | 'SCOPE_NOT_DECLARED' | 'SCOPE_NOT_HELD' | 'PLUGIN_SCOPE_NOT_YOURS' | 'SHIP_SCOPES_FIXED' | 'OWN_SHIP_SCOPES' | 'SHIP_ALREADY_RETIRED'
+  'INVALID_SCOPE' | 'BASE_SCOPE' | 'SCOPE_NOT_DECLARED' | 'SCOPE_NOT_HELD' | 'SHIP_SCOPES_FIXED' | 'OWN_SHIP_SCOPES' | 'SHIP_ALREADY_RETIRED'
 >;
 
 /**
- * A granter grants and revokes scopes on a live ship (decision 0046), each
- * within what it may grant: a core scope it holds (argo holds every one), or
- * a declared scope of a plugin namespace when it is argo or that namespace's
- * declarer. Revoking follows the same rule. Refused: a malformed or unknown
+ * Who grants: a ship by its id, or an account or the installation, with none;
+ * argo holds every scope, plugin scopes included (decision 0046).
+ */
+export interface Granter {
+  shipId: ShipId | null;
+  isOperator: boolean;
+  scopes: readonly ScopeName[];
+}
+
+/**
+ * A granter grants and revokes scopes on a live ship (decisions 0046, 0053),
+ * each within what it may grant: a scope it holds, or a declared scope of a
+ * plugin namespace it declared. Revoking follows the same rule. Refused: a malformed or unknown
  * scope, one both granted and revoked, revoking sending or receiving, argo's
  * and the viewer's scopes, the granter's own ship and a retired ship. Writes
  * ScopesChanged when anything changes.
@@ -25,7 +34,7 @@ export type GrantScopesRefusal = DomainError<
 export function grantScopes(
   input: {
     ship: Ship;
-    granter: { shipId: ShipId; kind: ShipKind; scopes: readonly ScopeName[] };
+    granter: Granter;
     grant: readonly string[];
     revoke: readonly string[];
     at: Date;
@@ -74,27 +83,27 @@ export function grantScopes(
 
 /**
  * Whether the granter may grant or revoke the scope, at commission or on a
- * live ship: a core scope it holds, or a declared plugin scope when it is
- * argo or the declarer.
+ * live ship: a core scope it holds, or a declared plugin scope it holds or
+ * declared (decision 0053).
  */
 export function mayGrant(
   scope: string,
-  at: { granter: { shipId: ShipId; kind: ShipKind; scopes: readonly ScopeName[] }; namespaces: ReadonlyMap<string, { namespace: ScopeNamespace; declarerName: string }> },
-): Result<null, DomainError<'INVALID_SCOPE' | 'SCOPE_NOT_DECLARED' | 'SCOPE_NOT_HELD' | 'PLUGIN_SCOPE_NOT_YOURS'>> {
+  at: { granter: Granter; namespaces: ReadonlyMap<string, { namespace: ScopeNamespace; declarerName: string }> },
+): Result<null, DomainError<'INVALID_SCOPE' | 'SCOPE_NOT_DECLARED' | 'SCOPE_NOT_HELD'>> {
   const { granter, namespaces } = at;
   if (!scopeNameSchema.safeParse(scope).success) {
     return refuse('INVALID_SCOPE', `${scope} is no scope: a core scope, or a plugin's <namespace>:<action>`);
   }
   if (scopeSchema.safeParse(scope).success) {
-    return granter.kind === 'operator' || granter.scopes.includes(scope) ? ok(null) : refuse('SCOPE_NOT_HELD', `Your ship does not hold ${scope}, so it cannot grant it`);
+    return granter.isOperator || granter.scopes.includes(scope) ? ok(null) : refuse('SCOPE_NOT_HELD', `You do not hold ${scope}, so you cannot grant it`);
   }
   const namespace = scope.slice(0, scope.indexOf(':'));
   const declared = namespaces.get(namespace);
   if (declared?.namespace.scopes.some((each) => each.scope === scope) !== true) {
     return refuse('SCOPE_NOT_DECLARED', `No plugin declared ${scope}`);
   }
-  if (granter.kind !== 'operator' && declared.namespace.declaredBy !== granter.shipId) {
-    return refuse('PLUGIN_SCOPE_NOT_YOURS', `Only argo and ${declared.declarerName}, which declared ${namespace}, grant ${scope}`);
+  if (!granter.isOperator && !granter.scopes.includes(scope) && declared.namespace.declaredBy !== granter.shipId) {
+    return refuse('SCOPE_NOT_HELD', `You do not hold ${scope}, so you cannot grant it`);
   }
   return ok(null);
 }

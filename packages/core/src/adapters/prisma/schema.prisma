@@ -53,6 +53,7 @@ model Fleet {
   shipLabels       ShipLabel[]
   networkSettings  NetworkSettings?
   declaredNetworkRules DeclaredNetworkRules[]
+  installationDeclaredNetworkRules InstallationDeclaredNetworkRules?
   scopeNamespaces  ScopeNamespace[]
   pluginConnections PluginConnection[]
   reachRefusals    ReachRefusal[]
@@ -93,7 +94,9 @@ model Ship {
   note                  String?
   createdAt             DateTime  @map("created_at") @db.Timestamptz(3)
   retiredAt             DateTime? @map("retired_at") @db.Timestamptz(3)
-  /// The ship that commissioned it, its idempotency key and the request's hash; null for argo.
+  /// The actor that commissioned it, its idempotency key and the request's hash; null for argo.
+  /// commissioned_by names the actor: a ship's id, an account's id, or `installation`.
+  commissionedByKind    CommissionerKind? @map("commissioned_by_kind")
   commissionedBy        String?   @map("commissioned_by")
   commissionKey         String?   @map("commission_key")
   commissionRequestHash String?   @map("commission_request_hash")
@@ -127,8 +130,8 @@ model Ship {
   pluginConnection  PluginConnection?
 
   @@unique([fleetId, id])
-  /// An idempotency key is used once per commissioning ship.
-  @@unique([fleetId, commissionedBy, commissionKey])
+  /// An idempotency key is used once per commissioning actor.
+  @@unique([fleetId, commissionedByKind, commissionedBy, commissionKey], map: "ships_commission_key_key")
   /// A name is unique among ships that are not retired, and reusable after retirement.
   @@unique([fleetId, name], map: "ships_fleet_id_name_active_key", where: { retiredAt: null })
   /// Exactly one operator ship per fleet.
@@ -319,10 +322,12 @@ model Label {
   id          String @id
   fleetId     String @map("fleet_id")
   key         String
-  ownerShipId String @map("owner_ship_id")
+  /// A ship or the installation (decision 0031); the installation's label names no owner ship.
+  ownerKind   LabelOwnerKind @default(ship) @map("owner_kind")
+  ownerShipId String?        @map("owner_ship_id")
 
   fleet    Fleet        @relation(fields: [fleetId], references: [id])
-  owner    Ship         @relation("LabelOwner", fields: [fleetId, ownerShipId], references: [fleetId, id])
+  owner    Ship?        @relation("LabelOwner", fields: [fleetId, ownerShipId], references: [fleetId, id])
   values   LabelValue[]
   carriers ShipLabel[]
 
@@ -411,6 +416,18 @@ model DeclaredNetworkRules {
 
   @@id([fleetId, shipId])
   @@map("declared_network_rules")
+}
+
+/// The network rules the installation declares on the labels it owns in one
+/// fleet (decisions 0037, 0052), its whole list as JSON; no row while it
+/// declares none.
+model InstallationDeclaredNetworkRules {
+  fleetId String @id @map("fleet_id")
+  rules   Json
+
+  fleet Fleet @relation(fields: [fleetId], references: [id])
+
+  @@map("installation_declared_network_rules")
 }
 
 /// A plugin's namespace (decision 0046): taken up for good by the ship that
@@ -931,4 +948,20 @@ enum EventActorKind {
   system
 
   @@map("event_actor_kind")
+}
+
+/// Who commissioned a ship (decision 0057).
+enum CommissionerKind {
+  ship
+  account
+  installation
+
+  @@map("commissioner_kind")
+}
+
+enum LabelOwnerKind {
+  ship
+  installation
+
+  @@map("label_owner_kind")
 }

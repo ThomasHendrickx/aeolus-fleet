@@ -43,7 +43,7 @@ export function DeclaredNetworkRules({ declared, error, onRetry, context }: Decl
     content = (
       <ul className="flex flex-col gap-3">
         {declared.map((each) => (
-          <li key={each.shipId} data-testid="network-declared-plugin" className="flex flex-col gap-2">
+          <li key={each.declarerId} data-testid="network-declared-plugin" className="flex flex-col gap-2">
             <h3 className="text-meta font-medium" data-testid="network-declared-by">
               Declared by {each.declaredBy}
             </h3>

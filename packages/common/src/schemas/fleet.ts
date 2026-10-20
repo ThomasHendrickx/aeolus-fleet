@@ -6,7 +6,7 @@ import { accountIdSchema } from './account-token.js';
 import { SHIP_HANDLE_MAX_LENGTH, SHIP_HANDLE_MESSAGE, SHIP_HANDLE_PATTERN } from '../rules/ship-handle.js';
 import { idempotencyKeySchema } from './idempotency-key.js';
 import { listedCrewRequestSchema } from './crew-request.js';
-import { carriedLabelSchema } from './label.js';
+import { carriedLabelSchema, SHIP_LABELS_MAX } from './label.js';
 import { listedReportSchema } from './report.js';
 
 /**
@@ -37,6 +37,8 @@ export const commissionShipInputSchema = z.object({
   /** What the ship is; an agent when left out (decision 0044). */
   kind: commissionedShipKindSchema.optional(),
   scopes: z.array(scopeNameSchema).optional(),
+  /** The label values it carries from the start: each of a label the commissioner defined, or one it carries (decision 0053). */
+  valueIds: z.array(idSchema('labelValue')).max(SHIP_LABELS_MAX).optional(),
   /** The ship that asked a plugin's ship for this one, whose owner it gets; naming one needs fleet:on-behalf (decision 0045). */
   ownerOf: idSchema('ship').optional(),
   /** The owner argo picked for an app ship the gateway commissions, a person's ship or argo; naming one needs fleet:on-behalf (decision 0045). */

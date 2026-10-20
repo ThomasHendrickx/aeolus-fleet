@@ -17,7 +17,7 @@ export function createRestNetworkDoor(fleetUrl: string, options: DoorOptions = {
     listLabels: async (crewToken) => {
       const listed = await call(door, { path: '/fleet/labels', method: 'GET', crewToken, answers: labelsOutputSchema });
       return listed.isOk
-        ? ok(listed.value.map(({ id, key, values, owner }) => ({ labelId: id, key, values: values.map((value) => ({ valueId: value.id, value: value.value })), ownerShipId: owner.id })))
+        ? ok(listed.value.map(({ id, key, values, owner }) => ({ labelId: id, key, values: values.map((value) => ({ valueId: value.id, value: value.value })), ownerShipId: owner.kind === 'ship' ? owner.id : null })))
         : listed;
     },
     defineLabel: async (crewToken, label) => {

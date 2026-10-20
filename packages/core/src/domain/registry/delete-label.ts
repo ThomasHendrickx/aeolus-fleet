@@ -1,12 +1,12 @@
-import type { IdGenerator, LabelId } from '@aeolus-fleet/common';
+import type { IdGenerator, LabelId, ShipId } from '@aeolus-fleet/common';
 
-import type { ShipCaller } from '../shared/caller.js';
+import { actorOf, type Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
-import { recordEvent, shipActor, type EventLog } from '../shared/events.js';
+import { recordEvent, type EventLog } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
-import { deleteLabel, type DeleteLabelRefusal } from './label.js';
+import { deleteLabel, labelOwnerOf, ownerNameOf, type DeleteLabelRefusal } from './label.js';
 import type { LabelRepository, ShipRepository } from './ports.js';
 
 export interface DeleteLabelTx {
@@ -17,7 +17,7 @@ export interface DeleteLabelTx {
 
 export type DeleteLabelFailure = DomainError<'LABEL_NOT_FOUND'> | DeleteLabelRefusal;
 
-export type DeleteLabel = (caller: ShipCaller, input: { labelId: LabelId }) => Promise<Result<undefined, DeleteLabelFailure>>;
+export type DeleteLabel = (caller: Caller, input: { labelId: LabelId }) => Promise<Result<undefined, DeleteLabelFailure>>;
 
 /**
  * Use case: a label's owner deletes it, freeing its key (decision 0031). Its
@@ -34,11 +34,11 @@ export function createDeleteLabel(deps: { uow: UnitOfWork<DeleteLabelTx>; clock:
       if (!label) {
         return refuse('LABEL_NOT_FOUND', `The fleet has no label ${input.labelId}`);
       }
-      const nameOf = async (shipId: ShipCaller['shipId']) => (await tx.ships.find(fleetId, shipId))?.name ?? shipId;
+      const nameOf = async (shipId: ShipId) => (await tx.ships.find(fleetId, shipId))?.name ?? shipId;
       const carrierNames = await Promise.all((await tx.labels.carriersOf(fleetId, label.id)).map((carried) => nameOf(carried.shipId)));
       const deleted = deleteLabel(
-        { label, ownerName: await nameOf(label.ownerShipId), carrierNames },
-        { callerShipId: caller.shipId, at: deps.clock.now(), actor: shipActor(caller.shipId) },
+        { label, ownerName: await ownerNameOf(label.owner, nameOf), carrierNames },
+        { caller: labelOwnerOf(caller), at: deps.clock.now(), actor: actorOf(caller) },
       );
       if (!deleted.isOk) {
         return deleted;

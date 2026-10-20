@@ -1,4 +1,5 @@
 import {
+  type AccountId,
   type CommissionedShipKind,
   SCOPES,
   type FleetId,
@@ -33,26 +34,58 @@ export interface Ship {
   createdAt: Date;
   retiredAt: Date | null;
   /**
-   * How an agent ship was commissioned: by which ship, under which of its
+   * How a ship was commissioned: by which actor, under which of its
    * idempotency keys, and the hash of the request, so a repeat is known.
    * Null for the operator ship, which the fleet's initialisation creates.
    */
-  commission: { by: ShipId; idempotencyKey: string; requestHash: string } | null;
+  commission: { by: Commissioner; idempotencyKey: string; requestHash: string } | null;
   /** The ship that answers for it, a person's ship or argo (decision 0045); null for argo and the viewer. */
   owner: ShipId | null;
 }
 
+/** The actor that commissioned a ship (decision 0057): a ship, an account by its id only, or the installation. */
+export type Commissioner = { kind: 'ship'; shipId: ShipId } | { kind: 'account'; accountId: AccountId } | { kind: 'installation' };
+
+/** Whether two commissioners are the same actor: each keeps its own idempotency keys. */
+export function isSameCommissioner(commissioner: Commissioner, other: Commissioner): boolean {
+  switch (commissioner.kind) {
+    case 'ship':
+      return other.kind === 'ship' && other.shipId === commissioner.shipId;
+    case 'account':
+      return other.kind === 'account' && other.accountId === commissioner.accountId;
+    case 'installation':
+      return other.kind === 'installation';
+  }
+}
+
 /**
- * How a ship got its owner at commission: its commissioner's owner, argo when
- * the commissioner has none, the owner of the ship that asked a plugin's
- * ship for it, which the plugin named, or for an app ship the owner argo
- * picked, which the gateway named (decision 0045).
+ * The commissioning actor as a commission checks it: a ship as the fleet
+ * holds it, its scopes read from the server; an account with the scopes its
+ * token carries and its person ship, held, if it has one; or the
+ * installation with its scopes.
  */
-export type OwnerSetHow = 'inherited' | 'argoByDefault' | 'askingShipOwner' | 'named';
+export type CommissioningActor =
+  | { kind: 'ship'; ship: Ship }
+  | { kind: 'account'; scopes: readonly ScopeName[]; personShip: Ship | undefined }
+  | { kind: 'installation'; scopes: readonly ScopeName[] };
+
+function scopesOf(commissioner: CommissioningActor): readonly ScopeName[] {
+  return commissioner.kind === 'ship' ? commissioner.ship.scopes : commissioner.scopes;
+}
+
+/**
+ * How a ship got its owner at commission: itself, for a person ship (decision
+ * 0052); the commissioner, when a person ship commissions it; the account's
+ * person ship, when an account commissions it (decision 0057); its
+ * commissioner's owner, argo when the commissioner has none; the owner of
+ * the ship that asked a plugin's ship for it, which the plugin named; or for
+ * an app ship the owner argo picked, which the gateway named (decision 0045).
+ */
+export type OwnerSetHow = 'itself' | 'commissioner' | 'accountPersonShip' | 'inherited' | 'argoByDefault' | 'askingShipOwner' | 'named';
 
 /** OwnerSet's details: the owner and how it was set, with the asking ship when a plugin named its owner. */
 export type OwnerSet =
-  | { ownerShipId: ShipId; how: 'inherited' | 'argoByDefault' | 'named' }
+  | { ownerShipId: ShipId; how: 'itself' | 'commissioner' | 'accountPersonShip' | 'inherited' | 'argoByDefault' | 'named' }
   | { ownerShipId: ShipId; how: 'askingShipOwner'; askingShipId: ShipId };
 
 /** The operator ship's name. Reserved: no other ship can take it. */
@@ -126,24 +159,25 @@ export type CommissionRefusal = DomainError<
   | 'INVALID_SHIP_TYPE'
   | 'INVALID_SHIP_NOTE'
   | 'SHIP_NAME_TAKEN'
-  | 'KIND_COMMISSIONED_BY_ARGO_ONLY'
   | 'INVALID_SCOPE'
   | 'SCOPE_NOT_DECLARED'
   | 'SCOPE_NOT_HELD'
-  | 'PLUGIN_SCOPE_NOT_YOURS'
   | 'INVALID_OWNER'
 >;
 
 /**
  * A new ship, awaiting crew, and its ShipCommissioned event. An agent unless
- * the commission states another kind; only argo commissions a person or app
- * ship, to be true to what the ship is (decision 0044). The name is a handle,
+ * the commission states another kind, and the commissioner holds the scope
+ * for the kind: fleet:commission for an agent, with fleet:on-behalf for an
+ * app ship, fleet:person for a person ship (decisions 0044, 0053). The name is a handle,
  * never `argo`, and unique among the fleet's active ships: `activeShipNamed`
  * is the active ship that already holds it, if any, read while the name is
  * locked. It gets the scopes every ship has and those asked for that the
  * commissioner may grant (decision 0046): core scopes in their fixed order,
- * then plugin scopes in name order, each once. Its owner is the
- * commissioner's owner, argo by default; a commissioner holding
+ * then plugin scopes in name order, each once; the scopes every ship has are
+ * always its to name. A person ship owns itself; a person ship's commission
+ * is owned by it, an account's by its person ship, which it must have; any
+ * other by the commissioner's owner, argo by default; a commissioner holding
  * fleet:on-behalf, a plugin's ship, may name instead the ship that asked it,
  * whose owner it gets (decision 0045).
  */
@@ -154,8 +188,8 @@ export function commissionShip(
     name: string;
     type: string;
     kind?: CommissionedShipKind;
-    /** The ship that commissions it, and the fleet's argo: the new ship's owner is the commissioner's owner, argo by default (decision 0045). */
-    commissioner: Ship;
+    /** The actor that commissions it, and the fleet's argo: the new ship's owner is the commissioner's owner, argo by default (decision 0045). */
+    commissioner: CommissioningActor;
     argoShipId: ShipId;
     /** The ship that asked a plugin's ship for this one, whose owner the new ship gets (decision 0045). */
     askingShip?: Ship;
@@ -167,7 +201,7 @@ export function commissionShip(
     scopes?: readonly string[];
     at: Date;
     actor: Actor;
-    commission: { by: ShipId; idempotencyKey: string; requestHash: string };
+    commission: { by: Commissioner; idempotencyKey: string; requestHash: string };
   },
   fleet: {
     activeShipNamed: Ship | undefined;
@@ -176,14 +210,11 @@ export function commissionShip(
   },
 ): Result<{ ship: Ship; events: NewEvent[] }, CommissionRefusal> {
   const { kind = 'agent' } = input;
-  const isOnBehalf = input.commissioner.scopes.includes('fleet:on-behalf');
-  if (kind !== 'agent' && input.commissioner.kind !== 'operator' && !(kind === 'app' && isOnBehalf)) {
-    return refuse(
-      'KIND_COMMISSIONED_BY_ARGO_ONLY',
-      kind === 'app'
-        ? 'Only argo, or a ship holding fleet:on-behalf such as the gateway, commissions an app ship: commission an agent ship instead'
-        : `Only argo commissions a ${kind} ship: commission an agent ship instead`,
-    );
+  const held = scopesOf(input.commissioner);
+  const isOnBehalf = held.includes('fleet:on-behalf');
+  const mayCommission = checkKindScope(kind, held);
+  if (!mayCommission.isOk) {
+    return mayCommission;
   }
   const name = shipName(input.name);
   if (!name.isOk) {
@@ -205,8 +236,10 @@ export function commissionShip(
     return refuse('SHIP_NAME_TAKEN', `An active ship is already named ${name.value}`);
   }
   const asked = input.scopes ?? [];
-  const granter = { shipId: input.commissioner.id, kind: input.commissioner.kind, scopes: input.commissioner.scopes };
-  for (const scope of asked) {
+  const commissioningShip = input.commissioner.kind === 'ship' ? input.commissioner.ship : undefined;
+  const granter = { shipId: commissioningShip?.id ?? null, isOperator: commissioningShip?.kind === 'operator', scopes: held };
+  // Every ship has the agent scopes, so naming one grants nothing.
+  for (const scope of asked.filter((each) => !AGENT_SCOPES.some((agentScope) => agentScope === each))) {
     const allowed = mayGrant(scope, { granter, namespaces: fleet.namespaces });
     if (!allowed.isOk) {
       return allowed;
@@ -224,7 +257,11 @@ export function commissionShip(
   }
 
   const { id, fleetId, at, actor } = input;
-  const owner = ownerAtCommission(input);
+  const ownerSet = ownerAtCommission({ ...input, kind });
+  if (!ownerSet.isOk) {
+    return ownerSet;
+  }
+  const owner = ownerSet.value;
   const ship: Ship = {
     id,
     fleetId,
@@ -255,7 +292,7 @@ export function commissionShip(
 }
 
 /** Why a ship's owner changed: argo set it, or its owner's ship retired and it fell to argo. */
-export type OwnerChangedWhy = 'setByArgo' | 'ownerRetired';
+export type OwnerChangedWhy = 'set' | 'ownerRetired';
 
 export type ChangeOwnerRefusal = DomainError<'SHIP_HAS_NO_OWNER' | 'SHIP_ALREADY_RETIRED' | 'INVALID_OWNER'>;
 
@@ -298,6 +335,21 @@ export function changeOwner(
 }
 
 /**
+ * The scope the kind needs (decisions 0044, 0046, 0053): fleet:person for a
+ * person ship; fleet:commission for an agent, and with fleet:on-behalf for an
+ * app ship, the gateway's.
+ */
+function checkKindScope(kind: CommissionedShipKind, held: readonly ScopeName[]): Result<undefined, DomainError<'SCOPE_NOT_HELD'>> {
+  if (kind === 'person') {
+    return held.includes('fleet:person') ? ok(undefined) : refuse('SCOPE_NOT_HELD', 'Commissioning a person ship needs the fleet:person scope (decision 0053)');
+  }
+  if (kind === 'app' && !held.includes('fleet:on-behalf')) {
+    return refuse('SCOPE_NOT_HELD', 'Commissioning an app ship needs the fleet:on-behalf scope (decision 0044)');
+  }
+  return held.includes('fleet:commission') ? ok(undefined) : refuse('SCOPE_NOT_HELD', `Commissioning an ${kind} ship needs the fleet:commission scope (decision 0046)`);
+}
+
+/**
  * The owner argo picked, named at commission: only for an app ship, only by a
  * ship holding fleet:on-behalf, never beside an asking ship, and an active
  * person's ship or argo, as any owner is (decision 0045).
@@ -325,19 +377,47 @@ function checkNamedOwner(named: {
 }
 
 /**
- * The asking ship's owner, when a plugin's ship named it; else the
- * commissioner's owner, inherited. argo for a ship that has none, as argo
- * itself has none.
+ * A person ship itself (decision 0052). Else the owner named, or the asking
+ * ship's owner, when a plugin's ship named them; else an account's active
+ * person ship, refused without one (decision 0057); the commissioner when it
+ * is a person ship, or the commissioner's owner, inherited. argo for a ship
+ * that has none, as argo itself and the installation have none.
  */
-function ownerAtCommission(input: { commissioner: Ship; askingShip?: Ship; namedOwner?: Ship; argoShipId: ShipId }): OwnerSet {
+function ownerAtCommission(input: {
+  id: ShipId;
+  kind: CommissionedShipKind;
+  commissioner: CommissioningActor;
+  askingShip?: Ship;
+  namedOwner?: Ship;
+  argoShipId: ShipId;
+}): Result<OwnerSet, DomainError<'INVALID_OWNER'>> {
   const { commissioner, askingShip, namedOwner, argoShipId } = input;
+  if (input.kind === 'person') {
+    return ok({ ownerShipId: input.id, how: 'itself' });
+  }
   if (namedOwner !== undefined) {
-    return { ownerShipId: namedOwner.id, how: 'named' };
+    return ok({ ownerShipId: namedOwner.id, how: 'named' });
   }
   if (askingShip !== undefined) {
-    return { ownerShipId: askingShip.owner ?? argoShipId, how: 'askingShipOwner', askingShipId: askingShip.id };
+    return ok({ ownerShipId: askingShip.owner ?? argoShipId, how: 'askingShipOwner', askingShipId: askingShip.id });
   }
-  return commissioner.owner === null ? { ownerShipId: argoShipId, how: 'argoByDefault' } : { ownerShipId: commissioner.owner, how: 'inherited' };
+  switch (commissioner.kind) {
+    case 'account': {
+      const { personShip } = commissioner;
+      return personShip?.kind === 'person' && personShip.retiredAt === null
+        ? ok({ ownerShipId: personShip.id, how: 'accountPersonShip' })
+        : refuse('INVALID_OWNER', 'An account commissions a ship once it has a person ship in this fleet, which owns the ship (decision 0057)');
+    }
+    case 'installation':
+      return ok({ ownerShipId: argoShipId, how: 'argoByDefault' });
+    case 'ship': {
+      const { ship } = commissioner;
+      if (ship.kind === 'person') {
+        return ok({ ownerShipId: ship.id, how: 'commissioner' });
+      }
+      return ok(ship.owner === null ? { ownerShipId: argoShipId, how: 'argoByDefault' } : { ownerShipId: ship.owner, how: 'inherited' });
+    }
+  }
 }
 
 /**

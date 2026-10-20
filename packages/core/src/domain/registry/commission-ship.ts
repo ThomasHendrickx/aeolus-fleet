@@ -1,30 +1,35 @@
-import type { CommissionedShipKind, FleetId, IdGenerator, ShipId } from '@aeolus-fleet/common';
+import type { CommissionedShipKind, FleetId, IdGenerator, LabelValueId, ShipId } from '@aeolus-fleet/common';
 
 import type { SecretTools } from '../identity/public.js';
-import type { ShipCaller } from '../shared/caller.js';
+import { actorOf, isShipCaller, type Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
-import { recordEvent, shipActor } from '../shared/events.js';
+import { recordEvent } from '../shared/events.js';
 import { idempotencyKey } from '../shared/idempotency-key.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { appliedLimits, type AppliedLimitsTx } from './applied-limits.js';
 import { lockNamedNamespaces, type NamedNamespacesTx } from './named-namespaces.js';
-import type { ShipRepository } from './ports.js';
-import { commissionShip, type CommissionRefusal, type Ship } from './ship.js';
+import { GROUP_LABEL_KEY } from './check-reach.js';
+import { labelOwnerOf, labelsAtCommission, ownerNameOf, type GivenValue } from './label.js';
+import type { LabelRepository, ShipRepository } from './ports.js';
+import { commissionShip, type Commissioner, type CommissioningActor, type CommissionRefusal, type Ship } from './ship.js';
 import { issueStartingPrompt, type StartingPromptTx } from './starting-prompt.js';
 
 export interface CommissionShipTx extends StartingPromptTx, AppliedLimitsTx, NamedNamespacesTx {
   ships: ShipRepository;
+  labels: Pick<LabelRepository, 'findByValueForShare' | 'carriedBy' | 'findByKey' | 'assign'>;
 }
 
 export interface CommissionShipInput {
   name: string;
   type: string;
-  /** An agent when left out; only argo commissions a person or app ship (decision 0044). */
+  /** An agent when left out; a person ship needs fleet:person, an app ship fleet:on-behalf too (decisions 0044, 0053). */
   kind?: CommissionedShipKind;
   note?: string;
   scopes?: readonly string[];
+  /** The label values it carries from the start: each of a label the caller defined, or one it carries (decision 0053). */
+  valueIds?: readonly LabelValueId[];
   /** The ship that asked the caller, a plugin's ship holding fleet:on-behalf, for this one: the new ship gets its owner (decision 0045). */
   ownerOf?: ShipId;
   /** The owner argo picked for an app ship that a ship holding fleet:on-behalf, the gateway, commissions (decision 0045). */
@@ -47,19 +52,21 @@ export interface CommissionedShip {
 
 export type CommissionShipRefusal =
   | CommissionRefusal
-  | DomainError<'INVALID_IDEMPOTENCY_KEY' | 'IDEMPOTENCY_KEY_REUSED' | 'SHIP_LIMIT_REACHED' | 'SHIP_NOT_FOUND'>;
+  | DomainError<'INVALID_IDEMPOTENCY_KEY' | 'IDEMPOTENCY_KEY_REUSED' | 'SHIP_LIMIT_REACHED' | 'SHIP_NOT_FOUND' | 'LABEL_VALUE_NOT_FOUND' | 'NOT_THE_LABEL_OWNER'>;
 
-export type CommissionShip = (caller: ShipCaller, input: CommissionShipInput) => Promise<Result<CommissionedShip, CommissionShipRefusal>>;
+export type CommissionShip = (caller: Caller, input: CommissionShipInput) => Promise<Result<CommissionedShip, CommissionShipRefusal>>;
 
 /** The request as one text, so a repeat is known by its hash: the scopes in a fixed order, each once. */
 function commissionRequestText(input: CommissionShipInput): string {
   const scopes = [...new Set(input.scopes)].toSorted();
+  const valueIds = [...new Set(input.valueIds)].toSorted();
   return JSON.stringify({
     name: input.name,
     type: input.type,
     kind: input.kind ?? 'agent',
     note: input.note ?? null,
     scopes,
+    valueIds,
     ownerOf: input.ownerOf ?? null,
     owner: input.owner ?? null,
   });
@@ -86,17 +93,73 @@ async function findWithOwnerHeld(tx: CommissionShipTx, ref: { fleetId: FleetId; 
 }
 
 /**
- * Use case: the caller commissions a ship in its own fleet, an agent unless
- * it states another kind (only argo commissions a person ship; an app ship
- * also a caller holding fleet:on-behalf, the gateway). The ship
- * awaits crew and gets its first starting prompt, all in one transaction. The
- * caller's scope (fleet:commission) is checked before this runs. The ship gets
- * the agent scopes and the scopes asked for, each one the caller's ship may
- * grant, read from the server (decision 0046); each plugin namespace they
- * name is locked after the name. Its owner is the caller's owner; a caller
+ * The values given, each with its label read FOR SHARE, so a change of its
+ * values waits; undefined names a value the fleet does not have.
+ */
+async function givenValues(tx: CommissionShipTx, ref: { fleetId: FleetId; valueIds: readonly LabelValueId[] }): Promise<{ given: GivenValue[]; missing: LabelValueId | undefined }> {
+  const given: GivenValue[] = [];
+  for (const valueId of ref.valueIds) {
+    const label = await tx.labels.findByValueForShare(ref.fleetId, valueId);
+    if (!label?.values.some((value) => value.id === valueId)) {
+      return { given, missing: valueId };
+    }
+    given.push({ label, valueId, ownerName: await ownerNameOf(label.owner, async (shipId) => (await tx.ships.find(ref.fleetId, shipId))?.name) });
+  }
+  return { given, missing: undefined };
+}
+
+/** The values the caller carries itself: a ship's labels, or the values of group an account's token carries. */
+async function carriedBy(tx: CommissionShipTx, caller: Caller): Promise<LabelValueId[]> {
+  if (isShipCaller(caller)) {
+    return (await tx.labels.carriedBy(caller.fleetId, caller.shipId)).map((carried) => carried.valueId);
+  }
+  if (caller.kind === 'installation') {
+    return [];
+  }
+  const group = await tx.labels.findByKey(caller.fleetId, GROUP_LABEL_KEY);
+  return (group?.values ?? []).filter((value) => caller.groupValues.includes(value.value)).map((value) => value.id);
+}
+
+/** The actor a commission is kept under, with its idempotency keys: an account by its id only. */
+function commissionerOf(caller: Caller): Commissioner {
+  if (isShipCaller(caller)) {
+    return { kind: 'ship', shipId: caller.shipId };
+  }
+  return caller.kind === 'account' ? { kind: 'account', accountId: caller.accountId } : { kind: 'installation' };
+}
+
+/**
+ * The commissioning actor as the commission checks it: a ship read again with
+ * its owner held, its scopes from the server; an account with its person
+ * ship held FOR SHARE, so a retire of it waits; the installation as it is.
+ */
+async function commissioningActorOf(tx: CommissionShipTx, caller: Caller): Promise<CommissioningActor | undefined> {
+  if (isShipCaller(caller)) {
+    const ship = await findWithOwnerHeld(tx, { fleetId: caller.fleetId, shipId: caller.shipId });
+    return ship && { kind: 'ship', ship };
+  }
+  if (caller.kind === 'account') {
+    const personShip = caller.personShipId === null ? undefined : await tx.ships.findForShare(caller.fleetId, caller.personShipId);
+    return { kind: 'account', scopes: caller.scopes, personShip };
+  }
+  return { kind: 'installation', scopes: caller.scopes };
+}
+
+/**
+ * Use case: an actor, a ship, an account or the installation, commissions a
+ * ship in its own fleet (decision 0053), an agent unless
+ * it states another kind and holds the scope for it, read from the server
+ * (fleet:commission for an agent, with fleet:on-behalf for an app ship,
+ * fleet:person for a person ship, which owns itself). The ship
+ * awaits crew and gets its first starting prompt, all in one transaction. The ship gets
+ * the agent scopes and the scopes asked for, each one the caller may grant:
+ * a ship's read from the server (decision 0046); each plugin namespace they
+ * name is locked after the name. It carries the label values given, each of
+ * a label the caller defined or one it carries (decision 0053). Its owner is the caller's owner, the caller
+ * when it is a person ship, or an account's person ship; a caller
  * holding fleet:on-behalf may name the ship that asked it instead, whose owner
  * it gets, or for an app ship the owner argo picked (decision 0045). The
- * caller's idempotency key makes
+ * caller's idempotency key, its own apart from every other actor's, makes
  * a retry safe: the same key with the same request answers the ship it
  * commissioned, with no secret, and changes nothing; the same key with another
  * request is refused.
@@ -110,14 +173,14 @@ export function createCommissionShip(deps: {
   return (caller, input) =>
     deps.uow.run(async (tx): Promise<Result<CommissionedShip, CommissionShipRefusal>> => {
       const { fleetId } = caller;
-      const actor = shipActor(caller.shipId);
+      const actor = actorOf(caller);
       const at = deps.clock.now();
       const key = idempotencyKey(input.idempotencyKey);
       if (!key.isOk) {
         return key;
       }
       const requestHash = deps.secrets.hasher.hash(commissionRequestText(input));
-      const commissionKey = { fleetId, by: caller.shipId, idempotencyKey: key.value };
+      const commissionKey = { fleetId, by: commissionerOf(caller), idempotencyKey: key.value };
 
       await tx.ships.lockCommissionKey(commissionKey);
       const original = await tx.ships.findByCommissionKey(commissionKey);
@@ -142,10 +205,10 @@ export function createCommissionShip(deps: {
         }
       }
 
-      const commissioner = await findWithOwnerHeld(tx, { fleetId, shipId: caller.shipId });
+      const commissioner = await commissioningActorOf(tx, caller);
       const argo = await tx.ships.findOperatorShip(fleetId);
       if (!commissioner || !argo) {
-        return refuse('SHIP_NOT_FOUND', `Ship ${caller.shipId} or its fleet's argo does not exist`);
+        return refuse('SHIP_NOT_FOUND', "The commissioning ship or its fleet's argo does not exist");
       }
       const askingShip = input.ownerOf === undefined ? undefined : await findWithOwnerHeld(tx, { fleetId, shipId: input.ownerOf });
       if (input.ownerOf !== undefined && askingShip === undefined) {
@@ -156,16 +219,27 @@ export function createCommissionShip(deps: {
       await tx.ships.lockName(fleetId, input.name);
       const namespaces = await lockNamedNamespaces(tx, { fleetId, scopes: input.scopes ?? [] });
       const commissioned = commissionShip(
-        { ...input, id: deps.ids('ship'), fleetId, commissioner, argoShipId: argo.id, askingShip, namedOwner, at, actor, commission: { by: caller.shipId, idempotencyKey: key.value, requestHash } },
+        { ...input, id: deps.ids('ship'), fleetId, commissioner, argoShipId: argo.id, askingShip, namedOwner, at, actor, commission: { by: commissionKey.by, idempotencyKey: key.value, requestHash } },
         { activeShipNamed: await tx.ships.findActiveByName(fleetId, input.name), namespaces },
       );
       if (!commissioned.isOk) {
         return commissioned;
       }
       const { ship, events } = commissioned.value;
+      const { given, missing } = await givenValues(tx, { fleetId, valueIds: input.valueIds ?? [] });
+      if (missing !== undefined) {
+        return refuse('LABEL_VALUE_NOT_FOUND', `The fleet has no label value ${missing}`);
+      }
+      const labelled = labelsAtCommission(given, { ship, owner: labelOwnerOf(caller), carried: await carriedBy(tx, caller), at, actor });
+      if (!labelled.isOk) {
+        return labelled;
+      }
 
       await tx.ships.create(ship);
-      for (const event of events) {
+      for (const assignment of labelled.value.assignments) {
+        await tx.labels.assign(assignment);
+      }
+      for (const event of [...events, ...labelled.value.events]) {
         await recordEvent({ events: tx.events, ids: deps.ids }, event);
       }
       const issued = await issueStartingPrompt(

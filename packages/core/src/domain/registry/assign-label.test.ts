@@ -1,4 +1,4 @@
-import type { FleetId, LabelId, LabelValueId, ShipId } from '@aeolus-fleet/common';
+import { accountIdSchema, type FleetId, type LabelId, type LabelValueId, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { addViewerShip, initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
@@ -7,7 +7,8 @@ import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-
 import { newKey } from '../../testing/keys.js';
 import { carriedText, valueIdOf } from '../../../test/support/label-fixtures.js';
 import { refusalOf, unwrap } from '../../testing/result.js';
-import type { ShipCaller } from '../shared/caller.js';
+import { readReachScenario } from '../../../test/support/read-reach-scenario.js';
+import type { AccountCaller, ShipCaller } from '../shared/caller.js';
 
 let core: InMemoryCore;
 let registry: ReturnType<typeof registryUseCases>;
@@ -82,8 +83,10 @@ describe('assigning a label', () => {
     expect(core.state.shipLabels).toEqual([expect.objectContaining({ shipId: pluginId, valueId: macos })]);
   });
 
-  it('refuses a ship that does not own the label, argo too', async () => {
-    await expect(registry.assignLabel(argo, { shipId: builderId, valueId: macos })).resolves.toMatchObject({
+  it('refuses a ship that does not own the label and holds no labels:any', async () => {
+    const assigner: ShipCaller = { ...argo, shipId: builderId, kind: 'agent', scopes: ['labels:assign'] };
+
+    await expect(registry.assignLabel(assigner, { shipId: builderId, valueId: macos })).resolves.toMatchObject({
       isOk: false,
       error: { kind: 'NOT_THE_LABEL_OWNER', message: 'The label os is owned by trierarch-plugin: only its owner assigns it' },
     });
@@ -131,9 +134,25 @@ describe('assigning a label', () => {
 
     await expect(registry.assignLabel(plugin, { shipId, valueId: macos })).resolves.toEqual({
       isOk: false,
-      error: { kind: 'NOT_YOUR_SHIP_TO_LABEL', message: `${name} is neither your ship nor one it commissioned: only argo labels it` },
+      error: { kind: 'NOT_YOUR_SHIP_TO_LABEL', message: `${name} is neither your ship nor one it commissioned: labelling it needs labels:any` },
     });
     expect(core.state.shipLabels).toEqual([]);
+  });
+
+  it("lets argo, which holds labels:any, give any ship a value of another owner's label (decision 0053)", async () => {
+    unwrap(await registry.assignLabel(argo, { shipId: argoId, valueId: macos }));
+
+    expect(carriedText(core, argoId)).toEqual(['os=macos']);
+  });
+
+  it("lets an account holding labels:any give a ship within its manage reach another owner's value, the event naming it", async () => {
+    const mathilde = accountIdSchema.parse('acc-mathilde');
+    const account: AccountCaller = { kind: 'account', accountId: mathilde, fleetId, scopes: ['labels:assign', 'labels:any'], groupValues: [], personShipId: null, throughShipId: null };
+
+    unwrap(await registry.assignLabel(account, { shipId: argoId, valueId: macos }));
+
+    expect(carriedText(core, argoId)).toEqual(['os=macos']);
+    expect(core.state.events.map(({ actor }) => actor)).toEqual([{ kind: 'account', accountId: mathilde, throughShipId: null }]);
   });
 
   it('lets argo give any ship a value of a label argo owns (decision 0046)', async () => {
@@ -179,5 +198,22 @@ describe('assigning a label', () => {
 
       await expect(registry.assignLabel(plugin, { shipId: builderId, valueId: macos })).resolves.toMatchObject({ isOk: true });
     });
+  });
+});
+
+describe('assigning with labels:any outside manage reach (decision 0053)', () => {
+  it('is refused as a manage the rules do not allow, recording the refusal and storing nothing', async () => {
+    const fleet = await readReachScenario();
+    unwrap(await fleet.registry.setBuiltInRule(fleet.networking, { rule: 'open', verb: 'manage', isOn: false }));
+    fleet.core.state.reachRefusals.length = 0;
+    const before = fleet.core.state.shipLabels.length;
+    const labeller: ShipCaller = { ...fleet.near, scopes: ['labels:assign', 'labels:any'] };
+
+    await expect(fleet.registry.assignLabel(labeller, { shipId: fleet.far.shipId, valueId: fleet.team('a') })).resolves.toEqual({
+      isOk: false,
+      error: { kind: 'NOT_REACHABLE', message: 'The network rules do not allow this manage' },
+    });
+    expect(fleet.core.state.shipLabels).toHaveLength(before);
+    expect(fleet.core.state.reachRefusals.map(({ verb }) => verb)).toEqual(['manage']);
   });
 });

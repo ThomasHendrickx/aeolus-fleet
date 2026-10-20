@@ -1,8 +1,10 @@
+import { accountIdSchema } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { readReachOf } from '../../../test/support/core-fixtures.js';
 import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
 import { unwrap } from '../../testing/result.js';
+import type { AccountCaller } from '../shared/caller.js';
 
 // A plugin argo connected reads every ship of its fleet, whatever the rules
 // (decision 0034): a built-in rule, never off, so saving rules cannot narrow
@@ -61,11 +63,22 @@ describe('connecting a plugin (decision 0034)', () => {
     expect(eventsOf('PluginConnected')).toHaveLength(1);
   });
 
-  it('refuses any caller but argo, and connects nothing', async () => {
-    await expect(fleet.registry.connectPlugin(fleet.reader, { shipId: fleet.reader.shipId })).resolves.toMatchObject({ isOk: false, error: { kind: 'NOT_THE_OPERATOR_SHIP' } });
+  it('lets any ship holding fleet:connect connect a plugin, not only argo, the event naming it (decision 0053)', async () => {
+    const connector = { ...fleet.near, scopes: ['fleet:connect' as const] };
 
-    await expect(readsOf(fleet.reader)).resolves.toBe('some');
-    expect(eventsOf('PluginConnected')).toEqual([]);
+    unwrap(await fleet.registry.connectPlugin(connector, { shipId: fleet.reader.shipId }));
+
+    await expect(readsOf(fleet.reader)).resolves.toBe('every');
+    expect(eventsOf('PluginConnected').map(({ actor }) => actor)).toEqual([{ kind: 'ship', shipId: fleet.near.shipId }]);
+  });
+
+  it('lets an account holding fleet:connect connect a plugin, the event naming the account', async () => {
+    const mathilde = accountIdSchema.parse('acc-mathilde');
+    const account: AccountCaller = { kind: 'account', accountId: mathilde, fleetId: fleet.fleetId, scopes: ['fleet:connect'], groupValues: [], personShipId: null, throughShipId: null };
+
+    unwrap(await fleet.registry.connectPlugin(account, { shipId: fleet.reader.shipId }));
+
+    expect(eventsOf('PluginConnected').map(({ actor }) => actor)).toEqual([{ kind: 'account', accountId: mathilde, throughShipId: null }]);
   });
 
   it("refuses argo's own ship and the viewer, which are no plugin's", async () => {

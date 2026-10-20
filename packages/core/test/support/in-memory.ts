@@ -55,13 +55,13 @@ import type {
   ReachRefusalRepository,
   ShipRepository,
 } from '../../src/domain/registry/ports.js';
-import type { Label, ShipLabel } from '../../src/domain/registry/label.js';
+import { isSameOwner, type Label, type LabelOwner, type ListedLabel, type ShipLabel } from '../../src/domain/registry/label.js';
 import type { DeclaredNetworkRules } from '../../src/domain/registry/declared-network-rules.js';
 import type { PluginConnection } from '../../src/domain/registry/plugin-connection.js';
 import type { ScopeNamespace } from '../../src/domain/registry/scope-namespace.js';
 import { noNetworkSettings, type NetworkSettings } from '../../src/domain/registry/network-settings.js';
 import type { ReachRefusal } from '../../src/domain/registry/reach-refusal.js';
-import type { Ship } from '../../src/domain/registry/ship.js';
+import { isSameCommissioner, type Ship } from '../../src/domain/registry/ship.js';
 import type { ShipReport } from '../../src/domain/registry/ship-report.js';
 import type { StatedStatement } from '../../src/domain/registry/statement.js';
 import type { Turn } from '../../src/domain/registry/turn.js';
@@ -245,6 +245,11 @@ export interface InMemoryCore {
 }
 
 /** Whether a receive or a push receive holds the delivery: received or handed, in flight with its crew. */
+/** The ships' declared rules by ship id, then the installation's, as Postgres lists them. */
+function declarerOrder(declarer: LabelOwner): string {
+  return declarer.kind === 'ship' ? `0${declarer.shipId}` : '1';
+}
+
 function isInFlight(delivery: Delivery): boolean {
   return delivery.state === 'received' || delivery.state === 'handed';
 }
@@ -413,7 +418,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       findByCommissionKey: ({ fleetId, by, idempotencyKey }) =>
         Promise.resolve(
           state.ships.find(
-            (found) => found.fleetId === fleetId && found.commission?.by === by && found.commission.idempotencyKey === idempotencyKey,
+            (found) => found.fleetId === fleetId && found.commission !== null && isSameCommissioner(found.commission.by, by) && found.commission.idempotencyKey === idempotencyKey,
           ),
         ),
       findActiveByName: (fleetId, name) =>
@@ -576,12 +581,12 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         Promise.resolve(
           state.declaredNetworkRules
             .filter((held) => held.fleetId === fleetId)
-            .sort((first, second) => first.shipId.localeCompare(second.shipId))
+            .sort((first, second) => declarerOrder(first.declarer).localeCompare(declarerOrder(second.declarer)))
             .map((held) => structuredClone(held)),
         ),
-      find: (fleetId, shipId) => Promise.resolve(structuredClone(state.declaredNetworkRules.find((held) => held.fleetId === fleetId && held.shipId === shipId))),
+      find: (fleetId, declarer) => Promise.resolve(structuredClone(state.declaredNetworkRules.find((held) => held.fleetId === fleetId && isSameOwner(held.declarer, declarer)))),
       save: (declared) => {
-        const index = state.declaredNetworkRules.findIndex((held) => held.fleetId === declared.fleetId && held.shipId === declared.shipId);
+        const index = state.declaredNetworkRules.findIndex((held) => held.fleetId === declared.fleetId && isSameOwner(held.declarer, declared.declarer));
         const kept = declared.rules.length === 0 ? [] : [structuredClone(declared)];
         state.declaredNetworkRules.splice(index === -1 ? state.declaredNetworkRules.length : index, index === -1 ? 0 : 1, ...kept);
         return Promise.resolve();
@@ -648,7 +653,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       listOwnedByForUpdate: (fleetId, ownerShipId) =>
         Promise.resolve(
           state.labels
-            .filter((label) => label.fleetId === fleetId && label.ownerShipId === ownerShipId)
+            .filter((label) => label.fleetId === fleetId && label.owner.kind === 'ship' && label.owner.shipId === ownerShipId)
             .sort((first, second) => first.key.localeCompare(second.key))
             .map(copyOfLabel),
         ),
@@ -1382,9 +1387,14 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         state.labels
           .filter((label) => label.fleetId === fleetId)
           .sort((first, second) => first.key.localeCompare(second.key))
-          .map((label) => {
-            const owner = state.ships.find((each) => each.fleetId === fleetId && each.id === label.ownerShipId);
-            return { id: label.id, key: label.key, values: label.values.map((value) => ({ ...value })), owner: { id: label.ownerShipId, name: owner?.name ?? '' } };
+          .map((label): ListedLabel => {
+            const { owner } = label;
+            const values = label.values.map((value) => ({ ...value }));
+            if (owner.kind === 'installation') {
+              return { id: label.id, key: label.key, values, owner };
+            }
+            const ship = state.ships.find((each) => each.fleetId === fleetId && each.id === owner.shipId);
+            return { id: label.id, key: label.key, values, owner: { kind: 'ship', id: owner.shipId, name: ship?.name ?? '' } };
           }),
       ),
     deliveryCounts: (fleetId, shipId) => {

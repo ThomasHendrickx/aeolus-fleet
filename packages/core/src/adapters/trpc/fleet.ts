@@ -106,7 +106,7 @@ import type { DeliveryWay } from '../../domain/shared/delivery-way.js';
 import type { SequencedEvent } from '../../domain/shared/events.js';
 import { describedHealth } from './health.js';
 import { presentStartingPrompt } from './starting-prompt-text.js';
-import { actorAnyScopeProcedure, actorScopedProcedure, anyScopeProcedure, authenticatedProcedure, callerStillHolding, okOrThrow, router, scopedCrewCallerProcedure, scopedProcedure } from './trpc.js';
+import { actorAnyScopeProcedure, actorScopedProcedure, anyScopeProcedure, callerStillHolding, okOrThrow, router, scopedCrewCallerProcedure, scopedProcedure } from './trpc.js';
 
 /** A crew request as the API answers it: its times in ISO 8601, and when its session started as `startedAt`. */
 function crewRequestOutputOf<T extends { requestedAt: Date; sessionStartedAt: Date | null; givenBack: ShipFacts['crewRequestGivenBack'] }>(request: T | null) {
@@ -151,13 +151,15 @@ function pingOutputOf(ping: PingStatus | null) {
  */
 export const fleetRouter = router({
   /** A new agent ship awaiting crew, and its first starting prompt: shown once. */
-  commission: scopedProcedure('fleet:commission')
+  commission: actorAnyScopeProcedure('fleet:commission', 'fleet:person')
     .meta({
       description: [
-        'Needs fleet:commission. Commissions a new agent ship awaiting crew: name and type are handles (lowercase letters, digits, hyphens, colons).',
-        'scopes adds scopes to the two every ship has, each one your ship may grant: a core scope it holds (argo holds every one), or a declared scope of the namespace it declared. fleet_grantScopes changes them later.',
+        'Needs fleet:commission, or fleet:person for a person ship. Commissions a new ship awaiting crew, for a ship, an account or the installation: name and type are handles (lowercase letters, digits, hyphens, colons).',
+        'scopes adds scopes to the two every ship has, each one you may grant: a core scope you hold, or a declared scope of the namespace your ship declared. fleet_grantScopes changes them later.',
+        "The new ship's owner is your owner, you when you are a person ship, or your person ship when you are an account; an account without a person ship in the fleet is refused.",
+        'valueIds gives it label values from the start, each a value of a label you defined or a value you carry yourself (decision 0053).',
         "ownerOf, which needs fleet:on-behalf, names the ship that asked it for this one: the new ship gets that ship's owner instead of yours.",
-        'kind is agent unless you state person or app: only argo commissions a person ship, and an app ship needs fleet:on-behalf as well.',
+        'kind is agent unless you state person or app: a person ship needs fleet:person instead and owns itself, and an app ship needs fleet:on-behalf as well.',
         "owner, which needs fleet:on-behalf and only for an app ship, names the owner argo picked for it: a person's ship or argo, never beside ownerOf.",
         'Answers its shipId, its first starting prompt, one crew line per harness (claude-code, codex) and its secret, shown only this once.',
         'idempotencyKey is a new unique string for every commission. Reuse one only to retry the same commission after an error or a lost answer:',
@@ -413,8 +415,8 @@ export const fleetRouter = router({
       return {};
     }),
 
-  /** Gives a ship a new owner, an active person's ship or argo: argo's alone, by its kind, no scope (decisions 0045, 0046). */
-  setOwner: authenticatedProcedure
+  /** Gives a ship within the caller's manage reach a new owner, an active person's ship or argo (decisions 0045, 0053). */
+  setOwner: actorScopedProcedure('fleet:owner')
     .input(setOwnerInputSchema)
     .output(setOwnerOutputSchema)
     .mutation(async ({ ctx, input }) => {
@@ -422,8 +424,8 @@ export const fleetRouter = router({
       return {};
     }),
 
-  /** Connects a ship as a plugin, which then reads every ship until a release or retire ends it: argo's alone, by its kind, no scope (decision 0034). */
-  connectPlugin: authenticatedProcedure
+  /** Connects a ship as a plugin, which then reads every ship until a release or retire ends it (decisions 0034, 0053). */
+  connectPlugin: actorScopedProcedure('fleet:connect')
     .input(connectPluginInputSchema)
     .output(connectPluginOutputSchema)
     .mutation(async ({ ctx, input }) => {
@@ -479,7 +481,7 @@ export const fleetRouter = router({
     ),
 
   /** The fleet's labels, each with its values and its owner (decision 0031). */
-  labels: scopedProcedure('fleet:read')
+  labels: actorScopedProcedure('fleet:read')
     .meta({
       description: ["Needs fleet:read. The fleet's labels by key: each with its id, its values with their ids, and its owner ship, by id and name."].join(' '),
     })
@@ -514,7 +516,7 @@ export const fleetRouter = router({
     }),
 
   /** Grants and revokes scopes on a live ship, within what the caller's ship may grant (decision 0046). */
-  grantScopes: scopedProcedure('scopes:grant')
+  grantScopes: actorScopedProcedure('scopes:grant')
     .meta({
       description: [
         'Needs scopes:grant. Grants and revokes scopes on a live agent, person or app ship at once; its crew holds them from its next call.',
@@ -530,7 +532,7 @@ export const fleetRouter = router({
     }),
 
   /** Defines a label the caller's ship then owns (decision 0031). */
-  defineLabel: scopedProcedure('labels:define')
+  defineLabel: actorScopedProcedure('labels:define')
     .meta({
       description: [
         'Needs labels:define. Defines a label your ship then owns: a key unique in the fleet and its values, 1 to 50, each once.',
@@ -546,7 +548,7 @@ export const fleetRouter = router({
     }),
 
   /** The owner gives its label the values it has from now on. */
-  changeLabelValues: scopedProcedure('labels:define')
+  changeLabelValues: actorScopedProcedure('labels:define')
     .meta({
       description: [
         "Needs labels:define, and only the label's owner changes it. Gives the label, by its id, every value it has from now on, adding and removing at once, within decision 0031's limits.",
@@ -561,7 +563,7 @@ export const fleetRouter = router({
     }),
 
   /** The owner gives a ship one of its label's values. */
-  assignLabel: scopedProcedure('labels:assign')
+  assignLabel: actorScopedProcedure('labels:assign')
     .meta({
       description: [
         "Needs labels:assign, and only the label's owner assigns it. Gives a ship one of its values, by the value's id, beside the values the ship carries.",
@@ -576,7 +578,7 @@ export const fleetRouter = router({
     }),
 
   /** The owner takes its label off a ship. */
-  unassignLabel: scopedProcedure('labels:assign')
+  unassignLabel: actorScopedProcedure('labels:assign')
     .meta({
       description: ["Needs labels:assign, and only the label's owner unassigns it. Takes one of its values off a ship, by the value's id; a ship that does not carry it changes nothing."].join(' '),
     })
@@ -588,7 +590,7 @@ export const fleetRouter = router({
     }),
 
   /** The owner deletes its label, freeing its key. */
-  deleteLabel: scopedProcedure('labels:define')
+  deleteLabel: actorScopedProcedure('labels:define')
     .meta({
       description: [
         "Needs labels:define, and only the label's owner deletes it. Deletes the label, by its id, with its values, freeing its key.",
@@ -603,7 +605,7 @@ export const fleetRouter = router({
     }),
 
   /** The ids of a label and one of its values, by their texts. */
-  findLabelValue: scopedProcedure('fleet:read')
+  findLabelValue: actorScopedProcedure('fleet:read')
     .meta({
       description: [
         'Needs fleet:read. The label id and the value id for a key and a value as people write them (os, macos): both lowercased, then matched exactly.',
@@ -668,7 +670,7 @@ export const fleetRouter = router({
     }),
 
   /** A built-in rule turned on or off: the viewer reading by argo, open for one verb by the networking plugin (decision 0034). */
-  setBuiltInRule: scopedProcedure('fleet:network')
+  setBuiltInRule: actorScopedProcedure('fleet:network')
     .meta({
       description: [
         "Needs fleet:network. Turns a built-in network rule on or off, as its own action with BuiltInRuleChanged (decision 0034).",
@@ -686,11 +688,11 @@ export const fleetRouter = router({
     .query(async ({ ctx }) => okOrThrow(await ctx.useCases.readBuiltInRules(ctx.caller))),
 
   /** The caller declares the network rules it needs on the labels it owns, its whole list (decision 0037). */
-  declareNetworkRules: scopedProcedure('labels:define')
+  declareNetworkRules: actorScopedProcedure('labels:define')
     .meta({
       description: [
-        'Needs labels:define. Declares the network rules your ship needs, the whole list at once, replacing what you declared before; an empty list withdraws them (decision 0037).',
-        'Every term of every rule must be on a label your ship owns: a label value id of it, or { labelId, value: "*" } or { labelId, value: "#" } on it; a label or value the fleet does not have is refused.',
+        'Needs labels:define. Declares the network rules your ship, or the installation, needs, the whole list at once, replacing what you declared before; an empty list withdraws them (decision 0037; the installation, decision 0052). An account owns no label, so it declares none.',
+        'Every term of every rule must be on a label you own: a label value id of it, or { labelId, value: "*" } or { labelId, value: "#" } on it; a label or value the fleet does not have is refused.',
         'You declare at most 20 rules, each as fleet.setNetworkRules takes them but without a term of the owner, which is on no label. Declared rules are not in force by themselves: the fleet\'s networking plugin adds them to argo\'s rules when it supplies the list. Answers how many rules you declare now.',
       ].join(' '),
     })
@@ -698,21 +700,21 @@ export const fleetRouter = router({
     .output(declareNetworkRulesOutputSchema)
     .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.declareNetworkRules(ctx.caller, input))),
 
-  /** Every ship's declared rules, for the networking plugin to add to argo's (decision 0037). */
+  /** Every declarer's declared rules, for the networking plugin to add to argo's (decisions 0037, 0052). */
   declaredNetworkRules: scopedProcedure('fleet:network')
     .meta({
       description: [
-        'Needs fleet:network. The network rules the fleet\'s ships declared on the labels they own, each ship with its whole list (decision 0037).',
+        'Needs fleet:network. The network rules the fleet\'s ships and the installation declared on the labels they own, each ship or the installation as declarer with its whole list (decision 0037; the installation, decision 0052).',
         'The networking plugin adds them to argo\'s rules whenever it supplies the list.',
       ].join(' '),
     })
     .output(declaredNetworkRulesOutputSchema)
     .query(async ({ ctx }) =>
-      (await ctx.useCases.readDeclaredNetworkRules(ctx.caller)).map(({ shipId, rules }) => ({ shipId, rules: rules.map((rule) => ({ verb: rule.verb, from: [...rule.from], to: [...rule.to] })) })),
+      (await ctx.useCases.readDeclaredNetworkRules(ctx.caller)).map(({ declarer, rules }) => ({ declarer, rules: rules.map((rule) => ({ verb: rule.verb, from: [...rule.from], to: [...rule.to] })) })),
     ),
 
-  /** The sends the network rules refused, newest first: argo's only (decision 0034). */
-  reachRefusals: scopedProcedure('fleet:read')
+  /** The sends the network rules refused, newest first, of the ships the caller reads (decisions 0034, 0053). */
+  reachRefusals: actorScopedProcedure('fleet:explain')
     .output(reachRefusalsOutputSchema)
     .query(async ({ ctx }) =>
       okOrThrow(await ctx.useCases.readReachRefusals(ctx.caller)).map(({ id, at, sender, askedBy, recipient, verb, settingsVersion, whilePluginUnavailable }) => ({
@@ -730,8 +732,8 @@ export const fleetRouter = router({
       })),
     ),
 
-  /** Which ships a ship reaches now, or whether it reaches one: argo's only, and never why (design on #260). */
-  explainReach: scopedProcedure('fleet:read')
+  /** Which ships a ship the caller reads reaches now, or whether it reaches one (design on #260, decision 0053). */
+  explainReach: actorScopedProcedure('fleet:explain')
     .input(explainReachInputSchema)
     .output(explainReachOutputSchema)
     .query(async ({ ctx, input }) => okOrThrow(await ctx.useCases.explainReach(ctx.caller, input))),

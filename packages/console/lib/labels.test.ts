@@ -19,7 +19,7 @@ const SQUADRONS = aShip('squadrons', { type: 'squadrons' });
 const ORCHESTRATOR = aShip('orchestrator', { type: 'orchestrator' });
 
 function aLabel(definition: { key: string; values: string[] }, owner: ListedShip): ListedLabel {
-  return { id: newId('label'), key: definition.key, values: definition.values.map((value) => ({ id: newId('labelValue'), value })), owner: { id: owner.id, name: owner.name } };
+  return { id: newId('label'), key: definition.key, values: definition.values.map((value) => ({ id: newId('labelValue'), value })), owner: { kind: 'ship', id: owner.id, name: owner.name } };
 }
 
 const PROJECT = aLabel({ key: 'project', values: ['aeolus', 'hemma'] }, ARGO);
