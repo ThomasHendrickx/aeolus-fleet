@@ -5,7 +5,7 @@ What a package of another release train (decision 0049) needs from core. Core ke
 ## How a package checks core
 
 - Core answers `GET /api/version` without authentication: `{ "server": "<core's version>", "common": "<common's version>" }` (architecture.md, `/api/version`).
-- Each of squadrons, the trierarch plugin and the trierarch states the minimum core version it needs. At start, before it migrates, listens or registers, it reads `server` and compares it with that minimum as MAJOR.MINOR.PATCH.
+- Each of squadrons, the trierarch plugin, the trierarch and the gateway states the minimum core version it needs. At start, before it migrates, listens or registers, it reads `server` and compares it with that minimum as MAJOR.MINOR.PATCH.
 - When core is older, the package exits 1 and logs one line that names its own version, the minimum and core's. It does the same when core does not answer or does not answer a version.
 - Core `0.0.0` is a build from main, not a release, and counts as newer than any minimum.
 
@@ -19,5 +19,6 @@ The ship contract is `/api/v1`, REST over the same procedures as `/trpc` and `/m
 | trierarch plugin | 0030 | `ship/register`, `whoami`, `send`, `deregister`; `fleet/commission`, `ship`, `list`, `assignCrew`, `explainCrewRequest`, `defineLabel`, `labels`, `assignLabel`, `unassignLabel`, `declareNetworkRules`, `declareScopes`, `scopes` |
 | aeolus plugin | those of the ship it crews | every `ship/` call, by name, and `openapi.json` |
 | trierarch | 0026 | `ship/register`, `whoami`, `receive`, `ack`, `pong`, `send`, `report`, `inbox`; `fleet/ship`, `getStartingPrompt`, `assignedCrewRequests`, `giveBackCrewRequest`, `reportCrewStatus`, `confirmCrewRelease`, `clearRequests`, `confirmWorktreeCleared`, `release` |
+| gateway | 0044, 0056 | `ship/register`, `whoami`, `pushReceive`, `ack`, `handed`, `handled`, `notHandled`, `inbox`, `send`, `discover`, `setStatement`, `deregister`; `fleet/commission`, `ship`, `getStartingPrompt`, `release`, `declareScopes`, `networkRules`. With argo's console cookie, `/trpc` `console.session` and `fleet.networkRules` |
 
 Every package also builds against `@aeolus-fleet/common`: its schemas are the shapes of these calls, of plugin details per ship type (decision 0028) and of crew settings (decision 0027).
