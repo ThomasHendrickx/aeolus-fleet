@@ -114,6 +114,18 @@ describe('when a ship was retired', () => {
   });
 });
 
+describe("a ship's owner", () => {
+  it('is the ship that owns it: argo, for a ship argo commissioned (decision 0045)', async () => {
+    await expect(listedScout()).resolves.toMatchObject({ ownerShipId: argoId });
+  });
+
+  it('is none for argo', async () => {
+    const listed = wholeShips(await useCases.listFleet(argo)).find((ship) => ship.id === argoId);
+
+    expect(listed).toMatchObject({ ownerShipId: null });
+  });
+});
+
 describe('the model and harness a ship shows', () => {
   async function sendAs(shipId: ShipId, model: string): Promise<string> {
     const { messageId } = unwrap(
