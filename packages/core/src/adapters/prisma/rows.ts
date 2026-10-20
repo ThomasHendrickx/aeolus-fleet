@@ -473,12 +473,13 @@ const consoleSessionSqlRow = z
     idle_limit_seconds: z.number(),
     ends_by: z.date().nullable(),
     device: z.string(),
+    account_id: accountIdSchema.nullable(),
     token_hash: z.string(),
     created_at: z.date(),
     last_used_at: z.date(),
     expires_at: z.date(),
     ended_at: z.date().nullable(),
-    end_reason: z.enum(['takenOver', 'signedOut', 'passwordReset']).nullable(),
+    end_reason: z.enum(['takenOver', 'signedOut', 'passwordReset', 'accountCutOff']).nullable(),
   })
   .transform(
     (row): ConsoleSession => ({
@@ -489,6 +490,7 @@ const consoleSessionSqlRow = z
       idleLimitMs: row.idle_limit_seconds * MS_PER_SECOND,
       endsBy: row.ends_by,
       device: row.device,
+      accountId: row.account_id,
       tokenHash: row.token_hash,
       createdAt: row.created_at,
       lastUsedAt: row.last_used_at,
@@ -531,16 +533,16 @@ export function toCrewTokenLease(row: unknown): CrewTokenLease {
   return is_open ? { isOpen: true, crew: toAuthenticatedCrew(row) } : { isOpen: false };
 }
 
-const consoleSessionCallerSqlRow = z.object({ console_session_id: idSchema('consoleSession'), lease_id: idSchema('lease').nullable(), expires_at: z.date() });
+const consoleSessionCallerSqlRow = z.object({ console_session_id: idSchema('consoleSession'), lease_id: idSchema('lease').nullable(), account_id: accountIdSchema.nullable(), expires_at: z.date() });
 
 /**
  * The caller of a console session: its ship, the session it came through,
- * and the lease the session holds (a viewer session holds none), with the
+ * the account that signed in as argo, if one did, and the lease the session holds (a viewer session holds none), with the
  * expiry its use moved to.
  */
 export function toConsoleSessionCaller(row: unknown): { caller: ShipCaller | Crew; expiresAt: Date } {
-  const { console_session_id, lease_id, expires_at } = consoleSessionCallerSqlRow.parse(row);
-  const caller: ShipCaller = { ...toAuthenticatedShip(row), consoleSessionId: console_session_id };
+  const { console_session_id, lease_id, account_id, expires_at } = consoleSessionCallerSqlRow.parse(row);
+  const caller: ShipCaller = { ...toAuthenticatedShip(row), consoleSessionId: console_session_id, ...(account_id === null ? {} : { signedInAccountId: account_id }) };
   return { caller: lease_id === null ? caller : { ...caller, leaseId: lease_id }, expiresAt: expires_at };
 }
 
@@ -653,6 +655,7 @@ const eventRowSchema = z.object({
   actorShipId: idSchema('ship').nullable(),
   actorAccountId: accountIdSchema.nullable(),
   actorThroughShipId: idSchema('ship').nullable(),
+  actorSignedInAccountId: accountIdSchema.nullable(),
   shipId: idSchema('ship').nullable(),
   messageId: idSchema('message').nullable(),
   deliveryId: idSchema('delivery').nullable(),
@@ -662,10 +665,10 @@ const eventRowSchema = z.object({
 
 /** An event row as Prisma reads it; a missing subject stays absent, as the core wrote it. */
 export function toSequencedEvent(row: unknown): SequencedEvent {
-  const { actorKind, actorShipId, actorAccountId, actorThroughShipId, shipId, messageId, deliveryId, ...event } = eventRowSchema.parse(row);
+  const { actorKind, actorShipId, actorAccountId, actorThroughShipId, actorSignedInAccountId, shipId, messageId, deliveryId, ...event } = eventRowSchema.parse(row);
   return {
     ...event,
-    actor: actorOf({ actorKind, actorShipId, actorAccountId, actorThroughShipId }),
+    actor: actorOf({ actorKind, actorShipId, actorAccountId, actorThroughShipId, actorSignedInAccountId }),
     ...(shipId === null ? {} : { shipId }),
     ...(messageId === null ? {} : { messageId }),
     ...(deliveryId === null ? {} : { deliveryId }),
@@ -673,10 +676,10 @@ export function toSequencedEvent(row: unknown): SequencedEvent {
 }
 
 /** The actor an event's columns name; the table's check keeps them consistent (decision 0057). */
-function actorOf(columns: Pick<z.infer<typeof eventRowSchema>, 'actorKind' | 'actorShipId' | 'actorAccountId' | 'actorThroughShipId'>): Actor {
-  const { actorKind, actorShipId, actorAccountId, actorThroughShipId } = columns;
+function actorOf(columns: Pick<z.infer<typeof eventRowSchema>, 'actorKind' | 'actorShipId' | 'actorAccountId' | 'actorThroughShipId' | 'actorSignedInAccountId'>): Actor {
+  const { actorKind, actorShipId, actorAccountId, actorThroughShipId, actorSignedInAccountId } = columns;
   if (actorKind === 'ship' && actorShipId !== null) {
-    return { kind: 'ship', shipId: actorShipId };
+    return actorSignedInAccountId === null ? { kind: 'ship', shipId: actorShipId } : { kind: 'ship', shipId: actorShipId, signedInAccountId: actorSignedInAccountId };
   }
   if (actorKind === 'account' && actorAccountId !== null) {
     return { kind: 'account', accountId: actorAccountId, throughShipId: actorThroughShipId };

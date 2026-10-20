@@ -1,10 +1,9 @@
 import type { IdGenerator, ShipId } from '@aeolus-fleet/common';
 
 import { revokeShipSecret, type SecretTools } from '../identity/public.js';
-import type { ShipCaller } from '../shared/caller.js';
+import { actorOf, type ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
-import { shipActor } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { keepingReachRefusal, type NotReachable } from './check-reach.js';
@@ -60,7 +59,7 @@ export function createGetStartingPrompt(deps: {
       if (!reaches.isOk) {
         return reaches;
       }
-      const actor = shipActor(caller.shipId);
+      const actor = actorOf(caller);
       await revokeShipSecret({ tx, ids: deps.ids }, { fleetId, shipId, actor, at });
       const lease = await tx.leases.findOpenForUpdate(fleetId, shipId);
       const allowed = checkCanIssueStartingPrompt(ship, { isCrewed: lease !== undefined });

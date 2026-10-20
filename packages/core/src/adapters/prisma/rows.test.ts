@@ -100,6 +100,7 @@ describe('mapping rows to domain objects', () => {
       toConsoleSessionCaller({
         console_session_id: consoleSessionId,
         lease_id: leaseId,
+        account_id: null,
         ship_id: shipId,
         fleet_id: fleetId,
         kind: 'operator',
@@ -117,6 +118,7 @@ describe('mapping rows to domain objects', () => {
       toConsoleSessionCaller({
         console_session_id: consoleSessionId,
         lease_id: null,
+        account_id: null,
         ship_id: shipId,
         fleet_id: fleetId,
         kind: 'viewer',
@@ -124,6 +126,18 @@ describe('mapping rows to domain objects', () => {
         expires_at: expiresAt,
       }),
     ).toEqual({ caller: { shipId, fleetId, kind: 'viewer', scopes: ['fleet:read'], consoleSessionId }, expiresAt });
+  });
+});
+
+describe('the account a console session signed in', () => {
+  it('maps it onto the caller, by its id (decision 0054)', () => {
+    const consoleSessionId = newId('consoleSession');
+    const leaseId = newId('lease');
+    const expiresAt = new Date('2026-11-04T09:00:00.000Z');
+
+    expect(
+      toConsoleSessionCaller({ console_session_id: consoleSessionId, lease_id: leaseId, account_id: 'acc-mathilde', ship_id: shipId, fleet_id: fleetId, kind: 'operator', scopes: [], expires_at: expiresAt }).caller,
+    ).toMatchObject({ signedInAccountId: 'acc-mathilde' });
   });
 });
 

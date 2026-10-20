@@ -17,7 +17,7 @@ function aShip(overrides: Partial<ListedShip>): ListedShip {
     lastSeenAt: null,
     ping: null,
     scopes: ['messages:send', 'messages:receive'],
-    report: null, harness: null, model: null, awaitingCrewSince: null, crewRequest: null, labels: [], retiredAt: null,
+    report: null, harness: null, model: null, awaitingCrewSince: null, crewRequest: null, labels: [], retiredAt: null, ownerShipId: null,
     ...overrides,
   };
 }

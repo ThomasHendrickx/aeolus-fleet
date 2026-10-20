@@ -86,6 +86,7 @@ const LEASE_ENDS: Readonly<Record<string, string>> = {
   takenOver: 'Taken over by a new console session.',
   signedOut: 'The operator signed out.',
   passwordReset: 'Its session ended with the operator password reset.',
+  accountCutOff: 'Its session ended: the account signed in as argo was cut off.',
   retired: 'Its session ended: the ship was retired.',
 };
 

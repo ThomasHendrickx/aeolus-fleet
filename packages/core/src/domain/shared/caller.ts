@@ -19,6 +19,8 @@ export interface ShipCaller {
   scopes: readonly ScopeName[];
   /** Set when the caller signed in through the console rather than calling with a crew token. */
   consoleSessionId?: ConsoleSessionId;
+  /** The account that signed in to the console as argo, by its id, for a console session it started (decision 0054). */
+  signedInAccountId?: AccountId;
   /** The plugin ship that reads on behalf of this ship, with this ship's read reach (decision 0034); absent for a ship's own call. */
   askedBy?: ShipId;
 }
@@ -83,6 +85,7 @@ export function actorOf(caller: Caller): Actor {
     case 'agent':
     case 'person':
     case 'app':
-      return { kind: 'ship', shipId: caller.shipId };
+      // argo, signed in to the console by an account, names that account on every event it writes (decision 0054).
+      return caller.signedInAccountId === undefined ? { kind: 'ship', shipId: caller.shipId } : { kind: 'ship', shipId: caller.shipId, signedInAccountId: caller.signedInAccountId };
   }
 }

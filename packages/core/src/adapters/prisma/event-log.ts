@@ -86,15 +86,15 @@ export function createPrismaFleetEventFeed(db: Db): FleetEventFeed {
   };
 }
 
-/** The actor as the event's columns hold it (decision 0057): an account by its id only. */
+/** The actor as the event's columns hold it (decision 0057): an account by its id only, and argo with the account signed in as it (decision 0054). */
 function actorColumns(actor: Actor) {
   switch (actor.kind) {
     case 'ship':
-      return { actorKind: actor.kind, actorShipId: actor.shipId, actorAccountId: null, actorThroughShipId: null };
+      return { actorKind: actor.kind, actorShipId: actor.shipId, actorAccountId: null, actorThroughShipId: null, actorSignedInAccountId: actor.signedInAccountId ?? null };
     case 'account':
-      return { actorKind: actor.kind, actorShipId: null, actorAccountId: actor.accountId, actorThroughShipId: actor.throughShipId };
+      return { actorKind: actor.kind, actorShipId: null, actorAccountId: actor.accountId, actorThroughShipId: actor.throughShipId, actorSignedInAccountId: null };
     case 'installation':
     case 'system':
-      return { actorKind: actor.kind, actorShipId: null, actorAccountId: null, actorThroughShipId: null };
+      return { actorKind: actor.kind, actorShipId: null, actorAccountId: null, actorThroughShipId: null, actorSignedInAccountId: null };
   }
 }

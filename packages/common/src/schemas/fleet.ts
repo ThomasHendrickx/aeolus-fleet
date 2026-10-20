@@ -213,6 +213,8 @@ export const listedShipSchema = z.object({
   awaitingCrewSince: z.iso.datetime().nullable(),
   /** When the operator retired the ship (ISO 8601 in UTC); null while it is active. */
   retiredAt: z.iso.datetime().nullable(),
+  /** The ship that owns it (decision 0045); null for argo and the viewer, which no ship owns. */
+  ownerShipId: idSchema('ship').nullable(),
 });
 
 export type ListedShip = z.infer<typeof listedShipSchema>;
@@ -265,6 +267,8 @@ export const liveFleetEventSchema = z.object({
   actorShipId: idSchema('ship').nullable(),
   /** The account that caused it, by its id only; null for any other actor. */
   actorAccountId: accountIdSchema.nullable(),
+  /** The account signed in to the console as argo when argo caused it, by its id only; null otherwise (decision 0054). */
+  actorSignedInAccountId: accountIdSchema.nullable(),
   shipId: idSchema('ship').nullable(),
   messageId: idSchema('message').nullable(),
   deliveryId: idSchema('delivery').nullable(),

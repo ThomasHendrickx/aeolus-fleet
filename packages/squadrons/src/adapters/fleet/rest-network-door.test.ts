@@ -23,6 +23,7 @@ describe('the network door over REST within read reach (decision 0034)', () => {
       harness: null,
       awaitingCrewSince: null,
       retiredAt: null,
+      ownerShipId: null,
     };
     const outside = { id: 'shp_01m3tbfspe96yf1rnr4ank9h2b', name: 'vault', type: 'keeper', status: 'crewed', isInReadReach: false };
     await aFleetAnswering([{ status: 200, body: [whole, outside] }], async (fleetUrl) => {

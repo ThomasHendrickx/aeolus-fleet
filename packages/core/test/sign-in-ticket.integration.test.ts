@@ -89,6 +89,46 @@ describe('a sign-in ticket', () => {
     await expect(accountWith(cookie)).resolves.toMatchObject({ email: 'lena@example.com', session: { device: 'Mac · Safari' } });
   });
 
+  it('signs in the account it names as argo: the console session keeps its id, and the account read names it (decision 0054)', async () => {
+    const { ticket } = await installation().operators.issueSignInTicket.mutate({ fleetId, account: { id: 'acc-01mathilde' } });
+
+    const redeemed = await redeem(ticket);
+
+    const cookie = 'cookie' in redeemed ? redeemed.cookie : '';
+    await expect(accountWith(cookie)).resolves.toMatchObject({ session: { accountId: 'acc-01mathilde' } });
+    await expect(database.consoleSession.findFirst({ where: { endedAt: null, fleetId }, select: { accountId: true } })).resolves.toEqual({ accountId: 'acc-01mathilde' });
+  });
+
+  it('writes the account on every event argo writes while it is signed in by it (decision 0054)', async () => {
+    const { ticket } = await installation().operators.issueSignInTicket.mutate({ fleetId, account: { id: 'acc-01lena' } });
+    const before = (await database.event.aggregate({ where: { fleetId }, _max: { seq: true } }))._max.seq ?? 0;
+    const redeemed = await redeem(ticket);
+    const cookie = 'cookie' in redeemed ? redeemed.cookie : '';
+    const asArgo = createTRPCClient<AppRouter>({ links: [httpLink({ url: `${hostingAddress}/trpc`, headers: { cookie, origin: new URL(FLEET_URL).origin } })] });
+
+    const { shipId } = await asArgo.fleet.commission.mutate({ name: 'lenas-scout', type: 'reviewer', idempotencyKey: newKey() });
+    await asArgo.fleet.rename.mutate({ shipId, name: 'lenas-lookout' });
+    await asArgo.ship.send.mutate({ selector: { kind: 'ship', name: 'lenas-lookout' }, payload: 'hello', idempotencyKey: newKey() });
+    await asArgo.fleet.retire.mutate({ shipId });
+
+    const argos = await database.event.findMany({ where: { fleetId, seq: { gt: before }, actorKind: 'ship' }, select: { type: true, actorSignedInAccountId: true } });
+    expect(argos.map((event) => event.type)).toEqual(expect.arrayContaining(['ShipClaimed', 'ShipCommissioned', 'ShipRenamed', 'MessageAccepted', 'ShipRetired']));
+    expect(argos.filter((event) => event.actorSignedInAccountId !== 'acc-01lena')).toEqual([]);
+  });
+
+  it("ends the account's console sign-in as argo when the installation cuts the account off, and argo's lease with it (decision 0055)", async () => {
+    const { ticket } = await installation().operators.issueSignInTicket.mutate({ fleetId, account: { id: 'acc-01burak' } });
+    const redeemed = await redeem(ticket);
+    const cookie = 'cookie' in redeemed ? redeemed.cookie : '';
+
+    await installation().accounts.cutOff.mutate({ accountId: 'acc-01burak' });
+
+    await expect(accountWith(cookie)).rejects.toMatchObject({ data: { code: 'UNAUTHORIZED' } });
+    const session = await database.consoleSession.findFirst({ where: { fleetId, accountId: 'acc-01burak' }, select: { endReason: true, leaseId: true } });
+    expect(session?.endReason).toBe('accountCutOff');
+    await expect(database.lease.count({ where: { fleetId, id: session?.leaseId ?? '', endedAt: null } })).resolves.toBe(0);
+  });
+
   it('signs in once and never again', async () => {
     const { ticket } = await installation().operators.issueSignInTicket.mutate({ fleetId });
     await redeem(ticket);

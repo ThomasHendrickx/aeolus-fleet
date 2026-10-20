@@ -239,6 +239,9 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_installation_labels$/),
       expect.stringMatching(/^\d{14}_installation_declared_network_rules$/),
       expect.stringMatching(/^\d{14}_commissioning_actors$/),
+      expect.stringMatching(/^\d{14}_console_sign_in_accounts$/),
+      expect.stringMatching(/^\d{14}_event_signed_in_accounts$/),
+      expect.stringMatching(/^\d{14}_account_cut_off_ends_console_sessions$/),
     ]);
   });
 });
@@ -417,6 +420,7 @@ describe('the fleet procedures at the API', () => {
       model: null,
       awaitingCrewSince: clock.now().toISOString(),
       retiredAt: null,
+      ownerShipId: argoId,
     });
   });
 

@@ -683,6 +683,8 @@ model Event {
   actorAccountId String? @map("actor_account_id")
   /// The ship that presented the account's token, a plugin's page or the gateway, if one did.
   actorThroughShipId String? @map("actor_through_ship_id")
+  /// The account signed in to the console as argo when argo caused it, by its id only (decision 0054).
+  actorSignedInAccountId String? @map("actor_signed_in_account_id")
   shipId      String?  @map("ship_id")
   messageId   String?  @map("message_id")
   deliveryId  String?  @map("delivery_id")
@@ -718,6 +720,7 @@ enum ConsoleSessionEndReason {
   takenOver
   signedOut
   passwordReset
+  accountCutOff
 
   @@map("console_session_end_reason")
 }
@@ -764,6 +767,8 @@ model ConsoleSession {
   endsBy           DateTime?                @map("ends_by") @db.Timestamptz(3)
   /// The device it signed in from, as the browser told: "Mac · Chrome".
   device           String                   @default("Unknown device")
+  /// The account that signed in as argo, by its id only; null for argo's own sign-in and a viewer (decision 0054).
+  accountId        String?                  @map("account_id")
   tokenHash        String                   @unique @map("token_hash")
   createdAt        DateTime                 @map("created_at") @db.Timestamptz(3)
   lastUsedAt       DateTime                 @map("last_used_at") @db.Timestamptz(3)
@@ -796,6 +801,8 @@ model SignInTicket {
   fleetId   String    @map("fleet_id")
   /// Whom it signs in as: the operator or a viewer (decision 0022).
   signInAs  SignInAs  @map("sign_in_as")
+  /// The account it signs in as argo, by its id only; null for argo's own or a viewer's ticket (decision 0054).
+  accountId String?   @map("account_id")
   issuedAt  DateTime  @map("issued_at") @db.Timestamptz(3)
   expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
   /// When it signed in; null while unused.

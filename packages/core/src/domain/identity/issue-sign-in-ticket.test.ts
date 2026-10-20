@@ -1,7 +1,7 @@
-import type { FleetId } from '@aeolus-fleet/common';
+import { accountIdSchema, type FleetId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { hostedFleet } from '../../../test/support/core-fixtures.js';
+import { hostedFleet, hostedFleetWithViewer } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../testing/result.js';
 import { createIssueSignInTicket, type IssueSignInTicket } from './issue-sign-in-ticket.js';
@@ -27,7 +27,7 @@ describe("issuing a sign-in ticket for a fleet's operator", () => {
 
     expect(ticket).toMatch(/^aeolus_st_v1_./);
     expect(core.state.signInTickets).toEqual([
-      { fleetId, as: 'operator', tokenHash: core.hasher.hash(ticket), issuedAt: core.clock.now(), expiresAt: new Date(core.clock.now().getTime() + TWO_MINUTES_MS), usedAt: null },
+      { fleetId, as: 'operator', accountId: null, tokenHash: core.hasher.hash(ticket), issuedAt: core.clock.now(), expiresAt: new Date(core.clock.now().getTime() + TWO_MINUTES_MS), usedAt: null },
     ]);
     expect(JSON.stringify(core.state)).not.toContain(`"${ticket}"`);
   });
@@ -44,6 +44,22 @@ describe("issuing a sign-in ticket for a fleet's operator", () => {
 
     expect(second.ticket).not.toBe(first.ticket);
     expect(core.state.signInTickets.map((ticket) => ticket.usedAt)).toEqual([null, null]);
+  });
+
+  it('names the account it signs in as argo, by its id only (decision 0054)', async () => {
+    unwrap(await useCases.issueSignInTicket({ fleetId, account: { id: accountIdSchema.parse('acc-mathilde') } }));
+
+    expect(core.state.signInTickets.map((ticket) => ticket.accountId)).toEqual(['acc-mathilde']);
+  });
+
+  it('refuses an account on a viewer ticket: the viewer is no account (decision 0022)', async () => {
+    const viewed = await hostedFleetWithViewer(core);
+
+    await expect(useCases.issueSignInTicket({ fleetId: viewed.fleetId, as: 'viewer', account: { id: accountIdSchema.parse('acc-mathilde') } })).resolves.toEqual({
+      isOk: false,
+      error: { kind: 'VIEWER_TICKET_NAMES_NO_ACCOUNT', message: 'A viewer ticket names no account: the viewer is no account' },
+    });
+    expect(core.state.signInTickets).toEqual([]);
   });
 
   it('refuses a fleet the installation does not host', async () => {

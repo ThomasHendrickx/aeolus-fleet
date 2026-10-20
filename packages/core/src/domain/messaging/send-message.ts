@@ -208,6 +208,7 @@ export async function sendWithin(
       requestHash,
       inReplyTo,
       isForced: send.request.isForced,
+      ...(send.caller.signedInAccountId === undefined ? {} : { signedInAccountId: send.caller.signedInAccountId }),
       at,
     },
   );

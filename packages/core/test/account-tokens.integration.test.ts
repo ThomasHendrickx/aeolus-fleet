@@ -271,6 +271,15 @@ describe('the installation acting in a fleet', () => {
     expect(renamed).toMatchObject({ actorKind: 'installation', actorShipId: null, actorAccountId: null });
   });
 
+  it("reads each ship's owner in the fleet list, so pagasae keeps a person ship while it owns ships: none for argo (#983)", async () => {
+    const ships = await asInstallation(fleetId).fleet.list.query();
+
+    expect(ships.filter((ship) => ship.name === 'argo' || ship.name === 'near').map((ship) => ({ name: ship.name, ownerShipId: 'ownerShipId' in ship ? ship.ownerShipId : 'outside read reach' }))).toEqual([
+      { name: 'argo', ownerShipId: null },
+      { name: 'near', ownerShipId: argo.shipId },
+    ]);
+  });
+
   it('is refused a call whose scope it does not hold there', async () => {
     await expect(refusalOf(asInstallation(fleetId).fleet.setOwner.mutate({ shipId: near, ownerShipId: near }))).resolves.toEqual({ code: 'FORBIDDEN', message: 'This call needs the fleet:owner scope' });
   });

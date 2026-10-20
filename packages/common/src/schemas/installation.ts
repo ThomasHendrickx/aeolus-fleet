@@ -91,7 +91,12 @@ export const installationFleetsDeleteOutputSchema = z.strictObject({});
 
 /** A one-time sign-in ticket for the fleet's operator: single use, valid 2 minutes, redeemed in the console. */
 /** Whom a ticket signs in as: the operator when left out, or a viewer of a fleet with a viewer ship (decision 0022). */
-export const installationOperatorsIssueSignInTicketInputSchema = z.strictObject({ fleetId: idSchema('fleet'), as: z.enum(['operator', 'viewer']).optional() });
+export const installationOperatorsIssueSignInTicketInputSchema = z.strictObject({
+  fleetId: idSchema('fleet'),
+  as: z.enum(['operator', 'viewer']).optional(),
+  /** The account it signs in as argo, by its id only: core never takes its email or name (decisions 0054, 0058). */
+  account: z.strictObject({ id: accountIdSchema }).optional(),
+});
 
 export const installationOperatorsIssueSignInTicketOutputSchema = z.object({ ticket: z.string() });
 /**

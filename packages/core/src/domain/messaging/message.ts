@@ -1,4 +1,4 @@
-import { isPingContentType, type DeliveryId, type DeliveryState, type FleetId, type LeaseId, type MessageId, type ShipId, type ShipKind } from '@aeolus-fleet/common';
+import { isPingContentType, type AccountId, type DeliveryId, type DeliveryState, type FleetId, type LeaseId, type MessageId, type ShipId, type ShipKind } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
 import { shipActor, type NewEvent } from '../shared/events.js';
@@ -98,6 +98,8 @@ export interface MessageToAccept {
    * whoever asked; the operator is the actor of MessageAccepted.
    */
   resendOf?: { messageId: MessageId; by: ShipId };
+  /** The account signed in to the console as argo when argo sends or resends it (decision 0054). */
+  signedInAccountId?: AccountId;
   at: Date;
 }
 
@@ -188,7 +190,7 @@ export function acceptMessage(
         fleetId,
         type: 'MessageAccepted',
         occurredAt: at,
-        actor: shipActor(resendOf?.by ?? senderShipId),
+        actor: send.signedInAccountId === undefined ? shipActor(resendOf?.by ?? senderShipId) : { kind: 'ship', shipId: resendOf?.by ?? senderShipId, signedInAccountId: send.signedInAccountId },
         shipId: recipient.kind === 'ship' ? recipient.shipId : undefined,
         messageId,
         deliveryId,

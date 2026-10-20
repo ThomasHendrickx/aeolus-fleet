@@ -1,7 +1,7 @@
 import type { TurnState } from '@aeolus-fleet/common';
 
-import type { Crew } from '../shared/caller.js';
-import { shipActor, type NewEvent } from '../shared/events.js';
+import { actorOf, type Crew } from '../shared/caller.js';
+import type { NewEvent } from '../shared/events.js';
 
 /** The turn a lease holds: idle or busy, since the time the hooks saw it change. */
 export interface Turn {
@@ -33,7 +33,7 @@ export function reportTurn(
         fleetId: crew.fleetId,
         type: 'TurnReported',
         occurredAt: at,
-        actor: shipActor(crew.shipId),
+        actor: actorOf(crew),
         shipId: crew.shipId,
         details: { leaseId: crew.leaseId, turn },
       },

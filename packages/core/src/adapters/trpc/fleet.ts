@@ -999,6 +999,7 @@ function liveEventOf(event: SequencedEvent) {
     actorKind: event.actor.kind,
     actorShipId: event.actor.kind === 'ship' ? event.actor.shipId : null,
     actorAccountId: event.actor.kind === 'account' ? event.actor.accountId : null,
+    actorSignedInAccountId: event.actor.kind === 'ship' ? (event.actor.signedInAccountId ?? null) : null,
     shipId: event.shipId ?? null,
     messageId: event.messageId ?? null,
     deliveryId: event.deliveryId ?? null,

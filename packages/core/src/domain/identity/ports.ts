@@ -78,10 +78,10 @@ export interface SignInTicketRepository {
    * otherwise. At most one redeem of a ticket ever answers, however many run
    * at once.
    */
-  redeem(tokenHash: string, at: Date): Promise<{ fleetId: FleetId; as: SignInAs } | undefined>;
+  redeem(tokenHash: string, at: Date): Promise<{ fleetId: FleetId; as: SignInAs; accountId: AccountId | null } | undefined>;
 }
 
-/** Outbound port: console sessions, always within one fleet. */
+/** Outbound port: console sessions, within one fleet but for the account's, which spans the installation. */
 export interface ConsoleSessionRepository {
   create(session: ConsoleSession): Promise<void>;
   /** The session, read without a lock. */
@@ -95,6 +95,12 @@ export interface ConsoleSessionRepository {
   }): Promise<ConsoleSession | undefined>;
   /** Ends every session of the ship that has not ended, expired ones included, and returns them. */
   endAll(of: { fleetId: FleetId; shipId: ShipId }, ending: { at: Date; reason: ConsoleSessionEndReason }): Promise<ConsoleSession[]>;
+  /**
+   * Ends every session the account signed in to as argo that has not ended, in
+   * every fleet of the installation, and returns them: a cut-off belongs to the
+   * installation, not to a fleet (decision 0055).
+   */
+  endAllOfAccount(accountId: AccountId, ending: { at: Date; reason: ConsoleSessionEndReason }): Promise<ConsoleSession[]>;
 }
 
 /**

@@ -45,6 +45,7 @@ export async function startViewerSession(
     idleLimitMs,
     endsBy,
     device,
+    accountId: null,
     tokenHash: deps.hasher.hash(token),
     createdAt: at,
     lastUsedAt: at,

@@ -1,7 +1,7 @@
-import { isPingContentType, type LeaseId, type MessageId, type ShipId } from '@aeolus-fleet/common';
+import { isPingContentType, type AccountId, type LeaseId, type MessageId, type ShipId } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
-import { shipActor, type NewEvent } from '../shared/events.js';
+import { shipActor, type Actor, type NewEvent } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { Delivery, Message } from './message.js';
 
@@ -24,6 +24,12 @@ export const UNDELIVERABLE_AT_ATTEMPT = 5;
 export interface CrewOfShip {
   shipId: ShipId;
   leaseId: LeaseId;
+  /** The account signed in to the console as argo, when argo's console session is the crew (decision 0054). */
+  signedInAccountId?: AccountId;
+}
+
+function crewActor(crew: CrewOfShip): Actor {
+  return crew.signedInAccountId === undefined ? shipActor(crew.shipId) : { kind: 'ship', shipId: crew.shipId, signedInAccountId: crew.signedInAccountId };
 }
 
 export interface DeliveryHandOver {
@@ -45,7 +51,7 @@ function countAttempt(delivery: Delivery, attempt: { crew: CrewOfShip; at: Date;
   const concerns = {
     fleetId: delivery.fleetId,
     occurredAt: at,
-    actor: shipActor(crew.shipId),
+    actor: crewActor(crew),
     shipId: crew.shipId,
     messageId: delivery.messageId,
     deliveryId: delivery.id,
@@ -93,7 +99,7 @@ export function pushReceiveDelivery(
     fleetId: delivery.fleetId,
     type: 'DeliveryReceived',
     occurredAt: at,
-    actor: shipActor(crew.shipId),
+    actor: crewActor(crew),
     shipId: crew.shipId,
     messageId: delivery.messageId,
     deliveryId: delivery.id,
@@ -212,7 +218,7 @@ function handOnceMore(
         fleetId: delivery.fleetId,
         type: 'DeliveryHanded',
         occurredAt: at,
-        actor: shipActor(crew.shipId),
+        actor: crewActor(crew),
         shipId: crew.shipId,
         messageId: delivery.messageId,
         deliveryId: delivery.id,
@@ -284,7 +290,7 @@ export function endTurn(
             fleetId: delivery.fleetId,
             type: end === 'handled' ? 'DeliveryHandled' : 'DeliveryNotHandled',
             occurredAt: at,
-            actor: shipActor(crew.shipId),
+            actor: crewActor(crew),
             shipId: crew.shipId,
             messageId: delivery.messageId,
             deliveryId: delivery.id,
@@ -340,7 +346,7 @@ export function acknowledgeDelivery(
             fleetId: delivery.fleetId,
             type: 'DeliveryAcknowledged',
             occurredAt: at,
-            actor: shipActor(crew.shipId),
+            actor: crewActor(crew),
             shipId: crew.shipId,
             messageId: delivery.messageId,
             deliveryId: delivery.id,
@@ -468,7 +474,7 @@ export function markDone(
   const concerns = {
     fleetId: delivery.fleetId,
     occurredAt: at,
-    actor: shipActor(crew.shipId),
+    actor: crewActor(crew),
     shipId: crew.shipId,
     messageId: delivery.messageId,
     deliveryId: delivery.id,

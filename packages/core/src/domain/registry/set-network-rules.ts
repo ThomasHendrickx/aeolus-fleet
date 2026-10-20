@@ -1,8 +1,8 @@
 import type { IdGenerator } from '@aeolus-fleet/common';
 
-import type { ShipCaller } from '../shared/caller.js';
+import { actorOf, type ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
-import { recordEvent, shipActor, type EventLog } from '../shared/events.js';
+import { recordEvent, type EventLog } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { setNetworkRules, type NetworkRule, type SetNetworkRulesRefusal } from './network-settings.js';
@@ -29,7 +29,7 @@ export function createSetNetworkRules(deps: { uow: UnitOfWork<SetNetworkRulesTx>
     deps.uow.run(async (tx): Promise<Result<{ version: number }, SetNetworkRulesRefusal>> => {
       const current = await tx.networkSettings.findForUpdate(caller.fleetId);
       const declaredRules = (await tx.declaredNetworkRules.list(caller.fleetId)).reduce((count, declared) => count + declared.rules.length, 0);
-      const set = setNetworkRules(current, { rules: input.rules, declaredRules, shipId: caller.shipId, at: deps.clock.now(), actor: shipActor(caller.shipId) });
+      const set = setNetworkRules(current, { rules: input.rules, declaredRules, shipId: caller.shipId, at: deps.clock.now(), actor: actorOf(caller) });
       if (!set.isOk) {
         return set;
       }

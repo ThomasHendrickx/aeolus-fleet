@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { scopeSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
+import { accountIdSchema } from './account-token.js';
 import { EMAIL_REQUIRED, EMAIL_TOO_LONG, OPERATOR_EMAIL_MAX_LENGTH, OPERATOR_PASSWORD_MAX_LENGTH, PASSWORD_REQUIRED, PASSWORD_TOO_LONG } from '../rules/sign-in.js';
 
 /** One @ with something on each side, and no whitespace. */
@@ -57,7 +58,8 @@ export const consoleSessionOutputSchema = z.object({
 
 export type ConsoleSessionOutput = z.infer<typeof consoleSessionOutputSchema>;
 
-const accountSessionSchema = z.object({ device: z.string(), since: isoTime });
+/** This console session: its device, since when, and the account that signed in as argo, by its id, or none (decision 0054). */
+const accountSessionSchema = z.object({ device: z.string(), since: isoTime, accountId: accountIdSchema.nullable().optional() });
 
 /**
  * Output of `console.account`: the signed-in operator, their theme, and this
