@@ -40,7 +40,7 @@ import type { DeliveryNotice } from '../../domain/shared/notifier.js';
 import type { Fleet } from '../../domain/registry/fleet.js';
 import type { Lease } from '../../domain/registry/lease.js';
 import type { ShipFacts } from '../../domain/registry/ports.js';
-import type { Ship } from '../../domain/registry/ship.js';
+import type { Commissioner, Ship } from '../../domain/registry/ship.js';
 import type { ShipCaller, Crew } from '../../domain/shared/caller.js';
 import type { Recipient } from '../../domain/shared/selector.js';
 
@@ -65,21 +65,52 @@ const shipRow = z.object({
   note: z.string().nullable(),
   createdAt: z.date(),
   retiredAt: z.date().nullable(),
-  commissionedBy: idSchema('ship').nullable(),
+  commissionedByKind: z.enum(['ship', 'account', 'installation']).nullable(),
+  commissionedBy: z.string().nullable(),
   commissionKey: z.string().nullable(),
   commissionRequestHash: z.string().nullable(),
   ownerShipId: idSchema('ship').nullable(),
 });
 
-/** The commission's three columns, set together for an agent ship and null for argo. */
-function commissionOf(columns: { by: ShipId | null; idempotencyKey: string | null; requestHash: string | null }): Ship['commission'] {
-  const { by, idempotencyKey, requestHash } = columns;
+/** The commissioning actor from its two columns: the kind, and the ship's or account's id, or `installation`. */
+function commissionerOf(kind: 'ship' | 'account' | 'installation' | null, by: string | null): Commissioner | null {
+  if (kind === null || by === null) {
+    return null;
+  }
+  switch (kind) {
+    case 'ship':
+      return { kind, shipId: idSchema('ship').parse(by) };
+    case 'account':
+      return { kind, accountId: accountIdSchema.parse(by) };
+    case 'installation':
+      return { kind };
+  }
+}
+
+/** The columns that name a commissioning actor; the installation, which has no id, by its name. */
+export function commissionerColumns(by: Commissioner | undefined): { commissionedByKind: Commissioner['kind'] | null; commissionedBy: string | null } {
+  switch (by?.kind) {
+    case undefined:
+      return { commissionedByKind: null, commissionedBy: null };
+    case 'ship':
+      return { commissionedByKind: by.kind, commissionedBy: by.shipId };
+    case 'account':
+      return { commissionedByKind: by.kind, commissionedBy: by.accountId };
+    case 'installation':
+      return { commissionedByKind: by.kind, commissionedBy: 'installation' };
+  }
+}
+
+/** The commission's columns, set together for a commissioned ship and null for argo. */
+function commissionOf(columns: { kind: 'ship' | 'account' | 'installation' | null; by: string | null; idempotencyKey: string | null; requestHash: string | null }): Ship['commission'] {
+  const by = commissionerOf(columns.kind, columns.by);
+  const { idempotencyKey, requestHash } = columns;
   return by === null || idempotencyKey === null || requestHash === null ? null : { by, idempotencyKey, requestHash };
 }
 
 export function toShip(row: unknown): Ship {
-  const { commissionedBy, commissionKey, commissionRequestHash, ownerShipId, ...ship } = shipRow.parse(row);
-  return { ...ship, commission: commissionOf({ by: commissionedBy, idempotencyKey: commissionKey, requestHash: commissionRequestHash }), owner: ownerShipId };
+  const { commissionedByKind, commissionedBy, commissionKey, commissionRequestHash, ownerShipId, ...ship } = shipRow.parse(row);
+  return { ...ship, commission: commissionOf({ kind: commissionedByKind, by: commissionedBy, idempotencyKey: commissionKey, requestHash: commissionRequestHash }), owner: ownerShipId };
 }
 
 const shipSqlRow = z
@@ -93,7 +124,8 @@ const shipSqlRow = z
     note: z.string().nullable(),
     created_at: z.date(),
     retired_at: z.date().nullable(),
-    commissioned_by: idSchema('ship').nullable(),
+    commissioned_by_kind: z.enum(['ship', 'account', 'installation']).nullable(),
+    commissioned_by: z.string().nullable(),
     commission_key: z.string().nullable(),
     commission_request_hash: z.string().nullable(),
     owner_ship_id: idSchema('ship').nullable(),
@@ -109,7 +141,7 @@ const shipSqlRow = z
       note: row.note,
       createdAt: row.created_at,
       retiredAt: row.retired_at,
-      commission: commissionOf({ by: row.commissioned_by, idempotencyKey: row.commission_key, requestHash: row.commission_request_hash }),
+      commission: commissionOf({ kind: row.commissioned_by_kind, by: row.commissioned_by, idempotencyKey: row.commission_key, requestHash: row.commission_request_hash }),
       owner: row.owner_ship_id,
     }),
   );

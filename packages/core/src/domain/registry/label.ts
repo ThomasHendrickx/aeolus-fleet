@@ -366,9 +366,22 @@ function checkMayLabel({ label, ownerName, ship }: { label: Label; ownerName: st
   if (!owned.isOk) {
     return owned;
   }
-  return labeller.shipId !== null && (ship.id === labeller.shipId || ship.commission?.by === labeller.shipId)
+  return isOwnShip(ship, labeller) || isCommissionedBy(ship, labeller)
     ? ok(undefined)
     : refuse('NOT_YOUR_SHIP_TO_LABEL', `${ship.name} is neither your ship nor one it commissioned: labelling it needs labels:any`);
+}
+
+function isOwnShip(ship: Ship, labeller: Labeller): boolean {
+  return labeller.shipId !== null && ship.id === labeller.shipId;
+}
+
+/** Whether the labeller commissioned the ship: a ship by its id, or the installation (decision 0052). */
+function isCommissionedBy(ship: Ship, labeller: Labeller): boolean {
+  const by = ship.commission?.by;
+  if (by?.kind === 'ship') {
+    return by.shipId === labeller.shipId;
+  }
+  return by?.kind === 'installation' && labeller.owner?.kind === 'installation';
 }
 
 export type AssignLabelRefusal = NotTheOwner | NotYourShipToLabel | DomainError<'SHIP_ALREADY_RETIRED' | 'SHIP_LABEL_LIMIT_REACHED'>;

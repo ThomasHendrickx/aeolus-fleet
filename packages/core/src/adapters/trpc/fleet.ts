@@ -151,11 +151,12 @@ function pingOutputOf(ping: PingStatus | null) {
  */
 export const fleetRouter = router({
   /** A new agent ship awaiting crew, and its first starting prompt: shown once. */
-  commission: scopedProcedure('fleet:commission')
+  commission: actorAnyScopeProcedure('fleet:commission', 'fleet:person')
     .meta({
       description: [
-        'Needs fleet:commission. Commissions a new agent ship awaiting crew: name and type are handles (lowercase letters, digits, hyphens, colons).',
-        'scopes adds scopes to the two every ship has, each one your ship may grant: a core scope it holds (argo holds every one), or a declared scope of the namespace it declared. fleet_grantScopes changes them later.',
+        'Needs fleet:commission, or fleet:person for a person ship. Commissions a new ship awaiting crew, for a ship, an account or the installation: name and type are handles (lowercase letters, digits, hyphens, colons).',
+        'scopes adds scopes to the two every ship has, each one you may grant: a core scope you hold, or a declared scope of the namespace your ship declared. fleet_grantScopes changes them later.',
+        "The new ship's owner is your owner, you when you are a person ship, or your person ship when you are an account; an account without a person ship in the fleet is refused.",
         "ownerOf, which needs fleet:on-behalf, names the ship that asked it for this one: the new ship gets that ship's owner instead of yours.",
         'kind is agent unless you state person or app: a person ship needs fleet:person instead and owns itself, and an app ship needs fleet:on-behalf as well.',
         "owner, which needs fleet:on-behalf and only for an app ship, names the owner argo picked for it: a person's ship or argo, never beside ownerOf.",
