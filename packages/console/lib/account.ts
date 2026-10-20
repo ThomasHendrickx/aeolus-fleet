@@ -6,6 +6,7 @@ import type { AccountMenuProps } from '../components/organisms/account-menu';
 import { useHostedAccountUrl } from './hosted-account';
 import { applyTheme } from './theme';
 import { useConsoleConstants } from './console-constants';
+import { fetchConsoleRead } from './fetch-console-read';
 import { useConsoleGuide } from './guide';
 import { useSignOut } from './session';
 import { useTRPC } from './trpc';
@@ -22,6 +23,13 @@ export function useAccountMenu(now: Date): AccountMenuProps {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const account = useQuery(trpc.console.account.queryOptions());
+  const signedInAccountId = account.data?.session.accountId ?? null;
+  // The account's name as pagasae gives it, asked by the web app's server and never stored (decisions 0054, 0058); the id shows until it answers.
+  const accountName = useQuery({
+    queryKey: ['account-name', signedInAccountId],
+    queryFn: () => fetchConsoleRead({ read: 'account-name' }),
+    enabled: signedInAccountId !== null,
+  });
   const accountUrl = useHostedAccountUrl();
   const { themes } = useConsoleConstants();
   const guide = useConsoleGuide();
@@ -59,6 +67,7 @@ export function useAccountMenu(now: Date): AccountMenuProps {
     ...(pluginNav.hasSettings ? { settingsHref: '/settings' } : {}),
     ...(pluginNav.hasNetwork ? { networkHref: '/network' } : {}),
     account: account.data,
+    ...(typeof accountName.data === 'string' ? { accountName: accountName.data } : {}),
     themes,
     onThemeChange: (theme: Theme) => {
       setTheme.mutate({ theme });

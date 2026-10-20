@@ -47,6 +47,8 @@ export interface AccountMenuProps {
   onSignOut: () => void;
   isSigningOut: boolean;
   now: Date;
+  /** The name pagasae gives the account signed in as argo (decisions 0054, 0058); unset, the menu shows its id. */
+  accountName?: string;
   /** The hosting service's account page (AEOLUS_HOSTED_ACCOUNT_URL): set, the menu offers Your account; unset, it does not. */
   accountUrl?: string;
   /** Opens the installation's guide at its first step (decision 0024); unset while no guide is for the session, so the menu offers no Take the tour. */
@@ -90,7 +92,7 @@ function themeOf(value: unknown, themes: readonly Theme[]): Theme | undefined {
 }
 
 /** Who is signed in, and this session: the menu's header on desktop and on phone. */
-function AccountHeader({ account, now }: Pick<AccountMenuProps, 'account' | 'now'>) {
+function AccountHeader({ account, accountName, now }: Pick<AccountMenuProps, 'account' | 'accountName' | 'now'>) {
   const { name, detail } = whoOf(account);
   return (
     <div className="flex flex-col gap-2 px-2.5 pt-2 pb-2.5">
@@ -115,7 +117,7 @@ function AccountHeader({ account, now }: Pick<AccountMenuProps, 'account' | 'now
       </p>
       {account?.session.accountId ? (
         <p data-testid="account-signed-in-as" className="truncate text-caption text-muted-foreground">
-          Signed in as <span className="font-medium text-foreground">{account.session.accountId}</span>
+          Signed in as <span className="font-medium text-foreground">{accountName ?? account.session.accountId}</span>
         </p>
       ) : null}
     </div>
@@ -144,7 +146,7 @@ function SignOutLabel({ isSigningOut }: { isSigningOut: boolean }) {
  * installation, Theme and Sign out without a confirm. On the 64 px rail the
  * button collapses to its avatar.
  */
-export function AccountMenu({ account, themes, onThemeChange, onSignOut, isSigningOut, now, accountUrl, onTakeTour }: AccountMenuProps) {
+export function AccountMenu({ account, accountName, themes, onThemeChange, onSignOut, isSigningOut, now, accountUrl, onTakeTour }: AccountMenuProps) {
   const { name, detail } = whoOf(account);
   const theme = account?.kind === 'operator' ? account.theme : undefined;
   return (
@@ -162,7 +164,7 @@ export function AccountMenu({ account, themes, onThemeChange, onSignOut, isSigni
         <ChevronsUpDown aria-hidden className="size-(--size-icon) shrink-0 text-muted-foreground max-lg:hidden" />
       </DropdownMenuTrigger>
       <DropdownMenuContent side="top" align="start" className="w-64">
-        <AccountHeader account={account} now={now} />
+        <AccountHeader account={account} accountName={accountName} now={now} />
         {accountUrl === undefined || account?.kind === 'viewer' ? null : (
           <DropdownMenuItem
             data-testid="account-hosted"
@@ -235,7 +237,7 @@ export function AccountMenu({ account, themes, onThemeChange, onSignOut, isSigni
  * same content as a bottom Sheet, with Theme as a segmented control and
  * Cancel at the bottom.
  */
-export function AccountMenuSheet({ account, themes, onThemeChange, onSignOut, isSigningOut, now, accountUrl, onTakeTour, settingsHref, networkHref }: AccountMenuProps) {
+export function AccountMenuSheet({ account, accountName, themes, onThemeChange, onSignOut, isSigningOut, now, accountUrl, onTakeTour, settingsHref, networkHref }: AccountMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const { name, detail } = whoOf(account);
   const theme = account?.kind === 'operator' ? account.theme : undefined;
@@ -251,7 +253,7 @@ export function AccountMenuSheet({ account, themes, onThemeChange, onSignOut, is
       </SheetTrigger>
       <SheetContent side="bottom" data-testid="account-sheet" className="gap-3">
         <SheetTitle className="sr-only">Account</SheetTitle>
-        <AccountHeader account={account} now={now} />
+        <AccountHeader account={account} accountName={accountName} now={now} />
         {accountUrl === undefined || account?.kind === 'viewer' ? null : (
           <a
             href={accountUrl}
