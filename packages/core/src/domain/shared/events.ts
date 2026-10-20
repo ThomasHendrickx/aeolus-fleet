@@ -15,7 +15,7 @@ import type {
  * did; the installation; or the system, such as a server command.
  */
 export type Actor =
-  | { kind: 'ship'; shipId: ShipId }
+  | { kind: 'ship'; shipId: ShipId; signedInAccountId?: AccountId }
   | { kind: 'account'; accountId: AccountId; throughShipId: ShipId | null }
   | { kind: 'installation' }
   | { kind: 'system' };

@@ -1,9 +1,9 @@
 import type { IdGenerator, ShipId } from '@aeolus-fleet/common';
 
-import type { ShipCaller } from '../shared/caller.js';
+import { actorOf, type ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
-import { recordEvent, shipActor, type EventLog } from '../shared/events.js';
+import { recordEvent, type EventLog } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { assignCrew, type AssignCrewRefusal } from './crew-request.js';
@@ -43,7 +43,7 @@ export function createAssignCrew(deps: { uow: UnitOfWork<AssignCrewTx>; clock: C
           isCrewed: (await tx.leases.findOpenForShare(fleetId, ship.id)) !== undefined,
           assignee: await tx.ships.find(fleetId, input.trierarchShipId),
         },
-        { at: deps.clock.now(), actor: shipActor(caller.shipId) },
+        { at: deps.clock.now(), actor: actorOf(caller) },
       );
       if (!assigned.isOk) {
         return assigned;

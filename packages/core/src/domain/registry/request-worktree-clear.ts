@@ -1,9 +1,9 @@
 import type { IdGenerator, ShipId } from '@aeolus-fleet/common';
 
-import type { ShipCaller } from '../shared/caller.js';
+import { actorOf, type ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
-import { recordEvent, shipActor, type EventLog } from '../shared/events.js';
+import { recordEvent, type EventLog } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { requestWorktreeClear, type RequestWorktreeClearRefusal } from './clear-request.js';
@@ -47,7 +47,7 @@ export function createRequestWorktreeClear(deps: { uow: UnitOfWork<RequestWorktr
       const key = { trierarchShipId: trierarch.id, shipId: input.shipId, repository: input.repository };
       const requested = requestWorktreeClear(
         { trierarch, current: await tx.clearRequests.find(fleetId, key), pending: (await tx.clearRequests.listFor(fleetId, trierarch.id)).length },
-        { shipId: input.shipId, repository: input.repository, requestedBy: caller.shipId, at: deps.clock.now(), actor: shipActor(caller.shipId) },
+        { shipId: input.shipId, repository: input.repository, requestedBy: caller.shipId, at: deps.clock.now(), actor: actorOf(caller) },
       );
       if (!requested.isOk) {
         return requested;

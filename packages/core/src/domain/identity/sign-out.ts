@@ -34,7 +34,7 @@ export function createSignOut(deps: { uow: UnitOfWork<SignOutTx>; clock: Clock; 
         await endLease({ tx, ids: deps.ids }, {
           fleetId: session.fleetId,
           leaseId: session.leaseId,
-          actor: shipActor(session.shipId),
+          actor: session.accountId === null ? shipActor(session.shipId) : { kind: 'ship', shipId: session.shipId, signedInAccountId: session.accountId },
           at,
           reason: 'signedOut',
         });

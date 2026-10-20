@@ -1,9 +1,9 @@
 import type { CrewStatus, IdGenerator, ShipId } from '@aeolus-fleet/common';
 
-import type { ShipCaller } from '../shared/caller.js';
+import { actorOf, type ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
-import { recordEvent, shipActor, type EventLog } from '../shared/events.js';
+import { recordEvent, type EventLog } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { reportCrewStatus } from './crew-request.js';
@@ -45,7 +45,7 @@ export function createReportCrewStatus(deps: { uow: UnitOfWork<ReportCrewStatusT
           attempt: input.attempt ?? 0,
           sessionStartedAt: input.startedAt === undefined || input.startedAt === null ? null : new Date(input.startedAt),
           at: deps.clock.now(),
-          actor: shipActor(caller.shipId),
+          actor: actorOf(caller),
         },
       );
       if (!reported.isOk) {

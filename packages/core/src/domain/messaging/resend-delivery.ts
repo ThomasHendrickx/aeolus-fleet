@@ -150,6 +150,7 @@ export function createResendDelivery(deps: {
           inReplyTo,
           isForced: false,
           resendOf: { messageId: original.id, by: caller.shipId },
+          ...(caller.signedInAccountId === undefined ? {} : { signedInAccountId: caller.signedInAccountId }),
           at,
         },
       );

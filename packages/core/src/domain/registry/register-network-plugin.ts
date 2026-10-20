@@ -1,8 +1,8 @@
 import type { IdGenerator, NetworkPluginDeclaration } from '@aeolus-fleet/common';
 
-import type { ShipCaller } from '../shared/caller.js';
+import { actorOf, type ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
-import { recordEvent, shipActor, type EventLog } from '../shared/events.js';
+import { recordEvent, type EventLog } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { registerNetworkPlugin, type RegisterNetworkPluginRefusal } from './network-settings.js';
@@ -27,7 +27,7 @@ export function createRegisterNetworkPlugin(deps: { uow: UnitOfWork<RegisterNetw
   return (caller, declaration) =>
     deps.uow.run(async (tx): Promise<Result<{ version: number }, RegisterNetworkPluginRefusal>> => {
       const current = await tx.networkSettings.findForUpdate(caller.fleetId);
-      const registered = registerNetworkPlugin(current, { shipId: caller.shipId, declaration, at: deps.clock.now(), actor: shipActor(caller.shipId) });
+      const registered = registerNetworkPlugin(current, { shipId: caller.shipId, declaration, at: deps.clock.now(), actor: actorOf(caller) });
       if (!registered.isOk) {
         return registered;
       }

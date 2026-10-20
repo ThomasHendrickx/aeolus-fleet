@@ -1,8 +1,8 @@
 import type { IdGenerator } from '@aeolus-fleet/common';
 
-import type { ShipCaller } from '../shared/caller.js';
+import { actorOf, type ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
-import { recordEvent, shipActor, type EventLog } from '../shared/events.js';
+import { recordEvent, type EventLog } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { unregisterNetworkPlugin, type NotTheNetworkPlugin } from './network-settings.js';
@@ -26,7 +26,7 @@ export function createUnregisterNetworkPlugin(deps: { uow: UnitOfWork<Unregister
   return (caller) =>
     deps.uow.run(async (tx): Promise<Result<{ version: number }, NotTheNetworkPlugin>> => {
       const current = await tx.networkSettings.findForUpdate(caller.fleetId);
-      const unregistered = unregisterNetworkPlugin(current, { shipId: caller.shipId, at: deps.clock.now(), actor: shipActor(caller.shipId) });
+      const unregistered = unregisterNetworkPlugin(current, { shipId: caller.shipId, at: deps.clock.now(), actor: actorOf(caller) });
       if (!unregistered.isOk) {
         return unregistered;
       }

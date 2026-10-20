@@ -85,6 +85,7 @@ export function actorOf(caller: Caller): Actor {
     case 'agent':
     case 'person':
     case 'app':
-      return { kind: 'ship', shipId: caller.shipId };
+      // argo, signed in to the console by an account, names that account on every event it writes (decision 0054).
+      return caller.signedInAccountId === undefined ? { kind: 'ship', shipId: caller.shipId } : { kind: 'ship', shipId: caller.shipId, signedInAccountId: caller.signedInAccountId };
   }
 }

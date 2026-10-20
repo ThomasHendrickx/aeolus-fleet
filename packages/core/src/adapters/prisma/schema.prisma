@@ -683,6 +683,8 @@ model Event {
   actorAccountId String? @map("actor_account_id")
   /// The ship that presented the account's token, a plugin's page or the gateway, if one did.
   actorThroughShipId String? @map("actor_through_ship_id")
+  /// The account signed in to the console as argo when argo caused it, by its id only (decision 0054).
+  actorSignedInAccountId String? @map("actor_signed_in_account_id")
   shipId      String?  @map("ship_id")
   messageId   String?  @map("message_id")
   deliveryId  String?  @map("delivery_id")

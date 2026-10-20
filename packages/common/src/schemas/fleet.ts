@@ -265,6 +265,8 @@ export const liveFleetEventSchema = z.object({
   actorShipId: idSchema('ship').nullable(),
   /** The account that caused it, by its id only; null for any other actor. */
   actorAccountId: accountIdSchema.nullable(),
+  /** The account signed in to the console as argo when argo caused it, by its id only; null otherwise (decision 0054). */
+  actorSignedInAccountId: accountIdSchema.nullable(),
   shipId: idSchema('ship').nullable(),
   messageId: idSchema('message').nullable(),
   deliveryId: idSchema('delivery').nullable(),

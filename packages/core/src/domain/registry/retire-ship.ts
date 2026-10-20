@@ -1,10 +1,10 @@
 import type { IdGenerator, ShipId } from '@aeolus-fleet/common';
 
 import { revokeShipSecret, type CredentialTx } from '../identity/public.js';
-import type { ShipCaller } from '../shared/caller.js';
+import { actorOf, type ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
-import { recordEvent, shipActor } from '../shared/events.js';
+import { recordEvent } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { checkManage, keepingReachRefusal, type CheckManageTx, type NotReachable } from './check-reach.js';
@@ -91,7 +91,7 @@ export function createRetireShip(deps: {
       if (!retirable.isOk) {
         return retirable;
       }
-      const actor = shipActor(caller.shipId);
+      const actor = actorOf(caller);
       const at = deps.clock.now();
       const recorded = { events: tx.events, ids: deps.ids };
 

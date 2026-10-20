@@ -1,10 +1,9 @@
 import type { IdGenerator, ShipId } from '@aeolus-fleet/common';
 
 import { revokeShipSecret, type SecretTools } from '../identity/public.js';
-import type { ShipCaller } from '../shared/caller.js';
+import { actorOf, type ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
-import { shipActor } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { endLease, type LeaseTx } from './leases.js';
@@ -49,7 +48,7 @@ export function createRecrewShip(deps: {
       if (!managed.isOk) {
         return managed;
       }
-      const actor = shipActor(caller.shipId);
+      const actor = actorOf(caller);
       const at = deps.clock.now();
 
       await revokeShipSecret({ tx, ids: deps.ids }, { fleetId, shipId, actor, at });

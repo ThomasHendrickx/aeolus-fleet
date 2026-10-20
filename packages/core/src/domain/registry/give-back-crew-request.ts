@@ -1,10 +1,10 @@
 import type { IdGenerator, ShipId } from '@aeolus-fleet/common';
 
 import { revokeShipSecret, type CredentialTx } from '../identity/public.js';
-import type { ShipCaller } from '../shared/caller.js';
+import { actorOf, type ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
-import { recordEvent, shipActor, type EventLog } from '../shared/events.js';
+import { recordEvent, type EventLog } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { giveBackCrewRequest, type GiveBackCrewRequestRefusal } from './crew-request.js';
@@ -40,7 +40,7 @@ export function createGiveBackCrewRequest(deps: { uow: UnitOfWork<GiveBackCrewRe
         return refuse('SHIP_NOT_FOUND', `Ship ${input.shipId} does not exist`);
       }
       const at = deps.clock.now();
-      const actor = shipActor(caller.shipId);
+      const actor = actorOf(caller);
       const given = giveBackCrewRequest(
         { ship, current: await tx.crewRequests.find(fleetId, ship.id), trierarchShipId: caller.shipId },
         { settingsVersion: input.settingsVersion, reason: input.reason, at, actor },

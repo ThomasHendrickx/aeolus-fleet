@@ -655,6 +655,7 @@ const eventRowSchema = z.object({
   actorShipId: idSchema('ship').nullable(),
   actorAccountId: accountIdSchema.nullable(),
   actorThroughShipId: idSchema('ship').nullable(),
+  actorSignedInAccountId: accountIdSchema.nullable(),
   shipId: idSchema('ship').nullable(),
   messageId: idSchema('message').nullable(),
   deliveryId: idSchema('delivery').nullable(),
@@ -664,10 +665,10 @@ const eventRowSchema = z.object({
 
 /** An event row as Prisma reads it; a missing subject stays absent, as the core wrote it. */
 export function toSequencedEvent(row: unknown): SequencedEvent {
-  const { actorKind, actorShipId, actorAccountId, actorThroughShipId, shipId, messageId, deliveryId, ...event } = eventRowSchema.parse(row);
+  const { actorKind, actorShipId, actorAccountId, actorThroughShipId, actorSignedInAccountId, shipId, messageId, deliveryId, ...event } = eventRowSchema.parse(row);
   return {
     ...event,
-    actor: actorOf({ actorKind, actorShipId, actorAccountId, actorThroughShipId }),
+    actor: actorOf({ actorKind, actorShipId, actorAccountId, actorThroughShipId, actorSignedInAccountId }),
     ...(shipId === null ? {} : { shipId }),
     ...(messageId === null ? {} : { messageId }),
     ...(deliveryId === null ? {} : { deliveryId }),
@@ -675,10 +676,10 @@ export function toSequencedEvent(row: unknown): SequencedEvent {
 }
 
 /** The actor an event's columns name; the table's check keeps them consistent (decision 0057). */
-function actorOf(columns: Pick<z.infer<typeof eventRowSchema>, 'actorKind' | 'actorShipId' | 'actorAccountId' | 'actorThroughShipId'>): Actor {
-  const { actorKind, actorShipId, actorAccountId, actorThroughShipId } = columns;
+function actorOf(columns: Pick<z.infer<typeof eventRowSchema>, 'actorKind' | 'actorShipId' | 'actorAccountId' | 'actorThroughShipId' | 'actorSignedInAccountId'>): Actor {
+  const { actorKind, actorShipId, actorAccountId, actorThroughShipId, actorSignedInAccountId } = columns;
   if (actorKind === 'ship' && actorShipId !== null) {
-    return { kind: 'ship', shipId: actorShipId };
+    return actorSignedInAccountId === null ? { kind: 'ship', shipId: actorShipId } : { kind: 'ship', shipId: actorShipId, signedInAccountId: actorSignedInAccountId };
   }
   if (actorKind === 'account' && actorAccountId !== null) {
     return { kind: 'account', accountId: actorAccountId, throughShipId: actorThroughShipId };

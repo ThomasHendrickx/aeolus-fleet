@@ -6,8 +6,8 @@
  */
 import type { DiscoveredStatement, Statement } from '@aeolus-fleet/common';
 
-import type { Crew } from '../shared/caller.js';
-import { shipActor, type NewEvent } from '../shared/events.js';
+import { actorOf, type Crew } from '../shared/caller.js';
+import type { NewEvent } from '../shared/events.js';
 
 /** The statement a lease holds, with its version: 1 for the first, one more on every change. */
 export interface StatedStatement {
@@ -37,7 +37,7 @@ export function stateStatement(
         fleetId: crew.fleetId,
         type: 'StatementSet',
         occurredAt: at,
-        actor: shipActor(crew.shipId),
+        actor: actorOf(crew),
         shipId: crew.shipId,
         details: { leaseId: crew.leaseId, version: stated.version, capabilities: statement.capabilities.length },
       },

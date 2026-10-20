@@ -41,7 +41,7 @@ export async function startConsoleSession(
     shipId: argo.id,
     kind: argo.kind,
     location: consoleLocation(device),
-    actor: shipActor(argo.id),
+    actor: accountId === null ? shipActor(argo.id) : { kind: 'ship', shipId: argo.id, signedInAccountId: accountId },
     at,
   });
   if (!takenOver.isOk) {
