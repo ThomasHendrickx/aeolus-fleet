@@ -1,4 +1,4 @@
-import { NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS, type FleetScope, type LabelValueId, type MessageId, type ShipId } from '@aeolus-fleet/common';
+import type { FleetScope, LabelValueId, MessageId, ShipId } from '@aeolus-fleet/common';
 import { createTRPCClient, httpBatchLink, TRPCClientError, type TRPCClient } from '@trpc/client';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -17,8 +17,9 @@ import { refusalOf, unwrap } from '../src/testing/result.js';
 import { refusedShip } from './support/refused-sender.js';
 
 // Read reach from HTTP to Postgres and back (decision 0034): reader, with
-// fleet:read, and near carry team a; far carries team b; the networking
-// plugin's one rule lets team a read team a, and open is off for read. Each
+// fleet:read, and near carry team a; far carries team b; the applied read
+// rule lets team a read team a, and every ship still sends to and manages
+// every ship. Each
 // fleet:read procedure answers reader only what the record allows.
 
 const clock = createTestClock('2026-10-18T09:00:00.000Z');
@@ -102,9 +103,8 @@ beforeAll(async () => {
   ] as const) {
     unwrap(await useCases.assignLabel(labeller.caller, { shipId, valueId }));
   }
-  unwrap(await useCases.registerNetworkPlugin(networking.caller, { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS }));
-  unwrap(await useCases.setNetworkRules(networking.caller, { rules: [{ verb: 'read', from: [teamA], to: [teamA] }] }));
-  unwrap(await useCases.setBuiltInRule(networking.caller, { rule: 'open', verb: 'read', isOn: false }));
+  const { savedAgainstVersion } = unwrap(await useCases.saveNetworkRulesDraft(networking.caller, { rules: [{ verb: 'read', from: [teamA], to: [teamA] }, { verb: 'send', from: [], to: [] }, { verb: 'manage', from: [], to: [] }] }));
+  unwrap(await useCases.applyNetworkRules(networking.caller, { version: savedAgainstVersion }));
 
   ({ lastSeq: readerFrom } = unwrap(await useCases.followFleet(argo, {})));
   farToNear = await send(far.caller, near.shipId);

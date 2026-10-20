@@ -89,11 +89,11 @@ describe('isDeclaredRulesChange', () => {
 });
 
 describe('isBuiltInRulesChange', () => {
-  it.each(['BuiltInRuleChanged', 'NetworkPluginUnregistered'] as const)('reloads the built-in rules for %s, which turns one on or off', (type) => {
+  it.each(['BuiltInRuleChanged', 'NetworkRulesSet'] as const)('reloads the built-in rules for %s, which turns one on or off', (type) => {
     expect(isBuiltInRulesChange(type)).toBe(true);
   });
 
-  it.each(['NetworkRulesSet', 'NetworkRulesDeclared', 'MessageAccepted'] as const)('leaves the built-in rules alone for %s', (type) => {
+  it.each(['NetworkRulesDraftSaved', 'NetworkRulesDeclared', 'MessageAccepted'] as const)('leaves the built-in rules alone for %s', (type) => {
     expect(isBuiltInRulesChange(type)).toBe(false);
   });
 });

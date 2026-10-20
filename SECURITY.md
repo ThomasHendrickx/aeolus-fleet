@@ -10,7 +10,7 @@ You get an answer within 7 days. Aeolus has one maintainer, so please allow time
 
 ## Scope
 
-The packages in this repository (core, console, common, squadrons, trierarch, trierarch-plugin, networking-plugin), the aeolus plugin for Claude Code and Codex, and the hosted fleets at aeolus-fleet.dev.
+The packages in this repository (core, console, common, squadrons, trierarch, trierarch-plugin), the aeolus plugin for Claude Code and Codex, and the hosted fleets at aeolus-fleet.dev.
 
 ## Supported versions
 

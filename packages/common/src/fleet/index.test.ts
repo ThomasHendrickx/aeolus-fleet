@@ -168,6 +168,8 @@ describe('eventTypeSchema', () => {
       'WorktreeClearRemoved',
       'NetworkRulesSet',
       'NetworkRulesDeclared',
+      'NetworkRulesDraftSaved',
+      'NetworkRulesDraftDiscarded',
       'NetworkPluginRegistered',
       'NetworkPluginUnregistered',
       'BuiltInRuleChanged',

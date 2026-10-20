@@ -1,6 +1,7 @@
 import { accountIdSchema, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { applyNetworkRules, everyShipMay } from '../../../test/support/core-fixtures.js';
 import { labelIdOf, valueIdOf } from '../../../test/support/label-fixtures.js';
 import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
 import { unwrap } from '../../testing/result.js';
@@ -35,16 +36,14 @@ beforeEach(async () => {
   unwrap(await fleet.registry.defineLabel(fleet.argo, { key: 'group', values: ['engineering', 'finance'] }));
   unwrap(await fleet.registry.assignLabel(fleet.argo, { shipId: fleet.near.shipId, valueId: group('engineering') }));
   unwrap(await fleet.registry.assignLabel(fleet.argo, { shipId: fleet.far.shipId, valueId: group('finance') }));
-  unwrap(
-    await fleet.registry.setNetworkRules(fleet.networking, {
-      rules: [
-        { verb: 'manage', from: [group('engineering')], to: [group('engineering')] },
-        { verb: 'read', from: [group('engineering')], to: [group('engineering')] },
-      ],
-    }),
-  );
-  unwrap(await fleet.registry.setBuiltInRule(fleet.networking, { rule: 'open', verb: 'manage', isOn: false }));
-  unwrap(await fleet.registry.setBuiltInRule(fleet.networking, { rule: 'open', verb: 'read', isOn: false }));
+  await applyNetworkRules(fleet.registry, {
+    by: fleet.networking,
+    rules: [
+      { verb: 'manage', from: [group('engineering')], to: [group('engineering')] },
+      { verb: 'read', from: [group('engineering')], to: [group('engineering')] },
+      everyShipMay('send'),
+    ],
+  });
   fleet.core.state.reachRefusals.length = 0;
   mathilde = { kind: 'account', accountId: MATHILDE, fleetId: fleet.fleetId, scopes: ['fleet:read', 'fleet:manage'], groupValues: ['engineering'], personShipId: null, throughShipId: null };
   installation = { kind: 'installation', fleetId: fleet.fleetId, scopes: ['fleet:person', 'fleet:manage', 'labels:define', 'labels:assign', 'labels:any'] };
@@ -78,7 +77,7 @@ describe("an account's manage reach", () => {
 
   it('matches a rule of the same group value on both sides', async () => {
     const sameGroup = { labelId: labelIdOf(fleet.core, 'group'), value: '#' } as const;
-    unwrap(await fleet.registry.setNetworkRules(fleet.networking, { rules: [{ verb: 'manage', from: [sameGroup], to: [sameGroup] }] }));
+    await applyNetworkRules(fleet.registry, { by: fleet.networking, rules: [{ verb: 'manage', from: [sameGroup], to: [sameGroup] }, everyShipMay('send')] });
 
     await expect(fleet.registry.renameShip(mathilde, { shipId: fleet.near.shipId, name: 'nearer' })).resolves.toMatchObject({ isOk: true });
     await expect(fleet.registry.renameShip(mathilde, { shipId: fleet.far.shipId, name: 'renamed' })).resolves.toEqual(NOT_REACHABLE);
@@ -99,8 +98,8 @@ describe("an account's manage reach", () => {
     await expect(fleet.registry.renameShip({ ...mathilde, groupValues: [] }, { shipId: fleet.far.shipId, name: 'kept' })).resolves.toEqual(NOT_REACHABLE);
   });
 
-  it('manages every ship while open manage is on, as a ship does', async () => {
-    unwrap(await fleet.registry.setBuiltInRule(fleet.networking, { rule: 'open', verb: 'manage', isOn: true }));
+  it('manages every ship while no rules are applied, open on, as a ship does', async () => {
+    await applyNetworkRules(fleet.registry, { by: fleet.networking, rules: null });
 
     await expect(fleet.registry.renameShip(mathilde, { shipId: fleet.far.shipId, name: 'renamed' })).resolves.toMatchObject({ isOk: true });
   });

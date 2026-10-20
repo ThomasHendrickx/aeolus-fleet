@@ -7,30 +7,24 @@ import {
   explainReachInputSchema,
   FIXED_BUILT_IN_RULES,
   explainReachOutputSchema,
-  NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS,
-  NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MIN_SECONDS,
+  applyNetworkRulesInputSchema,
+  builtInRulesOutputSchema,
   NETWORK_RULES_MAX,
   NETWORK_VERBS,
-  networkPluginOutputSchema,
+  networkRulesDraftChangesOutputSchema,
+  networkRulesOutputSchema,
+  networkVersionOutputSchema,
   REACH_REFUSALS_READ_MAX,
   reachRefusalsOutputSchema,
-  registerNetworkPluginInputSchema,
-  setNetworkRulesInputSchema,
+  saveNetworkRulesDraftInputSchema,
   setBuiltInRuleInputSchema,
-  setNetworkRulesOutputSchema,
 } from './network.js';
 
 const newId = createIdGenerator();
 
 describe('the network limits (decision 0034)', () => {
-  it('are 200 rules a fleet, and the latest 100 refusals a read', () => {
+  it("are 200 of the fleet's own rules, and the latest 100 refusals a read", () => {
     expect([NETWORK_RULES_MAX, REACH_REFUSALS_READ_MAX]).toEqual([200, 100]);
-  });
-});
-
-describe('the networking plugin limits (decision 0035)', () => {
-  it('judge a plugin not responding after a minute at the least and a day at the most', () => {
-    expect([NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MIN_SECONDS, NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS]).toEqual([60, 86_400]);
   });
 });
 
@@ -40,29 +34,7 @@ describe('the network verbs (decision 0034)', () => {
   });
 });
 
-describe('registerNetworkPluginInputSchema', () => {
-  it.each(['block-all', 'open-all', 'keep-latest'])('takes what happens while the plugin is unavailable: %s', (whileUnavailable) => {
-    expect(registerNetworkPluginInputSchema.parse({ whileUnavailable, notRespondingAfterSeconds: 120 })).toEqual({ whileUnavailable, notRespondingAfterSeconds: 120 });
-  });
-
-  it('refuses anything else while the plugin is unavailable', () => {
-    expect(registerNetworkPluginInputSchema.safeParse({ whileUnavailable: 'deny', notRespondingAfterSeconds: 120 }).success).toBe(false);
-  });
-
-  it('takes the limits of not responding, a minute and a day', () => {
-    for (const notRespondingAfterSeconds of [NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MIN_SECONDS, NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS]) {
-      expect(registerNetworkPluginInputSchema.safeParse({ whileUnavailable: 'block-all', notRespondingAfterSeconds }).success).toBe(true);
-    }
-  });
-
-  it('refuses a second under a minute, a second over a day and part of a second', () => {
-    for (const notRespondingAfterSeconds of [NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MIN_SECONDS - 1, NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS + 1, 90.5]) {
-      expect(registerNetworkPluginInputSchema.safeParse({ whileUnavailable: 'block-all', notRespondingAfterSeconds }).success).toBe(false);
-    }
-  });
-});
-
-describe('setNetworkRulesInputSchema', () => {
+describe('saveNetworkRulesDraftInputSchema', () => {
   it('takes the whole list of rules, each with its verb from one selector of exact label values to another, leaving the limits to the server', () => {
     const rules = [
       { verb: 'send', from: [newId('labelValue'), newId('labelValue')], to: [newId('labelValue')] },
@@ -70,51 +42,55 @@ describe('setNetworkRulesInputSchema', () => {
       { verb: 'manage', from: [], to: [] },
     ];
 
-    expect(setNetworkRulesInputSchema.parse({ rules })).toEqual({ rules });
+    expect(saveNetworkRulesDraftInputSchema.parse({ rules })).toEqual({ rules });
   });
 
-  it('refuses none: the rules are a list, and open says all-to-all (decision 0034)', () => {
-    expect(setNetworkRulesInputSchema.safeParse({ rules: null }).success).toBe(false);
+  it('takes none: no rules applied, open, all-to-all (decision 0034)', () => {
+    expect(saveNetworkRulesDraftInputSchema.parse({ rules: null })).toEqual({ rules: null });
+  });
+
+  it('refuses a draft without its rules', () => {
+    expect(saveNetworkRulesDraftInputSchema.safeParse({}).success).toBe(false);
   });
 
   it('takes a term that holds a label with any value, and one that holds it with the same value as the other side', () => {
     const labelId = newId('label');
     const rules = [{ verb: 'send', from: [{ labelId, value: '*' }, { labelId, value: '#' }], to: [newId('labelValue'), { labelId, value: '#' }] }];
 
-    expect(setNetworkRulesInputSchema.parse({ rules })).toEqual({ rules });
+    expect(saveNetworkRulesDraftInputSchema.parse({ rules })).toEqual({ rules });
   });
 
   it("takes a term of the owner: an owner's ship by its id, any owner, and the same owner as the other side", () => {
     const rules = [{ verb: 'send', from: [{ owner: newId('ship') }, { owner: '*' }, { owner: '#' }], to: [{ owner: '#' }] }];
 
-    expect(setNetworkRulesInputSchema.parse({ rules })).toEqual({ rules });
+    expect(saveNetworkRulesDraftInputSchema.parse({ rules })).toEqual({ rules });
   });
 
   it('refuses a term of the owner that is not a ship id, any or the same', () => {
     for (const owner of [newId('labelValue'), 'argo']) {
-      expect(setNetworkRulesInputSchema.safeParse({ rules: [{ verb: 'send', from: [{ owner }], to: [] }] }).success).toBe(false);
+      expect(saveNetworkRulesDraftInputSchema.safeParse({ rules: [{ verb: 'send', from: [{ owner }], to: [] }] }).success).toBe(false);
     }
   });
 
   it('refuses a term of a label with a value written as text, not an id', () => {
-    expect(setNetworkRulesInputSchema.safeParse({ rules: [{ verb: 'send', from: [{ labelId: newId('label'), value: 'shared' }], to: [] }] }).success).toBe(false);
+    expect(saveNetworkRulesDraftInputSchema.safeParse({ rules: [{ verb: 'send', from: [{ labelId: newId('label'), value: 'shared' }], to: [] }] }).success).toBe(false);
   });
 
   it('refuses a term of any or the same value without a label id', () => {
-    expect(setNetworkRulesInputSchema.safeParse({ rules: [{ verb: 'send', from: [{ labelId: newId('labelValue'), value: '*' }], to: [] }] }).success).toBe(false);
+    expect(saveNetworkRulesDraftInputSchema.safeParse({ rules: [{ verb: 'send', from: [{ labelId: newId('labelValue'), value: '*' }], to: [] }] }).success).toBe(false);
   });
 
   it('refuses a selector that holds a label id alone, without a value', () => {
-    expect(setNetworkRulesInputSchema.safeParse({ rules: [{ verb: 'send', from: [newId('label')], to: [] }] }).success).toBe(false);
+    expect(saveNetworkRulesDraftInputSchema.safeParse({ rules: [{ verb: 'send', from: [newId('label')], to: [] }] }).success).toBe(false);
   });
 
   it('refuses a rule without both selectors', () => {
-    expect(setNetworkRulesInputSchema.safeParse({ rules: [{ verb: 'send', from: [] }] }).success).toBe(false);
+    expect(saveNetworkRulesDraftInputSchema.safeParse({ rules: [{ verb: 'send', from: [] }] }).success).toBe(false);
   });
 
   it('refuses a rule without its verb, or with a verb that is not send, read or manage', () => {
     for (const rule of [{ from: [], to: [] }, { verb: 'force', from: [], to: [] }]) {
-      expect(setNetworkRulesInputSchema.safeParse({ rules: [rule] }).success).toBe(false);
+      expect(saveNetworkRulesDraftInputSchema.safeParse({ rules: [rule] }).success).toBe(false);
     }
   });
 });
@@ -129,24 +105,70 @@ describe('the built-in rules (decision 0034)', () => {
 });
 
 describe('setBuiltInRuleInputSchema', () => {
-  it.each(['send', 'read', 'manage'])('takes open for one verb, on or off: %s', (verb) => {
-    expect(setBuiltInRuleInputSchema.parse({ rule: 'open', verb, isOn: false })).toEqual({ rule: 'open', verb, isOn: false });
-  });
-
-  it.each(['argo', 'owner', 'answer', 'pluginRead', 'viewerRead', 'installation'])('takes every other built-in rule without a verb, the server refusing the fixed ones: %s', (rule) => {
+  it.each(['argo', 'owner', 'answer', 'pluginRead', 'viewerRead', 'installation', 'open'])('takes every built-in rule, on or off, the server refusing all but the viewer reading: %s', (rule) => {
     expect(setBuiltInRuleInputSchema.parse({ rule, isOn: true })).toEqual({ rule, isOn: true });
   });
 
-  it('refuses open without a verb, another rule with one, and a rule that is not built in', () => {
-    for (const input of [{ rule: 'open', isOn: false }, { rule: 'viewerRead', verb: 'read', isOn: false }, { rule: 'everyone', isOn: false }]) {
-      expect(setBuiltInRuleInputSchema.safeParse(input).success).toBe(false);
+  it('refuses a rule that is not built in', () => {
+    expect(setBuiltInRuleInputSchema.safeParse({ rule: 'everyone', isOn: false }).success).toBe(false);
+  });
+});
+
+describe('builtInRulesOutputSchema', () => {
+  it('answers each built-in rule once, open among them, with whether it is on', () => {
+    const rules = [
+      { rule: 'argo', isOn: true },
+      { rule: 'viewerRead', isOn: false },
+      { rule: 'open', isOn: true },
+    ];
+
+    expect(builtInRulesOutputSchema.parse(rules)).toEqual(rules);
+  });
+});
+
+describe('networkVersionOutputSchema', () => {
+  it('answers the version the settings have now', () => {
+    expect(networkVersionOutputSchema.parse({ version: 3 })).toEqual({ version: 3 });
+  });
+});
+
+describe('applyNetworkRulesInputSchema', () => {
+  it('takes the settings version the caller saw the draft against', () => {
+    expect(applyNetworkRulesInputSchema.parse({ version: 0 })).toEqual({ version: 0 });
+  });
+
+  it('refuses a version under 0 or part of one', () => {
+    for (const version of [-1, 1.5]) {
+      expect(applyNetworkRulesInputSchema.safeParse({ version }).success).toBe(false);
     }
   });
 });
 
-describe('setNetworkRulesOutputSchema', () => {
-  it('answers the version the settings have now', () => {
-    expect(setNetworkRulesOutputSchema.parse({ version: 3 })).toEqual({ version: 3 });
+describe('networkRulesOutputSchema', () => {
+  const rules = [{ verb: 'send', from: [], to: [] }];
+
+  it('answers the applied rules at their version, and the draft with when it was saved and against which version', () => {
+    const read = { applied: { rules, version: 4 }, draft: { rules: null, savedAt: '2026-10-20T08:00:00.000Z', savedAgainstVersion: 4 } };
+
+    expect(networkRulesOutputSchema.parse(read)).toEqual(read);
+  });
+
+  it('answers none applied for a new fleet, at version 0, and no draft', () => {
+    const read = { applied: { rules: null, version: 0 }, draft: null };
+
+    expect(networkRulesOutputSchema.parse(read)).toEqual(read);
+  });
+});
+
+describe('networkRulesDraftChangesOutputSchema', () => {
+  it('answers per verb the reach the draft gains and loses, each pair of ships with the rule that allows it', () => {
+    const changes = {
+      send: { gained: [{ fromShipId: newId('ship'), toShipId: newId('ship'), rule: { rule: 0 } }], lost: [] },
+      read: { gained: [], lost: [{ fromShipId: newId('ship'), toShipId: newId('ship'), rule: { builtIn: 'open' } }] },
+      manage: { gained: [], lost: [] },
+    };
+
+    expect(networkRulesDraftChangesOutputSchema.parse(changes)).toEqual(changes);
   });
 });
 
@@ -161,7 +183,6 @@ describe('reachRefusalsOutputSchema', () => {
       recipient: { kind: 'ship', ship: { id: newId('ship'), name: 'vault', labels: [], owner: null } },
       verb: 'send',
       settingsVersion: 2,
-      whilePluginUnavailable: null,
     };
 
     expect(reachRefusalsOutputSchema.parse([refusal])).toEqual([refusal]);
@@ -176,26 +197,11 @@ describe('reachRefusalsOutputSchema', () => {
       recipient: { kind: 'type', type: 'keeper', ships: [{ id: newId('ship'), name: 'vault', labels: [], owner: null }] },
       verb: 'send',
       settingsVersion: 2,
-      whilePluginUnavailable: null,
     };
 
     expect(reachRefusalsOutputSchema.parse([refusal])).toEqual([refusal]);
   });
 
-  it('answers what the plugin declared for while it is unavailable, when it refused because the plugin was not responding', () => {
-    const refusal = {
-      id: newId('reachRefusal'),
-      at: '2026-10-10T08:00:00.000Z',
-      sender: { kind: 'ship', id: newId('ship'), name: 'planner', labels: [], owner: null },
-      askedBy: null,
-      recipient: { kind: 'ship', ship: { id: newId('ship'), name: 'vault', labels: [], owner: null } },
-      verb: 'send',
-      settingsVersion: 2,
-      whilePluginUnavailable: 'block-all',
-    };
-
-    expect(reachRefusalsOutputSchema.parse([refusal])).toEqual([refusal]);
-  });
 
   it('refuses a ship without its owner', () => {
     const refusal = {
@@ -206,7 +212,6 @@ describe('reachRefusalsOutputSchema', () => {
       recipient: { kind: 'ship', ship: { id: newId('ship'), name: 'vault', labels: [], owner: null } },
       verb: 'send',
       settingsVersion: 2,
-      whilePluginUnavailable: null,
     };
 
     expect(reachRefusalsOutputSchema.safeParse([refusal]).success).toBe(false);
@@ -222,7 +227,6 @@ describe('reachRefusalsOutputSchema', () => {
       recipient: { kind: 'ship', ship: { id: newId('ship'), name: 'vault', labels: [], owner: null } },
       verb: 'manage',
       settingsVersion: 2,
-      whilePluginUnavailable: null,
     };
 
     expect(reachRefusalsOutputSchema.parse([refusal])).toEqual([refusal]);
@@ -237,7 +241,6 @@ describe('reachRefusalsOutputSchema', () => {
       recipient: { kind: 'ship', ship: { id: newId('ship'), name: 'vault', labels: [], owner: null } },
       verb: 'manage',
       settingsVersion: 2,
-      whilePluginUnavailable: null,
     };
 
     expect(reachRefusalsOutputSchema.parse([refusal])).toEqual([refusal]);
@@ -252,25 +255,9 @@ describe('reachRefusalsOutputSchema', () => {
       recipient: { kind: 'ship', ship: { id: newId('ship'), name: 'vault', labels: [], owner: null } },
       verb: 'manage',
       settingsVersion: 2,
-      whilePluginUnavailable: null,
     };
 
     expect(reachRefusalsOutputSchema.parse([refusal])[0]?.sender).not.toHaveProperty('email');
-  });
-
-  it('refuses open-all as what refused it: open-all refuses nothing', () => {
-    const refusal = {
-      id: newId('reachRefusal'),
-      at: '2026-10-10T08:00:00.000Z',
-      sender: { kind: 'ship', id: newId('ship'), name: 'planner', labels: [], owner: null },
-      askedBy: null,
-      recipient: { kind: 'ship', ship: { id: newId('ship'), name: 'vault', labels: [], owner: null } },
-      verb: 'send',
-      settingsVersion: 2,
-      whilePluginUnavailable: 'open-all',
-    };
-
-    expect(reachRefusalsOutputSchema.safeParse([refusal]).success).toBe(false);
   });
 });
 
@@ -282,16 +269,22 @@ describe('explainReachInputSchema', () => {
     expect([explainReachInputSchema.parse({ fromShipId }), explainReachInputSchema.parse({ fromShipId, toShipId })]).toEqual([{ fromShipId }, { fromShipId, toShipId }]);
   });
 
+  it('takes whether to explain the draft instead of the applied rules', () => {
+    const fromShipId = newId('ship');
+
+    expect(explainReachInputSchema.parse({ fromShipId, against: 'draft' })).toEqual({ fromShipId, against: 'draft' });
+  });
+
   it('refuses an id that is not a ship id', () => {
     expect(explainReachInputSchema.safeParse({ fromShipId: newId('fleet') }).success).toBe(false);
   });
 });
 
 describe('explainReachOutputSchema', () => {
-  it('answers per verb the ships reached, each with the rule that allows it: built in, the plugin\'s by place, or declared by its declarer and place', () => {
+  it("answers per verb the ships reached, each with the rule that allows it: built in, the fleet's own by place, or declared by its declarer and place", () => {
     const explained = {
       send: [{ shipId: newId('ship'), rule: { builtIn: 'owner' } }],
-      read: [{ shipId: newId('ship'), rule: { plugin: 3 } }],
+      read: [{ shipId: newId('ship'), rule: { rule: 3 } }],
       manage: [
         { shipId: newId('ship'), rule: { declared: { kind: 'ship', shipId: newId('ship') }, index: 0 } },
         { shipId: newId('ship'), rule: { declared: { kind: 'installation' }, index: 1 } },
@@ -301,7 +294,7 @@ describe('explainReachOutputSchema', () => {
     expect(explainReachOutputSchema.parse(explained)).toEqual(explained);
   });
 
-  it('refuses a rule that is not built in, the plugin\'s or declared', () => {
+  it("refuses a rule that is not built in, the fleet's own or declared", () => {
     expect(explainReachOutputSchema.safeParse({ send: [{ shipId: newId('ship'), rule: { builtIn: 'everyone' } }], read: [], manage: [] }).success).toBe(false);
   });
 });
@@ -320,25 +313,5 @@ describe('declaredNetworkRulesOutputSchema', () => {
 
   it('refuses a declarer that is neither a ship nor the installation', () => {
     expect(declaredNetworkRulesOutputSchema.safeParse([{ declarer: { kind: 'account', accountId: 'acc-mathilde' }, rules }]).success).toBe(false);
-  });
-});
-
-describe('networkPluginOutputSchema (interop I-3)', () => {
-  it("answers the plugin's ship and when it registered", () => {
-    const plugin = { shipId: newId('ship'), registeredAt: '2026-10-18T16:00:00.000Z' };
-
-    expect(networkPluginOutputSchema.parse(plugin)).toEqual(plugin);
-  });
-
-  it('answers none for a fleet without a networking plugin', () => {
-    expect(networkPluginOutputSchema.parse(null)).toBeNull();
-  });
-
-  it.each([
-    ['a label id for the ship', { shipId: newId('label'), registeredAt: '2026-10-18T16:00:00.000Z' }],
-    ['a registration date that is not ISO 8601', { shipId: newId('ship'), registeredAt: 'yesterday' }],
-    ['no registration date', { shipId: newId('ship') }],
-  ])('refuses %s', (_label, candidate) => {
-    expect(networkPluginOutputSchema.safeParse(candidate).success).toBe(false);
   });
 });

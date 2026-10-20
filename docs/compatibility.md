@@ -5,7 +5,7 @@ What a package of another release train (decision 0049) needs from core. Core ke
 ## How a package checks core
 
 - Core answers `GET /api/version` without authentication: `{ "server": "<core's version>", "common": "<common's version>" }` (architecture.md, `/api/version`).
-- Each of squadrons, the trierarch plugin, the networking plugin and the trierarch states the minimum core version it needs. At start, before it migrates, listens or registers, it reads `server` and compares it with that minimum as MAJOR.MINOR.PATCH.
+- Each of squadrons, the trierarch plugin and the trierarch states the minimum core version it needs. At start, before it migrates, listens or registers, it reads `server` and compares it with that minimum as MAJOR.MINOR.PATCH.
 - When core is older, the package exits 1 and logs one line that names its own version, the minimum and core's. It does the same when core does not answer or does not answer a version.
 - Core `0.0.0` is a build from main, not a release, and counts as newer than any minimum.
 
@@ -17,7 +17,6 @@ The ship contract is `/api/v1`, REST over the same procedures as `/trpc` and `/m
 | --- | --- | --- |
 | squadrons | 0017 | `ship/register`, `whoami`, `receive`, `ack`, `pong`, `send`, `deregister`; `fleet/commission`, `ship`, `list`, `getStartingPrompt`, `crewRequest`, `removeCrewRequest`, `findLabelValue`, `release`, `retire`, `defineLabel`, `labels`, `assignLabel`, `unassignLabel`, `changeLabelValues`, `declareNetworkRules`, `declareScopes`, `scopes` |
 | trierarch plugin | 0030 | `ship/register`, `whoami`, `send`, `deregister`; `fleet/commission`, `ship`, `list`, `assignCrew`, `explainCrewRequest`, `defineLabel`, `labels`, `assignLabel`, `unassignLabel`, `declareNetworkRules` |
-| networking plugin | 0035, 0036 | `ship/register`, `whoami`, `receive`, `ack`, `pong`, `deregister`; `fleet/ship`, `follow`, `registerNetworkPlugin`, `unregisterNetworkPlugin`, `setNetworkRules`, `setBuiltInRule`, `declaredNetworkRules` |
 | aeolus plugin | those of the ship it crews | every `ship/` call, by name, and `openapi.json` |
 | trierarch | 0026 | `ship/register`, `whoami`, `receive`, `ack`, `pong`, `send`, `report`, `inbox`; `fleet/ship`, `getStartingPrompt`, `assignedCrewRequests`, `giveBackCrewRequest`, `reportCrewStatus`, `confirmCrewRelease`, `clearRequests`, `confirmWorktreeCleared`, `release` |
 

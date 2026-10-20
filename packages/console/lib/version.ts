@@ -3,7 +3,6 @@ import { z } from 'zod';
 import webPackage from '../package.json';
 import { SESSION_COOKIE } from './console-gate';
 import { gatewayUrlFrom } from './gateway-url';
-import { networkingPluginUrlFrom } from './networking-plugin-url';
 import { serverInternalUrlFrom } from './server-url';
 import { squadronsUrlFrom } from './squadrons-url';
 import { trierarchPluginUrlFrom } from './trierarch-plugin-url';
@@ -44,7 +43,6 @@ export interface OperatorVersion {
   server: z.infer<typeof systemVersionSchema>['result']['data'];
   squadrons?: string | null;
   trierarchPlugin?: string | null;
-  networkingPlugin?: string | null;
   gateway?: string | null;
 }
 
@@ -80,7 +78,6 @@ async function pluginVersionAt(url: string, key: string): Promise<string | null>
 const PLUGINS = [
   { key: 'squadrons', urlFrom: squadronsUrlFrom },
   { key: 'trierarchPlugin', urlFrom: trierarchPluginUrlFrom },
-  { key: 'networkingPlugin', urlFrom: networkingPluginUrlFrom },
   { key: 'gateway', urlFrom: gatewayUrlFrom },
 ] as const;
 

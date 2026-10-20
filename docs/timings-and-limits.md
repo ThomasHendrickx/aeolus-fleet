@@ -73,8 +73,7 @@ Defined in `@aeolus-fleet/common`, checked by core on every call and by the clie
 | --- | --- | --- | --- |
 | 0 to 25 s | The wait an inbox check may ask for | [schemas/delivery.ts](../packages/common/src/schemas/delivery.ts) `INBOX_WAIT_MAX_SECONDS` | [blueprint.md](blueprint.md) |
 | 0 to 25 s | The wait a `fleet.follow` may ask for | [schemas/follow.ts](../packages/common/src/schemas/follow.ts) `FOLLOW_WAIT_MAX_SECONDS` | none recorded |
-| 60 s to 86 400 s (one day) | After how long without a call a networking plugin may declare itself not responding | [schemas/network.ts](../packages/common/src/schemas/network.ts) `NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MIN_SECONDS`, `..._MAX_SECONDS` | [0035](decisions/0035-networking-plugin.md) |
-| 1, 2, 4, 8 s, each drawn between half and all of it | The waits before a fleet client calls again while the fleet answers busy: 5 calls in all. Squadrons, the trierarch and both plugins use it; the aeolus plugin keeps a copy (below) | [fleet/index.ts](../packages/common/src/fleet/index.ts) `FLEET_BUSY_WAITS_MS`; [fleet/busy-wait.ts](../packages/common/src/fleet/busy-wait.ts) `busyWaitMs` | [architecture.md](architecture.md), #734 |
+| 1, 2, 4, 8 s, each drawn between half and all of it | The waits before a fleet client calls again while the fleet answers busy: 5 calls in all. Squadrons, the trierarch and the trierarch plugin use it; the aeolus plugin keeps a copy (below) | [fleet/index.ts](../packages/common/src/fleet/index.ts) `FLEET_BUSY_WAITS_MS`; [fleet/busy-wait.ts](../packages/common/src/fleet/busy-wait.ts) `busyWaitMs` | [architecture.md](architecture.md), #734 |
 
 ## Core
 
@@ -248,19 +247,6 @@ Defined in `@aeolus-fleet/common`, checked by core on every call and by the clie
 | 10 s (default, `TRIERARCH_PASS_INTERVAL_SECONDS`) | Between assignment passes per fleet; a pass still running skips the next | [config.ts](../packages/trierarch-plugin/src/config.ts) `DEFAULT_PASS_INTERVAL_SECONDS` | [trierarch plugin README](../packages/trierarch-plugin/README.md) |
 | 10 s (Prisma's), tried again without end | Prisma Migrate's advisory lock at start | [prisma/migrate.ts](../packages/trierarch-plugin/src/adapters/prisma/migrate.ts) `LOCK_TIMED_OUT` | none recorded |
 | at least 32 characters | `INSTALLATION_TOKEN`, when set | [config.ts](../packages/trierarch-plugin/src/config.ts) `INSTALLATION_TOKEN_MIN_LENGTH` | [0020](decisions/0020-installation.md) |
-
-## Networking plugin
-
-| Value | What it guards | Set in | Behind |
-| --- | --- | --- | --- |
-| keep-latest after 300 s | What a fleet's networking plugin declares until argo sets it | [network/declaration.ts](../packages/networking-plugin/src/core/network/declaration.ts) `DEFAULT_DECLARATION` | [0036](decisions/0036-networking-plugin-package.md), #260 |
-| 10 s (default, `SUPPLY_RETRY_SECONDS`) | Supplying again what the fleet refused; a retry still running skips the next | [config.ts](../packages/networking-plugin/src/config.ts) `DEFAULT_SUPPLY_RETRY_SECONDS` | [0036](decisions/0036-networking-plugin-package.md), #260 |
-| 5 s | Rescanning for fleets connected or switched on | [app.ts](../packages/networking-plugin/src/app.ts) `DEFAULT_RESCAN_MS` | none recorded |
-| 1 s | Calling again after a fleet call is refused or fails | [fleet/fleet-watch.ts](../packages/networking-plugin/src/adapters/fleet/fleet-watch.ts) `RETRY_MS` | [0035](decisions/0035-networking-plugin.md) |
-| 25 s (0 on the first call) | One `fleet.follow` wait for declared rules | [network/follow-declarations.ts](../packages/networking-plugin/src/core/network/follow-declarations.ts) `WAIT_SECONDS` | [0037](decisions/0037-declared-network-rules.md) |
-| 10 | Deliveries per receive | [fleet/rest-fleet-door.ts](../packages/networking-plugin/src/adapters/fleet/rest-fleet-door.ts) `RECEIVE_MAX` | [architecture.md](architecture.md) |
-| 10 s (Prisma's), tried again without end | Prisma Migrate's advisory lock at start | [prisma/migrate.ts](../packages/networking-plugin/src/adapters/prisma/migrate.ts) `LOCK_TIMED_OUT` | none recorded |
-| at least 32 characters | `INSTALLATION_TOKEN`, when set | [config.ts](../packages/networking-plugin/src/config.ts) `INSTALLATION_TOKEN_MIN_LENGTH` | [0020](decisions/0020-installation.md) |
 
 ## The aeolus plugin
 

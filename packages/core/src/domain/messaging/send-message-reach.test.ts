@@ -1,7 +1,7 @@
-import { ANY_LABEL_VALUE, NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS, SAME_LABEL_VALUE, type FleetId, type LabelValueId, type MessageId, type NetworkRule, type SelectorTerm, type ShipId } from '@aeolus-fleet/common';
+import { ANY_LABEL_VALUE, SAME_LABEL_VALUE, type FleetId, type LabelValueId, type MessageId, type NetworkRule, type SelectorTerm, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { crewAboard, deliveryIdOf, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
+import { applyNetworkRules, crewAboard, deliveryIdOf, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { newKey } from '../../testing/keys.js';
@@ -16,8 +16,8 @@ import { refusedShip } from '../../../test/support/refused-sender.js';
 /**
  * The fleet's network rules on every send (decision 0034): planner (trust
  * shared, team a), scout (trust shared, team b) and vault (trust sensitive),
- * labelled by the labeller, which owns both labels. The rules come from the
- * fleet's networking plugin, which keeps them while unavailable (decision 0035).
+ * labelled by the labeller, which owns both labels. networking, holding
+ * fleet:network, applies the rules.
  */
 let core: InMemoryCore;
 let registry: ReturnType<typeof registryUseCases>;
@@ -46,10 +46,9 @@ function sameValue(key: string): SelectorTerm {
   return { labelId: labelIdOf(core, key), value: SAME_LABEL_VALUE };
 }
 
-/** Sets the rules as the networking plugin does: open for send off while rules apply, on for none, all-to-all. */
+/** Applies the rules: open is off while they apply, on for none, all-to-all. */
 async function setRules(rules: NetworkRule[] | null): Promise<void> {
-  unwrap(await registry.setNetworkRules(networking, { rules: rules ?? [] }));
-  unwrap(await registry.setBuiltInRule(networking, { rule: 'open', verb: 'send', isOn: rules === null }));
+  await applyNetworkRules(registry, { by: networking, rules: rules });
 }
 
 function toShip(ship: ShipCaller): Selector {
@@ -77,8 +76,6 @@ beforeEach(async () => {
   scout = await shipWithScopes({ registry, argo }, { name: 'scout', type: 'reviewer', scopes: [] });
   vault = await shipWithScopes({ registry, argo }, { name: 'vault', type: 'keeper', scopes: [] });
   networking = await shipWithScopes({ registry, argo }, { name: 'networking', type: 'networking', scopes: ['fleet:network'] });
-  crewAboard(core, networking);
-  unwrap(await registry.registerNetworkPlugin(networking, { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS }));
   unwrap(await registry.defineLabel(labeller, { key: 'trust', values: ['shared', 'sensitive'] }));
   unwrap(await registry.defineLabel(labeller, { key: 'team', values: ['a', 'b'] }));
   const carries: [ShipCaller, string, string][] = [
@@ -302,20 +299,61 @@ describe('a selector term of the owner (decision 0045)', () => {
 });
 
 describe('the open rule (decision 0034)', () => {
-  beforeEach(async () => {
-    await setRules([]);
-  });
-
-  it('lets every ship send to every ship while it is on for send, whatever the rules', async () => {
-    unwrap(await registry.setBuiltInRule(networking, { rule: 'open', verb: 'send', isOn: true }));
+  it('lets every ship send to every ship while no rules are applied, whatever the ships declared', async () => {
+    unwrap(await registry.declareNetworkRules(labeller, { rules: [{ verb: 'send', from: [value('team', 'a')], to: [] }] }));
 
     await expect(sent(vault, aMessage(toShip(scout)))).resolves.toMatch(/^msg_/);
   });
 
-  it('lets no send through while it is on only for read and manage', async () => {
-    expect(core.state.networkSettings[0]?.builtIns.open).toEqual({ send: false, read: true, manage: true });
+  it('lets no send through once an empty list is applied', async () => {
+    await setRules([]);
 
     expect(refusalOf(await messaging.sendMessage(vault, aMessage(toShip(scout))))).toEqual(NOT_REACHABLE);
+  });
+});
+
+describe('declared rules, in force beside the applied ones (decision 0037)', () => {
+  beforeEach(async () => {
+    await setRules([{ verb: 'send', from: [value('trust', 'shared')], to: [value('trust', 'shared')] }]);
+  });
+
+  it('let a send through that no applied rule allows', async () => {
+    unwrap(await registry.declareNetworkRules(labeller, { rules: [{ verb: 'send', from: [value('team', 'b')], to: [value('trust', 'sensitive')] }] }));
+
+    await expect(sent(scout, aMessage(toShip(vault)))).resolves.toMatch(/^msg_/);
+  });
+
+  it('stop letting it through once withdrawn, the refusal naming the version after the withdrawal', async () => {
+    unwrap(await registry.declareNetworkRules(labeller, { rules: [{ verb: 'send', from: [value('team', 'b')], to: [value('trust', 'sensitive')] }] }));
+    unwrap(await registry.declareNetworkRules(labeller, { rules: [] }));
+
+    expect(refusalOf(await messaging.sendMessage(scout, aMessage(toShip(vault))))).toEqual(NOT_REACHABLE);
+    expect(core.state.reachRefusals.map((refusal) => refusal.settingsVersion)).toEqual([3]);
+  });
+});
+
+describe('the draft of the rules (decision 0034)', () => {
+  beforeEach(async () => {
+    await setRules([{ verb: 'send', from: [value('trust', 'shared')], to: [value('trust', 'shared')] }]);
+  });
+
+  it('is never checked: a send its rules would allow is refused until it is applied', async () => {
+    unwrap(await registry.saveNetworkRulesDraft(networking, { rules: [{ verb: 'send', from: [value('team', 'b')], to: [value('trust', 'sensitive')] }] }));
+
+    expect(refusalOf(await messaging.sendMessage(scout, aMessage(toShip(vault))))).toEqual(NOT_REACHABLE);
+  });
+
+  it('lets that send through once applied', async () => {
+    unwrap(await registry.saveNetworkRulesDraft(networking, { rules: [{ verb: 'send', from: [value('team', 'b')], to: [value('trust', 'sensitive')] }] }));
+    unwrap(await registry.applyNetworkRules(networking, { version: 1 }));
+
+    await expect(sent(scout, aMessage(toShip(vault)))).resolves.toMatch(/^msg_/);
+  });
+
+  it('never refuses a send the applied rules allow, though the draft would', async () => {
+    unwrap(await registry.saveNetworkRulesDraft(networking, { rules: [] }));
+
+    await expect(sent(planner, aMessage(toShip(scout)))).resolves.toMatch(/^msg_/);
   });
 });
 
@@ -412,8 +450,7 @@ describe('the record of a refused send', () => {
         askedBy: null,
         recipient: { kind: 'ship', ship: { id: vault.shipId, name: 'vault', labels: [label('trust', 'sensitive')], owner: { id: argo.shipId, name: 'argo' } } },
         verb: 'send',
-        settingsVersion: 3,
-        whilePluginUnavailable: null,
+        settingsVersion: 1,
       },
     ]);
   });
@@ -426,7 +463,7 @@ describe('the record of a refused send', () => {
     const [refusal] = core.state.reachRefusals;
     const valuesOf = (labels: readonly { key: string; value: string }[] | undefined) => labels?.filter((label) => label.key === 'trust').map((label) => label.value);
     expect([valuesOf(refusal && refusedShip(refusal.sender).labels), refusal?.recipient.kind === 'ship' ? valuesOf(refusal.recipient.ship.labels) : undefined]).toEqual([['shared'], ['sensitive']]);
-    expect(refusal?.settingsVersion).toBe(4);
+    expect(refusal?.settingsVersion).toBe(2);
   });
 
   it('keeps the owner each ship had then, by id and name', async () => {
@@ -447,7 +484,7 @@ describe('the record of a refused send', () => {
 
     refusalOf(await messaging.sendMessage(scout, aMessage(toShip(vault))));
 
-    expect(core.state.reachRefusals.map((refusal) => refusal.settingsVersion)).toEqual([4]);
+    expect(core.state.reachRefusals.map((refusal) => refusal.settingsVersion)).toEqual([2]);
   });
 
   it('is kept for every refusal, and for nothing that went through', async () => {
@@ -584,7 +621,7 @@ describe("the operator's resend of an undeliverable delivery", () => {
     refusalOf(await messaging.resendDelivery(argo, { deliveryId: deliveryIdOf(core, undeliverable.messageId) }));
 
     expect(core.state.reachRefusals.map((refusal) => [refusedShip(refusal.sender).name, refusal.recipient.kind === 'ship' ? refusal.recipient.ship.name : refusal.recipient.type, refusal.settingsVersion])).toEqual([
-      ['planner', 'vault', 4],
+      ['planner', 'vault', 2],
     ]);
   });
 });

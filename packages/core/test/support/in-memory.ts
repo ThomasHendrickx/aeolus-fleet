@@ -49,6 +49,7 @@ import type {
   CrewRequestRepository,
   LabelRepository,
   DeclaredNetworkRulesRepository,
+  NetworkRulesDraftRepository,
   PluginConnectionRepository,
   ScopeNamespaceRepository,
   NetworkSettingsRepository,
@@ -57,6 +58,7 @@ import type {
 } from '../../src/domain/registry/ports.js';
 import { isSameOwner, type Label, type LabelOwner, type ListedLabel, type ShipLabel } from '../../src/domain/registry/label.js';
 import type { DeclaredNetworkRules } from '../../src/domain/registry/declared-network-rules.js';
+import type { NetworkRulesDraft } from '../../src/domain/registry/network-rules-draft.js';
 import type { PluginConnection } from '../../src/domain/registry/plugin-connection.js';
 import type { ScopeNamespace } from '../../src/domain/registry/scope-namespace.js';
 import { noNetworkSettings, type NetworkSettings } from '../../src/domain/registry/network-settings.js';
@@ -128,6 +130,8 @@ export interface InMemoryState {
   networkSettings: NetworkSettings[];
   /** The network rules each ship declared on the labels it owns (decision 0037): no row for a ship that declares none. */
   declaredNetworkRules: DeclaredNetworkRules[];
+  /** Each fleet's draft of its own rules, while it has one (decision 0034). */
+  networkRulesDrafts: NetworkRulesDraft[];
   /** The plugin namespaces, one per declaring ship (decision 0046). */
   scopeNamespaces: ScopeNamespace[];
   /** The plugins argo connected, one per ship (decision 0034). */
@@ -158,6 +162,7 @@ export interface InMemoryTx {
   labels: LabelRepository;
   networkSettings: NetworkSettingsRepository;
   declaredNetworkRules: DeclaredNetworkRulesRepository;
+  networkRulesDrafts: NetworkRulesDraftRepository;
   scopeNamespaces: ScopeNamespaceRepository;
   pluginConnections: PluginConnectionRepository;
   reachRefusals: ReachRefusalRepository;
@@ -291,6 +296,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     shipLabels: [],
     networkSettings: [],
     declaredNetworkRules: [],
+    networkRulesDrafts: [],
     scopeNamespaces: [],
     pluginConnections: [],
     reachRefusals: [],
@@ -589,6 +595,21 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         const index = state.declaredNetworkRules.findIndex((held) => held.fleetId === declared.fleetId && isSameOwner(held.declarer, declared.declarer));
         const kept = declared.rules.length === 0 ? [] : [structuredClone(declared)];
         state.declaredNetworkRules.splice(index === -1 ? state.declaredNetworkRules.length : index, index === -1 ? 0 : 1, ...kept);
+        return Promise.resolve();
+      },
+    },
+    networkRulesDrafts: {
+      find: (fleetId) => Promise.resolve(structuredClone(state.networkRulesDrafts.find((held) => held.fleetId === fleetId))),
+      save: (draft) => {
+        const index = state.networkRulesDrafts.findIndex((held) => held.fleetId === draft.fleetId);
+        state.networkRulesDrafts.splice(index === -1 ? state.networkRulesDrafts.length : index, index === -1 ? 0 : 1, structuredClone(draft));
+        return Promise.resolve();
+      },
+      remove: (fleetId) => {
+        const index = state.networkRulesDrafts.findIndex((held) => held.fleetId === fleetId);
+        if (index !== -1) {
+          state.networkRulesDrafts.splice(index, 1);
+        }
         return Promise.resolve();
       },
     },
@@ -1851,6 +1872,7 @@ const FLEET_TABLES = [
   'shipLabels',
   'networkSettings',
   'declaredNetworkRules',
+  'networkRulesDrafts',
   'scopeNamespaces',
   'pluginConnections',
   'reachRefusals',
@@ -1884,6 +1906,7 @@ const TABLES = [
   'shipLabels',
   'networkSettings',
   'declaredNetworkRules',
+  'networkRulesDrafts',
   'scopeNamespaces',
   'pluginConnections',
   'reachRefusals',

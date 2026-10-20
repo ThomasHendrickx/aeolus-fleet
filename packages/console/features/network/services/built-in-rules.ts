@@ -1,12 +1,11 @@
-import type { BuiltInRuleState, NetworkVerb } from '@aeolus-fleet/common';
+import type { BuiltInRuleState } from '@aeolus-fleet/common';
 
 /**
  * The built-in rules as Network shows them, first and apart from argo's own
  * (decision 0034): each as the fleet answers it, with what it allows and who
  * turns it. argo, the owner, the answer, a connected plugin's reading and the
- * installation's managing are never off; argo turns the
- * viewer reading; the networking plugin turns open, per verb, off while
- * argo's rules apply and on for all-to-all.
+ * installation's managing are never off; argo turns the viewer reading; open
+ * is off while rules are applied and on while none are, for every verb.
  */
 
 /** One built-in rule as a row: its name, what it allows, whether it is on and who turns it. */
@@ -15,14 +14,8 @@ export interface BuiltInRow {
   name: string;
   meaning: string;
   isOn: boolean;
-  turnedBy: 'never' | 'argo' | 'plugin';
+  turnedBy: 'never' | 'argo' | 'rules';
 }
-
-const OPEN_MEANINGS: Readonly<Record<NetworkVerb, string>> = {
-  send: 'Every ship may send to every ship.',
-  read: 'Every ship may read every ship.',
-  manage: 'Every ship may manage every ship.',
-};
 
 function rowOf(state: BuiltInRuleState): BuiltInRow {
   switch (state.rule) {
@@ -39,7 +32,7 @@ function rowOf(state: BuiltInRuleState): BuiltInRow {
     case 'installation':
       return { key: state.rule, name: 'Installation manages', meaning: 'The installation manages person ships and the ships they own, so a leaver is always released.', isOn: state.isOn, turnedBy: 'never' };
     case 'open':
-      return { key: `open-${state.verb}`, name: `Open for ${state.verb}`, meaning: OPEN_MEANINGS[state.verb], isOn: state.isOn, turnedBy: 'plugin' };
+      return { key: state.rule, name: 'Open', meaning: 'Every ship may send to, read and manage every ship.', isOn: state.isOn, turnedBy: 'rules' };
   }
 }
 

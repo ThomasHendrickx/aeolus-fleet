@@ -164,7 +164,9 @@ Two questions decide whether an actor (a ship, an account or the installation, 0
 - An owner reaches the ships it owns.
 - A ship can always answer the message it was sent.
 - The viewer reads every ship, until argo turns that off.
-- Open: every ship reaches every ship, one rule per verb. Connecting the networking plugin removes them; from then on its rules, and the rules ships declare on their own labels, decide.
+- Open: every ship reaches every ship, by every verb, while the fleet has no rules of its own applied. Once rules are applied, open is off: the fleet's rules, and the rules ships declare on their own labels, decide.
+
+**Changing the rules.** Any actor holding `fleet:network` edits the fleet's rules as a draft, sees what the draft gains and loses per verb and the reach it would give a ship, and then applies it. Nothing is checked against the draft, so someone working on the rules sees what breaks before it breaks (0035).
 
 The first three are never off, so argo can never be locked out and a sender always gets its answer.
 
@@ -174,7 +176,7 @@ The first three are never off, so argo can never be locked out and a sender alwa
 
 1. argo commissions a person ship for each of Charlotte, Thomas and Burak, and an app ship for the CRM.
 2. argo defines the label `crm` with the values `app` and `user`, labels the CRM ship `crm=app`, and labels Charlotte's and Thomas's ships `crm=user`.
-3. With the networking plugin connected, the open rules are gone. argo adds one send rule in the networking plugin: from `crm=user` to `crm=app`.
+3. argo drafts one send rule, from `crm=user` to `crm=app`, sees that it gains Charlotte's and Thomas's sends to the CRM and loses every other reach open gave, and applies it. Open is off from then on.
 4. Charlotte and Thomas send to the CRM, and the CRM's answers reach them through the answer rule. Burak's send is refused: his ship carries no `crm` label. argo sees the refusal, and asking how Charlotte reaches the CRM names the send rule.
 5. argo commissions the PRD agent with only sending and receiving, and makes Charlotte's ship its owner. Charlotte reaches it by every verb through the owner rule. It answers Charlotte and can always reach argo, and any other ship only through a rule. It cannot commission ships, because it does not hold `fleet:commission`: its commission is refused, whatever its reach.
 
@@ -220,7 +222,7 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | person | A human's ship for messaging and owning, linked to their account and owning itself, crewed by their own app, a chat or the gateway; commissioned with `fleet:person` (0052) | core |
 | agent | An AI session's ship, commissioned, crewed by a trierarch or a harness; the only kind that states a model | core |
 | app | Software in one fleet, commissioned: a trierarch, the gateway's proxy ships, own integrations | core |
-| plugin | Software installed once per installation, serving many fleets: squadrons, the networking plugin, the trierarch plugin, the gateway. argo connecting it is its commission | core |
+| plugin | Software installed once per installation, serving many fleets: squadrons, the trierarch plugin, the gateway. argo connecting it is its commission | core |
 | argo | The operator ship: one per fleet, permanent, every scope, no secret, name reserved; messages to it are argo's inbox (0012) | core |
 | Viewer | The ship `viewer` of a fleet created with one: permanent, `fleet:read` only, receives nothing; anyone with a viewer ticket signs in as it. A named person who reads only gets a person ship with `fleet:read` (0022) | core |
 | Owner | The person ship, or argo, that answers for a ship: its questions, gates and trouble go there, and it reaches the ships it owns. Only a ship has an owner (0045) | core |
@@ -237,7 +239,7 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Crew | What holds a ship's lease: an agent session, a person's app, an app's adapter, argo's or the viewer's console sign-in | core |
 | Session | One agent run crewing a ship; replaceable, a new one inherits the inbox. Not a human's sign-in | core, trierarch |
 | Lease | One crew's exclusive right to a ship until release or deregister; argo's sign-in takes argo's over (0010) | core |
-| Last seen | When the crew last called the fleet; observation only, but for the networking plugin's availability (0035) | core |
+| Last seen | When the crew last called the fleet; observation only | core |
 | Register | Claim a ship with its id and secret, stating location and harness; answers the crew token once | core |
 | Deregister | The crew ends its lease and the secret; ship and inbox stay | core |
 | Ship secret | `aeolus_sk_v1_<random>`, shown once, stored as a hash, one valid per ship, used only to register (0002) | core |
@@ -269,11 +271,11 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Grant | Give a ship a scope, at commission or live with `scopes:grant`; a ship grants only scopes it holds (0046) | core |
 | Reach | Where a ship may act: whom it may send to, read or manage, by network rules (0034) | core |
 | Verb | send (with force and discovery), read (with resend), manage (rename, release, recrew, retire, ping, crew request) | core |
-| Network rule | Lets ships matching one selection reach ships matching another by one verb; a selection is of label and owner terms, never type; allow-only (0034) | core, set by the networking plugin |
-| Built-in rule | A rule every fleet starts with, shown first: argo, the owner, an answer, and a ship of kind plugin reading every ship, never off; the viewer reading and open per verb, switchable (0034) | core |
-| Declared rule | A rule a ship declares on labels it defined; in force once the networking plugin supplies it (0037) | core |
-| Network settings | A fleet's rules, its networking plugin and a version | core |
-| Networking plugin | The plugin that alone sets the rules beside the built-ins, removing open, and declares what holds while it is unavailable (0035) | networking plugin |
+| Network rule | Lets ships matching one selection reach ships matching another by one verb; a selection is of label and owner terms, never type; allow-only (0034) | core |
+| Built-in rule | A rule every fleet starts with, shown first: argo, the owner, an answer, and a ship of kind plugin reading every ship, never off; the viewer reading, switchable; open, on while no rules are applied (0034) | core |
+| Declared rule | A rule a ship declares on labels it defined; in force beside the fleet's own (0037) | core |
+| Network settings | A fleet's applied rules, the viewer reading's switch and a version | core |
+| Draft | The fleet's one draft of its own rules: looked at, then applied or discarded; never checked against (0035) | core |
 | Reach refusal | argo's record of a refused send; the sender learns only that it was refused | core |
 | Label | A key with defined values (`os`: `macos`, `linux`) for selecting ships; never membership, status, configuration or secrets (0031) | core |
 | Definer | The ship that defined a label: it alone changes, deletes and assigns it, and the label retires with it. Not an owner | core |
@@ -430,11 +432,12 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `OperatorPasswordReset` | Identity | The old password stops working; every console session ends, and with it `argo`'s lease |
 | `SignInTicketIssued` | Identity | A hosting installation issued a one-time sign-in ticket for the fleet's operator or its viewer ship; details say which. Redeeming an operator's starts a console session as a password sign-in does |
 | `ViewerSessionStarted` | Identity | A viewer ticket was redeemed: a viewer session started, by the viewer ship; details hold its device |
-| `NetworkRulesSet` | Registry | The networking plugin gave the fleet its network rules, or the upgrade to rules only through a plugin (decision 0035) took the rules argo had set, as the system: details hold the version and the number of rules (null in events from before rules were always a list), never the rules |
-| `NetworkRulesDeclared` | Registry | A ship or the installation declared the network rules it needs on the labels it owns, withdrew them, or was retired with them (decision 0037): details hold the number of rules (0 when withdrawn), never the rules |
-| `NetworkPluginRegistered` | Registry | A ship registered as the fleet's networking plugin, or registered again: details hold the version and what it declared (`whileUnavailable`, `notRespondingAfterSeconds`) |
-| `NetworkPluginUnregistered` | Registry | The networking plugin unregistered or its ship was retired, its rules with it, and open is on again for every verb: details hold the version |
-| `BuiltInRuleChanged` | Registry | A built-in rule that can be off was turned on or off: open for one verb by the networking plugin, or the viewer reading by argo (decision 0034): details hold the rule, the verb for open, whether it is on and the version |
+| `NetworkRulesSet` | Registry | The fleet's draft was applied, its rules in force from then on (decision 0035); older events wrote it when a networking plugin supplied rules: details hold the version and the number of rules (null for all-to-all), never the rules |
+| `NetworkRulesDraftSaved` | Registry | The draft of the fleet's rules was saved, in place of the one before (decision 0035): details hold the number of rules (null for all-to-all) and the settings version it was saved against, never the rules |
+| `NetworkRulesDraftDiscarded` | Registry | The draft of the fleet's rules was discarded, the applied rules staying as they were (decision 0035) |
+| `NetworkRulesDeclared` | Registry | A ship or the installation declared the network rules it needs on the labels it owns, withdrew them, or was retired with them (decision 0037): details hold the number of rules (0 when withdrawn) and, once they moved it, the settings version, never the rules |
+| `NetworkPluginRegistered`, `NetworkPluginUnregistered` | Registry | Written no more: a networking plugin registered or unregistered, when one set the rules; the event log keeps them |
+| `BuiltInRuleChanged` | Registry | The viewer reading was turned on or off (decision 0034); older events also turned open for one verb: details hold the rule, the verb for open, whether it is on and the version |
 | `FleetLimitsChanged` | Registry | The installation set how the fleet's ship and daily message limits are set: each following the default, or the fleet's own limit or none |
 
 ## Key flows
@@ -542,7 +545,7 @@ The operator restarting a session is not a recovery step for messages: nothing w
 2. The operator opens it, which marks it read. Read is not done: the delivery stays pending, and no event is written. The operator can mark it unread again.
 3. Mark done acknowledges it: the console never receives, so the delivery is handed and acknowledged at once under the console session's lease (`DeliveryHanded`, then `DeliveryAcknowledged`). It moves to Done.
 4. Reply sends a message from `argo` to the sender, plain text unless the console gives another content type, naming the message, and marks it done in the same transaction; the acknowledgement names the reply. Replying to a message already done sends a new message and leaves it done. A reply to a retired sender is refused, and the message stays open.
-5. The inbox lists what waits on the operator first: the open questions on top, oldest first, with how long the oldest has waited (Questions to argo); then the messages, newest first; then the messages from plugin ships (senders of type `trierarch`, `squadrons`, `trierarch-plugin` or `networking-plugin`: every machine's trierarch and the ships the plugins run as), folded into one row that unfolds on a tap and whose Done marks each of them done, as Mark done does one by one. A message's row names its ship, its time, its headline (the first line) and one line of its body, with no id suffix. One count in the navigation holds the open questions and the open messages. The phone filters Open and Done; desktop adds All.
+5. The inbox lists what waits on the operator first: the open questions on top, oldest first, with how long the oldest has waited (Questions to argo); then the messages, newest first; then the messages from plugin ships (senders of type `trierarch`, `squadrons`, `trierarch-plugin` or `gateway`: every machine's trierarch and the ships the plugins run as), folded into one row that unfolds on a tap and whose Done marks each of them done, as Mark done does one by one. A message's row names its ship, its time, its headline (the first line) and one line of its body, with no id suffix. One count in the navigation holds the open questions and the open messages. The phone filters Open and Done; desktop adds All.
 6. A message's page shows its headline as the title, its body rendered, and its thread: the messages it answers and argo's replies. Reply and Done sit in a bar at the bottom of the page; writing a reply turns Done into Send reply.
 
 ### Questions to argo
@@ -658,4 +661,4 @@ v1 proves the fleet sails. Everything below is designed for, with a hook already
 
 - **Heartbeats and wake-ups.** How a turn-based agent proves it is alive and notices new messages. Deferred: likely a ship class concern, not fleet core.
 
-Decided since: the operator is the ship `argo`, crewed only through the operator's email and password login; scopes stored on the server; npm organisation `aeolus-fleet` with seven published packages (core, console, common, squadrons, trierarch-plugin, networking-plugin and trierarch, decision 0008); public HTTPS; payloads at most 64 KB, carrying references rather than content; prefixed ids; Apache-2.0; tenancy built in (every record belongs to a fleet). Technical decisions are recorded in the companion document, Aeolus: solution and technical architecture.
+Decided since: the operator is the ship `argo`, crewed only through the operator's email and password login; scopes stored on the server; npm organisation `aeolus-fleet` with six published packages (core, console, common, squadrons, trierarch-plugin and trierarch, decision 0008); public HTTPS; payloads at most 64 KB, carrying references rather than content; prefixed ids; Apache-2.0; tenancy built in (every record belongs to a fleet). Technical decisions are recorded in the companion document, Aeolus: solution and technical architecture.

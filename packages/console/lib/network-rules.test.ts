@@ -16,7 +16,6 @@ import {
   sameValueProblemOf,
   setRulesOn,
   setVerb,
-  supplyNote,
   type NetworkDraft,
 } from './network-rules';
 
@@ -64,7 +63,7 @@ function onlyRule(draft: NetworkDraft) {
 }
 
 describe('the network draft argo edits (decision 0034)', () => {
-  it('is all-to-all while the plugin supplies no rules', () => {
+  it('is all-to-all while the fleet holds no rules', () => {
     expect(draftOf(null, newKey)).toEqual({ kind: 'all-to-all' });
   });
 
@@ -158,7 +157,7 @@ describe('the network draft argo edits (decision 0034)', () => {
     expect(onlyRule(addTerm(draft, { rule: key, side: 'from', term: OPS, limits: LIMITS })).key).toBe(key);
   });
 
-  it('is changed once it differs from the rules the plugin holds, and not when it is the same again', () => {
+  it('is changed once it differs from the rules the fleet holds, and not when it is the same again', () => {
     const saved = [{ verb: 'send' as const, from: [OPS], to: [] }];
     const draft = draftOf(saved, newKey);
     const changed = addTerm(draft, { rule: onlyRule(draft).key, side: 'to', term: SENSITIVE, limits: LIMITS });
@@ -284,17 +283,3 @@ describe('a term of the same value on one side only (decision 0034)', () => {
     ]).toEqual([true, false, false]);
   });
 });
-
-describe('what a save says', () => {
-  it.each([
-    ['supplied', 'Saved. The fleet enforces them from now on.'],
-    ['waiting', 'Saved. The fleet does not answer yet: the networking plugin supplies them as soon as it does.'],
-  ] as const)('says the rules took effect or wait for the fleet when the supply is %s', (supply, note) => {
-    expect(supplyNote(supply)).toBe(note);
-  });
-
-  it('says nothing more in a race with a disconnect or a switch, which the page shows itself', () => {
-    expect([supplyNote('not-connected'), supplyNote('unregistered')]).toEqual(['Saved.', 'Saved.']);
-  });
-});
-

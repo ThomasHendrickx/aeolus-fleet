@@ -52,6 +52,7 @@ model Fleet {
   labelValues      LabelValue[]
   shipLabels       ShipLabel[]
   networkSettings  NetworkSettings?
+  networkRulesDraft NetworkRulesDraft?
   declaredNetworkRules DeclaredNetworkRules[]
   installationDeclaredNetworkRules InstallationDeclaredNetworkRules?
   scopeNamespaces  ScopeNamespace[]
@@ -382,25 +383,31 @@ model ShipLabel {
 /// rules as JSON, none (null) for all-to-all, and their version. A send and a
 /// set take turns on an advisory lock on them (network.ts).
 model NetworkSettings {
-  fleetId                         String  @id @map("fleet_id")
-  rules                           Json    @default("[]")
-  /// The built-in rules that can be off (decision 0034): the viewer reading,
-  /// argo's, and open per verb, the networking plugin's. On at fleet create.
-  builtInViewerRead               Boolean @default(true) @map("built_in_viewer_read")
-  builtInOpenSend                 Boolean @default(true) @map("built_in_open_send")
-  builtInOpenRead                 Boolean @default(true) @map("built_in_open_read")
-  builtInOpenManage               Boolean @default(true) @map("built_in_open_manage")
-  version                         Int
-  /// The fleet's networking plugin (decision 0035): its ship, what it
-  /// declared and when it first registered, all four set or none.
-  pluginShipId                    String?   @map("plugin_ship_id")
-  pluginWhileUnavailable          String?   @map("plugin_while_unavailable")
-  pluginNotRespondingAfterSeconds Int?      @map("plugin_not_responding_after_seconds")
-  pluginRegisteredAt              DateTime? @map("plugin_registered_at") @db.Timestamptz(3)
+  fleetId           String  @id @map("fleet_id")
+  /// The fleet's own rules as last applied (decision 0034); NULL while none
+  /// are, all-to-all with open on.
+  rules             Json?
+  /// The viewer reading every ship, the built-in rule an actor turns (decision 0034). On at fleet create.
+  builtInViewerRead Boolean @default(true) @map("built_in_viewer_read")
+  version           Int
 
   fleet Fleet @relation(fields: [fleetId], references: [id])
 
   @@map("network_settings")
+}
+
+/// The draft of a fleet's own rules (decision 0034): one a fleet at most, the
+/// rules as JSON or NULL for all-to-all. Nothing in force reads it; an apply
+/// moves it into network_settings and removes it.
+model NetworkRulesDraft {
+  fleetId             String   @id @map("fleet_id")
+  rules               Json?
+  savedAt             DateTime @map("saved_at") @db.Timestamptz(3)
+  savedAgainstVersion Int      @map("saved_against_version")
+
+  fleet Fleet @relation(fields: [fleetId], references: [id])
+
+  @@map("network_rules_drafts")
 }
 
 /// The network rules a ship declared on the labels it owns (decision 0037),
@@ -477,9 +484,6 @@ model ReachRefusal {
   /// What the sender tried to do: send, read or manage (decision 0034).
   verb            String
   settingsVersion Int      @map("settings_version")
-  /// What the networking plugin declared, when it refused while the plugin
-  /// was not responding (decision 0035): block-all or keep-latest.
-  whilePluginUnavailable String? @map("while_plugin_unavailable")
 
   fleet Fleet @relation(fields: [fleetId], references: [id])
 

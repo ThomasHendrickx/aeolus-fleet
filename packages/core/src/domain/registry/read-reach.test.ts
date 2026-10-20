@@ -12,7 +12,7 @@ let readReachOf: ReturnType<typeof createReadReachOf>;
 
 beforeEach(async () => {
   fleet = await readReachScenario();
-  readReachOf = createReadReachOf({ uow: fleet.core.uow, clock: fleet.core.clock });
+  readReachOf = createReadReachOf({ uow: fleet.core.uow });
 });
 
 /** The ships of the fleet the reach reads, by id, sorted. */
@@ -80,14 +80,6 @@ describe('the ships a caller reads (decision 0034)', () => {
     unwrap(await fleet.registry.setBuiltInRule(fleet.argo, { rule: 'viewerRead', isOn: false }));
 
     expect([before, await shipsReadBy(fleet.viewer)]).toEqual([everyShip(), idsOf(fleet.viewer)]);
-  });
-
-  it('reads by the rules the plugin declared while it does not respond: block-all leaves only the built-ins', async () => {
-    unwrap(await fleet.registry.registerNetworkPlugin(fleet.networking, { whileUnavailable: 'block-all', notRespondingAfterSeconds: 60 }));
-    await fleet.readRulesApply();
-    fleet.core.clock.advance(61_000);
-
-    await expect(shipsReadBy(fleet.reader)).resolves.toEqual(idsOf(fleet.reader));
   });
 });
 

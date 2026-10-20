@@ -23,7 +23,6 @@ const PRODUCTION_FOLDERS = [
   'packages/common/src/',
   'packages/trierarch/src/',
   'packages/squadrons/src/',
-  'packages/networking-plugin/src/',
   'packages/trierarch-plugin/src/',
 ];
 const TEST_FILE = /\.test\.tsx?$|(^|\/)(test|e2e)\//;

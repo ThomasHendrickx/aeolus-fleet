@@ -77,15 +77,18 @@ import {
   connectPluginOutputSchema,
   setOwnerOutputSchema,
   explainReachOutputSchema,
-  registerNetworkPluginInputSchema,
-  setNetworkRulesInputSchema,
+  applyNetworkRulesInputSchema,
+  discardNetworkRulesDraftOutputSchema,
+  networkRulesDraftChangesOutputSchema,
+  networkRulesOutputSchema,
+  networkVersionOutputSchema,
+  saveNetworkRulesDraftInputSchema,
+  saveNetworkRulesDraftOutputSchema,
   setBuiltInRuleInputSchema,
   builtInRulesOutputSchema,
   declareNetworkRulesInputSchema,
   declareNetworkRulesOutputSchema,
   declaredNetworkRulesOutputSchema,
-  networkPluginOutputSchema,
-  setNetworkRulesOutputSchema,
   findLabelValueOutputSchema,
   fleetListInputSchema,
   labelWriteOutputSchema,
@@ -101,6 +104,7 @@ import type {} from '@trpc/server/unstable-core-do-not-import';
 import type { ListedShip } from '../../domain/registry/list-fleet.js';
 import type { PingStatus } from '../../domain/registry/ping-status.js';
 import type { ShipFacts } from '../../domain/registry/ports.js';
+import type { NetworkRule } from '../../domain/registry/network-settings.js';
 import type { RefusedActor } from '../../domain/registry/reach-refusal.js';
 import type { DeliveryWay } from '../../domain/shared/delivery-way.js';
 import type { SequencedEvent } from '../../domain/shared/events.js';
@@ -616,74 +620,85 @@ export const fleetRouter = router({
     .output(findLabelValueOutputSchema)
     .query(async ({ ctx, input }) => okOrThrow(await ctx.useCases.findLabelValue(ctx.caller, input))),
 
-  /** Sets the fleet's network rules beside the built-in ones, the whole list (decision 0034). */
-  setNetworkRules: scopedProcedure('fleet:network')
+  /** The fleet's own rules as applied, and the draft beside them (decision 0034). */
+  networkRules: actorScopedProcedure('fleet:network')
     .meta({
       description: [
-        "Needs fleet:network. Sets the fleet's network rules, the whole list at once: each rule names its verb, send, read or manage, and lets the ships for which every term in from holds do it to the ships for which every term in to holds; an empty selector matches every ship.",
-        'A term is a label value id, the ship carries that value; { labelId, value: "*" }, the ship carries any value of the label; { labelId, value: "#" }, the ships on both sides carry the same value of the label; or { owner } with a ship id, "*" or "#", for the owner the same way. A "#" binds its label or the owner on both sides, so a "#" on one side only is refused.',
-        'Allow-only, beside the built-in rules: argo reaches every ship and every ship reaches argo, an owner\'s ship reaches the ships it owns, and a ship always answers the sender of a message it received; open lets every ship reach every ship by a verb until the plugin turns it off with fleet.setBuiltInRule.',
-        'An empty list allows only the built-in rules. At most 200 rules, each selector at most 20 terms, each once (decision 0034). Answers the new version.',
-        "Only the fleet's networking plugin sets them, argo included: without a registered plugin the fleet has no rules, open is on, and every set is refused (decision 0035).",
+        "Needs fleet:network. The fleet's own network rules as applied, at the settings version, and the draft beside them, with when it was saved and against which version, or null without one (decision 0034).",
+        'Rules of null are none applied: all-to-all, open on. A fleet that never set rules answers null at version 0.',
       ].join(' '),
     })
-    .input(setNetworkRulesInputSchema)
-    .output(setNetworkRulesOutputSchema)
-    .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.setNetworkRules(ctx.caller, input))),
-
-  /** The caller's ship becomes the fleet's networking plugin, with what it declared (decision 0035). */
-  registerNetworkPlugin: scopedProcedure('fleet:network')
-    .meta({
-      description: [
-        "Needs fleet:network. Makes your ship the fleet's networking plugin: from then on only it sets the network rules, until it unregisters or is retired. One plugin a fleet: another ship's registration is refused until it unregisters; yours again replaces what you declared.",
-        'whileUnavailable says what happens to every send while the plugin is unavailable: block-all (only the built-in rules that are never off: argo, owners and answers), open-all (every send, as with open on) or keep-latest (the rules and open as it left them).',
-        'It is unavailable while its ship holds no lease, or is not responding: no call from its crew for longer than notRespondingAfterSeconds (60 to 86400), judged at each send (decision 0035). Answers the new version.',
-      ].join(' '),
-    })
-    .input(registerNetworkPluginInputSchema)
-    .output(setNetworkRulesOutputSchema)
-    .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.registerNetworkPlugin(ctx.caller, input))),
-
-  /** The fleet's networking plugin unregisters, its rules going with it (decision 0035). */
-  unregisterNetworkPlugin: scopedProcedure('fleet:network')
-    .meta({
-      description: [
-        "Needs fleet:network, and only the fleet's networking plugin calls it: the plugin unregisters, as when it is switched off or deleted for the fleet.",
-        'Its rules go with it and open is on again: no plugin is all-to-all (decision 0035). Answers the new version.',
-      ].join(' '),
-    })
-    .output(setNetworkRulesOutputSchema)
-    .mutation(async ({ ctx }) => okOrThrow(await ctx.useCases.unregisterNetworkPlugin(ctx.caller))),
-
-  /** The fleet's networking plugin, or none: what the gateway checks before it switches on for a fleet (interop I-3). */
-  networkPlugin: scopedProcedure('fleet:read')
-    .meta({
-      description: [
-        "Needs fleet:read. The fleet's networking plugin: its ship and registeredAt, when it first registered (registering again keeps it), or null when the fleet has none (decision 0035).",
-        'Without a networking plugin only the built-in rules hold, so a ship that needs rules beside them checks here first.',
-      ].join(' '),
-    })
-    .output(networkPluginOutputSchema)
+    .output(networkRulesOutputSchema)
     .query(async ({ ctx }) => {
-      const plugin = okOrThrow(await ctx.useCases.readNetworkPlugin(ctx.caller));
-      return plugin === null ? null : { shipId: plugin.shipId, registeredAt: plugin.registeredAt.toISOString() };
+      const { applied, draft } = okOrThrow(await ctx.useCases.readNetworkRules(ctx.caller));
+      return {
+        applied: { rules: rulesOutputOf(applied.rules), version: applied.version },
+        draft: draft === null ? null : { rules: rulesOutputOf(draft.rules), savedAt: draft.savedAt.toISOString(), savedAgainstVersion: draft.savedAgainstVersion },
+      };
     }),
 
-  /** A built-in rule turned on or off: the viewer reading by argo, open for one verb by the networking plugin (decision 0034). */
+  /** Saves the draft of the fleet's own rules, the whole list or none (decision 0034). */
+  saveNetworkRulesDraft: actorScopedProcedure('fleet:network')
+    .meta({
+      description: [
+        "Needs fleet:network. Saves the draft of the fleet's own network rules, the whole list at once, in place of the draft before; nothing is in force until fleet_applyNetworkRules applies it. Each rule names its verb, send, read or manage, and lets the ships for which every term in from holds do it to the ships for which every term in to holds; an empty selector matches every ship.",
+        'A term is a label value id, the ship carries that value; { labelId, value: "*" }, the ship carries any value of the label; { labelId, value: "#" }, the ships on both sides carry the same value of the label; or { owner } with a ship id, "*" or "#", for the owner the same way. A "#" binds its label or the owner on both sides, so a "#" on one side only is refused.',
+        "Allow-only, beside the built-in rules: argo reaches every ship and every ship reaches argo, an owner's ship reaches the ships it owns, and a ship always answers the sender of a message it received; and beside the rules the fleet's ships declared.",
+        'rules null is all-to-all: open lets every ship reach every ship. An empty list allows only the built-in and declared rules. Each selector at most 20 terms, each once (decision 0034), and at most 200 rules, beside the declared ones (decision 0037). Answers the settings version it was saved against, which the apply names.',
+      ].join(' '),
+    })
+    .input(saveNetworkRulesDraftInputSchema)
+    .output(saveNetworkRulesDraftOutputSchema)
+    .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.saveNetworkRulesDraft(ctx.caller, input))),
+
+  /** The draft goes, the applied rules staying as they are (decision 0034). */
+  discardNetworkRulesDraft: actorScopedProcedure('fleet:network')
+    .meta({
+      description: "Needs fleet:network. Discards the fleet's draft of its network rules; the applied rules stay as they are (decision 0034). A fleet without a draft is NOT_FOUND.",
+    })
+    .output(discardNetworkRulesDraftOutputSchema)
+    .mutation(async ({ ctx }) => {
+      okOrThrow(await ctx.useCases.discardNetworkRulesDraft(ctx.caller));
+      return {};
+    }),
+
+  /** What applying the draft would change: per verb, the reach it gains and loses (decision 0034). */
+  networkRulesDraftChanges: actorScopedProcedure('fleet:network')
+    .meta({
+      description: [
+        "Needs fleet:network. What applying the fleet's draft would change (decision 0034): per verb, the pairs of ships you read that the draft lets one reach the other and the applied rules do not (gained, with the draft's rule), and the other way (lost, with the applied rule).",
+        'A fleet without a draft is NOT_FOUND.',
+      ].join(' '),
+    })
+    .output(networkRulesDraftChangesOutputSchema)
+    .query(async ({ ctx }) => okOrThrow(await ctx.useCases.readNetworkRulesDraftChanges(ctx.caller))),
+
+  /** Applies the draft: its rules are in force from now on (decision 0034). */
+  applyNetworkRules: actorScopedProcedure('fleet:network')
+    .meta({
+      description: [
+        "Needs fleet:network. Applies the fleet's draft: its rules are the ones in force from now on, and the draft goes (decision 0034). Every send, read and manage is checked against the applied rules, never the draft.",
+        'Name the settings version you saw the draft against (fleet_networkRules): once the settings moved, the apply is CONFLICT and the draft stays, so you look at what it changes again. A fleet without a draft is NOT_FOUND. Answers the new version.',
+      ].join(' '),
+    })
+    .input(applyNetworkRulesInputSchema)
+    .output(networkVersionOutputSchema)
+    .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.applyNetworkRules(ctx.caller, input))),
+
+  /** A built-in rule turned on or off: the viewer reading, by any actor holding fleet:network (decision 0034). */
   setBuiltInRule: actorScopedProcedure('fleet:network')
     .meta({
       description: [
-        "Needs fleet:network. Turns a built-in network rule on or off, as its own action with BuiltInRuleChanged (decision 0034).",
-        "open lets every ship reach every ship by one verb, send, read or manage: only the fleet's networking plugin turns it on or off, one verb at a time, and it is on again when the plugin unregisters or is retired.",
-        'viewerRead lets the viewer read every ship: only argo turns it on or off. argo, owner and answer are never off: turning them is refused. A rule already as asked changes nothing. Answers the version.',
+        'Needs fleet:network. Turns a built-in network rule on or off, as its own action with BuiltInRuleChanged (decision 0034).',
+        'viewerRead lets the viewer read every ship, and is the one you turn. open lets every ship reach every ship by every verb: it is on exactly while the fleet has no rules applied, so turning it is refused. argo, owner, answer, pluginRead and installation are never off: turning them is refused. A rule already as asked changes nothing. Answers the version.',
       ].join(' '),
     })
     .input(setBuiltInRuleInputSchema)
-    .output(setNetworkRulesOutputSchema)
+    .output(networkVersionOutputSchema)
     .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.setBuiltInRule(ctx.caller, input))),
 
   /** Every built-in rule as it is now, for argo's rule list, which shows them first (decision 0034). */
-  builtInRules: scopedProcedure('fleet:network')
+  builtInRules: actorScopedProcedure('fleet:network')
     .output(builtInRulesOutputSchema)
     .query(async ({ ctx }) => okOrThrow(await ctx.useCases.readBuiltInRules(ctx.caller))),
 
@@ -693,19 +708,19 @@ export const fleetRouter = router({
       description: [
         'Needs labels:define. Declares the network rules your ship, or the installation, needs, the whole list at once, replacing what you declared before; an empty list withdraws them (decision 0037; the installation, decision 0052). An account owns no label, so it declares none.',
         'Every term of every rule must be on a label you own: a label value id of it, or { labelId, value: "*" } or { labelId, value: "#" } on it; a label or value the fleet does not have is refused.',
-        'You declare at most 20 rules, each as fleet.setNetworkRules takes them but without a term of the owner, which is on no label. Declared rules are not in force by themselves: the fleet\'s networking plugin adds them to argo\'s rules when it supplies the list. Answers how many rules you declare now.',
+        'You declare at most 20 rules, each as fleet_saveNetworkRulesDraft takes them but without a term of the owner, which is on no label. Declared rules are in force beside the fleet\'s own once it has rules applied; while it has none, open lets every ship reach every ship anyway. Answers how many rules you declare now.',
       ].join(' '),
     })
     .input(declareNetworkRulesInputSchema)
     .output(declareNetworkRulesOutputSchema)
     .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.declareNetworkRules(ctx.caller, input))),
 
-  /** Every declarer's declared rules, for the networking plugin to add to argo's (decisions 0037, 0052). */
+  /** Every declarer's declared rules, in force beside the fleet's own (decisions 0037, 0052). */
   declaredNetworkRules: actorScopedProcedure('fleet:network')
     .meta({
       description: [
         'Needs fleet:network. The network rules the fleet\'s ships and the installation declared on the labels they own, each ship or the installation as declarer with its whole list (decision 0037; the installation, decision 0052).',
-        'The networking plugin adds them to argo\'s rules whenever it supplies the list.',
+        'They are in force beside the fleet\'s own rules, read with fleet_networkRules.',
       ].join(' '),
     })
     .output(declaredNetworkRulesOutputSchema)
@@ -717,7 +732,7 @@ export const fleetRouter = router({
   reachRefusals: actorScopedProcedure('fleet:explain')
     .output(reachRefusalsOutputSchema)
     .query(async ({ ctx }) =>
-      okOrThrow(await ctx.useCases.readReachRefusals(ctx.caller)).map(({ id, at, sender, askedBy, recipient, verb, settingsVersion, whilePluginUnavailable }) => ({
+      okOrThrow(await ctx.useCases.readReachRefusals(ctx.caller)).map(({ id, at, sender, askedBy, recipient, verb, settingsVersion }) => ({
         id,
         at: at.toISOString(),
         sender: refusedActorOutputOf(sender),
@@ -728,7 +743,6 @@ export const fleetRouter = router({
             : { kind: recipient.kind, type: recipient.type, ships: recipient.ships.map((ship) => ({ ...ship, labels: [...ship.labels] })) },
         verb,
         settingsVersion,
-        whilePluginUnavailable,
       })),
     ),
 
@@ -985,6 +999,11 @@ function listedShipOutputOf(ship: ListedShip) {
 }
 
 /** Who a refusal refused, as `fleet.reachRefusals` answers it: an account by its id only (decision 0057). */
+/** The fleet's own rules as the output carries them, none for all-to-all. */
+function rulesOutputOf(rules: readonly NetworkRule[] | null) {
+  return rules === null ? null : rules.map((rule) => ({ verb: rule.verb, from: [...rule.from], to: [...rule.to] }));
+}
+
 function refusedActorOutputOf(actor: RefusedActor) {
   return actor.kind === 'installation' ? actor : { ...actor, labels: [...actor.labels] };
 }

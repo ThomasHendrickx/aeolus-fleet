@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { idSchema, NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS, SAME_LABEL_VALUE } from '@aeolus-fleet/common';
+import { idSchema, SAME_LABEL_VALUE } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import { createApp, createMigratedDatabase, createPrismaClient, createUseCases, FLEET_URL, newKey, OPERATOR, operatorCaller, secretOf, unwrap, type PrismaClient } from '@aeolus-fleet/core/testing';
@@ -209,11 +209,11 @@ describe('a ship holding squadrons:form (decision 0017)', () => {
     const flagshipId = idSchema('ship').parse(flagship.id);
 
     const plugin = unwrap(await fleetUseCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'networking', type: 'networking', scopes: ['fleet:network'] }));
-    const { crewToken } = unwrap(await fleetUseCases.claimShip({ shipId: plugin.shipId, secret: secretOf(plugin.secret), location: { kind: 'CLOUD' }, harness: 'aeolus-networking-plugin' }));
+    const { crewToken } = unwrap(await fleetUseCases.claimShip({ shipId: plugin.shipId, secret: secretOf(plugin.secret), location: { kind: 'CLOUD' }, harness: 'claude-code' }));
     const networking = unwrap(await fleetUseCases.authenticate.byCrewToken(crewToken));
-    unwrap(await fleetUseCases.registerNetworkPlugin(networking, { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS }));
-    unwrap(await fleetUseCases.setNetworkRules(networking, { rules: [{ verb: 'send', from: [{ owner: SAME_LABEL_VALUE }], to: [{ owner: SAME_LABEL_VALUE }] }] }));
-    unwrap(await fleetUseCases.setBuiltInRule(networking, { rule: 'open', verb: 'send', isOn: false }));
+    const rules = [{ verb: 'send' as const, from: [{ owner: SAME_LABEL_VALUE }], to: [{ owner: SAME_LABEL_VALUE }] }, { verb: 'read' as const, from: [], to: [] }, { verb: 'manage' as const, from: [], to: [] }];
+    const { savedAgainstVersion } = unwrap(await fleetUseCases.saveNetworkRulesDraft(networking, { rules }));
+    unwrap(await fleetUseCases.applyNetworkRules(networking, { version: savedAgainstVersion }));
 
     expect(flagship.ownerShipId).toBe(thomas.shipId);
     const toFlagship = unwrap(await fleetUseCases.explainReach(argo, { fromShipId: lead.shipId, toShipId: flagshipId }));

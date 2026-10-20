@@ -1,7 +1,7 @@
 import { accountIdSchema, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { hostedFleetWithViewer, initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
+import { applyNetworkRules, everyShipMay, hostedFleetWithViewer, initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { refusalOf, unwrap } from '../../testing/result.js';
@@ -173,7 +173,7 @@ describe('granting scopes on a live ship (decision 0046)', () => {
 describe('granting on a ship outside the granter\'s manage reach (decision 0053)', () => {
   it('is refused as a manage the rules do not allow, recording the refusal and changing nothing', async () => {
     const fleet = await readReachScenario();
-    unwrap(await fleet.registry.setBuiltInRule(fleet.networking, { rule: 'open', verb: 'manage', isOn: false }));
+    await applyNetworkRules(fleet.registry, { by: fleet.networking, rules: [everyShipMay('send'), everyShipMay('read')] });
     fleet.core.state.reachRefusals.length = 0;
     const granting: ShipCaller = { ...fleet.near, scopes: ['scopes:grant', 'fleet:read'] };
 

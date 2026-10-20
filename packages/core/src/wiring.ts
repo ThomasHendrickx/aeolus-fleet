@@ -110,12 +110,13 @@ import { createExplainReach, type ExplainReach } from './domain/registry/explain
 import { createReadReachRefusals, type ReadReachRefusals } from './domain/registry/read-reach-refusals.js';
 import { createDeclareNetworkRules, type DeclareNetworkRules } from './domain/registry/declare-network-rules.js';
 import { createReadDeclaredNetworkRules, type ReadDeclaredNetworkRules } from './domain/registry/read-declared-network-rules.js';
-import { createRegisterNetworkPlugin, type RegisterNetworkPlugin } from './domain/registry/register-network-plugin.js';
-import { createSetNetworkRules, type SetNetworkRules } from './domain/registry/set-network-rules.js';
+import { createApplyNetworkRules, type ApplyNetworkRules } from './domain/registry/apply-network-rules.js';
+import { createDiscardNetworkRulesDraft, type DiscardNetworkRulesDraft } from './domain/registry/discard-network-rules-draft.js';
+import { createReadNetworkRules, type ReadNetworkRules } from './domain/registry/read-network-rules.js';
+import { createReadNetworkRulesDraftChanges, type ReadNetworkRulesDraftChanges } from './domain/registry/read-network-rules-draft-changes.js';
+import { createSaveNetworkRulesDraft, type SaveNetworkRulesDraft } from './domain/registry/save-network-rules-draft.js';
 import { createReadBuiltInRules, type ReadBuiltInRules } from './domain/registry/read-built-in-rules.js';
-import { createReadNetworkPlugin, type ReadNetworkPlugin } from './domain/registry/read-network-plugin.js';
 import { createSetBuiltInRule, type SetBuiltInRule } from './domain/registry/set-built-in-rule.js';
-import { createUnregisterNetworkPlugin, type UnregisterNetworkPlugin } from './domain/registry/unregister-network-plugin.js';
 import { createChangeLabelValues, type ChangeLabelValues } from './domain/registry/change-label-values.js';
 import { createAssignLabel, type AssignLabel } from './domain/registry/assign-label.js';
 import { createUnassignLabel, type UnassignLabel } from './domain/registry/unassign-label.js';
@@ -185,12 +186,13 @@ export interface UseCases {
   declareScopes: DeclareScopes;
   grantScopes: GrantScopes;
   listScopes: ListScopes;
-  setNetworkRules: SetNetworkRules;
-  registerNetworkPlugin: RegisterNetworkPlugin;
-  unregisterNetworkPlugin: UnregisterNetworkPlugin;
+  saveNetworkRulesDraft: SaveNetworkRulesDraft;
+  discardNetworkRulesDraft: DiscardNetworkRulesDraft;
+  applyNetworkRules: ApplyNetworkRules;
+  readNetworkRules: ReadNetworkRules;
+  readNetworkRulesDraftChanges: ReadNetworkRulesDraftChanges;
   setBuiltInRule: SetBuiltInRule;
   readBuiltInRules: ReadBuiltInRules;
-  readNetworkPlugin: ReadNetworkPlugin;
   readReachRefusals: ReadReachRefusals;
   declareNetworkRules: DeclareNetworkRules;
   readDeclaredNetworkRules: ReadDeclaredNetworkRules;
@@ -290,7 +292,7 @@ export function createUseCases(options: {
   const clock = options.clock ?? systemClock;
   const ids = options.ids ?? createIdGenerator();
   const uow = createPrismaUnitOfWork(prisma);
-  const readReach = createReadReachOf({ uow, clock });
+  const readReach = createReadReachOf({ uow });
   // A fleet delete and a retire grow with the fleet's history and the ship's pending deliveries.
   const bulkUow = createPrismaBulkUnitOfWork(prisma);
   const secrets = { hasher: sha256Hasher, random: cryptoRandomTokens };
@@ -350,7 +352,7 @@ export function createUseCases(options: {
     whoami: createWhoami({ ships: createPrismaShipRepository(prisma) }),
     report: createReport({ uow, clock, ids }),
     setStatement: createSetStatement({ uow, clock, ids }),
-    discover: createDiscover({ uow, clock }),
+    discover: createDiscover({ uow }),
     reportTurn: createReportTurn({ uow, clock, ids }),
     requestCrew: createRequestCrew({ uow, clock, ids }),
     removeCrewRequest: createRemoveCrewRequest({ uow, clock, ids }),
@@ -367,16 +369,17 @@ export function createUseCases(options: {
     declareScopes: createDeclareScopes({ uow, clock, ids }),
     grantScopes: createGrantScopes({ uow, clock, ids }),
     listScopes: createListScopes({ scopeNamespaces: createPrismaScopeNamespaceRepository(prisma), ships: createPrismaShipRepository(prisma) }),
-    setNetworkRules: createSetNetworkRules({ uow, clock, ids }),
-    registerNetworkPlugin: createRegisterNetworkPlugin({ uow, clock, ids }),
-    unregisterNetworkPlugin: createUnregisterNetworkPlugin({ uow, clock, ids }),
+    saveNetworkRulesDraft: createSaveNetworkRulesDraft({ uow, clock, ids }),
+    discardNetworkRulesDraft: createDiscardNetworkRulesDraft({ uow, clock, ids }),
+    applyNetworkRules: createApplyNetworkRules({ uow, clock, ids }),
+    readNetworkRules: createReadNetworkRules({ uow }),
+    readNetworkRulesDraftChanges: createReadNetworkRulesDraftChanges({ uow, readReach }),
     setBuiltInRule: createSetBuiltInRule({ uow, clock, ids }),
     readBuiltInRules: createReadBuiltInRules({ uow }),
-    readNetworkPlugin: createReadNetworkPlugin({ uow }),
     readReachRefusals: createReadReachRefusals({ reachRefusals: createPrismaReachRefusalRepository(prisma), readReach }),
     declareNetworkRules: createDeclareNetworkRules({ uow, clock, ids }),
     readDeclaredNetworkRules: createReadDeclaredNetworkRules({ declaredNetworkRules: createPrismaDeclaredNetworkRulesRepository(prisma) }),
-    explainReach: createExplainReach({ uow, clock, readReach }),
+    explainReach: createExplainReach({ uow, readReach }),
     changeLabelValues: createChangeLabelValues({ uow, clock, ids }),
     assignLabel: createAssignLabel({ uow, clock, ids }),
     unassignLabel: createUnassignLabel({ uow, clock, ids }),

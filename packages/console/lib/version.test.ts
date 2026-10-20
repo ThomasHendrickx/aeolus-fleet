@@ -9,7 +9,6 @@ import { trierarchPluginVersionOf, webVersion } from './version';
 const SERVER = { server: '0.7.0', common: '0.7.0', migration: '20261001040000_lease_last_seen' };
 const SQUADRONS = { squadrons: '0.11.0', migration: '20261003100000_formation_attempts', connectedFleets: 2, installation: 'enabled' };
 const TRIERARCH_PLUGIN = { trierarchPlugin: '0.19.0', migration: '20261005090000_machines', connectedFleets: 1, installation: 'open' };
-const NETWORKING_PLUGIN = { networkingPlugin: '0.21.0' };
 const GATEWAY = { gateway: '0.1.0' };
 
 const OPERATOR_COOKIE = 'aeolus_session=ses_operator; theme=dark';
@@ -75,7 +74,6 @@ describe('webVersion', () => {
     const server = await aProcessAnswering(200, SERVER);
     const squadrons = await aProcessAnswering(200, SQUADRONS);
     const trierarchPlugin = await aProcessAnswering(200, TRIERARCH_PLUGIN);
-    const networkingPlugin = await aProcessAnswering(200, NETWORKING_PLUGIN);
     const gateway = await aProcessAnswering(200, GATEWAY);
 
     const answer = await webVersion(
@@ -83,13 +81,12 @@ describe('webVersion', () => {
         AEOLUS_SERVER_INTERNAL_URL: server.url,
         AEOLUS_SQUADRONS_URL: squadrons.url,
         AEOLUS_TRIERARCH_PLUGIN_URL: trierarchPlugin.url,
-        AEOLUS_NETWORKING_PLUGIN_URL: networkingPlugin.url,
         AEOLUS_GATEWAY_URL: gateway.url,
       },
       { web: '0.7.0' },
     );
 
-    expect({ answer, pluginCalls: squadrons.calls() + trierarchPlugin.calls() + networkingPlugin.calls() + gateway.calls() }).toEqual({ answer: { web: '0.7.0', server: { server: '0.7.0', common: '0.7.0' } }, pluginCalls: 0 });
+    expect({ answer, pluginCalls: squadrons.calls() + trierarchPlugin.calls() + gateway.calls() }).toEqual({ answer: { web: '0.7.0', server: { server: '0.7.0', common: '0.7.0' } }, pluginCalls: 0 });
   });
 });
 
@@ -134,7 +131,6 @@ describe('webVersion for a signed-in operator', () => {
     const server = await aServer();
     const squadrons = await aProcessAnswering(200, SQUADRONS);
     const trierarchPlugin = await aProcessAnswering(200, TRIERARCH_PLUGIN);
-    const networkingPlugin = await aProcessAnswering(200, NETWORKING_PLUGIN);
     const gateway = await aProcessAnswering(200, GATEWAY);
 
     const answer = await webVersion(
@@ -142,7 +138,6 @@ describe('webVersion for a signed-in operator', () => {
         AEOLUS_SERVER_INTERNAL_URL: server.url,
         AEOLUS_SQUADRONS_URL: squadrons.url,
         AEOLUS_TRIERARCH_PLUGIN_URL: trierarchPlugin.url,
-        AEOLUS_NETWORKING_PLUGIN_URL: networkingPlugin.url,
         AEOLUS_GATEWAY_URL: gateway.url,
       },
       { cookie: OPERATOR_COOKIE, web: '0.7.0' },
@@ -153,7 +148,6 @@ describe('webVersion for a signed-in operator', () => {
       server: { server: '0.7.0', common: '0.7.0', migration: '20261001040000_lease_last_seen' },
       squadrons: '0.11.0',
       trierarchPlugin: '0.19.0',
-      networkingPlugin: '0.21.0',
       gateway: '0.1.0',
     });
   });
@@ -168,13 +162,12 @@ describe('webVersion for a signed-in operator', () => {
         AEOLUS_SERVER_INTERNAL_URL: server.url,
         AEOLUS_SQUADRONS_URL: squadrons.url,
         AEOLUS_TRIERARCH_PLUGIN_URL: trierarchPlugin.url,
-        AEOLUS_NETWORKING_PLUGIN_URL: NOWHERE,
         AEOLUS_GATEWAY_URL: NOWHERE,
       },
       { cookie: OPERATOR_COOKIE, web: '0.7.0' },
     );
 
-    expect(answer).toMatchObject({ squadrons: null, trierarchPlugin: null, networkingPlugin: null, gateway: null });
+    expect(answer).toMatchObject({ squadrons: null, trierarchPlugin: null, gateway: null });
   });
 
   it.each([

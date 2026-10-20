@@ -13,20 +13,19 @@ import { removeCrewRequest } from './crew-request.js';
 import { retireLabelsWith } from './label.js';
 import { endLease, type LeaseTx } from './leases.js';
 import { withdrawWithRetiredShip } from './declared-network-rules.js';
-import { unregisterNetworkPlugin } from './network-settings.js';
 import { endPluginConnection } from './plugin-connection.js';
 import type { ClearRequestRepository, CrewRequestRepository, DeclaredNetworkRulesRepository, LabelRepository, NetworkSettingsRepository, PluginConnectionRepository, ScopeNamespaceRepository, ShipRepository } from './ports.js';
 import { changeOwner, checkCanRetire, type RetireRefusal } from './ship.js';
 import { releaseWithDeclarer } from './scope-namespace.js';
 
-export interface RetireShipTx extends LeaseTx, CredentialTx, Omit<CheckManageTx, 'ships' | 'leases' | 'labels' | 'networkSettings'> {
+export interface RetireShipTx extends LeaseTx, CredentialTx, Omit<CheckManageTx, 'ships' | 'labels' | 'networkSettings' | 'declaredNetworkRules'> {
   ships: ShipRepository;
   pluginConnections: PluginConnectionRepository;
   crewRequests: CrewRequestRepository;
   clearRequests: ClearRequestRepository;
   labels: LabelRepository;
   networkSettings: Pick<NetworkSettingsRepository, 'find' | 'findForShare' | 'findForUpdate' | 'save'>;
-  declaredNetworkRules: Pick<DeclaredNetworkRulesRepository, 'find' | 'save'>;
+  declaredNetworkRules: Pick<DeclaredNetworkRulesRepository, 'list' | 'find' | 'save'>;
   scopeNamespaces: Pick<ScopeNamespaceRepository, 'findByDeclarer' | 'lockNamespace' | 'remove'>;
 }
 
@@ -50,11 +49,10 @@ export type RetireShip = (
  * and the labels it owns retire with it, each locked first and every
  * assignment of it gone first (decision 0031). A retired trierarch clears
  * nothing: its pending clear requests go, one WorktreeClearRemoved each
- * (decision 0032). The network rules it declared go with its labels
- * (decision 0037). Each active ship it owned falls to argo, one
- * OwnerChanged each, locked after the ship as a set owner locks the owner
- * first (decision 0045). A retired networking plugin unregisters, its rules going
- * with it: all-to-all (decision 0035). A plugin namespace it declared goes,
+ * (decision 0032). The network rules it declared go with its labels, the
+ * settings at their next version (decision 0037). Each active ship it owned
+ * falls to argo, one OwnerChanged each, locked after the ship as a set owner
+ * locks the owner first (decision 0045). A plugin namespace it declared goes,
  * and its scopes leave every ship, one ScopesChanged each (decision 0046).
  * The caller's scope (fleet:manage) is
  * checked before this runs, and manage reach on the ship here (decision
@@ -160,18 +158,13 @@ export function createRetireShip(deps: {
       for (const event of labels.events) {
         await recordEvent(recorded, event);
       }
-      const withdrawn = withdrawWithRetiredShip(await tx.declaredNetworkRules.find(fleetId, { kind: 'ship', shipId }), { at, actor });
+      // A ship that declared no rules leaves the settings as they are.
+      const settings = await tx.networkSettings.findForUpdate(fleetId);
+      const withdrawn = withdrawWithRetiredShip(await tx.declaredNetworkRules.find(fleetId, { kind: 'ship', shipId }), { settings, at, actor });
       if (withdrawn !== undefined) {
         await tx.declaredNetworkRules.save(withdrawn.declared);
+        await tx.networkSettings.save(withdrawn.settings);
         for (const event of withdrawn.events) {
-          await recordEvent(recorded, event);
-        }
-      }
-      // Any ship but the fleet's networking plugin leaves the settings as they are.
-      const unregistered = unregisterNetworkPlugin(await tx.networkSettings.findForUpdate(fleetId), { shipId, at, actor });
-      if (unregistered.isOk) {
-        await tx.networkSettings.save(unregistered.value.settings);
-        for (const event of unregistered.value.events) {
           await recordEvent(recorded, event);
         }
       }

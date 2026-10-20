@@ -1,15 +1,15 @@
 import { isOwnerTerm, type LabelTerm, type NetworkRule, type NetworkVerb, type OwnerTerm, type SelectorTerm, type ShipId } from '@aeolus-fleet/common';
 
 import { labelOwnerName, pickedChips, type LabelChip, type LabelContext } from './labels';
-import type { SavedRules } from './networking-plugin-schemas';
 
 /**
- * The network rules as argo edits them in the networking plugin's editor
- * (decisions 0034, 0036): all-to-all (no rules), or a list of rules, each
+ * The network rules as a fleet:network session drafts them on Network
+ * (decision 0034): all-to-all (no rules), or a list of rules, each
  * letting the ships matching one selector of label and owner terms do its
  * verb, send, read or manage, to those matching another; a rule added here
  * starts as a send rule. An empty list allows only the built-in rules.
- * Pure: the draft lives in the editor until Save sends it whole.
+ * Pure: the editor's changes live in the editor until Save keeps them whole
+ * as the fleet's draft, which only Apply puts in force.
  */
 
 /** What each verb lets the ships on a rule's left do to those on its right, as the editor and the declared rules say it (decision 0034). */
@@ -33,10 +33,7 @@ export interface NetworkLimits {
   selectorMax: number;
 }
 
-/** What a save did at the fleet, as the networking plugin answers it. */
-export type Supply = SavedRules['supply'];
-
-/** The draft of the rules the plugin holds: none is all-to-all. */
+/** The editor's draft of rules the fleet holds: none is all-to-all. */
 export function draftOf(rules: readonly NetworkRule[] | null, newKey: () => string): NetworkDraft {
   if (rules === null) {
     return { kind: 'all-to-all' };
@@ -109,7 +106,7 @@ export function termKeyOf(term: SelectorTerm): string {
   return isOwnerTerm(term) ? `owner=${term.owner}` : `${term.labelId}=${term.value}`;
 }
 
-/** Whether the draft differs from the rules the plugin holds; all-to-all is never an empty list. */
+/** Whether the editor's draft differs from the rules the fleet holds; all-to-all is never an empty list. */
 export function isChanged(draft: NetworkDraft, saved: readonly NetworkRule[] | null): boolean {
   return JSON.stringify(rulesOf(draft)) !== JSON.stringify(saved);
 }
@@ -230,17 +227,4 @@ export function hasSameValueOnOneSide(draft: NetworkDraft): boolean {
     draft.kind === 'rules' &&
     draft.rules.some((rule) => sameValueAlone(rule, 'from').length + sameValueAlone(rule, 'to').length > 0 || sameOwnerAlone(rule, 'from') || sameOwnerAlone(rule, 'to'))
   );
-}
-
-/** What a save says of its supply. A race with a disconnect or a switch says only Saved: the page shows that state itself. */
-export function supplyNote(supply: Supply): string {
-  switch (supply) {
-    case 'supplied':
-      return 'Saved. The fleet enforces them from now on.';
-    case 'waiting':
-      return 'Saved. The fleet does not answer yet: the networking plugin supplies them as soon as it does.';
-    case 'not-connected':
-    case 'unregistered':
-      return 'Saved.';
-  }
 }

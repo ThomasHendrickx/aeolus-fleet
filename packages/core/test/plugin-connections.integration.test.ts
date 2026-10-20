@@ -28,12 +28,12 @@ beforeEach(async () => {
   pluginId = commissioned.shipId;
   const { crewToken } = unwrap(await core.useCases.claimShip({ shipId: pluginId, secret: secretOf(commissioned.secret), location: { kind: 'CLOUD' }, harness: 'claude-code' }));
   plugin = unwrap(await core.useCases.authenticate.byCrewToken(crewToken));
-  // A networking plugin whose rules give the plugin's ship nothing to read.
+  // Rules that give the plugin's ship nothing to read.
   const networking = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'networking', type: 'networking', scopes: ['fleet:network'] }));
   const { crewToken: networkingToken } = unwrap(await core.useCases.claimShip({ shipId: networking.shipId, secret: secretOf(networking.secret), location: { kind: 'CLOUD' }, harness: 'claude-code' }));
   const networkingCaller = unwrap(await core.useCases.authenticate.byCrewToken(networkingToken));
-  unwrap(await core.useCases.registerNetworkPlugin(networkingCaller, { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 300 }));
-  unwrap(await core.useCases.setBuiltInRule(networkingCaller, { rule: 'open', verb: 'read', isOn: false }));
+  const { savedAgainstVersion } = unwrap(await core.useCases.saveNetworkRulesDraft(networkingCaller, { rules: [{ verb: 'send', from: [], to: [] }, { verb: 'manage', from: [], to: [] }] }));
+  unwrap(await core.useCases.applyNetworkRules(networkingCaller, { version: savedAgainstVersion }));
 });
 
 afterEach(async () => {
@@ -41,7 +41,7 @@ afterEach(async () => {
 });
 
 async function readsOf(caller: ShipCaller) {
-  return (await createReadReachOf({ uow: createPrismaUnitOfWork(core.prisma), clock: core.clock })(caller)).kind;
+  return (await createReadReachOf({ uow: createPrismaUnitOfWork(core.prisma) })(caller)).kind;
 }
 
 async function eventsAbout(type: string) {

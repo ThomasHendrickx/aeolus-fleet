@@ -1,11 +1,10 @@
 import type { EventType, ShipId, ShipKind } from '@aeolus-fleet/common';
 
 import type { Caller } from '../shared/caller.js';
-import type { Clock } from '../shared/clock.js';
 import { ok, type Result } from '../shared/result.js';
 import type { Recipient } from '../shared/selector.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
-import { actorAsItIs, rulesInForceAt, type CheckReachTx } from './check-reach.js';
+import { actorAsItIs, rulesInForceOf, type CheckReachTx } from './check-reach.js';
 import { allowsReach, type ReachingShip } from './network-settings.js';
 import type { PluginConnectionRepository, ShipRepository } from './ports.js';
 import type { Ship } from './ship.js';
@@ -23,7 +22,7 @@ export interface ReadReachTx {
   ships: Pick<ShipRepository, 'find' | 'list'>;
   pluginConnections: Pick<PluginConnectionRepository, 'find'>;
   labels: CheckReachTx['labels'];
-  leases: CheckReachTx['leases'];
+  declaredNetworkRules: CheckReachTx['declaredNetworkRules'];
 }
 
 /** A message as read reach sees it: its sender, its recipient, and for a type the ship that claimed it, if one has. */
@@ -38,15 +37,15 @@ export type ReadReachOf = (caller: Caller) => Promise<ReadReach>;
 const EVERY: ReadReach = { kind: 'every' };
 
 /**
- * Works out what a caller reads now, as a send is checked: the rules in
- * force, what the networking plugin declared while it does not respond, the
- * built-in rules, read rules only. A ship always reads itself. argo reads
- * every ship, as does every ship while open is on for read and the viewer
+ * Works out what a caller reads now, as a send is checked: the built-in
+ * rules, the fleet's own and the declared ones, read rules only. A ship
+ * always reads itself. argo reads every ship, as does every ship while open
+ * is on and the viewer
  * while its reading is on; a connected plugin reads every ship by its
  * built-in rule; otherwise each ship of the fleet, retired ones
  * too, is read when a rule lets the caller read it.
  */
-export function createReadReachOf(deps: { uow: UnitOfWork<ReadReachTx>; clock: Clock }): ReadReachOf {
+export function createReadReachOf(deps: { uow: UnitOfWork<ReadReachTx> }): ReadReachOf {
   return async (caller) => {
     const worked = await deps.uow.run(async (tx): Promise<Result<ReadReach, never>> => {
       if (caller.kind === 'operator') {
@@ -54,13 +53,13 @@ export function createReadReachOf(deps: { uow: UnitOfWork<ReadReachTx>; clock: C
       }
       const { fleetId } = caller;
       const settings = await tx.networkSettings.findForShare(fleetId);
-      const inForce = await rulesInForceAt(tx, { settings, now: deps.clock.now() });
-      if (inForce.builtIns.open.read || (caller.kind === 'viewer' && inForce.builtIns.isViewerReadOn)) {
+      const inForce = await rulesInForceOf(tx, settings);
+      if (inForce.isOpen || (caller.kind === 'viewer' && inForce.isViewerReadOn)) {
         return ok(EVERY);
       }
       const reader = await actorAsItIs(tx, caller);
       const readerShip = reader?.ship;
-      if (readerShip && (reader.reaching.kind !== 'account' && reader.reaching.kind !== 'installation') && (reader.reaching.isConnectedPlugin || readerShip.id === inForce.networkPluginShipId)) {
+      if (readerShip && (reader.reaching.kind !== 'account' && reader.reaching.kind !== 'installation') && reader.reaching.isConnectedPlugin) {
         return ok(EVERY);
       }
       const ships = await tx.ships.list(fleetId);
@@ -112,7 +111,7 @@ export function readsMessage(reach: ReadReach, message: MessageParties): boolean
 }
 
 /** The events about the rules: they concern no ship, whichever ship set or declared them, so every reader reads them. */
-const RULES_EVENTS: ReadonlySet<EventType> = new Set(['NetworkRulesDeclared', 'NetworkRulesSet', 'BuiltInRuleChanged']);
+const RULES_EVENTS: ReadonlySet<EventType> = new Set(['NetworkRulesDeclared', 'NetworkRulesSet', 'NetworkRulesDraftSaved', 'NetworkRulesDraftDiscarded', 'BuiltInRuleChanged']);
 
 /**
  * Whether the reach reads an event: through the message it concerns, else

@@ -4,15 +4,12 @@ import {
   FLEET_SCOPES,
   LABEL_HANDLE_MAX_LENGTH,
   LABEL_VALUES_MAX,
-  NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS,
-  NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MIN_SECONDS,
   NETWORK_RULES_MAX,
   NO_MACHINE_MATCHES_REASON,
   REPORT_STATES,
   SHIP_HANDLE_MAX_LENGTH,
   SHIP_LABELS_MAX,
   THEMES,
-  WHILE_UNAVAILABLE,
 } from '@aeolus-fleet/common';
 
 import type { ConsoleConstants } from './console-constants';
@@ -31,8 +28,5 @@ export function consoleConstantsOf(): ConsoleConstants {
     labelValuesMax: LABEL_VALUES_MAX,
     firstPromptMaxBytes: FIRST_PROMPT_MAX_BYTES,
     networkRulesMax: NETWORK_RULES_MAX,
-    whileUnavailable: WHILE_UNAVAILABLE,
-    notRespondingAfterMinSeconds: NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MIN_SECONDS,
-    notRespondingAfterMaxSeconds: NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS,
   };
 }

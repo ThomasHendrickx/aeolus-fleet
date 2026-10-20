@@ -1,7 +1,7 @@
 import type { ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { crewAboard } from '../../../test/support/core-fixtures.js';
+import { applyNetworkRules, crewAboard, everyShipMay } from '../../../test/support/core-fixtures.js';
 import { aCrewSettings, shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
 import { unwrap } from '../../testing/result.js';
@@ -22,8 +22,7 @@ beforeEach(async () => {
   const caller = await shipWithScopes({ registry: fleet.registry, argo: fleet.argo }, { name: 'manager', type: 'manager', scopes: ['fleet:manage'] });
   manager = { ...crewAboard(fleet.core, caller), scopes: caller.scopes };
   await fleet.carry(manager, 'a');
-  unwrap(await fleet.registry.setNetworkRules(fleet.networking, { rules: [{ verb: 'manage', from: [fleet.team('a')], to: [fleet.team('a')] }] }));
-  unwrap(await fleet.registry.setBuiltInRule(fleet.networking, { rule: 'open', verb: 'manage', isOn: false }));
+  await applyNetworkRules(fleet.registry, { by: fleet.networking, rules: [{ verb: 'manage', from: [fleet.team('a')], to: [fleet.team('a')] }, everyShipMay('send'), everyShipMay('read')] });
   fleet.core.state.reachRefusals.length = 0;
 });
 
@@ -84,8 +83,8 @@ describe('a fleet:manage call within manage reach', () => {
     await expect(fleet.registry.renameShip(owner, { shipId: fleet.far.shipId, name: 'kept' })).resolves.toMatchObject({ isOk: true });
   });
 
-  it('lets every ship manage within open manage, as before rules', async () => {
-    unwrap(await fleet.registry.setBuiltInRule(fleet.networking, { rule: 'open', verb: 'manage', isOn: true }));
+  it('lets every ship manage within open, while no rules are applied', async () => {
+    await applyNetworkRules(fleet.registry, { by: fleet.networking, rules: null });
 
     await expect(fleet.registry.renameShip(manager, { shipId: fleet.far.shipId, name: 'renamed' })).resolves.toMatchObject({ isOk: true });
   });

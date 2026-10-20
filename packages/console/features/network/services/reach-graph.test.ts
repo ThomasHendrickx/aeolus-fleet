@@ -112,7 +112,7 @@ describe('the reach the graph shows', () => {
     const [planner, vault] = [newId('ship'), newId('ship')];
 
     expect(
-      sendReachOf({ send: [{ shipId: planner, rule: { plugin: 0 } }], read: [{ shipId: vault, rule: { builtIn: 'open' } }], manage: [{ shipId: vault, rule: { builtIn: 'open' } }] }),
+      sendReachOf({ send: [{ shipId: planner, rule: { rule: 0 } }], read: [{ shipId: vault, rule: { builtIn: 'open' } }], manage: [{ shipId: vault, rule: { builtIn: 'open' } }] }),
     ).toEqual([planner]);
   });
 });

@@ -176,7 +176,6 @@ describe('the TDD evidence check', () => {
   it.each([
     'packages/trierarch/src/core/pass.ts',
     'packages/squadrons/src/core/forming.ts',
-    'packages/networking-plugin/src/core/rules.ts',
     'packages/trierarch-plugin/src/core/worktree.ts',
   ])('refuses a feat commit in %s without a (red) commit before it', (path) => {
     repository.write(path, 'export const rule = 1;\n');
@@ -188,7 +187,6 @@ describe('the TDD evidence check', () => {
   it.each([
     'packages/trierarch/src/core/pass.ts',
     'packages/squadrons/src/core/forming.ts',
-    'packages/networking-plugin/src/core/rules.ts',
     'packages/trierarch-plugin/src/core/worktree.ts',
   ])('passes a feat commit in %s directly after a (red) commit', (path) => {
     red();
@@ -287,7 +285,6 @@ describe('what counts as a test and as production code', () => {
     'packages/common/src/ids/index.ts',
     'packages/trierarch/src/cli/main.ts',
     'packages/squadrons/src/adapters/prisma/schema.prisma',
-    'packages/networking-plugin/src/app.ts',
     'packages/trierarch-plugin/src/core/worktree.ts',
   ])('%s is production code', (path) => {
     expect(isProductionFile(path)).toBe(true);

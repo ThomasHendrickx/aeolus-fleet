@@ -2,17 +2,15 @@
 
 import type { ShipId } from '@aeolus-fleet/common';
 import { Network } from 'lucide-react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-import { Button } from '../../../components/atoms/button';
 import { EmptyState } from '../../../components/molecules/empty-state';
 import { InlineError } from '../../../components/molecules/inline-error';
 import { LoadingSkeleton } from '../../../components/molecules/loading-skeleton';
 import { BuiltInNetworkRules } from '../../../features/network/ui/organisms/built-in-network-rules';
 import { DeclaredNetworkRules } from '../../../features/network/ui/organisms/declared-network-rules';
 import { FleetReachGraph } from '../../../features/network/ui/organisms/fleet-reach-graph';
-import { NetworkDeclarationForm } from '../../../features/network/ui/organisms/network-declaration-form';
+import { NetworkRulesApply } from '../../../features/network/ui/organisms/network-rules-apply';
 import { NetworkRulesEditor } from '../../../features/network/ui/organisms/network-rules-editor';
 import { ReachRefusalLog } from '../../../features/network/ui/organisms/reach-refusal-log';
 import { ListPage } from '../../../components/organisms/list-page';
@@ -22,11 +20,8 @@ import { useConsoleConstants } from '../../../lib/console-constants';
 import { useFleetSnapshot, useLabelContext } from '../../../lib/fleet';
 import { useLiveFleet } from '../../../lib/live-fleet';
 import { useNeedsAttention } from '../../../lib/needs-attention';
-import { declarationNote } from '../../../features/network/services/network-declaration';
-import { supplyNote } from '../../../lib/network-rules';
-import { useHasNetwork, useNetwork, useSaveNetworkDeclaration, useSaveNetworkRules } from '../../../lib/networking-plugin';
+import { useApplyNetworkRules, useNetworkRules, useSaveNetworkRulesDraft } from '../../../features/network/hooks/network-rules';
 import { useNow } from '../../../lib/now';
-import { usePluginNav } from '../../../lib/plugin-nav';
 import { useBuiltInRules, useSetViewerRead } from '../../../features/network/hooks/built-in-rules';
 import { builtInRowsOf } from '../../../features/network/services/built-in-rules';
 import { useDeclaredNetworkRules } from '../../../features/network/hooks/declared-rules';
@@ -36,16 +31,15 @@ import { graphShipsOf } from '../../../features/network/services/reach-graph';
 import { useReachRefusals } from '../../../features/network/hooks/reach-refusals';
 import { useSignInWhenSessionEnds } from '../../../lib/session';
 
-const DESCRIPTION = 'Who may send to, read or manage whom. The networking plugin supplies these rules to the fleet, which checks them on every send. Only argo sees this page.';
+const DESCRIPTION = 'Who may send to, read or manage whom. The fleet checks the applied rules on every send; a draft changes nothing until it is applied.';
 
 /**
- * Network (#260; decisions 0034 to 0036): the networking plugin's page,
- * argo's alone while the plugin is connected. The built-in rules first, then the rules, all-to-all until
- * argo sets some, the rules plugins declared apart and read-only (#573),
- * what the plugin declares for while it does not respond,
- * and the fleet graph showing which ships a picked ship reaches, the pick in
- * the URL (page.tsx), and the log of the sends the rules refused. Without the plugin connected, or for a session without
- * fleet:network, it says where to go instead.
+ * Network (#260; decision 0034), for a session holding fleet:network: the
+ * built-in rules first, then the fleet's own rules, all-to-all until rules are
+ * applied, edited as a draft and applied apart, the rules ships declared
+ * apart and read-only (#573), the fleet graph showing which ships a picked
+ * ship reaches, the pick in the URL (page.tsx), and the log of the sends the
+ * rules refused. For any other session, it says so.
  */
 export function NetworkPageFor({ pickedShipId }: { pickedShipId?: ShipId }) {
   const router = useRouter();
@@ -54,9 +48,8 @@ export function NetworkPageFor({ pickedShipId }: { pickedShipId?: ShipId }) {
   const attention = useNeedsAttention();
   const liveFleet = useLiveFleet();
   const access = useAccess();
-  const pluginNav = usePluginNav();
-  const hasNetwork = useHasNetwork();
-  const network = useNetwork();
+  const hasNetwork = access.canEditNetwork;
+  const network = useNetworkRules(hasNetwork);
   const context = useLabelContext();
   const fleet = useFleetSnapshot();
   const reach = useShipReach(hasNetwork ? pickedShipId : undefined);
@@ -64,27 +57,14 @@ export function NetworkPageFor({ pickedShipId }: { pickedShipId?: ShipId }) {
   const declared = useDeclaredNetworkRules(hasNetwork);
   const builtIns = useBuiltInRules(hasNetwork);
   const viewerRead = useSetViewerRead();
-  const saveRules = useSaveNetworkRules();
-  const saveDeclaration = useSaveNetworkDeclaration();
-  const { networkRulesMax, shipLabelsMax, whileUnavailable, notRespondingAfterMinSeconds, notRespondingAfterMaxSeconds } = useConsoleConstants();
+  const saveDraft = useSaveNetworkRulesDraft();
+  const apply = useApplyNetworkRules();
+  const { networkRulesMax, shipLabelsMax } = useConsoleConstants();
   useSignInWhenSessionEnds([attention.error, liveFleet.error]);
 
   let content;
   if (!hasNetwork) {
-    content = (
-      <EmptyState
-        icon={<Network aria-hidden />}
-        title={access.canEditNetwork ? 'The networking plugin is not connected' : 'Only argo sees the network rules'}
-        description={access.canEditNetwork ? 'Connect it in Settings. Until it supplies rules, every ship may message every ship.' : undefined}
-        action={
-          access.canEditNetwork && pluginNav.hasSettings ? (
-            <Button nativeButton={false} render={<Link href="/settings" />} data-testid="network-open-settings">
-              Open Settings
-            </Button>
-          ) : undefined
-        }
-      />
-    );
+    content = <EmptyState icon={<Network aria-hidden />} title="Only a session holding fleet:network sees the network rules" />;
   } else if (network.isError) {
     content = (
       <InlineError
@@ -111,15 +91,24 @@ export function NetworkPageFor({ pickedShipId }: { pickedShipId?: ShipId }) {
           onViewerReadChange={viewerRead.setViewerRead}
         />
         <NetworkRulesEditor
-          key={JSON.stringify(network.data.rules)}
-          rules={network.data.rules}
+          key={JSON.stringify(network.data.draft ?? network.data.applied)}
+          rules={(network.data.draft ?? network.data.applied).rules}
           context={context}
           limits={{ rulesMax: networkRulesMax, selectorMax: shipLabelsMax }}
-          isSaving={saveRules.isPending}
-          saveError={saveRules.error?.message}
-          savedNote={saveRules.data === undefined ? undefined : supplyNote(saveRules.data.supply)}
+          isSaving={saveDraft.isPending}
+          saveError={saveDraft.error?.message}
+          savedNote={saveDraft.data === undefined ? undefined : 'Draft saved. Nothing changes until it is applied.'}
           onSave={(rules) => {
-            saveRules.mutate(rules);
+            saveDraft.mutate({ rules });
+          }}
+        />
+        <NetworkRulesApply
+          draft={network.data.draft}
+          appliedVersion={network.data.applied.version}
+          isApplying={apply.isPending}
+          applyError={apply.error?.message}
+          onApply={() => {
+            apply.mutate({ version: network.data.applied.version });
           }}
         />
         <DeclaredNetworkRules
@@ -129,18 +118,6 @@ export function NetworkPageFor({ pickedShipId }: { pickedShipId?: ShipId }) {
             void declared.refetch();
           }}
           context={context}
-        />
-        <NetworkDeclarationForm
-          key={JSON.stringify(network.data.declaration)}
-          declaration={network.data.declaration}
-          options={whileUnavailable}
-          bounds={{ min: notRespondingAfterMinSeconds, max: notRespondingAfterMaxSeconds }}
-          isSaving={saveDeclaration.isPending}
-          saveError={saveDeclaration.error?.message}
-          savedNote={saveDeclaration.data === undefined ? undefined : declarationNote(saveDeclaration.data.supply)}
-          onSave={(declaration) => {
-            saveDeclaration.mutate(declaration);
-          }}
         />
         <FleetReachGraph
           ships={graphShipsOf(fleet.data)}

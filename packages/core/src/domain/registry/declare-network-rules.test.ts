@@ -67,7 +67,7 @@ describe('declaring network rules', () => {
     expect(core.state.declaredNetworkRules).toEqual([]);
   });
 
-  it('writes NetworkRulesDeclared, caused by the ship, naming it, with the number of rules, never the rules', async () => {
+  it('writes NetworkRulesDeclared, caused by the ship, naming it, with the number of rules, never the rules, and the settings version', async () => {
     unwrap(await declareNetworkRules(squadrons, { rules: [sameSquadron()] }));
 
     expect(core.state.events).toEqual([
@@ -76,15 +76,16 @@ describe('declaring network rules', () => {
         occurredAt: core.clock.now(),
         actor: { kind: 'ship', shipId: squadrons.shipId },
         shipId: squadrons.shipId,
-        details: { rules: 1 },
+        details: { rules: 1, version: 1 },
       }),
     ]);
   });
 
-  it('puts nothing in force: the networking plugin adds them when it supplies the list', async () => {
+  it('moves the settings version on every declaration, as the rules in force change with it, so a refusal names them (decision 0037)', async () => {
     unwrap(await declareNetworkRules(squadrons, { rules: [sameSquadron()] }));
+    unwrap(await declareNetworkRules(squadrons, { rules: [] }));
 
-    expect(core.state.networkSettings).toEqual([]);
+    expect(core.state.networkSettings).toEqual([{ fleetId, rules: null, isViewerReadOn: true, version: 2 }]);
   });
 
   it(`takes ${String(DECLARED_NETWORK_RULES_MAX)} rules, the limit`, async () => {
@@ -101,6 +102,7 @@ describe('declaring network rules', () => {
       message: 'A ship declares at most 20 network rules (decision 0037)',
     });
     expect(core.state.declaredNetworkRules).toEqual([]);
+    expect(core.state.networkSettings).toEqual([]);
     expect(core.state.events).toEqual([]);
   });
 
@@ -196,7 +198,7 @@ describe('the installation declaring network rules (decision 0052)', () => {
     unwrap(await declareNetworkRules(installation, { rules: [sameGroup()] }));
 
     expect(core.state.events.map(({ type, actor, shipId, details }) => ({ type, actor, shipId, details }))).toEqual([
-      { type: 'NetworkRulesDeclared', actor: { kind: 'installation' }, shipId: undefined, details: { rules: 1 } },
+      { type: 'NetworkRulesDeclared', actor: { kind: 'installation' }, shipId: undefined, details: { rules: 1, version: 1 } },
     ]);
   });
 

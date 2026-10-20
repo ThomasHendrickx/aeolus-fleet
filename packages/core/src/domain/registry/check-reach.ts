@@ -6,8 +6,8 @@ import { err, ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import type { Recipient } from '../shared/selector.js';
 import type { CarriedLabel } from './label.js';
-import { allowsReach, isNetworkPluginResponding, rulesInForce, type NetworkSettings, type ReachingActor, type ReachingShip, type RulesInForce } from './network-settings.js';
-import type { LabelRepository, LeaseRepository, NetworkSettingsRepository, PluginConnectionRepository, ReachRefusalRepository, ShipRepository } from './ports.js';
+import { allowsReach, rulesInForce, type NetworkSettings, type ReachingActor, type ReachingShip, type RulesInForce } from './network-settings.js';
+import type { DeclaredNetworkRulesRepository, LabelRepository, NetworkSettingsRepository, PluginConnectionRepository, ReachRefusalRepository, ShipRepository } from './ports.js';
 import type { RefusedActor, RefusedShip } from './reach-refusal.js';
 import type { Ship } from './ship.js';
 
@@ -18,7 +18,7 @@ export interface CheckReachTx {
   pluginConnections: Pick<PluginConnectionRepository, 'find'>;
   labels: Pick<LabelRepository, 'carriedBy' | 'find' | 'findByKey'>;
   reachRefusals: ReachRefusalRepository;
-  leases: Pick<LeaseRepository, 'findLastSeen'>;
+  declaredNetworkRules: Pick<DeclaredNetworkRulesRepository, 'list'>;
 }
 
 /** One fixed message, so a refused sender learns nothing about the rules (decision 0034). */
@@ -45,9 +45,6 @@ export interface Reach {
  * the label values they carry now and the settings version: the send stores
  * nothing else, so its caller commits only the record. `isAnswerToSender` says
  * the send answers the sender of a message the sending ship received.
- *
- * While the fleet's networking plugin is not responding, what it declared
- * applies instead of its rules (decision 0035), and a refusal says so.
  */
 export async function checkReach(
   deps: { tx: CheckReachTx; ids: IdGenerator },
@@ -56,14 +53,14 @@ export async function checkReach(
   const { tx, ids } = deps;
   const { fleetId, recipient } = send;
   const settings = await tx.networkSettings.findForShare(fleetId);
-  const inForce = await rulesInForceAt(tx, { settings, now: send.at });
+  const inForce = await rulesInForceOf(tx, settings);
   const senderShip = await tx.ships.find(fleetId, send.senderShipId);
-  if (inForce.builtIns.open.send || !senderShip || senderShip.kind === 'operator') {
+  if (inForce.isOpen || !senderShip || senderShip.kind === 'operator') {
     return ok({});
   }
   const sender = await shipAsItIs(tx, senderShip);
   const allows = (to: ShipAsItIs) => allowsReach(inForce, { verb: 'send', sender: reaching(sender), recipient: reaching(to), isAnswerToSender: send.isAnswerToSender });
-  const refusal = { fleetId, at: send.at, sender: { kind: 'ship' as const, ...refused(sender) }, askedBy: null, verb: 'send' as const, settingsVersion: settings.version, whilePluginUnavailable: inForce.whilePluginUnavailable };
+  const refusal = { fleetId, at: send.at, sender: { kind: 'ship' as const, ...refused(sender) }, askedBy: null, verb: 'send' as const, settingsVersion: settings.version };
 
   if (recipient.kind === 'type') {
     const ships: ShipAsItIs[] = [];
@@ -111,7 +108,7 @@ export async function checkRead(
   const { reader: caller, at } = read;
   const { fleetId } = caller;
   const settings = await tx.networkSettings.findForShare(fleetId);
-  const inForce = await rulesInForceAt(tx, { settings, now: at });
+  const inForce = await rulesInForceOf(tx, settings);
   const reader = await actorAsItIs(tx, caller);
   const readShip = await tx.ships.find(fleetId, read.shipId);
   if (!reader || !readShip || reader.ship?.id === readShip.id) {
@@ -131,7 +128,6 @@ export async function checkRead(
     recipient: { kind: 'ship', ship: refused(ship) },
     verb: 'read',
     settingsVersion: settings.version,
-    whilePluginUnavailable: inForce.whilePluginUnavailable,
   });
   return refuse('NOT_REACHABLE', 'The network rules do not allow this read');
 }
@@ -157,7 +153,7 @@ export async function checkManage(
   const { manager: caller, at } = manage;
   const { fleetId } = caller;
   const settings = manage.settings ?? (await tx.networkSettings.findForShare(fleetId));
-  const inForce = await rulesInForceAt(tx, { settings, now: at });
+  const inForce = await rulesInForceOf(tx, settings);
   const manager = await actorAsItIs(tx, caller);
   const managedShip = await tx.ships.find(fleetId, manage.shipId);
   if (!manager || !managedShip) {
@@ -176,7 +172,6 @@ export async function checkManage(
     recipient: { kind: 'ship', ship: refused(ship) },
     verb: 'manage',
     settingsVersion: settings.version,
-    whilePluginUnavailable: inForce.whilePluginUnavailable,
   });
   return refuse('NOT_REACHABLE', 'The network rules do not allow this manage');
 }
@@ -208,15 +203,14 @@ export async function keepingReachRefusal<Tx, T, E extends { kind: string }>(
   return 'prevented' in outcome.value ? err(outcome.value.prevented) : ok(outcome.value.done);
 }
 
-/** The rules in force at the send: the plugin's crew last seen, read without a lock, says whether it responds. */
-export async function rulesInForceAt(tx: Pick<CheckReachTx, 'leases'>, at: { settings: NetworkSettings; now: Date }): Promise<RulesInForce> {
-  const { settings, now } = at;
-  const { plugin } = settings;
-  if (plugin === null) {
-    return rulesInForce(settings, false);
-  }
-  const lastSeenAt = await tx.leases.findLastSeen(settings.fleetId, plugin.shipId);
-  return rulesInForce(settings, isNetworkPluginResponding(plugin, { lastSeenAt, now }));
+/**
+ * The rules in force under the settings held: the fleet's own and every
+ * declarer's, merged at check time (decision 0037). The declared ones change
+ * only under the exclusive settings lock, so they belong to the version held.
+ * While none are applied, open allows everything and they are not read.
+ */
+export async function rulesInForceOf(tx: Pick<CheckReachTx, 'declaredNetworkRules'>, settings: NetworkSettings): Promise<RulesInForce> {
+  return rulesInForce(settings, settings.rules === null ? [] : await tx.declaredNetworkRules.list(settings.fleetId));
 }
 
 export interface ShipAsItIs {

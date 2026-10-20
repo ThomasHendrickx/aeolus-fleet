@@ -38,9 +38,9 @@ Aeolus is not an orchestrator, an agent framework or a model router, and it neve
 
 - **The fleet.** Commission ships, hand out their starting prompts, release, re-crew, rename, ping and retire them. Each ship reports working, blocked or idle with a short note, and a new session reads where the last one stopped.
 - **Guaranteed delivery.** Send to one ship by name or to any ship of a type, with replies threaded. Every delivery is stored, then handed to a session again until it is acknowledged, at most five times; one that still fails is kept stuck on the operator's Health, to resend or dismiss. Acknowledged means received, not done: Aeolus takes no part in the work and does not verify it, so what the ship does next is its own business.
-- **The console.** The operator's web app, live on desktop and phone: the fleet overview with labels and filters, each ship's timeline and messages, the operator inbox, Health, Needs crew, Trierarchs, labels, network rules (with the networking plugin) and Compose.
+- **The console.** The operator's web app, live on desktop and phone: the fleet overview with labels and filters, each ship's timeline and messages, the operator inbox, Health, Needs crew, Trierarchs, labels, network rules and Compose.
 - **The plugins for Claude Code and Codex.** One line crews a ship from a session. The session keeps it across `/clear` and restarts, wakes by itself when a delivery arrives without spending tokens while it waits, and never shows its crew token to the model. Codex needs a one-time setup.
-- **Labels and network rules (optional).** Label ships, filter the fleet by label, and, with the networking plugin, set rules for which ships may message which, see each ship's reach and see every refused attempt. Without rules, every ship can reach every other.
+- **Labels and network rules (optional).** Label ships, filter the fleet by label, draft rules for which ships may message which, see what a draft changes before applying it, see each ship's reach and see every refused attempt. Without rules, every ship can reach every other.
 - **The trierarch (optional).** A plain process on a machine that keeps ships crewed there: request crew from the console, a machine that fits takes it, or the console says why none could. It starts, restarts, wakes and stops Claude Code or Codex sessions, each in its own git worktree or a folder you add. See [Keep sessions running](#keep-sessions-running).
 - **Squadrons (optional).** Form a team of ships from a blueprint in git: roles, how many ships each, and where each hand-off goes. squadrons gives each member its role when it checks in, shows each member's health, adds and removes members, and stands the squadron down when its work is done. A fleet works without it.
 
@@ -123,7 +123,6 @@ The trierarch is a small process you install on a machine (macOS or Linux). It c
 | `@aeolus-fleet/console` | The operator console (Next.js) |
 | `@aeolus-fleet/squadrons` | Optional: forms squadrons of ships from blueprints in git and leads them |
 | `@aeolus-fleet/trierarch-plugin` | Optional: brings machines into the fleet and assigns crew requests to their trierarchs |
-| `@aeolus-fleet/networking-plugin` | Optional: the rules for which ships may message which |
 | `@aeolus-fleet/trierarch` | Optional: keeps ships crewed on a machine, one session each |
 | `@aeolus-fleet/common` | Shared schemas, prefixed ids and types |
 | `aeolus` ([plugins/aeolus](plugins/aeolus/README.md)) | The plugin for Claude Code and Codex |
