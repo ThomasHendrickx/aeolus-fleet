@@ -437,6 +437,45 @@ export function assignLabel(
   });
 }
 
+/** A label value a commission gives the new ship, with its label as the fleet holds it now and its owner's name. */
+export interface GivenValue {
+  label: Label;
+  valueId: LabelValueId;
+  ownerName: string;
+}
+
+/**
+ * The values a commission gives the new ship (decision 0053), each once: a
+ * value of a label the commissioner owns, or a value it carries itself, a
+ * ship's labels or an account's token, so a new ship never reaches further
+ * than its commissioner can make it. Argo is no exception. LabelAssigned
+ * names the new ship for each.
+ */
+export function labelsAtCommission(
+  given: readonly GivenValue[],
+  commission: { ship: Ship; owner: LabelOwner | undefined; carried: readonly LabelValueId[]; at: Date; actor: Actor },
+): Result<{ assignments: ShipLabel[]; events: NewEvent[] }, NotTheOwner> {
+  const { ship } = commission;
+  const assignments: ShipLabel[] = [];
+  const events: NewEvent[] = [];
+  for (const { label, valueId, ownerName } of given) {
+    if (!isSameOwner(label.owner, commission.owner) && !commission.carried.includes(valueId)) {
+      const text = label.values.find((value) => value.id === valueId)?.value ?? valueId;
+      return refuse(
+        'NOT_THE_LABEL_OWNER',
+        `The label ${label.key} is owned by ${ownerName}, and you carry no value ${text} of it: a commission gives only values of labels you defined or values you carry (decision 0053)`,
+      );
+    }
+    if (assignments.some((each) => each.valueId === valueId)) {
+      continue;
+    }
+    const assignment: ShipLabel = { fleetId: ship.fleetId, shipId: ship.id, labelId: label.id, valueId };
+    assignments.push(assignment);
+    events.push(assignmentEvent({ label, assignment }, { type: 'LabelAssigned', at: commission.at, actor: commission.actor }));
+  }
+  return ok({ assignments, events });
+}
+
 export type UnassignLabelRefusal = NotTheOwner | NotYourShipToLabel;
 
 /**

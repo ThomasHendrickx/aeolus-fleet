@@ -1,4 +1,4 @@
-import type { CommissionedShipKind, FleetId, IdGenerator, ShipId } from '@aeolus-fleet/common';
+import type { CommissionedShipKind, FleetId, IdGenerator, LabelValueId, ShipId } from '@aeolus-fleet/common';
 
 import type { SecretTools } from '../identity/public.js';
 import { actorOf, isShipCaller, type Caller } from '../shared/caller.js';
@@ -10,12 +10,15 @@ import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { appliedLimits, type AppliedLimitsTx } from './applied-limits.js';
 import { lockNamedNamespaces, type NamedNamespacesTx } from './named-namespaces.js';
-import type { ShipRepository } from './ports.js';
+import { GROUP_LABEL_KEY } from './check-reach.js';
+import { labelOwnerOf, labelsAtCommission, ownerNameOf, type GivenValue } from './label.js';
+import type { LabelRepository, ShipRepository } from './ports.js';
 import { commissionShip, type Commissioner, type CommissioningActor, type CommissionRefusal, type Ship } from './ship.js';
 import { issueStartingPrompt, type StartingPromptTx } from './starting-prompt.js';
 
 export interface CommissionShipTx extends StartingPromptTx, AppliedLimitsTx, NamedNamespacesTx {
   ships: ShipRepository;
+  labels: Pick<LabelRepository, 'findByValueForShare' | 'carriedBy' | 'findByKey' | 'assign'>;
 }
 
 export interface CommissionShipInput {
@@ -25,6 +28,8 @@ export interface CommissionShipInput {
   kind?: CommissionedShipKind;
   note?: string;
   scopes?: readonly string[];
+  /** The label values it carries from the start: each of a label the caller defined, or one it carries (decision 0053). */
+  valueIds?: readonly LabelValueId[];
   /** The ship that asked the caller, a plugin's ship holding fleet:on-behalf, for this one: the new ship gets its owner (decision 0045). */
   ownerOf?: ShipId;
   /** The owner argo picked for an app ship that a ship holding fleet:on-behalf, the gateway, commissions (decision 0045). */
@@ -47,19 +52,21 @@ export interface CommissionedShip {
 
 export type CommissionShipRefusal =
   | CommissionRefusal
-  | DomainError<'INVALID_IDEMPOTENCY_KEY' | 'IDEMPOTENCY_KEY_REUSED' | 'SHIP_LIMIT_REACHED' | 'SHIP_NOT_FOUND'>;
+  | DomainError<'INVALID_IDEMPOTENCY_KEY' | 'IDEMPOTENCY_KEY_REUSED' | 'SHIP_LIMIT_REACHED' | 'SHIP_NOT_FOUND' | 'LABEL_VALUE_NOT_FOUND' | 'NOT_THE_LABEL_OWNER'>;
 
 export type CommissionShip = (caller: Caller, input: CommissionShipInput) => Promise<Result<CommissionedShip, CommissionShipRefusal>>;
 
 /** The request as one text, so a repeat is known by its hash: the scopes in a fixed order, each once. */
 function commissionRequestText(input: CommissionShipInput): string {
   const scopes = [...new Set(input.scopes)].toSorted();
+  const valueIds = [...new Set(input.valueIds)].toSorted();
   return JSON.stringify({
     name: input.name,
     type: input.type,
     kind: input.kind ?? 'agent',
     note: input.note ?? null,
     scopes,
+    valueIds,
     ownerOf: input.ownerOf ?? null,
     owner: input.owner ?? null,
   });
@@ -83,6 +90,34 @@ async function findWithOwnerHeld(tx: CommissionShipTx, ref: { fleetId: FleetId; 
     }
   }
   return ship;
+}
+
+/**
+ * The values given, each with its label read FOR SHARE, so a change of its
+ * values waits; undefined names a value the fleet does not have.
+ */
+async function givenValues(tx: CommissionShipTx, ref: { fleetId: FleetId; valueIds: readonly LabelValueId[] }): Promise<{ given: GivenValue[]; missing: LabelValueId | undefined }> {
+  const given: GivenValue[] = [];
+  for (const valueId of ref.valueIds) {
+    const label = await tx.labels.findByValueForShare(ref.fleetId, valueId);
+    if (!label?.values.some((value) => value.id === valueId)) {
+      return { given, missing: valueId };
+    }
+    given.push({ label, valueId, ownerName: await ownerNameOf(label.owner, async (shipId) => (await tx.ships.find(ref.fleetId, shipId))?.name) });
+  }
+  return { given, missing: undefined };
+}
+
+/** The values the caller carries itself: a ship's labels, or the values of group an account's token carries. */
+async function carriedBy(tx: CommissionShipTx, caller: Caller): Promise<LabelValueId[]> {
+  if (isShipCaller(caller)) {
+    return (await tx.labels.carriedBy(caller.fleetId, caller.shipId)).map((carried) => carried.valueId);
+  }
+  if (caller.kind === 'installation') {
+    return [];
+  }
+  const group = await tx.labels.findByKey(caller.fleetId, GROUP_LABEL_KEY);
+  return (group?.values ?? []).filter((value) => caller.groupValues.includes(value.value)).map((value) => value.id);
 }
 
 /** The actor a commission is kept under, with its idempotency keys: an account by its id only. */
@@ -119,7 +154,8 @@ async function commissioningActorOf(tx: CommissionShipTx, caller: Caller): Promi
  * awaits crew and gets its first starting prompt, all in one transaction. The ship gets
  * the agent scopes and the scopes asked for, each one the caller may grant:
  * a ship's read from the server (decision 0046); each plugin namespace they
- * name is locked after the name. Its owner is the caller's owner, the caller
+ * name is locked after the name. It carries the label values given, each of
+ * a label the caller defined or one it carries (decision 0053). Its owner is the caller's owner, the caller
  * when it is a person ship, or an account's person ship; a caller
  * holding fleet:on-behalf may name the ship that asked it instead, whose owner
  * it gets, or for an app ship the owner argo picked (decision 0045). The
@@ -190,9 +226,20 @@ export function createCommissionShip(deps: {
         return commissioned;
       }
       const { ship, events } = commissioned.value;
+      const { given, missing } = await givenValues(tx, { fleetId, valueIds: input.valueIds ?? [] });
+      if (missing !== undefined) {
+        return refuse('LABEL_VALUE_NOT_FOUND', `The fleet has no label value ${missing}`);
+      }
+      const labelled = labelsAtCommission(given, { ship, owner: labelOwnerOf(caller), carried: await carriedBy(tx, caller), at, actor });
+      if (!labelled.isOk) {
+        return labelled;
+      }
 
       await tx.ships.create(ship);
-      for (const event of events) {
+      for (const assignment of labelled.value.assignments) {
+        await tx.labels.assign(assignment);
+      }
+      for (const event of [...events, ...labelled.value.events]) {
         await recordEvent({ events: tx.events, ids: deps.ids }, event);
       }
       const issued = await issueStartingPrompt(
