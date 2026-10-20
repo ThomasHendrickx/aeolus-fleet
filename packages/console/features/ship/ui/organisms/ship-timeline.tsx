@@ -1,4 +1,4 @@
-import type { MessageId, ShipId, TimelineEntry } from '@aeolus-fleet/common';
+import type { AccountId, MessageId, ShipId, TimelineEntry } from '@aeolus-fleet/common';
 import {
   Anchor,
   Archive,
@@ -71,6 +71,8 @@ interface ShipTimelineProps {
   now: Date;
   /** Opens the message a row is about. */
   onOpenMessage: (messageId: MessageId) => void;
+  /** The names pagasae gives the accounts signed in as argo that rows name (decision 0054); a row whose account has none shows its id. */
+  accountNames?: Readonly<Partial<Record<AccountId, string>>>;
 }
 
 function Row({
@@ -78,7 +80,8 @@ function Row({
   shipId,
   now,
   onOpenMessage,
-}: Pick<ShipTimelineProps, 'shipId' | 'now' | 'onOpenMessage'> & { entry: TimelineEntry }) {
+  accountNames = {},
+}: Pick<ShipTimelineProps, 'shipId' | 'now' | 'onOpenMessage' | 'accountNames'> & { entry: TimelineEntry }) {
   const { parts, tone, icon } = timelineSentence(entry, shipId);
   const Icon = ICONS[icon];
   const at = new Date(entry.occurredAt);
@@ -95,9 +98,17 @@ function Row({
       </span>
       <span className="flex min-w-0 flex-col gap-1">
         <Sentence parts={parts} className="text-body text-foreground max-sm:text-body-touch" />
-        <time dateTime={entry.occurredAt} title={fullDateTime(at)} className="text-meta text-muted-foreground tabular-nums">
-          {relativeTime(at, now)}
-        </time>
+        <span className="text-meta text-muted-foreground">
+          <time dateTime={entry.occurredAt} title={fullDateTime(at)} className="tabular-nums">
+            {relativeTime(at, now)}
+          </time>
+          {entry.signedInAccountId === null ? null : (
+            <span data-testid="ship-timeline-account">
+              {' · by '}
+              {accountNames[entry.signedInAccountId] ?? entry.signedInAccountId}
+            </span>
+          )}
+        </span>
       </span>
     </>
   );
@@ -124,10 +135,11 @@ function Row({
 /**
  * Every change to a ship, newest first (docs/design/png/ShipTimeline.png):
  * messages in and out, claims, releases, prompts. Each row: a tone tile with
- * its icon, one sentence with the parties as ShipName, and the time. A row
- * about a message opens it.
+ * its icon, one sentence with the parties as ShipName, and the time, then
+ * the account signed in as argo when argo did it. A row about a message
+ * opens it.
  */
-export function ShipTimeline({ shipId, entries, state, onRetry, now, onOpenMessage }: ShipTimelineProps) {
+export function ShipTimeline({ shipId, entries, state, onRetry, now, onOpenMessage, accountNames }: ShipTimelineProps) {
   if (state === 'loading') {
     return <LoadingSkeleton variant="list" rows={4} label="Loading the timeline" />;
   }
@@ -147,7 +159,7 @@ export function ShipTimeline({ shipId, entries, state, onRetry, now, onOpenMessa
     <div data-testid="ship-timeline" className="overflow-hidden rounded-lg border border-border bg-card">
       <ol aria-label="Timeline">
         {entries.map((entry) => (
-          <Row key={entry.id} entry={entry} shipId={shipId} now={now} onOpenMessage={onOpenMessage} />
+          <Row key={entry.id} entry={entry} shipId={shipId} now={now} onOpenMessage={onOpenMessage} accountNames={accountNames} />
         ))}
       </ol>
       {entries.length <= 1 ? (
