@@ -157,6 +157,7 @@ describe('migrations', () => {
       'ship_labels',
       'ships',
       'sign_in_tickets',
+      'verified_facts',
       'worktree_clear_requests',
     ]);
     // The installation's settings, notices, guide and cut-off accounts belong to no fleet (decisions 0020, 0023, 0024 and 0058).
