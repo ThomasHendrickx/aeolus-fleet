@@ -154,6 +154,7 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
           type: event.type,
           occurredAt: event.occurredAt,
           actor: event.actor.kind === 'ship' ? party(event.actor.shipId) : null,
+          signedInAccountId: event.actor.kind === 'ship' ? (event.actor.signedInAccountId ?? null) : null,
           ship: event.shipId === undefined ? null : party(event.shipId),
           message: message
             ? {

@@ -1504,6 +1504,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       type: event.type,
       occurredAt: event.occurredAt,
       actor: event.actor.kind === 'ship' ? partyOf(event.fleetId, event.actor.shipId) : null,
+      signedInAccountId: event.actor.kind === 'ship' ? (event.actor.signedInAccountId ?? null) : null,
       ship: event.shipId === undefined ? null : partyOf(event.fleetId, event.shipId),
       message: message
         ? {

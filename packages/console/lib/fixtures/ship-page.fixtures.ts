@@ -98,8 +98,8 @@ export const RETIRED_SHIP: ShipDetail = {
 const fromPlanner = { id: messageId('0001'), sender: PLANNER, recipient: { kind: 'ship' as const, ship: REVIEWER }, contentType: 'text/plain', isPing: false, model: null };
 const toPlanner = { id: messageId('0002'), sender: REVIEWER, recipient: { kind: 'ship' as const, ship: PLANNER }, contentType: 'text/plain', isPing: false, model: null };
 
-function event(seq: number, entry: Omit<TimelineEntry, 'seq' | 'id'>): TimelineEntry {
-  return { seq, id: eventId(String(seq).padStart(4, '0')), ...entry };
+function event(seq: number, entry: Omit<TimelineEntry, 'seq' | 'id' | 'signedInAccountId'> & Partial<Pick<TimelineEntry, 'signedInAccountId'>>): TimelineEntry {
+  return { seq, id: eventId(String(seq).padStart(4, '0')), signedInAccountId: null, ...entry };
 }
 
 const pingFromArgo = {

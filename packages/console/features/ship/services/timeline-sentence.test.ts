@@ -16,6 +16,7 @@ function anEntry(type: EventType, overrides: Partial<TimelineEntry> = {}): Timel
     type,
     occurredAt: '2026-10-01T09:00:00.000Z',
     actor: null,
+    signedInAccountId: null,
     ship: scout,
     message: null,
     details: {},
