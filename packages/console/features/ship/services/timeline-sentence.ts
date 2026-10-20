@@ -290,6 +290,14 @@ export function timelineSentence(entry: TimelineEntry, shipId: string): Timeline
       return { parts: [text('Connected as a plugin: reads every ship'), ...by(entry.actor)], tone: 'ended', icon: 'fleet' };
     case 'PluginDisconnected':
       return { parts: [text(`No longer a connected plugin: ${stringDetail(entry, 'why') ?? ''}`), ...by(entry.actor)], tone: 'ended', icon: 'fleet' };
+    case 'VerifiedFactsSet': {
+      const facts = entry.details.facts;
+      return {
+        parts: [text(facts === 0 ? 'Verified facts withdrawn' : `Verified facts set: ${String(facts ?? '')}`), ...by(entry.actor)],
+        tone: 'ended',
+        icon: 'reported',
+      };
+    }
     case 'NetworkPluginRegistered':
       return {
         parts: [text(`Networking plugin registered: while unavailable ${stringDetail(entry, 'whileUnavailable') ?? ''}, version ${String(entry.details.version ?? '')}`), ...by(entry.actor)],

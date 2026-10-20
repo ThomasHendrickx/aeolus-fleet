@@ -14,7 +14,7 @@ import { z } from 'zod';
  * plugin namespace and `scopes:grant` grants and revokes on a live ship
  * (decision 0046). `fleet:person`, `fleet:owner`, `fleet:explain`,
  * `fleet:connect` and `labels:any` are the jobs that were argo's alone
- * (decision 0053).
+ * (decision 0053). `fleet:verify` writes verified facts (decision 0059).
  */
 export const SCOPES = [
   'messages:send',
@@ -35,6 +35,7 @@ export const SCOPES = [
   'fleet:explain',
   'fleet:connect',
   'labels:any',
+  'fleet:verify',
   'scopes:declare',
   'scopes:grant',
 ] as const;
@@ -61,6 +62,7 @@ export const CORE_SCOPE_DESCRIPTIONS: Readonly<Record<Scope, string>> = {
   'fleet:explain': 'Explain reach and read the reach refusals of the ships it reads',
   'fleet:connect': 'Connect a plugin, which then reads every ship',
   'labels:any': 'Assign and unassign the values of any label on the ships it manages',
+  'fleet:verify': 'Write and withdraw its verified facts about the ships it manages',
   'scopes:declare': 'Take up one plugin namespace and declare its scopes',
   'scopes:grant': 'Grant and revoke scopes on a live ship, within what its ship may grant',
 };
@@ -105,7 +107,7 @@ export type ScopeName = z.infer<typeof scopeNameSchema>;
  * (decision 0031). `fleet:network` sets the fleet's network rules (decision
  * 0034). `fleet:on-behalf` reads on behalf of a named ship (decision 0034).
  * The jobs that were argo's alone are scopes an agent ship can hold too
- * (decision 0053).
+ * (decision 0053), and so is writing verified facts (decision 0059).
  */
 export const FLEET_SCOPES = [
   'messages:resend',
@@ -123,6 +125,7 @@ export const FLEET_SCOPES = [
   'fleet:explain',
   'fleet:connect',
   'labels:any',
+  'fleet:verify',
 ] as const;
 export const fleetScopeSchema = z.enum(FLEET_SCOPES);
 export type FleetScope = z.infer<typeof fleetScopeSchema>;
@@ -241,6 +244,7 @@ export const EVENT_TYPES = [
   'ScopesChanged',
   'PluginConnected',
   'PluginDisconnected',
+  'VerifiedFactsSet',
 ] as const;
 export const eventTypeSchema = z.enum(EVENT_TYPES);
 export type EventType = z.infer<typeof eventTypeSchema>;
