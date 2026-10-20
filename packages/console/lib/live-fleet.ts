@@ -79,6 +79,13 @@ export function isBuiltInRulesChange(type: EventType): boolean {
   return type === 'BuiltInRuleChanged' || type === 'NetworkRulesSet';
 }
 
+/** The events that move the network settings or the draft (decision 0035): each changes the rules Network shows, what the draft changes and the reach it explains. */
+const NETWORK_RULES_EVENTS: ReadonlySet<EventType> = new Set<EventType>(['NetworkRulesSet', 'NetworkRulesDraftSaved', 'NetworkRulesDraftDiscarded', 'NetworkRulesDeclared', 'BuiltInRuleChanged']);
+
+export function isNetworkRulesChange(type: EventType): boolean {
+  return NETWORK_RULES_EVENTS.has(type);
+}
+
 /** The subscription's state as the live dot words it. */
 export function liveStateOf(status: 'idle' | 'connecting' | 'pending' | 'error'): LiveState {
   switch (status) {
@@ -106,7 +113,7 @@ export interface LiveFleet {
  * an event reloads the page of each ship that caused it or that it names, and
  * a message's event reloads the open message, the ships' message lists and
  * argo's inbox, whose delivery states it changes; a delivery that becomes undeliverable or
- * not handled, or is dismissed, reloads Needs attention, a message's or a ship's event the fleet's health, a label's event the fleet's labels, and NetworkRulesDeclared the declared network rules. `resync`, sent first and whenever the
+ * not handled, or is dismissed, reloads Needs attention, a message's or a ship's event the fleet's health, a label's event the fleet's labels, NetworkRulesDeclared the declared network rules, and a change of the rules or the draft the network rules, what the draft changes and the reach. `resync`, sent first and whenever the
  * browser fell too far behind, reloads every one of them. The tRPC client sends the number of the last event back when it
  * reconnects, so the server replays whatever committed meanwhile.
  */
@@ -162,6 +169,11 @@ export function useLiveFleet(): LiveFleet {
           }
           if (isBuiltInRulesChange(event.type)) {
             reload(trpc.fleet.builtInRules.queryKey());
+          }
+          if (isNetworkRulesChange(event.type)) {
+            reload(trpc.fleet.networkRules.queryKey());
+            reload(trpc.fleet.networkRulesDraftChanges.queryKey());
+            reload(trpc.fleet.explainReach.pathKey());
           }
           if (!isShipChange(event.type)) {
             return;

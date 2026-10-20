@@ -15,4 +15,14 @@ describe("Network's path", () => {
 
     expect(networkPathOf(shipId)).toBe(`/network?reach=${shipId}`);
   });
+
+  it('carries the draft when the graph shows the reach against it, with or without a picked ship', () => {
+    const shipId = newId('ship');
+
+    expect([networkPathOf(shipId, 'draft'), networkPathOf(undefined, 'draft'), networkPathOf(shipId, 'applied')]).toEqual([
+      `/network?reach=${shipId}&against=draft`,
+      '/network?against=draft',
+      `/network?reach=${shipId}`,
+    ]);
+  });
 });

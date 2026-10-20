@@ -2,8 +2,9 @@ import type { ShipId } from '@aeolus-fleet/common';
 import { Ban, Check, Crosshair } from 'lucide-react';
 
 import { classNames } from '../../../../lib/class-names';
-import { graphNodesOf, reachSummaryOf, type GraphNode, type GraphShip, type ReachMark } from '../../services/reach-graph';
+import { graphNodesOf, reachSummaryOf, type GraphNode, type GraphShip, type ReachAgainst, type ReachMark } from '../../services/reach-graph';
 import { Button } from '../../../../components/atoms/button';
+import { Tabs, TabsList, TabsTrigger } from '../../../../components/atoms/tabs';
 import { InlineError } from '../../../../components/molecules/inline-error';
 
 export interface FleetReachGraphProps {
@@ -17,7 +18,13 @@ export interface FleetReachGraphProps {
   reachError?: string;
   onPick: (shipId: ShipId | undefined) => void;
   onRetry?: () => void;
+  /** The rules the reach is explained against: the applied ones, or the draft (decision 0035). */
+  against?: ReachAgainst;
+  /** Switches between the applied rules and the draft; given only while the fleet has a draft. */
+  onAgainstChange?: (against: ReachAgainst) => void;
 }
+
+const AGAINST: readonly ReachAgainst[] = ['applied', 'draft'];
 
 const MARK_WORD: Record<Exclude<ReachMark, 'none'>, string> = { picked: 'picked', reached: 'may be messaged', unreached: 'out of reach' };
 
@@ -27,9 +34,10 @@ const MARK_WORD: Record<Exclude<ReachMark, 'none'>, string> = { picked: 'picked'
  * may message, with a line to each, and dims the others; picking it again
  * lets go. Each mark has its icon and its word, and the sentence under the
  * graph says the same, so nothing rests on look alone. On a phone the ships
- * wrap as a list, without lines. Argo's only: the page shows it to argo.
+ * wrap as a list, without lines. While the fleet has a draft, a switch
+ * shows the reach against the draft instead, as it would be once applied.
  */
-export function FleetReachGraph({ ships, pickedShipId, reachableShipIds, reachError, onPick, onRetry }: FleetReachGraphProps) {
+export function FleetReachGraph({ ships, pickedShipId, reachableShipIds, reachError, onPick, onRetry, against = 'applied', onAgainstChange }: FleetReachGraphProps) {
   const reach = pickedShipId === undefined ? undefined : { pickedShipId, reachableShipIds: reachError === undefined ? reachableShipIds : undefined };
   const nodes = graphNodesOf(ships, reach);
   const picked = nodes.find((node) => node.mark === 'picked');
@@ -40,7 +48,32 @@ export function FleetReachGraph({ ships, pickedShipId, reachableShipIds, reachEr
       <h2 id="network-reach" className="text-body font-semibold">
         Reach
       </h2>
-      <p className="text-meta text-muted-foreground">The fleet as it stands now: pick a ship to see which ships the rules let it message. Argo reaches every ship, and every ship reaches argo.</p>
+      <p className="text-meta text-muted-foreground">
+        {against === 'draft'
+          ? 'The fleet as the draft would leave it once applied: pick a ship to see which ships the draft lets it message.'
+          : 'The fleet as it stands now: pick a ship to see which ships the rules let it message.'}{' '}
+        Argo reaches every ship, and every ship reaches argo.
+      </p>
+      {onAgainstChange === undefined ? null : (
+        <Tabs
+          value={against}
+          onValueChange={(next: unknown) => {
+            const chosen = AGAINST.find((each) => each === next);
+            if (chosen !== undefined) {
+              onAgainstChange(chosen);
+            }
+          }}
+        >
+          <TabsList aria-label="Explain reach against">
+            <TabsTrigger value="applied" data-testid="network-reach-applied">
+              Applied rules
+            </TabsTrigger>
+            <TabsTrigger value="draft" data-testid="network-reach-draft">
+              Draft
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      )}
       <div className="relative flex flex-wrap gap-2 md:mx-auto md:block md:aspect-square md:w-full md:max-w-xl" data-testid="network-reach-graph">
         {picked === undefined ? null : (
           <svg aria-hidden viewBox="0 0 100 100" preserveAspectRatio="none" className="pointer-events-none absolute inset-0 hidden size-full md:block">

@@ -13,6 +13,9 @@ export function sendReachOf(explained: ExplainedReach): ShipId[] {
   return explained.send.map((reached) => reached.shipId);
 }
 
+/** The rules a reach is explained against: the applied ones, or the draft (decision 0035). */
+export type ReachAgainst = 'applied' | 'draft';
+
 /** A ship as the graph draws it. */
 export interface GraphShip {
   id: ShipId;
