@@ -505,6 +505,14 @@ describe('timelineSentence', () => {
     expect(onScoutsPage(anEntry('PluginDisconnected', { actor: argo, details: { why: 'released' } })).sentence).toBe('No longer a connected plugin: released by argo');
   });
 
+  it('says how many verified facts a writer set about the ship, and who', () => {
+    expect(onScoutsPage(anEntry('VerifiedFactsSet', { actor: argo, details: { facts: 2 } }))).toEqual({ sentence: 'Verified facts set: 2 by argo', tone: 'ended', icon: 'reported' });
+  });
+
+  it('says a writer withdrew its verified facts about the ship when it set none', () => {
+    expect(onScoutsPage(anEntry('VerifiedFactsSet', { actor: argo, details: { facts: 0 } })).sentence).toBe('Verified facts withdrawn by argo');
+  });
+
   it('says the networking plugin unregistered, back to all-to-all', () => {
     expect(onScoutsPage(anEntry('NetworkPluginUnregistered', { actor: argo, details: { version: 5 } }))).toEqual({
       sentence: 'Networking plugin unregistered: every ship reaches every ship, version 5 by argo',

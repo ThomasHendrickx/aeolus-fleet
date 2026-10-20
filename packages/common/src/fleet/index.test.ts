@@ -35,6 +35,7 @@ describe('the scopes', () => {
       'fleet:explain',
       'fleet:connect',
       'labels:any',
+      'fleet:verify',
       'scopes:declare',
       'scopes:grant',
     ]);
@@ -57,6 +58,7 @@ describe('the scopes', () => {
       'fleet:explain',
       'fleet:connect',
       'labels:any',
+      'fleet:verify',
     ]);
   });
 });
@@ -177,6 +179,7 @@ describe('eventTypeSchema', () => {
       'ScopesChanged',
       'PluginConnected',
       'PluginDisconnected',
+      'VerifiedFactsSet',
     ]);
   });
 });

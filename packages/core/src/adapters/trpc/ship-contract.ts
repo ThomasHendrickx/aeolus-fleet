@@ -147,6 +147,7 @@ const FLEET_ACTIONS = [
   'scopes',
   'declareScopes',
   'grantScopes',
+  'setVerifiedFacts',
 ] as const;
 
 type Procedure = (typeof appRouter.ship)[keyof typeof appRouter.ship] | (typeof appRouter.fleet)[(typeof FLEET_ACTIONS)[number]];

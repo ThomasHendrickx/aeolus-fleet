@@ -243,6 +243,8 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_event_signed_in_accounts$/),
       expect.stringMatching(/^\d{14}_account_cut_off_ends_console_sessions$/),
       expect.stringMatching(/^\d{14}_network_in_core$/),
+      expect.stringMatching(/^\d{14}_verify_scope$/),
+      expect.stringMatching(/^\d{14}_verified_facts$/),
     ]);
   });
 });
@@ -2384,3 +2386,38 @@ describe('network rules at the API', () => {
   });
 });
 
+
+describe('verified facts at the API (decision 0059)', () => {
+  /** A ship's setVerifiedFacts through REST. */
+  const restCall = (crewToken: string, body: unknown) =>
+    fetch(`${address}/api/v1/fleet/setVerifiedFacts`, { method: 'POST', headers: { authorization: `Bearer ${crewToken}`, 'content-type': 'application/json' }, body: JSON.stringify(body) });
+
+  it('let a ship with fleet:verify set its facts about a ship through REST, stored as written', async () => {
+    const { shipId: crmId } = await agentShip();
+    const crewToken = await crewedShip(['messages:send', 'messages:receive', 'fleet:verify']);
+    const facts = [{ checked: 'oauthSubject', issuer: 'https://login.acme.example', value: 'aeolus-gateway' }];
+
+    const response = await restCall(crewToken, { shipId: crmId, facts });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({});
+    await expect(database.verifiedFacts.findMany({ where: { fleetId, shipId: crmId }, select: { facts: true } })).resolves.toEqual([{ facts }]);
+  });
+
+  it('refuse a ship without fleet:verify, naming the scope', async () => {
+    const { shipId: crmId } = await agentShip();
+    const sender = client({ authorization: `Bearer ${await crewedShip()}` });
+
+    await expect(refusalOf(sender.fleet.setVerifiedFacts.mutate({ shipId: crmId, facts: [] }))).resolves.toEqual({ code: 'FORBIDDEN', message: 'This call needs the fleet:verify scope' });
+  });
+
+  it('refuse a fact off its shape as a bad request, storing nothing', async () => {
+    const { shipId: crmId } = await agentShip();
+    const crewToken = await crewedShip(['messages:send', 'messages:receive', 'fleet:verify']);
+
+    const response = await restCall(crewToken, { shipId: crmId, facts: [{ checked: 'oauthSubject', value: 'aeolus-gateway' }] });
+
+    expect(response.status).toBe(400);
+    await expect(database.verifiedFacts.count({ where: { fleetId, shipId: crmId } })).resolves.toBe(0);
+  });
+});

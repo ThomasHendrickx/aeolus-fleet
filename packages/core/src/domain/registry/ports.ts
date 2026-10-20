@@ -18,6 +18,7 @@ import type { Commissioner, Ship } from './ship.js';
 import type { ShipReport } from './ship-report.js';
 import type { StatedStatement } from './statement.js';
 import type { Turn } from './turn.js';
+import type { FactWriter, WrittenFacts } from './verified-facts.js';
 
 /** The crew a report speaks for: its ship and lease, in its fleet. */
 export interface CrewOfLease {
@@ -281,6 +282,16 @@ export interface PluginConnectionRepository {
   connect(connection: PluginConnection): Promise<void>;
   /** Ends the ship's connection, if it holds one. */
   disconnect(fleetId: FleetId, shipId: ShipId): Promise<void>;
+}
+
+/** Outbound port: the verified facts each writer holds about a ship, always within one fleet (decision 0059). */
+export interface VerifiedFactsRepository {
+  /** The writer's facts about the ship; none while it holds none. */
+  find(fleetId: FleetId, key: { shipId: ShipId; writer: FactWriter }): Promise<WrittenFacts | undefined>;
+  /** Keeps the writer's facts about the ship, in place of those it held. */
+  save(written: WrittenFacts): Promise<void>;
+  /** Removes the writer's facts about the ship, if it holds any. */
+  remove(fleetId: FleetId, key: { shipId: ShipId; writer: FactWriter }): Promise<void>;
 }
 
 /** Outbound port: the records of the sends the fleet's network rules refused (decision 0034). */
