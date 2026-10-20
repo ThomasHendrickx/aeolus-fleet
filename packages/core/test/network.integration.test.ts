@@ -221,8 +221,8 @@ describe('a send under network rules', () => {
 
     expect(fromPlanner).toEqual({
       ships: [
-        { id: argo.shipId, name: 'argo', type: 'operator', kind: 'operator', status: 'crewed', statement: null },
-        { id: vault.shipId, name: 'vault', type: 'vault', kind: 'agent', status: 'awaitingCrew', statement: null },
+        { id: argo.shipId, name: 'argo', type: 'operator', kind: 'operator', status: 'crewed', statement: null, verified: [] },
+        { id: vault.shipId, name: 'vault', type: 'vault', kind: 'agent', status: 'awaitingCrew', statement: null, verified: [] },
       ],
       types: [
         { type: 'operator', reachable: 1 },

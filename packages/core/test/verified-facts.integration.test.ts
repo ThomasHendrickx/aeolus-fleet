@@ -101,3 +101,21 @@ describe('verified facts on Postgres', () => {
     await expect(eventsAboutCrm()).resolves.toHaveLength(2);
   });
 });
+
+describe('verified facts in discovery on Postgres', () => {
+  it("shows each writer's facts about a ship beside its statement, read from the store, oldest first, naming each writer", async () => {
+    const mathilde = accountIdSchema.parse('acc-mathilde');
+    unwrap(await core.useCases.setVerifiedFacts(gateway, { shipId: crmId, facts: [TLS_HOST] }));
+    core.clock.advance(60_000);
+    unwrap(await core.useCases.setVerifiedFacts({ kind: 'account', accountId: mathilde, fleetId, scopes: ['fleet:verify'], groupValues: [], personShipId: null, throughShipId: null }, { shipId: crmId, facts: [OAUTH_SUBJECT] }));
+
+    const { ships } = unwrap(await core.useCases.discover(argo));
+
+    expect(ships.find((ship) => ship.id === crmId)?.verified).toEqual([
+      { ...TLS_HOST, by: { kind: 'ship', id: gateway.shipId, name: 'gateway' }, at: '2026-09-29T12:00:00.000Z' },
+      { ...OAUTH_SUBJECT, by: { kind: 'account', id: mathilde }, at: '2026-09-29T12:01:00.000Z' },
+    ]);
+    expect(ships.find((ship) => ship.id === gateway.shipId)?.verified).toEqual([]);
+  });
+});
+

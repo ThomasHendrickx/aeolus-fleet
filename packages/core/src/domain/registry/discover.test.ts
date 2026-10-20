@@ -1,4 +1,4 @@
-import type { FleetId, ShipId } from '@aeolus-fleet/common';
+import { accountIdSchema, type FleetId, type ShipId, type VerifiedFact } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { addViewerShip, applyNetworkRules, crewAboard, everyShipMay, initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
@@ -7,7 +7,7 @@ import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-
 import { newKey } from '../../testing/keys.js';
 import { valueIdOf } from '../../../test/support/label-fixtures.js';
 import { unwrap } from '../../testing/result.js';
-import type { ShipCaller, Crew } from '../shared/caller.js';
+import type { AccountCaller, Crew, InstallationCaller, ShipCaller } from '../shared/caller.js';
 
 /**
  * Discovery (decision 0047): planner asks which ships it may send to now.
@@ -109,3 +109,89 @@ describe('discovery (decision 0047)', () => {
     expect(core.state.reachRefusals).toEqual([]);
   });
 });
+
+describe('verified facts in discovery (decision 0059)', () => {
+  const TLS_HOST: VerifiedFact = { checked: 'tlsHost', value: 'scout.acme.example' };
+  const OAUTH_SUBJECT: VerifiedFact = { checked: 'oauthSubject', issuer: 'https://login.acme.example', value: 'aeolus-gateway' };
+
+  async function verifiedOf(shipName: string, discoverer: ShipCaller = planner) {
+    return unwrap(await registry.discover(discoverer)).ships.find((ship) => ship.name === shipName)?.verified;
+  }
+
+  it("shows beside a ship's statement the facts each writer set about it, each naming its writer by id and name, and when", async () => {
+    const gatewayId = await commissioned('gateway', { type: 'gateway' });
+    const gateway: ShipCaller = { fleetId, shipId: gatewayId, kind: 'agent', scopes: ['fleet:verify'] };
+    unwrap(await registry.setVerifiedFacts(gateway, { shipId: scoutId, facts: [TLS_HOST, OAUTH_SUBJECT] }));
+
+    await expect(verifiedOf('scout')).resolves.toEqual([
+      { ...TLS_HOST, by: { kind: 'ship', id: gatewayId, name: 'gateway' }, at: '2026-10-18T09:00:00.000Z' },
+      { ...OAUTH_SUBJECT, by: { kind: 'ship', id: gatewayId, name: 'gateway' }, at: '2026-10-18T09:00:00.000Z' },
+    ]);
+  });
+
+  it('answers none for a ship no one wrote facts about', async () => {
+    const { ships } = unwrap(await registry.discover(planner));
+
+    expect(ships.map(({ name, verified }) => ({ name, verified }))).toEqual([
+      { name: 'argo', verified: [] },
+      { name: 'scout', verified: [] },
+      { name: 'vault', verified: [] },
+    ]);
+  });
+
+  it('names the writer by the name it has now', async () => {
+    const gatewayId = await commissioned('gateway', { type: 'gateway' });
+    unwrap(await registry.setVerifiedFacts({ fleetId, shipId: gatewayId, kind: 'agent', scopes: ['fleet:verify'] }, { shipId: scoutId, facts: [TLS_HOST] }));
+
+    unwrap(await registry.renameShip(argo, { shipId: gatewayId, name: 'front-door' }));
+
+    await expect(verifiedOf('scout')).resolves.toMatchObject([{ by: { kind: 'ship', id: gatewayId, name: 'front-door' } }]);
+  });
+
+  it('names an account by its id only, and the installation as the installation', async () => {
+    const account: AccountCaller = { kind: 'account', accountId: accountIdSchema.parse('acc-mathilde'), fleetId, scopes: ['fleet:verify'], groupValues: [], personShipId: null, throughShipId: null };
+    const installation: InstallationCaller = { kind: 'installation', fleetId, scopes: ['fleet:verify'] };
+    unwrap(await registry.setVerifiedFacts(account, { shipId: scoutId, facts: [TLS_HOST] }));
+    core.clock.advance(60_000);
+    unwrap(await registry.setVerifiedFacts(installation, { shipId: scoutId, facts: [OAUTH_SUBJECT] }));
+
+    await expect(verifiedOf('scout')).resolves.toEqual([
+      { ...TLS_HOST, by: { kind: 'account', id: 'acc-mathilde' }, at: '2026-10-18T09:00:00.000Z' },
+      { ...OAUTH_SUBJECT, by: { kind: 'installation' }, at: '2026-10-18T09:01:00.000Z' },
+    ]);
+  });
+
+  it('shows the oldest facts first, whoever wrote them', async () => {
+    unwrap(await registry.setVerifiedFacts(argo, { shipId: scoutId, facts: [OAUTH_SUBJECT] }));
+    core.clock.advance(60_000);
+    const gatewayId = await commissioned('gateway', { type: 'gateway' });
+    unwrap(await registry.setVerifiedFacts({ fleetId, shipId: gatewayId, kind: 'agent', scopes: ['fleet:verify'] }, { shipId: scoutId, facts: [TLS_HOST] }));
+    core.clock.advance(60_000);
+    unwrap(await registry.setVerifiedFacts(argo, { shipId: scoutId, facts: [OAUTH_SUBJECT, TLS_HOST] }));
+
+    await expect(verifiedOf('scout').then((facts) => facts?.map(({ by, at }) => [by.kind === 'ship' ? by.name : by.kind, at]))).resolves.toEqual([
+      ['gateway', '2026-10-18T09:01:00.000Z'],
+      ['argo', '2026-10-18T09:02:00.000Z'],
+      ['argo', '2026-10-18T09:02:00.000Z'],
+    ]);
+  });
+
+  it('stay with the ship when its crew is released', async () => {
+    unwrap(await registry.setVerifiedFacts(argo, { shipId: scoutId, facts: [TLS_HOST] }));
+
+    unwrap(await registry.releaseShip(argo, { shipId: scoutId }));
+
+    await expect(verifiedOf('scout')).resolves.toMatchObject([TLS_HOST]);
+  });
+
+  it('shows them only to the ships that can send to the ship, as its statement', async () => {
+    unwrap(await registry.setVerifiedFacts(argo, { shipId: scoutId, facts: [TLS_HOST] }));
+    await onlyPublicReached();
+    const vault = crewAboard(core, { fleetId, shipId: unwrap(await registry.discover(argo)).ships.find((ship) => ship.name === 'vault')?.id ?? scoutId });
+    core.state.events.length = 0;
+
+    await expect(verifiedOf('scout', vault)).resolves.toMatchObject([TLS_HOST]);
+    await expect(verifiedOf('vault', scout)).resolves.toBeUndefined();
+  });
+});
+
