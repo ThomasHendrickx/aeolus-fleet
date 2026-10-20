@@ -42,6 +42,7 @@ let otherFleetId: FleetId;
 let argo: ShipCaller;
 let near: ShipId;
 let far: ShipId;
+let engineering: LabelValueId;
 let gateway: { shipId: ShipId; crewToken: string };
 
 function seconds(at: Date): number {
@@ -119,6 +120,7 @@ beforeAll(async () => {
     }
     return held.id;
   };
+  engineering = valueOf('engineering');
   near = await commissioned('near');
   far = await commissioned('far');
   unwrap(await useCases.assignLabel(argo, { shipId: near, valueId: valueOf('engineering') }));
@@ -168,6 +170,23 @@ describe('a call with an account token', () => {
       actorKind: 'account',
       actorAccountId: 'acc-mathilde',
     });
+  });
+
+  it('retires a ship its group values reach, the event naming the account (decision 0057)', async () => {
+    const wreck = await commissioned('wreck');
+    unwrap(await useCases.assignLabel(argo, { shipId: wreck, valueId: engineering }));
+
+    await expect(asAccount(issuer.sign(mathilde()), gateway.crewToken).fleet.retire.mutate({ shipId: wreck })).resolves.toEqual({ abandonedDeliveries: 0 });
+    const [retired] = await database.event.findMany({ where: { fleetId, type: 'ShipRetired', shipId: wreck } });
+    expect(retired).toMatchObject({ actorKind: 'account', actorAccountId: 'acc-mathilde', actorThroughShipId: gateway.shipId });
+  });
+
+  it('is refused retiring a ship no rule lets it reach, which stays', async () => {
+    await expect(refusalOf(asAccount(issuer.sign(mathilde())).fleet.retire.mutate({ shipId: far }))).resolves.toEqual({
+      code: 'FORBIDDEN',
+      message: 'The network rules do not allow this manage',
+    });
+    await expect(database.ship.findFirst({ where: { fleetId, id: far } })).resolves.toMatchObject({ retiredAt: null });
   });
 
   it('is refused a ship no rule lets it reach, as a ship is', async () => {
