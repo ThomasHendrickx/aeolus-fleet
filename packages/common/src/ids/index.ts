@@ -23,6 +23,8 @@ export const ID_PREFIXES = {
   label: 'lbl',
   labelValue: 'lbv',
   reachRefusal: 'rfs',
+  /** A pending request for an outside party, which the gateway keeps (decision 0056). */
+  request: 'req',
 } as const;
 
 export type IdKind = keyof typeof ID_PREFIXES;
@@ -48,6 +50,7 @@ export type ConsoleSessionId = Id<'consoleSession'>;
 export type LabelId = Id<'label'>;
 export type LabelValueId = Id<'labelValue'>;
 export type ReachRefusalId = Id<'reachRefusal'>;
+export type RequestId = Id<'request'>;
 
 /** Crockford base32, lowercase. Leaves out i, l, o and u. */
 const ALPHABET = '0123456789abcdefghjkmnpqrstvwxyz';

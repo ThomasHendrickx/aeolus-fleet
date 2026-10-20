@@ -152,7 +152,7 @@ The stack mirrors your other projects (Next.js, tRPC, Prisma), with the few addi
 | Live updates | tRPC subscriptions over WebSocket, fed by `LISTEN/NOTIFY` | Possible because the server is a dedicated long-running process |
 | Operator auth | Email and password (Argon2id) for one operator account. Sign-in gives a random session token, stored as SHA-256, sent as an httpOnly secure cookie, valid 30 days after last use. The session crews `argo`; `argo` has no secret. No auth library | Decision 0012 |
 | Ship auth | Opaque secret `aeolus_sk_v1_…`, stored as SHA-256, used only to `register`; `register` returns a crew token `aeolus_ct_v1_…`, stored as SHA-256 with the lease, which every later call carries as a bearer token | Decisions 0002, 0015 |
-| Ids | Prefixed, time-ordered ids (decision 0005: `flt_`, `shp_`, `msg_`, `dlv_`, `evt_`, `lse_`, `crd_`, `opr_`, `ses_`, `lbl_`, `lbv_`, `rfs_`) with a lowercase ULID body | Every id shows what it refers to and sorts by creation time |
+| Ids | Prefixed, time-ordered ids (decision 0005: `flt_`, `shp_`, `msg_`, `dlv_`, `evt_`, `lse_`, `crd_`, `opr_`, `ses_`, `lbl_`, `lbv_`, `rfs_`, `req_` for the gateway's pending requests) with a lowercase ULID body | Every id shows what it refers to and sorts by creation time |
 | Logging | pino, structured JSON to stdout | Never logs secrets or payloads |
 | Tests | Vitest; integration tests on a real Postgres (Testcontainers); Playwright for the web app | The guarantee lives in SQL, so it is proven against a real Postgres |
 | License | Apache-2.0 | Includes an explicit patent grant |
