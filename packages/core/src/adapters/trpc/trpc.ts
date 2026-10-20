@@ -589,6 +589,26 @@ export function actorAnyScopeProcedure(...scopes: [Scope, Scope, ...Scope[]]) {
   });
 }
 
+/**
+ * A call on a ship that an actor makes with any one of the given scopes, or
+ * an account makes on its own person ship with no scope for it (decision
+ * 0052): getting a starting prompt for it and releasing it, so the app it uses
+ * crews it. The use case checks that the ship is its person ship. With
+ * `isShipCallOtherwise`, only a ship makes the call by its scopes.
+ */
+export function ownPersonShipOrAnyScopeProcedure(options: { isShipCallOtherwise: boolean }, ...scopes: [Scope, Scope, ...Scope[]]) {
+  return actorProcedure.use(async ({ ctx, next }) => {
+    const { caller } = ctx;
+    if (caller.kind === 'account' && caller.personShipId !== null) {
+      return next({ ctx: { caller } });
+    }
+    if (!scopes.some((scope) => hasScope(caller, scope))) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: `This call needs the ${scopes.join(' or ')} scope` });
+    }
+    return next({ ctx: { caller: options.isShipCallOtherwise ? shipOf(caller) : caller } });
+  });
+}
+
 /** A call a ship alone makes with any one of the given scopes. */
 export function anyScopeProcedure(...scopes: [Scope, Scope, ...Scope[]]) {
   return actorAnyScopeProcedure(...scopes).use(({ ctx, next }) => next({ ctx: { caller: shipOf(ctx.caller) } }));
