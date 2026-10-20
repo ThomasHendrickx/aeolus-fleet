@@ -169,7 +169,12 @@ describe('ID_KINDS', () => {
       'label',
       'labelValue',
       'reachRefusal',
+      'request',
     ]);
+  });
+
+  it("gives a pending request for an outside party the req_ prefix (the gateway's, decision 0056)", () => {
+    expect(ID_PREFIXES.request).toBe('req');
   });
 
   it('gives a reach refusal the rfs_ prefix', () => {
