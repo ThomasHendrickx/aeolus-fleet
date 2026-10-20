@@ -391,7 +391,7 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `TurnReported` | Registry | The hooks of a pushed ship reported its session's turn changed, idle or busy (decision 0040): kept with the lease, written at the time the hooks saw it; details hold the lease and the turn |
 | `StatementSet` | Registry | The crew stated what its ship is and offers, or changed it (decision 0047): details hold the lease, the statement's version and how many capabilities, never the statement. The same statement again writes none |
 | `ShipReported` | Registry | The crew's report changed: details hold its state, its note and the version of its details, never the details themselves. A report with the same state, note and details only moves when it was reported, with no event |
-| `OwnerSet` | Registry | A ship got its owner at commission: the owner and how (inherited, named by a plugin, argo by default) (decision 0045) |
+| `OwnerSet` | Registry | A ship got its owner at commission: the owner and how (itself for a person ship, its person-ship commissioner, the commissioning account's person ship, inherited, named by a plugin, argo by default) (decisions 0045, 0057) |
 | `OwnerChanged` | Registry | argo changed a ship's owner, or its owner's ship retired and it fell to argo: the old and new owner and why (decision 0045) |
 | `ScopesDeclared` | Registry | A plugin declared its namespace and scopes: the declaring ship, the namespace, how many scopes (decision 0046) |
 | `ScopesChanged` | Registry | A live ship's scopes were granted or revoked: added, removed, by whom (decision 0046) |
@@ -431,7 +431,7 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `SignInTicketIssued` | Identity | A hosting installation issued a one-time sign-in ticket for the fleet's operator or its viewer ship; details say which. Redeeming an operator's starts a console session as a password sign-in does |
 | `ViewerSessionStarted` | Identity | A viewer ticket was redeemed: a viewer session started, by the viewer ship; details hold its device |
 | `NetworkRulesSet` | Registry | The networking plugin gave the fleet its network rules, or the upgrade to rules only through a plugin (decision 0035) took the rules argo had set, as the system: details hold the version and the number of rules (null in events from before rules were always a list), never the rules |
-| `NetworkRulesDeclared` | Registry | A ship declared the network rules it needs on the labels it owns, withdrew them, or was retired with them (decision 0037): details hold the number of rules (0 when withdrawn), never the rules |
+| `NetworkRulesDeclared` | Registry | A ship or the installation declared the network rules it needs on the labels it owns, withdrew them, or was retired with them (decision 0037): details hold the number of rules (0 when withdrawn), never the rules |
 | `NetworkPluginRegistered` | Registry | A ship registered as the fleet's networking plugin, or registered again: details hold the version and what it declared (`whileUnavailable`, `notRespondingAfterSeconds`) |
 | `NetworkPluginUnregistered` | Registry | The networking plugin unregistered or its ship was retired, its rules with it, and open is on again for every verb: details hold the version |
 | `BuiltInRuleChanged` | Registry | A built-in rule that can be off was turned on or off: open for one verb by the networking plugin, or the viewer reading by argo (decision 0034): details hold the rule, the verb for open, whether it is on and the version |
