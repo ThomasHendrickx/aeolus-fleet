@@ -5,6 +5,8 @@ import {
   type FleetId,
   type LeaseId,
   type MessageId,
+  type NetworkRule,
+  type NetworkVerb,
   type Scope,
   type ShipId,
 } from '@aeolus-fleet/common';
@@ -48,15 +50,16 @@ import { createSendMessage } from '../../src/domain/messaging/send-message.js';
 import { createTellOverdueDeliveries } from '../../src/domain/messaging/tell-overdue-deliveries.js';
 import { createReadDeclaredNetworkRules } from '../../src/domain/registry/read-declared-network-rules.js';
 import { createReadReachRefusals } from '../../src/domain/registry/read-reach-refusals.js';
-import { createRegisterNetworkPlugin } from '../../src/domain/registry/register-network-plugin.js';
-import { createSetNetworkRules } from '../../src/domain/registry/set-network-rules.js';
+import { createSaveNetworkRulesDraft } from '../../src/domain/registry/save-network-rules-draft.js';
+import { createDiscardNetworkRulesDraft } from '../../src/domain/registry/discard-network-rules-draft.js';
+import { createApplyNetworkRules } from '../../src/domain/registry/apply-network-rules.js';
+import { createReadNetworkRules } from '../../src/domain/registry/read-network-rules.js';
+import { createReadNetworkRulesDraftChanges } from '../../src/domain/registry/read-network-rules-draft-changes.js';
 import { createExplainReach } from '../../src/domain/registry/explain-reach.js';
 import { createDiscover } from '../../src/domain/registry/discover.js';
 import { createSetStatement } from '../../src/domain/registry/set-statement.js';
 import { createReadBuiltInRules } from '../../src/domain/registry/read-built-in-rules.js';
-import { createReadNetworkPlugin } from '../../src/domain/registry/read-network-plugin.js';
 import { createSetBuiltInRule } from '../../src/domain/registry/set-built-in-rule.js';
-import { createUnregisterNetworkPlugin } from '../../src/domain/registry/unregister-network-plugin.js';
 import { createClaimShip } from '../../src/domain/registry/claim-ship.js';
 import { createCommissionShip } from '../../src/domain/registry/commission-ship.js';
 import { createGiveBackCrewRequest } from '../../src/domain/registry/give-back-crew-request.js';
@@ -107,7 +110,7 @@ import { createReadAssignedCrewRequests } from '../../src/domain/registry/read-a
 import { createExplainCrewRequest } from '../../src/domain/registry/explain-crew-request.js';
 import { createReadReportLog } from '../../src/domain/registry/report-log.js';
 import { createWhoami } from '../../src/domain/registry/whoami.js';
-import { isCrew, type ShipCaller, type Crew } from '../../src/domain/shared/caller.js';
+import { isCrew, type Caller, type ShipCaller, type Crew } from '../../src/domain/shared/caller.js';
 import { createReadFleetEvents } from '../../src/domain/shared/read-fleet-events.js';
 import { createFollowFleet } from '../../src/domain/shared/follow-fleet.js';
 import { createReadInbox } from '../../src/domain/shared/read-inbox.js';
@@ -177,6 +180,25 @@ export async function argoAboard(core: InMemoryCore): Promise<Crew> {
   return use.caller;
 }
 
+/**
+ * Applies the rules as an editor does (decision 0034): saves them as the
+ * fleet's draft, then applies it at the version it was saved against. None
+ * is all-to-all. Answers the version the settings have then.
+ */
+export async function applyNetworkRules(
+  registry: Pick<ReturnType<typeof registryUseCases>, 'saveNetworkRulesDraft' | 'applyNetworkRules'>,
+  caller: Caller,
+  rules: readonly NetworkRule[] | null,
+): Promise<number> {
+  const { savedAgainstVersion } = unwrap(await registry.saveNetworkRulesDraft(caller, { rules }));
+  return unwrap(await registry.applyNetworkRules(caller, { version: savedAgainstVersion })).version;
+}
+
+/** A rule that lets every actor do the verb to every ship, as open does while no rules are applied. */
+export function everyShipMay(verb: NetworkVerb): NetworkRule {
+  return { verb, from: [], to: [] };
+}
+
 /** The registry use cases, wired to the in-memory core: the operator's, and the claim and deregister a session makes. */
 export function registryUseCases(core: InMemoryCore) {
   const deps = {
@@ -205,12 +227,13 @@ export function registryUseCases(core: InMemoryCore) {
     declareScopes: createDeclareScopes(deps),
     grantScopes: createGrantScopes(deps),
     listScopes: createListScopes({ scopeNamespaces: core.scopeNamespaces, ships: core.ships }),
-    setNetworkRules: createSetNetworkRules(deps),
-    registerNetworkPlugin: createRegisterNetworkPlugin(deps),
-    unregisterNetworkPlugin: createUnregisterNetworkPlugin(deps),
+    saveNetworkRulesDraft: createSaveNetworkRulesDraft(deps),
+    discardNetworkRulesDraft: createDiscardNetworkRulesDraft(deps),
+    applyNetworkRules: createApplyNetworkRules(deps),
+    readNetworkRules: createReadNetworkRules(deps),
+    readNetworkRulesDraftChanges: createReadNetworkRulesDraftChanges({ ...deps, readReach: readReachOf(core) }),
     setBuiltInRule: createSetBuiltInRule(deps),
     readBuiltInRules: createReadBuiltInRules(deps),
-    readNetworkPlugin: createReadNetworkPlugin(deps),
     readReachRefusals: createReadReachRefusals({ reachRefusals: core.reachRefusals, readReach: readReachOf(core) }),
     declareNetworkRules: createDeclareNetworkRules({ uow: core.uow, clock: core.clock, ids: core.ids }),
     readDeclaredNetworkRules: createReadDeclaredNetworkRules({ declaredNetworkRules: core.declaredNetworkRules }),

@@ -1,7 +1,7 @@
 import type { FleetId, ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { crewAboard, initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
+import { applyNetworkRules, crewAboard, everyShipMay, initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
 import { aCrewSettings, shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../testing/result.js';
@@ -42,9 +42,7 @@ describe('a ship with crew:run', () => {
 
   it('reads an assigned ship whole whatever the read rules: assignment, not read reach (decision 0034)', async () => {
     const networking = await shipWithScopes({ registry, argo }, { name: 'networking', type: 'networking', scopes: ['fleet:network'] });
-    crewAboard(core, networking);
-    unwrap(await registry.registerNetworkPlugin(networking, { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 300 }));
-    unwrap(await registry.setBuiltInRule(networking, { rule: 'open', verb: 'read', isOn: false }));
+    await applyNetworkRules(registry, networking, [everyShipMay('send'), everyShipMay('manage')]);
 
     await expect(registry.getShip({ ...trierarch, scopes: [...trierarch.scopes, 'fleet:read'] }, { shipId: assignedId })).resolves.toMatchObject({ isOk: true, value: { id: assignedId, kind: 'agent' } });
   });

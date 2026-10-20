@@ -25,7 +25,6 @@ function aRefusal(onFleet: FleetId = fleetId): ReachRefusal {
     recipient: { kind: 'ship', ship: { id: core.ids('ship'), name: 'vault', labels: [], owner: null } },
     verb: 'send',
     settingsVersion: 1,
-    whilePluginUnavailable: null,
   };
   core.state.reachRefusals.push(refusal);
   return refusal;
@@ -84,7 +83,6 @@ describe('reading the reach refusals with fleet:explain (decision 0053)', () => 
       recipient: { kind: 'ship', ship: asSeen(recipient) },
       verb: 'send',
       settingsVersion: 1,
-      whilePluginUnavailable: null,
     });
     const toNear = refusal({ kind: 'ship', ...asSeen(fleet.far) }, fleet.near);
     const fromNear = refusal({ kind: 'ship', ...asSeen(fleet.near) }, fleet.far);

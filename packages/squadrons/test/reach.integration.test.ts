@@ -1,4 +1,4 @@
-import { isInReadReach, NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS } from '@aeolus-fleet/common';
+import { isInReadReach } from '@aeolus-fleet/common';
 import type { FleetId, ShipId } from '@aeolus-fleet/common';
 import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -186,15 +186,14 @@ describe('the squadron reach against a real fleet (#573, decision 0037)', () => 
     await expect(fleetDatabase.event.count({ where: { type: 'NetworkRulesDeclared' } })).resolves.toBe(1);
   });
 
-  it("manages its squadrons' ships through the manage rule it declared, once the networking plugin supplies it and open manage is off (decision 0034)", async () => {
+  it("manages its squadrons' ships through the manage rule it declared, in force beside the fleet's applied rules once open is off (decisions 0034, 0037)", async () => {
     const { flagship, member } = await aFormedSquadron();
     await expect.poll(() => declared()).toHaveLength(1);
     const plugin = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'networking', type: 'networking', scopes: ['fleet:network'] }));
-    const { crewToken } = unwrap(await useCases.claimShip({ shipId: plugin.shipId, secret: secretOf(plugin.secret), location: { kind: 'CLOUD' }, harness: 'aeolus-networking-plugin' }));
+    const { crewToken } = unwrap(await useCases.claimShip({ shipId: plugin.shipId, secret: secretOf(plugin.secret), location: { kind: 'CLOUD' }, harness: 'claude-code' }));
     const networking = unwrap(await useCases.authenticate.byCrewToken(crewToken));
-    unwrap(await useCases.registerNetworkPlugin(networking, { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS }));
-    unwrap(await useCases.setNetworkRules(networking, { rules: (await useCases.readDeclaredNetworkRules(networking)).flatMap(({ rules }) => rules) }));
-    unwrap(await useCases.setBuiltInRule(networking, { rule: 'open', verb: 'manage', isOn: false }));
+    const { savedAgainstVersion } = unwrap(await useCases.saveNetworkRulesDraft(networking, { rules: [{ verb: 'send', from: [], to: [] }, { verb: 'read', from: [], to: [] }] }));
+    unwrap(await useCases.applyNetworkRules(networking, { version: savedAgainstVersion }));
 
     const explained = unwrap(await useCases.explainReach(argo, { fromShipId: management.shipId }));
 

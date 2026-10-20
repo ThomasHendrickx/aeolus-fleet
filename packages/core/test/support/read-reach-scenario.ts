@@ -4,7 +4,7 @@ import { UNDELIVERABLE_AT_ATTEMPT } from '../../src/domain/messaging/delivery.js
 
 import type { ShipCaller, Crew } from '../../src/domain/shared/caller.js';
 import type { Selector } from '../../src/domain/shared/selector.js';
-import { addViewerShip, crewAboard, deliveryIdOf, historyUseCases, initialiseFleet, messagingUseCases, modelOf, operatorCaller, registryUseCases } from './core-fixtures.js';
+import { addViewerShip, applyNetworkRules, crewAboard, everyShipMay, deliveryIdOf, historyUseCases, initialiseFleet, messagingUseCases, modelOf, operatorCaller, registryUseCases } from './core-fixtures.js';
 import { shipWithScopes } from './crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from './in-memory.js';
 import { valueIdOf } from './label-fixtures.js';
@@ -13,9 +13,9 @@ import { unwrap } from '../../src/testing/result.js';
 
 /**
  * A fleet for read reach (decision 0034): reader, with fleet:read, and near
- * (type reviewer) carry team a; far (type keeper) carries team b. The
- * networking plugin is registered; until `readRulesApply`, open is on for
- * every verb. The fleet has its viewer ship. Every agent ship is crewed.
+ * (type reviewer) carry team a; far (type keeper) carries team b.
+ * networking holds fleet:network; until `readRulesApply`, the fleet has no
+ * rules applied, so open is on for every verb. The fleet has its viewer ship. Every agent ship is crewed.
  */
 export interface ReadReachScenario {
   core: InMemoryCore;
@@ -32,7 +32,7 @@ export interface ReadReachScenario {
   team(value: 'a' | 'b'): LabelValueId;
   /** The ship carries team a or b, as the label's owner assigns it. */
   carry(ship: { shipId: ShipId }, value: 'a' | 'b'): Promise<void>;
-  /** The plugin's rules: team a reads team a; open stays on for send and manage, off for read. */
+  /** The rules applied: team a reads team a; every ship still sends to and manages every ship. */
   readRulesApply(): Promise<void>;
   send(from: ShipCaller, to: Selector): Promise<MessageId>;
   /** A message from one ship to a crewed one, received without acknowledging it until undeliverable: its delivery. */
@@ -57,7 +57,6 @@ export async function readReachScenario(): Promise<ReadReachScenario> {
   const near = await crewed({ name: 'near', type: 'reviewer', scopes: [] });
   const far = await crewed({ name: 'far', type: 'keeper', scopes: [] });
   const networking = await crewed({ name: 'networking', type: 'networking', scopes: ['fleet:network'] });
-  unwrap(await registry.registerNetworkPlugin(networking, { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 300 }));
   unwrap(await registry.defineLabel(labeller, { key: 'team', values: ['a', 'b'] }));
   const team = (value: 'a' | 'b'): LabelValueId => valueIdOf(core, { key: 'team', value });
   for (const [ship, value] of [
@@ -93,8 +92,7 @@ export async function readReachScenario(): Promise<ReadReachScenario> {
       unwrap(await registry.assignLabel(labeller, { shipId: ship.shipId, valueId: team(value) }));
     },
     readRulesApply: async () => {
-      unwrap(await registry.setNetworkRules(networking, { rules: [{ verb: 'read', from: [team('a')], to: [team('a')] }] }));
-      unwrap(await registry.setBuiltInRule(networking, { rule: 'open', verb: 'read', isOn: false }));
+      await applyNetworkRules(registry, networking, [{ verb: 'read', from: [team('a')], to: [team('a')] }, everyShipMay('send'), everyShipMay('manage')]);
     },
     send,
     undeliverable: async (from, to) => {

@@ -1,4 +1,4 @@
-import { NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS, type FleetScope, type ShipId } from '@aeolus-fleet/common';
+import type { FleetScope, ShipId } from '@aeolus-fleet/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
@@ -11,8 +11,8 @@ import { createTestClock } from './support/postgres-core.js';
 import { unwrap } from '../src/testing/result.js';
 
 // Manage reach on Postgres (decision 0034): manager, with fleet:manage, and
-// near carry team a; far carries team b; the networking plugin's one rule lets
-// team a manage team a, and open is off for manage.
+// near carry team a; far carries team b; the applied manage rule lets team a
+// manage team a, and every ship still sends to and reads every ship.
 
 const clock = createTestClock('2026-10-18T09:00:00.000Z');
 
@@ -57,9 +57,8 @@ beforeAll(async () => {
   if (teamA === undefined) {
     throw new Error('the team label has no value a');
   }
-  unwrap(await useCases.registerNetworkPlugin(networking.caller, { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS }));
-  unwrap(await useCases.setNetworkRules(networking.caller, { rules: [{ verb: 'manage', from: [teamA], to: [teamA] }] }));
-  unwrap(await useCases.setBuiltInRule(networking.caller, { rule: 'open', verb: 'manage', isOn: false }));
+  const { savedAgainstVersion } = unwrap(await useCases.saveNetworkRulesDraft(networking.caller, { rules: [{ verb: 'manage', from: [teamA], to: [teamA] }, { verb: 'send', from: [], to: [] }, { verb: 'read', from: [], to: [] }] }));
+  unwrap(await useCases.applyNetworkRules(networking.caller, { version: savedAgainstVersion }));
 });
 
 afterAll(async () => {

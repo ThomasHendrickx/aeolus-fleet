@@ -6,13 +6,12 @@ import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { refusalOf, unwrap } from '../../testing/result.js';
 import type { AccountCaller, ShipCaller } from '../shared/caller.js';
-import { BUILT_INS_ON } from './network-settings.js';
 
 let core: InMemoryCore;
 let registry: ReturnType<typeof registryUseCases>;
 let fleetId: FleetId;
 let argo: ShipCaller;
-let plugin: ShipCaller;
+let networking: ShipCaller;
 let other: ShipCaller;
 
 beforeEach(async () => {
@@ -21,70 +20,55 @@ beforeEach(async () => {
   ({ fleetId } = fleet);
   argo = operatorCaller(fleet);
   registry = registryUseCases(core);
-  plugin = await shipWithScopes({ registry, argo }, { name: 'networking', type: 'networking', scopes: ['fleet:network'] });
+  networking = await shipWithScopes({ registry, argo }, { name: 'networking', type: 'networking', scopes: ['fleet:network'] });
   other = await shipWithScopes({ registry, argo }, { name: 'reach', type: 'networking', scopes: ['fleet:network'] });
-  unwrap(await registry.registerNetworkPlugin(plugin, { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 120 }));
   core.state.events.length = 0;
 });
 
-function builtIns() {
-  return core.state.networkSettings.find((settings) => settings.fleetId === fleetId)?.builtIns;
+function isViewerReadOn() {
+  return core.state.networkSettings.find((settings) => settings.fleetId === fleetId)?.isViewerReadOn;
 }
 
-describe('turning open on or off (decision 0034)', () => {
-  it('turns it off for one verb as the networking plugin, at the next version', async () => {
-    expect(unwrap(await registry.setBuiltInRule(plugin, { rule: 'open', verb: 'send', isOn: false }))).toEqual({ version: 2 });
-
-    expect(builtIns()).toEqual({ ...BUILT_INS_ON, open: { send: false, read: true, manage: true } });
-  });
-
-  it('writes BuiltInRuleChanged, caused by the plugin, with the rule, its verb, on or off and the version', async () => {
-    unwrap(await registry.setBuiltInRule(plugin, { rule: 'open', verb: 'manage', isOn: false }));
-
-    expect(core.state.events).toEqual([
-      expect.objectContaining({
-        type: 'BuiltInRuleChanged',
-        occurredAt: core.clock.now(),
-        actor: { kind: 'ship', shipId: plugin.shipId },
-        details: { rule: 'open', verb: 'manage', isOn: false, version: 2 },
-      }),
-    ]);
-  });
-
-  it('turns it on again', async () => {
-    unwrap(await registry.setBuiltInRule(plugin, { rule: 'open', verb: 'read', isOn: false }));
-
-    expect(unwrap(await registry.setBuiltInRule(plugin, { rule: 'open', verb: 'read', isOn: true }))).toEqual({ version: 3 });
-    expect(builtIns()).toEqual(BUILT_INS_ON);
-  });
-
-  it('changes nothing and writes no event when it is already as asked, answering the version it has', async () => {
-    expect(unwrap(await registry.setBuiltInRule(plugin, { rule: 'open', verb: 'send', isOn: true }))).toEqual({ version: 1 });
-
-    expect(core.state.events).toEqual([]);
-  });
-
-  it('refuses any ship but the networking plugin, argo too, and changes nothing', async () => {
-    for (const caller of [argo, other]) {
-      expect(refusalOf(await registry.setBuiltInRule(caller, { rule: 'open', verb: 'send', isOn: false }))).toMatchObject({ kind: 'NOT_THE_NETWORK_PLUGIN' });
+describe('open, which follows the applied rules (decision 0034)', () => {
+  it('refuses turning it on or off, for argo as for any ship holding fleet:network, naming what it follows, and changes nothing', async () => {
+    for (const caller of [argo, networking]) {
+      for (const isOn of [false, true]) {
+        expect(refusalOf(await registry.setBuiltInRule(caller, { rule: 'open', isOn }))).toEqual({
+          kind: 'BUILT_IN_RULE_FIXED',
+          message: 'The built-in rule open is on exactly while the fleet has no rules applied (decision 0034)',
+        });
+      }
     }
-    expect(builtIns()).toEqual(BUILT_INS_ON);
+    expect(core.state.networkSettings).toEqual([]);
     expect(core.state.events).toEqual([]);
   });
 });
 
 describe('turning the viewer reading on or off (decision 0034)', () => {
   it('turns it off as argo, with BuiltInRuleChanged naming no verb', async () => {
-    expect(unwrap(await registry.setBuiltInRule(argo, { rule: 'viewerRead', isOn: false }))).toEqual({ version: 2 });
+    expect(unwrap(await registry.setBuiltInRule(argo, { rule: 'viewerRead', isOn: false }))).toEqual({ version: 1 });
 
-    expect(builtIns()).toEqual({ ...BUILT_INS_ON, isViewerReadOn: false });
-    expect(core.state.events).toEqual([expect.objectContaining({ type: 'BuiltInRuleChanged', details: { rule: 'viewerRead', isOn: false, version: 2 } })]);
+    expect(isViewerReadOn()).toBe(false);
+    expect(core.state.events).toEqual([expect.objectContaining({ type: 'BuiltInRuleChanged', details: { rule: 'viewerRead', isOn: false, version: 1 } })]);
+  });
+
+  it('turns it on again at the next version', async () => {
+    unwrap(await registry.setBuiltInRule(argo, { rule: 'viewerRead', isOn: false }));
+
+    expect(unwrap(await registry.setBuiltInRule(argo, { rule: 'viewerRead', isOn: true }))).toEqual({ version: 2 });
+    expect(isViewerReadOn()).toBe(true);
+  });
+
+  it('changes nothing and writes no event when it is already as asked, answering the version it has', async () => {
+    expect(unwrap(await registry.setBuiltInRule(argo, { rule: 'viewerRead', isOn: true }))).toEqual({ version: 0 });
+
+    expect(core.state.events).toEqual([]);
   });
 
   it('lets any ship holding fleet:network turn it, not only argo, the event naming it (decision 0053)', async () => {
     unwrap(await registry.setBuiltInRule(other, { rule: 'viewerRead', isOn: false }));
 
-    expect(builtIns()).toEqual({ ...BUILT_INS_ON, isViewerReadOn: false });
+    expect(isViewerReadOn()).toBe(false);
     expect(core.state.events.map(({ actor }) => actor)).toEqual([{ kind: 'ship', shipId: other.shipId }]);
   });
 
@@ -96,21 +80,14 @@ describe('turning the viewer reading on or off (decision 0034)', () => {
 
     expect(core.state.events.map(({ actor }) => actor)).toEqual([{ kind: 'account', accountId: mathilde, throughShipId: null }]);
   });
-
-  it('refuses an account turning open, which only the networking plugin turns', async () => {
-    const account: AccountCaller = { kind: 'account', accountId: accountIdSchema.parse('acc-mathilde'), fleetId, scopes: ['fleet:network'], groupValues: [], personShipId: null, throughShipId: null };
-
-    expect(refusalOf(await registry.setBuiltInRule(account, { rule: 'open', verb: 'send', isOn: false })).kind).toBe('NOT_THE_NETWORK_PLUGIN');
-    expect(builtIns()).toEqual(BUILT_INS_ON);
-  });
 });
 
 describe('the built-in rules that are never off (decision 0034)', () => {
-  it.each(FIXED_BUILT_IN_RULES)('refuses turning %s off, for argo as for the plugin, and changes nothing', async (rule) => {
-    for (const caller of [argo, plugin]) {
+  it.each(FIXED_BUILT_IN_RULES)('refuses turning %s off, for argo as for any ship holding fleet:network, and changes nothing', async (rule) => {
+    for (const caller of [argo, networking]) {
       expect(refusalOf(await registry.setBuiltInRule(caller, { rule, isOn: false }))).toEqual({ kind: 'BUILT_IN_RULE_FIXED', message: `The built-in rule ${rule} is never off (decision 0034)` });
     }
-    expect(core.state.networkSettings.find((settings) => settings.fleetId === fleetId)?.version).toBe(1);
+    expect(core.state.networkSettings).toEqual([]);
     expect(core.state.events).toEqual([]);
   });
 });

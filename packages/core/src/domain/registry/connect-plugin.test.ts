@@ -1,7 +1,7 @@
 import { accountIdSchema } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { readReachOf } from '../../../test/support/core-fixtures.js';
+import { applyNetworkRules, readReachOf } from '../../../test/support/core-fixtures.js';
 import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
 import { unwrap } from '../../testing/result.js';
 import type { AccountCaller } from '../shared/caller.js';
@@ -39,10 +39,10 @@ describe('connecting a plugin (decision 0034)', () => {
     ]);
   });
 
-  it('keeps a connected plugin reading every ship when the networking plugin saves rules that leave it out', async () => {
+  it('keeps a connected plugin reading every ship when the fleet applies rules that leave it out', async () => {
     unwrap(await fleet.registry.connectPlugin(fleet.argo, { shipId: fleet.reader.shipId }));
 
-    unwrap(await fleet.registry.setNetworkRules(fleet.networking, { rules: [{ verb: 'read', from: [fleet.team('b')], to: [fleet.team('b')] }] }));
+    await applyNetworkRules(fleet.registry, fleet.networking, [{ verb: 'read', from: [fleet.team('b')], to: [fleet.team('b')] }]);
 
     await expect(readsOf(fleet.reader)).resolves.toBe('every');
   });

@@ -1,7 +1,7 @@
 import type { FleetId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { agentCaller, hostedFleet, initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
+import { agentCaller, applyNetworkRules, hostedFleet, initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../testing/result.js';
@@ -32,16 +32,13 @@ describe('reading the built-in rules (decision 0034)', () => {
       { rule: 'pluginRead', isOn: true },
       { rule: 'viewerRead', isOn: true },
       { rule: 'installation', isOn: true },
-      { rule: 'open', verb: 'send', isOn: true },
-      { rule: 'open', verb: 'read', isOn: true },
-      { rule: 'open', verb: 'manage', isOn: true },
+      { rule: 'open', isOn: true },
     ]);
   });
 
-  it('answers each rule that can be off as it was turned', async () => {
-    const plugin = await shipWithScopes({ registry, argo }, { name: 'networking', type: 'networking', scopes: ['fleet:network'] });
-    unwrap(await registry.registerNetworkPlugin(plugin, { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 120 }));
-    unwrap(await registry.setBuiltInRule(plugin, { rule: 'open', verb: 'read', isOn: false }));
+  it('answers the viewer reading as it was turned, and open off once the fleet has rules applied', async () => {
+    const networking = await shipWithScopes({ registry, argo }, { name: 'networking', type: 'networking', scopes: ['fleet:network'] });
+    await applyNetworkRules(registry, networking, []);
     unwrap(await registry.setBuiltInRule(argo, { rule: 'viewerRead', isOn: false }));
 
     expect(unwrap(await readBuiltInRules(argo))).toEqual([
@@ -51,10 +48,15 @@ describe('reading the built-in rules (decision 0034)', () => {
       { rule: 'pluginRead', isOn: true },
       { rule: 'viewerRead', isOn: false },
       { rule: 'installation', isOn: true },
-      { rule: 'open', verb: 'send', isOn: true },
-      { rule: 'open', verb: 'read', isOn: false },
-      { rule: 'open', verb: 'manage', isOn: true },
+      { rule: 'open', isOn: false },
     ]);
+  });
+
+  it('answers open on again once none are applied again, all-to-all', async () => {
+    await applyNetworkRules(registry, argo, []);
+    await applyNetworkRules(registry, argo, null);
+
+    expect(unwrap(await readBuiltInRules(argo))).toContainEqual({ rule: 'open', isOn: true });
   });
 
   it("answers the caller's fleet only", async () => {

@@ -1,6 +1,6 @@
 import { readdirSync } from 'node:fs';
 
-import { ANY_LABEL_VALUE, createIdGenerator, idSchema, NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS, SAME_LABEL_VALUE, SCOPES, type FleetId, type Scope, type SendInput, type ShipId } from '@aeolus-fleet/common';
+import { ANY_LABEL_VALUE, createIdGenerator, idSchema, SAME_LABEL_VALUE, SCOPES, type FleetId, type NetworkRule, type Scope, type SendInput, type ShipId } from '@aeolus-fleet/common';
 import { createTRPCClient, httpBatchLink, TRPCClientError, type TRPCClient } from '@trpc/client';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
@@ -2140,52 +2140,93 @@ describe('labels at the API', () => {
 describe('network rules at the API', () => {
   let asNetworker: TRPCClient<AppRouter> | undefined;
 
-  /** A crewed ship with fleet:network, registered as the fleet's networking plugin: the one ship that sets the rules (decision 0035). */
+  /** A crewed ship with fleet:network, which edits and applies the rules (decision 0053). */
   async function networker(): Promise<TRPCClient<AppRouter>> {
     asNetworker = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:network'])}` });
-    await asNetworker.fleet.registerNetworkPlugin.mutate({ whileUnavailable: 'keep-latest', notRespondingAfterSeconds: NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS });
-    await asNetworker.fleet.setBuiltInRule.mutate({ rule: 'open', verb: 'send', isOn: false });
     return asNetworker;
   }
 
+  /** Saves the rules as the draft and applies it at the version it was saved against, answering the version then. */
+  async function applied(as: TRPCClient<AppRouter>, rules: NetworkRule[] | null): Promise<number> {
+    const { savedAgainstVersion } = await as.fleet.saveNetworkRulesDraft.mutate({ rules });
+    return (await as.fleet.applyNetworkRules.mutate({ version: savedAgainstVersion })).version;
+  }
+
   afterEach(async () => {
-    // One fleet serves the whole file: the plugin unregisters, its rules with it, back to all-to-all for the next test.
-    await asNetworker?.fleet.unregisterNetworkPlugin.mutate().catch(() => undefined);
+    // One fleet serves the whole file: back to all-to-all, without a draft, for the next test.
+    if (asNetworker !== undefined) {
+      await applied(asNetworker, null);
+    }
     asNetworker = undefined;
   });
 
-  it('let the networking plugin set the rules, answering the version, and refuse a ship without fleet:network', async () => {
-    const plugin = await networker();
+  it('let a ship with fleet:network save a draft and apply it, answering the versions, and refuse a ship without fleet:network', async () => {
+    const editor = await networker();
     const reader = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:read'])}` });
+    const rules: NetworkRule[] = [{ verb: 'send', from: [], to: [newId('labelValue')] }];
 
-    const first = await plugin.fleet.setNetworkRules.mutate({ rules: [{ verb: 'send', from: [], to: [newId('labelValue')] }] });
-    const second = await plugin.fleet.setNetworkRules.mutate({ rules: [] });
-
-    expect(second.version).toBe(first.version + 1);
-    await expect(refusalOf(reader.fleet.setNetworkRules.mutate({ rules: [] }))).resolves.toEqual({ code: 'FORBIDDEN', message: 'This call needs the fleet:network scope' });
+    const { savedAgainstVersion } = await editor.fleet.saveNetworkRulesDraft.mutate({ rules });
+    await expect(editor.fleet.networkRules.query()).resolves.toMatchObject({ applied: { rules: null, version: savedAgainstVersion }, draft: { rules, savedAgainstVersion } });
+    await expect(editor.fleet.applyNetworkRules.mutate({ version: savedAgainstVersion })).resolves.toEqual({ version: savedAgainstVersion + 1 });
+    await expect(editor.fleet.networkRules.query()).resolves.toEqual({ applied: { rules, version: savedAgainstVersion + 1 }, draft: null });
+    await expect(refusalOf(reader.fleet.saveNetworkRulesDraft.mutate({ rules: [] }))).resolves.toEqual({ code: 'FORBIDDEN', message: 'This call needs the fleet:network scope' });
+    await expect(refusalOf(reader.fleet.networkRules.query())).resolves.toEqual({ code: 'FORBIDDEN', message: 'This call needs the fleet:network scope' });
   });
 
-  it('refuse argo and a ship with fleet:network with FORBIDDEN while the fleet has no networking plugin: rules exist only through one', async () => {
-    const unregistered = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:network'])}` });
+  it('let argo set the rules too, as any actor holding fleet:network (decision 0053)', async () => {
+    await networker();
 
-    await expect(codeOf((await signedInArgo()).fleet.setNetworkRules.mutate({ rules: [] }))).resolves.toBe('FORBIDDEN');
-    await expect(codeOf(unregistered.fleet.setNetworkRules.mutate({ rules: [] }))).resolves.toBe('FORBIDDEN');
+    await expect(applied(await signedInArgo(), [])).resolves.toBeGreaterThan(0);
+  });
+
+  it('answer an apply without a draft with NOT_FOUND, and one past a moved version with CONFLICT keeping the draft', async () => {
+    const editor = await networker();
+    const { version } = (await editor.fleet.networkRules.query()).applied;
+    await expect(codeOf(editor.fleet.applyNetworkRules.mutate({ version }))).resolves.toBe('NOT_FOUND');
+
+    await editor.fleet.saveNetworkRulesDraft.mutate({ rules: [] });
+    await editor.fleet.setBuiltInRule.mutate({ rule: 'viewerRead', isOn: false });
+    await editor.fleet.setBuiltInRule.mutate({ rule: 'viewerRead', isOn: true });
+
+    await expect(codeOf(editor.fleet.applyNetworkRules.mutate({ version }))).resolves.toBe('CONFLICT');
+    await expect(editor.fleet.networkRules.query()).resolves.toMatchObject({ draft: { rules: [] } });
+  });
+
+  it('let a ship with fleet:network discard the draft, and answer a discard without one with NOT_FOUND', async () => {
+    const editor = await networker();
+    await editor.fleet.saveNetworkRulesDraft.mutate({ rules: [] });
+
+    await expect(editor.fleet.discardNetworkRulesDraft.mutate()).resolves.toEqual({});
+    await expect(codeOf(editor.fleet.discardNetworkRulesDraft.mutate())).resolves.toBe('NOT_FOUND');
+  });
+
+  it('answer the reach the draft gains and loses, and explain the draft for argo', async () => {
+    const editor = await networker();
+    const { shipId: fromShipId } = await agentShip();
+    const { shipId: toShipId } = await agentShip();
+    await editor.fleet.saveNetworkRulesDraft.mutate({ rules: [] });
+
+    const changes = await editor.fleet.networkRulesDraftChanges.query();
+
+    expect(changes.send.lost).toContainEqual({ fromShipId, toShipId, rule: { builtIn: 'open' } });
+    expect(changes.send.gained).toEqual([]);
+    await expect((await signedInArgo()).fleet.explainReach.query({ fromShipId, toShipId, ofDraft: true })).resolves.toEqual({ send: [], read: [], manage: [] });
   });
 
   it('let argo explain which ships a ship reaches per verb, naming the rule, and refuse every other ship, the rule setter too', async () => {
-    const plugin = await networker();
-    await plugin.fleet.setNetworkRules.mutate({ rules: [] });
+    const editor = await networker();
+    await applied(editor, [{ verb: 'read', from: [], to: [] }, { verb: 'manage', from: [], to: [] }]);
     const { shipId: fromShipId } = await agentShip();
     const { shipId: toShipId } = await agentShip();
     const argo = await signedInArgo();
 
     await expect(argo.fleet.explainReach.query({ fromShipId, toShipId })).resolves.toEqual({
       send: [],
-      read: [{ shipId: toShipId, rule: { builtIn: 'open' } }],
-      manage: [{ shipId: toShipId, rule: { builtIn: 'open' } }],
+      read: [{ shipId: toShipId, rule: { rule: 0 } }],
+      manage: [{ shipId: toShipId, rule: { rule: 1 } }],
     });
     await expect(argo.fleet.explainReach.query({ fromShipId, toShipId: argoId })).resolves.toMatchObject({ send: [{ shipId: argoId, rule: { builtIn: 'argo' } }] });
-    await expect(codeOf(plugin.fleet.explainReach.query({ fromShipId }))).resolves.toBe('FORBIDDEN');
+    await expect(codeOf(editor.fleet.explainReach.query({ fromShipId }))).resolves.toBe('FORBIDDEN');
   });
 
   it('check a send and an explain under a term of the same value: only ships with the same value reach each other', async () => {
@@ -2204,13 +2245,13 @@ describe('network rules at the API', () => {
       await asLabeller.fleet.assignLabel.mutate({ shipId, valueId: valueId ?? newId('labelValue') });
     }
     const sameZone = { labelId: zone.labelId, value: SAME_LABEL_VALUE };
-    await (await networker()).fleet.setNetworkRules.mutate({ rules: [{ verb: 'send', from: [sameZone], to: [sameZone] }] });
+    await applied(await networker(), [{ verb: 'send', from: [sameZone], to: [sameZone] }]);
     const toShip = (shipId: ShipId) => ({ selector: { kind: 'ship' as const, shipId }, payload: 'Review the PR', idempotencyKey: newKey(), model: SESSION_MODEL });
 
     await expect((await signedInArgo()).fleet.explainReach.query({ fromShipId: senderId })).resolves.toMatchObject({
       send: [
         { shipId: argoId, rule: { builtIn: 'argo' } },
-        { shipId: neighbourId, rule: { plugin: 0 } },
+        { shipId: neighbourId, rule: { rule: 0 } },
       ],
     });
     expect((await sender.ship.send.mutate(toShip(neighbourId))).messageId).toMatch(/^msg_/);
@@ -2218,26 +2259,25 @@ describe('network rules at the API', () => {
   });
 
   it('take a term of any value, and answer a term of the same value on one side only with BAD_REQUEST naming decision 0034', async () => {
-    const plugin = await networker();
+    const editor = await networker();
     const labelId = newId('label');
 
-    expect((await plugin.fleet.setNetworkRules.mutate({ rules: [{ verb: 'send', from: [{ labelId, value: ANY_LABEL_VALUE }], to: [] }] })).version).toBeGreaterThan(0);
-    const refused = await refusalOf(plugin.fleet.setNetworkRules.mutate({ rules: [{ verb: 'send', from: [{ labelId, value: SAME_LABEL_VALUE }], to: [] }] }));
+    await expect(editor.fleet.saveNetworkRulesDraft.mutate({ rules: [{ verb: 'send', from: [{ labelId, value: ANY_LABEL_VALUE }], to: [] }] })).resolves.toMatchObject({ savedAgainstVersion: expect.any(Number) });
+    const refused = await refusalOf(editor.fleet.saveNetworkRulesDraft.mutate({ rules: [{ verb: 'send', from: [{ labelId, value: SAME_LABEL_VALUE }], to: [] }] }));
     expect(refused?.code).toBe('BAD_REQUEST');
     expect(refused?.message).toContain('decision 0034');
   });
 
-  it("answer more rules than argo's 200 and the declared ones with BAD_REQUEST naming decision 0037", async () => {
-    const plugin = await networker();
-    const declared = (await plugin.fleet.declaredNetworkRules.query()).reduce((count, ship) => count + ship.rules.length, 0);
+  it("answer more than the fleet's own 200 rules with BAD_REQUEST naming decision 0037", async () => {
+    const editor = await networker();
 
-    const refused = await refusalOf(plugin.fleet.setNetworkRules.mutate({ rules: Array.from({ length: 201 + declared }, () => ({ verb: 'send', from: [], to: [] })) }));
+    const refused = await refusalOf(editor.fleet.saveNetworkRulesDraft.mutate({ rules: Array.from({ length: 201 }, () => ({ verb: 'send' as const, from: [], to: [] })) }));
 
     expect(refused?.code).toBe('BAD_REQUEST');
     expect(refused?.message).toContain('decision 0037');
   });
 
-  it('let a ship with labels:define declare rules on the labels it owns, and the networking plugin read them, with the ship', async () => {
+  it('let a ship with labels:define declare rules on the labels it owns, and a ship with fleet:network read them, with the ship', async () => {
     const declarer = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'labels:define', 'labels:assign'])}` });
     const { shipId } = await declarer.ship.whoami.query();
     const { labelId } = await declarer.fleet.defineLabel.mutate({ key: 'api-declared-squadron', values: ['alpha'] });
@@ -2246,23 +2286,6 @@ describe('network rules at the API', () => {
     await expect(declarer.fleet.declareNetworkRules.mutate({ rules })).resolves.toEqual({ rules: 1 });
     await expect((await networker()).fleet.declaredNetworkRules.query()).resolves.toContainEqual({ declarer: { kind: 'ship', shipId }, rules });
     await declarer.fleet.declareNetworkRules.mutate({ rules: [] });
-  });
-
-  it("let a ship with fleet:read read the fleet's networking plugin: its ship and when it registered, or null without one", async () => {
-    const reader = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:read'])}` });
-    await expect(reader.fleet.networkPlugin.query()).resolves.toBeNull();
-    const plugin = await networker();
-    const { shipId } = await plugin.ship.whoami.query();
-    const read = await reader.fleet.networkPlugin.query();
-
-    expect(read?.shipId).toBe(shipId);
-    expect(read?.registeredAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
-  });
-
-  it("refuse a read of the fleet's networking plugin without fleet:read, with FORBIDDEN", async () => {
-    const sender = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive'])}` });
-
-    await expect(refusalOf(sender.fleet.networkPlugin.query())).resolves.toEqual({ code: 'FORBIDDEN', message: 'This call needs the fleet:read scope' });
   });
 
   it('refuse a declaration without labels:define, and a read of declared rules without fleet:network, with FORBIDDEN', async () => {
@@ -2284,7 +2307,7 @@ describe('network rules at the API', () => {
   });
 
   it('refuse a send no rule allows with FORBIDDEN and a message that gives no reason', async () => {
-    await (await networker()).fleet.setNetworkRules.mutate({ rules: [] });
+    await applied(await networker(), []);
     const sender = client({ authorization: `Bearer ${await crewedShip()}` });
     const { shipId } = await agentShip();
 
@@ -2296,8 +2319,8 @@ describe('network rules at the API', () => {
   });
 
   it('let argo read the refusals, newest first, and refuse every other ship, the rule setter too', async () => {
-    const plugin = await networker();
-    const { version } = await plugin.fleet.setNetworkRules.mutate({ rules: [] });
+    const editor = await networker();
+    const version = await applied(editor, []);
     const senderToken = await crewedShip();
     const { shipId } = await agentShip();
     await database.ship.update({ where: { id: shipId }, data: { ownerShipId: argoId } });
@@ -2310,37 +2333,42 @@ describe('network rules at the API', () => {
 
     expect(latest).toMatchObject({ recipient: { kind: 'ship', ship: { id: shipId, labels: [], owner: { name: 'argo' } } }, settingsVersion: version, at: refusedAt });
     expect(latest?.id).toMatch(/^rfs_/);
-    await expect(codeOf(plugin.fleet.reachRefusals.query())).resolves.toBe('FORBIDDEN');
+    await expect(codeOf(editor.fleet.reachRefusals.query())).resolves.toBe('FORBIDDEN');
   });
 
-  it('set the rules through REST, for the networking plugin', async () => {
+  it('save, read, discard and apply the rules through REST, for a ship with fleet:network', async () => {
     const crewToken = await crewedShip(['messages:send', 'messages:receive', 'fleet:network']);
-    const post = (path: string, body: unknown) =>
+    const call = (method: 'GET' | 'POST', path: string, body?: unknown) =>
       fetch(`${address}/api/v1/fleet/${path}`, {
-        method: 'POST',
-        headers: { authorization: `Bearer ${crewToken}`, 'content-type': 'application/json' },
-        body: JSON.stringify(body),
+        method,
+        headers: { authorization: `Bearer ${crewToken}`, ...(body === undefined ? {} : { 'content-type': 'application/json' }) },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       });
-    expect((await post('registerNetworkPlugin', { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 300 })).status).toBe(200);
-
-    const response = await post('setNetworkRules', { rules: [] });
     const sameTeam = { labelId: newId('label'), value: SAME_LABEL_VALUE };
-    const withTerms = await post('setNetworkRules', { rules: [{ verb: 'send', from: [newId('labelValue'), sameTeam], to: [{ labelId: newId('label'), value: ANY_LABEL_VALUE }, sameTeam] }] });
 
-    expect(response.status).toBe(200);
-    expect(withTerms.status).toBe(200);
-    expect(z.object({ version: z.number() }).parse(await response.json()).version).toBeGreaterThan(0);
-    expect((await post('setBuiltInRule', { rule: 'open', verb: 'manage', isOn: false })).status).toBe(200);
-    expect((await post('unregisterNetworkPlugin', {})).status).toBe(200);
+    const saved = await call('POST', 'saveNetworkRulesDraft', { rules: [{ verb: 'send', from: [newId('labelValue'), sameTeam], to: [{ labelId: newId('label'), value: ANY_LABEL_VALUE }, sameTeam] }] });
+    const { savedAgainstVersion } = z.object({ savedAgainstVersion: z.number() }).parse(await saved.json());
+    const read = await call('GET', 'networkRules');
+    const changes = await call('GET', 'networkRulesDraftChanges');
+    const discarded = await call('POST', 'discardNetworkRulesDraft', {});
+    await call('POST', 'saveNetworkRulesDraft', { rules: null });
+    const applyResponse = await call('POST', 'applyNetworkRules', { version: savedAgainstVersion });
+
+    expect([saved.status, read.status, changes.status, discarded.status, applyResponse.status]).toEqual([200, 200, 200, 200, 200]);
+    expect(z.object({ version: z.number() }).parse(await applyResponse.json()).version).toBe(savedAgainstVersion + 1);
+    expect((await call('POST', 'setBuiltInRule', { rule: 'viewerRead', isOn: true })).status).toBe(200);
   });
 
-  it('let argo turn the viewer reading off and on, and refuse turning a built-in rule that is never off with FORBIDDEN naming decision 0034', async () => {
+  it('let argo turn the viewer reading off and on, and refuse turning another built-in rule with FORBIDDEN naming decision 0034', async () => {
     const asArgo = await signedInArgo();
 
     const off = await asArgo.fleet.setBuiltInRule.mutate({ rule: 'viewerRead', isOn: false });
     await expect(asArgo.fleet.setBuiltInRule.mutate({ rule: 'viewerRead', isOn: true })).resolves.toEqual({ version: off.version + 1 });
     await expect(refusalOf(asArgo.fleet.setBuiltInRule.mutate({ rule: 'owner', isOn: false }))).resolves.toEqual({ code: 'FORBIDDEN', message: 'The built-in rule owner is never off (decision 0034)' });
-    await expect(codeOf(asArgo.fleet.setBuiltInRule.mutate({ rule: 'open', isOn: false }))).resolves.toBe('BAD_REQUEST');
+    await expect(refusalOf(asArgo.fleet.setBuiltInRule.mutate({ rule: 'open', isOn: false }))).resolves.toEqual({
+      code: 'FORBIDDEN',
+      message: 'The built-in rule open is on exactly while the fleet has no rules applied (decision 0034)',
+    });
   });
 
   it('let argo read the built-in rules as they are now, and refuse a ship without fleet:network with FORBIDDEN', async () => {
@@ -2351,82 +2379,6 @@ describe('network rules at the API', () => {
     await expect(asArgo.fleet.builtInRules.query()).resolves.toContainEqual({ rule: 'viewerRead', isOn: false });
     await asArgo.fleet.setBuiltInRule.mutate({ rule: 'viewerRead', isOn: true });
     await expect(refusalOf(reader.fleet.builtInRules.query())).resolves.toEqual({ code: 'FORBIDDEN', message: 'This call needs the fleet:network scope' });
-  });
-});
-
-describe('the networking plugin at the API', () => {
-  let asPlugin: TRPCClient<AppRouter> | undefined;
-
-  async function aPlugin(): Promise<TRPCClient<AppRouter>> {
-    asPlugin = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:network'])}` });
-    return asPlugin;
-  }
-
-  afterEach(async () => {
-    // One fleet serves the whole file: the plugin unregisters, back to all-to-all for the next test.
-    await asPlugin?.fleet.unregisterNetworkPlugin.mutate().catch(() => undefined);
-    asPlugin = undefined;
-  });
-
-  it('let a ship with fleet:network register, answering the version, and refuse a ship without', async () => {
-    const reader = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:read'])}` });
-
-    const registered = await (await aPlugin()).fleet.registerNetworkPlugin.mutate({ whileUnavailable: 'block-all', notRespondingAfterSeconds: 120 });
-
-    expect(registered.version).toBeGreaterThan(0);
-    await expect(refusalOf(reader.fleet.registerNetworkPlugin.mutate({ whileUnavailable: 'block-all', notRespondingAfterSeconds: 120 }))).resolves.toEqual({
-      code: 'FORBIDDEN',
-      message: 'This call needs the fleet:network scope',
-    });
-  });
-
-  it('answer a second plugin with CONFLICT, and argo setting the rules with FORBIDDEN, while one is registered', async () => {
-    await (await aPlugin()).fleet.registerNetworkPlugin.mutate({ whileUnavailable: 'open-all', notRespondingAfterSeconds: 60 });
-    const second = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:network'])}` });
-
-    await expect(codeOf(second.fleet.registerNetworkPlugin.mutate({ whileUnavailable: 'open-all', notRespondingAfterSeconds: 60 }))).resolves.toBe('CONFLICT');
-    await expect(codeOf((await signedInArgo()).fleet.setNetworkRules.mutate({ rules: [] }))).resolves.toBe('FORBIDDEN');
-  });
-
-  it('answer a declaration under a minute with BAD_REQUEST', async () => {
-    await expect(codeOf((await aPlugin()).fleet.registerNetworkPlugin.mutate({ whileUnavailable: 'open-all', notRespondingAfterSeconds: 59 }))).resolves.toBe('BAD_REQUEST');
-  });
-
-  it('let the plugin unregister, answering the version, and refuse every other ship', async () => {
-    const plugin = await aPlugin();
-    const { version } = await plugin.fleet.registerNetworkPlugin.mutate({ whileUnavailable: 'block-all', notRespondingAfterSeconds: 120 });
-
-    await expect(codeOf((await signedInArgo()).fleet.unregisterNetworkPlugin.mutate())).resolves.toBe('FORBIDDEN');
-    await expect(plugin.fleet.unregisterNetworkPlugin.mutate()).resolves.toEqual({ version: version + 1 });
-  });
-
-  it('give argo the refusals with what the plugin declared when it was not responding', async () => {
-    const plugin = await aPlugin();
-    await plugin.fleet.registerNetworkPlugin.mutate({ whileUnavailable: 'block-all', notRespondingAfterSeconds: 60 });
-    const sender = client({ authorization: `Bearer ${await crewedShip()}` });
-    const { shipId } = await agentShip();
-    clock.advance(61_000);
-
-    await refusalOf(sender.ship.send.mutate({ selector: { kind: 'ship', shipId }, payload: 'Review the PR', idempotencyKey: newKey(), model: SESSION_MODEL }));
-
-    const [latest] = await (await signedInArgo()).fleet.reachRefusals.query();
-    expect(latest).toMatchObject({ recipient: { kind: 'ship', ship: { id: shipId } }, whilePluginUnavailable: 'block-all' });
-  });
-
-  it('register and unregister through REST, for a ship with fleet:network', async () => {
-    const crewToken = await crewedShip(['messages:send', 'messages:receive', 'fleet:network']);
-    const post = (path: string, body?: unknown) =>
-      fetch(`${address}/api/v1/fleet/${path}`, {
-        method: 'POST',
-        headers: { authorization: `Bearer ${crewToken}`, 'content-type': 'application/json' },
-        body: JSON.stringify(body ?? {}),
-      });
-
-    const registered = await post('registerNetworkPlugin', { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 300 });
-    const unregistered = await post('unregisterNetworkPlugin');
-
-    expect([registered.status, unregistered.status]).toEqual([200, 200]);
-    expect(z.object({ version: z.number() }).parse(await unregistered.json()).version).toBeGreaterThan(1);
   });
 });
 

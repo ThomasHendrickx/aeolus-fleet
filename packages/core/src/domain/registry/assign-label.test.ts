@@ -1,7 +1,7 @@
 import { accountIdSchema, type FleetId, type LabelId, type LabelValueId, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { addViewerShip, initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
+import { addViewerShip, applyNetworkRules, everyShipMay, initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { newKey } from '../../testing/keys.js';
@@ -204,7 +204,7 @@ describe('assigning a label', () => {
 describe('assigning with labels:any outside manage reach (decision 0053)', () => {
   it('is refused as a manage the rules do not allow, recording the refusal and storing nothing', async () => {
     const fleet = await readReachScenario();
-    unwrap(await fleet.registry.setBuiltInRule(fleet.networking, { rule: 'open', verb: 'manage', isOn: false }));
+    await applyNetworkRules(fleet.registry, fleet.networking, [everyShipMay('send'), everyShipMay('read')]);
     fleet.core.state.reachRefusals.length = 0;
     const before = fleet.core.state.shipLabels.length;
     const labeller: ShipCaller = { ...fleet.near, scopes: ['labels:assign', 'labels:any'] };

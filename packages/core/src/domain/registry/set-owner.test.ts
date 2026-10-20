@@ -1,7 +1,7 @@
 import type { ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
+import { applyNetworkRules, everyShipMay, initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
 import { readReachScenario } from '../../../test/support/read-reach-scenario.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../testing/result.js';
@@ -139,7 +139,7 @@ describe("setting an owner outside the actor's manage reach (decisions 0034, 005
   it('is refused as a manage the rules do not allow, recording the refusal and changing nothing', async () => {
     const fleet = await readReachScenario();
     const { shipId: personId } = unwrap(await fleet.registry.commissionShip(fleet.argo, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person' }));
-    unwrap(await fleet.registry.setBuiltInRule(fleet.networking, { rule: 'open', verb: 'manage', isOn: false }));
+    await applyNetworkRules(fleet.registry, fleet.networking, [everyShipMay('send'), everyShipMay('read')]);
     fleet.core.state.reachRefusals.length = 0;
     const admin: ShipCaller = { ...fleet.near, scopes: ['fleet:owner'] };
 

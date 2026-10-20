@@ -123,9 +123,8 @@ beforeAll(async () => {
   far = await commissioned('far');
   unwrap(await useCases.assignLabel(argo, { shipId: near, valueId: valueOf('engineering') }));
   unwrap(await useCases.assignLabel(argo, { shipId: far, valueId: valueOf('finance') }));
-  unwrap(await useCases.registerNetworkPlugin(plugin, { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 3600 }));
-  unwrap(await useCases.setNetworkRules(plugin, { rules: [{ verb: 'manage', from: [valueOf('engineering')], to: [valueOf('engineering')] }] }));
-  unwrap(await useCases.setBuiltInRule(plugin, { rule: 'open', verb: 'manage', isOn: false }));
+  const { savedAgainstVersion } = unwrap(await useCases.saveNetworkRulesDraft(plugin, { rules: [{ verb: 'manage', from: [valueOf('engineering')], to: [valueOf('engineering')] }, { verb: 'send', from: [], to: [] }, { verb: 'read', from: [], to: [] }] }));
+  unwrap(await useCases.applyNetworkRules(plugin, { version: savedAgainstVersion }));
 
   const gatewayShip = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'gateway', type: 'gateway', kind: 'app' }));
   gateway = {

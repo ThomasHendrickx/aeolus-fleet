@@ -1,7 +1,7 @@
 import type { FleetId, ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { addViewerShip, crewAboard, initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
+import { addViewerShip, applyNetworkRules, crewAboard, everyShipMay, initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { newKey } from '../../testing/keys.js';
@@ -42,23 +42,13 @@ beforeEach(async () => {
   core.state.events.length = 0;
 });
 
-/** Sets the rules as the networking plugin does, open for send off: tier=public ships are the only ones a send rule reaches. */
+/** Applies the rules, open off: tier=public ships are the only ones a send rule reaches. */
 async function onlyPublicReached(): Promise<void> {
   const networking = await shipWithScopes({ registry, argo }, { name: 'networking', type: 'networking', scopes: ['fleet:network'] });
   unwrap(await registry.defineLabel(argo, { key: 'tier', values: ['public'] }));
   const isPublic = valueIdOf(core, { key: 'tier', value: 'public' });
   unwrap(await registry.assignLabel(argo, { shipId: scoutId, valueId: isPublic }));
-  unwrap(await registry.registerNetworkPlugin(networking, { whileUnavailable: 'keep-latest', notRespondingAfterSeconds: 300 }));
-  unwrap(
-    await registry.setNetworkRules(networking, {
-      rules: [
-        { verb: 'send', from: [], to: [isPublic] },
-        { verb: 'read', from: [], to: [] },
-        { verb: 'manage', from: [], to: [] },
-      ],
-    }),
-  );
-  unwrap(await registry.setBuiltInRule(networking, { rule: 'open', verb: 'send', isOn: false }));
+  await applyNetworkRules(registry, networking, [{ verb: 'send', from: [], to: [isPublic] }, everyShipMay('read'), everyShipMay('manage')]);
   core.state.events.length = 0;
 }
 

@@ -183,15 +183,13 @@ describe("reading the way of a ship outside read reach (decision 0034)", () => {
       recipient: [recipient?.id, recipient?.labels.map(({ key, value }) => `${key}=${value}`)],
       verb: refusal?.verb,
       settingsVersion: refusal?.settingsVersion,
-      whilePluginUnavailable: refusal?.whilePluginUnavailable,
     }).toEqual({
       count: 1,
       at: fleet.core.clock.now(),
       sender: [fleet.reader.shipId, ['team=a'], 'argo'],
       recipient: [fleet.far.shipId, ['team=b']],
       verb: 'read',
-      settingsVersion: 3,
-      whilePluginUnavailable: null,
+      settingsVersion: 1,
     });
   });
 
