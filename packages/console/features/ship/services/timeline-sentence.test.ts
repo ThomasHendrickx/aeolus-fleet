@@ -78,6 +78,7 @@ describe('timelineSentence', () => {
     ['takenOver', 'Taken over by a new console session.'],
     ['signedOut', 'The operator signed out.'],
     ['passwordReset', 'Its session ended with the operator password reset.'],
+    ['accountCutOff', 'Its session ended: the account signed in as argo was cut off.'],
   ])('words a lease that ended because it was %s', (reason, sentence) => {
     const ended = anEntry('LeaseRevoked', { actor: argo, details: { reason, returnedDeliveries: 0 } });
 

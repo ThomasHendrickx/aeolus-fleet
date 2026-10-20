@@ -116,6 +116,19 @@ describe('a sign-in ticket', () => {
     expect(argos.filter((event) => event.actorSignedInAccountId !== 'acc-01lena')).toEqual([]);
   });
 
+  it("ends the account's console sign-in as argo when the installation cuts the account off, and argo's lease with it (decision 0055)", async () => {
+    const { ticket } = await installation().operators.issueSignInTicket.mutate({ fleetId, account: { id: 'acc-01burak' } });
+    const redeemed = await redeem(ticket);
+    const cookie = 'cookie' in redeemed ? redeemed.cookie : '';
+
+    await installation().accounts.cutOff.mutate({ accountId: 'acc-01burak' });
+
+    await expect(accountWith(cookie)).rejects.toMatchObject({ data: { code: 'UNAUTHORIZED' } });
+    const session = await database.consoleSession.findFirst({ where: { fleetId, accountId: 'acc-01burak' }, select: { endReason: true, leaseId: true } });
+    expect(session?.endReason).toBe('accountCutOff');
+    await expect(database.lease.count({ where: { fleetId, id: session?.leaseId ?? '', endedAt: null } })).resolves.toBe(0);
+  });
+
   it('signs in once and never again', async () => {
     const { ticket } = await installation().operators.issueSignInTicket.mutate({ fleetId });
     await redeem(ticket);
