@@ -88,6 +88,15 @@ export const SignedInByAccount: Story = {
   },
 };
 
+/** Hosted, argo signed in by an account pagasae names (decisions 0054, 0058): the menu shows its name, never stored by the console. */
+export const SignedInByNamedAccount: Story = {
+  args: { account: { ...ACCOUNT, session: { ...ACCOUNT.session, accountId: 'acc-01mathilde' } }, accountName: 'mathilde@acme.example' },
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByTestId('account-menu'));
+    await expect(await screen.findByTestId('account-signed-in-as')).toHaveTextContent('Signed in as mathilde@acme.example');
+  },
+};
+
 /** argo's own sign-in names no account. */
 export const SignedInAsArgo: Story = {
   args: { account: { ...ACCOUNT, session: { ...ACCOUNT.session, accountId: null } } },
