@@ -282,6 +282,16 @@ describe('the network rule the installation declares on its group label (decisio
     await expect(database.installationDeclaredNetworkRules.count({ where: { fleetId } })).resolves.toBe(0);
   });
 
+  it('is read by an account holding fleet:network, as by the networking plugin', async () => {
+    const { labelId } = await asInstallation().fleet.defineLabel.mutate({ key: 'group-read', values: ['sales'] });
+    const sameGroup = { labelId, value: '#' };
+    const rules = [{ verb: 'send' as const, from: [sameGroup], to: [sameGroup] }];
+    await asInstallation().fleet.declareNetworkRules.mutate({ rules });
+
+    await expect(anAccountHolding(['fleet:network']).fleet.declaredNetworkRules.query()).resolves.toContainEqual({ declarer: { kind: 'installation' }, rules });
+    await asInstallation().fleet.declareNetworkRules.mutate({ rules: [] });
+  });
+
   it('writes NetworkRulesDeclared naming the installation', async () => {
     const { labelId } = await asInstallation().fleet.defineLabel.mutate({ key: 'group-announced', values: ['sales'] });
     const sameGroup = { labelId, value: '#' };
