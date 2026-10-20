@@ -11,7 +11,7 @@ import { LoadingSkeleton } from '../../../../components/molecules/loading-skelet
 import type { DeclaredRules } from '../../services/declared-rules';
 
 export interface DeclaredNetworkRulesProps {
-  /** Each plugin's declared rules, by its name; undefined while not known. */
+  /** Each declarer's rules, by its name; undefined while not known. */
   declared: readonly DeclaredRules[] | undefined;
   /** Why the fleet could not list them. */
   error?: string;
@@ -26,10 +26,10 @@ const SIDES: readonly { side: RuleSide; label: string }[] = [
 ];
 
 /**
- * The rules plugins declared on Network (design point 6 on #573; decision
- * 0037): apart from argo's own, each plugin's list under the plugin that
- * declared it. Argo reads them and edits nothing: only the plugin changes
- * them, and switching it off withdraws them.
+ * The rules plugins and the installation declared on Network (design point
+ * 6 on #573; decisions 0037, 0052): apart from argo's own, each list under
+ * its declarer. Argo reads them and edits nothing: only the declarer changes
+ * them, and switching a plugin off withdraws its rules.
  */
 export function DeclaredNetworkRules({ declared, error, onRetry, context }: DeclaredNetworkRulesProps) {
   let content;
@@ -38,7 +38,7 @@ export function DeclaredNetworkRules({ declared, error, onRetry, context }: Decl
   } else if (declared === undefined) {
     content = <LoadingSkeleton variant="list" rows={2} label="Loading the declared rules" />;
   } else if (declared.length === 0) {
-    content = <EmptyState variant="section" title="No plugin declares rules." />;
+    content = <EmptyState variant="section" title="Nothing declares rules." />;
   } else {
     content = (
       <ul className="flex flex-col gap-3">
@@ -77,11 +77,11 @@ export function DeclaredNetworkRules({ declared, error, onRetry, context }: Decl
   return (
     <section aria-labelledby="network-declared" data-testid="network-declared" className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
       <h2 id="network-declared" className="text-body font-semibold">
-        Declared by plugins
+        Declared by plugins and the installation
       </h2>
       <p className="text-meta text-muted-foreground">
-        Rules plugins need on the labels they own. The networking plugin adds them to your rules; while every ship may message every ship, they change nothing. Only
-        the plugin changes them, and switching it off withdraws them.
+        Rules plugins and the installation need on the labels they own. The networking plugin adds them to your rules; while every ship may message every ship, they
+        change nothing. Only their declarer changes them, and switching a plugin off withdraws its rules.
       </p>
       {content}
     </section>
