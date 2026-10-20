@@ -12,10 +12,9 @@ import { shownConnectionOf, type ShownConnection } from './shown-connection';
 
 /**
  * Connect the gateway, the operator's one button: commissions its ship,
- * gateway with fleet:read, fleet:commission and fleet:on-behalf, or gives it
- * a new starting prompt, and hands its secret to the gateway, server to
- * server, as its read does (lib/gateway-reads.ts). The gateway refuses a
- * fleet without a registered networking plugin, and its words show. The
+ * gateway with GATEWAY_SHIP's scopes, or gives it a new starting prompt,
+ * and hands its secret to the gateway, server to server, as its read does
+ * (lib/gateway-reads.ts). When the gateway refuses, its words show. The
  * browser gets the connection only.
  */
 export async function connectGateway(): Promise<PluginAnswer<ShownConnection>> {

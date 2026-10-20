@@ -50,8 +50,7 @@ export function GatewayConnection({ settings, loadError, onRetry, isConnecting, 
         <>
           <p className="text-body" data-testid="settings-gateway-state">
             Not connected. Connecting commissions the ship gateway, which reads the fleet and commissions an app ship for each outside party you approve, or
-            gives it a new starting prompt, and hands its secret to the gateway. No one sees the secret. The gateway needs the networking plugin connected
-            first.
+            gives it a new starting prompt, and hands its secret to the gateway. No one sees the secret.
           </p>
           <div>
             <Button variant="primary" icon={<Link2 aria-hidden />} isLoading={isConnecting} onClick={onConnect} data-testid="settings-gateway-connect">

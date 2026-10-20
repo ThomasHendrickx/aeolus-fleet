@@ -23,10 +23,13 @@ export const TRIERARCH_PLUGIN_SHIP: PluginShip = { name: 'trierarch-plugin', typ
 
 /**
  * The gateway's ship: it reads the fleet and commissions an app proxy ship for
- * each outside party argo approves, naming the owner argo picked; argo labels
- * proxy ships in the console (decisions 0044 to 0046, interop design I-5).
+ * each outside party approved, naming the owner picked; argo labels proxy
+ * ships in the console (decisions 0044 to 0046, interop design I-5). It
+ * declares its scope gateway:approve (0056) and writes what it checked about
+ * each proxy ship as verified facts (0059). The gateway refuses to connect a
+ * ship without every one of these.
  */
-export const GATEWAY_SHIP: PluginShip = { name: 'gateway', type: 'gateway', scopes: ['fleet:read', 'fleet:commission', 'fleet:on-behalf'] };
+export const GATEWAY_SHIP: PluginShip = { name: 'gateway', type: 'gateway', scopes: ['fleet:read', 'fleet:commission', 'fleet:on-behalf', 'scopes:declare', 'fleet:verify'] };
 
 export interface PluginConnection {
   /** False when the plugin is off for this operator's fleet: the console then shows nothing of it. */

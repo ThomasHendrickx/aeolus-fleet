@@ -178,12 +178,12 @@ describe('connecting the trierarch plugin from the console', () => {
 });
 
 describe('connecting the gateway from the console', () => {
-  it('commissions gateway with fleet:read, fleet:commission and fleet:on-behalf, the scopes it reads the fleet and commissions app proxy ships with, naming the owner argo picked (decisions 0044, 0045)', async () => {
+  it("commissions gateway with every scope the gateway's connect checks for: fleet:read, fleet:commission and fleet:on-behalf for app proxy ships with the owner argo picked, scopes:declare for gateway:approve, and fleet:verify for its verified facts (decisions 0044, 0045, 0056, 0059)", async () => {
     const { calls, state } = fakes();
 
     await expect(connectPlugin(calls, { ship: GATEWAY_SHIP, newKey })).resolves.toMatchObject({ state: 'connected', ship: { name: 'gateway' } });
 
     expect(state.done).toEqual(['commission gateway', 'connect as plugin shp_1']);
-    expect(state.scopes).toEqual([['fleet:read', 'fleet:commission', 'fleet:on-behalf']]);
+    expect(state.scopes).toEqual([['fleet:read', 'fleet:commission', 'fleet:on-behalf', 'scopes:declare', 'fleet:verify']]);
   });
 });

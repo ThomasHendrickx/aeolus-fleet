@@ -17,9 +17,9 @@ type Story = StoryObj<typeof meta>;
 export const NotSetUp: Story = { args: { settings: { state: 'none' } } };
 export const NotConnected: Story = { args: { settings: { state: 'not-connected', ship: null, lastShipId: null } } };
 export const Connecting: Story = { args: { ...NotConnected.args, isConnecting: true } };
-/** The gateway refuses a fleet without a registered networking plugin, and says so. */
+/** The gateway refuses to connect, and says why. */
 export const ConnectFailed: Story = {
-  args: { ...NotConnected.args, connectError: 'Connect the networking plugin first: the gateway serves only a fleet with a registered networking plugin' },
+  args: { ...NotConnected.args, connectError: 'The ship needs fleet:read, fleet:commission, fleet:on-behalf, scopes:declare, fleet:verify' },
 };
 export const Connected: Story = {
   args: { settings: { state: 'connected', ship: { shipId: SHIP_ID, name: 'gateway' }, lastShipId: SHIP_ID } },
