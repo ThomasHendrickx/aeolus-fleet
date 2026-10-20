@@ -1,7 +1,7 @@
 import { idSchema } from '@aeolus-fleet/common';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 
-import type { Spot } from '../../../lib/machines';
+import type { Spot } from '../../../../lib/machines';
 import { CapacityBar } from './capacity-bar';
 
 const shipId = (suffix: string) => idSchema('ship').parse(`shp_01j9k2t4qzr3a9w6m2v5n7${suffix}`);

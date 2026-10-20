@@ -138,7 +138,6 @@ const featuresInTheOldLayout = [
   'ship-actions',
   'sign-in',
   'squadrons',
-  'trierarchs',
 ];
 
 const newFeatureLayout = 'packages/console/features/*/@(ui/@(atoms|molecules|organisms)|state|hooks|services)/**';

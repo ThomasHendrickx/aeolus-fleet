@@ -1,7 +1,7 @@
 import { createIdGenerator } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
-import { isClearing } from './clear-requests';
+import { isClearing } from './kept-worktrees';
 
 const newId = createIdGenerator();
 

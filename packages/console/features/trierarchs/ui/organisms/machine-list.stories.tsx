@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 
-import { FLEET, MACHINES, NOW } from '../../../lib/fixtures/machines.fixtures';
+import { FLEET, MACHINES, NOW } from '../../../../lib/fixtures/machines.fixtures';
 import { MachineList } from './machine-list';
 
 const meta = {

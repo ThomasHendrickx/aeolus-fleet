@@ -2,13 +2,13 @@ import type { ListedShip } from '@aeolus-fleet/common';
 import { Plus, ShipWheel, Unplug } from 'lucide-react';
 import Link from 'next/link';
 
-import { spotsOf } from '../../../lib/machines';
-import { SOURCE_URL } from '../../../lib/source';
-import type { Machine } from '../../../lib/trierarch-plugin-schemas';
-import { Button } from '../../../components/atoms/button';
-import { EmptyState } from '../../../components/molecules/empty-state';
-import { InlineError } from '../../../components/molecules/inline-error';
-import { LoadingSkeleton } from '../../../components/molecules/loading-skeleton';
+import { spotsOf } from '../../../../lib/machines';
+import { SOURCE_URL } from '../../../../lib/source';
+import type { Machine } from '../../../../lib/trierarch-plugin-schemas';
+import { Button } from '../../../../components/atoms/button';
+import { EmptyState } from '../../../../components/molecules/empty-state';
+import { InlineError } from '../../../../components/molecules/inline-error';
+import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
 import { MachineCard } from './machine-card';
 
 /** Where setting the trierarch plugin up is described: its README. */

@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, within } from 'storybook/test';
 
-import { ALIVE_MACHINE, NEW_MACHINE, NOW, SILENT_MACHINE, SPOTS } from '../../../lib/fixtures/machines.fixtures';
+import { ALIVE_MACHINE, NEW_MACHINE, NOW, SILENT_MACHINE, SPOTS } from '../../../../lib/fixtures/machines.fixtures';
 import { MachineCard } from './machine-card';
 
 const meta = {

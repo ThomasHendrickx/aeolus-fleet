@@ -3,18 +3,18 @@
 import { CircleAlert, CircleCheck, CircleX, Info } from 'lucide-react';
 import { useId, useState } from 'react';
 
-import { useConsoleConstants } from '../../../lib/console-constants';
-import { classNames } from '../../../lib/class-names';
-import { asHandle, checkShipName } from '../../../lib/ship-name';
-import type { JoinedMachine } from '../../../lib/trierarch-plugin-schemas';
-import { Button } from '../../../components/atoms/button';
-import { CodeBlock } from '../../../components/atoms/code-block';
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../components/atoms/dialog';
-import { dialogSurface } from '../../../components/atoms/dialog-surface';
-import { Input } from '../../../components/atoms/input';
-import { Label } from '../../../components/atoms/label';
-import { CrewLines } from '../../../components/molecules/crew-lines';
-import { InlineError } from '../../../components/molecules/inline-error';
+import { useConsoleConstants } from '../../../../lib/console-constants';
+import { classNames } from '../../../../lib/class-names';
+import { asHandle, checkShipName } from '../../../../lib/ship-name';
+import type { JoinedMachine } from '../../../../lib/trierarch-plugin-schemas';
+import { Button } from '../../../../components/atoms/button';
+import { CodeBlock } from '../../../../components/atoms/code-block';
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../../components/atoms/dialog';
+import { dialogSurface } from '../../../../components/atoms/dialog-surface';
+import { Input } from '../../../../components/atoms/input';
+import { Label } from '../../../../components/atoms/label';
+import { CrewLines } from '../../../../components/molecules/crew-lines';
+import { InlineError } from '../../../../components/molecules/inline-error';
 
 interface JoinMachineDialogProps {
   /** The names of the fleet's active ships, to say early whether a name is free. */

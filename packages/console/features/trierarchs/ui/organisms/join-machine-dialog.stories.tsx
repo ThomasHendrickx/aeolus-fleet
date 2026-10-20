@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 
-import { JOINED } from '../../../lib/fixtures/machines.fixtures';
+import { JOINED } from '../../../../lib/fixtures/machines.fixtures';
 import { JoinMachineDialog } from './join-machine-dialog';
 
 const meta = {

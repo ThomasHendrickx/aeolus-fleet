@@ -3,20 +3,20 @@ import { CircleAlert, CircleX, FolderX, LoaderCircle, Ship, ShipWheel, Trash2 } 
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
-import { isClearing, type KeptWorktreeName } from '../hooks/clear-requests';
-import { restartWords } from '../../../lib/crew-request';
-import type { LabelChip as LabelChipData } from '../../../lib/labels';
-import { clockTime, fullDateTime, sinceTime } from '../../../lib/relative-time';
-import type { Spot } from '../../../lib/machines';
-import type { Machine } from '../../../lib/trierarch-plugin-schemas';
-import { Button } from '../../../components/atoms/button';
-import { CopyButton } from '../../../components/atoms/copy-button';
-import { Skeleton } from '../../../components/atoms/skeleton';
+import { isClearing, type KeptWorktreeName } from '../../services/kept-worktrees';
+import { restartWords } from '../../../../lib/crew-request';
+import type { LabelChip as LabelChipData } from '../../../../lib/labels';
+import { clockTime, fullDateTime, sinceTime } from '../../../../lib/relative-time';
+import type { Spot } from '../../../../lib/machines';
+import type { Machine } from '../../../../lib/trierarch-plugin-schemas';
+import { Button } from '../../../../components/atoms/button';
+import { CopyButton } from '../../../../components/atoms/copy-button';
+import { Skeleton } from '../../../../components/atoms/skeleton';
 import { CapacityBar } from '../molecules/capacity-bar';
-import { EmptyState } from '../../../components/molecules/empty-state';
-import { ShipLabels } from '../../../components/molecules/ship-labels';
-import { LocationTag } from '../../../components/molecules/location-tag';
-import { StatusBadge } from '../../../components/molecules/status-badge';
+import { EmptyState } from '../../../../components/molecules/empty-state';
+import { ShipLabels } from '../../../../components/molecules/ship-labels';
+import { LocationTag } from '../../../../components/molecules/location-tag';
+import { StatusBadge } from '../../../../components/molecules/status-badge';
 import { HarnessOffer, lastAnswer, MachineLiveness, WorkspaceOffer } from './machine-card';
 
 interface MachineDetailProps {

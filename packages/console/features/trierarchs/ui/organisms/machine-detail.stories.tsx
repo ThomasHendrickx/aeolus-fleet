@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, fn, userEvent, within } from 'storybook/test';
 
-import { ALIVE_MACHINE, KEPT_SHIP_ID, MACHINE_LABELS, MACHINE_VALUES, NEW_MACHINE, NOW, SILENT_MACHINE, SPOTS } from '../../../lib/fixtures/machines.fixtures';
+import { ALIVE_MACHINE, KEPT_SHIP_ID, MACHINE_LABELS, MACHINE_VALUES, NEW_MACHINE, NOW, SILENT_MACHINE, SPOTS } from '../../../../lib/fixtures/machines.fixtures';
 import { MachineDetail } from './machine-detail';
 
 const meta = {
