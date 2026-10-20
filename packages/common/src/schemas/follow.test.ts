@@ -37,6 +37,7 @@ describe('followFleetOutputSchema', () => {
     actorKind: 'ship',
     actorShipId: newId('ship'),
     actorAccountId: null,
+    actorSignedInAccountId: null,
     shipId: newId('ship'),
     messageId: null,
     deliveryId: null,

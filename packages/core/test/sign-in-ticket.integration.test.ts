@@ -99,6 +99,23 @@ describe('a sign-in ticket', () => {
     await expect(database.consoleSession.findFirst({ where: { endedAt: null, fleetId }, select: { accountId: true } })).resolves.toEqual({ accountId: 'acc-01mathilde' });
   });
 
+  it('writes the account on every event argo writes while it is signed in by it (decision 0054)', async () => {
+    const { ticket } = await installation().operators.issueSignInTicket.mutate({ fleetId, account: { id: 'acc-01lena' } });
+    const before = (await database.event.aggregate({ where: { fleetId }, _max: { seq: true } }))._max.seq ?? 0;
+    const redeemed = await redeem(ticket);
+    const cookie = 'cookie' in redeemed ? redeemed.cookie : '';
+    const asArgo = createTRPCClient<AppRouter>({ links: [httpLink({ url: `${hostingAddress}/trpc`, headers: { cookie, origin: new URL(FLEET_URL).origin } })] });
+
+    const { shipId } = await asArgo.fleet.commission.mutate({ name: 'lenas-scout', type: 'reviewer', idempotencyKey: newKey() });
+    await asArgo.fleet.rename.mutate({ shipId, name: 'lenas-lookout' });
+    await asArgo.ship.send.mutate({ selector: { kind: 'ship', name: 'lenas-lookout' }, payload: 'hello', idempotencyKey: newKey() });
+    await asArgo.fleet.retire.mutate({ shipId });
+
+    const argos = await database.event.findMany({ where: { fleetId, seq: { gt: before }, actorKind: 'ship' }, select: { type: true, actorSignedInAccountId: true } });
+    expect(argos.map((event) => event.type)).toEqual(expect.arrayContaining(['ShipClaimed', 'ShipCommissioned', 'ShipRenamed', 'MessageAccepted', 'ShipRetired']));
+    expect(argos.filter((event) => event.actorSignedInAccountId !== 'acc-01lena')).toEqual([]);
+  });
+
   it('signs in once and never again', async () => {
     const { ticket } = await installation().operators.issueSignInTicket.mutate({ fleetId });
     await redeem(ticket);

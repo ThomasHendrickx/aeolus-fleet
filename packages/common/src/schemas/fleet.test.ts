@@ -405,10 +405,17 @@ describe('fleetStreamItemSchema', () => {
     actorKind: 'ship',
     actorShipId: newId('ship'),
     actorAccountId: null,
+    actorSignedInAccountId: null,
     shipId: newId('ship'),
     messageId: null,
     deliveryId: null,
   };
+
+  it('takes the account signed in to the console as argo when argo caused it, by its id only (decision 0054)', () => {
+    const signedIn = { kind: 'event', event: { ...event, actorSignedInAccountId: 'acc-01lena' } };
+
+    expect(fleetStreamItemSchema.parse(signedIn)).toEqual(signedIn);
+  });
 
   it('accepts an event with its number, type, time, the ship that caused it and what it concerns', () => {
     expect(fleetStreamItemSchema.parse({ kind: 'event', event })).toEqual({ kind: 'event', event });
