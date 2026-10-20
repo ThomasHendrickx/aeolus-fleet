@@ -26,7 +26,7 @@ Thomas's decisions are recorded under Decided; parts 4 and 5 keep the options ea
 | --- | --- | --- |
 | I-1 | **One wake pattern for every kind (5.1 (a)):** the crew's computer side hands over through its actor's channel, the lease states who wakes it, `handed` names the channel, and the owner sets what a channel may carry | "agreed with the pick" |
 | I-2 | **Completion rule: (a)**, the rule in 3.4 | "agreed, might need changing later but we can only do that by trying it out." |
-| I-3 | **The gateway does not switch on without a networking plugin** | "yes it is mandatory and even another reason to make it a part of core. But for now let's assume yes and we rework network later into core." |
+| I-3 | **(a) with a switch: outside parties are a switch per fleet, off by default; turning it on while the fleet applies no network rules warns, and the actor confirms (decision 0056)** | "(a) no policy, but we do warn. Being able to add external mcp's and a2a is a toggle default turned off, turning it on without networking rules gives a warning that they need to confirm. But we dont make that decision for them." (20 Oct) |
 | I-4 | **Federation for people through the company IdP; verified apart from stated for outside parties** | "indeed both" |
 | I-5 | **(b): the gateway commissions proxy ships once argo approves a party** | "makes most sense gateway does it, since it knows about the outside parties." |
 | I-6 | **One package** | "one package, we can always change later." Packaging and versioning are looked at separately, by another ship |
@@ -244,7 +244,7 @@ What could run in parallel: slice 1 needs only the statement and owner from P, s
      - (b) only `application/a2a+json` replies drive state, and plain text is a final message;
      - (c) the first reply completes, and there is no deadline.
    - Pick: (a). One rule for both protocols. A ship that knows nothing of A2A still works through its statement, and a ship that never answers ends `failed`, not working forever.
-3. **Outside callers when no networking plugin is connected.** (I-3, decided: (b)) No plugin means all-to-all (0035): every outside party would reach, read and discover every ship.
+3. **Outside callers when no networking plugin is connected.** (I-3, decided: (a), with a switch per fleet, off by default; 0056) No plugin means all-to-all (0035): every outside party would reach, read and discover every ship.
    - Options:
      - (a) leave it: the operator's call (0016), with a warning on the gateway's page;
      - (b) the gateway does not switch on for a fleet without a registered networking plugin;
