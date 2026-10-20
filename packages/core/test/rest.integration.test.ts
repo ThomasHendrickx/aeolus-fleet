@@ -188,6 +188,7 @@ describe('the ship calls at /api/v1', () => {
       '/fleet/scopes',
       '/fleet/declareScopes',
       '/fleet/grantScopes',
+      '/fleet/setVerifiedFacts',
     ]);
   });
 
