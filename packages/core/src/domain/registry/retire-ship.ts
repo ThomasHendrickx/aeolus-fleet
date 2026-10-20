@@ -14,9 +14,10 @@ import { retireLabelsWith } from './label.js';
 import { endLease, type LeaseTx } from './leases.js';
 import { withdrawWithRetiredShip } from './declared-network-rules.js';
 import { endPluginConnection } from './plugin-connection.js';
-import type { ClearRequestRepository, CrewRequestRepository, DeclaredNetworkRulesRepository, LabelRepository, NetworkSettingsRepository, PluginConnectionRepository, ScopeNamespaceRepository, ShipRepository } from './ports.js';
+import type { ClearRequestRepository, CrewRequestRepository, DeclaredNetworkRulesRepository, LabelRepository, NetworkSettingsRepository, PluginConnectionRepository, ScopeNamespaceRepository, ShipRepository, VerifiedFactsRepository } from './ports.js';
 import { changeOwner, checkCanRetire, type RetireRefusal } from './ship.js';
 import { releaseWithDeclarer } from './scope-namespace.js';
+import { removeWithRetiredShip } from './verified-facts.js';
 
 export interface RetireShipTx extends LeaseTx, CredentialTx, Omit<CheckManageTx, 'ships' | 'labels' | 'networkSettings' | 'declaredNetworkRules'> {
   ships: ShipRepository;
@@ -27,6 +28,7 @@ export interface RetireShipTx extends LeaseTx, CredentialTx, Omit<CheckManageTx,
   networkSettings: Pick<NetworkSettingsRepository, 'find' | 'findForShare' | 'findForUpdate' | 'save'>;
   declaredNetworkRules: Pick<DeclaredNetworkRulesRepository, 'list' | 'find' | 'save'>;
   scopeNamespaces: Pick<ScopeNamespaceRepository, 'findByDeclarer' | 'lockNamespace' | 'remove'>;
+  verifiedFacts: Pick<VerifiedFactsRepository, 'listAbout' | 'listBy' | 'lockWriter' | 'remove'>;
 }
 
 export type RetireShipRefusal = DomainError<'SHIP_NOT_FOUND'> | NotReachable | RetireRefusal;
@@ -54,6 +56,10 @@ export type RetireShip = (
  * falls to argo, one OwnerChanged each, locked after the ship as a set owner
  * locks the owner first (decision 0045). A plugin namespace it declared goes,
  * and its scopes leave every ship, one ScopesChanged each (decision 0046).
+ * Every writer's verified facts about it go, and its own about every ship,
+ * one VerifiedFactsRemoved each, under its writer lock, taken last, after
+ * every ship this locks, as a set takes it after the ship it writes about
+ * (decision 0059).
  * The caller, any actor (decision 0057), needs fleet:manage, checked before
  * this runs, and manage reach on the ship here (decision 0034), a refusal
  * storing only its record. That check reads the network
@@ -184,6 +190,14 @@ export function createRetireShip(deps: {
         for (const event of released.events) {
           await recordEvent(recorded, event);
         }
+      }
+      await tx.verifiedFacts.lockWriter(fleetId, shipId);
+      const facts = removeWithRetiredShip({ about: await tx.verifiedFacts.listAbout(fleetId, shipId), by: await tx.verifiedFacts.listBy(fleetId, shipId) }, { at, actor });
+      for (const written of facts.removed) {
+        await tx.verifiedFacts.remove(fleetId, { shipId: written.shipId, writer: written.writer });
+      }
+      for (const event of facts.events) {
+        await recordEvent(recorded, event);
       }
       return ok({ abandonedDeliveries: abandoned.length });
     });

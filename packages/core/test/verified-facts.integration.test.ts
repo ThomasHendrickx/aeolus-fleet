@@ -134,6 +134,7 @@ describe('verified facts and a retire on Postgres', () => {
     const { shipId: scoutId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
     unwrap(await core.useCases.setVerifiedFacts(gateway, { shipId: crmId, facts: [TLS_HOST] }));
     unwrap(await core.useCases.setVerifiedFacts(gateway, { shipId: scoutId, facts: [TLS_HOST] }));
+    core.clock.advance(60_000);
     unwrap(await core.useCases.setVerifiedFacts(argo, { shipId: crmId, facts: [OAUTH_SUBJECT] }));
 
     unwrap(await core.useCases.retireShip(argo, { shipId: crmId }));

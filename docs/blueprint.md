@@ -401,6 +401,7 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `PluginConnected` | Registry | argo connected the ship as a plugin: it reads every ship, whatever the rules (decision 0034) |
 | `PluginDisconnected` | Registry | A plugin's connection ended: why, its ship released or retired (decision 0034) |
 | `VerifiedFactsSet` | Registry | A writer set its verified facts about the ship, or withdrew them: details hold how many, never their values; the actor is the writer (decision 0059) |
+| `VerifiedFactsRemoved` | Registry | A writer's verified facts about the ship went with a retire: the writer, how many, and why, the ship or the writer retired (decision 0059) |
 | `CrewRequested` | Registry | A requester asked that the ship be kept crewed, or replaced the settings of its request: details hold the settings version, never the settings |
 | `CrewRequestExplained` | Registry | The trierarch plugin wrote why no trierarch can take the ship's unassigned crew request, or cleared it: details hold the reason |
 | `CrewAssigned` | Registry | The trierarch plugin assigned the ship's crew request to a trierarch: details hold the trierarch ship |

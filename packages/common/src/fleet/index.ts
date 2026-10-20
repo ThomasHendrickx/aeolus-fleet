@@ -245,6 +245,7 @@ export const EVENT_TYPES = [
   'PluginConnected',
   'PluginDisconnected',
   'VerifiedFactsSet',
+  'VerifiedFactsRemoved',
 ] as const;
 export const eventTypeSchema = z.enum(EVENT_TYPES);
 export type EventType = z.infer<typeof eventTypeSchema>;

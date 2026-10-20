@@ -487,6 +487,8 @@ model VerifiedFacts {
   ship  Ship  @relation(fields: [fleetId, shipId], references: [fleetId, id])
 
   @@id([fleetId, shipId, writerKind, writer])
+  /// A retiring writer finds its facts about every ship.
+  @@index([fleetId, writerKind, writer])
   @@map("verified_facts")
 }
 
