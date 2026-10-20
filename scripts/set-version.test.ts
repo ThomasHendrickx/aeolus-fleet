@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
-import { PLUGIN_MANIFESTS, PUBLISHED_PACKAGES, setPluginVersion, setVersion } from './set-version.ts';
+import { PUBLISHED_PACKAGES, setVersion } from './set-version.ts';
 
 const repositoryRoot = fileURLToPath(new URL('..', import.meta.url));
 
@@ -18,10 +18,6 @@ beforeEach(() => {
   for (const name of PUBLISHED_PACKAGES) {
     mkdirSync(join(copy, 'packages', name), { recursive: true });
     cpSync(join(repositoryRoot, 'packages', name, 'package.json'), join(copy, 'packages', name, 'package.json'));
-  }
-  for (const pluginManifest of PLUGIN_MANIFESTS) {
-    mkdirSync(join(copy, pluginManifest, '..'), { recursive: true });
-    cpSync(join(repositoryRoot, pluginManifest), join(copy, pluginManifest));
   }
 });
 
@@ -45,28 +41,12 @@ function rawManifest(name: string): Record<string, unknown> {
   return z.record(z.string(), z.unknown()).parse(JSON.parse(readFileSync(join(copy, 'packages', name, 'package.json'), 'utf8')));
 }
 
-function pluginManifest(path: string): Record<string, unknown> {
-  return z.record(z.string(), z.unknown()).parse(JSON.parse(readFileSync(join(copy, path), 'utf8')));
-}
-
 describe('setVersion', () => {
-  it('sets the same version on both aeolus plugin manifests, keeping their other fields', () => {
-    const before = PLUGIN_MANIFESTS.map((path) =>
-      z.record(z.string(), z.unknown()).parse(JSON.parse(readFileSync(join(copy, path), 'utf8'))),
-    );
-
-    setVersion(copy, '0.3.0');
-
-    expect(PLUGIN_MANIFESTS.map(pluginManifest)).toEqual(
-      before.map((manifest) => ({ ...manifest, version: '0.3.0' })),
-    );
-  });
-
-  it('sets the same version on all six packages, squadrons, the trierarch plugin and the trierarch included', () => {
+  it("sets the same version on core's train: common, core and the console", () => {
     setVersion(copy, '0.1.0');
 
-    expect(PUBLISHED_PACKAGES).toEqual(['common', 'core', 'console', 'squadrons', 'trierarch-plugin', 'trierarch']);
-    expect(PUBLISHED_PACKAGES.map((name) => manifest(name).version)).toEqual(['0.1.0', '0.1.0', '0.1.0', '0.1.0', '0.1.0', '0.1.0']);
+    expect(PUBLISHED_PACKAGES).toEqual(['common', 'core', 'console']);
+    expect(PUBLISHED_PACKAGES.map((name) => manifest(name).version)).toEqual(['0.1.0', '0.1.0', '0.1.0']);
   });
 
   // The source condition points into src, which the tarball does not ship (#968).
@@ -77,8 +57,10 @@ describe('setVersion', () => {
       '.': { types: './dist/index.d.ts', default: './dist/index.js' },
       './rules': { types: './dist/rules/index.d.ts', default: './dist/rules/index.js' },
     });
-    expect(rawManifest('trierarch').exports).toEqual({
+    expect(rawManifest('core').exports).toEqual({
       '.': { types: './dist/index.d.ts', default: './dist/index.js' },
+      './testing': { types: './dist/testing/index.d.ts', default: './dist/testing/index.js' },
+      './testing/postgres-global-setup': { types: './dist/testing/postgres-global-setup.d.ts', default: './dist/testing/postgres-global-setup.js' },
     });
   });
 
@@ -86,27 +68,6 @@ describe('setVersion', () => {
     setVersion(copy, '0.1.0');
 
     expect(JSON.stringify(rawManifest(name).exports ?? {})).not.toContain('@aeolus-fleet/source');
-  });
-
-  it('pins the trierarch plugin to common and the server at that version', () => {
-    setVersion(copy, '0.1.0');
-
-    expect(manifest('trierarch-plugin').dependencies?.['@aeolus-fleet/common']).toBe('0.1.0');
-    expect(manifest('trierarch-plugin').devDependencies?.['@aeolus-fleet/core']).toBe('0.1.0');
-  });
-
-  it('pins the trierarch to common and the server at that version', () => {
-    setVersion(copy, '0.1.0');
-
-    expect(manifest('trierarch').dependencies?.['@aeolus-fleet/common']).toBe('0.1.0');
-    expect(manifest('trierarch').devDependencies?.['@aeolus-fleet/core']).toBe('0.1.0');
-  });
-
-  it('pins squadrons to common and the server at that version', () => {
-    setVersion(copy, '0.1.0');
-
-    expect(manifest('squadrons').dependencies?.['@aeolus-fleet/common']).toBe('0.1.0');
-    expect(manifest('squadrons').devDependencies?.['@aeolus-fleet/core']).toBe('0.1.0');
   });
 
   it('pins the packages to each other at that version', () => {
@@ -164,25 +125,5 @@ describe('published manifests', () => {
       url: 'git+https://github.com/ThomasHendrickx/aeolus-fleet.git',
       directory: `packages/${name}`,
     });
-  });
-});
-
-describe('setPluginVersion', () => {
-  it("sets the aeolus plugin's version alone, leaving the packages as they are", () => {
-    const packagesBefore = PUBLISHED_PACKAGES.map((name) => manifest(name));
-
-    setPluginVersion(copy, '0.4.0');
-
-    expect(PLUGIN_MANIFESTS.map(pluginManifest)).toEqual([
-      expect.objectContaining({ name: 'aeolus', version: '0.4.0' }),
-      expect.objectContaining({ name: 'aeolus', version: '0.4.0' }),
-    ]);
-    expect(PUBLISHED_PACKAGES.map((name) => manifest(name))).toEqual(packagesBefore);
-  });
-
-  it('refuses a version that is not semantic', () => {
-    expect(() => {
-      setPluginVersion(copy, 'latest');
-    }).toThrow('Not a semantic version: "latest"');
   });
 });

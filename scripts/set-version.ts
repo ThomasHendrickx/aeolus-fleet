@@ -1,13 +1,11 @@
 /**
- * Sets one version on the published packages and pins their dependencies
- * on each other to exactly that version, because they are released together
- * (ADR 0011). Both manifests of the aeolus plugin carry the same version. The
- * exports lose the @aeolus-fleet/source condition: it points into src, which
- * the tarballs do not ship (#968). Used by the release workflow and the
- * publish dry run in CI.
+ * Sets one version on core's release train (decision 0049) and pins their
+ * dependencies on each other to exactly that version, because they are
+ * released together (ADR 0011). The exports lose the @aeolus-fleet/source
+ * condition: it points into src, which the tarballs do not ship (#968). Used
+ * by the release workflow and the publish dry run in CI.
  *
  * Usage: npm run set-version -- <version>
- *        npm run set-version -- --plugin-only <version>
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -15,13 +13,8 @@ import { fileURLToPath } from 'node:url';
 
 import { z } from 'zod';
 
-export const PUBLISHED_PACKAGES = ['common', 'core', 'console', 'squadrons', 'trierarch-plugin', 'trierarch'] as const;
-
-/** The aeolus plugin's Claude Code and Codex manifests, released together. */
-export const PLUGIN_MANIFESTS = [
-  'plugins/aeolus/.claude-plugin/plugin.json',
-  'plugins/aeolus/.codex-plugin/plugin.json',
-] as const;
+/** Core's release train: the packages this repository publishes. */
+export const PUBLISHED_PACKAGES = ['common', 'core', 'console'] as const;
 
 const SCOPE = '@aeolus-fleet/';
 const SOURCE_CONDITION = '@aeolus-fleet/source';
@@ -83,38 +76,13 @@ export function setVersion(repositoryRoot: string, version: string): void {
     writeFileSync(path, `${JSON.stringify(updated, null, 2)}\n`);
   }
 
-  setPluginVersion(repositoryRoot, version);
-}
-
-/**
- * Sets the version of both aeolus plugin manifests alone. The release commits
- * them back to main, where the plugin marketplaces install from, so the
- * installed plugin shows the version just released; the packages on main keep
- * 0.0.0, as only the published packages carry their version.
- */
-export function setPluginVersion(repositoryRoot: string, version: string): void {
-  if (!SEMVER.test(version)) {
-    throw new Error(`Not a semantic version: "${version}"`);
-  }
-  for (const manifest of PLUGIN_MANIFESTS) {
-    const pluginPath = join(repositoryRoot, manifest);
-    const plugin = z.record(z.string(), z.unknown()).parse(JSON.parse(readFileSync(pluginPath, 'utf8')));
-    writeFileSync(pluginPath, `${JSON.stringify({ ...plugin, version }, null, 2)}\n`);
-  }
 }
 
 if (import.meta.main) {
-  const isPluginOnly = process.argv[2] === '--plugin-only';
-  const version = (isPluginOnly ? process.argv[3] : process.argv[2]) ?? '';
+  const version = process.argv[2] ?? '';
   try {
-    const repositoryRoot = fileURLToPath(new URL('..', import.meta.url));
-    if (isPluginOnly) {
-      setPluginVersion(repositoryRoot, version);
-      console.log(`Set the aeolus plugin to ${version}`);
-    } else {
-      setVersion(repositoryRoot, version);
-      console.log(`Set ${PUBLISHED_PACKAGES.map((name) => SCOPE + name).join(', ')} and the aeolus plugin to ${version}`);
-    }
+    setVersion(fileURLToPath(new URL('..', import.meta.url)), version);
+    console.log(`Set ${PUBLISHED_PACKAGES.map((name) => SCOPE + name).join(', ')} to ${version}`);
   } catch (error) {
     console.error(error instanceof Error ? error.message : error);
     process.exit(1);

@@ -172,26 +172,6 @@ jobs:
         timeout-minutes: 5
       - run: npm run test:e2e
 
-  session-image:
-    # The image a trierarch runs container sessions from (decision 0039), built
-    # as release.yml builds it, with a throwaway prerelease version so the
-    # plugin in it carries the image's version, then smoke-tested in rootless
-    # Podman as a session runs it.
-    name: Session image
-    runs-on: ubuntu-latest
-    env:
-      VERSION: 0.0.0-ci.${{ github.run_id }}
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 26
-          cache: npm
-      - run: npm ci
-      - run: npm run set-version -- "$VERSION"
-      - run: podman build --file packages/trierarch/image/Containerfile --build-arg VERSION="$VERSION" --tag localhost/aeolus-session:ci .
-      - run: packages/trierarch/image/test/smoke-test.sh podman localhost/aeolus-session:ci "$VERSION"
-
   publish-dry-run:
     name: Publish dry run
     runs-on: ubuntu-latest
@@ -211,6 +191,3 @@ jobs:
       - run: npm publish --dry-run --access public --tag dry-run --workspace @aeolus-fleet/common
       - run: npm publish --dry-run --access public --tag dry-run --workspace @aeolus-fleet/core
       - run: npm publish --dry-run --access public --tag dry-run --workspace @aeolus-fleet/console
-      - run: npm publish --dry-run --access public --tag dry-run --workspace @aeolus-fleet/squadrons
-      - run: npm publish --dry-run --access public --tag dry-run --workspace @aeolus-fleet/trierarch-plugin
-      - run: npm publish --dry-run --access public --tag dry-run --workspace @aeolus-fleet/trierarch
