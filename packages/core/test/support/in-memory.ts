@@ -52,6 +52,7 @@ import type {
   NetworkRulesDraftRepository,
   PluginConnectionRepository,
   ScopeNamespaceRepository,
+  VerifiedFactsRepository,
   NetworkSettingsRepository,
   ReachRefusalRepository,
   ShipRepository,
@@ -67,6 +68,7 @@ import { isSameCommissioner, type Ship } from '../../src/domain/registry/ship.js
 import type { ShipReport } from '../../src/domain/registry/ship-report.js';
 import type { StatedStatement } from '../../src/domain/registry/statement.js';
 import type { Turn } from '../../src/domain/registry/turn.js';
+import { isSameWriter, type WrittenFacts } from '../../src/domain/registry/verified-facts.js';
 import type { ClearRequest } from '../../src/domain/registry/clear-request.js';
 import type { CrewRequest } from '../../src/domain/registry/crew-request.js';
 import type { Clock } from '../../src/domain/shared/clock.js';
@@ -136,6 +138,8 @@ export interface InMemoryState {
   scopeNamespaces: ScopeNamespace[];
   /** The plugins argo connected, one per ship (decision 0034). */
   pluginConnections: PluginConnection[];
+  /** The verified facts, one set per ship and writer (decision 0059). */
+  verifiedFacts: WrittenFacts[];
   /** The records of the sends the network rules refused, oldest first. */
   reachRefusals: ReachRefusal[];
   /** When the recipient read each delivery it read: the read_at column, apart from the Delivery's state. */
@@ -165,6 +169,7 @@ export interface InMemoryTx {
   networkRulesDrafts: NetworkRulesDraftRepository;
   scopeNamespaces: ScopeNamespaceRepository;
   pluginConnections: PluginConnectionRepository;
+  verifiedFacts: VerifiedFactsRepository;
   reachRefusals: ReachRefusalRepository;
   inFlightDeliveries: InFlightDeliveries;
   credentials: CredentialRepository;
@@ -299,6 +304,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     networkRulesDrafts: [],
     scopeNamespaces: [],
     pluginConnections: [],
+    verifiedFacts: [],
     reachRefusals: [],
     events: [],
     overdueDeliveries: [],
@@ -646,6 +652,19 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       },
       disconnect: (fleetId, shipId) => {
         state.pluginConnections.splice(0, state.pluginConnections.length, ...state.pluginConnections.filter((held) => held.fleetId !== fleetId || held.shipId !== shipId));
+        return Promise.resolve();
+      },
+    },
+    verifiedFacts: {
+      find: (fleetId, { shipId, writer }) =>
+        Promise.resolve(structuredClone(state.verifiedFacts.find((held) => held.fleetId === fleetId && held.shipId === shipId && isSameWriter(held.writer, writer)))),
+      save: (written) => {
+        const others = state.verifiedFacts.filter((held) => held.fleetId !== written.fleetId || held.shipId !== written.shipId || !isSameWriter(held.writer, written.writer));
+        state.verifiedFacts.splice(0, state.verifiedFacts.length, ...others, structuredClone(written));
+        return Promise.resolve();
+      },
+      remove: (fleetId, { shipId, writer }) => {
+        state.verifiedFacts.splice(0, state.verifiedFacts.length, ...state.verifiedFacts.filter((held) => held.fleetId !== fleetId || held.shipId !== shipId || !isSameWriter(held.writer, writer)));
         return Promise.resolve();
       },
     },
@@ -1876,6 +1895,7 @@ const FLEET_TABLES = [
   'networkRulesDrafts',
   'scopeNamespaces',
   'pluginConnections',
+  'verifiedFacts',
   'reachRefusals',
   'events',
   'overdueDeliveries',
@@ -1910,6 +1930,7 @@ const TABLES = [
   'networkRulesDrafts',
   'scopeNamespaces',
   'pluginConnections',
+  'verifiedFacts',
   'reachRefusals',
   'events',
   'overdueDeliveries',
