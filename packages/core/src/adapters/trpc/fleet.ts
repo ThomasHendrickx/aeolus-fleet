@@ -489,7 +489,7 @@ export const fleetRouter = router({
     .query(async ({ ctx }) => (await ctx.useCases.listLabels(ctx.caller)).map((label) => ({ ...label, values: [...label.values] }))),
 
   /** Every namespace of the fleet and its scopes, core first (decision 0046). */
-  scopes: scopedProcedure('fleet:read')
+  scopes: actorScopedProcedure('fleet:read')
     .meta({
       description: [
         "Needs fleet:read. The fleet's scopes by namespace: the core namespaces first (messages, fleet, crew, labels, scopes), declared by no ship,",
