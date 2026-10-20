@@ -1,6 +1,14 @@
 # Verified facts in discovery
 
-Design by designer-verified for #971 (interop 4.4 (a)). Purpose first, then the lessons it is checked against, then the questions. Nothing below the purpose is decided until Thomas agrees the purpose.
+Design by designer-verified for #971 (interop 4.4 (a)). Purpose first, then the lessons it is checked against, then the questions.
+
+### Decided (20 Oct)
+
+| # | Decision | Thomas's words |
+| --- | --- | --- |
+| 1 | **The purpose as written in part 1:** facts any actor holding a scope checked about any ship, shown beside the statement in discovery, naming who checked it | "agree with pick 1" |
+
+Questions 2 to 7 are open.
 
 ## 1. Purpose
 
@@ -46,9 +54,9 @@ Each line is a check the design must pass.
 
 ## 3. Questions for Thomas
 
-Question 1 is the purpose. Questions 2 to 7 follow only once it stands; each has numbered options and a pick.
+Question 1, the purpose, is decided. Questions 2 to 7 are open; each has numbered options and a pick.
 
-1. **The purpose.** Is part 1 what #971 is for?
+1. **The purpose.** (Decided: 1) Is part 1 what #971 is for?
    1. As written: facts any actor holding a scope checked about any ship, shown beside the statement in discovery, naming who checked it.
    2. Narrower: only the gateway, only about proxy ships.
    3. Wider: core also judges facts against statements (a mark when they disagree).
