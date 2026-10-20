@@ -33,7 +33,7 @@ beforeEach(async () => {
 
 describe('discarding the draft (decision 0034)', () => {
   it('drops it, leaving the applied rules as they are, with NetworkRulesDraftDiscarded caused by the discarder', async () => {
-    await applyNetworkRules(registry, networking, [aRule()]);
+    await applyNetworkRules(registry, { by: networking, rules: [aRule()] });
     unwrap(await registry.saveNetworkRulesDraft(networking, { rules: null }));
     core.state.events.length = 0;
 

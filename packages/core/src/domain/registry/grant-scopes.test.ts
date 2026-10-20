@@ -173,7 +173,7 @@ describe('granting scopes on a live ship (decision 0046)', () => {
 describe('granting on a ship outside the granter\'s manage reach (decision 0053)', () => {
   it('is refused as a manage the rules do not allow, recording the refusal and changing nothing', async () => {
     const fleet = await readReachScenario();
-    await applyNetworkRules(fleet.registry, fleet.networking, [everyShipMay('send'), everyShipMay('read')]);
+    await applyNetworkRules(fleet.registry, { by: fleet.networking, rules: [everyShipMay('send'), everyShipMay('read')] });
     fleet.core.state.reachRefusals.length = 0;
     const granting: ShipCaller = { ...fleet.near, scopes: ['scopes:grant', 'fleet:read'] };
 

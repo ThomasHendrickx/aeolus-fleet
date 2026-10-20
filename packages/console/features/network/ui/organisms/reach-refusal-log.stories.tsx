@@ -34,7 +34,6 @@ function aRefusal(suffix: string, refusal: Partial<ReachRefusal> & { minutesAgo:
     recipient: { kind: 'ship', ship: HEMMA_API },
     verb: 'send',
     settingsVersion: 7,
-    whilePluginUnavailable: null,
     ...rest,
   };
 }
@@ -43,7 +42,7 @@ const TO_A_TYPE = aRefusal('02', { minutesAgo: 40, sender: sending(SCOUT), recip
 const REFUSALS = [
   aRefusal('01', { minutesAgo: 4 }),
   TO_A_TYPE,
-  aRefusal('03', { minutesAgo: 60 * 30, settingsVersion: 5, sender: sending(SCOUT), whilePluginUnavailable: 'block-all' }),
+  aRefusal('03', { minutesAgo: 60 * 30, settingsVersion: 5, sender: sending(SCOUT) }),
 ];
 
 const meta = {
@@ -75,20 +74,6 @@ export const Refusals: Story = {
 };
 /** A send to a type: each ship of it the sender could not reach, with its labels. */
 export const ToAType: Story = { args: { refusals: [TO_A_TYPE] } };
-/** Refused while the networking plugin was not responding: what it declared for that is said. */
-export const WhilePluginUnavailable: Story = {
-  args: {
-    refusals: [
-      aRefusal('04', { minutesAgo: 2, whilePluginUnavailable: 'block-all' }),
-      aRefusal('05', { minutesAgo: 9, whilePluginUnavailable: 'keep-latest', settingsVersion: 6 }),
-    ],
-  },
-  play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).getAllByTestId('network-refusal')[0]).toHaveTextContent(
-      'Refused by network settings version 7 while the networking plugin was not responding: Block all.',
-    );
-  },
-};
 /** A label deleted since the refusal: its chip has a crossed-out tag and a dashed edge, and says the label no longer exists. */
 export const WithALabelDeletedSince: Story = {
   args: {

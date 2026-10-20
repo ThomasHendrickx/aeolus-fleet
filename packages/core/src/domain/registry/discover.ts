@@ -1,10 +1,9 @@
 import type { Discovered } from '@aeolus-fleet/common';
 
 import type { ShipCaller } from '../shared/caller.js';
-import type { Clock } from '../shared/clock.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
-import { reaching, rulesInForceAt, shipAsItIs, type CheckReachTx } from './check-reach.js';
+import { reaching, rulesInForceOf, shipAsItIs, type CheckReachTx } from './check-reach.js';
 import { allowsReach } from './network-settings.js';
 import type { LeaseRepository, ShipRepository } from './ports.js';
 import { discoveredStatementOf } from './statement.js';
@@ -14,7 +13,8 @@ export interface DiscoverTx {
   ships: Pick<ShipRepository, 'find' | 'listActive'>;
   labels: CheckReachTx['labels'];
   pluginConnections: CheckReachTx['pluginConnections'];
-  leases: Pick<LeaseRepository, 'findLastSeen' | 'listOpenStatements'>;
+  leases: Pick<LeaseRepository, 'listOpenStatements'>;
+  declaredNetworkRules: CheckReachTx['declaredNetworkRules'];
 }
 
 export type Discover = (caller: ShipCaller) => Promise<Result<Discovered, never>>;
@@ -23,18 +23,18 @@ export type Discover = (caller: ShipCaller) => Promise<Result<Discovered, never>
  * Use case: a ship asks which ships and types it may send to now (decision
  * 0047), its scope (messages:send) checked before this runs. Each active
  * ship but the caller and the viewer is checked as a send to it would be at
- * this moment (decision 0034): the rules in force, what the networking plugin
- * declared while it does not respond, the built-in rules; there is no message,
+ * this moment (decision 0034): the built-in rules, the fleet's own and the
+ * declared ones; there is no message,
  * so no answer to a sender. Each reached ship comes with its name, type, kind,
  * status and statement, and each type with how many of its ships it reaches.
  * Ships, never rules; it records nothing, a refusal included.
  */
-export function createDiscover(deps: { uow: UnitOfWork<DiscoverTx>; clock: Clock }): Discover {
+export function createDiscover(deps: { uow: UnitOfWork<DiscoverTx> }): Discover {
   return (caller) =>
     deps.uow.run(async (tx): Promise<Result<Discovered, never>> => {
       const { fleetId } = caller;
       const settings = await tx.networkSettings.findForShare(fleetId);
-      const inForce = await rulesInForceAt(tx, { settings, now: deps.clock.now() });
+      const inForce = await rulesInForceOf(tx, settings);
       const active = await tx.ships.listActive(fleetId);
       const callerShip = active.find((ship) => ship.id === caller.shipId);
       const sender = callerShip === undefined ? undefined : reaching(await shipAsItIs(tx, callerShip));

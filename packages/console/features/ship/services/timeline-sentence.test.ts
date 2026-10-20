@@ -440,6 +440,21 @@ describe('timelineSentence', () => {
     });
   });
 
+  it('says a draft of the network rules was saved, how many rules and against which version', () => {
+    expect(onScoutsPage(anEntry('NetworkRulesDraftSaved', { actor: argo, details: { rules: 2, savedAgainstVersion: 3 } }))).toEqual({
+      sentence: 'Network rules draft saved: 2 rules, against version 3 by argo',
+      tone: 'ended',
+      icon: 'fleet',
+    });
+    expect(onScoutsPage(anEntry('NetworkRulesDraftSaved', { actor: argo, details: { rules: null, savedAgainstVersion: 3 } })).sentence).toBe(
+      'Network rules draft saved: every ship reaches every ship, against version 3 by argo',
+    );
+  });
+
+  it('says the draft of the network rules was discarded', () => {
+    expect(onScoutsPage(anEntry('NetworkRulesDraftDiscarded', { actor: argo, details: {} }))).toEqual({ sentence: 'Network rules draft discarded by argo', tone: 'ended', icon: 'fleet' });
+  });
+
   it('says declared network rules were withdrawn', () => {
     expect(onScoutsPage(anEntry('NetworkRulesDeclared', { actor: argo, details: { rules: 0 } }))).toEqual({
       sentence: 'Declared network rules withdrawn by argo',

@@ -45,7 +45,7 @@ beforeEach(async () => {
   ] as const) {
     unwrap(await registry.assignLabel(argo, { shipId: ship.shipId, valueId: value(text) }));
   }
-  await applyNetworkRules(registry, argo, [{ verb: 'send', from: [value('shared')], to: [value('shared')] }]);
+  await applyNetworkRules(registry, { by: argo, rules: [{ verb: 'send', from: [value('shared')], to: [value('shared')] }] });
 });
 
 describe('the reach a draft would change (decision 0034)', () => {

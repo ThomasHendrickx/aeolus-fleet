@@ -38,7 +38,7 @@ describe('reading the built-in rules (decision 0034)', () => {
 
   it('answers the viewer reading as it was turned, and open off once the fleet has rules applied', async () => {
     const networking = await shipWithScopes({ registry, argo }, { name: 'networking', type: 'networking', scopes: ['fleet:network'] });
-    await applyNetworkRules(registry, networking, []);
+    await applyNetworkRules(registry, { by: networking, rules: [] });
     unwrap(await registry.setBuiltInRule(argo, { rule: 'viewerRead', isOn: false }));
 
     expect(unwrap(await readBuiltInRules(argo))).toEqual([
@@ -53,8 +53,8 @@ describe('reading the built-in rules (decision 0034)', () => {
   });
 
   it('answers open on again once none are applied again, all-to-all', async () => {
-    await applyNetworkRules(registry, argo, []);
-    await applyNetworkRules(registry, argo, null);
+    await applyNetworkRules(registry, { by: argo, rules: [] });
+    await applyNetworkRules(registry, { by: argo, rules: null });
 
     expect(unwrap(await readBuiltInRules(argo))).toContainEqual({ rule: 'open', isOn: true });
   });

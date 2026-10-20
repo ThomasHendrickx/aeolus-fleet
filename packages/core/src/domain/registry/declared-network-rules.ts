@@ -1,8 +1,8 @@
 /**
  * The network rules a ship or the installation declares on the labels it owns
  * (decisions 0037, 0052), such as a plugin's for the ships it labels, or the
- * installation's on `group`. Declared, they are not in force: the fleet's
- * networking plugin adds them to argo's rules when it supplies the list.
+ * installation's on `group`. They are in force beside the fleet's own rules,
+ * merged at check time, so a declaration moves the settings version.
  * Only rules on labels the declarer owns keep them safe: only an actor
  * holding labels:any assigns those labels besides it, so its rules reach no
  * ship it did not label.
@@ -13,7 +13,7 @@ import { refuse, type DomainError } from '../shared/errors.js';
 import type { Actor, NewEvent } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import { isSameOwner, type Label, type LabelOwner } from './label.js';
-import { copyOfRule, invalidRule, termText, type NetworkRule } from './network-settings.js';
+import { copyOfRule, invalidRule, termText, withDeclaredRulesChanged, type NetworkRule, type NetworkSettings } from './network-settings.js';
 
 /** One declarer's declared rules, its whole list; a declarer that declares none holds none. */
 export interface DeclaredNetworkRules {
@@ -48,14 +48,16 @@ export function namedInRules(rules: readonly NetworkRule[]): { labelIds: LabelId
  * term of the owner is on no label, so it is refused. An
  * id the fleet does not have is refused, as its owner cannot be checked. An
  * account owns no label, so it declares nothing, not even none.
+ * The settings move to the next version, as the rules in force change.
  * NetworkRulesDeclared names the declaring ship, none for the installation,
- * and the number of rules, never them.
+ * the number of rules, never them, and the settings version.
  */
 export function declareNetworkRules(
   named: NamedLabels,
-  change: { fleetId: FleetId; declarer: LabelOwner | undefined; rules: readonly NetworkRule[]; at: Date; actor: Actor },
-): Result<{ declared: DeclaredNetworkRules; events: NewEvent[] }, DeclareNetworkRulesRefusal> {
-  const { fleetId, declarer, rules } = change;
+  change: { settings: NetworkSettings; declarer: LabelOwner | undefined; rules: readonly NetworkRule[]; at: Date; actor: Actor },
+): Result<{ declared: DeclaredNetworkRules; settings: NetworkSettings; events: NewEvent[] }, DeclareNetworkRulesRefusal> {
+  const { declarer, rules } = change;
+  const { fleetId } = change.settings;
   if (rules.length > DECLARED_NETWORK_RULES_MAX) {
     return refuse('INVALID_NETWORK_RULES', `A ship declares at most ${String(DECLARED_NETWORK_RULES_MAX)} network rules (decision 0037)`);
   }
@@ -77,26 +79,32 @@ export function declareNetworkRules(
   if (declarer === undefined) {
     return refuse('ACCOUNT_OWNS_NO_LABEL', 'A ship or the installation declares network rules on the labels it owns; an account owns none');
   }
-  return ok({ declared: { fleetId, declarer, rules: rules.map(copyOfRule) }, events: [declaredEvent({ fleetId, declarer, rules: rules.length, at: change.at, actor: change.actor })] });
+  const settings = withDeclaredRulesChanged(change.settings);
+  return ok({
+    declared: { fleetId, declarer, rules: rules.map(copyOfRule) },
+    settings,
+    events: [declaredEvent({ fleetId, declarer, rules: rules.length, version: settings.version, at: change.at, actor: change.actor })],
+  });
 }
 
 /**
  * The retired ship's declared rules go with it, as its labels do (decision
- * 0031): none from now on, with NetworkRulesDeclared of none. A ship that
- * declared none changes nothing.
+ * 0031): none from now on, the settings at their next version, with
+ * NetworkRulesDeclared of none. A ship that declared none changes nothing.
  */
 export function withdrawWithRetiredShip(
   current: DeclaredNetworkRules | undefined,
-  change: { at: Date; actor: Actor },
-): { declared: DeclaredNetworkRules; events: NewEvent[] } | undefined {
+  change: { settings: NetworkSettings; at: Date; actor: Actor },
+): { declared: DeclaredNetworkRules; settings: NetworkSettings; events: NewEvent[] } | undefined {
   if (current === undefined) {
     return undefined;
   }
   const { fleetId, declarer } = current;
-  return { declared: { fleetId, declarer, rules: [] }, events: [declaredEvent({ fleetId, declarer, rules: 0, ...change })] };
+  const settings = withDeclaredRulesChanged(change.settings);
+  return { declared: { fleetId, declarer, rules: [] }, settings, events: [declaredEvent({ fleetId, declarer, rules: 0, version: settings.version, at: change.at, actor: change.actor })] };
 }
 
-function declaredEvent(declared: { fleetId: FleetId; declarer: LabelOwner; rules: number; at: Date; actor: Actor }): NewEvent {
+function declaredEvent(declared: { fleetId: FleetId; declarer: LabelOwner; rules: number; version: number; at: Date; actor: Actor }): NewEvent {
   const { fleetId, declarer, at, actor } = declared;
   return {
     type: 'NetworkRulesDeclared',
@@ -104,7 +112,7 @@ function declaredEvent(declared: { fleetId: FleetId; declarer: LabelOwner; rules
     occurredAt: at,
     actor,
     ...(declarer.kind === 'ship' ? { shipId: declarer.shipId } : {}),
-    details: { rules: declared.rules },
+    details: { rules: declared.rules, version: declared.version },
   };
 }
 

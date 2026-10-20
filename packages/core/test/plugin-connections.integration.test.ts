@@ -41,7 +41,7 @@ afterEach(async () => {
 });
 
 async function readsOf(caller: ShipCaller) {
-  return (await createReadReachOf({ uow: createPrismaUnitOfWork(core.prisma), clock: core.clock })(caller)).kind;
+  return (await createReadReachOf({ uow: createPrismaUnitOfWork(core.prisma) })(caller)).kind;
 }
 
 async function eventsAbout(type: string) {

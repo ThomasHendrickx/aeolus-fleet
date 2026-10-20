@@ -242,6 +242,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_console_sign_in_accounts$/),
       expect.stringMatching(/^\d{14}_event_signed_in_accounts$/),
       expect.stringMatching(/^\d{14}_account_cut_off_ends_console_sessions$/),
+      expect.stringMatching(/^\d{14}_network_in_core$/),
     ]);
   });
 });
@@ -2210,7 +2211,7 @@ describe('network rules at the API', () => {
 
     expect(changes.send.lost).toContainEqual({ fromShipId, toShipId, rule: { builtIn: 'open' } });
     expect(changes.send.gained).toEqual([]);
-    await expect((await signedInArgo()).fleet.explainReach.query({ fromShipId, toShipId, ofDraft: true })).resolves.toEqual({ send: [], read: [], manage: [] });
+    await expect((await signedInArgo()).fleet.explainReach.query({ fromShipId, toShipId, against: 'draft' })).resolves.toEqual({ send: [], read: [], manage: [] });
   });
 
   it('let argo explain which ships a ship reaches per verb, naming the rule, and refuse every other ship, the rule setter too', async () => {
@@ -2262,7 +2263,7 @@ describe('network rules at the API', () => {
     const editor = await networker();
     const labelId = newId('label');
 
-    await expect(editor.fleet.saveNetworkRulesDraft.mutate({ rules: [{ verb: 'send', from: [{ labelId, value: ANY_LABEL_VALUE }], to: [] }] })).resolves.toMatchObject({ savedAgainstVersion: expect.any(Number) });
+    await expect(editor.fleet.saveNetworkRulesDraft.mutate({ rules: [{ verb: 'send', from: [{ labelId, value: ANY_LABEL_VALUE }], to: [] }] })).resolves.toHaveProperty('savedAgainstVersion');
     const refused = await refusalOf(editor.fleet.saveNetworkRulesDraft.mutate({ rules: [{ verb: 'send', from: [{ labelId, value: SAME_LABEL_VALUE }], to: [] }] }));
     expect(refused?.code).toBe('BAD_REQUEST');
     expect(refused?.message).toContain('decision 0034');
@@ -2338,25 +2339,26 @@ describe('network rules at the API', () => {
 
   it('save, read, discard and apply the rules through REST, for a ship with fleet:network', async () => {
     const crewToken = await crewedShip(['messages:send', 'messages:receive', 'fleet:network']);
-    const call = (method: 'GET' | 'POST', path: string, body?: unknown) =>
+    /** A read without a body, a change with one. */
+    const call = (path: string, body?: unknown) =>
       fetch(`${address}/api/v1/fleet/${path}`, {
-        method,
+        method: body === undefined ? 'GET' : 'POST',
         headers: { authorization: `Bearer ${crewToken}`, ...(body === undefined ? {} : { 'content-type': 'application/json' }) },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       });
     const sameTeam = { labelId: newId('label'), value: SAME_LABEL_VALUE };
 
-    const saved = await call('POST', 'saveNetworkRulesDraft', { rules: [{ verb: 'send', from: [newId('labelValue'), sameTeam], to: [{ labelId: newId('label'), value: ANY_LABEL_VALUE }, sameTeam] }] });
+    const saved = await call('saveNetworkRulesDraft', { rules: [{ verb: 'send', from: [newId('labelValue'), sameTeam], to: [{ labelId: newId('label'), value: ANY_LABEL_VALUE }, sameTeam] }] });
     const { savedAgainstVersion } = z.object({ savedAgainstVersion: z.number() }).parse(await saved.json());
-    const read = await call('GET', 'networkRules');
-    const changes = await call('GET', 'networkRulesDraftChanges');
-    const discarded = await call('POST', 'discardNetworkRulesDraft', {});
-    await call('POST', 'saveNetworkRulesDraft', { rules: null });
-    const applyResponse = await call('POST', 'applyNetworkRules', { version: savedAgainstVersion });
+    const read = await call('networkRules');
+    const changes = await call('networkRulesDraftChanges');
+    const discarded = await call('discardNetworkRulesDraft', {});
+    await call('saveNetworkRulesDraft', { rules: null });
+    const applyResponse = await call('applyNetworkRules', { version: savedAgainstVersion });
 
     expect([saved.status, read.status, changes.status, discarded.status, applyResponse.status]).toEqual([200, 200, 200, 200, 200]);
     expect(z.object({ version: z.number() }).parse(await applyResponse.json()).version).toBe(savedAgainstVersion + 1);
-    expect((await call('POST', 'setBuiltInRule', { rule: 'viewerRead', isOn: true })).status).toBe(200);
+    expect((await call('setBuiltInRule', { rule: 'viewerRead', isOn: true })).status).toBe(200);
   });
 
   it('let argo turn the viewer reading off and on, and refuse turning another built-in rule with FORBIDDEN naming decision 0034', async () => {

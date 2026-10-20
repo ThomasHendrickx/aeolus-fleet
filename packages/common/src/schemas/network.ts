@@ -12,7 +12,7 @@ import { carriedLabelSchema } from './label.js';
  * checks them, so every refusal names it.
  */
 
-/** The most rules of argo's one fleet may hold, beside the rules its ships declared (decision 0037). */
+/** The most rules of its own one fleet may hold, beside the rules its ships declared (decision 0037). */
 export const NETWORK_RULES_MAX = 200;
 
 /** The most rules one ship may declare (decision 0037). */
@@ -65,17 +65,42 @@ export const networkRuleSchema = z.object({ verb: z.enum(NETWORK_VERBS), from: l
 
 export type NetworkRule = z.infer<typeof networkRuleSchema>;
 
-/** Input of `fleet.setNetworkRules` (fleet:network): every rule the fleet holds from now on beside the built-in ones. */
-export const setNetworkRulesInputSchema = z.object({ rules: z.array(networkRuleSchema) });
+/** The fleet's own rules: the whole list, or none for all-to-all, open on (decision 0034). */
+export const networkRulesSchema = z.array(networkRuleSchema).nullable();
+
+/** Input of `fleet.saveNetworkRulesDraft` (fleet:network): the draft of the fleet's own rules, a whole list or none for all-to-all. */
+export const saveNetworkRulesDraftInputSchema = z.object({ rules: networkRulesSchema });
+
+/** Output of `fleet.saveNetworkRulesDraft`: the settings version the draft was saved against, which its apply names. */
+export const saveNetworkRulesDraftOutputSchema = z.object({ savedAgainstVersion: z.int().min(0) });
+
+/** Input of `fleet.applyNetworkRules` (fleet:network): the settings version the caller saw the draft against; a moved one refuses the apply. */
+export const applyNetworkRulesInputSchema = z.object({ version: z.int().min(0) });
+
+/**
+ * Output of `fleet.networkRules` (fleet:network): the applied rules at the
+ * settings version, none for a fleet that never set any, and the draft, with
+ * when it was saved and against which version, or none.
+ */
+export const networkRulesOutputSchema = z.object({
+  applied: z.object({ rules: networkRulesSchema, version: z.int().min(0) }),
+  draft: z.object({ rules: networkRulesSchema, savedAt: z.iso.datetime(), savedAgainstVersion: z.int().min(0) }).nullable(),
+});
+
+export type NetworkRules = z.infer<typeof networkRulesOutputSchema>;
+
+/** Output of `fleet.discardNetworkRulesDraft`. */
+export const discardNetworkRulesDraftOutputSchema = z.object({});
 
 /**
  * The built-in rules, core's own (decision 0034): argo to and from every ship,
  * the owner's ship to the ships it owns, an answer to the sender of the
  * message it answers, and a connected plugin's ship reading every ship, which
  * are never off; the viewer reading every ship,
- * which argo turns off or on; the installation managing person ships and the
- * ships they own, never off (decision 0020); and open, every ship to every
- * ship, one per verb, which the networking plugin turns off or on.
+ * which an actor holding fleet:network turns off or on; the installation
+ * managing person ships and the ships they own, never off (decision 0020); and
+ * open, every ship to every ship by every verb, on exactly while the fleet has
+ * no rules applied.
  */
 export const BUILT_IN_RULES = ['argo', 'owner', 'answer', 'pluginRead', 'viewerRead', 'installation', 'open'] as const;
 
@@ -84,36 +109,21 @@ export type BuiltInRule = (typeof BUILT_IN_RULES)[number];
 /** The built-in rules that are never off. */
 export const FIXED_BUILT_IN_RULES = ['argo', 'owner', 'answer', 'pluginRead', 'installation'] as const satisfies readonly BuiltInRule[];
 
-/** Input of `fleet.setBuiltInRule` (fleet:network): a built-in rule turned on or off, open for one verb, which it names and no other rule does. */
-export const setBuiltInRuleInputSchema = z
-  .object({ rule: z.enum(BUILT_IN_RULES), verb: z.enum(NETWORK_VERBS).optional(), isOn: z.boolean() })
-  .refine((input) => (input.rule === 'open') === (input.verb !== undefined), { message: 'open names its verb, and no other built-in rule names one', path: ['verb'] });
+/** Input of `fleet.setBuiltInRule` (fleet:network): a built-in rule turned on or off; the server turns only the viewer reading. */
+export const setBuiltInRuleInputSchema = z.object({ rule: z.enum(BUILT_IN_RULES), isOn: z.boolean() });
 
 export type SetBuiltInRuleInput = z.infer<typeof setBuiltInRuleInputSchema>;
 
-/**
- * One built-in rule as it is now: open for one verb, which it names and no
- * other rule does, and whether it is on; the fixed ones always are.
- */
-export const builtInRuleStateSchema = z.union([
-  z.object({ rule: z.enum(['argo', 'owner', 'answer', 'pluginRead', 'viewerRead', 'installation']), isOn: z.boolean() }),
-  z.object({ rule: z.literal('open'), verb: z.enum(NETWORK_VERBS), isOn: z.boolean() }),
-]);
+/** One built-in rule as it is now, and whether it is on; the fixed ones always are. */
+export const builtInRuleStateSchema = z.object({ rule: z.enum(BUILT_IN_RULES), isOn: z.boolean() });
 
 export type BuiltInRuleState = z.infer<typeof builtInRuleStateSchema>;
 
 /** Output of `fleet.builtInRules` (fleet:network): every built-in rule as it is now, in the order the rule list shows them, first (decision 0034). */
 export const builtInRulesOutputSchema = z.array(builtInRuleStateSchema);
 
-/**
- * Output of `fleet.networkPlugin` (fleet:read): the fleet's networking plugin,
- * its ship and when it registered, or null without one (decision 0035). The
- * gateway reads it before it switches on for a fleet (interop I-3).
- */
-export const networkPluginOutputSchema = z.object({ shipId: idSchema('ship'), registeredAt: z.iso.datetime() }).nullable();
-
-/** Output of `fleet.setNetworkRules`: the version the fleet's network settings have now. */
-export const setNetworkRulesOutputSchema = z.object({ version: z.int().min(1) });
+/** Output of `fleet.applyNetworkRules` and `fleet.setBuiltInRule`: the version the fleet's network settings have now. */
+export const networkVersionOutputSchema = z.object({ version: z.int().min(0) });
 
 /** Input of `fleet.declareNetworkRules` (labels:define): every rule the ship declares from now on, on labels it owns; an empty list withdraws them (decision 0037). */
 export const declareNetworkRulesInputSchema = z.object({ rules: z.array(networkRuleSchema) });
@@ -128,29 +138,6 @@ export type Declarer = z.infer<typeof declarerSchema>;
 
 /** Output of `fleet.declaredNetworkRules` (fleet:network): each declarer of rules, with its whole list. */
 export const declaredNetworkRulesOutputSchema = z.array(z.object({ declarer: declarerSchema, rules: z.array(networkRuleSchema) }));
-
-/**
- * What happens to sends while a fleet's networking plugin is unavailable
- * (decision 0035): every send refused but the fixed exceptions, every send
- * allowed, or the rules it supplied last kept.
- */
-export const WHILE_UNAVAILABLE = ['block-all', 'open-all', 'keep-latest'] as const;
-
-export type WhileUnavailable = (typeof WHILE_UNAVAILABLE)[number];
-
-/** The least time without a call from its ship after which a networking plugin is not responding: longer than a receive waits. */
-export const NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MIN_SECONDS = 60;
-
-/** The most: a day. */
-export const NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS = 86_400;
-
-/** Input of `fleet.registerNetworkPlugin` (fleet:network): what happens while the plugin is unavailable, and after how long without a call it is not responding. */
-export const registerNetworkPluginInputSchema = z.object({
-  whileUnavailable: z.enum(WHILE_UNAVAILABLE),
-  notRespondingAfterSeconds: z.int().min(NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MIN_SECONDS).max(NETWORK_PLUGIN_NOT_RESPONDING_AFTER_MAX_SECONDS),
-});
-
-export type NetworkPluginDeclaration = z.infer<typeof registerNetworkPluginInputSchema>;
 
 /** A ship as a reach refusal saw it: its id, its name, the label values it carried then and its owner's ship then, none for argo and the viewer (decision 0045). */
 const refusedShipSchema = z.object({
@@ -198,8 +185,6 @@ export const reachRefusalSchema = z.object({
   /** What the sender tried to do: send, the one verb checked so far. */
   verb: z.enum(NETWORK_VERBS),
   settingsVersion: z.int().min(1),
-  /** What the plugin declared for while it is unavailable, when it refused because the plugin was not responding (decision 0035); null otherwise. */
-  whilePluginUnavailable: z.enum(['block-all', 'keep-latest']).nullable(),
 });
 
 export type ReachRefusal = z.infer<typeof reachRefusalSchema>;
@@ -207,18 +192,18 @@ export type ReachRefusal = z.infer<typeof reachRefusalSchema>;
 /** Output of `fleet.reachRefusals` (argo only): the fleet's latest refusals, newest first, at most REACH_REFUSALS_READ_MAX. */
 export const reachRefusalsOutputSchema = z.array(reachRefusalSchema);
 
-/** Input of `fleet.explainReach` (argo only): the ship to explain from, and the one ship asked about, or none for every ship. */
-export const explainReachInputSchema = z.object({ fromShipId: idSchema('ship'), toShipId: idSchema('ship').optional() });
+/** Input of `fleet.explainReach` (fleet:explain): the ship to explain from, the one ship asked about or none for every ship, and the rules to explain against: the applied ones, or the draft. */
+export const explainReachInputSchema = z.object({ fromShipId: idSchema('ship'), toShipId: idSchema('ship').optional(), against: z.enum(['applied', 'draft']).optional() });
 
 /**
  * The rule that lets one ship reach another (decision 0034): a built-in rule;
- * a rule the networking plugin supplied, by its place in the fleet's list;
+ * one of the fleet's own rules, by its place in the fleet's list;
  * or a declared rule, by its declarer, a ship or the installation, and its
  * place in that declarer's list (decision 0037).
  */
 export const reachRuleSchema = z.union([
   z.object({ builtIn: z.enum(BUILT_IN_RULES) }),
-  z.object({ plugin: z.int().min(0) }),
+  z.object({ rule: z.int().min(0) }),
   z.object({ declared: declarerSchema, index: z.int().min(0) }),
 ]);
 
@@ -230,3 +215,19 @@ const reachedShipsSchema = z.array(z.object({ shipId: idSchema('ship'), rule: re
 export const explainReachOutputSchema = z.object({ send: reachedShipsSchema, read: reachedShipsSchema, manage: reachedShipsSchema });
 
 export type ExplainedReach = z.infer<typeof explainReachOutputSchema>;
+
+const reachChangesSchema = z.array(z.object({ fromShipId: idSchema('ship'), toShipId: idSchema('ship'), rule: reachRuleSchema }));
+
+/**
+ * Output of `fleet.networkRulesDraftChanges` (fleet:network): per verb, the
+ * pairs of ships the caller reads whose reach the draft gains, each with the
+ * draft's rule that allows it, and loses, each with the applied rule that
+ * allows it now (decision 0034).
+ */
+export const networkRulesDraftChangesOutputSchema = z.object({
+  send: z.object({ gained: reachChangesSchema, lost: reachChangesSchema }),
+  read: z.object({ gained: reachChangesSchema, lost: reachChangesSchema }),
+  manage: z.object({ gained: reachChangesSchema, lost: reachChangesSchema }),
+});
+
+export type NetworkRulesDraftChanges = z.infer<typeof networkRulesDraftChangesOutputSchema>;

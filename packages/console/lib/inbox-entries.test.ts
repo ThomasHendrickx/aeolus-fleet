@@ -56,7 +56,6 @@ describe('inboxEntriesOf', () => {
     TRIERARCH,
     SQUADRONS,
     { id: newId('ship'), name: 'trierarch-plugin', type: 'trierarch-plugin' },
-    { id: newId('ship'), name: 'networking-plugin', type: 'networking-plugin' },
     { id: newId('ship'), name: 'gateway', type: 'gateway' },
   ])(
     'marks a message from the $type ship as from a plugin',

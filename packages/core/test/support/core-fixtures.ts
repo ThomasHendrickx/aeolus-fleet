@@ -5,7 +5,6 @@ import {
   type FleetId,
   type LeaseId,
   type MessageId,
-  type NetworkRule,
   type NetworkVerb,
   type Scope,
   type ShipId,
@@ -110,6 +109,7 @@ import { createReadAssignedCrewRequests } from '../../src/domain/registry/read-a
 import { createExplainCrewRequest } from '../../src/domain/registry/explain-crew-request.js';
 import { createReadReportLog } from '../../src/domain/registry/report-log.js';
 import { createWhoami } from '../../src/domain/registry/whoami.js';
+import type { NetworkRule } from '../../src/domain/registry/network-settings.js';
 import { isCrew, type Caller, type ShipCaller, type Crew } from '../../src/domain/shared/caller.js';
 import { createReadFleetEvents } from '../../src/domain/shared/read-fleet-events.js';
 import { createFollowFleet } from '../../src/domain/shared/follow-fleet.js';
@@ -187,11 +187,10 @@ export async function argoAboard(core: InMemoryCore): Promise<Crew> {
  */
 export async function applyNetworkRules(
   registry: Pick<ReturnType<typeof registryUseCases>, 'saveNetworkRulesDraft' | 'applyNetworkRules'>,
-  caller: Caller,
-  rules: readonly NetworkRule[] | null,
+  apply: { by: Caller; rules: readonly NetworkRule[] | null },
 ): Promise<number> {
-  const { savedAgainstVersion } = unwrap(await registry.saveNetworkRulesDraft(caller, { rules }));
-  return unwrap(await registry.applyNetworkRules(caller, { version: savedAgainstVersion })).version;
+  const { savedAgainstVersion } = unwrap(await registry.saveNetworkRulesDraft(apply.by, { rules: apply.rules }));
+  return unwrap(await registry.applyNetworkRules(apply.by, { version: savedAgainstVersion })).version;
 }
 
 /** A rule that lets every actor do the verb to every ship, as open does while no rules are applied. */
@@ -265,7 +264,7 @@ export function registryUseCases(core: InMemoryCore) {
     whoami: createWhoami({ ships: core.ships }),
     report: createReport({ uow: core.uow, clock: core.clock, ids: core.ids }),
     setStatement: createSetStatement({ uow: core.uow, clock: core.clock, ids: core.ids }),
-    discover: createDiscover({ uow: core.uow, clock: core.clock }),
+    discover: createDiscover({ uow: core.uow }),
     reportTurn: createReportTurn({ uow: core.uow, clock: core.clock, ids: core.ids }),
     reportLog: createReadReportLog({ leases: core.leases }),
     readFleetEvents: createReadFleetEvents({ feed: core.feed, history: core.history, readReach: readReachOf(core) }),
@@ -282,7 +281,7 @@ export function registryUseCases(core: InMemoryCore) {
 
 /** What a caller reads (decision 0034), worked out from the in-memory core. */
 export function readReachOf(core: InMemoryCore) {
-  return createReadReachOf({ uow: core.uow, clock: core.clock });
+  return createReadReachOf({ uow: core.uow });
 }
 
 /** The history reads for the ship page, wired to the in-memory core. */

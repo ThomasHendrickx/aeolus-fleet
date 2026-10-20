@@ -22,7 +22,7 @@ beforeEach(async () => {
   const caller = await shipWithScopes({ registry: fleet.registry, argo: fleet.argo }, { name: 'manager', type: 'manager', scopes: ['fleet:manage'] });
   manager = { ...crewAboard(fleet.core, caller), scopes: caller.scopes };
   await fleet.carry(manager, 'a');
-  await applyNetworkRules(fleet.registry, fleet.networking, [{ verb: 'manage', from: [fleet.team('a')], to: [fleet.team('a')] }, everyShipMay('send'), everyShipMay('read')]);
+  await applyNetworkRules(fleet.registry, { by: fleet.networking, rules: [{ verb: 'manage', from: [fleet.team('a')], to: [fleet.team('a')] }, everyShipMay('send'), everyShipMay('read')] });
   fleet.core.state.reachRefusals.length = 0;
 });
 
@@ -84,7 +84,7 @@ describe('a fleet:manage call within manage reach', () => {
   });
 
   it('lets every ship manage within open, while no rules are applied', async () => {
-    await applyNetworkRules(fleet.registry, fleet.networking, null);
+    await applyNetworkRules(fleet.registry, { by: fleet.networking, rules: null });
 
     await expect(fleet.registry.renameShip(manager, { shipId: fleet.far.shipId, name: 'renamed' })).resolves.toMatchObject({ isOk: true });
   });

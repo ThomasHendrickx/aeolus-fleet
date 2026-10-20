@@ -231,6 +231,9 @@ export const EVENT_TYPES = [
   'WorktreeClearRemoved',
   'NetworkRulesSet',
   'NetworkRulesDeclared',
+  'NetworkRulesDraftSaved',
+  'NetworkRulesDraftDiscarded',
+  // Written no more since the networking plugin went (decision 0034); the event log keeps them.
   'NetworkPluginRegistered',
   'NetworkPluginUnregistered',
   'BuiltInRuleChanged',

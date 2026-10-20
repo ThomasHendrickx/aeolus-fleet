@@ -42,7 +42,7 @@ describe('a ship with crew:run', () => {
 
   it('reads an assigned ship whole whatever the read rules: assignment, not read reach (decision 0034)', async () => {
     const networking = await shipWithScopes({ registry, argo }, { name: 'networking', type: 'networking', scopes: ['fleet:network'] });
-    await applyNetworkRules(registry, networking, [everyShipMay('send'), everyShipMay('manage')]);
+    await applyNetworkRules(registry, { by: networking, rules: [everyShipMay('send'), everyShipMay('manage')] });
 
     await expect(registry.getShip({ ...trierarch, scopes: [...trierarch.scopes, 'fleet:read'] }, { shipId: assignedId })).resolves.toMatchObject({ isOk: true, value: { id: assignedId, kind: 'agent' } });
   });

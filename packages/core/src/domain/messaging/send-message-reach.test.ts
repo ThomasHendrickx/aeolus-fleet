@@ -48,7 +48,7 @@ function sameValue(key: string): SelectorTerm {
 
 /** Applies the rules: open is off while they apply, on for none, all-to-all. */
 async function setRules(rules: NetworkRule[] | null): Promise<void> {
-  await applyNetworkRules(registry, networking, rules);
+  await applyNetworkRules(registry, { by: networking, rules: rules });
 }
 
 function toShip(ship: ShipCaller): Selector {

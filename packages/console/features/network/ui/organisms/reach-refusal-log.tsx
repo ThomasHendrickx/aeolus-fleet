@@ -30,8 +30,7 @@ interface RefusedParty {
  * The reach refusals log on Network (design point 7 on #260; decision 0034):
  * every send the rules refused, newest first. Each says who tried to message
  * whom, both ships' labels as they were then, and the network settings
- * version that refused it, with the networking plugin's declaration when it
- * was not responding. Argo's only: the page shows it to argo. One column of
+ * version that refused it. Argo's only: the page shows it to argo. One column of
  * cards, so it reads the same on a phone.
  */
 export function ReachRefusalLog({ refusals, error, onRetry, context, now }: ReachRefusalLogProps) {

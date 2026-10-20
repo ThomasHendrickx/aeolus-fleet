@@ -92,7 +92,7 @@ export async function readReachScenario(): Promise<ReadReachScenario> {
       unwrap(await registry.assignLabel(labeller, { shipId: ship.shipId, valueId: team(value) }));
     },
     readRulesApply: async () => {
-      await applyNetworkRules(registry, networking, [{ verb: 'read', from: [team('a')], to: [team('a')] }, everyShipMay('send'), everyShipMay('manage')]);
+      await applyNetworkRules(registry, { by: networking, rules: [{ verb: 'read', from: [team('a')], to: [team('a')] }, everyShipMay('send'), everyShipMay('manage')] });
     },
     send,
     undeliverable: async (from, to) => {

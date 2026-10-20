@@ -204,7 +204,7 @@ describe('assigning a label', () => {
 describe('assigning with labels:any outside manage reach (decision 0053)', () => {
   it('is refused as a manage the rules do not allow, recording the refusal and storing nothing', async () => {
     const fleet = await readReachScenario();
-    await applyNetworkRules(fleet.registry, fleet.networking, [everyShipMay('send'), everyShipMay('read')]);
+    await applyNetworkRules(fleet.registry, { by: fleet.networking, rules: [everyShipMay('send'), everyShipMay('read')] });
     fleet.core.state.reachRefusals.length = 0;
     const before = fleet.core.state.shipLabels.length;
     const labeller: ShipCaller = { ...fleet.near, scopes: ['labels:assign', 'labels:any'] };

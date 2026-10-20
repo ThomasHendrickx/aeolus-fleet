@@ -74,9 +74,9 @@ export function isDeclaredRulesChange(type: EventType): boolean {
   return type === 'NetworkRulesDeclared';
 }
 
-/** A built-in rule turned on or off, or the networking plugin gone, which turns open on again, changes the built-in rules Network shows (decision 0034). */
+/** A built-in rule turned on or off, or rules applied, which turn open off or on, changes the built-in rules Network shows (decision 0034). */
 export function isBuiltInRulesChange(type: EventType): boolean {
-  return type === 'BuiltInRuleChanged' || type === 'NetworkPluginUnregistered';
+  return type === 'BuiltInRuleChanged' || type === 'NetworkRulesSet';
 }
 
 /** The subscription's state as the live dot words it. */

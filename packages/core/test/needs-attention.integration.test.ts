@@ -292,5 +292,5 @@ describe('Needs attention on Postgres', () => {
 
 /** Read reach worked out in its own unit of work, outside the racing ones. */
 function readReachOn(core: PostgresCore) {
-  return createReadReachOf({ uow: createPrismaUnitOfWork(core.prisma), clock: core.clock });
+  return createReadReachOf({ uow: createPrismaUnitOfWork(core.prisma) });
 }

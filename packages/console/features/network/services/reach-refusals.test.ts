@@ -18,7 +18,6 @@ function aRefusal(overrides: Partial<ReachRefusal> = {}): ReachRefusal {
     recipient: { kind: 'ship', ship: aRefusedShip('vault') },
     verb: 'send',
     settingsVersion: 4,
-    whilePluginUnavailable: null,
     ...overrides,
   };
 }
@@ -36,17 +35,5 @@ describe('a reach refusal in words', () => {
 
   it('names the settings version that refused it', () => {
     expect(refusalCauseOf(aRefusal())).toBe('Refused by network settings version 4.');
-  });
-
-  it('says the networking plugin was not responding, and what it declared for that', () => {
-    expect(refusalCauseOf(aRefusal({ whilePluginUnavailable: 'block-all' }))).toBe(
-      'Refused by network settings version 4 while the networking plugin was not responding: Block all.',
-    );
-  });
-
-  it('says the latest rules were kept while the networking plugin was not responding', () => {
-    expect(refusalCauseOf(aRefusal({ whilePluginUnavailable: 'keep-latest' }))).toBe(
-      'Refused by network settings version 4 while the networking plugin was not responding: Keep the latest rules.',
-    );
   });
 });

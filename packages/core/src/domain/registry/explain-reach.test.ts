@@ -4,14 +4,13 @@ import {
   SAME_LABEL_VALUE,
   type ExplainedReach,
   type LabelValueId,
-  type NetworkRule,
   type NetworkVerb,
   type ReachRule,
   type ShipId,
 } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { applyNetworkRules, hostedFleetWithViewer, initialiseFleet, operatorCaller, readReachOf, registryUseCases } from '../../../test/support/core-fixtures.js';
+import { applyNetworkRules, everyShipMay, hostedFleetWithViewer, initialiseFleet, operatorCaller, readReachOf, registryUseCases } from '../../../test/support/core-fixtures.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { labelIdOf, valueIdOf } from '../../../test/support/label-fixtures.js';
@@ -19,6 +18,7 @@ import { newKey } from '../../testing/keys.js';
 import { refusalOf, unwrap } from '../../testing/result.js';
 import type { InstallationCaller, ShipCaller } from '../shared/caller.js';
 import { createExplainReach } from './explain-reach.js';
+import type { NetworkRule } from './network-settings.js';
 
 /**
  * argo asks whether one ship reaches another (design point 11 on #260):
@@ -40,8 +40,8 @@ function value(text: string): LabelValueId {
 }
 
 /** Applies the rules: open is off while they apply, on for none, all-to-all. */
-async function setRules(rules: NetworkRule[] | null): Promise<void> {
-  await applyNetworkRules(registry, networking, rules);
+async function setRules(rules: readonly NetworkRule[] | null): Promise<void> {
+  await applyNetworkRules(registry, { by: networking, rules: rules });
 }
 
 /** Shared ships reach shared ships; nothing reaches vault. */
@@ -66,7 +66,7 @@ beforeEach(async () => {
   const fleet = await initialiseFleet(core);
   argo = operatorCaller(fleet);
   registry = registryUseCases(core);
-  explainReach = createExplainReach({ uow: core.uow, clock: core.clock, readReach: readReachOf(core) });
+  explainReach = createExplainReach({ uow: core.uow, readReach: readReachOf(core) });
   // argo labels the ships: it labels any ship (decision 0046).
   labeller = argo;
   planner = await shipWithScopes({ registry, argo }, { name: 'planner', type: 'planner', scopes: [] });
@@ -183,13 +183,13 @@ describe('explaining reach of the draft (decision 0034)', () => {
   });
 
   it('answers by the draft when asked, as a send would be checked once it is applied', async () => {
-    const explained = unwrap(await explainReach(argo, { fromShipId: scout.shipId, ofDraft: true }));
+    const explained = unwrap(await explainReach(argo, { fromShipId: scout.shipId, against: 'draft' }));
 
     expect(sendReach(explained)).toEqual(byId(argo, vault));
   });
 
   it('names a rule of the draft by its place in the draft', async () => {
-    const explained = unwrap(await explainReach(argo, { fromShipId: scout.shipId, toShipId: vault.shipId, ofDraft: true }));
+    const explained = unwrap(await explainReach(argo, { fromShipId: scout.shipId, toShipId: vault.shipId, against: 'draft' }));
 
     expect(explained.send).toEqual([{ shipId: vault.shipId, rule: { rule: 0 } }]);
   });
@@ -203,7 +203,7 @@ describe('explaining reach of the draft (decision 0034)', () => {
   it('answers open for a draft of none, all-to-all', async () => {
     unwrap(await registry.saveNetworkRulesDraft(networking, { rules: null }));
 
-    const explained = unwrap(await explainReach(argo, { fromShipId: scout.shipId, toShipId: vault.shipId, ofDraft: true }));
+    const explained = unwrap(await explainReach(argo, { fromShipId: scout.shipId, toShipId: vault.shipId, against: 'draft' }));
 
     expect(explained.send).toEqual([{ shipId: vault.shipId, rule: { builtIn: 'open' } }]);
   });
@@ -211,14 +211,14 @@ describe('explaining reach of the draft (decision 0034)', () => {
   it('refuses the draft of a fleet without one', async () => {
     unwrap(await registry.discardNetworkRulesDraft(networking));
 
-    expect(refusalOf(await explainReach(argo, { fromShipId: scout.shipId, ofDraft: true }))).toEqual({ kind: 'NO_NETWORK_RULES_DRAFT', message: 'The fleet has no draft of its network rules' });
+    expect(refusalOf(await explainReach(argo, { fromShipId: scout.shipId, against: 'draft' }))).toEqual({ kind: 'NO_NETWORK_RULES_DRAFT', message: 'The fleet has no draft of its network rules' });
   });
 });
 
 describe('who explains reach (decision 0053)', () => {
   /** Shared ships read shared ships, and open read is off: planner reads planner and scout, never vault. */
   async function readRulesApply(): Promise<void> {
-    await setRules([{ verb: 'read', from: [value('shared')], to: [value('shared')] }]);
+    await setRules([{ verb: 'read', from: [value('shared')], to: [value('shared')] }, everyShipMay('send'), everyShipMay('manage')]);
   }
 
   it('lets any actor holding fleet:explain explain reach, not only argo', async () => {

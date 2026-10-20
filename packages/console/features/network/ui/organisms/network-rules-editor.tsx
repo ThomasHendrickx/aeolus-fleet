@@ -23,33 +23,23 @@ import {
   type NetworkLimits,
   type RuleSide,
 } from '../../../../lib/network-rules';
-import {
-  AlertDialog,
-  AlertDialogClose,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '../../../../components/atoms/alert-dialog';
 import { Button } from '../../../../components/atoms/button';
-import { dialogSurface } from '../../../../components/atoms/dialog-surface';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/atoms/select';
 import { InlineError } from '../../../../components/molecules/inline-error';
 import { LabelSelectorField } from '../molecules/label-selector-field';
 
 interface NetworkRulesEditorProps {
-  /** The rules the networking plugin holds: none is all-to-all. */
+  /** The rules of the fleet's draft, or the applied rules without one: none is all-to-all. */
   rules: readonly NetworkRule[] | null;
   /** The fleet's labels, for the chips and the picker. */
   context: LabelContext;
   limits: NetworkLimits;
   isSaving: boolean;
-  /** Why the last save failed, as the networking plugin says it: the draft stays. */
+  /** Why the last save failed, as the fleet says it: the editor keeps its changes. */
   saveError?: string;
-  /** What the last save did at the fleet. */
+  /** What the last save says. */
   savedNote?: string;
-  /** Saves the whole list, or none for all-to-all. */
+  /** Saves the whole list as the fleet's draft, or none for all-to-all. */
   onSave: (rules: NetworkRule[] | null) => void;
 }
 
@@ -65,18 +55,18 @@ const newKey = () => crypto.randomUUID();
 const withProblem = (problem: string | undefined) => (problem === undefined ? {} : { problem });
 
 /**
- * The network rules, argo's alone (#260; decisions 0034, 0036): all-to-all
- * until argo sets rules; then each rule lets the ships meeting every term on
+ * The fleet's own network rules, for a fleet:network session (#260; decision
+ * 0034): all-to-all until rules are applied; then each rule lets the ships meeting every term on
  * its left send to, read or manage, by its verb, those meeting every term on
  * its right: an exact value, any value of a key, the same value as the other
- * side, or an owner. The built-in rules hold beside them. The draft is this editor's own
- * until Save sends it whole; a failed save keeps it, and a same value on one
- * side only, which the fleet refuses, keeps Save off. Turning rules off
- * drops every rule, so it confirms first.
+ * side, or an owner. The built-in and declared rules hold beside them. The
+ * changes are this editor's own until Save keeps them whole as the fleet's
+ * draft, which nothing is checked against until it is applied; a failed save
+ * keeps them, and a same value on one side only, which the fleet refuses,
+ * keeps Save off.
  */
 export function NetworkRulesEditor({ rules, context, limits, isSaving, saveError, savedNote, onSave }: NetworkRulesEditorProps) {
   const [draft, setDraft] = useState(() => draftOf(rules, newKey));
-  const [isConfirmingOff, setIsConfirmingOff] = useState(false);
   const groups = filterGroupsOf(context);
   const ownerChoices = ownerChoicesOf(context);
   const hasChanges = isChanged(draft, rules);
@@ -94,9 +84,9 @@ export function NetworkRulesEditor({ rules, context, limits, isSaving, saveError
           <p className="text-meta text-muted-foreground">
             With rules, a ship may send to, read or manage another only when a rule of that verb or a built-in rule allows it.
           </p>
-          <div>
+          <div className="flex flex-wrap items-center gap-2">
             <Button
-              variant="primary"
+              variant={hasChanges ? 'secondary' : 'primary'}
               icon={<Plus aria-hidden />}
               disabled={isSaving}
               data-testid="network-rules-on"
@@ -106,6 +96,29 @@ export function NetworkRulesEditor({ rules, context, limits, isSaving, saveError
             >
               Set rules
             </Button>
+            {hasChanges ? (
+              <>
+                <Button
+                  variant="primary"
+                  isLoading={isSaving}
+                  data-testid="network-rules-save"
+                  onClick={() => {
+                    onSave(null);
+                  }}
+                >
+                  Save draft
+                </Button>
+                <Button
+                  disabled={isSaving}
+                  data-testid="network-rules-discard"
+                  onClick={() => {
+                    setDraft(draftOf(rules, newKey));
+                  }}
+                >
+                  Discard changes
+                </Button>
+              </>
+            ) : null}
           </div>
         </>
       ) : (
@@ -215,7 +228,7 @@ export function NetworkRulesEditor({ rules, context, limits, isSaving, saveError
                 onSave(rulesOf(draft));
               }}
             >
-              Save rules
+              Save draft
             </Button>
             {hasChanges ? (
               <Button
@@ -234,11 +247,7 @@ export function NetworkRulesEditor({ rules, context, limits, isSaving, saveError
               disabled={isSaving}
               data-testid="network-rules-off"
               onClick={() => {
-                if (rules === null) {
-                  setDraft(setRulesOn(draft, false));
-                } else {
-                  setIsConfirmingOff(true);
-                }
+                setDraft(setRulesOn(draft, false));
               }}
             >
               Remove all rules
@@ -252,37 +261,6 @@ export function NetworkRulesEditor({ rules, context, limits, isSaving, saveError
           {savedNote}
         </p>
       )}
-      <AlertDialog
-        open={isConfirmingOff}
-        onOpenChange={(isOpen) => {
-          if (!isOpen && !isSaving) {
-            setIsConfirmingOff(false);
-          }
-        }}
-      >
-        <AlertDialogContent data-testid="network-rules-off-dialog" className={dialogSurface.phoneSheet}>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove all rules?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Every ship may send to, read and manage every ship again from now on. The rules are gone: to have them back, set them again.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogClose render={<Button disabled={isSaving} />}>Cancel</AlertDialogClose>
-            <Button
-              variant="destructive"
-              isLoading={isSaving}
-              data-testid="network-rules-off-confirm"
-              onClick={() => {
-                setIsConfirmingOff(false);
-                onSave(null);
-              }}
-            >
-              Remove all rules
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </section>
   );
 }

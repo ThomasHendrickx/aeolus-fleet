@@ -8,12 +8,13 @@ import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { declareNetworkRules, namedInRules, type DeclareNetworkRulesRefusal } from './declared-network-rules.js';
 import { labelOwnerOf, ownerNameOf, type Label } from './label.js';
 import type { NetworkRule } from './network-settings.js';
-import type { DeclaredNetworkRulesRepository, LabelRepository, ShipRepository } from './ports.js';
+import type { DeclaredNetworkRulesRepository, LabelRepository, NetworkSettingsRepository, ShipRepository } from './ports.js';
 
 export interface DeclareNetworkRulesTx {
   labels: Pick<LabelRepository, 'find' | 'findByValueForShare'>;
   ships: Pick<ShipRepository, 'find'>;
   declaredNetworkRules: Pick<DeclaredNetworkRulesRepository, 'save'>;
+  networkSettings: Pick<NetworkSettingsRepository, 'findForUpdate' | 'save'>;
   events: EventLog;
 }
 
@@ -25,8 +26,9 @@ export type DeclareNetworkRules = (caller: Caller, input: { rules: readonly Netw
  * 0037, 0052); an account owns no label, so it is refused. Its scope
  * (labels:define) is checked before this runs. In one unit of work: the
  * labels its terms name as the fleet has them now, its list in place of the
- * one before, and NetworkRulesDeclared. Nothing comes in force here: the
- * networking plugin adds them to argo's rules when it supplies the list.
+ * one before, in force beside the fleet's own rules, the settings at their
+ * next version, and NetworkRulesDeclared. The settings are held exclusively
+ * after the labels, as an assignment takes them, so no check runs halfway.
  */
 export function createDeclareNetworkRules(deps: { uow: UnitOfWork<DeclareNetworkRulesTx>; clock: Clock; ids: IdGenerator }): DeclareNetworkRules {
   return (caller, input) =>
@@ -38,12 +40,13 @@ export function createDeclareNetworkRules(deps: { uow: UnitOfWork<DeclareNetwork
       const ownerNames = new Map(await Promise.all(labels.map(async (label) => [label.id, await ownerNameOf(label.owner, async (owner) => (await tx.ships.find(fleetId, owner))?.name)] as const)));
       const declared = declareNetworkRules(
         { labels, ownerNameOf: (label) => ownerNames.get(label.id) ?? 'its owner' },
-        { fleetId, declarer: labelOwnerOf(caller), rules: input.rules, at: deps.clock.now(), actor: actorOf(caller) },
+        { settings: await tx.networkSettings.findForUpdate(fleetId), declarer: labelOwnerOf(caller), rules: input.rules, at: deps.clock.now(), actor: actorOf(caller) },
       );
       if (!declared.isOk) {
         return declared;
       }
       await tx.declaredNetworkRules.save(declared.value.declared);
+      await tx.networkSettings.save(declared.value.settings);
       for (const event of declared.value.events) {
         await recordEvent({ events: tx.events, ids: deps.ids }, event);
       }

@@ -10,12 +10,10 @@ const ALL_ON = builtInRowsOf([
   { rule: 'answer', isOn: true },
   { rule: 'viewerRead', isOn: true },
   { rule: 'installation', isOn: true },
-  { rule: 'open', verb: 'send', isOn: true },
-  { rule: 'open', verb: 'read', isOn: true },
-  { rule: 'open', verb: 'manage', isOn: true },
+  { rule: 'open', isOn: true },
 ]);
 
-/** argo's rules apply: the plugin turned open off for every verb; argo turned the viewer reading off. */
+/** Rules are applied, which turned open off; argo turned the viewer reading off. */
 const WITH_RULES = ALL_ON.map((row) => (row.turnedBy === 'never' ? row : { ...row, isOn: false }));
 
 const meta = {
@@ -44,15 +42,13 @@ export const AllOn: Story = {
       'Answer',
       'Viewer reads',
       'Installation manages',
-      'Open for send',
-      'Open for read',
-      'Open for manage',
+      'Open',
     ]);
     await expect(canvas.getAllByTestId('network-built-in-rule-state').slice(0, 3).map((state) => state.textContent)).toEqual(['Never off', 'Never off', 'Never off']);
     await expect(canvas.getAllByRole('switch')).toHaveLength(1);
   },
 };
-/** argo's rules apply: open off for every verb, the viewer reading off. */
+/** Rules are applied: open off, the viewer reading off. */
 export const WithRules: Story = { args: { rows: WITH_RULES } };
 /** The switch turns the viewer reading. */
 export const TurnsViewerRead: Story = {

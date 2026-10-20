@@ -43,7 +43,7 @@ describe('saving the draft of the network rules (decision 0034)', () => {
   });
 
   it('keeps none as a draft of all-to-all', async () => {
-    await applyNetworkRules(registry, networking, []);
+    await applyNetworkRules(registry, { by: networking, rules: [] });
 
     unwrap(await registry.saveNetworkRulesDraft(networking, { rules: null }));
 

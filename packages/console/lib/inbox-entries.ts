@@ -1,6 +1,6 @@
 import type { InboxMessage, ShipId } from '@aeolus-fleet/common';
 
-import { GATEWAY_SHIP, NETWORKING_PLUGIN_SHIP, SQUADRONS_SHIP, TRIERARCH_PLUGIN_SHIP } from './connect-plugin';
+import { GATEWAY_SHIP, SQUADRONS_SHIP, TRIERARCH_PLUGIN_SHIP } from './connect-plugin';
 import type { InboxEntry, InboxSender } from './inbox-entry';
 import { messageTextOf } from './message-text';
 import { questionsIn } from './question-answer';
@@ -17,7 +17,7 @@ import { questionDeliveryIdsOf } from './questions';
 const TRIERARCH_TYPE = 'trierarch';
 
 /** The types of the ships plugins crew: their messages fold into one row. */
-const PLUGIN_SHIP_TYPES: ReadonlySet<string> = new Set([TRIERARCH_TYPE, SQUADRONS_SHIP.type, TRIERARCH_PLUGIN_SHIP.type, NETWORKING_PLUGIN_SHIP.type, GATEWAY_SHIP.type]);
+const PLUGIN_SHIP_TYPES: ReadonlySet<string> = new Set([TRIERARCH_TYPE, SQUADRONS_SHIP.type, TRIERARCH_PLUGIN_SHIP.type, GATEWAY_SHIP.type]);
 
 export interface ListedShip {
   id: ShipId;

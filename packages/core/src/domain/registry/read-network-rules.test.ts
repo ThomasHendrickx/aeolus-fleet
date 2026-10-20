@@ -27,7 +27,7 @@ describe('reading the network rules (decision 0034)', () => {
 
   it('answers the applied rules at the version the settings have, and the draft beside them', async () => {
     const applied = [aRule()];
-    await applyNetworkRules(registry, argo, applied);
+    await applyNetworkRules(registry, { by: argo, rules: applied });
     core.clock.advance(60_000);
     const drafted = [aRule(), aRule()];
     unwrap(await registry.saveNetworkRulesDraft(argo, { rules: drafted }));

@@ -139,7 +139,7 @@ describe("setting an owner outside the actor's manage reach (decisions 0034, 005
   it('is refused as a manage the rules do not allow, recording the refusal and changing nothing', async () => {
     const fleet = await readReachScenario();
     const { shipId: personId } = unwrap(await fleet.registry.commissionShip(fleet.argo, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person' }));
-    await applyNetworkRules(fleet.registry, fleet.networking, [everyShipMay('send'), everyShipMay('read')]);
+    await applyNetworkRules(fleet.registry, { by: fleet.networking, rules: [everyShipMay('send'), everyShipMay('read')] });
     fleet.core.state.reachRefusals.length = 0;
     const admin: ShipCaller = { ...fleet.near, scopes: ['fleet:owner'] };
 

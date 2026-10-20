@@ -1,6 +1,6 @@
 /**
- * The fleet's network settings and the records of the sends they refused, on
- * Postgres (decision 0034). A send and a change of rules take turns on a
+ * The fleet's network settings, the draft of its rules and the records of the
+ * sends they refused, on Postgres (decision 0034). A send and a change of rules take turns on a
  * transaction-level advisory lock on the fleet's settings: a send holds it
  * shared, a set exclusively. An advisory lock, not a row lock: Postgres
  * queues a shared request behind an exclusive one that waits, so a stream of
@@ -8,28 +8,25 @@
  * rules. The settings are read after the lock, so they are the latest
  * committed.
  */
-import { accountIdSchema, carriedLabelSchema, idSchema, NETWORK_VERBS, networkRuleSchema, WHILE_UNAVAILABLE, type FleetId } from '@aeolus-fleet/common';
+import { accountIdSchema, carriedLabelSchema, idSchema, NETWORK_VERBS, networkRuleSchema, networkRulesSchema, type FleetId } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import type { DeclaredNetworkRules } from '../../domain/registry/declared-network-rules.js';
+import type { NetworkRulesDraft } from '../../domain/registry/network-rules-draft.js';
 import { noNetworkSettings, type NetworkRule, type NetworkSettings } from '../../domain/registry/network-settings.js';
-import type { DeclaredNetworkRulesRepository, NetworkSettingsRepository, ReachRefusalRepository } from '../../domain/registry/ports.js';
+import type { DeclaredNetworkRulesRepository, NetworkRulesDraftRepository, NetworkSettingsRepository, ReachRefusalRepository } from '../../domain/registry/ports.js';
 import type { ReachRefusal, RefusedActor, RefusedShip } from '../../domain/registry/reach-refusal.js';
 import type { Db } from './client.js';
 import { Prisma } from './generated/client.js';
 
-const settingsRowSchema = z.object({
-  rules: z.array(networkRuleSchema),
-  version: z.number().int().min(0),
-  pluginShipId: idSchema('ship').nullable(),
-  pluginWhileUnavailable: z.enum(WHILE_UNAVAILABLE).nullable(),
-  pluginNotRespondingAfterSeconds: z.number().int().nullable(),
-  pluginRegisteredAt: z.date().nullable(),
-  builtInViewerRead: z.boolean(),
-  builtInOpenSend: z.boolean(),
-  builtInOpenRead: z.boolean(),
-  builtInOpenManage: z.boolean(),
-});
+const settingsRowSchema = z.object({ rules: networkRulesSchema, version: z.number().int().min(0), builtInViewerRead: z.boolean() });
+
+const draftRowSchema = z.object({ fleetId: idSchema('fleet'), rules: networkRulesSchema, savedAt: z.date(), savedAgainstVersion: z.number().int().min(0) });
+
+/** The rules as a JSON column keeps them: none as SQL NULL. */
+function rulesJson(rules: readonly NetworkRule[] | null) {
+  return rules === null ? Prisma.DbNull : rules.map((rule) => ({ verb: rule.verb, from: [...rule.from], to: [...rule.to] }));
+}
 
 const refusedShipSchema = z.object({
   id: idSchema('ship'),
@@ -63,37 +60,16 @@ const refusalRowSchema = z.object({
   ]),
   verb: z.enum(NETWORK_VERBS),
   settingsVersion: z.number().int().min(1),
-  whilePluginUnavailable: z.enum(['block-all', 'keep-latest']).nullable(),
 });
 
 export function createPrismaNetworkSettingsRepository(db: Db): NetworkSettingsRepository {
   const read = async (fleetId: FleetId): Promise<NetworkSettings> => {
-    const row = await db.networkSettings.findUnique({
-      where: { fleetId },
-      select: {
-        rules: true,
-        version: true,
-        pluginShipId: true,
-        pluginWhileUnavailable: true,
-        pluginNotRespondingAfterSeconds: true,
-        pluginRegisteredAt: true,
-        builtInViewerRead: true,
-        builtInOpenSend: true,
-        builtInOpenRead: true,
-        builtInOpenManage: true,
-      },
-    });
+    const row = await db.networkSettings.findUnique({ where: { fleetId }, select: { rules: true, version: true, builtInViewerRead: true } });
     if (!row) {
       return noNetworkSettings(fleetId);
     }
-    const { rules, version, pluginShipId, pluginWhileUnavailable, pluginNotRespondingAfterSeconds, pluginRegisteredAt, ...builtIn } = settingsRowSchema.parse(row);
-    // The table's check keeps the four set together or none.
-    const plugin =
-      pluginShipId !== null && pluginWhileUnavailable !== null && pluginNotRespondingAfterSeconds !== null && pluginRegisteredAt !== null
-        ? { shipId: pluginShipId, whileUnavailable: pluginWhileUnavailable, notRespondingAfterSeconds: pluginNotRespondingAfterSeconds, registeredAt: pluginRegisteredAt }
-        : null;
-    const builtIns = { isViewerReadOn: builtIn.builtInViewerRead, open: { send: builtIn.builtInOpenSend, read: builtIn.builtInOpenRead, manage: builtIn.builtInOpenManage } };
-    return { fleetId, rules, builtIns, version, plugin };
+    const { rules, version, builtInViewerRead } = settingsRowSchema.parse(row);
+    return { fleetId, rules, isViewerReadOn: builtInViewerRead, version };
   };
   return {
     findForShare: async (fleetId) => {
@@ -105,20 +81,26 @@ export function createPrismaNetworkSettingsRepository(db: Db): NetworkSettingsRe
       return read(fleetId);
     },
     find: read,
-    save: async ({ fleetId, rules, builtIns, version, plugin }) => {
-      const kept = {
-        rules: rules.map((rule) => ({ verb: rule.verb, from: [...rule.from], to: [...rule.to] })),
-        builtInViewerRead: builtIns.isViewerReadOn,
-        builtInOpenSend: builtIns.open.send,
-        builtInOpenRead: builtIns.open.read,
-        builtInOpenManage: builtIns.open.manage,
-        version,
-        pluginShipId: plugin?.shipId ?? null,
-        pluginWhileUnavailable: plugin?.whileUnavailable ?? null,
-        pluginNotRespondingAfterSeconds: plugin?.notRespondingAfterSeconds ?? null,
-        pluginRegisteredAt: plugin?.registeredAt ?? null,
-      };
+    save: async ({ fleetId, rules, isViewerReadOn, version }) => {
+      const kept = { rules: rulesJson(rules), builtInViewerRead: isViewerReadOn, version };
       await db.networkSettings.upsert({ where: { fleetId }, create: { fleetId, ...kept }, update: kept });
+    },
+  };
+}
+
+/** The draft of each fleet's own rules (decision 0034): one row a fleet while it has one. */
+export function createPrismaNetworkRulesDraftRepository(db: Db): NetworkRulesDraftRepository {
+  return {
+    find: async (fleetId) => {
+      const row = await db.networkRulesDraft.findUnique({ where: { fleetId } });
+      return row ? (draftRowSchema.parse(row) satisfies NetworkRulesDraft) : undefined;
+    },
+    save: async ({ fleetId, rules, savedAt, savedAgainstVersion }) => {
+      const kept = { rules: rulesJson(rules), savedAt, savedAgainstVersion };
+      await db.networkRulesDraft.upsert({ where: { fleetId }, create: { fleetId, ...kept }, update: kept });
+    },
+    remove: async (fleetId) => {
+      await db.networkRulesDraft.deleteMany({ where: { fleetId } });
     },
   };
 }
@@ -175,8 +157,8 @@ export function createPrismaDeclaredNetworkRulesRepository(db: Db): DeclaredNetw
 
 export function createPrismaReachRefusalRepository(db: Db): ReachRefusalRepository {
   return {
-    record: async ({ id, fleetId, at, sender, askedBy, recipient, verb, settingsVersion, whilePluginUnavailable }) => {
-      await db.reachRefusal.create({ data: { id, fleetId, at, sender: actorJson(sender), askedBy: askedBy === null ? Prisma.DbNull : shipJson(askedBy), recipient: recipientJson(recipient), verb, settingsVersion, whilePluginUnavailable } });
+    record: async ({ id, fleetId, at, sender, askedBy, recipient, verb, settingsVersion }) => {
+      await db.reachRefusal.create({ data: { id, fleetId, at, sender: actorJson(sender), askedBy: askedBy === null ? Prisma.DbNull : shipJson(askedBy), recipient: recipientJson(recipient), verb, settingsVersion } });
     },
     latest: async (fleetId, limit) => {
       const rows = await db.reachRefusal.findMany({ where: { fleetId }, orderBy: [{ at: 'desc' }, { id: 'desc' }], take: limit });

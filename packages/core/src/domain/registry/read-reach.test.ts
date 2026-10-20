@@ -12,7 +12,7 @@ let readReachOf: ReturnType<typeof createReadReachOf>;
 
 beforeEach(async () => {
   fleet = await readReachScenario();
-  readReachOf = createReadReachOf({ uow: fleet.core.uow, clock: fleet.core.clock });
+  readReachOf = createReadReachOf({ uow: fleet.core.uow });
 });
 
 /** The ships of the fleet the reach reads, by id, sorted. */

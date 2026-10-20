@@ -1,7 +1,6 @@
 import type { ReachRefusal } from '@aeolus-fleet/common';
 
 import { listed } from '../../../lib/labels';
-import { WHILE_UNAVAILABLE_WORDS } from './network-declaration';
 
 /** Who a refusal refused, by name: a ship by its name, an account by its id only (decision 0057), or the installation. */
 export function refusedActorName(sender: ReachRefusal['sender']): string {
@@ -27,10 +26,7 @@ export function refusalSentenceOf(refusal: ReachRefusal): string {
   }
 }
 
-/** The network settings version that refused it, and what the networking plugin declared when it refused because the plugin was not responding. */
+/** The network settings version that refused it. */
 export function refusalCauseOf(refusal: ReachRefusal): string {
-  const version = `Refused by network settings version ${String(refusal.settingsVersion)}`;
-  return refusal.whilePluginUnavailable === null
-    ? `${version}.`
-    : `${version} while the networking plugin was not responding: ${WHILE_UNAVAILABLE_WORDS[refusal.whilePluginUnavailable].name}.`;
+  return `Refused by network settings version ${String(refusal.settingsVersion)}.`;
 }

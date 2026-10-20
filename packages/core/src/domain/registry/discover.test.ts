@@ -48,7 +48,7 @@ async function onlyPublicReached(): Promise<void> {
   unwrap(await registry.defineLabel(argo, { key: 'tier', values: ['public'] }));
   const isPublic = valueIdOf(core, { key: 'tier', value: 'public' });
   unwrap(await registry.assignLabel(argo, { shipId: scoutId, valueId: isPublic }));
-  await applyNetworkRules(registry, networking, [{ verb: 'send', from: [], to: [isPublic] }, everyShipMay('read'), everyShipMay('manage')]);
+  await applyNetworkRules(registry, { by: networking, rules: [{ verb: 'send', from: [], to: [isPublic] }, everyShipMay('read'), everyShipMay('manage')] });
   core.state.events.length = 0;
 }
 

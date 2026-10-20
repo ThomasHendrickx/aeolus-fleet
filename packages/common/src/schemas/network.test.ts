@@ -272,7 +272,7 @@ describe('explainReachInputSchema', () => {
   it('takes whether to explain the draft instead of the applied rules', () => {
     const fromShipId = newId('ship');
 
-    expect(explainReachInputSchema.parse({ fromShipId, ofDraft: true })).toEqual({ fromShipId, ofDraft: true });
+    expect(explainReachInputSchema.parse({ fromShipId, against: 'draft' })).toEqual({ fromShipId, against: 'draft' });
   });
 
   it('refuses an id that is not a ship id', () => {

@@ -10,6 +10,7 @@ import type { FleetLimitSettings, InstallationSettings } from './limits.js';
 import type { Lease, Location } from './lease.js';
 import type { DeclaredNetworkRules } from './declared-network-rules.js';
 import type { NetworkSettings } from './network-settings.js';
+import type { NetworkRulesDraft } from './network-rules-draft.js';
 import type { PluginConnection } from './plugin-connection.js';
 import type { ReachRefusal } from './reach-refusal.js';
 import type { ScopeNamespace } from './scope-namespace.js';
@@ -239,7 +240,7 @@ export interface ClearRequestRepository {
 
 /**
  * Outbound port: the fleet's network settings, one per fleet (decision 0034).
- * A send holds them shared and a set holds them exclusively, so every send is
+ * A send holds them shared and a change holds them exclusively, so every send is
  * checked against exactly one version.
  */
 export interface NetworkSettingsRepository {
@@ -250,6 +251,16 @@ export interface NetworkSettingsRepository {
   /** The fleet's settings, held exclusively until the unit of work ends, even before the fleet first set rules. */
   findForUpdate(fleetId: FleetId): Promise<NetworkSettings>;
   save(settings: NetworkSettings): Promise<void>;
+}
+
+/** Outbound port: the draft of the fleet's own rules, one per fleet at most (decision 0034). Nothing in force reads it. */
+export interface NetworkRulesDraftRepository {
+  /** The fleet's draft; none while it has none. */
+  find(fleetId: FleetId): Promise<NetworkRulesDraft | undefined>;
+  /** Keeps the draft in place of the fleet's one before. */
+  save(draft: NetworkRulesDraft): Promise<void>;
+  /** The fleet's draft goes; none goes nothing. */
+  remove(fleetId: FleetId): Promise<void>;
 }
 
 /** Each ship's declared network rules (decision 0037). */

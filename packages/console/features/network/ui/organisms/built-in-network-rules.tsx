@@ -24,15 +24,15 @@ export interface BuiltInNetworkRulesProps {
 
 const TURNED_BY: Readonly<Record<Exclude<BuiltInRow['turnedBy'], 'never'>, string>> = {
   argo: 'You turn it on or off.',
-  plugin: 'The networking plugin turns it off while your rules apply, and on for all-to-all.',
+  rules: 'Applying rules turns it off; applying none turns it on again.',
 };
 
 /**
  * The built-in rules on Network, first and apart from argo's own (decision
  * 0034): each with what it allows, as the fleet answers it. argo, the owner
  * and the answer are never off and show so, with no control; the viewer
- * reading has a switch, argo's; open per verb shows on or off, the
- * networking plugin's to turn. Props only.
+ * reading has a switch, argo's; open shows on or off, as the applied rules
+ * turn it. Props only.
  */
 export function BuiltInNetworkRules({ rows, error, onRetry, isTurning, turnError, onViewerReadChange }: BuiltInNetworkRulesProps) {
   let content;
