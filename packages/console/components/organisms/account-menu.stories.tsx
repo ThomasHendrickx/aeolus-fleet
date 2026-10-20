@@ -1,6 +1,6 @@
 import { THEMES } from '@aeolus-fleet/common';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { fn, userEvent, within } from 'storybook/test';
+import { expect, fn, screen, userEvent, waitFor, within } from 'storybook/test';
 
 import { AccountMenu, AccountMenuSheet, type AccountMenuAccount } from './account-menu';
 
@@ -76,6 +76,25 @@ export const WithGuide: Story = {
   args: { onTakeTour: fn() },
   play: async ({ canvasElement }) => {
     await userEvent.click(within(canvasElement).getByTestId('account-menu'));
+  },
+};
+
+/** Hosted, argo signed in by an account (decision 0054): the menu names the account by its id, until the console asks the hosting service for its name. */
+export const SignedInByAccount: Story = {
+  args: { account: { ...ACCOUNT, session: { ...ACCOUNT.session, accountId: 'acc-01mathilde' } }, accountUrl: 'https://pagasae.aeolus-fleet.dev/account' },
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByTestId('account-menu'));
+    await expect(await screen.findByTestId('account-signed-in-as')).toHaveTextContent('Signed in as acc-01mathilde');
+  },
+};
+
+/** argo's own sign-in names no account. */
+export const SignedInAsArgo: Story = {
+  args: { account: { ...ACCOUNT, session: { ...ACCOUNT.session, accountId: null } } },
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByTestId('account-menu'));
+    await waitFor(() => expect(screen.getByTestId('account-session')).toBeVisible());
+    await expect(screen.queryByTestId('account-signed-in-as')).toBeNull();
   },
 };
 
