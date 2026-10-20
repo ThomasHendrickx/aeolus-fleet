@@ -4,6 +4,7 @@ import {
   VERIFIED_FACT_ISSUER_MAX_LENGTH,
   VERIFIED_FACT_VALUE_MAX_LENGTH,
   VERIFIED_FACTS_MAX,
+  discoveredVerifiedFactSchema,
   setVerifiedFactsInputSchema,
   VERIFIED_CHECKS,
 } from './verified-fact.js';
@@ -83,5 +84,23 @@ describe('setVerifiedFactsInputSchema (decision 0059)', () => {
 
   it('refuses a ship id that is no ship id', () => {
     expect(setVerifiedFactsInputSchema.safeParse({ shipId: 'lbl_01m5cndw5t282s37hw17k3396p', facts: [] }).success).toBe(false);
+  });
+});
+
+describe('discoveredVerifiedFactSchema (decision 0059)', () => {
+  const AT = '2026-10-20T10:12:00.000Z';
+
+  it.each([
+    ['a ship, by id and name', { kind: 'ship', id: SHIP_ID, name: 'gateway' }],
+    ['an account, by id only', { kind: 'account', id: 'acc-mathilde' }],
+    ['the installation', { kind: 'installation' }],
+  ])('answers a fact with its writer, %s, and when it was written', (_writer, by) => {
+    const fact = { ...OAUTH, by, at: AT };
+
+    expect(discoveredVerifiedFactSchema.parse(fact)).toEqual(fact);
+  });
+
+  it('refuses an account named by more than its id', () => {
+    expect(discoveredVerifiedFactSchema.safeParse({ ...CARD, by: { kind: 'account', id: 'acc-mathilde', email: 'mathilde@acme.example' }, at: AT }).success).toBe(false);
   });
 });

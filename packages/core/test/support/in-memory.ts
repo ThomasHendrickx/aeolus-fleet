@@ -663,6 +663,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         state.verifiedFacts.splice(0, state.verifiedFacts.length, ...others, structuredClone(written));
         return Promise.resolve();
       },
+      list: (fleetId) => Promise.resolve(structuredClone(state.verifiedFacts.filter((held) => held.fleetId === fleetId))),
       remove: (fleetId, { shipId, writer }) => {
         state.verifiedFacts.splice(0, state.verifiedFacts.length, ...state.verifiedFacts.filter((held) => held.fleetId !== fleetId || held.shipId !== shipId || !isSameWriter(held.writer, writer)));
         return Promise.resolve();

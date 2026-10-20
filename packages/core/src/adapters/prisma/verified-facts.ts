@@ -56,6 +56,7 @@ export function createPrismaVerifiedFactsRepository(db: Db): VerifiedFactsReposi
         update: { facts: [...facts], writtenAt: at },
       });
     },
+    list: async (fleetId) => (await db.verifiedFacts.findMany({ where: { fleetId } })).map(writtenOf),
     remove: async (fleetId, { shipId, writer }) => {
       await db.verifiedFacts.deleteMany({ where: { fleetId, shipId, ...writerColumns(writer) } });
     },

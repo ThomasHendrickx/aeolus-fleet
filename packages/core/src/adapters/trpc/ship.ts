@@ -385,14 +385,16 @@ export const shipRouter = router({
 
   /**
    * The ships and types the caller may send to now, with each ship's
-   * statement (decision 0047). Needs messages:send; records nothing.
+   * statement and verified facts (decisions 0047, 0059). Needs messages:send;
+   * records nothing.
    */
   discover: scopedProcedure('messages:send')
     .meta({
       description: [
         'Needs messages:send. Answers the ships you may send to now, as a send would be checked, each with its id, name, type, kind, status and statement,',
         "and each type with how many of its ships you reach. A statement is its crew's (by crew, with its version) while one is stated,",
-        'else the note it was commissioned with (by commission), else null. You, the viewer and retired ships are left out.',
+        'else the note it was commissioned with (by commission), else null. Beside it, verified: the facts an actor checked about the ship, as its writer wrote them, each with by (its writer) and at,',
+        'oldest first (decision 0059); the fleet checks nothing in them. You, the viewer and retired ships are left out.',
         'It answers ships, never rules, and records nothing (decision 0047).',
       ].join(' '),
     })

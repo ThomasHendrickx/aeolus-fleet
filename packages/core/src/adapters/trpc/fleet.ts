@@ -543,7 +543,7 @@ export const fleetRouter = router({
       description: [
         'Needs fleet:verify, and manage reach on the ship (decision 0059). Sets what your ship checked about a ship, whole, in place of the facts it wrote before; none withdraws them.',
         "Each fact names what was checked (clientIdDocumentDomain, tlsHost, a2aCardDomain, or oauthSubject with the issuer it means something under) and the value the check found; at most 10, each once. Another writer's facts stay.",
-        'The fleet stores them as written, naming your ship as their writer, and checks nothing in them.',
+        "The fleet stores them as written and checks nothing in them; discovery shows them beside the ship's statement, naming your ship as their writer.",
       ].join(' '),
     })
     .input(setVerifiedFactsInputSchema)

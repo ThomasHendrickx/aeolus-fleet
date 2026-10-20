@@ -122,17 +122,31 @@ describe('setStatementOutputSchema', () => {
   });
 });
 
-describe('discoverOutputSchema (decision 0047)', () => {
-  it("answers each ship with its statement, the crew's or the commission note, and each type with how many of its ships it reaches", () => {
+describe('discoverOutputSchema (decisions 0047, 0059)', () => {
+  it("answers each ship with its statement, the crew's or the commission note, its verified facts, and each type with how many of its ships it reaches", () => {
     const answer = {
       ships: [
-        { id: idSchema('ship').parse('shp_01m56nef0v036d0tne8wwnddth'), name: 'reviewer', type: 'reviewer', kind: 'agent', status: 'crewed', statement: { by: 'crew', version: 1, summary: 'Reviews.', capabilities: [REVIEW] } },
-        { id: idSchema('ship').parse('shp_01m56nef0v036d0tne8wwnddtj'), name: 'planner', type: 'planner', kind: 'agent', status: 'awaitingCrew', statement: { by: 'commission', note: 'Plans the slices' } },
-        { id: idSchema('ship').parse('shp_01m56nef0v036d0tne8wwnddtk'), name: 'alice', type: 'person', kind: 'person', status: 'awaitingCrew', statement: null },
+        {
+          id: idSchema('ship').parse('shp_01m56nef0v036d0tne8wwnddth'),
+          name: 'reviewer',
+          type: 'reviewer',
+          kind: 'agent',
+          status: 'crewed',
+          statement: { by: 'crew', version: 1, summary: 'Reviews.', capabilities: [REVIEW] },
+          verified: [{ checked: 'tlsHost', value: 'reviewer.acme.example', by: { kind: 'ship', id: idSchema('ship').parse('shp_01m56nef0v036d0tne8wwnddtm'), name: 'gateway' }, at: '2026-10-20T10:12:00.000Z' }],
+        },
+        { id: idSchema('ship').parse('shp_01m56nef0v036d0tne8wwnddtj'), name: 'planner', type: 'planner', kind: 'agent', status: 'awaitingCrew', statement: { by: 'commission', note: 'Plans the slices' }, verified: [] },
+        { id: idSchema('ship').parse('shp_01m56nef0v036d0tne8wwnddtk'), name: 'alice', type: 'person', kind: 'person', status: 'awaitingCrew', statement: null, verified: [] },
       ],
       types: [{ type: 'reviewer', reachable: 1 }],
     };
 
     expect(discoverOutputSchema.parse(answer)).toEqual(answer);
+  });
+
+  it('refuses a ship without its verified facts', () => {
+    const ship = { id: idSchema('ship').parse('shp_01m56nef0v036d0tne8wwnddtj'), name: 'planner', type: 'planner', kind: 'agent', status: 'crewed', statement: null };
+
+    expect(discoverOutputSchema.safeParse({ ships: [ship], types: [] }).success).toBe(false);
   });
 });
