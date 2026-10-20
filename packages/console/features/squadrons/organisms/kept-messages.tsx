@@ -23,7 +23,7 @@ function preview(payload: string): string {
 }
 
 /**
- * The messages the squadron's flagship kept (docs/squadrons.md): a flagship
+ * The messages the squadron's flagship kept (aeolus-fleet-squadrons' docs/squadrons.md): a flagship
  * handles only the squadron's own messages; anything else is acknowledged,
  * kept here, never forwarded, and argo is told. Oldest first, each with its
  * sender, content type, when it came and its first line; it opens whole on

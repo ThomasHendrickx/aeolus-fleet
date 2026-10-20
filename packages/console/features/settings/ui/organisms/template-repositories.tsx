@@ -24,7 +24,7 @@ import { InlineError } from '../../../../components/molecules/inline-error';
 import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
 import { RepositoryName } from '../../../../components/molecules/repository-name';
 
-/** Where squadrons looks in a repository when no path is given (docs/squadrons.md, "Files in git"). */
+/** Where squadrons looks in a repository when no path is given (aeolus-fleet-squadrons' docs/squadrons.md, "Files in git"). */
 const DEFAULT_PATH = '.aeolus/squadrons';
 
 interface TemplateRepositoriesProps {
@@ -209,7 +209,7 @@ function RepositoryRow({ repository, contents, now, onRemove }: { repository: Te
 }
 
 /**
- * Settings, Squadrons, Repositories (#161, docs/squadrons.md "Template
+ * Settings, Squadrons, Repositories (#161, aeolus-fleet-squadrons' docs/squadrons.md "Template
  * repositories"): the repositories squadrons reads templates and blueprints
  * from, each with its last fetch and why it failed, what squadrons found in
  * it, and every version or tag it left out with why; add one by its https URL

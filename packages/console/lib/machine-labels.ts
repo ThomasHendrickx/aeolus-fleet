@@ -7,7 +7,7 @@ import { pickedChips, type FilterGroup, type FilterKey, type LabelChip, type Lab
  * Labels, LbRequest, LbRequestPicking, LbRequestTwo, LbRequestNoMatch): the
  * trierarch plugin places a request only on a machine whose trierarch ship
  * carries every label value it asks for, exact matches combined with AND
- * (docs/trierarch.md, "Assignment"). Pure, from the fleet's labels, its ships
+ * (aeolus-fleet-trierarch's docs/trierarch.md, "Assignment"). Pure, from the fleet's labels, its ships
  * and the machines the plugin lists.
  */
 

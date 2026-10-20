@@ -17,7 +17,7 @@ function fieldOf(preview: string, field: string): string | undefined {
 }
 
 /**
- * The squadron check-in convention's messages (docs/squadrons.md, "Check-in";
+ * The squadron check-in convention's messages (aeolus-fleet-squadrons' docs/squadrons.md, "Check-in";
  * the squadrons README, "Stand down"), by content type: what each says in
  * words. The server knows none of them; the console reads them for display.
  */

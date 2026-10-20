@@ -21,7 +21,7 @@ export interface ClearRequest {
   requestedAt: Date;
 }
 
-/** The type of the ship a trierarch crews (docs/trierarch.md). */
+/** The type of the ship a trierarch crews (aeolus-fleet-trierarch's docs/trierarch.md). */
 export const TRIERARCH_SHIP_TYPE = 'trierarch';
 
 export type RequestWorktreeClearRefusal = DomainError<'NOT_A_TRIERARCH' | 'SHIP_ALREADY_RETIRED' | 'CLEAR_REQUEST_LIMIT_REACHED'>;

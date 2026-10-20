@@ -215,7 +215,7 @@ export const HANDED_MESSAGES: ListedMessage[] = [
   ...MESSAGES.filter((message) => message.delivery.state === 'handed'),
 ];
 
-/** A squadron member's check-in at its flagship, and the role the flagship answers with (docs/squadrons.md, "Check-in"). */
+/** A squadron member's check-in at its flagship, and the role the flagship answers with (aeolus-fleet-squadrons' docs/squadrons.md, "Check-in"). */
 export const SQUADRON_MESSAGES: ListedMessage[] = [
   listed('0004', {
     sender: REVIEWER,

@@ -2,7 +2,7 @@ import type { WorkspaceChoice } from './crew-settings-form';
 import { pickedChips, type LabelContext } from './labels';
 
 /**
- * The forming form's members (#343, S4; docs/squadrons.md, "Crew settings"):
+ * The forming form's members (#343, S4; aeolus-fleet-squadrons' docs/squadrons.md, "Crew settings"):
  * each member a blueprint forms, by its slot, starting from its crew
  * settings as squadrons merged them from its template and role. The form is
  * the third layer: what it holds goes to forming whole. A workspace and every

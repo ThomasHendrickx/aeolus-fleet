@@ -235,7 +235,7 @@ function spanText(minutes: number): string {
   return rest === 0 ? `${String(hours)} h` : `${String(hours)} h ${String(rest)} min`;
 }
 
-/** Missed check-ins before a member is late, and before it is silent (docs/squadrons.md). */
+/** Missed check-ins before a member is late, and before it is silent (aeolus-fleet-squadrons' docs/squadrons.md). */
 const LATE_AFTER_INTERVALS = 1;
 const SILENT_AFTER_INTERVALS = 3;
 
