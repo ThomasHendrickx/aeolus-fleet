@@ -13,8 +13,8 @@ const ARGO = aShip('argo', '01');
 const PLANNER = aShip('planner', '02');
 const SCOUT = aShip('scout', '03');
 const VAULT = aShip('vault', '04');
-const NETWORKING = aShip('networking-plugin', '05');
-const SHIPS = [ARGO, NETWORKING, PLANNER, SCOUT, VAULT];
+const KEEPER = aShip('keeper', '05');
+const SHIPS = [ARGO, KEEPER, PLANNER, SCOUT, VAULT];
 
 function idsOf(...ships: GraphShip[]): ShipId[] {
   return ships.map((ship) => ship.id);
@@ -50,11 +50,20 @@ export const Reaching: Story = {
   },
 };
 /** No rules, or argo picked: every other ship is reached. */
-export const ReachesEveryShip: Story = { args: { pickedShipId: ARGO.id, reachableShipIds: idsOf(NETWORKING, PLANNER, SCOUT, VAULT) } };
-/** Under block-all, or an empty list, a ship reaches only argo. */
+export const ReachesEveryShip: Story = { args: { pickedShipId: ARGO.id, reachableShipIds: idsOf(KEEPER, PLANNER, SCOUT, VAULT) } };
+/** Under an empty list, a ship reaches only argo. */
 export const ReachesOnlyArgo: Story = { args: { pickedShipId: VAULT.id, reachableShipIds: idsOf(ARGO) } };
 /** The fleet could not explain: the graph stays, the error says so with Try again. */
 export const ExplainFailed: Story = { args: { pickedShipId: SCOUT.id, reachableShipIds: undefined, reachError: 'The fleet did not answer' } };
+/** The fleet has a draft: a switch shows the reach against it instead of the applied rules. */
+export const AgainstTheDraft: Story = {
+  args: { pickedShipId: SCOUT.id, reachableShipIds: idsOf(ARGO), against: 'draft', onAgainstChange: fn() },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByTestId('network-reach-applied'));
+    await expect(args.onAgainstChange).toHaveBeenCalledWith('applied');
+  },
+};
 /** argo alone in the fleet. */
 export const OnlyArgo: Story = { args: { ships: [ARGO], pickedShipId: ARGO.id, reachableShipIds: [] } };
 /** A larger fleet stays legible on the circle. */

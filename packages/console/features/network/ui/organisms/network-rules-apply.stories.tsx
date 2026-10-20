@@ -6,7 +6,7 @@ import { NetworkRulesApply } from './network-rules-apply';
 const meta = {
   title: 'Organisms/NetworkRulesApply',
   component: NetworkRulesApply,
-  args: { draft: { savedAgainstVersion: 3 }, appliedVersion: 3, isApplying: false, onApply: fn() },
+  args: { draft: { savedAgainstVersion: 3 }, appliedVersion: 3, isApplying: false, onApply: fn(), isDiscarding: false, onDiscard: fn() },
   decorators: [
     (Story) => (
       <div className="max-w-3xl">
@@ -42,5 +42,18 @@ export const Confirming: Story = {
     await expect(args.onApply).toHaveBeenCalledOnce();
   },
 };
+/** Discard asks first, and discards once confirmed. */
+export const ConfirmingDiscard: Story = {
+  play: async ({ args, canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByTestId('network-rules-discard-open'));
+    await waitFor(async () => {
+      await expect(await screen.findByTestId('network-rules-discard-dialog')).toBeVisible();
+    });
+    await userEvent.click(screen.getByTestId('network-rules-discard-confirm'));
+    await expect(args.onDiscard).toHaveBeenCalledOnce();
+  },
+};
 export const Applying: Story = { args: { isApplying: true } };
+export const Discarding: Story = { args: { isDiscarding: true } };
+export const DiscardFailed: Story = { args: { discardError: 'The fleet has no draft of its network rules' } };
 export const ApplyFailed: Story = { args: { applyError: 'The network settings are at version 4 now, not 3: look at the draft again before applying it' } };

@@ -1,7 +1,7 @@
 import { QueryClient, QueryObserver } from '@tanstack/react-query';
 import { describe, expect, it } from 'vitest';
 
-import { isAttentionChange, isBuiltInRulesChange, isDeclaredRulesChange, isLabelChange, isShipChange, liveStateOf, reloadQueries } from './live-fleet';
+import { isAttentionChange, isBuiltInRulesChange, isDeclaredRulesChange, isLabelChange, isNetworkRulesChange, isShipChange, liveStateOf, reloadQueries } from './live-fleet';
 
 describe('liveStateOf', () => {
   it.each([
@@ -95,6 +95,19 @@ describe('isBuiltInRulesChange', () => {
 
   it.each(['NetworkRulesDraftSaved', 'NetworkRulesDeclared', 'MessageAccepted'] as const)('leaves the built-in rules alone for %s', (type) => {
     expect(isBuiltInRulesChange(type)).toBe(false);
+  });
+});
+
+describe('isNetworkRulesChange', () => {
+  it.each(['NetworkRulesSet', 'NetworkRulesDraftSaved', 'NetworkRulesDraftDiscarded', 'NetworkRulesDeclared', 'BuiltInRuleChanged'] as const)(
+    'reloads the network rules, what the draft changes and the reach for %s',
+    (type) => {
+      expect(isNetworkRulesChange(type)).toBe(true);
+    },
+  );
+
+  it.each(['LabelAssigned', 'MessageAccepted'] as const)('leaves them alone for %s', (type) => {
+    expect(isNetworkRulesChange(type)).toBe(false);
   });
 });
 
