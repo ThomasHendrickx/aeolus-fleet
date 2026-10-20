@@ -1,4 +1,4 @@
-import { accountIdSchema, SAME_LABEL_VALUE, type DeliveryId, type FleetId, type ShipId } from '@aeolus-fleet/common';
+import { accountIdSchema, SAME_LABEL_VALUE, type DeliveryId, type FleetId, type ShipId, type VerifiedFact } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
@@ -396,5 +396,68 @@ describe("retiring a plugin namespace's declarer (decision 0046)", () => {
     expect(core.state.scopeNamespaces.map(({ namespace }) => namespace)).toEqual(['squadrons']);
     expect(scopesOf(scoutId)).toEqual(['messages:send', 'messages:receive', 'fleet:read', 'squadrons:form', 'squadrons:scale']);
     expect(core.state.events.filter((event) => event.type === 'ScopesChanged')).toEqual([]);
+  });
+});
+
+describe('the verified facts of a retired ship (decision 0059)', () => {
+  const TLS_HOST: VerifiedFact = { checked: 'tlsHost', value: 'scout.acme.example' };
+  const OAUTH_SUBJECT: VerifiedFact = { checked: 'oauthSubject', issuer: 'https://login.acme.example', value: 'aeolus-gateway' };
+  let gateway: ShipCaller;
+  let mathilde: AccountCaller;
+
+  beforeEach(async () => {
+    const { shipId: gatewayId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'gateway', type: 'gateway', scopes: ['fleet:verify'] }));
+    gateway = { fleetId, shipId: gatewayId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'fleet:verify'] };
+    mathilde = { kind: 'account', accountId: accountIdSchema.parse('acc-mathilde'), fleetId, scopes: ['fleet:verify'], groupValues: [], personShipId: null, throughShipId: null };
+  });
+
+  function factsAbout(shipId: ShipId) {
+    return core.state.verifiedFacts.filter((written) => written.shipId === shipId).map(({ writer }) => writer);
+  }
+
+  it('go with it: every writer\'s facts about it, one VerifiedFactsRemoved per writer, on the ship', async () => {
+    unwrap(await registry.setVerifiedFacts(gateway, { shipId: scoutId, facts: [TLS_HOST, OAUTH_SUBJECT] }));
+    unwrap(await registry.setVerifiedFacts(mathilde, { shipId: scoutId, facts: [TLS_HOST] }));
+    core.state.events.length = 0;
+
+    unwrap(await registry.retireShip(argo, { shipId: scoutId }));
+
+    expect(factsAbout(scoutId)).toEqual([]);
+    expect(eventsOfType('VerifiedFactsRemoved')).toEqual([
+      expect.objectContaining({ shipId: scoutId, actor: { kind: 'ship', shipId: argo.shipId }, details: { writerKind: 'ship', writer: gateway.shipId, facts: 2, why: 'shipRetired' } }),
+      expect.objectContaining({ shipId: scoutId, actor: { kind: 'ship', shipId: argo.shipId }, details: { writerKind: 'account', writer: 'acc-mathilde', facts: 1, why: 'shipRetired' } }),
+    ]);
+  });
+
+  it('go when their writer retires: its facts about every ship, one VerifiedFactsRemoved on each ship written about', async () => {
+    unwrap(await registry.setVerifiedFacts(gateway, { shipId: scoutId, facts: [TLS_HOST] }));
+    unwrap(await registry.setVerifiedFacts(gateway, { shipId: lookout.shipId, facts: [OAUTH_SUBJECT] }));
+    unwrap(await registry.setVerifiedFacts(mathilde, { shipId: scoutId, facts: [TLS_HOST] }));
+    core.state.events.length = 0;
+
+    unwrap(await registry.retireShip(argo, { shipId: gateway.shipId }));
+
+    expect(factsAbout(scoutId)).toEqual([{ kind: 'account', accountId: 'acc-mathilde' }]);
+    expect(factsAbout(lookout.shipId)).toEqual([]);
+    expect(eventsOfType('VerifiedFactsRemoved').map(({ shipId, details }) => ({ shipId, details }))).toEqual([
+      { shipId: scoutId, details: { writerKind: 'ship', writer: gateway.shipId, facts: 1, why: 'writerRetired' } },
+      { shipId: lookout.shipId, details: { writerKind: 'ship', writer: gateway.shipId, facts: 1, why: 'writerRetired' } },
+    ]);
+  });
+
+  it('removes the facts a ship wrote about itself once, as the ship retired', async () => {
+    unwrap(await registry.setVerifiedFacts(gateway, { shipId: gateway.shipId, facts: [TLS_HOST] }));
+    core.state.events.length = 0;
+
+    unwrap(await registry.retireShip(argo, { shipId: gateway.shipId }));
+
+    expect(factsAbout(gateway.shipId)).toEqual([]);
+    expect(eventsOfType('VerifiedFactsRemoved').map(({ details }) => details.why)).toEqual(['shipRetired']);
+  });
+
+  it('writes no VerifiedFactsRemoved for a ship with no facts about it or by it', async () => {
+    unwrap(await registry.retireShip(argo, { shipId: scoutId }));
+
+    expect(eventsOfType('VerifiedFactsRemoved')).toEqual([]);
   });
 });

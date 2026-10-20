@@ -1,14 +1,16 @@
-import { accountIdSchema, type FleetId, type ShipId, type VerifiedFact } from '@aeolus-fleet/common';
+import { accountIdSchema, createIdGenerator, type FleetId, type ShipId, type VerifiedFact } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
+import { createRetireShip } from '../src/domain/registry/retire-ship.js';
+import { createSetVerifiedFacts } from '../src/domain/registry/set-verified-facts.js';
 import type { FactWriter } from '../src/domain/registry/verified-facts.js';
 import type { AccountCaller, InstallationCaller, ShipCaller } from '../src/domain/shared/caller.js';
 import { ok } from '../src/domain/shared/result.js';
 import { newKey } from '../src/testing/keys.js';
 import { unwrap } from '../src/testing/result.js';
 import { OPERATOR, operatorCaller } from './support/core-fixtures.js';
-import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
+import { createPostgresCore, heldUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 
 // Verified facts on a real Postgres (decision 0059): each writer's facts
 // about a ship kept with the ship, set whole, with VerifiedFactsSet in the
@@ -116,6 +118,77 @@ describe('verified facts in discovery on Postgres', () => {
       { ...OAUTH_SUBJECT, by: { kind: 'account', id: mathilde }, at: '2026-09-29T12:01:00.000Z' },
     ]);
     expect(ships.find((ship) => ship.id === gateway.shipId)?.verified).toEqual([]);
+  });
+});
+
+describe('verified facts and a retire on Postgres', () => {
+  async function writersAbout(shipId: ShipId) {
+    return core.prisma.verifiedFacts.findMany({ where: { fleetId, shipId }, select: { writerKind: true, writer: true } });
+  }
+
+  async function removals() {
+    return (await core.prisma.event.findMany({ where: { fleetId, type: 'VerifiedFactsRemoved' }, orderBy: { seq: 'asc' } })).map(({ shipId, details }) => ({ shipId, details }));
+  }
+
+  it("removes every writer's facts about a retired ship, and a retired writer's about every ship, each with VerifiedFactsRemoved", async () => {
+    const { shipId: scoutId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
+    unwrap(await core.useCases.setVerifiedFacts(gateway, { shipId: crmId, facts: [TLS_HOST] }));
+    unwrap(await core.useCases.setVerifiedFacts(gateway, { shipId: scoutId, facts: [TLS_HOST] }));
+    unwrap(await core.useCases.setVerifiedFacts(argo, { shipId: crmId, facts: [OAUTH_SUBJECT] }));
+
+    unwrap(await core.useCases.retireShip(argo, { shipId: crmId }));
+    unwrap(await core.useCases.retireShip(argo, { shipId: gateway.shipId }));
+
+    await expect(writersAbout(crmId)).resolves.toEqual([]);
+    await expect(writersAbout(scoutId)).resolves.toEqual([]);
+    await expect(removals()).resolves.toEqual([
+      { shipId: crmId, details: { writerKind: 'ship', writer: gateway.shipId, facts: 1, why: 'shipRetired' } },
+      { shipId: crmId, details: { writerKind: 'ship', writer: argo.shipId, facts: 1, why: 'shipRetired' } },
+      { shipId: scoutId, details: { writerKind: 'ship', writer: gateway.shipId, facts: 1, why: 'writerRetired' } },
+    ]);
+  });
+
+  it("lets a writer's set that holds its writer first commit, then its retire removes what it set", async () => {
+    const { uow, reached } = heldUnitOfWork(core.prisma, (tx, hold) => ({
+      ...tx,
+      verifiedFacts: {
+        ...tx.verifiedFacts,
+        find: async (fleet, key) => {
+          await hold();
+          return tx.verifiedFacts.find(fleet, key);
+        },
+      },
+    }));
+    const setting = createSetVerifiedFacts({ uow, clock: core.clock, ids: createIdGenerator() })(gateway, { shipId: crmId, facts: [TLS_HOST] });
+    await reached;
+
+    const retiring = core.useCases.retireShip(argo, { shipId: gateway.shipId });
+
+    await expect(setting).resolves.toMatchObject({ isOk: true });
+    await expect(retiring).resolves.toMatchObject({ isOk: true });
+    await expect(writersAbout(crmId)).resolves.toEqual([]);
+    await expect(removals()).resolves.toEqual([{ shipId: crmId, details: { writerKind: 'ship', writer: gateway.shipId, facts: 1, why: 'writerRetired' } }]);
+  });
+
+  it("refuses a writer's set that comes while its retire holds the writer, storing nothing", async () => {
+    const { uow, reached } = heldUnitOfWork(core.prisma, (tx, hold) => ({
+      ...tx,
+      verifiedFacts: {
+        ...tx.verifiedFacts,
+        listBy: async (fleet, shipId) => {
+          await hold();
+          return tx.verifiedFacts.listBy(fleet, shipId);
+        },
+      },
+    }));
+    const retiring = createRetireShip({ uow, clock: core.clock, ids: createIdGenerator() })(argo, { shipId: gateway.shipId });
+    await reached;
+
+    const setting = core.useCases.setVerifiedFacts(gateway, { shipId: crmId, facts: [TLS_HOST] });
+
+    await expect(retiring).resolves.toMatchObject({ isOk: true });
+    await expect(setting).resolves.toMatchObject({ isOk: false, error: { kind: 'SHIP_ALREADY_RETIRED' } });
+    await expect(writersAbout(crmId)).resolves.toEqual([]);
   });
 });
 
