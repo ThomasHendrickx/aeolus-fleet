@@ -23,10 +23,12 @@ import {
 import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from '../atoms/sheet';
 import { Tabs, TabsList, TabsTrigger } from '../atoms/tabs';
 
-/** This console session: the device it signed in from ("Mac · Chrome") and when. */
+/** This console session: the device it signed in from ("Mac · Chrome"), when, and the account signed in as argo, by its id (decision 0054). */
 interface AccountSession {
   device: string;
   since: string;
+  /** Null or unset for argo's own sign-in and a viewer. */
+  accountId?: string | null;
 }
 
 /**
@@ -111,6 +113,11 @@ function AccountHeader({ account, now }: Pick<AccountMenuProps, 'account' | 'now
           <span>This session</span>
         )}
       </p>
+      {account?.session.accountId ? (
+        <p data-testid="account-signed-in-as" className="truncate text-caption text-muted-foreground">
+          Signed in as <span className="font-medium text-foreground">{account.session.accountId}</span>
+        </p>
+      ) : null}
     </div>
   );
 }
