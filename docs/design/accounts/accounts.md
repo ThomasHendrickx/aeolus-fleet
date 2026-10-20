@@ -11,7 +11,7 @@ Inputs:
 | The blueprint's Access section, users and language | `docs/blueprint.md` on main |
 | The decisions on the operator, kinds, owners, scopes, reach and core's surface | 0007, 0012, 0016, 0020, 0022, 0034, 0043 to 0047 |
 | Scope rework part 0: single-operator assumptions (0.3), contained access (0.8), owners (0.10) | `design/scope-rework`, `docs/design/scope-rework/scope-rework.md` |
-| The interop design: federation (I-4), the gateway commissions proxy ships once argo approves a party (I-5), no gateway without a networking plugin (I-3) | `design/interop`, `docs/design/interop/interop.md`; gateway slices 2, 3 and 6; issue #877 |
+| The interop design: federation (I-4), the gateway commissions proxy ships once argo approves a party (I-5), outside parties a switch per fleet, off by default, with a warning on an open network (I-3) | `design/interop`, `docs/design/interop/interop.md`; gateway slices 2, 3 and 6; issue #877 |
 | pagasae, the account app for hosted Aeolus | pagasae `README.md` and `prisma/schema.prisma` |
 | How Microsoft 365 (Entra ID) and Google Workspace model tenants, admin roles, app consent and guests | Their admin documentation, linked in part 2 |
 | Thomas's direction for this design | The gateway has one address for all fleets: people sign in, then the gateway finds their fleet, as Microsoft 365 does |
