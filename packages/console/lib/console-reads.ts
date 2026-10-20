@@ -1,7 +1,7 @@
-import { idSchema } from '@aeolus-fleet/common';
+import { accountIdSchema, idSchema } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
-import { readAccountName } from './account-name-read';
+import { readAccountName, readAccountNames } from './account-name-read';
 import { consoleRead } from './console-read';
 import { parseCrewSettings } from './crew-settings-read';
 import { readGatewayConnection } from './gateway-reads';
@@ -14,6 +14,9 @@ import { checkCrewSettings, listMachines, readTrierarchPluginConnection, readTri
  * (lib/console-read.ts) and the browser asks it (lib/fetch-console-read.ts).
  * What changes something stays a server function.
  */
+
+/** The most accounts one read names: a ship's timeline shows at most 200 events, each naming at most one. */
+const ACCOUNT_NAMES_MAX = 200;
 
 const blueprintSchema = z.object({ repository: z.string(), name: z.string(), version: z.number() });
 
@@ -32,5 +35,6 @@ export const CONSOLE_READS = {
   'inbox-thread': consoleRead(z.object({ messageId: idSchema('message') }), ({ messageId }) => readThread(messageId)),
   'crew-settings-check': consoleRead(z.object({ settings: z.unknown() }), ({ settings }) => checkCrewSettings(settings)),
   'account-name': consoleRead(z.undefined(), readAccountName),
+  'account-names': consoleRead(z.object({ accountIds: z.array(accountIdSchema).max(ACCOUNT_NAMES_MAX) }), ({ accountIds }) => readAccountNames(accountIds)),
   'crew-settings': consoleRead(z.object({ settings: z.array(z.unknown()) }), async ({ settings }) => ({ kind: 'answered', data: await parseCrewSettings(settings) })),
 };

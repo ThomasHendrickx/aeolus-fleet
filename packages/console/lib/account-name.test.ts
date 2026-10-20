@@ -1,14 +1,14 @@
-import { createIdGenerator } from '@aeolus-fleet/common';
+import { accountIdSchema, createIdGenerator, type AccountId } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
-import { accountNameFor, pagasaeFrom } from './account-name';
+import { accountNameFor, accountNamesFor, pagasaeFrom } from './account-name';
 
 const PAGASAE = { AEOLUS_PAGASAE_URL: 'https://pagasae.example/', AEOLUS_PAGASAE_CONSOLE_TOKEN: 'c'.repeat(32), AEOLUS_SERVER_INTERNAL_URL: 'http://server:4000' };
 const COOKIE = 'aeolus_session=abc';
 const FLEET_ID = createIdGenerator()('fleet');
 
 /** The fleet server and pagasae as the web app's server reaches them, answering by address and counting every call. */
-function aWorld(options: { accountId?: string | null; pagasae?: Response | 'down' } = {}) {
+function aWorld(options: { accountId?: string | null; pagasae?: Response | 'down'; names?: Readonly<Record<string, string>> } = {}) {
   const calls: { url: string; headers: Headers }[] = [];
   const answer = (data: unknown) => Response.json({ result: { data } });
   const fetchImplementation: typeof fetch = (input, init) => {
@@ -20,6 +20,10 @@ function aWorld(options: { accountId?: string | null; pagasae?: Response | 'down
     if (url === 'http://server:4000/trpc/console.account') {
       const accountId = options.accountId === undefined ? 'acc-01mathilde' : options.accountId;
       return Promise.resolve(answer({ kind: 'operator', email: 'argo@example.com', theme: 'system', session: { device: 'Mac · Safari', since: '2026-10-20T09:00:00.000Z', accountId } }));
+    }
+    if (url.startsWith('https://pagasae.example/api/console/account-name') && options.names !== undefined) {
+      const name = options.names[new URL(url).searchParams.get('accountId') ?? ''];
+      return Promise.resolve(name === undefined ? Response.json({ error: 'not_found' }, { status: 404 }) : Response.json({ name }));
     }
     if (url.startsWith('https://pagasae.example/api/console/account-name')) {
       return options.pagasae === 'down' ? Promise.reject(new Error('no answer')) : Promise.resolve(options.pagasae ?? Response.json({ name: 'mathilde@acme.example' }));
@@ -55,6 +59,46 @@ describe("the name of the account signed in as argo (decisions 0054, 0058)", () 
     const world = aWorld();
 
     await expect(accountNameFor({ environment: { AEOLUS_SERVER_INTERNAL_URL: 'http://server:4000' }, cookie: COOKIE, fetchImplementation: world.fetchImplementation })).resolves.toBeNull();
+    expect(world.calls).toEqual([]);
+  });
+});
+
+describe('the names of the accounts a timeline names as signed in as argo (decisions 0054, 0058)', () => {
+  const mathilde = accountIdSchema.parse('acc-01mathilde');
+  const lena = accountIdSchema.parse('acc-01lena');
+  const pagasaeAsks = (world: ReturnType<typeof aWorld>) => world.calls.filter(({ url }) => url.startsWith('https://pagasae.example/'));
+
+  it("are the names pagasae gives in the session's fleet, each account asked once with the console's token", async () => {
+    const world = aWorld({ names: { 'acc-01mathilde': 'mathilde@acme.example', 'acc-01lena': 'lena@acme.example' } });
+
+    await expect(accountNamesFor({ environment: PAGASAE, cookie: COOKIE, accountIds: [mathilde, lena, mathilde], fetchImplementation: world.fetchImplementation })).resolves.toEqual({
+      'acc-01mathilde': 'mathilde@acme.example',
+      'acc-01lena': 'lena@acme.example',
+    });
+    expect(pagasaeAsks(world).map(({ url }) => url)).toEqual([
+      `https://pagasae.example/api/console/account-name?fleetId=${FLEET_ID}&accountId=acc-01mathilde`,
+      `https://pagasae.example/api/console/account-name?fleetId=${FLEET_ID}&accountId=acc-01lena`,
+    ]);
+    expect(pagasaeAsks(world).every(({ headers }) => headers.get('x-aeolus-console-token') === 'c'.repeat(32))).toBe(true);
+  });
+
+  it('leave out an account pagasae gives no name, so it shows by its id', async () => {
+    const world = aWorld({ names: { 'acc-01lena': 'lena@acme.example' } });
+
+    await expect(accountNamesFor({ environment: PAGASAE, cookie: COOKIE, accountIds: [mathilde, lena], fetchImplementation: world.fetchImplementation })).resolves.toEqual({ 'acc-01lena': 'lena@acme.example' });
+  });
+
+  it('are none while pagasae does not answer', async () => {
+    await expect(accountNamesFor({ environment: PAGASAE, cookie: COOKIE, accountIds: [mathilde], fetchImplementation: aWorld({ pagasae: 'down' }).fetchImplementation })).resolves.toEqual({});
+  });
+
+  it.each<{ label: string; environment: Readonly<Record<string, string | undefined>>; accountIds: AccountId[] }>([
+    { label: 'for a console without pagasae', environment: { AEOLUS_SERVER_INTERNAL_URL: 'http://server:4000' }, accountIds: [mathilde] },
+    { label: 'for no accounts', environment: PAGASAE, accountIds: [] },
+  ])('are none, asking nobody, $label', async ({ environment, accountIds }) => {
+    const world = aWorld();
+
+    await expect(accountNamesFor({ environment, cookie: COOKIE, accountIds, fetchImplementation: world.fetchImplementation })).resolves.toEqual({});
     expect(world.calls).toEqual([]);
   });
 });

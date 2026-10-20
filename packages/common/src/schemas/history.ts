@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { deliveryStateSchema, eventTypeSchema, locationKindSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
+import { accountIdSchema } from './account-token.js';
 import { listedShipSchema, shipOutsideReadReachSchema } from './fleet.js';
 import { crewRequestSchema, crewStatusSchema } from './crew-request.js';
 import { reportSchema } from './report.js';
@@ -65,6 +66,8 @@ export const timelineEntrySchema = z.object({
   occurredAt: isoTime,
   /** The ship that caused it; null for the system. */
   actor: partySchema.nullable(),
+  /** The account signed in to the console as argo when argo caused it, by its id only; null otherwise (decision 0054). */
+  signedInAccountId: accountIdSchema.nullable(),
   /** The ship it concerns, when it names one. */
   ship: partySchema.nullable(),
   /** The message it concerns, with its sender and recipient. */

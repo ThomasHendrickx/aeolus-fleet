@@ -1,4 +1,5 @@
 import {
+  accountIdSchema,
   idSchema,
   type DeliveryHistoryEntry,
   type ListedMessage,
@@ -98,8 +99,8 @@ export const RETIRED_SHIP: ShipDetail = {
 const fromPlanner = { id: messageId('0001'), sender: PLANNER, recipient: { kind: 'ship' as const, ship: REVIEWER }, contentType: 'text/plain', isPing: false, model: null };
 const toPlanner = { id: messageId('0002'), sender: REVIEWER, recipient: { kind: 'ship' as const, ship: PLANNER }, contentType: 'text/plain', isPing: false, model: null };
 
-function event(seq: number, entry: Omit<TimelineEntry, 'seq' | 'id'>): TimelineEntry {
-  return { seq, id: eventId(String(seq).padStart(4, '0')), ...entry };
+function event(seq: number, entry: Omit<TimelineEntry, 'seq' | 'id' | 'signedInAccountId'> & Partial<Pick<TimelineEntry, 'signedInAccountId'>>): TimelineEntry {
+  return { seq, id: eventId(String(seq).padStart(4, '0')), signedInAccountId: null, ...entry };
 }
 
 const pingFromArgo = {
@@ -117,6 +118,12 @@ export const PING_TIMELINE: TimelineEntry[] = [
   event(11, { type: 'DeliveryHanded', occurredAt: minutesAgo(2), actor: REVIEWER, ship: REVIEWER, message: pingFromArgo, details: {} }),
   event(10, { type: 'MessageAccepted', occurredAt: minutesAgo(3), actor: ARGO, ship: REVIEWER, message: pingFromArgo, details: {} }),
 ];
+
+/** The account signed in as argo in the stories (decision 0054). */
+export const SIGNED_IN_ACCOUNT_ID = accountIdSchema.parse('acc-01mathilde');
+
+/** The ping, sent by argo while an account was signed in as it. */
+export const SIGNED_IN_PING_TIMELINE: TimelineEntry[] = PING_TIMELINE.map((entry) => (entry.actor?.id === ARGO.id ? { ...entry, signedInAccountId: SIGNED_IN_ACCOUNT_ID } : entry));
 
 /** reviewer-01's timeline, newest first. */
 export const TIMELINE: TimelineEntry[] = [

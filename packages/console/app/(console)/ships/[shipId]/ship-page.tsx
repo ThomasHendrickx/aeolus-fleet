@@ -16,6 +16,7 @@ import { ShipWayLines } from '../../../../features/ship/ui/molecules/ship-way-li
 import { shipWayView } from '../../../../features/ship/services/ship-way';
 import { ShipPageLabels } from '../../../../features/ship/state/ship-page-labels';
 import { ShipTimeline } from '../../../../features/ship/ui/organisms/ship-timeline';
+import { useSignedInAccountNames } from '../../../../features/ship/hooks/use-signed-in-account-names';
 import { DetailPage } from '../../../../components/organisms/detail-page';
 import { useConsoleFrame } from '../../../../lib/console-frame';
 import { lazyDialog } from '../../../../lib/lazy-dialog';
@@ -61,6 +62,7 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
 
   const ship = useShip(shipId);
   const timeline = useShipTimeline(shipId);
+  const accountNames = useSignedInAccountNames(timeline.data ?? []);
   const messages = useShipMessages(shipId);
   const message = useMessage(messageId);
   const way = useShipWay(shipId);
@@ -168,6 +170,7 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
               }}
               now={now}
               onOpenMessage={openMessageAt}
+              accountNames={accountNames}
             />
           </TabsContent>
           <TabsContent value={SHIP_TABS.messages} className="pt-4">

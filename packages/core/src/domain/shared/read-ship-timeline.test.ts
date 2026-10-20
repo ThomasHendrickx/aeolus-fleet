@@ -1,3 +1,4 @@
+import { accountIdSchema } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { historyScenario, type HistoryScenario } from '../../../test/support/history-scenario.js';
@@ -69,6 +70,24 @@ describe("reading a ship's timeline", () => {
     const [sent] = await timelineOf(scene.planner.shipId);
 
     expect(sent).toMatchObject({ ship: null, message: { recipient: { kind: 'type', type: 'reviewer' } } });
+  });
+
+  it('names the account signed in as argo when argo caused it, by its id', async () => {
+    const signedInAccountId = accountIdSchema.parse('acc-01mathilde');
+    unwrap(await scene.messaging.pingShip({ ...scene.argo, signedInAccountId }, { shipId: scene.scout.shipId }));
+
+    const [pinged] = await timelineOf(scene.scout.shipId);
+
+    expect(pinged).toMatchObject({ actor: { name: 'argo' }, signedInAccountId: 'acc-01mathilde' });
+  });
+
+  it("names no signed-in account for argo's own sign-in or another ship", async () => {
+    unwrap(await scene.messaging.pingShip(scene.argo, { shipId: scene.scout.shipId }));
+    await scene.send(scene.scout, { to: { kind: 'ship', shipId: scene.planner.shipId } });
+
+    const [sent, pinged] = await timelineOf(scene.scout.shipId);
+
+    expect([sent?.signedInAccountId, pinged?.signedInAccountId]).toEqual([null, null]);
   });
 
   it('names no actor for what the system did', async () => {

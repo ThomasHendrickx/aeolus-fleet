@@ -1,6 +1,7 @@
 import {
   DELIVERY_HISTORY_TYPES,
   isPingContentType,
+  type AccountId,
   type ComputerSide,
   type LeaseEndReason,
   type InboxFilter,
@@ -42,6 +43,8 @@ export interface TimelineEntry {
   occurredAt: Date;
   /** The ship that caused it; null for the system. */
   actor: HistoryParty | null;
+  /** The account signed in to the console as argo when argo caused it, by its id only (decision 0054). */
+  signedInAccountId: AccountId | null;
   ship: HistoryParty | null;
   /** The message it concerns, with its parties and its content type, by which a ping is told. */
   message: { id: MessageId; sender: HistoryParty; recipient: HistoryRecipient; contentType: string; model: string | null } | null;

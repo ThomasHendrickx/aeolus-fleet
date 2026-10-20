@@ -16,7 +16,7 @@ function aRequest(overrides: Partial<CrewRequest> = {}): CrewRequest {
 }
 
 function anEvent(entry: Pick<TimelineEntry, 'type' | 'occurredAt' | 'actor'>): TimelineEntry {
-  return { seq: 1, id: newId('event'), ship: null, message: null, details: {}, ...entry };
+  return { seq: 1, id: newId('event'), signedInAccountId: null, ship: null, message: null, details: {}, ...entry };
 }
 
 describe('crewRequestStage', () => {
