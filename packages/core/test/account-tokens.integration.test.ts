@@ -196,6 +196,43 @@ describe('a call with an account token', () => {
   });
 });
 
+describe("an account token and its own person ship (decision 0052)", () => {
+  it('gets a starting prompt for it with fleet:read alone, presented by the gateway, the event naming the account through it', async () => {
+    const personShip = await commissioned('person-mathilde', 'person');
+
+    const { shipId, secret } = await asAccount(issuer.sign(mathilde({ scope: 'fleet:read', person_ship: personShip })), gateway.crewToken).fleet.getStartingPrompt.mutate({ shipId: personShip });
+
+    expect({ shipId, hasSecret: secret.length > 0 }).toEqual({ shipId: personShip, hasSecret: true });
+    const issued = await database.event.findMany({ where: { fleetId, type: 'StartingPromptIssued', shipId: personShip }, orderBy: { seq: 'desc' }, take: 1 });
+    expect(issued[0]).toMatchObject({ actorKind: 'account', actorAccountId: 'acc-mathilde', actorThroughShipId: gateway.shipId });
+  });
+
+  it('releases it with fleet:read alone, so the gateway can crew it again', async () => {
+    const personShip = await commissioned('person-mathilde-crewed', 'person');
+    const prompt = unwrap(await useCases.getStartingPrompt(argo, { shipId: personShip }));
+    unwrap(await useCases.claimShip({ shipId: personShip, secret: secretOf(prompt.secret), location: { kind: 'CLOUD' }, harness: 'gateway' }));
+
+    await asAccount(issuer.sign(mathilde({ scope: 'fleet:read', person_ship: personShip })), gateway.crewToken).fleet.release.mutate({ shipId: personShip });
+
+    expect((await useCases.listFleet(argo)).find((ship) => ship.id === personShip)).toMatchObject({ status: 'awaitingCrew' });
+  });
+
+  it('is refused a starting prompt for a ship not its person ship', async () => {
+    const personShip = await commissioned('person-mathilde-other', 'person');
+
+    await expect(refusalOf(asAccount(issuer.sign(mathilde({ scope: 'fleet:read', person_ship: personShip }))).fleet.getStartingPrompt.mutate({ shipId: far }))).resolves.toMatchObject({
+      code: 'FORBIDDEN',
+    });
+  });
+
+  it('is refused a starting prompt without a person ship, saying which scope it needs', async () => {
+    await expect(refusalOf(asAccount(issuer.sign(mathilde({ scope: 'fleet:read' }))).fleet.getStartingPrompt.mutate({ shipId: far }))).resolves.toEqual({
+      code: 'FORBIDDEN',
+      message: 'This call needs the fleet:manage or crew:run scope',
+    });
+  });
+});
+
 describe('an account token core refuses', () => {
   it('refuses one that ended more than 30 seconds ago, saying so', async () => {
     const now = seconds(clock.now());
