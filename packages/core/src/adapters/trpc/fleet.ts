@@ -106,7 +106,7 @@ import type { DeliveryWay } from '../../domain/shared/delivery-way.js';
 import type { SequencedEvent } from '../../domain/shared/events.js';
 import { describedHealth } from './health.js';
 import { presentStartingPrompt } from './starting-prompt-text.js';
-import { actorAnyScopeProcedure, actorScopedProcedure, anyScopeProcedure, callerStillHolding, okOrThrow, router, scopedCrewCallerProcedure, scopedProcedure } from './trpc.js';
+import { actorAnyScopeProcedure, actorScopedProcedure, anyScopeProcedure, callerStillHolding, okOrThrow, ownPersonShipOrAnyScopeProcedure, router, scopedCrewCallerProcedure, scopedProcedure } from './trpc.js';
 
 /** A crew request as the API answers it: its times in ISO 8601, and when its session started as `startedAt`. */
 function crewRequestOutputOf<T extends { requestedAt: Date; sessionStartedAt: Date | null; givenBack: ShipFacts['crewRequestGivenBack'] }>(request: T | null) {
@@ -175,10 +175,10 @@ export const fleetRouter = router({
     }),
 
   /** A new starting prompt for a ship awaiting crew. Its secret invalidates the previous one. */
-  getStartingPrompt: anyScopeProcedure('fleet:manage', 'crew:run')
+  getStartingPrompt: ownPersonShipOrAnyScopeProcedure({ isShipCallOtherwise: true }, 'fleet:manage', 'crew:run')
     .meta({
       description: [
-        'Needs fleet:manage, or crew:run for a ship whose crew request is assigned to yours. A new starting prompt, one crew line per harness and the secret for a ship awaiting crew; its new secret stops any earlier one working.',
+        'Needs fleet:manage, or crew:run for a ship whose crew request is assigned to yours; an account needs nothing for its own person ship. A new starting prompt, one crew line per harness and the secret for a ship awaiting crew; its new secret stops any earlier one working.',
       ].join(' '),
     })
     .input(getStartingPromptInputSchema)
@@ -211,10 +211,10 @@ export const fleetRouter = router({
    * stop working, and what it held in flight returns to pending for the next
    * crew. Never argo; a ship awaiting crew gets a new starting prompt instead.
    */
-  release: actorAnyScopeProcedure('fleet:manage', 'crew:run')
+  release: ownPersonShipOrAnyScopeProcedure({ isShipCallOtherwise: false }, 'fleet:manage', 'crew:run')
     .meta({
       description: [
-        'Needs fleet:manage, or crew:run for a ship whose crew request is assigned to yours. Frees a crewed ship from its session: its crew token and secret stop working, and what it held in flight returns to pending.',
+        'Needs fleet:manage, or crew:run for a ship whose crew request is assigned to yours; an account needs nothing for its own person ship. Frees a crewed ship from its session: its crew token and secret stop working, and what it held in flight returns to pending.',
         'Never argo; a ship awaiting crew gets a new starting prompt instead.',
       ].join(' '),
     })

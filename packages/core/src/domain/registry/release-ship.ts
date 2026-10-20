@@ -36,7 +36,8 @@ export type ReleaseShip = (
  * scope (fleet:manage or crew:run) is checked before this runs;
  * crew:run reaches only the ships whose crew requests are assigned to the
  * caller's ship, and fleet:manage the ships in its manage reach (decision
- * 0034).
+ * 0034). An account releases its own person ship with no scope for it, so
+ * the app it uses can crew it again (decision 0052).
  *
  * Locks in the fleet's order: the ship, then its secret, then its lease. A
  * receive holding the lease makes the release wait, then the release returns

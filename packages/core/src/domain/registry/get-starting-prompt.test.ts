@@ -1,4 +1,4 @@
-import type { FleetId, ShipId } from '@aeolus-fleet/common';
+import { accountIdSchema, type FleetId, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
@@ -10,7 +10,7 @@ import {
 } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../testing/result.js';
-import type { ShipCaller } from '../shared/caller.js';
+import type { AccountCaller, ShipCaller } from '../shared/caller.js';
 import { createGetStartingPrompt } from './get-starting-prompt.js';
 import { newKey } from '../../testing/keys.js';
 
@@ -197,5 +197,47 @@ describe('a failed starting prompt', () => {
 
     await expect(getStartingPrompt(argo, { shipId: scoutId })).rejects.toThrow('event log unavailable');
     expect(core.state).toEqual(before);
+  });
+});
+
+describe("an account's own person ship (decision 0052)", () => {
+  const THOMAS = accountIdSchema.parse('acc-thomas');
+
+  async function aPersonShip(name: string): Promise<ShipId> {
+    return unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name, type: 'person', kind: 'person' })).shipId;
+  }
+
+  function thomasWith(personShipId: ShipId | null): AccountCaller {
+    return { kind: 'account', accountId: THOMAS, fleetId, scopes: ['fleet:read'], groupValues: [], personShipId, throughShipId: scoutId };
+  }
+
+  it('gets a starting prompt for it with no scope for it, the event naming the account and the ship that presented its token', async () => {
+    const personShipId = await aPersonShip('person-thomas');
+    core.state.events.length = 0;
+
+    const { shipId } = unwrap(await useCases.getStartingPrompt(thomasWith(personShipId), { shipId: personShipId }));
+
+    expect(shipId).toBe(personShipId);
+    expect(core.state.events.filter((event) => event.type === 'StartingPromptIssued').map((event) => event.actor)).toEqual([
+      { kind: 'account', accountId: THOMAS, throughShipId: scoutId },
+    ]);
+  });
+
+  it('is refused for a person ship not its own, and its secret stays', async () => {
+    const otherId = await aPersonShip('person-burak');
+    const before = validSecretsOf(otherId);
+
+    await expect(useCases.getStartingPrompt(thomasWith(await aPersonShip('person-thomas')), { shipId: otherId })).resolves.toMatchObject({
+      isOk: false,
+      error: { kind: 'CREW_REQUEST_NOT_ASSIGNED_TO_CALLER' },
+    });
+    expect(validSecretsOf(otherId)).toEqual(before);
+  });
+
+  it('is refused for any ship to an account without a person ship', async () => {
+    await expect(useCases.getStartingPrompt(thomasWith(null), { shipId: scoutId })).resolves.toMatchObject({
+      isOk: false,
+      error: { kind: 'CREW_REQUEST_NOT_ASSIGNED_TO_CALLER' },
+    });
   });
 });

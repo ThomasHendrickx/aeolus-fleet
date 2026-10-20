@@ -1,4 +1,4 @@
-import type { DeliveryId, FleetId, ShipId } from '@aeolus-fleet/common';
+import { accountIdSchema, type DeliveryId, type FleetId, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
@@ -15,7 +15,7 @@ import {
 } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../testing/result.js';
-import type { ShipCaller, Crew } from '../shared/caller.js';
+import type { AccountCaller, ShipCaller, Crew } from '../shared/caller.js';
 import type { Selector } from '../shared/selector.js';
 import { createReleaseShip } from './release-ship.js';
 import { newKey } from '../../testing/keys.js';
@@ -248,6 +248,43 @@ describe('a release refused', () => {
   it("refuses another fleet's ship: the caller's fleet scopes the call, and the ship stays crewed", async () => {
     await expectRefused({ caller: { ...argo, fleetId: core.ids('fleet') }, shipId: scoutId }, { kind: 'SHIP_NOT_FOUND' });
     await expect(listed(scoutId)).resolves.toMatchObject({ status: 'crewed' });
+  });
+});
+
+describe("an account's own person ship (decision 0052)", () => {
+  const THOMAS = accountIdSchema.parse('acc-thomas');
+
+  /** A person ship crewed by a session, as the gateway crews it. */
+  async function aCrewedPersonShip(name: string): Promise<ShipId> {
+    const { shipId } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name, type: 'person', kind: 'person' }));
+    await nextCrewOf(shipId);
+    return shipId;
+  }
+
+  function thomasWith(personShipId: ShipId): AccountCaller {
+    return { kind: 'account', accountId: THOMAS, fleetId, scopes: ['fleet:read'], groupValues: [], personShipId, throughShipId: scoutId };
+  }
+
+  it('releases it with no scope for it, so its app can crew it again, the event naming the account', async () => {
+    const personShipId = await aCrewedPersonShip('person-thomas');
+    core.state.events.length = 0;
+
+    unwrap(await releaseShip(thomasWith(personShipId), { shipId: personShipId }));
+
+    await expect(listed(personShipId)).resolves.toMatchObject({ status: 'awaitingCrew' });
+    expect(core.state.events.filter((event) => event.type === 'LeaseRevoked').map((event) => event.actor)).toEqual([
+      { kind: 'account', accountId: THOMAS, throughShipId: scoutId },
+    ]);
+  });
+
+  it('is refused for a person ship not its own, which stays crewed', async () => {
+    const otherId = await aCrewedPersonShip('person-burak');
+
+    await expect(releaseShip(thomasWith(await aCrewedPersonShip('person-thomas')), { shipId: otherId })).resolves.toMatchObject({
+      isOk: false,
+      error: { kind: 'CREW_REQUEST_NOT_ASSIGNED_TO_CALLER' },
+    });
+    await expect(listed(otherId)).resolves.toMatchObject({ status: 'crewed' });
   });
 });
 
