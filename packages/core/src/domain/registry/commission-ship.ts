@@ -1,17 +1,17 @@
-import type { CommissionedShipKind, FleetId, IdGenerator, LabelValueId, ShipId } from '@aeolus-fleet/common';
+import type { AccountId, CommissionedShipKind, FleetId, IdGenerator, LabelValueId, ShipId } from '@aeolus-fleet/common';
 
 import type { SecretTools } from '../identity/public.js';
-import { actorOf, isShipCaller, type Caller } from '../shared/caller.js';
+import { actorOf, isShipCaller, type AccountCaller, type Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
-import { recordEvent } from '../shared/events.js';
+import { recordEvent, type Actor, type NewEvent } from '../shared/events.js';
 import { idempotencyKey } from '../shared/idempotency-key.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { appliedLimits, type AppliedLimitsTx } from './applied-limits.js';
 import { lockNamedNamespaces, type NamedNamespacesTx } from './named-namespaces.js';
 import { GROUP_LABEL_KEY } from './check-reach.js';
-import { labelOwnerOf, labelsAtCommission, ownerNameOf, type GivenValue } from './label.js';
+import { labelOwnerOf, labelsAtCommission, ownerNameOf, type GivenValue, type ShipLabel } from './label.js';
 import type { LabelRepository, ShipRepository } from './ports.js';
 import { commissionShip, type Commissioner, type CommissioningActor, type CommissionRefusal, type Ship } from './ship.js';
 import { issueStartingPrompt, type StartingPromptTx } from './starting-prompt.js';
@@ -108,6 +108,95 @@ async function givenValues(tx: CommissionShipTx, ref: { fleetId: FleetId; valueI
   return { given, missing: undefined };
 }
 
+/** How many characters of the account's id a person ship's name keeps (decision 0052). */
+const PERSON_SHIP_NAME_ACCOUNT_ID_LENGTH = 12;
+
+/** The idempotency key the installation commissions an account's person ship under, the same from pagasae and from core (decision 0052). */
+export function personShipKey(accountId: AccountId): string {
+  return `person-${accountId}`;
+}
+
+function personShipName(accountId: AccountId): string {
+  return `person-${accountId.slice(0, PERSON_SHIP_NAME_ACCOUNT_ID_LENGTH)}`;
+}
+
+type CommissionDeps = Parameters<typeof createCommissionShip>[0];
+
+/** Stores a commissioned ship: the ship, its label values, its events and its first starting prompt. */
+async function storeCommissioned(
+  context: { tx: CommissionShipTx; deps: CommissionDeps },
+  commissioned: { ship: Ship; assignments: readonly ShipLabel[]; events: readonly NewEvent[]; actor: Actor; at: Date },
+): Promise<{ shipId: ShipId; secret: string }> {
+  const { tx, deps } = context;
+  const { ship, actor, at } = commissioned;
+  await tx.ships.create(ship);
+  for (const assignment of commissioned.assignments) {
+    await tx.labels.assign(assignment);
+  }
+  for (const event of commissioned.events) {
+    await recordEvent({ events: tx.events, ids: deps.ids }, event);
+  }
+  return issueStartingPrompt({ tx, secrets: { ...deps.secrets, ids: deps.ids } }, { fleetId: ship.fleetId, shipId: ship.id, actor, at });
+}
+
+/**
+ * The person ship of an account whose token names none (decisions 0052,
+ * 0057): the one the installation commissioned under the account's key, held
+ * FOR SHARE, if there is one; else none yet, with its key locked, for core to
+ * commission with the account's first ship.
+ */
+async function heldPersonShipOf(tx: CommissionShipTx, account: AccountCaller): Promise<Ship | undefined> {
+  const key = { fleetId: account.fleetId, by: { kind: 'installation' as const }, idempotencyKey: personShipKey(account.accountId) };
+  await tx.ships.lockCommissionKey(key);
+  const commissioned = await tx.ships.findByCommissionKey(key);
+  return commissioned && (await tx.ships.findForShare(account.fleetId, commissioned.id));
+}
+
+/**
+ * Core commissions the account's person ship as the installation would (decision
+ * 0052): named for the account, owning itself, with the scopes every ship has
+ * and the values of group its token carries, kept as the installation's
+ * commission under the account's key, so the installation's own commission
+ * under that key answers it. The account is the actor of its events.
+ */
+async function commissionPersonShip(
+  context: { tx: CommissionShipTx; deps: CommissionDeps },
+  ref: { account: AccountCaller; argoShipId: ShipId; actor: Actor; at: Date },
+): Promise<Result<Ship, CommissionShipRefusal>> {
+  const { tx, deps } = context;
+  const { account, actor, at } = ref;
+  const { fleetId } = account;
+  const name = personShipName(account.accountId);
+  const request = { name, type: 'person', kind: 'person' as const, idempotencyKey: personShipKey(account.accountId) };
+  await tx.ships.lockName(fleetId, name);
+  const commissioned = commissionShip(
+    {
+      ...request,
+      id: deps.ids('ship'),
+      fleetId,
+      // The installation's own job (decision 0052), which core does for it here: the account needs no fleet:person.
+      commissioner: { kind: 'installation', scopes: ['fleet:person'] },
+      argoShipId: ref.argoShipId,
+      at,
+      actor,
+      commission: { by: { kind: 'installation' }, idempotencyKey: request.idempotencyKey, requestHash: deps.secrets.hasher.hash(commissionRequestText(request)) },
+    },
+    { activeShipNamed: await tx.ships.findActiveByName(fleetId, name), namespaces: new Map() },
+  );
+  if (!commissioned.isOk) {
+    return commissioned;
+  }
+  const { ship, events } = commissioned.value;
+  const carried = await carriedBy(tx, account);
+  const { given } = await givenValues(tx, { fleetId, valueIds: carried });
+  const labelled = labelsAtCommission(given, { ship, owner: undefined, carried, at, actor });
+  if (!labelled.isOk) {
+    return labelled;
+  }
+  await storeCommissioned(context, { ship, assignments: labelled.value.assignments, events: [...events, ...labelled.value.events], actor, at });
+  return ok(ship);
+}
+
 /** The values the caller carries itself: a ship's labels, or the values of group an account's token carries. */
 async function carriedBy(tx: CommissionShipTx, caller: Caller): Promise<LabelValueId[]> {
   if (isShipCaller(caller)) {
@@ -156,7 +245,8 @@ async function commissioningActorOf(tx: CommissionShipTx, caller: Caller): Promi
  * a ship's read from the server (decision 0046); each plugin namespace they
  * name is locked after the name. It carries the label values given, each of
  * a label the caller defined or one it carries (decision 0053). Its owner is the caller's owner, the caller
- * when it is a person ship, or an account's person ship; a caller
+ * when it is a person ship, or an account's person ship, commissioned first
+ * when the account has none (decisions 0052, 0057); a caller
  * holding fleet:on-behalf may name the ship that asked it instead, whose owner
  * it gets, or for an app ship the owner argo picked (decision 0045). The
  * caller's idempotency key, its own apart from every other actor's, makes
@@ -185,7 +275,9 @@ export function createCommissionShip(deps: {
       await tx.ships.lockCommissionKey(commissionKey);
       const original = await tx.ships.findByCommissionKey(commissionKey);
       if (original) {
-        if (original.commission?.requestHash !== requestHash) {
+        // A person ship the installation commissioned is found by its key alone: core may have commissioned it with an account's first ship (decision 0052).
+        const isFoundByKeyAlone = commissionKey.by.kind === 'installation' && original.kind === 'person';
+        if (!isFoundByKeyAlone && original.commission?.requestHash !== requestHash) {
           return refuse('IDEMPOTENCY_KEY_REUSED', 'This idempotency key was already used for another commission: commission with a new key');
         }
         const secret = await tx.credentials.findValidForShipForUpdate(fleetId, original.id);
@@ -196,19 +288,29 @@ export function createCommissionShip(deps: {
         });
       }
 
+      const account = caller.kind === 'account' && caller.personShipId === null ? caller : undefined;
+      const heldPersonShip = account && (await heldPersonShipOf(tx, account));
+      const isPersonShipNeeded = account !== undefined && heldPersonShip === undefined;
       const { ships: shipLimit } = await appliedLimits(tx, fleetId);
       if (shipLimit !== null) {
         // Counted under the fleet's lock, held until the ship is stored: commissions at the limit never overshoot it.
         await tx.ships.lockShipCount(fleetId);
-        if ((await tx.ships.countActive(fleetId)) >= shipLimit) {
+        if ((await tx.ships.countActive(fleetId)) + (isPersonShipNeeded ? 2 : 1) > shipLimit) {
           return refuse('SHIP_LIMIT_REACHED', `The fleet is at its limit of ${String(shipLimit)} ships, so it takes no new one.`);
         }
       }
 
-      const commissioner = await commissioningActorOf(tx, caller);
       const argo = await tx.ships.findOperatorShip(fleetId);
+      let commissioner = await commissioningActorOf(tx, caller);
       if (!commissioner || !argo) {
         return refuse('SHIP_NOT_FOUND', "The commissioning ship or its fleet's argo does not exist");
+      }
+      if (account !== undefined) {
+        const personShip = heldPersonShip === undefined ? await commissionPersonShip({ tx, deps }, { account, argoShipId: argo.id, actor, at }) : ok(heldPersonShip);
+        if (!personShip.isOk) {
+          return personShip;
+        }
+        commissioner = { kind: 'account', scopes: account.scopes, personShip: personShip.value };
       }
       const askingShip = input.ownerOf === undefined ? undefined : await findWithOwnerHeld(tx, { fleetId, shipId: input.ownerOf });
       if (input.ownerOf !== undefined && askingShip === undefined) {
@@ -235,17 +337,7 @@ export function createCommissionShip(deps: {
         return labelled;
       }
 
-      await tx.ships.create(ship);
-      for (const assignment of labelled.value.assignments) {
-        await tx.labels.assign(assignment);
-      }
-      for (const event of [...events, ...labelled.value.events]) {
-        await recordEvent({ events: tx.events, ids: deps.ids }, event);
-      }
-      const issued = await issueStartingPrompt(
-        { tx, secrets: { ...deps.secrets, ids: deps.ids } },
-        { fleetId, shipId: ship.id, actor, at },
-      );
+      const issued = await storeCommissioned({ tx, deps }, { ship, assignments: labelled.value.assignments, events: [...events, ...labelled.value.events], actor, at });
       return ok({ ...issued, startingPrompt: { issuedAt: at, isClaimed: false } });
     });
 }
