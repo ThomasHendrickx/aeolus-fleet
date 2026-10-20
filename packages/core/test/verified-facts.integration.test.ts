@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
 import type { FactWriter } from '../src/domain/registry/verified-facts.js';
 import type { AccountCaller, InstallationCaller, ShipCaller } from '../src/domain/shared/caller.js';
+import { ok } from '../src/domain/shared/result.js';
 import { newKey } from '../src/testing/keys.js';
 import { unwrap } from '../src/testing/result.js';
 import { OPERATOR, operatorCaller } from './support/core-fixtures.js';
@@ -36,8 +37,8 @@ afterEach(async () => {
   await core.close();
 });
 
-function factsOf(writer: FactWriter) {
-  return createPrismaUnitOfWork(core.prisma).run((tx) => tx.verifiedFacts.find(fleetId, { shipId: crmId, writer }));
+async function factsOf(writer: FactWriter) {
+  return unwrap(await createPrismaUnitOfWork(core.prisma).run(async (tx) => ok(await tx.verifiedFacts.find(fleetId, { shipId: crmId, writer }))));
 }
 
 async function eventsAboutCrm() {

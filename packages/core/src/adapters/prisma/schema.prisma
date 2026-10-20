@@ -57,6 +57,7 @@ model Fleet {
   installationDeclaredNetworkRules InstallationDeclaredNetworkRules?
   scopeNamespaces  ScopeNamespace[]
   pluginConnections PluginConnection[]
+  verifiedFacts    VerifiedFacts[]
   reachRefusals    ReachRefusal[]
   credentials      Credential[]
   messages         Message[]
@@ -129,6 +130,7 @@ model Ship {
   declaredNetworkRules DeclaredNetworkRules[]
   declaredNamespace ScopeNamespace?
   pluginConnection  PluginConnection?
+  verifiedFacts     VerifiedFacts[]
 
   @@unique([fleetId, id])
   /// An idempotency key is used once per commissioning actor.
@@ -467,6 +469,25 @@ model PluginConnection {
 
   @@id([fleetId, shipId])
   @@map("plugin_connections")
+}
+
+/// One writer's verified facts about a ship (decision 0059): what it checked,
+/// as JSON in the shape common gives, set whole and kept with the ship. The
+/// writer is an actor: a ship or an account by its id, or the installation
+/// by its name, as a commissioning actor is.
+model VerifiedFacts {
+  fleetId    String         @map("fleet_id")
+  shipId     String         @map("ship_id")
+  writerKind FactWriterKind @map("writer_kind")
+  writer     String
+  facts      Json
+  writtenAt  DateTime       @map("written_at") @db.Timestamptz(3)
+
+  fleet Fleet @relation(fields: [fleetId], references: [id])
+  ship  Ship  @relation(fields: [fleetId, shipId], references: [fleetId, id])
+
+  @@id([fleetId, shipId, writerKind, writer])
+  @@map("verified_facts")
 }
 
 /// A send the network rules refused (decision 0034), recorded in the
@@ -962,6 +983,15 @@ enum EventActorKind {
 }
 
 /// Who commissioned a ship (decision 0057).
+/// Who wrote a verified fact (decision 0059).
+enum FactWriterKind {
+  ship
+  account
+  installation
+
+  @@map("fact_writer_kind")
+}
+
 enum CommissionerKind {
   ship
   account
