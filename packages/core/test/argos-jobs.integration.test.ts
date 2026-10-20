@@ -268,6 +268,15 @@ describe('assigning values of any label (labels:any)', () => {
   });
 });
 
+describe("the fleet's scopes (decisions 0046, 0053)", () => {
+  it('are read by the installation and by an account holding fleet:read, as by a ship', async () => {
+    const namespaces = (await asInstallation().fleet.scopes.query()).map(({ namespace }) => namespace);
+
+    expect(namespaces.slice(0, 5)).toEqual(['messages', 'fleet', 'crew', 'labels', 'scopes']);
+    await expect(anAccountHolding(['fleet:read']).fleet.scopes.query()).resolves.toHaveLength(namespaces.length);
+  });
+});
+
 describe('the network rule the installation declares on its group label (decisions 0037, 0052)', () => {
   it('is kept, read by the networking plugin with the installation as its declarer, and withdrawn with none', async () => {
     const { labelId } = await asInstallation().fleet.defineLabel.mutate({ key: 'group-ruled', values: ['sales'] });

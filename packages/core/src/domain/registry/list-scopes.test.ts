@@ -5,7 +5,7 @@ import { hostedFleet, initialiseFleet, operatorCaller, registryUseCases } from '
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../testing/result.js';
-import type { ShipCaller } from '../shared/caller.js';
+import type { InstallationCaller, ShipCaller } from '../shared/caller.js';
 
 let core: InMemoryCore;
 let registry: ReturnType<typeof registryUseCases>;
@@ -49,6 +49,14 @@ describe("listing the fleet's scopes (decision 0046)", () => {
       { namespace: 'builds', declaredBy: { id: builders.shipId, name: 'builders' }, scopes: [] },
       { namespace: 'squadrons', declaredBy: { id: squadrons.shipId, name: 'squadrons' }, scopes: [{ scope: 'squadrons:form', description: 'Form a squadron' }] },
     ]);
+  });
+
+  it('lists them for the installation as for a ship, so pagasae offers each plugin scope to its groups (decisions 0046, 0053)', async () => {
+    const squadrons = await shipWithScopes({ registry, argo }, { name: 'squadrons', type: 'squadrons', scopes: [] });
+    unwrap(await registry.declareScopes(squadrons, { namespace: 'squadrons', scopes: [{ scope: 'squadrons:form', description: 'Form a squadron' }] }));
+    const installation: InstallationCaller = { kind: 'installation', fleetId: argo.fleetId, scopes: ['fleet:read'] };
+
+    await expect(registry.listScopes(installation)).resolves.toEqual(await registry.listScopes(argo));
   });
 
   it("lists no other fleet's namespaces", async () => {
