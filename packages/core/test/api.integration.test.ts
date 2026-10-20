@@ -243,6 +243,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_event_signed_in_accounts$/),
       expect.stringMatching(/^\d{14}_account_cut_off_ends_console_sessions$/),
       expect.stringMatching(/^\d{14}_network_in_core$/),
+      expect.stringMatching(/^\d{14}_verify_scope$/),
     ]);
   });
 });
