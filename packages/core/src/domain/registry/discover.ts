@@ -5,16 +5,18 @@ import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { reaching, rulesInForceOf, shipAsItIs, type CheckReachTx } from './check-reach.js';
 import { allowsReach } from './network-settings.js';
-import type { LeaseRepository, ShipRepository } from './ports.js';
+import type { LeaseRepository, ShipRepository, VerifiedFactsRepository } from './ports.js';
 import { discoveredStatementOf } from './statement.js';
+import { discoveredVerifiedOf, type WrittenFacts } from './verified-facts.js';
 
 export interface DiscoverTx {
   networkSettings: CheckReachTx['networkSettings'];
-  ships: Pick<ShipRepository, 'find' | 'listActive'>;
+  ships: Pick<ShipRepository, 'find' | 'list' | 'listActive'>;
   labels: CheckReachTx['labels'];
   pluginConnections: CheckReachTx['pluginConnections'];
   leases: Pick<LeaseRepository, 'listOpenStatements'>;
   declaredNetworkRules: CheckReachTx['declaredNetworkRules'];
+  verifiedFacts: Pick<VerifiedFactsRepository, 'list'>;
 }
 
 export type Discover = (caller: ShipCaller) => Promise<Result<Discovered, never>>;
@@ -26,7 +28,8 @@ export type Discover = (caller: ShipCaller) => Promise<Result<Discovered, never>
  * this moment (decision 0034): the built-in rules, the fleet's own and the
  * declared ones; there is no message,
  * so no answer to a sender. Each reached ship comes with its name, type, kind,
- * status and statement, and each type with how many of its ships it reaches.
+ * status, statement and verified facts (decision 0059), and each type with
+ * how many of its ships it reaches.
  * Ships, never rules; it records nothing, a refusal included.
  */
 export function createDiscover(deps: { uow: UnitOfWork<DiscoverTx> }): Discover {
@@ -39,6 +42,9 @@ export function createDiscover(deps: { uow: UnitOfWork<DiscoverTx> }): Discover 
       const callerShip = active.find((ship) => ship.id === caller.shipId);
       const sender = callerShip === undefined ? undefined : reaching(await shipAsItIs(tx, callerShip));
       const crews = new Map((await tx.leases.listOpenStatements(fleetId)).map(({ shipId, stated }) => [shipId, stated]));
+      const verified = Map.groupBy(await tx.verifiedFacts.list(fleetId), (written: WrittenFacts) => written.shipId);
+      // A writer may have retired since it wrote: its name is still the one it had.
+      const shipNames = new Map((await tx.ships.list(fleetId)).map((ship) => [ship.id, ship.name]));
       const ships: Discovered['ships'] = [];
       for (const ship of active) {
         if (ship.id === caller.shipId || ship.kind === 'viewer' || sender === undefined) {
@@ -56,6 +62,7 @@ export function createDiscover(deps: { uow: UnitOfWork<DiscoverTx> }): Discover 
           kind: ship.kind,
           status: isCrewed ? 'crewed' : 'awaitingCrew',
           statement: discoveredStatementOf(ship, crews.get(ship.id) ?? null),
+          verified: discoveredVerifiedOf(verified.get(ship.id) ?? [], shipNames),
         });
       }
       return ok({ ships, types: typesOf(ships) });

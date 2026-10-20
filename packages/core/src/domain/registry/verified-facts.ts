@@ -4,7 +4,7 @@
  * claim by its writer: its shape is common's, checked at the edge, and
  * nothing here acts on it.
  */
-import type { AccountId, FleetId, ShipId, VerifiedFact } from '@aeolus-fleet/common';
+import type { AccountId, DiscoveredVerifiedFact, FleetId, ShipId, VerifiedFact } from '@aeolus-fleet/common';
 
 import type { Caller } from '../shared/caller.js';
 import { refuse, type DomainError } from '../shared/errors.js';
@@ -81,4 +81,26 @@ export function setVerifiedFacts(
 /** The facts in order, each as its check, issuer and value, whatever order its keys came in. */
 function factsKey(facts: readonly VerifiedFact[]): string {
   return JSON.stringify(facts.map((fact) => [fact.checked, 'issuer' in fact ? fact.issuer : null, fact.value]));
+}
+
+/**
+ * A ship's facts as discovery shows them (decision 0059): every writer's,
+ * oldest first, each with its writer, a ship by the name it has now, and
+ * when it was written.
+ */
+export function discoveredVerifiedOf(written: readonly WrittenFacts[], shipNames: ReadonlyMap<ShipId, string>): DiscoveredVerifiedFact[] {
+  return written
+    .toSorted((first, second) => first.at.getTime() - second.at.getTime())
+    .flatMap(({ writer, facts, at }) => facts.map((fact) => ({ ...fact, by: discoveredWriterOf(writer, shipNames), at: at.toISOString() })));
+}
+
+function discoveredWriterOf(writer: FactWriter, shipNames: ReadonlyMap<ShipId, string>): DiscoveredVerifiedFact['by'] {
+  switch (writer.kind) {
+    case 'ship':
+      return { kind: 'ship', id: writer.shipId, name: shipNames.get(writer.shipId) ?? writer.shipId };
+    case 'account':
+      return { kind: 'account', id: writer.accountId };
+    case 'installation':
+      return { kind: 'installation' };
+  }
 }

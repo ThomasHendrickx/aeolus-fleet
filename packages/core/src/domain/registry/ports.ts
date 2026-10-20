@@ -292,6 +292,8 @@ export interface VerifiedFactsRepository {
   save(written: WrittenFacts): Promise<void>;
   /** Removes the writer's facts about the ship, if it holds any. */
   remove(fleetId: FleetId, key: { shipId: ShipId; writer: FactWriter }): Promise<void>;
+  /** Every writer's facts about every ship of the fleet, in no order. */
+  list(fleetId: FleetId): Promise<WrittenFacts[]>;
 }
 
 /** Outbound port: the records of the sends the fleet's network rules refused (decision 0034). */

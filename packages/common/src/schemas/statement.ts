@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { shipKindSchema, shipStatusSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
 import { contentTypeSchema } from './message.js';
+import { discoveredVerifiedFactSchema } from './verified-fact.js';
 
 /**
  * A ship's statement (decision 0047): what it is and what it offers, stated
@@ -123,7 +124,7 @@ export type DiscoveredStatement = z.infer<typeof discoveredStatementSchema>;
 
 /**
  * Output of `discover` (messages:send): the ships the caller may send to now,
- * each with its name, type, kind, status and statement, and each type with
+ * each with its name, type, kind, status, statement and verified facts, and each type with
  * how many of its ships it reaches (decision 0047). Ships, never rules.
  */
 export const discoverOutputSchema = z.object({
@@ -135,6 +136,8 @@ export const discoverOutputSchema = z.object({
       kind: shipKindSchema,
       status: shipStatusSchema,
       statement: discoveredStatementSchema,
+      /** The facts actors checked about it, oldest first, each naming its writer (decision 0059). */
+      verified: z.array(discoveredVerifiedFactSchema),
     }),
   ),
   types: z.array(z.object({ type: z.string(), reachable: z.int().min(1) })),

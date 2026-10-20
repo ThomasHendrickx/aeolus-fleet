@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { idSchema } from '../ids/index.js';
+import { accountIdSchema } from './account-token.js';
 
 /**
  * A verified fact (decision 0059): what an actor checked about a ship, stored
@@ -57,3 +58,15 @@ export const setVerifiedFactsInputSchema = z.object({
 
 /** Output of `fleet.setVerifiedFacts`: nothing; the OK is the answer. */
 export const setVerifiedFactsOutputSchema = z.strictObject({});
+
+/** Who wrote a fact, as discovery names an actor (decision 0057): a ship by id and name, an account by its id only, or the installation. */
+export const factWriterSchema = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('ship'), id: idSchema('ship'), name: z.string() }),
+  z.strictObject({ kind: z.literal('account'), id: accountIdSchema }),
+  z.strictObject({ kind: z.literal('installation') }),
+]);
+
+/** A fact as discovery shows it: as written, with its writer and when it was written. */
+const writtenBy = { by: factWriterSchema, at: z.iso.datetime() };
+export const discoveredVerifiedFactSchema = z.discriminatedUnion('checked', [verifiedFactSchema.options[0].extend(writtenBy), verifiedFactSchema.options[1].extend(writtenBy)]);
+export type DiscoveredVerifiedFact = z.infer<typeof discoveredVerifiedFactSchema>;
