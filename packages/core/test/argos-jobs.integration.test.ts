@@ -360,3 +360,19 @@ describe('the group values of a person ship, given at its commission (decisions 
     await expect(database.shipLabel.findMany({ where: { shipId: person.shipId }, select: { valueId: true } })).resolves.toEqual(sales.map((valueId) => ({ valueId })));
   });
 });
+
+describe('the person ship of an account that has none, commissioned with its first ship (decisions 0052, 0057)', () => {
+  it("is commissioned with the account's first ship, which it owns, and the installation's commission under its key answers it", async () => {
+    const helper = await anAccountHolding(['fleet:commission'], { id: 'acc-01emma00000-x' }).fleet.commission.mutate({ name: 'emmas-helper', type: 'helper', idempotencyKey: newKey() });
+
+    const person = await asInstallation().fleet.commission.mutate({ name: 'person-acc-01emma00', type: 'person', kind: 'person', idempotencyKey: 'person-acc-01emma00000-x' });
+
+    expect(person.secret).toBeNull();
+    await expect(ownerOf(helper.shipId)).resolves.toBe(person.shipId);
+    await expect(database.ship.findUnique({ where: { id: person.shipId }, select: { name: true, ownerShipId: true, commissionedByKind: true } })).resolves.toEqual({
+      name: 'person-acc-01emma00',
+      ownerShipId: person.shipId,
+      commissionedByKind: 'installation',
+    });
+  });
+});

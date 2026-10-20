@@ -654,10 +654,12 @@ describe('a commission by the installation or an account (decisions 0053, 0057)'
     expect(ownerSetOf(shipId)).toEqual([{ ownerShipId: personShipId, how: 'accountPersonShip' }]);
   });
 
-  it('refuses an account without a person ship in the fleet, storing nothing', async () => {
-    await expect(commissionShip(anAccount(), { idempotencyKey: newKey(), name: 'helper', type: 'helper' })).resolves.toEqual({
+  it('refuses an account whose token names a ship that is no active person ship, storing nothing', async () => {
+    const { shipId } = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
+
+    await expect(commissionShip(anAccount({ personShipId: shipId }), { idempotencyKey: newKey(), name: 'helper', type: 'helper' })).resolves.toEqual({
       isOk: false,
-      error: { kind: 'INVALID_OWNER', message: 'An account commissions a ship once it has a person ship in this fleet, which owns the ship (decision 0057)' },
+      error: { kind: 'INVALID_OWNER', message: 'The person ship your account token names is no active person ship in this fleet (decision 0057)' },
     });
     expect(shipsNamed('helper')).toEqual([]);
   });
@@ -680,6 +682,87 @@ describe('a commission by the installation or an account (decisions 0053, 0057)'
 
     expect(theAccounts.shipId).not.toBe(first.shipId);
     expect(again).toMatchObject({ shipId: first.shipId, secret: null });
+  });
+});
+
+describe('the person ship of an account that has none, commissioned with its first ship (decisions 0052, 0057)', () => {
+  const MATHILDE = accountIdSchema.parse('acc-mathilde-01m5');
+  let installation: InstallationCaller;
+  let mathilde: AccountCaller;
+
+  function shipNamed(name: string): Ship | undefined {
+    return shipsNamed(name)[0];
+  }
+
+  beforeEach(async () => {
+    installation = { kind: 'installation', fleetId, scopes: ['fleet:read', 'fleet:person', 'fleet:manage', 'labels:define', 'labels:assign', 'labels:any'] };
+    unwrap(await registryUseCases(core).defineLabel(installation, { key: 'group', values: ['sales', 'finance'] }));
+    mathilde = { kind: 'account', accountId: MATHILDE, fleetId, scopes: ['fleet:commission'], groupValues: ['sales'], personShipId: null, throughShipId: null };
+    core.state.events.length = 0;
+  });
+
+  it('commissions it owning itself, kept as the installation commissions it, and gives it the new ship', async () => {
+    const { shipId } = unwrap(await commissionShip(mathilde, { idempotencyKey: newKey(), name: 'helper', type: 'helper' }));
+
+    const person = shipNamed('person-acc-mathilde');
+    expect(person).toMatchObject({ kind: 'person', type: 'person', scopes: ['messages:send', 'messages:receive'], commission: { by: { kind: 'installation' }, idempotencyKey: 'person-acc-mathilde-01m5' } });
+    expect(person?.owner).toBe(person?.id);
+    expect(shipNamed('helper')).toMatchObject({ id: shipId, owner: person?.id });
+  });
+
+  it("gives it the values of group the account's token carries", async () => {
+    unwrap(await commissionShip(mathilde, { idempotencyKey: newKey(), name: 'helper', type: 'helper' }));
+
+    const personId = shipNamed('person-acc-mathilde')?.id;
+    expect(core.state.shipLabels.filter((label) => label.shipId === personId).map((label) => label.valueId)).toEqual([valueIdOf(core, { key: 'group', value: 'sales' })]);
+  });
+
+  it("names the account as the actor of the person ship's events", async () => {
+    unwrap(await commissionShip(mathilde, { idempotencyKey: newKey(), name: 'helper', type: 'helper' }));
+
+    const personId = shipNamed('person-acc-mathilde')?.id;
+    expect(core.state.events.filter((event) => event.shipId === personId && event.type === 'ShipCommissioned').map((event) => event.actor)).toEqual([
+      { kind: 'account', accountId: MATHILDE, throughShipId: null },
+    ]);
+  });
+
+  it('takes the person ship the installation commissioned under its key when the token names none yet', async () => {
+    const { shipId: personId } = unwrap(await commissionShip(installation, { idempotencyKey: 'person-acc-mathilde-01m5', name: 'person-acc-mathilde', type: 'person', kind: 'person' }));
+
+    unwrap(await commissionShip(mathilde, { idempotencyKey: newKey(), name: 'helper', type: 'helper' }));
+
+    expect(shipsNamed('person-acc-mathilde')).toHaveLength(1);
+    expect(shipNamed('helper')?.owner).toBe(personId);
+  });
+
+  it("answers the installation's later commission under the account's key with that person ship, whatever else it asks", async () => {
+    unwrap(await commissionShip(mathilde, { idempotencyKey: newKey(), name: 'helper', type: 'helper' }));
+
+    const again = unwrap(
+      await commissionShip(installation, { idempotencyKey: 'person-acc-mathilde-01m5', name: 'person-acc-mathilde', type: 'person', kind: 'person', scopes: ['fleet:read'], valueIds: [valueIdOf(core, { key: 'group', value: 'finance' })] }),
+    );
+
+    expect(again).toMatchObject({ shipId: shipNamed('person-acc-mathilde')?.id, secret: null });
+    expect(shipsNamed('person-acc-mathilde')).toHaveLength(1);
+  });
+
+  it("refuses the commission while another active ship holds the person ship's name, storing nothing", async () => {
+    unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'person-acc-mathilde', type: 'reviewer' }));
+    const before = structuredClone(core.state);
+
+    await expect(commissionShip(mathilde, { idempotencyKey: newKey(), name: 'helper', type: 'helper' })).resolves.toMatchObject({ isOk: false, error: { kind: 'SHIP_NAME_TAKEN' } });
+    expect(core.state).toEqual(before);
+  });
+
+  it('counts the person ship toward the ship limit, storing nothing when both do not fit', async () => {
+    withInstallationSettings(core, { defaultShipLimit: 2 });
+    const before = structuredClone(core.state);
+
+    await expect(commissionShip(mathilde, { idempotencyKey: newKey(), name: 'helper', type: 'helper' })).resolves.toEqual({
+      isOk: false,
+      error: { kind: 'SHIP_LIMIT_REACHED', message: 'The fleet is at its limit of 2 ships, so it takes no new one.' },
+    });
+    expect(core.state).toEqual(before);
   });
 });
 
