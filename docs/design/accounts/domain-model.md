@@ -17,7 +17,7 @@ Design by designer-accounts, for Thomas. Thomas read phase 1 (`accounts.md`) and
 
 Today "organisation" is only prose: the principle "one organisation, one fleet, many actors" (blueprint Principles, 0043) and "Organisation rules belong to the organisation" (blueprint Purpose). The fleet stands in for it (0007: the fleet is the tenant). Part 1 shows what stands in; part 2 places it; part 3 marks what it answers.
 
-Read from main of each repository on 19 Oct 2026: aeolus-fleet `0e2168ce`, aeolus-fleet-gateway `916d431`, aeolus-fleet-squadrons `870f745`, aeolus-fleet-networking-plugin `58365ca`, aeolus-fleet-trierarch-plugin `7eece35`, pagasae `2ea340a`. Paths below are in aeolus-fleet unless a repository is named. Names are the blueprint's and the code's; where the code's table name differs from the blueprint's word, the table says both.
+Read from main of each repository on 19 Oct 2026: aeolus-fleet `0e2168ce`, aeolus-fleet-gateway `b4f062b`, aeolus-fleet-squadrons `870f745`, aeolus-fleet-networking-plugin `58365ca`, aeolus-fleet-trierarch-plugin `7eece35`, pagasae `2ea340a`. Paths below are in aeolus-fleet unless a repository is named. Names are the blueprint's and the code's; where the code's table name differs from the blueprint's word, the table says both.
 
 ## 1. Today
 
@@ -30,7 +30,7 @@ Read from main of each repository on 19 Oct 2026: aeolus-fleet `0e2168ce`, aeolu
 | networking plugin | A plugin: the fleet's one rule setter (0035, 0036) | aeolus-fleet-networking-plugin, `packages/networking-plugin/src/adapters/prisma/schema.prisma` |
 | trierarch plugin | A plugin: brings computers in and assigns crew requests (0030) | aeolus-fleet-trierarch-plugin, `packages/trierarch-plugin/src/adapters/prisma/schema.prisma` |
 | trierarch | A process per computer, crewing a ship of type trierarch and the sessions it starts (0026) | aeolus-fleet-trierarch; its state on the computer |
-| gateway | Outside MCP servers and clients as proxy ships; OAuth server; the fleet's identity provider (interop; 0048) | aeolus-fleet-gateway, `src/adapters/prisma/schema.prisma` |
+| gateway | Outside MCP servers and clients as proxy ships; OAuth server; signs people in through pagasae and crews their person ships (interop; 0048, 0054) | aeolus-fleet-gateway, `src/adapters/prisma/schema.prisma` |
 | pagasae | The account app for hosted Aeolus: sign-up, one fleet per account, the owner's pages (0020) | pagasae, `prisma/schema.prisma` |
 
 ### 1.2 Diagrams: today
@@ -64,8 +64,8 @@ flowchart LR
   TRI["trierarch<br/>one per computer, starts sessions"]
   subgraph GW["gateway"]
     PARTY["party<br/>an outside MCP server or client"]
-    IDP["identity provider<br/>one per fleet"]
-    EP["fleet endpoint<br/>/fleets/alias/mcp"]
+    GRANT["account grant<br/>a person signed in through pagasae"]
+    EP["MCP address<br/>/mcp, one for every fleet"]
   end
 
   PO -->|drives with the installation token| INST
@@ -86,8 +86,8 @@ flowchart LR
   TRI -->|crews sessions of| LEASE
   TP -->|assigns ships to| TRI
   PARTY -->|one app proxy ship| SHIP
-  IDP -.->|stands in for its directory| ORG
-  EP -->|one per| FLEET
+  GRANT -->|acts as| PA
+  EP -->|serves every| FLEET
 ```
 
 #### Fleet and ships
@@ -305,15 +305,15 @@ namespace core {
   }
 }
 namespace gateway {
-  class IdentityProvider {
-    issuer, client id
-    one per fleet, no people
+  class AccountGrant {
+    an account signed in through pagasae
+    pagasae's tokens
   }
   class OAuthClient {
     an MCP client
   }
   class IssuedToken {
-    names its party
+    names its party or an account grant
   }
 }
 class Organisation {
@@ -334,7 +334,8 @@ OAuthClient "1" --> "*" IssuedToken
 IssuedToken ..> ConsoleSession : argo approved at /authorize
 PagasaeAccount ..> Organisation : stands in for
 OperatorAccount ..> Organisation : its one human
-IdentityProvider ..> Organisation : its directory
+AccountGrant ..> PagasaeAccount : acts as
+IssuedToken ..> AccountGrant : a person's client
 ```
 
 #### Plugins and the gateway
@@ -394,11 +395,11 @@ namespace gateway {
   }
   class OAuthClient
   class IssuedToken
-  class FleetEndpoint {
-    /fleets/alias/mcp
+  class McpAddress {
+    /mcp, one for every fleet
   }
-  class IdentityProvider {
-    one per fleet
+  class PersonCrew {
+    a person ship's crew token
   }
   class Call {
     MCP out, by delivery
@@ -423,7 +424,8 @@ Party "*" --> "1" Ship : owner, kept again
 Party "1" --> "*" ToolMark
 Party "1" --> "0..1" OAuthClient
 OAuthClient "1" --> "*" IssuedToken
-IssuedToken "*" --> "1" FleetEndpoint
+IssuedToken "*" --> "1" McpAddress
+PersonCrew --> Ship : crews a person ship
 Party "1" --> "*" Call
 Party "1" --> "*" ClientCall
 ```
@@ -432,7 +434,7 @@ Party "1" --> "*" ClientCall
 
 | Concept | Lives in | What it is | Grounded in |
 | --- | --- | --- | --- |
-| Organisation | nowhere (prose) | Implicit. Stood in for by the fleet (the tenant), the pagasae account (one account, one fleet), the operator account (the fleet's one human) and the gateway's identity provider (the organisation's directory, kept per fleet) | blueprint Principles and Purpose, 0007, 0043; no table in any store |
+| Organisation | nowhere (prose) | Implicit. Stood in for by the fleet (the tenant), the pagasae account (one account, one fleet) and the operator account (the fleet's one human) | blueprint Principles and Purpose, 0007, 0043; no table in any store |
 | Installation | core | One server and the fleets it hosts; driven by a hosting service with the installation token; limits and the fleet cap | 0020; `InstallationSettings`, `InstallationRequest` |
 | Sign-in ticket | core | One use, 2 minutes, signs in as the operator or the viewer | 0020, 0022; `SignInTicket`, `SignInAs` |
 | Notice, guide | core | The installation's text and steps for console sessions of an audience: everyone, operators or viewers | 0023, 0024; `Notice`, `Guide`, `NoticeAudience` |
@@ -468,8 +470,9 @@ Party "1" --> "*" ClientCall
 | Trierarch, agent session | trierarch | A computer's process and the sessions it starts, holding their crew tokens | 0026, 0039 |
 | Party | gateway | An outside MCP server or client argo approved, with its app proxy ship and its owner | interop I-5; gateway `Party` |
 | OAuth client, issued token | gateway | A pre-registered MCP client; an access and refresh pair naming a party, bound to one fleet endpoint | gateway `OAuthClient`, `IssuedToken`, `AuthorizationCode` |
-| Fleet endpoint | gateway | Each fleet's own MCP URL, `/fleets/<alias>/mcp` | gateway `src/adapters/crypto/fleet-endpoints.ts`, commit `916d431` |
-| Identity provider | gateway | The fleet's company IdP: issuer, client id and secret; set by argo; nothing signs in with it yet | interop I-4; gateway `IdentityProvider`, commits `4c0e685`, `f759919` |
+| MCP address | gateway | One address, `/mcp`, for every fleet; a token names its fleet | 0054; gateway `src/adapters/http/mcp-endpoint.ts` |
+| Account grant | gateway | A person's sign-in through pagasae, kept for their MCP client: the account in the fleet, its person ship and pagasae's tokens | 0054; gateway `AccountGrant` |
+| Person crew | gateway | The crew token the gateway holds for a signed-in person's person ship, shared by all their clients | 0054, 0057; gateway `PersonCrew` |
 | Tool mark | gateway | argo's repeatable mark on a tool | interop 5.2; gateway `ToolMark` |
 
 The gateway's sign-in today is for MCP clients only: argo approves each client at `/authorize`, signed in to the console; the gateway checks the console session holds `fleet:manage`, which only argo's does (gateway `src/adapters/http/oauth-routes.ts`). No person signs in through the gateway yet.
