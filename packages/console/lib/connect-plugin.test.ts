@@ -161,13 +161,13 @@ describe('connecting squadrons from the console', () => {
 });
 
 describe('connecting the trierarch plugin from the console', () => {
-  it('commissions trierarch-plugin of type trierarch-plugin, which reads the fleet, commissions machines with crew:run, which it holds, assigns crew requests and labels machines', async () => {
+  it('commissions trierarch-plugin of type trierarch-plugin, which reads the fleet, commissions machines with crew:run, which it holds, assigns crew requests, labels machines and declares its scopes', async () => {
     const { state, calls } = fakes();
 
     await expect(connectPlugin(calls, { ship: TRIERARCH_PLUGIN_SHIP, newKey })).resolves.toMatchObject({ state: 'connected', ship: { name: 'trierarch-plugin' } });
 
     expect(state.done).toEqual(['commission trierarch-plugin', 'connect as plugin shp_1']);
-    expect(state.scopes).toEqual([['fleet:read', 'fleet:commission', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign']]);
+    expect(state.scopes).toEqual([['fleet:read', 'fleet:commission', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'scopes:declare']]);
   });
 
   it('is refused when a ship named trierarch-plugin has another type', async () => {
