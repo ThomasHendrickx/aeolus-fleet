@@ -1,4 +1,4 @@
-import { idSchema, type DeliveryId, type MessageId, type ShipId } from '@aeolus-fleet/common';
+import { accountIdSchema, idSchema, type DeliveryId, type MessageId, type ShipId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { ShipCaller, Crew } from '../src/domain/shared/caller.js';
@@ -89,6 +89,15 @@ describe('the history reads on Postgres', () => {
       details: { selector: 'ship' },
     });
     expect(timeline.at(-1)).toMatchObject({ actor: { id: argo.shipId, name: 'argo' }, message: null });
+  });
+
+  it("give a ship's timeline naming the account signed in as argo when argo caused it, by its id", async () => {
+    await send({ ...argo, signedInAccountId: accountIdSchema.parse('acc-01mathilde') }, { to: { kind: 'ship', shipId: scout.shipId } });
+    await send(argo, { to: { kind: 'ship', shipId: scout.shipId } });
+
+    const timeline = unwrap(await core.useCases.readShipTimeline(argo, { shipId: scout.shipId }));
+
+    expect(timeline.slice(0, 2).map((entry) => entry.signedInAccountId)).toEqual([null, 'acc-01mathilde']);
   });
 
   it("give a ship's messages: sent, received and claimed by type, newest first, with a preview and the delivery now", async () => {

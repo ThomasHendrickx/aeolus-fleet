@@ -93,6 +93,7 @@ describe('shipTimelineOutputSchema', () => {
     type: 'MessageAccepted',
     occurredAt: AT,
     actor: scout,
+    signedInAccountId: null,
     ship: planner,
     message: { id: newId('message'), sender: scout, recipient: { kind: 'ship', ship: planner }, contentType: 'text/plain', isPing: false, model: 'claude-opus-5-5' },
     details: { selector: 'ship', recipientType: null },
@@ -100,6 +101,12 @@ describe('shipTimelineOutputSchema', () => {
 
   it('accepts an event with who caused it, the ship and message it concerns, and its details', () => {
     expect(shipTimelineOutputSchema.parse([sent])).toEqual([sent]);
+  });
+
+  it('accepts the account signed in to the console as argo when argo caused it, by its id only (decision 0054)', () => {
+    const signedIn = { ...sent, signedInAccountId: 'acc-01mathilde' };
+
+    expect(shipTimelineOutputSchema.parse([signedIn])).toEqual([signedIn]);
   });
 
   it('accepts a system event concerning no message, and a message to a type', () => {
@@ -130,6 +137,7 @@ describe('shipTimelineOutputSchema', () => {
   it.each([
     ['an unknown event type', { ...sent, type: 'ShipSank' }],
     ['a nested detail', { ...sent, details: { location: { kind: 'DEVICE' } } }],
+    ['no signed-in account', { ...sent, signedInAccountId: undefined }],
   ])('rejects %s', (_label, entry) => {
     expect(shipTimelineOutputSchema.safeParse([entry]).success).toBe(false);
   });
