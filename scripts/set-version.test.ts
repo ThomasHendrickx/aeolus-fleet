@@ -62,11 +62,11 @@ describe('setVersion', () => {
     );
   });
 
-  it('sets the same version on all seven packages, squadrons, the trierarch plugin, the networking plugin and the trierarch included', () => {
+  it('sets the same version on all six packages, squadrons, the trierarch plugin and the trierarch included', () => {
     setVersion(copy, '0.1.0');
 
-    expect(PUBLISHED_PACKAGES).toEqual(['common', 'core', 'console', 'squadrons', 'trierarch-plugin', 'networking-plugin', 'trierarch']);
-    expect(PUBLISHED_PACKAGES.map((name) => manifest(name).version)).toEqual(['0.1.0', '0.1.0', '0.1.0', '0.1.0', '0.1.0', '0.1.0', '0.1.0']);
+    expect(PUBLISHED_PACKAGES).toEqual(['common', 'core', 'console', 'squadrons', 'trierarch-plugin', 'trierarch']);
+    expect(PUBLISHED_PACKAGES.map((name) => manifest(name).version)).toEqual(['0.1.0', '0.1.0', '0.1.0', '0.1.0', '0.1.0', '0.1.0']);
   });
 
   // The source condition points into src, which the tarball does not ship (#968).
@@ -86,13 +86,6 @@ describe('setVersion', () => {
     setVersion(copy, '0.1.0');
 
     expect(JSON.stringify(rawManifest(name).exports ?? {})).not.toContain('@aeolus-fleet/source');
-  });
-
-  it('pins the networking plugin to common and the server at that version', () => {
-    setVersion(copy, '0.1.0');
-
-    expect(manifest('networking-plugin').dependencies?.['@aeolus-fleet/common']).toBe('0.1.0');
-    expect(manifest('networking-plugin').devDependencies?.['@aeolus-fleet/core']).toBe('0.1.0');
   });
 
   it('pins the trierarch plugin to common and the server at that version', () => {
