@@ -20,7 +20,7 @@
 | `crew:assign`, `crew:run` | as 0029 | any request; assignment |
 | `labels:define` | its labels and rules on them (0037) | labels it owns |
 | `labels:assign` | values of labels it owns | its own ship and ships it commissioned |
-| `fleet:network` | the networking plugin's calls (0035) | the fleet's rules |
+| `fleet:network` | drafting and applying the fleet's own rules, reading the rules and turning the viewer read (0034, 0035) | the fleet's rules |
 | `fleet:on-behalf` | a plugin's calls for another ship: read on behalf of a named ship (0034), name the asking ship's owner at commission, the owner its approver picked for an app ship it commissions, or the asking account's person ship as owner (0045, 0055) | the named ship's read reach |
 | `scopes:declare` | take up one plugin namespace and declare its scopes | its own namespace |
 | `scopes:grant` | grant and revoke on a live ship | what it may grant |

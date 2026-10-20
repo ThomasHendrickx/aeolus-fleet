@@ -38,7 +38,7 @@ export async function reserveWebUrl(): Promise<string> {
 /**
  * Starts the web app with `next dev` at the reserved URL, with the given
  * server as its AEOLUS_SERVER_URL (and squadrons as its AEOLUS_SQUADRONS_URL, the trierarch plugin as its
- * AEOLUS_TRIERARCH_PLUGIN_URL, the networking plugin as its AEOLUS_NETWORKING_PLUGIN_URL, and the hosting service's sign-in as its
+ * AEOLUS_TRIERARCH_PLUGIN_URL, and the hosting service's sign-in as its
  * AEOLUS_HOSTED_SIGN_IN_URL, when given), and waits until the sign-in page answers
  * (the first request compiles it). The console bundles common's built
  * package, as `npm run dev` does, so common is built first.

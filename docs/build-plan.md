@@ -78,7 +78,7 @@ Each release train in its own repository with its own version (decision 0049). P
 | # | Slice | Where | After | Builds | Done when |
 | --- | --- | --- | --- | --- | --- |
 | P1 | Docs | docs | none | Decision 0049, 0008 and 0011 per train, docs/compatibility.md | Done |
-| P2 | Minimum core version | common, squadrons, trierarch-plugin, networking-plugin, trierarch | P1 | `checkCoreVersion` in common; each package checks its minimum at start | Each of the four refuses an older or unreachable core by name, with a test |
+| P2 | Minimum core version | common, squadrons, trierarch-plugin, trierarch | P1 | `checkCoreVersion` in common; each package checks its minimum at start | Each of the three refuses an older or unreachable core by name, with a test |
 | P3 | Core's test support | core and every package that tests against it | P1 | A published `@aeolus-fleet/core/testing` | No test outside core reaches into core's files by path |
 | P4 | One repository per train | every train | P2, P3, 0.27.1 | Each train moved with its history, with its own CI and release workflow; core's release publishes its own train only | Each train releases 0.28.0 from its own repository |
 

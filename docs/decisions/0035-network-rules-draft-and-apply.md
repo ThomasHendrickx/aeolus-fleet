@@ -1,0 +1,10 @@
+# 0035 The fleet's own network rules: drafted, looked at, applied
+
+- The fleet's own rules, beside the built-ins (0034) and the declared ones (0037), live in core: the whole list, or none for all-to-all, at the settings version. Any actor holding `fleet:network` reads and changes them, with no manage-reach check, as they are fleet-wide. `fleet.networkRules` answers the applied rules with their version, and the draft.
+- A change goes through the fleet's one draft. `fleet.saveNetworkRulesDraft` keeps the whole list in place of the draft before, against the settings version then (`NetworkRulesDraftSaved`), under the limits an apply holds it to (0034, 0037). `fleet.discardNetworkRulesDraft` drops it (`NetworkRulesDraftDiscarded`). Neither moves the version. Nothing is ever checked against the draft.
+- Looking at a draft: `fleet.networkRulesDraftChanges` answers per verb the pairs of ships the draft gains and loses, each with the rule that allows it, among the ships the caller reads; `fleet.explainReach` with `against: 'draft'` explains reach as it would be checked once applied (0034). Both refuse a fleet without a draft (`NO_NETWORK_RULES_DRAFT`, NOT_FOUND).
+- `fleet.applyNetworkRules` names the settings version the caller looked at. Under the exclusive settings lock (0034) it refuses once the settings moved past it (`NETWORK_SETTINGS_CHANGED`, CONFLICT, the draft kept); else the draft's rules are in force at the next version (`NetworkRulesSet`) and the draft goes.
+
+Why: "network goes into core": the rules are as vital as scopes, so no second process supplies them. "A true apply of the rules is needed, else someone working on them can break them without knowing what breaks": the draft is what the simulator reads, the apply what puts it in force, and the version makes what applies what was looked at.
+
+Rejected: a networking plugin as the one owner of the rules (a second process and a sync for a core guarantee, and an unavailable state judged at each send); rules set straight in force (a change breaks reach unseen); a draft per actor; checking anything against the draft.
