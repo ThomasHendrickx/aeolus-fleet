@@ -379,7 +379,7 @@ function checkNamedOwner(named: {
 /**
  * A person ship itself (decision 0052). Else the owner named, or the asking
  * ship's owner, when a plugin's ship named them; else an account's active
- * person ship, refused without one (decision 0057); the commissioner when it
+ * person ship (decision 0057); the commissioner when it
  * is a person ship, or the commissioner's owner, inherited. argo for a ship
  * that has none, as argo itself and the installation have none.
  */
@@ -406,7 +406,7 @@ function ownerAtCommission(input: {
       const { personShip } = commissioner;
       return personShip?.kind === 'person' && personShip.retiredAt === null
         ? ok({ ownerShipId: personShip.id, how: 'accountPersonShip' })
-        : refuse('INVALID_OWNER', 'An account commissions a ship once it has a person ship in this fleet, which owns the ship (decision 0057)');
+        : refuse('INVALID_OWNER', 'The person ship your account token names is no active person ship in this fleet (decision 0057)');
     }
     case 'installation':
       return ok({ ownerShipId: argoShipId, how: 'argoByDefault' });

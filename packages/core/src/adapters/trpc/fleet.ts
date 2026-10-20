@@ -701,7 +701,7 @@ export const fleetRouter = router({
     .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.declareNetworkRules(ctx.caller, input))),
 
   /** Every declarer's declared rules, for the networking plugin to add to argo's (decisions 0037, 0052). */
-  declaredNetworkRules: scopedProcedure('fleet:network')
+  declaredNetworkRules: actorScopedProcedure('fleet:network')
     .meta({
       description: [
         'Needs fleet:network. The network rules the fleet\'s ships and the installation declared on the labels they own, each ship or the installation as declarer with its whole list (decision 0037; the installation, decision 0052).',

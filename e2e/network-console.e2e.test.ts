@@ -166,7 +166,7 @@ describe('the networking plugin in the console', () => {
     const page = await signedIn();
     await page.getByTestId('nav-network').click();
     const declared = page.getByTestId('network-declared');
-    await declared.getByText('No plugin declares rules.').waitFor(WITHIN);
+    await declared.getByText('Nothing declares rules.').waitFor(WITHIN);
 
     const { shipId } = unwrap(
       await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'crew-keeper', type: 'plugin', scopes: ['labels:define', 'labels:assign'] }),
@@ -184,7 +184,7 @@ describe('the networking plugin in the console', () => {
     // Retiring the plugin withdraws what it declared, so the tests after this one see the fleet as it was.
     unwrap(await useCases.retireShip(argo, { shipId }));
 
-    await declared.getByText('No plugin declares rules.').waitFor(WITHIN);
+    await declared.getByText('Nothing declares rules.').waitFor(WITHIN);
     await expect.poll(async () => (await settings()).rules, WITHIN).toEqual(rulesBefore);
   });
 

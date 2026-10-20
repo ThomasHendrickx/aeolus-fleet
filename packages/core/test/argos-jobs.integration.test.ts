@@ -282,6 +282,16 @@ describe('the network rule the installation declares on its group label (decisio
     await expect(database.installationDeclaredNetworkRules.count({ where: { fleetId } })).resolves.toBe(0);
   });
 
+  it('is read by an account holding fleet:network, as by the networking plugin', async () => {
+    const { labelId } = await asInstallation().fleet.defineLabel.mutate({ key: 'group-read', values: ['sales'] });
+    const sameGroup = { labelId, value: '#' };
+    const rules = [{ verb: 'send' as const, from: [sameGroup], to: [sameGroup] }];
+    await asInstallation().fleet.declareNetworkRules.mutate({ rules });
+
+    await expect(anAccountHolding(['fleet:network']).fleet.declaredNetworkRules.query()).resolves.toContainEqual({ declarer: { kind: 'installation' }, rules });
+    await asInstallation().fleet.declareNetworkRules.mutate({ rules: [] });
+  });
+
   it('writes NetworkRulesDeclared naming the installation', async () => {
     const { labelId } = await asInstallation().fleet.defineLabel.mutate({ key: 'group-announced', values: ['sales'] });
     const sameGroup = { labelId, value: '#' };
@@ -348,5 +358,21 @@ describe('the group values of a person ship, given at its commission (decisions 
     const person = await asInstallation().fleet.commission.mutate({ name: 'person-acc-01dana000', type: 'person', kind: 'person', valueIds: sales, idempotencyKey: 'person-acc-01dana000' });
 
     await expect(database.shipLabel.findMany({ where: { shipId: person.shipId }, select: { valueId: true } })).resolves.toEqual(sales.map((valueId) => ({ valueId })));
+  });
+});
+
+describe('the person ship of an account that has none, commissioned with its first ship (decisions 0052, 0057)', () => {
+  it("is commissioned with the account's first ship, which it owns, and the installation's commission under its key answers it", async () => {
+    const helper = await anAccountHolding(['fleet:commission'], { id: 'acc-01emma00000-x' }).fleet.commission.mutate({ name: 'emmas-helper', type: 'helper', idempotencyKey: newKey() });
+
+    const person = await asInstallation().fleet.commission.mutate({ name: 'person-acc-01emma00', type: 'person', kind: 'person', idempotencyKey: 'person-acc-01emma00000-x' });
+
+    expect(person.secret).toBeNull();
+    await expect(ownerOf(helper.shipId)).resolves.toBe(person.shipId);
+    await expect(database.ship.findUnique({ where: { id: person.shipId }, select: { name: true, ownerShipId: true, commissionedByKind: true } })).resolves.toEqual({
+      name: 'person-acc-01emma00',
+      ownerShipId: person.shipId,
+      commissionedByKind: 'installation',
+    });
   });
 });

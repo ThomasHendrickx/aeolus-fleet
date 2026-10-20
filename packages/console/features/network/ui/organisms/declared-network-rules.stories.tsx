@@ -68,11 +68,23 @@ export const RemovedLabel: Story = {
   },
 };
 
-/** No plugin declares rules. */
+/** The installation's rules, such as group=# to group=#, under the installation (decision 0052), apart from the plugins'. */
+export const ByTheInstallation: Story = {
+  args: {
+    declared: [{ declarerId: 'installation', declaredBy: 'the installation', rules: [{ verb: 'send', from: [{ labelId: BLUEPRINT.id, value: '#' }], to: [{ labelId: BLUEPRINT.id, value: '#' }] }] }, BY_SQUADRONS],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole('heading', { level: 2 })).toHaveTextContent('Declared by plugins and the installation');
+    await expect(canvas.getAllByTestId('network-declared-by').map((by) => by.textContent)).toEqual(['Declared by the installation', 'Declared by squadrons']);
+  },
+};
+
+/** Nothing declares rules. */
 export const NoneDeclared: Story = {
   args: { declared: [] },
   play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).getByText('No plugin declares rules.')).toBeVisible();
+    await expect(within(canvasElement).getByText('Nothing declares rules.')).toBeVisible();
   },
 };
 
