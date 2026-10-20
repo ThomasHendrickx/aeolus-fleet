@@ -54,7 +54,7 @@ export const catalogueSchema = z.object({
       file: z.string(),
     }),
   ),
-  /** Every version left out, and every version tag nothing was read at, with why (docs/squadrons.md, "Common mistakes"). */
+  /** Every version left out, and every version tag nothing was read at, with why (aeolus-fleet-squadrons' docs/squadrons.md, "Common mistakes"). */
   problems: z.array(
     z.object({
       repository: z.string(),

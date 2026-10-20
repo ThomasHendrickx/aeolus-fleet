@@ -47,7 +47,7 @@ interface MemberAction {
  * silent member's row, and its menu, a DropdownMenu on desktop and a bottom
  * Sheet on phone: Open ship page, Message, Get new crew line and Copy ship id,
  * and, apart, Remove from squadron. No Release: a new crew line is how a
- * member gets a new session (docs/squadrons.md). A viewer's session opens the
+ * member gets a new session (aeolus-fleet-squadrons' docs/squadrons.md). A viewer's session opens the
  * page and copies the id only.
  */
 export function MemberActions({ squadronId, member, ship, template, canManage, canSend, isRemovable, onRemove, compose: Compose }: MemberActionsProps) {

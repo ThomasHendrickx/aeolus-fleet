@@ -1,6 +1,6 @@
 # Timings and limits
 
-Every fixed timing and limit in Aeolus, by package, for debugging. This page holds no rules of its own: each line points to the constant that sets it and the decision, issue or doc that says why. When a value here and its source disagree, the source wins; fix this page.
+Every fixed timing and limit of core's release train, by package, for debugging. This page holds no rules of its own: each line points to the constant that sets it and the decision, issue or doc that says why. When a value here and its source disagree, the source wins; fix this page.
 
 A default that configuration may change names its setting. Unit helpers (`SECOND_MS`, `MINUTES_PER_HOUR` and the like) and the lengths of random id suffixes are left out.
 
@@ -15,7 +15,7 @@ Defined in `@aeolus-fleet/common`, checked by core on every call and by the clie
 | 64 KB (`64 * 1024` bytes, UTF-8) | A message payload; also a `CHECK` on `messages.payload` | [rules/payload.ts](../packages/common/src/rules/payload.ts) `PAYLOAD_MAX_BYTES`; [init migration](../packages/core/src/adapters/prisma/migrations/20260929124818_init/migration.sql) `messages_payload_max_64kb` | [0006](decisions/0006-payload-limit.md) |
 | 16 KB | A report's details, checked on the result of a merge patch | [schemas/report.ts](../packages/common/src/schemas/report.ts) `REPORT_DETAILS_MAX_BYTES` | [0028](decisions/0028-report-details.md) |
 | 16 KB | A crew request's settings | [schemas/crew-request.ts](../packages/common/src/schemas/crew-request.ts) `CREW_REQUEST_SETTINGS_MAX_BYTES` | [0029](decisions/0029-crew-request.md) |
-| 8192 bytes | A crew's first prompt, after squadrons fills its parameters | [trierarch/crew-settings.ts](../packages/common/src/trierarch/crew-settings.ts) `FIRST_PROMPT_MAX_BYTES` | [0027](decisions/0027-crew-settings.md), [trierarch.md](trierarch.md#the-crew-request), #371 |
+| 8192 bytes | A crew's first prompt, after squadrons fills its parameters | [trierarch/crew-settings.ts](../packages/common/src/trierarch/crew-settings.ts) `FIRST_PROMPT_MAX_BYTES` | [0027](decisions/0027-crew-settings.md), [trierarch.md](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/docs/trierarch.md#the-crew-request), #371 |
 
 ### Lengths
 
@@ -174,7 +174,7 @@ Defined in `@aeolus-fleet/common`, checked by core on every call and by the clie
 | Value | What it guards | Set in | Behind |
 | --- | --- | --- | --- |
 | under 1 minute, then up to 15 minutes, then long ago | Last seen: fresh, a while, long ago | [features/fleet/services/last-seen.ts](../packages/console/features/fleet/services/last-seen.ts) `MINUTE_MS`, `A_WHILE_MS` | [design/conventions.md](design/conventions.md) |
-| late after 1 interval, silent after 3 | A squadron member's check-in, as squadrons judges it (below) | [lib/squadrons-view.ts](../packages/console/lib/squadrons-view.ts) `LATE_AFTER_INTERVALS`, `SILENT_AFTER_INTERVALS` | [squadrons.md](squadrons.md) |
+| late after 1 interval, silent after 3 | A squadron member's check-in, as squadrons judges it (below) | [lib/squadrons-view.ts](../packages/console/lib/squadrons-view.ts) `LATE_AFTER_INTERVALS`, `SILENT_AFTER_INTERVALS` | [squadrons.md](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/blob/main/docs/squadrons.md) |
 | from 15 labels | A ship page shows "n of 20" | [lib/labels.ts](../packages/console/lib/labels.ts) `SHOWN_COUNT_FROM` | [0031](decisions/0031-labels.md) |
 | 2 label chips, then "+n" | Labels on a ship | [components/molecules/ship-labels.tsx](../packages/console/components/molecules/ship-labels.tsx) `SHOWN`; [features/ship/organisms/ship-labels-edit.tsx](../packages/console/features/ship/organisms/ship-labels-edit.tsx) `SHOWN` | [design/README.md](design/README.md) |
 | 22 characters | Labels beside a name in the fleet table, then "+n" | [features/fleet/ui/organisms/fleet-table.tsx](../packages/console/features/fleet/ui/organisms/fleet-table.tsx) `ROW_LABELS_WIDTH` | #102 |
@@ -183,89 +183,10 @@ Defined in `@aeolus-fleet/common`, checked by core on every call and by the clie
 | 500 ms | A tooltip opens after hovering | [components/atoms/tooltip.tsx](../packages/console/components/atoms/tooltip.tsx) `HOVER_DELAY_MS` | [design/README.md](design/README.md) |
 | 5 s; errors until dismissed | A toast closes by itself | [components/atoms/toast.tsx](../packages/console/components/atoms/toast.tsx) `SUCCESS_DURATION_MS` | none recorded |
 
-## Squadrons
+## Other release trains
 
-| Value | What it guards | Set in | Behind |
-| --- | --- | --- | --- |
-| 30 s | The flagships' rescan: new receives, stand-downs, recovery, labels and rules | [bin/aeolus-squadrons.ts](../packages/squadrons/src/bin/aeolus-squadrons.ts) `FLAGSHIP_RESCAN_MS` | [squadrons README](../packages/squadrons/README.md), #573, #626, #738 |
-| 1 s | A flagship's wait before receiving again after a failed receive | [flagships/flagship-watch.ts](../packages/squadrons/src/adapters/flagships/flagship-watch.ts) `RETRY_MS` | none recorded |
-| 10 | Deliveries per flagship receive | [fleet/rest-fleet-door.ts](../packages/squadrons/src/adapters/fleet/rest-fleet-door.ts) (inline `max: 10`) | [architecture.md](architecture.md) |
-| made once | A retire is never made again while the fleet is busy | [fleet/rest-fleet-door.ts](../packages/squadrons/src/adapters/fleet/rest-fleet-door.ts) `isBulk` | [architecture.md](architecture.md), #734 |
-| 2 calls | A commission asked again under the same idempotency key when no answer came | [squadron/formation.ts](../packages/squadrons/src/core/squadron/formation.ts) (inline) | none recorded |
-| 5 names | Random names tried per ship before commissioning gives up on a name conflict | [squadron/formation.ts](../packages/squadrons/src/core/squadron/formation.ts) `NAME_ATTEMPTS` | none recorded |
-| 5 passes | Recovery passes with a refused retire before retiring stops and argo is told once | [squadron/recover-formations.ts](../packages/squadrons/src/core/squadron/recover-formations.ts) `RECOVERY_REFUSAL_LIMIT` | #736, #738, #740 |
-| late after 1 interval, silent after 3 | A member that misses its check-in | [squadron/member-health.ts](../packages/squadrons/src/core/squadron/member-health.ts) `SILENT_AFTER_INTERVALS` (late inline) | [squadrons.md](squadrons.md), #86 |
-| 1 minute to 24 hours | A template's check-in interval | [catalogue/assemble-catalogue.ts](../packages/squadrons/src/core/catalogue/assemble-catalogue.ts) `CHECK_IN_MAX_MINUTES` | [squadrons.md](squadrons.md) |
-| 1 to 20, default 1 | Ships per blueprint role | [catalogue/assemble-catalogue.ts](../packages/squadrons/src/core/catalogue/assemble-catalogue.ts) `COUNT_MAX` | [squadrons.md](squadrons.md) |
-| 48 KB | A template's charter, also after its parameters are filled | [catalogue/catalogue.ts](../packages/squadrons/src/core/catalogue/catalogue.ts) `CHARTER_MAX_BYTES` | [0006](decisions/0006-payload-limit.md), [squadrons.md](squadrons.md), #371 |
-| 1 KB | One parameter value from the form | [squadron/member-crew-request.ts](../packages/squadrons/src/core/squadron/member-crew-request.ts) `PARAMETER_VALUE_MAX_BYTES` | [squadrons.md](squadrons.md), #371 |
-| 50 squadrons | Squadrons that carry the `squadron` label (its 50 values) | `LABEL_VALUES_MAX` in common, used in [network/label-squadrons.ts](../packages/squadrons/src/core/network/label-squadrons.ts) | [0031](decisions/0031-labels.md), [squadrons.md](squadrons.md), #573 |
-| 30 s | One GitHub API request | [github/github-repository-reader.ts](../packages/squadrons/src/adapters/github/github-repository-reader.ts) `DEFAULT_TIMEOUT_MS` | none recorded |
-| 100 per page | GitHub tags fetched per page | [github/github-repository-reader.ts](../packages/squadrons/src/adapters/github/github-repository-reader.ts) `TAGS_PER_PAGE` | none recorded |
-| 300 characters | A failed fetch's stored message | [github/github-repository-reader.ts](../packages/squadrons/src/adapters/github/github-repository-reader.ts) `FETCH_ERROR_MAX_LENGTH` | none recorded |
-| 1 to 1024 characters | A template repository's read token | [catalogue/template-repository.ts](../packages/squadrons/src/core/catalogue/template-repository.ts) `TOKEN_MAX_LENGTH` | #161 |
-| 10 s (Prisma's), tried again without end | Prisma Migrate's advisory lock at start | [prisma/migrate.ts](../packages/squadrons/src/adapters/prisma/migrate.ts) `LOCK_TIMED_OUT` | none recorded |
-| at least 32 characters | `INSTALLATION_TOKEN`, when set | [config.ts](../packages/squadrons/src/config.ts) `INSTALLATION_TOKEN_MIN_LENGTH` | [0021](decisions/0021-squadrons-installation.md) |
-| none unless set | Squadrons per fleet, squadrons per forming ship, members per squadron | `SQUADRONS_PER_FLEET`, `SQUADRONS_PER_FORMING_SHIP`, `MEMBERS_PER_SQUADRON` in [config.ts](../packages/squadrons/src/config.ts) | [squadrons.md](squadrons.md#limits) |
+Each holds its own timings and limits in its repository (decision 0049):
 
-## Trierarch
-
-| Value | What it guards | Set in | Behind |
-| --- | --- | --- | --- |
-| 1 minute | A session's launch window: a tool call within it, or it is stopped and given back (or counted as a failed start) | [core/reconciler.ts](../packages/trierarch/src/core/reconciler.ts) `LAUNCH_WINDOW_MS` | [trierarch.md](trierarch.md#crewing-a-ship), #382, #397, #473 |
-| 10 minutes (coming, not built yet) | The oldest delivery waiting while a session runs, before argo is told the session is waiting on chat | not built yet | #586 |
-| 5 s, 30 s, 2 min, then 10 min | The wait before each restart of a session that died | [core/restart-policy.ts](../packages/trierarch/src/core/restart-policy.ts) `RESTART_DELAYS_MS` | [architecture.md](architecture.md), [0026](decisions/0026-trierarch.md) |
-| 5 restarts within 60 minutes | The restart budget; past it the crew is crashed and argo told | [core/restart-policy.ts](../packages/trierarch/src/core/restart-policy.ts) `RESTART_BUDGET`, `RESTART_WINDOW_MS` | [0026](decisions/0026-trierarch.md), #397, #469 |
-| 5 s | A pass: restarts, wakes, releases and the launch window run at most this often; also the pause after a failure | [cli/run.ts](../packages/trierarch/src/cli/run.ts) `PASS_INTERVAL_MS` | #250 |
-| 10 | Deliveries per receive of the trierarch's own ship | [adapters/rest-fleet.ts](../packages/trierarch/src/adapters/rest-fleet.ts) (inline `max: 10`) | [architecture.md](architecture.md) |
-| 1 s | Between typing Codex's wake prompt and pressing Enter | [adapters/codex.ts](../packages/trierarch/src/adapters/codex.ts) `CODEX_TYPING_SETTLE_MS` | [architecture.md](architecture.md) |
-| 60 s | Claude Code's model probe | [adapters/claude-code-detector.ts](../packages/trierarch/src/adapters/claude-code-detector.ts) `CLAUDE_CODE_PROBE_TIMEOUT_MS` | none recorded |
-| 10 s | Claude Code's `--version` and `--help` | [adapters/claude-code-detector.ts](../packages/trierarch/src/adapters/claude-code-detector.ts) `QUICK_TIMEOUT_MS` | none recorded |
-| 60 s | Codex's model probe | [adapters/codex-detector.ts](../packages/trierarch/src/adapters/codex-detector.ts) `CODEX_PROBE_TIMEOUT_MS` | none recorded |
-| 10 s | Codex's `--version` and `debug models` | [adapters/codex-detector.ts](../packages/trierarch/src/adapters/codex-detector.ts) `QUICK_TIMEOUT_MS` | none recorded |
-| 30 s | `codex app-server` answering during trust setup | [adapters/codex-setup.ts](../packages/trierarch/src/adapters/codex-setup.ts) `ANSWER_TIMEOUT_MS` | #581 |
-| 3 | Times Claude Code's fullscreen offer counts as seen | [adapters/claude-code-setup.ts](../packages/trierarch/src/adapters/claude-code-setup.ts) `FULLSCREEN_OFFER_SHOWN_MAX` | [trierarch.md](trierarch.md#unattended), #403 |
-| at most 30 s, checked each second | Waiting for a new process to write its version after restart, install, add or upgrade | [cli/new-process.ts](../packages/trierarch/src/cli/new-process.ts) `TIMEOUT_MS`, `CHECK_MS` | [architecture.md](architecture.md), #376 |
-| 30 checks a second apart | Waiting for the launchd agent to be gone on stop or install | [adapters/service.ts](../packages/trierarch/src/adapters/service.ts) `STOP_CHECKS`, `STOP_CHECK_MS` | none recorded |
-| 5 s | systemd restarting the trierarch service (`RestartSec`) | [adapters/service.ts](../packages/trierarch/src/adapters/service.ts) (unit template) | none recorded |
-| at least 60 s | A Codex plugin version folder is removed only when every running session started this long after the next version arrived | [adapters/plugin-update.ts](../packages/trierarch/src/adapters/plugin-update.ts) `START_MARGIN_MS` | [trierarch.md](trierarch.md#a-machine-joins), #653 |
-| 1 MiB, one rotated file | The macOS log (the journal caps it on Linux) | [adapters/capped-log.ts](../packages/trierarch/src/adapters/capped-log.ts) `LOG_MAX_BYTES` | [trierarch.md](trierarch.md#a-machine-joins) |
-| 60 s | A rotation lock older than this is stale | [adapters/capped-log.ts](../packages/trierarch/src/adapters/capped-log.ts) `STALE_LOCK_MS` | none recorded |
-| 50 lines; followed every 500 ms on macOS | `logs` | [cli/main.ts](../packages/trierarch/src/cli/main.ts) `DEFAULT_LINES`, `FOLLOW_INTERVAL_MS` | none recorded |
-| 5 lines | What a release discards that the report to argo names; the trierarch's log holds them all | [core/argo-reports.ts](../packages/trierarch/src/core/argo-reports.ts) `DISCARDED_NAMED_MAX` | [trierarch.md](trierarch.md#lifecycles), #450, #849 |
-| 200 lines; pane 200 by 50 | The screen read from a session, host and container | [adapters/tmux.ts](../packages/trierarch/src/adapters/tmux.ts), [adapters/container.ts](../packages/trierarch/src/adapters/container.ts) `SCREEN_LINES` | [0039](decisions/0039-container-sessions.md) |
-| 4 ships, 2 running (written by `init`, whole numbers of at least 1) | The machine's caps, set in its configuration | [adapters/files.ts](../packages/trierarch/src/adapters/files.ts) `initialConfiguration`; [common trierarch/configuration.ts](../packages/common/src/trierarch/configuration.ts) | [0026](decisions/0026-trierarch.md), [trierarch.md](trierarch.md#what-a-trierarch-reports) |
-| per container, from the configuration's `runtime.memory` and `runtime.cpus` | A container session's memory and CPUs | [common trierarch/configuration.ts](../packages/common/src/trierarch/configuration.ts); [adapters/runtime-adapters.ts](../packages/trierarch/src/adapters/runtime-adapters.ts); [adapters/container.ts](../packages/trierarch/src/adapters/container.ts) `ContainerRuntimeOptions` | [0039](decisions/0039-container-sessions.md) |
-| 4096 processes and threads per container | A container session's processes, so a runaway fork cannot starve the machine | [adapters/container.ts](../packages/trierarch/src/adapters/container.ts) `PIDS_LIMIT` | [0039](decisions/0039-container-sessions.md) |
-| 0.23.0 | The first release with a plugin, for `upgrade` | [cli/upgrade.ts](../packages/trierarch/src/cli/upgrade.ts) `FIRST_PLUGIN_TAG` | [trierarch.md](trierarch.md#a-machine-joins), #652 |
-
-## Trierarch plugin
-
-| Value | What it guards | Set in | Behind |
-| --- | --- | --- | --- |
-| 300 s (default, `TRIERARCH_SILENT_AFTER_SECONDS`) | A machine whose trierarch has no last seen this long is silent | [machines/silent.ts](../packages/trierarch-plugin/src/core/machines/silent.ts) `DEFAULT_SILENT_AFTER_MS` | [0030](decisions/0030-trierarch-plugin.md), [trierarch.md](trierarch.md#assignment) |
-| 10 s (default, `TRIERARCH_PASS_INTERVAL_SECONDS`) | Between assignment passes per fleet; a pass still running skips the next | [config.ts](../packages/trierarch-plugin/src/config.ts) `DEFAULT_PASS_INTERVAL_SECONDS` | [trierarch plugin README](../packages/trierarch-plugin/README.md) |
-| 10 s (Prisma's), tried again without end | Prisma Migrate's advisory lock at start | [prisma/migrate.ts](../packages/trierarch-plugin/src/adapters/prisma/migrate.ts) `LOCK_TIMED_OUT` | none recorded |
-| at least 32 characters | `INSTALLATION_TOKEN`, when set | [config.ts](../packages/trierarch-plugin/src/config.ts) `INSTALLATION_TOKEN_MIN_LENGTH` | [0020](decisions/0020-installation.md) |
-
-## The aeolus plugin
-
-Each setting below is an environment variable the script reads, with the default shown.
-
-| Value | What it guards | Set in | Behind |
-| --- | --- | --- | --- |
-| 25 s | One inbox wait of the watcher | [aeolus-wait.sh](../plugins/aeolus/scripts/aeolus-wait.sh) `AEOLUS_WAIT_SECONDS` | [blueprint.md](blueprint.md), [plugin README](../plugins/aeolus/README.md) |
-| 5 s | Between inbox checks while deliveries wait | [aeolus-wait.sh](../plugins/aeolus/scripts/aeolus-wait.sh) `AEOLUS_POLL_SECONDS` | [plugin README](../plugins/aeolus/README.md) |
-| 2 s, doubling, at most 60 s | The watcher calling again after a failed call | [aeolus-wait.sh](../plugins/aeolus/scripts/aeolus-wait.sh) `AEOLUS_RETRY_SECONDS`, `AEOLUS_RETRY_MAX_SECONDS` | none recorded |
-| 6900 s (1 h 55 min) | The watcher stops ("for almost 2 hours", exit 6); no limit under the Codex wake bridge | [aeolus-wait.sh](../plugins/aeolus/scripts/aeolus-wait.sh) `AEOLUS_MAX_SECONDS`; [aeolus-codex-wake.sh](../plugins/aeolus/scripts/aeolus-codex-wake.sh) | [plugin README](../plugins/aeolus/README.md) |
-| the inbox wait plus 15 s | The watcher's inbox call (`curl --max-time`) | [aeolus-wait.sh](../plugins/aeolus/scripts/aeolus-wait.sh) (inline) | none recorded |
-| 60 s | Every `aeolus-fleet.sh` call (`curl --max-time`) | [aeolus-fleet.sh](../plugins/aeolus/scripts/aeolus-fleet.sh) `AEOLUS_CALL_MAX_SECONDS` | none recorded |
-| 3 s | Each ack a hook makes to confirm a handed message, so its busy retries end inside a hook's time | [aeolus-lib.sh](../plugins/aeolus/scripts/aeolus-lib.sh) `AEOLUS_CONFIRM_SECONDS` | #756 (3.9) |
-| the inbox wait plus 15 s | The watcher's receive of the message it hands over (`curl --max-time`) | [aeolus-wait.sh](../plugins/aeolus/scripts/aeolus-wait.sh) (inline) | #756 |
-| 10,000 bytes | The most a hook puts into a turn: Claude Code's cap on hook context. A longer message goes in as its first part and the path of a file that holds the payload | [aeolus-lib.sh](../plugins/aeolus/scripts/aeolus-lib.sh) `AEOLUS_TURN_TEXT_MAX_BYTES` | #756 (D2) |
-| 8000 bytes | That first part of a longer payload | [aeolus-lib.sh](../plugins/aeolus/scripts/aeolus-lib.sh) `AEOLUS_FIRST_PART_BYTES` | #756 (D2) |
-| 1, 2, 4, 8 s, each drawn between half and all of it | Calling again while the fleet answers busy, a copy of `FLEET_BUSY_WAITS_MS` | [aeolus-fleet.sh](../plugins/aeolus/scripts/aeolus-fleet.sh) `AEOLUS_BUSY_WAITS` | [architecture.md](architecture.md), #734 |
-| 15 s | The inbox script's call (`curl --max-time`) | [aeolus-inbox.sh](../plugins/aeolus/scripts/aeolus-inbox.sh) (inline) | none recorded |
-| 1 MiB, one rotated file | The plugin's log | [aeolus-lib.sh](../plugins/aeolus/scripts/aeolus-lib.sh) `AEOLUS_LOG_MAX_BYTES` | [plugin README](../plugins/aeolus/README.md), [trierarch.md](trierarch.md#a-machine-joins) |
-| 1 minute | A log rotation lock older than this is stale | [aeolus-lib.sh](../plugins/aeolus/scripts/aeolus-lib.sh) (inline `-mmin +1`) | none recorded |
-| 6000 characters | A prefilled issue link's encoded body (GitHub refuses past about 8 KB) | [aeolus-issue.sh](../plugins/aeolus/scripts/aeolus-issue.sh) `LINK_BODY_MAX` | none recorded |
+- squadrons: [aeolus-fleet-squadrons](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/blob/main/docs/timings-and-limits.md)
+- the trierarch and the aeolus plugin: [aeolus-fleet-trierarch](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/docs/timings-and-limits.md)
+- the trierarch plugin: [aeolus-fleet-trierarch-plugin](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch-plugin/blob/main/docs/timings-and-limits.md)

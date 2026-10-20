@@ -316,7 +316,7 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Term | Meaning | Held by |
 | --- | --- | --- |
 | Squadron | Ships formed together from a squadron blueprint by a forming ship, led by a flagship (0017) | squadrons |
-| Squadron blueprint | Roles, ships per role, their template versions and hand-offs ([squadrons.md](squadrons.md)) | squadrons |
+| Squadron blueprint | Roles, ships per role, their template versions and hand-offs ([squadrons.md](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/blob/main/docs/squadrons.md)) | squadrons |
 | Ship template | A reusable role: charter, check-in interval, crew settings, scopes, hand-offs | squadrons |
 | Forming ship | The ship holding `squadrons:form` that formed the squadron | squadrons |
 | Flagship | The squadron's lead ship: members check in with it, it proxies to the forming ship | squadrons |
@@ -331,7 +331,7 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 
 | Term | Meaning | Held by |
 | --- | --- | --- |
-| Trierarch | A plain process per computer, not an AI, crewing an app ship of type `trierarch` with `crew:run`; starts, restarts, wakes and stops sessions, never picks, commissions or retires (0026, [trierarch.md](trierarch.md)) | trierarch |
+| Trierarch | A plain process per computer, not an AI, crewing an app ship of type `trierarch` with `crew:run`; starts, restarts, wakes and stops sessions, never picks, commissions or retires (0026, [trierarch.md](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/docs/trierarch.md)) | trierarch |
 | Trierarch plugin | The plugin that brings computers in and assigns crew requests (0030) | trierarch plugin |
 | Computer | The laptop or server a trierarch runs on, labelled from its report. Not "machine" | trierarch plugin |
 | Crew request | Declared state on a ship: keep it crewed with these settings; written by its requester, the trierarch plugin and the assigned trierarch (0029) | core |

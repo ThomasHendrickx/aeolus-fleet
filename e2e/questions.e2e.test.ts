@@ -1,9 +1,4 @@
 import { ANSWER_CONTENT_TYPE, QUESTION_CONTENT_TYPE, REPLACEMENT_CONTENT_TYPE, WITHDRAWAL_CONTENT_TYPE } from '@aeolus-fleet/common';
-import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import type { FastifyInstance } from 'fastify';
 import type { Browser, BrowserContext, Page } from 'playwright';
@@ -28,8 +23,7 @@ import { newKey } from '../packages/core/src/testing/keys.js';
 // the asking ship receives the answer as a reply to its question, which shows
 // answered under Done.
 // The asking ship withdraws or replaces a question by its uuid; it shows
-// stale, can't be answered, and links to its replacement. A ship crewed with
-// the aeolus plugin does all of it with aeolus-ask.sh (#684).
+// stale, can't be answered, and links to its replacement.
 
 const clock = createTestClock('2026-10-11T09:00:00.000Z');
 /** A live change shows within this. */
@@ -47,8 +41,6 @@ let serverUrl: string;
 let web: RunningWeb;
 let browser: Browser;
 const contexts: BrowserContext[] = [];
-/** Throwaway folders of plugin-crewed ships: their home, folder and plugin data. */
-const pluginFolders: string[] = [];
 
 beforeAll(async () => {
   const databaseUrl = await createMigratedDatabase();
@@ -76,9 +68,6 @@ afterAll(async () => {
   await web.stop();
   await server.close();
   await database.$disconnect();
-  for (const folder of pluginFolders) {
-    rmSync(folder, { recursive: true, force: true });
-  }
 });
 
 /** A ship's session on the REST API, as its starting prompt tells it to connect. */
@@ -107,44 +96,6 @@ async function crewedOverRest(ship: { name: string; type: string }): Promise<Ses
       return response.json();
     },
   };
-}
-
-const PLUGIN_SCRIPTS = fileURLToPath(new URL('../plugins/aeolus/scripts/', import.meta.url));
-
-/** A ship's session crewed with the aeolus plugin: it runs the plugin's scripts in its folder. */
-type PluginSession = (script: string, args: string[]) => Promise<string>;
-
-async function crewedWithPlugin(ship: { name: string; type: string }): Promise<PluginSession> {
-  const { shipId, secret } = unwrap(await useCases.commissionShip(argo, { ...ship, idempotencyKey: newKey() }));
-  const [home, folder, data] = ['home', 'folder', 'data'].map((name) => mkdtempSync(join(tmpdir(), `aeolus-ask-${name}-`)));
-  pluginFolders.push(home ?? '', folder ?? '', data ?? '');
-  const session: PluginSession = (script, args) => {
-    const child = spawn('bash', [join(PLUGIN_SCRIPTS, script), ...args], {
-      env: { ...process.env, HOME: home, AEOLUS_FOLDER: folder, AEOLUS_DATA: data },
-    });
-    child.stdin.end();
-    let stdout = '';
-    child.stdout.on('data', (chunk: Buffer) => {
-      stdout += chunk.toString('utf8');
-    });
-    return new Promise((resolve, reject) => {
-      child.on('close', (status) => {
-        if (status === 0) {
-          resolve(stdout);
-        } else {
-          reject(new Error(`${script} exited ${String(status)}: ${stdout}`));
-        }
-      });
-    });
-  };
-  await session('aeolus-fleet.sh', ['register', serverUrl, shipId, secretOf(secret), 'DEVICE']);
-  return session;
-}
-
-/** The question's uuid and message aeolus-ask.sh says it asked. */
-function asked(output: string): { questionId: string; messageId: string } {
-  const said = /question ([0-9a-f-]{36}) \(message (msg_\w+)\)/.exec(output);
-  return { questionId: said?.[1] ?? '', messageId: said?.[2] ?? '' };
 }
 
 const sentSchema = z.object({ messageId: z.string() });
@@ -371,44 +322,4 @@ describe('questions to argo', () => {
     await page.locator('[data-testid="inbox-empty"]:visible').waitFor();
   });
 
-  it('shows a question a ship crewed with the plugin asks, withdraws and replaces with aeolus-ask.sh, and the ship receives the answer as a reply (#684)', async () => {
-    const implementer = await crewedWithPlugin({ name: 'implementer-e', type: 'implementer' });
-    const model = ['--model', 'claude-opus-5-5'];
-    const aQuestion = (title: string) => [
-      '--title', title,
-      '--context', 'docs/architecture.md says 3000 and the README says 4000.',
-      '--option', 'Keep 3000', 'What the console uses now.',
-      '--option', 'Move to 4000', 'Frees 3000 for core.',
-      '--pick', '2', 'Fewest changes.',
-      ...model,
-    ];
-    const page = await signedInPage();
-    await page.goto('/inbox');
-
-    const withdrawn = asked(await implementer('aeolus-ask.sh', ['ask', ...aQuestion('Rename the plugin helper?')]));
-    const replaced = asked(await implementer('aeolus-ask.sh', ['ask', ...aQuestion('Which port for the docs server?')]));
-    await questionRow(page, 'Rename the plugin helper?').waitFor({ timeout: LIVE_TIMEOUT_MS });
-    await questionRow(page, 'Which port for the docs server?').click();
-    await visible(page, 'inbox-question').getByText('Fewest changes.').waitFor();
-    await visible(page, 'inbox-question').getByTestId('inbox-option-2').getByText('Move to 4000').waitFor();
-
-    await implementer('aeolus-ask.sh', ['withdraw', withdrawn.questionId, ...model]);
-    const replacement = asked(await implementer('aeolus-ask.sh', ['replace', replaced.questionId, ...aQuestion('Which port for the docs server, now that core moved?')]));
-
-    await questionRow(page, 'Rename the plugin helper?').waitFor({ state: 'detached', timeout: LIVE_TIMEOUT_MS });
-    await questionRow(page, 'Which port for the docs server?').waitFor({ state: 'detached' });
-    await page.goto('/inbox?filter=done');
-    await questionRow(page, 'Rename the plugin helper?').click();
-    await visible(page, 'inbox-stale').getByText('Withdrawn by implementer-e', { exact: false }).waitFor();
-    await questionRow(page, 'Which port for the docs server?').click();
-    await visible(page, 'inbox-stale').getByText('Replaced by implementer-e', { exact: false }).waitFor();
-    await visible(page, 'inbox-replacement').getByText('Which port for the docs server, now that core moved?').click();
-    await visible(page, 'inbox-question').getByRole('heading', { name: 'Which port for the docs server, now that core moved?' }).waitFor();
-    await visible(page, 'inbox-answer').click();
-    await visible(page, 'inbox-answered').waitFor();
-
-    const { deliveries } = receivedSchema.parse(JSON.parse(await implementer('aeolus-fleet.sh', ['receive'])));
-    expect(deliveries).toEqual([expect.objectContaining({ contentType: ANSWER_CONTENT_TYPE, inReplyTo: replacement.messageId })]);
-    expect(JSON.parse(deliveries[0]?.payload ?? '')).toEqual({ questionId: replacement.questionId, option: 2 });
-  });
 });

@@ -3,9 +3,9 @@
 import type { ShipId } from '@aeolus-fleet/common';
 import { use, useState } from 'react';
 
-import type { WorktreeToClear } from '../../../../features/trierarchs/organisms/clear-worktree-dialog';
-import { MachineDetail } from '../../../../features/trierarchs/organisms/machine-detail';
-import { MachineList } from '../../../../features/trierarchs/organisms/machine-list';
+import type { WorktreeToClear } from '../../../../features/trierarchs/ui/organisms/clear-worktree-dialog';
+import { MachineDetail } from '../../../../features/trierarchs/ui/organisms/machine-detail';
+import { MachineList } from '../../../../features/trierarchs/ui/organisms/machine-list';
 import { DetailPage } from '../../../../components/organisms/detail-page';
 import { useConsoleFrame } from '../../../../lib/console-frame';
 import { lazyDialog } from '../../../../lib/lazy-dialog';
@@ -23,7 +23,7 @@ import { useShips } from '../../../../lib/ship';
 import { useMachines, useTrierarchPluginConnection } from '../../../../lib/trierarch-plugin';
 
 // Dialogs load when first opened, not with the page.
-const ClearWorktreeDialog = lazyDialog(() => import('../../../../features/trierarchs/organisms/clear-worktree-dialog').then((module) => module.ClearWorktreeDialog), (props) => props.worktree !== undefined);
+const ClearWorktreeDialog = lazyDialog(() => import('../../../../features/trierarchs/ui/organisms/clear-worktree-dialog').then((module) => module.ClearWorktreeDialog), (props) => props.worktree !== undefined);
 
 /** One machine of the Trierarchs section, by its trierarch's ship id; without a connected plugin, why not. */
 export default function MachinePage({ params }: { params: Promise<{ shipId: string }> }) {

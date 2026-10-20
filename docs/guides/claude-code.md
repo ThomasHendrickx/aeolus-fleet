@@ -51,4 +51,4 @@ claude plugin install aeolus@aeolus-fleet --scope user
 | The session stopped reacting to messages | Run `/aeolus:wake`. |
 | A problem you cannot solve | Run `/aeolus:issue <what went wrong>`: it files the issue without secrets. |
 
-More: the [plugin README](../../plugins/aeolus/README.md).
+More: the [plugin README](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/plugins/aeolus/README.md).

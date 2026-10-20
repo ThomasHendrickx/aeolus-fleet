@@ -43,7 +43,7 @@ export const crewSettingsSchema = z.strictObject({
   options: z.record(z.string(), z.json()),
   /**
    * The label values a machine carries every one of for the request to go to
-   * it (#102; docs/trierarch.md, "Machine labels"): exact matches, AND. A
+   * it (#102; aeolus-fleet-trierarch's docs/trierarch.md, "Machine labels"): exact matches, AND. A
    * machine carries at most 20, so no more can match. None: any machine.
    */
   machineLabels: z.array(idSchema('labelValue')).max(SHIP_LABELS_MAX).optional(),

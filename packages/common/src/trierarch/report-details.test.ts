@@ -1,18 +1,36 @@
-import { readFileSync } from 'node:fs';
-
 import { describe, expect, it } from 'vitest';
 
 import { trierarchReportDetailsSchema } from './report-details.js';
 
-/** The example in docs/trierarch.md, "What a trierarch reports". */
+/** The example in aeolus-fleet-trierarch's docs/trierarch.md, "What a trierarch reports". */
 function documentedDetails(): unknown {
-  const docs = readFileSync(new URL('../../../../docs/trierarch.md', import.meta.url), 'utf8');
-  const [, json = ''] = /```json trierarch report details\n([\s\S]*?)```/.exec(docs) ?? [];
-  return JSON.parse(json);
+  return {
+    harnesses: [
+      {
+        harness: 'claude-code',
+        options: {
+          type: 'object',
+          properties: { model: { enum: ['claude-opus-5-5', 'claude-sonnet-5-5'] }, effort: { enum: ['low', 'medium', 'high'] } },
+          additionalProperties: false,
+        },
+        flags: ['--remote-control', '--dangerously-skip-permissions'],
+        riskyFlags: ['--dangerously-skip-permissions'],
+        version: '2.1.293',
+        modelsConfirmedAt: '2026-10-08T15:00:00.000Z',
+      },
+    ],
+    workspaces: { repositories: ['aeolus-fleet'], folders: ['notes'] },
+    caps: { ships: 8, running: 4 },
+    kept: [{ shipId: 'shp_01m473j7hp3x6gha0gzs1mnf88', repository: 'aeolus-fleet' }],
+    orphans: [{ repository: 'aeolus-fleet', name: 'lookout' }],
+    machine: { os: 'macos', arch: 'arm64' },
+    runtime: 'host',
+    version: '0.25.0',
+  };
 }
 
 describe('trierarchReportDetailsSchema', () => {
-  it('takes the example in docs/trierarch.md', () => {
+  it('takes the documented example', () => {
     const details = documentedDetails();
 
     expect(trierarchReportDetailsSchema.parse(details)).toEqual(details);

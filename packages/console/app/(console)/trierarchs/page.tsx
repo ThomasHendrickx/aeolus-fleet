@@ -5,7 +5,7 @@ import { useState } from 'react';
 
 import { Badge } from '../../../components/atoms/badge';
 import { Button } from '../../../components/atoms/button';
-import { MachineList } from '../../../features/trierarchs/organisms/machine-list';
+import { MachineList } from '../../../features/trierarchs/ui/organisms/machine-list';
 import { ListPage } from '../../../components/organisms/list-page';
 import { useConsoleFrame } from '../../../lib/console-frame';
 import { lazyDialog } from '../../../lib/lazy-dialog';
@@ -18,7 +18,7 @@ import { useSignInWhenSessionEnds } from '../../../lib/session';
 import { useJoinMachine, useMachines, useTrierarchPluginConnection, useTrierarchPluginVersion } from '../../../lib/trierarch-plugin';
 
 // Dialogs load when first opened, not with the page.
-const JoinMachineDialog = lazyDialog(() => import('../../../features/trierarchs/organisms/join-machine-dialog').then((module) => module.JoinMachineDialog), (props) => props.isOpen);
+const JoinMachineDialog = lazyDialog(() => import('../../../features/trierarchs/ui/organisms/join-machine-dialog').then((module) => module.JoinMachineDialog), (props) => props.isOpen);
 
 /**
  * Trierarchs (#245): the machines that run sessions for crew requests, each

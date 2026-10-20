@@ -70,14 +70,14 @@ AEOLUS_SERVER_URL=http://localhost:4000 npx aeolus-console start   # the console
 
 Open http://localhost:3000 and sign in with the operator email and password. Every setting, and running behind a proxy or on two hosts, is in the [core](packages/core/README.md) and [console](packages/console/README.md) READMEs.
 
-**Squadrons** run as their own process with their own database. Install `@aeolus-fleet/squadrons`, set `DATABASE_URL` (squadrons' own database) and `FLEET_URL`, and run `npx aeolus-squadrons start`. Then start the console with `AEOLUS_SQUADRONS_URL` set, connect squadrons under Settings, and add the git repositories of your templates and blueprints there. See the [squadrons README](packages/squadrons/README.md).
+**Squadrons** run as their own process with their own database. Install `@aeolus-fleet/squadrons`, set `DATABASE_URL` (squadrons' own database) and `FLEET_URL`, and run `npx aeolus-squadrons start`. Then start the console with `AEOLUS_SQUADRONS_URL` set, connect squadrons under Settings, and add the git repositories of your templates and blueprints there. See the [squadrons README](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/blob/main/packages/squadrons/README.md).
 
 ## Crew a ship from Claude Code or Codex
 
-Install the plugin for [Claude Code](plugins/aeolus/README.md#install-for-claude-code) or follow the [Codex setup](plugins/aeolus/README.md#install-for-codex-desktop-or-cli):
+Install the plugin for [Claude Code](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/plugins/aeolus/README.md#install-for-claude-code) or follow the [Codex setup](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/plugins/aeolus/README.md#install-for-codex-desktop-or-cli):
 
 ```
-/plugin marketplace add ThomasHendrickx/aeolus-fleet
+/plugin marketplace add ThomasHendrickx/aeolus-fleet-trierarch
 /plugin install aeolus@aeolus-fleet
 ```
 
@@ -87,23 +87,23 @@ In the console, Commission ship (or Get starting prompt) shows a crew line per h
 /aeolus:crew <fleetUrl> <shipId> <secret>
 ```
 
-In Codex, add the marketplace and the plugin (`codex plugin marketplace add ThomasHendrickx/aeolus-fleet`, then `codex plugin add aeolus@aeolus-fleet`), do the one-time setup in the [plugin README](plugins/aeolus/README.md#install-for-codex-desktop-or-cli), and paste the Codex crew line:
+In Codex, add the marketplace and the plugin (`codex plugin marketplace add ThomasHendrickx/aeolus-fleet-trierarch`, then `codex plugin add aeolus@aeolus-fleet`), do the one-time setup in the [plugin README](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/plugins/aeolus/README.md#install-for-codex-desktop-or-cli), and paste the Codex crew line:
 
     $aeolus-crew <fleetUrl> <shipId> <secret>
 
-The plugin makes every fleet call through its scripts, so the crew token never reaches the model or its transcript: wherever a session has a shell, crew with the plugin rather than over MCP. Codex, cloud sessions and the rest are in the [plugin README](plugins/aeolus/README.md). Any other agent reaches the same calls over MCP at `/mcp` or REST at `/api/v1`, as the [core README](packages/core/README.md#ships) describes.
+The plugin makes every fleet call through its scripts, so the crew token never reaches the model or its transcript: wherever a session has a shell, crew with the plugin rather than over MCP. Codex, cloud sessions and the rest are in the [plugin README](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/plugins/aeolus/README.md). Any other agent reaches the same calls over MCP at `/mcp` or REST at `/api/v1`, as the [core README](packages/core/README.md#ships) describes.
 
 ## Keep sessions running
 
-The trierarch is a small process you install on a machine (macOS or Linux). It crews the ships you request from the console: it starts their Claude Code or Codex sessions, wakes them when work arrives and restarts them when they die. It is a plain process, not an AI, and never decides the work. It runs as you, only in the repositories and folders you add, and permission-skipping flags stay off unless you accept them at setup. Releasing a ship removes its worktree, and you are told which uncommitted or unpushed work it held. Sessions on one machine share your user account. Setup and the full safety story are in [docs/trierarch.md](docs/trierarch.md) and the [trierarch README](packages/trierarch/README.md).
+The trierarch is a small process you install on a machine (macOS or Linux). It crews the ships you request from the console: it starts their Claude Code or Codex sessions, wakes them when work arrives and restarts them when they die. It is a plain process, not an AI, and never decides the work. It runs as you, only in the repositories and folders you add, and permission-skipping flags stay off unless you accept them at setup. Releasing a ship removes its worktree, and you are told which uncommitted or unpushed work it held. Sessions on one machine share your user account. Setup and the full safety story are in [aeolus-fleet-trierarch's docs/trierarch.md](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/docs/trierarch.md) and the [trierarch README](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/packages/trierarch/README.md).
 
 ## Documentation
 
 - [Install guides](docs/guides/README.md): crew a ship from Claude Code or a ChatGPT chat
 - [Product and domain blueprint](docs/blueprint.md): ships, crews, leases, deliveries
 - [Solution and technical architecture](docs/architecture.md)
-- [Squadrons](docs/squadrons.md): templates, blueprints and the check-in
-- [Trierarch](docs/trierarch.md): keeping sessions running on your machines
+- [Squadrons](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/blob/main/docs/squadrons.md): templates, blueprints and the check-in
+- [Trierarch](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/docs/trierarch.md): keeping sessions running on your machines
 - [Timings and limits](docs/timings-and-limits.md): every fixed timing and limit, and where it is set
 - [Decision records](docs/decisions/README.md)
 - [Build plan](docs/build-plan.md)
@@ -117,15 +117,17 @@ The trierarch is a small process you install on a machine (macOS or Linux). It c
 
 ## Packages
 
-| Package | Contents |
-| --- | --- |
-| `@aeolus-fleet/core` | The API (tRPC, plus REST and MCP for ships) and the domain on Postgres |
-| `@aeolus-fleet/console` | The operator console (Next.js) |
-| `@aeolus-fleet/squadrons` | Optional: forms squadrons of ships from blueprints in git and leads them |
-| `@aeolus-fleet/trierarch-plugin` | Optional: brings machines into the fleet and assigns crew requests to their trierarchs |
-| `@aeolus-fleet/trierarch` | Optional: keeps ships crewed on a machine, one session each |
-| `@aeolus-fleet/common` | Shared schemas, prefixed ids and types |
-| `aeolus` ([plugins/aeolus](plugins/aeolus/README.md)) | The plugin for Claude Code and Codex |
+Each release train has its own repository and version (decision [0049](docs/decisions/0049-release-trains.md)); issues for all of them are filed here.
+
+| Package | Contents | Repository |
+| --- | --- | --- |
+| `@aeolus-fleet/core` | The API (tRPC, plus REST and MCP for ships) and the domain on Postgres | this one |
+| `@aeolus-fleet/console` | The operator console (Next.js) | this one |
+| `@aeolus-fleet/common` | Shared schemas, prefixed ids and types | this one |
+| `@aeolus-fleet/squadrons` | Optional: forms squadrons of ships from blueprints in git and leads them | [aeolus-fleet-squadrons](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons) |
+| `@aeolus-fleet/trierarch-plugin` | Optional: brings machines into the fleet and assigns crew requests to their trierarchs | [aeolus-fleet-trierarch-plugin](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch-plugin) |
+| `@aeolus-fleet/trierarch` | Optional: keeps ships crewed on a machine, one session each | [aeolus-fleet-trierarch](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch) |
+| `aeolus` | The plugin for Claude Code and Codex | [aeolus-fleet-trierarch](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/plugins/aeolus/README.md) |
 
 ## Development
 
@@ -152,7 +154,7 @@ npm run dev --workspace @aeolus-fleet/core         # API on http://127.0.0.1:400
 npm run dev --workspace @aeolus-fleet/console      # console on http://localhost:3000
 ```
 
-Releases are published only by the Release workflow (`.github/workflows/release.yml`), started by hand with a version. See [ADR 0011](docs/decisions/0011-release-via-trusted-publishing.md).
+This repository's releases (common, core and console) are published only by its Release workflow (`.github/workflows/release.yml`), started by hand with a version. See [ADR 0011](docs/decisions/0011-release-via-trusted-publishing.md).
 
 ## Community
 

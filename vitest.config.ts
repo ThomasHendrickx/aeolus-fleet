@@ -81,48 +81,9 @@ export default defineConfig({
       {
         extends: true,
         test: {
-          name: 'squadrons:unit',
-          root: 'packages/squadrons',
-          include: ['src/**/*.test.ts', 'test/**/*.test.ts'],
-          exclude: [...configDefaults.exclude, '**/*.integration.test.ts'],
-        },
-      },
-      {
-        extends: true,
-        test: {
-          name: 'trierarch-plugin:unit',
-          root: 'packages/trierarch-plugin',
-          include: ['src/**/*.test.ts', 'test/**/*.test.ts'],
-          exclude: [...configDefaults.exclude, '**/*.integration.test.ts'],
-        },
-      },
-      {
-        extends: true,
-        test: {
-          name: 'trierarch:unit',
-          root: 'packages/trierarch',
-          include: ['src/**/*.test.ts', 'test/**/*.test.ts'],
-          exclude: [...configDefaults.exclude, '**/*.integration.test.ts'],
-        },
-      },
-      {
-        extends: true,
-        test: {
           name: 'console:unit',
           root: 'packages/console',
           include: ['lib/**/*.test.ts', 'features/**/*.test.ts', 'scripts/**/*.test.ts'],
-        },
-      },
-      {
-        extends: true,
-        test: {
-          // The aeolus Claude Code plugin's bash scripts, run against a stub fleet.
-          name: 'plugin:unit',
-          root: 'plugins/aeolus',
-          include: ['test/**/*.test.ts'],
-          exclude: [...configDefaults.exclude, '**/*.integration.test.ts'],
-          setupFiles: ['test/foreign-harness.setup.ts'],
-          testTimeout: 30_000,
         },
       },
       {
@@ -132,55 +93,6 @@ export default defineConfig({
           root: 'packages/core',
           include: ['test/**/*.integration.test.ts'],
           globalSetup: ['src/testing/postgres-global-setup.ts'],
-          testTimeout: 30_000,
-          hookTimeout: 180_000,
-        },
-      },
-      {
-        extends: true,
-        test: {
-          // The aeolus plugin's bash scripts against a real fleet server, in the shared container (#819).
-          name: 'plugin:integration',
-          root: 'plugins/aeolus',
-          include: ['test/**/*.integration.test.ts'],
-          setupFiles: ['test/foreign-harness.setup.ts'],
-          globalSetup: ['../../packages/core/src/testing/postgres-global-setup.ts'],
-          testTimeout: 60_000,
-          hookTimeout: 180_000,
-        },
-      },
-      {
-        extends: true,
-        test: {
-          // Squadrons on Postgres, against a real fleet server, both in the shared container.
-          name: 'squadrons:integration',
-          root: 'packages/squadrons',
-          include: ['test/**/*.integration.test.ts'],
-          globalSetup: ['../core/src/testing/postgres-global-setup.ts', 'src/testing/squadrons-global-setup.ts'],
-          testTimeout: 30_000,
-          hookTimeout: 180_000,
-        },
-      },
-      {
-        extends: true,
-        test: {
-          // The trierarch plugin on Postgres, against a real fleet server, both in the shared container.
-          name: 'trierarch-plugin:integration',
-          root: 'packages/trierarch-plugin',
-          include: ['test/**/*.integration.test.ts'],
-          globalSetup: ['../core/src/testing/postgres-global-setup.ts'],
-          testTimeout: 30_000,
-          hookTimeout: 180_000,
-        },
-      },
-      {
-        extends: true,
-        test: {
-          // The trierarch against a real fleet server, in the shared container.
-          name: 'trierarch:integration',
-          root: 'packages/trierarch',
-          include: ['test/**/*.integration.test.ts'],
-          globalSetup: ['../core/src/testing/postgres-global-setup.ts'],
           testTimeout: 30_000,
           hookTimeout: 180_000,
         },
@@ -211,7 +123,7 @@ export default defineConfig({
           include: ['e2e/**/*.e2e.test.ts'],
           // Each file starts its own next dev in packages/console; one at a time.
           fileParallelism: false,
-          globalSetup: ['packages/core/src/testing/postgres-global-setup.ts', 'packages/squadrons/src/testing/squadrons-global-setup.ts'],
+          globalSetup: ['packages/core/src/testing/postgres-global-setup.ts'],
           testTimeout: 60_000,
           hookTimeout: 240_000,
         },

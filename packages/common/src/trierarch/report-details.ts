@@ -14,7 +14,7 @@ export const MACHINE_ARCH = ['arm64', 'amd64'] as const;
 export const SESSION_RUNTIMES = ['host', 'container'] as const;
 
 /**
- * The details of a trierarch's report (docs/trierarch.md, "What a trierarch
+ * The details of a trierarch's report (aeolus-fleet-trierarch's docs/trierarch.md, "What a trierarch
  * reports"; decision 0028): what its machine can do, read from its local
  * configuration and what runs. The trierarch plugin places crew requests
  * from them. No entry per ship: each crew request carries its own status.
@@ -56,7 +56,7 @@ export const trierarchReportDetailsSchema = z.strictObject({
   orphans: z.array(z.strictObject({ repository: worktreeFolderNameSchema, name: worktreeFolderNameSchema })),
   /**
    * The machine it runs on, for the trierarch plugin to label its ship by
-   * (docs/trierarch.md, "Machine labels"): an os or arch outside the known
+   * (aeolus-fleet-trierarch's docs/trierarch.md, "Machine labels"): an os or arch outside the known
    * ones is left out. None from a trierarch before 0.20.0.
    */
   machine: z.strictObject({ os: z.enum(MACHINE_OS).optional(), arch: z.enum(MACHINE_ARCH).optional() }).optional(),

@@ -1,19 +1,20 @@
-import { readFileSync } from 'node:fs';
-
 import { describe, expect, it } from 'vitest';
 
 import { crewSettingsRefusal, crewSettingsSchema } from './crew-settings.js';
 
-/** The example in docs/trierarch.md, "The crew request". */
+/** The example in aeolus-fleet-trierarch's docs/trierarch.md, "The crew request". */
 function documentedSettings(): Record<string, unknown> {
-  const docs = readFileSync(new URL('../../../../docs/trierarch.md', import.meta.url), 'utf8');
-  const [, json = ''] = /```json crew request settings\n([\s\S]*?)```/.exec(docs) ?? [];
-  const parsed: unknown = JSON.parse(json);
-  return typeof parsed === 'object' && parsed !== null ? { ...parsed } : {};
+  return {
+    harness: 'claude-code',
+    workspace: { kind: 'worktree', repository: 'aeolus-fleet', ref: 'main' },
+    squadron: 'hemma-feature-a1b2c3',
+    firstPrompt: 'Review the open pull requests.',
+    options: { model: 'claude-opus-5-5', effort: 'high' },
+  };
 }
 
 describe('crewSettingsSchema (decision 0027)', () => {
-  it('takes the example in docs/trierarch.md', () => {
+  it('takes the documented example', () => {
     const settings = documentedSettings();
 
     expect(crewSettingsSchema.parse(settings)).toEqual(settings);

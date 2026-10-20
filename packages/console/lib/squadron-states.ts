@@ -1,4 +1,4 @@
-/** A squadron's states and a member's healths (docs/squadrons.md), shared by the server's parsing and the browser's filters. */
+/** A squadron's states and a member's healths (aeolus-fleet-squadrons' docs/squadrons.md), shared by the server's parsing and the browser's filters. */
 
 export const SQUADRON_STATES = ['forming', 'sailing', 'standing-down', 'disbanded'] as const;
 export type SquadronState = (typeof SQUADRON_STATES)[number];
