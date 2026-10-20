@@ -79,6 +79,13 @@ describe('accountOutputSchema', () => {
     expect(accountOutputSchema.parse(account)).toEqual(account);
   });
 
+  it('takes the account this session signed in, by its id only, or none (decision 0054)', () => {
+    const signedIn = { ...account, session: { ...account.session, accountId: 'acc-mathilde' } };
+
+    expect(accountOutputSchema.parse(signedIn)).toEqual(signedIn);
+    expect(accountOutputSchema.parse({ ...account, session: { ...account.session, accountId: null } })).toMatchObject({ session: { accountId: null } });
+  });
+
   it('refuses another theme', () => {
     expect(accountOutputSchema.safeParse({ ...account, theme: 'sepia' }).success).toBe(false);
   });

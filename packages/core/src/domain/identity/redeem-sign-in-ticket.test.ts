@@ -1,4 +1,4 @@
-import type { FleetId, ShipId } from '@aeolus-fleet/common';
+import { accountIdSchema, type FleetId, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { deliveryInFlight, openLeaseOf, hostedFleet } from '../../../test/support/core-fixtures.js';
@@ -31,6 +31,24 @@ describe('redeeming a sign-in ticket', () => {
     expect(signedIn.caller).toMatchObject({ fleetId, shipId: argoId, kind: 'operator' });
     expect(core.state.consoleSessions).toEqual([expect.objectContaining({ id: signedIn.consoleSessionId, fleetId, device: 'Mac · Safari', endedAt: null })]);
     expect(core.state.leases).toEqual([expect.objectContaining({ shipId: argoId, endedAt: null })]);
+  });
+
+  it('keeps the account the ticket named with the console session and its caller, as argo is signed in by it (decision 0054)', async () => {
+    const { ticket } = unwrap(await useCases.issueSignInTicket({ fleetId, account: { id: accountIdSchema.parse('acc-mathilde') } }));
+
+    const signedIn = unwrap(await useCases.redeemSignInTicket({ ticket }));
+
+    expect(signedIn.caller).toMatchObject({ shipId: argoId, signedInAccountId: 'acc-mathilde' });
+    expect(core.state.consoleSessions.map((session) => session.accountId)).toEqual(['acc-mathilde']);
+  });
+
+  it('keeps no account for a ticket that names none', async () => {
+    const { ticket } = unwrap(await useCases.issueSignInTicket({ fleetId }));
+
+    const signedIn = unwrap(await useCases.redeemSignInTicket({ ticket }));
+
+    expect(signedIn.caller.signedInAccountId).toBeUndefined();
+    expect(core.state.consoleSessions.map((session) => session.accountId)).toEqual([null]);
   });
 
   it('ends the previous session and takes argo over, so what it held in flight returns to pending', async () => {

@@ -154,6 +154,19 @@ describe('installationOperatorsIssueSignInTicket', () => {
   it('refuses a ship id for the fleet', () => {
     expect(installationOperatorsIssueSignInTicketInputSchema.safeParse({ fleetId: newId('ship') }).success).toBe(false);
   });
+
+  it('takes the account it signs in as argo, by its id only (decision 0054)', () => {
+    const fleetId = newId('fleet');
+
+    expect(installationOperatorsIssueSignInTicketInputSchema.parse({ fleetId, account: { id: 'acc-mathilde' } })).toEqual({ fleetId, account: { id: 'acc-mathilde' } });
+  });
+
+  it.each([
+    ['a name or an email beside the id', { id: 'acc-mathilde', name: 'mathilde@example.com' }],
+    ['an empty id', { id: '' }],
+  ])('refuses %s', (_label, account) => {
+    expect(installationOperatorsIssueSignInTicketInputSchema.safeParse({ fleetId: newId('fleet'), account }).success).toBe(false);
+  });
 });
 
 describe('installation settings', () => {

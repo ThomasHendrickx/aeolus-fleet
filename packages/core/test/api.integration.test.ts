@@ -239,6 +239,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_installation_labels$/),
       expect.stringMatching(/^\d{14}_installation_declared_network_rules$/),
       expect.stringMatching(/^\d{14}_commissioning_actors$/),
+      expect.stringMatching(/^\d{14}_console_sign_in_accounts$/),
     ]);
   });
 });

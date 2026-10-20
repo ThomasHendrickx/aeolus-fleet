@@ -89,6 +89,16 @@ describe('a sign-in ticket', () => {
     await expect(accountWith(cookie)).resolves.toMatchObject({ email: 'lena@example.com', session: { device: 'Mac · Safari' } });
   });
 
+  it('signs in the account it names as argo: the console session keeps its id, and the account read names it (decision 0054)', async () => {
+    const { ticket } = await installation().operators.issueSignInTicket.mutate({ fleetId, account: { id: 'acc-01mathilde' } });
+
+    const redeemed = await redeem(ticket);
+
+    const cookie = 'cookie' in redeemed ? redeemed.cookie : '';
+    await expect(accountWith(cookie)).resolves.toMatchObject({ session: { accountId: 'acc-01mathilde' } });
+    await expect(database.consoleSession.findFirst({ where: { endedAt: null, fleetId }, select: { accountId: true } })).resolves.toEqual({ accountId: 'acc-01mathilde' });
+  });
+
   it('signs in once and never again', async () => {
     const { ticket } = await installation().operators.issueSignInTicket.mutate({ fleetId });
     await redeem(ticket);
