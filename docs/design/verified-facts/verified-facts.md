@@ -4,16 +4,19 @@ Design by designer-verified for #971 (interop 4.4 (a)). Purpose first, then the 
 
 ### Decided (20 Oct)
 
+The design is approved ("verified design ==> Approved").
+
 | # | Decision | Thomas's words |
 | --- | --- | --- |
 | 1 | **The purpose as written in part 1:** facts any actor holding a scope checked about any ship, shown beside the statement in discovery, naming who checked it | "agree with pick 1" |
 | 2 | **The term "verified fact"** goes into the blueprint's language: a fact an actor checked about a ship, stored as its writer wrote it, naming the writer | "--> 1" |
 | 3 | **Person ships are out of this design**; who a person ship belongs to is the account link, still to build | "--> 1" |
-| 4 | **A new scope in a core namespace, named by Thomas,** any actor may hold, checked against manage reach on the ship written about | "--> 1" |
+| 4 | **A new scope in a core namespace, named by Thomas,** any actor may hold, checked against manage reach on the ship written about: `fleet:verify` | "--> 1" |
+| 5 | **The fixed shape of part 4:** `checked` from a closed list in common, `value`, `issuer` where it applies, `by`, `at` | "1'ish", then "Approved" |
 | 6 | **A verified fact lives with the ship**, until its writer replaces or withdraws it, the writer retires, or the ship retires | "--> 1, it needs to be about the ship." |
 | 7 | **Read as the statement is read** (the ships that can send to it, and argo), naming a domain, an issuer or a subject, never a URL path or a credential | "1, it is the only one solving the problem that got us to implementing the discovery call." |
 
-Question 5, the shape, is open: "1'ish, this is a fixed json or so that can be filled in. But without examples of what it would contain, it is hard to decide the form." Part 4 gives the examples.
+Decision 0059 holds the rule as built.
 
 ## 1. Purpose
 
@@ -59,7 +62,7 @@ Each line is a check the design must pass.
 
 ## 3. Questions for Thomas
 
-Questions 1 to 4, 6 and 7 are decided; question 5 is open, with the examples in part 4.
+Every question is decided.
 
 1. **The purpose.** (Decided: 1) Is part 1 what #971 is for?
    1. As written: facts any actor holding a scope checked about any ship, shown beside the statement in discovery, naming who checked it.
@@ -88,7 +91,7 @@ Questions 1 to 4, 6 and 7 are decided; question 5 is open, with the examples in 
 
    Pick: 1. Option 2 has core enforce a plugin's scope (0046). Option 3 ties it to the gateway's commission and fails A9 for any other checker.
 
-5. **What a verified fact holds.** (Open: "1'ish", examples in part 4)
+5. **What a verified fact holds.** (Decided: 1, the shape in part 4)
    1. A small shape in common, checked at write: what was checked (such as an OAuth issuer and subject, a certificate subject, a domain), its value, the writer and when; at most a few per ship, at most 64 KB together.
    2. Opaque JSON from the writer.
    3. A fixed field per gateway check (issuer and subject, certificate subject, card domain) and nothing else.
@@ -108,7 +111,7 @@ Questions 1 to 4, 6 and 7 are decided; question 5 is open, with the examples in 
 
    Pick: 1. The reader is the one weighing the claim (part 1). Option 2 hides it from the ships that send to the party. Option 3 asks the reader to trust the fleet's word, which is vouching (interop 4.4 (c)).
 
-## 4. The shape, by example (question 5)
+## 4. The shape, by example (question 5, decided)
 
 One fixed shape, filled in per check: `checked` (what was checked, from a closed list in common), `value` (what the check found: a domain, a host or a subject), `issuer` (only where a value means something under an issuer), `by` (the writer, an actor as 0057 names it) and `at` (when it was written). Discovery answers them as `verified`, beside `statement`.
 
