@@ -1,5 +1,6 @@
 import { authorizeUrlOf, codeChallengeOf, cookieValueOf, exchangeSignIn, fleetsOf, randomUrlSafe, redeemCode, revokeSignIn, SHARED_SIGN_IN_COOKIE, type Pagasae } from './pagasae';
 import { sessionCookieOf } from './plugin-call';
+import { returnPathOf } from './return-path';
 import { serverInternalUrlFrom } from './server-url';
 
 /**
@@ -25,11 +26,6 @@ const PRESENT_TIMEOUT_MS = 10_000;
 export const NO_RIGHTS_PATH = '/sign-in/no-rights';
 /** Where an account goes when pagasae does not answer. */
 export const UNREACHABLE_PATH = '/sign-in/unreachable';
-
-/** A path on this console to go back to, or the overview: never another site. */
-export function returnPathOf(value: string | null): string {
-  return value !== null && value.startsWith('/') && !value.startsWith('//') && !value.startsWith('/sign-in') ? value : '/';
-}
 
 function redirectTo(location: string, cookies: readonly string[] = []): Response {
   const headers = new Headers({ location, 'cache-control': 'no-store' });

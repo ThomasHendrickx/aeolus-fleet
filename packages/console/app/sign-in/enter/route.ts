@@ -1,4 +1,5 @@
-import { enterFleet, returnPathOf } from '../../../lib/account-sign-in';
+import { enterFleet } from '../../../lib/account-sign-in';
+import { returnPathOf } from '../../../lib/return-path';
 import { pagasaeFrom } from '../../../lib/pagasae';
 
 export const dynamic = 'force-dynamic';
