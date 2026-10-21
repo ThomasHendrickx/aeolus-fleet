@@ -9,11 +9,12 @@ import { createPushReceiveDeliveries } from '../src/domain/messaging/push-receiv
 import type { ShipCaller, Crew } from '../src/domain/shared/caller.js';
 import type { Selector } from '../src/domain/shared/selector.js';
 import { createUseCases, systemClock, type UseCases } from '../src/wiring.js';
-import { OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
+import { operatorCaller, secretOf } from './support/core-fixtures.js';
 import { createMigratedDatabase } from '../src/testing/database.js';
 import { newKey } from '../src/testing/keys.js';
 import { racingUnitOfWork } from './support/postgres-core.js';
 import { unwrap } from '../src/testing/result.js';
+import { withOperatorLogin } from './support/operator-login.js';
 
 // Push receive and hand-over on a real Postgres (decision 0040): what a push
 // receive stores and how it marks the lease pushed, that concurrent push
@@ -37,7 +38,7 @@ beforeEach(async () => {
   databaseUrl = await createMigratedDatabase();
   prisma = createPrismaClient(databaseUrl);
   useCases = createUseCases({ prisma, clock: systemClock, wakeups: createReceiverWakeups(), receiveWaitMs: WAIT_MS });
-  const fleet = unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR }));
+  const fleet = unwrap(await withOperatorLogin(prisma, useCases.initialiseFleet({ name: 'home fleet' })));
   ({ fleetId } = fleet);
   argo = operatorCaller(fleet);
   scout = await crewedReviewer('scout');

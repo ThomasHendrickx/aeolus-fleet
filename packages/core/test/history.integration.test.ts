@@ -3,11 +3,12 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { ShipCaller, Crew } from '../src/domain/shared/caller.js';
 import type { Selector } from '../src/domain/shared/selector.js';
-import { OPERATOR, operatorCaller, secretOf, modelOf } from './support/core-fixtures.js';
+import { operatorCaller, secretOf, modelOf } from './support/core-fixtures.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from '../src/testing/result.js';
 import { newKey } from '../src/testing/keys.js';
 import { aCrewSettings } from './support/crew-fixtures.js';
+import { withOperatorLogin } from './support/operator-login.js';
 
 // The history reads on a real Postgres through the Prisma adapter: a ship's
 // timeline and messages and one message's delivery history, within the
@@ -29,7 +30,7 @@ async function crewed(ship: { name: string; type: string; location: { kind: 'DEV
 
 beforeEach(async () => {
   core = await createPostgresCore();
-  argo = operatorCaller(unwrap(await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
+  argo = operatorCaller(unwrap(await withOperatorLogin(core.prisma, core.useCases.initialiseFleet({ name: 'home fleet' }))));
   scout = await crewed({ name: 'scout', type: 'reviewer', location: { kind: 'DEVICE' } });
   lookout = await crewed({ name: 'lookout', type: 'reviewer', location: { kind: 'SERVER' } });
   planner = await crewed({ name: 'planner', type: 'planner', location: { kind: 'DEVICE' } });

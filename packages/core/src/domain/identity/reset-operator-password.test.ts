@@ -47,6 +47,24 @@ describe('resetting the password of an operator without one', () => {
   });
 });
 
+describe('resetting the password of argo before it has one', () => {
+  it('refuses, saying how to sign in and where to set one', async () => {
+    // As fleet:init leaves it: no email and no password (accounts design, A1).
+    for (const account of core.state.operatorAccounts) {
+      account.email = null;
+      account.passwordHash = null;
+    }
+
+    await expect(resetOperatorPassword({ fleetId, password: NEW_PASSWORD })).resolves.toEqual({
+      isOk: false,
+      error: {
+        kind: 'OPERATOR_HAS_NO_PASSWORD',
+        message: 'argo has no password yet: sign in with a link from npx aeolus-core sign-in, then set an email and password in Settings',
+      },
+    });
+  });
+});
+
 describe('resetting the operator password', () => {
   it('makes the old password fail and the new one sign in', async () => {
     unwrap(await resetOperatorPassword({ fleetId, password: NEW_PASSWORD }));

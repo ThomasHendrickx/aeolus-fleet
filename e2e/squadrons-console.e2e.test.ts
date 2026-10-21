@@ -15,6 +15,7 @@ import { unwrap } from '../packages/core/src/testing/result.js';
 import { createSquadronsApp, createSquadronsDatabase, seedRepository, startFakeGithub, tagsAt, type FakeGithub, type SquadronsApp } from '@aeolus-fleet/squadrons/testing';
 import { signIn } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
+import { withOperatorLogin } from '../packages/core/test/support/operator-login.js';
 
 // The first squadron, end to end in the console: the operator forms it from a
 // blueprint in git, the squadron's page shows each member's crew line and
@@ -66,7 +67,7 @@ beforeAll(async () => {
   const databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
   useCases = createUseCases({ prisma: database, clock });
-  argo = operatorCaller(unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
+  argo = operatorCaller(unwrap(await withOperatorLogin(database, useCases.initialiseFleet({ name: 'home fleet' }))));
   const management = unwrap(
     await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', scopes: ['fleet:read', 'fleet:commission', 'fleet:manage'] }),
   );

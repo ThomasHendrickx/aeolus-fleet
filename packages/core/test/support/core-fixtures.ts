@@ -10,6 +10,7 @@ import {
   type ShipId,
 } from '@aeolus-fleet/common';
 
+import { createIssueSignInLink } from '../../src/domain/identity/issue-sign-in-link.js';
 import { createIssueSignInTicket } from '../../src/domain/identity/issue-sign-in-ticket.js';
 import { createDismissNotice } from '../../src/domain/identity/dismiss-notice.js';
 import { createGetGuide } from '../../src/domain/identity/get-guide.js';
@@ -155,6 +156,7 @@ export function identityUseCases(core: InMemoryCore) {
     setTheme: createSetTheme(deps),
     authenticate: createAuthenticate({ callers: core.callers, hasher: core.hasher, clock: core.clock }),
     issueSignInTicket: createIssueSignInTicket(deps),
+    issueSignInLink: createIssueSignInLink(deps),
     redeemSignInTicket: createRedeemSignInTicket(deps),
     setNotices: createSetNotices({ notices: core.notices }),
     getNotices: createGetNotices({ notices: core.notices }),
@@ -384,15 +386,20 @@ export function shipIdIn(prompt: string): ShipId {
 }
 
 
-/** Initialises a fleet named `test fleet` through the use case, so argo and the operator account exist. */
+/**
+ * Initialises a fleet named `test fleet` through the use case, so argo and the
+ * operator account exist, and gives argo's own sign-in the email and password
+ * the tests sign in with, as Settings would set them.
+ */
 export async function initialiseFleet(core: InMemoryCore, name = 'test fleet'): Promise<FleetInitialised> {
-  const initialised = await createInitialiseFleet({
-    uow: core.uow,
-    clock: core.clock,
-    ids: core.ids,
-    passwords: core.passwords,
-  })({ name, ...OPERATOR });
-  return unwrap(initialised);
+  const initialised = unwrap(await createInitialiseFleet({ uow: core.uow, clock: core.clock, ids: core.ids })({ name }));
+  const account = core.state.operatorAccounts.find((held) => held.id === initialised.operatorId);
+  if (!account) {
+    throw new Error('the fleet was initialised without its operator account');
+  }
+  account.email = OPERATOR.email;
+  account.passwordHash = await core.passwords.hash(OPERATOR.password);
+  return initialised;
 }
 
 /** Sets the installation's settings straight into the state: unset ones stay no limit. */

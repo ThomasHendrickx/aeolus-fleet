@@ -9,8 +9,9 @@ import type { AccountCaller, InstallationCaller, ShipCaller } from '../src/domai
 import { ok } from '../src/domain/shared/result.js';
 import { newKey } from '../src/testing/keys.js';
 import { unwrap } from '../src/testing/result.js';
-import { OPERATOR, operatorCaller } from './support/core-fixtures.js';
+import { operatorCaller } from './support/core-fixtures.js';
 import { createPostgresCore, heldUnitOfWork, type PostgresCore } from './support/postgres-core.js';
+import { withOperatorLogin } from './support/operator-login.js';
 
 // Verified facts on a real Postgres (decision 0059): each writer's facts
 // about a ship kept with the ship, set whole, with VerifiedFactsSet in the
@@ -27,7 +28,7 @@ const OAUTH_SUBJECT: VerifiedFact = { checked: 'oauthSubject', issuer: 'https://
 
 beforeEach(async () => {
   core = await createPostgresCore();
-  const fleet = unwrap(await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR }));
+  const fleet = unwrap(await withOperatorLogin(core.prisma, core.useCases.initialiseFleet({ name: 'home fleet' })));
   fleetId = fleet.fleetId;
   argo = operatorCaller(fleet);
   const { shipId: gatewayId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'gateway', type: 'gateway', scopes: ['fleet:verify'] }));

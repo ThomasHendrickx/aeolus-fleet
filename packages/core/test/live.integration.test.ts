@@ -14,6 +14,7 @@ import { createMigratedDatabase } from '../src/testing/database.js';
 import { createTestClock } from './support/postgres-core.js';
 import { unwrap } from '../src/testing/result.js';
 import { newKey } from '../src/testing/keys.js';
+import { withOperatorLogin } from './support/operator-login.js';
 
 // The live fleet view's subscription over a WebSocket, from Postgres to the
 // browser: each committed event arrives with its number in commit order, a
@@ -40,7 +41,7 @@ beforeAll(async () => {
   databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
   useCases = createUseCases({ prisma: database, clock });
-  argo = operatorCaller(unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
+  argo = operatorCaller(unwrap(await withOperatorLogin(database, useCases.initialiseFleet({ name: 'home fleet' }))));
   server = createApp({ databaseUrl, publicUrl: FLEET_URL, clock, logger: false, signInRateLimit: SIGN_IN_RATE_LIMIT });
   address = await server.listen({ host: '127.0.0.1', port: 0 });
 });

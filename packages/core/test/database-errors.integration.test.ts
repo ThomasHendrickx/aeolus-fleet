@@ -12,10 +12,11 @@ import type { ShipCaller } from '../src/domain/shared/caller.js';
 import type { AppRouter } from '../src/index.js';
 import { createUseCases } from '../src/wiring.js';
 import { runServerCommand } from './support/commands.js';
-import { FLEET_URL, OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
+import { FLEET_URL, operatorCaller, secretOf } from './support/core-fixtures.js';
 import { createEmptyDatabase, createMigratedDatabase } from '../src/testing/database.js';
 import { unwrap } from '../src/testing/result.js';
 import { newKey } from '../src/testing/keys.js';
+import { withOperatorLogin } from './support/operator-login.js';
 
 // A database error's message can carry what the request held: Postgres
 // quotes values back. The log holds such an error by its codes only, so no
@@ -56,7 +57,7 @@ describe('a database error at the doors', () => {
     databaseUrl = await createMigratedDatabase();
     database = createPrismaClient(databaseUrl);
     argo = operatorCaller(
-      unwrap(await createUseCases({ prisma: database }).initialiseFleet({ name: 'home fleet', ...OPERATOR })),
+      unwrap(await withOperatorLogin(database, createUseCases({ prisma: database }).initialiseFleet({ name: 'home fleet' }))),
     );
     await refuseInserts(database, { name: 'messages', column: 'payload' });
     server = createApp({
@@ -167,20 +168,19 @@ describe('a database error in a server command', () => {
     const databaseUrl = await createMigratedDatabase();
     const database = createPrismaClient(databaseUrl);
     try {
-      await refuseInserts(database, { name: 'operators', column: 'email' });
+      await refuseInserts(database, { name: 'fleets', column: 'name' });
     } finally {
       await database.$disconnect();
     }
 
     const result = await runServerCommand({
       script: 'fleet:init',
-      args: ['--name', 'home fleet'],
-      answers: ['refused-operator@example.com', OPERATOR.password, OPERATOR.password],
+      args: ['--name', 'refused-fleet-name'],
       env: { DATABASE_URL: databaseUrl, PUBLIC_URL: FLEET_URL },
     });
 
     expect(result.code).toBe(1);
-    expect(`${result.stdout}${result.stderr}`).not.toContain('refused-operator@example.com');
+    expect(`${result.stdout}${result.stderr}`).not.toContain('refused-fleet-name');
     expect(result.stderr).toContain('P0001');
   });
 });

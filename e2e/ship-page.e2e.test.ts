@@ -14,6 +14,7 @@ import { unwrap } from '../packages/core/src/testing/result.js';
 import { signIn } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 import { newKey } from '../packages/core/src/testing/keys.js';
+import { withOperatorLogin } from '../packages/core/test/support/operator-login.js';
 
 // The ship page, end to end: two ships exchange messages over the REST API
 // as their sessions would, and the page of one shows the thread and each
@@ -39,7 +40,7 @@ beforeAll(async () => {
   const databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
   useCases = createUseCases({ prisma: database, clock });
-  argo = operatorCaller(unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
+  argo = operatorCaller(unwrap(await withOperatorLogin(database, useCases.initialiseFleet({ name: 'home fleet' }))));
 
   const webUrl = await reserveWebUrl();
   server = createApp({

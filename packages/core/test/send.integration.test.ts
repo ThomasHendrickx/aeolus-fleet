@@ -8,10 +8,11 @@ import type { DeliveryNotice } from '../src/domain/shared/notifier.js';
 import { createSendMessage, type MessageToSend } from '../src/domain/messaging/send-message.js';
 import type { ShipCaller } from '../src/domain/shared/caller.js';
 import type { UnitOfWork } from '../src/domain/shared/unit-of-work.js';
-import { agentCaller, OPERATOR, operatorCaller } from './support/core-fixtures.js';
+import { agentCaller, operatorCaller } from './support/core-fixtures.js';
 import { createPostgresCore, racingUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from '../src/testing/result.js';
 import { newKey } from '../src/testing/keys.js';
+import { withOperatorLogin } from './support/operator-login.js';
 
 // Sending a message on a real Postgres through the Prisma adapters: what a
 // send stores, that nothing stays and nobody is woken when it fails, that a
@@ -33,7 +34,7 @@ let notices: DeliveryNotice[];
 
 beforeEach(async () => {
   core = await createPostgresCore();
-  const fleet = unwrap(await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR }));
+  const fleet = unwrap(await withOperatorLogin(core.prisma, core.useCases.initialiseFleet({ name: 'home fleet' })));
   ({ fleetId, operatorShipId: argoId } = fleet);
   argo = operatorCaller(fleet);
   ({ shipId: scoutId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' })));

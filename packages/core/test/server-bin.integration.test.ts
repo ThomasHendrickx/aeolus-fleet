@@ -150,7 +150,7 @@ describe('aeolus-core', () => {
     const result = await aeolusServer([], {});
 
     expect(result.code).toBe(2);
-    expect(result.stderr).toContain('Usage: aeolus-core start | migrate | fleet:init --name "<fleet name>" | operator:reset-password');
+    expect(result.stderr).toContain('Usage: aeolus-core start | migrate | fleet:init --name "<fleet name>" | sign-in | operator:reset-password');
   });
 
   it('refuses a command it does not know, and exits 2', async () => {

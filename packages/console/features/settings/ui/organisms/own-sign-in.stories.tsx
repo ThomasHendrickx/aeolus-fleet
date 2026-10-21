@@ -32,6 +32,8 @@ async function fillIn(canvasElement: HTMLElement, login: { current?: string; ema
 
 /** argo has an email and password: the email is filled in. */
 export const Idle: Story = {};
+/** argo signed in by a link and has no email or password yet: nothing else is asked. */
+export const NoEmailYet: Story = { args: { email: null, hasPassword: false } };
 export const Saving: Story = { args: { isSaving: true } };
 export const Saved: Story = { args: { isSaved: true } };
 /** The fleet refuses, and says why; what was typed stays. */
@@ -46,6 +48,7 @@ export const WrongCurrentPassword: Story = {
 
 /** Save hands the current password, the email and the new password over, once both new passwords match. */
 export const SavesTheLogin: Story = {
+  args: { email: null },
   play: async ({ args, canvasElement }) => {
     await fillIn(canvasElement, { current: CURRENT, email: 'mathilde@example.com', password: PASSWORD, repeat: PASSWORD });
 

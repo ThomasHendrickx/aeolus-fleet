@@ -28,13 +28,13 @@ export async function runAtTerminal(command: (io: CommandIo) => Promise<ExitCode
 /** Runs a server command against the configured database and exits with its code. */
 export function runCommand(
   args: string[],
-  command: (run: { args: string[]; useCases: UseCases; io: CommandIo }) => Promise<ExitCode>,
+  command: (run: { args: string[]; useCases: UseCases; consoleOrigin: string; io: CommandIo }) => Promise<ExitCode>,
 ): Promise<never> {
   return runAtTerminal(async (io) => {
     const config = loadConfig(process.env);
     const prisma = createPrismaClient(config.databaseUrl);
     try {
-      return await command({ args, useCases: createUseCases({ prisma }), io });
+      return await command({ args, useCases: createUseCases({ prisma }), consoleOrigin: config.consoleOrigin, io });
     } finally {
       await prisma.$disconnect();
     }

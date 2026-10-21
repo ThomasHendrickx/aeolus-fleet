@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { ShipCaller, Crew } from '../src/domain/shared/caller.js';
-import { OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
+import { operatorCaller, secretOf } from './support/core-fixtures.js';
 import { newKey } from '../src/testing/keys.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from '../src/testing/result.js';
+import { withOperatorLogin } from './support/operator-login.js';
 
 // Who wakes a lease and the channel of a hand-over on a real Postgres
 // (interop 5.1): stored with the lease and DeliveryHanded, read back on the
@@ -16,7 +17,7 @@ let crm: Crew;
 
 beforeEach(async () => {
   core = await createPostgresCore();
-  argo = operatorCaller(unwrap(await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
+  argo = operatorCaller(unwrap(await withOperatorLogin(core.prisma, core.useCases.initialiseFleet({ name: 'home fleet' }))));
   const { shipId, secret } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'crm', type: 'crm', kind: 'app' }));
   const { crewToken } = unwrap(await core.useCases.claimShip({ shipId, secret: secretOf(secret), location: { kind: 'CLOUD' }, harness: 'aeolus-gateway' }));
   crm = unwrap(await core.useCases.authenticate.byCrewToken(crewToken));

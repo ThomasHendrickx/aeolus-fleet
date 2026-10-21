@@ -16,6 +16,7 @@ import { unwrap } from '../packages/core/src/testing/result.js';
 import { createPluginDatabase, createTrierarchPluginApp, type TrierarchPluginApp } from '@aeolus-fleet/trierarch-plugin/testing';
 import { signIn } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
+import { withOperatorLogin } from '../packages/core/test/support/operator-login.js';
 
 // The Trierarchs section, end to end (#245): a console with the trierarch
 // plugin and without squadrons offers Settings for it; the operator connects
@@ -49,7 +50,7 @@ beforeAll(async () => {
   const databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
   useCases = createUseCases({ prisma: database, clock });
-  argo = operatorCaller(unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
+  argo = operatorCaller(unwrap(await withOperatorLogin(database, useCases.initialiseFleet({ name: 'home fleet' }))));
 
   const webUrl = await reserveWebUrl();
   server = createApp({ databaseUrl, publicUrl: FLEET_URL, consoleOrigin: webUrl, clock, logger: false });

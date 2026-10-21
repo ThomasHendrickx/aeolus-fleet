@@ -14,6 +14,7 @@ import { unwrap } from '../packages/core/src/testing/result.js';
 import { signIn } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 import { newKey } from '../packages/core/src/testing/keys.js';
+import { withOperatorLogin } from '../packages/core/test/support/operator-login.js';
 
 // The operator inbox and Compose, end to end: a ship's session sends argo a
 // message over the REST API, it shows in the inbox live with its count, the
@@ -43,7 +44,7 @@ beforeAll(async () => {
   const databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
   useCases = createUseCases({ prisma: database, clock });
-  argo = operatorCaller(unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
+  argo = operatorCaller(unwrap(await withOperatorLogin(database, useCases.initialiseFleet({ name: 'home fleet' }))));
 
   const webUrl = await reserveWebUrl();
   server = createApp({

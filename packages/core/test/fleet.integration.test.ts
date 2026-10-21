@@ -11,6 +11,7 @@ import { createPostgresCore, everyRow, racingUnitOfWork, type PostgresCore } fro
 import { unwrap } from '../src/testing/result.js';
 import { newKey } from '../src/testing/keys.js';
 import { wholeShips } from './support/ships.js';
+import { withOperatorLogin } from './support/operator-login.js';
 
 // The fleet use cases on a real Postgres through the Prisma adapters: what a
 // commission stores, which events it writes, the name rules under concurrency,
@@ -25,7 +26,7 @@ let argo: ShipCaller;
 
 beforeEach(async () => {
   core = await createPostgresCore();
-  const fleet = unwrap(await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR }));
+  const fleet = unwrap(await withOperatorLogin(core.prisma, core.useCases.initialiseFleet({ name: 'home fleet' })));
   ({ fleetId, operatorShipId: argoId } = fleet);
   argo = operatorCaller(fleet);
 });

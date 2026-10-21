@@ -4,6 +4,7 @@ import { argon2idPasswordHasher } from '../src/adapters/crypto/passwords.js';
 import { OPERATOR } from './support/core-fixtures.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from '../src/testing/result.js';
+import { withOperatorLogin } from './support/operator-login.js';
 
 let core: PostgresCore | undefined;
 
@@ -17,7 +18,7 @@ describe('initialising the fleet on Postgres', () => {
     core = await createPostgresCore();
 
     const { fleetId, operatorShipId, operatorId } = unwrap(
-      await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR }),
+      await withOperatorLogin(core.prisma, core.useCases.initialiseFleet({ name: 'home fleet' })),
     );
 
     await expect(core.prisma.fleet.findMany()).resolves.toEqual([
@@ -45,7 +46,7 @@ describe('initialising the fleet on Postgres', () => {
   it('stores the operator account with an Argon2id hash of the password, never the password', async () => {
     core = await createPostgresCore();
 
-    const { fleetId, operatorId } = unwrap(await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR }));
+    const { fleetId, operatorId } = unwrap(await withOperatorLogin(core.prisma, core.useCases.initialiseFleet({ name: 'home fleet' })));
 
     const accounts = await core.prisma.operator.findMany();
     expect(accounts).toEqual([
@@ -58,9 +59,9 @@ describe('initialising the fleet on Postgres', () => {
 
   it('refuses a second run', async () => {
     core = await createPostgresCore();
-    unwrap(await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR }));
+    unwrap(await withOperatorLogin(core.prisma, core.useCases.initialiseFleet({ name: 'home fleet' })));
 
-    await expect(core.useCases.initialiseFleet({ name: 'second fleet', ...OPERATOR })).resolves.toMatchObject({
+    await expect(withOperatorLogin(core.prisma, core.useCases.initialiseFleet({ name: 'second fleet' }))).resolves.toMatchObject({
       isOk: false,
       error: { kind: 'FLEET_ALREADY_EXISTS' },
     });

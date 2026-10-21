@@ -10,12 +10,13 @@ import { createApp } from '../src/app.js';
 import type { ShipCaller } from '../src/domain/shared/caller.js';
 import type { AppRouter } from '../src/index.js';
 import { createUseCases, type UseCases } from '../src/wiring.js';
-import { FLEET_URL, OPERATOR } from './support/core-fixtures.js';
+import { FLEET_URL } from './support/core-fixtures.js';
 import { createMigratedDatabase } from '../src/testing/database.js';
 import { newKey } from '../src/testing/keys.js';
 import { createTestClock } from './support/postgres-core.js';
 import { unwrap } from '../src/testing/result.js';
 import { aCrewSettings } from './support/crew-fixtures.js';
+import { withOperatorLogin } from './support/operator-login.js';
 
 // The installation API from HTTP to Postgres and back: a hosting service such
 // as pagasae creates, describes and deletes fleets with the installation token.
@@ -36,7 +37,7 @@ beforeAll(async () => {
   databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
   core = createUseCases({ prisma: database, clock });
-  ({ fleetId: homeFleet } = unwrap(await core.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
+  ({ fleetId: homeFleet } = unwrap(await withOperatorLogin(database, core.initialiseFleet({ name: 'home fleet' }))));
   hosting = createApp({ databaseUrl, publicUrl: FLEET_URL, clock, logger: false, installationToken: INSTALLATION_TOKEN });
   hostingAddress = await hosting.listen({ host: '127.0.0.1', port: 0 });
   selfHosted = createApp({ databaseUrl, publicUrl: FLEET_URL, clock, logger: false });

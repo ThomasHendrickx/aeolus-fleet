@@ -13,6 +13,7 @@ import { unwrap } from '../packages/core/src/testing/result.js';
 import { signIn } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 import { newKey } from '../packages/core/src/testing/keys.js';
+import { withOperatorLogin } from '../packages/core/test/support/operator-login.js';
 
 // The CommandPalette, end to end: Cmd+K or the Header's search opens it on
 // desktop, the TopBar's search icon full screen on phone; a ship opens its
@@ -34,7 +35,7 @@ beforeAll(async () => {
   const databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
   useCases = createUseCases({ prisma: database, clock });
-  argo = operatorCaller(unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
+  argo = operatorCaller(unwrap(await withOperatorLogin(database, useCases.initialiseFleet({ name: 'home fleet' }))));
 
   const webUrl = await reserveWebUrl();
   server = createApp({

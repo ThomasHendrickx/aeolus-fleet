@@ -7,11 +7,12 @@ import { createPrismaUnitOfWork, type PrismaTx } from '../src/adapters/prisma/un
 import { createReportTurn } from '../src/domain/registry/report-turn.js';
 import type { ShipCaller, Crew } from '../src/domain/shared/caller.js';
 import { createUseCases, systemClock, type UseCases } from '../src/wiring.js';
-import { OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
+import { operatorCaller, secretOf } from './support/core-fixtures.js';
 import { createMigratedDatabase } from '../src/testing/database.js';
 import { newKey } from '../src/testing/keys.js';
 import { racingUnitOfWork } from './support/postgres-core.js';
 import { unwrap } from '../src/testing/result.js';
+import { withOperatorLogin } from './support/operator-login.js';
 
 // The turn on a real Postgres (decision 0040): what a turn report keeps with
 // the lease, that two reports racing keep the newer turn, that one which fails
@@ -32,7 +33,7 @@ beforeEach(async () => {
   databaseUrl = await createMigratedDatabase();
   prisma = createPrismaClient(databaseUrl);
   useCases = createUseCases({ prisma, clock: systemClock, wakeups: createReceiverWakeups(), receiveWaitMs: WAIT_MS });
-  const fleet = unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR }));
+  const fleet = unwrap(await withOperatorLogin(prisma, useCases.initialiseFleet({ name: 'home fleet' })));
   ({ fleetId } = fleet);
   argo = operatorCaller(fleet);
   const { shipId, secret } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));

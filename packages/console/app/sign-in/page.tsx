@@ -11,7 +11,8 @@ import { hostedSignInUrlFrom } from '../../lib/hosted-sign-in';
 export const dynamic = 'force-dynamic';
 
 /**
- * Sign in with the operator's email and password. Only the session cookie
+ * Sign in with the operator's email and password, or, without one, with a
+ * link from aeolus-core sign-in (accounts design, A1). Only the session cookie
  * stays in the browser. `?notice=signed-in-elsewhere` says the last session
  * ended because the operator signed in on another device. A hosted console
  * (AEOLUS_HOSTED_SIGN_IN_URL set) never serves a password form: it redirects
@@ -46,9 +47,9 @@ export default async function SignInPage({
     <AuthCard
       recovery={
         <>
-          Forgot your password? Reset it on the server with{' '}
+          No password yet, or forgot it? Get a sign-in link on the server with{' '}
           <code className="inline-block rounded-xs bg-muted px-1.5 py-0.5 font-mono text-id whitespace-nowrap text-foreground">
-            aeolus-core operator:reset-password
+            aeolus-core sign-in
           </code>
         </>
       }

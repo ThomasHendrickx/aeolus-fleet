@@ -9,10 +9,11 @@ import { createApp } from '../src/app.js';
 import type { ShipCaller } from '../src/domain/shared/caller.js';
 import { createUseCases, type UseCases } from '../src/wiring.js';
 import { presentStartingPrompt } from '../src/adapters/trpc/starting-prompt-text.js';
-import { FLEET_URL, mcpUrlIn, OPERATOR, operatorCaller, secretIn, secretOf, shipIdIn } from './support/core-fixtures.js';
+import { FLEET_URL, mcpUrlIn, operatorCaller, secretIn, secretOf, shipIdIn } from './support/core-fixtures.js';
 import { createMigratedDatabase } from '../src/testing/database.js';
 import { unwrap } from '../src/testing/result.js';
 import { newKey } from '../src/testing/keys.js';
+import { withOperatorLogin } from './support/operator-login.js';
 
 // The v1 acceptance test (docs/architecture.md, "Testing"): two ships
 // exchange messages back and forth over MCP, each session knowing only its
@@ -41,7 +42,7 @@ beforeAll(async () => {
   server = createApp({ databaseUrl, publicUrl: FLEET_URL, logger: false, receiveWaitMs: RECEIVE_WAIT_MS });
   address = await server.listen({ host: '127.0.0.1', port: 0 });
   operator = createUseCases({ prisma: database });
-  argo = operatorCaller(unwrap(await operator.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
+  argo = operatorCaller(unwrap(await withOperatorLogin(database, operator.initialiseFleet({ name: 'home fleet' }))));
   await eventsSinceLastStep();
 });
 

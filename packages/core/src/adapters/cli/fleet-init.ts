@@ -1,24 +1,25 @@
 import { parseArgs } from 'node:util';
 
-import { newOperatorPasswordProblem } from '@aeolus-fleet/common';
-
+import type { IssueSignInLink } from '../../domain/identity/issue-sign-in-link.js';
 import type { InitialiseFleet } from '../../domain/registry/initialise-fleet.js';
 import type { ListFleets } from '../../domain/registry/list-fleets.js';
-import { askNewPassword, nulRefusal, type CommandIo, type ExitCode } from './io.js';
+import { nulRefusal, type CommandIo, type ExitCode } from './io.js';
+import { SIGN_IN_LINK_NOTE, signInLinkOf } from './sign-in-link.js';
 
 const NOTHING_CREATED = 'Nothing was created.';
 
 const USAGE = 'Usage: aeolus-core fleet:init --name "<fleet name>"';
 
 /**
- * `fleet:init --name <name>`: asks for the operator's email and password, then
- * creates the fleet, its operator ship argo and the operator account the
- * console signs in with. Refuses when a fleet already exists, before asking
- * anything; the use case checks again under its lock, for two runs at once.
+ * `fleet:init --name <name>`: creates the fleet, its operator ship argo and
+ * argo's own sign-in, asking nothing, and prints a one-use console link that
+ * signs in as argo (accounts design, A1). An email and password come later,
+ * from Settings. Refuses when a fleet already exists; the use case checks
+ * again under its lock, for two runs at once.
  */
 export async function fleetInit(
   args: string[],
-  deps: { initialiseFleet: InitialiseFleet; listFleets: ListFleets; io: CommandIo },
+  deps: { initialiseFleet: InitialiseFleet; issueSignInLink: IssueSignInLink; listFleets: ListFleets; consoleOrigin: string; io: CommandIo },
 ): Promise<ExitCode> {
   const { io } = deps;
 
@@ -44,48 +45,27 @@ export async function fleetInit(
     return 1;
   }
 
-  const email = await io.ask('Operator email: ');
-  const password = email === undefined ? { kind: 'ended' as const } : await askNewPassword(io, 'Operator password: ');
-  if (email === undefined || password.kind === 'ended') {
-    io.err('fleet:init needs the operator email and the password twice. Nothing was created.');
-    return 2;
-  }
-  if (password.kind === 'differ') {
-    io.err('The two passwords differ. Nothing was created.');
-    return 1;
-  }
-  const answerRefusal = nulRefusal(
-    [
-      { name: 'operator email', text: email },
-      { name: 'operator password', text: password.password },
-    ],
-    NOTHING_CREATED,
-  );
-  if (answerRefusal !== undefined) {
-    io.err(answerRefusal);
-    return 1;
-  }
-  const passwordProblem = newOperatorPasswordProblem(password.password);
-  if (passwordProblem !== undefined) {
-    io.err(`${passwordProblem}. ${NOTHING_CREATED}`);
-    return 1;
-  }
-
-  const initialised = await deps.initialiseFleet({ name, email, password: password.password });
+  const initialised = await deps.initialiseFleet({ name });
   if (!initialised.isOk) {
     io.err(initialised.error.message);
     return 1;
   }
 
   const { fleetId, operatorShipId, operatorId } = initialised.value;
+  const created = [`Fleet initialised: ${fleetId}`, `Operator ship argo: ${operatorShipId}`, `Operator account: ${operatorId}`];
+  const link = await deps.issueSignInLink({ fleetId });
+  if (!link.isOk) {
+    io.out(created.join('\n'));
+    io.err(`No sign-in link was issued: ${link.error.message}. Run npx aeolus-core sign-in for one.`);
+    return 1;
+  }
   io.out(
     [
-      `Fleet initialised: ${fleetId}`,
-      `Operator ship argo: ${operatorShipId}`,
-      `Operator account: ${operatorId}`,
+      ...created,
       '',
-      'Sign in to the console with the operator email and password: that crews argo.',
-      'If the password is lost, run aeolus-core operator:reset-password on the server.',
+      `Open ${signInLinkOf(deps.consoleOrigin, link.value.ticket)} to sign in to the console as argo.`,
+      SIGN_IN_LINK_NOTE,
+      'To sign in with an email and password instead, set them in Settings once you are in.',
     ].join('\n'),
   );
   return 0;

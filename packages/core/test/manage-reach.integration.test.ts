@@ -4,11 +4,12 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
 import type { ShipCaller } from '../src/domain/shared/caller.js';
 import { createUseCases, type UseCases } from '../src/wiring.js';
-import { OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
+import { operatorCaller, secretOf } from './support/core-fixtures.js';
 import { createMigratedDatabase } from '../src/testing/database.js';
 import { newKey } from '../src/testing/keys.js';
 import { createTestClock } from './support/postgres-core.js';
 import { unwrap } from '../src/testing/result.js';
+import { withOperatorLogin } from './support/operator-login.js';
 
 // Manage reach on Postgres (decision 0034): manager, with fleet:manage, and
 // near carry team a; far carries team b; the applied manage rule lets team a
@@ -38,7 +39,7 @@ async function shipOf(name: string, value: 'a' | 'b'): Promise<ShipId> {
 beforeAll(async () => {
   database = createPrismaClient(await createMigratedDatabase());
   useCases = createUseCases({ prisma: database, clock });
-  argo = operatorCaller(unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
+  argo = operatorCaller(unwrap(await withOperatorLogin(database, useCases.initialiseFleet({ name: 'home fleet' }))));
   // argo labels the ships: it labels any ship (decision 0046).
   const labeller = { caller: argo };
   const networking = await crewed({ name: 'networking', type: 'networking', scopes: ['fleet:network'] });

@@ -11,6 +11,7 @@ import { createTestClock } from '../packages/core/test/support/postgres-core.js'
 import { unwrap } from '../packages/core/src/testing/result.js';
 import { holdSignOutSlow, signIn } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
+import { withOperatorLogin } from '../packages/core/test/support/operator-login.js';
 
 // The AccountMenu, end to end, on desktop and on phone: the session's device
 // and the operator's theme, which applies at once and comes back from the
@@ -37,7 +38,7 @@ beforeAll(async () => {
   const databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
   useCases = createUseCases({ prisma: database, clock });
-  unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR }));
+  unwrap(await withOperatorLogin(database, useCases.initialiseFleet({ name: 'home fleet' })));
 
   const webUrl = await reserveWebUrl();
   server = createApp({

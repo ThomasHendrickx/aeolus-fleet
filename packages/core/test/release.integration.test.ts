@@ -15,13 +15,14 @@ import type { Result } from '../src/domain/shared/result.js';
 import type { Selector } from '../src/domain/shared/selector.js';
 import type { UnitOfWork } from '../src/domain/shared/unit-of-work.js';
 import { createUseCases, systemClock, type UseCases } from '../src/wiring.js';
-import { OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
+import { operatorCaller, secretOf } from './support/core-fixtures.js';
 import { createMigratedDatabase } from '../src/testing/database.js';
 import { everyRow, heldUnitOfWork } from './support/postgres-core.js';
 import { unwrap } from '../src/testing/result.js';
 import { newKey } from '../src/testing/keys.js';
 import { waitingWakeups } from './support/waiting-wakeups.js';
 import { aCrewSettings } from './support/crew-fixtures.js';
+import { withOperatorLogin } from './support/operator-login.js';
 
 // Releasing a ship and deregistering on a real Postgres, with the listener and
 // the wake-ups the server runs: the lease, the secret and the crew token end
@@ -77,7 +78,7 @@ beforeEach(async () => {
   });
   await listener.listening;
   useCases = createUseCases({ prisma, clock: systemClock, wakeups, receiveWaitMs: WAIT_MS });
-  const fleet = unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR }));
+  const fleet = unwrap(await withOperatorLogin(prisma, useCases.initialiseFleet({ name: 'home fleet' })));
   ({ fleetId } = fleet);
   argo = operatorCaller(fleet);
   const scoutShip = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));

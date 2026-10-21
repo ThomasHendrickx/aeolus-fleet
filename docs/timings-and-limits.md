@@ -36,7 +36,7 @@ Defined in `@aeolus-fleet/common`, checked by core on every call and by the clie
 | 256 characters | An idempotency key | [schemas/idempotency-key.ts](../packages/common/src/schemas/idempotency-key.ts) `IDEMPOTENCY_KEY_MAX_LENGTH` | none recorded |
 | 254 characters | An operator email | [rules/sign-in.ts](../packages/common/src/rules/sign-in.ts) `OPERATOR_EMAIL_MAX_LENGTH` | none recorded |
 | 1024 characters | An operator password | [rules/sign-in.ts](../packages/common/src/rules/sign-in.ts) `OPERATOR_PASSWORD_MAX_LENGTH` | [0016](decisions/0016-no-policy.md) |
-| 12 characters | A new operator password, at least: `fleet:init` and `operator:reset-password` (sign-in checks no minimum) | [rules/sign-in.ts](../packages/common/src/rules/sign-in.ts) `OPERATOR_PASSWORD_MIN_LENGTH` | #824 |
+| 12 characters | A new operator password, at least: Settings and `operator:reset-password` (sign-in checks no minimum) | [rules/sign-in.ts](../packages/common/src/rules/sign-in.ts) `OPERATOR_PASSWORD_MIN_LENGTH` | #824 |
 | 256 characters | A sign-in ticket | [schemas/console.ts](../packages/common/src/schemas/console.ts) `SIGN_IN_TICKET_MAX_LENGTH` | none recorded |
 | 100 characters | A trierarch repository, folder, option or value name | [trierarch/names.ts](../packages/common/src/trierarch/names.ts) `TRIERARCH_NAME_MAX_LENGTH` | none recorded |
 | 300 characters | A notice's text | [schemas/notice.ts](../packages/common/src/schemas/notice.ts) `NOTICE_TEXT_MAX` | [0023](decisions/0023-notices.md) |
@@ -109,6 +109,7 @@ Defined in `@aeolus-fleet/common`, checked by core on every call and by the clie
 | 2 hours after last use | A viewer session | [identity/console-session.ts](../packages/core/src/domain/identity/console-session.ts) `VIEWER_SESSION_IDLE_LIMIT_MS` | [0022](decisions/0022-viewer-ship.md) |
 | 24 hours at most | A viewer session | [identity/console-session.ts](../packages/core/src/domain/identity/console-session.ts) `VIEWER_SESSION_LIFETIME_MS` | [0022](decisions/0022-viewer-ship.md) |
 | 2 minutes | A sign-in ticket stays valid | [identity/sign-in-ticket.ts](../packages/core/src/domain/identity/sign-in-ticket.ts) `SIGN_IN_TICKET_VALID_MS` | [0020](decisions/0020-installation.md), [blueprint.md](blueprint.md) |
+| 15 minutes | A sign-in link from `fleet:init` or `aeolus-core sign-in` stays valid | [identity/sign-in-ticket.ts](../packages/core/src/domain/identity/sign-in-ticket.ts) `SIGN_IN_LINK_VALID_MS` | [0012](decisions/0012-operator-is-a-ship.md) |
 | 10 minutes, and 30 seconds of allowance | An account token's life: refused 30 s after its end, refused when it lives longer or was issued more than 30 s ahead | [identity/authenticate-account.ts](../packages/core/src/domain/identity/authenticate-account.ts) `ACCOUNT_TOKEN_LIFE_MS`, `ACCOUNT_TOKEN_CLOCK_ALLOWANCE_MS` | [0058](decisions/0058-pagasae-core-link.md) |
 | 60 s | How long core holds pagasae's keys before it fetches them again | [crypto/account-token-signatures.ts](../packages/core/src/adapters/crypto/account-token-signatures.ts) `KEYS_FRESH_FOR_MS` | [0058](decisions/0058-pagasae-core-link.md) |
 | 5 s | Fetching pagasae's key set, before core goes on with the keys it holds | [app.ts](../packages/core/src/app.ts) `KEY_SET_FETCH_TIMEOUT_MS` | none recorded |

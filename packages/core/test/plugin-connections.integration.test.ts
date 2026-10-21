@@ -4,10 +4,11 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createReadReachOf } from '../src/domain/registry/read-reach.js';
 import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
 import type { ShipCaller } from '../src/domain/shared/caller.js';
-import { OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
+import { operatorCaller, secretOf } from './support/core-fixtures.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from '../src/testing/result.js';
 import { newKey } from '../src/testing/keys.js';
+import { withOperatorLogin } from './support/operator-login.js';
 
 // Plugins argo connected on a real Postgres (decision 0034): a connected
 // plugin's ship reads every ship whatever the rules, until a release or a
@@ -21,7 +22,7 @@ let pluginId: ShipId;
 
 beforeEach(async () => {
   core = await createPostgresCore();
-  const fleet = unwrap(await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR }));
+  const fleet = unwrap(await withOperatorLogin(core.prisma, core.useCases.initialiseFleet({ name: 'home fleet' })));
   fleetId = fleet.fleetId;
   argo = operatorCaller(fleet);
   const commissioned = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', scopes: ['fleet:read'] }));

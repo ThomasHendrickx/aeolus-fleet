@@ -23,11 +23,11 @@ export interface FleetFounded {
  * FleetInitialised and ShipCommissioned, in the caller's unit of work. argo
  * gets no secret: the operator's sign-in is the only way to crew it (ADR
  * 0012). With `hasViewer`, the viewer ship comes too, with its own
- * ShipCommissioned (decision 0022). The caller has validated the name and email.
+ * ShipCommissioned (decision 0022). The caller has validated the name and any email.
  */
 export async function foundFleet(
   deps: { tx: FoundFleetTx; ids: IdGenerator },
-  input: { name: string; email: string; passwordHash: string | null; at: Date; hasViewer?: boolean },
+  input: { name: string; email: string | null; passwordHash: string | null; at: Date; hasViewer?: boolean },
 ): Promise<FleetFounded> {
   const { tx, ids } = deps;
   const { name, email, passwordHash, at } = input;

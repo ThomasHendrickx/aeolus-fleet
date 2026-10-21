@@ -18,8 +18,8 @@ export interface OwnSignInLogin {
 }
 
 interface OwnSignInProps {
-  /** The email argo signs in with now, filled in. */
-  email: string;
+  /** The email argo signs in with now, filled in; null while argo signs in only with a link from the terminal. */
+  email: string | null;
   /** argo has a password: the change asks for it first. */
   hasPassword: boolean;
   isSaving: boolean;
@@ -48,7 +48,7 @@ export function OwnSignIn({ email, hasPassword, isSaving, isSaved, saveError, on
     handleSubmit,
     getValues,
     formState: { errors },
-  } = useForm({ defaultValues: { currentPassword: '', email, password: '', repeat: '' } });
+  } = useForm({ defaultValues: { currentPassword: '', email: email ?? '', password: '', repeat: '' } });
 
   const submit = handleSubmit((input) => {
     onSave(hasPassword ? { email: input.email, password: input.password, currentPassword: input.currentPassword } : { email: input.email, password: input.password });
@@ -60,7 +60,11 @@ export function OwnSignIn({ email, hasPassword, isSaving, isSaved, saveError, on
         <KeyRound aria-hidden />
         Sign-in
       </h2>
-      <p className="text-body text-muted-foreground">The email and password you sign in to this console with, as argo.</p>
+      <p className="text-body text-muted-foreground" data-testid="settings-sign-in-state">
+        {email === null
+          ? 'argo has no email and password yet: you signed in with a link from npx aeolus-core sign-in. Set them to sign in with them instead.'
+          : 'The email and password you sign in to this console with, as argo.'}
+      </p>
       <form
         noValidate
         data-testid="settings-sign-in-form"

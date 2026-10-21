@@ -6,10 +6,11 @@ import { createSendMessage } from '../src/domain/messaging/send-message.js';
 import { createRetireShip } from '../src/domain/registry/retire-ship.js';
 import type { ShipCaller, Crew } from '../src/domain/shared/caller.js';
 import type { Selector } from '../src/domain/shared/selector.js';
-import { OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
+import { operatorCaller, secretOf } from './support/core-fixtures.js';
 import { createPostgresCore, heldUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from '../src/testing/result.js';
 import { newKey } from '../src/testing/keys.js';
+import { withOperatorLogin } from './support/operator-login.js';
 
 // Retire and re-crew on a real Postgres: a crewed ship's lease ends first,
 // its direct deliveries are abandoned and its type deliveries stay, a
@@ -30,7 +31,7 @@ let lookout: Crew;
 
 beforeEach(async () => {
   core = await createPostgresCore();
-  argo = operatorCaller(unwrap(await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
+  argo = operatorCaller(unwrap(await withOperatorLogin(core.prisma, core.useCases.initialiseFleet({ name: 'home fleet' }))));
   const scout = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
   scoutId = scout.shipId;
   scoutSecret = secretOf(scout.secret);

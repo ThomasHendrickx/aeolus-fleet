@@ -88,6 +88,10 @@ describe('accountOutputSchema', () => {
     expect(accountOutputSchema.parse({ ...account, session: { ...account.session, accountId: null } })).toMatchObject({ session: { accountId: null } });
   });
 
+  it("takes argo's own sign-in with no email yet: fleet:init gives it none (accounts design, A1)", () => {
+    expect(accountOutputSchema.parse({ ...account, email: null })).toMatchObject({ kind: 'operator', email: null });
+  });
+
   it('refuses another theme', () => {
     expect(accountOutputSchema.safeParse({ ...account, theme: 'sepia' }).success).toBe(false);
   });

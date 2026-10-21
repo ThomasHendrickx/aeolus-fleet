@@ -10,11 +10,12 @@ import { SHIP_CALLS } from '../src/adapters/trpc/ship-contract.js';
 import { createApp } from '../src/app.js';
 import type { ShipCaller } from '../src/domain/shared/caller.js';
 import { createUseCases } from '../src/wiring.js';
-import { FLEET_URL, OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
+import { FLEET_URL, operatorCaller, secretOf } from './support/core-fixtures.js';
 import { createMigratedDatabase } from '../src/testing/database.js';
 import { unwrap } from '../src/testing/result.js';
 import { newKey } from '../src/testing/keys.js';
 import { wholeShips } from './support/ships.js';
+import { withOperatorLogin } from './support/operator-login.js';
 
 // The ship contract as MCP tools, from the official MCP client over HTTP to
 // Postgres and back. A conversation registers with its ship's id and secret
@@ -42,7 +43,7 @@ beforeAll(async () => {
   databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
   argo = operatorCaller(
-    unwrap(await createUseCases({ prisma: database }).initialiseFleet({ name: 'home fleet', ...OPERATOR })),
+    unwrap(await withOperatorLogin(database, createUseCases({ prisma: database }).initialiseFleet({ name: 'home fleet' }))),
   );
   server = createApp({ databaseUrl, publicUrl: FLEET_URL, logger: false, receiveWaitMs: RECEIVE_WAIT_MS });
   address = await server.listen({ host: '127.0.0.1', port: 0 });

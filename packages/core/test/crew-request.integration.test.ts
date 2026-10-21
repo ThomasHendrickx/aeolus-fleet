@@ -3,12 +3,13 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createChangeLabelValues } from '../src/domain/registry/change-label-values.js';
 import type { ShipCaller } from '../src/domain/shared/caller.js';
-import { OPERATOR, operatorCaller } from './support/core-fixtures.js';
+import { operatorCaller } from './support/core-fixtures.js';
 import { createPostgresCore, heldUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from '../src/testing/result.js';
 import { newKey } from '../src/testing/keys.js';
 import { aCrewSettings } from './support/crew-fixtures.js';
 import { wholeShips } from './support/ships.js';
+import { withOperatorLogin } from './support/operator-login.js';
 
 // Crew requests on a real Postgres: one per ship, replaced in place, removed
 // by its requester or with a retire, each change with its event.
@@ -21,7 +22,7 @@ let scoutId: ShipCaller['shipId'];
 
 beforeEach(async () => {
   core = await createPostgresCore();
-  argo = operatorCaller(unwrap(await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
+  argo = operatorCaller(unwrap(await withOperatorLogin(core.prisma, core.useCases.initialiseFleet({ name: 'home fleet' }))));
   ({ shipId: scoutId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' })));
   core.clock.advance(60_000);
 });

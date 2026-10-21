@@ -5,10 +5,11 @@ import { cryptoRandomTokens, sha256Hasher } from '../src/adapters/crypto/secrets
 import { createCommissionShip } from '../src/domain/registry/commission-ship.js';
 import { createRenameShip } from '../src/domain/registry/rename-ship.js';
 import type { ShipCaller } from '../src/domain/shared/caller.js';
-import { OPERATOR, operatorCaller } from './support/core-fixtures.js';
+import { operatorCaller } from './support/core-fixtures.js';
 import { createPostgresCore, racingUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from '../src/testing/result.js';
 import { newKey } from '../src/testing/keys.js';
+import { withOperatorLogin } from './support/operator-login.js';
 
 // Renaming on a real Postgres: the new name and ShipRenamed in one
 // transaction, and the name lock that keeps a rename and a commission, or two
@@ -22,7 +23,7 @@ let scoutId: ShipId;
 
 beforeEach(async () => {
   core = await createPostgresCore();
-  argo = operatorCaller(unwrap(await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
+  argo = operatorCaller(unwrap(await withOperatorLogin(core.prisma, core.useCases.initialiseFleet({ name: 'home fleet' }))));
   ({ shipId: scoutId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' })));
 });
 
