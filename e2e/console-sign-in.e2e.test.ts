@@ -73,7 +73,7 @@ async function expectSentToSignIn(page: Page): Promise<void> {
 }
 
 describe('the first run, self-hosted: the link fleet:init printed', () => {
-  it('signs in as argo, and the account menu says so with no email yet', async () => {
+  it('signs in as argo, and the account menu says so with no email yet; Settings asks no current password', async () => {
     const page = await newPage();
 
     await page.goto(signInLink);
@@ -82,6 +82,7 @@ describe('the first run, self-hosted: the link fleet:init printed', () => {
     await page.locator('[data-testid="account-menu"]:visible', { hasText: 'Signed in as argo' }).waitFor();
     await page.getByTestId('nav-settings').click();
     await page.getByTestId('settings-sign-in-state').filter({ hasText: 'npx aeolus-core sign-in' }).waitFor();
+    await expect(page.getByTestId('settings-sign-in').getByLabel('Current password').count()).resolves.toBe(0);
   });
 
   it('says on the sign-in page how to get a link without a password', async () => {

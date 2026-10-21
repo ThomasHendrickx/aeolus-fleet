@@ -32,8 +32,8 @@ async function fillIn(canvasElement: HTMLElement, login: { current?: string; ema
 
 /** argo has an email and password: the email is filled in. */
 export const Idle: Story = {};
-/** argo signs in only with a link from the terminal so far (accounts design, A1). */
-export const NoEmailYet: Story = { args: { email: null } };
+/** argo signed in by a link and has no email or password yet: nothing else is asked. */
+export const NoEmailYet: Story = { args: { email: null, hasPassword: false } };
 export const Saving: Story = { args: { isSaving: true } };
 export const Saved: Story = { args: { isSaved: true } };
 /** The fleet refuses, and says why; what was typed stays. */
