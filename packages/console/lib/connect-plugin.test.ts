@@ -19,6 +19,8 @@ function fakes(start: { ships?: FleetShip[]; connection?: PluginConnection } = {
     done: new Array<string>(),
     handedOver: new Array<{ shipId: string; secret: string }>(),
     scopes: new Array<readonly string[]>(),
+    /** Each commissioned ship's kind as the fleet takes it: agent when none is given. */
+    kinds: new Array<string>(),
   };
   let next = 0;
   const calls: ConnectCalls = {
@@ -34,8 +36,9 @@ function fakes(start: { ships?: FleetShip[]; connection?: PluginConnection } = {
       return Promise.resolve(state.connection);
     },
     ships: () => Promise.resolve(state.ships.map(({ id, name, type, status }) => ({ id, name, type, status }))),
-    commission: ({ name, type, scopes }) => {
+    commission: ({ name, type, scopes, kind }) => {
       state.scopes.push(scopes);
+      state.kinds.push(kind ?? 'agent');
       next += 1;
       const ship: FleetShip = { id: `shp_${String(next)}`, name, type, status: 'awaitingCrew', secret: `aeolus_sk_v1_${String(next)}` };
       state.ships.push(ship);
@@ -185,5 +188,26 @@ describe('connecting the gateway from the console', () => {
 
     expect(state.done).toEqual(['commission gateway', 'connect as plugin shp_1']);
     expect(state.scopes).toEqual([['fleet:read', 'fleet:commission', 'fleet:on-behalf', 'scopes:declare', 'fleet:verify']]);
+  });
+
+  it('commissions gateway as an app ship: it is software, so its sends state no model (decision 0044, #1031)', async () => {
+    const { calls, state } = fakes();
+
+    await connectPlugin(calls, { ship: GATEWAY_SHIP, newKey });
+
+    expect(state.kinds).toEqual(['app']);
+  });
+});
+
+describe("a plugin's ship kind until kind plugin is built (decision 0050)", () => {
+  it.each([
+    ['squadrons', SQUADRONS_SHIP],
+    ['the trierarch plugin', TRIERARCH_PLUGIN_SHIP],
+  ])('commissions %s as an agent ship, as before', async (_plugin, ship) => {
+    const { calls, state } = fakes();
+
+    await connectPlugin(calls, { ship, newKey });
+
+    expect(state.kinds).toEqual(['agent']);
   });
 });
