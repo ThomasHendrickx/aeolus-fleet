@@ -5,16 +5,17 @@ import { accessOf, NO_ACCESS } from './access';
 
 describe('what a console session may do', () => {
   it('is everything for the operator, whose argo holds every scope', () => {
-    expect(accessOf({ kind: 'operator', scopes: [...SCOPES] })).toEqual({ canManage: true, canSend: true, canReceive: true, canDefineLabels: true, canAssignLabels: true, canEditNetwork: true, isViewer: false });
+    expect(accessOf({ kind: 'operator', scopes: [...SCOPES] })).toEqual({ canManage: true, canResend: true, canSend: true, canReceive: true, canDefineLabels: true, canAssignLabels: true, canEditNetwork: true, isViewer: false });
   });
 
   it('is reading only for a viewer, whose ship holds fleet:read alone', () => {
-    expect(accessOf({ kind: 'viewer', scopes: ['fleet:read'] })).toEqual({ canManage: false, canSend: false, canReceive: false, canDefineLabels: false, canAssignLabels: false, canEditNetwork: false, isViewer: true });
+    expect(accessOf({ kind: 'viewer', scopes: ['fleet:read'] })).toEqual({ canManage: false, canResend: false, canSend: false, canReceive: false, canDefineLabels: false, canAssignLabels: false, canEditNetwork: false, isViewer: true });
   });
 
   it("gives an account what its scopes allow, but never Compose, Done or Reply: only a ship sends, and argo's inbox actions stay argo's (header design, C3, C4)", () => {
-    expect(accessOf({ kind: 'account', scopes: ['fleet:read', 'fleet:manage', 'messages:send', 'messages:receive'] })).toEqual({
+    expect(accessOf({ kind: 'account', scopes: ['fleet:read', 'fleet:manage', 'messages:resend', 'messages:send', 'messages:receive'] })).toEqual({
       canManage: true,
+      canResend: true,
       canSend: false,
       canReceive: false,
       canDefineLabels: false,
@@ -26,6 +27,10 @@ describe('what a console session may do', () => {
 
   it('follows each scope on its own', () => {
     expect(accessOf({ kind: 'operator', scopes: ['fleet:read', 'messages:send'] })).toMatchObject({ canManage: false, canSend: true, canReceive: false });
+  });
+
+  it('offers Resend and Dismiss only with messages:resend, as the fleet checks them', () => {
+    expect([accessOf({ kind: 'account', scopes: ['fleet:read', 'messages:resend'] }).canResend, accessOf({ kind: 'account', scopes: ['fleet:manage'] }).canResend]).toEqual([true, false]);
   });
 
   it('offers Define a label only with labels:define', () => {
