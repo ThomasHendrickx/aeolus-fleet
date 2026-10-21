@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { clearedSessionCookie, readBearer, readSessionToken, sessionCookie } from './request-credentials.js';
+import { accountTokenCookie, clearedAccountTokenCookie, clearedSessionCookie, readAccountTokenCookie, readBearer, readSessionToken, sessionCookie } from './request-credentials.js';
 
 describe('readSessionToken', () => {
   it.each([
@@ -71,5 +71,26 @@ describe('readBearer', () => {
 
   it.each([undefined, '', 'Basic abc', 'Bearer', 'Bearer a b'])('finds nothing in %j', (header) => {
     expect(readBearer(header)).toBeUndefined();
+  });
+});
+
+describe("the account token cookie of an account's console sign-in", () => {
+  it('is read from a Cookie header beside the session cookie', () => {
+    expect(readAccountTokenCookie('aeolus_session=abc; aeolus_account_token=eyJ.a.b')).toBe('eyJ.a.b');
+    expect(readAccountTokenCookie('aeolus_session=abc')).toBeUndefined();
+    expect(readAccountTokenCookie(undefined)).toBeUndefined();
+  });
+
+  it('lasts as long as the token, httpOnly, Secure and SameSite=Strict, for the configured domain', () => {
+    const now = new Date('2026-10-21T10:00:00.000Z');
+
+    expect(accountTokenCookie({ token: 'eyJ.a.b', endsAt: new Date('2026-10-21T10:10:00.000Z'), now })).toBe('aeolus_account_token=eyJ.a.b; Max-Age=600; Path=/; HttpOnly; Secure; SameSite=Strict');
+    expect(accountTokenCookie({ token: 'eyJ.a.b', endsAt: new Date('2026-10-21T10:10:00.000Z'), now, domain: 'fleet.example.com' })).toBe(
+      'aeolus_account_token=eyJ.a.b; Max-Age=600; Domain=fleet.example.com; Path=/; HttpOnly; Secure; SameSite=Strict',
+    );
+  });
+
+  it('is cleared for the same domain', () => {
+    expect(clearedAccountTokenCookie()).toBe('aeolus_account_token=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Strict');
   });
 });

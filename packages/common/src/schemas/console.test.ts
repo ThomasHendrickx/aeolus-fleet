@@ -5,6 +5,7 @@ import {
   THEMES,
   accountOutputSchema,
   consoleSessionOutputSchema,
+  presentAccountTokenInputSchema,
   redeemSignInTicketInputSchema,
   setLoginInputSchema,
   setThemeInputSchema,
@@ -63,8 +64,24 @@ describe('consoleSessionOutputSchema', () => {
     expect(consoleSessionOutputSchema.safeParse({ ...output, expiresAt: 'soon' }).success).toBe(false);
   });
 
-  it('rejects an agent: only the operator and a viewer have console sessions', () => {
+  it('rejects an agent: only the operator, a viewer and an account sign in to the console', () => {
     expect(consoleSessionOutputSchema.safeParse({ ...output, kind: 'agent' }).success).toBe(false);
+  });
+
+  it("answers an account's sign-in with the account's id, its token's end and the scopes it carries (accounts design, F1)", () => {
+    const account = { ...output, kind: 'account', accountId: 'acc-mathilde', scopes: ['fleet:read'] };
+
+    expect(consoleSessionOutputSchema.parse(account)).toEqual(account);
+  });
+});
+
+describe('presentAccountTokenInputSchema', () => {
+  it('takes the account token pagasae gave the console', () => {
+    expect(presentAccountTokenInputSchema.parse({ token: 'eyJ.a.b' })).toEqual({ token: 'eyJ.a.b' });
+  });
+
+  it('refuses an empty token', () => {
+    expect(presentAccountTokenInputSchema.safeParse({ token: '' }).success).toBe(false);
   });
 });
 
@@ -99,6 +116,10 @@ describe('accountOutputSchema', () => {
   it('says whether argo has a password, so Settings asks for it before a change', () => {
     expect(accountOutputSchema.parse({ ...account, hasPassword: false })).toMatchObject({ hasPassword: false });
     expect(accountOutputSchema.safeParse({ ...account, hasPassword: 'yes' }).success).toBe(false);
+  });
+
+  it('takes an account by its id alone: core keeps no email (decision 0058)', () => {
+    expect(accountOutputSchema.parse({ kind: 'account', accountId: 'acc-mathilde' })).toEqual({ kind: 'account', accountId: 'acc-mathilde' });
   });
 
   it("takes a viewer's session alone, with no email and no theme", () => {
