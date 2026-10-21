@@ -63,6 +63,7 @@ describe('a plugin call from the web app server', () => {
 describe('the cookie a plugin call forwards', () => {
   it('is the console session cookie only', () => {
     expect(sessionCookieOf('theme=dark; aeolus_session=abc; other=1')).toBe('aeolus_session=abc');
+    expect(sessionCookieOf('aeolus_account_token=eyJ.a.b; theme=dark')).toBe('aeolus_account_token=eyJ.a.b');
   });
 
   it('is empty without a session cookie', () => {

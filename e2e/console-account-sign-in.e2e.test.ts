@@ -1,0 +1,134 @@
+import type { FleetId } from '@aeolus-fleet/common';
+import type { FastifyInstance } from 'fastify';
+import type { Browser, BrowserContext, Page } from 'playwright';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
+import { createPrismaClient, type PrismaClient } from '../packages/core/src/adapters/prisma/client.js';
+import { createApp } from '../packages/core/src/app.js';
+import { createMigratedDatabase } from '../packages/core/src/testing/database.js';
+import { newKey } from '../packages/core/src/testing/keys.js';
+import { unwrap } from '../packages/core/src/testing/result.js';
+import { createUseCases } from '../packages/core/src/wiring.js';
+import { FLEET_URL, OPERATOR, operatorCaller } from '../packages/core/test/support/core-fixtures.js';
+import { startFakePagasae, type FakeAccount, type FakePagasae } from './support/fake-pagasae.js';
+import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
+
+// A human signs in to the console as their own account (accounts design, F1,
+// A8): through pagasae's shared sign-in, with an account token for the fleet,
+// no lease, and the console showing what the account's scopes allow. pagasae
+// is the fake one, answering as pagasae does.
+
+let database: PrismaClient;
+let pagasae: FakePagasae;
+let server: FastifyInstance;
+let web: RunningWeb;
+let browser: Browser;
+let fleetId: FleetId;
+const contexts: BrowserContext[] = [];
+
+function mathilde(scopes: readonly string[] = ['fleet:read', 'fleet:manage']): FakeAccount {
+  return { id: 'acc-mathilde', email: 'mathilde@acme.example', fleets: [{ id: fleetId, name: 'home fleet', scopes }] };
+}
+
+beforeAll(async () => {
+  const databaseUrl = await createMigratedDatabase();
+  database = createPrismaClient(databaseUrl);
+  const useCases = createUseCases({ prisma: database });
+  const fleet = unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR }));
+  ({ fleetId } = fleet);
+  unwrap(await useCases.commissionShip(operatorCaller(fleet), { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
+
+  pagasae = await startFakePagasae();
+  const webUrl = await reserveWebUrl();
+  server = createApp({ databaseUrl, publicUrl: FLEET_URL, consoleOrigin: webUrl, logger: false, accountTokenIssuer: pagasae.url });
+  const serverUrl = await server.listen({ host: '127.0.0.1', port: 0 });
+  web = await startWeb({ url: webUrl, serverUrl, pagasae });
+  browser = await launchChromium();
+});
+
+afterAll(async () => {
+  await Promise.all(contexts.map((context) => context.close()));
+  await browser.close();
+  await web.stop();
+  await server.close();
+  await pagasae.close();
+  await database.$disconnect();
+});
+
+async function newPage(): Promise<Page> {
+  const context = await browser.newContext({ baseURL: web.url });
+  contexts.push(context);
+  return context.newPage();
+}
+
+describe('an account signing in to the console', () => {
+  it('signs in through pagasae once and sees the fleet as itself, with no Compose and no lease taken', async () => {
+    pagasae.signInAs(mathilde());
+    const leasesBefore = await database.lease.count({ where: { fleetId } });
+    const page = await newPage();
+
+    await page.goto('/');
+
+    await page.waitForURL(`${web.url}/`);
+    await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+    await page.getByRole('link', { name: 'scout' }).first().waitFor();
+    await page.locator('[data-testid="account-menu"]:visible', { hasText: 'Signed in as your account' }).waitFor();
+    await page.locator('[data-testid="account-menu"]:visible', { hasText: 'mathilde@acme.example' }).waitFor();
+    await expect(page.getByTestId('header-compose').count()).resolves.toBe(0);
+    await expect(database.lease.count({ where: { fleetId } })).resolves.toBe(leasesBefore);
+    await expect(database.consoleSession.count({ where: { fleetId } })).resolves.toBe(0);
+  });
+
+  it('enters at once with the shared sign-in already there: no second sign-in at pagasae', async () => {
+    pagasae.signInAs(mathilde());
+    const page = await newPage();
+    await page.goto('/');
+    await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+    const asked = pagasae.signInsAsked();
+    const context = page.context();
+    // The console's own sign-in cookies go; pagasae's shared sign-in stays.
+    await context.clearCookies({ name: 'aeolus_account_token' });
+
+    await page.goto('/ships');
+
+    await page.waitForURL(`${web.url}/ships`);
+    expect(pagasae.signInsAsked()).toBe(asked);
+  });
+
+  it('says there is nothing to manage here for an account without fleet:read', async () => {
+    pagasae.signInAs(mathilde(['messages:send']));
+    const page = await newPage();
+
+    await page.goto('/');
+
+    await page.waitForURL(`${web.url}/sign-in/nothing-to-manage`);
+    await page.getByText('Nothing to manage here').waitFor();
+  });
+
+  it('says the account has no rights in the fleet when it holds none', async () => {
+    pagasae.signInAs({ id: 'acc-burak', email: 'burak@acme.example', fleets: [] });
+    const page = await newPage();
+
+    await page.goto('/');
+
+    await page.waitForURL(`${web.url}/sign-in/no-rights`);
+    await page.getByText('You have no rights in this fleet. Ask an organisation admin.').waitFor();
+  });
+
+  it('signs out of every app: the shared sign-in ends at pagasae and the console asks to sign in again', async () => {
+    pagasae.signInAs(mathilde());
+    const page = await newPage();
+    await page.goto('/');
+    await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+    const revokedBefore = pagasae.revoked().length;
+
+    await page.locator('[data-testid="account-menu"]:visible').click();
+    await page.getByRole('menuitem', { name: 'Sign out' }).click();
+
+    await page.waitForURL(`${web.url}/sign-in?signed=out`);
+    await page.getByTestId('sign-in-signed-out').waitFor();
+    expect(pagasae.revoked().length).toBe(revokedBefore + 1);
+    const cookies = await page.context().cookies();
+    expect(cookies.map(({ name }) => name)).not.toContain('aeolus_account_token');
+  });
+});

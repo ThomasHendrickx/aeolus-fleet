@@ -20,6 +20,20 @@ describe('signInUrlFor', () => {
   });
 });
 
+describe('signInUrlFor, where the console signs accounts in through pagasae', () => {
+  const PAGASAE = { AEOLUS_PAGASAE_URL: 'https://account.example.com', AEOLUS_PAGASAE_CLIENT_ID: 'console', AEOLUS_PAGASAE_CLIENT_SECRET: 's'.repeat(32) };
+
+  it('enters the fleet at once with the shared sign-in, coming back to the page asked for', () => {
+    expect(signInUrlFor(PAGASAE, { requestUrl: 'https://fleet.example.com/ships?tab=messages', hasSharedSignIn: true }).href).toBe(
+      'https://fleet.example.com/sign-in/enter?returnTo=%2Fships%3Ftab%3Dmessages',
+    );
+  });
+
+  it("starts pagasae's sign-in without it", () => {
+    expect(signInUrlFor(PAGASAE, { requestUrl: 'https://fleet.example.com/ships', hasSharedSignIn: false }).href).toBe('https://fleet.example.com/sign-in/start?returnTo=%2Fships');
+  });
+});
+
 describe('sessionOf', () => {
   const serverUrl = 'http://server:4000';
 
@@ -39,6 +53,18 @@ describe('sessionOf', () => {
 
     await expect(sessionOf(aRequest('aeolus_session=abc'), { serverUrl, fetchImplementation })).resolves.toBe('live');
     expect(fetchImplementation).toHaveBeenCalledWith('http://server:4000/trpc/console.session', expect.objectContaining({ headers: { cookie: 'aeolus_session=abc' } }));
+  });
+
+  it("asks the server with an account's token cookie alone", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ result: { data: { kind: 'account', scopes: ['fleet:read'] } } }));
+
+    await expect(sessionOf(aRequest('aeolus_account_token=eyJ.a.b'), { serverUrl, fetchImplementation })).resolves.toBe('live');
+  });
+
+  it('has nothing to manage for an account without fleet:read (accounts design, A8)', async () => {
+    const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ result: { data: { kind: 'account', scopes: ['messages:send'] } } }));
+
+    await expect(sessionOf(aRequest('aeolus_account_token=eyJ.a.b'), { serverUrl, fetchImplementation })).resolves.toBe('nothingToManage');
   });
 
   it('is ended when the server refuses the session', async () => {
