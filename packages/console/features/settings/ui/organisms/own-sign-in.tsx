@@ -13,11 +13,15 @@ import { InlineError } from '../../../../components/molecules/inline-error';
 export interface OwnSignInLogin {
   email: string;
   password: string;
+  /** The password argo signs in with now; none while it has none. */
+  currentPassword?: string;
 }
 
 interface OwnSignInProps {
   /** The email argo signs in with now, filled in. */
   email: string;
+  /** argo has a password: the change asks for it first. */
+  hasPassword: boolean;
   isSaving: boolean;
   /** The last save went through: says so until the next one. */
   isSaved: boolean;
@@ -27,6 +31,7 @@ interface OwnSignInProps {
 }
 
 const DIFFERENT_PASSWORDS = 'The two passwords differ';
+const CURRENT_PASSWORD_REQUIRED = 'Enter your current password';
 
 const FIELD_ERROR = 'text-meta text-destructive-text';
 
@@ -34,18 +39,19 @@ const FIELD_ERROR = 'text-meta text-destructive-text';
  * Settings, Sign-in: the email and password of argo's own sign-in, on a
  * self-hosted fleet (accounts design, A1). The email is the user name. Both
  * are set together; the password twice, checked here as a hint by the rule
- * the server applies. A failed save keeps what was typed and says why.
+ * the server applies. While argo has a password, the change asks for it
+ * first. A failed save keeps what was typed and says why.
  */
-export function OwnSignIn({ email, isSaving, isSaved, saveError, onSave }: OwnSignInProps) {
+export function OwnSignIn({ email, hasPassword, isSaving, isSaved, saveError, onSave }: OwnSignInProps) {
   const {
     register,
     handleSubmit,
     getValues,
     formState: { errors },
-  } = useForm({ defaultValues: { email, password: '', repeat: '' } });
+  } = useForm({ defaultValues: { currentPassword: '', email, password: '', repeat: '' } });
 
   const submit = handleSubmit((input) => {
-    onSave({ email: input.email, password: input.password });
+    onSave(hasPassword ? { email: input.email, password: input.password, currentPassword: input.currentPassword } : { email: input.email, password: input.password });
   });
 
   return (
@@ -63,6 +69,24 @@ export function OwnSignIn({ email, isSaving, isSaved, saveError, onSave }: OwnSi
           void submit(event);
         }}
       >
+        {hasPassword ? (
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="settings-sign-in-current">Current password</Label>
+            <Input
+              id="settings-sign-in-current"
+              type="password"
+              autoComplete="current-password"
+              aria-invalid={errors.currentPassword ? true : undefined}
+              aria-describedby={errors.currentPassword ? 'settings-sign-in-current-error' : undefined}
+              {...register('currentPassword', { validate: (value) => value !== '' || CURRENT_PASSWORD_REQUIRED })}
+            />
+            {errors.currentPassword ? (
+              <span id="settings-sign-in-current-error" className={FIELD_ERROR}>
+                {errors.currentPassword.message}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="settings-sign-in-email">Email</Label>
           <Input
@@ -117,7 +141,7 @@ export function OwnSignIn({ email, isSaving, isSaved, saveError, onSave }: OwnSi
             {isSaving ? 'Saving…' : 'Save email and password'}
           </Button>
         </div>
-        {saveError !== undefined && <InlineError variant="field" title="Couldn’t save the email and password" description={saveError} />}
+        {saveError !== undefined && <InlineError variant="section" title="Couldn’t save the email and password" description={saveError} />}
         {isSaved && saveError === undefined && !isSaving ? (
           <p role="status" data-testid="settings-sign-in-saved" className="flex items-center gap-1.5 text-meta text-tone-ok-fg [&_svg]:size-(--size-icon-sm)">
             <CircleCheck aria-hidden />

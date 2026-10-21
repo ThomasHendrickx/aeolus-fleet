@@ -7,6 +7,8 @@ import type { OwnSignInLogin } from '../ui/organisms/own-sign-in';
 export interface OwnSignIn {
   /** Undefined while the account loads, and for a session that is not argo's. */
   email: string | undefined;
+  /** argo has a password, so a change asks for it first. */
+  hasPassword: boolean;
   isSaving: boolean;
   isSaved: boolean;
   saveError: string | undefined;
@@ -29,6 +31,7 @@ export function useOwnSignIn(): OwnSignIn {
   );
   return {
     email: account.data?.kind === 'operator' ? account.data.email : undefined,
+    hasPassword: account.data?.kind === 'operator' && account.data.hasPassword,
     isSaving: setLogin.isPending,
     isSaved: setLogin.isSuccess,
     saveError: setLogin.error?.message,

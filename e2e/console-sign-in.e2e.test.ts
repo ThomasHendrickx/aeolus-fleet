@@ -218,7 +218,7 @@ describe('the console sign-in', () => {
 });
 
 describe("argo's own email and password, set in Settings", () => {
-  it('signs in with the new email and password, and no longer with the old', async () => {
+  it('asks the current password first, then signs in with the new email and password, and no longer with the old', async () => {
     const changed = { email: 'mathilde@example.com', password: 'staple battery horse' };
     const page = await newPage();
     await signIn(page, OPERATOR);
@@ -230,6 +230,10 @@ describe("argo's own email and password, set in Settings", () => {
     await section.getByLabel('Email').fill(changed.email);
     await section.getByLabel('New password').fill(changed.password);
     await section.getByLabel('Repeat the password').fill(changed.password);
+    await section.getByLabel('Current password').fill('not the password at all');
+    await section.getByTestId('settings-sign-in-save').click();
+    await section.getByText('That is not your current password').waitFor();
+    await section.getByLabel('Current password').fill(OPERATOR.password);
     await section.getByTestId('settings-sign-in-save').click();
     await page.getByTestId('settings-sign-in-saved').waitFor();
 
@@ -245,6 +249,7 @@ describe("argo's own email and password, set in Settings", () => {
     await next.getByTestId('settings-sign-in').getByLabel('Email').fill(OPERATOR.email);
     await next.getByTestId('settings-sign-in').getByLabel('New password').fill(OPERATOR.password);
     await next.getByTestId('settings-sign-in').getByLabel('Repeat the password').fill(OPERATOR.password);
+    await next.getByTestId('settings-sign-in').getByLabel('Current password').fill(changed.password);
     await next.getByTestId('settings-sign-in-save').click();
     await next.getByTestId('settings-sign-in-saved').waitFor();
   });
