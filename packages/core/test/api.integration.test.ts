@@ -1350,6 +1350,17 @@ describe('the ship page reads at the API', () => {
     });
   });
 
+  it("serve a ship with its crew's statement (decision 0047)", async () => {
+    const asArgo = await signedInArgo();
+    const { shipId, prompt } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), name: `stater-${newId('ship').slice(-6)}`, type: 'reviewer' });
+    const { crewToken } = await client().ship.register.mutate({ shipId, secret: secretIn(prompt), location: { kind: 'DEVICE' }, harness: 'claude-code' });
+    await client({ authorization: `Bearer ${crewToken}` }).ship.setStatement.mutate({ summary: 'Reviews pull requests.', capabilities: [{ name: 'review_pr' }] });
+
+    await expect(asArgo.fleet.ship.query({ shipId })).resolves.toMatchObject({
+      statement: { by: 'crew', version: 1, summary: 'Reviews pull requests.', capabilities: [{ name: 'review_pr' }] },
+    });
+  });
+
   it('refuse them to a ship without fleet:read', async () => {
     const reader = client({ authorization: `Bearer ${await crewedShip()}` });
 
