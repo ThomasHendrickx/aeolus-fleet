@@ -23,9 +23,16 @@ Structure: vertical by feature, atomic design inside it. The repo's companion sk
 
 State:
 - Server data via the API client plus TanStack Query, never copied into local state. URL-worthy view state in search params. Forms with React Hook Form. Local UI state in the owning component. No global store.
-- Mutations live in their hook, which invalidates. Show pending, success, failure; failures keep user input. Destructive actions confirm.
+- Mutations live in their hook, which invalidates. Destructive actions confirm.
 - `useEffect` only to sync with outside systems (a WebSocket, a browser API). Derive values in render. No manual memoisation, no index keys, no browser storage for server data.
 - The session is an httpOnly cookie; a password lives only in the sign-in form.
+
+Interaction feedback (a must: a control that gives none is a bug, whatever else works):
+- Every action answers at once. Within 100 ms of the press the control shows it is working: a spinner on the control and a working label ("Saving..."), disabled so it cannot run twice. Never wait for the server before showing anything; 500 ms of nothing reads as broken.
+- Every action ends in a visible outcome. Success says what happened (a toast, or the change shown in place). Failure says what went wrong and what to do next, inline by the control, keeping the input. Never an empty reason, never a silent no-op.
+- An optimistic change that fails rolls back visibly and says so.
+- Data that loads shows the shape that is coming (a skeleton), never a blank area or a bare spinner for the page.
+- Tests: each interactive part has stories for idle, pending, success and failure, and an interaction test that a press shows pending before the answer arrives.
 
 Quality:
 - Keyboard reachable, accessible names, status never by colour alone. `data-testid="{area}-{element}"` on elements tests touch.
