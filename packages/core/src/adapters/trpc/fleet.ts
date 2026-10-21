@@ -73,8 +73,6 @@ import {
   reachRefusalsOutputSchema,
   explainReachInputSchema,
   setOwnerInputSchema,
-  connectPluginInputSchema,
-  connectPluginOutputSchema,
   setOwnerOutputSchema,
   setVerifiedFactsInputSchema,
   setVerifiedFactsOutputSchema,
@@ -157,7 +155,7 @@ function pingOutputOf(ping: PingStatus | null) {
  */
 export const fleetRouter = router({
   /** A new agent ship awaiting crew, and its first starting prompt: shown once. */
-  commission: actorAnyScopeProcedure('fleet:commission', 'fleet:person')
+  commission: actorAnyScopeProcedure('fleet:commission', 'fleet:person', 'fleet:connect')
     .meta({
       description: [
         'Needs fleet:commission, or fleet:person for a person ship. Commissions a new ship awaiting crew, for a ship, an account or the installation: name and type are handles (lowercase letters, digits, hyphens, colons).',
@@ -427,15 +425,6 @@ export const fleetRouter = router({
     .output(setOwnerOutputSchema)
     .mutation(async ({ ctx, input }) => {
       okOrThrow(await ctx.useCases.setOwner(ctx.caller, input));
-      return {};
-    }),
-
-  /** Connects a ship as a plugin, which then reads every ship until a release or retire ends it (decisions 0034, 0053). */
-  connectPlugin: actorScopedProcedure('fleet:connect')
-    .input(connectPluginInputSchema)
-    .output(connectPluginOutputSchema)
-    .mutation(async ({ ctx, input }) => {
-      okOrThrow(await ctx.useCases.connectPlugin(ctx.caller, input));
       return {};
     }),
 

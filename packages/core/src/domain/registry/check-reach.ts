@@ -7,7 +7,7 @@ import type { UnitOfWork } from '../shared/unit-of-work.js';
 import type { Recipient } from '../shared/selector.js';
 import type { CarriedLabel } from './label.js';
 import { allowsReach, rulesInForce, type NetworkSettings, type ReachingActor, type ReachingShip, type RulesInForce } from './network-settings.js';
-import type { DeclaredNetworkRulesRepository, LabelRepository, NetworkSettingsRepository, PluginConnectionRepository, ReachRefusalRepository, ShipRepository } from './ports.js';
+import type { DeclaredNetworkRulesRepository, LabelRepository, NetworkSettingsRepository, ReachRefusalRepository, ShipRepository } from './ports.js';
 import type { RefusedActor, RefusedShip } from './reach-refusal.js';
 import type { Ship } from './ship.js';
 
@@ -15,7 +15,6 @@ import type { Ship } from './ship.js';
 export interface CheckReachTx {
   networkSettings: Pick<NetworkSettingsRepository, 'findForShare'>;
   ships: Pick<ShipRepository, 'find' | 'listActiveOfType'>;
-  pluginConnections: Pick<PluginConnectionRepository, 'find'>;
   labels: Pick<LabelRepository, 'carriedBy' | 'find' | 'findByKey'>;
   reachRefusals: ReachRefusalRepository;
   declaredNetworkRules: Pick<DeclaredNetworkRulesRepository, 'list'>;
@@ -220,13 +219,11 @@ export interface ShipAsItIs {
   owner: { id: ShipId; name: string } | null;
   /** Whether its owner is a person ship: a person ship owns itself (decision 0045). */
   isOwnedByPerson: boolean;
-  /** Whether argo connected it as a plugin (decision 0034). */
-  isConnectedPlugin: boolean;
 }
 
 /** The ship with the label values it carries now, by key then value, with their texts, and its owner. */
 export async function shipAsItIs(
-  tx: { labels: CheckReachTx['labels']; ships: Pick<ShipRepository, 'find'>; pluginConnections: CheckReachTx['pluginConnections'] },
+  tx: { labels: CheckReachTx['labels']; ships: Pick<ShipRepository, 'find'> },
   ship: Ship,
 ): Promise<ShipAsItIs> {
   const labels: CarriedLabel[] = [];
@@ -239,12 +236,11 @@ export async function shipAsItIs(
   }
   labels.sort((first, second) => first.key.localeCompare(second.key) || first.value.localeCompare(second.value));
   const owner = ship.owner === null ? undefined : await tx.ships.find(ship.fleetId, ship.owner);
-  const isConnectedPlugin = (await tx.pluginConnections.find(ship.fleetId, ship.id)) !== undefined;
-  return { ship, labels, owner: owner ? { id: owner.id, name: owner.name } : null, isOwnedByPerson: owner?.kind === 'person', isConnectedPlugin };
+  return { ship, labels, owner: owner ? { id: owner.id, name: owner.name } : null, isOwnedByPerson: owner?.kind === 'person' };
 }
 
-export function reaching({ ship, labels, isConnectedPlugin, isOwnedByPerson }: ShipAsItIs): ReachingShip {
-  return { id: ship.id, owner: ship.owner, kind: ship.kind, isConnectedPlugin, isOwnedByPerson, labels: labels.map(({ labelId, valueId }) => ({ labelId, valueId })) };
+export function reaching({ ship, labels, isOwnedByPerson }: ShipAsItIs): ReachingShip {
+  return { id: ship.id, owner: ship.owner, kind: ship.kind, isOwnedByPerson, labels: labels.map(({ labelId, valueId }) => ({ labelId, valueId })) };
 }
 
 /** The label that carries an account's groups (decisions 0052, 0058): its token names the values by their texts. */
@@ -258,7 +254,7 @@ export const GROUP_LABEL_KEY = 'group';
  * installation.
  */
 export async function actorAsItIs(
-  tx: { labels: CheckReachTx['labels']; ships: Pick<ShipRepository, 'find'>; pluginConnections: CheckReachTx['pluginConnections'] },
+  tx: { labels: CheckReachTx['labels']; ships: Pick<ShipRepository, 'find'> },
   caller: Caller,
 ): Promise<{ reaching: ReachingActor; refused: RefusedActor; ship?: Ship } | undefined> {
   if (caller.kind === 'installation') {

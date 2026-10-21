@@ -95,7 +95,6 @@ export function createPrismaFleetRepository(db: Db): FleetRepository {
       await db.$executeRaw`DELETE FROM declared_network_rules WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM installation_declared_network_rules WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM scope_namespaces WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`DELETE FROM plugin_connections WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM verified_facts WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM ship_labels WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM label_values WHERE fleet_id = ${fleetId}`;

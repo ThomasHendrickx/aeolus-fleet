@@ -153,23 +153,18 @@ describe('changing an owner (fleet:owner)', () => {
 });
 
 describe('connecting a plugin (fleet:connect)', () => {
-  it('is done by an agent ship holding fleet:connect, the event naming it', async () => {
+  it('is done by an agent ship holding fleet:connect, commissioning a plugin ship, the event naming it', async () => {
     const connector = await anAgentHolding(['fleet:connect']);
-    const plugin = await anAgentHolding([]);
 
-    await connector.calls.fleet.connectPlugin.mutate({ shipId: plugin.shipId });
+    const { shipId } = await connector.calls.fleet.commission.mutate({ idempotencyKey: newKey(), name: 'squadrons-connected', type: 'squadrons', kind: 'plugin' });
 
-    await expect(lastEventAbout(plugin.shipId, 'PluginConnected')).resolves.toMatchObject({ actorKind: 'ship', actorShipId: connector.shipId });
+    await expect(lastEventAbout(shipId, 'PluginConnected')).resolves.toMatchObject({ actorKind: 'ship', actorShipId: connector.shipId });
   });
 
   it('is refused to a ship without fleet:connect', async () => {
-    const manager = await anAgentHolding(['fleet:manage']);
-    const plugin = await anAgentHolding([]);
+    const manager = await anAgentHolding(['fleet:commission', 'fleet:manage']);
 
-    await expect(refusalOf(manager.calls.fleet.connectPlugin.mutate({ shipId: plugin.shipId }))).resolves.toEqual({
-      code: 'FORBIDDEN',
-      message: 'This call needs the fleet:connect scope',
-    });
+    await expect(refusalOf(manager.calls.fleet.commission.mutate({ idempotencyKey: newKey(), name: 'squadrons-refused', type: 'squadrons', kind: 'plugin' }))).resolves.toMatchObject({ code: 'FORBIDDEN' });
   });
 });
 

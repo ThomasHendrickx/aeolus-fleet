@@ -111,11 +111,6 @@ export const renameShipInputSchema = z.object({ shipId: idSchema('ship'), name: 
 /** Output of `fleet.rename`: nothing; the OK is the answer. */
 export const renameShipOutputSchema = z.strictObject({});
 
-/** Input of `fleet.connectPlugin`: the ship argo connects as a plugin, which then reads every ship (decision 0034). argo's only. */
-export const connectPluginInputSchema = z.object({ shipId: idSchema('ship') });
-
-/** Output of `fleet.connectPlugin`: nothing; the OK is the answer. */
-export const connectPluginOutputSchema = z.strictObject({});
 
 /** Input of `fleet.setOwner`: the ship and its new owner, an active person's ship or argo (decision 0045). argo's only. */
 export const setOwnerInputSchema = z.object({ shipId: idSchema('ship'), ownerShipId: idSchema('ship') });

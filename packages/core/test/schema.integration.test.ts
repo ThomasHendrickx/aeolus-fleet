@@ -759,42 +759,37 @@ describe('the scopes for what was argo\'s alone migration', () => {
   });
 });
 
-describe('the plugin connections migration', () => {
+describe('the plugin ships migration', () => {
   const MIGRATIONS = fileURLToPath(new URL('../src/adapters/prisma/migrations', import.meta.url));
-  const connections = readdirSync(MIGRATIONS).find((name) => name.endsWith('_plugin_connections'));
+  const pluginShips = readdirSync(MIGRATIONS).find((name) => name.endsWith('_plugin_ships'));
 
-  it('connects every active ship the console connects a plugin as, by name and type, with PluginConnected by the system, and no other ship (decision 0034)', async () => {
+  it('makes kind plugin every active ship with a plugin connection or the name and type of a plugin, gateway included, and drops the connections (decision 0050)', async () => {
     const url = await createMigratedDatabase();
     const client = createPrismaClient(url);
     const fleetId = newId('fleet');
-    const ids = { squadrons: newId('ship'), trierarchPlugin: newId('ship'), networking: newId('ship'), ofSquadronsType: newId('ship'), retired: newId('ship'), scout: newId('ship') };
-    const earlier = newId('event');
+    const ids = { squadrons: newId('ship'), trierarchPlugin: newId('ship'), gateway: newId('ship'), networking: newId('ship'), ofSquadronsType: newId('ship'), retired: newId('ship'), scout: newId('ship') };
     try {
-      // The migrated database has the table already: the migration makes it again, as on a database before it.
-      await client.$executeRawUnsafe('DROP TABLE "plugin_connections"');
-      await client.fleet.create({ data: { id: fleetId, name: 'old fleet', createdAt: now, lastEventSeq: 1n } });
+      // The connections as they were before the migration.
+      await client.$executeRawUnsafe('CREATE TABLE "plugin_connections" ("fleet_id" TEXT NOT NULL, "ship_id" TEXT NOT NULL, "connected_at" TIMESTAMPTZ(3) NOT NULL)');
+      await client.fleet.create({ data: { id: fleetId, name: 'old fleet', createdAt: now } });
       await client.ship.createMany({
         data: [
           { id: ids.squadrons, fleetId, name: 'squadrons', type: 'squadrons', kind: 'agent', scopes: ['fleet:read'], createdAt: now },
           { id: ids.trierarchPlugin, fleetId, name: 'trierarch-plugin', type: 'trierarch-plugin', kind: 'agent', scopes: ['fleet:read'], createdAt: now },
+          { id: ids.gateway, fleetId, name: 'gateway', type: 'gateway', kind: 'app', scopes: ['fleet:read'], createdAt: now },
           { id: ids.networking, fleetId, name: 'networking-plugin', type: 'networking-plugin', kind: 'agent', scopes: ['fleet:read'], createdAt: now },
           { id: ids.ofSquadronsType, fleetId, name: 'formation', type: 'squadrons', kind: 'agent', scopes: [], createdAt: now },
-          { id: ids.retired, fleetId, name: 'old-squadrons', type: 'squadrons', kind: 'agent', scopes: [], createdAt: now, retiredAt: now },
+          { id: ids.retired, fleetId, name: 'gateway-old', type: 'gateway', kind: 'agent', scopes: [], createdAt: now, retiredAt: now },
           { id: ids.scout, fleetId, name: 'scout', type: 'reviewer', kind: 'agent', scopes: [], createdAt: now },
         ],
       });
-      await insertEventsBeforeActors(client, [{ id: earlier, fleetId, type: 'ShipCommissioned', occurredAt: now, shipId: ids.scout, details: {}, seq: 1n }]);
+      await client.$executeRawUnsafe(`INSERT INTO "plugin_connections" VALUES ('${fleetId}', '${ids.networking}', now()), ('${fleetId}', '${ids.retired}', now())`);
 
-      await executeSqlFile(url, `${MIGRATIONS}/${connections ?? 'missing'}/migration.sql`);
+      await executeSqlFile(url, `${MIGRATIONS}/${pluginShips ?? 'missing'}/migration.sql`);
 
-      const connected = await client.pluginConnection.findMany({ where: { fleetId }, select: { shipId: true } });
-      expect(connected.map(({ shipId }) => shipId).toSorted()).toEqual([ids.squadrons, ids.trierarchPlugin, ids.networking].toSorted());
-      const recorded = await client.event.findMany({ where: { fleetId, id: { not: earlier } }, orderBy: { seq: 'asc' } , select: EVENT_COLUMNS_BEFORE_ACTORS });
-      expect(recorded.map(({ shipId }) => shipId).toSorted()).toEqual([ids.squadrons, ids.trierarchPlugin, ids.networking].toSorted());
-      for (const [at, event] of recorded.entries()) {
-        expect(event).toMatchObject({ type: 'PluginConnected', actorShipId: null, details: {}, seq: BigInt(at + 2) });
-        expect(idSchema('event').safeParse(event.id).success).toBe(true);
-      }
+      const plugins = await client.ship.findMany({ where: { fleetId, kind: 'plugin' }, select: { id: true } });
+      expect(plugins.map(({ id }) => id).toSorted()).toEqual([ids.squadrons, ids.trierarchPlugin, ids.gateway, ids.networking].toSorted());
+      await expect(client.$queryRawUnsafe(`SELECT to_regclass('plugin_connections')::text AS "table"`)).resolves.toEqual([{ table: null }]);
     } finally {
       await client.$disconnect();
     }

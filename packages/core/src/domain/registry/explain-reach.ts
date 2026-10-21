@@ -14,7 +14,6 @@ export interface ExplainReachTx {
   networkSettings: CheckReachTx['networkSettings'];
   ships: Pick<ShipRepository, 'find' | 'listActive'>;
   labels: CheckReachTx['labels'];
-  pluginConnections: CheckReachTx['pluginConnections'];
   declaredNetworkRules: CheckReachTx['declaredNetworkRules'];
   networkRulesDrafts: Pick<NetworkRulesDraftRepository, 'find'>;
 }

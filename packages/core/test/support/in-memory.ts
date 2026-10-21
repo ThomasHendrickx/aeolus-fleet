@@ -50,7 +50,6 @@ import type {
   LabelRepository,
   DeclaredNetworkRulesRepository,
   NetworkRulesDraftRepository,
-  PluginConnectionRepository,
   ScopeNamespaceRepository,
   VerifiedFactsRepository,
   NetworkSettingsRepository,
@@ -60,7 +59,6 @@ import type {
 import { isSameOwner, type Label, type LabelOwner, type ListedLabel, type ShipLabel } from '../../src/domain/registry/label.js';
 import type { DeclaredNetworkRules } from '../../src/domain/registry/declared-network-rules.js';
 import type { NetworkRulesDraft } from '../../src/domain/registry/network-rules-draft.js';
-import type { PluginConnection } from '../../src/domain/registry/plugin-connection.js';
 import type { ScopeNamespace } from '../../src/domain/registry/scope-namespace.js';
 import { noNetworkSettings, type NetworkSettings } from '../../src/domain/registry/network-settings.js';
 import type { ReachRefusal } from '../../src/domain/registry/reach-refusal.js';
@@ -136,8 +134,6 @@ export interface InMemoryState {
   networkRulesDrafts: NetworkRulesDraft[];
   /** The plugin namespaces, one per declaring ship (decision 0046). */
   scopeNamespaces: ScopeNamespace[];
-  /** The plugins argo connected, one per ship (decision 0034). */
-  pluginConnections: PluginConnection[];
   /** The verified facts, one set per ship and writer (decision 0059). */
   verifiedFacts: WrittenFacts[];
   /** The records of the sends the network rules refused, oldest first. */
@@ -168,7 +164,6 @@ export interface InMemoryTx {
   declaredNetworkRules: DeclaredNetworkRulesRepository;
   networkRulesDrafts: NetworkRulesDraftRepository;
   scopeNamespaces: ScopeNamespaceRepository;
-  pluginConnections: PluginConnectionRepository;
   verifiedFacts: VerifiedFactsRepository;
   reachRefusals: ReachRefusalRepository;
   inFlightDeliveries: InFlightDeliveries;
@@ -303,7 +298,6 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     declaredNetworkRules: [],
     networkRulesDrafts: [],
     scopeNamespaces: [],
-    pluginConnections: [],
     verifiedFacts: [],
     reachRefusals: [],
     events: [],
@@ -641,17 +635,6 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       },
       remove: (fleetId, namespace) => {
         state.scopeNamespaces.splice(0, state.scopeNamespaces.length, ...state.scopeNamespaces.filter((held) => held.fleetId !== fleetId || held.namespace !== namespace));
-        return Promise.resolve();
-      },
-    },
-    pluginConnections: {
-      find: (fleetId, shipId) => Promise.resolve(state.pluginConnections.find((held) => held.fleetId === fleetId && held.shipId === shipId)),
-      connect: (connection) => {
-        state.pluginConnections.push({ ...connection });
-        return Promise.resolve();
-      },
-      disconnect: (fleetId, shipId) => {
-        state.pluginConnections.splice(0, state.pluginConnections.length, ...state.pluginConnections.filter((held) => held.fleetId !== fleetId || held.shipId !== shipId));
         return Promise.resolve();
       },
     },
@@ -1922,7 +1905,6 @@ const FLEET_TABLES = [
   'declaredNetworkRules',
   'networkRulesDrafts',
   'scopeNamespaces',
-  'pluginConnections',
   'verifiedFacts',
   'reachRefusals',
   'events',
@@ -1957,7 +1939,6 @@ const TABLES = [
   'declaredNetworkRules',
   'networkRulesDrafts',
   'scopeNamespaces',
-  'pluginConnections',
   'verifiedFacts',
   'reachRefusals',
   'events',

@@ -6,7 +6,7 @@ import type { Recipient } from '../shared/selector.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { actorAsItIs, rulesInForceOf, type CheckReachTx } from './check-reach.js';
 import { allowsReach, type ReachingShip } from './network-settings.js';
-import type { PluginConnectionRepository, ShipRepository } from './ports.js';
+import type { ShipRepository } from './ports.js';
 import type { Ship } from './ship.js';
 
 /**
@@ -20,7 +20,6 @@ export type ReadReach = { kind: 'every' } | { kind: 'some'; shipIds: ReadonlySet
 export interface ReadReachTx {
   networkSettings: CheckReachTx['networkSettings'];
   ships: Pick<ShipRepository, 'find' | 'list'>;
-  pluginConnections: Pick<PluginConnectionRepository, 'find'>;
   labels: CheckReachTx['labels'];
   declaredNetworkRules: CheckReachTx['declaredNetworkRules'];
 }
@@ -41,7 +40,7 @@ const EVERY: ReadReach = { kind: 'every' };
  * rules, the fleet's own and the declared ones, read rules only. A ship
  * always reads itself. argo reads every ship, as does every ship while open
  * is on and the viewer
- * while its reading is on; a connected plugin reads every ship by its
+ * while its reading is on; a plugin ship reads every ship by its
  * built-in rule; otherwise each ship of the fleet, retired ones
  * too, is read when a rule lets the caller read it.
  */
@@ -59,7 +58,7 @@ export function createReadReachOf(deps: { uow: UnitOfWork<ReadReachTx> }): ReadR
       }
       const reader = await actorAsItIs(tx, caller);
       const readerShip = reader?.ship;
-      if (readerShip && (reader.reaching.kind !== 'account' && reader.reaching.kind !== 'installation') && reader.reaching.isConnectedPlugin) {
+      if (readerShip?.kind === 'plugin') {
         return ok(EVERY);
       }
       const ships = await tx.ships.list(fleetId);
@@ -83,11 +82,10 @@ export function createReadReachOf(deps: { uow: UnitOfWork<ReadReachTx> }): ReadR
 }
 
 /** A ship as a read check sees it, its owner's kind taken from the fleet's list rather than read again. */
-async function reachingOf(tx: Pick<ReadReachTx, 'labels' | 'pluginConnections'>, of: { ship: Ship; ownerKind: ShipKind | undefined }): Promise<ReachingShip> {
+async function reachingOf(tx: Pick<ReadReachTx, 'labels'>, of: { ship: Ship; ownerKind: ShipKind | undefined }): Promise<ReachingShip> {
   const { ship, ownerKind } = of;
   const labels = (await tx.labels.carriedBy(ship.fleetId, ship.id)).map(({ labelId, valueId }) => ({ labelId, valueId }));
-  const isConnectedPlugin = (await tx.pluginConnections.find(ship.fleetId, ship.id)) !== undefined;
-  return { id: ship.id, owner: ship.owner, kind: ship.kind, isConnectedPlugin, isOwnedByPerson: ownerKind === 'person', labels };
+  return { id: ship.id, owner: ship.owner, kind: ship.kind, isOwnedByPerson: ownerKind === 'person', labels };
 }
 
 export function readsShip(reach: ReadReach, shipId: ShipId): boolean {
