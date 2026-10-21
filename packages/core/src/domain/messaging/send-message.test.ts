@@ -374,7 +374,29 @@ describe('the model a session states', () => {
     it('refuses a model, and stores nothing', async () => {
       const refused = await sendMessage(await aShipOfKind(), aReview({ model: SCOUT_MODEL }));
 
-      expect(refused).toMatchObject({ isOk: false, error: { kind: 'MODEL_FROM_PERSON_OR_APP' } });
+      expect(refused).toMatchObject({ isOk: false, error: { kind: 'MODEL_FROM_PERSON_APP_OR_PLUGIN' } });
+      expect(core.state.messages).toEqual([]);
+      expect(core.state.events).toEqual([]);
+    });
+  });
+
+  describe('from a plugin ship, which states none (decisions 0044, 0050)', () => {
+    async function aPluginShip(): Promise<ShipCaller> {
+      const { shipId } = unwrap(await registryUseCases(core).commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons' }));
+      core.state.events.length = 0;
+      return { fleetId, shipId, kind: 'plugin', scopes: ['messages:send', 'messages:receive'] };
+    }
+
+    it('stores its message with no model', async () => {
+      const messageId = await sent(await aPluginShip(), aReview());
+
+      expect(core.state.messages.find((message) => message.id === messageId)?.model).toBeNull();
+    });
+
+    it('refuses a model, and stores nothing', async () => {
+      const refused = await sendMessage(await aPluginShip(), aReview({ model: SCOUT_MODEL }));
+
+      expect(refused).toMatchObject({ isOk: false, error: { kind: 'MODEL_FROM_PERSON_APP_OR_PLUGIN' } });
       expect(core.state.messages).toEqual([]);
       expect(core.state.events).toEqual([]);
     });
