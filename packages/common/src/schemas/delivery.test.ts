@@ -4,6 +4,8 @@ import { createIdGenerator } from '../ids/index.js';
 import {
   ackInputSchema,
   ackOutputSchema,
+  deliveryInputSchema,
+  deliveryOutputSchema,
   handedInputSchema,
   handedOutputSchema,
   handledInputSchema,
@@ -113,6 +115,52 @@ describe('sentMessageOutputSchema', () => {
     };
 
     expect(sentMessageOutputSchema.safeParse(answer).success).toBe(false);
+  });
+});
+
+describe('deliveryInputSchema', () => {
+  it('takes the id of a delivery the crew holds', () => {
+    const input = { deliveryId: newId('delivery') };
+
+    expect(deliveryInputSchema.parse(input)).toEqual(input);
+  });
+
+  it.each([
+    ['no delivery id', {}],
+    ['a message id', { deliveryId: newId('message') }],
+  ])('refuses %s', (_label, input) => {
+    expect(deliveryInputSchema.safeParse(input).success).toBe(false);
+  });
+});
+
+describe('deliveryOutputSchema', () => {
+  const reread = {
+    deliveryId: newId('delivery'),
+    messageId: newId('message'),
+    senderShipId: newId('ship'),
+    senderName: 'lookout',
+    senderType: 'watcher',
+    recipient: { kind: 'ship', shipId: newId('ship') },
+    payload: 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/25',
+    contentType: 'text/markdown',
+    model: 'claude-opus-5-5',
+    inReplyTo: newId('message'),
+    sentAt: '2026-10-21T12:01:00.000Z',
+    attempts: 1,
+    isForced: false,
+    state: 'acknowledged',
+  };
+
+  it('answers the delivery whole, as receive hands one, with its state', () => {
+    expect(deliveryOutputSchema.parse(reread)).toEqual(reread);
+  });
+
+  it.each([
+    ['no state', { ...reread, state: undefined }],
+    ['a state it does not know', { ...reread, state: 'lost' }],
+    ['no payload', { ...reread, payload: undefined }],
+  ])('rejects %s', (_label, candidate) => {
+    expect(deliveryOutputSchema.safeParse(candidate).success).toBe(false);
   });
 });
 
