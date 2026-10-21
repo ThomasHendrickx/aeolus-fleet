@@ -76,7 +76,7 @@ const accountSessionSchema = z.object({ device: z.string(), since: isoTime, acco
  * session has no email and no theme (decision 0022).
  */
 export const accountOutputSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('operator'), email: z.string(), theme: themeSchema, session: accountSessionSchema }),
+  z.object({ kind: z.literal('operator'), email: z.string(), theme: themeSchema, hasPassword: z.boolean(), session: accountSessionSchema }),
   z.object({ kind: z.literal('viewer'), session: accountSessionSchema }),
 ]);
 
@@ -87,13 +87,15 @@ export const setThemeInputSchema = z.object({ theme: themeSchema });
 
 /**
  * Input of `console.setLogin`: the email and new password of argo's own
- * sign-in, on a self-hosted fleet (accounts design, A1). Whitespace around
- * the email is dropped; the server checks its shape and that no other
- * operator signs in with it. The password is taken exactly as typed.
+ * sign-in, on a self-hosted fleet (accounts design, A1), with the current
+ * password while argo has one. Whitespace around the email is dropped; the
+ * server checks its shape and that no other operator signs in with it. The
+ * passwords are taken exactly as typed.
  */
 export const setLoginInputSchema = z.object({
   email: z.string().trim().min(1, EMAIL_REQUIRED).max(OPERATOR_EMAIL_MAX_LENGTH, EMAIL_TOO_LONG),
   password: z.string().min(OPERATOR_PASSWORD_MIN_LENGTH, PASSWORD_TOO_SHORT).max(OPERATOR_PASSWORD_MAX_LENGTH, PASSWORD_TOO_LONG),
+  currentPassword: z.string().max(OPERATOR_PASSWORD_MAX_LENGTH, PASSWORD_TOO_LONG).optional(),
 });
 
 export type SetLoginInput = z.infer<typeof setLoginInputSchema>;

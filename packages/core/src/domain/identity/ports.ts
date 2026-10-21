@@ -45,6 +45,7 @@ export interface CredentialRepository {
  */
 export interface OperatorAccountLookup {
   byEmail(email: string): Promise<OperatorAccount | undefined>;
+  byFleet(fleetId: FleetId): Promise<OperatorAccount | undefined>;
 }
 
 /** Outbound port: the operator account. */

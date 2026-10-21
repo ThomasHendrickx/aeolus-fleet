@@ -8,18 +8,20 @@ import { ok, type Result } from '../shared/result.js';
 import type { PasswordHasher } from '../shared/secrets.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { operatorEmail, operatorPassword } from './operator-account.js';
-import type { OperatorAccountRepository } from './ports.js';
+import type { OperatorAccountLookup, OperatorAccountRepository } from './ports.js';
+
+const WRONG_PASSWORD = 'That is not your current password';
 
 export interface SetOperatorLoginTx {
   operatorAccounts: OperatorAccountRepository;
   events: EventLog;
 }
 
-export type SetOperatorLoginRefusal = DomainError<'INVALID_EMAIL' | 'INVALID_PASSWORD' | 'OPERATOR_EMAIL_TAKEN' | 'NO_OWN_SIGN_IN' | 'NOT_THE_OPERATOR_SHIP'>;
+export type SetOperatorLoginRefusal = DomainError<'INVALID_EMAIL' | 'INVALID_PASSWORD' | 'WRONG_PASSWORD' | 'OPERATOR_EMAIL_TAKEN' | 'NO_OWN_SIGN_IN' | 'NOT_THE_OPERATOR_SHIP'>;
 
 export type SetOperatorLogin = (
   caller: ShipCaller,
-  input: { email: string; password: string },
+  input: { email: string; password: string; currentPassword?: string },
 ) => Promise<Result<{ operatorId: OperatorId }, SetOperatorLoginRefusal>>;
 
 /**
@@ -29,11 +31,18 @@ export type SetOperatorLogin = (
  * email is the user name, unique across the installation, as at fleet:init.
  * The old email and password stop working; the console session that set
  * them stays, since it is the one argo sign-in.
+ *
+ * While argo has a password, the change takes it first (Thomas, #1044), so a
+ * console left open is not enough to take argo's sign-in over. argo without
+ * one, signed in by a link, is asked nothing. The current password is
+ * checked before the unit of work, as at sign-in: Argon2 takes its time on
+ * purpose. The unit of work then finds the same password hash, or refuses.
  */
 export function createSetOperatorLogin(deps: {
   uow: UnitOfWork<SetOperatorLoginTx>;
   clock: Clock;
   ids: IdGenerator;
+  accounts: OperatorAccountLookup;
   passwords: PasswordHasher;
   /** Whether core trusts no pagasae: argo's own sign-in is then the way in. */
   isSelfHosted: boolean;
@@ -53,6 +62,10 @@ export function createSetOperatorLogin(deps: {
     if (!password.isOk) {
       return password;
     }
+    const current = await deps.accounts.byFleet(caller.fleetId);
+    if (current?.passwordHash != null && !(await deps.passwords.verify(input.currentPassword ?? '', current.passwordHash))) {
+      return refuse('WRONG_PASSWORD', WRONG_PASSWORD);
+    }
     // Hashed before the transaction: Argon2 takes its time on purpose.
     const passwordHash = await deps.passwords.hash(password.value);
 
@@ -62,6 +75,9 @@ export function createSetOperatorLogin(deps: {
       const account = await tx.operatorAccounts.findForFleetForUpdate(fleetId);
       if (!account) {
         return refuse('NOT_THE_OPERATOR_SHIP', 'Only argo, signed in to the console, sets its email and password');
+      }
+      if (account.passwordHash !== (current?.passwordHash ?? null)) {
+        return refuse('WRONG_PASSWORD', WRONG_PASSWORD);
       }
       const holder = await tx.operatorAccounts.findByEmailForUpdate(email.value);
       if (holder !== undefined && holder.id !== account.id) {

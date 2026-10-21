@@ -14,7 +14,7 @@ let setOperatorLogin: ReturnType<typeof createSetOperatorLogin>;
 let console: ShipCaller;
 
 function setOperatorLoginWhere(options: { isSelfHosted: boolean }) {
-  return createSetOperatorLogin({ uow: core.uow, clock: core.clock, ids: core.ids, passwords: core.passwords, ...options });
+  return createSetOperatorLogin({ uow: core.uow, clock: core.clock, ids: core.ids, accounts: core.accounts, passwords: core.passwords, ...options });
 }
 
 beforeEach(async () => {

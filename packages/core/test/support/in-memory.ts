@@ -1271,6 +1271,10 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       const account = state.operatorAccounts.find((held) => held.email === email);
       return Promise.resolve(account && { ...account });
     },
+    byFleet: (fleetId) => {
+      const account = state.operatorAccounts.find((held) => held.fleetId === fleetId);
+      return Promise.resolve(account && { ...account });
+    },
   };
 
   const lastPingOf = (held: Ship): ShipFacts['lastPing'] => {

@@ -456,7 +456,7 @@ export function createUseCases(options: {
     readAccount: createReadAccount({ uow }),
     setTheme: createSetTheme({ uow }),
     // Without pagasae's signatures core trusts no account, and argo's own sign-in is the way in.
-    setOperatorLogin: createSetOperatorLogin({ uow, clock, ids, passwords: argon2idPasswordHasher, isSelfHosted: options.accountTokenSignatures === undefined }),
+    setOperatorLogin: createSetOperatorLogin({ uow, clock, ids, accounts: createPrismaOperatorAccountLookup(prisma), passwords: argon2idPasswordHasher, isSelfHosted: options.accountTokenSignatures === undefined }),
     resetOperatorPassword: createResetOperatorPassword({ uow, clock, ids, passwords: argon2idPasswordHasher }),
     authenticate: createAuthenticate({ callers: createPrismaCallers(prisma), hasher: sha256Hasher, clock }),
     authenticateAccount: createAuthenticateAccount({

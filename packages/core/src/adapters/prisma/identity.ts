@@ -76,6 +76,13 @@ export function createPrismaOperatorAccountLookup(db: Db): OperatorAccountLookup
         WHERE email = ${email}`;
       return row ? toOperatorAccount(row) : undefined;
     },
+    byFleet: async (fleetId) => {
+      // No lock, as byEmail: the caller checks the row again under its lock.
+      const [row] = await db.$queryRaw<unknown[]>`
+        SELECT id, fleet_id, email, password_hash, theme::text AS theme, created_at FROM operators
+        WHERE fleet_id = ${fleetId}`;
+      return row ? toOperatorAccount(row) : undefined;
+    },
   };
 }
 
