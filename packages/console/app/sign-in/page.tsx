@@ -6,6 +6,7 @@ import { SignedInElsewhereNotice } from '../../features/sign-in/molecules/signed
 import { SignInForm } from '../../features/sign-in/organisms/sign-in-form';
 import { AuthCard } from '../../features/sign-in/organisms/auth-card';
 import { hostedSignInUrlFrom } from '../../lib/hosted-sign-in';
+import { returnPathOf } from '../../lib/return-path';
 import { pagasaeFrom } from '../../lib/pagasae';
 
 // The hosted sign-in URL is runtime config: read on each request.
@@ -20,14 +21,21 @@ export const dynamic = 'force-dynamic';
  * to the hosting service's sign-in at once, or, with the notice, shows the
  * notice and a link there, since the hosting service would not say it.
  * Where the console signs accounts in through pagasae (accounts design, F1),
- * it offers that sign-in instead, and says so after a sign-out.
+ * it offers that sign-in instead, and says so after a sign-out. With
+ * `?notice=ended` it says the account's sign-in ended (A6), and signs in again
+ * back to `returnTo`, the page it was on.
  */
+/** pagasae's sign-in, coming back to the console page given, when one is. */
+function startPathOf(returnTo: string | string[] | undefined): string {
+  return typeof returnTo === 'string' ? `/sign-in/start?${new URLSearchParams({ returnTo: returnPathOf(returnTo) }).toString()}` : '/sign-in/start';
+}
+
 export default async function SignInPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { notice, signed } = await searchParams;
+  const { notice, signed, returnTo } = await searchParams;
   if (pagasaeFrom(process.env) !== undefined) {
     return (
       <AuthCard recovery={null}>
@@ -38,8 +46,13 @@ export default async function SignInPage({
               You signed out of every Aeolus app.
             </p>
           ) : null}
+          {notice === 'ended' ? (
+            <p role="status" data-testid="sign-in-ended" className="text-body text-muted-foreground">
+              Your sign-in ended.
+            </p>
+          ) : null}
           {/* A plain link: the sign-in starts on the server, which no client navigation reaches. */}
-          <Button variant="primary" nativeButton={false} render={<a href="/sign-in/start">Sign in with your account</a>} data-testid="sign-in-account-start">
+          <Button variant="primary" nativeButton={false} render={<a href={startPathOf(returnTo)}>Sign in with your account</a>} data-testid="sign-in-account-start">
             Sign in with your account
           </Button>
         </div>
