@@ -1,7 +1,8 @@
 # Builds a candidate of core's release train (decision 0049): common, core and
 # console at the version they will be released as, packed with npm pack and
-# uploaded as the Actions artifact <version>-<short sha>. It publishes and tags
-# nothing (ADR 0011): staging tries the candidate before the release.
+# uploaded with their integrity.json as the Actions artifact <version>-<short
+# sha>. It publishes and tags nothing (ADR 0011): staging tries the candidate
+# before the release.
 name: Candidate
 
 on:
@@ -74,12 +75,19 @@ jobs:
 
       - run: npm run build
 
+      # integrity.json: each tarball's name, version, file and sha512 integrity, which npm's dist.integrity equals once published.
       - name: Pack common, core and console
         run: |
           mkdir "$RUNNER_TEMP/candidate"
-          npm pack --workspace @aeolus-fleet/common --workspace @aeolus-fleet/core --workspace @aeolus-fleet/console \
-            --pack-destination "$RUNNER_TEMP/candidate"
+          npm pack --json --workspace @aeolus-fleet/common --workspace @aeolus-fleet/core --workspace @aeolus-fleet/console \
+            --pack-destination "$RUNNER_TEMP/candidate" \
+            | node -e '
+              const packed = JSON.parse(require("node:fs").readFileSync(0, "utf8"));
+              const manifest = packed.map(({ name, version, filename, integrity }) => ({ name, version, filename, integrity }));
+              process.stdout.write(JSON.stringify(manifest, null, 2) + "\n");
+            ' > "$RUNNER_TEMP/candidate/integrity.json"
           ls -l "$RUNNER_TEMP/candidate"
+          cat "$RUNNER_TEMP/candidate/integrity.json"
 
       - name: Name the candidate
         id: name
@@ -90,5 +98,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.name.outputs.name }}
-          path: ${{ runner.temp }}/candidate/*.tgz
+          path: |
+            ${{ runner.temp }}/candidate/*.tgz
+            ${{ runner.temp }}/candidate/integrity.json
           if-no-files-found: error
