@@ -116,19 +116,30 @@ const tokenAnswerSchema = z.object({
 });
 const errorAnswerSchema = z.object({ error: z.string() });
 
-export async function exchangeSignIn(at: PagasaeAt, exchange: { signIn: string; fleetId: string }): Promise<ExchangedToken> {
+/** A token exchange of the shared sign-in for the fleet (RFC 8693): pagasae's status and body, parsed or not. */
+async function exchange(at: PagasaeAt, exchange: { signIn: string; fleetId: string; requestedTokenType?: string }): Promise<{ isOk: boolean; body: unknown }> {
+  const response = await post(at, {
+    path: '/oauth/token',
+    form: {
+      grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange',
+      subject_token: exchange.signIn,
+      subject_token_type: 'urn:aeolus:params:oauth:token-type:sign-in',
+      resource: exchange.fleetId,
+      ...(exchange.requestedTokenType === undefined ? {} : { requested_token_type: exchange.requestedTokenType }),
+    },
+  });
+  return { isOk: response.ok, body: await response.json().catch(() => undefined) };
+}
+
+/** The OAuth error pagasae answered, if it named one. */
+function errorOf(body: unknown): string | undefined {
+  return errorAnswerSchema.safeParse(body).data?.error;
+}
+
+export async function exchangeSignIn(at: PagasaeAt, signIn: { signIn: string; fleetId: string }): Promise<ExchangedToken> {
   try {
-    const response = await post(at, {
-      path: '/oauth/token',
-      form: {
-        grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange',
-        subject_token: exchange.signIn,
-        subject_token_type: 'urn:aeolus:params:oauth:token-type:sign-in',
-        resource: exchange.fleetId,
-      },
-    });
-    const body: unknown = await response.json().catch(() => undefined);
-    if (response.ok) {
+    const { isOk, body } = await exchange(at, signIn);
+    if (isOk) {
       const answer = tokenAnswerSchema.safeParse(body);
       return answer.success
         ? {
@@ -138,7 +149,7 @@ export async function exchangeSignIn(at: PagasaeAt, exchange: { signIn: string; 
           }
         : { kind: 'unreachable' };
     }
-    const error = errorAnswerSchema.safeParse(body).data?.error;
+    const error = errorOf(body);
     if (error === 'invalid_grant') {
       return { kind: 'ended' };
     }
@@ -148,11 +159,42 @@ export async function exchangeSignIn(at: PagasaeAt, exchange: { signIn: string; 
   }
 }
 
-/** A fleet the account holds a scope in, as pagasae lists it, and whether it opens the console there (it holds fleet:read). */
+/** The token type of core's one-time ticket that signs an account in as argo of a fleet (accounts design, F4). */
+const ARGO_TICKET_TOKEN_TYPE = 'urn:aeolus:params:oauth:token-type:argo-sign-in-ticket';
+
+/**
+ * Core's ticket to sign in as argo of a fleet, from the shared sign-in
+ * (accounts design, F4): one use, for 2 minutes; ended when the sign-in
+ * ended; not allowed when the account may not sign in as argo there;
+ * unreachable when pagasae does not answer.
+ */
+export type ExchangedArgoTicket = { kind: 'ticket'; ticket: string } | { kind: 'ended' } | { kind: 'notAllowed' } | { kind: 'unreachable' };
+
+const ticketAnswerSchema = z.object({ access_token: z.string().min(1) });
+
+export async function exchangeArgoTicket(at: PagasaeAt, signIn: { signIn: string; fleetId: string }): Promise<ExchangedArgoTicket> {
+  try {
+    const { isOk, body } = await exchange(at, { ...signIn, requestedTokenType: ARGO_TICKET_TOKEN_TYPE });
+    if (isOk) {
+      const answer = ticketAnswerSchema.safeParse(body);
+      return answer.success ? { kind: 'ticket', ticket: answer.data.access_token } : { kind: 'unreachable' };
+    }
+    const error = errorOf(body);
+    if (error === 'invalid_grant') {
+      return { kind: 'ended' };
+    }
+    return error === 'invalid_target' ? { kind: 'notAllowed' } : { kind: 'unreachable' };
+  } catch {
+    return { kind: 'unreachable' };
+  }
+}
+
+/** A fleet the account holds a scope in, as pagasae lists it: whether it opens the console there (it holds fleet:read), and whether it may sign in as argo there. */
 export interface AccountFleet {
   id: string;
   name: string;
   hasConsole: boolean;
+  isArgoAllowed: boolean;
 }
 
 const appsAnswerSchema = z.object({
@@ -160,6 +202,7 @@ const appsAnswerSchema = z.object({
     z.object({
       id: z.string(),
       name: z.string(),
+      argo: z.boolean(),
       apps: z.array(z.object({ app: z.string() })),
     }),
   ),
@@ -183,10 +226,11 @@ export async function fleetsOf({ pagasae, fetchImplementation = fetch }: Pagasae
     if (!response.ok || !answer.success) {
       return 'unreachable';
     }
-    return answer.data.fleets.map(({ id, name, apps }) => ({
+    return answer.data.fleets.map(({ id, name, argo, apps }) => ({
       id,
       name,
       hasConsole: apps.some(({ app }) => app === 'console'),
+      isArgoAllowed: argo,
     }));
   } catch {
     return 'unreachable';

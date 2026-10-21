@@ -1,3 +1,4 @@
+import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
@@ -5,6 +6,7 @@ import { Button } from '@aeolus-fleet/common/header';
 import { SignedInElsewhereNotice } from '../../features/sign-in/molecules/signed-in-elsewhere-notice';
 import { SignInForm } from '../../features/sign-in/organisms/sign-in-form';
 import { AuthCard } from '../../features/sign-in/organisms/auth-card';
+import { isArgoAllowed } from '../../lib/argo-sign-in';
 import { hostedSignInUrlFrom } from '../../lib/hosted-sign-in';
 import { returnPathOf } from '../../lib/return-path';
 import { pagasaeFrom } from '../../lib/pagasae';
@@ -23,7 +25,9 @@ export const dynamic = 'force-dynamic';
  * Where the console signs accounts in through pagasae (accounts design, F1),
  * it offers that sign-in instead, and says so after a sign-out. With
  * `?notice=ended` it says the account's sign-in ended (A6), and signs in again
- * back to `returnTo`, the page it was on.
+ * back to `returnTo`, the page it was on. To an account allowed as argo of the
+ * fleet, it offers Sign in as argo too (accounts design, A7), the way in when
+ * acting as the account cannot help.
  */
 /** pagasae's sign-in, coming back to the console page given, when one is. */
 function startPathOf(returnTo: string | string[] | undefined): string {
@@ -36,7 +40,9 @@ export default async function SignInPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { notice, signed, returnTo } = await searchParams;
-  if (pagasaeFrom(process.env) !== undefined) {
+  const pagasae = pagasaeFrom(process.env);
+  if (pagasae !== undefined) {
+    const canSignInAsArgo = await isArgoAllowed(pagasae, (await cookies()).toString());
     return (
       <AuthCard recovery={null}>
         <div className="flex flex-col gap-5" data-testid="sign-in-account">
@@ -55,6 +61,13 @@ export default async function SignInPage({
           <Button variant="primary" nativeButton={false} render={<a href={startPathOf(returnTo)}>Sign in with your account</a>} data-testid="sign-in-account-start">
             Sign in with your account
           </Button>
+          {canSignInAsArgo ? (
+            <form method="post" action="/sign-in/argo" className="flex flex-col">
+              <Button type="submit" variant="secondary" data-testid="sign-in-argo-start">
+                Sign in as argo
+              </Button>
+            </form>
+          ) : null}
         </div>
       </AuthCard>
     );

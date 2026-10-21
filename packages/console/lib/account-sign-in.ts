@@ -24,7 +24,8 @@ const FLEET_COOKIE_LIFE_SECONDS = 400 * 24 * 60 * 60;
 const PRESENT_TIMEOUT_MS = 10_000;
 
 
-function redirectTo(location: string, cookies: readonly string[] = []): Response {
+/** A 303 to a path, uncached, with the cookies given. */
+export function redirectTo(location: string, cookies: readonly string[] = []): Response {
   const headers = new Headers({ location, 'cache-control': 'no-store' });
   for (const cookie of cookies) {
     headers.append('set-cookie', cookie);
@@ -121,7 +122,7 @@ export async function finishSignIn(request: Request, deps: SignInDeps): Promise<
 }
 
 /** The fleet to enter: the one chosen last while the account still has rights in it, else the first that opens the console, else the first. */
-function fleetToEnter(fleets: readonly { id: string; hasConsole: boolean }[], chosen: string | undefined): string | undefined {
+export function fleetToEnter(fleets: readonly { id: string; hasConsole: boolean }[], chosen: string | undefined): string | undefined {
   return (fleets.find(({ id }) => id === chosen) ?? fleets.find(({ hasConsole }) => hasConsole) ?? fleets[0])?.id;
 }
 

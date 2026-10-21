@@ -2,7 +2,7 @@ import type { Account, Theme } from '@aeolus-fleet/common';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import type { AvatarMenuProps } from '@aeolus-fleet/common/header';
-import { Compass, Network, Settings } from 'lucide-react';
+import { Compass, KeyRound, Network, Settings } from 'lucide-react';
 
 import { showToast } from '../components/atoms/toast';
 import { useAppsList } from './app-switcher';
@@ -28,9 +28,14 @@ const SHORTCUTS = [
  * cookie, so the browser posts there and follows where it leads.
  */
 function signOutOfEveryApp(): void {
+  postTo('/sign-in/out');
+}
+
+/** The browser posts to a sign-in route of the web app's server and follows where it leads. */
+export function postTo(action: string): void {
   const form = document.createElement('form');
   form.method = 'post';
-  form.action = '/sign-in/out';
+  form.action = action;
   document.body.append(form);
   form.submit();
 }
@@ -64,6 +69,12 @@ export function useAccountMenu(now: Date): AvatarMenuProps {
   });
   const appsList = useAppsList();
   const accountUrl = appsList?.apps.find((link) => link.app === 'account')?.url;
+  // Whether pagasae allows the account as argo of the fleet (accounts design, A7), asked by the web app's server.
+  const argoAllowed = useQuery({
+    queryKey: ['argo-allowed'],
+    queryFn: () => fetchConsoleRead({ read: 'argo-allowed' }),
+    enabled: account.data?.kind === 'account',
+  });
   const { themes } = useConsoleConstants();
   const browserTheme = useBrowserTheme(themes);
   const guide = useConsoleGuide();
@@ -124,6 +135,18 @@ export function useAccountMenu(now: Date): AvatarMenuProps {
     isSigningOut,
     entries: [
       ...(guide.onTakeTour === undefined ? [] : [{ key: 'take-tour', label: 'Take the tour', icon: <Compass aria-hidden />, onSelect: guide.onTakeTour }]),
+      ...(account.data?.kind === 'account' && argoAllowed.data === true
+        ? [
+            {
+              key: 'sign-in-as-argo',
+              label: 'Sign in as argo',
+              icon: <KeyRound aria-hidden />,
+              onSelect: () => {
+                postTo('/sign-in/argo');
+              },
+            },
+          ]
+        : []),
       ...(pluginNav.hasNetwork ? [{ key: 'network', label: 'Network', icon: <Network aria-hidden />, href: '/network', isPhoneOnly: true }] : []),
       ...(pluginNav.hasSettings ? [{ key: 'settings', label: 'Settings', icon: <Settings aria-hidden />, href: '/settings', isPhoneOnly: true }] : []),
     ],
