@@ -30,7 +30,7 @@ async function createFleet(): Promise<FleetId> {
   return id;
 }
 
-async function anAccount(overrides: Partial<OperatorAccount> = {}): Promise<OperatorAccount> {
+async function anAccount(overrides: Partial<Omit<OperatorAccount, 'email'>> & { email?: string } = {}): Promise<OperatorAccount & { email: string }> {
   return {
     id: newId('operator'),
     fleetId: await createFleet(),
@@ -50,6 +50,16 @@ describe('the operator account repository', () => {
     await accounts().create(account);
 
     await expect(accounts().findByEmailForUpdate(account.email)).resolves.toEqual(account);
+  });
+
+  it('stores accounts with no email and no password, any number of them', async () => {
+    const first = { ...(await anAccount({ passwordHash: null })), email: null };
+    const second = { ...(await anAccount({ passwordHash: null })), email: null };
+    await accounts().create(first);
+    await accounts().create(second);
+
+    await expect(accounts().findForFleetForUpdate(first.fleetId)).resolves.toEqual(first);
+    await expect(accounts().findForFleetForUpdate(second.fleetId)).resolves.toEqual(second);
   });
 
   it('finds no account for an email it does not hold', async () => {
