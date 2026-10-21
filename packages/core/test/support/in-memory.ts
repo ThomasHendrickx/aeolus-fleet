@@ -984,6 +984,14 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         }
         return Promise.resolve();
       },
+      changeLogin: ({ fleetId, operatorId, email, passwordHash }) => {
+        const account = state.operatorAccounts.find((held) => held.fleetId === fleetId && held.id === operatorId);
+        if (account) {
+          account.email = email;
+          account.passwordHash = passwordHash;
+        }
+        return Promise.resolve();
+      },
     },
     consoleSessions: {
       find: (fleetId, consoleSessionId) => {
@@ -1261,6 +1269,10 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
   const accounts: OperatorAccountLookup = {
     byEmail: (email) => {
       const account = state.operatorAccounts.find((held) => held.email === email);
+      return Promise.resolve(account && { ...account });
+    },
+    byFleet: (fleetId) => {
+      const account = state.operatorAccounts.find((held) => held.fleetId === fleetId);
       return Promise.resolve(account && { ...account });
     },
   };

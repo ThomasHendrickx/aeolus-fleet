@@ -19,7 +19,7 @@ function aWorld(options: { accountId?: string | null; pagasae?: Response | 'down
     }
     if (url === 'http://server:4000/trpc/console.account') {
       const accountId = options.accountId === undefined ? 'acc-01mathilde' : options.accountId;
-      return Promise.resolve(answer({ kind: 'operator', email: 'argo@example.com', theme: 'system', session: { device: 'Mac · Safari', since: '2026-10-20T09:00:00.000Z', accountId } }));
+      return Promise.resolve(answer({ kind: 'operator', email: 'argo@example.com', theme: 'system', hasPassword: true, session: { device: 'Mac · Safari', since: '2026-10-20T09:00:00.000Z', accountId } }));
     }
     if (url.startsWith('https://pagasae.example/api/console/account-name') && options.names !== undefined) {
       const accountId = new URL(url).searchParams.get('accountId') ?? '';

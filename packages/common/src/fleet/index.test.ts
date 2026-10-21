@@ -133,6 +133,7 @@ describe('eventTypeSchema', () => {
       'CredentialRevoked',
       'StartingPromptIssued',
       'OperatorPasswordReset',
+      'OperatorLoginSet',
       'MessageAccepted',
       'LeasePushed',
       'DeliveryReceived',

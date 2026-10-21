@@ -102,6 +102,14 @@ describe('timelineSentence', () => {
     });
   });
 
+  it("says argo's email and password were set", () => {
+    expect(onScoutsPage(anEntry('OperatorLoginSet'))).toEqual({
+      sentence: 'Email and password set',
+      tone: 'waiting',
+      icon: 'password',
+    });
+  });
+
   it('says the operator password was reset', () => {
     expect(onScoutsPage(anEntry('OperatorPasswordReset'))).toEqual({
       sentence: 'Operator password reset',

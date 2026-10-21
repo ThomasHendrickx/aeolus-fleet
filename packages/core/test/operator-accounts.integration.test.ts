@@ -82,6 +82,21 @@ describe('the operator account repository', () => {
     });
   });
 
+  it("changes the email and password hash of the fleet's account only, found by the new email", async () => {
+    const account = await anAccount();
+    const other = await anAccount();
+    await accounts().create(account);
+    await accounts().create(other);
+    const email = `${newId('operator')}@example.com`;
+
+    await accounts().changeLogin({ fleetId: account.fleetId, operatorId: account.id, email, passwordHash: 'new hash' });
+    await accounts().changeLogin({ fleetId: account.fleetId, operatorId: other.id, email: 'not-this-one@example.com', passwordHash: 'not this one' });
+
+    await expect(accounts().findByEmailForUpdate(email)).resolves.toEqual({ ...account, email, passwordHash: 'new hash' });
+    await expect(accounts().findByEmailForUpdate(account.email)).resolves.toBeUndefined();
+    await expect(accounts().findForFleetForUpdate(other.fleetId)).resolves.toEqual(other);
+  });
+
   it('holds the account locked until the unit of work ends', async () => {
     const account = await anAccount();
     await accounts().create(account);

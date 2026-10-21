@@ -5,6 +5,8 @@ import {
   consoleSessionOutputSchema,
   dismissNoticeInputSchema,
   setGuideProgressInputSchema,
+  setLoginInputSchema,
+  setLoginOutputSchema,
   setThemeInputSchema,
   setThemeOutputSchema,
   redeemSignInTicketInputSchema,
@@ -97,6 +99,15 @@ export const consoleRouter = router({
     .output(setThemeOutputSchema)
     .mutation(async ({ ctx, input }) => {
       okOrThrow(await ctx.useCases.setTheme(ctx.caller, input));
+      return {};
+    }),
+
+  /** Sets the email and password of argo's own sign-in, on a self-hosted fleet (accounts design, A1). */
+  setLogin: authenticatedProcedure
+    .input(setLoginInputSchema)
+    .output(setLoginOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.setOperatorLogin(ctx.caller, input));
       return {};
     }),
 

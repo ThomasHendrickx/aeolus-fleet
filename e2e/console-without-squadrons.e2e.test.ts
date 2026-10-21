@@ -70,10 +70,10 @@ describe('a console without squadrons', () => {
     await page.keyboard.press('Escape');
     await page.getByTestId('nav-health').click();
     await page.getByRole('heading', { name: 'Health' }).first().waitFor();
-    // Settings holds the plugins: without any it is not offered, and opened by its address it shows nothing of squadrons.
-    await expect(page.getByTestId('nav-settings').count()).resolves.toBe(0);
-    await page.goto('/settings');
+    // Self-hosted, Settings holds argo's own sign-in, and nothing of squadrons.
+    await page.getByTestId('nav-settings').click();
     await page.getByRole('heading', { name: 'Settings' }).first().waitFor();
+    await page.getByTestId('settings-sign-in').waitFor();
 
     expect(shown.every((count) => count === 1)).toBe(true);
     await expect(page.getByTestId('nav-squadrons').count()).resolves.toBe(0);

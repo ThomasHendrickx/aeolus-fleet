@@ -6,6 +6,7 @@ import {
   accountOutputSchema,
   consoleSessionOutputSchema,
   redeemSignInTicketInputSchema,
+  setLoginInputSchema,
   setThemeInputSchema,
   signInInputSchema,
 } from './console.js';
@@ -72,6 +73,7 @@ describe('accountOutputSchema', () => {
     kind: 'operator',
     email: 'operator@example.com',
     theme: 'system',
+    hasPassword: true,
     session: { device: 'Mac · Chrome', since: '2026-10-01T08:02:00.000Z' },
   };
 
@@ -90,10 +92,44 @@ describe('accountOutputSchema', () => {
     expect(accountOutputSchema.safeParse({ ...account, theme: 'sepia' }).success).toBe(false);
   });
 
+  it('says whether argo has a password, so Settings asks for it before a change', () => {
+    expect(accountOutputSchema.parse({ ...account, hasPassword: false })).toMatchObject({ hasPassword: false });
+    expect(accountOutputSchema.safeParse({ ...account, hasPassword: 'yes' }).success).toBe(false);
+  });
+
   it("takes a viewer's session alone, with no email and no theme", () => {
     const viewer = { kind: 'viewer', session: account.session };
 
     expect(accountOutputSchema.parse(viewer)).toEqual(viewer);
+  });
+});
+
+describe('setLoginInputSchema', () => {
+  const login = { email: 'mathilde@example.com', password: 'a'.repeat(12) };
+
+  it('takes an email and a password of 12 characters, dropping the whitespace around the email', () => {
+    expect(setLoginInputSchema.parse({ ...login, email: ' mathilde@example.com ' })).toEqual(login);
+  });
+
+  it.each([
+    { label: 'an empty email', input: { ...login, email: ' ' }, message: 'Enter your email' },
+    { label: 'a password of 11 characters', input: { ...login, password: 'a'.repeat(11) }, message: 'Use a password of at least 12 characters' },
+    { label: 'a password of 1025 characters', input: { ...login, password: 'a'.repeat(1025) }, message: 'Use a password of at most 1024 characters' },
+  ])('refuses $label, saying why', ({ input, message }) => {
+    expect(setLoginInputSchema.safeParse(input).error?.issues[0]?.message).toBe(message);
+  });
+
+  it('takes a password of 1024 characters', () => {
+    expect(setLoginInputSchema.safeParse({ ...login, password: 'a'.repeat(1024) }).success).toBe(true);
+  });
+
+  it('takes the current password exactly as typed, and none while argo has no password', () => {
+    expect(setLoginInputSchema.parse({ ...login, currentPassword: ' old horse ' })).toEqual({ ...login, currentPassword: ' old horse ' });
+    expect(setLoginInputSchema.parse(login)).toEqual(login);
+  });
+
+  it('refuses a current password of 1025 characters', () => {
+    expect(setLoginInputSchema.safeParse({ ...login, currentPassword: 'a'.repeat(1025) }).success).toBe(false);
   });
 });
 

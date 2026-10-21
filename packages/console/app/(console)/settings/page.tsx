@@ -1,5 +1,6 @@
 'use client';
 
+import { OwnSignInSection } from '../../../features/settings/state/own-sign-in-section';
 import { GatewayConnection } from '../../../features/settings/ui/organisms/gateway-connection';
 import { SquadronsConnection } from '../../../features/settings/ui/organisms/squadrons-connection';
 import { TemplateRepositories } from '../../../features/settings/ui/organisms/template-repositories';
@@ -9,6 +10,7 @@ import { useConsoleFrame } from '../../../lib/console-frame';
 import { useConnectGateway, useGatewaySettings } from '../../../lib/gateway';
 import { useNeedsAttention } from '../../../lib/needs-attention';
 import { useNow } from '../../../lib/now';
+import { useHasOwnSignIn } from '../../../lib/own-sign-in';
 import { useSignInWhenSessionEnds } from '../../../lib/session';
 import { useLiveFleet } from '../../../lib/live-fleet';
 import { useConnectSquadrons, useSquadronsConnection, useSquadronsSettings, useHasSquadrons } from '../../../lib/squadrons';
@@ -17,7 +19,8 @@ import { usePluginNav } from '../../../lib/plugin-nav';
 import { useConnectTrierarchPlugin, useTrierarchPluginSettings } from '../../../lib/trierarch-plugin';
 
 /**
- * Settings: the installation's own settings, argo's alone: with squadrons,
+ * Settings: the installation's own settings, argo's alone: where the console
+ * signs argo in itself, argo's email and password; with squadrons,
  * connecting it, and once connected, the repositories it reads; without,
  * nothing of squadrons. Whenever Settings is offered, the trierarch plugin:
  * not set up, connecting it, or connected. With the gateway on for the
@@ -42,6 +45,7 @@ export default function SettingsPage() {
   const removeRepository = useRemoveRepository();
   const refreshCatalogue = useRefreshCatalogue();
   const pluginNav = usePluginNav();
+  const hasOwnSignIn = useHasOwnSignIn();
   useSignInWhenSessionEnds([attention.error, liveFleet.error]);
 
   return (
@@ -51,6 +55,7 @@ export default function SettingsPage() {
       description="How this installation runs. Only argo, the operator, sees this page."
       live={liveFleet.live}
     >
+      {hasOwnSignIn && <OwnSignInSection />}
       {hasSquadrons && (
         <SquadronsConnection
           settings={settings.data}

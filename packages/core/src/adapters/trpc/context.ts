@@ -5,6 +5,7 @@ import type { AuthenticateAccount } from '../../domain/identity/authenticate-acc
 import type { AuthenticateInstallation } from '../../domain/identity/authenticate-installation.js';
 import type { CutOffAccount } from '../../domain/identity/cut-off-account.js';
 import type { ReadAccount } from '../../domain/identity/read-account.js';
+import type { SetOperatorLogin } from '../../domain/identity/set-operator-login.js';
 import type { SetTheme } from '../../domain/identity/set-theme.js';
 import type { SignIn } from '../../domain/identity/sign-in.js';
 import type { SignOut } from '../../domain/identity/sign-out.js';
@@ -114,6 +115,7 @@ export interface UseCases {
   signOut: SignOut;
   readAccount: ReadAccount;
   setTheme: SetTheme;
+  setOperatorLogin: SetOperatorLogin;
   setNotices: SetNotices;
   getNotices: GetNotices;
   readNotices: ReadNotices;
