@@ -3,7 +3,7 @@
 - Everything that sends or receives messages is a ship: an address, an inbox, a lease, the delivery guarantee, an owner and a statement.
 - Every call is authorised for an actor by scopes and reach, and every event names that actor. An actor is:
   - a ship, by its crew token, or by a console sign-in as argo or as the viewer;
-  - an account, by an account token pagasae signs for one fleet (0058); core stores no account;
+  - an account, by an account token pagasae signs for one fleet (0058), from a header or the console's token cookie; core stores no account;
   - the installation, by the installation token.
 - One catalogue and one check for every actor (0046, 0034). An agent ship can hold any scope any actor holds and do every management job through the same calls, so an AI can manage the fleet. No fleet management job is any kind of actor's alone.
 - Reach: a rule's selector matches an actor by its labels or its owner, as it matches a ship. A ship carries its labels in the fleet; an account carries the values of its groups in its account token; the installation manages person ships and the ships they own by a built-in rule that is never off (0034), so a leaver is always released.
