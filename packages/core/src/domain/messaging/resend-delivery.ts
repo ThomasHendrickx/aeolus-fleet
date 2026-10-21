@@ -1,7 +1,7 @@
 import { isPingContentType, type DeliveryId, type IdGenerator, type MessageId } from '@aeolus-fleet/common';
 
 import { checkReach, readsMessage, resolveSelector, type CheckReachTx, type ReadReachOf, type NotReachable, type ResolveSelectorTx, type UnresolvableSelector } from '../registry/public.js';
-import type { ShipCaller } from '../shared/caller.js';
+import { actorOf, isShipCaller, type Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, type EventLog } from '../shared/events.js';
@@ -33,7 +33,7 @@ export type ResendDeliveryRefusal =
   | AcceptRefusal;
 
 export type ResendDelivery = (
-  caller: ShipCaller,
+  caller: Caller,
   input: { deliveryId: DeliveryId },
 ) => Promise<Result<{ messageId: MessageId }, ResendDeliveryRefusal>>;
 
@@ -104,7 +104,7 @@ export function createResendDelivery(deps: {
       }
 
       const at = deps.clock.now();
-      const dismissed = dismissForResend(delivery, { by: caller.shipId, at });
+      const dismissed = dismissForResend(delivery, { by: actorOf(caller), at });
       if (!dismissed.isOk) {
         return dismissed;
       }
@@ -149,8 +149,9 @@ export function createResendDelivery(deps: {
           requestHash,
           inReplyTo,
           isForced: false,
-          resendOf: { messageId: original.id, by: caller.shipId },
-          ...(caller.signedInAccountId === undefined ? {} : { signedInAccountId: caller.signedInAccountId }),
+          resendOf: { messageId: original.id },
+          actor: actorOf(caller),
+          ...(isShipCaller(caller) && caller.signedInAccountId !== undefined && { signedInAccountId: caller.signedInAccountId }),
           at,
         },
       );

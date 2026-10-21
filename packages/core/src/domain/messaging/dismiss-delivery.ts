@@ -1,7 +1,7 @@
 import type { DeliveryId, IdGenerator } from '@aeolus-fleet/common';
 
 import { readsMessage, type ReadReachOf } from '../registry/public.js';
-import type { ShipCaller } from '../shared/caller.js';
+import { actorOf, type Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, type EventLog } from '../shared/events.js';
@@ -19,7 +19,7 @@ export interface DismissDeliveryTx {
 export type DismissDeliveryRefusal = DomainError<'DELIVERY_NOT_FOUND'> | DismissRefusal;
 
 export type DismissDelivery = (
-  caller: ShipCaller,
+  caller: Caller,
   input: { deliveryId: DeliveryId },
 ) => Promise<Result<undefined, DismissDeliveryRefusal>>;
 
@@ -45,7 +45,7 @@ export function createDismissDelivery(deps: {
       if (!delivery || !message || !readsMessage(reach, { senderId: message.senderShipId, recipient: message.selector, claimedBy: delivery.claimedByShipId })) {
         return refuse('DELIVERY_NOT_FOUND', `Delivery ${input.deliveryId} does not exist`);
       }
-      const dismissed = dismissDelivery(delivery, { by: caller.shipId, at: deps.clock.now() });
+      const dismissed = dismissDelivery(delivery, { by: actorOf(caller), at: deps.clock.now() });
       if (!dismissed.isOk) {
         return dismissed;
       }

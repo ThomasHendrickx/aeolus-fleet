@@ -1,6 +1,6 @@
 import type { IdGenerator, ShipId } from '@aeolus-fleet/common';
 
-import { actorOf, type ShipCaller } from '../shared/caller.js';
+import { actorOf, isShipCaller, type Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, type EventLog } from '../shared/events.js';
@@ -11,21 +11,22 @@ import { checkManage, keepingReachRefusal, type CheckManageTx, type NotReachable
 import type { ClearRequestRepository, ShipRepository } from './ports.js';
 
 export interface RequestWorktreeClearTx extends Omit<CheckManageTx, 'ships'> {
-  ships: Pick<ShipRepository, 'find' | 'findForUpdate'>;
+  ships: Pick<ShipRepository, 'find' | 'findForUpdate' | 'findOperatorShip'>;
   clearRequests: ClearRequestRepository;
   events: EventLog;
 }
 
-export type RequestWorktreeClearUseCaseRefusal = DomainError<'SHIP_NOT_FOUND'> | NotReachable | RequestWorktreeClearRefusal;
+export type RequestWorktreeClearUseCaseRefusal = DomainError<'SHIP_NOT_FOUND' | 'FLEET_NOT_FOUND'> | NotReachable | RequestWorktreeClearRefusal;
 
 export type RequestWorktreeClear = (
-  caller: ShipCaller,
+  caller: Caller,
   input: { trierarchShipId: ShipId; shipId: ShipId; repository: string },
 ) => Promise<Result<undefined, RequestWorktreeClearUseCaseRefusal>>;
 
 /**
  * Use case: the caller asks a trierarch to clear the worktree it kept for a
- * ship in a repository (decision 0032). Its scope (fleet:manage) is checked
+ * ship in a repository (decision 0032). An account asks as argo: argo holds
+ * the request, and its event names the account, as for a ping. Its scope (fleet:manage) is checked
  * before this runs. In one unit of work, locking the trierarch ship first so
  * two requests never both pass its limit: the request and its event.
  */
@@ -44,10 +45,14 @@ export function createRequestWorktreeClear(deps: { uow: UnitOfWork<RequestWorktr
       if (!managed.isOk) {
         return managed;
       }
+      const requestedBy = isShipCaller(caller) ? ok(caller.shipId) : await argoOf(tx, caller);
+      if (!requestedBy.isOk) {
+        return requestedBy;
+      }
       const key = { trierarchShipId: trierarch.id, shipId: input.shipId, repository: input.repository };
       const requested = requestWorktreeClear(
         { trierarch, current: await tx.clearRequests.find(fleetId, key), pending: (await tx.clearRequests.listFor(fleetId, trierarch.id)).length },
-        { shipId: input.shipId, repository: input.repository, requestedBy: caller.shipId, at: deps.clock.now(), actor: actorOf(caller) },
+        { shipId: input.shipId, repository: input.repository, requestedBy: requestedBy.value, at: deps.clock.now(), actor: actorOf(caller) },
       );
       if (!requested.isOk) {
         return requested;
@@ -60,4 +65,10 @@ export function createRequestWorktreeClear(deps: { uow: UnitOfWork<RequestWorktr
       }
       return ok(undefined);
     });
+}
+
+/** argo's id: the ship that holds a request an account makes. */
+async function argoOf(tx: RequestWorktreeClearTx, caller: Caller): Promise<Result<ShipId, DomainError<'FLEET_NOT_FOUND'>>> {
+  const argo = await tx.ships.findOperatorShip(caller.fleetId);
+  return argo ? ok(argo.id) : refuse('FLEET_NOT_FOUND', `Fleet ${caller.fleetId} does not exist`);
 }

@@ -1,4 +1,4 @@
-import type { FleetId } from '@aeolus-fleet/common';
+import type { FleetId, ShipId } from '@aeolus-fleet/common';
 import type { FastifyInstance } from 'fastify';
 import type { Browser, BrowserContext, Page } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createPrismaClient, type PrismaClient } from '../packages/core/src/adapters/prisma/client.js';
 import { createApp } from '../packages/core/src/app.js';
 import { createMigratedDatabase } from '../packages/core/src/testing/database.js';
+import { secretOf } from '../packages/core/src/testing/fleet.js';
 import { newKey } from '../packages/core/src/testing/keys.js';
 import { unwrap } from '../packages/core/src/testing/result.js';
 import { createUseCases } from '../packages/core/src/wiring.js';
@@ -24,6 +25,7 @@ let server: FastifyInstance;
 let web: RunningWeb;
 let browser: Browser;
 let fleetId: FleetId;
+let lookoutId: ShipId;
 const contexts: BrowserContext[] = [];
 
 function mathilde(scopes: readonly string[] = ['fleet:read', 'fleet:manage']): FakeAccount {
@@ -37,6 +39,9 @@ beforeAll(async () => {
   const fleet = unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR }));
   ({ fleetId } = fleet);
   unwrap(await useCases.commissionShip(operatorCaller(fleet), { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
+  const lookout = unwrap(await useCases.commissionShip(operatorCaller(fleet), { idempotencyKey: newKey(), name: 'lookout', type: 'reviewer' }));
+  lookoutId = lookout.shipId;
+  unwrap(await useCases.claimShip({ shipId: lookoutId, secret: secretOf(lookout.secret), location: { kind: 'CLOUD' }, harness: 'claude-code' }));
 
   pagasae = await startFakePagasae();
   const webUrl = await reserveWebUrl();
@@ -95,6 +100,18 @@ describe('an account signing in to the console', () => {
 
     await page.waitForURL(`${web.url}/ships`);
     expect(pagasae.signInsAsked()).toBe(asked);
+  });
+
+  it("pings a crewed ship from its page: argo's ping, the event naming the account", async () => {
+    pagasae.signInAs(mathilde());
+    const page = await newPage();
+
+    await page.goto(`/ships/${lookoutId}`);
+    await page.getByTestId('fleet-ship-ping').click();
+
+    await page.getByTestId('ship-ping-status').getByText('Pinged just now, no answer yet').waitFor();
+    const event = await database.event.findFirstOrThrow({ where: { fleetId, type: 'MessageAccepted', shipId: lookoutId }, select: { actorKind: true, actorAccountId: true } });
+    expect(event).toEqual({ actorKind: 'account', actorAccountId: 'acc-mathilde' });
   });
 
   it('says there is nothing to manage here for an account without fleet:read', async () => {

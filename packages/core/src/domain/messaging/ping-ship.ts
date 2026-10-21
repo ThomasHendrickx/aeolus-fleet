@@ -1,7 +1,18 @@
 import { PING_CONTENT_TYPE, type IdGenerator, type MessageId, type ShipId } from '@aeolus-fleet/common';
 
-import { checkManage, findPingableShip, keepingReachRefusal, type CheckManageTx, type NotReachable, type PingableShipTx, type UnpingableShip } from '../registry/public.js';
-import type { ShipCaller } from '../shared/caller.js';
+import {
+  checkManage,
+  findOperatorShip,
+  findPingableShip,
+  keepingReachRefusal,
+  type CheckManageTx,
+  type NotReachable,
+  type PingableShipTx,
+  type ShipTx,
+  type UnpingableShip,
+} from '../registry/public.js';
+import { actorOf, isShipCaller, type Caller, type ShipCaller } from '../shared/caller.js';
+import type { DomainError } from '../shared/errors.js';
 import type { Clock } from '../shared/clock.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
@@ -11,7 +22,7 @@ import { checkedSend, sendWithin, type SendMessageRefusal, type SendMessageTx } 
 /** What every ping says: the session answers it with pong, and does nothing else with it. */
 export const PING_PAYLOAD = 'Ping from argo: answer with pong(deliveryId).';
 
-export type PingShipTx = SendMessageTx & PingableShipTx & CheckManageTx;
+export type PingShipTx = SendMessageTx & PingableShipTx & CheckManageTx & ShipTx;
 
 export interface PingSent {
   /** The ship's open ping: the one this call sent, or the one already waiting. */
@@ -21,13 +32,14 @@ export interface PingSent {
   isNew: boolean;
 }
 
-export type PingShipRefusal = UnpingableShip | NotReachable | SendMessageRefusal;
+export type PingShipRefusal = UnpingableShip | NotReachable | SendMessageRefusal | DomainError<'FLEET_NOT_FOUND'>;
 
-export type PingShip = (caller: ShipCaller, input: { shipId: ShipId }) => Promise<Result<PingSent, PingShipRefusal>>;
+export type PingShip = (caller: Caller, input: { shipId: ShipId }) => Promise<Result<PingSent, PingShipRefusal>>;
 
 /**
  * Use case: argo pings a crewed ship (`fleet.ping`), asking its session to
- * answer with pong. Its scope (fleet:manage) is checked before this runs. A
+ * answer with pong. An account pings as argo: the ping is argo's message, and
+ * MessageAccepted names the account (accounts design, F1). Its scope (fleet:manage) is checked before this runs. A
  * ping is a message with the reserved content type and a fixed payload, sent
  * and delivered as any message is. At most one is open per ship: while one
  * waits unanswered, pending or in flight, this answers with that one and
@@ -69,8 +81,21 @@ export function createPingShip(deps: {
       if (!request.isOk) {
         return request;
       }
+      const sender = await senderOf(tx, caller);
+      if (!sender.isOk) {
+        return sender;
+      }
       const sentAt = deps.clock.now();
-      const sent = await sendWithin({ tx, clock: { now: () => sentAt }, ids: deps.ids }, { caller, request: request.value });
+      const sent = await sendWithin({ tx, clock: { now: () => sentAt }, ids: deps.ids }, { caller: sender.value, request: request.value, actor: actorOf(caller) });
       return sent.isOk ? ok({ messageId: sent.value.messageId, sentAt, isNew: true }) : sent;
     });
+}
+
+/** The ship a ping is sent from: the calling ship, or argo for any other actor. */
+async function senderOf(tx: ShipTx, caller: Caller): Promise<Result<ShipCaller, DomainError<'FLEET_NOT_FOUND'>>> {
+  if (isShipCaller(caller)) {
+    return ok(caller);
+  }
+  const argo = await findOperatorShip(tx, caller.fleetId);
+  return argo.isOk ? ok({ shipId: argo.value.id, fleetId: caller.fleetId, kind: argo.value.kind, scopes: [] }) : argo;
 }

@@ -69,8 +69,8 @@ export function NotHandled({ shipId }: { shipId: ShipId }) {
         onRetry={() => {
           void attention.refetch();
         }}
-        onResend={access.canManage ? onResend : undefined}
-        onDismiss={access.canManage ? onDismiss : undefined}
+        onResend={access.canResend ? onResend : undefined}
+        onDismiss={access.canResend ? onDismiss : undefined}
         onOpen={(delivery) => {
           router.replace(`/ships/${shipId}?tab=messages&message=${delivery.message.id}`, { scroll: false });
         }}
