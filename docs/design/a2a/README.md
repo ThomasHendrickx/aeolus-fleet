@@ -1,10 +1,12 @@
 # A2A in and out through the gateway
 
-Design for [#878](https://github.com/ThomasHendrickx/aeolus-fleet/issues/878), the 0.30.0 part of level 3 (0048). This is new core fleet functionality, so the purpose comes first. Part 2 and the questions follow once Thomas agrees it. No code.
+Design for [#878](https://github.com/ThomasHendrickx/aeolus-fleet/issues/878), the 0.30.0 part of level 3 (0048). New core fleet functionality, so it goes purpose first. Thomas agreed the purpose on 21 Oct. The questions in part 4 are open. No code.
 
 It brings two earlier designs up to date with what is built: the interop design (branch `design/interop`, `docs/design/interop/interop.md`, questions I-1 to I-9 decided on 17 Oct, slice order 3.6) and the A2A study (branch `design/interop-a2a`, `docs/design/interop-a2a/interop-a2a.md`). Every point they decided stays. Anything that now conflicts is raised as a question in part 4.
 
-## 1. Purpose (to agree)
+## 1. Purpose (agreed 21 Oct)
+
+Thomas: "I agree with the purpose".
 
 An outside A2A agent talks to fleet ships with no Aeolus client. Fleet ships talk to outside A2A agents as they talk to any ship. Network rules gate both directions as they gate any ship. No send answers OK before the message is stored.
 
@@ -15,7 +17,12 @@ An outside A2A agent talks to fleet ships with no Aeolus client. Fleet ships tal
 Not the purpose:
 - Task state in core. The gateway keeps it (0048, 0001).
 - A2A for person ships. People keep the gateway's MCP tools (0054).
-- gRPC, signed cards, and a registry of cards.
+- gRPC, signed cards, and a registry of cards. See Later.
+
+Later, in Thomas's words:
+- **gRPC.** "gRPC we can support later"
+- **Signed cards.** "Signed cards is acceptable for now, but we can investigate what we can do with that later (maybe a trust signal or so)"
+- **Card registry.** "Card registery, we can check later if we can use this in some way as a just in time registry creation for discovery within the A2A protocal. But again later"
 
 ## 2. Lessons to check against
 
@@ -83,7 +90,7 @@ Not the purpose:
 
 ## 3. Flows
 
-These follow the picks in part 4. "Gateway" means the gateway acting as the crew of the proxy ship named.
+These follow the picks in part 4, which are still open. "Gateway" means the gateway acting as the crew of the proxy ship named.
 
 ### 3.1 A2A in
 
@@ -171,74 +178,132 @@ sequenceDiagram
 
 ## 4. Questions
 
-Each has options and my pick. They follow once the purpose is agreed.
+Each question can be read alone: its context, numbered options, and my pick with why. Background for all of them: the gateway is the plugin beside core that speaks MCP and A2A with the outside. It acts in a fleet only as ships: its own ship, plus one proxy ship per outside party, which it commissions once an actor holding its approving scope (`gateway:approve`) approves the party (0056). Today it speaks MCP only.
 
-**A1. An outside party covers A2A.** 0050, 0056 and the blueprint define an outside party as "an approved outside MCP server or client".
-1. **Widen the term**: an approved outside MCP server or client, or A2A agent or client. Same approval, pending list, switch and owner rule. One line each in 0050, 0056 and the blueprint.
-2. Keep A2A parties out of the approval flow: argo adds them.
+### A1. Does "outside party" cover A2A?
 
-Pick 1. 0057 makes no job argo's alone, and the gateway pages proposal already shows the protocol as a tag on one list.
+**Context.** 0050, 0056 and the blueprint define an outside party as "an approved outside MCP server or client". The rules hang on that term:
+- approval and the list of pending requests;
+- the switch per fleet;
+- the owner core keeps;
+- the gateway's page.
 
-**A2. How an outside A2A client is admitted and gets its credential.**
-1. **An approver adds it on the gateway's page**, as an outside MCP server is added (0056). The approver names it and sets its owner and scopes. The gateway commissions an `a2a-client` proxy ship and shows a bearer once. The card states an HTTP bearer scheme.
-2. OAuth authorization code through a signed-in account, as for an MCP client.
-3. OAuth client credentials with a pre-registered client.
+As written, an outside A2A agent or A2A client is none of these, so no rule says who admits it.
 
-Pick 1, with 3 in a later slice. An A2A client is a machine with no browser, so 2 has no human to sign in. 1 needs nothing the gateway lacks.
+**Options.**
+1. Widen the term to "an approved outside MCP server or client, or A2A agent or client". Every rule of 0056 then applies unchanged, with one line changed in each of 0050, 0056 and the blueprint.
+2. Keep the term MCP only and let argo add A2A parties in the console, outside the approval flow.
 
-**A3. What the public card shows.** 0047 lets only the ships that can send to a ship, and argo, read its statement. A public card is read by anyone who knows the alias.
-1. **The public card** names the gateway as provider and states the interface, the bearer scheme and `extendedAgentCard: true`, with no summary and no skills. The extended card, after auth, carries the statement for that caller, from `discover`.
-2. The public card carries the statement.
+**Pick 1.** 0057 makes no job argo's alone, and 2 would route ordinary work to argo. The gateway's page already shows each party's protocol as a tag on one list, so A2A fits there with no new rule.
 
-Pick 1. It keeps 0047's reader rule, and the extended card is the spec's own place for what is shown per caller.
+### A2. How is an outside A2A client admitted, and how does it get its credential?
 
-**A4. How an A2A client learns which cards it can use.** A2A has no registry.
-1. **The party's detail on the gateway's page lists the card address of each ship its proxy ship reaches now** (from `discover`). The owner hands those addresses to the outside party.
-2. One gateway card whose skills are the reachable ships. The A2A study rejected this: an A2A message names no skill, so it cannot route.
+**Context.** An A2A client is usually a machine, such as a supplier's agent, with no browser and no human present when it connects. MCP clients are admitted through OAuth: a signed-in account of the fleet makes the authorize request, which waits for approval (0056). An outside MCP server never asks; an approver adds it. A2A lets a card declare several security schemes, including an HTTP bearer and OAuth client credentials. The gateway is already an OAuth server and already holds bearers for MCP out.
 
-Pick 1.
+**Options.**
+1. An approver adds the A2A client on the gateway's page, as an MCP server is added. The approver names it and sets its owner and scopes. The gateway commissions an `a2a-client` proxy ship and shows a bearer once. The card declares an HTTP bearer scheme.
+2. OAuth authorization code through a signed-in account of the fleet, the same path as an MCP client.
+3. OAuth client credentials with a client the gateway registered beforehand.
 
-**A5. One switch, or one per protocol.** Interop 3.1 said "each adapter is switched on per fleet". 0056 and the gateway have one switch for outside parties.
-1. **The one switch** covers MCP and A2A.
-2. A switch per protocol.
+**Pick 1 now, 3 in a later slice.** 1 needs nothing the gateway lacks, and an approver still decides each party. 2 needs a human at a browser, which an A2A client does not have. 3 is the better long-term credential because it expires and rotates, but it adds a token endpoint flow the first slice does not need.
 
-Pick 1. Approval already gates each party. A second switch is a gate nobody asked for.
+### A3. What does the public card show?
 
-**A6. Which capability an A2A message calls.** `waitMs`, `deadlineMs` and the output content type are per capability (0047). An A2A message names no skill.
-1. **The first capability whose first input mode is the message's content type.** With none, there is no wait and no deadline, and rule 3.4's plain-text completion applies.
-2. A skill id in `Message.metadata`. That is a key of our own, which a standard client never sets.
+**Context.** A2A publishes an agent card that anyone can fetch. The card may set `capabilities.extendedAgentCard: true`, and an authenticated client then fetches a fuller card with `GetExtendedAgentCard`. In Aeolus a ship's statement (summary and capabilities) is read only by the ships that can send to it, and argo (0047). The gateway serves one card per exposed ship, at an opaque alias.
 
-Pick 1. Standard clients send only standard fields.
+**Options.**
+1. The public card names the gateway as provider and states the interface, the bearer scheme and `extendedAgentCard: true`, with no summary and no skills. The extended card carries the statement, built from `discover` as the caller's proxy ship, so it shows only what that caller can reach.
+2. The public card carries the ship's statement.
 
-**A7. Content type of an inbound A2A message.**
-1. **One text part travels as its text, with its `mediaType` (`text/plain` when none). One data part travels as JSON, with its `mediaType` (`application/json` when none). Anything else (several parts, `raw`, `url`) travels as the whole A2A message, `application/a2a+json`.**
-2. Always `application/a2a+json`.
+**Pick 1.** It keeps 0047's reader rule, and the extended card is the spec's own place for content that depends on the caller. 2 shows a statement to anyone who has the alias.
 
-Pick 1. A ship that knows nothing of A2A still gets plain text, as the A2A study proposed.
+### A4. How does an A2A client learn which cards it can use?
 
-**A8. CancelTask.**
-1. **Always answer `TaskNotCancelableError`.**
-2. Send the ship a cancel request and report its answer.
+**Context.** A2A has no registry: a client needs each card's address. The gateway serves one card per reachable ship at an opaque alias. Network rules decide which ships an outside party's proxy ship reaches, and that can change.
 
-Pick 1. Aeolus cannot withdraw a sent message, and 2 needs a content type of our own.
+**Options.**
+1. The party's detail on the gateway's page lists the card address of each ship its proxy ship reaches now, from `discover`. The party's owner hands the addresses to the outside party.
+2. One gateway card whose skills are the reachable ships. An A2A message names no skill, so the gateway could not tell which ship a message is for, and the A2A study rejected it.
 
-**A9. Who marks an outside agent not repeatable.** I-7 says "argo's mark". 0053 and 0057 make no job argo's alone.
-1. **Any actor holding `gateway:approve`**, on the party's detail, as MCP tool marks are set today.
-2. argo only.
+**Pick 1.** It works with any standard client and always follows the rules in force. A registry is on the Later list.
 
-Pick 1.
+### A5. One switch for outside parties, or one per protocol?
 
-**A10. AUTH_REQUIRED from an outside agent.**
-1. **A reply to the sender carrying the state, then `handled`.** The proxy ship's owner fixes the credential on the gateway's page.
-2. The gateway asks the owner (0038) and holds the task.
+**Context.** The interop design (3.1) said "each adapter is switched on per fleet". Decision 0056, decided later, made outside parties one switch per fleet, off by default, turned by `fleet:network`, with a warning when no network rules apply. The gateway has built that one switch.
 
-Pick 1 for 0.30.0. Credentials stay in the vault (study question 6), and nothing waits on a human by default.
+**Options.**
+1. The one switch covers both MCP and A2A.
+2. A switch per protocol per fleet.
 
-**A11. Build on `@a2a-js/sdk`, or write the bindings.**
-1. **The SDK behind the gateway's ports.** Its request handler and client are used, with the call store in place of its task store. Pinned. Slice 2 checks that it answers only after `send` is OK.
-2. Write JSON-RPC, HTTP+JSON and SSE ourselves on Fastify.
+**Pick 1.** Approval already gates each party one by one, so a fleet that wants MCP but not A2A simply approves no A2A party. A second switch is a gate nobody asked for.
 
-Pick 1. Spec drift lands in one dependency, and the SDK already serves both verbs of SubscribeToTask.
+### A6. Which capability does an inbound A2A message call?
+
+**Context.** A ship's statement lists capabilities. Each may state:
+- `waitMs`: how long the gateway may hold a call for its reply;
+- `deadlineMs`: after this the call fails;
+- an output content type: the reply that completes the call.
+
+These come from 0047 and interop I-2 and I-9. In MCP the tool name picks the capability. An A2A message carries only `messageId`, parts, and an optional `taskId`, `contextId` and `metadata`. It never names a skill.
+
+**Options.**
+1. The first capability whose first input mode equals the message's content type (A7). When none matches, there is no wait and no deadline, and the plain-text completion rule applies: the first reply from the ship completes the call.
+2. A skill id in `Message.metadata`, a key of Aeolus's own. A standard client never sets it, so it would fall back to 1 anyway.
+
+**Pick 1.** It uses only standard fields. A ship that wants a wait or a deadline for A2A callers states an input mode they send.
+
+### A7. What content type does an inbound A2A message travel as?
+
+**Context.** A fleet message is one payload of at most 64 KB with one content type. An A2A message holds one or more parts, each one of `text`, `data` (JSON), `raw` (bytes) or `url`, with an optional `mediaType`. `application/a2a+json` is A2A's own media type for a whole A2A message.
+
+**Options.**
+1. Map by shape:
+   - One text part travels as its text, with its `mediaType` (`text/plain` when none).
+   - One data part travels as JSON, with its `mediaType` (`application/json` when none).
+   - Anything else (several parts, `raw` or `url`) travels as the whole A2A message, as `application/a2a+json`.
+2. Always send the whole A2A message as `application/a2a+json`.
+
+**Pick 1.** A ship that knows nothing of A2A still gets plain text or JSON it can read. The A2A study proposed this mapping, and it loses nothing because the full form is kept for every other shape.
+
+### A8. What does CancelTask do?
+
+**Context.** A2A lets a client cancel a task. Aeolus cannot withdraw a sent message: once it is stored, it is delivered. The task lives only in the gateway, as a view over a fleet message and its replies.
+
+**Options.**
+1. Always answer `TaskNotCancelableError`, the spec's error for this.
+2. Send the ship a cancel request as a message and report what it answers. That needs a content type of Aeolus's own, and every ship would have to learn it.
+
+**Pick 1.** It is true to what Aeolus does and adds no vocabulary. A ship that wants cancellation can state it as a capability of its own.
+
+### A9. Who marks an outside A2A agent not repeatable?
+
+**Context.** When a call to an outside agent dies before the agent confirmed it, the gateway hands it again only if repeating is safe (I-7). A2A gives each message a stable `messageId` that agents may deduplicate on, so A2A agents count as repeatable by default. I-7 says "argo's mark" makes an agent an exception. Decisions 0053 and 0057, decided later, make no job argo's alone. For MCP the gateway already lets any holder of `gateway:approve` mark tools.
+
+**Options.**
+1. Any actor holding `gateway:approve` sets the mark on the party's detail, as MCP tool marks are set today.
+2. argo only, as I-7 worded it.
+
+**Pick 1.** It follows 0053, and it is the mechanism already built for MCP.
+
+### A10. What happens when an outside agent answers AUTH_REQUIRED?
+
+**Context.** An outside A2A agent may move its task to `TASK_STATE_AUTH_REQUIRED`, asking for a credential. The fleet ship that sent the message holds no outside credential. The gateway's vault holds them, and an approver sets them on the gateway's page.
+
+**Options.**
+1. The gateway sends the fleet ship a reply carrying that state, then reports the delivery handled. The proxy ship's owner fixes the credential on the gateway's page, and the fleet ship sends again when it chooses to.
+2. The gateway asks the proxy ship's owner with a question (0038) and holds the task until they answer.
+
+**Pick 1 for 0.30.0.** Credentials stay in the vault and never travel in a message, and no work waits on a human by default. 2 can follow if this turns out to be common.
+
+### A11. Build on `@a2a-js/sdk`, or write the bindings ourselves?
+
+**Context.** The gateway must serve A2A over JSON-RPC and HTTP+JSON, with SSE streams, and call outside agents as a client. The official TypeScript SDK, `@a2a-js/sdk` v1.3.0, implements spec 1.0 for server and client, and accepts both verbs of SubscribeToTask. The spec still moves: 1.1 is in preparation. The gateway runs on Fastify with ports and adapters.
+
+**Options.**
+1. Use the SDK behind the gateway's ports, pinned, with the gateway's call store in place of the SDK's task store. Slice 2 proves the SDK answers only after the fleet's `send` is OK.
+2. Write JSON-RPC, HTTP+JSON and SSE on Fastify ourselves.
+
+**Pick 1.** Spec changes then land in one dependency, and the bindings and streams come already tested against the spec. If the SDK cannot hold the answer until `send` is OK, slice 2 falls back to 2 for the server side only.
 
 ## 5. Slices for 0.30.0
 
