@@ -17,7 +17,7 @@
     "postinstall": "npm run generate --workspace @aeolus-fleet/core",
     "build": "npm run build --workspace @aeolus-fleet/common --workspace @aeolus-fleet/core --workspace @aeolus-fleet/console",
     "typecheck": "tsc --project tsconfig.json && npm run typecheck --workspaces",
-    "lint": "eslint --max-warnings 0 .",
+    "lint": "eslint --max-warnings 0 . && node scripts/check-train-dependencies.ts",
     "test": "vitest run",
     "test:unit": "vitest run --project '*:unit'",
     "test:integration": "vitest run --project '*:integration'",
@@ -26,8 +26,6 @@
     "set-version": "node scripts/set-version.ts"
   },
   "devDependencies": {
-    "@aeolus-fleet/squadrons": "^0.28.0",
-    "@aeolus-fleet/trierarch-plugin": "^0.28.0",
     "@eslint/js": "^10.0.1",
     "@next/eslint-plugin-next": "^16.3.7",
     "@types/node": "^26.6.3",

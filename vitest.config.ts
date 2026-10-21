@@ -118,15 +118,13 @@ export default defineConfig({
         extends: true,
         test: {
           // The console in a real browser: Postgres, the server and the web app
-          // in development mode, driven by Playwright.
+          // in development mode, driven by Playwright. Never a published plugin.
           name: 'console:e2e',
           include: ['e2e/**/*.e2e.test.ts'],
           // Each file starts its own next dev in packages/console; one at a time.
           fileParallelism: false,
-          globalSetup: ['packages/core/src/testing/postgres-global-setup.ts', '@aeolus-fleet/squadrons/testing/squadrons-global-setup'],
-          // The plugins' testing entries import @aeolus-fleet/core/testing, which
-          // resolves to core's TypeScript source: Vitest has to load them, not Node.
-          server: { deps: { inline: ['@aeolus-fleet/squadrons', '@aeolus-fleet/trierarch-plugin'] } },
+          // Core and the console only: flows across trains are checked on staging, against the candidate.
+          globalSetup: ['packages/core/src/testing/postgres-global-setup.ts'],
           testTimeout: 60_000,
           hookTimeout: 240_000,
         },
