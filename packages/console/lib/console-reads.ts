@@ -2,6 +2,7 @@ import { accountIdSchema, idSchema } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import { readAccountName, readAccountNames } from './account-name-read';
+import { readAppsList } from './apps-list-read';
 import { consoleRead } from './console-read';
 import { parseCrewSettings } from './crew-settings-read';
 import { readGatewayConnection } from './gateway-reads';
@@ -35,6 +36,7 @@ export const CONSOLE_READS = {
   'inbox-thread': consoleRead(z.object({ messageId: idSchema('message') }), ({ messageId }) => readThread(messageId)),
   'crew-settings-check': consoleRead(z.object({ settings: z.unknown() }), ({ settings }) => checkCrewSettings(settings)),
   'account-name': consoleRead(z.undefined(), readAccountName),
+  'apps-list': consoleRead(z.undefined(), readAppsList),
   'account-names': consoleRead(z.object({ accountIds: z.array(accountIdSchema).max(ACCOUNT_NAMES_MAX) }), ({ accountIds }) => readAccountNames(accountIds)),
   'crew-settings': consoleRead(z.object({ settings: z.array(z.unknown()) }), async ({ settings }) => ({ kind: 'answered', data: await parseCrewSettings(settings) })),
 };
