@@ -153,11 +153,12 @@ describe("presenting an account token for the console's sign-in", () => {
 });
 
 describe('an account signed in by its token cookie', () => {
-  it('is the session console.session answers: the account, its fleet, its scopes and when its token ends', async () => {
+  it("is the session console.session answers: the account, its fleet and the fleet's name, its scopes and when its token ends", async () => {
     const cookie = await signedInCookie();
 
     await expect(asBrowser(cookie).console.session.query()).resolves.toEqual({
       fleetId,
+      fleetName: 'acme',
       kind: 'account',
       accountId: 'acc-mathilde',
       scopes: ['fleet:read', 'fleet:commission'],

@@ -16,7 +16,7 @@ function aWorld(options: { accountId?: string | null; pagasae?: Response | 'down
     const url = input instanceof Request ? input.url : input.toString();
     calls.push({ url, headers: new Headers(init?.headers) });
     if (url === 'http://server:4000/trpc/console.session') {
-      return Promise.resolve(answer({ fleetId: FLEET_ID, expiresAt: '2026-10-21T10:00:00.000Z', kind: 'operator', scopes: [] }));
+      return Promise.resolve(answer({ fleetId: FLEET_ID, fleetName: 'Acme', expiresAt: '2026-10-21T10:00:00.000Z', kind: 'operator', scopes: [] }));
     }
     if (url === 'http://server:4000/trpc/console.account') {
       const accountId = options.accountId === undefined ? 'acc-01mathilde' : options.accountId;
