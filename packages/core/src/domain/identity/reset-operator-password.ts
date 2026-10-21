@@ -49,6 +49,10 @@ export function createResetOperatorPassword(deps: {
       if (!account) {
         return refuse('FLEET_NOT_FOUND', `Fleet ${fleetId} does not exist`);
       }
+      if (account.email === null) {
+        // As fleet:init leaves it (accounts design, A1).
+        return refuse('OPERATOR_HAS_NO_PASSWORD', 'argo has no password yet: sign in with a link from npx aeolus-core sign-in, then set an email and password in Settings');
+      }
       if (account.passwordHash === null) {
         return refuse('OPERATOR_HAS_NO_PASSWORD', 'This operator has no password: they sign in only through the hosting service');
       }
