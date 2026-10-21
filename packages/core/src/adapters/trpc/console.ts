@@ -25,6 +25,7 @@ import {
   ConsoleRefusalDetails,
   consoleAccountOf,
   consoleProcedure,
+  consoleServerProcedure,
   okOrThrow,
   publicProcedure,
   refuseIfSignedInElsewhere,
@@ -83,10 +84,9 @@ export const consoleRouter = router({
    * account token cookie (accounts design, F1, A3): core checks the token as
    * on every call and keeps it in a cookie of its own until it ends. The
    * console's server calls it and passes the cookie on, at sign-in and at
-   * every renewal, so it takes no console origin: the token is the
-   * credential.
+   * every renewal; a browser posting it from another site is refused.
    */
-  presentAccountToken: publicProcedure.input(presentAccountTokenInputSchema).mutation(async ({ ctx, input }) => {
+  presentAccountToken: consoleServerProcedure.input(presentAccountTokenInputSchema).mutation(async ({ ctx, input }) => {
     const account = okOrThrow(await ctx.useCases.authenticateAccount(input.token, { through: null }));
     ctx.sessionCookie.setAccountToken(input.token, account.tokenEndsAt ?? new Date());
     return {};

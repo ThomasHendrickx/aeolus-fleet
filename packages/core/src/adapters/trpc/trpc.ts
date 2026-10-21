@@ -330,6 +330,19 @@ export const consoleProcedure = publicProcedure.use(({ ctx, next }) => {
 });
 
 /**
+ * A console procedure the console's own server calls with a credential the
+ * browser brought, and passes the cookie on. A server sends no Origin, and a
+ * browser always does, so one from any origin but the console's is a page on
+ * another site posting from a visitor's browser, and is refused.
+ */
+export const consoleServerProcedure = publicProcedure.use(({ ctx, next }) => {
+  if (ctx.origin !== undefined) {
+    checkConsoleOrigin(ctx);
+  }
+  return next();
+});
+
+/**
  * The crew of a bearer crew token; undefined when it never crewed a ship. One
  * whose lease has ended is refused as such, so its session learns that the
  * ship was released rather than that its token is wrong.
