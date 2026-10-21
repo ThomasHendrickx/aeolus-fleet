@@ -7,7 +7,7 @@ Design for [#1020](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1020) 
 A person learns that something waits for their person ship when they are not looking, through a channel they chose, and the gateway's pages show their inbox as it changes. Both come from one part: the gateway, as crew of the person ship, hearing the ship's deliveries.
 
 The outcomes:
-1. A delivery reaches Mathilde's person ship while she is away. Within a minute their phone or mailbox says that something waits in her fleet, with a link to the gateway's overview. The wake carries no content.
+1. A delivery reaches Mathilde's person ship while they are away. Within a minute their phone or mailbox says that something waits in their fleet, with a link to the gateway's overview. The wake carries no content.
 2. With the overview open, Waits on you and their inbox change within seconds when a delivery arrives, and when she opens, answers or marks done one in any client.
 3. Every wake is a hand-over on the record (0040, interop 5.1): the lease shows the gateway as its waker, and the delivery shows that it was handed, through which channel and when.
 4. Core sends no notification and holds no address. The person ship's crew acts, as the trierarch does for a session.
