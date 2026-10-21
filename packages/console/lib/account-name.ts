@@ -8,9 +8,16 @@ import { serverInternalUrlFrom } from './server-url';
  * web app's server only: the session's fleet (and, for the menu, its account)
  * from the fleet server with the operator's cookie, then pagasae with the
  * console's token. Asked each time they are shown and never stored, so core
- * keeps no email. None for argo's own sign-in, without pagasae, or while
- * pagasae gives none: the console shows the account's id then.
+ * keeps no email. Deleted user for an account pagasae deleted for good (410).
+ * None for argo's own sign-in, without pagasae, or while pagasae gives none:
+ * the console shows the account's id then.
  */
+
+/** What the console names an account pagasae deleted for good, which has no name any more. */
+export const DELETED_USER = 'Deleted user';
+
+/** pagasae's answer for an account it deleted for good. */
+const DELETED_STATUS = 410;
 
 type Environment = Readonly<Record<string, string | undefined>>;
 
@@ -35,12 +42,15 @@ async function query<T>(call: { serverUrl: string; procedure: string; cookie: st
   return z.object({ result: z.object({ data: call.output }) }).parse(await response.json()).result.data;
 }
 
-/** The name pagasae gives one account of the fleet; none when it gives none. */
+/** The name pagasae gives one account of the fleet, Deleted user for one it deleted; none when it gives none. */
 async function askPagasae(call: { pagasae: { url: string; token: string }; fleetId: string; accountId: string; fetchImplementation: typeof fetch }): Promise<string | null> {
   const asked = new URL(`${call.pagasae.url}/api/console/account-name`);
   asked.search = new URLSearchParams({ fleetId: call.fleetId, accountId: call.accountId }).toString();
   try {
     const response = await call.fetchImplementation(asked.toString(), { headers: { 'x-aeolus-console-token': call.pagasae.token } });
+    if (response.status === DELETED_STATUS) {
+      return DELETED_USER;
+    }
     if (!response.ok) {
       return null;
     }
