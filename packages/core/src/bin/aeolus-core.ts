@@ -7,12 +7,13 @@ import { fleetInit } from '../adapters/cli/fleet-init.js';
 import { migrate } from '../adapters/cli/migrate.js';
 import { operatorResetPassword } from '../adapters/cli/operator-reset-password.js';
 import { runAtTerminal, runCommand } from '../adapters/cli/run.js';
+import { signIn } from '../adapters/cli/sign-in.js';
 import { describeFailure } from '../adapters/prisma/failure-log.js';
 import { migrateDatabase, MigrationError } from '../adapters/prisma/migrate.js';
 import { ConfigError } from '../config.js';
 import { start } from '../start.js';
 
-const USAGE = 'Usage: aeolus-core start | migrate | fleet:init --name "<fleet name>" | operator:reset-password';
+const USAGE = 'Usage: aeolus-core start | migrate | fleet:init --name "<fleet name>" | sign-in | operator:reset-password';
 
 const [command, ...args] = process.argv.slice(2);
 
@@ -34,6 +35,11 @@ switch (command) {
   case 'fleet:init':
     await runCommand(args, ({ useCases, consoleOrigin, io }) =>
       fleetInit(args, { initialiseFleet: useCases.initialiseFleet, issueSignInLink: useCases.issueSignInLink, listFleets: useCases.listFleets, consoleOrigin, io }),
+    );
+    break;
+  case 'sign-in':
+    await runCommand(args, ({ useCases, consoleOrigin, io }) =>
+      signIn(args, { listFleets: useCases.listFleets, issueSignInLink: useCases.issueSignInLink, consoleOrigin, io }),
     );
     break;
   case 'operator:reset-password':
