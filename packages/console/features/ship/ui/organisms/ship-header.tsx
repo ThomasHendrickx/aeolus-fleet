@@ -15,6 +15,7 @@ import { LocationTag } from '../../../../components/molecules/location-tag';
 import { ModelLine } from '../molecules/model-line';
 import { PingStatus } from '../molecules/ping-status';
 import { ReportDetails } from '../molecules/report-details';
+import { ShipStatement } from '../molecules/ship-statement';
 import { ReportLine } from '../../../../components/molecules/report-line';
 import { ShipName } from '../../../../components/molecules/ship-name';
 import { StatusBadge } from '../../../../components/molecules/status-badge';
@@ -106,6 +107,14 @@ function MetaStrip({ ship, now, labels, way }: { ship: ShipDetail; now: Date; la
           <dd className="min-w-0 flex-1">{way}</dd>
         </div>
       )}
+      {isOperator ? null : (
+        <div className="col-span-4 flex min-w-0 items-start gap-4 bg-card px-3.5 py-2.5 max-sm:col-span-2 max-sm:flex-col max-sm:gap-1.5">
+          <dt className="shrink-0 text-meta text-muted-foreground">Statement</dt>
+          <dd className="min-w-0 flex-1">
+            <ShipStatement statement={ship.statement} testId="ship-statement" />
+          </dd>
+        </div>
+      )}
       {labels === undefined ? null : (
         <div className="col-span-4 flex min-w-0 items-center gap-4 bg-card px-3.5 py-2.5 max-sm:col-span-2 max-sm:flex-col max-sm:items-start max-sm:gap-1.5" data-testid="ship-labels">
           <dt className="shrink-0 text-meta text-muted-foreground">Labels</dt>
@@ -129,7 +138,7 @@ function Notice({ icon, children }: { icon: ReactNode; children: ReactNode }) {
  * The top of the ship page (docs/design/png/ShipHeader.png): name, status,
  * type or the operator chip, the actions its state allows, and a meta strip
  * of where it runs, since when it is crewed, when it was commissioned and its
- * id, with its side of the way (#756) and its labels at its foot (#102), then its crew's report details, folded, when it has any. Its crew
+ * id, with its side of the way (#756), its statement (decision 0047) and its labels at its foot (#102), then its crew's report details, folded, when it has any. Its crew
  * request card, when given, sits above the meta strip. argo says it is the operator's ship; a retired ship is read-only.
  */
 export function ShipHeader({ ship, shipId, state, actions, crewRequest, now, backHref = '/', labels, isPluginShip = false, way }: ShipHeaderProps) {
