@@ -61,7 +61,7 @@ describe('the candidate a release publishes', () => {
   });
 
   it('refuses a tarball the download lacks', () => {
-    const { 'aeolus-fleet-console-0.29.0.tgz': _console, ...withoutConsole } = DOWNLOADED;
+    const withoutConsole = Object.fromEntries(Object.entries(DOWNLOADED).filter(([filename]) => !filename.includes('console')));
     expect(refusal({ downloaded: withoutConsole })).toBe('The download has no aeolus-fleet-console-0.29.0.tgz');
   });
 });
