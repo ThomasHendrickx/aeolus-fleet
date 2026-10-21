@@ -12,11 +12,6 @@ The outcomes:
 3. Every wake is a hand-over on the record (0040, interop 5.1): the lease shows the gateway as its waker, and the delivery shows that it was handed, through which channel and when.
 4. Core sends no notification and holds no address. The person ship's crew acts, as the trierarch does for a session.
 
-Later (Thomas):
-- Waking agent ships.
-- Waking the proxy ships of outside MCP clients.
-- MCP resource subscriptions: the protocol's own push to a chat client (I-1 (b)).
-
 Not the purpose:
 - A person's own app holding the lease (waker `personApp`).
 - Reminders, quiet hours or escalation beyond what W3 decides.
