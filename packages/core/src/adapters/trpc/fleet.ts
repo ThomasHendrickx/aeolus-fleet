@@ -363,7 +363,7 @@ export const fleetRouter = router({
     ),
 
   /** Asks a trierarch to clear a worktree it kept, named by its ship and repository (decision 0032). */
-  clearWorktree: scopedProcedure('fleet:manage')
+  clearWorktree: actorScopedProcedure('fleet:manage')
     .meta({
       description: [
         'Needs fleet:manage. Asks a trierarch ship to clear the worktree it kept for a ship in a repository, named as its report names it, never a path.',
