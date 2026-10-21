@@ -1,20 +1,23 @@
 # Wake a person when something waits
 
-Design for [#1020](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1020) (interop I-1, 5.1 (a)) and [#1014](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1014), as one design for Aeolus 0.30.0. Purpose first: nothing past the purpose is decided until Thomas agrees it. Docs only.
+Design for [#1020](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1020) (interop I-1, 5.1 (a)) and [#1014](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1014), as one design for Aeolus 0.30.0. Docs only.
 
-## 1. Purpose (to agree)
+## 1. Purpose (agreed by Thomas)
 
 A person learns that something waits for their person ship when they are not looking, through a channel they chose, and the gateway's pages show their inbox as it changes. Both come from one part: the gateway, as crew of the person ship, hearing the ship's deliveries.
 
 The outcomes:
 1. A delivery reaches Mathilde's person ship while they are away. Within a minute their phone or mailbox says that something waits in their fleet, with a link to the gateway's overview. The wake carries no content.
-2. With the overview open, Waits on you and their inbox change within seconds when a delivery arrives, and when she opens, answers or marks done one in any client.
+2. With the overview open, Waits on you and their inbox change within seconds when a delivery arrives, and when they open, answer or mark done one in any client.
 3. Every wake is a hand-over on the record (0040, interop 5.1): the lease shows the gateway as its waker, and the delivery shows that it was handed, through which channel and when.
 4. Core sends no notification and holds no address. The person ship's crew acts, as the trierarch does for a session.
 
+Later (Thomas):
+- Waking agent ships.
+- Waking the proxy ships of outside MCP clients.
+- MCP resource subscriptions: the protocol's own push to a chat client (I-1 (b)).
+
 Not the purpose:
-- Waking agent ships, or the proxy ship of an outside MCP client (interop 5.1 names the same pattern for it; a later slice).
-- The person's inbox as an MCP resource with subscriptions (I-1 (b)); see W9.
 - A person's own app holding the lease (waker `personApp`).
 - Reminders, quiet hours or escalation beyond what W3 decides.
 
@@ -78,76 +81,83 @@ Unhappy paths the diagram does not show:
 
 ## 5. Questions
 
-Each with options and my pick. They follow once the purpose is agreed.
+Each stands on its own: context, options, my pick and why.
 
-### W1 Which channels in 0.30.0?
+### W1 Which channels does 0.30.0 offer?
+
+Context: I-1 names three channels a person's owner may configure: email, web push and a chat tool's incoming webhook. Each is its own adapter with its own setup. Email needs a sender and the person's address; web push needs the gateway's push keys and the person allowing it in each browser; a webhook needs a URL the person pastes, which is a secret and posts into a space others may read.
 
 1. **Email and web push.**
-2. Email, web push and a chat tool's incoming webhook.
+2. Email, web push and a chat webhook.
 3. Web push only.
 4. Email only.
 
-**Pick 1.** Email reaches every account with nothing to set up; web push reaches the device at once. A webhook posts into a space others may read and is a secret URL to keep: it waits until a person asks for it.
+**Pick 1.** Email reaches every account with nothing to set up, and web push reaches the device at once. The webhook carries a secret to keep and posts where others read; it follows when a person asks for it.
 
 ### W2 Who sends the email?
 
-1. **pagasae, asked by the gateway to send the account a wake.** The address never leaves pagasae.
-2. The gateway, with its own mail configuration and the address from pagasae.
+Context: the gateway holds no email address and sends no email today. pagasae holds every account's address and already sends the sign-in links (0054). Core holds no email (0058).
 
-**Pick 1.** pagasae already holds the address and sends sign-in links (0054, 0058). Option 2 copies addresses into a second store and a second mail setup.
+1. **pagasae, asked by the gateway to send an account a wake.** The address never leaves pagasae.
+2. The gateway, with its own mail configuration and the address read from pagasae.
+
+**Pick 1.** One store of addresses and one mail setup. Option 2 copies addresses into the gateway's database and adds a second mail configuration to run.
 
 ### W3 When does a wake go out?
 
-1. Once for every delivery.
-2. **Once for every delivery never handed, gathered: at most one wake per channel in a window from the gateway's configuration (10 minutes by default); what arrives inside it goes in the next.**
+Context: a wake is a hand-over (0040): the gateway reports `handed` no. 1 for each delivery it wakes the person about. A repeat with the same number counts nothing, and the fifth attempt makes a delivery undeliverable, so each delivery is handed once. Deliveries can arrive in bursts, and a person may leave old ones unopened.
+
+1. One wake for every delivery.
+2. **One wake for every delivery never handed, gathered: at most one wake per channel within a window from the gateway's configuration (10 minutes by default). What arrives inside the window goes in the next wake.**
 3. Only when the inbox goes from empty to not empty.
 
-**Pick 2.** Every delivery is handed once, so the record is exact, and a burst of ten sends one wake. Option 3 never tells a person with one old unopened delivery about a new go.
+**Pick 2.** The record stays exact (every delivery handed once) and a burst of ten sends one wake. Option 1 floods; option 3 never tells a person with one old unopened delivery about a new one.
 
 ### W4 What does the wake say?
 
-1. **Only that something waits in the fleet, by the fleet's name, and the overview link** (#1020).
-2. Option 1 and how many wait.
-3. The sender and title, the owner's choice (interop 5.1's example).
+Context: #1020 decided that a wake carries no content, only that something waits and a link. Interop 5.1's example also showed the sender and title, as the owner's choice. Anything in an email or push leaves the fleet.
 
-**Pick 1.** #1020 decided it. A count goes stale as the person deals with deliveries elsewhere.
+1. **Only that something waits in the fleet, by the fleet's name, and a link to the gateway's overview.**
+2. Option 1, and how many wait.
+3. Option 1, and the sender and title, if the person turns that on.
 
-### W5 How the gateway hears a new delivery while earlier ones wait unopened
+**Pick 1.** It is what #1020 decided. A count goes stale as the person deals with deliveries in another client, and a title is content.
 
-`inbox` answers at once while the crew holds received or handed deliveries, so it cannot wait for the next one.
+### W5 How does the gateway hear a new delivery while earlier ones wait unopened?
 
-1. **Core: `inbox` takes the count the caller knows, and waits while the count is still that.**
-2. The gateway polls `pushReceive` while it holds unopened ones, as `run-party` does.
+Context: the gateway learns of deliveries with the ship call `inbox`, which waits up to 25 seconds while nothing waits. It counts the crew's own received and handed deliveries too, so once the gateway took one the person has not opened, `inbox` answers at once on every call and can no longer wait for the next one. A person may leave a delivery unopened for days. The gateway's proxy ships of outside MCP servers poll `pushReceive` for this reason today.
 
-**Pick 1.** A person may leave deliveries unopened for days; polling then runs for days per person. Option 1 is one input on one call, claims nothing, and the same answer tells the pages that the count went down.
+1. **A core change: `inbox` takes the count the caller already knows and waits while the count is still that.**
+2. The gateway polls `pushReceive` every few seconds while it holds unopened deliveries.
 
-### W6 With a page of the person open
+**Pick 1.** One input on one call, claiming nothing. The same answer tells the pages when the count goes down, as when the person opens one elsewhere. Option 2 polls for days per person, against "websockets over polling" (#1014).
 
-1. **The page is the channel: the overview shows it live and the gateway reports `handed` with channel `page`; no email or push.**
-2. Wake through the chosen channel anyway.
+### W6 What happens while the person has a gateway page open?
 
-**Pick 1.** The person is looking. A page open is known to the gateway by its socket.
+Context: the gateway knows a page is open by its live socket, which shows Waits on you as it changes (outcome 2). Without a rule, a delivery that arrives while the person looks at it also sends an email or push.
+
+1. **The page is the channel: the gateway reports `handed` with channel `page`, and sends no email or push.**
+2. Wake through the chosen channels anyway.
+
+**Pick 1.** The person is already looking, and the record still names how it reached them.
 
 ### W7 Which person ships does the gateway wait on?
 
+Context: the gateway crews a person ship the first time its person signs in and keeps the crew token. I-8: one waiting call per ship the gateway crews; a core call waiting on many ships is not built until numbers demand it. The live pages need the wait whether or not a channel is chosen.
+
 1. **Every person ship it crews.**
-2. Only those with a channel chosen or a page open.
+2. Only those whose person chose a channel or has a page open.
 
-**Pick 1.** One loop serves the wake and the live pages, and starts whenever the gateway crews. Per I-8 its cost is looked at when numbers demand it.
+**Pick 1.** One loop serves both the wake and the live pages, and it starts whenever the gateway crews. Option 2 starts and stops waiters as pages open and close, for a cost I-8 says to measure first.
 
-### W8 How the person chooses
+### W8 How does the person choose their channels?
 
-1. **A section on the gateway's overview: email on or off, and web push on for this browser (one subscription per browser, removable); nothing on by default.** Kept in the gateway's database by fleet and person ship.
-2. The same, email on by default.
+Context: a person ship owns itself (0045), so the owner I-1 says configures the channel is the person. The gateway's overview is the page every signed-in person has. Web push is allowed per browser.
 
-**Pick 1.** The person turns on what they want to receive; a person who never visits the page is woken by nothing, which their lease shows as waker gateway, nothing handed.
+1. **A section on the gateway's overview: email on or off, and web push turned on for this browser (one subscription per browser, each removable). Nothing on by default. Kept in the gateway's database by fleet and person ship.**
+2. The same, with email on by default.
 
-### W9 The inbox as an MCP resource (I-1 (b))
-
-1. **Later: no MCP client wakes a model on a resource update today.** The `inbox` change in W5 is the signal it will use.
-2. In 0.30.0.
-
-**Pick 1.** It adds a protocol surface nothing acts on yet.
+**Pick 1.** A person receives only what they turned on. A person who never turns one on is woken by nothing, which their deliveries show: waker gateway, nothing handed. Option 2 emails people who never asked.
 
 ## 6. What the build needs (once agreed)
 
