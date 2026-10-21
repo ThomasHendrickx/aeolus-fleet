@@ -17,7 +17,7 @@
     "postinstall": "npm run generate --workspace @aeolus-fleet/core",
     "build": "npm run build --workspace @aeolus-fleet/common --workspace @aeolus-fleet/core --workspace @aeolus-fleet/console",
     "typecheck": "tsc --project tsconfig.json && npm run typecheck --workspaces",
-    "lint": "eslint --max-warnings 0 .",
+    "lint": "eslint --max-warnings 0 . && node scripts/check-train-dependencies.ts",
     "test": "vitest run",
     "test:unit": "vitest run --project '*:unit'",
     "test:integration": "vitest run --project '*:integration'",
