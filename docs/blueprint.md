@@ -401,8 +401,8 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `OwnerChanged` | Registry | argo changed a ship's owner, or its owner's ship retired and it fell to argo: the old and new owner and why (decision 0045) |
 | `ScopesDeclared` | Registry | A plugin declared its namespace and scopes: the declaring ship, the namespace, how many scopes (decision 0046) |
 | `ScopesChanged` | Registry | A live ship's scopes were granted or revoked: added, removed, by whom (decision 0046) |
-| `PluginConnected` | Registry | argo connected the ship as a plugin: it reads every ship, whatever the rules (decision 0034) |
-| `PluginDisconnected` | Registry | A plugin's connection ended: why, its ship released or retired (decision 0034) |
+| `PluginConnected` | Registry | The ship was commissioned as kind plugin, its connect: it reads every ship, whatever the rules (decisions 0034, 0050) |
+| `PluginDisconnected` | Registry | A plugin ship's read ended: why, its ship retired (decisions 0034, 0050) |
 | `VerifiedFactsSet` | Registry | A writer set its verified facts about the ship, or withdrew them: details hold how many, never their values; the actor is the writer (decision 0059) |
 | `VerifiedFactsRemoved` | Registry | A writer's verified facts about the ship went with a retire: the writer, how many, and why, the ship or the writer retired (decision 0059) |
 | `CrewRequested` | Registry | A requester asked that the ship be kept crewed, or replaced the settings of its request: details hold the settings version, never the settings |
