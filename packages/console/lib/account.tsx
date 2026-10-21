@@ -42,7 +42,7 @@ export function useAccountMenu(now: Date): AvatarMenuProps {
     enabled: signedInAccountId !== null,
   });
   const appsList = useAppsList();
-  const accountUrl = appsList.data?.apps.find((link) => link.app === 'account')?.url;
+  const accountUrl = appsList?.apps.find((link) => link.app === 'account')?.url;
   const { themes } = useConsoleConstants();
   const guide = useConsoleGuide();
   // The phone's tab bar has no place for Settings or Network: the account sheet offers each while it is offered (#245, #503).
