@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 
 import { ConnectPluginError } from './connect-plugin';
 import { gatewayUrlFrom } from './gateway-url';
+import { GATEWAY_NO_ANSWER } from './no-answer';
 import type { PluginAnswer } from './plugin-answer';
 import { sessionCookieOf } from './plugin-call';
 import { readPluginConnection } from './plugin-calls';
@@ -24,7 +25,7 @@ export async function sessionCookie(): Promise<string> {
 
 /** A refusal's words are safe to show; anything else says only that the gateway or the fleet did not answer. */
 export function refusalOf(error: unknown): PluginAnswer<never> {
-  return { kind: 'refused', message: error instanceof ConnectPluginError ? error.message : 'the gateway or the fleet did not answer: try again in a moment' };
+  return { kind: 'refused', message: error instanceof ConnectPluginError ? error.message : GATEWAY_NO_ANSWER };
 }
 
 /** The gateway's connection as the browser may know it: `none` without the gateway or while it is off. */

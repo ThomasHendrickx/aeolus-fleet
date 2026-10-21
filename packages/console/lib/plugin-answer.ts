@@ -14,3 +14,20 @@ export function dataOf<T>(answer: PluginAnswer<T>): T {
   }
   return answer.data;
 }
+
+/**
+ * A server function's data, or its refusal thrown with its words. A server
+ * function answers its refusals, so one that fails, or a refusal without
+ * words, means it did not answer: Next.js hands the browser such a failure
+ * with no message, or with one that says nothing to the operator. It then
+ * throws `noAnswer`, so a failure always names a reason.
+ */
+export async function dataFrom<T>(serverFunction: () => Promise<PluginAnswer<T>>, noAnswer: string): Promise<T> {
+  let answer: PluginAnswer<T>;
+  try {
+    answer = await serverFunction();
+  } catch {
+    throw new Error(noAnswer);
+  }
+  return dataOf(answer.kind === 'refused' && answer.message.trim() === '' ? { kind: 'refused', message: noAnswer } : answer);
+}

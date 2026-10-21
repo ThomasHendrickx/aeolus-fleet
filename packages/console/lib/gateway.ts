@@ -5,7 +5,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useConsoleRead } from './console-read-query';
 import { fetchConsoleRead } from './fetch-console-read';
 import { connectGateway } from './gateway-actions';
-import { dataOf } from './plugin-answer';
+import { GATEWAY_NO_ANSWER } from './no-answer';
+import { dataFrom } from './plugin-answer';
 
 /**
  * The gateway as the browser reads it: its connection, a console read
@@ -34,7 +35,7 @@ export function useHasGateway(): boolean {
 export function useConnectGateway() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async () => dataOf(await connectGateway()),
+    mutationFn: () => dataFrom(connectGateway, GATEWAY_NO_ANSWER),
     onSuccess: (connection) => {
       queryClient.setQueryData(CONNECTION_KEY, connection);
     },
