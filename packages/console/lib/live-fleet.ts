@@ -36,19 +36,44 @@ const SHIP_EVENTS: ReadonlySet<EventType> = new Set<EventType>([
 ]);
 
 /**
- * Reloads the queries under a key after a live event, so each shows what the
- * event changed. An invalidation alone joins a first read still in flight,
- * which may have read before the change, and keeps its answer for good
- * (TanStack Query reuses a running fetch while a query has no data yet). So a
- * read in flight without data is cancelled first, and every query under the
- * key reads again after the event.
+ * Reloads the queries under a key after live events, at most one read of a
+ * query at a time (#1027). Cancelling a read and starting another for each
+ * event, as an invalidation does, leaves the server working on every read
+ * the browser let go: on a busy fleet the reads of the snapshot then pile up
+ * in the server's pool. Here an event during a read asks for one more read
+ * once that read ends, however many events came meanwhile. A read that began
+ * before the event, which may have read before the change, is joined and
+ * then read once more.
  */
-export async function reloadQueries(queryClient: QueryClient, queryKey: readonly unknown[]): Promise<void> {
-  await queryClient.cancelQueries({
-    queryKey,
-    predicate: (query) => query.state.data === undefined && query.state.fetchStatus === 'fetching',
-  });
-  await queryClient.invalidateQueries({ queryKey });
+export function createLiveReloads(queryClient: QueryClient): (queryKey: readonly unknown[]) => void {
+  const reading = new Set<string>();
+  const readAgain = new Set<string>();
+
+  const read = (queryKey: readonly unknown[]) => queryClient.invalidateQueries({ queryKey, exact: true }, { cancelRefetch: false });
+
+  const readUntilCurrent = async (query: { queryHash: string; queryKey: readonly unknown[]; isBehind: boolean }) => {
+    reading.add(query.queryHash);
+    let isBehind = query.isBehind;
+    try {
+      await read(query.queryKey);
+      while (isBehind || readAgain.delete(query.queryHash)) {
+        isBehind = false;
+        await read(query.queryKey);
+      }
+    } finally {
+      reading.delete(query.queryHash);
+    }
+  };
+
+  return (queryKey) => {
+    for (const query of queryClient.getQueryCache().findAll({ queryKey })) {
+      if (reading.has(query.queryHash)) {
+        readAgain.add(query.queryHash);
+      } else {
+        void readUntilCurrent({ queryHash: query.queryHash, queryKey: query.queryKey, isBehind: query.state.fetchStatus === 'fetching' });
+      }
+    }
+  };
 }
 
 export function isShipChange(type: EventType): boolean {
@@ -122,9 +147,7 @@ export function useLiveFleet(): LiveFleet {
   const queryClient = useQueryClient();
   const [newShipIds, setNewShipIds] = useState<ReadonlySet<ShipId>>(new Set());
 
-  const reload = (queryKey: readonly unknown[]) => {
-    void reloadQueries(queryClient, queryKey);
-  };
+  const [reload] = useState(() => createLiveReloads(queryClient));
   const reloadSnapshot = () => {
     reload(trpc.fleet.list.queryKey());
   };
