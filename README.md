@@ -62,7 +62,7 @@ export PUBLIC_URL=http://localhost:4000           # where ships reach the fleet
 export CONSOLE_ORIGIN=http://localhost:3000       # where the console runs
 
 npx aeolus-core migrate
-npx aeolus-core fleet:init --name "my fleet"    # once: asks for the operator email and password
+npx aeolus-core fleet:init --name "my fleet"    # once: prints a link that signs you in as argo
 npx aeolus-core start                           # the API on port 4000
 
 AEOLUS_SERVER_URL=http://localhost:4000 npx aeolus-console start   # the console on port 3000
