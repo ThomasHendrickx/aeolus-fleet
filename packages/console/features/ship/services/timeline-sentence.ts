@@ -197,6 +197,8 @@ export function timelineSentence(entry: TimelineEntry, shipId: string): Timeline
       return { parts: [...leaseEnd(entry), ...returnedDeliveries(entry)], tone: 'waiting', icon: 'released' };
     case 'CredentialRevoked':
       return { parts: [text('Secret invalidated')], tone: 'ended', icon: 'secret' };
+    case 'OperatorLoginSet':
+      return { parts: [text('Email and password set')], tone: 'waiting', icon: 'password' };
     case 'OperatorPasswordReset':
       return { parts: [text('Operator password reset')], tone: 'waiting', icon: 'password' };
     case 'FleetLimitsChanged':

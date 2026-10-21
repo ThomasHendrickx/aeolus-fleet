@@ -64,6 +64,8 @@ export interface OperatorAccountRepository {
   /** The fleet's operator account, locked until the unit of work ends. */
   findForFleetForUpdate(fleetId: FleetId): Promise<OperatorAccount | undefined>;
   changePassword(change: { fleetId: FleetId; operatorId: OperatorId; passwordHash: string }): Promise<void>;
+  /** Sets the email (normalised) and the password hash together: argo's own sign-in from the console. */
+  changeLogin(change: { fleetId: FleetId; operatorId: OperatorId; email: string; passwordHash: string }): Promise<void>;
   /** The fleet's operator account, read without a lock. */
   findForFleet(fleetId: FleetId): Promise<OperatorAccount | undefined>;
   setTheme(change: { fleetId: FleetId; operatorId: OperatorId; theme: Theme }): Promise<void>;

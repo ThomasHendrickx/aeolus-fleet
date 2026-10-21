@@ -107,6 +107,9 @@ export function createPrismaOperatorAccountRepository(db: Db): OperatorAccountRe
     changePassword: async ({ fleetId, operatorId, passwordHash }) => {
       await db.operator.updateMany({ where: { fleetId, id: operatorId }, data: { passwordHash } });
     },
+    changeLogin: async ({ fleetId, operatorId, email, passwordHash }) => {
+      await db.operator.updateMany({ where: { fleetId, id: operatorId }, data: { email, passwordHash } });
+    },
     findForFleet: async (fleetId) => {
       const [row] = await db.$queryRaw<unknown[]>`
         SELECT id, fleet_id, email, password_hash, theme::text AS theme, created_at FROM operators

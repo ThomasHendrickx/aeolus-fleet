@@ -432,6 +432,7 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `DeliveryDismissed` | Messaging | The operator let an undeliverable or not handled delivery go, by Dismiss or by a resend: it is no longer stuck or on its ship's page, and stays in the timelines as dismissed |
 | `DeliveryReturned` | Registry | A lease ended before the ship acknowledged: the delivery is pending again for its ship or its type, its attempts kept, receivers woken. One per returned delivery, written with `LeaseRevoked` |
 | `CredentialRevoked` | Identity | The old secret can no longer `register` |
+| `OperatorLoginSet` | Identity | argo, signed in to the console of a self-hosted fleet, set the email and password of its own sign-in: the old ones stop working, and the session that set them stays. Details hold the operator account, never the email |
 | `OperatorPasswordReset` | Identity | The old password stops working; every console session ends, and with it `argo`'s lease |
 | `SignInTicketIssued` | Identity | A hosting installation issued a one-time sign-in ticket for the fleet's operator or its viewer ship; details say which. Redeeming an operator's starts a console session as a password sign-in does |
 | `ViewerSessionStarted` | Identity | A viewer ticket was redeemed: a viewer session started, by the viewer ship; details hold its device |

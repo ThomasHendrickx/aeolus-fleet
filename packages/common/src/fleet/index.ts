@@ -197,6 +197,7 @@ export const EVENT_TYPES = [
   'CredentialRevoked',
   'StartingPromptIssued',
   'OperatorPasswordReset',
+  'OperatorLoginSet',
   'MessageAccepted',
   'LeasePushed',
   'DeliveryReceived',
