@@ -10,6 +10,7 @@ import { AnalyticsContext, useAnalyticsPageviews } from '../lib/analytics-client
 import { ConsoleConstantsContext, type ConsoleConstants } from '../lib/console-constants';
 import { trpcErrorCode } from '../lib/errors';
 import { HostedAccountUrlContext } from '../lib/hosted-account';
+import { OwnSignInContext } from '../lib/own-sign-in';
 import { WayOutContext, useWayOutEndsWithPage } from '../lib/session';
 import { createSessionFetch } from '../lib/session-fetch';
 import { TRPCProvider } from '../lib/trpc';
@@ -81,12 +82,14 @@ export function Providers({
   serverUrl,
   constants,
   hostedAccountUrl,
+  hasOwnSignIn,
   isAnalyticsOn,
   children,
 }: {
   serverUrl: string;
   constants: ConsoleConstants;
   hostedAccountUrl?: string;
+  hasOwnSignIn: boolean;
   isAnalyticsOn: boolean;
   children: ReactNode;
 }) {
@@ -108,6 +111,7 @@ export function Providers({
       <TRPCProvider trpcClient={trpcClient} queryClient={queryClient}>
         <ConsoleConstantsContext value={constants}>
           <HostedAccountUrlContext value={hostedAccountUrl}>
+            <OwnSignInContext value={hasOwnSignIn}>
             <AnalyticsContext value={isAnalyticsOn}>
               <WayOutContext value={wayOut}>
                 <Pageviews />
@@ -116,6 +120,7 @@ export function Providers({
               </WayOutContext>
               <Toaster />
             </AnalyticsContext>
+            </OwnSignInContext>
           </HostedAccountUrlContext>
         </ConsoleConstantsContext>
       </TRPCProvider>

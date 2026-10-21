@@ -217,6 +217,39 @@ describe('the console sign-in', () => {
   });
 });
 
+describe("argo's own email and password, set in Settings", () => {
+  it('signs in with the new email and password, and no longer with the old', async () => {
+    const changed = { email: 'mathilde@example.com', password: 'staple battery horse' };
+    const page = await newPage();
+    await signIn(page, OPERATOR);
+    await expectSignedIn(page);
+
+    await page.getByTestId('nav-settings').click();
+    const section = page.getByTestId('settings-sign-in');
+    await expect(section.getByLabel('Email').inputValue()).resolves.toBe(OPERATOR.email);
+    await section.getByLabel('Email').fill(changed.email);
+    await section.getByLabel('New password').fill(changed.password);
+    await section.getByLabel('Repeat the password').fill(changed.password);
+    await section.getByTestId('settings-sign-in-save').click();
+    await page.getByTestId('settings-sign-in-saved').waitFor();
+
+    const old = await newPage();
+    await signIn(old, OPERATOR);
+    await old.getByRole('main').getByRole('alert').waitFor();
+    const next = await newPage();
+    await signIn(next, changed);
+    await expectSignedIn(next);
+
+    // Back to the login the other tests sign in with.
+    await next.goto('/settings');
+    await next.getByTestId('settings-sign-in').getByLabel('Email').fill(OPERATOR.email);
+    await next.getByTestId('settings-sign-in').getByLabel('New password').fill(OPERATOR.password);
+    await next.getByTestId('settings-sign-in').getByLabel('Repeat the password').fill(OPERATOR.password);
+    await next.getByTestId('settings-sign-in-save').click();
+    await next.getByTestId('settings-sign-in-saved').waitFor();
+  });
+});
+
 describe('the health endpoints', () => {
   it('report web, server and database up, and nothing about fleets', async () => {
     const webHealth = await fetch(`${web.url}/health`);
