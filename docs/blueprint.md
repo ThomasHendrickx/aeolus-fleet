@@ -1,6 +1,6 @@
 # Aeolus: product and domain architecture (v0)
 
-Owner: Thomas Hendrickx. Last updated 2026-10-19.
+Owner: Thomas Hendrickx. Last updated 2026-10-21.
 
 ## Purpose
 
@@ -94,14 +94,14 @@ A fleet the installation creates with a viewer has one viewer ship, named `viewe
 
 ### A person (human)
 
-A human of the organisation, with an account in pagasae. They act as their account, with the scopes their groups and their own rights give in each fleet, and have a person ship where they may message or own a ship (0052). Organisation rights never give fleet scopes.
+A human of the organisation, with an account in pagasae. They act as their account, with the scopes their groups and their own rights give in each fleet (every scope for the fleet manager, 0051), and have a person ship where they may message or own a ship (0052). Organisation rights never give fleet scopes.
 
 | Job to be done | What Aeolus gives them |
 | --- | --- |
 | Reach the fleet from any client | The gateway's one address: sign in once through pagasae, from Claude, ChatGPT, Cursor or the gateway's own page (0054) |
 | Answer what my ships ask | Questions to my person ship, in my client or on the gateway's page (0038) |
 | Get an outside MCP server my agents need | Ask through the gateway; see "waiting for approval"; learn the outcome (0056) |
-| Do admin work I was trusted with | My account holds the scopes my groups and own rights give, within its reach; nothing needs argo (0053) |
+| Do admin work I was trusted with | My account holds the scopes my groups and own rights give (every scope as fleet manager, 0051), within its reach; nothing needs argo (0053) |
 
 ### The organisation admin
 
@@ -197,7 +197,8 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Directory | The organisation's list of accounts, its own or read from its identity provider | pagasae (to build) |
 | Organisation admin | An account that manages its organisation: its accounts, groups, fleets and directory. The account created first is one. Its rights sit on the account, the one place a right is not a scope. Not argo, which is a fleet's | pagasae (to build) |
 | Group | A set of an organisation's accounts; in each fleet it yields scopes and reach for its accounts' person ships | pagasae (to build) |
-| Installation admin | The human who runs an installation's hosting service (pagasae's `OWNER_EMAIL`). Not an owner | pagasae |
+| App admin | The human who manages the Aeolus application and all fleets (pagasae's `APP_ADMIN_EMAIL`). Not an owner | pagasae |
+| Fleet manager | The account that manages one fleet and its ships, holding every scope the fleet offers: at first the account that created or brought it; deleting it requires naming a new one (0051). Not an owner | pagasae |
 | Operator | The human who signs in as argo, with their own account or by argo's own sign-in; there is no operator account | core |
 | Sign-in | A human logging in: console sign-in (as argo, or as the viewer), pagasae sign-in, gateway sign-in. Not a session | core, pagasae, gateway |
 | argo's own sign-in | Core's email and password that sign in as argo, with no organisation: the one-line self-hosted setup, and a way in that depends on nothing. Not an account | core |
@@ -266,7 +267,7 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Term | Meaning | Held by |
 | --- | --- | --- |
 | Actor | Whoever a call is authorised for and an event names: a ship, an account (by its account token) or the installation. Not a ship: only what sends or receives messages is a ship (0057) | core |
-| Account token | A short token pagasae signs for one account in one fleet, with the scopes and labels its groups and own rights give there; core checks it on every call and stores no account. Not a crew token (0058) | pagasae, core |
+| Account token | A short token pagasae signs for one account in one fleet, with the scopes and labels its groups and own rights give there (every scope for the fleet manager, 0051); core checks it on every call and stores no account. Not a crew token (0058) | pagasae, core |
 | Scope | What an actor may do, `<namespace>:<action>`, stored with a ship or carried in an account token, never in a message; the only source of rights (0046, 0057) | core |
 | Scope namespace | A plugin's scopes, declared once for good, enforced by the plugin (0046) | core |
 | Grant | Give a ship a scope, at commission or live with `scopes:grant`; a ship grants only scopes it holds (0046) | core |
