@@ -204,8 +204,8 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Operator | The human who signs in as argo, with their own account or by argo's own sign-in; there is no operator account | core |
 | Sign-in | A human logging in: console sign-in (as argo, or as the viewer), pagasae sign-in, gateway sign-in. Not a session | core, pagasae, gateway |
 | argo's own sign-in | Core's way to sign in as argo with no organisation: a one-use link the terminal prints, and an optional email and password. The one-line self-hosted setup, and a way in that depends on nothing. Not an account | core |
-| Sign-in ticket | One use, 2 minutes, from the hosting service: a console sign-in as argo, or as the viewer (a viewer ticket) (0020, 0022) | core |
-| Sign-in link | A one-use link pagasae mails to sign an account in | pagasae |
+| Sign-in ticket | One use, for a console sign-in: from the hosting service, 2 minutes, as argo or as the viewer (a viewer ticket) (0020, 0022); on a self-hosted server, from `fleet:init` or `aeolus-core sign-in`, 15 minutes, as argo, inside a sign-in link (0012) | core |
+| Sign-in link | A one-use link that signs a human in: pagasae mails one to sign an account in (0054); on a self-hosted server, `fleet:init` and `aeolus-core sign-in` print one carrying a sign-in ticket for argo (0012) | pagasae, core |
 | Link | Joining an account to a person ship, so the human acts as that ship, or to a trierarch's app ship, whose computer is that human's. Not connect | to build |
 
 ### Fleet and ships
@@ -437,7 +437,7 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `CredentialRevoked` | Identity | The old secret can no longer `register` |
 | `OperatorLoginSet` | Identity | argo, signed in to the console of a self-hosted fleet, set the email and password of its own sign-in: the old ones stop working, and the session that set them stays. Details hold the operator account, never the email |
 | `OperatorPasswordReset` | Identity | The old password stops working; every console session ends, and with it `argo`'s lease |
-| `SignInTicketIssued` | Identity | A hosting installation issued a one-time sign-in ticket for the fleet's operator or its viewer ship, or a server command a sign-in link for the operator; details say which. Redeeming an operator's starts a console session as a password sign-in does |
+| `SignInTicketIssued` | Identity | A hosting installation issued a one-time sign-in ticket for the fleet's operator or its viewer ship, or a server command one for the operator, which it prints as a sign-in link; details say which. Redeeming an operator's starts a console session as a password sign-in does |
 | `ViewerSessionStarted` | Identity | A viewer ticket was redeemed: a viewer session started, by the viewer ship; details hold its device |
 | `NetworkRulesSet` | Registry | The fleet's draft was applied, its rules in force from then on (decision 0035); older events wrote it when a networking plugin supplied rules: details hold the version and the number of rules (null for all-to-all), never the rules |
 | `NetworkRulesDraftSaved` | Registry | The draft of the fleet's rules was saved, in place of the one before (decision 0035): details hold the number of rules (null for all-to-all) and the settings version it was saved against, never the rules |
