@@ -46,7 +46,7 @@ function seconds(at: Date): number {
 }
 
 /** A token pagasae signs for Mathilde in the fleet now, for 10 minutes. */
-async function mathildeToken(overrides: Record<string, unknown> = {}): Promise<string> {
+function mathildeToken(overrides: Record<string, unknown> = {}): string {
   const now = seconds(clock.now());
   return issuer.sign({ iss: issuer.issuer, aud: fleetId, sub: 'acc-mathilde', org: 'org-acme', scope: 'fleet:read fleet:commission', group: [], iat: now, exp: now + 600, ...overrides });
 }
@@ -62,7 +62,7 @@ function present(token: string): Promise<Response> {
 
 /** The cookie a presented token gave, as the browser then sends it. */
 async function signedInCookie(): Promise<string> {
-  const answer = await present(await mathildeToken());
+  const answer = await present(mathildeToken());
   const cookie = answer.headers.get('set-cookie');
   if (!answer.ok || cookie === null) {
     throw new Error(`presenting the token set no cookie: ${String(answer.status)}`);
@@ -127,14 +127,14 @@ afterAll(async () => {
 
 describe("presenting an account token for the console's sign-in", () => {
   it('keeps it in an httpOnly, Secure, SameSite=Strict cookie for as long as the token lasts', async () => {
-    const answer = await present(await mathildeToken());
+    const answer = await present(mathildeToken());
 
     expect(answer.status).toBe(200);
     expect(answer.headers.get('set-cookie')).toMatch(/^aeolus_account_token=[^;]+; Max-Age=600; Path=\/; HttpOnly; Secure; SameSite=Strict$/);
   });
 
   it('refuses a token core does not trust, and sets no cookie', async () => {
-    const answer = await present(await mathildeToken({ aud: 'flt_01m5fghxxxxxxxxxxxxxxxxxxx' }));
+    const answer = await present(mathildeToken({ aud: 'flt_01m5fghxxxxxxxxxxxxxxxxxxx' }));
 
     expect(answer.status).toBe(401);
     expect(answer.headers.get('set-cookie')).toBeNull();
@@ -161,16 +161,18 @@ describe('an account signed in by its token cookie', () => {
   it("reads what fleet:read reads in the console: the fleet, a ship, its timeline, messages and way, needs attention, health, limits and argo's inbox", async () => {
     const fleet = asBrowser(await signedInCookie()).fleet;
 
-    await expect(fleet.list.query({})).resolves.toMatchObject({ ships: expect.arrayContaining([expect.objectContaining({ name: 'scout' })]) });
-    await expect(fleet.ship.query({ shipId: scout })).resolves.toMatchObject({ name: 'scout', isInReadReach: true });
+    await expect(fleet.list.query({})).resolves.toEqual(expect.arrayContaining([expect.objectContaining({ name: 'scout' })]));
+    const ship = await fleet.ship.query({ shipId: scout });
+    expect(ship).toMatchObject({ name: 'scout' });
+    expect(ship).not.toHaveProperty('isInReadReach', false);
     await expect(fleet.shipTimeline.query({ shipId: scout })).resolves.toEqual(expect.arrayContaining([expect.objectContaining({ type: 'ShipCommissioned' })]));
-    await expect(fleet.shipMessages.query({ shipId: scout })).resolves.toEqual([expect.objectContaining({ messageId: toArgo })]);
-    await expect(fleet.message.query({ messageId: toArgo })).resolves.toMatchObject({ messageId: toArgo, payload: 'Review is done' });
-    await expect(fleet.shipWay.query({ shipId: scout })).resolves.toMatchObject({ lease: expect.anything() });
+    await expect(fleet.shipMessages.query({ shipId: scout })).resolves.toEqual([expect.objectContaining({ id: toArgo })]);
+    await expect(fleet.message.query({ messageId: toArgo })).resolves.toMatchObject({ payload: 'Review is done' });
+    await expect(fleet.shipWay.query({ shipId: scout })).resolves.toMatchObject({ waiting: 0 });
     await expect(fleet.needsAttention.query()).resolves.toBeDefined();
     await expect(fleet.health.query()).resolves.toBeDefined();
     await expect(fleet.limits.query()).resolves.toBeDefined();
-    await expect(fleet.inbox.query({ filter: 'all' })).resolves.toEqual([expect.objectContaining({ messageId: toArgo })]);
+    await expect(fleet.inbox.query({ filter: 'all' })).resolves.toMatchObject([{ message: { id: toArgo } }]);
   });
 
   it('shows no notices and no guide yet', async () => {

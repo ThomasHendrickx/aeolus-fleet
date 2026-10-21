@@ -231,6 +231,8 @@ export interface RequestCredentials {
   onBehalfOf?: string;
   /** An account token pagasae signed, from the `Aeolus-Account-Token` header; a bearer crew token beside it names the ship that presented it (decision 0058). */
   accountToken?: string;
+  /** An account token from the console's account token cookie: an account signed in to the console (accounts design, F1). */
+  accountTokenCookie?: string;
   /** The fleet the installation acts in, from the `Aeolus-Fleet` header, beside the installation token (decision 0057); tRPC only. */
   fleet?: string;
 }
@@ -239,6 +241,9 @@ export interface RequestCredentials {
 export interface SessionCookie {
   set(token: string, expiresAt: Date): void;
   clear(): void;
+  /** Keeps an account's token in its cookie until the token ends. */
+  setAccountToken(token: string, endsAt: Date): void;
+  clearAccountToken(): void;
 }
 
 /** Wakes a live subscription when its fleet has committed events. */

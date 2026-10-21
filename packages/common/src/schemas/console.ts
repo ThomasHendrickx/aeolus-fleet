@@ -49,14 +49,20 @@ export type Theme = z.infer<typeof themeSchema>;
 /** ISO 8601 in UTC. */
 const isoTime = z.iso.datetime();
 
-/** Whose a console session is: the operator's, crewing argo, or a viewer's, through the viewer ship (decision 0022). */
-export const consoleSessionKindSchema = z.enum(['operator', 'viewer']);
+/**
+ * Whose a console sign-in is: the operator's, crewing argo, a viewer's,
+ * through the viewer ship (decision 0022), or an account's, by its account
+ * token, with no lease (accounts design, F1).
+ */
+export const consoleSessionKindSchema = z.enum(['operator', 'viewer', 'account']);
 
 /**
  * Output of `console.session`: for another service the operator uses beside
  * the console, which forwards the browser's session cookie and asks whether
  * someone is signed in. The fleet, when the session expires (ISO 8601 in
  * UTC), whose session it is, and the scopes of its ship: a viewer reads only.
+ * An account's is its account token: its id, when the token ends, and the
+ * scopes it carries.
  */
 export const consoleSessionOutputSchema = z.object({
   fleetId: idSchema('fleet'),
@@ -64,8 +70,12 @@ export const consoleSessionOutputSchema = z.object({
   fleetName: z.string(),
   expiresAt: z.iso.datetime(),
   kind: consoleSessionKindSchema,
+  accountId: accountIdSchema.optional(),
   scopes: z.array(scopeSchema),
 });
+
+/** Input of `console.presentAccountToken`: the account token pagasae gave the console's server for this fleet (decision 0058). */
+export const presentAccountTokenInputSchema = z.object({ token: z.string().min(1).max(16_384) });
 
 export type ConsoleSessionOutput = z.infer<typeof consoleSessionOutputSchema>;
 
@@ -81,6 +91,8 @@ export const accountOutputSchema = z.discriminatedUnion('kind', [
   // No email until argo sets one in Settings: fleet:init gives its own sign-in none (accounts design, A1).
   z.object({ kind: z.literal('operator'), email: z.string().nullable(), theme: themeSchema, hasPassword: z.boolean(), session: accountSessionSchema }),
   z.object({ kind: z.literal('viewer'), session: accountSessionSchema }),
+  // An account by its id alone: core keeps no email (decision 0058); the console asks pagasae for its name.
+  z.object({ kind: z.literal('account'), accountId: accountIdSchema }),
 ]);
 
 export type Account = z.infer<typeof accountOutputSchema>;

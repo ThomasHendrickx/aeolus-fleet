@@ -41,6 +41,8 @@ export interface AccountCaller {
   personShipId: ShipId | null;
   /** The ship that presented the account token, a plugin's page or the gateway, if one did. */
   throughShipId: ShipId | null;
+  /** When the token that made this caller ends: what a console sign-in by it lasts. */
+  tokenEndsAt?: Date;
 }
 
 /** The installation as the actor of a call in one fleet, with the scopes it holds there (decision 0020). */

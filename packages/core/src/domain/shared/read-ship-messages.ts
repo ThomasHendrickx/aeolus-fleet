@@ -1,6 +1,6 @@
 import type { ShipId } from '@aeolus-fleet/common';
 
-import type { ShipCaller } from './caller.js';
+import type { Caller } from './caller.js';
 import { refuse, type DomainError } from './errors.js';
 import { readsMessage, type ReadReachOf } from '../registry/public.js';
 import { partiesOf, type HistoryMessage, type ShipHistory } from './history.js';
@@ -22,7 +22,7 @@ export type ListedMessage = Omit<HistoryMessage, 'payload' | 'delivery'> & {
 };
 
 export type ReadShipMessages = (
-  caller: ShipCaller,
+  caller: Caller,
   input: { shipId: ShipId },
 ) => Promise<Result<ListedMessage[], DomainError<'SHIP_NOT_FOUND'>>>;
 

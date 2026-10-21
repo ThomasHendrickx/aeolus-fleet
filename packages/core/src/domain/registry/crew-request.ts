@@ -11,7 +11,7 @@ import {
   type ShipId,
 } from '@aeolus-fleet/common';
 
-import { hasScope, type ShipCaller } from '../shared/caller.js';
+import { hasScope, isShipCaller, type Caller } from '../shared/caller.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import type { Actor, NewEvent } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
@@ -364,13 +364,13 @@ export function giveBackCrewRequest(
  * whose requests are assigned to the caller's ship (decision 0029).
  */
 export function checkReaches(
-  caller: ShipCaller,
+  caller: Caller,
   { ship, current, broadScopes }: { ship: Ship; current: CrewRequest | null | undefined; broadScopes: readonly Scope[] },
 ): Result<void, NotTheCallers> {
   if (broadScopes.some((scope) => hasScope(caller, scope))) {
     return ok(undefined);
   }
-  return current?.assignedTo === caller.shipId
+  return isShipCaller(caller) && current?.assignedTo === caller.shipId
     ? ok(undefined)
     : refuse('CREW_REQUEST_NOT_ASSIGNED_TO_CALLER', `${ship.name}'s crew request is not assigned to your ship`);
 }

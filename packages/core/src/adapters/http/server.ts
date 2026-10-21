@@ -14,7 +14,18 @@ import type { Context, FleetEventWatches, RequestCredentials, SessionCookie, Use
 import { appRouter, type AppRouter } from '../trpc/router.js';
 import { refusalBody, unexpectedFailure } from '../trpc/ship-contract.js';
 import { createRateLimiter, type RateLimit } from './rate-limiter.js';
-import { clearedSessionCookie, readAccountToken, readBearer, readFleet, readOnBehalfOf, readSessionToken, sessionCookie } from './request-credentials.js';
+import {
+  accountTokenCookie,
+  clearedAccountTokenCookie,
+  clearedSessionCookie,
+  readAccountToken,
+  readAccountTokenCookie,
+  readBearer,
+  readFleet,
+  readOnBehalfOf,
+  readSessionToken,
+  sessionCookie,
+} from './request-credentials.js';
 import { runningVersions } from './version.js';
 import { INSTALLATION_TOKEN_HEADER } from '../trpc/installation-token.js';
 
@@ -96,7 +107,7 @@ const PREFLIGHT_MAX_AGE_S = 600;
  * The session cookie at a door for ships: REST and MCP never read the console
  * session, so they never set or clear its cookie either.
  */
-const NO_SESSION_COOKIE: SessionCookie = { set: () => undefined, clear: () => undefined };
+const NO_SESSION_COOKIE: SessionCookie = { set: () => undefined, clear: () => undefined, setAccountToken: () => undefined, clearAccountToken: () => undefined };
 
 /**
  * The HTTP host: `/trpc` for the API (its subscriptions over a WebSocket on
@@ -218,6 +229,7 @@ export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
             sessionToken: readSessionToken(req.headers.cookie),
             onBehalfOf: readOnBehalfOf(req.headers),
             accountToken: readAccountToken(req.headers),
+            accountTokenCookie: readAccountTokenCookie(req.headers.cookie),
             fleet: readFleet(req.headers),
           },
           canUseConsoleSession: true,
@@ -230,6 +242,12 @@ export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
             },
             clear: () => {
               void res.header('set-cookie', clearedSessionCookie(cookieDomain));
+            },
+            setAccountToken: (token, endsAt) => {
+              void res.header('set-cookie', accountTokenCookie({ token, endsAt, now: options.clock.now(), domain: cookieDomain }));
+            },
+            clearAccountToken: () => {
+              void res.header('set-cookie', clearedAccountTokenCookie(cookieDomain));
             },
           },
         }),
@@ -262,7 +280,7 @@ export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
             log: server.log,
           },
           {
-            credentials: { sessionToken: readSessionToken(req.headers.cookie) },
+            credentials: { sessionToken: readSessionToken(req.headers.cookie), accountTokenCookie: readAccountTokenCookie(req.headers.cookie) },
             canUseConsoleSession: true,
             sessionCookie: NO_SESSION_COOKIE,
           },

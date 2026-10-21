@@ -1,8 +1,8 @@
 import { readsMessage, type ReadReachOf } from '../registry/public.js';
-import type { ShipCaller } from './caller.js';
+import type { Caller } from './caller.js';
 import { partiesOf, withPing, type ShipHistory, type ShownNeedsAttentionEntry } from './history.js';
 
-export type ReadNeedsAttention = (caller: ShipCaller) => Promise<ShownNeedsAttentionEntry[]>;
+export type ReadNeedsAttention = (caller: Caller) => Promise<ShownNeedsAttentionEntry[]>;
 
 /**
  * Use case: Needs attention, every undeliverable or not handled delivery of

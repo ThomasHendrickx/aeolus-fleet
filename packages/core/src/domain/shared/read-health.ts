@@ -1,9 +1,9 @@
 import { readsMessage, readsShip, type ReadReachOf } from '../registry/public.js';
-import type { ShipCaller } from './caller.js';
+import type { Caller } from './caller.js';
 import type { Clock } from './clock.js';
 import { readHealthOf, type Health, type HealthRecords } from './health.js';
 
-export type ReadHealth = (caller: ShipCaller) => Promise<Health>;
+export type ReadHealth = (caller: Caller) => Promise<Health>;
 
 /**
  * Use case: the health of the caller's fleet (decision 0042), for the
