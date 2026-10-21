@@ -116,7 +116,7 @@ describe('an account signing in to the console', () => {
   });
 
   it('shows the notices for accounts above every page, and keeps one it dismissed gone (accounts design, A9)', async () => {
-    unwrap(await useCases.setNotices({ notices: [{ id: 'teams', audience: 'accounts', text: 'Your organisation now signs in with its own accounts.', links: [], isDismissible: true }] }));
+    await useCases.setNotices({ notices: [{ id: 'teams', audience: 'accounts', text: 'Your organisation now signs in with its own accounts.', links: [], isDismissible: true }] });
     pagasae.signInAs(mathilde());
     const page = await newPage();
     await page.goto('/');
@@ -128,7 +128,7 @@ describe('an account signing in to the console', () => {
     await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
 
     await expect(page.getByTestId('notice').count()).resolves.toBe(0);
-    unwrap(await useCases.setNotices({ notices: [] }));
+    await useCases.setNotices({ notices: [] });
   });
 
   it('keeps the theme the account picks in the browser, from the first paint of the next page (header design, C5)', async () => {
