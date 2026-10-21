@@ -151,7 +151,6 @@ describe('migrations', () => {
       'notices',
       'operators',
       'overdue_deliveries',
-      'plugin_connections',
       'reach_refusals',
       'scope_namespaces',
       'ship_labels',

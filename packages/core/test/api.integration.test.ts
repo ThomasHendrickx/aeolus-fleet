@@ -249,6 +249,8 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_verified_facts_by_writer$/),
       expect.stringMatching(/^\d{14}_fleet_listing_indexes$/),
       expect.stringMatching(/^\d{14}_operator_email_optional$/),
+      expect.stringMatching(/^\d{14}_ship_kind_plugin$/),
+      expect.stringMatching(/^\d{14}_plugin_ships$/),
     ]);
   });
 });
@@ -1912,7 +1914,7 @@ describe('ships with fleet scopes at the API', () => {
     expect(shipId).toMatch(/^shp_/);
     await expect(refusalOf(manager.fleet.commission.mutate({ idempotencyKey: newKey(), name: 'scoped-other', type: 'squadron' }))).resolves.toEqual({
       code: 'FORBIDDEN',
-      message: 'This call needs the fleet:commission or fleet:person scope',
+      message: 'This call needs the fleet:commission or fleet:person or fleet:connect scope',
     });
   });
 });
