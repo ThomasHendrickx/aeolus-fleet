@@ -282,11 +282,27 @@ describe('the kind of a new ship', () => {
   it.each([
     ['person', 'Commissioning a person ship needs the fleet:person scope (decision 0053)'],
     ['app', 'Commissioning an app ship needs the fleet:on-behalf scope (decision 0044)'],
+    ['plugin', 'Commissioning a plugin ship is connecting it, and needs the fleet:connect scope (decision 0050)'],
   ] as const)('refuses the kind %s to a ship without its scope, naming it, storing nothing', async (kind, message) => {
     const refused = await commissionShip(manager(), { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind });
 
     expect(refused).toEqual({ isOk: false, error: { kind: 'SCOPE_NOT_HELD', message } });
     expect(shipsNamed('thomas')).toEqual([]);
+  });
+
+  it('connects a plugin ship argo commissions: kind plugin, with PluginConnected (decision 0050)', async () => {
+    const { shipId } = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', kind: 'plugin' }));
+
+    expect(shipsNamed('squadrons')[0]?.kind).toBe('plugin');
+    expect(core.state.events.filter((event) => event.shipId === shipId).map((event) => event.type)).toEqual(['ShipCommissioned', 'OwnerSet', 'PluginConnected']);
+  });
+
+  it('lets an agent ship holding fleet:connect commission a plugin ship (decision 0053)', async () => {
+    const { shipId } = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'connector', type: 'connector', scopes: ['fleet:connect'] }));
+
+    unwrap(await commissionShip({ ...argo, shipId, kind: 'agent' }, { idempotencyKey: newKey(), name: 'gateway', type: 'gateway', kind: 'plugin' }));
+
+    expect(shipsNamed('gateway')[0]?.kind).toBe('plugin');
   });
 
   it('lets an agent ship holding fleet:person commission a person ship, as argo does (decision 0053)', async () => {
