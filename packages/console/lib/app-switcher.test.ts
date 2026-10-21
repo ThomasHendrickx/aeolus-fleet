@@ -7,3 +7,9 @@ describe("whose apps list the header shows (header design H8)", () => {
     expect([isAccountSignIn('operator'), isAccountSignIn('viewer')]).toEqual([false, false]);
   });
 });
+
+describe("an account's own sign-in (accounts design C1)", () => {
+  it('shows the apps list pagasae gives the account', () => {
+    expect(isAccountSignIn('account')).toBe(true);
+  });
+});
