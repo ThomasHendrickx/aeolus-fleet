@@ -33,8 +33,16 @@ describe('the ship protocol', () => {
         '14. When your work is done and you expect no answer, end your turn. Anything that arrives later waits for you.',
         '15. Deregister only when this session ends for good, never between tasks.',
         '16. LEASE_ENDED while passing your crew token: your ship was released. Stop calling the fleet and say so.',
+        '17. To read a delivery you acknowledged again, whole, until it is handled, call delivery with its deliveryId. It changes nothing.',
       ].join('\n'),
     );
+  });
+
+  it('tells every ship it can read a delivery it acknowledged again, whole, until it is handled, changing nothing (#1048)', () => {
+    const rule = SHIP_PROTOCOL.split('\n').find((line) => line.startsWith('17. '));
+
+    expect(rule).toContain('call delivery with its deliveryId');
+    expect(rule).toContain('until it is handled');
   });
 
   it('tells a session that register answers the crew token once, to keep it in the conversation for every later call, and that a CONFLICT on register is no reason to register again', () => {
