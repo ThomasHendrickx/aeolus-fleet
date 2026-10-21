@@ -50,8 +50,8 @@ describe('the switcher in the title (header design H1, H8, H9)', () => {
     const switcher = appSwitcherOf({ list: charlottesList(), fleet: { id: ACME, name: 'Acme' }, app: 'console' });
 
     expect(switcher.apps.map(({ label, url, isCurrent }) => ({ label, url, isCurrent }))).toEqual([
-      { label: 'Console', url: 'https://fleet.example', isCurrent: true },
-      { label: 'Gateway', url: 'https://gateway.example', isCurrent: false },
+      { label: 'Console', url: `https://fleet.example/?fleet=${ACME}`, isCurrent: true },
+      { label: 'Gateway', url: `https://gateway.example/?fleet=${ACME}`, isCurrent: false },
       { label: 'Account', url: 'https://account.example/account', isCurrent: false },
     ]);
   });
@@ -59,13 +59,13 @@ describe('the switcher in the title (header design H1, H8, H9)', () => {
   it('switches fleet to the same app there when the account may open it', () => {
     const switcher = appSwitcherOf({ list: charlottesList(), fleet: { id: LABS, name: 'Labs' }, app: 'gateway' });
 
-    expect(switcher.fleets.find(({ name }) => name === 'Acme')?.url).toBe('https://gateway.example');
+    expect(switcher.fleets.find(({ name }) => name === 'Acme')?.url).toBe(`https://gateway.example/?fleet=${ACME}`);
   });
 
   it('switches fleet to the first app it may open there when it may not open this one', () => {
     const switcher = appSwitcherOf({ list: charlottesList(), fleet: { id: ACME, name: 'Acme' }, app: 'console' });
 
-    expect(switcher.fleets.find(({ name }) => name === 'Labs')?.url).toBe('https://gateway.example');
+    expect(switcher.fleets.find(({ name }) => name === 'Labs')?.url).toBe(`https://gateway.example/?fleet=${LABS}`);
   });
 
   it('switches fleet to Account when it may open no app there', () => {
@@ -73,6 +73,13 @@ describe('the switcher in the title (header design H1, H8, H9)', () => {
     const switcher = appSwitcherOf({ list, fleet: { id: ACME, name: 'Acme' }, app: 'console' });
 
     expect(switcher.fleets.find(({ name }) => name === 'Empty')?.url).toBe('https://account.example/account');
+  });
+
+  it('keeps an address of its own beside the fleet it names', () => {
+    const list = charlottesList({ fleets: [{ id: ACME, name: 'Acme', argo: false, apps: [{ app: 'console', url: 'https://fleet.example/console?tab=ships' }] }] });
+    const switcher = appSwitcherOf({ list, fleet: { id: ACME, name: 'Acme' }, app: 'console' });
+
+    expect(switcher.fleets[0]?.url).toBe(`https://fleet.example/console?tab=ships&fleet=${ACME}`);
   });
 
   it('switches nothing without a list: the fleet in view and the app open alone (H8)', () => {
