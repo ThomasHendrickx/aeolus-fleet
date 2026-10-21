@@ -14,6 +14,7 @@ import { createTestClock } from '../packages/core/test/support/postgres-core.js'
 import { unwrap } from '../packages/core/src/testing/result.js';
 import { signIn } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
+import { withOperatorLogin } from '../packages/core/test/support/operator-login.js';
 
 // Reads beside a slow mutation, end to end (#433): Next.js runs a browser's
 // server functions one at a time, so a read through one would wait for a
@@ -96,7 +97,7 @@ let context: BrowserContext | undefined;
 beforeAll(async () => {
   const databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
-  unwrap(await createUseCases({ prisma: database, clock }).initialiseFleet({ name: 'home fleet', ...OPERATOR }));
+  unwrap(await withOperatorLogin(database, createUseCases({ prisma: database, clock }).initialiseFleet({ name: 'home fleet' })));
   const webUrl = await reserveWebUrl();
   server = createApp({ databaseUrl, publicUrl: FLEET_URL, consoleOrigin: webUrl, clock, logger: false });
   const serverUrl = await server.listen({ host: '127.0.0.1', port: 0 });

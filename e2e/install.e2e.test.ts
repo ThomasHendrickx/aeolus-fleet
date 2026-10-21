@@ -9,9 +9,7 @@ import { promisify } from 'node:util';
 import type { Browser } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { OPERATOR } from '../packages/core/test/support/core-fixtures.js';
 import { createEmptyDatabase } from '../packages/core/src/testing/database.js';
-import { signIn } from './support/console.js';
 import { freePort, launchChromium } from './support/web.js';
 
 // The packages as an operator gets them from npm: built, packed, installed
@@ -37,6 +35,8 @@ let installFolder: string;
 let databaseUrl: string;
 let serverUrl: string;
 let webUrl: string;
+/** The sign-in link fleet:init printed. */
+let signInLink: string;
 let browser: Browser | undefined;
 const running: ChildProcess[] = [];
 
@@ -148,14 +148,15 @@ describe('installed from npm', () => {
       {
         bin: 'aeolus-core',
         args: ['fleet:init', '--name', 'home fleet'],
-        env: { DATABASE_URL: databaseUrl, PUBLIC_URL: serverUrl },
+        env: { DATABASE_URL: databaseUrl, PUBLIC_URL: serverUrl, CONSOLE_ORIGIN: webUrl },
       },
-      [OPERATOR.email, OPERATOR.password, OPERATOR.password],
     );
+    signInLink = /Open (\S+) to sign in/.exec(result.stdout)?.[1] ?? '';
 
     expect(result.stderr).toBe('');
     expect(result.code).toBe(0);
     expect(result.stdout).toContain('Fleet initialised: flt_');
+    expect(signInLink).toMatch(new RegExp(`^${webUrl}/sign-in/ticket\\?ticket=aeolus_st_v1_`));
   });
 
   it('starts the server with aeolus-core start, and its /health answers the database up', async () => {
@@ -210,11 +211,11 @@ describe('installed from npm', () => {
     });
   });
 
-  it('signs the operator in: the browser calls the server at the address the web app started with', async () => {
+  it('signs argo in with the link fleet:init printed: the browser calls the server at the address the web app started with', async () => {
     browser = await launchChromium();
     const page = await browser.newPage({ baseURL: webUrl });
 
-    await signIn(page, OPERATOR);
+    await page.goto(signInLink);
 
     await page.waitForURL(`${webUrl}/`);
     await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();

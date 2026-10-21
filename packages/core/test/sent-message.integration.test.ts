@@ -5,10 +5,11 @@ import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/cl
 import { createReceiverWakeups } from '../src/adapters/prisma/receiver-wakeups.js';
 import type { ShipCaller, Crew } from '../src/domain/shared/caller.js';
 import { createUseCases, systemClock, type UseCases } from '../src/wiring.js';
-import { OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
+import { operatorCaller, secretOf } from './support/core-fixtures.js';
 import { createMigratedDatabase } from '../src/testing/database.js';
 import { newKey } from '../src/testing/keys.js';
 import { refusalOf, unwrap } from '../src/testing/result.js';
+import { withOperatorLogin } from './support/operator-login.js';
 
 // A sender reading where its message's delivery stands, on a real Postgres:
 // the state and since when, read from the delivery and its events.
@@ -22,7 +23,7 @@ let lookout: Crew;
 beforeEach(async () => {
   prisma = createPrismaClient(await createMigratedDatabase());
   useCases = createUseCases({ prisma, clock: systemClock, wakeups: createReceiverWakeups(), receiveWaitMs: 1_000 });
-  const fleet = unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR }));
+  const fleet = unwrap(await withOperatorLogin(prisma, useCases.initialiseFleet({ name: 'home fleet' })));
   argo = operatorCaller(fleet);
   scout = await crewedReviewer('scout');
   lookout = await crewedReviewer('lookout');

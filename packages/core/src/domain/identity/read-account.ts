@@ -22,8 +22,8 @@ interface OperatorSessionView extends SessionView {
   accountId: AccountId | null;
 }
 
-/** The operator's account with this session, or a viewer's session alone: a viewer has no email and no theme (decision 0022). */
-export type AccountView = { kind: 'operator'; email: string; theme: Theme; hasPassword: boolean; session: OperatorSessionView } | { kind: 'viewer'; session: SessionView };
+/** The operator's account with this session, its email null until argo sets one, or a viewer's session alone: a viewer has no email and no theme (decision 0022). */
+export type AccountView = { kind: 'operator'; email: string | null; theme: Theme; hasPassword: boolean; session: OperatorSessionView } | { kind: 'viewer'; session: SessionView };
 
 export type ReadAccount = (caller: ShipCaller) => Promise<Result<AccountView, DomainError<'NOT_THE_OPERATOR_SHIP'>>>;
 

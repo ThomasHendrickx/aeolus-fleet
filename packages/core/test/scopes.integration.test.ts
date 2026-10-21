@@ -1,10 +1,11 @@
 import { SCOPES, type FleetId, type ShipId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { OPERATOR, secretOf } from './support/core-fixtures.js';
+import { secretOf } from './support/core-fixtures.js';
 import { newKey } from '../src/testing/keys.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from '../src/testing/result.js';
+import { withOperatorLogin } from './support/operator-login.js';
 
 // Scopes on a real Postgres (decision 0046): a ship holds core scopes and
 // plugin scopes, each <namespace>:<action>.
@@ -15,7 +16,7 @@ let argoId: ShipId;
 
 beforeEach(async () => {
   core = await createPostgresCore();
-  ({ fleetId, operatorShipId: argoId } = unwrap(await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
+  ({ fleetId, operatorShipId: argoId } = unwrap(await withOperatorLogin(core.prisma, core.useCases.initialiseFleet({ name: 'home fleet' }))));
 });
 
 afterEach(async () => {

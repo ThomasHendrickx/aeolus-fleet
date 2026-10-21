@@ -14,6 +14,7 @@ import { createMigratedDatabase } from '../src/testing/database.js';
 import { newKey } from '../src/testing/keys.js';
 import { createTestClock } from './support/postgres-core.js';
 import { unwrap } from '../src/testing/result.js';
+import { withOperatorLogin } from './support/operator-login.js';
 
 // Limits as fleet settings, from HTTP to Postgres and back: the installation
 // sets them, the console reads them, and commission, send and create are
@@ -34,7 +35,7 @@ beforeAll(async () => {
   const databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
   core = createUseCases({ prisma: database, clock });
-  ({ fleetId: homeFleet, operatorShipId: homeArgo } = unwrap(await core.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
+  ({ fleetId: homeFleet, operatorShipId: homeArgo } = unwrap(await withOperatorLogin(database, core.initialiseFleet({ name: 'home fleet' }))));
   server = createApp({ databaseUrl, publicUrl: FLEET_URL, clock, logger: false, installationToken: INSTALLATION_TOKEN });
   address = await server.listen({ host: '127.0.0.1', port: 0 });
 });

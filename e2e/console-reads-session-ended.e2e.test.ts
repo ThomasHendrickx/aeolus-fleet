@@ -14,6 +14,7 @@ import { createTestClock } from '../packages/core/test/support/postgres-core.js'
 import { unwrap } from '../packages/core/src/testing/result.js';
 import { signIn } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
+import { withOperatorLogin } from '../packages/core/test/support/operator-login.js';
 
 // A console page left open after its session ends, end to end (#544, #555):
 // the squadrons list is a console read asked again every few seconds, so once
@@ -59,7 +60,7 @@ const contexts: BrowserContext[] = [];
 beforeAll(async () => {
   const databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
-  unwrap(await createUseCases({ prisma: database, clock }).initialiseFleet({ name: 'home fleet', ...OPERATOR }));
+  unwrap(await withOperatorLogin(database, createUseCases({ prisma: database, clock }).initialiseFleet({ name: 'home fleet' })));
   const webUrl = await reserveWebUrl();
   server = createApp({ databaseUrl, publicUrl: FLEET_URL, consoleOrigin: webUrl, clock, logger: false });
   const serverUrl = await server.listen({ host: '127.0.0.1', port: 0 });

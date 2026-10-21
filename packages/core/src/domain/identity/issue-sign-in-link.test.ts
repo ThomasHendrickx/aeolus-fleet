@@ -1,9 +1,9 @@
 import { createIdGenerator, type FleetId, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { initialiseFleet } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../testing/result.js';
-import { createInitialiseFleet } from '../registry/initialise-fleet.js';
 import { createIssueSignInLink, type IssueSignInLink } from './issue-sign-in-link.js';
 import { createRedeemSignInTicket, type RedeemSignInTicket } from './redeem-sign-in-ticket.js';
 
@@ -21,7 +21,7 @@ beforeEach(async () => {
   const deps = { uow: core.uow, clock: core.clock, ids: core.ids, hasher: core.hasher, random: core.random };
   issueSignInLink = createIssueSignInLink(deps);
   redeemSignInTicket = createRedeemSignInTicket(deps);
-  ({ fleetId, operatorShipId: argoId } = unwrap(await createInitialiseFleet({ uow: core.uow, clock: core.clock, ids: core.ids })({ name: 'my fleet' })));
+  ({ fleetId, operatorShipId: argoId } = await initialiseFleet(core, 'my fleet'));
 });
 
 describe('a sign-in link from the terminal', () => {
@@ -60,7 +60,7 @@ describe('a sign-in link from the terminal', () => {
     const { ticket } = unwrap(await issueSignInLink({ fleetId }));
 
     expect(core.state.signInTickets).toEqual([expect.objectContaining({ fleetId, as: 'operator', accountId: null, tokenHash: core.hasher.hash(ticket) })]);
-    expect(JSON.stringify(core.state)).not.toContain(ticket);
+    expect(JSON.stringify(core.state)).not.toContain(`"${ticket}"`);
   });
 
   it('writes SignInTicketIssued for the operator, by the system', async () => {

@@ -76,7 +76,8 @@ const accountSessionSchema = z.object({ device: z.string(), since: isoTime, acco
  * session has no email and no theme (decision 0022).
  */
 export const accountOutputSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('operator'), email: z.string(), theme: themeSchema, hasPassword: z.boolean(), session: accountSessionSchema }),
+  // No email until argo sets one in Settings: fleet:init gives its own sign-in none (accounts design, A1).
+  z.object({ kind: z.literal('operator'), email: z.string().nullable(), theme: themeSchema, hasPassword: z.boolean(), session: accountSessionSchema }),
   z.object({ kind: z.literal('viewer'), session: accountSessionSchema }),
 ]);
 

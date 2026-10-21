@@ -5,8 +5,8 @@ import type { OwnSignInLogin } from '../ui/organisms/own-sign-in';
 
 /** argo's own sign-in as Settings shows it: the email it signs in with, and saving a new email and password. */
 export interface OwnSignIn {
-  /** Undefined while the account loads, and for a session that is not argo's. */
-  email: string | undefined;
+  /** Null while argo has none; undefined while the account loads, and for a session that is not argo's. */
+  email: string | null | undefined;
   /** argo has a password, so a change asks for it first. */
   hasPassword: boolean;
   isSaving: boolean;

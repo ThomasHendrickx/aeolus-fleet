@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createPrismaClient, type PrismaClient } from '../packages/core/src/adapters/prisma/client.js';
 import { createApp } from '../packages/core/src/app.js';
 import { runServerCommand } from '../packages/core/test/support/commands.js';
+import { giveOperatorLogin } from '../packages/core/test/support/operator-login.js';
 import { FLEET_URL, OPERATOR } from '../packages/core/test/support/core-fixtures.js';
 import { createMigratedDatabase } from '../packages/core/src/testing/database.js';
 import { createTestClock } from '../packages/core/test/support/postgres-core.js';
@@ -24,21 +25,23 @@ let server: FastifyInstance;
 let web: RunningWeb;
 let browser: Browser;
 const contexts: BrowserContext[] = [];
+/** The one-use link fleet:init printed. */
+let signInLink: string;
 
 beforeAll(async () => {
   const databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
+  const webUrl = await reserveWebUrl();
   const init = await runServerCommand({
     script: 'fleet:init',
     args: ['--name', 'home fleet'],
-    answers: [OPERATOR.email, OPERATOR.password, OPERATOR.password],
-    env: { DATABASE_URL: databaseUrl, PUBLIC_URL: FLEET_URL },
+    env: { DATABASE_URL: databaseUrl, PUBLIC_URL: FLEET_URL, CONSOLE_ORIGIN: webUrl },
   });
   if (init.code !== 0) {
     throw new Error(`fleet:init failed with ${String(init.code)}:\n${init.stderr}`);
   }
+  signInLink = /Open (\S+) to sign in/.exec(init.stdout)?.[1] ?? '';
 
-  const webUrl = await reserveWebUrl();
   server = createApp({ databaseUrl, publicUrl: FLEET_URL, consoleOrigin: webUrl, clock, logger: false });
   const serverUrl = await server.listen({ host: '127.0.0.1', port: 0 });
   web = await startWeb({ url: webUrl, serverUrl });
@@ -69,7 +72,36 @@ async function expectSentToSignIn(page: Page): Promise<void> {
   await page.waitForURL(`${web.url}/sign-in`);
 }
 
+describe('the first run, self-hosted: the link fleet:init printed', () => {
+  it('signs in as argo, and the account menu says so with no email yet', async () => {
+    const page = await newPage();
+
+    await page.goto(signInLink);
+
+    await expectSignedIn(page);
+    await page.locator('[data-testid="account-menu"]:visible', { hasText: 'Signed in as argo' }).waitFor();
+    await page.getByTestId('nav-settings').click();
+    await page.getByTestId('settings-sign-in-state').filter({ hasText: 'npx aeolus-core sign-in' }).waitFor();
+  });
+
+  it('says the link has expired once it was used, and how to get a new one', async () => {
+    const page = await newPage();
+
+    await page.goto(signInLink);
+
+    await page.waitForURL(`${web.url}/sign-in/failed`);
+    await page.getByText('This link has expired. Run npx aeolus-core sign-in for a new one.').waitFor();
+    await expect(page.context().cookies()).resolves.toEqual([]);
+  });
+});
+
 describe('the console sign-in', () => {
+  beforeAll(async () => {
+    // As Settings would set them: the email and password these tests sign in with.
+    const { fleetId, id: operatorId } = await database.operator.findFirstOrThrow();
+    await giveOperatorLogin(database, { fleetId, operatorId });
+  });
+
   it.each([
     ['a wrong password', { email: OPERATOR.email, password: 'wrong horse' }],
     ['an unknown email', { email: 'stranger@example.com', password: OPERATOR.password }],
@@ -87,7 +119,7 @@ describe('the console sign-in', () => {
     await expect(page.context().cookies()).resolves.toEqual([]);
   });
 
-  it('signs in with the email and password fleet:init was given, keeping only an httpOnly, Secure, SameSite=Strict session cookie', async () => {
+  it("signs in with argo's own email and password, keeping only an httpOnly, Secure, SameSite=Strict session cookie", async () => {
     const page = await newPage();
 
     await signIn(page, OPERATOR);

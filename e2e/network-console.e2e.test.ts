@@ -14,6 +14,7 @@ import { createTestClock } from '../packages/core/test/support/postgres-core.js'
 import { unwrap } from '../packages/core/src/testing/result.js';
 import { signIn } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
+import { withOperatorLogin } from '../packages/core/test/support/operator-login.js';
 
 // The fleet's network rules on Network, end to end (decision 0035): argo
 // drafts a rule from label values, sees what the draft changes while nothing
@@ -42,7 +43,7 @@ beforeAll(async () => {
   const databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
   useCases = createUseCases({ prisma: database, clock });
-  argo = operatorCaller(unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
+  argo = operatorCaller(unwrap(await withOperatorLogin(database, useCases.initialiseFleet({ name: 'home fleet' }))));
   for (const [key, values] of [
     ['team', ['ops']],
     ['tier', ['sensitive']],

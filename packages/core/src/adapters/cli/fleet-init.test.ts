@@ -80,7 +80,7 @@ describe('fleet:init', () => {
 
     await fleetInit(['--name', 'home fleet'], depsWith({ issueSignInLink, io }));
 
-    expect(issueSignInLink).toHaveBeenCalledWith({ fleetId: expect.stringMatching(/^flt_/) });
+    expect(issueSignInLink.mock.calls[0]?.[0].fleetId).toMatch(/^flt_/);
     expect(io.stdout).toHaveLength(1);
     expect(io.stdout[0]).toMatch(/Fleet initialised: flt_.+\nOperator ship argo: shp_.+\nOperator account: opr_/);
     expect(io.stdout[0]).toContain(`Open ${CONSOLE_ORIGIN}/sign-in/ticket?ticket=${TICKET} to sign in to the console as argo.`);

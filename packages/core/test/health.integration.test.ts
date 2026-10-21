@@ -5,10 +5,11 @@ import { z } from 'zod';
 import { UNDELIVERABLE_AT_ATTEMPT } from '../src/domain/messaging/delivery.js';
 import type { ShipCaller, Crew } from '../src/domain/shared/caller.js';
 import type { Selector } from '../src/domain/shared/selector.js';
-import { OPERATOR, operatorCaller, secretOf, modelOf } from './support/core-fixtures.js';
+import { operatorCaller, secretOf, modelOf } from './support/core-fixtures.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from '../src/testing/result.js';
 import { newKey } from '../src/testing/keys.js';
+import { withOperatorLogin } from './support/operator-login.js';
 
 // The fleet health on a real Postgres (decision 0042): the stuck deliveries by
 // cause and place, read from the ships, leases, deliveries and their events,
@@ -36,7 +37,7 @@ async function crewed(ship: { name: string; type: string }): Promise<Crew> {
 
 beforeEach(async () => {
   core = await createPostgresCore();
-  argo = operatorCaller(unwrap(await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
+  argo = operatorCaller(unwrap(await withOperatorLogin(core.prisma, core.useCases.initialiseFleet({ name: 'home fleet' }))));
   scout = await crewed({ name: 'scout', type: 'tester' });
   planner = await crewed({ name: 'planner', type: 'planner' });
 });

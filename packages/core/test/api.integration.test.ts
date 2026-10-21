@@ -18,6 +18,7 @@ import { unwrap } from '../src/testing/result.js';
 import { createTestClock } from './support/postgres-core.js';
 import { newKey } from '../src/testing/keys.js';
 import { wholeShips } from './support/ships.js';
+import { withOperatorLogin } from './support/operator-login.js';
 
 // The API from HTTP to Postgres and back: scopes are checked at the door, the
 // console session travels as a cookie, and health says nothing about fleets.
@@ -41,7 +42,7 @@ beforeAll(async () => {
   databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
   ({ fleetId, operatorShipId: argoId } = unwrap(
-    await createUseCases({ prisma: database, clock }).initialiseFleet({ name: 'home fleet', ...OPERATOR }),
+    await withOperatorLogin(database, createUseCases({ prisma: database, clock }).initialiseFleet({ name: 'home fleet' })),
   ));
 
   server = createApp({
@@ -247,6 +248,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_verified_facts$/),
       expect.stringMatching(/^\d{14}_verified_facts_by_writer$/),
       expect.stringMatching(/^\d{14}_fleet_listing_indexes$/),
+      expect.stringMatching(/^\d{14}_operator_email_optional$/),
     ]);
   });
 });

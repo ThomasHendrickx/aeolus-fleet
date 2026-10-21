@@ -13,13 +13,15 @@ import { ok, type Result } from '../shared/result.js';
 /**
  * The operator's login (ADR 0012): signing in with its email and password
  * crews `argo`. One account per fleet in v1. Only the Argon2id hash of the
- * password is stored, and an operator may have no password at all.
+ * password is stored. fleet:init creates it with neither, until argo sets
+ * both in Settings (accounts design, A1); a hosting installation creates it
+ * with an email and no password.
  */
 export interface OperatorAccount {
   id: OperatorId;
   fleetId: FleetId;
-  /** Normalised: unique across the installation, found before the fleet is known (ADR 0007). */
-  email: string;
+  /** Normalised: unique across the installation, found before the fleet is known (ADR 0007); null until argo sets one. */
+  email: string | null;
   /**
    * The Argon2id hash of the password; null for an operator who has none,
    * such as one a hosting installation created, who signs in another way.

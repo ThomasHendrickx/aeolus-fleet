@@ -2,10 +2,11 @@ import { CLEAR_REQUESTS_PER_TRIERARCH_MAX } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { ShipCaller } from '../src/domain/shared/caller.js';
-import { OPERATOR, operatorCaller } from './support/core-fixtures.js';
+import { operatorCaller } from './support/core-fixtures.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from '../src/testing/result.js';
 import { newKey } from '../src/testing/keys.js';
+import { withOperatorLogin } from './support/operator-login.js';
 
 // Clear requests on a real Postgres (decision 0032): one per trierarch, ship
 // and repository, read by fleet:read and by their trierarch, confirmed by it,
@@ -18,7 +19,7 @@ let scoutId: ShipCaller['shipId'];
 
 beforeEach(async () => {
   core = await createPostgresCore();
-  argo = operatorCaller(unwrap(await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
+  argo = operatorCaller(unwrap(await withOperatorLogin(core.prisma, core.useCases.initialiseFleet({ name: 'home fleet' }))));
   const { shipId: trierarchId } = unwrap(
     await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] }),
   );

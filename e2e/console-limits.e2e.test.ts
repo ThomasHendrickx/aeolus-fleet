@@ -16,6 +16,7 @@ import { createTestClock } from '../packages/core/test/support/postgres-core.js'
 import { unwrap } from '../packages/core/src/testing/result.js';
 import { signIn } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
+import { withOperatorLogin } from '../packages/core/test/support/operator-login.js';
 
 // The console at its fleet's limits, end to end: the installation sets them,
 // and the console says so where the operator acts (canvas 12.1 to 12.3). The
@@ -43,7 +44,7 @@ beforeAll(async () => {
   const databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
   core = createUseCases({ prisma: database, clock });
-  const fleet = unwrap(await core.initialiseFleet({ name: 'home fleet', ...OPERATOR }));
+  const fleet = unwrap(await withOperatorLogin(database, core.initialiseFleet({ name: 'home fleet' })));
   fleetId = fleet.fleetId;
   argo = { fleetId: fleet.fleetId, shipId: fleet.operatorShipId, kind: 'operator', scopes: [...SCOPES] };
   const webUrl = await reserveWebUrl();

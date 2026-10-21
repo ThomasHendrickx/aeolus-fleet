@@ -13,6 +13,7 @@ import { OPERATOR, secretOf } from './support/core-fixtures.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from '../src/testing/result.js';
 import { newKey } from '../src/testing/keys.js';
+import { withOperatorLogin } from './support/operator-login.js';
 
 // The identity use cases on a real Postgres through the Prisma adapters:
 // takeover, sign-out, resetting the password, rollback, concurrency and restart.
@@ -26,7 +27,7 @@ let argoId: ShipId;
 
 beforeEach(async () => {
   core = await createPostgresCore();
-  ({ fleetId, operatorShipId: argoId } = unwrap(await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
+  ({ fleetId, operatorShipId: argoId } = unwrap(await withOperatorLogin(core.prisma, core.useCases.initialiseFleet({ name: 'home fleet' }))));
 });
 
 afterEach(async () => {

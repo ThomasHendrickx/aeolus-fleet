@@ -36,7 +36,7 @@ interface AccountSession {
  * email and theme; or a viewer, who reads the fleet through the viewer ship and
  * has neither (decision 0022).
  */
-export type AccountMenuAccount = { kind: 'operator'; email: string; session: AccountSession; theme: Theme } | { kind: 'viewer'; session: AccountSession };
+export type AccountMenuAccount = { kind: 'operator'; email: string | null; session: AccountSession; theme: Theme } | { kind: 'viewer'; session: AccountSession };
 
 export interface AccountMenuProps {
   /** Undefined until known: the trigger shows, the session line and theme check wait. */
@@ -77,9 +77,15 @@ const ROLE = 'Operator';
 /** A viewer goes by its ship's name. */
 const VIEWER = 'viewer';
 
+/** What the trigger says under the operator before argo has an email: argo's own sign-in, by a link from the terminal (accounts design, A1). */
+const SIGNED_IN_AS_ARGO = 'Signed in as argo';
+
 /** The name and the line under it, in the trigger: the operator and their email, or the viewer, reading only. */
 function whoOf(account: AccountMenuAccount | undefined): { name: string; detail: string } {
-  return account?.kind === 'viewer' ? { name: VIEWER, detail: 'Read-only' } : { name: ROLE, detail: account?.email ?? ' ' };
+  if (account?.kind === 'viewer') {
+    return { name: VIEWER, detail: 'Read-only' };
+  }
+  return { name: ROLE, detail: account === undefined ? ' ' : (account.email ?? SIGNED_IN_AS_ARGO) };
 }
 
 /** Whether the account chooses a theme: the operator's does, stored on it; a viewer has none (decision 0022). */

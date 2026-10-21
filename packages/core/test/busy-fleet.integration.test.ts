@@ -15,6 +15,7 @@ import { FLEET_URL, OPERATOR, operatorCaller, secretOf } from './support/core-fi
 import { createMigratedDatabase } from '../src/testing/database.js';
 import { newKey } from '../src/testing/keys.js';
 import { unwrap } from '../src/testing/result.js';
+import { withOperatorLogin } from './support/operator-login.js';
 
 // Every call runs in one transaction on a pool of 10 connections. Here each
 // send holds its connection for 3 s, so 200 sends at once are a minute of
@@ -96,7 +97,7 @@ describe('a fleet whose connections are all in use', () => {
     const databaseUrl = await createMigratedDatabase();
     database = createPrismaClient(databaseUrl);
     argo = operatorCaller(
-      unwrap(await createUseCases({ prisma: database }).initialiseFleet({ name: 'home fleet', ...OPERATOR })),
+      unwrap(await withOperatorLogin(database, createUseCases({ prisma: database }).initialiseFleet({ name: 'home fleet' }))),
     );
     server = createApp({ databaseUrl, publicUrl: FLEET_URL, logger: false });
     address = await server.listen({ host: '127.0.0.1', port: 0 });
@@ -197,7 +198,7 @@ describe('a fleet whose connections are all in use when a console session is loo
     const databaseUrl = await createMigratedDatabase();
     database = createPrismaClient(databaseUrl);
     argo = operatorCaller(
-      unwrap(await createUseCases({ prisma: database }).initialiseFleet({ name: 'home fleet', ...OPERATOR })),
+      unwrap(await withOperatorLogin(database, createUseCases({ prisma: database }).initialiseFleet({ name: 'home fleet' }))),
     );
     server = createApp({ databaseUrl, publicUrl: FLEET_URL, logger: false });
     address = await server.listen({ host: '127.0.0.1', port: 0 });
@@ -362,7 +363,7 @@ describe('a fleet whose database is too busy for a send', () => {
     databaseUrl = await createMigratedDatabase();
     database = createPrismaClient(databaseUrl);
     argo = operatorCaller(
-      unwrap(await createUseCases({ prisma: database }).initialiseFleet({ name: 'home fleet', ...OPERATOR })),
+      unwrap(await withOperatorLogin(database, createUseCases({ prisma: database }).initialiseFleet({ name: 'home fleet' }))),
     );
     server = createApp({ databaseUrl, publicUrl: FLEET_URL, logger: false });
     address = await server.listen({ host: '127.0.0.1', port: 0 });

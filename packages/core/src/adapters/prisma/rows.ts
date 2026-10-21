@@ -444,7 +444,7 @@ const operatorAccountSqlRow = z
   .object({
     id: idSchema('operator'),
     fleet_id: idSchema('fleet'),
-    email: z.string(),
+    email: z.string().nullable(),
     password_hash: z.string().nullable(),
     theme: themeSchema,
     created_at: z.date(),

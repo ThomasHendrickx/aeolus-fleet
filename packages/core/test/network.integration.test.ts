@@ -7,11 +7,12 @@ import { createApplyNetworkRules } from '../src/domain/registry/apply-network-ru
 import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
 import type { ShipCaller } from '../src/domain/shared/caller.js';
 import type { Crew } from '../src/domain/shared/caller.js';
-import { OPERATOR, operatorCaller, secretOf, SESSION_MODEL } from './support/core-fixtures.js';
+import { operatorCaller, secretOf, SESSION_MODEL } from './support/core-fixtures.js';
 import { newKey } from '../src/testing/keys.js';
 import { createPostgresCore, everyRow, heldUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { refusalOf, unwrap } from '../src/testing/result.js';
 import { refusedShip } from './support/refused-sender.js';
+import { withOperatorLogin } from './support/operator-login.js';
 
 // The fleet's network rules on a real Postgres (decision 0034): the settings
 // kept with their version, and a draft apart from them that only an apply
@@ -56,7 +57,7 @@ function aMessage(to: ShipCaller, inReplyTo?: MessageId) {
 
 beforeEach(async () => {
   core = await createPostgresCore();
-  argo = operatorCaller(unwrap(await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
+  argo = operatorCaller(unwrap(await withOperatorLogin(core.prisma, core.useCases.initialiseFleet({ name: 'home fleet' }))));
   const { shipId: labellerId } = unwrap(
     await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'labeller', type: 'networking', scopes: ['fleet:commission', 'labels:define', 'labels:assign'] }),
   );

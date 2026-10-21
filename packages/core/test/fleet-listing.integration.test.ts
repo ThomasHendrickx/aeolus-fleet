@@ -3,9 +3,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { Prisma } from '../src/adapters/prisma/generated/client.js';
 import { fleetListingStatement } from '../src/adapters/prisma/registry.js';
-import { OPERATOR } from './support/core-fixtures.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from '../src/testing/result.js';
+import { withOperatorLogin } from './support/operator-login.js';
 
 // The fleet snapshot on a fleet with a history (#1027): at 113 ships the
 // listing walked every event of the fleet once per ship to find who crewed
@@ -57,7 +57,7 @@ async function seedHistory(): Promise<void> {
 
 beforeAll(async () => {
   core = await createPostgresCore();
-  fleetId = unwrap(await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })).fleetId;
+  fleetId = unwrap(await withOperatorLogin(core.prisma, core.useCases.initialiseFleet({ name: 'home fleet' }))).fleetId;
   await seedHistory();
 }, 120_000);
 

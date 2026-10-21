@@ -10,6 +10,7 @@ import {
   type ShipId,
 } from '@aeolus-fleet/common';
 
+import { createIssueSignInLink } from '../../src/domain/identity/issue-sign-in-link.js';
 import { createIssueSignInTicket } from '../../src/domain/identity/issue-sign-in-ticket.js';
 import { createDismissNotice } from '../../src/domain/identity/dismiss-notice.js';
 import { createGetGuide } from '../../src/domain/identity/get-guide.js';
@@ -155,6 +156,7 @@ export function identityUseCases(core: InMemoryCore) {
     setTheme: createSetTheme(deps),
     authenticate: createAuthenticate({ callers: core.callers, hasher: core.hasher, clock: core.clock }),
     issueSignInTicket: createIssueSignInTicket(deps),
+    issueSignInLink: createIssueSignInLink(deps),
     redeemSignInTicket: createRedeemSignInTicket(deps),
     setNotices: createSetNotices({ notices: core.notices }),
     getNotices: createGetNotices({ notices: core.notices }),

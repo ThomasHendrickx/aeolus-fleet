@@ -7,7 +7,7 @@ import { createClaimShip } from '../src/domain/registry/claim-ship.js';
 import { createGetStartingPrompt } from '../src/domain/registry/get-starting-prompt.js';
 import type { ShipCaller } from '../src/domain/shared/caller.js';
 import type { UnitOfWork } from '../src/domain/shared/unit-of-work.js';
-import { OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
+import { operatorCaller, secretOf } from './support/core-fixtures.js';
 import {
   createPostgresCore,
   everyRow,
@@ -17,6 +17,7 @@ import {
 } from './support/postgres-core.js';
 import { unwrap } from '../src/testing/result.js';
 import { newKey } from '../src/testing/keys.js';
+import { withOperatorLogin } from './support/operator-login.js';
 
 // Claiming a ship on a real Postgres through the Prisma adapters: what a claim
 // stores and writes, its lock order against concurrent claims and against a
@@ -34,7 +35,7 @@ let scoutSecret: string;
 
 beforeEach(async () => {
   core = await createPostgresCore();
-  const fleet = unwrap(await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR }));
+  const fleet = unwrap(await withOperatorLogin(core.prisma, core.useCases.initialiseFleet({ name: 'home fleet' })));
   ({ fleetId, operatorShipId: argoId } = fleet);
   argo = operatorCaller(fleet);
   const commissioned = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));

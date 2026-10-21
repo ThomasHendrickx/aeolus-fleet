@@ -6,6 +6,9 @@ export const SIGN_IN_TICKET_PREFIX = 'aeolus_st_v1_';
 /** How long a sign-in ticket stays valid after it is issued. */
 export const SIGN_IN_TICKET_VALID_MS = 2 * 60 * 1000;
 
+/** How long a sign-in link from the terminal stays valid: long enough to copy it into a browser (accounts design, A1). */
+export const SIGN_IN_LINK_VALID_MS = 15 * 60 * 1000;
+
 /** Whom a ticket signs in as: the operator, crewing argo, or a viewer, through the viewer ship (decision 0022). */
 export type SignInAs = 'operator' | 'viewer';
 

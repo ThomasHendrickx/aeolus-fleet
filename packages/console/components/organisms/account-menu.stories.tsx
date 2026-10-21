@@ -107,6 +107,14 @@ export const SignedInAsArgo: Story = {
   },
 };
 
+/** argo's own sign-in with no email yet, by a link from the terminal (accounts design, A1): the menu says so in its place. */
+export const NoEmailYet: Story = {
+  args: { account: { ...ACCOUNT, email: null, session: { ...ACCOUNT.session, accountId: null } } },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByTestId('account-menu')).toHaveTextContent('Signed in as argo');
+  },
+};
+
 /** A viewer session (decision 0022): it reads the fleet only, has no email and no theme, and keeps Sign out. */
 export const Viewer: Story = {
   args: { account: { kind: 'viewer', session: { device: 'Mac · Safari', since: new Date('2026-10-01T14:10:00').toISOString() } }, accountUrl: 'https://pagasae.aeolus-fleet.dev/account' },

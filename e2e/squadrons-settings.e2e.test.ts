@@ -15,6 +15,7 @@ import { unwrap } from '../packages/core/src/testing/result.js';
 import { createSquadronsApp, createSquadronsDatabase, startFakeGithub, tagsAt, type FakeGithub, type SquadronsApp } from '@aeolus-fleet/squadrons/testing';
 import { signIn, openRowMenu } from './support/console.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
+import { withOperatorLogin } from '../packages/core/test/support/operator-login.js';
 
 // Connect squadrons, end to end: squadrons starts not connected; the operator
 // connects it from Settings, the web app's server commissions the management
@@ -50,7 +51,7 @@ beforeAll(async () => {
   const databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
   useCases = createUseCases({ prisma: database, clock });
-  argo = operatorCaller(unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
+  argo = operatorCaller(unwrap(await withOperatorLogin(database, useCases.initialiseFleet({ name: 'home fleet' }))));
 
   const webUrl = await reserveWebUrl();
   server = createApp({ databaseUrl, publicUrl: FLEET_URL, consoleOrigin: webUrl, clock, logger: false });

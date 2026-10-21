@@ -7,11 +7,12 @@ import { createChangeLabelValues } from '../src/domain/registry/change-label-val
 import { createDeleteLabel } from '../src/domain/registry/delete-label.js';
 import { createRetireShip } from '../src/domain/registry/retire-ship.js';
 import type { ShipCaller } from '../src/domain/shared/caller.js';
-import { OPERATOR, operatorCaller } from './support/core-fixtures.js';
+import { operatorCaller } from './support/core-fixtures.js';
 import { newKey } from '../src/testing/keys.js';
 import { createPostgresCore, heldUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { refusalOf, unwrap } from '../src/testing/result.js';
 import { wholeShips } from './support/ships.js';
+import { withOperatorLogin } from './support/operator-login.js';
 
 // Labels on a real Postgres (decision 0031): a key once per fleet, even when
 // two ships define it at once; a label and each value with its own id, the
@@ -32,7 +33,7 @@ let linux: LabelValueId;
 
 beforeEach(async () => {
   core = await createPostgresCore();
-  argo = operatorCaller(unwrap(await core.useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR })));
+  argo = operatorCaller(unwrap(await withOperatorLogin(core.prisma, core.useCases.initialiseFleet({ name: 'home fleet' }))));
   const { shipId: pluginId } = unwrap(
     await core.useCases.commissionShip(argo, {
       idempotencyKey: newKey(),

@@ -42,6 +42,7 @@ import type { AccountTokenSignatures } from './domain/identity/ports.js';
 import { createDismissNotice, type DismissNotice } from './domain/identity/dismiss-notice.js';
 import { createGetGuide, type GetGuide } from './domain/identity/get-guide.js';
 import { createGetNotices, type GetNotices } from './domain/identity/get-notices.js';
+import { createIssueSignInLink, type IssueSignInLink } from './domain/identity/issue-sign-in-link.js';
 import { createIssueSignInTicket, type IssueSignInTicket } from './domain/identity/issue-sign-in-ticket.js';
 import { createRedeemSignInTicket, type RedeemSignInTicket } from './domain/identity/redeem-sign-in-ticket.js';
 import { createReadAccount, type ReadAccount } from './domain/identity/read-account.js';
@@ -261,6 +262,7 @@ export interface UseCases {
   listInstallationFleets: ListInstallationFleets;
   getInstallationFleet: GetInstallationFleet;
   issueSignInTicket: IssueSignInTicket;
+  issueSignInLink: IssueSignInLink;
   redeemSignInTicket: RedeemSignInTicket;
   getInstallationSettings: GetInstallationSettings;
   setInstallationSettings: SetInstallationSettings;
@@ -312,11 +314,12 @@ export function createUseCases(options: {
 
   return {
     ping: createPing({ clock, fleets: createPrismaFleetCounter(prisma) }),
-    initialiseFleet: createInitialiseFleet({ uow, clock, ids, passwords: argon2idPasswordHasher }),
+    initialiseFleet: createInitialiseFleet({ uow, clock, ids }),
     listFleets: createListFleets({ fleets: createPrismaFleetRepository(prisma) }),
     createFleet: createCreateFleet({ uow, clock, ids, hasher: sha256Hasher }),
     deleteFleet: createDeleteFleet({ uow: bulkUow, clock, hasher: sha256Hasher }),
     issueSignInTicket: createIssueSignInTicket({ uow, clock, ids, hasher: sha256Hasher, random: cryptoRandomTokens }),
+    issueSignInLink: createIssueSignInLink({ uow, clock, ids, hasher: sha256Hasher, random: cryptoRandomTokens }),
     getInstallationSettings: createGetInstallationSettings({ settings: createPrismaInstallationSettings(prisma) }),
     setInstallationSettings: createSetInstallationSettings({ uow }),
     getFleetLimits: createGetFleetLimits({ uow }),
