@@ -128,6 +128,8 @@ describe('migrations', () => {
 
     expect(tables.map((table) => table.table_name)).toEqual([
       'account_cut_offs',
+      'account_guide_progress',
+      'account_notice_dismissals',
       'console_sessions',
       'credentials',
       'crew_request_give_backs',

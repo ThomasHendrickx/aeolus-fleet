@@ -9,7 +9,7 @@ import { createMigratedDatabase } from '../packages/core/src/testing/database.js
 import { secretOf } from '../packages/core/src/testing/fleet.js';
 import { newKey } from '../packages/core/src/testing/keys.js';
 import { unwrap } from '../packages/core/src/testing/result.js';
-import { createUseCases } from '../packages/core/src/wiring.js';
+import { createUseCases, type UseCases } from '../packages/core/src/wiring.js';
 import { FLEET_URL, OPERATOR, operatorCaller } from '../packages/core/test/support/core-fixtures.js';
 import { startFakePagasae, type FakeAccount, type FakePagasae } from './support/fake-pagasae.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
@@ -26,6 +26,7 @@ let web: RunningWeb;
 let browser: Browser;
 let fleetId: FleetId;
 let lookoutId: ShipId;
+let useCases: UseCases;
 const contexts: BrowserContext[] = [];
 
 function mathilde(scopes: readonly string[] = ['fleet:read', 'fleet:manage']): FakeAccount {
@@ -35,7 +36,7 @@ function mathilde(scopes: readonly string[] = ['fleet:read', 'fleet:manage']): F
 beforeAll(async () => {
   const databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
-  const useCases = createUseCases({ prisma: database });
+  useCases = createUseCases({ prisma: database });
   const fleet = unwrap(await useCases.initialiseFleet({ name: 'home fleet', ...OPERATOR }));
   ({ fleetId } = fleet);
   unwrap(await useCases.commissionShip(operatorCaller(fleet), { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
@@ -112,6 +113,34 @@ describe('an account signing in to the console', () => {
     await page.getByTestId('ship-ping-status').getByText('Pinged just now, no answer yet').waitFor();
     const event = await database.event.findFirstOrThrow({ where: { fleetId, type: 'MessageAccepted', shipId: lookoutId }, select: { actorKind: true, actorAccountId: true } });
     expect(event).toEqual({ actorKind: 'account', actorAccountId: 'acc-mathilde' });
+  });
+
+  it('shows the notices for accounts above every page, and keeps one it dismissed gone (accounts design, A9)', async () => {
+    unwrap(await useCases.setNotices({ notices: [{ id: 'teams', audience: 'accounts', text: 'Your organisation now signs in with its own accounts.', links: [], isDismissible: true }] }));
+    pagasae.signInAs(mathilde());
+    const page = await newPage();
+    await page.goto('/');
+
+    await page.getByTestId('notice').getByText('Your organisation now signs in with its own accounts.').waitFor();
+    await page.getByTestId('notice-dismiss').click();
+    await page.getByTestId('notice').waitFor({ state: 'detached' });
+    await page.reload();
+    await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+
+    await expect(page.getByTestId('notice').count()).resolves.toBe(0);
+    unwrap(await useCases.setNotices({ notices: [] }));
+  });
+
+  it('keeps the theme the account picks in the browser, from the first paint of the next page (header design, C5)', async () => {
+    pagasae.signInAs(mathilde());
+    const page = await newPage();
+    await page.goto('/');
+    await page.locator('[data-testid="avatar-menu"]:visible').click();
+
+    await page.getByTestId('avatar-menu-theme-dark').click();
+    await page.reload();
+
+    await expect(page.locator('html').getAttribute('class')).resolves.toContain('dark');
   });
 
   it('says there is nothing to manage here for an account without fleet:read', async () => {

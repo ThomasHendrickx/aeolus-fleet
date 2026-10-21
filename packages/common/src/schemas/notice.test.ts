@@ -14,6 +14,10 @@ describe('setNoticesInputSchema', () => {
     expect(setNoticesInputSchema.parse({ notices: [aNotice()] })).toEqual({ notices: [{ ...aNotice(), links: [], isDismissible: false }] });
   });
 
+  it("takes a notice for accounts signed in to the console as themselves (accounts design, A9)", () => {
+    expect(setNoticesInputSchema.parse({ notices: [aNotice({ audience: 'accounts' })] }).notices[0]?.audience).toBe('accounts');
+  });
+
   it('takes links that go somewhere, sign out, or both', () => {
     const links = [{ label: 'Sign up', url: 'https://pagasae.example.com/sign-up' }, { label: 'Leave', url: 'https://pagasae.example.com', isSignOut: true }, { label: 'Sign out', isSignOut: true }];
 
