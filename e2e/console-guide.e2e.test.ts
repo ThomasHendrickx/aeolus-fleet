@@ -125,8 +125,8 @@ describe('the guide', () => {
     await page.getByRole('heading', { name: 'Inbox' }).waitFor();
     await expect(page.getByTestId('tour-step').count()).resolves.toBe(0);
 
-    await visible(page, 'account-menu').click();
-    await visible(page, 'account-take-tour').click();
+    await visible(page, 'avatar-menu').click();
+    await visible(page, 'avatar-menu-take-tour').click();
     await page.waitForURL((url) => url.pathname === '/');
     await page.getByTestId('tour-step').getByText('Your fleet at a glance').waitFor();
   });
@@ -151,10 +151,10 @@ describe('the guide', () => {
 
   it('shows the operator no guide set for viewers, and no Take the tour', async () => {
     const page = await signedIn('operator');
-    await visible(page, 'account-menu').click();
-    await visible(page, 'account-sign-out').waitFor();
+    await visible(page, 'avatar-menu').click();
+    await visible(page, 'avatar-menu-sign-out').waitFor();
 
     await expect(page.getByTestId('tour-step').count()).resolves.toBe(0);
-    await expect(page.getByTestId('account-take-tour').count()).resolves.toBe(0);
+    await expect(page.getByTestId('avatar-menu-take-tour').count()).resolves.toBe(0);
   });
 });

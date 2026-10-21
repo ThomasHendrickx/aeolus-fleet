@@ -2,9 +2,8 @@
 
 import { useState } from 'react';
 
-import { classNames } from '../../../../lib/class-names';
+import { Button, classNames } from '@aeolus-fleet/common/header';
 import type { Block, Inline } from '../../../../lib/message-document';
-import { Button } from '../../../../components/atoms/button';
 
 /*
  * The parsed body has no ids: its parts are keyed by their place in it, which

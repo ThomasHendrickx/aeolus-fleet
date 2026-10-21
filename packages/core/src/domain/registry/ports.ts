@@ -36,6 +36,8 @@ export interface FleetRepository {
   count(): Promise<number>;
   list(): Promise<Fleet[]>;
   create(fleet: Fleet): Promise<void>;
+  /** The fleet, read without a lock. */
+  find(fleetId: FleetId): Promise<Fleet | undefined>;
   /** The fleet, locked until the unit of work ends, so two deletes of it never both run. */
   findForUpdate(fleetId: FleetId): Promise<Fleet | undefined>;
   /**

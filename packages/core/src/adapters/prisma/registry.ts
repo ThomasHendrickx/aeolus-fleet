@@ -40,6 +40,10 @@ export function createPrismaFleetRepository(db: Db): FleetRepository {
       await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('aeolus:fleet-initialisation'))`;
     },
     count: () => db.fleet.count(),
+    find: async (fleetId) => {
+      const row = await db.fleet.findUnique({ where: { id: fleetId } });
+      return row ? toFleet(row) : undefined;
+    },
     list: async () => (await db.fleet.findMany({ orderBy: { id: 'asc' } })).map(toFleet),
     create: async (fleet) => {
       await db.fleet.create({ data: fleet });

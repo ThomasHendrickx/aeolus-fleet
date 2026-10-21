@@ -381,6 +381,10 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         state.fleetLimitSettings.splice(0, state.fleetLimitSettings.length, ...state.fleetLimitSettings.filter((held) => held.fleetId !== fleetId), { fleetId, ...settings });
         return Promise.resolve();
       },
+      find: (fleetId) => {
+        const fleet = state.fleets.find((held) => held.id === fleetId);
+        return Promise.resolve(fleet && { ...fleet });
+      },
       findForUpdate: (fleetId) => {
         const fleet = state.fleets.find((held) => held.id === fleetId);
         return Promise.resolve(fleet && { ...fleet });

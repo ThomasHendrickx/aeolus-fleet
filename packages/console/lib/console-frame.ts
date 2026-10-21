@@ -2,16 +2,19 @@
 
 import { createContext, useContext, type ReactNode } from 'react';
 
-import type { AccountMenuProps } from '../components/organisms/account-menu';
+import type { AppSwitcherModel, AvatarMenuProps } from '@aeolus-fleet/common/header';
+
 import type { SidebarDestination } from '../components/organisms/sidebar';
 
 /**
  * What the signed-in route layout hands each page for its ListPage or
- * DetailPage: the operator's account, Compose and the CommandPalette (both
- * held by the layout), and the installation's notices.
+ * DetailPage: the header's switcher and avatar menu, Compose and the
+ * CommandPalette (both held by the layout), and the installation's notices.
  */
 export interface ConsoleFrame {
-  account: AccountMenuProps;
+  /** Undefined until the session is read. */
+  switcher: AppSwitcherModel | undefined;
+  account: AvatarMenuProps;
   /** Opens Compose; none while the session may not send. */
   onCompose?: () => void;
   onSearch: () => void;

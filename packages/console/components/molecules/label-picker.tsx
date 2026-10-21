@@ -4,7 +4,7 @@ import type { LabelTerm } from '@aeolus-fleet/common';
 import { Boxes, ChevronLeft, ChevronRight, Search, Ship, ShipWheel } from 'lucide-react';
 import { useState } from 'react';
 
-import { classNames } from '../../lib/class-names';
+import { classNames } from '@aeolus-fleet/common/header';
 import type { FilterGroup, FilterKey, OwnerMark } from '../../lib/labels';
 import { TERM_MEANINGS } from '../../lib/network-rules';
 import { Input } from '../atoms/input';

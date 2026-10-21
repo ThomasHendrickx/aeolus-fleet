@@ -2,7 +2,7 @@ import { Input as InputPrimitive } from '@base-ui/react/input';
 import { cva, type VariantProps } from 'class-variance-authority';
 import type { ComponentProps, ReactNode } from 'react';
 
-import { classNames } from '../../lib/class-names';
+import { classNames } from '@aeolus-fleet/common/header';
 
 /**
  * shadcn Input on Base UI, themed to docs/design/png/Input.png: 36 px on

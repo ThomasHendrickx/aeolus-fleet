@@ -4,15 +4,14 @@ import { Activity, CodeXml, Inbox, ListChecks, Network, Settings, Shapes, Ship, 
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
-import { Avatar } from '../atoms/avatar';
+import { Avatar } from '@aeolus-fleet/common/header';
 import { Badge } from '../atoms/badge';
 import { SOURCE_URL } from '../../lib/source';
-import { AccountMenu, type AccountMenuProps } from './account-menu';
 
 /** The console's destinations so far. */
 export type SidebarDestination = 'overview' | 'needs-crew' | 'squadrons' | 'trierarchs' | 'inbox' | 'health' | 'network' | 'settings';
 
-interface SidebarProps extends AccountMenuProps {
+interface SidebarProps {
   /** The page the operator is on: its item is marked current. */
   active: SidebarDestination;
   /** What waits on the operator in argo's inbox, open questions and open messages; hidden until known, and when there are none. */
@@ -115,9 +114,8 @@ function AttentionCount({ count, testId, words }: { count: number | undefined; t
 }
 
 /**
- * Desktop navigation (docs/design/png/Sidebar.png): the brand, the
- * destinations and the AccountMenu of the signed-in operator, which opens
- * upwards. 256 px
+ * Desktop navigation (docs/design/png/Sidebar.png): the brand and the
+ * destinations; the avatar menu sits in the header (header design). 256 px
  * from 1024 px; a 64 px rail from 640 to 1023 px, labels kept for assistive
  * technology and dots instead of numbers. Destinations so far: Fleet overview;
  * Health, which counts the stuck deliveries in the attention tone (#304);
@@ -126,10 +124,10 @@ function AttentionCount({ count, testId, words }: { count: number | undefined; t
  * count simply hides until it is known. With squadrons on, Squadrons
  * comes second; with the trierarch plugin on, Trierarchs follows, counting its
  * silent machines in the attention tone (#245). Settings, which holds the
- * plugins, sits with the link to the source on GitHub above the account menu,
+ * plugins, sits with the link to the source on GitHub at the foot,
  * after Network, the networking plugin's rules, for argo while it is connected.
  */
-export function Sidebar({ active, inboxCount, stuckCount, needsCrewCount, hasSquadrons = false, hasTrierarchs = false, trierarchsCount, hasNetwork = false, hasSettings = false, ...account }: SidebarProps) {
+export function Sidebar({ active, inboxCount, stuckCount, needsCrewCount, hasSquadrons = false, hasTrierarchs = false, trierarchsCount, hasNetwork = false, hasSettings = false }: SidebarProps) {
   return (
     <aside
       data-slot="sidebar"
@@ -196,9 +194,6 @@ export function Sidebar({ active, inboxCount, stuckCount, needsCrewCount, hasSqu
           <span className="grow max-lg:sr-only">Source on GitHub</span>
           <span className="sr-only"> (opens in a new tab)</span>
         </a>
-      </div>
-      <div className="border-t border-border p-2.5">
-        <AccountMenu {...account} />
       </div>
     </aside>
   );

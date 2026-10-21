@@ -2,7 +2,7 @@ import { ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 
 import { Badge } from '../../../../components/atoms/badge';
-import { Button } from '../../../../components/atoms/button';
+import { Button } from '@aeolus-fleet/common/header';
 import { StatusBadge, statusLabel } from '../../../../components/molecules/status-badge';
 import { duration } from '../../../../lib/relative-time';
 import { CAUSE_SENTENCES, causePathOf, nextStepOf, waitMinutes, type CauseGroup, type StuckPlace } from '../../services/health-view';

@@ -3,7 +3,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { LoaderCircle } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-import { classNames } from '../../lib/class-names';
+import { classNames } from '../class-names.js';
 
 /**
  * shadcn Button on Base UI, themed to docs/design/png/Button.png: primary

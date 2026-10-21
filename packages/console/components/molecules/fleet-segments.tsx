@@ -1,6 +1,6 @@
 import Link from 'next/link';
 
-import { classNames } from '../../lib/class-names';
+import { classNames } from '@aeolus-fleet/common/header';
 
 /**
  * The Fleet tab's two views on phone (#245, decision 6): every ship, and

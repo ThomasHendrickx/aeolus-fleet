@@ -4,7 +4,7 @@ import { Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { use, useState } from 'react';
 
-import { Button } from '../../../components/atoms/button';
+import { Button } from '@aeolus-fleet/common/header';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/atoms/tabs';
 import { BlueprintTable } from '../../../features/squadrons/organisms/blueprint-table';
 import { TemplateTable } from '../../../features/squadrons/organisms/template-table';

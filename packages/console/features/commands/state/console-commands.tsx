@@ -1,5 +1,6 @@
 'use client';
 
+import type { AppSwitcherModel } from '@aeolus-fleet/common/header';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
@@ -19,17 +20,20 @@ interface ConsoleCommandsProps {
   onOpenChange: (isOpen: boolean) => void;
   /** Opens Compose on this page. */
   onCompose: () => void;
+  /** The header's switcher: its other apps join the palette. */
+  switcher: AppSwitcherModel | undefined;
 }
 
 /**
  * The CommandPalette on every console page, with the fleet's ships, the
- * actions and the pages; Cmd+K (Ctrl+K) opens it. A ship opens its page, a
+ * actions, the pages and the other apps the account may open; Cmd+K
+ * (Ctrl+K) opens it. A ship opens its page, a
  * page its route, Compose the page's Compose, Commission ship the fleet
  * overview with its CommissionDialog open, and with squadrons on, a squadron
  * or blueprint its page and Form squadron the Squadrons page with its dialog
  * open.
  */
-export function ConsoleCommands({ isOpen, onOpenChange, onCompose }: ConsoleCommandsProps) {
+export function ConsoleCommands({ isOpen, onOpenChange, onCompose, switcher }: ConsoleCommandsProps) {
   const router = useRouter();
   const fleet = useFleetSnapshot();
   const hasSquadrons = useHasSquadrons();
@@ -54,6 +58,8 @@ export function ConsoleCommands({ isOpen, onOpenChange, onCompose }: ConsoleComm
     <CommandPalette
       isOpen={isOpen}
       onOpenChange={onOpenChange}
+      isLoading={fleet.isPending}
+      apps={(switcher?.apps ?? []).filter((app) => !app.isCurrent).map(({ label, url }) => ({ label, url }))}
       items={allowedPaletteItems(
         paletteItemsOf(
           fleet.data ?? [],

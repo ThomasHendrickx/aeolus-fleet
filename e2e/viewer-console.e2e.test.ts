@@ -73,7 +73,7 @@ describe('the console of a viewer session', () => {
   it('offers no Commission and no Compose, and names the viewer, reading only, in the account menu', async () => {
     const page = await signedIn('viewer');
     // The account answers once the session is known, so the writes it removes are settled by then.
-    await page.locator('[data-testid="account-menu"][aria-label="Account menu, viewer, Read-only"]').first().waitFor();
+    await page.locator('[data-testid="avatar-menu"][aria-label="Account menu, viewer, Viewer"]').first().waitFor();
 
     await expect(page.getByTestId('fleet-commission').count()).resolves.toBe(0);
     await expect(page.getByTestId('header-compose').count()).resolves.toBe(0);

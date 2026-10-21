@@ -1,6 +1,6 @@
 import type { DeliveryId, InboxFilter } from '@aeolus-fleet/common';
 
-import { classNames } from '../../../../lib/class-names';
+import { classNames } from '@aeolus-fleet/common/header';
 import { Badge } from '../../../../components/atoms/badge';
 import { Tabs, TabsCount, TabsList, TabsTrigger } from '../../../../components/atoms/tabs';
 import type { InboxView } from '../../services/inbox-view';

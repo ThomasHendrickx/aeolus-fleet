@@ -79,7 +79,9 @@ describe('the first run, self-hosted: the link fleet:init printed', () => {
     await page.goto(signInLink);
 
     await expectSignedIn(page);
-    await page.locator('[data-testid="account-menu"]:visible', { hasText: 'Signed in as argo' }).waitFor();
+    await page.locator('[data-testid="avatar-menu"]:visible').click();
+    await page.locator('[data-testid="avatar-menu-signed-in-as"]:visible', { hasText: 'Signed in as argo' }).waitFor();
+    await page.keyboard.press('Escape');
     await page.getByTestId('nav-settings').click();
     await page.getByTestId('settings-sign-in-state').filter({ hasText: 'npx aeolus-core sign-in' }).waitFor();
     await expect(page.getByTestId('settings-sign-in').getByLabel('Current password').count()).resolves.toBe(0);
@@ -249,7 +251,7 @@ describe('the console sign-in', () => {
     await expectSignedIn(page);
 
     // The Sidebar's account button on desktop; the phone TopBar's Avatar is hidden.
-    await page.locator('[data-testid="account-menu"]:visible').click();
+    await page.locator('[data-testid="avatar-menu"]:visible').click();
     await page.getByRole('menuitem', { name: 'Sign out' }).click();
 
     await page.waitForURL(`${web.url}/sign-in`);

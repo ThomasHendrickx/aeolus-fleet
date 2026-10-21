@@ -3,7 +3,7 @@
 import { Check, Copy } from 'lucide-react';
 import { useState } from 'react';
 
-import { Button } from './button';
+import { Button } from '@aeolus-fleet/common/header';
 
 /** How long the check shows after a copy. */
 const COPIED_FOR_MS = 1_500;

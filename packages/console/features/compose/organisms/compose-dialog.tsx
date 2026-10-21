@@ -6,9 +6,7 @@ import { Send } from 'lucide-react';
 import { useId, useState } from 'react';
 
 import { sendShortcutAria, submitOnSendShortcut, useShortcutPlatform } from '../../../lib/send-shortcut';
-import { Button } from '../../../components/atoms/button';
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../components/atoms/dialog';
-import { dialogSurface } from '../../../components/atoms/dialog-surface';
+import { Button, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle } from '@aeolus-fleet/common/header';
 import { Label } from '../../../components/atoms/label';
 import { Textarea } from '../../../components/atoms/textarea';
 import { InlineError } from '../../../components/molecules/inline-error';

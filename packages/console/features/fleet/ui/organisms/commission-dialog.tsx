@@ -5,24 +5,13 @@ import { isShipHandle } from '@aeolus-fleet/common/rules';
 import { CircleCheck, CircleX, Tag } from 'lucide-react';
 import { useId, useState } from 'react';
 
-import { classNames } from '../../../../lib/class-names';
+import { Button, classNames, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle } from '@aeolus-fleet/common/header';
 import { useConsoleConstants } from '../../../../lib/console-constants';
 import { defaultValues, promptBytes, settingsOf, type CrewSettingsValues, type HarnessOffer } from '../../../../lib/crew-settings-form';
 import type { MachineLabelsInput } from '../../../../lib/machine-labels';
 import type { SettingsCheck } from '../../../../lib/trierarch-plugin-schemas';
 import { asHandle, checkShipName, typeHint } from '../../../../lib/ship-name';
-import { Button } from '../../../../components/atoms/button';
 import { Combobox } from '../../../../components/atoms/combobox';
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../../../../components/atoms/dialog';
-import { dialogSurface } from '../../../../components/atoms/dialog-surface';
 import { Input } from '../../../../components/atoms/input';
 import { Label } from '../../../../components/atoms/label';
 import { Switch } from '../../../../components/atoms/switch';

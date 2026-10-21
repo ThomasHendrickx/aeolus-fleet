@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { Archive, Copy, Ellipsis, Inbox, Pencil, SquarePen, UserX } from 'lucide-react';
 
-import { Button } from './button';
+import { Button } from './button.js';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,7 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from './dropdown-menu';
+} from './dropdown-menu.js';
 
 const meta = {
   title: 'Atoms/DropdownMenu',

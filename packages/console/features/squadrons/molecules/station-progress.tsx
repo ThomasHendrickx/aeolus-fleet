@@ -1,4 +1,4 @@
-import { classNames } from '../../../lib/class-names';
+import { classNames } from '@aeolus-fleet/common/header';
 
 interface StationProgressProps {
   /** Members on station (forming) or done (standing down). */

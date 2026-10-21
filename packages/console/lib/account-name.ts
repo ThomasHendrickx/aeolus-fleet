@@ -7,7 +7,7 @@ import { serverInternalUrlFrom } from './server-url';
  * Accounts by the name pagasae gives them (decisions 0054, 0058), read by the
  * web app's server only: the session's fleet (and, for the menu, its account)
  * from the fleet server with the operator's cookie, then pagasae with the
- * console's token. Asked each time they are shown and never stored, so core
+ * console's app credentials. Asked each time they are shown and never stored, so core
  * keeps no email. Deleted user for an account pagasae deleted for good (410).
  * None for argo's own sign-in, without pagasae, or while pagasae gives none:
  * the console shows the account's id then.
@@ -21,14 +21,21 @@ const DELETED_STATUS = 410;
 
 type Environment = Readonly<Record<string, string | undefined>>;
 
-/** pagasae as the console reaches it, from AEOLUS_PAGASAE_URL and AEOLUS_PAGASAE_CONSOLE_TOKEN; none unless both are set. No trailing slash. */
-export function pagasaeFrom(environment: Environment): { url: string; token: string } | undefined {
+/** pagasae's address, and the Authorization header the console asks it with. */
+export interface Pagasae {
+  url: string;
+  authorization: string;
+}
+
+/** pagasae as the console reaches it, from AEOLUS_PAGASAE_URL, AEOLUS_PAGASAE_CLIENT_ID and AEOLUS_PAGASAE_CLIENT_SECRET: its address with no trailing slash, and the console as an app pagasae registers (APP_CLIENTS), by Basic credentials. None unless all three are set. */
+export function pagasaeFrom(environment: Environment): Pagasae | undefined {
   const url = environment.AEOLUS_PAGASAE_URL;
-  const token = environment.AEOLUS_PAGASAE_CONSOLE_TOKEN;
-  if (url === undefined || url === '' || token === undefined || token === '') {
+  const clientId = environment.AEOLUS_PAGASAE_CLIENT_ID;
+  const secret = environment.AEOLUS_PAGASAE_CLIENT_SECRET;
+  if (url === undefined || url === '' || clientId === undefined || clientId === '' || secret === undefined || secret === '') {
     return undefined;
   }
-  return { url: url.replace(/\/+$/, ''), token };
+  return { url: url.replace(/\/+$/, ''), authorization: `Basic ${btoa(`${clientId}:${secret}`)}` };
 }
 
 const nameAnswerSchema = z.object({ name: z.string().min(1) });
@@ -43,11 +50,11 @@ async function query<T>(call: { serverUrl: string; procedure: string; cookie: st
 }
 
 /** The name pagasae gives one account of the fleet, Deleted user for one it deleted; none when it gives none. */
-async function askPagasae(call: { pagasae: { url: string; token: string }; fleetId: string; accountId: string; fetchImplementation: typeof fetch }): Promise<string | null> {
+async function askPagasae(call: { pagasae: Pagasae; fleetId: string; accountId: string; fetchImplementation: typeof fetch }): Promise<string | null> {
   const asked = new URL(`${call.pagasae.url}/api/console/account-name`);
   asked.search = new URLSearchParams({ fleetId: call.fleetId, accountId: call.accountId }).toString();
   try {
-    const response = await call.fetchImplementation(asked.toString(), { headers: { 'x-aeolus-console-token': call.pagasae.token } });
+    const response = await call.fetchImplementation(asked.toString(), { headers: { authorization: call.pagasae.authorization } });
     if (response.status === DELETED_STATUS) {
       return DELETED_USER;
     }

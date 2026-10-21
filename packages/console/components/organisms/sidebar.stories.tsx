@@ -1,6 +1,4 @@
-import { THEMES } from '@aeolus-fleet/common';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { fn } from 'storybook/test';
 
 import { Sidebar } from './sidebar';
 
@@ -11,16 +9,6 @@ const meta = {
     active: 'overview',
     inboxCount: 3,
     stuckCount: 2,
-    account: {
-      kind: 'operator',
-      email: 'operator@example.com',
-      session: { device: 'Mac · Chrome', since: '2026-10-01T06:02:00.000Z' },
-      theme: 'system',
-    },
-    themes: THEMES, onThemeChange: fn(),
-    onSignOut: fn(),
-    isSigningOut: false,
-    now: new Date('2026-10-01T12:30:00.000Z'),
   },
   decorators: [
     (Story) => (

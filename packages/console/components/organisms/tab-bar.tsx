@@ -2,7 +2,7 @@ import { Activity, Inbox, Shapes, Ship, ShipWheel } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
-import { classNames } from '../../lib/class-names';
+import { classNames } from '@aeolus-fleet/common/header';
 
 /** The console's destinations on phone so far. */
 export type TabBarDestination = 'fleet' | 'squadrons' | 'trierarchs' | 'inbox' | 'health';

@@ -5,7 +5,7 @@ import { shortDateTime } from '../../../lib/relative-time';
 import { disbandedCount, filterSquadrons, squadronBlueprints, type SquadronView } from '../lib/squadron-filter';
 import type { Squadron } from '../../../lib/squadrons-schemas';
 import { blueprintPath, healthCounts, stationCount } from '../../../lib/squadrons-view';
-import { Button } from '../../../components/atoms/button';
+import { Button } from '@aeolus-fleet/common/header';
 import { Input } from '../../../components/atoms/input';
 import { Label } from '../../../components/atoms/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/atoms/select';

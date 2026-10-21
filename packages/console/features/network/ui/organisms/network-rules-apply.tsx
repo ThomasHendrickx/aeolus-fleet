@@ -11,8 +11,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../../../../components/atoms/alert-dialog';
-import { Button } from '../../../../components/atoms/button';
-import { dialogSurface } from '../../../../components/atoms/dialog-surface';
+import { Button, dialogSurface } from '@aeolus-fleet/common/header';
 import { InlineError } from '../../../../components/molecules/inline-error';
 
 export interface NetworkRulesApplyProps {

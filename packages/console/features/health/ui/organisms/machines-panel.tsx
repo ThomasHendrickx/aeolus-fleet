@@ -2,7 +2,7 @@ import { Server } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
-import { Button } from '../../../../components/atoms/button';
+import { Button } from '@aeolus-fleet/common/header';
 
 /** A machine as the Health page lists it: its trierarch ship, and how many ships it crews. */
 export interface HealthMachine {

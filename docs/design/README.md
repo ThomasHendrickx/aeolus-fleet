@@ -3,7 +3,7 @@
 Exported from the Claude Design canvas "Aeolus operator console v1" (Design system page). Build from this, not from the screens. The screen artboards stay on the canvas as reference only; on conflict, the parts and `conventions.md` win.
 
 - `conventions.md`: rules for everything the parts do not show. Read before any console work.
-- [`packages/console/app/tokens.css`](../../packages/console/app/tokens.css): every token, light (`:root`) and dark (`.dark`). The single copy: the console theme imports it, and the parts here refer to it.
+- [`packages/common/src/header/tokens.css`](../../packages/common/src/header/tokens.css): every token, light (`:root`) and dark (`.dark`). The single copy, in `@aeolus-fleet/common/header`: every Aeolus app's theme imports it, and the parts here refer to it.
 - `png/<Part>.png`: the part in all its states, light and dark. Open only the parts you build.
 - `source/<Part>.html`: the canvas markup for exact values; FleetTable composition and phone labels follow `conventions.md` and its console Storybook states; helper classes in `source/canvas.css`.
 - [`brand/README.md`](../../brand/README.md): the app mark and its exports. Every favicon and app icon comes from there.

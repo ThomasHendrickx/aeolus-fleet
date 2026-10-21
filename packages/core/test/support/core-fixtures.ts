@@ -70,6 +70,7 @@ import { createDeleteFleet } from '../../src/domain/registry/delete-fleet.js';
 import { createGetInstallationFleet } from '../../src/domain/registry/get-installation-fleet.js';
 import { createListInstallationFleets } from '../../src/domain/registry/list-installation-fleets.js';
 import { createGetFleetLimits } from '../../src/domain/registry/get-fleet-limits.js';
+import { createReadFleetName } from '../../src/domain/registry/read-fleet-name.js';
 import { createGetInstallationSettings } from '../../src/domain/registry/get-installation-settings.js';
 import { createSetFleetLimits } from '../../src/domain/registry/set-fleet-limits.js';
 import { createSetInstallationSettings } from '../../src/domain/registry/set-installation-settings.js';
@@ -261,6 +262,7 @@ export function registryUseCases(core: InMemoryCore) {
     getInstallationSettings: createGetInstallationSettings({ settings: core.installationSettings }),
     setInstallationSettings: createSetInstallationSettings({ uow: core.uow }),
     getFleetLimits: createGetFleetLimits({ uow: core.uow }),
+    readFleetName: createReadFleetName({ uow: core.uow }),
     setFleetLimits: createSetFleetLimits({ uow: core.uow, clock: core.clock, ids: core.ids }),
     readFleetLimits: createReadFleetLimits({ limits: core.fleetLimitReads, clock: core.clock }),
     getInstallationFleet: createGetInstallationFleet({ fleets: core.installationFleets, settings: core.installationSettings, health: core.health, clock: core.clock }),

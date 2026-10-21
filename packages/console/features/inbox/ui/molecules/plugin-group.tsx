@@ -1,11 +1,10 @@
 import type { DeliveryId } from '@aeolus-fleet/common';
 import { Check, ChevronDown, Server } from 'lucide-react';
 
-import { classNames } from '../../../../lib/class-names';
+import { Button, classNames } from '@aeolus-fleet/common/header';
 import type { MessageEntry } from '../../../../lib/inbox-entry';
 import { clockTime, fullDateTime } from '../../../../lib/relative-time';
 import { counted } from '../../../../lib/sentence';
-import { Button } from '../../../../components/atoms/button';
 import { InboxRow } from './inbox-row';
 
 interface PluginGroupProps {

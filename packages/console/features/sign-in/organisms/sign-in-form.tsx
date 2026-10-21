@@ -6,14 +6,13 @@ import { useRouter } from 'next/navigation';
 import { useSyncExternalStore } from 'react';
 import { useForm } from 'react-hook-form';
 
-import { classNames } from '../../../lib/class-names';
+import { Button, classNames } from '@aeolus-fleet/common/header';
 import { useSignIn } from '../hooks/console';
 import { retryAtOf, trpcErrorCode } from '../../../lib/errors';
 import { useHasPassed } from '../hooks/has-passed';
 import { useIsSecureContext } from '../hooks/is-secure-context';
 import { clockTime } from '../../../lib/relative-time';
 import { signInRefusal } from '../lib/sign-in';
-import { Button } from '../../../components/atoms/button';
 import { Input } from '../../../components/atoms/input';
 import { Label } from '../../../components/atoms/label';
 import { InsecureContextNotice } from '../molecules/insecure-context-notice';

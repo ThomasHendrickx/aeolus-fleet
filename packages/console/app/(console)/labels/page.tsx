@@ -3,7 +3,7 @@
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
 
-import { Button } from '../../../components/atoms/button';
+import { Button } from '@aeolus-fleet/common/header';
 import type { ValuesBusy } from '../../../features/labels/organisms/label-values-dialog';
 import { LabelsTable } from '../../../features/labels/organisms/labels-table';
 import { DetailPage } from '../../../components/organisms/detail-page';
@@ -72,6 +72,8 @@ export default function LabelsPage() {
 
   return (
     <DetailPage
+      switcher={frame.switcher}
+      account={frame.account}
       onCompose={frame.onCompose}
       onSearch={frame.onSearch}
       banner={frame.banner}

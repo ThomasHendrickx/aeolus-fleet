@@ -1,9 +1,8 @@
 import type { ShipId } from '@aeolus-fleet/common';
 import { Ban, Check, Crosshair } from 'lucide-react';
 
-import { classNames } from '../../../../lib/class-names';
+import { Button, classNames } from '@aeolus-fleet/common/header';
 import { graphNodesOf, reachSummaryOf, type GraphNode, type GraphShip, type ReachAgainst, type ReachMark } from '../../services/reach-graph';
-import { Button } from '../../../../components/atoms/button';
 import { Tabs, TabsList, TabsTrigger } from '../../../../components/atoms/tabs';
 import { InlineError } from '../../../../components/molecules/inline-error';
 

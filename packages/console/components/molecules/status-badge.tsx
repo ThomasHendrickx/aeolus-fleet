@@ -32,7 +32,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-import { classNames } from '../../lib/class-names';
+import { classNames } from '@aeolus-fleet/common/header';
 import type { SquadronState } from '../../lib/squadron-states';
 
 /** A count at its limit, or over it once a limit is lowered below use (the LimitMeter part). */

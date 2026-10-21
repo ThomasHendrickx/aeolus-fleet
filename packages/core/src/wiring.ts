@@ -137,6 +137,7 @@ import type { FleetEventWakeups } from './domain/shared/events.js';
 import { createFleetEventWakeups, fleetEventWakeupsOf } from './adapters/prisma/fleet-event-wakeups.js';
 import { createCreateFleet, type CreateFleet } from './domain/registry/create-fleet.js';
 import { createGetFleetLimits, type GetFleetLimits } from './domain/registry/get-fleet-limits.js';
+import { createReadFleetName, type ReadFleetName } from './domain/registry/read-fleet-name.js';
 import { createGetInstallationSettings, type GetInstallationSettings } from './domain/registry/get-installation-settings.js';
 import { createSetFleetLimits, type SetFleetLimits } from './domain/registry/set-fleet-limits.js';
 import { createSetInstallationSettings, type SetInstallationSettings } from './domain/registry/set-installation-settings.js';
@@ -265,6 +266,7 @@ export interface UseCases {
   getInstallationSettings: GetInstallationSettings;
   setInstallationSettings: SetInstallationSettings;
   getFleetLimits: GetFleetLimits;
+  readFleetName: ReadFleetName;
   setFleetLimits: SetFleetLimits;
   readFleetLimits: ReadFleetLimits;
 }
@@ -321,6 +323,7 @@ export function createUseCases(options: {
     getInstallationSettings: createGetInstallationSettings({ settings: createPrismaInstallationSettings(prisma) }),
     setInstallationSettings: createSetInstallationSettings({ uow }),
     getFleetLimits: createGetFleetLimits({ uow }),
+    readFleetName: createReadFleetName({ uow }),
     setFleetLimits: createSetFleetLimits({ uow, clock, ids }),
     setNotices: createSetNotices({ notices }),
     getNotices: createGetNotices({ notices }),

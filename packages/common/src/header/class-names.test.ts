@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { classNames } from './class-names';
+import { classNames } from './class-names.js';
 
 describe('classNames', () => {
   it('keeps a text colour next to a text style from the tokens', () => {

@@ -128,9 +128,9 @@ describe.each([
   it('shows this session, switches the theme at once and keeps it on the account for the next load', async () => {
     const page = await signedInPage({ isPhone });
 
-    await visible(page, 'account-menu').click();
-    await visible(page, 'account-session').getByText(/Device · .*Chrome, since/).waitFor();
-    await visible(page, 'account-theme-dark').click();
+    await visible(page, 'avatar-menu').click();
+    await visible(page, 'avatar-menu-session').getByText(/Device · .*Chrome, since/).waitFor();
+    await visible(page, 'avatar-menu-theme-dark').click();
 
     await expect.poll(() => isDark(page)).toBe(true);
     await expect
@@ -139,8 +139,8 @@ describe.each([
     await page.reload();
     await expect.poll(() => isDark(page)).toBe(true);
 
-    await visible(page, 'account-menu').click();
-    await visible(page, 'account-theme-light').click();
+    await visible(page, 'avatar-menu').click();
+    await visible(page, 'avatar-menu-theme-light').click();
     await expect.poll(() => isDark(page)).toBe(false);
     await expect
       .poll(async () => (await database.operator.findFirstOrThrow()).theme)
@@ -149,12 +149,12 @@ describe.each([
     await expect.poll(() => isDark(page)).toBe(false);
   });
 
-  it('links to the source on GitHub, opening in a new tab: in the Sidebar foot on desktop, in the account sheet on phone', async () => {
+  it('links to the source on GitHub, opening in a new tab: in the Sidebar foot on desktop, as Help in the avatar sheet on phone', async () => {
     const page = await signedInPage({ isPhone });
     if (isPhone) {
-      await visible(page, 'account-menu').click();
+      await visible(page, 'avatar-menu').click();
     }
-    const source = visible(page, isPhone ? 'account-source' : 'nav-source');
+    const source = visible(page, isPhone ? 'avatar-menu-help' : 'nav-source');
 
     await expect(source.getAttribute('href')).resolves.toBe('https://github.com/ThomasHendrickx/aeolus-fleet');
     await expect(source.getAttribute('target')).resolves.toBe('_blank');
@@ -163,10 +163,10 @@ describe.each([
   it('offers no Your account on a self-hosted console', async () => {
     const page = await signedInPage({ isPhone });
 
-    await visible(page, 'account-menu').click();
+    await visible(page, 'avatar-menu').click();
 
-    await visible(page, 'account-session').waitFor();
-    await expect(visible(page, 'account-hosted').count()).resolves.toBe(0);
+    await visible(page, 'avatar-menu-session').waitFor();
+    await expect(visible(page, 'avatar-menu-account').count()).resolves.toBe(0);
   });
 
   it('keeps the theme controlled while the account is read, and logs no warning', async () => {
@@ -175,9 +175,9 @@ describe.each([
     const account = holdOneAnswer(page, 'console.account');
     await page.reload();
 
-    await visible(page, 'account-menu').click();
+    await visible(page, 'avatar-menu').click();
     await account.answered;
-    await visible(page, 'account-session').getByText(/Device · .*Chrome, since/).waitFor();
+    await visible(page, 'avatar-menu-session').getByText(/Device · .*Chrome, since/).waitFor();
 
     expect(warnings).toEqual([]);
   });
@@ -186,9 +186,9 @@ describe.each([
     const page = await signedInPage({ isPhone });
     const warnings = controlledWarnings(page);
 
-    await visible(page, 'account-menu').click();
-    await visible(page, 'account-session').getByText(/Device · .*Chrome, since/).waitFor();
-    await visible(page, 'account-sign-out').click();
+    await visible(page, 'avatar-menu').click();
+    await visible(page, 'avatar-menu-session').getByText(/Device · .*Chrome, since/).waitFor();
+    await visible(page, 'avatar-menu-sign-out').click();
     await page.waitForURL(`${web.url}/sign-in`);
 
     expect(warnings).toEqual([]);
@@ -197,8 +197,8 @@ describe.each([
   it('signs out from the menu', async () => {
     const page = await signedInPage({ isPhone });
 
-    await visible(page, 'account-menu').click();
-    await visible(page, 'account-sign-out').click();
+    await visible(page, 'avatar-menu').click();
+    await visible(page, 'avatar-menu-sign-out').click();
 
     await page.waitForURL(`${web.url}/sign-in`);
     await expect(page.context().cookies()).resolves.toEqual([]);
@@ -216,8 +216,8 @@ describe.each([
     await askedAgain;
     await held.reached;
 
-    await visible(page, 'account-menu').click();
-    await visible(page, 'account-sign-out').click();
+    await visible(page, 'avatar-menu').click();
+    await visible(page, 'avatar-menu-sign-out').click();
 
     await page.waitForURL(`${web.url}/sign-in`);
     await held.answered;
@@ -226,7 +226,7 @@ describe.each([
 
   it('asks no console read once Sign out has ended the session', async () => {
     const page = await signedInPage({ isPhone });
-    await visible(page, 'account-menu').click();
+    await visible(page, 'avatar-menu').click();
     let hasSessionEnded = false;
     const readsAfterSessionEnded: string[] = [];
     page.on('response', (response) => {
@@ -241,7 +241,7 @@ describe.each([
       }
     });
 
-    await visible(page, 'account-sign-out').click();
+    await visible(page, 'avatar-menu-sign-out').click();
     await page.waitForURL(`${web.url}/sign-in`);
     await new Promise((resolve) => setTimeout(resolve, AFTER_SIGN_OUT_MS));
 
@@ -254,8 +254,8 @@ describe.each([
     await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
     const signOut = holdSignOutSlow(page);
 
-    await visible(page, 'account-menu').click();
-    await visible(page, 'account-sign-out').click();
+    await visible(page, 'avatar-menu').click();
+    await visible(page, 'avatar-menu-sign-out').click();
     await signOut.started;
     // Coming back to the page while Sign out is on its way asks its reads again; TanStack Query hears it on window.
     await page.evaluate("window.dispatchEvent(new Event('visibilitychange'))");
@@ -286,8 +286,8 @@ describe.each([
       }
     });
 
-    await visible(page, 'account-menu').click();
-    await visible(page, 'account-sign-out').click();
+    await visible(page, 'avatar-menu').click();
+    await visible(page, 'avatar-menu-sign-out').click();
     await page.getByText('Couldn’t sign out').waitFor();
 
     await expect.poll(() => callsAfterSignOutFailed.length).toBeGreaterThan(0);
@@ -295,7 +295,7 @@ describe.each([
 
   it('signs out without sending any write but Sign out', async () => {
     const page = await signedInPage({ isPhone });
-    await visible(page, 'account-menu').click();
+    await visible(page, 'avatar-menu').click();
     const writesSent: string[] = [];
     page.on('request', (request) => {
       const { pathname } = new URL(request.url());
@@ -304,7 +304,7 @@ describe.each([
       }
     });
 
-    await visible(page, 'account-sign-out').click();
+    await visible(page, 'avatar-menu-sign-out').click();
     await page.waitForURL(`${web.url}/sign-in`);
     await new Promise((resolve) => setTimeout(resolve, AFTER_SIGN_OUT_MS));
 

@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { RefreshCw } from 'lucide-react';
 
-import { Button } from './button';
+import { Button } from '@aeolus-fleet/common/header';
 import { showToast, ToastCard, Toaster } from './toast';
 
 const meta = {

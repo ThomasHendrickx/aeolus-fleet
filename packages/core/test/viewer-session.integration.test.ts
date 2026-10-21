@@ -111,6 +111,7 @@ describe('a viewer ticket', () => {
 
     await expect(consoleWith(cookie).console.session.query()).resolves.toEqual({
       fleetId: demoFleet,
+      fleetName: 'demo',
       kind: 'viewer',
       scopes: ['fleet:read'],
       expiresAt: new Date(clock.now().getTime() + 2 * HOUR_MS).toISOString(),

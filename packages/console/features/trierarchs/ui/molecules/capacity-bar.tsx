@@ -1,6 +1,6 @@
 import type { CrewStatus } from '@aeolus-fleet/common';
 
-import { classNames } from '../../../../lib/class-names';
+import { classNames } from '@aeolus-fleet/common/header';
 import { capacityLine, type Spot } from '../../../../lib/machines';
 
 /** Each spot's colour by its session (canvas TrierarchPlugin, Capacity): running ok, crewing and releasing active, restarting waiting, crashed attention. */

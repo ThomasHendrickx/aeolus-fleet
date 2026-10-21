@@ -1,11 +1,10 @@
-import { THEMES } from '@aeolus-fleet/common';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { fn } from 'storybook/test';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../atoms/tabs';
-import type { AccountMenuProps } from './account-menu';
 import { ConsoleFrame } from './console-frame';
 import { DetailPage } from './detail-page';
+import { AVATAR_MENU, SWITCHER } from '../../lib/fixtures/header.fixtures';
 
 function Placeholder({ label, isTall = false }: { label: string; isTall?: boolean }) {
   return (
@@ -17,24 +16,13 @@ function Placeholder({ label, isTall = false }: { label: string; isTall?: boolea
   );
 }
 
-const account: AccountMenuProps = {
-  account: {
-    kind: 'operator',
-    email: 'operator@example.com',
-    session: { device: 'Mac · Chrome', since: '2026-10-01T06:02:00.000Z' },
-    theme: 'system',
-  },
-  themes: THEMES,
-  onThemeChange: fn(),
-  onSignOut: fn(),
-  isSigningOut: false,
-  now: new Date('2026-10-01T12:30:00.000Z'),
-};
 
 const meta = {
   title: 'Organisms/DetailPage',
   component: DetailPage,
   args: {
+    switcher: SWITCHER,
+    account: AVATAR_MENU,
     title: 'reviewer-01',
     parents: [{ href: '/', label: 'Fleet overview' }],
     live: 'live',
@@ -59,7 +47,7 @@ const meta = {
   },
   // Shown in the ConsoleFrame, as the signed-in route layout shows it.
   render: (args) => (
-    <ConsoleFrame nav={{ active: 'overview', inboxCount: 3, stuckCount: 2 }} account={account}>
+    <ConsoleFrame nav={{ active: 'overview', inboxCount: 3, stuckCount: 2 }}>
       <DetailPage {...args} />
     </ConsoleFrame>
   ),

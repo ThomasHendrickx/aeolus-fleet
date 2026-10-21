@@ -3,15 +3,13 @@
 import { Check, CircleCheck, ExternalLink, GitPullRequest, Send, Server, CircleDot } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 
-import { classNames } from '../../../../lib/class-names';
+import { Button, classNames, Kbd } from '@aeolus-fleet/common/header';
 import type { MessageEntry } from '../../../../lib/inbox-entry';
 import type { ThreadMessage } from '../../../../lib/inbox-thread';
 import type { KnownLink } from '../../../../lib/message-document';
 import { clockTime, fullDateTime, shortDateTime } from '../../../../lib/relative-time';
 import { sendShortcutAria, submitOnSendShortcut, useShortcutPlatform } from '../../../../lib/send-shortcut';
 import { Badge } from '../../../../components/atoms/badge';
-import { Button } from '../../../../components/atoms/button';
-import { Kbd } from '../../../../components/atoms/kbd';
 import { Textarea } from '../../../../components/atoms/textarea';
 import { SendShortcutHint } from '../../../../components/molecules/send-shortcut-hint';
 import { ShipName } from '../../../../components/molecules/ship-name';

@@ -1,14 +1,15 @@
+import { AppSwitcher, AvatarMenuSheet, Button, type AppSwitcherModel, type AvatarMenuProps } from '@aeolus-fleet/common/header';
 import { ChevronLeft, Search } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
-import { Button } from '../atoms/button';
 import { LiveStatus, type LiveState } from '../molecules/live-status';
-import { AccountMenuSheet, type AccountMenuProps } from './account-menu';
 
 interface TopBarProps {
-  /** The page title; on a root page it is the page's one title. */
+  /** The page title: in detail mode the bar's title; in root mode the switcher stands in its place, and the page shows its own title. */
   title: string;
+  /** Root mode: the switcher, compact (header design H6); undefined until the session is read. */
+  switcher?: AppSwitcherModel;
   live: LiveState;
   /** Up to two icon-only Buttons, each with its aria-label. */
   actions?: ReactNode;
@@ -17,21 +18,22 @@ interface TopBarProps {
    * below carries its own title then, so the bar's title is no heading.
    */
   back?: { href: string; label: string };
-  /** Root mode: the AccountMenu's Avatar, always last. Detail and modal modes need none. */
-  account?: AccountMenuProps;
+  /** Root mode: the avatar menu, always last. Detail and modal modes need none. */
+  account?: AvatarMenuProps;
   /** Root mode: the search icon that opens the CommandPalette full screen, before the other actions. */
   onSearch?: () => void;
 }
 
 /**
- * Phone top bar (docs/design/png/TopBar.png), 56 px. Root mode: the page
- * title, the live status, the CommandPalette's search icon, up to two icon
- * actions and the AccountMenu's
- * Avatar, always last, which opens it as a bottom Sheet. Detail mode: a back link
+ * Phone top bar (docs/design/png/TopBar.png), 56 px. Root mode: the
+ * switcher, the app's name with ▾ that opens the fleets and apps in a bottom
+ * Sheet (header design H6), the live status, the CommandPalette's search
+ * icon, up to two icon actions and the avatar menu, always last, which opens
+ * as a bottom Sheet. Detail mode: a back link
  * labelled with the previous page, the title and the live status. Modal mode
  * comes with the pages that need it.
  */
-export function TopBar({ title, live, actions, back, account, onSearch }: TopBarProps) {
+export function TopBar({ title, live, actions, back, switcher, account, onSearch }: TopBarProps) {
   const search = onSearch && !back ? onSearch : undefined;
   return (
     <header
@@ -51,7 +53,8 @@ export function TopBar({ title, live, actions, back, account, onSearch }: TopBar
           <p className="min-w-0 flex-1 truncate text-center text-body-touch font-semibold text-foreground">{title}</p>
         </>
       ) : (
-        <h1 className="truncate text-title-touch font-semibold tracking-tight text-foreground">{title}</h1>
+        // Until the session is read the console's own name stands in: the switcher only adds where else to go.
+        switcher ? <AppSwitcher switcher={switcher} layout="compact" className="min-w-0" /> : <p className="truncate px-1.5 text-title-touch font-semibold text-foreground">Console</p>
       )}
       <LiveStatus state={live} />
       {actions || search || (account && !back) ? (
@@ -69,7 +72,7 @@ export function TopBar({ title, live, actions, back, account, onSearch }: TopBar
             </Button>
           ) : null}
           {actions}
-          {account && !back ? <AccountMenuSheet {...account} /> : null}
+          {account && !back ? <AvatarMenuSheet {...account} /> : null}
         </div>
       ) : null}
     </header>

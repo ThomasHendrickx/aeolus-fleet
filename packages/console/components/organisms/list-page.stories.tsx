@@ -1,12 +1,12 @@
-import { THEMES } from '@aeolus-fleet/common';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { Plus } from 'lucide-react';
 import { fn } from 'storybook/test';
 
 import { Badge } from '../atoms/badge';
-import { Button } from '../atoms/button';
+import { Button } from '@aeolus-fleet/common/header';
 import { ConsoleFrame } from './console-frame';
 import { ListPage } from './list-page';
+import { AVATAR_MENU, SWITCHER } from '../../lib/fixtures/header.fixtures';
 
 function Placeholder({ label, isTall = false }: { label: string; isTall?: boolean }) {
   return (
@@ -27,18 +27,8 @@ const meta = {
     live: 'live',
     onCompose: fn(),
     onSearch: fn(),
-    account: {
-      account: {
-        kind: 'operator',
-        email: 'operator@example.com',
-        session: { device: 'Mac · Chrome', since: '2026-10-01T06:02:00.000Z' },
-        theme: 'system',
-      },
-      themes: THEMES, onThemeChange: fn(),
-      onSignOut: fn(),
-      isSigningOut: false,
-      now: new Date('2026-10-01T12:30:00.000Z'),
-    },
+    switcher: SWITCHER,
+    account: AVATAR_MENU,
     primaryAction: (
       <Button variant="primary" icon={<Plus aria-hidden />}>
         Commission ship
@@ -49,7 +39,7 @@ const meta = {
   },
   // Shown in the ConsoleFrame, as the signed-in route layout shows it.
   render: (args) => (
-    <ConsoleFrame nav={{ active: 'overview', inboxCount: 3, stuckCount: 2 }} account={args.account}>
+    <ConsoleFrame nav={{ active: 'overview', inboxCount: 3, stuckCount: 2 }}>
       <ListPage {...args} />
     </ConsoleFrame>
   ),
@@ -76,7 +66,7 @@ export const WithTitleMeta: Story = {
     titleMeta: <Badge variant="outline">trierarch plugin 0.20.0</Badge>,
   },
   render: (args) => (
-    <ConsoleFrame nav={{ active: 'trierarchs', hasTrierarchs: true }} account={args.account}>
+    <ConsoleFrame nav={{ active: 'trierarchs', hasTrierarchs: true }}>
       <ListPage {...args} />
     </ConsoleFrame>
   ),

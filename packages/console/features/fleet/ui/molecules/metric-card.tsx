@@ -1,7 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 
-import { classNames } from '../../../../lib/class-names';
+import { classNames } from '@aeolus-fleet/common/header';
 
 export type MetricTone = 'ok' | 'waiting' | 'attention';
 

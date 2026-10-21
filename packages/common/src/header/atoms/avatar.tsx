@@ -4,7 +4,7 @@ import { Avatar as AvatarPrimitive } from '@base-ui/react/avatar';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { Ship, UserRound } from 'lucide-react';
 
-import { classNames } from '../../lib/class-names';
+import { classNames } from '../class-names.js';
 
 /**
  * shadcn Avatar on Base UI, used as a mark (docs/design/png/Avatar.png): the

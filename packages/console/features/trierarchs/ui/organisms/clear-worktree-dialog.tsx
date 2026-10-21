@@ -1,8 +1,7 @@
 'use client';
 
-import { Button } from '../../../../components/atoms/button';
+import { Button, dialogSurface } from '@aeolus-fleet/common/header';
 import { AlertDialog, AlertDialogClose, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../../../components/atoms/alert-dialog';
-import { dialogSurface } from '../../../../components/atoms/dialog-surface';
 import { InlineError } from '../../../../components/molecules/inline-error';
 
 /** The kept worktree to delete, as its machine's page shows it. */

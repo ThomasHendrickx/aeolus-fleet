@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 
-import { Kbd } from './kbd';
+import { Kbd } from './kbd.js';
 
 const meta = {
   title: 'Atoms/Kbd',

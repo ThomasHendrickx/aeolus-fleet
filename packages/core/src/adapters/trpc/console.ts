@@ -90,7 +90,8 @@ export const consoleRouter = router({
     }
     // argo and the viewer hold core scopes only: a plugin's scopes are never theirs to hold (decision 0046).
     const coreScopes = scopes.filter((scope): scope is Scope => scopeSchema.safeParse(scope).success);
-    return { fleetId, expiresAt: use.expiresAt.toISOString(), kind, scopes: coreScopes };
+    const fleetName = okOrThrow(await ctx.useCases.readFleetName({ fleetId }));
+    return { fleetId, fleetName, expiresAt: use.expiresAt.toISOString(), kind, scopes: coreScopes };
   }),
 
   /** Stores the operator's theme on their account, so it follows them to any browser. */

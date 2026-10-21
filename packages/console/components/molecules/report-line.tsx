@@ -1,7 +1,7 @@
 import type { ListedShip, ReportState } from '@aeolus-fleet/common';
 import { Activity, CirclePause, OctagonPause, type LucideIcon } from 'lucide-react';
 
-import { classNames } from '../../lib/class-names';
+import { classNames } from '@aeolus-fleet/common/header';
 import { fullDateTime } from '../../lib/relative-time';
 import { REPORT_STATE_WORDS, REPORT_TONES, reportAge, reportedWhen, reportText } from '../../lib/report';
 

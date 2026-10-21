@@ -1,15 +1,15 @@
-import { THEMES } from '@aeolus-fleet/common';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { fn } from 'storybook/test';
 import { Plus } from 'lucide-react';
 
-import { Button } from '../atoms/button';
+import { Button } from '@aeolus-fleet/common/header';
 import { TopBar } from './top-bar';
+import { AVATAR_MENU, SWITCHER } from '../../lib/fixtures/header.fixtures';
 
 const meta = {
   title: 'Organisms/TopBar',
   component: TopBar,
-  args: { title: 'Fleet', live: 'live' },
+  args: { title: 'Fleet', live: 'live', switcher: SWITCHER },
   globals: { viewport: { value: 'mobile1' } },
 } satisfies Meta<typeof TopBar>;
 
@@ -39,20 +39,9 @@ export const WithAction: Story = {
 /** Root with the AccountMenu's Avatar, always last; it opens the menu as a bottom Sheet. */
 export const WithAccount: Story = {
   args: {
+    account: AVATAR_MENU,
     actions: (
       <Button variant="ghost" size="touch" isIconOnly aria-label="Commission ship" icon={<Plus aria-hidden />} />
     ),
-    account: {
-      account: {
-        kind: 'operator',
-        email: 'operator@example.com',
-        session: { device: 'iPhone · Safari', since: '2026-10-01T11:10:00.000Z' },
-        theme: 'system',
-      },
-      themes: THEMES, onThemeChange: fn(),
-      onSignOut: fn(),
-      isSigningOut: false,
-      now: new Date('2026-10-01T12:30:00.000Z'),
-    },
   },
 };
