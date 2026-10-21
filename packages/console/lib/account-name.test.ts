@@ -8,7 +8,7 @@ const COOKIE = 'aeolus_session=abc';
 const FLEET_ID = createIdGenerator()('fleet');
 
 /** The fleet server and pagasae as the web app's server reaches them, answering by address and counting every call. */
-function aWorld(options: { accountId?: string | null; pagasae?: Response | 'down'; names?: Readonly<Record<string, string>> } = {}) {
+function aWorld(options: { accountId?: string | null; pagasae?: Response | 'down'; names?: Readonly<Record<string, string>>; deleted?: readonly string[] } = {}) {
   const calls: { url: string; headers: Headers }[] = [];
   const answer = (data: unknown) => Response.json({ result: { data } });
   const fetchImplementation: typeof fetch = (input, init) => {
@@ -22,7 +22,11 @@ function aWorld(options: { accountId?: string | null; pagasae?: Response | 'down
       return Promise.resolve(answer({ kind: 'operator', email: 'argo@example.com', theme: 'system', session: { device: 'Mac · Safari', since: '2026-10-20T09:00:00.000Z', accountId } }));
     }
     if (url.startsWith('https://pagasae.example/api/console/account-name') && options.names !== undefined) {
-      const name = options.names[new URL(url).searchParams.get('accountId') ?? ''];
+      const accountId = new URL(url).searchParams.get('accountId') ?? '';
+      if (options.deleted?.includes(accountId) === true) {
+        return Promise.resolve(Response.json({ error: 'deleted' }, { status: 410 }));
+      }
+      const name = options.names[accountId];
       return Promise.resolve(name === undefined ? Response.json({ error: 'not_found' }, { status: 404 }) : Response.json({ name }));
     }
     if (url.startsWith('https://pagasae.example/api/console/account-name')) {
@@ -53,6 +57,12 @@ describe("the name of the account signed in as argo (decisions 0054, 0058)", () 
   it('is none when pagasae has no name for it or does not answer, so the console shows the id', async () => {
     await expect(accountNameFor({ environment: PAGASAE, cookie: COOKIE, fetchImplementation: aWorld({ pagasae: Response.json({ error: 'not_found' }, { status: 404 }) }).fetchImplementation })).resolves.toBeNull();
     await expect(accountNameFor({ environment: PAGASAE, cookie: COOKIE, fetchImplementation: aWorld({ pagasae: 'down' }).fetchImplementation })).resolves.toBeNull();
+  });
+
+  it('is Deleted user when pagasae answers that the account was deleted', async () => {
+    const world = aWorld({ pagasae: Response.json({ error: 'deleted' }, { status: 410 }) });
+
+    await expect(accountNameFor({ environment: PAGASAE, cookie: COOKIE, fetchImplementation: world.fetchImplementation })).resolves.toBe('Deleted user');
   });
 
   it('is none, asking nobody, for a console without pagasae', async () => {
@@ -86,6 +96,15 @@ describe('the names of the accounts a timeline names as signed in as argo (decis
     const world = aWorld({ names: { 'acc-01lena': 'lena@acme.example' } });
 
     await expect(accountNamesFor({ environment: PAGASAE, cookie: COOKIE, accountIds: [mathilde, lena], fetchImplementation: world.fetchImplementation })).resolves.toEqual({ 'acc-01lena': 'lena@acme.example' });
+  });
+
+  it('name an account pagasae answers was deleted Deleted user', async () => {
+    const world = aWorld({ names: { 'acc-01lena': 'lena@acme.example' }, deleted: ['acc-01mathilde'] });
+
+    await expect(accountNamesFor({ environment: PAGASAE, cookie: COOKIE, accountIds: [mathilde, lena], fetchImplementation: world.fetchImplementation })).resolves.toEqual({
+      'acc-01mathilde': 'Deleted user',
+      'acc-01lena': 'lena@acme.example',
+    });
   });
 
   it('are none while pagasae does not answer', async () => {
