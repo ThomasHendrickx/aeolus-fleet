@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { createIdGenerator } from '../ids/index.js';
-import type { AppsList } from '../index.js';
+import { accountIdSchema, type AppsList } from '../index.js';
 import { appSwitcherOf, signedInAsOf } from './apps.js';
 
 const newId = createIdGenerator();
@@ -12,7 +12,7 @@ const EMPTY = newId('fleet');
 /** Charlotte's list: Account outside any fleet; Acme with the console and the gateway, Labs with the gateway only. */
 function charlottesList(overrides: Partial<AppsList> = {}): AppsList {
   return {
-    account: { id: 'acc-charlotte', email: 'charlotte@acme.example' },
+    account: { id: accountIdSchema.parse('acc-charlotte'), email: 'charlotte@acme.example' },
     apps: [{ app: 'account', url: 'https://account.example/account' }],
     fleets: [
       {

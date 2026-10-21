@@ -1,0 +1,69 @@
+import type { AppsList, FleetId, HeaderApp } from '../index.js';
+
+/*
+ * What the switcher in the title offers (header design H1, H8, H9): the fleets
+ * of the account and the apps of the fleet in view, from the list pagasae
+ * answers. Without a list (argo's sign-in, the viewer, self-hosted) it offers
+ * the fleet in view and the app open alone, and switches nothing.
+ */
+
+/** How the header names each app. */
+export const APP_LABELS: Record<HeaderApp, string> = { console: 'Console', gateway: 'Gateway', account: 'Account', admin: 'Admin' };
+
+/** A fleet the switcher offers, and where choosing it goes. */
+export interface SwitcherFleet {
+  id: FleetId;
+  name: string;
+  url: string;
+  isCurrent: boolean;
+}
+
+/** An app the switcher offers, and where it opens. */
+export interface SwitcherApp {
+  app: HeaderApp;
+  label: string;
+  url: string;
+  isCurrent: boolean;
+}
+
+export interface AppSwitcherModel {
+  fleet: { id: FleetId; name: string };
+  appLabel: string;
+  fleets: SwitcherFleet[];
+  apps: SwitcherApp[];
+  /** Whether there is anywhere else to go: a second fleet or a second app. */
+  canSwitch: boolean;
+}
+
+/**
+ * The switcher for the app open in the fleet in view. Choosing another fleet
+ * opens the same app there when the account may open it, else the first app
+ * it may open there, else Account (H9).
+ */
+export function appSwitcherOf(input: { list: AppsList | undefined; fleet: { id: FleetId; name: string }; app: HeaderApp }): AppSwitcherModel {
+  const { list, fleet, app } = input;
+  const appLabel = APP_LABELS[app];
+  if (list === undefined) {
+    return { fleet, appLabel, fleets: [{ ...fleet, url: '', isCurrent: true }], apps: [{ app, label: appLabel, url: '', isCurrent: true }], canSwitch: false };
+  }
+  const accountUrl = list.apps.find((link) => link.app === 'account')?.url ?? '';
+  const fleets = list.fleets.map((listed) => ({
+    id: listed.id,
+    name: listed.name,
+    url: (listed.apps.find((link) => link.app === app) ?? listed.apps[0])?.url ?? accountUrl,
+    isCurrent: listed.id === fleet.id,
+  }));
+  const inView = list.fleets.find((listed) => listed.id === fleet.id)?.apps ?? [];
+  const apps = [...inView, ...list.apps].map((link) => ({ app: link.app, label: APP_LABELS[link.app], url: link.url, isCurrent: link.app === app }));
+  return { fleet, appLabel, fleets, apps, canSwitch: fleets.length > 1 || apps.length > 1 };
+}
+
+/** How someone is signed in here (H10). */
+export type SignedInAs = 'argo' | 'account' | 'viewer';
+
+const SIGNED_IN_AS_LABELS: Record<SignedInAs, string> = { argo: 'Signed in as argo', account: 'Signed in as your account', viewer: 'Viewer' };
+
+/** The avatar menu's line for how someone is signed in here. */
+export function signedInAsOf(signedInAs: SignedInAs): string {
+  return SIGNED_IN_AS_LABELS[signedInAs];
+}

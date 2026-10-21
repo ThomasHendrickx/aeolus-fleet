@@ -13,3 +13,8 @@ export * from './atoms/kbd.js';
 export * from './atoms/sheet.js';
 export * from './atoms/tooltip.js';
 export * from './class-names.js';
+export * from './app-header.js';
+export * from './app-switcher.js';
+export * from './apps.js';
+export * from './avatar-menu.js';
+export * from './command-palette.js';
