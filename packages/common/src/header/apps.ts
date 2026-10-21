@@ -55,10 +55,12 @@ export function appSwitcherOf(input: { list: AppsList | undefined; fleet: { id: 
   if (list === undefined) {
     return { fleet, appLabel, fleets: [{ ...fleet, url: '', isCurrent: true }], apps: [{ app, label: appLabel, url: '', isCurrent: true }], canSwitch: false };
   }
-  const accountUrl = list.apps.find((link) => link.app === 'account')?.url ?? '';
-  const fleets = list.fleets.map((listed) => {
+  const accountUrl = list.apps.find((link) => link.app === 'account')?.url;
+  // A fleet with no app to open and no Account to go to instead has nowhere to link: it is left out, never a link to nowhere.
+  const fleets = list.fleets.flatMap((listed) => {
     const opened = listed.apps.find((link) => link.app === app) ?? listed.apps[0];
-    return { id: listed.id, name: listed.name, url: opened === undefined ? accountUrl : inFleet(opened.url, listed.id), isCurrent: listed.id === fleet.id };
+    const url = opened === undefined ? accountUrl : inFleet(opened.url, listed.id);
+    return url === undefined ? [] : [{ id: listed.id, name: listed.name, url, isCurrent: listed.id === fleet.id }];
   });
   const inView = (list.fleets.find((listed) => listed.id === fleet.id)?.apps ?? []).map((link) => ({ ...link, url: inFleet(link.url, fleet.id) }));
   const apps = [...inView, ...list.apps].map((link) => ({ app: link.app, label: APP_LABELS[link.app], url: link.url, isCurrent: link.app === app }));
