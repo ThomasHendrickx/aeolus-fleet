@@ -1,10 +1,10 @@
 import type { InboxFilter } from '@aeolus-fleet/common';
 
 import { readsMessage, type ReadReachOf, type ShipRepository } from '../registry/public.js';
-import type { ShipCaller } from './caller.js';
+import { isShipCaller, type Caller } from './caller.js';
 import type { InboxEntry, ShipHistory } from './history.js';
 
-export type ReadInbox = (caller: ShipCaller, input: { filter: InboxFilter }) => Promise<InboxEntry[]>;
+export type ReadInbox = (caller: Caller, input: { filter: InboxFilter }) => Promise<InboxEntry[]>;
 
 /**
  * Use case: the caller's own inbox, for the operator inbox of argo
@@ -14,12 +14,13 @@ export type ReadInbox = (caller: ShipCaller, input: { filter: InboxFilter }) => 
  * are its type's queue, not its inbox. A viewer session, which receives
  * nothing, reads argo's inbox instead, read-only (decision 0022), and only the
  * messages its read reach reads: none while argo has turned viewer reading
- * off (decision 0034). The caller's scope (fleet:read) is checked before this
- * runs.
+ * off (decision 0034). An account holding fleet:read reads argo's inbox the
+ * same way, by its own read reach (header design, C3); Done and Reply stay
+ * argo's. The caller's scope (fleet:read) is checked before this runs.
  */
 export function createReadInbox(deps: { history: ShipHistory; ships: Pick<ShipRepository, 'findOperatorShip'>; readReach: ReadReachOf }): ReadInbox {
   return async (caller, { filter }) => {
-    if (caller.kind !== 'viewer') {
+    if (isShipCaller(caller) && caller.kind !== 'viewer') {
       return deps.history.inbox(caller.fleetId, { shipId: caller.shipId, filter });
     }
     const argo = await deps.ships.findOperatorShip(caller.fleetId);

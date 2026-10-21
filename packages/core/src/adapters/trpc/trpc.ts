@@ -1,7 +1,7 @@
 import { idSchema, type Scope } from '@aeolus-fleet/common';
 import { initTRPC, TRPCError } from '@trpc/server';
 
-import { hasScope, isCrew, isShipCaller, type Caller, type ShipCaller, type Crew } from '../../domain/shared/caller.js';
+import { hasScope, isCrew, isShipCaller, type AccountCaller, type Caller, type ShipCaller, type Crew } from '../../domain/shared/caller.js';
 import type { DomainError, DomainErrorKind } from '../../domain/shared/errors.js';
 import type { Result } from '../../domain/shared/result.js';
 import { isFleetBusy } from '../prisma/fleet-busy.js';
@@ -330,6 +330,19 @@ export const consoleProcedure = publicProcedure.use(({ ctx, next }) => {
 });
 
 /**
+ * A console procedure the console's own server calls with a credential the
+ * browser brought, and passes the cookie on. A server sends no Origin, and a
+ * browser always does, so one from any origin but the console's is a page on
+ * another site posting from a visitor's browser, and is refused.
+ */
+export const consoleServerProcedure = publicProcedure.use(({ ctx, next }) => {
+  if (ctx.origin !== undefined) {
+    checkConsoleOrigin(ctx);
+  }
+  return next();
+});
+
+/**
  * The crew of a bearer crew token; undefined when it never crewed a ship. One
  * whose lease has ended is refused as such, so its session learns that the
  * ship was released rather than that its token is wrong.
@@ -373,7 +386,7 @@ async function resolveShip(ctx: Context): Promise<ShipCaller | undefined> {
  * bearer crew token beside it names the ship that presented it, and a wrong
  * one fails rather than being left out.
  */
-async function accountOf(ctx: Context, accountToken: string): Promise<Caller> {
+async function accountOf(ctx: Context, accountToken: string): Promise<AccountCaller> {
   const { bearer } = ctx.credentials;
   const through = bearer === undefined ? null : await crewOf(ctx, bearer);
   if (through === undefined) {
@@ -402,7 +415,8 @@ async function installationIn(ctx: Context, fleet: string): Promise<Caller> {
 /**
  * Resolves the actor of a fleet call (decision 0057): the account of an
  * account token, the installation with the fleet it acts in, or else the
- * ship of the crew token or the console session.
+ * ship of the crew token or the console session, or else the account signed
+ * in to the console by its token cookie (accounts design, F1).
  */
 async function resolveCaller(ctx: Context): Promise<Caller | undefined> {
   const { accountToken, fleet } = ctx.credentials;
@@ -412,7 +426,20 @@ async function resolveCaller(ctx: Context): Promise<Caller | undefined> {
   if (fleet !== undefined) {
     return installationIn(ctx, fleet);
   }
-  return resolveShip(ctx);
+  return (await resolveShip(ctx)) ?? consoleAccountOf(ctx);
+}
+
+/**
+ * The account signed in to the console by its token cookie, on the console's
+ * doors only; checked on every call as the header's token is. None without
+ * the cookie, or beside a crew token, which names a ship instead.
+ */
+export async function consoleAccountOf(ctx: Context): Promise<AccountCaller | undefined> {
+  const { accountTokenCookie, bearer } = ctx.credentials;
+  if (!ctx.canUseConsoleSession || accountTokenCookie === undefined || bearer !== undefined) {
+    return undefined;
+  }
+  return okOrThrow(await ctx.useCases.authenticateAccount(accountTokenCookie, { through: null }));
 }
 
 /**
@@ -461,6 +488,9 @@ const CALL_WITH_CREW_TOKEN = 'Call with the crew token register gave you';
 export const authenticatedProcedure = callerProcedure({ isOnBehalfRead: false, resolve: resolveShip }).use(({ ctx, next }) =>
   next({ ctx: { caller: shipOf(ctx.caller) } }),
 );
+
+/** A console procedure for whoever is signed in to the console: argo or the viewer by the session cookie, or an account by its token cookie. */
+export const signedInProcedure = callerProcedure({ isOnBehalfRead: false, resolve: async (ctx) => (await resolveShip(ctx)) ?? consoleAccountOf(ctx) });
 
 /** The base of a fleet call for any actor (decision 0057), and of a fleet:read read, which a plugin may make on behalf of a named ship. */
 const actorProcedure = callerProcedure({ isOnBehalfRead: false, resolve: resolveCaller });
@@ -515,8 +545,9 @@ function callerProcedure(options: { isOnBehalfRead: boolean; resolve: (ctx: Cont
     // with the cookie, and no CORS rule keeps that page from reading the
     // answers. A crew token wins over the cookie, and no browser sends one by
     // itself.
-    const { bearer, sessionToken } = ctx.credentials;
-    if ((type === 'mutation' || type === 'subscription') && bearer === undefined && sessionToken !== undefined) {
+    // An account's token cookie is checked the same way (accounts design, A3).
+    const { bearer, sessionToken, accountTokenCookie } = ctx.credentials;
+    if ((type === 'mutation' || type === 'subscription') && bearer === undefined && (sessionToken !== undefined || accountTokenCookie !== undefined)) {
       checkConsoleOrigin(ctx);
     }
     const caller = await options.resolve(ctx);

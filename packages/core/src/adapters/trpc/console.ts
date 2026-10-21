@@ -3,6 +3,7 @@ import {
   consoleGuideOutputSchema,
   consoleNoticesOutputSchema,
   consoleSessionOutputSchema,
+  presentAccountTokenInputSchema,
   dismissNoticeInputSchema,
   setGuideProgressInputSchema,
   setLoginInputSchema,
@@ -18,7 +19,24 @@ import { TRPCError } from '@trpc/server';
 
 import { deviceLabelOf } from '../http/device-label.js';
 import { guideStepsOutputOf, noticeOutputOf } from './installation.js';
-import { authenticatedProcedure, ConsoleRefusalDetails, consoleProcedure, okOrThrow, publicProcedure, refuseIfSignedInElsewhere, router } from './trpc.js';
+import { isShipCaller } from '../../domain/shared/caller.js';
+import {
+  authenticatedProcedure,
+  ConsoleRefusalDetails,
+  consoleAccountOf,
+  consoleProcedure,
+  consoleServerProcedure,
+  okOrThrow,
+  publicProcedure,
+  refuseIfSignedInElsewhere,
+  router,
+  signedInProcedure,
+} from './trpc.js';
+
+/** Only core scopes: a plugin's scopes are never a console sign-in's to hold (decision 0046). */
+function coreScopesOf(scopes: readonly string[]): Scope[] {
+  return scopes.filter((scope): scope is Scope => scopeSchema.safeParse(scope).success);
+}
 
 /**
  * Console procedures: the only ones that exist for the web app alone. They take
@@ -26,6 +44,10 @@ import { authenticatedProcedure, ConsoleRefusalDetails, consoleProcedure, okOrTh
  * which crews `argo`, from then on. Both change state, so both come only from
  * the console's origin.
  */
+function refuseNoConsoleSignIn(): never {
+  throw new TRPCError({ code: 'UNAUTHORIZED', message: 'No signed-in console session' });
+}
+
 export const consoleRouter = router({
   /** Exchanges the email and password for a session cookie. A mutation, so the password travels in the body, never the URL. */
   signIn: consoleProcedure
@@ -57,8 +79,24 @@ export const consoleRouter = router({
     ctx.sessionCookie.set(token, expiresAt);
   }),
 
-  /** The signed-in operator: email, theme, and this console session's device and start; a viewer's session alone. */
-  account: authenticatedProcedure.output(accountOutputSchema).query(async ({ ctx }) => {
+  /**
+   * Exchanges the account token pagasae gave the console's server for the
+   * account token cookie (accounts design, F1, A3): core checks the token as
+   * on every call and keeps it in a cookie of its own until it ends. The
+   * console's server calls it and passes the cookie on, at sign-in and at
+   * every renewal; a browser posting it from another site is refused.
+   */
+  presentAccountToken: consoleServerProcedure.input(presentAccountTokenInputSchema).mutation(async ({ ctx, input }) => {
+    const account = okOrThrow(await ctx.useCases.authenticateAccount(input.token, { through: null }));
+    ctx.sessionCookie.setAccountToken(input.token, account.tokenEndsAt ?? new Date());
+    return {};
+  }),
+
+  /** The signed-in operator: email, theme, and this console session's device and start; a viewer's session alone; an account by its id. */
+  account: signedInProcedure.output(accountOutputSchema).query(async ({ ctx }) => {
+    if (!isShipCaller(ctx.caller)) {
+      return ctx.caller.kind === 'account' ? { kind: 'account' as const, accountId: ctx.caller.accountId } : refuseNoConsoleSignIn();
+    }
     const account = okOrThrow(await ctx.useCases.readAccount(ctx.caller));
     return { ...account, session: { ...account.session, since: account.session.since.toISOString() } };
   }),
@@ -81,17 +119,21 @@ export const consoleRouter = router({
       if (sessionToken !== undefined) {
         await refuseIfSignedInElsewhere(ctx, sessionToken);
       }
-      throw new TRPCError({ code: 'UNAUTHORIZED', message: 'No signed-in console session' });
+      const account = await consoleAccountOf(ctx);
+      if (!account) {
+        return refuseNoConsoleSignIn();
+      }
+      const { fleetId, accountId, scopes, tokenEndsAt } = account;
+      const fleetName = okOrThrow(await ctx.useCases.readFleetName({ fleetId }));
+      return { fleetId, fleetName, expiresAt: (tokenEndsAt ?? new Date()).toISOString(), kind: 'account' as const, accountId, scopes: coreScopesOf(scopes) };
     }
     const { fleetId, kind, scopes } = use.caller;
     if (kind !== 'operator' && kind !== 'viewer') {
       // A console session is the operator's or a viewer's; no other ship ever signs in to the console.
-      throw new TRPCError({ code: 'UNAUTHORIZED', message: 'No signed-in console session' });
+      return refuseNoConsoleSignIn();
     }
-    // argo and the viewer hold core scopes only: a plugin's scopes are never theirs to hold (decision 0046).
-    const coreScopes = scopes.filter((scope): scope is Scope => scopeSchema.safeParse(scope).success);
     const fleetName = okOrThrow(await ctx.useCases.readFleetName({ fleetId }));
-    return { fleetId, fleetName, expiresAt: use.expiresAt.toISOString(), kind, scopes: coreScopes };
+    return { fleetId, fleetName, expiresAt: use.expiresAt.toISOString(), kind, scopes: coreScopesOf(scopes) };
   }),
 
   /** Stores the operator's theme on their account, so it follows them to any browser. */
@@ -113,10 +155,16 @@ export const consoleRouter = router({
     }),
 
   /** The notices this console session shows above every page (decision 0023): those of its audience it has not dismissed. */
-  notices: authenticatedProcedure.output(consoleNoticesOutputSchema).query(async ({ ctx }) => (await ctx.useCases.readNotices(ctx.caller)).map(noticeOutputOf)),
+  // An account's notices and guide come later (accounts design, A9): none yet.
+  notices: signedInProcedure
+    .output(consoleNoticesOutputSchema)
+    .query(async ({ ctx }) => (isShipCaller(ctx.caller) ? (await ctx.useCases.readNotices(ctx.caller)).map(noticeOutputOf) : [])),
 
   /** The guide this console session shows (decision 0024), with where it is in it; null when no guide is for its audience. */
-  guide: authenticatedProcedure.output(consoleGuideOutputSchema).query(async ({ ctx }) => {
+  guide: signedInProcedure.output(consoleGuideOutputSchema).query(async ({ ctx }) => {
+    if (!isShipCaller(ctx.caller)) {
+      return null;
+    }
     const guide = await ctx.useCases.readGuide(ctx.caller);
     return guide === null ? null : { steps: guideStepsOutputOf(guide.steps), progress: guide.progress };
   }),
@@ -139,5 +187,9 @@ export const consoleRouter = router({
       await ctx.useCases.signOut(use.caller);
     }
     ctx.sessionCookie.clear();
+    // An account's sign-in ends with its cookie here; the console's server ends the shared sign-in at pagasae.
+    if (ctx.credentials.accountTokenCookie !== undefined) {
+      ctx.sessionCookie.clearAccountToken();
+    }
   }),
 });

@@ -1,6 +1,6 @@
 import type { ShipId } from '@aeolus-fleet/common';
 
-import type { ShipCaller } from './caller.js';
+import type { Caller } from './caller.js';
 import { refuse, type DomainError } from './errors.js';
 import { readsEvent, type ReadReachOf } from '../registry/public.js';
 import { partiesOf, withPing, type ShipHistory, type ShownTimelineEntry } from './history.js';
@@ -10,7 +10,7 @@ import { ok, type Result } from './result.js';
 export const TIMELINE_LIMIT = 200;
 
 export type ReadShipTimeline = (
-  caller: ShipCaller,
+  caller: Caller,
   input: { shipId: ShipId },
 ) => Promise<Result<ShownTimelineEntry[], DomainError<'SHIP_NOT_FOUND'>>>;
 

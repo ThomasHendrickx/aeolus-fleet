@@ -1,13 +1,14 @@
 import { accountOutputSchema, consoleSessionOutputSchema, type AccountId } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
+import { basicAuthOf, pagasaeFrom, type Pagasae } from './pagasae';
 import { serverInternalUrlFrom } from './server-url';
 
 /**
  * Accounts by the name pagasae gives them (decisions 0054, 0058), read by the
  * web app's server only: the session's fleet (and, for the menu, its account)
  * from the fleet server with the operator's cookie, then pagasae with the
- * console's app credentials. Asked each time they are shown and never stored, so core
+ * console's client credentials. Asked each time they are shown and never stored, so core
  * keeps no email. Deleted user for an account pagasae deleted for good (410).
  * None for argo's own sign-in, without pagasae, or while pagasae gives none:
  * the console shows the account's id then.
@@ -20,23 +21,6 @@ export const DELETED_USER = 'Deleted user';
 const DELETED_STATUS = 410;
 
 type Environment = Readonly<Record<string, string | undefined>>;
-
-/** pagasae's address, and the Authorization header the console asks it with. */
-export interface Pagasae {
-  url: string;
-  authorization: string;
-}
-
-/** pagasae as the console reaches it, from AEOLUS_PAGASAE_URL, AEOLUS_PAGASAE_CLIENT_ID and AEOLUS_PAGASAE_CLIENT_SECRET: its address with no trailing slash, and the console as an app pagasae registers (APP_CLIENTS), by Basic credentials. None unless all three are set. */
-export function pagasaeFrom(environment: Environment): Pagasae | undefined {
-  const url = environment.AEOLUS_PAGASAE_URL;
-  const clientId = environment.AEOLUS_PAGASAE_CLIENT_ID;
-  const secret = environment.AEOLUS_PAGASAE_CLIENT_SECRET;
-  if (url === undefined || url === '' || clientId === undefined || clientId === '' || secret === undefined || secret === '') {
-    return undefined;
-  }
-  return { url: url.replace(/\/+$/, ''), authorization: `Basic ${btoa(`${clientId}:${secret}`)}` };
-}
 
 const nameAnswerSchema = z.object({ name: z.string().min(1) });
 
@@ -54,7 +38,7 @@ async function askPagasae(call: { pagasae: Pagasae; fleetId: string; accountId: 
   const asked = new URL(`${call.pagasae.url}/api/console/account-name`);
   asked.search = new URLSearchParams({ fleetId: call.fleetId, accountId: call.accountId }).toString();
   try {
-    const response = await call.fetchImplementation(asked.toString(), { headers: { authorization: call.pagasae.authorization } });
+    const response = await call.fetchImplementation(asked.toString(), { headers: { authorization: basicAuthOf(call.pagasae) } });
     if (response.status === DELETED_STATUS) {
       return DELETED_USER;
     }
@@ -80,7 +64,7 @@ export async function accountNameFor(input: { environment: Environment; cookie: 
       query({ serverUrl, procedure: 'console.session', cookie, output: consoleSessionOutputSchema, fetchImplementation }),
       query({ serverUrl, procedure: 'console.account', cookie, output: accountOutputSchema, fetchImplementation }),
     ]);
-    const accountId = account.session.accountId ?? null;
+    const accountId = account.kind === 'account' ? account.accountId : (account.session.accountId ?? null);
     if (accountId === null) {
       return null;
     }

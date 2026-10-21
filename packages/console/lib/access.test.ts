@@ -12,6 +12,18 @@ describe('what a console session may do', () => {
     expect(accessOf({ kind: 'viewer', scopes: ['fleet:read'] })).toEqual({ canManage: false, canSend: false, canReceive: false, canDefineLabels: false, canAssignLabels: false, canEditNetwork: false, isViewer: true });
   });
 
+  it("gives an account what its scopes allow, but never Compose, Done or Reply: only a ship sends, and argo's inbox actions stay argo's (header design, C3, C4)", () => {
+    expect(accessOf({ kind: 'account', scopes: ['fleet:read', 'fleet:manage', 'messages:send', 'messages:receive'] })).toEqual({
+      canManage: true,
+      canSend: false,
+      canReceive: false,
+      canDefineLabels: false,
+      canAssignLabels: false,
+      canEditNetwork: false,
+      isViewer: false,
+    });
+  });
+
   it('follows each scope on its own', () => {
     expect(accessOf({ kind: 'operator', scopes: ['fleet:read', 'messages:send'] })).toMatchObject({ canManage: false, canSend: true, canReceive: false });
   });

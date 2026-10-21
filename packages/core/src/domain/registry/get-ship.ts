@@ -1,6 +1,6 @@
 import type { DiscoveredStatement, ShipId } from '@aeolus-fleet/common';
 
-import type { ShipCaller } from '../shared/caller.js';
+import { isShipCaller, type Caller } from '../shared/caller.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
 import { listedShipOf, outsideReadReach, type ListedShip, type ShipOutsideReadReach } from './list-fleet.js';
@@ -30,7 +30,7 @@ export interface ShipDetail extends Omit<ListedShip, 'report' | 'crewRequest'> {
 }
 
 export type GetShip = (
-  caller: ShipCaller,
+  caller: Caller,
   input: { shipId: ShipId },
 ) => Promise<Result<ShipDetail | ShipOutsideReadReach, DomainError<'SHIP_NOT_FOUND' | 'CREW_REQUEST_NOT_ASSIGNED_TO_CALLER'>>>;
 
@@ -55,7 +55,8 @@ export function createGetShip(deps: { listing: FleetListing; readReach: ReadReac
       return reaches;
     }
     const listed = listedShipOf(facts);
-    if (facts.crewRequest?.assignedTo !== caller.shipId && !readsShip(await deps.readReach(caller), shipId)) {
+    const isAssignedToCaller = isShipCaller(caller) && facts.crewRequest?.assignedTo === caller.shipId;
+    if (!isAssignedToCaller && !readsShip(await deps.readReach(caller), shipId)) {
       return ok(outsideReadReach(listed));
     }
     const [counts, stated] = await Promise.all([deps.listing.deliveryCounts(caller.fleetId, shipId), deps.listing.statement(caller.fleetId, shipId)]);

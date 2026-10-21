@@ -9,20 +9,20 @@ import type { PluginAnswer } from './plugin-answer';
  * typed data and no plugin code or schema.
  */
 
-/** The console session cookie the fleet sets: the only cookie a plugin needs. */
-const SESSION_COOKIE_NAME = 'aeolus_session';
+/** The console sign-in cookies the fleet sets: argo's or the viewer's session, and an account's token: the only cookies a plugin needs. */
+const SIGN_IN_COOKIE_NAMES = ['aeolus_session', 'aeolus_account_token'];
 
 const TIMEOUT_MS = 30_000;
 
 const answerSchema = z.union([z.object({ result: z.object({ data: z.unknown() }) }), z.object({ error: z.object({ message: z.string() }) })]);
 
-/** The request's cookie header down to the console session cookie, or empty without one. */
+/** The request's cookie header down to the console sign-in cookies, or empty without one. */
 export function sessionCookieOf(cookieHeader: string | null): string {
-  const session = (cookieHeader ?? '')
+  return (cookieHeader ?? '')
     .split(';')
     .map((part) => part.trim())
-    .find((part) => part.startsWith(`${SESSION_COOKIE_NAME}=`));
-  return session ?? '';
+    .filter((part) => SIGN_IN_COOKIE_NAMES.some((name) => part.startsWith(`${name}=`)))
+    .join('; ');
 }
 
 export interface PluginCall<T> {

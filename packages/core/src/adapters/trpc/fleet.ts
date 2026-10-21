@@ -448,7 +448,7 @@ export const fleetRouter = router({
    * The fleet's ship and daily message limits with what each counts, and when
    * today's message count starts again: what the console shows at a limit.
    */
-  limits: scopedProcedure('fleet:read')
+  limits: actorScopedProcedure('fleet:read')
     .meta({
       description: [
         "Needs fleet:read. The fleet's ship limit with its ships that are not retired (argo included), and its daily message limit with the messages it stored since 00:00 UTC and when that count starts again. A limit of null is none.",
@@ -760,7 +760,7 @@ export const fleetRouter = router({
     .query(async ({ ctx, input }) => okOrThrow(await ctx.useCases.explainReach(ctx.caller, input))),
 
   /** One ship of the fleet, retired ones included, with when it was commissioned, crewed and retired. */
-  ship: anyScopeProcedure('fleet:read', 'crew:run')
+  ship: actorAnyScopeProcedure('fleet:read', 'crew:run')
     .meta({
       description: [
         'Needs fleet:read, or crew:run for a ship whose crew request is assigned to yours. One ship of the fleet, retired ones included: as fleet_list shows it, plus when it was commissioned, crewed and retired, its open and in-flight deliveries, and its statement as discover shows it (decision 0047).',
@@ -795,7 +795,7 @@ export const fleetRouter = router({
     }),
 
   /** Every change to a ship, newest first: the events naming it and the ones it caused. */
-  shipTimeline: scopedProcedure('fleet:read')
+  shipTimeline: actorScopedProcedure('fleet:read')
     .input(shipInputSchema)
     .output(shipTimelineOutputSchema)
     .query(async ({ ctx, input }) =>
@@ -806,7 +806,7 @@ export const fleetRouter = router({
     ),
 
   /** The messages a ship sent, was sent, or claimed as a ship of their type, newest first. */
-  shipMessages: scopedProcedure('fleet:read')
+  shipMessages: actorScopedProcedure('fleet:read')
     .input(shipInputSchema)
     .output(shipMessagesOutputSchema)
     .query(async ({ ctx, input }) =>
@@ -817,7 +817,7 @@ export const fleetRouter = router({
     ),
 
   /** One message: envelope, payload, its replies, and its delivery's way through with every step, newest first. */
-  message: scopedProcedure('fleet:read')
+  message: actorScopedProcedure('fleet:read')
     .input(messageInputSchema)
     .output(messageOutputSchema)
     .query(async ({ ctx, input }) => {
@@ -835,7 +835,7 @@ export const fleetRouter = router({
     }),
 
   /** A ship's side of the way: the part that serves its lease, its turn, and its oldest delivery waiting with its way. */
-  shipWay: scopedProcedure('fleet:read')
+  shipWay: actorScopedProcedure('fleet:read')
     .input(shipInputSchema)
     .output(shipWayOutputSchema)
     .query(async ({ ctx, input }) => {
@@ -852,7 +852,7 @@ export const fleetRouter = router({
     }),
 
   /** Needs attention: every undeliverable or not handled delivery of the fleet, oldest first, with its whole message. */
-  needsAttention: scopedProcedure('fleet:read')
+  needsAttention: actorScopedProcedure('fleet:read')
     .output(needsAttentionOutputSchema)
     .query(async ({ ctx }) =>
       (await ctx.useCases.readNeedsAttention(ctx.caller)).map((entry) => ({
@@ -863,7 +863,7 @@ export const fleetRouter = router({
     ),
 
   /** The fleet's health (decision 0042): its stuck deliveries by cause and place, the 7-day trend and the acknowledged in 24 hours. */
-  health: scopedProcedure('fleet:read')
+  health: actorScopedProcedure('fleet:read')
     .output(healthOutputSchema)
     .query(async ({ ctx }) => describedHealth(await ctx.useCases.readHealth(ctx.caller))),
 
@@ -887,7 +887,7 @@ export const fleetRouter = router({
     .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.resendDelivery(ctx.caller, input))),
 
   /** The caller's inbox, argo's for the console: the messages to it the filter keeps, newest first. */
-  inbox: scopedProcedure('fleet:read')
+  inbox: actorScopedProcedure('fleet:read')
     .input(operatorInboxInputSchema)
     .output(operatorInboxOutputSchema)
     .query(async ({ ctx, input }) =>

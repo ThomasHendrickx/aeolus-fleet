@@ -14,14 +14,15 @@ export const APPS_LIST_KEY = ['apps-list'] as const;
  * Whether this console sign-in is an account's own (accounts design C1): only
  * then is pagasae's list the signed-in human's to show. argo's sign-in and the
  * viewer's are not (header design H8), even where the browser carries the
- * shared sign-in, as a hosted argo sign-in from pagasae does; and they are
- * the only kinds a console session has today.
+ * shared sign-in, as a sign-in as argo from pagasae does.
  */
 export function isAccountSignIn(kind: ConsoleSessionOutput['kind']): boolean {
   switch (kind) {
     case 'operator':
     case 'viewer':
       return false;
+    case 'account':
+      return true;
   }
 }
 

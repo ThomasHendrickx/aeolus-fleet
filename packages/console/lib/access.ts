@@ -37,10 +37,12 @@ export function accessOf(session: Pick<ConsoleSessionOutput, 'kind' | 'scopes'> 
     return NO_ACCESS;
   }
   const holds = (scope: Scope) => session.scopes.includes(scope);
+  // An account sends nothing from the console, and argo's inbox actions stay argo's (header design, C3, C4).
+  const isShip = session.kind !== 'account';
   return {
     canManage: holds('fleet:manage'),
-    canSend: holds('messages:send'),
-    canReceive: holds('messages:receive'),
+    canSend: isShip && holds('messages:send'),
+    canReceive: isShip && holds('messages:receive'),
     canDefineLabels: holds('labels:define'),
     canAssignLabels: holds('labels:assign'),
     canEditNetwork: holds('fleet:network'),

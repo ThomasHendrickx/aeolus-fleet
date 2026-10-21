@@ -63,6 +63,7 @@ export function createAuthenticateAccount(deps: {
       groupValues: claims.groupValues,
       personShipId: claims.personShipId,
       throughShipId: through?.shipId ?? null,
+      tokenEndsAt: claims.endsAt,
     });
   };
 }

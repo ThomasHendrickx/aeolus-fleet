@@ -37,8 +37,8 @@ export async function reserveWebUrl(): Promise<string> {
 
 /**
  * Starts the web app with `next dev` at the reserved URL, with the given
- * server as its AEOLUS_SERVER_URL (and a fake squadrons as its AEOLUS_SQUADRONS_URL, and the hosting service's sign-in as its
- * AEOLUS_HOSTED_SIGN_IN_URL, when given), and waits until the sign-in page answers
+ * server as its AEOLUS_SERVER_URL (and a fake squadrons as its AEOLUS_SQUADRONS_URL, the hosting service's sign-in as its
+ * AEOLUS_HOSTED_SIGN_IN_URL, and pagasae as AEOLUS_PAGASAE_URL with the console's client credentials, when given), and waits until the sign-in page answers
  * (the first request compiles it). The console bundles common's built
  * package, as `npm run dev` does, so common is built first.
  *
@@ -46,7 +46,7 @@ export async function reserveWebUrl(): Promise<string> {
  * like the console: one site, or the SameSite=Strict session cookie would
  * stay behind.
  */
-export async function startWeb(web: { url: string; serverUrl: string; squadronsUrl?: string; hostedSignInUrl?: string; hostedAccountUrl?: string; hostedAnalytics?: Readonly<Record<string, string>> }): Promise<RunningWeb> {
+export async function startWeb(web: { url: string; serverUrl: string; squadronsUrl?: string; hostedSignInUrl?: string; hostedAccountUrl?: string; hostedAnalytics?: Readonly<Record<string, string>>; pagasae?: { url: string; clientId: string; clientSecret: string } }): Promise<RunningWeb> {
   const { url, serverUrl } = web;
   await promisify(execFile)('npm', ['run', 'build', '--workspace', '@aeolus-fleet/common'], { cwd: repositoryRoot });
   const port = new URL(url).port;
@@ -62,6 +62,7 @@ export async function startWeb(web: { url: string; serverUrl: string; squadronsU
       ...(web.hostedSignInUrl === undefined ? {} : { AEOLUS_HOSTED_SIGN_IN_URL: web.hostedSignInUrl }),
       ...(web.hostedAccountUrl === undefined ? {} : { AEOLUS_HOSTED_ACCOUNT_URL: web.hostedAccountUrl }),
       ...web.hostedAnalytics,
+      ...(web.pagasae === undefined ? {} : { AEOLUS_PAGASAE_URL: web.pagasae.url, AEOLUS_PAGASAE_CLIENT_ID: web.pagasae.clientId, AEOLUS_PAGASAE_CLIENT_SECRET: web.pagasae.clientSecret }),
       NEXT_TELEMETRY_DISABLED: '1',
     },
     stdio: ['pipe', 'pipe', 'pipe'],

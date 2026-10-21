@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
 import { sessionOf, signInUrlFor } from './lib/console-gate';
+import { cookieValueOf, SHARED_SIGN_IN_COOKIE } from './lib/pagasae';
 import { serverInternalUrlFrom } from './lib/server-url';
 
 /**
@@ -13,7 +14,11 @@ import { serverInternalUrlFrom } from './lib/server-url';
  */
 export async function proxy(request: NextRequest): Promise<NextResponse> {
   const session = await sessionOf(request, { serverUrl: serverInternalUrlFrom(process.env) });
-  return session === 'ended' || session === 'signedInElsewhere' ? NextResponse.redirect(signInUrlFor(process.env, { requestUrl: request.url, ended: session })) : NextResponse.next();
+  if (session === 'nothingToManage') {
+    return NextResponse.redirect(new URL('/sign-in/nothing-to-manage', request.url));
+  }
+  const hasSharedSignIn = cookieValueOf(request.headers.get('cookie'), SHARED_SIGN_IN_COOKIE) !== undefined;
+  return session === 'ended' || session === 'signedInElsewhere' ? NextResponse.redirect(signInUrlFor(process.env, { requestUrl: request.url, ended: session, hasSharedSignIn })) : NextResponse.next();
 }
 
 export const config = {

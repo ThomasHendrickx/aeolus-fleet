@@ -6,6 +6,7 @@ import { SignedInElsewhereNotice } from '../../features/sign-in/molecules/signed
 import { SignInForm } from '../../features/sign-in/organisms/sign-in-form';
 import { AuthCard } from '../../features/sign-in/organisms/auth-card';
 import { hostedSignInUrlFrom } from '../../lib/hosted-sign-in';
+import { pagasaeFrom } from '../../lib/pagasae';
 
 // The hosted sign-in URL is runtime config: read on each request.
 export const dynamic = 'force-dynamic';
@@ -18,14 +19,34 @@ export const dynamic = 'force-dynamic';
  * (AEOLUS_HOSTED_SIGN_IN_URL set) never serves a password form: it redirects
  * to the hosting service's sign-in at once, or, with the notice, shows the
  * notice and a link there, since the hosting service would not say it.
+ * Where the console signs accounts in through pagasae (accounts design, F1),
+ * it offers that sign-in instead, and says so after a sign-out.
  */
 export default async function SignInPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const { notice, signed } = await searchParams;
+  if (pagasaeFrom(process.env) !== undefined) {
+    return (
+      <AuthCard recovery={null}>
+        <div className="flex flex-col gap-5" data-testid="sign-in-account">
+          <h1 className="text-heading font-semibold max-sm:text-title-touch">Sign in to Aeolus</h1>
+          {signed === 'out' ? (
+            <p role="status" data-testid="sign-in-signed-out" className="text-body text-muted-foreground">
+              You signed out of every Aeolus app.
+            </p>
+          ) : null}
+          {/* A plain link: the sign-in starts on the server, which no client navigation reaches. */}
+          <Button variant="primary" nativeButton={false} render={<a href="/sign-in/start">Sign in with your account</a>} data-testid="sign-in-account-start">
+            Sign in with your account
+          </Button>
+        </div>
+      </AuthCard>
+    );
+  }
   const hosted = hostedSignInUrlFrom(process.env);
-  const { notice } = await searchParams;
   const isSignedInElsewhere = notice === 'signed-in-elsewhere';
   if (hosted !== undefined && !isSignedInElsewhere) {
     redirect(hosted);

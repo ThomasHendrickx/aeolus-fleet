@@ -1,8 +1,9 @@
 import { accountIdSchema, createIdGenerator, type AccountId } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
-import { accountNameFor, accountNamesFor, pagasaeFrom } from './account-name';
+import { accountNameFor, accountNamesFor } from './account-name';
 
+const CLIENT_AUTH = `Basic ${Buffer.from(`console:${'c'.repeat(32)}`).toString('base64')}`;
 const PAGASAE = { AEOLUS_PAGASAE_URL: 'https://pagasae.example/', AEOLUS_PAGASAE_CLIENT_ID: 'console', AEOLUS_PAGASAE_CLIENT_SECRET: 'c'.repeat(32), AEOLUS_SERVER_INTERNAL_URL: 'http://server:4000' };
 const COOKIE = 'aeolus_session=abc';
 const FLEET_ID = createIdGenerator()('fleet');
@@ -38,13 +39,13 @@ function aWorld(options: { accountId?: string | null; pagasae?: Response | 'down
 }
 
 describe("the name of the account signed in as argo (decisions 0054, 0058)", () => {
-  it("is the name pagasae gives for the session's account in the session's fleet, asked with the console's app credentials", async () => {
+  it("is the name pagasae gives for the session's account in the session's fleet, asked with the console's client credentials", async () => {
     const world = aWorld();
 
     await expect(accountNameFor({ environment: PAGASAE, cookie: COOKIE, fetchImplementation: world.fetchImplementation })).resolves.toBe('mathilde@acme.example');
     const asked = world.calls.find(({ url }) => url.startsWith('https://pagasae.example/'));
     expect(asked?.url).toBe(`https://pagasae.example/api/console/account-name?fleetId=${FLEET_ID}&accountId=acc-01mathilde`);
-    expect(asked?.headers.get('authorization')).toBe(`Basic ${btoa(`console:${'c'.repeat(32)}`)}`);
+    expect(asked?.headers.get('authorization')).toBe(CLIENT_AUTH);
   });
 
   it("is none for argo's own sign-in, which names no account, and pagasae is not asked", async () => {
@@ -78,7 +79,7 @@ describe('the names of the accounts a timeline names as signed in as argo (decis
   const lena = accountIdSchema.parse('acc-01lena');
   const pagasaeAsks = (world: ReturnType<typeof aWorld>) => world.calls.filter(({ url }) => url.startsWith('https://pagasae.example/'));
 
-  it("are the names pagasae gives in the session's fleet, each account asked once with the console's app credentials", async () => {
+  it("are the names pagasae gives in the session's fleet, each account asked once with the console's client credentials", async () => {
     const world = aWorld({ names: { 'acc-01mathilde': 'mathilde@acme.example', 'acc-01lena': 'lena@acme.example' } });
 
     await expect(accountNamesFor({ environment: PAGASAE, cookie: COOKIE, accountIds: [mathilde, lena, mathilde], fetchImplementation: world.fetchImplementation })).resolves.toEqual({
@@ -89,7 +90,7 @@ describe('the names of the accounts a timeline names as signed in as argo (decis
       `https://pagasae.example/api/console/account-name?fleetId=${FLEET_ID}&accountId=acc-01mathilde`,
       `https://pagasae.example/api/console/account-name?fleetId=${FLEET_ID}&accountId=acc-01lena`,
     ]);
-    expect(pagasaeAsks(world).every(({ headers }) => headers.get('authorization') === `Basic ${btoa(`console:${'c'.repeat(32)}`)}`)).toBe(true);
+    expect(pagasaeAsks(world).every(({ headers }) => headers.get('authorization') === CLIENT_AUTH)).toBe(true);
   });
 
   it('leave out an account pagasae gives no name, so it shows by its id', async () => {
@@ -119,17 +120,5 @@ describe('the names of the accounts a timeline names as signed in as argo (decis
 
     await expect(accountNamesFor({ environment, cookie: COOKIE, accountIds, fetchImplementation: world.fetchImplementation })).resolves.toEqual({});
     expect(world.calls).toEqual([]);
-  });
-});
-
-describe('pagasae as the console reaches it', () => {
-  it('is its address without a trailing slash and the console as an app, by Basic credentials', () => {
-    expect(pagasaeFrom(PAGASAE)).toEqual({ url: 'https://pagasae.example', authorization: `Basic ${btoa(`console:${'c'.repeat(32)}`)}` });
-  });
-
-  it('is none unless its address, client id and secret are all set', () => {
-    expect(pagasaeFrom({ AEOLUS_PAGASAE_URL: 'https://pagasae.example', AEOLUS_PAGASAE_CLIENT_ID: 'console' })).toBeUndefined();
-    expect(pagasaeFrom({ AEOLUS_PAGASAE_URL: 'https://pagasae.example', AEOLUS_PAGASAE_CLIENT_SECRET: 'c'.repeat(32) })).toBeUndefined();
-    expect(pagasaeFrom({ AEOLUS_PAGASAE_CLIENT_ID: 'console', AEOLUS_PAGASAE_CLIENT_SECRET: 'c'.repeat(32) })).toBeUndefined();
   });
 });
