@@ -88,6 +88,8 @@ export interface DeliveryRepository {
   countReceivable(query: Omit<ClaimableDeliveries, 'limit' | 'excluding'>): Promise<ReceivableCount>;
   /** The delivery, locked until the unit of work ends. */
   findForUpdate(fleetId: FleetId, deliveryId: DeliveryId): Promise<Delivery | undefined>;
+  /** The delivery, read without a lock. */
+  find(fleetId: FleetId, deliveryId: DeliveryId): Promise<Delivery | undefined>;
   /** The one delivery a message has, read without a lock. */
   findOfMessage(fleetId: FleetId, messageId: MessageId): Promise<Delivery | undefined>;
   /**

@@ -132,6 +132,14 @@ export function createPrismaDeliveryRepository(db: Db): DeliveryRepository {
         FOR UPDATE`;
       return row ? toDeliveryFromSql(row) : undefined;
     },
+    find: async (fleetId, deliveryId) => {
+      const [row] = await db.$queryRaw<unknown[]>`
+        SELECT id, fleet_id, message_id, recipient_ship_id, recipient_type, state::text AS state,
+               claimed_by_ship_id, claimed_by_lease_id, attempts, hand_over_number, handed_once_more_at, is_forced, created_at
+        FROM deliveries
+        WHERE fleet_id = ${fleetId} AND id = ${deliveryId}`;
+      return row ? toDeliveryFromSql(row) : undefined;
+    },
     findOfMessage: async (fleetId, messageId) => {
       const [row] = await db.$queryRaw<unknown[]>`
         SELECT id, fleet_id, message_id, recipient_ship_id, recipient_type, state::text AS state,
