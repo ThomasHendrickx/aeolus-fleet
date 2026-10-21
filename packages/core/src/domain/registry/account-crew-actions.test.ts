@@ -93,3 +93,19 @@ describe('an account giving a ship a new crew', () => {
     expect(actorsOf('LeaseRevoked')).toEqual([]);
   });
 });
+
+describe('an account asking a trierarch to clear a worktree', () => {
+  it("asks for a ship in its reach: argo holds the request, and the event names the account", async () => {
+    unwrap(await fleet.registry.requestWorktreeClear(mathilde, { trierarchShipId: trierarch.shipId, shipId: fleet.near.shipId, repository: 'aeolus-fleet' }));
+
+    expect(fleet.core.state.clearRequests.map(({ shipId, requestedBy }) => ({ shipId, requestedBy }))).toEqual([{ shipId: fleet.near.shipId, requestedBy: fleet.argo.shipId }]);
+    expect(actorsOf('WorktreeClearRequested')).toEqual([ACTOR]);
+  });
+
+  it('is refused for a ship out of its reach, and no request is held', async () => {
+    await expect(
+      fleet.registry.requestWorktreeClear(mathilde, { trierarchShipId: trierarch.shipId, shipId: fleet.far.shipId, repository: 'aeolus-fleet' }),
+    ).resolves.toMatchObject(NOT_REACHABLE);
+    expect(fleet.core.state.clearRequests).toEqual([]);
+  });
+});

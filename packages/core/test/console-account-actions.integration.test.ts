@@ -155,6 +155,16 @@ describe('an account signed in to the console, acting on ships', () => {
       await expect(lastEventOf(type)).resolves.toEqual(ACCOUNT_ACTOR);
     }
   });
+
+  it('asks a trierarch to clear a worktree: argo holds the request, the event naming the account', async () => {
+    const trierarch = await commissioned('mac-studio', 'trierarch');
+    const reader = await commissioned('reader');
+
+    await mathilde.fleet.clearWorktree.mutate({ trierarchShipId: trierarch, shipId: reader, repository: 'aeolus-fleet' });
+
+    await expect(database.worktreeClearRequest.findFirstOrThrow({ where: { fleetId, shipId: reader }, select: { requestedBy: true } })).resolves.toEqual({ requestedBy: argo.shipId });
+    await expect(lastEventOf('WorktreeClearRequested')).resolves.toEqual(ACCOUNT_ACTOR);
+  });
 });
 
 describe('an account signed in to the console, acting on deliveries', () => {
