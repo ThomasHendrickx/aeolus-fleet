@@ -20,6 +20,8 @@ export function CausePage({ cause }: { cause: StuckCause }) {
 
   return (
     <DetailPage
+      switcher={frame.switcher}
+      account={frame.account}
       onCompose={frame.onCompose}
       onSearch={frame.onSearch}
       banner={frame.banner}

@@ -82,7 +82,7 @@ describe('the CommandPalette', () => {
 
     await page.keyboard.press('ControlOrMeta+k');
     await palette(page).getByTestId('command-palette-input').fill('revi');
-    await palette(page).locator(`[data-testid="command-palette-item"][data-item-id="${shipId}"]`).click();
+    await palette(page).locator(`[data-testid="command-palette-item"][data-item-key="ship:${shipId}"]`).click();
 
     await page.waitForURL(`${web.url}/ships/${shipId}`);
     await palette(page).waitFor({ state: 'hidden' });
@@ -95,7 +95,7 @@ describe('the CommandPalette', () => {
     await page.getByTestId('header-search').click();
     await palette(page).getByTestId('command-palette-input').fill('commission');
     // Commission ship is offered once the session's access is known; Enter before that chooses nothing.
-    await palette(page).locator('[data-testid="command-palette-item"][data-item-id="commission"][aria-selected="true"]').waitFor();
+    await palette(page).locator('[data-testid="command-palette-item"][data-item-key="action:commission"][aria-selected="true"]').waitFor();
     await page.keyboard.press('Enter');
 
     await page.getByTestId('commission-dialog').waitFor();
@@ -107,7 +107,7 @@ describe('the CommandPalette', () => {
 
     await page.getByTestId('top-bar-search').click();
     await palette(page).getByTestId('command-palette-input').fill('health');
-    await palette(page).locator('[data-testid="command-palette-item"][data-item-id="health"]').click();
+    await palette(page).locator('[data-testid="command-palette-item"][data-item-key="page:health"]').click();
 
     await page.waitForURL(`${web.url}/fleet-health`);
   });

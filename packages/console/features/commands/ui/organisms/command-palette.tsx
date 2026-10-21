@@ -1,9 +1,8 @@
 'use client';
 
-import { Activity, CornerDownLeft, DraftingCompass, Inbox, Plus, Search, Shapes, Ship, SquarePen, UserPlus, Waves, type LucideIcon } from 'lucide-react';
-import { useId, useState, type KeyboardEvent } from 'react';
+import { Avatar, CommandPalette as SharedCommandPalette, type CommandGroup } from '@aeolus-fleet/common/header';
+import { Activity, AppWindow, DraftingCompass, Inbox, Plus, Shapes, Ship, SquarePen, UserPlus, Waves, type LucideIcon } from 'lucide-react';
 
-import { Avatar, Button, classNames, Dialog, DialogClose, DialogContent, dialogSurface, DialogTitle, Kbd } from '@aeolus-fleet/common/header';
 import { paletteGroups, paletteKeyOf, type PaletteItem } from '../../services/command-palette';
 import { StatusBadge } from '../../../../components/molecules/status-badge';
 
@@ -15,6 +14,10 @@ interface CommandPaletteProps {
   /** Every item, before filtering; the palette filters by the query it owns. */
   items: readonly PaletteItem[];
   onSelect: (item: PaletteItem) => void;
+  /** The other apps the account may open, from the header's switcher. */
+  apps?: readonly PaletteApp[];
+  /** While the ships load. */
+  isLoading?: boolean;
   /** What the search starts with when it opens; empty when not given. For stories. */
   initialQuery?: string;
 }
@@ -78,155 +81,66 @@ function ItemContent({ item }: { item: PaletteItem }) {
   );
 }
 
-/** The open palette: its query and the option the keys move to live here, so each opening starts fresh. */
-function PaletteBody({ items, onSelect, onOpenChange, initialQuery = '' }: Omit<CommandPaletteProps, 'isOpen'>) {
-  const listId = useId();
-  const optionId = useId();
-  const [query, setQuery] = useState(initialQuery);
-  const [activeIndex, setActiveIndex] = useState(0);
-  const groups = paletteGroups(items, query);
-  const options = groups.flatMap((group) => group.items);
-  const active = options[Math.min(activeIndex, options.length - 1)];
-  const idOf = (item: PaletteItem) => `${optionId}-${paletteKeyOf(item)}`;
+/** An app the palette opens (header design): another Aeolus app the account may open in this fleet, or outside any. */
+export interface PaletteApp {
+  label: string;
+  url: string;
+}
 
-  const choose = (item: PaletteItem) => {
-    onSelect(item);
-    onOpenChange(false);
-  };
-  const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (options.length === 0) {
-      return;
-    }
-    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-      event.preventDefault();
-      const step = event.key === 'ArrowDown' ? 1 : -1;
-      const current = active ? options.indexOf(active) : 0;
-      setActiveIndex((current + step + options.length) % options.length);
-    } else if (event.key === 'Enter' && active) {
-      event.preventDefault();
-      choose(active);
-    }
-  };
-
-  return (
-    <>
-      <DialogTitle className="sr-only">Search ships or jump to</DialogTitle>
-      <div className="flex h-12 items-center gap-2.5 border-b border-border px-4 max-sm:h-(--size-header)">
-        <Search aria-hidden className="size-(--size-icon) shrink-0 text-muted-foreground" />
-        <input
-          role="combobox"
-          aria-expanded
-          aria-controls={listId}
-          aria-activedescendant={active ? idOf(active) : undefined}
-          aria-autocomplete="list"
-          aria-label="Search ships or jump to"
-          autoComplete="off"
-          autoCapitalize="off"
-          spellCheck={false}
-          placeholder="Search ships or jump to"
-          data-testid="command-palette-input"
-          className="h-full min-w-0 grow bg-transparent text-body text-foreground outline-none placeholder:text-muted-foreground max-sm:text-body-touch"
-          value={query}
-          onChange={(event) => {
-            setQuery(event.target.value);
-            setActiveIndex(0);
-          }}
-          onKeyDown={onKeyDown}
-        />
-        <Kbd>esc</Kbd>
-        <DialogClose render={<Button variant="ghost" size="sm" className="sm:hidden" />}>Cancel</DialogClose>
-      </div>
-      <div className="max-h-[min(60dvh,var(--spacing)*100)] overflow-y-auto p-2 max-sm:max-h-none max-sm:grow">
-        {options.length === 0 ? (
-          <p className="px-4 py-6 text-center text-meta text-muted-foreground">
-            Nothing matches “{query.trim()}”. Ships are found by name or type; retired ships are not listed.
-          </p>
-        ) : (
-          <ul id={listId} role="listbox" aria-label="Results" className="flex flex-col gap-2">
-            {groups.map((group) => (
-              <li key={group.key} role="presentation" className="flex flex-col gap-0.5">
-                <p id={`${listId}-${group.key}`} className="px-2.5 pt-1 pb-0.5 text-caption font-medium text-muted-foreground">
-                  {group.label}
-                </p>
-                <ul role="group" aria-labelledby={`${listId}-${group.key}`} className="flex flex-col gap-0.5">
-                  {group.items.map((item) => {
-                    const isActive = item === active;
-                    return (
-                      // The keys belong to the search field (aria-activedescendant
-                      // names the active option), as the combobox pattern wants;
-                      // the pointer chooses an option directly.
-                      // eslint-disable-next-line jsx-a11y-x/click-events-have-key-events
-                      <li
-                        key={paletteKeyOf(item)}
-                        id={idOf(item)}
-                        role="option"
-                        aria-selected={isActive}
-                        data-testid="command-palette-item"
-                        data-item-kind={item.kind}
-                        data-item-id={item.id}
-                        className={classNames(
-                          'flex h-(--size-control) cursor-pointer items-center gap-2.5 rounded-md px-2.5 text-body text-foreground max-sm:h-(--size-control-touch)',
-                          isActive ? 'bg-accent' : undefined,
-                        )}
-                        onPointerMove={() => {
-                          setActiveIndex(options.indexOf(item));
-                        }}
-                        onClick={() => {
-                          choose(item);
-                        }}
-                      >
-                        <ItemContent item={item} />
-                      </li>
-                    );
-                  })}
-                </ul>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-      <div className="flex items-center gap-3 border-t border-border px-4 py-2 text-caption text-muted-foreground max-sm:hidden">
-        <span className="inline-flex items-center gap-1">
-          <Kbd>↑</Kbd>
-          <Kbd>↓</Kbd>
-          Move
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <Kbd>
-            <CornerDownLeft aria-hidden className="size-3" />
-          </Kbd>
-          Open
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <Kbd>esc</Kbd>
-          Close
-        </span>
-      </div>
-    </>
-  );
+/** The palette's groups for a query, each item an entry whose content it shows; then the apps that match, which open in place of this one. */
+function groupsOf({ items, apps, query }: { items: readonly PaletteItem[]; apps: readonly PaletteApp[]; query: string }): CommandGroup[] {
+  const wanted = query.trim().toLowerCase();
+  const groups: CommandGroup[] = paletteGroups(items, query).map((group) => ({
+    key: group.key,
+    label: group.label,
+    entries: group.items.map((item) => ({ key: paletteKeyOf(item), content: <ItemContent item={item} /> })),
+  }));
+  const matching = apps.filter((app) => app.label.toLowerCase().includes(wanted));
+  return matching.length === 0
+    ? groups
+    : [
+        ...groups,
+        {
+          key: 'apps',
+          label: 'Apps',
+          entries: matching.map((app) => ({
+            key: `app:${app.label}`,
+            href: app.url,
+            name: app.label,
+            content: (
+              <>
+                <AppWindow aria-hidden className="size-(--size-icon) shrink-0 text-muted-foreground" />
+                <span className="min-w-0 truncate">{app.label}</span>
+              </>
+            ),
+          })),
+        },
+      ];
 }
 
 /**
- * The CommandPalette (docs/design/png/CommandPalette.png): search ships or
- * jump to an action or a page. Actions, Ships (with their StatusBadge, never
- * argo) and Go to, filtered as the operator types. Arrow keys move, Enter
- * opens, Escape closes. Desktop: a dialog near the top, opened with ⌘K or the
- * Header's search. Phone: the TopBar's search icon opens it full screen.
+ * The CommandPalette (docs/design/png/CommandPalette.png), on the palette
+ * every Aeolus app shows (@aeolus-fleet/common/header): search ships or jump
+ * to an action, a page or another app. Actions, Ships (with their
+ * StatusBadge, never argo), Go to and Apps, filtered as the operator types.
+ * While the ships load, rows in their shape stand in. Desktop: a dialog near
+ * the top, opened with ⌘K or the Header's search. Phone: the TopBar's search
+ * icon opens it full screen.
  */
-export function CommandPalette({ isOpen, onOpenChange, ...body }: CommandPaletteProps) {
+export function CommandPalette({ items, apps = [], onSelect, isLoading = false, ...props }: CommandPaletteProps) {
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent
-        size="md"
-        data-testid="command-palette"
-        className={classNames(
-          'gap-0 p-0 sm:top-[12dvh] sm:translate-y-0',
-          dialogSurface.phoneFullScreen,
-          'max-sm:flex max-sm:flex-col',
-        )}
-      >
-        <PaletteBody onOpenChange={onOpenChange} {...body} />
-      </DialogContent>
-    </Dialog>
+    <SharedCommandPalette
+      {...props}
+      label="Search ships or jump to"
+      isLoading={isLoading}
+      groupsOf={(query) => groupsOf({ items, apps, query })}
+      emptyMessage={(query) => `Nothing matches “${query}”. Ships are found by name or type; retired ships are not listed.`}
+      onSelect={(key) => {
+        const chosen = items.find((item) => paletteKeyOf(item) === key);
+        if (chosen !== undefined) {
+          onSelect(chosen);
+        }
+      }}
+    />
   );
 }

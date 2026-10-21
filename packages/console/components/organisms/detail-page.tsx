@@ -1,3 +1,4 @@
+import type { AppSwitcherModel, AvatarMenuProps } from '@aeolus-fleet/common/header';
 import type { ReactNode } from 'react';
 
 import type { LiveState } from '../molecules/live-status';
@@ -16,6 +17,10 @@ interface DetailPageProps {
   /** A sheet over the page: the MessageSheet. */
   sheet?: ReactNode;
   live: LiveState;
+  /** The header's switcher; undefined until the session is read. */
+  switcher: AppSwitcherModel | undefined;
+  /** The avatar menu, in the Header. */
+  account: AvatarMenuProps;
   /** Opens Compose: the Header's button. */
   onCompose?: () => void;
   /** Opens the CommandPalette: the Header's search trigger. */
@@ -32,10 +37,10 @@ interface DetailPageProps {
  * stacked ShipHeader and segmented Tabs, the TabBar's height kept free at
  * the bottom.
  */
-export function DetailPage({ title, parents, header, children, sheet, live, onCompose, onSearch, banner }: DetailPageProps) {
+export function DetailPage({ title, parents, header, children, sheet, live, switcher, account, onCompose, onSearch, banner }: DetailPageProps) {
   return (
     <>
-      <Header breadcrumb={title} parents={parents} live={live} onCompose={onCompose} onSearch={onSearch} />
+      <Header breadcrumb={title} parents={parents} live={live} switcher={switcher} account={account} onCompose={onCompose} onSearch={onSearch} />
       {banner}
       <TopBar title={title} live={live} back={parents[parents.length - 1] ?? parents[0]} />
       <main className="flex grow flex-col gap-5 px-8 py-6 max-sm:gap-3.5 max-sm:px-4 max-sm:pt-3.5 max-sm:pb-[calc(var(--size-tabbar)+var(--spacing)*4)]">

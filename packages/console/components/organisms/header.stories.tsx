@@ -2,11 +2,12 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { fn } from 'storybook/test';
 
 import { Header } from './header';
+import { AVATAR_MENU, SWITCHER } from '../../lib/fixtures/header.fixtures';
 
 const meta = {
   title: 'Organisms/Header',
   component: Header,
-  args: { breadcrumb: 'Fleet overview', live: 'live', onCompose: fn(), onSearch: fn() },
+  args: { breadcrumb: 'Fleet overview', live: 'live', switcher: SWITCHER, account: AVATAR_MENU, onCompose: fn(), onSearch: fn() },
 } satisfies Meta<typeof Header>;
 
 export default meta;

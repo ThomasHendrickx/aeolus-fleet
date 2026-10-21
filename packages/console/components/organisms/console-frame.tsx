@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 
-import type { AccountMenuProps } from './account-menu';
 import { Sidebar, type SidebarDestination } from './sidebar';
 import { TabBar } from './tab-bar';
 
@@ -28,7 +27,7 @@ export interface ConsoleNav {
  * page between them, a ListPage or a DetailPage. The signed-in route layout
  * fills it.
  */
-export function ConsoleFrame({ nav, account, children }: { nav: ConsoleNav; account: AccountMenuProps; children: ReactNode }) {
+export function ConsoleFrame({ nav, children }: { nav: ConsoleNav; children: ReactNode }) {
   return (
     <div className="flex min-h-dvh bg-background">
       <Sidebar
@@ -41,7 +40,6 @@ export function ConsoleFrame({ nav, account, children }: { nav: ConsoleNav; acco
         trierarchsCount={nav.trierarchsCount}
         hasNetwork={nav.hasNetwork}
         hasSettings={nav.hasSettings}
-        {...account}
       />
       <div className="flex min-w-0 grow flex-col">{children}</div>
       <TabBar

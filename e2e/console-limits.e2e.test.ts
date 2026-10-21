@@ -73,14 +73,13 @@ async function signedInPage(): Promise<Page> {
 }
 
 describe('a hosted console', () => {
-  it('offers Your account in the account menu, opening the hosting service\'s account page', async () => {
+  it('offers no Your account in the avatar menu for argo\'s sign-in, which has no account (header design H8)', async () => {
     const page = await signedInPage();
 
-    await page.locator('[data-testid="account-menu"]:visible').click();
+    await page.locator('[data-testid="avatar-menu"]:visible').click();
 
-    const link = page.locator('[data-testid="account-hosted"]:visible');
-    await expect(link.textContent()).resolves.toBe('Your account');
-    await expect(link.getAttribute('href')).resolves.toBe(ACCOUNT_URL);
+    await page.locator('[data-testid="avatar-menu-session"]:visible').waitFor();
+    await expect(page.locator('[data-testid="avatar-menu-account"]:visible').count()).resolves.toBe(0);
   });
 });
 

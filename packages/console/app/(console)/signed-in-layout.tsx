@@ -10,6 +10,7 @@ import { ConsoleGuide } from '../../features/guide/organisms/console-guide';
 import { ConsoleNotices } from '../../features/notices/organisms/console-notices';
 import { useAccess } from '../../lib/access';
 import { useAccountMenu } from '../../lib/account';
+import { useAppSwitcher } from '../../lib/app-switcher';
 import { ConsoleFrameContext, destinationOf } from '../../lib/console-frame';
 import { useOpenInboxCount } from '../../lib/inbox';
 import { useStuckCount } from '../../lib/fleet-health';
@@ -25,6 +26,7 @@ import { usePluginNav } from '../../lib/plugin-nav';
 export function SignedInLayout({ children }: { children: ReactNode }) {
   const now = useNow();
   const account = useAccountMenu(now);
+  const switcher = useAppSwitcher();
   const access = useAccess();
   const inboxCount = useOpenInboxCount();
   const stuckCount = useStuckCount();
@@ -39,6 +41,7 @@ export function SignedInLayout({ children }: { children: ReactNode }) {
   return (
     <ConsoleFrameContext
       value={{
+        switcher,
         account,
         onCompose: access.canSend ? compose : undefined,
         onSearch: () => {
@@ -52,11 +55,11 @@ export function SignedInLayout({ children }: { children: ReactNode }) {
         ),
       }}
     >
-      <ConsoleFrame nav={{ active, inboxCount, stuckCount, ...pluginNav }} account={account}>
+      <ConsoleFrame nav={{ active, inboxCount, stuckCount, ...pluginNav }}>
         {children}
       </ConsoleFrame>
       <ComposeMessage isOpen={isComposing} onOpenChange={setIsComposing} />
-      <ConsoleCommands isOpen={isSearching} onOpenChange={setIsSearching} onCompose={compose} />
+      <ConsoleCommands isOpen={isSearching} onOpenChange={setIsSearching} onCompose={compose} switcher={switcher} />
     </ConsoleFrameContext>
   );
 }

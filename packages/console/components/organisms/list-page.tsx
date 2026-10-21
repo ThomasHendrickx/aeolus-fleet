@@ -1,14 +1,13 @@
 import { SquarePen } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-import { Button } from '@aeolus-fleet/common/header';
+import { Button, type AppSwitcherModel, type AvatarMenuProps } from '@aeolus-fleet/common/header';
 import type { LiveState } from '../molecules/live-status';
-import type { AccountMenuProps } from './account-menu';
 import { Header } from './header';
 import { TopBar } from './top-bar';
 
 interface ListPageProps {
-  /** The page title: the desktop h1 and the phone TopBar title. */
+  /** The page title: the h1, and the end of the desktop breadcrumb. */
   title: string;
   description?: ReactNode;
   /** A fact beside the title, such as the version a plugin runs; on phone, above the description. */
@@ -22,8 +21,10 @@ interface ListPageProps {
   onCompose?: () => void;
   /** Opens the CommandPalette: the Header's search trigger, and on phone the root TopBar's search icon. */
   onSearch?: () => void;
-  /** The signed-in operator, for the root TopBar's AccountMenu on phone. */
-  account: AccountMenuProps;
+  /** The header's switcher; undefined until the session is read. */
+  switcher: AppSwitcherModel | undefined;
+  /** The avatar menu, in the Header and the root TopBar. */
+  account: AvatarMenuProps;
   /** The installation's notices for this session, above the page on desktop and phone. */
   banner?: ReactNode;
   /** A TopBar of the page's own on phone, in place of the root one: an open inbox message's, in detail mode. */
@@ -33,20 +34,21 @@ interface ListPageProps {
 
 /**
  * A list page inside the ConsoleFrame (docs/design/png/ListPage.png):
- * Header on desktop, TopBar (root, with the AccountMenu's Avatar last) on
- * phone. The title and the one primary action share the first row, the
- * toolbar sits under it and the list fills the rest. On phone the TopBar
- * carries the title, and the TabBar's height is kept free at the bottom.
+ * Header on desktop, TopBar (root, with the switcher first and the avatar
+ * menu last) on phone. The title and the one primary action share the first
+ * row, the toolbar sits under it and the list fills the rest. On phone the
+ * TabBar's height is kept free at the bottom.
  */
-export function ListPage({ title, description, titleMeta, primaryAction, toolbar, live, onCompose, onSearch, account, banner, phoneTopBar, children }: ListPageProps) {
+export function ListPage({ title, description, titleMeta, primaryAction, toolbar, live, onCompose, onSearch, switcher, account, banner, phoneTopBar, children }: ListPageProps) {
   return (
     <>
-      <Header breadcrumb={title} live={live} onCompose={onCompose} onSearch={onSearch} />
+      <Header breadcrumb={title} live={live} switcher={switcher} account={account} onCompose={onCompose} onSearch={onSearch} />
       {banner}
       {phoneTopBar ?? (
       <TopBar
         title={title}
         live={live}
+        switcher={switcher}
         account={account}
         onSearch={onSearch}
         actions={
@@ -69,7 +71,7 @@ export function ListPage({ title, description, titleMeta, primaryAction, toolbar
         <div className="flex flex-wrap items-start justify-between gap-4 max-sm:gap-3">
           <div className="flex min-w-0 flex-col gap-1">
             <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-              <h1 className="text-title font-semibold tracking-tight text-foreground max-sm:hidden">{title}</h1>
+              <h1 className="text-title font-semibold tracking-tight text-foreground max-sm:text-title-touch">{title}</h1>
               {titleMeta}
             </div>
             {description ? (

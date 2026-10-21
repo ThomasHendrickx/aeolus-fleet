@@ -64,3 +64,9 @@ export const SquadronsOn: Story = {
     ],
   },
 };
+
+/** With the other apps the account may open: they join as Apps, and open in place of the console. */
+export const WithApps: Story = { args: { apps: [{ label: 'Gateway', url: '#gateway' }, { label: 'Account', url: '#account' }] } };
+
+/** While the ships load, rows in their shape stand in. */
+export const Loading: Story = { args: { items: [], isLoading: true } };
