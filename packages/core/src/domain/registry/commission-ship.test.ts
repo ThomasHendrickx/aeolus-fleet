@@ -294,7 +294,7 @@ describe('the kind of a new ship', () => {
     const { shipId } = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', kind: 'plugin' }));
 
     expect(shipsNamed('squadrons')[0]?.kind).toBe('plugin');
-    expect(core.state.events.filter((event) => event.shipId === shipId).map((event) => event.type)).toEqual(['ShipCommissioned', 'OwnerSet', 'PluginConnected']);
+    expect(core.state.events.filter((event) => event.shipId === shipId).map((event) => event.type)).toEqual(['ShipCommissioned', 'OwnerSet', 'PluginConnected', 'StartingPromptIssued']);
   });
 
   it('lets an agent ship holding fleet:connect commission a plugin ship (decision 0053)', async () => {

@@ -141,8 +141,8 @@ export const SHIP_KINDS = ['operator', 'agent', 'viewer', 'person', 'app', 'plug
 export const shipKindSchema = z.enum(SHIP_KINDS);
 export type ShipKind = z.infer<typeof shipKindSchema>;
 
-/** The kinds a commission makes; argo and the viewer ship come with the fleet. */
-export const COMMISSIONED_SHIP_KINDS = ['agent', 'person', 'app'] as const;
+/** The kinds a commission makes; argo and the viewer ship come with the fleet. A plugin's commission is its connect (decision 0050). */
+export const COMMISSIONED_SHIP_KINDS = ['agent', 'person', 'app', 'plugin'] as const;
 export const commissionedShipKindSchema = z.enum(COMMISSIONED_SHIP_KINDS);
 export type CommissionedShipKind = z.infer<typeof commissionedShipKindSchema>;
 

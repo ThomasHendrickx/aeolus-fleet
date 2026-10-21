@@ -169,7 +169,8 @@ export type CommissionRefusal = DomainError<
  * A new ship, awaiting crew, and its ShipCommissioned event. An agent unless
  * the commission states another kind, and the commissioner holds the scope
  * for the kind: fleet:commission for an agent, with fleet:on-behalf for an
- * app ship, fleet:person for a person ship (decisions 0044, 0053). The name is a handle,
+ * app ship, fleet:person for a person ship, fleet:connect for a plugin ship,
+ * with PluginConnected (decisions 0044, 0050, 0053). The name is a handle,
  * never `argo`, and unique among the fleet's active ships: `activeShipNamed`
  * is the active ship that already holds it, if any, read while the name is
  * locked. It gets the scopes every ship has and those asked for that the
@@ -275,6 +276,7 @@ export function commissionShip(
     commission: input.commission,
     owner: owner.ownerShipId,
   };
+  const pluginConnected: NewEvent = { fleetId, type: 'PluginConnected', occurredAt: at, actor, shipId: id, details: {} };
   return ok({
     ship,
     events: [
@@ -287,6 +289,8 @@ export function commissionShip(
         details: { name: ship.name, type: ship.type, kind: ship.kind, scopes: ship.scopes.join(' ') },
       },
       { fleetId, type: 'OwnerSet', occurredAt: at, actor, shipId: id, details: owner },
+      // A plugin's commission is its connect: from now on it reads every ship, by its kind (decision 0050).
+      ...(kind === 'plugin' ? [pluginConnected] : []),
     ],
   });
 }
@@ -335,11 +339,15 @@ export function changeOwner(
 }
 
 /**
- * The scope the kind needs (decisions 0044, 0046, 0053): fleet:person for a
- * person ship; fleet:commission for an agent, and with fleet:on-behalf for an
- * app ship, the gateway's.
+ * The scope the kind needs (decisions 0044, 0046, 0050, 0053): fleet:person for a
+ * person ship; fleet:connect for a plugin ship, whose commission is its
+ * connect; fleet:commission for an agent, and with fleet:on-behalf for an
+ * app ship, the gateway's proxy ships.
  */
 function checkKindScope(kind: CommissionedShipKind, held: readonly ScopeName[]): Result<undefined, DomainError<'SCOPE_NOT_HELD'>> {
+  if (kind === 'plugin') {
+    return held.includes('fleet:connect') ? ok(undefined) : refuse('SCOPE_NOT_HELD', 'Commissioning a plugin ship is connecting it, and needs the fleet:connect scope (decision 0050)');
+  }
   if (kind === 'person') {
     return held.includes('fleet:person') ? ok(undefined) : refuse('SCOPE_NOT_HELD', 'Commissioning a person ship needs the fleet:person scope (decision 0053)');
   }
