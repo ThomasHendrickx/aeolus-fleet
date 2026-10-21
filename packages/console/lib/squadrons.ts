@@ -4,7 +4,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { useConsoleRead } from './console-read-query';
 import { fetchConsoleRead } from './fetch-console-read';
-import { dataOf } from './plugin-answer';
+import { SQUADRONS_NO_ANSWER } from './no-answer';
+import { dataFrom } from './plugin-answer';
 import type { ShownConnection } from './shown-connection';
 import { connectSquadrons } from './squadrons-actions';
 
@@ -25,7 +26,7 @@ export function useSquadronsSettings() {
 export function useConnectSquadrons() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async () => dataOf(await connectSquadrons()),
+    mutationFn: () => dataFrom(connectSquadrons, SQUADRONS_NO_ANSWER),
     onSuccess: (connection) => {
       queryClient.setQueryData(QUERY_KEY, connection);
     },

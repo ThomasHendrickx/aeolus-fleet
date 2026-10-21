@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { ConnectPluginError } from './connect-plugin';
 import type { PluginAnswer } from './plugin-answer';
+import { TRIERARCH_PLUGIN_NO_ANSWER } from './no-answer';
 import { callPlugin, sessionCookieOf } from './plugin-call';
 import { readPluginConnection } from './plugin-calls';
 import { shownConnectionOf, type ShownConnection } from './shown-connection';
@@ -39,7 +40,7 @@ export async function call<T>(procedure: string, request: { input?: unknown; isM
 
 /** A refusal's words are safe to show; anything else says only that the trierarch plugin or the fleet did not answer. */
 export function refusalOf(error: unknown): PluginAnswer<never> {
-  return { kind: 'refused', message: error instanceof ConnectPluginError ? error.message : 'the trierarch plugin or the fleet did not answer: try again in a moment' };
+  return { kind: 'refused', message: error instanceof ConnectPluginError ? error.message : TRIERARCH_PLUGIN_NO_ANSWER };
 }
 
 /** The trierarch plugin's connection as the browser may know it: `none` without the plugin or while it is off. */

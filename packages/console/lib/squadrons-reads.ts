@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { ConnectPluginError } from './connect-plugin';
 import type { PluginAnswer } from './plugin-answer';
+import { SQUADRONS_NO_ANSWER } from './no-answer';
 import { callPlugin, sessionCookieOf } from './plugin-call';
 import { readPluginConnection } from './plugin-calls';
 import { shownConnectionOf, type ShownConnection } from './shown-connection';
@@ -47,7 +48,7 @@ export async function call<T>(procedure: string, request: { input?: unknown; isM
 
 /** A refusal's words are safe to show; anything else says only that squadrons or the fleet did not answer. */
 export function refusalOf(error: unknown): PluginAnswer<never> {
-  return { kind: 'refused', message: error instanceof ConnectPluginError ? error.message : 'squadrons or the fleet did not answer: try again in a moment' };
+  return { kind: 'refused', message: error instanceof ConnectPluginError ? error.message : SQUADRONS_NO_ANSWER };
 }
 
 /** squadrons' connection as the browser may know it: `none` without squadrons or while it is off. */

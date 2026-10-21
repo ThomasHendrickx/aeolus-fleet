@@ -4,7 +4,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { useConsoleRead } from './console-read-query';
 import { fetchConsoleRead } from './fetch-console-read';
-import { dataOf } from './plugin-answer';
+import { TRIERARCH_PLUGIN_NO_ANSWER } from './no-answer';
+import { dataFrom, dataOf } from './plugin-answer';
 import type { ShownConnection } from './shown-connection';
 import { connectTrierarchPlugin, joinMachine } from './trierarch-plugin-actions';
 import type { SettingsCheck } from './trierarch-plugin-schemas';
@@ -46,7 +47,7 @@ export function useTrierarchPluginVersion(): string | undefined {
 export function useConnectTrierarchPlugin() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async () => dataOf(await connectTrierarchPlugin()),
+    mutationFn: () => dataFrom(connectTrierarchPlugin, TRIERARCH_PLUGIN_NO_ANSWER),
     onSuccess: (connection) => {
       queryClient.setQueryData(CONNECTION_KEY, connection);
     },
