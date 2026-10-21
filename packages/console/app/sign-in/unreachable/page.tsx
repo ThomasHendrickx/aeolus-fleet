@@ -1,4 +1,4 @@
-import { Button } from '../../../components/atoms/button';
+import { Button } from '@aeolus-fleet/common/header';
 import { AuthCard } from '../../../features/sign-in/organisms/auth-card';
 
 export const dynamic = 'force-dynamic';

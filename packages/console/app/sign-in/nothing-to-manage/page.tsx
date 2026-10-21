@@ -1,6 +1,6 @@
 import Link from 'next/link';
 
-import { Button } from '../../../components/atoms/button';
+import { Button } from '@aeolus-fleet/common/header';
 import { AuthCard } from '../../../features/sign-in/organisms/auth-card';
 import { gatewayUrlFrom } from '../../../lib/gateway-url';
 import { hostedAccountUrlFrom } from '../../../lib/hosted-account-url';
