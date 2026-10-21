@@ -1,7 +1,7 @@
 # 0011 Releases only via trusted publishing
 
 - In each train's repository (0049), only its `.github/workflows/release.yml` publishes, via npm OIDC. Packages require 2FA and disallow tokens. No npm token anywhere.
-- Before a release, `.github/workflows/candidate.yml` builds a candidate for staging to try, with the release's gate: it sets the version, builds, packs each package with `npm pack` and uploads the tarballs as the Actions artifact `<version>-<short sha>`. It publishes and tags nothing.
+- Before a release, `.github/workflows/candidate.yml` builds a candidate for staging to try, with the release's gate: it sets the version, builds, packs each package with `npm pack` and uploads the tarballs with `integrity.json` (each tarball's sha512 integrity) as the Actions artifact `<version>-<short sha>`. It publishes and tags nothing.
 - Release only releases: it sets the version, builds, dry runs, publishes and tags, with no second test run, using the existing CI result.
 - It runs from main or a branch named `hotfix/<major>.<minor>.x`, only for a commit whose CI push run on that same branch passed: it reads CI's result for that exact commit (`scripts/release-gate.ts`) instead of testing again, and says why in the job log when it refuses.
 - One version for a train's packages (0049), published in order, the optional ones last; the workflow tags `v<version>` (`contents: write`). The trierarch's train tags a commit on top of the released one that sets the aeolus plugin's manifests to the version, off main's history, so the tag holds the plugin of that version under its version: `aeolus-trierarch upgrade <version>` installs the plugin from it.
