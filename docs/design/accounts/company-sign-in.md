@@ -1,6 +1,6 @@
 # Company sign-in: Entra ID and Google, and ID-JAG
 
-Design by designer-identity, for Thomas. The purpose is agreed (Thomas, 21 Oct: "entra/google agreed", reading groups an option); then the lessons to check against, the flow the picks give, and the questions, each with options and a pick. No code. Terms are the blueprint's Domain language (0050): account, identity, identity provider, directory, organisation, organisation admin, sign-in link.
+Design by designer-identity. Decided by Thomas on 21 Oct: the purpose, and every question (part 4). Part 5 cuts the slices; part 6 holds what is still open. No code. Terms are the blueprint's Domain language (0050): account, identity, identity provider, directory, organisation, organisation admin, sign-in link.
 
 Inputs: pagasae issue #78; decisions 0050 to 0058; [`accounts.md`](accounts.md) 1.3 and questions 8, 9, 14, 15; [`actors.md`](actors.md) 3; the interop design's slice 6 and I-4 (branch `design/interop`, `docs/design/interop/interop.md`); the pagasae and gateway READMEs.
 
@@ -37,8 +37,8 @@ At Acme, Mathilde connects Acme's Entra tenant from the organisation's page; Ent
 
 ### 1.5 Not this design's
 
-- Pushed provisioning (SCIM, change notifications): question 4.2 asks whether reading the provider is enough without it.
-- Identity providers besides Entra and Google (Okta, SAML).
+- Pushed provisioning (SCIM, change notifications): reading the provider is enough (D4.2).
+- SAML, and identity providers besides Entra, Google and Okta. Okta comes in only as far as ID-JAG needs it (D7, part 6).
 - What an account may do once signed in (0052, 0057, 0058: unchanged).
 
 ## 2. Lessons to check against
@@ -66,35 +66,37 @@ At Acme, Mathilde connects Acme's Entra tenant from the organisation's page; Ent
 | Route by verified domain | Home realm discovery sends an email to its tenant by domain, and trusts a domain only once verified | [home realm discovery](https://learn.microsoft.com/en-us/entra/identity/enterprise-apps/home-realm-discovery-policy) |
 | Group claims are partial | Entra's `groups` claim carries group object ids, not names, set once on the app registration (security groups, or only groups assigned to the app); past 200 groups in a JWT it sends an overage marker instead, and the app reads the groups from Microsoft Graph (`getMemberObjects`, application permission `GroupMember.Read.All`, which a tenant admin consents to). Google's ID token carries no groups: the Admin SDK Directory API reads them, with a read-only groups scope a super admin grants to the app's service account (domain-wide delegation) or an admin role given to it | [group claims](https://learn.microsoft.com/en-us/entra/identity/hybrid/connect/how-to-connect-fed-group-claims), [overage](https://learn.microsoft.com/en-us/troubleshoot/entra/entra-id/app-integration/get-signed-in-users-groups-in-access-token), [getMemberObjects](https://learn.microsoft.com/graph/api/directoryobject-getmemberobjects), [Google domain-wide delegation](https://support.google.com/a/answer/162106) |
 | A suspension at the provider stops new sign-ins, not sessions the app keeps | Most apps re-check at the provider on a timer or rely on a push (SCIM); see `accounts.md` 2.2 | `accounts.md` 2.2 |
-| ID-JAG: the client asks the company identity provider, not the app, for access | The client signs the human in at the company identity provider, exchanges that for an ID-JAG whose audience is the app's authorization server (RFC 8693), and posts it there with the JWT bearer grant (RFC 7523); no browser reaches the app. The app trusts an issuer list per tenant, checks audience, issuer and end, needs pre-registered clients. MCP's extension is stable (June 2026); Okta issues ID-JAGs; no source found that Entra or Google do. Claude supports it | [MCP enterprise-managed authorization](https://modelcontextprotocol.io/extensions/auth/enterprise-managed-authorization), [WorkOS on its general availability](https://workos.com/blog/enterprise-managed-auth-ga-mcp-server-builders) |
+| ID-JAG: the client asks the company identity provider, not the app, for access | The client signs the human in at the company identity provider, exchanges that for an ID-JAG whose audience is the app's authorization server (RFC 8693), and posts it there with the JWT bearer grant (RFC 7523); no browser reaches the app. The app trusts an issuer list per tenant, checks audience, issuer and end, needs pre-registered clients. The ID-JAG's header `typ` is `oauth-id-jag+jwt`; it carries `iss`, `sub`, `aud`, `client_id`, `resource`, `scope` and an end about 5 minutes out, and the app issues no refresh token for it. MCP's extension is stable (June 2026); Okta issues ID-JAGs (Cross App Access); no source found that Entra or Google do. Claude supports it. xaa.dev is Okta's open playground: a test identity provider (`https://idp.xaa.dev`) issuing ID-JAGs, a test requesting app, and a page to register one's own resource and its authorization server, with no account | [MCP enterprise-managed authorization](https://modelcontextprotocol.io/extensions/auth/enterprise-managed-authorization), [WorkOS on its general availability](https://workos.com/blog/enterprise-managed-auth-ga-mcp-server-builders), [xaa.dev: your own authorization server](https://xaa.dev/docs/byor-auth-server) |
 
-## 3. The flow the picks give
+## 3. The flows
 
-A sign-in by identity, from any app. Shown so the questions can be read against it; it changes with the answers.
+### 3.1 A sign-in by identity
+
+From any app, with the decisions of part 4.
 
 ```mermaid
 flowchart TD
   start(["A human signs in from an app: console, gateway pages, plugin page, or an MCP client through the gateway"]) --> email["pagasae: types email"]
-  email --> dom{"Email's domain verified for a connected identity provider? (Q2)"}
+  email --> dom{"Email's domain verified for a connected identity provider? (D2)"}
   dom -- no --> mail["Sign-in link mailed, as today"] --> org
   dom -- yes --> idp["Sent to Entra or Google with the email as hint"]
   idp -- "provider down, refuses, human suspended" --> f1["Sign-in failed. 'Email me a link': mailed only to an account allowed as argo (0054)"]
   idp -- "ID token" --> chk{"Signature, issuer = the connected tenant, audience = pagasae, nonce, end"}
   chk -- fails --> f2["Refused; nothing recorded on any account"]
-  chk -- ok --> known{"An account in that organisation with this identity? (Q3)"}
+  chk -- ok --> known{"An account in that organisation with this identity? (D3)"}
   known -- yes --> org
   known -- no --> byemail{"An account there with the email the provider vouches for?"}
-  byemail -- no --> lg{"Reading groups on, and in a linked group? (Q4.4)"}
+  byemail -- no --> lg{"Reading groups on, and in a linked group? (D4.4)"}
   lg -- no --> f3["Refused: 'ask an organisation admin'"]
   lg -- yes --> mk["Account created, with the identity; pagasae event"] --> org
   byemail -- yes --> rec["Identity recorded on the account; pagasae event"] --> org
   org{"Account active?"} -- disabled --> f4["Refused, as today"]
   org -- "yes, reading groups off" --> shared
-  org -- "yes, reading groups on" --> grp["Linked groups read: Entra claim, or Graph on overage; Google Directory API (Q4.1)"]
+  org -- "yes, reading groups on" --> grp["Linked groups read: Entra claim, or Graph on overage; Google Directory API (D4.1)"]
   grp -- "provider read fails" --> keep["Last groups read kept until the next read; argo's link unaffected"] --> shared
   grp --> shared["Shared sign-in"]
   shared --> apps["Each app exchanges it for account tokens (0058): scopes and group values from linked and pagasae groups"]
-  apps -- "reading groups on: each renewal, at most every 10 minutes (Q4.2)" --> reread["pagasae reads the human at the provider: enabled? which groups?"]
+  apps -- "reading groups on: each renewal, at most every 10 minutes (D4.2)" --> reread["pagasae reads the human at the provider: enabled? which groups?"]
   reread -- "groups changed" --> apps
   reread -- "suspended or deleted there" --> out["Account disabled (0055): tokens cut off, person ship and trierarchs released"]
   sweep["Reading groups on: hourly read of every account with an identity, signed in or not"] -- "suspended or deleted there" --> out
@@ -114,113 +116,145 @@ Unhappy paths:
 | The email has accounts in several organisations | The organisation is the connected tenant's; the others are asked as today, each by its own way in |
 | An unknown email | The same answer as today's link page, so the page never says whether an account exists; a connected domain is routed to its provider whatever the account |
 
-## 4. Questions for Thomas
+### 3.2 An MCP client by ID-JAG
 
-**1. One multi-tenant registration, or one per organisation?**
+```mermaid
+sequenceDiagram
+  participant C as MCP client (Claude)
+  participant I as Company identity provider (Okta)
+  participant G as Gateway
+  participant P as pagasae
+  C->>I: The human's sign-in (SSO, once)
+  C->>I: Token exchange for an ID-JAG, audience the gateway's issuer
+  I-->>C: ID-JAG (5 minutes)
+  C->>G: Token request, JWT bearer grant, the ID-JAG, its client id
+  G->>G: Client registered? (else invalid_client)
+  G->>P: Token exchange: the ID-JAG, for the client
+  P->>P: typ, issuer = a connected provider, signature, audience = the gateway, client_id = that client, end, used once
+  P->>P: Account by recorded identity (D3), active, its fleets
+  P-->>G: The account's grant for its one fleet
+  G-->>C: The gateway's access token for that fleet, no refresh token
+  C->>G: MCP calls as the account, as after a browser sign-in (0054)
+```
 
-What it is: to sign people in, pagasae must be a registered app at Microsoft (an app registration) and at Google (an OAuth client).
+Unhappy paths:
 
-- (1) **One per installation**: pagasae's own multi-tenant Entra app and one Google OAuth client; each organisation's admin consents. A self-hosted pagasae registers its own pair. Goes wrong: one credential serves every organisation, so it is a key, not a secret, and rotated; Entra shows an unverified publisher until Microsoft verifies the publisher.
-- (2) **One per organisation**: the organisation registers an app in its own tenant and gives pagasae the client id and secret. Goes wrong: a secret per organisation for pagasae to keep; Entra secrets end after at most two years, and sign-in stops the day one does; each admin registers redirect addresses by hand.
-- (3) **(1), and (2) for an organisation that wants its own.** Goes wrong: two paths to build and test for no customer asking.
+| What goes wrong | What happens |
+| --- | --- |
+| The ID-JAG's issuer is no organisation's connected provider, or its signature, audience, client or end fails | pagasae refuses; the gateway answers `invalid_grant`; nothing recorded on any account |
+| The same ID-JAG is presented twice | The second is refused (`invalid_grant`) |
+| No account has that identity yet | Refused, `invalid_grant`: the human signs in by browser once, which records it (D3) |
+| The account is disabled, or has rights in no fleet | Refused, as a browser sign-in is (0054, 0055) |
+| The account has rights in several fleets | Part 6, question 2 |
+| The client is not registered at the gateway | `invalid_client`: ID-JAG needs a registered client; there is no dynamic registration (gateway README) |
+| The provider is down | The client gets no ID-JAG and signs in by browser, or not at all; accounts allowed as argo keep the link (0054) |
+| The access token ends | The client asks the provider for a fresh ID-JAG; no refresh token is kept anywhere |
 
-Pick: (1). Connecting is one consent, the way Microsoft and Google built multi-tenant sign-in, and pagasae holds no secret of anyone's.
 
-**2. What connects an identity provider, and what proves it is the organisation's?**
 
-What it is: routing by domain (part 3) means one domain belongs to one organisation per installation. Anyone can sign up and create an organisation (0051), so the first to claim acme.com must not win by asking.
+## 4. Decisions (Thomas, 21 Oct)
 
-- (1) **The provider's own proof**: Entra, a tenant admin's consent, and the tenant's verified domains as Microsoft Graph lists them; Google, a sign-in of the Workspace domain (`hd`) and a DNS TXT record pagasae gives, on each domain. Goes wrong: two ways, one per provider; a Google admin must reach DNS.
-- (2) **A DNS TXT record on every domain, for both.** Goes wrong: an Entra admin proves again what Microsoft verified already.
-- (3) **A sign-in of the domain alone.** Goes wrong: any employee of acme.com connects Acme's domain to an organisation of their own, and Acme's people are routed there.
+Each is the current rule, why, and what was rejected.
 
-Pick: (1). Each provider already verified the domain; Aeolus asks only for proof it cannot read from the token. One identity provider per organisation, one organisation per domain. What the admin consents to depends on reading groups: off, sign-in alone (Entra's `openid`, `profile`, `email`; Google's the same, with nothing granted to pagasae's service account); on, also the read access of question 4.1. The proof of the domain is the same either way.
+**D1 One registration per installation.** pagasae has one multi-tenant Entra app registration and one Google OAuth client; each organisation's admin consents. A self-hosted pagasae registers its own pair. The credential is a key, rotated. Why: connecting is one consent, and pagasae holds no secret of an organisation's. Rejected: a registration per organisation; both.
 
-**3. How does an identity find its account?**
+**D2 The provider's own proof of the domain.** Entra: a tenant admin's consent, and the tenant's verified domains. Google: a sign-in of the Workspace domain (`hd`) and a DNS TXT record pagasae gives, on each domain. One identity provider per organisation, one organisation per domain. With reading groups off, the admin consents to sign-in alone (`openid`, `profile`, `email`), and nothing is granted to pagasae's service account; with it on, also D4.1's read access. Why: each provider already verified the domain; Aeolus asks only for what the token cannot show, and nobody claims another's domain by asking first. Rejected: DNS for both; a sign-in of the domain alone.
 
-Use case: Mathilde added charlotte@acme.com before Acme connected Entra. Charlotte signs in with Entra for the first time. Later Acme renames her charlotte.dubois@acme.com.
+**D3 An identity finds its account.** The admin adds the account; the first identity sign-in with the email the provider vouches for (Google's with `email_verified`, Entra's from a verified domain) records the identity on the account; after that the identity alone finds it. With reading groups on, D4.4 also brings accounts. Why: the organisation decides who is in (0051); a mutable email keys nothing after the first sign-in. Rejected: an account for every identity of the tenant; invitations.
 
-- (1) **The admin adds the account, as today; the first identity sign-in with the email the provider vouches for records the identity on the account; after that, the identity alone finds it.** Goes wrong: an account added with an alias never matches until the admin corrects its email.
-- (2) **Just in time**: any identity of the connected tenant without an account gets one, in no group, so it reaches nothing until an admin gives it rights (0054 refuses it "ask an organisation admin"). Goes wrong: accounts the organisation never chose pile up. Question 4.4 narrows it to members of linked groups.
-- (3) **An invitation**: the admin invites, and the account takes whichever identity follows the invitation's link. Goes wrong: a new record and mail for what the email match already does, since the admin typed the email.
+**D4 Provider groups, when reading groups is on.** Reading groups is a switch the organisation admin sets when connecting and changes later. With it off, groups are pagasae's alone (0052).
 
-Pick: (1). The organisation decides who is in (0051), and the identity, not a mutable email, keys every later sign-in, as Microsoft and Google advise. With reading groups off it is the only way an account comes to be; with it on, question 4.4 adds members of linked groups. The email the provider vouches for: Google's with `email_verified`, Entra's from a verified domain.
+- **D4.1 How pagasae learns groups.** Entra: the `groups` claim (security groups) at sign-in; on overage and between sign-ins, Microsoft Graph (`getMemberObjects`) with `GroupMember.Read.All`, and `User.Read.All` for whether the user is enabled, both consented by the tenant admin. Google: the Admin SDK Directory API with pagasae's service account, granted read-only group and user scopes by the super admin (domain-wide delegation). Rejected: the token alone; the human's own delegated permission.
+- **D4.2 When.** At sign-in, again at each account token renewal at most every 10 minutes per account, and every hour for every account with an identity. A changed membership lands in the next token (0058), so a live sign-in changes within about 20 minutes, with nothing rescoped in the fleet (0052). A user suspended or deleted in the provider disables the account (0055). When the provider cannot be read, the last groups read are kept until a read succeeds. Rejected: at sign-in only; a push.
+- **D4.3 The link.** A pagasae group is linked to one provider group by its id, shown by its name; its members come from the provider only. Its scopes per fleet, its value of `group`, the default rule and other rules are 0052's as built. Hand-made groups stay beside linked ones; only linked groups count toward the label's limits (0031). Rejected: a provider group straight to scopes; mirroring every provider group.
+- **D4.4 Who gets an account.** A member of a linked group gets an account at their first identity sign-in; someone in no linked group is refused, "ask an organisation admin". An admin may still add accounts by hand. The organisation's page shows where each account came from. Rejected: an admin still adding each account.
+- **D4.5 Turning it on or off.** On: the admin consents to the read access then and links groups from that moment. Off: pagasae drops the read access, every linked group loses its members and gives nothing, accounts stay with their hand-made groups and own rights; before confirming, the page says how many accounts lose rights. Rejected: freezing the last members; refusing off while a group is linked.
 
-**4. Provider groups giving rights: what it takes**
+**D5 A sign-in by identity lasts 8 hours.** Then the human signs in at the provider again, usually without a prompt; refused there, the shared sign-in ends and every renewal with it. With reading groups on, D4.2 disables a suspended user within minutes. With it off, sign-ins end within 8 hours and an account's person ship and trierarchs stay crewed until an admin disables it; the connect page says so beside the switch. Why: no company secret kept, one number. Rejected: keeping the provider's refresh token; nothing.
 
-Thomas: "i want to challenge to see what would be needed to use groups as well from Entra and google. So linking groups to permissions / network would be enough." Then: "reading in groups is optional however. This can be turned on/off when linking entra/google." Parts 4.1 to 4.4 are what it takes with reading groups on; with it off, none applies, and groups are pagasae's alone as built (0052). Part 4.5 is turning it on or off later. Each part has its own pick.
+**D6 Accounts outside the connected domains keep the sign-in link.** 0054's identity rule applies to emails in the connected domains. Why: contractors (0051) go on working; routing is by domain already. Rejected: Entra guests; refusing them.
 
-Use case: Acme's Entra has the groups "Sales" and "Finance". Mathilde links "Sales" to `messages:send` and the reach of `group=sales` in Acme's fleet. Charlotte moves from "Sales" to "Finance" while signed in at the gateway; Burak, in "Sales", leaves.
+**D7 ID-JAG at the gateway, through pagasae.** The gateway takes the JWT bearer grant and hands the ID-JAG to pagasae by token exchange; pagasae checks it against the organisation's connected provider and finds the account as in D3, answering the account's grant (flow 3.2). The gateway federates only through pagasae (0054). It applies to people's MCP clients only: browsers keep the redirect sign-in, outside parties are approved (0056), core sees account tokens only (0058). It is tested against xaa.dev and an Okta developer organisation. Why: Thomas, "supporting ID-JAG feels like a nice buzzword thing to use in talks with CTO / CIO". Rejected: pagasae as the gateway's authorization server; waiting until Entra or Google issue ID-JAGs.
 
-**4.1 How pagasae learns a human's groups**
+## 5. Slices
 
-- (1) **From the provider at sign-in, with an application permission behind it.** Entra: pagasae's app registration asks for the `groups` claim (security groups); on overage, or between sign-ins, pagasae reads Microsoft Graph (`getMemberObjects`) with `GroupMember.Read.All`, and `User.Read.All` for whether the user is enabled, both consented by the tenant admin when the organisation connects (question 2). Google: no claim; pagasae reads the Admin SDK Directory API with its service account, which the super admin grants the read-only group and user scopes (domain-wide delegation) when the organisation connects. Goes wrong: connecting asks for read access to the whole directory's users and groups; an Entra admin may refuse that consent.
-- (2) **The token alone**: Entra's claim, with only groups assigned to pagasae's app so it stays under 200. Goes wrong: Google has no such claim, so Google organisations get no groups; group assignment to an app needs a paid Entra plan; read only at sign-in.
-- (3) **The human's own delegated permission at each sign-in.** Goes wrong: nothing can be read once they are signed out, so a leaver is never seen.
+Each ends usable and tested: unit tests with in-memory ports, integration tests against Postgres (Testcontainers), end-to-end tests against a fake provider that signs as the real one does. Each provider slice also passes one manual sign-in against a real test tenant before it ships.
 
-Pick: (1). One shape for both providers, the claim only as a shortcut, and the same read that finds groups finds a suspended user.
+| # | Slice | Repository | Rough size |
+| --- | --- | --- | --- |
+| 1 | Entra sign-in, reading groups off | pagasae | 2 |
+| 2 | Google sign-in, reading groups off | pagasae | 1 |
+| 3 | Entra groups | pagasae | 2 |
+| 4 | Google groups | pagasae | 1 |
+| 5 | ID-JAG | pagasae, gateway | 2 |
 
-**4.2 When groups are read, and a live sign-in**
+**Slice 1: Entra sign-in, reading groups off** (D1, D2, D3, D5, D6, flow 3.1)
 
-- (1) **At each identity sign-in only.** A change lands at the next sign-in, up to question 5's life. Goes wrong: Charlotte keeps sales' rights for hours; against 0052's "within 10 minutes".
-- (2) **At sign-in, again at each account token renewal at most every 10 minutes per account, and an hourly read of every account with an identity.** A changed membership lands in the next token (0058), so a live sign-in changes within about 20 minutes, with nothing rescoped in the fleet (0052). A user suspended or deleted in the provider disables the account (0055): tokens cut off, person ship and trierarchs released. This is `accounts.md` 14 (d)'s leaver half, by reading instead of a push. Goes wrong: provider calls per active account every 10 minutes (throttled per tenant by Graph, per project by Google); the hourly read grows with the organisation.
-- (3) **Pushed**: Entra SCIM to an endpoint pagasae serves, or Graph change notifications; Google has no push of group membership to an app like pagasae, so Google is read as (2). Goes wrong: two mechanisms, one per provider, and subscriptions to renew; worth it only if (2)'s reads throttle.
+- An organisation admin connects Entra from the organisation's page: Entra's admin consent for sign-in alone; pagasae records the tenant and its verified domains, and an event. A domain another organisation holds is refused with its reason.
+- An email at a connected domain goes to Entra with the email as hint; one at any other domain gets the link page as today; an unknown email gets the same page as a known one.
+- The ID token is refused unless its signature, its issuer for that tenant, its audience, nonce and end hold; a token from a tenant no organisation connected is refused even when the email matches.
+- The identity (tenant and object id) finds the account; the first time, the verified email does, and the identity is recorded with an event. No account: refused, "ask an organisation admin".
+- At a connected domain, only accounts allowed as argo get a sign-in link; accounts outside the connected domains keep theirs (D6).
+- A sign-in by identity ends after 8 hours; a refusal at Entra then ends the shared sign-in and every app's renewal.
+- Disconnecting returns every account of the organisation to the link.
 
-Pick: (2). One mechanism, within 0052's time, and it closes C3 for leavers who never sign in again. Question 5 then only says how long a shared sign-in lasts without a sign-in at the provider; the re-read already ends a suspended one. If the provider cannot be read, the last groups read are kept until a read succeeds: a failing provider removes nobody's rights and adds none.
+**Slice 2: Google sign-in, reading groups off** (as slice 1, for Google)
 
-**4.3 Where the link lives**
+- Connecting needs a sign-in of the Workspace domain (`hd`) and the DNS TXT record pagasae gives, checked on each domain before it routes.
+- The identity is Google's `sub`; the first match needs `email_verified`.
+- Every criterion of slice 1 holds for Google.
 
-- (1) **A pagasae group is linked to one provider group**: its members come from the provider only and cannot be edited by hand; everything else is 0052 as built (its scopes per fleet, its value of `group`, the default rule `group=#` to `group=#`, rules joining it to other labels). Hand-made groups stay beside linked ones. Goes wrong: an admin who wants "Sales plus two contractors" makes a second group for the two.
-- (2) **A provider group linked straight to fleet scopes and `group` values**, with no pagasae group. Goes wrong: two things that give rights, and 0052's account page, label and limits need a second path.
-- (3) **Every provider group mirrored into pagasae.** Goes wrong: hundreds of groups, all counting toward 50 per fleet (0031), and copying is what Thomas ruled out.
+**Slice 3: Entra groups** (D4, flow 3.1's group paths)
 
-Pick: (1). Linking is the whole step Thomas named, and the rest of 0052, the account page's aggregate and the label limits hold unchanged: only linked groups count. A provider group is linked by its id, shown by its name, so a rename in the provider moves nothing.
+- The connect page has the reading groups switch, off by default; on asks for `GroupMember.Read.All` and `User.Read.All`, later as well as at connect.
+- An admin links a pagasae group to an Entra group, picked by name, kept by id; its members cannot be edited by hand; a deleted Entra group shows the link broken and gives nothing.
+- Groups are read from the claim at sign-in, from Graph on overage, again at renewal at most every 10 minutes, and every hour for every account with an identity; a moved member's next account token carries the new scopes and `group` values.
+- A user disabled or deleted in Entra disables the account (0055) at the next read.
+- A failed read keeps the last groups read.
+- A member of a linked group with no account gets one at first sign-in, marked as from the provider; someone in no linked group is refused.
+- Turning off shows how many accounts lose rights, then empties every linked group; more than 20 values on one account are left out and shown on its page.
 
-**4.4 Who gets an account**
+**Slice 4: Google groups** (as slice 3, for Google)
 
-What it is: with reading groups off, the admin adds each account (question 3). With it on and groups linked, the provider already says who is in.
+- On asks the super admin to grant pagasae's service account the read-only group and user scopes; pagasae checks the grant before the switch shows on.
+- Groups and suspension are read through the Directory API; every criterion of slice 3 holds for Google.
 
-- (1) **An admin still adds each account**; linked groups give it rights. Goes wrong: membership in the provider is not enough, the copy Thomas ruled out, one account at a time.
-- (2) **A member of a linked group gets an account at their first identity sign-in**, found by identity after that (question 3); someone in no linked group is refused as today, "ask an organisation admin". An admin may still add accounts by hand (contractors, question 6). Goes wrong: accounts appear without an admin's step; the organisation's page must show where each came from.
+**Slice 5: ID-JAG** (D7, flow 3.2; needs part 6's answers)
 
-Pick: (2). The organisation still decides who is in, in its provider, the place it decides for every other tool; nobody the organisation did not put in a linked group gets in.
+- The gateway's token endpoint takes `urn:ietf:params:oauth:grant-type:jwt-bearer` for a registered client and states it in its metadata (`grant_types_supported`).
+- pagasae takes the ID-JAG by token exchange from the gateway's client and checks `typ` `oauth-id-jag+jwt`, the issuer against the organisation's connected provider, the signature against its keys, the audience against the gateway's issuer, `client_id` against the client, the end, and each ID-JAG used once.
+- The account is found by its recorded identity only; then the account token and the gateway's access token are issued as after a browser sign-in, with no refresh token.
+- Every unhappy path of 3.2 is a test.
+- End to end against xaa.dev: its identity provider's ID-JAG for the gateway's test address gets a working MCP session.
+- End to end against the Okta developer organisation: the same, for a test user of Okta.
 
-**4.5 Turning reading groups on or off later**
+## 6. Questions still open
 
-Use case: Globex connected Google with reading groups off. A year on it turns it on; later it turns it off again.
+**1. How does Okta come in?**
 
-- (1) **On: the admin consents to the read access then (Entra admin consent, Google's grant to the service account), and links groups from that moment; hand-made groups and accounts stay. Off: pagasae drops the read access it holds, every linked group gives nothing and loses its members, and the accounts it brought stay, with their hand-made groups and their own rights.** Before confirming off, the page says how many accounts lose rights. Goes wrong: turning off cuts rights at once for everyone who had them only through linked groups.
-- (2) **Off keeps each linked group's last members, frozen, as a hand-made group.** Goes wrong: members nobody updates any more, with rights that outlive their place in the provider; a leaver keeps them until disabled by hand.
-- (3) **Off is refused while a group is linked**: the admin unlinks each first. Goes wrong: the same cut, in many steps.
+What it is: an ID-JAG from Okta names an Okta issuer, and D7 checks it against the organisation's connected provider, so the organisation must connect Okta. Okta has no multi-tenant registration like D1's without a listing in its integration network.
 
-Pick: (1). Rights come only from what pagasae can still check; frozen members are a copy, which Thomas ruled out. Turning it off also ends 4.2's re-read, so question 5's life becomes the leaver's bound again.
+- (1) **Okta connects as a third provider, with its own registration per organisation** (the Okta admin creates pagasae's app and enters its domain, client id and secret), for sign-in and ID-JAG, reading groups off. Goes wrong: a secret per organisation, which D1 avoided for Entra and Google.
+- (2) **Okta only as an ID-JAG issuer**: the admin enters the Okta issuer, nothing else; no sign-in by Okta. Goes wrong: an identity is recorded only by a sign-in (D3), so no account is ever found.
+- (3) **(1) with Okta groups too.** Goes wrong: a third groups path for no customer asking.
 
-**5. How long does a sign-in by identity last before the provider is asked again?**
+Pick: (1). It is the least that makes an ID-JAG find an account, and the secret is the price of Okta's model, not ours.
 
-What it is: suspending Burak in the provider stops his next sign-in there, but his shared sign-in at pagasae lives on after his last use, and every app renews his account tokens from it. With reading groups on, 4.2's re-read sees the suspension within minutes and disables the account. With it off, pagasae reads nothing between sign-ins, so this life is the longest a leaver keeps access, unless an admin disables him in pagasae first.
+**2. Which fleet does an ID-JAG sign-in get, when the account has rights in several?**
 
-- (1) **A fixed life, 8 hours**: then the human signs in at the provider again, usually without a prompt; refused there, the shared sign-in ends and every renewal with it. Goes wrong: with reading groups off, a leaver keeps access up to 8 hours and one token's life, and the account stays active in pagasae, so the person ship and any trierarch it owns stay crewed until an admin disables it (0055); a person signs in again once a working day.
-- (2) **pagasae keeps the provider's refresh token and renews with it each hour**; a refusal ends the shared sign-in. Goes wrong: pagasae stores a refresh token per human, a secret of the company's, for a few hours less exposure; with reading groups off it still does not disable the account.
-- (3) **Nothing**: the admin disables in pagasae. Goes wrong: C3 fails with reading groups off.
+What it is: a browser sign-in asks the human (0054); the JWT bearer grant has no browser to ask.
 
-Pick: (1). No company secret kept, and one number. With reading groups on, it only bounds how long pagasae trusts the provider's sign-in. With it off, the organisation chose not to let pagasae read its directory, so the leaver's sign-ins end at the provider within 8 hours, and what an account crews ends when the admin disables it, as today. The connect page says so beside the switch.
+- (1) **Refused, `invalid_grant`, with "choose a fleet by signing in at the gateway's address"**. Goes wrong: an account in two fleets never uses ID-JAG.
+- (2) **The fleet the account last chose at a browser sign-in with that client.** Goes wrong: pagasae keeps a choice per account and client.
+- (3) **The organisation's first fleet.** Goes wrong: an order nobody chose decides where a human acts.
 
-**6. An account whose email the provider does not know**
+Pick: (1). Most organisations have one fleet (0051's sign-up creates one), and it never guesses.
 
-Use case: Acme connects Entra for acme.com. Priya, the contractor, has the account priya@northwind.com in Acme's organisation (0051), and Acme's tenant does not know her.
+**3. Where is xaa.dev's identity provider trusted?**
 
-- (1) **The identity rule of 0054 applies to emails in the connected domains; any other account keeps the sign-in link.** Goes wrong: Acme still disables Priya by hand, as today.
-- (2) **Entra guests**: Acme invites Priya as a guest in its tenant and she signs in through it. Goes wrong: Google Workspace has no such guest, so it holds for Entra only; guests grow unseen (`accounts.md` 2.2).
-- (3) **Refused**: once connected, only the tenant's members sign in, besides the accounts allowed as argo. Goes wrong: a contractor cannot work, against 0051.
+What it is: anyone can get an ID-JAG from `idp.xaa.dev` for any email, with no account.
 
-Pick: (1). It reads 0054's rule by domain, which routing does already, and changes nothing for contractors.
+- (1) **In tests and a test installation only**, never in hosted pagasae. Goes wrong: a live demonstration needs the Okta organisation.
+- (2) **Also hosted, for one demonstration organisation.** Goes wrong: an issuer anyone can sign for is trusted in production, even if for one organisation.
 
-**7. Where does ID-JAG apply?**
-
-What it is: with ID-JAG the person's MCP client, managed by the company, gets access to the gateway from the company identity provider and posts it to the gateway's token endpoint; no browser reaches the gateway or pagasae. It applies only there: the console, plugin pages and the gateway's own pages are browsers and keep the redirect; outside parties are approved, not signed in (0056); core sees account tokens only (0058).
-
-- (1) **The gateway takes the JWT bearer grant and hands the ID-JAG to pagasae (token exchange)**, which checks it against the organisation's connected provider and finds the account as in question 3, answering the account's grant. The gateway still federates only through pagasae (0054). Goes wrong: only Okta issues ID-JAGs today, so for Entra and Google it is built against nobody.
-- (2) **pagasae becomes the authorization server the gateway's MCP endpoint names**, so the ID-JAG's audience is pagasae. Goes wrong: moves the gateway's OAuth server (its clients, requests and parties, 0056) into pagasae.
-- (3) **Not yet: build (1) when a provider Aeolus connects issues ID-JAGs** (Entra or Google, or Okta added as a third). This work connects Entra and Google by OpenID Connect only. Goes wrong: an Acme on Claude Enterprise signs in once by browser per client, as today.
-
-Pick: (3), with (1) as its shape. A grant nobody can issue to us cannot be tested end to end, and a guarantee without a test does not exist.
+Pick: (1). An issuer that vouches for anyone must never reach a real fleet; the Okta developer organisation serves demonstrations.
