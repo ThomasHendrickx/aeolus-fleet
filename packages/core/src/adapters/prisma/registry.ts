@@ -570,7 +570,9 @@ const lastModelOfShip = Prisma.sql`
 
 /**
  * The newest ping to the ship `s` of the outer query: when it was sent, its
- * delivery's state, and when a pong acknowledged it, if one did.
+ * delivery's state, and when a pong acknowledged it, if one did. A ping is
+ * always addressed to its ship, so its message is found by the selector,
+ * through the index of pings (#1027).
  */
 const lastPingOfShip = Prisma.sql`
   SELECT m.created_at AS sent_at, d.state::text AS delivery_state,
@@ -580,7 +582,8 @@ const lastPingOfShip = Prisma.sql`
           ORDER BY e.seq LIMIT 1) AS answered_at
   FROM deliveries d
   JOIN messages m ON m.fleet_id = d.fleet_id AND m.id = d.message_id
-  WHERE d.fleet_id = s.fleet_id AND d.recipient_ship_id = s.id AND m.content_type = ${PING_CONTENT_TYPE}
+  WHERE d.fleet_id = s.fleet_id AND d.recipient_ship_id = s.id
+    AND m.fleet_id = s.fleet_id AND m.selector_ship_id = s.id AND m.content_type = ${PING_CONTENT_TYPE}
   ORDER BY m.created_at DESC, m.id DESC
   LIMIT 1`;
 
