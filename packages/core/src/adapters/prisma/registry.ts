@@ -679,6 +679,13 @@ export function createPrismaFleetListing(db: Db): FleetListing {
       ]);
       return { inFlight, open };
     },
+    statement: async (fleetId, shipId) => {
+      const [row] = await db.$queryRaw<unknown[]>`
+        SELECT statement, statement_version
+        FROM leases
+        WHERE fleet_id = ${fleetId} AND ship_id = ${shipId} AND ended_at IS NULL`;
+      return row === undefined ? null : toStatedStatement(row);
+    },
     ship: async (fleetId, shipId) => {
       const [row] = await db.$queryRaw<unknown[]>`
         SELECT s.id, s.fleet_id, s.name, s.type, s.kind::text AS kind, s.scopes, s.note, s.created_at, s.retired_at,

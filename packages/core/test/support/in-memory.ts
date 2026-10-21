@@ -1480,6 +1480,11 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         ).length,
       });
     },
+    statement: (fleetId, shipId) => {
+      const lease = state.leases.find((held) => held.fleetId === fleetId && held.shipId === shipId && held.endedAt === null);
+      const held = lease && state.leaseStatements.find((each) => each.leaseId === lease.id);
+      return Promise.resolve(held ? structuredClone(held.stated) : null);
+    },
   };
 
 

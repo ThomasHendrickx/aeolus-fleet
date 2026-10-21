@@ -1,4 +1,4 @@
-import type { ShipId } from '@aeolus-fleet/common';
+import type { DiscoveredStatement, ShipId } from '@aeolus-fleet/common';
 
 import type { ShipCaller } from '../shared/caller.js';
 import { refuse, type DomainError } from '../shared/errors.js';
@@ -8,6 +8,7 @@ import { readsShip, type ReadReachOf } from './read-reach.js';
 import { checkReaches, type CrewRequest } from './crew-request.js';
 import type { FleetListing } from './ports.js';
 import { shownReportOf, type ShownReport } from './ship-report.js';
+import { discoveredStatementOf } from './statement.js';
 
 /** One ship for its page: as the fleet lists it, with its crew's report whole, when it was commissioned and since when it is crewed. */
 export interface ShipDetail extends Omit<ListedShip, 'report' | 'crewRequest'> {
@@ -24,6 +25,8 @@ export interface ShipDetail extends Omit<ListedShip, 'report' | 'crewRequest'> {
   openDeliveries: number;
   /** Its owner by id and name; null for argo and the viewer (decision 0045). */
   owner: { id: ShipId; name: string } | null;
+  /** What it is and offers: its crew's statement while one is stated, else its commission note, else none (decision 0047). */
+  statement: DiscoveredStatement;
 }
 
 export type GetShip = (
@@ -55,7 +58,7 @@ export function createGetShip(deps: { listing: FleetListing; readReach: ReadReac
     if (facts.crewRequest?.assignedTo !== caller.shipId && !readsShip(await deps.readReach(caller), shipId)) {
       return ok(outsideReadReach(listed));
     }
-    const counts = await deps.listing.deliveryCounts(caller.fleetId, shipId);
+    const [counts, stated] = await Promise.all([deps.listing.deliveryCounts(caller.fleetId, shipId), deps.listing.statement(caller.fleetId, shipId)]);
     return ok({
       ...listed,
       report: facts.openLease?.report ? shownReportOf(facts.openLease.report) : null,
@@ -65,6 +68,7 @@ export function createGetShip(deps: { listing: FleetListing; readReach: ReadReac
       commissionedAt: facts.ship.createdAt,
       crewedSince: facts.openLease?.startedAt ?? null,
       owner: facts.owner,
+      statement: discoveredStatementOf(facts.ship, stated),
     });
   };
 }
