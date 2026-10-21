@@ -52,10 +52,10 @@ function mathildeToken(overrides: Record<string, unknown> = {}): string {
 }
 
 /** The console's server presenting a token: core's answer, with the cookie it sets. */
-function present(token: string): Promise<Response> {
+function present(token: string, headers: Record<string, string> = {}): Promise<Response> {
   return fetch(`${address}/trpc/console.presentAccountToken`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...headers },
     body: JSON.stringify({ token }),
   });
 }
@@ -138,6 +138,17 @@ describe("presenting an account token for the console's sign-in", () => {
 
     expect(answer.status).toBe(401);
     expect(answer.headers.get('set-cookie')).toBeNull();
+  });
+
+  it("refuses a browser on another site posting a token, so no page signs a visitor in as someone else's account", async () => {
+    const answer = await present(mathildeToken(), { origin: 'https://evil.example' });
+
+    expect(answer.status).toBe(403);
+    expect(answer.headers.get('set-cookie')).toBeNull();
+  });
+
+  it("takes a token from the console's origin too", async () => {
+    await expect(present(mathildeToken(), { origin: CONSOLE })).resolves.toMatchObject({ status: 200 });
   });
 });
 

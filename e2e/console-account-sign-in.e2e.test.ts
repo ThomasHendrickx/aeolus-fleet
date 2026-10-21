@@ -115,6 +115,19 @@ describe('an account signing in to the console', () => {
     await page.getByText('You have no rights in this fleet. Ask an organisation admin.').waitFor();
   });
 
+  it("says a sign-in that did not go through in an account's words, never argo's terminal link", async () => {
+    pagasae.signInAs(mathilde());
+    const page = await newPage();
+
+    await page.goto('/sign-in/done?code=forged&state=forged');
+
+    await page.waitForURL(`${web.url}/sign-in/failed`);
+    await page.getByText('Your sign-in didn’t go through. Sign in again.').waitFor();
+    await expect(page.getByText('npx aeolus-core sign-in').count()).resolves.toBe(0);
+    await page.getByTestId('sign-in-failed-again').click();
+    await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+  });
+
   it('signs out of every app: the shared sign-in ends at pagasae and the console asks to sign in again', async () => {
     pagasae.signInAs(mathilde());
     const page = await newPage();
