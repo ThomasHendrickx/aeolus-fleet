@@ -1,7 +1,9 @@
 # Publishes core's release train (decision 0049), @aeolus-fleet/common, core and
 # console, to npm with one version and tags v<version> the released commit, so a
-# version on npm always matches a tag in git. Then creates the GitHub Release for
-# the tag, with notes from the merged pull requests carrying the label <version>.
+# version on npm always matches a tag in git. It publishes the tarballs a run of
+# candidate.yml packed, the ones staging walked, and builds nothing itself. Then
+# creates the GitHub Release for the tag, with notes from the merged pull
+# requests carrying the label <version>.
 #
 # The only way the packages can be published: npm trusted publishing (OIDC) is
 # configured for exactly this file name, and tokens are disallowed (ADR 0011).
@@ -15,6 +17,15 @@ on:
         description: Version for common, core and console, MAJOR.MINOR.PATCH
         required: true
         type: string
+      candidate_run_id:
+        description: The run of candidate.yml whose tarballs are published, packed from this commit at this version
+        required: true
+        type: string
+      override_reason:
+        description: Only Thomas, to release without a passed staging walk; the reason goes into the log and the Release notes
+        required: false
+        type: string
+        default: ''
 
 permissions:
   id-token: write
@@ -22,8 +33,10 @@ permissions:
   contents: write
   # To read the merged pull requests carrying the release's label, for its notes.
   pull-requests: read
-  # To read CI's result for the released commit.
+  # To read CI's result for the released commit, and download the candidate's tarballs.
   actions: read
+  # To read the staging-walk status the walker set on the released commit.
+  statuses: read
 
 concurrency:
   group: release
@@ -91,25 +104,45 @@ jobs:
           gh run list --workflow ci.yml --commit "$GITHUB_SHA" --branch "$GITHUB_REF_NAME" --event push --json status,conclusion,url \
             | node scripts/release-gate.ts "$GITHUB_REF" "$GITHUB_SHA"
 
-      - name: Set the version on common, core and console
+      # The walker's staging-walk status on this commit, or Thomas's reason to release without it.
+      - name: Check the staging walk passed on the commit
         env:
+          GH_TOKEN: ${{ github.token }}
+          OVERRIDE_REASON: ${{ inputs.override_reason }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/statuses" \
+            | node scripts/staging-walk-gate.ts "$GITHUB_SHA" "$GITHUB_REPOSITORY_OWNER" "$GITHUB_ACTOR" "$OVERRIDE_REASON"
+
+      - name: Download the candidate's tarballs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.candidate_run_id }}
+        run: |
+          name=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/artifacts" --jq '.artifacts[0].name')
+          gh run download "$RUN_ID" --name "$name" --dir "$RUNNER_TEMP/candidate"
+          ls -l "$RUNNER_TEMP/candidate"
+
+      - name: Check the candidate is this commit at this version, byte for byte
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.candidate_run_id }}
           VERSION: ${{ inputs.version }}
-        run: npm run set-version -- "$VERSION"
+        run: |
+          gh run view "$RUN_ID" --json workflowName,conclusion,headSha \
+            | node scripts/candidate-check.ts "$VERSION" "$GITHUB_SHA" "$RUNNER_TEMP/candidate"
 
-      - run: npm run build
-
-      # Catch a problem in any package before the first one is published. A dry
+      # Catch a problem in any tarball before the first one is published. A dry
       # run refuses a version on npm already too, so it skips those, as the
       # publish steps below do.
       - name: Dry run all three
         env:
           VERSION: ${{ inputs.version }}
         run: |
-          for PACKAGE in @aeolus-fleet/common @aeolus-fleet/core @aeolus-fleet/console; do
-            if [[ "$(npm view "$PACKAGE@$VERSION" version 2>/dev/null)" == "$VERSION" ]]; then
-              echo "$PACKAGE@$VERSION is on npm already: skipped"
+          for NAME in common core console; do
+            if [[ "$(npm view "@aeolus-fleet/$NAME@$VERSION" version 2>/dev/null)" == "$VERSION" ]]; then
+              echo "@aeolus-fleet/$NAME@$VERSION is on npm already: skipped"
             else
-              npm publish --dry-run --access public --workspace "$PACKAGE"
+              npm publish --dry-run --access public "$RUNNER_TEMP/candidate/aeolus-fleet-$NAME-$VERSION.tgz"
             fi
           done
 
@@ -125,7 +158,7 @@ jobs:
           if [[ "$(npm view "$PACKAGE@$VERSION" version 2>/dev/null)" == "$VERSION" ]]; then
             echo "$PACKAGE@$VERSION is on npm already: skipped"
           else
-            npm publish --access public --workspace "$PACKAGE"
+            npm publish --access public "$RUNNER_TEMP/candidate/aeolus-fleet-common-$VERSION.tgz"
           fi
       - name: Publish @aeolus-fleet/core
         env:
@@ -135,7 +168,7 @@ jobs:
           if [[ "$(npm view "$PACKAGE@$VERSION" version 2>/dev/null)" == "$VERSION" ]]; then
             echo "$PACKAGE@$VERSION is on npm already: skipped"
           else
-            npm publish --access public --workspace "$PACKAGE"
+            npm publish --access public "$RUNNER_TEMP/candidate/aeolus-fleet-core-$VERSION.tgz"
           fi
       - name: Publish @aeolus-fleet/console
         env:
@@ -145,7 +178,7 @@ jobs:
           if [[ "$(npm view "$PACKAGE@$VERSION" version 2>/dev/null)" == "$VERSION" ]]; then
             echo "$PACKAGE@$VERSION is on npm already: skipped"
           else
-            npm publish --access public --workspace "$PACKAGE"
+            npm publish --access public "$RUNNER_TEMP/candidate/aeolus-fleet-console-$VERSION.tgz"
           fi
       # After all three are on npm. If this step fails, push the tag by hand: the
       # version is already published and cannot be released again.
@@ -162,6 +195,7 @@ jobs:
       - name: Create the GitHub Release v${{ inputs.version }}
         env:
           VERSION: ${{ inputs.version }}
+          OVERRIDE_REASON: ${{ inputs.override_reason }}
           GH_TOKEN: ${{ github.token }}
         run: |
           if gh release view "v$VERSION" > /dev/null 2>&1; then
@@ -170,4 +204,7 @@ jobs:
           fi
           gh pr list --state merged --label "$VERSION" --json number,title,url --limit 1000 \
             | node scripts/release-notes.ts "$VERSION" > "$RUNNER_TEMP/release-notes.md"
+          if [[ -n "${OVERRIDE_REASON// /}" ]]; then
+            printf '\n**Released without a passed staging walk**, by %s: %s\n' "$GITHUB_ACTOR" "$OVERRIDE_REASON" >> "$RUNNER_TEMP/release-notes.md"
+          fi
           gh release create "v$VERSION" --verify-tag --title "v$VERSION" --notes-file "$RUNNER_TEMP/release-notes.md"
