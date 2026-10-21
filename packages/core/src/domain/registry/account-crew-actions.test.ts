@@ -83,7 +83,9 @@ describe('an account giving a ship a new crew', () => {
     const issued = unwrap(await fleet.registry.recrewShip(mathilde, { shipId: fleet.near.shipId }));
 
     expect(issued.shipId).toBe(fleet.near.shipId);
-    expect(new Set(fleet.core.state.events.map(({ actor }) => actor))).toEqual(new Set([ACTOR]));
+    const actors = fleet.core.state.events.map(({ actor }) => actor);
+    expect(actors.length).toBeGreaterThan(0);
+    expect(actors).toEqual(actors.map(() => ACTOR));
   });
 
   it('is refused a ship out of its reach, which keeps its crew', async () => {

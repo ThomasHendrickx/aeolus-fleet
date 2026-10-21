@@ -4,7 +4,7 @@ import { checkReach, resolveSelector, type CheckReachTx, type NotReachable, type
 import { hasScope, type ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
-import { recordEvent, type EventLog } from '../shared/events.js';
+import { recordEvent, type Actor, type EventLog } from '../shared/events.js';
 import type { Notifier } from '../shared/notifier.js';
 import { err, ok, type Result } from '../shared/result.js';
 import { isAnswerToSender } from './answer.js';
@@ -156,7 +156,7 @@ export function checkedSend(input: MessageToSend, hasher: RequestHasher): Result
 /** Sends a checked request inside the caller's unit of work, as {@link createSendMessage} describes. */
 export async function sendWithin(
   deps: { tx: SendMessageTx; clock: Clock; ids: IdGenerator },
-  send: { caller: ShipCaller; request: CheckedSend },
+  send: { caller: ShipCaller; request: CheckedSend; actor?: Actor },
 ): Promise<Result<MessageSent, SendMessageRefusal>> {
   const { tx, clock, ids } = deps;
   const { fleetId, shipId: senderShipId } = send.caller;
@@ -209,6 +209,7 @@ export async function sendWithin(
       inReplyTo,
       isForced: send.request.isForced,
       ...(send.caller.signedInAccountId === undefined ? {} : { signedInAccountId: send.caller.signedInAccountId }),
+      ...(send.actor && { actor: send.actor }),
       at,
     },
   );

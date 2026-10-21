@@ -1,7 +1,7 @@
 import { isPingContentType, type AccountId, type DeliveryId, type DeliveryState, type FleetId, type LeaseId, type MessageId, type ShipId, type ShipKind } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
-import { shipActor, type NewEvent } from '../shared/events.js';
+import { shipActor, type Actor, type NewEvent } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { Recipient } from '../shared/selector.js';
 
@@ -93,11 +93,12 @@ export interface MessageToAccept {
   /** A forced send (decision 0040): its delivery comes first. */
   isForced: boolean;
   /**
-   * For a resend: the message it resends and the ship that resent it, the
-   * operator. The sender stays the original one, so an answer goes back to
-   * whoever asked; the operator is the actor of MessageAccepted.
+   * For a resend: the message it resends. The sender stays the original one,
+   * so an answer goes back to whoever asked.
    */
-  resendOf?: { messageId: MessageId; by: ShipId };
+  resendOf?: { messageId: MessageId };
+  /** Who caused MessageAccepted when it is not the sender: the actor resending it, or an account pinging as argo. */
+  actor?: Actor;
   /** The account signed in to the console as argo when argo sends or resends it (decision 0054). */
   signedInAccountId?: AccountId;
   at: Date;
@@ -190,7 +191,7 @@ export function acceptMessage(
         fleetId,
         type: 'MessageAccepted',
         occurredAt: at,
-        actor: send.signedInAccountId === undefined ? shipActor(resendOf?.by ?? senderShipId) : { kind: 'ship', shipId: resendOf?.by ?? senderShipId, signedInAccountId: send.signedInAccountId },
+        actor: send.actor ?? (send.signedInAccountId === undefined ? shipActor(senderShipId) : { kind: 'ship', shipId: senderShipId, signedInAccountId: send.signedInAccountId }),
         shipId: recipient.kind === 'ship' ? recipient.shipId : undefined,
         messageId,
         deliveryId,

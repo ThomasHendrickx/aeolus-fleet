@@ -196,7 +196,7 @@ export const fleetRouter = router({
    * its model is working. Pings never stack: while one waits unanswered, this
    * answers with that one. Never argo, a ship awaiting crew or a retired one.
    */
-  ping: scopedProcedure('fleet:manage')
+  ping: actorScopedProcedure('fleet:manage')
     .meta({
       description: [
         'Needs fleet:manage. Pings a crewed ship: its session answers with pong, proving it is working.',
@@ -249,7 +249,7 @@ export const fleetRouter = router({
    * Asks that a ship be kept crewed, with crew settings it checks but never acts on,
    * replacing any request it holds (decision 0029).
    */
-  crewRequest: scopedProcedure('fleet:manage')
+  crewRequest: actorScopedProcedure('fleet:manage')
     .meta({
       description: [
         'Needs fleet:manage. Asks that a ship be kept crewed, with settings: one JSON object of at most 16 KB (harness, workspace, options,',
@@ -264,7 +264,7 @@ export const fleetRouter = router({
     .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.requestCrew(ctx.caller, input))),
 
   /** Removes a ship's crew request; its crew, if any, stays aboard. */
-  removeCrewRequest: scopedProcedure('fleet:manage')
+  removeCrewRequest: actorScopedProcedure('fleet:manage')
     .meta({
       description: ["Needs fleet:manage. Removes a ship's crew request. NOT_FOUND when it holds none."].join(' '),
     })
@@ -276,7 +276,7 @@ export const fleetRouter = router({
     }),
 
   /** Assigns a ship's crew request to a trierarch, only while it is unassigned (optimistic claim, decision 0029). */
-  assignCrew: scopedProcedure('crew:assign')
+  assignCrew: actorScopedProcedure('crew:assign')
     .meta({
       description: [
         "Needs crew:assign. Assigns a ship's crew request to a trierarch ship (any active ship of the fleet), only while it is unassigned:",
@@ -291,7 +291,7 @@ export const fleetRouter = router({
     }),
 
   /** The assigner writes why no trierarch can take a ship's unassigned crew request. */
-  explainCrewRequest: scopedProcedure('crew:assign')
+  explainCrewRequest: actorScopedProcedure('crew:assign')
     .meta({
       description: [
         "Needs crew:assign. Writes why no trierarch can take a ship's unassigned crew request (one line, at most 200 characters),",
@@ -432,7 +432,7 @@ export const fleetRouter = router({
    * A new crew for a crewed ship whose session is gone: a release and a new
    * starting prompt in one transaction. Its prompt, crew lines and secret are shown once.
    */
-  recrew: scopedProcedure('fleet:manage')
+  recrew: actorScopedProcedure('fleet:manage')
     .meta({
       description: [
         'Needs fleet:manage. A new crew for a crewed ship whose session is gone: releases it and answers a fresh starting prompt, one crew line per harness and the secret, shown once. Never argo.',
@@ -868,7 +868,7 @@ export const fleetRouter = router({
     .query(async ({ ctx }) => describedHealth(await ctx.useCases.readHealth(ctx.caller))),
 
   /** Lets an undeliverable or not handled delivery go: dismissed, kept in history. Dismissing it again is OK. */
-  dismiss: scopedProcedure('messages:resend')
+  dismiss: actorScopedProcedure('messages:resend')
     .input(dismissDeliveryInputSchema)
     .output(dismissDeliveryOutputSchema)
     .mutation(async ({ ctx, input }) => {
@@ -881,7 +881,7 @@ export const fleetRouter = router({
    * to the same recipient that names the original, which is dismissed.
    * Answers the new message; a second resend of the delivery answers the same.
    */
-  resend: scopedProcedure('messages:resend')
+  resend: actorScopedProcedure('messages:resend')
     .input(resendDeliveryInputSchema)
     .output(resendDeliveryOutputSchema)
     .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.resendDelivery(ctx.caller, input))),

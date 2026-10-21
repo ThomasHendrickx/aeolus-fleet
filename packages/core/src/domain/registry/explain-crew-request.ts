@@ -1,6 +1,6 @@
 import type { IdGenerator, ShipId } from '@aeolus-fleet/common';
 
-import { actorOf, type ShipCaller } from '../shared/caller.js';
+import { actorOf, type Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, type EventLog } from '../shared/events.js';
@@ -16,7 +16,7 @@ export interface ExplainCrewRequestTx {
 }
 
 export type ExplainCrewRequest = (
-  caller: ShipCaller,
+  caller: Caller,
   input: { shipId: ShipId; reason: string | null },
 ) => Promise<Result<undefined, DomainError<'SHIP_NOT_FOUND'> | ExplainCrewRequestRefusal>>;
 

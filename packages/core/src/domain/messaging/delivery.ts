@@ -423,7 +423,7 @@ export type DismissRefusal = DomainError<'DELIVERY_NOT_UNDELIVERABLE'>;
  */
 export function dismissDelivery(
   delivery: Delivery,
-  dismiss: { by: ShipId; at: Date },
+  dismiss: { by: Actor; at: Date },
 ): Result<{ delivery: Delivery; events: NewEvent[] }, DismissRefusal> {
   switch (delivery.state) {
     case 'dismissed':
@@ -437,7 +437,7 @@ export function dismissDelivery(
             fleetId: delivery.fleetId,
             type: 'DeliveryDismissed',
             occurredAt: dismiss.at,
-            actor: shipActor(dismiss.by),
+            actor: dismiss.by,
             shipId: delivery.recipient.kind === 'ship' ? delivery.recipient.shipId : undefined,
             messageId: delivery.messageId,
             deliveryId: delivery.id,
@@ -463,7 +463,7 @@ export function dismissDelivery(
  */
 export function dismissForResend(
   delivery: Delivery,
-  dismiss: { by: ShipId; at: Date },
+  dismiss: { by: Actor; at: Date },
 ): Result<{ delivery: Delivery; events: NewEvent[] }, DismissRefusal> {
   return delivery.state === 'undeliverable' || delivery.state === 'notHandled'
     ? dismissDelivery(delivery, dismiss)

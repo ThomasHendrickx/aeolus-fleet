@@ -73,7 +73,9 @@ describe('an account dismissing or resending an undeliverable delivery', () => {
     const { messageId } = unwrap(await fleet.messaging.resendDelivery(mathilde, { deliveryId }));
 
     expect(fleet.core.state.messages.find(({ id }) => id === messageId)?.senderShipId).toBe(fleet.argo.shipId);
-    expect(new Set(fleet.core.state.events.map(({ actor }) => actor))).toEqual(new Set([ACTOR]));
+    const actors = fleet.core.state.events.map(({ actor }) => actor);
+    expect(actors.length).toBeGreaterThan(0);
+    expect(actors).toEqual(actors.map(() => ACTOR));
   });
 
   it('finds none it does not read, and leaves it undeliverable', async () => {
