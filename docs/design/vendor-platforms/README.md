@@ -1,6 +1,6 @@
 # Aeolus beside vendor agent platforms
 
-Study for [#1021](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1021). It sets out the purpose, which Thomas agreed on 21 Oct 2026, what each platform is today, and the questions for Thomas. No code.
+Study for [#1021](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1021): its purpose, what each platform is today, Thomas's decisions of 21 Oct 2026 and the slices for 0.30.0. No code.
 
 Platforms: Microsoft Agent 365 with Copilot Studio, Google Gemini Enterprise, Salesforce Agentforce with MuleSoft Agent Fabric, AWS Bedrock AgentCore. Facts as of 21 Oct 2026, from the sources at the end.
 
@@ -99,66 +99,146 @@ Not the purpose:
 - **A machine client has no human at the authorize step.** AgentCore calls out with client credentials. 0056 lets only a signed-in account ask for an outside MCP client.
 - **A vendor's identity is a fact, not an owner.** An Entra Agent ID, an AWS workload ARN or a Google SPIFFE ID can be `oauthSubject` with its issuer (0059). Entra's sponsor and Anypoint's business group owner are not Aeolus owners.
 
-## 6. Questions for Thomas
+## 6. Decisions
 
-Each question stands on its own: what it is about, numbered options, and my pick with why.
+Thomas answered every question on 21 Oct 2026. Each one keeps its context, its options and why the option was chosen.
 
-### V1 What Aeolus is to these platforms
+### V1 What Aeolus is to these platforms (answered: 1)
 
-The purpose (part 1) puts vendor agents in the fleet as outside parties. What is left open is what Aeolus offers beside the platforms. All four keep an inventory of agents with owners and an approval step. Agent 365 and Agent Fabric already sync each other's inventories and those of Bedrock and Vertex. None of the four documents delivery that survives a crew or agent being down.
+All four platforms keep an inventory of agents with owners and an approval step. Agent 365 and Agent Fabric already sync each other's inventories, and those of Bedrock and Vertex. None documents delivery that survives a crew or agent being down.
 
 1. **Delivery and one network.** Aeolus carries messages between vendor agents and fleet ships, stored before OK, under network rules. It keeps no inventory of the vendors' agents beyond the proxy ships of approved outside parties.
-2. **Also an inventory across platforms.** Aeolus imports each vendor's inventory and shows every agent, approved or not.
-3. **Nothing vendor-specific yet.** Finish level 3 in interop's order and let vendor agents come in like any outside party.
+2. Also an inventory across platforms, importing each vendor's inventory.
+3. Nothing for vendors yet: finish level 3 in interop's order.
 
-**Pick 1.** Delivery is the gap all four leave open. A second inventory competes where the vendors already sync each other, and Aeolus adds least there.
+**Decided: 1.** Delivery is the gap all four leave open. A second inventory competes where the vendors already sync each other.
 
-### V2 Listing a fleet ship in a vendor's registry
+### V2 Listing a fleet ship in a vendor's registry (answered: 1)
 
-An admin may want a fleet ship to show beside their own agents in the vendor's registry or agent builder (outcome 3). Gemini Enterprise and Agent Fabric register an outside agent from its A2A card. AgentCore's registry syncs an A2A card or an MCP endpoint, and a curator approves it. Agent 365's registry takes no card or MCP entry: only the Agent 365 SDK (an Entra agent identity blueprint), a manifest upload or a partner integration. Copilot Studio, inside Microsoft's estate, does connect to an A2A agent or MCP server by URL.
+Gemini Enterprise and Agent Fabric register an outside agent from its A2A card. AgentCore's registry syncs an A2A card or an MCP endpoint, and a curator approves it. Agent 365's registry takes only the Agent 365 SDK, a manifest upload or a partner integration. Copilot Studio connects to an A2A agent or MCP server by URL.
 
-1. **No vendor code.** The gateway serves an A2A card and an MCP URL per alias, and the admin pastes or syncs them. In Microsoft's estate a fleet ship is reached through Copilot Studio, not listed in Agent 365.
-2. **Option 1 plus the Agent 365 SDK**, so each fleet ship gets an Entra agent identity and shows in Agent 365's registry.
-3. **An integration per vendor registry**, with the gateway pushing entries to each.
+1. **No vendor code.** The gateway serves an A2A card per alias and its MCP URL, and the admin pastes or syncs them. In Microsoft's estate a fleet ship is reached through Copilot Studio, not listed in Agent 365.
+2. Option 1 plus the Agent 365 SDK, an Entra agent identity per fleet ship.
+3. An integration per vendor registry.
 
-**Pick 1.** Three of the four take a card or URL already. Options 2 and 3 are vendor-specific work for zero customers (0013).
+**Decided: 1.** Three of the four take a card or URL already. Thomas: "cover the biggest section and get it shipped."
 
-### V3 Which A2A card versions the gateway serves
+### V3 Which A2A card versions the gateway serves (answered: 1)
 
-The gateway's A2A in (interop slice 4, #878) is designed on A2A 1.0, which puts the card at `/.well-known/agent-card.json`. Agent Fabric and AgentCore use 1.0. Gemini Enterprise pastes 0.3 cards and reaches 1.0 agents through SDK compatibility packages. Copilot Studio reads `/.well-known/agent.json`, the path from before 0.3. All four can already reach fleet ships over MCP in, which is built.
+A2A in (#878) is designed on A2A 1.0, with the card at `/.well-known/agent-card.json`. Agent Fabric and AgentCore use 1.0. Gemini Enterprise pastes 0.3 cards, and Copilot Studio reads `/.well-known/agent.json`, the path from before 0.3. All four reach fleet ships over MCP in.
 
 1. **1.0 only**, at `/.well-known/agent-card.json`.
-2. **1.0, plus a 0.3 card and the old path**, so Gemini Enterprise and Copilot Studio reach fleet ships by A2A too.
+2. 1.0, plus a 0.3 card and the old path.
 
-**Pick 1.** It is the version interop is built on, and every platform reaches the fleet by MCP in meanwhile. Each other version is a card shape to keep in step with its spec.
+**Decided: 1.** Thomas: "Let's bet that the others will evolve to 1.0 or higher as well."
 
-### V4 A vendor agent that signs in with no human
+### V4 A vendor agent that signs in with no human (answered: 1)
 
-The gateway's MCP in signs an outside MCP client in with the authorization code flow, and only a signed-in account of the fleet asks for it (0056): a human approves and names its owner. Copilot Studio and Agentforce fit, since an admin signs in when connecting. An AgentCore agent calls out with OAuth client credentials, so no human is at the authorize step and no account asks.
+MCP in serves only the authorization code flow, and only a signed-in account of the fleet asks for an outside MCP client (0056). An AgentCore agent calls out with OAuth client credentials, so no human is at the authorize step.
 
-1. **An approver adds it**, as an actor holding the approving scope adds an outside MCP server today. The approver names the client, its issuer and subject, the scopes and the owner.
-2. **Authorization code only**, as 0056 has it. Machine clients wait for federation (interop slice 6).
-3. **Federation now.** The gateway accepts tokens from the Entra, AWS and Google issuers and maps them to proxy ships.
+1. **An approver adds it**, as an actor holding the approving scope adds an outside MCP server: its name, scopes and owner. The client then signs in with client credentials.
+2. Authorization code only; machine clients wait for federation (interop slice 6).
+3. Federation now, accepting the Entra, AWS and Google issuers' tokens.
 
-**Pick 1.** It keeps 0056's rule that a human approves and names the owner, without needing a browser at the client. Federation stays slice 6.
+**Decided: 1.** A human approves and names the owner, as 0056 requires, with no browser at the client.
 
-### V5 Vendor identity in verified facts
+### V5 Vendor identity in verified facts (answered: 1)
 
-Each platform gives its agents an identity: an Entra agent ID, an AWS workload identity ARN, or a Google SPIFFE ID with a certificate, which covers Google's own runtimes only. 0059 lets a writer record what it checked about a ship from a closed list: `clientIdDocumentDomain`, `tlsHost`, `a2aCardDomain`, and `oauthSubject` with its issuer. Discovery shows these facts beside the statement.
+Each platform gives its agents an identity (an Entra agent ID, an AWS workload identity ARN, a Google SPIFFE ID). 0059's closed list holds `clientIdDocumentDomain`, `tlsHost`, `a2aCardDomain`, and `oauthSubject` with its issuer.
 
-1. **`oauthSubject` with its issuer.** The gateway writes the vendor token's subject and issuer it checked. No new check.
-2. **A check per vendor**, such as `entraBlueprint` or `awsArn`, added to the closed list.
+1. **`oauthSubject` with its issuer**, once the gateway checks a vendor's token. No new check.
+2. A check per vendor added to the closed list.
 
-**Pick 1.** Every vendor identity reaches the gateway as an OAuth token with an issuer and subject, so the existing check fits. A check per vendor grows the list with each vendor.
+**Decided: 1.** Every vendor identity reaches the gateway as an OAuth token with an issuer and subject. Under V4 the gateway issues the client's credentials itself and checks no vendor token, so it writes no `oauthSubject` fact for a vendor agent until it does.
 
-### V6 How to prove it
+### V6 How to prove it (answered: 1)
 
-Nothing in this study has been tried against a real vendor client. The gateway's MCP in is built: OAuth sign-in through pagasae, tools from discovery, and a bounded wait with a handle. A2A in is designed but not built (#878).
+The gateway's MCP in is built; A2A in is not (#878).
 
-1. **One tracer bullet first.** A Copilot Studio or Agentforce agent calls a fleet ship through the gateway's MCP in. Each gap found becomes an issue.
-2. **Wait for A2A in** and prove the vendor path over A2A first.
+1. **Tracer bullets first.** Real vendor agents call fleet ships through the gateway, and each gap becomes an issue.
+2. Wait for A2A in and prove the vendor path over A2A first.
 
-**Pick 1.** It needs nothing new built, and a real vendor client shows the sign-in and wait gaps sooner than a design does.
+**Decided: 1.** A real vendor client shows the sign-in and wait gaps sooner than a design does. It needs outside setup: vendor tenants and test parties (slices VS2 and VS3).
+
+## 7. Slices for 0.30.0
+
+All four slices are the gateway's. VS1 and VS2 need nothing from a vendor. VS3 needs the vendor tenants, and VS4 needs #878's A2A in too.
+
+### VS1 A client party that signs in with client credentials (V4)
+
+A backbone flow: how an outside party with no human signs in.
+
+```mermaid
+sequenceDiagram
+  participant Ap as Approver (gateway:approve)
+  participant G as Gateway
+  participant C as Core
+  participant V as Vendor agent (e.g. AgentCore)
+  Ap->>G: add client party: name, owner (person ship), scopes
+  alt outside parties off, or a scope the approver or the gateway's ship lacks
+    G-->>Ap: refused, nothing commissioned
+  else
+    G->>C: commission app proxy ship, type mcp-client, owner, scopes
+    alt commission answer lost
+      G-->>Ap: party awaiting crew; parties.crew gives a new secret
+    else
+      C-->>G: proxy ship and secret
+      G->>C: register as its crew
+      G-->>Ap: client id and client secret, answered once
+    end
+  end
+  Note over Ap,V: the admin stores the id and secret in the vendor (AgentCore Identity, outbound client credentials)
+  V->>G: POST /token, grant client_credentials, resource /mcp
+  alt unknown client, wrong secret or retired party
+    G-->>V: 401 invalid_client
+  else outside parties off
+    G-->>V: 400 unauthorized_client
+  else
+    G-->>V: access token (one hour) naming the party, no refresh token
+  end
+  V->>G: /mcp tools/list, tools/call
+  alt token expired or revoked
+    G-->>V: 401 with resource_metadata; the vendor asks /token again
+  else outside parties turned off since
+    G-->>V: 403
+  else
+    G->>C: discover and send as the proxy ship, within its reach
+    C-->>G: stored (OK), or "No rule matches"
+    G-->>V: the answer, a handle after MCP_WAIT_MAX_MS, or the refusal
+  end
+```
+
+Acceptance:
+1. An actor holding `gateway:approve` adds a client party with a name, an owner (a person ship) and scopes, only scopes it holds itself and the gateway's ship holds. The gateway commissions and crews its `mcp-client` proxy ship and answers the client id and secret once. Only hashes are kept.
+2. `/token` serves `client_credentials` for such a party with `client_secret_basic` and `resource` the gateway's MCP endpoint. It answers a one-hour access token naming the party and no refresh token. RFC 8414 metadata states the grant.
+3. Every unhappy path in the diagram answers as drawn, each proven by a test.
+4. A retire (`fleet:manage`) revokes its tokens at once, as for every client party.
+5. Its calls at `/mcp` are its proxy ship's, within its reach, the same as a client party signed in by authorization code.
+
+### VS2 Test parties (V6)
+
+Acceptance:
+1. A mini CRM: an MCP server over Streamable HTTP with contact tools (list, get, create), one slower than `MCP_WAIT_MAX_MS` and one that always fails. It takes a static bearer and OAuth client credentials.
+2. A machine client that gets a token as in VS1 and calls a fleet ship's capability at `/mcp`.
+3. The gateway's tests run MCP out against the mini CRM and VS1 against the machine client.
+
+### VS3 Vendor agents over MCP in (V6)
+
+Acceptance:
+1. A Copilot Studio agent, connected by an admin signed in through pagasae, lists a fleet ship's capabilities and calls one, getting its answer. The slow tool answers a handle.
+2. An AgentCore agent does the same, signed in by client credentials (VS1).
+3. An Agentforce agent does the same.
+4. A gateway guide states how to connect each of the three.
+5. Each gap found is an issue.
+
+### VS4 Vendor registries take a fleet ship's A2A card (V2, V3)
+
+After #878's A2A in.
+
+Acceptance:
+1. An alias's A2A 1.0 card at `/.well-known/agent-card.json` registers in AgentCore's Agent Registry as an AGENT record, in Agent Fabric, and in Gemini Enterprise's Agent Registry.
+2. A vendor agent found through one of them sends a fleet ship a message by A2A and gets its reply.
+3. Each gap found is an issue.
 
 ## Sources
 
