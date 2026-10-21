@@ -54,19 +54,28 @@ Numbered, each with options and my pick. Q1, Q2, Q4, Q5 and Q6 are the ones the 
 
 ### Q2. How do three repositories share one header part?
 
-1. **A new package `@aeolus-fleet/header` in core's train** (aeolus-fleet repository, versioned with core, as common is): React parts, props only, the tokens' single copy, its Storybook stories. pagasae and the gateway pin an exact version, as they pin common. Changes decisions 0008 (packages) and 0049 (core's train gains a package).
-2. **Its own repository and train**, per 0049's pattern. A header fix then releases alone, but it is one more repository, release workflow and minimum-version check for a small part.
-3. **Inside `@aeolus-fleet/common`.** No new package, but common is schemas and ids, and React in it would pull React into core's server and every plugin.
-4. **Copies per app, the design the one source.** Today's way for pagasae; four copies drift.
+Thomas, 21 Oct: "why cant that be part of common? I dont see the point of yet another package." No new package: the header is a subpath of `@aeolus-fleet/common`.
 
-**Pick: 1.** The console is the first user and the design system already lives in aeolus-fleet; a header change usually comes with a console change. Versioning: semver with core's train; pagasae and the gateway move by a version bump in their own PR. The data the header needs (Q1's shape) is in common, so the header package depends on common's types only.
+- **`@aeolus-fleet/common/header`**, a subpath export beside `.` and `./rules`: the header's React parts, props only, the atoms they stand on, the tokens' single copy and its Storybook stories. Versioned with common, in core's train; pagasae and the gateway already pin common, so a header change reaches them by the same bump.
+- **React only for those who import it.** `react`, `react-dom`, `@base-ui/react` and `lucide-react` are optional peer dependencies of common. Core, the trierarch, squadrons, the trierarch plugin and every other server-only user import `.` or `./rules`, never `./header`, so they neither install nor load React. Common's own `dependencies` stay zod alone.
+- **Client-safe by construction (0033).** Nothing under `src/header` imports zod, `../schemas`, common's root (`.`, which re-exports the schemas), Node built-ins or server code. It may import React, Base UI, lucide, `../rules`, and types only (`import type`) from the rest of common: Q1's and Q4's shapes are schemas in common, and the header sees only their inferred types.
+- **The gateway's server render** (Q3) imports the same subpath, with `react-dom/server`.
+- **One copy of the atoms and tokens.** The atoms the header uses (Button, DropdownMenu, Sheet, Dialog, Avatar, Kbd, Tooltip) and `tokens.css` move from the console into `src/header`, and the console imports them from there. pagasae drops its own copies as it adopts the header.
+- **One Tailwind source.** The console and pagasae scan the subpath's built files for classes (`@source`); common also ships the header's built CSS for the gateway, which runs no Tailwind.
+
+What it changes:
+
+- **architecture.md.** The overview's "`@aeolus-fleet/common` holds what both share: schemas, ids and types" and the packages table's common row ("Zod schemas for every procedure, prefixed id helpers, shared types, error codes, event names"; depends on "Nothing but Zod") gain the header: "and the header every Aeolus app shows (`@aeolus-fleet/common/header`, React parts, client-safe)"; its dependencies become "Zod; React, Base UI and lucide as optional peers, for `./header` only". The console's row says it takes the header and its atoms from common. Decision 0008 keeps its package count.
+- **Lint, proposed (a new rule is Thomas's to approve).** No rule keeps `./rules` zod-free today; 0033 checks it with the bundle analyzer. A new block in `eslint.config.js`, `aeolus/common-header`, on `packages/common/src/header/**`, uses the existing `importRules` helper (static, `import()` and `import('x')` types alike) to refuse `zod`, `node:*`, `@prisma/*`, `@trpc/*`, `../schemas/**`, `../fleet/**`, `../trierarch/**`, `../ids/**` and common's root, allowing `import type` from them; and on the rest of common, refusing `react`, `react-dom`, `@base-ui/react`, `lucide-react` and `./header/**`, so the server side never pulls React in. A test in the existing lint tests proves each refusal. Applying the same block to `src/rules` would make 0033's rule for it a lint error too; I would propose that separately.
+
+Options considered: a new package in core's train (one more package for one part); its own repository and train (one more release workflow and version check); copies per app (four copies drift).
 
 ### Q3. How does the gateway render a React header?
 
 The gateway's pages are HTML strings from Fastify, with no React and no client script.
 
-1. **The gateway renders the header package on its server** (`react-dom/server`) into its page layout, and serves the package's prebuilt browser bundle for the menus and the palette, the bundle a file the package ships. One implementation; the gateway gains React as a dependency, only for the header.
-2. **The package also ships a framework-free header** (an HTML renderer and a small script). No React in the gateway, but two implementations of one part.
+1. **The gateway renders `@aeolus-fleet/common/header` on its server** (`react-dom/server`) into its page layout, and serves the header's prebuilt browser bundle and CSS for the menus and the palette, files common ships. One implementation; the gateway gains React as a dependency, only for the header.
+2. **Common also ships a framework-free header** (an HTML renderer and a small script). No React in the gateway, but two implementations of one part.
 3. **A web component** used by all three apps. One implementation, but not on the shadcn and Base UI atoms the console and pagasae use, so it looks and behaves apart from them.
 4. **The gateway's pages move to Next.js.** One stack, but a rewrite of every gateway page for a header.
 
@@ -76,7 +85,7 @@ The gateway's pages are HTML strings from Fastify, with no React and no client s
 
 1. **Each app serves a manifest of its pages and actions** (a fixed path, no sign-in: names, deep links, keywords, the rights each needs, no data). The open app's server reads the other apps' manifests, keeps them for a while, filters them by Q1's list and hands the palette only the entries to render (0033). An action in another app is a deep link (such as `?commission`); the target app checks rights on arrival and opens its dialog. Live data (ships, squadrons) stays the open app's own, as today.
 2. **pagasae holds every app's pages** in its Q1 answer. One call, but pagasae then knows every app's routes, and each app's release has to update pagasae.
-3. **The header package holds a static catalogue of every app's pages.** Simple, but a new gateway page needs a header release and a bump in every app: coupling.
+3. **The header subpath holds a static catalogue of every app's pages.** Simple, but a new gateway page needs a common release and a bump in every app: coupling.
 4. **The palette in the browser asks each app live.** Each app needs its own sign-in from another origin (CORS, cookies); breaks 0033.
 
 **Pick: 1.** Each app owns what it offers, no app knows another's internals, and the browser gets only rendered entries. The manifest's shape lives in common. Searching another app's live data (a ship from the gateway's pages) is out of scope until asked.
