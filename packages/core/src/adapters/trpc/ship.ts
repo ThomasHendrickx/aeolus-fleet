@@ -4,6 +4,8 @@ import {
   deregisterOutputSchema,
   handedInputSchema,
   handedOutputSchema,
+  deliveryInputSchema,
+  deliveryOutputSchema,
   handledInputSchema,
   handledOutputSchema,
   inboxInputSchema,
@@ -418,6 +420,27 @@ export const shipRouter = router({
     .query(async ({ ctx, input }) => {
       const sent = okOrThrow(await ctx.useCases.sentMessage(ctx.caller, input));
       return { ...sent, sentAt: sent.sentAt.toISOString(), delivery: { ...sent.delivery, since: sent.delivery.since.toISOString() } };
+    }),
+
+  /**
+   * Reads one acknowledged delivery of the crew's lease again, whole, while
+   * it is not yet handled, such as a message opened in one client and read
+   * again from another. Records nothing (decision 0040).
+   */
+  delivery: scopedCrewProcedure('messages:receive')
+    .meta({
+      description: [
+        'Needs messages:receive. Reads a delivery you acknowledged again, whole, as receive handed it, by its deliveryId (dlv_...),',
+        'until it is handled: to answer it or finish it from another client. It changes nothing: no attempt, no ack, no event.',
+        'Only one your crew acknowledged: one of yours in another state, such as handled, is refused as DELIVERY_NOT_ACKNOWLEDGED, naming its state;',
+        'any other is refused as DELIVERY_NOT_FOUND.',
+      ].join(' '),
+    })
+    .input(deliveryInputSchema)
+    .output(deliveryOutputSchema)
+    .query(async ({ ctx, input }) => {
+      const reread = okOrThrow(await ctx.useCases.readDelivery(ctx.crew, input));
+      return { ...reread, sentAt: reread.sentAt.toISOString() };
     }),
 
   /**

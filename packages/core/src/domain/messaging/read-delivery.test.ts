@@ -16,11 +16,9 @@ import { endLease } from '../registry/public.js';
 import type { Crew, ShipCaller } from '../shared/caller.js';
 import { shipActor } from '../shared/events.js';
 import { ok } from '../shared/result.js';
-import { createReadDelivery } from './read-delivery.js';
 
 let core: InMemoryCore;
 let useCases: ReturnType<typeof messagingUseCases>;
-let readDelivery: ReturnType<typeof createReadDelivery>;
 let fleetId: FleetId;
 let argo: ShipCaller;
 let scoutId: ShipId;
@@ -39,9 +37,10 @@ beforeEach(async () => {
   scout = crewAboard(core, { fleetId, shipId: scoutId });
   lookout = crewAboard(core, { fleetId, shipId: lookoutId });
   useCases = messagingUseCases(core);
-  readDelivery = createReadDelivery({ uow: core.uow });
   core.clock.advance(60_000);
 });
+
+const readDelivery = (crew: Crew, input: { deliveryId: DeliveryId }) => useCases.readDelivery(crew, input);
 
 const PAYLOAD = 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/25';
 

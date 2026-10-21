@@ -203,6 +203,19 @@ export const inboxOutputSchema = z.object({ waiting: z.int().min(0), forced: z.i
 
 export type InboxOutput = z.infer<typeof inboxOutputSchema>;
 
+/** Input of `ship.delivery`: the delivery the crew reads again. */
+export const deliveryInputSchema = z.object({ deliveryId: idSchema('delivery') });
+
+export type DeliveryInput = z.infer<typeof deliveryInputSchema>;
+
+/**
+ * Output of `ship.delivery`: an acknowledged delivery of the crew's lease,
+ * not yet handled, read again whole, as a receive hands one, with its state.
+ */
+export const deliveryOutputSchema = receivedDeliverySchema.extend({ state: deliveryStateSchema });
+
+export type DeliveryOutput = z.infer<typeof deliveryOutputSchema>;
+
 /** Input of `ship.sentMessage`: a message the caller sent. */
 export const sentMessageInputSchema = z.object({ messageId: idSchema('message') });
 

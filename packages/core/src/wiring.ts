@@ -56,6 +56,7 @@ import { createSignIn, type SignIn } from './domain/identity/sign-in.js';
 import { createSignOut, type SignOut } from './domain/identity/sign-out.js';
 import { createAcknowledgeDelivery, type AcknowledgeDelivery } from './domain/messaging/acknowledge-delivery.js';
 import { createHandOverDelivery, type HandOverDelivery } from './domain/messaging/hand-over-delivery.js';
+import { createReadDelivery, type ReadDelivery } from './domain/messaging/read-delivery.js';
 import { createReportHandled, type ReportHandled } from './domain/messaging/report-handled.js';
 import { createReportNotHandled, type ReportNotHandled } from './domain/messaging/report-not-handled.js';
 import { createTellOverdueDeliveries, type TellOverdueDeliveries } from './domain/messaging/tell-overdue-deliveries.js';
@@ -213,6 +214,7 @@ export interface UseCases {
   pushReceiveDeliveries: PushReceiveDeliveries;
   handOverDelivery: HandOverDelivery;
   reportHandled: ReportHandled;
+  readDelivery: ReadDelivery;
   reportNotHandled: ReportNotHandled;
   /** One pass of the 10 and 60 minute clocks; core runs it, never the API. */
   tellOverdueDeliveries: TellOverdueDeliveries;
@@ -415,6 +417,7 @@ export function createUseCases(options: {
     }),
     handOverDelivery: createHandOverDelivery({ uow, clock, ids }),
     reportHandled: createReportHandled({ uow, clock, ids }),
+    readDelivery: createReadDelivery({ uow }),
     reportNotHandled: createReportNotHandled({ uow, clock, ids }),
     tellOverdueDeliveries: createTellOverdueDeliveries({ fleets: createPrismaFleetRepository(prisma), pushedCrews: createPrismaPushedCrews(prisma), uow, clock, ids }),
     acknowledgeDelivery: createAcknowledgeDelivery({ uow, clock, ids }),
