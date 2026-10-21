@@ -1698,11 +1698,23 @@ describe("the operator's account at the API", () => {
     await next.console.setTheme.mutate({ theme: 'system' });
   });
 
+  it("sets argo's email and password, which then sign in", async () => {
+    const asArgo = await signedInArgo();
+
+    await expect(asArgo.console.setLogin.mutate({ email: 'mathilde@example.com', password: 'staple battery horse' })).resolves.toEqual({});
+    clock.advance(SIGN_IN_RATE_LIMIT.windowMs);
+    const signedIn = await signIn({ email: 'mathilde@example.com', password: 'staple battery horse' });
+    expect(signedIn.ok).toBe(true);
+    // Back to the login the other tests sign in with.
+    await client({ cookie: sessionCookieOf(signedIn), origin: CONSOLE }).console.setLogin.mutate(OPERATOR);
+  });
+
   it('refuses the account to a ship that is no console session', async () => {
     const agent = client({ authorization: `Bearer ${await crewedShip([...SCOPES])}` });
 
     await expect(codeOf(agent.console.account.query())).resolves.toBe('FORBIDDEN');
     await expect(codeOf(agent.console.setTheme.mutate({ theme: 'dark' }))).resolves.toBe('FORBIDDEN');
+    await expect(codeOf(agent.console.setLogin.mutate({ email: 'agent@example.com', password: 'staple battery horse' }))).resolves.toBe('FORBIDDEN');
   });
 });
 

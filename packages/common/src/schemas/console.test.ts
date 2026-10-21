@@ -6,6 +6,7 @@ import {
   accountOutputSchema,
   consoleSessionOutputSchema,
   redeemSignInTicketInputSchema,
+  setLoginInputSchema,
   setThemeInputSchema,
   signInInputSchema,
 } from './console.js';
@@ -94,6 +95,26 @@ describe('accountOutputSchema', () => {
     const viewer = { kind: 'viewer', session: account.session };
 
     expect(accountOutputSchema.parse(viewer)).toEqual(viewer);
+  });
+});
+
+describe('setLoginInputSchema', () => {
+  const login = { email: 'mathilde@example.com', password: 'a'.repeat(12) };
+
+  it('takes an email and a password of 12 characters, dropping the whitespace around the email', () => {
+    expect(setLoginInputSchema.parse({ ...login, email: ' mathilde@example.com ' })).toEqual(login);
+  });
+
+  it.each([
+    { label: 'an empty email', input: { ...login, email: ' ' }, message: 'Enter your email' },
+    { label: 'a password of 11 characters', input: { ...login, password: 'a'.repeat(11) }, message: 'Use a password of at least 12 characters' },
+    { label: 'a password of 1025 characters', input: { ...login, password: 'a'.repeat(1025) }, message: 'Use a password of at most 1024 characters' },
+  ])('refuses $label, saying why', ({ input, message }) => {
+    expect(setLoginInputSchema.safeParse(input).error?.issues[0]?.message).toBe(message);
+  });
+
+  it('takes a password of 1024 characters', () => {
+    expect(setLoginInputSchema.safeParse({ ...login, password: 'a'.repeat(1024) }).success).toBe(true);
   });
 });
 
