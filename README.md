@@ -154,7 +154,7 @@ npm run dev --workspace @aeolus-fleet/core         # API on http://127.0.0.1:400
 npm run dev --workspace @aeolus-fleet/console      # console on http://localhost:3000
 ```
 
-This repository's releases (common, core and console) are published only by its Release workflow (`.github/workflows/release.yml`), started by hand with a version. See [ADR 0011](docs/decisions/0011-release-via-trusted-publishing.md).
+This repository's releases (common, core and console) are published only by its Release workflow (`.github/workflows/release.yml`), started by hand with a version and the run of the Candidate workflow (`.github/workflows/candidate.yml`) whose tarballs it publishes. See [ADR 0011](docs/decisions/0011-release-via-trusted-publishing.md).
 
 ## Community
 
