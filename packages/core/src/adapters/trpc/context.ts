@@ -103,6 +103,7 @@ import type { ReadInbox } from '../../domain/shared/read-inbox.js';
 import type { ReadMessage } from '../../domain/shared/read-message.js';
 import type { ReadSentMessage } from '../../domain/shared/read-sent-message.js';
 import type { ReadNeedsAttention } from '../../domain/shared/read-needs-attention.js';
+import type { ReadFleetName } from '../../domain/registry/read-fleet-name.js';
 import type { ReadHealth } from '../../domain/shared/read-health.js';
 import type { ReadShipWay } from '../../domain/shared/read-ship-way.js';
 import type { ReadShipMessages } from '../../domain/shared/read-ship-messages.js';
@@ -215,6 +216,7 @@ export interface UseCases {
   getInstallationSettings: GetInstallationSettings;
   setInstallationSettings: SetInstallationSettings;
   getFleetLimits: GetFleetLimits;
+  readFleetName: ReadFleetName;
   setFleetLimits: SetFleetLimits;
   readFleetLimits: ReadFleetLimits;
 }

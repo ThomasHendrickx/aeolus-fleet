@@ -60,6 +60,8 @@ export const consoleSessionKindSchema = z.enum(['operator', 'viewer']);
  */
 export const consoleSessionOutputSchema = z.object({
   fleetId: idSchema('fleet'),
+  /** The fleet's name, which the header's title shows (header design H8). */
+  fleetName: z.string(),
   expiresAt: z.iso.datetime(),
   kind: consoleSessionKindSchema,
   scopes: z.array(scopeSchema),
