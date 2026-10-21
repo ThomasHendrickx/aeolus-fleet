@@ -2,7 +2,7 @@ import type { Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
-import { consoleReaderOf, isForSessionOf } from './notice.js';
+import { consoleSignInOf, isForSessionOf } from './notice.js';
 import type { NoticeDismissals, NoticeRepository } from './ports.js';
 
 export type DismissNoticeRefusal = DomainError<'NOTICE_NOT_FOUND' | 'NOTICE_NOT_DISMISSIBLE'>;
@@ -16,15 +16,15 @@ export type DismissNotice = (caller: Caller, input: { noticeId: string }) => Pro
  */
 export function createDismissNotice(deps: { notices: NoticeRepository; dismissals: NoticeDismissals; clock: Clock }): DismissNotice {
   return async (caller, { noticeId }) => {
-    const reader = consoleReaderOf(caller);
-    const notice = reader && (await deps.notices.read()).find((each) => each.id === noticeId && isForSessionOf(each, reader.kind));
-    if (reader === undefined || notice === undefined) {
+    const signIn = consoleSignInOf(caller);
+    const notice = signIn && (await deps.notices.read()).find((each) => each.id === noticeId && isForSessionOf(each, signIn.kind));
+    if (signIn === undefined || notice === undefined) {
       return refuse('NOTICE_NOT_FOUND', `No notice ${noticeId} shows in this console session`);
     }
     if (!notice.isDismissible) {
       return refuse('NOTICE_NOT_DISMISSIBLE', `Notice ${noticeId} stays: the installation made it not dismissible`);
     }
-    await deps.dismissals.dismiss({ fleetId: caller.fleetId, reader, noticeId, at: deps.clock.now() });
+    await deps.dismissals.dismiss({ fleetId: caller.fleetId, signIn, noticeId, at: deps.clock.now() });
     return ok(undefined);
   };
 }

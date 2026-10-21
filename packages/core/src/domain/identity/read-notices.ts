@@ -1,5 +1,5 @@
 import type { Caller } from '../shared/caller.js';
-import { consoleReaderOf, isForSessionOf, type Notice } from './notice.js';
+import { consoleSignInOf, isForSessionOf, type Notice } from './notice.js';
 import type { NoticeDismissals, NoticeRepository } from './ports.js';
 
 export type ReadNotices = (caller: Caller) => Promise<Notice[]>;
@@ -12,11 +12,11 @@ export type ReadNotices = (caller: Caller) => Promise<Notice[]>;
  */
 export function createReadNotices(deps: { notices: NoticeRepository; dismissals: NoticeDismissals }): ReadNotices {
   return async (caller) => {
-    const reader = consoleReaderOf(caller);
-    if (reader === undefined) {
+    const signIn = consoleSignInOf(caller);
+    if (signIn === undefined) {
       return [];
     }
-    const [notices, dismissed] = await Promise.all([deps.notices.read(), deps.dismissals.dismissed({ fleetId: caller.fleetId, reader })]);
-    return notices.filter((notice) => isForSessionOf(notice, reader.kind) && !(notice.isDismissible && dismissed.includes(notice.id)));
+    const [notices, dismissed] = await Promise.all([deps.notices.read(), deps.dismissals.dismissed({ fleetId: caller.fleetId, signIn })]);
+    return notices.filter((notice) => isForSessionOf(notice, signIn.kind) && !(notice.isDismissible && dismissed.includes(notice.id)));
   };
 }

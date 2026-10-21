@@ -3,7 +3,7 @@ import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
 import type { GuideProgress } from './guide.js';
-import { consoleReaderOf, isForSessionOf } from './notice.js';
+import { consoleSignInOf, isForSessionOf } from './notice.js';
 import type { GuideProgressRepository, GuideRepository } from './ports.js';
 
 export type RecordGuideProgressRefusal = DomainError<'GUIDE_NOT_FOUND' | 'GUIDE_STEP_NOT_FOUND'>;
@@ -18,15 +18,15 @@ export type RecordGuideProgress = (caller: Caller, progress: GuideProgress) => P
  */
 export function createRecordGuideProgress(deps: { guide: GuideRepository; progress: GuideProgressRepository; clock: Clock }): RecordGuideProgress {
   return async (caller, { step, state }) => {
-    const reader = consoleReaderOf(caller);
+    const signIn = consoleSignInOf(caller);
     const guide = await deps.guide.read();
-    if (reader === undefined || guide === null || !isForSessionOf(guide, reader.kind)) {
+    if (signIn === undefined || guide === null || !isForSessionOf(guide, signIn.kind)) {
       return refuse('GUIDE_NOT_FOUND', 'No guide shows in this console session');
     }
     if (step >= guide.steps.length) {
       return refuse('GUIDE_STEP_NOT_FOUND', `The guide has ${String(guide.steps.length)} steps, so no step ${String(step + 1)}`);
     }
-    await deps.progress.record({ fleetId: caller.fleetId, reader, step, state, at: deps.clock.now() });
+    await deps.progress.record({ fleetId: caller.fleetId, signIn, step, state, at: deps.clock.now() });
     return ok(undefined);
   };
 }

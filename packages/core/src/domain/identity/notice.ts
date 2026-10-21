@@ -17,14 +17,14 @@ export interface Notice {
 }
 
 /**
- * Who reads notices and the guide in the console, and keeps what it dismissed
- * and where it is: a console session, by its id, or an account signed in as
- * itself, by its account id (accounts design, A9).
+ * A console sign-in (blueprint, Sign-in), which reads notices and the guide
+ * and keeps what it dismissed and where it is: as argo or the viewer, by its
+ * console session's id; as an account, by its account id (accounts design, A9).
  */
-export type ConsoleReader = { kind: ShipKind; consoleSessionId: ConsoleSessionId } | { kind: 'account'; accountId: AccountId };
+export type ConsoleSignIn = { kind: ShipKind; consoleSessionId: ConsoleSessionId } | { kind: 'account'; accountId: AccountId };
 
-/** The caller as a console reader; none for a ship calling without a console session, or the installation. */
-export function consoleReaderOf(caller: Caller): ConsoleReader | undefined {
+/** The caller as a console sign-in; none for a ship calling without a console session, or the installation. */
+export function consoleSignInOf(caller: Caller): ConsoleSignIn | undefined {
   switch (caller.kind) {
     case 'account':
       return { kind: 'account', accountId: caller.accountId };
@@ -40,8 +40,8 @@ export function consoleReaderOf(caller: Caller): ConsoleReader | undefined {
   }
 }
 
-/** Whether a console reader sees the notice (or the guide, decision 0024): everyone's always, the operators' on argo, the viewers' on the viewer ship, the accounts' by an account. */
-export function isForSessionOf(notice: Pick<Notice, 'audience'>, kind: ConsoleReader['kind']): boolean {
+/** Whether a console sign-in sees the notice (or the guide, decision 0024): everyone's always, the operators' on argo, the viewers' on the viewer ship, the accounts' by an account. */
+export function isForSessionOf(notice: Pick<Notice, 'audience'>, kind: ConsoleSignIn['kind']): boolean {
   switch (notice.audience) {
     case 'everyone':
       return true;

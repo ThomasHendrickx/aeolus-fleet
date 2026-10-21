@@ -242,32 +242,32 @@ export function createPrismaCallerLookup(db: Db): CallerLookup {
 /** A console session's dismissals and guide progress go with the session; an account's are kept by its id in the fleet (accounts design, A9). */
 export function createPrismaNoticeDismissals(db: Db): NoticeDismissals {
   return {
-    dismissed: async ({ fleetId, reader }) => {
+    dismissed: async ({ fleetId, signIn }) => {
       const held =
-        reader.kind === 'account'
-          ? await db.accountNoticeDismissal.findMany({ where: { fleetId, accountId: reader.accountId }, select: { noticeId: true } })
-          : await db.noticeDismissal.findMany({ where: { fleetId, consoleSessionId: reader.consoleSessionId }, select: { noticeId: true } });
+        signIn.kind === 'account'
+          ? await db.accountNoticeDismissal.findMany({ where: { fleetId, accountId: signIn.accountId }, select: { noticeId: true } })
+          : await db.noticeDismissal.findMany({ where: { fleetId, consoleSessionId: signIn.consoleSessionId }, select: { noticeId: true } });
       return held.map(({ noticeId }) => noticeId);
     },
-    dismiss: async ({ fleetId, reader, noticeId, at }) => {
-      if (reader.kind === 'account') {
-        await db.accountNoticeDismissal.createMany({ data: [{ fleetId, accountId: reader.accountId, noticeId, dismissedAt: at }], skipDuplicates: true });
+    dismiss: async ({ fleetId, signIn, noticeId, at }) => {
+      if (signIn.kind === 'account') {
+        await db.accountNoticeDismissal.createMany({ data: [{ fleetId, accountId: signIn.accountId, noticeId, dismissedAt: at }], skipDuplicates: true });
         return;
       }
-      await db.noticeDismissal.createMany({ data: [{ fleetId, consoleSessionId: reader.consoleSessionId, noticeId, dismissedAt: at }], skipDuplicates: true });
+      await db.noticeDismissal.createMany({ data: [{ fleetId, consoleSessionId: signIn.consoleSessionId, noticeId, dismissedAt: at }], skipDuplicates: true });
     },
   };
 }
 
 export function createPrismaGuideProgress(db: Db): GuideProgressRepository {
   return {
-    progress: async ({ fleetId, reader }) =>
-      reader.kind === 'account'
-        ? await db.accountGuideProgress.findFirst({ where: { fleetId, accountId: reader.accountId }, select: { step: true, state: true } })
-        : await db.guideProgress.findFirst({ where: { fleetId, consoleSessionId: reader.consoleSessionId }, select: { step: true, state: true } }),
-    record: async ({ fleetId, reader, step, state, at }) => {
-      if (reader.kind === 'account') {
-        const { accountId } = reader;
+    progress: async ({ fleetId, signIn }) =>
+      signIn.kind === 'account'
+        ? await db.accountGuideProgress.findFirst({ where: { fleetId, accountId: signIn.accountId }, select: { step: true, state: true } })
+        : await db.guideProgress.findFirst({ where: { fleetId, consoleSessionId: signIn.consoleSessionId }, select: { step: true, state: true } }),
+    record: async ({ fleetId, signIn, step, state, at }) => {
+      if (signIn.kind === 'account') {
+        const { accountId } = signIn;
         await db.accountGuideProgress.upsert({
           where: { fleetId_accountId: { fleetId, accountId } },
           create: { fleetId, accountId, step, state, recordedAt: at },
@@ -275,7 +275,7 @@ export function createPrismaGuideProgress(db: Db): GuideProgressRepository {
         });
         return;
       }
-      const { consoleSessionId } = reader;
+      const { consoleSessionId } = signIn;
       await db.guideProgress.upsert({
         where: { consoleSessionId },
         create: { fleetId, consoleSessionId, step, state, recordedAt: at },
