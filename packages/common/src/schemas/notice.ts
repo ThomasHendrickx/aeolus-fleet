@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-/** Who sees a notice: every console session, the operator's only, or viewer sessions only (decision 0023). */
-export const NOTICE_AUDIENCES = ['everyone', 'operators', 'viewers'] as const;
+/** Who sees a notice: every console session, the operator's only, viewer sessions only (decision 0023), or accounts signed in as themselves only (accounts design, A9). */
+export const NOTICE_AUDIENCES = ['everyone', 'operators', 'viewers', 'accounts'] as const;
 export const noticeAudienceSchema = z.enum(NOTICE_AUDIENCES);
 export type NoticeAudience = z.infer<typeof noticeAudienceSchema>;
 

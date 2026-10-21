@@ -1,9 +1,9 @@
-import type { ShipCaller } from '../shared/caller.js';
+import type { Caller } from '../shared/caller.js';
 import { NOT_STARTED, type GuideProgress, type GuideStep } from './guide.js';
-import { isForSessionOf } from './notice.js';
+import { consoleReaderOf, isForSessionOf } from './notice.js';
 import type { GuideProgressRepository, GuideRepository } from './ports.js';
 
-export type ReadGuide = (caller: ShipCaller) => Promise<{ steps: readonly GuideStep[]; progress: GuideProgress } | null>;
+export type ReadGuide = (caller: Caller) => Promise<{ steps: readonly GuideStep[]; progress: GuideProgress } | null>;
 
 /**
  * Use case: the guide a console session shows (decision 0024): the
@@ -14,12 +14,12 @@ export type ReadGuide = (caller: ShipCaller) => Promise<{ steps: readonly GuideS
  */
 export function createReadGuide(deps: { guide: GuideRepository; progress: GuideProgressRepository }): ReadGuide {
   return async (caller) => {
-    const { consoleSessionId } = caller;
+    const reader = consoleReaderOf(caller);
     const guide = await deps.guide.read();
-    if (consoleSessionId === undefined || guide === null || !isForSessionOf(guide, caller.kind)) {
+    if (reader === undefined || guide === null || !isForSessionOf(guide, reader.kind)) {
       return null;
     }
-    const progress = (await deps.progress.progress({ fleetId: caller.fleetId, consoleSessionId })) ?? NOT_STARTED;
+    const progress = (await deps.progress.progress({ fleetId: caller.fleetId, reader })) ?? NOT_STARTED;
     return { steps: guide.steps, progress: { ...progress, step: Math.min(progress.step, guide.steps.length - 1) } };
   };
 }

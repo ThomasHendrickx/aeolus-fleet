@@ -154,28 +154,22 @@ export const consoleRouter = router({
       return {};
     }),
 
-  /** The notices this console session shows above every page (decision 0023): those of its audience it has not dismissed. */
-  // An account's notices and guide come later (accounts design, A9): none yet.
-  notices: signedInProcedure
-    .output(consoleNoticesOutputSchema)
-    .query(async ({ ctx }) => (isShipCaller(ctx.caller) ? (await ctx.useCases.readNotices(ctx.caller)).map(noticeOutputOf) : [])),
+  /** The notices this console sign-in shows above every page (decision 0023; accounts design, A9): those of its audience it has not dismissed. */
+  notices: signedInProcedure.output(consoleNoticesOutputSchema).query(async ({ ctx }) => (await ctx.useCases.readNotices(ctx.caller)).map(noticeOutputOf)),
 
-  /** The guide this console session shows (decision 0024), with where it is in it; null when no guide is for its audience. */
+  /** The guide this console sign-in shows (decision 0024), with where it is in it; null when no guide is for its audience. */
   guide: signedInProcedure.output(consoleGuideOutputSchema).query(async ({ ctx }) => {
-    if (!isShipCaller(ctx.caller)) {
-      return null;
-    }
     const guide = await ctx.useCases.readGuide(ctx.caller);
     return guide === null ? null : { steps: guideStepsOutputOf(guide.steps), progress: guide.progress };
   }),
 
-  /** Records where this console session is in the guide, for itself only. */
-  recordGuideProgress: authenticatedProcedure.input(setGuideProgressInputSchema).mutation(async ({ ctx, input }) => {
+  /** Records where this console sign-in is in the guide, for itself only: a session by its id, an account by its account id. */
+  recordGuideProgress: signedInProcedure.input(setGuideProgressInputSchema).mutation(async ({ ctx, input }) => {
     okOrThrow(await ctx.useCases.recordGuideProgress(ctx.caller, input));
   }),
 
-  /** Dismisses a dismissible notice for this console session only. */
-  dismissNotice: authenticatedProcedure.input(dismissNoticeInputSchema).mutation(async ({ ctx, input }) => {
+  /** Dismisses a dismissible notice for this console sign-in only: a session by its id, an account by its account id. */
+  dismissNotice: signedInProcedure.input(dismissNoticeInputSchema).mutation(async ({ ctx, input }) => {
     okOrThrow(await ctx.useCases.dismissNotice(ctx.caller, input));
   }),
 
