@@ -1,7 +1,7 @@
 import { Boxes, Ship, ShipWheel, TagX, X } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-import { classNames } from '../../lib/class-names';
+import { classNames } from '@aeolus-fleet/common/header';
 import { chipTitleOf, type LabelChip as LabelChipData, type ChipMark } from '../../lib/labels';
 
 interface LabelChipProps {

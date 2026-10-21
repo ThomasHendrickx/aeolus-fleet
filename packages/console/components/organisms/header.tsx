@@ -1,8 +1,7 @@
 import { ChevronRight, Search, SquarePen } from 'lucide-react';
 import Link from 'next/link';
 
-import { Button } from '../atoms/button';
-import { Kbd } from '../atoms/kbd';
+import { Button, Kbd } from '@aeolus-fleet/common/header';
 import { LiveStatus, type LiveState } from '../molecules/live-status';
 
 /** A level above the current page, in the breadcrumb: a link up to it. */

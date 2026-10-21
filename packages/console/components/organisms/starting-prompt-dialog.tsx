@@ -6,10 +6,8 @@ import { useState } from 'react';
 
 import { shortDateTime } from '../../lib/relative-time';
 import { SOURCE_URL } from '../../lib/source';
-import { Button } from '../atoms/button';
+import { Button, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle } from '@aeolus-fleet/common/header';
 import { CodeBlock } from '../atoms/code-block';
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../atoms/dialog';
-import { dialogSurface } from '../atoms/dialog-surface';
 import { Skeleton } from '../atoms/skeleton';
 import { CrewLines } from '../molecules/crew-lines';
 import { InlineError } from '../molecules/inline-error';

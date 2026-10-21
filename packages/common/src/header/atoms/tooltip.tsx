@@ -2,7 +2,7 @@
 
 import { Tooltip as TooltipPrimitive } from '@base-ui/react/tooltip';
 
-import { classNames } from '../../lib/class-names';
+import { classNames } from '../class-names.js';
 
 /** Hover waits this long before a tooltip opens; keyboard focus opens it at once. */
 const HOVER_DELAY_MS = 500;

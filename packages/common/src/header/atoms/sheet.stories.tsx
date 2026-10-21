@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { Archive, Copy, Pencil, RefreshCw } from 'lucide-react';
 
-import { Button } from './button';
+import { Button } from './button.js';
 import {
   Sheet,
   SheetBody,
@@ -11,8 +11,7 @@ import {
   SheetFooter,
   SheetHeader,
   SheetTitle,
-} from './sheet';
-import { Skeleton } from './skeleton';
+} from './sheet.js';
 
 const meta = {
   title: 'Atoms/Sheet',
@@ -38,9 +37,9 @@ export const SideDesktop: Story = {
           <SheetDescription>One line of context</SheetDescription>
         </SheetHeader>
         <SheetBody className="flex flex-col gap-3">
-          <Skeleton className="h-3 w-52" />
-          <Skeleton className="h-3 w-full" />
-          <Skeleton className="h-20 w-full rounded-lg" />
+          <div aria-hidden className="animate-pulse rounded-md bg-muted h-3 w-52" />
+          <div aria-hidden className="animate-pulse rounded-md bg-muted h-3 w-full" />
+          <div aria-hidden className="animate-pulse rounded-md bg-muted h-20 w-full rounded-lg" />
         </SheetBody>
         <SheetFooter>
           <Button size="sm">Dismiss</Button>

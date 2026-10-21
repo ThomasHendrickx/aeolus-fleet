@@ -11,7 +11,7 @@ import type { LabelChip as LabelChipData } from '../../../../lib/labels';
 import { machineLabelsText, noMatchWords } from '../../../../lib/machine-labels';
 import { fullDateTime, relativeTime, sinceTime } from '../../../../lib/relative-time';
 import { capitalised, OPERATOR_NAME } from '../../../../lib/sentence';
-import { Button } from '../../../../components/atoms/button';
+import { Button } from '@aeolus-fleet/common/header';
 import { InlineError } from '../../../../components/molecules/inline-error';
 import { LabelChip } from '../../../../components/molecules/label-chip';
 import { StatusBadge } from '../../../../components/molecules/status-badge';

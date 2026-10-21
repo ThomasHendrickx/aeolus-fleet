@@ -1,13 +1,12 @@
 import type { ListedMessage, MessageId, ShipId } from '@aeolus-fleet/common';
 import { ArrowDownLeft, ArrowUpRight, Mail, RotateCw } from 'lucide-react';
 
-import { classNames } from '../../../../lib/class-names';
+import { Button, classNames } from '@aeolus-fleet/common/header';
 import { messageLine } from '../../services/message-line';
 import { deliveryStatus } from '../../services/message-way';
 import { fullDateTime, relativeTime } from '../../../../lib/relative-time';
 import { ship, text, type SentencePart } from '../../../../lib/sentence';
 import { threadsOf } from '../../services/threads';
-import { Button } from '../../../../components/atoms/button';
 import { EmptyState } from '../../../../components/molecules/empty-state';
 import { InlineError } from '../../../../components/molecules/inline-error';
 import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';

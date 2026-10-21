@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 
-import { Button } from '../../../components/atoms/button';
+import { Button } from '@aeolus-fleet/common/header';
 import { NEEDS_CREW_BY_HAND, NEEDS_CREW_WITH_PLUGIN, NOW } from '../../../lib/fixtures/machines.fixtures';
 import { NeedsCrewList } from './needs-crew-list';
 

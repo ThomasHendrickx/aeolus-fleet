@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { Copy, Ellipsis, PanelLeft, Plus, Search, Send, SquarePen } from 'lucide-react';
 
-import { Button } from './button';
+import { Button } from './button.js';
 
 const meta = {
   title: 'Atoms/Button',

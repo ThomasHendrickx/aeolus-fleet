@@ -1,3 +1,4 @@
+import { Button } from '@aeolus-fleet/common/header';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { CircleAlert } from 'lucide-react';
 
@@ -10,22 +11,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from './alert-dialog';
-import { Button } from './button';
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from './dialog';
-import { Input } from './input';
-import { Label } from './label';
 
 const meta = {
-  title: 'Atoms/Dialog',
-  component: Dialog,
+  title: 'Atoms/AlertDialog',
+  component: AlertDialog,
   parameters: { layout: 'fullscreen' },
   decorators: [
     (Story) => (
@@ -34,7 +23,7 @@ const meta = {
       </div>
     ),
   ],
-} satisfies Meta<typeof Dialog>;
+} satisfies Meta<typeof AlertDialog>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -70,26 +59,3 @@ function ReleaseConfirm({ isBusy = false, hasError = false }: { isBusy?: boolean
 export const Confirm: Story = { render: () => <ReleaseConfirm /> };
 export const ConfirmBusy: Story = { render: () => <ReleaseConfirm isBusy /> };
 export const ConfirmError: Story = { render: () => <ReleaseConfirm hasError /> };
-
-export const Form: Story = {
-  render: () => (
-    <Dialog defaultOpen>
-      <DialogContent size="md">
-        <DialogHeader>
-          <DialogTitle>Rename reviewer-01</DialogTitle>
-          <DialogDescription>
-            Agents that address it by its old name stop reaching it. History and ids stay.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="new-name">New name</Label>
-          <Input id="new-name" isMono defaultValue="reviewer-01" />
-        </div>
-        <DialogFooter>
-          <DialogClose render={<Button />}>Cancel</DialogClose>
-          <Button variant="primary">Rename ship</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  ),
-};

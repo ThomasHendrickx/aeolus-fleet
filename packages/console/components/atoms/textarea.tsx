@@ -1,7 +1,7 @@
 import { cva, type VariantProps } from 'class-variance-authority';
 import type { ComponentProps } from 'react';
 
-import { classNames } from '../../lib/class-names';
+import { classNames } from '@aeolus-fleet/common/header';
 
 /**
  * shadcn Textarea, themed to docs/design/png/Textarea.png: mono 13 px for

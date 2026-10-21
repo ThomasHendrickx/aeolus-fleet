@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { Send } from 'lucide-react';
 
-import { Button } from '../atoms/button';
+import { Button } from '@aeolus-fleet/common/header';
 import { SendShortcutHint } from './send-shortcut-hint';
 
 const meta = {

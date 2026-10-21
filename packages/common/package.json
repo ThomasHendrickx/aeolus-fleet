@@ -1,7 +1,7 @@
 {
   "name": "@aeolus-fleet/common",
   "version": "0.0.0",
-  "description": "Shared schemas and ids for Aeolus packages.",
+  "description": "Shared schemas and ids for Aeolus packages, and the header every Aeolus web app shows.",
   "keywords": [
     "aeolus"
   ],
@@ -26,18 +26,59 @@
       "@aeolus-fleet/source": "./src/rules/index.ts",
       "types": "./dist/rules/index.d.ts",
       "default": "./dist/rules/index.js"
-    }
+    },
+    "./header": {
+      "@aeolus-fleet/source": "./src/header/index.ts",
+      "types": "./dist/header/index.d.ts",
+      "default": "./dist/header/index.js"
+    },
+    "./header/tokens.css": "./dist/header/tokens.css"
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "tsc --project tsconfig.build.json",
+    "build": "tsc --project tsconfig.build.json && cp src/header/tokens.css dist/header/tokens.css",
     "typecheck": "tsc --project tsconfig.json",
     "prepack": "cp ../../LICENSE LICENSE",
     "postpack": "rm LICENSE"
   },
   "dependencies": {
     "zod": "^4.6.5"
+  },
+  "peerDependencies": {
+    "@base-ui/react": "^1.8.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.51.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "tailwind-merge": "^3.7.0"
+  },
+  "peerDependenciesMeta": {
+    "@base-ui/react": {
+      "optional": true
+    },
+    "class-variance-authority": {
+      "optional": true
+    },
+    "clsx": {
+      "optional": true
+    },
+    "lucide-react": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    },
+    "tailwind-merge": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@storybook/nextjs-vite": "^10.6.1"
   }
 }

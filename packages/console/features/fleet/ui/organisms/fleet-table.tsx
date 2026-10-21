@@ -5,7 +5,7 @@ import { Eye, Flag, Plug, Search, Ship, SlidersHorizontal, UserRound } from 'luc
 import type { ReactNode } from 'react';
 
 import { useConsoleConstants } from '../../../../lib/console-constants';
-import { classNames } from '../../../../lib/class-names';
+import { Button, classNames, Sheet, SheetBody, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@aeolus-fleet/common/header';
 import {
   activeFilterCount,
   activeFilterLabels,
@@ -25,10 +25,8 @@ import { chipsOf, filterGroupsOf, pickedChips, type LabelContext } from '../../.
 import type { ShipInSquadron } from '../../../../lib/squadrons-view';
 import { crewRequestKeyWord, crewRequestKeysOf, type CrewRequestKey } from '../../../../lib/needs-crew';
 import { Badge } from '../../../../components/atoms/badge';
-import { Button } from '../../../../components/atoms/button';
 import { Input } from '../../../../components/atoms/input';
 import { Label } from '../../../../components/atoms/label';
-import { Sheet, SheetBody, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../../../../components/atoms/sheet';
 import { Switch } from '../../../../components/atoms/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableSortHead } from '../../../../components/atoms/table';
 import { EmptyState } from '../../../../components/molecules/empty-state';

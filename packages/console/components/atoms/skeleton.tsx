@@ -1,6 +1,6 @@
 import type { ComponentProps } from 'react';
 
-import { classNames } from '../../lib/class-names';
+import { classNames } from '@aeolus-fleet/common/header';
 
 /**
  * shadcn Skeleton, themed to docs/design/png/Skeleton.png: --secondary fill,

@@ -3,13 +3,8 @@
 import { Activity, CornerDownLeft, DraftingCompass, Inbox, Plus, Search, Shapes, Ship, SquarePen, UserPlus, Waves, type LucideIcon } from 'lucide-react';
 import { useId, useState, type KeyboardEvent } from 'react';
 
-import { classNames } from '../../../../lib/class-names';
+import { Avatar, Button, classNames, Dialog, DialogClose, DialogContent, dialogSurface, DialogTitle, Kbd } from '@aeolus-fleet/common/header';
 import { paletteGroups, paletteKeyOf, type PaletteItem } from '../../services/command-palette';
-import { Avatar } from '../../../../components/atoms/avatar';
-import { Button } from '../../../../components/atoms/button';
-import { Dialog, DialogClose, DialogContent, DialogTitle } from '../../../../components/atoms/dialog';
-import { dialogSurface } from '../../../../components/atoms/dialog-surface';
-import { Kbd } from '../../../../components/atoms/kbd';
 import { StatusBadge } from '../../../../components/molecules/status-badge';
 
 export type { PaletteItem } from '../../services/command-palette';

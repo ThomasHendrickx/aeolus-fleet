@@ -3,12 +3,11 @@
 import type { DeliveryId, MessageRecipient, Party, NeedsAttentionDelivery } from '@aeolus-fleet/common';
 import { ChevronRight, CircleCheck, RotateCw } from 'lucide-react';
 
-import { classNames } from '../../lib/class-names';
+import { Button, classNames } from '@aeolus-fleet/common/header';
 import { attentionReason, canResend } from '../../lib/needs-attention';
 import { isJson } from '../../lib/payload';
 import { clockTime, duration, fullDateTime, shortDateTime } from '../../lib/relative-time';
 import { OPERATOR_NAME } from '../../lib/sentence';
-import { Button } from '../atoms/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../atoms/table';
 import { EmptyState } from '../molecules/empty-state';
 import { InlineError } from '../molecules/inline-error';

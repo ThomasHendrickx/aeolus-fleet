@@ -2,7 +2,7 @@ import { ChevronLeft, Search } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
-import { Button } from '../atoms/button';
+import { Button } from '@aeolus-fleet/common/header';
 import { LiveStatus, type LiveState } from '../molecules/live-status';
 import { AccountMenuSheet, type AccountMenuProps } from './account-menu';
 

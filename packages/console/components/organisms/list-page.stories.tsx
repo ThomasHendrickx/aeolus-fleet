@@ -4,7 +4,7 @@ import { Plus } from 'lucide-react';
 import { fn } from 'storybook/test';
 
 import { Badge } from '../atoms/badge';
-import { Button } from '../atoms/button';
+import { Button } from '@aeolus-fleet/common/header';
 import { ConsoleFrame } from './console-frame';
 import { ListPage } from './list-page';
 

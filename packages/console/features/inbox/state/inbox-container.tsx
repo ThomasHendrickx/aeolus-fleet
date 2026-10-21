@@ -12,7 +12,7 @@ import { isOpenEntry, type InboxEntry } from '../../../lib/inbox-entry';
 import { useLiveFleet } from '../../../lib/live-fleet';
 import { useNow } from '../../../lib/now';
 import { useSignInWhenSessionEnds } from '../../../lib/session';
-import { Button } from '../../../components/atoms/button';
+import { Button } from '@aeolus-fleet/common/header';
 import { showToast } from '../../../components/atoms/toast';
 import { ListPage } from '../../../components/organisms/list-page';
 import { TopBar } from '../../../components/organisms/top-bar';

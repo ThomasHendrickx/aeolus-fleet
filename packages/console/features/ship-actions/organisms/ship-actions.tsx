@@ -25,9 +25,7 @@ import { useRemoveMember, useSquadrons } from '../../../lib/squadrons-api';
 import type { Squadron } from '../../../lib/squadrons-schemas';
 import { otherMembersOfRole } from '../../../lib/squadrons-view';
 import { isUnclaimedPromptOut } from '../../../lib/starting-prompt';
-import { Button } from '../../../components/atoms/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../../components/atoms/dropdown-menu';
-import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../../../components/atoms/sheet';
+import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@aeolus-fleet/common/header';
 import { showToast } from '../../../components/atoms/toast';
 import type { StartingPromptDialogState } from '../../../components/organisms/starting-prompt-dialog';
 

@@ -5,8 +5,8 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { XIcon } from 'lucide-react';
 import type { ComponentProps } from 'react';
 
-import { classNames } from '../../lib/class-names';
-import { Button } from './button';
+import { classNames } from '../class-names.js';
+import { Button } from './button.js';
 
 /**
  * shadcn Sheet on Base UI Dialog (docs/design/png/Sheet.png). Right: the

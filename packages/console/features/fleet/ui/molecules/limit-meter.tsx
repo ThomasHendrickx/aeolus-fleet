@@ -1,6 +1,6 @@
 import { Infinity as NoLimit, Send, Ship, type LucideIcon } from 'lucide-react';
 
-import { classNames } from '../../../../lib/class-names';
+import { classNames } from '@aeolus-fleet/common/header';
 import { meterCaption, meterCount, meterState, resetTime, type MeterState } from '../../../../lib/limits';
 import { StatusBadge, type LimitState } from '../../../../components/molecules/status-badge';
 

@@ -4,23 +4,9 @@ import { ChevronsUpDown, CircleUserRound, CodeXml, Compass, LaptopMinimal, Loade
 import Link from 'next/link';
 import { useState } from 'react';
 
-import { classNames } from '../../lib/class-names';
+import { Avatar, Button, classNames, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger, Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from '@aeolus-fleet/common/header';
 import { SOURCE_URL } from '../../lib/source';
 import { sessionSince, THEME_LABELS, type Theme } from '../../lib/theme';
-import { Avatar } from '../atoms/avatar';
-import { Button } from '../atoms/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '../atoms/dropdown-menu';
-import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from '../atoms/sheet';
 import { Tabs, TabsList, TabsTrigger } from '../atoms/tabs';
 
 /** This console session: the device it signed in from ("Mac · Chrome"), when, and the account signed in as argo, by its id (decision 0054). */

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { startTransition, useOptimistic, useState } from 'react';
 
-import { Button } from '../../components/atoms/button';
+import { Button } from '@aeolus-fleet/common/header';
 import { ComposeMessage } from '../../features/compose/organisms/compose-message';
 import { OverviewMetrics } from '../../features/fleet/state/overview-metrics';
 import { CommissionShip } from '../../features/fleet/state/commission-ship';

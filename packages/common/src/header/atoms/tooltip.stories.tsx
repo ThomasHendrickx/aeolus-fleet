@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { Moon } from 'lucide-react';
 
-import { Button } from './button';
-import { Tooltip, TooltipContent, TooltipTrigger } from './tooltip';
+import { Button } from './button.js';
+import { Tooltip, TooltipContent, TooltipTrigger } from './tooltip.js';
 
 const meta = {
   title: 'Atoms/Tooltip',

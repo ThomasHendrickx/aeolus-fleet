@@ -13,8 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../../../components/atoms/alert-dialog';
-import { Button } from '../../../components/atoms/button';
-import { dialogSurface } from '../../../components/atoms/dialog-surface';
+import { Button, dialogSurface } from '@aeolus-fleet/common/header';
 import { ConsequenceList, type Consequence } from '../../../components/molecules/consequence-list';
 import { InlineError } from '../../../components/molecules/inline-error';
 import { TypedConfirm } from '../../../components/molecules/typed-confirm';

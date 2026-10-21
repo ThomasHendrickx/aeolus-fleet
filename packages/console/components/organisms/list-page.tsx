@@ -1,7 +1,7 @@
 import { SquarePen } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-import { Button } from '../atoms/button';
+import { Button } from '@aeolus-fleet/common/header';
 import type { LiveState } from '../molecules/live-status';
 import type { AccountMenuProps } from './account-menu';
 import { Header } from './header';

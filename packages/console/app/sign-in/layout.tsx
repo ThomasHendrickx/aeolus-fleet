@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-import { Avatar } from '../../components/atoms/avatar';
+import { Avatar } from '@aeolus-fleet/common/header';
 
 /**
  * Signed-out pages (docs/design/png/SignInLayout.png): the brand above the

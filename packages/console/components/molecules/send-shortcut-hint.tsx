@@ -1,5 +1,5 @@
 import { sendShortcutKeys, type ShortcutPlatform } from '../../lib/send-shortcut';
-import { Kbd } from '../atoms/kbd';
+import { Kbd } from '@aeolus-fleet/common/header';
 
 /**
  * The send shortcut's keys inside a primary Send button: ⌘↵ on a Mac, Ctrl ↵

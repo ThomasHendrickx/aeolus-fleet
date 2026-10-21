@@ -4,10 +4,9 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 import { useConsoleConstants } from '../../../../lib/console-constants';
-import { classNames } from '../../../../lib/class-names';
+import { Button, classNames } from '@aeolus-fleet/common/header';
 import { clockTime, dayDate, duration, fullDateTime, lastSeen, relativeTime, shortDateTime } from '../../../../lib/relative-time';
 import { Badge } from '../../../../components/atoms/badge';
-import { Button } from '../../../../components/atoms/button';
 import { CopyButton } from '../../../../components/atoms/copy-button';
 import { Skeleton } from '../../../../components/atoms/skeleton';
 import { EmptyState } from '../../../../components/molecules/empty-state';

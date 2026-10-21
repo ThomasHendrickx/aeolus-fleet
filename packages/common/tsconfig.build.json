@@ -4,8 +4,11 @@
     "rootDir": "src",
     "outDir": "dist",
     "declaration": true,
-    "sourceMap": true
+    "sourceMap": true,
+    // The header (src/header) is React for the browser; the rest of common never imports it.
+    "lib": ["dom", "dom.iterable", "es2024"],
+    "jsx": "react-jsx"
   },
   "include": ["src"],
-  "exclude": ["src/**/*.test.ts"]
+  "exclude": ["src/**/*.test.ts", "src/**/*.stories.tsx"]
 }

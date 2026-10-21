@@ -1,5 +1,6 @@
 /*
- * The console theme. tokens.css is the single copy of the design tokens, light
+ * The console theme. tokens.css, in @aeolus-fleet/common/header, is the single
+ * copy of the design tokens, light
  * on :root and dark on .dark. It is imported unlayered, so its values win over
  * Tailwind's theme layer at runtime.
  *
@@ -11,7 +12,10 @@
  */
 @import 'tailwindcss';
 @import 'tw-animate-css';
-@import './tokens.css';
+@import '../../common/src/header/tokens.css';
+
+/* The header and the atoms it stands on live in common (header design H2). */
+@source '../../common/src/header';
 
 @custom-variant dark (&:where(.dark, .dark *));
 

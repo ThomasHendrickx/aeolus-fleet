@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
-import { Button } from '../../components/atoms/button';
+import { Button } from '@aeolus-fleet/common/header';
 import { SignedInElsewhereNotice } from '../../features/sign-in/molecules/signed-in-elsewhere-notice';
 import { SignInForm } from '../../features/sign-in/organisms/sign-in-form';
 import { AuthCard } from '../../features/sign-in/organisms/auth-card';

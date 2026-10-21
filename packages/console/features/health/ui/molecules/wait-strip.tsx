@@ -1,4 +1,4 @@
-import { classNames } from '../../../../lib/class-names';
+import { classNames } from '@aeolus-fleet/common/header';
 import { WAIT_TICKS, waitPosition } from '../../services/health-view';
 
 interface WaitStripProps {

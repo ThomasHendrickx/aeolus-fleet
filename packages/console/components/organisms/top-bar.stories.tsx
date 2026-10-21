@@ -3,7 +3,7 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { fn } from 'storybook/test';
 import { Plus } from 'lucide-react';
 
-import { Button } from '../atoms/button';
+import { Button } from '@aeolus-fleet/common/header';
 import { TopBar } from './top-bar';
 
 const meta = {

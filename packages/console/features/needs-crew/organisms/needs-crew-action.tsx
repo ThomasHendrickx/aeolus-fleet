@@ -9,7 +9,7 @@ import { useAccess } from '../../../lib/access';
 import { crewRequestStage } from '../../../lib/crew-request';
 import { useRemoveCrewRequest } from '../../../lib/fleet';
 import { useShip } from '../../../lib/ship';
-import { Button } from '../../../components/atoms/button';
+import { Button } from '@aeolus-fleet/common/header';
 
 // Dialogs load when first opened, not with the page.
 const CrewReleaseDialog = lazyDialog(() => import('../../../components/organisms/crew-release-dialog').then((module) => module.CrewReleaseDialog), (props) => props.isOpen);

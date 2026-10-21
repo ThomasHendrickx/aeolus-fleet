@@ -4,7 +4,7 @@ import { Activity, CodeXml, Inbox, ListChecks, Network, Settings, Shapes, Ship, 
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
-import { Avatar } from '../atoms/avatar';
+import { Avatar } from '@aeolus-fleet/common/header';
 import { Badge } from '../atoms/badge';
 import { SOURCE_URL } from '../../lib/source';
 import { AccountMenu, type AccountMenuProps } from './account-menu';

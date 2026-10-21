@@ -6,7 +6,7 @@ import { useState, type ReactNode } from 'react';
 import { lazyDialog } from '../../../lib/lazy-dialog';
 import { newCrewLineReplaced } from '../../../lib/ship-dialogs';
 import { useNewCrewLine } from '../../../lib/squadrons-api';
-import { Button } from '../../../components/atoms/button';
+import { Button } from '@aeolus-fleet/common/header';
 import type { CrewLineDialogState } from '../../../components/organisms/crew-line-dialog';
 import { NewCrewLineConfirm } from './new-crew-line-confirm';
 

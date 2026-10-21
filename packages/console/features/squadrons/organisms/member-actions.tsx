@@ -7,9 +7,7 @@ import Link from 'next/link';
 import { useState, type ComponentType } from 'react';
 
 import type { Squadron } from '../../../lib/squadrons-schemas';
-import { Button } from '../../../components/atoms/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../../components/atoms/dropdown-menu';
-import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../../../components/atoms/sheet';
+import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@aeolus-fleet/common/header';
 import { showToast } from '../../../components/atoms/toast';
 import { useNewCrewLineFlow } from './get-new-crew-line';
 

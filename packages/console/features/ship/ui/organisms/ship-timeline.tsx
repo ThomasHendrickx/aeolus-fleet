@@ -21,10 +21,9 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-import { classNames } from '../../../../lib/class-names';
+import { Button, classNames } from '@aeolus-fleet/common/header';
 import { fullDateTime, relativeTime } from '../../../../lib/relative-time';
 import { timelineSentence, type TimelineIcon, type TimelineTone } from '../../services/timeline-sentence';
-import { Button } from '../../../../components/atoms/button';
 import { InlineError } from '../../../../components/molecules/inline-error';
 import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
 import { Sentence } from '../molecules/sentence';

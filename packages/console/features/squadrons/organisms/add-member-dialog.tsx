@@ -4,9 +4,7 @@ import { UserPlus } from 'lucide-react';
 import { useState } from 'react';
 
 import { checkInText, type RoleOption } from '../../../lib/squadrons-view';
-import { Button } from '../../../components/atoms/button';
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../components/atoms/dialog';
-import { dialogSurface } from '../../../components/atoms/dialog-surface';
+import { Button, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle } from '@aeolus-fleet/common/header';
 import { InlineError } from '../../../components/molecules/inline-error';
 
 interface AddMemberDialogProps {

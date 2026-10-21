@@ -6,9 +6,8 @@ import Link from 'next/link';
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
 
-import { classNames } from '../../../../lib/class-names';
+import { Button, classNames } from '@aeolus-fleet/common/header';
 import type { AssignKey, LabelChip as LabelChipData } from '../../../../lib/labels';
-import { Button } from '../../../../components/atoms/button';
 import { Popover, PopoverContent, PopoverTrigger } from '../../../../components/atoms/popover';
 import { InlineError } from '../../../../components/molecules/inline-error';
 import { LabelChip } from '../../../../components/molecules/label-chip';

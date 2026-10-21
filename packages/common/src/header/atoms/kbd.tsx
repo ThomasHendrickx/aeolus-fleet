@@ -1,6 +1,6 @@
 import type { ComponentProps } from 'react';
 
-import { classNames } from '../../lib/class-names';
+import { classNames } from '../class-names.js';
 
 /**
  * shadcn Kbd (docs/design/png/Kbd.png): a key or shortcut, beside the action

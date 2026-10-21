@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 
-import { Button } from './button';
+import { Button } from '@aeolus-fleet/common/header';
 import { Separator } from './separator';
 
 const meta = {

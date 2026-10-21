@@ -3,7 +3,7 @@
 import { Menu as MenuPrimitive } from '@base-ui/react/menu';
 import { Check } from 'lucide-react';
 
-import { classNames } from '../../lib/class-names';
+import { classNames } from '../class-names.js';
 
 /**
  * shadcn DropdownMenu on Base UI Menu (docs/design/png/DropdownMenu.png).

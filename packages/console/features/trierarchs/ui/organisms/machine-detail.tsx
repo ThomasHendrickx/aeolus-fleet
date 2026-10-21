@@ -9,7 +9,7 @@ import type { LabelChip as LabelChipData } from '../../../../lib/labels';
 import { clockTime, fullDateTime, sinceTime } from '../../../../lib/relative-time';
 import type { Spot } from '../../../../lib/machines';
 import type { Machine } from '../../../../lib/trierarch-plugin-schemas';
-import { Button } from '../../../../components/atoms/button';
+import { Button } from '@aeolus-fleet/common/header';
 import { CopyButton } from '../../../../components/atoms/copy-button';
 import { Skeleton } from '../../../../components/atoms/skeleton';
 import { CapacityBar } from '../molecules/capacity-bar';

@@ -336,6 +336,7 @@ export default defineConfig(
       '**/*.config.{js,ts}',
       // Storybook reads a story file's default export (its meta) and its configuration's.
       'packages/console/{components,features}/**/*.stories.tsx',
+      'packages/common/src/header/**/*.stories.tsx',
       'packages/console/.storybook/{main,preview}.{ts,tsx}',
     ],
     rules: { 'no-restricted-exports': 'off' },
@@ -343,8 +344,21 @@ export default defineConfig(
 
   {
     name: 'aeolus/common',
-    files: ['packages/common/**/*.ts'],
+    files: ['packages/common/**/*.{ts,tsx}'],
     rules: { 'no-restricted-properties': ['error', ...noModuleMocks, ...noTestDoubles] },
+  },
+  {
+    // The header and its atoms moved from the console (header design H2) and keep the console's React guardrails.
+    name: 'aeolus/common-header-web',
+    files: ['packages/common/src/header/**/*.{ts,tsx}'],
+    extends: [reactHooks.configs.flat['recommended-latest'], jsxA11y.configs.recommended],
+    plugins: { 'react-x': reactX },
+    rules: {
+      'react-x/no-array-index-key': 'error',
+      ...importRules({ patterns: [], paths: reactManualMemo }),
+      'no-restricted-properties': ['error', ...noModuleMocks, ...noTestDoubles, ...webImpure.properties],
+      'no-restricted-globals': ['error', ...webImpure.globals],
+    },
   },
 
   {

@@ -4,8 +4,8 @@ import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
 import type { VariantProps } from 'class-variance-authority';
 import type { ComponentProps } from 'react';
 
-import { classNames } from '../../lib/class-names';
-import { dialogSurface } from './dialog-surface';
+import { classNames } from '../class-names.js';
+import { dialogSurface } from './dialog-surface.js';
 
 /**
  * shadcn Dialog on Base UI, for a blocking short form (docs/design/png/Dialog.png):

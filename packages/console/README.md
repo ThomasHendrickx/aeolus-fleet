@@ -54,7 +54,7 @@ On localhost, plain http works. On any other host, serve the console over https:
 
 ## Design system
 
-The console is themed from `app/tokens.css`, the single copy of the design tokens (light on `:root`, dark on `.dark`, which follows the system setting). `app/globals.css` maps them onto Tailwind v4. Each feature's parts live in `features/<feature>/` by atomic design level, the shared ones in `components/`; atoms are shadcn/ui on Base UI (`components.json`). Geist and Geist Mono are self-hosted from `app/fonts/` under the SIL Open Font License.
+The console is themed from `tokens.css` in `@aeolus-fleet/common/header` (`packages/common/src/header`), the single copy of the design tokens, which also holds the header and the atoms it stands on (light on `:root`, dark on `.dark`, which follows the system setting). `app/globals.css` maps them onto Tailwind v4. Each feature's parts live in `features/<feature>/` by atomic design level, the shared ones in `components/`; atoms are shadcn/ui on Base UI (`components.json`). Geist and Geist Mono are self-hosted from `app/fonts/` under the SIL Open Font License.
 
 `npm run storybook -w @aeolus-fleet/console` shows every part, with a story per meaningful state and a toolbar for light and dark. `npm run build-storybook -w @aeolus-fleet/console` builds it; CI does on every pull request.
 

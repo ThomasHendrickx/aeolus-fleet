@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { Ellipsis } from 'lucide-react';
 
-import { Button } from './button';
+import { Button } from '@aeolus-fleet/common/header';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './table';
 
 const meta = {

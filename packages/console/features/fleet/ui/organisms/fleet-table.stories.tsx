@@ -5,7 +5,7 @@ import { useState, type ComponentProps } from 'react';
 import { expect, fn, userEvent, within } from 'storybook/test';
 
 import { DEFAULT_FLEET_VIEW, type FleetView } from '../../services/fleet-filter';
-import { Button } from '../../../../components/atoms/button';
+import { Button } from '@aeolus-fleet/common/header';
 import { FleetTable, type RowActionsLayout } from './fleet-table';
 import { AREA, BLUEPRINT, carried, COST, labelContext, OS, OWNERS, ownerShips, PROJECT } from '../../../../lib/fixtures/labels.fixtures';
 

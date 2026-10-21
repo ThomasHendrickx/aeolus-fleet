@@ -9,9 +9,7 @@ import { defaultValues, promptBytes, settingsOf, valuesOf, type CrewSettingsValu
 import type { MachineLabelsInput } from '../../../../lib/machine-labels';
 import { secondsTime } from '../../../../lib/relative-time';
 import type { SettingsCheck } from '../../../../lib/trierarch-plugin-schemas';
-import { Button } from '../../../../components/atoms/button';
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../../components/atoms/dialog';
-import { dialogSurface } from '../../../../components/atoms/dialog-surface';
+import { Button, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle } from '@aeolus-fleet/common/header';
 import { CrewSettingsFields } from '../../../../components/molecules/crew-settings-fields';
 import { InlineError } from '../../../../components/molecules/inline-error';
 
