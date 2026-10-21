@@ -1530,26 +1530,31 @@ describe('the owners migration', () => {
 
 describe('the network in core migration', () => {
   const MIGRATIONS = fileURLToPath(new URL('../src/adapters/prisma/migrations', import.meta.url));
-  const networkInCore = readdirSync(MIGRATIONS).find((name) => name.endsWith('_network_in_core'));
+
+  const names = readdirSync(MIGRATIONS)
+    .filter((name) => /^\d{14}_/.test(name))
+    .sort();
+  const networkInCore = names.findIndex((name) => name.endsWith('_network_in_core'));
+
+  async function apply(databaseUrl: string, migrations: string[]): Promise<void> {
+    for (const name of migrations) {
+      await executeSqlFile(databaseUrl, `${MIGRATIONS}/${name}/migration.sql`);
+    }
+  }
 
   it("keeps no rules applied for a fleet whose open was on, all-to-all, and its rules for a fleet whose open was off, and forgets the plugin", async () => {
-    const url = await createMigratedDatabase();
+    // The database as the migrations before left it: rules always a list, open per verb, the networking plugin, and no draft.
+    const url = await createEmptyDatabase();
+    await apply(url, names.slice(0, networkInCore));
     const client = createPrismaClient(url);
     const [open, closed] = [newId('fleet'), newId('fleet')];
     const rules = [{ verb: 'send', from: [], to: [] }];
     try {
-      // The database as it was before: rules always a list, open per verb, the networking plugin, and no draft.
-      await client.$executeRawUnsafe('DROP TABLE "network_rules_drafts"');
-      await client.$executeRawUnsafe(`ALTER TABLE "network_settings" ALTER COLUMN "rules" SET DEFAULT '[]',
-        ADD COLUMN "built_in_open_send" BOOLEAN NOT NULL DEFAULT true, ADD COLUMN "built_in_open_read" BOOLEAN NOT NULL DEFAULT true,
-        ADD COLUMN "built_in_open_manage" BOOLEAN NOT NULL DEFAULT true, ADD COLUMN "plugin_ship_id" TEXT, ADD COLUMN "plugin_while_unavailable" TEXT,
-        ADD COLUMN "plugin_not_responding_after_seconds" INTEGER, ADD COLUMN "plugin_registered_at" TIMESTAMPTZ(3),
-        ADD CONSTRAINT "network_settings_plugin_whole" CHECK (("plugin_ship_id" IS NULL) = ("plugin_while_unavailable" IS NULL))`);
-      await client.$executeRawUnsafe('ALTER TABLE "reach_refusals" ADD COLUMN "while_plugin_unavailable" TEXT');
-      await client.fleet.createMany({ data: [open, closed].map((id) => ({ id, name: 'old fleet', createdAt: now })) });
+      // Raw: the generated client knows columns that later migrations add and drop.
+      await client.$executeRaw`INSERT INTO "fleets" ("id", "name", "created_at") VALUES (${open}, 'old fleet', ${now}), (${closed}, 'old fleet', ${now})`;
       await client.$executeRaw`INSERT INTO "network_settings" ("fleet_id", "rules", "version", "built_in_open_send", "built_in_open_read", "built_in_open_manage") VALUES (${open}, '[]'::jsonb, 2, true, true, true), (${closed}, ${JSON.stringify(rules)}::jsonb, 5, false, false, false)`;
 
-      await executeSqlFile(url, `${MIGRATIONS}/${networkInCore ?? 'missing'}/migration.sql`);
+      await apply(url, [names[networkInCore] ?? 'missing']);
 
       await expect(client.networkSettings.findMany({ select: { fleetId: true, rules: true, version: true }, orderBy: { version: 'asc' } })).resolves.toEqual([
         { fleetId: open, rules: null, version: 2 },
