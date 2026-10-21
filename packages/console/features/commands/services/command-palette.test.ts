@@ -77,7 +77,7 @@ describe('paletteItemsOf', () => {
       { id: newId('ship'), name: 'squadrons', type: 'squadrons', kind: 'plugin', status: 'crewed', startingPrompt: null, location: null, lastSeenAt: null, ping: null, scopes: ['messages:send', 'messages:receive'], report: null, harness: null, model: null, awaitingCrewSince: null, crewRequest: null, labels: [], retiredAt: null, ownerShipId: null },
     ];
 
-    expect(paletteItemsOf(ships).filter((item) => item.kind === 'ship').map((item) => (item.kind === 'ship' ? item.name : item.id))).toEqual(['squadrons']);
+    expect(paletteItemsOf(ships).filter((item) => item.kind === 'ship').map((item) => item.name)).toEqual(['squadrons']);
   });
 
   it('adds, with squadrons on, Form squadron, the squadrons not disbanded, the blueprints and the Squadrons page', () => {
