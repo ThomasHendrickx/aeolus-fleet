@@ -57,9 +57,20 @@ describe('the server commands', () => {
     await expect(database.operator.count()).resolves.toBe(1);
   });
 
-  it('operator:reset-password asks for a new password, ends the sessions, and the old password stops working', async () => {
+  it('sign-in prints a fresh link that signs in as argo, ending the sign-in before it', async () => {
     const { fleetId, id: operatorId } = await database.operator.findFirstOrThrow();
     await giveOperatorLogin(database, { fleetId, operatorId });
+    const { token } = unwrap(await useCases.signIn(OPERATOR));
+
+    const result = await run('sign-in');
+
+    expect(result.code).toBe(0);
+    const ticket = new URL(/Open (\S+) to sign in/.exec(result.stdout)?.[1] ?? 'http://missing').searchParams.get('ticket') ?? '';
+    await expect(useCases.redeemSignInTicket({ ticket })).resolves.toMatchObject({ isOk: true, value: { caller: { kind: 'operator' } } });
+    await expect(useCases.authenticate.byConsoleSession(token)).resolves.toBeUndefined();
+  });
+
+  it('operator:reset-password asks for a new password, ends the sessions, and the old password stops working', async () => {
     const { token } = unwrap(await useCases.signIn(OPERATOR));
 
     const result = await run('operator:reset-password', { answers: [NEW_PASSWORD, NEW_PASSWORD] });
