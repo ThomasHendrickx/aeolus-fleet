@@ -75,6 +75,13 @@ describe('the switcher in the title (header design H1, H8, H9)', () => {
     expect(switcher.fleets.find(({ name }) => name === 'Empty')?.url).toBe('https://account.example/account');
   });
 
+  it('leaves out a fleet where it may open no app when the list names no Account to go to instead', () => {
+    const list = charlottesList({ apps: [], fleets: [...charlottesList().fleets, { id: EMPTY, name: 'Empty', argo: false, apps: [] }] });
+    const switcher = appSwitcherOf({ list, fleet: { id: ACME, name: 'Acme' }, app: 'console' });
+
+    expect(switcher.fleets.map(({ name }) => name)).toEqual(['Acme', 'Labs']);
+  });
+
   it('keeps an address of its own beside the fleet it names', () => {
     const list = charlottesList({ fleets: [{ id: ACME, name: 'Acme', argo: false, apps: [{ app: 'console', url: 'https://fleet.example/console?tab=ships' }] }] });
     const switcher = appSwitcherOf({ list, fleet: { id: ACME, name: 'Acme' }, app: 'console' });
