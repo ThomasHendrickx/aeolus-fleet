@@ -41,6 +41,7 @@ export function writerOf(caller: Caller): FactWriter {
     case 'agent':
     case 'person':
     case 'app':
+    case 'plugin':
       return { kind: 'ship', shipId: caller.shipId };
   }
 }

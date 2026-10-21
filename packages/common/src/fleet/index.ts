@@ -133,10 +133,11 @@ export type FleetScope = z.infer<typeof fleetScopeSchema>;
 /**
  * What a ship is (decision 0044): `argo` is the one `operator`, the console's
  * door is the `viewer`, an `agent` is a session, a `person` a human's ship
- * crewed by their own app or a chat, and an `app` an application or an
- * outside party, crewed by its adapter.
+ * crewed by their own app or a chat, an `app` an application or an
+ * outside party, crewed by its adapter, and a `plugin` software installed
+ * once per installation serving many fleets (decision 0050).
  */
-export const SHIP_KINDS = ['operator', 'agent', 'viewer', 'person', 'app'] as const;
+export const SHIP_KINDS = ['operator', 'agent', 'viewer', 'person', 'app', 'plugin'] as const;
 export const shipKindSchema = z.enum(SHIP_KINDS);
 export type ShipKind = z.infer<typeof shipKindSchema>;
 

@@ -80,6 +80,7 @@ enum ShipKind {
   viewer
   person
   app
+  plugin
 
   @@map("ship_kind")
 }
