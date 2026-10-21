@@ -1,6 +1,6 @@
 import { appsListSchema, type AppsList } from '@aeolus-fleet/common';
 
-import { pagasaeFrom } from './account-name';
+import { basicAuthOf, pagasaeFrom, SHARED_SIGN_IN_COOKIE } from './pagasae';
 
 /**
  * The apps and fleets the signed-in account may open (header design H1), read
@@ -10,9 +10,6 @@ import { pagasaeFrom } from './account-name';
  * (argo's sign-in, the viewer) or while pagasae gives none: the header then
  * shows the console and its own fleet alone.
  */
-
-/** pagasae's one sign-in of every Aeolus app, on the domain they share (H5). */
-export const SHARED_SIGN_IN_COOKIE = 'aeolus_account_session';
 
 /** The shared sign-in in a Cookie header; none when the browser sent none. */
 export function sharedSignInOf(cookieHeader: string): string | undefined {
@@ -37,7 +34,7 @@ export async function appsListFor(input: {
     return null;
   }
   try {
-    const response = await fetchImplementation(`${pagasae.url}/api/apps`, { headers: { authorization: pagasae.authorization, 'aeolus-sign-in': signIn }, cache: 'no-store' });
+    const response = await fetchImplementation(`${pagasae.url}/api/apps`, { headers: { authorization: basicAuthOf(pagasae), 'aeolus-sign-in': signIn }, cache: 'no-store' });
     if (!response.ok) {
       return null;
     }
