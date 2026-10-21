@@ -9,7 +9,8 @@ import { AvatarMenu, type AvatarMenuProps } from './avatar-menu.js';
 import { classNames } from './class-names.js';
 
 interface AppHeaderProps {
-  switcher: AppSwitcherModel;
+  /** Undefined while the fleet in view is not known yet: the title's shape stands in. */
+  switcher: AppSwitcherModel | undefined;
   /** The avatar menu, always last. */
   account: AvatarMenuProps;
   /** Opens the command palette; without it the search trigger is not shown. */
@@ -37,7 +38,11 @@ export function AppHeader({ switcher, account, onSearch, searchLabel = 'Search o
       className={classNames('sticky top-0 z-30 flex h-(--size-header) shrink-0 items-center justify-between gap-4 border-b border-border bg-background px-6', className)}
     >
       <div className="flex min-w-0 items-center gap-3">
-        <AppSwitcher switcher={switcher} layout="full" className="shrink-0" />
+        {switcher === undefined ? (
+          <span data-testid="app-switcher-loading" aria-hidden className="h-4 w-36 shrink-0 animate-pulse rounded bg-muted motion-reduce:animate-none" />
+        ) : (
+          <AppSwitcher switcher={switcher} layout="full" className="shrink-0" />
+        )}
         {children}
       </div>
       <div className="flex shrink-0 items-center gap-3">

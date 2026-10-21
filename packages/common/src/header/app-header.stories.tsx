@@ -46,6 +46,9 @@ type Story = StoryObj<typeof meta>;
 /** The switcher in the title, the app's part, the search trigger and the avatar menu. */
 export const Default: Story = {};
 
+/** While the fleet in view is not known yet, the title's shape stands in. */
+export const Loading: Story = { args: { switcher: undefined } };
+
 /** The search trigger opens the palette. */
 export const Search: Story = {
   play: async ({ args, canvasElement }) => {
