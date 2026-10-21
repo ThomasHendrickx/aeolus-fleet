@@ -73,8 +73,8 @@ export function DrilldownContainer({ cause }: { cause: StuckCause }) {
       onRetry={() => {
         void health.refetch();
       }}
-      onResend={access.canManage ? onResend : undefined}
-      onDismiss={access.canManage ? onDismiss : undefined}
+      onResend={access.canResend ? onResend : undefined}
+      onDismiss={access.canResend ? onDismiss : undefined}
       pendingIds={pendingIds}
       now={now}
     />

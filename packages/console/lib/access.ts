@@ -13,8 +13,10 @@ import { useTRPC } from './trpc';
  * disables it; the server refuses it either way.
  */
 export interface Access {
-  /** fleet:manage: commission, the ship actions, resend, dismiss, squadrons and Settings. */
+  /** fleet:manage: commission, the ship actions, squadrons and Settings. */
   canManage: boolean;
+  /** messages:resend: Resend and Dismiss on a delivery that waits for the operator. */
+  canResend: boolean;
   /** messages:send: Compose and Message. */
   canSend: boolean;
   /** messages:receive: the operator inbox's Mark read, Mark done and Reply. */
@@ -30,7 +32,7 @@ export interface Access {
 }
 
 /** Until the session is known nothing is offered, so a viewer never sees a write flash by. */
-export const NO_ACCESS: Access = { canManage: false, canSend: false, canReceive: false, canDefineLabels: false, canAssignLabels: false, canEditNetwork: false, isViewer: false };
+export const NO_ACCESS: Access = { canManage: false, canResend: false, canSend: false, canReceive: false, canDefineLabels: false, canAssignLabels: false, canEditNetwork: false, isViewer: false };
 
 export function accessOf(session: Pick<ConsoleSessionOutput, 'kind' | 'scopes'> | undefined): Access {
   if (session === undefined) {
@@ -41,6 +43,7 @@ export function accessOf(session: Pick<ConsoleSessionOutput, 'kind' | 'scopes'> 
   const isShip = session.kind !== 'account';
   return {
     canManage: holds('fleet:manage'),
+    canResend: holds('messages:resend'),
     canSend: isShip && holds('messages:send'),
     canReceive: isShip && holds('messages:receive'),
     canDefineLabels: holds('labels:define'),
