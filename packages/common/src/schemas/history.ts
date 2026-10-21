@@ -6,6 +6,7 @@ import { accountIdSchema } from './account-token.js';
 import { listedShipSchema, shipOutsideReadReachSchema } from './fleet.js';
 import { crewRequestSchema, crewStatusSchema } from './crew-request.js';
 import { reportSchema } from './report.js';
+import { discoveredStatementSchema } from './statement.js';
 import { turnStateSchema } from './turn.js';
 
 /**
@@ -51,6 +52,8 @@ export const shipDetailOutputSchema = listedShipSchema.extend({
   openDeliveries: z.int().min(0),
   /** Its owner by id and name; null for argo and the viewer (decision 0045). */
   owner: partySchema.nullable(),
+  /** What it is and offers, as discovery shows it: its crew's statement, else its commission note, else none (decision 0047). */
+  statement: discoveredStatementSchema,
 });
 
 export type ShipDetail = z.infer<typeof shipDetailOutputSchema>;
