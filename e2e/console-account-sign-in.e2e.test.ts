@@ -72,8 +72,10 @@ describe('an account signing in to the console', () => {
     await page.waitForURL(`${web.url}/`);
     await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
     await page.getByRole('link', { name: 'scout' }).first().waitFor();
-    await page.locator('[data-testid="account-menu"]:visible', { hasText: 'Signed in as your account' }).waitFor();
-    await page.locator('[data-testid="account-menu"]:visible', { hasText: 'mathilde@acme.example' }).waitFor();
+    await page.locator('[data-testid="avatar-menu"]:visible').click();
+    await page.getByTestId('avatar-menu-signed-in-as').getByText('Signed in as your account').waitFor();
+    await page.getByRole('menu').getByText('mathilde@acme.example').first().waitFor();
+    await page.keyboard.press('Escape');
     await expect(page.getByTestId('header-compose').count()).resolves.toBe(0);
     await expect(database.lease.count({ where: { fleetId } })).resolves.toBe(leasesBefore);
     await expect(database.consoleSession.count({ where: { fleetId } })).resolves.toBe(0);
@@ -135,7 +137,7 @@ describe('an account signing in to the console', () => {
     await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
     const revokedBefore = pagasae.revoked().length;
 
-    await page.locator('[data-testid="account-menu"]:visible').click();
+    await page.locator('[data-testid="avatar-menu"]:visible').click();
     await page.getByRole('menuitem', { name: 'Sign out' }).click();
 
     await page.waitForURL(`${web.url}/sign-in?signed=out`);
