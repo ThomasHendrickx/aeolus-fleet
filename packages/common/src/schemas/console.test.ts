@@ -52,9 +52,9 @@ describe('THEMES', () => {
 });
 
 describe('consoleSessionOutputSchema', () => {
-  const output = { fleetId: newId('fleet'), expiresAt: '2026-11-01T19:00:00.000Z', kind: 'operator', scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage'] };
+  const output = { fleetId: newId('fleet'), fleetName: 'Acme', expiresAt: '2026-11-01T19:00:00.000Z', kind: 'operator', scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage'] };
 
-  it("answers the session's fleet, when it expires, and whose it is: the operator's or a viewer's, with the ship's scopes", () => {
+  it("answers the session's fleet and its name, when it expires, and whose it is: the operator's or a viewer's, with the ship's scopes", () => {
     expect(consoleSessionOutputSchema.parse(output)).toEqual(output);
     expect(consoleSessionOutputSchema.parse({ ...output, kind: 'viewer', scopes: ['fleet:read'] })).toMatchObject({ kind: 'viewer', scopes: ['fleet:read'] });
   });
