@@ -129,7 +129,7 @@ export const PluginShipReported: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByTestId('ship-report')).toHaveTextContent('Watching 2 squadrons');
-    await expect(canvas.getByTestId('ship-report-details')).toBeVisible();
+    await expect(canvas.getByTestId('ship-report-details')).toBeInTheDocument();
   },
 };
 

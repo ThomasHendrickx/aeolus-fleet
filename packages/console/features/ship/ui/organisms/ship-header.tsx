@@ -80,7 +80,7 @@ function MetaStrip({ ship, now, labels, way }: { ship: ShipDetail; now: Date; la
             </time>
           )}
           <PingStatus ping={ship.ping} now={now} testId="ship-ping-status" />
-          {ship.kind !== 'agent' ? null : <ReportLine report={ship.report} now={now} variant="full" testId="ship-report" />}
+          {ship.kind !== 'agent' && ship.kind !== 'plugin' ? null : <ReportLine report={ship.report} now={now} variant="full" testId="ship-report" />}
         </span>
       </MetaCell>
       <MetaCell label="Crewed since">
@@ -259,7 +259,7 @@ export function ShipHeader({ ship, shipId, state, actions, crewRequest, now, bac
       ) : null}
       {crewRequest}
       <MetaStrip ship={ship} now={now} labels={labels} way={way} />
-      {ship.kind === 'agent' && ship.report?.details && ship.report.detailsBytes !== null ? (
+      {(ship.kind === 'agent' || ship.kind === 'plugin') && ship.report?.details && ship.report.detailsBytes !== null ? (
         <ReportDetails details={ship.report.details} bytes={ship.report.detailsBytes} version={ship.report.detailsVersion} testId="ship-report-details" />
       ) : null}
     </div>

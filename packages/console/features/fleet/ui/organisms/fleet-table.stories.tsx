@@ -435,7 +435,7 @@ export const ReportWithEmptyNextStep: Story = {
 };
 
 /** One ship of every kind (#401): the console's two, a plugin's, a machine's trierarch, Claude Code, Codex, and a ship no session crews. */
-const PLUGIN_SHIP = ship('h3aa', { name: 'trierarch-plugin', type: 'trierarch-plugin', kind: 'plugin', harness: 'node', location: { kind: 'SERVER', description: 'fleet server' }, model: null, report: { state: 'idle', note: 'No crew request waits', reportedAt: NOW.toISOString(), detailsVersion: 0 } });
+const PLUGIN_SHIP = ship('h3aa', { name: 'trierarch-plugin', type: 'trierarch-plugin', kind: 'plugin', harness: 'node', location: { kind: 'SERVER', description: 'fleet server' }, model: null, report: { state: 'idle', note: 'All crew requests assigned', reportedAt: NOW.toISOString(), detailsVersion: 0 } });
 const KIND_FLEET = [
   argo,
   ship('h3ab', { name: 'viewer', type: 'viewer', kind: 'viewer', harness: null, model: null }),
@@ -600,6 +600,6 @@ export const PluginShipReport: Story = {
   args: KIND_ARGS,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(within(canvas.getByTestId('fleet-row-trierarch-plugin')).getByTestId('fleet-report')).toHaveTextContent('No crew request waits');
+    await expect(within(canvas.getByTestId('fleet-row-trierarch-plugin')).getByTestId('fleet-report')).toHaveTextContent('All crew requests assigned');
   },
 };

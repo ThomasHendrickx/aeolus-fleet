@@ -85,7 +85,7 @@ export function paletteKeyOf(item: PaletteItem): string {
 
 /**
  * Everything the palette offers on a console page: the actions, the active
- * agent ships by name (never argo, never a retired one) and the pages; with
+ * agent and plugin ships by name (never argo, never a retired one) and the pages; with
  * squadrons on, also Form squadron, the squadrons not disbanded, the
  * blueprints at their latest version and the Squadrons page.
  */
@@ -98,7 +98,7 @@ export function paletteItemsOf(
     ...(squadrons ? [{ kind: 'action', id: 'form-squadron', label: 'Form squadron' } satisfies PaletteItem] : []),
     { kind: 'action', id: 'compose', label: 'Compose a message' },
     ...fleet
-      .filter((ship) => ship.kind === 'agent' && ship.status !== 'retired')
+      .filter((ship) => (ship.kind === 'agent' || ship.kind === 'plugin') && ship.status !== 'retired')
       .map(
         (ship): PaletteItem => ({
           kind: 'ship',
