@@ -1,7 +1,7 @@
 import { QueryClient, QueryObserver } from '@tanstack/react-query';
 import { describe, expect, it } from 'vitest';
 
-import { isAttentionChange, isBuiltInRulesChange, isDeclaredRulesChange, isLabelChange, isNetworkRulesChange, isShipChange, liveStateOf, reloadQueries } from './live-fleet';
+import { createLiveReloads, isAttentionChange, isBuiltInRulesChange, isDeclaredRulesChange, isLabelChange, isNetworkRulesChange, isShipChange, liveStateOf } from './live-fleet';
 
 describe('liveStateOf', () => {
   it.each([
@@ -111,7 +111,7 @@ describe('isNetworkRulesChange', () => {
   });
 });
 
-describe('reloadQueries', () => {
+describe('live reloads', () => {
   it('reads again after an event that comes while the first read is in flight, which may have read before the change', async () => {
     const queryClient = new QueryClient();
     const reads: ((value: string) => void)[] = [];
@@ -126,11 +126,10 @@ describe('reloadQueries', () => {
     await expect.poll(() => reads).toHaveLength(1);
 
     // An event for a change committed after the first read began.
-    const reloaded = reloadQueries(queryClient, ['fleet']);
+    createLiveReloads(queryClient)(['fleet']);
     reads[0]?.('before the change');
     await expect.poll(() => reads).toHaveLength(2);
     reads[1]?.('after the change');
-    await reloaded;
 
     await expect.poll(() => queryClient.getQueryData(['fleet', 'inbox'])).toBe('after the change');
     unsubscribe();
@@ -149,9 +148,47 @@ describe('reloadQueries', () => {
     const unsubscribe = observer.subscribe(() => undefined);
     await expect.poll(() => queryClient.getQueryData(['fleet', 'list'])).toBe('read 1');
 
-    await reloadQueries(queryClient, ['fleet']);
+    createLiveReloads(queryClient)(['fleet']);
 
-    expect(queryClient.getQueryData(['fleet', 'list'])).toBe('read 2');
+    await expect.poll(() => queryClient.getQueryData(['fleet', 'list'])).toBe('read 2');
+    unsubscribe();
+  });
+
+  it('keeps one read of a query in flight for a burst of events, and reads once more after it for the events that came meanwhile (#1027)', async () => {
+    const queryClient = new QueryClient();
+    const reads: ((value: string) => void)[] = [];
+    let inFlight = 0;
+    let mostInFlight = 0;
+    const observer = new QueryObserver(queryClient, {
+      queryKey: ['fleet', 'list'],
+      queryFn: () =>
+        new Promise<string>((resolve) => {
+          inFlight += 1;
+          mostInFlight = Math.max(mostInFlight, inFlight);
+          reads.push((value) => {
+            inFlight -= 1;
+            resolve(value);
+          });
+        }),
+    });
+    const unsubscribe = observer.subscribe(() => undefined);
+    await expect.poll(() => reads).toHaveLength(1);
+    reads[0]?.('first');
+    await expect.poll(() => queryClient.getQueryData(['fleet', 'list'])).toBe('first');
+    const reload = createLiveReloads(queryClient);
+
+    reload(['fleet']);
+    await expect.poll(() => reads).toHaveLength(2);
+    for (let event = 0; event < 25; event += 1) {
+      reload(['fleet']);
+    }
+    reads[1]?.('during the burst');
+    await expect.poll(() => reads).toHaveLength(3);
+    reads[2]?.('after the burst');
+
+    await expect.poll(() => queryClient.getQueryData(['fleet', 'list'])).toBe('after the burst');
+    expect(reads).toHaveLength(3);
+    expect(mostInFlight).toBe(1);
     unsubscribe();
   });
 });
