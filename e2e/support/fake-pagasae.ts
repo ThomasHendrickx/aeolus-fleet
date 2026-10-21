@@ -9,15 +9,22 @@ import { createTestIssuer, type TestIssuer } from '../../packages/core/src/testi
  * exchange that answers an account token core trusts, the apps list, the
  * account-name lookup and revoke, with the answers pagasae gives (its
  * `lib/app-tokens.ts`, `app/api/apps`, `app/oauth/revoke`). Its sign-in page
- * signs in whoever the test says, at once.
+ * signs in whoever the test says, at once. Given argo's tickets, it answers
+ * an account allowed as argo of a fleet core's ticket for it (accounts
+ * design, F4), as pagasae asks core for one.
  */
 
 export interface FakeAccount {
   id: string;
   email: string;
   /** The fleets the account holds scopes in, with them, in the order pagasae lists them. */
-  fleets: readonly { id: string; name: string; scopes: readonly string[] }[];
+  fleets: readonly { id: string; name: string; scopes: readonly string[]; isArgoAllowed?: boolean }[];
 }
+
+/** Core's sign-in ticket as argo of the fleet, naming the account, as pagasae gets it with the installation token. */
+export type ArgoTickets = (fleetId: string, accountId: string) => Promise<string>;
+
+const ARGO_TICKET_TOKEN_TYPE = 'urn:aeolus:params:oauth:token-type:argo-sign-in-ticket';
 
 export interface FakePagasae {
   url: string;
@@ -62,7 +69,7 @@ function json(response: ServerResponse, answer: { status: number; body: unknown 
   response.end(JSON.stringify(answer.body));
 }
 
-export async function startFakePagasae(): Promise<FakePagasae> {
+export async function startFakePagasae(options: { argoTickets?: ArgoTickets } = {}): Promise<FakePagasae> {
   let account: FakeAccount | undefined;
   let asked = 0;
   let tokenSeconds = 600;
@@ -132,6 +139,15 @@ export async function startFakePagasae(): Promise<FakePagasae> {
           return;
         }
         const fleet = holder.fleets.find(({ id }) => id === form.get('resource'));
+        if (form.get('requested_token_type') === ARGO_TICKET_TOKEN_TYPE) {
+          if (fleet?.isArgoAllowed !== true || options.argoTickets === undefined) {
+            json(response, { status: 400, body: { error: 'invalid_target' } });
+            return;
+          }
+          const ticket = await options.argoTickets(fleet.id, holder.id);
+          json(response, { status: 200, body: { access_token: ticket, issued_token_type: ARGO_TICKET_TOKEN_TYPE, token_type: 'N_A', expires_in: 120 } });
+          return;
+        }
         if (fleet === undefined || fleet.scopes.length === 0) {
           json(response, { status: 400, body: { error: 'invalid_target' } });
           return;
@@ -153,7 +169,7 @@ export async function startFakePagasae(): Promise<FakePagasae> {
           body: {
             account: { id: holder.id, email: holder.email },
             apps: [],
-            fleets: holder.fleets.map(({ id, name, scopes }) => ({ id, name, argo: false, apps: scopes.includes('fleet:read') ? [{ app: 'console', url: 'http://localhost' }] : [] })),
+            fleets: holder.fleets.map(({ id, name, scopes, isArgoAllowed }) => ({ id, name, argo: isArgoAllowed === true, apps: scopes.includes('fleet:read') ? [{ app: 'console', url: 'http://localhost' }] : [] })),
           },
         });
         return;
