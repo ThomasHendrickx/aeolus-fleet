@@ -616,40 +616,48 @@ const crewedByOfShip = Prisma.sql`
   ORDER BY e.seq DESC
   LIMIT 1`;
 
+/**
+ * The listing's one statement: every ship of the fleet with what the snapshot
+ * shows of it, oldest first. One row per ship: at most one lease is open and
+ * at most one secret is valid per ship (partial unique indexes), so neither
+ * join multiplies rows.
+ */
+export function fleetListingStatement(fleetId: FleetId): Prisma.Sql {
+  return Prisma.sql`
+    SELECT s.id, s.fleet_id, s.name, s.type, s.kind::text AS kind, s.scopes, s.note, s.created_at, s.retired_at,
+           s.commissioned_by_kind::text AS commissioned_by_kind, s.commissioned_by, s.commission_key, s.commission_request_hash, s.owner_ship_id,
+           l.location::text AS lease_location, l.location_description AS lease_location_description,
+           l.harness AS lease_harness, l.started_at AS lease_started_at, l.last_seen_at AS lease_last_seen_at,
+           l.report_state::text AS report_state, l.report_note, l.reported_at, l.report_details, l.report_details_version,
+           c.issued_at AS secret_issued_at, c.claimed_at AS secret_claimed_at,
+           cr.settings AS crew_request_settings, cr.settings_version AS crew_request_settings_version,
+           cr.requested_at AS crew_request_requested_at, cr.assigned_to_ship_id AS crew_request_assigned_to,
+           cr.status::text AS crew_request_status, ca.name AS crew_request_assignee_name, cr.reason AS crew_request_reason, cr.attempt AS crew_request_attempt, cr.session_started_at AS crew_request_session_started_at, cr.is_final AS crew_request_is_final,
+           cb.id AS crewed_by_id, cb.name AS crewed_by_name, o.name AS owner_name,
+           p.sent_at AS ping_sent_at, p.delivery_state AS ping_delivery_state, p.answered_at AS ping_answered_at,
+           lm.model AS last_model, lm.created_at AS last_model_stated_at,
+           (SELECT max(cs.last_used_at) FROM console_sessions cs
+             WHERE cs.fleet_id = s.fleet_id AND cs.ship_id = s.id AND cs.lease_id IS NULL) AS last_viewed_at,
+           (SELECT max(el.ended_at) FROM leases el
+             WHERE el.fleet_id = s.fleet_id AND el.ship_id = s.id AND el.ended_at IS NOT NULL) AS last_lease_ended_at,
+           ${labelsOfShip} AS labels, ${givenBackOfShip} AS crew_request_given_back
+    FROM ships s
+    LEFT JOIN leases l ON l.fleet_id = s.fleet_id AND l.ship_id = s.id AND l.ended_at IS NULL
+    LEFT JOIN credentials c ON c.fleet_id = s.fleet_id AND c.ship_id = s.id AND c.invalidated_at IS NULL
+    LEFT JOIN crew_requests cr ON cr.fleet_id = s.fleet_id AND cr.ship_id = s.id
+    LEFT JOIN ships ca ON ca.fleet_id = cr.fleet_id AND ca.id = cr.assigned_to_ship_id
+    LEFT JOIN ships o ON o.fleet_id = s.fleet_id AND o.id = s.owner_ship_id
+    LEFT JOIN LATERAL (${crewedByOfShip}) cb ON true
+    LEFT JOIN LATERAL (${lastPingOfShip}) p ON true
+    LEFT JOIN LATERAL (${lastModelOfShip}) lm ON true
+    WHERE s.fleet_id = ${fleetId}
+    ORDER BY s.id`;
+}
+
 export function createPrismaFleetListing(db: Db): FleetListing {
   return {
     ships: async (fleetId) => {
-      // One row per ship: at most one lease is open and at most one secret is
-      // valid per ship (partial unique indexes), so neither join multiplies rows.
-      const rows = await db.$queryRaw<unknown[]>`
-        SELECT s.id, s.fleet_id, s.name, s.type, s.kind::text AS kind, s.scopes, s.note, s.created_at, s.retired_at,
-               s.commissioned_by_kind::text AS commissioned_by_kind, s.commissioned_by, s.commission_key, s.commission_request_hash, s.owner_ship_id,
-               l.location::text AS lease_location, l.location_description AS lease_location_description,
-               l.harness AS lease_harness, l.started_at AS lease_started_at, l.last_seen_at AS lease_last_seen_at,
-               l.report_state::text AS report_state, l.report_note, l.reported_at, l.report_details, l.report_details_version,
-               c.issued_at AS secret_issued_at, c.claimed_at AS secret_claimed_at,
-               cr.settings AS crew_request_settings, cr.settings_version AS crew_request_settings_version,
-               cr.requested_at AS crew_request_requested_at, cr.assigned_to_ship_id AS crew_request_assigned_to,
-               cr.status::text AS crew_request_status, ca.name AS crew_request_assignee_name, cr.reason AS crew_request_reason, cr.attempt AS crew_request_attempt, cr.session_started_at AS crew_request_session_started_at, cr.is_final AS crew_request_is_final,
-               cb.id AS crewed_by_id, cb.name AS crewed_by_name, o.name AS owner_name,
-               p.sent_at AS ping_sent_at, p.delivery_state AS ping_delivery_state, p.answered_at AS ping_answered_at,
-               lm.model AS last_model, lm.created_at AS last_model_stated_at,
-               (SELECT max(cs.last_used_at) FROM console_sessions cs
-                 WHERE cs.fleet_id = s.fleet_id AND cs.ship_id = s.id AND cs.lease_id IS NULL) AS last_viewed_at,
-               (SELECT max(el.ended_at) FROM leases el
-                 WHERE el.fleet_id = s.fleet_id AND el.ship_id = s.id AND el.ended_at IS NOT NULL) AS last_lease_ended_at,
-               ${labelsOfShip} AS labels, ${givenBackOfShip} AS crew_request_given_back
-        FROM ships s
-        LEFT JOIN leases l ON l.fleet_id = s.fleet_id AND l.ship_id = s.id AND l.ended_at IS NULL
-        LEFT JOIN credentials c ON c.fleet_id = s.fleet_id AND c.ship_id = s.id AND c.invalidated_at IS NULL
-        LEFT JOIN crew_requests cr ON cr.fleet_id = s.fleet_id AND cr.ship_id = s.id
-        LEFT JOIN ships ca ON ca.fleet_id = cr.fleet_id AND ca.id = cr.assigned_to_ship_id
-        LEFT JOIN ships o ON o.fleet_id = s.fleet_id AND o.id = s.owner_ship_id
-        LEFT JOIN LATERAL (${crewedByOfShip}) cb ON true
-        LEFT JOIN LATERAL (${lastPingOfShip}) p ON true
-        LEFT JOIN LATERAL (${lastModelOfShip}) lm ON true
-        WHERE s.fleet_id = ${fleetId}
-        ORDER BY s.id`;
+      const rows = await db.$queryRaw<unknown[]>(fleetListingStatement(fleetId));
       return rows.map(toShipFacts);
     },
     labels: async (fleetId) => {
