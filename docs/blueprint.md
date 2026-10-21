@@ -1,6 +1,6 @@
 # Aeolus: product and domain architecture (v0)
 
-Owner: Thomas Hendrickx. Last updated 2026-10-19.
+Owner: Thomas Hendrickx. Last updated 2026-10-21.
 
 ## Purpose
 
@@ -197,7 +197,8 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Directory | The organisation's list of accounts, its own or read from its identity provider | pagasae (to build) |
 | Organisation admin | An account that manages its organisation: its accounts, groups, fleets and directory. The account created first is one. Its rights sit on the account, the one place a right is not a scope. Not argo, which is a fleet's | pagasae (to build) |
 | Group | A set of an organisation's accounts; in each fleet it yields scopes and reach for its accounts' person ships | pagasae (to build) |
-| Installation admin | The human who runs an installation's hosting service (pagasae's `OWNER_EMAIL`). Not an owner | pagasae |
+| App admin | The human who manages the Aeolus application and all fleets (pagasae's `APP_ADMIN_EMAIL`). Not an owner | pagasae |
+| Fleet manager | The account that manages one fleet and its ships, holding every scope the fleet offers: at first the account that created or brought it; deleting it requires naming a new one (0051). Not an owner | pagasae |
 | Operator | The human who signs in as argo, with their own account or by argo's own sign-in; there is no operator account | core |
 | Sign-in | A human logging in: console sign-in (as argo, or as the viewer), pagasae sign-in, gateway sign-in. Not a session | core, pagasae, gateway |
 | argo's own sign-in | Core's email and password that sign in as argo, with no organisation: the one-line self-hosted setup, and a way in that depends on nothing. Not an account | core |

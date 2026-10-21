@@ -2,7 +2,7 @@
 
 - Each term has one meaning, defined in the blueprint's [Domain language](../blueprint.md#domain-language); other docs point there.
 - Account: only a human's account in an organisation, in pagasae. The operator account and pagasae's account fold into it. A Google or Microsoft login is an identity, from an identity provider.
-- Owner: only a ship's owner (0045). A label has a definer, the ship that defined it and may assign it. pagasae's owner is the installation admin.
+- Owner: only a ship's owner (0045). A label has a definer, the ship that defined it and may assign it. The human who manages the Aeolus application and all fleets is the app admin; the account that manages one fleet and its ships is its fleet manager (0051).
 - Session: only an agent run crewing a ship. Every human login is a sign-in: console, pagasae or gateway sign-in.
 - Connect: only argo connecting a plugin to a fleet; the plugin's stored connection is the same relation. An account is linked to a person ship, or to a trierarch's app ship.
 - Role: only a squadron member's role. No human has a role: a human's rights in a fleet are their ship's scopes.
