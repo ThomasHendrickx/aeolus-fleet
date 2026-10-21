@@ -45,15 +45,15 @@ beforeEach(async () => {
 
 const PAYLOAD = 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/25';
 
-async function sendFrom(sender: ShipCaller, to: ShipId, inReplyTo?: MessageId): Promise<{ messageId: MessageId; deliveryId: DeliveryId }> {
+async function sendFrom(sender: ShipCaller, to: { shipId: ShipId; inReplyTo?: MessageId }): Promise<{ messageId: MessageId; deliveryId: DeliveryId }> {
   const { messageId } = unwrap(
     await useCases.sendMessage(sender, {
-      selector: { kind: 'ship', shipId: to },
+      selector: { kind: 'ship', shipId: to.shipId },
       payload: PAYLOAD,
       contentType: 'text/markdown',
       idempotencyKey: newKey(),
       ...(sender.shipId === argo.shipId ? {} : { model: 'claude-opus-5-5' }),
-      ...(inReplyTo && { inReplyTo }),
+      ...(to.inReplyTo && { inReplyTo: to.inReplyTo }),
     }),
   );
   return { messageId, deliveryId: deliveryIdOf(core, messageId) };
@@ -61,7 +61,7 @@ async function sendFrom(sender: ShipCaller, to: ShipId, inReplyTo?: MessageId): 
 
 /** A delivery to the scout, push received by its crew: received, not yet handed. */
 async function received(): Promise<DeliveryId> {
-  const { deliveryId } = await sendFrom(argo, scoutId);
+  const { deliveryId } = await sendFrom(argo, { shipId: scoutId });
   unwrap(await useCases.pushReceiveDeliveries(scout, {}));
   return deliveryId;
 }
@@ -98,8 +98,8 @@ function stored(deliveryId: DeliveryId) {
 
 describe('delivery, re-read', () => {
   it('answers an acknowledged delivery of the crew lease whole, as receive hands one, with its state', async () => {
-    const { messageId: question } = await sendFrom(scout, lookoutId);
-    const { messageId, deliveryId } = await sendFrom(lookout, scoutId, question);
+    const { messageId: question } = await sendFrom(scout, { shipId: lookoutId });
+    const { messageId, deliveryId } = await sendFrom(lookout, { shipId: scoutId, inReplyTo: question });
     unwrap(await useCases.pushReceiveDeliveries(scout, {}));
     unwrap(await useCases.handOverDelivery(scout, { deliveryId, handOverNumber: 1 }));
     unwrap(await useCases.acknowledgeDelivery(scout, { deliveryId }));
@@ -153,7 +153,7 @@ describe('delivery, re-read', () => {
   });
 
   it('re-reads on a pull lease: a delivery acknowledged after a plain receive', async () => {
-    const { deliveryId } = await sendFrom(argo, lookoutId);
+    const { deliveryId } = await sendFrom(argo, { shipId: lookoutId });
     unwrap(await useCases.receiveDeliveries(lookout, {}));
     unwrap(await useCases.acknowledgeDelivery(lookout, { deliveryId }));
 
@@ -177,32 +177,32 @@ describe('delivery, re-read refused', () => {
     unwrap(await useCases.handOverDelivery(scout, { deliveryId, handOverNumber: 2, isOnceMore: true }));
     unwrap(await useCases.reportNotHandled(scout, { deliveryId }));
 
-    await expect(readDelivery(scout, { deliveryId })).resolves.toMatchObject({
+    await expect(readDelivery(scout, { deliveryId })).resolves.toEqual({
       isOk: false,
-      error: { kind: 'DELIVERY_NOT_ACKNOWLEDGED', message: expect.stringContaining('is notHandled,') },
+      error: { kind: 'DELIVERY_NOT_ACKNOWLEDGED', message: `Delivery ${deliveryId} is notHandled, not acknowledged: only an acknowledged delivery not yet handled is read again` },
     });
   });
 
   it('refuses a received delivery of the crew lease, naming its state', async () => {
     const deliveryId = await received();
 
-    await expect(readDelivery(scout, { deliveryId })).resolves.toMatchObject({
+    await expect(readDelivery(scout, { deliveryId })).resolves.toEqual({
       isOk: false,
-      error: { kind: 'DELIVERY_NOT_ACKNOWLEDGED', message: expect.stringContaining('is received,') },
+      error: { kind: 'DELIVERY_NOT_ACKNOWLEDGED', message: `Delivery ${deliveryId} is received, not acknowledged: only an acknowledged delivery not yet handled is read again` },
     });
   });
 
   it('refuses a handed delivery of the crew lease, naming its state', async () => {
     const deliveryId = await handed();
 
-    await expect(readDelivery(scout, { deliveryId })).resolves.toMatchObject({
+    await expect(readDelivery(scout, { deliveryId })).resolves.toEqual({
       isOk: false,
-      error: { kind: 'DELIVERY_NOT_ACKNOWLEDGED', message: expect.stringContaining('is handed,') },
+      error: { kind: 'DELIVERY_NOT_ACKNOWLEDGED', message: `Delivery ${deliveryId} is handed, not acknowledged: only an acknowledged delivery not yet handled is read again` },
     });
   });
 
   it('refuses another ship acknowledged delivery as not found', async () => {
-    const { deliveryId } = await sendFrom(argo, lookoutId);
+    const { deliveryId } = await sendFrom(argo, { shipId: lookoutId });
     unwrap(await useCases.receiveDeliveries(lookout, {}));
     unwrap(await useCases.acknowledgeDelivery(lookout, { deliveryId }));
 
@@ -213,7 +213,7 @@ describe('delivery, re-read refused', () => {
   });
 
   it('refuses a pending delivery for the crew ship as not found: no lease holds it', async () => {
-    const { deliveryId } = await sendFrom(argo, scoutId);
+    const { deliveryId } = await sendFrom(argo, { shipId: scoutId });
 
     await expect(readDelivery(scout, { deliveryId })).resolves.toMatchObject({ isOk: false, error: { kind: 'DELIVERY_NOT_FOUND' } });
   });

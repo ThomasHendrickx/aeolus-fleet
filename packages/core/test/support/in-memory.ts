@@ -1097,6 +1097,10 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         const found = state.deliveries.find((held) => held.fleetId === fleetId && held.id === deliveryId);
         return Promise.resolve(found && structuredClone(found));
       },
+      find: (fleetId, deliveryId) => {
+        const found = state.deliveries.find((held) => held.fleetId === fleetId && held.id === deliveryId);
+        return Promise.resolve(found && structuredClone(found));
+      },
       findOfMessage: (fleetId, messageId) => {
         const found = state.deliveries.find((held) => held.fleetId === fleetId && held.messageId === messageId);
         return Promise.resolve(found && structuredClone(found));

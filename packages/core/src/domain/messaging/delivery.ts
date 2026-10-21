@@ -1,4 +1,4 @@
-import { isPingContentType, type AccountId, type LeaseId, type MessageId, type ShipId } from '@aeolus-fleet/common';
+import { isPingContentType, type AccountId, type DeliveryId, type LeaseId, type MessageId, type ShipId } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
 import { shipActor, type Actor, type NewEvent } from '../shared/events.js';
@@ -363,6 +363,29 @@ export function acknowledgeDelivery(
         `Delivery ${delivery.id} is ${delivery.state}, not in flight: acknowledge a delivery once a receive hands it over`,
       );
   }
+}
+
+export type RereadRefusal = DomainError<'DELIVERY_NOT_FOUND' | 'DELIVERY_NOT_ACKNOWLEDGED'>;
+
+/**
+ * A crew reads one of its deliveries again, whole: only one its own lease
+ * holds acknowledged and not yet handled, so it can go on to answer it or
+ * finish it. One of its lease in another state is refused with that state;
+ * any other, another ship's, another lease's or one no lease holds, is
+ * answered as none, so its existence does not show. The read changes nothing.
+ */
+export function rereadDelivery(found: { deliveryId: DeliveryId; delivery: Delivery | undefined }, crew: CrewOfShip): Result<Delivery, RereadRefusal> {
+  const { deliveryId, delivery } = found;
+  if (delivery?.claimedByShipId !== crew.shipId || delivery.claimedByLeaseId !== crew.leaseId) {
+    return refuse('DELIVERY_NOT_FOUND', `Delivery ${deliveryId} does not exist`);
+  }
+  if (delivery.state !== 'acknowledged') {
+    return refuse(
+      'DELIVERY_NOT_ACKNOWLEDGED',
+      `Delivery ${delivery.id} is ${delivery.state}, not acknowledged: only an acknowledged delivery not yet handled is read again`,
+    );
+  }
+  return ok(delivery);
 }
 
 export type AnswerPingRefusal = DomainError<'DELIVERY_NOT_A_PING'> | AcknowledgeRefusal;
