@@ -84,6 +84,14 @@ describe('the first run, self-hosted: the link fleet:init printed', () => {
     await page.getByTestId('settings-sign-in-state').filter({ hasText: 'npx aeolus-core sign-in' }).waitFor();
   });
 
+  it('says on the sign-in page how to get a link without a password', async () => {
+    const page = await newPage();
+
+    await page.goto('/sign-in');
+
+    await page.getByText('No password yet, or forgot it? Get a sign-in link on the server with aeolus-core sign-in').waitFor();
+  });
+
   it('says the link has expired once it was used, and how to get a new one', async () => {
     const page = await newPage();
 
