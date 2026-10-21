@@ -249,6 +249,8 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_verified_facts_by_writer$/),
       expect.stringMatching(/^\d{14}_fleet_listing_indexes$/),
       expect.stringMatching(/^\d{14}_operator_email_optional$/),
+      expect.stringMatching(/^\d{14}_ship_kind_plugin$/),
+      expect.stringMatching(/^\d{14}_plugin_ships$/),
     ]);
   });
 });
@@ -377,7 +379,6 @@ describe('the fleet procedures at the API', () => {
     const deliveryId = newId('delivery');
     const inputs: Record<string, unknown> = {
       setOwner: { shipId: newId('ship'), ownerShipId: newId('ship') },
-      connectPlugin: { shipId: newId('ship') },
       markRead: { deliveryId, isRead: true },
       markDone: { deliveryId },
       reply: { deliveryId, payload: 'hi', idempotencyKey: newKey() },
@@ -1641,25 +1642,6 @@ describe('rename at the API', () => {
   });
 });
 
-describe('connecting a plugin at the API (decision 0034)', () => {
-  it('lets argo connect a ship as a plugin, again with no change', async () => {
-    const asArgo = await signedInArgo();
-    const { shipId } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), name: `plugin-${newId('ship').slice(-6)}`, type: 'squadrons' });
-
-    await expect(asArgo.fleet.connectPlugin.mutate({ shipId })).resolves.toEqual({});
-    await expect(asArgo.fleet.connectPlugin.mutate({ shipId })).resolves.toEqual({});
-  });
-
-  it("refuses any ship but argo, and argo's own ship as a plugin", async () => {
-    const asArgo = await signedInArgo();
-    const { shipId } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), name: `plugin-${newId('ship').slice(-6)}`, type: 'squadrons' });
-    const manager = client({ authorization: `Bearer ${await crewedShip(['fleet:read', 'fleet:manage'])}` });
-
-    await expect(codeOf(manager.fleet.connectPlugin.mutate({ shipId }))).resolves.toBe('FORBIDDEN');
-    await expect(codeOf(asArgo.fleet.connectPlugin.mutate({ shipId: argoId }))).resolves.toBe('BAD_REQUEST');
-  });
-});
-
 describe('owners at the API (decision 0045)', () => {
   it("let argo make a person's ship the owner of a ship", async () => {
     const asArgo = await signedInArgo();
@@ -1932,7 +1914,7 @@ describe('ships with fleet scopes at the API', () => {
     expect(shipId).toMatch(/^shp_/);
     await expect(refusalOf(manager.fleet.commission.mutate({ idempotencyKey: newKey(), name: 'scoped-other', type: 'squadron' }))).resolves.toEqual({
       code: 'FORBIDDEN',
-      message: 'This call needs the fleet:commission or fleet:person scope',
+      message: 'This call needs the fleet:commission or fleet:person or fleet:connect scope',
     });
   });
 });

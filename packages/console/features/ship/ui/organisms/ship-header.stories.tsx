@@ -1,7 +1,7 @@
 import { SHIP_LABELS_MAX } from '@aeolus-fleet/common';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { KeyRound } from 'lucide-react';
-import { expect, fn } from 'storybook/test';
+import { expect, fn, within } from 'storybook/test';
 
 import { SQUADRONS_SHIP } from '../../../../lib/connect-plugin';
 import { assignKeysOf, chipsOf, labelLimitOf } from '../../../../lib/labels';
@@ -110,6 +110,26 @@ export const PluginShip: Story = {
   args: {
     ship: { ...CREWED_SHIP, name: SQUADRONS_SHIP.name, type: SQUADRONS_SHIP.type, scopes: ['messages:send', 'messages:receive', ...SQUADRONS_SHIP.scopes] },
     isPluginShip: true,
+  },
+};
+
+/** A plugin ship reports what it does (decision 0050): its report line and details show, as an agent ship's do. */
+export const PluginShipReported: Story = {
+  args: {
+    ship: {
+      ...CREWED_SHIP,
+      kind: 'plugin',
+      name: SQUADRONS_SHIP.name,
+      type: SQUADRONS_SHIP.type,
+      model: null,
+      report: { state: 'working', note: 'Watching 2 squadrons', reportedAt: minutesAgo(1), detailsVersion: 3, details: { squadrons: 2 }, detailsBytes: 15 },
+    },
+    isPluginShip: true,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByTestId('ship-report')).toHaveTextContent('Watching 2 squadrons');
+    await expect(canvas.getByTestId('ship-report-details')).toBeInTheDocument();
   },
 };
 

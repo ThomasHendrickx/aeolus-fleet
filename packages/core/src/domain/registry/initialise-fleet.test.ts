@@ -159,7 +159,6 @@ describe('initialise fleet', () => {
       declaredNetworkRules: [],
       networkRulesDrafts: [],
       scopeNamespaces: [],
-      pluginConnections: [],
       verifiedFacts: [],
       reachRefusals: [],
       events: [],

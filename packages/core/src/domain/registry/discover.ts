@@ -13,7 +13,6 @@ export interface DiscoverTx {
   networkSettings: CheckReachTx['networkSettings'];
   ships: Pick<ShipRepository, 'find' | 'list' | 'listActive'>;
   labels: CheckReachTx['labels'];
-  pluginConnections: CheckReachTx['pluginConnections'];
   leases: Pick<LeaseRepository, 'listOpenStatements'>;
   declaredNetworkRules: CheckReachTx['declaredNetworkRules'];
   verifiedFacts: Pick<VerifiedFactsRepository, 'list'>;

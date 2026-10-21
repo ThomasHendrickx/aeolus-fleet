@@ -13,15 +13,13 @@ import { removeCrewRequest } from './crew-request.js';
 import { retireLabelsWith } from './label.js';
 import { endLease, type LeaseTx } from './leases.js';
 import { withdrawWithRetiredShip } from './declared-network-rules.js';
-import { endPluginConnection } from './plugin-connection.js';
-import type { ClearRequestRepository, CrewRequestRepository, DeclaredNetworkRulesRepository, LabelRepository, NetworkSettingsRepository, PluginConnectionRepository, ScopeNamespaceRepository, ShipRepository, VerifiedFactsRepository } from './ports.js';
+import type { ClearRequestRepository, CrewRequestRepository, DeclaredNetworkRulesRepository, LabelRepository, NetworkSettingsRepository, ScopeNamespaceRepository, ShipRepository, VerifiedFactsRepository } from './ports.js';
 import { changeOwner, checkCanRetire, type RetireRefusal } from './ship.js';
 import { releaseWithDeclarer } from './scope-namespace.js';
 import { removeWithRetiredShip } from './verified-facts.js';
 
 export interface RetireShipTx extends LeaseTx, CredentialTx, Omit<CheckManageTx, 'ships' | 'labels' | 'networkSettings' | 'declaredNetworkRules'> {
   ships: ShipRepository;
-  pluginConnections: PluginConnectionRepository;
   crewRequests: CrewRequestRepository;
   clearRequests: ClearRequestRepository;
   labels: LabelRepository;
@@ -56,6 +54,7 @@ export type RetireShip = (
  * falls to argo, one OwnerChanged each, locked after the ship as a set owner
  * locks the owner first (decision 0045). A plugin namespace it declared goes,
  * and its scopes leave every ship, one ScopesChanged each (decision 0046).
+ * A plugin ship's read ends, with PluginDisconnected (decision 0050).
  * Every writer's verified facts about it go, and its own about every ship,
  * one VerifiedFactsRemoved each, under its writer lock, taken last, after
  * every ship this locks, as a set takes it after the ship it writes about
@@ -106,7 +105,10 @@ export function createRetireShip(deps: {
       }
       const abandoned = await tx.inFlightDeliveries.abandonPendingTo(fleetId, shipId);
       await tx.ships.retire({ fleetId, shipId, at });
-      await endPluginConnection({ tx, ids: deps.ids }, { fleetId, shipId, why: 'retired', at, actor });
+      if (ship.kind === 'plugin') {
+        // A plugin ship reads every ship until it retires (decision 0050).
+        await recordEvent(recorded, { fleetId, type: 'PluginDisconnected', occurredAt: at, actor, shipId, details: { why: 'retired' } });
+      }
 
       await recordEvent(recorded, {
         fleetId,

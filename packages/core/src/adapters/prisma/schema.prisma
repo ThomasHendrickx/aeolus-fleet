@@ -56,7 +56,6 @@ model Fleet {
   declaredNetworkRules DeclaredNetworkRules[]
   installationDeclaredNetworkRules InstallationDeclaredNetworkRules?
   scopeNamespaces  ScopeNamespace[]
-  pluginConnections PluginConnection[]
   verifiedFacts    VerifiedFacts[]
   reachRefusals    ReachRefusal[]
   credentials      Credential[]
@@ -80,6 +79,7 @@ enum ShipKind {
   viewer
   person
   app
+  plugin
 
   @@map("ship_kind")
 }
@@ -129,7 +129,6 @@ model Ship {
   labels            ShipLabel[]      @relation("ShipLabelShip")
   declaredNetworkRules DeclaredNetworkRules[]
   declaredNamespace ScopeNamespace?
-  pluginConnection  PluginConnection?
   verifiedFacts     VerifiedFacts[]
 
   @@unique([fleetId, id])
@@ -455,20 +454,6 @@ model ScopeNamespace {
   @@id([fleetId, namespace])
   @@unique([fleetId, declaredBy])
   @@map("scope_namespaces")
-}
-
-/// A plugin argo connected (decision 0034): its ship reads every ship of the
-/// fleet, whatever the rules, until a release or a retire of the ship ends it.
-model PluginConnection {
-  fleetId     String   @map("fleet_id")
-  shipId      String   @map("ship_id")
-  connectedAt DateTime @map("connected_at") @db.Timestamptz(3)
-
-  fleet Fleet @relation(fields: [fleetId], references: [id])
-  ship  Ship  @relation(fields: [fleetId, shipId], references: [fleetId, id])
-
-  @@id([fleetId, shipId])
-  @@map("plugin_connections")
 }
 
 /// One writer's verified facts about a ship (decision 0059): what it checked,

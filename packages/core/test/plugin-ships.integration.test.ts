@@ -10,9 +10,9 @@ import { unwrap } from '../src/testing/result.js';
 import { newKey } from '../src/testing/keys.js';
 import { withOperatorLogin } from './support/operator-login.js';
 
-// Plugins argo connected on a real Postgres (decision 0034): a connected
-// plugin's ship reads every ship whatever the rules, until a release or a
-// retire of the ship ends it, each with its event in the same transaction.
+// Plugin ships on a real Postgres (decision 0050): a plugin ship reads every
+// ship by its kind, whatever the rules, until a retire of the ship ends it,
+// each with its event in the same transaction; a release ends nothing.
 
 let core: PostgresCore;
 let fleetId: FleetId;
@@ -25,14 +25,12 @@ beforeEach(async () => {
   const fleet = unwrap(await withOperatorLogin(core.prisma, core.useCases.initialiseFleet({ name: 'home fleet' })));
   fleetId = fleet.fleetId;
   argo = operatorCaller(fleet);
-  const commissioned = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', scopes: ['fleet:read'] }));
+  const commissioned = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'squadrons', type: 'squadrons', kind: 'plugin', scopes: ['fleet:read'] }));
   pluginId = commissioned.shipId;
-  const { crewToken } = unwrap(await core.useCases.claimShip({ shipId: pluginId, secret: secretOf(commissioned.secret), location: { kind: 'CLOUD' }, harness: 'claude-code' }));
-  plugin = unwrap(await core.useCases.authenticate.byCrewToken(crewToken));
+  plugin = await crewed(commissioned);
   // Rules that give the plugin's ship nothing to read.
   const networking = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'networking', type: 'networking', scopes: ['fleet:network'] }));
-  const { crewToken: networkingToken } = unwrap(await core.useCases.claimShip({ shipId: networking.shipId, secret: secretOf(networking.secret), location: { kind: 'CLOUD' }, harness: 'claude-code' }));
-  const networkingCaller = unwrap(await core.useCases.authenticate.byCrewToken(networkingToken));
+  const networkingCaller = await crewed(networking);
   const { savedAgainstVersion } = unwrap(await core.useCases.saveNetworkRulesDraft(networkingCaller, { rules: [{ verb: 'send', from: [], to: [] }, { verb: 'manage', from: [], to: [] }] }));
   unwrap(await core.useCases.applyNetworkRules(networkingCaller, { version: savedAgainstVersion }));
 });
@@ -40,6 +38,11 @@ beforeEach(async () => {
 afterEach(async () => {
   await core.close();
 });
+
+async function crewed(ship: { shipId: ShipId; secret: string | null }): Promise<ShipCaller> {
+  const { crewToken } = unwrap(await core.useCases.claimShip({ shipId: ship.shipId, secret: secretOf(ship.secret), location: { kind: 'CLOUD' }, harness: 'claude-code' }));
+  return unwrap(await core.useCases.authenticate.byCrewToken(crewToken));
+}
 
 async function readsOf(caller: ShipCaller) {
   return (await createReadReachOf({ uow: createPrismaUnitOfWork(core.prisma) })(caller)).kind;
@@ -49,39 +52,23 @@ async function eventsAbout(type: string) {
   return (await core.prisma.event.findMany({ where: { fleetId, shipId: pluginId, type }, orderBy: { seq: 'asc' } })).map(({ actorShipId, details }) => ({ actorShipId, details }));
 }
 
-describe('a connected plugin on Postgres', () => {
-  it('reads every ship once argo connected it, with PluginConnected caused by argo', async () => {
-    await expect(readsOf(plugin)).resolves.toBe('some');
-
-    unwrap(await core.useCases.connectPlugin(argo, { shipId: pluginId }));
-
+describe('a plugin ship on Postgres', () => {
+  it('reads every ship by its kind once argo commissioned it, with PluginConnected caused by argo', async () => {
     await expect(readsOf(plugin)).resolves.toBe('every');
     await expect(eventsAbout('PluginConnected')).resolves.toEqual([{ actorShipId: argo.shipId, details: {} }]);
   });
 
-  it('reads by the rules again once argo releases its ship, with PluginDisconnected', async () => {
-    unwrap(await core.useCases.connectPlugin(argo, { shipId: pluginId }));
-
+  it('reads every ship again once crewed after argo released it, with no PluginDisconnected', async () => {
     unwrap(await core.useCases.releaseShip(argo, { shipId: pluginId }));
+    const { secret } = unwrap(await core.useCases.getStartingPrompt(argo, { shipId: pluginId }));
 
-    await expect(core.prisma.pluginConnection.count()).resolves.toBe(0);
-    await expect(eventsAbout('PluginDisconnected')).resolves.toEqual([{ actorShipId: argo.shipId, details: { why: 'released' } }]);
+    await expect(readsOf(await crewed({ shipId: pluginId, secret }))).resolves.toBe('every');
+    await expect(eventsAbout('PluginDisconnected')).resolves.toEqual([]);
   });
 
   it('ends with the retire of its ship, with PluginDisconnected', async () => {
-    unwrap(await core.useCases.connectPlugin(argo, { shipId: pluginId }));
-
     unwrap(await core.useCases.retireShip(argo, { shipId: pluginId }));
 
-    await expect(core.prisma.pluginConnection.count()).resolves.toBe(0);
     await expect(eventsAbout('PluginDisconnected')).resolves.toEqual([{ actorShipId: argo.shipId, details: { why: 'retired' } }]);
-  });
-
-  it('goes with its fleet when the fleet is deleted', async () => {
-    unwrap(await core.useCases.connectPlugin(argo, { shipId: pluginId }));
-
-    unwrap(await core.useCases.deleteFleet({ requestId: 'delete-home-fleet', fleetId }));
-
-    await expect(core.prisma.pluginConnection.count()).resolves.toBe(0);
   });
 });

@@ -72,6 +72,14 @@ describe('paletteItemsOf', () => {
     ]);
   });
 
+  it('offers a plugin ship, which a palette entry opens like an agent ship', () => {
+    const ships: ListedShip[] = [
+      { id: newId('ship'), name: 'squadrons', type: 'squadrons', kind: 'plugin', status: 'crewed', startingPrompt: null, location: null, lastSeenAt: null, ping: null, scopes: ['messages:send', 'messages:receive'], report: null, harness: null, model: null, awaitingCrewSince: null, crewRequest: null, labels: [], retiredAt: null, ownerShipId: null },
+    ];
+
+    expect(paletteItemsOf(ships).filter((item) => item.kind === 'ship').map((item) => item.name)).toEqual(['squadrons']);
+  });
+
   it('adds, with squadrons on, Form squadron, the squadrons not disbanded, the blueprints and the Squadrons page', () => {
     const blueprint = { repository: 'example.com/t', name: 'team', version: 2, commit: 'c', committedAt: '2026-10-01T09:00:00.000Z', description: 'A team.', roles: [], handoffs: [], memberNames: 'plain' as const, file: 'squadrons/blueprints/team.yaml' };
     const items = paletteItemsOf([], {

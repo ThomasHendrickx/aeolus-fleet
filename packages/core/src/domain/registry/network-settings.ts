@@ -227,15 +227,13 @@ export interface ReachingLabel {
 
 /**
  * A ship as a send's check sees it: its id and owner, for the owner exception,
- * its kind, for the argo exception, whether argo connected it as a plugin,
- * whether its owner is a person ship, for the installation's rule, and the
+ * its kind, for the argo and plugin exceptions, whether its owner is a person ship, for the installation's rule, and the
  * label values it carries.
  */
 export interface ReachingShip {
   id: ShipId;
   owner: ShipId | null;
   kind: ShipKind;
-  isConnectedPlugin: boolean;
   /** Whether it is owned by a person ship, a person ship owning itself (decision 0045). */
   isOwnedByPerson: boolean;
   labels: readonly ReachingLabel[];
@@ -289,7 +287,7 @@ function owningShipOf(actor: ReachingActor): ShipId | null {
  * only by a rule, so argo's messages are not every ship's to read; an owner's
  * ship reaches the ships it owns (decision 0045), and an account the ships
  * its person ship owns; a ship answers the sender of a message it received;
- * a plugin argo connected reads every ship; and the installation manages
+ * a plugin ship reads every ship, by its kind (decision 0050); and the installation manages
  * person ships and the ships they own (decision 0020). The viewer reads
  * every ship while that is on, and every actor reaches every ship by every
  * verb while open is. Otherwise a rule of the verb must match the sender
@@ -313,7 +311,7 @@ export function reachRuleOf(
   if (verb === 'send' && isAnswerToSender) {
     return { builtIn: 'answer' };
   }
-  if (verb === 'read' && sender.kind !== 'account' && sender.kind !== 'installation' && sender.isConnectedPlugin) {
+  if (verb === 'read' && sender.kind === 'plugin') {
     return { builtIn: 'pluginRead' };
   }
   if (verb === 'read' && sender.kind === 'viewer' && inForce.isViewerReadOn) {

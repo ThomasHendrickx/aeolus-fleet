@@ -1,19 +1,18 @@
-import type { CommissionedShipKind, Scope, ShipStatus } from '@aeolus-fleet/common';
+import type { CommissionedShipKind, Scope, ShipKind, ShipStatus } from '@aeolus-fleet/common';
 
 /**
  * Connecting a plugin from the console, squadrons (decision 0017), the
  * trierarch plugin (decision 0030) or the gateway (decision 0048): the web app's server commissions the
- * plugin's ship, or gives the one it had a new starting prompt, and hands its
+ * plugin's ship, kind plugin, whose commission is its connect (decision
+ * 0050), or gives the one it had a new starting prompt, and hands its
  * secret to the plugin, server to server. The secret never leaves the one
  * request that carries it; the browser sees only the connection's new state.
  */
 
-/** A plugin's ship: its name, type, kind and fleet scopes. Infrastructure, fixed, never the operator's to choose. */
+/** A plugin's ship: its name, type and fleet scopes. Infrastructure, fixed, never the operator's to choose. */
 export interface PluginShip {
   name: string;
   type: string;
-  /** Its kind when not the fleet's default, agent (decision 0044). */
-  kind?: CommissionedShipKind;
   scopes: Scope[];
 }
 
@@ -29,10 +28,9 @@ export const TRIERARCH_PLUGIN_SHIP: PluginShip = { name: 'trierarch-plugin', typ
  * ships in the console (decisions 0044 to 0046, interop design I-5). It
  * declares its scope gateway:approve (0056) and writes what it checked about
  * each proxy ship as verified facts (0059). The gateway refuses to connect a
- * ship without every one of these. An app ship: it is software, so its sends
- * state no model (0044), until kind plugin is built (0050).
+ * ship without every one of these.
  */
-export const GATEWAY_SHIP: PluginShip = { name: 'gateway', type: 'gateway', kind: 'app', scopes: ['fleet:read', 'fleet:commission', 'fleet:on-behalf', 'scopes:declare', 'fleet:verify'] };
+export const GATEWAY_SHIP: PluginShip = { name: 'gateway', type: 'gateway', scopes: ['fleet:read', 'fleet:commission', 'fleet:on-behalf', 'scopes:declare', 'fleet:verify'] };
 
 export interface PluginConnection {
   /** False when the plugin is off for this operator's fleet: the console then shows nothing of it. */
@@ -46,11 +44,10 @@ export interface PluginConnection {
 export interface ConnectCalls {
   status(): Promise<PluginConnection>;
   connect(handOver: { shipId: string; secret: string }): Promise<PluginConnection>;
-  ships(): Promise<{ id: string; name: string; type: string; status: ShipStatus }[]>;
+  /** The fleet's ships; a ship out of the caller's read reach shows no kind. */
+  ships(): Promise<{ id: string; name: string; type: string; kind?: ShipKind; status: ShipStatus }[]>;
   commission(ship: { name: string; type: string; kind?: CommissionedShipKind; scopes: Scope[]; idempotencyKey: string }): Promise<{ shipId: string; secret: string | null }>;
   release(shipId: string): Promise<void>;
-  /** argo connects the ship as a plugin in the fleet: it reads every ship until a release or retire ends it (decision 0034). */
-  connectAsPlugin(shipId: string): Promise<void>;
   startingPrompt(shipId: string): Promise<{ secret: string }>;
 }
 
@@ -62,13 +59,11 @@ export class ConnectPluginError extends Error {
 /**
  * Connects a plugin, unless it is connected already. The ship is the one it
  * was last connected as while that is still active, else an active ship of
- * the plugin's name and type, else a new one with the plugin's scopes. A
- * crewed one is released first (its session is gone: the plugin holds no
- * token), and an existing one gets a new starting prompt, so a connect that
- * failed halfway is finished by the next one. argo then connects the ship as
- * a plugin in the fleet, after the release that would end it, and before the
- * plugin gets the secret, so it reads every ship from its first call
- * (decision 0034).
+ * the plugin's name and type, kind plugin, else a new plugin ship with the
+ * plugin's scopes, which reads every ship by its kind from its first call
+ * (decision 0050). A crewed one is released first (its session is gone: the
+ * plugin holds no token), and an existing one gets a new starting prompt, so
+ * a connect that failed halfway is finished by the next one.
  */
 export async function connectPlugin(calls: ConnectCalls, at: { ship: PluginShip; newKey: () => string }): Promise<PluginConnection> {
   const { ship: wanted, newKey } = at;
@@ -83,6 +78,9 @@ export async function connectPlugin(calls: ConnectCalls, at: { ship: PluginShip;
     throw new ConnectPluginError(`A ship named ${wanted.name} of another type exists: rename or retire it, then connect again`);
   }
   const ship = last ?? named;
+  if (ship && ship.kind !== 'plugin') {
+    throw new ConnectPluginError(`The ship ${ship.name} is not kind plugin: retire it, then connect again`);
+  }
 
   let shipId: string;
   let secret: string;
@@ -93,10 +91,9 @@ export async function connectPlugin(calls: ConnectCalls, at: { ship: PluginShip;
     shipId = ship.id;
     secret = (await calls.startingPrompt(ship.id)).secret;
   } else {
-    const commissioned = await calls.commission({ name: wanted.name, type: wanted.type, ...(wanted.kind === undefined ? {} : { kind: wanted.kind }), scopes: wanted.scopes, idempotencyKey: newKey() });
+    const commissioned = await calls.commission({ name: wanted.name, type: wanted.type, kind: 'plugin', scopes: wanted.scopes, idempotencyKey: newKey() });
     shipId = commissioned.shipId;
     secret = commissioned.secret ?? (await calls.startingPrompt(commissioned.shipId)).secret;
   }
-  await calls.connectAsPlugin(shipId);
   return calls.connect({ shipId, secret });
 }

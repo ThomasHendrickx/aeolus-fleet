@@ -11,7 +11,6 @@ import type { Lease, Location } from './lease.js';
 import type { DeclaredNetworkRules } from './declared-network-rules.js';
 import type { NetworkSettings } from './network-settings.js';
 import type { NetworkRulesDraft } from './network-rules-draft.js';
-import type { PluginConnection } from './plugin-connection.js';
 import type { ReachRefusal } from './reach-refusal.js';
 import type { ScopeNamespace } from './scope-namespace.js';
 import type { Commissioner, Ship } from './ship.js';
@@ -272,16 +271,6 @@ export interface DeclaredNetworkRulesRepository {
   find(fleetId: FleetId, declarer: LabelOwner): Promise<DeclaredNetworkRules | undefined>;
   /** Keeps the declarer's whole list from now on; an empty one keeps none. */
   save(declared: DeclaredNetworkRules): Promise<void>;
-}
-
-/** Outbound port: the plugins argo connected, one per ship, always within one fleet (decision 0034). */
-export interface PluginConnectionRepository {
-  /** The ship's connection; none while it is not connected. */
-  find(fleetId: FleetId, shipId: ShipId): Promise<PluginConnection | undefined>;
-  /** Keeps the connection of a ship that holds none. */
-  connect(connection: PluginConnection): Promise<void>;
-  /** Ends the ship's connection, if it holds one. */
-  disconnect(fleetId: FleetId, shipId: ShipId): Promise<void>;
 }
 
 /** Outbound port: the verified facts each writer holds about a ship, always within one fleet (decision 0059). */

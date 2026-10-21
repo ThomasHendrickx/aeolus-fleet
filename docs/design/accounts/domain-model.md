@@ -459,7 +459,7 @@ Party "1" --> "*" ClientCall
 | Built-in rule | core | argo, the owner and an answer, never off; the viewer read; open per verb | 0034; `NetworkSettings.builtIn*` |
 | Network rule | core (stored), networking plugin (set) | A verb from one selector to another, by labels or owner | 0034, 0036; `NetworkSettings.rules`, networking plugin `FleetNetwork` |
 | Declared network rules | core | A label owner's own rules, supplied by the networking plugin | 0037; `DeclaredNetworkRules` |
-| Plugin connection | core | argo's Connect: the plugin's ship reads every ship | 0034; `PluginConnection` |
+| Plugin connection | core | Connect commissions the plugin's ship as kind plugin, which reads every ship | 0034, 0050; the ship's kind |
 | Reach refusal | core | A refused send's record, argo's only | 0034; `ReachRefusal` (`rfs_`) |
 | Message, delivery | core | The envelope and one delivery per recipient | 0001, 0040; `Message`, `Delivery` |
 | Question | core (a convention) | A message of `application/vnd.aeolus.question+json` to the owner's ship; no table | 0038 |
@@ -636,7 +636,7 @@ sequenceDiagram
     C->>C: built-in rule: kind plugin reads every ship
     PL-->>A: connected
   end
-  Note over C,PL: a release or retire of the plugin ship ends the connection and its read
+  Note over C,PL: only a retire of the plugin ship ends its read
 ```
 
 ### 2.4 An organisation admin adds a person

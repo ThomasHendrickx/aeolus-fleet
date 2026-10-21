@@ -119,14 +119,14 @@ export function repeatOf(original: Message, requestHash: string): Result<Message
       );
 }
 
-export type AcceptRefusal = DomainError<'IN_REPLY_TO_NOT_FOUND' | 'MODEL_REQUIRED' | 'MODEL_FROM_ARGO' | 'MODEL_FROM_PERSON_OR_APP'>;
+export type AcceptRefusal = DomainError<'IN_REPLY_TO_NOT_FOUND' | 'MODEL_REQUIRED' | 'MODEL_FROM_ARGO' | 'MODEL_FROM_PERSON_APP_OR_PLUGIN'>;
 
 /**
  * Accepts a message: the message, its one pending delivery to the recipient
  * its selector resolved to, and MessageAccepted, caused by the sender. A reply
  * names a message of the same fleet: `repliedTo` is that message as the fleet
  * holds it, if it does. Only an agent ship states the model its session
- * runs (decisions 0018 and 0044); argo, a person and an app state none. A resend carries the
+ * runs (decisions 0018 and 0044); argo, a person, an app and a plugin state none (decision 0050). A resend carries the
  * original message's model as it was, so it is not asked again; a ping is the
  * fleet's question, not a session's message, so it carries none. A type
  * delivery the network rules limit to some ships of the type keeps them. A
@@ -146,8 +146,8 @@ export function acceptMessage(
   if (isStated && send.senderKind === 'operator' && send.model !== undefined) {
     return refuse('MODEL_FROM_ARGO', 'argo states no model: send without one');
   }
-  if (isStated && (send.senderKind === 'person' || send.senderKind === 'app') && send.model !== undefined) {
-    return refuse('MODEL_FROM_PERSON_OR_APP', `A ${send.senderKind} ship states no model: send without one`);
+  if (isStated && (send.senderKind === 'person' || send.senderKind === 'app' || send.senderKind === 'plugin') && send.model !== undefined) {
+    return refuse('MODEL_FROM_PERSON_APP_OR_PLUGIN', `A ${send.senderKind} ship states no model: send without one`);
   }
   if (isStated && send.senderKind === 'agent' && send.model === undefined) {
     return refuse('MODEL_REQUIRED', 'send needs model: the exact model id this session runs, such as claude-opus-5-5');

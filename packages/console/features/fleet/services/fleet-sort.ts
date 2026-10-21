@@ -42,7 +42,7 @@ function sortValueOf(ship: ListedShip, { column, squadronsOf }: { column: SortCo
     case 'status':
       return STATUS_WORDS[ship.status];
     case 'report':
-      return ship.kind === 'agent' && ship.status === 'crewed' ? (ship.report?.note ?? undefined) : undefined;
+      return (ship.kind === 'agent' || ship.kind === 'plugin') && ship.status === 'crewed' ? (ship.report?.note ?? undefined) : undefined;
     case 'squadronAndLabels': {
       const squadron = squadronsOf?.get(ship.id);
       if (squadron !== undefined && squadron.role !== null) {

@@ -73,8 +73,6 @@ import {
   reachRefusalsOutputSchema,
   explainReachInputSchema,
   setOwnerInputSchema,
-  connectPluginInputSchema,
-  connectPluginOutputSchema,
   setOwnerOutputSchema,
   setVerifiedFactsInputSchema,
   setVerifiedFactsOutputSchema,
@@ -157,15 +155,15 @@ function pingOutputOf(ping: PingStatus | null) {
  */
 export const fleetRouter = router({
   /** A new agent ship awaiting crew, and its first starting prompt: shown once. */
-  commission: actorAnyScopeProcedure('fleet:commission', 'fleet:person')
+  commission: actorAnyScopeProcedure('fleet:commission', 'fleet:person', 'fleet:connect')
     .meta({
       description: [
-        'Needs fleet:commission, or fleet:person for a person ship. Commissions a new ship awaiting crew, for a ship, an account or the installation: name and type are handles (lowercase letters, digits, hyphens, colons).',
+        'Needs fleet:commission, fleet:person for a person ship, or fleet:connect for a plugin ship. Commissions a new ship awaiting crew, for a ship, an account or the installation: name and type are handles (lowercase letters, digits, hyphens, colons).',
         'scopes adds scopes to the two every ship has, each one you may grant: a core scope you hold, or a declared scope of the namespace your ship declared. fleet_grantScopes changes them later.',
         "The new ship's owner is your owner, you when you are a person ship, or your person ship when you are an account; an account without a person ship in the fleet is refused.",
         'valueIds gives it label values from the start, each a value of a label you defined or a value you carry yourself (decision 0053).',
         "ownerOf, which needs fleet:on-behalf, names the ship that asked it for this one: the new ship gets that ship's owner instead of yours.",
-        'kind is agent unless you state person or app: a person ship needs fleet:person instead and owns itself, and an app ship needs fleet:on-behalf as well.',
+        'kind is agent unless you state person, app or plugin: a person ship needs fleet:person instead and owns itself, an app ship needs fleet:on-behalf as well, and a plugin ship needs fleet:connect instead, which connects it (decision 0050).',
         "owner, which needs fleet:on-behalf and only for an app ship, names the owner argo picked for it: a person's ship or argo, never beside ownerOf.",
         'Answers its shipId, its first starting prompt, one crew line per harness (claude-code, codex) and its secret, shown only this once.',
         'idempotencyKey is a new unique string for every commission. Reuse one only to retry the same commission after an error or a lost answer:',
@@ -427,15 +425,6 @@ export const fleetRouter = router({
     .output(setOwnerOutputSchema)
     .mutation(async ({ ctx, input }) => {
       okOrThrow(await ctx.useCases.setOwner(ctx.caller, input));
-      return {};
-    }),
-
-  /** Connects a ship as a plugin, which then reads every ship until a release or retire ends it (decisions 0034, 0053). */
-  connectPlugin: actorScopedProcedure('fleet:connect')
-    .input(connectPluginInputSchema)
-    .output(connectPluginOutputSchema)
-    .mutation(async ({ ctx, input }) => {
-      okOrThrow(await ctx.useCases.connectPlugin(ctx.caller, input));
       return {};
     }),
 
