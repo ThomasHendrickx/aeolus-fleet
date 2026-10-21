@@ -65,6 +65,11 @@ describe('sorting the overview by a column', () => {
     expect(sortedBy(fleet, { sort: { column: 'report', direction: 'descending' } })).toEqual(['late', 'early', 'quiet']);
   });
 
+  it("sorts a plugin ship by its report note, as its Report cell shows it", () => {
+    const fleet = [aShip({ name: 'gateway', kind: 'app', report: aReport('Aaa') }), aShip({ name: 'squadrons', kind: 'plugin', report: aReport('Watching 2 squadrons') }), aShip({ name: 'scout', report: aReport('Reading') })];
+    expect(sortedBy(fleet, { sort: { column: 'report', direction: 'ascending' } })).toEqual(['scout', 'squadrons', 'gateway']);
+  });
+
   it('sorts by squadron, then by the first label carried', () => {
     const LABEL = { labelId: idSchema('label').parse('lbl_01m3tbfspe96yf1rnr4ank9h0a'), valueId: idSchema('labelValue').parse('lbv_01m3tbfspe96yf1rnr4ank9h1a'), key: 'project', value: 'hemma' };
     const member = aShip({ name: 'member' });

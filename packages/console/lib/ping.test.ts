@@ -10,6 +10,10 @@ describe('canPing', () => {
     expect(canPing({ kind: 'agent', status: 'crewed' })).toBe(true);
   });
 
+  it('offers Ping on a crewed plugin ship, which answers with pong', () => {
+    expect(canPing({ kind: 'plugin', status: 'crewed' })).toBe(true);
+  });
+
   it.each([
     ['a ship awaiting crew', { kind: 'agent', status: 'awaitingCrew' }],
     ['a retired ship', { kind: 'agent', status: 'retired' }],
