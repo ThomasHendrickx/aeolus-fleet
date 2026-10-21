@@ -246,6 +246,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_verify_scope$/),
       expect.stringMatching(/^\d{14}_verified_facts$/),
       expect.stringMatching(/^\d{14}_verified_facts_by_writer$/),
+      expect.stringMatching(/^\d{14}_fleet_listing_indexes$/),
     ]);
   });
 });
