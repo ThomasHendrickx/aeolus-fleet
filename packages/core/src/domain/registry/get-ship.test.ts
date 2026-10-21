@@ -54,6 +54,24 @@ describe('getting one ship', () => {
       inFlightDeliveries: 0,
       openDeliveries: 0,
       owner: { id: argo.shipId, name: 'argo' },
+      statement: null,
+    });
+  });
+
+  it("gives its crew's statement while one is stated (decision 0047)", async () => {
+    const scout = crewAboard(core, { fleetId, shipId: scoutId });
+    unwrap(await useCases.setStatement(scout, { summary: 'Reviews pull requests.', capabilities: [{ name: 'review_pr' }] }));
+
+    await expect(useCases.getShip(argo, { shipId: scoutId })).resolves.toMatchObject({
+      value: { statement: { by: 'crew', version: 1, summary: 'Reviews pull requests.', capabilities: [{ name: 'review_pr' }] } },
+    });
+  });
+
+  it('gives its commission note while no crew stated a statement', async () => {
+    const { shipId: vaultId } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'vault', type: 'keeper', note: 'Keeps the release keys' }));
+
+    await expect(useCases.getShip(argo, { shipId: vaultId })).resolves.toMatchObject({
+      value: { statement: { by: 'commission', note: 'Keeps the release keys' } },
     });
   });
 

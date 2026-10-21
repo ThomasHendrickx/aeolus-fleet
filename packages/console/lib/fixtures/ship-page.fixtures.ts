@@ -49,6 +49,7 @@ export const CREWED_SHIP: ShipDetail = {
   openDeliveries: 2,
   owner: ARGO,
   ownerShipId: ARGO.id,
+  statement: null,
 };
 
 export const AWAITING_SHIP: ShipDetail = {

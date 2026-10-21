@@ -126,3 +126,11 @@ export const WithPullDelivery: Story = { args: { way: <ShipWayLines view={shipWa
 
 export const WithDeliveryDark: Story = { ...WithDelivery, globals: { theme: 'dark' } };
 export const WithDeliveryPhone: Story = { ...WithDelivery, globals: { viewport: { value: 'mobile1' } } };
+
+/** What its crew says it is and offers (decision 0047). */
+export const WithStatement: Story = {
+  args: { ship: { ...CREWED_SHIP, statement: { by: 'crew', version: 1, summary: 'Reviews pull requests.', capabilities: [{ name: 'review_pr', title: 'Review a pull request' }] } } },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByTestId('ship-statement')).toHaveTextContent('Reviews pull requests.');
+  },
+};

@@ -485,4 +485,6 @@ export interface FleetListing {
    * abandons).
    */
   deliveryCounts(fleetId: FleetId, shipId: ShipId): Promise<{ inFlight: number; open: number }>;
+  /** The statement the ship's open lease holds; null while no session crews it or its crew stated none (decision 0047). */
+  statement(fleetId: FleetId, shipId: ShipId): Promise<StatedStatement | null>;
 }

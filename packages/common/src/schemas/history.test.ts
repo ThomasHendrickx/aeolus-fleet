@@ -54,6 +54,7 @@ describe('shipDetailOutputSchema', () => {
     inFlightDeliveries: 1,
     openDeliveries: 3,
     owner: { id: newId('ship'), name: 'argo' },
+    statement: null,
   };
 
   it('accepts a ship with its commissioned date, when its crew came aboard and when it retired', () => {
@@ -64,6 +65,13 @@ describe('shipDetailOutputSchema', () => {
     const reported = { ...ship, report: { state: 'working', note: null, reportedAt: AT, detailsVersion: 2, details: { running: 4 }, detailsBytes: 13 } };
 
     expect(shipDetailOutputSchema.parse(reported)).toEqual(reported);
+  });
+
+  it("accepts its crew's statement, or its commission note (decision 0047)", () => {
+    const stated = { ...ship, statement: { by: 'crew', version: 1, summary: 'Reviews pull requests.', capabilities: [{ name: 'review_pr' }] } };
+    const noted = { ...ship, statement: { by: 'commission', note: 'Keeps the release keys' } };
+
+    expect([shipDetailOutputSchema.parse(stated), shipDetailOutputSchema.parse(noted)]).toEqual([stated, noted]);
   });
 
   it('accepts its crew request whole, settings included', () => {
@@ -81,6 +89,7 @@ describe('shipDetailOutputSchema', () => {
     ['no count of deliveries in flight', { ...ship, inFlightDeliveries: undefined }],
     ['a negative count of open deliveries', { ...ship, openDeliveries: -1 }],
     ['a missing owner', { ...ship, owner: undefined }],
+    ['a missing statement', { ...ship, statement: undefined }],
   ])('rejects %s', (_label, detail) => {
     expect(shipDetailOutputSchema.safeParse(detail).success).toBe(false);
   });

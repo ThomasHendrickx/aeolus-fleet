@@ -774,7 +774,7 @@ export const fleetRouter = router({
   ship: anyScopeProcedure('fleet:read', 'crew:run')
     .meta({
       description: [
-        'Needs fleet:read, or crew:run for a ship whose crew request is assigned to yours. One ship of the fleet, retired ones included: as fleet_list shows it, plus when it was commissioned, crewed and retired, and its open and in-flight deliveries.',
+        'Needs fleet:read, or crew:run for a ship whose crew request is assigned to yours. One ship of the fleet, retired ones included: as fleet_list shows it, plus when it was commissioned, crewed and retired, its open and in-flight deliveries, and its statement as discover shows it (decision 0047).',
         'A ship outside your read reach, and not assigned to yours, shows its id, name, type and status only, with isInReadReach false (decision 0034).',
       ].join(' '),
     })
