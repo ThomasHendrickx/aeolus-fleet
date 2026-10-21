@@ -1,6 +1,6 @@
 import { createServer, type Server } from 'node:http';
 
-import { SCOPES, type FleetId, type MessageId, type ShipId } from '@aeolus-fleet/common';
+import { accountIdSchema, SCOPES, type FleetId, type MessageId, type ShipId } from '@aeolus-fleet/common';
 import { createTRPCClient, httpLink, TRPCClientError, type TRPCClient } from '@trpc/client';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -170,6 +170,13 @@ describe('an account signed in by its token cookie', () => {
     });
   });
 
+  it("reads who holds argo's sign-in, for the warning before signing in as argo", async () => {
+    const { ticket } = unwrap(await useCases.issueSignInTicket({ fleetId, account: { id: accountIdSchema.parse('acc-thomas') } }));
+    unwrap(await useCases.redeemSignInTicket({ ticket }));
+
+    await expect(asBrowser(await signedInCookie()).console.argoSignIn.query()).resolves.toEqual({ isSignedIn: true, accountId: 'acc-thomas' });
+  });
+
   it('is named by its id in console.account', async () => {
     await expect(asBrowser(await signedInCookie()).console.account.query()).resolves.toEqual({ kind: 'account', accountId: 'acc-mathilde' });
   });
@@ -223,11 +230,12 @@ describe('an account signed in by its token cookie', () => {
 
   it("takes no lease: argo's sign-in and the console sessions stay as they are", async () => {
     const leasesBefore = await database.lease.count({ where: { fleetId } });
+    const sessionsBefore = await database.consoleSession.count({ where: { fleetId } });
 
     await asBrowser(await signedInCookie()).fleet.list.query({});
 
     await expect(database.lease.count({ where: { fleetId } })).resolves.toBe(leasesBefore);
-    await expect(database.consoleSession.count({ where: { fleetId } })).resolves.toBe(0);
+    await expect(database.consoleSession.count({ where: { fleetId } })).resolves.toBe(sessionsBefore);
   });
 
   it("changes the fleet from the console's origin, the event naming the account", async () => {
