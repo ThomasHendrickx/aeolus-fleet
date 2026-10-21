@@ -208,6 +208,50 @@ const webImpure = {
   ],
 };
 
+const headerMessage =
+  '@aeolus-fleet/common/header is React for the browser and client-safe (header design H2, decision 0033): no zod, schema, Node built-in or server code, and the rest of common by import type only.';
+
+/**
+ * What src/header never imports, not even as a type.
+ * @type {ImportRestriction[]}
+ */
+const headerForbiddenImports = [
+  { regex: '^zod(/.*)?$', message: headerMessage },
+  { regex: '^node:', message: headerMessage },
+  { regex: '^@trpc/', message: headerMessage },
+];
+
+/**
+ * The rest of common, which src/header takes as types only: its schemas, ids,
+ * fleet and trierarch modules, and its root, which re-exports the schemas.
+ * @type {ImportRestriction[]}
+ */
+const commonOutsideTheHeader = [{ regex: '^\\.\\./(schemas|ids|fleet|trierarch)(/|$)|^\\.\\./index(\\.js)?$|^\\.\\.$|^@aeolus-fleet/common$', message: headerMessage }];
+
+/**
+ * A value import, re-export or import() of these: an import type is erased,
+ * so it is no import at all.
+ * @param {ImportRestriction[]} restrictions
+ * @returns {SyntaxRestriction[]}
+ */
+function valueImports(restrictions) {
+  return restrictions.flatMap(({ regex, message }) => [
+    { selector: `ImportDeclaration[importKind="value"][source.value=${esqueryRegex(regex)}]`, message },
+    { selector: `ExportNamedDeclaration[exportKind="value"][source.value=${esqueryRegex(regex)}]`, message },
+    { selector: `ExportAllDeclaration[exportKind="value"][source.value=${esqueryRegex(regex)}]`, message },
+    { selector: `ImportExpression[source.value=${esqueryRegex(regex)}]`, message },
+  ]);
+}
+
+const commonWithoutReactMessage =
+  'Only @aeolus-fleet/common/header (src/header) imports React: the rest of common stays zod alone, so server-only users never install or load React (header design H2).';
+
+/** @type {ImportRestriction[]} */
+const reactInCommon = [
+  { regex: '^(react|react-dom)(/.*)?$|^@base-ui/react(/.*)?$|^lucide-react$', message: commonWithoutReactMessage },
+  { regex: '^(\\.\\.?/)+header(/|$)', message: commonWithoutReactMessage },
+];
+
 /** @type {PropertyRestriction[]} */
 const noModuleMocks = ['mock', 'doMock'].map((property) => ({
   object: 'vi',
@@ -365,6 +409,23 @@ export default defineConfig(
     name: 'aeolus/prisma-in-its-adapter',
     ignores: ['packages/core/src/adapters/prisma/**'],
     rules: importRules({ patterns: prismaOutsideItsAdapter }),
+  },
+  {
+    // The header's production files; its tests and stories never ship (tsconfig.build.json).
+    name: 'aeolus/common-header',
+    files: ['packages/common/src/header/**/*.{ts,tsx}'],
+    ignores: ['**/*.test.ts', '**/*.stories.tsx'],
+    rules: importRules({
+      patterns: [...prismaOutsideItsAdapter, ...headerForbiddenImports],
+      paths: reactManualMemo,
+      syntax: valueImports(commonOutsideTheHeader),
+    }),
+  },
+  {
+    name: 'aeolus/common-without-react',
+    files: ['packages/common/src/**/*.{ts,tsx}'],
+    ignores: ['packages/common/src/header/**'],
+    rules: importRules({ patterns: [...prismaOutsideItsAdapter, ...reactInCommon] }),
   },
 
   // Every file in core, shared and any folder that is not a context included;

@@ -111,10 +111,9 @@ Thomas: "why cant that be part of common? I dont see the point of yet another pa
   - Common's row in the packages table depends on "Zod; React, Base UI and lucide as optional peers, for `./header` only".
   - The console's row says it takes the header and its atoms from common.
   - Decision 0008 keeps its package count.
-- **Lint, proposed for Thomas's approval** (new rules are his). A new block, `aeolus/common-header`, on the existing `importRules` helper. The helper covers static imports, `import()` and `import('x')` types.
-  - On `packages/common/src/header/**`, it refuses `zod`, `node:*`, `@prisma/*`, `@trpc/*`, `../schemas/**`, `../fleet/**`, `../trierarch/**`, `../ids/**` and common's root, allowing `import type`.
-  - On the rest of common, it refuses `react`, `react-dom`, `@base-ui/react`, `lucide-react` and `./header/**`.
-  - A test in the lint tests proves each refusal.
+- **Lint (Thomas approved).** Two blocks on the existing `importRules` helper, proven by `lint/common-header.test.ts`.
+  - `aeolus/common-header`, on the header's production files (`packages/common/src/header/**`, not its tests or stories): refuses `zod`, `node:*`, `@prisma/*` and `@trpc/*`, and a value import, re-export or `import()` of `../schemas/**`, `../fleet/**`, `../trierarch/**`, `../ids/**` and common's root; `import type` passes.
+  - `aeolus/common-without-react`, on the rest of common: refuses `react`, `react-dom`, `@base-ui/react`, `lucide-react` and the header.
 
 Rejected: a new package in core's train; its own repository and train; copies per app.
 
