@@ -17,12 +17,7 @@ An outside A2A agent talks to fleet ships with no Aeolus client. Fleet ships tal
 Not the purpose:
 - Task state in core. The gateway keeps it (0048, 0001).
 - A2A for person ships. People keep the gateway's MCP tools (0054).
-- gRPC, signed cards, and a registry of cards. See Later.
-
-Later, in Thomas's words:
-- **gRPC.** "gRPC we can support later"
-- **Signed cards.** "Signed cards is acceptable for now, but we can investigate what we can do with that later (maybe a trust signal or so)"
-- **Card registry.** "Card registery, we can check later if we can use this in some way as a just in time registry creation for discovery within the A2A protocal. But again later"
+- gRPC, signed cards, and a registry of cards.
 
 ## 2. Lessons to check against
 
@@ -225,7 +220,7 @@ As written, an outside A2A agent or A2A client is none of these, so no rule says
 1. The party's detail on the gateway's page lists the card address of each ship its proxy ship reaches now, from `discover`. The party's owner hands the addresses to the outside party.
 2. One gateway card whose skills are the reachable ships. An A2A message names no skill, so the gateway could not tell which ship a message is for, and the A2A study rejected it.
 
-**Pick 1.** It works with any standard client and always follows the rules in force. A registry is on the Later list.
+**Pick 1.** It works with any standard client and always follows the rules in force.
 
 ### A5. One switch for outside parties, or one per protocol?
 
@@ -319,4 +314,3 @@ A2A in before out. Each slice is gateway work unless it says core. Each ends usa
 | 5 | **A2A out: add an agent** | An approver adds an agent by its card address. The gateway reads the card first; an invalid card is not added. An `a2a-agent` proxy ship is commissioned. Its statement carries the skills, without interfaces, schemes or signatures, and every capability is `repeatable` unless marked (A9). The verified fact is `a2aCardDomain`. The credential is a bearer or client credentials in the vault |
 | 6 | **A2A out: hand over and follow** | As in flow 3.2: `pushReceive`, `handed` with channel `a2a`, a stable `messageId`, an ack only on an accepting answer, following by `SubscribeToTask` when the card states streaming and by `GetTask` otherwise, each status or artifact as a reply with a derived key (a restart sends no duplicate), and `handled` at a terminal state. The concurrency limit holds. Not repeatable gives `notHandled` with the reason. INPUT_REQUIRED continues through a reply. AUTH_REQUIRED follows A10. A task gone gives `notHandled` |
 
-After 0.30.0: push from outside agents to the gateway's webhook, OAuth client credentials for A2A clients (A2 option 3), and A2A 1.1 once it is released.
