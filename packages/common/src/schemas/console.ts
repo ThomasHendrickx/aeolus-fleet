@@ -3,7 +3,16 @@ import { z } from 'zod';
 import { scopeSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
 import { accountIdSchema } from './account-token.js';
-import { EMAIL_REQUIRED, EMAIL_TOO_LONG, OPERATOR_EMAIL_MAX_LENGTH, OPERATOR_PASSWORD_MAX_LENGTH, PASSWORD_REQUIRED, PASSWORD_TOO_LONG } from '../rules/sign-in.js';
+import {
+  EMAIL_REQUIRED,
+  EMAIL_TOO_LONG,
+  OPERATOR_EMAIL_MAX_LENGTH,
+  OPERATOR_PASSWORD_MAX_LENGTH,
+  OPERATOR_PASSWORD_MIN_LENGTH,
+  PASSWORD_REQUIRED,
+  PASSWORD_TOO_LONG,
+  PASSWORD_TOO_SHORT,
+} from '../rules/sign-in.js';
 
 /** One @ with something on each side, and no whitespace. */
 export const OPERATOR_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+$/;
@@ -75,6 +84,22 @@ export type Account = z.infer<typeof accountOutputSchema>;
 
 /** Input of `console.setTheme`. */
 export const setThemeInputSchema = z.object({ theme: themeSchema });
+
+/**
+ * Input of `console.setLogin`: the email and new password of argo's own
+ * sign-in, on a self-hosted fleet (accounts design, A1). Whitespace around
+ * the email is dropped; the server checks its shape and that no other
+ * operator signs in with it. The password is taken exactly as typed.
+ */
+export const setLoginInputSchema = z.object({
+  email: z.string().trim().min(1, EMAIL_REQUIRED).max(OPERATOR_EMAIL_MAX_LENGTH, EMAIL_TOO_LONG),
+  password: z.string().min(OPERATOR_PASSWORD_MIN_LENGTH, PASSWORD_TOO_SHORT).max(OPERATOR_PASSWORD_MAX_LENGTH, PASSWORD_TOO_LONG),
+});
+
+export type SetLoginInput = z.infer<typeof setLoginInputSchema>;
+
+/** Output of `console.setLogin`: nothing; the OK is the answer. */
+export const setLoginOutputSchema = z.strictObject({});
 
 /** Output of `console.setTheme`: nothing; the OK is the answer. */
 export const setThemeOutputSchema = z.strictObject({});
