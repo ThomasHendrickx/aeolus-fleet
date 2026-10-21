@@ -36,4 +36,5 @@ export const SHIP_PROTOCOL = [
   '14. When your work is done and you expect no answer, end your turn. Anything that arrives later waits for you.',
   '15. Deregister only when this session ends for good, never between tasks.',
   '16. LEASE_ENDED while passing your crew token: your ship was released. Stop calling the fleet and say so.',
+  '17. To read a delivery you acknowledged again, whole, until it is handled, call delivery with its deliveryId. It changes nothing.',
 ].join('\n');
