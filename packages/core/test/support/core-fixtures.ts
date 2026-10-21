@@ -27,6 +27,7 @@ import { createAuthenticateInstallation } from '../../src/domain/identity/authen
 import { createCutOffAccount } from '../../src/domain/identity/cut-off-account.js';
 import type { AccountCutOffRepository, HostedFleets } from '../../src/domain/identity/ports.js';
 import { createReadAccount } from '../../src/domain/identity/read-account.js';
+import { createReadArgoSignIn } from '../../src/domain/identity/read-argo-sign-in.js';
 import { createSetOperatorLogin } from '../../src/domain/identity/set-operator-login.js';
 import { createResetOperatorPassword } from '../../src/domain/identity/reset-operator-password.js';
 import { createSignIn } from '../../src/domain/identity/sign-in.js';
@@ -153,6 +154,7 @@ export function identityUseCases(core: InMemoryCore) {
     // No pagasae here: argo's own sign-in is the way in.
     setOperatorLogin: createSetOperatorLogin({ ...deps, isSelfHosted: true }),
     readAccount: createReadAccount(deps),
+    readArgoSignIn: createReadArgoSignIn(deps),
     setTheme: createSetTheme(deps),
     authenticate: createAuthenticate({ callers: core.callers, hasher: core.hasher, clock: core.clock }),
     issueSignInTicket: createIssueSignInTicket(deps),

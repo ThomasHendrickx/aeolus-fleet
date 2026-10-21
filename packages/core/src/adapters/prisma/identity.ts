@@ -163,6 +163,17 @@ export function createPrismaConsoleSessionRepository(db: Db): ConsoleSessionRepo
         WHERE fleet_id = ${fleetId} AND id = ${consoleSessionId}`;
       return row ? toConsoleSession(row) : undefined;
     },
+    findOperatorSignIn: async (fleetId, at) => {
+      // A session holds a lease only on argo; the fleet has at most one live one (decision 0012).
+      const [row] = await db.$queryRaw<unknown[]>`
+        SELECT id, fleet_id, ship_id, lease_id, idle_limit_seconds, ends_by, device, account_id, token_hash, created_at, last_used_at, expires_at, ended_at,
+          end_reason::text AS end_reason
+        FROM console_sessions
+        WHERE fleet_id = ${fleetId} AND lease_id IS NOT NULL AND ended_at IS NULL AND expires_at > ${at}
+        ORDER BY created_at DESC
+        LIMIT 1`;
+      return row ? toConsoleSession(row) : undefined;
+    },
     end: async ({ fleetId, consoleSessionId, at, reason }) => {
       const [row] = await db.$queryRaw<unknown[]>`
         UPDATE console_sessions SET ended_at = ${at}, end_reason = ${reason}::console_session_end_reason
