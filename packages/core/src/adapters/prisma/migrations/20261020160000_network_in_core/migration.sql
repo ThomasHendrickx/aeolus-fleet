@@ -2,8 +2,8 @@
 -- A fleet's own rules are a list, or NULL while none are applied: all-to-all,
 -- open on. A fleet whose open was on for send had no rules in force beside
 -- the built-in ones, so it keeps none; any other keeps its list.
-UPDATE "network_settings" SET "rules" = NULL WHERE "built_in_open_send";
 ALTER TABLE "network_settings" ALTER COLUMN "rules" DROP NOT NULL, ALTER COLUMN "rules" DROP DEFAULT;
+UPDATE "network_settings" SET "rules" = NULL WHERE "built_in_open_send";
 
 ALTER TABLE "network_settings"
   DROP CONSTRAINT IF EXISTS "network_settings_plugin_whole",
