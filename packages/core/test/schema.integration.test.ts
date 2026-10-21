@@ -793,6 +793,37 @@ describe('the plugin ships migration', () => {
       await client.$disconnect();
     }
   });
+
+  it('writes PluginConnected, by the system, for each ship it makes kind plugin that had no connection, at the next numbers of its fleet stream', async () => {
+    const url = await createMigratedDatabase();
+    const client = createPrismaClient(url);
+    const fleetId = newId('fleet');
+    const ids = { connected: newId('ship'), squadrons: newId('ship'), gateway: newId('ship') };
+    try {
+      await client.$executeRawUnsafe('CREATE TABLE "plugin_connections" ("fleet_id" TEXT NOT NULL, "ship_id" TEXT NOT NULL, "connected_at" TIMESTAMPTZ(3) NOT NULL)');
+      await client.fleet.create({ data: { id: fleetId, name: 'old fleet', createdAt: now, lastEventSeq: 1n } });
+      await client.ship.createMany({
+        data: [
+          { id: ids.connected, fleetId, name: 'networking-plugin', type: 'networking-plugin', kind: 'agent', scopes: ['fleet:read'], createdAt: now },
+          { id: ids.squadrons, fleetId, name: 'squadrons', type: 'squadrons', kind: 'agent', scopes: ['fleet:read'], createdAt: now },
+          { id: ids.gateway, fleetId, name: 'gateway', type: 'gateway', kind: 'app', scopes: ['fleet:read'], createdAt: now },
+        ],
+      });
+      await client.$executeRawUnsafe(`INSERT INTO "plugin_connections" VALUES ('${fleetId}', '${ids.connected}', now())`);
+
+      await executeSqlFile(url, `${MIGRATIONS}/${pluginShips ?? 'missing'}/migration.sql`);
+
+      const recorded = await client.event.findMany({ where: { fleetId }, orderBy: { seq: 'asc' }, select: { id: true, type: true, actorKind: true, actorShipId: true, shipId: true, details: true, seq: true } });
+      expect(recorded.map(({ shipId }) => shipId).toSorted()).toEqual([ids.squadrons, ids.gateway].toSorted());
+      for (const [at, event] of recorded.entries()) {
+        expect(event).toMatchObject({ type: 'PluginConnected', actorKind: 'system', actorShipId: null, details: {}, seq: BigInt(at + 2) });
+        expect(idSchema('event').safeParse(event.id).success).toBe(true);
+      }
+      await expect(client.fleet.findUniqueOrThrow({ where: { id: fleetId }, select: { lastEventSeq: true } })).resolves.toEqual({ lastEventSeq: 3n });
+    } finally {
+      await client.$disconnect();
+    }
+  });
 });
 
 describe('the network verbs migration', () => {
