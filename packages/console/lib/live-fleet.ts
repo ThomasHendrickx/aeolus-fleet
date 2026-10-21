@@ -5,6 +5,7 @@ import { useState } from 'react';
 
 import type { LiveState } from '../components/molecules/live-status';
 import { INBOX_KEY } from './inbox';
+import { useIsReopening } from './live-updates';
 import { useTRPC } from './trpc';
 
 /**
@@ -146,6 +147,7 @@ export function useLiveFleet(): LiveFleet {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const [newShipIds, setNewShipIds] = useState<ReadonlySet<ShipId>>(new Set());
+  const isReopening = useIsReopening();
 
   const [reload] = useState(() => createLiveReloads(queryClient));
   const reloadSnapshot = () => {
@@ -213,5 +215,7 @@ export function useLiveFleet(): LiveFleet {
     ),
   );
 
-  return { live: liveStateOf(subscription.status), newShipIds, error: subscription.error };
+  // Reopening after a renewal, the server replays what commits meanwhile: still Live (accounts design, A4).
+  const live = subscription.status === 'connecting' && isReopening ? 'live' : liveStateOf(subscription.status);
+  return { live, newShipIds, error: subscription.error };
 }

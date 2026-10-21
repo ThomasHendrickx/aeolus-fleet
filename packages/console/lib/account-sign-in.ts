@@ -2,6 +2,7 @@ import { authorizeUrlOf, codeChallengeOf, cookieValueOf, exchangeSignIn, fleetsO
 import { sessionCookieOf } from './plugin-call';
 import { returnPathOf } from './return-path';
 import { serverInternalUrlFrom } from './server-url';
+import { NO_RIGHTS_PATH, UNREACHABLE_PATH } from './sign-in-paths';
 
 /**
  * An account's sign-in to the console, on the web app's server (accounts
@@ -22,10 +23,6 @@ const FLOW_LIFE_SECONDS = 600;
 const FLEET_COOKIE_LIFE_SECONDS = 400 * 24 * 60 * 60;
 const PRESENT_TIMEOUT_MS = 10_000;
 
-/** Where an account goes when it holds no scope in the fleet, or in any (accounts design, F1). */
-export const NO_RIGHTS_PATH = '/sign-in/no-rights';
-/** Where an account goes when pagasae does not answer. */
-export const UNREACHABLE_PATH = '/sign-in/unreachable';
 
 function redirectTo(location: string, cookies: readonly string[] = []): Response {
   const headers = new Headers({ location, 'cache-control': 'no-store' });
@@ -190,6 +187,42 @@ export async function enterFleet(request: Request, deps: SignInDeps & { returnTo
           ]);
     }
   }
+}
+
+/** What a renewal came to: fresh cookies, or why there are none. */
+export type Renewal = { kind: 'renewed'; cookies: readonly string[] } | { kind: 'ended' } | { kind: 'noRights' } | { kind: 'unreachable' };
+
+/**
+ * A fresh account token for the fleet the account is in, with the shared
+ * sign-in (accounts design, A3), kept by core in its token cookie. Ended when
+ * the shared sign-in is gone or pagasae refuses it (signed out elsewhere, or
+ * disabled: F5); no rights when the account holds none in the fleet any more
+ * (F6); unreachable when pagasae or core does not answer (F7).
+ */
+export async function renewAccountToken(request: Request, deps: SignInDeps): Promise<Renewal> {
+  const { pagasae, environment } = deps;
+  const cookies = request.headers.get('cookie');
+  const signIn = cookieValueOf(cookies, SHARED_SIGN_IN_COOKIE);
+  const fleetId = cookieValueOf(cookies, FLEET_COOKIE);
+  if (signIn === undefined || fleetId === undefined) {
+    return { kind: 'ended' };
+  }
+  const exchanged = await exchangeSignIn({ pagasae }, { signIn, fleetId });
+  if (exchanged.kind !== 'token') {
+    return exchanged;
+  }
+  const tokenCookie = await presentToCore(exchanged.token, environment);
+  return tokenCookie === undefined ? { kind: 'unreachable' } : { kind: 'renewed', cookies: [tokenCookie] };
+}
+
+/** The renewal route's answer to the browser: the fresh cookie, or what came instead, as JSON. */
+export function renewalResponseOf(renewal: Renewal): Response {
+  const status = { renewed: 200, ended: 401, noRights: 403, unreachable: 503 }[renewal.kind];
+  const headers = new Headers({ 'content-type': 'application/json', 'cache-control': 'no-store' });
+  for (const cookie of renewal.kind === 'renewed' ? renewal.cookies : []) {
+    headers.append('set-cookie', cookie);
+  }
+  return new Response(JSON.stringify({ outcome: renewal.kind }), { status, headers });
 }
 
 /**

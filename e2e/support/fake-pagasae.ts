@@ -30,6 +30,16 @@ export interface FakePagasae {
   signInsAsked(): number;
   /** The shared sign-ins revoked so far. */
   revoked(): readonly string[];
+  /** How long each account token lasts from now on, in seconds: 600 as pagasae's, or shorter to see a renewal soon. */
+  issueTokensFor(seconds: number): void;
+  /** The scopes the account holds in the fleet from now on, as an organisation admin changing its groups would give. */
+  changeScopes(change: { accountId: string; fleetId: string; scopes: readonly string[] }): void;
+  /** Every shared sign-in ends, as signing out elsewhere or disabling the account does. */
+  endSignIns(): void;
+  /** pagasae stops answering, or answers again. */
+  setDown(isDown: boolean): void;
+  /** How many account tokens it issued. */
+  tokensIssued(): number;
   close(): Promise<void>;
 }
 
@@ -55,6 +65,9 @@ function json(response: ServerResponse, answer: { status: number; body: unknown 
 export async function startFakePagasae(): Promise<FakePagasae> {
   let account: FakeAccount | undefined;
   let asked = 0;
+  let tokenSeconds = 600;
+  let isDown = false;
+  let issued = 0;
   const sessions = new Map<string, FakeAccount>();
   const codes = new Map<string, { session: string; challenge: string; redirectUri: string }>();
   const revoked: string[] = [];
@@ -64,6 +77,10 @@ export async function startFakePagasae(): Promise<FakePagasae> {
   const server = createServer((request, response) => {
     void (async () => {
       const url = new URL(request.url ?? '/', 'http://pagasae');
+      if (isDown && url.pathname !== '/.well-known/jwks.json') {
+        request.socket.destroy();
+        return;
+      }
       const { issuer } = keys;
       if (issuer === undefined) {
         json(response, { status: 503, body: {} });
@@ -120,8 +137,9 @@ export async function startFakePagasae(): Promise<FakePagasae> {
           return;
         }
         const now = Math.floor(Date.now() / 1000);
-        const token = issuer.sign({ iss: issuer.issuer, aud: fleet.id, sub: holder.id, org: 'org-acme', scope: fleet.scopes.join(' '), group: [], iat: now, exp: now + 600 }, { type: 'at+jwt' });
-        json(response, { status: 200, body: { access_token: token, issued_token_type: 'urn:ietf:params:oauth:token-type:jwt', token_type: 'Bearer', expires_in: 600 } });
+        const token = issuer.sign({ iss: issuer.issuer, aud: fleet.id, sub: holder.id, org: 'org-acme', scope: fleet.scopes.join(' '), group: [], iat: now, exp: now + tokenSeconds, jti: randomUUID() }, { type: 'at+jwt' });
+        issued += 1;
+        json(response, { status: 200, body: { access_token: token, issued_token_type: 'urn:ietf:params:oauth:token-type:jwt', token_type: 'Bearer', expires_in: tokenSeconds } });
         return;
       }
       if (url.pathname === '/api/apps') {
@@ -175,6 +193,23 @@ export async function startFakePagasae(): Promise<FakePagasae> {
     },
     signInsAsked: () => asked,
     revoked: () => revoked,
+    issueTokensFor: (seconds) => {
+      tokenSeconds = seconds;
+    },
+    changeScopes: ({ accountId, fleetId, scopes }) => {
+      for (const [session, holder] of sessions) {
+        if (holder.id === accountId) {
+          sessions.set(session, { ...holder, fleets: holder.fleets.map((fleet) => (fleet.id === fleetId ? { ...fleet, scopes } : fleet)) });
+        }
+      }
+    },
+    endSignIns: () => {
+      sessions.clear();
+    },
+    setDown: (isNowDown) => {
+      isDown = isNowDown;
+    },
+    tokensIssued: () => issued,
     close: () =>
       new Promise((closed) => {
         server.close(() => {

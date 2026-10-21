@@ -6,7 +6,7 @@ import { pagasaeFrom } from './pagasae';
 export const SESSION_COOKIE = 'aeolus_session';
 
 /** The server's cookie of an account's sign-in, holding its account token (accounts design, F1). */
-const ACCOUNT_TOKEN_COOKIE = 'aeolus_account_token';
+export const ACCOUNT_TOKEN_COOKIE = 'aeolus_account_token';
 
 /** How long the web app's server waits for the session check before it lets the console decide in the browser. */
 const SESSION_CHECK_TIMEOUT_MS = 3000;

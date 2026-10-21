@@ -10,6 +10,7 @@ import { AnalyticsContext, useAnalyticsPageviews } from '../lib/analytics-client
 import { ConsoleConstantsContext, type ConsoleConstants } from '../lib/console-constants';
 import { trpcErrorCode } from '../lib/errors';
 import { HostedAccountUrlContext } from '../lib/hosted-account';
+import { createLiveUpdates, LiveUpdatesContext } from '../lib/live-updates';
 import { OwnSignInContext } from '../lib/own-sign-in';
 import { WayOutContext, useWayOutEndsWithPage } from '../lib/session';
 import { createSessionFetch } from '../lib/session-fetch';
@@ -37,16 +38,22 @@ function withCredentials(input: RequestInfo | URL, init?: RequestInit): Promise<
  * sends the session cookie and the page's origin with the upgrade. A lost
  * connection is retried; tRPC resends the number of the last event, so the
  * server replays what was missed. Sign out travels alone, so no other call in
- * its batch renews the cookie it clears (lib/session-fetch.ts).
+ * its batch renews the cookie it clears (lib/session-fetch.ts). The live
+ * updates reopen the socket after an account's token is renewed (lib/live-updates.ts).
  */
 function createClient(serverUrl: string) {
+  const socket = { close: () => sockets.connection?.ws.close() };
+  const live = createLiveUpdates(socket);
   const sockets = createWSClient({
     url: `${serverUrl.replace(/^http/, 'ws')}/trpc`,
     lazy: { enabled: true, closeMs: 0 },
+    onOpen: () => {
+      live.opened();
+    },
   });
   const url = `${serverUrl}/trpc`;
   const sessionFetch = createSessionFetch(withCredentials);
-  return createTRPCClient<AppRouter>({
+  const client = createTRPCClient<AppRouter>({
     links: [
       splitLink({
         condition: (operation) => operation.type === 'subscription',
@@ -59,6 +66,7 @@ function createClient(serverUrl: string) {
       }),
     ],
   });
+  return { client, live };
 }
 
 /** Ends the way out once the page goes (lib/way-out.ts). */
@@ -94,7 +102,7 @@ export function Providers({
   children: ReactNode;
 }) {
   const [queryClient] = useState(() => new QueryClient({ defaultOptions: { queries: { retry } } }));
-  const [trpcClient] = useState(() => createClient(serverUrl));
+  const [{ client: trpcClient, live }] = useState(() => createClient(serverUrl));
   const [wayOut] = useState(() =>
     createWayOut({
       setOnline: (isOnline) => {
@@ -114,9 +122,11 @@ export function Providers({
             <OwnSignInContext value={hasOwnSignIn}>
             <AnalyticsContext value={isAnalyticsOn}>
               <WayOutContext value={wayOut}>
-                <Pageviews />
-                <WayOutEndsWithPage wayOut={wayOut} />
-                {children}
+                <LiveUpdatesContext value={live}>
+                  <Pageviews />
+                  <WayOutEndsWithPage wayOut={wayOut} />
+                  {children}
+                </LiveUpdatesContext>
               </WayOutContext>
               <Toaster />
             </AnalyticsContext>

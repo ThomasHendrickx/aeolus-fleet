@@ -1,13 +1,21 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { usePathname, useRouter } from 'next/navigation';
 import { createContext, useContext, useEffect, useEffectEvent, useLayoutEffect } from 'react';
 
 import { isSignedInElsewhere, trpcErrorCode } from './errors';
+import { signInEndedPathOf } from './sign-in-paths';
 import { useTRPC } from './trpc';
 import type { WayOut } from './way-out';
 
-/** Where a console whose session is gone sends the operator: the sign-in page, saying why when it was no failure. */
-function signInPathFor(error: unknown): string {
+/**
+ * Where a console whose session is gone sends the operator: the sign-in page,
+ * saying why when it was no failure. An account's sign-in that ended says so,
+ * and signs in again back to the page it was on (accounts design, A6).
+ */
+function signInPathFor(error: unknown, { isAccount }: { isAccount: boolean }): string {
+  if (isAccount) {
+    return signInEndedPathOf(`${window.location.pathname}${window.location.search}`);
+  }
   return isSignedInElsewhere(error) ? '/sign-in?notice=signed-in-elsewhere' : '/sign-in';
 }
 
@@ -20,8 +28,10 @@ function signInPathFor(error: unknown): string {
  */
 export function useSignInWhenSessionEnds(errors: readonly unknown[]): void {
   const wayOut = useWayOut();
+  const trpc = useTRPC();
+  const isAccount = useQuery(trpc.console.session.queryOptions()).data?.kind === 'account';
   const sessionError = errors.find((error) => trpcErrorCode(error) === 'UNAUTHORIZED');
-  const signInPath = sessionError === undefined ? undefined : signInPathFor(sessionError);
+  const signInPath = sessionError === undefined ? undefined : signInPathFor(sessionError, { isAccount });
   const leave = useEffectEvent((path: string) => {
     wayOut.leave(path);
   });
@@ -49,7 +59,7 @@ export function useWayOutEndsWithPage(wayOut: WayOut): void {
 }
 
 /** The console's way out, leaving for destination: a console path or another site. */
-function useWayOut(): Omit<WayOut, 'leave'> & { leave: (destination: string) => void } {
+export function useWayOut(): Omit<WayOut, 'leave'> & { leave: (destination: string) => void } {
   const router = useRouter();
   const wayOut = useContext(WayOutContext);
   if (wayOut === undefined) {

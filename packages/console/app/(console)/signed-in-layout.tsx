@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
 
 import { ConsoleFrame } from '../../components/organisms/console-frame';
+import { AccountRenewal } from '../../features/account-renewal/state/account-renewal';
 import { ConsoleCommands } from '../../features/commands/state/console-commands';
 import { ComposeMessage } from '../../features/compose/organisms/compose-message';
 import { ConsoleGuide } from '../../features/guide/organisms/console-guide';
@@ -49,6 +50,7 @@ export function SignedInLayout({ children }: { children: ReactNode }) {
         },
         banner: (
           <>
+            <AccountRenewal />
             <ConsoleNotices />
             <ConsoleGuide />
           </>
