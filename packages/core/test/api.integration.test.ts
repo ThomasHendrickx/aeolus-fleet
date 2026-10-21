@@ -1968,6 +1968,16 @@ describe('console.session for another service', () => {
     expect(new Date(result.data.expiresAt).getTime()).toBeGreaterThan(clock.now().getTime());
   });
 
+  it("answers the fleet's name, for the header's title (header design H8)", async () => {
+    clock.advance(SIGN_IN_RATE_LIMIT.windowMs);
+    const cookie = sessionCookieOf(await signIn());
+
+    const response = await fromAnotherService({ cookie });
+
+    const { result } = z.object({ result: z.object({ data: z.object({ fleetName: z.string() }) }) }).parse(await response.json());
+    expect(result.data.fleetName).toBe('home fleet');
+  });
+
   it('refuses without a cookie, with a crew token alone, and once the operator signed out', async () => {
     clock.advance(SIGN_IN_RATE_LIMIT.windowMs);
     const cookie = sessionCookieOf(await signIn());
