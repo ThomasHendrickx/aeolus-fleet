@@ -272,6 +272,10 @@ describe('the installation procedures on a hosting server', () => {
     // Its operator signed in with a ticket, so a console session, argo's lease and a used ticket exist too.
     const { ticket } = await client(hostingAddress, INSTALLATION_TOKEN).installation.operators.issueSignInTicket.mutate({ fleetId: created.fleetId });
     unwrap(await core.redeemSignInTicket({ ticket }));
+    // An account signed in to its console dismissed a notice and moved on in the guide, kept by its id.
+    await database.accountNoticeDismissal.create({ data: { fleetId: created.fleetId, accountId: 'acc-mathilde', noticeId: 'teams', dismissedAt: clock.now() } });
+    await database.accountGuideProgress.create({ data: { fleetId: created.fleetId, accountId: 'acc-mathilde', step: 1, state: 'open', recordedAt: clock.now() } });
+    await expect(rowsOf(created.fleetId)).resolves.toMatchObject({ account_notice_dismissals: 1, account_guide_progress: 1 });
     const homeBefore = await rowsOf(homeFleet);
 
     await expect(installation().delete.mutate({ requestId: 'delete-doomed', fleetId: created.fleetId })).resolves.toEqual({});
