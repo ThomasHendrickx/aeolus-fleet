@@ -23,8 +23,17 @@ describe("reading the operator's account", () => {
   it('gives the email, the theme (System until chosen) and this session: its device and since when', async () => {
     await expect(useCases.readAccount(console)).resolves.toEqual({
       isOk: true,
-      value: { kind: 'operator', email: OPERATOR.email, theme: 'system', session: { device: 'Mac · Chrome', since: signedInAt, accountId: null } },
+      value: { kind: 'operator', email: OPERATOR.email, theme: 'system', hasPassword: true, session: { device: 'Mac · Chrome', since: signedInAt, accountId: null } },
     });
+  });
+
+  it('says argo has no password while it has none', async () => {
+    const [account] = core.state.operatorAccounts;
+    if (account) {
+      account.passwordHash = null;
+    }
+
+    await expect(useCases.readAccount(console)).resolves.toMatchObject({ isOk: true, value: { hasPassword: false } });
   });
 
   it('refuses a caller that is no console session', async () => {

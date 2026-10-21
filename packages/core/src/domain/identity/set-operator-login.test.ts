@@ -6,7 +6,7 @@ import { unwrap } from '../../testing/result.js';
 import type { ShipCaller } from '../shared/caller.js';
 import { createSetOperatorLogin } from './set-operator-login.js';
 
-const NEW_LOGIN = { email: 'Mathilde@Example.com', password: 'staple battery horse correct' };
+const NEW_LOGIN = { email: 'Mathilde@Example.com', password: 'staple battery horse correct', currentPassword: OPERATOR.password };
 
 let core: InMemoryCore;
 let useCases: ReturnType<typeof identityUseCases>;
@@ -58,7 +58,7 @@ describe("setting argo's email and password from the console", () => {
   });
 
   it('keeps the same email with a new password', async () => {
-    unwrap(await setOperatorLogin(console, { email: OPERATOR.email, password: NEW_LOGIN.password }));
+    unwrap(await setOperatorLogin(console, { ...NEW_LOGIN, email: OPERATOR.email }));
 
     await expect(useCases.signIn({ email: OPERATOR.email, password: NEW_LOGIN.password })).resolves.toMatchObject({ isOk: true });
   });
@@ -78,6 +78,30 @@ describe("setting argo's email and password from the console", () => {
         details: { operatorId: core.state.operatorAccounts[0]?.id },
       }),
     ]);
+  });
+
+  it.each([
+    { label: 'no current password', input: { email: NEW_LOGIN.email, password: NEW_LOGIN.password } },
+    { label: 'a wrong current password', input: { ...NEW_LOGIN, currentPassword: 'not the password at all' } },
+  ])('refuses $label while argo has a password, and changes nothing', async ({ input }) => {
+    const before = structuredClone(core.state);
+
+    await expect(setOperatorLogin(console, input)).resolves.toMatchObject({
+      isOk: false,
+      error: { kind: 'WRONG_PASSWORD', message: 'That is not your current password' },
+    });
+    expect(core.state).toEqual(before);
+  });
+
+  it('asks no current password while argo has none, such as one that signed in by a link', async () => {
+    const [account] = core.state.operatorAccounts;
+    if (account) {
+      account.passwordHash = null;
+    }
+
+    unwrap(await setOperatorLogin(console, { email: NEW_LOGIN.email, password: NEW_LOGIN.password }));
+
+    await expect(useCases.signIn({ email: NEW_LOGIN.email, password: NEW_LOGIN.password })).resolves.toMatchObject({ isOk: true });
   });
 
   it.each([
