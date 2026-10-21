@@ -1,6 +1,6 @@
 # Company sign-in: Entra ID and Google, and ID-JAG
 
-Design by designer-identity, for Thomas. Phase 1: the purpose, the lessons to check against, the flow the picks give, and the questions, each with options and a pick. No detailed decisions before Thomas agrees the purpose. No code. Terms are the blueprint's Domain language (0050): account, identity, identity provider, directory, organisation, organisation admin, sign-in link.
+Design by designer-identity, for Thomas. The purpose is agreed (Thomas, 21 Oct: "entra/google agreed", reading groups an option); then the lessons to check against, the flow the picks give, and the questions, each with options and a pick. No code. Terms are the blueprint's Domain language (0050): account, identity, identity provider, directory, organisation, organisation admin, sign-in link.
 
 Inputs: pagasae issue #78; decisions 0050 to 0058; [`accounts.md`](accounts.md) 1.3 and questions 8, 9, 14, 15; [`actors.md`](actors.md) 3; the interop design's slice 6 and I-4 (branch `design/interop`, `docs/design/interop/interop.md`); the pagasae and gateway READMEs.
 
@@ -12,11 +12,11 @@ Inputs: pagasae issue #78; decisions 0050 to 0058; [`accounts.md`](accounts.md) 
 - An account is an email in one organisation. It has no identity: pagasae knows no identity provider.
 - Disabling an account in pagasae ends its access within one token's life (0055).
 
-### 1.2 The purpose
+### 1.2 The purpose (agreed)
 
 An organisation connects Entra ID or Google Workspace to pagasae as its identity provider, and its accounts sign in with their company identity. Nothing else changes for the apps: they already sign in through pagasae, so the console, the gateway, plugin pages and MCP clients get company sign-in by that one change.
 
-Its groups plug in the same way: an organisation admin links a group of its Entra tenant or Google Workspace to what it gives in a fleet (scopes, and reach through network rules), and membership then comes from the provider alone. Nobody copies a group or its members by hand.
+Reading its groups is an option the organisation admin turns on or off when connecting, and changes later: an admin who does not want pagasae reading the directory connects for sign-in alone (Thomas: "To bypass the 'admin dont want this' argument"). With it on, the admin links a group of its Entra tenant or Google Workspace to what it gives in a fleet (scopes, and reach through network rules), and membership then comes from the provider alone. Nobody copies a group or its members by hand.
 
 pagasae stays the account unit. The identity provider proves who the human is and which of its groups they are in; pagasae decides which account that is and what it may do (0051, 0052). The sign-in link stays the way in that never depends on an outside provider, for the accounts allowed to sign in as argo (0054). Entra and Google plug in; they are not the foundation (Thomas, 19 Oct).
 
@@ -28,12 +28,12 @@ pagasae stays the account unit. The identity provider proves who the human is an
 | C2 | A human signs in with their company identity and lands on their own account, never another's, without typing anything but their email |
 | C3 | A human the company suspends in its identity provider loses access without anyone in pagasae remembering it |
 | C4 | When the identity provider fails or is misconfigured, the accounts allowed as argo still sign in by link |
-| C5 | An organisation admin links a provider group to what it gives in a fleet; joining or leaving that group in the provider changes the account's rights within minutes, with nothing changed by hand in pagasae |
+| C5 | With reading groups on, an organisation admin links a provider group to what it gives in a fleet; joining or leaving that group in the provider changes the account's rights within minutes, with nothing changed by hand in pagasae |
 | C6 | A person's MCP client that the company manages (enterprise-managed authorization, ID-JAG) reaches the gateway without a browser sign-in, where the identity provider supports it |
 
 ### 1.4 A good outcome
 
-At Acme, Mathilde connects Acme's Entra tenant from the organisation's page; Entra asks her, a tenant admin, to consent once. She links Acme's Entra group "Sales" to `messages:send` and `group=sales` in Acme's fleet. Charlotte opens the console, types charlotte@acme.com, signs in at Microsoft as every morning, and is in her account with what "Sales" gives. Acme's IT moves her to "Finance" in Entra; minutes later her account tokens carry finance's rights. Burak is disabled in Entra when he leaves; minutes later he can no longer renew anything. One morning Entra refuses Acme's sign-ins; Mathilde, allowed as argo, signs in by link and acts.
+At Acme, Mathilde connects Acme's Entra tenant from the organisation's page; Entra asks her, a tenant admin, to consent once. She links Acme's Entra group "Sales" to `messages:send` and `group=sales` in Acme's fleet. Charlotte opens the console, types charlotte@acme.com, signs in at Microsoft as every morning, and is in her account with what "Sales" gives. Acme's IT moves her to "Finance" in Entra; minutes later her account tokens carry finance's rights. Burak is disabled in Entra when he leaves; minutes later he can no longer renew anything. Globex connects Google Workspace with reading groups off: Google asks only for sign-in, its admin adds accounts and fills groups in pagasae as today, and a leaver suspended in Google is out at the end of their sign-in's life. One morning Entra refuses Acme's sign-ins; Mathilde, allowed as argo, signs in by link and acts.
 
 ### 1.5 Not this design's
 
@@ -84,19 +84,20 @@ flowchart TD
   chk -- ok --> known{"An account in that organisation with this identity? (Q3)"}
   known -- yes --> org
   known -- no --> byemail{"An account there with the email the provider vouches for?"}
-  byemail -- no --> lg{"In a linked group? (Q4.4)"}
+  byemail -- no --> lg{"Reading groups on, and in a linked group? (Q4.4)"}
   lg -- no --> f3["Refused: 'ask an organisation admin'"]
   lg -- yes --> mk["Account created, with the identity; pagasae event"] --> org
   byemail -- yes --> rec["Identity recorded on the account; pagasae event"] --> org
   org{"Account active?"} -- disabled --> f4["Refused, as today"]
-  org -- yes --> grp["Linked groups read: Entra claim, or Graph on overage; Google Directory API (Q4.1)"]
+  org -- "yes, reading groups off" --> shared
+  org -- "yes, reading groups on" --> grp["Linked groups read: Entra claim, or Graph on overage; Google Directory API (Q4.1)"]
   grp -- "provider read fails" --> keep["Last groups read kept until the next read; argo's link unaffected"] --> shared
   grp --> shared["Shared sign-in"]
   shared --> apps["Each app exchanges it for account tokens (0058): scopes and group values from linked and pagasae groups"]
-  apps -- "each renewal, at most every 10 minutes (Q4.2)" --> reread["pagasae reads the human at the provider: enabled? which groups?"]
+  apps -- "reading groups on: each renewal, at most every 10 minutes (Q4.2)" --> reread["pagasae reads the human at the provider: enabled? which groups?"]
   reread -- "groups changed" --> apps
   reread -- "suspended or deleted there" --> out["Account disabled (0055): tokens cut off, person ship and trierarchs released"]
-  sweep["Hourly read of every account with an identity, signed in or not"] -- "suspended or deleted there" --> out
+  sweep["Reading groups on: hourly read of every account with an identity, signed in or not"] -- "suspended or deleted there" --> out
 ```
 
 Unhappy paths:
@@ -133,7 +134,7 @@ What it is: routing by domain (part 3) means one domain belongs to one organisat
 - (2) **A DNS TXT record on every domain, for both.** Goes wrong: an Entra admin proves again what Microsoft verified already.
 - (3) **A sign-in of the domain alone.** Goes wrong: any employee of acme.com connects Acme's domain to an organisation of their own, and Acme's people are routed there.
 
-Pick: (1). Each provider already verified the domain; Aeolus asks only for proof it cannot read from the token. One identity provider per organisation, one organisation per domain.
+Pick: (1). Each provider already verified the domain; Aeolus asks only for proof it cannot read from the token. One identity provider per organisation, one organisation per domain. What the admin consents to depends on reading groups: off, sign-in alone (Entra's `openid`, `profile`, `email`; Google's the same, with nothing granted to pagasae's service account); on, also the read access of question 4.1. The proof of the domain is the same either way.
 
 **3. How does an identity find its account?**
 
@@ -143,11 +144,11 @@ Use case: Mathilde added charlotte@acme.com before Acme connected Entra. Charlot
 - (2) **Just in time**: any identity of the connected tenant without an account gets one, in no group, so it reaches nothing until an admin gives it rights (0054 refuses it "ask an organisation admin"). Goes wrong: accounts the organisation never chose pile up. Question 4.4 narrows it to members of linked groups.
 - (3) **An invitation**: the admin invites, and the account takes whichever identity follows the invitation's link. Goes wrong: a new record and mail for what the email match already does, since the admin typed the email.
 
-Pick: (1). The organisation decides who is in (0051), and the identity, not a mutable email, keys every later sign-in, as Microsoft and Google advise. The email the provider vouches for: Google's with `email_verified`, Entra's from a verified domain.
+Pick: (1). The organisation decides who is in (0051), and the identity, not a mutable email, keys every later sign-in, as Microsoft and Google advise. With reading groups off it is the only way an account comes to be; with it on, question 4.4 adds members of linked groups. The email the provider vouches for: Google's with `email_verified`, Entra's from a verified domain.
 
 **4. Provider groups giving rights: what it takes**
 
-Thomas: "i want to challenge to see what would be needed to use groups as well from Entra and google. So linking groups to permissions / network would be enough." Four parts, each its own pick.
+Thomas: "i want to challenge to see what would be needed to use groups as well from Entra and google. So linking groups to permissions / network would be enough." Then: "reading in groups is optional however. This can be turned on/off when linking entra/google." Parts 4.1 to 4.4 are what it takes with reading groups on; with it off, none applies, and groups are pagasae's alone as built (0052). Part 4.5 is turning it on or off later. Each part has its own pick.
 
 Use case: Acme's Entra has the groups "Sales" and "Finance". Mathilde links "Sales" to `messages:send` and the reach of `group=sales` in Acme's fleet. Charlotte moves from "Sales" to "Finance" while signed in at the gateway; Burak, in "Sales", leaves.
 
@@ -177,22 +178,32 @@ Pick: (1). Linking is the whole step Thomas named, and the rest of 0052, the acc
 
 **4.4 Who gets an account**
 
-What it is: question 3 has the admin add each account. With linked groups the provider already says who is in.
+What it is: with reading groups off, the admin adds each account (question 3). With it on and groups linked, the provider already says who is in.
 
 - (1) **An admin still adds each account**; linked groups give it rights. Goes wrong: membership in the provider is not enough, the copy Thomas ruled out, one account at a time.
 - (2) **A member of a linked group gets an account at their first identity sign-in**, found by identity after that (question 3); someone in no linked group is refused as today, "ask an organisation admin". An admin may still add accounts by hand (contractors, question 6). Goes wrong: accounts appear without an admin's step; the organisation's page must show where each came from.
 
 Pick: (2). The organisation still decides who is in, in its provider, the place it decides for every other tool; nobody the organisation did not put in a linked group gets in.
 
+**4.5 Turning reading groups on or off later**
+
+Use case: Globex connected Google with reading groups off. A year on it turns it on; later it turns it off again.
+
+- (1) **On: the admin consents to the read access then (Entra admin consent, Google's grant to the service account), and links groups from that moment; hand-made groups and accounts stay. Off: pagasae drops the read access it holds, every linked group gives nothing and loses its members, and the accounts it brought stay, with their hand-made groups and their own rights.** Before confirming off, the page says how many accounts lose rights. Goes wrong: turning off cuts rights at once for everyone who had them only through linked groups.
+- (2) **Off keeps each linked group's last members, frozen, as a hand-made group.** Goes wrong: members nobody updates any more, with rights that outlive their place in the provider; a leaver keeps them until disabled by hand.
+- (3) **Off is refused while a group is linked**: the admin unlinks each first. Goes wrong: the same cut, in many steps.
+
+Pick: (1). Rights come only from what pagasae can still check; frozen members are a copy, which Thomas ruled out. Turning it off also ends 4.2's re-read, so question 5's life becomes the leaver's bound again.
+
 **5. How long does a sign-in by identity last before the provider is asked again?**
 
-What it is: suspending Burak in Entra stops his next sign-in there, but his shared sign-in at pagasae lives on after his last use, and every app renews his account tokens from it. Without an answer here, C3 holds only once an admin disables him in pagasae.
+What it is: suspending Burak in the provider stops his next sign-in there, but his shared sign-in at pagasae lives on after his last use, and every app renews his account tokens from it. With reading groups on, 4.2's re-read sees the suspension within minutes and disables the account. With it off, pagasae reads nothing between sign-ins, so this life is the longest a leaver keeps access, unless an admin disables him in pagasae first.
 
-- (1) **A fixed life, 8 hours**: then the human signs in at the provider again, usually without a prompt; refused there, the shared sign-in ends and every renewal with it. Goes wrong: a leaver keeps access up to 8 hours and one token's life; a person signs in again once a working day.
-- (2) **pagasae keeps the provider's refresh token and renews with it each hour**; a refusal ends the shared sign-in. Goes wrong: pagasae stores a refresh token per human, a secret of the company's, for one hour less exposure.
-- (3) **Nothing until provisioning**: the admin disables in pagasae. Goes wrong: C3 fails.
+- (1) **A fixed life, 8 hours**: then the human signs in at the provider again, usually without a prompt; refused there, the shared sign-in ends and every renewal with it. Goes wrong: with reading groups off, a leaver keeps access up to 8 hours and one token's life, and the account stays active in pagasae, so the person ship and any trierarch it owns stay crewed until an admin disables it (0055); a person signs in again once a working day.
+- (2) **pagasae keeps the provider's refresh token and renews with it each hour**; a refusal ends the shared sign-in. Goes wrong: pagasae stores a refresh token per human, a secret of the company's, for a few hours less exposure; with reading groups off it still does not disable the account.
+- (3) **Nothing**: the admin disables in pagasae. Goes wrong: C3 fails with reading groups off.
 
-Pick: (1) with 4.2 (2): the re-read ends a suspended human's sign-in within minutes; the 8 hours only bound how long pagasae trusts the provider's sign-in itself. Without 4.2 (2), the 8 hours are the leaver's bound.
+Pick: (1). No company secret kept, and one number. With reading groups on, it only bounds how long pagasae trusts the provider's sign-in. With it off, the organisation chose not to let pagasae read its directory, so the leaver's sign-ins end at the provider within 8 hours, and what an account crews ends when the admin disables it, as today. The connect page says so beside the switch.
 
 **6. An account whose email the provider does not know**
 
