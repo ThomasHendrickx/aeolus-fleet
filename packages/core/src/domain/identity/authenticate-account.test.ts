@@ -29,6 +29,7 @@ function aToken(overrides: Partial<AccountTokenClaims> = {}): AccountTokenClaims
     scopes: ['fleet:read', 'fleet:manage'],
     groupValues: ['sales'],
     personShipId,
+    isArgoAllowed: false,
     issuedAt: at(-MINUTE_MS),
     endsAt: at(9 * MINUTE_MS),
     ...overrides,
