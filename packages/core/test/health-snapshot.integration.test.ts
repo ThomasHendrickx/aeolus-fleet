@@ -183,6 +183,35 @@ describe('the health read from the stuck snapshot', () => {
   });
 });
 
+describe("the first snapshot's opening hour", () => {
+  it('keeps the deliveries open at the hour, each at its latest step by then, and each lease at its turn then, as of the last event before the hour passed', async () => {
+    core.clock.set('2026-09-29T12:10:00.000Z');
+    const open = await sendTo({ kind: 'ship', shipId: scout.shipId });
+    unwrap(await core.useCases.receiveDeliveries(scout, {}));
+    const handedAt = core.clock.now();
+    core.clock.set('2026-09-29T12:20:00.000Z');
+    const acknowledgedBefore = await sendTo({ kind: 'ship', shipId: planner.shipId });
+    unwrap(await core.useCases.receiveDeliveries(planner, {}));
+    unwrap(await core.useCases.acknowledgeDelivery(planner, { deliveryId: await deliveryOf(acknowledgedBefore) }));
+    unwrap(await core.useCases.reportTurn(scout, { turn: 'busy', at: new Date('2026-09-29T12:40:00.000Z') }));
+    const lastBefore = await core.prisma.fleet.findUniqueOrThrow({ where: { id: argo.fleetId } });
+    core.clock.set('2026-09-29T13:20:00.000Z');
+    unwrap(await core.useCases.acknowledgeDelivery(scout, { deliveryId: await deliveryOf(open) }));
+    await sendTo({ kind: 'ship', shipId: planner.shipId });
+    unwrap(await core.useCases.reportTurn(scout, { turn: 'idle', at: new Date('2026-09-29T13:40:00.000Z') }));
+
+    const base = unwrap(
+      await createPrismaSnapshotUnitOfWork(core.prisma).run(async (tx) => ok(await tx.healthSnapshots.baseAt(argo.fleetId, new Date('2026-09-29T13:00:00.000Z')))),
+    );
+
+    expect(base.seq).toBe(Number(lastBefore.lastEventSeq));
+    expect(base.deliveries).toEqual([
+      expect.objectContaining({ deliveryId: await deliveryOf(open), steps: [expect.objectContaining({ state: 'handed', at: handedAt, shipId: scout.shipId })] }),
+    ]);
+    expect(base.turns).toEqual([{ leaseId: scout.leaseId, turn: { state: 'busy', at: new Date('2026-09-29T12:40:00.000Z') } }]);
+  });
+});
+
 describe('a restart mid-hour', () => {
   it('loses nothing: the next instance closes the hour from the events written before it', async () => {
     core.clock.set('2026-09-29T12:20:00.000Z');
