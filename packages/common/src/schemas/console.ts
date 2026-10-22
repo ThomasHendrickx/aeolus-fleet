@@ -97,6 +97,18 @@ export const accountOutputSchema = z.discriminatedUnion('kind', [
 
 export type Account = z.infer<typeof accountOutputSchema>;
 
+/**
+ * Output of `console.argoSignIn`: whether someone is signed in as argo, and
+ * the account, by its id, or none for argo's own sign-in (accounts design,
+ * F4): the console warns before an account signs in as argo and ends it.
+ */
+export const argoSignInOutputSchema = z.discriminatedUnion('isSignedIn', [
+  z.object({ isSignedIn: z.literal(false) }),
+  z.object({ isSignedIn: z.literal(true), accountId: accountIdSchema.nullable() }),
+]);
+
+export type ArgoSignInOutput = z.infer<typeof argoSignInOutputSchema>;
+
 /** Input of `console.setTheme`. */
 export const setThemeInputSchema = z.object({ theme: themeSchema });
 

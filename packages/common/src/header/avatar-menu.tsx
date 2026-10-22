@@ -1,10 +1,11 @@
 'use client';
 
 import { BellRing, CircleHelp, CircleUserRound, Keyboard, LaptopMinimal, LoaderCircle, LogOut, Monitor, Moon, ShieldCheck, Sun, type LucideIcon } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 
 import type { Theme } from '../index.js';
 import { signedInAsOf, type SignedInAs } from './apps.js';
+import { shownEntryOf, type AvatarMenuEntry } from './avatar-entry.js';
 import { Avatar } from './atoms/avatar.js';
 import { Button } from './atoms/button.js';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './atoms/dialog.js';
@@ -17,17 +18,6 @@ import { classNames } from './class-names.js';
 export interface Shortcut {
   keys: readonly string[];
   label: string;
-}
-
-/** An entry of the app's own in the menu, such as Take the tour; phone-only ones stand in for what a tab bar lacks (H6). */
-export interface AvatarMenuEntry {
-  key: string;
-  label: string;
-  icon: ReactNode;
-  /** A link, or an action; one of the two. */
-  href?: string;
-  onSelect?: () => void;
-  isPhoneOnly?: boolean;
 }
 
 export interface AvatarMenuProps {
@@ -97,6 +87,17 @@ function WhoHeader({ name, signedInAs, session }: Pick<AvatarMenuProps, 'name' |
         </p>
       )}
     </div>
+  );
+}
+
+/** An entry's icon and label, or a spinner and its working label while its work runs. */
+function EntryContent({ entry }: { entry: AvatarMenuEntry }) {
+  const shown = shownEntryOf(entry);
+  return (
+    <>
+      {shown.isWorking ? <LoaderCircle aria-hidden data-testid="avatar-menu-entry-spinner" className="animate-spin motion-reduce:animate-none" /> : entry.icon}
+      {shown.label}
+    </>
   );
 }
 
@@ -185,6 +186,8 @@ export function AvatarMenu(props: AvatarMenuProps) {
               <DropdownMenuItem
                 key={entry.key}
                 data-testid={`avatar-menu-${entry.key}`}
+                disabled={shownEntryOf(entry).isWorking}
+                closeOnClick={shownEntryOf(entry).shouldCloseMenu}
                 onClick={entry.onSelect}
                 {...(entry.href === undefined
                   ? {}
@@ -196,8 +199,7 @@ export function AvatarMenu(props: AvatarMenuProps) {
                       ),
                     })}
               >
-                {entry.icon}
-                {entry.label}
+                <EntryContent entry={entry} />
               </DropdownMenuItem>
             ))}
           {hasTheme ? (
@@ -301,13 +303,15 @@ export function AvatarMenuSheet(props: AvatarMenuProps) {
               type="button"
               data-testid={`avatar-menu-${entry.key}`}
               className={rowClass}
+              disabled={shownEntryOf(entry).isWorking}
               onClick={() => {
-                setIsOpen(false);
+                if (shownEntryOf(entry).shouldCloseMenu) {
+                  setIsOpen(false);
+                }
                 entry.onSelect?.();
               }}
             >
-              {entry.icon}
-              {entry.label}
+              <EntryContent entry={entry} />
             </button>
           ) : (
             <a

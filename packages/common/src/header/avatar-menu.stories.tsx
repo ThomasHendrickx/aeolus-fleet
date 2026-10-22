@@ -49,6 +49,20 @@ export const SignedInAsYourAccount: Story = {
   },
 };
 
+/** An entry whose work runs on the server, as Sign in as argo's does: the menu stays open, and the entry says it is working, with a spinner, and takes no second press. */
+export const EntryWorking: Story = {
+  args: {
+    entries: [{ key: 'sign-in-as-argo', label: 'Sign in as argo', workingLabel: 'Signing in as argo', isWorking: true, icon: <Compass aria-hidden />, onSelect: fn() }],
+  },
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByTestId('avatar-menu'));
+    const entry = await screen.findByTestId('avatar-menu-sign-in-as-argo');
+    await expect(entry).toHaveTextContent('Signing in as argo');
+    await expect(entry).toHaveAttribute('aria-disabled', 'true');
+    await expect(within(entry).getByTestId('avatar-menu-entry-spinner')).toBeInTheDocument();
+  },
+};
+
 /** Signed in as argo, with no account: no account pages (H8). */
 export const SignedInAsArgo: Story = {
   args: { name: undefined, signedInAs: 'argo', accountUrl: undefined },

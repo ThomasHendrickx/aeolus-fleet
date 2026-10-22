@@ -34,7 +34,7 @@ async function query<T>(call: { serverUrl: string; procedure: string; cookie: st
 }
 
 /** The name pagasae gives one account of the fleet, Deleted user for one it deleted; none when it gives none. */
-async function askPagasae(call: { pagasae: Pagasae; fleetId: string; accountId: string; fetchImplementation: typeof fetch }): Promise<string | null> {
+export async function askPagasae(call: { pagasae: Pagasae; fleetId: string; accountId: string; fetchImplementation: typeof fetch }): Promise<string | null> {
   const asked = new URL(`${call.pagasae.url}/api/console/account-name`);
   asked.search = new URLSearchParams({ fleetId: call.fleetId, accountId: call.accountId }).toString();
   try {

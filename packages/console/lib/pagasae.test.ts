@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { authorizeUrlOf, basicAuthOf, codeChallengeOf, exchangeSignIn, fleetsOf, pagasaeFrom, revokeSignIn } from './pagasae';
+import { authorizeUrlOf, basicAuthOf, codeChallengeOf, exchangeArgoTicket, exchangeSignIn, fleetsOf, pagasaeFrom, revokeSignIn } from './pagasae';
 
 const PAGASAE = {
   url: 'https://account.example',
@@ -131,8 +131,33 @@ describe('an account token for a fleet, from the shared sign-in', () => {
   });
 });
 
+describe("core's ticket to sign in as argo of a fleet, from the shared sign-in (accounts design, F4)", () => {
+  it('is exchanged with the sign-in cookie for the fleet, asking for the argo sign-in ticket', async () => {
+    const pagasae = answering(200, { access_token: 'ticket-1', issued_token_type: 'urn:aeolus:params:oauth:token-type:argo-sign-in-ticket', token_type: 'N_A', expires_in: 120 });
+
+    await expect(exchangeArgoTicket({ pagasae: PAGASAE, fetchImplementation: pagasae.fetchImplementation }, { signIn: 'cookie-value', fleetId: 'flt_1' })).resolves.toEqual({
+      kind: 'ticket',
+      ticket: 'ticket-1',
+    });
+    expect(Object.fromEntries(new URLSearchParams(await pagasae.asked[0]?.text()))).toMatchObject({
+      grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange',
+      subject_token: 'cookie-value',
+      resource: 'flt_1',
+      requested_token_type: 'urn:aeolus:params:oauth:token-type:argo-sign-in-ticket',
+    });
+  });
+
+  it.each([
+    { error: 'invalid_grant', kind: 'ended' },
+    { error: 'invalid_target', kind: 'notAllowed' },
+    { error: 'unauthorized_client', kind: 'unreachable' },
+  ])('says $kind when pagasae answers $error', async ({ error, kind }) => {
+    await expect(exchangeArgoTicket({ pagasae: PAGASAE, fetchImplementation: answering(400, { error }).fetchImplementation }, { signIn: 'c', fleetId: 'flt_1' })).resolves.toEqual({ kind });
+  });
+});
+
 describe('the fleets of the shared sign-in', () => {
-  it('are those pagasae lists, each saying whether it opens the console', async () => {
+  it('are those pagasae lists, each saying whether it opens the console and whether the account may sign in as argo there', async () => {
     const pagasae = answering(200, {
       account: { id: 'acc-1', email: 'm@example.com' },
       apps: [],
@@ -146,15 +171,15 @@ describe('the fleets of the shared sign-in', () => {
         {
           id: 'flt_2',
           name: 'globex',
-          argo: false,
+          argo: true,
           apps: [{ app: 'gateway', url: 'https://gateway.example' }],
         },
       ],
     });
 
     await expect(fleetsOf({ pagasae: PAGASAE, fetchImplementation: pagasae.fetchImplementation }, 'cookie-value')).resolves.toEqual([
-      { id: 'flt_1', name: 'acme', hasConsole: true },
-      { id: 'flt_2', name: 'globex', hasConsole: false },
+      { id: 'flt_1', name: 'acme', hasConsole: true, isArgoAllowed: false },
+      { id: 'flt_2', name: 'globex', hasConsole: false, isArgoAllowed: true },
     ]);
     expect(pagasae.asked[0]?.headers.get('aeolus-sign-in')).toBe('cookie-value');
     expect(pagasae.asked[0]?.headers.get('authorization')).toBe(basicAuthOf(PAGASAE));

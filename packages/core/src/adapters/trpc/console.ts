@@ -1,5 +1,6 @@
 import {
   accountOutputSchema,
+  argoSignInOutputSchema,
   consoleGuideOutputSchema,
   consoleNoticesOutputSchema,
   consoleSessionOutputSchema,
@@ -90,6 +91,18 @@ export const consoleRouter = router({
     const account = okOrThrow(await ctx.useCases.authenticateAccount(input.token, { through: null }));
     ctx.sessionCookie.setAccountToken(input.token, account.tokenEndsAt ?? new Date());
     return {};
+  }),
+
+  /**
+   * Who holds argo's sign-in in the fleet, for an account signed in to the
+   * console as itself: the console warns before it signs in as argo and ends
+   * that sign-in (accounts design, F4, A7). Any other caller is refused.
+   */
+  argoSignIn: signedInProcedure.output(argoSignInOutputSchema).query(async ({ ctx }) => {
+    if (ctx.caller.kind !== 'account') {
+      throw new TRPCError({ code: 'FORBIDDEN', message: "Only an account signed in to the console reads who holds argo's sign-in" });
+    }
+    return okOrThrow(await ctx.useCases.readArgoSignIn(ctx.caller));
   }),
 
   /** The signed-in operator: email, theme, and this console session's device and start; a viewer's session alone; an account by its id. */

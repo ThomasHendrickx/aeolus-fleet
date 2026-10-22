@@ -89,6 +89,8 @@ export interface ConsoleSessionRepository {
   create(session: ConsoleSession): Promise<void>;
   /** The session, read without a lock. */
   find(fleetId: FleetId, consoleSessionId: ConsoleSessionId): Promise<ConsoleSession | undefined>;
+  /** argo's console sign-in: the session holding argo's lease that has not ended and not expired by `at`, read without a lock. */
+  findOperatorSignIn(fleetId: FleetId, at: Date): Promise<ConsoleSession | undefined>;
   /** Ends the session if it has not ended and returns it; undefined when it had already ended. */
   end(change: {
     fleetId: FleetId;

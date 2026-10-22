@@ -985,6 +985,10 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         const session = state.consoleSessions.find((held) => held.fleetId === fleetId && held.id === consoleSessionId);
         return Promise.resolve(session && { ...session });
       },
+      findOperatorSignIn: (fleetId, at) => {
+        const session = state.consoleSessions.findLast((held) => held.fleetId === fleetId && held.leaseId !== null && held.endedAt === null && held.expiresAt > at);
+        return Promise.resolve(session && { ...session });
+      },
       create: (session) => {
         if (state.consoleSessions.some((held) => held.fleetId === session.fleetId && held.endedAt === null && held.leaseId !== null) && session.leaseId !== null) {
           return Promise.reject(new Error('unique violation: the fleet already has a live console session'));

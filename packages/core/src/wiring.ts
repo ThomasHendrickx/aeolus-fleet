@@ -46,6 +46,7 @@ import { createIssueSignInLink, type IssueSignInLink } from './domain/identity/i
 import { createIssueSignInTicket, type IssueSignInTicket } from './domain/identity/issue-sign-in-ticket.js';
 import { createRedeemSignInTicket, type RedeemSignInTicket } from './domain/identity/redeem-sign-in-ticket.js';
 import { createReadAccount, type ReadAccount } from './domain/identity/read-account.js';
+import { createReadArgoSignIn, type ReadArgoSignIn } from './domain/identity/read-argo-sign-in.js';
 import { createReadGuide, type ReadGuide } from './domain/identity/read-guide.js';
 import { createReadNotices, type ReadNotices } from './domain/identity/read-notices.js';
 import { createRecordGuideProgress, type RecordGuideProgress } from './domain/identity/record-guide-progress.js';
@@ -241,6 +242,7 @@ export interface UseCases {
   signIn: SignIn;
   signOut: SignOut;
   readAccount: ReadAccount;
+  readArgoSignIn: ReadArgoSignIn;
   setTheme: SetTheme;
   setOperatorLogin: SetOperatorLogin;
   setNotices: SetNotices;
@@ -460,6 +462,7 @@ export function createUseCases(options: {
     }),
     signOut: createSignOut({ uow, clock, ids }),
     readAccount: createReadAccount({ uow }),
+    readArgoSignIn: createReadArgoSignIn({ uow, clock }),
     setTheme: createSetTheme({ uow }),
     // Without pagasae's signatures core trusts no account, and argo's own sign-in is the way in.
     setOperatorLogin: createSetOperatorLogin({ uow, clock, ids, accounts: createPrismaOperatorAccountLookup(prisma), passwords: argon2idPasswordHasher, isSelfHosted: options.accountTokenSignatures === undefined }),
