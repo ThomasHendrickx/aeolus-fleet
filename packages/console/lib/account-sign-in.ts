@@ -1,5 +1,6 @@
 import { authorizeUrlOf, codeChallengeOf, cookieValueOf, exchangeSignIn, fleetsOf, randomUrlSafe, redeemCode, revokeSignIn, SHARED_SIGN_IN_COOKIE, type Pagasae } from './pagasae';
 import { sessionCookieOf } from './plugin-call';
+import { SESSION_COOKIE, sessionOf } from './console-gate';
 import { returnPathOf } from './return-path';
 import { consoleOriginOf } from './console-origin';
 import { serverInternalUrlFrom } from './server-url';
@@ -145,8 +146,39 @@ async function presentToCore(token: string, environment: Environment): Promise<s
 }
 
 /**
+ * Clears argo's session cookie once that sign-in has ended, as when someone
+ * took argo over: an ended argo session beside the fresh account token would
+ * still answer for the browser and keep the account out. Core clears it, as
+ * it set it. A live argo session, or core not answering, keeps it.
+ */
+async function endedArgoSessionCleared(request: Request, environment: Environment): Promise<string[]> {
+  const session = cookieValueOf(request.headers.get('cookie'), SESSION_COOKIE);
+  if (session === undefined) {
+    return [];
+  }
+  const cookie = `${SESSION_COOKIE}=${session}`;
+  const state = await sessionOf(new Request(request.url, { headers: { cookie } }), { serverUrl: serverInternalUrlFrom(environment) });
+  if (state !== 'ended' && state !== 'signedInElsewhere') {
+    return [];
+  }
+  try {
+    const answer = await fetch(`${serverInternalUrlFrom(environment)}/trpc/console.signOut`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie, origin: consoleOriginOf(request, environment) },
+      body: '{}',
+      cache: 'no-store',
+      signal: AbortSignal.timeout(PRESENT_TIMEOUT_MS),
+    });
+    return answer.headers.getSetCookie();
+  } catch {
+    return [];
+  }
+}
+
+/**
  * With the shared sign-in, into a fleet: an account token for it from
- * pagasae, kept by core in its token cookie, then on to the page asked for.
+ * pagasae, kept by core in its token cookie, then on to the page asked for,
+ * clearing argo's sign-in once it ended.
  * No shared sign-in, or one that ended, starts the sign-in again; no rights
  * goes to say so; pagasae not answering says that.
  */
@@ -183,6 +215,7 @@ export async function enterFleet(request: Request, deps: SignInDeps & { returnTo
         ? redirectTo('/sign-in/failed')
         : redirectTo(returnTo, [
             tokenCookie,
+            ...(await endedArgoSessionCleared(request, environment)),
             consoleCookie(FLEET_COOKIE, {
               value: fleetId,
               maxAgeSeconds: FLEET_COOKIE_LIFE_SECONDS,

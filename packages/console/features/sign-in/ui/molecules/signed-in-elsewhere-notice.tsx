@@ -2,10 +2,11 @@ import { Info } from 'lucide-react';
 
 /**
  * The calm notice that this console session ended because the operator
- * signed in on another device: nothing went wrong (docs/design/README.md,
+ * signed in on another device, or, for an account signed in as argo, because
+ * someone signed in as argo elsewhere: nothing went wrong (docs/design/README.md,
  * SignInForm; the muted panel of docs/design/conventions.md, "Alert tone").
  */
-export function SignedInElsewhereNotice() {
+export function SignedInElsewhereNotice({ isArgoTakenOver = false }: { isArgoTakenOver?: boolean }) {
   return (
     <div
       data-testid="sign-in-signed-in-elsewhere"
@@ -13,10 +14,19 @@ export function SignedInElsewhereNotice() {
     >
       <Info aria-hidden className="mt-0.5 size-(--size-icon-sm) shrink-0 text-muted-foreground" />
       <div role="status" className="flex flex-col gap-0.5">
-        <p className="font-medium">You signed in somewhere else</p>
-        <p className="text-muted-foreground">
-          This session ended when you signed in on another device. Sign in again to use the console here.
-        </p>
+        {isArgoTakenOver ? (
+          <>
+            <p className="font-medium">Someone signed in as argo elsewhere</p>
+            <p className="text-muted-foreground">Your argo sign-in ended because someone signed in as argo elsewhere. Sign in with your account to go on.</p>
+          </>
+        ) : (
+          <>
+            <p className="font-medium">You signed in somewhere else</p>
+            <p className="text-muted-foreground">
+              This session ended when you signed in on another device. Sign in again to use the console here.
+            </p>
+          </>
+        )}
       </div>
     </div>
   );
