@@ -49,7 +49,7 @@ The browser calls the server's `/trpc` itself, at the address the web app runs w
 On localhost, plain http works: browsers treat it as a secure context. On any other host the console session cookie is `Secure`, so over plain http the browser drops it and sign-in fails, and passwords and crew tokens travel in clear text. The server and the console warn at startup when an address they are given is plain http beyond localhost, and the sign-in page says so too. To reach the fleet from other machines:
 
 1. Put a TLS proxy in front. Set `HOST` (here and on the console) only when the proxy runs on another machine or container, such as `HOST=0.0.0.0`; beside it, the default `127.0.0.1` keeps both off the network.
-2. Set `PUBLIC_URL` to the https address, `TRUST_PROXY=true`, and `CONSOLE_ORIGIN` to the console's https origin when it is not `PUBLIC_URL`'s. Give the console `AEOLUS_SERVER_URL` with the same https address.
+2. Set `PUBLIC_URL` to the https address, `TRUST_PROXY=true`, and `CONSOLE_ORIGIN` to the console's https origin when it is not `PUBLIC_URL`'s. Give the console `AEOLUS_SERVER_URL` with the same https address, and `AEOLUS_CONSOLE_URL` with its own (see the console README).
 
 Caddy gets a certificate by itself and passes the console's WebSocket on. With the server and the console behind one host:
 
