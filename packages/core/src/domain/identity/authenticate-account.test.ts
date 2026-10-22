@@ -49,7 +49,7 @@ function authenticateAccountWith(trusted: Record<string, AccountTokenClaims>, op
 const gateway: ShipCaller = { shipId: newId('ship'), fleetId, kind: 'app', scopes: ['messages:send', 'messages:receive'] };
 
 describe('authenticating with an account token', () => {
-  it('makes the account the caller, with the scopes, group values and person ship its token carries, and when it ends', async () => {
+  it('makes the account the caller, with the scopes, group values and person ship its token carries, whether it is allowed as argo, and when it ends', async () => {
     const authenticate = authenticateAccountWith({ token: aToken() });
 
     expect(unwrap(await authenticate('token', { through: null }))).toEqual({
@@ -61,6 +61,7 @@ describe('authenticating with an account token', () => {
       personShipId,
       throughShipId: null,
       tokenEndsAt: aToken().endsAt,
+      isArgoAllowed: false,
     });
   });
 
