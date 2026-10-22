@@ -25,6 +25,7 @@ import { createAuthenticate } from '../../src/domain/identity/authenticate.js';
 import { createAuthenticateAccount } from '../../src/domain/identity/authenticate-account.js';
 import { createAuthenticateInstallation } from '../../src/domain/identity/authenticate-installation.js';
 import { createCutOffAccount } from '../../src/domain/identity/cut-off-account.js';
+import { createSignOutAccount } from '../../src/domain/identity/sign-out-account.js';
 import type { AccountCutOffRepository, HostedFleets } from '../../src/domain/identity/ports.js';
 import { createReadAccount } from '../../src/domain/identity/read-account.js';
 import { createReadArgoSignIn } from '../../src/domain/identity/read-argo-sign-in.js';
@@ -148,6 +149,7 @@ export function identityUseCases(core: InMemoryCore) {
     authenticateAccount: createAuthenticateAccount({ signatures: { verify: () => Promise.resolve(undefined) }, cutOffs, fleets, clock: core.clock }),
     authenticateInstallation: createAuthenticateInstallation({ fleets }),
     cutOffAccount: createCutOffAccount({ cutOffs, uow: core.uow, clock: core.clock, ids: core.ids }),
+    signOutAccount: createSignOutAccount({ uow: core.uow, clock: core.clock, ids: core.ids }),
     signIn: createSignIn(deps),
     signOut: createSignOut(deps),
     resetOperatorPassword: createResetOperatorPassword(deps),

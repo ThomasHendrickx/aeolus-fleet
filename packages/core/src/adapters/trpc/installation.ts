@@ -1,6 +1,8 @@
 import {
   installationAccountsCutOffInputSchema,
   installationAccountsCutOffOutputSchema,
+  installationAccountsSignOutInputSchema,
+  installationAccountsSignOutOutputSchema,
   installationFleetSchema,
   installationFleetsCreateInputSchema,
   installationFleetsCreateOutputSchema,
@@ -101,6 +103,12 @@ export const installationRouter = router({
     cutOff: installationProcedure.input(installationAccountsCutOffInputSchema).output(installationAccountsCutOffOutputSchema).mutation(async ({ ctx, input }) => {
       await ctx.useCases.cutOffAccount(input);
       ctx.log.info({ accountId: input.accountId }, 'account cut off');
+      return {};
+    }),
+    /** Ends every console sign-in as argo of an account that signed out in the account app: sign-out anywhere is sign-out everywhere. Its tokens stay good. */
+    signOut: installationProcedure.input(installationAccountsSignOutInputSchema).output(installationAccountsSignOutOutputSchema).mutation(async ({ ctx, input }) => {
+      await ctx.useCases.signOutAccount(input);
+      ctx.log.info({ accountId: input.accountId }, 'account signed out');
       return {};
     }),
   }),
