@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
 import { Button } from '@aeolus-fleet/common/header';
-import { AuthCard } from '../../../../features/sign-in/organisms/auth-card';
+import { AuthCard } from '../../../../features/sign-in/ui/organisms/auth-card';
 import { argoHolderOf, CONFIRMED_FIELD, type ArgoHolder } from '../../../../lib/argo-sign-in';
 import { pagasaeFrom } from '../../../../lib/pagasae';
 

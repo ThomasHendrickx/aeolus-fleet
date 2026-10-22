@@ -12,11 +12,11 @@ import { retryAtOf, trpcErrorCode } from '../../../lib/errors';
 import { useHasPassed } from '../hooks/has-passed';
 import { useIsSecureContext } from '../hooks/is-secure-context';
 import { clockTime } from '../../../lib/relative-time';
-import { signInRefusal } from '../lib/sign-in';
+import { signInRefusal } from '../services/sign-in';
 import { Input } from '../../../components/atoms/input';
 import { Label } from '../../../components/atoms/label';
-import { InsecureContextNotice } from '../molecules/insecure-context-notice';
-import { SignedInElsewhereNotice } from '../molecules/signed-in-elsewhere-notice';
+import { InsecureContextNotice } from '../ui/molecules/insecure-context-notice';
+import { SignedInElsewhereNotice } from '../ui/molecules/signed-in-elsewhere-notice';
 
 const noSubscription = () => () => undefined;
 

@@ -3,9 +3,9 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
 import { Button } from '@aeolus-fleet/common/header';
-import { SignedInElsewhereNotice } from '../../features/sign-in/molecules/signed-in-elsewhere-notice';
-import { SignInForm } from '../../features/sign-in/organisms/sign-in-form';
-import { AuthCard } from '../../features/sign-in/organisms/auth-card';
+import { SignedInElsewhereNotice } from '../../features/sign-in/ui/molecules/signed-in-elsewhere-notice';
+import { SignInForm } from '../../features/sign-in/state/sign-in-form';
+import { AuthCard } from '../../features/sign-in/ui/organisms/auth-card';
 import { isArgoAllowed } from '../../lib/argo-sign-in';
 import { hostedSignInUrlFrom } from '../../lib/hosted-sign-in';
 import { returnPathOf } from '../../lib/return-path';

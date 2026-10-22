@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
 import { Button } from '@aeolus-fleet/common/header';
-import { AuthCard } from '../../../features/sign-in/organisms/auth-card';
+import { AuthCard } from '../../../features/sign-in/ui/organisms/auth-card';
 import { hostedAccountUrlFrom } from '../../../lib/hosted-account-url';
 
 export const dynamic = 'force-dynamic';
