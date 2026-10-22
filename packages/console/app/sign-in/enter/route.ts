@@ -1,4 +1,4 @@
-import { enterFleet } from '../../../lib/account-sign-in';
+import { enterFleet, redirectTo } from '../../../lib/account-sign-in';
 import { returnPathOf } from '../../../lib/return-path';
 import { pagasaeFrom } from '../../../lib/pagasae';
 
@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request): Promise<Response> {
   const pagasae = pagasaeFrom(process.env);
   if (pagasae === undefined) {
-    return Response.redirect(new URL('/sign-in', request.url), 303);
+    return redirectTo('/sign-in');
   }
   return enterFleet(request, {
     pagasae,

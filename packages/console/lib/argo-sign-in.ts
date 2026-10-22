@@ -5,6 +5,7 @@ import { FLEET_COOKIE, fleetToEnter, redirectTo, type SignInDeps } from './accou
 import { askPagasae } from './account-name';
 import { ACCOUNT_TOKEN_COOKIE, SESSION_COOKIE } from './console-gate';
 import { cookieValueOf, exchangeArgoTicket, exchangeSignIn, fleetsOf, SHARED_SIGN_IN_COOKIE, type Pagasae } from './pagasae';
+import { consoleOriginOf } from './console-origin';
 import { serverInternalUrlFrom } from './server-url';
 import { UNREACHABLE_PATH } from './sign-in-paths';
 
@@ -30,8 +31,8 @@ export const CONFIRMED_FIELD = 'confirmed';
 const CORE_TIMEOUT_MS = 10_000;
 
 /** Whether the request comes from a page of the console: a browser always sends Origin with a POST. */
-function isFromConsole(request: Request): boolean {
-  return request.headers.get('origin') === new URL(request.url).origin;
+function isFromConsole(request: Request, environment: Environment): boolean {
+  return request.headers.get('origin') === consoleOriginOf(request, environment);
 }
 
 /** The fleet an account signs in as argo of: the one the console enters, when the account is allowed as argo there. */
@@ -131,7 +132,7 @@ async function redeemAtCore(redeem: { ticket: string; userAgent: string | null }
  * then pagasae's ticket redeemed at core and on into argo's console.
  */
 export async function signInAsArgo(request: Request, deps: SignInDeps): Promise<Response> {
-  if (!isFromConsole(request)) {
+  if (!isFromConsole(request, deps.environment)) {
     return new Response(null, { status: 403 });
   }
   const cookies = request.headers.get('cookie');
@@ -172,7 +173,7 @@ export async function signInAsArgo(request: Request, deps: SignInDeps): Promise<
  * 503 says core did not answer, so argo's session stays and the page says so.
  */
 export async function signOutOfArgo(request: Request, environment: Environment): Promise<Response> {
-  if (!isFromConsole(request)) {
+  if (!isFromConsole(request, environment)) {
     return new Response(null, { status: 403 });
   }
   const session = cookieValueOf(request.headers.get('cookie'), SESSION_COOKIE);
@@ -183,7 +184,7 @@ export async function signOutOfArgo(request: Request, environment: Environment):
     const answer = await fetch(`${serverInternalUrlFrom(environment)}/trpc/console.signOut`, {
       method: 'POST',
       // argo's session cookie alone: the account's token cookie stays.
-      headers: { 'content-type': 'application/json', cookie: `${SESSION_COOKIE}=${session}`, origin: new URL(request.url).origin },
+      headers: { 'content-type': 'application/json', cookie: `${SESSION_COOKIE}=${session}`, origin: consoleOriginOf(request, environment) },
       body: '{}',
       cache: 'no-store',
       signal: AbortSignal.timeout(CORE_TIMEOUT_MS),
