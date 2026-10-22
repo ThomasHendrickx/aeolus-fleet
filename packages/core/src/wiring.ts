@@ -38,6 +38,7 @@ import { createAuthenticate, type Authenticate } from './domain/identity/authent
 import { createAuthenticateAccount, type AuthenticateAccount } from './domain/identity/authenticate-account.js';
 import { createAuthenticateInstallation, type AuthenticateInstallation } from './domain/identity/authenticate-installation.js';
 import { createCutOffAccount, type CutOffAccount } from './domain/identity/cut-off-account.js';
+import { createSignOutAccount, type SignOutAccount } from './domain/identity/sign-out-account.js';
 import type { AccountTokenSignatures } from './domain/identity/ports.js';
 import { createDismissNotice, type DismissNotice } from './domain/identity/dismiss-notice.js';
 import { createGetGuide, type GetGuide } from './domain/identity/get-guide.js';
@@ -258,6 +259,7 @@ export interface UseCases {
   authenticateAccount: AuthenticateAccount;
   authenticateInstallation: AuthenticateInstallation;
   cutOffAccount: CutOffAccount;
+  signOutAccount: SignOutAccount;
   createFleet: CreateFleet;
   deleteFleet: DeleteFleet;
   listInstallationFleets: ListInstallationFleets;
@@ -476,5 +478,6 @@ export function createUseCases(options: {
     }),
     authenticateInstallation: createAuthenticateInstallation({ fleets: hostedFleets }),
     cutOffAccount: createCutOffAccount({ cutOffs: accountCutOffs, uow, clock, ids }),
+    signOutAccount: createSignOutAccount({ uow, clock, ids }),
   };
 }

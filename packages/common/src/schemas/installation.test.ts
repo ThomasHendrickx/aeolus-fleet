@@ -13,6 +13,7 @@ import {
   installationFleetsSetLimitsInputSchema,
   installationSettingsSchema,
   installationAccountsCutOffInputSchema,
+  installationAccountsSignOutInputSchema,
 } from './installation.js';
 
 const newId = createIdGenerator();
@@ -220,5 +221,18 @@ describe('installationAccountsCutOffInputSchema', () => {
     ['an email beside it', { accountId: 'acc-burak', email: 'burak@acme.example' }],
   ])('refuses %s', (_case, input) => {
     expect(installationAccountsCutOffInputSchema.safeParse(input).success).toBe(false);
+  });
+});
+
+describe('installationAccountsSignOutInputSchema', () => {
+  it('takes the account that signed out in the account app, by its id only', () => {
+    expect(installationAccountsSignOutInputSchema.parse({ accountId: 'acc-burak' })).toEqual({ accountId: 'acc-burak' });
+  });
+
+  it.each([
+    ['no account', {}],
+    ['an empty account', { accountId: '' }],
+  ])('refuses %s', (_case, input) => {
+    expect(installationAccountsSignOutInputSchema.safeParse(input).success).toBe(false);
   });
 });

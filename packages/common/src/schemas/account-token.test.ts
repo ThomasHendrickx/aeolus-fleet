@@ -32,6 +32,7 @@ describe('accountTokenClaimsSchema', () => {
       scopes: ['fleet:read', 'fleet:manage', 'squadrons:form'],
       groupValues: ['sales', 'engineering'],
       personShipId,
+      isArgoAllowed: false,
       issuedAt: new Date(1_760_000_000_000),
       endsAt: new Date(1_760_000_600_000),
     });
@@ -39,6 +40,14 @@ describe('accountTokenClaimsSchema', () => {
 
   it('reads an account without a person ship in the fleet', () => {
     expect(accountTokenClaimsSchema.parse(claims({ person_ship: undefined }))).toMatchObject({ personShipId: null });
+  });
+
+  it('reads an account allowed as argo of the fleet from its argo claim', () => {
+    expect(accountTokenClaimsSchema.parse(claims({ argo: true }))).toMatchObject({ isArgoAllowed: true });
+  });
+
+  it('reads an account not allowed as argo when the claim says false', () => {
+    expect(accountTokenClaimsSchema.parse(claims({ argo: false }))).toMatchObject({ isArgoAllowed: false });
   });
 
   it('reads an account with no scopes and no groups', () => {
@@ -57,6 +66,7 @@ describe('accountTokenClaimsSchema', () => {
     ['a missing issue time', { iat: undefined }],
     ['a person ship that is no ship id', { person_ship: 'charlotte' }],
     ['a missing organisation', { org: undefined }],
+    ['an argo claim that is no boolean', { argo: 'yes' }],
   ])('refuses %s', (_case, overrides) => {
     expect(accountTokenClaimsSchema.safeParse(claims(overrides)).success).toBe(false);
   });

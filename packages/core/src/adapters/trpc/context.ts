@@ -4,6 +4,7 @@ import type { Authenticate } from '../../domain/identity/authenticate.js';
 import type { AuthenticateAccount } from '../../domain/identity/authenticate-account.js';
 import type { AuthenticateInstallation } from '../../domain/identity/authenticate-installation.js';
 import type { CutOffAccount } from '../../domain/identity/cut-off-account.js';
+import type { SignOutAccount } from '../../domain/identity/sign-out-account.js';
 import type { ReadAccount } from '../../domain/identity/read-account.js';
 import type { ReadArgoSignIn } from '../../domain/identity/read-argo-sign-in.js';
 import type { SetOperatorLogin } from '../../domain/identity/set-operator-login.js';
@@ -131,6 +132,7 @@ export interface UseCases {
   authenticateAccount: AuthenticateAccount;
   authenticateInstallation: AuthenticateInstallation;
   cutOffAccount: CutOffAccount;
+  signOutAccount: SignOutAccount;
   commissionShip: CommissionShip;
   getStartingPrompt: GetStartingPrompt;
   releaseShip: ReleaseShip;

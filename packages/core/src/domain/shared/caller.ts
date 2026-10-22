@@ -43,6 +43,8 @@ export interface AccountCaller {
   throughShipId: ShipId | null;
   /** When the token that made this caller ends: what a console sign-in by it lasts. */
   tokenEndsAt?: Date;
+  /** Whether pagasae allows it as argo of this fleet, as its token says; absent is not. */
+  isArgoAllowed?: boolean;
 }
 
 /** The installation as the actor of a call in one fleet, with the scopes it holds there (decision 0020). */

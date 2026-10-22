@@ -132,3 +132,11 @@ export const installationFleetsSetLimitsInputSchema = z.strictObject({
  */
 export const installationAccountsCutOffInputSchema = z.strictObject({ accountId: accountIdSchema });
 export const installationAccountsCutOffOutputSchema = z.strictObject({});
+
+/**
+ * Input of `installation.accounts.signOut`: the account that signed out in
+ * the account app, by its id only; every console sign-in as argo it opened
+ * ends in every fleet of the installation.
+ */
+export const installationAccountsSignOutInputSchema = z.strictObject({ accountId: accountIdSchema });
+export const installationAccountsSignOutOutputSchema = z.strictObject({});

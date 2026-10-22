@@ -129,6 +129,19 @@ describe('a sign-in ticket', () => {
     await expect(database.lease.count({ where: { fleetId, id: session?.leaseId ?? '', endedAt: null } })).resolves.toBe(0);
   });
 
+  it("ends the account's console sign-in as argo when the installation says it signed out in the account app, and argo's lease with it", async () => {
+    const { ticket } = await installation().operators.issueSignInTicket.mutate({ fleetId, account: { id: 'acc-01noor' } });
+    const redeemed = await redeem(ticket);
+    const cookie = 'cookie' in redeemed ? redeemed.cookie : '';
+
+    await expect(installation().accounts.signOut.mutate({ accountId: 'acc-01noor' })).resolves.toEqual({});
+
+    await expect(accountWith(cookie)).rejects.toMatchObject({ data: { code: 'UNAUTHORIZED' } });
+    const session = await database.consoleSession.findFirst({ where: { fleetId, accountId: 'acc-01noor' }, select: { endReason: true, leaseId: true } });
+    expect(session?.endReason).toBe('signedOut');
+    await expect(database.lease.count({ where: { fleetId, id: session?.leaseId ?? '', endedAt: null } })).resolves.toBe(0);
+  });
+
   it('signs in once and never again', async () => {
     const { ticket } = await installation().operators.issueSignInTicket.mutate({ fleetId });
     await redeem(ticket);
