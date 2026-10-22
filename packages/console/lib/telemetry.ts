@@ -2,8 +2,9 @@ import type { MetricReader } from '@opentelemetry/sdk-metrics';
 import type { SpanExporter } from '@opentelemetry/sdk-trace-base';
 
 /**
- * OpenTelemetry for the console: Next.js's own spans for every request, and a
- * span and a duration point for every console read (call-telemetry.ts), sent
+ * OpenTelemetry for the console: Next.js's own spans and a duration point for
+ * every request, and a span and a duration point for every console read
+ * (call-telemetry.ts), sent
  * over OTLP. Only the standard OTEL_* settings switch it on: with no OTLP
  * endpoint set, nothing starts and the SDK is never loaded.
  */

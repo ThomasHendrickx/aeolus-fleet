@@ -27,6 +27,7 @@ import {
   sessionCookie,
 } from './request-credentials.js';
 import { runningVersions } from './version.js';
+import { measureRequest } from '../telemetry/requests.js';
 import { INSTALLATION_TOKEN_HEADER } from '../trpc/installation-token.js';
 
 /** A header's one value: a header sent twice counts as not sent. */
@@ -148,6 +149,11 @@ export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
   const registerFailures = createRateLimiter(options.registerRateLimit ?? DEFAULT_REGISTER_RATE_LIMIT, options.clock);
   const { consoleOrigin, cookieDomain } = options;
   const fleetEvents = options.fleetEvents ?? createFleetEventWakeups();
+
+  // Every answered request, measured (telemetry/requests.ts): a no-op until telemetry starts.
+  server.addHook('onResponse', async (request, reply) => {
+    measureRequest({ method: request.method, route: request.routeOptions.url, statusCode: reply.statusCode, durationMs: reply.elapsedTime });
+  });
 
   // The console may run on another host under the cookie's domain (ADR 0012).
   // Its origin, and no other, may call with credentials and read the answer.

@@ -8,13 +8,13 @@ import { metrics, SpanKind, SpanStatusCode, trace, type Attributes } from '@open
  * no-ops.
  */
 
-const INSTRUMENTATION_SCOPE = '@aeolus-fleet/console';
+export const INSTRUMENTATION_SCOPE = '@aeolus-fleet/console';
 
 /** The semantic conventions' name for an RPC's duration on the server, in seconds. */
 const CALL_DURATION = 'rpc.server.call.duration';
 
-/** The semantic conventions' boundaries, in seconds; 0.1 and 0.5 are a read's p95 and p99 budgets. */
-const CALL_DURATION_BOUNDARIES_S = [0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1, 2.5, 5, 7.5, 10];
+/** The semantic conventions' boundaries for a duration on the server, in seconds; 0.1 and 0.5 are a read's p95 and p99 budgets. */
+export const SERVER_DURATION_BOUNDARIES_S = [0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1, 2.5, 5, 7.5, 10];
 
 const MS_PER_S = 1000;
 const FIRST_REFUSAL_STATUS = 400;
@@ -53,6 +53,6 @@ function callDurations() {
   return metrics.getMeter(INSTRUMENTATION_SCOPE).createHistogram(CALL_DURATION, {
     unit: 's',
     description: 'How long each call took on the server, by call and outcome',
-    advice: { explicitBucketBoundaries: CALL_DURATION_BOUNDARIES_S },
+    advice: { explicitBucketBoundaries: SERVER_DURATION_BOUNDARIES_S },
   });
 }
