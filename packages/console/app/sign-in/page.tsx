@@ -3,9 +3,9 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
 import { Button } from '@aeolus-fleet/common/header';
-import { SignedInElsewhereNotice } from '../../features/sign-in/molecules/signed-in-elsewhere-notice';
-import { SignInForm } from '../../features/sign-in/organisms/sign-in-form';
-import { AuthCard } from '../../features/sign-in/organisms/auth-card';
+import { SignedInElsewhereNotice } from '../../features/sign-in/ui/molecules/signed-in-elsewhere-notice';
+import { SignInForm } from '../../features/sign-in/state/sign-in-form';
+import { AuthCard } from '../../features/sign-in/ui/organisms/auth-card';
 import { isArgoAllowed } from '../../lib/argo-sign-in';
 import { hostedSignInUrlFrom } from '../../lib/hosted-sign-in';
 import { returnPathOf } from '../../lib/return-path';
@@ -27,7 +27,9 @@ export const dynamic = 'force-dynamic';
  * `?notice=ended` it says the account's sign-in ended (A6), and signs in again
  * back to `returnTo`, the page it was on. To an account allowed as argo of the
  * fleet, it offers Sign in as argo too (accounts design, A7), the way in when
- * acting as the account cannot help.
+ * acting as the account cannot help. With `?notice=signed-in-elsewhere` it
+ * says the account's argo sign-in ended because someone signed in as argo
+ * elsewhere.
  */
 /** pagasae's sign-in, coming back to the console page given, when one is. */
 function startPathOf(returnTo: string | string[] | undefined): string {
@@ -52,6 +54,7 @@ export default async function SignInPage({
               You signed out of every Aeolus app.
             </p>
           ) : null}
+          {notice === 'signed-in-elsewhere' ? <SignedInElsewhereNotice isArgoTakenOver /> : null}
           {notice === 'ended' ? (
             <p role="status" data-testid="sign-in-ended" className="text-body text-muted-foreground">
               Your sign-in ended.
