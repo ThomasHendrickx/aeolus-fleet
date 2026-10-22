@@ -1669,3 +1669,49 @@ describe('the verify scope migration', () => {
     }
   });
 });
+
+describe('the message days migration', () => {
+  const MIGRATIONS = fileURLToPath(new URL('../src/adapters/prisma/migrations', import.meta.url));
+  const names = readdirSync(MIGRATIONS)
+    .filter((name) => /^\d{14}_/.test(name))
+    .sort();
+  const messageDays = names.findIndex((name) => name.endsWith('_message_days'));
+
+  it("counts every message stored before it once, on its fleet's row for the UTC day it was stored, with its payload's UTF-8 bytes", async () => {
+    const url = await createEmptyDatabase();
+    for (const name of names.slice(0, messageDays)) {
+      await executeSqlFile(url, `${MIGRATIONS}/${name}/migration.sql`);
+    }
+    const client = createPrismaClient(url);
+    const [home, away] = [newId('fleet'), newId('fleet')];
+    const [homeArgo, awayArgo] = [newId('ship'), newId('ship')];
+    try {
+      await client.$executeRaw`INSERT INTO fleets (id, name, created_at) VALUES (${home}, 'home', ${now}), (${away}, 'away', ${now})`;
+      await client.$executeRaw`
+        INSERT INTO ships (id, fleet_id, name, type, kind, scopes, created_at)
+        VALUES (${homeArgo}, ${home}, 'argo', 'operator', 'operator', '{}', ${now}), (${awayArgo}, ${away}, 'argo', 'operator', 'operator', '{}', ${now})`;
+      const message = ({ fleetId, senderShipId, payload, createdAt }: { fleetId: FleetId; senderShipId: ShipId; payload: string; createdAt: string }) =>
+        client.$executeRaw`
+          INSERT INTO messages (id, fleet_id, sender_ship_id, selector_kind, selector_ship_id, payload, content_type, idempotency_key, request_hash, created_at)
+          VALUES (${newId('message')}, ${fleetId}, ${senderShipId}, 'ship', ${senderShipId}, ${payload}, 'text/plain', ${newId('message')}, 'hash', ${new Date(createdAt)})`;
+      await message({ fleetId: home, senderShipId: homeArgo, payload: 'Prüfe ✓', createdAt: '2026-10-03T23:59:59.999Z' });
+      await message({ fleetId: home, senderShipId: homeArgo, payload: 'Review', createdAt: '2026-10-03T08:00:00.000Z' });
+      await message({ fleetId: home, senderShipId: homeArgo, payload: 'Next', createdAt: '2026-10-04T00:00:00.000Z' });
+      await message({ fleetId: away, senderShipId: awayArgo, payload: 'Hi', createdAt: '2026-10-04T10:00:00.000Z' });
+
+      await executeSqlFile(url, `${MIGRATIONS}/${names[messageDays] ?? 'missing'}/migration.sql`);
+
+      await expect(
+        client.$queryRaw`SELECT fleet_id AS "fleetId", to_char(day, 'YYYY-MM-DD') AS day, messages, payload_bytes AS "payloadBytes" FROM message_days ORDER BY fleet_id, day`,
+      ).resolves.toEqual(
+        [
+          { fleetId: home, day: '2026-10-03', messages: 2, payloadBytes: 16n },
+          { fleetId: home, day: '2026-10-04', messages: 1, payloadBytes: 4n },
+          { fleetId: away, day: '2026-10-04', messages: 1, payloadBytes: 2n },
+        ].toSorted((a, b) => a.fleetId.localeCompare(b.fleetId) || a.day.localeCompare(b.day)),
+      );
+    } finally {
+      await client.$disconnect();
+    }
+  });
+});
