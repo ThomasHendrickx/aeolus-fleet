@@ -7,7 +7,7 @@ import { utcDayStart } from '../shared/utc-day.js';
 import type { MessageRepository } from './ports.js';
 
 export interface DailyMessageLimitTx extends AppliedLimitsTx {
-  messages: Pick<MessageRepository, 'lockDailyCount' | 'countCreatedSince'>;
+  messages: Pick<MessageRepository, 'lockDailyCount' | 'countStoredOn'>;
 }
 
 /**
@@ -27,7 +27,7 @@ export async function withinDailyMessageLimit(
     return ok(undefined);
   }
   await tx.messages.lockDailyCount(fleetId);
-  if ((await tx.messages.countCreatedSince(fleetId, utcDayStart(time))) < dailyMessages) {
+  if ((await tx.messages.countStoredOn(fleetId, utcDayStart(time))) < dailyMessages) {
     return ok(undefined);
   }
   return refuse(

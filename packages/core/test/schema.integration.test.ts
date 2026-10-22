@@ -146,6 +146,7 @@ describe('migrations', () => {
       'label_values',
       'labels',
       'leases',
+      'message_days',
       'messages',
       'network_rules_drafts',
       'network_settings',

@@ -1,4 +1,4 @@
-import type { FleetId, ShipId } from '@aeolus-fleet/common';
+import { SCOPES, type FleetId, type ShipId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
@@ -91,7 +91,7 @@ describe('the messages per fleet and UTC day', () => {
 
   it("keep each fleet's messages on its own row", async () => {
     const other = unwrap(await core.useCases.createFleet({ requestId: newKey(), name: 'away fleet', operatorEmail: 'away@example.com' }));
-    unwrap(await core.useCases.sendMessage(operatorCaller(other), { selector: { kind: 'ship', name: 'argo' }, payload: 'Hi', idempotencyKey: newKey() }));
+    unwrap(await core.useCases.sendMessage({ fleetId: other.fleetId, shipId: other.operatorShipId, kind: 'operator', scopes: [...SCOPES] }, { selector: { kind: 'ship', name: 'argo' }, payload: 'Hi', idempotencyKey: newKey() }));
     unwrap(await send('Review'));
 
     await expect(daysOf(other.fleetId)).resolves.toEqual([{ day: '2026-10-04', messages: 1, payloadBytes: 2n }]);

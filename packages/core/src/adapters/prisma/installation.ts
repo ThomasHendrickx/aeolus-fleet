@@ -104,12 +104,11 @@ export function createPrismaInstallationFleets(prisma: PrismaClient): Installati
           (SELECT count(*) FROM ships s WHERE s.fleet_id = f.id AND s.retired_at IS NULL) AS "shipCount",
           (SELECT count(*) FROM messages m WHERE m.fleet_id = f.id AND m.created_at >= ${window.since}) AS "messagesSince",
           (SELECT max(e.occurred_at) FROM events e WHERE e.fleet_id = f.id) AS "lastActivityAt",
-          -- A payload's UTF-8 bytes, whatever the database encoding.
-          (SELECT coalesce(sum(octet_length(convert_to(m.payload, 'UTF8'))), 0)::bigint FROM messages m WHERE m.fleet_id = f.id) AS "storage",
+          -- Storage and the messages per UTC day from the days each send counted on (messaging.ts), not from the messages.
+          (SELECT coalesce(sum(md.payload_bytes), 0)::bigint FROM message_days md WHERE md.fleet_id = f.id) AS "storage",
           -- Each UTC day's messages from the window's first day on; a day without any is left out.
-          (SELECT coalesce(json_agg(json_build_object('date', d.day, 'count', d.count) ORDER BY d.day), '[]'::json)
-           FROM (SELECT to_char(m.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS day, count(*)::int AS count
-                 FROM messages m WHERE m.fleet_id = f.id AND m.created_at >= ${window.firstDay} GROUP BY 1) d) AS "messagesPerUtcDay",
+          (SELECT coalesce(json_agg(json_build_object('date', to_char(md.day, 'YYYY-MM-DD'), 'count', md.messages) ORDER BY md.day), '[]'::json)
+           FROM message_days md WHERE md.fleet_id = f.id AND md.day >= (${window.firstDay} AT TIME ZONE 'UTC')::date) AS "messagesPerUtcDay",
           -- Health (#304): where its deliveries wait, from their states and times only.
           (SELECT min(d.created_at) FROM deliveries d WHERE d.fleet_id = f.id AND d.state = 'pending') AS "oldestPendingAt",
           -- In flight since its state began, as the overdue clocks read it (overdue.ts).
@@ -211,6 +210,9 @@ export function createPrismaFleetLimitReads(prisma: PrismaClient): FleetLimitRea
   return {
     applied: (fleetId) => appliedLimits(limits, fleetId),
     activeShips: (fleetId) => prisma.ship.count({ where: { fleetId, retiredAt: null } }),
-    messagesSince: (fleetId, since) => prisma.message.count({ where: { fleetId, createdAt: { gte: since } } }),
+    messagesOn: async (fleetId, day) => {
+      const row = await prisma.messageDay.findUnique({ where: { fleetId_day: { fleetId, day } }, select: { messages: true } });
+      return row?.messages ?? 0;
+    },
   };
 }

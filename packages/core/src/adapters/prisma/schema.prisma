@@ -60,6 +60,7 @@ model Fleet {
   reachRefusals    ReachRefusal[]
   credentials      Credential[]
   messages         Message[]
+  messageDays      MessageDay[]
   deliveries       Delivery[]
   overdueDeliveries OverdueDelivery[]
   events           Event[]
@@ -531,6 +532,23 @@ enum SelectorKind {
   type
 
   @@map("selector_kind")
+}
+
+/// The messages a fleet stored on one UTC day and their payloads' UTF-8 bytes
+/// (performance design, decision 1). A unit of work adds to it as its last
+/// statements, after the fleet's event numbers, so the row lock is held only
+/// until commit. Storage is the sum of the days; the daily message limit
+/// counts today's row.
+model MessageDay {
+  fleetId      String   @map("fleet_id")
+  day          DateTime @db.Date
+  messages     Int
+  payloadBytes BigInt   @map("payload_bytes")
+
+  fleet Fleet @relation(fields: [fleetId], references: [id])
+
+  @@id([fleetId, day])
+  @@map("message_days")
 }
 
 /// An immutable envelope plus an opaque payload of at most 64 KB, sent by one ship.

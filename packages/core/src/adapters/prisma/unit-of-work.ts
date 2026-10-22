@@ -5,7 +5,7 @@ import type {
   OperatorAccountRepository,
   SignInTicketRepository,
 } from '../../domain/identity/ports.js';
-import type { DeliveryRepository, MessageRepository, OverdueDeliveryRepository } from '../../domain/messaging/ports.js';
+import type { DeliveryRepository, OverdueDeliveryRepository } from '../../domain/messaging/ports.js';
 import type {
   ClearRequestRepository,
   CrewRequestRepository,
@@ -37,7 +37,7 @@ import {
   createPrismaSignInTicketRepository,
 } from './identity.js';
 import { createPrismaInstallationRequestRepository, createPrismaInstallationSettings } from './installation.js';
-import { createPrismaDeliveryRepository, createPrismaMessageRepository } from './messaging.js';
+import { createPrismaDeliveryRepository, createPrismaMessageRepository, type BufferedMessageRepository } from './messaging.js';
 import { createPrismaOverdueDeliveryRepository } from './overdue.js';
 import { createPrismaDeclaredNetworkRulesRepository, createPrismaNetworkRulesDraftRepository, createPrismaNetworkSettingsRepository, createPrismaReachRefusalRepository } from './network.js';
 import { createPrismaVerifiedFactsRepository } from './verified-facts.js';
@@ -71,7 +71,7 @@ export interface PrismaTx {
   operatorAccounts: OperatorAccountRepository;
   consoleSessions: ConsoleSessionRepository;
   signInTickets: SignInTicketRepository;
-  messages: MessageRepository;
+  messages: BufferedMessageRepository;
   deliveries: DeliveryRepository;
   overdueDeliveries: OverdueDeliveryRepository;
   events: BufferedEventLog;
@@ -117,7 +117,8 @@ class Refused extends Error {
 /**
  * Runs each use case in one interactive transaction (read committed). Every
  * write, events included, commits together; the events are written last, so
- * their numbers follow commit order (event-log.ts). A refusal or a thrown error rolls
+ * their numbers follow commit order (event-log.ts), and the messages are
+ * counted on their days after them (messaging.ts). A refusal or a thrown error rolls
  * all of it back; Prisma rolls back only on a throw, so a refusal is thrown
  * inside the transaction and returned outside it.
  */
@@ -144,6 +145,7 @@ function createUnitOfWork(prisma: PrismaClient, options: { timeout?: number }): 
             throw new Refused();
           }
           await unit.events.flush();
+          await unit.messages.flush();
           return result;
         }, options);
       } catch (error) {
