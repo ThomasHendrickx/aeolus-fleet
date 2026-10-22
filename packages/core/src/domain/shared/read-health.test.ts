@@ -5,6 +5,8 @@ import { historyScenario, type HistoryScenario } from '../../../test/support/his
 import { newKey } from '../../testing/keys.js';
 import { unwrap } from '../../testing/result.js';
 import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
+import type { InMemoryCore } from '../../../test/support/in-memory.js';
+import { createCloseHealthSnapshots } from './close-health-snapshots.js';
 
 const SECOND_MS = 1_000;
 const MINUTE_MS = 60 * SECOND_MS;
@@ -27,6 +29,11 @@ async function lastPlannerRetires(): Promise<void> {
 
 async function readHealth() {
   return scene.history.readHealth(scene.argo);
+}
+
+/** One pass of the stuck snapshot's close. */
+async function closeSnapshot(core: InMemoryCore): Promise<void> {
+  await createCloseHealthSnapshots({ fleets: core.fleets, uow: core.uow, clock: core.clock })();
 }
 
 describe('reading the fleet health', () => {
@@ -156,6 +163,37 @@ describe('reading the fleet health', () => {
   });
 });
 
+describe('reading the fleet health from the stuck snapshot', () => {
+  it('answers what the replay answers, each hour at its hour mark', async () => {
+    await scene.send(scene.scout, { to: { kind: 'type', type: 'planner' } });
+    await lastPlannerRetires();
+    const acknowledged = await scene.send(scene.scout, { to: { kind: 'ship', shipId: scene.lookout.shipId } });
+    await scene.receive(scene.lookout);
+    await scene.ack(scene.lookout, acknowledged);
+    scene.core.clock.set('2026-10-01T12:00:00.000Z');
+    const replayed = await readHealth();
+
+    await closeSnapshot(scene.core);
+    const fromSnapshot = await readHealth();
+
+    expect(fromSnapshot.stuck).toEqual(replayed.stuck);
+    expect(fromSnapshot.stuckPerHour.slice(0, -1)).toEqual(replayed.stuckPerHour.slice(1));
+    expect(fromSnapshot.acknowledged.count).toBe(replayed.acknowledged.count);
+  });
+
+  it('folds what happened after the latest closed hour', async () => {
+    scene.core.clock.set('2026-10-01T10:10:00.000Z');
+    await closeSnapshot(scene.core);
+    await scene.send(scene.scout, { to: { kind: 'type', type: 'planner' } });
+    await lastPlannerRetires();
+
+    const health = await readHealth();
+
+    expect(health.stuck).toMatchObject([{ cause: 'noShipCanTake', count: 1 }]);
+    expect(health.stuckPerHour.at(-2)).toEqual({ at: new Date('2026-10-01T10:00:00.000Z'), count: 0 });
+  });
+});
+
 describe('reading the fleet health within read reach (decision 0034)', () => {
   let fleet: ReadReachScenario;
 
@@ -172,6 +210,19 @@ describe('reading the fleet health within read reach (decision 0034)', () => {
     const [read, all] = [await fleet.history.readHealth(fleet.reader), await fleet.history.readHealth(fleet.argo)];
 
     expect([read.stuck.map((place) => place.count), read.stuckPerHour.at(-1)?.count, all.stuck.map((place) => place.count)]).toEqual([[1], 1, [2]]);
+  });
+
+  it('counts only the stuck deliveries whose message the caller reads in each hour of the snapshot', async () => {
+    await fleet.send(fleet.near, { kind: 'type', type: 'keeper' });
+    await fleet.send(fleet.argo, { kind: 'type', type: 'keeper' });
+    unwrap(await fleet.registry.retireShip(fleet.argo, { shipId: fleet.far.shipId }));
+    await closeSnapshot(fleet.core);
+    fleet.core.clock.advance(HOUR_MS);
+    await closeSnapshot(fleet.core);
+
+    const [read, all] = [await fleet.history.readHealth(fleet.reader), await fleet.history.readHealth(fleet.argo)];
+
+    expect([read.stuckPerHour.at(-2)?.count, all.stuckPerHour.at(-2)?.count]).toEqual([1, 2]);
   });
 
   it('counts only the acknowledged deliveries whose message the caller reads', async () => {
