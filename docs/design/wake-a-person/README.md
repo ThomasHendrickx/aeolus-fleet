@@ -43,12 +43,15 @@ Not the purpose:
 | --- | --- |
 | W1 | **Channels: web push and email.** No chat webhook |
 | W2 | **pagasae sends the email**, asked by the gateway to send an account a wake. The address never leaves pagasae |
-| W3 | **Each delivery is woken once, gathered so a person is not spammed.** A wake covers every delivery not yet handed; a channel sends at most one wake per window from the gateway's configuration, and what arrives inside the window goes in the next wake (window per channel: Q3) |
+| W3 | **Each delivery is woken once, gathered so a person is not spammed.** A wake covers every delivery not yet handed; a channel sends at most one wake per window from the gateway's configuration, and what arrives inside the window goes in the next wake (the window is W10) |
 | W4 | **The wake says only that something waits in the fleet, by the fleet's name, with a link to the gateway's overview** |
 | W5 | **Core: `inbox` takes the count the caller already knows and waits while the count is still that**, up to its 25 seconds. It claims nothing |
 | W6 | **Open is not in focus.** Only a gateway page of the person that is in focus is the channel: the gateway reports `handed` with channel `page` and sends no wake. A page that is open and not in focus changes nothing: the wake goes out. The page tells the gateway over its socket when it gains and loses focus |
-| W7 | **The gateway waits on every person ship it crews.** It wakes only through channels the person turned on (Q2) |
+| W7 | **The gateway waits on every person ship it crews.** The waiter runs whether or not a channel is turned on; only the wake needs one (W8) |
 | W8 | **Consent first.** A section on the gateway's overview where the person turns each channel on and off: email, and web push per browser (one subscription per browser, each removable). Nothing is on by default. Kept in the gateway's database by fleet and person ship |
+
+| W9 | **One waiter per person ship across gateway instances, held by a Postgres advisory lock in the gateway's database.** Another instance takes it over when the holder's connection ends. Thomas: "This is over engineering but here I allow it" |
+| W10 | **A window per channel, in the gateway's configuration:** web push 10 minutes, email 60 minutes by default |
 
 A delivery woken through two channels is handed once, naming the first channel that went out; the second is a repeat with the same number, which counts nothing.
 
@@ -90,7 +93,7 @@ Unhappy paths the diagram does not show:
 - **Lost `NOTIFY` connection.** The listener reads everything anew, as for `requests` today.
 - **The person turns every channel off.** Waiting deliveries stay received and show on the pages; nothing is handed.
 - **Account disabled (0055).** Its person ship is released, the waiter's next call answers `LEASE_ENDED`, and it stops.
-- **Two gateway instances.** Q1.
+- **Two gateway instances.** One holds a ship's waiter by the advisory lock (W9); if its connection ends, another takes the lock and starts the waiter. A short overlap at the takeover can wake once more, as after a crash.
 
 ## 6. Slices for 0.30.0
 
@@ -106,18 +109,20 @@ S1 first; S2 needs its core version; S3 and S4 follow S2 and can run side by sid
 ### S2 Gateway: the waiter and the live inbox (W5, W7, #1014)
 
 - A waiter runs for every person ship the gateway crews, from the crew it holds, on S1's `inbox`; it starts when the gateway crews and stops on `LEASE_ENDED` or `UNAUTHORIZED`, dropping the crew.
+- The waiter of a ship runs in one instance only, holding a Postgres advisory lock in the gateway's database (W9); an instance whose connection ends loses its locks, and another starts those waiters.
 - Every push receive of a person ship states `waker: gateway`, `people.inbox` included.
 - A change of the count, and every open, answer and done through the gateway, sends `NOTIFY gateway_changes` with the fleet, the ship and topic `inbox`; the person's open overview and inbox read `people.inbox` again within seconds.
 - A lost listener connection reads every open page anew.
-- Tests: the waiter stops on a lease ended; a delivery sent to the person ship updates their open overview without a reload; an open in another client does too; a restart starts the waiters of every held crew; Q1's choice.
+- Tests: the waiter stops on a lease ended; a delivery sent to the person ship updates their open overview without a reload; an open in another client does too; a restart starts the waiters of every held crew; two instances give one waiter per ship; the waiter of a stopped instance is taken over by the other.
 - docs/compatibility.md states S1's core version as the minimum.
 
 ### S3 Gateway: consent, focus and web push (W3, W4, W6, W8)
 
 - The overview's section turns web push on for this browser (asking the browser's permission), lists the browsers turned on, and removes one; nothing is on by default.
 - The page reports focus and blur over its socket; while one of the person's pages is in focus, fresh deliveries are handed with channel `page` and no wake goes out.
-- Otherwise a fresh delivery wakes through web push: the fleet's name, "something waits", the overview link, nothing else. At most one per window (W3); each delivery it covers is reported `handed` no. 1 with channel `web-push`.
+- Otherwise a fresh delivery wakes through web push: the fleet's name, "something waits", the overview link, nothing else. At most one per window (W3, W10: 10 minutes by default); each delivery it covers is reported `handed` no. 1 with channel `web-push`.
 - A subscription answered 404 or 410 is forgotten, and the overview says so. A failed send hands nothing and is tried again.
+- The window of each channel comes from the gateway's configuration (W10).
 - The push keys come from the gateway's configuration; without them the section does not offer web push.
 - Tests: no wake without consent; no wake while a page is in focus, `handed` via `page`; a wake while a page is open and not in focus; ten deliveries in a window give one wake and ten hand-overs; a crash before `handed` wakes again, after `handed` does not; a gone subscription is forgotten.
 
@@ -125,35 +130,6 @@ S1 first; S2 needs its core version; S3 and S4 follow S2 and can run side by sid
 
 - pagasae answers a gateway request to send an account a wake: the fleet's name, "something waits" and the overview link, to the account's address. The gateway never reads the address.
 - The overview's section turns email on and off; nothing is on by default.
-- A fresh delivery not handed through `page` wakes through email too, at most one per window; each delivery it covers is reported `handed` no. 1 with channel `email` when it is the first channel that went out.
+- A fresh delivery not handed through `page` wakes through email too, at most one per window (W10: 60 minutes by default); each delivery it covers is reported `handed` no. 1 with channel `email` when it is the first channel that went out.
 - pagasae not answering hands nothing and is tried again.
 - Tests: no email without consent; one email per window; a refusal from pagasae hands nothing.
-
-## 7. Open questions
-
-### Q1 Two gateway instances
-
-Context: every gateway instance hears `gateway_changes`, and each would start a waiter for every crewed person ship. Two waiters on one ship each send a wake, which spams the person (W3).
-
-1. **One waiter per ship across instances, held by a Postgres advisory lock in the gateway's database; another instance takes it over when the holder's connection ends.**
-2. Accept duplicate wakes.
-
-**Pick 1.** Thomas's "don't spam" (W3) rules out 2, and the lock costs one query per waiter.
-
-### Q2 What "and have notifications turned on" (W7) limits
-
-Context: the live pages (#1014) need the waiter whether or not the person turned a channel on.
-
-1. **The waiter runs for every crewed person ship; only the wake needs a channel turned on.**
-2. The waiter runs only for person ships with a channel turned on; the others' pages update only when read.
-
-**Pick 1.** It keeps outcome 2 for everyone and W8's consent for the wake.
-
-### Q3 One window, or one per channel
-
-Context: W3 gathers wakes in a window. Thomas: "email is a slow channel so might not be the best channel".
-
-1. One window for every channel, 10 minutes by default.
-2. **A window per channel from the gateway's configuration: web push 10 minutes, email 60 minutes by default.**
-
-**Pick 2.** Email is read slowly and spams fastest; push stays prompt.
