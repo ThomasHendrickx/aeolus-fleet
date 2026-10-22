@@ -30,6 +30,16 @@ describe('creating a fleet for the installation', () => {
     ]);
   });
 
+  it('starts the fleet with an empty stuck snapshot at its creation hour, before its first event', async () => {
+    core.clock.set('2026-10-04T12:40:00.000Z');
+
+    const { fleetId } = unwrap(await createFleet(HEMMA));
+
+    expect(core.state.healthSnapshots).toEqual([
+      { fleetId, hour: new Date('2026-10-04T12:00:00.000Z'), stuck: [], acknowledged: [], fold: { seq: 0, deliveries: [], turns: [] } },
+    ]);
+  });
+
   it('writes FleetInitialised and ShipCommissioned for argo with it', async () => {
     const { fleetId, operatorShipId } = unwrap(await createFleet(HEMMA));
 
