@@ -16,6 +16,7 @@ import type {
   InstallationSettingsRepository,
 } from '../../domain/registry/ports.js';
 import type { Db, PrismaClient } from './client.js';
+import { Prisma } from './generated/client.js';
 
 // The installation's own reads and records (docs/architecture.md,
 // "Installation"): across fleets, reachable only with the installation token.
@@ -95,11 +96,9 @@ function toFacts(row: unknown): InstallationFleetFacts {
   };
 }
 
-export function createPrismaInstallationFleets(prisma: PrismaClient): InstallationFleets {
-  // One fleet, or every fleet when fleetId is null, oldest first.
-  const read = async (fleetId: FleetId | null, window: InstallationFleetWindow) =>
-    (
-      await prisma.$queryRaw<unknown[]>`
+/** The installation's statement of one fleet's facts, or every fleet's when fleetId is null, oldest first. */
+export function installationFleetsStatement(fleetId: FleetId | null, window: InstallationFleetWindow): Prisma.Sql {
+  return Prisma.sql`
         SELECT f.id AS "fleetId", f.name, o.email AS "operatorEmail", f.created_at AS "createdAt",
           (SELECT count(*) FROM ships s WHERE s.fleet_id = f.id AND s.retired_at IS NULL) AS "shipCount",
           (SELECT count(*) FROM messages m WHERE m.fleet_id = f.id AND m.created_at >= ${window.since}) AS "messagesSince",
@@ -138,8 +137,11 @@ export function createPrismaInstallationFleets(prisma: PrismaClient): Installati
         FROM fleets f
         LEFT JOIN operators o ON o.fleet_id = f.id
         WHERE ${fleetId}::text IS NULL OR f.id = ${fleetId}
-        ORDER BY f.created_at, f.id`
-    ).map(toFacts);
+        ORDER BY f.created_at, f.id`;
+}
+
+export function createPrismaInstallationFleets(prisma: PrismaClient): InstallationFleets {
+  const read = async (fleetId: FleetId | null, window: InstallationFleetWindow) => (await prisma.$queryRaw<unknown[]>(installationFleetsStatement(fleetId, window))).map(toFacts);
   return {
     list: (window) => read(null, window),
     find: async (fleetId, window) => (await read(fleetId, window))[0],
