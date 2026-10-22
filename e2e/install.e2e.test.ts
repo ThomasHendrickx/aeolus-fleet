@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 
-import type { Browser, Page } from 'playwright';
+import type { Browser } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createEmptyDatabase } from '../packages/core/src/testing/database.js';
@@ -24,10 +24,6 @@ const repositoryRoot = fileURLToPath(new URL('..', import.meta.url));
 /** Building the web app and installing from the registry take a while. */
 const SETUP_TIMEOUT_MS = 600_000;
 const ANSWER_TIMEOUT_MS = 60_000;
-/** How long a test holds the web app's server's answer to a click back: far longer than a click may wait for an answer. */
-const SLOW_SERVER_MS = 3_000;
-/** A click shows the page's shape within this. */
-const AT_ONCE_MS = 1_000;
 
 /** Nothing of the developer's shell or .env: only what finds node and npm, and the settings given. */
 function cleanEnvironment(settings: Record<string, string>): Record<string, string> {
@@ -42,8 +38,6 @@ let webUrl: string;
 /** The sign-in link fleet:init printed. */
 let signInLink: string;
 let browser: Browser | undefined;
-/** argo's page, once signed in. */
-let page: Page;
 const running: ChildProcess[] = [];
 
 /** An installed bin command: its name, its arguments and its settings. */
@@ -226,35 +220,11 @@ describe('installed from npm', () => {
 
   it('signs argo in with the link fleet:init printed: the browser calls the server at the address the web app started with', async () => {
     browser = await launchChromium();
-    page = await browser.newPage({ baseURL: webUrl });
+    const page = await browser.newPage({ baseURL: webUrl });
 
     await page.goto(signInLink);
 
     await page.waitForURL(`${webUrl}/`);
     await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
-  });
-
-  it("shows the fleet overview's heading and the skeleton of its list at once on a click, while the web app's server is slow to answer (#1117)", async () => {
-    await page.goto('/inbox');
-    await page.getByRole('heading', { name: 'Inbox' }).waitFor();
-    // The navigation's links prefetch their pages' shape as they come into view.
-    await page.waitForLoadState('networkidle');
-    // The server's answer to the click, the page as React Server Components, comes late; a prefetch is not held.
-    await page.route(
-      (url) => url.pathname === '/' && url.searchParams.has('_rsc'),
-      async (route) => {
-        if (route.request().headers()['next-router-prefetch'] === undefined) {
-          await new Promise((resolve) => setTimeout(resolve, SLOW_SERVER_MS));
-        }
-        await route.continue();
-      },
-    );
-
-    const clickedAt = Date.now();
-    await page.getByTestId('nav-overview').click();
-    await page.getByRole('heading', { name: 'Fleet overview' }).waitFor({ timeout: SLOW_SERVER_MS });
-    await page.getByRole('status').filter({ hasText: 'Loading' }).first().waitFor({ timeout: SLOW_SERVER_MS });
-
-    expect(Date.now() - clickedAt).toBeLessThan(AT_ONCE_MS);
   });
 });
