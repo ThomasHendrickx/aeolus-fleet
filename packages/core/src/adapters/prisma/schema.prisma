@@ -588,6 +588,8 @@ model Message {
   @@unique([fleetId, senderShipId, idempotencyKey])
   /// A ship's current model is its newest message with a model.
   @@index([fleetId, senderShipId, createdAt])
+  /// The installation counts a fleet's messages of the last 7 days (#1126).
+  @@index([fleetId, createdAt])
   /// Every foreign key has an index leading with its columns, so deleting a
   /// referenced row checks it with an index, not a scan (#331).
   @@index([fleetId, selectorShipId])

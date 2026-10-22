@@ -253,6 +253,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_plugin_ships$/),
       expect.stringMatching(/^\d{14}_account_notices_and_guide$/),
       expect.stringMatching(/^\d{14}_message_days$/),
+      expect.stringMatching(/^\d{14}_messages_fleet_time_index$/),
     ]);
   });
 });
