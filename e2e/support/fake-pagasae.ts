@@ -153,7 +153,7 @@ export async function startFakePagasae(options: { argoTickets?: ArgoTickets } = 
           return;
         }
         const now = Math.floor(Date.now() / 1000);
-        const token = issuer.sign({ iss: issuer.issuer, aud: fleet.id, sub: holder.id, org: 'org-acme', scope: fleet.scopes.join(' '), group: [], iat: now, exp: now + tokenSeconds, jti: randomUUID() }, { type: 'at+jwt' });
+        const token = issuer.sign({ iss: issuer.issuer, aud: fleet.id, sub: holder.id, org: 'org-acme', scope: fleet.scopes.join(' '), group: [], ...(fleet.isArgoAllowed === true ? { argo: true } : {}), iat: now, exp: now + tokenSeconds, jti: randomUUID() }, { type: 'at+jwt' });
         issued += 1;
         json(response, { status: 200, body: { access_token: token, issued_token_type: 'urn:ietf:params:oauth:token-type:jwt', token_type: 'Bearer', expires_in: tokenSeconds } });
         return;
