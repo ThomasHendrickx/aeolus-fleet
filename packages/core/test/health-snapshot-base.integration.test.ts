@@ -43,7 +43,7 @@ async function seedHistory(start: Date): Promise<void> {
     INSERT INTO events (id, fleet_id, type, occurred_at, actor_kind, details, ship_id, seq)
     SELECT 'evt_seed' || i, ${fleetId}, (ARRAY['ShipReported', 'DeliveryAcknowledged', 'LeaseSeen', 'TurnReported'])[1 + i % 4],
            ${start}::timestamptz + i * interval '10 seconds', 'system',
-           CASE WHEN i % 4 = 3 THEN jsonb_build_object('leaseId', (${leaseIds}::text[])[1 + i % ${SHIPS}::int], 'turn', 'busy') ELSE '{}' END,
+           CASE WHEN i % 4 = 3 THEN jsonb_build_object('leaseId', (${leaseIds}::text[])[1 + (i / 4) % ${SHIPS}::int], 'turn', 'busy') ELSE '{}' END,
            'shp_seed' || (1 + i % ${SHIPS}::int), 1000000 + i
     FROM generate_series(1, ${EVENTS}::int) i`;
   await core.prisma.$executeRaw`ANALYZE`;

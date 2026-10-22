@@ -34,3 +34,8 @@ CREATE TABLE "health_snapshot_deliveries" (
 ALTER TABLE "health_snapshots" ADD CONSTRAINT "health_snapshots_fleet_id_fkey" FOREIGN KEY ("fleet_id") REFERENCES "fleets"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 ALTER TABLE "health_snapshot_deliveries" ADD CONSTRAINT "health_snapshot_deliveries_fleet_id_fkey" FOREIGN KEY ("fleet_id") REFERENCES "fleets"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- A first snapshot reads each lease's turn at its oldest hour from the turn
+-- reports alone, not every event of the fleet back to them.
+CREATE INDEX "events_turn_reported_idx" ON "events"("fleet_id", "occurred_at")
+  WHERE type = 'TurnReported';

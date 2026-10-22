@@ -14,6 +14,7 @@ import { foldAt, type HealthFold } from '../../domain/shared/health-fold.js';
 import type { HealthSnapshotWriter, HourSnapshot, StuckCount } from '../../domain/shared/health-snapshot.js';
 import { stateStepOf, type DeliveryRecord, type DeliveryStep } from '../../domain/shared/stuck.js';
 import type { Db } from './client.js';
+import { Prisma } from './generated/client.js';
 import { deliveryRecordOf, deliveryRow, readCrews, recipientOf } from './health.js';
 import { toSequencedEvent } from './rows.js';
 
@@ -77,6 +78,44 @@ function turnsToJson(fold: HealthFold): string {
   return JSON.stringify(fold.turns.map(({ leaseId, turn }) => ({ leaseId, state: turn.state, at: turn.at.toISOString() })));
 }
 
+/**
+ * The seq a first snapshot starts after: the one before the fleet's first
+ * event after the hour by number, so an event written before the hour that
+ * commits after it is folded again, never missed. An event numbered before
+ * the first one after the hour by time was written while that one's
+ * transaction ran, so only the minute after it is looked at, through the
+ * events by time: in seq order it walks every event before the hour.
+ */
+export function baseSeqStatement(fleetId: FleetId, hour: Date): Prisma.Sql {
+  return Prisma.sql`
+    WITH first AS (SELECT occurred_at FROM events WHERE fleet_id = ${fleetId} AND occurred_at > ${hour} ORDER BY occurred_at LIMIT 1),
+    after AS MATERIALIZED (
+      SELECT seq FROM events WHERE fleet_id = ${fleetId} AND occurred_at > ${hour} AND occurred_at <= (SELECT occurred_at FROM first) + interval '1 minute'
+    )
+    SELECT COALESCE((SELECT min(seq) - 1 FROM after), (SELECT last_event_seq FROM fleets WHERE id = ${fleetId})) AS seq`;
+}
+
+/**
+ * Each lease's turn at the hour, as the fold reads turns: its last
+ * TurnReported by then since the lease started, for the leases open then
+ * that ever reported one. The turn reports are read once through their own
+ * index, from the oldest such lease's start.
+ */
+export function baseTurnsStatement(fleetId: FleetId, hour: Date): Prisma.Sql {
+  return Prisma.sql`
+    WITH open AS (
+      SELECT id, started_at FROM leases
+      WHERE fleet_id = ${fleetId} AND turn IS NOT NULL AND started_at <= ${hour} AND (ended_at IS NULL OR ended_at > ${hour})
+    ),
+    reported AS MATERIALIZED (
+      SELECT details->>'leaseId' AS lease_id, details->>'turn' AS turn, occurred_at FROM events
+      WHERE fleet_id = ${fleetId} AND type = 'TurnReported' AND occurred_at <= ${hour} AND occurred_at >= (SELECT min(started_at) FROM open)
+    )
+    SELECT DISTINCT ON (o.id) o.id AS lease_id, r.turn, r.occurred_at AS at
+    FROM open o JOIN reported r ON r.lease_id = o.id AND r.occurred_at >= o.started_at
+    ORDER BY o.id, r.occurred_at DESC`;
+}
+
 export function createPrismaHealthSnapshots(db: Db): HealthSnapshotWriter {
   const insertHour = async (fleetId: FleetId, row: { hour: HourSnapshot; seq: number; turns: string }): Promise<boolean> => {
     const { hour } = row;
@@ -135,12 +174,7 @@ export function createPrismaHealthSnapshots(db: Db): HealthSnapshotWriter {
     },
 
     baseAt: async (fleetId, hour) => {
-      const [last] = z.array(z.object({ seq: z.bigint() })).parse(
-        await db.$queryRaw`
-          SELECT COALESCE(
-            (SELECT min(seq) - 1 FROM events WHERE fleet_id = ${fleetId} AND occurred_at > ${hour}),
-            (SELECT last_event_seq FROM fleets WHERE id = ${fleetId})) AS seq`,
-      );
+      const [last] = z.array(z.object({ seq: z.bigint() })).parse(await db.$queryRaw(baseSeqStatement(fleetId, hour)));
       // Sent by then and open now, or with an event after it: what was open
       // then left since, so its leaving event is after the hour. Two indexed
       // parts, the open states' partial index and the events by time.
@@ -165,19 +199,7 @@ export function createPrismaHealthSnapshots(db: Db): HealthSnapshotWriter {
           steps.set(event.deliveryId, [...(steps.get(event.deliveryId) ?? []), step]);
         }
       }
-      // A lease's turn then, as the fold reads turns: its last TurnReported by
-      // the hour, looked for back to the lease's start. A lease that never
-      // reported a turn has none, so it is not looked for.
-      const turns = z.array(z.object({ lease_id: idSchema('lease'), turn: turnStateSchema, at: z.date() })).parse(
-        await db.$queryRaw`
-          SELECT l.id AS lease_id, t.turn, t.occurred_at AS at FROM leases l
-          CROSS JOIN LATERAL (
-            SELECT e.details->>'turn' AS turn, e.occurred_at FROM events e
-            WHERE e.fleet_id = l.fleet_id AND e.type = 'TurnReported' AND e.details->>'leaseId' = l.id AND e.occurred_at <= ${hour} AND e.occurred_at >= l.started_at
-            ORDER BY e.occurred_at DESC LIMIT 1
-          ) t
-          WHERE l.fleet_id = ${fleetId} AND l.turn IS NOT NULL AND l.started_at <= ${hour} AND (l.ended_at IS NULL OR l.ended_at > ${hour})`,
-      );
+      const turns = z.array(z.object({ lease_id: idSchema('lease'), turn: turnStateSchema, at: z.date() })).parse(await db.$queryRaw(baseTurnsStatement(fleetId, hour)));
       const deliveriesThen = deliveries.map((delivery) => deliveryRecordOf(delivery, steps.get(delivery.id) ?? []));
       return {
         ...foldAt({ ships: [], leases: [], deliveries: deliveriesThen }, { at: hour, seq: Number(last?.seq ?? 0) }),

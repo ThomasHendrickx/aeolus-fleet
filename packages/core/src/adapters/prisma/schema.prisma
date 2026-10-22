@@ -796,6 +796,8 @@ model Event {
   /// The health reads take a fleet's events since a time (decision 0042).
   @@index([fleetId, occurredAt])
   @@index([fleetId, shipId, seq], map: "events_starting_prompt_issued_idx", where: raw("(type = 'StartingPromptIssued'::text)"))
+  /// A first stuck snapshot reads each lease's turn at its oldest hour from the turn reports alone.
+  @@index([fleetId, occurredAt], map: "events_turn_reported_idx", where: raw("(type = 'TurnReported'::text)"))
   @@map("events")
 }
 
