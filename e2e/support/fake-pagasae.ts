@@ -173,7 +173,7 @@ export async function startFakePagasae(options: { argoTickets?: ArgoTickets } = 
           body: {
             account: { id: holder.id, email: holder.email },
             apps: [],
-            fleets: holder.fleets.map(({ id, name, scopes, isArgoAllowed }) => ({ id, name, argo: isArgoAllowed === true, apps: scopes.includes('fleet:read') ? [{ app: 'console', url: 'http://localhost' }] : [] })),
+            fleets: holder.fleets.map(({ id, name, scopes, isArgoAllowed }) => ({ id, name, argo: isArgoAllowed === true, apps: scopes.includes('fleet:read') ? [{ app: 'console', url: 'https://console.acme.example' }] : [] })),
           },
         });
         return;
