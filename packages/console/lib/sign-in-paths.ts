@@ -4,6 +4,9 @@ export const NO_RIGHTS_PATH = '/sign-in/no-rights';
 /** Where an account goes when pagasae does not answer. */
 export const UNREACHABLE_PATH = '/sign-in/unreachable';
 
+/** Where an account goes once signed out of argo: into the fleet again as itself, with no sign-in step (accounts design, A7). */
+export const AFTER_ARGO_SIGN_OUT_PATH = '/sign-in/enter?returnTo=%2F';
+
 /** Where an account holding no fleet:read goes (accounts design, A8). */
 export const NOTHING_TO_MANAGE_PATH = '/sign-in/nothing-to-manage';
 

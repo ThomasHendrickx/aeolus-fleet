@@ -140,8 +140,8 @@ describe('signing in as argo from the console', () => {
 
     await thomasPage.getByTestId('argo-banner').getByRole('button', { name: 'Sign out of argo' }).click();
 
+    await thomasPage.getByTestId('argo-banner').waitFor({ state: 'detached' });
     await isSignedInAsAccount(thomasPage);
-    await expect(thomasPage.getByTestId('argo-banner').count()).resolves.toBe(0);
     expect(pagasae.signInsAsked()).toBe(signInsBefore);
     await expect(argoSessionsOf('acc-thomas')).resolves.toEqual([expect.objectContaining({ endReason: 'signedOut' })]);
   });

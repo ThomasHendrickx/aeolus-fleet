@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { FLEET_COOKIE, fleetToEnter, redirectTo, type SignInDeps } from './account-sign-in';
 import { askPagasae } from './account-name';
 import { ACCOUNT_TOKEN_COOKIE, SESSION_COOKIE } from './console-gate';
-import { cookieValueOf, exchangeArgoTicket, fleetsOf, SHARED_SIGN_IN_COOKIE, type Pagasae } from './pagasae';
+import { cookieValueOf, exchangeArgoTicket, exchangeSignIn, fleetsOf, SHARED_SIGN_IN_COOKIE, type Pagasae } from './pagasae';
 import { serverInternalUrlFrom } from './server-url';
 import { UNREACHABLE_PATH } from './sign-in-paths';
 
@@ -53,14 +53,29 @@ export async function isArgoAllowed(pagasae: Pagasae, cookies: string | null): P
   return typeof (await argoFleetOf(pagasae, cookies)) === 'object';
 }
 
-/** Who holds argo's sign-in, as core answers the account by its token cookie; undefined when core does not answer it. */
-async function argoSignInOf(cookies: string | null, environment: Environment): Promise<ArgoSignInOutput | undefined> {
+/** The account's token for core: its token cookie, or a fresh one from pagasae for the shared sign-in once that cookie ended. */
+async function accountTokenOf(cookies: string | null, deps: SignInDeps): Promise<string | undefined> {
   const token = cookieValueOf(cookies, ACCOUNT_TOKEN_COOKIE);
+  if (token !== undefined) {
+    return token;
+  }
+  const signIn = cookieValueOf(cookies, SHARED_SIGN_IN_COOKIE);
+  const fleetId = cookieValueOf(cookies, FLEET_COOKIE);
+  if (signIn === undefined || fleetId === undefined) {
+    return undefined;
+  }
+  const exchanged = await exchangeSignIn({ pagasae: deps.pagasae }, { signIn, fleetId });
+  return exchanged.kind === 'token' ? exchanged.token : undefined;
+}
+
+/** Who holds argo's sign-in, as core answers the account; undefined when that is unknown, as when core does not answer. */
+async function argoSignInOf(cookies: string | null, deps: SignInDeps): Promise<ArgoSignInOutput | undefined> {
+  const token = await accountTokenOf(cookies, deps);
   if (token === undefined) {
     return undefined;
   }
   try {
-    const answer = await fetch(`${serverInternalUrlFrom(environment)}/trpc/console.argoSignIn`, {
+    const answer = await fetch(`${serverInternalUrlFrom(deps.environment)}/trpc/console.argoSignIn`, {
       headers: { cookie: `${ACCOUNT_TOKEN_COOKIE}=${token}` },
       cache: 'no-store',
       signal: AbortSignal.timeout(CORE_TIMEOUT_MS),
@@ -75,12 +90,13 @@ async function argoSignInOf(cookies: string | null, environment: Environment): P
 export type ArgoHolder = { kind: 'none' } | { kind: 'account'; name: string } | { kind: 'unnamed' };
 
 export async function argoHolderOf(cookies: string | null, deps: SignInDeps): Promise<ArgoHolder> {
-  const held = await argoSignInOf(cookies, deps.environment);
-  if (held?.isSignedIn === false) {
+  const held = await argoSignInOf(cookies, deps);
+  // Warned only when someone holds argo: unknown warns of no one.
+  if (held?.isSignedIn !== true) {
     return { kind: 'none' };
   }
   const fleetId = cookieValueOf(cookies, FLEET_COOKIE);
-  if (held?.accountId == null || fleetId === undefined) {
+  if (held.accountId == null || fleetId === undefined) {
     return { kind: 'unnamed' };
   }
   const name = await askPagasae({ pagasae: deps.pagasae, fleetId, accountId: held.accountId, fetchImplementation: fetch });
@@ -131,7 +147,7 @@ export async function signInAsArgo(request: Request, deps: SignInDeps): Promise<
     return redirectTo(ARGO_REFUSED_PATH);
   }
   const form = await request.formData().catch(() => new FormData());
-  if (form.get(CONFIRMED_FIELD) !== 'yes' && (await argoSignInOf(cookies, deps.environment))?.isSignedIn !== false) {
+  if (form.get(CONFIRMED_FIELD) !== 'yes' && (await argoSignInOf(cookies, deps))?.isSignedIn === true) {
     return redirectTo(ARGO_CONFIRM_PATH);
   }
   const signIn = cookieValueOf(cookies, SHARED_SIGN_IN_COOKIE) ?? '';
@@ -150,27 +166,37 @@ export async function signInAsArgo(request: Request, deps: SignInDeps): Promise<
   }
 }
 
-/** Signs out of argo alone: core ends argo's session and clears its cookie, and the account enters the fleet again as itself. */
+/**
+ * Signs out of argo alone: core ends argo's session and clears its cookie.
+ * The console's page asks it and then enters the fleet again as the account;
+ * 503 says core did not answer, so argo's session stays and the page says so.
+ */
 export async function signOutOfArgo(request: Request, environment: Environment): Promise<Response> {
   if (!isFromConsole(request)) {
     return new Response(null, { status: 403 });
   }
   const session = cookieValueOf(request.headers.get('cookie'), SESSION_COOKIE);
-  const cleared: string[] = [];
-  if (session !== undefined) {
-    try {
-      const answer = await fetch(`${serverInternalUrlFrom(environment)}/trpc/console.signOut`, {
-        method: 'POST',
-        // argo's session cookie alone: the account's token cookie stays.
-        headers: { 'content-type': 'application/json', cookie: `${SESSION_COOKIE}=${session}`, origin: new URL(request.url).origin },
-        body: '{}',
-        cache: 'no-store',
-        signal: AbortSignal.timeout(CORE_TIMEOUT_MS),
-      });
-      cleared.push(...answer.headers.getSetCookie());
-    } catch {
-      // Core did not answer: argo's session stays until it is taken over or signed out.
-    }
+  if (session === undefined) {
+    return new Response(null, { status: 204 });
   }
-  return redirectTo('/sign-in/enter?returnTo=%2F', cleared);
+  try {
+    const answer = await fetch(`${serverInternalUrlFrom(environment)}/trpc/console.signOut`, {
+      method: 'POST',
+      // argo's session cookie alone: the account's token cookie stays.
+      headers: { 'content-type': 'application/json', cookie: `${SESSION_COOKIE}=${session}`, origin: new URL(request.url).origin },
+      body: '{}',
+      cache: 'no-store',
+      signal: AbortSignal.timeout(CORE_TIMEOUT_MS),
+    });
+    if (!answer.ok) {
+      return new Response(null, { status: 503 });
+    }
+    const headers = new Headers();
+    for (const cookie of answer.headers.getSetCookie()) {
+      headers.append('set-cookie', cookie);
+    }
+    return new Response(null, { status: 204, headers });
+  } catch {
+    return new Response(null, { status: 503 });
+  }
 }

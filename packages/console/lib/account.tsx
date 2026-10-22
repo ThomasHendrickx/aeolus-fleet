@@ -1,5 +1,6 @@
 import type { Account, Theme } from '@aeolus-fleet/common';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 
 import type { AvatarMenuProps } from '@aeolus-fleet/common/header';
 import { Compass, KeyRound, Network, Settings } from 'lucide-react';
@@ -97,6 +98,8 @@ export function useAccountMenu(now: Date): AvatarMenuProps {
     }),
   );
   const { signOut, isSigningOut } = useSignOut();
+  // The form post leaves the page; until then the entry says it is working.
+  const [isSigningInAsArgo, setIsSigningInAsArgo] = useState(false);
   const trySignOut = () => {
     if (account.data?.kind === 'account') {
       signOutOfEveryApp();
@@ -140,8 +143,11 @@ export function useAccountMenu(now: Date): AvatarMenuProps {
             {
               key: 'sign-in-as-argo',
               label: 'Sign in as argo',
+              workingLabel: 'Signing in as argo',
+              isWorking: isSigningInAsArgo,
               icon: <KeyRound aria-hidden />,
               onSelect: () => {
+                setIsSigningInAsArgo(true);
                 postTo('/sign-in/argo');
               },
             },
