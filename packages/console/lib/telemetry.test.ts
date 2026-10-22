@@ -136,6 +136,27 @@ describe('with an OTLP endpoint set', () => {
     expect(requests.map((point) => point.attributes)).toEqual([{ 'http.request.method': 'GET', 'http.response.status_code': 500, 'error.type': '500' }]);
   });
 
+  it('exports the path of a request Next.js served without its query, so a sign-in ticket in it is never sent', async () => {
+    telemetry = await startTelemetry(ENDPOINT, { spanExporter: spans, metricReader });
+
+    nextRequest({ 'http.method': 'GET', 'http.target': '/sign-in/ticket?ticket=tkt_one-time' });
+
+    const [request] = await finishedSpans();
+    expect(request?.attributes['http.target']).toBe('/sign-in/ticket');
+  });
+
+  it('exports a fetch Next.js made without the query of its URL, in its attributes and its name', async () => {
+    telemetry = await startTelemetry(ENDPOINT, { spanExporter: spans, metricReader });
+
+    trace
+      .getTracer('next.js')
+      .startSpan('fetch GET http://core/trpc/ship.inbox?input=secret', { kind: SpanKind.CLIENT, attributes: { 'http.url': 'http://core/trpc/ship.inbox?input=secret' } })
+      .end();
+
+    const [fetch] = await finishedSpans();
+    expect({ name: fetch?.name, url: fetch?.attributes['http.url'] }).toEqual({ name: 'fetch GET http://core/trpc/ship.inbox', url: 'http://core/trpc/ship.inbox' });
+  });
+
   it('records no request for any other span', async () => {
     telemetry = await startTelemetry(ENDPOINT, { spanExporter: spans, metricReader });
 
