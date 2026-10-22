@@ -1,6 +1,6 @@
 # Performance at scale
 
-Design for [#1130](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1130), from the 0.29 production slowness ([#1117](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1117), measured in [#1128](https://github.com/ThomasHendrickx/aeolus-fleet/pull/1128)), with [#1126](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1126), [#1127](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1127) and [#1112](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1112). Docs only. Thomas answered Q1 to Q9 (section 3). Sections 5 to 8 are the stuck snapshot in detail, its flows, two questions it raises, and the slices.
+Design for [#1130](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1130), from the 0.29 production slowness ([#1117](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1117), measured in [#1128](https://github.com/ThomasHendrickx/aeolus-fleet/pull/1128)), with [#1126](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1126), [#1127](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1127) and [#1112](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1112). Docs only. Thomas answered Q1 to Q11 (section 3). Sections 5 to 8 are the stuck snapshot in detail, its flows, the two questions it raised, and the slices.
 
 ## 1. Purpose (agreed)
 
@@ -72,9 +72,11 @@ flowchart LR
 4. **Every list procedure is paged**, the fleet snapshot included: by cursor on the time-ordered id, newest or oldest first as the list is today, with a page size the caller asks within a maximum. No offset.
 5. **Budgets per read** at the target scale on a production-sized host, checked by the scale tests: p95 under 100 ms, p99 under 500 ms, error rate under 1%. Thomas: "lets set them and see where we land, we can always adjust. But these are amazon numbers, so might be setting the bar high."
 6. **The shared header** reads the account's apps and fleets from a cookie pagasae writes at sign-in and at each token renewal, from its own records, with no core call; an app refuses a link the account can no longer open. Built in pagasae; core is off the header's path.
-7. **Scale tests run on staging**, seeded at the target (10,000,000 messages, 3,000 ships in one fleet), with staging's containers capped to production's size (Thomas: "Ok on your capping the containers"; infra#70). The walker measures the budgets of decision 5 in `staging-walk`, so a candidate that misses them is not released (0011). The walk's own checks run in a fleet of their own beside the seeded one.
+7. **Scale tests run on staging**, seeded at the target (10,000,000 messages, 3,000 ships in one fleet), with staging's containers capped to production's size (Thomas: "Ok on your capping the containers"; infra#70). The walker measures the budgets of decision 5 in `staging-walk` (decision 11). The walk's own checks run in a fleet of their own beside the seeded one.
 8. **Order:** measure first (decisions 5, 7), then the stuck history (9), counters (1), reads cut and live (2, 3), paging (4).
 9. **The 7 days of stuck per hour are cumulative hourly snapshots** (Q1, pattern 2 of section 4; Thomas: "cumulative snapshots it is"). The snapshot of hour H is built from the snapshot of H-1 and the events after it, once, and is true for everything before H: no read or write looks at an event the snapshot already holds. A read takes the latest snapshot and folds the events after it. Section 5 holds the parts. This replaces 0041's and 0042's "read, not stored" and their rejection of a health table kept by the server; the decision files change in the slice that builds it (S2).
+10. **Acknowledged in 24 hours** keeps, in each hour row, a count per duration bucket (log-spaced, finer than the page rounds the median); the median is read from 24 summed rows (Q10; Thomas: "Q10 yes").
+11. **The walker measures and reports each read against its budget, and never refuses a candidate** until Thomas gives the go to make it blocking (Q11). S1 takes the baseline: each read's p95, p99 and error rate on capped staging. Every later slice ends by running the same measurement on capped staging and reporting before and after per read to orchestrator-1. Thomas: "I do want a before and after on each slice reported to me. Where do we improve what."
 
 ## 4. Q1 compared: the 7 days of stuck per hour (decided: 2)
 
@@ -97,7 +99,7 @@ The hard case for every pattern: stuck is partly time. A pushed lease's clock ru
 What section 2 adds for it: each event has `seq`, its place in its fleet's stream, numbered from `fleets.last_event_seq` as the transaction's last statement, so a lower `seq` always commits first and there are no gaps (`adapters/prisma/event-log.ts`); `(fleet_id, seq)` is unique, so it is indexed. `occurred_at` is the core instance's clock when the event is written, before commit, so in `seq` order it runs back by at most a transaction's time (5 s, a bulk one 30 s) plus the instances' clock skew.
 
 - **Tables** (core, `adapters/prisma`):
-  - `health_snapshots`: one row per fleet and closed hour (`fleet_id`, `hour`, primary key both): `seq`, the last event folded into it; the stuck counts at `hour` by cause and place, each with its oldest since; the deliveries acknowledged in the hour, by duration from send (Q10). The latest row also holds the ships and open leases as `stuck.ts` reads them (type, awaiting crew, person ship, pushed, turn and its time, last seen). Rows older than 168 hours are deleted when a new one is written.
+  - `health_snapshots`: one row per fleet and closed hour (`fleet_id`, `hour`, primary key both): `seq`, the last event folded into it; the stuck counts at `hour` by cause and place, each with its oldest since; the deliveries acknowledged in the hour, by duration bucket from send (decision 10). The latest row also holds the ships and open leases as `stuck.ts` reads them (type, awaiting crew, person ship, pushed, turn and its time, last seen). Rows older than 168 hours are deleted when a new one is written.
   - `health_snapshot_deliveries`: the fleet's open deliveries as of its latest snapshot, one row each: state, since, place, lease.
 - **The fold:** one pure function beside `stuck.ts` (`domain/shared`) takes a snapshot's facts and events in `seq` order and answers the facts after them. The close and every read use it, with the one rule of 0042, so stuck now and each hour count alike.
 - **Hour H's facts** are the latest snapshot's, folded with the events after its `seq` up to the first whose `occurred_at` is past H. An event that commits after H was closed has a higher `seq` than the snapshot's, so it is folded into the next hour, never lost; it lands at most a transaction's time late.
@@ -155,7 +157,7 @@ Unhappy paths:
 - **A close commits during the read:** the read uses one snapshot it read first; reading without a lock, it may see the older one, which is still right.
 - **A fleet before its first snapshot** (the release that adds the tables, until its first pass): answered by today's replay.
 
-## 7. Questions
+## 7. Questions (decided)
 
 ### Q10 The median of acknowledged in 24 hours
 
@@ -165,7 +167,7 @@ A median does not add up from hour rows; today it reads every `DeliveryAcknowled
 2. **Each hour row keeps a count per duration bucket** (log-spaced, finer than the page rounds the median): the median is read from 24 summed rows; the row's size is fixed.
 3. Keep reading 24 hours of events: the cost grows with a day's traffic.
 
-**Pick 2.** A fixed cost per read, and the page shows the same value while the buckets are finer than its rounding.
+**Decided: 2** (decision 10). A fixed cost per read, and the page shows the same value while the buckets are finer than its rounding.
 
 ### Q11 When `staging-walk` starts refusing a candidate over budget
 
@@ -175,20 +177,20 @@ Today's reads miss the budgets, so a gate from S1 on refuses every candidate unt
 2. The gate from S1, with Thomas's `override_reason` (0011) on each release until S7.
 3. Gate each read from the slice that brings it under budget.
 
-**Pick 1.** The numbers show from the first slice and every slice is seen against them; option 2 makes an override routine, option 3 adds a list of exceptions to keep.
+**Decided: 1, without the S7 gate** (decision 11). Thomas: "For now the walker reports it, once everything is fixed I will give the go that it becomes blocking."
 
 ## 8. Slices
 
-In the decided order (decision 8). Each ends green and released; the scale tests at the target run on staging from S1 on.
+In the decided order (decision 8). Each ends green and released; the scale tests at the target run on staging from S1 on. Every slice from S2 on is done only when its before and after per read is reported to orchestrator-1 (decision 11).
 
 | # | Slice | Done when |
 |---|---|---|
-| S1 | Measure: a seeded fleet on staging (10,000,000 messages, 3,000 ships) beside the walk's own fleet, containers capped (infra#70); the walker measures p95, p99 and the error rate of each read (decision 5) | `staging-walk` reports each read against its budget on a candidate (Q11) |
-| S2 | The stuck snapshot (sections 5, 6): tables, fold, close in the pass, first snapshot, `fleet.health` and the installation figures read from it; 0041, 0042 and architecture operations 8 and 9 say it | Testcontainers tests for a restart mid-hour, two instances closing one hour, a late commit and a missed hour; the same counts as today's replay on one fleet's events; the health reads within budget on staging |
-| S3 | Counters per fleet and UTC day (decision 1): a row per fleet and day (messages, payload bytes) added to in the send's transaction, beside `last_event_seq` as its last statements; storage and messages per day read from it; the daily message limit counts from it; existing messages counted into it once by the migration | a rolled back send counts nothing (test); `installation.fleets.get` within budget on staging |
-| S4 | Core reads cut per requirement (decision 2): a procedure each for the stuck count, the stuck history, one ship's row, and each other part of a page | each answers only what its part shows; within budget on staging |
-| S5 | Console: each part asks its own read and shows its own loading; live reloads only the resource an event concerns (decision 3) | one slow read does not hold up another part (test); no event reloads `fleet.list` or the full health |
-| S6 | Paging, the fleet snapshot (decision 4): `fleet.list` by cursor on the ship id, a page size within a maximum; the overview pages | 3,000 ships page within budget on staging |
-| S7 | Paging, every other list: timeline, messages (#1112), inbox, Needs attention; `staging-walk` refuses a candidate over budget (Q11) | no list procedure answers unpaged; every read within budget on staging |
+| S1 | Measure: a seeded fleet on staging (10,000,000 messages, 3,000 ships) beside the walk's own fleet, containers capped (infra#70); the walker measures p95, p99 and the error rate of each read (decision 5) | `staging-walk` reports each read against its budget on a candidate, never refusing it; the baseline per read is reported to orchestrator-1 (decision 11) |
+| S2 | The stuck snapshot (sections 5, 6): tables, fold, close in the pass, first snapshot, `fleet.health` and the installation figures read from it; 0041, 0042 and architecture operations 8 and 9 say it | Testcontainers tests for a restart mid-hour, two instances closing one hour, a late commit and a missed hour; the same counts as today's replay on one fleet's events; the health reads within budget on staging; before and after per read reported |
+| S3 | Counters per fleet and UTC day (decision 1): a row per fleet and day (messages, payload bytes) added to in the send's transaction, beside `last_event_seq` as its last statements; storage and messages per day read from it; the daily message limit counts from it; existing messages counted into it once by the migration | a rolled back send counts nothing (test); `installation.fleets.get` within budget on staging; before and after per read reported |
+| S4 | Core reads cut per requirement (decision 2): a procedure each for the stuck count, the stuck history, one ship's row, and each other part of a page | each answers only what its part shows; within budget on staging; before and after per read reported |
+| S5 | Console: each part asks its own read and shows its own loading; live reloads only the resource an event concerns (decision 3) | one slow read does not hold up another part (test); no event reloads `fleet.list` or the full health; before and after per read reported |
+| S6 | Paging, the fleet snapshot (decision 4): `fleet.list` by cursor on the ship id, a page size within a maximum; the overview pages | 3,000 ships page within budget on staging; before and after per read reported |
+| S7 | Paging, every other list: timeline, messages (#1112), inbox, Needs attention | no list procedure answers unpaged; every read within budget on staging; before and after per read reported |
 
 Decision 6 (the header's cookie) is pagasae's slice, in its own train (pagasae#122), and can go at any time.
