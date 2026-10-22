@@ -1,6 +1,6 @@
 # Company sign-in: Entra ID and Google, and ID-JAG
 
-Design by designer-identity. Decided by Thomas on 21 Oct: the purpose, and every question (D1 to D7). On 22 Oct: Okta, the fleet of an ID-JAG and where xaa.dev is trusted (D8 to D10). Part 5 cuts the slices; part 6 holds what is still open. No code. Terms are the blueprint's Domain language (0050): account, identity, identity provider, directory, organisation, organisation admin, sign-in link.
+Design by designer-identity. Decided by Thomas on 21 Oct: the purpose, and every question (D1 to D7). On 22 Oct: Okta, the fleet of an ID-JAG, where xaa.dev is trusted and what proves an Okta domain (D8 to D11). Part 5 cuts the slices. No code. Terms are the blueprint's Domain language (0050): account, identity, identity provider, directory, organisation, organisation admin, sign-in link.
 
 Inputs: pagasae issue #78; decisions 0050 to 0058; [`accounts.md`](accounts.md) 1.3 and questions 8, 9, 14, 15; [`actors.md`](actors.md) 3; the interop design's slice 6 and I-4 (branch `design/interop`, `docs/design/interop/interop.md`); the pagasae and gateway READMEs.
 
@@ -182,6 +182,8 @@ Each is the current rule, why, and what was rejected.
 
 **D10 xaa.dev is trusted in tests and the test installation only.** Its identity provider (`https://idp.xaa.dev`) is configured as an issuer for the end-to-end tests and for a test installation; a hosted pagasae never trusts it. Why: it issues an ID-JAG for any email with no account, so it must never reach a real fleet; demonstrations use the Okta developer organisation. Rejected: also hosted, for one demonstration organisation.
 
+**D11 An Okta domain is proved by a DNS TXT record.** Okta has no verified-domain claim, so each domain of an Okta organisation is proved by the DNS TXT record pagasae gives, the same as Google's (D2), checked before the domain routes. One organisation per domain holds. Why: it keeps one organisation per domain, and an admin cannot claim another's by asking first. Rejected: Okta's issuer alone.
+
 ## 5. Slices
 
 Each ends usable and tested: unit tests with in-memory ports, integration tests against Postgres (Testcontainers), end-to-end tests against a fake provider that signs as the real one does. Each provider slice also passes one manual sign-in against a real test tenant before it ships.
@@ -229,7 +231,7 @@ Each ends usable and tested: unit tests with in-memory ports, integration tests 
 **Slice 5: Okta sign-in** (D8, as slice 1, for Okta; reading groups stay off)
 
 - The organisation's page takes the Okta domain, client id and secret of the organisation's app; the secret is never shown again.
-- The domain proof for routing is part 6's answer.
+- Each domain needs the DNS TXT record pagasae gives, checked before it routes (D11).
 - Every criterion of slice 1 holds for Okta, with the issuer of the entered Okta domain.
 - Disconnecting removes the secret.
 
@@ -243,14 +245,3 @@ Each ends usable and tested: unit tests with in-memory ports, integration tests 
 - xaa.dev's identity provider is an accepted issuer in tests and in a test installation only; a hosted configuration refuses it (D10).
 - End to end against xaa.dev: its identity provider's ID-JAG for the gateway's test address gets a working MCP session.
 - End to end against the Okta developer organisation: the same, for a test user of Okta.
-
-## 6. Question still open
-
-**1. What proves an organisation's domain for Okta?**
-
-What it is: D2 relies on the provider's own proof for Entra (verified domains) and Google (`hd`); an Okta domain is only what the admin typed, and Okta's org has no verified-domain claim.
-
-- (1) **A DNS TXT record pagasae gives, on each domain**, as Google's (D2), checked before the domain routes. Goes wrong: the admin edits DNS once.
-- (2) **Okta's issuer alone**, no domain proof. Goes wrong: an admin could claim another organisation's domain by asking first.
-
-Pick: (1). It is the proof D2 already built for Google, and it keeps one organisation per domain.
