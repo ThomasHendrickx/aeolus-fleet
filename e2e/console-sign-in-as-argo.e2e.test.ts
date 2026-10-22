@@ -135,6 +135,17 @@ describe('signing in as argo from the console', () => {
     await expect(argoSessionsOf('acc-thomas')).resolves.toEqual([{ endedAt: null, endReason: null }]);
   });
 
+  it('tells the account taken off argo why, and Sign in with your account brings it into its own console', async () => {
+    await mathildePage.goto('/');
+
+    await mathildePage.getByTestId('sign-in-signed-in-elsewhere').getByText('Your argo sign-in ended because someone signed in as argo elsewhere.').waitFor();
+    pagasae.signInAs(account('mathilde', { isArgoAllowed: true }));
+    await mathildePage.getByTestId('sign-in-account-start').click();
+
+    await mathildePage.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+    await isSignedInAsAccount(mathildePage);
+  });
+
   it('signs out of argo back to the account, with no sign-in step', async () => {
     const signInsBefore = pagasae.signInsAsked();
 
