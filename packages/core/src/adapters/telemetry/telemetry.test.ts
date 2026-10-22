@@ -67,14 +67,19 @@ async function finishedSpans() {
   return spans.getFinishedSpans();
 }
 
-/** The duration histogram's points for one procedure, after a collect. */
-async function callDurations(procedure: string) {
+/** The points of one duration histogram, after a collect. */
+async function durationsOf(histogram: string) {
   await metricReader.forceFlush();
-  const histograms = points
+  return points
     .getMetrics()
     .flatMap((resource) => resource.scopeMetrics.flatMap((scope) => scope.metrics))
-    .filter((metric): metric is HistogramMetricData => metric.descriptor.name === 'rpc.server.call.duration' && metric.dataPointType === DataPointType.HISTOGRAM);
-  return histograms.flatMap((metric) => metric.dataPoints).filter((point) => point.attributes['rpc.method'] === procedure);
+    .filter((metric): metric is HistogramMetricData => metric.descriptor.name === histogram && metric.dataPointType === DataPointType.HISTOGRAM)
+    .flatMap((metric) => metric.dataPoints);
+}
+
+/** The duration histogram's points for one procedure, after a collect. */
+async function callDurations(procedure: string) {
+  return (await durationsOf('rpc.server.call.duration')).filter((point) => point.attributes['rpc.method'] === procedure);
 }
 
 describe('with no OTLP endpoint set', () => {
@@ -153,5 +158,35 @@ describe('with an OTLP endpoint set', () => {
     expect(span?.status.code).toBe(SpanStatusCode.ERROR);
     const [duration] = await callDurations('system.ping');
     expect(duration?.attributes).toMatchObject({ 'rpc.response.status_code': 'INTERNAL_SERVER_ERROR', 'error.type': 'INTERNAL_SERVER_ERROR' });
+  });
+
+  it('records each HTTP request in the request duration histogram, by its route, method and status', async () => {
+    telemetry = await startTelemetry(ENDPOINT, { spanExporter: spans, metricReader });
+    start();
+
+    await ping();
+
+    const requests = await durationsOf('http.server.request.duration');
+    expect(requests.map((point) => point.attributes)).toEqual([{ 'http.request.method': 'GET', 'http.route': '/trpc/:path', 'http.response.status_code': 200 }]);
+  });
+
+  it('records a request the server failed with its error type', async () => {
+    telemetry = await startTelemetry(ENDPOINT, { spanExporter: spans, metricReader });
+    start(() => Promise.reject(new Error('the database went away')));
+
+    await ping();
+
+    const [request] = await durationsOf('http.server.request.duration');
+    expect(request?.attributes).toMatchObject({ 'http.response.status_code': 500, 'error.type': '500' });
+  });
+
+  it('records a request to no route without one', async () => {
+    telemetry = await startTelemetry(ENDPOINT, { spanExporter: spans, metricReader });
+    start();
+
+    await server.inject({ method: 'GET', url: '/no/such/route' });
+
+    const requests = await durationsOf('http.server.request.duration');
+    expect(requests.map((point) => point.attributes)).toEqual([{ 'http.request.method': 'GET', 'http.response.status_code': 404 }]);
   });
 });

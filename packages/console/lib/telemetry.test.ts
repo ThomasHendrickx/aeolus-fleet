@@ -1,4 +1,4 @@
-import { context, metrics, propagation, trace } from '@opentelemetry/api';
+import { context, metrics, propagation, SpanKind, trace } from '@opentelemetry/api';
 import { AggregationTemporality, DataPointType, InMemoryMetricExporter, PeriodicExportingMetricReader, type HistogramMetricData } from '@opentelemetry/sdk-metrics';
 import { InMemorySpanExporter } from '@opentelemetry/sdk-trace-base';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -49,14 +49,26 @@ async function finishedSpans() {
   return spans.getFinishedSpans();
 }
 
-/** The duration histogram's points, after a collect. */
-async function callDurations() {
+/** The points of one duration histogram, after a collect. */
+async function durationsOf(histogram: string) {
   await metricReader.forceFlush();
   return points
     .getMetrics()
     .flatMap((resource) => resource.scopeMetrics.flatMap((scope) => scope.metrics))
-    .filter((metric): metric is HistogramMetricData => metric.descriptor.name === 'rpc.server.call.duration' && metric.dataPointType === DataPointType.HISTOGRAM)
+    .filter((metric): metric is HistogramMetricData => metric.descriptor.name === histogram && metric.dataPointType === DataPointType.HISTOGRAM)
     .flatMap((metric) => metric.dataPoints);
+}
+
+function callDurations() {
+  return durationsOf('rpc.server.call.duration');
+}
+
+/** The root span Next.js opens for each request it serves, as it ends it. */
+function nextRequest(attributes: Record<string, string | number>) {
+  trace
+    .getTracer('next.js')
+    .startSpan('GET /inbox', { kind: SpanKind.SERVER, attributes: { 'next.span_type': 'BaseServer.handleRequest', ...attributes } })
+    .end();
 }
 
 describe('with no OTLP endpoint set', () => {
@@ -104,5 +116,31 @@ describe('with an OTLP endpoint set', () => {
 
     const [duration] = await callDurations();
     expect(duration?.attributes).toMatchObject({ 'rpc.method': 'reads.unknown', 'rpc.response.status_code': '404' });
+  });
+
+  it("records each request Next.js serves in the request duration histogram, by its route, method and status", async () => {
+    telemetry = await startTelemetry(ENDPOINT, { spanExporter: spans, metricReader });
+
+    nextRequest({ 'http.method': 'GET', 'http.status_code': 200, 'http.route': '/inbox' });
+
+    const requests = await durationsOf('http.server.request.duration');
+    expect(requests.map((point) => point.attributes)).toEqual([{ 'http.request.method': 'GET', 'http.route': '/inbox', 'http.response.status_code': 200 }]);
+  });
+
+  it('records a request Next.js failed with its error type, and one without a route without one', async () => {
+    telemetry = await startTelemetry(ENDPOINT, { spanExporter: spans, metricReader });
+
+    nextRequest({ 'http.method': 'GET', 'http.status_code': 500 });
+
+    const requests = await durationsOf('http.server.request.duration');
+    expect(requests.map((point) => point.attributes)).toEqual([{ 'http.request.method': 'GET', 'http.response.status_code': 500, 'error.type': '500' }]);
+  });
+
+  it('records no request for any other span', async () => {
+    telemetry = await startTelemetry(ENDPOINT, { spanExporter: spans, metricReader });
+
+    await read('squadrons');
+
+    expect(await durationsOf('http.server.request.duration')).toEqual([]);
   });
 });
