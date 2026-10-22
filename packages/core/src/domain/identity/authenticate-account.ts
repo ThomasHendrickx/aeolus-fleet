@@ -62,6 +62,7 @@ export function createAuthenticateAccount(deps: {
       scopes: claims.scopes,
       groupValues: claims.groupValues,
       personShipId: claims.personShipId,
+      isArgoAllowed: claims.isArgoAllowed,
       throughShipId: through?.shipId ?? null,
       tokenEndsAt: claims.endsAt,
     });

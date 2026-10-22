@@ -17,7 +17,8 @@ const MILLISECONDS_PER_SECOND = 1000;
  * (decision 0058), read once its signature and issuer are checked: the
  * account, its organisation, the fleet (its audience), the scopes and `group`
  * values its groups and own rights give there, its person ship there if it
- * has one, and when it was issued and ends. Times are JWT seconds.
+ * has one, whether it is allowed as argo there (absent is not), and when it
+ * was issued and ends. Times are JWT seconds.
  */
 export const accountTokenClaimsSchema = z
   .object({
@@ -28,6 +29,7 @@ export const accountTokenClaimsSchema = z
     scope: z.string(),
     group: z.array(z.string()),
     person_ship: idSchema('ship').optional(),
+    argo: z.boolean().optional(),
     iat: z.number(),
     exp: z.number(),
   })
@@ -46,6 +48,7 @@ export const accountTokenClaimsSchema = z
       scopes: parsed.data,
       groupValues: claims.group,
       personShipId: claims.person_ship ?? null,
+      isArgoAllowed: claims.argo ?? false,
       issuedAt: new Date(claims.iat * MILLISECONDS_PER_SECOND),
       endsAt: new Date(claims.exp * MILLISECONDS_PER_SECOND),
     };
