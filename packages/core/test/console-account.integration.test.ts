@@ -61,8 +61,8 @@ function present(token: string, headers: Record<string, string> = {}): Promise<R
 }
 
 /** The cookie a presented token gave, as the browser then sends it. */
-async function signedInCookie(): Promise<string> {
-  const answer = await present(mathildeToken());
+async function signedInCookie(overrides: Record<string, unknown> = {}): Promise<string> {
+  const answer = await present(mathildeToken(overrides));
   const cookie = answer.headers.get('set-cookie');
   if (!answer.ok || cookie === null) {
     throw new Error(`presenting the token set no cookie: ${String(answer.status)}`);
@@ -170,11 +170,18 @@ describe('an account signed in by its token cookie', () => {
     });
   });
 
-  it("reads who holds argo's sign-in, for the warning before signing in as argo", async () => {
+  it("reads who holds argo's sign-in when its token allows it as argo, for the warning before signing in as argo", async () => {
     const { ticket } = unwrap(await useCases.issueSignInTicket({ fleetId, account: { id: accountIdSchema.parse('acc-thomas') } }));
     unwrap(await useCases.redeemSignInTicket({ ticket }));
 
-    await expect(asBrowser(await signedInCookie()).console.argoSignIn.query()).resolves.toEqual({ isSignedIn: true, accountId: 'acc-thomas' });
+    await expect(asBrowser(await signedInCookie({ argo: true })).console.argoSignIn.query()).resolves.toEqual({ isSignedIn: true, accountId: 'acc-thomas' });
+  });
+
+  it("learns nothing of who holds argo's sign-in when its token does not allow it as argo", async () => {
+    const { ticket } = unwrap(await useCases.issueSignInTicket({ fleetId, account: { id: accountIdSchema.parse('acc-thomas') } }));
+    unwrap(await useCases.redeemSignInTicket({ ticket }));
+
+    await expect(codeOf(asBrowser(await signedInCookie()).console.argoSignIn.query())).resolves.toBe('FORBIDDEN');
   });
 
   it('is named by its id in console.account', async () => {

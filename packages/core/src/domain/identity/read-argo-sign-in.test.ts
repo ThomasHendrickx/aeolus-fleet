@@ -5,7 +5,7 @@ import { hostedFleet } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../testing/result.js';
 import type { AccountCaller } from '../shared/caller.js';
-import { ok } from '../shared/result.js';
+import { err, ok } from '../shared/result.js';
 import { CONSOLE_SESSION_IDLE_LIMIT_MS } from './console-session.js';
 import { createIssueSignInTicket, type IssueSignInTicket } from './issue-sign-in-ticket.js';
 import { createReadArgoSignIn, type ReadArgoSignIn } from './read-argo-sign-in.js';
@@ -37,7 +37,7 @@ beforeEach(async () => {
     signOut: createSignOut(deps),
   };
   ({ fleetId } = await hostedFleet(core));
-  mathilde = { kind: 'account', accountId: accountIdSchema.parse('acc-mathilde'), fleetId, scopes: ['fleet:read'], groupValues: [], personShipId: null, throughShipId: null };
+  mathilde = { kind: 'account', accountId: accountIdSchema.parse('acc-mathilde'), fleetId, scopes: ['fleet:read'], groupValues: [], personShipId: null, throughShipId: null, isArgoAllowed: true };
 });
 
 describe("who holds argo's sign-in", () => {
@@ -69,5 +69,21 @@ describe("who holds argo's sign-in", () => {
     core.clock.advance(CONSOLE_SESSION_IDLE_LIMIT_MS + 1);
 
     await expect(useCases.readArgoSignIn(mathilde)).resolves.toEqual(ok({ isSignedIn: false }));
+  });
+});
+
+describe("who may read who holds argo's sign-in", () => {
+  it('is no account its token does not allow as argo: it learns nothing, not even whether someone is signed in', async () => {
+    await signedInAsArgo({ id: THOMAS });
+
+    await expect(useCases.readArgoSignIn({ ...mathilde, isArgoAllowed: false })).resolves.toEqual(
+      err({ kind: 'NOT_ALLOWED_AS_ARGO', message: "Only an account allowed as argo reads who holds argo's sign-in" }),
+    );
+  });
+
+  it('is no account whose token carries no argo claim', async () => {
+    const withoutClaim: AccountCaller = { kind: 'account', accountId: mathilde.accountId, fleetId, scopes: ['fleet:read'], groupValues: [], personShipId: null, throughShipId: null };
+
+    await expect(useCases.readArgoSignIn(withoutClaim)).resolves.toMatchObject({ isOk: false, error: { kind: 'NOT_ALLOWED_AS_ARGO' } });
   });
 });
