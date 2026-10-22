@@ -5,7 +5,7 @@ import { Eye, Flag, Plug, Search, Ship, SlidersHorizontal, UserRound } from 'luc
 import type { ReactNode } from 'react';
 
 import { useConsoleConstants } from '../../../../lib/console-constants';
-import { Button, classNames, Sheet, SheetBody, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@aeolus-fleet/common/header';
+import { Button, Sheet, SheetBody, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@aeolus-fleet/common/header';
 import {
   activeFilterCount,
   activeFilterLabels,
@@ -224,8 +224,6 @@ function FilterControls({
 }: Pick<FleetTableProps, 'ships' | 'view' | 'onViewChange' | 'squadronsOf' | 'labels'> & { size: 'sm' | 'touch' }) {
   const crewRequestItems = crewRequestItemsOf(useConsoleConstants().crewStatuses);
   const { filters } = view;
-  const retired = retiredCount(ships);
-  const switchId = size === 'sm' ? 'fleet-show-retired' : 'fleet-show-retired-touch';
   const change = (next: Partial<FleetFilters>) => {
     onViewChange({ ...view, filters: { ...filters, ...next } });
   };
@@ -306,23 +304,27 @@ function FilterControls({
           Clear filters
         </Button>
       ) : null}
-      <div className={classNames('inline-flex items-center gap-2', isTouch ? 'py-2' : 'sm:ml-auto')}>
-        <Switch
-          id={switchId}
-          data-testid={isTouch ? undefined : 'fleet-show-retired'}
-          checked={filters.isRetiredShown}
-          onCheckedChange={(isChecked) => {
-            change({ isRetiredShown: isChecked });
-          }}
-        />
-        <Label
-          htmlFor={switchId}
-          className={classNames('font-normal text-muted-foreground', isTouch ? 'text-body-touch' : 'text-meta')}
-        >
-          Show retired ({retired})
-        </Label>
-      </div>
     </>
+  );
+}
+
+/** Show retired on desktop: it sits with the ship count at the end of the filter bar's first row, however the filters wrap. */
+function ShowRetiredSwitch({ ships, view, onViewChange }: Pick<FleetTableProps, 'ships' | 'view' | 'onViewChange'>) {
+  const switchId = 'fleet-show-retired';
+  return (
+    <div className="inline-flex items-center gap-2">
+      <Switch
+        id={switchId}
+        data-testid="fleet-show-retired"
+        checked={view.filters.isRetiredShown}
+        onCheckedChange={(isChecked) => {
+          onViewChange({ ...view, filters: { ...view.filters, isRetiredShown: isChecked } });
+        }}
+      />
+      <Label htmlFor={switchId} className="text-meta font-normal text-muted-foreground">
+        Show retired ({retiredCount(ships)})
+      </Label>
+    </div>
   );
 }
 
@@ -500,29 +502,37 @@ function Toolbar({
   labels,
 }: Pick<FleetTableProps, 'ships' | 'view' | 'onViewChange' | 'squadronsOf' | 'labels'> & { shownCount: number }) {
   return (
-    <div data-slot="fleet-toolbar" className="flex flex-wrap items-center gap-2">
-      <div className="w-60 max-sm:min-w-0 max-sm:flex-1">
-        <Input
-          type="search"
-          aria-label="Search ships by name or type"
-          placeholder="Search ships by name"
-          data-testid="fleet-search"
-          value={view.query}
-          onChange={(event) => {
-            onViewChange({ ...view, query: event.target.value });
-          }}
-          leadingIcon={<Search />}
-          className="h-(--size-control-sm) text-meta max-sm:h-(--size-control-touch) max-sm:text-input-touch"
-        />
+    // On desktop one row (docs/design/png/FleetTable.png): the search and the filters wrap within their own group, Show retired and the count stay at the end of the first row (#1116).
+    <div data-slot="fleet-toolbar" className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:items-start">
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+        <div className="w-60 max-sm:min-w-0 max-sm:flex-1">
+          <Input
+            type="search"
+            aria-label="Search ships by name or type"
+            placeholder="Search ships by name"
+            data-testid="fleet-search"
+            value={view.query}
+            onChange={(event) => {
+              onViewChange({ ...view, query: event.target.value });
+            }}
+            leadingIcon={<Search />}
+            className="h-(--size-control-sm) text-meta max-sm:h-(--size-control-touch) max-sm:text-input-touch"
+          />
+        </div>
+        <div className="max-sm:hidden sm:contents">
+          <FilterControls ships={ships} view={view} onViewChange={onViewChange} squadronsOf={squadronsOf} labels={labels} size="sm" />
+        </div>
+        <PhoneFilters ships={ships} view={view} onViewChange={onViewChange} shownCount={shownCount} squadronsOf={squadronsOf} labels={labels} />
       </div>
-      <div className="flex flex-wrap items-center gap-2 max-sm:hidden sm:flex-1">
-        <FilterControls ships={ships} view={view} onViewChange={onViewChange} squadronsOf={squadronsOf} labels={labels} size="sm" />
-      </div>
-      <PhoneFilters ships={ships} view={view} onViewChange={onViewChange} shownCount={shownCount} squadronsOf={squadronsOf} labels={labels} />
       <PhoneFilterChips view={view} onViewChange={onViewChange} labels={labels} />
-      <p aria-live="polite" className="text-meta text-muted-foreground tabular-nums max-sm:w-full">
-        {shownCount} of {ships.length} ships
-      </p>
+      <div className="flex shrink-0 items-center gap-2 max-sm:w-full sm:h-(--size-control-sm)">
+        <div className="max-sm:hidden">
+          <ShowRetiredSwitch ships={ships} view={view} onViewChange={onViewChange} />
+        </div>
+        <p aria-live="polite" className="text-meta text-muted-foreground tabular-nums">
+          {shownCount} of {ships.length} ships
+        </p>
+      </div>
     </div>
   );
 }

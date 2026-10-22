@@ -21,6 +21,8 @@ import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './supp
 /** A desktop too narrow for every filter on one row. */
 const NARROW_DESKTOP = { width: 1024, height: 800 };
 const PHONE = { width: 390, height: 844 };
+/** In line: middles within a pixel, as centring a 20 px switch in a 32 px row rounds. */
+const IN_LINE_PX = 1;
 
 let database: PrismaClient;
 let server: FastifyInstance;
@@ -75,7 +77,7 @@ describe("the fleet overview's filter bar", () => {
 
     const middles = await Promise.all([middleOf(page.getByTestId('fleet-search')), middleOf(page.getByTestId('fleet-show-retired')), middleOf(page.getByText('of 2 ships'))]);
 
-    expect(middles).toEqual([row, row, row]);
+    expect(middles.map((middle) => Math.abs(middle - row) <= IN_LINE_PX)).toEqual([true, true, true]);
   });
 
   it('keeps the search and the Filter ships button on one row on phone', async () => {
@@ -83,6 +85,6 @@ describe("the fleet overview's filter bar", () => {
 
     const middles = await Promise.all([middleOf(page.getByTestId('fleet-search')), middleOf(page.getByTestId('fleet-filters-open'))]);
 
-    expect(middles[0]).toBe(middles[1]);
+    expect(Math.abs(middles[0] - middles[1])).toBeLessThanOrEqual(IN_LINE_PX);
   });
 });
