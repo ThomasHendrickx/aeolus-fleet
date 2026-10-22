@@ -1,6 +1,6 @@
 # Company sign-in: Entra ID and Google, and ID-JAG
 
-Design by designer-identity. Decided by Thomas on 21 Oct: the purpose, and every question (part 4). Part 5 cuts the slices; part 6 holds what is still open. No code. Terms are the blueprint's Domain language (0050): account, identity, identity provider, directory, organisation, organisation admin, sign-in link.
+Design by designer-identity. Decided by Thomas on 21 Oct: the purpose, and every question (D1 to D7). On 22 Oct: Okta, the fleet of an ID-JAG and where xaa.dev is trusted (D8 to D10). Part 5 cuts the slices; part 6 holds what is still open. No code. Terms are the blueprint's Domain language (0050): account, identity, identity provider, directory, organisation, organisation admin, sign-in link.
 
 Inputs: pagasae issue #78; decisions 0050 to 0058; [`accounts.md`](accounts.md) 1.3 and questions 8, 9, 14, 15; [`actors.md`](actors.md) 3; the interop design's slice 6 and I-4 (branch `design/interop`, `docs/design/interop/interop.md`); the pagasae and gateway READMEs.
 
@@ -38,7 +38,7 @@ At Acme, Mathilde connects Acme's Entra tenant from the organisation's page; Ent
 ### 1.5 Not this design's
 
 - Pushed provisioning (SCIM, change notifications): reading the provider is enough (D4.2).
-- SAML, and identity providers besides Entra, Google and Okta. Okta comes in only as far as ID-JAG needs it (D7, part 6).
+- SAML, and identity providers besides Entra, Google and Okta. Okta comes in only as far as ID-JAG needs it (D7, D8).
 - What an account may do once signed in (0052, 0057, 0058: unchanged).
 
 ## 2. Lessons to check against
@@ -77,9 +77,9 @@ From any app, with the decisions of part 4.
 ```mermaid
 flowchart TD
   start(["A human signs in from an app: console, gateway pages, plugin page, or an MCP client through the gateway"]) --> email["pagasae: types email"]
-  email --> dom{"Email's domain verified for a connected identity provider? (D2)"}
+  email --> dom{"Email's domain verified for a connected identity provider? (D2, D8)"}
   dom -- no --> mail["Sign-in link mailed, as today"] --> org
-  dom -- yes --> idp["Sent to Entra or Google with the email as hint"]
+  dom -- yes --> idp["Sent to Entra, Google or Okta with the email as hint"]
   idp -- "provider down, refuses, human suspended" --> f1["Sign-in failed. 'Email me a link': mailed only to an account allowed as argo (0054)"]
   idp -- "ID token" --> chk{"Signature, issuer = the connected tenant, audience = pagasae, nonce, end"}
   chk -- fails --> f2["Refused; nothing recorded on any account"]
@@ -145,7 +145,7 @@ Unhappy paths:
 | The same ID-JAG is presented twice | The second is refused (`invalid_grant`) |
 | No account has that identity yet | Refused, `invalid_grant`: the human signs in by browser once, which records it (D3) |
 | The account is disabled, or has rights in no fleet | Refused, as a browser sign-in is (0054, 0055) |
-| The account has rights in several fleets | Part 6, question 2 |
+| The account has rights in several fleets | Refused, `invalid_grant` (D9) |
 | The client is not registered at the gateway | `invalid_client`: ID-JAG needs a registered client; there is no dynamic registration (gateway README) |
 | The provider is down | The client gets no ID-JAG and signs in by browser, or not at all; accounts allowed as argo keep the link (0054) |
 | The access token ends | The client asks the provider for a fresh ID-JAG; no refresh token is kept anywhere |
@@ -156,7 +156,7 @@ Unhappy paths:
 
 Each is the current rule, why, and what was rejected.
 
-**D1 One registration per installation.** pagasae has one multi-tenant Entra app registration and one Google OAuth client; each organisation's admin consents. A self-hosted pagasae registers its own pair. The credential is a key, rotated. Why: connecting is one consent, and pagasae holds no secret of an organisation's. Rejected: a registration per organisation; both.
+**D1 One registration per installation.** pagasae has one multi-tenant Entra app registration and one Google OAuth client; each organisation's admin consents. A self-hosted pagasae registers its own pair. The credential is a key, rotated. Okta is the exception (D8). Why: connecting is one consent, and pagasae holds no secret of an organisation's. Rejected: a registration per organisation; both.
 
 **D2 The provider's own proof of the domain.** Entra: a tenant admin's consent, and the tenant's verified domains. Google: a sign-in of the Workspace domain (`hd`) and a DNS TXT record pagasae gives, on each domain. One identity provider per organisation, one organisation per domain. With reading groups off, the admin consents to sign-in alone (`openid`, `profile`, `email`), and nothing is granted to pagasae's service account; with it on, also D4.1's read access. Why: each provider already verified the domain; Aeolus asks only for what the token cannot show, and nobody claims another's domain by asking first. Rejected: DNS for both; a sign-in of the domain alone.
 
@@ -176,6 +176,12 @@ Each is the current rule, why, and what was rejected.
 
 **D7 ID-JAG at the gateway, through pagasae.** The gateway takes the JWT bearer grant and hands the ID-JAG to pagasae by token exchange; pagasae checks it against the organisation's connected provider and finds the account as in D3, answering the account's grant (flow 3.2). The gateway federates only through pagasae (0054). It applies to people's MCP clients only: browsers keep the redirect sign-in, outside parties are approved (0056), core sees account tokens only (0058). It is tested against xaa.dev and an Okta developer organisation. Why: Thomas, "supporting ID-JAG feels like a nice buzzword thing to use in talks with CTO / CIO". Rejected: pagasae as the gateway's authorization server; waiting until Entra or Google issue ID-JAGs.
 
+**D8 Okta connects as a third provider, registered per organisation.** The organisation's Okta admin creates pagasae's app in Okta and enters its domain, client id and secret on the organisation's page. Okta serves sign-in (flow 3.1) and ID-JAG (flow 3.2), with reading groups off: Okta has no groups path. It is the exception to D1: pagasae holds a client secret per organisation. Why: an ID-JAG names an Okta issuer, and an identity is recorded only by a sign-in (D3), so Okta must sign in to make an ID-JAG find its account; Okta has no multi-tenant registration without a listing in its integration network. Rejected: Okta only as an ID-JAG issuer (no account is ever found); Okta groups too (a third groups path for no customer asking).
+
+**D9 An ID-JAG is for accounts in one fleet.** When the account has rights in several fleets, the token request is refused with `invalid_grant`, "choose a fleet by signing in at the gateway's address". Thomas: "We document that Id Jag is only available for accounts in one fleet." Why: the JWT bearer grant has no browser to ask which fleet (0054), and pagasae never guesses; most organisations have one fleet (0051). Rejected: the fleet last chosen at a browser sign-in with that client; the organisation's first fleet.
+
+**D10 xaa.dev is trusted in tests and the test installation only.** Its identity provider (`https://idp.xaa.dev`) is configured as an issuer for the end-to-end tests and for a test installation; a hosted pagasae never trusts it. Why: it issues an ID-JAG for any email with no account, so it must never reach a real fleet; demonstrations use the Okta developer organisation. Rejected: also hosted, for one demonstration organisation.
+
 ## 5. Slices
 
 Each ends usable and tested: unit tests with in-memory ports, integration tests against Postgres (Testcontainers), end-to-end tests against a fake provider that signs as the real one does. Each provider slice also passes one manual sign-in against a real test tenant before it ships.
@@ -186,7 +192,8 @@ Each ends usable and tested: unit tests with in-memory ports, integration tests 
 | 2 | Google sign-in, reading groups off | pagasae | 1 |
 | 3 | Entra groups | pagasae | 2 |
 | 4 | Google groups | pagasae | 1 |
-| 5 | ID-JAG | pagasae, gateway | 2 |
+| 5 | Okta sign-in | pagasae | 1 |
+| 6 | ID-JAG | pagasae, gateway | 2 |
 
 **Slice 1: Entra sign-in, reading groups off** (D1, D2, D3, D5, D6, flow 3.1)
 
@@ -219,42 +226,31 @@ Each ends usable and tested: unit tests with in-memory ports, integration tests 
 - On asks the super admin to grant pagasae's service account the read-only group and user scopes; pagasae checks the grant before the switch shows on.
 - Groups and suspension are read through the Directory API; every criterion of slice 3 holds for Google.
 
-**Slice 5: ID-JAG** (D7, flow 3.2; needs part 6's answers)
+**Slice 5: Okta sign-in** (D8, as slice 1, for Okta; reading groups stay off)
+
+- The organisation's page takes the Okta domain, client id and secret of the organisation's app; the secret is never shown again.
+- The domain proof for routing is part 6's answer.
+- Every criterion of slice 1 holds for Okta, with the issuer of the entered Okta domain.
+- Disconnecting removes the secret.
+
+**Slice 6: ID-JAG** (D7, D9, D10, flow 3.2; needs slice 5)
 
 - The gateway's token endpoint takes `urn:ietf:params:oauth:grant-type:jwt-bearer` for a registered client and states it in its metadata (`grant_types_supported`).
 - pagasae takes the ID-JAG by token exchange from the gateway's client and checks `typ` `oauth-id-jag+jwt`, the issuer against the organisation's connected provider, the signature against its keys, the audience against the gateway's issuer, `client_id` against the client, the end, and each ID-JAG used once.
 - The account is found by its recorded identity only; then the account token and the gateway's access token are issued as after a browser sign-in, with no refresh token.
+- An account with rights in several fleets is refused with `invalid_grant` (D9), and the documentation says ID-JAG is only available for accounts in one fleet.
 - Every unhappy path of 3.2 is a test.
+- xaa.dev's identity provider is an accepted issuer in tests and in a test installation only; a hosted configuration refuses it (D10).
 - End to end against xaa.dev: its identity provider's ID-JAG for the gateway's test address gets a working MCP session.
 - End to end against the Okta developer organisation: the same, for a test user of Okta.
 
-## 6. Questions still open
+## 6. Question still open
 
-**1. How does Okta come in?**
+**1. What proves an organisation's domain for Okta?**
 
-What it is: an ID-JAG from Okta names an Okta issuer, and D7 checks it against the organisation's connected provider, so the organisation must connect Okta. Okta has no multi-tenant registration like D1's without a listing in its integration network.
+What it is: D2 relies on the provider's own proof for Entra (verified domains) and Google (`hd`); an Okta domain is only what the admin typed, and Okta's org has no verified-domain claim.
 
-- (1) **Okta connects as a third provider, with its own registration per organisation** (the Okta admin creates pagasae's app and enters its domain, client id and secret), for sign-in and ID-JAG, reading groups off. Goes wrong: a secret per organisation, which D1 avoided for Entra and Google.
-- (2) **Okta only as an ID-JAG issuer**: the admin enters the Okta issuer, nothing else; no sign-in by Okta. Goes wrong: an identity is recorded only by a sign-in (D3), so no account is ever found.
-- (3) **(1) with Okta groups too.** Goes wrong: a third groups path for no customer asking.
+- (1) **A DNS TXT record pagasae gives, on each domain**, as Google's (D2), checked before the domain routes. Goes wrong: the admin edits DNS once.
+- (2) **Okta's issuer alone**, no domain proof. Goes wrong: an admin could claim another organisation's domain by asking first.
 
-Pick: (1). It is the least that makes an ID-JAG find an account, and the secret is the price of Okta's model, not ours.
-
-**2. Which fleet does an ID-JAG sign-in get, when the account has rights in several?**
-
-What it is: a browser sign-in asks the human (0054); the JWT bearer grant has no browser to ask.
-
-- (1) **Refused, `invalid_grant`, with "choose a fleet by signing in at the gateway's address"**. Goes wrong: an account in two fleets never uses ID-JAG.
-- (2) **The fleet the account last chose at a browser sign-in with that client.** Goes wrong: pagasae keeps a choice per account and client.
-- (3) **The organisation's first fleet.** Goes wrong: an order nobody chose decides where a human acts.
-
-Pick: (1). Most organisations have one fleet (0051's sign-up creates one), and it never guesses.
-
-**3. Where is xaa.dev's identity provider trusted?**
-
-What it is: anyone can get an ID-JAG from `idp.xaa.dev` for any email, with no account.
-
-- (1) **In tests and a test installation only**, never in hosted pagasae. Goes wrong: a live demonstration needs the Okta organisation.
-- (2) **Also hosted, for one demonstration organisation.** Goes wrong: an issuer anyone can sign for is trusted in production, even if for one organisation.
-
-Pick: (1). An issuer that vouches for anyone must never reach a real fleet; the Okta developer organisation serves demonstrations.
+Pick: (1). It is the proof D2 already built for Google, and it keeps one organisation per domain.
