@@ -4,7 +4,7 @@ import { InMemorySpanExporter } from '@opentelemetry/sdk-trace-base';
 import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { FLEET_URL, historyUseCases, identityUseCases, initialiseFleet, messagingUseCases, registryUseCases } from '../../../test/support/core-fixtures.js';
+import { addAgentShip, crewShip, FLEET_URL, historyUseCases, identityUseCases, initialiseFleet, messagingUseCases, registryUseCases } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { buildHttpServer } from '../http/server.js';
 import { startTelemetry, type Telemetry } from './telemetry.js';
@@ -31,6 +31,7 @@ function start(ping: () => Promise<{ serverTime: Date; fleetCount: number }> = (
     latestMigration: () => Promise.resolve(null),
     clock: core.clock,
     logger: false,
+    consoleOrigin: new URL(FLEET_URL).origin,
   });
 }
 
@@ -52,6 +53,20 @@ afterEach(async () => {
   propagation.disable();
 });
 
+/** A ping from a ship that may read the fleet, so the call is answered. */
+function ping() {
+  const fleetId = core.state.fleets[0]?.id ?? expect.unreachable();
+  const { shipId } = addAgentShip(core, { fleetId, scopes: ['fleet:read'] });
+  const crewToken = crewShip(core, { fleetId, shipId });
+  return server.inject({ method: 'GET', url: '/trpc/system.ping', headers: { authorization: `Bearer ${crewToken}` } });
+}
+
+/** The spans exported so far, once there are any: the SDK exports a span once its resource is known. */
+async function finishedSpans() {
+  await expect.poll(() => spans.getFinishedSpans()).not.toEqual([]);
+  return spans.getFinishedSpans();
+}
+
 /** The duration histogram's points for one procedure, after a collect. */
 async function callDurations(procedure: string) {
   await metricReader.forceFlush();
@@ -67,7 +82,7 @@ describe('with no OTLP endpoint set', () => {
     telemetry = await startTelemetry({}, { spanExporter: spans, metricReader });
     start();
 
-    await server.inject({ method: 'GET', url: '/trpc/system.ping' });
+    await ping();
 
     expect(telemetry).toBeUndefined();
     expect(trace.getTracer('any').startSpan('any').isRecording()).toBe(false);
@@ -96,44 +111,47 @@ describe('with an OTLP endpoint set', () => {
     telemetry = await startTelemetry(ENDPOINT, { spanExporter: spans, metricReader });
     start();
 
-    await server.inject({ method: 'GET', url: '/trpc/system.ping' });
+    await ping();
 
-    expect(spans.getFinishedSpans()).toEqual([
-      expect.objectContaining({ name: 'system.ping', attributes: expect.objectContaining({ 'rpc.system': 'trpc', 'rpc.method': 'system.ping', 'rpc.response.status_code': 'OK' }) }),
-    ]);
+    const finished = await finishedSpans();
+    expect(finished.map((span) => span.name)).toEqual(['system.ping']);
+    expect(finished[0]?.attributes).toMatchObject({ 'rpc.system': 'trpc', 'rpc.method': 'system.ping', 'rpc.response.status_code': 'OK' });
   });
 
   it('records a call as a point in its procedure duration histogram', async () => {
     telemetry = await startTelemetry(ENDPOINT, { spanExporter: spans, metricReader });
     start();
 
-    await server.inject({ method: 'GET', url: '/trpc/system.ping' });
+    await ping();
 
-    expect(await callDurations('system.ping')).toEqual([expect.objectContaining({ attributes: expect.objectContaining({ 'rpc.response.status_code': 'OK' }), value: expect.objectContaining({ count: 1 }) })]);
+    const durations = await callDurations('system.ping');
+    expect(durations.map((point) => point.value.count)).toEqual([1]);
+    expect(durations[0]?.attributes).toMatchObject({ 'rpc.response.status_code': 'OK' });
   });
 
-  it('records a refused call with its refusal code, and does not mark it an error', async () => {
+  it('records a refused REST call under its procedure, with its refusal code, and does not mark it an error', async () => {
     telemetry = await startTelemetry(ENDPOINT, { spanExporter: spans, metricReader });
     start();
 
-    await server.inject({ method: 'GET', url: '/trpc/whoami' });
+    await server.inject({ method: 'GET', url: '/api/v1/ship/whoami' });
 
-    const [span] = spans.getFinishedSpans();
+    const [span] = await finishedSpans();
     expect(span?.attributes['rpc.response.status_code']).toBe('UNAUTHORIZED');
     expect(span?.status.code).not.toBe(SpanStatusCode.ERROR);
-    expect(await callDurations('whoami')).toEqual([expect.objectContaining({ attributes: expect.objectContaining({ 'rpc.response.status_code': 'UNAUTHORIZED' }) })]);
+    const [duration] = await callDurations('ship.whoami');
+    expect(duration?.attributes).toMatchObject({ 'rpc.response.status_code': 'UNAUTHORIZED' });
+    expect(duration?.attributes).not.toHaveProperty('error.type');
   });
 
   it('records a server failure as an error, so the error rate counts it', async () => {
     telemetry = await startTelemetry(ENDPOINT, { spanExporter: spans, metricReader });
     start(() => Promise.reject(new Error('the database went away')));
 
-    await server.inject({ method: 'GET', url: '/trpc/system.ping' });
+    await ping();
 
-    const [span] = spans.getFinishedSpans();
+    const [span] = await finishedSpans();
     expect(span?.status.code).toBe(SpanStatusCode.ERROR);
-    expect(await callDurations('system.ping')).toEqual([
-      expect.objectContaining({ attributes: expect.objectContaining({ 'rpc.response.status_code': 'INTERNAL_SERVER_ERROR', 'error.type': 'INTERNAL_SERVER_ERROR' }) }),
-    ]);
+    const [duration] = await callDurations('system.ping');
+    expect(duration?.attributes).toMatchObject({ 'rpc.response.status_code': 'INTERNAL_SERVER_ERROR', 'error.type': 'INTERNAL_SERVER_ERROR' });
   });
 });

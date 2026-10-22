@@ -1,10 +1,12 @@
 import { idSchema, type Scope } from '@aeolus-fleet/common';
 import { initTRPC, TRPCError } from '@trpc/server';
+import { getHTTPStatusCodeFromError } from '@trpc/server/http';
 
 import { hasScope, isCrew, isShipCaller, type AccountCaller, type Caller, type ShipCaller, type Crew } from '../../domain/shared/caller.js';
 import type { DomainError, DomainErrorKind } from '../../domain/shared/errors.js';
 import type { Result } from '../../domain/shared/result.js';
 import { isFleetBusy } from '../prisma/fleet-busy.js';
+import { measureCall } from '../telemetry/calls.js';
 import type { Context } from './context.js';
 import { INSTALLATION_TOKEN_HEADER, isInstallationToken } from './installation-token.js';
 
@@ -282,6 +284,27 @@ function fieldName(path: InputPath): string {
   return path.map((part, index) => (typeof part === 'number' ? `[${part}]` : index === 0 ? part : `.${part}`)).join('');
 }
 
+/** The lowest HTTP status of a server failure, which the error rate counts; a refusal is no failure. */
+const FIRST_SERVER_FAILURE_STATUS = 500;
+
+/**
+ * Every query and mutation measured (telemetry/calls.ts), whichever door it
+ * came through: tRPC, REST or MCP, which all call the procedure. Outermost, so
+ * it sees how the call ended after every other middleware. A subscription
+ * lasts as long as its socket, so it has no duration to measure.
+ */
+const measuredProcedure = t.procedure.use(({ path, type, next }) =>
+  type === 'subscription'
+    ? next()
+    : measureCall(path, async () => {
+        const result = await next();
+        const outcome = result.ok
+          ? { code: 'OK', isServerFailure: false }
+          : { code: result.error.code, isServerFailure: getHTTPStatusCodeFromError(result.error) >= FIRST_SERVER_FAILURE_STATUS };
+        return { value: result, outcome };
+      }),
+);
+
 /**
  * A procedure that needs no caller: the base of every procedure, of the
  * console procedures, and of `register`, which takes the ship secret.
@@ -294,7 +317,7 @@ function fieldName(path: InputPath): string {
  * is refused as SERVICE_UNAVAILABLE (503), never answered as a server
  * failure: the caller makes the same call again.
  */
-export const publicProcedure = t.procedure.use(async ({ getRawInput, next }) => {
+export const publicProcedure = measuredProcedure.use(async ({ getRawInput, next }) => {
   // Input that does not parse is left to the procedure: one without input,
   // such as sign-out with an empty body, never reads it; one with input
   // refuses it as before.
