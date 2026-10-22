@@ -146,11 +146,14 @@ describe('signing in as argo from the console', () => {
     await expect(argoSessionsOf('acc-thomas')).resolves.toEqual([expect.objectContaining({ endReason: 'signedOut' })]);
   });
 
-  it('offers Sign in as argo on the sign-in page to an allowed account', async () => {
+  it('offers Sign in as argo on the sign-in page to an allowed account, warning of no one while argo is free, though its token cookie ended', async () => {
+    await mathildePage.context().clearCookies({ name: 'aeolus_account_token' });
     await mathildePage.goto('/sign-in');
 
     await mathildePage.getByTestId('sign-in-argo-start').click();
 
     await mathildePage.getByTestId('argo-banner').getByText('You are signed in as argo').waitFor();
+    expect(new URL(mathildePage.url()).pathname).toBe('/');
+    await expect(argoSessionsOf('acc-mathilde')).resolves.toContainEqual({ endedAt: null, endReason: null });
   });
 });

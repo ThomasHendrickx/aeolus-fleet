@@ -22,10 +22,23 @@ export const SignedInAsArgo: Story = {
   },
 };
 
-/** Signing out of argo: the button waits. */
+/** Signing out of argo while the server works: the button says so, with a spinner, and takes no second press. */
 export const SigningOut: Story = {
   args: { isSigningOut: true },
   play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).getByRole('button', { name: 'Sign out of argo' })).toBeDisabled();
+    const button = within(canvasElement).getByRole('button', { name: 'Signing out of argo' });
+    await expect(button).toBeDisabled();
+    await expect(within(button).getByTestId('argo-banner-spinner')).toBeInTheDocument();
+  },
+};
+
+/** Signing out of argo failed: the banner stays and says so, and Sign out of argo tries again. */
+export const SignOutFailed: Story = {
+  args: { error: 'Couldn’t sign out of argo. The server did not answer. Try again.' },
+  play: async ({ args, canvasElement }) => {
+    const banner = within(canvasElement).getByTestId('argo-banner');
+    await expect(within(banner).getByRole('alert')).toHaveTextContent('Couldn’t sign out of argo. The server did not answer. Try again.');
+    await userEvent.click(within(banner).getByRole('button', { name: 'Sign out of argo' }));
+    await expect(args.onSignOutOfArgo).toHaveBeenCalledOnce();
   },
 };
