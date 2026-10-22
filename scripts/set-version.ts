@@ -3,7 +3,7 @@
  * dependencies on each other to exactly that version, because they are
  * released together (ADR 0011). The exports lose the @aeolus-fleet/source
  * condition: it points into src, which the tarballs do not ship (#968). Used
- * by the release workflow and the publish dry run in CI.
+ * by the candidate workflow and the publish dry run in CI.
  *
  * Usage: npm run set-version -- <version>
  */
