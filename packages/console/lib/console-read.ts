@@ -1,5 +1,6 @@
 import type { z } from 'zod';
 
+import { measureCall } from './call-telemetry';
 import type { SessionState } from './console-gate';
 import type { PluginAnswer } from './plugin-answer';
 
@@ -53,7 +54,13 @@ function inputOf(request: Request): { isReadable: boolean; value: unknown } {
  * as one it does not have while the session check does not answer; either
  * way nothing tells which reads or plugins this console has.
  */
-export async function answerConsoleRead(request: Request, { name, reads, sessionOf }: { name: string; reads: ConsoleReads; sessionOf: (request: Request) => Promise<SessionState> }): Promise<Response> {
+export function answerConsoleRead(request: Request, options: { name: string; reads: ConsoleReads; sessionOf: (request: Request) => Promise<SessionState> }): Promise<Response> {
+  // Measured by the read's name, or as one unknown read: the name comes from the request.
+  const call = Object.hasOwn(options.reads, options.name) ? `reads.${options.name}` : 'reads.unknown';
+  return measureCall(call, () => answer(request, options));
+}
+
+async function answer(request: Request, { name, reads, sessionOf }: { name: string; reads: ConsoleReads; sessionOf: (request: Request) => Promise<SessionState> }): Promise<Response> {
   const session = await sessionOf(request);
   if (session === 'ended') {
     return Response.json(SESSION_ENDED, { status: UNAUTHORIZED });
