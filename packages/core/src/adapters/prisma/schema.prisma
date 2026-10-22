@@ -67,6 +67,8 @@ model Fleet {
   signInTickets    SignInTicket[]
   noticeDismissals NoticeDismissal[]
   guideProgress    GuideProgress[]
+  accountNoticeDismissals AccountNoticeDismissal[]
+  accountGuideProgress    AccountGuideProgress[]
   operator         Operator?
 
   @@map("fleets")
@@ -892,6 +894,7 @@ enum NoticeAudience {
   everyone
   operators
   viewers
+  accounts
 
   @@map("notice_audience")
 }
@@ -910,6 +913,21 @@ model NoticeDismissal {
   @@id([consoleSessionId, noticeId])
   @@index([fleetId])
   @@map("notice_dismissals")
+}
+
+/// A notice an account signed in to the console as itself dismissed, for
+/// itself, kept by its account id in each fleet (accounts design, A9). Core
+/// stores no account: the id is pagasae's. It goes with its fleet.
+model AccountNoticeDismissal {
+  fleetId     String   @map("fleet_id")
+  accountId   String   @map("account_id")
+  noticeId    String   @map("notice_id")
+  dismissedAt DateTime @map("dismissed_at") @db.Timestamptz(3)
+
+  fleet Fleet @relation(fields: [fleetId], references: [id])
+
+  @@id([fleetId, accountId, noticeId])
+  @@map("account_notice_dismissals")
 }
 
 /// The installation's guide (decision 0024): steps for the console sessions of
@@ -946,6 +964,21 @@ model GuideProgress {
 
   @@index([fleetId])
   @@map("guide_progress")
+}
+
+/// Where an account signed in to the console as itself is in the guide, kept
+/// by its account id in each fleet (accounts design, A9). It goes with its fleet.
+model AccountGuideProgress {
+  fleetId    String             @map("fleet_id")
+  accountId  String             @map("account_id")
+  step       Int
+  state      GuideProgressState
+  recordedAt DateTime           @map("recorded_at") @db.Timestamptz(3)
+
+  fleet Fleet @relation(fields: [fleetId], references: [id])
+
+  @@id([fleetId, accountId])
+  @@map("account_guide_progress")
 }
 
 /// An account pagasae cut off (decision 0058): its tokens issued before

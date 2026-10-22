@@ -70,6 +70,10 @@ async function signedInCookie(): Promise<string> {
   return cookie.split(';')[0] ?? '';
 }
 
+function installationClient(): TRPCClient<AppRouter>['installation'] {
+  return createTRPCClient<AppRouter>({ links: [httpLink({ url: `${address}/trpc`, headers: { 'x-aeolus-installation-token': INSTALLATION_TOKEN } })] }).installation;
+}
+
 function asBrowser(cookie: string, origin = CONSOLE): TRPCClient<AppRouter> {
   return createTRPCClient<AppRouter>({ links: [httpLink({ url: `${address}/trpc`, headers: { cookie, origin } })] });
 }
@@ -187,11 +191,34 @@ describe('an account signed in by its token cookie', () => {
     await expect(fleet.inbox.query({ filter: 'all' })).resolves.toMatchObject([{ message: { id: toArgo } }]);
   });
 
-  it('shows no notices and no guide yet', async () => {
+  it("reads the notices for everyone and for accounts, and dismisses one for the account alone, kept by its id (accounts design, A9)", async () => {
+    const forEveryone = { id: 'upgrade', audience: 'everyone' as const, text: 'Interruptions expected between 00:00 and 01:00.', links: [], isDismissible: false };
+    const forAccounts = { id: 'teams', audience: 'accounts' as const, text: 'Your organisation now signs in with its own accounts.', links: [], isDismissible: true };
+    const forOperators = { id: 'limits', audience: 'operators' as const, text: 'Your fleet is near its ship limit.', links: [], isDismissible: true };
+    await installationClient().notices.set.mutate({ notices: [forEveryone, forAccounts, forOperators] });
     const console = asBrowser(await signedInCookie()).console;
 
-    await expect(console.notices.query()).resolves.toEqual([]);
-    await expect(console.guide.query()).resolves.toBeNull();
+    await expect(console.notices.query()).resolves.toEqual([forEveryone, forAccounts]);
+    await console.dismissNotice.mutate({ noticeId: 'teams' });
+
+    // A fresh sign-in by the same account still has it dismissed: it is kept by the account's id, not by a sign-in.
+    await expect(asBrowser(await signedInCookie()).console.notices.query()).resolves.toEqual([forEveryone]);
+    await expect(database.accountNoticeDismissal.findMany({ select: { fleetId: true, accountId: true, noticeId: true } })).resolves.toEqual([{ fleetId, accountId: 'acc-mathilde', noticeId: 'teams' }]);
+  });
+
+  it("reads the guide for accounts and keeps where the account is in it, by its id (accounts design, A9)", async () => {
+    const steps = [
+      { path: '/', title: 'Your fleet', text: 'Every ship, its type and who crews it.' },
+      { path: '/inbox', title: 'Messages', text: 'What reaches argo.' },
+    ];
+    await installationClient().guide.set.mutate({ guide: { audience: 'accounts', steps } });
+    const console = asBrowser(await signedInCookie()).console;
+
+    await expect(console.guide.query()).resolves.toMatchObject({ progress: { step: 0, state: 'open' } });
+    await console.recordGuideProgress.mutate({ step: 1, state: 'open' });
+
+    await expect(asBrowser(await signedInCookie()).console.guide.query()).resolves.toMatchObject({ progress: { step: 1, state: 'open' } });
+    await installationClient().guide.set.mutate({ guide: null });
   });
 
   it("takes no lease: argo's sign-in and the console sessions stay as they are", async () => {

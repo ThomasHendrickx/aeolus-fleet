@@ -4,7 +4,7 @@ import type { ShipCaller, Crew } from '../shared/caller.js';
 import type { ConsoleSession, ConsoleSessionEndReason } from './console-session.js';
 import type { Credential } from './credential.js';
 import type { Guide, GuideProgress } from './guide.js';
-import type { Notice } from './notice.js';
+import type { ConsoleSignIn, Notice } from './notice.js';
 import type { OperatorAccount } from './operator-account.js';
 import type { SignInAs, SignInTicket } from './sign-in-ticket.js';
 
@@ -139,11 +139,11 @@ export interface NoticeRepository {
   replace(notices: readonly Notice[]): Promise<void>;
 }
 
-/** Outbound port: the notices each console session dismissed, by notice id; they go with the session's fleet. */
+/** Outbound port: the notices each console sign-in dismissed, by notice id; they go with the fleet. */
 export interface NoticeDismissals {
-  dismissed(of: { fleetId: FleetId; consoleSessionId: ConsoleSessionId }): Promise<string[]>;
+  dismissed(of: { fleetId: FleetId; signIn: ConsoleSignIn }): Promise<string[]>;
   /** Records the dismissal; one already recorded stays as it was. */
-  dismiss(dismissal: { fleetId: FleetId; consoleSessionId: ConsoleSessionId; noticeId: string; at: Date }): Promise<void>;
+  dismiss(dismissal: { fleetId: FleetId; signIn: ConsoleSignIn; noticeId: string; at: Date }): Promise<void>;
 }
 
 /** Outbound port: the installation's guide (decision 0024), one or none; it belongs to no fleet. */
@@ -153,11 +153,11 @@ export interface GuideRepository {
   replace(guide: Guide | null): Promise<void>;
 }
 
-/** Outbound port: where each console session is in the guide; it goes with the session's fleet. */
+/** Outbound port: where each console sign-in is in the guide; it goes with the fleet. */
 export interface GuideProgressRepository {
-  progress(of: { fleetId: FleetId; consoleSessionId: ConsoleSessionId }): Promise<GuideProgress | null>;
-  /** Records the session's progress over any it recorded before. */
-  record(progress: { fleetId: FleetId; consoleSessionId: ConsoleSessionId; at: Date } & GuideProgress): Promise<void>;
+  progress(of: { fleetId: FleetId; signIn: ConsoleSignIn }): Promise<GuideProgress | null>;
+  /** Records the sign-in's progress over any it recorded before. */
+  record(progress: { fleetId: FleetId; signIn: ConsoleSignIn; at: Date } & GuideProgress): Promise<void>;
 }
 
 /**

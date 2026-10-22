@@ -1,9 +1,9 @@
-import { createIdGenerator, idSchema, LEASE_END_REASONS, PING_CONTENT_TYPE, type ConsoleSessionId, type FleetId, type IdGenerator, type LeaseWaker, type ShipId } from '@aeolus-fleet/common';
+import { createIdGenerator, idSchema, LEASE_END_REASONS, PING_CONTENT_TYPE, type FleetId, type IdGenerator, type LeaseWaker, type ShipId } from '@aeolus-fleet/common';
 
 import type { ConsoleSession } from '../../src/domain/identity/console-session.js';
 import type { Credential } from '../../src/domain/identity/credential.js';
 import type { Guide, GuideProgress } from '../../src/domain/identity/guide.js';
-import type { Notice } from '../../src/domain/identity/notice.js';
+import type { ConsoleSignIn, Notice } from '../../src/domain/identity/notice.js';
 import type { OperatorAccount } from '../../src/domain/identity/operator-account.js';
 import type { SignInTicket } from '../../src/domain/identity/sign-in-ticket.js';
 import type {
@@ -107,10 +107,10 @@ export interface InMemoryState {
   signInTickets: SignInTicket[];
   /** The installation's console notices (decision 0023), in its order. */
   installationNotices: Notice[];
-  noticeDismissals: { fleetId: FleetId; consoleSessionId: ConsoleSessionId; noticeId: string; at: Date }[];
+  noticeDismissals: { fleetId: FleetId; signIn: ConsoleSignIn; noticeId: string; at: Date }[];
   /** The installation's guide (decision 0024), or none. */
   installationGuide: Guide | null;
-  guideProgress: ({ fleetId: FleetId; consoleSessionId: ConsoleSessionId; at: Date } & GuideProgress)[];
+  guideProgress: ({ fleetId: FleetId; signIn: ConsoleSignIn; at: Date } & GuideProgress)[];
   messages: Message[];
   deliveries: Delivery[];
   /** When each lease was last seen through a call by its crew: the last_seen_at column, apart from the Lease. */
@@ -1801,13 +1801,14 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       return Promise.resolve();
     },
   };
+  // A console session's and an account's are kept apart, as Postgres keeps them in two tables.
+  const isSameSignIn = (one: ConsoleSignIn, other: ConsoleSignIn): boolean =>
+    one.kind === 'account' ? other.kind === 'account' && one.accountId === other.accountId : other.kind !== 'account' && one.consoleSessionId === other.consoleSessionId;
   const noticeDismissals: NoticeDismissals = {
-    dismissed: ({ fleetId, consoleSessionId }) =>
-      Promise.resolve(state.noticeDismissals.filter((held) => held.fleetId === fleetId && held.consoleSessionId === consoleSessionId).map((held) => held.noticeId)),
+    dismissed: ({ fleetId, signIn }) =>
+      Promise.resolve(state.noticeDismissals.filter((held) => held.fleetId === fleetId && isSameSignIn(held.signIn, signIn)).map((held) => held.noticeId)),
     dismiss: (dismissal) => {
-      const isHeld = state.noticeDismissals.some(
-        (held) => held.fleetId === dismissal.fleetId && held.consoleSessionId === dismissal.consoleSessionId && held.noticeId === dismissal.noticeId,
-      );
+      const isHeld = state.noticeDismissals.some((held) => held.fleetId === dismissal.fleetId && isSameSignIn(held.signIn, dismissal.signIn) && held.noticeId === dismissal.noticeId);
       if (!isHeld) {
         state.noticeDismissals.push({ ...dismissal });
       }
@@ -1823,12 +1824,12 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
   };
   const guideProgress: GuideProgressRepository = {
-    progress: ({ fleetId, consoleSessionId }) => {
-      const held = state.guideProgress.find((each) => each.fleetId === fleetId && each.consoleSessionId === consoleSessionId);
+    progress: ({ fleetId, signIn }) => {
+      const held = state.guideProgress.find((each) => each.fleetId === fleetId && isSameSignIn(each.signIn, signIn));
       return Promise.resolve(held ? { step: held.step, state: held.state } : null);
     },
     record: (recording) => {
-      const others = state.guideProgress.filter((each) => !(each.fleetId === recording.fleetId && each.consoleSessionId === recording.consoleSessionId));
+      const others = state.guideProgress.filter((each) => !(each.fleetId === recording.fleetId && isSameSignIn(each.signIn, recording.signIn)));
       state.guideProgress.splice(0, state.guideProgress.length, ...others, { ...recording });
       return Promise.resolve();
     },

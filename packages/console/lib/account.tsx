@@ -11,6 +11,7 @@ import { useConsoleConstants } from './console-constants';
 import { fetchConsoleRead } from './fetch-console-read';
 import { useConsoleGuide } from './guide';
 import { useSignOut } from './session';
+import { keepBrowserTheme, useBrowserTheme } from './browser-theme-client';
 import { useTRPC } from './trpc';
 import { usePluginNav } from './plugin-nav';
 import { SOURCE_URL } from './source';
@@ -47,7 +48,8 @@ function signedInAccountIdOf(account: Account): string | null {
  * at once and is stored on the account. Signing out ends the session and
  * goes to sign in; a failure says so in a toast with Try again, and the
  * operator stays signed in. An account goes by the name pagasae gives it,
- * with no session line and no theme, and signs out of every app.
+ * with no session line and its theme kept in this browser, and signs out of
+ * every app.
  */
 export function useAccountMenu(now: Date): AvatarMenuProps {
   const trpc = useTRPC();
@@ -63,6 +65,7 @@ export function useAccountMenu(now: Date): AvatarMenuProps {
   const appsList = useAppsList();
   const accountUrl = appsList?.apps.find((link) => link.app === 'account')?.url;
   const { themes } = useConsoleConstants();
+  const browserTheme = useBrowserTheme(themes);
   const guide = useConsoleGuide();
   // The phone's tab bar has no place for Settings or Network: the account sheet offers each while it is offered (#245, #503).
   const pluginNav = usePluginNav();
@@ -104,10 +107,15 @@ export function useAccountMenu(now: Date): AvatarMenuProps {
     signedInAs: held === undefined ? undefined : held.kind === 'operator' ? 'argo' : held.kind,
     ...(held === undefined || held.kind === 'account' ? {} : { session: sessionSince(held.session, now) }),
     ...(accountUrl === undefined ? {} : { accountUrl }),
-    theme: held?.kind === 'operator' ? held.theme : undefined,
+    // An account's theme is kept in this browser (header design, C5); argo's on its account.
+    theme: held?.kind === 'operator' ? held.theme : held?.kind === 'account' ? browserTheme : undefined,
     themes,
-    hasTheme: held?.kind === 'operator' || held === undefined,
+    hasTheme: held?.kind !== 'viewer',
     onThemeChange: (theme: Theme) => {
+      if (account.data?.kind === 'account') {
+        keepBrowserTheme(theme);
+        return;
+      }
       setTheme.mutate({ theme });
     },
     shortcuts: SHORTCUTS,
