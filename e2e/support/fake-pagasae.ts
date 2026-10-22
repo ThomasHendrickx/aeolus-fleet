@@ -47,6 +47,8 @@ export interface FakePagasae {
   setDown(isDown: boolean): void;
   /** How many account tokens it issued. */
   tokensIssued(): number;
+  /** How many times an app's server asked for the apps list (GET /api/apps). */
+  appsListsAsked(): number;
   close(): Promise<void>;
 }
 
@@ -75,6 +77,7 @@ export async function startFakePagasae(options: { argoTickets?: ArgoTickets } = 
   let tokenSeconds = 600;
   let isDown = false;
   let issued = 0;
+  let appsListsAsked = 0;
   const sessions = new Map<string, FakeAccount>();
   const codes = new Map<string, { session: string; challenge: string; redirectUri: string }>();
   const revoked: string[] = [];
@@ -159,6 +162,7 @@ export async function startFakePagasae(options: { argoTickets?: ArgoTickets } = 
         return;
       }
       if (url.pathname === '/api/apps') {
+        appsListsAsked += 1;
         const holder = sessions.get(String(request.headers['aeolus-sign-in']));
         if (holder === undefined) {
           json(response, { status: 401, body: { error: 'invalid_grant' } });
@@ -169,7 +173,7 @@ export async function startFakePagasae(options: { argoTickets?: ArgoTickets } = 
           body: {
             account: { id: holder.id, email: holder.email },
             apps: [],
-            fleets: holder.fleets.map(({ id, name, scopes, isArgoAllowed }) => ({ id, name, argo: isArgoAllowed === true, apps: scopes.includes('fleet:read') ? [{ app: 'console', url: 'http://localhost' }] : [] })),
+            fleets: holder.fleets.map(({ id, name, scopes, isArgoAllowed }) => ({ id, name, argo: isArgoAllowed === true, apps: scopes.includes('fleet:read') ? [{ app: 'console', url: 'https://console.acme.example' }] : [] })),
           },
         });
         return;
@@ -226,6 +230,7 @@ export async function startFakePagasae(options: { argoTickets?: ArgoTickets } = 
       isDown = isNowDown;
     },
     tokensIssued: () => issued,
+    appsListsAsked: () => appsListsAsked,
     close: () =>
       new Promise((closed) => {
         server.close(() => {

@@ -3,6 +3,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 import { classNames } from '@aeolus-fleet/common/header';
+import { NavLinkIcon } from '../molecules/nav-link-icon';
 
 /** The console's destinations on phone so far. */
 export type TabBarDestination = 'fleet' | 'squadrons' | 'trierarchs' | 'inbox' | 'health';
@@ -44,7 +45,7 @@ function Tab({
   return (
     <Link href={href} aria-current={isActive ? 'page' : undefined} data-testid={testId} className={TAB}>
       <span className="relative">
-        {icon}
+        <NavLinkIcon icon={icon} />
         {isCounted ? (
           <span
             data-testid={`${testId}-count`}

@@ -1,6 +1,6 @@
 'use client';
 
-import type { ConsoleSessionOutput } from '@aeolus-fleet/common';
+import type { AppsList, ConsoleSessionOutput } from '@aeolus-fleet/common';
 import { appSwitcherOf, type AppSwitcherModel } from '@aeolus-fleet/common/header';
 import { useQuery } from '@tanstack/react-query';
 
@@ -35,8 +35,18 @@ export function useAppsList() {
   const trpc = useTRPC();
   const session = useQuery(trpc.console.session.queryOptions());
   const isForAccount = session.data !== undefined && isAccountSignIn(session.data.kind);
-  const list = useQuery({ queryKey: APPS_LIST_KEY, queryFn: () => fetchConsoleRead({ read: 'apps-list' }), enabled: isForAccount });
+  // Held for the page's life: each read costs pagasae a core read per fleet (#1117), and the list changes rarely.
+  const list = useQuery({ queryKey: APPS_LIST_KEY, queryFn: () => fetchConsoleRead({ read: 'apps-list' }), enabled: isForAccount, staleTime: Infinity });
   return isForAccount ? (list.data ?? undefined) : undefined;
+}
+
+/**
+ * Whether the apps list allows the account as argo of the fleet the console
+ * shows (accounts design, A7): the avatar menu reads it from the list the
+ * header already holds, so a page load asks pagasae once (#1117).
+ */
+export function isArgoAllowedIn(list: AppsList | undefined, fleetId: string | undefined): boolean {
+  return list?.fleets.some((fleet) => fleet.id === fleetId && fleet.argo) ?? false;
 }
 
 /**

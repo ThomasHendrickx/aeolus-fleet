@@ -6,7 +6,7 @@ import type { AvatarMenuProps } from '@aeolus-fleet/common/header';
 import { Compass, KeyRound, Network, Settings } from 'lucide-react';
 
 import { showToast } from '../components/atoms/toast';
-import { useAppsList } from './app-switcher';
+import { isArgoAllowedIn, useAppsList } from './app-switcher';
 import { applyTheme, sessionSince } from './theme';
 import { useConsoleConstants } from './console-constants';
 import { fetchConsoleRead } from './fetch-console-read';
@@ -70,12 +70,8 @@ export function useAccountMenu(now: Date): AvatarMenuProps {
   });
   const appsList = useAppsList();
   const accountUrl = appsList?.apps.find((link) => link.app === 'account')?.url;
-  // Whether pagasae allows the account as argo of the fleet (accounts design, A7), asked by the web app's server.
-  const argoAllowed = useQuery({
-    queryKey: ['argo-allowed'],
-    queryFn: () => fetchConsoleRead({ read: 'argo-allowed' }),
-    enabled: account.data?.kind === 'account',
-  });
+  const session = useQuery(trpc.console.session.queryOptions());
+  const isArgoAllowed = isArgoAllowedIn(appsList, session.data?.fleetId);
   const { themes } = useConsoleConstants();
   const browserTheme = useBrowserTheme(themes);
   const guide = useConsoleGuide();
@@ -138,7 +134,7 @@ export function useAccountMenu(now: Date): AvatarMenuProps {
     isSigningOut,
     entries: [
       ...(guide.onTakeTour === undefined ? [] : [{ key: 'take-tour', label: 'Take the tour', icon: <Compass aria-hidden />, onSelect: guide.onTakeTour }]),
-      ...(account.data?.kind === 'account' && argoAllowed.data === true
+      ...(account.data?.kind === 'account' && isArgoAllowed
         ? [
             {
               key: 'sign-in-as-argo',
