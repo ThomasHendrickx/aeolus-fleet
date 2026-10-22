@@ -1,6 +1,6 @@
 # Performance at scale
 
-Design for [#1130](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1130), from the 0.29 production slowness ([#1117](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1117), measured in [#1128](https://github.com/ThomasHendrickx/aeolus-fleet/pull/1128)), with [#1126](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1126), [#1127](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1127) and [#1112](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1112). Docs only. Purpose for Thomas to agree; no detailed decisions yet.
+Design for [#1130](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1130), from the 0.29 production slowness ([#1117](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1117), measured in [#1128](https://github.com/ThomasHendrickx/aeolus-fleet/pull/1128)), with [#1126](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1126), [#1127](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1127) and [#1112](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1112). Docs only. Thomas answered Q2 to Q9 (section 3); Q1 is open (section 4).
 
 ## 1. Purpose (proposed)
 
@@ -55,7 +55,7 @@ flowchart LR
 
 ### Decisions this checks against
 
-- **0041, 0042** say health is read, not stored, and reject "a health table or events kept by the server". Outcome 4 reopens that for the 7-day history; Thomas decides (Q1).
+- **0041, 0042** say health is read, not stored, and reject "a health table or events kept by the server". Outcome 4 and decision 2 reopen that; Q1 settles how.
 - **0003:** Postgres is the broker and the one system to run; snapshots and counters live in it.
 - **CLAUDE.md:** every state change writes its event in the same transaction, so a counter kept on send is written in the send's transaction; every query scoped by `fleet_id`.
 - **0033:** logic runs on the web app's server; the browser renders what it is given.
@@ -64,70 +64,32 @@ flowchart LR
 - **0011:** every candidate is walked on staging (`staging-walk`) before release.
 - **0013:** no compatibility layers; a paged procedure replaces the unpaged one.
 
-## 3. Questions
+## 3. Decisions
 
-Each with numbered options and my pick.
+1. **Storage and messages per day** are counters per fleet and UTC day (messages and payload bytes), added to in the send's transaction. Storage is the sum of the days; the daily message limit counts from the same row.
+2. **Reads are cut per resource and requirement:** one procedure per requirement, answering only what it needs (the stuck count for the sidebar, the stuck history for Health, a page of ships for the overview, one ship's row for live). Each part of a page asks its own and shows its own loading. The cut is per domain; Thomas: "it is per domain . Health is answering a different question than fleet overview is doing, different jobs".
+3. **Live updates** reload only the resource the event concerns: the ship's row for a ship event, the stuck count for a delivery that moves; never the whole fleet snapshot or the full health.
+4. **Every list procedure is paged**, the fleet snapshot included: by cursor on the time-ordered id, newest or oldest first as the list is today, with a page size the caller asks within a maximum. No offset.
+5. **Budgets per read** at the target scale on a production-sized host, checked by the scale tests: p95 under 100 ms, p99 under 500 ms, error rate "< 99%". Thomas: "lets set them and see where we land, we can always adjust. But these are amazon numbers, so might be setting the bar high." Flag: "< 99%" likely means under 1%; orchestrator-1 confirms with Thomas.
+6. **The shared header** reads the account's apps and fleets from a cookie pagasae writes at sign-in and at each token renewal, from its own records, with no core call; an app refuses a link the account can no longer open. Built in pagasae; core is off the header's path.
+7. **Scale tests run on staging**, seeded at the target (10,000,000 messages, 3,000 ships in one fleet), with staging's containers capped to production's size (Thomas: "Ok on your capping the containers"; infra#70). The walker measures the budgets of decision 5 in `staging-walk`, so a candidate that misses them is not released (0011). The walk's own checks run in a fleet of their own beside the seeded one.
+8. **Order:** measure first (decisions 5, 7), then the stuck history (Q1), counters (1), reads cut and live (2, 3), paging (4).
 
-**Q1. The 7 days of stuck per hour: how is history kept?**
-1. A row per fleet and closed hour with its stuck counts by cause, written once when the hour closes; a read replays only the open hour and reads 167 rows.
-2. A snapshot per fleet and UTC day, as Thomas suggested; a read replays today and reads 6 rows.
-3. Keep the replay; cache its answer in core's memory for some seconds.
+## 4. Open: Q1, the 7 days of stuck per hour
 
-Pick 1. The chart is per hour, so a closed hour never changes and is the natural snapshot; a day snapshot still replays up to 24 hours of a busy fleet on every call. A cache hides the cost from the second caller only, and core may run more than one instance. Reopens 0041 and 0042's "no table kept by the server".
+Thomas: "The problem with 1 is that we still redo the calculations every single time of things we already did. 1 snapshot every hour is fine by me, but that snapshot is true for everything previous to that hour. To me a snapshot is the limit after which an index crawler can stop. This is not a new problem, how is this solved in other places? Event driven I believe there would be a health service listening on the broker and keeping that snapshot real time right? Or what are the other patterns?"
 
-**Q2. Storage and messages per day: how are they kept?**
-1. Counters per fleet and UTC day (messages and payload bytes), added to in the send's transaction; storage is the sum of the days, a constant read.
-2. A daily snapshot of yesterday plus a scan of today.
-3. Postgres's own size estimates.
+The hard case for every pattern: stuck is partly time. A pushed lease's clock runs out (`hasClockRunOut`, `NOT_CONFIRMED_MINUTES`) and a delivery becomes stalled in flight with no event written. So a pattern either evaluates the rule (0042) at a moment over stored states and their since, or needs something to write the change.
 
-Pick 1. Exact, constant to read, and written where the message is, as every state change is; the daily message limit can count from the same row. Option 3 is not per fleet.
+| Pattern | How it works here | Stuck by time passing | Cost |
+|---|---|---|---|
+| 1. Projection kept current by a consumer with a checkpoint | A worker in core reads `events` after its checkpoint and keeps a table of each open delivery's state, since and place, plus a row per closed hour. The "health service on the broker"; with Postgres as broker (0003) it polls the event table. | The table holds since and clocks; "stuck now" applies the rule at now, so no event is needed. The hour row is the rule at the hour mark. | Read: constant. A new moving part: checkpoint, lag, and events committed out of id order (a transaction with an earlier id commits later), so the checkpoint trails by a safe margin. Two instances need one owner (a lock). |
+| 2. Hourly cumulative snapshot, replay of the open hour | At each closed hour the 30 second pass (operation 8) writes the snapshot of hour H: the open deliveries with state, since and place, and the stuck counts of that hour, built from the snapshot of H-1 plus hour H's events only. A read takes the latest snapshot and replays the open hour with today's rule. | The snapshot keeps since and clocks; the rule is applied at each hour mark when writing and at now when reading. | Read: one snapshot plus at most an hour of events. Write: one hour of events, once. The snapshot is closed only after a margin past the hour, for late commits; a lock makes two instances write it once. |
+| 3. Postgres materialized view | A view of the 7-day replay, refreshed on a schedule (`REFRESH ... CONCURRENTLY`). | Handled at refresh only; stale between refreshes. | Each refresh replays all 7 days again: Thomas's objection to the old pick, moved off the read path. Stock Postgres has no incremental refresh. |
+| 4. Time-bucketed rollups | Counters per fleet and hour, added to by events (+1 entering stuck, -1 leaving). Fits the additive counts of decision 1. | No event, no counter change: a sweeper must write the transition. Stuck is a gauge (how many at a moment), not a sum, so buckets drift from the rule. | Read: constant. Two rules (the counter's and 0042's) to keep equal. |
 
-**Q3. How are reads cut?**
-1. One procedure per resource and requirement, answering only what that requirement needs: for example the stuck count (sidebar), the stuck history (Health), a page of ships (overview), one ship's row (live). Each part of a page asks its own and shows its own loading.
-2. Keep today's procedures and add a field selection to each.
+**Pick 2.** It is Thomas's snapshot as the limit for the crawler: true for everything before hour H, so nothing before H is read again. The open hour replays with the same rule as today, so "stuck now" and the history count alike (0042's one rule), and stuck by time falls out because the rule reads since and clocks at a moment. It adds no new worker: the 30 second pass already runs per fleet under the restart and multi-instance rules. Pattern 1 gives a constant read but adds a consumer, a checkpoint and the out-of-order commit problem for at most an hour of replay saved; it is the next step if the open hour misses the budget of decision 5 at the target, which staging measures (decision 7). 3 still replays 7 days; 4 cannot see time.
 
-Pick 1. It is what Thomas asked ("split on resource / requirement not on screen"), and a small read is cheap to measure and to give a budget (Q6). Field selection keeps one slow statement behind every caller.
+## 5. Next
 
-**Q4. Live updates: what does an event reload?**
-1. Only the resource the event concerns: the ship's row for a ship event, the stuck count for a delivery that moves; never the whole fleet snapshot or the full health.
-2. Today's reloads, at most once per few seconds per resource.
-
-Pick 1. With Q1 and Q3, the reloaded reads are small; a throttle still replays whole reads at 3,000 ships.
-
-**Q5. Pagination: where and how?**
-1. Every list procedure, the fleet snapshot included, paged by cursor on the time-ordered id, newest or oldest first as the list is today, with a page size the caller asks within a maximum.
-2. Only the lists that grow with history (timeline, messages, inbox, Needs attention, reach refusals); the fleet snapshot unpaged.
-3. Offset and limit.
-
-Pick 1, as Thomas's "standard practice". 3,000 ships with labels and reports is megabytes per load. Offset gets slower deeper in and skips rows under live inserts.
-
-**Q6. What does "fast enough" mean?**
-1. A budget per read at the target scale on a production-sized host, for example p95 under 200 ms, checked by the scale tests.
-2. A budget per page (interactive under 1 s).
-3. No number; each release no slower than the last.
-
-Pick 1. With reads cut per resource (Q3) the read is the unit that fails, and a page budget does not say which read to fix. The number is Thomas's.
-
-**Q7. The shared header: how does it know the account's apps?**
-1. pagasae writes the account's apps and fleets into a cookie at sign-in and at each token renewal, from its own records; the header reads the cookie with no call; an app refuses a link the account can no longer open.
-2. pagasae answers `/api/apps` from its own records, with no core call (pagasae#122), once per page load.
-3. The header asks each app.
-
-Pick 1, as Thomas suggested. pagasae owns organisations, fleets and groups (0051, 0052), so it needs no core call, and the renewal every few minutes keeps it current as the account token is. Built in pagasae; this design states only that core is off the header's path.
-
-**Q8. Where do scale tests run?**
-1. Staging, seeded at the target (10,000,000 messages, 3,000 ships in one fleet), on a host sized as production; the walker measures the budgets of Q6 as part of `staging-walk`, so a candidate that misses them is not released (0011).
-2. A separate acceptance environment, seeded at the target, run per candidate beside the staging walk.
-3. Testcontainers in CI with a seeded database.
-
-Pick 1. Staging already is the acceptance step every candidate passes, on the exact bytes released; a second environment doubles the hosts, seeding and upkeep for the same candidate. CI runners are not production-sized, and seeding 10,000,000 messages per run is slow. The cost: the staging walk's own checks run against a large fleet, so they should run in a fleet of their own beside the seeded one.
-
-**Q9. Order of the work?**
-1. Measure first: the seeded staging and budgets (Q6, Q8), then health history (Q1), counters (Q2), reads cut and live (Q3, Q4), paging (Q5).
-2. Fix the known costs first (Q1, Q2), measure after.
-
-Pick 1. Thomas: "we need to really look into db performance"; without the seeded fleet no slice can show it met its budget.
-
-## 4. Next
-
-Once Thomas agrees the purpose and answers: the decisions, the full flow diagram of a read and of a snapshot being written (happy and unhappy paths, including a restart mid-hour and two core instances closing the same hour), and the slices.
+Once Q1 is answered: the decision records (0041 and 0042 reopened for the stored snapshot and counters), the full flow diagram of a read and of a snapshot being written (happy and unhappy paths, including a restart mid-hour, a late commit, and two core instances closing the same hour), and the slices.
