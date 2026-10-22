@@ -2,6 +2,7 @@ import type { FleetId, IdGenerator, OperatorId, ShipId } from '@aeolus-fleet/com
 
 import type { OperatorAccountRepository } from '../identity/public.js';
 import { recordEvent, SYSTEM, type EventLog } from '../shared/events.js';
+import { hourMarkOf, type HealthSnapshotWriter } from '../shared/health-snapshot.js';
 import type { FleetRepository, ShipRepository } from './ports.js';
 import { operatorShip, viewerShip } from './ship.js';
 
@@ -10,6 +11,7 @@ export interface FoundFleetTx {
   ships: ShipRepository;
   operatorAccounts: OperatorAccountRepository;
   events: EventLog;
+  healthSnapshots: Pick<HealthSnapshotWriter, 'write'>;
 }
 
 export interface FleetFounded {
@@ -23,7 +25,9 @@ export interface FleetFounded {
  * FleetInitialised and ShipCommissioned, in the caller's unit of work. argo
  * gets no secret: the operator's sign-in is the only way to crew it (ADR
  * 0012). With `hasViewer`, the viewer ship comes too, with its own
- * ShipCommissioned (decision 0022). The caller has validated the name and any email.
+ * ShipCommissioned (decision 0022). The fleet's stuck snapshot starts empty at
+ * its creation hour, before its first event, so its first pass closes from
+ * there. The caller has validated the name and any email.
  */
 export async function foundFleet(
   deps: { tx: FoundFleetTx; ids: IdGenerator },
@@ -34,6 +38,7 @@ export async function foundFleet(
 
   const fleetId = ids('fleet');
   await tx.fleets.create({ id: fleetId, name, createdAt: at });
+  await tx.healthSnapshots.write(fleetId, { hours: [{ hour: hourMarkOf(at), stuck: [], acknowledged: [] }], fold: { seq: 0, deliveries: [], turns: [] } });
 
   const argo = operatorShip({ id: ids('ship'), fleetId, createdAt: at });
   await tx.ships.create(argo);

@@ -80,6 +80,8 @@ export function createPrismaFleetRepository(db: Db): FleetRepository {
       await db.$queryRaw`SELECT set_config('aeolus.deleting_fleet', ${fleetId}, true)`;
       // Children first: every foreign key restricts deletes. A message may answer
       // or resend another of the fleet, so those links go before the messages.
+      await db.$executeRaw`DELETE FROM health_snapshot_deliveries WHERE fleet_id = ${fleetId}`;
+      await db.$executeRaw`DELETE FROM health_snapshots WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM events WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM overdue_deliveries WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM deliveries WHERE fleet_id = ${fleetId}`;

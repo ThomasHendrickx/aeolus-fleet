@@ -140,6 +140,8 @@ describe('migrations', () => {
       'fleets',
       'guide_progress',
       'guides',
+      'health_snapshot_deliveries',
+      'health_snapshots',
       'installation_declared_network_rules',
       'installation_requests',
       'installation_settings',

@@ -1,7 +1,9 @@
 import { readsMessage, readsShip, type ReadReachOf } from '../registry/public.js';
 import type { Caller } from './caller.js';
 import type { Clock } from './clock.js';
-import { readHealthOf, type Health, type HealthRecords } from './health.js';
+import { readHealthOf } from './health-read.js';
+import type { HealthSnapshots } from './health-snapshot.js';
+import type { Health, HealthRecords } from './health.js';
 
 export type ReadHealth = (caller: Caller) => Promise<Health>;
 
@@ -13,10 +15,10 @@ export type ReadHealth = (caller: Caller) => Promise<Health>;
  * only behind a ship the caller reads (decision 0034). The caller's
  * scope (fleet:read) is checked before this runs.
  */
-export function createReadHealth(deps: { health: HealthRecords; clock: Clock; readReach: ReadReachOf }): ReadHealth {
+export function createReadHealth(deps: { health: HealthRecords; snapshots: HealthSnapshots; clock: Clock; readReach: ReadReachOf }): ReadHealth {
   return async (caller) => {
     const reach = await deps.readReach(caller);
-    return readHealthOf(deps.health, {
+    return readHealthOf({ records: deps.health, snapshots: deps.snapshots }, {
       fleetId: caller.fleetId,
       now: deps.clock.now(),
       reads: (message) => readsMessage(reach, message),

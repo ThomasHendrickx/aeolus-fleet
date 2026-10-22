@@ -25,6 +25,11 @@ function stuckAt(iso: string): number | undefined {
     ?.stuck.reduce((sum, counted) => sum + counted.count, 0);
 }
 
+/** The fleet as one founded before the stuck snapshot came: no hour of its own yet. */
+function fromBeforeTheSnapshot(): void {
+  scene.core.state.healthSnapshots.length = 0;
+}
+
 /** A message to the planner's type, whose last ship then retires: stuck at the type from its send. */
 async function sendToNoShip(): Promise<void> {
   await scene.send(scene.scout, { to: { kind: 'type', type: 'planner' } });
@@ -33,6 +38,8 @@ async function sendToNoShip(): Promise<void> {
 
 describe('closing the stuck snapshot in the pass', () => {
   it("writes a fleet's first snapshot: the 168 hours up to the last hour mark", async () => {
+    fromBeforeTheSnapshot();
+
     await close();
 
     expect(rows()).toHaveLength(168);
@@ -77,6 +84,7 @@ describe('closing the stuck snapshot in the pass', () => {
   });
 
   it('keeps 168 hours: the oldest goes as a new one is closed', async () => {
+    fromBeforeTheSnapshot();
     await close();
     scene.core.clock.advance(HOUR_MS);
 
@@ -88,10 +96,12 @@ describe('closing the stuck snapshot in the pass', () => {
 
   it('skips a fleet whose snapshot another instance is closing', async () => {
     scene.core.state.healthSnapshotLocks.push(scene.fleetId);
+    scene.core.clock.advance(3 * HOUR_MS);
+    const before = structuredClone(rows());
 
     await close();
 
-    expect(rows()).toEqual([]);
+    expect(rows()).toEqual(before);
   });
 
   it('writes the first snapshot again when the latest hour is over 168 hours old', async () => {

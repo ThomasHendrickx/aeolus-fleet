@@ -2,7 +2,9 @@ import type { FleetId } from '@aeolus-fleet/common';
 
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
-import { readHealthOf, type HealthRecords } from '../shared/health.js';
+import { readHealthOf } from '../shared/health-read.js';
+import type { HealthSnapshots } from '../shared/health-snapshot.js';
+import type { HealthRecords } from '../shared/health.js';
 import { ok, type Result } from '../shared/result.js';
 import { installationFleet, messageWindow, type InstallationFleet } from './installation-fleet.js';
 import type { InstallationFleets, InstallationSettingsRepository } from './ports.js';
@@ -14,6 +16,7 @@ export function createGetInstallationFleet(deps: {
   fleets: InstallationFleets;
   settings: InstallationSettingsRepository;
   health: HealthRecords;
+  snapshots: HealthSnapshots;
   clock: Clock;
 }): GetInstallationFleet {
   return async ({ fleetId }) => {
@@ -22,6 +25,6 @@ export function createGetInstallationFleet(deps: {
     if (!facts) {
       return refuse('FLEET_NOT_FOUND', `The installation hosts no fleet ${fleetId}`);
     }
-    return ok(installationFleet(facts, { now, installation: await deps.settings.read(), health: await readHealthOf(deps.health, { fleetId, now }) }));
+    return ok(installationFleet(facts, { now, installation: await deps.settings.read(), health: await readHealthOf({ records: deps.health, snapshots: deps.snapshots }, { fleetId, now }) }));
   };
 }

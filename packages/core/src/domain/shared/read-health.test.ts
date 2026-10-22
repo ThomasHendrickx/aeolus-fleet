@@ -138,7 +138,12 @@ describe('reading the fleet health', () => {
       await scene.ack(scene.planner, messageId);
     }
 
-    await expect(readHealth()).resolves.toMatchObject({ acknowledged: { count: 3, medianMs: 10 * SECOND_MS } });
+    const { acknowledged } = await readHealth();
+
+    // The median is read from duration buckets under half a percent wide (performance design, decision 10).
+    expect(acknowledged.count).toBe(3);
+    expect(acknowledged.medianMs).toBeGreaterThan(0.995 * 10 * SECOND_MS);
+    expect(acknowledged.medianMs).toBeLessThan(1.005 * 10 * SECOND_MS);
   });
 
   it('counts the deliveries acknowledged in each hour of the last 24, the last one ending now', async () => {
@@ -171,6 +176,8 @@ describe('reading the fleet health from the stuck snapshot', () => {
     await scene.receive(scene.lookout);
     await scene.ack(scene.lookout, acknowledged);
     scene.core.clock.set('2026-10-01T12:00:00.000Z');
+    // As a fleet founded before the snapshot came reads it: replayed.
+    scene.core.state.healthSnapshots.length = 0;
     const replayed = await readHealth();
 
     await closeSnapshot(scene.core);

@@ -1933,6 +1933,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
 
 /** The tables whose rows belong to a fleet by their fleet id: all but the fleets and the installation's requests. */
 const FLEET_TABLES = [
+  'healthSnapshots',
   'ships',
   'leases',
   'credentials',
