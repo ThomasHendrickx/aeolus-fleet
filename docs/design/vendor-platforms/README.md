@@ -1,6 +1,6 @@
 # Aeolus beside vendor agent platforms
 
-Study for [#1021](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1021): its purpose, what each platform is today, Thomas's decisions of 21 Oct 2026 and the slices for 0.30.0. No code.
+Study for [#1021](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1021): its purpose, what each platform is today, Thomas's decisions of 21 and 22 Oct 2026 and the slices for 0.30.0. No code.
 
 Platforms: Microsoft Agent 365 with Copilot Studio, Google Gemini Enterprise, Salesforce Agentforce with MuleSoft Agent Fabric, AWS Bedrock AgentCore. Facts as of 21 Oct 2026, from the sources at the end.
 
@@ -101,7 +101,7 @@ Not the purpose:
 
 ## 6. Decisions
 
-Thomas answered every question on 21 Oct 2026. Each one keeps its context, its options and why the option was chosen.
+Thomas answered V1 to V6 on 21 Oct 2026 and V7 to V9 on 22 Oct 2026. Each one keeps its context, its options and why the option was chosen.
 
 ### V1 What Aeolus is to these platforms (answered: 1)
 
@@ -158,15 +158,43 @@ The gateway's MCP in is built; A2A in is not (#878).
 1. **Tracer bullets first.** Real vendor agents call fleet ships through the gateway, and each gap becomes an issue.
 2. Wait for A2A in and prove the vendor path over A2A first.
 
-**Decided: 1.** A real vendor client shows the sign-in and wait gaps sooner than a design does. It needs outside setup: vendor tenants and test parties (slices VS2 and VS3).
+**Decided: 1.** A real vendor client shows the sign-in and wait gaps sooner than a design does. It needs outside setup (V9) and test parties (V7).
+
+### V7 Where the test parties live (answered: 1)
+
+VS2's mini CRM and machine client are code that needs a home.
+
+1. **The gateway repository, beside its tests.**
+2. A repository of their own.
+
+**Decided: 1.** Thomas: "first 0.30.0 needs to be released."
+
+### V8 A new secret for a vendor agent (answered: 1)
+
+The vendor stores the client id and secret (VS1). A leaked or expired secret needs a new one, and the proxy ship's routes, labels and name must not break.
+
+1. **Release the proxy ship's crew, then crew it again with a new secret.** The ship stays: its id, name, labels and routes are unchanged. The gateway gives the new secret once.
+2. Retire the proxy ship and add the party again: a new ship, so routes and labels are lost.
+
+**Decided: 1.** Thomas: "If you mean ritire the crew, so not the ship then yes. Else the routing breaks." The blueprint's word for ending a crew is release; retire ends the ship.
+
+### V9 Outside setup for testing (answered: 2, narrowed)
+
+Tracer bullets (V6) need accounts that exist outside the repository.
+
+1. Every platform's tenant, the identity providers and a public staging.
+2. **Narrowed:** both Entra tenants, the Google Cloud project, the Okta free org, Copilot Studio as the one vendor, and staging opened to the internet for the gateway and pagasae only.
+3. Mini CRM and machine client only (V7), no vendor.
+
+**Decided: 2.** Thomas: "For now, I will need to see what the cost is." The rest waits on that cost.
 
 ## 7. Slices for 0.30.0
 
-All four slices are the gateway's. VS1 and VS2 need nothing from a vendor. VS3 needs the vendor tenants, and VS4 needs #878's A2A in too.
+All three slices are the gateway's. VS1 and VS2 need nothing from a vendor. VS3 needs the setup of V9.
 
 ### VS1 A client party that signs in with client credentials (V4)
 
-A backbone flow: how an outside party with no human signs in.
+A backbone flow: how an outside party with no human signs in, and gets a new secret (V8).
 
 ```mermaid
 sequenceDiagram
@@ -206,6 +234,17 @@ sequenceDiagram
     C-->>G: stored (OK), or "No rule matches"
     G-->>V: the answer, a handle after MCP_WAIT_MAX_MS, or the refusal
   end
+  Note over Ap,V: a new secret
+  Ap->>C: release the proxy ship's crew (fleet:manage)
+  alt not allowed, or ship retired
+    C-->>Ap: refused, the secret stays
+  else
+    C-->>G: crew released; the party awaits crew
+    Ap->>G: parties.crew
+    G->>C: register as its crew, same proxy ship
+    G-->>Ap: new client secret, answered once; the old one is refused
+  end
+  Note over Ap,V: the admin stores the new secret in the vendor
 ```
 
 Acceptance:
@@ -214,30 +253,24 @@ Acceptance:
 3. Every unhappy path in the diagram answers as drawn, each proven by a test.
 4. A retire (`fleet:manage`) revokes its tokens at once, as for every client party.
 5. Its calls at `/mcp` are its proxy ship's, within its reach, the same as a client party signed in by authorization code.
+6. A new secret (V8): releasing the proxy ship's crew (`fleet:manage`) leaves the party awaiting crew, and `parties.crew` crews the same ship again and answers a new secret once. The ship id, name, labels and routes are unchanged, and the old secret is refused at `/token`. A test proves a message routed to the party before the release is delivered to the same ship after.
 
-### VS2 Test parties (V6)
+### VS2 Test parties (V6, V7)
+
+They live in the gateway repository, beside its tests.
 
 Acceptance:
 1. A mini CRM: an MCP server over Streamable HTTP with contact tools (list, get, create), one slower than `MCP_WAIT_MAX_MS` and one that always fails. It takes a static bearer and OAuth client credentials.
 2. A machine client that gets a token as in VS1 and calls a fleet ship's capability at `/mcp`.
 3. The gateway's tests run MCP out against the mini CRM and VS1 against the machine client.
 
-### VS3 Vendor agents over MCP in (V6)
+### VS3 A vendor agent over MCP in (V6, V9)
+
+Copilot Studio is the one vendor (V9), on staging opened to the internet for the gateway and pagasae.
 
 Acceptance:
 1. A Copilot Studio agent, connected by an admin signed in through pagasae, lists a fleet ship's capabilities and calls one, getting its answer. The slow tool answers a handle.
-2. An AgentCore agent does the same, signed in by client credentials (VS1).
-3. An Agentforce agent does the same.
-4. A gateway guide states how to connect each of the three.
-5. Each gap found is an issue.
-
-### VS4 Vendor registries take a fleet ship's A2A card (V2, V3)
-
-After #878's A2A in.
-
-Acceptance:
-1. An alias's A2A 1.0 card at `/.well-known/agent-card.json` registers in AgentCore's Agent Registry as an AGENT record, in Agent Fabric, and in Gemini Enterprise's Agent Registry.
-2. A vendor agent found through one of them sends a fleet ship a message by A2A and gets its reply.
+2. A gateway guide states how to connect Copilot Studio.
 3. Each gap found is an issue.
 
 ## Sources
