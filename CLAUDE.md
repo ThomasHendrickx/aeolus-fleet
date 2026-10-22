@@ -51,6 +51,7 @@ Load the matching skills from `.claude/skills/` (Codex: `.agents/skills/`) befor
 - `domain-modelling` and `aeolus-fleet-core`: anything under `packages/core/src/domain` or `packages/core/src/adapters`.
 - `typescript`: every `.ts` or `.tsx` change; with `aeolus-fleet-core` under `packages/core` or `packages/common`.
 - `web-frontend` and `aeolus-fleet-console`: anything under `packages/console`.
+- `performance`: designing or building an API, a query, a list or a page that reads data.
 - `code-review`: reviewing a branch, pull request or diff.
 - `pull-request`: writing a pull request body.
 - `writing-for-agents`: editing CLAUDE.md, a skill, or a doc agents read.
