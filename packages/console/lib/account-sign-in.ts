@@ -1,6 +1,7 @@
 import { authorizeUrlOf, codeChallengeOf, cookieValueOf, exchangeSignIn, fleetsOf, randomUrlSafe, redeemCode, revokeSignIn, SHARED_SIGN_IN_COOKIE, type Pagasae } from './pagasae';
 import { sessionCookieOf } from './plugin-call';
 import { returnPathOf } from './return-path';
+import { consoleOriginOf } from './console-origin';
 import { serverInternalUrlFrom } from './server-url';
 import { NO_RIGHTS_PATH, UNREACHABLE_PATH } from './sign-in-paths';
 
@@ -44,18 +45,19 @@ export interface SignInDeps {
   environment: Environment;
 }
 
-function redirectUriOf(request: Request): string {
-  return new URL('/sign-in/done', request.url).toString();
+function redirectUriOf(request: Request, environment: Environment): string {
+  return `${consoleOriginOf(request, environment)}/sign-in/done`;
 }
 
 /** Starts the sign-in: to pagasae's sign-in with a fresh state and PKCE verifier, kept in a short cookie for the way back. */
-export async function startSignIn(request: Request, pagasae: Pagasae): Promise<Response> {
+export async function startSignIn(request: Request, deps: SignInDeps): Promise<Response> {
+  const { pagasae, environment } = deps;
   const state = randomUrlSafe();
   const verifier = randomUrlSafe();
   const returnTo = returnPathOf(new URL(request.url).searchParams.get('returnTo'));
   const flow = Buffer.from(JSON.stringify({ state, verifier, returnTo })).toString('base64url');
   const location = authorizeUrlOf(pagasae, {
-    redirectUri: redirectUriOf(request),
+    redirectUri: redirectUriOf(request, environment),
     state,
     codeChallenge: await codeChallengeOf(verifier),
   });
@@ -89,7 +91,7 @@ function flowOf(request: Request): { state: string; verifier: string; returnTo: 
 
 /** Back from pagasae: the state must be the one this browser started with; the code is redeemed, then the account enters the fleet. */
 export async function finishSignIn(request: Request, deps: SignInDeps): Promise<Response> {
-  const { pagasae } = deps;
+  const { pagasae, environment } = deps;
   const params = new URL(request.url).searchParams;
   const flow = flowOf(request);
   const cleared = consoleCookie(FLOW_COOKIE, {
@@ -106,7 +108,7 @@ export async function finishSignIn(request: Request, deps: SignInDeps): Promise<
       { pagasae },
       {
         code,
-        redirectUri: redirectUriOf(request),
+        redirectUri: redirectUriOf(request, environment),
         codeVerifier: flow.verifier,
       },
     ))
@@ -245,7 +247,7 @@ export async function signOutAccount(request: Request, deps: SignInDeps): Promis
       headers: {
         'content-type': 'application/json',
         cookie: sessionCookieOf(cookies),
-        origin: new URL(request.url).origin,
+        origin: consoleOriginOf(request, environment),
       },
       body: '{}',
       cache: 'no-store',

@@ -175,11 +175,18 @@ describe('installed from npm', () => {
     });
   });
 
+  it("refuses to start the web app without AEOLUS_CONSOLE_URL, the console's public address", async () => {
+    const result = await runBin({ bin: 'aeolus-console', args: ['start'], env: { PORT: new URL(webUrl).port, AEOLUS_SERVER_URL: serverUrl } });
+
+    expect(result.code).toBe(2);
+    expect(result.stderr).toContain('AEOLUS_CONSOLE_URL');
+  });
+
   it('starts the web app with aeolus-console start, and its /health answers the server up', async () => {
     const web = startBin({
       bin: 'aeolus-console',
       args: ['start'],
-      env: { PORT: new URL(webUrl).port, AEOLUS_SERVER_URL: serverUrl },
+      env: { PORT: new URL(webUrl).port, AEOLUS_SERVER_URL: serverUrl, AEOLUS_CONSOLE_URL: webUrl },
     });
 
     await expect
@@ -198,7 +205,7 @@ describe('installed from npm', () => {
     const web = startBin({
       bin: 'aeolus-console',
       args: ['start'],
-      env: { PORT: new URL(internalWebUrl).port, AEOLUS_SERVER_URL: unreachable, AEOLUS_SERVER_INTERNAL_URL: serverUrl },
+      env: { PORT: new URL(internalWebUrl).port, AEOLUS_SERVER_URL: unreachable, AEOLUS_SERVER_INTERNAL_URL: serverUrl, AEOLUS_CONSOLE_URL: internalWebUrl },
     });
 
     await expect

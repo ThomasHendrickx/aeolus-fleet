@@ -21,10 +21,10 @@ The package holds the console already built, as Next.js's standalone output (`.n
 
 ```sh
 npm install @aeolus-fleet/console
-AEOLUS_SERVER_URL=https://fleet.example.com PORT=3000 npx aeolus-console start
+AEOLUS_SERVER_URL=https://fleet.example.com AEOLUS_CONSOLE_URL=https://fleet.example.com PORT=3000 npx aeolus-console start
 ```
 
-`aeolus-console start` runs the standalone server (`.next/standalone/packages/console/server.js`), without Next.js telemetry, until `SIGINT` or `SIGTERM`. An image can copy `.next/standalone` alone and run that `server.js` with `node`, setting `PORT` and `HOSTNAME`. The licence notices of the third-party code and fonts the console ships travel with it, in `.next/standalone/THIRD_PARTY_NOTICES`.
+`aeolus-console start` runs the standalone server (`.next/standalone/packages/console/server.js`), without Next.js telemetry, until `SIGINT` or `SIGTERM`. An image can copy `.next/standalone` alone and run that `server.js` with `node`, setting `PORT`, `HOSTNAME` and `AEOLUS_CONSOLE_URL`. The licence notices of the third-party code and fonts the console ships travel with it, in `.next/standalone/THIRD_PARTY_NOTICES`.
 
 ## Configuration
 
@@ -34,6 +34,7 @@ Environment variables, read when the app runs, never when it is built:
 | --- | --- | --- |
 | `AEOLUS_SERVER_URL` | `http://localhost:4000` | The Aeolus server. The browser calls its `/trpc` there, with credentials, and follows the fleet over a WebSocket to the same path (`ws://` or `wss://`), and the web app's `/health` asks its `/health` (at `AEOLUS_SERVER_INTERNAL_URL` when set), so both must reach it. Behind one host with the server, it is the server's public URL. On another host, the server needs `COOKIE_DOMAIN` and `CONSOLE_ORIGIN` for the console (see the server README) |
 | `AEOLUS_SERVER_INTERNAL_URL` | `AEOLUS_SERVER_URL` | Where the web app's server reaches the server, for its own calls: `/health`, `/version`, the operator's theme and connecting squadrons. Server side only; the browser always uses `AEOLUS_SERVER_URL`. Set it when the public address routes back through a proxy in front of the web app, for example `http://server:4000` inside Compose, so `/health` on web does not loop |
+| `AEOLUS_CONSOLE_URL` | none: required | The console's own public address, such as `https://fleet.example.com`, the same origin as the server's `CONSOLE_ORIGIN`. The web app's server sees only the address it binds, so pagasae's sign-in redirect, the origin the console checks and the one it shows the server come from this. A production start without it, or with no http(s) URL, stops at once and says so; `npm run dev` uses the request's address |
 | `AEOLUS_HOSTED_SIGN_IN_URL` | unset | A hosted console's sign-in, at the hosting service (pagasae for hosted Aeolus). Set, `/sign-in` redirects there at once (with `?notice=signed-in-elsewhere` it shows that notice and links there instead) and no password form is served; the hosting service hands the operator back with a one-time ticket at `/sign-in/ticket?ticket=...`, and a failed hand-off links back here. Unset, the console signs in with a password |
 | `AEOLUS_HOSTED_ACCOUNT_URL` | unset | A hosted operator's account page, where the fleet's limits are listed. Set, the account menu offers Your account, opening it, and the console's limit notices (Commission at the ship limit, the overview and Compose at the daily message limit) and the overview's limit meters link to it with View limits; unset, there is no Your account and no View limits link |
 | `AEOLUS_HOSTED_ANALYTICS_PROVIDER` | unset | The console's usage analytics, for a hosted install (decision 0025): `posthog` is the only provider. Unset, or with the key or host missing, the console sends no analytics at all |

@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { isTimeToRenew } from './lib/account-renewal-schedule';
 import { renewAccountToken, type Renewal } from './lib/account-sign-in';
 import { ACCOUNT_TOKEN_COOKIE, sessionOf, signInUrlFor } from './lib/console-gate';
+import { consoleOriginOf } from './lib/console-origin';
 import { cookieValueOf, pagasaeFrom, SHARED_SIGN_IN_COOKIE } from './lib/pagasae';
 import { serverInternalUrlFrom } from './lib/server-url';
 import { NO_RIGHTS_PATH, NOTHING_TO_MANAGE_PATH, signInEndedPathOf } from './lib/sign-in-paths';
@@ -18,27 +19,29 @@ import { NO_RIGHTS_PATH, NOTHING_TO_MANAGE_PATH, signInEndedPathOf } from './lib
 export async function proxy(request: NextRequest): Promise<NextResponse> {
   const renewal = await renewalOnLoad(request);
   const returnTo = `${request.nextUrl.pathname}${request.nextUrl.search}`;
+  // On the console's public address: behind a proxy, request.url holds the bind address.
+  const pageUrl = new URL(returnTo, consoleOriginOf(request, process.env)).toString();
   if (renewal?.kind === 'ended') {
-    return NextResponse.redirect(new URL(signInEndedPathOf(returnTo), request.url));
+    return NextResponse.redirect(new URL(signInEndedPathOf(returnTo), pageUrl));
   }
   if (renewal?.kind === 'noRights') {
-    return NextResponse.redirect(new URL(NO_RIGHTS_PATH, request.url));
+    return NextResponse.redirect(new URL(NO_RIGHTS_PATH, pageUrl));
   }
   const headers = renewal?.kind === 'renewed' ? withCookies(request.headers, renewal.cookies) : request.headers;
   const session = await sessionOf(new Request(request.url, { headers }), { serverUrl: serverInternalUrlFrom(process.env) });
-  const answer = answerFor(request, { session, hasSharedSignIn: cookieValueOf(headers.get('cookie'), SHARED_SIGN_IN_COOKIE) !== undefined, headers });
+  const answer = answerFor(pageUrl, { session, hasSharedSignIn: cookieValueOf(headers.get('cookie'), SHARED_SIGN_IN_COOKIE) !== undefined, headers });
   for (const cookie of renewal?.kind === 'renewed' ? renewal.cookies : []) {
     answer.headers.append('set-cookie', cookie);
   }
   return answer;
 }
 
-function answerFor(request: NextRequest, { session, hasSharedSignIn, headers }: { session: Awaited<ReturnType<typeof sessionOf>>; hasSharedSignIn: boolean; headers: Headers }): NextResponse {
+function answerFor(pageUrl: string, { session, hasSharedSignIn, headers }: { session: Awaited<ReturnType<typeof sessionOf>>; hasSharedSignIn: boolean; headers: Headers }): NextResponse {
   if (session === 'nothingToManage') {
-    return NextResponse.redirect(new URL(NOTHING_TO_MANAGE_PATH, request.url));
+    return NextResponse.redirect(new URL(NOTHING_TO_MANAGE_PATH, pageUrl));
   }
   if (session === 'ended' || session === 'signedInElsewhere') {
-    return NextResponse.redirect(signInUrlFor(process.env, { requestUrl: request.url, ended: session, hasSharedSignIn }));
+    return NextResponse.redirect(signInUrlFor(process.env, { requestUrl: pageUrl, ended: session, hasSharedSignIn }));
   }
   return NextResponse.next({ request: { headers } });
 }

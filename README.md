@@ -65,7 +65,7 @@ npx aeolus-core migrate
 npx aeolus-core fleet:init --name "my fleet"    # once: prints a link that signs you in as argo
 npx aeolus-core start                           # the API on port 4000
 
-AEOLUS_SERVER_URL=http://localhost:4000 npx aeolus-console start   # the console on port 3000
+AEOLUS_SERVER_URL=http://localhost:4000 AEOLUS_CONSOLE_URL=http://localhost:3000 npx aeolus-console start   # the console on port 3000
 ```
 
 Open http://localhost:3000 and sign in with the operator email and password. Every setting, and running behind a proxy or on two hosts, is in the [core](packages/core/README.md) and [console](packages/console/README.md) READMEs.
