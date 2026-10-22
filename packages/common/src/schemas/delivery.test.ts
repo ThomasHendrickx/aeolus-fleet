@@ -155,10 +155,17 @@ describe('deliveryOutputSchema', () => {
     expect(deliveryOutputSchema.parse(reread)).toEqual(reread);
   });
 
+  it('answers attempts 0 as stored, for a delivery a push receive took with no attempt counted (#1106)', () => {
+    const pushed = { ...reread, attempts: 0 };
+
+    expect(deliveryOutputSchema.parse(pushed)).toEqual(pushed);
+  });
+
   it.each([
     ['no state', { ...reread, state: undefined }],
     ['a state it does not know', { ...reread, state: 'lost' }],
     ['no payload', { ...reread, payload: undefined }],
+    ['negative attempts', { ...reread, attempts: -1 }],
   ])('rejects %s', (_label, candidate) => {
     expect(deliveryOutputSchema.safeParse(candidate).success).toBe(false);
   });
