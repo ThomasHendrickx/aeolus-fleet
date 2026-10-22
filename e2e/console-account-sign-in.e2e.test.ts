@@ -1,6 +1,6 @@
 import type { FleetId, ShipId } from '@aeolus-fleet/common';
 import type { FastifyInstance } from 'fastify';
-import type { Browser, BrowserContext, Page } from 'playwright';
+import type { Browser, BrowserContext, Page, Request } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createPrismaClient, type PrismaClient } from '../packages/core/src/adapters/prisma/client.js';
@@ -116,6 +116,30 @@ describe('an account signing in to the console', () => {
     await page.waitForLoadState('networkidle');
 
     expect(pagasae.appsListsAsked() - asked).toBe(1);
+  });
+
+  it("asks pagasae for the apps list no more when the account comes back to the page's tab", async () => {
+    pagasae.signInAs(mathilde());
+    const page = await newPage();
+    await page.goto('/');
+    await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+    await page.waitForLoadState('networkidle');
+    const asked = pagasae.appsListsAsked();
+    const reads: Request[] = [];
+    page.on('request', (request) => {
+      if (request.url().includes('/api/reads/')) {
+        reads.push(request);
+      }
+    });
+    // The fleet list is read again when the tab comes back: that round is what the test waits for.
+    const listedAgain = page.waitForResponse((response) => response.url().includes('fleet.list'));
+
+    // The page's tab goes to the background and comes back, as switching tabs does.
+    await page.evaluate("for (const state of ['hidden', 'visible']) { Object.defineProperty(document, 'visibilityState', { value: state, configurable: true }); window.dispatchEvent(new Event('visibilitychange')); }");
+    await listedAgain;
+    await Promise.all(reads.map((read) => read.response()));
+
+    expect(pagasae.appsListsAsked()).toBe(asked);
   });
 
   it("pings a crewed ship from its page: argo's ping, the event naming the account", async () => {
