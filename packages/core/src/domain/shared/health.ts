@@ -8,7 +8,7 @@ import { ACKNOWLEDGED_HOURS, STUCK_TREND_HOURS, type FleetId, type ShipId } from
 
 import type { MessageParties } from '../registry/public.js';
 import type { HistoryParty } from './history.js';
-import { stuckAt, stuckPerHour, stuckPlaces, type FleetRecords, type StuckPlaceCount } from './stuck.js';
+import { stuckAt, stuckPerHour, stuckPlaces, type FleetRecords, type StuckDelivery, type StuckPlace, type StuckPlaceCount } from './stuck.js';
 
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -115,8 +115,9 @@ export async function readHealthOf(
   return healthOf({ ...facts, deliveries, machines }, { acknowledged: acknowledgedOf(acknowledged.filter((delivery) => reads(delivery.message)), now), now });
 }
 
-export function healthOf(facts: HealthFacts, read: { acknowledged: Acknowledged; now: Date }): Health {
-  const shown = (place: { kind: 'ship'; shipId: ShipId } | { kind: 'type'; type: string }): ShownStuckPlace => {
+/** The stuck deliveries by cause and place, each ship by name with the machine behind it. */
+export function shownStuck(stuck: readonly StuckDelivery[], facts: Pick<HealthFacts, 'ships' | 'machines'>): StuckPlaceHealth[] {
+  const shown = (place: StuckPlace): ShownStuckPlace => {
     if (place.kind === 'type') {
       return place;
     }
@@ -124,8 +125,12 @@ export function healthOf(facts: HealthFacts, read: { acknowledged: Acknowledged;
     const machine = facts.machines.find((assigned) => assigned.shipId === place.shipId)?.machine ?? null;
     return { kind: 'ship', ship: { id: place.shipId, name }, machine };
   };
+  return stuckPlaces(stuck).map(({ place, ...counted }) => ({ ...counted, place: shown(place) }));
+}
+
+export function healthOf(facts: HealthFacts, read: { acknowledged: Acknowledged; now: Date }): Health {
   return {
-    stuck: stuckPlaces(stuckAt(facts, read.now)).map(({ place, ...counted }) => ({ ...counted, place: shown(place) })),
+    stuck: shownStuck(stuckAt(facts, read.now), facts),
     stuckPerHour: stuckPerHour(facts, read.now),
     acknowledged: read.acknowledged,
   };
