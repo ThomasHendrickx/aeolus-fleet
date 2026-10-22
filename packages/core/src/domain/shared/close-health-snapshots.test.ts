@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { historyScenario, type HistoryScenario } from '../../../test/support/history-scenario.js';
+import { unwrap } from '../../testing/result.js';
 import { createCloseHealthSnapshots, type CloseHealthSnapshots } from './close-health-snapshots.js';
 
 const MINUTE_MS = 60_000;
@@ -24,9 +25,10 @@ function stuckAt(iso: string): number | undefined {
     ?.stuck.reduce((sum, counted) => sum + counted.count, 0);
 }
 
-/** A message to a type no ship has: stuck at the type from its send. */
+/** A message to the planner's type, whose last ship then retires: stuck at the type from its send. */
 async function sendToNoShip(): Promise<void> {
-  await scene.send(scene.scout, { to: { kind: 'type', type: 'mapper' } });
+  await scene.send(scene.scout, { to: { kind: 'type', type: 'planner' } });
+  unwrap(await scene.registry.retireShip(scene.argo, { shipId: scene.planner.shipId }));
 }
 
 describe('closing the stuck snapshot in the pass', () => {

@@ -70,6 +70,20 @@ export interface HealthSnapshots {
   crews(fleetId: FleetId, since: Date): Promise<HealthCrews>;
 }
 
+/** Outbound port in a unit of work: writes the fleet's stuck snapshot, one instance at a time. */
+export interface HealthSnapshotWriter extends HealthSnapshots {
+  /** Takes the fleet's snapshot lock until the unit of work ends; false while another instance holds it. */
+  tryLock(fleetId: FleetId): Promise<boolean>;
+  /** The last event before the first one that occurred after `hour`; the fleet's last event when none did. */
+  seqAt(fleetId: FleetId, hour: Date): Promise<number>;
+  /**
+   * Writes the hours, oldest first, each only where no row holds its hour yet.
+   * When the last one went in, the fold is the latest's and the hours more than
+   * 168 before it go.
+   */
+  write(fleetId: FleetId, snapshot: { hours: readonly HourSnapshot[]; fold: HealthFold }): Promise<void>;
+}
+
 /** The hour mark at or before `at`. */
 export function hourMarkOf(at: Date): Date {
   return new Date(Math.floor(at.getTime() / HOUR_MS) * HOUR_MS);
