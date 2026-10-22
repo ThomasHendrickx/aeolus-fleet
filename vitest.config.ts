@@ -7,6 +7,10 @@ import { configDefaults, defineConfig, type TestProjectInlineConfiguration } fro
 // Workspace packages resolve to their TypeScript source in tests, like in the
 // editor and in typecheck (see customConditions in tsconfig.base.json).
 const conditions = ['@aeolus-fleet/source', 'module', 'node', 'development|production'];
+// Vitest hands the server conditions to Node itself, which knows no `module`
+// condition: with it, Node would load a package's bundler-only build, such as
+// OpenTelemetry's, whose imports name no file extension.
+const nodeConditions = conditions.filter((condition) => condition !== 'module');
 
 /** The console's Storybook, whose every story runs as a test (#303). */
 const storybookConfigDir = fileURLToPath(new URL('packages/console/.storybook', import.meta.url));
@@ -35,7 +39,7 @@ function withGroupOrder(project: TestProjectInlineConfiguration): TestProjectInl
 
 export default defineConfig({
   resolve: { conditions },
-  ssr: { resolve: { conditions } },
+  ssr: { resolve: { conditions: nodeConditions } },
   test: {
     // Half the machine per run, not all of it but one core: the tests start
     // servers, browsers and databases beside their workers, and full runs of

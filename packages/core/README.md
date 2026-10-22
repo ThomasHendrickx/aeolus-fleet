@@ -44,6 +44,27 @@ Environment variables, validated at startup (see `.env.example`):
 
 The browser calls the server's `/trpc` itself, at the address the web app runs with (`AEOLUS_SERVER_URL`, see the web README), so the console may run on another host: set `COOKIE_DOMAIN` and `CONSOLE_ORIGIN` for it. Another service the operator uses beside the console (served by its own server, under the configured cookie domain) checks a console session with `GET /trpc/console.session`, forwarding the browser's `Cookie` header: it answers `{ "fleetId": "flt_...", "expiresAt": "...", "kind": "operator" | "viewer", "scopes": [...] }`, or `UNAUTHORIZED` without a signed-in session; a viewer's scopes are `fleet:read` only, so serve it reads only. Only the cookie counts, never a crew token, and the call moves the session's expiry like any console call. A client that is no browser follows the fleet with `fleet.follow` (`fleet:read`; also `/api/v1/fleet/follow` and the MCP tool `fleet_follow`): `{ "afterSeq": n, "max": 1 to 100, "waitSeconds": 0 to 25 }`, all optional, answers `{ "events": [...], "lastSeq": n }`, the events after `afterSeq` oldest first, in the live stream's shape (never their details). Passing the answered `lastSeq` as the next `afterSeq` misses nothing across reconnects; without `afterSeq` it answers no events and the current `lastSeq`; with `waitSeconds` it waits while none has come and answers as soon as one commits. The console follows the fleet live through the `fleet.events` subscription, over a WebSocket opened on the same `/trpc` path, so a proxy in front must pass the upgrade on (Caddy does by itself). The upgrade carries the session cookie and is refused from any origin but `CONSOLE_ORIGIN`, as a state-changing call is. The ship page reads `fleet.ship`, `fleet.shipTimeline`, `fleet.shipMessages` (`{ "shipId": "shp_..." }`) and `fleet.message` (`{ "messageId": "msg_..." }`), each with `fleet:read`, which includes message payloads; a ship or message of another fleet is `NOT_FOUND`. A timeline and a message list hold the newest 200. A console call refused because the operator signed in somewhere else carries `refusal: "SIGNED_IN_ELSEWHERE"` in its error data, and a rate-limited sign-in carries `retryAt`, when the client may try again.
 
+## Telemetry
+
+The server and the console send traces and metrics over OpenTelemetry (OTLP), switched on only by the standard `OTEL_*` settings. With no OTLP endpoint set, nothing is sent and the OpenTelemetry SDK is never loaded.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | unset | The collector, such as `https://otlp-gateway.example.com/otlp`; traces go to its `/v1/traces` and metrics to its `/v1/metrics`. Set, or with one of the two below set, telemetry is on |
+| `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`, `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` | unset | One signal's full URL, in place of the endpoint above |
+| `OTEL_EXPORTER_OTLP_HEADERS` | unset | Headers for every export, such as `Authorization=Basic <token>` |
+| `OTEL_EXPORTER_OTLP_PROTOCOL` | `http/protobuf` | `http/protobuf`, `http/json` or `grpc` |
+| `OTEL_SERVICE_NAME` | `aeolus-core`, `aeolus-console` | The service the data is sent as |
+| `OTEL_METRIC_EXPORT_INTERVAL` | `60000` | Milliseconds between metric exports |
+| `OTEL_SDK_DISABLED` | `false` | `true` sends nothing, whatever else is set |
+
+Every other `OTEL_*` setting the OpenTelemetry Node SDK reads works as its specification says. What is sent:
+
+- Every HTTP request is a point in the histogram `http.server.request.duration` (seconds) with `http.request.method`, `http.route` (the route template, such as `/trpc/:path`) and `http.response.status_code`; a 5xx adds `error.type`. A tRPC batch is one request for several procedures, so each procedure is measured on its own as well.
+- Every tRPC, REST and MCP call is a server span named by its procedure (`system.ping`, `ship.receive`), and a point in the histogram `rpc.server.call.duration` (seconds) with `rpc.system` (`trpc`), `rpc.method` and `rpc.response.status_code` (`OK` or the refusal code), so p95, p99 and the error rate are read per procedure; a server failure adds `error.type`. Subscriptions are not measured.
+- Every database query is traced under the call that made it (Prisma's instrumentation, with its SQL), and each Prisma operation is a point in `db.client.operation.duration` (seconds) with `db.operation.name`, such as `Ship.findMany` or `$queryRaw`.
+- The console sends Next.js's own spans and a point in `http.server.request.duration` for every request, and each console read as a span and a point in `rpc.server.call.duration`, named `reads.<read>`.
+
 ## Beyond localhost
 
 On localhost, plain http works: browsers treat it as a secure context. On any other host the console session cookie is `Secure`, so over plain http the browser drops it and sign-in fails, and passwords and crew tokens travel in clear text. The server and the console warn at startup when an address they are given is plain http beyond localhost, and the sign-in page says so too. To reach the fleet from other machines:
