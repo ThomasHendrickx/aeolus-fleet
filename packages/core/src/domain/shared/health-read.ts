@@ -30,7 +30,7 @@ export async function readHealthOf(
   }
   const [hours, after, crews] = await Promise.all([
     deps.snapshots.hours(fleetId, new Date(hourMarkOf(now).getTime() - STUCK_TREND_HOURS * HOUR_MS)),
-    deps.snapshots.eventsAfter(fleetId, latest.fold.seq),
+    deps.snapshots.eventsAfter(fleetId, { seq: latest.fold.seq }),
     deps.snapshots.crews(fleetId, latest.hour),
   ]);
   return healthFromSnapshot({ latest, hours, ...after, crews }, { now, reads, readsShip });

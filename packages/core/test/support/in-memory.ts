@@ -186,7 +186,6 @@ export interface InMemoryTx {
   installationRequests: InstallationRequestRepository;
   installationSettings: InstallationSettingsRepository;
   healthSnapshots: HealthSnapshotWriter;
-  health: HealthRecords;
 }
 
 /**
@@ -391,7 +390,6 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
   const healthSnapshots = createInMemoryHealthSnapshots(state, healthRecords);
   const tx: InMemoryTx = {
     healthSnapshots,
-    health: healthRecords,
     fleets: {
       lockInitialisation: () => Promise.resolve(),
       count: () => Promise.resolve(state.fleets.length),

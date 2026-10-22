@@ -10,9 +10,9 @@
 import { deliveryStateSchema, idSchema, stuckCauseSchema, turnStateSchema, type FleetId } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
-import type { HealthFold } from '../../domain/shared/health-fold.js';
+import { foldAt, type HealthFold } from '../../domain/shared/health-fold.js';
 import type { HealthSnapshotWriter, HourSnapshot, StuckCount } from '../../domain/shared/health-snapshot.js';
-import type { DeliveryRecord } from '../../domain/shared/stuck.js';
+import { stateStepOf, type DeliveryRecord, type DeliveryStep } from '../../domain/shared/stuck.js';
 import type { Db } from './client.js';
 import { deliveryRecordOf, deliveryRow, readCrews, recipientOf } from './health.js';
 import { toSequencedEvent } from './rows.js';
@@ -111,8 +111,8 @@ export function createPrismaHealthSnapshots(db: Db): HealthSnapshotWriter {
       return rows.map((row) => ({ hour: row.hour, stuck: row.stuck, acknowledged: row.acknowledged.map(({ message, waits }) => ({ message, waits: new Map(waits) })) }));
     },
 
-    eventsAfter: async (fleetId, seq) => {
-      const events = (await db.event.findMany({ where: { fleetId, seq: { gt: BigInt(seq) } }, orderBy: { seq: 'asc' } })).map(toSequencedEvent);
+    eventsAfter: async (fleetId, { seq, limit }) => {
+      const events = (await db.event.findMany({ where: { fleetId, seq: { gt: BigInt(seq) } }, orderBy: { seq: 'asc' }, ...(limit === undefined ? {} : { take: limit }) })).map(toSequencedEvent);
       const sentIds = events.flatMap((event) => (event.type === 'MessageAccepted' && event.deliveryId !== undefined ? [event.deliveryId] : []));
       const sent = z.array(deliveryRow).parse(
         sentIds.length === 0
@@ -134,14 +134,55 @@ export function createPrismaHealthSnapshots(db: Db): HealthSnapshotWriter {
       return row?.locked ?? false;
     },
 
-    seqAt: async (fleetId, hour) => {
-      const [row] = z.array(z.object({ seq: z.bigint() })).parse(
+    baseAt: async (fleetId, hour) => {
+      const [last] = z.array(z.object({ seq: z.bigint() })).parse(
         await db.$queryRaw`
           SELECT COALESCE(
             (SELECT min(seq) - 1 FROM events WHERE fleet_id = ${fleetId} AND occurred_at > ${hour}),
             (SELECT last_event_seq FROM fleets WHERE id = ${fleetId})) AS seq`,
       );
-      return Number(row?.seq ?? 0);
+      // Sent by then and open now, or with an event after it: what was open
+      // then left since, so its leaving event is after the hour. Two indexed
+      // parts, the open states' partial index and the events by time.
+      const deliveries = z.array(deliveryRow).parse(
+        await db.$queryRaw`
+          SELECT d.id, d.message_id, m.sender_ship_id, d.recipient_ship_id, d.recipient_type, d.claimed_by_ship_id, d.reachable_ship_ids, d.created_at
+          FROM (
+            SELECT id FROM deliveries WHERE fleet_id = ${fleetId} AND state IN ('pending', 'received', 'handed', 'undeliverable') AND created_at <= ${hour}
+            UNION
+            SELECT delivery_id FROM events WHERE fleet_id = ${fleetId} AND occurred_at > ${hour} AND delivery_id IS NOT NULL
+          ) c
+          JOIN deliveries d ON d.fleet_id = ${fleetId} AND d.id = c.id
+          JOIN messages m ON m.fleet_id = d.fleet_id AND m.id = d.message_id
+          WHERE d.created_at <= ${hour}`,
+      );
+      const ids = deliveries.map((delivery) => delivery.id);
+      const steps = new Map<string, DeliveryStep[]>();
+      const events = await db.event.findMany({ where: { fleetId, deliveryId: { in: ids }, occurredAt: { lte: hour } }, orderBy: { seq: 'asc' } });
+      for (const event of events.map(toSequencedEvent)) {
+        const step = stateStepOf(event);
+        if (step !== undefined && event.deliveryId !== undefined) {
+          steps.set(event.deliveryId, [...(steps.get(event.deliveryId) ?? []), step]);
+        }
+      }
+      // A lease's turn then, as the fold reads turns: its last TurnReported by
+      // the hour, looked for back to the lease's start. A lease that never
+      // reported a turn has none, so it is not looked for.
+      const turns = z.array(z.object({ lease_id: idSchema('lease'), turn: turnStateSchema, at: z.date() })).parse(
+        await db.$queryRaw`
+          SELECT l.id AS lease_id, t.turn, t.occurred_at AS at FROM leases l
+          CROSS JOIN LATERAL (
+            SELECT e.details->>'turn' AS turn, e.occurred_at FROM events e
+            WHERE e.fleet_id = l.fleet_id AND e.type = 'TurnReported' AND e.details->>'leaseId' = l.id AND e.occurred_at <= ${hour} AND e.occurred_at >= l.started_at
+            ORDER BY e.occurred_at DESC LIMIT 1
+          ) t
+          WHERE l.fleet_id = ${fleetId} AND l.turn IS NOT NULL AND l.started_at <= ${hour} AND (l.ended_at IS NULL OR l.ended_at > ${hour})`,
+      );
+      const deliveriesThen = deliveries.map((delivery) => deliveryRecordOf(delivery, steps.get(delivery.id) ?? []));
+      return {
+        ...foldAt({ ships: [], leases: [], deliveries: deliveriesThen }, { at: hour, seq: Number(last?.seq ?? 0) }),
+        turns: turns.map((turn) => ({ leaseId: turn.lease_id, turn: { state: turn.turn, at: turn.at } })),
+      };
     },
 
     write: async (fleetId, { hours, fold }) => {

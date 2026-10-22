@@ -5,7 +5,7 @@
 import type { FleetId } from '@aeolus-fleet/common';
 
 import type { SequencedEvent } from '../../src/domain/shared/events.js';
-import type { HealthFold } from '../../src/domain/shared/health-fold.js';
+import { foldAt, type HealthFold } from '../../src/domain/shared/health-fold.js';
 import { hourMarkOf, type HealthSnapshotWriter, type HourSnapshot } from '../../src/domain/shared/health-snapshot.js';
 import type { HealthRecords } from '../../src/domain/shared/health.js';
 import type { DeliveryRecord } from '../../src/domain/shared/stuck.js';
@@ -56,8 +56,10 @@ export function createInMemoryHealthSnapshots(state: InMemoryState, health: Heal
           .filter((row) => row.hour > since)
           .map(({ hour, stuck, acknowledged }) => structuredClone({ hour, stuck, acknowledged })),
       ),
-    eventsAfter: (fleetId, seq) => {
-      const events = numbered(fleetId).filter((event) => event.seq > seq);
+    eventsAfter: (fleetId, { seq, limit }) => {
+      const events = numbered(fleetId)
+        .filter((event) => event.seq > seq)
+        .slice(0, limit);
       return Promise.resolve({ events, sent: sentOf(fleetId, events) });
     },
     crews: async (fleetId, since) => {
@@ -65,10 +67,10 @@ export function createInMemoryHealthSnapshots(state: InMemoryState, health: Heal
       return { ships, leases: leases.map((lease) => ({ ...lease, turns: [] })), machines };
     },
     tryLock: (fleetId) => Promise.resolve(!state.healthSnapshotLocks.includes(fleetId)),
-    seqAt: (fleetId, hour) => {
+    baseAt: async (fleetId, hour) => {
       const events = numbered(fleetId);
       const past = events.find((event) => event.occurredAt > hour);
-      return Promise.resolve(past === undefined ? events.length : past.seq - 1);
+      return foldAt(await health.read(fleetId, hour), { at: hour, seq: past === undefined ? events.length : past.seq - 1 });
     },
     write: (fleetId, { hours, fold }) => {
       const last = hours.at(-1);

@@ -193,12 +193,14 @@ describe("the first snapshot's opening hour", () => {
     const acknowledgedBefore = await sendTo({ kind: 'ship', shipId: planner.shipId });
     unwrap(await core.useCases.receiveDeliveries(planner, {}));
     unwrap(await core.useCases.acknowledgeDelivery(planner, { deliveryId: await deliveryOf(acknowledgedBefore) }));
-    unwrap(await core.useCases.reportTurn(scout, { turn: 'busy', at: new Date('2026-09-29T12:40:00.000Z') }));
+    core.clock.set('2026-09-29T12:40:00.000Z');
+    unwrap(await core.useCases.reportTurn(scout, { turn: 'busy', at: core.clock.now() }));
     const lastBefore = await core.prisma.fleet.findUniqueOrThrow({ where: { id: argo.fleetId } });
     core.clock.set('2026-09-29T13:20:00.000Z');
     unwrap(await core.useCases.acknowledgeDelivery(scout, { deliveryId: await deliveryOf(open) }));
     await sendTo({ kind: 'ship', shipId: planner.shipId });
-    unwrap(await core.useCases.reportTurn(scout, { turn: 'idle', at: new Date('2026-09-29T13:40:00.000Z') }));
+    core.clock.set('2026-09-29T13:40:00.000Z');
+    unwrap(await core.useCases.reportTurn(scout, { turn: 'idle', at: core.clock.now() }));
 
     const base = unwrap(
       await createPrismaSnapshotUnitOfWork(core.prisma).run(async (tx) => ok(await tx.healthSnapshots.baseAt(argo.fleetId, new Date('2026-09-29T13:00:00.000Z')))),

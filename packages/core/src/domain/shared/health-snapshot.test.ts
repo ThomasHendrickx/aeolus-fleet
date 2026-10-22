@@ -2,8 +2,8 @@ import { createIdGenerator, type DeliveryId, type EventType, type LeaseId, type 
 import { describe, expect, it } from 'vitest';
 
 import type { EventDetails, SequencedEvent } from './events.js';
-import { closeHour, firstSnapshot, healthFromSnapshot, hourSnapshotOf, type HealthCrews, type HourSnapshot, type LatestSnapshot } from './health-snapshot.js';
-import { stuckAt, type DeliveryRecord, type FleetRecords, type LeaseRecord, type ShipRecord } from './stuck.js';
+import { closeHour, healthFromSnapshot, hourSnapshotOf, type HealthCrews, type HourSnapshot, type LatestSnapshot } from './health-snapshot.js';
+import type { DeliveryRecord, FleetRecords, LeaseRecord, ShipRecord } from './stuck.js';
 
 const newId = createIdGenerator();
 const HOUR = new Date('2026-10-16T12:00:00.000Z');
@@ -135,33 +135,6 @@ describe('closing the next hour', () => {
 
     // Busy for 50 minutes at the mark: its 60 minute clock runs. Still idle, its 10 minute clock would have run out.
     expect(countOf(closed.hour)).toBe(0);
-  });
-});
-
-describe('the first snapshot', () => {
-  it('counts each of the 168 hours up to the last hour mark as the replay counts them', () => {
-    const lease = aLease(planner, { pushedAt: hoursAfter(-200) });
-    const records: FleetRecords = {
-      ships: [scout, planner, mapper],
-      leases: [lease],
-      deliveries: [
-        aDelivery({ sentAt: hoursAfter(-100) }),
-        aDelivery({ sentAt: hoursAfter(-50), steps: [{ state: 'dismissed', at: hoursAfter(-20), shipId: null, leaseId: null }] }),
-        aDelivery({
-          recipient: { kind: 'type', type: 'planner' },
-          sentAt: hoursAfter(-30),
-          steps: [{ state: 'received', at: hoursAfter(-29), shipId: planner.shipId, leaseId: lease.leaseId }],
-        }),
-      ],
-    };
-
-    const first = firstSnapshot(records, { lastHour: HOUR, seq: 77, acknowledged: [] });
-
-    expect(first.hours).toHaveLength(168);
-    expect(first.hours.at(-1)?.hour).toEqual(HOUR);
-    expect(first.hours.map(countOf)).toEqual(first.hours.map((hour) => stuckAt(records, hour.hour).length));
-    expect(first.hours.map(countOf).at(-1)).toBe(2);
-    expect(first.fold.seq).toBe(77);
   });
 });
 

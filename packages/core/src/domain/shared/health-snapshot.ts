@@ -10,7 +10,7 @@ import { ACKNOWLEDGED_HOURS, STUCK_TREND_HOURS, type FleetId, type ShipId, type 
 
 import type { MessageParties } from '../registry/public.js';
 import type { SequencedEvent } from './events.js';
-import { foldAt, foldHealth, type HealthFold } from './health-fold.js';
+import { foldHealth, type HealthFold } from './health-fold.js';
 import { shownStuck, type AcknowledgedDelivery, type Health, type HealthFacts } from './health.js';
 import { isSamePlace, stuckAt, type DeliveryRecord, type FleetRecords, type LeaseRecord, type ShipRecord, type StuckPlace } from './stuck.js';
 import { medianOfWaits, waitsOf, type WaitBuckets } from './wait-buckets.js';
@@ -64,8 +64,8 @@ export interface HealthSnapshots {
   latest(fleetId: FleetId): Promise<LatestSnapshot | undefined>;
   /** The closed hours after `since`, oldest first. */
   hours(fleetId: FleetId, since: Date): Promise<HourSnapshot[]>;
-  /** The fleet's events after `seq` and the deliveries they sent. */
-  eventsAfter(fleetId: FleetId, seq: number): Promise<EventsAfter>;
+  /** The fleet's events after `seq`, lowest first, at most `limit` of them when given, and the deliveries they sent. */
+  eventsAfter(fleetId: FleetId, after: { seq: number; limit?: number }): Promise<EventsAfter>;
   /** The ships and leases not over before `since`, and the machine behind each ship. */
   crews(fleetId: FleetId, since: Date): Promise<HealthCrews>;
 }
@@ -74,8 +74,13 @@ export interface HealthSnapshots {
 export interface HealthSnapshotWriter extends HealthSnapshots {
   /** Takes the fleet's snapshot lock until the unit of work ends; false while another instance holds it. */
   tryLock(fleetId: FleetId): Promise<boolean>;
-  /** The last event before the first one that occurred after `hour`; the fleet's last event when none did. */
-  seqAt(fleetId: FleetId, hour: Date): Promise<number>;
+  /**
+   * The fold at `hour` for a fleet's first snapshot: the deliveries sent by
+   * then and open then, each at its latest step by then, and each lease at its
+   * latest turn by then, as of the last event before the first one that
+   * occurred after `hour`.
+   */
+  baseAt(fleetId: FleetId, hour: Date): Promise<HealthFold>;
   /**
    * Writes the hours, oldest first, each only where no row holds its hour yet.
    * When the last one went in, the fold is the latest's and the hours more than
@@ -156,18 +161,9 @@ export function closeHour(latest: LatestSnapshot, read: EventsAfter & { crews: H
   return { hour: hourSnapshotOf(recordsOf(read.crews, fold), { hour: mark, acknowledged }), fold };
 }
 
-/**
- * A fleet's first snapshot, replayed from its records as the health read them
- * before (decision 0042): each of the 168 hours up to `lastHour`, with the
- * waits of `acknowledged` in each, and the fold at `lastHour` as of `seq`.
- */
-export function firstSnapshot(records: FleetRecords, read: { lastHour: Date; seq: number; acknowledged: readonly AcknowledgedDelivery[] }): { hours: HourSnapshot[]; fold: HealthFold } {
-  const hours = Array.from({ length: STUCK_TREND_HOURS }, (_unused, index) => {
-    const hour = hoursAfter(read.lastHour, index - STUCK_TREND_HOURS + 1);
-    const from = hoursAfter(hour, -1);
-    return hourSnapshotOf(records, { hour, acknowledged: read.acknowledged.filter(({ acknowledgedAt }) => acknowledgedAt > from && acknowledgedAt <= hour) });
-  });
-  return { hours, fold: foldAt(records, { at: read.lastHour, seq: read.seq }) };
+/** The hour at `hour` of a fold as of then: what was stuck at the mark, with no acknowledged waits. */
+export function openingHourOf(fold: HealthFold, read: { hour: Date; crews: HealthCrews }): HourSnapshot {
+  return hourSnapshotOf(recordsOf(read.crews, fold), { hour: read.hour, acknowledged: [] });
 }
 
 function waitCount(waits: WaitBuckets): number {

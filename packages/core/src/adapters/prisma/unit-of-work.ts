@@ -27,11 +27,9 @@ import type { Notifier } from '../../domain/shared/notifier.js';
 import type { Result } from '../../domain/shared/result.js';
 import type { UnitOfWork } from '../../domain/shared/unit-of-work.js';
 import type { HealthSnapshotWriter } from '../../domain/shared/health-snapshot.js';
-import type { HealthRecords } from '../../domain/shared/health.js';
 import { BULK_TRANSACTION_TIME_MS, type Db, type PrismaClient } from './client.js';
 import { createPrismaNotifier } from './delivery-notices.js';
 import { createPrismaEventLog, type BufferedEventLog } from './event-log.js';
-import { createPrismaHealthRecords } from './health.js';
 import { createPrismaHealthSnapshots } from './health-snapshots.js';
 import {
   createPrismaCallerLookup,
@@ -83,7 +81,6 @@ export interface PrismaTx {
   installationRequests: InstallationRequestRepository;
   installationSettings: InstallationSettingsRepository;
   healthSnapshots: HealthSnapshotWriter;
-  health: HealthRecords;
 }
 
 export function createPrismaTx(db: Db): PrismaTx {
@@ -113,7 +110,6 @@ export function createPrismaTx(db: Db): PrismaTx {
     installationSettings: createPrismaInstallationSettings(db),
     notifier: createPrismaNotifier(db),
     healthSnapshots: createPrismaHealthSnapshots(db),
-    health: createPrismaHealthRecords(db),
   };
 }
 
