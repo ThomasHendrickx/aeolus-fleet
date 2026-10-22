@@ -35,7 +35,8 @@ export function useAppsList() {
   const trpc = useTRPC();
   const session = useQuery(trpc.console.session.queryOptions());
   const isForAccount = session.data !== undefined && isAccountSignIn(session.data.kind);
-  const list = useQuery({ queryKey: APPS_LIST_KEY, queryFn: () => fetchConsoleRead({ read: 'apps-list' }), enabled: isForAccount });
+  // Held for the page's life: each read costs pagasae a core read per fleet (#1117), and the list changes rarely.
+  const list = useQuery({ queryKey: APPS_LIST_KEY, queryFn: () => fetchConsoleRead({ read: 'apps-list' }), enabled: isForAccount, staleTime: Infinity });
   return isForAccount ? (list.data ?? undefined) : undefined;
 }
 
