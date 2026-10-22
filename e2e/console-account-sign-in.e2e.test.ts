@@ -103,6 +103,21 @@ describe('an account signing in to the console', () => {
     expect(pagasae.signInsAsked()).toBe(asked);
   });
 
+  it("asks pagasae for the account's apps list once per page load: the header and the avatar menu share it", async () => {
+    pagasae.signInAs(mathilde());
+    const page = await newPage();
+    await page.goto('/');
+    await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+    await page.waitForLoadState('networkidle');
+    const asked = pagasae.appsListsAsked();
+
+    await page.reload();
+    await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+    await page.waitForLoadState('networkidle');
+
+    expect(pagasae.appsListsAsked() - asked).toBe(1);
+  });
+
   it("pings a crewed ship from its page: argo's ping, the event naming the account", async () => {
     pagasae.signInAs(mathilde());
     const page = await newPage();
