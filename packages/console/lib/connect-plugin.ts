@@ -5,7 +5,9 @@ import type { CommissionedShipKind, Scope, ShipKind, ShipStatus } from '@aeolus-
  * trierarch plugin (decision 0030) or the gateway (decision 0048): the web app's server commissions the
  * plugin's ship, kind plugin, whose commission is its connect (decision
  * 0050), or gives the one it had a new starting prompt, and hands its
- * secret to the plugin, server to server. The secret never leaves the one
+ * secret to the plugin, server to server. An existing plugin ship is granted
+ * the scopes its plugin lists that it lacks, as argo, so a ship commissioned
+ * before its plugin listed a scope gets it from its next connect (#1118). The secret never leaves the one
  * request that carries it; the browser sees only the connection's new state.
  */
 
@@ -44,8 +46,10 @@ export interface PluginConnection {
 export interface ConnectCalls {
   status(): Promise<PluginConnection>;
   connect(handOver: { shipId: string; secret: string }): Promise<PluginConnection>;
-  /** The fleet's ships; a ship out of the caller's read reach shows no kind. */
-  ships(): Promise<{ id: string; name: string; type: string; kind?: ShipKind; status: ShipStatus }[]>;
+  /** The fleet's ships; a ship out of the caller's read reach shows no kind and no scopes. */
+  ships(): Promise<{ id: string; name: string; type: string; kind?: ShipKind; status: ShipStatus; scopes?: readonly string[] }[]>;
+  /** Grants a ship scopes, writing ScopesChanged; answers every scope it holds now. */
+  grantScopes(shipId: string, grant: readonly Scope[]): Promise<{ scopes: readonly string[] }>;
   commission(ship: { name: string; type: string; kind?: CommissionedShipKind; scopes: Scope[]; idempotencyKey: string }): Promise<{ shipId: string; secret: string | null }>;
   release(shipId: string): Promise<void>;
   startingPrompt(shipId: string): Promise<{ secret: string }>;
@@ -63,15 +67,22 @@ export class ConnectPluginError extends Error {
  * plugin's scopes, which reads every ship by its kind from its first call
  * (decision 0050). A crewed one is released first (its session is gone: the
  * plugin holds no token), and an existing one gets a new starting prompt, so
- * a connect that failed halfway is finished by the next one.
+ * a connect that failed halfway is finished by the next one. An existing
+ * one, and the one it is connected as already, is first granted every scope
+ * the plugin lists that it lacks.
  */
 export async function connectPlugin(calls: ConnectCalls, at: { ship: PluginShip; newKey: () => string }): Promise<PluginConnection> {
   const { ship: wanted, newKey } = at;
   const status = await calls.status();
+  const ships = await calls.ships();
   if (status.state === 'connected') {
+    const connected = ships.find((ship) => ship.id === status.ship?.shipId);
+    if (connected) {
+      await grantMissingScopes(calls, { ship: connected, wanted });
+    }
     return status;
   }
-  const active = (await calls.ships()).filter((ship) => ship.status !== 'retired');
+  const active = ships.filter((ship) => ship.status !== 'retired');
   const last = active.find((ship) => ship.id === status.lastShipId);
   const named = active.find((ship) => ship.name === wanted.name);
   if (!last && named && named.type !== wanted.type) {
@@ -88,6 +99,7 @@ export async function connectPlugin(calls: ConnectCalls, at: { ship: PluginShip;
     if (ship.status === 'crewed') {
       await calls.release(ship.id);
     }
+    await grantMissingScopes(calls, { ship, wanted });
     shipId = ship.id;
     secret = (await calls.startingPrompt(ship.id)).secret;
   } else {
@@ -96,4 +108,12 @@ export async function connectPlugin(calls: ConnectCalls, at: { ship: PluginShip;
     secret = commissioned.secret ?? (await calls.startingPrompt(commissioned.shipId)).secret;
   }
   return calls.connect({ shipId, secret });
+}
+
+async function grantMissingScopes(calls: ConnectCalls, at: { ship: { id: string; scopes?: readonly string[] }; wanted: PluginShip }): Promise<void> {
+  const held = at.ship.scopes ?? [];
+  const missing = at.wanted.scopes.filter((scope) => !held.includes(scope));
+  if (missing.length > 0) {
+    await calls.grantScopes(at.ship.id, missing);
+  }
 }
