@@ -7,6 +7,7 @@ import type { ReactNode } from 'react';
 import { Avatar } from '@aeolus-fleet/common/header';
 import { Badge } from '../atoms/badge';
 import { SOURCE_URL } from '../../lib/source';
+import { NavLinkIcon } from '../molecules/nav-link-icon';
 
 /** The console's destinations so far. */
 export type SidebarDestination = 'overview' | 'needs-crew' | 'squadrons' | 'trierarchs' | 'inbox' | 'health' | 'network' | 'settings';
@@ -52,7 +53,7 @@ function NavItem({
 }) {
   return (
     <Link href={href} aria-current={isActive ? 'page' : undefined} data-testid={testId} className={ITEM}>
-      {icon}
+      <NavLinkIcon icon={icon} />
       <span className="grow max-lg:sr-only">{label}</span>
       {count}
     </Link>
