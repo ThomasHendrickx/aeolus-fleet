@@ -28,7 +28,7 @@ export function useFleetSnapshot() {
   return useQuery({
     queryKey: trpc.fleet.list.queryKey(),
     queryFn: async () =>
-      dataOf(await everyPage(async (cursor) => ({ kind: 'answered', data: await client.fleet.list.query({ cursor, limit: PAGE_SIZE_MAX }) }))),
+      dataOf(await everyPage(async (cursor: string | undefined) => ({ kind: 'answered', data: await client.fleet.list.query({ cursor, limit: PAGE_SIZE_MAX }) }))),
     refetchInterval: LAST_SEEN_REFRESH_MS,
     select: (ships) => ships.filter(isInReadReach),
   });
