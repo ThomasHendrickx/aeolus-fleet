@@ -188,7 +188,7 @@ describe('an account signed in by its token cookie', () => {
     await expect(asBrowser(await signedInCookie()).console.account.query()).resolves.toEqual({ kind: 'account', accountId: 'acc-mathilde' });
   });
 
-  it("reads what fleet:read reads in the console: the fleet, a ship, its timeline, messages and way, needs attention, health, limits and argo's inbox", async () => {
+  it("reads what fleet:read reads in the console: the fleet, a ship, its timeline, messages and way, needs attention, health, limits, argo's inbox and how many of its messages are open", async () => {
     const fleet = asBrowser(await signedInCookie()).fleet;
 
     await expect(fleet.list.query({})).resolves.toEqual(expect.arrayContaining([expect.objectContaining({ name: 'scout' })]));
@@ -202,7 +202,7 @@ describe('an account signed in by its token cookie', () => {
     await expect(fleet.needsAttention.query({})).resolves.toBeDefined();
     await expect(fleet.health.query()).resolves.toBeDefined();
     await expect(fleet.limits.query()).resolves.toBeDefined();
-    await expect(fleet.inbox.query({ filter: 'all' }).then(({ items }) => items)).resolves.toMatchObject([{ message: { id: toArgo } }]);
+    await expect(fleet.inbox.query({ filter: 'all' }).then(({ items }) => items)).resolves.toMatchObject([{ message: { id: toArgo } }]);    await expect(fleet.inboxCount.query()).resolves.toEqual({ open: 1 });
   });
 
   it("reads the notices for everyone and for accounts, and dismisses one for the account alone, kept by its id (accounts design, A9)", async () => {

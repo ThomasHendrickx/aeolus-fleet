@@ -1,8 +1,8 @@
-import { createIdGenerator, idSchema, type DeliveryId, type MessageId } from '@aeolus-fleet/common';
+import { accountIdSchema, createIdGenerator, idSchema, type DeliveryId, type MessageId, type FleetScope } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createMarkDone } from '../src/domain/messaging/mark-done.js';
-import { isCrew, type ShipCaller, type Crew } from '../src/domain/shared/caller.js';
+import { isCrew, type AccountCaller, type ShipCaller, type Crew } from '../src/domain/shared/caller.js';
 import { OPERATOR, operatorCaller, secretOf, modelOf } from './support/core-fixtures.js';
 import { createPostgresCore, racingUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from '../src/testing/result.js';
@@ -91,6 +91,50 @@ describe("argo's inbox on Postgres", () => {
       [[newest.deliveryId, middle.deliveryId], middle.deliveryId],
       [[oldest.deliveryId], null],
     ]);
+  });
+
+  it('counts the open messages to argo, not those done', async () => {
+    await toArgo('one');
+    const done = await toArgo('two');
+    unwrap(await core.useCases.markDone(argo, { deliveryId: done.deliveryId }));
+    await toArgo('three');
+
+    await expect(core.useCases.countOpenInbox(argo)).resolves.toEqual({ open: 2 });
+  });
+
+  it('counts for an account only the open messages to argo whose sender its read reach reads', async () => {
+    const crewed = async (name: string, scopes: FleetScope[]): Promise<Crew> => {
+      const { shipId, secret } = unwrap(await core.useCases.commissionShip(operator, { idempotencyKey: newKey(), name, type: name, scopes }));
+      const { crewToken } = unwrap(await core.useCases.claimShip({ shipId, secret: secretOf(secret), location: { kind: 'DEVICE' }, harness: 'claude-code' }));
+      return unwrap(await core.useCases.authenticate.byCrewToken(crewToken));
+    };
+    const networking = await crewed('networking', ['fleet:network']);
+    const tester = await crewed('tester', []);
+    const group = unwrap(await core.useCases.defineLabel(operator, { key: 'group', values: ['a', 'b'] }));
+    const [a, b] = group.values.map((value) => value.id);
+    if (a === undefined || b === undefined) {
+      throw new Error('the group label has no values a and b');
+    }
+    unwrap(await core.useCases.assignLabel(operator, { shipId: captain.shipId, valueId: a }));
+    unwrap(await core.useCases.assignLabel(operator, { shipId: tester.shipId, valueId: b }));
+    const { savedAgainstVersion } = unwrap(
+      await core.useCases.saveNetworkRulesDraft(networking, { rules: [{ verb: 'read', from: [a], to: [a] }, { verb: 'send', from: [], to: [] }, { verb: 'manage', from: [], to: [] }] }),
+    );
+    unwrap(await core.useCases.applyNetworkRules(networking, { version: savedAgainstVersion }));
+    const mathilde: AccountCaller = {
+      kind: 'account',
+      accountId: accountIdSchema.parse('acc-mathilde'),
+      fleetId: operator.fleetId,
+      scopes: ['fleet:read'],
+      groupValues: ['a'],
+      personShipId: null,
+      throughShipId: null,
+    };
+    await toArgo('from captain');
+    await toArgo('again from captain');
+    unwrap(await core.useCases.sendMessage(tester, { ...modelOf(tester), selector: { kind: 'ship', shipId: argo.shipId }, payload: 'from tester', idempotencyKey: newKey() }));
+
+    await expect(core.useCases.countOpenInbox(mathilde)).resolves.toEqual({ open: 2 });
   });
 
   it('marks a message unread again, keeping the first read until then', async () => {

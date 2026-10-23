@@ -5,6 +5,7 @@ import { PAYLOAD_MAX_BYTES } from './message.js';
 import {
   INBOX_FILTERS,
   inboxActionOutputSchema,
+  inboxCountOutputSchema,
   markDoneInputSchema,
   markReadInputSchema,
   operatorInboxInputSchema,
@@ -149,5 +150,11 @@ describe('inboxActionOutputSchema', () => {
   it('answers nothing: the OK is the answer to mark read and mark done', () => {
     expect(inboxActionOutputSchema.safeParse({}).success).toBe(true);
     expect(inboxActionOutputSchema.safeParse({ readAt: AT }).success).toBe(false);
+  });
+});
+
+describe('inboxCountOutputSchema', () => {
+  it('answers how many messages are open, a whole number from none up', () => {
+    expect([0, 12, -1, 1.5].map((open) => inboxCountOutputSchema.safeParse({ open }).success)).toEqual([true, true, false, false]);
   });
 });
