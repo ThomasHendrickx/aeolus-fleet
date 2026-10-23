@@ -1,4 +1,4 @@
-import { fleetListOutputSchema, type InboxMessage, isInReadReach, type MessageId, messageOutputSchema, operatorInboxOutputSchema } from '@aeolus-fleet/common';
+import { type DeliveryId, fleetListOutputSchema, type InboxMessage, isInReadReach, type MessageId, messageOutputSchema, operatorInboxOutputSchema, PAGE_SIZE_MAX } from '@aeolus-fleet/common';
 import { cookies } from 'next/headers';
 import type { z } from 'zod';
 
@@ -23,9 +23,19 @@ export async function callFleet<T>(procedure: string, request: { input?: unknown
   return callPlugin({ plugin: FLEET, url: serverInternalUrlFrom(process.env), procedure, cookie, ...request });
 }
 
-/** argo's whole inbox, every message with argo's replies to it. */
-export function readArgoInbox(): Promise<PluginAnswer<InboxMessage[]>> {
-  return callFleet('fleet.inbox', { input: { filter: 'all' }, answers: operatorInboxOutputSchema });
+/** argo's whole inbox, every message with argo's replies to it, read page by page to the end. */
+export async function readArgoInbox(): Promise<PluginAnswer<InboxMessage[]>> {
+  const messages: InboxMessage[] = [];
+  let cursor: DeliveryId | undefined;
+  do {
+    const page = await callFleet('fleet.inbox', { input: { filter: 'all', cursor, limit: PAGE_SIZE_MAX }, answers: operatorInboxOutputSchema });
+    if (page.kind !== 'answered') {
+      return page;
+    }
+    messages.push(...page.data.items);
+    cursor = page.data.nextCursor ?? undefined;
+  } while (cursor !== undefined);
+  return { kind: 'answered', data: messages };
 }
 
 /** The fleet's ships argo reads whole: every one (decision 0034). */

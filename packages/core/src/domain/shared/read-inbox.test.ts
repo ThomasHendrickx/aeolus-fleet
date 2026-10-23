@@ -173,7 +173,7 @@ describe("reading argo's inbox", () => {
   it("knows nothing of another fleet's inbox", async () => {
     await toArgo(captain, 'Promote?');
 
-    await expect(history.readInbox({ ...argo, fleetId: core.ids('fleet') }, { filter: 'all' })).resolves.toEqual([]);
+    await expect(history.readInbox({ ...argo, fleetId: core.ids('fleet') }, { filter: 'all' })).resolves.toEqual({ items: [], nextCursor: null });
   });
 });
 

@@ -284,16 +284,22 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
       );
     },
 
-    inbox: async (fleetId, { shipId, filter }) => {
-      const rows = await db.delivery.findMany({
-        where: {
-          fleetId,
-          recipientShipId: shipId,
-          state: { in: DELIVERY_STATES.filter((state) => isKeptBy(filter, state)) },
-        },
-        select: { id: true, state: true, readAt: true, message: true },
-        orderBy: [{ message: { createdAt: 'desc' } }, { messageId: 'desc' }],
-      });
+    inbox: async (fleetId, { shipId, filter, cursor, limit }) => {
+      const page = pageOf(
+        await db.delivery.findMany({
+          where: {
+            fleetId,
+            recipientShipId: shipId,
+            state: { in: DELIVERY_STATES.filter((state) => isKeptBy(filter, state)) },
+            ...(cursor === undefined ? {} : { id: { lt: cursor } }),
+          },
+          select: { id: true, state: true, readAt: true, message: true },
+          orderBy: { id: 'desc' },
+          take: limit + 1,
+        }),
+        { limit, cursorOf: (row) => idSchema('delivery').parse(row.id) },
+      );
+      const rows = page.items;
       // When each was done, and by which reply: its last DeliveryAcknowledged.
       const acknowledged = new Map(
         (
@@ -314,7 +320,7 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
           orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
         })
       ).map(toMessage);
-      return found.map(({ row, message }) => {
+      const items = found.map(({ row, message }) => {
         const deliveryId = idSchema('delivery').parse(row.id);
         const done = acknowledged.get(deliveryId);
         const reply = done?.details.reply;
@@ -338,6 +344,7 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
           },
         };
       });
+      return { items, nextCursor: page.nextCursor };
     },
 
     needsAttention: async (fleetId, { shipId, cursor, limit }) => {

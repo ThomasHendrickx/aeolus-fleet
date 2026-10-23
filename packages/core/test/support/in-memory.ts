@@ -1727,7 +1727,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
             }),
         ),
       ),
-    inbox: (fleetId, { shipId, filter }) =>
+    inbox: (fleetId, { shipId, filter, cursor, limit }) =>
       Promise.resolve(
         state.deliveries
           .filter(
@@ -1735,13 +1735,15 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
               delivery.fleetId === fleetId &&
               delivery.recipient.kind === 'ship' &&
               delivery.recipient.shipId === shipId &&
-              isKeptBy(filter, delivery.state),
+              isKeptBy(filter, delivery.state) &&
+              (cursor === undefined || delivery.id < cursor),
           )
           .flatMap((delivery) => {
             const message = messageOf(fleetId, delivery.messageId);
             return message ? [{ delivery, message }] : [];
           })
-          .sort((first, second) => newestFirst(first.message, second.message))
+          .sort((first, second) => second.delivery.id.localeCompare(first.delivery.id))
+          .slice(0, limit + 1)
           .map(({ delivery, message }) => {
             const acknowledged = numbered(fleetId).findLast(
               (event) => event.deliveryId === delivery.id && event.type === 'DeliveryAcknowledged',
@@ -1761,7 +1763,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
               message: { id, sender, inReplyTo, sentAt, contentType, model, payload },
             };
           }),
-      ),
+      ).then((rows) => pageOf(rows, { limit, cursorOf: (entry) => entry.deliveryId })),
     needsAttention: (fleetId, { shipId, cursor, limit }) => {
       const events = numbered(fleetId);
       const sinceOf = (deliveryId: DeliveryId) =>

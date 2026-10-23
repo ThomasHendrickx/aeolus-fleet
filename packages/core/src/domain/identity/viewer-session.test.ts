@@ -165,10 +165,10 @@ describe('what a viewer session reads', () => {
     unwrap(await messagingUseCases(core).sendMessage(scout, { ...modelOf(scout), selector: { kind: 'ship', shipId: argoId }, payload: 'Run 71 passed', idempotencyKey: newKey() }));
     const viewer = await viewing();
 
-    const seen = await historyUseCases(core).readInbox(viewer.caller, { filter: 'all' });
+    const seen = (await historyUseCases(core).readInbox(viewer.caller, { filter: 'all' })).items;
 
     expect(seen.map((entry) => entry.message.payload)).toEqual(['Run 71 passed']);
-    expect(seen).toEqual(await historyUseCases(core).readInbox(operator.caller, { filter: 'all' }));
+    expect(seen).toEqual((await historyUseCases(core).readInbox(operator.caller, { filter: 'all' })).items);
   });
 
   it('shows the viewer ship last seen when its most recent viewer session was used, with no device', async () => {

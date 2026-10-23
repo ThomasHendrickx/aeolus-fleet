@@ -4,6 +4,7 @@ import { deliveryStateSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
 import { partySchema } from './history.js';
 import { contentTypeSchema, sendInputSchema } from './message.js';
+import { pageInputOf, pageOutputOf } from './page.js';
 
 /**
  * Inputs and outputs of the operator inbox (docs/blueprint.md, "Inbox"): the
@@ -19,8 +20,8 @@ export const INBOX_FILTERS = ['open', 'done', 'all'] as const;
 export const inboxFilterSchema = z.enum(INBOX_FILTERS);
 export type InboxFilter = z.infer<typeof inboxFilterSchema>;
 
-/** Input of `fleet.inbox`. */
-export const operatorInboxInputSchema = z.object({ filter: inboxFilterSchema });
+/** Input of `fleet.inbox`: the filter, and the cursor and size of a page. */
+export const operatorInboxInputSchema = z.object({ filter: inboxFilterSchema, ...pageInputOf(idSchema('delivery')).shape });
 
 /** One message to argo: its delivery's state, when it was read and done, the reply that made it done, argo's replies to it, and the message. */
 export const inboxMessageSchema = z.object({
@@ -48,8 +49,8 @@ export const inboxMessageSchema = z.object({
 
 export type InboxMessage = z.infer<typeof inboxMessageSchema>;
 
-/** Output of `fleet.inbox`: the messages to argo the filter keeps, newest first. */
-export const operatorInboxOutputSchema = z.array(inboxMessageSchema);
+/** Output of `fleet.inbox`: a page of the messages to argo the filter keeps, newest first. */
+export const operatorInboxOutputSchema = pageOutputOf(inboxMessageSchema, idSchema('delivery'));
 
 /** Input of `fleet.markRead`: a delivery to argo, read or unread again. */
 export const markReadInputSchema = z.object({ deliveryId: idSchema('delivery'), isRead: z.boolean() });

@@ -1,13 +1,14 @@
-import type { InboxFilter } from '@aeolus-fleet/common';
+import { PAGE_SIZE_DEFAULT, type DeliveryId, type InboxFilter } from '@aeolus-fleet/common';
 
 import { readsMessage, type ReadReachOf, type ShipRepository } from '../registry/public.js';
 import { isShipCaller, type Caller } from './caller.js';
 import type { InboxEntry, ShipHistory } from './history.js';
+import type { Page } from './page.js';
 
-export type ReadInbox = (caller: Caller, input: { filter: InboxFilter }) => Promise<InboxEntry[]>;
+export type ReadInbox = (caller: Caller, input: { filter: InboxFilter; cursor?: DeliveryId; limit?: number }) => Promise<Page<InboxEntry, DeliveryId>>;
 
 /**
- * Use case: the caller's own inbox, for the operator inbox of argo
+ * Use case: a page of the caller's own inbox, for the operator inbox of argo
  * (docs/blueprint.md, "Inbox"): the messages addressed to it that the filter
  * keeps (open, done or all), newest first, each with when it was read, when
  * and by which reply it was done, and its whole payload. Messages to its type
@@ -19,15 +20,18 @@ export type ReadInbox = (caller: Caller, input: { filter: InboxFilter }) => Prom
  * argo's. The caller's scope (fleet:read) is checked before this runs.
  */
 export function createReadInbox(deps: { history: ShipHistory; ships: Pick<ShipRepository, 'findOperatorShip'>; readReach: ReadReachOf }): ReadInbox {
-  return async (caller, { filter }) => {
+  return async (caller, { filter, cursor, limit = PAGE_SIZE_DEFAULT }) => {
     if (isShipCaller(caller) && caller.kind !== 'viewer') {
-      return deps.history.inbox(caller.fleetId, { shipId: caller.shipId, filter });
+      return deps.history.inbox(caller.fleetId, { shipId: caller.shipId, filter, cursor, limit });
     }
     const argo = await deps.ships.findOperatorShip(caller.fleetId);
     if (!argo) {
-      return [];
+      return { items: [], nextCursor: null };
     }
-    const [inbox, reach] = await Promise.all([deps.history.inbox(caller.fleetId, { shipId: argo.id, filter }), deps.readReach(caller)]);
-    return inbox.filter((entry) => readsMessage(reach, { senderId: entry.message.sender.id, recipient: { kind: 'ship', shipId: argo.id }, claimedBy: null }));
+    const [inbox, reach] = await Promise.all([deps.history.inbox(caller.fleetId, { shipId: argo.id, filter, cursor, limit }), deps.readReach(caller)]);
+    return {
+      items: inbox.items.filter((entry) => readsMessage(reach, { senderId: entry.message.sender.id, recipient: { kind: 'ship', shipId: argo.id }, claimedBy: null })),
+      nextCursor: inbox.nextCursor,
+    };
   };
 }

@@ -886,19 +886,23 @@ export const fleetRouter = router({
     .output(resendDeliveryOutputSchema)
     .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.resendDelivery(ctx.caller, input))),
 
-  /** The caller's inbox, argo's for the console: the messages to it the filter keeps, newest first. */
+  /** A page of the caller's inbox, argo's for the console: the messages to it the filter keeps, newest first. */
   inbox: actorScopedProcedure('fleet:read')
     .input(operatorInboxInputSchema)
     .output(operatorInboxOutputSchema)
-    .query(async ({ ctx, input }) =>
-      (await ctx.useCases.readInbox(ctx.caller, input)).map((entry) => ({
-        ...entry,
-        readAt: entry.readAt?.toISOString() ?? null,
-        doneAt: entry.doneAt?.toISOString() ?? null,
-        replies: entry.replies.map((reply) => ({ ...reply, sentAt: reply.sentAt.toISOString() })),
-        message: { ...entry.message, sentAt: entry.message.sentAt.toISOString() },
-      })),
-    ),
+    .query(async ({ ctx, input }) => {
+      const { items, nextCursor } = await ctx.useCases.readInbox(ctx.caller, input);
+      return {
+        items: items.map((entry) => ({
+          ...entry,
+          readAt: entry.readAt?.toISOString() ?? null,
+          doneAt: entry.doneAt?.toISOString() ?? null,
+          replies: entry.replies.map((reply) => ({ ...reply, sentAt: reply.sentAt.toISOString() })),
+          message: { ...entry.message, sentAt: entry.message.sentAt.toISOString() },
+        })),
+        nextCursor,
+      };
+    }),
 
   /** Marks a message to argo read, as opening it does, or unread again. Read is not done. */
   markRead: scopedCrewCallerProcedure('messages:receive')

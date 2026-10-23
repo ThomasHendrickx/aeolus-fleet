@@ -76,7 +76,7 @@ describe("argo's inbox on Postgres", () => {
     await expect(core.useCases.readInbox(argo, { filter: 'done' }).then(({ items }) => items)).resolves.toEqual([all[1]]);
   });
 
-  it('pages the messages to argo newest first, each page after the last page's cursor, keeping to the filter', async () => {
+  it("pages the messages to argo newest first, each page after the last page's cursor, keeping to the filter", async () => {
     const oldest = await toArgo('one');
     const done = await toArgo('two');
     unwrap(await core.useCases.markDone(argo, { deliveryId: done.deliveryId }));

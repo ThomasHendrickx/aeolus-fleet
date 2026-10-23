@@ -243,8 +243,8 @@ export interface ShipHistory {
   needsAttention(fleetId: FleetId, query: { shipId?: ShipId } & PageQuery<DeliveryId>): Promise<Page<NeedsAttentionEntry, DeliveryId>>;
   /** What the ship's side of the way is read from: the open lease of the session crewing it and what waits for it. */
   shipWay(fleetId: FleetId, shipId: ShipId): Promise<ShipWayRead | undefined>;
-  /** The messages addressed to the ship itself that the filter keeps, newest first. */
-  inbox(fleetId: FleetId, query: { shipId: ShipId; filter: InboxFilter }): Promise<InboxEntry[]>;
+  /** A page of the messages addressed to the ship itself that the filter keeps, newest first by delivery, after the delivery the cursor names. */
+  inbox(fleetId: FleetId, query: { shipId: ShipId; filter: InboxFilter } & PageQuery<DeliveryId>): Promise<Page<InboxEntry, DeliveryId>>;
   /** Each message's parties as read reach sees them, by id; a message the fleet does not have is left out. */
   messageParties(fleetId: FleetId, messageIds: readonly MessageId[]): Promise<ReadonlyMap<MessageId, MessageParties>>;
 }
