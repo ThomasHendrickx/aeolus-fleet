@@ -293,7 +293,7 @@ export function createUseCases(options: {
   clock?: Clock;
   ids?: IdGenerator;
   wakeups?: ReceiverWakeups;
-  /** Wake a waiting follow; without them a follow ends only at its wait. */
+  /** Wake a waiting follow and an inbox check with a known count; without them both end only at their wait. */
   fleetEventWakeups?: FleetEventWakeups;
   /** How long a receive waits on an empty inbox; about 25 seconds unless a test says otherwise. */
   receiveWaitMs?: number;
@@ -309,6 +309,7 @@ export function createUseCases(options: {
   const bulkUow = createPrismaBulkUnitOfWork(prisma);
   const secrets = { hasher: sha256Hasher, random: cryptoRandomTokens };
   const wakeups = options.wakeups ?? createReceiverWakeups();
+  const fleetNews = options.fleetEventWakeups ?? fleetEventWakeupsOf(createFleetEventWakeups());
   const notices = createPrismaNoticeRepository(prisma);
   const dismissals = createPrismaNoticeDismissals(prisma);
   const guide = createPrismaGuideRepository(prisma);
@@ -432,7 +433,7 @@ export function createUseCases(options: {
     acknowledgeDelivery: createAcknowledgeDelivery({ uow, clock, ids }),
     answerPing: createAnswerPing({ uow, clock, ids }),
     pingShip: createPingShip({ uow, clock, ids, hasher: sha256Hasher }),
-    checkInbox: createCheckInbox({ uow, clock, wakeups }),
+    checkInbox: createCheckInbox({ uow, clock, wakeups, fleetNews }),
     dismissDelivery: createDismissDelivery({ uow, clock, ids, readReach }),
     resendDelivery: createResendDelivery({ uow, clock, ids, hasher: sha256Hasher, readReach }),
     markRead: createMarkRead({ uow, clock }),
@@ -444,7 +445,7 @@ export function createUseCases(options: {
       clock,
       history: createPrismaShipHistory(prisma),
       readReach,
-      wakeups: options.fleetEventWakeups ?? fleetEventWakeupsOf(createFleetEventWakeups()),
+      wakeups: fleetNews,
     }),
     readShipTimeline: createReadShipTimeline({ history: createPrismaShipHistory(prisma), readReach }),
     readShipMessages: createReadShipMessages({ history: createPrismaShipHistory(prisma), readReach }),
