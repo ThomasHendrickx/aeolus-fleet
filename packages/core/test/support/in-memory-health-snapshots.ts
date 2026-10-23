@@ -7,7 +7,7 @@ import type { FleetId } from '@aeolus-fleet/common';
 import type { SequencedEvent } from '../../src/domain/shared/events.js';
 import { foldAt, type HealthFold } from '../../src/domain/shared/health-fold.js';
 import { readsMessage } from '../../src/domain/registry/public.js';
-import { hourMarkOf, stuckCountOf, type HealthSnapshotWriter, type HourSnapshot } from '../../src/domain/shared/health-snapshot.js';
+import { acknowledgedWaitsOf, hourMarkOf, stuckCountOf, type HealthSnapshotWriter, type HourSnapshot } from '../../src/domain/shared/health-snapshot.js';
 import type { HealthRecords } from '../../src/domain/shared/health.js';
 import type { DeliveryRecord } from '../../src/domain/shared/stuck.js';
 import type { InMemoryState } from './in-memory.js';
@@ -63,11 +63,11 @@ export function createInMemoryHealthSnapshots(state: InMemoryState, health: Heal
           .filter((row) => row.hour > since)
           .map((row) => stuckCountOf(row, (message) => readsMessage(reach, message))),
       ),
-    acknowledgedHours: (fleetId, since) =>
+    acknowledgedWaits: (fleetId, { since, reach }) =>
       Promise.resolve(
         rowsOf(fleetId)
           .filter((row) => row.hour > since)
-          .map(({ hour, acknowledged }) => structuredClone({ hour, acknowledged })),
+          .map((row) => acknowledgedWaitsOf(row, (message) => readsMessage(reach, message))),
       ),
     eventsAfter: (fleetId, { seq, limit }) => {
       const events = numbered(fleetId)

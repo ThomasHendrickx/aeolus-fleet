@@ -109,14 +109,17 @@ export async function readStuckHistoryOf(deps: HealthReadDeps, read: HealthRead)
 
 /** Reads the deliveries acknowledged in the 24 hours up to `now`. */
 export async function readAcknowledgedOf(deps: HealthReadDeps, read: HealthRead): Promise<Acknowledged> {
-  const { fleetId, now } = read;
+  const { fleetId, now, reach = EVERY } = read;
   const reads = readsOf(read);
   const latest = await deps.snapshots.latest(fleetId);
   if (latest === undefined) {
     const acknowledged = await deps.records.acknowledged(fleetId, acknowledgedSince(now));
     return acknowledgedOf(acknowledged.filter((delivery) => reads(delivery.message)), now);
   }
-  const [hours, after] = await Promise.all([deps.snapshots.acknowledgedHours(fleetId, hoursSince(now, ACKNOWLEDGED_HOURS)), deps.snapshots.eventsAfter(fleetId, { seq: latest.fold.seq })]);
+  const [hours, after] = await Promise.all([
+    deps.snapshots.acknowledgedWaits(fleetId, { since: hoursSince(now, ACKNOWLEDGED_HOURS), reach }),
+    deps.snapshots.eventsAfter(fleetId, { seq: latest.fold.seq }),
+  ]);
   const folded = foldedToNow({ latest, ...after }, now);
   return acknowledgedOfSnapshot({ hours, folded: folded.hours, acknowledged: folded.acknowledged }, { now, reads });
 }

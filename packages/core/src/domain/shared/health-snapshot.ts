@@ -13,7 +13,7 @@ import type { SequencedEvent } from './events.js';
 import { foldHealth, type HealthFold } from './health-fold.js';
 import { shownStuck, type Acknowledged, type AcknowledgedDelivery, type Health, type HealthFacts } from './health.js';
 import { isSamePlace, stuckAt, type DeliveryRecord, type FleetRecords, type LeaseRecord, type ShipRecord, type StuckDelivery, type StuckPlace } from './stuck.js';
-import { medianOfWaits, waitsOf, type WaitBuckets } from './wait-buckets.js';
+import { medianOfWaits, sumOfWaits, waitsOf, type WaitBuckets } from './wait-buckets.js';
 
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -43,6 +43,12 @@ export interface HourSnapshot {
 export interface StuckHourCount {
   hour: Date;
   count: number;
+}
+
+/** The waits of the deliveries acknowledged in a closed hour. */
+export interface AcknowledgedHourWaits {
+  hour: Date;
+  waits: WaitBuckets;
 }
 
 /** The latest closed hour and the fold as of it. */
@@ -105,8 +111,8 @@ export interface HealthSnapshots {
   hours(fleetId: FleetId, since: Date): Promise<HourSnapshot[]>;
   /** The closed hours after `since`, oldest first, each with how many deliveries were stuck at it whose message `reach` reads (decision 0034). */
   stuckCounts(fleetId: FleetId, read: { since: Date; reach: ReadReach }): Promise<StuckHourCount[]>;
-  /** The closed hours after `since`, oldest first, each with its acknowledged only. */
-  acknowledgedHours(fleetId: FleetId, since: Date): Promise<Pick<HourSnapshot, 'hour' | 'acknowledged'>[]>;
+  /** The closed hours after `since`, oldest first, each with the waits of the deliveries acknowledged in it whose message `reach` reads (decision 0034), summed. */
+  acknowledgedWaits(fleetId: FleetId, read: { since: Date; reach: ReadReach }): Promise<AcknowledgedHourWaits[]>;
   /** The fleet's events after `seq`, lowest first, at most `limit` of them when given, and the deliveries they sent. */
   eventsAfter(fleetId: FleetId, after: { seq: number; limit?: number }): Promise<EventsAfter>;
   /** The ships and leases not over before `since`. */
@@ -288,14 +294,20 @@ function waitsOfAcknowledged(acknowledged: readonly AcknowledgedDelivery[]): Wai
   return waitsOf(acknowledged.map(({ sentAt, acknowledgedAt }) => acknowledgedAt.getTime() - sentAt.getTime()));
 }
 
+/** The waits of an hour's acknowledged deliveries of a message `reads` keeps, summed. */
+export function acknowledgedWaitsOf(hour: Pick<HourSnapshot, 'hour' | 'acknowledged'>, reads: (message: MessageParties) => boolean): AcknowledgedHourWaits {
+  return { hour: hour.hour, waits: sumOfWaits(hour.acknowledged.filter((counted) => reads(counted.message)).map((counted) => counted.waits)) };
+}
+
 /**
  * Acknowledged in the last 24 hours: the 24 closed hours before the open one,
- * from the closed rows and the hours folded since, and the open one from
- * `acknowledged`, the rest of the events; per hour the last 23 of them and the
- * open one. Counts only the deliveries whose message `reads` keeps.
+ * from the closed hours' waits and the hours folded since, and the open one
+ * from `acknowledged`, the rest of the events; per hour the last 23 of them
+ * and the open one. A folded hour and the open one count only the deliveries
+ * whose message `reads` keeps, as the closed hours' waits do.
  */
 export function acknowledgedOfSnapshot(
-  snapshot: { hours: readonly Pick<HourSnapshot, 'hour' | 'acknowledged'>[]; folded: readonly FoldedHour[]; acknowledged: readonly AcknowledgedDelivery[] },
+  snapshot: { hours: readonly AcknowledgedHourWaits[]; folded: readonly FoldedHour[]; acknowledged: readonly AcknowledgedDelivery[] },
   read: { now: Date; reads: (message: MessageParties) => boolean },
 ): Acknowledged {
   const { now, reads } = read;
@@ -305,7 +317,7 @@ export function acknowledgedOfSnapshot(
     const closed = snapshot.hours.find((hour) => hour.hour.getTime() === at.getTime());
     const folded = snapshot.folded.find((hour) => hour.hour.getTime() === at.getTime());
     const waits = [
-      ...(closed?.acknowledged ?? []).filter((counted) => reads(counted.message)).map((counted) => counted.waits),
+      ...(closed === undefined ? [] : [closed.waits]),
       waitsOfAcknowledged((folded?.acknowledged ?? []).filter((delivery) => reads(delivery.message))),
     ];
     return { at, waits };
@@ -336,6 +348,6 @@ export function healthFromSnapshot(
   return {
     stuck: shownStuck(stuckNow, { ships: snapshot.crews.ships, machines: snapshot.crews.machines.filter(({ shipId }) => readsShip(shipId)) }),
     stuckPerHour: stuckPerHourOf({ hours: snapshot.hours.map((hour) => stuckCountOf(hour, reads)), folded: folded.hours, crews: snapshot.crews }, { now, stuckNow: stuckNow.length, reads }),
-    acknowledged: acknowledgedOfSnapshot({ hours: snapshot.hours, folded: folded.hours, acknowledged: folded.acknowledged }, { now, reads }),
+    acknowledged: acknowledgedOfSnapshot({ hours: snapshot.hours.map((hour) => acknowledgedWaitsOf(hour, reads)), folded: folded.hours, acknowledged: folded.acknowledged }, { now, reads }),
   };
 }

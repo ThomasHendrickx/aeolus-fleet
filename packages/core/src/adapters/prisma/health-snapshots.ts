@@ -12,6 +12,7 @@ import { z } from 'zod';
 
 import { foldAt, type HealthFold } from '../../domain/shared/health-fold.js';
 import type { HealthSnapshotWriter, HourSnapshot, StuckCount } from '../../domain/shared/health-snapshot.js';
+import { sumOfWaits } from '../../domain/shared/wait-buckets.js';
 import type { ReadReach } from '../../domain/registry/public.js';
 import type { DeliveryRecord } from '../../domain/shared/stuck.js';
 import type { Db } from './client.js';
@@ -36,7 +37,8 @@ const turnsJson = z.array(z.object({ leaseId: idSchema('lease'), state: turnStat
 
 const hourRow = z.object({ hour: z.date(), stuck: stuckJson, acknowledged: acknowledgedJson });
 const stuckCountRow = z.object({ hour: z.date(), count: z.int() });
-const acknowledgedHourRow = hourRow.pick({ hour: true, acknowledged: true });
+/** An hour's waits summed, as [bucket, count] pairs. */
+const acknowledgedWaitsRow = z.object({ hour: z.date(), waits: z.array(z.tuple([z.int(), z.int()])) });
 
 /**
  * Whether `reach` reads the message at `message`, a jsonb of its parties, as
@@ -101,6 +103,11 @@ function acknowledgedToJson(acknowledged: HourSnapshot['acknowledged']): string 
   return JSON.stringify(acknowledged.map(({ message, waits }) => ({ message, waits: [...waits] })));
 }
 
+/** The waits of every message's acknowledged deliveries in the hour summed, as a reader of every ship reads them without the groups. */
+function acknowledgedWaitsToJson(acknowledged: HourSnapshot['acknowledged']): string {
+  return JSON.stringify([...sumOfWaits(acknowledged.map(({ waits }) => waits))]);
+}
+
 function turnsToJson(fold: HealthFold): string {
   return JSON.stringify(fold.turns.map(({ leaseId, turn }) => ({ leaseId, state: turn.state, at: turn.at.toISOString() })));
 }
@@ -147,8 +154,9 @@ export function createPrismaHealthSnapshots(db: Db): HealthSnapshotWriter {
   const insertHour = async (fleetId: FleetId, row: { hour: HourSnapshot; seq: number; turns: string }): Promise<boolean> => {
     const { hour } = row;
     const inserted = await db.$executeRaw`
-      INSERT INTO health_snapshots (fleet_id, hour, seq, stuck, acknowledged, turns)
-      VALUES (${fleetId}, ${hour.hour}, ${BigInt(row.seq)}, ${stuckToJson(hour.stuck)}::jsonb, ${acknowledgedToJson(hour.acknowledged)}::jsonb, ${row.turns}::jsonb)
+      INSERT INTO health_snapshots (fleet_id, hour, seq, stuck, acknowledged, acknowledged_waits, turns)
+      VALUES (${fleetId}, ${hour.hour}, ${BigInt(row.seq)}, ${stuckToJson(hour.stuck)}::jsonb, ${acknowledgedToJson(hour.acknowledged)}::jsonb,
+        ${acknowledgedWaitsToJson(hour.acknowledged)}::jsonb, ${row.turns}::jsonb)
       ON CONFLICT (fleet_id, hour) DO NOTHING`;
     return inserted > 0;
   };
@@ -186,11 +194,23 @@ export function createPrismaHealthSnapshots(db: Db): HealthSnapshotWriter {
           GROUP BY s.hour ORDER BY s.hour`,
       ),
 
-    acknowledgedHours: async (fleetId, since) => {
-      const rows = z.array(acknowledgedHourRow).parse(
-        await db.$queryRaw`SELECT hour, acknowledged FROM health_snapshots WHERE fleet_id = ${fleetId} AND hour > ${since} ORDER BY hour`,
-      );
-      return rows.map((row) => ({ hour: row.hour, acknowledged: acknowledgedOf(row.acknowledged) }));
+    acknowledgedWaits: async (fleetId, { since, reach }) => {
+      // A reader of every ship reads each hour's sum as written; another sums in SQL the groups it reads.
+      const waits =
+        reach.kind === 'every'
+          ? Prisma.sql`s.acknowledged_waits`
+          : Prisma.sql`COALESCE((
+              SELECT jsonb_agg(jsonb_build_array(bucket, count) ORDER BY bucket) FROM (
+                SELECT (w->>0)::int AS bucket, sum((w->>1)::int)::int AS count
+                FROM jsonb_array_elements(s.acknowledged) a, jsonb_array_elements(a->'waits') w
+                WHERE ${readsMessageSql(reach, Prisma.sql`a->'message'`)}
+                GROUP BY 1
+              ) summed
+            ), '[]'::jsonb)`;
+      const rows = z
+        .array(acknowledgedWaitsRow)
+        .parse(await db.$queryRaw`SELECT s.hour, ${waits} AS waits FROM health_snapshots s WHERE s.fleet_id = ${fleetId} AND s.hour > ${since} ORDER BY s.hour`);
+      return rows.map((row) => ({ hour: row.hour, waits: new Map(row.waits) }));
     },
 
     eventsAfter: async (fleetId, { seq, limit }) => {
