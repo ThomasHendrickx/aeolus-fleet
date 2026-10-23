@@ -1,6 +1,7 @@
-import type { EventType, ShipId } from '@aeolus-fleet/common';
+import type { EventType, FleetStreamItem, ShipId } from '@aeolus-fleet/common';
+import type { AppRouter } from '@aeolus-fleet/core';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
-import { useSubscription } from '@trpc/tanstack-react-query';
+import { useSubscription, type TRPCOptionsProxy } from '@trpc/tanstack-react-query';
 import { useState } from 'react';
 
 import type { LiveState } from '../components/molecules/live-status';
@@ -134,14 +135,86 @@ export interface LiveFleet {
 }
 
 /**
- * Follows the fleet live over the WebSocket (docs/architecture.md, "Live
- * updates"). Each committed event that changes a ship reloads the snapshot;
- * an event reloads the page of each ship that caused it or that it names, and
- * a message's event reloads the open message, the ships' message lists and
- * argo's inbox, whose delivery states it changes; a delivery that becomes undeliverable or
- * not handled, or is dismissed, reloads Needs attention, a message's or a ship's event the fleet's health, a label's event the fleet's labels, NetworkRulesDeclared the declared network rules, and a change of the rules or the draft the network rules, what the draft changes and the reach. `resync`, sent first and whenever the
- * browser fell too far behind, reloads every one of them. The tRPC client sends the number of the last event back when it
- * reconnects, so the server replays whatever committed meanwhile.
+ * What each item of the fleet's live stream reloads (docs/architecture.md,
+ * "Live updates"): an event reloads the page of each ship that caused it or
+ * that it names; a ship's event the fleet snapshot and the fleet's health; a
+ * message's event the open message, the ships' message lists and argo's
+ * inbox, whose delivery states it changes, and the fleet's health; a delivery
+ * that becomes undeliverable or not handled, or is dismissed, Needs
+ * attention; a label's event the fleet's labels; NetworkRulesDeclared the
+ * declared network rules; and a change of the rules or the draft the network
+ * rules, what the draft changes and the reach. `resync`, sent first and
+ * whenever the browser fell too far behind, reloads every one of them.
+ */
+export function createLiveFleetHandler(input: {
+  trpc: TRPCOptionsProxy<AppRouter>;
+  reload: (queryKey: readonly unknown[]) => void;
+  onCommissioned: (shipId: ShipId) => void;
+}): (item: FleetStreamItem) => void {
+  const { trpc, reload } = input;
+  return (item) => {
+    if (item.kind === 'resync') {
+      reload(trpc.fleet.pathKey());
+      reload(INBOX_KEY);
+      return;
+    }
+    const { event } = item;
+    for (const concerned of new Set([event.shipId, event.actorShipId])) {
+      if (concerned !== null) {
+        reload(trpc.fleet.ship.queryKey({ shipId: concerned }));
+        reload(trpc.fleet.shipTimeline.infiniteQueryKey({ shipId: concerned }));
+        // A turn report, a push receive or a lease end changes its side of the way.
+        reload(trpc.fleet.shipWay.queryKey({ shipId: concerned }));
+      }
+    }
+    if (event.messageId !== null) {
+      reload(trpc.fleet.shipMessages.pathKey());
+      // A delivery to a type waits for every ship of the type; an overdue one clears as its delivery moves on.
+      reload(trpc.fleet.shipWay.pathKey());
+      reload(trpc.fleet.message.queryKey({ messageId: event.messageId }));
+      reload(trpc.fleet.inbox.pathKey());
+      reload(trpc.fleet.inboxCount.queryKey());
+      reload(INBOX_KEY);
+      // A delivery that moves, or a new one, changes what is stuck.
+      reload(trpc.fleet.health.queryKey());
+    }
+    if (isAttentionChange(event.type)) {
+      reload(trpc.fleet.needsAttention.pathKey());
+    }
+    if (isLabelChange(event.type)) {
+      reload(trpc.fleet.labels.queryKey());
+    }
+    if (isDeclaredRulesChange(event.type)) {
+      reload(trpc.fleet.declaredNetworkRules.queryKey());
+    }
+    if (isBuiltInRulesChange(event.type)) {
+      reload(trpc.fleet.builtInRules.queryKey());
+    }
+    if (isNetworkRulesChange(event.type)) {
+      reload(trpc.fleet.networkRules.queryKey());
+      reload(trpc.fleet.networkRulesDraftChanges.queryKey());
+      reload(trpc.fleet.explainReach.pathKey());
+    }
+    if (!isShipChange(event.type)) {
+      return;
+    }
+    // The snapshot, every page the overview loaded for its view, and their counts.
+    reload(trpc.fleet.list.pathKey());
+    reload(trpc.fleet.shipCounts.pathKey());
+    // A commission, a crew or a release changes why a delivery waits.
+    reload(trpc.fleet.health.queryKey());
+    const { shipId } = event;
+    if (event.type === 'ShipCommissioned' && shipId !== null) {
+      input.onCommissioned(shipId);
+    }
+  };
+}
+
+/**
+ * Follows the fleet live over the WebSocket, reloading what each item
+ * concerns (createLiveFleetHandler). The tRPC client sends the number of the
+ * last event back when it reconnects, so the server replays whatever
+ * committed meanwhile.
  */
 export function useLiveFleet(): LiveFleet {
   const trpc = useTRPC();
@@ -149,70 +222,22 @@ export function useLiveFleet(): LiveFleet {
   const [newShipIds, setNewShipIds] = useState<ReadonlySet<ShipId>>(new Set());
   const isReopening = useIsReopening();
 
-  const [reload] = useState(() => createLiveReloads(queryClient));
-  // The snapshot, every page the overview loaded for its view, and their counts.
-  const reloadSnapshot = () => {
-    reload(trpc.fleet.list.pathKey());
-    reload(trpc.fleet.shipCounts.pathKey());
-  };
+  const [onItem] = useState(() =>
+    createLiveFleetHandler({
+      trpc,
+      reload: createLiveReloads(queryClient),
+      onCommissioned: (shipId) => {
+        setNewShipIds((shown) => new Set([...shown, shipId]));
+      },
+    }),
+  );
 
   const subscription = useSubscription(
     trpc.fleet.events.subscriptionOptions(
       { lastEventId: null },
       {
         onData: ({ data: item }) => {
-          if (item.kind === 'resync') {
-            reload(trpc.fleet.pathKey());
-            reload(INBOX_KEY);
-            return;
-          }
-          const { event } = item;
-          for (const concerned of new Set([event.shipId, event.actorShipId])) {
-            if (concerned !== null) {
-              reload(trpc.fleet.ship.queryKey({ shipId: concerned }));
-              reload(trpc.fleet.shipTimeline.infiniteQueryKey({ shipId: concerned }));
-              // A turn report, a push receive or a lease end changes its side of the way.
-              reload(trpc.fleet.shipWay.queryKey({ shipId: concerned }));
-            }
-          }
-          if (event.messageId !== null) {
-            reload(trpc.fleet.shipMessages.pathKey());
-            // A delivery to a type waits for every ship of the type; an overdue one clears as its delivery moves on.
-            reload(trpc.fleet.shipWay.pathKey());
-            reload(trpc.fleet.message.queryKey({ messageId: event.messageId }));
-            reload(trpc.fleet.inbox.pathKey());
-            reload(trpc.fleet.inboxCount.queryKey());
-            reload(INBOX_KEY);
-            // A delivery that moves, or a new one, changes what is stuck.
-            reload(trpc.fleet.health.queryKey());
-          }
-          if (isAttentionChange(event.type)) {
-            reload(trpc.fleet.needsAttention.pathKey());
-          }
-          if (isLabelChange(event.type)) {
-            reload(trpc.fleet.labels.queryKey());
-          }
-          if (isDeclaredRulesChange(event.type)) {
-            reload(trpc.fleet.declaredNetworkRules.queryKey());
-          }
-          if (isBuiltInRulesChange(event.type)) {
-            reload(trpc.fleet.builtInRules.queryKey());
-          }
-          if (isNetworkRulesChange(event.type)) {
-            reload(trpc.fleet.networkRules.queryKey());
-            reload(trpc.fleet.networkRulesDraftChanges.queryKey());
-            reload(trpc.fleet.explainReach.pathKey());
-          }
-          if (!isShipChange(event.type)) {
-            return;
-          }
-          reloadSnapshot();
-          // A commission, a crew or a release changes why a delivery waits.
-          reload(trpc.fleet.health.queryKey());
-          const { shipId } = event;
-          if (event.type === 'ShipCommissioned' && shipId !== null) {
-            setNewShipIds((shown) => new Set([...shown, shipId]));
-          }
+          onItem(item);
         },
       },
     ),
