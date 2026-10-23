@@ -56,6 +56,18 @@ export function createInMemoryHealthSnapshots(state: InMemoryState, health: Heal
           .filter((row) => row.hour > since)
           .map(({ hour, stuck, acknowledged }) => structuredClone({ hour, stuck, acknowledged })),
       ),
+    stuckHours: (fleetId, since) =>
+      Promise.resolve(
+        rowsOf(fleetId)
+          .filter((row) => row.hour > since)
+          .map(({ hour, stuck }) => structuredClone({ hour, stuck })),
+      ),
+    acknowledgedHours: (fleetId, since) =>
+      Promise.resolve(
+        rowsOf(fleetId)
+          .filter((row) => row.hour > since)
+          .map(({ hour, acknowledged }) => structuredClone({ hour, acknowledged })),
+      ),
     eventsAfter: (fleetId, { seq, limit }) => {
       const events = numbered(fleetId)
         .filter((event) => event.seq > seq)

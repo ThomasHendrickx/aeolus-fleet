@@ -34,6 +34,13 @@ const acknowledgedJson = z.array(z.object({ message: messageJson, waits: z.array
 const turnsJson = z.array(z.object({ leaseId: idSchema('lease'), state: turnStateSchema, at: z.coerce.date() }));
 
 const hourRow = z.object({ hour: z.date(), stuck: stuckJson, acknowledged: acknowledgedJson });
+const stuckHourRow = hourRow.pick({ hour: true, stuck: true });
+const acknowledgedHourRow = hourRow.pick({ hour: true, acknowledged: true });
+
+/** An hour's acknowledged as the snapshot reads it, its waits as a map. */
+function acknowledgedOf(acknowledged: z.infer<typeof acknowledgedJson>): HourSnapshot['acknowledged'] {
+  return acknowledged.map(({ message, waits }) => ({ message, waits: new Map(waits) }));
+}
 
 /** A row of health_snapshot_deliveries as json_agg answers it. */
 const snapshotDeliveryJson = z.object({
@@ -147,7 +154,17 @@ export function createPrismaHealthSnapshots(db: Db): HealthSnapshotWriter {
       const rows = z.array(hourRow).parse(
         await db.$queryRaw`SELECT hour, stuck, acknowledged FROM health_snapshots WHERE fleet_id = ${fleetId} AND hour > ${since} ORDER BY hour`,
       );
-      return rows.map((row) => ({ hour: row.hour, stuck: row.stuck, acknowledged: row.acknowledged.map(({ message, waits }) => ({ message, waits: new Map(waits) })) }));
+      return rows.map((row) => ({ hour: row.hour, stuck: row.stuck, acknowledged: acknowledgedOf(row.acknowledged) }));
+    },
+
+    stuckHours: async (fleetId, since) =>
+      z.array(stuckHourRow).parse(await db.$queryRaw`SELECT hour, stuck FROM health_snapshots WHERE fleet_id = ${fleetId} AND hour > ${since} ORDER BY hour`),
+
+    acknowledgedHours: async (fleetId, since) => {
+      const rows = z.array(acknowledgedHourRow).parse(
+        await db.$queryRaw`SELECT hour, acknowledged FROM health_snapshots WHERE fleet_id = ${fleetId} AND hour > ${since} ORDER BY hour`,
+      );
+      return rows.map((row) => ({ hour: row.hour, acknowledged: acknowledgedOf(row.acknowledged) }));
     },
 
     eventsAfter: async (fleetId, { seq, limit }) => {

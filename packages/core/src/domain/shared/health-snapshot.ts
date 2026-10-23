@@ -97,6 +97,10 @@ export interface HealthSnapshots {
   latest(fleetId: FleetId): Promise<LatestSnapshot | undefined>;
   /** The closed hours after `since`, oldest first. */
   hours(fleetId: FleetId, since: Date): Promise<HourSnapshot[]>;
+  /** The closed hours after `since`, oldest first, each with its stuck counts only. */
+  stuckHours(fleetId: FleetId, since: Date): Promise<Pick<HourSnapshot, 'hour' | 'stuck'>[]>;
+  /** The closed hours after `since`, oldest first, each with its acknowledged only. */
+  acknowledgedHours(fleetId: FleetId, since: Date): Promise<Pick<HourSnapshot, 'hour' | 'acknowledged'>[]>;
   /** The fleet's events after `seq`, lowest first, at most `limit` of them when given, and the deliveries they sent. */
   eventsAfter(fleetId: FleetId, after: { seq: number; limit?: number }): Promise<EventsAfter>;
   /** The ships and leases not over before `since`. */

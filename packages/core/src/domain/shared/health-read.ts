@@ -85,7 +85,7 @@ export async function readStuckHistoryOf(deps: HealthReadDeps, read: HealthRead)
     const deliveries = facts.deliveries.filter(({ senderId, recipient, claimedBy }) => reads({ senderId, recipient, claimedBy }));
     return stuckPerHour({ ...facts, deliveries }, now);
   }
-  const [hours, after] = await Promise.all([deps.snapshots.hours(fleetId, hoursSince(now, STUCK_TREND_HOURS)), deps.snapshots.eventsAfter(fleetId, { seq: latest.fold.seq })]);
+  const [hours, after] = await Promise.all([deps.snapshots.stuckHours(fleetId, hoursSince(now, STUCK_TREND_HOURS)), deps.snapshots.eventsAfter(fleetId, { seq: latest.fold.seq })]);
   const folded = foldedToNow({ latest, ...after }, now);
   // The hours the pass has not closed yet are counted here too, so their open deliveries are touched as well.
   const deliveries = [folded.fold, ...folded.hours.map((hour) => hour.fold)].flatMap((fold) => fold.deliveries);
@@ -102,7 +102,7 @@ export async function readAcknowledgedOf(deps: HealthReadDeps, read: HealthRead)
     const acknowledged = await deps.records.acknowledged(fleetId, acknowledgedSince(now));
     return acknowledgedOf(acknowledged.filter((delivery) => reads(delivery.message)), now);
   }
-  const [hours, after] = await Promise.all([deps.snapshots.hours(fleetId, hoursSince(now, ACKNOWLEDGED_HOURS)), deps.snapshots.eventsAfter(fleetId, { seq: latest.fold.seq })]);
+  const [hours, after] = await Promise.all([deps.snapshots.acknowledgedHours(fleetId, hoursSince(now, ACKNOWLEDGED_HOURS)), deps.snapshots.eventsAfter(fleetId, { seq: latest.fold.seq })]);
   const folded = foldedToNow({ latest, ...after }, now);
   return acknowledgedOfSnapshot({ hours, folded: folded.hours, acknowledged: folded.acknowledged }, { now, reads });
 }
