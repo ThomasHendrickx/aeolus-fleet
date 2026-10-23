@@ -195,10 +195,10 @@ describe('what a viewer session reads on Postgres', () => {
     const viewer = consoleWith(await signIn(demoFleet, 'viewer'));
     const operator = consoleWith(await signIn(demoFleet, 'operator'));
 
-    const seen = await viewer.fleet.inbox.query({ filter: 'all' });
+    const seen = await viewer.fleet.inbox.query({ filter: 'all' }).then(({ items }) => items);
 
     expect(seen.map((entry) => entry.message.payload)).toEqual(['Run 71 passed']);
-    expect(seen).toEqual(await operator.fleet.inbox.query({ filter: 'all' }));
+    expect(seen).toEqual(await operator.fleet.inbox.query({ filter: 'all' }).then(({ items }) => items));
   });
 
   it('lists the viewer ship last seen when its most recent viewer session was used', async () => {

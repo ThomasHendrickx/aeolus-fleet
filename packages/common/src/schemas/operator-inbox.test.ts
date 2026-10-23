@@ -18,6 +18,16 @@ const releaseCaptain = { id: newId('ship'), name: 'release-captain' };
 const AT = '2026-10-01T14:30:00.000Z';
 
 describe('operatorInboxInputSchema', () => {
+  it('takes the cursor and size of a page beside the filter', () => {
+    const input = { filter: 'open', cursor: newId('delivery'), limit: 20 };
+
+    expect(operatorInboxInputSchema.parse(input)).toEqual(input);
+  });
+
+  it('refuses a cursor that names no delivery', () => {
+    expect(operatorInboxInputSchema.safeParse({ filter: 'open', cursor: newId('message') }).success).toBe(false);
+  });
+
   it('knows the filters Open, Done and All', () => {
     expect(INBOX_FILTERS).toEqual(['open', 'done', 'all']);
   });
@@ -30,6 +40,9 @@ describe('operatorInboxInputSchema', () => {
     expect(operatorInboxInputSchema.safeParse({ filter: 'unread' }).success).toBe(false);
   });
 });
+
+/** A last page of the inbox holding the messages. */
+const lastPage = (...items: unknown[]) => ({ items, nextCursor: null });
 
 describe('operatorInboxOutputSchema', () => {
   const open = {
@@ -51,25 +64,25 @@ describe('operatorInboxOutputSchema', () => {
   };
 
   it('takes an open message, unread', () => {
-    expect(operatorInboxOutputSchema.parse([open])).toEqual([open]);
+    expect(operatorInboxOutputSchema.parse(lastPage(open))).toEqual(lastPage(open));
   });
 
   it("takes argo's replies to it, each with its content type and payload", () => {
     const replied = { ...open, replies: [{ id: newId('message'), contentType: 'application/json', payload: '{"go":true}', sentAt: AT }] };
 
-    expect(operatorInboxOutputSchema.parse([replied])).toEqual([replied]);
+    expect(operatorInboxOutputSchema.parse(lastPage(replied))).toEqual(lastPage(replied));
   });
 
   it("refuses an entry that does not list argo's replies", () => {
     const withoutReplies = Object.fromEntries(Object.entries(open).filter(([key]) => key !== 'replies'));
 
-    expect(operatorInboxOutputSchema.safeParse([withoutReplies]).success).toBe(false);
+    expect(operatorInboxOutputSchema.safeParse(lastPage(withoutReplies)).success).toBe(false);
   });
 
   it('takes a done message, read, with the reply that made it done', () => {
     const done = { ...open, state: 'acknowledged', readAt: AT, doneAt: AT, repliedWith: newId('message') };
 
-    expect(operatorInboxOutputSchema.safeParse([done]).success).toBe(true);
+    expect(operatorInboxOutputSchema.safeParse(lastPage(done)).success).toBe(true);
   });
 
   it('refuses a time that is not ISO 8601', () => {

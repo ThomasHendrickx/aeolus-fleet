@@ -62,7 +62,7 @@ describe("argo's inbox on Postgres", () => {
     unwrap(await core.useCases.markDone(argo, { deliveryId: older.deliveryId }));
     const doneAt = core.clock.now();
 
-    const all = await core.useCases.readInbox(argo, { filter: 'all' });
+    const all = await core.useCases.readInbox(argo, { filter: 'all' }).then(({ items }) => items);
 
     expect(all.map((entry) => entry.message.id)).toEqual([newer.messageId, older.messageId]);
     expect(all[0]).toMatchObject({
@@ -72,8 +72,25 @@ describe("argo's inbox on Postgres", () => {
       message: { sender: { id: captain.shipId, name: 'release-captain' }, payload: 'Promote 2.14?' },
     });
     expect(all[1]).toMatchObject({ state: 'acknowledged', readAt: null, doneAt, repliedWith: null });
-    await expect(core.useCases.readInbox(argo, { filter: 'open' })).resolves.toEqual([all[0]]);
-    await expect(core.useCases.readInbox(argo, { filter: 'done' })).resolves.toEqual([all[1]]);
+    await expect(core.useCases.readInbox(argo, { filter: 'open' }).then(({ items }) => items)).resolves.toEqual([all[0]]);
+    await expect(core.useCases.readInbox(argo, { filter: 'done' }).then(({ items }) => items)).resolves.toEqual([all[1]]);
+  });
+
+  it('pages the messages to argo newest first, each page after the last page's cursor, keeping to the filter', async () => {
+    const oldest = await toArgo('one');
+    const done = await toArgo('two');
+    unwrap(await core.useCases.markDone(argo, { deliveryId: done.deliveryId }));
+    const middle = await toArgo('three');
+    const newest = await toArgo('four');
+    const read = (cursor?: DeliveryId) => core.useCases.readInbox(argo, { filter: 'open', limit: 2, cursor });
+
+    const first = await read();
+    const second = await read(first.nextCursor ?? undefined);
+
+    expect([first, second].map(({ items, nextCursor }) => [items.map((entry) => entry.deliveryId), nextCursor])).toEqual([
+      [[newest.deliveryId, middle.deliveryId], middle.deliveryId],
+      [[oldest.deliveryId], null],
+    ]);
   });
 
   it('marks a message unread again, keeping the first read until then', async () => {
@@ -145,7 +162,7 @@ describe("argo's inbox on Postgres", () => {
       inReplyToMessageId: asked.messageId,
       payload: 'go',
     });
-    await expect(core.useCases.readInbox(argo, { filter: 'done' })).resolves.toEqual([
+    await expect(core.useCases.readInbox(argo, { filter: 'done' }).then(({ items }) => items)).resolves.toEqual([
       expect.objectContaining({ deliveryId: asked.deliveryId, repliedWith: messageId }),
     ]);
   });
@@ -171,7 +188,7 @@ describe("argo's inbox on Postgres", () => {
       }),
     );
 
-    const [entry] = await core.useCases.readInbox(argo, { filter: 'all' });
+    const [entry] = await core.useCases.readInbox(argo, { filter: 'all' }).then(({ items }) => items);
 
     expect(entry?.replies).toEqual([
       { id: first, contentType: 'text/plain', payload: 'go', sentAt: firstAt },

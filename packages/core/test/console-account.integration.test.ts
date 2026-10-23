@@ -202,7 +202,7 @@ describe('an account signed in by its token cookie', () => {
     await expect(fleet.needsAttention.query({})).resolves.toBeDefined();
     await expect(fleet.health.query()).resolves.toBeDefined();
     await expect(fleet.limits.query()).resolves.toBeDefined();
-    await expect(fleet.inbox.query({ filter: 'all' })).resolves.toMatchObject([{ message: { id: toArgo } }]);
+    await expect(fleet.inbox.query({ filter: 'all' }).then(({ items }) => items)).resolves.toMatchObject([{ message: { id: toArgo } }]);
   });
 
   it("reads the notices for everyone and for accounts, and dismisses one for the account alone, kept by its id (accounts design, A9)", async () => {

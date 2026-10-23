@@ -210,7 +210,7 @@ describe('the fleet:read procedures for a ship outside read reach (decision 0034
   });
 
   it('fleet.inbox answers its own inbox only', async () => {
-    await expect(reader.fleet.inbox.query({ filter: 'all' })).resolves.toEqual([]);
+    await expect(reader.fleet.inbox.query({ filter: 'all' }).then(({ items }) => items)).resolves.toEqual([]);
   });
 
   it('fleet.reachRefusals and fleet.explainReach need fleet:explain, which reader does not hold (decision 0053)', async () => {
