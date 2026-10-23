@@ -16,6 +16,7 @@ import type {
   InstallationSettingsRepository,
 } from '../../domain/registry/ports.js';
 import type { Db, PrismaClient } from './client.js';
+import { Prisma } from './generated/client.js';
 
 // The installation's own reads and records (docs/architecture.md,
 // "Installation"): across fleets, reachable only with the installation token.
@@ -95,21 +96,18 @@ function toFacts(row: unknown): InstallationFleetFacts {
   };
 }
 
-export function createPrismaInstallationFleets(prisma: PrismaClient): InstallationFleets {
-  // One fleet, or every fleet when fleetId is null, oldest first.
-  const read = async (fleetId: FleetId | null, window: InstallationFleetWindow) =>
-    (
-      await prisma.$queryRaw<unknown[]>`
+/** The installation's statement of one fleet's facts, or every fleet's when fleetId is null, oldest first. */
+export function installationFleetsStatement(fleetId: FleetId | null, window: InstallationFleetWindow): Prisma.Sql {
+  return Prisma.sql`
         SELECT f.id AS "fleetId", f.name, o.email AS "operatorEmail", f.created_at AS "createdAt",
           (SELECT count(*) FROM ships s WHERE s.fleet_id = f.id AND s.retired_at IS NULL) AS "shipCount",
           (SELECT count(*) FROM messages m WHERE m.fleet_id = f.id AND m.created_at >= ${window.since}) AS "messagesSince",
           (SELECT max(e.occurred_at) FROM events e WHERE e.fleet_id = f.id) AS "lastActivityAt",
-          -- A payload's UTF-8 bytes, whatever the database encoding.
-          (SELECT coalesce(sum(octet_length(convert_to(m.payload, 'UTF8'))), 0)::bigint FROM messages m WHERE m.fleet_id = f.id) AS "storage",
+          -- Storage and the messages per UTC day from the days each send counted on (messaging.ts), not from the messages.
+          (SELECT coalesce(sum(md.payload_bytes), 0)::bigint FROM message_days md WHERE md.fleet_id = f.id) AS "storage",
           -- Each UTC day's messages from the window's first day on; a day without any is left out.
-          (SELECT coalesce(json_agg(json_build_object('date', d.day, 'count', d.count) ORDER BY d.day), '[]'::json)
-           FROM (SELECT to_char(m.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS day, count(*)::int AS count
-                 FROM messages m WHERE m.fleet_id = f.id AND m.created_at >= ${window.firstDay} GROUP BY 1) d) AS "messagesPerUtcDay",
+          (SELECT coalesce(json_agg(json_build_object('date', to_char(md.day, 'YYYY-MM-DD'), 'count', md.messages) ORDER BY md.day), '[]'::json)
+           FROM message_days md WHERE md.fleet_id = f.id AND md.day >= (${window.firstDay} AT TIME ZONE 'UTC')::date) AS "messagesPerUtcDay",
           -- Health (#304): where its deliveries wait, from their states and times only.
           (SELECT min(d.created_at) FROM deliveries d WHERE d.fleet_id = f.id AND d.state = 'pending') AS "oldestPendingAt",
           -- In flight since its state began, as the overdue clocks read it (overdue.ts).
@@ -139,8 +137,11 @@ export function createPrismaInstallationFleets(prisma: PrismaClient): Installati
         FROM fleets f
         LEFT JOIN operators o ON o.fleet_id = f.id
         WHERE ${fleetId}::text IS NULL OR f.id = ${fleetId}
-        ORDER BY f.created_at, f.id`
-    ).map(toFacts);
+        ORDER BY f.created_at, f.id`;
+}
+
+export function createPrismaInstallationFleets(prisma: PrismaClient): InstallationFleets {
+  const read = async (fleetId: FleetId | null, window: InstallationFleetWindow) => (await prisma.$queryRaw<unknown[]>(installationFleetsStatement(fleetId, window))).map(toFacts);
   return {
     list: (window) => read(null, window),
     find: async (fleetId, window) => (await read(fleetId, window))[0],
@@ -211,6 +212,9 @@ export function createPrismaFleetLimitReads(prisma: PrismaClient): FleetLimitRea
   return {
     applied: (fleetId) => appliedLimits(limits, fleetId),
     activeShips: (fleetId) => prisma.ship.count({ where: { fleetId, retiredAt: null } }),
-    messagesSince: (fleetId, since) => prisma.message.count({ where: { fleetId, createdAt: { gte: since } } }),
+    messagesOn: async (fleetId, day) => {
+      const row = await prisma.messageDay.findUnique({ where: { fleetId_day: { fleetId, day } }, select: { messages: true } });
+      return row?.messages ?? 0;
+    },
   };
 }

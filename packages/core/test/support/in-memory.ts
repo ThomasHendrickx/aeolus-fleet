@@ -86,6 +86,7 @@ import { appliedLimits } from '../../src/domain/registry/applied-limits.js';
 import type { DeliveryNotice, Notifier } from '../../src/domain/shared/notifier.js';
 import type { PasswordHasher, RandomTokens, SecretHasher } from '../../src/domain/shared/secrets.js';
 import type { UnitOfWork } from '../../src/domain/shared/unit-of-work.js';
+import { utcDayStart } from '../../src/domain/shared/utc-day.js';
 import type { HealthRecords } from '../../src/domain/shared/health.js';
 import { createInMemoryHealthRecords } from './in-memory-health.js';
 
@@ -1024,7 +1025,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
     messages: {
       lockDailyCount: () => Promise.resolve(),
-      countCreatedSince: (fleetId, since) => Promise.resolve(state.messages.filter((message) => message.fleetId === fleetId && message.createdAt >= since).length),
+      countStoredOn: (fleetId, day) => Promise.resolve(state.messages.filter((message) => message.fleetId === fleetId && utcDayStart(message.createdAt).getTime() === day.getTime()).length),
       create: (message) => {
         if (
           state.messages.some(
@@ -1429,7 +1430,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
   const fleetLimitReads: FleetLimitReads = {
     applied: (fleetId) => appliedLimits(tx, fleetId),
     activeShips: (fleetId) => Promise.resolve(state.ships.filter((ship) => ship.fleetId === fleetId && ship.retiredAt === null).length),
-    messagesSince: (fleetId, since) => Promise.resolve(state.messages.filter((message) => message.fleetId === fleetId && message.createdAt >= since).length),
+    messagesOn: (fleetId, day) => Promise.resolve(state.messages.filter((message) => message.fleetId === fleetId && utcDayStart(message.createdAt).getTime() === day.getTime()).length),
   };
 
   const listing: FleetListing = {

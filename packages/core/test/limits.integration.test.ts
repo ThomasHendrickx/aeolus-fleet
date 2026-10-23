@@ -154,6 +154,18 @@ describe('the limits at their boundary', () => {
     await expect(database.message.count({ where: { fleetId: fleet.fleetId } })).resolves.toBe(3);
   });
 
+  it("refuse a send once the day's counted messages are at the daily limit, and read that count", async () => {
+    const fleet = await newFleet('counted');
+    await installation().fleets.setLimits.mutate({ fleetId: fleet.fleetId, dailyMessages: { kind: 'fleet', limit: 3 } });
+    // Today counted at the limit, with no message rows behind it.
+    await database.$executeRaw`INSERT INTO message_days (fleet_id, day, messages, payload_bytes) VALUES (${fleet.fleetId}, '2026-10-04', 3, 12)`;
+
+    const refused = await core.sendMessage(argoOf(fleet), { selector: { kind: 'ship', name: 'argo' }, payload: 'Note', idempotencyKey: newKey() });
+
+    expect(refused).toMatchObject({ isOk: false, error: { kind: 'MESSAGE_LIMIT_REACHED' } });
+    await expect(core.readFleetLimits(argoOf(fleet))).resolves.toMatchObject({ dailyMessages: { limit: 3, count: 3 } });
+  });
+
   it('create fleets up to the cap however many race, and refuse the rest', async () => {
     const hosted = await database.fleet.count();
     await installation().settings.set.mutate({ defaultShipLimit: null, defaultDailyMessageLimit: null, fleetCap: hosted + 2 });

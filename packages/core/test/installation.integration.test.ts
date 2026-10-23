@@ -214,6 +214,22 @@ describe('the installation procedures on a hosting server', () => {
     await expect(installation().list.query()).resolves.toContainEqual(described);
   });
 
+  it('answer storage and messages per UTC day from the days counted, not from the stored messages', async () => {
+    const created = await installation().create.mutate({ requestId: newKey(), name: 'counted', operatorEmail: 'counted@example.com' });
+    // Days counted as sends add to them, with no message rows behind them.
+    await database.$executeRaw`
+      INSERT INTO message_days (fleet_id, day, messages, payload_bytes)
+      VALUES (${created.fleetId}, '2026-08-01', 2, 50), (${created.fleetId}, '2026-10-02', 5, 1000)`;
+
+    const described = await installation().get.query({ fleetId: created.fleetId });
+
+    expect(described).toMatchObject({
+      storage: 1050,
+      messagesToday: 0,
+      messagesPerDay: ['2026-09-28', '2026-09-29', '2026-09-30', '2026-10-01', '2026-10-02', '2026-10-03', '2026-10-04'].map((date) => ({ date, count: date === '2026-10-02' ? 5 : 0 })),
+    });
+  });
+
   it('describe a fleet\'s health: its oldest pending and in flight, the deliveries no ship can take, needing attention and overdue, and where its deliveries are stuck', async () => {
     const created = await installation().create.mutate({ requestId: newKey(), name: 'stalled', operatorEmail: 'stalled@example.com' });
     const argo = argoOf(created);

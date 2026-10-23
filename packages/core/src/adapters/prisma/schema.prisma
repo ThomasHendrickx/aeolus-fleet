@@ -60,6 +60,7 @@ model Fleet {
   reachRefusals    ReachRefusal[]
   credentials      Credential[]
   messages         Message[]
+  messageDays      MessageDay[]
   deliveries       Delivery[]
   overdueDeliveries OverdueDelivery[]
   events           Event[]
@@ -533,6 +534,23 @@ enum SelectorKind {
   @@map("selector_kind")
 }
 
+/// The messages a fleet stored on one UTC day and their payloads' UTF-8 bytes
+/// (performance design, decision 1). A unit of work adds to it as its last
+/// statements, after the fleet's event numbers, so the row lock is held only
+/// until commit. Storage is the sum of the days; the daily message limit
+/// counts today's row.
+model MessageDay {
+  fleetId      String   @map("fleet_id")
+  day          DateTime @db.Date
+  messages     Int
+  payloadBytes BigInt   @map("payload_bytes")
+
+  fleet Fleet @relation(fields: [fleetId], references: [id])
+
+  @@id([fleetId, day])
+  @@map("message_days")
+}
+
 /// An immutable envelope plus an opaque payload of at most 64 KB, sent by one ship.
 /// Ids start with msg_. The selector is stored as resolved at send time: a ship's
 /// id, never its name, or a type. It can name the message it replies to, and a
@@ -570,6 +588,8 @@ model Message {
   @@unique([fleetId, senderShipId, idempotencyKey])
   /// A ship's current model is its newest message with a model.
   @@index([fleetId, senderShipId, createdAt])
+  /// The installation counts a fleet's messages of the last 7 days (#1126).
+  @@index([fleetId, createdAt])
   /// Every foreign key has an index leading with its columns, so deleting a
   /// referenced row checks it with an index, not a scan (#331).
   @@index([fleetId, selectorShipId])

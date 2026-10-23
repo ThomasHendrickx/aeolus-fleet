@@ -10,8 +10,8 @@ export interface FleetLimitReads {
   applied(fleetId: FleetId): Promise<{ ships: number | null; dailyMessages: number | null }>;
   /** Its ships that are not retired, argo included. */
   activeShips(fleetId: FleetId): Promise<number>;
-  /** The messages it stored at or after `since`, of any kind and from any sender. */
-  messagesSince(fleetId: FleetId, since: Date): Promise<number>;
+  /** The messages it stored on the UTC day that starts at `day`, of any kind and from any sender. */
+  messagesOn(fleetId: FleetId, day: Date): Promise<number>;
 }
 
 export interface FleetLimitsRead {
@@ -35,7 +35,7 @@ export function createReadFleetLimits(deps: { limits: FleetLimitReads; clock: Cl
     const [applied, ships, messages] = await Promise.all([
       deps.limits.applied(fleetId),
       deps.limits.activeShips(fleetId),
-      deps.limits.messagesSince(fleetId, utcDayStart(now)),
+      deps.limits.messagesOn(fleetId, utcDayStart(now)),
     ]);
     return {
       ships: { limit: applied.ships, count: ships },

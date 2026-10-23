@@ -1,16 +1,51 @@
-import { PING_CONTENT_TYPE } from '@aeolus-fleet/common';
+import { PING_CONTENT_TYPE, type FleetId } from '@aeolus-fleet/common';
 
 import type { DeliveryRepository, MessageRepository } from '../../domain/messaging/ports.js';
 import type { Db } from './client.js';
 import { toDeliveryFromSql, toMessage } from './rows.js';
 
-export function createPrismaMessageRepository(db: Db): MessageRepository {
+export interface BufferedMessageRepository extends MessageRepository {
+  /** Adds the stored messages to their fleets' days. The unit of work's last step before commit, after the events are numbered. */
+  flush(): Promise<void>;
+}
+
+/** A stored message as its fleet's day counts it. */
+interface CountedMessage {
+  fleetId: FleetId;
+  /** Its UTC day, as YYYY-MM-DD. */
+  day: string;
+  payloadBytes: number;
+}
+
+/**
+ * Messages on Postgres. Each message stored is counted on its fleet's row for
+ * the UTC day it was stored (performance design, decision 1), in the same
+ * transaction, as its last statements: the row lock on a busy day is then
+ * held only until commit, and always after the fleet's lock for its event
+ * numbers, so the two locks are taken in one order and never deadlock.
+ */
+export function createPrismaMessageRepository(db: Db): BufferedMessageRepository {
+  const counted: CountedMessage[] = [];
+
   return {
     lockDailyCount: async (fleetId) => {
       // A transaction-level advisory lock on the fleet's daily message count, released at commit or rollback.
       await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('daily-messages'), hashtext(${fleetId}))`;
     },
-    countCreatedSince: (fleetId, since) => db.message.count({ where: { fleetId, createdAt: { gte: since } } }),
+    countStoredOn: async (fleetId, day) => {
+      const row = await db.messageDay.findUnique({ where: { fleetId_day: { fleetId, day } }, select: { messages: true } });
+      return row?.messages ?? 0;
+    },
+    flush: async () => {
+      for (const { fleetId, day, messages, payloadBytes } of countedDays(counted)) {
+        await db.$executeRaw`
+          INSERT INTO message_days (fleet_id, day, messages, payload_bytes)
+          VALUES (${fleetId}, ${day}::date, ${messages}, ${payloadBytes})
+          ON CONFLICT (fleet_id, day) DO UPDATE
+          SET messages = message_days.messages + EXCLUDED.messages, payload_bytes = message_days.payload_bytes + EXCLUDED.payload_bytes`;
+      }
+      counted.length = 0;
+    },
     create: async (message) => {
       const { selector } = message;
       await db.message.create({
@@ -31,6 +66,7 @@ export function createPrismaMessageRepository(db: Db): MessageRepository {
           createdAt: message.createdAt,
         },
       });
+      counted.push({ fleetId: message.fleetId, day: message.createdAt.toISOString().slice(0, 10), payloadBytes: Buffer.byteLength(message.payload, 'utf8') });
     },
     lockIdempotencyKey: async ({ senderShipId, idempotencyKey }) => {
       // A transaction-level advisory lock on the sender and its key, released at
@@ -48,6 +84,17 @@ export function createPrismaMessageRepository(db: Db): MessageRepository {
       return row ? toMessage(row) : undefined;
     },
   };
+}
+
+/** The counted messages summed per fleet and day, in one order, so concurrent units of work lock the rows alike. */
+function countedDays(counted: readonly CountedMessage[]): { fleetId: FleetId; day: string; messages: number; payloadBytes: number }[] {
+  const days = new Map<string, { fleetId: FleetId; day: string; messages: number; payloadBytes: number }>();
+  for (const { fleetId, day, payloadBytes } of counted) {
+    const key = `${fleetId} ${day}`;
+    const sum = days.get(key) ?? { fleetId, day, messages: 0, payloadBytes: 0 };
+    days.set(key, { ...sum, messages: sum.messages + 1, payloadBytes: sum.payloadBytes + payloadBytes });
+  }
+  return [...days.entries()].toSorted(([a], [b]) => a.localeCompare(b)).map(([, sum]) => sum);
 }
 
 export function createPrismaDeliveryRepository(db: Db): DeliveryRepository {

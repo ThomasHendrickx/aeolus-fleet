@@ -28,8 +28,8 @@ export interface MessageRepository {
    * two sends at the daily limit never both see room for one more.
    */
   lockDailyCount(fleetId: FleetId): Promise<void>;
-  /** How many messages the fleet stored at or after `since`, of any kind and from any sender. */
-  countCreatedSince(fleetId: FleetId, since: Date): Promise<number>;
+  /** How many messages the fleet stored on the UTC day that starts at `day`, of any kind and from any sender. */
+  countStoredOn(fleetId: FleetId, day: Date): Promise<number>;
 }
 
 /**
