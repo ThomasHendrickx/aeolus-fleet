@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { idSchema } from '../ids/index.js';
 import { messageRecipientSchema, partySchema } from './history.js';
+import { pageInputOf, pageOutputOf } from './page.js';
 
 /**
  * Inputs and outputs of Needs attention (docs/blueprint.md, 'Domain events'):
@@ -43,8 +44,11 @@ export const needsAttentionDeliverySchema = z.object({
 
 export type NeedsAttentionDelivery = z.infer<typeof needsAttentionDeliverySchema>;
 
-/** Output of `fleet.needsAttention`: every undeliverable or not handled delivery of the fleet, oldest first. */
-export const needsAttentionOutputSchema = z.array(needsAttentionDeliverySchema);
+/** Input of `fleet.needsAttention`: the fleet's, or one ship's for its page, and the cursor and size of a page. */
+export const needsAttentionInputSchema = z.object({ shipId: idSchema('ship').optional(), ...pageInputOf(idSchema('delivery')).shape });
+
+/** Output of `fleet.needsAttention`: a page of the undeliverable or not handled deliveries, oldest first by since when. */
+export const needsAttentionOutputSchema = pageOutputOf(needsAttentionDeliverySchema, idSchema('delivery'));
 
 /** Input of `fleet.dismiss`: the undeliverable or not handled delivery the operator lets go. It stays in history, dismissed. */
 export const dismissDeliveryInputSchema = z.object({

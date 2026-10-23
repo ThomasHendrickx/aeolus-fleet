@@ -13,6 +13,7 @@ import {
   fleetListOutputSchema,
   messageInputSchema,
   messageOutputSchema,
+  needsAttentionInputSchema,
   needsAttentionOutputSchema,
   healthOutputSchema,
   operatorInboxInputSchema,
@@ -849,16 +850,17 @@ export const fleetRouter = router({
       };
     }),
 
-  /** Needs attention: every undeliverable or not handled delivery of the fleet, oldest first, with its whole message. */
+  /** Needs attention: a page of the undeliverable or not handled deliveries of the fleet or one ship, oldest first, with their whole message. */
   needsAttention: actorScopedProcedure('fleet:read')
+    .input(needsAttentionInputSchema)
     .output(needsAttentionOutputSchema)
-    .query(async ({ ctx }) =>
-      (await ctx.useCases.readNeedsAttention(ctx.caller)).map((entry) => ({
-        ...entry,
-        since: entry.since.toISOString(),
-        message: { ...entry.message, sentAt: entry.message.sentAt.toISOString() },
-      })),
-    ),
+    .query(async ({ ctx, input }) => {
+      const { items, nextCursor } = await ctx.useCases.readNeedsAttention(ctx.caller, input);
+      return {
+        items: items.map((entry) => ({ ...entry, since: entry.since.toISOString(), message: { ...entry.message, sentAt: entry.message.sentAt.toISOString() } })),
+        nextCursor,
+      };
+    }),
 
   /** The fleet's health (decision 0042): its stuck deliveries by cause and place, the 7-day trend and the acknowledged in 24 hours. */
   health: actorScopedProcedure('fleet:read')

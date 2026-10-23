@@ -340,9 +340,40 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
       });
     },
 
-    needsAttention: async (fleetId) => {
+    needsAttention: async (fleetId, { shipId, cursor, limit }) => {
+      // Ordered by since when, each delivery's last DeliveryUndeliverable or
+      // DeliveryNotHandled, whose place in the stream also places the cursor:
+      // a cursor dismissed meanwhile keeps its event. A delivery the fleet
+      // never listed starts no page: nothing comes after it.
+      const after =
+        cursor === undefined
+          ? null
+          : ((
+              await db.event.findFirst({
+                where: { fleetId, deliveryId: cursor, type: { in: ['DeliveryUndeliverable', 'DeliveryNotHandled'] } },
+                orderBy: { seq: 'desc' },
+                select: { seq: true },
+              })
+            )?.seq ?? null);
+      if (cursor !== undefined && after === null) {
+        return { items: [], nextCursor: null };
+      }
+      const pageIds = z.array(z.object({ id: idSchema('delivery') })).parse(
+        await db.$queryRaw`
+          SELECT d.id FROM deliveries d
+          CROSS JOIN LATERAL (
+            SELECT e.seq, e.ship_id FROM events e
+            WHERE e.fleet_id = d.fleet_id AND e.delivery_id = d.id AND e.type IN ('DeliveryUndeliverable', 'DeliveryNotHandled')
+            ORDER BY e.seq DESC LIMIT 1) since
+          WHERE d.fleet_id = ${fleetId} AND d.state IN ('undeliverable', 'notHandled')
+            AND (${shipId ?? null}::text IS NULL OR since.ship_id = ${shipId ?? null})
+            AND (${after}::bigint IS NULL OR since.seq > ${after})
+          ORDER BY since.seq
+          LIMIT ${limit + 1}`,
+      );
+      const page = pageOf(pageIds, { limit, cursorOf: (row) => row.id });
       const rows = await db.delivery.findMany({
-        where: { fleetId, state: { in: ['undeliverable', 'notHandled'] } },
+        where: { fleetId, id: { in: page.items.map((row) => row.id) } },
         select: { id: true, state: true, attempts: true, handOverNumber: true, message: true },
       });
       // Since when each needs attention: its last DeliveryUndeliverable or
@@ -364,16 +395,16 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
         return { deliveryId, state: row.state, attempts: row.attempts, isPushed: row.handOverNumber !== null, message: toMessage(row.message), event, shipId: event.shipId };
       });
       const party = await partiesOf(db, { fleetId, shipIds: found.flatMap(({ message, shipId }) => [...shipsNamedBy(message), shipId]) });
-      return found
+      const items = found
         .sort((first, second) => first.event.seq - second.event.seq)
-        .map(({ deliveryId, state, attempts, isPushed, message, event, shipId }) => ({
+        .map(({ deliveryId, state, attempts, isPushed, message, event, shipId: sinceShipId }) => ({
           deliveryId,
           state,
           attempts,
           isPushed,
           since: event.occurredAt,
           reason: typeof event.details.reason === 'string' ? event.details.reason : null,
-          ship: party(shipId),
+          ship: party(sinceShipId),
           message: {
             id: message.id,
             sender: party(message.senderShipId),
@@ -385,6 +416,7 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
             payload: message.payload,
           },
         }));
+      return { items, nextCursor: page.nextCursor };
     },
 
     shipWay: async (fleetId, shipId) => {

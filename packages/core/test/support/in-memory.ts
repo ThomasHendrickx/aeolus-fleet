@@ -1,4 +1,4 @@
-import { createIdGenerator, idSchema, LEASE_END_REASONS, PING_CONTENT_TYPE, type FleetId, type IdGenerator, type LeaseWaker, type ShipId } from '@aeolus-fleet/common';
+import { createIdGenerator, idSchema, LEASE_END_REASONS, PING_CONTENT_TYPE, type DeliveryId, type FleetId, type IdGenerator, type LeaseWaker, type ShipId } from '@aeolus-fleet/common';
 
 import type { ConsoleSession } from '../../src/domain/identity/console-session.js';
 import type { Credential } from '../../src/domain/identity/credential.js';
@@ -1762,18 +1762,19 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
             };
           }),
       ),
-    needsAttention: (fleetId) => {
+    needsAttention: (fleetId, { shipId, cursor, limit }) => {
       const events = numbered(fleetId);
+      const sinceOf = (deliveryId: DeliveryId) =>
+        events.findLast((event) => event.deliveryId === deliveryId && (event.type === 'DeliveryUndeliverable' || event.type === 'DeliveryNotHandled'));
+      // A delivery the fleet never listed starts no page: nothing comes after it.
+      const after = cursor === undefined ? 0 : (sinceOf(cursor)?.seq ?? Number.POSITIVE_INFINITY);
       return Promise.resolve(
         state.deliveries
           .filter((delivery) => delivery.fleetId === fleetId)
           .flatMap((delivery) => (delivery.state === 'undeliverable' || delivery.state === 'notHandled' ? [{ delivery, state: delivery.state }] : []))
           .map(({ delivery, state: attentionState }) => {
             const message = messageOf(fleetId, delivery.messageId);
-            const since = events.findLast(
-              (event) =>
-                event.deliveryId === delivery.id && (event.type === 'DeliveryUndeliverable' || event.type === 'DeliveryNotHandled'),
-            );
+            const since = sinceOf(delivery.id);
             if (!message || !since?.shipId) {
               throw new Error(`${attentionState} ${delivery.id} without its message or its event by a ship`);
             }
@@ -1792,9 +1793,11 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
               },
             };
           })
+          .filter(({ seq, entry }) => seq > after && (shipId === undefined || entry.ship.id === shipId))
           .sort((first, second) => first.seq - second.seq)
+          .slice(0, limit + 1)
           .map(({ entry }) => entry),
-      );
+      ).then((rows) => pageOf(rows, { limit, cursorOf: (entry) => entry.deliveryId }));
     },
     shipWay: (fleetId, shipId) => {
       const crewed = ship(fleetId, shipId);

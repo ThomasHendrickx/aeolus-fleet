@@ -1,6 +1,7 @@
-import type { DeliveryId, NeedsAttentionDelivery } from '@aeolus-fleet/common';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { DeliveryId, NeedsAttentionDelivery, ShipId } from '@aeolus-fleet/common';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
+import { CONSOLE_PAGE_SIZE, nextCursorOf, pagedListOf } from './paged-list';
 import { useTRPC } from './trpc';
 
 /**
@@ -40,10 +41,12 @@ export function attentionReason(delivery: Pick<NeedsAttentionDelivery, 'state' |
   }
 }
 
-/** Needs attention: every undeliverable or not handled delivery of the fleet, oldest first. */
-export function useNeedsAttention() {
+/** Needs attention: the undeliverable or not handled deliveries of the fleet, or of one ship for its page, oldest first, a page at a time. */
+export function useNeedsAttention(shipId?: ShipId) {
   const trpc = useTRPC();
-  return useQuery(trpc.fleet.needsAttention.queryOptions());
+  return pagedListOf(
+    useInfiniteQuery(trpc.fleet.needsAttention.infiniteQueryOptions({ ...(shipId === undefined ? {} : { shipId }), limit: CONSOLE_PAGE_SIZE }, { getNextPageParam: nextCursorOf })),
+  );
 }
 
 /** Refreshes Needs attention, and every ship page read, after a resend or a dismiss. */

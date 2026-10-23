@@ -1,19 +1,30 @@
+import { PAGE_SIZE_DEFAULT, type DeliveryId, type ShipId } from '@aeolus-fleet/common';
+
 import { readsMessage, type ReadReachOf } from '../registry/public.js';
 import type { Caller } from './caller.js';
 import { partiesOf, withPing, type ShipHistory, type ShownNeedsAttentionEntry } from './history.js';
+import type { Page } from './page.js';
 
-export type ReadNeedsAttention = (caller: Caller) => Promise<ShownNeedsAttentionEntry[]>;
+export type ReadNeedsAttention = (
+  caller: Caller,
+  input: { shipId?: ShipId; cursor?: DeliveryId; limit?: number },
+) => Promise<Page<ShownNeedsAttentionEntry, DeliveryId>>;
 
 /**
- * Use case: Needs attention, every undeliverable or not handled delivery of
- * the caller's fleet, oldest first, each with its state and whole message,
- * telling whether it is a ping, for the operator to resend or dismiss. Abandoned deliveries are never listed: they stay in the
- * timelines only. Only the deliveries whose message the caller reads
- * (decision 0034). The caller's scope (fleet:read) is checked before this runs.
+ * Use case: a page of Needs attention, the undeliverable or not handled
+ * deliveries of the caller's fleet, or of one ship for its page, oldest
+ * first, each with its state and whole message, telling whether it is a
+ * ping, for the operator to resend or dismiss. Abandoned deliveries are never
+ * listed: they stay in the timelines only. Only the deliveries whose message
+ * the caller reads (decision 0034). The caller's scope (fleet:read) is
+ * checked before this runs.
  */
 export function createReadNeedsAttention(deps: { history: ShipHistory; readReach: ReadReachOf }): ReadNeedsAttention {
-  return async (caller) => {
-    const reach = await deps.readReach(caller);
-    return (await deps.history.needsAttention(caller.fleetId)).filter((entry) => readsMessage(reach, partiesOf(entry.message, entry.ship))).map((entry) => ({ ...entry, message: withPing(entry.message) }));
+  return async (caller, { shipId, cursor, limit = PAGE_SIZE_DEFAULT }) => {
+    const [page, reach] = await Promise.all([deps.history.needsAttention(caller.fleetId, { shipId, cursor, limit }), deps.readReach(caller)]);
+    return {
+      items: page.items.filter((entry) => readsMessage(reach, partiesOf(entry.message, entry.ship))).map((entry) => ({ ...entry, message: withPing(entry.message) })),
+      nextCursor: page.nextCursor,
+    };
   };
 }

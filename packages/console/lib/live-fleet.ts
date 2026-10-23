@@ -184,7 +184,7 @@ export function useLiveFleet(): LiveFleet {
             reload(trpc.fleet.health.queryKey());
           }
           if (isAttentionChange(event.type)) {
-            reload(trpc.fleet.needsAttention.queryKey());
+            reload(trpc.fleet.needsAttention.pathKey());
           }
           if (isLabelChange(event.type)) {
             reload(trpc.fleet.labels.queryKey());

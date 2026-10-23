@@ -134,8 +134,8 @@ describe('Needs attention on Postgres', () => {
 
   it("pages oldest first by its cursor, even after the cursor's delivery was dismissed, a ship's page holding only its own", async () => {
     const first = await undeliverable();
-    const second = await notHandled();
-    const third = await undeliverable();
+    const second = await undeliverable();
+    const third = await notHandled();
     const read = (input: { shipId?: ShipId; cursor?: DeliveryId; limit?: number }) => core.useCases.readNeedsAttention(argo, input);
     const page = await read({ limit: 1 });
     unwrap(await core.useCases.dismissDelivery(argo, { deliveryId: first.deliveryId }));
