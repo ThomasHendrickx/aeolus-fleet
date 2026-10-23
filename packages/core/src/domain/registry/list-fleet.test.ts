@@ -481,3 +481,57 @@ describe('listing the fleet within read reach (decision 0034)', () => {
     expect([byB, byA.map((ship) => ship.id).sort()]).toEqual([[], [fleet.reader.shipId, fleet.near.shipId].sort()]);
   });
 });
+
+describe('a page of the fleet (decision 4 of the performance design)', () => {
+  async function commissionShips(names: readonly string[]): Promise<ShipId[]> {
+    const ids: ShipId[] = [];
+    for (const name of names) {
+      ids.push(unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name, type: 'implementer' })).shipId);
+    }
+    return ids;
+  }
+
+  it('answers the first ships, oldest first, and the ship id the next page starts after', async () => {
+    await commissionShips(['builder', 'tester']);
+
+    const page = await useCases.listFleet(argo, { limit: 2 });
+
+    expect([page.ships.map((ship) => ship.name), page.nextCursor]).toEqual([['argo', 'scout'], scoutId]);
+  });
+
+  it('answers the ships after the cursor, and no next cursor on the last page', async () => {
+    const [builderId] = await commissionShips(['builder', 'tester']);
+
+    const page = await useCases.listFleet(argo, { cursor: scoutId, limit: 2 });
+
+    expect([page.ships.map((ship) => ship.id), page.nextCursor]).toEqual([[builderId, expect.any(String)], null]);
+  });
+
+  it('answers no next cursor when the last page holds exactly the page size', async () => {
+    const page = await useCases.listFleet(argo, { limit: 2 });
+
+    expect([page.ships.map((ship) => ship.name), page.nextCursor]).toEqual([['argo', 'scout'], null]);
+  });
+
+  it('holds 100 ships when the caller asks no page size', async () => {
+    await commissionShips(Array.from({ length: 100 }, (_unused, index) => `ship-${String(index)}`));
+
+    const page = await useCases.listFleet(argo);
+
+    expect([page.ships.length, page.nextCursor]).toEqual([100, expect.any(String)]);
+  });
+
+  it('pages the ships that carry the label values given, so a page is never short of a match', async () => {
+    const [builderId, testerId, checkerId] = await commissionShips(['builder', 'tester', 'checker']);
+    unwrap(await useCases.defineLabel(argo, { key: 'os', values: ['macos'] }));
+    const macos = valueIdOf(core, { key: 'os', value: 'macos' });
+    for (const shipId of [builderId, checkerId]) {
+      unwrap(await useCases.assignLabel(argo, { shipId, valueId: macos }));
+    }
+
+    const page = await useCases.listFleet(argo, { valueIds: [macos], limit: 1 });
+    const next = await useCases.listFleet(argo, { valueIds: [macos], cursor: page.nextCursor ?? testerId, limit: 1 });
+
+    expect([page.ships.map((ship) => ship.id), next.ships.map((ship) => ship.id), next.nextCursor]).toEqual([[builderId], [checkerId], null]);
+  });
+});
