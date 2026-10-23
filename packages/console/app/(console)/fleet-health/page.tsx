@@ -8,7 +8,7 @@ import { MachineLiveness } from '../../../features/trierarchs/ui/organisms/machi
 import { useAccess } from '../../../lib/access';
 import { useConsoleFrame } from '../../../lib/console-frame';
 import { useFleetSnapshot } from '../../../lib/fleet';
-import { useFleetHealth } from '../../../lib/fleet-health';
+import { useStuck } from '../../../lib/fleet-health';
 import { useLiveFleet } from '../../../lib/live-fleet';
 import { useNow } from '../../../lib/now';
 import { useSignInWhenSessionEnds } from '../../../lib/session';
@@ -26,14 +26,14 @@ export default function FleetHealthPage() {
   const now = useNow();
   const frame = useConsoleFrame();
   const liveFleet = useLiveFleet();
-  const health = useFleetHealth();
+  const stuck = useStuck();
   const access = useAccess();
   const squadrons = useSquadrons();
   const silent = silentMembers(squadrons.data ?? []);
   const silentShips = useShips(silent.map(({ member }) => member.shipId));
   const fleet = useFleetSnapshot();
   const shipsById = new Map((fleet.data ?? []).map((ship) => [ship.id, ship]));
-  useSignInWhenSessionEnds([health.error, liveFleet.error]);
+  useSignInWhenSessionEnds([stuck.error, liveFleet.error]);
 
   return (
     <ListPage {...frame} title="Health" description="Where deliveries wait, since when, and what lets them move." live={liveFleet.live}>

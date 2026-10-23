@@ -10,7 +10,7 @@ import { StuckTrend } from '../molecules/stuck-trend';
  * deliveries in how many places, since when and whether that rose or fell in
  * a day, or Delivering; beside it the 7-day trend with its marks.
  */
-export function HealthVerdict({ health }: { health: Health }) {
+export function HealthVerdict({ health }: { health: Pick<Health, 'stuck' | 'stuckPerHour'> }) {
   const verdict = verdictOf(health);
   return (
     <section

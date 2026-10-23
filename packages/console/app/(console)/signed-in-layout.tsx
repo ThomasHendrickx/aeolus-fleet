@@ -31,7 +31,7 @@ export function SignedInLayout({ children }: { children: ReactNode }) {
   const switcher = useAppSwitcher();
   const access = useAccess();
   const inboxCount = useOpenInboxCount();
-  const stuckCount = useStuckCount();
+  const stuckCount = useStuckCount().data?.count;
   const pluginNav = usePluginNav();
   const active = destinationOf(usePathname());
   const [isComposing, setIsComposing] = useState(false);

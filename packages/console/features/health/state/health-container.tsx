@@ -3,14 +3,14 @@
 import type { ReactNode } from 'react';
 
 import { useFleetSnapshot } from '../../../lib/fleet';
-import { useFleetHealth } from '../../../lib/fleet-health';
+import { useAcknowledged, useStuck, useStuckHistory } from '../../../lib/fleet-health';
 import { spotsOf } from '../../../lib/machines';
 import { useNow } from '../../../lib/now';
 import { relativeTime } from '../../../lib/relative-time';
 import type { Machine } from '../../../lib/trierarch-plugin-schemas';
 import { useMachines } from '../../../lib/trierarch-plugin';
 import { placeNote, type StuckPlace } from '../services/health-view';
-import { HealthBoard } from '../ui/organisms/health-board';
+import { HealthBoard, type HealthPartRead } from '../ui/organisms/health-board';
 import type { HealthMachine } from '../ui/organisms/machines-panel';
 
 interface HealthContainerProps {
@@ -21,19 +21,22 @@ interface HealthContainerProps {
 }
 
 /**
- * The Health page's board, read live: the fleet's health, each stalled
- * ship's last seen from the fleet snapshot, and the machines with how many
- * ships each crews when the trierarch plugin is connected.
+ * The Health page's board, read live: where deliveries are stuck, the trend
+ * and the acknowledged, each by its own read; each stalled ship's last seen
+ * from the fleet snapshot, and the machines with how many ships each crews
+ * when the trierarch plugin is connected.
  */
 export function HealthContainer({ renderLiveness, children }: HealthContainerProps) {
   const now = useNow();
-  const health = useFleetHealth();
+  const stuck = useStuck();
+  const stuckPerHour = useStuckHistory();
+  const acknowledged = useAcknowledged();
   const fleet = useFleetSnapshot();
   const machines = useMachines();
   const ships = fleet.data ?? [];
   const shipsById = new Map(ships.map((ship) => [ship.id, ship]));
   const notes = new Map<StuckPlace, string>();
-  for (const place of health.data?.stuck ?? []) {
+  for (const place of stuck.data ?? []) {
     const ship = place.place.kind === 'ship' ? shipsById.get(place.place.ship.id) : undefined;
     const note = placeNote(place, { facts: ship && { lastSeenAt: ship.lastSeenAt }, since: (at) => relativeTime(at, now) });
     if (note !== null) {
@@ -44,11 +47,9 @@ export function HealthContainer({ renderLiveness, children }: HealthContainerPro
   const healthMachines: HealthMachine[] | undefined = machines.data?.map((machine) => ({ id: machine.shipId, name: machine.name, ships: spotsOf(machine, ships).length }));
   return (
     <HealthBoard
-      state={health.isError ? 'error' : health.data ? 'ready' : 'loading'}
-      health={health.data}
-      onRetry={() => {
-        void health.refetch();
-      }}
+      stuck={partRead(stuck)}
+      stuckPerHour={partRead(stuckPerHour)}
+      acknowledged={partRead(acknowledged)}
       notes={notes}
       machines={healthMachines}
       renderLiveness={(machine) => {
@@ -60,4 +61,15 @@ export function HealthContainer({ renderLiveness, children }: HealthContainerPro
       {children}
     </HealthBoard>
   );
+}
+
+/** A query as the board shows its part. */
+function partRead<T>(query: { data: T | undefined; isError: boolean; refetch: () => Promise<unknown> }): HealthPartRead<T> {
+  return {
+    data: query.data,
+    isError: query.isError,
+    onRetry: () => {
+      void query.refetch();
+    },
+  };
 }

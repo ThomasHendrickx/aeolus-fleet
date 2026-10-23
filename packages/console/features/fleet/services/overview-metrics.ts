@@ -30,12 +30,6 @@ export function overviewMetrics(input: { ships: readonly ListedShip[]; now: Date
   };
 }
 
-/** Since how long the oldest stuck delivery waits (decision 0042), over the places where deliveries are stuck; none while nothing is stuck. */
-export function oldestStuckOf(stuck: readonly { oldestSince: string }[], now: Date): string | undefined {
-  const oldest = stuck.map((place) => new Date(place.oldestSince)).sort((first, second) => first.getTime() - second.getTime())[0];
-  return oldest && duration(oldest, now);
-}
-
 function ships(count: number): string {
   return count === 1 ? '1 active ship' : `${String(count)} active ships`;
 }

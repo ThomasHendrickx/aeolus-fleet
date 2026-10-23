@@ -1,7 +1,7 @@
 import { createIdGenerator } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
-import { oldestStuckOf, overviewMetrics, overviewSubtitle } from './overview-metrics';
+import { overviewMetrics, overviewSubtitle } from './overview-metrics';
 
 const newId = createIdGenerator();
 const NOW = new Date('2026-10-05T12:00:00.000Z');
@@ -33,18 +33,6 @@ describe('overviewMetrics', () => {
 
   it('names no longest wait while every active ship is crewed', () => {
     expect(overviewMetrics({ ships: [aShip({})], now: NOW }).longestWait).toBeUndefined();
-  });
-});
-
-describe('oldestStuckOf', () => {
-  it('says since how long the oldest stuck delivery waits', () => {
-    const stuck = [{ oldestSince: minutesAgo(30) }, { oldestSince: minutesAgo(165) }];
-
-    expect(oldestStuckOf(stuck, NOW)).toBe('2 h 45 min');
-  });
-
-  it('says no oldest stuck while nothing is stuck', () => {
-    expect(oldestStuckOf([], NOW)).toBeUndefined();
   });
 });
 

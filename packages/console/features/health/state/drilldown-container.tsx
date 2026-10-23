@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { showToast } from '../../../components/atoms/toast';
 import { useAccess } from '../../../lib/access';
 import { useFleetSnapshot } from '../../../lib/fleet';
-import { useFleetHealth } from '../../../lib/fleet-health';
+import { useStuck } from '../../../lib/fleet-health';
 import { DISMISSED_TOAST, useDismissDelivery, useResendDelivery } from '../../../lib/needs-attention';
 import { useNow } from '../../../lib/now';
 import { useStuckMessages } from '../hooks/use-stuck-messages';
@@ -14,20 +14,20 @@ import { causeGroupsOf, placeName } from '../services/health-view';
 import { StuckDrilldown, type DrilldownShip } from '../ui/organisms/stuck-drilldown';
 
 /**
- * One cause opened, read live: its places from the fleet's health, each
+ * One cause opened, read live: its places from where deliveries are stuck, each
  * ship's status, type and last seen from the fleet snapshot, and each stuck
  * delivery's message. A manager resends or dismisses an undeliverable one,
  * with a toast either way.
  */
 export function DrilldownContainer({ cause }: { cause: StuckCause }) {
   const now = useNow();
-  const health = useFleetHealth();
+  const stuck = useStuck();
   const fleet = useFleetSnapshot();
   const access = useAccess();
   const resend = useResendDelivery();
   const dismiss = useDismissDelivery();
   const [pendingIds, setPendingIds] = useState<ReadonlySet<DeliveryId>>(new Set());
-  const places = causeGroupsOf(health.data ?? { stuck: [] }).find((group) => group.cause === cause)?.places ?? [];
+  const places = causeGroupsOf({ stuck: stuck.data ?? [] }).find((group) => group.cause === cause)?.places ?? [];
   const { messages } = useStuckMessages(places.flatMap((place) => place.deliveries.map((delivery) => delivery.messageId)));
   const ships = new Map<string, DrilldownShip>((fleet.data ?? []).map((ship) => [ship.id, { status: ship.status, type: ship.type, lastSeenAt: ship.lastSeenAt }]));
 
@@ -66,12 +66,12 @@ export function DrilldownContainer({ cause }: { cause: StuckCause }) {
   return (
     <StuckDrilldown
       cause={cause}
-      state={health.isError ? 'error' : health.data ? 'ready' : 'loading'}
+      state={stuck.isError ? 'error' : stuck.data ? 'ready' : 'loading'}
       places={places}
       ships={ships}
       messages={messages}
       onRetry={() => {
-        void health.refetch();
+        void stuck.refetch();
       }}
       onResend={access.canResend ? onResend : undefined}
       onDismiss={access.canResend ? onDismiss : undefined}

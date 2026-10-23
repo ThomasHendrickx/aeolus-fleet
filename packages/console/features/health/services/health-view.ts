@@ -50,7 +50,7 @@ export type Verdict =
     };
 
 /** One answer to "is delivery working": delivering, or how many are stuck in how many places, since when. */
-export function verdictOf(health: Health): Verdict {
+export function verdictOf(health: Pick<Health, 'stuck' | 'stuckPerHour'>): Verdict {
   const [oldest] = health.stuck.map((place) => place.oldestSince).toSorted();
   if (oldest === undefined) {
     return { kind: 'delivering' };
@@ -117,7 +117,7 @@ export interface TrendMark {
  * One mark per place whose oldest wait began within the trend, at the first
  * hour that counts it, oldest first: "mapper: no ship can take".
  */
-export function marksOf(health: Health): TrendMark[] {
+export function marksOf(health: Pick<Health, 'stuck' | 'stuckPerHour'>): TrendMark[] {
   const [first] = health.stuckPerHour;
   if (first === undefined) {
     return [];

@@ -3,9 +3,11 @@
 import { CircleDashed, OctagonAlert, UserCheck } from 'lucide-react';
 
 import { MetricCard } from '../ui/molecules/metric-card';
-import { useFleetHealth } from '../../../lib/fleet-health';
+import { useFleetSnapshot } from '../../../lib/fleet';
+import { useStuckCount } from '../../../lib/fleet-health';
 import { useNow } from '../../../lib/now';
-import { oldestStuckOf, overviewMetrics } from '../services/overview-metrics';
+import { duration } from '../../../lib/relative-time';
+import { overviewMetrics } from '../services/overview-metrics';
 
 /**
  * The overview's counts above the fleet (canvas, OverviewVaried): ships
@@ -15,19 +17,13 @@ import { oldestStuckOf, overviewMetrics } from '../services/overview-metrics';
  * count, nor the reverse. None once the fleet is known with argo alone.
  */
 export function OverviewMetrics() {
-  const counts = useShipCounts();
-  const health = useFleetHealth().data;
-  // The stuck deliveries in all, and since when the oldest of them waits.
-  const stuck = health && {
-    count: health.stuck.reduce((total, place) => total + place.count, 0),
-    oldestSince: health.stuck.map((place) => place.oldestSince).toSorted()[0] ?? null,
-  };
+  const fleet = useFleetSnapshot();
+  const stuck = useStuckCount().data;
   const now = useNow();
   const metrics = fleet.data && overviewMetrics({ ships: fleet.data, now });
   if (metrics?.activeCount === 0) {
     return null;
   }
-  const oldestStuck = health.data && oldestStuckOf(health.data.stuck, now);
   return (
     <div className="grid grid-cols-3 gap-4 max-sm:grid-cols-2 max-sm:gap-2.5" data-testid="overview-metrics">
       <MetricCard
@@ -51,8 +47,8 @@ export function OverviewMetrics() {
       />
       <MetricCard
         label="Stuck"
-        value={stuckCountOf(health.data)}
-        detail={health.data && (oldestStuck ? `Deliveries stuck, oldest ${oldestStuck}` : 'Delivering')}
+        value={stuck?.count}
+        detail={stuck && (stuck.oldestSince === null ? 'Delivering' : `Deliveries stuck, oldest ${duration(new Date(stuck.oldestSince), now)}`)}
         href="/fleet-health"
         icon={OctagonAlert}
         tone="attention"
