@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
 import { createPrismaClient } from '../src/adapters/prisma/client.js';
+import { createPrismaHealthSnapshots } from '../src/adapters/prisma/health-snapshots.js';
 import { createPrismaFleetRepository } from '../src/adapters/prisma/registry.js';
 import { createPrismaSnapshotUnitOfWork, type PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
 import { createSendMessage } from '../src/domain/messaging/send-message.js';
@@ -396,5 +397,22 @@ describe('missed hours', () => {
     expect(closed).toHaveLength(168);
     expect(closed.at(-1)?.hour).toEqual(new Date('2026-10-06T14:00:00.000Z'));
     await expect(stuckAt('2026-10-06T14:00:00.000Z')).resolves.toBe(1);
+  });
+});
+
+describe('the closed hours a read takes', () => {
+  // The acknowledged of an hour is about 21 KB at scale, its stuck a few: the
+  // stuck history reading both spent most of its time on what it never shows.
+  it('are the stuck counts alone for the stuck history, and the acknowledged alone for the acknowledged', async () => {
+    core.clock.set('2026-09-29T15:00:30.000Z');
+    await core.useCases.closeHealthSnapshots();
+    const snapshots = createPrismaHealthSnapshots(core.prisma);
+    const since = new Date('2026-09-29T12:00:00.000Z');
+    const closed = await snapshots.hours(argo.fleetId, since);
+
+    const [stuckHours, acknowledgedHours] = await Promise.all([snapshots.stuckHours(argo.fleetId, since), snapshots.acknowledgedHours(argo.fleetId, since)]);
+
+    expect(stuckHours).toEqual(closed.map(({ hour, stuck }) => ({ hour, stuck })));
+    expect(acknowledgedHours).toEqual(closed.map(({ hour, acknowledged }) => ({ hour, acknowledged })));
   });
 });
