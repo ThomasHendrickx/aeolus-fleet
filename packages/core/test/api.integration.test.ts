@@ -1344,7 +1344,7 @@ describe('the ship page reads at the API', () => {
     const message = await asArgo.fleet.message.query({ messageId });
 
     expect(ship).toMatchObject({ id: shipId, status: 'crewed', crewedSince: clock.now().toISOString(), retiredAt: null });
-    expect(timeline[0]).toMatchObject({ type: 'MessageAccepted', actor: { id: shipId }, message: { id: messageId } });
+    expect(timeline.items[0]).toMatchObject({ type: 'MessageAccepted', actor: { id: shipId }, message: { id: messageId } });
     expect(messages).toMatchObject([{ id: messageId, preview: 'Done with PR 48', delivery: { state: 'pending' } }]);
     expect(message).toMatchObject({
       id: messageId,

@@ -154,7 +154,7 @@ describe('the fleet:read procedures for a ship outside read reach (decision 0034
   });
 
   it("fleet.shipTimeline answers far's events of the messages it reads only", async () => {
-    const timeline = await reader.fleet.shipTimeline.query({ shipId: ids.far });
+    const { items: timeline } = await reader.fleet.shipTimeline.query({ shipId: ids.far });
 
     expect(new Set(timeline.map((entry) => entry.message?.id ?? null))).toEqual(new Set([farToNear]));
   });

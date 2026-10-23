@@ -9,6 +9,7 @@ import {
   shipOutputSchema,
   shipInputSchema,
   shipMessagesOutputSchema,
+  shipTimelineInputSchema,
   shipTimelineOutputSchema,
 } from './history.js';
 
@@ -16,6 +17,18 @@ const newId = createIdGenerator();
 const scout = { id: newId('ship'), name: 'scout' };
 const planner = { id: newId('ship'), name: 'planner' };
 const AT = '2026-10-01T09:00:00.000Z';
+
+describe('shipTimelineInputSchema', () => {
+  it('takes a ship id, and the cursor and size of a page of its events', () => {
+    const input = { shipId: scout.id, cursor: newId('event'), limit: 50 };
+
+    expect(shipTimelineInputSchema.parse(input)).toEqual(input);
+  });
+
+  it('refuses a cursor that names no event', () => {
+    expect(shipTimelineInputSchema.safeParse({ shipId: scout.id, cursor: newId('message') }).success).toBe(false);
+  });
+});
 
 describe('shipInputSchema', () => {
   it('takes a ship id', () => {
@@ -108,39 +121,46 @@ describe('shipTimelineOutputSchema', () => {
     details: { selector: 'ship', recipientType: null },
   };
 
+  /** A last page of the timeline holding the entries. */
+  const timelinePage = (...entries: unknown[]) => ({ items: entries, nextCursor: null });
+
+  it('accepts a page with the cursor of its last event, to read the next page from', () => {
+    expect(shipTimelineOutputSchema.parse({ items: [sent], nextCursor: sent.id })).toEqual({ items: [sent], nextCursor: sent.id });
+  });
+
   it('accepts an event with who caused it, the ship and message it concerns, and its details', () => {
-    expect(shipTimelineOutputSchema.parse([sent])).toEqual([sent]);
+    expect(shipTimelineOutputSchema.parse(timelinePage(sent))).toEqual(timelinePage(sent));
   });
 
   it('accepts the account signed in to the console as argo when argo caused it, by its id only (decision 0054)', () => {
     const signedIn = { ...sent, signedInAccountId: 'acc-01mathilde' };
 
-    expect(shipTimelineOutputSchema.parse([signedIn])).toEqual([signedIn]);
+    expect(shipTimelineOutputSchema.parse(timelinePage(signedIn))).toEqual(timelinePage(signedIn));
   });
 
   it('accepts a system event concerning no message, and a message to a type', () => {
     const system = { ...sent, type: 'FleetInitialised', actor: null, ship: null, message: null, details: {} };
     const toType = { ...sent, ship: null, message: { ...sent.message, recipient: { kind: 'type', type: 'reviewer' } } };
 
-    expect(shipTimelineOutputSchema.parse([system, toType])).toEqual([system, toType]);
+    expect(shipTimelineOutputSchema.parse(timelinePage(system, toType))).toEqual(timelinePage(system, toType));
   });
 
   it('accepts the content type of the message, and whether it is a ping', () => {
     const ping = { ...sent, message: { ...sent.message, contentType: 'application/vnd.aeolus.ping', isPing: true } };
 
-    expect(shipTimelineOutputSchema.parse([ping])).toEqual([ping]);
+    expect(shipTimelineOutputSchema.parse(timelinePage(ping))).toEqual(timelinePage(ping));
   });
 
   it('rejects a message that does not tell whether it is a ping', () => {
     const message = { id: sent.message.id, sender: sent.message.sender, recipient: sent.message.recipient, contentType: sent.message.contentType, model: sent.message.model };
 
-    expect(shipTimelineOutputSchema.safeParse([{ ...sent, message }]).success).toBe(false);
+    expect(shipTimelineOutputSchema.safeParse(timelinePage({ ...sent, message })).success).toBe(false);
   });
 
   it('rejects a message without its content type', () => {
     const message = { id: sent.message.id, sender: sent.message.sender, recipient: sent.message.recipient };
 
-    expect(shipTimelineOutputSchema.safeParse([{ ...sent, message }]).success).toBe(false);
+    expect(shipTimelineOutputSchema.safeParse(timelinePage({ ...sent, message })).success).toBe(false);
   });
 
   it.each([
@@ -148,7 +168,7 @@ describe('shipTimelineOutputSchema', () => {
     ['a nested detail', { ...sent, details: { location: { kind: 'DEVICE' } } }],
     ['no signed-in account', { ...sent, signedInAccountId: undefined }],
   ])('rejects %s', (_label, entry) => {
-    expect(shipTimelineOutputSchema.safeParse([entry]).success).toBe(false);
+    expect(shipTimelineOutputSchema.safeParse(timelinePage(entry)).success).toBe(false);
   });
 });
 
