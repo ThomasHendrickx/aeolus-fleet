@@ -1,10 +1,9 @@
-import { accountIdSchema } from '@aeolus-fleet/common';
+import { accountIdSchema, PAGE_SIZE_DEFAULT } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { historyScenario, type HistoryScenario } from '../../../test/support/history-scenario.js';
 import { unwrap } from '../../testing/result.js';
 import { SYSTEM, recordEvent } from './events.js';
-import { TIMELINE_LIMIT } from './read-ship-timeline.js';
 import { ok } from './result.js';
 import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
 
@@ -15,7 +14,20 @@ beforeEach(async () => {
 });
 
 async function timelineOf(shipId = scene.scout.shipId) {
-  return unwrap(await scene.history.readShipTimeline(scene.argo, { shipId }));
+  return unwrap(await scene.history.readShipTimeline(scene.argo, { shipId })).items;
+}
+
+/** Records events naming the scout, as many as asked. */
+async function issueStartingPrompts(count: number) {
+  for (let index = 0; index < count; index += 1) {
+    await scene.core.uow.run(async (tx) => {
+      await recordEvent(
+        { events: tx.events, ids: scene.core.ids },
+        { fleetId: scene.fleetId, type: 'StartingPromptIssued', occurredAt: scene.core.clock.now(), actor: SYSTEM, shipId: scene.scout.shipId },
+      );
+      return ok(undefined);
+    });
+  }
 }
 
 describe("reading a ship's timeline", () => {
@@ -96,21 +108,40 @@ describe("reading a ship's timeline", () => {
     expect(timeline.at(-1)).toMatchObject({ type: 'ShipCommissioned', actor: null, ship: { name: 'argo' } });
   });
 
-  it(`keeps the newest ${String(TIMELINE_LIMIT)}`, async () => {
-    for (let index = 0; index < TIMELINE_LIMIT; index += 1) {
-      await scene.core.uow.run(async (tx) => {
-        await recordEvent(
-          { events: tx.events, ids: scene.core.ids },
-          { fleetId: scene.fleetId, type: 'StartingPromptIssued', occurredAt: scene.core.clock.now(), actor: SYSTEM, shipId: scene.scout.shipId },
-        );
-        return ok(undefined);
-      });
-    }
+  it('answers a page of at most the limit, newest first, with the cursor of its last event', async () => {
+    const whole = await timelineOf();
+
+    const page = unwrap(await scene.history.readShipTimeline(scene.argo, { shipId: scene.scout.shipId, limit: 2 }));
+
+    expect(page.items.map((entry) => entry.id)).toEqual(whole.slice(0, 2).map((entry) => entry.id));
+    expect(page.nextCursor).toBe(whole[1]?.id);
+  });
+
+  it('answers the events older than the cursor on the next page, and no cursor after the last', async () => {
+    await issueStartingPrompts(1);
+    const whole = await timelineOf();
+    const first = unwrap(await scene.history.readShipTimeline(scene.argo, { shipId: scene.scout.shipId, limit: 3 }));
+
+    const next = unwrap(await scene.history.readShipTimeline(scene.argo, { shipId: scene.scout.shipId, limit: 3, cursor: first.nextCursor ?? undefined }));
+
+    expect(next.items.map((entry) => entry.id)).toEqual(whole.slice(3).map((entry) => entry.id));
+    expect(next.nextCursor).toBeNull();
+  });
+
+  it('answers no cursor when the page holds exactly the last events', async () => {
+    const whole = await timelineOf();
+
+    const page = unwrap(await scene.history.readShipTimeline(scene.argo, { shipId: scene.scout.shipId, limit: whole.length }));
+
+    expect([page.items.length, page.nextCursor]).toEqual([whole.length, null]);
+  });
+
+  it(`answers ${String(PAGE_SIZE_DEFAULT)} events unless told fewer`, async () => {
+    await issueStartingPrompts(PAGE_SIZE_DEFAULT);
 
     const timeline = await timelineOf();
 
-    expect(timeline).toHaveLength(TIMELINE_LIMIT);
-    expect(timeline.at(-1)?.type).toBe('StartingPromptIssued');
+    expect(timeline).toHaveLength(PAGE_SIZE_DEFAULT);
   });
 
   it('knows no ship of another fleet', async () => {
@@ -135,15 +166,25 @@ describe("reading the timeline of a ship outside read reach (decision 0034)", ()
     const withNear = await fleet.send(fleet.far, { kind: 'ship', shipId: fleet.near.shipId });
     await fleet.send(fleet.far, { kind: 'ship', shipId: fleet.argo.shipId });
 
-    const timeline = unwrap(await fleet.history.readShipTimeline(fleet.reader, { shipId: fleet.far.shipId }));
+    const timeline = unwrap(await fleet.history.readShipTimeline(fleet.reader, { shipId: fleet.far.shipId })).items;
 
     expect(new Set(timeline.map((entry) => entry.message?.id ?? null))).toEqual(new Set([withNear]));
+  });
+
+  it('pages past the events it leaves out: a page can come short, with the cursor of the last event it read', async () => {
+    const withNear = await fleet.send(fleet.far, { kind: 'ship', shipId: fleet.near.shipId });
+    await fleet.send(fleet.far, { kind: 'ship', shipId: fleet.argo.shipId });
+    const first = unwrap(await fleet.history.readShipTimeline(fleet.reader, { shipId: fleet.far.shipId, limit: 1 }));
+
+    const next = unwrap(await fleet.history.readShipTimeline(fleet.reader, { shipId: fleet.far.shipId, limit: 1, cursor: first.nextCursor ?? undefined }));
+
+    expect([first.items.length, next.items.map((entry) => entry.message?.id)]).toEqual([0, [withNear]]);
   });
 
   it("gives argo every event of the ship's timeline", async () => {
     await fleet.send(fleet.far, { kind: 'ship', shipId: fleet.argo.shipId });
 
-    const timeline = unwrap(await fleet.history.readShipTimeline(fleet.argo, { shipId: fleet.far.shipId }));
+    const timeline = unwrap(await fleet.history.readShipTimeline(fleet.argo, { shipId: fleet.far.shipId })).items;
 
     expect(timeline.some((entry) => entry.message === null)).toBe(true);
   });
