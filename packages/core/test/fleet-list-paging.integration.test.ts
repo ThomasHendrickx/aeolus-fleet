@@ -74,7 +74,7 @@ describe('the fleet snapshot at 3,000 ships (decision 4 of the performance desig
 
   it('reads a page on from its cursor through an index of the ships in id order, and stops at the page', async () => {
     const rows = await core.prisma.$queryRaw<{ 'QUERY PLAN': string }[]>(
-      Prisma.sql`EXPLAIN ${fleetListingStatement(fleetId, { after: 'shp_00000000000000000000001500', limit: PAGE_SIZE_MAX + 1 })}`,
+      Prisma.sql`EXPLAIN ${fleetListingStatement(fleetId, { after: 'shp_00000000000000000000001500', limit: PAGE_SIZE_MAX + 1, filter: {} })}`,
     );
     const plan = rows.map((row) => row['QUERY PLAN']).join('\n');
 

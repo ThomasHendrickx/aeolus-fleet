@@ -470,12 +470,13 @@ export const fleetRouter = router({
         `A page holds limit ships (${String(PAGE_SIZE_DEFAULT)} unless you ask, at most ${String(PAGE_SIZE_MAX)}); nextCursor is the ship id the next page starts after: pass it as cursor to read on, until it is null. A page that selects by label may hold fewer ships than limit while more follow.`,
         'A ship outside your read reach shows its id, name, type and status only, with isInReadReach false (decision 0034).',
         'With valueIds (label value ids, from fleet_labels or fleet_findLabelValue), only the ships in your read reach that carry every one of them: exact matches, combined with AND.',
+        'Filters, each combined with AND: query (text the name or type holds, in any case), status, type, and crewRequest (none, needsCrew, crewedByHand, or the status the trierarch wrote) take any of the values given.',
       ].join(' '),
     })
     .input(fleetListInputSchema)
     .output(fleetListOutputSchema)
     .query(async ({ ctx, input }) => {
-      const { ships, nextCursor } = await ctx.useCases.listFleet(ctx.caller, { valueIds: input?.valueIds, cursor: input?.cursor, limit: input?.limit });
+      const { ships, nextCursor } = await ctx.useCases.listFleet(ctx.caller, input);
       return { items: ships.map((ship) => (isInReadReach(ship) ? listedShipOutputOf(ship) : ship)), nextCursor };
     }),
 

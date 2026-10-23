@@ -56,13 +56,15 @@ import type {
   ReachRefusalRepository,
   ShipRepository,
 } from '../../src/domain/registry/ports.js';
-import { carriesEvery, isSameOwner, type Label, type LabelOwner, type ListedLabel, type ShipLabel } from '../../src/domain/registry/label.js';
+import { isSameOwner, type Label, type LabelOwner, type ListedLabel, type ShipLabel } from '../../src/domain/registry/label.js';
+import { matchesShipFilter } from '../../src/domain/registry/ship-filter.js';
 import type { DeclaredNetworkRules } from '../../src/domain/registry/declared-network-rules.js';
 import type { NetworkRulesDraft } from '../../src/domain/registry/network-rules-draft.js';
 import type { ScopeNamespace } from '../../src/domain/registry/scope-namespace.js';
 import { noNetworkSettings, type NetworkSettings } from '../../src/domain/registry/network-settings.js';
 import type { ReachRefusal } from '../../src/domain/registry/reach-refusal.js';
 import { isSameCommissioner, type Ship } from '../../src/domain/registry/ship.js';
+import { listedShipOf } from '../../src/domain/registry/list-fleet.js';
 import type { ShipReport } from '../../src/domain/registry/ship-report.js';
 import type { StatedStatement } from '../../src/domain/registry/statement.js';
 import type { Turn } from '../../src/domain/registry/turn.js';
@@ -1447,13 +1449,13 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
   };
 
   const listing: FleetListing = {
-    ships: (fleetId, { after, limit, valueIds }) =>
+    ships: (fleetId, { after, limit, filter }) =>
       Promise.resolve(
         state.ships
           .filter((held) => held.fleetId === fleetId && (after === undefined || held.id.localeCompare(after) > 0))
           .sort((first, second) => first.id.localeCompare(second.id))
           .map(factsOf)
-          .filter((facts) => carriesEvery(facts.labels, valueIds))
+          .filter((facts) => matchesShipFilter(listedShipOf(facts), filter))
           .slice(0, limit),
       ),
     ship: (fleetId, shipId) => {

@@ -1,6 +1,7 @@
 import type { DeliveryId, DeliveryState, FleetId, LabelId, LabelValueId, LeaseId, LeaseWaker, MessageId, ScopeName, ShipId } from '@aeolus-fleet/common';
 
 import type { Recipient } from '../shared/selector.js';
+import type { ShipFilter } from './ship-filter.js';
 import type { ClearRequest } from './clear-request.js';
 import type { CrewRequest } from './crew-request.js';
 import type { Fleet } from './fleet.js';
@@ -464,15 +465,15 @@ export interface InstallationFleets {
   find(fleetId: FleetId, window: InstallationFleetWindow): Promise<InstallationFleetFacts | undefined>;
 }
 
-/** Which of the fleet's ships a listing reads: those after a ship id, at most `limit`, and with label value ids only those carrying every one. */
+/** Which of the fleet's ships a listing reads: those after a ship id that the filter selects, at most `limit`. */
 export interface ShipPage {
   after?: ShipId;
   limit: number;
-  valueIds?: readonly LabelValueId[];
+  filter: ShipFilter;
 }
 
 export interface FleetListing {
-  /** A page of the fleet's ships, oldest first (by ship id), as `page` selects them (decisions 0031 and 4 of the performance design). */
+  /** A page of the fleet's ships, oldest first (by ship id), as `page` selects them (decision 4 of the performance design). */
   ships(fleetId: FleetId, page: ShipPage): Promise<ShipFacts[]>;
   /** The fleet's labels by key, each with its values and its owner by id and name (decision 0031). */
   labels(fleetId: FleetId): Promise<ListedLabel[]>;

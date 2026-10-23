@@ -11,6 +11,7 @@ import type {
   LeaseRepository,
   ShipRepository,
 } from '../../domain/registry/ports.js';
+import type { ShipFilter } from '../../domain/registry/ship-filter.js';
 import type { Db } from './client.js';
 import { Prisma } from './generated/client.js';
 import {
@@ -626,6 +627,50 @@ const crewedByOfShip = Prisma.sql`
   ORDER BY e.seq DESC
   LIMIT 1`;
 
+/** A ship's crew request as one key (domain/registry/ship-filter.ts, crewRequestKeyOf), for the ship `s` of the outer query. */
+const crewRequestKeyOfShip = Prisma.sql`
+  (SELECT CASE
+            WHEN rq.assigned_to_ship_id IS NOT NULL THEN COALESCE(rq.status::text, 'crewing')
+            WHEN EXISTS (SELECT 1 FROM leases ol
+                         WHERE ol.fleet_id = s.fleet_id AND ol.ship_id = s.id AND ol.ended_at IS NULL
+                           AND EXISTS (SELECT 1 FROM events e
+                                       JOIN ships a ON a.fleet_id = e.fleet_id AND a.id = e.actor_ship_id
+                                       WHERE e.fleet_id = s.fleet_id AND e.ship_id = s.id
+                                         AND e.type = 'StartingPromptIssued' AND e.occurred_at <= ol.started_at)) THEN 'crewedByHand'
+            ELSE 'needsCrew'
+          END
+   FROM crew_requests rq WHERE rq.fleet_id = s.fleet_id AND rq.ship_id = s.id)`;
+
+/** A ship's status (domain/registry/ship.ts, shipStatus), for the ship `s` of the outer query. */
+const statusOfShip = Prisma.sql`
+  CASE
+    WHEN s.retired_at IS NOT NULL THEN 'retired'
+    WHEN s.kind IN ('operator', 'viewer')
+      OR EXISTS (SELECT 1 FROM leases ol WHERE ol.fleet_id = s.fleet_id AND ol.ship_id = s.id AND ol.ended_at IS NULL) THEN 'crewed'
+    ELSE 'awaitingCrew'
+  END`;
+
+/**
+ * The filter (domain/registry/ship-filter.ts) as conditions on the ship `s`
+ * of the outer query, each starting with AND: one statement selects the page
+ * or counts the ships, and no ship is read only to be dropped.
+ */
+export function shipFilterCondition({ query, status = [], type = [], crewRequest = [], valueIds = [] }: ShipFilter): Prisma.Sql {
+  const needle = query?.trim().toLowerCase() ?? '';
+  const values = [...new Set(valueIds)];
+  const conditions = [
+    needle === '' ? undefined : Prisma.sql`AND (strpos(lower(s.name), ${needle}) > 0 OR strpos(lower(s.type), ${needle}) > 0)`,
+    status.length === 0 ? undefined : Prisma.sql`AND ${statusOfShip} = ANY(${[...status]}::text[])`,
+    type.length === 0 ? undefined : Prisma.sql`AND s.type = ANY(${[...type]}::text[])`,
+    crewRequest.length === 0 ? undefined : Prisma.sql`AND COALESCE(${crewRequestKeyOfShip}, 'none') = ANY(${[...crewRequest]}::text[])`,
+    values.length === 0
+      ? undefined
+      : Prisma.sql`AND (SELECT count(*) FROM ship_labels sl
+                        WHERE sl.fleet_id = s.fleet_id AND sl.ship_id = s.id AND sl.value_id = ANY(${values}::text[])) = ${values.length}`,
+  ].filter((condition) => condition !== undefined);
+  return conditions.length === 0 ? Prisma.empty : Prisma.join(conditions, ' ');
+}
+
 /**
  * The listing's one statement: a page of the fleet's ships with what the
  * snapshot shows of each, oldest first, read on in ship id order from the
@@ -635,13 +680,8 @@ const crewedByOfShip = Prisma.sql`
  * is open and at most one secret is valid per ship (partial unique indexes),
  * so neither join multiplies rows.
  */
-export function fleetListingStatement(fleetId: FleetId, { after, limit, valueIds = [] }: ShipPage): Prisma.Sql {
+export function fleetListingStatement(fleetId: FleetId, { after, limit, filter }: ShipPage): Prisma.Sql {
   const afterShip = after === undefined ? Prisma.empty : Prisma.sql`AND s.id > ${after}`;
-  const carriesEveryValue =
-    valueIds.length === 0
-      ? Prisma.empty
-      : Prisma.sql`AND (SELECT count(*) FROM ship_labels sl
-                        WHERE sl.fleet_id = s.fleet_id AND sl.ship_id = s.id AND sl.value_id = ANY(${[...new Set(valueIds)]}::text[])) = ${new Set(valueIds).size}`;
   return Prisma.sql`
     SELECT s.id, s.fleet_id, s.name, s.type, s.kind::text AS kind, s.scopes, s.note, s.created_at, s.retired_at,
            s.commissioned_by_kind::text AS commissioned_by_kind, s.commissioned_by, s.commission_key, s.commission_request_hash, s.owner_ship_id,
@@ -669,7 +709,7 @@ export function fleetListingStatement(fleetId: FleetId, { after, limit, valueIds
     LEFT JOIN LATERAL (${crewedByOfShip}) cb ON true
     LEFT JOIN LATERAL (${lastPingOfShip}) p ON true
     LEFT JOIN LATERAL (${lastModelOfShip}) lm ON true
-    WHERE s.fleet_id = ${fleetId} ${afterShip} ${carriesEveryValue}
+    WHERE s.fleet_id = ${fleetId} ${afterShip} ${shipFilterCondition(filter)}
     ORDER BY s.id
     LIMIT ${limit}`;
 }

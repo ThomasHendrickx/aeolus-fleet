@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
+import { shipStatusSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
+import { crewRequestKeySchema } from './crew-request.js';
 import { pageInputOf } from './page.js';
 
 /**
@@ -32,13 +34,21 @@ export const labelValueSchema = z.object({ id: idSchema('labelValue'), value: z.
 export const carriedLabelSchema = z.object({ labelId: idSchema('label'), key: z.string(), valueId: idSchema('labelValue'), value: z.string() });
 
 /**
- * Input of `fleet.list`: none, or the value ids a listed ship must carry
- * (exact matches, combined with AND), and the page: the ship id it starts
- * after and its size (decision 4 of the performance design).
+ * Which ships `fleet.list` and the counts read select, every filter combined
+ * with AND: the search text its name or type holds, in any case; any of the
+ * statuses, types and crew request keys picked; and every label value id
+ * given (exact matches, decision 0031). A filter left out selects every ship.
  */
-export const fleetListInputSchema = pageInputOf(idSchema('ship'))
-  .extend({ valueIds: z.array(idSchema('labelValue')).optional() })
-  .optional();
+export const fleetListFilterSchema = z.object({
+  query: z.string().optional(),
+  status: z.array(shipStatusSchema).optional(),
+  type: z.array(z.string()).optional(),
+  crewRequest: z.array(crewRequestKeySchema).optional(),
+  valueIds: z.array(idSchema('labelValue')).optional(),
+});
+
+/** Input of `fleet.list`: the filter, and the page: the ship id it starts after and its size (decision 4 of the performance design). */
+export const fleetListInputSchema = pageInputOf(idSchema('ship')).extend(fleetListFilterSchema.shape).optional();
 
 /** Input of `fleet.defineLabel` (labels:define): the key, unique in the fleet, and its values. */
 export const defineLabelInputSchema = z.object({ key: labelTextSchema, values: z.array(labelTextSchema) });
