@@ -213,6 +213,38 @@ describe('the fleet:read procedures for a ship outside read reach (decision 0034
     expect(health.stuck.map((place) => place.count)).toEqual([1]);
   });
 
+  it('fleet.stuckCount counts only the deliveries whose message it reads', async () => {
+    await expect(reader.fleet.stuckCount.query()).resolves.toMatchObject({ count: 1 });
+  });
+
+  it('fleet.stuck places only the deliveries whose message it reads', async () => {
+    const stuck = await reader.fleet.stuck.query();
+
+    expect(stuck.map((place) => place.count)).toEqual([1]);
+  });
+
+  it('fleet.stuckHistory counts only the deliveries whose message it reads, stuck now last', async () => {
+    const history = await reader.fleet.stuckHistory.query();
+
+    expect([history.length, history.at(-1)?.count]).toEqual([168, 1]);
+  });
+
+  it('fleet.acknowledged counts only the deliveries whose message it reads, as fleet.health does', async () => {
+    const [acknowledged, health] = [await reader.fleet.acknowledged.query(), await reader.fleet.health.query()];
+
+    expect(acknowledged).toEqual(health.acknowledged);
+  });
+
+  it('fleet.listedShip shows a ship it does not read by name, type and status only', async () => {
+    await expect(reader.fleet.listedShip.query({ shipId: ids.far })).resolves.toMatchObject({ id: ids.far, name: 'far', isInReadReach: false });
+  });
+
+  it('fleet.listedShip shows a ship it reads as fleet.list lists it', async () => {
+    const listed = (await reader.fleet.list.query()).find((ship) => ship.id === ids.near);
+
+    await expect(reader.fleet.listedShip.query({ shipId: ids.near })).resolves.toEqual(listed);
+  });
+
   it('fleet.needsAttention answers nothing it does not read', async () => {
     await expect(reader.fleet.needsAttention.query({})).resolves.toEqual({ items: [], nextCursor: null });
   });
