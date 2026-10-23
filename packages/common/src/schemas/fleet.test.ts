@@ -252,8 +252,8 @@ describe('fleetListOutputSchema', () => {
     return { items, nextCursor: null };
   }
 
-  it('answers a page of ships and the ship id the next page starts after (decision 4 of the performance design)', () => {
-    const nextCursor = newId('ship');
+  it('answers a page of ships and the cursor the next page starts after (decision 4 of the performance design)', () => {
+    const nextCursor = 'eyJpc0VtcHR5IjpmYWxzZX0';
 
     expect(fleetListOutputSchema.parse({ items: [], nextCursor })).toEqual({ items: [], nextCursor });
   });

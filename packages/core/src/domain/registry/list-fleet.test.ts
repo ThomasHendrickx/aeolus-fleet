@@ -492,20 +492,25 @@ describe('a page of the fleet (decision 4 of the performance design)', () => {
     return ids;
   }
 
-  it('answers the first ships, oldest first, and the ship id the next page starts after', async () => {
-    await commissionShips(['builder', 'tester']);
+  /** The names on every page, read on from each next cursor. */
+  async function namesPaged(input: Parameters<typeof useCases.listFleet>[1] & { limit: number }): Promise<string[][]> {
+    const pages: string[][] = [];
+    let cursor = undefined;
+    do {
+      const page = await useCases.listFleet(argo, { ...input, cursor });
+      pages.push(page.ships.map((ship) => ship.name));
+      cursor = page.nextCursor ?? undefined;
+    } while (cursor !== undefined);
+    return pages;
+  }
 
-    const page = await useCases.listFleet(argo, { limit: 2 });
+  it('answers argo first, then the ships by name, a page at a time from each next cursor', async () => {
+    await commissionShips(['tester', 'builder']);
 
-    expect([page.ships.map((ship) => ship.name), page.nextCursor]).toEqual([['argo', 'scout'], scoutId]);
-  });
-
-  it('answers the ships after the cursor, and no next cursor on the last page', async () => {
-    const [builderId] = await commissionShips(['builder', 'tester']);
-
-    const page = await useCases.listFleet(argo, { cursor: scoutId, limit: 2 });
-
-    expect([page.ships.map((ship) => ship.id), page.nextCursor]).toEqual([[builderId, expect.any(String)], null]);
+    await expect(namesPaged({ limit: 2 })).resolves.toEqual([
+      ['argo', 'builder'],
+      ['scout', 'tester'],
+    ]);
   });
 
   it('answers no next cursor when the last page holds exactly the page size', async () => {
@@ -519,21 +524,72 @@ describe('a page of the fleet (decision 4 of the performance design)', () => {
 
     const page = await useCases.listFleet(argo);
 
-    expect([page.ships.length, page.nextCursor]).toEqual([100, expect.any(String)]);
+    expect([page.ships.length, page.nextCursor === null]).toEqual([100, false]);
   });
 
   it('pages the ships that carry the label values given, so a page is never short of a match', async () => {
-    const [builderId, testerId, checkerId] = await commissionShips(['builder', 'tester', 'checker']);
+    const [builderId, , checkerId] = await commissionShips(['builder', 'tester', 'checker']);
     unwrap(await useCases.defineLabel(argo, { key: 'os', values: ['macos'] }));
     const macos = valueIdOf(core, { key: 'os', value: 'macos' });
     for (const shipId of [builderId, checkerId].filter((id) => id !== undefined)) {
       unwrap(await useCases.assignLabel(argo, { shipId, valueId: macos }));
     }
 
-    const page = await useCases.listFleet(argo, { valueIds: [macos], limit: 1 });
-    const next = await useCases.listFleet(argo, { valueIds: [macos], cursor: page.nextCursor ?? testerId, limit: 1 });
+    await expect(namesPaged({ valueIds: [macos], limit: 1 })).resolves.toEqual([['builder'], ['checker']]);
+  });
 
-    expect([page.ships.map((ship) => ship.id), next.ships.map((ship) => ship.id), next.nextCursor]).toEqual([[builderId], [checkerId], null]);
+  it.each([
+    ['ship', 'ascending', ['argo', 'builder', 'scout', 'tester']],
+    ['ship', 'descending', ['tester', 'scout', 'builder', 'argo']],
+    ['status', 'ascending', ['builder', 'scout', 'tester', 'argo']],
+    ['status', 'descending', ['argo', 'builder', 'scout', 'tester']],
+  ] as const)('sorts by %s %s, ties by name, page after page', async (column, direction, names) => {
+    await commissionShips(['tester', 'builder']);
+
+    await expect(namesPaged({ sort: { column, direction }, limit: 3 }).then((pages) => pages.flat())).resolves.toEqual(names);
+  });
+
+  it('sorts by where a ship runs, the ships no session crews last either way', async () => {
+    const [testerId, builderId] = await commissionShips(['tester', 'builder']);
+    crewShip(core, { fleetId, shipId: testerId ?? scoutId }, { harness: 'codex' });
+    crewShip(core, { fleetId, shipId: builderId ?? scoutId });
+
+    const ascending = await namesPaged({ sort: { column: 'runsOn', direction: 'ascending' }, limit: 2 });
+    const descending = await namesPaged({ sort: { column: 'runsOn', direction: 'descending' }, limit: 2 });
+
+    // claude-code, codex, console; scout runs nowhere.
+    expect([ascending.flat(), descending.flat()]).toEqual([
+      ['builder', 'tester', 'argo', 'scout'],
+      ['argo', 'tester', 'builder', 'scout'],
+    ]);
+  });
+
+  it('sorts by when a ship was last seen, the most recent first when ascending, the never seen last', async () => {
+    const [testerId, builderId] = await commissionShips(['tester', 'builder']);
+    crewShip(core, { fleetId, shipId: testerId ?? scoutId });
+    core.clock.advance(60_000);
+    crewShip(core, { fleetId, shipId: builderId ?? scoutId });
+
+    await expect(namesPaged({ sort: { column: 'seen', direction: 'ascending' }, limit: 2 }).then((pages) => pages.flat())).resolves.toEqual([
+      'builder',
+      'tester',
+      'argo',
+      'scout',
+    ]);
+  });
+
+  it('sorts by the first label a ship carries, by key then value', async () => {
+    const [testerId, builderId] = await commissionShips(['tester', 'builder']);
+    unwrap(await useCases.defineLabel(argo, { key: 'os', values: ['macos', 'linux'] }));
+    unwrap(await useCases.assignLabel(argo, { shipId: testerId ?? scoutId, valueId: valueIdOf(core, { key: 'os', value: 'linux' }) }));
+    unwrap(await useCases.assignLabel(argo, { shipId: builderId ?? scoutId, valueId: valueIdOf(core, { key: 'os', value: 'macos' }) }));
+
+    await expect(namesPaged({ sort: { column: 'labels', direction: 'ascending' }, limit: 2 }).then((pages) => pages.flat())).resolves.toEqual([
+      'tester',
+      'builder',
+      'argo',
+      'scout',
+    ]);
   });
 });
 
@@ -553,7 +609,7 @@ describe('selecting the ships of a page by what the overview filters (decision 4
   }
 
   it('selects the ships whose name or type holds the search text, in any case', async () => {
-    await expect(namesSelected({ query: 'REVIEW' })).resolves.toEqual(['scout', 'old']);
+    await expect(namesSelected({ query: 'REVIEW' })).resolves.toEqual(['old', 'scout']);
     await expect(namesSelected({ query: 'uild' })).resolves.toEqual(['builder']);
   });
 
@@ -572,7 +628,7 @@ describe('selecting the ships of a page by what the overview filters (decision 4
 
     await expect(namesSelected({ crewRequest: ['needsCrew'] })).resolves.toEqual(['builder']);
     await expect(namesSelected({ crewRequest: ['crewedByHand'] })).resolves.toEqual(['tester']);
-    await expect(namesSelected({ crewRequest: ['none'] })).resolves.toEqual(['argo', 'scout', 'old']);
+    await expect(namesSelected({ crewRequest: ['none'] })).resolves.toEqual(['argo', 'old', 'scout']);
   });
 
   it("selects the ships by the status their trierarch wrote, an assigned request without one as crewing", async () => {
@@ -590,8 +646,32 @@ describe('selecting the ships of a page by what the overview filters (decision 4
 
   it('combines the filters with AND, and fills a page with matches only', async () => {
     const page = await useCases.listFleet(argo, { query: 'r', status: ['awaitingCrew'], type: ['reviewer', 'implementer'], limit: 1 });
-    const next = await useCases.listFleet(argo, { query: 'r', status: ['awaitingCrew'], type: ['reviewer', 'implementer'], cursor: page.nextCursor ?? scoutId, limit: 1 });
+    const next = await useCases.listFleet(argo, { query: 'r', status: ['awaitingCrew'], type: ['reviewer', 'implementer'], cursor: page.nextCursor ?? undefined, limit: 1 });
 
-    expect([page.ships.map((ship) => ship.name), next.ships.map((ship) => ship.name), next.nextCursor]).toEqual([['scout'], ['builder'], null]);
+    expect([page.ships.map((ship) => ship.name), next.ships.map((ship) => ship.name), next.nextCursor]).toEqual([['builder'], ['scout'], null]);
+  });
+
+  it('selects the ships given by id: a squadron the console resolved', async () => {
+    await expect(namesSelected({ shipIds: [testerId, scoutId] })).resolves.toEqual(['scout', 'tester']);
+  });
+
+  it.each([
+    ['console', [], ['argo']],
+    ['plugin', [], []],
+    ['trierarch', [], ['mac-mini']],
+    ['codex', [], ['tester']],
+    ['other', [], ['builder', 'old', 'scout']],
+  ] as const)('selects the ships whose agent kind is %s', async (kind, _unused, names) => {
+    await shipWithScopes({ registry: useCases, argo }, { name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] });
+    crewShip(core, { fleetId, shipId: testerId }, { harness: 'codex' });
+
+    await expect(namesSelected({ kind: [kind] })).resolves.toEqual(names);
+  });
+
+  it('selects as plugin the ships the console says its plugins run as, before their type or harness', async () => {
+    const pluginShip = await shipWithScopes({ registry: useCases, argo }, { name: 'squadrons', type: 'trierarch', scopes: [] });
+
+    await expect(namesSelected({ kind: ['plugin'], pluginShipIds: [pluginShip.shipId] })).resolves.toEqual(['squadrons']);
+    await expect(namesSelected({ kind: ['trierarch'], pluginShipIds: [pluginShip.shipId] })).resolves.toEqual([]);
   });
 });
