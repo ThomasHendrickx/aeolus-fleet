@@ -24,7 +24,7 @@ describe('reading the stuck deliveries by cause and place', () => {
     await scene.receive(scene.planner);
     await scene.ack(scene.planner, messageId);
 
-    await expect(scene.history.readStuck(scene.argo)).resolves.toEqual([]);
+    await expect(scene.history.readStuck(scene.argo, {})).resolves.toEqual({ items: [], nextCursor: null });
   });
 
   it('places a delivery handed on a quiet plain lease at its ship, with the delivery and since when it waits', async () => {
@@ -33,7 +33,8 @@ describe('reading the stuck deliveries by cause and place', () => {
     const handedAt = scene.core.clock.now();
     scene.core.clock.advance(10 * MINUTE_MS);
 
-    await expect(scene.history.readStuck(scene.argo)).resolves.toEqual([
+    await expect(scene.history.readStuck(scene.argo, {})).resolves.toEqual({
+      items: [
       {
         cause: 'stalledInFlight',
         place: { kind: 'ship', ship: { id: scene.scout.shipId, name: 'scout' }, machine: null },
@@ -41,7 +42,9 @@ describe('reading the stuck deliveries by cause and place', () => {
         oldestSince: handedAt,
         deliveries: [{ deliveryId: deliveryIdOf(scene.core, messageId), messageId, state: 'handed', since: handedAt }],
       },
-    ]);
+      ],
+      nextCursor: null,
+    });
   });
 
   it('names the machine whose trierarch its crew request is assigned to', async () => {
@@ -65,9 +68,9 @@ describe('reading the stuck deliveries by cause and place', () => {
     });
     await scene.send(scene.scout, { to: { kind: 'ship', shipId: docsWriter } });
 
-    await expect(scene.history.readStuck(scene.argo)).resolves.toMatchObject([
-      { cause: 'waitingForCrew', place: { kind: 'ship', ship: { name: 'docs-writer' }, machine: { id: macStudio, name: 'mac-studio', lastSeenAt: crewedAt } } },
-    ]);
+    await expect(scene.history.readStuck(scene.argo, {})).resolves.toMatchObject({
+      items: [{ cause: 'waitingForCrew', place: { kind: 'ship', ship: { name: 'docs-writer' }, machine: { id: macStudio, name: 'mac-studio', lastSeenAt: crewedAt } } }],
+    });
   });
 
   it('counts only the stuck deliveries whose message the caller reads (decision 0034)', async () => {
@@ -77,8 +80,37 @@ describe('reading the stuck deliveries by cause and place', () => {
     await fleet.send(fleet.argo, { kind: 'type', type: 'keeper' });
     unwrap(await fleet.registry.retireShip(fleet.argo, { shipId: fleet.far.shipId }));
 
-    const counts = [(await fleet.history.readStuck(fleet.reader)).map((place) => place.count), (await fleet.history.readStuck(fleet.argo)).map((place) => place.count)];
+    const counts = [(await fleet.history.readStuck(fleet.reader, {})).items.map((place) => place.count), (await fleet.history.readStuck(fleet.argo, {})).items.map((place) => place.count)];
 
     expect(counts).toEqual([[1], [2]]);
+  });
+
+  it('answers the places a page at a time, oldest waiting first, each page after the cursor the last one answered', async () => {
+    const places = [await commission('first', 'writer'), await commission('second', 'writer'), await commission('third', 'writer')];
+    for (const shipId of places) {
+      await scene.send(scene.scout, { to: { kind: 'ship', shipId } });
+    }
+
+    const firstPage = await scene.history.readStuck(scene.argo, { limit: 2 });
+    const lastPage = await scene.history.readStuck(scene.argo, { limit: 2, cursor: firstPage.nextCursor ?? undefined });
+
+    expect([...firstPage.items, ...lastPage.items].map(({ place }) => place.kind === 'ship' && place.ship.name)).toEqual(['first', 'second', 'third']);
+    expect(lastPage.nextCursor).toBeNull();
+  });
+
+  it('answers a full last page with no cursor after it', async () => {
+    await scene.send(scene.scout, { to: { kind: 'ship', shipId: await commission('first', 'writer') } });
+
+    await expect(scene.history.readStuck(scene.argo, { limit: 1 })).resolves.toMatchObject({ nextCursor: null });
+  });
+
+  it('answers only the places of the cause asked', async () => {
+    await scene.send(scene.scout, { to: { kind: 'ship', shipId: await commission('docs-writer', 'writer') } });
+    await scene.send(scene.scout, { to: { kind: 'type', type: 'planner' } });
+    unwrap(await scene.registry.retireShip(scene.argo, { shipId: scene.planner.shipId }));
+
+    const { items } = await scene.history.readStuck(scene.argo, { cause: 'noShipCanTake' });
+
+    expect(items.map(({ cause, place }) => [cause, place])).toEqual([['noShipCanTake', { kind: 'type', type: 'planner' }]]);
   });
 });

@@ -218,9 +218,9 @@ describe('the fleet:read procedures for a ship outside read reach (decision 0034
   });
 
   it('fleet.stuck places only the deliveries whose message it reads', async () => {
-    const stuck = await reader.fleet.stuck.query();
+    const stuck = await reader.fleet.stuck.query({});
 
-    expect(stuck.map((place) => place.count)).toEqual([1]);
+    expect(stuck.items.map((place) => place.count)).toEqual([1]);
   });
 
   it('fleet.stuckHistory counts only the deliveries whose message it reads, stuck now last', async () => {
