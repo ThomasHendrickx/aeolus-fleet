@@ -26,9 +26,11 @@ import type {
 import type { Notifier } from '../../domain/shared/notifier.js';
 import type { Result } from '../../domain/shared/result.js';
 import type { UnitOfWork } from '../../domain/shared/unit-of-work.js';
+import type { HealthSnapshotWriter } from '../../domain/shared/health-snapshot.js';
 import { BULK_TRANSACTION_TIME_MS, type Db, type PrismaClient } from './client.js';
 import { createPrismaNotifier } from './delivery-notices.js';
 import { createPrismaEventLog, type BufferedEventLog } from './event-log.js';
+import { createPrismaHealthSnapshots } from './health-snapshots.js';
 import {
   createPrismaCallerLookup,
   createPrismaConsoleSessionRepository,
@@ -78,6 +80,7 @@ export interface PrismaTx {
   notifier: Notifier;
   installationRequests: InstallationRequestRepository;
   installationSettings: InstallationSettingsRepository;
+  healthSnapshots: HealthSnapshotWriter;
 }
 
 export function createPrismaTx(db: Db): PrismaTx {
@@ -106,6 +109,7 @@ export function createPrismaTx(db: Db): PrismaTx {
     installationRequests: createPrismaInstallationRequestRepository(db),
     installationSettings: createPrismaInstallationSettings(db),
     notifier: createPrismaNotifier(db),
+    healthSnapshots: createPrismaHealthSnapshots(db),
   };
 }
 
@@ -131,8 +135,17 @@ export function createPrismaBulkUnitOfWork(prisma: PrismaClient): UnitOfWork<Pri
   return createUnitOfWork(prisma, { timeout: BULK_TRANSACTION_TIME_MS });
 }
 
+/**
+ * The unit of work of the stuck snapshot's close: repeatable read, so the
+ * events, ships, leases and deliveries it folds and replays are one moment's,
+ * and the events up to a seq are all there; it may run as long as a bulk one.
+ */
+export function createPrismaSnapshotUnitOfWork(prisma: PrismaClient): UnitOfWork<PrismaTx> {
+  return createUnitOfWork(prisma, { timeout: BULK_TRANSACTION_TIME_MS, isolationLevel: 'RepeatableRead' });
+}
+
 /** A unit of work whose transactions take the given options over the client's. */
-function createUnitOfWork(prisma: PrismaClient, options: { timeout?: number }): UnitOfWork<PrismaTx> {
+function createUnitOfWork(prisma: PrismaClient, options: { timeout?: number; isolationLevel?: 'RepeatableRead' }): UnitOfWork<PrismaTx> {
   return {
     run: async <T, E>(work: (tx: PrismaTx) => Promise<Result<T, E>>): Promise<Result<T, E>> => {
       const outcome: { refusal?: Result<T, E> } = {};

@@ -66,7 +66,8 @@ function accountTokenSignaturesOf(issuer: string | undefined, clock: Clock) {
 /**
  * Wires adapters to use cases and returns the HTTP server, not yet listening.
  * The delivery listener starts at once and wakes waiting receives and live
- * subscriptions, and the 10 and 60 minute clocks pass every 30 seconds.
+ * subscriptions, and the 10 and 60 minute clocks and the stuck snapshot's
+ * close pass every 30 seconds.
  * Closing the server also stops both and disconnects the database.
  */
 export function createApp(options: AppOptions): FastifyInstance {
@@ -116,11 +117,18 @@ export function createApp(options: AppOptions): FastifyInstance {
     },
   });
 
+  // One pass, every 30 seconds: the clocks, then the stuck snapshot's close.
+  // Each failure is logged on its own, so one never keeps the other from running.
   const overduePasses = repeatPass({
-    pass: useCases.tellOverdueDeliveries,
+    pass: async () => {
+      await useCases.tellOverdueDeliveries().catch((error: unknown) => {
+        server.log.warn(failureForLog(error), 'the 10 and 60 minute clocks failed a pass: passing again shortly');
+      });
+      await useCases.closeHealthSnapshots();
+    },
     everyMs: options.overduePassMs ?? OVERDUE_PASS_MS,
     onError: (error) => {
-      server.log.warn(failureForLog(error), 'the 10 and 60 minute clocks failed a pass: passing again shortly');
+      server.log.warn(failureForLog(error), 'the stuck snapshot failed to close an hour: closing it again next pass');
     },
   });
 

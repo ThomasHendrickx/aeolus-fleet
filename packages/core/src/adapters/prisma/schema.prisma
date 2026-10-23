@@ -71,6 +71,8 @@ model Fleet {
   accountNoticeDismissals AccountNoticeDismissal[]
   accountGuideProgress    AccountGuideProgress[]
   operator         Operator?
+  healthSnapshots  HealthSnapshot[]
+  healthSnapshotDeliveries HealthSnapshotDelivery[]
 
   @@map("fleets")
 }
@@ -706,6 +708,53 @@ model OverdueDelivery {
   @@map("overdue_deliveries")
 }
 
+/// The stuck snapshot (docs/design/performance/performance.md, section 5):
+/// one row per fleet and closed hour, written once by the 30 second pass and
+/// kept for 168 hours. Its counts are by message parties, so a read counts
+/// only what its caller reads (decision 0034).
+model HealthSnapshot {
+  fleetId      String   @map("fleet_id")
+  hour         DateTime @db.Timestamptz(3)
+  /// The last event folded into it, by its seq.
+  seq          BigInt
+  /// Stuck at the hour mark: cause, place, message parties, count and oldest since, each.
+  stuck        Json
+  /// The waits from send to acknowledgement in the hour, by message parties, as counts per duration bucket.
+  acknowledged Json
+  /// Each lease's latest turn as of seq; the latest row's is the fold's.
+  turns        Json
+
+  fleet Fleet @relation(fields: [fleetId], references: [id])
+
+  @@id([fleetId, hour])
+  @@map("health_snapshots")
+}
+
+/// The fleet's open deliveries as of its latest snapshot, each at its latest
+/// step: replaced whole by each close. A copy for the fold, so no foreign key
+/// but the fleet's.
+model HealthSnapshotDelivery {
+  fleetId          String         @map("fleet_id")
+  deliveryId       String         @map("delivery_id")
+  messageId        String         @map("message_id")
+  senderShipId     String         @map("sender_ship_id")
+  recipientShipId  String?        @map("recipient_ship_id")
+  recipientType    String?        @map("recipient_type")
+  claimedByShipId  String?        @map("claimed_by_ship_id")
+  reachableShipIds String[]       @map("reachable_ship_ids")
+  sentAt           DateTime       @map("sent_at") @db.Timestamptz(3)
+  /// Its latest step: the state, since when, and the ship and lease that took it; none while pending since its send.
+  state            DeliveryState?
+  since            DateTime?      @db.Timestamptz(3)
+  stepShipId       String?        @map("step_ship_id")
+  leaseId          String?        @map("lease_id")
+
+  fleet Fleet @relation(fields: [fleetId], references: [id])
+
+  @@id([fleetId, deliveryId])
+  @@map("health_snapshot_deliveries")
+}
+
 /// Append-only log of every state change: never updated or deleted. Ids start with evt_.
 /// Records its type and time, who caused it (a ship, or the system when
 /// actor_ship_id is null), the ship, message and delivery it concerns, and a few
@@ -755,6 +804,8 @@ model Event {
   @@index([fleetId, shipId, seq], map: "events_starting_prompt_issued_idx", where: raw("(type = 'StartingPromptIssued'::text)"))
   /// A ship's messages page through those it claimed as a ship of their type by id.
   @@index([fleetId, shipId, messageId], map: "events_delivery_handed_idx", where: raw("(type = 'DeliveryHanded'::text)"))
+  /// A first stuck snapshot reads each lease's turn at its oldest hour from the turn reports alone.
+  @@index([fleetId, occurredAt], map: "events_turn_reported_idx", where: raw("(type = 'TurnReported'::text)"))
   @@map("events")
 }
 

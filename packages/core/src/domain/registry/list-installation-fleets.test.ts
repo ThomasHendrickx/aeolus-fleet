@@ -20,7 +20,7 @@ let hemmaArgo: ShipId;
 
 beforeEach(async () => {
   core = createInMemoryCore('2026-10-01T12:00:00.000Z');
-  listFleets = createListInstallationFleets({ fleets: core.installationFleets, settings: core.installationSettings, health: core.health, clock: core.clock });
+  listFleets = createListInstallationFleets({ fleets: core.installationFleets, settings: core.installationSettings, health: core.health, snapshots: core.healthSnapshots, clock: core.clock });
   ({ fleetId: first } = await initialiseFleet(core));
   core.clock.advance(DAY_MS);
   ({ fleetId: hemma, operatorShipId: hemmaArgo } = unwrap(
@@ -208,6 +208,8 @@ describe('the health of each fleet of the installation', () => {
     addAgentShip(core, { fleetId: hemma, type: 'gone', retiredAt: core.clock.now() });
     const sentAt = core.clock.now();
     deliveryIn(hemma, { state: 'pending', recipient: { kind: 'type', type: 'gone' } });
+    // Stored without its events, so read as a fleet before its first snapshot is: replayed from its records.
+    core.state.healthSnapshots.length = 0;
 
     const health = (await listFleets()).find((fleet) => fleet.fleetId === hemma)?.health;
 

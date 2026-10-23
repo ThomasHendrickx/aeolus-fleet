@@ -1,5 +1,7 @@
 import type { Clock } from '../shared/clock.js';
-import { readHealthOf, type HealthRecords } from '../shared/health.js';
+import { readHealthOf } from '../shared/health-read.js';
+import type { HealthSnapshots } from '../shared/health-snapshot.js';
+import type { HealthRecords } from '../shared/health.js';
 import { installationFleet, messageWindow, type InstallationFleet } from './installation-fleet.js';
 import type { InstallationFleets, InstallationSettingsRepository } from './ports.js';
 
@@ -15,12 +17,13 @@ export function createListInstallationFleets(deps: {
   fleets: InstallationFleets;
   settings: InstallationSettingsRepository;
   health: HealthRecords;
+  snapshots: HealthSnapshots;
   clock: Clock;
 }): ListInstallationFleets {
   return async () => {
     const now = deps.clock.now();
     const installation = await deps.settings.read();
     const fleets = await deps.fleets.list(messageWindow(now));
-    return Promise.all(fleets.map(async (facts) => installationFleet(facts, { now, installation, health: await readHealthOf(deps.health, { fleetId: facts.fleetId, now }) })));
+    return Promise.all(fleets.map(async (facts) => installationFleet(facts, { now, installation, health: await readHealthOf({ records: deps.health, snapshots: deps.snapshots }, { fleetId: facts.fleetId, now }) })));
   };
 }

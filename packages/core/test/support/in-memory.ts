@@ -57,12 +57,16 @@ import type {
   ShipRepository,
 } from '../../src/domain/registry/ports.js';
 import { isSameOwner, type Label, type LabelOwner, type ListedLabel, type ShipLabel } from '../../src/domain/registry/label.js';
+import { matchesShipFilter } from '../../src/domain/registry/ship-filter.js';
+import { readsShip } from '../../src/domain/registry/read-reach.js';
+import { comparePositions, positionOf } from '../../src/domain/registry/ship-order.js';
 import type { DeclaredNetworkRules } from '../../src/domain/registry/declared-network-rules.js';
 import type { NetworkRulesDraft } from '../../src/domain/registry/network-rules-draft.js';
 import type { ScopeNamespace } from '../../src/domain/registry/scope-namespace.js';
 import { noNetworkSettings, type NetworkSettings } from '../../src/domain/registry/network-settings.js';
 import type { ReachRefusal } from '../../src/domain/registry/reach-refusal.js';
 import { isSameCommissioner, type Ship } from '../../src/domain/registry/ship.js';
+import { listedShipOf } from '../../src/domain/registry/list-fleet.js';
 import type { ShipReport } from '../../src/domain/registry/ship-report.js';
 import type { StatedStatement } from '../../src/domain/registry/statement.js';
 import type { Turn } from '../../src/domain/registry/turn.js';
@@ -90,6 +94,8 @@ import { utcDayStart } from '../../src/domain/shared/utc-day.js';
 import type { HealthRecords } from '../../src/domain/shared/health.js';
 import { pageOf } from '../../src/domain/shared/page.js';
 import { createInMemoryHealthRecords } from './in-memory-health.js';
+import type { HealthSnapshotWriter } from '../../src/domain/shared/health-snapshot.js';
+import { createInMemoryHealthSnapshots, type HeldHourSnapshot } from './in-memory-health-snapshots.js';
 
 /**
  * In-memory ports for unit tests of the core. Every repository reads and writes
@@ -153,6 +159,10 @@ export interface InMemoryState {
   fleetLimitSettings: ({ fleetId: FleetId } & FleetLimitSettings)[];
   /** The notices a unit of work sent: gone again when it rolls back, as Postgres drops a NOTIFY. */
   notices: DeliveryNotice[];
+  /** The stuck snapshot's hour rows, the latest with its fold. */
+  healthSnapshots: HeldHourSnapshot[];
+  /** The fleets whose snapshot lock another instance holds, as a test sets it. */
+  healthSnapshotLocks: FleetId[];
 }
 
 export interface InMemoryTx {
@@ -180,6 +190,7 @@ export interface InMemoryTx {
   notifier: Notifier;
   installationRequests: InstallationRequestRepository;
   installationSettings: InstallationSettingsRepository;
+  healthSnapshots: HealthSnapshotWriter;
 }
 
 /**
@@ -248,6 +259,8 @@ export interface InMemoryCore {
   history: ShipHistory;
   /** What the stuck rule reads (decision 0042), from the ships, leases, deliveries and events held. */
   health: HealthRecords;
+  /** The stuck snapshot, read outside a unit of work. */
+  healthSnapshots: HealthSnapshotWriter;
   /** The installation's notices and each console session's dismissals. */
   notices: NoticeRepository;
   noticeDismissals: NoticeDismissals;
@@ -321,6 +334,8 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     installationSettings: [],
     fleetLimitSettings: [],
     notices: [],
+    healthSnapshots: [],
+    healthSnapshotLocks: [],
   };
 
   let now = new Date(startAt);
@@ -376,7 +391,10 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
   };
 
+  const healthRecords = createInMemoryHealthRecords(state);
+  const healthSnapshots = createInMemoryHealthSnapshots(state, healthRecords);
   const tx: InMemoryTx = {
+    healthSnapshots,
     fleets: {
       lockInitialisation: () => Promise.resolve(),
       count: () => Promise.resolve(state.fleets.length),
@@ -1451,12 +1469,16 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
   };
 
   const listing: FleetListing = {
-    ships: (fleetId) =>
+    ships: (fleetId, { after, limit, filter, sort, reach }) =>
       Promise.resolve(
         state.ships
           .filter((held) => held.fleetId === fleetId)
-          .sort((first, second) => first.id.localeCompare(second.id))
-          .map(factsOf),
+          .map(factsOf)
+          .filter((facts) => matchesShipFilter(listedShipOf(facts), { filter, isInReach: readsShip(reach, facts.ship.id) }))
+          .map((facts) => ({ facts, position: positionOf(listedShipOf(facts), { sort, isInReach: readsShip(reach, facts.ship.id) }) }))
+          .filter(({ position }) => after === undefined || comparePositions(sort)(position, after) > 0)
+          .sort((first, second) => comparePositions(sort)(first.position, second.position))
+          .slice(0, limit),
       ),
     ship: (fleetId, shipId) => {
       const held = state.ships.find((candidate) => candidate.fleetId === fleetId && candidate.id === shipId);
@@ -1939,11 +1961,12 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
   };
 
-  return { state, uow, fleets: tx.fleets, pushedCrews, ships: tx.ships, leases: tx.leases, crewRequests: tx.crewRequests, clearRequests: tx.clearRequests, labels: tx.labels, reachRefusals: tx.reachRefusals, declaredNetworkRules: tx.declaredNetworkRules, scopeNamespaces: tx.scopeNamespaces, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, health: createInMemoryHealthRecords(state), notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeups, fleetNews };
+  return { state, uow, fleets: tx.fleets, pushedCrews, ships: tx.ships, leases: tx.leases, crewRequests: tx.crewRequests, clearRequests: tx.clearRequests, labels: tx.labels, reachRefusals: tx.reachRefusals, declaredNetworkRules: tx.declaredNetworkRules, scopeNamespaces: tx.scopeNamespaces, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, health: healthRecords, healthSnapshots, notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeups, fleetNews };
 }
 
 /** The tables whose rows belong to a fleet by their fleet id: all but the fleets and the installation's requests. */
 const FLEET_TABLES = [
+  'healthSnapshots',
   'ships',
   'leases',
   'credentials',
@@ -1977,6 +2000,7 @@ const FLEET_TABLES = [
 ] as const satisfies readonly Exclude<keyof InMemoryState, 'fleets' | 'installationRequests' | 'installationSettings' | 'installationNotices' | 'installationGuide'>[];
 
 const TABLES = [
+  'healthSnapshots',
   'fleets',
   'ships',
   'leases',

@@ -10,7 +10,7 @@ let getFleet: GetInstallationFleet;
 
 beforeEach(() => {
   core = createInMemoryCore('2026-10-04T12:00:00.000Z');
-  getFleet = createGetInstallationFleet({ fleets: core.installationFleets, settings: core.installationSettings, health: core.health, clock: core.clock });
+  getFleet = createGetInstallationFleet({ fleets: core.installationFleets, settings: core.installationSettings, health: core.health, snapshots: core.healthSnapshots, clock: core.clock });
 });
 
 describe('getting one fleet of the installation', () => {
@@ -40,11 +40,12 @@ describe('getting one fleet of the installation', () => {
           needsAttention: 0,
           overdue: 0,
           stuck: [],
-          stuckPerHour: Array.from({ length: 168 }, (_unused, index) => ({ at: new Date(Date.parse('2026-10-04T12:00:00.000Z') - (167 - index) * 3_600_000), count: 0 })),
+          // Read from its stuck snapshot: each closed hour at its mark, then now.
+          stuckPerHour: [...Array.from({ length: 167 }, (_unused, index) => ({ at: new Date(Date.parse('2026-10-04T12:00:00.000Z') - (166 - index) * 3_600_000), count: 0 })), { at: new Date('2026-10-04T12:00:00.000Z'), count: 0 }],
           acknowledged: {
             count: 0,
             medianMs: null,
-            perHour: Array.from({ length: 24 }, (_unused, index) => ({ at: new Date(Date.parse('2026-10-04T12:00:00.000Z') - (23 - index) * 3_600_000), count: 0 })),
+            perHour: [...Array.from({ length: 23 }, (_unused, index) => ({ at: new Date(Date.parse('2026-10-04T12:00:00.000Z') - (22 - index) * 3_600_000), count: 0 })), { at: new Date('2026-10-04T12:00:00.000Z'), count: 0 }],
           },
         },
       },

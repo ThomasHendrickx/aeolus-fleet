@@ -56,7 +56,7 @@ describe('a crew request on Postgres', () => {
   it('is read with the ship: its settings version in the fleet list, its settings with the one ship', async () => {
     unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ harness: 'codex' }) }));
 
-    const listed = wholeShips(await core.useCases.listFleet(argo)).find((ship) => ship.id === scoutId);
+    const listed = wholeShips((await core.useCases.listFleet(argo)).ships).find((ship) => ship.id === scoutId);
     expect(listed?.crewRequest).toEqual({ settingsVersion: 1, requestedAt: core.clock.now(), assignedTo: null, status: null, reason: null, crewedBy: null, attempt: 0, sessionStartedAt: null, givenBack: [] });
     await expect(core.useCases.getShip(argo, { shipId: scoutId })).resolves.toMatchObject({
       value: { crewRequest: { settings: aCrewSettings({ harness: 'codex' }), settingsVersion: 1, requestedAt: core.clock.now() } },
@@ -152,7 +152,7 @@ describe('a crew request on Postgres', () => {
     });
     unwrap(await core.useCases.reportCrewStatus(trierarch, { shipId: scoutId, status: 'running', attempt: 1, startedAt: '2026-10-06T17:00:30.000Z' }));
 
-    await expect(core.useCases.listFleet(argo).then(wholeShips).then((ships) => ships.find((ship) => ship.id === scoutId)?.crewRequest)).resolves.toMatchObject({
+    await expect(core.useCases.listFleet(argo).then((page) => page.ships).then(wholeShips).then((ships) => ships.find((ship) => ship.id === scoutId)?.crewRequest)).resolves.toMatchObject({
       attempt: 1,
       sessionStartedAt: new Date('2026-10-06T17:00:30.000Z'),
     });
@@ -185,7 +185,7 @@ describe('a crew request on Postgres', () => {
     core.clock.advance(1_000);
     unwrap(await core.useCases.claimShip({ shipId: scoutId, secret, location: { kind: 'DEVICE' }, harness: 'claude-code' }));
 
-    const listed = wholeShips(await core.useCases.listFleet(argo)).find((ship) => ship.id === scoutId);
+    const listed = wholeShips((await core.useCases.listFleet(argo)).ships).find((ship) => ship.id === scoutId);
     expect(listed?.crewRequest).toMatchObject({ reason: 'no trierarch offers codex', crewedBy: { id: argo.shipId, name: 'argo' } });
     await expect(core.prisma.event.count({ where: { shipId: scoutId, type: 'CrewRequestExplained' } })).resolves.toBe(1);
   });
@@ -209,7 +209,7 @@ describe('a crew request on Postgres', () => {
 
     unwrap(await core.useCases.giveBackCrewRequest(trierarch, { shipId: scoutId, settingsVersion: 1, reason }));
 
-    const listed = wholeShips(await core.useCases.listFleet(argo)).find((ship) => ship.id === scoutId);
+    const listed = wholeShips((await core.useCases.listFleet(argo)).ships).find((ship) => ship.id === scoutId);
     expect(listed).toMatchObject({ status: 'awaitingCrew' });
     expect(listed?.crewRequest).toMatchObject({
       assignedTo: null,
@@ -220,7 +220,7 @@ describe('a crew request on Postgres', () => {
     await expect(core.useCases.giveBackCrewRequest(trierarch, { shipId: scoutId, settingsVersion: 1, reason })).resolves.toEqual({ isOk: true, value: undefined });
 
     unwrap(await core.useCases.requestCrew(argo, { shipId: scoutId, settings: aCrewSettings({ harness: 'claude-code' }) }));
-    await expect(core.useCases.listFleet(argo).then(wholeShips).then((ships) => ships.find((ship) => ship.id === scoutId)?.crewRequest?.givenBack)).resolves.toEqual([]);
+    await expect(core.useCases.listFleet(argo).then((page) => page.ships).then(wholeShips).then((ships) => ships.find((ship) => ship.id === scoutId)?.crewRequest?.givenBack)).resolves.toEqual([]);
   });
   it('keeps its crew final once its trierarch saw it working, so a give-back is refused after a crewing status (#472)', async () => {
     const { shipId: pluginId } = unwrap(

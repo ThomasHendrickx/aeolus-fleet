@@ -59,7 +59,7 @@ async function labels() {
 }
 
 async function carried() {
-  return wholeShips(await core.useCases.listFleet(argo)).flatMap((ship) => ship.labels.map((label) => `${ship.name}:${label.key}=${label.value}`));
+  return wholeShips((await core.useCases.listFleet(argo)).ships).flatMap((ship) => ship.labels.map((label) => `${ship.name}:${label.key}=${label.value}`));
 }
 
 function labelEvents() {
@@ -106,7 +106,7 @@ describe('labels on Postgres', () => {
     unwrap(await core.useCases.assignLabel(plugin, { shipId: testerId, valueId: macos }));
 
     await expect(carried()).resolves.toEqual(['builder:os=macos', 'builder:project=hemma', 'tester:os=macos']);
-    expect((await core.useCases.listFleet(argo, { valueIds: [macos, hemma] })).map((ship) => ship.name)).toEqual(['builder']);
+    expect((await core.useCases.listFleet(argo, { valueIds: [macos, hemma] })).ships.map((ship) => ship.name)).toEqual(['builder']);
     await expect(core.useCases.getShip(argo, { shipId: testerId })).resolves.toMatchObject({ value: { labels: [{ labelId: osId, key: 'os', valueId: macos, value: 'macos' }] } });
   });
 

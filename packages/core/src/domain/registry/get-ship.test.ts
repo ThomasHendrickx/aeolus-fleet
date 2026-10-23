@@ -47,7 +47,7 @@ describe('getting one ship', () => {
     const ship = unwrap(await useCases.getShip(argo, { shipId: scoutId }));
 
     expect(ship).toEqual({
-      ...(await useCases.listFleet(argo)).find((listed) => listed.id === scoutId),
+      ...(await useCases.listFleet(argo)).ships.find((listed) => listed.id === scoutId),
       commissionedAt,
       crewedSince: null,
       retiredAt: null,

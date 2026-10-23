@@ -247,6 +247,17 @@ describe('releaseShipOutputSchema', () => {
 });
 
 describe('fleetListOutputSchema', () => {
+  /** The last page of fleet.list, holding the ships given. */
+  function pageOf(items: unknown[]) {
+    return { items, nextCursor: null };
+  }
+
+  it('answers a page of ships and the cursor the next page starts after (decision 4 of the performance design)', () => {
+    const nextCursor = 'eyJpc0VtcHR5IjpmYWxzZX0';
+
+    expect(fleetListOutputSchema.parse({ items: [], nextCursor })).toEqual({ items: [], nextCursor });
+  });
+
   const ship = {
     id: newId('ship'),
     name: 'scout',
@@ -269,19 +280,19 @@ describe('fleetListOutputSchema', () => {
   };
 
   it('accepts ships with their status and prompt state', () => {
-    expect(fleetListOutputSchema.parse([ship])).toEqual([ship]);
+    expect(fleetListOutputSchema.parse(pageOf([ship]))).toEqual(pageOf([ship]));
   });
 
   it('accepts a ship outside read reach by its name, type and status only, beside whole ones (decision 0034)', () => {
     const outside = { id: newId('ship'), name: 'vault', type: 'keeper', status: 'crewed', isInReadReach: false };
 
-    expect(fleetListOutputSchema.parse([ship, outside])).toEqual([ship, outside]);
+    expect(fleetListOutputSchema.parse(pageOf([ship, outside]))).toEqual(pageOf([ship, outside]));
   });
 
   it('tells a whole ship from one outside read reach', () => {
-    const listed = fleetListOutputSchema.parse([ship, { id: newId('ship'), name: 'vault', type: 'keeper', status: 'crewed', isInReadReach: false }]);
+    const listed = fleetListOutputSchema.parse(pageOf([ship, { id: newId('ship'), name: 'vault', type: 'keeper', status: 'crewed', isInReadReach: false }]));
 
-    expect(listed.map(isInReadReach)).toEqual([true, false]);
+    expect(listed.items.map(isInReadReach)).toEqual([true, false]);
   });
 
   it('accepts a crewed ship with the location its session reported', () => {
@@ -294,7 +305,7 @@ describe('fleetListOutputSchema', () => {
       awaitingCrewSince: null,
     };
 
-    expect(fleetListOutputSchema.parse([crewed])).toEqual([crewed]);
+    expect(fleetListOutputSchema.parse(pageOf([crewed]))).toEqual(pageOf([crewed]));
   });
 
   it('accepts a crewed ship with its current model, stated when, and the harness its session runs in', () => {
@@ -306,7 +317,7 @@ describe('fleetListOutputSchema', () => {
       model: { id: 'claude-opus-5-5', statedAt: '2026-09-29T12:05:00.000Z' },
     };
 
-    expect(fleetListOutputSchema.parse([crewed])).toEqual([crewed]);
+    expect(fleetListOutputSchema.parse(pageOf([crewed]))).toEqual(pageOf([crewed]));
   });
 
   it.each([
@@ -316,7 +327,7 @@ describe('fleetListOutputSchema', () => {
   ])('accepts a crewed ship whose last ping is %s', (_label, ping) => {
     const pinged = { ...ship, status: 'crewed', ping };
 
-    expect(fleetListOutputSchema.parse([pinged])).toEqual([pinged]);
+    expect(fleetListOutputSchema.parse(pageOf([pinged]))).toEqual(pageOf([pinged]));
   });
 
   it('accepts a ship with its crew request: its settings version and when it was requested', () => {
@@ -325,7 +336,7 @@ describe('fleetListOutputSchema', () => {
       crewRequest: { settingsVersion: 2, requestedAt: '2026-09-29T12:05:00.000Z', assignedTo: { id: newId('ship'), name: 'mac-mini' }, status: 'running', reason: null, crewedBy: null, attempt: 0, startedAt: '2026-09-29T12:06:00.000Z', givenBack: [] },
     };
 
-    expect(fleetListOutputSchema.parse([requested])).toEqual([requested]);
+    expect(fleetListOutputSchema.parse(pageOf([requested]))).toEqual(pageOf([requested]));
   });
 
   it('accepts a crewed ship with its crew\'s last report and the version of its details', () => {
@@ -335,23 +346,23 @@ describe('fleetListOutputSchema', () => {
       report: { state: 'blocked', note: 'waiting for review', reportedAt: '2026-09-29T12:05:00.000Z', detailsVersion: 1 },
     };
 
-    expect(fleetListOutputSchema.parse([reporting])).toEqual([reporting]);
+    expect(fleetListOutputSchema.parse(pageOf([reporting]))).toEqual(pageOf([reporting]));
   });
 
   it('accepts a retired ship with when it was retired', () => {
     const retired = { ...ship, status: 'retired', startingPrompt: null, awaitingCrewSince: null, retiredAt: '2026-09-30T08:00:00.000Z' };
 
-    expect(fleetListOutputSchema.parse([retired])).toEqual([retired]);
+    expect(fleetListOutputSchema.parse(pageOf([retired]))).toEqual(pageOf([retired]));
   });
 
   it('accepts a ship without a prompt out', () => {
-    expect(fleetListOutputSchema.safeParse([{ ...ship, startingPrompt: null }]).success).toBe(true);
+    expect(fleetListOutputSchema.safeParse(pageOf([{ ...ship, startingPrompt: null }])).success).toBe(true);
   });
 
   it('accepts the operator ship by its kind', () => {
     const argo = { ...ship, name: 'argo', type: 'operator', kind: 'operator', status: 'crewed', startingPrompt: null };
 
-    expect(fleetListOutputSchema.parse([argo])).toEqual([argo]);
+    expect(fleetListOutputSchema.parse(pageOf([argo]))).toEqual(pageOf([argo]));
   });
 
   it.each([
@@ -380,7 +391,7 @@ describe('fleetListOutputSchema', () => {
     ['a retirement that is not ISO 8601', { ...ship, status: 'retired', retiredAt: 'yesterday' }],
     ['a time since it awaits crew that is not ISO 8601', { ...ship, awaitingCrewSince: 'today' }],
   ])('rejects %s', (_label, listed) => {
-    expect(fleetListOutputSchema.safeParse([listed]).success).toBe(false);
+    expect(fleetListOutputSchema.safeParse(pageOf([listed])).success).toBe(false);
   });
 });
 

@@ -149,7 +149,7 @@ describe('a pong on Postgres', () => {
 
 describe("a ship's last ping in the listing on Postgres", () => {
   async function listedScout() {
-    return (await core.useCases.listFleet(argo)).find((ship) => ship.id === scout.shipId);
+    return (await core.useCases.listFleet(argo)).ships.find((ship) => ship.id === scout.shipId);
   }
 
   it('waits while the ping is open, then is answered at the moment of the pong', async () => {

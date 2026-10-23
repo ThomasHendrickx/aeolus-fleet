@@ -8,7 +8,7 @@ import { ACKNOWLEDGED_HOURS, STUCK_TREND_HOURS, type FleetId, type ShipId } from
 
 import type { MessageParties } from '../registry/public.js';
 import type { HistoryParty } from './history.js';
-import { stuckAt, stuckPerHour, stuckPlaces, type FleetRecords, type StuckPlaceCount } from './stuck.js';
+import { stuckAt, stuckPerHour, stuckPlaces, type FleetRecords, type StuckDelivery, type StuckPlace, type StuckPlaceCount } from './stuck.js';
 
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -98,25 +98,9 @@ export function acknowledgedOf(deliveries: readonly AcknowledgedDelivery[], now:
   return { count: inWindow.length, medianMs: medianOf(inWindow.map((delivery) => delivery.acknowledgedAt.getTime() - delivery.sentAt.getTime())), perHour };
 }
 
-/**
- * Reads the fleet's health at `now`: its records over the trend's hours and
- * its acknowledged in the last 24, counting only the deliveries whose message
- * `reads` keeps, every one without it. A ship `readsShip` leaves out is shown
- * by name only, without the machine behind it (decision 0034).
- */
-export async function readHealthOf(
-  records: HealthRecords,
-  read: { fleetId: FleetId; now: Date; reads?: (message: MessageParties) => boolean; readsShip?: (shipId: ShipId) => boolean },
-): Promise<Health> {
-  const { fleetId, now, reads = () => true, readsShip = () => true } = read;
-  const [facts, acknowledged] = await Promise.all([records.read(fleetId, healthSince(now)), records.acknowledged(fleetId, acknowledgedSince(now))]);
-  const deliveries = facts.deliveries.filter(({ senderId, recipient, claimedBy }) => reads({ senderId, recipient, claimedBy }));
-  const machines = facts.machines.filter(({ shipId }) => readsShip(shipId));
-  return healthOf({ ...facts, deliveries, machines }, { acknowledged: acknowledgedOf(acknowledged.filter((delivery) => reads(delivery.message)), now), now });
-}
-
-export function healthOf(facts: HealthFacts, read: { acknowledged: Acknowledged; now: Date }): Health {
-  const shown = (place: { kind: 'ship'; shipId: ShipId } | { kind: 'type'; type: string }): ShownStuckPlace => {
+/** The stuck deliveries by cause and place, each ship by name with the machine behind it. */
+export function shownStuck(stuck: readonly StuckDelivery[], facts: Pick<HealthFacts, 'ships' | 'machines'>): StuckPlaceHealth[] {
+  const shown = (place: StuckPlace): ShownStuckPlace => {
     if (place.kind === 'type') {
       return place;
     }
@@ -124,8 +108,12 @@ export function healthOf(facts: HealthFacts, read: { acknowledged: Acknowledged;
     const machine = facts.machines.find((assigned) => assigned.shipId === place.shipId)?.machine ?? null;
     return { kind: 'ship', ship: { id: place.shipId, name }, machine };
   };
+  return stuckPlaces(stuck).map(({ place, ...counted }) => ({ ...counted, place: shown(place) }));
+}
+
+export function healthOf(facts: HealthFacts, read: { acknowledged: Acknowledged; now: Date }): Health {
   return {
-    stuck: stuckPlaces(stuckAt(facts, read.now)).map(({ place, ...counted }) => ({ ...counted, place: shown(place) })),
+    stuck: shownStuck(stuckAt(facts, read.now), facts),
     stuckPerHour: stuckPerHour(facts, read.now),
     acknowledged: read.acknowledged,
   };

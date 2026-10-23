@@ -2,6 +2,7 @@ import { type DeliveryId, fleetListOutputSchema, type InboxFilter, type InboxMes
 import { cookies } from 'next/headers';
 import type { z } from 'zod';
 
+import { everyPage } from './every-page';
 import { inboxEntriesOf, inboxEntryOf, openEntriesOf } from './inbox-entries';
 import { questionsIn } from './question-answer';
 import { readInboxPagesUntil, type InboxPage } from './inbox-pages';
@@ -36,9 +37,9 @@ export function readArgoInboxTo(deliveryId: DeliveryId): Promise<PluginAnswer<In
   return readArgoInbox({ filter: 'all', limit: PAGE_SIZE_MAX, isEnough: (messages) => messages.some((message) => message.deliveryId === deliveryId) });
 }
 
-/** The fleet's ships argo reads whole: every one (decision 0034). */
+/** The fleet's ships argo reads whole: every one (decision 0034), page after page. */
 async function readShips() {
-  const ships = await callFleet('fleet.list', { answers: fleetListOutputSchema });
+  const ships = await everyPage((cursor) => callFleet('fleet.list', { input: { cursor, limit: PAGE_SIZE_MAX }, answers: fleetListOutputSchema }));
   return ships.kind === 'answered' ? { ...ships, data: ships.data.filter(isInReadReach) } : ships;
 }
 

@@ -159,7 +159,12 @@ describe('the fleet health on Postgres', () => {
       unwrap(await core.useCases.acknowledgeDelivery(scout, { deliveryId: await deliveryOf(messageId) }));
     }
 
-    await expect(core.useCases.readHealth(argo)).resolves.toMatchObject({ stuck: [], acknowledged: { count: 3, medianMs: 10 * SECOND_MS } });
+    const health = await core.useCases.readHealth(argo);
+
+    // The median is read from duration buckets under half a percent wide (performance design, decision 10).
+    expect(health).toMatchObject({ stuck: [], acknowledged: { count: 3 } });
+    expect(health.acknowledged.medianMs).toBeGreaterThan(0.995 * 10 * SECOND_MS);
+    expect(health.acknowledged.medianMs).toBeLessThan(1.005 * 10 * SECOND_MS);
   });
 });
 

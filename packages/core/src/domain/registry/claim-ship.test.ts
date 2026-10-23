@@ -81,7 +81,7 @@ describe('claiming a ship with its secret', () => {
   it('marks the secret claimed: the ship is crewed and its prompt claimed', async () => {
     unwrap(await useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: onDevice, harness: 'claude-code' }));
 
-    const listed = await useCases.listFleet(argo);
+    const listed = (await useCases.listFleet(argo)).ships;
     expect(listed.find((ship) => ship.id === scoutId)).toMatchObject({
       status: 'crewed',
       startingPrompt: { isClaimed: true },

@@ -1,12 +1,13 @@
 /**
  * The health records on Postgres (decision 0042): the ships, leases and
  * deliveries the stuck rule replays, read from their tables and the delivery
- * events, and the deliveries acknowledged in a window. No
- * table of its own: a read, never stored.
+ * events, and the deliveries acknowledged in a window. The replay a fleet's
+ * first stuck snapshot is written from, and the read until it has one.
  */
 import { idSchema, shipKindSchema, turnStateSchema, type FleetId } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
+import type { HealthCrews } from '../../domain/shared/health-snapshot.js';
 import type { HealthRecords } from '../../domain/shared/health.js';
 import { isConsoleShip } from '../../domain/registry/public.js';
 import { stateStepOf, type DeliveryRecord, type DeliveryStep, type LeaseTurn } from '../../domain/shared/stuck.js';
@@ -33,7 +34,7 @@ const leaseRow = z.object({
 
 const turnRow = z.object({ lease_id: z.string(), turn: turnStateSchema, occurred_at: z.date() });
 
-const deliveryRow = z.object({
+export const deliveryRow = z.object({
   id: idSchema('delivery'),
   message_id: idSchema('message'),
   sender_ship_id: idSchema('ship'),
@@ -56,7 +57,21 @@ const acknowledgedRow = z.object({
   claimed_by_ship_id: idSchema('ship').nullable(),
 });
 
-function recipientOf(row: Pick<z.infer<typeof deliveryRow>, 'id' | 'recipient_ship_id' | 'recipient_type'>): DeliveryRecord['recipient'] {
+/** A delivery as the stuck rule reads it, from its row and its steps. */
+export function deliveryRecordOf(row: z.infer<typeof deliveryRow>, steps: readonly DeliveryStep[]): DeliveryRecord {
+  return {
+    deliveryId: row.id,
+    messageId: row.message_id,
+    senderId: row.sender_ship_id,
+    recipient: recipientOf(row),
+    claimedBy: row.claimed_by_ship_id,
+    reachableShipIds: row.reachable_ship_ids,
+    sentAt: row.created_at,
+    steps,
+  };
+}
+
+export function recipientOf(row: Pick<z.infer<typeof deliveryRow>, 'id' | 'recipient_ship_id' | 'recipient_type'>): DeliveryRecord['recipient'] {
   if (row.recipient_ship_id !== null) {
     return { kind: 'ship', shipId: row.recipient_ship_id };
   }
@@ -66,21 +81,56 @@ function recipientOf(row: Pick<z.infer<typeof deliveryRow>, 'id' | 'recipient_sh
   throw new Error(`Delivery ${row.id} has no recipient`);
 }
 
+/** The fleet's ships and leases not over before `since`, each lease with no turns, and the machine behind each ship whose crew request is assigned. */
+export async function readCrews(db: Db, read: { fleetId: FleetId; since: Date }): Promise<HealthCrews> {
+  const { fleetId, since } = read;
+  const ships = z.array(shipRow).parse(
+    await db.$queryRaw`
+      SELECT id, name, type, kind::text AS kind, created_at, retired_at FROM ships
+      WHERE fleet_id = ${fleetId} AND (retired_at IS NULL OR retired_at >= ${since})`,
+  );
+  // A lease never seen is last seen when it started, as the ship page reads it.
+  const leases = z.array(leaseRow).parse(
+    await db.$queryRaw`
+      SELECT id, ship_id, started_at, ended_at, pushed_at, COALESCE(last_seen_at, started_at) AS last_seen_at FROM leases
+      WHERE fleet_id = ${fleetId} AND (ended_at IS NULL OR ended_at >= ${since})`,
+  );
+  const machines = z.array(machineRow).parse(
+    await db.$queryRaw`
+      SELECT c.ship_id, m.id AS machine_id, m.name AS machine_name, COALESCE(l.last_seen_at, l.started_at) AS last_seen_at
+      FROM crew_requests c
+      JOIN ships m ON m.fleet_id = c.fleet_id AND m.id = c.assigned_to_ship_id
+      LEFT JOIN leases l ON l.fleet_id = m.fleet_id AND l.ship_id = m.id AND l.ended_at IS NULL
+      WHERE c.fleet_id = ${fleetId}`,
+  );
+  return {
+    ships: ships.map((ship) => ({
+      shipId: ship.id,
+      name: ship.name,
+      type: ship.type,
+      isAlwaysCrewed: isConsoleShip(ship),
+      isPerson: ship.kind === 'person',
+      commissionedAt: ship.created_at,
+      retiredAt: ship.retired_at,
+    })),
+    leases: leases.map((lease) => ({
+      leaseId: lease.id,
+      shipId: lease.ship_id,
+      startedAt: lease.started_at,
+      endedAt: lease.ended_at,
+      pushedAt: lease.pushed_at,
+      lastSeenAt: lease.last_seen_at,
+      turns: [],
+    })),
+    machines: machines.map((row) => ({ shipId: row.ship_id, machine: { id: row.machine_id, name: row.machine_name, lastSeenAt: row.last_seen_at } })),
+  };
+}
+
 export function createPrismaHealthRecords(db: Db): HealthRecords {
   return {
     read: async (fleetId: FleetId, since: Date) => {
-      const ships = z.array(shipRow).parse(
-        await db.$queryRaw`
-          SELECT id, name, type, kind::text AS kind, created_at, retired_at FROM ships
-          WHERE fleet_id = ${fleetId} AND (retired_at IS NULL OR retired_at >= ${since})`,
-      );
-      // A lease never seen is last seen when it started, as the ship page reads it.
-      const leases = z.array(leaseRow).parse(
-        await db.$queryRaw`
-          SELECT id, ship_id, started_at, ended_at, pushed_at, COALESCE(last_seen_at, started_at) AS last_seen_at FROM leases
-          WHERE fleet_id = ${fleetId} AND (ended_at IS NULL OR ended_at >= ${since})`,
-      );
-      const leaseIds = leases.map((lease) => lease.id);
+      const crews = await readCrews(db, { fleetId, since });
+      const leaseIds = crews.leases.map((lease) => lease.leaseId);
       const turns = z.array(turnRow).parse(
         await db.$queryRaw`
           SELECT details->>'leaseId' AS lease_id, details->>'turn' AS turn, occurred_at FROM events
@@ -105,44 +155,13 @@ export function createPrismaHealthRecords(db: Db): HealthRecords {
           steps.set(event.deliveryId, [...(steps.get(event.deliveryId) ?? []), step]);
         }
       }
-      const machines = z.array(machineRow).parse(
-        await db.$queryRaw`
-          SELECT c.ship_id, m.id AS machine_id, m.name AS machine_name, COALESCE(l.last_seen_at, l.started_at) AS last_seen_at
-          FROM crew_requests c
-          JOIN ships m ON m.fleet_id = c.fleet_id AND m.id = c.assigned_to_ship_id
-          LEFT JOIN leases l ON l.fleet_id = m.fleet_id AND l.ship_id = m.id AND l.ended_at IS NULL
-          WHERE c.fleet_id = ${fleetId}`,
-      );
       return {
-        ships: ships.map((ship) => ({
-          shipId: ship.id,
-          name: ship.name,
-          type: ship.type,
-          isAlwaysCrewed: isConsoleShip(ship),
-          isPerson: ship.kind === 'person',
-          commissionedAt: ship.created_at,
-          retiredAt: ship.retired_at,
+        ...crews,
+        leases: crews.leases.map((lease) => ({
+          ...lease,
+          turns: turns.filter((turn) => turn.lease_id === lease.leaseId).map((turn): LeaseTurn => ({ state: turn.turn, at: turn.occurred_at })),
         })),
-        leases: leases.map((lease) => ({
-          leaseId: lease.id,
-          shipId: lease.ship_id,
-          startedAt: lease.started_at,
-          endedAt: lease.ended_at,
-          pushedAt: lease.pushed_at,
-          lastSeenAt: lease.last_seen_at,
-          turns: turns.filter((turn) => turn.lease_id === lease.id).map((turn): LeaseTurn => ({ state: turn.turn, at: turn.occurred_at })),
-        })),
-        deliveries: deliveries.map((delivery) => ({
-          deliveryId: delivery.id,
-          messageId: delivery.message_id,
-          senderId: delivery.sender_ship_id,
-          recipient: recipientOf(delivery),
-          claimedBy: delivery.claimed_by_ship_id,
-          reachableShipIds: delivery.reachable_ship_ids,
-          sentAt: delivery.created_at,
-          steps: steps.get(delivery.id) ?? [],
-        })),
-        machines: machines.map((row) => ({ shipId: row.ship_id, machine: { id: row.machine_id, name: row.machine_name, lastSeenAt: row.last_seen_at } })),
+        deliveries: deliveries.map((delivery) => deliveryRecordOf(delivery, steps.get(delivery.id) ?? [])),
       };
     },
 

@@ -263,14 +263,14 @@ export function registryUseCases(core: InMemoryCore) {
     deregister: createDeregister(deps),
     createFleet: createCreateFleet({ ...deps, hasher: core.hasher }),
     deleteFleet: createDeleteFleet({ ...deps, hasher: core.hasher }),
-    listInstallationFleets: createListInstallationFleets({ fleets: core.installationFleets, settings: core.installationSettings, health: core.health, clock: core.clock }),
+    listInstallationFleets: createListInstallationFleets({ fleets: core.installationFleets, settings: core.installationSettings, health: core.health, snapshots: core.healthSnapshots, clock: core.clock }),
     getInstallationSettings: createGetInstallationSettings({ settings: core.installationSettings }),
     setInstallationSettings: createSetInstallationSettings({ uow: core.uow }),
     getFleetLimits: createGetFleetLimits({ uow: core.uow }),
     readFleetName: createReadFleetName({ uow: core.uow }),
     setFleetLimits: createSetFleetLimits({ uow: core.uow, clock: core.clock, ids: core.ids }),
     readFleetLimits: createReadFleetLimits({ limits: core.fleetLimitReads, clock: core.clock }),
-    getInstallationFleet: createGetInstallationFleet({ fleets: core.installationFleets, settings: core.installationSettings, health: core.health, clock: core.clock }),
+    getInstallationFleet: createGetInstallationFleet({ fleets: core.installationFleets, settings: core.installationSettings, health: core.health, snapshots: core.healthSnapshots, clock: core.clock }),
     listFleet: createListFleet({ listing: core.listing, readReach: readReachOf(core) }),
     getShip: createGetShip({ listing: core.listing, readReach: readReachOf(core) }),
     readOnBehalf: createReadOnBehalf({ ships: core.ships }),
@@ -307,7 +307,7 @@ export function historyUseCases(core: InMemoryCore) {
     sentMessage: createReadSentMessage({ history: core.history }),
     readShipWay: createReadShipWay({ history: core.history, uow: core.uow, clock: core.clock, ids: core.ids }),
     readNeedsAttention: createReadNeedsAttention({ history: core.history, readReach }),
-    readHealth: createReadHealth({ health: core.health, clock: core.clock, readReach }),
+    readHealth: createReadHealth({ health: core.health, snapshots: core.healthSnapshots, clock: core.clock, readReach }),
     readInbox: createReadInbox({ history: core.history, ships: core.ships, readReach }),
     countOpenInbox: createCountOpenInbox({ history: core.history, ships: core.ships, readReach }),
   };
@@ -516,13 +516,14 @@ export function crewAboard(core: InMemoryCore, ship: { fleetId: FleetId; shipId:
  * A session crewing the ship, straight into the state, without its secret:
  * for a ship whose secret the test does not hold. Returns the crew token.
  */
-export function crewShip(core: InMemoryCore, ship: { fleetId: FleetId; shipId: ShipId }): string {
+/** Crews the ship with a session in the harness given, Claude Code unless named. */
+export function crewShip(core: InMemoryCore, { harness = 'claude-code', ...ship }: { fleetId: FleetId; shipId: ShipId; harness?: string }): string {
   const crewToken = `aeolus_ct_v1_crew-${ship.shipId}`;
   core.state.leases.push({
     id: core.ids('lease'),
     ...ship,
     location: { kind: 'DEVICE', description: null },
-    harness: 'claude-code',
+    harness,
     crewTokenHash: core.hasher.hash(crewToken),
     startedAt: core.clock.now(),
     endedAt: null,
