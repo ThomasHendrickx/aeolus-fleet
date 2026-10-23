@@ -1,8 +1,8 @@
 # Network rules: export and import
 
-Design for [#1155](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1155). New core fleet functionality, so it goes purpose first. The direction is the issue's, agreed by Thomas on 23 Oct; his answers to Q1 to Q8 are in section 6. No code.
+Design for [#1155](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1155). New core fleet functionality, so it goes purpose first. The direction is the issue's, agreed by Thomas on 23 Oct; his answers to Q1 to Q11 are in section 6. The design is final. No code.
 
-## 1. Purpose (to agree)
+## 1. Purpose
 
 A fleet's own rules (0035) leave the fleet as one file, with the labels they use, and come back from it into the same fleet or another, so a rule set is written and tested once.
 
@@ -69,8 +69,8 @@ Four steps (Thomas on Q3), each a core call the console shows.
 
 1. **Attach or paste** the file.
 2. **Check** (`fleet.checkNetworkRulesFile`, reads only): format, version, shape and limits (0031, 0034, 0037). A pass shows a checkmark; a fail names each break.
-3. **Overview** (same call's answer): every rule in the file, with a difference list at the top. Each difference offers ways to resolve it (Q9). The person resolves every difference and picks the definer of the labels import creates (Q6, Q10).
-4. **Import** (`fleet.importNetworkRules`, after a confirmation): the file and the resolutions, in one unit of work under the keys' locks; then the draft goes in force as Q11 says.
+3. **Overview** (same call's answer): every rule in the file, with a difference list at the top. Each difference offers the ways Q9 names. The person resolves every difference and picks the definer of the labels import creates (Q6, Q10).
+4. **Import** (`fleet.importNetworkRules`, after a confirmation): the file and the resolutions, in one unit of work under the keys' locks; the rules land in the draft, and apply puts them in force (Q11).
 
 Differences:
 - A key the fleet has with another definer than the file's.
@@ -97,8 +97,7 @@ flowchart TD
   CH -- no --> N[define new labels with the picked definer: LabelDefined; apply resolutions]
   N --> T[turn every name into its id]
   T --> W[save as the draft: NetworkRulesDraftSaved]
-  W --> Q11{Q11}
-  Q11 --> P[draft changes shown]
+  W --> P[draft changes shown]
   P --> X{apply at version n?}
   X -- discards --> DS[NetworkRulesDraftDiscarded; labels import defined stay]
   X -- settings moved --> RC[NETWORK_SETTINGS_CHANGED, draft kept: look again]
@@ -115,35 +114,11 @@ flowchart TD
 - **Q6 Definer of created labels:** import defines them for another actor than the caller, and the import screen picks that definer.
 - **Q7 Declared rules:** left out of export and import.
 - **Q8 Where:** core procedures on tRPC, REST and MCP; the console uploads, downloads and shows.
+- **Q9 Ways to resolve a difference:** another definer: use the existing label, or drop the rules on it. Other values: use the existing label when it has every value the rules name, else drop the rules naming a missing value. Ship name not found: pick an active ship, or drop the rule. No renaming a key and no adding values to an existing label (0031 leaves values to the definer).
+- **Q10 Definers offered:** argo, preselected, or any active ship within the caller's manage reach (0053: defining for a ship is managing it).
+- **Q11 What a confirmed import ends in:** the draft, then the draft changes shown, then apply as today (0035) with its own confirmation.
 
-## 7. Questions still open
-
-### Q9 Ways to resolve each difference
-
-1. **Per kind:**
-   - another definer: use the existing label, or drop the rules on it;
-   - other values: use the existing label when it has every value the rules name, else drop the rules naming a missing value;
-   - ship name not found: pick an active ship, or drop the rule.
-2. Option 1, plus defining under another key (renaming the file's label) and adding missing values to an existing label the caller may change.
-
-**Pick 1.** It covers backup and restore and staging to production with the fewest moves. Adding values changes a label another ship defined, which 0031 leaves to its definer; renaming is an edit of the file.
-
-### Q10 Which definers the import screen offers
-
-1. **argo, preselected, or any active ship within the caller's manage reach.**
-2. argo or the caller's own ship.
-3. Any active ship.
-
-**Pick 1.** Defining for a ship is managing it (0053). argo first keeps outcome 6.
-
-### Q11 What the confirmed import ends in
-
-1. **The draft, then the draft changes shown, then apply as today** (0035), which asks for its own confirmation.
-2. Draft and apply in one step: the confirmation at step 4 puts the rules in force.
-
-**Pick 1.** The direction says rules land in the draft only; the draft changes show what the import gains and loses before it is in force. Step 4's confirmation is the import's; apply keeps its own.
-
-## 8. Docs it would update
+## 7. Docs it would update
 
 - **Decision 0035:** one line on export and import filling the draft.
 - **Decision 0031:** one line that import defines labels for a definer it picks.
