@@ -79,7 +79,7 @@ export function InboxContainer({ filterParameter, selectedId }: { filterParamete
   const openIdRef = useRef(selectedId);
 
   const entries = inbox.items ?? [];
-  const view = inboxViewOf(entries, segment);
+  const view = inboxViewOf(entries);
   const order = orderOf(view);
   const selected = entries.find((entry) => entry.deliveryId === selectedId) ?? openEntry;
   const openQuestionIds = openQuestionsOf(entries).map(({ deliveryId }) => deliveryId);

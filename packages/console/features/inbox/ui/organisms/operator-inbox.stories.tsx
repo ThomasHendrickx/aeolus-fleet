@@ -30,7 +30,8 @@ function Inbox({
   const [segment, setSegment] = useState<InboxFilter>(initialSegment);
   const [selectedId, setSelectedId] = useState<DeliveryId | undefined>(initialSelected);
   const [isExpanded, setIsExpanded] = useState(isGroupExpanded);
-  const view = inboxViewOf(entries, segment);
+  // What core reads for the segment.
+  const view = inboxViewOf(segment === 'all' ? entries : entries.filter((entry) => isOpenEntry(entry) === (segment === 'open')));
   const order = [...view.questions, ...view.messages, ...view.pluginMessages].map(({ deliveryId }) => deliveryId);
   const selected = entries.find(({ deliveryId }) => deliveryId === selectedId);
   const openIds = openQuestionsOf(entries).map(({ deliveryId }) => deliveryId);

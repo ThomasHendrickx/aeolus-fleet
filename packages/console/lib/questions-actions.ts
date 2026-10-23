@@ -6,11 +6,12 @@ import { z } from 'zod';
 
 import type { PluginAnswer } from './plugin-answer';
 import { answerReplyOf } from './question-answer';
-import { callFleet, readArgoInboxTo } from './inbox-reads';
+import { callFleet, readQuestionInbox } from './inbox-reads';
 
 /**
  * Answering a question to argo as the browser reaches it (decisions 0033,
- * 0038): a server function that reads the question from argo's inbox, checks
+ * 0038): a server function that reads the question and what withdraws it
+ * from argo's inbox by one lookup each, checks
  * the answer against it (and that its asker neither withdrew nor replaced
  * it), and sends it through the fleet's Reply with the
  * answer content type, which also marks the message done.
@@ -31,11 +32,11 @@ export async function answerQuestion(input: unknown): Promise<PluginAnswer<{ mes
   if (origin === null) {
     return { kind: 'refused', message: 'Answer from the console' };
   }
-  const inbox = await readArgoInboxTo(parsed.data.deliveryId);
+  const inbox = await readQuestionInbox(parsed.data.deliveryId);
   if (inbox.kind === 'refused') {
     return inbox;
   }
-  const reply = answerReplyOf({ inbox: inbox.data.items, deliveryId: parsed.data.deliveryId, answer: parsed.data.answer });
+  const reply = answerReplyOf({ inbox: inbox.data, deliveryId: parsed.data.deliveryId, answer: parsed.data.answer });
   if (reply.kind === 'refused') {
     return reply;
   }

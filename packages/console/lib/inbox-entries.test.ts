@@ -1,7 +1,7 @@
 import { createIdGenerator, QUESTION_CONTENT_TYPE, REPLACEMENT_CONTENT_TYPE, WITHDRAWAL_CONTENT_TYPE, type InboxMessage, type ShipId } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
-import { inboxEntriesOf, inboxEntryOf, openEntriesOf } from './inbox-entries';
+import { inboxEntriesOf, inboxEntryOf } from './inbox-entries';
 import { isOpenEntry } from './inbox-entry';
 
 const newId = createIdGenerator();
@@ -145,18 +145,3 @@ describe('inboxEntryOf', () => {
   });
 });
 
-describe('openEntriesOf', () => {
-  it('lays out the open messages with the newer ones read beside them: a question replaced by one already answered is stale', () => {
-    const replaced = aMessage({ contentType: QUESTION_CONTENT_TYPE, payload: JSON.stringify(QUESTION) });
-    const replacement = {
-      ...aMessage({ contentType: REPLACEMENT_CONTENT_TYPE, payload: JSON.stringify({ questionId: QUESTION.id, question: { ...QUESTION, id: '9b2e4d6f-1a3c-4e5b-8d7f-0c2a4e6b8d1f' } }) }),
-      state: 'acknowledged' as const,
-    };
-    const waiting = aMessage({ payload: 'Deployed.' });
-
-    const entries = openEntriesOf([waiting, replaced], { newer: [replacement, waiting], ships: SHIPS });
-
-    expect(entries.map(({ deliveryId }) => deliveryId)).toEqual([waiting.deliveryId, replaced.deliveryId]);
-    expect(entries.filter(isOpenEntry).map(({ deliveryId }) => deliveryId)).toEqual([waiting.deliveryId]);
-  });
-});

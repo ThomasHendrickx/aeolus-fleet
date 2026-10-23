@@ -270,19 +270,21 @@ describe('questions to argo', () => {
     await visible(page, 'inbox-answered').waitFor();
   });
 
-  it('shows a question the asker withdrew or replaced as stale under Done, not answerable, with the replacement linked and answerable', async () => {
+  it('shows a question the asker withdrew or replaced as stale under Open while its delivery is open, not answerable, with the replacement linked and answerable', async () => {
     const implementer = await crewedOverRest({ name: 'implementer-d', type: 'implementer' });
     const withdrawn = { ...QUESTION, id: '5c8e1a3b-6d2f-4b7a-9e0c-3a5d7f9b1c2e', title: 'Rename the inbox filter?' };
     const replaced = { ...QUESTION, id: '7e2a4c6b-8d0f-4a1c-b3e5-6f8a0c2e4b7d', title: 'Which port for the preview server?' };
     const replacement = { ...QUESTION, id: '1d3f5b7a-9c2e-4f6a-8b0d-2e4c6a8f0b3d', title: 'Which port for the preview server, now that core moved?' };
     const toArgo = { kind: 'ship', shipId: argo.shipId };
+    // The replaced question's title is the start of its replacement's.
+    const replacedRow = () => questionRow(page, replaced.title).filter({ hasNotText: 'now that core moved' });
     for (const question of [withdrawn, replaced]) {
       await implementer.call('send', { selector: toArgo, contentType: QUESTION_CONTENT_TYPE, payload: JSON.stringify(question), idempotencyKey: `ask-${question.id}` });
     }
     const page = await signedInPage();
     await page.goto('/inbox');
     await questionRow(page, withdrawn.title).waitFor();
-    await questionRow(page, replaced.title).waitFor();
+    await replacedRow().waitFor();
 
     await implementer.call('send', {
       selector: toArgo,
@@ -297,16 +299,13 @@ describe('questions to argo', () => {
       idempotencyKey: 'replace-preview-port',
     });
 
-    await questionRow(page, withdrawn.title).waitFor({ state: 'detached', timeout: LIVE_TIMEOUT_MS });
-    await questionRow(page, replaced.title).waitFor({ state: 'detached' });
-    await questionRow(page, replacement.title).waitFor();
+    await questionRow(page, replacement.title).waitFor({ timeout: LIVE_TIMEOUT_MS });
     await expect(page.locator('[data-testid="inbox-row"]:visible').count()).resolves.toBe(0);
-    await page.goto('/inbox?filter=done');
     await questionRow(page, withdrawn.title).click();
     await visible(page, 'inbox-stale').getByText('Withdrawn by implementer-d', { exact: false }).waitFor();
     await expect(visible(page, 'inbox-answer').count()).resolves.toBe(0);
 
-    await questionRow(page, replaced.title).click();
+    await replacedRow().click();
     await visible(page, 'inbox-stale').getByText('Replaced by implementer-d', { exact: false }).waitFor();
     await expect(visible(page, 'inbox-answer').count()).resolves.toBe(0);
     await visible(page, 'inbox-replacement').getByText(replacement.title).click();
@@ -319,8 +318,8 @@ describe('questions to argo', () => {
     await visible(page, 'inbox-answered').waitFor();
     const { deliveries } = receivedSchema.parse(await implementer.call('receive', {}));
     expect(deliveries.map(({ payload }): unknown => JSON.parse(payload))).toEqual([{ questionId: replacement.id, option: 1 }]);
-    await page.goto('/inbox');
-    await page.locator('[data-testid="inbox-empty"]:visible').waitFor();
+    await page.goto('/inbox?filter=done');
+    await questionRow(page, replacement.title).waitFor();
   });
 
 });

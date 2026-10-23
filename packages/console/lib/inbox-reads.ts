@@ -1,10 +1,9 @@
-import { type DeliveryId, fleetListOutputSchema, type InboxFilter, type InboxMessage, isInReadReach, type MessageId, messageOutputSchema, operatorInboxOutputSchema, PAGE_SIZE_MAX } from '@aeolus-fleet/common';
+import { type DeliveryId, fleetListOutputSchema, inboxMessageSchema, inboxQuestionOf, type InboxFilter, type InboxMessage, isInReadReach, type MessageId, messageOutputSchema, operatorInboxOutputSchema, PAGE_SIZE_MAX } from '@aeolus-fleet/common';
 import { cookies } from 'next/headers';
 import type { z } from 'zod';
 
 import { everyPage } from './every-page';
-import { inboxEntriesOf, inboxEntryOf, openEntriesOf } from './inbox-entries';
-import { questionsIn } from './question-answer';
+import { inboxEntriesOf, inboxEntryOf } from './inbox-entries';
 import { readInboxPagesUntil, type InboxPage } from './inbox-pages';
 import type { InboxEntry } from './inbox-entry';
 import { threadBefore, type ThreadMessage } from './inbox-thread';
@@ -32,9 +31,23 @@ function readArgoInbox(query: { filter: InboxFilter; cursor?: DeliveryId; limit:
   return readInboxPagesUntil((cursor) => callFleet('fleet.inbox', { input: { filter, cursor, limit }, answers: operatorInboxOutputSchema }), query);
 }
 
-/** argo's messages newest first until the one with this delivery: a question with every withdrawal of it, which is newer. */
-export function readArgoInboxTo(deliveryId: DeliveryId): Promise<PluginAnswer<InboxPage>> {
-  return readArgoInbox({ filter: 'all', limit: PAGE_SIZE_MAX, isEnough: (messages) => messages.some((message) => message.deliveryId === deliveryId) });
+/**
+ * The message to argo with this delivery, and when it asks a question, the
+ * messages that withdraw or replace that question (decision 0038): each read
+ * by one lookup in core, however old. Its asker's first withdrawal makes a
+ * question stale, so the first page, oldest first, is enough.
+ */
+export async function readQuestionInbox(deliveryId: DeliveryId): Promise<PluginAnswer<InboxMessage[]>> {
+  const found = await callFleet('fleet.inboxMessage', { input: { deliveryId }, answers: inboxMessageSchema });
+  if (found.kind !== 'answered') {
+    return found;
+  }
+  const question = inboxQuestionOf({ message: found.data.message, replies: [] });
+  if (question === null) {
+    return { kind: 'answered', data: [found.data] };
+  }
+  const withdrawals = await callFleet('fleet.inboxWithdrawals', { input: { questionId: question.id }, answers: operatorInboxOutputSchema });
+  return withdrawals.kind === 'answered' ? { kind: 'answered', data: [found.data, ...withdrawals.data.items] } : withdrawals;
 }
 
 /** The fleet's ships argo reads whole: every one (decision 0034), page after page. */
@@ -44,33 +57,19 @@ async function readShips() {
 }
 
 /**
- * The newest questions and messages to argo the segment keeps, as many as the
- * operator asked to see, laid out for reading, and whether older ones follow.
- * A question's withdrawals are newer than the question, so the rows shown
- * hold every withdrawal of each question among them.
+ * The newest questions and messages to argo the segment keeps, as core reads
+ * it by delivery state, as many as the operator asked to see, laid out for
+ * reading, and whether older ones follow. A question shows stale only when
+ * what withdrew it is among the rows read.
  */
 export async function readInbox({ filter, size }: { filter: InboxFilter; size: number }): Promise<PluginAnswer<{ items: InboxEntry[]; hasMore: boolean }>> {
-  // Done reads every message: a stale question is done though its delivery is still open (decision 0038); the page keeps what its segment shows.
-  const read = filter === 'done' ? 'all' : filter;
-  const [inbox, ships] = await Promise.all([readArgoInbox({ filter: read, limit: Math.min(size, PAGE_SIZE_MAX), isEnough: (messages) => messages.length >= size }), readShips()]);
+  const [inbox, ships] = await Promise.all([readArgoInbox({ filter, limit: Math.min(size, PAGE_SIZE_MAX), isEnough: (messages) => messages.length >= size }), readShips()]);
   if (inbox.kind !== 'answered') {
     return inbox;
   }
   const { items, nextCursor } = inbox.data;
-  const shown = items.slice(0, size);
   // Without the fleet's ships every message still shows, only none folds as a plugin ship's.
-  const listed = ships.kind === 'answered' ? ships.data : [];
-  const hasMore = nextCursor !== null || items.length > size;
-  if (filter !== 'open') {
-    return { kind: 'answered', data: { items: inboxEntriesOf(shown, listed), hasMore } };
-  }
-  // What makes an open question stale is newer and need not be open: read every message to the oldest question shown.
-  const oldest = questionsIn(shown).at(-1);
-  const newer = oldest === undefined ? undefined : await readArgoInboxTo(oldest.deliveryId);
-  if (newer?.kind === 'refused') {
-    return newer;
-  }
-  return { kind: 'answered', data: { items: openEntriesOf(shown, { newer: newer?.data.items ?? [], ships: listed }), hasMore } };
+  return { kind: 'answered', data: { items: inboxEntriesOf(items.slice(0, size), ships.kind === 'answered' ? ships.data : []), hasMore: nextCursor !== null || items.length > size } };
 }
 
 /**
@@ -78,11 +77,11 @@ export async function readInbox({ filter, size }: { filter: InboxFilter; size: n
  * it: the one the reader shows, which an answer or Mark done takes out of Open.
  */
 export async function readInboxEntry(deliveryId: DeliveryId): Promise<PluginAnswer<InboxEntry | null>> {
-  const [inbox, ships] = await Promise.all([readArgoInboxTo(deliveryId), readShips()]);
+  const [inbox, ships] = await Promise.all([readQuestionInbox(deliveryId), readShips()]);
   if (inbox.kind !== 'answered') {
     return inbox;
   }
-  return { kind: 'answered', data: inboxEntryOf(inbox.data.items, { ships: ships.kind === 'answered' ? ships.data : [], deliveryId }) };
+  return { kind: 'answered', data: inboxEntryOf(inbox.data, { ships: ships.kind === 'answered' ? ships.data : [], deliveryId }) };
 }
 
 /** The messages a message to argo replies to, oldest first. */
