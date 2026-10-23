@@ -168,7 +168,7 @@ export function useLiveFleet(): LiveFleet {
           for (const concerned of new Set([event.shipId, event.actorShipId])) {
             if (concerned !== null) {
               reload(trpc.fleet.ship.queryKey({ shipId: concerned }));
-              reload(trpc.fleet.shipTimeline.queryKey({ shipId: concerned }));
+              reload(trpc.fleet.shipTimeline.infiniteQueryKey({ shipId: concerned }));
               // A turn report, a push receive or a lease end changes its side of the way.
               reload(trpc.fleet.shipWay.queryKey({ shipId: concerned }));
             }

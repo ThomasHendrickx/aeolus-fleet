@@ -88,6 +88,7 @@ import type { PasswordHasher, RandomTokens, SecretHasher } from '../../src/domai
 import type { UnitOfWork } from '../../src/domain/shared/unit-of-work.js';
 import { utcDayStart } from '../../src/domain/shared/utc-day.js';
 import type { HealthRecords } from '../../src/domain/shared/health.js';
+import { pageOf } from '../../src/domain/shared/page.js';
 import { createInMemoryHealthRecords } from './in-memory-health.js';
 
 /**
@@ -1653,15 +1654,20 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
   const newestFirst = (first: Message, second: Message) =>
     second.createdAt.getTime() - first.createdAt.getTime() || second.id.localeCompare(first.id);
   const history: ShipHistory = {
-    timeline: (fleetId, { shipId, limit }) =>
-      Promise.resolve(
-        ship(fleetId, shipId) &&
-          numbered(fleetId)
-            .filter((event) => event.shipId === shipId || (event.actor.kind === 'ship' && event.actor.shipId === shipId))
-            .reverse()
-            .slice(0, limit)
-            .map(timelineEntryOf),
-      ),
+    timeline: (fleetId, { shipId, cursor, limit }) => {
+      if (!ship(fleetId, shipId)) {
+        return Promise.resolve(undefined);
+      }
+      const events = numbered(fleetId);
+      // An event the fleet does not have starts no page: nothing comes after it.
+      const before = cursor === undefined ? Number.POSITIVE_INFINITY : (events.find((event) => event.id === cursor)?.seq ?? 0);
+      const rows = events
+        .filter((event) => event.seq < before && (event.shipId === shipId || (event.actor.kind === 'ship' && event.actor.shipId === shipId)))
+        .reverse()
+        .slice(0, limit + 1)
+        .map(timelineEntryOf);
+      return Promise.resolve(pageOf(rows, { limit, cursorOf: (entry) => entry.id }));
+    },
     messages: (fleetId, { shipId, limit }) => {
       if (!ship(fleetId, shipId)) {
         return Promise.resolve(undefined);

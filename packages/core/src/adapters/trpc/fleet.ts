@@ -24,6 +24,7 @@ import {
   shipInputSchema,
   shipMessagesOutputSchema,
   shipWayOutputSchema,
+  shipTimelineInputSchema,
   shipTimelineOutputSchema,
   type FleetStreamItem,
   getStartingPromptInputSchema,
@@ -794,16 +795,14 @@ export const fleetRouter = router({
       };
     }),
 
-  /** Every change to a ship, newest first: the events naming it and the ones it caused. */
+  /** A page of every change to a ship, newest first: the events naming it and the ones it caused. */
   shipTimeline: actorScopedProcedure('fleet:read')
-    .input(shipInputSchema)
+    .input(shipTimelineInputSchema)
     .output(shipTimelineOutputSchema)
-    .query(async ({ ctx, input }) =>
-      okOrThrow(await ctx.useCases.readShipTimeline(ctx.caller, input)).map((entry) => ({
-        ...entry,
-        occurredAt: entry.occurredAt.toISOString(),
-      })),
-    ),
+    .query(async ({ ctx, input }) => {
+      const { items, nextCursor } = okOrThrow(await ctx.useCases.readShipTimeline(ctx.caller, input));
+      return { items: items.map((entry) => ({ ...entry, occurredAt: entry.occurredAt.toISOString() })), nextCursor };
+    }),
 
   /** The messages a ship sent, was sent, or claimed as a ship of their type, newest first. */
   shipMessages: actorScopedProcedure('fleet:read')

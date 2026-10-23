@@ -6,6 +6,7 @@ import { accountIdSchema } from './account-token.js';
 import { listedShipSchema, shipOutsideReadReachSchema } from './fleet.js';
 import { crewRequestSchema, crewStatusSchema } from './crew-request.js';
 import { reportSchema } from './report.js';
+import { pageInputOf, pageOutputOf } from './page.js';
 import { discoveredStatementSchema } from './statement.js';
 import { turnStateSchema } from './turn.js';
 
@@ -31,7 +32,7 @@ export const messageRecipientSchema = z.discriminatedUnion('kind', [
 
 export type MessageRecipient = z.infer<typeof messageRecipientSchema>;
 
-/** Input of `fleet.ship`, `fleet.shipTimeline` and `fleet.shipMessages`. */
+/** Input of `fleet.ship`, `fleet.shipWay` and the ship's paged lists. */
 export const shipInputSchema = z.object({ shipId: idSchema('ship') });
 
 /**
@@ -92,8 +93,11 @@ export const timelineEntrySchema = z.object({
 
 export type TimelineEntry = z.infer<typeof timelineEntrySchema>;
 
-/** Output of `fleet.shipTimeline`: the events that concern the ship, newest first. */
-export const shipTimelineOutputSchema = z.array(timelineEntrySchema);
+/** Input of `fleet.shipTimeline`: the ship, and the cursor and size of a page of its events. */
+export const shipTimelineInputSchema = shipInputSchema.extend(pageInputOf(idSchema('event')).shape);
+
+/** Output of `fleet.shipTimeline`: a page of the events that concern the ship, newest first. */
+export const shipTimelineOutputSchema = pageOutputOf(timelineEntrySchema, idSchema('event'));
 
 /** One message as the ship page lists it: parties, thread link, a preview of its payload and its delivery now. */
 export const listedMessageSchema = z.object({

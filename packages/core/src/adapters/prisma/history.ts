@@ -30,6 +30,7 @@ import {
 } from '../../domain/shared/history.js';
 import type { Message } from '../../domain/messaging/message.js';
 import type { Recipient } from '../../domain/shared/selector.js';
+import { pageOf } from '../../domain/shared/page.js';
 import type { Db } from './client.js';
 import { Prisma } from './generated/client.js';
 import { toMessage, toSequencedEvent } from './rows.js';
@@ -119,17 +120,27 @@ async function shipExists(db: Db, at: { fleetId: FleetId; shipId: ShipId }): Pro
 
 export function createPrismaShipHistory(db: Db): ShipHistory {
   return {
-    timeline: async (fleetId, { shipId, limit }) => {
+    timeline: async (fleetId, { shipId, cursor, limit }) => {
       if (!(await shipExists(db, { fleetId, shipId }))) {
         return undefined;
       }
-      const events = (
-        await db.event.findMany({
-          where: { fleetId, OR: [{ shipId }, { actorShipId: shipId }] },
-          orderBy: { seq: 'desc' },
-          take: limit,
-        })
-      ).map(toSequencedEvent);
+      const before = cursor === undefined ? undefined : (await db.event.findFirst({ where: { fleetId, id: cursor }, select: { seq: true } }))?.seq;
+      if (cursor !== undefined && before === undefined) {
+        // An event the fleet does not have starts no page: nothing comes after it.
+        return { items: [], nextCursor: null };
+      }
+      // The events naming the ship and those it caused, each read in stream
+      // order through its own index, then merged: an OR would read every
+      // event of the ship to sort them.
+      const page = { seq: before === undefined ? undefined : { lt: before } };
+      const [naming, caused] = await Promise.all([
+        db.event.findMany({ where: { fleetId, shipId, ...page }, orderBy: { seq: 'desc' }, take: limit + 1 }),
+        db.event.findMany({ where: { fleetId, actorShipId: shipId, ...page }, orderBy: { seq: 'desc' }, take: limit + 1 }),
+      ]);
+      const merged = new Map([...naming, ...caused].map((row) => [row.id, row]));
+      const newestFirst = [...merged.values()].sort((first, second) => (first.seq < second.seq ? 1 : -1));
+      const { items: rows, nextCursor } = pageOf(newestFirst, { limit, cursorOf: (row) => idSchema('event').parse(row.id) });
+      const events = rows.map(toSequencedEvent);
       const messageIds = [...new Set(events.flatMap((event) => (event.messageId === undefined ? [] : [event.messageId])))];
       const messages = new Map(
         (await db.message.findMany({ where: { fleetId, id: { in: messageIds } } }))
@@ -146,7 +157,7 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
           ...[...messages.values()].flatMap(shipsNamedBy),
         ],
       });
-      return events.map((event) => {
+      const entries = events.map((event) => {
         const message = event.messageId === undefined ? undefined : messages.get(event.messageId);
         return {
           seq: event.seq,
@@ -168,6 +179,7 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
           details: event.details,
         };
       });
+      return { items: entries, nextCursor };
     },
 
     messages: async (fleetId, { shipId, limit }) => {

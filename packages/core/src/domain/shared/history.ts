@@ -18,6 +18,7 @@ import type { OverdueClock } from '../messaging/public.js';
 import type { Location, MessageParties } from '../registry/public.js';
 import type { StandingOverdue, WayCrew, WayLease } from './delivery-way.js';
 import type { EventDetails } from './events.js';
+import type { Page, PageQuery } from './page.js';
 
 /**
  * What the console reads: a ship's timeline from the event log, its
@@ -228,8 +229,8 @@ export function isKeptBy(filter: InboxFilter, state: DeliveryState): boolean {
  * such ship or message.
  */
 export interface ShipHistory {
-  /** Newest first, at most `limit`. */
-  timeline(fleetId: FleetId, query: { shipId: ShipId; limit: number }): Promise<TimelineEntry[] | undefined>;
+  /** A page newest first, by the stream's order, after the event the cursor names. */
+  timeline(fleetId: FleetId, query: { shipId: ShipId } & PageQuery<EventId>): Promise<Page<TimelineEntry, EventId> | undefined>;
   /** Newest first, at most `limit`. */
   messages(fleetId: FleetId, query: { shipId: ShipId; limit: number }): Promise<HistoryMessage[] | undefined>;
   /** The message, with its delivery's steps newest first and what its way is read from. */

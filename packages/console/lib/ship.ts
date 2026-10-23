@@ -1,8 +1,9 @@
 import type { MessageId, ShipDetail, ShipId } from '@aeolus-fleet/common';
 import { isInReadReach } from '@aeolus-fleet/common/rules';
-import { skipToken, useQueries, useQuery } from '@tanstack/react-query';
+import { skipToken, useInfiniteQuery, useQueries, useQuery } from '@tanstack/react-query';
 
 import { LAST_SEEN_REFRESH_MS } from './fleet';
+import { CONSOLE_PAGE_SIZE, nextCursorOf, pagedListOf } from './paged-list';
 import { useTRPC } from './trpc';
 
 /**
@@ -37,10 +38,10 @@ export function useShips(shipIds: readonly ShipId[]): ReadonlyMap<string, ShipDe
   return byId;
 }
 
-/** Every change to the ship, newest first. */
+/** Every change to the ship, newest first, a page at a time. */
 export function useShipTimeline(shipId: ShipId) {
   const trpc = useTRPC();
-  return useQuery(trpc.fleet.shipTimeline.queryOptions({ shipId }));
+  return pagedListOf(useInfiniteQuery(trpc.fleet.shipTimeline.infiniteQueryOptions({ shipId, limit: CONSOLE_PAGE_SIZE }, { getNextPageParam: nextCursorOf })));
 }
 
 /** The messages the ship sent, was sent, or claimed as a ship of their type. */

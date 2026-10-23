@@ -1,4 +1,5 @@
 import type { AccountId, MessageId, ShipId, TimelineEntry } from '@aeolus-fleet/common';
+import type { ReactNode } from 'react';
 import {
   Anchor,
   Archive,
@@ -66,6 +67,8 @@ interface ShipTimelineProps {
   entries: readonly TimelineEntry[];
   state: 'ready' | 'loading' | 'error';
   onRetry?: () => void;
+  /** What ends the list while older events follow: Load more. */
+  more?: ReactNode;
   /** The time relative times are measured from. */
   now: Date;
   /** Opens the message a row is about. */
@@ -138,7 +141,7 @@ function Row({
  * the account signed in as argo when argo did it. A row about a message
  * opens it.
  */
-export function ShipTimeline({ shipId, entries, state, onRetry, now, onOpenMessage, accountNames }: ShipTimelineProps) {
+export function ShipTimeline({ shipId, entries, state, onRetry, more, now, onOpenMessage, accountNames }: ShipTimelineProps) {
   if (state === 'loading') {
     return <LoadingSkeleton variant="list" rows={4} label="Loading the timeline" />;
   }
@@ -161,7 +164,8 @@ export function ShipTimeline({ shipId, entries, state, onRetry, now, onOpenMessa
           <Row key={entry.id} entry={entry} shipId={shipId} now={now} onOpenMessage={onOpenMessage} accountNames={accountNames} />
         ))}
       </ol>
-      {entries.length <= 1 ? (
+      {more}
+      {entries.length <= 1 && !more ? (
         <p className="border-t border-border px-3.5 py-3 text-center text-meta text-muted-foreground first:border-t-0">
           Nothing else yet. Claims, releases and messages appear here as they happen.
         </p>

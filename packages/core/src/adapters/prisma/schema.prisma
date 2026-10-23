@@ -739,9 +739,11 @@ model Event {
   @@unique([fleetId, seq])
   /// Every foreign key has an index leading with its columns, so deleting a
   /// referenced row checks it with an index, not a scan (#331).
-  @@index([fleetId, actorShipId])
+  /// A ship's timeline pages through the events it caused and those naming
+  /// it by their place in the stream, each through its own index.
+  @@index([fleetId, actorShipId, seq])
   @@index([actorThroughShipId, fleetId])
-  @@index([fleetId, shipId])
+  @@index([fleetId, shipId, seq])
   @@index([fleetId, messageId])
   @@index([fleetId, deliveryId])
   /// The health reads take a fleet's events since a time (decision 0042).
