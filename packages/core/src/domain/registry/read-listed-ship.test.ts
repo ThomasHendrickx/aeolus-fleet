@@ -13,7 +13,7 @@ describe('reading one ship as the fleet lists it', () => {
     const registry = registryUseCases(core);
     const { shipId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
 
-    const listed = (await registry.listFleet(argo)).find((ship) => ship.id === shipId);
+    const listed = (await registry.listFleet(argo)).ships.find((ship) => ship.id === shipId);
 
     expect(unwrap(await registry.readListedShip(argo, { shipId }))).toEqual(listed);
   });
