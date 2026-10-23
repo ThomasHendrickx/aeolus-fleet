@@ -4,15 +4,15 @@
  * events, and the deliveries acknowledged in a window. The replay a fleet's
  * first stuck snapshot is written from, and the read until it has one.
  */
-import { idSchema, shipKindSchema, turnStateSchema, type FleetId } from '@aeolus-fleet/common';
+import { eventTypeSchema, idSchema, shipKindSchema, turnStateSchema, type FleetId } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import type { HealthCrews } from '../../domain/shared/health-snapshot.js';
 import type { HealthRecords } from '../../domain/shared/health.js';
 import { isConsoleShip } from '../../domain/registry/public.js';
-import { stateStepOf, type DeliveryRecord, type DeliveryStep, type LeaseTurn } from '../../domain/shared/stuck.js';
+import { STEP_EVENT_TYPES, stateStepOf, type DeliveryRecord, type DeliveryStep, type LeaseTurn } from '../../domain/shared/stuck.js';
 import type { Db } from './client.js';
-import { toSequencedEvent } from './rows.js';
+import { Prisma } from './generated/client.js';
 
 const shipRow = z.object({
   id: idSchema('ship'),
@@ -126,6 +126,96 @@ export async function readCrews(db: Db, read: { fleetId: FleetId; since: Date })
   };
 }
 
+/** The open states, as the deliveries' partial index lists them, so a read of them uses it. */
+const OPEN_STATES_SQL = Prisma.sql`('pending', 'received', 'handed', 'undeliverable')`;
+
+/** A step event of a delivery, as `deliveriesWithStepsStatement` aggregates it. */
+const stepEventJson = z.object({
+  type: eventTypeSchema,
+  occurredAt: z.coerce.date(),
+  shipId: idSchema('ship').nullable(),
+  details: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()])),
+});
+const deliveryWithStepsRow = deliveryRow.extend({ steps: z.array(stepEventJson) });
+
+/**
+ * The deliveries `candidates` names (a statement of delivery ids), each with
+ * its message's sender and its step events oldest first, up to `upTo` if
+ * given. Each candidate's delivery, message and steps are read by key
+ * (LIMIT 1 keeps each a lookup Postgres cannot turn into a scan of every
+ * delivery or message of the fleet, decision 1 of docs/design/performance/
+ * performance.md), so the cost follows the candidates, and no IN list of
+ * every candidate travels to Postgres and back.
+ */
+function deliveriesWithStepsStatement(fleetId: FleetId, read: { candidates: Prisma.Sql; upTo?: Date }): Prisma.Sql {
+  const { candidates, upTo } = read;
+  const sentBy = upTo === undefined ? Prisma.sql`` : Prisma.sql`AND d.created_at <= ${upTo}`;
+  const stepsBy = upTo === undefined ? Prisma.sql`` : Prisma.sql`AND e.occurred_at <= ${upTo}`;
+  return Prisma.sql`
+    WITH candidates AS (${candidates})
+    SELECT d.id, d.message_id, m.sender_ship_id, d.recipient_ship_id, d.recipient_type, d.claimed_by_ship_id, d.reachable_ship_ids, d.created_at,
+      COALESCE(s.steps, '[]'::json) AS steps
+    FROM candidates c
+    CROSS JOIN LATERAL (SELECT * FROM deliveries d WHERE d.fleet_id = ${fleetId} AND d.id = c.id ${sentBy} LIMIT 1) d
+    CROSS JOIN LATERAL (SELECT m.sender_ship_id FROM messages m WHERE m.fleet_id = ${fleetId} AND m.id = d.message_id LIMIT 1) m
+    LEFT JOIN LATERAL (
+      SELECT json_agg(json_build_object('type', e.type, 'occurredAt', e.occurred_at, 'shipId', e.ship_id, 'details', e.details) ORDER BY e.seq) AS steps
+      FROM events e
+      WHERE e.fleet_id = ${fleetId} AND e.delivery_id = d.id AND e.type = ANY(${[...STEP_EVENT_TYPES]}::text[]) ${stepsBy}
+    ) s ON true`;
+}
+
+/**
+ * The replay's deliveries: open now, or with a step since `since`, as a
+ * delivery that left its stuck state since then has the event that took it
+ * out. Two parts, each through its own index (the open states' partial
+ * index, the events by time), joined as a UNION: as one OR, Postgres scans
+ * every delivery and message of the fleet.
+ */
+export function replayDeliveriesStatement(fleetId: FleetId, since: Date): Prisma.Sql {
+  return deliveriesWithStepsStatement(fleetId, {
+    candidates: Prisma.sql`
+      SELECT id FROM deliveries WHERE fleet_id = ${fleetId} AND state IN ${OPEN_STATES_SQL}
+      UNION
+      SELECT delivery_id FROM events WHERE fleet_id = ${fleetId} AND occurred_at >= ${since} AND delivery_id IS NOT NULL`,
+  });
+}
+
+/**
+ * The deliveries the first snapshot's base looks up at `hour`: sent by then,
+ * and open now or with an event after it, since what was open then and left
+ * since has its leaving event after it. The events after the hour are mostly
+ * of deliveries sent after it, whose MessageAccepted (written at their send)
+ * is among them, so they are dropped in the one scan of those events by time
+ * and only the deliveries sent by the hour are looked up.
+ */
+export function baseCandidatesStatement(fleetId: FleetId, hour: Date): Prisma.Sql {
+  return Prisma.sql`
+    SELECT id FROM deliveries WHERE fleet_id = ${fleetId} AND state IN ${OPEN_STATES_SQL} AND created_at <= ${hour}
+    UNION
+    SELECT delivery_id FROM events WHERE fleet_id = ${fleetId} AND occurred_at > ${hour} AND delivery_id IS NOT NULL
+    GROUP BY delivery_id HAVING bool_and(type <> 'MessageAccepted')`;
+}
+
+/** The first snapshot's deliveries at `hour`, each with its steps up to the hour only, which is all the fold reads of it. */
+export function baseDeliveriesStatement(fleetId: FleetId, hour: Date): Prisma.Sql {
+  return deliveriesWithStepsStatement(fleetId, { candidates: baseCandidatesStatement(fleetId, hour), upTo: hour });
+}
+
+/** The deliveries a `deliveriesWithStepsStatement` answers, as the stuck rule reads them. */
+export async function readDeliveriesWithSteps(db: Db, statement: Prisma.Sql): Promise<DeliveryRecord[]> {
+  const rows = z.array(deliveryWithStepsRow).parse(await db.$queryRaw(statement));
+  return rows.map(({ steps, ...row }) =>
+    deliveryRecordOf(
+      row,
+      steps.flatMap(({ shipId, ...event }) => {
+        const step = stateStepOf({ ...event, ...(shipId === null ? {} : { shipId }) });
+        return step === undefined ? [] : [step];
+      }),
+    ),
+  );
+}
+
 export function createPrismaHealthRecords(db: Db): HealthRecords {
   return {
     read: async (fleetId: FleetId, since: Date) => {
@@ -137,31 +227,14 @@ export function createPrismaHealthRecords(db: Db): HealthRecords {
           WHERE fleet_id = ${fleetId} AND type = 'TurnReported' AND details->>'leaseId' = ANY(${leaseIds}::text[])
           ORDER BY seq`,
       );
-      // Open now, or with a step in the window: a delivery that left its
-      // stuck state since then has the event that took it out.
-      const deliveries = z.array(deliveryRow).parse(
-        await db.$queryRaw`
-          SELECT d.id, d.message_id, m.sender_ship_id, d.recipient_ship_id, d.recipient_type, d.claimed_by_ship_id, d.reachable_ship_ids, d.created_at FROM deliveries d
-          JOIN messages m ON m.fleet_id = d.fleet_id AND m.id = d.message_id
-          WHERE d.fleet_id = ${fleetId}
-            AND (d.state IN ('pending', 'received', 'handed', 'undeliverable')
-              OR d.id IN (SELECT e.delivery_id FROM events e WHERE e.fleet_id = ${fleetId} AND e.occurred_at >= ${since} AND e.delivery_id IS NOT NULL))`,
-      );
-      const steps = new Map<string, DeliveryStep[]>();
-      const events = await db.event.findMany({ where: { fleetId, deliveryId: { in: deliveries.map((delivery) => delivery.id) } }, orderBy: { seq: 'asc' } });
-      for (const event of events.map(toSequencedEvent)) {
-        const step = stateStepOf(event);
-        if (step !== undefined && event.deliveryId !== undefined) {
-          steps.set(event.deliveryId, [...(steps.get(event.deliveryId) ?? []), step]);
-        }
-      }
+      const deliveries = await readDeliveriesWithSteps(db, replayDeliveriesStatement(fleetId, since));
       return {
         ...crews,
         leases: crews.leases.map((lease) => ({
           ...lease,
           turns: turns.filter((turn) => turn.lease_id === lease.leaseId).map((turn): LeaseTurn => ({ state: turn.turn, at: turn.occurred_at })),
         })),
-        deliveries: deliveries.map((delivery) => deliveryRecordOf(delivery, steps.get(delivery.id) ?? [])),
+        deliveries,
       };
     },
 
