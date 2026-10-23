@@ -2137,7 +2137,7 @@ describe('labels at the API', () => {
     });
 
     expect(response.status).toBe(200);
-    expect(z.array(z.object({ id: z.string() })).parse(await response.json()).map((ship) => ship.id)).toEqual([shipId]);
+    expect(z.object({ items: z.array(z.object({ id: z.string() })) }).parse(await response.json()).items.map((ship) => ship.id)).toEqual([shipId]);
   });
 
   it('find a value by its key and value text with fleet:read, answering NOT_FOUND for one the fleet does not have', async () => {

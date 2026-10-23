@@ -191,7 +191,7 @@ describe('an account signed in by its token cookie', () => {
   it("reads what fleet:read reads in the console: the fleet, a ship, its timeline, messages and way, needs attention, health, limits and argo's inbox", async () => {
     const fleet = asBrowser(await signedInCookie()).fleet;
 
-    await expect(fleet.list.query({})).resolves.toEqual(expect.arrayContaining([expect.objectContaining({ name: 'scout' })]));
+    await expect(fleet.list.query({})).resolves.toMatchObject({ items: expect.arrayContaining([expect.objectContaining({ name: 'scout' })]) });
     const ship = await fleet.ship.query({ shipId: scout });
     expect(ship).toMatchObject({ name: 'scout' });
     expect(ship).not.toHaveProperty('isInReadReach', false);
