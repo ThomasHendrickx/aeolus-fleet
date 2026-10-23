@@ -1,4 +1,4 @@
-import { readsMessage, type ReadReachOf } from '../registry/public.js';
+import type { ReadReachOf } from '../registry/public.js';
 import type { Caller } from './caller.js';
 import type { Clock } from './clock.js';
 import { readAcknowledgedOf } from './health-read.js';
@@ -20,7 +20,7 @@ export function createReadAcknowledged(deps: { health: HealthRecords; snapshots:
     return readAcknowledgedOf({ records: deps.health, snapshots: deps.snapshots }, {
       fleetId: caller.fleetId,
       now: deps.clock.now(),
-      reads: (message) => readsMessage(reach, message),
+      reach,
     });
   };
 }

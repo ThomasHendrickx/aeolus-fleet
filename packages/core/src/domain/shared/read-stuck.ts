@@ -1,6 +1,6 @@
 import { PAGE_SIZE_DEFAULT, type DeliveryId, type StuckCause } from '@aeolus-fleet/common';
 
-import { readsMessage, readsShip, type ReadReachOf } from '../registry/public.js';
+import type { ReadReachOf } from '../registry/public.js';
 import type { Caller } from './caller.js';
 import type { Clock } from './clock.js';
 import { readStuckPlacesOf } from './health-read.js';
@@ -59,8 +59,7 @@ export function createReadStuck(deps: { health: HealthRecords; snapshots: Health
     const places = await readStuckPlacesOf({ records: deps.health, snapshots: deps.snapshots }, {
       fleetId: caller.fleetId,
       now: deps.clock.now(),
-      reads: (message) => readsMessage(reach, message),
-      readsShip: (shipId) => readsShip(reach, shipId),
+      reach,
     });
     return stuckPageOf(places, page);
   };

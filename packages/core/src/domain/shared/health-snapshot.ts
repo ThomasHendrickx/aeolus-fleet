@@ -8,7 +8,7 @@
  */
 import { ACKNOWLEDGED_HOURS, STUCK_TREND_HOURS, type FleetId, type LeaseId, type ShipId, type StuckCause } from '@aeolus-fleet/common';
 
-import type { MessageParties } from '../registry/public.js';
+import type { MessageParties, ReadReach } from '../registry/public.js';
 import type { SequencedEvent } from './events.js';
 import { foldHealth, type HealthFold } from './health-fold.js';
 import { shownStuck, type Acknowledged, type AcknowledgedDelivery, type Health, type HealthFacts } from './health.js';
@@ -37,6 +37,12 @@ export interface HourSnapshot {
   hour: Date;
   stuck: readonly StuckCount[];
   acknowledged: readonly AcknowledgedCount[];
+}
+
+/** How many deliveries were stuck at a closed hour's mark. */
+export interface StuckHourCount {
+  hour: Date;
+  count: number;
 }
 
 /** The latest closed hour and the fold as of it. */
@@ -97,8 +103,8 @@ export interface HealthSnapshots {
   latest(fleetId: FleetId): Promise<LatestSnapshot | undefined>;
   /** The closed hours after `since`, oldest first. */
   hours(fleetId: FleetId, since: Date): Promise<HourSnapshot[]>;
-  /** The closed hours after `since`, oldest first, each with its stuck counts only. */
-  stuckHours(fleetId: FleetId, since: Date): Promise<Pick<HourSnapshot, 'hour' | 'stuck'>[]>;
+  /** The closed hours after `since`, oldest first, each with how many deliveries were stuck at it whose message `reach` reads (decision 0034). */
+  stuckCounts(fleetId: FleetId, read: { since: Date; reach: ReadReach }): Promise<StuckHourCount[]>;
   /** The closed hours after `since`, oldest first, each with its acknowledged only. */
   acknowledgedHours(fleetId: FleetId, since: Date): Promise<Pick<HourSnapshot, 'hour' | 'acknowledged'>[]>;
   /** The fleet's events after `seq`, lowest first, at most `limit` of them when given, and the deliveries they sent. */
@@ -253,23 +259,27 @@ export function stuckNowOf(crews: HealthCrews, read: { fold: HealthFold; now: Da
   return stuckAt(recordsOf(crews, { ...fold, deliveries: fold.deliveries.filter((delivery) => reads(partiesOf(delivery))) }), now);
 }
 
+/** How many of an hour's stuck deliveries are of a message `reads` keeps. */
+export function stuckCountOf(hour: Pick<HourSnapshot, 'hour' | 'stuck'>, reads: (message: MessageParties) => boolean): StuckHourCount {
+  return { hour: hour.hour, count: hour.stuck.filter((counted) => reads(counted.message)).reduce((sum, counted) => sum + counted.count, 0) };
+}
+
 /**
  * Stuck at each hour mark of the last 7 days, oldest first, from the closed
- * hours and the hours folded since, and `stuckNow` last at now. An hour with
- * no row counts none; each counts only the deliveries whose message `reads`
- * keeps.
+ * hours' counts and the hours folded since, and `stuckNow` last at now. An
+ * hour with no row counts none; a folded hour counts only the deliveries
+ * whose message `reads` keeps, as the closed hours' counts do.
  */
 export function stuckPerHourOf(
-  snapshot: { hours: readonly Pick<HourSnapshot, 'hour' | 'stuck'>[]; folded: readonly FoldedHour[]; crews: HealthCrews },
+  snapshot: { hours: readonly StuckHourCount[]; folded: readonly FoldedHour[]; crews: HealthCrews },
   read: { now: Date; stuckNow: number; reads: (message: MessageParties) => boolean },
 ): { at: Date; count: number }[] {
   const { now, reads } = read;
   const lastMark = hourMarkOf(now);
-  const hours = [...snapshot.hours, ...snapshot.folded.map(({ hour, fold }) => openingHourOf(fold, { hour, crews: snapshot.crews }))];
+  const hours = [...snapshot.hours, ...snapshot.folded.map(({ hour, fold }) => stuckCountOf(openingHourOf(fold, { hour, crews: snapshot.crews }), reads))];
   const perHour = Array.from({ length: STUCK_TREND_HOURS - 1 }, (_unused, index) => {
     const at = hoursAfter(lastMark, index - STUCK_TREND_HOURS + 2);
-    const stuck = hours.find((hour) => hour.hour.getTime() === at.getTime())?.stuck ?? [];
-    return { at, count: stuck.filter((counted) => reads(counted.message)).reduce((sum, counted) => sum + counted.count, 0) };
+    return { at, count: hours.find((hour) => hour.hour.getTime() === at.getTime())?.count ?? 0 };
   });
   return [...perHour, { at: now, count: read.stuckNow }];
 }
@@ -325,7 +335,7 @@ export function healthFromSnapshot(
   const stuckNow = stuckNowOf(snapshot.crews, { fold: folded.fold, now, reads });
   return {
     stuck: shownStuck(stuckNow, { ships: snapshot.crews.ships, machines: snapshot.crews.machines.filter(({ shipId }) => readsShip(shipId)) }),
-    stuckPerHour: stuckPerHourOf({ hours: snapshot.hours, folded: folded.hours, crews: snapshot.crews }, { now, stuckNow: stuckNow.length, reads }),
+    stuckPerHour: stuckPerHourOf({ hours: snapshot.hours.map((hour) => stuckCountOf(hour, reads)), folded: folded.hours, crews: snapshot.crews }, { now, stuckNow: stuckNow.length, reads }),
     acknowledged: acknowledgedOfSnapshot({ hours: snapshot.hours, folded: folded.hours, acknowledged: folded.acknowledged }, { now, reads }),
   };
 }

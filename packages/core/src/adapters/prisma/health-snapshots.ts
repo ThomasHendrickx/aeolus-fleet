@@ -12,6 +12,7 @@ import { z } from 'zod';
 
 import { foldAt, type HealthFold } from '../../domain/shared/health-fold.js';
 import type { HealthSnapshotWriter, HourSnapshot, StuckCount } from '../../domain/shared/health-snapshot.js';
+import type { ReadReach } from '../../domain/registry/public.js';
 import type { DeliveryRecord } from '../../domain/shared/stuck.js';
 import type { Db } from './client.js';
 import { Prisma } from './generated/client.js';
@@ -34,8 +35,27 @@ const acknowledgedJson = z.array(z.object({ message: messageJson, waits: z.array
 const turnsJson = z.array(z.object({ leaseId: idSchema('lease'), state: turnStateSchema, at: z.coerce.date() }));
 
 const hourRow = z.object({ hour: z.date(), stuck: stuckJson, acknowledged: acknowledgedJson });
-const stuckHourRow = hourRow.pick({ hour: true, stuck: true });
+const stuckCountRow = z.object({ hour: z.date(), count: z.int() });
 const acknowledgedHourRow = hourRow.pick({ hour: true, acknowledged: true });
+
+/**
+ * Whether `reach` reads the message at `message`, a jsonb of its parties, as
+ * `readsMessage` decides it (decision 0034): through its sender or its
+ * recipient ship, else through the ship that claimed it, or while none has,
+ * its type.
+ */
+function readsMessageSql(reach: ReadReach, message: Prisma.Sql): Prisma.Sql {
+  if (reach.kind === 'every') {
+    return Prisma.sql`true`;
+  }
+  const shipIds = [...reach.shipIds];
+  return Prisma.sql`(
+    ${message}->>'senderId' = ANY(${shipIds}::text[])
+    OR CASE ${message}->'recipient'->>'kind'
+      WHEN 'ship' THEN ${message}->'recipient'->>'shipId' = ANY(${shipIds}::text[])
+      ELSE CASE WHEN ${message}->>'claimedBy' IS NULL THEN ${message}->'recipient'->>'type' = ANY(${[...reach.types]}::text[]) ELSE ${message}->>'claimedBy' = ANY(${shipIds}::text[]) END
+    END)`;
+}
 
 /** An hour's acknowledged as the snapshot reads it, its waits as a map. */
 function acknowledgedOf(acknowledged: z.infer<typeof acknowledgedJson>): HourSnapshot['acknowledged'] {
@@ -157,8 +177,14 @@ export function createPrismaHealthSnapshots(db: Db): HealthSnapshotWriter {
       return rows.map((row) => ({ hour: row.hour, stuck: row.stuck, acknowledged: acknowledgedOf(row.acknowledged) }));
     },
 
-    stuckHours: async (fleetId, since) =>
-      z.array(stuckHourRow).parse(await db.$queryRaw`SELECT hour, stuck FROM health_snapshots WHERE fleet_id = ${fleetId} AND hour > ${since} ORDER BY hour`),
+    stuckCounts: async (fleetId, { since, reach }) =>
+      z.array(stuckCountRow).parse(
+        await db.$queryRaw`
+          SELECT s.hour, COALESCE(sum((c->>'count')::int) FILTER (WHERE ${readsMessageSql(reach, Prisma.sql`c->'message'`)}), 0)::int AS count
+          FROM health_snapshots s LEFT JOIN LATERAL jsonb_array_elements(s.stuck) c ON true
+          WHERE s.fleet_id = ${fleetId} AND s.hour > ${since}
+          GROUP BY s.hour ORDER BY s.hour`,
+      ),
 
     acknowledgedHours: async (fleetId, since) => {
       const rows = z.array(acknowledgedHourRow).parse(

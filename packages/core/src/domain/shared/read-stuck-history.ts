@@ -1,4 +1,4 @@
-import { readsMessage, type ReadReachOf } from '../registry/public.js';
+import type { ReadReachOf } from '../registry/public.js';
 import type { Caller } from './caller.js';
 import type { Clock } from './clock.js';
 import { readStuckHistoryOf } from './health-read.js';
@@ -19,7 +19,7 @@ export function createReadStuckHistory(deps: { health: HealthRecords; snapshots:
     return readStuckHistoryOf({ records: deps.health, snapshots: deps.snapshots }, {
       fleetId: caller.fleetId,
       now: deps.clock.now(),
-      reads: (message) => readsMessage(reach, message),
+      reach,
     });
   };
 }

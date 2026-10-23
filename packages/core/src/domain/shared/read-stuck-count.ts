@@ -1,4 +1,4 @@
-import { readsMessage, type ReadReachOf } from '../registry/public.js';
+import type { ReadReachOf } from '../registry/public.js';
 import type { Caller } from './caller.js';
 import type { Clock } from './clock.js';
 import { readStuckNowOf } from './health-read.js';
@@ -25,7 +25,7 @@ export function createReadStuckCount(deps: { health: HealthRecords; snapshots: H
     const stuck = await readStuckNowOf({ records: deps.health, snapshots: deps.snapshots }, {
       fleetId: caller.fleetId,
       now: deps.clock.now(),
-      reads: (message) => readsMessage(reach, message),
+      reach,
     });
     const [oldest] = stuck.map((delivery) => delivery.since).toSorted((first, second) => first.getTime() - second.getTime());
     return { count: stuck.length, oldestSince: oldest ?? null };

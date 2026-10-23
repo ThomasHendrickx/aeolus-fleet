@@ -1,4 +1,4 @@
-import { readsMessage, readsShip, type ReadReachOf } from '../registry/public.js';
+import type { ReadReachOf } from '../registry/public.js';
 import type { Caller } from './caller.js';
 import type { Clock } from './clock.js';
 import { readHealthOf } from './health-read.js';
@@ -21,8 +21,7 @@ export function createReadHealth(deps: { health: HealthRecords; snapshots: Healt
     return readHealthOf({ records: deps.health, snapshots: deps.snapshots }, {
       fleetId: caller.fleetId,
       now: deps.clock.now(),
-      reads: (message) => readsMessage(reach, message),
-      readsShip: (shipId) => readsShip(reach, shipId),
+      reach,
     });
   };
 }

@@ -1,6 +1,6 @@
 import { STUCK_CAUSES, type ShipId, type StuckCause } from '@aeolus-fleet/common';
 
-import { readsMessage, readsShip, type ReadReachOf } from '../registry/public.js';
+import type { ReadReachOf } from '../registry/public.js';
 import type { Caller } from './caller.js';
 import type { Clock } from './clock.js';
 import { readStuckPlacesOf } from './health-read.js';
@@ -58,8 +58,7 @@ export function createReadStuckSummary(deps: { health: HealthRecords; snapshots:
     const places = await readStuckPlacesOf({ records: deps.health, snapshots: deps.snapshots }, {
       fleetId: caller.fleetId,
       now: deps.clock.now(),
-      reads: (message) => readsMessage(reach, message),
-      readsShip: (shipId) => readsShip(reach, shipId),
+      reach,
     });
     return stuckSummaryOf(places);
   };

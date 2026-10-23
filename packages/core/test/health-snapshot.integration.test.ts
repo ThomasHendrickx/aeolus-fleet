@@ -427,7 +427,12 @@ describe('the closed hours a read takes', () => {
       acknowledged: [],
     };
     const empty: HourSnapshot = { hour: new Date(HOUR.getTime() + HOUR_MS), stuck: [], acknowledged: [] };
-    unwrap(await createPrismaSnapshotUnitOfWork(core.prisma).run(async (tx) => ok(await tx.healthSnapshots.write(argo.fleetId, { hours: [hour, empty], fold: { seq: 0, deliveries: [], turns: [] } }))));
+    unwrap(
+      await createPrismaSnapshotUnitOfWork(core.prisma).run(async (tx) => {
+        await tx.healthSnapshots.write(argo.fleetId, { hours: [hour, empty], fold: { seq: 0, deliveries: [], turns: [] } });
+        return ok(undefined);
+      }),
+    );
   }
 
   it('count, for a reader of every ship, every delivery stuck at each hour', async () => {
