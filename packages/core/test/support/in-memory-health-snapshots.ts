@@ -66,6 +66,16 @@ export function createInMemoryHealthSnapshots(state: InMemoryState, health: Heal
       const { ships, leases } = await health.read(fleetId, since);
       return { ships, leases: leases.map((lease) => ({ ...lease, turns: [] })) };
     },
+    crewsTouching: async (fleetId, { since, touched }) => {
+      const { ships, leases } = await health.read(fleetId, since);
+      const ofLeases = new Set(leases.filter((lease) => touched.leaseIds.includes(lease.leaseId)).map((lease) => lease.shipId));
+      const touchedShips = ships.filter((ship) => touched.shipIds.includes(ship.shipId) || touched.types.includes(ship.type) || ofLeases.has(ship.shipId));
+      const shipIds = new Set(touchedShips.map((ship) => ship.shipId));
+      return {
+        ships: touchedShips,
+        leases: leases.filter((lease) => shipIds.has(lease.shipId) || touched.leaseIds.includes(lease.leaseId)).map((lease) => ({ ...lease, turns: [] })),
+      };
+    },
     machines: async (fleetId) => (await health.read(fleetId, new Date(0))).machines,
     tryLock: (fleetId) => Promise.resolve(!state.healthSnapshotLocks.includes(fleetId)),
     baseAt: async (fleetId, hour) => {

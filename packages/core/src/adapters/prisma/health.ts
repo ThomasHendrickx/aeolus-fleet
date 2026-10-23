@@ -7,7 +7,7 @@
 import { eventTypeSchema, idSchema, shipKindSchema, turnStateSchema, type FleetId } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
-import type { HealthCrews } from '../../domain/shared/health-snapshot.js';
+import type { HealthCrews, TouchedCrews } from '../../domain/shared/health-snapshot.js';
 import type { HealthFacts, HealthRecords } from '../../domain/shared/health.js';
 import { isConsoleShip } from '../../domain/registry/public.js';
 import { STEP_EVENT_TYPES, stateStepOf, type DeliveryRecord, type DeliveryStep, type LeaseTurn } from '../../domain/shared/stuck.js';
@@ -81,19 +81,30 @@ export function recipientOf(row: Pick<z.infer<typeof deliveryRow>, 'id' | 'recip
   throw new Error(`Delivery ${row.id} has no recipient`);
 }
 
-/** The fleet's ships and leases not over before `since`, each lease with no turns. */
-export async function readCrews(db: Db, read: { fleetId: FleetId; since: Date }): Promise<HealthCrews> {
-  const { fleetId, since } = read;
+/**
+ * The fleet's ships and leases not over before `since`, each lease with no
+ * turns; with `touched`, only the ships it reaches (by id, by type, or as the
+ * ship of one of its leases) and the leases of those ships or named by it.
+ */
+export async function readCrews(db: Db, read: { fleetId: FleetId; since: Date; touched?: TouchedCrews }): Promise<HealthCrews> {
+  const { fleetId, since, touched } = read;
+  const touchedShips =
+    touched === undefined
+      ? Prisma.sql``
+      : Prisma.sql`AND (id = ANY(${[...touched.shipIds]}::text[]) OR type = ANY(${[...touched.types]}::text[])
+          OR id IN (SELECT ship_id FROM leases WHERE fleet_id = ${fleetId} AND id = ANY(${[...touched.leaseIds]}::text[])))`;
   const ships = z.array(shipRow).parse(
     await db.$queryRaw`
       SELECT id, name, type, kind::text AS kind, created_at, retired_at FROM ships
-      WHERE fleet_id = ${fleetId} AND (retired_at IS NULL OR retired_at >= ${since})`,
+      WHERE fleet_id = ${fleetId} AND (retired_at IS NULL OR retired_at >= ${since}) ${touchedShips}`,
   );
+  const touchedLeases =
+    touched === undefined ? Prisma.sql`` : Prisma.sql`AND (ship_id = ANY(${ships.map((ship) => ship.id)}::text[]) OR id = ANY(${[...touched.leaseIds]}::text[]))`;
   // A lease never seen is last seen when it started, as the ship page reads it.
   const leases = z.array(leaseRow).parse(
     await db.$queryRaw`
       SELECT id, ship_id, started_at, ended_at, pushed_at, COALESCE(last_seen_at, started_at) AS last_seen_at FROM leases
-      WHERE fleet_id = ${fleetId} AND (ended_at IS NULL OR ended_at >= ${since})`,
+      WHERE fleet_id = ${fleetId} AND (ended_at IS NULL OR ended_at >= ${since}) ${touchedLeases}`,
   );
   return {
     ships: ships.map((ship) => ({

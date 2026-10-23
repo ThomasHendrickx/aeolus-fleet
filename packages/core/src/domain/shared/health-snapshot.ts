@@ -6,7 +6,7 @@
  * latest hour also keeps the fold, so a read folds only the events after it.
  * The rule is `stuck.ts`'s, at each hour mark and at now alike (decision 0042).
  */
-import { ACKNOWLEDGED_HOURS, STUCK_TREND_HOURS, type FleetId, type ShipId, type StuckCause } from '@aeolus-fleet/common';
+import { ACKNOWLEDGED_HOURS, STUCK_TREND_HOURS, type FleetId, type LeaseId, type ShipId, type StuckCause } from '@aeolus-fleet/common';
 
 import type { MessageParties } from '../registry/public.js';
 import type { SequencedEvent } from './events.js';
@@ -51,6 +51,40 @@ export interface HealthCrews {
   leases: readonly LeaseRecord[];
 }
 
+/**
+ * What the rule can read for some open deliveries: the ships they are sent to,
+ * the types they are sent to, and the leases that hold them. The ships and
+ * leases these reach are all the rule and the stuck places read of them.
+ */
+export interface TouchedCrews {
+  shipIds: readonly ShipId[];
+  types: readonly string[];
+  leaseIds: readonly LeaseId[];
+}
+
+/** The ships, types and leases the open deliveries touch. */
+export function touchedBy(deliveries: readonly DeliveryRecord[]): TouchedCrews {
+  const shipIds = new Set<ShipId>();
+  const types = new Set<string>();
+  const leaseIds = new Set<LeaseId>();
+  for (const { recipient, steps } of deliveries) {
+    if (recipient.kind === 'ship') {
+      shipIds.add(recipient.shipId);
+    } else {
+      types.add(recipient.type);
+    }
+    for (const { shipId, leaseId } of steps) {
+      if (shipId !== null) {
+        shipIds.add(shipId);
+      }
+      if (leaseId !== null) {
+        leaseIds.add(leaseId);
+      }
+    }
+  }
+  return { shipIds: [...shipIds], types: [...types], leaseIds: [...leaseIds] };
+}
+
 /** The events after a seq, lowest first, and the deliveries those events sent. */
 export interface EventsAfter {
   events: readonly SequencedEvent[];
@@ -67,6 +101,13 @@ export interface HealthSnapshots {
   eventsAfter(fleetId: FleetId, after: { seq: number; limit?: number }): Promise<EventsAfter>;
   /** The ships and leases not over before `since`. */
   crews(fleetId: FleetId, since: Date): Promise<HealthCrews>;
+  /**
+   * The ships and leases not over before `since` that `touched` reaches: the
+   * ships by id or type, the ships of its leases, and the leases of all those
+   * ships and its leases by id. A read's cost then follows the open
+   * deliveries, never the fleet's ships.
+   */
+  crewsTouching(fleetId: FleetId, read: { since: Date; touched: TouchedCrews }): Promise<HealthCrews>;
   /** The machine behind each ship whose crew request is assigned: only what names a stuck place reads it. */
   machines(fleetId: FleetId): Promise<HealthFacts['machines']>;
 }

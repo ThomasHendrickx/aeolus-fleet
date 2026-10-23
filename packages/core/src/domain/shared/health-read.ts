@@ -7,7 +7,7 @@
 import { ACKNOWLEDGED_HOURS, STUCK_TREND_HOURS, type FleetId, type ShipId } from '@aeolus-fleet/common';
 
 import type { MessageParties } from '../registry/public.js';
-import { acknowledgedOfSnapshot, foldedToNow, healthFromSnapshot, hourMarkOf, stuckNowOf, stuckPerHourOf, type HealthSnapshots } from './health-snapshot.js';
+import { acknowledgedOfSnapshot, foldedToNow, healthFromSnapshot, hourMarkOf, stuckNowOf, stuckPerHourOf, touchedBy, type HealthSnapshots } from './health-snapshot.js';
 import { acknowledgedOf, acknowledgedSince, healthOf, healthSince, shownStuck, type Acknowledged, type Health, type HealthFacts, type HealthRecords, type StuckPlaceHealth } from './health.js';
 import { stuckAt, stuckPerHour, type StuckDelivery } from './stuck.js';
 
@@ -59,8 +59,9 @@ async function stuckNowWithCrews(deps: HealthReadDeps, read: HealthRead): Promis
     const deliveries = facts.deliveries.filter(({ senderId, recipient, claimedBy }) => reads({ senderId, recipient, claimedBy }));
     return { stuck: stuckAt({ ...facts, deliveries }, now), crews: facts };
   }
-  const [after, crews] = await Promise.all([deps.snapshots.eventsAfter(fleetId, { seq: latest.fold.seq }), deps.snapshots.crews(fleetId, latest.hour)]);
-  return { stuck: stuckNowOf(crews, { fold: foldedToNow({ latest, ...after }, now).fold, now, reads }), crews };
+  const { fold } = foldedToNow({ latest, ...(await deps.snapshots.eventsAfter(fleetId, { seq: latest.fold.seq })) }, now);
+  const crews = await deps.snapshots.crewsTouching(fleetId, { since: latest.hour, touched: touchedBy(fold.deliveries) });
+  return { stuck: stuckNowOf(crews, { fold, now, reads }), crews };
 }
 
 /** Reads the deliveries stuck at `now`. */
@@ -84,12 +85,11 @@ export async function readStuckHistoryOf(deps: HealthReadDeps, read: HealthRead)
     const deliveries = facts.deliveries.filter(({ senderId, recipient, claimedBy }) => reads({ senderId, recipient, claimedBy }));
     return stuckPerHour({ ...facts, deliveries }, now);
   }
-  const [hours, after, crews] = await Promise.all([
-    deps.snapshots.hours(fleetId, hoursSince(now, STUCK_TREND_HOURS)),
-    deps.snapshots.eventsAfter(fleetId, { seq: latest.fold.seq }),
-    deps.snapshots.crews(fleetId, latest.hour),
-  ]);
+  const [hours, after] = await Promise.all([deps.snapshots.hours(fleetId, hoursSince(now, STUCK_TREND_HOURS)), deps.snapshots.eventsAfter(fleetId, { seq: latest.fold.seq })]);
   const folded = foldedToNow({ latest, ...after }, now);
+  // The hours the pass has not closed yet are counted here too, so their open deliveries are touched as well.
+  const deliveries = [folded.fold, ...folded.hours.map((hour) => hour.fold)].flatMap((fold) => fold.deliveries);
+  const crews = await deps.snapshots.crewsTouching(fleetId, { since: latest.hour, touched: touchedBy(deliveries) });
   const stuckNow = stuckNowOf(crews, { fold: folded.fold, now, reads });
   return stuckPerHourOf({ hours, folded: folded.hours, crews }, { now, stuckNow: stuckNow.length, reads });
 }

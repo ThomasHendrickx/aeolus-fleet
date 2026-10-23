@@ -166,6 +166,8 @@ export function createPrismaHealthSnapshots(db: Db): HealthSnapshotWriter {
 
     crews: (fleetId, since) => readCrews(db, { fleetId, since }),
 
+    crewsTouching: (fleetId, { since, touched }) => readCrews(db, { fleetId, since, touched }),
+
     machines: (fleetId) => readMachines(db, fleetId),
 
     tryLock: async (fleetId) => {
