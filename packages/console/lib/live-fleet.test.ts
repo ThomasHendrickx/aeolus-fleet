@@ -318,6 +318,18 @@ describe('the live fleet (performance design, decision 3)', () => {
     live.close();
   });
 
+  it.each(['ShipCommissioned', 'ShipClaimed', 'LeaseRevoked', 'ShipRetired', 'CrewRequested'] as const)('reloads the ship counts for %s', async (type) => {
+    const builder = aShip({});
+    const live = aLiveFleet({ 'fleet.shipCounts': () => [], 'fleet.listedShip': () => builder });
+    live.show(new QueryObserver(live.queryClient, live.trpc.fleet.shipCounts.queryOptions()));
+    await expect.poll(() => live.askedOf('fleet.shipCounts')).toBe(1);
+
+    live.onItem({ kind: 'event', event: anEvent(type, { shipId: builder.id, hasMessage: false }) });
+
+    await expect.poll(() => live.askedOf('fleet.shipCounts')).toBe(2);
+    live.close();
+  });
+
   it.each([
     { what: 'a delivery that moves', type: 'DeliveryReceived', hasMessage: true },
     { what: 'a crew, which changes why a delivery waits', type: 'ShipClaimed', hasMessage: false },

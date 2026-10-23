@@ -1,7 +1,7 @@
 import { createIdGenerator } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
-import { overviewMetrics, overviewSubtitle } from './overview-metrics';
+import { needsCrewCountOf, overviewMetrics, overviewSubtitle, type ShipKindCount } from './overview-metrics';
 
 const newId = createIdGenerator();
 const NOW = new Date('2026-10-05T12:00:00.000Z');
@@ -22,17 +22,36 @@ describe('overviewMetrics', () => {
   it('counts the active agent ships, crewed and awaiting crew, never argo, the viewer ship or a retired ship', () => {
     const counts = [argo, viewer, aKindCount({ kind: 'agent', active: 2, crewed: 1, awaitingCrew: 1, retired: 1 })];
 
-    expect(overviewMetrics({ ships, now: NOW })).toMatchObject({ activeCount: 2, crewedCount: 1, awaitingCount: 1 });
+    expect(overviewMetrics({ counts, now: NOW })).toMatchObject({ activeCount: 2, crewedCount: 1, awaitingCount: 1 });
+  });
+
+  it('counts nothing active while argo is alone', () => {
+    expect(overviewMetrics({ counts: [argo], now: NOW }).activeCount).toBe(0);
   });
 
   it('names the ship that has awaited crew longest, and for how long', () => {
     const counts = [aKindCount({ kind: 'agent', active: 2, awaitingCrew: 2, longestWait: { id: newId('ship'), name: 'planner', awaitingCrewSince: minutesAgo(95) } })];
 
-    expect(overviewMetrics({ ships, now: NOW }).longestWait).toEqual({ name: 'planner', wait: '1 h 35 min' });
+    expect(overviewMetrics({ counts, now: NOW }).longestWait).toEqual({ name: 'planner', wait: '1 h 35 min' });
   });
 
   it('names no longest wait while every active ship is crewed', () => {
-    expect(overviewMetrics({ ships: [aShip({})], now: NOW }).longestWait).toBeUndefined();
+    expect(overviewMetrics({ counts: [aKindCount({ kind: 'agent', active: 1, crewed: 1 })], now: NOW }).longestWait).toBeUndefined();
+  });
+});
+
+describe('needsCrewCountOf', () => {
+  const counts = [
+    aKindCount({ kind: 'agent', needsCrew: { withTrierarchs: 3, withoutTrierarchs: 1 } }),
+    aKindCount({ kind: 'person', needsCrew: { withTrierarchs: 1, withoutTrierarchs: 1 } }),
+  ];
+
+  it('counts the ships needing crew of every kind, as the trierarch plugin being connected decides', () => {
+    expect(needsCrewCountOf(counts, { hasTrierarchs: true })).toBe(4);
+  });
+
+  it('counts them as without the trierarch plugin when it is not connected', () => {
+    expect(needsCrewCountOf(counts, { hasTrierarchs: false })).toBe(2);
   });
 });
 
