@@ -2208,6 +2208,18 @@ describe('network rules at the API', () => {
     await expect(refusalOf(reader.fleet.networkRules.query())).resolves.toEqual({ code: 'FORBIDDEN', message: 'This call needs the fleet:network scope' });
   });
 
+  it('let a ship with fleet:network export the rules, and one with labels:define beside it check and import them into the draft, refusing one without labels:define', async () => {
+    const editor = await networker();
+    const importer = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:network', 'labels:define'])}` });
+    const version = await applied(editor, [{ verb: 'send', from: [], to: [] }]);
+    const file = JSON.stringify(await editor.fleet.exportNetworkRules.query());
+
+    await expect(importer.fleet.checkNetworkRulesFile.mutate({ file })).resolves.toMatchObject({ newLabels: [], differences: [] });
+    await expect(importer.fleet.importNetworkRules.mutate({ file, resolutions: [] })).resolves.toEqual({ savedAgainstVersion: version, definedLabels: [] });
+    await expect(refusalOf(editor.fleet.importNetworkRules.mutate({ file, resolutions: [] }))).resolves.toEqual({ code: 'FORBIDDEN', message: 'This call needs the fleet:network and labels:define scopes' });
+    await expect(codeOf(importer.fleet.checkNetworkRulesFile.mutate({ file: '{' }))).resolves.toBe('BAD_REQUEST');
+  });
+
   it('let argo set the rules too, as any actor holding fleet:network (decision 0053)', async () => {
     await networker();
 
