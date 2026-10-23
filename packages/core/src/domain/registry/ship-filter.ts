@@ -68,10 +68,17 @@ export function crewRequestKeyOf(crewRequest: ListedShip['crewRequest']): CrewRe
   return crewRequest.crewedBy === null ? 'needsCrew' : 'crewedByHand';
 }
 
-/** Whether the ship is one the filter selects. */
-export function matchesShipFilter(ship: ListedShip, filter: ShipFilter): boolean {
+/**
+ * Whether the filter selects the ship. A ship outside the caller's read reach
+ * shows its name, type and status only (decision 0034), so the filters on
+ * what it does not show (crew request, agent kind, label values) never
+ * select it.
+ */
+export function matchesShipFilter(ship: ListedShip, { filter, isInReach }: { filter: ShipFilter; isInReach: boolean }): boolean {
   const query = filter.query?.trim().toLowerCase() ?? '';
+  const isHiddenFilterPicked = [filter.crewRequest, filter.kind, filter.valueIds].some((picked) => picked !== undefined && picked.length > 0);
   return (
+    (isInReach || !isHiddenFilterPicked) &&
     (query === '' || ship.name.toLowerCase().includes(query) || ship.type.toLowerCase().includes(query)) &&
     isPicked(filter.status, ship.status) &&
     isPicked(filter.type, ship.type) &&

@@ -3,6 +3,7 @@ import type { DeliveryId, DeliveryState, FleetId, LabelId, LabelValueId, LeaseId
 import type { Recipient } from '../shared/selector.js';
 import type { ShipFilter } from './ship-filter.js';
 import type { ShipSort } from './ship-order.js';
+import type { ReadReach } from './read-reach.js';
 import type { ClearRequest } from './clear-request.js';
 import type { CrewRequest } from './crew-request.js';
 import type { Fleet } from './fleet.js';
@@ -466,12 +467,17 @@ export interface InstallationFleets {
   find(fleetId: FleetId, window: InstallationFleetWindow): Promise<InstallationFleetFacts | undefined>;
 }
 
-/** Which of the fleet's ships a listing reads: those the filter selects, in the sort's order (ship-order), after a position, at most `limit`. */
+/**
+ * Which of the fleet's ships a listing reads: those the filter selects, in
+ * the sort's order (ship-order), after a position, at most `limit`; the
+ * caller's read reach decides what of a ship it filters and sorts by.
+ */
 export interface ShipPage {
   after?: ShipPosition;
   limit: number;
   filter: ShipFilter;
   sort?: ShipSort;
+  reach: ReadReach;
 }
 
 export interface FleetListing {

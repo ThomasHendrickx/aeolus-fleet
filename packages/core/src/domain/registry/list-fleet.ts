@@ -85,29 +85,22 @@ export type ListFleet = (
  * after the cursor's position, PAGE_SIZE_DEFAULT unless the caller asks a
  * size, and the position the next page starts after, null on the last page (decision 4 of the performance
  * design). With label value ids only the ships that carry every one of them
- * (decision 0031). A ship outside the
- * caller's read reach shows its name, type and status only, and no label
- * value ever matches it, so the labels it carries do not show (decision
- * 0034); a page that selects by label may hold fewer ships for it. Never a
+ * (decision 0031). A ship outside the caller's read reach shows its name,
+ * type and status only, and is never filtered or sorted by anything else
+ * (decision 0034). Never a
  * secret, a crew token or their hashes. The caller's scope (fleet:read) is
  * checked before this runs.
  */
 export function createListFleet(deps: { listing: FleetListing; readReach: ReadReachOf }): ListFleet {
   return async (caller, input) => {
     const { cursor, limit = PAGE_SIZE_DEFAULT, sort, ...filter } = input ?? {};
-    const isSelectedByLabel = filter.valueIds !== undefined && filter.valueIds.length > 0;
-    const [reach, read] = await Promise.all([
-      deps.readReach(caller),
-      // One ship past the page tells whether another page follows.
-      deps.listing.ships(caller.fleetId, { after: cursor, limit: limit + 1, filter, sort }),
-    ]);
+    const reach = await deps.readReach(caller);
+    // One ship past the page tells whether another page follows.
+    const read = await deps.listing.ships(caller.fleetId, { after: cursor, limit: limit + 1, filter, sort, reach });
     const page = read.slice(0, limit);
-    const ships = page.flatMap(({ facts }): (ListedShip | ShipOutsideReadReach)[] => {
+    const ships = page.map(({ facts }): ListedShip | ShipOutsideReadReach => {
       const listed = listedShipOf(facts);
-      if (readsShip(reach, facts.ship.id)) {
-        return [listed];
-      }
-      return isSelectedByLabel ? [] : [outsideReadReach(listed)];
+      return readsShip(reach, facts.ship.id) ? listed : outsideReadReach(listed);
     });
     const last = page.at(-1);
     return { ships, nextCursor: read.length > limit && last !== undefined ? last.position : null };

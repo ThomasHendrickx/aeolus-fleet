@@ -14,7 +14,8 @@ import type {
   ShipRepository,
 } from '../../domain/registry/ports.js';
 import type { ShipFilter } from '../../domain/registry/ship-filter.js';
-import { isValueDescending, type ShipSort } from '../../domain/registry/ship-order.js';
+import { COLUMNS_SHOWN_OUTSIDE_READ_REACH, isValueDescending, type ShipSort } from '../../domain/registry/ship-order.js';
+import type { ReadReach } from '../../domain/registry/read-reach.js';
 import type { Db } from './client.js';
 import { Prisma } from './generated/client.js';
 import {
@@ -665,15 +666,26 @@ const statusOfShip = Prisma.sql`
     ELSE 'awaitingCrew'
   END`;
 
+/** Whether the caller reads the ship `s` of the outer query (decision 0034). */
+function isInReachOfShip(reach: ReadReach): Prisma.Sql {
+  return reach.kind === 'every' ? Prisma.sql`true` : Prisma.sql`s.id = ANY(${[...reach.shipIds]}::text[])`;
+}
+
 /**
  * The filter (domain/registry/ship-filter.ts) as conditions on the ship `s`
  * of the outer query, each starting with AND: one statement selects the page
  * or counts the ships, and no ship is read only to be dropped.
  */
-export function shipFilterCondition({ query, status = [], type = [], crewRequest = [], valueIds = [], shipIds = [], kind = [], pluginShipIds = [] }: ShipFilter): Prisma.Sql {
+export function shipFilterCondition(
+  { query, status = [], type = [], crewRequest = [], valueIds = [], shipIds = [], kind = [], pluginShipIds = [] }: ShipFilter,
+  reach: ReadReach,
+): Prisma.Sql {
   const needle = query?.trim().toLowerCase() ?? '';
   const values = [...new Set(valueIds)];
+  // A ship outside read reach shows its name, type and status only: what it does not show never selects it.
+  const isHiddenFilterPicked = crewRequest.length > 0 || kind.length > 0 || values.length > 0;
   const conditions = [
+    isHiddenFilterPicked ? Prisma.sql`AND ${isInReachOfShip(reach)}` : undefined,
     needle === '' ? undefined : Prisma.sql`AND (strpos(lower(s.name), ${needle}) > 0 OR strpos(lower(s.type), ${needle}) > 0)`,
     status.length === 0 ? undefined : Prisma.sql`AND ${statusOfShip} = ANY(${[...status]}::text[])`,
     type.length === 0 ? undefined : Prisma.sql`AND s.type = ANY(${[...type]}::text[])`,
@@ -698,7 +710,15 @@ const statusWordOfShip = Prisma.sql`
  * positionOf); without a sort, nothing, as argo first and then the names
  * order the ships.
  */
-function sortValueOfShip(sort: ShipSort | undefined): Prisma.Sql {
+function sortValueOfShip(sort: ShipSort | undefined, reach: ReadReach): Prisma.Sql {
+  if (sort === undefined || COLUMNS_SHOWN_OUTSIDE_READ_REACH.includes(sort.column)) {
+    return shownSortValueOfShip(sort);
+  }
+  // A ship outside read reach has no value in a column it does not show (decision 0034).
+  return Prisma.sql`CASE WHEN ${isInReachOfShip(reach)} THEN ${shownSortValueOfShip(sort)} ELSE '' END`;
+}
+
+function shownSortValueOfShip(sort: ShipSort | undefined): Prisma.Sql {
   switch (sort?.column) {
     case undefined:
       return Prisma.sql`''::text`;
@@ -760,8 +780,8 @@ function orderOfPage(alias: string, sort: ShipSort | undefined): Prisma.Sql {
  * lease is open and at most one secret is valid per ship (partial unique
  * indexes), so neither join multiplies rows.
  */
-export function fleetListingStatement(fleetId: FleetId, { after, limit, filter, sort }: ShipPage): Prisma.Sql {
-  const value = sortValueOfShip(sort);
+export function fleetListingStatement(fleetId: FleetId, { after, limit, filter, sort, reach }: ShipPage): Prisma.Sql {
+  const value = sortValueOfShip(sort, reach);
   return Prisma.sql`
     SELECT s.id, s.fleet_id, s.name, s.type, s.kind::text AS kind, s.scopes, s.note, s.created_at, s.retired_at,
            s.commissioned_by_kind::text AS commissioned_by_kind, s.commissioned_by, s.commission_key, s.commission_request_hash, s.owner_ship_id,
@@ -786,7 +806,7 @@ export function fleetListingStatement(fleetId: FleetId, { after, limit, filter, 
         SELECT s.id, ${sortIsEmptyOfShip(sort, value)} AS sort_is_empty, ${value} AS sort_value, lower(s.name) AS sort_name
         FROM ships s
         LEFT JOIN leases l ON l.fleet_id = s.fleet_id AND l.ship_id = s.id AND l.ended_at IS NULL
-        WHERE s.fleet_id = ${fleetId} ${shipFilterCondition(filter)}
+        WHERE s.fleet_id = ${fleetId} ${shipFilterCondition(filter, reach)}
       ) ranked
       ${afterPosition(after, sort)}
       ${orderOfPage('ranked', sort)}

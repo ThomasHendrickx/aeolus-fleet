@@ -66,7 +66,7 @@ afterAll(async () => {
 });
 
 async function listingPlan(): Promise<string> {
-  const rows = await core.prisma.$queryRaw<{ 'QUERY PLAN': string }[]>(Prisma.sql`EXPLAIN ${fleetListingStatement(fleetId, { limit: PAGE_SIZE_MAX + 1, filter: {} })}`);
+  const rows = await core.prisma.$queryRaw<{ 'QUERY PLAN': string }[]>(Prisma.sql`EXPLAIN ${fleetListingStatement(fleetId, { limit: PAGE_SIZE_MAX + 1, filter: {}, reach: { kind: 'every' } })}`);
   return rows.map((row) => row['QUERY PLAN']).join('\n');
 }
 

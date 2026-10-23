@@ -106,7 +106,7 @@ describe('the fleet snapshot at 3,000 ships (decision 4 of the performance desig
   });
 
   it('reads who crewed a ship, its last ping and model for the ships of the page only, not every ship it orders', async () => {
-    const plan = await planOfPage({ limit: 21, filter: {}, sort: { column: 'seen', direction: 'ascending' } });
+    const plan = await planOfPage({ limit: 21, filter: {}, sort: { column: 'seen', direction: 'ascending' }, reach: { kind: 'every' } });
 
     expect([loopsOfIndex(plan, 'events_starting_prompt_issued_idx') <= 21, loopsOfIndex(plan, 'messages_pings_idx') <= 21]).toEqual([true, true]);
   });

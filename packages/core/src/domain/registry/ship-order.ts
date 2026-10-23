@@ -39,13 +39,22 @@ function sortValueOf(ship: ListedShip, column: ShipSortColumn): string | undefin
   }
 }
 
-/** The ship's place in the order: whether its value is empty (argo is not, without a sort), the value and its name, in lower case, and its id. */
-export function positionOf(ship: ListedShip, sort: ShipSort | undefined): ShipPosition {
+/** The columns a ship outside read reach shows (decision 0034): its name and status; the others it sorts by as empty. */
+export const COLUMNS_SHOWN_OUTSIDE_READ_REACH: readonly ShipSortColumn[] = ['ship', 'status'];
+
+/**
+ * The ship's place in the order: whether its value is empty (argo is not,
+ * without a sort), the value and its name, in lower case, and its id. A ship
+ * outside read reach has no value in a column it does not show, so its place,
+ * and a cursor after it, carry nothing it hides.
+ */
+export function positionOf(ship: ListedShip, { sort, isInReach }: { sort: ShipSort | undefined; isInReach: boolean }): ShipPosition {
   const name = ship.name.toLowerCase();
   if (sort === undefined) {
     return { isEmpty: ship.kind !== 'operator', value: '', name, id: ship.id };
   }
-  const value = sortValueOf(ship, sort.column)?.toLowerCase() ?? '';
+  const isShown = isInReach || COLUMNS_SHOWN_OUTSIDE_READ_REACH.includes(sort.column);
+  const value = (isShown ? sortValueOf(ship, sort.column)?.toLowerCase() : undefined) ?? '';
   return { isEmpty: value === '', value, name, id: ship.id };
 }
 
