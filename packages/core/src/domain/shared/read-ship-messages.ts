@@ -1,13 +1,11 @@
-import type { ShipId } from '@aeolus-fleet/common';
+import { PAGE_SIZE_DEFAULT, type MessageId, type ShipId } from '@aeolus-fleet/common';
 
 import type { Caller } from './caller.js';
 import { refuse, type DomainError } from './errors.js';
 import { readsMessage, type ReadReachOf } from '../registry/public.js';
 import { partiesOf, type HistoryMessage, type ShipHistory } from './history.js';
+import type { Page } from './page.js';
 import { ok, type Result } from './result.js';
-
-/** The most messages the ship page lists: the newest ones. */
-export const MESSAGES_LIMIT = 200;
 
 /** How much of a payload the list shows. */
 export const PREVIEW_LENGTH = 120;
@@ -23,8 +21,8 @@ export type ListedMessage = Omit<HistoryMessage, 'payload' | 'delivery'> & {
 
 export type ReadShipMessages = (
   caller: Caller,
-  input: { shipId: ShipId },
-) => Promise<Result<ListedMessage[], DomainError<'SHIP_NOT_FOUND'>>>;
+  input: { shipId: ShipId; cursor?: MessageId; limit?: number },
+) => Promise<Result<Page<ListedMessage, MessageId>, DomainError<'SHIP_NOT_FOUND'>>>;
 
 /** The start of a payload on one line: whitespace runs become one space. */
 export function previewOf(payload: string): string {
@@ -32,22 +30,22 @@ export function previewOf(payload: string): string {
 }
 
 /**
- * Use case: the messages a ship sent, was sent, or claimed as a ship of their
- * type, newest first, each with its delivery as it stands. A message to a type
+ * Use case: a page of the messages a ship sent, was sent, or claimed as a ship
+ * of their type, newest first, each with its delivery as it stands. A message to a type
  * shows on the page of each ship that claimed it, never on every ship of the
  * type. Only the messages the caller reads, through their sender or their
  * recipient (decision 0034). The caller's scope (fleet:read) is checked
  * before this runs.
  */
 export function createReadShipMessages(deps: { history: ShipHistory; readReach: ReadReachOf }): ReadShipMessages {
-  return async (caller, { shipId }) => {
-    const messages = await deps.history.messages(caller.fleetId, { shipId, limit: MESSAGES_LIMIT });
+  return async (caller, { shipId, cursor, limit = PAGE_SIZE_DEFAULT }) => {
+    const messages = await deps.history.messages(caller.fleetId, { shipId, cursor, limit });
     if (!messages) {
       return refuse('SHIP_NOT_FOUND', `No ship ${shipId} in this fleet`);
     }
     const reach = await deps.readReach(caller);
-    return ok(
-      messages.filter((message) => readsMessage(reach, partiesOf(message, message.delivery.claimedBy))).map(({ payload, delivery, ...message }) => ({
+    return ok({
+      items: messages.items.filter((message) => readsMessage(reach, partiesOf(message, message.delivery.claimedBy))).map(({ payload, delivery, ...message }) => ({
         ...message,
         preview: previewOf(payload),
         delivery: {
@@ -57,6 +55,7 @@ export function createReadShipMessages(deps: { history: ShipHistory; readReach: 
           isPulled: delivery.state === 'handed' && delivery.handOverNumber === null,
         },
       })),
-    );
+      nextCursor: messages.nextCursor,
+    });
   };
 }

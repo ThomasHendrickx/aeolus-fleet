@@ -253,7 +253,7 @@ describe('a send under network rules', () => {
     refusalOf(await core.useCases.sendMessage(vault, aMessage(planner)));
     const label = (valueId: LabelValueId, value: string) => ({ labelId: trustId, key: 'trust', valueId, value });
 
-    const read = unwrap(await core.useCases.readReachRefusals(argo));
+    const read = unwrap(await core.useCases.readReachRefusals(argo, {})).items;
 
     expect(read[0]?.id).toMatch(/^rfs_/);
     expect(read).toEqual([
@@ -332,7 +332,7 @@ describe('a send under rules with terms of any value and of the same value', () 
 
     unwrap(await core.useCases.sendMessage(planner, aMessage(scout)));
     expect(refusalOf(await core.useCases.sendMessage(planner, aMessage(vault)))).toMatchObject({ kind: 'NOT_REACHABLE' });
-    const [refusal] = unwrap(await core.useCases.readReachRefusals(argo));
+    const [refusal] = unwrap(await core.useCases.readReachRefusals(argo, {})).items;
     expect([refusal && refusedShip(refusal.sender).labels.map((label) => label.value), refusal?.recipient.kind === 'ship' ? refusal.recipient.ship.labels.map((label) => label.value) : undefined]).toEqual([
       ['shared'],
       ['sensitive'],
@@ -464,7 +464,7 @@ describe('a send to a type under network rules', () => {
 
     refusalOf(await core.useCases.sendMessage(planner, { ...aMessage(vault), selector: toKeepers }));
 
-    const [refusal] = unwrap(await core.useCases.readReachRefusals(argo));
+    const [refusal] = unwrap(await core.useCases.readReachRefusals(argo, {})).items;
     expect(refusal?.recipient).toEqual({
       kind: 'type',
       type: 'keeper',

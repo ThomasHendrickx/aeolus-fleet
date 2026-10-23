@@ -168,7 +168,7 @@ export function useLiveFleet(): LiveFleet {
           for (const concerned of new Set([event.shipId, event.actorShipId])) {
             if (concerned !== null) {
               reload(trpc.fleet.ship.queryKey({ shipId: concerned }));
-              reload(trpc.fleet.shipTimeline.queryKey({ shipId: concerned }));
+              reload(trpc.fleet.shipTimeline.infiniteQueryKey({ shipId: concerned }));
               // A turn report, a push receive or a lease end changes its side of the way.
               reload(trpc.fleet.shipWay.queryKey({ shipId: concerned }));
             }
@@ -179,12 +179,13 @@ export function useLiveFleet(): LiveFleet {
             reload(trpc.fleet.shipWay.pathKey());
             reload(trpc.fleet.message.queryKey({ messageId: event.messageId }));
             reload(trpc.fleet.inbox.pathKey());
+            reload(trpc.fleet.inboxCount.queryKey());
             reload(INBOX_KEY);
             // A delivery that moves, or a new one, changes what is stuck.
             reload(trpc.fleet.health.queryKey());
           }
           if (isAttentionChange(event.type)) {
-            reload(trpc.fleet.needsAttention.queryKey());
+            reload(trpc.fleet.needsAttention.pathKey());
           }
           if (isLabelChange(event.type)) {
             reload(trpc.fleet.labels.queryKey());

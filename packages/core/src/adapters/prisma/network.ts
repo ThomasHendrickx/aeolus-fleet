@@ -16,6 +16,7 @@ import type { NetworkRulesDraft } from '../../domain/registry/network-rules-draf
 import { noNetworkSettings, type NetworkRule, type NetworkSettings } from '../../domain/registry/network-settings.js';
 import type { DeclaredNetworkRulesRepository, NetworkRulesDraftRepository, NetworkSettingsRepository, ReachRefusalRepository } from '../../domain/registry/ports.js';
 import type { ReachRefusal, RefusedActor, RefusedShip } from '../../domain/registry/reach-refusal.js';
+import { pageOf } from '../../domain/shared/page.js';
 import type { Db } from './client.js';
 import { Prisma } from './generated/client.js';
 
@@ -160,9 +161,12 @@ export function createPrismaReachRefusalRepository(db: Db): ReachRefusalReposito
     record: async ({ id, fleetId, at, sender, askedBy, recipient, verb, settingsVersion }) => {
       await db.reachRefusal.create({ data: { id, fleetId, at, sender: actorJson(sender), askedBy: askedBy === null ? Prisma.DbNull : shipJson(askedBy), recipient: recipientJson(recipient), verb, settingsVersion } });
     },
-    latest: async (fleetId, limit) => {
-      const rows = await db.reachRefusal.findMany({ where: { fleetId }, orderBy: [{ at: 'desc' }, { id: 'desc' }], take: limit });
-      return rows.map((row): ReachRefusal => refusalRowSchema.parse(row));
+    latest: async (fleetId, { cursor, limit }) => {
+      const rows = await db.reachRefusal.findMany({ where: { fleetId, ...(cursor === undefined ? {} : { id: { lt: cursor } }) }, orderBy: { id: 'desc' }, take: limit + 1 });
+      return pageOf(
+        rows.map((row): ReachRefusal => refusalRowSchema.parse(row)),
+        { limit, cursorOf: (refusal) => refusal.id },
+      );
     },
   };
 }

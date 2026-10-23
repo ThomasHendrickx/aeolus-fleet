@@ -1,4 +1,4 @@
-import { accountIdSchema, REACH_REFUSALS_READ_MAX, type FleetId, type ShipId } from '@aeolus-fleet/common';
+import { accountIdSchema, PAGE_SIZE_DEFAULT, type FleetId, type ReachRefusalId, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { hostedFleet, initialiseFleet, operatorCaller, readReachOf } from '../../../test/support/core-fixtures.js';
@@ -44,26 +44,37 @@ describe('reading the reach refusals', () => {
     core.clock.advance(1_000);
     const second = aRefusal();
 
-    expect(unwrap(await readReachRefusals(argo))).toEqual([second, first]);
+    expect(unwrap(await readReachRefusals(argo, {})).items).toEqual([second, first]);
   });
 
-  it(`answers the latest ${String(REACH_REFUSALS_READ_MAX)} at most`, async () => {
-    const refusals = Array.from({ length: REACH_REFUSALS_READ_MAX + 1 }, () => {
+  it('answers a page at a time, newest first, each after the cursor of the last', async () => {
+    const refusals = Array.from({ length: 3 }, () => {
       core.clock.advance(1);
       return aRefusal();
     });
+    const read = async (cursor?: ReachRefusalId) => unwrap(await readReachRefusals(argo, { limit: 2, cursor }));
 
-    const read = unwrap(await readReachRefusals(argo));
+    const first = await read();
+    const second = await read(first.nextCursor ?? undefined);
 
-    expect(read).toHaveLength(REACH_REFUSALS_READ_MAX);
-    expect(read.at(-1)).toEqual(refusals[1]);
+    expect([first.items.map(({ id }) => id), first.nextCursor]).toEqual([[refusals[2]?.id, refusals[1]?.id], refusals[1]?.id]);
+    expect([second.items.map(({ id }) => id), second.nextCursor]).toEqual([[refusals[0]?.id], null]);
+  });
+
+  it(`answers ${String(PAGE_SIZE_DEFAULT)} unless told fewer`, async () => {
+    for (let index = 0; index <= PAGE_SIZE_DEFAULT; index += 1) {
+      core.clock.advance(1);
+      aRefusal();
+    }
+
+    expect(unwrap(await readReachRefusals(argo, {})).items).toHaveLength(PAGE_SIZE_DEFAULT);
   });
 
   it("answers none of another fleet's refusals", async () => {
     const other = await hostedFleet(core, 'other@example.com');
     aRefusal(other.fleetId);
 
-    expect(unwrap(await readReachRefusals(argo))).toEqual([]);
+    expect(unwrap(await readReachRefusals(argo, {})).items).toEqual([]);
   });
 
 });
@@ -91,7 +102,7 @@ describe('reading the reach refusals with fleet:explain (decision 0053)', () => 
     fleet.core.state.reachRefusals.push(toNear, fromNear, farToFar, accountToFar);
     const explainer: ShipCaller = { ...fleet.reader, scopes: ['fleet:explain'] };
 
-    const answered = unwrap(await read(explainer));
+    const answered = unwrap(await read(explainer, {})).items;
 
     expect(answered.map(({ id }) => id).toSorted()).toEqual([toNear.id, fromNear.id].toSorted());
   });

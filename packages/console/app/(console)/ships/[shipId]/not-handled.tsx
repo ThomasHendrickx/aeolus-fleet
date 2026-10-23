@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import { showToast } from '../../../../components/atoms/toast';
+import { LoadMore } from '../../../../components/molecules/load-more';
 import { NeedsAttentionList } from '../../../../components/organisms/needs-attention-list';
 import { useAccess } from '../../../../lib/access';
 import { deliveryWithId, DISMISSED_TOAST, resentToast, useDismissDelivery, useNeedsAttention, useResendDelivery } from '../../../../lib/needs-attention';
@@ -18,12 +19,12 @@ import { useNow } from '../../../../lib/now';
 export function NotHandled({ shipId }: { shipId: ShipId }) {
   const router = useRouter();
   const now = useNow();
-  const attention = useNeedsAttention();
+  const attention = useNeedsAttention({ shipId, state: 'notHandled' });
   const resend = useResendDelivery();
   const dismiss = useDismissDelivery();
   const access = useAccess();
   const [pendingIds, setPendingIds] = useState<ReadonlySet<DeliveryId>>(new Set());
-  const deliveries = (attention.data ?? []).filter((delivery) => delivery.state === 'notHandled' && delivery.ship.id === shipId);
+  const deliveries = attention.items ?? [];
 
   const act = (deliveryId: DeliveryId, run: () => Promise<void>) => {
     setPendingIds((pending) => new Set([...pending, deliveryId]));
@@ -66,9 +67,7 @@ export function NotHandled({ shipId }: { shipId: ShipId }) {
       <NeedsAttentionList
         deliveries={deliveries}
         state="ready"
-        onRetry={() => {
-          void attention.refetch();
-        }}
+        onRetry={attention.retry}
         onResend={access.canResend ? onResend : undefined}
         onDismiss={access.canResend ? onDismiss : undefined}
         onOpen={(delivery) => {
@@ -77,6 +76,9 @@ export function NotHandled({ shipId }: { shipId: ShipId }) {
         pendingIds={pendingIds}
         now={now}
       />
+      {attention.hasMore ? (
+        <LoadMore what="more not handled" isLoading={attention.isLoadingMore} isFailed={attention.isLoadMoreFailed} onLoad={attention.loadMore} area="ship-not-handled" />
+      ) : null}
     </section>
   );
 }

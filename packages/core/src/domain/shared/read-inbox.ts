@@ -1,13 +1,34 @@
-import type { InboxFilter } from '@aeolus-fleet/common';
+import { PAGE_SIZE_DEFAULT, type DeliveryId, type InboxFilter, type ShipId } from '@aeolus-fleet/common';
 
 import { readsMessage, type ReadReachOf, type ShipRepository } from '../registry/public.js';
 import { isShipCaller, type Caller } from './caller.js';
 import type { InboxEntry, ShipHistory } from './history.js';
+import type { Page } from './page.js';
 
-export type ReadInbox = (caller: Caller, input: { filter: InboxFilter }) => Promise<InboxEntry[]>;
+export type ReadInbox = (caller: Caller, input: { filter: InboxFilter; cursor?: DeliveryId; limit?: number }) => Promise<Page<InboxEntry, DeliveryId>>;
 
 /**
- * Use case: the caller's own inbox, for the operator inbox of argo
+ * Whose inbox the caller reads and which of its messages: a ship its own,
+ * whole; a viewer session or an account argo's, by its read reach. Undefined
+ * when the fleet has no argo.
+ */
+export async function inboxReadOf(
+  deps: { ships: Pick<ShipRepository, 'findOperatorShip'>; readReach: ReadReachOf },
+  caller: Caller,
+): Promise<{ shipId: ShipId; reads: (entry: InboxEntry) => boolean } | undefined> {
+  if (isShipCaller(caller) && caller.kind !== 'viewer') {
+    return { shipId: caller.shipId, reads: () => true };
+  }
+  const argo = await deps.ships.findOperatorShip(caller.fleetId);
+  if (!argo) {
+    return undefined;
+  }
+  const reach = await deps.readReach(caller);
+  return { shipId: argo.id, reads: (entry) => readsMessage(reach, { senderId: entry.message.sender.id, recipient: { kind: 'ship', shipId: argo.id }, claimedBy: null }) };
+}
+
+/**
+ * Use case: a page of the caller's own inbox, for the operator inbox of argo
  * (docs/blueprint.md, "Inbox"): the messages addressed to it that the filter
  * keeps (open, done or all), newest first, each with when it was read, when
  * and by which reply it was done, and its whole payload. Messages to its type
@@ -19,15 +40,12 @@ export type ReadInbox = (caller: Caller, input: { filter: InboxFilter }) => Prom
  * argo's. The caller's scope (fleet:read) is checked before this runs.
  */
 export function createReadInbox(deps: { history: ShipHistory; ships: Pick<ShipRepository, 'findOperatorShip'>; readReach: ReadReachOf }): ReadInbox {
-  return async (caller, { filter }) => {
-    if (isShipCaller(caller) && caller.kind !== 'viewer') {
-      return deps.history.inbox(caller.fleetId, { shipId: caller.shipId, filter });
+  return async (caller, { filter, cursor, limit = PAGE_SIZE_DEFAULT }) => {
+    const inbox = await inboxReadOf(deps, caller);
+    if (!inbox) {
+      return { items: [], nextCursor: null };
     }
-    const argo = await deps.ships.findOperatorShip(caller.fleetId);
-    if (!argo) {
-      return [];
-    }
-    const [inbox, reach] = await Promise.all([deps.history.inbox(caller.fleetId, { shipId: argo.id, filter }), deps.readReach(caller)]);
-    return inbox.filter((entry) => readsMessage(reach, { senderId: entry.message.sender.id, recipient: { kind: 'ship', shipId: argo.id }, claimedBy: null }));
+    const page = await deps.history.inbox(caller.fleetId, { shipId: inbox.shipId, filter, cursor, limit });
+    return { items: page.items.filter(inbox.reads), nextCursor: page.nextCursor };
   };
 }

@@ -255,6 +255,11 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_message_days$/),
       expect.stringMatching(/^\d{14}_messages_fleet_time_index$/),
       expect.stringMatching(/^\d{14}_health_snapshots$/),
+      expect.stringMatching(/^\d{14}_timeline_page_indexes$/),
+      expect.stringMatching(/^\d{14}_messages_page_indexes$/),
+      expect.stringMatching(/^\d{14}_inbox_page_index$/),
+      expect.stringMatching(/^\d{14}_reach_refusals_page_index$/),
+      expect.stringMatching(/^\d{14}_messages_question_id_index$/),
     ]);
   });
 });
@@ -1345,8 +1350,8 @@ describe('the ship page reads at the API', () => {
     const message = await asArgo.fleet.message.query({ messageId });
 
     expect(ship).toMatchObject({ id: shipId, status: 'crewed', crewedSince: clock.now().toISOString(), retiredAt: null });
-    expect(timeline[0]).toMatchObject({ type: 'MessageAccepted', actor: { id: shipId }, message: { id: messageId } });
-    expect(messages).toMatchObject([{ id: messageId, preview: 'Done with PR 48', delivery: { state: 'pending' } }]);
+    expect(timeline.items[0]).toMatchObject({ type: 'MessageAccepted', actor: { id: shipId }, message: { id: messageId } });
+    expect(messages.items).toMatchObject([{ id: messageId, preview: 'Done with PR 48', delivery: { state: 'pending' } }]);
     expect(message).toMatchObject({
       id: messageId,
       payload: 'Done with PR 48',
@@ -1443,7 +1448,7 @@ describe('Needs attention at the API', () => {
     const asArgo = await signedInArgo();
     const { deliveryId, messageId } = await undeliverableFromArgo(asArgo);
 
-    const listed = (await asArgo.fleet.needsAttention.query()).find((entry) => entry.deliveryId === deliveryId);
+    const listed = (await asArgo.fleet.needsAttention.query({})).items.find((entry) => entry.deliveryId === deliveryId);
 
     expect(listed).toMatchObject({
       attempts: 5,
@@ -1457,7 +1462,7 @@ describe('Needs attention at the API', () => {
 
     await expect(asArgo.fleet.dismiss.mutate({ deliveryId })).resolves.toEqual({});
     await expect(asArgo.fleet.dismiss.mutate({ deliveryId })).resolves.toEqual({});
-    expect((await asArgo.fleet.needsAttention.query()).map((entry) => entry.deliveryId)).not.toContain(deliveryId);
+    expect((await asArgo.fleet.needsAttention.query({})).items.map((entry) => entry.deliveryId)).not.toContain(deliveryId);
     await expect(codeOf(asArgo.fleet.resend.mutate({ deliveryId }))).resolves.toBe('CONFLICT');
   });
 
@@ -1472,7 +1477,7 @@ describe('Needs attention at the API', () => {
       senderShipId: argoId,
       resendOfMessageId: messageId,
     });
-    expect((await asArgo.fleet.needsAttention.query()).map((entry) => entry.deliveryId)).not.toContain(deliveryId);
+    expect((await asArgo.fleet.needsAttention.query({})).items.map((entry) => entry.deliveryId)).not.toContain(deliveryId);
   });
 
   it('answer NOT_FOUND for a delivery the fleet does not have', async () => {
@@ -1488,7 +1493,7 @@ describe('Needs attention at the API', () => {
 
     await expect(refusalOf(manager.fleet.dismiss.mutate({ deliveryId: newId('delivery') }))).resolves.toEqual({ code: 'FORBIDDEN', message: 'This call needs the messages:resend scope' });
     await expect(refusalOf(manager.fleet.resend.mutate({ deliveryId: newId('delivery') }))).resolves.toEqual({ code: 'FORBIDDEN', message: 'This call needs the messages:resend scope' });
-    await expect(codeOf(agent.fleet.needsAttention.query())).resolves.toBe('FORBIDDEN');
+    await expect(codeOf(agent.fleet.needsAttention.query({}))).resolves.toBe('FORBIDDEN');
   });
 });
 
@@ -1538,7 +1543,7 @@ describe("argo's inbox at the API", () => {
     const asArgo = await signedInArgo();
     const { deliveryId, messageId } = await toArgo('Promote 2.14?');
 
-    const open = await asArgo.fleet.inbox.query({ filter: 'open' });
+    const open = await asArgo.fleet.inbox.query({ filter: 'open' }).then(({ items }) => items);
 
     expect(open.find((entry) => entry.deliveryId === deliveryId)).toMatchObject({
       state: 'pending',
@@ -1554,8 +1559,8 @@ describe("argo's inbox at the API", () => {
     await expect(asArgo.fleet.markRead.mutate({ deliveryId, isRead: true })).resolves.toEqual({});
     await expect(asArgo.fleet.markDone.mutate({ deliveryId })).resolves.toEqual({});
 
-    expect((await asArgo.fleet.inbox.query({ filter: 'open' })).map((entry) => entry.deliveryId)).not.toContain(deliveryId);
-    expect((await asArgo.fleet.inbox.query({ filter: 'done' })).find((entry) => entry.deliveryId === deliveryId)).toMatchObject({
+    expect((await asArgo.fleet.inbox.query({ filter: 'open' }).then(({ items }) => items)).map((entry) => entry.deliveryId)).not.toContain(deliveryId);
+    expect((await asArgo.fleet.inbox.query({ filter: 'done' }).then(({ items }) => items)).find((entry) => entry.deliveryId === deliveryId)).toMatchObject({
       readAt: clock.now().toISOString(),
       doneAt: clock.now().toISOString(),
     });
@@ -1571,7 +1576,7 @@ describe("argo's inbox at the API", () => {
     expect(deliveries).toEqual([
       expect.objectContaining({ messageId: reply.messageId, payload: 'go', inReplyTo: messageId }),
     ]);
-    expect((await asArgo.fleet.inbox.query({ filter: 'done' })).find((entry) => entry.deliveryId === deliveryId)).toMatchObject({
+    expect((await asArgo.fleet.inbox.query({ filter: 'done' }).then(({ items }) => items)).find((entry) => entry.deliveryId === deliveryId)).toMatchObject({
       repliedWith: reply.messageId,
     });
   });
@@ -1592,7 +1597,7 @@ describe("argo's inbox at the API", () => {
     expect(deliveries).toEqual([
       expect.objectContaining({ messageId: reply.messageId, contentType: 'application/vnd.example.answer+json', inReplyTo: messageId }),
     ]);
-    expect((await asArgo.fleet.inbox.query({ filter: 'all' })).find((entry) => entry.deliveryId === deliveryId)?.replies).toEqual([
+    expect((await asArgo.fleet.inbox.query({ filter: 'all' }).then(({ items }) => items)).find((entry) => entry.deliveryId === deliveryId)?.replies).toEqual([
       { id: reply.messageId, contentType: 'application/vnd.example.answer+json', payload: '{"go":true}', sentAt: clock.now().toISOString() },
     ]);
   });
@@ -1619,7 +1624,7 @@ describe("argo's inbox at the API", () => {
   it('refuse the inbox without fleet:read', async () => {
     const agent = client({ authorization: `Bearer ${await crewedShip()}` });
 
-    await expect(codeOf(agent.fleet.inbox.query({ filter: 'all' }))).resolves.toBe('FORBIDDEN');
+    await expect(codeOf(agent.fleet.inbox.query({ filter: 'all' }).then(({ items }) => items))).resolves.toBe('FORBIDDEN');
   });
 });
 
@@ -2359,11 +2364,11 @@ describe('network rules at the API', () => {
       client({ authorization: `Bearer ${senderToken}` }).ship.send.mutate({ selector: { kind: 'ship', shipId }, payload: 'Review the PR', idempotencyKey: newKey(), model: SESSION_MODEL }),
     );
 
-    const [latest] = await (await signedInArgo()).fleet.reachRefusals.query();
+    const [latest] = (await (await signedInArgo()).fleet.reachRefusals.query({})).items;
 
     expect(latest).toMatchObject({ recipient: { kind: 'ship', ship: { id: shipId, labels: [], owner: { name: 'argo' } } }, settingsVersion: version, at: refusedAt });
     expect(latest?.id).toMatch(/^rfs_/);
-    await expect(codeOf(editor.fleet.reachRefusals.query())).resolves.toBe('FORBIDDEN');
+    await expect(codeOf(editor.fleet.reachRefusals.query({}))).resolves.toBe('FORBIDDEN');
   });
 
   it('save, read, discard and apply the rules through REST, for a ship with fleet:network', async () => {

@@ -18,6 +18,7 @@ import type { OverdueClock } from '../messaging/public.js';
 import type { Location, MessageParties } from '../registry/public.js';
 import type { StandingOverdue, WayCrew, WayLease } from './delivery-way.js';
 import type { EventDetails } from './events.js';
+import type { Page, PageQuery } from './page.js';
 
 /**
  * What the console reads: a ship's timeline from the event log, its
@@ -228,18 +229,32 @@ export function isKeptBy(filter: InboxFilter, state: DeliveryState): boolean {
  * such ship or message.
  */
 export interface ShipHistory {
-  /** Newest first, at most `limit`. */
-  timeline(fleetId: FleetId, query: { shipId: ShipId; limit: number }): Promise<TimelineEntry[] | undefined>;
-  /** Newest first, at most `limit`. */
-  messages(fleetId: FleetId, query: { shipId: ShipId; limit: number }): Promise<HistoryMessage[] | undefined>;
+  /** A page newest first, by the stream's order, after the event the cursor names. */
+  timeline(fleetId: FleetId, query: { shipId: ShipId } & PageQuery<EventId>): Promise<Page<TimelineEntry, EventId> | undefined>;
+  /** A page newest first, by id, after the message the cursor names. */
+  messages(fleetId: FleetId, query: { shipId: ShipId } & PageQuery<MessageId>): Promise<Page<HistoryMessage, MessageId> | undefined>;
   /** The message, with its delivery's steps newest first and what its way is read from. */
   message(fleetId: FleetId, messageId: MessageId): Promise<MessageRead | undefined>;
-  /** Every undeliverable or not handled delivery, oldest first by since when. */
-  needsAttention(fleetId: FleetId): Promise<NeedsAttentionEntry[]>;
+  /**
+   * A page of the undeliverable or not handled deliveries, or those in one
+   * of the two states, the fleet's or those naming one ship, oldest first by since when, after the delivery the
+   * cursor names: by its since, so a cursor dismissed meanwhile still holds.
+   */
+  needsAttention(fleetId: FleetId, query: { shipId?: ShipId; state?: NeedsAttentionState } & PageQuery<DeliveryId>): Promise<Page<NeedsAttentionEntry, DeliveryId>>;
   /** What the ship's side of the way is read from: the open lease of the session crewing it and what waits for it. */
   shipWay(fleetId: FleetId, shipId: ShipId): Promise<ShipWayRead | undefined>;
-  /** The messages addressed to the ship itself that the filter keeps, newest first. */
-  inbox(fleetId: FleetId, query: { shipId: ShipId; filter: InboxFilter }): Promise<InboxEntry[]>;
+  /** A page of the messages addressed to the ship itself that the filter keeps, newest first by delivery, after the delivery the cursor names. */
+  inbox(fleetId: FleetId, query: { shipId: ShipId; filter: InboxFilter } & PageQuery<DeliveryId>): Promise<Page<InboxEntry, DeliveryId>>;
+  /** The message to the ship itself with this delivery, as its inbox lists it; undefined when its inbox has none. */
+  inboxMessage(fleetId: FleetId, query: { shipId: ShipId; deliveryId: DeliveryId }): Promise<InboxEntry | undefined>;
+  /**
+   * A page of the messages to the ship itself that withdraw or replace the
+   * question with this uuid (decision 0038), oldest first by delivery, after
+   * the delivery the cursor names, found by the question's uuid alone.
+   */
+  inboxWithdrawals(fleetId: FleetId, query: { shipId: ShipId; questionId: string } & PageQuery<DeliveryId>): Promise<Page<InboxEntry, DeliveryId>>;
+  /** How many messages to the ship itself are open; with senders, only those they sent. */
+  openInboxCount(fleetId: FleetId, query: { shipId: ShipId; senderIds?: ReadonlySet<ShipId> }): Promise<number>;
   /** Each message's parties as read reach sees them, by id; a message the fleet does not have is left out. */
   messageParties(fleetId: FleetId, messageIds: readonly MessageId[]): Promise<ReadonlyMap<MessageId, MessageParties>>;
 }

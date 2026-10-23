@@ -170,12 +170,17 @@ describe('the fleet health on Postgres', () => {
 
 describe('the trend replay on Postgres', () => {
   it("finds the deliveries with a step in the window through the events' (fleet_id, occurred_at) index, not a scan of the fleet's whole history", async () => {
+    // The fleet's history lies before the window, as a fleet's does once it
+    // has run a while, and the planner reads that from the table's statistics.
+    core.clock.advance(200 * HOUR_MS);
+    await sendTo(toScout());
     const since = new Date(core.clock.now().getTime() - 168 * HOUR_MS);
 
     // A test fleet is too small for the planner to pick an index on cost, so
     // scans are priced out: the plan then shows which index serves the read.
     const plan = await core.prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SET LOCAL enable_seqscan = off`;
+      await tx.$executeRaw`ANALYZE events`;
       return z.array(z.object({ 'QUERY PLAN': z.string() })).parse(
         await tx.$queryRaw`
           EXPLAIN SELECT e.delivery_id FROM events e WHERE e.fleet_id = ${argo.fleetId} AND e.occurred_at >= ${since} AND e.delivery_id IS NOT NULL`,

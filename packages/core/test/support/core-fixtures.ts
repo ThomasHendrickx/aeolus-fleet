@@ -120,6 +120,9 @@ import { isCrew, type Caller, type ShipCaller, type Crew } from '../../src/domai
 import { createReadFleetEvents } from '../../src/domain/shared/read-fleet-events.js';
 import { createFollowFleet } from '../../src/domain/shared/follow-fleet.js';
 import { createReadInbox } from '../../src/domain/shared/read-inbox.js';
+import { createReadInboxMessage } from '../../src/domain/shared/read-inbox-message.js';
+import { createReadInboxWithdrawals } from '../../src/domain/shared/read-inbox-withdrawals.js';
+import { createCountOpenInbox } from '../../src/domain/shared/count-open-inbox.js';
 import { createReadMessage } from '../../src/domain/shared/read-message.js';
 import { createReadSentMessage } from '../../src/domain/shared/read-sent-message.js';
 import { createReadShipWay } from '../../src/domain/shared/read-ship-way.js';
@@ -308,6 +311,9 @@ export function historyUseCases(core: InMemoryCore) {
     readNeedsAttention: createReadNeedsAttention({ history: core.history, readReach }),
     readHealth: createReadHealth({ health: core.health, snapshots: core.healthSnapshots, clock: core.clock, readReach }),
     readInbox: createReadInbox({ history: core.history, ships: core.ships, readReach }),
+    readInboxMessage: createReadInboxMessage({ history: core.history, ships: core.ships, readReach }),
+    readInboxWithdrawals: createReadInboxWithdrawals({ history: core.history, ships: core.ships, readReach }),
+    countOpenInbox: createCountOpenInbox({ history: core.history, ships: core.ships, readReach }),
   };
 }
 

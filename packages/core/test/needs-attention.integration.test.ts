@@ -1,4 +1,4 @@
-import { createIdGenerator, idSchema, type DeliveryId, type MessageId } from '@aeolus-fleet/common';
+import { createIdGenerator, idSchema, type DeliveryId, type MessageId, type ShipId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
@@ -106,7 +106,7 @@ describe('Needs attention on Postgres', () => {
     const since = core.clock.now();
     const second = await undeliverable();
 
-    const listed = await core.useCases.readNeedsAttention(argo);
+    const listed = await core.useCases.readNeedsAttention(argo, {}).then(({ items }) => items);
 
     expect(listed.map((entry) => entry.deliveryId)).toEqual([first.deliveryId, second.deliveryId]);
     expect(listed[0]).toEqual({
@@ -129,7 +129,27 @@ describe('Needs attention on Postgres', () => {
         payload: '{"run":"e2e","ref":"pr-320"}',
       },
     });
-    await expect(core.useCases.readNeedsAttention({ ...argo, fleetId: newId('fleet') })).resolves.toEqual([]);
+    await expect(core.useCases.readNeedsAttention({ ...argo, fleetId: newId('fleet') }, {}).then(({ items }) => items)).resolves.toEqual([]);
+  });
+
+  it("pages oldest first by its cursor, even after the cursor's delivery was dismissed, a ship's page holding only its own", async () => {
+    const first = await undeliverable();
+    const second = await undeliverable();
+    const third = await notHandled();
+    const read = (input: { shipId?: ShipId; state?: 'undeliverable' | 'notHandled'; cursor?: DeliveryId; limit?: number }) => core.useCases.readNeedsAttention(argo, input);
+    const page = await read({ limit: 1 });
+    unwrap(await core.useCases.dismissDelivery(argo, { deliveryId: first.deliveryId }));
+
+    const next = await read({ limit: 1, cursor: page.nextCursor ?? undefined });
+    const last = await read({ limit: 5, cursor: next.nextCursor ?? undefined });
+
+    expect([page, next, last].map(({ items, nextCursor }) => [items.map((entry) => entry.deliveryId), nextCursor])).toEqual([
+      [[first.deliveryId], first.deliveryId],
+      [[second.deliveryId], second.deliveryId],
+      [[third.deliveryId], null],
+    ]);
+    expect([(await read({ shipId: scout.shipId })).items.length, (await read({ shipId: planner.shipId })).items.length]).toEqual([2, 0]);
+    expect((await read({ shipId: scout.shipId, state: 'notHandled' })).items.map((entry) => entry.deliveryId)).toEqual([third.deliveryId]);
   });
 
   it('tells an undeliverable delivery a pushed crew handed over again and again', async () => {
@@ -140,13 +160,13 @@ describe('Needs attention on Postgres', () => {
       unwrap(await core.useCases.handOverDelivery(scout, { deliveryId, handOverNumber }));
     }
 
-    await expect(core.useCases.readNeedsAttention(argo)).resolves.toMatchObject([{ deliveryId, state: 'undeliverable', isPushed: true }]);
+    await expect(core.useCases.readNeedsAttention(argo, {}).then(({ items }) => items)).resolves.toMatchObject([{ deliveryId, state: 'undeliverable', isPushed: true }]);
   });
 
   it('lists a delivery not handled with the reason its crew gave, stored with DeliveryNotHandled (#847)', async () => {
     const { deliveryId } = await notHandled('the turn it was handed once more to died too');
 
-    await expect(core.useCases.readNeedsAttention(argo)).resolves.toMatchObject([
+    await expect(core.useCases.readNeedsAttention(argo, {}).then(({ items }) => items)).resolves.toMatchObject([
       { deliveryId, state: 'notHandled', reason: 'the turn it was handed once more to died too' },
     ]);
   });
@@ -156,7 +176,7 @@ describe('Needs attention on Postgres', () => {
     const dismissed = await notHandled();
     const resent = await notHandled();
 
-    const listed = await core.useCases.readNeedsAttention(argo);
+    const listed = await core.useCases.readNeedsAttention(argo, {}).then(({ items }) => items);
 
     expect(listed.map(({ deliveryId, state, attempts }) => ({ deliveryId, state, attempts }))).toEqual([
       { deliveryId: undeliverableOne.deliveryId, state: 'undeliverable', attempts: UNDELIVERABLE_AT_ATTEMPT },
@@ -173,7 +193,7 @@ describe('Needs attention on Postgres', () => {
     await expect(core.prisma.message.findUniqueOrThrow({ where: { id: messageId } })).resolves.toMatchObject({
       resendOfMessageId: resent.messageId,
     });
-    await expect(core.useCases.readNeedsAttention(argo)).resolves.toMatchObject([{ deliveryId: undeliverableOne.deliveryId }]);
+    await expect(core.useCases.readNeedsAttention(argo, {}).then(({ items }) => items)).resolves.toMatchObject([{ deliveryId: undeliverableOne.deliveryId }]);
   });
 
   it('dismisses one: dismissed, with DeliveryDismissed caused by argo, and gone from the list', async () => {
@@ -185,7 +205,7 @@ describe('Needs attention on Postgres', () => {
     await expect(core.prisma.event.findMany({ where: { type: 'DeliveryDismissed' } })).resolves.toEqual([
       expect.objectContaining({ actorShipId: argo.shipId, shipId: scout.shipId, messageId, deliveryId }),
     ]);
-    await expect(core.useCases.readNeedsAttention(argo)).resolves.toEqual([]);
+    await expect(core.useCases.readNeedsAttention(argo, {}).then(({ items }) => items)).resolves.toEqual([]);
   });
 
   it('resends one: a new message from its sender naming the original, pending for the same ship; the original dismissed', async () => {
@@ -219,7 +239,7 @@ describe('Needs attention on Postgres', () => {
       }),
       expect.objectContaining({ type: 'DeliveryDismissed', actorShipId: argo.shipId, deliveryId: original.deliveryId }),
     ]);
-    await expect(core.useCases.readNeedsAttention(argo)).resolves.toEqual([]);
+    await expect(core.useCases.readNeedsAttention(argo, {}).then(({ items }) => items)).resolves.toEqual([]);
   });
 
   it('refuses to resend to a retired ship, and keeps the original undeliverable with nothing stored', async () => {

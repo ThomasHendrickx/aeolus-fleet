@@ -31,6 +31,7 @@ import { declaredRulesOf } from '../../../features/network/services/declared-rul
 import { networkPathOf, useShipReach } from '../../../features/network/hooks/reach';
 import { graphShipsOf, type ReachAgainst } from '../../../features/network/services/reach-graph';
 import { useReachRefusals } from '../../../features/network/hooks/reach-refusals';
+import { LoadMore } from '../../../components/molecules/load-more';
 import { useSignInWhenSessionEnds } from '../../../lib/session';
 
 const DESCRIPTION = 'Who may send to, read or manage whom. The fleet checks the applied rules on every send; a draft changes nothing until it is applied.';
@@ -162,11 +163,14 @@ export function NetworkPageFor({ pickedShipId, against }: { pickedShipId?: ShipI
           }}
         />
         <ReachRefusalLog
-          refusals={refusals.data}
-          error={refusals.error?.message}
-          onRetry={() => {
-            void refusals.refetch();
-          }}
+          refusals={refusals.items}
+          error={refusals.isFailed ? refusals.error?.message : undefined}
+          onRetry={refusals.retry}
+          more={
+            refusals.hasMore ? (
+              <LoadMore what="older refusals" isLoading={refusals.isLoadingMore} isFailed={refusals.isLoadMoreFailed} onLoad={refusals.loadMore} area="network-refusals" />
+            ) : null
+          }
           context={context}
           now={now}
         />

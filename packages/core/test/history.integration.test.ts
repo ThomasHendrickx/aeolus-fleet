@@ -1,4 +1,4 @@
-import { accountIdSchema, idSchema, type DeliveryId, type MessageId, type ShipId } from '@aeolus-fleet/common';
+import { accountIdSchema, createIdGenerator, idSchema, type DeliveryId, type MessageId, type ShipId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { ShipCaller, Crew } from '../src/domain/shared/caller.js';
@@ -68,7 +68,7 @@ describe('the history reads on Postgres', () => {
   it("give a ship's timeline: the events naming it or caused by it, newest first, with the parties named", async () => {
     const messageId = await send(scout, { to: { kind: 'ship', shipId: planner.shipId } });
 
-    const timeline = unwrap(await core.useCases.readShipTimeline(argo, { shipId: scout.shipId }));
+    const timeline = unwrap(await core.useCases.readShipTimeline(argo, { shipId: scout.shipId })).items;
 
     expect(timeline.map((entry) => entry.type)).toEqual([
       'MessageAccepted',
@@ -96,9 +96,27 @@ describe('the history reads on Postgres', () => {
     await send({ ...argo, signedInAccountId: accountIdSchema.parse('acc-01mathilde') }, { to: { kind: 'ship', shipId: scout.shipId } });
     await send(argo, { to: { kind: 'ship', shipId: scout.shipId } });
 
-    const timeline = unwrap(await core.useCases.readShipTimeline(argo, { shipId: scout.shipId }));
+    const timeline = unwrap(await core.useCases.readShipTimeline(argo, { shipId: scout.shipId })).items;
 
     expect(timeline.slice(0, 2).map((entry) => entry.signedInAccountId)).toEqual([null, 'acc-01mathilde']);
+  });
+
+  it("give a ship's timeline page by page, each after the last page's cursor, the last with none", async () => {
+    await send(scout, { to: { kind: 'ship', shipId: planner.shipId } });
+    await send(planner, { to: { kind: 'ship', shipId: scout.shipId } });
+    const whole = unwrap(await core.useCases.readShipTimeline(argo, { shipId: scout.shipId })).items;
+    const first = unwrap(await core.useCases.readShipTimeline(argo, { shipId: scout.shipId, limit: 4 }));
+
+    const second = unwrap(await core.useCases.readShipTimeline(argo, { shipId: scout.shipId, limit: 4, cursor: first.nextCursor ?? undefined }));
+
+    expect([...first.items, ...second.items].map((entry) => entry.id)).toEqual(whole.map((entry) => entry.id));
+    expect([first.nextCursor, second.nextCursor]).toEqual([first.items.at(-1)?.id, null]);
+  });
+
+  it("give no events after a cursor that names no event of the fleet", async () => {
+    const page = unwrap(await core.useCases.readShipTimeline(argo, { shipId: scout.shipId, cursor: createIdGenerator()('event') }));
+
+    expect(page).toEqual({ items: [], nextCursor: null });
   });
 
   it("give a ship's messages: sent, received and claimed by type, newest first, with a preview and the delivery now", async () => {
@@ -109,8 +127,8 @@ describe('the history reads on Postgres', () => {
     const toReviewers = await send(planner, { to: { kind: 'type', type: 'reviewer' } });
     await receive(lookout);
 
-    const scoutMessages = unwrap(await core.useCases.readShipMessages(argo, { shipId: scout.shipId }));
-    const lookoutMessages = unwrap(await core.useCases.readShipMessages(argo, { shipId: lookout.shipId }));
+    const scoutMessages = unwrap(await core.useCases.readShipMessages(argo, { shipId: scout.shipId })).items;
+    const lookoutMessages = unwrap(await core.useCases.readShipMessages(argo, { shipId: lookout.shipId })).items;
 
     expect(scoutMessages).toMatchObject([
       { id: answered, inReplyTo: asked, delivery: { state: 'pending', claimedBy: null } },
@@ -128,6 +146,20 @@ describe('the history reads on Postgres', () => {
     ]);
   });
 
+  it("give a ship's messages page by page, sent, sent to it and claimed by its type alike, each after the last page's cursor", async () => {
+    const claimed = await send(planner, { to: { kind: 'type', type: 'reviewer' } });
+    await receive(scout);
+    const sentTo = await send(planner, { to: { kind: 'ship', shipId: scout.shipId } });
+    const sent = await send(scout, { to: { kind: 'ship', shipId: planner.shipId } });
+    const read = async (cursor?: MessageId) => unwrap(await core.useCases.readShipMessages(argo, { shipId: scout.shipId, limit: 2, cursor }));
+
+    const first = await read();
+    const second = await read(first.nextCursor ?? undefined);
+
+    expect([first.items.map((message) => message.id), first.nextCursor]).toEqual([[sent, sentTo], sentTo]);
+    expect([second.items.map((message) => message.id), second.nextCursor]).toEqual([[claimed], null]);
+  });
+
   it("give a ship's messages telling a pushed hand-over from a plain receive's (pulled)", async () => {
     const pushed = await send(planner, { to: { kind: 'ship', shipId: scout.shipId } });
     core.clock.advance(1_000);
@@ -136,7 +168,7 @@ describe('the history reads on Postgres', () => {
     const pulled = await send(planner, { to: { kind: 'ship', shipId: lookout.shipId } });
     await receive(lookout);
 
-    const listed = unwrap(await core.useCases.readShipMessages(argo, { shipId: planner.shipId }));
+    const listed = unwrap(await core.useCases.readShipMessages(argo, { shipId: planner.shipId })).items;
 
     expect(listed.map(({ id, delivery }) => [id, delivery.state, delivery.isPulled])).toEqual([
       [pulled, 'handed', true],

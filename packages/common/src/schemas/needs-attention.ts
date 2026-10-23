@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { idSchema } from '../ids/index.js';
 import { messageRecipientSchema, partySchema } from './history.js';
+import { pageInputOf, pageOutputOf } from './page.js';
 
 /**
  * Inputs and outputs of Needs attention (docs/blueprint.md, 'Domain events'):
@@ -13,11 +14,13 @@ import { messageRecipientSchema, partySchema } from './history.js';
 /** ISO 8601 in UTC. */
 const isoTime = z.iso.datetime();
 
+/** The states Needs attention lists. Undeliverable: handed again and again, never acknowledged. Not handled: acknowledged, and its turn died twice (decision 0040). */
+export const needsAttentionStateSchema = z.enum(['undeliverable', 'notHandled']);
+
 /** One delivery in Needs attention: its state, its claims, since when, and its whole message. */
 export const needsAttentionDeliverySchema = z.object({
   deliveryId: idSchema('delivery'),
-  /** Undeliverable: handed again and again, never acknowledged. Not handled: acknowledged, and its turn died twice (decision 0040). */
-  state: z.enum(['undeliverable', 'notHandled']),
+  state: needsAttentionStateSchema,
   /** The claims counted. */
   attempts: z.int().min(0),
   /** A pushed crew's computer side handed it over, with numbers; false when plain receives handed it (pulled). */
@@ -43,8 +46,11 @@ export const needsAttentionDeliverySchema = z.object({
 
 export type NeedsAttentionDelivery = z.infer<typeof needsAttentionDeliverySchema>;
 
-/** Output of `fleet.needsAttention`: every undeliverable or not handled delivery of the fleet, oldest first. */
-export const needsAttentionOutputSchema = z.array(needsAttentionDeliverySchema);
+/** Input of `fleet.needsAttention`: the fleet's, or one ship's for its page, in either state or one, and the cursor and size of a page. */
+export const needsAttentionInputSchema = z.object({ shipId: idSchema('ship').optional(), state: needsAttentionStateSchema.optional(), ...pageInputOf(idSchema('delivery')).shape });
+
+/** Output of `fleet.needsAttention`: a page of the undeliverable or not handled deliveries, oldest first by since when. */
+export const needsAttentionOutputSchema = pageOutputOf(needsAttentionDeliverySchema, idSchema('delivery'));
 
 /** Input of `fleet.dismiss`: the undeliverable or not handled delivery the operator lets go. It stays in history, dismissed. */
 export const dismissDeliveryInputSchema = z.object({

@@ -2,7 +2,7 @@ import { createIdGenerator, type DeliveryId } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
 import type { InboxEntry, MessageEntry, QuestionEntry } from '../../../lib/inbox-entry';
-import { inboxViewOf, openQuestionsOf, segmentCounts, todayOf, waitingOf } from './inbox-view';
+import { inboxViewOf, openQuestionsOf, waitingOf } from './inbox-view';
 
 const newId = createIdGenerator();
 const SENDER = { id: newId('ship'), name: 'orchestrator-2', type: 'orchestrator', isNameShared: false };
@@ -65,38 +65,15 @@ const fromPlugin = aMessage({ sentAt: '2026-10-16T09:10:00.000Z', isFromPlugin: 
 const ENTRIES = [newer, late, fromPlugin, older, early, answered, done, stale];
 
 describe('inboxViewOf', () => {
-  it('shows open questions oldest first under Open', () => {
-    expect(idsOf(inboxViewOf(ENTRIES, 'open').questions)).toEqual([early.deliveryId, late.deliveryId]);
+  it('lays out every question the segment read, its open ones first and oldest first, then the answered and stale ones newest first: nothing left out', () => {
+    expect(idsOf(inboxViewOf(ENTRIES).questions)).toEqual([early.deliveryId, late.deliveryId, answered.deliveryId, stale.deliveryId]);
   });
 
-  it('shows open messages newest first, plugin ships apart', () => {
-    const view = inboxViewOf(ENTRIES, 'open');
+  it('lays out every message the segment read newest first, done ones too, plugin ships apart', () => {
+    const view = inboxViewOf(ENTRIES);
 
-    expect(idsOf(view.messages)).toEqual([newer.deliveryId, older.deliveryId]);
+    expect(idsOf(view.messages)).toEqual([newer.deliveryId, older.deliveryId, done.deliveryId]);
     expect(idsOf(view.pluginMessages)).toEqual([fromPlugin.deliveryId]);
-  });
-
-  it('keeps a question open while unanswered, also when its message is marked done', () => {
-    const markedDone = { ...aQuestion({ sentAt: '2026-10-16T08:00:00.000Z' }), state: 'acknowledged' as const };
-
-    expect(idsOf(inboxViewOf([markedDone], 'open').questions)).toEqual([markedDone.deliveryId]);
-  });
-
-  it('shows answered and stale questions and done messages under Done, newest first', () => {
-    const view = inboxViewOf(ENTRIES, 'done');
-
-    expect(idsOf(view.questions)).toEqual([answered.deliveryId, stale.deliveryId]);
-    expect(idsOf(view.messages)).toEqual([done.deliveryId]);
-  });
-
-  it('shows open questions first and then the rest under All', () => {
-    expect(idsOf(inboxViewOf(ENTRIES, 'all').questions)).toEqual([early.deliveryId, late.deliveryId, answered.deliveryId, stale.deliveryId]);
-  });
-});
-
-describe('segmentCounts', () => {
-  it('counts open questions and open messages together', () => {
-    expect(segmentCounts(ENTRIES)).toEqual({ open: 5, done: 3, all: 8 });
   });
 });
 
@@ -113,13 +90,5 @@ describe('waitingOf', () => {
 
   it('is undefined without open questions', () => {
     expect(waitingOf([newer], new Date('2026-10-16T09:07:00.000Z'))).toBeUndefined();
-  });
-});
-
-describe('todayOf', () => {
-  it('counts the questions answered and the messages marked done today', () => {
-    const yesterday = aMessage({ sentAt: '2026-10-15T09:00:00.000Z', doneAt: '2026-10-15T10:00:00.000Z' });
-
-    expect(todayOf([...ENTRIES, yesterday], new Date('2026-10-16T12:00:00.000Z'))).toEqual({ answered: 1, done: 1 });
   });
 });

@@ -16,17 +16,24 @@ import {
   fleetListOutputSchema,
   messageInputSchema,
   messageOutputSchema,
+  needsAttentionInputSchema,
   needsAttentionOutputSchema,
   healthOutputSchema,
   operatorInboxInputSchema,
+  inboxMessageInputSchema,
+  inboxMessageSchema,
+  inboxWithdrawalsInputSchema,
   operatorInboxOutputSchema,
+  inboxCountOutputSchema,
   pingShipInputSchema,
   pingShipOutputSchema,
   shipOutputSchema,
   isInReadReach,
   shipInputSchema,
+  shipMessagesInputSchema,
   shipMessagesOutputSchema,
   shipWayOutputSchema,
+  shipTimelineInputSchema,
   shipTimelineOutputSchema,
   type FleetStreamItem,
   getStartingPromptInputSchema,
@@ -73,6 +80,7 @@ import {
   defineLabelOutputSchema,
   deleteLabelInputSchema,
   findLabelValueInputSchema,
+  reachRefusalsInputSchema,
   reachRefusalsOutputSchema,
   explainReachInputSchema,
   setOwnerInputSchema,
@@ -111,6 +119,7 @@ import type { NetworkRule } from '../../domain/registry/network-settings.js';
 import type { RefusedActor } from '../../domain/registry/reach-refusal.js';
 import type { DeliveryWay } from '../../domain/shared/delivery-way.js';
 import type { SequencedEvent } from '../../domain/shared/events.js';
+import type { InboxEntry } from '../../domain/shared/history.js';
 import { describedHealth } from './health.js';
 import { presentStartingPrompt } from './starting-prompt-text.js';
 import { actorAnyScopeProcedure, actorScopedProcedure, anyScopeProcedure, callerStillHolding, okOrThrow, ownPersonShipOrAnyScopeProcedure, router, scopedCrewCallerProcedure, scopedProcedure } from './trpc.js';
@@ -131,6 +140,16 @@ function crewRequestOutputOf<T extends { requestedAt: Date; sessionStartedAt: Da
 
 /** A ship's last ping as the API states it: its dates in ISO 8601. */
 /** A delivery's way as the API answers it: its times in ISO 8601. */
+function inboxEntryOutputOf(entry: InboxEntry) {
+  return {
+    ...entry,
+    readAt: entry.readAt?.toISOString() ?? null,
+    doneAt: entry.doneAt?.toISOString() ?? null,
+    replies: entry.replies.map((reply) => ({ ...reply, sentAt: reply.sentAt.toISOString() })),
+    message: { ...entry.message, sentAt: entry.message.sentAt.toISOString() },
+  };
+}
+
 function wayOutputOf(way: DeliveryWay) {
   return {
     ...way,
@@ -742,23 +761,28 @@ export const fleetRouter = router({
       (await ctx.useCases.readDeclaredNetworkRules(ctx.caller)).map(({ declarer, rules }) => ({ declarer, rules: rules.map((rule) => ({ verb: rule.verb, from: [...rule.from], to: [...rule.to] })) })),
     ),
 
-  /** The sends the network rules refused, newest first, of the ships the caller reads (decisions 0034, 0053). */
+  /** A page of the sends the network rules refused, newest first, of the ships the caller reads (decisions 0034, 0053). */
   reachRefusals: actorScopedProcedure('fleet:explain')
+    .input(reachRefusalsInputSchema)
     .output(reachRefusalsOutputSchema)
-    .query(async ({ ctx }) =>
-      okOrThrow(await ctx.useCases.readReachRefusals(ctx.caller)).map(({ id, at, sender, askedBy, recipient, verb, settingsVersion }) => ({
-        id,
-        at: at.toISOString(),
-        sender: refusedActorOutputOf(sender),
-        askedBy: askedBy && { ...askedBy, labels: [...askedBy.labels] },
-        recipient:
-          recipient.kind === 'ship'
-            ? { kind: recipient.kind, ship: { ...recipient.ship, labels: [...recipient.ship.labels] } }
-            : { kind: recipient.kind, type: recipient.type, ships: recipient.ships.map((ship) => ({ ...ship, labels: [...ship.labels] })) },
-        verb,
-        settingsVersion,
-      })),
-    ),
+    .query(async ({ ctx, input }) => {
+      const { items, nextCursor } = okOrThrow(await ctx.useCases.readReachRefusals(ctx.caller, input));
+      return {
+        items: items.map(({ id, at, sender, askedBy, recipient, verb, settingsVersion }) => ({
+          id,
+          at: at.toISOString(),
+          sender: refusedActorOutputOf(sender),
+          askedBy: askedBy && { ...askedBy, labels: [...askedBy.labels] },
+          recipient:
+            recipient.kind === 'ship'
+              ? { kind: recipient.kind, ship: { ...recipient.ship, labels: [...recipient.ship.labels] } }
+              : { kind: recipient.kind, type: recipient.type, ships: recipient.ships.map((ship) => ({ ...ship, labels: [...ship.labels] })) },
+          verb,
+          settingsVersion,
+        })),
+        nextCursor,
+      };
+    }),
 
   /** Which ships a ship the caller reads reaches now, or whether it reaches one (design on #260, decision 0053). */
   explainReach: actorScopedProcedure('fleet:explain')
@@ -801,27 +825,23 @@ export const fleetRouter = router({
       };
     }),
 
-  /** Every change to a ship, newest first: the events naming it and the ones it caused. */
+  /** A page of every change to a ship, newest first: the events naming it and the ones it caused. */
   shipTimeline: actorScopedProcedure('fleet:read')
-    .input(shipInputSchema)
+    .input(shipTimelineInputSchema)
     .output(shipTimelineOutputSchema)
-    .query(async ({ ctx, input }) =>
-      okOrThrow(await ctx.useCases.readShipTimeline(ctx.caller, input)).map((entry) => ({
-        ...entry,
-        occurredAt: entry.occurredAt.toISOString(),
-      })),
-    ),
+    .query(async ({ ctx, input }) => {
+      const { items, nextCursor } = okOrThrow(await ctx.useCases.readShipTimeline(ctx.caller, input));
+      return { items: items.map((entry) => ({ ...entry, occurredAt: entry.occurredAt.toISOString() })), nextCursor };
+    }),
 
-  /** The messages a ship sent, was sent, or claimed as a ship of their type, newest first. */
+  /** A page of the messages a ship sent, was sent, or claimed as a ship of their type, newest first. */
   shipMessages: actorScopedProcedure('fleet:read')
-    .input(shipInputSchema)
+    .input(shipMessagesInputSchema)
     .output(shipMessagesOutputSchema)
-    .query(async ({ ctx, input }) =>
-      okOrThrow(await ctx.useCases.readShipMessages(ctx.caller, input)).map((message) => ({
-        ...message,
-        sentAt: message.sentAt.toISOString(),
-      })),
-    ),
+    .query(async ({ ctx, input }) => {
+      const { items, nextCursor } = okOrThrow(await ctx.useCases.readShipMessages(ctx.caller, input));
+      return { items: items.map((message) => ({ ...message, sentAt: message.sentAt.toISOString() })), nextCursor };
+    }),
 
   /** One message: envelope, payload, its replies, and its delivery's way through with every step, newest first. */
   message: actorScopedProcedure('fleet:read')
@@ -858,16 +878,17 @@ export const fleetRouter = router({
       };
     }),
 
-  /** Needs attention: every undeliverable or not handled delivery of the fleet, oldest first, with its whole message. */
+  /** Needs attention: a page of the undeliverable or not handled deliveries of the fleet or one ship, oldest first, with their whole message. */
   needsAttention: actorScopedProcedure('fleet:read')
+    .input(needsAttentionInputSchema)
     .output(needsAttentionOutputSchema)
-    .query(async ({ ctx }) =>
-      (await ctx.useCases.readNeedsAttention(ctx.caller)).map((entry) => ({
-        ...entry,
-        since: entry.since.toISOString(),
-        message: { ...entry.message, sentAt: entry.message.sentAt.toISOString() },
-      })),
-    ),
+    .query(async ({ ctx, input }) => {
+      const { items, nextCursor } = await ctx.useCases.readNeedsAttention(ctx.caller, input);
+      return {
+        items: items.map((entry) => ({ ...entry, since: entry.since.toISOString(), message: { ...entry.message, sentAt: entry.message.sentAt.toISOString() } })),
+        nextCursor,
+      };
+    }),
 
   /** The fleet's health (decision 0042): its stuck deliveries by cause and place, the 7-day trend and the acknowledged in 24 hours. */
   health: actorScopedProcedure('fleet:read')
@@ -893,19 +914,34 @@ export const fleetRouter = router({
     .output(resendDeliveryOutputSchema)
     .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.resendDelivery(ctx.caller, input))),
 
-  /** The caller's inbox, argo's for the console: the messages to it the filter keeps, newest first. */
+  /** A page of the caller's inbox, argo's for the console: the messages to it the filter keeps, newest first. */
   inbox: actorScopedProcedure('fleet:read')
     .input(operatorInboxInputSchema)
     .output(operatorInboxOutputSchema)
-    .query(async ({ ctx, input }) =>
-      (await ctx.useCases.readInbox(ctx.caller, input)).map((entry) => ({
-        ...entry,
-        readAt: entry.readAt?.toISOString() ?? null,
-        doneAt: entry.doneAt?.toISOString() ?? null,
-        replies: entry.replies.map((reply) => ({ ...reply, sentAt: reply.sentAt.toISOString() })),
-        message: { ...entry.message, sentAt: entry.message.sentAt.toISOString() },
-      })),
-    ),
+    .query(async ({ ctx, input }) => {
+      const { items, nextCursor } = await ctx.useCases.readInbox(ctx.caller, input);
+      return { items: items.map(inboxEntryOutputOf), nextCursor };
+    }),
+
+  /** One message to the caller's inbox, argo's for the console, by its delivery, as `inbox` lists it. */
+  inboxMessage: actorScopedProcedure('fleet:read')
+    .input(inboxMessageInputSchema)
+    .output(inboxMessageSchema)
+    .query(async ({ ctx, input }) => inboxEntryOutputOf(okOrThrow(await ctx.useCases.readInboxMessage(ctx.caller, input)))),
+
+  /** A page of the messages to the caller's inbox, argo's for the console, that withdraw or replace a question, oldest first. */
+  inboxWithdrawals: actorScopedProcedure('fleet:read')
+    .input(inboxWithdrawalsInputSchema)
+    .output(operatorInboxOutputSchema)
+    .query(async ({ ctx, input }) => {
+      const { items, nextCursor } = await ctx.useCases.readInboxWithdrawals(ctx.caller, input);
+      return { items: items.map(inboxEntryOutputOf), nextCursor };
+    }),
+
+  /** How many messages to the caller's inbox, argo's for the console, are open: counted in one query. */
+  inboxCount: actorScopedProcedure('fleet:read')
+    .output(inboxCountOutputSchema)
+    .query(({ ctx }) => ctx.useCases.countOpenInbox(ctx.caller)),
 
   /** Marks a message to argo read, as opening it does, or unread again. Read is not done. */
   markRead: scopedCrewCallerProcedure('messages:receive')

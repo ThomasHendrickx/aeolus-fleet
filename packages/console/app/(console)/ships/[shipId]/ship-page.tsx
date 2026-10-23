@@ -16,6 +16,7 @@ import { ShipWayLines } from '../../../../features/ship/ui/molecules/ship-way-li
 import { shipWayView } from '../../../../features/ship/services/ship-way';
 import { ShipPageLabels } from '../../../../features/ship/state/ship-page-labels';
 import { ShipTimeline } from '../../../../features/ship/ui/organisms/ship-timeline';
+import { LoadMore } from '../../../../components/molecules/load-more';
 import { useSignedInAccountNames } from '../../../../features/ship/hooks/use-signed-in-account-names';
 import { DetailPage } from '../../../../components/organisms/detail-page';
 import { useConsoleFrame } from '../../../../lib/console-frame';
@@ -62,7 +63,7 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
 
   const ship = useShip(shipId);
   const timeline = useShipTimeline(shipId);
-  const accountNames = useSignedInAccountNames(timeline.data ?? []);
+  const accountNames = useSignedInAccountNames(timeline.items ?? []);
   const messages = useShipMessages(shipId);
   const message = useMessage(messageId);
   const way = useShipWay(shipId);
@@ -113,7 +114,7 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
           state={isNotFound ? 'not-found' : ship.data ? 'ready' : 'loading'}
           now={now}
           actions={ship.data ? <ShipActions ship={ship.data} compose={ComposeMessage} crewLineFlow={NewCrewLineFlow} /> : undefined}
-          crewRequest={ship.data ? <ShipCrewRequest ship={ship.data} timeline={timeline.data ?? []} now={now} /> : undefined}
+          crewRequest={ship.data ? <ShipCrewRequest ship={ship.data} timeline={timeline.items ?? []} now={now} /> : undefined}
           labels={ship.data ? <ShipPageLabels ship={ship.data} /> : undefined}
           isPluginShip={pluginShipIds.has(shipId)}
           way={wayView && way.data?.lease ? <ShipWayLines view={wayView} onOpenMessage={openMessageAt} /> : undefined}
@@ -165,11 +166,14 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
           <TabsContent value={SHIP_TABS.timeline} className="pt-4">
             <ShipTimeline
               shipId={shipId}
-              entries={timeline.data ?? []}
-              state={timeline.isError ? 'error' : timeline.data ? 'ready' : 'loading'}
-              onRetry={() => {
-                void timeline.refetch();
-              }}
+              entries={timeline.items ?? []}
+              state={timeline.isFailed ? 'error' : timeline.items ? 'ready' : 'loading'}
+              onRetry={timeline.retry}
+              more={
+                timeline.hasMore ? (
+                  <LoadMore what="older events" isLoading={timeline.isLoadingMore} isFailed={timeline.isLoadMoreFailed} onLoad={timeline.loadMore} area="ship-timeline" />
+                ) : null
+              }
               now={now}
               onOpenMessage={openMessageAt}
               accountNames={accountNames}
@@ -178,11 +182,14 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
           <TabsContent value={SHIP_TABS.messages} className="pt-4">
             <MessageThreads
               shipId={shipId}
-              messages={messages.data ?? []}
-              state={messages.isError ? 'error' : messages.data ? 'ready' : 'loading'}
-              onRetry={() => {
-                void messages.refetch();
-              }}
+              messages={messages.items ?? []}
+              state={messages.isFailed ? 'error' : messages.items ? 'ready' : 'loading'}
+              onRetry={messages.retry}
+              more={
+                messages.hasMore ? (
+                  <LoadMore what="older messages" isLoading={messages.isLoadingMore} isFailed={messages.isLoadMoreFailed} onLoad={messages.loadMore} area="message-threads" />
+                ) : null
+              }
               now={now}
               onOpenMessage={openMessageAt}
             />

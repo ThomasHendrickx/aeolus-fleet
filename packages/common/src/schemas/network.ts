@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { idSchema } from '../ids/index.js';
 import { accountIdSchema } from './account-token.js';
 import { carriedLabelSchema } from './label.js';
+import { pageInputOf, pageOutputOf } from './page.js';
 
 /**
  * Network rules (decision 0034): which ships may send to, read or manage
@@ -17,9 +18,6 @@ export const NETWORK_RULES_MAX = 200;
 
 /** The most rules one ship may declare (decision 0037). */
 export const DECLARED_NETWORK_RULES_MAX = 20;
-
-/** The most refusals one read of them answers: the latest. */
-export const REACH_REFUSALS_READ_MAX = 100;
 
 /** A term's value that is any value of its label: the ship carries the label. */
 export const ANY_LABEL_VALUE = '*' as const;
@@ -189,8 +187,11 @@ export const reachRefusalSchema = z.object({
 
 export type ReachRefusal = z.infer<typeof reachRefusalSchema>;
 
-/** Output of `fleet.reachRefusals` (argo only): the fleet's latest refusals, newest first, at most REACH_REFUSALS_READ_MAX. */
-export const reachRefusalsOutputSchema = z.array(reachRefusalSchema);
+/** Input of `fleet.reachRefusals`: the cursor and size of a page. */
+export const reachRefusalsInputSchema = pageInputOf(idSchema('reachRefusal'));
+
+/** Output of `fleet.reachRefusals` (fleet:explain): a page of the fleet's refusals, newest first. */
+export const reachRefusalsOutputSchema = pageOutputOf(reachRefusalSchema, idSchema('reachRefusal'));
 
 /** Input of `fleet.explainReach` (fleet:explain): the ship to explain from, the one ship asked about or none for every ship, and the rules to explain against: the applied ones, or the draft. */
 export const explainReachInputSchema = z.object({ fromShipId: idSchema('ship'), toShipId: idSchema('ship').optional(), against: z.enum(['applied', 'draft']).optional() });

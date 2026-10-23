@@ -1,4 +1,4 @@
-import type { InboxMessage, ShipId } from '@aeolus-fleet/common';
+import type { DeliveryId, InboxMessage, ShipId } from '@aeolus-fleet/common';
 
 import { GATEWAY_SHIP, SQUADRONS_SHIP, TRIERARCH_PLUGIN_SHIP } from './connect-plugin';
 import type { InboxEntry, InboxSender } from './inbox-entry';
@@ -66,3 +66,9 @@ export function inboxEntriesOf(inbox: readonly InboxMessage[], ships: readonly L
     ];
   });
 }
+
+/** The question or message with this delivery, laid out with the newer messages that make it stale; null when the inbox does not hold it. */
+export function inboxEntryOf(inbox: readonly InboxMessage[], { ships, deliveryId }: { ships: readonly ListedShip[]; deliveryId: DeliveryId }): InboxEntry | null {
+  return inboxEntriesOf(inbox, ships).find((entry) => entry.deliveryId === deliveryId) ?? null;
+}
+

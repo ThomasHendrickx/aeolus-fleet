@@ -149,6 +149,9 @@ import { createDeleteFleet, type DeleteFleet } from './domain/registry/delete-fl
 import { createGetInstallationFleet, type GetInstallationFleet } from './domain/registry/get-installation-fleet.js';
 import { createListInstallationFleets, type ListInstallationFleets } from './domain/registry/list-installation-fleets.js';
 import { createReadInbox, type ReadInbox } from './domain/shared/read-inbox.js';
+import { createCountOpenInbox, type CountOpenInbox } from './domain/shared/count-open-inbox.js';
+import { createReadInboxMessage, type ReadInboxMessage } from './domain/shared/read-inbox-message.js';
+import { createReadInboxWithdrawals, type ReadInboxWithdrawals } from './domain/shared/read-inbox-withdrawals.js';
 import { createReadMessage, type ReadMessage } from './domain/shared/read-message.js';
 import { createReadSentMessage, type ReadSentMessage } from './domain/shared/read-sent-message.js';
 import { createReadShipWay, type ReadShipWay } from './domain/shared/read-ship-way.js';
@@ -243,6 +246,9 @@ export interface UseCases {
   readNeedsAttention: ReadNeedsAttention;
   readHealth: ReadHealth;
   readInbox: ReadInbox;
+  readInboxMessage: ReadInboxMessage;
+  readInboxWithdrawals: ReadInboxWithdrawals;
+  countOpenInbox: CountOpenInbox;
   signIn: SignIn;
   signOut: SignOut;
   readAccount: ReadAccount;
@@ -461,6 +467,9 @@ export function createUseCases(options: {
     readNeedsAttention: createReadNeedsAttention({ history: createPrismaShipHistory(prisma), readReach }),
     readHealth: createReadHealth({ health: createPrismaHealthRecords(prisma), snapshots: createPrismaHealthSnapshots(prisma), clock, readReach }),
     readInbox: createReadInbox({ history: createPrismaShipHistory(prisma), ships: createPrismaShipRepository(prisma), readReach }),
+    readInboxMessage: createReadInboxMessage({ history: createPrismaShipHistory(prisma), ships: createPrismaShipRepository(prisma), readReach }),
+    readInboxWithdrawals: createReadInboxWithdrawals({ history: createPrismaShipHistory(prisma), ships: createPrismaShipRepository(prisma), readReach }),
+    countOpenInbox: createCountOpenInbox({ history: createPrismaShipHistory(prisma), ships: createPrismaShipRepository(prisma), readReach }),
     signIn: createSignIn({
       uow,
       accounts: createPrismaOperatorAccountLookup(prisma),

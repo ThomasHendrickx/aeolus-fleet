@@ -14,7 +14,7 @@ import {
   networkRulesDraftChangesOutputSchema,
   networkRulesOutputSchema,
   networkVersionOutputSchema,
-  REACH_REFUSALS_READ_MAX,
+  reachRefusalsInputSchema,
   reachRefusalsOutputSchema,
   saveNetworkRulesDraftInputSchema,
   setBuiltInRuleInputSchema,
@@ -23,8 +23,8 @@ import {
 const newId = createIdGenerator();
 
 describe('the network limits (decision 0034)', () => {
-  it("are 200 of the fleet's own rules, and the latest 100 refusals a read", () => {
-    expect([NETWORK_RULES_MAX, REACH_REFUSALS_READ_MAX]).toEqual([200, 100]);
+  it("are 200 of the fleet's own rules", () => {
+    expect(NETWORK_RULES_MAX).toBe(200);
   });
 });
 
@@ -172,6 +172,14 @@ describe('networkRulesDraftChangesOutputSchema', () => {
   });
 });
 
+describe('reachRefusalsInputSchema', () => {
+  it('takes the cursor and size of a page, each optional', () => {
+    const input = { cursor: newId('reachRefusal'), limit: 20 };
+
+    expect([reachRefusalsInputSchema.parse({}), reachRefusalsInputSchema.parse(input)]).toEqual([{}, input]);
+  });
+});
+
 describe('reachRefusalsOutputSchema', () => {
   it('answers each refusal: who tried to reach whom, both ships with the labels they carried and their owners then, the settings version and when', () => {
     const carried = { labelId: newId('label'), key: 'trust', valueId: newId('labelValue'), value: 'shared' };
@@ -185,7 +193,7 @@ describe('reachRefusalsOutputSchema', () => {
       settingsVersion: 2,
     };
 
-    expect(reachRefusalsOutputSchema.parse([refusal])).toEqual([refusal]);
+    expect(reachRefusalsOutputSchema.parse({ items: [refusal], nextCursor: null })).toEqual({ items: [refusal], nextCursor: null });
   });
 
   it('answers a refused send to a type with the type and each ship of it, with the labels it carried then', () => {
@@ -199,7 +207,7 @@ describe('reachRefusalsOutputSchema', () => {
       settingsVersion: 2,
     };
 
-    expect(reachRefusalsOutputSchema.parse([refusal])).toEqual([refusal]);
+    expect(reachRefusalsOutputSchema.parse({ items: [refusal], nextCursor: null })).toEqual({ items: [refusal], nextCursor: null });
   });
 
 
@@ -214,7 +222,7 @@ describe('reachRefusalsOutputSchema', () => {
       settingsVersion: 2,
     };
 
-    expect(reachRefusalsOutputSchema.safeParse([refusal]).success).toBe(false);
+    expect(reachRefusalsOutputSchema.safeParse({ items: [refusal], nextCursor: null }).success).toBe(false);
   });
 
   it('answers an account refused by reach by its id only, with the group values it carried and its person ship then (decision 0057)', () => {
@@ -229,7 +237,7 @@ describe('reachRefusalsOutputSchema', () => {
       settingsVersion: 2,
     };
 
-    expect(reachRefusalsOutputSchema.parse([refusal])).toEqual([refusal]);
+    expect(reachRefusalsOutputSchema.parse({ items: [refusal], nextCursor: null })).toEqual({ items: [refusal], nextCursor: null });
   });
 
   it('answers the installation refused by reach', () => {
@@ -243,7 +251,7 @@ describe('reachRefusalsOutputSchema', () => {
       settingsVersion: 2,
     };
 
-    expect(reachRefusalsOutputSchema.parse([refusal])).toEqual([refusal]);
+    expect(reachRefusalsOutputSchema.parse({ items: [refusal], nextCursor: null })).toEqual({ items: [refusal], nextCursor: null });
   });
 
   it('never answers an email for an account, even one handed to it', () => {
@@ -257,7 +265,7 @@ describe('reachRefusalsOutputSchema', () => {
       settingsVersion: 2,
     };
 
-    expect(reachRefusalsOutputSchema.parse([refusal])[0]?.sender).not.toHaveProperty('email');
+    expect(reachRefusalsOutputSchema.parse({ items: [refusal], nextCursor: null }).items[0]?.sender).not.toHaveProperty('email');
   });
 });
 

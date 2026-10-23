@@ -1,4 +1,4 @@
-import type { DeliveryId, FleetId, MessageId, ShipId } from '@aeolus-fleet/common';
+import { PAGE_SIZE_DEFAULT, type DeliveryId, type FleetId, type MessageId, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
@@ -53,7 +53,7 @@ describe("reading argo's inbox", () => {
     const older = await toArgo(tester, 'checkout-e2e failed 3 of 5 runs since 12:00.');
     const newer = await toArgo(captain, 'Release 2.14 is staged. Promote to production?');
 
-    const inbox = await history.readInbox(argo, { filter: 'open' });
+    const inbox = await history.readInbox(argo, { filter: 'open' }).then(({ items }) => items);
 
     expect(inbox.map((entry) => entry.message.id)).toEqual([newer.messageId, older.messageId]);
     expect(inbox[0]).toEqual({
@@ -81,11 +81,34 @@ describe("reading argo's inbox", () => {
     unwrap(await messaging.markDone(argo, { deliveryId: done.deliveryId }));
 
     const ids = async (filter: 'open' | 'done' | 'all') =>
-      (await history.readInbox(argo, { filter })).map((entry) => entry.message.id);
+      (await history.readInbox(argo, { filter }).then(({ items }) => items)).map((entry) => entry.message.id);
 
     await expect(ids('open')).resolves.toEqual([open.messageId]);
     await expect(ids('done')).resolves.toEqual([done.messageId]);
     await expect(ids('all')).resolves.toEqual([done.messageId, open.messageId]);
+  });
+
+  it('answers a page at a time, newest first, each after the cursor of the last, keeping to the filter', async () => {
+    const oldest = await toArgo(tester, 'one');
+    const done = await toArgo(captain, 'two');
+    unwrap(await messaging.markDone(argo, { deliveryId: done.deliveryId }));
+    const middle = await toArgo(tester, 'three');
+    const newest = await toArgo(captain, 'four');
+    const read = (cursor?: DeliveryId) => history.readInbox(argo, { filter: 'open', limit: 2, cursor });
+
+    const first = await read();
+    const second = await read(first.nextCursor ?? undefined);
+
+    expect([first.items.map((entry) => entry.deliveryId), first.nextCursor]).toEqual([[newest.deliveryId, middle.deliveryId], middle.deliveryId]);
+    expect([second.items.map((entry) => entry.deliveryId), second.nextCursor]).toEqual([[oldest.deliveryId], null]);
+  });
+
+  it(`answers ${String(PAGE_SIZE_DEFAULT)} messages unless told fewer`, async () => {
+    for (let index = 0; index <= PAGE_SIZE_DEFAULT; index += 1) {
+      await toArgo(tester, `message ${String(index)}`);
+    }
+
+    await expect(history.readInbox(argo, { filter: 'all' }).then(({ items }) => items.length)).resolves.toBe(PAGE_SIZE_DEFAULT);
   });
 
   it('says when a message was read, and when and by which reply it was done', async () => {
@@ -98,7 +121,7 @@ describe("reading argo's inbox", () => {
       await messaging.replyToMessage(argo, { deliveryId: asked.deliveryId, payload: 'go', idempotencyKey: 'go' }),
     );
 
-    const [entry] = await history.readInbox(argo, { filter: 'done' });
+    const [entry] = await history.readInbox(argo, { filter: 'done' }).then(({ items }) => items);
 
     expect(entry).toMatchObject({ state: 'acknowledged', readAt, doneAt: core.clock.now(), repliedWith: reply });
   });
@@ -115,7 +138,7 @@ describe("reading argo's inbox", () => {
       await messaging.replyToMessage(argo, { deliveryId: asked.deliveryId, payload: 'and thanks', idempotencyKey: 'thanks' }),
     );
 
-    const [entry] = await history.readInbox(argo, { filter: 'all' });
+    const [entry] = await history.readInbox(argo, { filter: 'all' }).then(({ items }) => items);
 
     expect(entry?.replies).toEqual([
       { id: first, contentType: 'text/plain', payload: 'go', sentAt: firstAt },
@@ -135,7 +158,7 @@ describe("reading argo's inbox", () => {
       }),
     );
 
-    const [entry] = await history.readInbox(argo, { filter: 'all' });
+    const [entry] = await history.readInbox(argo, { filter: 'all' }).then(({ items }) => items);
 
     expect(entry?.replies).toEqual([]);
   });
@@ -144,13 +167,13 @@ describe("reading argo's inbox", () => {
     unwrap(await messaging.sendMessage(argo, { selector: { kind: 'ship', shipId: captain.shipId }, payload: 'go', idempotencyKey: 'go' }));
     unwrap(await messaging.sendMessage(tester, { ...modelOf(tester), selector: { kind: 'ship', shipId: captain.shipId }, payload: 'hi', idempotencyKey: 'hi' }));
 
-    await expect(history.readInbox(argo, { filter: 'all' })).resolves.toEqual([]);
+    await expect(history.readInbox(argo, { filter: 'all' }).then(({ items }) => items)).resolves.toEqual([]);
   });
 
   it("knows nothing of another fleet's inbox", async () => {
     await toArgo(captain, 'Promote?');
 
-    await expect(history.readInbox({ ...argo, fleetId: core.ids('fleet') }, { filter: 'all' })).resolves.toEqual([]);
+    await expect(history.readInbox({ ...argo, fleetId: core.ids('fleet') }, { filter: 'all' })).resolves.toEqual({ items: [], nextCursor: null });
   });
 });
 
@@ -165,7 +188,7 @@ describe("a viewer reading argo's inbox", () => {
   it("reads argo's inbox while viewer reading is on", async () => {
     const asked = await fleet.send(fleet.far, { kind: 'ship', shipId: fleet.argo.shipId });
 
-    const inbox = await fleet.history.readInbox(fleet.viewer, { filter: 'all' });
+    const inbox = await fleet.history.readInbox(fleet.viewer, { filter: 'all' }).then(({ items }) => items);
 
     expect(inbox.map((entry) => entry.message.id)).toEqual([asked]);
   });
@@ -174,6 +197,6 @@ describe("a viewer reading argo's inbox", () => {
     await fleet.send(fleet.far, { kind: 'ship', shipId: fleet.argo.shipId });
     unwrap(await fleet.registry.setBuiltInRule(fleet.argo, { rule: 'viewerRead', isOn: false }));
 
-    await expect(fleet.history.readInbox(fleet.viewer, { filter: 'all' })).resolves.toEqual([]);
+    await expect(fleet.history.readInbox(fleet.viewer, { filter: 'all' }).then(({ items }) => items)).resolves.toEqual([]);
   });
 });

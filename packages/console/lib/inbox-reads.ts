@@ -1,9 +1,10 @@
-import { fleetListOutputSchema, type InboxMessage, isInReadReach, type MessageId, messageOutputSchema, operatorInboxOutputSchema, PAGE_SIZE_MAX } from '@aeolus-fleet/common';
+import { type DeliveryId, fleetListOutputSchema, inboxMessageSchema, inboxQuestionOf, type InboxFilter, type InboxMessage, isInReadReach, type MessageId, messageOutputSchema, operatorInboxOutputSchema, PAGE_SIZE_MAX } from '@aeolus-fleet/common';
 import { cookies } from 'next/headers';
 import type { z } from 'zod';
 
 import { everyPage } from './every-page';
-import { inboxEntriesOf } from './inbox-entries';
+import { inboxEntriesOf, inboxEntryOf } from './inbox-entries';
+import { readInboxPagesUntil, type InboxPage } from './inbox-pages';
 import type { InboxEntry } from './inbox-entry';
 import { threadBefore, type ThreadMessage } from './inbox-thread';
 import type { PluginAnswer } from './plugin-answer';
@@ -24,9 +25,29 @@ export async function callFleet<T>(procedure: string, request: { input?: unknown
   return callPlugin({ plugin: FLEET, url: serverInternalUrlFrom(process.env), procedure, cookie, ...request });
 }
 
-/** argo's whole inbox, every message with argo's replies to it. */
-export function readArgoInbox(): Promise<PluginAnswer<InboxMessage[]>> {
-  return callFleet('fleet.inbox', { input: { filter: 'all' }, answers: operatorInboxOutputSchema });
+/** Pages of argo's inbox the filter keeps, newest first from the cursor, read until the rows are enough or the inbox ends. */
+function readArgoInbox(query: { filter: InboxFilter; cursor?: DeliveryId; limit: number; isEnough: (messages: readonly InboxMessage[]) => boolean }): Promise<PluginAnswer<InboxPage>> {
+  const { filter, limit } = query;
+  return readInboxPagesUntil((cursor) => callFleet('fleet.inbox', { input: { filter, cursor, limit }, answers: operatorInboxOutputSchema }), query);
+}
+
+/**
+ * The message to argo with this delivery, and when it asks a question, the
+ * messages that withdraw or replace that question (decision 0038): each read
+ * by one lookup in core, however old. Its asker's first withdrawal makes a
+ * question stale, so the first page, oldest first, is enough.
+ */
+export async function readQuestionInbox(deliveryId: DeliveryId): Promise<PluginAnswer<InboxMessage[]>> {
+  const found = await callFleet('fleet.inboxMessage', { input: { deliveryId }, answers: inboxMessageSchema });
+  if (found.kind !== 'answered') {
+    return found;
+  }
+  const question = inboxQuestionOf({ message: found.data.message, replies: [] });
+  if (question === null) {
+    return { kind: 'answered', data: [found.data] };
+  }
+  const withdrawals = await callFleet('fleet.inboxWithdrawals', { input: { questionId: question.id }, answers: operatorInboxOutputSchema });
+  return withdrawals.kind === 'answered' ? { kind: 'answered', data: [found.data, ...withdrawals.data.items] } : withdrawals;
 }
 
 /** The fleet's ships argo reads whole: every one (decision 0034), page after page. */
@@ -35,14 +56,32 @@ async function readShips() {
   return ships.kind === 'answered' ? { ...ships, data: ships.data.filter(isInReadReach) } : ships;
 }
 
-/** Every question and message to argo, laid out for reading. */
-export async function readInbox(): Promise<PluginAnswer<InboxEntry[]>> {
-  const [inbox, ships] = await Promise.all([readArgoInbox(), readShips()]);
+/**
+ * The newest questions and messages to argo the segment keeps, as core reads
+ * it by delivery state, as many as the operator asked to see, laid out for
+ * reading, and whether older ones follow. A question shows stale only when
+ * what withdrew it is among the rows read.
+ */
+export async function readInbox({ filter, size }: { filter: InboxFilter; size: number }): Promise<PluginAnswer<{ items: InboxEntry[]; hasMore: boolean }>> {
+  const [inbox, ships] = await Promise.all([readArgoInbox({ filter, limit: Math.min(size, PAGE_SIZE_MAX), isEnough: (messages) => messages.length >= size }), readShips()]);
   if (inbox.kind !== 'answered') {
     return inbox;
   }
+  const { items, nextCursor } = inbox.data;
   // Without the fleet's ships every message still shows, only none folds as a plugin ship's.
-  return { kind: 'answered', data: inboxEntriesOf(inbox.data, ships.kind === 'answered' ? ships.data : []) };
+  return { kind: 'answered', data: { items: inboxEntriesOf(items.slice(0, size), ships.kind === 'answered' ? ships.data : []), hasMore: nextCursor !== null || items.length > size } };
+}
+
+/**
+ * The question or message to argo with this delivery, whatever segment keeps
+ * it: the one the reader shows, which an answer or Mark done takes out of Open.
+ */
+export async function readInboxEntry(deliveryId: DeliveryId): Promise<PluginAnswer<InboxEntry | null>> {
+  const [inbox, ships] = await Promise.all([readQuestionInbox(deliveryId), readShips()]);
+  if (inbox.kind !== 'answered') {
+    return inbox;
+  }
+  return { kind: 'answered', data: inboxEntryOf(inbox.data, { ships: ships.kind === 'answered' ? ships.data : [], deliveryId }) };
 }
 
 /** The messages a message to argo replies to, oldest first. */

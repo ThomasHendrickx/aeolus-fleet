@@ -1,4 +1,4 @@
-import { createIdGenerator, idSchema, LEASE_END_REASONS, PING_CONTENT_TYPE, type FleetId, type IdGenerator, type LeaseWaker, type ShipId } from '@aeolus-fleet/common';
+import { createIdGenerator, idSchema, LEASE_END_REASONS, PING_CONTENT_TYPE, withdrawalOf, type DeliveryId, type FleetId, type IdGenerator, type LeaseWaker, type ShipId } from '@aeolus-fleet/common';
 
 import type { ConsoleSession } from '../../src/domain/identity/console-session.js';
 import type { Credential } from '../../src/domain/identity/credential.js';
@@ -79,6 +79,7 @@ import { deliveryStepOf, type StandingOverdue, type WayCrew, type WayLease } fro
 import {
   isKeptBy,
   type HistoryMessage,
+  type InboxEntry,
   type HistoryParty,
   type HistoryRecipient,
   type ShipHistory,
@@ -92,6 +93,7 @@ import type { PasswordHasher, RandomTokens, SecretHasher } from '../../src/domai
 import type { UnitOfWork } from '../../src/domain/shared/unit-of-work.js';
 import { utcDayStart } from '../../src/domain/shared/utc-day.js';
 import type { HealthRecords } from '../../src/domain/shared/health.js';
+import { pageOf } from '../../src/domain/shared/page.js';
 import { createInMemoryHealthRecords } from './in-memory-health.js';
 import type { HealthSnapshotWriter } from '../../src/domain/shared/health-snapshot.js';
 import { createInMemoryHealthSnapshots, type HeldHourSnapshot } from './in-memory-health-snapshots.js';
@@ -699,13 +701,16 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         state.reachRefusals.push(structuredClone(refusal));
         return Promise.resolve();
       },
-      latest: (fleetId, limit) =>
+      latest: (fleetId, { cursor, limit }) =>
         Promise.resolve(
-          state.reachRefusals
-            .filter((held) => held.fleetId === fleetId)
-            .sort((first, second) => second.at.getTime() - first.at.getTime() || second.id.localeCompare(first.id))
-            .slice(0, limit)
-            .map((held) => structuredClone(held)),
+          pageOf(
+            state.reachRefusals
+              .filter((held) => held.fleetId === fleetId && (cursor === undefined || held.id < cursor))
+              .sort((first, second) => second.id.localeCompare(first.id))
+              .slice(0, limit + 1)
+              .map((held) => structuredClone(held)),
+            { limit, cursorOf: (held) => held.id },
+          ),
         ),
     },
     labels: {
@@ -1623,6 +1628,32 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       },
     };
   };
+  /** The messages to the ship itself, each with its delivery. */
+  const inboxOf = (fleetId: FleetId, shipId: ShipId): { delivery: Delivery; message: Message }[] =>
+    state.deliveries
+      .filter((delivery) => delivery.fleetId === fleetId && delivery.recipient.kind === 'ship' && delivery.recipient.shipId === shipId)
+      .flatMap((delivery) => {
+        const message = messageOf(fleetId, delivery.messageId);
+        return message ? [{ delivery, message }] : [];
+      });
+  /** A message to the ship itself as its inbox lists it. */
+  const inboxEntryOf = (fleetId: FleetId, { shipId, delivery, message }: { shipId: ShipId; delivery: Delivery; message: Message }): InboxEntry => {
+    const acknowledged = numbered(fleetId).findLast((event) => event.deliveryId === delivery.id && event.type === 'DeliveryAcknowledged');
+    const reply = acknowledged?.details.reply;
+    const { id, sender, inReplyTo, sentAt, contentType, model, payload } = historyMessageOf(message);
+    return {
+      deliveryId: delivery.id,
+      state: delivery.state,
+      readAt: state.deliveryReads.find((read) => read.deliveryId === delivery.id)?.readAt ?? null,
+      doneAt: acknowledged?.occurredAt ?? null,
+      repliedWith: typeof reply === 'string' ? idSchema('message').parse(reply) : null,
+      replies: state.messages
+        .filter((held) => held.fleetId === fleetId && held.senderShipId === shipId && held.inReplyToMessageId === message.id)
+        .sort((first, second) => newestFirst(second, first))
+        .map((held) => ({ id: held.id, contentType: held.contentType, payload: held.payload, sentAt: held.createdAt })),
+      message: { id, sender, inReplyTo, sentAt, contentType, model, payload },
+    };
+  };
   /** What the history reads of a lease: its trierarch by the starting prompt its crew claimed with, push, turn and end. */
   const wayLeaseOf = (lease: Lease): WayLease => {
     const crewShip = ship(lease.fleetId, lease.shipId);
@@ -1675,16 +1706,21 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
   const newestFirst = (first: Message, second: Message) =>
     second.createdAt.getTime() - first.createdAt.getTime() || second.id.localeCompare(first.id);
   const history: ShipHistory = {
-    timeline: (fleetId, { shipId, limit }) =>
-      Promise.resolve(
-        ship(fleetId, shipId) &&
-          numbered(fleetId)
-            .filter((event) => event.shipId === shipId || (event.actor.kind === 'ship' && event.actor.shipId === shipId))
-            .reverse()
-            .slice(0, limit)
-            .map(timelineEntryOf),
-      ),
-    messages: (fleetId, { shipId, limit }) => {
+    timeline: (fleetId, { shipId, cursor, limit }) => {
+      if (!ship(fleetId, shipId)) {
+        return Promise.resolve(undefined);
+      }
+      const events = numbered(fleetId);
+      // An event the fleet does not have starts no page: nothing comes after it.
+      const before = cursor === undefined ? Number.POSITIVE_INFINITY : (events.find((event) => event.id === cursor)?.seq ?? 0);
+      const rows = events
+        .filter((event) => event.seq < before && (event.shipId === shipId || (event.actor.kind === 'ship' && event.actor.shipId === shipId)))
+        .reverse()
+        .slice(0, limit + 1)
+        .map(timelineEntryOf);
+      return Promise.resolve(pageOf(rows, { limit, cursorOf: (entry) => entry.id }));
+    },
+    messages: (fleetId, { shipId, cursor, limit }) => {
       if (!ship(fleetId, shipId)) {
         return Promise.resolve(undefined);
       }
@@ -1693,19 +1729,19 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
           .filter((event) => event.fleetId === fleetId && event.type === 'DeliveryHanded' && event.shipId === shipId)
           .map((event) => event.messageId),
       );
-      return Promise.resolve(
-        state.messages
+      const rows = state.messages
           .filter(
             (message) =>
               message.fleetId === fleetId &&
               (message.senderShipId === shipId ||
                 (message.selector.kind === 'ship' && message.selector.shipId === shipId) ||
-                claimed.has(message.id)),
+                claimed.has(message.id)) &&
+              (cursor === undefined || message.id < cursor),
           )
-          .sort(newestFirst)
-          .slice(0, limit)
-          .map(historyMessageOf),
-      );
+          .sort((first, second) => second.id.localeCompare(first.id))
+          .slice(0, limit + 1)
+          .map(historyMessageOf);
+      return Promise.resolve(pageOf(rows, { limit, cursorOf: (message) => message.id }));
     },
     message: (fleetId, messageId) => {
       const message = messageOf(fleetId, messageId);
@@ -1743,53 +1779,52 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
             }),
         ),
       ),
-    inbox: (fleetId, { shipId, filter }) =>
+    openInboxCount: (fleetId, { shipId, senderIds }) =>
       Promise.resolve(
-        state.deliveries
-          .filter(
-            (delivery) =>
-              delivery.fleetId === fleetId &&
-              delivery.recipient.kind === 'ship' &&
-              delivery.recipient.shipId === shipId &&
-              isKeptBy(filter, delivery.state),
-          )
-          .flatMap((delivery) => {
-            const message = messageOf(fleetId, delivery.messageId);
-            return message ? [{ delivery, message }] : [];
-          })
-          .sort((first, second) => newestFirst(first.message, second.message))
-          .map(({ delivery, message }) => {
-            const acknowledged = numbered(fleetId).findLast(
-              (event) => event.deliveryId === delivery.id && event.type === 'DeliveryAcknowledged',
-            );
-            const reply = acknowledged?.details.reply;
-            const { id, sender, inReplyTo, sentAt, contentType, model, payload } = historyMessageOf(message);
-            return {
-              deliveryId: delivery.id,
-              state: delivery.state,
-              readAt: state.deliveryReads.find((read) => read.deliveryId === delivery.id)?.readAt ?? null,
-              doneAt: acknowledged?.occurredAt ?? null,
-              repliedWith: typeof reply === 'string' ? idSchema('message').parse(reply) : null,
-              replies: state.messages
-                .filter((held) => held.fleetId === fleetId && held.senderShipId === shipId && held.inReplyToMessageId === message.id)
-                .sort((first, second) => newestFirst(second, first))
-                .map((held) => ({ id: held.id, contentType: held.contentType, payload: held.payload, sentAt: held.createdAt })),
-              message: { id, sender, inReplyTo, sentAt, contentType, model, payload },
-            };
-          }),
+        state.deliveries.filter((delivery) => {
+          const senderId = messageOf(fleetId, delivery.messageId)?.senderShipId;
+          return (
+            delivery.fleetId === fleetId &&
+            delivery.recipient.kind === 'ship' &&
+            delivery.recipient.shipId === shipId &&
+            isKeptBy('open', delivery.state) &&
+            (senderIds === undefined || (senderId !== undefined && senderIds.has(senderId)))
+          );
+        }).length,
       ),
-    needsAttention: (fleetId) => {
+    inbox: (fleetId, { shipId, filter, cursor, limit }) =>
+      Promise.resolve(
+        inboxOf(fleetId, shipId)
+          .filter(({ delivery }) => isKeptBy(filter, delivery.state) && (cursor === undefined || delivery.id < cursor))
+          .sort((first, second) => second.delivery.id.localeCompare(first.delivery.id))
+          .slice(0, limit + 1)
+          .map(({ delivery, message }) => inboxEntryOf(fleetId, { shipId, delivery, message })),
+      ).then((rows) => pageOf(rows, { limit, cursorOf: (entry) => entry.deliveryId })),
+    inboxMessage: (fleetId, { shipId, deliveryId }) => {
+      const found = inboxOf(fleetId, shipId).find(({ delivery }) => delivery.id === deliveryId);
+      return Promise.resolve(found ? inboxEntryOf(fleetId, { shipId, ...found }) : undefined);
+    },
+    inboxWithdrawals: (fleetId, { shipId, questionId, cursor, limit }) =>
+      Promise.resolve(
+        inboxOf(fleetId, shipId)
+          .filter(({ delivery, message }) => withdrawalOf(message)?.questionId === questionId && (cursor === undefined || delivery.id > cursor))
+          .sort((first, second) => first.delivery.id.localeCompare(second.delivery.id))
+          .slice(0, limit + 1)
+          .map(({ delivery, message }) => inboxEntryOf(fleetId, { shipId, delivery, message })),
+      ).then((rows) => pageOf(rows, { limit, cursorOf: (entry) => entry.deliveryId })),
+    needsAttention: (fleetId, { shipId, state: asked, cursor, limit }) => {
       const events = numbered(fleetId);
+      const sinceOf = (deliveryId: DeliveryId) =>
+        events.findLast((event) => event.deliveryId === deliveryId && (event.type === 'DeliveryUndeliverable' || event.type === 'DeliveryNotHandled'));
+      // A delivery the fleet never listed starts no page: nothing comes after it.
+      const after = cursor === undefined ? 0 : (sinceOf(cursor)?.seq ?? Number.POSITIVE_INFINITY);
       return Promise.resolve(
         state.deliveries
           .filter((delivery) => delivery.fleetId === fleetId)
           .flatMap((delivery) => (delivery.state === 'undeliverable' || delivery.state === 'notHandled' ? [{ delivery, state: delivery.state }] : []))
           .map(({ delivery, state: attentionState }) => {
             const message = messageOf(fleetId, delivery.messageId);
-            const since = events.findLast(
-              (event) =>
-                event.deliveryId === delivery.id && (event.type === 'DeliveryUndeliverable' || event.type === 'DeliveryNotHandled'),
-            );
+            const since = sinceOf(delivery.id);
             if (!message || !since?.shipId) {
               throw new Error(`${attentionState} ${delivery.id} without its message or its event by a ship`);
             }
@@ -1808,9 +1843,11 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
               },
             };
           })
+          .filter(({ seq, entry }) => seq > after && (shipId === undefined || entry.ship.id === shipId) && (asked === undefined || entry.state === asked))
           .sort((first, second) => first.seq - second.seq)
+          .slice(0, limit + 1)
           .map(({ entry }) => entry),
-      );
+      ).then((rows) => pageOf(rows, { limit, cursorOf: (entry) => entry.deliveryId }));
     },
     shipWay: (fleetId, shipId) => {
       const crewed = ship(fleetId, shipId);

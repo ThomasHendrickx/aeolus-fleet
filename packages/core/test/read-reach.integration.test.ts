@@ -174,13 +174,13 @@ describe('the fleet:read procedures for a ship outside read reach (decision 0034
   });
 
   it("fleet.shipTimeline answers far's events of the messages it reads only", async () => {
-    const timeline = await reader.fleet.shipTimeline.query({ shipId: ids.far });
+    const { items: timeline } = await reader.fleet.shipTimeline.query({ shipId: ids.far });
 
     expect(new Set(timeline.map((entry) => entry.message?.id ?? null))).toEqual(new Set([farToNear]));
   });
 
   it("fleet.shipMessages answers far's messages it reads through near only", async () => {
-    const messages = await reader.fleet.shipMessages.query({ shipId: ids.far });
+    const { items: messages } = await reader.fleet.shipMessages.query({ shipId: ids.far });
 
     expect(messages.map((message) => message.id)).toEqual([farToNear]);
   });
@@ -192,7 +192,7 @@ describe('the fleet:read procedures for a ship outside read reach (decision 0034
   it("fleet.shipWay refuses far's way, and the refusal is recorded with the verb read", async () => {
     const code = await codeOf(reader.fleet.shipWay.query({ shipId: ids.far }));
 
-    const refusals = unwrap(await useCases.readReachRefusals(argo)).filter((refusal) => refusal.verb === 'read');
+    const refusals = unwrap(await useCases.readReachRefusals(argo, {})).items.filter((refusal) => refusal.verb === 'read');
     expect([code, refusals.map(({ sender, recipient }) => [refusedShip(sender).id, recipient.kind === 'ship' ? recipient.ship.id : recipient.type])]).toEqual(['FORBIDDEN', [[ids.reader, ids.far]]]);
   });
 
@@ -200,7 +200,7 @@ describe('the fleet:read procedures for a ship outside read reach (decision 0034
     const onBehalf: ShipCaller = { fleetId: argo.fleetId, shipId: ids.reader, kind: 'agent', scopes: ['fleet:read'], askedBy: ids.networking };
     refusalOf(await useCases.readShipWay(onBehalf, { shipId: ids.far }));
 
-    const refusals = unwrap(await useCases.readReachRefusals(argo)).filter((refusal) => refusal.verb === 'read');
+    const refusals = unwrap(await useCases.readReachRefusals(argo, {})).items.filter((refusal) => refusal.verb === 'read');
     expect(refusals.map(({ sender, askedBy }) => [refusedShip(sender).id, askedBy && [askedBy.id, askedBy.name]])).toEqual([
       [ids.reader, [ids.networking, 'networking']],
       [ids.reader, null],
@@ -214,7 +214,7 @@ describe('the fleet:read procedures for a ship outside read reach (decision 0034
   });
 
   it('fleet.needsAttention answers nothing it does not read', async () => {
-    await expect(reader.fleet.needsAttention.query()).resolves.toEqual([]);
+    await expect(reader.fleet.needsAttention.query({})).resolves.toEqual({ items: [], nextCursor: null });
   });
 
   it('fleet.follow answers only the events it reads', async () => {
@@ -230,11 +230,11 @@ describe('the fleet:read procedures for a ship outside read reach (decision 0034
   });
 
   it('fleet.inbox answers its own inbox only', async () => {
-    await expect(reader.fleet.inbox.query({ filter: 'all' })).resolves.toEqual([]);
+    await expect(reader.fleet.inbox.query({ filter: 'all' }).then(({ items }) => items)).resolves.toEqual([]);
   });
 
   it('fleet.reachRefusals and fleet.explainReach need fleet:explain, which reader does not hold (decision 0053)', async () => {
-    await expect(Promise.all([codeOf(reader.fleet.reachRefusals.query()), codeOf(reader.fleet.explainReach.query({ fromShipId: ids.reader }))])).resolves.toEqual(['FORBIDDEN', 'FORBIDDEN']);
+    await expect(Promise.all([codeOf(reader.fleet.reachRefusals.query({})), codeOf(reader.fleet.explainReach.query({ fromShipId: ids.reader }))])).resolves.toEqual(['FORBIDDEN', 'FORBIDDEN']);
   });
 
   it('argo reads far whole through its built-in rule', async () => {
@@ -257,7 +257,7 @@ describe('a plugin reading on behalf of a named ship over HTTP (decision 0034)',
         codeOf(as.fleet.message.query({ messageId: farToArgo })),
         codeOf(as.fleet.shipWay.query({ shipId: ids.far })),
         as.fleet.health.query(),
-        as.fleet.needsAttention.query(),
+        as.fleet.needsAttention.query({}),
         as.fleet.clearRequests.query(),
         as.fleet.inbox.query({ filter: 'all' }),
         as.fleet.follow.query({ afterSeq: readerFrom }),

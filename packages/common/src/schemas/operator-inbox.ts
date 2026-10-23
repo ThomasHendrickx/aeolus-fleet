@@ -4,6 +4,7 @@ import { deliveryStateSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
 import { partySchema } from './history.js';
 import { contentTypeSchema, sendInputSchema } from './message.js';
+import { pageInputOf, pageOutputOf } from './page.js';
 
 /**
  * Inputs and outputs of the operator inbox (docs/blueprint.md, "Inbox"): the
@@ -19,8 +20,8 @@ export const INBOX_FILTERS = ['open', 'done', 'all'] as const;
 export const inboxFilterSchema = z.enum(INBOX_FILTERS);
 export type InboxFilter = z.infer<typeof inboxFilterSchema>;
 
-/** Input of `fleet.inbox`. */
-export const operatorInboxInputSchema = z.object({ filter: inboxFilterSchema });
+/** Input of `fleet.inbox`: the filter, and the cursor and size of a page. */
+export const operatorInboxInputSchema = z.object({ filter: inboxFilterSchema, ...pageInputOf(idSchema('delivery')).shape });
 
 /** One message to argo: its delivery's state, when it was read and done, the reply that made it done, argo's replies to it, and the message. */
 export const inboxMessageSchema = z.object({
@@ -48,11 +49,24 @@ export const inboxMessageSchema = z.object({
 
 export type InboxMessage = z.infer<typeof inboxMessageSchema>;
 
-/** Output of `fleet.inbox`: the messages to argo the filter keeps, newest first. */
-export const operatorInboxOutputSchema = z.array(inboxMessageSchema);
+/** Output of `fleet.inbox`: a page of the messages to argo the filter keeps, newest first. */
+export const operatorInboxOutputSchema = pageOutputOf(inboxMessageSchema, idSchema('delivery'));
+
+/** Input of `fleet.inboxMessage`: one message to argo, by its delivery; answers it as `fleet.inbox` lists it. */
+export const inboxMessageInputSchema = z.object({ deliveryId: idSchema('delivery') });
+
+/**
+ * Input of `fleet.inboxWithdrawals`: a question's uuid (decision 0038), and
+ * the cursor and size of a page of the messages to argo that withdraw or
+ * replace it, oldest first; answers as `fleet.inbox` does.
+ */
+export const inboxWithdrawalsInputSchema = z.object({ questionId: z.uuid(), ...pageInputOf(idSchema('delivery')).shape });
 
 /** Input of `fleet.markRead`: a delivery to argo, read or unread again. */
 export const markReadInputSchema = z.object({ deliveryId: idSchema('delivery'), isRead: z.boolean() });
+
+/** Output of `fleet.inboxCount`: how many messages to argo are open, for the navigation and the Open segment. */
+export const inboxCountOutputSchema = z.object({ open: z.int().nonnegative() });
 
 /** Output of `fleet.markRead` and `fleet.markDone`: nothing; the OK is the answer. */
 export const inboxActionOutputSchema = z.strictObject({});

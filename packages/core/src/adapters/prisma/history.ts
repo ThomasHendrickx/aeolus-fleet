@@ -14,6 +14,8 @@ import {
   locationKindSchema,
   turnStateSchema,
   leaseWakerSchema,
+  withdrawalOf,
+  type DeliveryId,
   type FleetId,
   type LeaseId,
   type ShipId,
@@ -26,10 +28,12 @@ import {
   type HistoryMessage,
   type HistoryParty,
   type HistoryRecipient,
+  type InboxEntry,
   type ShipHistory,
 } from '../../domain/shared/history.js';
 import type { Message } from '../../domain/messaging/message.js';
 import type { Recipient } from '../../domain/shared/selector.js';
+import { pageOf, type PageQuery } from '../../domain/shared/page.js';
 import type { Db } from './client.js';
 import { Prisma } from './generated/client.js';
 import { toMessage, toSequencedEvent } from './rows.js';
@@ -113,23 +117,108 @@ function onlyDelivery(row: { id: string; deliveries: unknown[] }): DeliveryNow {
 
 const DELIVERY_SELECT = { id: true, state: true, attempts: true, claimedByShipId: true, handOverNumber: true } as const;
 
+/**
+ * The deliveries to the ship of the messages that withdraw or replace the
+ * question, oldest first: one more than the page. Read through
+ * messages_question_id_idx, whose expression reads the question id from the
+ * payload and never fails on one that is not JSON.
+ */
+export function inboxWithdrawalsStatement(fleetId: FleetId, { shipId, questionId, cursor, limit }: { shipId: ShipId; questionId: string } & PageQuery<DeliveryId>): Prisma.Sql {
+  return Prisma.sql`
+    SELECT d.id FROM messages m
+    JOIN deliveries d ON d.fleet_id = m.fleet_id AND d.message_id = m.id
+    WHERE m.fleet_id = ${fleetId}
+      AND lower(m.content_type) LIKE 'application/vnd.aeolus.question-%'
+      AND substring(m.payload from '"questionId"\\s*:\\s*"([^"]*)"') = ${questionId}
+      AND d.recipient_ship_id = ${shipId}
+      ${cursor === undefined ? Prisma.empty : Prisma.sql`AND d.id > ${cursor}`}
+    ORDER BY d.id ASC
+    LIMIT ${limit + 1}`;
+}
+
+/** What the inbox reads of a delivery to list it. */
+const INBOX_ROW = { id: true, state: true, readAt: true, message: true } as const;
+
+/**
+ * Deliveries to the ship itself as its inbox lists them, in their order:
+ * when each was done and by which reply (its last DeliveryAcknowledged), and
+ * the ship's own replies to each, oldest first.
+ */
+async function inboxEntriesOf(
+  db: Db,
+  { fleetId, shipId, rows }: { fleetId: FleetId; shipId: ShipId; rows: Prisma.DeliveryGetPayload<{ select: typeof INBOX_ROW }>[] },
+): Promise<InboxEntry[]> {
+  const acknowledged = new Map(
+    (
+      await db.event.findMany({
+        where: { fleetId, type: 'DeliveryAcknowledged', deliveryId: { in: rows.map((row) => row.id) } },
+        orderBy: { seq: 'asc' },
+      })
+    )
+      .map(toSequencedEvent)
+      .map((event) => [event.deliveryId, event]),
+  );
+  const found = rows.map((row) => ({ row, message: toMessage(row.message) }));
+  const party = await partiesOf(db, { fleetId, shipIds: found.map(({ message }) => message.senderShipId) });
+  const replies = (
+    await db.message.findMany({
+      where: { fleetId, senderShipId: shipId, inReplyToMessageId: { in: found.map(({ message }) => message.id) } },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    })
+  ).map(toMessage);
+  return found.map(({ row, message }) => {
+    const deliveryId = idSchema('delivery').parse(row.id);
+    const done = acknowledged.get(deliveryId);
+    const reply = done?.details.reply;
+    return {
+      deliveryId,
+      state: deliveryStateSchema.parse(row.state),
+      readAt: row.readAt,
+      doneAt: done?.occurredAt ?? null,
+      repliedWith: typeof reply === 'string' ? idSchema('message').parse(reply) : null,
+      replies: replies
+        .filter((held) => held.inReplyToMessageId === message.id)
+        .map((held) => ({ id: held.id, contentType: held.contentType, payload: held.payload, sentAt: held.createdAt })),
+      message: {
+        id: message.id,
+        sender: party(message.senderShipId),
+        inReplyTo: message.inReplyToMessageId,
+        sentAt: message.createdAt,
+        contentType: message.contentType,
+        model: message.model,
+        payload: message.payload,
+      },
+    };
+  });
+}
+
 async function shipExists(db: Db, at: { fleetId: FleetId; shipId: ShipId }): Promise<boolean> {
   return (await db.ship.count({ where: { fleetId: at.fleetId, id: at.shipId } })) === 1;
 }
 
 export function createPrismaShipHistory(db: Db): ShipHistory {
   return {
-    timeline: async (fleetId, { shipId, limit }) => {
+    timeline: async (fleetId, { shipId, cursor, limit }) => {
       if (!(await shipExists(db, { fleetId, shipId }))) {
         return undefined;
       }
-      const events = (
-        await db.event.findMany({
-          where: { fleetId, OR: [{ shipId }, { actorShipId: shipId }] },
-          orderBy: { seq: 'desc' },
-          take: limit,
-        })
-      ).map(toSequencedEvent);
+      const before = cursor === undefined ? undefined : (await db.event.findFirst({ where: { fleetId, id: cursor }, select: { seq: true } }))?.seq;
+      if (cursor !== undefined && before === undefined) {
+        // An event the fleet does not have starts no page: nothing comes after it.
+        return { items: [], nextCursor: null };
+      }
+      // The events naming the ship and those it caused, each read in stream
+      // order through its own index, then merged: an OR would read every
+      // event of the ship to sort them.
+      const page = { seq: before === undefined ? undefined : { lt: before } };
+      const [naming, caused] = await Promise.all([
+        db.event.findMany({ where: { fleetId, shipId, ...page }, orderBy: { seq: 'desc' }, take: limit + 1 }),
+        db.event.findMany({ where: { fleetId, actorShipId: shipId, ...page }, orderBy: { seq: 'desc' }, take: limit + 1 }),
+      ]);
+      const merged = new Map([...naming, ...caused].map((row) => [row.id, row]));
+      const newestFirst = [...merged.values()].sort((first, second) => (first.seq < second.seq ? 1 : -1));
+      const { items: rows, nextCursor } = pageOf(newestFirst, { limit, cursorOf: (row) => idSchema('event').parse(row.id) });
+      const events = rows.map(toSequencedEvent);
       const messageIds = [...new Set(events.flatMap((event) => (event.messageId === undefined ? [] : [event.messageId])))];
       const messages = new Map(
         (await db.message.findMany({ where: { fleetId, id: { in: messageIds } } }))
@@ -146,7 +235,7 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
           ...[...messages.values()].flatMap(shipsNamedBy),
         ],
       });
-      return events.map((event) => {
+      const entries = events.map((event) => {
         const message = event.messageId === undefined ? undefined : messages.get(event.messageId);
         return {
           seq: event.seq,
@@ -168,25 +257,34 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
           details: event.details,
         };
       });
+      return { items: entries, nextCursor };
     },
 
-    messages: async (fleetId, { shipId, limit }) => {
+    messages: async (fleetId, { shipId, cursor, limit }) => {
       if (!(await shipExists(db, { fleetId, shipId }))) {
         return undefined;
       }
-      // A message to a type shows on the page of each ship that claimed it,
+      // The messages it sent, those sent to it and those it claimed as a ship
+      // of their type, each read newest first through its own index, then
+      // merged: an OR would read every message of the ship to sort them. A
+      // message to a type shows on the page of each ship that claimed it,
       // which only the event log remembers once another ship holds it.
+      const before = cursor === undefined ? {} : { lt: cursor };
+      const [sent, sentTo, claimed] = await Promise.all([
+        db.message.findMany({ where: { fleetId, senderShipId: shipId, id: before }, select: { id: true }, orderBy: { id: 'desc' }, take: limit + 1 }),
+        db.message.findMany({ where: { fleetId, selectorShipId: shipId, id: before }, select: { id: true }, orderBy: { id: 'desc' }, take: limit + 1 }),
+        db.$queryRaw`
+          SELECT DISTINCT message_id AS id FROM events
+          WHERE fleet_id = ${fleetId} AND type = 'DeliveryHanded' AND ship_id = ${shipId}
+            AND (${cursor ?? null}::text IS NULL OR message_id < ${cursor ?? null})
+          ORDER BY message_id DESC
+          LIMIT ${limit + 1}`.then((claimedRows) => z.array(z.object({ id: idSchema('message') })).parse(claimedRows)),
+      ]);
+      const newestFirst = [...new Set([...sent, ...sentTo, ...claimed].map((row) => idSchema('message').parse(row.id)))].sort().reverse();
+      const page = pageOf(newestFirst, { limit, cursorOf: (id) => id });
       const rows = await db.message.findMany({
-        where: {
-          fleetId,
-          OR: [
-            { senderShipId: shipId },
-            { selectorShipId: shipId },
-            { events: { some: { type: 'DeliveryHanded', shipId } } },
-          ],
-        },
-        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-        take: limit,
+        where: { fleetId, id: { in: page.items } },
+        orderBy: { id: 'desc' },
         include: { deliveries: { select: DELIVERY_SELECT } },
       });
       const found = rows.map((row) => ({ message: toMessage(row), delivery: onlyDelivery(row) }));
@@ -197,7 +295,7 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
           ...(delivery.claimedByShipId === null ? [] : [delivery.claimedByShipId]),
         ]),
       });
-      return found.map((each) => historyMessageOf(each, party));
+      return { items: found.map((each) => historyMessageOf(each, party)), nextCursor: page.nextCursor };
     },
 
     message: async (fleetId, messageId) => {
@@ -264,65 +362,83 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
       );
     },
 
-    inbox: async (fleetId, { shipId, filter }) => {
-      const rows = await db.delivery.findMany({
+    openInboxCount: (fleetId, { shipId, senderIds }) =>
+      db.delivery.count({
         where: {
           fleetId,
           recipientShipId: shipId,
-          state: { in: DELIVERY_STATES.filter((state) => isKeptBy(filter, state)) },
+          state: { in: DELIVERY_STATES.filter((state) => isKeptBy('open', state)) },
+          ...(senderIds === undefined ? {} : { message: { senderShipId: { in: [...senderIds] } } }),
         },
-        select: { id: true, state: true, readAt: true, message: true },
-        orderBy: [{ message: { createdAt: 'desc' } }, { messageId: 'desc' }],
-      });
-      // When each was done, and by which reply: its last DeliveryAcknowledged.
-      const acknowledged = new Map(
-        (
-          await db.event.findMany({
-            where: { fleetId, type: 'DeliveryAcknowledged', deliveryId: { in: rows.map((row) => row.id) } },
-            orderBy: { seq: 'asc' },
-          })
-        )
-          .map(toSequencedEvent)
-          .map((event) => [event.deliveryId, event]),
-      );
-      const found = rows.map((row) => ({ row, message: toMessage(row.message) }));
-      const party = await partiesOf(db, { fleetId, shipIds: found.map(({ message }) => message.senderShipId) });
-      // The ship's own replies to its inbox's messages, oldest first.
-      const replies = (
-        await db.message.findMany({
-          where: { fleetId, senderShipId: shipId, inReplyToMessageId: { in: found.map(({ message }) => message.id) } },
-          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-        })
-      ).map(toMessage);
-      return found.map(({ row, message }) => {
-        const deliveryId = idSchema('delivery').parse(row.id);
-        const done = acknowledged.get(deliveryId);
-        const reply = done?.details.reply;
-        return {
-          deliveryId,
-          state: deliveryStateSchema.parse(row.state),
-          readAt: row.readAt,
-          doneAt: done?.occurredAt ?? null,
-          repliedWith: typeof reply === 'string' ? idSchema('message').parse(reply) : null,
-          replies: replies
-            .filter((held) => held.inReplyToMessageId === message.id)
-            .map((held) => ({ id: held.id, contentType: held.contentType, payload: held.payload, sentAt: held.createdAt })),
-          message: {
-            id: message.id,
-            sender: party(message.senderShipId),
-            inReplyTo: message.inReplyToMessageId,
-            sentAt: message.createdAt,
-            contentType: message.contentType,
-            model: message.model,
-            payload: message.payload,
+      }),
+
+    inbox: async (fleetId, { shipId, filter, cursor, limit }) => {
+      const page = pageOf(
+        await db.delivery.findMany({
+          where: {
+            fleetId,
+            recipientShipId: shipId,
+            state: { in: DELIVERY_STATES.filter((state) => isKeptBy(filter, state)) },
+            ...(cursor === undefined ? {} : { id: { lt: cursor } }),
           },
-        };
-      });
+          select: INBOX_ROW,
+          orderBy: { id: 'desc' },
+          take: limit + 1,
+        }),
+        { limit, cursorOf: (row) => idSchema('delivery').parse(row.id) },
+      );
+      return { items: await inboxEntriesOf(db, { fleetId, shipId, rows: page.items }), nextCursor: page.nextCursor };
     },
 
-    needsAttention: async (fleetId) => {
+    inboxMessage: async (fleetId, { shipId, deliveryId }) => {
+      const row = await db.delivery.findFirst({ where: { fleetId, id: deliveryId, recipientShipId: shipId }, select: INBOX_ROW });
+      return row ? (await inboxEntriesOf(db, { fleetId, shipId, rows: [row] }))[0] : undefined;
+    },
+
+    inboxWithdrawals: async (fleetId, { shipId, questionId, cursor, limit }) => {
+      const ids = z.array(z.object({ id: idSchema('delivery') })).parse(await db.$queryRaw(inboxWithdrawalsStatement(fleetId, { shipId, questionId, cursor, limit })));
+      const page = pageOf(ids, { limit, cursorOf: (row) => row.id });
+      const rows = await db.delivery.findMany({ where: { fleetId, id: { in: page.items.map((row) => row.id) } }, select: INBOX_ROW, orderBy: { id: 'asc' } });
+      // The index finds candidates; the payload parsed decides.
+      const entries = await inboxEntriesOf(db, { fleetId, shipId, rows: rows.filter((row) => withdrawalOf(row.message)?.questionId === questionId) });
+      return { items: entries, nextCursor: page.nextCursor };
+    },
+
+    needsAttention: async (fleetId, { shipId, state, cursor, limit }) => {
+      // Ordered by since when, each delivery's last DeliveryUndeliverable or
+      // DeliveryNotHandled, whose place in the stream also places the cursor:
+      // a cursor dismissed meanwhile keeps its event. A delivery the fleet
+      // never listed starts no page: nothing comes after it.
+      const after =
+        cursor === undefined
+          ? null
+          : ((
+              await db.event.findFirst({
+                where: { fleetId, deliveryId: cursor, type: { in: ['DeliveryUndeliverable', 'DeliveryNotHandled'] } },
+                orderBy: { seq: 'desc' },
+                select: { seq: true },
+              })
+            )?.seq ?? null);
+      if (cursor !== undefined && after === null) {
+        return { items: [], nextCursor: null };
+      }
+      const pageIds = z.array(z.object({ id: idSchema('delivery') })).parse(
+        await db.$queryRaw`
+          SELECT d.id FROM deliveries d
+          CROSS JOIN LATERAL (
+            SELECT e.seq, e.ship_id FROM events e
+            WHERE e.fleet_id = d.fleet_id AND e.delivery_id = d.id AND e.type IN ('DeliveryUndeliverable', 'DeliveryNotHandled')
+            ORDER BY e.seq DESC LIMIT 1) since
+          WHERE d.fleet_id = ${fleetId} AND d.state IN ('undeliverable', 'notHandled')
+            AND (${state ?? null}::text IS NULL OR d.state::text = ${state ?? null})
+            AND (${shipId ?? null}::text IS NULL OR since.ship_id = ${shipId ?? null})
+            AND (${after}::bigint IS NULL OR since.seq > ${after})
+          ORDER BY since.seq
+          LIMIT ${limit + 1}`,
+      );
+      const page = pageOf(pageIds, { limit, cursorOf: (row) => row.id });
       const rows = await db.delivery.findMany({
-        where: { fleetId, state: { in: ['undeliverable', 'notHandled'] } },
+        where: { fleetId, id: { in: page.items.map((row) => row.id) } },
         select: { id: true, state: true, attempts: true, handOverNumber: true, message: true },
       });
       // Since when each needs attention: its last DeliveryUndeliverable or
@@ -344,16 +460,16 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
         return { deliveryId, state: row.state, attempts: row.attempts, isPushed: row.handOverNumber !== null, message: toMessage(row.message), event, shipId: event.shipId };
       });
       const party = await partiesOf(db, { fleetId, shipIds: found.flatMap(({ message, shipId }) => [...shipsNamedBy(message), shipId]) });
-      return found
+      const items = found
         .sort((first, second) => first.event.seq - second.event.seq)
-        .map(({ deliveryId, state, attempts, isPushed, message, event, shipId }) => ({
+        .map(({ deliveryId, state, attempts, isPushed, message, event, shipId: sinceShipId }) => ({
           deliveryId,
           state,
           attempts,
           isPushed,
           since: event.occurredAt,
           reason: typeof event.details.reason === 'string' ? event.details.reason : null,
-          ship: party(shipId),
+          ship: party(sinceShipId),
           message: {
             id: message.id,
             sender: party(message.senderShipId),
@@ -365,6 +481,7 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
             payload: message.payload,
           },
         }));
+      return { items, nextCursor: page.nextCursor };
     },
 
     shipWay: async (fleetId, shipId) => {
