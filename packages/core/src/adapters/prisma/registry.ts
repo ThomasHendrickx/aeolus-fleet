@@ -866,7 +866,7 @@ export function createPrismaFleetListing(db: Db): FleetListing {
       ]);
       return { inFlight, open };
     },
-    counts: (fleetId, reach) => readShipCounts(db, { fleetId, reach }),
+    counts: (fleetId, { reach, filter }) => readShipCounts(db, { fleetId, reach, selected: shipFilterCondition(filter, reach) }),
     statement: async (fleetId, shipId) => {
       const [row] = await db.$queryRaw<unknown[]>`
         SELECT statement, statement_version

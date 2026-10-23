@@ -29,7 +29,9 @@ function inReach(reach: ReadReach): Prisma.Sql {
   return reach.kind === 'every' ? Prisma.sql`true` : Prisma.sql`s.id = ANY(${[...reach.shipIds]}::text[])`;
 }
 
-export function shipCountsStatement(fleetId: FleetId, reach: ReadReach): Prisma.Sql {
+/** The count statement; `selected` is the fleet snapshot's filter as `AND ...` conditions over `ships s`. */
+export function shipCountsStatement(fleetId: FleetId, read: { reach: ReadReach; selected: Prisma.Sql }): Prisma.Sql {
+  const { reach, selected } = read;
   return Prisma.sql`
     WITH shown AS (
       SELECT s.id, s.name, s.kind::text AS kind,
@@ -46,7 +48,7 @@ export function shipCountsStatement(fleetId: FleetId, reach: ReadReach): Prisma.
       FROM ships s
       LEFT JOIN leases l ON l.fleet_id = s.fleet_id AND l.ship_id = s.id AND l.ended_at IS NULL
       LEFT JOIN crew_requests cr ON cr.fleet_id = s.fleet_id AND cr.ship_id = s.id
-      WHERE s.fleet_id = ${fleetId} AND ${inReach(reach)}
+      WHERE s.fleet_id = ${fleetId} AND ${inReach(reach)} ${selected}
     ),
     staged AS (
       SELECT *, has_request AND assigned_to_ship_id IS NULL AND NOT is_crewed_by_hand AS is_unassigned,
@@ -68,9 +70,9 @@ export function shipCountsStatement(fleetId: FleetId, reach: ReadReach): Prisma.
     GROUP BY kind`;
 }
 
-/** The ships in `reach` counted per kind, in the kinds' order. */
-export async function readShipCounts(db: Db, read: { fleetId: FleetId; reach: ReadReach }): Promise<ShipCounts[]> {
-  const rows = z.array(countsRow).parse(await db.$queryRaw(shipCountsStatement(read.fleetId, read.reach)));
+/** The ships in `reach` that `selected` keeps, counted per kind, in the kinds' order. */
+export async function readShipCounts(db: Db, read: { fleetId: FleetId; reach: ReadReach; selected: Prisma.Sql }): Promise<ShipCounts[]> {
+  const rows = z.array(countsRow).parse(await db.$queryRaw(shipCountsStatement(read.fleetId, read)));
   return rows
     .toSorted((first, second) => SHIP_KINDS.indexOf(first.kind) - SHIP_KINDS.indexOf(second.kind))
     .map((row) => ({

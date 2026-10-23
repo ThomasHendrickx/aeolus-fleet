@@ -21,6 +21,7 @@ import {
   healthOutputSchema,
   acknowledgedSchema,
   listedShipOutputSchema,
+  shipCountsInputSchema,
   shipCountsOutputSchema,
   stuckCountOutputSchema,
   stuckInputSchema,
@@ -879,9 +880,10 @@ export const fleetRouter = router({
 
   /** The ships counted per kind: the overview's cards and subtitle, and the navigation's needs-crew count. */
   shipCounts: actorScopedProcedure('fleet:read')
+    .input(shipCountsInputSchema)
     .output(shipCountsOutputSchema)
-    .query(async ({ ctx }) =>
-      (await ctx.useCases.countShips(ctx.caller)).map(({ longestWait, ...counts }) => ({
+    .query(async ({ ctx, input }) =>
+      (await ctx.useCases.countShips(ctx.caller, { filter: input?.filter })).map(({ longestWait, ...counts }) => ({
         ...counts,
         longestWait: longestWait && { ...longestWait, awaitingCrewSince: longestWait.awaitingCrewSince.toISOString() },
       })),

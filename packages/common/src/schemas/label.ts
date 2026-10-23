@@ -61,6 +61,9 @@ export const fleetListFilterSchema = z.object({
   pluginShipIds: z.array(idSchema('ship')).optional(),
 });
 
+/** Input of `fleet.shipCounts`: count only the ships the fleet snapshot's filter selects; none counts every ship. */
+export const shipCountsInputSchema = z.object({ filter: fleetListFilterSchema.optional() }).optional();
+
 /** The columns `fleet.list` sorts by, as the overview shows them. */
 export const SHIP_SORT_COLUMNS = ['ship', 'status', 'report', 'labels', 'runsOn', 'seen'] as const;
 export type ShipSortColumn = (typeof SHIP_SORT_COLUMNS)[number];

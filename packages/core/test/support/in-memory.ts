@@ -1493,12 +1493,13 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       const held = state.ships.find((candidate) => candidate.fleetId === fleetId && candidate.id === shipId);
       return Promise.resolve(held && factsOf(held));
     },
-    counts: (fleetId, reach) =>
+    counts: (fleetId, { reach, filter }) =>
       Promise.resolve(
         shipCountsOf(
           state.ships
             .filter((held) => held.fleetId === fleetId && readsShip(reach, held.id))
-            .map((held) => listedShipOf(factsOf(held))),
+            .map((held) => listedShipOf(factsOf(held)))
+            .filter((listed) => matchesShipFilter(listed, { filter, isInReach: true })),
         ),
       ),
     labels: (fleetId) =>

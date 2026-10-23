@@ -491,8 +491,8 @@ export interface FleetListing {
   labels(fleetId: FleetId): Promise<ListedLabel[]>;
   /** One ship of the fleet, read the same way; undefined when the fleet has no such ship. */
   ship(fleetId: FleetId, shipId: ShipId): Promise<ShipFacts | undefined>;
-  /** The ships in `reach` counted per kind, as `shipCountsOf` counts them, without reading each ship. */
-  counts(fleetId: FleetId, reach: ReadReach): Promise<ShipCounts[]>;
+  /** The ships in `reach` that `filter` selects, counted per kind as `shipCountsOf` counts them, without reading each ship. */
+  counts(fleetId: FleetId, read: { reach: ReadReach; filter: ShipFilter }): Promise<ShipCounts[]>;
   /**
    * The ship's deliveries as its page counts them: in flight with it (what a
    * release returns) and its direct ones pending or in flight (what a retire

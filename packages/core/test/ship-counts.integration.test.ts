@@ -75,6 +75,18 @@ describe('the ship counts on Postgres', () => {
     ]);
   });
 
+  it('counts only the ships the filter selects, through the fleet snapshot filter', async () => {
+    const scout = await commission('scout');
+    await claim(scout);
+    await commission('lookout');
+    const keeper = await commission('keeper');
+    unwrap(await core.useCases.retireShip(argo, { shipId: keeper.shipId }));
+
+    await expect(core.useCases.countShips(argo, { filter: { status: ['crewed', 'retired'], type: ['reviewer'] } })).resolves.toEqual([
+      { kind: 'agent', active: 1, crewed: 1, awaitingCrew: 0, retired: 1, needsCrew: { withTrierarchs: 0, withoutTrierarchs: 0 }, longestWait: null },
+    ]);
+  });
+
   it('counts a ship whose crew left as awaiting crew since its last lease ended', async () => {
     const scout = await commission('scout');
     await claim(scout);
