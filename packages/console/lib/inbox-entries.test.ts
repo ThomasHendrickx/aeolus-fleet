@@ -1,7 +1,7 @@
 import { createIdGenerator, QUESTION_CONTENT_TYPE, REPLACEMENT_CONTENT_TYPE, WITHDRAWAL_CONTENT_TYPE, type InboxMessage, type ShipId } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
-import { inboxEntriesOf } from './inbox-entries';
+import { inboxEntriesOf, inboxEntryOf } from './inbox-entries';
 import { isOpenEntry } from './inbox-entry';
 
 const newId = createIdGenerator();
@@ -127,5 +127,20 @@ describe('inboxEntriesOf', () => {
     const open = inboxEntriesOf(inbox, SHIPS).filter(isOpenEntry);
 
     expect(open.map((entry) => (entry.kind === 'question' ? entry.question.title : entry.text.headline))).toEqual(['Deployed.', 'Rename the inbox filter, now that core moved?']);
+  });
+});
+
+describe('inboxEntryOf', () => {
+  it('reads the one question or message with this delivery, laid out with the withdrawal that made it stale', () => {
+    const question = aMessage({ contentType: QUESTION_CONTENT_TYPE, payload: JSON.stringify(QUESTION) });
+    const withdrawal = aMessage({ contentType: WITHDRAWAL_CONTENT_TYPE, payload: JSON.stringify({ questionId: QUESTION.id }) });
+
+    const entry = inboxEntryOf([withdrawal, aMessage(), question], { ships: SHIPS, deliveryId: question.deliveryId });
+
+    expect(entry).toMatchObject({ kind: 'question', deliveryId: question.deliveryId, stale: { kind: 'withdrawn' } });
+  });
+
+  it('reads none for a delivery the inbox does not hold', () => {
+    expect(inboxEntryOf([aMessage()], { ships: SHIPS, deliveryId: newId('delivery') })).toBeNull();
   });
 });
