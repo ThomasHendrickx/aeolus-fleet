@@ -55,6 +55,9 @@ export const operatorInboxOutputSchema = pageOutputOf(inboxMessageSchema, idSche
 /** Input of `fleet.markRead`: a delivery to argo, read or unread again. */
 export const markReadInputSchema = z.object({ deliveryId: idSchema('delivery'), isRead: z.boolean() });
 
+/** Output of `fleet.inboxCount`: how many messages to argo are open, for the navigation and the Open segment. */
+export const inboxCountOutputSchema = z.object({ open: z.int().nonnegative() });
+
 /** Output of `fleet.markRead` and `fleet.markDone`: nothing; the OK is the answer. */
 export const inboxActionOutputSchema = z.strictObject({});
 

@@ -245,6 +245,8 @@ export interface ShipHistory {
   shipWay(fleetId: FleetId, shipId: ShipId): Promise<ShipWayRead | undefined>;
   /** A page of the messages addressed to the ship itself that the filter keeps, newest first by delivery, after the delivery the cursor names. */
   inbox(fleetId: FleetId, query: { shipId: ShipId; filter: InboxFilter } & PageQuery<DeliveryId>): Promise<Page<InboxEntry, DeliveryId>>;
+  /** How many messages to the ship itself are open; with senders, only those they sent. */
+  openInboxCount(fleetId: FleetId, query: { shipId: ShipId; senderIds?: ReadonlySet<ShipId> }): Promise<number>;
   /** Each message's parties as read reach sees them, by id; a message the fleet does not have is left out. */
   messageParties(fleetId: FleetId, messageIds: readonly MessageId[]): Promise<ReadonlyMap<MessageId, MessageParties>>;
 }

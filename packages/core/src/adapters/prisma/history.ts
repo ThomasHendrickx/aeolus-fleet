@@ -284,6 +284,16 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
       );
     },
 
+    openInboxCount: (fleetId, { shipId, senderIds }) =>
+      db.delivery.count({
+        where: {
+          fleetId,
+          recipientShipId: shipId,
+          state: { in: DELIVERY_STATES.filter((state) => isKeptBy('open', state)) },
+          ...(senderIds === undefined ? {} : { message: { senderShipId: { in: [...senderIds] } } }),
+        },
+      }),
+
     inbox: async (fleetId, { shipId, filter, cursor, limit }) => {
       const page = pageOf(
         await db.delivery.findMany({

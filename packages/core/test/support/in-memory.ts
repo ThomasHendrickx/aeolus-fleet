@@ -1730,6 +1730,19 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
             }),
         ),
       ),
+    openInboxCount: (fleetId, { shipId, senderIds }) =>
+      Promise.resolve(
+        state.deliveries.filter((delivery) => {
+          const senderId = messageOf(fleetId, delivery.messageId)?.senderShipId;
+          return (
+            delivery.fleetId === fleetId &&
+            delivery.recipient.kind === 'ship' &&
+            delivery.recipient.shipId === shipId &&
+            isKeptBy('open', delivery.state) &&
+            (senderIds === undefined || (senderId !== undefined && senderIds.has(senderId)))
+          );
+        }).length,
+      ),
     inbox: (fleetId, { shipId, filter, cursor, limit }) =>
       Promise.resolve(
         state.deliveries

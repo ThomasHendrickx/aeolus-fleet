@@ -18,6 +18,7 @@ import {
   healthOutputSchema,
   operatorInboxInputSchema,
   operatorInboxOutputSchema,
+  inboxCountOutputSchema,
   pingShipInputSchema,
   pingShipOutputSchema,
   shipOutputSchema,
@@ -909,6 +910,11 @@ export const fleetRouter = router({
         nextCursor,
       };
     }),
+
+  /** How many messages to the caller's inbox, argo's for the console, are open: counted in one query. */
+  inboxCount: actorScopedProcedure('fleet:read')
+    .output(inboxCountOutputSchema)
+    .query(({ ctx }) => ctx.useCases.countOpenInbox(ctx.caller)),
 
   /** Marks a message to argo read, as opening it does, or unread again. Read is not done. */
   markRead: scopedCrewCallerProcedure('messages:receive')

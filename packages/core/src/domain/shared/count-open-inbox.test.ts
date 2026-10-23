@@ -1,7 +1,7 @@
 import { accountIdSchema, type LabelValueId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { applyNetworkRules, deliveryIdOf, everyShipMay } from '../../../test/support/core-fixtures.js';
+import { applyNetworkRules, argoAboard, deliveryIdOf, everyShipMay } from '../../../test/support/core-fixtures.js';
 import { valueIdOf } from '../../../test/support/label-fixtures.js';
 import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
 import { unwrap } from '../../testing/result.js';
@@ -30,7 +30,7 @@ describe("counting argo's open messages", () => {
     await fleet.send(fleet.near, { kind: 'ship', shipId: fleet.argo.shipId });
     await fleet.send(fleet.far, { kind: 'ship', shipId: fleet.argo.shipId });
     const done = await fleet.send(fleet.far, { kind: 'ship', shipId: fleet.argo.shipId });
-    unwrap(await fleet.messaging.markDone(fleet.argo, { deliveryId: deliveryIdOf(fleet.core, done) }));
+    unwrap(await fleet.messaging.markDone(await argoAboard(fleet.core), { deliveryId: deliveryIdOf(fleet.core, done) }));
     await fleet.send(fleet.argo, { kind: 'ship', shipId: fleet.near.shipId });
     await fleet.send(fleet.near, { kind: 'ship', shipId: fleet.far.shipId });
 

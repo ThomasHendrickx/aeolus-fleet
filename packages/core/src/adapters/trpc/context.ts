@@ -102,6 +102,7 @@ import type { ListScopes } from '../../domain/registry/list-scopes.js';
 import type { UnassignLabel } from '../../domain/registry/unassign-label.js';
 import type { FollowFleet } from '../../domain/shared/follow-fleet.js';
 import type { ReadInbox } from '../../domain/shared/read-inbox.js';
+import type { CountOpenInbox } from '../../domain/shared/count-open-inbox.js';
 import type { ReadMessage } from '../../domain/shared/read-message.js';
 import type { ReadSentMessage } from '../../domain/shared/read-sent-message.js';
 import type { ReadNeedsAttention } from '../../domain/shared/read-needs-attention.js';
@@ -211,6 +212,7 @@ export interface UseCases {
   readNeedsAttention: ReadNeedsAttention;
   readHealth: ReadHealth;
   readInbox: ReadInbox;
+  countOpenInbox: CountOpenInbox;
   createFleet: CreateFleet;
   deleteFleet: DeleteFleet;
   listInstallationFleets: ListInstallationFleets;
