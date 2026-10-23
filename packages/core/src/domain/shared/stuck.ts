@@ -5,7 +5,7 @@
  * days count alike. Facts only: no thresholds of its own beyond the clocks the
  * pushed leases already run (decision 0040).
  */
-import { isId, STUCK_TREND_HOURS, type DeliveryId, type DeliveryState, type EventType, type LeaseId, type MessageId, type ShipId, type StuckCause, type StuckState, type TurnState } from '@aeolus-fleet/common';
+import { eventTypeSchema, isId, STUCK_TREND_HOURS, type DeliveryId, type DeliveryState, type EventType, type LeaseId, type MessageId, type ShipId, type StuckCause, type StuckState, type TurnState } from '@aeolus-fleet/common';
 
 import { hasClockRunOut, NOT_CONFIRMED_MINUTES } from '../messaging/public.js';
 import type { FleetEvent } from './events.js';
@@ -85,6 +85,9 @@ const STEP_STATES: Partial<Record<EventType, DeliveryState>> = {
   DeliveryDismissed: 'dismissed',
   DeliveryAbandoned: 'abandoned',
 };
+
+/** The event types that can put a delivery in a state, so a reader loads only those. */
+export const STEP_EVENT_TYPES: readonly EventType[] = eventTypeSchema.options.filter((type) => STEP_STATES[type] !== undefined);
 
 /** The step a delivery event is, or none for an event that changes no state: a receipt again, a hand-over once more, or no delivery event at all. */
 export function stateStepOf(event: Pick<FleetEvent, 'type' | 'occurredAt' | 'shipId' | 'details'>): DeliveryStep | undefined {

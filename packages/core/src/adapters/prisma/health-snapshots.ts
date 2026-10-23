@@ -12,10 +12,10 @@ import { z } from 'zod';
 
 import { foldAt, type HealthFold } from '../../domain/shared/health-fold.js';
 import type { HealthSnapshotWriter, HourSnapshot, StuckCount } from '../../domain/shared/health-snapshot.js';
-import { stateStepOf, type DeliveryRecord, type DeliveryStep } from '../../domain/shared/stuck.js';
+import type { DeliveryRecord } from '../../domain/shared/stuck.js';
 import type { Db } from './client.js';
 import { Prisma } from './generated/client.js';
-import { deliveryRecordOf, deliveryRow, readCrews, recipientOf } from './health.js';
+import { baseDeliveriesStatement, deliveryRecordOf, deliveryRow, readCrews, readDeliveriesWithSteps, recipientOf } from './health.js';
 import { toSequencedEvent } from './rows.js';
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -175,32 +175,8 @@ export function createPrismaHealthSnapshots(db: Db): HealthSnapshotWriter {
 
     baseAt: async (fleetId, hour) => {
       const [last] = z.array(z.object({ seq: z.bigint() })).parse(await db.$queryRaw(baseSeqStatement(fleetId, hour)));
-      // Sent by then and open now, or with an event after it: what was open
-      // then left since, so its leaving event is after the hour. Two indexed
-      // parts, the open states' partial index and the events by time.
-      const deliveries = z.array(deliveryRow).parse(
-        await db.$queryRaw`
-          SELECT d.id, d.message_id, m.sender_ship_id, d.recipient_ship_id, d.recipient_type, d.claimed_by_ship_id, d.reachable_ship_ids, d.created_at
-          FROM (
-            SELECT id FROM deliveries WHERE fleet_id = ${fleetId} AND state IN ('pending', 'received', 'handed', 'undeliverable') AND created_at <= ${hour}
-            UNION
-            SELECT delivery_id FROM events WHERE fleet_id = ${fleetId} AND occurred_at > ${hour} AND delivery_id IS NOT NULL
-          ) c
-          JOIN deliveries d ON d.fleet_id = ${fleetId} AND d.id = c.id
-          JOIN messages m ON m.fleet_id = d.fleet_id AND m.id = d.message_id
-          WHERE d.created_at <= ${hour}`,
-      );
-      const ids = deliveries.map((delivery) => delivery.id);
-      const steps = new Map<string, DeliveryStep[]>();
-      const events = await db.event.findMany({ where: { fleetId, deliveryId: { in: ids }, occurredAt: { lte: hour } }, orderBy: { seq: 'asc' } });
-      for (const event of events.map(toSequencedEvent)) {
-        const step = stateStepOf(event);
-        if (step !== undefined && event.deliveryId !== undefined) {
-          steps.set(event.deliveryId, [...(steps.get(event.deliveryId) ?? []), step]);
-        }
-      }
+      const deliveriesThen = await readDeliveriesWithSteps(db, baseDeliveriesStatement(fleetId, hour));
       const turns = z.array(z.object({ lease_id: idSchema('lease'), turn: turnStateSchema, at: z.date() })).parse(await db.$queryRaw(baseTurnsStatement(fleetId, hour)));
-      const deliveriesThen = deliveries.map((delivery) => deliveryRecordOf(delivery, steps.get(delivery.id) ?? []));
       return {
         ...foldAt({ ships: [], leases: [], deliveries: deliveriesThen }, { at: hour, seq: Number(last?.seq ?? 0) }),
         turns: turns.map((turn) => ({ leaseId: turn.lease_id, turn: { state: turn.turn, at: turn.at } })),
