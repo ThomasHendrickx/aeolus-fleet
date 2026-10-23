@@ -2,7 +2,8 @@ import { type DeliveryId, fleetListOutputSchema, type InboxFilter, type InboxMes
 import { cookies } from 'next/headers';
 import type { z } from 'zod';
 
-import { inboxEntriesOf, inboxEntryOf } from './inbox-entries';
+import { inboxEntriesOf, inboxEntryOf, openEntriesOf } from './inbox-entries';
+import { questionsIn } from './question-answer';
 import { readInboxPagesUntil, type InboxPage } from './inbox-pages';
 import type { InboxEntry } from './inbox-entry';
 import { threadBefore, type ThreadMessage } from './inbox-thread';
@@ -55,8 +56,20 @@ export async function readInbox({ filter, size }: { filter: InboxFilter; size: n
     return inbox;
   }
   const { items, nextCursor } = inbox.data;
+  const shown = items.slice(0, size);
   // Without the fleet's ships every message still shows, only none folds as a plugin ship's.
-  return { kind: 'answered', data: { items: inboxEntriesOf(items.slice(0, size), ships.kind === 'answered' ? ships.data : []), hasMore: nextCursor !== null || items.length > size } };
+  const listed = ships.kind === 'answered' ? ships.data : [];
+  const hasMore = nextCursor !== null || items.length > size;
+  if (filter !== 'open') {
+    return { kind: 'answered', data: { items: inboxEntriesOf(shown, listed), hasMore } };
+  }
+  // What makes an open question stale is newer and need not be open: read every message to the oldest question shown.
+  const oldest = questionsIn(shown).at(-1);
+  const newer = oldest === undefined ? undefined : await readArgoInboxTo(oldest.deliveryId);
+  if (newer?.kind === 'refused') {
+    return newer;
+  }
+  return { kind: 'answered', data: { items: openEntriesOf(shown, { newer: newer?.data.items ?? [], ships: listed }), hasMore } };
 }
 
 /**

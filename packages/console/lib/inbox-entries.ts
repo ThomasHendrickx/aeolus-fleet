@@ -71,3 +71,14 @@ export function inboxEntriesOf(inbox: readonly InboxMessage[], ships: readonly L
 export function inboxEntryOf(inbox: readonly InboxMessage[], { ships, deliveryId }: { ships: readonly ListedShip[]; deliveryId: DeliveryId }): InboxEntry | null {
   return inboxEntriesOf(inbox, ships).find((entry) => entry.deliveryId === deliveryId) ?? null;
 }
+
+/**
+ * The open messages laid out with the newer ones read beside them: a question
+ * is stale by a withdrawal or replacement that is newer and need not be open
+ * (decision 0038). Only the open ones, in their order.
+ */
+export function openEntriesOf(open: readonly InboxMessage[], { newer, ships }: { newer: readonly InboxMessage[]; ships: readonly ListedShip[] }): InboxEntry[] {
+  const openIds = new Set(open.map(({ deliveryId }) => deliveryId));
+  const laidOut = new Map(inboxEntriesOf([...open, ...newer.filter(({ deliveryId }) => !openIds.has(deliveryId))], ships).map((entry) => [entry.deliveryId, entry]));
+  return open.flatMap(({ deliveryId }) => laidOut.get(deliveryId) ?? []);
+}
