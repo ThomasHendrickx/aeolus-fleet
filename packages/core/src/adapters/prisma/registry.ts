@@ -628,12 +628,12 @@ const crewedByOfShip = Prisma.sql`
 
 /**
  * The listing's one statement: a page of the fleet's ships with what the
- * snapshot shows of each, oldest first by ship id, read on through the
- * ships' (fleet_id, id) index from the cursor, so a page costs the same at
- * any fleet size (decision 4 of the performance design). With label value
- * ids, only the ships that carry every one of them. One row per ship: at
- * most one lease is open and at most one secret is valid per ship (partial
- * unique indexes), so neither join multiplies rows.
+ * snapshot shows of each, oldest first, read on in ship id order from the
+ * cursor through the ships' index, so a page costs the same at any fleet
+ * size (decision 4 of the performance design). With label value ids, only
+ * the ships that carry every one of them. One row per ship: at most one lease
+ * is open and at most one secret is valid per ship (partial unique indexes),
+ * so neither join multiplies rows.
  */
 export function fleetListingStatement(fleetId: FleetId, { after, limit, valueIds = [] }: ShipPage): Prisma.Sql {
   const afterShip = after === undefined ? Prisma.empty : Prisma.sql`AND s.id > ${after}`;
