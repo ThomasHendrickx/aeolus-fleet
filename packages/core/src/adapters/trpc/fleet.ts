@@ -89,6 +89,11 @@ import {
   setVerifiedFactsOutputSchema,
   explainReachOutputSchema,
   applyNetworkRulesInputSchema,
+  checkNetworkRulesFileInputSchema,
+  checkNetworkRulesFileOutputSchema,
+  importNetworkRulesInputSchema,
+  importNetworkRulesOutputSchema,
+  networkRulesFileSchema,
   discardNetworkRulesDraftOutputSchema,
   networkRulesDraftChangesOutputSchema,
   networkRulesOutputSchema,
@@ -122,7 +127,7 @@ import type { SequencedEvent } from '../../domain/shared/events.js';
 import type { InboxEntry } from '../../domain/shared/history.js';
 import { describedHealth } from './health.js';
 import { presentStartingPrompt } from './starting-prompt-text.js';
-import { actorAnyScopeProcedure, actorScopedProcedure, anyScopeProcedure, callerStillHolding, okOrThrow, ownPersonShipOrAnyScopeProcedure, router, scopedCrewCallerProcedure, scopedProcedure } from './trpc.js';
+import { actorAllScopesProcedure, actorAnyScopeProcedure, actorScopedProcedure, anyScopeProcedure, callerStillHolding, okOrThrow, ownPersonShipOrAnyScopeProcedure, router, scopedCrewCallerProcedure, scopedProcedure } from './trpc.js';
 
 /** A crew request as the API answers it: its times in ISO 8601, and when its session started as `startedAt`. */
 function crewRequestOutputOf<T extends { requestedAt: Date; sessionStartedAt: Date | null; givenBack: ShipFacts['crewRequestGivenBack'] }>(request: T | null) {
@@ -717,6 +722,45 @@ export const fleetRouter = router({
     .input(applyNetworkRulesInputSchema)
     .output(networkVersionOutputSchema)
     .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.applyNetworkRules(ctx.caller, input))),
+
+  /** The applied rules and the labels they use, by name, as one file (design network-io, section 4). */
+  exportNetworkRules: actorScopedProcedure('fleet:network')
+    .meta({
+      description: [
+        "Needs fleet:network. The fleet's applied network rules, never the draft, as one network rules file: every id by name, a label value by its key and value, a label by its key, an owner's ship by its name, beside the labels the rules use with their values and definers.",
+        'It carries the format aeolus.network-rules, its version, when it was exported, the fleet and the settings version of the rules, to tell two files apart. Rules of null are none applied, all-to-all. A rule on a label the fleet no longer has matches no ship and is left out. Bring it back with fleet_importNetworkRules, into this fleet or another.',
+      ].join(' '),
+    })
+    .output(networkRulesFileSchema)
+    .query(async ({ ctx }) => okOrThrow(await ctx.useCases.exportNetworkRules(ctx.caller))),
+
+  /**
+   * The file checked before an import: what it holds and where the fleet
+   * differs (design network-io, section 5). A mutation though it reads only,
+   * as the file of up to 64 KB travels in the body, never in a query's URL.
+   */
+  checkNetworkRulesFile: actorAllScopesProcedure('fleet:network', 'labels:define')
+    .meta({
+      description: [
+        'Needs fleet:network and labels:define. Checks a network rules file, as fleet_exportNetworkRules writes it, given as its text: its format, version, shape and limits. A file that breaks is INVALID_NETWORK_RULES_FILE naming each break; another version is refused, never migrated.',
+        'Answers the file, the label keys import would define, and the differences with this fleet, each with the ways to resolve it: a key the fleet has with another definer (useExisting or dropRules on it), with other values (useExisting when it has every value the rules name, else dropRules naming a value it lacks), or an owner ship name no active ship has (pickShip or dropRules). It changes nothing.',
+      ].join(' '),
+    })
+    .input(checkNetworkRulesFileInputSchema)
+    .output(checkNetworkRulesFileOutputSchema)
+    .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.checkNetworkRulesFile(ctx.caller, input))),
+
+  /** Imports a network rules file into the draft (design network-io, section 5). */
+  importNetworkRules: actorAllScopesProcedure('fleet:network', 'labels:define')
+    .meta({
+      description: [
+        'Needs fleet:network and labels:define. Imports a network rules file into the draft of the fleet\'s own rules, in place of the draft before: give its text, a resolution for every difference fleet_checkNetworkRulesFile answered, by its kind and key or ship name and one of its ways (pickShip names the ship by shipId), and the definer of the labels the fleet lacks, argo when you name none, or an active ship within your manage reach.',
+        'In one unit of work the fleet is checked again: a difference without a resolution is LABEL_DIFFERENCES and nothing is written. The missing labels are defined for the definer, and the rules, by ids, are the draft; nothing is in force until fleet_applyNetworkRules applies it. Answers the settings version the draft was saved against and the keys it defined.',
+      ].join(' '),
+    })
+    .input(importNetworkRulesInputSchema)
+    .output(importNetworkRulesOutputSchema)
+    .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.importNetworkRules(ctx.caller, input))),
 
   /** A built-in rule turned on or off: the viewer reading, by any actor holding fleet:network (decision 0034). */
   setBuiltInRule: actorScopedProcedure('fleet:network')

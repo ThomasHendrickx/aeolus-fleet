@@ -630,6 +630,20 @@ export function actorScopedProcedure(scope: Scope) {
   });
 }
 
+/**
+ * A fleet call any actor makes needing every one of the given scopes: import
+ * of the network rules, which changes the rules and defines labels (design
+ * network-io, Q5). Checked before any use case runs, as for one scope.
+ */
+export function actorAllScopesProcedure(...scopes: [Scope, Scope, ...Scope[]]) {
+  return actorProcedure.use(async ({ ctx, next }) => {
+    if (!scopes.every((scope) => hasScope(ctx.caller, scope))) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: `This call needs the ${scopes.join(' and ')} scopes` });
+    }
+    return next({ ctx: { caller: await readerOf(ctx, ctx.caller) } });
+  });
+}
+
 /** A call a ship alone makes (see shipOf), needing the given scope, checked as for any actor first. */
 export function scopedProcedure(scope: Scope) {
   return actorScopedProcedure(scope).use(({ ctx, next }) => next({ ctx: { caller: shipOf(ctx.caller) } }));
