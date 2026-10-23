@@ -108,6 +108,24 @@ describe('counting the ships of the fleet', () => {
     await expect(agentCounts()).resolves.toMatchObject({ needsCrew: { withTrierarchs: 0, withoutTrierarchs: 0 } });
   });
 
+  it('counts only the ships the filter selects, as the fleet snapshot filters them', async () => {
+    const scout = await commission('scout');
+    await commission('lookout');
+    crewAboard(core, { fleetId, shipId: scout });
+
+    const counts = await registry.countShips(argo, { filter: { query: 'SCO' } });
+
+    expect(counts).toEqual([
+      { kind: 'agent', active: 1, crewed: 1, awaitingCrew: 0, retired: 0, needsCrew: { withTrierarchs: 0, withoutTrierarchs: 0 }, longestWait: null },
+    ]);
+  });
+
+  it('counts every ship with an empty filter', async () => {
+    await commission('scout');
+
+    await expect(registry.countShips(argo, { filter: {} })).resolves.toEqual(await registry.countShips(argo));
+  });
+
   it("counts only the ships in the caller's read reach (decision 0034)", async () => {
     const fleet = await readReachScenario();
     await fleet.readRulesApply();
