@@ -415,7 +415,7 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `WorktreeClearRequested` | Registry | A ship asked the trierarch to clear a worktree it kept: on the trierarch's ship, details hold the worktree's ship id and repository |
 | `WorktreeCleared` | Registry | The trierarch confirmed a clear request: details hold the worktree's ship id and repository, and the outcome, `removed` or `not-kept` |
 | `WorktreeClearRemoved` | Registry | A clear request went with its retired trierarch: details hold the worktree's ship id and repository |
-| `LabelDefined` | Registry | A ship defined a label it owns: details hold the label id and key, and its values and their ids |
+| `LabelDefined` | Registry | A label was defined, owned by the ship it names: by that ship itself, or by an import of network rules for the definer it picked, the importer as its actor (decision 0031). Details hold the label id and key, and its values and their ids |
 | `LabelValuesChanged` | Registry | The owner gave its label the values it has now: details hold the label id and key, and the values and their ids |
 | `LabelRetired` | Registry | The label's owner retired, so the label is gone and its key free: details hold the label id and key. Written after a LabelUnassigned for every ship that carried it |
 | `LabelDeleted` | Registry | The owner deleted its label, which no ship carried, so its key is free: details hold the label id and key |
