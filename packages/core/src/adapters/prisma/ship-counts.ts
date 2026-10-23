@@ -29,45 +29,66 @@ function inReach(reach: ReadReach): Prisma.Sql {
   return reach.kind === 'every' ? Prisma.sql`true` : Prisma.sql`s.id = ANY(${[...reach.shipIds]}::text[])`;
 }
 
-/** The count statement; `selected` is the fleet snapshot's filter as `AND ...` conditions over `ships s`. */
+/**
+ * The count statement; `selected` is the fleet snapshot's filter as `AND ...`
+ * conditions over `ships s`. Each part is read once for all ships (the last
+ * ended lease of those awaiting crew, the starting prompts of those asking),
+ * not per ship, and the longest wait is one row per kind, not a sort of every
+ * waiting ship: per-ship subqueries put the estimate past Postgres's JIT
+ * threshold at 23,000 ships, and compiling cost more than the statement.
+ */
 export function shipCountsStatement(fleetId: FleetId, read: { reach: ReadReach; selected: Prisma.Sql }): Prisma.Sql {
   const { reach, selected } = read;
   return Prisma.sql`
     WITH shown AS (
-      SELECT s.id, s.name, s.kind::text AS kind,
+      SELECT s.id, s.name, s.kind::text AS kind, s.created_at,
         CASE WHEN s.retired_at IS NOT NULL THEN 'retired'
              WHEN l.id IS NOT NULL OR s.kind IN ('operator', 'viewer') THEN 'crewed'
              ELSE 'awaitingCrew' END AS status,
-        s.created_at, l.id AS lease_id,
-        cr.ship_id IS NOT NULL AS has_request, cr.assigned_to_ship_id, cr.status::text AS crew_status,
-        -- Crewed by hand: the open lease's crew claimed a starting prompt issued before it started.
-        CASE WHEN cr.ship_id IS NOT NULL AND cr.assigned_to_ship_id IS NULL AND l.id IS NOT NULL
-             THEN EXISTS (SELECT 1 FROM events e
-                          WHERE e.fleet_id = s.fleet_id AND e.ship_id = s.id AND e.type = 'StartingPromptIssued' AND e.occurred_at <= l.started_at)
-             ELSE false END AS is_crewed_by_hand
+        l.id AS lease_id, l.started_at AS lease_started_at,
+        cr.ship_id IS NOT NULL AS has_request, cr.assigned_to_ship_id, cr.status::text AS crew_status
       FROM ships s
       LEFT JOIN leases l ON l.fleet_id = s.fleet_id AND l.ship_id = s.id AND l.ended_at IS NULL
       LEFT JOIN crew_requests cr ON cr.fleet_id = s.fleet_id AND cr.ship_id = s.id
       WHERE s.fleet_id = ${fleetId} AND ${inReach(reach)} ${selected}
     ),
+    -- Crewed by hand: the open lease's crew claimed a starting prompt issued before it started.
+    crewed_by_hand AS (
+      SELECT DISTINCT sh.id FROM shown sh
+      JOIN events e ON e.fleet_id = ${fleetId} AND e.ship_id = sh.id AND e.type = 'StartingPromptIssued' AND e.occurred_at <= sh.lease_started_at
+      WHERE sh.has_request AND sh.assigned_to_ship_id IS NULL AND sh.lease_id IS NOT NULL
+    ),
+    last_ended AS (
+      SELECT el.ship_id, max(el.ended_at) AS ended_at FROM leases el
+      JOIN shown sh ON sh.id = el.ship_id AND sh.status = 'awaitingCrew'
+      WHERE el.fleet_id = ${fleetId} AND el.ended_at IS NOT NULL
+      GROUP BY el.ship_id
+    ),
     staged AS (
-      SELECT *, has_request AND assigned_to_ship_id IS NULL AND NOT is_crewed_by_hand AS is_unassigned,
-        CASE WHEN status = 'awaitingCrew'
-             THEN GREATEST(created_at, (SELECT max(el.ended_at) FROM leases el WHERE el.fleet_id = ${fleetId} AND el.ship_id = shown.id AND el.ended_at IS NOT NULL))
-             END AS awaiting_since
-      FROM shown
+      SELECT sh.*, sh.has_request AND sh.assigned_to_ship_id IS NULL AND hand.id IS NULL AS is_unassigned,
+        CASE WHEN sh.status = 'awaitingCrew' THEN GREATEST(sh.created_at, ended.ended_at) END AS awaiting_since
+      FROM shown sh
+      LEFT JOIN crewed_by_hand hand ON hand.id = sh.id
+      LEFT JOIN last_ended ended ON ended.ship_id = sh.id
+    ),
+    longest AS (
+      SELECT DISTINCT ON (kind) kind, json_build_object('id', id, 'name', name, 'since', awaiting_since) AS longest_wait
+      FROM staged WHERE status = 'awaitingCrew'
+      ORDER BY kind, awaiting_since, id
+    ),
+    counted AS (
+      SELECT kind,
+        count(*) FILTER (WHERE status <> 'retired')::int AS active,
+        count(*) FILTER (WHERE status = 'crewed')::int AS crewed,
+        count(*) FILTER (WHERE status = 'awaitingCrew')::int AS awaiting_crew,
+        count(*) FILTER (WHERE status = 'retired')::int AS retired,
+        count(*) FILTER (WHERE status <> 'retired' AND (is_unassigned
+          OR (assigned_to_ship_id IS NOT NULL AND crew_status IS DISTINCT FROM 'running' AND crew_status IS DISTINCT FROM 'releasing')))::int AS needs_crew_with_trierarchs,
+        count(*) FILTER (WHERE status = 'awaitingCrew' AND is_unassigned)::int AS needs_crew_without_trierarchs
+      FROM staged
+      GROUP BY kind
     )
-    SELECT kind,
-      count(*) FILTER (WHERE status <> 'retired')::int AS active,
-      count(*) FILTER (WHERE status = 'crewed')::int AS crewed,
-      count(*) FILTER (WHERE status = 'awaitingCrew')::int AS awaiting_crew,
-      count(*) FILTER (WHERE status = 'retired')::int AS retired,
-      count(*) FILTER (WHERE status <> 'retired' AND (is_unassigned
-        OR (assigned_to_ship_id IS NOT NULL AND crew_status IS DISTINCT FROM 'running' AND crew_status IS DISTINCT FROM 'releasing')))::int AS needs_crew_with_trierarchs,
-      count(*) FILTER (WHERE status = 'awaitingCrew' AND is_unassigned)::int AS needs_crew_without_trierarchs,
-      (array_agg(json_build_object('id', id, 'name', name, 'since', awaiting_since) ORDER BY awaiting_since, id) FILTER (WHERE status = 'awaitingCrew'))[1] AS longest_wait
-    FROM staged
-    GROUP BY kind`;
+    SELECT counted.*, longest.longest_wait FROM counted LEFT JOIN longest ON longest.kind = counted.kind`;
 }
 
 /** The ships in `reach` that `selected` keeps, counted per kind, in the kinds' order. */
