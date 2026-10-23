@@ -166,6 +166,7 @@ import { createReadHealth, type ReadHealth } from './domain/shared/read-health.j
 import { createReadStuckCount, type ReadStuckCount } from './domain/shared/read-stuck-count.js';
 import { createReadStuckHistory, type ReadStuckHistory } from './domain/shared/read-stuck-history.js';
 import { createReadStuck, type ReadStuck } from './domain/shared/read-stuck.js';
+import { createReadStuckSummary, type ReadStuckSummary } from './domain/shared/read-stuck-summary.js';
 import { createCloseHealthSnapshots, type CloseHealthSnapshots } from './domain/shared/close-health-snapshots.js';
 import { createReadShipMessages, type ReadShipMessages } from './domain/shared/read-ship-messages.js';
 import { createReadShipTimeline, type ReadShipTimeline } from './domain/shared/read-ship-timeline.js';
@@ -261,6 +262,7 @@ export interface UseCases {
   readHealth: ReadHealth;
   readStuckCount: ReadStuckCount;
   readStuck: ReadStuck;
+  readStuckSummary: ReadStuckSummary;
   readStuckHistory: ReadStuckHistory;
   readAcknowledged: ReadAcknowledged;
   readInbox: ReadInbox;
@@ -492,6 +494,7 @@ export function createUseCases(options: {
     readHealth: createReadHealth({ ...healthReads, clock, readReach }),
     readStuckCount: createReadStuckCount({ ...healthReads, clock, readReach }),
     readStuck: createReadStuck({ ...healthReads, clock, readReach }),
+    readStuckSummary: createReadStuckSummary({ ...healthReads, clock, readReach }),
     readStuckHistory: createReadStuckHistory({ ...healthReads, clock, readReach }),
     readAcknowledged: createReadAcknowledged({ ...healthReads, clock, readReach }),
     readInbox: createReadInbox({ history: createPrismaShipHistory(prisma), ships: createPrismaShipRepository(prisma), readReach }),

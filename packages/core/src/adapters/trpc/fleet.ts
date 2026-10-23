@@ -25,6 +25,7 @@ import {
   stuckCountOutputSchema,
   stuckInputSchema,
   stuckOutputSchema,
+  stuckSummaryOutputSchema,
   stuckPerHourSchema,
   operatorInboxInputSchema,
   inboxMessageInputSchema,
@@ -981,6 +982,14 @@ export const fleetRouter = router({
       const { cursor, ...page } = input;
       const { items, nextCursor } = await ctx.useCases.readStuck(ctx.caller, { ...page, ...(cursor && { cursor: { ...cursor, oldestSince: new Date(cursor.oldestSince) } }) });
       return { items: describedStuck(items), nextCursor: nextCursor && { ...nextCursor, oldestSince: nextCursor.oldestSince.toISOString() } };
+    }),
+
+  /** How many deliveries are stuck now and in how many places, in all, per cause and per machine: Health's verdict, cause totals and machines. */
+  stuckSummary: actorScopedProcedure('fleet:read')
+    .output(stuckSummaryOutputSchema)
+    .query(async ({ ctx }) => {
+      const { oldestSince, ...summary } = await ctx.useCases.readStuckSummary(ctx.caller);
+      return { ...summary, oldestSince: oldestSince?.toISOString() ?? null };
     }),
 
   /** How many deliveries were stuck at each hour of the last 7 days, the last one now: Health's trend. */

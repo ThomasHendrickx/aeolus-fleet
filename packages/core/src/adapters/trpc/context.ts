@@ -119,6 +119,7 @@ import type { ReadHealth } from '../../domain/shared/read-health.js';
 import type { ReadStuckCount } from '../../domain/shared/read-stuck-count.js';
 import type { ReadStuckHistory } from '../../domain/shared/read-stuck-history.js';
 import type { ReadStuck } from '../../domain/shared/read-stuck.js';
+import type { ReadStuckSummary } from '../../domain/shared/read-stuck-summary.js';
 import type { ReadShipWay } from '../../domain/shared/read-ship-way.js';
 import type { ReadShipMessages } from '../../domain/shared/read-ship-messages.js';
 import type { ReadShipTimeline } from '../../domain/shared/read-ship-timeline.js';
@@ -229,6 +230,7 @@ export interface UseCases {
   readHealth: ReadHealth;
   readStuckCount: ReadStuckCount;
   readStuck: ReadStuck;
+  readStuckSummary: ReadStuckSummary;
   readStuckHistory: ReadStuckHistory;
   readAcknowledged: ReadAcknowledged;
   readInbox: ReadInbox;

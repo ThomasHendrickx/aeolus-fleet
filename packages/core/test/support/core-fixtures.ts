@@ -136,6 +136,7 @@ import { createReadAcknowledged } from '../../src/domain/shared/read-acknowledge
 import { createReadHealth } from '../../src/domain/shared/read-health.js';
 import { createReadStuckCount } from '../../src/domain/shared/read-stuck-count.js';
 import { createReadStuckHistory } from '../../src/domain/shared/read-stuck-history.js';
+import { createReadStuckSummary } from '../../src/domain/shared/read-stuck-summary.js';
 import { createReadStuck } from '../../src/domain/shared/read-stuck.js';
 import { createReadShipMessages } from '../../src/domain/shared/read-ship-messages.js';
 import { createReadShipTimeline } from '../../src/domain/shared/read-ship-timeline.js';
@@ -326,6 +327,7 @@ export function historyUseCases(core: InMemoryCore) {
     readHealth: createReadHealth({ health: core.health, snapshots: core.healthSnapshots, clock: core.clock, readReach }),
     readStuckCount: createReadStuckCount({ health: core.health, snapshots: core.healthSnapshots, clock: core.clock, readReach }),
     readStuck: createReadStuck({ health: core.health, snapshots: core.healthSnapshots, clock: core.clock, readReach }),
+    readStuckSummary: createReadStuckSummary({ health: core.health, snapshots: core.healthSnapshots, clock: core.clock, readReach }),
     readStuckHistory: createReadStuckHistory({ health: core.health, snapshots: core.healthSnapshots, clock: core.clock, readReach }),
     readAcknowledged: createReadAcknowledged({ health: core.health, snapshots: core.healthSnapshots, clock: core.clock, readReach }),
     readInbox: createReadInbox({ history: core.history, ships: core.ships, readReach }),

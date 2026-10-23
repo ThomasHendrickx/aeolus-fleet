@@ -72,6 +72,15 @@ export type Health = z.infer<typeof healthOutputSchema>;
 /** Output of `fleet.stuckCount`: how many deliveries are stuck now, and since when the oldest waits; none when nothing is stuck. */
 export const stuckCountOutputSchema = z.object({ count: z.int().min(0), oldestSince: z.iso.datetime().nullable() });
 
+/** Output of `fleet.stuckSummary`: how many deliveries are stuck now and in how many places, in all, per cause and per machine. */
+export const stuckSummaryOutputSchema = z.object({
+  count: z.int().min(0),
+  places: z.int().min(0),
+  oldestSince: z.iso.datetime().nullable(),
+  byCause: z.array(z.object({ cause: stuckCauseSchema, count: z.int().min(1), places: z.int().min(1) })),
+  byMachine: z.array(z.object({ machine: partySchema, count: z.int().min(1) })),
+});
+
 /** Where a page of stuck places ends: the oldest delivery of its last place, by since then id, as places are ordered. */
 export const stuckCursorSchema = z.object({ oldestSince: z.iso.datetime(), deliveryId: idSchema('delivery') });
 
