@@ -8,7 +8,7 @@ import type { PluginAnswer } from './plugin-answer';
 
 const newId = createIdGenerator();
 const SENDER = { id: newId('ship'), name: 'orchestrator-2' };
-const QUESTION = { id: '3f1c2a9e-7b4d-4e8a-9c1f-2d6b8e0a5c47', title: 'Which port?', context: '', options: [{ key: 1, label: 'Keep 3000', detail: '' }], pick: { option: 1, why: '' } };
+const QUESTION = { id: '3f1c2a9e-7b4d-4e8a-9c1f-2d6b8e0a5c47', title: 'Which port?', context: 'The docs name two.', options: [{ key: 1, label: 'Keep 3000', detail: '' }, { key: 2, label: 'Move to 4000', detail: '' }], pick: { option: 1, why: 'Nothing else needs it.' } };
 
 function aMessage(at: string, message: { contentType?: string; payload?: string; state?: InboxMessage['state'] } = {}): InboxMessage {
   const { contentType = 'text/plain', payload = 'Slice 7 done', state = 'pending' } = message;
