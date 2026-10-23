@@ -2,7 +2,7 @@ import { createIdGenerator, type DeliveryId } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
 import type { InboxEntry, MessageEntry, QuestionEntry } from '../../../lib/inbox-entry';
-import { inboxViewOf, openQuestionsOf, segmentCounts, todayOf, waitingOf } from './inbox-view';
+import { inboxViewOf, openQuestionsOf, segmentCounts, todayOf, waitingOf, withOlder } from './inbox-view';
 
 const newId = createIdGenerator();
 const SENDER = { id: newId('ship'), name: 'orchestrator-2', type: 'orchestrator', isNameShared: false };
@@ -95,8 +95,24 @@ describe('inboxViewOf', () => {
 });
 
 describe('segmentCounts', () => {
-  it('counts open questions and open messages together', () => {
-    expect(segmentCounts(ENTRIES)).toEqual({ open: 5, done: 3, all: 8 });
+  it('counts open questions and open messages together, and nothing else: Done and All page', () => {
+    expect(segmentCounts(ENTRIES)).toEqual({ open: 5 });
+  });
+});
+
+describe('withOlder', () => {
+  it('adds the older pages to the entries read, each delivery once, the first read kept', () => {
+    const again = { ...late, readAt: '2026-10-23T10:00:00.000Z' };
+    const olderQuestion = aQuestion({ sentAt: '2026-10-01T09:00:00.000Z' });
+
+    const merged = withOlder(ENTRIES, [again, olderQuestion]);
+
+    expect(idsOf(merged)).toEqual([...idsOf(ENTRIES), olderQuestion.deliveryId]);
+    expect(merged.find(({ deliveryId }) => deliveryId === late.deliveryId)).toBe(late);
+  });
+
+    expect(idsOf(withOlder(ENTRIES, [{ ...second, readAt: 'later' } as never, older].flatMap((entry) => (entry === undefined ? [] : [entry]))))).toEqual([...idsOf(ENTRIES), older.deliveryId]);
+    expect(withOlder(ENTRIES, [])[0]).toBe(first);
   });
 });
 
