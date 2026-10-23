@@ -1668,7 +1668,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         .map(timelineEntryOf);
       return Promise.resolve(pageOf(rows, { limit, cursorOf: (entry) => entry.id }));
     },
-    messages: (fleetId, { shipId, limit }) => {
+    messages: (fleetId, { shipId, cursor, limit }) => {
       if (!ship(fleetId, shipId)) {
         return Promise.resolve(undefined);
       }
@@ -1677,19 +1677,19 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
           .filter((event) => event.fleetId === fleetId && event.type === 'DeliveryHanded' && event.shipId === shipId)
           .map((event) => event.messageId),
       );
-      return Promise.resolve(
-        state.messages
+      const rows = state.messages
           .filter(
             (message) =>
               message.fleetId === fleetId &&
               (message.senderShipId === shipId ||
                 (message.selector.kind === 'ship' && message.selector.shipId === shipId) ||
-                claimed.has(message.id)),
+                claimed.has(message.id)) &&
+              (cursor === undefined || message.id < cursor),
           )
-          .sort(newestFirst)
-          .slice(0, limit)
-          .map(historyMessageOf),
-      );
+          .sort((first, second) => second.id.localeCompare(first.id))
+          .slice(0, limit + 1)
+          .map(historyMessageOf);
+      return Promise.resolve(pageOf(rows, { limit, cursorOf: (message) => message.id }));
     },
     message: (fleetId, messageId) => {
       const message = messageOf(fleetId, messageId);

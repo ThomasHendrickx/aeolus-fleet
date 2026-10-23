@@ -123,8 +123,11 @@ export const listedMessageSchema = z.object({
 
 export type ListedMessage = z.infer<typeof listedMessageSchema>;
 
-/** Output of `fleet.shipMessages`: the messages the ship sent, was sent or claimed, newest first. */
-export const shipMessagesOutputSchema = z.array(listedMessageSchema);
+/** Input of `fleet.shipMessages`: the ship, and the cursor and size of a page of its messages. */
+export const shipMessagesInputSchema = shipInputSchema.extend(pageInputOf(idSchema('message')).shape);
+
+/** Output of `fleet.shipMessages`: a page of the messages the ship sent, was sent or claimed, newest first. */
+export const shipMessagesOutputSchema = pageOutputOf(listedMessageSchema, idSchema('message'));
 
 /** Input of `fleet.message`. */
 export const messageInputSchema = z.object({ messageId: idSchema('message') });

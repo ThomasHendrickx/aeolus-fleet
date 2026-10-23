@@ -231,8 +231,8 @@ export function isKeptBy(filter: InboxFilter, state: DeliveryState): boolean {
 export interface ShipHistory {
   /** A page newest first, by the stream's order, after the event the cursor names. */
   timeline(fleetId: FleetId, query: { shipId: ShipId } & PageQuery<EventId>): Promise<Page<TimelineEntry, EventId> | undefined>;
-  /** Newest first, at most `limit`. */
-  messages(fleetId: FleetId, query: { shipId: ShipId; limit: number }): Promise<HistoryMessage[] | undefined>;
+  /** A page newest first, by id, after the message the cursor names. */
+  messages(fleetId: FleetId, query: { shipId: ShipId } & PageQuery<MessageId>): Promise<Page<HistoryMessage, MessageId> | undefined>;
   /** The message, with its delivery's steps newest first and what its way is read from. */
   message(fleetId: FleetId, messageId: MessageId): Promise<MessageRead | undefined>;
   /** Every undeliverable or not handled delivery, oldest first by since when. */

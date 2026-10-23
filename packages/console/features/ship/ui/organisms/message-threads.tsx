@@ -1,5 +1,6 @@
 import type { ListedMessage, MessageId, ShipId } from '@aeolus-fleet/common';
 import { ArrowDownLeft, ArrowUpRight, Mail, RotateCw } from 'lucide-react';
+import type { ReactNode } from 'react';
 
 import { Button, classNames } from '@aeolus-fleet/common/header';
 import { messageLine } from '../../services/message-line';
@@ -20,6 +21,8 @@ interface MessageThreadsProps {
   messages: readonly ListedMessage[];
   state: 'ready' | 'loading' | 'error';
   onRetry?: () => void;
+  /** What ends the list while older messages follow: Load more. */
+  more?: ReactNode;
   /** The time relative times are measured from. */
   now: Date;
   onOpenMessage: (messageId: MessageId) => void;
@@ -87,7 +90,7 @@ function MessageRow({
  * line (a squadron message in words, other JSON compact), and opens in the
  * MessageSheet with its whole payload.
  */
-export function MessageThreads({ shipId, messages, state, onRetry, now, onOpenMessage }: MessageThreadsProps) {
+export function MessageThreads({ shipId, messages, state, onRetry, more, now, onOpenMessage }: MessageThreadsProps) {
   if (state === 'loading') {
     return <LoadingSkeleton variant="list" rows={3} label="Loading the messages" />;
   }
@@ -103,7 +106,7 @@ export function MessageThreads({ shipId, messages, state, onRetry, now, onOpenMe
       </div>
     );
   }
-  if (messages.length === 0) {
+  if (messages.length === 0 && !more) {
     return (
       <EmptyState
         variant="section"
@@ -129,6 +132,7 @@ export function MessageThreads({ shipId, messages, state, onRetry, now, onOpenMe
           </ol>
         </section>
       ))}
+      {more}
     </div>
   );
 }

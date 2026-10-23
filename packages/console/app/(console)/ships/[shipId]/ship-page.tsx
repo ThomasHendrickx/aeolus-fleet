@@ -182,11 +182,14 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
           <TabsContent value={SHIP_TABS.messages} className="pt-4">
             <MessageThreads
               shipId={shipId}
-              messages={messages.data ?? []}
-              state={messages.isError ? 'error' : messages.data ? 'ready' : 'loading'}
-              onRetry={() => {
-                void messages.refetch();
-              }}
+              messages={messages.items ?? []}
+              state={messages.isFailed ? 'error' : messages.items ? 'ready' : 'loading'}
+              onRetry={messages.retry}
+              more={
+                messages.hasMore ? (
+                  <LoadMore what="older messages" isLoading={messages.isLoadingMore} isFailed={messages.isLoadMoreFailed} onLoad={messages.loadMore} area="message-threads" />
+                ) : null
+              }
               now={now}
               onOpenMessage={openMessageAt}
             />

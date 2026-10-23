@@ -255,6 +255,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_message_days$/),
       expect.stringMatching(/^\d{14}_messages_fleet_time_index$/),
       expect.stringMatching(/^\d{14}_timeline_page_indexes$/),
+      expect.stringMatching(/^\d{14}_messages_page_indexes$/),
     ]);
   });
 });

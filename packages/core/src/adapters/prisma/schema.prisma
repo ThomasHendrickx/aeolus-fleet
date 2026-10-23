@@ -588,11 +588,13 @@ model Message {
   @@unique([fleetId, senderShipId, idempotencyKey])
   /// A ship's current model is its newest message with a model.
   @@index([fleetId, senderShipId, createdAt])
+  /// A ship's messages page newest first by id: those it sent and those sent to it.
+  @@index([fleetId, senderShipId, id])
   /// The installation counts a fleet's messages of the last 7 days (#1126).
   @@index([fleetId, createdAt])
   /// Every foreign key has an index leading with its columns, so deleting a
   /// referenced row checks it with an index, not a scan (#331).
-  @@index([fleetId, selectorShipId])
+  @@index([fleetId, selectorShipId, id])
   @@index([fleetId, inReplyToMessageId])
   @@index([fleetId, resendOfMessageId])
   @@index([fleetId, selectorShipId, createdAt, id], map: "messages_pings_idx", where: raw("(content_type = 'application/vnd.aeolus.ping'::text)"))
@@ -749,6 +751,8 @@ model Event {
   /// The health reads take a fleet's events since a time (decision 0042).
   @@index([fleetId, occurredAt])
   @@index([fleetId, shipId, seq], map: "events_starting_prompt_issued_idx", where: raw("(type = 'StartingPromptIssued'::text)"))
+  /// A ship's messages page through those it claimed as a ship of their type by id.
+  @@index([fleetId, shipId, messageId], map: "events_delivery_handed_idx", where: raw("(type = 'DeliveryHanded'::text)"))
   @@map("events")
 }
 

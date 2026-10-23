@@ -44,10 +44,10 @@ export function useShipTimeline(shipId: ShipId) {
   return pagedListOf(useInfiniteQuery(trpc.fleet.shipTimeline.infiniteQueryOptions({ shipId, limit: CONSOLE_PAGE_SIZE }, { getNextPageParam: nextCursorOf })));
 }
 
-/** The messages the ship sent, was sent, or claimed as a ship of their type. */
+/** The messages the ship sent, was sent, or claimed as a ship of their type, newest first, a page at a time. */
 export function useShipMessages(shipId: ShipId) {
   const trpc = useTRPC();
-  return useQuery(trpc.fleet.shipMessages.queryOptions({ shipId }));
+  return pagedListOf(useInfiniteQuery(trpc.fleet.shipMessages.infiniteQueryOptions({ shipId, limit: CONSOLE_PAGE_SIZE }, { getNextPageParam: nextCursorOf })));
 }
 
 /** One message with its delivery's history; idle while no message is open. */

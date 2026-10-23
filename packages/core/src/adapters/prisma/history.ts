@@ -182,23 +182,31 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
       return { items: entries, nextCursor };
     },
 
-    messages: async (fleetId, { shipId, limit }) => {
+    messages: async (fleetId, { shipId, cursor, limit }) => {
       if (!(await shipExists(db, { fleetId, shipId }))) {
         return undefined;
       }
-      // A message to a type shows on the page of each ship that claimed it,
+      // The messages it sent, those sent to it and those it claimed as a ship
+      // of their type, each read newest first through its own index, then
+      // merged: an OR would read every message of the ship to sort them. A
+      // message to a type shows on the page of each ship that claimed it,
       // which only the event log remembers once another ship holds it.
+      const before = cursor === undefined ? {} : { lt: cursor };
+      const [sent, sentTo, claimed] = await Promise.all([
+        db.message.findMany({ where: { fleetId, senderShipId: shipId, id: before }, select: { id: true }, orderBy: { id: 'desc' }, take: limit + 1 }),
+        db.message.findMany({ where: { fleetId, selectorShipId: shipId, id: before }, select: { id: true }, orderBy: { id: 'desc' }, take: limit + 1 }),
+        db.$queryRaw`
+          SELECT DISTINCT message_id AS id FROM events
+          WHERE fleet_id = ${fleetId} AND type = 'DeliveryHanded' AND ship_id = ${shipId}
+            AND (${cursor ?? null}::text IS NULL OR message_id < ${cursor ?? null})
+          ORDER BY message_id DESC
+          LIMIT ${limit + 1}`.then((claimedRows) => z.array(z.object({ id: idSchema('message') })).parse(claimedRows)),
+      ]);
+      const newestFirst = [...new Set([...sent, ...sentTo, ...claimed].map((row) => idSchema('message').parse(row.id)))].sort().reverse();
+      const page = pageOf(newestFirst, { limit, cursorOf: (id) => id });
       const rows = await db.message.findMany({
-        where: {
-          fleetId,
-          OR: [
-            { senderShipId: shipId },
-            { selectorShipId: shipId },
-            { events: { some: { type: 'DeliveryHanded', shipId } } },
-          ],
-        },
-        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-        take: limit,
+        where: { fleetId, id: { in: page.items } },
+        orderBy: { id: 'desc' },
         include: { deliveries: { select: DELIVERY_SELECT } },
       });
       const found = rows.map((row) => ({ message: toMessage(row), delivery: onlyDelivery(row) }));
@@ -209,7 +217,7 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
           ...(delivery.claimedByShipId === null ? [] : [delivery.claimedByShipId]),
         ]),
       });
-      return found.map((each) => historyMessageOf(each, party));
+      return { items: found.map((each) => historyMessageOf(each, party)), nextCursor: page.nextCursor };
     },
 
     message: async (fleetId, messageId) => {

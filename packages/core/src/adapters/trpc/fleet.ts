@@ -22,6 +22,7 @@ import {
   shipOutputSchema,
   isInReadReach,
   shipInputSchema,
+  shipMessagesInputSchema,
   shipMessagesOutputSchema,
   shipWayOutputSchema,
   shipTimelineInputSchema,
@@ -804,16 +805,14 @@ export const fleetRouter = router({
       return { items: items.map((entry) => ({ ...entry, occurredAt: entry.occurredAt.toISOString() })), nextCursor };
     }),
 
-  /** The messages a ship sent, was sent, or claimed as a ship of their type, newest first. */
+  /** A page of the messages a ship sent, was sent, or claimed as a ship of their type, newest first. */
   shipMessages: actorScopedProcedure('fleet:read')
-    .input(shipInputSchema)
+    .input(shipMessagesInputSchema)
     .output(shipMessagesOutputSchema)
-    .query(async ({ ctx, input }) =>
-      okOrThrow(await ctx.useCases.readShipMessages(ctx.caller, input)).map((message) => ({
-        ...message,
-        sentAt: message.sentAt.toISOString(),
-      })),
-    ),
+    .query(async ({ ctx, input }) => {
+      const { items, nextCursor } = okOrThrow(await ctx.useCases.readShipMessages(ctx.caller, input));
+      return { items: items.map((message) => ({ ...message, sentAt: message.sentAt.toISOString() })), nextCursor };
+    }),
 
   /** One message: envelope, payload, its replies, and its delivery's way through with every step, newest first. */
   message: actorScopedProcedure('fleet:read')
