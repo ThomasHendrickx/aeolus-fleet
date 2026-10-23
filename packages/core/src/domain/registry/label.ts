@@ -115,7 +115,7 @@ export function labelKey(key: string): Result<string, InvalidKey> {
 }
 
 /** A label's value texts: one to the most a label may define, each once, each within the limits. */
-function checkValueTexts(values: readonly string[]): Result<void, InvalidValue | InvalidValues> {
+export function checkValueTexts(values: readonly string[]): Result<void, InvalidValue | InvalidValues> {
   if (values.length === 0 || values.length > LABEL_VALUES_MAX) {
     return refuse('INVALID_LABEL_VALUES', `A label has 1 to ${String(LABEL_VALUES_MAX)} values (decision 0031)`);
   }

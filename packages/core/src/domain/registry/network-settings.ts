@@ -153,27 +153,51 @@ export function setBuiltInRule(
 
 /** What breaks a rule's own limits, said for the caller, or undefined when it keeps them (decision 0034). */
 export function invalidRule(rule: NetworkRule): string | undefined {
-  return invalidSelector(rule.from) ?? invalidSelector(rule.to) ?? sameValueOnOneSide(rule);
+  return invalidRuleBy(rule, TERMS_BY_ID);
 }
 
-function invalidSelector(selector: readonly SelectorTerm[]): string | undefined {
+/**
+ * How a rule's limits see its terms, so a rule by ids and a rule by names
+ * (a network rules file) keep the same limits: a term as a refusal names it,
+ * the label a term of the same value binds, and whether it is the same owner.
+ */
+export interface TermView<Term> {
+  text(term: Term): string;
+  sameValueLabel(term: Term): string | undefined;
+  isSameOwner(term: Term): boolean;
+}
+
+const TERMS_BY_ID: TermView<SelectorTerm> = {
+  text: termText,
+  sameValueLabel: (term) => (typeof term !== 'string' && !isOwnerTerm(term) && term.value === SAME_LABEL_VALUE ? term.labelId : undefined),
+  isSameOwner: (term) => isOwnerTerm(term) && term.owner === SAME_LABEL_VALUE,
+};
+
+/** What breaks a rule's own limits, its terms seen through the view, or undefined when it keeps them (decision 0034). */
+export function invalidRuleBy<Term>(rule: { from: readonly Term[]; to: readonly Term[] }, view: TermView<Term>): string | undefined {
+  return invalidSelector(rule.from, view) ?? invalidSelector(rule.to, view) ?? sameValueOnOneSide(rule, view);
+}
+
+function invalidSelector<Term>(selector: readonly Term[], view: TermView<Term>): string | undefined {
   if (selector.length > SHIP_LABELS_MAX) {
     return `A selector holds at most ${String(SHIP_LABELS_MAX)} terms, as a ship carries no more label values`;
   }
-  const texts = selector.map(termText);
+  const texts = selector.map((term) => view.text(term));
   const twice = texts.find((text, index) => texts.indexOf(text) !== index);
   return twice === undefined ? undefined : `A selector holds each term once: ${twice} twice`;
 }
 
-function sameValueOnOneSide(rule: NetworkRule): string | undefined {
+function sameValueOnOneSide<Term>(rule: { from: readonly Term[]; to: readonly Term[] }, view: TermView<Term>): string | undefined {
+  const sameValueLabels = (selector: readonly Term[]) => selector.flatMap((term) => view.sameValueLabel(term) ?? []);
   const [from, to] = [sameValueLabels(rule.from), sameValueLabels(rule.to)];
-  const alone = [...from.filter((labelId) => !to.includes(labelId)), ...to.filter((labelId) => !from.includes(labelId))][0];
+  const alone = [...from.filter((label) => !to.includes(label)), ...to.filter((label) => !from.includes(label))][0];
   if (alone !== undefined) {
-    return `A term of the same value binds its label on both sides: ${termText({ labelId: alone, value: SAME_LABEL_VALUE })} is on one side only`;
+    return `A term of the same value binds its label on both sides: ${alone}=${SAME_LABEL_VALUE} is on one side only`;
   }
+  const hasSameOwner = (selector: readonly Term[]) => selector.some((term) => view.isSameOwner(term));
   return hasSameOwner(rule.from) === hasSameOwner(rule.to)
     ? undefined
-    : `A term of the same owner binds the owner on both sides: ${termText({ owner: SAME_LABEL_VALUE })} is on one side only`;
+    : `A term of the same owner binds the owner on both sides: owner=${SAME_LABEL_VALUE} is on one side only`;
 }
 
 /** A term as a refusal names it: an exact value by its id, a label term by its label id and symbol, an owner term by `owner` and its value. */
@@ -182,14 +206,6 @@ export function termText(term: SelectorTerm): string {
     return term;
   }
   return isOwnerTerm(term) ? `owner=${term.owner}` : `${term.labelId}=${term.value}`;
-}
-
-function sameValueLabels(selector: readonly SelectorTerm[]): LabelId[] {
-  return selector.flatMap((term) => (typeof term !== 'string' && !isOwnerTerm(term) && term.value === SAME_LABEL_VALUE ? [term.labelId] : []));
-}
-
-function hasSameOwner(selector: readonly SelectorTerm[]): boolean {
-  return selector.some((term) => isOwnerTerm(term) && term.owner === SAME_LABEL_VALUE);
 }
 
 /** A copy of the rule, so what is kept never changes with what was given. */

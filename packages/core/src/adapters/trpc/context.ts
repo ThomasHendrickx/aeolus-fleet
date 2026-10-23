@@ -91,6 +91,9 @@ import type { ReadReachRefusals } from '../../domain/registry/read-reach-refusal
 import type { ApplyNetworkRules } from '../../domain/registry/apply-network-rules.js';
 import type { DiscardNetworkRulesDraft } from '../../domain/registry/discard-network-rules-draft.js';
 import type { ReadNetworkRules } from '../../domain/registry/read-network-rules.js';
+import type { ExportNetworkRules } from '../../domain/registry/export-network-rules.js';
+import type { CheckNetworkRulesFile } from '../../domain/registry/check-network-rules-file.js';
+import type { ImportNetworkRules } from '../../domain/registry/import-network-rules.js';
 import type { ReadNetworkRulesDraftChanges } from '../../domain/registry/read-network-rules-draft-changes.js';
 import type { SaveNetworkRulesDraft } from '../../domain/registry/save-network-rules-draft.js';
 import type { ReadBuiltInRules } from '../../domain/registry/read-built-in-rules.js';
@@ -173,6 +176,9 @@ export interface UseCases {
   discardNetworkRulesDraft: DiscardNetworkRulesDraft;
   applyNetworkRules: ApplyNetworkRules;
   readNetworkRules: ReadNetworkRules;
+  exportNetworkRules: ExportNetworkRules;
+  checkNetworkRulesFile: CheckNetworkRulesFile;
+  importNetworkRules: ImportNetworkRules;
   readNetworkRulesDraftChanges: ReadNetworkRulesDraftChanges;
   setBuiltInRule: SetBuiltInRule;
   readBuiltInRules: ReadBuiltInRules;

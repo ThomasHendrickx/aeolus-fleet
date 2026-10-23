@@ -58,6 +58,9 @@ import { createSaveNetworkRulesDraft } from '../../src/domain/registry/save-netw
 import { createDiscardNetworkRulesDraft } from '../../src/domain/registry/discard-network-rules-draft.js';
 import { createApplyNetworkRules } from '../../src/domain/registry/apply-network-rules.js';
 import { createReadNetworkRules } from '../../src/domain/registry/read-network-rules.js';
+import { createExportNetworkRules } from '../../src/domain/registry/export-network-rules.js';
+import { createCheckNetworkRulesFile } from '../../src/domain/registry/check-network-rules-file.js';
+import { createImportNetworkRules } from '../../src/domain/registry/import-network-rules.js';
 import { createReadNetworkRulesDraftChanges } from '../../src/domain/registry/read-network-rules-draft-changes.js';
 import { createExplainReach } from '../../src/domain/registry/explain-reach.js';
 import { createDiscover } from '../../src/domain/registry/discover.js';
@@ -244,6 +247,9 @@ export function registryUseCases(core: InMemoryCore) {
     discardNetworkRulesDraft: createDiscardNetworkRulesDraft(deps),
     applyNetworkRules: createApplyNetworkRules(deps),
     readNetworkRules: createReadNetworkRules(deps),
+    exportNetworkRules: createExportNetworkRules(deps),
+    checkNetworkRulesFile: createCheckNetworkRulesFile(deps),
+    importNetworkRules: createImportNetworkRules(deps),
     readNetworkRulesDraftChanges: createReadNetworkRulesDraftChanges({ ...deps, readReach: readReachOf(core) }),
     setBuiltInRule: createSetBuiltInRule(deps),
     readBuiltInRules: createReadBuiltInRules(deps),

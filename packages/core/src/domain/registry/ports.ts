@@ -318,6 +318,8 @@ export interface LabelRepository {
   findByKey(fleetId: FleetId, key: string): Promise<Label | undefined>;
   /** The label, read without a lock. */
   find(fleetId: FleetId, labelId: LabelId): Promise<Label | undefined>;
+  /** The labels with one of these ids or a value with one of these ids, as rules name them, by key, read without a lock. */
+  listNamedBy(fleetId: FleetId, named: { labelIds: readonly LabelId[]; valueIds: readonly LabelValueId[] }): Promise<Label[]>;
   /** The label, locked until the unit of work ends: changing its values. */
   findForUpdate(fleetId: FleetId, labelId: LabelId): Promise<Label | undefined>;
   /** The label that has this value, held until the unit of work ends against a change of its values, its deletion or its retirement, as an assignment holds it. */

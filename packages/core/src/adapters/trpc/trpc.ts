@@ -125,6 +125,7 @@ const ERROR_CODES: Record<DomainErrorKind, TRPCError['code']> = {
   INVALID_LIMIT: 'BAD_REQUEST',
   INVALID_LOCATION: 'BAD_REQUEST',
   INVALID_NETWORK_RULES: 'BAD_REQUEST',
+  INVALID_NETWORK_RULES_FILE: 'BAD_REQUEST',
   INVALID_PASSWORD: 'BAD_REQUEST',
   INVALID_RECEIVE_MAX: 'BAD_REQUEST',
   INVALID_CREW_REQUEST_REASON: 'BAD_REQUEST',
@@ -136,6 +137,7 @@ const ERROR_CODES: Record<DomainErrorKind, TRPCError['code']> = {
   INVALID_SHIP_TYPE: 'BAD_REQUEST',
   // The crew token belonged to that lease: it no longer authenticates anyone.
   LABEL_CARRIED: 'CONFLICT',
+  LABEL_DIFFERENCES: 'CONFLICT',
   LABEL_KEY_TAKEN: 'CONFLICT',
   ACCOUNT_OWNS_NO_LABEL: 'FORBIDDEN',
   INVALID_SCOPE: 'BAD_REQUEST',
@@ -623,6 +625,20 @@ export function actorScopedProcedure(scope: Scope) {
   return (scope === 'fleet:read' ? readingProcedure : actorProcedure).use(async ({ ctx, next }) => {
     if (!hasScope(ctx.caller, scope)) {
       throw new TRPCError({ code: 'FORBIDDEN', message: `This call needs the ${scope} scope` });
+    }
+    return next({ ctx: { caller: await readerOf(ctx, ctx.caller) } });
+  });
+}
+
+/**
+ * A fleet call any actor makes needing every one of the given scopes: import
+ * of the network rules, which changes the rules and defines labels (design
+ * network-io, Q5). Checked before any use case runs, as for one scope.
+ */
+export function actorAllScopesProcedure(...scopes: [Scope, Scope, ...Scope[]]) {
+  return actorProcedure.use(async ({ ctx, next }) => {
+    if (!scopes.every((scope) => hasScope(ctx.caller, scope))) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: `This call needs the ${scopes.join(' and ')} scopes` });
     }
     return next({ ctx: { caller: await readerOf(ctx, ctx.caller) } });
   });
