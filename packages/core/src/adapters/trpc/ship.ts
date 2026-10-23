@@ -445,7 +445,8 @@ export const shipRouter = router({
 
   /**
    * How many deliveries wait for the crew: what its next receive would hand
-   * it. Claims nothing. With waitSeconds (0 to 25) it waits while none does.
+   * it. Claims nothing. With waitSeconds (0 to 25) it waits while none does,
+   * or with knownWaiting while the count is still that.
    * A mutation only so that REST takes its body; it changes nothing.
    */
   inbox: scopedCrewProcedure('messages:receive')
@@ -454,12 +455,14 @@ export const shipRouter = router({
         'Tells you how many deliveries wait for you: what your next receive would hand you, your own unacknowledged ones included.',
         'It claims nothing, so call receive to get them.',
         'With waitSeconds (0 to 25) it waits while none does, and answers as soon as one arrives.',
+        'With knownWaiting as well, the waiting count you already know, it waits while the count is still that,',
+        'and answers as soon as it differs: a delivery arrived, or one you held was acknowledged.',
       ].join(' '),
     })
     .input(inboxInputSchema)
     .output(inboxOutputSchema)
     .mutation(async ({ ctx, input }) =>
-      okOrThrow(await ctx.useCases.checkInbox(ctx.crew, { waitSeconds: input?.waitSeconds })),
+      okOrThrow(await ctx.useCases.checkInbox(ctx.crew, { waitSeconds: input?.waitSeconds, knownWaiting: input?.knownWaiting })),
     ),
 
   /**

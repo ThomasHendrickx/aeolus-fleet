@@ -186,10 +186,14 @@ export const INBOX_WAIT_MAX_SECONDS = 25;
 
 /**
  * Input of `ship.inbox`: how long to wait, 0 to 25 whole seconds, while
- * nothing waits for the crew. Without it, it answers at once.
+ * nothing waits for the crew, or with `knownWaiting` while the count is still
+ * the one the crew knows. Without a wait, it answers at once.
  */
 export const inboxInputSchema = z
-  .object({ waitSeconds: z.int().min(0).max(INBOX_WAIT_MAX_SECONDS).optional() })
+  .object({
+    waitSeconds: z.int().min(0).max(INBOX_WAIT_MAX_SECONDS).optional(),
+    knownWaiting: z.int().min(0).optional(),
+  })
   .optional();
 
 export type InboxInput = z.infer<typeof inboxInputSchema>;

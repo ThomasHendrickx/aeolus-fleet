@@ -2,6 +2,7 @@ import { holdLease, type HoldLeaseTx, type LeaseEnded } from '../registry/public
 import type { Crew } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import type { DomainError } from '../shared/errors.js';
+import type { FleetEventWakeups, FleetNewsWatch } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { inboxWait } from './inbox-wait.js';
@@ -13,7 +14,10 @@ export interface CheckInboxTx extends HoldLeaseTx {
 
 export type CheckInboxRefusal = DomainError<'INVALID_INBOX_WAIT' | 'SHIP_NOT_FOUND'> | LeaseEnded;
 
-export type CheckInbox = (crew: Crew, input: { waitSeconds?: number }) => Promise<Result<ReceivableCount, CheckInboxRefusal>>;
+export type CheckInbox = (
+  crew: Crew,
+  input: { waitSeconds?: number; knownWaiting?: number },
+) => Promise<Result<ReceivableCount, CheckInboxRefusal>>;
 
 /**
  * Use case: how many deliveries wait for the crew (`inbox`): what its next
@@ -24,23 +28,30 @@ export type CheckInbox = (crew: Crew, input: { waitSeconds?: number }) => Promis
  * leave every delivery for the receive. Its scope (messages:receive) is
  * checked before this runs.
  *
- * With a wait, and nothing waiting, it watches the same wake-ups as a
- * receive and looks again on each, until something waits or the wait has
- * passed. It starts watching before it looks a second time, so a delivery
- * that commits in between is counted.
+ * With a wait, it waits while the count is still the one the crew knows, or
+ * none when it knows none, and looks again on each wake-up, until the count
+ * differs or the wait has passed; it then answers the count of its last look.
+ * It starts watching before it looks a second time, so a change that commits
+ * in between is counted. Without a known count only a delivery pending for
+ * the ship or its type can end the wait, so it watches those; with one the
+ * count may also fall (an ack, a return, another ship of its type claiming),
+ * and every such change commits with its event, so it watches the fleet's
+ * events.
  */
 export function createCheckInbox(deps: {
   uow: UnitOfWork<CheckInboxTx>;
   clock: Clock;
   wakeups: ReceiverWakeups;
+  fleetNews: FleetEventWakeups;
 }): CheckInbox {
   return async (crew, input) => {
     const waitMs = inboxWait(input.waitSeconds);
     if (!waitMs.isOk) {
       return waitMs;
     }
+    const knownWaiting = input.knownWaiting ?? 0;
     const until = deps.clock.now().getTime() + waitMs.value;
-    let watch: ReceiverWatch | undefined;
+    let watch: ReceiverWatch | FleetNewsWatch | undefined;
     try {
       for (;;) {
         const look = await deps.uow.run(async (tx) => {
@@ -61,15 +72,18 @@ export function createCheckInbox(deps: {
         }
         const { type, count } = look.value;
         const remainingMs = until - deps.clock.now().getTime();
-        if (count.waiting > 0 || remainingMs <= 0) {
+        if (count.waiting !== knownWaiting || remainingMs <= 0) {
           return ok(count);
         }
         if (watch === undefined) {
-          watch = deps.wakeups.watch({ fleetId: crew.fleetId, shipId: crew.shipId, type });
+          watch =
+            input.knownWaiting === undefined
+              ? deps.wakeups.watch({ fleetId: crew.fleetId, shipId: crew.shipId, type })
+              : deps.fleetNews.watch(crew.fleetId);
           continue;
         }
         if ((await watch.next(remainingMs)) === 'timedOut') {
-          return ok({ waiting: 0, forced: 0 });
+          return ok(count);
         }
       }
     } finally {
