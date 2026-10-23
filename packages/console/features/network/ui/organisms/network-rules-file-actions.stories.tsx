@@ -38,6 +38,21 @@ export const Exporting: Story = {
 };
 /** The export failed: nothing was downloaded. */
 export const ExportFailed: Story = { args: { exportError: 'This call needs the fleet:network scope' } };
+/** The export left rules out: it says which and why, never silently. */
+export const LeftOut: Story = {
+  args: {
+    exported: {
+      name: 'network-rules-staging-v42.json',
+      leftOut: [
+        { rule: 2, reason: 'uses a label that no longer exists (its definer retired or deleted it)' },
+        { rule: 5, reason: 'names a ship that no longer exists' },
+      ],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByTestId('network-rules-left-out')).toHaveTextContent('rule 2 uses a label that no longer exists (its definer retired or deleted it)');
+  },
+};
 /** Without labels:define, Import is not offered. */
 export const ExportOnly: Story = {
   args: { canImport: false },

@@ -159,10 +159,15 @@ export function NetworkPageFor({ pickedShipId, against }: { pickedShipId?: ShipI
         <NetworkRulesFileActions
           isExporting={exportRules.isPending}
           exportError={exportRules.error?.message}
+          exported={exportRules.data}
           onExport={() => {
             exportRules.mutate(undefined, {
-              onSuccess: (name) => {
-                showToast({ title: 'Rules exported', description: `Saved as ${name}.`, tone: 'success' });
+              onSuccess: ({ name, leftOut }) => {
+                showToast({
+                  title: 'Rules exported',
+                  description: leftOut.length === 0 ? `Saved as ${name}.` : `Saved as ${name}, leaving out ${String(leftOut.length)}: see Export and import.`,
+                  tone: 'success',
+                });
               },
             });
           }}

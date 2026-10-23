@@ -76,15 +76,15 @@ function download(name: string, text: string) {
   URL.revokeObjectURL(url);
 }
 
-/** Exports the applied rules and downloads them as one file (design network-io, section 4); answers the file's name. */
+/** Exports the applied rules and downloads them as one file (design network-io, section 4); answers the file's name and the rules it left out, with why. */
 export function useExportNetworkRules() {
   const client = useTRPCClient();
   return useMutation({
     mutationFn: async () => {
-      const file = await client.fleet.exportNetworkRules.query();
+      const { file, leftOut } = await client.fleet.exportNetworkRules.query();
       const name = exportFileNameOf(file);
       download(name, `${JSON.stringify(file, null, 2)}\n`);
-      return name;
+      return { name, leftOut };
     },
   });
 }
