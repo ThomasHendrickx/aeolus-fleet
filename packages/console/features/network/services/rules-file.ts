@@ -23,6 +23,14 @@ export function ruleTextOf(rule: FileRule): { verb: NetworkVerb; from: string[];
   return { verb: rule.verb, from: sideOf(rule.from), to: sideOf(rule.to) };
 }
 
+/** The rules as the overview lists them, one line each, by their place in the file: a rule has no id of its own, its place names it (decision 0034). */
+export function ruleLinesOf(rules: readonly FileRule[]): { place: number; line: string }[] {
+  return rules.map((rule, index) => {
+    const { verb, from, to } = ruleTextOf(rule);
+    return { place: index + 1, line: `${verb}: ${from.join(' ')} → ${to.join(' ')}` };
+  });
+}
+
 function wayText(difference: NetworkRulesDifference, way: DifferenceWay): string {
   switch (difference.kind) {
     case 'definer':

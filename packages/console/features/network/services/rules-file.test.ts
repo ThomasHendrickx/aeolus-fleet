@@ -1,7 +1,7 @@
 import type { NetworkRulesDifference, NetworkRulesFile } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
-import { exportFileNameOf, isEveryDifferenceResolved, resolutionOf, ruleTextOf, waysOf, type ResolutionChoice } from './rules-file';
+import { exportFileNameOf, isEveryDifferenceResolved, resolutionOf, ruleLinesOf, ruleTextOf, waysOf, type ResolutionChoice } from './rules-file';
 
 const aFile: NetworkRulesFile = {
   format: 'aeolus.network-rules',
@@ -26,6 +26,15 @@ describe('the exported file’s name', () => {
 describe('a rule as the import overview shows it', () => {
   it('names its verb and each side’s terms by name, an empty side as every ship', () => {
     expect(ruleTextOf({ verb: 'send', from: [{ label: 'crm', value: 'user' }, { owner: 'thomas' }], to: [] })).toEqual({ verb: 'send', from: ['crm=user', 'owner=thomas'], to: ['every ship'] });
+  });
+});
+
+describe('the rules as the overview lists them', () => {
+  it('give each rule one line, by its place in the file', () => {
+    expect(ruleLinesOf([{ verb: 'read', from: [{ owner: '*' }], to: [{ label: 'os', value: '#' }] }, { verb: 'send', from: [], to: [] }])).toEqual([
+      { place: 1, line: 'read: owner=* → os=#' },
+      { place: 2, line: 'send: every ship → every ship' },
+    ]);
   });
 });
 

@@ -3,7 +3,9 @@
 import type { ShipId } from '@aeolus-fleet/common';
 import { Network } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
+import { showToast } from '../../../components/atoms/toast';
 import { EmptyState } from '../../../components/molecules/empty-state';
 import { InlineError } from '../../../components/molecules/inline-error';
 import { LoadingSkeleton } from '../../../components/molecules/loading-skeleton';
@@ -13,6 +15,8 @@ import { FleetReachGraph } from '../../../features/network/ui/organisms/fleet-re
 import { NetworkRulesApply } from '../../../features/network/ui/organisms/network-rules-apply';
 import { NetworkRulesDraftChanges } from '../../../features/network/ui/organisms/network-rules-draft-changes';
 import { NetworkRulesEditor } from '../../../features/network/ui/organisms/network-rules-editor';
+import { ImportNetworkRulesDialog } from '../../../features/network/ui/organisms/import-network-rules-dialog';
+import { NetworkRulesFileActions } from '../../../features/network/ui/organisms/network-rules-file-actions';
 import { ReachRefusalLog } from '../../../features/network/ui/organisms/reach-refusal-log';
 import { ListPage } from '../../../components/organisms/list-page';
 import { useConsoleFrame } from '../../../lib/console-frame';
@@ -21,7 +25,16 @@ import { useConsoleConstants } from '../../../lib/console-constants';
 import { useFleetSnapshot, useLabelContext } from '../../../lib/fleet';
 import { useLiveFleet } from '../../../lib/live-fleet';
 import { useNeedsAttention } from '../../../lib/needs-attention';
-import { useApplyNetworkRules, useDiscardNetworkRulesDraft, useNetworkRules, useNetworkRulesDraftChanges, useSaveNetworkRulesDraft } from '../../../features/network/hooks/network-rules';
+import {
+  useApplyNetworkRules,
+  useCheckNetworkRulesFile,
+  useDiscardNetworkRulesDraft,
+  useExportNetworkRules,
+  useImportNetworkRules,
+  useNetworkRules,
+  useNetworkRulesDraftChanges,
+  useSaveNetworkRulesDraft,
+} from '../../../features/network/hooks/network-rules';
 import { draftChangesOf } from '../../../features/network/services/draft-changes';
 import { useNow } from '../../../lib/now';
 import { useBuiltInRules, useSetViewerRead } from '../../../features/network/hooks/built-in-rules';
@@ -40,7 +53,8 @@ const DESCRIPTION = 'Who may send to, read or manage whom. The fleet checks the 
  * Network (#260; decision 0034), for a session holding fleet:network: the
  * built-in rules first, then the fleet's own rules, all-to-all until rules are
  * applied, edited as a draft, what the draft changes, and the apply apart
- * (decision 0035), the rules ships declared apart and read-only (#573), the
+ * (decision 0035), Export and the four steps of Import (design network-io),
+ * the rules ships declared apart and read-only (#573), the
  * fleet graph showing which ships a picked ship reaches, against the applied
  * rules or the draft, the pick and the draft in the URL (page.tsx), and the
  * log of the sends the rules refused. For any other session, it says so.
@@ -68,6 +82,14 @@ export function NetworkPageFor({ pickedShipId, against }: { pickedShipId?: ShipI
   const saveDraft = useSaveNetworkRulesDraft();
   const apply = useApplyNetworkRules();
   const discard = useDiscardNetworkRulesDraft();
+  const exportRules = useExportNetworkRules();
+  const checkFile = useCheckNetworkRulesFile();
+  const importRules = useImportNetworkRules();
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const forgetImport = () => {
+    checkFile.reset();
+    importRules.reset();
+  };
   const { networkRulesMax, shipLabelsMax } = useConsoleConstants();
   useSignInWhenSessionEnds([attention.error, liveFleet.error]);
 
@@ -132,6 +154,55 @@ export function NetworkPageFor({ pickedShipId, against }: { pickedShipId?: ShipI
           discardError={discard.error?.message}
           onDiscard={() => {
             discard.mutate();
+          }}
+        />
+        <NetworkRulesFileActions
+          isExporting={exportRules.isPending}
+          exportError={exportRules.error?.message}
+          onExport={() => {
+            exportRules.mutate(undefined, {
+              onSuccess: (name) => {
+                showToast({ title: 'Rules exported', description: `Saved as ${name}.`, tone: 'success' });
+              },
+            });
+          }}
+          canImport={access.canDefineLabels}
+          onImport={() => {
+            forgetImport();
+            setIsImportOpen(true);
+          }}
+        />
+        <ImportNetworkRulesDialog
+          isOpen={isImportOpen}
+          onOpenChange={(isOpen) => {
+            setIsImportOpen(isOpen);
+            if (!isOpen) {
+              forgetImport();
+            }
+          }}
+          checked={checkFile.data}
+          isChecking={checkFile.isPending}
+          checkError={checkFile.error?.message}
+          onCheck={(file) => {
+            importRules.reset();
+            checkFile.mutate({ file });
+          }}
+          onFileChange={forgetImport}
+          ships={graphShipsOf(fleet.data)}
+          isImporting={importRules.isPending}
+          importError={importRules.error?.message}
+          onImport={(input) => {
+            importRules.mutate(input, {
+              onSuccess: ({ definedLabels }) => {
+                setIsImportOpen(false);
+                forgetImport();
+                showToast({
+                  title: 'Imported into the draft',
+                  description: `${definedLabels.length === 0 ? '' : `Defined ${definedLabels.join(', ')}. `}Look at what the draft changes, then apply it.`,
+                  tone: 'success',
+                });
+              },
+            });
           }}
         />
         <DeclaredNetworkRules
