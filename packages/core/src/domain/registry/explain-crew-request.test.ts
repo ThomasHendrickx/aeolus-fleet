@@ -83,7 +83,7 @@ describe('the reason on an unassigned crew request', () => {
   it('is listed with the ship', async () => {
     unwrap(await registry.explainCrewRequest(plugin, { shipId: scoutId, reason: NO_ROOM }));
 
-    const listed = wholeShips(await registry.listFleet(argo)).find((ship) => ship.id === scoutId);
+    const listed = wholeShips((await registry.listFleet(argo)).ships).find((ship) => ship.id === scoutId);
 
     expect(listed?.crewRequest).toMatchObject({ reason: NO_ROOM });
   });

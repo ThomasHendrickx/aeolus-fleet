@@ -5,6 +5,7 @@
  * stays the authority on submit.
  */
 export * from './label-handle.js';
+export * from './page-size.js';
 export * from './payload.js';
 export * from './plain-http.js';
 export * from './read-reach.js';

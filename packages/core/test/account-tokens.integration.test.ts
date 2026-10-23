@@ -143,7 +143,7 @@ afterAll(async () => {
 
 describe('a call with an account token', () => {
   it('reads the fleet with the scopes the token carries', async () => {
-    const ships = await asAccount(issuer.sign(mathilde())).fleet.list.query();
+    const ships = (await asAccount(issuer.sign(mathilde())).fleet.list.query()).items;
 
     expect(ships.map((ship) => ship.name)).toContain('near');
   });
@@ -232,7 +232,7 @@ describe("an account token and its own person ship (decision 0052)", () => {
 
     await asAccount(issuer.sign(mathilde({ scope: 'fleet:read', person_ship: personShip })), gateway.crewToken).fleet.release.mutate({ shipId: personShip });
 
-    expect((await useCases.listFleet(argo)).find((ship) => ship.id === personShip)).toMatchObject({ status: 'awaitingCrew' });
+    expect((await useCases.listFleet(argo)).ships.find((ship) => ship.id === personShip)).toMatchObject({ status: 'awaitingCrew' });
   });
 
   it('is refused a starting prompt for a ship not its person ship', async () => {
@@ -287,7 +287,7 @@ describe('an account token core refuses', () => {
 
     await expect(refusalOf(asAccount(before).fleet.list.query())).resolves.toMatchObject({ code: 'UNAUTHORIZED' });
     await expect(refusalOf(asAccount(beforeElsewhere).fleet.list.query())).resolves.toMatchObject({ code: 'UNAUTHORIZED' });
-    await expect(asAccount(issuer.sign(burak())).fleet.list.query()).resolves.toBeDefined();
+    await expect(asAccount(issuer.sign(burak())).fleet.list.query().then((page) => page.items)).resolves.toBeDefined();
   });
 
   it('takes a token signed with a key pagasae published after core fetched its keys, a minute later', async () => {
@@ -295,7 +295,7 @@ describe('an account token core refuses', () => {
     issuer.rotate();
     clock.advance(MINUTE_MS);
 
-    await expect(asAccount(issuer.sign(mathilde())).fleet.list.query()).resolves.toBeDefined();
+    await expect(asAccount(issuer.sign(mathilde())).fleet.list.query().then((page) => page.items)).resolves.toBeDefined();
   });
 
   it('accepts none where no issuer is configured', async () => {
@@ -327,7 +327,7 @@ describe('the installation acting in a fleet', () => {
   });
 
   it("reads each ship's owner in the fleet list, so pagasae keeps a person ship while it owns ships: none for argo (#983)", async () => {
-    const ships = await asInstallation(fleetId).fleet.list.query();
+    const ships = (await asInstallation(fleetId).fleet.list.query()).items;
 
     expect(ships.filter((ship) => ship.name === 'argo' || ship.name === 'near').map((ship) => ({ name: ship.name, ownerShipId: 'ownerShipId' in ship ? ship.ownerShipId : 'outside read reach' }))).toEqual([
       { name: 'argo', ownerShipId: null },

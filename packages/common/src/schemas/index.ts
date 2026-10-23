@@ -17,6 +17,7 @@ export * from './needs-attention.js';
 export * from './network.js';
 export * from './notice.js';
 export * from './operator-inbox.js';
+export * from './page.js';
 export * from './ping.js';
 export * from './question.js';
 export * from './report.js';

@@ -107,7 +107,7 @@ describe('a crew request read with the ship', () => {
   it('is listed with the fleet by its settings version and when it was requested, never its settings', async () => {
     unwrap(await registry.requestCrew(argo, { shipId: scoutId, settings }));
 
-    const listed = wholeShips(await registry.listFleet(argo)).find((ship) => ship.id === scoutId);
+    const listed = wholeShips((await registry.listFleet(argo)).ships).find((ship) => ship.id === scoutId);
 
     expect(listed?.crewRequest).toEqual({ settingsVersion: 1, requestedAt: core.clock.now(), assignedTo: null, status: null, reason: null, crewedBy: null, attempt: 0, sessionStartedAt: null, givenBack: [] });
   });

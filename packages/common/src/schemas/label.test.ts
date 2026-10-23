@@ -15,6 +15,7 @@ import {
   findLabelValueInputSchema,
   findLabelValueOutputSchema,
   fleetListInputSchema,
+  shipCursorOf,
   labelsOutputSchema,
   unassignLabelInputSchema,
 } from './label.js';
@@ -99,6 +100,47 @@ describe('fleetListInputSchema', () => {
 
   it('refuses a value given by its text', () => {
     expect(fleetListInputSchema.safeParse({ valueIds: ['macos'] }).success).toBe(false);
+  });
+
+  it('takes the cursor the last page answered and the page size (decision 4 of the performance design)', () => {
+    const cursor = shipCursorOf({ isEmpty: false, value: 'crewed', name: 'scout', id: newId('ship') });
+
+    expect(fleetListInputSchema.parse({ cursor, limit: 500 })).toMatchObject({ limit: 500 });
+  });
+
+  it('reads the cursor as the position of the ship the page starts after', () => {
+    const position = { isEmpty: true, value: '', name: 'scout', id: newId('ship') };
+
+    expect(fleetListInputSchema.parse({ cursor: shipCursorOf(position) })).toEqual({ cursor: position });
+  });
+
+  it('refuses a cursor fleet.list did not answer', () => {
+    expect(fleetListInputSchema.safeParse({ cursor: newId('ship') }).success).toBe(false);
+  });
+
+  it('takes a sort: a column and a direction', () => {
+    expect(fleetListInputSchema.parse({ sort: { column: 'seen', direction: 'descending' } })).toEqual({ sort: { column: 'seen', direction: 'descending' } });
+    expect(fleetListInputSchema.safeParse({ sort: { column: 'colour', direction: 'ascending' } }).success).toBe(false);
+  });
+
+  it("takes the ships by id, the agent kinds and the ships the console's plugins run as", () => {
+    const filters = { shipIds: [newId('ship')], kind: ['console', 'claudeCode', 'codex', 'trierarch', 'plugin', 'other'], pluginShipIds: [newId('ship')] };
+
+    expect(fleetListInputSchema.parse(filters)).toEqual(filters);
+  });
+
+  it('refuses a page over the maximum size', () => {
+    expect(fleetListInputSchema.safeParse({ limit: 501 }).success).toBe(false);
+  });
+
+  it('takes what the overview filters: search text, statuses, types and where the crew request stands', () => {
+    const filters = { query: 'build', status: ['crewed', 'retired'], type: ['implementer'], crewRequest: ['none', 'needsCrew', 'crewedByHand', 'crashed'] };
+
+    expect(fleetListInputSchema.parse(filters)).toEqual(filters);
+  });
+
+  it('refuses a crew request stage it does not know', () => {
+    expect(fleetListInputSchema.safeParse({ crewRequest: ['lost'] }).success).toBe(false);
   });
 });
 

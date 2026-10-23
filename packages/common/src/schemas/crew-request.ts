@@ -39,6 +39,16 @@ export const CREW_STATUSES = ['crewing', 'running', 'restarting', 'crashed', 're
 export const crewStatusSchema = z.enum(CREW_STATUSES);
 export type CrewStatus = z.infer<typeof crewStatusSchema>;
 
+/**
+ * Where a ship's crew request stands, as one key (the overview's Crew request
+ * filter): none; needs crew, unassigned and not crewed; crewed by hand while
+ * still unassigned; or, assigned to a trierarch, the status it wrote, crewing
+ * before it wrote one.
+ */
+export const CREW_REQUEST_KEYS = ['none', 'needsCrew', 'crewedByHand', ...CREW_STATUSES] as const;
+export const crewRequestKeySchema = z.enum(CREW_REQUEST_KEYS);
+export type CrewRequestKey = z.infer<typeof crewRequestKeySchema>;
+
 /** The longest reason the assigner may write on a crew request: one line, as a report's note. */
 export const CREW_REQUEST_REASON_MAX_LENGTH = 200;
 

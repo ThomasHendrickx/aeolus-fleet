@@ -1,10 +1,12 @@
-import { isInReadReach } from '@aeolus-fleet/common/rules';
+import { isInReadReach, PAGE_SIZE_MAX } from '@aeolus-fleet/common/rules';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useAccess } from './access';
 import { useAnalytics } from './analytics-client';
 import { labelContextOf, type LabelContext } from './labels';
-import { useTRPC } from './trpc';
+import { everyPage } from './every-page';
+import { dataOf } from './plugin-answer';
+import { useTRPC, useTRPCClient } from './trpc';
 
 /**
  * How often an open console reads the snapshot again: last seen changes with
@@ -14,12 +16,22 @@ export const LAST_SEEN_REFRESH_MS = 30_000;
 
 /**
  * The fleet snapshot: every ship with its status, prompt state and when it was
- * last seen. Only the ships the session reads whole: argo reads every ship, a
- * viewer every ship while argo leaves the viewer reading on (decision 0034).
+ * last seen, read page after page at the largest page size, so each read
+ * stays within its budget while the page shows every ship (decision 4 of the
+ * performance design). Only the ships the session reads whole: argo reads
+ * every ship, a viewer every ship while argo leaves the viewer reading on
+ * (decision 0034).
  */
 export function useFleetSnapshot() {
   const trpc = useTRPC();
-  return useQuery(trpc.fleet.list.queryOptions(undefined, { refetchInterval: LAST_SEEN_REFRESH_MS, select: (ships) => ships.filter(isInReadReach) }));
+  const client = useTRPCClient();
+  return useQuery({
+    queryKey: trpc.fleet.list.queryKey(),
+    queryFn: async () =>
+      dataOf(await everyPage(async (cursor: string | undefined) => ({ kind: 'answered', data: await client.fleet.list.query({ cursor, limit: PAGE_SIZE_MAX }) }))),
+    refetchInterval: LAST_SEEN_REFRESH_MS,
+    select: (ships) => ships.filter(isInReadReach),
+  });
 }
 
 /** The fleet's labels (#102, decision 0031): each with its values and its owner, for chips and the label filter. */

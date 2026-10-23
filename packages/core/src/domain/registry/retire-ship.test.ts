@@ -69,7 +69,7 @@ describe('retiring a ship', () => {
   it('retires a ship awaiting crew for good: retired in the fleet, its secret stops working, ShipRetired by the caller', async () => {
     unwrap(await retireScout());
 
-    expect((await registry.listFleet(argo)).find((ship) => ship.id === scoutId)).toMatchObject({ status: 'retired' });
+    expect((await registry.listFleet(argo)).ships.find((ship) => ship.id === scoutId)).toMatchObject({ status: 'retired' });
     await expect(
       registry.claimShip({ shipId: scoutId, secret: scoutSecret, location: { kind: 'DEVICE' }, harness: 'claude-code' }),
     ).resolves.toMatchObject({ isOk: false });
@@ -175,7 +175,7 @@ describe('an account retiring a ship (decision 0057)', () => {
   it('retires a ship in its manage reach, ShipRetired naming the account through the ship that presented it', async () => {
     unwrap(await registry.retireShip(thomas(), { shipId: scoutId }));
 
-    expect((await registry.listFleet(argo)).find((ship) => ship.id === scoutId)).toMatchObject({ status: 'retired' });
+    expect((await registry.listFleet(argo)).ships.find((ship) => ship.id === scoutId)).toMatchObject({ status: 'retired' });
     expect(eventsOfType('ShipRetired')).toMatchObject([{ shipId: scoutId, actor: { kind: 'account', accountId: THOMAS, throughShipId: lookout.shipId } }]);
   });
 });

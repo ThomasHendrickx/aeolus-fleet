@@ -57,12 +57,16 @@ import type {
   ShipRepository,
 } from '../../src/domain/registry/ports.js';
 import { isSameOwner, type Label, type LabelOwner, type ListedLabel, type ShipLabel } from '../../src/domain/registry/label.js';
+import { matchesShipFilter } from '../../src/domain/registry/ship-filter.js';
+import { readsShip } from '../../src/domain/registry/read-reach.js';
+import { comparePositions, positionOf } from '../../src/domain/registry/ship-order.js';
 import type { DeclaredNetworkRules } from '../../src/domain/registry/declared-network-rules.js';
 import type { NetworkRulesDraft } from '../../src/domain/registry/network-rules-draft.js';
 import type { ScopeNamespace } from '../../src/domain/registry/scope-namespace.js';
 import { noNetworkSettings, type NetworkSettings } from '../../src/domain/registry/network-settings.js';
 import type { ReachRefusal } from '../../src/domain/registry/reach-refusal.js';
 import { isSameCommissioner, type Ship } from '../../src/domain/registry/ship.js';
+import { listedShipOf } from '../../src/domain/registry/list-fleet.js';
 import type { ShipReport } from '../../src/domain/registry/ship-report.js';
 import type { StatedStatement } from '../../src/domain/registry/statement.js';
 import type { Turn } from '../../src/domain/registry/turn.js';
@@ -1447,12 +1451,16 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
   };
 
   const listing: FleetListing = {
-    ships: (fleetId) =>
+    ships: (fleetId, { after, limit, filter, sort, reach }) =>
       Promise.resolve(
         state.ships
           .filter((held) => held.fleetId === fleetId)
-          .sort((first, second) => first.id.localeCompare(second.id))
-          .map(factsOf),
+          .map(factsOf)
+          .filter((facts) => matchesShipFilter(listedShipOf(facts), { filter, isInReach: readsShip(reach, facts.ship.id) }))
+          .map((facts) => ({ facts, position: positionOf(listedShipOf(facts), { sort, isInReach: readsShip(reach, facts.ship.id) }) }))
+          .filter(({ position }) => after === undefined || comparePositions(sort)(position, after) > 0)
+          .sort((first, second) => comparePositions(sort)(first.position, second.position))
+          .slice(0, limit),
       ),
     ship: (fleetId, shipId) => {
       const held = state.ships.find((candidate) => candidate.fleetId === fleetId && candidate.id === shipId);

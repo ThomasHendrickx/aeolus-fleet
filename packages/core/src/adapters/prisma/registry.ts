@@ -1,15 +1,21 @@
-import { PING_CONTENT_TYPE, idSchema, scopeNameSchema, type FleetId, type LabelId, type ShipId } from '@aeolus-fleet/common';
+import { PING_CONTENT_TYPE, idSchema, scopeNameSchema, type FleetId, type LabelId, type ShipId, type ShipPosition } from '@aeolus-fleet/common';
+
+import { z } from 'zod';
 
 import type {
   ClearRequestRepository,
   CrewRequestRepository,
   FleetListing,
+  ShipPage,
   LabelRepository,
   FleetRepository,
   InFlightDeliveries,
   LeaseRepository,
   ShipRepository,
 } from '../../domain/registry/ports.js';
+import type { ShipFilter } from '../../domain/registry/ship-filter.js';
+import { COLUMNS_SHOWN_OUTSIDE_READ_REACH, isValueDescending, type ShipSort } from '../../domain/registry/ship-order.js';
+import type { ReadReach } from '../../domain/registry/read-reach.js';
 import type { Db } from './client.js';
 import { Prisma } from './generated/client.js';
 import {
@@ -625,13 +631,157 @@ const crewedByOfShip = Prisma.sql`
   ORDER BY e.seq DESC
   LIMIT 1`;
 
+/** A ship's crew request as one key (domain/registry/ship-filter.ts, crewRequestKeyOf), for the ship `s` of the outer query. */
+const crewRequestKeyOfShip = Prisma.sql`
+  (SELECT CASE
+            WHEN rq.assigned_to_ship_id IS NOT NULL THEN COALESCE(rq.status::text, 'crewing')
+            WHEN EXISTS (SELECT 1 FROM leases ol
+                         WHERE ol.fleet_id = s.fleet_id AND ol.ship_id = s.id AND ol.ended_at IS NULL
+                           AND EXISTS (SELECT 1 FROM events e
+                                       JOIN ships a ON a.fleet_id = e.fleet_id AND a.id = e.actor_ship_id
+                                       WHERE e.fleet_id = s.fleet_id AND e.ship_id = s.id
+                                         AND e.type = 'StartingPromptIssued' AND e.occurred_at <= ol.started_at)) THEN 'crewedByHand'
+            ELSE 'needsCrew'
+          END
+   FROM crew_requests rq WHERE rq.fleet_id = s.fleet_id AND rq.ship_id = s.id)`;
+
+/** What sort of agent crews the ship `s` of the outer query (domain/registry/ship-filter.ts, agentKindOf). */
+function agentKindOfShip(pluginShipIds: readonly ShipId[]): Prisma.Sql {
+  return Prisma.sql`
+    CASE
+      WHEN s.kind IN ('operator', 'viewer') THEN 'console'
+      WHEN s.id = ANY(${[...pluginShipIds]}::text[]) THEN 'plugin'
+      WHEN s.type = 'trierarch' THEN 'trierarch'
+      ELSE COALESCE((SELECT CASE ol.harness WHEN 'claude-code' THEN 'claudeCode' WHEN 'codex' THEN 'codex' END
+                     FROM leases ol WHERE ol.fleet_id = s.fleet_id AND ol.ship_id = s.id AND ol.ended_at IS NULL), 'other')
+    END`;
+}
+
+/** A ship's status (domain/registry/ship.ts, shipStatus), for the ship `s` of the outer query. */
+const statusOfShip = Prisma.sql`
+  CASE
+    WHEN s.retired_at IS NOT NULL THEN 'retired'
+    WHEN s.kind IN ('operator', 'viewer')
+      OR EXISTS (SELECT 1 FROM leases ol WHERE ol.fleet_id = s.fleet_id AND ol.ship_id = s.id AND ol.ended_at IS NULL) THEN 'crewed'
+    ELSE 'awaitingCrew'
+  END`;
+
+/** Whether the caller reads the ship `s` of the outer query (decision 0034). */
+function isInReachOfShip(reach: ReadReach): Prisma.Sql {
+  return reach.kind === 'every' ? Prisma.sql`true` : Prisma.sql`s.id = ANY(${[...reach.shipIds]}::text[])`;
+}
+
 /**
- * The listing's one statement: every ship of the fleet with what the snapshot
- * shows of it, oldest first. One row per ship: at most one lease is open and
- * at most one secret is valid per ship (partial unique indexes), so neither
- * join multiplies rows.
+ * The filter (domain/registry/ship-filter.ts) as conditions on the ship `s`
+ * of the outer query, each starting with AND: one statement selects the page
+ * or counts the ships, and no ship is read only to be dropped.
  */
-export function fleetListingStatement(fleetId: FleetId): Prisma.Sql {
+export function shipFilterCondition(
+  { query, status = [], type = [], crewRequest = [], valueIds = [], shipIds = [], kind = [], pluginShipIds = [] }: ShipFilter,
+  reach: ReadReach,
+): Prisma.Sql {
+  const needle = query?.trim().toLowerCase() ?? '';
+  const values = [...new Set(valueIds)];
+  // A ship outside read reach shows its name, type and status only: what it does not show never selects it.
+  const isHiddenFilterPicked = crewRequest.length > 0 || kind.length > 0 || values.length > 0;
+  const conditions = [
+    isHiddenFilterPicked ? Prisma.sql`AND ${isInReachOfShip(reach)}` : undefined,
+    needle === '' ? undefined : Prisma.sql`AND (strpos(lower(s.name), ${needle}) > 0 OR strpos(lower(s.type), ${needle}) > 0)`,
+    status.length === 0 ? undefined : Prisma.sql`AND ${statusOfShip} = ANY(${[...status]}::text[])`,
+    type.length === 0 ? undefined : Prisma.sql`AND s.type = ANY(${[...type]}::text[])`,
+    crewRequest.length === 0 ? undefined : Prisma.sql`AND COALESCE(${crewRequestKeyOfShip}, 'none') = ANY(${[...crewRequest]}::text[])`,
+    values.length === 0
+      ? undefined
+      : Prisma.sql`AND (SELECT count(*) FROM ship_labels sl
+                        WHERE sl.fleet_id = s.fleet_id AND sl.ship_id = s.id AND sl.value_id = ANY(${values}::text[])) = ${values.length}`,
+    shipIds.length === 0 ? undefined : Prisma.sql`AND s.id = ANY(${[...shipIds]}::text[])`,
+    kind.length === 0 ? undefined : Prisma.sql`AND ${agentKindOfShip(pluginShipIds)} = ANY(${[...kind]}::text[])`,
+  ].filter((condition) => condition !== undefined);
+  return conditions.length === 0 ? Prisma.empty : Prisma.join(conditions, ' ');
+}
+
+/** A ship's status as its sort shows it (ship-order's STATUS_WORDS), for the ship `s` of the outer query. */
+const statusWordOfShip = Prisma.sql`
+  CASE ${statusOfShip} WHEN 'awaitingCrew' THEN 'awaiting crew' WHEN 'crewed' THEN 'crewed' ELSE 'retired' END`;
+
+/**
+ * What the sort's column shows for the ship `s` with its open lease `l`, as
+ * lower-case text, empty when the cell is (domain/registry/ship-order.ts,
+ * positionOf); without a sort, nothing, as argo first and then the names
+ * order the ships.
+ */
+function sortValueOfShip(sort: ShipSort | undefined, reach: ReadReach): Prisma.Sql {
+  if (sort === undefined || COLUMNS_SHOWN_OUTSIDE_READ_REACH.includes(sort.column)) {
+    return shownSortValueOfShip(sort);
+  }
+  // A ship outside read reach has no value in a column it does not show (decision 0034).
+  return Prisma.sql`CASE WHEN ${isInReachOfShip(reach)} THEN ${shownSortValueOfShip(sort)} ELSE '' END`;
+}
+
+function shownSortValueOfShip(sort: ShipSort | undefined): Prisma.Sql {
+  switch (sort?.column) {
+    case undefined:
+      return Prisma.sql`''::text`;
+    case 'ship':
+      return Prisma.sql`lower(s.name)`;
+    case 'status':
+      return statusWordOfShip;
+    case 'report':
+      return Prisma.sql`CASE WHEN s.kind IN ('agent', 'plugin') AND ${statusOfShip} = 'crewed' THEN lower(COALESCE(l.report_note, '')) ELSE '' END`;
+    case 'labels':
+      return Prisma.sql`COALESCE((SELECT lower(lb.key || '=' || v.value)
+                                  FROM ship_labels sl
+                                  JOIN labels lb ON lb.fleet_id = sl.fleet_id AND lb.id = sl.label_id
+                                  JOIN label_values v ON v.fleet_id = sl.fleet_id AND v.id = sl.value_id
+                                  WHERE sl.fleet_id = s.fleet_id AND sl.ship_id = s.id
+                                  ORDER BY lb.key, v.value LIMIT 1), '')`;
+    case 'runsOn':
+      return Prisma.sql`CASE WHEN ${statusOfShip} = 'crewed' AND s.kind <> 'viewer'
+                             THEN CASE WHEN s.kind = 'operator' THEN 'console' ELSE lower(COALESCE(l.harness, '')) END
+                             ELSE '' END`;
+    case 'seen':
+      return Prisma.sql`COALESCE(to_char(COALESCE(l.last_seen_at, (SELECT max(cs.last_used_at) FROM console_sessions cs
+                                                                   WHERE cs.fleet_id = s.fleet_id AND cs.ship_id = s.id AND cs.lease_id IS NULL))
+                                         AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US'), '')`;
+  }
+}
+
+/** Whether the ship goes after the ones with a value: an empty cell, or, without a sort, any ship but argo. */
+function sortIsEmptyOfShip(sort: ShipSort | undefined, value: Prisma.Sql): Prisma.Sql {
+  return sort === undefined ? Prisma.sql`s.kind <> 'operator'` : Prisma.sql`${value} = ''`;
+}
+
+/** The ships after the position, in the order of `ranked`'s columns (ship-order's comparePositions). */
+function afterPosition(position: ShipPosition | undefined, sort: ShipSort | undefined): Prisma.Sql {
+  if (position === undefined) {
+    return Prisma.empty;
+  }
+  const beyond = isValueDescending(sort) ? Prisma.sql`<` : Prisma.sql`>`;
+  return Prisma.sql`WHERE ranked.sort_is_empty > ${position.isEmpty}
+    OR (ranked.sort_is_empty = ${position.isEmpty}
+        AND (ranked.sort_value COLLATE "C" ${beyond} ${position.value}
+             OR (ranked.sort_value = ${position.value}
+                 AND (ranked.sort_name COLLATE "C" > ${position.name}
+                      OR (ranked.sort_name = ${position.name} AND ranked.id COLLATE "C" > ${position.id})))))`;
+}
+
+function orderOfPage(alias: string, sort: ShipSort | undefined): Prisma.Sql {
+  const table = Prisma.raw(alias);
+  const direction = isValueDescending(sort) ? Prisma.sql`DESC` : Prisma.sql`ASC`;
+  return Prisma.sql`ORDER BY ${table}.sort_is_empty, ${table}.sort_value COLLATE "C" ${direction}, ${table}.sort_name COLLATE "C", ${table}.id COLLATE "C"`;
+}
+
+/**
+ * The listing's one statement: a page of the fleet's ships with what the
+ * snapshot shows of each (decision 4 of the performance design). The ships
+ * the filter selects are ordered by the sort's few terms alone, the page is
+ * cut after the position, and only the page's ships read who crewed them,
+ * their last ping and model, and their labels. One row per ship: at most one
+ * lease is open and at most one secret is valid per ship (partial unique
+ * indexes), so neither join multiplies rows.
+ */
+export function fleetListingStatement(fleetId: FleetId, { after, limit, filter, sort, reach }: ShipPage): Prisma.Sql {
+  const value = sortValueOfShip(sort, reach);
   return Prisma.sql`
     SELECT s.id, s.fleet_id, s.name, s.type, s.kind::text AS kind, s.scopes, s.note, s.created_at, s.retired_at,
            s.commissioned_by_kind::text AS commissioned_by_kind, s.commissioned_by, s.commission_key, s.commission_request_hash, s.owner_ship_id,
@@ -649,8 +799,20 @@ export function fleetListingStatement(fleetId: FleetId): Prisma.Sql {
              WHERE cs.fleet_id = s.fleet_id AND cs.ship_id = s.id AND cs.lease_id IS NULL) AS last_viewed_at,
            (SELECT max(el.ended_at) FROM leases el
              WHERE el.fleet_id = s.fleet_id AND el.ship_id = s.id AND el.ended_at IS NOT NULL) AS last_lease_ended_at,
-           ${labelsOfShip} AS labels, ${givenBackOfShip} AS crew_request_given_back
-    FROM ships s
+           ${labelsOfShip} AS labels, ${givenBackOfShip} AS crew_request_given_back,
+           pg.sort_is_empty, pg.sort_value, pg.sort_name
+    FROM (
+      SELECT ranked.* FROM (
+        SELECT s.id, ${sortIsEmptyOfShip(sort, value)} AS sort_is_empty, ${value} AS sort_value, lower(s.name) AS sort_name
+        FROM ships s
+        LEFT JOIN leases l ON l.fleet_id = s.fleet_id AND l.ship_id = s.id AND l.ended_at IS NULL
+        WHERE s.fleet_id = ${fleetId} ${shipFilterCondition(filter, reach)}
+      ) ranked
+      ${afterPosition(after, sort)}
+      ${orderOfPage('ranked', sort)}
+      LIMIT ${limit}
+    ) pg
+    JOIN ships s ON s.fleet_id = ${fleetId} AND s.id = pg.id
     LEFT JOIN leases l ON l.fleet_id = s.fleet_id AND l.ship_id = s.id AND l.ended_at IS NULL
     LEFT JOIN credentials c ON c.fleet_id = s.fleet_id AND c.ship_id = s.id AND c.invalidated_at IS NULL
     LEFT JOIN crew_requests cr ON cr.fleet_id = s.fleet_id AND cr.ship_id = s.id
@@ -659,15 +821,22 @@ export function fleetListingStatement(fleetId: FleetId): Prisma.Sql {
     LEFT JOIN LATERAL (${crewedByOfShip}) cb ON true
     LEFT JOIN LATERAL (${lastPingOfShip}) p ON true
     LEFT JOIN LATERAL (${lastModelOfShip}) lm ON true
-    WHERE s.fleet_id = ${fleetId}
-    ORDER BY s.id`;
+    ${orderOfPage('pg', sort)}`;
+}
+
+const shipPositionRowSchema = z.object({ id: idSchema('ship'), sort_is_empty: z.boolean(), sort_value: z.string(), sort_name: z.string() });
+
+/** The ship's place in the page's order, as the listing statement read it. */
+function shipPositionOfRow(row: unknown): ShipPosition {
+  const { id, sort_is_empty, sort_value, sort_name } = shipPositionRowSchema.parse(row);
+  return { isEmpty: sort_is_empty, value: sort_value, name: sort_name, id };
 }
 
 export function createPrismaFleetListing(db: Db): FleetListing {
   return {
-    ships: async (fleetId) => {
-      const rows = await db.$queryRaw<unknown[]>(fleetListingStatement(fleetId));
-      return rows.map(toShipFacts);
+    ships: async (fleetId, page) => {
+      const rows = await db.$queryRaw<unknown[]>(fleetListingStatement(fleetId, page));
+      return rows.map((row) => ({ facts: toShipFacts(row), position: shipPositionOfRow(row) }));
     },
     labels: async (fleetId) => {
       const rows = await db.$queryRaw<unknown[]>`

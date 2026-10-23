@@ -514,13 +514,14 @@ export function crewAboard(core: InMemoryCore, ship: { fleetId: FleetId; shipId:
  * A session crewing the ship, straight into the state, without its secret:
  * for a ship whose secret the test does not hold. Returns the crew token.
  */
-export function crewShip(core: InMemoryCore, ship: { fleetId: FleetId; shipId: ShipId }): string {
+/** Crews the ship with a session in the harness given, Claude Code unless named. */
+export function crewShip(core: InMemoryCore, { harness = 'claude-code', ...ship }: { fleetId: FleetId; shipId: ShipId; harness?: string }): string {
   const crewToken = `aeolus_ct_v1_crew-${ship.shipId}`;
   core.state.leases.push({
     id: core.ids('lease'),
     ...ship,
     location: { kind: 'DEVICE', description: null },
-    harness: 'claude-code',
+    harness,
     crewTokenHash: core.hasher.hash(crewToken),
     startedAt: core.clock.now(),
     endedAt: null,

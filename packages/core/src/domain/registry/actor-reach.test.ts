@@ -115,7 +115,7 @@ describe("an account's manage reach", () => {
 
 describe("an account's read reach", () => {
   it('reads in full only the ships a read rule on its group values lets it read', async () => {
-    const ships = await fleet.registry.listFleet(mathilde, {});
+    const ships = (await fleet.registry.listFleet(mathilde, {})).ships;
 
     expect(ships.find((ship) => ship.id === fleet.near.shipId)).toHaveProperty('scopes');
     expect(ships.find((ship) => ship.id === fleet.far.shipId)).not.toHaveProperty('scopes');

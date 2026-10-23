@@ -83,7 +83,7 @@ async function inFlightWith(crew: Crew, selector: Selector): Promise<DeliveryId>
 }
 
 async function listed(shipId: ShipId) {
-  return (await useCases.listFleet(argo)).find((ship) => ship.id === shipId);
+  return (await useCases.listFleet(argo)).ships.find((ship) => ship.id === shipId);
 }
 
 function stored(deliveryId: DeliveryId) {

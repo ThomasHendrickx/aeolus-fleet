@@ -229,7 +229,7 @@ describe('the ship tools at /mcp', () => {
     const crewToken = await register(session, manager);
 
     const listed = await call(session, {
-      tool: { name: 'fleet_list', answers: z.array(z.object({ name: z.string() })) },
+      tool: { name: 'fleet_list', answers: z.object({ items: z.array(z.object({ name: z.string() })) }) },
       arguments: { crewToken },
     });
     const { shipId } = await call(session, {
@@ -237,7 +237,7 @@ describe('the ship tools at /mcp', () => {
       arguments: { crewToken, name: `${manager.name}-member`, type: 'squadron', idempotencyKey: 'commission-member' },
     });
 
-    expect(listed.map((ship) => ship.name)).toContain(manager.name);
+    expect(listed.items.map((ship) => ship.name)).toContain(manager.name);
     expect(shipId).toMatch(/^shp_/);
   });
 
@@ -314,7 +314,7 @@ describe('the ship tools at /mcp', () => {
 
     await call(session, { tool: { name: 'report', answers: z.strictObject({}) }, arguments: { crewToken, state: 'blocked', note: 'waiting for review' } });
 
-    const listed = wholeShips(await createUseCases({ prisma: database }).listFleet(argo));
+    const listed = wholeShips((await createUseCases({ prisma: database }).listFleet(argo)).ships);
     expect(listed.find((ship) => ship.id === skiff.shipId)?.report).toMatchObject({ state: 'blocked', note: 'waiting for review' });
   });
 

@@ -1,6 +1,9 @@
 import { z } from 'zod';
 
+import { shipStatusSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
+import { crewRequestKeySchema } from './crew-request.js';
+import { pageInputOf } from './page.js';
 
 /**
  * Labels (decision 0031): an owned vocabulary for selecting ships. A label is
@@ -30,8 +33,82 @@ export const labelValueSchema = z.object({ id: idSchema('labelValue'), value: z.
 /** One value a ship carries, with its label: ids and texts. */
 export const carriedLabelSchema = z.object({ labelId: idSchema('label'), key: z.string(), valueId: idSchema('labelValue'), value: z.string() });
 
-/** Input of `fleet.list`: none, or the value ids a listed ship must carry: exact matches, combined with AND. */
-export const fleetListInputSchema = z.object({ valueIds: z.array(idSchema('labelValue')).optional() }).optional();
+/**
+ * What sort of agent crews a ship (the overview's Kind filter, idea #401):
+ * the console (argo and the viewer), a ship a console plugin runs as, a
+ * machine's trierarch, or what its crewing session's harness says.
+ */
+export const AGENT_KINDS = ['console', 'claudeCode', 'codex', 'trierarch', 'plugin', 'other'] as const;
+export const agentKindSchema = z.enum(AGENT_KINDS);
+export type AgentKind = z.infer<typeof agentKindSchema>;
+
+/**
+ * Which ships `fleet.list` and the counts read select, every filter combined
+ * with AND: the search text its name or type holds, in any case; any of the
+ * statuses, types, crew request keys, ship ids and agent kinds picked; and
+ * every label value id given (exact matches, decision 0031). A filter left
+ * out selects every ship. `pluginShipIds` names the ships the console's
+ * plugins run as, which the kind filter counts as plugin.
+ */
+export const fleetListFilterSchema = z.object({
+  query: z.string().optional(),
+  status: z.array(shipStatusSchema).optional(),
+  type: z.array(z.string()).optional(),
+  crewRequest: z.array(crewRequestKeySchema).optional(),
+  valueIds: z.array(idSchema('labelValue')).optional(),
+  shipIds: z.array(idSchema('ship')).optional(),
+  kind: z.array(agentKindSchema).optional(),
+  pluginShipIds: z.array(idSchema('ship')).optional(),
+});
+
+/** The columns `fleet.list` sorts by, as the overview shows them. */
+export const SHIP_SORT_COLUMNS = ['ship', 'status', 'report', 'labels', 'runsOn', 'seen'] as const;
+export type ShipSortColumn = (typeof SHIP_SORT_COLUMNS)[number];
+
+/**
+ * The order of `fleet.list`: a column, A to Z or Z to A (Seen: the most
+ * recent first when ascending), ships with nothing in the column last either
+ * way, ties by name. Without one: argo first, then by name.
+ */
+export const fleetListSortSchema = z.object({ column: z.enum(SHIP_SORT_COLUMNS), direction: z.enum(['ascending', 'descending']) });
+
+/**
+ * Where a page of `fleet.list` starts: after the ship at this position in
+ * the order, by whether its sort value is empty, the value, its name and its
+ * id. The fleet answers it as an opaque cursor; only the fleet reads it.
+ */
+export const shipPositionSchema = z.object({ isEmpty: z.boolean(), value: z.string(), name: z.string(), id: idSchema('ship') });
+export type ShipPosition = z.infer<typeof shipPositionSchema>;
+
+/** The most characters a cursor may have: a position with a long report note fits. */
+const SHIP_CURSOR_MAX_LENGTH = 4096;
+
+/** A position as the opaque cursor fleet.list answers: its JSON in base64url. */
+export function shipCursorOf(position: ShipPosition): string {
+  const bytes = new TextEncoder().encode(JSON.stringify(position));
+  return btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
+}
+
+function jsonOfCursor(cursor: string): unknown {
+  try {
+    const binary = atob(cursor.replaceAll('-', '+').replaceAll('_', '/'));
+    return JSON.parse(new TextDecoder().decode(Uint8Array.from(binary, (character) => character.charCodeAt(0))));
+  } catch {
+    return undefined;
+  }
+}
+
+/** A cursor fleet.list answered, read back as its position. */
+export const shipCursorSchema = z
+  .string()
+  .max(SHIP_CURSOR_MAX_LENGTH)
+  .transform(jsonOfCursor)
+  .pipe(shipPositionSchema);
+
+/** Input of `fleet.list`: the filter, the sort, and the page: the cursor it starts after and its size (decision 4 of the performance design). */
+export const fleetListInputSchema = pageInputOf(shipCursorSchema)
+  .extend({ ...fleetListFilterSchema.shape, sort: fleetListSortSchema.optional() })
+  .optional();
 
 /** Input of `fleet.defineLabel` (labels:define): the key, unique in the fleet, and its values. */
 export const defineLabelInputSchema = z.object({ key: labelTextSchema, values: z.array(labelTextSchema) });

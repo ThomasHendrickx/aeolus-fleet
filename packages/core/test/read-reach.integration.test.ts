@@ -1,4 +1,4 @@
-import type { FleetScope, LabelValueId, MessageId, ShipId } from '@aeolus-fleet/common';
+import { shipCursorSchema, type FleetScope, type LabelValueId, type MessageId, type ShipId } from '@aeolus-fleet/common';
 import { createTRPCClient, httpBatchLink, TRPCClientError, type TRPCClient } from '@trpc/client';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -125,7 +125,7 @@ afterAll(async () => {
 
 describe('the fleet:read procedures for a ship outside read reach (decision 0034)', () => {
   it('fleet.list shows far by its name, type and status only, near whole', async () => {
-    const listed = await reader.fleet.list.query();
+    const listed = (await reader.fleet.list.query()).items;
 
     expect([listed.find((ship) => ship.id === ids.far), listed.find((ship) => ship.id === ids.near)]).toEqual([
       { id: ids.far, name: 'far', type: 'keeper', status: 'crewed', isInReadReach: false },
@@ -134,7 +134,27 @@ describe('the fleet:read procedures for a ship outside read reach (decision 0034
   });
 
   it('fleet.list matches no label value on far', async () => {
-    await expect(reader.fleet.list.query({ valueIds: [teamB] })).resolves.toEqual([]);
+    await expect(reader.fleet.list.query({ valueIds: [teamB] }).then((page) => page.items)).resolves.toEqual([]);
+  });
+
+  it('fleet.list gives far no hidden value to sort by: the cursor after it holds only its name and id', async () => {
+    const cursors = [];
+    let cursor: string | undefined;
+    do {
+      const page = await reader.fleet.list.query({ sort: { column: 'runsOn', direction: 'ascending' }, cursor, limit: 1 });
+      cursor = page.nextCursor ?? undefined;
+      cursors.push(cursor === undefined ? undefined : shipCursorSchema.parse(cursor));
+    } while (cursor !== undefined);
+
+    expect(cursors.find((each) => each?.id === ids.far)).toEqual({ isEmpty: true, value: '', name: 'far', id: ids.far });
+  });
+
+  it('fleet.list never selects far by its crew request or the harness crewing it', async () => {
+    const names = async (input: Parameters<typeof reader.fleet.list.query>[0]) => (await reader.fleet.list.query(input)).items.map((ship) => ship.name);
+
+    await expect(names({ crewRequest: ['none'], limit: 500 })).resolves.not.toContain('far');
+    await expect(names({ kind: ['claudeCode'], limit: 500 })).resolves.not.toContain('far');
+    await expect(names({ limit: 500 })).resolves.toContain('far');
   });
 
   it('fleet.ship shows far by its name, type and status only', async () => {

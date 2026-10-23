@@ -86,7 +86,7 @@ describe('a trierarch giving back a crew request', () => {
   it('shows on the request in the fleet list, by trierarch, with the settings version, the reason and when', async () => {
     unwrap(await giveBack(trierarch));
 
-    const listed = wholeShips(await registry.listFleet(argo)).find((ship) => ship.id === scoutId);
+    const listed = wholeShips((await registry.listFleet(argo)).ships).find((ship) => ship.id === scoutId);
 
     expect(listed?.crewRequest?.givenBack).toEqual([{ trierarch: { id: trierarch.shipId, name: 'mac-mini' }, settingsVersion: 1, reason: REASON, givenBackAt: core.clock.now() }]);
   });

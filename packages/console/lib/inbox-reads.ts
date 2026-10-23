@@ -1,7 +1,8 @@
-import { fleetListOutputSchema, type InboxMessage, isInReadReach, type MessageId, messageOutputSchema, operatorInboxOutputSchema } from '@aeolus-fleet/common';
+import { fleetListOutputSchema, type InboxMessage, isInReadReach, type MessageId, messageOutputSchema, operatorInboxOutputSchema, PAGE_SIZE_MAX } from '@aeolus-fleet/common';
 import { cookies } from 'next/headers';
 import type { z } from 'zod';
 
+import { everyPage } from './every-page';
 import { inboxEntriesOf } from './inbox-entries';
 import type { InboxEntry } from './inbox-entry';
 import { threadBefore, type ThreadMessage } from './inbox-thread';
@@ -28,9 +29,9 @@ export function readArgoInbox(): Promise<PluginAnswer<InboxMessage[]>> {
   return callFleet('fleet.inbox', { input: { filter: 'all' }, answers: operatorInboxOutputSchema });
 }
 
-/** The fleet's ships argo reads whole: every one (decision 0034). */
+/** The fleet's ships argo reads whole: every one (decision 0034), page after page. */
 async function readShips() {
-  const ships = await callFleet('fleet.list', { answers: fleetListOutputSchema });
+  const ships = await everyPage((cursor) => callFleet('fleet.list', { input: { cursor, limit: PAGE_SIZE_MAX }, answers: fleetListOutputSchema }));
   return ships.kind === 'answered' ? { ...ships, data: ships.data.filter(isInReadReach) } : ships;
 }
 
