@@ -181,7 +181,7 @@ export interface LiveFleet {
  * "Live updates"), only the resources the event concerns (performance
  * design, decision 3): an event reloads the page of each ship that caused it
  * or that it names; a ship's event those ships' rows in the fleet snapshot,
- * each read alone, and the stuck deliveries; a message's event the open
+ * each read alone, the ship counts and the stuck deliveries; a message's event the open
  * message, the ships' message lists and argo's inbox, whose delivery states
  * it changes, and the stuck deliveries; an acknowledgement the acknowledged
  * in 24 hours; a delivery
@@ -267,7 +267,7 @@ export function createLiveFleetHandler(input: {
         }
       }
     }
-    // The overview's counts, the view's and the fleet's.
+    // A commission, a crew, a release or a crew request moves the ship counts: the fleet's and each view's.
     reload(trpc.fleet.shipCounts.pathKey());
     // A commission, a crew or a release changes why a delivery waits.
     reloadStuck();

@@ -1,7 +1,8 @@
 import { createIdGenerator } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
-import { needsCrewCountOf, overviewMetrics, overviewSubtitle, type ShipKindCount } from './overview-metrics';
+import type { ShipKindCount } from '../../../lib/ship-counts';
+import { overviewMetrics, overviewSubtitle } from './overview-metrics';
 
 const newId = createIdGenerator();
 const NOW = new Date('2026-10-05T12:00:00.000Z');
@@ -37,21 +38,6 @@ describe('overviewMetrics', () => {
 
   it('names no longest wait while every active ship is crewed', () => {
     expect(overviewMetrics({ counts: [aKindCount({ kind: 'agent', active: 1, crewed: 1 })], now: NOW }).longestWait).toBeUndefined();
-  });
-});
-
-describe('needsCrewCountOf', () => {
-  const counts = [
-    aKindCount({ kind: 'agent', needsCrew: { withTrierarchs: 3, withoutTrierarchs: 1 } }),
-    aKindCount({ kind: 'person', needsCrew: { withTrierarchs: 1, withoutTrierarchs: 1 } }),
-  ];
-
-  it('counts the ships needing crew of every kind, as the trierarch plugin being connected decides', () => {
-    expect(needsCrewCountOf(counts, { hasTrierarchs: true })).toBe(4);
-  });
-
-  it('counts them as without the trierarch plugin when it is not connected', () => {
-    expect(needsCrewCountOf(counts, { hasTrierarchs: false })).toBe(2);
   });
 });
 

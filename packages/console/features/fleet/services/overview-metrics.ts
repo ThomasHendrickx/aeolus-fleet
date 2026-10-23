@@ -15,18 +15,15 @@ function agentsOf(counts: readonly ShipKindCount[]): ShipKindCount | undefined {
   return counts.find((count) => count.kind === 'agent');
 }
 
-/** The overview's ship metrics from the fleet snapshot, at `now`. */
-export function overviewMetrics(input: { ships: readonly ListedShip[]; now: Date }): OverviewMetrics {
-  const active = activeShipsOf(input.ships);
-  const awaiting = active.filter((ship) => ship.status === 'awaitingCrew');
-  const longest = awaiting
-    .flatMap((ship) => (ship.awaitingCrewSince === null ? [] : [{ name: ship.name, since: new Date(ship.awaitingCrewSince) }]))
-    .sort((first, second) => first.since.getTime() - second.since.getTime())[0];
+/** The overview's ship metrics from the ship counts, at `now`. */
+export function overviewMetrics(input: { counts: readonly ShipKindCount[]; now: Date }): OverviewMetrics {
+  const agents = agentsOf(input.counts);
+  const longest = agents?.longestWait ?? null;
   return {
-    activeCount: active.length,
-    crewedCount: active.filter((ship) => ship.status === 'crewed').length,
-    awaitingCount: awaiting.length,
-    longestWait: longest && { name: longest.name, wait: duration(longest.since, input.now) },
+    activeCount: agents?.active ?? 0,
+    crewedCount: agents?.crewed ?? 0,
+    awaitingCount: agents?.awaitingCrew ?? 0,
+    longestWait: longest === null ? undefined : { name: longest.name, wait: duration(new Date(longest.awaitingCrewSince), input.now) },
   };
 }
 

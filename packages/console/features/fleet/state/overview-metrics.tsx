@@ -3,24 +3,24 @@
 import { CircleDashed, OctagonAlert, UserCheck } from 'lucide-react';
 
 import { MetricCard } from '../ui/molecules/metric-card';
-import { useFleetSnapshot } from '../../../lib/fleet';
 import { useStuckCount } from '../../../lib/fleet-health';
 import { useNow } from '../../../lib/now';
 import { duration } from '../../../lib/relative-time';
+import { useShipCounts } from '../../../lib/ship-counts';
 import { overviewMetrics } from '../services/overview-metrics';
 
 /**
  * The overview's counts above the fleet (canvas, OverviewVaried): ships
  * crewed, awaiting crew with the longest wait, and the stuck deliveries with
  * since when the oldest waits. Each card opens what it counts. Each card
- * shows its own loading, so a slow fleet snapshot never holds up the stuck
- * count, nor the reverse. None once the fleet is known with argo alone.
+ * shows its own loading, so the ship counts never hold up the stuck count,
+ * nor the reverse. None once the counts are known with argo alone.
  */
 export function OverviewMetrics() {
-  const fleet = useFleetSnapshot();
+  const counts = useShipCounts();
   const stuck = useStuckCount().data;
   const now = useNow();
-  const metrics = fleet.data && overviewMetrics({ ships: fleet.data, now });
+  const metrics = counts.data && overviewMetrics({ counts: counts.data, now });
   if (metrics?.activeCount === 0) {
     return null;
   }
