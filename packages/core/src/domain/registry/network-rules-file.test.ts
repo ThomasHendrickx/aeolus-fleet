@@ -9,8 +9,8 @@ const ids = createIdGenerator();
 const fleetId = ids('fleet');
 const argoId = ids('ship');
 
-function aLabel(key: string, values: readonly string[], owner: Label['owner'] = { kind: 'ship', shipId: argoId }): Label {
-  return { fleetId, id: ids('label'), key, values: values.map((value) => ({ id: ids('labelValue'), value })), owner };
+function aLabel(key: string, values: readonly string[]): Label {
+  return { fleetId, id: ids('label'), key, values: values.map((value) => ({ id: ids('labelValue'), value })), owner: { kind: 'ship', shipId: argoId } };
 }
 
 function aFile(change: Partial<NetworkRulesFile> = {}): NetworkRulesFile {
