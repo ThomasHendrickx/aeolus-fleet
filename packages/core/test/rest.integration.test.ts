@@ -216,6 +216,27 @@ describe('the ship calls at /api/v1', () => {
     expect(received.deliveries).toHaveLength(1);
   });
 
+  it('check the inbox with the count the crew knows: it waits while the count is still that', async () => {
+    const harbour = await commissioned();
+    const mooring = await commissioned();
+    const harbourToken = await register(harbour);
+    const mooringToken = await register(mooring);
+    await ok(
+      request('send', {
+        crewToken: harbourToken,
+        body: { selector: { kind: 'ship', name: mooring.name }, payload: 'Moor at berth 4', model: 'claude-opus-5-5', idempotencyKey: freshKey() },
+      }),
+      z.object({ messageId: z.string() }),
+    );
+    const startedAt = performance.now();
+
+    await expect(
+      ok(request('inbox', { crewToken: mooringToken, body: { waitSeconds: 1, knownWaiting: 1 } }), z.object({ waiting: z.number() })),
+    ).resolves.toEqual({ waiting: 1 });
+    // One second, less the leeway of a timer that fires a little early.
+    expect(performance.now() - startedAt).toBeGreaterThanOrEqual(950);
+  });
+
   it('register, send, receive, ack and deregister: two ships exchange a message and its answer', async () => {
     const harbour = await commissioned();
     const mooring = await commissioned();
