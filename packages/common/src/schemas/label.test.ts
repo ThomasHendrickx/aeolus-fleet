@@ -100,6 +100,16 @@ describe('fleetListInputSchema', () => {
   it('refuses a value given by its text', () => {
     expect(fleetListInputSchema.safeParse({ valueIds: ['macos'] }).success).toBe(false);
   });
+
+  it('takes the ship id the page starts after and the page size (decision 4 of the performance design)', () => {
+    const cursor = newId('ship');
+
+    expect(fleetListInputSchema.parse({ cursor, limit: 500 })).toEqual({ cursor, limit: 500 });
+  });
+
+  it('refuses a page over the maximum size', () => {
+    expect(fleetListInputSchema.safeParse({ limit: 501 }).success).toBe(false);
+  });
 });
 
 describe('listedShipSchema', () => {
