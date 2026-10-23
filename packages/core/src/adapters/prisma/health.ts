@@ -182,19 +182,24 @@ export function replayDeliveriesStatement(fleetId: FleetId, since: Date): Prisma
 }
 
 /**
- * The first snapshot's deliveries at `hour`: sent by then, and open now or
- * with an event after it, since what was open then and left since has its
- * leaving event after it. Each with its steps up to the hour only, which is
- * all the fold reads of it.
+ * The deliveries the first snapshot's base looks up at `hour`: sent by then,
+ * and open now or with an event after it, since what was open then and left
+ * since has its leaving event after it. The events after the hour are mostly
+ * of deliveries sent after it, whose MessageAccepted (written at their send)
+ * is among them, so they are dropped in the one scan of those events by time
+ * and only the deliveries sent by the hour are looked up.
  */
+export function baseCandidatesStatement(fleetId: FleetId, hour: Date): Prisma.Sql {
+  return Prisma.sql`
+    SELECT id FROM deliveries WHERE fleet_id = ${fleetId} AND state IN ${OPEN_STATES_SQL} AND created_at <= ${hour}
+    UNION
+    SELECT delivery_id FROM events WHERE fleet_id = ${fleetId} AND occurred_at > ${hour} AND delivery_id IS NOT NULL
+    GROUP BY delivery_id HAVING bool_and(type <> 'MessageAccepted')`;
+}
+
+/** The first snapshot's deliveries at `hour`, each with its steps up to the hour only, which is all the fold reads of it. */
 export function baseDeliveriesStatement(fleetId: FleetId, hour: Date): Prisma.Sql {
-  return deliveriesWithStepsStatement(fleetId, {
-    candidates: Prisma.sql`
-      SELECT id FROM deliveries WHERE fleet_id = ${fleetId} AND state IN ${OPEN_STATES_SQL} AND created_at <= ${hour}
-      UNION
-      SELECT delivery_id FROM events WHERE fleet_id = ${fleetId} AND occurred_at > ${hour} AND delivery_id IS NOT NULL`,
-    upTo: hour,
-  });
+  return deliveriesWithStepsStatement(fleetId, { candidates: baseCandidatesStatement(fleetId, hour), upTo: hour });
 }
 
 /** The deliveries a `deliveriesWithStepsStatement` answers, as the stuck rule reads them. */
