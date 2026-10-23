@@ -45,6 +45,11 @@ async function notHandled(crew: Crew, report: { messageId: MessageId; reason?: s
   return deliveryId;
 }
 
+/** The first page of Needs attention as argo reads it. */
+async function needsAttentionOf() {
+  return (await scene.history.readNeedsAttention(scene.argo, {})).items;
+}
+
 describe('reading Needs attention', () => {
   it('lists an undeliverable delivery with its whole message, its claims and since when', async () => {
     const payload = '{"run":"e2e","ref":"pr-320"}';
@@ -54,7 +59,7 @@ describe('reading Needs attention', () => {
     // Each receive comes a second after the one before; the fifth claim made it undeliverable.
     const since = new Date(sentAt.getTime() + UNDELIVERABLE_AT_ATTEMPT * 1_000);
 
-    await expect(scene.history.readNeedsAttention(scene.argo)).resolves.toEqual([
+    await expect(needsAttentionOf()).resolves.toEqual([
       {
         deliveryId: deliveryOf(messageId)?.id,
         state: 'undeliverable',
@@ -82,7 +87,7 @@ describe('reading Needs attention', () => {
     const { messageId } = unwrap(await scene.messaging.pingShip(scene.argo, { shipId: scene.scout.shipId }));
     await receiveUntilUndeliverable(scene.scout);
 
-    const [undeliverable] = await scene.history.readNeedsAttention(scene.argo);
+    const [undeliverable] = await needsAttentionOf();
 
     expect(undeliverable?.message).toMatchObject({ id: messageId, isPing: true });
   });
@@ -93,7 +98,7 @@ describe('reading Needs attention', () => {
     const second = await scene.send(scene.planner, { to: { kind: 'type', type: 'reviewer' } });
     await receiveUntilUndeliverable(scene.lookout);
 
-    const listed = await scene.history.readNeedsAttention(scene.argo);
+    const listed = await needsAttentionOf();
 
     expect(listed.map((entry) => entry.message.id)).toEqual([first, second]);
     expect(listed[1]?.message.recipient).toEqual({ kind: 'type', type: 'reviewer' });
@@ -114,7 +119,7 @@ describe('reading Needs attention', () => {
     await scene.send(scene.scout, { to: { kind: 'ship', shipId: scene.planner.shipId } });
     unwrap(await scene.registry.retireShip(scene.argo, { shipId: scene.lookout.shipId }));
 
-    await expect(scene.history.readNeedsAttention(scene.argo)).resolves.toEqual([]);
+    await expect(needsAttentionOf()).resolves.toEqual([]);
   });
 
   it('tells an undeliverable delivery a pushed crew handed over again and again, by its hand-over numbers', async () => {
@@ -125,7 +130,7 @@ describe('reading Needs attention', () => {
       unwrap(await scene.messaging.handOverDelivery(scene.scout, { deliveryId, handOverNumber }));
     }
 
-    const [entry] = await scene.history.readNeedsAttention(scene.argo);
+    const [entry] = await needsAttentionOf();
 
     expect(entry).toMatchObject({ deliveryId, state: 'undeliverable', attempts: UNDELIVERABLE_AT_ATTEMPT, isPushed: true });
   });
@@ -134,7 +139,7 @@ describe('reading Needs attention', () => {
     const messageId = await scene.send(scene.planner, { to: { kind: 'type', type: 'reviewer' } });
     await notHandled(scene.lookout, { messageId });
 
-    const [entry] = await scene.history.readNeedsAttention(scene.argo);
+    const [entry] = await needsAttentionOf();
 
     expect(entry).toMatchObject({ state: 'notHandled', ship: { id: scene.lookout.shipId, name: 'lookout' } });
   });
@@ -143,7 +148,7 @@ describe('reading Needs attention', () => {
     const messageId = await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.scout.shipId } });
     const deliveryId = await notHandled(scene.scout, { messageId });
 
-    const [entry] = await scene.history.readNeedsAttention(scene.argo);
+    const [entry] = await needsAttentionOf();
 
     expect(entry).toMatchObject({
       deliveryId,
@@ -158,7 +163,7 @@ describe('reading Needs attention', () => {
     const messageId = await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.scout.shipId } });
     await notHandled(scene.scout, { messageId, reason: 'the turn it was handed once more to died too' });
 
-    const [entry] = await scene.history.readNeedsAttention(scene.argo);
+    const [entry] = await needsAttentionOf();
 
     expect(entry).toMatchObject({ state: 'notHandled', reason: 'the turn it was handed once more to died too' });
   });
@@ -167,7 +172,7 @@ describe('reading Needs attention', () => {
     const messageId = await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.scout.shipId } });
     await notHandled(scene.scout, { messageId });
 
-    const [entry] = await scene.history.readNeedsAttention(scene.argo);
+    const [entry] = await needsAttentionOf();
 
     expect(entry).toMatchObject({ state: 'notHandled', reason: null });
   });
@@ -180,7 +185,7 @@ describe('reading Needs attention', () => {
     const notHandledLast = await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.scout.shipId } });
     await notHandled(scene.scout, { messageId: notHandledLast });
 
-    const listed = await scene.history.readNeedsAttention(scene.argo);
+    const listed = await needsAttentionOf();
 
     expect(listed.map((entry) => [entry.message.id, entry.state])).toEqual([
       [notHandledFirst, 'notHandled'],
@@ -196,7 +201,7 @@ describe('reading Needs attention', () => {
     unwrap(await scene.messaging.acknowledgeDelivery(scene.scout, { deliveryId }));
     unwrap(await scene.messaging.reportHandled(scene.scout, { deliveryId }));
 
-    await expect(scene.history.readNeedsAttention(scene.argo)).resolves.toEqual([]);
+    await expect(needsAttentionOf()).resolves.toEqual([]);
   });
 
   it('names each ship by the name it has now', async () => {
@@ -207,9 +212,48 @@ describe('reading Needs attention', () => {
       planner.name = 'release-planner';
     }
 
-    const [entry] = await scene.history.readNeedsAttention(scene.argo);
+    const [entry] = await needsAttentionOf();
 
     expect(entry?.message).toMatchObject({ id: messageId, sender: { name: 'release-planner' } });
+  });
+
+  it('answers a page at a time, oldest first, each after the cursor of the last', async () => {
+    const sent: MessageId[] = [];
+    for (let index = 0; index < 3; index += 1) {
+      sent.push(await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.scout.shipId } }));
+      await receiveUntilUndeliverable(scene.scout);
+    }
+    const read = (cursor?: DeliveryId) => scene.history.readNeedsAttention(scene.argo, { limit: 2, cursor });
+
+    const first = await read();
+    const second = await read(first.nextCursor ?? undefined);
+
+    expect([first.items.map((entry) => entry.message.id), first.nextCursor]).toEqual([sent.slice(0, 2), first.items[1]?.deliveryId]);
+    expect([second.items.map((entry) => entry.message.id), second.nextCursor]).toEqual([sent.slice(2), null]);
+  });
+
+  it('goes on after a cursor whose delivery was dismissed since', async () => {
+    const first = await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.scout.shipId } });
+    await receiveUntilUndeliverable(scene.scout);
+    const second = await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.scout.shipId } });
+    await receiveUntilUndeliverable(scene.scout);
+    const page = await scene.history.readNeedsAttention(scene.argo, { limit: 1 });
+    unwrap(await scene.messaging.dismissDelivery(scene.argo, { deliveryId: deliveryIdOf(scene.core, first) }));
+
+    const next = await scene.history.readNeedsAttention(scene.argo, { limit: 1, cursor: page.nextCursor ?? undefined });
+
+    expect(next.items.map((entry) => entry.message.id)).toEqual([second]);
+  });
+
+  it("lists only a ship's own when asked for its page: those whose turn or claims it was", async () => {
+    await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.scout.shipId } });
+    await receiveUntilUndeliverable(scene.scout);
+    const lookouts = await scene.send(scene.planner, { to: { kind: 'type', type: 'reviewer' } });
+    await notHandled(scene.lookout, { messageId: lookouts });
+
+    const page = await scene.history.readNeedsAttention(scene.argo, { shipId: scene.lookout.shipId });
+
+    expect(page.items.map((entry) => entry.message.id)).toEqual([lookouts]);
   });
 
   it("knows nothing of another fleet's deliveries", async () => {
@@ -217,7 +261,7 @@ describe('reading Needs attention', () => {
     await receiveUntilUndeliverable(scene.scout);
     const elsewhere = { ...scene.argo, fleetId: scene.core.ids('fleet') };
 
-    await expect(scene.history.readNeedsAttention(elsewhere)).resolves.toEqual([]);
+    await expect(scene.history.readNeedsAttention(elsewhere, {}).then(({ items }) => items)).resolves.toEqual([]);
   });
 });
 
@@ -238,8 +282,23 @@ describe('reading Needs attention within read reach (decision 0034)', () => {
       unwrap(await fleet.messaging.receiveDeliveries(fleet.far, { max: 10 }));
     }
 
-    const [read, all] = [await fleet.history.readNeedsAttention(fleet.reader), await fleet.history.readNeedsAttention(fleet.argo)];
+    const [read, all] = [(await fleet.history.readNeedsAttention(fleet.reader, {})).items, (await fleet.history.readNeedsAttention(fleet.argo, {})).items];
 
     expect([read.map((entry) => entry.message.id), all.length]).toEqual([[toNear], 2]);
+  });
+
+  it('pages past the deliveries it leaves out: a page can come short, with the cursor of the last it read', async () => {
+    await fleet.send(fleet.argo, { kind: 'ship', shipId: fleet.far.shipId });
+    const toNear = await fleet.send(fleet.argo, { kind: 'ship', shipId: fleet.near.shipId });
+    for (let claim = 1; claim <= UNDELIVERABLE_AT_ATTEMPT; claim += 1) {
+      fleet.core.clock.advance(1_000);
+      unwrap(await fleet.messaging.receiveDeliveries(fleet.far, { max: 10 }));
+      unwrap(await fleet.messaging.receiveDeliveries(fleet.near, { max: 10 }));
+    }
+    const first = await fleet.history.readNeedsAttention(fleet.reader, { limit: 1 });
+
+    const next = await fleet.history.readNeedsAttention(fleet.reader, { limit: 1, cursor: first.nextCursor ?? undefined });
+
+    expect([first.items.length, next.items.map((entry) => entry.message.id)]).toEqual([0, [toNear]]);
   });
 });

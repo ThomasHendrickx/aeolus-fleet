@@ -194,7 +194,7 @@ describe('the fleet:read procedures for a ship outside read reach (decision 0034
   });
 
   it('fleet.needsAttention answers nothing it does not read', async () => {
-    await expect(reader.fleet.needsAttention.query()).resolves.toEqual([]);
+    await expect(reader.fleet.needsAttention.query({})).resolves.toEqual({ items: [], nextCursor: null });
   });
 
   it('fleet.follow answers only the events it reads', async () => {
@@ -237,7 +237,7 @@ describe('a plugin reading on behalf of a named ship over HTTP (decision 0034)',
         codeOf(as.fleet.message.query({ messageId: farToArgo })),
         codeOf(as.fleet.shipWay.query({ shipId: ids.far })),
         as.fleet.health.query(),
-        as.fleet.needsAttention.query(),
+        as.fleet.needsAttention.query({}),
         as.fleet.clearRequests.query(),
         as.fleet.inbox.query({ filter: 'all' }),
         as.fleet.follow.query({ afterSeq: readerFrom }),

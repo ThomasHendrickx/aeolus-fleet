@@ -1444,7 +1444,7 @@ describe('Needs attention at the API', () => {
     const asArgo = await signedInArgo();
     const { deliveryId, messageId } = await undeliverableFromArgo(asArgo);
 
-    const listed = (await asArgo.fleet.needsAttention.query()).find((entry) => entry.deliveryId === deliveryId);
+    const listed = (await asArgo.fleet.needsAttention.query({})).items.find((entry) => entry.deliveryId === deliveryId);
 
     expect(listed).toMatchObject({
       attempts: 5,
@@ -1458,7 +1458,7 @@ describe('Needs attention at the API', () => {
 
     await expect(asArgo.fleet.dismiss.mutate({ deliveryId })).resolves.toEqual({});
     await expect(asArgo.fleet.dismiss.mutate({ deliveryId })).resolves.toEqual({});
-    expect((await asArgo.fleet.needsAttention.query()).map((entry) => entry.deliveryId)).not.toContain(deliveryId);
+    expect((await asArgo.fleet.needsAttention.query({})).items.map((entry) => entry.deliveryId)).not.toContain(deliveryId);
     await expect(codeOf(asArgo.fleet.resend.mutate({ deliveryId }))).resolves.toBe('CONFLICT');
   });
 
@@ -1473,7 +1473,7 @@ describe('Needs attention at the API', () => {
       senderShipId: argoId,
       resendOfMessageId: messageId,
     });
-    expect((await asArgo.fleet.needsAttention.query()).map((entry) => entry.deliveryId)).not.toContain(deliveryId);
+    expect((await asArgo.fleet.needsAttention.query({})).items.map((entry) => entry.deliveryId)).not.toContain(deliveryId);
   });
 
   it('answer NOT_FOUND for a delivery the fleet does not have', async () => {
@@ -1489,7 +1489,7 @@ describe('Needs attention at the API', () => {
 
     await expect(refusalOf(manager.fleet.dismiss.mutate({ deliveryId: newId('delivery') }))).resolves.toEqual({ code: 'FORBIDDEN', message: 'This call needs the messages:resend scope' });
     await expect(refusalOf(manager.fleet.resend.mutate({ deliveryId: newId('delivery') }))).resolves.toEqual({ code: 'FORBIDDEN', message: 'This call needs the messages:resend scope' });
-    await expect(codeOf(agent.fleet.needsAttention.query())).resolves.toBe('FORBIDDEN');
+    await expect(codeOf(agent.fleet.needsAttention.query({}))).resolves.toBe('FORBIDDEN');
   });
 });
 

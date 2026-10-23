@@ -199,7 +199,7 @@ describe('an account signed in by its token cookie', () => {
     await expect(fleet.shipMessages.query({ shipId: scout }).then(({ items }) => items)).resolves.toEqual([expect.objectContaining({ id: toArgo })]);
     await expect(fleet.message.query({ messageId: toArgo })).resolves.toMatchObject({ payload: 'Review is done' });
     await expect(fleet.shipWay.query({ shipId: scout })).resolves.toMatchObject({ waiting: 0 });
-    await expect(fleet.needsAttention.query()).resolves.toBeDefined();
+    await expect(fleet.needsAttention.query({})).resolves.toBeDefined();
     await expect(fleet.health.query()).resolves.toBeDefined();
     await expect(fleet.limits.query()).resolves.toBeDefined();
     await expect(fleet.inbox.query({ filter: 'all' })).resolves.toMatchObject([{ message: { id: toArgo } }]);
