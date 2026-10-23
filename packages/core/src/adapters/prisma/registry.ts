@@ -38,6 +38,7 @@ import {
   toStatedStatement,
   toTurn,
 } from './rows.js';
+import { readShipCounts } from './ship-counts.js';
 
 export function createPrismaFleetRepository(db: Db): FleetRepository {
   return {
@@ -865,6 +866,7 @@ export function createPrismaFleetListing(db: Db): FleetListing {
       ]);
       return { inFlight, open };
     },
+    counts: (fleetId, reach) => readShipCounts(db, { fleetId, reach }),
     statement: async (fleetId, shipId) => {
       const [row] = await db.$queryRaw<unknown[]>`
         SELECT statement, statement_version

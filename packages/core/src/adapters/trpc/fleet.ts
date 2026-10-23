@@ -21,6 +21,7 @@ import {
   healthOutputSchema,
   acknowledgedSchema,
   listedShipOutputSchema,
+  shipCountsOutputSchema,
   stuckCountOutputSchema,
   stuckOutputSchema,
   stuckPerHourSchema,
@@ -873,6 +874,16 @@ export const fleetRouter = router({
         retiredAt: ship.retiredAt?.toISOString() ?? null,
       };
     }),
+
+  /** The ships counted per kind: the overview's cards and subtitle, and the navigation's needs-crew count. */
+  shipCounts: actorScopedProcedure('fleet:read')
+    .output(shipCountsOutputSchema)
+    .query(async ({ ctx }) =>
+      (await ctx.useCases.countShips(ctx.caller)).map(({ longestWait, ...counts }) => ({
+        ...counts,
+        longestWait: longestWait && { ...longestWait, awaitingCrewSince: longestWait.awaitingCrewSince.toISOString() },
+      })),
+    ),
 
   /** One ship exactly as fleet_list lists it, retired ones included: what a change to that ship reloads. */
   listedShip: actorScopedProcedure('fleet:read')

@@ -116,7 +116,7 @@ describe('counting the ships of the fleet', () => {
     const total = (counts: typeof readerFleet) => counts.reduce((sum, kind) => sum + kind.active + kind.retired, 0);
 
     expect(total(readerFleet)).toBeLessThan(total(argoFleet));
-    expect(total(argoFleet)).toBe((await fleet.registry.listFleet(fleet.argo)).length);
-    expect(total(readerFleet)).toBe((await fleet.registry.listFleet(fleet.reader)).filter((ship) => !('isInReadReach' in ship)).length);
+    expect(total(argoFleet)).toBe((await fleet.registry.listFleet(fleet.argo)).ships.length);
+    expect(total(readerFleet)).toBe((await fleet.registry.listFleet(fleet.reader)).ships.filter((ship) => !('isInReadReach' in ship)).length);
   });
 });

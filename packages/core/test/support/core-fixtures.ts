@@ -83,6 +83,7 @@ import { createReadFleetLimits } from '../../src/domain/shared/read-fleet-limits
 import { createDeregister } from '../../src/domain/registry/deregister.js';
 import { createGetShip } from '../../src/domain/registry/get-ship.js';
 import { createReadListedShip } from '../../src/domain/registry/read-listed-ship.js';
+import { createCountShips } from '../../src/domain/registry/count-ships.js';
 import { createReadOnBehalf } from '../../src/domain/registry/read-on-behalf.js';
 import { createGetStartingPrompt } from '../../src/domain/registry/get-starting-prompt.js';
 import { createInitialiseFleet, type FleetInitialised } from '../../src/domain/registry/initialise-fleet.js';
@@ -287,6 +288,7 @@ export function registryUseCases(core: InMemoryCore) {
     listFleet: createListFleet({ listing: core.listing, readReach: readReachOf(core) }),
     getShip: createGetShip({ listing: core.listing, readReach: readReachOf(core) }),
     readListedShip: createReadListedShip({ listing: core.listing, readReach: readReachOf(core) }),
+    countShips: createCountShips({ listing: core.listing, readReach: readReachOf(core) }),
     readOnBehalf: createReadOnBehalf({ ships: core.ships }),
     whoami: createWhoami({ ships: core.ships }),
     report: createReport({ uow: core.uow, clock: core.clock, ids: core.ids }),

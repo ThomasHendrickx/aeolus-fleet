@@ -245,6 +245,12 @@ describe('the fleet:read procedures for a ship outside read reach (decision 0034
     await expect(reader.fleet.listedShip.query({ shipId: ids.near })).resolves.toEqual(listed);
   });
 
+  it('fleet.shipCounts counts only the ships it reads', async () => {
+    const [counts, listed] = [await reader.fleet.shipCounts.query(), await reader.fleet.list.query()];
+
+    expect(counts.reduce((sum, kind) => sum + kind.active + kind.retired, 0)).toBe(listed.items.filter((ship) => !('isInReadReach' in ship)).length);
+  });
+
   it('fleet.needsAttention answers nothing it does not read', async () => {
     await expect(reader.fleet.needsAttention.query({})).resolves.toEqual({ items: [], nextCursor: null });
   });
