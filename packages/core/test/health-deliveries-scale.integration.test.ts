@@ -2,7 +2,7 @@ import type { FleetId } from '@aeolus-fleet/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { Prisma } from '../src/adapters/prisma/generated/client.js';
-import { baseDeliveriesStatement, createPrismaHealthRecords, replayDeliveriesStatement } from '../src/adapters/prisma/health.js';
+import { baseCandidatesStatement, baseDeliveriesStatement, createPrismaHealthRecords, replayDeliveriesStatement } from '../src/adapters/prisma/health.js';
 import { createPrismaSnapshotUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
 import { hourMarkOf } from '../src/domain/shared/health-snapshot.js';
 import { ok } from '../src/domain/shared/result.js';
@@ -49,12 +49,14 @@ async function seedHistory(): Promise<void> {
            (CASE WHEN i > ${DELIVERIES - OPEN}::int THEN 'pending' ELSE 'dismissed' END)::delivery_state,
            ${start}::timestamptz + i * ${spacingMs}::float8 * interval '1 millisecond'
     FROM generate_series(1, ${DELIVERIES}::int) i`;
+  // Each delivery's MessageAccepted at its send, as core writes it, then its receipt and dismissal.
   await core.prisma.$executeRaw`
     INSERT INTO events (id, fleet_id, type, occurred_at, actor_kind, details, ship_id, message_id, delivery_id, seq)
-    SELECT 'evt_' || lpad((2 * i + step)::text, 26, '0'), ${fleetId}, (ARRAY['DeliveryReceived', 'DeliveryDismissed'])[step],
+    SELECT 'evt_' || lpad((3 * i + step)::text, 26, '0'), ${fleetId}, (ARRAY['MessageAccepted', 'DeliveryReceived', 'DeliveryDismissed'])[step + 1],
            ${start}::timestamptz + i * ${spacingMs}::float8 * interval '1 millisecond' + step * interval '1 minute', 'system', '{}',
-           'shp_' || lpad((1 + (i + 1) % ${SHIPS}::int)::text, 26, '0'), 'msg_' || lpad(i::text, 26, '0'), 'dlv_' || lpad(i::text, 26, '0'), 1000000 + 2 * i + step
-    FROM generate_series(1, ${DELIVERIES - OPEN}::int) i, generate_series(1, 2) step`;
+           'shp_' || lpad((1 + (i + 1) % ${SHIPS}::int)::text, 26, '0'), 'msg_' || lpad(i::text, 26, '0'), 'dlv_' || lpad(i::text, 26, '0'), 1000000 + 3 * i + step
+    FROM generate_series(1, ${DELIVERIES}::int) i, generate_series(0, 2) step
+    WHERE step = 0 OR i <= ${DELIVERIES - OPEN}::int`;
   await core.prisma.$executeRaw`ANALYZE`;
 }
 
@@ -104,6 +106,15 @@ describe("the first snapshot's base on a fleet with a long history", () => {
     const plan = await planOf(baseDeliveriesStatement(fleetId, hourMarkOf(new Date(core.clock.now().getTime() - 167 * HOUR_MS))));
 
     expect(plan).not.toMatch(/Seq Scan on (deliveries|messages|events)/);
+  });
+
+  it('looks up only the deliveries sent by the hour, dropping those sent after it in the scan of the events after it', async () => {
+    const hour = hourMarkOf(new Date(core.clock.now().getTime() - 167 * HOUR_MS));
+
+    const candidates = await core.prisma.$queryRaw<{ id: string }[]>(baseCandidatesStatement(fleetId, hour));
+
+    // Sent by the hour with an event after it: dismissed after the hour.
+    expect(candidates).toHaveLength(sentBetween(new Date(hour.getTime() - 2 * MINUTE_MS + 1), new Date(hour.getTime() + 1)));
   });
 
   it('keeps the deliveries open at the hour, each at its latest step by then', async () => {
