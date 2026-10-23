@@ -1,30 +1,48 @@
+import { z } from 'zod';
 import { describe, expect, it } from 'vitest';
 
-import { idSchema } from '../ids/index.js';
+import { createIdGenerator, idSchema } from '../ids/index.js';
 import { PAGE_SIZE_DEFAULT, PAGE_SIZE_MAX, pageInputOf, pageOutputOf } from './page.js';
 
-const eventPage = pageInputOf(idSchema('event'));
+const newId = createIdGenerator();
+const shipPageInput = pageInputOf(idSchema('ship'));
+const shipPageOutput = pageOutputOf(z.object({ id: idSchema('ship') }), idSchema('ship'));
 
-describe('pageInputOf', () => {
-  it.each([{}, { cursor: 'evt_01m5kgq4ew42bmwnnzhre9tvxs' }, { limit: 1 }, { limit: 500 }])('accepts %j: a cursor and a page size, each optional', (input) => {
-    expect(eventPage.safeParse(input).success).toBe(true);
-  });
-
-  it.each([
-    ['a cursor of another kind', { cursor: 'msg_01m5kgq4ew42bmwnnzhre9tvxs' }],
-    ['an empty page', { limit: 0 }],
-    ['a page over 500', { limit: 501 }],
-  ])('rejects %s', (_label, input) => {
-    expect(eventPage.safeParse(input).success).toBe(false);
-  });
-
-  it('answers 100 unless told fewer, 500 at most', () => {
+describe('the page size (decision 4 of the performance design)', () => {
+  it('is 100 when the caller asks none, and at most 500', () => {
     expect([PAGE_SIZE_DEFAULT, PAGE_SIZE_MAX]).toEqual([100, 500]);
   });
 });
 
+describe('pageInputOf', () => {
+  it('takes no cursor and no size for the first page', () => {
+    expect(shipPageInput.parse({})).toEqual({});
+  });
+
+  it('takes the cursor the last page answered and the size the caller asks', () => {
+    const cursor = newId('ship');
+
+    expect(shipPageInput.parse({ cursor, limit: 25 })).toEqual({ cursor, limit: 25 });
+  });
+
+  it('takes a page of the maximum size', () => {
+    expect(shipPageInput.parse({ limit: 500 })).toEqual({ limit: 500 });
+  });
+
+  it.each([0, 501, 2.5])('refuses a page size of %j', (limit) => {
+    expect(shipPageInput.safeParse({ limit }).success).toBe(false);
+  });
+
+  it('refuses a cursor that is not the list\'s id', () => {
+    expect(shipPageInput.safeParse({ cursor: newId('message') }).success).toBe(false);
+  });
+});
+
 describe('pageOutputOf', () => {
-  it('names no next page on the last one', () => {
-    expect(pageOutputOf(idSchema('event'), idSchema('event')).safeParse({ items: [], nextCursor: null }).success).toBe(true);
+  it('answers the page and the cursor of the next, null on the last', () => {
+    const page = { items: [{ id: newId('ship') }], nextCursor: newId('ship') };
+
+    expect(shipPageOutput.parse(page)).toEqual(page);
+    expect(shipPageOutput.parse({ items: [], nextCursor: null })).toEqual({ items: [], nextCursor: null });
   });
 });
