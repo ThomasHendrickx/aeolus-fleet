@@ -60,9 +60,18 @@ export function inboxViewOf(entries: readonly InboxEntry[], segment: InboxFilter
   };
 }
 
-/** The count beside each segment: Open counts open questions and open messages together. */
-export function segmentCounts(entries: readonly InboxEntry[]): Record<InboxFilter, number> {
-  return { open: keptBy(entries, 'open').length, done: keptBy(entries, 'done').length, all: entries.length };
+/**
+ * The count beside each segment: Open counts open questions and open messages
+ * together. Done and All page, so they show no count.
+ */
+export function segmentCounts(entries: readonly InboxEntry[]): Partial<Record<InboxFilter, number>> {
+  return { open: keptBy(entries, 'open').length };
+}
+
+/** The entries read, then the older pages' entries not among them. */
+export function withOlder(entries: readonly InboxEntry[], older: readonly InboxEntry[]): InboxEntry[] {
+  const read = new Set(entries.map(({ deliveryId }) => deliveryId));
+  return [...entries, ...older.filter(({ deliveryId }) => !read.has(deliveryId))];
 }
 
 /** "1 h 7 min": how long the oldest open question has waited; undefined without one. */

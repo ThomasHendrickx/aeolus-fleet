@@ -7,19 +7,20 @@ import { useEffect, useRef, useState } from 'react';
 
 import { useAccess } from '../../../lib/access';
 import { useConsoleFrame } from '../../../lib/console-frame';
-import { inboxPathOf, readInboxFilter, useAnswer, useInboxEntries, useMarkDone, useMarkRead, useReply } from '../../../lib/inbox';
+import { inboxPathOf, readInboxFilter, useAnswer, useInboxEntries, useMarkDone, useMarkRead, useOlderInbox, useReply } from '../../../lib/inbox';
 import { isOpenEntry, type InboxEntry } from '../../../lib/inbox-entry';
 import { useLiveFleet } from '../../../lib/live-fleet';
 import { useNow } from '../../../lib/now';
 import { useSignInWhenSessionEnds } from '../../../lib/session';
 import { Button } from '@aeolus-fleet/common/header';
 import { showToast } from '../../../components/atoms/toast';
+import { LoadMore } from '../../../components/molecules/load-more';
 import { ListPage } from '../../../components/organisms/list-page';
 import { TopBar } from '../../../components/organisms/top-bar';
 import { useThread } from '../hooks/use-thread';
 import { answerAttemptOf, type AnswerAttempt } from '../services/answer-attempt';
 import { neighbourOf, questionPositionOf } from '../services/inbox-moves';
-import { inboxViewOf, openQuestionsOf, segmentCounts, todayOf, waitingOf, type InboxView } from '../services/inbox-view';
+import { inboxViewOf, openQuestionsOf, segmentCounts, todayOf, waitingOf, withOlder, type InboxView } from '../services/inbox-view';
 import { MessageMenu } from '../ui/molecules/message-menu';
 import { OperatorInbox } from '../ui/organisms/operator-inbox';
 import type { AnswerDraft } from '../ui/organisms/question-reader';
@@ -57,6 +58,8 @@ export function InboxContainer({ filterParameter, selectedId }: { filterParamete
   const now = useNow();
   const segment = readInboxFilter(filterParameter);
   const inbox = useInboxEntries();
+  // Open is read whole; Done and All add the older messages a page at a time.
+  const older = useOlderInbox(inbox.data?.olderCursor ?? null, segment !== 'open');
   const markRead = useMarkRead();
   const markDone = useMarkDone();
   const reply = useReply();
@@ -75,7 +78,7 @@ export function InboxContainer({ filterParameter, selectedId }: { filterParamete
   // The one open now: leaving a question with a draft, or a send that fails after the operator moved on, needs a toast to be seen.
   const openIdRef = useRef(selectedId);
 
-  const entries = inbox.data ?? [];
+  const entries = withOlder(inbox.data?.entries ?? [], older.items ?? []);
   const view = inboxViewOf(entries, segment);
   const order = orderOf(view);
   const selected = entries.find((entry) => entry.deliveryId === selectedId);
@@ -122,11 +125,11 @@ export function InboxContainer({ filterParameter, selectedId }: { filterParamete
     if (left === undefined || left === selectedId || !answerDrafts.has(left)) {
       return;
     }
-    const asked = inbox.data?.find((entry) => entry.deliveryId === left);
+    const asked = entries.find((entry) => entry.deliveryId === left);
     if (asked?.kind === 'question' && isOpenEntry(asked)) {
       showToast({ title: `Your answer to “${asked.question.title}” is not sent`, description: 'Your choice and note wait on the question. Answer sends them.', tone: 'info' });
     }
-  }, [selectedId, answerDrafts, inbox.data]);
+  }, [selectedId, answerDrafts, entries]);
   const markUnread = (deliveryId: DeliveryId) => {
     act({ deliveryId, run: () => markRead.mutateAsync({ deliveryId, isRead: false }), failure: 'Couldn’t mark the message unread' });
     show({});
@@ -193,6 +196,17 @@ export function InboxContainer({ filterParameter, selectedId }: { filterParamete
           show({ segment: next });
         }}
         counts={inbox.data === undefined ? {} : segmentCounts(entries)}
+        more={
+          segment !== 'open' && (older.hasMore || older.isFailed) ? (
+            <LoadMore
+              what="older messages"
+              isLoading={older.isLoadingMore}
+              isFailed={older.isFailed || older.isLoadMoreFailed}
+              onLoad={older.isFailed ? older.retry : older.loadMore}
+              area="inbox"
+            />
+          ) : null
+        }
         waiting={waitingOf(entries, now)}
         today={todayOf(entries, now)}
         selected={selected}

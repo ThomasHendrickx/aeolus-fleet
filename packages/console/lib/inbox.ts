@@ -1,11 +1,14 @@
 'use client';
 
 import type { AnswerChoice, DeliveryId, InboxFilter } from '@aeolus-fleet/common';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { useConsoleRead } from './console-read-query';
+import { useSignInWhenSessionEnds } from './session';
 import { fetchConsoleRead } from './fetch-console-read';
 import { isOpenEntry } from './inbox-entry';
+import { useNow } from './now';
+import { nextCursorOf, pagedListOf } from './paged-list';
 import { dataOf } from './plugin-answer';
 import { answerQuestion } from './questions-actions';
 import { useTRPC } from './trpc';
@@ -19,14 +22,38 @@ import { useTRPC } from './trpc';
 /** The inbox read's key, which a live message change reloads (lib/live-fleet.ts). */
 export const INBOX_KEY = ['inbox'];
 
-/** Every question and message to argo, as the web app's server laid them out. */
+/** The start of the operator's day, in the browser's time zone, as the inbox read takes it. */
+function dayStartOf(now: Date): string {
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+  return start.toISOString();
+}
+
+/**
+ * The questions and messages to argo as the web app's server laid them out:
+ * every open one, and every one sent today, with where the older ones start.
+ */
 export function useInboxEntries() {
-  return useConsoleRead({ queryKey: INBOX_KEY, queryFn: () => fetchConsoleRead({ read: 'inbox' }) });
+  const since = dayStartOf(useNow());
+  return useConsoleRead({ queryKey: [...INBOX_KEY, since], queryFn: () => fetchConsoleRead({ read: 'inbox', input: { since } }) });
+}
+
+/** The older questions and messages to argo, a page at a time after the cursor: asked only while shown, and while there are any. */
+export function useOlderInbox(cursor: DeliveryId | null, isShown: boolean) {
+  const query = useInfiniteQuery({
+    queryKey: [...INBOX_KEY, 'older', cursor],
+    queryFn: ({ pageParam }) => (pageParam === undefined ? Promise.resolve({ items: [], nextCursor: null }) : fetchConsoleRead({ read: 'inbox-older', input: { cursor: pageParam } })),
+    initialPageParam: cursor ?? undefined,
+    getNextPageParam: nextCursorOf,
+    enabled: isShown && cursor !== null,
+  });
+  useSignInWhenSessionEnds([query.error]);
+  return pagedListOf(query);
 }
 
 /** What waits on the operator, open questions and open messages together, for the navigation; undefined until known. */
 export function useOpenInboxCount(): number | undefined {
-  return useInboxEntries().data?.filter(isOpenEntry).length;
+  return useInboxEntries().data?.entries.filter(isOpenEntry).length;
 }
 
 /** The inbox segment in the URL; Open unless it says otherwise. */

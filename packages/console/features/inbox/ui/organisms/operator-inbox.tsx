@@ -267,7 +267,7 @@ export function OperatorInbox(props: OperatorInboxProps) {
       <div className="grid h-[calc(100dvh-12rem)] min-h-128 grid-cols-[minmax(20rem,24rem)_minmax(0,1fr)] overflow-hidden rounded-lg border border-border bg-card max-sm:hidden">
         <div className="flex min-h-0 flex-col overflow-y-auto border-r border-border">
           {list}
-          {isEmpty(view) ? <Empty segment={segment} today={props.today} onSegmentChange={props.onSegmentChange} /> : null}
+          {isEmpty(view) && !props.more ? <Empty segment={segment} today={props.today} onSegmentChange={props.onSegmentChange} /> : null}
         </div>
         <div className="flex min-h-0 flex-col bg-background">
           {selected ? (
@@ -288,7 +288,7 @@ export function OperatorInbox(props: OperatorInboxProps) {
         ) : (
           <>
             {list}
-            {isEmpty(view) ? <Empty segment={segment} today={props.today} onSegmentChange={props.onSegmentChange} /> : null}
+            {isEmpty(view) && !props.more ? <Empty segment={segment} today={props.today} onSegmentChange={props.onSegmentChange} /> : null}
           </>
         )}
       </div>

@@ -1,4 +1,5 @@
 import type { DeliveryId, InboxFilter } from '@aeolus-fleet/common';
+import type { ReactNode } from 'react';
 
 import { classNames } from '@aeolus-fleet/common/header';
 import { Badge } from '../../../../components/atoms/badge';
@@ -28,6 +29,8 @@ export interface InboxListProps {
   /** Marks every open plugin-ship message done; none where nothing can be marked done. */
   onPluginGroupDone?: () => void;
   isPluginGroupPending?: boolean;
+  /** What ends the list while older messages follow: Load more. */
+  more?: ReactNode;
   now: Date;
 }
 
@@ -82,6 +85,7 @@ export function InboxList({
   onTogglePluginGroup,
   onPluginGroupDone,
   isPluginGroupPending,
+  more,
   now,
 }: InboxListProps) {
   const rows = (entries: InboxView['questions'] | InboxView['messages'], label: string) => (
@@ -122,6 +126,7 @@ export function InboxList({
           </ul>
         </section>
       )}
+      {more}
     </div>
   );
 }

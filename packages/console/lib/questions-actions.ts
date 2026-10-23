@@ -6,7 +6,7 @@ import { z } from 'zod';
 
 import type { PluginAnswer } from './plugin-answer';
 import { answerReplyOf } from './question-answer';
-import { callFleet, readArgoInbox } from './inbox-reads';
+import { callFleet, readArgoInboxTo } from './inbox-reads';
 
 /**
  * Answering a question to argo as the browser reaches it (decisions 0033,
@@ -31,11 +31,11 @@ export async function answerQuestion(input: unknown): Promise<PluginAnswer<{ mes
   if (origin === null) {
     return { kind: 'refused', message: 'Answer from the console' };
   }
-  const inbox = await readArgoInbox();
+  const inbox = await readArgoInboxTo(parsed.data.deliveryId);
   if (inbox.kind === 'refused') {
     return inbox;
   }
-  const reply = answerReplyOf({ inbox: inbox.data, deliveryId: parsed.data.deliveryId, answer: parsed.data.answer });
+  const reply = answerReplyOf({ inbox: inbox.data.items, deliveryId: parsed.data.deliveryId, answer: parsed.data.answer });
   if (reply.kind === 'refused') {
     return reply;
   }

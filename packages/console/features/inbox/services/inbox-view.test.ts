@@ -110,10 +110,6 @@ describe('withOlder', () => {
     expect(idsOf(merged)).toEqual([...idsOf(ENTRIES), olderQuestion.deliveryId]);
     expect(merged.find(({ deliveryId }) => deliveryId === late.deliveryId)).toBe(late);
   });
-
-    expect(idsOf(withOlder(ENTRIES, [{ ...second, readAt: 'later' } as never, older].flatMap((entry) => (entry === undefined ? [] : [entry]))))).toEqual([...idsOf(ENTRIES), older.deliveryId]);
-    expect(withOlder(ENTRIES, [])[0]).toBe(first);
-  });
 });
 
 describe('openQuestionsOf', () => {
