@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { idSchema } from '../ids/index.js';
+import { pageInputOf } from './page.js';
 
 /**
  * Labels (decision 0031): an owned vocabulary for selecting ships. A label is
@@ -30,8 +31,14 @@ export const labelValueSchema = z.object({ id: idSchema('labelValue'), value: z.
 /** One value a ship carries, with its label: ids and texts. */
 export const carriedLabelSchema = z.object({ labelId: idSchema('label'), key: z.string(), valueId: idSchema('labelValue'), value: z.string() });
 
-/** Input of `fleet.list`: none, or the value ids a listed ship must carry: exact matches, combined with AND. */
-export const fleetListInputSchema = z.object({ valueIds: z.array(idSchema('labelValue')).optional() }).optional();
+/**
+ * Input of `fleet.list`: none, or the value ids a listed ship must carry
+ * (exact matches, combined with AND), and the page: the ship id it starts
+ * after and its size (decision 4 of the performance design).
+ */
+export const fleetListInputSchema = pageInputOf(idSchema('ship'))
+  .extend({ valueIds: z.array(idSchema('labelValue')).optional() })
+  .optional();
 
 /** Input of `fleet.defineLabel` (labels:define): the key, unique in the fleet, and its values. */
 export const defineLabelInputSchema = z.object({ key: labelTextSchema, values: z.array(labelTextSchema) });
