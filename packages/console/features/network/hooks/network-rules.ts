@@ -2,7 +2,8 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { useTRPC } from '../../../lib/trpc';
+import { useTRPC, useTRPCClient } from '../../../lib/trpc';
+import { exportFileNameOf } from '../services/rules-file';
 
 /**
  * The fleet's own network rules as a fleet:network session reads, drafts and
@@ -60,6 +61,49 @@ export function useApplyNetworkRules() {
       onSuccess: async () => {
         // Open follows the applied rules.
         await Promise.all([readAgain(), queryClient.invalidateQueries({ queryKey: trpc.fleet.builtInRules.queryKey() })]);
+      },
+    }),
+  );
+}
+
+/** Hands the browser a file to save, as a download. */
+function download(name: string, text: string) {
+  const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = name;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+/** Exports the applied rules and downloads them as one file (design network-io, section 4); answers the file's name and the rules it left out, with why. */
+export function useExportNetworkRules() {
+  const client = useTRPCClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { file, leftOut } = await client.fleet.exportNetworkRules.query();
+      const name = exportFileNameOf(file);
+      download(name, `${JSON.stringify(file, null, 2)}\n`);
+      return { name, leftOut };
+    },
+  });
+}
+
+/** Has the fleet check a network rules file, as attached or pasted: it reads nothing in the browser. */
+export function useCheckNetworkRulesFile() {
+  const trpc = useTRPC();
+  return useMutation(trpc.fleet.checkNetworkRulesFile.mutationOptions());
+}
+
+/** Imports a checked file into the draft, then reads the rules, the draft changes and the labels again. */
+export function useImportNetworkRules() {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const readAgain = useReadRulesAgain();
+  return useMutation(
+    trpc.fleet.importNetworkRules.mutationOptions({
+      onSuccess: async () => {
+        await Promise.all([readAgain(), queryClient.invalidateQueries({ queryKey: trpc.fleet.labels.queryKey() })]);
       },
     }),
   );
