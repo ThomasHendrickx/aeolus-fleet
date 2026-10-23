@@ -6,6 +6,8 @@ import {
   INBOX_FILTERS,
   inboxActionOutputSchema,
   inboxCountOutputSchema,
+  inboxMessageInputSchema,
+  inboxWithdrawalsInputSchema,
   markDoneInputSchema,
   markReadInputSchema,
   operatorInboxInputSchema,
@@ -156,5 +158,29 @@ describe('inboxActionOutputSchema', () => {
 describe('inboxCountOutputSchema', () => {
   it('answers how many messages are open, a whole number from none up', () => {
     expect([0, 12, -1, 1.5].map((open) => inboxCountOutputSchema.safeParse({ open }).success)).toEqual([true, true, false, false]);
+  });
+});
+
+describe('inboxMessageInputSchema', () => {
+  it('takes the delivery of one message to argo', () => {
+    const input = { deliveryId: newId('delivery') };
+
+    expect(inboxMessageInputSchema.parse(input)).toEqual(input);
+  });
+
+  it('refuses an id that names no delivery', () => {
+    expect(inboxMessageInputSchema.safeParse({ deliveryId: newId('message') }).success).toBe(false);
+  });
+});
+
+describe('inboxWithdrawalsInputSchema', () => {
+  it("takes a question's uuid and the cursor and size of a page", () => {
+    const input = { questionId: '3f1c2a9e-7b4d-4e8a-9c1f-2d6b8e0a5c47', cursor: newId('delivery'), limit: 20 };
+
+    expect(inboxWithdrawalsInputSchema.parse(input)).toEqual(input);
+  });
+
+  it('refuses a question id that is no uuid', () => {
+    expect(inboxWithdrawalsInputSchema.safeParse({ questionId: 'which-port' }).success).toBe(false);
   });
 });
