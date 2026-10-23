@@ -2,12 +2,12 @@ import { PAGE_SIZE_DEFAULT, type DeliveryId, type ShipId } from '@aeolus-fleet/c
 
 import { readsMessage, type ReadReachOf } from '../registry/public.js';
 import type { Caller } from './caller.js';
-import { partiesOf, withPing, type ShipHistory, type ShownNeedsAttentionEntry } from './history.js';
+import { partiesOf, withPing, type NeedsAttentionState, type ShipHistory, type ShownNeedsAttentionEntry } from './history.js';
 import type { Page } from './page.js';
 
 export type ReadNeedsAttention = (
   caller: Caller,
-  input: { shipId?: ShipId; cursor?: DeliveryId; limit?: number },
+  input: { shipId?: ShipId; state?: NeedsAttentionState; cursor?: DeliveryId; limit?: number },
 ) => Promise<Page<ShownNeedsAttentionEntry, DeliveryId>>;
 
 /**
@@ -20,8 +20,8 @@ export type ReadNeedsAttention = (
  * checked before this runs.
  */
 export function createReadNeedsAttention(deps: { history: ShipHistory; readReach: ReadReachOf }): ReadNeedsAttention {
-  return async (caller, { shipId, cursor, limit = PAGE_SIZE_DEFAULT }) => {
-    const [page, reach] = await Promise.all([deps.history.needsAttention(caller.fleetId, { shipId, cursor, limit }), deps.readReach(caller)]);
+  return async (caller, { shipId, state, cursor, limit = PAGE_SIZE_DEFAULT }) => {
+    const [page, reach] = await Promise.all([deps.history.needsAttention(caller.fleetId, { shipId, state, cursor, limit }), deps.readReach(caller)]);
     return {
       items: page.items.filter((entry) => readsMessage(reach, partiesOf(entry.message, entry.ship))).map((entry) => ({ ...entry, message: withPing(entry.message) })),
       nextCursor: page.nextCursor,

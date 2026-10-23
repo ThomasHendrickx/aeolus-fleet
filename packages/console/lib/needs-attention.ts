@@ -41,12 +41,10 @@ export function attentionReason(delivery: Pick<NeedsAttentionDelivery, 'state' |
   }
 }
 
-/** Needs attention: the undeliverable or not handled deliveries of the fleet, or of one ship for its page, oldest first, a page at a time. */
-export function useNeedsAttention(shipId?: ShipId) {
+/** Needs attention: the undeliverable or not handled deliveries of the fleet, or of one ship for its page, in either state or one, oldest first, a page at a time. */
+export function useNeedsAttention(of: { shipId?: ShipId; state?: NeedsAttentionDelivery['state'] } = {}) {
   const trpc = useTRPC();
-  return pagedListOf(
-    useInfiniteQuery(trpc.fleet.needsAttention.infiniteQueryOptions({ ...(shipId === undefined ? {} : { shipId }), limit: CONSOLE_PAGE_SIZE }, { getNextPageParam: nextCursorOf })),
-  );
+  return pagedListOf(useInfiniteQuery(trpc.fleet.needsAttention.infiniteQueryOptions({ ...of, limit: CONSOLE_PAGE_SIZE }, { getNextPageParam: nextCursorOf })));
 }
 
 /** Refreshes Needs attention, and every ship page read, after a resend or a dismiss. */

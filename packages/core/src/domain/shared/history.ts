@@ -236,11 +236,11 @@ export interface ShipHistory {
   /** The message, with its delivery's steps newest first and what its way is read from. */
   message(fleetId: FleetId, messageId: MessageId): Promise<MessageRead | undefined>;
   /**
-   * A page of the undeliverable or not handled deliveries, the fleet's or
-   * those naming one ship, oldest first by since when, after the delivery the
+   * A page of the undeliverable or not handled deliveries, or those in one
+   * of the two states, the fleet's or those naming one ship, oldest first by since when, after the delivery the
    * cursor names: by its since, so a cursor dismissed meanwhile still holds.
    */
-  needsAttention(fleetId: FleetId, query: { shipId?: ShipId } & PageQuery<DeliveryId>): Promise<Page<NeedsAttentionEntry, DeliveryId>>;
+  needsAttention(fleetId: FleetId, query: { shipId?: ShipId; state?: NeedsAttentionState } & PageQuery<DeliveryId>): Promise<Page<NeedsAttentionEntry, DeliveryId>>;
   /** What the ship's side of the way is read from: the open lease of the session crewing it and what waits for it. */
   shipWay(fleetId: FleetId, shipId: ShipId): Promise<ShipWayRead | undefined>;
   /** A page of the messages addressed to the ship itself that the filter keeps, newest first by delivery, after the delivery the cursor names. */

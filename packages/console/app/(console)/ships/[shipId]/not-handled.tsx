@@ -19,12 +19,12 @@ import { useNow } from '../../../../lib/now';
 export function NotHandled({ shipId }: { shipId: ShipId }) {
   const router = useRouter();
   const now = useNow();
-  const attention = useNeedsAttention(shipId);
+  const attention = useNeedsAttention({ shipId, state: 'notHandled' });
   const resend = useResendDelivery();
   const dismiss = useDismissDelivery();
   const access = useAccess();
   const [pendingIds, setPendingIds] = useState<ReadonlySet<DeliveryId>>(new Set());
-  const deliveries = (attention.items ?? []).filter((delivery) => delivery.state === 'notHandled');
+  const deliveries = attention.items ?? [];
 
   const act = (deliveryId: DeliveryId, run: () => Promise<void>) => {
     setPendingIds((pending) => new Set([...pending, deliveryId]));

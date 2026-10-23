@@ -1767,7 +1767,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
             };
           }),
       ).then((rows) => pageOf(rows, { limit, cursorOf: (entry) => entry.deliveryId })),
-    needsAttention: (fleetId, { shipId, cursor, limit }) => {
+    needsAttention: (fleetId, { shipId, state: asked, cursor, limit }) => {
       const events = numbered(fleetId);
       const sinceOf = (deliveryId: DeliveryId) =>
         events.findLast((event) => event.deliveryId === deliveryId && (event.type === 'DeliveryUndeliverable' || event.type === 'DeliveryNotHandled'));
@@ -1798,7 +1798,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
               },
             };
           })
-          .filter(({ seq, entry }) => seq > after && (shipId === undefined || entry.ship.id === shipId))
+          .filter(({ seq, entry }) => seq > after && (shipId === undefined || entry.ship.id === shipId) && (asked === undefined || entry.state === asked))
           .sort((first, second) => first.seq - second.seq)
           .slice(0, limit + 1)
           .map(({ entry }) => entry),

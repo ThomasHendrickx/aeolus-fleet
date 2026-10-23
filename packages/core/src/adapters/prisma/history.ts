@@ -347,7 +347,7 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
       return { items, nextCursor: page.nextCursor };
     },
 
-    needsAttention: async (fleetId, { shipId, cursor, limit }) => {
+    needsAttention: async (fleetId, { shipId, state, cursor, limit }) => {
       // Ordered by since when, each delivery's last DeliveryUndeliverable or
       // DeliveryNotHandled, whose place in the stream also places the cursor:
       // a cursor dismissed meanwhile keeps its event. A delivery the fleet
@@ -373,6 +373,7 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
             WHERE e.fleet_id = d.fleet_id AND e.delivery_id = d.id AND e.type IN ('DeliveryUndeliverable', 'DeliveryNotHandled')
             ORDER BY e.seq DESC LIMIT 1) since
           WHERE d.fleet_id = ${fleetId} AND d.state IN ('undeliverable', 'notHandled')
+            AND (${state ?? null}::text IS NULL OR d.state::text = ${state ?? null})
             AND (${shipId ?? null}::text IS NULL OR since.ship_id = ${shipId ?? null})
             AND (${after}::bigint IS NULL OR since.seq > ${after})
           ORDER BY since.seq
