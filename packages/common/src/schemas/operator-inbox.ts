@@ -52,6 +52,16 @@ export type InboxMessage = z.infer<typeof inboxMessageSchema>;
 /** Output of `fleet.inbox`: a page of the messages to argo the filter keeps, newest first. */
 export const operatorInboxOutputSchema = pageOutputOf(inboxMessageSchema, idSchema('delivery'));
 
+/** Input of `fleet.inboxMessage`: one message to argo, by its delivery; answers it as `fleet.inbox` lists it. */
+export const inboxMessageInputSchema = z.object({ deliveryId: idSchema('delivery') });
+
+/**
+ * Input of `fleet.inboxWithdrawals`: a question's uuid (decision 0038), and
+ * the cursor and size of a page of the messages to argo that withdraw or
+ * replace it, oldest first; answers as `fleet.inbox` does.
+ */
+export const inboxWithdrawalsInputSchema = z.object({ questionId: z.uuid(), ...pageInputOf(idSchema('delivery')).shape });
+
 /** Input of `fleet.markRead`: a delivery to argo, read or unread again. */
 export const markReadInputSchema = z.object({ deliveryId: idSchema('delivery'), isRead: z.boolean() });
 
