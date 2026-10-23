@@ -7,10 +7,11 @@ Design for [#1155](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1155).
 A fleet's own rules (0035) move to another fleet as one file, with the labels they use, so a rule set is written and tested once.
 
 The outcomes:
-1. A new fleet gets its rules before any ship exists: import creates the labels, and ships are labelled as they are commissioned.
-2. A rule set tested on staging lands on production unchanged (#1154).
-3. Import never puts rules in force. The rules land in the draft; an actor holding `fleet:network` looks at the draft changes and applies them (0035).
-4. A rule never silently stops matching because a ship retired: the labels import creates are defined by argo, which never retires (0012).
+1. Export writes a fleet's applied rules and the labels they use as one readable file, by name. It says which rules it left out and why: one ship named, or a label not defined by argo. The same file is what a person reviews or keeps under version control.
+2. A new fleet gets its rules before any ship exists: import creates the labels, and ships are labelled as they are commissioned.
+3. A rule set tested on staging lands on production unchanged (#1154).
+4. Import never puts rules in force. The rules land in the draft; an actor holding `fleet:network` looks at the draft changes and applies them (0035).
+5. A rule never silently stops matching because a ship retired: the labels import creates are defined by argo, which never retires (0012).
 
 Not the purpose:
 - Moving label assignments, ships or the built-in rules' state.
@@ -100,7 +101,7 @@ Each has options and my pick. They follow once the purpose is agreed.
 2. Reuse it when the values match, whoever defines it. The rules then retire with that definer.
 3. Make argo its definer, moving it from its ship.
 
-**Pick 1.** Only 1 keeps outcome 4 for every label import lands. 3 takes a label from a ship that assigns it, which 0031 forbids.
+**Pick 1.** Only 1 keeps outcome 5 for every label import lands. 3 takes a label from a ship that assigns it, which 0031 forbids.
 
 ### Q4 A rule import cannot carry
 
