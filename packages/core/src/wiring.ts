@@ -119,6 +119,9 @@ import { createReadDeclaredNetworkRules, type ReadDeclaredNetworkRules } from '.
 import { createApplyNetworkRules, type ApplyNetworkRules } from './domain/registry/apply-network-rules.js';
 import { createDiscardNetworkRulesDraft, type DiscardNetworkRulesDraft } from './domain/registry/discard-network-rules-draft.js';
 import { createReadNetworkRules, type ReadNetworkRules } from './domain/registry/read-network-rules.js';
+import { createExportNetworkRules, type ExportNetworkRules } from './domain/registry/export-network-rules.js';
+import { createCheckNetworkRulesFile, type CheckNetworkRulesFile } from './domain/registry/check-network-rules-file.js';
+import { createImportNetworkRules, type ImportNetworkRules } from './domain/registry/import-network-rules.js';
 import { createReadNetworkRulesDraftChanges, type ReadNetworkRulesDraftChanges } from './domain/registry/read-network-rules-draft-changes.js';
 import { createSaveNetworkRulesDraft, type SaveNetworkRulesDraft } from './domain/registry/save-network-rules-draft.js';
 import { createReadBuiltInRules, type ReadBuiltInRules } from './domain/registry/read-built-in-rules.js';
@@ -201,6 +204,9 @@ export interface UseCases {
   discardNetworkRulesDraft: DiscardNetworkRulesDraft;
   applyNetworkRules: ApplyNetworkRules;
   readNetworkRules: ReadNetworkRules;
+  exportNetworkRules: ExportNetworkRules;
+  checkNetworkRulesFile: CheckNetworkRulesFile;
+  importNetworkRules: ImportNetworkRules;
   readNetworkRulesDraftChanges: ReadNetworkRulesDraftChanges;
   setBuiltInRule: SetBuiltInRule;
   readBuiltInRules: ReadBuiltInRules;
@@ -399,6 +405,9 @@ export function createUseCases(options: {
     discardNetworkRulesDraft: createDiscardNetworkRulesDraft({ uow, clock, ids }),
     applyNetworkRules: createApplyNetworkRules({ uow, clock, ids }),
     readNetworkRules: createReadNetworkRules({ uow }),
+    exportNetworkRules: createExportNetworkRules({ uow, clock }),
+    checkNetworkRulesFile: createCheckNetworkRulesFile({ uow }),
+    importNetworkRules: createImportNetworkRules({ uow, clock, ids }),
     readNetworkRulesDraftChanges: createReadNetworkRulesDraftChanges({ uow, readReach }),
     setBuiltInRule: createSetBuiltInRule({ uow, clock, ids }),
     readBuiltInRules: createReadBuiltInRules({ uow }),

@@ -201,7 +201,8 @@ export interface FleetLabel {
   definer: string;
 }
 
-function ownerNames(rules: readonly FileRule[] | null): string[] {
+/** The owner ship names the rules use, each once, in the order they first name them. */
+export function ownerNamesIn(rules: readonly FileRule[] | null): string[] {
   const names = (rules ?? []).flatMap((rule) => [...rule.from, ...rule.to].flatMap((term) => (isLabelTerm(term) || isSymbol(term.owner) ? [] : [term.owner])));
   return [...new Set(names)];
 }
@@ -249,7 +250,7 @@ export function differencesOf(file: NetworkRulesFile, fleet: { labels: readonly 
       });
     }
   }
-  for (const name of ownerNames(file.rules)) {
+  for (const name of ownerNamesIn(file.rules)) {
     if (!fleet.activeShipNames.includes(name)) {
       differences.push({ kind: 'ship', name, ways: ['pickShip', 'dropRules'] });
     }

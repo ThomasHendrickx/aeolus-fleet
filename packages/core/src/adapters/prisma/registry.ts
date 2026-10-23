@@ -200,6 +200,15 @@ export function createPrismaLabelRepository(db: Db): LabelRepository {
       return row === undefined ? undefined : toLabelFromSql(row);
     },
     find: (fleetId, labelId) => findLabel({ fleetId, labelId }, Prisma.empty),
+    listNamedBy: async (fleetId, { labelIds, valueIds }) => {
+      const rows = await db.$queryRaw<unknown[]>`
+        SELECT ${labelColumns} FROM labels l
+        WHERE l.fleet_id = ${fleetId}
+          AND (l.id = ANY(${[...labelIds]}::text[])
+               OR EXISTS (SELECT 1 FROM label_values v WHERE v.fleet_id = l.fleet_id AND v.label_id = l.id AND v.id = ANY(${[...valueIds]}::text[])))
+        ORDER BY l.key`;
+      return rows.map(toLabelFromSql);
+    },
     // FOR NO KEY UPDATE: a change of values waits for the assignments holding
     // the label, and they for it; the label itself stays.
     findForUpdate: (fleetId, labelId) => findLabel({ fleetId, labelId }, Prisma.sql`FOR NO KEY UPDATE`),

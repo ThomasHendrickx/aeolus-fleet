@@ -718,6 +718,13 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       lockKey: () => Promise.resolve(),
       findByKey: (fleetId, key) => Promise.resolve(labelWhere((label) => label.fleetId === fleetId && label.key === key)),
       find: (fleetId, labelId) => Promise.resolve(labelWhere((label) => label.fleetId === fleetId && label.id === labelId)),
+      listNamedBy: (fleetId, { labelIds, valueIds }) =>
+        Promise.resolve(
+          state.labels
+            .filter((label) => label.fleetId === fleetId && (labelIds.includes(label.id) || label.values.some((value) => valueIds.includes(value.id))))
+            .sort((first, second) => first.key.localeCompare(second.key))
+            .map(copyOfLabel),
+        ),
       findForUpdate: (fleetId, labelId) => Promise.resolve(labelWhere((label) => label.fleetId === fleetId && label.id === labelId)),
       findByValueForShare: (fleetId, valueId) =>
         Promise.resolve(labelWhere((label) => label.fleetId === fleetId && label.values.some((value) => value.id === valueId))),

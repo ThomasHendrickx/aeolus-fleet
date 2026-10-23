@@ -32,7 +32,7 @@ beforeEach(async () => {
 
 describe('exporting the network rules (design network-io, section 4)', () => {
   it('writes the applied rules by name with the labels they use, their definers, and the fleet and settings version', async () => {
-    await applyNetworkRules(registry, { by: networking, rules: [{ verb: 'send', from: [user], to: [app] }, { verb: 'manage', from: [{ owner: crmApp.shipId }], to: [{ owner: '#' }] }] });
+    await applyNetworkRules(registry, { by: networking, rules: [{ verb: 'send', from: [user], to: [app] }, { verb: 'manage', from: [{ owner: crmApp.shipId }], to: [{ owner: '*' }] }] });
 
     expect(unwrap(await registry.exportNetworkRules(networking))).toEqual({
       format: 'aeolus.network-rules',
@@ -43,7 +43,7 @@ describe('exporting the network rules (design network-io, section 4)', () => {
       labels: [{ key: 'crm', values: ['app', 'user'], definer: 'crm-app' }],
       rules: [
         { verb: 'send', from: [{ label: 'crm', value: 'user' }], to: [{ label: 'crm', value: 'app' }] },
-        { verb: 'manage', from: [{ owner: 'crm-app' }], to: [{ owner: '#' }] },
+        { verb: 'manage', from: [{ owner: 'crm-app' }], to: [{ owner: '*' }] },
       ],
     });
   });
