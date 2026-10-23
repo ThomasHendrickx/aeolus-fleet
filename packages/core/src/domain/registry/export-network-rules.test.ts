@@ -34,7 +34,7 @@ describe('exporting the network rules (design network-io, section 4)', () => {
   it('writes the applied rules by name with the labels they use, their definers, and the fleet and settings version', async () => {
     await applyNetworkRules(registry, { by: networking, rules: [{ verb: 'send', from: [user], to: [app] }, { verb: 'manage', from: [{ owner: crmApp.shipId }], to: [{ owner: '*' }] }] });
 
-    expect(unwrap(await registry.exportNetworkRules(networking))).toEqual({
+    expect(unwrap(await registry.exportNetworkRules(networking)).file).toEqual({
       format: 'aeolus.network-rules',
       version: 1,
       exportedAt: '2026-10-23T14:02:11.000Z',
@@ -52,11 +52,22 @@ describe('exporting the network rules (design network-io, section 4)', () => {
     await applyNetworkRules(registry, { by: networking, rules: [] });
     unwrap(await registry.saveNetworkRulesDraft(networking, { rules: [{ verb: 'send', from: [user], to: [] }] }));
 
-    expect(unwrap(await registry.exportNetworkRules(networking))).toMatchObject({ rulesVersion: 1, labels: [], rules: [] });
+    expect(unwrap(await registry.exportNetworkRules(networking)).file).toMatchObject({ rulesVersion: 1, labels: [], rules: [] });
   });
 
   it('writes no rules for a fleet with none applied, all-to-all', async () => {
-    expect(unwrap(await registry.exportNetworkRules(networking))).toMatchObject({ rulesVersion: 0, labels: [], rules: null });
+    expect(unwrap(await registry.exportNetworkRules(networking)).file).toMatchObject({ rulesVersion: 0, labels: [], rules: null });
+  });
+
+  it('says which applied rule it left out: one on a label its definer deleted', async () => {
+    const gone = unwrap(await registry.defineLabel(crmApp, { key: 'gone', values: ['soon'] }));
+    await applyNetworkRules(registry, { by: networking, rules: [{ verb: 'send', from: [user], to: [app] }, { verb: 'send', from: [{ labelId: gone.labelId, value: '*' }], to: [] }] });
+    unwrap(await registry.deleteLabel(crmApp, { labelId: gone.labelId }));
+
+    const { file, leftOut } = unwrap(await registry.exportNetworkRules(networking));
+
+    expect(file.rules).toHaveLength(1);
+    expect(leftOut).toEqual([{ rule: 2, reason: 'uses a label that no longer exists (its definer retired or deleted it)' }]);
   });
 
   it('changes nothing and writes no event', async () => {

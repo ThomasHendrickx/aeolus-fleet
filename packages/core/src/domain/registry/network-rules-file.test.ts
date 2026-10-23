@@ -103,7 +103,7 @@ describe('exporting the applied rules (design network-io, section 4)', () => {
   const [app, user] = [crm.values[0], crm.values[1]];
 
   it('writes every id as its name, with the labels the rules use, their values and definers, and the metadata', () => {
-    const file = exportedFile({
+    const { file } = exportedFile({
       fleet: { id: fleetId, name: 'staging' },
       applied: {
         version: 42,
@@ -131,20 +131,37 @@ describe('exporting the applied rules (design network-io, section 4)', () => {
   });
 
   it('writes no rules for none applied, all-to-all', () => {
-    const file = exportedFile({ fleet: { id: fleetId, name: 'staging' }, applied: { version: 0, rules: null }, labels: [], shipNames: new Map(), at: new Date('2026-10-23T14:02:11Z') });
+    const { file } = exportedFile({ fleet: { id: fleetId, name: 'staging' }, applied: { version: 0, rules: null }, labels: [], shipNames: new Map(), at: new Date('2026-10-23T14:02:11Z') });
     expect([file.labels, file.rules]).toEqual([[], null]);
   });
 
-  it('leaves out a rule on a label the fleet no longer has, as it matches no ship', () => {
+  it('leaves out a rule on a label or a ship the fleet no longer has, as it matches no ship, and says which and why', () => {
     const gone: LabelId = ids('label');
-    const file = exportedFile({
+    const exported = exportedFile({
       fleet: { id: fleetId, name: 'staging' },
-      applied: { version: 3, rules: [{ verb: 'read', from: [{ labelId: gone, value: '*' }], to: [] }, { verb: 'read', from: [ids('labelValue')], to: [] }, { verb: 'send', from: [], to: [] }] },
+      applied: {
+        version: 3,
+        rules: [
+          { verb: 'read', from: [{ labelId: gone, value: '*' }], to: [] },
+          { verb: 'read', from: [ids('labelValue')], to: [] },
+          { verb: 'send', from: [], to: [] },
+          { verb: 'manage', from: [{ owner: ids('ship') }], to: [] },
+        ],
+      },
       labels: [],
       shipNames: new Map(),
       at: new Date('2026-10-23T14:02:11Z'),
     });
-    expect(file.rules).toEqual([{ verb: 'send', from: [], to: [] }]);
+    expect(exported.file.rules).toEqual([{ verb: 'send', from: [], to: [] }]);
+    expect(exported.leftOut).toEqual([
+      { rule: 1, reason: 'uses a label that no longer exists (its definer retired or deleted it)' },
+      { rule: 2, reason: 'uses a label that no longer exists (its definer retired or deleted it)' },
+      { rule: 4, reason: 'names a ship that no longer exists' },
+    ]);
+  });
+
+  it('leaves out nothing when every name is found', () => {
+    expect(exportedFile({ fleet: { id: fleetId, name: 'staging' }, applied: { version: 1, rules: [{ verb: 'send', from: [], to: [] }] }, labels: [], shipNames: new Map(), at: new Date('2026-10-23T14:02:11Z') }).leftOut).toEqual([]);
   });
 });
 

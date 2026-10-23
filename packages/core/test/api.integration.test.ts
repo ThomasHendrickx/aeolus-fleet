@@ -2212,7 +2212,7 @@ describe('network rules at the API', () => {
     const editor = await networker();
     const importer = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:network', 'labels:define'])}` });
     const version = await applied(editor, [{ verb: 'send', from: [], to: [] }]);
-    const file = JSON.stringify(await editor.fleet.exportNetworkRules.query());
+    const file = JSON.stringify((await editor.fleet.exportNetworkRules.query()).file);
 
     await expect(importer.fleet.checkNetworkRulesFile.mutate({ file })).resolves.toMatchObject({ newLabels: [], differences: [] });
     await expect(importer.fleet.importNetworkRules.mutate({ file, resolutions: [] })).resolves.toEqual({ savedAgainstVersion: version, definedLabels: [] });

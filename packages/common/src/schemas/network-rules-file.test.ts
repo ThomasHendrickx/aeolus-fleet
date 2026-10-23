@@ -7,6 +7,7 @@ import {
   NETWORK_RULES_FILE_VERSION,
   checkNetworkRulesFileInputSchema,
   checkNetworkRulesFileOutputSchema,
+  exportNetworkRulesOutputSchema,
   importNetworkRulesInputSchema,
   importNetworkRulesOutputSchema,
   networkRulesFileSchema,
@@ -47,6 +48,13 @@ describe('the network rules file (design network-io, section 4)', () => {
 
   it('refuses a term by id', () => {
     expect(networkRulesFileSchema.safeParse({ ...aFile, rules: [{ verb: 'send', from: [newId('labelValue')], to: [] }] }).success).toBe(false);
+  });
+});
+
+describe('exportNetworkRulesOutputSchema', () => {
+  it('answers the file and each rule it left out, by its place in the applied list, with why', () => {
+    const exported = { file: aFile, leftOut: [{ rule: 3, reason: 'uses a label that no longer exists (its definer retired or deleted it)' }] };
+    expect(exportNetworkRulesOutputSchema.parse(exported)).toEqual(exported);
   });
 });
 

@@ -60,7 +60,7 @@ afterEach(async () => {
 
 describe('exporting the network rules', () => {
   it('names the labels the rules use, by value and by label, their definers and the owners, from the store', async () => {
-    const file = unwrap(await core.useCases.exportNetworkRules(networker));
+    const { file, leftOut } = unwrap(await core.useCases.exportNetworkRules(networker));
 
     expect({ labels: file.labels, rules: file.rules, rulesVersion: file.rulesVersion }).toEqual({
       labels: [{ key: 'crm', values: ['app', 'user'], definer: 'crm-app' }],
@@ -70,6 +70,7 @@ describe('exporting the network rules', () => {
       ],
       rulesVersion: 1,
     });
+    expect(leftOut).toEqual([]);
   });
 });
 
@@ -77,7 +78,7 @@ describe('importing the network rules', () => {
   let file: NetworkRulesFile;
 
   beforeEach(async () => {
-    file = unwrap(await core.useCases.exportNetworkRules(networker));
+    ({ file } = unwrap(await core.useCases.exportNetworkRules(networker)));
   });
 
   it('brings a new fleet the rules before its ships, defining the labels for argo and saving the draft', async () => {

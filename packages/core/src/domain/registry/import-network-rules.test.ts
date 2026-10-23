@@ -73,7 +73,7 @@ describe('importing network rules (design network-io, section 5)', () => {
   it('brings a fleet back to the rules it exported: backup and restore', async () => {
     unwrap(await registry.importNetworkRules(importer, { file: text, resolutions: [] }));
     const version = unwrap(await registry.applyNetworkRules(importer, { version: 0 })).version;
-    const exported = JSON.stringify(unwrap(await registry.exportNetworkRules(importer)));
+    const exported = JSON.stringify(unwrap(await registry.exportNetworkRules(importer)).file);
     const applied = core.state.networkSettings[0]?.rules;
     await applyNetworkRules(registry, { by: importer, rules: [] });
 
