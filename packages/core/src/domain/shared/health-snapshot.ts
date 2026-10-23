@@ -45,11 +45,10 @@ export interface LatestSnapshot {
   fold: HealthFold;
 }
 
-/** The ships, leases and machines the rule reads beside the fold; the leases' turns come from the fold. */
+/** The ships and leases the rule reads beside the fold; the leases' turns come from the fold. */
 export interface HealthCrews {
   ships: readonly ShipRecord[];
   leases: readonly LeaseRecord[];
-  machines: HealthFacts['machines'];
 }
 
 /** The events after a seq, lowest first, and the deliveries those events sent. */
@@ -66,8 +65,10 @@ export interface HealthSnapshots {
   hours(fleetId: FleetId, since: Date): Promise<HourSnapshot[]>;
   /** The fleet's events after `seq`, lowest first, at most `limit` of them when given, and the deliveries they sent. */
   eventsAfter(fleetId: FleetId, after: { seq: number; limit?: number }): Promise<EventsAfter>;
-  /** The ships and leases not over before `since`, and the machine behind each ship. */
+  /** The ships and leases not over before `since`. */
   crews(fleetId: FleetId, since: Date): Promise<HealthCrews>;
+  /** The machine behind each ship whose crew request is assigned: only what names a stuck place reads it. */
+  machines(fleetId: FleetId): Promise<HealthFacts['machines']>;
 }
 
 /** Outbound port in a unit of work: writes the fleet's stuck snapshot, one instance at a time. */
@@ -271,7 +272,7 @@ export function acknowledgedOfSnapshot(
  * A ship `readsShip` leaves out is shown without its machine (decision 0034).
  */
 export function healthFromSnapshot(
-  snapshot: EventsAfter & { latest: LatestSnapshot; hours: readonly HourSnapshot[]; crews: HealthCrews },
+  snapshot: EventsAfter & { latest: LatestSnapshot; hours: readonly HourSnapshot[]; crews: HealthCrews & Pick<HealthFacts, 'machines'> },
   read: { now: Date; reads: (message: MessageParties) => boolean; readsShip: (shipId: ShipId) => boolean },
 ): Health {
   const { now, reads, readsShip } = read;

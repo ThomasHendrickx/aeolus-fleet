@@ -8,7 +8,7 @@ import { eventTypeSchema, idSchema, shipKindSchema, turnStateSchema, type FleetI
 import { z } from 'zod';
 
 import type { HealthCrews } from '../../domain/shared/health-snapshot.js';
-import type { HealthRecords } from '../../domain/shared/health.js';
+import type { HealthFacts, HealthRecords } from '../../domain/shared/health.js';
 import { isConsoleShip } from '../../domain/registry/public.js';
 import { STEP_EVENT_TYPES, stateStepOf, type DeliveryRecord, type DeliveryStep, type LeaseTurn } from '../../domain/shared/stuck.js';
 import type { Db } from './client.js';
@@ -81,7 +81,7 @@ export function recipientOf(row: Pick<z.infer<typeof deliveryRow>, 'id' | 'recip
   throw new Error(`Delivery ${row.id} has no recipient`);
 }
 
-/** The fleet's ships and leases not over before `since`, each lease with no turns, and the machine behind each ship whose crew request is assigned. */
+/** The fleet's ships and leases not over before `since`, each lease with no turns. */
 export async function readCrews(db: Db, read: { fleetId: FleetId; since: Date }): Promise<HealthCrews> {
   const { fleetId, since } = read;
   const ships = z.array(shipRow).parse(
@@ -94,14 +94,6 @@ export async function readCrews(db: Db, read: { fleetId: FleetId; since: Date })
     await db.$queryRaw`
       SELECT id, ship_id, started_at, ended_at, pushed_at, COALESCE(last_seen_at, started_at) AS last_seen_at FROM leases
       WHERE fleet_id = ${fleetId} AND (ended_at IS NULL OR ended_at >= ${since})`,
-  );
-  const machines = z.array(machineRow).parse(
-    await db.$queryRaw`
-      SELECT c.ship_id, m.id AS machine_id, m.name AS machine_name, COALESCE(l.last_seen_at, l.started_at) AS last_seen_at
-      FROM crew_requests c
-      JOIN ships m ON m.fleet_id = c.fleet_id AND m.id = c.assigned_to_ship_id
-      LEFT JOIN leases l ON l.fleet_id = m.fleet_id AND l.ship_id = m.id AND l.ended_at IS NULL
-      WHERE c.fleet_id = ${fleetId}`,
   );
   return {
     ships: ships.map((ship) => ({
@@ -122,7 +114,6 @@ export async function readCrews(db: Db, read: { fleetId: FleetId; since: Date })
       lastSeenAt: lease.last_seen_at,
       turns: [],
     })),
-    machines: machines.map((row) => ({ shipId: row.ship_id, machine: { id: row.machine_id, name: row.machine_name, lastSeenAt: row.last_seen_at } })),
   };
 }
 
@@ -216,10 +207,23 @@ export async function readDeliveriesWithSteps(db: Db, statement: Prisma.Sql): Pr
   );
 }
 
+/** The machine behind each ship of the fleet whose crew request is assigned: its trierarch, and when its crew last called. */
+export async function readMachines(db: Db, fleetId: FleetId): Promise<HealthFacts['machines']> {
+  const machines = z.array(machineRow).parse(
+    await db.$queryRaw`
+      SELECT c.ship_id, m.id AS machine_id, m.name AS machine_name, COALESCE(l.last_seen_at, l.started_at) AS last_seen_at
+      FROM crew_requests c
+      JOIN ships m ON m.fleet_id = c.fleet_id AND m.id = c.assigned_to_ship_id
+      LEFT JOIN leases l ON l.fleet_id = m.fleet_id AND l.ship_id = m.id AND l.ended_at IS NULL
+      WHERE c.fleet_id = ${fleetId}`,
+  );
+  return machines.map((row) => ({ shipId: row.ship_id, machine: { id: row.machine_id, name: row.machine_name, lastSeenAt: row.last_seen_at } }));
+}
+
 export function createPrismaHealthRecords(db: Db): HealthRecords {
   return {
     read: async (fleetId: FleetId, since: Date) => {
-      const crews = await readCrews(db, { fleetId, since });
+      const [crews, machines] = await Promise.all([readCrews(db, { fleetId, since }), readMachines(db, fleetId)]);
       const leaseIds = crews.leases.map((lease) => lease.leaseId);
       const turns = z.array(turnRow).parse(
         await db.$queryRaw`
@@ -230,6 +234,7 @@ export function createPrismaHealthRecords(db: Db): HealthRecords {
       const deliveries = await readDeliveriesWithSteps(db, replayDeliveriesStatement(fleetId, since));
       return {
         ...crews,
+        machines,
         leases: crews.leases.map((lease) => ({
           ...lease,
           turns: turns.filter((turn) => turn.lease_id === lease.leaseId).map((turn): LeaseTurn => ({ state: turn.turn, at: turn.occurred_at })),

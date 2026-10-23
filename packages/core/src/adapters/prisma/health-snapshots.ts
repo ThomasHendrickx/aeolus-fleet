@@ -15,7 +15,7 @@ import type { HealthSnapshotWriter, HourSnapshot, StuckCount } from '../../domai
 import type { DeliveryRecord } from '../../domain/shared/stuck.js';
 import type { Db } from './client.js';
 import { Prisma } from './generated/client.js';
-import { baseDeliveriesStatement, deliveryRecordOf, deliveryRow, readCrews, readDeliveriesWithSteps, recipientOf } from './health.js';
+import { baseDeliveriesStatement, deliveryRecordOf, deliveryRow, readCrews, readDeliveriesWithSteps, readMachines, recipientOf } from './health.js';
 import { toSequencedEvent } from './rows.js';
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -165,6 +165,8 @@ export function createPrismaHealthSnapshots(db: Db): HealthSnapshotWriter {
     },
 
     crews: (fleetId, since) => readCrews(db, { fleetId, since }),
+
+    machines: (fleetId) => readMachines(db, fleetId),
 
     tryLock: async (fleetId) => {
       const [row] = z

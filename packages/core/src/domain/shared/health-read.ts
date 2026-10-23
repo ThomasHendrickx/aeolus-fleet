@@ -41,16 +41,17 @@ export async function readHealthOf(deps: HealthReadDeps, read: HealthRead): Prom
     const machines = facts.machines.filter(({ shipId }) => readsShip(shipId));
     return healthOf({ ...facts, deliveries, machines }, { acknowledged: acknowledgedOf(acknowledged.filter((delivery) => reads(delivery.message)), now), now });
   }
-  const [hours, after, crews] = await Promise.all([
+  const [hours, after, crews, machines] = await Promise.all([
     deps.snapshots.hours(fleetId, hoursSince(now, STUCK_TREND_HOURS)),
     deps.snapshots.eventsAfter(fleetId, { seq: latest.fold.seq }),
     deps.snapshots.crews(fleetId, latest.hour),
+    deps.snapshots.machines(fleetId),
   ]);
-  return healthFromSnapshot({ latest, hours, ...after, crews }, { now, reads, readsShip });
+  return healthFromSnapshot({ latest, hours, ...after, crews: { ...crews, machines } }, { now, reads, readsShip });
 }
 
-/** What is stuck at `now`, with the ships and the machines behind them it names. */
-async function stuckNowWithCrews(deps: HealthReadDeps, read: HealthRead): Promise<{ stuck: StuckDelivery[]; crews: Pick<HealthFacts, 'ships' | 'machines'> }> {
+/** What is stuck at `now`, with the ships it names. */
+async function stuckNowWithCrews(deps: HealthReadDeps, read: HealthRead): Promise<{ stuck: StuckDelivery[]; crews: Pick<HealthFacts, 'ships'> }> {
   const { fleetId, now, reads = () => true } = read;
   const latest = await deps.snapshots.latest(fleetId);
   if (latest === undefined) {
@@ -69,9 +70,9 @@ export async function readStuckNowOf(deps: HealthReadDeps, read: HealthRead): Pr
 
 /** Reads the deliveries stuck at `now` by cause and place, each ship by name with the machine behind it. */
 export async function readStuckPlacesOf(deps: HealthReadDeps, read: HealthRead): Promise<StuckPlaceHealth[]> {
-  const { readsShip = () => true } = read;
-  const { stuck, crews } = await stuckNowWithCrews(deps, read);
-  return shownStuck(stuck, { ships: crews.ships, machines: crews.machines.filter(({ shipId }) => readsShip(shipId)) });
+  const { fleetId, readsShip = () => true } = read;
+  const [{ stuck, crews }, machines] = await Promise.all([stuckNowWithCrews(deps, read), deps.snapshots.machines(fleetId)]);
+  return shownStuck(stuck, { ships: crews.ships, machines: machines.filter(({ shipId }) => readsShip(shipId)) });
 }
 
 /** Reads how many deliveries were stuck at each hour of the last 7 days, oldest first, the last one now. */

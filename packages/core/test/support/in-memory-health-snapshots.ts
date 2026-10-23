@@ -63,9 +63,10 @@ export function createInMemoryHealthSnapshots(state: InMemoryState, health: Heal
       return Promise.resolve({ events, sent: sentOf(fleetId, events) });
     },
     crews: async (fleetId, since) => {
-      const { ships, leases, machines } = await health.read(fleetId, since);
-      return { ships, leases: leases.map((lease) => ({ ...lease, turns: [] })), machines };
+      const { ships, leases } = await health.read(fleetId, since);
+      return { ships, leases: leases.map((lease) => ({ ...lease, turns: [] })) };
     },
+    machines: async (fleetId) => (await health.read(fleetId, new Date(0))).machines,
     tryLock: (fleetId) => Promise.resolve(!state.healthSnapshotLocks.includes(fleetId)),
     baseAt: async (fleetId, hour) => {
       const events = numbered(fleetId);
