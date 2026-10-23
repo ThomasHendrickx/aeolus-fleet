@@ -1,4 +1,4 @@
-import { PING_CONTENT_TYPE, type FleetId } from '@aeolus-fleet/common';
+import { PAGE_SIZE_MAX, PING_CONTENT_TYPE, type FleetId } from '@aeolus-fleet/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { Prisma } from '../src/adapters/prisma/generated/client.js';
@@ -66,7 +66,7 @@ afterAll(async () => {
 });
 
 async function listingPlan(): Promise<string> {
-  const rows = await core.prisma.$queryRaw<{ 'QUERY PLAN': string }[]>(Prisma.sql`EXPLAIN ${fleetListingStatement(fleetId)}`);
+  const rows = await core.prisma.$queryRaw<{ 'QUERY PLAN': string }[]>(Prisma.sql`EXPLAIN ${fleetListingStatement(fleetId, { limit: PAGE_SIZE_MAX + 1 })}`);
   return rows.map((row) => row['QUERY PLAN']).join('\n');
 }
 

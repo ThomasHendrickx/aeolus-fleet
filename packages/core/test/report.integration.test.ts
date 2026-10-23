@@ -33,7 +33,7 @@ afterEach(async () => {
 });
 
 async function listedReport() {
-  return wholeShips(await core.useCases.listFleet(argo)).find((ship) => ship.id === scout.shipId)?.report;
+  return wholeShips((await core.useCases.listFleet(argo)).ships).find((ship) => ship.id === scout.shipId)?.report;
 }
 
 async function reportEvents(): Promise<number> {

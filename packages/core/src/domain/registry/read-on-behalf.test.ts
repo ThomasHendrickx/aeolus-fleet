@@ -33,8 +33,8 @@ describe('reading on behalf of a named ship (decision 0034)', () => {
     await fleet.send(fleet.far, { kind: 'ship', shipId: fleet.argo.shipId });
     const onBehalf = unwrap(await readOnBehalf(plugin, { shipId: fleet.reader.shipId }));
 
-    expect([await fleet.registry.listFleet(onBehalf), await fleet.registry.readFleetEvents(onBehalf, 0)]).toEqual([
-      await fleet.registry.listFleet(fleet.reader),
+    expect([(await fleet.registry.listFleet(onBehalf)).ships, await fleet.registry.readFleetEvents(onBehalf, 0)]).toEqual([
+      (await fleet.registry.listFleet(fleet.reader)).ships,
       await fleet.registry.readFleetEvents(fleet.reader, 0),
     ]);
   });

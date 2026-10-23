@@ -44,7 +44,7 @@ beforeEach(async () => {
 });
 
 async function listedScout() {
-  return wholeShips(await useCases.listFleet(argo)).find((ship) => ship.id === scoutId);
+  return wholeShips((await useCases.listFleet(argo)).ships).find((ship) => ship.id === scoutId);
 }
 
 function scout() {
@@ -120,7 +120,7 @@ describe("a ship's owner", () => {
   });
 
   it('is none for argo', async () => {
-    const listed = wholeShips(await useCases.listFleet(argo)).find((ship) => ship.id === argoId);
+    const listed = wholeShips((await useCases.listFleet(argo)).ships).find((ship) => ship.id === argoId);
 
     expect(listed).toMatchObject({ ownerShipId: null });
   });
@@ -173,7 +173,7 @@ describe('the model and harness a ship shows', () => {
   });
 
   it('shows no model before a send, and none for argo', async () => {
-    const [listedArgo] = wholeShips(await useCases.listFleet(argo));
+    const [listedArgo] = wholeShips((await useCases.listFleet(argo)).ships);
 
     expect(listedArgo?.model).toBeNull();
     await expect(listedScout()).resolves.toMatchObject({ model: null });
@@ -182,7 +182,7 @@ describe('the model and harness a ship shows', () => {
 
 describe('listing the fleet', () => {
   it('lists every ship in the order commissioned, argo first and without a prompt, with name, type, kind, status, prompt state and no location while awaiting crew', async () => {
-    await expect(useCases.listFleet(argo)).resolves.toEqual([
+    await expect(useCases.listFleet(argo).then((page) => page.ships)).resolves.toEqual([
       {
         id: argoId,
         name: 'argo',
@@ -229,7 +229,7 @@ describe('listing the fleet', () => {
   it('shows argo crewed from the device the operator signed in on', async () => {
     unwrap(await identityUseCases(core).signIn({ ...OPERATOR, device: 'Mac · Chrome' }));
 
-    const [listedArgo] = wholeShips(await useCases.listFleet(argo));
+    const [listedArgo] = wholeShips((await useCases.listFleet(argo)).ships);
 
     expect(listedArgo).toMatchObject({ status: 'crewed', location: { kind: 'OTHER', description: 'Mac · Chrome' } });
   });
@@ -284,11 +284,11 @@ describe('listing the fleet', () => {
   it("lists only the caller's fleet", async () => {
     const elsewhere = { ...argo, fleetId: core.ids('fleet') };
 
-    await expect(useCases.listFleet(elsewhere)).resolves.toEqual([]);
+    await expect(useCases.listFleet(elsewhere).then((page) => page.ships)).resolves.toEqual([]);
   });
 
   it('never carries a secret or its hash', async () => {
-    const listed = JSON.stringify(await useCases.listFleet(argo));
+    const listed = JSON.stringify((await useCases.listFleet(argo)).ships);
 
     expect(listed).not.toContain(scoutSecret);
     expect(listed).not.toContain(core.hasher.hash(scoutSecret));
@@ -417,11 +417,11 @@ describe('the labels a ship carries, and selecting ships by them', () => {
   });
 
   async function namesSelected(...values: [string, string][]) {
-    return (await useCases.listFleet(argo, { valueIds: values.map(([key, value]) => valueIdOf(core, { key, value })) })).map((ship) => ship.name);
+    return (await useCases.listFleet(argo, { valueIds: values.map(([key, value]) => valueIdOf(core, { key, value })) })).ships.map((ship) => ship.name);
   }
 
   it('lists each ship with the labels it carries, ids and text, by key then value, and none for a ship without', async () => {
-    const listed = wholeShips(await useCases.listFleet(argo));
+    const listed = wholeShips((await useCases.listFleet(argo)).ships);
 
     expect(listed.map((ship) => [ship.name, ship.labels.map(({ key, value }) => `${key}=${value}`)])).toEqual([
       ['argo', []],
@@ -445,11 +445,11 @@ describe('the labels a ship carries, and selecting ships by them', () => {
 
   it('selects no ship for a value no ship carries, or an id the fleet has no value for', async () => {
     await expect(namesSelected(['project', 'aeolus'])).resolves.toEqual([]);
-    await expect(useCases.listFleet(argo, { valueIds: [core.ids('labelValue')] })).resolves.toEqual([]);
+    await expect(useCases.listFleet(argo, { valueIds: [core.ids('labelValue')] }).then((page) => page.ships)).resolves.toEqual([]);
   });
 
   it('lists every ship when it selects by no value', async () => {
-    await expect(useCases.listFleet(argo, { valueIds: [] })).resolves.toHaveLength(4);
+    await expect(useCases.listFleet(argo, { valueIds: [] }).then((page) => page.ships)).resolves.toHaveLength(4);
   });
 });
 
@@ -462,21 +462,21 @@ describe('listing the fleet within read reach (decision 0034)', () => {
   });
 
   it('lists a ship outside read reach by its name, type and status only', async () => {
-    const status = (await fleet.registry.listFleet(fleet.argo)).find((ship) => ship.id === fleet.far.shipId)?.status;
+    const status = (await fleet.registry.listFleet(fleet.argo)).ships.find((ship) => ship.id === fleet.far.shipId)?.status;
 
-    const listed = await fleet.registry.listFleet(fleet.reader);
+    const listed = (await fleet.registry.listFleet(fleet.reader)).ships;
 
     expect(listed.find((ship) => ship.id === fleet.far.shipId)).toEqual({ id: fleet.far.shipId, name: 'far', type: 'keeper', status, isInReadReach: false });
   });
 
   it('lists a ship within read reach whole', async () => {
-    const listed = await fleet.registry.listFleet(fleet.reader);
+    const listed = (await fleet.registry.listFleet(fleet.reader)).ships;
 
-    expect(listed.find((ship) => ship.id === fleet.near.shipId)).toEqual((await fleet.registry.listFleet(fleet.argo)).find((ship) => ship.id === fleet.near.shipId));
+    expect(listed.find((ship) => ship.id === fleet.near.shipId)).toEqual((await fleet.registry.listFleet(fleet.argo)).ships.find((ship) => ship.id === fleet.near.shipId));
   });
 
   it('never matches a ship outside read reach by the label values it carries', async () => {
-    const [byB, byA] = [await fleet.registry.listFleet(fleet.reader, { valueIds: [fleet.team('b')] }), await fleet.registry.listFleet(fleet.reader, { valueIds: [fleet.team('a')] })];
+    const [byB, byA] = [(await fleet.registry.listFleet(fleet.reader, { valueIds: [fleet.team('b')] })).ships, (await fleet.registry.listFleet(fleet.reader, { valueIds: [fleet.team('a')] })).ships];
 
     expect([byB, byA.map((ship) => ship.id).sort()]).toEqual([[], [fleet.reader.shipId, fleet.near.shipId].sort()]);
   });
@@ -525,7 +525,7 @@ describe('a page of the fleet (decision 4 of the performance design)', () => {
     const [builderId, testerId, checkerId] = await commissionShips(['builder', 'tester', 'checker']);
     unwrap(await useCases.defineLabel(argo, { key: 'os', values: ['macos'] }));
     const macos = valueIdOf(core, { key: 'os', value: 'macos' });
-    for (const shipId of [builderId, checkerId]) {
+    for (const shipId of [builderId, checkerId].filter((id) => id !== undefined)) {
       unwrap(await useCases.assignLabel(argo, { shipId, valueId: macos }));
     }
 

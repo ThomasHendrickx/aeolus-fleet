@@ -464,8 +464,16 @@ export interface InstallationFleets {
   find(fleetId: FleetId, window: InstallationFleetWindow): Promise<InstallationFleetFacts | undefined>;
 }
 
+/** Which of the fleet's ships a listing reads: those after a ship id, at most `limit`, and with label value ids only those carrying every one. */
+export interface ShipPage {
+  after?: ShipId;
+  limit: number;
+  valueIds?: readonly LabelValueId[];
+}
+
 export interface FleetListing {
-  ships(fleetId: FleetId): Promise<ShipFacts[]>;
+  /** A page of the fleet's ships, oldest first (by ship id), as `page` selects them (decisions 0031 and 4 of the performance design). */
+  ships(fleetId: FleetId, page: ShipPage): Promise<ShipFacts[]>;
   /** The fleet's labels by key, each with its values and its owner by id and name (decision 0031). */
   labels(fleetId: FleetId): Promise<ListedLabel[]>;
   /** One ship of the fleet, read the same way; undefined when the fleet has no such ship. */

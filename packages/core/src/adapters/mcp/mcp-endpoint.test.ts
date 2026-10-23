@@ -269,7 +269,7 @@ describe('the ship tools at /mcp', () => {
   });
 
   it.each([
-    ['fleet_list', [/fleet:read/, /every ship/i]],
+    ['fleet_list', [/fleet:read/, /a page of the ships/i, /nextCursor/]],
     ['fleet_commission', [/fleet:commission/, /scopes adds/, /starting prompt/i]],
     ['fleet_release', [/fleet:manage/, /never argo/i]],
     ['fleet_ping', [/fleet:manage/, /pong/]],
@@ -303,10 +303,10 @@ describe('the ship tools at /mcp', () => {
     }
   });
 
-  it('give fleet_list no output schema, since it answers a list, and fleet_ship an object one', async () => {
+  it('give fleet_list and fleet_ship an object output schema, since fleet_list answers a page', async () => {
     await start();
 
-    await expect(tool('fleet_list')).resolves.not.toHaveProperty('outputSchema');
+    await expect(tool('fleet_list')).resolves.toMatchObject({ outputSchema: { type: 'object' } });
     await expect(tool('fleet_ship')).resolves.toMatchObject({ outputSchema: { type: 'object' } });
   });
 

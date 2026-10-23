@@ -125,7 +125,7 @@ afterAll(async () => {
 
 describe('the fleet:read procedures for a ship outside read reach (decision 0034)', () => {
   it('fleet.list shows far by its name, type and status only, near whole', async () => {
-    const listed = await reader.fleet.list.query();
+    const listed = (await reader.fleet.list.query()).items;
 
     expect([listed.find((ship) => ship.id === ids.far), listed.find((ship) => ship.id === ids.near)]).toEqual([
       { id: ids.far, name: 'far', type: 'keeper', status: 'crewed', isInReadReach: false },
@@ -134,7 +134,7 @@ describe('the fleet:read procedures for a ship outside read reach (decision 0034
   });
 
   it('fleet.list matches no label value on far', async () => {
-    await expect(reader.fleet.list.query({ valueIds: [teamB] })).resolves.toEqual([]);
+    await expect(reader.fleet.list.query({ valueIds: [teamB] }).then((page) => page.items)).resolves.toEqual([]);
   });
 
   it('fleet.ship shows far by its name, type and status only', async () => {

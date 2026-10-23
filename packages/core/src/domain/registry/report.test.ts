@@ -32,7 +32,7 @@ function storedReport() {
 }
 
 async function listedReport() {
-  return wholeShips(await useCases.listFleet(argo)).find((ship) => ship.id === scoutId)?.report;
+  return wholeShips((await useCases.listFleet(argo)).ships).find((ship) => ship.id === scoutId)?.report;
 }
 
 describe("a crew's report", () => {

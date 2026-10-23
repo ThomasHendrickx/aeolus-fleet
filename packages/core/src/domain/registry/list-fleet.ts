@@ -1,11 +1,11 @@
-import type { LabelValueId, ScopeName, ShipId, ShipKind, ShipStatus } from '@aeolus-fleet/common';
+import { PAGE_SIZE_DEFAULT, type LabelValueId, type ScopeName, type ShipId, type ShipKind, type ShipStatus } from '@aeolus-fleet/common';
 
 import type { Caller } from '../shared/caller.js';
 import { readsShip, type ReadReachOf } from './read-reach.js';
 import type { Location } from './lease.js';
 import { pingStatusOf, type PingStatus } from './ping-status.js';
 import type { CrewRequest } from './crew-request.js';
-import { carriesEvery, type CarriedLabel } from './label.js';
+import type { CarriedLabel } from './label.js';
 import type { FleetListing, ShipFacts } from './ports.js';
 import type { ShipReport } from './ship-report.js';
 import { shipStatus } from './ship.js';
@@ -72,26 +72,42 @@ export function outsideReadReach({ id, name, type, status }: Pick<ListedShip, 'i
   return { id, name, type, status, isInReadReach: false };
 }
 
-export type ListFleet = (caller: Caller, input?: { valueIds?: readonly LabelValueId[] }) => Promise<(ListedShip | ShipOutsideReadReach)[]>;
+export type ListFleet = (
+  caller: Caller,
+  input?: { valueIds?: readonly LabelValueId[]; cursor?: ShipId; limit?: number },
+) => Promise<{ ships: (ListedShip | ShipOutsideReadReach)[]; nextCursor: ShipId | null }>;
 
 /**
- * Use case: every ship of the caller's fleet, `argo` included, oldest first,
- * or with label value ids only the ships that carry every one of them
- * (decision 0031). A ship outside the caller's read reach shows its name,
- * type and status only, and no label value ever matches it, so the labels it
- * carries do not show (decision 0034). Never a secret, a crew token or their
- * hashes. The caller's scope (fleet:read) is checked before this runs.
+ * Use case: a page of the ships of the caller's fleet, `argo` included,
+ * oldest first: those after the cursor, PAGE_SIZE_DEFAULT unless the caller
+ * asks a size, and the ship id the next page starts after, null on the last
+ * page (decision 4 of the performance design). With label value ids only the
+ * ships that carry every one of them (decision 0031). A ship outside the
+ * caller's read reach shows its name, type and status only, and no label
+ * value ever matches it, so the labels it carries do not show (decision
+ * 0034); a page that selects by label may hold fewer ships for it. Never a
+ * secret, a crew token or their hashes. The caller's scope (fleet:read) is
+ * checked before this runs.
  */
 export function createListFleet(deps: { listing: FleetListing; readReach: ReadReachOf }): ListFleet {
   return async (caller, input) => {
-    const reach = await deps.readReach(caller);
-    return (await deps.listing.ships(caller.fleetId)).flatMap((facts): (ListedShip | ShipOutsideReadReach)[] => {
+    const limit = input?.limit ?? PAGE_SIZE_DEFAULT;
+    const isSelectedByLabel = input?.valueIds !== undefined && input.valueIds.length > 0;
+    const [reach, read] = await Promise.all([
+      deps.readReach(caller),
+      // One ship past the page tells whether another page follows.
+      deps.listing.ships(caller.fleetId, { after: input?.cursor, limit: limit + 1, valueIds: input?.valueIds }),
+    ]);
+    const page = read.slice(0, limit);
+    const ships = page.flatMap((facts): (ListedShip | ShipOutsideReadReach)[] => {
       const listed = listedShipOf(facts);
       if (readsShip(reach, facts.ship.id)) {
-        return carriesEvery(facts.labels, input?.valueIds) ? [listed] : [];
+        return [listed];
       }
-      return input?.valueIds === undefined || input.valueIds.length === 0 ? [outsideReadReach(listed)] : [];
+      return isSelectedByLabel ? [] : [outsideReadReach(listed)];
     });
+    const last = page.at(-1);
+    return { ships, nextCursor: read.length > limit && last !== undefined ? last.ship.id : null };
   };
 }
 

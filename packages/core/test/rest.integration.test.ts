@@ -417,7 +417,7 @@ describe('the ship calls at /api/v1', () => {
 
     await ok(request('report', { crewToken, body: { state: 'working', note: 'on PR 89' } }), z.strictObject({}));
 
-    const listed = wholeShips(await createUseCases({ prisma: database }).listFleet(argo));
+    const listed = wholeShips((await createUseCases({ prisma: database }).listFleet(argo)).ships);
     expect(listed.find((ship) => ship.id === skiff.shipId)?.report).toMatchObject({ state: 'working', note: 'on PR 89' });
   });
 
@@ -481,7 +481,7 @@ describe('the fleet actions at /api/v1/fleet', () => {
     const mooring = await commissioned();
     await register(mooring);
 
-    const listed = await ok(request('fleet/list', { crewToken: manager.crewToken, method: 'POST' }), z.array(z.object({ name: z.string() })));
+    const { items: listed } = await ok(request('fleet/list', { crewToken: manager.crewToken, method: 'POST' }), z.object({ items: z.array(z.object({ name: z.string() })) }));
     const commission = { name: `${manager.name}-member`, type: 'squadron', idempotencyKey: 'commission-member' };
     const commissionedByManager = await ok(
       request('fleet/commission', { crewToken: manager.crewToken, body: commission }),

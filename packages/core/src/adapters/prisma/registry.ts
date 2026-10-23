@@ -4,6 +4,7 @@ import type {
   ClearRequestRepository,
   CrewRequestRepository,
   FleetListing,
+  ShipPage,
   LabelRepository,
   FleetRepository,
   InFlightDeliveries,
@@ -626,12 +627,21 @@ const crewedByOfShip = Prisma.sql`
   LIMIT 1`;
 
 /**
- * The listing's one statement: every ship of the fleet with what the snapshot
- * shows of it, oldest first. One row per ship: at most one lease is open and
- * at most one secret is valid per ship (partial unique indexes), so neither
- * join multiplies rows.
+ * The listing's one statement: a page of the fleet's ships with what the
+ * snapshot shows of each, oldest first by ship id, read on through the
+ * ships' (fleet_id, id) index from the cursor, so a page costs the same at
+ * any fleet size (decision 4 of the performance design). With label value
+ * ids, only the ships that carry every one of them. One row per ship: at
+ * most one lease is open and at most one secret is valid per ship (partial
+ * unique indexes), so neither join multiplies rows.
  */
-export function fleetListingStatement(fleetId: FleetId): Prisma.Sql {
+export function fleetListingStatement(fleetId: FleetId, { after, limit, valueIds = [] }: ShipPage): Prisma.Sql {
+  const afterShip = after === undefined ? Prisma.empty : Prisma.sql`AND s.id > ${after}`;
+  const carriesEveryValue =
+    valueIds.length === 0
+      ? Prisma.empty
+      : Prisma.sql`AND (SELECT count(*) FROM ship_labels sl
+                        WHERE sl.fleet_id = s.fleet_id AND sl.ship_id = s.id AND sl.value_id = ANY(${[...new Set(valueIds)]}::text[])) = ${new Set(valueIds).size}`;
   return Prisma.sql`
     SELECT s.id, s.fleet_id, s.name, s.type, s.kind::text AS kind, s.scopes, s.note, s.created_at, s.retired_at,
            s.commissioned_by_kind::text AS commissioned_by_kind, s.commissioned_by, s.commission_key, s.commission_request_hash, s.owner_ship_id,
@@ -659,14 +669,15 @@ export function fleetListingStatement(fleetId: FleetId): Prisma.Sql {
     LEFT JOIN LATERAL (${crewedByOfShip}) cb ON true
     LEFT JOIN LATERAL (${lastPingOfShip}) p ON true
     LEFT JOIN LATERAL (${lastModelOfShip}) lm ON true
-    WHERE s.fleet_id = ${fleetId}
-    ORDER BY s.id`;
+    WHERE s.fleet_id = ${fleetId} ${afterShip} ${carriesEveryValue}
+    ORDER BY s.id
+    LIMIT ${limit}`;
 }
 
 export function createPrismaFleetListing(db: Db): FleetListing {
   return {
-    ships: async (fleetId) => {
-      const rows = await db.$queryRaw<unknown[]>(fleetListingStatement(fleetId));
+    ships: async (fleetId, page) => {
+      const rows = await db.$queryRaw<unknown[]>(fleetListingStatement(fleetId, page));
       return rows.map(toShipFacts);
     },
     labels: async (fleetId) => {

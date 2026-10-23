@@ -1,4 +1,6 @@
 import {
+  PAGE_SIZE_DEFAULT,
+  PAGE_SIZE_MAX,
   commissionShipInputSchema,
   commissionShipOutputSchema,
   dismissDeliveryInputSchema,
@@ -460,20 +462,22 @@ export const fleetRouter = router({
       return { ships, dailyMessages: { ...dailyMessages, resetsAt: dailyMessages.resetsAt.toISOString() } };
     }),
 
-  /** Every ship of the caller's fleet with its status and prompt state, or the ships that carry the label values given. Never a secret. */
+  /** A page of the caller's fleet, each ship with its status and prompt state, or of the ships that carry the label values given. Never a secret. */
   list: actorScopedProcedure('fleet:read')
     .meta({
       description: [
-        'Needs fleet:read. Every ship of the fleet, argo included: id, name, type, kind, status, scopes, labels, where its session runs and in which harness, when it was last seen, its last ping, and its current model (the last its sessions stated). Never a secret.',
+        'Needs fleet:read. A page of the ships of the fleet, argo included, oldest first: id, name, type, kind, status, scopes, labels, where its session runs and in which harness, when it was last seen, its last ping, and its current model (the last its sessions stated). Never a secret.',
+        `A page holds limit ships (${String(PAGE_SIZE_DEFAULT)} unless you ask, at most ${String(PAGE_SIZE_MAX)}); nextCursor is the ship id the next page starts after: pass it as cursor to read on, until it is null. A page that selects by label may hold fewer ships than limit while more follow.`,
         'A ship outside your read reach shows its id, name, type and status only, with isInReadReach false (decision 0034).',
         'With valueIds (label value ids, from fleet_labels or fleet_findLabelValue), only the ships in your read reach that carry every one of them: exact matches, combined with AND.',
       ].join(' '),
     })
     .input(fleetListInputSchema)
     .output(fleetListOutputSchema)
-    .query(async ({ ctx, input }) =>
-      (await ctx.useCases.listFleet(ctx.caller, { valueIds: input?.valueIds })).map((ship) => (isInReadReach(ship) ? listedShipOutputOf(ship) : ship)),
-    ),
+    .query(async ({ ctx, input }) => {
+      const { ships, nextCursor } = await ctx.useCases.listFleet(ctx.caller, { valueIds: input?.valueIds, cursor: input?.cursor, limit: input?.limit });
+      return { items: ships.map((ship) => (isInReadReach(ship) ? listedShipOutputOf(ship) : ship)), nextCursor };
+    }),
 
   /** The fleet's labels, each with its values and its owner (decision 0031). */
   labels: actorScopedProcedure('fleet:read')

@@ -179,7 +179,7 @@ describe('what a viewer session reads', () => {
     const usedAt = core.clock.now();
     await useCases.authenticate.byConsoleSession(first.token);
 
-    const listed = (await registryUseCases(core).listFleet(first.caller)).find((ship) => ship.id === viewerId);
+    const listed = (await registryUseCases(core).listFleet(first.caller)).ships.find((ship) => ship.id === viewerId);
 
     expect(listed).toMatchObject({ status: 'crewed', lastSeenAt: usedAt, location: null });
   });
@@ -187,7 +187,7 @@ describe('what a viewer session reads', () => {
   it('shows the viewer ship never seen before any viewer session', async () => {
     const operator = await operating();
 
-    const listed = (await registryUseCases(core).listFleet(operator.caller)).find((ship) => ship.id === viewerId);
+    const listed = (await registryUseCases(core).listFleet(operator.caller)).ships.find((ship) => ship.id === viewerId);
 
     expect(listed).toMatchObject({ lastSeenAt: null });
   });
