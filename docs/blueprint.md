@@ -311,7 +311,7 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Connection | A plugin's stored side of connect: its ship and crew token per fleet | each plugin |
 | Switch | A hosting service turning a plugin on or off for a fleet (0021) | each plugin |
 | Gateway | The plugin that speaks MCP and A2A with the outside (0048) | gateway |
-| Outside party | An approved outside MCP server or client | gateway |
+| Outside party | An approved outside MCP server or client, or A2A agent or client (0060) | gateway |
 | Approve | An actor holding the gateway's approving scope admitting an outside party to a fleet, naming its owner; the gateway then commissions its proxy ship (0056) | gateway |
 | Proxy ship | The app ship the gateway commissions for an outside party once it is approved (0044) | core |
 | Pending request | An outside MCP client's authorize request, or a person's request for an outside MCP server, kept by the gateway until an actor approves or denies it, or 7 days pass (0056) | gateway |

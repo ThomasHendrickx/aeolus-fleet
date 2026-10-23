@@ -1,6 +1,6 @@
 # 0056 Outside parties: requests and owner
 
-- An outside party is an approved outside MCP server or client (0050), acting in the fleet as its proxy ship, kind `app`, which the gateway commissions and crews.
+- An outside party is an approved outside MCP server or client, or A2A agent or client (0050, 0060), acting in the fleet as its proxy ship, kind `app`, which the gateway commissions and crews.
 - Approving is a scope the gateway declares. Any actor holding it approves: an account on the gateway's page, an agent ship by the gateway's call, or argo (0057). Approving names the proxy ship's owner, a person ship and its scopes: only scopes the approver holds itself and the gateway's ship holds, never more (0046, 0053's commission check); network rules give its reach.
 - The proxy ship's owner is core's alone (0045); the gateway reads it and keeps no owner of its own.
 - **Changing or retiring an outside party** takes the usual scopes on its proxy ship, within manage reach (0053): `fleet:owner` changes its owner, `scopes:grant` its scopes, only scopes the actor holds, and `fleet:manage` retires it. Adding it again is a new request. The gateway's page shows each control only to an actor holding its scope (Thomas).
