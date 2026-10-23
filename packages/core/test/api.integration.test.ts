@@ -2361,11 +2361,11 @@ describe('network rules at the API', () => {
       client({ authorization: `Bearer ${senderToken}` }).ship.send.mutate({ selector: { kind: 'ship', shipId }, payload: 'Review the PR', idempotencyKey: newKey(), model: SESSION_MODEL }),
     );
 
-    const [latest] = await (await signedInArgo()).fleet.reachRefusals.query();
+    const [latest] = (await (await signedInArgo()).fleet.reachRefusals.query({})).items;
 
     expect(latest).toMatchObject({ recipient: { kind: 'ship', ship: { id: shipId, labels: [], owner: { name: 'argo' } } }, settingsVersion: version, at: refusedAt });
     expect(latest?.id).toMatch(/^rfs_/);
-    await expect(codeOf(editor.fleet.reachRefusals.query())).resolves.toBe('FORBIDDEN');
+    await expect(codeOf(editor.fleet.reachRefusals.query({}))).resolves.toBe('FORBIDDEN');
   });
 
   it('save, read, discard and apply the rules through REST, for a ship with fleet:network', async () => {
