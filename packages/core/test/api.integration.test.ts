@@ -2118,7 +2118,7 @@ describe('labels at the API', () => {
 
     expect(labels.find((label) => label.id === stage.labelId)).toMatchObject({ key: 'api-stage', values: stage.values });
     expect(selected.map((ship) => [ship.id, ship.labels.map((label) => label.value)])).toEqual([[builderId, ['build']]]);
-    expect((await asLabeller.fleet.list.query()).items.map((ship) => ship.id)).toContain(testerId);
+    expect((await asLabeller.fleet.list.query({ shipIds: [builderId, testerId] })).items.map((ship) => ship.id)).toContain(testerId);
     await expect(codeOf(client({ authorization: `Bearer ${await crewedShip()}` }).fleet.labels.query())).resolves.toBe('FORBIDDEN');
   });
 
