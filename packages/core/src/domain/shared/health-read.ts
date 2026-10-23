@@ -7,7 +7,7 @@
 import { ACKNOWLEDGED_HOURS, STUCK_TREND_HOURS, type FleetId } from '@aeolus-fleet/common';
 
 import { readsMessage, readsShip, type MessageParties, type ReadReach } from '../registry/public.js';
-import { acknowledgedOfSnapshot, foldedToNow, healthFromSnapshot, hourMarkOf, stuckNowOf, stuckPerHourOf, touchedBy, type HealthSnapshots } from './health-snapshot.js';
+import { acknowledgedOfSnapshot, foldedToNow, healthFromSnapshot, hourMarkOf, stuckNowOf, stuckPerHourOf, touchedBy, type EventsAfter, type HealthSnapshots, type LatestSnapshot, type TouchedCrews } from './health-snapshot.js';
 import { acknowledgedOf, acknowledgedSince, healthOf, healthSince, shownStuck, type Acknowledged, type Health, type HealthFacts, type HealthRecords, type StuckPlaceHealth } from './health.js';
 import { stuckAt, stuckPerHour, type StuckDelivery } from './stuck.js';
 
@@ -38,7 +38,17 @@ function hoursSince(now: Date, hours: number): Date {
   return new Date(hourMarkOf(now).getTime() - hours * HOUR_MS);
 }
 
-/** Reads the fleet's whole health at `now`. */
+/**
+ * The ships and leases the deliveries open now or in an hour the pass has not
+ * closed yet touch: all the stuck rule reads of the crews after the latest
+ * closed hour.
+ */
+function touchedOpen(snapshot: EventsAfter & { latest: LatestSnapshot }, now: Date): TouchedCrews {
+  const folded = foldedToNow(snapshot, now);
+  return touchedBy([folded.fold, ...folded.hours.map((hour) => hour.fold)].flatMap((fold) => fold.deliveries));
+}
+
+/** Reads the fleet's whole health at `now`, each part as its own read takes it. */
 export async function readHealthOf(deps: HealthReadDeps, read: HealthRead): Promise<Health> {
   const { fleetId, now, reach = EVERY } = read;
   const reads = readsOf(read);
@@ -49,13 +59,14 @@ export async function readHealthOf(deps: HealthReadDeps, read: HealthRead): Prom
     const machines = facts.machines.filter(({ shipId }) => readsShip(reach, shipId));
     return healthOf({ ...facts, deliveries, machines }, { acknowledged: acknowledgedOf(acknowledged.filter((delivery) => reads(delivery.message)), now), now });
   }
-  const [hours, after, crews, machines] = await Promise.all([
-    deps.snapshots.hours(fleetId, hoursSince(now, STUCK_TREND_HOURS)),
+  const [stuckCounts, acknowledgedWaits, after, machines] = await Promise.all([
+    deps.snapshots.stuckCounts(fleetId, { since: hoursSince(now, STUCK_TREND_HOURS), reach }),
+    deps.snapshots.acknowledgedWaits(fleetId, { since: hoursSince(now, ACKNOWLEDGED_HOURS), reach }),
     deps.snapshots.eventsAfter(fleetId, { seq: latest.fold.seq }),
-    deps.snapshots.crews(fleetId, latest.hour),
     deps.snapshots.machines(fleetId),
   ]);
-  return healthFromSnapshot({ latest, hours, ...after, crews: { ...crews, machines } }, { now, reads, readsShip: (shipId) => readsShip(reach, shipId) });
+  const crews = await deps.snapshots.crewsTouching(fleetId, { since: latest.hour, touched: touchedOpen({ latest, ...after }, now) });
+  return healthFromSnapshot({ latest, stuckCounts, acknowledgedWaits, ...after, crews: { ...crews, machines } }, { now, reads, readsShip: (shipId) => readsShip(reach, shipId) });
 }
 
 /** What is stuck at `now`, with the ships it names. */

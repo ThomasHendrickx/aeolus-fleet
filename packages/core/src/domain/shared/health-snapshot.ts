@@ -339,7 +339,12 @@ export function acknowledgedOfSnapshot(
  * A ship `readsShip` leaves out is shown without its machine (decision 0034).
  */
 export function healthFromSnapshot(
-  snapshot: EventsAfter & { latest: LatestSnapshot; hours: readonly HourSnapshot[]; crews: HealthCrews & Pick<HealthFacts, 'machines'> },
+  snapshot: EventsAfter & {
+    latest: LatestSnapshot;
+    stuckCounts: readonly StuckHourCount[];
+    acknowledgedWaits: readonly AcknowledgedHourWaits[];
+    crews: HealthCrews & Pick<HealthFacts, 'machines'>;
+  },
   read: { now: Date; reads: (message: MessageParties) => boolean; readsShip: (shipId: ShipId) => boolean },
 ): Health {
   const { now, reads, readsShip } = read;
@@ -347,7 +352,7 @@ export function healthFromSnapshot(
   const stuckNow = stuckNowOf(snapshot.crews, { fold: folded.fold, now, reads });
   return {
     stuck: shownStuck(stuckNow, { ships: snapshot.crews.ships, machines: snapshot.crews.machines.filter(({ shipId }) => readsShip(shipId)) }),
-    stuckPerHour: stuckPerHourOf({ hours: snapshot.hours.map((hour) => stuckCountOf(hour, reads)), folded: folded.hours, crews: snapshot.crews }, { now, stuckNow: stuckNow.length, reads }),
-    acknowledged: acknowledgedOfSnapshot({ hours: snapshot.hours.map((hour) => acknowledgedWaitsOf(hour, reads)), folded: folded.hours, acknowledged: folded.acknowledged }, { now, reads }),
+    stuckPerHour: stuckPerHourOf({ hours: snapshot.stuckCounts, folded: folded.hours, crews: snapshot.crews }, { now, stuckNow: stuckNow.length, reads }),
+    acknowledged: acknowledgedOfSnapshot({ hours: snapshot.acknowledgedWaits, folded: folded.hours, acknowledged: folded.acknowledged }, { now, reads }),
   };
 }
