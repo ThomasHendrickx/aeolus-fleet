@@ -245,6 +245,14 @@ export interface ShipHistory {
   shipWay(fleetId: FleetId, shipId: ShipId): Promise<ShipWayRead | undefined>;
   /** A page of the messages addressed to the ship itself that the filter keeps, newest first by delivery, after the delivery the cursor names. */
   inbox(fleetId: FleetId, query: { shipId: ShipId; filter: InboxFilter } & PageQuery<DeliveryId>): Promise<Page<InboxEntry, DeliveryId>>;
+  /** The message to the ship itself with this delivery, as its inbox lists it; undefined when its inbox has none. */
+  inboxMessage(fleetId: FleetId, query: { shipId: ShipId; deliveryId: DeliveryId }): Promise<InboxEntry | undefined>;
+  /**
+   * A page of the messages to the ship itself that withdraw or replace the
+   * question with this uuid (decision 0038), oldest first by delivery, after
+   * the delivery the cursor names, found by the question's uuid alone.
+   */
+  inboxWithdrawals(fleetId: FleetId, query: { shipId: ShipId; questionId: string } & PageQuery<DeliveryId>): Promise<Page<InboxEntry, DeliveryId>>;
   /** How many messages to the ship itself are open; with senders, only those they sent. */
   openInboxCount(fleetId: FleetId, query: { shipId: ShipId; senderIds?: ReadonlySet<ShipId> }): Promise<number>;
   /** Each message's parties as read reach sees them, by id; a message the fleet does not have is left out. */

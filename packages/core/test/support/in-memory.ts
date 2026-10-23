@@ -1,4 +1,4 @@
-import { createIdGenerator, idSchema, LEASE_END_REASONS, PING_CONTENT_TYPE, type DeliveryId, type FleetId, type IdGenerator, type LeaseWaker, type ShipId } from '@aeolus-fleet/common';
+import { createIdGenerator, idSchema, LEASE_END_REASONS, PING_CONTENT_TYPE, withdrawalOf, type DeliveryId, type FleetId, type IdGenerator, type LeaseWaker, type ShipId } from '@aeolus-fleet/common';
 
 import type { ConsoleSession } from '../../src/domain/identity/console-session.js';
 import type { Credential } from '../../src/domain/identity/credential.js';
@@ -79,6 +79,7 @@ import { deliveryStepOf, type StandingOverdue, type WayCrew, type WayLease } fro
 import {
   isKeptBy,
   type HistoryMessage,
+  type InboxEntry,
   type HistoryParty,
   type HistoryRecipient,
   type ShipHistory,
@@ -1627,6 +1628,32 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       },
     };
   };
+  /** The messages to the ship itself, each with its delivery. */
+  const inboxOf = (fleetId: FleetId, shipId: ShipId): { delivery: Delivery; message: Message }[] =>
+    state.deliveries
+      .filter((delivery) => delivery.fleetId === fleetId && delivery.recipient.kind === 'ship' && delivery.recipient.shipId === shipId)
+      .flatMap((delivery) => {
+        const message = messageOf(fleetId, delivery.messageId);
+        return message ? [{ delivery, message }] : [];
+      });
+  /** A message to the ship itself as its inbox lists it. */
+  const inboxEntryOf = (fleetId: FleetId, { shipId, delivery, message }: { shipId: ShipId; delivery: Delivery; message: Message }): InboxEntry => {
+    const acknowledged = numbered(fleetId).findLast((event) => event.deliveryId === delivery.id && event.type === 'DeliveryAcknowledged');
+    const reply = acknowledged?.details.reply;
+    const { id, sender, inReplyTo, sentAt, contentType, model, payload } = historyMessageOf(message);
+    return {
+      deliveryId: delivery.id,
+      state: delivery.state,
+      readAt: state.deliveryReads.find((read) => read.deliveryId === delivery.id)?.readAt ?? null,
+      doneAt: acknowledged?.occurredAt ?? null,
+      repliedWith: typeof reply === 'string' ? idSchema('message').parse(reply) : null,
+      replies: state.messages
+        .filter((held) => held.fleetId === fleetId && held.senderShipId === shipId && held.inReplyToMessageId === message.id)
+        .sort((first, second) => newestFirst(second, first))
+        .map((held) => ({ id: held.id, contentType: held.contentType, payload: held.payload, sentAt: held.createdAt })),
+      message: { id, sender, inReplyTo, sentAt, contentType, model, payload },
+    };
+  };
   /** What the history reads of a lease: its trierarch by the starting prompt its crew claimed with, push, turn and end. */
   const wayLeaseOf = (lease: Lease): WayLease => {
     const crewShip = ship(lease.fleetId, lease.shipId);
@@ -1767,40 +1794,23 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       ),
     inbox: (fleetId, { shipId, filter, cursor, limit }) =>
       Promise.resolve(
-        state.deliveries
-          .filter(
-            (delivery) =>
-              delivery.fleetId === fleetId &&
-              delivery.recipient.kind === 'ship' &&
-              delivery.recipient.shipId === shipId &&
-              isKeptBy(filter, delivery.state) &&
-              (cursor === undefined || delivery.id < cursor),
-          )
-          .flatMap((delivery) => {
-            const message = messageOf(fleetId, delivery.messageId);
-            return message ? [{ delivery, message }] : [];
-          })
+        inboxOf(fleetId, shipId)
+          .filter(({ delivery }) => isKeptBy(filter, delivery.state) && (cursor === undefined || delivery.id < cursor))
           .sort((first, second) => second.delivery.id.localeCompare(first.delivery.id))
           .slice(0, limit + 1)
-          .map(({ delivery, message }) => {
-            const acknowledged = numbered(fleetId).findLast(
-              (event) => event.deliveryId === delivery.id && event.type === 'DeliveryAcknowledged',
-            );
-            const reply = acknowledged?.details.reply;
-            const { id, sender, inReplyTo, sentAt, contentType, model, payload } = historyMessageOf(message);
-            return {
-              deliveryId: delivery.id,
-              state: delivery.state,
-              readAt: state.deliveryReads.find((read) => read.deliveryId === delivery.id)?.readAt ?? null,
-              doneAt: acknowledged?.occurredAt ?? null,
-              repliedWith: typeof reply === 'string' ? idSchema('message').parse(reply) : null,
-              replies: state.messages
-                .filter((held) => held.fleetId === fleetId && held.senderShipId === shipId && held.inReplyToMessageId === message.id)
-                .sort((first, second) => newestFirst(second, first))
-                .map((held) => ({ id: held.id, contentType: held.contentType, payload: held.payload, sentAt: held.createdAt })),
-              message: { id, sender, inReplyTo, sentAt, contentType, model, payload },
-            };
-          }),
+          .map(({ delivery, message }) => inboxEntryOf(fleetId, { shipId, delivery, message })),
+      ).then((rows) => pageOf(rows, { limit, cursorOf: (entry) => entry.deliveryId })),
+    inboxMessage: (fleetId, { shipId, deliveryId }) => {
+      const found = inboxOf(fleetId, shipId).find(({ delivery }) => delivery.id === deliveryId);
+      return Promise.resolve(found ? inboxEntryOf(fleetId, { shipId, ...found }) : undefined);
+    },
+    inboxWithdrawals: (fleetId, { shipId, questionId, cursor, limit }) =>
+      Promise.resolve(
+        inboxOf(fleetId, shipId)
+          .filter(({ delivery, message }) => withdrawalOf(message)?.questionId === questionId && (cursor === undefined || delivery.id > cursor))
+          .sort((first, second) => first.delivery.id.localeCompare(second.delivery.id))
+          .slice(0, limit + 1)
+          .map(({ delivery, message }) => inboxEntryOf(fleetId, { shipId, delivery, message })),
       ).then((rows) => pageOf(rows, { limit, cursorOf: (entry) => entry.deliveryId })),
     needsAttention: (fleetId, { shipId, state: asked, cursor, limit }) => {
       const events = numbered(fleetId);

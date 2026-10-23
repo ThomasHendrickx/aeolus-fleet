@@ -100,7 +100,7 @@ describe("argo's inbox on Postgres", () => {
     const listed = (await core.useCases.readInbox(argo, { filter: 'all' })).items.find((entry) => entry.deliveryId === asked.deliveryId);
 
     await expect(core.useCases.readInboxMessage(argo, { deliveryId: asked.deliveryId })).resolves.toEqual({ isOk: true, value: listed });
-    await expect(core.useCases.readInboxMessage(argo, { deliveryId: newId('delivery') })).resolves.toMatchObject({ isOk: false, error: { code: 'DELIVERY_NOT_FOUND' } });
+    await expect(core.useCases.readInboxMessage(argo, { deliveryId: newId('delivery') })).resolves.toMatchObject({ isOk: false, error: { kind: 'DELIVERY_NOT_FOUND' } });
   });
 
   it("finds a question's withdrawals and replacements by its uuid, oldest first a page at a time, and nothing else", async () => {

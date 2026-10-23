@@ -48,7 +48,7 @@ describe('reading one message to argo by its delivery', () => {
     const elsewhere = await send({ kind: 'ship', shipId: captain.shipId }, 'a note to itself');
 
     for (const deliveryId of [elsewhere.deliveryId, core.ids('delivery')]) {
-      await expect(history.readInboxMessage(argo, { deliveryId })).resolves.toMatchObject({ isOk: false, error: { code: 'DELIVERY_NOT_FOUND' } });
+      await expect(history.readInboxMessage(argo, { deliveryId })).resolves.toMatchObject({ isOk: false, error: { kind: 'DELIVERY_NOT_FOUND' } });
     }
   });
 });
@@ -63,6 +63,6 @@ describe('a viewer reading one message to argo', () => {
 
     await expect(fleet.history.readInboxMessage(fleet.viewer, { deliveryId })).resolves.toMatchObject({ isOk: true, value: { message: { id: asked } } });
     unwrap(await fleet.registry.setBuiltInRule(fleet.argo, { rule: 'viewerRead', isOn: false }));
-    await expect(fleet.history.readInboxMessage(fleet.viewer, { deliveryId })).resolves.toMatchObject({ isOk: false, error: { code: 'DELIVERY_NOT_FOUND' } });
+    await expect(fleet.history.readInboxMessage(fleet.viewer, { deliveryId })).resolves.toMatchObject({ isOk: false, error: { kind: 'DELIVERY_NOT_FOUND' } });
   });
 });

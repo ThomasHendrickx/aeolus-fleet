@@ -20,6 +20,9 @@ import {
   needsAttentionOutputSchema,
   healthOutputSchema,
   operatorInboxInputSchema,
+  inboxMessageInputSchema,
+  inboxMessageSchema,
+  inboxWithdrawalsInputSchema,
   operatorInboxOutputSchema,
   inboxCountOutputSchema,
   pingShipInputSchema,
@@ -116,6 +119,7 @@ import type { NetworkRule } from '../../domain/registry/network-settings.js';
 import type { RefusedActor } from '../../domain/registry/reach-refusal.js';
 import type { DeliveryWay } from '../../domain/shared/delivery-way.js';
 import type { SequencedEvent } from '../../domain/shared/events.js';
+import type { InboxEntry } from '../../domain/shared/history.js';
 import { describedHealth } from './health.js';
 import { presentStartingPrompt } from './starting-prompt-text.js';
 import { actorAnyScopeProcedure, actorScopedProcedure, anyScopeProcedure, callerStillHolding, okOrThrow, ownPersonShipOrAnyScopeProcedure, router, scopedCrewCallerProcedure, scopedProcedure } from './trpc.js';
@@ -136,6 +140,16 @@ function crewRequestOutputOf<T extends { requestedAt: Date; sessionStartedAt: Da
 
 /** A ship's last ping as the API states it: its dates in ISO 8601. */
 /** A delivery's way as the API answers it: its times in ISO 8601. */
+function inboxEntryOutputOf(entry: InboxEntry) {
+  return {
+    ...entry,
+    readAt: entry.readAt?.toISOString() ?? null,
+    doneAt: entry.doneAt?.toISOString() ?? null,
+    replies: entry.replies.map((reply) => ({ ...reply, sentAt: reply.sentAt.toISOString() })),
+    message: { ...entry.message, sentAt: entry.message.sentAt.toISOString() },
+  };
+}
+
 function wayOutputOf(way: DeliveryWay) {
   return {
     ...way,
@@ -906,16 +920,22 @@ export const fleetRouter = router({
     .output(operatorInboxOutputSchema)
     .query(async ({ ctx, input }) => {
       const { items, nextCursor } = await ctx.useCases.readInbox(ctx.caller, input);
-      return {
-        items: items.map((entry) => ({
-          ...entry,
-          readAt: entry.readAt?.toISOString() ?? null,
-          doneAt: entry.doneAt?.toISOString() ?? null,
-          replies: entry.replies.map((reply) => ({ ...reply, sentAt: reply.sentAt.toISOString() })),
-          message: { ...entry.message, sentAt: entry.message.sentAt.toISOString() },
-        })),
-        nextCursor,
-      };
+      return { items: items.map(inboxEntryOutputOf), nextCursor };
+    }),
+
+  /** One message to the caller's inbox, argo's for the console, by its delivery, as `inbox` lists it. */
+  inboxMessage: actorScopedProcedure('fleet:read')
+    .input(inboxMessageInputSchema)
+    .output(inboxMessageSchema)
+    .query(async ({ ctx, input }) => inboxEntryOutputOf(okOrThrow(await ctx.useCases.readInboxMessage(ctx.caller, input)))),
+
+  /** A page of the messages to the caller's inbox, argo's for the console, that withdraw or replace a question, oldest first. */
+  inboxWithdrawals: actorScopedProcedure('fleet:read')
+    .input(inboxWithdrawalsInputSchema)
+    .output(operatorInboxOutputSchema)
+    .query(async ({ ctx, input }) => {
+      const { items, nextCursor } = await ctx.useCases.readInboxWithdrawals(ctx.caller, input);
+      return { items: items.map(inboxEntryOutputOf), nextCursor };
     }),
 
   /** How many messages to the caller's inbox, argo's for the console, are open: counted in one query. */
