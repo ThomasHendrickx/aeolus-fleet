@@ -1,3 +1,4 @@
+import { PAGE_SIZE_DEFAULT, type MessageId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { deliveryIdOf } from '../../../test/support/core-fixtures.js';
@@ -13,7 +14,7 @@ beforeEach(async () => {
 });
 
 async function messagesOf(shipId = scene.scout.shipId) {
-  return unwrap(await scene.history.readShipMessages(scene.argo, { shipId }));
+  return unwrap(await scene.history.readShipMessages(scene.argo, { shipId })).items;
 }
 
 describe("reading a ship's messages", () => {
@@ -89,6 +90,28 @@ describe("reading a ship's messages", () => {
     ]);
   });
 
+  it('answers a page at a time, newest first, each after the cursor of the last, sent, sent to it and claimed by its type alike', async () => {
+    const claimed = await scene.send(scene.planner, { to: { kind: 'type', type: 'reviewer' } });
+    await scene.receive(scene.scout);
+    const sentTo = await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.scout.shipId } });
+    const sent = await scene.send(scene.scout, { to: { kind: 'ship', shipId: scene.planner.shipId } });
+    const read = (cursor?: MessageId) => scene.history.readShipMessages(scene.argo, { shipId: scene.scout.shipId, limit: 2, cursor });
+
+    const first = unwrap(await read());
+    const second = unwrap(await read(first.nextCursor ?? undefined));
+
+    expect([first.items.map((message) => message.id), first.nextCursor]).toEqual([[sent, sentTo], sentTo]);
+    expect([second.items.map((message) => message.id), second.nextCursor]).toEqual([[claimed], null]);
+  });
+
+  it(`answers ${String(PAGE_SIZE_DEFAULT)} messages unless told fewer`, async () => {
+    for (let index = 0; index <= PAGE_SIZE_DEFAULT; index += 1) {
+      await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.scout.shipId } });
+    }
+
+    await expect(messagesOf()).resolves.toHaveLength(PAGE_SIZE_DEFAULT);
+  });
+
   it('knows no ship of another fleet', async () => {
     const elsewhere = { ...scene.argo, fleetId: scene.core.ids('fleet') };
 
@@ -112,15 +135,25 @@ describe("reading the messages of a ship outside read reach (decision 0034)", ()
     await fleet.send(fleet.far, { kind: 'ship', shipId: fleet.argo.shipId });
     await fleet.send(fleet.argo, { kind: 'type', type: 'keeper' });
 
-    const listed = unwrap(await fleet.history.readShipMessages(fleet.reader, { shipId: fleet.far.shipId }));
+    const listed = unwrap(await fleet.history.readShipMessages(fleet.reader, { shipId: fleet.far.shipId })).items;
 
     expect(listed.map((message) => message.id)).toEqual([withNear]);
+  });
+
+  it('pages past the messages it leaves out: a page can come short, with the cursor of the last message it read', async () => {
+    const withNear = await fleet.send(fleet.far, { kind: 'ship', shipId: fleet.near.shipId });
+    await fleet.send(fleet.far, { kind: 'ship', shipId: fleet.argo.shipId });
+    const first = unwrap(await fleet.history.readShipMessages(fleet.reader, { shipId: fleet.far.shipId, limit: 1 }));
+
+    const next = unwrap(await fleet.history.readShipMessages(fleet.reader, { shipId: fleet.far.shipId, limit: 1, cursor: first.nextCursor ?? undefined }));
+
+    expect([first.items.length, next.items.map((message) => message.id)]).toEqual([0, [withNear]]);
   });
 
   it('lists every message of a ship within read reach', async () => {
     const sent = [await fleet.send(fleet.near, { kind: 'ship', shipId: fleet.far.shipId }), await fleet.send(fleet.argo, { kind: 'ship', shipId: fleet.near.shipId })];
 
-    const listed = unwrap(await fleet.history.readShipMessages(fleet.reader, { shipId: fleet.near.shipId }));
+    const listed = unwrap(await fleet.history.readShipMessages(fleet.reader, { shipId: fleet.near.shipId })).items;
 
     expect(listed.map((message) => message.id)).toEqual(sent.toReversed());
   });

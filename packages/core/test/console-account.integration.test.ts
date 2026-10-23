@@ -196,7 +196,7 @@ describe('an account signed in by its token cookie', () => {
     expect(ship).toMatchObject({ name: 'scout' });
     expect(ship).not.toHaveProperty('isInReadReach', false);
     await expect(fleet.shipTimeline.query({ shipId: scout }).then(({ items }) => items)).resolves.toEqual(expect.arrayContaining([expect.objectContaining({ type: 'ShipCommissioned' })]));
-    await expect(fleet.shipMessages.query({ shipId: scout })).resolves.toEqual([expect.objectContaining({ id: toArgo })]);
+    await expect(fleet.shipMessages.query({ shipId: scout }).then(({ items }) => items)).resolves.toEqual([expect.objectContaining({ id: toArgo })]);
     await expect(fleet.message.query({ messageId: toArgo })).resolves.toMatchObject({ payload: 'Review is done' });
     await expect(fleet.shipWay.query({ shipId: scout })).resolves.toMatchObject({ waiting: 0 });
     await expect(fleet.needsAttention.query()).resolves.toBeDefined();

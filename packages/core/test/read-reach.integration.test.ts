@@ -160,7 +160,7 @@ describe('the fleet:read procedures for a ship outside read reach (decision 0034
   });
 
   it("fleet.shipMessages answers far's messages it reads through near only", async () => {
-    const messages = await reader.fleet.shipMessages.query({ shipId: ids.far });
+    const { items: messages } = await reader.fleet.shipMessages.query({ shipId: ids.far });
 
     expect(messages.map((message) => message.id)).toEqual([farToNear]);
   });

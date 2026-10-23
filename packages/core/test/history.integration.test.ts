@@ -127,8 +127,8 @@ describe('the history reads on Postgres', () => {
     const toReviewers = await send(planner, { to: { kind: 'type', type: 'reviewer' } });
     await receive(lookout);
 
-    const scoutMessages = unwrap(await core.useCases.readShipMessages(argo, { shipId: scout.shipId }));
-    const lookoutMessages = unwrap(await core.useCases.readShipMessages(argo, { shipId: lookout.shipId }));
+    const scoutMessages = unwrap(await core.useCases.readShipMessages(argo, { shipId: scout.shipId })).items;
+    const lookoutMessages = unwrap(await core.useCases.readShipMessages(argo, { shipId: lookout.shipId })).items;
 
     expect(scoutMessages).toMatchObject([
       { id: answered, inReplyTo: asked, delivery: { state: 'pending', claimedBy: null } },
@@ -146,6 +146,20 @@ describe('the history reads on Postgres', () => {
     ]);
   });
 
+  it("give a ship's messages page by page, sent, sent to it and claimed by its type alike, each after the last page's cursor", async () => {
+    const claimed = await send(planner, { to: { kind: 'type', type: 'reviewer' } });
+    await receive(scout);
+    const sentTo = await send(planner, { to: { kind: 'ship', shipId: scout.shipId } });
+    const sent = await send(scout, { to: { kind: 'ship', shipId: planner.shipId } });
+    const read = async (cursor?: MessageId) => unwrap(await core.useCases.readShipMessages(argo, { shipId: scout.shipId, limit: 2, cursor }));
+
+    const first = await read();
+    const second = await read(first.nextCursor ?? undefined);
+
+    expect([first.items.map((message) => message.id), first.nextCursor]).toEqual([[sent, sentTo], sentTo]);
+    expect([second.items.map((message) => message.id), second.nextCursor]).toEqual([[claimed], null]);
+  });
+
   it("give a ship's messages telling a pushed hand-over from a plain receive's (pulled)", async () => {
     const pushed = await send(planner, { to: { kind: 'ship', shipId: scout.shipId } });
     core.clock.advance(1_000);
@@ -154,7 +168,7 @@ describe('the history reads on Postgres', () => {
     const pulled = await send(planner, { to: { kind: 'ship', shipId: lookout.shipId } });
     await receive(lookout);
 
-    const listed = unwrap(await core.useCases.readShipMessages(argo, { shipId: planner.shipId }));
+    const listed = unwrap(await core.useCases.readShipMessages(argo, { shipId: planner.shipId })).items;
 
     expect(listed.map(({ id, delivery }) => [id, delivery.state, delivery.isPulled])).toEqual([
       [pulled, 'handed', true],

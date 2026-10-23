@@ -8,6 +8,7 @@ import {
   shipDetailOutputSchema,
   shipOutputSchema,
   shipInputSchema,
+  shipMessagesInputSchema,
   shipMessagesOutputSchema,
   shipTimelineInputSchema,
   shipTimelineOutputSchema,
@@ -27,6 +28,18 @@ describe('shipTimelineInputSchema', () => {
 
   it('refuses a cursor that names no event', () => {
     expect(shipTimelineInputSchema.safeParse({ shipId: scout.id, cursor: newId('message') }).success).toBe(false);
+  });
+});
+
+describe('shipMessagesInputSchema', () => {
+  it('takes a ship id, and the cursor and size of a page of its messages', () => {
+    const input = { shipId: scout.id, cursor: newId('message'), limit: 20 };
+
+    expect(shipMessagesInputSchema.parse(input)).toEqual(input);
+  });
+
+  it('refuses a cursor that names no message', () => {
+    expect(shipMessagesInputSchema.safeParse({ shipId: scout.id, cursor: newId('event') }).success).toBe(false);
   });
 });
 
@@ -185,13 +198,15 @@ describe('shipMessagesOutputSchema', () => {
     delivery: { id: newId('delivery'), state: 'acknowledged', claimedBy: planner, isPulled: false },
   };
 
-  it('accepts a message with its parties, its thread link, a preview and its delivery', () => {
-    expect(shipMessagesOutputSchema.parse([message])).toEqual([message]);
+  it('accepts a page of messages with their parties, thread link, preview and delivery, and the cursor of its last', () => {
+    const page = { items: [message], nextCursor: message.id };
+
+    expect(shipMessagesOutputSchema.parse(page)).toEqual(page);
   });
 
   it('rejects an unknown delivery state', () => {
     expect(
-      shipMessagesOutputSchema.safeParse([{ ...message, delivery: { ...message.delivery, state: 'lost' } }]).success,
+      shipMessagesOutputSchema.safeParse({ items: [{ ...message, delivery: { ...message.delivery, state: 'lost' } }], nextCursor: null }).success,
     ).toBe(false);
   });
 });
