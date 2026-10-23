@@ -1,16 +1,11 @@
 import type { DeliveryId, InboxMessage } from '@aeolus-fleet/common';
 
-import { inboxEntriesOf, type ListedShip } from './inbox-entries';
-import type { InboxEntry } from './inbox-entry';
 import type { PluginAnswer } from './plugin-answer';
 
 /**
  * argo's inbox as the web app's server reads it page by page (decision 4 of
- * docs/design/performance/performance.md): the open messages whole, which
- * the navigation counts and the Open segment shows, and the rest a page at a
- * time. A question's withdrawal is newer than the question and stays open,
- * so laying a page out beside the open rows tells which of its questions
- * are stale; one argo marked done is not among them.
+ * docs/design/performance/performance.md), newest first, until it holds the
+ * rows it needs.
  */
 
 /** A page of argo's inbox as `fleet.inbox` answers it. */
@@ -40,16 +35,4 @@ export async function readInboxPagesUntil(
     }
     cursor = page.data.nextCursor;
   }
-}
-
-/** The messages of several reads, each delivery once, newest first. */
-export function mergedInbox(...reads: readonly (readonly InboxMessage[])[]): InboxMessage[] {
-  const byDelivery = new Map(reads.flat().map((message) => [message.deliveryId, message]));
-  return [...byDelivery.values()].sort((first, second) => second.deliveryId.localeCompare(first.deliveryId));
-}
-
-/** A page's own entries, laid out beside the open rows. */
-export function pageEntriesOf({ page, open, ships }: { page: readonly InboxMessage[]; open: readonly InboxMessage[]; ships: readonly ListedShip[] }): InboxEntry[] {
-  const onPage = new Set(page.map(({ deliveryId }) => deliveryId));
-  return inboxEntriesOf(mergedInbox(open, page), ships).filter(({ deliveryId }) => onPage.has(deliveryId));
 }

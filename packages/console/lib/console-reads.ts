@@ -1,4 +1,4 @@
-import { accountIdSchema, idSchema } from '@aeolus-fleet/common';
+import { accountIdSchema, idSchema, inboxFilterSchema } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import { readAccountName, readAccountNames } from './account-name-read';
@@ -6,7 +6,7 @@ import { readAppsList } from './apps-list-read';
 import { consoleRead } from './console-read';
 import { parseCrewSettings } from './crew-settings-read';
 import { readGatewayConnection } from './gateway-reads';
-import { readInbox, readOlderInbox, readThread } from './inbox-reads';
+import { readInbox, readThread } from './inbox-reads';
 import { listRepositories, listSquadrons, readBlueprintCrew, readCatalogue, readKeptMessages, readSquadronsConnection } from './squadrons-reads';
 import { checkCrewSettings, listMachines, readTrierarchPluginConnection, readTrierarchPluginVersion } from './trierarch-plugin-reads';
 
@@ -32,8 +32,7 @@ export const CONSOLE_READS = {
   'trierarch-plugin-connection': consoleRead(z.undefined(), readTrierarchPluginConnection),
   'trierarch-plugin-version': consoleRead(z.undefined(), async () => ({ kind: 'answered', data: (await readTrierarchPluginVersion()) ?? null })),
   machines: consoleRead(z.undefined(), listMachines),
-  inbox: consoleRead(z.object({ since: z.iso.datetime() }), readInbox),
-  'inbox-older': consoleRead(z.object({ cursor: idSchema('delivery') }), readOlderInbox),
+  inbox: consoleRead(z.object({ filter: inboxFilterSchema, size: z.int().positive() }), readInbox),
   'inbox-thread': consoleRead(z.object({ messageId: idSchema('message') }), ({ messageId }) => readThread(messageId)),
   'crew-settings-check': consoleRead(z.object({ settings: z.unknown() }), ({ settings }) => checkCrewSettings(settings)),
   'account-name': consoleRead(z.undefined(), readAccountName),

@@ -1,59 +1,48 @@
 'use client';
 
 import type { AnswerChoice, DeliveryId, InboxFilter } from '@aeolus-fleet/common';
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { useConsoleRead } from './console-read-query';
 import { useSignInWhenSessionEnds } from './session';
 import { fetchConsoleRead } from './fetch-console-read';
-import { isOpenEntry } from './inbox-entry';
-import { useNow } from './now';
-import { nextCursorOf, pagedListOf } from './paged-list';
+import { CONSOLE_PAGE_SIZE, pagedListOf } from './paged-list';
 import { dataOf } from './plugin-answer';
 import { answerQuestion } from './questions-actions';
 import { useTRPC } from './trpc';
 
 /**
  * argo's one inbox as the browser reads it (#849): the questions and messages
- * the web app's server laid out (lib/inbox-reads.ts), one live read that the
- * page shows and the navigation counts, and what acts on them.
+ * the web app's server laid out (lib/inbox-reads.ts), read live as far as
+ * the page shows them, the count of the open ones core answers for the
+ * navigation, and what acts on them.
  */
 
 /** The inbox read's key, which a live message change reloads (lib/live-fleet.ts). */
 export const INBOX_KEY = ['inbox'];
 
-/** The start of the operator's day, in the browser's time zone, as the inbox read takes it. */
-function dayStartOf(now: Date): string {
-  const start = new Date(now);
-  start.setHours(0, 0, 0, 0);
-  return start.toISOString();
-}
-
 /**
- * The questions and messages to argo as the web app's server laid them out:
- * every open one, and every one sent today, with where the older ones start.
+ * The newest questions and messages to argo the segment keeps, as the web app's
+ * server laid them out, and 20 more each time the operator asks.
  */
-export function useInboxEntries() {
-  const since = dayStartOf(useNow());
-  return useConsoleRead({ queryKey: [...INBOX_KEY, since], queryFn: () => fetchConsoleRead({ read: 'inbox', input: { since } }) });
-}
-
-/** The older questions and messages to argo, a page at a time after the cursor: asked only while shown, and while there are any. */
-export function useOlderInbox(cursor: DeliveryId | null, isShown: boolean) {
+export function useInboxEntries(filter: InboxFilter) {
   const query = useInfiniteQuery({
-    queryKey: [...INBOX_KEY, 'older', cursor],
-    queryFn: ({ pageParam }) => (pageParam === undefined ? Promise.resolve({ items: [], nextCursor: null }) : fetchConsoleRead({ read: 'inbox-older', input: { cursor: pageParam } })),
-    initialPageParam: cursor ?? undefined,
-    getNextPageParam: nextCursorOf,
-    enabled: isShown && cursor !== null,
+    queryKey: [...INBOX_KEY, filter],
+    queryFn: async ({ pageParam: size }) => ({ ...(await fetchConsoleRead({ read: 'inbox', input: { filter, size } })), size }),
+    initialPageParam: CONSOLE_PAGE_SIZE,
+    getNextPageParam: (shown) => (shown.hasMore ? shown.size + CONSOLE_PAGE_SIZE : undefined),
+    // Each read lays out every row shown, the newer ones too, so a question folds with its withdrawals; only the last is kept, and a reload reads only it.
+    maxPages: 1,
   });
   useSignInWhenSessionEnds([query.error]);
   return pagedListOf(query);
 }
 
-/** What waits on the operator, open questions and open messages together, for the navigation; undefined until known. */
+/** What waits on the operator, open questions and open messages together, as core counts them, for the navigation and Open; undefined until known. */
 export function useOpenInboxCount(): number | undefined {
-  return useInboxEntries().data?.entries.filter(isOpenEntry).length;
+  const trpc = useTRPC();
+  const count = useQuery(trpc.fleet.inboxCount.queryOptions());
+  useSignInWhenSessionEnds([count.error]);
+  return count.data?.open;
 }
 
 /** The inbox segment in the URL; Open unless it says otherwise. */

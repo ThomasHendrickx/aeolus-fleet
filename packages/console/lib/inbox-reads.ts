@@ -3,8 +3,7 @@ import { cookies } from 'next/headers';
 import type { z } from 'zod';
 
 import { inboxEntriesOf } from './inbox-entries';
-import { mergedInbox, pageEntriesOf, readInboxPagesUntil, type InboxPage } from './inbox-pages';
-import { CONSOLE_PAGE_SIZE } from './paged-list';
+import { readInboxPagesUntil, type InboxPage } from './inbox-pages';
 import type { InboxEntry } from './inbox-entry';
 import { threadBefore, type ThreadMessage } from './inbox-thread';
 import type { PluginAnswer } from './plugin-answer';
@@ -31,11 +30,6 @@ function readArgoInbox(query: { filter: InboxFilter; cursor?: DeliveryId; limit:
   return readInboxPagesUntil((cursor) => callFleet('fleet.inbox', { input: { filter, cursor, limit }, answers: operatorInboxOutputSchema }), query);
 }
 
-/** argo's open messages whole: what waits on the operator, which the navigation counts. */
-function readOpenInbox(): Promise<PluginAnswer<InboxPage>> {
-  return readArgoInbox({ filter: 'open', limit: PAGE_SIZE_MAX, isEnough: () => false });
-}
-
 /** argo's messages newest first until the one with this delivery: a question with every withdrawal of it, which is newer. */
 export function readArgoInboxTo(deliveryId: DeliveryId): Promise<PluginAnswer<InboxPage>> {
   return readArgoInbox({ filter: 'all', limit: PAGE_SIZE_MAX, isEnough: (messages) => messages.some((message) => message.deliveryId === deliveryId) });
@@ -48,37 +42,21 @@ async function readShips() {
 }
 
 /**
- * The questions and messages to argo, laid out for reading: every open one,
- * and every one sent since the given time (the start of the operator's day,
- * for what was done today), with where the older ones start.
+ * The newest questions and messages to argo the segment keeps, as many as the
+ * operator asked to see, laid out for reading, and whether older ones follow.
+ * A question's withdrawals are newer than the question, so the rows shown
+ * hold every withdrawal of each question among them.
  */
-export async function readInbox({ since }: { since: string }): Promise<PluginAnswer<{ entries: InboxEntry[]; olderCursor: DeliveryId | null }>> {
-  const [open, recent, ships] = await Promise.all([
-    readOpenInbox(),
-    readArgoInbox({ filter: 'all', limit: CONSOLE_PAGE_SIZE, isEnough: (messages) => (messages.at(-1)?.message.sentAt ?? since) < since }),
-    readShips(),
-  ]);
-  if (open.kind !== 'answered') {
-    return open;
+export async function readInbox({ filter, size }: { filter: InboxFilter; size: number }): Promise<PluginAnswer<{ items: InboxEntry[]; hasMore: boolean }>> {
+  // Done reads every message: a stale question is done though its delivery is still open (decision 0038); the page keeps what its segment shows.
+  const read = filter === 'done' ? 'all' : filter;
+  const [inbox, ships] = await Promise.all([readArgoInbox({ filter: read, limit: Math.min(size, PAGE_SIZE_MAX), isEnough: (messages) => messages.length >= size }), readShips()]);
+  if (inbox.kind !== 'answered') {
+    return inbox;
   }
-  if (recent.kind !== 'answered') {
-    return recent;
-  }
+  const { items, nextCursor } = inbox.data;
   // Without the fleet's ships every message still shows, only none folds as a plugin ship's.
-  return { kind: 'answered', data: { entries: inboxEntriesOf(mergedInbox(open.data.items, recent.data.items), ships.kind === 'answered' ? ships.data : []), olderCursor: recent.data.nextCursor } };
-}
-
-/** A page of the older questions and messages to argo, after the cursor, laid out beside the open ones. */
-export async function readOlderInbox({ cursor }: { cursor: DeliveryId }): Promise<PluginAnswer<{ items: InboxEntry[]; nextCursor: DeliveryId | null }>> {
-  const [open, page, ships] = await Promise.all([readOpenInbox(), readArgoInbox({ filter: 'all', cursor, limit: CONSOLE_PAGE_SIZE, isEnough: () => true }), readShips()]);
-  if (open.kind !== 'answered') {
-    return open;
-  }
-  if (page.kind !== 'answered') {
-    return page;
-  }
-  const items = pageEntriesOf({ page: page.data.items, open: open.data.items, ships: ships.kind === 'answered' ? ships.data : [] });
-  return { kind: 'answered', data: { items, nextCursor: page.data.nextCursor } };
+  return { kind: 'answered', data: { items: inboxEntriesOf(items.slice(0, size), ships.kind === 'answered' ? ships.data : []), hasMore: nextCursor !== null || items.length > size } };
 }
 
 /** The messages a message to argo replies to, oldest first. */

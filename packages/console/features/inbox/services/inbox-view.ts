@@ -60,33 +60,8 @@ export function inboxViewOf(entries: readonly InboxEntry[], segment: InboxFilter
   };
 }
 
-/**
- * The count beside each segment: Open counts open questions and open messages
- * together. Done and All page, so they show no count.
- */
-export function segmentCounts(entries: readonly InboxEntry[]): Partial<Record<InboxFilter, number>> {
-  return { open: keptBy(entries, 'open').length };
-}
-
-/** The entries read, then the older pages' entries not among them. */
-export function withOlder(entries: readonly InboxEntry[], older: readonly InboxEntry[]): InboxEntry[] {
-  const read = new Set(entries.map(({ deliveryId }) => deliveryId));
-  return [...entries, ...older.filter(({ deliveryId }) => !read.has(deliveryId))];
-}
-
-/** "1 h 7 min": how long the oldest open question has waited; undefined without one. */
+/** "1 h 7 min": how long the oldest open question shown has waited; undefined without one. */
 export function waitingOf(entries: readonly InboxEntry[], now: Date): string | undefined {
   const [oldest] = openQuestionsOf(entries);
   return oldest === undefined ? undefined : duration(new Date(oldest.sentAt), now);
-}
-
-function isSameDay(at: Date, now: Date): boolean {
-  return at.getFullYear() === now.getFullYear() && at.getMonth() === now.getMonth() && at.getDate() === now.getDate();
-}
-
-/** What the operator did today, in the browser's time zone: questions answered, messages marked done. */
-export function todayOf(entries: readonly InboxEntry[], now: Date): { answered: number; done: number } {
-  const answered = questionsIn(entries).filter(({ question }) => question.answer !== null && isSameDay(new Date(question.answer.sentAt), now));
-  const done = messagesIn(entries).filter(({ doneAt }) => doneAt !== null && isSameDay(new Date(doneAt), now));
-  return { answered: answered.length, done: done.length };
 }

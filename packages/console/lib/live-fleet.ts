@@ -179,6 +179,7 @@ export function useLiveFleet(): LiveFleet {
             reload(trpc.fleet.shipWay.pathKey());
             reload(trpc.fleet.message.queryKey({ messageId: event.messageId }));
             reload(trpc.fleet.inbox.pathKey());
+            reload(trpc.fleet.inboxCount.queryKey());
             reload(INBOX_KEY);
             // A delivery that moves, or a new one, changes what is stuck.
             reload(trpc.fleet.health.queryKey());

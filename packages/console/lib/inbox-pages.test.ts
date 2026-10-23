@@ -1,25 +1,21 @@
-import { createIdGenerator, QUESTION_CONTENT_TYPE, WITHDRAWAL_CONTENT_TYPE, type DeliveryId, type InboxMessage } from '@aeolus-fleet/common';
+import { createIdGenerator, type DeliveryId, type InboxMessage } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
-import { inboxEntriesOf } from './inbox-entries';
-import { isOpenEntry } from './inbox-entry';
-import { mergedInbox, pageEntriesOf, readInboxPagesUntil, type InboxPage } from './inbox-pages';
+import { readInboxPagesUntil, type InboxPage } from './inbox-pages';
 import type { PluginAnswer } from './plugin-answer';
 
 const newId = createIdGenerator();
 const SENDER = { id: newId('ship'), name: 'orchestrator-2' };
-const QUESTION = { id: '3f1c2a9e-7b4d-4e8a-9c1f-2d6b8e0a5c47', title: 'Which port?', context: 'The docs name two.', options: [{ key: 1, label: 'Keep 3000', detail: '' }, { key: 2, label: 'Move to 4000', detail: '' }], pick: { option: 1, why: 'Nothing else needs it.' } };
 
-function aMessage(at: string, message: { contentType?: string; payload?: string; state?: InboxMessage['state'] } = {}): InboxMessage {
-  const { contentType = 'text/plain', payload = 'Slice 7 done', state = 'pending' } = message;
+function aMessage(at: string): InboxMessage {
   return {
     deliveryId: newId('delivery'),
-    state,
+    state: 'pending',
     readAt: null,
     doneAt: null,
     repliedWith: null,
     replies: [],
-    message: { id: newId('message'), sender: SENDER, inReplyTo: null, sentAt: at, contentType, model: null, payload },
+    message: { id: newId('message'), sender: SENDER, inReplyTo: null, sentAt: at, contentType: 'text/plain', model: null, payload: 'Slice 7 done' },
   };
 }
 
@@ -60,30 +56,5 @@ describe('readInboxPagesUntil', () => {
     const refused = (): Promise<PluginAnswer<InboxPage>> => Promise.resolve({ kind: 'refused', message: 'The fleet is busy' });
 
     await expect(readInboxPagesUntil(refused, { isEnough: () => false })).resolves.toEqual({ kind: 'refused', message: 'The fleet is busy' });
-  });
-});
-
-describe('mergedInbox', () => {
-  it('holds each delivery once, newest first', () => {
-    const [older, newer] = [aMessage('2026-10-22T09:00:00.000Z'), aMessage('2026-10-23T09:00:00.000Z')];
-
-    expect(mergedInbox([older], [newer, older])).toEqual([newer, older]);
-  });
-});
-
-describe('pageEntriesOf', () => {
-  it("lays out a page with the open rows beside it, so a question on it is stale by a withdrawal the page does not hold", () => {
-    const question = aMessage('2026-10-22T09:00:00.000Z', { contentType: QUESTION_CONTENT_TYPE, payload: JSON.stringify(QUESTION) });
-    const withdrawal = aMessage('2026-10-23T09:00:00.000Z', { contentType: WITHDRAWAL_CONTENT_TYPE, payload: JSON.stringify({ questionId: QUESTION.id }) });
-
-    const [entry, ...others] = pageEntriesOf({ page: [question], open: [withdrawal], ships: [] });
-
-    expect([entry?.kind === 'question' ? entry.stale?.kind : undefined, others]).toEqual(['withdrawn', []]);
-  });
-
-  it('counts a question open whose withdrawal argo marked done: the open rows do not hold the withdrawal', () => {
-    const question = aMessage('2026-10-22T09:00:00.000Z', { contentType: QUESTION_CONTENT_TYPE, payload: JSON.stringify(QUESTION) });
-
-    expect(inboxEntriesOf(mergedInbox([question]), []).filter(isOpenEntry)).toHaveLength(1);
   });
 });

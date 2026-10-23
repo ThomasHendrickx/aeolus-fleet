@@ -4,9 +4,9 @@ import { useState } from 'react';
 import { expect, fn, userEvent, within } from 'storybook/test';
 
 import { ANSWERED, ENTRIES, MERGE_NOW, NOW, PR_READY, DISCARDED, THREAD, TIDE_TABLES, WITHDRAWN } from '../../../../lib/fixtures/inbox.fixtures';
-import type { InboxEntry } from '../../../../lib/inbox-entry';
+import { isOpenEntry, type InboxEntry } from '../../../../lib/inbox-entry';
 import { neighbourOf, questionPositionOf } from '../../services/inbox-moves';
-import { inboxViewOf, openQuestionsOf, segmentCounts, todayOf, waitingOf } from '../../services/inbox-view';
+import { inboxViewOf, openQuestionsOf, waitingOf } from '../../services/inbox-view';
 import { OperatorInbox } from './operator-inbox';
 
 /** A stateful inbox for the stories: the segment, the open row and the plugin group move as the operator clicks. */
@@ -41,9 +41,8 @@ function Inbox({
       view={view}
       segment={segment}
       onSegmentChange={setSegment}
-      counts={segmentCounts(entries)}
+      counts={{ open: entries.filter(isOpenEntry).length }}
       waiting={waitingOf(entries, NOW)}
-      today={todayOf(entries, NOW)}
       selected={selected}
       thread={selected?.kind === 'message' && selected.inReplyTo !== null ? THREAD : []}
       questionPosition={selected?.kind === 'question' ? questionPositionOf(openIds, selected.deliveryId) : undefined}
@@ -134,7 +133,7 @@ export const NothingOpen: Story = { args: { initialSelected: undefined } };
 
 export const Done: Story = { args: { initialSegment: 'done', initialSelected: undefined } };
 
-/** Nothing waits, with what the operator did today. */
+/** Nothing waits. */
 export const Empty: Story = { args: { entries: [ANSWERED], initialSelected: undefined } };
 
 export const Loading: Story = { args: { state: 'loading' } };

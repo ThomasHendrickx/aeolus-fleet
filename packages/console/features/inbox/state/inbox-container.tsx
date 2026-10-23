@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { useAccess } from '../../../lib/access';
 import { useConsoleFrame } from '../../../lib/console-frame';
-import { inboxPathOf, readInboxFilter, useAnswer, useInboxEntries, useMarkDone, useMarkRead, useOlderInbox, useReply } from '../../../lib/inbox';
+import { inboxPathOf, readInboxFilter, useAnswer, useInboxEntries, useMarkDone, useMarkRead, useOpenInboxCount, useReply } from '../../../lib/inbox';
 import { isOpenEntry, type InboxEntry } from '../../../lib/inbox-entry';
 import { useLiveFleet } from '../../../lib/live-fleet';
 import { useNow } from '../../../lib/now';
@@ -20,7 +20,7 @@ import { TopBar } from '../../../components/organisms/top-bar';
 import { useThread } from '../hooks/use-thread';
 import { answerAttemptOf, type AnswerAttempt } from '../services/answer-attempt';
 import { neighbourOf, questionPositionOf } from '../services/inbox-moves';
-import { inboxViewOf, openQuestionsOf, segmentCounts, todayOf, waitingOf, withOlder, type InboxView } from '../services/inbox-view';
+import { inboxViewOf, openQuestionsOf, waitingOf, type InboxView } from '../services/inbox-view';
 import { MessageMenu } from '../ui/molecules/message-menu';
 import { OperatorInbox } from '../ui/organisms/operator-inbox';
 import type { AnswerDraft } from '../ui/organisms/question-reader';
@@ -57,9 +57,8 @@ export function InboxContainer({ filterParameter, selectedId }: { filterParamete
   const router = useRouter();
   const now = useNow();
   const segment = readInboxFilter(filterParameter);
-  const inbox = useInboxEntries();
-  // Open is read whole; Done and All add the older messages a page at a time.
-  const older = useOlderInbox(inbox.data?.olderCursor ?? null, segment !== 'open');
+  const inbox = useInboxEntries(segment);
+  const openCount = useOpenInboxCount();
   const markRead = useMarkRead();
   const markDone = useMarkDone();
   const reply = useReply();
@@ -78,7 +77,7 @@ export function InboxContainer({ filterParameter, selectedId }: { filterParamete
   // The one open now: leaving a question with a draft, or a send that fails after the operator moved on, needs a toast to be seen.
   const openIdRef = useRef(selectedId);
 
-  const entries = withOlder(inbox.data?.entries ?? [], older.items ?? []);
+  const entries = inbox.items ?? [];
   const view = inboxViewOf(entries, segment);
   const order = orderOf(view);
   const selected = entries.find((entry) => entry.deliveryId === selectedId);
@@ -125,11 +124,11 @@ export function InboxContainer({ filterParameter, selectedId }: { filterParamete
     if (left === undefined || left === selectedId || !answerDrafts.has(left)) {
       return;
     }
-    const asked = entries.find((entry) => entry.deliveryId === left);
+    const asked = inbox.items?.find((entry) => entry.deliveryId === left);
     if (asked?.kind === 'question' && isOpenEntry(asked)) {
       showToast({ title: `Your answer to “${asked.question.title}” is not sent`, description: 'Your choice and note wait on the question. Answer sends them.', tone: 'info' });
     }
-  }, [selectedId, answerDrafts, entries]);
+  }, [selectedId, answerDrafts, inbox.items]);
   const markUnread = (deliveryId: DeliveryId) => {
     act({ deliveryId, run: () => markRead.mutateAsync({ deliveryId, isRead: false }), failure: 'Couldn’t mark the message unread' });
     show({});
@@ -186,29 +185,20 @@ export function InboxContainer({ filterParameter, selectedId }: { filterParamete
   return (
     <ListPage {...frame} title="Inbox" live={liveFleet.live} phoneTopBar={phoneTopBar}>
       <OperatorInbox
-        state={inbox.isError ? 'error' : inbox.data === undefined ? 'loading' : 'ready'}
-        onRetry={() => {
-          void inbox.refetch();
-        }}
+        state={inbox.isFailed ? 'error' : inbox.items === undefined ? 'loading' : 'ready'}
+        onRetry={inbox.retry}
         view={view}
         segment={segment}
         onSegmentChange={(next) => {
           show({ segment: next });
         }}
-        counts={inbox.data === undefined ? {} : segmentCounts(entries)}
+        counts={openCount === undefined ? {} : { open: openCount }}
         more={
-          segment !== 'open' && (older.hasMore || older.isFailed) ? (
-            <LoadMore
-              what="older messages"
-              isLoading={older.isLoadingMore}
-              isFailed={older.isFailed || older.isLoadMoreFailed}
-              onLoad={older.isFailed ? older.retry : older.loadMore}
-              area="inbox"
-            />
+          inbox.hasMore ? (
+            <LoadMore what="older messages" isLoading={inbox.isLoadingMore} isFailed={inbox.isLoadMoreFailed} onLoad={inbox.loadMore} area="inbox" />
           ) : null
         }
         waiting={waitingOf(entries, now)}
-        today={todayOf(entries, now)}
         selected={selected}
         thread={thread}
         questionPosition={questionPosition}
@@ -284,7 +274,7 @@ export function InboxContainer({ filterParameter, selectedId }: { filterParamete
                 showToast({ title: `Your answer to “${title}” was not sent`, description: messageOf(error), tone: 'error' });
               }
               // A send that reached the fleet before it failed shows answered.
-              void inbox.refetch();
+              inbox.retry();
             })
             .finally(() => {
               setPendingIds((pending) => new Set([...pending].filter((id) => id !== deliveryId)));

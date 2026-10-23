@@ -6,7 +6,6 @@ import { useEffect } from 'react';
 
 import type { InboxEntry } from '../../../../lib/inbox-entry';
 import type { ThreadMessage } from '../../../../lib/inbox-thread';
-import { counted } from '../../../../lib/sentence';
 import { Button, Kbd } from '@aeolus-fleet/common/header';
 import { EmptyState } from '../../../../components/molecules/empty-state';
 import { InlineError } from '../../../../components/molecules/inline-error';
@@ -20,8 +19,6 @@ import { QuestionReader, type AnswerDraft } from './question-reader';
 export interface OperatorInboxProps extends Omit<InboxListProps, 'onSelect' | 'selectedId'> {
   state: 'loading' | 'error' | 'ready';
   onRetry: () => void;
-  /** What the operator did today, for the empty Open segment. */
-  today: { answered: number; done: number };
   /** The open question or message, from the URL. */
   selected: InboxEntry | undefined;
   /** The thread of the open message; undefined while it loads. */
@@ -176,18 +173,14 @@ function ReaderToolbar({ selected, questionPosition, onMove }: Pick<OperatorInbo
   );
 }
 
-function Empty({ segment, today, onSegmentChange }: Pick<OperatorInboxProps, 'segment' | 'today' | 'onSegmentChange'>) {
+function Empty({ segment, onSegmentChange }: Pick<OperatorInboxProps, 'segment' | 'onSegmentChange'>) {
   if (segment === 'open') {
-    const did =
-      today.answered + today.done === 0
-        ? ''
-        : `You answered ${counted(today.answered, { one: 'question', many: 'questions' })} and marked ${counted(today.done, { one: 'message', many: 'messages' })} done today. `;
     return (
       <div data-testid="inbox-empty" className="flex grow items-center justify-center p-6 max-sm:p-0">
         <EmptyState
           icon={<CircleCheck />}
           title="Nothing waits for you"
-          description={`${did}New ones show up here as ships send them.`}
+          description="New ones show up here as ships send them."
           action={
             <Button
               variant="ghost"
@@ -267,7 +260,7 @@ export function OperatorInbox(props: OperatorInboxProps) {
       <div className="grid h-[calc(100dvh-12rem)] min-h-128 grid-cols-[minmax(20rem,24rem)_minmax(0,1fr)] overflow-hidden rounded-lg border border-border bg-card max-sm:hidden">
         <div className="flex min-h-0 flex-col overflow-y-auto border-r border-border">
           {list}
-          {isEmpty(view) && !props.more ? <Empty segment={segment} today={props.today} onSegmentChange={props.onSegmentChange} /> : null}
+          {isEmpty(view) && !props.more ? <Empty segment={segment} onSegmentChange={props.onSegmentChange} /> : null}
         </div>
         <div className="flex min-h-0 flex-col bg-background">
           {selected ? (
@@ -288,7 +281,7 @@ export function OperatorInbox(props: OperatorInboxProps) {
         ) : (
           <>
             {list}
-            {isEmpty(view) && !props.more ? <Empty segment={segment} today={props.today} onSegmentChange={props.onSegmentChange} /> : null}
+            {isEmpty(view) && !props.more ? <Empty segment={segment} onSegmentChange={props.onSegmentChange} /> : null}
           </>
         )}
       </div>

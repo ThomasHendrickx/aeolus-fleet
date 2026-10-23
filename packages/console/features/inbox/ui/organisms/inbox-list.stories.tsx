@@ -2,7 +2,8 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { fn } from 'storybook/test';
 
 import { ENTRIES, NOW, TIDE_TABLES } from '../../../../lib/fixtures/inbox.fixtures';
-import { inboxViewOf, segmentCounts, waitingOf } from '../../services/inbox-view';
+import { isOpenEntry } from '../../../../lib/inbox-entry';
+import { inboxViewOf, waitingOf } from '../../services/inbox-view';
 import { InboxList } from './inbox-list';
 
 const meta = {
@@ -12,7 +13,7 @@ const meta = {
     view: inboxViewOf(ENTRIES, 'open'),
     segment: 'open',
     onSegmentChange: fn(),
-    counts: segmentCounts(ENTRIES),
+    counts: { open: ENTRIES.filter(isOpenEntry).length },
     waiting: waitingOf(ENTRIES, NOW),
     selectedId: TIDE_TABLES.deliveryId,
     onSelect: fn(),
