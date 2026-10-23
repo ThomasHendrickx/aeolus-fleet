@@ -682,13 +682,16 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         state.reachRefusals.push(structuredClone(refusal));
         return Promise.resolve();
       },
-      latest: (fleetId, limit) =>
+      latest: (fleetId, { cursor, limit }) =>
         Promise.resolve(
-          state.reachRefusals
-            .filter((held) => held.fleetId === fleetId)
-            .sort((first, second) => second.at.getTime() - first.at.getTime() || second.id.localeCompare(first.id))
-            .slice(0, limit)
-            .map((held) => structuredClone(held)),
+          pageOf(
+            state.reachRefusals
+              .filter((held) => held.fleetId === fleetId && (cursor === undefined || held.id < cursor))
+              .sort((first, second) => second.id.localeCompare(first.id))
+              .slice(0, limit + 1)
+              .map((held) => structuredClone(held)),
+            { limit, cursorOf: (held) => held.id },
+          ),
         ),
     },
     labels: {

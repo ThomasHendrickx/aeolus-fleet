@@ -265,7 +265,7 @@ describe('reachRefusalsOutputSchema', () => {
       settingsVersion: 2,
     };
 
-    expect(reachRefusalsOutputSchema.parse({ items: [refusal], nextCursor: null })[0]?.sender).not.toHaveProperty('email');
+    expect(reachRefusalsOutputSchema.parse({ items: [refusal], nextCursor: null }).items[0]?.sender).not.toHaveProperty('email');
   });
 });
 

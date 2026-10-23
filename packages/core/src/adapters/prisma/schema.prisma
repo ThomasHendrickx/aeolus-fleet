@@ -498,8 +498,8 @@ model ReachRefusal {
 
   fleet Fleet @relation(fields: [fleetId], references: [id])
 
-  /// argo reads the latest first.
-  @@index([fleetId, at])
+  /// They page newest first by id.
+  @@index([fleetId, id])
   @@map("reach_refusals")
 }
 

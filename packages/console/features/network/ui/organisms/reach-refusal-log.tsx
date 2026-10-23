@@ -1,4 +1,5 @@
 import type { ReachRefusal } from '@aeolus-fleet/common';
+import type { ReactNode } from 'react';
 
 import { chipsOf, type LabelContext } from '../../../../lib/labels';
 import { refusalCauseOf, refusalSentenceOf, refusedActorName } from '../../services/reach-refusals';
@@ -14,6 +15,8 @@ export interface ReachRefusalLogProps {
   /** Why the fleet could not list them. */
   error?: string;
   onRetry?: () => void;
+  /** What ends the log while older refusals follow: Load more. */
+  more?: ReactNode;
   /** Whose each label is, for its chip's mark. */
   context: LabelContext;
   /** The time each refusal's "ago" is measured from. */
@@ -33,13 +36,13 @@ interface RefusedParty {
  * version that refused it. Argo's only: the page shows it to argo. One column of
  * cards, so it reads the same on a phone.
  */
-export function ReachRefusalLog({ refusals, error, onRetry, context, now }: ReachRefusalLogProps) {
+export function ReachRefusalLog({ refusals, error, onRetry, more, context, now }: ReachRefusalLogProps) {
   let content;
   if (error !== undefined) {
     content = <InlineError title="Couldn’t read the refusals" description={error} onRetry={onRetry} />;
   } else if (refusals === undefined) {
     content = <LoadingSkeleton variant="list" rows={3} label="Loading the refusals" />;
-  } else if (refusals.length === 0) {
+  } else if (refusals.length === 0 && !more) {
     content = <EmptyState variant="section" title="No send has been refused." />;
   } else {
     content = (
@@ -60,6 +63,7 @@ export function ReachRefusalLog({ refusals, error, onRetry, context, now }: Reac
         The sends the rules refused, newest first, with both ships’ labels as they were then. The sender was told only that its send was refused.
       </p>
       {content}
+      {more}
     </section>
   );
 }

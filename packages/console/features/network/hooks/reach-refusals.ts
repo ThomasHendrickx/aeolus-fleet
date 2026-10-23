@@ -1,7 +1,8 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 
+import { CONSOLE_PAGE_SIZE, nextCursorOf, pagedListOf } from '../../../lib/paged-list';
 import { useTRPC } from '../../../lib/trpc';
 
 /**
@@ -10,8 +11,8 @@ import { useTRPC } from '../../../lib/trpc';
  * who tried to message whom and what refused it.
  */
 
-/** The fleet's latest reach refusals, newest first: asked only while Network shows. */
+/** The fleet's reach refusals, newest first, a page at a time: asked only while Network shows. */
 export function useReachRefusals(isShown: boolean) {
   const trpc = useTRPC();
-  return useQuery(trpc.fleet.reachRefusals.queryOptions(undefined, { enabled: isShown }));
+  return pagedListOf(useInfiniteQuery(trpc.fleet.reachRefusals.infiniteQueryOptions({ limit: CONSOLE_PAGE_SIZE }, { enabled: isShown, getNextPageParam: nextCursorOf })));
 }

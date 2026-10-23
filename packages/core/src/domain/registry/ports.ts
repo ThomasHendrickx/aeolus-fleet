@@ -1,5 +1,6 @@
-import type { DeliveryId, DeliveryState, FleetId, LabelId, LabelValueId, LeaseId, LeaseWaker, MessageId, ScopeName, ShipId } from '@aeolus-fleet/common';
+import type { DeliveryId, DeliveryState, FleetId, LabelId, LabelValueId, LeaseId, LeaseWaker, MessageId, ReachRefusalId, ScopeName, ShipId } from '@aeolus-fleet/common';
 
+import type { Page, PageQuery } from '../shared/page.js';
 import type { Recipient } from '../shared/selector.js';
 import type { ClearRequest } from './clear-request.js';
 import type { CrewRequest } from './crew-request.js';
@@ -298,8 +299,8 @@ export interface VerifiedFactsRepository {
 /** Outbound port: the records of the sends the fleet's network rules refused (decision 0034). */
 export interface ReachRefusalRepository {
   record(refusal: ReachRefusal): Promise<void>;
-  /** The fleet's latest refusals, newest first, at most `limit`. Read outside a unit of work. */
-  latest(fleetId: FleetId, limit: number): Promise<ReachRefusal[]>;
+  /** A page of the fleet's refusals, newest first by id, after the refusal the cursor names. Read outside a unit of work. */
+  latest(fleetId: FleetId, query: PageQuery<ReachRefusalId>): Promise<Page<ReachRefusal, ReachRefusalId>>;
 }
 
 /**

@@ -73,6 +73,7 @@ import {
   defineLabelOutputSchema,
   deleteLabelInputSchema,
   findLabelValueInputSchema,
+  reachRefusalsInputSchema,
   reachRefusalsOutputSchema,
   explainReachInputSchema,
   setOwnerInputSchema,
@@ -738,23 +739,28 @@ export const fleetRouter = router({
       (await ctx.useCases.readDeclaredNetworkRules(ctx.caller)).map(({ declarer, rules }) => ({ declarer, rules: rules.map((rule) => ({ verb: rule.verb, from: [...rule.from], to: [...rule.to] })) })),
     ),
 
-  /** The sends the network rules refused, newest first, of the ships the caller reads (decisions 0034, 0053). */
+  /** A page of the sends the network rules refused, newest first, of the ships the caller reads (decisions 0034, 0053). */
   reachRefusals: actorScopedProcedure('fleet:explain')
+    .input(reachRefusalsInputSchema)
     .output(reachRefusalsOutputSchema)
-    .query(async ({ ctx }) =>
-      okOrThrow(await ctx.useCases.readReachRefusals(ctx.caller)).map(({ id, at, sender, askedBy, recipient, verb, settingsVersion }) => ({
-        id,
-        at: at.toISOString(),
-        sender: refusedActorOutputOf(sender),
-        askedBy: askedBy && { ...askedBy, labels: [...askedBy.labels] },
-        recipient:
-          recipient.kind === 'ship'
-            ? { kind: recipient.kind, ship: { ...recipient.ship, labels: [...recipient.ship.labels] } }
-            : { kind: recipient.kind, type: recipient.type, ships: recipient.ships.map((ship) => ({ ...ship, labels: [...ship.labels] })) },
-        verb,
-        settingsVersion,
-      })),
-    ),
+    .query(async ({ ctx, input }) => {
+      const { items, nextCursor } = okOrThrow(await ctx.useCases.readReachRefusals(ctx.caller, input));
+      return {
+        items: items.map(({ id, at, sender, askedBy, recipient, verb, settingsVersion }) => ({
+          id,
+          at: at.toISOString(),
+          sender: refusedActorOutputOf(sender),
+          askedBy: askedBy && { ...askedBy, labels: [...askedBy.labels] },
+          recipient:
+            recipient.kind === 'ship'
+              ? { kind: recipient.kind, ship: { ...recipient.ship, labels: [...recipient.ship.labels] } }
+              : { kind: recipient.kind, type: recipient.type, ships: recipient.ships.map((ship) => ({ ...ship, labels: [...ship.labels] })) },
+          verb,
+          settingsVersion,
+        })),
+        nextCursor,
+      };
+    }),
 
   /** Which ships a ship the caller reads reaches now, or whether it reaches one (design on #260, decision 0053). */
   explainReach: actorScopedProcedure('fleet:explain')
