@@ -1,16 +1,14 @@
 import { z } from 'zod';
 
+import { PAGE_SIZE_MAX } from '../rules/page-size.js';
+
 /**
  * A page of a list (decision 4 of docs/design/performance/performance.md):
  * by cursor on the list's time-ordered id, never by offset, so a page costs
  * the same however long the list grows.
  */
 
-/** A page's size when the caller asks none. */
-export const PAGE_SIZE_DEFAULT = 100;
-
-/** The most one page may hold. */
-export const PAGE_SIZE_MAX = 500;
+export { PAGE_SIZE_DEFAULT, PAGE_SIZE_MAX } from '../rules/page-size.js';
 
 /**
  * Input of a paged list: the cursor the last page answered, none for the
