@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { useAccess } from '../../../lib/access';
 import { useConsoleFrame } from '../../../lib/console-frame';
-import { inboxPathOf, readInboxFilter, useAnswer, useInboxEntries, useMarkDone, useMarkRead, useOpenInboxCount, useReply } from '../../../lib/inbox';
+import { inboxPathOf, readInboxFilter, useAnswer, useInboxEntries, useInboxEntry, useMarkDone, useMarkRead, useOpenInboxCount, useReply } from '../../../lib/inbox';
 import { isOpenEntry, type InboxEntry } from '../../../lib/inbox-entry';
 import { useLiveFleet } from '../../../lib/live-fleet';
 import { useNow } from '../../../lib/now';
@@ -59,6 +59,7 @@ export function InboxContainer({ filterParameter, selectedId }: { filterParamete
   const segment = readInboxFilter(filterParameter);
   const inbox = useInboxEntries(segment);
   const openCount = useOpenInboxCount();
+  const openEntry = useInboxEntry(selectedId);
   const markRead = useMarkRead();
   const markDone = useMarkDone();
   const reply = useReply();
@@ -80,7 +81,7 @@ export function InboxContainer({ filterParameter, selectedId }: { filterParamete
   const entries = inbox.items ?? [];
   const view = inboxViewOf(entries, segment);
   const order = orderOf(view);
-  const selected = entries.find((entry) => entry.deliveryId === selectedId);
+  const selected = entries.find((entry) => entry.deliveryId === selectedId) ?? openEntry;
   const openQuestionIds = openQuestionsOf(entries).map(({ deliveryId }) => deliveryId);
   const questionPosition = selected?.kind === 'question' ? questionPositionOf(openQuestionIds, selected.deliveryId) : undefined;
   const thread = useThread(selected?.kind === 'message' ? selected.inReplyTo : undefined);

@@ -1,7 +1,7 @@
 'use client';
 
 import type { AnswerChoice, DeliveryId, InboxFilter } from '@aeolus-fleet/common';
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { skipToken, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useSignInWhenSessionEnds } from './session';
 import { fetchConsoleRead } from './fetch-console-read';
@@ -35,6 +35,16 @@ export function useInboxEntries(filter: InboxFilter) {
   });
   useSignInWhenSessionEnds([query.error]);
   return pagedListOf(query);
+}
+
+/** The open question or message, read on its own: an answer or Mark done takes it out of Open while the reader still shows it. */
+export function useInboxEntry(deliveryId: DeliveryId | undefined) {
+  const entry = useQuery({
+    queryKey: [...INBOX_KEY, 'entry', deliveryId],
+    queryFn: deliveryId === undefined ? skipToken : () => fetchConsoleRead({ read: 'inbox-entry', input: { deliveryId } }),
+  });
+  useSignInWhenSessionEnds([entry.error]);
+  return entry.data ?? undefined;
 }
 
 /** What waits on the operator, open questions and open messages together, as core counts them, for the navigation and Open; undefined until known. */

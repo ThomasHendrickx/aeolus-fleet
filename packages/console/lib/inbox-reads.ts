@@ -2,7 +2,7 @@ import { type DeliveryId, fleetListOutputSchema, type InboxFilter, type InboxMes
 import { cookies } from 'next/headers';
 import type { z } from 'zod';
 
-import { inboxEntriesOf } from './inbox-entries';
+import { inboxEntriesOf, inboxEntryOf } from './inbox-entries';
 import { readInboxPagesUntil, type InboxPage } from './inbox-pages';
 import type { InboxEntry } from './inbox-entry';
 import { threadBefore, type ThreadMessage } from './inbox-thread';
@@ -57,6 +57,18 @@ export async function readInbox({ filter, size }: { filter: InboxFilter; size: n
   const { items, nextCursor } = inbox.data;
   // Without the fleet's ships every message still shows, only none folds as a plugin ship's.
   return { kind: 'answered', data: { items: inboxEntriesOf(items.slice(0, size), ships.kind === 'answered' ? ships.data : []), hasMore: nextCursor !== null || items.length > size } };
+}
+
+/**
+ * The question or message to argo with this delivery, whatever segment keeps
+ * it: the one the reader shows, which an answer or Mark done takes out of Open.
+ */
+export async function readInboxEntry(deliveryId: DeliveryId): Promise<PluginAnswer<InboxEntry | null>> {
+  const [inbox, ships] = await Promise.all([readArgoInboxTo(deliveryId), readShips()]);
+  if (inbox.kind !== 'answered') {
+    return inbox;
+  }
+  return { kind: 'answered', data: inboxEntryOf(inbox.data.items, { ships: ships.kind === 'answered' ? ships.data : [], deliveryId }) };
 }
 
 /** The messages a message to argo replies to, oldest first. */

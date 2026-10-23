@@ -6,7 +6,7 @@ import { readAppsList } from './apps-list-read';
 import { consoleRead } from './console-read';
 import { parseCrewSettings } from './crew-settings-read';
 import { readGatewayConnection } from './gateway-reads';
-import { readInbox, readThread } from './inbox-reads';
+import { readInbox, readInboxEntry, readThread } from './inbox-reads';
 import { listRepositories, listSquadrons, readBlueprintCrew, readCatalogue, readKeptMessages, readSquadronsConnection } from './squadrons-reads';
 import { checkCrewSettings, listMachines, readTrierarchPluginConnection, readTrierarchPluginVersion } from './trierarch-plugin-reads';
 
@@ -33,6 +33,7 @@ export const CONSOLE_READS = {
   'trierarch-plugin-version': consoleRead(z.undefined(), async () => ({ kind: 'answered', data: (await readTrierarchPluginVersion()) ?? null })),
   machines: consoleRead(z.undefined(), listMachines),
   inbox: consoleRead(z.object({ filter: inboxFilterSchema, size: z.int().positive() }), readInbox),
+  'inbox-entry': consoleRead(z.object({ deliveryId: idSchema('delivery') }), ({ deliveryId }) => readInboxEntry(deliveryId)),
   'inbox-thread': consoleRead(z.object({ messageId: idSchema('message') }), ({ messageId }) => readThread(messageId)),
   'crew-settings-check': consoleRead(z.object({ settings: z.unknown() }), ({ settings }) => checkCrewSettings(settings)),
   'account-name': consoleRead(z.undefined(), readAccountName),
