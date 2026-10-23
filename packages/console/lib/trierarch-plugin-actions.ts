@@ -20,9 +20,9 @@ import { trierarchPluginUrlFrom } from './trierarch-plugin-url';
 
 /**
  * Connect the trierarch plugin, the operator's one button (decision 0030):
- * commissions its ship, trierarch-plugin with fleet:read, fleet:commission,
- * crew:assign, crew:run, labels:define and labels:assign, or gives it a new starting
- * prompt, and hands its secret to the plugin, server to server. The browser
+ * commissions its ship, trierarch-plugin with TRIERARCH_PLUGIN_SHIP's scopes,
+ * or grants it those it lacks and gives it a new starting prompt, and hands
+ * its secret to the plugin, server to server. The browser
  * gets the connection only. The request's Origin goes along to the fleet,
  * which takes the session's state-changing calls only from the console.
  */

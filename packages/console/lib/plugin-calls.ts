@@ -1,4 +1,4 @@
-import { commissionShipOutputSchema, fleetListOutputSchema, startingPromptOutputSchema } from '@aeolus-fleet/common';
+import { commissionShipOutputSchema, fleetListOutputSchema, grantScopesOutputSchema, startingPromptOutputSchema } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import { ConnectPluginError, type ConnectCalls, type PluginConnection } from './connect-plugin';
@@ -59,6 +59,7 @@ export function pluginCalls(urls: { serverUrl: string; pluginUrl: string }, sess
     status: () => trpc({ ...plugin, procedure: 'connection.status', answers: connectionSchema }),
     connect: (handOver) => trpc({ ...plugin, procedure: 'connection.connect', input: handOver, answers: connectionSchema }),
     ships: () => trpc({ ...fleet, procedure: 'fleet.list', answers: fleetListOutputSchema }),
+    grantScopes: (shipId, grant) => trpc({ ...fleet, procedure: 'fleet.grantScopes', input: { shipId, grant, revoke: [] }, answers: grantScopesOutputSchema }),
     commission: (ship) => trpc({ ...fleet, procedure: 'fleet.commission', input: ship, answers: commissionShipOutputSchema }),
     release: async (shipId) => {
       await trpc({ ...fleet, procedure: 'fleet.release', input: { shipId }, answers: z.unknown() });
