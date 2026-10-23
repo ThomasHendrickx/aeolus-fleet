@@ -67,3 +67,9 @@ export const healthOutputSchema = z.object({
 });
 
 export type Health = z.infer<typeof healthOutputSchema>;
+
+/** Output of `fleet.stuckCount`: how many deliveries are stuck now, and since when the oldest waits; none when nothing is stuck. */
+export const stuckCountOutputSchema = z.object({ count: z.int().min(0), oldestSince: z.iso.datetime().nullable() });
+
+/** Output of `fleet.stuck`: the deliveries stuck now by cause and place, the oldest waiting first. */
+export const stuckOutputSchema = z.array(stuckPlaceHealthSchema);

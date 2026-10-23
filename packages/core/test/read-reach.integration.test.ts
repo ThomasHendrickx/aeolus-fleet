@@ -240,7 +240,7 @@ describe('the fleet:read procedures for a ship outside read reach (decision 0034
   });
 
   it('fleet.listedShip shows a ship it reads as fleet.list lists it', async () => {
-    const listed = (await reader.fleet.list.query()).find((ship) => ship.id === ids.near);
+    const listed = (await reader.fleet.list.query()).items.find((ship) => ship.id === ids.near);
 
     await expect(reader.fleet.listedShip.query({ shipId: ids.near })).resolves.toEqual(listed);
   });

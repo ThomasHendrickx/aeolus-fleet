@@ -19,6 +19,11 @@ import {
   needsAttentionInputSchema,
   needsAttentionOutputSchema,
   healthOutputSchema,
+  acknowledgedSchema,
+  listedShipOutputSchema,
+  stuckCountOutputSchema,
+  stuckOutputSchema,
+  stuckPerHourSchema,
   operatorInboxInputSchema,
   inboxMessageInputSchema,
   inboxMessageSchema,
@@ -125,7 +130,7 @@ import type { RefusedActor } from '../../domain/registry/reach-refusal.js';
 import type { DeliveryWay } from '../../domain/shared/delivery-way.js';
 import type { SequencedEvent } from '../../domain/shared/events.js';
 import type { InboxEntry } from '../../domain/shared/history.js';
-import { describedHealth } from './health.js';
+import { describedAcknowledged, describedHealth, describedPerHour, describedStuck } from './health.js';
 import { presentStartingPrompt } from './starting-prompt-text.js';
 import { actorAllScopesProcedure, actorAnyScopeProcedure, actorScopedProcedure, anyScopeProcedure, callerStillHolding, okOrThrow, ownPersonShipOrAnyScopeProcedure, router, scopedCrewCallerProcedure, scopedProcedure } from './trpc.js';
 
@@ -869,6 +874,15 @@ export const fleetRouter = router({
       };
     }),
 
+  /** One ship exactly as fleet_list lists it, retired ones included: what a change to that ship reloads. */
+  listedShip: actorScopedProcedure('fleet:read')
+    .input(shipInputSchema)
+    .output(listedShipOutputSchema)
+    .query(async ({ ctx, input }) => {
+      const ship = okOrThrow(await ctx.useCases.readListedShip(ctx.caller, input));
+      return isInReadReach(ship) ? listedShipOutputOf(ship) : ship;
+    }),
+
   /** A page of every change to a ship, newest first: the events naming it and the ones it caused. */
   shipTimeline: actorScopedProcedure('fleet:read')
     .input(shipTimelineInputSchema)
@@ -938,6 +952,29 @@ export const fleetRouter = router({
   health: actorScopedProcedure('fleet:read')
     .output(healthOutputSchema)
     .query(async ({ ctx }) => describedHealth(await ctx.useCases.readHealth(ctx.caller))),
+
+  /** How many deliveries are stuck now and since when the oldest waits: the navigation's count and the overview's card. */
+  stuckCount: actorScopedProcedure('fleet:read')
+    .output(stuckCountOutputSchema)
+    .query(async ({ ctx }) => {
+      const { count, oldestSince } = await ctx.useCases.readStuckCount(ctx.caller);
+      return { count, oldestSince: oldestSince?.toISOString() ?? null };
+    }),
+
+  /** The deliveries stuck now by cause and place (decision 0042), each ship with the machine behind it: Health's causes and machines. */
+  stuck: actorScopedProcedure('fleet:read')
+    .output(stuckOutputSchema)
+    .query(async ({ ctx }) => describedStuck(await ctx.useCases.readStuck(ctx.caller))),
+
+  /** How many deliveries were stuck at each hour of the last 7 days, the last one now: Health's trend. */
+  stuckHistory: actorScopedProcedure('fleet:read')
+    .output(stuckPerHourSchema)
+    .query(async ({ ctx }) => describedPerHour(await ctx.useCases.readStuckHistory(ctx.caller))),
+
+  /** The deliveries acknowledged in the last 24 hours, with the median from send to acknowledgement: Health's delivering line. */
+  acknowledged: actorScopedProcedure('fleet:read')
+    .output(acknowledgedSchema)
+    .query(async ({ ctx }) => describedAcknowledged(await ctx.useCases.readAcknowledged(ctx.caller))),
 
   /** Lets an undeliverable or not handled delivery go: dismissed, kept in history. Dismissing it again is OK. */
   dismiss: actorScopedProcedure('messages:resend')

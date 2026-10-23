@@ -51,6 +51,7 @@ import type { GetInstallationFleet } from '../../domain/registry/get-installatio
 import type { ListInstallationFleets } from '../../domain/registry/list-installation-fleets.js';
 import type { Deregister } from '../../domain/registry/deregister.js';
 import type { GetShip } from '../../domain/registry/get-ship.js';
+import type { ReadListedShip } from '../../domain/registry/read-listed-ship.js';
 import type { ReadOnBehalf } from '../../domain/registry/read-on-behalf.js';
 import type { GetStartingPrompt } from '../../domain/registry/get-starting-prompt.js';
 import type { ListFleet } from '../../domain/registry/list-fleet.js';
@@ -112,7 +113,11 @@ import type { ReadMessage } from '../../domain/shared/read-message.js';
 import type { ReadSentMessage } from '../../domain/shared/read-sent-message.js';
 import type { ReadNeedsAttention } from '../../domain/shared/read-needs-attention.js';
 import type { ReadFleetName } from '../../domain/registry/read-fleet-name.js';
+import type { ReadAcknowledged } from '../../domain/shared/read-acknowledged.js';
 import type { ReadHealth } from '../../domain/shared/read-health.js';
+import type { ReadStuckCount } from '../../domain/shared/read-stuck-count.js';
+import type { ReadStuckHistory } from '../../domain/shared/read-stuck-history.js';
+import type { ReadStuck } from '../../domain/shared/read-stuck.js';
 import type { ReadShipWay } from '../../domain/shared/read-ship-way.js';
 import type { ReadShipMessages } from '../../domain/shared/read-ship-messages.js';
 import type { ReadShipTimeline } from '../../domain/shared/read-ship-timeline.js';
@@ -149,6 +154,7 @@ export interface UseCases {
   recrewShip: RecrewShip;
   listFleet: ListFleet;
   getShip: GetShip;
+  readListedShip: ReadListedShip;
   readOnBehalf: ReadOnBehalf;
   claimShip: ClaimShip;
   whoami: Whoami;
@@ -219,6 +225,10 @@ export interface UseCases {
   readShipWay: ReadShipWay;
   readNeedsAttention: ReadNeedsAttention;
   readHealth: ReadHealth;
+  readStuckCount: ReadStuckCount;
+  readStuck: ReadStuck;
+  readStuckHistory: ReadStuckHistory;
+  readAcknowledged: ReadAcknowledged;
   readInbox: ReadInbox;
   readInboxMessage: ReadInboxMessage;
   readInboxWithdrawals: ReadInboxWithdrawals;

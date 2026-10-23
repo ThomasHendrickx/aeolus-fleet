@@ -236,6 +236,9 @@ export { isInReadReach } from '../rules/read-reach.js';
  */
 export const fleetListOutputSchema = pageOutputOf(z.union([listedShipSchema, shipOutsideReadReachSchema]), z.string());
 
+/** Output of `fleet.listedShip`: one ship exactly as `fleet.list` lists it. */
+export const listedShipOutputSchema = z.union([listedShipSchema, shipOutsideReadReachSchema]);
+
 /** Up to 15 digits: every number below 2^53, so it stays an exact JavaScript number. */
 const STREAM_POSITION_PATTERN = /^\d{1,15}$/;
 
