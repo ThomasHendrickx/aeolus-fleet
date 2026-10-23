@@ -1,4 +1,4 @@
-import { accountIdSchema, createIdGenerator, idSchema, type DeliveryId, type MessageId, type FleetScope } from '@aeolus-fleet/common';
+import { accountIdSchema, createIdGenerator, QUESTION_CONTENT_TYPE, REPLACEMENT_CONTENT_TYPE, WITHDRAWAL_CONTENT_TYPE, idSchema, type DeliveryId, type MessageId, type FleetScope } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createMarkDone } from '../src/domain/messaging/mark-done.js';
@@ -38,12 +38,13 @@ afterEach(async () => {
   await core.close();
 });
 
-async function toArgo(payload: string): Promise<{ messageId: MessageId; deliveryId: DeliveryId }> {
+async function toArgo(payload: string, contentType?: string): Promise<{ messageId: MessageId; deliveryId: DeliveryId }> {
   core.clock.advance(1_000);
   const { messageId } = unwrap(
     await core.useCases.sendMessage(captain, { ...modelOf(captain),
       selector: { kind: 'ship', shipId: argo.shipId },
       payload,
+      contentType,
       idempotencyKey: `key-${newId('message')}`,
     }),
   );
@@ -91,6 +92,33 @@ describe("argo's inbox on Postgres", () => {
       [[newest.deliveryId, middle.deliveryId], middle.deliveryId],
       [[oldest.deliveryId], null],
     ]);
+  });
+
+  it('reads one message to argo by its delivery, as the inbox lists it, and refuses one not in it', async () => {
+    const asked = await toArgo('Promote 2.14?');
+    await toArgo('Deployed.');
+    const listed = (await core.useCases.readInbox(argo, { filter: 'all' })).items.find((entry) => entry.deliveryId === asked.deliveryId);
+
+    await expect(core.useCases.readInboxMessage(argo, { deliveryId: asked.deliveryId })).resolves.toEqual({ isOk: true, value: listed });
+    await expect(core.useCases.readInboxMessage(argo, { deliveryId: newId('delivery') })).resolves.toMatchObject({ isOk: false, error: { code: 'DELIVERY_NOT_FOUND' } });
+  });
+
+  it("finds a question's withdrawals and replacements by its uuid, oldest first a page at a time, and nothing else", async () => {
+    const questionId = '3f1c2a9e-7b4d-4e8a-9c1f-2d6b8e0a5c47';
+    const replacing = { id: '9b2e4d6f-1a3c-4e5b-8d7f-0c2a4e6b8d1f', title: 'Which port, now?', context: '', options: [{ key: 1, label: 'Keep 3000' }], pick: { option: 1, why: 'Fewest.' } };
+    await toArgo(JSON.stringify({ id: questionId, title: 'Which port?' }), QUESTION_CONTENT_TYPE);
+    const withdrawal = await toArgo(JSON.stringify({ questionId }), WITHDRAWAL_CONTENT_TYPE);
+    await toArgo(JSON.stringify({ questionId: '5c8e1a3b-6d2f-4b7a-9e0c-3a5d7f9b1c2e' }), WITHDRAWAL_CONTENT_TYPE);
+    await toArgo(JSON.stringify({ questionId }), 'text/plain');
+    await toArgo('not json at all', WITHDRAWAL_CONTENT_TYPE);
+    const replacement = await toArgo(JSON.stringify({ questionId, question: replacing }, null, 2), `${REPLACEMENT_CONTENT_TYPE}; charset=utf-8`);
+
+    const first = await core.useCases.readInboxWithdrawals(argo, { questionId, limit: 1 });
+    const next = await core.useCases.readInboxWithdrawals(argo, { questionId, limit: 1, cursor: first.nextCursor ?? undefined });
+
+    expect([first.items.map((entry) => entry.deliveryId), first.nextCursor]).toEqual([[withdrawal.deliveryId], withdrawal.deliveryId]);
+    expect([next.items.map((entry) => entry.deliveryId), next.nextCursor]).toEqual([[replacement.deliveryId], null]);
+    expect(first.items[0]).toEqual((await core.useCases.readInbox(argo, { filter: 'all' })).items.find((entry) => entry.deliveryId === withdrawal.deliveryId));
   });
 
   it('counts the open messages to argo, not those done', async () => {

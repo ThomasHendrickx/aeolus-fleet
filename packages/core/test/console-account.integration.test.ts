@@ -188,7 +188,7 @@ describe('an account signed in by its token cookie', () => {
     await expect(asBrowser(await signedInCookie()).console.account.query()).resolves.toEqual({ kind: 'account', accountId: 'acc-mathilde' });
   });
 
-  it("reads what fleet:read reads in the console: the fleet, a ship, its timeline, messages and way, needs attention, health, limits, argo's inbox and how many of its messages are open", async () => {
+  it("reads what fleet:read reads in the console: the fleet, a ship, its timeline, messages and way, needs attention, health, limits, argo's inbox, one message of it, a question's withdrawals and how many of its messages are open", async () => {
     const fleet = asBrowser(await signedInCookie()).fleet;
 
     await expect(fleet.list.query({}).then((page) => page.items)).resolves.toEqual(expect.arrayContaining([expect.objectContaining({ name: 'scout' })]));
@@ -202,7 +202,11 @@ describe('an account signed in by its token cookie', () => {
     await expect(fleet.needsAttention.query({})).resolves.toBeDefined();
     await expect(fleet.health.query()).resolves.toBeDefined();
     await expect(fleet.limits.query()).resolves.toBeDefined();
-    await expect(fleet.inbox.query({ filter: 'all' }).then(({ items }) => items)).resolves.toMatchObject([{ message: { id: toArgo } }]);    await expect(fleet.inboxCount.query()).resolves.toEqual({ open: 1 });
+    const [listed] = await fleet.inbox.query({ filter: 'all' }).then(({ items }) => items);
+    expect(listed).toMatchObject({ message: { id: toArgo } });
+    await expect(fleet.inboxCount.query()).resolves.toEqual({ open: 1 });
+    await expect(fleet.inboxMessage.query({ deliveryId: listed?.deliveryId ?? 'dlv_none' })).resolves.toEqual(listed);
+    await expect(fleet.inboxWithdrawals.query({ questionId: '3f1c2a9e-7b4d-4e8a-9c1f-2d6b8e0a5c47' })).resolves.toEqual({ items: [], nextCursor: null });
   });
 
   it("reads the notices for everyone and for accounts, and dismisses one for the account alone, kept by its id (accounts design, A9)", async () => {
