@@ -1,7 +1,11 @@
+import { createIdGenerator, EVENT_TYPES, type EventType, type ListedShip, type LiveFleetEvent, type ShipId } from '@aeolus-fleet/common';
+import type { AppRouter } from '@aeolus-fleet/core';
 import { QueryClient, QueryObserver } from '@tanstack/react-query';
+import { createTRPCClient, httpLink } from '@trpc/client';
+import { createTRPCOptionsProxy } from '@trpc/tanstack-react-query';
 import { describe, expect, it } from 'vitest';
 
-import { createLiveReloads, isAttentionChange, isBuiltInRulesChange, isDeclaredRulesChange, isLabelChange, isNetworkRulesChange, isShipChange, liveStateOf } from './live-fleet';
+import { createLiveFleetHandler, createLiveReloads, isAttentionChange, isBuiltInRulesChange, isDeclaredRulesChange, isLabelChange, isNetworkRulesChange, isShipChange, liveStateOf } from './live-fleet';
 
 describe('liveStateOf', () => {
   it.each([
@@ -190,5 +194,142 @@ describe('live reloads', () => {
     expect(reads).toHaveLength(3);
     expect(mostInFlight).toBe(1);
     unsubscribe();
+  });
+});
+
+const newId = createIdGenerator();
+const SERVER = 'http://fleet.test/trpc';
+/** Long enough for a reload an event asks for to reach the server. */
+const SETTLE_MS = 50;
+
+function aShip(ship: Partial<ListedShip>): ListedShip {
+  return {
+    id: newId('ship'),
+    name: 'builder',
+    type: 'builder',
+    kind: 'agent',
+    status: 'crewed',
+    startingPrompt: null,
+    location: null,
+    lastSeenAt: null,
+    ping: null,
+    scopes: ['messages:send', 'messages:receive'],
+    report: null, harness: null, model: null, awaitingCrewSince: null, crewRequest: null, labels: [], retiredAt: null, ownerShipId: null,
+    ...ship,
+  };
+}
+
+function anEvent(type: EventType, about: { shipId: ShipId | null; withMessage: boolean }): LiveFleetEvent {
+  return {
+    seq: 1,
+    id: newId('event'),
+    type,
+    occurredAt: '2026-10-23T05:00:00.000Z',
+    actorKind: 'ship',
+    actorShipId: null,
+    actorAccountId: null,
+    actorSignedInAccountId: null,
+    shipId: about.shipId,
+    messageId: about.withMessage ? newId('message') : null,
+    deliveryId: about.withMessage ? newId('delivery') : null,
+  };
+}
+
+/**
+ * The live handler over a fake server: each procedure answers what `answers`
+ * gives it for its input, and `asked` counts the calls that reached it.
+ */
+function aLiveFleet(answers: Readonly<Record<string, (input: unknown) => unknown>>) {
+  const asked = new Map<string, number>();
+  const fetchFromFleet = (input: RequestInfo | URL): Promise<Response> => {
+    const url = new URL(input instanceof Request ? input.url : String(input));
+    const procedure = url.pathname.split('/').at(-1) ?? '';
+    asked.set(procedure, (asked.get(procedure) ?? 0) + 1);
+    const rawInput = url.searchParams.get('input');
+    const answer = answers[procedure];
+    if (answer === undefined) {
+      return Promise.resolve(Response.json({ error: { message: `no ${procedure} here`, code: -32004, data: { code: 'NOT_FOUND', httpStatus: 404 } } }, { status: 404 }));
+    }
+    return Promise.resolve(Response.json({ result: { data: answer(rawInput === null ? undefined : JSON.parse(rawInput)) } }));
+  };
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const trpc = createTRPCOptionsProxy<AppRouter>({ client: createTRPCClient<AppRouter>({ links: [httpLink({ url: SERVER, fetch: fetchFromFleet })] }), queryClient });
+  const onItem = createLiveFleetHandler({ trpc, queryClient, reload: createLiveReloads(queryClient), onCommissioned: () => undefined });
+  const shown: (() => void)[] = [];
+  return {
+    trpc,
+    queryClient,
+    onItem,
+    askedOf: (procedure: string) => asked.get(procedure) ?? 0,
+    /** Shows a read on the page, as a part that asks it does. */
+    show: (options: ConstructorParameters<typeof QueryObserver>[1]) => {
+      shown.push(new QueryObserver(queryClient, options).subscribe(() => undefined));
+    },
+    close: () => {
+      shown.forEach((unsubscribe) => {
+        unsubscribe();
+      });
+    },
+  };
+}
+
+const settled = () => new Promise((resolve) => setTimeout(resolve, SETTLE_MS));
+
+describe('the live fleet (performance design, decision 3)', () => {
+  it('reloads neither the fleet snapshot nor the full health for any event', async () => {
+    const builder = aShip({});
+    const live = aLiveFleet({ 'fleet.list': () => [builder], 'fleet.health': () => ({}), 'fleet.listedShip': () => builder, 'fleet.stuckCount': () => ({ count: 0, oldestSince: null }) });
+    live.show(live.trpc.fleet.list.queryOptions());
+    live.show(live.trpc.fleet.health.queryOptions());
+    await expect.poll(() => live.askedOf('fleet.list') + live.askedOf('fleet.health')).toBe(2);
+
+    for (const type of EVENT_TYPES) {
+      live.onItem({ kind: 'event', event: anEvent(type, { shipId: builder.id, withMessage: true }) });
+    }
+    await settled();
+
+    expect({ list: live.askedOf('fleet.list'), health: live.askedOf('fleet.health') }).toEqual({ list: 1, health: 1 });
+    live.close();
+  });
+
+  it("writes the ship's row, read alone, into the fleet snapshot for an event that changes it", async () => {
+    const builder = aShip({ status: 'awaitingCrew' });
+    const argo = aShip({ name: 'argo', type: 'operator', kind: 'operator' });
+    const live = aLiveFleet({ 'fleet.list': () => [argo, builder], 'fleet.listedShip': () => ({ ...builder, status: 'crewed' }) });
+    live.show(live.trpc.fleet.list.queryOptions());
+    await expect.poll(() => live.askedOf('fleet.list')).toBe(1);
+
+    live.onItem({ kind: 'event', event: anEvent('ShipClaimed', { shipId: builder.id, withMessage: false }) });
+
+    await expect.poll(() => live.queryClient.getQueryData(live.trpc.fleet.list.queryKey())).toEqual([argo, { ...builder, status: 'crewed' }]);
+    live.close();
+  });
+
+  it("adds a commissioned ship's row to the fleet snapshot", async () => {
+    const argo = aShip({ name: 'argo', type: 'operator', kind: 'operator' });
+    const scout = aShip({ name: 'scout', status: 'awaitingCrew' });
+    const live = aLiveFleet({ 'fleet.list': () => [argo], 'fleet.listedShip': () => scout });
+    live.show(live.trpc.fleet.list.queryOptions());
+    await expect.poll(() => live.askedOf('fleet.list')).toBe(1);
+
+    live.onItem({ kind: 'event', event: anEvent('ShipCommissioned', { shipId: scout.id, withMessage: false }) });
+
+    await expect.poll(() => live.queryClient.getQueryData(live.trpc.fleet.list.queryKey())).toEqual([argo, scout]);
+    live.close();
+  });
+
+  it.each([
+    ['a delivery that moves', 'DeliveryReceived', true],
+    ['a crew, which changes why a delivery waits', 'ShipClaimed', false],
+  ] as const)('reloads the stuck count for %s', async (_, type, withMessage) => {
+    const builder = aShip({});
+    const live = aLiveFleet({ 'fleet.stuckCount': () => ({ count: 0, oldestSince: null }), 'fleet.listedShip': () => builder });
+    live.show(live.trpc.fleet.stuckCount.queryOptions());
+    await expect.poll(() => live.askedOf('fleet.stuckCount')).toBe(1);
+
+    live.onItem({ kind: 'event', event: anEvent(type, { shipId: builder.id, withMessage }) });
+
+    await expect.poll(() => live.askedOf('fleet.stuckCount')).toBe(2);
+    live.close();
   });
 });
