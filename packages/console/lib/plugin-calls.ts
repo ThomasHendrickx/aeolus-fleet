@@ -1,7 +1,9 @@
-import { commissionShipOutputSchema, fleetListOutputSchema, grantScopesOutputSchema, startingPromptOutputSchema } from '@aeolus-fleet/common';
+import { commissionShipOutputSchema, fleetListOutputSchema, grantScopesOutputSchema, PAGE_SIZE_MAX, startingPromptOutputSchema } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import { ConnectPluginError, type ConnectCalls, type PluginConnection } from './connect-plugin';
+import { everyPage } from './every-page';
+import { dataOf } from './plugin-answer';
 
 /**
  * The calls connecting a plugin makes from the web app's server, each with
@@ -28,8 +30,10 @@ const answerSchema = z.union([
   z.object({ error: z.object({ message: z.string() }) }),
 ]);
 
-async function trpc<T>(call: { url: string; procedure: string; input?: unknown; cookie: string; origin?: string; answers: z.ZodType<T> }): Promise<T> {
-  const isQuery = call.input === undefined;
+async function trpc<T>(call: { url: string; procedure: string; input?: unknown; isQuery?: boolean; cookie: string; origin?: string; answers: z.ZodType<T> }): Promise<T> {
+  // A call without input is a query; one with input is a change unless it says it is a query, whose input goes in the URL.
+  const isQuery = call.input === undefined || call.isQuery === true;
+  const search = isQuery && call.input !== undefined ? `?input=${encodeURIComponent(JSON.stringify(call.input))}` : '';
   const headers: Record<string, string> = { cookie: call.cookie };
   if (call.origin !== undefined) {
     headers.origin = call.origin;
@@ -37,7 +41,7 @@ async function trpc<T>(call: { url: string; procedure: string; input?: unknown; 
   if (!isQuery) {
     headers['content-type'] = 'application/json';
   }
-  const response = await fetch(`${call.url}/trpc/${call.procedure}`, {
+  const response = await fetch(`${call.url}/trpc/${call.procedure}${search}`, {
     method: isQuery ? 'GET' : 'POST',
     headers,
     body: isQuery ? undefined : JSON.stringify(call.input),
@@ -58,7 +62,13 @@ export function pluginCalls(urls: { serverUrl: string; pluginUrl: string }, sess
   return {
     status: () => trpc({ ...plugin, procedure: 'connection.status', answers: connectionSchema }),
     connect: (handOver) => trpc({ ...plugin, procedure: 'connection.connect', input: handOver, answers: connectionSchema }),
-    ships: () => trpc({ ...fleet, procedure: 'fleet.list', answers: fleetListOutputSchema }),
+    ships: async () =>
+      dataOf(
+        await everyPage(async (cursor) => ({
+          kind: 'answered',
+          data: await trpc({ ...fleet, procedure: 'fleet.list', input: { cursor, limit: PAGE_SIZE_MAX }, isQuery: true, answers: fleetListOutputSchema }),
+        })),
+      ),
     grantScopes: (shipId, grant) => trpc({ ...fleet, procedure: 'fleet.grantScopes', input: { shipId, grant, revoke: [] }, answers: grantScopesOutputSchema }),
     commission: (ship) => trpc({ ...fleet, procedure: 'fleet.commission', input: ship, answers: commissionShipOutputSchema }),
     release: async (shipId) => {
