@@ -476,6 +476,34 @@ describe('listing the fleet within read reach (decision 0034)', () => {
     expect(listed.find((ship) => ship.id === fleet.near.shipId)).toEqual((await fleet.registry.listFleet(fleet.argo)).ships.find((ship) => ship.id === fleet.near.shipId));
   });
 
+  it.each(['report', 'labels', 'runsOn', 'seen'] as const)(
+    'gives a ship outside read reach no %s to sort by, so the cursor after it holds only its name and id',
+    async (column) => {
+      const cursors = [];
+      let cursor = undefined;
+      do {
+        const page = await fleet.registry.listFleet(fleet.reader, { sort: { column, direction: 'ascending' }, cursor, limit: 1 });
+        cursor = page.nextCursor ?? undefined;
+        cursors.push(cursor);
+      } while (cursor !== undefined);
+
+      expect(cursors.find((each) => each?.id === fleet.far.shipId)).toEqual({ isEmpty: true, value: '', name: 'far', id: fleet.far.shipId });
+    },
+  );
+
+  it('never selects a ship outside read reach by its crew request or the harness crewing it', async () => {
+    const names = async (input: Parameters<typeof fleet.registry.listFleet>[1]) => (await fleet.registry.listFleet(fleet.reader, input)).ships.map((ship) => ship.name);
+
+    await expect(names({ crewRequest: ['none'] })).resolves.not.toContain('far');
+    await expect(names({ kind: ['claudeCode'] })).resolves.not.toContain('far');
+  });
+
+  it('answers a label page without ships outside read reach, so it is not short of a match', async () => {
+    const page = await fleet.registry.listFleet(fleet.reader, { valueIds: [fleet.team('b')], limit: 1 });
+
+    expect(page).toEqual({ ships: [], nextCursor: null });
+  });
+
   it('never matches a ship outside read reach by the label values it carries', async () => {
     const [byB, byA] = [(await fleet.registry.listFleet(fleet.reader, { valueIds: [fleet.team('b')] })).ships, (await fleet.registry.listFleet(fleet.reader, { valueIds: [fleet.team('a')] })).ships];
 
