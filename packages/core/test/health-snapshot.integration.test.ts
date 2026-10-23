@@ -1,4 +1,4 @@
-import { createIdGenerator, idSchema, type DeliveryId, type MessageId } from '@aeolus-fleet/common';
+import { createIdGenerator, idSchema, type DeliveryId, type MessageId, type ShipId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
@@ -8,8 +8,10 @@ import { createPrismaHealthSnapshots } from '../src/adapters/prisma/health-snaps
 import { createPrismaFleetRepository } from '../src/adapters/prisma/registry.js';
 import { createPrismaSnapshotUnitOfWork, type PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
 import { createSendMessage } from '../src/domain/messaging/send-message.js';
+import type { MessageParties } from '../src/domain/registry/public.js';
 import type { Crew, ShipCaller } from '../src/domain/shared/caller.js';
 import { createCloseHealthSnapshots } from '../src/domain/shared/close-health-snapshots.js';
+import type { HourSnapshot, StuckCount } from '../src/domain/shared/health-snapshot.js';
 import type { Health } from '../src/domain/shared/health.js';
 import { ok } from '../src/domain/shared/result.js';
 import type { Selector } from '../src/domain/shared/selector.js';
@@ -401,18 +403,53 @@ describe('missed hours', () => {
 });
 
 describe('the closed hours a read takes', () => {
-  // The acknowledged of an hour is about 21 KB at scale, its stuck a few: the
-  // stuck history reading both spent most of its time on what it never shows.
-  it('are the stuck counts alone for the stuck history, and the acknowledged alone for the acknowledged', async () => {
-    core.clock.set('2026-09-29T15:00:30.000Z');
-    await core.useCases.closeHealthSnapshots();
-    const snapshots = createPrismaHealthSnapshots(core.prisma);
-    const since = new Date('2026-09-29T12:00:00.000Z');
-    const closed = await snapshots.hours(argo.fleetId, since);
+  // The stuck history spent its time parsing every hour's stuck counts in
+  // Node, each by cause, place and message: Postgres now sums what the
+  // reader reads (decision 0034) and answers one number per hour.
+  const HOUR = new Date('2026-09-29T14:00:00.000Z');
 
-    const [stuckHours, acknowledgedHours] = await Promise.all([snapshots.stuckHours(argo.fleetId, since), snapshots.acknowledgedHours(argo.fleetId, since)]);
+  /** An hour stuck with one group of each kind of message, each count a power of two, so every sum names the groups in it. */
+  async function writeStuckHour(): Promise<void> {
+    const at = new Date('2026-09-29T13:00:00.000Z');
+    const toShip = (shipId: ShipId) => ({ kind: 'ship' as const, shipId });
+    const toType = (type: string) => ({ kind: 'type' as const, type });
+    const counted = (message: MessageParties, count: number): StuckCount => ({ cause: 'waitingForCrew', place: message.recipient, message, count, oldestSince: at });
+    const hour: HourSnapshot = {
+      hour: HOUR,
+      stuck: [
+        counted({ senderId: scout.shipId, recipient: toShip(planner.shipId), claimedBy: null }, 1),
+        counted({ senderId: planner.shipId, recipient: toShip(argo.shipId), claimedBy: null }, 2),
+        counted({ senderId: planner.shipId, recipient: toType('planner'), claimedBy: null }, 4),
+        counted({ senderId: planner.shipId, recipient: toType('tester'), claimedBy: scout.shipId }, 8),
+        counted({ senderId: planner.shipId, recipient: toType('tester'), claimedBy: null }, 16),
+        counted({ senderId: planner.shipId, recipient: toType('planner'), claimedBy: argo.shipId }, 32),
+      ],
+      acknowledged: [],
+    };
+    const empty: HourSnapshot = { hour: new Date(HOUR.getTime() + HOUR_MS), stuck: [], acknowledged: [] };
+    unwrap(await createPrismaSnapshotUnitOfWork(core.prisma).run(async (tx) => ok(await tx.healthSnapshots.write(argo.fleetId, { hours: [hour, empty], fold: { seq: 0, deliveries: [], turns: [] } }))));
+  }
 
-    expect(stuckHours).toEqual(closed.map(({ hour, stuck }) => ({ hour, stuck })));
-    expect(acknowledgedHours).toEqual(closed.map(({ hour, acknowledged }) => ({ hour, acknowledged })));
+  it('count, for a reader of every ship, every delivery stuck at each hour', async () => {
+    await writeStuckHour();
+
+    const counts = await createPrismaHealthSnapshots(core.prisma).stuckCounts(argo.fleetId, { since: new Date(HOUR.getTime() - HOUR_MS), reach: { kind: 'every' } });
+
+    expect(counts).toEqual([
+      { hour: HOUR, count: 63 },
+      { hour: new Date(HOUR.getTime() + HOUR_MS), count: 0 },
+    ]);
+  });
+
+  it('count only the deliveries whose message the reader reads: by its sender, its recipient ship, the ship that claimed it, or while none has, its type', async () => {
+    await writeStuckHour();
+
+    const counts = await createPrismaHealthSnapshots(core.prisma).stuckCounts(argo.fleetId, {
+      since: new Date(HOUR.getTime() - HOUR_MS),
+      reach: { kind: 'some', shipIds: new Set([scout.shipId]), types: new Set(['planner']) },
+    });
+
+    // Scout's own message (1), the planner type's unclaimed one (4) and the one scout claimed (8).
+    expect(counts.map(({ count }) => count)).toEqual([13, 0]);
   });
 });
