@@ -20,6 +20,7 @@ import type { ShipCaller } from '../shared/caller.js';
 import { newKey } from '../../testing/keys.js';
 import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
 import { wholeShips } from '../../../test/support/ships.js';
+import { aCrewSettings, shipWithScopes } from '../../../test/support/crew-fixtures.js';
 
 const commissionedAt = new Date('2026-09-29T12:00:00.000Z');
 
@@ -533,5 +534,64 @@ describe('a page of the fleet (decision 4 of the performance design)', () => {
     const next = await useCases.listFleet(argo, { valueIds: [macos], cursor: page.nextCursor ?? testerId, limit: 1 });
 
     expect([page.ships.map((ship) => ship.id), next.ships.map((ship) => ship.id), next.nextCursor]).toEqual([[builderId], [checkerId], null]);
+  });
+});
+
+describe('selecting the ships of a page by what the overview filters (decision 4 of the performance design)', () => {
+  let builderId: ShipId;
+  let testerId: ShipId;
+
+  beforeEach(async () => {
+    ({ shipId: builderId } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'builder', type: 'implementer' })));
+    ({ shipId: testerId } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'tester', type: 'tester' })));
+    const { shipId: oldId } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'old', type: 'reviewer' }));
+    unwrap(await useCases.retireShip(argo, { shipId: oldId }));
+  });
+
+  async function namesSelected(input: Parameters<typeof useCases.listFleet>[1]) {
+    return (await useCases.listFleet(argo, input)).ships.map((ship) => ship.name);
+  }
+
+  it('selects the ships whose name or type holds the search text, in any case', async () => {
+    await expect(namesSelected({ query: 'REVIEW' })).resolves.toEqual(['scout', 'old']);
+    await expect(namesSelected({ query: 'uild' })).resolves.toEqual(['builder']);
+  });
+
+  it('selects the ships of any status picked', async () => {
+    await expect(namesSelected({ status: ['crewed', 'retired'] })).resolves.toEqual(['argo', 'old']);
+  });
+
+  it('selects the ships of any type picked', async () => {
+    await expect(namesSelected({ type: ['implementer', 'tester'] })).resolves.toEqual(['builder', 'tester']);
+  });
+
+  it('selects the ships by where their crew request stands: none, needs crew or crewed by hand', async () => {
+    unwrap(await useCases.requestCrew(argo, { shipId: builderId, settings: aCrewSettings() }));
+    unwrap(await useCases.requestCrew(argo, { shipId: testerId, settings: aCrewSettings() }));
+    crewShip(core, { fleetId, shipId: testerId });
+
+    await expect(namesSelected({ crewRequest: ['needsCrew'] })).resolves.toEqual(['builder']);
+    await expect(namesSelected({ crewRequest: ['crewedByHand'] })).resolves.toEqual(['tester']);
+    await expect(namesSelected({ crewRequest: ['none'] })).resolves.toEqual(['argo', 'scout', 'old']);
+  });
+
+  it("selects the ships by the status their trierarch wrote, an assigned request without one as crewing", async () => {
+    const plugin = await shipWithScopes({ registry: useCases, argo }, { name: 'trierarch-plugin', type: 'plugin', scopes: ['crew:assign'] });
+    const trierarch = await shipWithScopes({ registry: useCases, argo }, { name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] });
+    for (const shipId of [builderId, testerId]) {
+      unwrap(await useCases.requestCrew(argo, { shipId, settings: aCrewSettings() }));
+      unwrap(await useCases.assignCrew(plugin, { shipId, trierarchShipId: trierarch.shipId }));
+    }
+    unwrap(await useCases.reportCrewStatus(trierarch, { shipId: testerId, status: 'crashed' }));
+
+    await expect(namesSelected({ crewRequest: ['crashed'] })).resolves.toEqual(['tester']);
+    await expect(namesSelected({ crewRequest: ['crewing'] })).resolves.toEqual(['builder']);
+  });
+
+  it('combines the filters with AND, and fills a page with matches only', async () => {
+    const page = await useCases.listFleet(argo, { query: 'r', status: ['awaitingCrew'], type: ['reviewer', 'implementer'], limit: 1 });
+    const next = await useCases.listFleet(argo, { query: 'r', status: ['awaitingCrew'], type: ['reviewer', 'implementer'], cursor: page.nextCursor ?? scoutId, limit: 1 });
+
+    expect([page.ships.map((ship) => ship.name), next.ships.map((ship) => ship.name), next.nextCursor]).toEqual([['scout'], ['builder'], null]);
   });
 });

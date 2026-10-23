@@ -110,6 +110,16 @@ describe('fleetListInputSchema', () => {
   it('refuses a page over the maximum size', () => {
     expect(fleetListInputSchema.safeParse({ limit: 501 }).success).toBe(false);
   });
+
+  it('takes what the overview filters: search text, statuses, types and where the crew request stands', () => {
+    const filters = { query: 'build', status: ['crewed', 'retired'], type: ['implementer'], crewRequest: ['none', 'needsCrew', 'crewedByHand', 'crashed'] };
+
+    expect(fleetListInputSchema.parse(filters)).toEqual(filters);
+  });
+
+  it('refuses a crew request stage it does not know', () => {
+    expect(fleetListInputSchema.safeParse({ crewRequest: ['lost'] }).success).toBe(false);
+  });
 });
 
 describe('listedShipSchema', () => {
