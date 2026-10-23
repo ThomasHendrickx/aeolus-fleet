@@ -174,9 +174,10 @@ function waitCount(waits: WaitBuckets): number {
  * The health at `now` from the snapshot: the hours it has not closed yet are
  * folded as a close would, then the rest of the events up to now. Stuck now
  * and in each hour count only the deliveries whose message `reads` keeps; an
- * hour with no row counts none. Acknowledged counts the 23 closed hours
- * before the open one and the open one; a ship `readsShip` leaves out is
- * shown without its machine (decision 0034).
+ * hour with no row counts none. Acknowledged counts the 24 closed hours
+ * before the open one and the open one, and shows the last 23 of them and the
+ * open one per hour; a ship `readsShip` leaves out is shown without its
+ * machine (decision 0034).
  */
 export function healthFromSnapshot(
   snapshot: EventsAfter & { latest: LatestSnapshot; hours: readonly HourSnapshot[]; crews: HealthCrews },
@@ -203,18 +204,19 @@ export function healthFromSnapshot(
     return { at, count };
   });
 
-  const closedWaits = Array.from({ length: ACKNOWLEDGED_HOURS - 1 }, (_unused, index) => {
-    const at = hoursAfter(lastMark, index - ACKNOWLEDGED_HOURS + 2);
+  const closedWaits = Array.from({ length: ACKNOWLEDGED_HOURS }, (_unused, index) => {
+    const at = hoursAfter(lastMark, index - ACKNOWLEDGED_HOURS + 1);
     return { at, waits: (hourAt(at)?.acknowledged ?? []).filter((counted) => reads(counted.message)).map((counted) => counted.waits) };
   });
   const openWaits = waitsOf(acknowledged.filter((delivery) => reads(delivery.message)).map(({ sentAt, acknowledgedAt }) => acknowledgedAt.getTime() - sentAt.getTime()));
-  const perHour = [...closedWaits.map(({ at, waits }) => ({ at, count: waits.reduce((sum, one) => sum + waitCount(one), 0) })), { at: now, count: waitCount(openWaits) }];
+  const closedPerHour = closedWaits.map(({ at, waits }) => ({ at, count: waits.reduce((sum, one) => sum + waitCount(one), 0) }));
+  const perHour = [...closedPerHour.slice(1), { at: now, count: waitCount(openWaits) }];
 
   return {
     stuck: shownStuck(stuckNow, { ships: snapshot.crews.ships, machines: snapshot.crews.machines.filter(({ shipId }) => readsShip(shipId)) }),
     stuckPerHour: [...stuckPerHour, { at: now, count: stuckNow.length }],
     acknowledged: {
-      count: perHour.reduce((sum, hour) => sum + hour.count, 0),
+      count: [...closedPerHour, { count: waitCount(openWaits) }].reduce((sum, hour) => sum + hour.count, 0),
       medianMs: medianOfWaits([...closedWaits.flatMap(({ waits }) => waits), openWaits]),
       perHour,
     },
