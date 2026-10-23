@@ -219,7 +219,7 @@ function aShip(ship: Partial<ListedShip>): ListedShip {
   };
 }
 
-function anEvent(type: EventType, about: { shipId: ShipId | null; withMessage: boolean }): LiveFleetEvent {
+function anEvent(type: EventType, about: { shipId: ShipId | null; hasMessage: boolean }): LiveFleetEvent {
   return {
     seq: 1,
     id: newId('event'),
@@ -230,8 +230,8 @@ function anEvent(type: EventType, about: { shipId: ShipId | null; withMessage: b
     actorAccountId: null,
     actorSignedInAccountId: null,
     shipId: about.shipId,
-    messageId: about.withMessage ? newId('message') : null,
-    deliveryId: about.withMessage ? newId('delivery') : null,
+    messageId: about.hasMessage ? newId('message') : null,
+    deliveryId: about.hasMessage ? newId('delivery') : null,
   };
 }
 
@@ -262,8 +262,8 @@ function aLiveFleet(answers: Readonly<Record<string, (input: unknown) => unknown
     onItem,
     askedOf: (procedure: string) => asked.get(procedure) ?? 0,
     /** Shows a read on the page, as a part that asks it does. */
-    show: (options: ConstructorParameters<typeof QueryObserver>[1]) => {
-      shown.push(new QueryObserver(queryClient, options).subscribe(() => undefined));
+    show: (observer: { subscribe: (listener: () => void) => () => void }) => {
+      shown.push(observer.subscribe(() => undefined));
     },
     close: () => {
       shown.forEach((unsubscribe) => {
@@ -279,12 +279,12 @@ describe('the live fleet (performance design, decision 3)', () => {
   it('reloads neither the fleet snapshot nor the full health for any event', async () => {
     const builder = aShip({});
     const live = aLiveFleet({ 'fleet.list': () => [builder], 'fleet.health': () => ({}), 'fleet.listedShip': () => builder, 'fleet.stuckCount': () => ({ count: 0, oldestSince: null }) });
-    live.show(live.trpc.fleet.list.queryOptions());
-    live.show(live.trpc.fleet.health.queryOptions());
+    live.show(new QueryObserver(live.queryClient, live.trpc.fleet.list.queryOptions()));
+    live.show(new QueryObserver(live.queryClient, live.trpc.fleet.health.queryOptions()));
     await expect.poll(() => live.askedOf('fleet.list') + live.askedOf('fleet.health')).toBe(2);
 
     for (const type of EVENT_TYPES) {
-      live.onItem({ kind: 'event', event: anEvent(type, { shipId: builder.id, withMessage: true }) });
+      live.onItem({ kind: 'event', event: anEvent(type, { shipId: builder.id, hasMessage: true }) });
     }
     await settled();
 
@@ -296,10 +296,10 @@ describe('the live fleet (performance design, decision 3)', () => {
     const builder = aShip({ status: 'awaitingCrew' });
     const argo = aShip({ name: 'argo', type: 'operator', kind: 'operator' });
     const live = aLiveFleet({ 'fleet.list': () => [argo, builder], 'fleet.listedShip': () => ({ ...builder, status: 'crewed' }) });
-    live.show(live.trpc.fleet.list.queryOptions());
+    live.show(new QueryObserver(live.queryClient, live.trpc.fleet.list.queryOptions()));
     await expect.poll(() => live.askedOf('fleet.list')).toBe(1);
 
-    live.onItem({ kind: 'event', event: anEvent('ShipClaimed', { shipId: builder.id, withMessage: false }) });
+    live.onItem({ kind: 'event', event: anEvent('ShipClaimed', { shipId: builder.id, hasMessage: false }) });
 
     await expect.poll(() => live.queryClient.getQueryData(live.trpc.fleet.list.queryKey())).toEqual([argo, { ...builder, status: 'crewed' }]);
     live.close();
@@ -309,25 +309,25 @@ describe('the live fleet (performance design, decision 3)', () => {
     const argo = aShip({ name: 'argo', type: 'operator', kind: 'operator' });
     const scout = aShip({ name: 'scout', status: 'awaitingCrew' });
     const live = aLiveFleet({ 'fleet.list': () => [argo], 'fleet.listedShip': () => scout });
-    live.show(live.trpc.fleet.list.queryOptions());
+    live.show(new QueryObserver(live.queryClient, live.trpc.fleet.list.queryOptions()));
     await expect.poll(() => live.askedOf('fleet.list')).toBe(1);
 
-    live.onItem({ kind: 'event', event: anEvent('ShipCommissioned', { shipId: scout.id, withMessage: false }) });
+    live.onItem({ kind: 'event', event: anEvent('ShipCommissioned', { shipId: scout.id, hasMessage: false }) });
 
     await expect.poll(() => live.queryClient.getQueryData(live.trpc.fleet.list.queryKey())).toEqual([argo, scout]);
     live.close();
   });
 
   it.each([
-    ['a delivery that moves', 'DeliveryReceived', true],
-    ['a crew, which changes why a delivery waits', 'ShipClaimed', false],
-  ] as const)('reloads the stuck count for %s', async (_, type, withMessage) => {
+    { what: 'a delivery that moves', type: 'DeliveryReceived', hasMessage: true },
+    { what: 'a crew, which changes why a delivery waits', type: 'ShipClaimed', hasMessage: false },
+  ] as const)('reloads the stuck count for $what', async ({ type, hasMessage }) => {
     const builder = aShip({});
     const live = aLiveFleet({ 'fleet.stuckCount': () => ({ count: 0, oldestSince: null }), 'fleet.listedShip': () => builder });
-    live.show(live.trpc.fleet.stuckCount.queryOptions());
+    live.show(new QueryObserver(live.queryClient, live.trpc.fleet.stuckCount.queryOptions()));
     await expect.poll(() => live.askedOf('fleet.stuckCount')).toBe(1);
 
-    live.onItem({ kind: 'event', event: anEvent(type, { shipId: builder.id, withMessage }) });
+    live.onItem({ kind: 'event', event: anEvent(type, { shipId: builder.id, hasMessage }) });
 
     await expect.poll(() => live.askedOf('fleet.stuckCount')).toBe(2);
     live.close();

@@ -1,4 +1,4 @@
-import type { EventType, FleetStreamItem, ShipId } from '@aeolus-fleet/common';
+import type { EventType, FleetStreamItem, ListedShip, ShipId, ShipOutsideReadReach } from '@aeolus-fleet/common';
 import type { AppRouter } from '@aeolus-fleet/core';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useSubscription, type TRPCOptionsProxy } from '@trpc/tanstack-react-query';
@@ -78,6 +78,48 @@ export function createLiveReloads(queryClient: QueryClient): (queryKey: readonly
   };
 }
 
+/** A ship as the fleet snapshot lists it: whole, or by name, type and status outside the session's read reach. */
+type ShipRow = ListedShip | ShipOutsideReadReach;
+
+/**
+ * Reads ships' rows after live events, at most one read of a ship's row at a
+ * time, as createLiveReloads does for a query: an event during a read asks
+ * for one more read once it ends. A row that cannot be read is left as it
+ * is; the snapshot reads again by itself (LAST_SEEN_REFRESH_MS).
+ */
+export function createShipRowReloads(input: { readRow: (shipId: ShipId) => Promise<ShipRow>; writeRow: (row: ShipRow) => void }): (shipId: ShipId) => void {
+  const reading = new Set<ShipId>();
+  const readAgain = new Set<ShipId>();
+
+  const readUntilCurrent = async (shipId: ShipId) => {
+    reading.add(shipId);
+    try {
+      do {
+        readAgain.delete(shipId);
+        input.writeRow(await input.readRow(shipId));
+      } while (readAgain.has(shipId));
+    } catch {
+      // Left as it is: the snapshot's own refresh brings the row.
+    } finally {
+      reading.delete(shipId);
+      readAgain.delete(shipId);
+    }
+  };
+
+  return (shipId) => {
+    if (reading.has(shipId)) {
+      readAgain.add(shipId);
+    } else {
+      void readUntilCurrent(shipId);
+    }
+  };
+}
+
+/** The fleet snapshot with a ship's row as read alone: in its place, or last when the ship is new. */
+export function withListedShip(ships: readonly ShipRow[], row: ShipRow): ShipRow[] {
+  return ships.some((ship) => ship.id === row.id) ? ships.map((ship) => (ship.id === row.id ? row : ship)) : [...ships, row];
+}
+
 export function isShipChange(type: EventType): boolean {
   return SHIP_EVENTS.has(type);
 }
@@ -136,10 +178,13 @@ export interface LiveFleet {
 
 /**
  * What each item of the fleet's live stream reloads (docs/architecture.md,
- * "Live updates"): an event reloads the page of each ship that caused it or
- * that it names; a ship's event the fleet snapshot and the fleet's health; a
- * message's event the open message, the ships' message lists and argo's
- * inbox, whose delivery states it changes, and the fleet's health; a delivery
+ * "Live updates"), only the resources the event concerns (performance
+ * design, decision 3): an event reloads the page of each ship that caused it
+ * or that it names; a ship's event those ships' rows in the fleet snapshot,
+ * each read alone, and the stuck deliveries; a message's event the open
+ * message, the ships' message lists and argo's inbox, whose delivery states
+ * it changes, and the stuck deliveries; an acknowledgement the acknowledged
+ * in 24 hours; a delivery
  * that becomes undeliverable or not handled, or is dismissed, Needs
  * attention; a label's event the fleet's labels; NetworkRulesDeclared the
  * declared network rules; and a change of the rules or the draft the network
@@ -148,10 +193,23 @@ export interface LiveFleet {
  */
 export function createLiveFleetHandler(input: {
   trpc: TRPCOptionsProxy<AppRouter>;
+  queryClient: QueryClient;
   reload: (queryKey: readonly unknown[]) => void;
   onCommissioned: (shipId: ShipId) => void;
 }): (item: FleetStreamItem) => void {
-  const { trpc, reload } = input;
+  const { trpc, queryClient, reload } = input;
+  // The snapshot holds every page's ships in one array (useFleetSnapshot), not the page fleet.list answers.
+  const snapshotKey: readonly unknown[] = [...trpc.fleet.list.queryKey()];
+  const reloadRow = createShipRowReloads({
+    readRow: (shipId) => queryClient.query({ ...trpc.fleet.listedShip.queryOptions({ shipId }), staleTime: 0 }),
+    writeRow: (row) => {
+      queryClient.setQueryData<ShipRow[]>(snapshotKey, (ships) => ships && withListedShip(ships, row));
+    },
+  });
+  const reloadStuck = () => {
+    reload(trpc.fleet.stuckCount.queryKey());
+    reload(trpc.fleet.stuck.queryKey());
+  };
   return (item) => {
     if (item.kind === 'resync') {
       reload(trpc.fleet.pathKey());
@@ -176,7 +234,10 @@ export function createLiveFleetHandler(input: {
       reload(trpc.fleet.inboxCount.queryKey());
       reload(INBOX_KEY);
       // A delivery that moves, or a new one, changes what is stuck.
-      reload(trpc.fleet.health.queryKey());
+      reloadStuck();
+    }
+    if (event.type === 'DeliveryAcknowledged') {
+      reload(trpc.fleet.acknowledged.queryKey());
     }
     if (isAttentionChange(event.type)) {
       reload(trpc.fleet.needsAttention.pathKey());
@@ -198,11 +259,18 @@ export function createLiveFleetHandler(input: {
     if (!isShipChange(event.type)) {
       return;
     }
-    // The snapshot, every page the overview loaded for its view, and their counts.
-    reload(trpc.fleet.list.pathKey());
+    // Only a page that shows the snapshot needs the rows.
+    if (queryClient.getQueryData(snapshotKey) !== undefined) {
+      for (const concerned of new Set([event.shipId, event.actorShipId])) {
+        if (concerned !== null) {
+          reloadRow(concerned);
+        }
+      }
+    }
+    // The overview's counts, the view's and the fleet's.
     reload(trpc.fleet.shipCounts.pathKey());
     // A commission, a crew or a release changes why a delivery waits.
-    reload(trpc.fleet.health.queryKey());
+    reloadStuck();
     const { shipId } = event;
     if (event.type === 'ShipCommissioned' && shipId !== null) {
       input.onCommissioned(shipId);
@@ -225,6 +293,7 @@ export function useLiveFleet(): LiveFleet {
   const [onItem] = useState(() =>
     createLiveFleetHandler({
       trpc,
+      queryClient,
       reload: createLiveReloads(queryClient),
       onCommissioned: (shipId) => {
         setNewShipIds((shown) => new Set([...shown, shipId]));
