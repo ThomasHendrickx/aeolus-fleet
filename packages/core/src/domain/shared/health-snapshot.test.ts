@@ -192,16 +192,17 @@ describe('the health read from the snapshot', () => {
     ]);
   });
 
-  it('counts the acknowledged of the 23 closed hours and the open one, with their median', () => {
+  it('counts the acknowledged of the 24 closed hours and the open one, with their median', () => {
     const message = { senderId: scout.shipId, recipient: { kind: 'type' as const, type: 'planner' }, claimedBy: planner.shipId };
     const kept = hourSnapshotOf({ ships: [], leases: [], deliveries: [] }, { hour: HOUR, acknowledged: [{ sentAt: minutesAfter(-10), acknowledgedAt: minutesAfter(-5), message }] });
     const longAgo = hourSnapshotOf({ ships: [], leases: [], deliveries: [] }, { hour: hoursAfter(-23), acknowledged: [{ sentAt: hoursAfter(-24), acknowledgedAt: hoursAfter(-23), message }] });
+    const tooOld = hourSnapshotOf({ ships: [], leases: [], deliveries: [] }, { hour: hoursAfter(-24), acknowledged: [{ sentAt: hoursAfter(-25), acknowledgedAt: hoursAfter(-24.5), message }] });
     const open = aDelivery({ recipient: message.recipient, sentAt: minutesAfter(10) });
 
     const health = healthFromSnapshot(
       {
         latest: aLatest({ deliveries: [open] }),
-        hours: [longAgo, kept],
+        hours: [tooOld, longAgo, kept],
         events: [anEvent('DeliveryAcknowledged', { at: minutesAfter(13), deliveryId: open.deliveryId, shipId: planner.shipId })],
         sent: [],
         crews: crewsOf(),
@@ -212,8 +213,8 @@ describe('the health read from the snapshot', () => {
     expect(health.acknowledged.perHour).toHaveLength(24);
     expect(health.acknowledged.perHour.at(-1)).toEqual({ at: minutesAfter(20), count: 1 });
     expect(health.acknowledged.perHour.at(-2)).toEqual({ at: HOUR, count: 1 });
-    expect(health.acknowledged.count).toBe(2);
-    expect(health.acknowledged.medianMs).toBeGreaterThan(3.95 * MINUTE_MS);
-    expect(health.acknowledged.medianMs).toBeLessThan(4.05 * MINUTE_MS);
+    expect(health.acknowledged.count).toBe(3);
+    expect(health.acknowledged.medianMs).toBeGreaterThan(4.95 * MINUTE_MS);
+    expect(health.acknowledged.medianMs).toBeLessThan(5.05 * MINUTE_MS);
   });
 });
