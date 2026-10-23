@@ -1,17 +1,18 @@
 # Network rules: export and import
 
-Design for [#1155](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1155). New core fleet functionality, so it goes purpose first. The direction is the issue's, agreed by Thomas on 23 Oct. Nothing past the purpose is decided until Thomas agrees the purpose. No code.
+Design for [#1155](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1155). New core fleet functionality, so it goes purpose first. The direction is the issue's, agreed by Thomas on 23 Oct; his answers to Q1 to Q8 are in section 6. No code.
 
 ## 1. Purpose (to agree)
 
-A fleet's own rules (0035) move to another fleet as one file, with the labels they use, so a rule set is written and tested once.
+A fleet's own rules (0035) leave the fleet as one file, with the labels they use, and come back from it into the same fleet or another, so a rule set is written and tested once.
 
 The outcomes:
-1. Export writes a fleet's applied rules and the labels they use as one readable file, by name. It says which rules it left out and why: one ship named, or a label not defined by argo. The same file is what a person reviews or keeps under version control.
-2. A new fleet gets its rules before any ship exists: import creates the labels, and ships are labelled as they are commissioned.
-3. A rule set tested on staging lands on production unchanged (#1154).
-4. Import never puts rules in force. The rules land in the draft; an actor holding `fleet:network` looks at the draft changes and applies them (0035).
-5. A rule never silently stops matching because a ship retired: the labels import creates are defined by argo, which never retires (0012).
+1. Export writes a fleet's applied rules and the labels they use as one readable file, by name, with the metadata to tell two files apart. The same file is what a person reviews or keeps under version control.
+2. Backup and restore, the main use: a person exports, tries other rules, then imports the file into the same fleet and is back where they were.
+3. A new fleet gets its rules before any ship exists: import creates the labels, and ships are labelled as they are commissioned.
+4. A rule set tested on staging lands on production unchanged (#1154).
+5. Import shows every rule before anything changes, with what it cannot apply as is at the top and ways to resolve each. Nothing goes in force without the person confirming.
+6. A rule never silently stops matching because a ship retired: the labels import creates are defined by argo unless the person importing picks another definer.
 
 Not the purpose:
 - Moving label assignments, ships or the built-in rules' state.
@@ -24,14 +25,16 @@ Not the purpose:
 - **An unknown id is accepted and matches no ship** (`invalidRules`, core `registry/network-settings.ts`). A rule on a label whose definer retired keeps the retired ids and stops matching, with nothing shown.
 - **The draft** (0035): `saveNetworkRulesDraft` replaces it whole, `networkRulesDraftChanges` previews gained and lost reach, `applyNetworkRules` puts it in force at the version looked at. Network in the console already does all three.
 - **A label is defined by its caller** (`labelOwnerOf`, core `registry/label.ts`): a ship or the installation. An account defines none. Nothing defines a label for another actor.
+- **A ship name** is unique among active ships and reusable after retirement (blueprint, Ship name).
 - **Export and import** do not exist.
 
 ## 3. Lessons to check against
 
-- **0031.** A key is unique per fleet; defining a taken key is refused, naming its definer. A label retires with its definer. Only the definer assigns its values; `labels:any` assigns any label within manage reach. 0031 stays (issue point 4): import only chooses argo as the definer.
+- **0031.** A key is unique per fleet; defining a taken key is refused, naming its definer. A label retires with its definer. Only the definer changes values and assigns; `labels:any` assigns any label within manage reach. 0031 stays (issue point 4): import only picks the definer of the labels it creates.
 - **0034.** A term is a label or the owner, never a type. Allow-only. An unknown id matches no ship.
-- **0035.** Rules change only through the one draft; nothing is checked against it; apply names the version looked at. Import is one more way to fill the draft, not a way around it.
+- **0035.** Rules change only through the one draft; nothing is checked against it; apply names the version looked at.
 - **0037.** Declared rules belong to their declarer; copying them into the fleet's own was rejected. At most 200 of the fleet's own.
+- **0016.** No policy: a rule naming one ship travels if the person wants it to (Thomas on Q4).
 - **0012, 0053, 0057.** argo is permanent, so a label it defines never retires. Nothing is argo's alone: import is a scope, not an argo-only call.
 - **0050 and the blueprint's domain language.** A label has a *definer*, not an owner; the issue's "owned by argo" is "defined by argo" here. *Role* is only a squadron member's, so "which roles may import" is asked as which scopes.
 - **0004, 0033.** One API door; the console parses no file in the browser and holds no logic. Export and import are core procedures; REST and MCP map onto them.
@@ -39,113 +42,110 @@ Not the purpose:
 - **0013.** Before 1.0.0, no compatibility work: a file of another version is refused, never migrated.
 - **Every state change writes its event in the same transaction.**
 
-## 4. Import flow
+## 4. Export
 
-One unit of work, under the label keys' locks and the shared settings lock. A refusal writes nothing.
+Reads only, `fleet:network`. Always the applied rules, never the draft. Every id becomes its name: a label value its key and value, a label its key, an owner's ship its name. The file:
+
+```json
+{
+  "format": "aeolus.network-rules",
+  "version": 1,
+  "exportedAt": "2026-10-23T14:02:11Z",
+  "fleet": { "id": "flt_...", "name": "staging" },
+  "rulesVersion": 42,
+  "labels": [{ "key": "crm", "values": ["app", "user"], "definer": "argo" }],
+  "rules": [
+    { "verb": "send", "from": [{ "label": "crm", "value": "user" }], "to": [{ "label": "crm", "value": "app" }] },
+    { "verb": "manage", "from": [{ "owner": "thomas" }], "to": [{ "owner": "#" }] }
+  ]
+}
+```
+
+`exportedAt` is ISO 8601 in UTC. `fleet` and `rulesVersion` (the settings version of the applied rules) tell two files apart. A label's `definer` is its definer's ship name, or `installation`. A term's value is a value text, `*` or `#`; an owner term's is a ship name, `*` or `#`.
+
+## 5. Import
+
+Four steps (Thomas on Q3), each a core call the console shows.
+
+1. **Attach or paste** the file.
+2. **Check** (`fleet.checkNetworkRulesFile`, reads only): format, version, shape and limits (0031, 0034, 0037). A pass shows a checkmark; a fail names each break.
+3. **Overview** (same call's answer): every rule in the file, with a difference list at the top. Each difference offers ways to resolve it (Q9). The person resolves every difference and picks the definer of the labels import creates (Q6, Q10).
+4. **Import** (`fleet.importNetworkRules`, after a confirmation): the file and the resolutions, in one unit of work under the keys' locks; then the draft goes in force as Q11 says.
+
+Differences:
+- A key the fleet has with another definer than the file's.
+- A key the fleet has with values other than the file's.
+- An owner term's ship name no active ship has.
 
 ```mermaid
 flowchart TD
-  A[Actor sends file to fleet.importNetworkRules] --> S{holds the scopes? Q5}
-  S -- no --> RS[FORBIDDEN, nothing written]
+  A[attach or paste file] --> S{holds fleet:network and labels:define? Q5}
+  S -- no --> RS[FORBIDDEN]
   S -- yes --> F{format and version known? Q1}
-  F -- no --> RF[INVALID_NETWORK_RULES_FILE naming the version, nothing written]
-  F -- yes --> V{shape and limits hold? 0031, 0034, 0037}
-  V -- no --> RV[INVALID_NETWORK_RULES_FILE naming each break, nothing written]
-  V -- yes --> L[lock every key the file names]
-  L --> K{for each label in the file}
-  K -- key free --> N[define it, definer argo: LabelDefined]
-  K -- key defined by argo, same values --> R[reuse its ids]
-  K -- key defined by argo, other values --> D[difference: key, values here, values in file]
-  K -- key defined by another actor --> D2[difference: key and its definer, Q3]
-  N --> M
-  R --> M
-  D --> M
-  D2 --> M
-  M{any difference?}
-  M -- yes --> RD[LABEL_DIFFERENCES listing every difference, nothing written, no label defined]
-  M -- no --> T[turn every name into its id]
-  T --> W[save as the draft, replacing any draft: NetworkRulesDraftSaved]
-  W --> OK[answer: draft saved against version n, labels defined, labels reused]
-  OK --> P[console shows networkRulesDraftChanges]
-  P --> X{actor applies at version n?}
-  X -- discards --> DS[NetworkRulesDraftDiscarded; labels argo defined stay]
-  X -- applies, settings moved --> RC[NETWORK_SETTINGS_CHANGED, draft kept: look again]
+  F -- no --> RF[INVALID_NETWORK_RULES_FILE naming the version]
+  F -- yes --> V{shape and limits hold?}
+  V -- no --> RV[INVALID_NETWORK_RULES_FILE naming each break]
+  V -- yes --> OK1[checkmark]
+  OK1 --> O[overview: differences on top, then every rule]
+  O --> RES{every difference resolved, definer picked?}
+  RES -- no --> O
+  RES -- yes --> C{person confirms?}
+  C -- no --> END[nothing written]
+  C -- yes --> L[import: lock every key, check the fleet again]
+  L --> CH{fleet changed since the check: a new difference?}
+  CH -- yes --> RD[LABEL_DIFFERENCES, nothing written, back to overview]
+  CH -- no --> N[define new labels with the picked definer: LabelDefined; apply resolutions]
+  N --> T[turn every name into its id]
+  T --> W[save as the draft: NetworkRulesDraftSaved]
+  W --> Q11{Q11}
+  Q11 --> P[draft changes shown]
+  P --> X{apply at version n?}
+  X -- discards --> DS[NetworkRulesDraftDiscarded; labels import defined stay]
+  X -- settings moved --> RC[NETWORK_SETTINGS_CHANGED, draft kept: look again]
   X -- applies --> AP[NetworkRulesSet at n+1]
 ```
 
-Export reads only: the fleet's rules (Q2) with every id turned into its key and value, and the labels they use. A rule with a term the file cannot carry is handled as Q4 says.
+## 6. Thomas's answers
 
-## 5. Questions
+- **Q1 File format:** JSON with a format name and an integer version, rules in the API's shape by name; other versions refused. Plus `exportedAt` in UTC and top-level metadata to tell two files apart (section 4).
+- **Q2 Which rules:** always the applied rules, never the draft.
+- **Q3 A key with another definer:** a difference, but import does not stop on it: the overview shows it at the top with ways to resolve it; using the existing label is one, so backup and restore work. Four steps (section 5), apply asks for a confirmation.
+- **Q4 A rule naming one ship:** export keeps it with the ship by name; import finds that ship by name. "no policy ... Copying dumb rules from one to another is a choice, not mine."
+- **Q5 Scopes:** export `fleet:network`; import `fleet:network` and `labels:define`, any actor. "it does make fleet:network a very dangerous scope".
+- **Q6 Definer of created labels:** import defines them for another actor than the caller, and the import screen picks that definer.
+- **Q7 Declared rules:** left out of export and import.
+- **Q8 Where:** core procedures on tRPC, REST and MCP; the console uploads, downloads and shows.
 
-Each has options and my pick. They follow once the purpose is agreed.
+## 7. Questions still open
 
-### Q1 File format and version field
+### Q9 Ways to resolve each difference
 
-1. **JSON with a format name and an integer version:** `{"format":"aeolus.network-rules","version":1,"labels":[{"key":"crm","values":["app","user"]}],"rules":[{"verb":"send","from":[{"label":"crm","value":"user"}],"to":[{"label":"crm","value":"app"},{"owner":"#"}]}]}`. A term is `{"label","value"}` with a value text, `*` or `#`, or `{"owner"}` with `*` or `#`. Import refuses any other format or version; no migration (0013).
-2. The same, with core's release version in place of the integer.
-3. YAML.
+1. **Per kind:**
+   - another definer: use the existing label, or drop the rules on it;
+   - other values: use the existing label when it has every value the rules name, else drop the rules naming a missing value;
+   - ship name not found: pick an active ship, or drop the rule.
+2. Option 1, plus defining under another key (renaming the file's label) and adding missing values to an existing label the caller may change.
 
-**Pick 1.** The rule shape stays the API's, with names in place of ids, so there is one shape to learn. An integer moves only when the file's shape does; a release version would refuse files across releases that changed nothing.
+**Pick 1.** It covers backup and restore and staging to production with the fewest moves. Adding values changes a label another ship defined, which 0031 leaves to its definer; renaming is an edit of the file.
 
-### Q2 Which rules export takes
+### Q10 Which definers the import screen offers
 
-1. **The applied rules**, with the version they are at.
-2. The draft.
-3. Either, as the caller chooses.
+1. **argo, preselected, or any active ship within the caller's manage reach.**
+2. argo or the caller's own ship.
+3. Any active ship.
 
-**Pick 1.** The use case is a rule set tested on staging; the applied rules are what was tested. A draft can be applied first.
+**Pick 1.** Defining for a ship is managing it (0053). argo first keeps outcome 6.
 
-### Q3 A key the fleet already has, defined by another actor
+### Q11 What the confirmed import ends in
 
-1. **A difference:** import stops and lists it with its definer's name, like differing values. The actor renames or retires that label, or edits the file.
-2. Reuse it when the values match, whoever defines it. The rules then retire with that definer.
-3. Make argo its definer, moving it from its ship.
+1. **The draft, then the draft changes shown, then apply as today** (0035), which asks for its own confirmation.
+2. Draft and apply in one step: the confirmation at step 4 puts the rules in force.
 
-**Pick 1.** Only 1 keeps outcome 5 for every label import lands. 3 takes a label from a ship that assigns it, which 0031 forbids.
+**Pick 1.** The direction says rules land in the draft only; the draft changes show what the import gains and loses before it is in force. Step 4's confirmation is the import's; apply keeps its own.
 
-### Q4 A rule import cannot carry
-
-A term with an owner's ship id names one ship (issue point 3). The same holds for a term on a label whose definer is not argo, by Q3.
-
-1. **Export leaves the rule out and lists it in the file's `notExported`** with the ship's or definer's name and why. Import ignores that list. The console shows it after export.
-2. Export keeps it with the ship by name; import finds that ship by name.
-3. Export is refused while any such rule exists.
-
-**Pick 1.** The rest of the set still moves, and the actor sees what to rebuild. A ship of the same name in another fleet is not the same ship, so 2 guesses. 3 blocks a fleet with one personal rule.
-
-### Q5 Which scopes export and import
-
-1. **Export `fleet:network`; import `fleet:network` and `labels:define`.** Any actor holding them, an account included, since import defines for argo, not the caller.
-2. Both `fleet:network` only.
-3. argo alone.
-
-**Pick 1.** Export reads only the rules, as `fleet.networkRules` does. Import defines labels, which today takes `labels:define`. 3 is ruled out by 0053.
-
-### Q6 How argo defines a label created on import
-
-1. **Import defines it with argo as definer, whoever calls.** LabelDefined names the caller as actor and argo as definer. Only import does this.
-2. Only argo may import, so the caller is the definer.
-3. Any `labels:define` call may name argo as definer.
-
-**Pick 1.** It keeps import open to any actor with the scopes (Q5) and adds no general way to define for another actor. Assigning those labels later takes argo or `labels:any`, as 0031 says today.
-
-### Q7 Declared rules
-
-1. **Left out of export and import entirely.** Each declarer declares its own in the new fleet (0037).
-2. Exported as a list for reading, never imported.
-
-**Pick 1.** 0037 rejected copying declared rules into the fleet's own, and a plugin declares again when connected.
-
-### Q8 Where export and import run
-
-1. **Two core procedures, `fleet.exportNetworkRules` and `fleet.importNetworkRules`,** on tRPC, REST and MCP. The console's buttons upload and download only.
-2. In the console's server: it reads labels and rules, defines labels, then saves the draft.
-
-**Pick 1.** Import must be one unit of work: a failure after some labels were defined would leave them behind. Agents get it too (0004, 0033).
-
-## 6. Docs it would update
+## 8. Docs it would update
 
 - **Decision 0035:** one line on export and import filling the draft.
-- **Decision 0031:** one line that import defines labels for argo.
+- **Decision 0031:** one line that import defines labels for a definer it picks.
 - **Blueprint:** the fleet API table and LabelDefined's details.
-- **Console design:** Export and Import on Network, and the differences list.
+- **Console design:** Export and Import on Network, the four import steps and the difference list.
