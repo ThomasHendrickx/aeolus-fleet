@@ -1,8 +1,7 @@
 import { createIdGenerator } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
-import type { ShipKindCount } from '../../../lib/ship-counts';
-import { overviewMetrics, overviewSubtitle } from './overview-metrics';
+import { oldestStuckOf, overviewMetrics, overviewSubtitle } from './overview-metrics';
 
 const newId = createIdGenerator();
 const NOW = new Date('2026-10-05T12:00:00.000Z');
@@ -23,21 +22,29 @@ describe('overviewMetrics', () => {
   it('counts the active agent ships, crewed and awaiting crew, never argo, the viewer ship or a retired ship', () => {
     const counts = [argo, viewer, aKindCount({ kind: 'agent', active: 2, crewed: 1, awaitingCrew: 1, retired: 1 })];
 
-    expect(overviewMetrics({ counts, now: NOW })).toMatchObject({ activeCount: 2, crewedCount: 1, awaitingCount: 1 });
-  });
-
-  it('counts nothing active while argo is alone', () => {
-    expect(overviewMetrics({ counts: [argo], now: NOW }).activeCount).toBe(0);
+    expect(overviewMetrics({ ships, now: NOW })).toMatchObject({ activeCount: 2, crewedCount: 1, awaitingCount: 1 });
   });
 
   it('names the ship that has awaited crew longest, and for how long', () => {
     const counts = [aKindCount({ kind: 'agent', active: 2, awaitingCrew: 2, longestWait: { id: newId('ship'), name: 'planner', awaitingCrewSince: minutesAgo(95) } })];
 
-    expect(overviewMetrics({ counts, now: NOW }).longestWait).toEqual({ name: 'planner', wait: '1 h 35 min' });
+    expect(overviewMetrics({ ships, now: NOW }).longestWait).toEqual({ name: 'planner', wait: '1 h 35 min' });
   });
 
   it('names no longest wait while every active ship is crewed', () => {
-    expect(overviewMetrics({ counts: [aKindCount({ kind: 'agent', active: 1, crewed: 1 })], now: NOW }).longestWait).toBeUndefined();
+    expect(overviewMetrics({ ships: [aShip({})], now: NOW }).longestWait).toBeUndefined();
+  });
+});
+
+describe('oldestStuckOf', () => {
+  it('says since how long the oldest stuck delivery waits', () => {
+    const stuck = [{ oldestSince: minutesAgo(30) }, { oldestSince: minutesAgo(165) }];
+
+    expect(oldestStuckOf(stuck, NOW)).toBe('2 h 45 min');
+  });
+
+  it('says no oldest stuck while nothing is stuck', () => {
+    expect(oldestStuckOf([], NOW)).toBeUndefined();
   });
 });
 

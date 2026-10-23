@@ -15,16 +15,25 @@ function agentsOf(counts: readonly ShipKindCount[]): ShipKindCount | undefined {
   return counts.find((count) => count.kind === 'agent');
 }
 
-/** The overview's ship metrics from the ship counts, at `now`. */
-export function overviewMetrics(input: { counts: readonly ShipKindCount[]; now: Date }): OverviewMetrics {
-  const agents = agentsOf(input.counts);
-  const longest = agents?.longestWait ?? null;
+/** The overview's ship metrics from the fleet snapshot, at `now`. */
+export function overviewMetrics(input: { ships: readonly ListedShip[]; now: Date }): OverviewMetrics {
+  const active = activeShipsOf(input.ships);
+  const awaiting = active.filter((ship) => ship.status === 'awaitingCrew');
+  const longest = awaiting
+    .flatMap((ship) => (ship.awaitingCrewSince === null ? [] : [{ name: ship.name, since: new Date(ship.awaitingCrewSince) }]))
+    .sort((first, second) => first.since.getTime() - second.since.getTime())[0];
   return {
-    activeCount: agents?.active ?? 0,
-    crewedCount: agents?.crewed ?? 0,
-    awaitingCount: agents?.awaitingCrew ?? 0,
-    longestWait: longest === null ? undefined : { name: longest.name, wait: duration(new Date(longest.awaitingCrewSince), input.now) },
+    activeCount: active.length,
+    crewedCount: active.filter((ship) => ship.status === 'crewed').length,
+    awaitingCount: awaiting.length,
+    longestWait: longest && { name: longest.name, wait: duration(longest.since, input.now) },
   };
+}
+
+/** Since how long the oldest stuck delivery waits (decision 0042), over the places where deliveries are stuck; none while nothing is stuck. */
+export function oldestStuckOf(stuck: readonly { oldestSince: string }[], now: Date): string | undefined {
+  const oldest = stuck.map((place) => new Date(place.oldestSince)).sort((first, second) => first.getTime() - second.getTime())[0];
+  return oldest && duration(oldest, now);
 }
 
 function ships(count: number): string {

@@ -2,7 +2,7 @@
 
 import type { AppRouter } from '@aeolus-fleet/core';
 import { onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { createTRPCClient, createWSClient, httpBatchLink, httpLink, splitLink, wsLink } from '@trpc/client';
+import { createTRPCClient, createWSClient, httpLink, splitLink, wsLink } from '@trpc/client';
 import { useState, type ReactNode } from 'react';
 
 import { Toaster } from '../components/atoms/toast';
@@ -37,8 +37,11 @@ function withCredentials(input: RequestInfo | URL, init?: RequestInit): Promise<
  * subscribes (lazy), so rendering on the server never opens one. The browser
  * sends the session cookie and the page's origin with the upgrade. A lost
  * connection is retried; tRPC resends the number of the last event, so the
- * server replays what was missed. Sign out travels alone, so no other call in
- * its batch renews the cookie it clears (lib/session-fetch.ts). The live
+ * server replays what was missed. Every other call travels in its own
+ * request, never batched: a batch answers when its slowest call does, so one
+ * slow read would hold up every part asked beside it (performance design,
+ * decision 2). Sign out waits for the calls on their way, so none of them
+ * renews the cookie it clears (lib/session-fetch.ts). The live
  * updates reopen the socket after an account's token is renewed (lib/live-updates.ts).
  */
 function createClient(serverUrl: string) {
@@ -58,11 +61,7 @@ function createClient(serverUrl: string) {
       splitLink({
         condition: (operation) => operation.type === 'subscription',
         true: wsLink({ client: sockets }),
-        false: splitLink({
-          condition: (operation) => operation.path === 'console.signOut',
-          true: httpLink({ url, fetch: sessionFetch }),
-          false: httpBatchLink({ url, fetch: sessionFetch }),
-        }),
+        false: httpLink({ url, fetch: sessionFetch }),
       }),
     ],
   });
