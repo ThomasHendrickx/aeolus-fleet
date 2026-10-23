@@ -65,32 +65,15 @@ const fromPlugin = aMessage({ sentAt: '2026-10-16T09:10:00.000Z', isFromPlugin: 
 const ENTRIES = [newer, late, fromPlugin, older, early, answered, done, stale];
 
 describe('inboxViewOf', () => {
-  it('shows open questions oldest first under Open', () => {
-    expect(idsOf(inboxViewOf(ENTRIES, 'open').questions)).toEqual([early.deliveryId, late.deliveryId]);
+  it('lays out every question the segment read, its open ones first and oldest first, then the answered and stale ones newest first: nothing left out', () => {
+    expect(idsOf(inboxViewOf(ENTRIES).questions)).toEqual([early.deliveryId, late.deliveryId, answered.deliveryId, stale.deliveryId]);
   });
 
-  it('shows open messages newest first, plugin ships apart', () => {
-    const view = inboxViewOf(ENTRIES, 'open');
+  it('lays out every message the segment read newest first, done ones too, plugin ships apart', () => {
+    const view = inboxViewOf(ENTRIES);
 
-    expect(idsOf(view.messages)).toEqual([newer.deliveryId, older.deliveryId]);
+    expect(idsOf(view.messages)).toEqual([newer.deliveryId, older.deliveryId, done.deliveryId]);
     expect(idsOf(view.pluginMessages)).toEqual([fromPlugin.deliveryId]);
-  });
-
-  it('keeps a question open while unanswered, also when its message is marked done', () => {
-    const markedDone = { ...aQuestion({ sentAt: '2026-10-16T08:00:00.000Z' }), state: 'acknowledged' as const };
-
-    expect(idsOf(inboxViewOf([markedDone], 'open').questions)).toEqual([markedDone.deliveryId]);
-  });
-
-  it('shows answered and stale questions and done messages under Done, newest first', () => {
-    const view = inboxViewOf(ENTRIES, 'done');
-
-    expect(idsOf(view.questions)).toEqual([answered.deliveryId, stale.deliveryId]);
-    expect(idsOf(view.messages)).toEqual([done.deliveryId]);
-  });
-
-  it('shows open questions first and then the rest under All', () => {
-    expect(idsOf(inboxViewOf(ENTRIES, 'all').questions)).toEqual([early.deliveryId, late.deliveryId, answered.deliveryId, stale.deliveryId]);
   });
 });
 
