@@ -144,7 +144,14 @@ export function installationFleetsStatement(fleetId: FleetId | null, window: Ins
 }
 
 export function createPrismaInstallationFleets(prisma: PrismaClient): InstallationFleets {
-  const read = async (fleetId: FleetId | null, window: InstallationFleetWindow) => (await prisma.$queryRaw<unknown[]>(installationFleetsStatement(fleetId, window))).map(toFacts);
+  // The planner charges oldestInFlightAt an events lookup for each of the
+  // hundreds of deliveries it expects in flight, which puts the statement past
+  // jit_above_cost though it runs in milliseconds: on staging JIT compiling
+  // took 37 ms of the read. JIT is off for this one statement.
+  const read = async (fleetId: FleetId | null, window: InstallationFleetWindow) => {
+    const [, rows] = await prisma.$transaction([prisma.$executeRaw`SET LOCAL jit = off`, prisma.$queryRaw<unknown[]>(installationFleetsStatement(fleetId, window))]);
+    return rows.map(toFacts);
+  };
   return {
     list: (window) => read(null, window),
     find: async (fleetId, window) => (await read(fleetId, window))[0],
