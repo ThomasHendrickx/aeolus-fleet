@@ -171,6 +171,8 @@ describe('initialise fleet', () => {
       noticeDismissals: [],
       installationGuide: null,
       guideProgress: [],
+      healthSnapshots: [],
+      healthSnapshotLocks: [],
     });
   });
 });

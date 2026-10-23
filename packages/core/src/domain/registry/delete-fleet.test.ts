@@ -52,6 +52,9 @@ function rowsOf(fleetId: FleetId): Record<keyof InMemoryState, number> {
     noticeDismissals: of(state.noticeDismissals),
     guideProgress: of(state.guideProgress),
     fleetLimitSettings: of(state.fleetLimitSettings),
+    healthSnapshots: of(state.healthSnapshots),
+    // Another instance's snapshot lock, as a test holds it: no row.
+    healthSnapshotLocks: 0,
     // The installation's settings belong to no fleet.
     installationSettings: 0,
     // Neither do its console notices (decision 0023).

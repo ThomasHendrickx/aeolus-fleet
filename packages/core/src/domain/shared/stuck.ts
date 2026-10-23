@@ -294,7 +294,7 @@ export interface StuckPlaceCount {
   deliveries: { deliveryId: DeliveryId; messageId: MessageId; state: StuckState; since: Date }[];
 }
 
-function isSamePlace(first: StuckPlace, second: StuckPlace): boolean {
+export function isSamePlace(first: StuckPlace, second: StuckPlace): boolean {
   return first.kind === 'ship' ? second.kind === 'ship' && first.shipId === second.shipId : second.kind === 'type' && first.type === second.type;
 }
 

@@ -7,6 +7,7 @@ import { createPrismaFleetEventFeed } from './adapters/prisma/event-log.js';
 import { createPrismaFleetCounter } from './adapters/prisma/fleet-counter.js';
 import { createPrismaShipHistory } from './adapters/prisma/history.js';
 import { createPrismaHealthRecords } from './adapters/prisma/health.js';
+import { createPrismaHealthSnapshots } from './adapters/prisma/health-snapshots.js';
 import { createPrismaPushedCrews } from './adapters/prisma/overdue.js';
 import {
   createPrismaFleetListing,
@@ -33,7 +34,7 @@ import {
 } from './adapters/prisma/installation.js';
 import { createPrismaDeclaredNetworkRulesRepository, createPrismaReachRefusalRepository } from './adapters/prisma/network.js';
 import { createPrismaScopeNamespaceRepository } from './adapters/prisma/scope-namespaces.js';
-import { createPrismaBulkUnitOfWork, createPrismaCallers, createPrismaUnitOfWork } from './adapters/prisma/unit-of-work.js';
+import { createPrismaBulkUnitOfWork, createPrismaCallers, createPrismaSnapshotUnitOfWork, createPrismaUnitOfWork } from './adapters/prisma/unit-of-work.js';
 import { createAuthenticate, type Authenticate } from './domain/identity/authenticate.js';
 import { createAuthenticateAccount, type AuthenticateAccount } from './domain/identity/authenticate-account.js';
 import { createAuthenticateInstallation, type AuthenticateInstallation } from './domain/identity/authenticate-installation.js';
@@ -153,6 +154,7 @@ import { createReadSentMessage, type ReadSentMessage } from './domain/shared/rea
 import { createReadShipWay, type ReadShipWay } from './domain/shared/read-ship-way.js';
 import { createReadNeedsAttention, type ReadNeedsAttention } from './domain/shared/read-needs-attention.js';
 import { createReadHealth, type ReadHealth } from './domain/shared/read-health.js';
+import { createCloseHealthSnapshots, type CloseHealthSnapshots } from './domain/shared/close-health-snapshots.js';
 import { createReadShipMessages, type ReadShipMessages } from './domain/shared/read-ship-messages.js';
 import { createReadShipTimeline, type ReadShipTimeline } from './domain/shared/read-ship-timeline.js';
 
@@ -221,6 +223,7 @@ export interface UseCases {
   reportNotHandled: ReportNotHandled;
   /** One pass of the 10 and 60 minute clocks; core runs it, never the API. */
   tellOverdueDeliveries: TellOverdueDeliveries;
+  closeHealthSnapshots: CloseHealthSnapshots;
   acknowledgeDelivery: AcknowledgeDelivery;
   answerPing: AnswerPing;
   pingShip: PingShip;
@@ -344,12 +347,14 @@ export function createUseCases(options: {
       fleets: createPrismaInstallationFleets(prisma),
       settings: createPrismaInstallationSettings(prisma),
       health: createPrismaHealthRecords(prisma),
+      snapshots: createPrismaHealthSnapshots(prisma),
       clock,
     }),
     getInstallationFleet: createGetInstallationFleet({
       fleets: createPrismaInstallationFleets(prisma),
       settings: createPrismaInstallationSettings(prisma),
       health: createPrismaHealthRecords(prisma),
+      snapshots: createPrismaHealthSnapshots(prisma),
       clock,
     }),
     commissionShip: createCommissionShip({ uow, clock, ids, secrets }),
@@ -430,6 +435,7 @@ export function createUseCases(options: {
     readDelivery: createReadDelivery({ uow }),
     reportNotHandled: createReportNotHandled({ uow, clock, ids }),
     tellOverdueDeliveries: createTellOverdueDeliveries({ fleets: createPrismaFleetRepository(prisma), pushedCrews: createPrismaPushedCrews(prisma), uow, clock, ids }),
+    closeHealthSnapshots: createCloseHealthSnapshots({ fleets: createPrismaFleetRepository(prisma), uow: createPrismaSnapshotUnitOfWork(prisma), clock }),
     acknowledgeDelivery: createAcknowledgeDelivery({ uow, clock, ids }),
     answerPing: createAnswerPing({ uow, clock, ids }),
     pingShip: createPingShip({ uow, clock, ids, hasher: sha256Hasher }),
@@ -453,7 +459,7 @@ export function createUseCases(options: {
     sentMessage: createReadSentMessage({ history: createPrismaShipHistory(prisma) }),
     readShipWay: createReadShipWay({ history: createPrismaShipHistory(prisma), uow, clock, ids }),
     readNeedsAttention: createReadNeedsAttention({ history: createPrismaShipHistory(prisma), readReach }),
-    readHealth: createReadHealth({ health: createPrismaHealthRecords(prisma), clock, readReach }),
+    readHealth: createReadHealth({ health: createPrismaHealthRecords(prisma), snapshots: createPrismaHealthSnapshots(prisma), clock, readReach }),
     readInbox: createReadInbox({ history: createPrismaShipHistory(prisma), ships: createPrismaShipRepository(prisma), readReach }),
     signIn: createSignIn({
       uow,
