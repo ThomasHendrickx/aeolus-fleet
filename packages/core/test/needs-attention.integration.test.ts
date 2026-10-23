@@ -136,7 +136,7 @@ describe('Needs attention on Postgres', () => {
     const first = await undeliverable();
     const second = await undeliverable();
     const third = await notHandled();
-    const read = (input: { shipId?: ShipId; cursor?: DeliveryId; limit?: number }) => core.useCases.readNeedsAttention(argo, input);
+    const read = (input: { shipId?: ShipId; state?: 'undeliverable' | 'notHandled'; cursor?: DeliveryId; limit?: number }) => core.useCases.readNeedsAttention(argo, input);
     const page = await read({ limit: 1 });
     unwrap(await core.useCases.dismissDelivery(argo, { deliveryId: first.deliveryId }));
 
@@ -149,6 +149,7 @@ describe('Needs attention on Postgres', () => {
       [[third.deliveryId], null],
     ]);
     expect([(await read({ shipId: scout.shipId })).items.length, (await read({ shipId: planner.shipId })).items.length]).toEqual([2, 0]);
+    expect((await read({ shipId: scout.shipId, state: 'notHandled' })).items.map((entry) => entry.deliveryId)).toEqual([third.deliveryId]);
   });
 
   it('tells an undeliverable delivery a pushed crew handed over again and again', async () => {

@@ -25,6 +25,10 @@ describe('needsAttentionInputSchema', () => {
     expect([needsAttentionInputSchema.parse({}), needsAttentionInputSchema.parse(input)]).toEqual([{}, input]);
   });
 
+  it('takes the state to list, undeliverable or not handled, and no other', () => {
+    expect([needsAttentionInputSchema.safeParse({ state: 'notHandled' }).success, needsAttentionInputSchema.safeParse({ state: 'pending' }).success]).toEqual([true, false]);
+  });
+
   it('refuses a cursor that names no delivery', () => {
     expect(needsAttentionInputSchema.safeParse({ cursor: newId('message') }).success).toBe(false);
   });

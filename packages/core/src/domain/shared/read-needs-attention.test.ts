@@ -256,6 +256,17 @@ describe('reading Needs attention', () => {
     expect(page.items.map((entry) => entry.message.id)).toEqual([lookouts]);
   });
 
+  it('lists only the deliveries in the state asked, for a ship page that shows its not handled ones', async () => {
+    await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.lookout.shipId } });
+    await receiveUntilUndeliverable(scene.lookout);
+    const lookouts = await scene.send(scene.planner, { to: { kind: 'type', type: 'reviewer' } });
+    await notHandled(scene.lookout, { messageId: lookouts });
+
+    const page = await scene.history.readNeedsAttention(scene.argo, { shipId: scene.lookout.shipId, state: 'notHandled' });
+
+    expect(page.items.map((entry) => [entry.message.id, entry.state])).toEqual([[lookouts, 'notHandled']]);
+  });
+
   it("knows nothing of another fleet's deliveries", async () => {
     await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.scout.shipId } });
     await receiveUntilUndeliverable(scene.scout);
