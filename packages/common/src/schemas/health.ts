@@ -7,6 +7,7 @@ import { z } from 'zod';
 
 import { idSchema } from '../ids/index.js';
 import { partySchema } from './history.js';
+import { pageInputOf, pageOutputOf } from './page.js';
 
 /** Why a delivery is stuck, one cause each (docs/blueprint.md, "Stuck"). */
 export const STUCK_CAUSES = ['undeliverable', 'noShipCanTake', 'waitingForCrew', 'stalledInFlight'] as const;
@@ -71,5 +72,11 @@ export type Health = z.infer<typeof healthOutputSchema>;
 /** Output of `fleet.stuckCount`: how many deliveries are stuck now, and since when the oldest waits; none when nothing is stuck. */
 export const stuckCountOutputSchema = z.object({ count: z.int().min(0), oldestSince: z.iso.datetime().nullable() });
 
-/** Output of `fleet.stuck`: the deliveries stuck now by cause and place, the oldest waiting first. */
-export const stuckOutputSchema = z.array(stuckPlaceHealthSchema);
+/** Where a page of stuck places ends: the oldest delivery of its last place, by since then id, as places are ordered. */
+export const stuckCursorSchema = z.object({ oldestSince: z.iso.datetime(), deliveryId: idSchema('delivery') });
+
+/** Input of `fleet.stuck`: a page of the places, after the cursor, of one cause when asked. */
+export const stuckInputSchema = pageInputOf(stuckCursorSchema).extend({ cause: stuckCauseSchema.optional() });
+
+/** Output of `fleet.stuck`: a page of the deliveries stuck now by cause and place, the oldest waiting first. */
+export const stuckOutputSchema = pageOutputOf(stuckPlaceHealthSchema, stuckCursorSchema);

@@ -23,6 +23,7 @@ import {
   listedShipOutputSchema,
   shipCountsOutputSchema,
   stuckCountOutputSchema,
+  stuckInputSchema,
   stuckOutputSchema,
   stuckPerHourSchema,
   operatorInboxInputSchema,
@@ -972,10 +973,15 @@ export const fleetRouter = router({
       return { count, oldestSince: oldestSince?.toISOString() ?? null };
     }),
 
-  /** The deliveries stuck now by cause and place (decision 0042), each ship with the machine behind it: Health's causes and machines. */
+  /** A page of the deliveries stuck now by cause and place (decision 0042), each ship with the machine behind it: Health's causes and machines. */
   stuck: actorScopedProcedure('fleet:read')
+    .input(stuckInputSchema)
     .output(stuckOutputSchema)
-    .query(async ({ ctx }) => describedStuck(await ctx.useCases.readStuck(ctx.caller))),
+    .query(async ({ ctx, input }) => {
+      const { cursor, ...page } = input;
+      const { items, nextCursor } = await ctx.useCases.readStuck(ctx.caller, { ...page, ...(cursor && { cursor: { ...cursor, oldestSince: new Date(cursor.oldestSince) } }) });
+      return { items: describedStuck(items), nextCursor: nextCursor && { ...nextCursor, oldestSince: nextCursor.oldestSince.toISOString() } };
+    }),
 
   /** How many deliveries were stuck at each hour of the last 7 days, the last one now: Health's trend. */
   stuckHistory: actorScopedProcedure('fleet:read')
