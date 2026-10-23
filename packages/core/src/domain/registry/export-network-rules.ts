@@ -1,4 +1,4 @@
-import { ANY_LABEL_VALUE, SAME_LABEL_VALUE, isOwnerTerm, type LabelId, type LabelValueId, type NetworkRulesFile, type ShipId } from '@aeolus-fleet/common';
+import { ANY_LABEL_VALUE, SAME_LABEL_VALUE, isOwnerTerm, type LabelId, type LabelValueId, type ExportedNetworkRules, type ShipId } from '@aeolus-fleet/common';
 
 import type { Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
@@ -17,17 +17,17 @@ export interface ExportNetworkRulesTx {
   ships: Pick<ShipRepository, 'find'>;
 }
 
-export type ExportNetworkRules = (caller: Caller) => Promise<Result<NetworkRulesFile, DomainError<'FLEET_NOT_FOUND'>>>;
+export type ExportNetworkRules = (caller: Caller) => Promise<Result<ExportedNetworkRules, DomainError<'FLEET_NOT_FOUND'>>>;
 
 /**
  * Use case: any actor holding fleet:network exports the fleet's applied
  * rules, never the draft, as the network rules file (design network-io,
- * section 4), checked before this runs. Read under the shared settings lock,
+ * section 4), with the rules it left out and why, checked before this runs. Read under the shared settings lock,
  * so the file holds one version; it changes nothing.
  */
 export function createExportNetworkRules(deps: { uow: UnitOfWork<ExportNetworkRulesTx>; clock: Clock }): ExportNetworkRules {
   return (caller) =>
-    deps.uow.run(async (tx): Promise<Result<NetworkRulesFile, DomainError<'FLEET_NOT_FOUND'>>> => {
+    deps.uow.run(async (tx): Promise<Result<ExportedNetworkRules, DomainError<'FLEET_NOT_FOUND'>>> => {
       const { fleetId } = caller;
       const fleet = await tx.fleets.find(fleetId);
       if (!fleet) {

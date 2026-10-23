@@ -50,6 +50,19 @@ export const networkRulesFileSchema = z.object({
 
 export type NetworkRulesFile = z.infer<typeof networkRulesFileSchema>;
 
+/**
+ * Output of `fleet.exportNetworkRules` (fleet:network): the file, and each
+ * applied rule it left out, by its place in the applied list from 1, with
+ * why: a rule naming a label or ship the fleet no longer has matches no
+ * ship, so it does not travel, but never silently.
+ */
+export const exportNetworkRulesOutputSchema = z.object({
+  file: networkRulesFileSchema,
+  leftOut: z.array(z.object({ rule: z.int().min(1), reason: z.string() })),
+});
+
+export type ExportedNetworkRules = z.infer<typeof exportNetworkRulesOutputSchema>;
+
 /** The file as attached or pasted: its text, parsed by the server, of at most 64 KB (decision 0006). */
 const fileTextSchema = z.string().refine((text) => payloadBytes(text) <= PAYLOAD_MAX_BYTES, `A network rules file is at most ${String(PAYLOAD_MAX_BYTES)} bytes (64 KB) in UTF-8`);
 

@@ -93,7 +93,7 @@ import {
   checkNetworkRulesFileOutputSchema,
   importNetworkRulesInputSchema,
   importNetworkRulesOutputSchema,
-  networkRulesFileSchema,
+  exportNetworkRulesOutputSchema,
   discardNetworkRulesDraftOutputSchema,
   networkRulesDraftChangesOutputSchema,
   networkRulesOutputSchema,
@@ -728,10 +728,10 @@ export const fleetRouter = router({
     .meta({
       description: [
         "Needs fleet:network. The fleet's applied network rules, never the draft, as one network rules file: every id by name, a label value by its key and value, a label by its key, an owner's ship by its name, beside the labels the rules use with their values and definers.",
-        'It carries the format aeolus.network-rules, its version, when it was exported, the fleet and the settings version of the rules, to tell two files apart. Rules of null are none applied, all-to-all. A rule on a label the fleet no longer has matches no ship and is left out. Bring it back with fleet_importNetworkRules, into this fleet or another.',
+        'It carries the format aeolus.network-rules, its version, when it was exported, the fleet and the settings version of the rules, to tell two files apart. Rules of null are none applied, all-to-all. A rule on a label or ship the fleet no longer has matches no ship: it is left out, and leftOut names it by its place in the applied list, with why. Bring the file back with fleet_importNetworkRules, into this fleet or another.',
       ].join(' '),
     })
-    .output(networkRulesFileSchema)
+    .output(exportNetworkRulesOutputSchema)
     .query(async ({ ctx }) => okOrThrow(await ctx.useCases.exportNetworkRules(ctx.caller))),
 
   /**

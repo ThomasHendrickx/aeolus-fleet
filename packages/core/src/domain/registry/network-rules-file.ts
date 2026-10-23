@@ -17,6 +17,7 @@ import {
   type FileLabel,
   type FileRule,
   type FileTerm,
+  type ExportedNetworkRules,
   type FleetId,
   type NetworkRulesDifference,
   type NetworkRulesFile,
@@ -142,7 +143,8 @@ function unknownTermIn(rule: FileRule, labels: readonly FileLabel[]): string | u
  * key and value, a label by its key, an owner's ship by its name; the labels
  * the rules use, by key as given, each with all its values and its definer's
  * name. A rule naming a label or ship the fleet no longer has matches no
- * ship, so it is left out. `rulesVersion` is the settings version.
+ * ship, so it is left out, and said so by its place in the applied list,
+ * with why. `rulesVersion` is the settings version.
  */
 export function exportedFile(input: {
   fleet: { id: FleetId; name: string };
@@ -150,9 +152,10 @@ export function exportedFile(input: {
   labels: readonly { label: Label; definer: string }[];
   shipNames: ReadonlyMap<ShipId, string>;
   at: Date;
-}): NetworkRulesFile {
+}): ExportedNetworkRules {
   const { applied, labels, shipNames } = input;
   const used = new Set<Label>();
+  const leftOut: ExportedNetworkRules['leftOut'] = [];
   const nameOf = (term: SelectorTerm): { term: FileTerm; label?: Label } | undefined => {
     if (typeof term === 'string') {
       const found = labels.find(({ label }) => label.values.some((value) => value.id === term))?.label;
@@ -169,10 +172,12 @@ export function exportedFile(input: {
   const rules =
     applied.rules === null
       ? null
-      : applied.rules.flatMap((rule): FileRule[] => {
+      : applied.rules.flatMap((rule, index): FileRule[] => {
           const [from, to] = [rule.from.map(nameOf), rule.to.map(nameOf)];
           const named = [...from, ...to];
-          if (named.some((term) => term === undefined)) {
+          const missing = [...rule.from, ...rule.to].find((_, place) => named[place] === undefined);
+          if (missing !== undefined) {
+            leftOut.push({ rule: index + 1, reason: typeof missing !== 'string' && isOwnerTerm(missing) ? 'names a ship that no longer exists' : 'uses a label that no longer exists (its definer retired or deleted it)' });
             return [];
           }
           for (const term of named) {
@@ -183,7 +188,7 @@ export function exportedFile(input: {
           const termsOf = (side: typeof from) => side.flatMap((term) => (term === undefined ? [] : [term.term]));
           return [{ verb: rule.verb, from: termsOf(from), to: termsOf(to) }];
         });
-  return {
+  const file: NetworkRulesFile = {
     format: NETWORK_RULES_FILE_FORMAT,
     version: NETWORK_RULES_FILE_VERSION,
     exportedAt: input.at.toISOString(),
@@ -192,6 +197,7 @@ export function exportedFile(input: {
     labels: labels.filter(({ label }) => used.has(label)).map(({ label, definer }) => ({ key: label.key, values: label.values.map((value) => value.value), definer })),
     rules,
   };
+  return { file, leftOut };
 }
 
 /** A label of the fleet as import compares it with the file: its key, its value texts and its definer's name, or `installation`. */

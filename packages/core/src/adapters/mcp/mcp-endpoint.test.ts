@@ -289,7 +289,7 @@ describe('the ship tools at /mcp', () => {
     ['fleet_discardNetworkRulesDraft', [/fleet:network/, /decision 0034/, /draft/]],
     ['fleet_networkRulesDraftChanges', [/fleet:network/, /decision 0034/, /gained/, /lost/]],
     ['fleet_applyNetworkRules', [/fleet:network/, /decision 0034/, /version/, /CONFLICT/, /draft/]],
-    ['fleet_exportNetworkRules', [/fleet:network/, /applied/, /never the draft/, /by name/, /fleet_importNetworkRules/]],
+    ['fleet_exportNetworkRules', [/fleet:network/, /applied/, /never the draft/, /by name/, /leftOut/, /fleet_importNetworkRules/]],
     ['fleet_checkNetworkRulesFile', [/fleet:network/, /labels:define/, /differences/, /ways/, /INVALID_NETWORK_RULES_FILE/, /changes nothing/]],
     ['fleet_importNetworkRules', [/fleet:network/, /labels:define/, /draft/, /fleet_applyNetworkRules/, /argo/, /manage reach/, /LABEL_DIFFERENCES/, /resolution/]],
     ['fleet_setBuiltInRule', [/fleet:network/, /decision 0034/, /never off/, /viewerRead/]],
