@@ -70,7 +70,7 @@ import { isSameWriter, type WrittenFacts } from '../../src/domain/registry/verif
 import type { ClearRequest } from '../../src/domain/registry/clear-request.js';
 import type { CrewRequest } from '../../src/domain/registry/crew-request.js';
 import type { Clock } from '../../src/domain/shared/clock.js';
-import type { EventLog, FleetEvent, FleetEventFeed, SequencedEvent } from '../../src/domain/shared/events.js';
+import type { EventLog, FleetEvent, FleetEventFeed, FleetEventWakeups, SequencedEvent } from '../../src/domain/shared/events.js';
 import { deliveryStepOf, type StandingOverdue, type WayCrew, type WayLease } from '../../src/domain/shared/delivery-way.js';
 import {
   isKeptBy,
@@ -198,6 +198,17 @@ export interface InMemoryWakeups extends ReceiverWakeups {
   watching(): number;
 }
 
+export interface InMemoryFleetNews extends FleetEventWakeups {
+  /** Every fleet a wait watched for news, in order. */
+  watched: FleetId[];
+  /** Every wait begun, in milliseconds. */
+  waits: number[];
+  /** What the next waits do, first one first. */
+  nextWaits: (() => Promise<'woken' | 'timedOut'>)[];
+  /** How many watches have not stopped. */
+  watching(): number;
+}
+
 export interface InMemoryCore {
   state: InMemoryState;
   uow: UnitOfWork<InMemoryTx>;
@@ -248,6 +259,8 @@ export interface InMemoryCore {
   passwords: PasswordHasher;
   random: RandomTokens;
   wakeups: InMemoryWakeups;
+  /** Wakes a wait on news of its fleet: any committed event. */
+  fleetNews: InMemoryFleetNews;
 }
 
 /** Whether a receive or a push receive holds the delivery: received or handed, in flight with its crew. */
@@ -1480,35 +1493,46 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
   };
 
 
-  let watches = 0;
-  const wakeups: InMemoryWakeups = {
-    watched: [],
-    waits: [],
-    nextWaits: [],
-    watching: () => watches,
-    watch: (address) => {
-      wakeups.watched.push({ ...address });
-      watches += 1;
-      let isStopped = false;
-      return {
-        next: (waitMs) => {
-          wakeups.waits.push(waitMs);
-          const step = wakeups.nextWaits.shift();
-          if (step) {
-            return step();
-          }
-          clock.advance(waitMs);
-          return Promise.resolve('timedOut');
-        },
-        stop: () => {
-          if (!isStopped) {
-            isStopped = true;
-            watches -= 1;
-          }
-        },
-      };
-    },
+  /**
+   * A watch that runs each wait's step when one is queued, and otherwise lets
+   * the wait pass on the clock: the receiver wake-ups and the fleet news alike.
+   */
+  const recordedWatches = <Address>(watched: Address[]) => {
+    const waits: number[] = [];
+    const nextWaits: (() => Promise<'woken' | 'timedOut'>)[] = [];
+    let watches = 0;
+    return {
+      watched,
+      waits,
+      nextWaits,
+      watching: () => watches,
+      watch: (address: Address) => {
+        watched.push(address);
+        watches += 1;
+        let isStopped = false;
+        return {
+          next: (waitMs: number) => {
+            waits.push(waitMs);
+            const step = nextWaits.shift();
+            if (step) {
+              return step();
+            }
+            clock.advance(waitMs);
+            return Promise.resolve<'woken' | 'timedOut'>('timedOut');
+          },
+          stop: () => {
+            if (!isStopped) {
+              isStopped = true;
+              watches -= 1;
+            }
+          },
+        };
+      },
+    };
   };
+  const receiverWatches = recordedWatches<ReceiverAddress>([]);
+  const wakeups: InMemoryWakeups = { ...receiverWatches, watch: (address) => receiverWatches.watch({ ...address }) };
+  const fleetNews: InMemoryFleetNews = recordedWatches<FleetId>([]);
 
   const numbered = (fleetId: FleetId) =>
     state.events.filter((event) => event.fleetId === fleetId).map((event, index) => ({ ...event, seq: index + 1 }));
@@ -1888,7 +1912,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
   };
 
-  return { state, uow, fleets: tx.fleets, pushedCrews, ships: tx.ships, leases: tx.leases, crewRequests: tx.crewRequests, clearRequests: tx.clearRequests, labels: tx.labels, reachRefusals: tx.reachRefusals, declaredNetworkRules: tx.declaredNetworkRules, scopeNamespaces: tx.scopeNamespaces, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, health: createInMemoryHealthRecords(state), notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeups };
+  return { state, uow, fleets: tx.fleets, pushedCrews, ships: tx.ships, leases: tx.leases, crewRequests: tx.crewRequests, clearRequests: tx.clearRequests, labels: tx.labels, reachRefusals: tx.reachRefusals, declaredNetworkRules: tx.declaredNetworkRules, scopeNamespaces: tx.scopeNamespaces, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, health: createInMemoryHealthRecords(state), notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeups, fleetNews };
 }
 
 /** The tables whose rows belong to a fleet by their fleet id: all but the fleets and the installation's requests. */

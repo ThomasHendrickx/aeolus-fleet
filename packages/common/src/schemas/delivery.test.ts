@@ -258,7 +258,11 @@ describe('inboxInputSchema', () => {
     },
   );
 
-  it.each([{ waitSeconds: -1 }, { waitSeconds: INBOX_WAIT_MAX_SECONDS + 1 }, { waitSeconds: 2.5 }])(
+  it.each([{ knownWaiting: 0 }, { waitSeconds: 25, knownWaiting: 3 }])('accepts %j: the count the crew knows, waiting while it is still that', (input) => {
+    expect(inboxInputSchema.parse(input)).toEqual(input);
+  });
+
+  it.each([{ waitSeconds: -1 }, { waitSeconds: INBOX_WAIT_MAX_SECONDS + 1 }, { waitSeconds: 2.5 }, { knownWaiting: -1 }, { knownWaiting: 1.5 }])(
     'rejects %j',
     (input) => {
       expect(inboxInputSchema.safeParse(input).success).toBe(false);

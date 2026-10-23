@@ -324,7 +324,7 @@ export function messagingUseCases(core: InMemoryCore) {
     readDelivery: createReadDelivery(deps),
     reportNotHandled: createReportNotHandled(deps),
     acknowledgeDelivery: createAcknowledgeDelivery(deps),
-    checkInbox: createCheckInbox({ ...deps, wakeups: core.wakeups }),
+    checkInbox: createCheckInbox({ ...deps, wakeups: core.wakeups, fleetNews: core.fleetNews }),
     dismissDelivery: createDismissDelivery({ ...deps, readReach: readReachOf(core) }),
     markDone: createMarkDone(deps),
     markRead: createMarkRead(deps),
