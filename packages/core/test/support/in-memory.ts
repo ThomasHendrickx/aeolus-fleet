@@ -58,6 +58,7 @@ import type {
 } from '../../src/domain/registry/ports.js';
 import { isSameOwner, type Label, type LabelOwner, type ListedLabel, type ShipLabel } from '../../src/domain/registry/label.js';
 import { matchesShipFilter } from '../../src/domain/registry/ship-filter.js';
+import { comparePositions, positionOf } from '../../src/domain/registry/ship-order.js';
 import type { DeclaredNetworkRules } from '../../src/domain/registry/declared-network-rules.js';
 import type { NetworkRulesDraft } from '../../src/domain/registry/network-rules-draft.js';
 import type { ScopeNamespace } from '../../src/domain/registry/scope-namespace.js';
@@ -1449,13 +1450,15 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
   };
 
   const listing: FleetListing = {
-    ships: (fleetId, { after, limit, filter }) =>
+    ships: (fleetId, { after, limit, filter, sort }) =>
       Promise.resolve(
         state.ships
-          .filter((held) => held.fleetId === fleetId && (after === undefined || held.id.localeCompare(after) > 0))
-          .sort((first, second) => first.id.localeCompare(second.id))
+          .filter((held) => held.fleetId === fleetId)
           .map(factsOf)
           .filter((facts) => matchesShipFilter(listedShipOf(facts), filter))
+          .map((facts) => ({ facts, position: positionOf(listedShipOf(facts), sort) }))
+          .filter(({ position }) => after === undefined || comparePositions(sort)(position, after) > 0)
+          .sort((first, second) => comparePositions(sort)(first.position, second.position))
           .slice(0, limit),
       ),
     ship: (fleetId, shipId) => {

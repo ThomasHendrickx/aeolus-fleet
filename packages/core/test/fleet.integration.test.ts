@@ -499,8 +499,8 @@ describe('listing the fleet on Postgres', () => {
     expect(listed.find((ship) => ship.name === 'lookout')?.retiredAt).toEqual(core.clock.now());
     expect(listed.map((ship) => [ship.name, ship.status, ship.startingPrompt?.isClaimed ?? null, ship.location])).toEqual([
       ['argo', 'crewed', null, null],
-      ['scout', 'crewed', true, { kind: 'SERVER', description: null }],
       ['lookout', 'retired', null, null],
+      ['scout', 'crewed', true, { kind: 'SERVER', description: null }],
     ]);
   });
 

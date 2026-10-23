@@ -426,8 +426,8 @@ describe('the labels a ship carries, and selecting ships by them', () => {
 
     expect(listed.map((ship) => [ship.name, ship.labels.map(({ key, value }) => `${key}=${value}`)])).toEqual([
       ['argo', []],
-      ['scout', ['os=linux']],
       ['builder', ['os=macos', 'project=hemma']],
+      ['scout', ['os=linux']],
       ['tester', ['os=linux', 'os=macos']],
     ]);
     expect(listed.find((ship) => ship.name === 'scout')?.labels).toEqual([
@@ -539,11 +539,11 @@ describe('a page of the fleet (decision 4 of the performance design)', () => {
   });
 
   it.each([
-    ['ship', 'ascending', ['argo', 'builder', 'scout', 'tester']],
-    ['ship', 'descending', ['tester', 'scout', 'builder', 'argo']],
-    ['status', 'ascending', ['builder', 'scout', 'tester', 'argo']],
-    ['status', 'descending', ['argo', 'builder', 'scout', 'tester']],
-  ] as const)('sorts by %s %s, ties by name, page after page', async (column, direction, names) => {
+    { column: 'ship', direction: 'ascending', names: ['argo', 'builder', 'scout', 'tester'] },
+    { column: 'ship', direction: 'descending', names: ['tester', 'scout', 'builder', 'argo'] },
+    { column: 'status', direction: 'ascending', names: ['builder', 'scout', 'tester', 'argo'] },
+    { column: 'status', direction: 'descending', names: ['argo', 'builder', 'scout', 'tester'] },
+  ] as const)('sorts by $column $direction, ties by name, page after page', async ({ column, direction, names }) => {
     await commissionShips(['tester', 'builder']);
 
     await expect(namesPaged({ sort: { column, direction }, limit: 3 }).then((pages) => pages.flat())).resolves.toEqual(names);
@@ -551,7 +551,7 @@ describe('a page of the fleet (decision 4 of the performance design)', () => {
 
   it('sorts by where a ship runs, the ships no session crews last either way', async () => {
     const [testerId, builderId] = await commissionShips(['tester', 'builder']);
-    crewShip(core, { fleetId, shipId: testerId ?? scoutId }, { harness: 'codex' });
+    crewShip(core, { fleetId, shipId: testerId ?? scoutId, harness: 'codex' });
     crewShip(core, { fleetId, shipId: builderId ?? scoutId });
 
     const ascending = await namesPaged({ sort: { column: 'runsOn', direction: 'ascending' }, limit: 2 });
@@ -656,14 +656,14 @@ describe('selecting the ships of a page by what the overview filters (decision 4
   });
 
   it.each([
-    ['console', [], ['argo']],
-    ['plugin', [], []],
-    ['trierarch', [], ['mac-mini']],
-    ['codex', [], ['tester']],
-    ['other', [], ['builder', 'old', 'scout']],
-  ] as const)('selects the ships whose agent kind is %s', async (kind, _unused, names) => {
+    ['console', ['argo']],
+    ['plugin', []],
+    ['trierarch', ['mac-mini']],
+    ['codex', ['tester']],
+    ['other', ['builder', 'old', 'scout']],
+  ] as const)('selects the ships whose agent kind is %s', async (kind, names) => {
     await shipWithScopes({ registry: useCases, argo }, { name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] });
-    crewShip(core, { fleetId, shipId: testerId }, { harness: 'codex' });
+    crewShip(core, { fleetId, shipId: testerId, harness: 'codex' });
 
     await expect(namesSelected({ kind: [kind] })).resolves.toEqual(names);
   });

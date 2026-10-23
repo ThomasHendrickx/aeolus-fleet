@@ -1,4 +1,4 @@
-import type { CrewRequestKey, LabelValueId, ShipStatus } from '@aeolus-fleet/common';
+import type { AgentKind, CrewRequestKey, LabelValueId, ShipId, ShipStatus } from '@aeolus-fleet/common';
 
 import { carriesEvery } from './label.js';
 import type { ListedShip } from './list-fleet.js';
@@ -20,6 +20,37 @@ export interface ShipFilter {
   crewRequest?: readonly CrewRequestKey[];
   /** Every one of these label values (decision 0031). */
   valueIds?: readonly LabelValueId[];
+  /** Any of these ships: a squadron's flagship and members, as the console resolves them. */
+  shipIds?: readonly ShipId[];
+  /** Any of these agent kinds (agentKindOf). */
+  kind?: readonly AgentKind[];
+  /** The ships the console's plugins run as: their agent kind is plugin. */
+  pluginShipIds?: readonly ShipId[];
+}
+
+/** The type of a machine's trierarch ship (decision 0026). */
+const TRIERARCH_TYPE = 'trierarch';
+
+const HARNESS_KINDS: Readonly<Partial<Record<string, AgentKind>>> = { 'claude-code': 'claudeCode', codex: 'codex' };
+
+/**
+ * What sort of agent crews a ship (idea #401), read from what the fleet
+ * knows: argo and the viewer are the console; a ship a console plugin runs as
+ * is a plugin; a ship of type trierarch is a machine's trierarch (decision
+ * 0026); any other is what its crewing session's harness says (decision
+ * 0018), other while no session crews it.
+ */
+export function agentKindOf(ship: Pick<ListedShip, 'id' | 'kind' | 'type' | 'harness'>, pluginShipIds: readonly ShipId[] = []): AgentKind {
+  if (ship.kind === 'operator' || ship.kind === 'viewer') {
+    return 'console';
+  }
+  if (pluginShipIds.includes(ship.id)) {
+    return 'plugin';
+  }
+  if (ship.type === TRIERARCH_TYPE) {
+    return 'trierarch';
+  }
+  return (ship.harness === null ? undefined : HARNESS_KINDS[ship.harness]) ?? 'other';
 }
 
 /**
@@ -45,7 +76,9 @@ export function matchesShipFilter(ship: ListedShip, filter: ShipFilter): boolean
     isPicked(filter.status, ship.status) &&
     isPicked(filter.type, ship.type) &&
     isPicked(filter.crewRequest, crewRequestKeyOf(ship.crewRequest)) &&
-    carriesEvery(ship.labels, filter.valueIds)
+    carriesEvery(ship.labels, filter.valueIds) &&
+    isPicked(filter.shipIds, ship.id) &&
+    isPicked(filter.kind, agentKindOf(ship, filter.pluginShipIds))
   );
 }
 

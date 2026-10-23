@@ -1,7 +1,8 @@
-import type { DeliveryId, DeliveryState, FleetId, LabelId, LabelValueId, LeaseId, LeaseWaker, MessageId, ScopeName, ShipId } from '@aeolus-fleet/common';
+import type { DeliveryId, DeliveryState, FleetId, LabelId, LabelValueId, LeaseId, LeaseWaker, MessageId, ScopeName, ShipId, ShipPosition } from '@aeolus-fleet/common';
 
 import type { Recipient } from '../shared/selector.js';
 import type { ShipFilter } from './ship-filter.js';
+import type { ShipSort } from './ship-order.js';
 import type { ClearRequest } from './clear-request.js';
 import type { CrewRequest } from './crew-request.js';
 import type { Fleet } from './fleet.js';
@@ -465,16 +466,17 @@ export interface InstallationFleets {
   find(fleetId: FleetId, window: InstallationFleetWindow): Promise<InstallationFleetFacts | undefined>;
 }
 
-/** Which of the fleet's ships a listing reads: those after a ship id that the filter selects, at most `limit`. */
+/** Which of the fleet's ships a listing reads: those the filter selects, in the sort's order (ship-order), after a position, at most `limit`. */
 export interface ShipPage {
-  after?: ShipId;
+  after?: ShipPosition;
   limit: number;
   filter: ShipFilter;
+  sort?: ShipSort;
 }
 
 export interface FleetListing {
-  /** A page of the fleet's ships, oldest first (by ship id), as `page` selects them (decision 4 of the performance design). */
-  ships(fleetId: FleetId, page: ShipPage): Promise<ShipFacts[]>;
+  /** A page of the fleet's ships as `page` selects and orders them, each with its position (decision 4 of the performance design). */
+  ships(fleetId: FleetId, page: ShipPage): Promise<{ facts: ShipFacts; position: ShipPosition }[]>;
   /** The fleet's labels by key, each with its values and its owner by id and name (decision 0031). */
   labels(fleetId: FleetId): Promise<ListedLabel[]>;
   /** One ship of the fleet, read the same way; undefined when the fleet has no such ship. */

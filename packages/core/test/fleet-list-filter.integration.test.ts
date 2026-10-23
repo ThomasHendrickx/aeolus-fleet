@@ -69,7 +69,7 @@ describe("fleet.list's filters on Postgres (decision 4 of the performance design
   });
 
   it('selects the ships without a crew request', async () => {
-    await expect(namesSelected({ crewRequest: ['none'] })).resolves.toEqual(['argo', 'trierarch-plugin', 'mac-mini', 'old']);
+    await expect(namesSelected({ crewRequest: ['none'] })).resolves.toEqual(['argo', 'mac-mini', 'old', 'trierarch-plugin']);
   });
 
   it('combines the filters with AND, a page holding only matches', async () => {

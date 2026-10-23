@@ -1,4 +1,4 @@
-import { PAGE_SIZE_DEFAULT, type ScopeName, type ShipId, type ShipKind, type ShipStatus } from '@aeolus-fleet/common';
+import { PAGE_SIZE_DEFAULT, type ScopeName, type ShipPosition, type ShipId, type ShipKind, type ShipStatus } from '@aeolus-fleet/common';
 
 import type { Caller } from '../shared/caller.js';
 import { readsShip, type ReadReachOf } from './read-reach.js';
@@ -7,6 +7,7 @@ import { pingStatusOf, type PingStatus } from './ping-status.js';
 import type { CrewRequest } from './crew-request.js';
 import type { CarriedLabel } from './label.js';
 import type { ShipFilter } from './ship-filter.js';
+import type { ShipSort } from './ship-order.js';
 import type { FleetListing, ShipFacts } from './ports.js';
 import type { ShipReport } from './ship-report.js';
 import { shipStatus } from './ship.js';
@@ -75,14 +76,14 @@ export function outsideReadReach({ id, name, type, status }: Pick<ListedShip, 'i
 
 export type ListFleet = (
   caller: Caller,
-  input?: ShipFilter & { cursor?: ShipId; limit?: number },
-) => Promise<{ ships: (ListedShip | ShipOutsideReadReach)[]; nextCursor: ShipId | null }>;
+  input?: ShipFilter & { sort?: ShipSort; cursor?: ShipPosition; limit?: number },
+) => Promise<{ ships: (ListedShip | ShipOutsideReadReach)[]; nextCursor: ShipPosition | null }>;
 
 /**
- * Use case: a page of the ships of the caller's fleet, `argo` included,
- * oldest first: those after the cursor that the filter selects (ship-filter),
- * PAGE_SIZE_DEFAULT unless the caller asks a size, and the ship id the next
- * page starts after, null on the last page (decision 4 of the performance
+ * Use case: a page of the ships of the caller's fleet, `argo` included:
+ * those the filter selects (ship-filter), in the sort's order (ship-order),
+ * after the cursor's position, PAGE_SIZE_DEFAULT unless the caller asks a
+ * size, and the position the next page starts after, null on the last page (decision 4 of the performance
  * design). With label value ids only the ships that carry every one of them
  * (decision 0031). A ship outside the
  * caller's read reach shows its name, type and status only, and no label
@@ -93,15 +94,15 @@ export type ListFleet = (
  */
 export function createListFleet(deps: { listing: FleetListing; readReach: ReadReachOf }): ListFleet {
   return async (caller, input) => {
-    const { cursor, limit = PAGE_SIZE_DEFAULT, ...filter } = input ?? {};
+    const { cursor, limit = PAGE_SIZE_DEFAULT, sort, ...filter } = input ?? {};
     const isSelectedByLabel = filter.valueIds !== undefined && filter.valueIds.length > 0;
     const [reach, read] = await Promise.all([
       deps.readReach(caller),
       // One ship past the page tells whether another page follows.
-      deps.listing.ships(caller.fleetId, { after: cursor, limit: limit + 1, filter }),
+      deps.listing.ships(caller.fleetId, { after: cursor, limit: limit + 1, filter, sort }),
     ]);
     const page = read.slice(0, limit);
-    const ships = page.flatMap((facts): (ListedShip | ShipOutsideReadReach)[] => {
+    const ships = page.flatMap(({ facts }): (ListedShip | ShipOutsideReadReach)[] => {
       const listed = listedShipOf(facts);
       if (readsShip(reach, facts.ship.id)) {
         return [listed];
@@ -109,7 +110,7 @@ export function createListFleet(deps: { listing: FleetListing; readReach: ReadRe
       return isSelectedByLabel ? [] : [outsideReadReach(listed)];
     });
     const last = page.at(-1);
-    return { ships, nextCursor: read.length > limit && last !== undefined ? last.ship.id : null };
+    return { ships, nextCursor: read.length > limit && last !== undefined ? last.position : null };
   };
 }
 
