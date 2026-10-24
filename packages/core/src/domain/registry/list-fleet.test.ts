@@ -493,7 +493,7 @@ describe('listing the fleet within read reach (decision 0034)', () => {
     expect(listed.find((ship) => ship.id === fleet.near.shipId)).toEqual((await fleet.registry.listFleet(fleet.argo)).ships.find((ship) => ship.id === fleet.near.shipId));
   });
 
-  it.each(['report', 'labels', 'runsOn', 'seen'] as const)(
+  it.each(['report', 'runsOn', 'seen'] as const)(
     'gives a ship outside read reach no %s to sort by, so the cursor after it holds only its name and id',
     async (column) => {
       const cursors = [];
@@ -618,20 +618,6 @@ describe('a page of the fleet (decision 4 of the performance design)', () => {
     await expect(namesPaged({ sort: { column: 'seen', direction: 'ascending' }, limit: 2 }).then((pages) => pages.flat())).resolves.toEqual([
       'builder',
       'tester',
-      'argo',
-      'scout',
-    ]);
-  });
-
-  it('sorts by the first label a ship carries, by key then value', async () => {
-    const [testerId, builderId] = await commissionShips(['tester', 'builder']);
-    unwrap(await useCases.defineLabel(argo, { key: 'os', values: ['macos', 'linux'] }));
-    unwrap(await useCases.assignLabel(argo, { shipId: testerId ?? scoutId, valueId: valueIdOf(core, { key: 'os', value: 'linux' }) }));
-    unwrap(await useCases.assignLabel(argo, { shipId: builderId ?? scoutId, valueId: valueIdOf(core, { key: 'os', value: 'macos' }) }));
-
-    await expect(namesPaged({ sort: { column: 'labels', direction: 'ascending' }, limit: 2 }).then((pages) => pages.flat())).resolves.toEqual([
-      'tester',
-      'builder',
       'argo',
       'scout',
     ]);

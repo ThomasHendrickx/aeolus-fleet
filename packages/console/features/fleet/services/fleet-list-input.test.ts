@@ -68,11 +68,7 @@ describe("the overview's sort as fleet.list orders by it", () => {
     expect(fleetListSortOf(null)).toBeUndefined();
   });
 
-  it('sorts Squadron and labels by the labels', () => {
-    expect(fleetListSortOf({ column: 'squadronAndLabels', direction: 'descending' })).toEqual({ column: 'labels', direction: 'descending' });
-  });
-
-  it('sorts every other column by itself', () => {
+  it('sorts each column by itself', () => {
     expect(fleetListSortOf({ column: 'seen', direction: 'ascending' })).toEqual({ column: 'seen', direction: 'ascending' });
   });
 });

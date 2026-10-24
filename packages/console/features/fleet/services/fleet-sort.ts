@@ -1,9 +1,10 @@
 /**
  * Sorting the overview by one of its columns: A to Z, Z to A, then back to
  * the default order. `fleet.list` sorts each column by what it shows, so the
- * order reads as the table does (fleet-list-input).
+ * order reads as the table does (fleet-list-input). Squadron and labels
+ * does not sort: the label filter selects by labels.
  */
-export const SORT_COLUMNS = ['ship', 'status', 'report', 'squadronAndLabels', 'runsOn', 'seen'] as const;
+export const SORT_COLUMNS = ['ship', 'status', 'report', 'runsOn', 'seen'] as const;
 
 export type SortColumn = (typeof SORT_COLUMNS)[number];
 

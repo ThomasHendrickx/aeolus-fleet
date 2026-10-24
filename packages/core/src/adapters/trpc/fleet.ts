@@ -504,7 +504,7 @@ export const fleetRouter = router({
       description: [
         'Needs fleet:read. A page of the active ships of the fleet, argo included, and of the retired ones only when status asks for retired: id, name, type, kind, status, scopes, labels, where its session runs and in which harness, when it was last seen, its last ping, and its current model (the last its sessions stated). Never a secret.',
         `A page holds limit ships (${String(PAGE_SIZE_DEFAULT)} unless you ask, at most ${String(PAGE_SIZE_MAX)}); nextCursor is where the next page starts: pass it as cursor, with the same filters and sort, to read on, until it is null. A page that selects by label may hold fewer ships than limit while more follow.`,
-        'Ordered argo first, then by name; or by sort: a column (ship, status, report, labels, runsOn, seen) A to Z or Z to A, ships with nothing in it last, ties by name.',
+        'Ordered argo first, then by name; or by sort: a column (ship, status, report, runsOn, seen) A to Z or Z to A, ships with nothing in it last, ties by name.',
         'A ship outside your read reach shows its id, name, type and status only, with isInReadReach false (decision 0034).',
         'With valueIds (label value ids, from fleet_labels or fleet_findLabelValue), only the ships in your read reach that carry every one of them: exact matches, combined with AND.',
         'Filters, each combined with AND: query (text the name or type holds, in any case); status, type, shipIds, crewRequest (none, needsCrew, crewedByHand, or the status the trierarch wrote) and kind (console, claudeCode, codex, trierarch, plugin as pluginShipIds names them, other) take any of the values given.',

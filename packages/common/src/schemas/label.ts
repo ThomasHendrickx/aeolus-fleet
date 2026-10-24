@@ -71,7 +71,7 @@ export const shipTypesInputSchema = z.object({ status: z.array(shipStatusSchema)
 export const shipTypesOutputSchema = z.array(z.string());
 
 /** The columns `fleet.list` sorts by, as the overview shows them. */
-export const SHIP_SORT_COLUMNS = ['ship', 'status', 'report', 'labels', 'runsOn', 'seen'] as const;
+export const SHIP_SORT_COLUMNS = ['ship', 'status', 'report', 'runsOn', 'seen'] as const;
 export type ShipSortColumn = (typeof SHIP_SORT_COLUMNS)[number];
 
 /**

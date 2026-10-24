@@ -551,14 +551,14 @@ function ShipNameCell({ ship }: { ship: ListedShip }) {
   );
 }
 
-/** The desktop columns that sort, with their headers, in table order. */
-const SORTED_HEADS: readonly { column: SortColumn; head: string }[] = [
-  { column: 'ship', head: 'Ship' },
-  { column: 'status', head: 'Status' },
-  { column: 'report', head: 'Report' },
-  { column: 'squadronAndLabels', head: 'Squadron and labels' },
-  { column: 'runsOn', head: 'Runs on' },
-  { column: 'seen', head: 'Seen' },
+/** The desktop columns with their headers, in table order, and the column each sorts by; Squadron and labels sorts by none. */
+const HEADS: readonly { key: string; column?: SortColumn; head: string }[] = [
+  { key: 'ship', column: 'ship', head: 'Ship' },
+  { key: 'status', column: 'status', head: 'Status' },
+  { key: 'report', column: 'report', head: 'Report' },
+  { key: 'squadronAndLabels', head: 'Squadron and labels' },
+  { key: 'runsOn', column: 'runsOn', head: 'Runs on' },
+  { key: 'seen', column: 'seen', head: 'Seen' },
 ];
 
 function DesktopTable({
@@ -591,12 +591,12 @@ function DesktopTable({
         </colgroup>
         <TableHeader>
           <TableRow>
-            {SORTED_HEADS.map(({ column, head }) =>
-              onSort === undefined ? (
-                <TableHead key={column}>{head}</TableHead>
+            {HEADS.map(({ key, column, head }) =>
+              onSort === undefined || column === undefined ? (
+                <TableHead key={key}>{head}</TableHead>
               ) : (
                 <TableSortHead
-                  key={column}
+                  key={key}
                   data-testid={`fleet-sort-${column}`}
                   direction={sort?.column === column ? sort.direction : null}
                   onSort={() => {

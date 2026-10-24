@@ -1,11 +1,8 @@
-import type { FleetListFilter, FleetListSort, ShipSortColumn } from '@aeolus-fleet/common';
+import type { FleetListFilter, FleetListSort } from '@aeolus-fleet/common';
 
 import type { ShipInSquadron } from '../../../lib/squadrons-view';
 import type { FleetView } from './fleet-filter';
-import type { FleetSort, SortColumn } from './fleet-sort';
-
-/** The column `fleet.list` sorts by for each of the overview's: Squadron and labels sorts by the labels. */
-const SORT_COLUMNS_OF: Record<SortColumn, ShipSortColumn> = { ship: 'ship', status: 'status', report: 'report', squadronAndLabels: 'labels', runsOn: 'runsOn', seen: 'seen' };
+import type { FleetSort } from './fleet-sort';
 
 /**
  * The overview's view as `fleet.list` selects it, in the same query as the
@@ -42,5 +39,5 @@ function shipIdsInSquadrons(squadronIds: readonly string[], squadronsOf: Readonl
 
 /** The overview's sort as `fleet.list` orders by it; none keeps the default order. */
 export function fleetListSortOf(sort: FleetSort | null): FleetListSort | undefined {
-  return sort === null ? undefined : { column: SORT_COLUMNS_OF[sort.column], direction: sort.direction };
+  return sort === null ? undefined : { column: sort.column, direction: sort.direction };
 }

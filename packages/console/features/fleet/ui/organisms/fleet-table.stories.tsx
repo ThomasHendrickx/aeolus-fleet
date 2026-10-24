@@ -528,7 +528,6 @@ function kindRowsOf(view: FleetView): ListedShip[] {
         return one === undefined || other === undefined ? Number(one === undefined) - Number(other === undefined) : sign * one.localeCompare(other);
       });
     case 'status':
-    case 'squadronAndLabels':
     case 'runsOn':
     case 'seen':
     case undefined:
@@ -641,15 +640,14 @@ function shownNames(canvasElement: HTMLElement): string[] {
     .map((row) => row.dataset.testid?.replace('fleet-row-', '') ?? '');
 }
 
-/** No column sorted: argo first, then by name, every header offering to sort. */
+/** No column sorted: argo first, then by name, every header but Squadron and labels offering to sort. */
 export const Unsorted: Story = {
   args: KIND_ARGS,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(shownNames(canvasElement)[0]).toBe('argo');
-    for (const header of within(canvas.getByRole('table', { name: 'Ships' })).getAllByRole('columnheader').slice(0, 6)) {
-      await expect(header).toHaveAttribute('aria-sort', 'none');
-    }
+    const headers = within(canvas.getByRole('table', { name: 'Ships' })).getAllByRole('columnheader').slice(0, 6);
+    await expect(headers.map((header) => header.getAttribute('aria-sort'))).toEqual(['none', 'none', 'none', null, 'none', 'none']);
   },
 };
 
