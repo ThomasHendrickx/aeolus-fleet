@@ -1,4 +1,4 @@
-import { PING_CONTENT_TYPE, idSchema, scopeNameSchema, type FleetId, type LabelId, type ShipId, type ShipPosition } from '@aeolus-fleet/common';
+import { PING_CONTENT_TYPE, idSchema, scopeNameSchema, type FleetId, type LabelId, type ShipId, type ShipPosition, type ShipStatus } from '@aeolus-fleet/common';
 
 import { z } from 'zod';
 
@@ -699,7 +699,7 @@ export function shipFilterCondition(
   const conditions = [
     isHiddenFilterPicked ? Prisma.sql`AND ${isInReachOfShip(reach)}` : undefined,
     needle === '' ? undefined : Prisma.sql`AND (strpos(lower(s.name), ${needle}) > 0 OR strpos(lower(s.type), ${needle}) > 0)`,
-    status.length === 0 ? undefined : Prisma.sql`AND ${statusOfShip} = ANY(${[...status]}::text[])`,
+    ...statusConditions(status),
     type.length === 0 ? undefined : Prisma.sql`AND s.type = ANY(${[...type]}::text[])`,
     crewRequest.length === 0 ? undefined : Prisma.sql`AND COALESCE(${crewRequestKeyOfShip}, 'none') = ANY(${[...crewRequest]}::text[])`,
     values.length === 0
@@ -710,6 +710,22 @@ export function shipFilterCondition(
     kind.length === 0 ? undefined : Prisma.sql`AND ${agentKindOfShip(pluginShipIds)} = ANY(${[...kind]}::text[])`,
   ].filter((condition) => condition !== undefined);
   return conditions.length === 0 ? Prisma.empty : Prisma.join(conditions, ' ');
+}
+
+/**
+ * The ships of any status picked: a pick without retired reads only active
+ * ships, which the listing indexes hold, and a pick of every active status
+ * needs nothing more.
+ */
+function statusConditions(status: readonly ShipStatus[]): Prisma.Sql[] {
+  if (status.length === 0) {
+    return [];
+  }
+  if (status.includes('retired')) {
+    return [Prisma.sql`AND ${statusOfShip} = ANY(${[...status]}::text[])`];
+  }
+  const active = Prisma.sql`AND s.retired_at IS NULL`;
+  return status.includes('awaitingCrew') && status.includes('crewed') ? [active] : [active, Prisma.sql`AND ${statusOfShip} = ANY(${[...status]}::text[])`];
 }
 
 /** A ship's status as its sort shows it (ship-order's STATUS_WORDS), for the ship `s` of the outer query. */
@@ -763,24 +779,87 @@ function sortIsEmptyOfShip(sort: ShipSort | undefined, value: Prisma.Sql): Prism
   return sort === undefined ? Prisma.sql`s.kind <> 'operator'` : Prisma.sql`${value} = ''`;
 }
 
-/** The ships after the position, in the order of `ranked`'s columns (ship-order's comparePositions). */
+/** One term of the page's order: a column of `ranked`, in "C" collation unless it is the boolean. */
+interface OrderTerm {
+  column: 'sort_is_empty' | 'sort_value' | 'sort_name' | 'id';
+  isDescending: boolean;
+}
+
+/**
+ * The terms the page orders by, those of ship-order's comparePositions that
+ * can differ: without a sort the value is always empty, and by ship it is the
+ * name and never empty. So the default order and the ship sort are the keys
+ * of their listing indexes.
+ */
+function orderTermsOf(sort: ShipSort | undefined): OrderTerm[] {
+  const isDescending = isValueDescending(sort);
+  if (sort === undefined) {
+    return [{ column: 'sort_is_empty', isDescending: false }, { column: 'sort_name', isDescending: false }, { column: 'id', isDescending: false }];
+  }
+  if (sort.column === 'ship') {
+    return [{ column: 'sort_value', isDescending }, { column: 'id', isDescending: false }];
+  }
+  return [
+    { column: 'sort_is_empty', isDescending: false },
+    { column: 'sort_value', isDescending },
+    { column: 'sort_name', isDescending: false },
+    { column: 'id', isDescending: false },
+  ];
+}
+
+function termOf(alias: string, { column }: OrderTerm): Prisma.Sql {
+  const term = Prisma.raw(`${alias}.${column}`);
+  return column === 'sort_is_empty' ? term : Prisma.sql`${term} COLLATE "C"`;
+}
+
+function positionValueOf(position: ShipPosition, { column }: OrderTerm): Prisma.Sql {
+  switch (column) {
+    case 'sort_is_empty':
+      return Prisma.sql`${position.isEmpty}`;
+    case 'sort_value':
+      return Prisma.sql`${position.value}`;
+    case 'sort_name':
+      return Prisma.sql`${position.name}`;
+    case 'id':
+      return Prisma.sql`${position.id}`;
+  }
+}
+
+/**
+ * The ships after the position, in the order of the terms. Terms all
+ * ascending compare as one row, which a listing index seeks to; with a
+ * descending first term, its bound comes first, so the index seeks to it.
+ */
 function afterPosition(position: ShipPosition | undefined, sort: ShipSort | undefined): Prisma.Sql {
   if (position === undefined) {
     return Prisma.empty;
   }
-  const beyond = isValueDescending(sort) ? Prisma.sql`<` : Prisma.sql`>`;
-  return Prisma.sql`WHERE ranked.sort_is_empty > ${position.isEmpty}
-    OR (ranked.sort_is_empty = ${position.isEmpty}
-        AND (ranked.sort_value COLLATE "C" ${beyond} ${position.value}
-             OR (ranked.sort_value = ${position.value}
-                 AND (ranked.sort_name COLLATE "C" > ${position.name}
-                      OR (ranked.sort_name = ${position.name} AND ranked.id COLLATE "C" > ${position.id})))))`;
+  const terms = orderTermsOf(sort);
+  if (terms.every((term) => !term.isDescending)) {
+    const ranked = Prisma.join(terms.map((term) => termOf('ranked', term)));
+    const values = Prisma.join(terms.map((term) => positionValueOf(position, term)));
+    return Prisma.sql`WHERE (${ranked}) > (${values})`;
+  }
+  const [first] = terms;
+  const bound = first?.isDescending === true ? Prisma.sql`${termOf('ranked', first)} <= ${positionValueOf(position, first)} AND ` : Prisma.empty;
+  return Prisma.sql`WHERE ${bound}(${beyond(terms, position)})`;
+}
+
+/** Whether a ship comes after the position by the first term that differs. */
+function beyond(terms: readonly OrderTerm[], position: ShipPosition): Prisma.Sql {
+  const [term, ...rest] = terms;
+  if (term === undefined) {
+    return Prisma.sql`false`;
+  }
+  const ranked = termOf('ranked', term);
+  const value = positionValueOf(position, term);
+  const after = term.isDescending ? Prisma.sql`${ranked} < ${value}` : Prisma.sql`${ranked} > ${value}`;
+  return rest.length === 0 ? after : Prisma.sql`${after} OR (${ranked} = ${value} AND (${beyond(rest, position)}))`;
 }
 
 function orderOfPage(alias: string, sort: ShipSort | undefined): Prisma.Sql {
-  const table = Prisma.raw(alias);
-  const direction = isValueDescending(sort) ? Prisma.sql`DESC` : Prisma.sql`ASC`;
-  return Prisma.sql`ORDER BY ${table}.sort_is_empty, ${table}.sort_value COLLATE "C" ${direction}, ${table}.sort_name COLLATE "C", ${table}.id COLLATE "C"`;
+  const terms = orderTermsOf(sort).map((term) => Prisma.sql`${termOf(alias, term)} ${term.isDescending ? Prisma.sql`DESC` : Prisma.sql`ASC`}`);
+  return Prisma.sql`ORDER BY ${Prisma.join(terms)}`;
 }
 
 /**

@@ -111,7 +111,8 @@ describe('a page of 20 at 3,000 ships, read through its keyset index (decision 4
     const { id, name } = seeded(2_000);
     const plan = await planOfPage({ after: { isEmpty: false, value: name, name, id }, limit: 21, filter: ACTIVE, sort: { column: 'ship', direction }, reach: { kind: 'every' } });
 
-    expect(rowsOfIndex(plan, 'ships_name_listing_idx')).toBeOneOf([21, 22]);
+    // Beyond the page: the cursor's own ship, and one more that ends the last name's ties.
+    expect(rowsOfIndex(plan, 'ships_name_listing_idx')).toBeOneOf([21, 22, 23]);
   });
 });
 
