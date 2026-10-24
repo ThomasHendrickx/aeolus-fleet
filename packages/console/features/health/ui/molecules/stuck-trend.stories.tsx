@@ -7,7 +7,7 @@ import { StuckTrend } from './stuck-trend';
 const meta = {
   title: 'Molecules/StuckTrend',
   component: StuckTrend,
-  args: { perHour: STUCK_HEALTH.stuckPerHour, marks: marksOf(STUCK_HEALTH) },
+  args: { perHour: STUCK_HEALTH.stuckPerHour, marks: marksOf({ places: STUCK_HEALTH.stuck, stuckPerHour: STUCK_HEALTH.stuckPerHour }) },
   decorators: [(Story) => <div className="max-w-2xl">{Story()}</div>],
 } satisfies Meta<typeof StuckTrend>;
 

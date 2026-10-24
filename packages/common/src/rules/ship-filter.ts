@@ -1,22 +1,13 @@
-import type { AgentKind, CrewRequestKey, LabelValueId, ShipId, ShipKind, ShipStatus } from '@aeolus-fleet/common';
-
-import { carriesEvery } from './label.js';
-import { isNeedingCrew } from './ship-counts.js';
-import type { ListedShip } from './list-fleet.js';
-
-/** What the fleet snapshot's reads select by status when the caller asks none: the active ships, so retired ones come only when asked. */
-export const ACTIVE_STATUSES: readonly ShipStatus[] = ['awaitingCrew', 'crewed'];
-
-/** The statuses asked, or the active ones when none are. */
-export function statusesAsked(status: readonly ShipStatus[] | undefined): readonly ShipStatus[] {
-  return status === undefined || status.length === 0 ? ACTIVE_STATUSES : status;
-}
+import type { ShipKind, ShipStatus } from '../fleet/index.js';
+import type { LabelValueId, ShipId } from '../ids/index.js';
+import type { CrewRequestKey, CrewStatus } from '../schemas/crew-request.js';
+import type { AgentKind } from '../schemas/label.js';
 
 /**
- * Which ships a page of the fleet snapshot selects (decision 4 of the
- * performance design): the overview's search and filters, applied where the
- * ships are read, so a page holds only matches. Every filter combines with
- * AND; one left out, or empty, selects every ship.
+ * Which ships `fleet.list` and the ship counts select (decision 4 of the
+ * performance design), as one rule: core applies it where the ships are
+ * read, and the console to a ship's row a live event brings. Every filter
+ * combines with AND; one left out, or empty, selects every ship.
  */
 export interface ShipFilter {
   /** Text the ship's name or type holds, in any case. */
@@ -45,6 +36,26 @@ export interface ShipFilter {
   pluginShipIds?: readonly ShipId[];
 }
 
+/** What the rule reads of a ship, as `fleet.list` lists it in core and in the console. */
+export interface FilteredShip {
+  id: ShipId;
+  name: string;
+  type: string;
+  kind: ShipKind;
+  status: ShipStatus;
+  harness: string | null;
+  labels: readonly { valueId: LabelValueId }[];
+  crewRequest: { assignedTo: { id: ShipId } | null; crewedBy: { id: ShipId } | null; status: CrewStatus | null } | null;
+}
+
+/** What the fleet snapshot's reads select by status when the caller asks none: the active ships, so retired ones come only when asked. */
+export const ACTIVE_STATUSES: readonly ShipStatus[] = ['awaitingCrew', 'crewed'];
+
+/** The statuses asked, or the active ones when none are. */
+export function statusesAsked(status: readonly ShipStatus[] | undefined): readonly ShipStatus[] {
+  return status === undefined || status.length === 0 ? ACTIVE_STATUSES : status;
+}
+
 /** The type of a machine's trierarch ship (decision 0026). */
 const TRIERARCH_TYPE = 'trierarch';
 
@@ -57,7 +68,7 @@ const HARNESS_KINDS: Readonly<Partial<Record<string, AgentKind>>> = { 'claude-co
  * 0026); any other is what its crewing session's harness says (decision
  * 0018), other while no session crews it.
  */
-export function agentKindOf(ship: Pick<ListedShip, 'id' | 'kind' | 'type' | 'harness'>, pluginShipIds: readonly ShipId[] = []): AgentKind {
+export function agentKindOf(ship: Pick<FilteredShip, 'id' | 'kind' | 'type' | 'harness'>, pluginShipIds: readonly ShipId[] = []): AgentKind {
   if (ship.kind === 'operator' || ship.kind === 'viewer') {
     return 'console';
   }
@@ -75,7 +86,7 @@ export function agentKindOf(ship: Pick<ListedShip, 'id' | 'kind' | 'type' | 'har
  * trierarch, the status it wrote, crewing before it wrote one; crewed by hand
  * while still unassigned; or else needs crew.
  */
-export function crewRequestKeyOf(crewRequest: ListedShip['crewRequest']): CrewRequestKey {
+export function crewRequestKeyOf(crewRequest: FilteredShip['crewRequest']): CrewRequestKey {
   if (crewRequest === null) {
     return 'none';
   }
@@ -86,12 +97,40 @@ export function crewRequestKeyOf(crewRequest: ListedShip['crewRequest']): CrewRe
 }
 
 /**
+ * Whether the ship is on Needs crew (#245): an active ship whose crew request
+ * no trierarch holds and no crew by hand took. With trierarchs, also a request
+ * a trierarch holds that is not running or being released; without them, only
+ * while the ship awaits crew.
+ */
+export function isNeedingCrew(ship: Pick<FilteredShip, 'status' | 'crewRequest'>, plugin: { hasTrierarchs: boolean }): boolean {
+  const request = ship.crewRequest;
+  if (ship.status === 'retired' || request === null) {
+    return false;
+  }
+  const isUnassigned = request.assignedTo === null && request.crewedBy === null;
+  if (!plugin.hasTrierarchs) {
+    return isUnassigned && ship.status === 'awaitingCrew';
+  }
+  const isHeldAndNotRunning = request.assignedTo !== null && request.status !== 'running' && request.status !== 'releasing';
+  return isUnassigned || isHeldAndNotRunning;
+}
+
+/**
+ * Whether a ship carries every value of the selector: exact matches by id,
+ * combined with AND (decision 0031). No selector, or an empty one, selects
+ * every ship.
+ */
+export function carriesEvery(carried: readonly { valueId: LabelValueId }[], valueIds: readonly LabelValueId[] | undefined): boolean {
+  return (valueIds ?? []).every((valueId) => carried.some((label) => label.valueId === valueId));
+}
+
+/**
  * Whether the filter selects the ship. A ship outside the caller's read reach
  * shows its name, type and status only (decision 0034), so the filters on
  * what it does not show (crew request and its trierarch, agent kind, label values) never
  * select it.
  */
-export function matchesShipFilter(ship: ListedShip, { filter, isInReach }: { filter: ShipFilter; isInReach: boolean }): boolean {
+export function matchesShipFilter(ship: FilteredShip, { filter, isInReach }: { filter: ShipFilter; isInReach: boolean }): boolean {
   const query = filter.query?.trim().toLowerCase() ?? '';
   const isHiddenFilterPicked = filter.needsCrew !== undefined || [filter.crewRequest, filter.assignedTo, filter.kind, filter.valueIds].some((picked) => picked !== undefined && picked.length > 0);
   return (
@@ -111,7 +150,7 @@ export function matchesShipFilter(ship: ListedShip, { filter, isInReach }: { fil
 }
 
 /** Whether the ship's crew request is assigned to one of the trierarchs picked; nothing picked passes every ship. */
-function isAssignedToAny(trierarchShipIds: readonly ShipId[] | undefined, crewRequest: ListedShip['crewRequest']): boolean {
+function isAssignedToAny(trierarchShipIds: readonly ShipId[] | undefined, crewRequest: FilteredShip['crewRequest']): boolean {
   const assignedTo = crewRequest?.assignedTo?.id;
   return trierarchShipIds === undefined || trierarchShipIds.length === 0 || (assignedTo !== undefined && trierarchShipIds.includes(assignedTo));
 }

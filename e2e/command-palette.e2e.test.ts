@@ -71,24 +71,18 @@ async function signedInPage(options: { isPhone?: boolean } = {}): Promise<Page> 
   return page;
 }
 
-/** A batched tRPC request's inputs, by the index of each call in the batch. */
-const batchInputSchema = z.record(z.string(), z.record(z.string(), z.unknown()));
+/** A tRPC request's input: the browser sends each read on its own. */
+const inputSchema = z.record(z.string(), z.unknown());
 
-/** What the browser asked of fleet.list from now on, each call's input, as the batched tRPC requests carry them. */
+/** What the browser asked of fleet.list from now on, each call's input. */
 function fleetListAsked(page: Page): Record<string, unknown>[] {
   const asked: Record<string, unknown>[] = [];
   page.on('request', (request) => {
     const url = new URL(request.url());
-    const procedures = url.pathname.replace(/^\/trpc\//, '').split(',');
-    if (!url.pathname.startsWith('/trpc/') || !procedures.includes('fleet.list')) {
+    if (url.pathname !== '/trpc/fleet.list') {
       return;
     }
-    const inputs = new Map(Object.entries(batchInputSchema.parse(JSON.parse(url.searchParams.get('input') ?? '{}'))));
-    procedures.forEach((procedure, index) => {
-      if (procedure === 'fleet.list') {
-        asked.push(inputs.get(String(index)) ?? {});
-      }
-    });
+    asked.push(inputSchema.parse(JSON.parse(url.searchParams.get('input') ?? '{}')));
   });
   return asked;
 }

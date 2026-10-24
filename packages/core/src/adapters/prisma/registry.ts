@@ -13,7 +13,7 @@ import type {
   LeaseRepository,
   ShipRepository,
 } from '../../domain/registry/ports.js';
-import type { ShipFilter } from '../../domain/registry/ship-filter.js';
+import type { ShipFilter } from '@aeolus-fleet/common/rules';
 import { COLUMNS_SHOWN_OUTSIDE_READ_REACH, isValueDescending, type ShipSort } from '../../domain/registry/ship-order.js';
 import type { ReadReach } from '../../domain/registry/read-reach.js';
 import type { Db } from './client.js';
@@ -643,7 +643,7 @@ const crewedByOfShip = Prisma.sql`
   ORDER BY e.seq DESC
   LIMIT 1`;
 
-/** A ship's crew request as one key (domain/registry/ship-filter.ts, crewRequestKeyOf), for the ship `s` of the outer query. */
+/** A ship's crew request as one key (common/src/rules/ship-filter.ts, crewRequestKeyOf), for the ship `s` of the outer query. */
 const crewRequestKeyOfShip = Prisma.sql`
   (SELECT CASE
             WHEN rq.assigned_to_ship_id IS NOT NULL THEN COALESCE(rq.status::text, 'crewing')
@@ -657,7 +657,7 @@ const crewRequestKeyOfShip = Prisma.sql`
           END
    FROM crew_requests rq WHERE rq.fleet_id = s.fleet_id AND rq.ship_id = s.id)`;
 
-/** What sort of agent crews the ship `s` of the outer query (domain/registry/ship-filter.ts, agentKindOf). */
+/** What sort of agent crews the ship `s` of the outer query (common/src/rules/ship-filter.ts, agentKindOf). */
 function agentKindOfShip(pluginShipIds: readonly ShipId[]): Prisma.Sql {
   return Prisma.sql`
     CASE
@@ -684,7 +684,7 @@ function isInReachOfShip(reach: ReadReach): Prisma.Sql {
 }
 
 /**
- * The filter (domain/registry/ship-filter.ts) as conditions on the ship `s`
+ * The filter (common/src/rules/ship-filter.ts) as conditions on the ship `s`
  * of the outer query, each starting with AND: one statement selects the page
  * or counts the ships, and no ship is read only to be dropped.
  */
@@ -744,7 +744,7 @@ function statusConditions(status: readonly ShipStatus[]): Prisma.Sql[] {
 }
 
 /**
- * The ships on Needs crew (domain/registry/ship-counts.ts, isNeedingCrew):
+ * The ships on Needs crew (common/src/rules/ship-filter.ts, isNeedingCrew):
  * an unassigned request no crew by hand took, while the ship awaits crew
  * without trierarchs and while it is active with them, where also a request
  * a trierarch holds that is not running or being released.

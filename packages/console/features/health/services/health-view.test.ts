@@ -1,15 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { BUILDER, DELIVERING_HEALTH, DOCS_WRITER, HEALTH_NOW, HETZNER, SCOUT, STUCK_HEALTH } from '../../../lib/fixtures/health.fixtures';
+import { BUILDER, DELIVERING_HEALTH, DELIVERING_SUMMARY, DOCS_WRITER, HEALTH_NOW, HETZNER, SCOUT, STUCK_HEALTH, STUCK_SUMMARY } from '../../../lib/fixtures/health.fixtures';
 import {
-  causeGroupsOf,
+  causeTotalsOf,
   isStuckCause,
   marksOf,
   medianText,
   nextStepOf,
   placeNote,
   stuckByMachine,
-  stuckCount,
   trendSentence,
   verdictOf,
   waitMinutes,
@@ -27,28 +26,26 @@ function placeOf(predicate: (place: StuckPlace) => boolean): StuckPlace {
 
 describe('the verdict', () => {
   it('says how many deliveries are stuck in how many places, since the oldest, and how many a day ago', () => {
-    expect(verdictOf(STUCK_HEALTH)).toEqual({ kind: 'stuck', count: 9, places: 5, since: '2026-10-14T16:32:00.000Z', dayAgo: 6 });
+    expect(verdictOf({ summary: STUCK_SUMMARY, stuckPerHour: STUCK_HEALTH.stuckPerHour })).toEqual({ kind: 'stuck', count: 9, places: 5, since: '2026-10-14T16:32:00.000Z', dayAgo: 6 });
   });
 
   it('says delivering when nothing is stuck', () => {
-    expect(verdictOf(DELIVERING_HEALTH)).toEqual({ kind: 'delivering' });
-  });
-
-  it('counts the stuck deliveries for the navigation', () => {
-    expect(stuckCount(STUCK_HEALTH)).toBe(9);
-    expect(stuckCount(DELIVERING_HEALTH)).toBe(0);
+    expect(verdictOf({ summary: DELIVERING_SUMMARY, stuckPerHour: DELIVERING_HEALTH.stuckPerHour })).toEqual({ kind: 'delivering' });
   });
 });
 
 describe('the causes', () => {
-  it('lists the causes with anything stuck in their order, each place oldest first', () => {
-    expect(causeGroupsOf(STUCK_HEALTH).map((group) => [group.cause, group.count, group.places.length])).toEqual([
-      ['noShipCanTake', 2, 1],
-      ['waitingForCrew', 3, 1],
-      ['stalledInFlight', 3, 2],
-      ['undeliverable', 1, 1],
+  it('lists the causes with anything stuck in their order, each with how many deliveries in how many places', () => {
+    expect(causeTotalsOf(STUCK_SUMMARY)).toEqual([
+      { cause: 'noShipCanTake', count: 2, places: 1 },
+      { cause: 'waitingForCrew', count: 3, places: 1 },
+      { cause: 'stalledInFlight', count: 3, places: 2 },
+      { cause: 'undeliverable', count: 1, places: 1 },
     ]);
-    expect(causeGroupsOf(STUCK_HEALTH)[2]?.places.map((place) => place.place.kind === 'ship' && place.place.ship.name)).toEqual(['scout-01', 'builder-02']);
+  });
+
+  it('lists no cause when nothing is stuck', () => {
+    expect(causeTotalsOf(DELIVERING_SUMMARY)).toEqual([]);
   });
 
   it('knows a cause from a route segment', () => {
@@ -78,7 +75,7 @@ describe('the next step of a place', () => {
 
 describe('the marks on the trend', () => {
   it('numbers each place whose oldest wait began in the 7 days, at that hour, oldest first', () => {
-    expect(marksOf(STUCK_HEALTH)).toEqual([
+    expect(marksOf({ places: STUCK_HEALTH.stuck, stuckPerHour: STUCK_HEALTH.stuckPerHour })).toEqual([
       { number: 1, hour: 124, label: 'mapper: no ship can take' },
       { number: 2, hour: 134, label: 'docs-writer: waiting for crew' },
       { number: 3, hour: 134, label: 'scout-01: stalled in flight' },
@@ -104,7 +101,7 @@ describe('the wait scale', () => {
 
 describe('the machines', () => {
   it('counts the deliveries stuck on the ships each machine crews', () => {
-    expect(stuckByMachine(STUCK_HEALTH)).toEqual(new Map([[HETZNER.id, 2]]));
+    expect(stuckByMachine(STUCK_SUMMARY)).toEqual(new Map([[HETZNER.id, 2]]));
   });
 });
 

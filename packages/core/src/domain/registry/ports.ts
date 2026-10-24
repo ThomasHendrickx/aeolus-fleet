@@ -2,7 +2,7 @@ import type { DeliveryId, DeliveryState, FleetId, LabelId, LabelValueId, LeaseId
 
 import type { Page, PageQuery } from '../shared/page.js';
 import type { Recipient } from '../shared/selector.js';
-import type { ShipFilter } from './ship-filter.js';
+import type { ShipFilter } from '@aeolus-fleet/common/rules';
 import type { ShipSort } from './ship-order.js';
 import type { ReadReach } from './read-reach.js';
 import type { ClearRequest } from './clear-request.js';

@@ -1,10 +1,11 @@
-import type { Health, StuckCause } from '@aeolus-fleet/common';
+import type { Health, StuckCause, StuckSummary } from '@aeolus-fleet/common';
 
 /**
  * What the Health page reads from the fleet's health (decision 0042): the
  * verdict, the causes in their order with one next step per place, the marks
  * on the trend and the shared log scale of the wait strips. Pure, from
- * `fleet.health` as the server shaped it.
+ * `fleet.stuckSummary`, `fleet.stuck` and `fleet.stuckHistory` as the server
+ * shaped them.
  */
 
 export type StuckPlace = Health['stuck'][number];
@@ -30,11 +31,6 @@ export function isStuckCause(value: string): value is StuckCause {
   return CAUSE_ORDER.some((cause) => cause === value);
 }
 
-/** How many deliveries are stuck now: the navigation count. */
-export function stuckCount(health: Pick<Health, 'stuck'>): number {
-  return health.stuck.reduce((total, place) => total + place.count, 0);
-}
-
 const HOURS_A_DAY = 24;
 
 export type Verdict =
@@ -50,27 +46,20 @@ export type Verdict =
     };
 
 /** One answer to "is delivery working": delivering, or how many are stuck in how many places, since when. */
-export function verdictOf(health: Health): Verdict {
-  const [oldest] = health.stuck.map((place) => place.oldestSince).toSorted();
-  if (oldest === undefined) {
+export function verdictOf(health: { summary: StuckSummary; stuckPerHour: Health['stuckPerHour'] }): Verdict {
+  const { count, places, oldestSince } = health.summary;
+  if (oldestSince === null) {
     return { kind: 'delivering' };
   }
   const dayAgo = health.stuckPerHour.at(-1 - HOURS_A_DAY)?.count ?? 0;
-  return { kind: 'stuck', count: stuckCount(health), places: health.stuck.length, since: oldest, dayAgo };
+  return { kind: 'stuck', count, places, since: oldestSince, dayAgo };
 }
 
-export interface CauseGroup {
-  cause: StuckCause;
-  count: number;
-  places: StuckPlace[];
-}
+export type CauseTotal = StuckSummary['byCause'][number];
 
-/** The causes with anything stuck, in their order, each with its places oldest first. */
-export function causeGroupsOf(health: Pick<Health, 'stuck'>): CauseGroup[] {
-  return CAUSE_ORDER.flatMap((cause) => {
-    const places = health.stuck.filter((place) => place.cause === cause).toSorted((first, second) => first.oldestSince.localeCompare(second.oldestSince));
-    return places.length === 0 ? [] : [{ cause, count: places.reduce((total, place) => total + place.count, 0), places }];
-  });
+/** The causes with anything stuck, in their order, each with how many deliveries in how many places. */
+export function causeTotalsOf(summary: StuckSummary): CauseTotal[] {
+  return CAUSE_ORDER.flatMap((cause) => summary.byCause.filter((total) => total.cause === cause));
 }
 
 /** A place by the name the operator knows: the ship's name, or the type as stored. */
@@ -117,12 +106,12 @@ export interface TrendMark {
  * One mark per place whose oldest wait began within the trend, at the first
  * hour that counts it, oldest first: "mapper: no ship can take".
  */
-export function marksOf(health: Health): TrendMark[] {
+export function marksOf(health: { places: readonly StuckPlace[]; stuckPerHour: Health['stuckPerHour'] }): TrendMark[] {
   const [first] = health.stuckPerHour;
   if (first === undefined) {
     return [];
   }
-  return health.stuck
+  return health.places
     .filter((place) => place.oldestSince > first.at)
     .toSorted((one, other) => one.oldestSince.localeCompare(other.oldestSince))
     .map((place, index) => ({
@@ -159,14 +148,8 @@ export function waitMinutes(since: string, now: Date): number {
 }
 
 /** How many deliveries are stuck on the ships each machine crews, by machine id. */
-export function stuckByMachine(health: Pick<Health, 'stuck'>): ReadonlyMap<string, number> {
-  const counts = new Map<string, number>();
-  for (const place of health.stuck) {
-    if (place.place.kind === 'ship' && place.place.machine !== null) {
-      counts.set(place.place.machine.id, (counts.get(place.place.machine.id) ?? 0) + place.count);
-    }
-  }
-  return counts;
+export function stuckByMachine(summary: StuckSummary): ReadonlyMap<string, number> {
+  return new Map(summary.byMachine.map(({ machine, count }) => [machine.id, count]));
 }
 
 const SECONDS_A_MINUTE = 60;

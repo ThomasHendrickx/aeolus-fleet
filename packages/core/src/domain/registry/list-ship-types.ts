@@ -3,7 +3,7 @@ import type { ShipStatus } from '@aeolus-fleet/common';
 import type { Caller } from '../shared/caller.js';
 import type { FleetListing } from './ports.js';
 import type { ReadReachOf } from './read-reach.js';
-import { statusesAsked } from './ship-filter.js';
+import { statusesAsked } from '@aeolus-fleet/common/rules';
 
 export type ListShipTypes = (caller: Caller, input?: { status?: readonly ShipStatus[] }) => Promise<string[]>;
 

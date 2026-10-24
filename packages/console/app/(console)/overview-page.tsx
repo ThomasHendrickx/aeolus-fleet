@@ -89,7 +89,7 @@ export function OverviewPage({ view, isCommissionAsked }: { view: FleetView; isC
       <FleetOverview
         view={shownView}
         onViewChange={changeView}
-        newShipIds={liveFleet.newShipIds}
+        placedFirstShipIds={liveFleet.placedFirstShipIds}
         renderRowActions={(ship, layout) => (
           <ShipActions ship={ship} layout={layout === 'table' ? 'menu' : layout === 'phone' ? 'sheet' : 'next'} compose={ComposeMessage} crewLineFlow={NewCrewLineFlow} />
         )}

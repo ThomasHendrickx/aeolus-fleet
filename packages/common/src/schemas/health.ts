@@ -81,6 +81,8 @@ export const stuckSummaryOutputSchema = z.object({
   byMachine: z.array(z.object({ machine: partySchema, count: z.int().min(1) })),
 });
 
+export type StuckSummary = z.infer<typeof stuckSummaryOutputSchema>;
+
 /** Where a page of stuck places ends: the oldest delivery of its last place, by since then id, as places are ordered. */
 export const stuckCursorSchema = z.object({ oldestSince: z.iso.datetime(), deliveryId: idSchema('delivery') });
 

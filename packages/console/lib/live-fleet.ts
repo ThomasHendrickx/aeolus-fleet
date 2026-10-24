@@ -1,6 +1,7 @@
-import type { EventType, ShipId } from '@aeolus-fleet/common';
-import { useQueryClient, type QueryClient } from '@tanstack/react-query';
-import { useSubscription } from '@trpc/tanstack-react-query';
+import type { EventType, FleetStreamItem, ListedShip, ShipId, ShipOutsideReadReach } from '@aeolus-fleet/common';
+import type { AppRouter } from '@aeolus-fleet/core';
+import { useQueryClient, type InfiniteData, type QueryClient } from '@tanstack/react-query';
+import { useSubscription, type TRPCOptionsProxy } from '@trpc/tanstack-react-query';
 import { useState } from 'react';
 
 import type { LiveState } from '../components/molecules/live-status';
@@ -9,10 +10,10 @@ import { useIsReopening } from './live-updates';
 import { useTRPC } from './trpc';
 
 /**
- * The events that change what the fleet snapshot shows: a ship, its crew,
+ * The events that change what a ship's row shows: a ship, its crew,
  * its secret, its starting prompt, its crew's report, its crew request, the labels it carries, or how its last ping stands. An ack can
  * answer a ping and an undeliverable ping shows none, so those two reload it;
- * other message events leave the snapshot as it is.
+ * other message events leave the rows as they are.
  */
 const SHIP_EVENTS: ReadonlySet<EventType> = new Set<EventType>([
   'FleetInitialised',
@@ -77,6 +78,72 @@ export function createLiveReloads(queryClient: QueryClient): (queryKey: readonly
   };
 }
 
+/** A ship as `fleet.list` lists it: whole, or by name, type and status outside the session's read reach. */
+type ShipRow = ListedShip | ShipOutsideReadReach;
+
+/**
+ * Reads ships' rows after live events, at most one read of a ship's row at a
+ * time, as createLiveReloads does for a query: an event during a read asks
+ * for one more read once it ends. A row that cannot be read is left as it
+ * is; the pages read again by themselves (LAST_SEEN_REFRESH_MS).
+ */
+export function createShipRowReloads(input: { readRow: (shipId: ShipId) => Promise<ShipRow>; writeRow: (row: ShipRow) => void }): (shipId: ShipId) => void {
+  const reading = new Set<ShipId>();
+  const readAgain = new Set<ShipId>();
+
+  const readUntilCurrent = async (shipId: ShipId) => {
+    reading.add(shipId);
+    try {
+      do {
+        readAgain.delete(shipId);
+        input.writeRow(await input.readRow(shipId));
+      } while (readAgain.has(shipId));
+    } catch {
+      // Left as it is: the pages' own refresh brings the row.
+    } finally {
+      reading.delete(shipId);
+      readAgain.delete(shipId);
+    }
+  };
+
+  return (shipId) => {
+    if (reading.has(shipId)) {
+      readAgain.add(shipId);
+    } else {
+      void readUntilCurrent(shipId);
+    }
+  };
+}
+
+/** The rows with a ship's row as read alone in its place. */
+function withShipInPlace(ships: readonly ShipRow[], row: ShipRow): ShipRow[] {
+  return ships.map((ship) => (ship.id === row.id ? row : ship));
+}
+
+/** A page of ships as `fleet.list` answers it. */
+interface ShipPage {
+  items: ShipRow[];
+  nextCursor: string | null;
+}
+
+function isOnPages(pages: InfiniteData<ShipPage>, shipId: ShipId): boolean {
+  return pages.pages.some((page) => page.items.some((ship) => ship.id === shipId));
+}
+
+/**
+ * A view's loaded pages with a ship's row as read alone: in its place, or
+ * first in the first page when no loaded page shows it, until the pages'
+ * refresh puts it in its place or drops it (Thomas's rule, #1173). The view
+ * shows the row only while it matches the view's filter (lib/ship-rows.ts).
+ */
+export function withListedShipOnPages(pages: InfiniteData<ShipPage>, row: ShipRow): InfiniteData<ShipPage> {
+  if (isOnPages(pages, row.id)) {
+    return { ...pages, pages: pages.pages.map((page) => ({ ...page, items: withShipInPlace(page.items, row) })) };
+  }
+  const [first, ...rest] = pages.pages;
+  return first === undefined ? pages : { ...pages, pages: [{ ...first, items: [row, ...first.items] }, ...rest] };
+}
+
 export function isShipChange(type: EventType): boolean {
   return SHIP_EVENTS.has(type);
 }
@@ -127,92 +194,149 @@ export function liveStateOf(status: 'idle' | 'connecting' | 'pending' | 'error')
 
 export interface LiveFleet {
   live: LiveState;
-  /** Ships commissioned since the page opened: their rows get the highlight. */
-  newShipIds: ReadonlySet<ShipId>;
+  /** Ships a live event put first on the overview's loaded pages since the page opened: their rows get the highlight. */
+  placedFirstShipIds: ReadonlySet<ShipId>;
   /** Why the subscription ended, when it was refused: the page sends the operator to sign in. */
   error: unknown;
 }
 
 /**
- * Follows the fleet live over the WebSocket (docs/architecture.md, "Live
- * updates"). Each committed event that changes a ship reloads the snapshot;
- * an event reloads the page of each ship that caused it or that it names, and
- * a message's event reloads the open message, the ships' message lists and
- * argo's inbox, whose delivery states it changes; a delivery that becomes undeliverable or
- * not handled, or is dismissed, reloads Needs attention, a message's or a ship's event the fleet's health, a label's event the fleet's labels, NetworkRulesDeclared the declared network rules, and a change of the rules or the draft the network rules, what the draft changes and the reach. `resync`, sent first and whenever the
- * browser fell too far behind, reloads every one of them. The tRPC client sends the number of the last event back when it
- * reconnects, so the server replays whatever committed meanwhile.
+ * What each item of the fleet's live stream reloads (docs/architecture.md,
+ * "Live updates"), only the resources the event concerns (performance
+ * design, decision 3): an event reloads the page of each ship that caused it
+ * or that it names; a ship's event those ships' rows on the overview's
+ * loaded pages, each read alone (a ship not on them
+ * goes first, highlighted), the ship counts and the stuck deliveries (their count, summary
+ * and places); a message's event the open
+ * message, the ships' message lists and argo's inbox, whose delivery states
+ * it changes, and the stuck deliveries; an acknowledgement the acknowledged
+ * in 24 hours; a delivery
+ * that becomes undeliverable or not handled, or is dismissed, Needs
+ * attention; a label's event the fleet's labels; NetworkRulesDeclared the
+ * declared network rules; and a change of the rules or the draft the network
+ * rules, what the draft changes and the reach. `resync`, sent first and
+ * whenever the browser fell too far behind, reloads every one of them.
+ */
+export function createLiveFleetHandler(input: {
+  trpc: TRPCOptionsProxy<AppRouter>;
+  queryClient: QueryClient;
+  reload: (queryKey: readonly unknown[]) => void;
+  /** A ship's row went first on the overview's loaded pages, which shows none of it. */
+  onPlacedFirst: (shipId: ShipId) => void;
+}): (item: FleetStreamItem) => void {
+  const { trpc, queryClient, reload } = input;
+  // Every view's pages the overview loaded (features/fleet/hooks/fleet-pages.ts).
+  const pagesKey: readonly unknown[] = [...trpc.fleet.list.infiniteQueryKey()];
+  const loadedPages = () => queryClient.getQueriesData<InfiniteData<ShipPage>>({ queryKey: pagesKey }).flatMap(([, pages]) => (pages === undefined ? [] : [pages]));
+  const reloadRow = createShipRowReloads({
+    readRow: (shipId) => queryClient.query({ ...trpc.fleet.listedShip.queryOptions({ shipId }), staleTime: 0 }),
+    writeRow: (row) => {
+      const isPlacedFirst = loadedPages().some((pages) => !isOnPages(pages, row.id));
+      queryClient.setQueriesData<InfiniteData<ShipPage>>({ queryKey: pagesKey }, (pages) => pages && withListedShipOnPages(pages, row));
+      if (isPlacedFirst) {
+        input.onPlacedFirst(row.id);
+      }
+    },
+  });
+  const reloadStuck = () => {
+    reload(trpc.fleet.stuckCount.queryKey());
+    reload(trpc.fleet.stuckSummary.queryKey());
+    // Every cause's pages of places, whichever are shown.
+    reload(trpc.fleet.stuck.pathKey());
+  };
+  return (item) => {
+    if (item.kind === 'resync') {
+      reload(trpc.fleet.pathKey());
+      reload(INBOX_KEY);
+      return;
+    }
+    const { event } = item;
+    for (const concerned of new Set([event.shipId, event.actorShipId])) {
+      if (concerned !== null) {
+        reload(trpc.fleet.ship.queryKey({ shipId: concerned }));
+        reload(trpc.fleet.shipTimeline.infiniteQueryKey({ shipId: concerned }));
+        // A turn report, a push receive or a lease end changes its side of the way.
+        reload(trpc.fleet.shipWay.queryKey({ shipId: concerned }));
+      }
+    }
+    if (event.messageId !== null) {
+      reload(trpc.fleet.shipMessages.pathKey());
+      // A delivery to a type waits for every ship of the type; an overdue one clears as its delivery moves on.
+      reload(trpc.fleet.shipWay.pathKey());
+      reload(trpc.fleet.message.queryKey({ messageId: event.messageId }));
+      reload(trpc.fleet.inbox.pathKey());
+      reload(trpc.fleet.inboxCount.queryKey());
+      reload(INBOX_KEY);
+      // A delivery that moves, or a new one, changes what is stuck.
+      reloadStuck();
+    }
+    if (event.type === 'DeliveryAcknowledged') {
+      reload(trpc.fleet.acknowledged.queryKey());
+    }
+    if (isAttentionChange(event.type)) {
+      reload(trpc.fleet.needsAttention.pathKey());
+    }
+    if (isLabelChange(event.type)) {
+      reload(trpc.fleet.labels.queryKey());
+    }
+    if (isDeclaredRulesChange(event.type)) {
+      reload(trpc.fleet.declaredNetworkRules.queryKey());
+    }
+    if (isBuiltInRulesChange(event.type)) {
+      reload(trpc.fleet.builtInRules.queryKey());
+    }
+    if (isNetworkRulesChange(event.type)) {
+      reload(trpc.fleet.networkRules.queryKey());
+      reload(trpc.fleet.networkRulesDraftChanges.queryKey());
+      reload(trpc.fleet.explainReach.pathKey());
+    }
+    if (!isShipChange(event.type)) {
+      return;
+    }
+    // Only a page that shows the overview's pages needs the rows.
+    if (loadedPages().length > 0) {
+      for (const concerned of new Set([event.shipId, event.actorShipId])) {
+        if (concerned !== null) {
+          reloadRow(concerned);
+        }
+      }
+    }
+    // A commission, a crew, a release or a crew request moves the ship counts: the fleet's and each view's.
+    reload(trpc.fleet.shipCounts.pathKey());
+    // A commission, a crew or a release changes why a delivery waits.
+    reloadStuck();
+  };
+}
+
+/**
+ * Follows the fleet live over the WebSocket, reloading what each item
+ * concerns (createLiveFleetHandler). The tRPC client sends the number of the
+ * last event back when it reconnects, so the server replays whatever
+ * committed meanwhile.
  */
 export function useLiveFleet(): LiveFleet {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const [newShipIds, setNewShipIds] = useState<ReadonlySet<ShipId>>(new Set());
+  const [placedFirstShipIds, setPlacedFirstShipIds] = useState<ReadonlySet<ShipId>>(new Set());
   const isReopening = useIsReopening();
 
-  const [reload] = useState(() => createLiveReloads(queryClient));
-  // The snapshot, every page the overview loaded for its view, and their counts.
-  const reloadSnapshot = () => {
-    reload(trpc.fleet.list.pathKey());
-    reload(trpc.fleet.shipCounts.pathKey());
-  };
+  const [onItem] = useState(() =>
+    createLiveFleetHandler({
+      trpc,
+      queryClient,
+      reload: createLiveReloads(queryClient),
+      onPlacedFirst: (shipId) => {
+        setPlacedFirstShipIds((shown) => new Set([...shown, shipId]));
+      },
+    }),
+  );
 
   const subscription = useSubscription(
     trpc.fleet.events.subscriptionOptions(
       { lastEventId: null },
       {
         onData: ({ data: item }) => {
-          if (item.kind === 'resync') {
-            reload(trpc.fleet.pathKey());
-            reload(INBOX_KEY);
-            return;
-          }
-          const { event } = item;
-          for (const concerned of new Set([event.shipId, event.actorShipId])) {
-            if (concerned !== null) {
-              reload(trpc.fleet.ship.queryKey({ shipId: concerned }));
-              reload(trpc.fleet.shipTimeline.infiniteQueryKey({ shipId: concerned }));
-              // A turn report, a push receive or a lease end changes its side of the way.
-              reload(trpc.fleet.shipWay.queryKey({ shipId: concerned }));
-            }
-          }
-          if (event.messageId !== null) {
-            reload(trpc.fleet.shipMessages.pathKey());
-            // A delivery to a type waits for every ship of the type; an overdue one clears as its delivery moves on.
-            reload(trpc.fleet.shipWay.pathKey());
-            reload(trpc.fleet.message.queryKey({ messageId: event.messageId }));
-            reload(trpc.fleet.inbox.pathKey());
-            reload(trpc.fleet.inboxCount.queryKey());
-            reload(INBOX_KEY);
-            // A delivery that moves, or a new one, changes what is stuck.
-            reload(trpc.fleet.health.queryKey());
-          }
-          if (isAttentionChange(event.type)) {
-            reload(trpc.fleet.needsAttention.pathKey());
-          }
-          if (isLabelChange(event.type)) {
-            reload(trpc.fleet.labels.queryKey());
-          }
-          if (isDeclaredRulesChange(event.type)) {
-            reload(trpc.fleet.declaredNetworkRules.queryKey());
-          }
-          if (isBuiltInRulesChange(event.type)) {
-            reload(trpc.fleet.builtInRules.queryKey());
-          }
-          if (isNetworkRulesChange(event.type)) {
-            reload(trpc.fleet.networkRules.queryKey());
-            reload(trpc.fleet.networkRulesDraftChanges.queryKey());
-            reload(trpc.fleet.explainReach.pathKey());
-          }
-          if (!isShipChange(event.type)) {
-            return;
-          }
-          reloadSnapshot();
-          // A commission, a crew or a release changes why a delivery waits.
-          reload(trpc.fleet.health.queryKey());
-          const { shipId } = event;
-          if (event.type === 'ShipCommissioned' && shipId !== null) {
-            setNewShipIds((shown) => new Set([...shown, shipId]));
-          }
+          onItem(item);
         },
       },
     ),
@@ -220,5 +344,5 @@ export function useLiveFleet(): LiveFleet {
 
   // Reopening after a renewal, the server replays what commits meanwhile: still Live (accounts design, A4).
   const live = subscription.status === 'connecting' && isReopening ? 'live' : liveStateOf(subscription.status);
-  return { live, newShipIds, error: subscription.error };
+  return { live, placedFirstShipIds, error: subscription.error };
 }

@@ -41,6 +41,22 @@ export function pagedListOf<Page extends { items: readonly unknown[] }, Failure>
   };
 }
 
+/**
+ * The rows with each id once, where it first shows: a ship live put first
+ * (lib/live-fleet.ts, #1173) stays first when Load more brings the page that
+ * holds it, until the refresh puts it in its place.
+ */
+export function uniqueById<Item extends { id: string }>(items: readonly Item[]): Item[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    if (seen.has(item.id)) {
+      return false;
+    }
+    seen.add(item.id);
+    return true;
+  });
+}
+
 /** The cursor of the page after this one, none on the last page: what an infinite query asks next. */
 export function nextCursorOf<Cursor>(page: { nextCursor: Cursor | null }): Cursor | undefined {
   return page.nextCursor ?? undefined;

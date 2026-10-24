@@ -3,7 +3,7 @@
 import { CircleDashed, OctagonAlert, UserCheck } from 'lucide-react';
 
 import { MetricCard } from '../ui/molecules/metric-card';
-import { useFleetHealth } from '../../../lib/fleet-health';
+import { useStuckCount } from '../../../lib/fleet-health';
 import { useNow } from '../../../lib/now';
 import { duration } from '../../../lib/relative-time';
 import { useShipCounts } from '../../../lib/ship-counts';
@@ -18,12 +18,7 @@ import { overviewMetrics } from '../services/overview-metrics';
  */
 export function OverviewMetrics() {
   const counts = useShipCounts();
-  const health = useFleetHealth().data;
-  // The stuck deliveries in all, and since when the oldest of them waits.
-  const stuck = health && {
-    count: health.stuck.reduce((total, place) => total + place.count, 0),
-    oldestSince: health.stuck.map((place) => place.oldestSince).toSorted()[0] ?? null,
-  };
+  const stuck = useStuckCount().data;
   const now = useNow();
   const metrics = counts.data && overviewMetrics({ counts: counts.data, now });
   if (metrics?.activeCount === 0) {

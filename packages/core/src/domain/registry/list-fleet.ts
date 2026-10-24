@@ -6,7 +6,7 @@ import type { Location } from './lease.js';
 import { pingStatusOf, type PingStatus } from './ping-status.js';
 import type { CrewRequest } from './crew-request.js';
 import type { CarriedLabel } from './label.js';
-import { statusesAsked, type ShipFilter } from './ship-filter.js';
+import { statusesAsked, type ShipFilter } from '@aeolus-fleet/common/rules';
 import type { ShipSort } from './ship-order.js';
 import type { FleetListing, ShipFacts } from './ports.js';
 import type { ShipReport } from './ship-report.js';

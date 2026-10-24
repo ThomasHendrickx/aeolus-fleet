@@ -6,7 +6,7 @@ import { DetailPage } from '../../../../components/organisms/detail-page';
 import { StatusBadge, statusLabel } from '../../../../components/molecules/status-badge';
 import { DrilldownContainer } from '../../../../features/health/state/drilldown-container';
 import { useConsoleFrame } from '../../../../lib/console-frame';
-import { useFleetHealth } from '../../../../lib/fleet-health';
+import { useStuckSummary } from '../../../../lib/fleet-health';
 import { useLiveFleet } from '../../../../lib/live-fleet';
 import { useSignInWhenSessionEnds } from '../../../../lib/session';
 
@@ -14,9 +14,9 @@ import { useSignInWhenSessionEnds } from '../../../../lib/session';
 export function CausePage({ cause }: { cause: StuckCause }) {
   const frame = useConsoleFrame();
   const liveFleet = useLiveFleet();
-  const health = useFleetHealth();
-  useSignInWhenSessionEnds([health.error, liveFleet.error]);
-  const count = health.data?.stuck.filter((place) => place.cause === cause).reduce((total, place) => total + place.count, 0);
+  const summary = useStuckSummary();
+  useSignInWhenSessionEnds([summary.error, liveFleet.error]);
+  const count = summary.data && (summary.data.byCause.find((total) => total.cause === cause)?.count ?? 0);
 
   return (
     <DetailPage

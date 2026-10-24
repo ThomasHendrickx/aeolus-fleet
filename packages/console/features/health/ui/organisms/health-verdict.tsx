@@ -1,17 +1,18 @@
-import type { Health } from '@aeolus-fleet/common';
+import type { Health, StuckSummary } from '@aeolus-fleet/common';
 
 import { StatusBadge } from '../../../../components/molecules/status-badge';
 import { shortDateTime } from '../../../../lib/relative-time';
-import { marksOf, trendSentence, verdictOf } from '../../services/health-view';
+import { marksOf, trendSentence, verdictOf, type StuckPlace } from '../../services/health-view';
 import { StuckTrend } from '../molecules/stuck-trend';
 
 /**
  * The answer to "is delivery working" (mock-up A): Stuck with how many
  * deliveries in how many places, since when and whether that rose or fell in
- * a day, or Delivering; beside it the 7-day trend with its marks.
+ * a day, or Delivering; beside it the 7-day trend with its marks, one per
+ * place read so far.
  */
-export function HealthVerdict({ health }: { health: Health }) {
-  const verdict = verdictOf(health);
+export function HealthVerdict({ summary, stuckPerHour, places }: { summary: StuckSummary; stuckPerHour: Health['stuckPerHour']; places: readonly StuckPlace[] }) {
+  const verdict = verdictOf({ summary, stuckPerHour });
   return (
     <section
       aria-label="Verdict"
@@ -41,7 +42,7 @@ export function HealthVerdict({ health }: { health: Health }) {
           </>
         )}
       </div>
-      <StuckTrend perHour={health.stuckPerHour} marks={marksOf(health)} />
+      <StuckTrend perHour={stuckPerHour} marks={marksOf({ places, stuckPerHour })} />
     </section>
   );
 }

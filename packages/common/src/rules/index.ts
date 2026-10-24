@@ -10,4 +10,5 @@ export * from './payload.js';
 export * from './plain-http.js';
 export * from './read-reach.js';
 export * from './ship-handle.js';
+export * from './ship-filter.js';
 export * from './sign-in.js';

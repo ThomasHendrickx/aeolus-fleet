@@ -1,7 +1,12 @@
-import { QueryClient, QueryObserver } from '@tanstack/react-query';
+import { createIdGenerator, EVENT_TYPES, type EventType, type ListedShip, type LiveFleetEvent, type ShipId } from '@aeolus-fleet/common';
+import type { AppRouter } from '@aeolus-fleet/core';
+import { InfiniteQueryObserver, QueryClient, QueryObserver } from '@tanstack/react-query';
+import { createTRPCClient, httpLink } from '@trpc/client';
+import { createTRPCOptionsProxy } from '@trpc/tanstack-react-query';
 import { describe, expect, it } from 'vitest';
 
-import { createLiveReloads, isAttentionChange, isBuiltInRulesChange, isDeclaredRulesChange, isLabelChange, isNetworkRulesChange, isShipChange, liveStateOf } from './live-fleet';
+import { uniqueById } from './paged-list';
+import { createLiveFleetHandler, createLiveReloads, isAttentionChange, isBuiltInRulesChange, isDeclaredRulesChange, isLabelChange, isNetworkRulesChange, isShipChange, liveStateOf } from './live-fleet';
 
 describe('liveStateOf', () => {
   it.each([
@@ -29,14 +34,14 @@ describe('isShipChange', () => {
     'LabelUnassigned',
     'LabelRetired',
   ] as const)(
-    'reloads the snapshot for %s',
+    "changes a ship's row for %s",
     (type) => {
       expect(isShipChange(type)).toBe(true);
     },
   );
 
   it.each(['MessageAccepted', 'DeliveryHanded', 'DeliveryReturned'] as const)(
-    'leaves the snapshot alone for %s',
+    "leaves the ships' rows alone for %s",
     (type) => {
       expect(isShipChange(type)).toBe(false);
     },
@@ -190,5 +195,242 @@ describe('live reloads', () => {
     expect(reads).toHaveLength(3);
     expect(mostInFlight).toBe(1);
     unsubscribe();
+  });
+});
+
+const newId = createIdGenerator();
+const SERVER = 'http://fleet.test/trpc';
+/** Long enough for a reload an event asks for to reach the server. */
+const SETTLE_MS = 50;
+
+function aShip(ship: Partial<ListedShip>): ListedShip {
+  return {
+    id: newId('ship'),
+    name: 'builder',
+    type: 'builder',
+    kind: 'agent',
+    status: 'crewed',
+    startingPrompt: null,
+    location: null,
+    lastSeenAt: null,
+    ping: null,
+    scopes: ['messages:send', 'messages:receive'],
+    report: null, harness: null, model: null, awaitingCrewSince: null, crewRequest: null, labels: [], retiredAt: null, ownerShipId: null,
+    ...ship,
+  };
+}
+
+function anEvent(type: EventType, about: { shipId: ShipId | null; hasMessage: boolean }): LiveFleetEvent {
+  return {
+    seq: 1,
+    id: newId('event'),
+    type,
+    occurredAt: '2026-10-23T05:00:00.000Z',
+    actorKind: 'ship',
+    actorShipId: null,
+    actorAccountId: null,
+    actorSignedInAccountId: null,
+    shipId: about.shipId,
+    messageId: about.hasMessage ? newId('message') : null,
+    deliveryId: about.hasMessage ? newId('delivery') : null,
+  };
+}
+
+/**
+ * The live handler over a fake server: each procedure answers what `answers`
+ * gives it for its input, and `asked` counts the calls that reached it.
+ */
+function aLiveFleet(answers: Readonly<Record<string, (input: unknown) => unknown>>) {
+  const asked = new Map<string, number>();
+  const fetchFromFleet = (input: RequestInfo | URL): Promise<Response> => {
+    const url = new URL(input instanceof Request ? input.url : String(input));
+    const procedure = url.pathname.split('/').at(-1) ?? '';
+    asked.set(procedure, (asked.get(procedure) ?? 0) + 1);
+    const rawInput = url.searchParams.get('input');
+    const answer = answers[procedure];
+    if (answer === undefined) {
+      return Promise.resolve(Response.json({ error: { message: `no ${procedure} here`, code: -32004, data: { code: 'NOT_FOUND', httpStatus: 404 } } }, { status: 404 }));
+    }
+    return Promise.resolve(Response.json({ result: { data: answer(rawInput === null ? undefined : JSON.parse(rawInput)) } }));
+  };
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const trpc = createTRPCOptionsProxy<AppRouter>({ client: createTRPCClient<AppRouter>({ links: [httpLink({ url: SERVER, fetch: fetchFromFleet })] }), queryClient });
+  const highlighted: ShipId[] = [];
+  const onItem = createLiveFleetHandler({
+    trpc,
+    queryClient,
+    reload: createLiveReloads(queryClient),
+    onPlacedFirst: (shipId) => {
+      highlighted.push(shipId);
+    },
+  });
+  const shown: (() => void)[] = [];
+  return {
+    trpc,
+    queryClient,
+    onItem,
+    /** The ships the overview highlights, in the order they were placed first. */
+    highlighted,
+    askedOf: (procedure: string) => asked.get(procedure) ?? 0,
+    /** Shows a read on the page, as a part that asks it does. */
+    show: (observer: { subscribe: (listener: () => void) => () => void }) => {
+      shown.push(observer.subscribe(() => undefined));
+    },
+    close: () => {
+      shown.forEach((unsubscribe) => {
+        unsubscribe();
+      });
+    },
+  };
+}
+
+const settled = () => new Promise((resolve) => setTimeout(resolve, SETTLE_MS));
+
+describe('the live fleet (performance design, decision 3)', () => {
+  it('reloads neither fleet.list nor the full health for any event', async () => {
+    const builder = aShip({});
+    const live = aLiveFleet({ 'fleet.list': () => [builder], 'fleet.health': () => ({}), 'fleet.listedShip': () => builder, 'fleet.stuckCount': () => ({ count: 0, oldestSince: null }) });
+    live.show(new QueryObserver(live.queryClient, live.trpc.fleet.list.queryOptions()));
+    live.show(new QueryObserver(live.queryClient, live.trpc.fleet.health.queryOptions()));
+    await expect.poll(() => live.askedOf('fleet.list') + live.askedOf('fleet.health')).toBe(2);
+
+    for (const type of EVENT_TYPES) {
+      live.onItem({ kind: 'event', event: anEvent(type, { shipId: builder.id, hasMessage: true }) });
+    }
+    await settled();
+
+    expect({ list: live.askedOf('fleet.list'), health: live.askedOf('fleet.health') }).toEqual({ list: 1, health: 1 });
+    live.close();
+  });
+
+  it("replaces a ship's row in place on the overview's loaded pages", async () => {
+    const argo = aShip({ name: 'argo', type: 'operator', kind: 'operator' });
+    const builder = aShip({ status: 'awaitingCrew' });
+    const scout = aShip({ name: 'scout' });
+    const live = aLiveFleet({ 'fleet.list': () => ({ items: [argo, builder, scout], nextCursor: 'more' }), 'fleet.listedShip': () => ({ ...builder, status: 'crewed' }) });
+    const pages = new InfiniteQueryObserver(live.queryClient, live.trpc.fleet.list.infiniteQueryOptions({ limit: 20 }, { getNextPageParam: () => undefined }));
+    live.show(pages);
+    await expect.poll(() => pages.getCurrentResult().data).toBeDefined();
+
+    live.onItem({ kind: 'event', event: anEvent('ShipClaimed', { shipId: builder.id, hasMessage: false }) });
+
+    await expect.poll(() => pages.getCurrentResult().data?.pages.flatMap((page) => page.items)).toEqual([argo, { ...builder, status: 'crewed' }, scout]);
+    live.close();
+  });
+
+  it.each([
+    { what: 'a commissioned ship', type: 'ShipCommissioned' },
+    { what: 'a changed ship beyond the loaded pages', type: 'ShipClaimed' },
+  ] as const)("puts $what first on the overview's loaded pages (#1173)", async ({ type }) => {
+    const argo = aShip({ name: 'argo', type: 'operator', kind: 'operator' });
+    const builder = aShip({});
+    const scout = aShip({ name: 'scout', status: 'awaitingCrew' });
+    const live = aLiveFleet({ 'fleet.list': () => ({ items: [argo, builder], nextCursor: 'more' }), 'fleet.listedShip': () => scout });
+    const pages = new InfiniteQueryObserver(live.queryClient, live.trpc.fleet.list.infiniteQueryOptions({ limit: 20 }, { getNextPageParam: () => undefined }));
+    live.show(pages);
+    await expect.poll(() => pages.getCurrentResult().data).toBeDefined();
+
+    live.onItem({ kind: 'event', event: anEvent(type, { shipId: scout.id, hasMessage: false }) });
+
+    await expect.poll(() => pages.getCurrentResult().data?.pages.flatMap((page) => page.items)).toEqual([scout, argo, builder]);
+    live.close();
+  });
+
+  it("shows a ship it put first once when Load more brings the page that holds it (#1173)", async () => {
+    const argo = aShip({ name: 'argo', type: 'operator', kind: 'operator' });
+    const builder = aShip({});
+    const scout = aShip({ name: 'scout', status: 'awaitingCrew' });
+    const live = aLiveFleet({
+      'fleet.list': (asked) => (typeof asked === 'object' && asked !== null && 'cursor' in asked && asked.cursor === 'page-2' ? { items: [scout], nextCursor: null } : { items: [argo, builder], nextCursor: 'page-2' }),
+      'fleet.listedShip': () => scout,
+    });
+    const pages = new InfiniteQueryObserver(live.queryClient, live.trpc.fleet.list.infiniteQueryOptions({ limit: 20 }, { getNextPageParam: (page) => page.nextCursor ?? undefined }));
+    live.show(pages);
+    await expect.poll(() => pages.getCurrentResult().data).toBeDefined();
+    live.onItem({ kind: 'event', event: anEvent('ShipClaimed', { shipId: scout.id, hasMessage: false }) });
+    await expect.poll(() => pages.getCurrentResult().data?.pages[0]?.items[0]).toEqual(scout);
+
+    await pages.fetchNextPage();
+
+    expect(uniqueById(pages.getCurrentResult().data?.pages.flatMap((page) => page.items) ?? [])).toEqual([scout, argo, builder]);
+    live.close();
+  });
+
+  it("highlights a ship it puts first on the overview's loaded pages (#1173)", async () => {
+    const argo = aShip({ name: 'argo', type: 'operator', kind: 'operator' });
+    const scout = aShip({ name: 'scout', status: 'awaitingCrew' });
+    const live = aLiveFleet({ 'fleet.list': () => ({ items: [argo], nextCursor: 'more' }), 'fleet.listedShip': () => scout });
+    const pages = new InfiniteQueryObserver(live.queryClient, live.trpc.fleet.list.infiniteQueryOptions({ limit: 20 }, { getNextPageParam: () => undefined }));
+    live.show(pages);
+    await expect.poll(() => pages.getCurrentResult().data).toBeDefined();
+
+    live.onItem({ kind: 'event', event: anEvent('ShipClaimed', { shipId: scout.id, hasMessage: false }) });
+
+    await expect.poll(() => live.highlighted).toEqual([scout.id]);
+    live.close();
+  });
+
+  it("highlights no ship the overview's loaded pages already show", async () => {
+    const argo = aShip({ name: 'argo', type: 'operator', kind: 'operator' });
+    const builder = aShip({ status: 'awaitingCrew' });
+    const live = aLiveFleet({ 'fleet.list': () => ({ items: [argo, builder], nextCursor: null }), 'fleet.listedShip': () => ({ ...builder, status: 'crewed' }) });
+    const pages = new InfiniteQueryObserver(live.queryClient, live.trpc.fleet.list.infiniteQueryOptions({ limit: 20 }, { getNextPageParam: () => undefined }));
+    live.show(pages);
+    await expect.poll(() => pages.getCurrentResult().data).toBeDefined();
+
+    live.onItem({ kind: 'event', event: anEvent('ShipClaimed', { shipId: builder.id, hasMessage: false }) });
+    await expect.poll(() => live.askedOf('fleet.listedShip')).toBe(1);
+    await settled();
+
+    expect(live.highlighted).toEqual([]);
+    live.close();
+  });
+
+  it.each(['ShipCommissioned', 'ShipClaimed', 'LeaseRevoked', 'ShipRetired', 'CrewRequested'] as const)('reloads the ship counts for %s', async (type) => {
+    const builder = aShip({});
+    const live = aLiveFleet({ 'fleet.shipCounts': () => [], 'fleet.listedShip': () => builder });
+    live.show(new QueryObserver(live.queryClient, live.trpc.fleet.shipCounts.queryOptions()));
+    await expect.poll(() => live.askedOf('fleet.shipCounts')).toBe(1);
+
+    live.onItem({ kind: 'event', event: anEvent(type, { shipId: builder.id, hasMessage: false }) });
+
+    await expect.poll(() => live.askedOf('fleet.shipCounts')).toBe(2);
+    live.close();
+  });
+
+  it.each([
+    { what: 'a delivery that moves', type: 'DeliveryReceived', hasMessage: true },
+    { what: 'a crew, which changes why a delivery waits', type: 'ShipClaimed', hasMessage: false },
+  ] as const)('reloads the stuck count for $what', async ({ type, hasMessage }) => {
+    const builder = aShip({});
+    const live = aLiveFleet({ 'fleet.stuckCount': () => ({ count: 0, oldestSince: null }), 'fleet.listedShip': () => builder });
+    live.show(new QueryObserver(live.queryClient, live.trpc.fleet.stuckCount.queryOptions()));
+    await expect.poll(() => live.askedOf('fleet.stuckCount')).toBe(1);
+
+    live.onItem({ kind: 'event', event: anEvent(type, { shipId: builder.id, hasMessage }) });
+
+    await expect.poll(() => live.askedOf('fleet.stuckCount')).toBe(2);
+    live.close();
+  });
+
+  it.each([
+    { what: 'a delivery that moves', type: 'DeliveryReceived', hasMessage: true },
+    { what: 'a crew, which changes why a delivery waits', type: 'ShipClaimed', hasMessage: false },
+  ] as const)("reloads the stuck summary and each cause's page of stuck places for $what", async ({ type, hasMessage }) => {
+    const builder = aShip({});
+    const live = aLiveFleet({
+      'fleet.stuckSummary': () => ({ count: 0, places: 0, oldestSince: null, byCause: [], byMachine: [] }),
+      'fleet.stuck': () => ({ items: [], nextCursor: null }),
+      'fleet.listedShip': () => builder,
+    });
+    live.show(new QueryObserver(live.queryClient, live.trpc.fleet.stuckSummary.queryOptions()));
+    live.show(new InfiniteQueryObserver(live.queryClient, live.trpc.fleet.stuck.infiniteQueryOptions({ cause: 'waitingForCrew' }, { getNextPageParam: () => undefined })));
+    live.show(new InfiniteQueryObserver(live.queryClient, live.trpc.fleet.stuck.infiniteQueryOptions({ cause: 'undeliverable' }, { getNextPageParam: () => undefined })));
+    await expect.poll(() => [live.askedOf('fleet.stuckSummary'), live.askedOf('fleet.stuck')]).toEqual([1, 2]);
+
+    live.onItem({ kind: 'event', event: anEvent(type, { shipId: builder.id, hasMessage }) });
+
+    await expect.poll(() => [live.askedOf('fleet.stuckSummary'), live.askedOf('fleet.stuck')]).toEqual([2, 4]);
+    live.close();
   });
 });

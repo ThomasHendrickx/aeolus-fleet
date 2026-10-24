@@ -4,32 +4,33 @@ import type { DeliveryId, StuckCause } from '@aeolus-fleet/common';
 import { useState } from 'react';
 
 import { showToast } from '../../../components/atoms/toast';
+import { LoadMore } from '../../../components/molecules/load-more';
 import { useAccess } from '../../../lib/access';
-import { useFleetSnapshot } from '../../../lib/fleet';
-import { useFleetHealth } from '../../../lib/fleet-health';
+import { useStuckPlaces } from '../../../lib/fleet-health';
+import { useListedShips } from '../../../lib/listed-ships';
 import { DISMISSED_TOAST, useDismissDelivery, useResendDelivery } from '../../../lib/needs-attention';
 import { useNow } from '../../../lib/now';
 import { useStuckMessages } from '../hooks/use-stuck-messages';
-import { causeGroupsOf, placeName } from '../services/health-view';
+import { placeName } from '../services/health-view';
 import { StuckDrilldown, type DrilldownShip } from '../ui/organisms/stuck-drilldown';
 
 /**
- * One cause opened, read live: its places from the fleet's health, each
- * ship's status, type and last seen from the fleet snapshot, and each stuck
+ * One cause opened, read live: its places a page at a time, each
+ * ship's status, type and last seen, read by id, and each stuck
  * delivery's message. A manager resends or dismisses an undeliverable one,
  * with a toast either way.
  */
 export function DrilldownContainer({ cause }: { cause: StuckCause }) {
   const now = useNow();
-  const health = useFleetHealth();
-  const fleet = useFleetSnapshot();
+  const stuck = useStuckPlaces(cause);
   const access = useAccess();
   const resend = useResendDelivery();
   const dismiss = useDismissDelivery();
   const [pendingIds, setPendingIds] = useState<ReadonlySet<DeliveryId>>(new Set());
-  const places = causeGroupsOf(health.data ?? { stuck: [] }).find((group) => group.cause === cause)?.places ?? [];
+  const places = stuck.items ?? [];
   const { messages } = useStuckMessages(places.flatMap((place) => place.deliveries.map((delivery) => delivery.messageId)));
-  const ships = new Map<string, DrilldownShip>((fleet.data ?? []).map((ship) => [ship.id, { status: ship.status, type: ship.type, lastSeenAt: ship.lastSeenAt }]));
+  const listed = useListedShips(places.flatMap(({ place }) => (place.kind === 'ship' ? [place.ship.id] : [])));
+  const ships = new Map<string, DrilldownShip>([...(listed?.values() ?? [])].map((ship) => [ship.id, { status: ship.status, type: ship.type, lastSeenAt: ship.lastSeenAt }]));
 
   const act = (deliveryId: DeliveryId, run: () => Promise<void>) => {
     setPendingIds((pending) => new Set([...pending, deliveryId]));
@@ -66,16 +67,15 @@ export function DrilldownContainer({ cause }: { cause: StuckCause }) {
   return (
     <StuckDrilldown
       cause={cause}
-      state={health.isError ? 'error' : health.data ? 'ready' : 'loading'}
+      state={stuck.isFailed ? 'error' : stuck.items ? 'ready' : 'loading'}
       places={places}
       ships={ships}
       messages={messages}
-      onRetry={() => {
-        void health.refetch();
-      }}
+      onRetry={stuck.retry}
       onResend={access.canResend ? onResend : undefined}
       onDismiss={access.canResend ? onDismiss : undefined}
       pendingIds={pendingIds}
+      more={stuck.hasMore ? <LoadMore what="more places" isLoading={stuck.isLoadingMore} isFailed={stuck.isLoadMoreFailed} onLoad={stuck.loadMore} area="drilldown" /> : null}
       now={now}
     />
   );

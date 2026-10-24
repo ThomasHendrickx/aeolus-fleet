@@ -4,6 +4,7 @@
  * counted without reading every ship's row.
  */
 import { SHIP_KINDS, type ShipId, type ShipKind } from '@aeolus-fleet/common';
+import { isNeedingCrew } from '@aeolus-fleet/common/rules';
 
 import type { ListedShip } from './list-fleet.js';
 
@@ -18,25 +19,6 @@ export interface ShipCounts {
   needsCrew: { withTrierarchs: number; withoutTrierarchs: number };
   /** The active ship of the kind that has awaited crew longest; none while none awaits crew. */
   longestWait: { id: ShipId; name: string; awaitingCrewSince: Date } | null;
-}
-
-/**
- * Whether the ship is on Needs crew (#245): an active ship whose crew request
- * no trierarch holds and no crew by hand took. With trierarchs, also a request
- * a trierarch holds that is not running or being released; without them, only
- * while the ship awaits crew.
- */
-export function isNeedingCrew(ship: Pick<ListedShip, 'status' | 'crewRequest'>, plugin: { hasTrierarchs: boolean }): boolean {
-  const request = ship.crewRequest;
-  if (ship.status === 'retired' || request === null) {
-    return false;
-  }
-  const isUnassigned = request.assignedTo === null && request.crewedBy === null;
-  if (!plugin.hasTrierarchs) {
-    return isUnassigned && ship.status === 'awaitingCrew';
-  }
-  const isHeldAndNotRunning = request.assignedTo !== null && request.status !== 'running' && request.status !== 'releasing';
-  return isUnassigned || isHeldAndNotRunning;
 }
 
 /** Counts the ships per kind, in the kinds' order, only the kinds there are. */
