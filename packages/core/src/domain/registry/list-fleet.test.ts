@@ -654,7 +654,7 @@ describe('selecting the ships of a page by what the overview filters (decision 4
   }
 
   it('selects the ships whose name or type holds the search text, in any case', async () => {
-    await expect(namesSelected({ query: 'REVIEW' })).resolves.toEqual(['old', 'scout']);
+    await expect(namesSelected({ query: 'REVIEW' })).resolves.toEqual(['scout']);
     await expect(namesSelected({ query: 'uild' })).resolves.toEqual(['builder']);
   });
 
@@ -673,7 +673,7 @@ describe('selecting the ships of a page by what the overview filters (decision 4
 
     await expect(namesSelected({ crewRequest: ['needsCrew'] })).resolves.toEqual(['builder']);
     await expect(namesSelected({ crewRequest: ['crewedByHand'] })).resolves.toEqual(['tester']);
-    await expect(namesSelected({ crewRequest: ['none'] })).resolves.toEqual(['argo', 'old', 'scout']);
+    await expect(namesSelected({ crewRequest: ['none'] })).resolves.toEqual(['argo', 'scout']);
   });
 
   it("selects the ships by the status their trierarch wrote, an assigned request without one as crewing", async () => {
@@ -705,7 +705,7 @@ describe('selecting the ships of a page by what the overview filters (decision 4
     ['plugin', []],
     ['trierarch', ['mac-mini']],
     ['codex', ['tester']],
-    ['other', ['builder', 'old', 'scout']],
+    ['other', ['builder', 'scout']],
   ] as const)('selects the ships whose agent kind is %s', async (kind, names) => {
     await shipWithScopes({ registry: useCases, argo }, { name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] });
     crewShip(core, { fleetId, shipId: testerId, harness: 'codex' });

@@ -7,6 +7,7 @@ import { labelContextOf, type LabelContext } from './labels';
 import { everyPage } from './every-page';
 import { dataOf } from './plugin-answer';
 import { useTRPC, useTRPCClient } from './trpc';
+import { EVERY_SHIP_STATUS } from './every-ship-status';
 
 /**
  * How often an open console reads the snapshot again: last seen changes with
@@ -28,7 +29,7 @@ export function useFleetSnapshot() {
   return useQuery({
     queryKey: trpc.fleet.list.queryKey(),
     queryFn: async () =>
-      dataOf(await everyPage(async (cursor: string | undefined) => ({ kind: 'answered', data: await client.fleet.list.query({ cursor, limit: PAGE_SIZE_MAX }) }))),
+      dataOf(await everyPage(async (cursor: string | undefined) => ({ kind: 'answered', data: await client.fleet.list.query({ cursor, limit: PAGE_SIZE_MAX, status: EVERY_SHIP_STATUS }) }))),
     refetchInterval: LAST_SEEN_REFRESH_MS,
     select: (ships) => ships.filter(isInReadReach),
   });

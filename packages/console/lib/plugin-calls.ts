@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { ConnectPluginError, type ConnectCalls, type PluginConnection } from './connect-plugin';
 import { everyPage } from './every-page';
 import { dataOf } from './plugin-answer';
+import { EVERY_SHIP_STATUS } from './every-ship-status';
 
 /**
  * The calls connecting a plugin makes from the web app's server, each with
@@ -66,7 +67,7 @@ export function pluginCalls(urls: { serverUrl: string; pluginUrl: string }, sess
       dataOf(
         await everyPage(async (cursor) => ({
           kind: 'answered',
-          data: await trpc({ ...fleet, procedure: 'fleet.list', input: { cursor, limit: PAGE_SIZE_MAX }, isQuery: true, answers: fleetListOutputSchema }),
+          data: await trpc({ ...fleet, procedure: 'fleet.list', input: { cursor, limit: PAGE_SIZE_MAX, status: EVERY_SHIP_STATUS }, isQuery: true, answers: fleetListOutputSchema }),
         })),
       ),
     grantScopes: (shipId, grant) => trpc({ ...fleet, procedure: 'fleet.grantScopes', input: { shipId, grant, revoke: [] }, answers: grantScopesOutputSchema }),

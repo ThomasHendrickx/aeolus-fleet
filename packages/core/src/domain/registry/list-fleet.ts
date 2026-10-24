@@ -74,6 +74,9 @@ export function outsideReadReach({ id, name, type, status }: Pick<ListedShip, 'i
   return { id, name, type, status, isInReadReach: false };
 }
 
+/** What the listing selects by status when the caller asks none: the active ships, so retired ones come only when asked. */
+const ACTIVE_STATUSES: readonly ShipStatus[] = ['awaitingCrew', 'crewed'];
+
 export type ListFleet = (
   caller: Caller,
   input?: ShipFilter & { sort?: ShipSort; cursor?: ShipPosition; limit?: number },
@@ -84,7 +87,7 @@ export type ListFleet = (
  * those the filter selects (ship-filter), in the sort's order (ship-order),
  * after the cursor's position, PAGE_SIZE_DEFAULT unless the caller asks a
  * size, and the position the next page starts after, null on the last page (decision 4 of the performance
- * design). With label value ids only the ships that carry every one of them
+ * design). Only active ships unless the status filter asks for retired ones. With label value ids only the ships that carry every one of them
  * (decision 0031). A ship outside the caller's read reach shows its name,
  * type and status only, and is never filtered or sorted by anything else
  * (decision 0034). Never a
@@ -93,7 +96,8 @@ export type ListFleet = (
  */
 export function createListFleet(deps: { listing: FleetListing; readReach: ReadReachOf }): ListFleet {
   return async (caller, input) => {
-    const { cursor, limit = PAGE_SIZE_DEFAULT, sort, ...filter } = input ?? {};
+    const { cursor, limit = PAGE_SIZE_DEFAULT, sort, status, ...rest } = input ?? {};
+    const filter = { ...rest, status: status === undefined || status.length === 0 ? ACTIVE_STATUSES : status };
     const reach = await deps.readReach(caller);
     // One ship past the page tells whether another page follows.
     const read = await deps.listing.ships(caller.fleetId, { after: cursor, limit: limit + 1, filter, sort, reach });
