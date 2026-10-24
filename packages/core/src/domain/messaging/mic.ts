@@ -1,9 +1,9 @@
 import type { MeetingId, MicPattern, ShipId } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
-import { shipActor, type NewEvent } from '../shared/events.js';
+import { shipActor, type Actor, type NewEvent } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
-import type { Meeting } from './meeting.js';
+import { checkPresent, isPresent, type Meeting, type PresenceRefusal } from './meeting.js';
 
 /**
  * The mic of a meeting (decision 0061, M7 to M10): who may contribute besides
@@ -28,9 +28,9 @@ export type MicChange =
   | { kind: 'take' }
   | { kind: 'setPattern'; pattern: MicPattern };
 
-export type MicRefusal = DomainError<
-  | 'MEETING_NOT_FOUND'
-  | 'MEETING_ENDED'
+export type MicRefusal =
+  | PresenceRefusal
+  | DomainError<
   | 'MIC_ALREADY_REQUESTED'
   | 'MIC_ALREADY_HELD'
   | 'MODERATOR_NEEDS_NO_MIC'
@@ -49,20 +49,16 @@ export interface MicChanged {
 }
 
 /**
- * Changes the mic of the meeting for a participant. A meeting that does not
- * exist and one the ship takes no part in are one refusal, as for a
- * contribution; an ended meeting's mic no longer changes. First in line, a
+ * Changes the mic of the meeting for a participant present in it, open still
+ * (`checkPresent`). First in line, a
  * free mic goes to the oldest request in the same change, by the moderator.
  */
 export function changeMic(meeting: Meeting | undefined, input: { meetingId: MeetingId; by: ShipId; change: MicChange; at: Date }): Result<MicChanged, MicRefusal> {
-  const { meetingId, by } = input;
-  if (!meeting?.participants.some((participant) => participant.shipId === by)) {
-    return refuse('MEETING_NOT_FOUND', `Meeting ${meetingId} does not exist or you are not one of its participants`);
+  const present = checkPresent(meeting, { meetingId: input.meetingId, shipId: input.by, ended: 'its mic no longer changes' });
+  if (!present.isOk) {
+    return present;
   }
-  if (meeting.endedAt !== null) {
-    return refuse('MEETING_ENDED', `Meeting ${meetingId} ended: its mic no longer changes`);
-  }
-  const changed = applied(meeting, input);
+  const changed = applied(present.value, input);
   return changed.isOk ? ok(handedOn(changed.value, input.at)) : changed;
 }
 
@@ -108,7 +104,7 @@ function applied(meeting: Meeting, input: { by: ShipId; change: MicChange; at: D
       if (change.shipId === meeting.moderatorShipId) {
         return moderatorNeedsNoMic(meeting);
       }
-      if (!meeting.participants.some((participant) => participant.shipId === change.shipId)) {
+      if (!isPresent(meeting, change.shipId)) {
         return refuse('PARTICIPANT_NOT_FOUND', `Ship ${change.shipId} is not one of the participants of meeting ${meeting.id}`);
       }
       const former = meeting.micHolderShipId;
@@ -136,8 +132,29 @@ function applied(meeting: Meeting, input: { by: ShipId; change: MicChange; at: D
   }
 }
 
+/**
+ * The meeting with the ship off its mic, as when it leaves, is revoked,
+ * retires or is named moderator: its request goes, and the mic it held is
+ * free, released when the ship itself caused it, taken otherwise. First in
+ * line hands a freed mic on.
+ */
+export function offTheMic(meeting: Meeting, input: { shipId: ShipId; actor: Actor; at: Date }): MicChanged {
+  const { shipId, actor, at } = input;
+  const event = (type: 'MicRequestWithdrawn' | 'MicReleased' | 'MicTaken'): NewEvent => ({ fleetId: meeting.fleetId, type, occurredAt: at, actor, shipId, details: { meetingId: meeting.id } });
+  const isRequested = meeting.micRequests.some((request) => request.shipId === shipId);
+  const isHolder = meeting.micHolderShipId === shipId;
+  const isItself = actor.kind === 'ship' && actor.shipId === shipId;
+  const events = [...(isRequested ? [event('MicRequestWithdrawn')] : []), ...(isHolder ? [event(isItself ? 'MicReleased' : 'MicTaken')] : [])];
+  const changed: MicChanged = {
+    meeting: { ...meeting, micHolderShipId: isHolder ? null : meeting.micHolderShipId, micRequests: meeting.micRequests.filter((request) => request.shipId !== shipId) },
+    events,
+    givenTo: null,
+  };
+  return handedOn(changed, at);
+}
+
 /** First in line: a free mic goes to the oldest request, given by the moderator, who set the pattern (M9, M11). */
-function handedOn(changed: MicChanged, at: Date): MicChanged {
+export function handedOn(changed: MicChanged, at: Date): MicChanged {
   const { meeting } = changed;
   const [oldest, ...waiting] = meeting.micRequests;
   if (meeting.micPattern !== 'fifo' || meeting.micHolderShipId !== null || oldest === undefined) {

@@ -315,6 +315,18 @@ export function timelineSentence(entry: TimelineEntry, shipId: string): Timeline
       return { parts: [text('Lost the mic in a meeting'), ...(entry.actor ? [text(', taken by '), ship(entry.actor)] : [])], tone: 'ok', icon: 'received' };
     case 'MicPatternSet':
       return { parts: [text(entry.details.pattern === 'fifo' ? "Set a meeting's mic to first in line" : "Set a meeting's mic to the moderator's pick")], tone: 'ok', icon: 'sent' };
+    case 'ParticipantLeft':
+      return { parts: [text('Left a meeting')], tone: 'ok', icon: 'sent' };
+    case 'ParticipantRejoined':
+      return { parts: [text('Rejoined a meeting')], tone: 'ok', icon: 'sent' };
+    case 'ParticipantRevoked':
+      return { parts: [text('Taken off a meeting'), ...(entry.actor ? [text(', by '), ship(entry.actor)] : [])], tone: 'ok', icon: 'received' };
+    case 'OwnershipTransferred':
+      return { parts: [text('Got the ownership of a meeting'), ...(entry.actor ? [text(', from '), ship(entry.actor)] : [])], tone: 'ok', icon: 'received' };
+    case 'ModeratorNamed':
+      return { parts: [text('Became the moderator of a meeting'), ...(entry.actor ? [text(', named by '), ship(entry.actor)] : [])], tone: 'ok', icon: 'received' };
+    case 'MeetingEnded':
+      return { parts: [text('Ended a meeting')], tone: 'ok', icon: 'sent' };
     case 'VerifiedFactsRemoved':
       return {
         parts: [text(`Verified facts removed: ${String(entry.details.facts ?? '')}, ${stringDetail(entry, 'why') === 'writerRetired' ? 'their writer retired' : 'the ship retired'}`)],

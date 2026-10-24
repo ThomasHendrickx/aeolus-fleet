@@ -21,7 +21,7 @@ const meetingRow = z.object({
   endedAt: z.date().nullable(),
   micHolderShipId: idSchema('ship').nullable(),
   micPattern: micPatternSchema,
-  participants: z.array(z.object({ shipId: idSchema('ship'), joinedAt: z.date() })),
+  participants: z.array(z.object({ shipId: idSchema('ship'), joinedAt: z.date(), leftAt: z.date().nullable(), isRevoked: z.boolean() })),
   micRequests: z.array(z.object({ shipId: idSchema('ship'), requestedAt: z.date() })),
 });
 
@@ -32,7 +32,7 @@ function toMeeting(row: unknown): Meeting {
 
 /** Each participant once, in the order they joined, the opener first; and the mic requests, oldest first. */
 const PARTICIPANTS_AND_REQUESTS = {
-  participants: { select: { shipId: true, joinedAt: true }, orderBy: { place: 'asc' } },
+  participants: { select: { shipId: true, joinedAt: true, leftAt: true, isRevoked: true }, orderBy: { place: 'asc' } },
   micRequests: { select: { shipId: true, requestedAt: true }, orderBy: { place: 'asc' } },
 } as const;
 
@@ -51,10 +51,29 @@ export function createPrismaMeetingRepository(db: Db): MeetingRepository {
       const row = await db.meeting.findFirst({ where: { fleetId, id: meetingId }, include: PARTICIPANTS_AND_REQUESTS });
       return row ? toMeeting(row) : undefined;
     },
-    saveMic: async ({ fleetId, id, micHolderShipId, micPattern, micRequests }) => {
-      await db.meeting.update({ where: { fleetId_id: { fleetId, id } }, data: { micHolderShipId, micPattern } });
+    save: async ({ fleetId, id, ownerShipId, moderatorShipId, endedAt, micHolderShipId, micPattern, participants, micRequests }) => {
+      await db.meeting.update({ where: { fleetId_id: { fleetId, id } }, data: { ownerShipId, moderatorShipId, endedAt, micHolderShipId, micPattern } });
       await db.meetingMicRequest.deleteMany({ where: { fleetId, meetingId: id } });
+      for (const [place, { shipId, joinedAt, leftAt, isRevoked }] of participants.entries()) {
+        await db.meetingParticipant.upsert({
+          where: { fleetId_meetingId_shipId: { fleetId, meetingId: id, shipId } },
+          create: { fleetId, meetingId: id, shipId, joinedAt, leftAt, isRevoked, place },
+          update: { joinedAt, leftAt, isRevoked, place },
+        });
+      }
       await saveRequests(db, { fleetId, meetingId: id, requests: micRequests });
+    },
+    listPresentInForUpdate: async (fleetId, shipId) => {
+      // Held for update until the unit of work ends, in id order so two retires never lock in a cycle;
+      // found through meeting_participants_fleet_id_ship_id_idx.
+      const rows = await db.$queryRaw<unknown[]>`
+        SELECT m.id FROM meetings m
+        JOIN meeting_participants p ON p.fleet_id = m.fleet_id AND p.meeting_id = m.id
+        WHERE m.fleet_id = ${fleetId} AND p.ship_id = ${shipId} AND p.left_at IS NULL AND m.ended_at IS NULL
+        ORDER BY m.id
+        FOR UPDATE OF m`;
+      const meetings = await db.meeting.findMany({ where: { fleetId, id: { in: z.array(z.object({ id: idSchema('meeting') })).parse(rows).map((row) => row.id) } }, include: PARTICIPANTS_AND_REQUESTS, orderBy: { id: 'asc' } });
+      return meetings.map(toMeeting);
     },
     lockOpenerKey: async ({ openerShipId, idempotencyKey }) => {
       // A transaction-level advisory lock on the opener and its key, as a send's key is locked
