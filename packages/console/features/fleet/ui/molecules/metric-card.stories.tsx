@@ -37,3 +37,8 @@ export const AwaitingCrew: Story = {
 export const Stuck: Story = {
   args: { label: 'Stuck', shortLabel: undefined, value: 9, detail: 'Deliveries stuck, oldest 1 d 19 h', href: '/fleet-health', icon: OctagonAlert, tone: 'attention' },
 };
+
+/** While its count is read: the number and the line as skeletons, the label and the link already there. */
+export const Loading: Story = {
+  args: { label: 'Stuck', shortLabel: undefined, value: undefined, detail: undefined, href: '/fleet-health', icon: OctagonAlert, tone: 'attention' },
+};

@@ -1,7 +1,7 @@
-import { createIdGenerator, SHIP_LABELS_MAX, type ListedLabel, type ListedShip } from '@aeolus-fleet/common';
+import { createIdGenerator, SHIP_LABELS_MAX, type CountedLabel, type ListedShip } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
-import { activeShipCount, assignKeysOf, canAssignLabelsTo, chipTitleOf, carriesEvery, labelLimitOf, listed, retiredLabelsOf, retireLabelLines, chipsOf, filterGroupsOf, labelContextOf, labelRowsOf, labelTextProblem, matchesLabelQuery, pickedChips, rowChips } from './labels';
+import { assignKeysOf, canAssignLabelsTo, chipTitleOf, carriesEvery, labelLimitOf, listed, retiredLabelsOf, retireLabelLines, chipsOf, filterGroupsOf, labelContextOf, labelRowsOf, labelTextProblem, matchesLabelQuery, pickedChips, rowChips } from './labels';
 
 const newId = createIdGenerator();
 
@@ -18,18 +18,26 @@ const PLUGIN = aShip('trierarch-plugin', { type: 'trierarch-plugin' });
 const SQUADRONS = aShip('squadrons', { type: 'squadrons' });
 const ORCHESTRATOR = aShip('orchestrator', { type: 'orchestrator' });
 
-function aLabel(definition: { key: string; values: string[] }, owner: ListedShip): ListedLabel {
-  return { id: newId('label'), key: definition.key, values: definition.values.map((value) => ({ id: newId('labelValue'), value })), owner: { kind: 'ship', id: owner.id, name: owner.name } };
+/** A label as fleet.labels answers it; `shipCounts` gives how many active ships carry it and each value, none by default. */
+function aLabel(definition: { key: string; values: string[]; shipCounts?: { label: number; values: number[] } }, owner: ListedShip): CountedLabel {
+  return {
+    id: newId('label'),
+    key: definition.key,
+    shipCount: definition.shipCounts?.label ?? 0,
+    values: definition.values.map((value, index) => ({ id: newId('labelValue'), value, shipCount: definition.shipCounts?.values[index] ?? 0 })),
+    owner: { kind: 'ship', id: owner.id, name: owner.name },
+  };
 }
 
-const PROJECT = aLabel({ key: 'project', values: ['aeolus', 'hemma'] }, ARGO);
+// builder carries project=hemma and writer project=aeolus; the retired ship's project=hemma is not counted.
+const PROJECT = aLabel({ key: 'project', values: ['aeolus', 'hemma'], shipCounts: { label: 2, values: [1, 1] } }, ARGO);
 const AREA = aLabel({ key: 'area', values: ['backend', 'docs'] }, ARGO);
 const OS = aLabel({ key: 'os', values: ['macos', 'linux'] }, PLUGIN);
 const BLUEPRINT = aLabel({ key: 'blueprint', values: ['hemma-feature'] }, SQUADRONS);
 const COST = aLabel({ key: 'cost', values: ['low'] }, ORCHESTRATOR);
 const LABELS = [PROJECT, AREA, OS, BLUEPRINT, COST];
 
-function carried(label: ListedLabel, index: number): ListedShip['labels'][number] {
+function carried(label: CountedLabel, index: number): ListedShip['labels'][number] {
   const value = label.values[index];
   if (value === undefined) {
     throw new RangeError(`${label.key} has no value ${String(index)}`);
@@ -37,7 +45,7 @@ function carried(label: ListedLabel, index: number): ListedShip['labels'][number
   return { labelId: label.id, key: label.key, valueId: value.id, value: value.value };
 }
 
-function valueId(label: ListedLabel, index: number): ListedShip['labels'][number]['valueId'] {
+function valueId(label: CountedLabel, index: number): ListedShip['labels'][number]['valueId'] {
   return carried(label, index).valueId;
 }
 
@@ -134,7 +142,7 @@ describe('filterGroupsOf', () => {
     ]);
   });
 
-  it('counts the ships that carry each value, leaving retired ships out', () => {
+  it('counts the ships that carry each value as fleet.labels answers them', () => {
     const [yours] = filterGroupsOf(labelContextOf(LABELS, { ships: SHIPS, isOperator: true }));
 
     expect(yours?.keys.find((key) => key.key === 'project')?.values.map((value) => [value.value, value.shipCount])).toEqual([
@@ -180,7 +188,7 @@ describe('labelRowsOf', () => {
     ]);
   });
 
-  it('counts the ships that carry each value, and any value of the label, leaving retired ships out', () => {
+  it('counts the ships that carry each value, and any value of the label, as fleet.labels answers them', () => {
     expect(rows.find((row) => row.key === 'project')).toMatchObject({
       shipCount: 2,
       values: [
@@ -188,10 +196,6 @@ describe('labelRowsOf', () => {
         { value: 'hemma', shipCount: 1 },
       ],
     });
-  });
-
-  it('counts the ships that are not retired', () => {
-    expect(activeShipCount({ ships: SHIPS })).toBe(6);
   });
 });
 
@@ -282,8 +286,14 @@ describe('retiredLabelsOf', () => {
     expect(retiredLabelsOf(BUILDER, context)).toEqual({ carried: ['os=macos', 'project=hemma', 'area=backend'] });
   });
 
-  it('names the labels an owner owns and the ships that carry them, leaving retired ships out', () => {
-    expect(retiredLabelsOf(ARGO, context)).toEqual({ carried: [], owned: { keys: ['project', 'area'], carriers: ['builder', 'writer'] } });
+  it('counts the ships that carry each label an owner owns, as fleet.labels counts them', () => {
+    expect(retiredLabelsOf(ARGO, context)).toEqual({ carried: [], owned: [{ key: 'project', carrierCount: 2 }, { key: 'area', carrierCount: 0 }] });
+  });
+
+  it('leaves the retiring ship out of the count of a label it owns and carries', () => {
+    const owner = { id: ARGO.id, labels: [carried(PROJECT, 0)] };
+
+    expect(retiredLabelsOf(owner, context).owned?.[0]).toEqual({ key: 'project', carrierCount: 1 });
   });
 });
 
@@ -292,15 +302,24 @@ describe('retireLabelLines', () => {
     expect(retireLabelLines({ carried: ['project=aeolus', 'area=review', 'cost=low'] })).toEqual(['Its 3 labels are removed with it: project=aeolus, area=review, cost=low.']);
   });
 
-  it('names an owner’s labels and the ships that lose them', () => {
-    expect(retireLabelLines({ carried: [], owned: { keys: ['os', 'arch', 'site'], carriers: ['trierarch-mac', 'trierarch-hetzner'] } })).toEqual([
+  it('names an owner’s labels and counts the ships that lose each, leaving out a label no ship carries', () => {
+    expect(
+      retireLabelLines({ carried: [], owned: [{ key: 'os', carrierCount: 3 }, { key: 'arch', carrierCount: 1 }, { key: 'site', carrierCount: 0 }] }),
+    ).toEqual([
       'Its 3 labels retire with it: os, arch and site. Nobody can assign them again.',
-      'They are removed from the 2 ships that carry them: trierarch-mac and trierarch-hetzner.',
+      'They are removed from the ships that carry them: os from 3 ships and arch from 1 ship.',
+    ]);
+  });
+
+  it('counts the ships that lose one label', () => {
+    expect(retireLabelLines({ carried: [], owned: [{ key: 'os', carrierCount: 1204 }] })).toEqual([
+      'Its label retires with it: os. Nobody can assign it again.',
+      'It is removed from the 1204 ships that carry it.',
     ]);
   });
 
   it('says one label in the singular, carried by no ship', () => {
-    expect(retireLabelLines({ carried: ['os=macos'], owned: { keys: ['site'], carriers: [] } })).toEqual([
+    expect(retireLabelLines({ carried: ['os=macos'], owned: [{ key: 'site', carrierCount: 0 }] })).toEqual([
       'Its label is removed with it: os=macos.',
       'Its label retires with it: site. Nobody can assign it again.',
     ]);

@@ -1,5 +1,5 @@
 import type { FleetId } from '@aeolus-fleet/common';
-import { SCOPES } from '@aeolus-fleet/common';
+import { PAGE_SIZE_MAX, SCOPES } from '@aeolus-fleet/common';
 import { createTRPCClient, httpBatchLink } from '@trpc/client';
 import type { FastifyInstance } from 'fastify';
 import type { Browser, BrowserContext, Page } from 'playwright';
@@ -156,6 +156,18 @@ describe('the overview of a fleet larger than a page', () => {
       ['ship-40', 'ship-41', 'ship-42', 'ship-43', 'ship-44', 'ship-45'],
       expect.objectContaining({ query: 'ship-4', limit: PAGE_SIZE }),
     ]);
+  });
+
+  it('opens the overview, Labels and Needs crew without reading every ship of the fleet', async () => {
+    const { page, asked } = await signedIn();
+    await page.waitForLoadState('networkidle');
+    for (const path of ['/labels', '/needs-crew']) {
+      await page.goto(path);
+      await page.waitForLoadState('networkidle');
+    }
+
+    // The whole-fleet snapshot asked every status at the largest page size, page after page.
+    expect(asked.filter((input) => input.limit === PAGE_SIZE_MAX)).toEqual([]);
   });
 
   it('sorts by ship Z to A on the server, the last ships first', async () => {

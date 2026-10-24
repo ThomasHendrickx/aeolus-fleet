@@ -32,6 +32,8 @@ function sortValueOf(ship: ListedShip, column: ShipSortColumn): string | undefin
       return ship.kind === 'operator' ? 'console' : (ship.harness ?? undefined);
     case 'seen':
       return ship.lastSeenAt?.toISOString();
+    case 'requested':
+      return ship.crewRequest?.requestedAt.toISOString();
   }
 }
 

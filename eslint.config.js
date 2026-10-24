@@ -133,7 +133,6 @@ const featuresInTheOldLayout = [
   'compose',
   'guide',
   'labels',
-  'needs-crew',
   'notices',
   'ship-actions',
   'squadrons',

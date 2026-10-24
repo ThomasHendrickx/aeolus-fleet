@@ -2,6 +2,7 @@ import { createIdGenerator, type ListedLabel, type ListedShip } from '@aeolus-fl
 import { describe, expect, it } from 'vitest';
 
 import { formMembersOf, labelErrorSlot, membersOf, missingOf, readyCount, withWorkspaceForAll, workspaceFromItem, workspaceItemsOf, type MemberDraft } from './forming-members';
+import { countedIn } from './fixtures/labels.fixtures';
 import { labelContextOf } from './labels';
 
 const newId = createIdGenerator();
@@ -13,7 +14,7 @@ const PLUGIN: ListedShip = {
 };
 const OS: ListedLabel = { id: newId('label'), key: 'os', values: [{ id: newId('labelValue'), value: 'linux' }, { id: newId('labelValue'), value: 'macos' }], owner: { kind: 'ship', id: PLUGIN.id, name: PLUGIN.name } };
 const LINUX = OS.values[0]?.id ?? '';
-const CONTEXT = labelContextOf([OS], { ships: [PLUGIN], isOperator: true });
+const CONTEXT = labelContextOf(countedIn([OS], []), { ships: [PLUGIN], isOperator: true });
 
 function aDraft(overrides: Partial<MemberDraft> = {}): MemberDraft {
   return {

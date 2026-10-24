@@ -37,7 +37,7 @@ export function useRequestCrewFlow(of: RequestCrewFor | undefined): { open: (mod
   const squadronsConnection = useSquadronsConnection();
   const squadrons = useSquadrons();
   const requestCrew = useRequestCrew();
-  const labelContext = useLabelContext();
+  const labelContext = useLabelContext(machines.data?.map((machine) => machine.shipId));
   const [mode, setMode] = useState<'request' | 'edit'>();
   // Null until the form changes: the check then asks for the settings the form starts with.
   const [edited, setEdited] = useState<CrewSettings | undefined | null>(null);

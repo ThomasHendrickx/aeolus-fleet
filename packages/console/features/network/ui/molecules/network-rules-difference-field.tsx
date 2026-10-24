@@ -12,6 +12,8 @@ export interface NetworkRulesDifferenceFieldProps {
   choice?: ResolutionChoice;
   /** The active ships a pick may name. */
   ships: readonly { id: ShipId; name: string }[];
+  /** Each change of the ship name typed for a pick, so the container reads the ships that match. */
+  onShipQueryChange?: (query: string) => void;
   isDisabled: boolean;
   onChange: (choice: ResolutionChoice) => void;
 }
@@ -32,7 +34,7 @@ function headlineOf(difference: NetworkRulesDifference): string {
  * network-io, Q9), with the ways it offers to resolve it as a radio group,
  * and the ship to name for a pick. Props only.
  */
-export function NetworkRulesDifferenceField({ difference, choice, ships, isDisabled, onChange }: NetworkRulesDifferenceFieldProps) {
+export function NetworkRulesDifferenceField({ difference, choice, ships, onShipQueryChange, isDisabled, onChange }: NetworkRulesDifferenceFieldProps) {
   const key = differenceKeyOf(difference);
   const id = `network-import-difference-${key.replace(':', '-')}`;
   return (
@@ -65,6 +67,7 @@ export function NetworkRulesDifferenceField({ difference, choice, ships, isDisab
             const picked = ships.find((ship) => ship.id === shipId);
             onChange({ difference, way: 'pickShip', ...(picked === undefined ? {} : { shipId: picked.id }) });
           }}
+          onQueryChange={onShipQueryChange}
           groupLabel="Active ships"
           placeholder="Type a ship name"
           aria-label={`The ship for ${difference.kind === 'ship' ? difference.name : ''}`}

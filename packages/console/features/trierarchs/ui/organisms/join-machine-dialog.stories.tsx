@@ -7,7 +7,7 @@ const meta = {
   title: 'Organisms/JoinMachineDialog',
   component: JoinMachineDialog,
   parameters: { layout: 'fullscreen' },
-  args: { activeNames: ['trierarch-mac'], isOpen: true, onOpenChange: () => undefined, isPending: false, onSubmit: () => undefined },
+  args: { takenNames: ['trierarch-mac'], isOpen: true, onOpenChange: () => undefined, isPending: false, onSubmit: () => undefined },
   decorators: [
     (Story) => (
       <div className="min-h-160">

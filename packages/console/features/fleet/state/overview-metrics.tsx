@@ -3,26 +3,30 @@
 import { CircleDashed, OctagonAlert, UserCheck } from 'lucide-react';
 
 import { MetricCard } from '../ui/molecules/metric-card';
-import { useFleetSnapshot } from '../../../lib/fleet';
-import { stuckCountOf, useFleetHealth } from '../../../lib/fleet-health';
+import { useFleetHealth } from '../../../lib/fleet-health';
 import { useNow } from '../../../lib/now';
+import { duration } from '../../../lib/relative-time';
+import { useShipCounts } from '../../../lib/ship-counts';
 import { overviewMetrics } from '../services/overview-metrics';
 
 /**
  * The overview's counts above the fleet (canvas, OverviewVaried): ships
  * crewed, awaiting crew with the longest wait, and the stuck deliveries with
- * since when the oldest waits. Each card opens what it counts. None
- * until the fleet is known, and none while argo is alone.
+ * since when the oldest waits. Each card opens what it counts. Each card
+ * shows its own loading, so the ship counts never hold up the stuck count,
+ * nor the reverse. None once the counts are known with argo alone.
  */
 export function OverviewMetrics() {
-  const fleet = useFleetSnapshot();
-  const health = useFleetHealth();
+  const counts = useShipCounts();
+  const health = useFleetHealth().data;
+  // The stuck deliveries in all, and since when the oldest of them waits.
+  const stuck = health && {
+    count: health.stuck.reduce((total, place) => total + place.count, 0),
+    oldestSince: health.stuck.map((place) => place.oldestSince).toSorted()[0] ?? null,
+  };
   const now = useNow();
-  if (!fleet.data) {
-    return null;
-  }
-  const metrics = overviewMetrics({ ships: fleet.data, stuck: health.data?.stuck ?? [], now });
-  if (metrics.activeCount === 0) {
+  const metrics = counts.data && overviewMetrics({ counts: counts.data, now });
+  if (metrics?.activeCount === 0) {
     return null;
   }
   return (
@@ -30,8 +34,8 @@ export function OverviewMetrics() {
       <MetricCard
         label="Ships crewed"
         shortLabel="Crewed"
-        value={metrics.crewedCount}
-        detail={`of ${String(metrics.activeCount)} active ships`}
+        value={metrics?.crewedCount}
+        detail={metrics && `of ${String(metrics.activeCount)} active ships`}
         href="/?status=crewed"
         icon={UserCheck}
         tone="ok"
@@ -39,8 +43,8 @@ export function OverviewMetrics() {
       />
       <MetricCard
         label="Awaiting crew"
-        value={metrics.awaitingCount}
-        detail={metrics.longestWait ? `Longest wait: ${metrics.longestWait.name}, ${metrics.longestWait.wait}` : 'Every active ship is crewed'}
+        value={metrics?.awaitingCount}
+        detail={metrics && (metrics.longestWait ? `Longest wait: ${metrics.longestWait.name}, ${metrics.longestWait.wait}` : 'Every active ship is crewed')}
         href="/?status=awaitingCrew"
         icon={CircleDashed}
         tone="waiting"
@@ -48,8 +52,8 @@ export function OverviewMetrics() {
       />
       <MetricCard
         label="Stuck"
-        value={stuckCountOf(health.data) ?? 0}
-        detail={metrics.oldestStuck ? `Deliveries stuck, oldest ${metrics.oldestStuck}` : 'Delivering'}
+        value={stuck?.count}
+        detail={stuck && (stuck.oldestSince === null ? 'Delivering' : `Deliveries stuck, oldest ${duration(new Date(stuck.oldestSince), now)}`)}
         href="/fleet-health"
         icon={OctagonAlert}
         tone="attention"

@@ -8,7 +8,7 @@ const meta = {
   parameters: { layout: 'fullscreen' },
   args: {
     shipName: 'reviewer-01',
-    activeNames: ['reviewer-01', 'planner', 'tester-01'],
+    takenNames: ['reviewer-01', 'planner', 'tester-01'],
     isOpen: true,
     onOpenChange: () => undefined,
     isPending: false,

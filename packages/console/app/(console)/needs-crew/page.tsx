@@ -2,16 +2,15 @@
 
 import { FleetSegments } from '../../../components/molecules/fleet-segments';
 import { ComposeMessage } from '../../../features/compose/organisms/compose-message';
-import { NeedsCrewAction } from '../../../features/needs-crew/organisms/needs-crew-action';
+import { useNeedsCrewPages } from '../../../features/needs-crew/hooks/needs-crew-pages';
+import { NeedsCrewAction } from '../../../features/needs-crew/state/needs-crew-action';
 import { ShipActions } from '../../../features/ship-actions/organisms/ship-actions';
 import { NewCrewLineFlow } from '../../../features/squadrons/organisms/get-new-crew-line';
-import { NeedsCrewList } from '../../../features/needs-crew/organisms/needs-crew-list';
+import { NeedsCrewList } from '../../../features/needs-crew/ui/organisms/needs-crew-list';
 import { ListPage } from '../../../components/organisms/list-page';
 import { useConsoleFrame } from '../../../lib/console-frame';
-import { useFleetSnapshot } from '../../../lib/fleet';
 import { useLiveFleet } from '../../../lib/live-fleet';
 import { useNeedsAttention } from '../../../lib/needs-attention';
-import { needsCrew } from '../../../lib/needs-crew';
 import { useNow } from '../../../lib/now';
 import { usePluginNav } from '../../../lib/plugin-nav';
 import { useSignInWhenSessionEnds } from '../../../lib/session';
@@ -26,10 +25,10 @@ export default function NeedsCrewPage() {
   const frame = useConsoleFrame();
   const attention = useNeedsAttention();
   const liveFleet = useLiveFleet();
-  const fleet = useFleetSnapshot();
   const pluginNav = usePluginNav();
-  useSignInWhenSessionEnds([attention.error, liveFleet.error, fleet.error]);
   const { hasTrierarchs } = pluginNav;
+  const list = useNeedsCrewPages({ hasTrierarchs });
+  useSignInWhenSessionEnds([attention.error, liveFleet.error, list.error]);
 
   return (
     <ListPage
@@ -44,12 +43,11 @@ export default function NeedsCrewPage() {
       toolbar={<FleetSegments active="needs-crew" needsCrewCount={pluginNav.needsCrewCount} />}
     >
       <NeedsCrewList
-        ships={fleet.data === undefined ? undefined : needsCrew(fleet.data, { hasTrierarchs })}
+        ships={list.items}
+        more={{ hasMore: list.hasMore, isLoading: list.isLoadingMore, isFailed: list.isLoadMoreFailed, onLoad: list.loadMore }}
         hasTrierarchs={hasTrierarchs}
-        error={fleet.isError ? fleet.error.message : undefined}
-        onRetry={() => {
-          void fleet.refetch();
-        }}
+        error={list.isFailed ? (list.error instanceof Error ? list.error.message : String(list.error)) : undefined}
+        onRetry={list.retry}
         actionOf={(ship) => (hasTrierarchs ? <NeedsCrewAction ship={ship} /> : <ShipActions ship={ship} layout="next" compose={ComposeMessage} crewLineFlow={NewCrewLineFlow} />)}
         now={now}
       />

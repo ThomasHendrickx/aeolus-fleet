@@ -6,9 +6,8 @@ import Link from 'next/link';
 import { Fragment, useState, type ComponentType, type ReactNode } from 'react';
 
 import {
-  useFleetSnapshot,
+  useFleetLabels,
   useGetStartingPrompt,
-  useLabelContext,
   usePingShip,
   useRecrewShip,
   useReleaseShip,
@@ -18,6 +17,7 @@ import {
 import { lazyDialog } from '../../../lib/lazy-dialog';
 import { useAccess, type Access } from '../../../lib/access';
 import { retiredLabelsOf, retireLabelLines } from '../../../lib/labels';
+import { useIsShipNameTaken } from '../../../lib/ship-name-taken';
 import { canPing } from '../../../lib/ping';
 import { useShip } from '../../../lib/ship';
 import { useSquadronsConnection } from '../../../lib/squadrons';
@@ -170,8 +170,9 @@ function ShipActionsOf({
   const recrewShip = useRecrewShip();
   const renameShip = useRenameShip();
   const pingShip = usePingShip();
-  const fleet = useFleetSnapshot();
-  const labels = useLabelContext();
+  const [typedName, setTypedName] = useState('');
+  const isNameTaken = useIsShipNameTaken(dialog === 'rename' ? typedName : '');
+  const labels = useFleetLabels();
   const counted = useShip(dialog === 'release' || dialog === 'recrew' || dialog === 'retire' || dialog === 'remove' ? ship.id : undefined);
   const removeMember = useRemoveMember();
 
@@ -326,7 +327,7 @@ function ShipActionsOf({
         onConfirm={() => {
           retireShip.mutate({ shipId: ship.id }, { onSuccess: close });
         }}
-        labelLines={labels === undefined ? undefined : retireLabelLines(retiredLabelsOf(ship, labels))}
+        labelLines={labels.data === undefined ? undefined : retireLabelLines(retiredLabelsOf(ship, { labels: labels.data }))}
       />
       {squadron && member && (
         <RemoveMemberDialog
@@ -350,7 +351,8 @@ function ShipActionsOf({
       )}
       <RenameDialog
         shipName={ship.name}
-        activeNames={(fleet.data ?? []).filter((each) => each.status !== 'retired').map((each) => each.name)}
+        takenNames={isNameTaken === true ? [typedName] : []}
+        onNameChange={setTypedName}
         isOpen={dialog === 'rename'}
         onOpenChange={(isOpen) => {
           if (!isOpen) {

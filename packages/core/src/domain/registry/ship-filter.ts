@@ -1,6 +1,7 @@
-import type { AgentKind, CrewRequestKey, LabelValueId, ShipId, ShipStatus } from '@aeolus-fleet/common';
+import type { AgentKind, CrewRequestKey, LabelValueId, ShipId, ShipKind, ShipStatus } from '@aeolus-fleet/common';
 
 import { carriesEvery } from './label.js';
+import { isNeedingCrew } from './ship-counts.js';
 import type { ListedShip } from './list-fleet.js';
 
 /** What the fleet snapshot's reads select by status when the caller asks none: the active ships, so retired ones come only when asked. */
@@ -20,6 +21,8 @@ export function statusesAsked(status: readonly ShipStatus[] | undefined): readon
 export interface ShipFilter {
   /** Text the ship's name or type holds, in any case. */
   query?: string;
+  /** The ship's exact name: whether a ship has it, for a name field's hint. */
+  name?: string;
   /** Any of these statuses. */
   status?: readonly ShipStatus[];
   /** Any of these types. */
@@ -28,8 +31,14 @@ export interface ShipFilter {
   crewRequest?: readonly CrewRequestKey[];
   /** Every one of these label values (decision 0031). */
   valueIds?: readonly LabelValueId[];
+  /** Ships whose crew request is assigned to any of these trierarch ships: a machine's spots. */
+  assignedTo?: readonly ShipId[];
+  /** The ships on Needs crew, with the trierarch plugin connected or without it (isNeedingCrew). */
+  needsCrew?: 'withTrierarchs' | 'withoutTrierarchs';
   /** Any of these ships: a squadron's flagship and members, as the console resolves them. */
   shipIds?: readonly ShipId[];
+  /** Any of these ship kinds: argo and the person ships, for an owner picker (decision 0045). */
+  shipKind?: readonly ShipKind[];
   /** Any of these agent kinds (agentKindOf). */
   kind?: readonly AgentKind[];
   /** The ships the console's plugins run as: their agent kind is plugin. */
@@ -79,22 +88,32 @@ export function crewRequestKeyOf(crewRequest: ListedShip['crewRequest']): CrewRe
 /**
  * Whether the filter selects the ship. A ship outside the caller's read reach
  * shows its name, type and status only (decision 0034), so the filters on
- * what it does not show (crew request, agent kind, label values) never
+ * what it does not show (crew request and its trierarch, agent kind, label values) never
  * select it.
  */
 export function matchesShipFilter(ship: ListedShip, { filter, isInReach }: { filter: ShipFilter; isInReach: boolean }): boolean {
   const query = filter.query?.trim().toLowerCase() ?? '';
-  const isHiddenFilterPicked = [filter.crewRequest, filter.kind, filter.valueIds].some((picked) => picked !== undefined && picked.length > 0);
+  const isHiddenFilterPicked = filter.needsCrew !== undefined || [filter.crewRequest, filter.assignedTo, filter.kind, filter.valueIds].some((picked) => picked !== undefined && picked.length > 0);
   return (
     (isInReach || !isHiddenFilterPicked) &&
     (query === '' || ship.name.toLowerCase().includes(query) || ship.type.toLowerCase().includes(query)) &&
+    (filter.name === undefined || ship.name === filter.name) &&
     isPicked(filter.status, ship.status) &&
     isPicked(filter.type, ship.type) &&
+    isPicked(filter.shipKind, ship.kind) &&
     isPicked(filter.crewRequest, crewRequestKeyOf(ship.crewRequest)) &&
+    isAssignedToAny(filter.assignedTo, ship.crewRequest) &&
+    (filter.needsCrew === undefined || isNeedingCrew(ship, { hasTrierarchs: filter.needsCrew === 'withTrierarchs' })) &&
     carriesEvery(ship.labels, filter.valueIds) &&
     isPicked(filter.shipIds, ship.id) &&
     isPicked(filter.kind, agentKindOf(ship, filter.pluginShipIds))
   );
+}
+
+/** Whether the ship's crew request is assigned to one of the trierarchs picked; nothing picked passes every ship. */
+function isAssignedToAny(trierarchShipIds: readonly ShipId[] | undefined, crewRequest: ListedShip['crewRequest']): boolean {
+  const assignedTo = crewRequest?.assignedTo?.id;
+  return trierarchShipIds === undefined || trierarchShipIds.length === 0 || (assignedTo !== undefined && trierarchShipIds.includes(assignedTo));
 }
 
 function isPicked<Value>(picked: readonly Value[] | undefined, value: Value): boolean {

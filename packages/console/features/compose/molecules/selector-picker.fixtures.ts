@@ -35,3 +35,6 @@ export const COMPOSE_SHIPS: ListedShip[] = [
 ];
 
 export const COMPOSE_TYPES = ['builder', 'reviewer', 'tester'];
+
+/** How many of the example ships have each type, as fleet.shipCounts would count them. */
+export const COMPOSE_TYPE_SHIP_COUNTS: ReadonlyMap<string, number> = new Map(COMPOSE_TYPES.map((type) => [type, COMPOSE_SHIPS.filter((each) => each.type === type).length]));

@@ -1,16 +1,9 @@
-import type { ListedShip } from '@aeolus-fleet/common';
-import { CORE_SCOPE_DESCRIPTIONS, createIdGenerator } from '@aeolus-fleet/common';
+import { CORE_SCOPE_DESCRIPTIONS } from '@aeolus-fleet/common';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, screen, userEvent, waitFor } from 'storybook/test';
 
 import { CommissionDialog } from './commission-dialog';
 import { MACHINE_LABELS, OFFERS } from '../../../../lib/fixtures/machines.fixtures';
-
-const newId = createIdGenerator();
-
-function aShip(name: string, type: string): ListedShip {
-  return { id: newId('ship'), name, type, kind: 'agent', status: 'crewed', startingPrompt: null, location: null, lastSeenAt: null, ping: null, scopes: ['messages:send', 'messages:receive'], report: null, harness: null, model: null, awaitingCrewSince: null, crewRequest: null, labels: [], retiredAt: null, ownerShipId: null };
-}
 
 /** The fleet scopes as fleet.scopes describes them, the core ones' descriptions from common. */
 const FLEET_ACCESS = {
@@ -32,7 +25,8 @@ const meta = {
   component: CommissionDialog,
   parameters: { layout: 'fullscreen' },
   args: {
-    activeShips: [aShip('reviewer-01', 'reviewer'), aShip('reviewer-02', 'reviewer'), aShip('planner', 'planner')],
+    types: ['planner', 'reviewer'],
+    taken: { names: ['reviewer-01', 'reviewer-02', 'planner'], typeShipCounts: new Map([['reviewer', 2], ['planner', 1], ['auditor', 0]]) },
     isOpen: true,
     onOpenChange: () => undefined,
     isPending: false,

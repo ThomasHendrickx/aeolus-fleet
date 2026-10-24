@@ -22,7 +22,11 @@ import { ListPage } from '../../../components/organisms/list-page';
 import { useConsoleFrame } from '../../../lib/console-frame';
 import { useAccess } from '../../../lib/access';
 import { useConsoleConstants } from '../../../lib/console-constants';
-import { useFleetSnapshot, useLabelContext } from '../../../lib/fleet';
+import { useLabelContext } from '../../../lib/fleet';
+import { useOwnerShips } from '../../../features/network/hooks/owner-ships';
+import { useListedShips } from '../../../lib/listed-ships';
+import { useShipSearch } from '../../../lib/ship-search';
+import { networkShipIdsOf } from '../../../features/network/services/network-ships';
 import { useLiveFleet } from '../../../lib/live-fleet';
 import { useNeedsAttention } from '../../../lib/needs-attention';
 import {
@@ -41,7 +45,7 @@ import { useBuiltInRules, useSetViewerRead } from '../../../features/network/hoo
 import { builtInRowsOf } from '../../../features/network/services/built-in-rules';
 import { useDeclaredNetworkRules } from '../../../features/network/hooks/declared-rules';
 import { declaredRulesOf } from '../../../features/network/services/declared-rules';
-import { networkPathOf, useShipReach } from '../../../features/network/hooks/reach';
+import { networkPathOf, useSailingShipCount, useShipReach } from '../../../features/network/hooks/reach';
 import { graphShipsOf, type ReachAgainst } from '../../../features/network/services/reach-graph';
 import { useReachRefusals } from '../../../features/network/hooks/reach-refusals';
 import { LoadMore } from '../../../components/molecules/load-more';
@@ -73,10 +77,27 @@ export function NetworkPageFor({ pickedShipId, against }: { pickedShipId?: ShipI
   const reachAgainst = hasDraft ? against : 'applied';
   const draftChanges = useNetworkRulesDraftChanges(hasNetwork && hasDraft);
   const context = useLabelContext();
-  const fleet = useFleetSnapshot();
+  const ownerShips = useOwnerShips(hasNetwork);
   const reach = useShipReach(hasNetwork ? pickedShipId : undefined, reachAgainst);
   const refusals = useReachRefusals(hasNetwork);
   const declared = useDeclaredNetworkRules(hasNetwork);
+  // The ships the page names, read by id, and the ones that match what is typed to pick one (Thomas, 24 Oct).
+  const named = useListedShips(
+    networkShipIdsOf({
+      rules: [...(network.data?.applied.rules ?? []), ...(network.data?.draft?.rules ?? [])],
+      declarers: declared.data?.map((each) => each.declarer) ?? [],
+      ...(draftChanges.data === undefined ? {} : { draftChanges: draftChanges.data }),
+      ...(pickedShipId === undefined ? {} : { pickedShipId }),
+      ...(reach.data === undefined ? {} : { reachableShipIds: reach.data }),
+    }),
+  );
+  const namedShips = [...(named?.values() ?? [])];
+  const sailingShipCount = useSailingShipCount();
+  const [shipQuery, setShipQuery] = useState('');
+  // argo first, as the first ships by name start with it, then those that match what is typed.
+  const firstShips = useShipSearch('', hasNetwork) ?? [];
+  const matchingShips = useShipSearch(shipQuery, hasNetwork) ?? [];
+  const searchedShips = graphShipsOf([...new Map([...firstShips.slice(0, 1), ...matchingShips].map((ship) => [ship.id, ship])).values()]);
   const builtIns = useBuiltInRules(hasNetwork);
   const viewerRead = useSetViewerRead();
   const saveDraft = useSaveNetworkRulesDraft();
@@ -106,9 +127,11 @@ export function NetworkPageFor({ pickedShipId, against }: { pickedShipId?: ShipI
         }}
       />
     );
-  } else if (network.data === undefined || context === undefined || fleet.data === undefined) {
+  } else if (network.data === undefined || context === undefined || ownerShips === undefined) {
     content = <LoadingSkeleton variant="detail" rows={4} label="Loading the network" />;
   } else {
+    // The rules editor names the ships rules point at, and offers argo and every person ship as an owner.
+    const networkContext = { ...context, ships: [...namedShips, ...ownerShips] };
     content = (
       <>
         <BuiltInNetworkRules
@@ -124,7 +147,7 @@ export function NetworkPageFor({ pickedShipId, against }: { pickedShipId?: ShipI
         <NetworkRulesEditor
           key={JSON.stringify(network.data.draft ?? network.data.applied)}
           rules={(network.data.draft ?? network.data.applied).rules}
-          context={context}
+          context={networkContext}
           limits={{ rulesMax: networkRulesMax, selectorMax: shipLabelsMax }}
           isSaving={saveDraft.isPending}
           saveError={saveDraft.error?.message}
@@ -135,7 +158,7 @@ export function NetworkPageFor({ pickedShipId, against }: { pickedShipId?: ShipI
         />
         {network.data.draft === null ? null : (
           <NetworkRulesDraftChanges
-            changes={draftChanges.data === undefined ? undefined : draftChangesOf(draftChanges.data, fleet.data)}
+            changes={draftChanges.data === undefined ? undefined : draftChangesOf(draftChanges.data, namedShips)}
             error={draftChanges.error?.message}
             onRetry={() => {
               void draftChanges.refetch();
@@ -193,7 +216,8 @@ export function NetworkPageFor({ pickedShipId, against }: { pickedShipId?: ShipI
             checkFile.mutate({ file });
           }}
           onFileChange={forgetImport}
-          ships={graphShipsOf(fleet.data)}
+          ships={searchedShips}
+          onShipQueryChange={setShipQuery}
           isImporting={importRules.isPending}
           importError={importRules.error?.message}
           onImport={(input) => {
@@ -211,15 +235,17 @@ export function NetworkPageFor({ pickedShipId, against }: { pickedShipId?: ShipI
           }}
         />
         <DeclaredNetworkRules
-          declared={declared.data === undefined ? undefined : declaredRulesOf(declared.data, fleet.data)}
+          declared={declared.data === undefined ? undefined : declaredRulesOf(declared.data, namedShips)}
           error={declared.error?.message}
           onRetry={() => {
             void declared.refetch();
           }}
-          context={context}
+          context={networkContext}
         />
         <FleetReachGraph
-          ships={graphShipsOf(fleet.data)}
+          ships={graphShipsOf(namedShips)}
+          search={{ ships: searchedShips, onQueryChange: setShipQuery }}
+          {...(sailingShipCount === undefined ? {} : { sailingShipCount })}
           pickedShipId={pickedShipId}
           reachableShipIds={reach.data}
           reachError={reach.error?.message}
@@ -247,7 +273,7 @@ export function NetworkPageFor({ pickedShipId, against }: { pickedShipId?: ShipI
               <LoadMore what="older refusals" isLoading={refusals.isLoadingMore} isFailed={refusals.isLoadMoreFailed} onLoad={refusals.loadMore} area="network-refusals" />
             ) : null
           }
-          context={context}
+          context={networkContext}
           now={now}
         />
       </>

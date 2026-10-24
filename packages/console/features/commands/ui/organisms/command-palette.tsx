@@ -20,6 +20,8 @@ interface CommandPaletteProps {
   isLoading?: boolean;
   /** What the search starts with when it opens; empty when not given. For stories. */
   initialQuery?: string;
+  /** Each change of the query as typed, so the container reads the ships that match. */
+  onQueryChange?: (query: string) => void;
 }
 
 const ICONS: Record<Extract<PaletteItem, { kind: 'action' | 'page' }>['id'], LucideIcon> = {

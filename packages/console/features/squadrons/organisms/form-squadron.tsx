@@ -39,7 +39,7 @@ export function FormSquadron({ blueprints, templates, isOpen, onOpenChange, init
   const [picked, setPicked] = useState<{ repository: string; name: string; version: number }>();
   const crew = useBlueprintCrew(hasTrierarchs ? picked : undefined);
   const machines = useMachines();
-  const context = useLabelContext();
+  const context = useLabelContext(machines.data?.map((machine) => machine.shipId));
   const { shipLabelsMax } = useConsoleConstants();
   const machineLabels = context === undefined || machines.data === undefined ? undefined : machineLabelsInputOf(context, { machines: machines.data, shipLabelsMax });
 

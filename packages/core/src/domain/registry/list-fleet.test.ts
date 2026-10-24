@@ -644,6 +644,16 @@ describe('selecting the ships of a page by what the overview filters (decision 4
     await expect(namesSelected({ query: 'uild' })).resolves.toEqual(['builder']);
   });
 
+  it('selects the active ship of the exact name given, never one whose name only holds it, nor a retired one', async () => {
+    expect([await namesSelected({ name: 'builder' }), await namesSelected({ name: 'build' }), await namesSelected({ name: 'old' })]).toEqual([['builder'], [], []]);
+  });
+
+  it('selects the ships of any kind picked: argo and the person ships', async () => {
+    unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'alice', type: 'person', kind: 'person' }));
+
+    await expect(namesSelected({ shipKind: ['operator', 'person'] })).resolves.toEqual(['argo', 'alice']);
+  });
+
   it('selects the ships of any status picked', async () => {
     await expect(namesSelected({ status: ['crewed', 'retired'] })).resolves.toEqual(['argo', 'old']);
   });
@@ -673,6 +683,39 @@ describe('selecting the ships of a page by what the overview filters (decision 4
 
     await expect(namesSelected({ crewRequest: ['crashed'] })).resolves.toEqual(['tester']);
     await expect(namesSelected({ crewRequest: ['crewing'] })).resolves.toEqual(['builder']);
+  });
+
+  it('selects the ships needing crew, as the trierarch plugin being connected decides', async () => {
+    const plugin = await shipWithScopes({ registry: useCases, argo }, { name: 'trierarch-plugin', type: 'plugin', scopes: ['crew:assign'] });
+    const trierarch = await shipWithScopes({ registry: useCases, argo }, { name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] });
+    unwrap(await useCases.requestCrew(argo, { shipId: builderId, settings: aCrewSettings() }));
+    unwrap(await useCases.requestCrew(argo, { shipId: testerId, settings: aCrewSettings() }));
+    unwrap(await useCases.assignCrew(plugin, { shipId: testerId, trierarchShipId: trierarch.shipId }));
+    unwrap(await useCases.reportCrewStatus(trierarch, { shipId: testerId, status: 'crashed' }));
+
+    await expect(namesSelected({ needsCrew: 'withoutTrierarchs' })).resolves.toEqual(['builder']);
+    await expect(namesSelected({ needsCrew: 'withTrierarchs' })).resolves.toEqual(['builder', 'tester']);
+  });
+
+  it('sorts by when crew was requested, the oldest request first, ships without one last', async () => {
+    unwrap(await useCases.requestCrew(argo, { shipId: testerId, settings: aCrewSettings() }));
+    core.clock.advance(60_000);
+    unwrap(await useCases.requestCrew(argo, { shipId: builderId, settings: aCrewSettings() }));
+
+    await expect(namesSelected({ sort: { column: 'requested', direction: 'ascending' } })).resolves.toEqual(['tester', 'builder', 'argo', 'scout']);
+  });
+
+  it('selects the ships whose crew request is assigned to any trierarch given', async () => {
+    const plugin = await shipWithScopes({ registry: useCases, argo }, { name: 'trierarch-plugin', type: 'plugin', scopes: ['crew:assign'] });
+    const mac = await shipWithScopes({ registry: useCases, argo }, { name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] });
+    const linux = await shipWithScopes({ registry: useCases, argo }, { name: 'linux-box', type: 'trierarch', scopes: ['crew:run'] });
+    for (const [shipId, trierarchShipId] of [[builderId, mac.shipId], [testerId, linux.shipId]] as const) {
+      unwrap(await useCases.requestCrew(argo, { shipId, settings: aCrewSettings() }));
+      unwrap(await useCases.assignCrew(plugin, { shipId, trierarchShipId }));
+    }
+
+    await expect(namesSelected({ assignedTo: [mac.shipId] })).resolves.toEqual(['builder']);
+    await expect(namesSelected({ assignedTo: [mac.shipId, linux.shipId] })).resolves.toEqual(['builder', 'tester']);
   });
 
   it('combines the filters with AND, and fills a page with matches only', async () => {

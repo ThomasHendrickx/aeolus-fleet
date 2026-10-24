@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { shipStatusSchema } from '../fleet/index.js';
+import { shipKindSchema, shipStatusSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
 import { crewRequestKeySchema } from './crew-request.js';
 import { pageInputOf } from './page.js';
@@ -44,17 +44,22 @@ export type AgentKind = z.infer<typeof agentKindSchema>;
 
 /**
  * Which ships `fleet.list` and the counts read select, every filter combined
- * with AND: the search text its name or type holds, in any case; any of the
- * statuses, types, crew request keys, ship ids and agent kinds picked; and
+ * with AND: the search text its name or type holds, in any case; its exact
+ * name; any of the
+ * statuses, types, ship kinds, crew request keys, ship ids and agent kinds picked; and
  * every label value id given (exact matches, decision 0031). A filter left
  * out selects every ship. `pluginShipIds` names the ships the console's
  * plugins run as, which the kind filter counts as plugin.
  */
 export const fleetListFilterSchema = z.object({
   query: z.string().optional(),
+  name: z.string().optional(),
   status: z.array(shipStatusSchema).optional(),
   type: z.array(z.string()).optional(),
+  shipKind: z.array(shipKindSchema).optional(),
   crewRequest: z.array(crewRequestKeySchema).optional(),
+  assignedTo: z.array(idSchema('ship')).optional(),
+  needsCrew: z.enum(['withTrierarchs', 'withoutTrierarchs']).optional(),
   valueIds: z.array(idSchema('labelValue')).optional(),
   shipIds: z.array(idSchema('ship')).optional(),
   kind: z.array(agentKindSchema).optional(),
@@ -71,7 +76,7 @@ export const shipTypesInputSchema = z.object({ status: z.array(shipStatusSchema)
 export const shipTypesOutputSchema = z.array(z.string());
 
 /** The columns `fleet.list` sorts by, as the overview shows them. */
-export const SHIP_SORT_COLUMNS = ['ship', 'status', 'report', 'runsOn', 'seen'] as const;
+export const SHIP_SORT_COLUMNS = ['ship', 'status', 'report', 'runsOn', 'seen', 'requested'] as const;
 export type ShipSortColumn = (typeof SHIP_SORT_COLUMNS)[number];
 
 /**
@@ -169,5 +174,9 @@ export const listedLabelSchema = z.object({
 
 export type ListedLabel = z.infer<typeof listedLabelSchema>;
 
-/** Output of `fleet.labels` (fleet:read): the fleet's labels by key. */
-export const labelsOutputSchema = z.array(listedLabelSchema);
+/** Output of `fleet.labels` (fleet:read): the fleet's labels by key, each with how many active ships in the caller's read reach carry any of its values, and each value with how many carry it. */
+export const labelsOutputSchema = z.array(
+  listedLabelSchema.extend({ shipCount: z.int().min(0), values: z.array(labelValueSchema.extend({ shipCount: z.int().min(0) })) }),
+);
+
+export type CountedLabel = z.infer<typeof labelsOutputSchema>[number];

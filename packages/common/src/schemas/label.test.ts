@@ -76,14 +76,14 @@ describe('assignLabelInputSchema and unassignLabelInputSchema', () => {
 });
 
 describe('labelsOutputSchema', () => {
-  it('answers each label by its id with its values and their ids, and its owner ship by id and name', () => {
-    const label = { id: newId('label'), key: 'os', values: [{ id: newId('labelValue'), value: 'macos' }], owner: { kind: 'ship', id: newId('ship'), name: 'trierarch-plugin' } };
+  it('answers each label by its id with how many ships carry it, its values, their ids and how many ships carry each, and its owner ship by id and name', () => {
+    const label = { id: newId('label'), key: 'os', shipCount: 2, values: [{ id: newId('labelValue'), value: 'macos', shipCount: 2 }], owner: { kind: 'ship', id: newId('ship'), name: 'trierarch-plugin' } };
 
     expect(labelsOutputSchema.parse([label])).toEqual([label]);
   });
 
   it('answers the installation as the owner of a label it defined (decision 0031)', () => {
-    const label = { id: newId('label'), key: 'group', values: [{ id: newId('labelValue'), value: 'sales' }], owner: { kind: 'installation' } };
+    const label = { id: newId('label'), key: 'group', shipCount: 0, values: [{ id: newId('labelValue'), value: 'sales', shipCount: 0 }], owner: { kind: 'installation' } };
 
     expect(labelsOutputSchema.parse([label])).toEqual([label]);
   });

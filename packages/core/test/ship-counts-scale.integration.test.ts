@@ -59,4 +59,26 @@ describe('the ship counts on a fleet of 23,000 ships', () => {
 
     expect(totalCost).toBeLessThan(JIT_ABOVE_COST);
   });
+
+  it('works out the status and crew request stage of the active ships only, and counts the retired ones as they are', async () => {
+    const [row] = await core.prisma.$queryRaw<{ 'QUERY PLAN': unknown }[]>(
+      Prisma.sql`EXPLAIN (ANALYZE, FORMAT JSON) ${shipCountsStatement(fleetId, { reach: { kind: 'every' }, selected: Prisma.sql`` })}`,
+    );
+
+    // argo and the crewed and awaiting ships; the 20,000 retired ones never go through the stages.
+    expect(Math.max(...rowsOfNodes(row?.['QUERY PLAN'], 'CTE Scan'))).toBe(1 + CREWED + AWAITING);
+  });
 });
+
+/** The rows each plan node of the type gave, over every such node. */
+function rowsOfNodes(plan: unknown, nodeType: string): number[] {
+  if (Array.isArray(plan)) {
+    return plan.flatMap((each) => rowsOfNodes(each, nodeType));
+  }
+  if (typeof plan !== 'object' || plan === null) {
+    return [];
+  }
+  const node = new Map(Object.entries(plan));
+  const own = node.get('Node Type') === nodeType ? [Number(node.get('Actual Rows')) * Number(node.get('Actual Loops'))] : [];
+  return [...own, ...[...node.values()].flatMap((each) => rowsOfNodes(each, nodeType))];
+}

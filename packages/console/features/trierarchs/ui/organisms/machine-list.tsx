@@ -17,7 +17,7 @@ interface MachineListProps {
   /** none: not set up or off for this fleet; not-connected: set up, not connected yet; unknown while its connection is read. */
   connection: 'none' | 'unknown' | 'not-connected' | 'connected';
   machines: readonly Machine[] | undefined;
-  /** The fleet's ships, for each machine's capacity and location. */
+  /** The ships the machines crew and the machines' own ships, for each machine's capacity and location. */
   ships: readonly ListedShip[];
   /** Why the machines could not be read. */
   error?: string;

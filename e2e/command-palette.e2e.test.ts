@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { Browser, BrowserContext, Page } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { z } from 'zod';
 
 import { createPrismaClient, type PrismaClient } from '../packages/core/src/adapters/prisma/client.js';
 import { createApp } from '../packages/core/src/app.js';
@@ -70,6 +71,28 @@ async function signedInPage(options: { isPhone?: boolean } = {}): Promise<Page> 
   return page;
 }
 
+/** A batched tRPC request's inputs, by the index of each call in the batch. */
+const batchInputSchema = z.record(z.string(), z.record(z.string(), z.unknown()));
+
+/** What the browser asked of fleet.list from now on, each call's input, as the batched tRPC requests carry them. */
+function fleetListAsked(page: Page): Record<string, unknown>[] {
+  const asked: Record<string, unknown>[] = [];
+  page.on('request', (request) => {
+    const url = new URL(request.url());
+    const procedures = url.pathname.replace(/^\/trpc\//, '').split(',');
+    if (!url.pathname.startsWith('/trpc/') || !procedures.includes('fleet.list')) {
+      return;
+    }
+    const inputs = new Map(Object.entries(batchInputSchema.parse(JSON.parse(url.searchParams.get('input') ?? '{}'))));
+    procedures.forEach((procedure, index) => {
+      if (procedure === 'fleet.list') {
+        asked.push(inputs.get(String(index)) ?? {});
+      }
+    });
+  });
+  return asked;
+}
+
 function palette(page: Page) {
   return page.getByTestId('command-palette');
 }
@@ -86,6 +109,19 @@ describe('the CommandPalette', () => {
 
     await page.waitForURL(`${web.url}/ships/${shipId}`);
     await palette(page).waitFor({ state: 'hidden' });
+  });
+
+  it('asks the server for the first 20 ships that match what is typed, never every ship', async () => {
+    const { shipId } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'lighthouse', type: 'keeper' }));
+    const page = await signedInPage();
+    await page.getByTestId('header-search').waitFor();
+    const asked = fleetListAsked(page);
+
+    await page.keyboard.press('ControlOrMeta+k');
+    await palette(page).getByTestId('command-palette-input').fill('lighth');
+    await palette(page).locator(`[data-testid="command-palette-item"][data-item-key="ship:${shipId}"]`).waitFor();
+
+    expect(asked).toContainEqual(expect.objectContaining({ query: 'lighth', limit: 20 }));
   });
 
   it('opens from the Header and runs Commission ship: the CommissionDialog opens', async () => {

@@ -23,8 +23,10 @@ export interface ImportNetworkRulesDialogProps {
   onCheck: (file: string) => void;
   /** The file changed: the last check no longer holds. */
   onFileChange: () => void;
-  /** The fleet's active ships, argo first: the definers and the ships a pick may name. */
+  /** The active ships that match the name typed, argo first, as the container reads them: the definers and the ships a pick may name. */
   ships: readonly { id: ShipId; name: string; isOperator: boolean }[];
+  /** Each change of a ship name typed, so the container reads the ships that match. */
+  onShipQueryChange?: (query: string) => void;
   isImporting: boolean;
   /** Why the last import failed, as the fleet says it: nothing was written. */
   importError?: string;
@@ -47,7 +49,7 @@ function Steps({ current }: { current: number }) {
 
 /** The open dialog's steps: the file, its check and overview, then the confirm. Starts empty each time it opens. */
 function ImportSteps(props: Omit<ImportNetworkRulesDialogProps, 'isOpen' | 'onOpenChange'>) {
-  const { checked, isChecking, checkError, onCheck, onFileChange, ships, isImporting, importError, onImport } = props;
+  const { checked, isChecking, checkError, onCheck, onFileChange, ships, onShipQueryChange, isImporting, importError, onImport } = props;
   const [file, setFile] = useState('');
   const [choices, setChoices] = useState<ResolutionChoice[]>([]);
   const argo = ships.find((ship) => ship.isOperator);
@@ -194,6 +196,7 @@ function ImportSteps(props: Omit<ImportNetworkRulesDialogProps, 'isOpen' | 'onOp
                 difference={difference}
                 choice={choices.find((choice) => differenceKeyOf(choice.difference) === key)}
                 ships={ships}
+                onShipQueryChange={onShipQueryChange}
                 isDisabled={isBusy}
                 onChange={(choice) => {
                   setChoices([...choices.filter((held) => differenceKeyOf(held.difference) !== key), choice]);
@@ -215,6 +218,7 @@ function ImportSteps(props: Omit<ImportNetworkRulesDialogProps, 'isOpen' | 'onOp
             onValueChange={(shipId) => {
               setDefinerId(ships.find((ship) => ship.id === shipId)?.id);
             }}
+            onQueryChange={onShipQueryChange}
             groupLabel="Active ships"
             placeholder="Type a ship name"
             data-testid="network-import-definer"

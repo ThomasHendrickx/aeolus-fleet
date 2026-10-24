@@ -84,6 +84,12 @@ describe('the reach summary', () => {
     expect(reachSummaryOf(nodes)).toBe('scout may message 2 of 3 ships: argo, planner.');
   });
 
+  it('counts the others out of every ship that sails, the ships drawn or not', () => {
+    const nodes = graphNodesOf(ships, { pickedShipId: scout.id, reachableShipIds: [argo.id, planner.id] });
+
+    expect(reachSummaryOf(nodes, 10)).toBe('scout may message 2 of 9 ships: argo, planner.');
+  });
+
   it('says when the picked ship reaches every other ship', () => {
     const nodes = graphNodesOf(ships, { pickedShipId: scout.id, reachableShipIds: [argo.id, planner.id, vault.id] });
 

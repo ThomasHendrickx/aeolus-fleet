@@ -4,8 +4,10 @@ import type { MessageId, Party, ShipId } from '@aeolus-fleet/common';
 import { useState } from 'react';
 
 import { lazyDialog } from '../../../lib/lazy-dialog';
-import { composeTargets, sendInputOf, useSendMessage } from '../hooks/compose';
-import { useFleetSnapshot } from '../../../lib/fleet';
+import { composeShips, sendInputOf, useSendMessage } from '../hooks/compose';
+import { useListedShips } from '../../../lib/listed-ships';
+import { useShipSearch } from '../../../lib/ship-search';
+import { useShipTypes, useTypeShipCount } from '../../../lib/ship-types';
 import { showToast } from '../../../components/atoms/toast';
 import { useFleetLimits } from '../../../lib/fleet-limits';
 import { useHostedAccountUrl } from '../../../lib/hosted-account';
@@ -31,12 +33,19 @@ interface ComposeMessageProps {
  * with its recipient set and names the message it answers.
  */
 export function ComposeMessage({ isOpen, onOpenChange, replyTo, toShipId }: ComposeMessageProps) {
-  const fleet = useFleetSnapshot();
+  // The recipient a reply or a row's Message starts with, so the field names it before anything is typed.
+  const startShipId = replyTo?.sender.id ?? toShipId;
+  const [shipQuery, setShipQuery] = useState('');
+  const [type, setType] = useState('');
+  const searched = useShipSearch(shipQuery, isOpen);
+  const started = useListedShips(isOpen && startShipId !== undefined ? [startShipId] : []);
+  const types = useShipTypes(false) ?? [];
+  const typeShipCount = useTypeShipCount(isOpen ? type : '');
   const send = useSendMessage();
   const limits = useFleetLimits();
   const accountUrl = useHostedAccountUrl();
   const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
-  const { ships, types } = composeTargets(fleet.data ?? []);
+  const ships = composeShips([...(started?.values() ?? []), ...(searched ?? [])]);
 
   return (
     <ComposeDialog
@@ -44,11 +53,16 @@ export function ComposeMessage({ isOpen, onOpenChange, replyTo, toShipId }: Comp
       onOpenChange={(isNowOpen) => {
         if (!isNowOpen) {
           send.reset();
+          setShipQuery('');
+          setType('');
         }
         onOpenChange(isNowOpen);
       }}
       ships={ships}
+      onShipQueryChange={setShipQuery}
       types={types}
+      typeShipCounts={new Map(typeShipCount === undefined ? [] : [[type, typeShipCount]])}
+      onTypeChange={setType}
       state={send.isPending ? 'sending' : send.isError ? 'failed' : 'editing'}
       error={send.error?.message}
       messageLimit={send.isError ? messageLimitReached(limits.data) : undefined}

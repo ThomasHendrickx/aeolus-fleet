@@ -1,6 +1,7 @@
-import { createIdGenerator, type ListedShip } from '@aeolus-fleet/common';
+import { createIdGenerator } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
+import type { ShipKindCount } from '../../../lib/ship-counts';
 import { overviewMetrics, overviewSubtitle } from './overview-metrics';
 
 const newId = createIdGenerator();
@@ -11,79 +12,51 @@ function minutesAgo(minutes: number): string {
   return new Date(NOW.getTime() - minutes * MINUTE_MS).toISOString();
 }
 
-function aShip(ship: Partial<ListedShip>): ListedShip {
-  return {
-    id: newId('ship'),
-    name: 'scout',
-    type: 'reviewer',
-    kind: 'agent',
-    status: 'crewed',
-    startingPrompt: null,
-    location: null,
-    lastSeenAt: null,
-    ping: null,
-    scopes: ['messages:send', 'messages:receive'],
-    report: null, harness: null, model: null, awaitingCrewSince: null, crewRequest: null, labels: [], retiredAt: null, ownerShipId: null,
-    ...ship,
-  };
+function aKindCount(count: Partial<ShipKindCount> & Pick<ShipKindCount, 'kind'>): ShipKindCount {
+  return { active: 0, crewed: 0, awaitingCrew: 0, retired: 0, needsCrew: { withTrierarchs: 0, withoutTrierarchs: 0 }, longestWait: null, ...count };
 }
 
-const argo = aShip({ name: 'argo', type: 'operator', kind: 'operator' });
-const viewer = aShip({ name: 'viewer', type: 'viewer', kind: 'viewer' });
+const argo = aKindCount({ kind: 'operator', active: 1, crewed: 1 });
+const viewer = aKindCount({ kind: 'viewer', active: 1, awaitingCrew: 1 });
 
 describe('overviewMetrics', () => {
   it('counts the active agent ships, crewed and awaiting crew, never argo, the viewer ship or a retired ship', () => {
-    const ships = [
-      argo,
-      viewer,
-      aShip({ name: 'builder' }),
-      aShip({ name: 'reviewer-1', status: 'awaitingCrew', awaitingCrewSince: minutesAgo(2) }),
-      aShip({ name: 'old', status: 'retired' }),
-    ];
+    const counts = [argo, viewer, aKindCount({ kind: 'agent', active: 2, crewed: 1, awaitingCrew: 1, retired: 1 })];
 
-    expect(overviewMetrics({ ships, stuck: [], now: NOW })).toMatchObject({ activeCount: 2, crewedCount: 1, awaitingCount: 1 });
+    expect(overviewMetrics({ counts, now: NOW })).toMatchObject({ activeCount: 2, crewedCount: 1, awaitingCount: 1 });
+  });
+
+  it('counts nothing active while argo is alone', () => {
+    expect(overviewMetrics({ counts: [argo], now: NOW }).activeCount).toBe(0);
   });
 
   it('names the ship that has awaited crew longest, and for how long', () => {
-    const ships = [
-      aShip({ name: 'reviewer-1', status: 'awaitingCrew', awaitingCrewSince: minutesAgo(2) }),
-      aShip({ name: 'planner', status: 'awaitingCrew', awaitingCrewSince: minutesAgo(95) }),
-    ];
+    const counts = [aKindCount({ kind: 'agent', active: 2, awaitingCrew: 2, longestWait: { id: newId('ship'), name: 'planner', awaitingCrewSince: minutesAgo(95) } })];
 
-    expect(overviewMetrics({ ships, stuck: [], now: NOW }).longestWait).toEqual({ name: 'planner', wait: '1 h 35 min' });
+    expect(overviewMetrics({ counts, now: NOW }).longestWait).toEqual({ name: 'planner', wait: '1 h 35 min' });
   });
 
   it('names no longest wait while every active ship is crewed', () => {
-    expect(overviewMetrics({ ships: [aShip({})], stuck: [], now: NOW }).longestWait).toBeUndefined();
-  });
-
-  it('says since how long the oldest stuck delivery waits', () => {
-    const stuck = [{ oldestSince: minutesAgo(30) }, { oldestSince: minutesAgo(165) }];
-
-    expect(overviewMetrics({ ships: [], stuck, now: NOW }).oldestStuck).toBe('2 h 45 min');
-  });
-
-  it('says no oldest stuck while nothing is stuck', () => {
-    expect(overviewMetrics({ ships: [], stuck: [], now: NOW }).oldestStuck).toBeUndefined();
+    expect(overviewMetrics({ counts: [aKindCount({ kind: 'agent', active: 1, crewed: 1 })], now: NOW }).longestWait).toBeUndefined();
   });
 });
 
 describe('overviewSubtitle', () => {
   it('counts the active ships and argo, and the retired ones', () => {
-    const ships = [argo, aShip({}), aShip({ status: 'awaitingCrew' }), aShip({ status: 'retired' })];
+    const counts = [argo, aKindCount({ kind: 'agent', active: 2, crewed: 1, awaitingCrew: 1, retired: 1 })];
 
-    expect(overviewSubtitle({ ships, canCommission: true })).toBe('2 active ships and argo, 1 retired. Changes appear as they happen.');
+    expect(overviewSubtitle({ counts, canCommission: true })).toBe('2 active ships and argo, 1 retired. Changes appear as they happen.');
   });
 
   it('leaves out retired ships when there are none, and counts one ship as one', () => {
-    expect(overviewSubtitle({ ships: [argo, aShip({})], canCommission: true })).toBe('1 active ship and argo. Changes appear as they happen.');
+    expect(overviewSubtitle({ counts: [argo, aKindCount({ kind: 'agent', active: 1, crewed: 1 })], canCommission: true })).toBe('1 active ship and argo. Changes appear as they happen.');
   });
 
   it('says only argo is there yet, and that commissioned ships appear here', () => {
-    expect(overviewSubtitle({ ships: [argo], canCommission: true })).toBe('Only argo so far. Ships you commission appear here.');
+    expect(overviewSubtitle({ counts: [argo], canCommission: true })).toBe('Only argo so far. Ships you commission appear here.');
   });
 
   it('says only argo is there yet, without commissioning, to a session that cannot commission', () => {
-    expect(overviewSubtitle({ ships: [argo, viewer], canCommission: false })).toBe('Only argo so far.');
+    expect(overviewSubtitle({ counts: [argo, viewer], canCommission: false })).toBe('Only argo so far.');
   });
 });

@@ -1,6 +1,7 @@
 import { createIdGenerator, type LabelValueId, type ListedLabel, type ListedShip } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
+import { countedIn } from './fixtures/labels.fixtures';
 import { labelContextOf } from './labels';
 import {
   addRule,
@@ -47,7 +48,7 @@ const TEAM = aLabel('team', ['ops', 'research']);
 const TIER = aLabel('tier', ['sensitive']);
 const ALICE: ListedShip = { ...ARGO, id: newId('ship'), name: 'alice', type: 'person', kind: 'person' };
 const PLANNER: ListedShip = { ...ARGO, id: newId('ship'), name: 'planner', type: 'planner', kind: 'agent' };
-const CONTEXT = labelContextOf([TEAM, TIER], { ships: [ARGO, ALICE, PLANNER], isOperator: true });
+const CONTEXT = labelContextOf(countedIn([TEAM, TIER], []), { ships: [ARGO, ALICE, PLANNER], isOperator: true });
 const OPS = valueOf(TEAM, 0);
 const RESEARCH = valueOf(TEAM, 1);
 const SENSITIVE = valueOf(TIER, 0);

@@ -5,16 +5,18 @@ import { useState } from 'react';
 
 import { Badge } from '../../../components/atoms/badge';
 import { Button } from '@aeolus-fleet/common/header';
+import { useAssignedShips } from '../../../features/trierarchs/hooks/assigned-ships';
 import { MachineList } from '../../../features/trierarchs/ui/organisms/machine-list';
 import { ListPage } from '../../../components/organisms/list-page';
 import { useConsoleFrame } from '../../../lib/console-frame';
 import { lazyDialog } from '../../../lib/lazy-dialog';
 import { useAccess } from '../../../lib/access';
-import { useFleetSnapshot } from '../../../lib/fleet';
+import { useListedShips } from '../../../lib/listed-ships';
 import { useLiveFleet } from '../../../lib/live-fleet';
 import { useNeedsAttention } from '../../../lib/needs-attention';
 import { useNow } from '../../../lib/now';
 import { useSignInWhenSessionEnds } from '../../../lib/session';
+import { useIsShipNameTaken } from '../../../lib/ship-name-taken';
 import { useJoinMachine, useMachines, useTrierarchPluginConnection, useTrierarchPluginVersion } from '../../../lib/trierarch-plugin';
 
 // Dialogs load when first opened, not with the page.
@@ -31,13 +33,18 @@ export default function TrierarchsPage() {
   const frame = useConsoleFrame();
   const attention = useNeedsAttention();
   const liveFleet = useLiveFleet();
-  const fleet = useFleetSnapshot();
   const connection = useTrierarchPluginConnection();
   const machines = useMachines();
+  const machineShipIds = machines.data?.map((machine) => machine.shipId);
+  // The ships the machines crew, for their spots, and the machines' own ships, for where each runs.
+  const assigned = useAssignedShips(machineShipIds) ?? [];
+  const machineShips = useListedShips(machineShipIds ?? []);
   const pluginVersion = useTrierarchPluginVersion();
   const join = useJoinMachine();
   const access = useAccess();
   const [isJoining, setIsJoining] = useState(false);
+  const [typedName, setTypedName] = useState('');
+  const isNameTaken = useIsShipNameTaken(isJoining ? typedName : '');
   useSignInWhenSessionEnds([attention.error, liveFleet.error]);
   const canJoin = access.canManage && connection === 'connected';
   const openJoin = () => {
@@ -69,7 +76,7 @@ export default function TrierarchsPage() {
       <MachineList
         connection={connection}
         machines={machines.data}
-        ships={fleet.data ?? []}
+        ships={[...assigned, ...(machineShips?.values() ?? [])]}
         error={machines.isError ? machines.error.message : undefined}
         onRetry={() => {
           void machines.refetch();
@@ -79,7 +86,8 @@ export default function TrierarchsPage() {
       />
       {canJoin && (
         <JoinMachineDialog
-          activeNames={(fleet.data ?? []).filter((ship) => ship.status !== 'retired').map((ship) => ship.name)}
+          takenNames={isNameTaken === true ? [typedName] : []}
+          onNameChange={setTypedName}
           isOpen={isJoining}
           onOpenChange={(isOpen) => {
             setIsJoining(isOpen);

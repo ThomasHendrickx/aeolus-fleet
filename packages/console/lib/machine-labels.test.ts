@@ -1,6 +1,7 @@
 import { createIdGenerator, SHIP_LABELS_MAX, type CrewSettings, type ListedLabel, type ListedShip } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
+import { countedIn } from './fixtures/labels.fixtures';
 import { labelContextOf } from './labels';
 import { machineLabelGroupsOf, machineLabelIdsOf, machineLabelsInputOf, machineLabelsText, machineMatchOf, noMatchWords } from './machine-labels';
 
@@ -42,7 +43,7 @@ const MAC = aShip('trierarch-mac', { labels: [carried(OS, 'macos'), carried(ARCH
 const MACBOOK = aShip('trierarch-macbook', { labels: [carried(OS, 'macos'), carried(ARCH, 'arm64')] });
 const HETZNER = aShip('trierarch-hetzner', { labels: [carried(OS, 'linux'), carried(ARCH, 'amd64')] });
 const BUILDER = aShip('builder', { type: 'implementer', labels: [carried(PROJECT, 'hemma'), carried(OS, 'linux')] });
-const CONTEXT = labelContextOf([OS, ARCH, PROJECT], { ships: [ARGO, PLUGIN, MAC, MACBOOK, HETZNER, BUILDER], isOperator: true });
+const CONTEXT = labelContextOf(countedIn([OS, ARCH, PROJECT], []), { ships: [ARGO, PLUGIN, MAC, MACBOOK, HETZNER, BUILDER], isOperator: true });
 const MACHINES = [MAC, MACBOOK, HETZNER].map((ship) => ({ shipId: ship.id, name: ship.name }));
 
 describe('machineMatchOf', () => {
@@ -82,7 +83,7 @@ describe('machineLabelGroupsOf', () => {
   });
 
   it('leaves out a group with no keys', () => {
-    expect(machineLabelGroupsOf(labelContextOf([OS], { ships: [PLUGIN, MAC], isOperator: true }), [{ shipId: MAC.id, name: MAC.name }]).map((group) => group.title)).toEqual(['On machines']);
+    expect(machineLabelGroupsOf(labelContextOf(countedIn([OS], []), { ships: [PLUGIN, MAC], isOperator: true }), [{ shipId: MAC.id, name: MAC.name }]).map((group) => group.title)).toEqual(['On machines']);
   });
 });
 

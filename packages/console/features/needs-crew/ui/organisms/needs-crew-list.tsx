@@ -3,20 +3,23 @@ import { ListChecks, ShipWheel } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
-import { crewRequestStage } from '../../../lib/crew-request';
-import { handCrewOf } from '../../../lib/needs-crew';
-import { clockTime, fullDateTime, relativeTime, shortDateTime } from '../../../lib/relative-time';
-import { Badge } from '../../../components/atoms/badge';
-import { EmptyState } from '../../../components/molecules/empty-state';
-import { InlineError } from '../../../components/molecules/inline-error';
-import { LoadingSkeleton } from '../../../components/molecules/loading-skeleton';
-import { StatusBadge } from '../../../components/molecules/status-badge';
+import { crewRequestStage } from '../../../../lib/crew-request';
+import { handCrewOf } from '../../../../lib/needs-crew';
+import { clockTime, fullDateTime, relativeTime, shortDateTime } from '../../../../lib/relative-time';
+import { Badge } from '../../../../components/atoms/badge';
+import { EmptyState } from '../../../../components/molecules/empty-state';
+import { InlineError } from '../../../../components/molecules/inline-error';
+import { LoadMore } from '../../../../components/molecules/load-more';
+import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
+import { StatusBadge } from '../../../../components/molecules/status-badge';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 interface NeedsCrewListProps {
-  /** The ships on Needs crew, oldest request first; undefined while the fleet loads. */
+  /** The ships on Needs crew loaded so far, oldest request first; undefined while the first page loads. */
   ships: readonly ListedShip[] | undefined;
+  /** The next page: Load more while more ships follow (decision 4 of the performance design). */
+  more?: { hasMore: boolean; isLoading: boolean; isFailed: boolean; onLoad: () => void };
   hasTrierarchs: boolean;
   error?: string;
   onRetry: () => void;
@@ -100,7 +103,7 @@ const ROW = 'grid items-center gap-x-4 gap-y-1.5 px-4 py-3 max-sm:grid-cols-1 ma
  * that are not running, their status and trierarch. A row per ship, stacked
  * on phone.
  */
-export function NeedsCrewList({ ships, hasTrierarchs, error, onRetry, actionOf, now }: NeedsCrewListProps) {
+export function NeedsCrewList({ ships, more, hasTrierarchs, error, onRetry, actionOf, now }: NeedsCrewListProps) {
   if (error !== undefined) {
     return <InlineError variant="page" title="Couldn’t read the fleet" description="Nothing changed." detail={error} onRetry={onRetry} />;
   }
@@ -153,6 +156,7 @@ export function NeedsCrewList({ ships, hasTrierarchs, error, onRetry, actionOf, 
             </li>
           ))}
         </ul>
+        {more?.hasMore === true ? <LoadMore what="more ships" isLoading={more.isLoading} isFailed={more.isFailed} onLoad={more.onLoad} area="needs-crew" /> : null}
       </div>
       <p className="text-meta text-muted-foreground">
         {hasTrierarchs

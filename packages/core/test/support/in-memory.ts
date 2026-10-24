@@ -1529,6 +1529,18 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
             return { id: label.id, key: label.key, values, owner: { kind: 'ship', id: owner.shipId, name: ship?.name ?? '' } };
           }),
       ),
+    labelShipCounts: (fleetId, reach) => {
+      const values = new Map<ShipLabel['valueId'], number>();
+      const carriers = new Map<ShipLabel['labelId'], Set<ShipLabel['shipId']>>();
+      for (const carried of state.shipLabels) {
+        const ship = state.ships.find((each) => each.fleetId === fleetId && each.id === carried.shipId);
+        if (carried.fleetId === fleetId && ship?.retiredAt === null && readsShip(reach, carried.shipId)) {
+          values.set(carried.valueId, (values.get(carried.valueId) ?? 0) + 1);
+          carriers.set(carried.labelId, new Set([...(carriers.get(carried.labelId) ?? []), carried.shipId]));
+        }
+      }
+      return Promise.resolve({ values, labels: new Map([...carriers].map(([labelId, ships]) => [labelId, ships.size])) });
+    },
     deliveryCounts: (fleetId, shipId) => {
       const ofFleet = state.deliveries.filter((delivery) => delivery.fleetId === fleetId);
       return Promise.resolve({

@@ -493,6 +493,8 @@ export interface FleetListing {
   ship(fleetId: FleetId, shipId: ShipId): Promise<ShipFacts | undefined>;
   /** The ships in `reach` that `filter` selects, counted per kind as `shipCountsOf` counts them, without reading each ship. */
   counts(fleetId: FleetId, read: { reach: ReadReach; filter: ShipFilter }): Promise<ShipCounts[]>;
+  /** How many active ships in `reach` carry each label value, and any value of each label, by id; one no such ship carries is left out. */
+  labelShipCounts(fleetId: FleetId, reach: ReadReach): Promise<{ values: ReadonlyMap<LabelValueId, number>; labels: ReadonlyMap<LabelId, number> }>;
   /** The types of the ships in `reach` of any of the statuses, each once, sorted, without reading each ship. */
   types(fleetId: FleetId, read: { reach: ReadReach; status: readonly ShipStatus[] }): Promise<string[]>;
   /**

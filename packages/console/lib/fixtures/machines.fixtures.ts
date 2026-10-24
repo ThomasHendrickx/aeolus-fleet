@@ -5,7 +5,7 @@ import { labelContextOf } from '../labels';
 import { machineLabelsInputOf } from '../machine-labels';
 import type { Spot } from '../machines';
 import type { JoinedMachine, Machine } from '../trierarch-plugin-schemas';
-import { ARCH, carried, LABELS, labelledFleet, OS } from './labels.fixtures';
+import { ARCH, carried, countedIn, LABELS, labelledFleet, OS } from './labels.fixtures';
 import { minutesAgo, NOW } from './ship-page.fixtures';
 
 /** Example machines for the Trierarchs stories: trierarch-mac alive, trierarch-macbook silent, trierarch-new joined. */
@@ -145,10 +145,8 @@ export const MACHINE_CARRIED: Readonly<Record<string, ListedShip['labels']>> = {
 };
 
 /** The fleet's labels, its machines carrying os and arch. */
-export const MACHINE_CONTEXT = labelContextOf([...LABELS, ARCH], {
-  ships: [...labelledFleet().slice(0, 3), ...FLEET.map((ship) => ({ ...ship, labels: MACHINE_CARRIED[ship.id] ?? ship.labels }))],
-  isOperator: true,
-});
+const MACHINE_FLEET = [...labelledFleet().slice(0, 3), ...FLEET.map((ship) => ({ ...ship, labels: MACHINE_CARRIED[ship.id] ?? ship.labels }))];
+export const MACHINE_CONTEXT = labelContextOf([...LABELS, ...countedIn([ARCH], MACHINE_FLEET)], { ships: MACHINE_FLEET, isOperator: true });
 
 /** The fleet's labels and machines as the Request crew form reads them. */
 export const MACHINE_LABELS = machineLabelsInputOf(MACHINE_CONTEXT, { machines: MACHINES, shipLabelsMax: SHIP_LABELS_MAX });

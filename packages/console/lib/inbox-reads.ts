@@ -1,16 +1,15 @@
-import { type DeliveryId, fleetListOutputSchema, inboxMessageSchema, inboxQuestionOf, type InboxFilter, type InboxMessage, isInReadReach, type MessageId, messageOutputSchema, operatorInboxOutputSchema, PAGE_SIZE_MAX } from '@aeolus-fleet/common';
+import { type DeliveryId, fleetListOutputSchema, inboxMessageSchema, inboxQuestionOf, type InboxFilter, type InboxMessage, type MessageId, messageOutputSchema, operatorInboxOutputSchema, PAGE_SIZE_MAX } from '@aeolus-fleet/common';
 import { cookies } from 'next/headers';
 import type { z } from 'zod';
 
-import { everyPage } from './every-page';
 import { inboxEntriesOf, inboxEntryOf } from './inbox-entries';
+import { readInboxSenders, type ListShips } from './inbox-senders';
 import { readInboxPagesUntil, type InboxPage } from './inbox-pages';
 import type { InboxEntry } from './inbox-entry';
 import { threadBefore, type ThreadMessage } from './inbox-thread';
 import type { PluginAnswer } from './plugin-answer';
 import { callPlugin, sessionCookieOf } from './plugin-call';
 import { serverInternalUrlFrom } from './server-url';
-import { EVERY_SHIP_STATUS } from './every-ship-status';
 
 /**
  * argo's inbox as the inbox page reaches it from the web app's server
@@ -51,10 +50,12 @@ export async function readQuestionInbox(deliveryId: DeliveryId): Promise<PluginA
   return withdrawals.kind === 'answered' ? { kind: 'answered', data: [found.data, ...withdrawals.data.items] } : withdrawals;
 }
 
-/** The fleet's ships argo reads whole: every one (decision 0034), page after page. */
-async function readShips() {
-  const ships = await everyPage((cursor) => callFleet('fleet.list', { input: { cursor, limit: PAGE_SIZE_MAX, status: EVERY_SHIP_STATUS }, answers: fleetListOutputSchema }));
-  return ships.kind === 'answered' ? { ...ships, data: ships.data.filter(isInReadReach) } : ships;
+const listShips: ListShips = (input) => callFleet('fleet.list', { input, answers: fleetListOutputSchema });
+
+/** The ships the messages read name, or none when the fleet does not answer: every message still shows, only none folds as a plugin ship's. */
+async function sendersOf(inbox: readonly InboxMessage[]) {
+  const senders = await readInboxSenders(inbox, listShips);
+  return senders.kind === 'answered' ? senders.data : [];
 }
 
 /**
@@ -64,13 +65,13 @@ async function readShips() {
  * what withdrew it is among the rows read.
  */
 export async function readInbox({ filter, size }: { filter: InboxFilter; size: number }): Promise<PluginAnswer<{ items: InboxEntry[]; hasMore: boolean }>> {
-  const [inbox, ships] = await Promise.all([readArgoInbox({ filter, limit: Math.min(size, PAGE_SIZE_MAX), isEnough: (messages) => messages.length >= size }), readShips()]);
+  const inbox = await readArgoInbox({ filter, limit: Math.min(size, PAGE_SIZE_MAX), isEnough: (messages) => messages.length >= size });
   if (inbox.kind !== 'answered') {
     return inbox;
   }
   const { items, nextCursor } = inbox.data;
-  // Without the fleet's ships every message still shows, only none folds as a plugin ship's.
-  return { kind: 'answered', data: { items: inboxEntriesOf(items.slice(0, size), ships.kind === 'answered' ? ships.data : []), hasMore: nextCursor !== null || items.length > size } };
+  const shown = items.slice(0, size);
+  return { kind: 'answered', data: { items: inboxEntriesOf(shown, await sendersOf(shown)), hasMore: nextCursor !== null || items.length > size } };
 }
 
 /**
@@ -78,20 +79,20 @@ export async function readInbox({ filter, size }: { filter: InboxFilter; size: n
  * it: the one the reader shows, which an answer or Mark done takes out of Open.
  */
 export async function readInboxEntry(deliveryId: DeliveryId): Promise<PluginAnswer<InboxEntry | null>> {
-  const [inbox, ships] = await Promise.all([readQuestionInbox(deliveryId), readShips()]);
+  const inbox = await readQuestionInbox(deliveryId);
   if (inbox.kind !== 'answered') {
     return inbox;
   }
-  return { kind: 'answered', data: inboxEntryOf(inbox.data, { ships: ships.kind === 'answered' ? ships.data : [], deliveryId }) };
+  return { kind: 'answered', data: inboxEntryOf(inbox.data, { ships: await sendersOf(inbox.data), deliveryId }) };
 }
 
 /** The messages a message to argo replies to, oldest first. */
 export async function readThread(from: MessageId): Promise<PluginAnswer<ThreadMessage[]>> {
-  const ships = await readShips();
-  if (ships.kind !== 'answered') {
-    return ships;
+  const operator = await callFleet('fleet.list', { input: { shipKind: ['operator'], limit: 1 }, answers: fleetListOutputSchema });
+  if (operator.kind !== 'answered') {
+    return operator;
   }
-  const argo = ships.data.find(({ kind }) => kind === 'operator');
+  const [argo] = operator.data.items;
   if (argo === undefined) {
     return { kind: 'refused', message: 'The fleet lists no argo' };
   }

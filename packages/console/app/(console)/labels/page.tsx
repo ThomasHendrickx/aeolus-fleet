@@ -10,8 +10,8 @@ import { DetailPage } from '../../../components/organisms/detail-page';
 import { useConsoleFrame } from '../../../lib/console-frame';
 import { lazyDialog } from '../../../lib/lazy-dialog';
 import { useAccess } from '../../../lib/access';
-import { useChangeLabelValues, useDefineLabel, useDeleteLabel, useFleetLabels, useLabelContext } from '../../../lib/fleet';
-import { activeShipCount, labelRowsOf } from '../../../lib/labels';
+import { useActiveShipCount, useChangeLabelValues, useDefineLabel, useDeleteLabel, useFleetLabels, useLabelContext } from '../../../lib/fleet';
+import { labelRowsOf } from '../../../lib/labels';
 import { useLiveFleet } from '../../../lib/live-fleet';
 import { useNeedsAttention } from '../../../lib/needs-attention';
 import { useSignInWhenSessionEnds } from '../../../lib/session';
@@ -35,6 +35,7 @@ export default function LabelsPage() {
   const access = useAccess();
   const labels = useFleetLabels();
   const context = useLabelContext();
+  const activeShipCount = useActiveShipCount();
   const define = useDefineLabel();
   const change = useChangeLabelValues();
   const remove = useDeleteLabel();
@@ -105,7 +106,7 @@ export default function LabelsPage() {
     >
       <LabelsTable
         rows={rows}
-        shipTotal={context === undefined ? 0 : activeShipCount(context)}
+        shipTotal={activeShipCount ?? 0}
         error={labels.isError ? labels.error.message : undefined}
         onRetry={() => {
           void labels.refetch();

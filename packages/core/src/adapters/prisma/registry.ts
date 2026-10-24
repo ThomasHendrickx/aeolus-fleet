@@ -689,24 +689,34 @@ function isInReachOfShip(reach: ReadReach): Prisma.Sql {
  * or counts the ships, and no ship is read only to be dropped.
  */
 export function shipFilterCondition(
-  { query, status = [], type = [], crewRequest = [], valueIds = [], shipIds = [], kind = [], pluginShipIds = [] }: ShipFilter,
+  { query, name, status = [], type = [], shipKind = [], crewRequest = [], assignedTo = [], needsCrew, valueIds = [], shipIds = [], kind = [], pluginShipIds = [] }: ShipFilter,
   reach: ReadReach,
 ): Prisma.Sql {
   const needle = query?.trim().toLowerCase() ?? '';
   const values = [...new Set(valueIds)];
   // A ship outside read reach shows its name, type and status only: what it does not show never selects it.
-  const isHiddenFilterPicked = crewRequest.length > 0 || kind.length > 0 || values.length > 0;
+  const isHiddenFilterPicked = crewRequest.length > 0 || assignedTo.length > 0 || needsCrew !== undefined || kind.length > 0 || values.length > 0;
   const conditions = [
     isHiddenFilterPicked ? Prisma.sql`AND ${isInReachOfShip(reach)}` : undefined,
     needle === '' ? undefined : Prisma.sql`AND (strpos(lower(s.name), ${needle}) > 0 OR strpos(lower(s.type), ${needle}) > 0)`,
+    // An active ship's name is unique: ships_fleet_id_name_active_key finds the one ship.
+    name === undefined ? undefined : Prisma.sql`AND s.name = ${name}`,
+    // With the retired ones asked, the name in lower case lets ships_name_listing_every_status_idx find them all.
+    name === undefined || !status.includes('retired') ? undefined : Prisma.sql`AND lower(s.name) COLLATE "C" = lower(${name}) COLLATE "C"`,
     ...statusConditions(status),
     type.length === 0 ? undefined : Prisma.sql`AND s.type = ANY(${[...type]}::text[])`,
+    shipKind.length === 0 ? undefined : Prisma.sql`AND s.kind = ANY(${[...shipKind]}::ship_kind[])`,
     crewRequest.length === 0 ? undefined : Prisma.sql`AND COALESCE(${crewRequestKeyOfShip}, 'none') = ANY(${[...crewRequest]}::text[])`,
     values.length === 0
       ? undefined
       : Prisma.sql`AND (SELECT count(*) FROM ship_labels sl
                         WHERE sl.fleet_id = s.fleet_id AND sl.ship_id = s.id AND sl.value_id = ANY(${values}::text[])) = ${values.length}`,
     shipIds.length === 0 ? undefined : Prisma.sql`AND s.id = ANY(${[...shipIds]}::text[])`,
+    needsCrew === undefined ? undefined : needsCrewCondition(needsCrew),
+    assignedTo.length === 0
+      ? undefined
+      : Prisma.sql`AND EXISTS (SELECT 1 FROM crew_requests acr
+                               WHERE acr.fleet_id = s.fleet_id AND acr.ship_id = s.id AND acr.assigned_to_ship_id = ANY(${[...assignedTo]}::text[]))`,
     kind.length === 0 ? undefined : Prisma.sql`AND ${agentKindOfShip(pluginShipIds)} = ANY(${[...kind]}::text[])`,
   ].filter((condition) => condition !== undefined);
   return conditions.length === 0 ? Prisma.empty : Prisma.join(conditions, ' ');
@@ -731,6 +741,19 @@ function statusConditions(status: readonly ShipStatus[]): Prisma.Sql[] {
   }
   const active = Prisma.sql`AND s.retired_at IS NULL`;
   return isEveryActivePicked ? [active] : [active, Prisma.sql`AND ${statusOfShip} = ANY(${[...status]}::text[])`];
+}
+
+/**
+ * The ships on Needs crew (domain/registry/ship-counts.ts, isNeedingCrew):
+ * an unassigned request no crew by hand took, while the ship awaits crew
+ * without trierarchs and while it is active with them, where also a request
+ * a trierarch holds that is not running or being released.
+ */
+function needsCrewCondition(needsCrew: 'withTrierarchs' | 'withoutTrierarchs'): Prisma.Sql {
+  if (needsCrew === 'withoutTrierarchs') {
+    return Prisma.sql`AND ${statusOfShip} = 'awaitingCrew' AND ${crewRequestKeyOfShip} = 'needsCrew'`;
+  }
+  return Prisma.sql`AND s.retired_at IS NULL AND ${crewRequestKeyOfShip} NOT IN ('crewedByHand', 'running', 'releasing')`;
 }
 
 /** A ship's status as its sort shows it (ship-order's STATUS_WORDS), for the ship `s` of the outer query. */
@@ -765,6 +788,9 @@ function shownSortValueOfShip(sort: ShipSort | undefined): Prisma.Sql {
       return Prisma.sql`CASE WHEN ${statusOfShip} = 'crewed' AND s.kind <> 'viewer'
                              THEN CASE WHEN s.kind = 'operator' THEN 'console' ELSE lower(COALESCE(l.harness, '')) END
                              ELSE '' END`;
+    case 'requested':
+      return Prisma.sql`COALESCE((SELECT to_char(rq.requested_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US')
+                                  FROM crew_requests rq WHERE rq.fleet_id = s.fleet_id AND rq.ship_id = s.id), '')`;
     case 'seen':
       return Prisma.sql`COALESCE(to_char(COALESCE(l.last_seen_at, (SELECT max(cs.last_used_at) FROM console_sessions cs
                                                                    WHERE cs.fleet_id = s.fleet_id AND cs.ship_id = s.id AND cs.lease_id IS NULL))
@@ -952,6 +978,21 @@ export function createPrismaFleetListing(db: Db): FleetListing {
         db.delivery.count({ where: { fleetId, recipientShipId: shipId, state: { in: ['pending', 'received', 'handed'] } } }),
       ]);
       return { inFlight, open };
+    },
+    labelShipCounts: async (fleetId, reach) => {
+      // One pass over the fleet's carried values: per value its carriers, per label its distinct carriers.
+      const rows = z.array(z.object({ value_id: idSchema('labelValue').nullable(), label_id: idSchema('label'), ship_count: z.number() })).parse(
+        await db.$queryRaw`
+          SELECT sl.value_id, sl.label_id, count(DISTINCT sl.ship_id)::int AS ship_count
+          FROM ship_labels sl
+          JOIN ships s ON s.fleet_id = sl.fleet_id AND s.id = sl.ship_id
+          WHERE sl.fleet_id = ${fleetId} AND s.retired_at IS NULL AND ${isInReachOfShip(reach)}
+          GROUP BY GROUPING SETS ((sl.label_id, sl.value_id), (sl.label_id))`,
+      );
+      return {
+        values: new Map(rows.flatMap((row) => (row.value_id === null ? [] : [[row.value_id, row.ship_count] as const]))),
+        labels: new Map(rows.flatMap((row) => (row.value_id === null ? [[row.label_id, row.ship_count] as const] : []))),
+      };
     },
     counts: (fleetId, { reach, filter }) => readShipCounts(db, { fleetId, reach, selected: shipFilterCondition(filter, reach) }),
     types: async (fleetId, read) => z.array(z.object({ type: z.string() })).parse(await db.$queryRaw(shipTypesStatement(fleetId, read)))

@@ -269,7 +269,7 @@ export function registryUseCases(core: InMemoryCore) {
     assignLabel: createAssignLabel(deps),
     unassignLabel: createUnassignLabel(deps),
     deleteLabel: createDeleteLabel(deps),
-    listLabels: createListLabels({ listing: core.listing }),
+    listLabels: createListLabels({ listing: core.listing, readReach: readReachOf(core) }),
     findLabelValue: createFindLabelValue({ listing: core.listing }),
     renameShip: createRenameShip(deps),
     setOwner: createSetOwner(deps),

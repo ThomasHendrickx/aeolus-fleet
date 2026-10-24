@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 
 import { Button } from '@aeolus-fleet/common/header';
-import { NEEDS_CREW_BY_HAND, NEEDS_CREW_WITH_PLUGIN, NOW } from '../../../lib/fixtures/machines.fixtures';
+import { NEEDS_CREW_BY_HAND, NEEDS_CREW_WITH_PLUGIN, NOW } from '../../../../lib/fixtures/machines.fixtures';
 import { NeedsCrewList } from './needs-crew-list';
 
 const meta = {
@@ -19,3 +19,6 @@ export const Empty: Story = { args: { ships: [] } };
 export const EmptyWithPlugin: Story = { args: { ships: [], hasTrierarchs: true } };
 export const Loading: Story = { args: { ships: undefined } };
 export const LoadFailed: Story = { args: { ships: undefined, error: 'The fleet server did not answer.' } };
+export const MorePages: Story = { args: { more: { hasMore: true, isLoading: false, isFailed: false, onLoad: () => undefined } } };
+export const LoadingMore: Story = { args: { more: { hasMore: true, isLoading: true, isFailed: false, onLoad: () => undefined } } };
+export const LoadMoreFailed: Story = { args: { more: { hasMore: true, isLoading: false, isFailed: true, onLoad: () => undefined } } };

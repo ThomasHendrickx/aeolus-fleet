@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { useState } from 'react';
 
 import { SelectorPicker, type SelectorMode, type SelectorValue } from './selector-picker';
-import { COMPOSE_SHIPS, COMPOSE_TYPES, REVIEWER_01 } from './selector-picker.fixtures';
+import { COMPOSE_SHIPS, COMPOSE_TYPE_SHIP_COUNTS, COMPOSE_TYPES, REVIEWER_01 } from './selector-picker.fixtures';
 
 function Picker({
   initialMode = 'ship',
@@ -27,6 +27,7 @@ function Picker({
         onChange={setValue}
         ships={COMPOSE_SHIPS}
         types={COMPOSE_TYPES}
+        typeShipCounts={COMPOSE_TYPE_SHIP_COUNTS}
         error={error}
       />
     </div>

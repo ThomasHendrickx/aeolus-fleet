@@ -75,7 +75,7 @@ describe('labels on Postgres', () => {
 
     expect(changed.values.map((value) => value.id).slice(0, 2)).toEqual([macos, linux]);
     await expect(core.useCases.listLabels(argo)).resolves.toEqual([
-      { id: osId, key: 'os', values: [{ id: macos, value: 'macos' }, { id: linux, value: 'linux' }, { id: windows, value: 'windows' }], owner: { kind: 'ship', id: plugin.shipId, name: 'trierarch-plugin' } },
+      { id: osId, key: 'os', shipCount: 1, values: [{ id: macos, value: 'macos', shipCount: 1 }, { id: linux, value: 'linux', shipCount: 0 }, { id: windows, value: 'windows', shipCount: 1 }], owner: { kind: 'ship', id: plugin.shipId, name: 'trierarch-plugin' } },
     ]);
     await expect(carried()).resolves.toEqual(['builder:os=macos', 'builder:os=windows']);
     expect((await labelEvents()).map((event) => [event.type, event.shipId])).toEqual([
@@ -135,6 +135,23 @@ describe('labels on Postgres', () => {
     expect(defined.filter((result) => result.isOk)).toHaveLength(1);
     expect(defined.filter((result) => !result.isOk).map((result) => refusalOf(result).kind)).toEqual(['LABEL_KEY_TAKEN']);
     await expect(core.prisma.label.count({ where: { key: 'project' } })).resolves.toBe(1);
+  });
+});
+
+describe('the ships each label value counts, on Postgres', () => {
+  it('counts the active ships that carry each value, a retired one left out', async () => {
+    const { shipId: oldId } = unwrap(await core.useCases.commissionShip(plugin, { idempotencyKey: newKey(), name: 'old', type: 'implementer' }));
+    for (const shipId of [builderId, oldId]) {
+      unwrap(await core.useCases.assignLabel(plugin, { shipId, valueId: macos }));
+    }
+    unwrap(await core.useCases.retireShip(argo, { shipId: oldId }));
+
+    const values = (await core.useCases.listLabels(argo)).find((label) => label.id === osId)?.values;
+
+    expect(values?.map((value) => [value.value, value.shipCount])).toEqual([
+      ['macos', 1],
+      ['linux', 0],
+    ]);
   });
 });
 
