@@ -974,16 +974,20 @@ export function createPrismaFleetListing(db: Db): FleetListing {
       ]);
       return { inFlight, open };
     },
-    valueShipCounts: async (fleetId, reach) => {
-      const rows = z.array(z.object({ value_id: idSchema('labelValue'), ship_count: z.number() })).parse(
+    labelShipCounts: async (fleetId, reach) => {
+      // One pass over the fleet's carried values: per value its carriers, per label its distinct carriers.
+      const rows = z.array(z.object({ value_id: idSchema('labelValue').nullable(), label_id: idSchema('label'), ship_count: z.number() })).parse(
         await db.$queryRaw`
-          SELECT sl.value_id, count(*)::int AS ship_count
+          SELECT sl.value_id, sl.label_id, count(DISTINCT sl.ship_id)::int AS ship_count
           FROM ship_labels sl
           JOIN ships s ON s.fleet_id = sl.fleet_id AND s.id = sl.ship_id
           WHERE sl.fleet_id = ${fleetId} AND s.retired_at IS NULL AND ${isInReachOfShip(reach)}
-          GROUP BY sl.value_id`,
+          GROUP BY GROUPING SETS ((sl.label_id, sl.value_id), (sl.label_id))`,
       );
-      return new Map(rows.map((row) => [row.value_id, row.ship_count]));
+      return {
+        values: new Map(rows.flatMap((row) => (row.value_id === null ? [] : [[row.value_id, row.ship_count] as const]))),
+        labels: new Map(rows.flatMap((row) => (row.value_id === null ? [[row.label_id, row.ship_count] as const] : []))),
+      };
     },
     counts: (fleetId, { reach, filter }) => readShipCounts(db, { fleetId, reach, selected: shipFilterCondition(filter, reach) }),
     types: async (fleetId, read) => z.array(z.object({ type: z.string() })).parse(await db.$queryRaw(shipTypesStatement(fleetId, read)))

@@ -172,4 +172,6 @@ export const listedLabelSchema = z.object({
 export type ListedLabel = z.infer<typeof listedLabelSchema>;
 
 /** Output of `fleet.labels` (fleet:read): the fleet's labels by key, each value with how many active ships in the caller's read reach carry it. */
-export const labelsOutputSchema = z.array(listedLabelSchema.extend({ values: z.array(labelValueSchema.extend({ shipCount: z.int().min(0) })) }));
+export const labelsOutputSchema = z.array(
+  listedLabelSchema.extend({ shipCount: z.int().min(0), values: z.array(labelValueSchema.extend({ shipCount: z.int().min(0) })) }),
+);

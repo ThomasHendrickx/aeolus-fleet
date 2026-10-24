@@ -3,8 +3,9 @@ import type { LabelValue, ListedLabel } from './label.js';
 import type { FleetListing } from './ports.js';
 import type { ReadReachOf } from './read-reach.js';
 
-/** A label as `fleet.labels` lists it: each value with how many active ships in the caller's read reach carry it. */
+/** A label as `fleet.labels` lists it: with how many active ships in the caller's read reach carry any of its values, and each value with how many carry it. */
 export interface CountedLabel extends Omit<ListedLabel, 'values'> {
+  shipCount: number;
   values: readonly (LabelValue & { shipCount: number })[];
 }
 
@@ -17,9 +18,13 @@ export type ListLabels = (caller: Caller) => Promise<CountedLabel[]>;
  * the labels are stored rather than over every ship. The caller's scope
  * (fleet:read) is checked before this runs.
  */
-export function createListLabels(deps: { listing: Pick<FleetListing, 'labels' | 'valueShipCounts'>; readReach: ReadReachOf }): ListLabels {
+export function createListLabels(deps: { listing: Pick<FleetListing, 'labels' | 'labelShipCounts'>; readReach: ReadReachOf }): ListLabels {
   return async (caller) => {
-    const [labels, counts] = await Promise.all([deps.listing.labels(caller.fleetId), deps.readReach(caller).then((reach) => deps.listing.valueShipCounts(caller.fleetId, reach))]);
-    return labels.map((label) => ({ ...label, values: label.values.map((value) => ({ ...value, shipCount: counts.get(value.id) ?? 0 })) }));
+    const [labels, counts] = await Promise.all([deps.listing.labels(caller.fleetId), deps.readReach(caller).then((reach) => deps.listing.labelShipCounts(caller.fleetId, reach))]);
+    return labels.map((label) => ({
+      ...label,
+      shipCount: counts.labels.get(label.id) ?? 0,
+      values: label.values.map((value) => ({ ...value, shipCount: counts.values.get(value.id) ?? 0 })),
+    }));
   };
 }
