@@ -22,7 +22,8 @@ import { ListPage } from '../../../components/organisms/list-page';
 import { useConsoleFrame } from '../../../lib/console-frame';
 import { useAccess } from '../../../lib/access';
 import { useConsoleConstants } from '../../../lib/console-constants';
-import { useFleetSnapshot, useLabelContext } from '../../../lib/fleet';
+import { useLabelContext } from '../../../lib/fleet';
+import { useOwnerShips } from '../../../features/network/hooks/owner-ships';
 import { useListedShips } from '../../../lib/listed-ships';
 import { useShipSearch } from '../../../lib/ship-search';
 import { networkShipIdsOf } from '../../../features/network/services/network-ships';
@@ -76,8 +77,7 @@ export function NetworkPageFor({ pickedShipId, against }: { pickedShipId?: ShipI
   const reachAgainst = hasDraft ? against : 'applied';
   const draftChanges = useNetworkRulesDraftChanges(hasNetwork && hasDraft);
   const context = useLabelContext();
-  // The owner picker offers argo and every person ship: the one part still read from the snapshot.
-  const fleet = useFleetSnapshot();
+  const ownerShips = useOwnerShips(hasNetwork);
   const reach = useShipReach(hasNetwork ? pickedShipId : undefined, reachAgainst);
   const refusals = useReachRefusals(hasNetwork);
   const declared = useDeclaredNetworkRules(hasNetwork);
@@ -127,11 +127,11 @@ export function NetworkPageFor({ pickedShipId, against }: { pickedShipId?: ShipI
         }}
       />
     );
-  } else if (network.data === undefined || context === undefined || fleet.data === undefined) {
+  } else if (network.data === undefined || context === undefined || ownerShips === undefined) {
     content = <LoadingSkeleton variant="detail" rows={4} label="Loading the network" />;
   } else {
     // The rules editor names the ships rules point at, and offers argo and every person ship as an owner.
-    const networkContext = { ...context, ships: [...namedShips, ...fleet.data.filter((ship) => ship.kind === 'operator' || ship.kind === 'person')] };
+    const networkContext = { ...context, ships: [...namedShips, ...ownerShips] };
     content = (
       <>
         <BuiltInNetworkRules
