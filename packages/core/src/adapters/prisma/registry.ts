@@ -689,7 +689,7 @@ function isInReachOfShip(reach: ReadReach): Prisma.Sql {
  * or counts the ships, and no ship is read only to be dropped.
  */
 export function shipFilterCondition(
-  { query, name, status = [], type = [], crewRequest = [], assignedTo = [], needsCrew, valueIds = [], shipIds = [], kind = [], pluginShipIds = [] }: ShipFilter,
+  { query, name, status = [], type = [], shipKind = [], crewRequest = [], assignedTo = [], needsCrew, valueIds = [], shipIds = [], kind = [], pluginShipIds = [] }: ShipFilter,
   reach: ReadReach,
 ): Prisma.Sql {
   const needle = query?.trim().toLowerCase() ?? '';
@@ -703,6 +703,7 @@ export function shipFilterCondition(
     name === undefined ? undefined : Prisma.sql`AND s.name = ${name}`,
     ...statusConditions(status),
     type.length === 0 ? undefined : Prisma.sql`AND s.type = ANY(${[...type]}::text[])`,
+    shipKind.length === 0 ? undefined : Prisma.sql`AND s.kind = ANY(${[...shipKind]}::ship_kind[])`,
     crewRequest.length === 0 ? undefined : Prisma.sql`AND COALESCE(${crewRequestKeyOfShip}, 'none') = ANY(${[...crewRequest]}::text[])`,
     values.length === 0
       ? undefined

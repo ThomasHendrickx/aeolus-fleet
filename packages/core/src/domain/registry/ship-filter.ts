@@ -1,4 +1,4 @@
-import type { AgentKind, CrewRequestKey, LabelValueId, ShipId, ShipStatus } from '@aeolus-fleet/common';
+import type { AgentKind, CrewRequestKey, LabelValueId, ShipId, ShipKind, ShipStatus } from '@aeolus-fleet/common';
 
 import { carriesEvery } from './label.js';
 import { isNeedingCrew } from './ship-counts.js';
@@ -37,6 +37,8 @@ export interface ShipFilter {
   needsCrew?: 'withTrierarchs' | 'withoutTrierarchs';
   /** Any of these ships: a squadron's flagship and members, as the console resolves them. */
   shipIds?: readonly ShipId[];
+  /** Any of these ship kinds: argo and the person ships, for an owner picker (decision 0045). */
+  shipKind?: readonly ShipKind[];
   /** Any of these agent kinds (agentKindOf). */
   kind?: readonly AgentKind[];
   /** The ships the console's plugins run as: their agent kind is plugin. */
@@ -98,6 +100,7 @@ export function matchesShipFilter(ship: ListedShip, { filter, isInReach }: { fil
     (filter.name === undefined || ship.name === filter.name) &&
     isPicked(filter.status, ship.status) &&
     isPicked(filter.type, ship.type) &&
+    isPicked(filter.shipKind, ship.kind) &&
     isPicked(filter.crewRequest, crewRequestKeyOf(ship.crewRequest)) &&
     isAssignedToAny(filter.assignedTo, ship.crewRequest) &&
     (filter.needsCrew === undefined || isNeedingCrew(ship, { hasTrierarchs: filter.needsCrew === 'withTrierarchs' })) &&
