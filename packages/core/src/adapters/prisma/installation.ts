@@ -101,7 +101,10 @@ export function installationFleetsStatement(fleetId: FleetId | null, window: Ins
   return Prisma.sql`
         SELECT f.id AS "fleetId", f.name, o.email AS "operatorEmail", f.created_at AS "createdAt",
           (SELECT count(*) FROM ships s WHERE s.fleet_id = f.id AND s.retired_at IS NULL) AS "shipCount",
-          (SELECT count(*) FROM messages m WHERE m.fleet_id = f.id AND m.created_at >= ${window.since}) AS "messagesSince",
+          -- The last 7 times 24 hours: the whole UTC days from the first one's start from the days each send counted on,
+          -- and only the hours before it, the rest of the day the window starts in, from the messages.
+          (SELECT coalesce(sum(md.messages), 0) FROM message_days md WHERE md.fleet_id = f.id AND md.day >= (${window.firstDay} AT TIME ZONE 'UTC')::date)
+            + (SELECT count(*) FROM messages m WHERE m.fleet_id = f.id AND m.created_at >= ${window.since} AND m.created_at < ${window.firstDay}) AS "messagesSince",
           (SELECT max(e.occurred_at) FROM events e WHERE e.fleet_id = f.id) AS "lastActivityAt",
           -- Storage and the messages per UTC day from the days each send counted on (messaging.ts), not from the messages.
           (SELECT coalesce(sum(md.payload_bytes), 0)::bigint FROM message_days md WHERE md.fleet_id = f.id) AS "storage",
@@ -141,7 +144,14 @@ export function installationFleetsStatement(fleetId: FleetId | null, window: Ins
 }
 
 export function createPrismaInstallationFleets(prisma: PrismaClient): InstallationFleets {
-  const read = async (fleetId: FleetId | null, window: InstallationFleetWindow) => (await prisma.$queryRaw<unknown[]>(installationFleetsStatement(fleetId, window))).map(toFacts);
+  // The planner charges oldestInFlightAt an events lookup for each of the
+  // hundreds of deliveries it expects in flight, which puts the statement past
+  // jit_above_cost though it runs in milliseconds: on staging JIT compiling
+  // took 37 ms of the read. JIT is off for this one statement.
+  const read = async (fleetId: FleetId | null, window: InstallationFleetWindow) => {
+    const [, rows] = await prisma.$transaction([prisma.$executeRaw`SET LOCAL jit = off`, prisma.$queryRaw<unknown[]>(installationFleetsStatement(fleetId, window))]);
+    return rows.map(toFacts);
+  };
   return {
     list: (window) => read(null, window),
     find: async (fleetId, window) => (await read(fleetId, window))[0],

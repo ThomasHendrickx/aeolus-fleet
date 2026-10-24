@@ -1,8 +1,9 @@
 import { createIdGenerator, type DeliveryId, type EventType, type LeaseId, type ShipId } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
+import type { MessageParties } from '../registry/public.js';
 import type { EventDetails, SequencedEvent } from './events.js';
-import { closeHour, healthFromSnapshot, hourSnapshotOf, type HealthCrews, type HourSnapshot, type LatestSnapshot } from './health-snapshot.js';
+import { acknowledgedWaitsOf, closeHour, healthFromSnapshot, hourSnapshotOf, stuckCountOf, type AcknowledgedHourWaits, type HealthCrews, type HourSnapshot, type LatestSnapshot, type StuckHourCount } from './health-snapshot.js';
 import type { DeliveryRecord, FleetRecords, LeaseRecord, ShipRecord } from './stuck.js';
 
 const newId = createIdGenerator();
@@ -66,6 +67,11 @@ function aLatest(parts: Partial<LatestSnapshot['fold']> = {}, hour = HOUR): Late
 }
 
 const everything = { reads: () => true, readsShip: () => true };
+
+/** The closed hours as the snapshot answers a read of them: each hour's stuck counted and its waits summed over the messages `reads` keeps. */
+function closedHours(hours: readonly HourSnapshot[], reads: (message: MessageParties) => boolean): { stuckCounts: StuckHourCount[]; acknowledgedWaits: AcknowledgedHourWaits[] } {
+  return { stuckCounts: hours.map((hour) => stuckCountOf(hour, reads)), acknowledgedWaits: hours.map((hour) => acknowledgedWaitsOf(hour, reads)) };
+}
 
 function countOf(hour: HourSnapshot): number {
   return hour.stuck.reduce((sum, counted) => sum + counted.count, 0);
@@ -143,7 +149,7 @@ describe('the health read from the snapshot', () => {
     const toMapper = aDelivery({ sentAt: minutesAfter(10) });
 
     const health = healthFromSnapshot(
-      { latest: aLatest(), hours: [], events: [anEvent('MessageAccepted', { at: minutesAfter(10), deliveryId: toMapper.deliveryId })], sent: [toMapper], crews: crewsOf() },
+      { latest: aLatest(), stuckCounts: [], acknowledgedWaits: [], events: [anEvent('MessageAccepted', { at: minutesAfter(10), deliveryId: toMapper.deliveryId })], sent: [toMapper], crews: crewsOf() },
       { now: minutesAfter(20), ...everything },
     );
 
@@ -154,7 +160,7 @@ describe('the health read from the snapshot', () => {
     const stuckOne = aDelivery({ sentAt: hoursAfter(-3) });
     const kept = hourSnapshotOf({ ships: [scout, planner, mapper], leases: [], deliveries: [stuckOne] }, { hour: HOUR, acknowledged: [] });
 
-    const health = healthFromSnapshot({ latest: aLatest({ deliveries: [stuckOne] }), hours: [kept], events: [], sent: [], crews: crewsOf() }, { now: minutesAfter(20), ...everything });
+    const health = healthFromSnapshot({ latest: aLatest({ deliveries: [stuckOne] }), ...closedHours([kept], everything.reads), events: [], sent: [], crews: crewsOf() }, { now: minutesAfter(20), ...everything });
 
     expect(health.stuckPerHour).toHaveLength(168);
     expect(health.stuckPerHour.at(-2)).toEqual({ at: HOUR, count: 1 });
@@ -166,10 +172,11 @@ describe('the health read from the snapshot', () => {
     const fromPlanner = aDelivery({ senderId: planner.shipId, sentAt: hoursAfter(-3) });
     const fromScout = aDelivery({ sentAt: hoursAfter(-3) });
     const kept = hourSnapshotOf({ ships: [scout, planner, mapper], leases: [], deliveries: [fromPlanner, fromScout] }, { hour: HOUR, acknowledged: [] });
+    const readsScout = (message: MessageParties) => message.senderId === scout.shipId;
 
     const health = healthFromSnapshot(
-      { latest: aLatest({ deliveries: [fromPlanner, fromScout] }), hours: [kept], events: [], sent: [], crews: crewsOf() },
-      { now: minutesAfter(20), reads: (message) => message.senderId === scout.shipId, readsShip: () => true },
+      { latest: aLatest({ deliveries: [fromPlanner, fromScout] }), ...closedHours([kept], readsScout), events: [], sent: [], crews: crewsOf() },
+      { now: minutesAfter(20), reads: readsScout, readsShip: () => true },
     );
 
     expect(health.stuckPerHour.at(-2)?.count).toBe(1);
@@ -180,7 +187,7 @@ describe('the health read from the snapshot', () => {
     const toMapper = aDelivery({ sentAt: minutesAfter(30) });
 
     const health = healthFromSnapshot(
-      { latest: aLatest(), hours: [], events: [anEvent('MessageAccepted', { at: minutesAfter(30), deliveryId: toMapper.deliveryId })], sent: [toMapper], crews: crewsOf() },
+      { latest: aLatest(), stuckCounts: [], acknowledgedWaits: [], events: [anEvent('MessageAccepted', { at: minutesAfter(30), deliveryId: toMapper.deliveryId })], sent: [toMapper], crews: crewsOf() },
       { now: hoursAfter(2.5), ...everything },
     );
 
@@ -202,7 +209,7 @@ describe('the health read from the snapshot', () => {
     const health = healthFromSnapshot(
       {
         latest: aLatest({ deliveries: [open] }),
-        hours: [tooOld, longAgo, kept],
+        ...closedHours([tooOld, longAgo, kept], everything.reads),
         events: [anEvent('DeliveryAcknowledged', { at: minutesAfter(13), deliveryId: open.deliveryId, shipId: planner.shipId })],
         sent: [],
         crews: crewsOf(),
