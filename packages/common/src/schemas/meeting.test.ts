@@ -9,6 +9,7 @@ import {
   meetingAddedSchema,
   meetingInputSchema,
   meetingMicSchema,
+  meetingOutputSchema,
   micInputSchema,
   openMeetingInputSchema,
   setMicPatternInputSchema,
@@ -106,6 +107,26 @@ describe('the mic calls (decision 0061, M7 to M10)', () => {
 
   it('refuse a pattern that is neither', () => {
     expect(setMicPatternInputSchema.safeParse({ meetingId: newId('meeting'), pattern: 'roundRobin' }).success).toBe(false);
+  });
+});
+
+describe('the mic in the meeting read', () => {
+  it('shows who holds it (null when free), its pattern, and the requests oldest first with their time', () => {
+    const chief = { id: newId('ship'), name: 'chief' };
+    const product = { id: newId('ship'), name: 'product' };
+    const read = {
+      meetingId: newId('meeting'),
+      title: null,
+      owner: chief,
+      moderator: chief,
+      openedAt: '2026-10-24T09:00:00.000Z',
+      endedAt: null,
+      participants: [],
+      mic: { holder: null, pattern: 'fifo', requests: [{ ship: product, requestedAt: '2026-10-24T09:01:00.000Z' }] },
+      contributions: { items: [], nextCursor: null },
+    };
+
+    expect(meetingOutputSchema.parse(read)).toEqual(read);
   });
 });
 
