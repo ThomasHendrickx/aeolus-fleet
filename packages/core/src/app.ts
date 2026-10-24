@@ -124,7 +124,9 @@ export function createApp(options: AppOptions): FastifyInstance {
       await useCases.tellOverdueDeliveries().catch((error: unknown) => {
         server.log.warn(failureForLog(error), 'the 10 and 60 minute clocks failed a pass: passing again shortly');
       });
-      await useCases.closeHealthSnapshots();
+      await useCases.closeHealthSnapshots((fleetId, error) => {
+        server.log.warn({ ...failureForLog(error), fleetId }, 'the stuck snapshot failed to close an hour for a fleet: closing it again next pass');
+      });
     },
     everyMs: options.overduePassMs ?? OVERDUE_PASS_MS,
     onError: (error) => {
