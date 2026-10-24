@@ -75,6 +75,7 @@ model Fleet {
   healthSnapshotDeliveries         HealthSnapshotDelivery[]
   meetings                         Meeting[]
   meetingParticipants              MeetingParticipant[]
+  meetingMicRequests               MeetingMicRequest[]
 
   @@map("fleets")
 }
@@ -140,6 +141,7 @@ model Ship {
   ownedMeetings        Meeting[]              @relation("MeetingOwner")
   moderatedMeetings    Meeting[]              @relation("MeetingModerator")
   openedMeetings       Meeting[]              @relation("MeetingOpener")
+  micHeldMeetings      Meeting[]              @relation("MeetingMicHolder")
   meetings             MeetingParticipant[]
 
   @@unique([fleetId, id])
@@ -644,18 +646,23 @@ enum DeliveryState {
 /// A meeting of ships (decision 0061), id mtg_: one owner and one moderator,
 /// both participants, the opener at first.
 model Meeting {
-  id              String    @id
-  fleetId         String    @map("fleet_id")
+  id              String     @id
+  fleetId         String     @map("fleet_id")
   title           String?
-  ownerShipId     String    @map("owner_ship_id")
-  moderatorShipId String    @map("moderator_ship_id")
-  openedByShipId  String    @map("opened_by_ship_id")
-  idempotencyKey  String    @map("idempotency_key")
-  requestHash     String    @map("request_hash")
-  openedAt        DateTime  @map("opened_at") @db.Timestamptz(3)
-  endedAt         DateTime? @map("ended_at") @db.Timestamptz(3)
+  ownerShipId     String     @map("owner_ship_id")
+  moderatorShipId String     @map("moderator_ship_id")
+  openedByShipId  String     @map("opened_by_ship_id")
+  idempotencyKey  String     @map("idempotency_key")
+  requestHash     String     @map("request_hash")
+  openedAt        DateTime   @map("opened_at") @db.Timestamptz(3)
+  endedAt         DateTime?  @map("ended_at") @db.Timestamptz(3)
+  /// The participant that holds the mic; none while it is free.
+  micHolderShipId String?    @map("mic_holder_ship_id")
+  micPattern      MicPattern @default(moderator) @map("mic_pattern")
 
   fleet        Fleet                @relation(fields: [fleetId], references: [id])
+  micHolder    Ship?                @relation("MeetingMicHolder", fields: [fleetId, micHolderShipId], references: [fleetId, id], onDelete: Restrict)
+  micRequests  MeetingMicRequest[]
   owner        Ship                 @relation("MeetingOwner", fields: [fleetId, ownerShipId], references: [fleetId, id], onDelete: Restrict)
   moderator    Ship                 @relation("MeetingModerator", fields: [fleetId, moderatorShipId], references: [fleetId, id], onDelete: Restrict)
   openedBy     Ship                 @relation("MeetingOpener", fields: [fleetId, openedByShipId], references: [fleetId, id], onDelete: Restrict)
@@ -668,7 +675,33 @@ model Meeting {
   /// Every foreign key has an index leading with its columns (#331).
   @@index([fleetId, ownerShipId])
   @@index([fleetId, moderatorShipId])
+  @@index([fleetId, micHolderShipId])
   @@map("meetings")
+}
+
+/// How a meeting's free mic passes (decision 0061, M9): the moderator's pick, or the oldest request.
+enum MicPattern {
+  moderator
+  fifo
+
+  @@map("mic_pattern")
+}
+
+/// A participant waiting for the mic of its meeting, since its time (decision 0061, M8): once per meeting.
+model MeetingMicRequest {
+  fleetId     String   @map("fleet_id")
+  meetingId   String   @map("meeting_id")
+  shipId      String   @map("ship_id")
+  requestedAt DateTime @map("requested_at") @db.Timestamptz(3)
+  /// Its place on the list, the oldest request's 0.
+  place       Int
+
+  fleet       Fleet              @relation(fields: [fleetId], references: [id])
+  meeting     Meeting            @relation(fields: [fleetId, meetingId], references: [fleetId, id], onDelete: Restrict)
+  participant MeetingParticipant @relation(fields: [fleetId, meetingId, shipId], references: [fleetId, meetingId, shipId], onDelete: Restrict)
+
+  @@id([fleetId, meetingId, shipId])
+  @@map("meeting_mic_requests")
 }
 
 /// A ship in a meeting and when it joined (decision 0061): once per meeting.
@@ -680,9 +713,10 @@ model MeetingParticipant {
   /// Its place in the order the meeting's ships joined, the opener's 0.
   place     Int
 
-  fleet   Fleet   @relation(fields: [fleetId], references: [id])
-  meeting Meeting @relation(fields: [fleetId, meetingId], references: [fleetId, id], onDelete: Restrict)
-  ship    Ship    @relation(fields: [fleetId, shipId], references: [fleetId, id], onDelete: Restrict)
+  fleet      Fleet              @relation(fields: [fleetId], references: [id])
+  meeting    Meeting            @relation(fields: [fleetId, meetingId], references: [fleetId, id], onDelete: Restrict)
+  ship       Ship               @relation(fields: [fleetId, shipId], references: [fleetId, id], onDelete: Restrict)
+  micRequest MeetingMicRequest?
 
   @@id([fleetId, meetingId, shipId])
   /// A ship's meetings, and a retire checking them.

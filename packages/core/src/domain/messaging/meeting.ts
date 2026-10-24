@@ -1,8 +1,9 @@
-import type { FleetId, MeetingId, MessageId, ShipId } from '@aeolus-fleet/common';
+import type { FleetId, MeetingId, MessageId, MicPattern, ShipId } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
 import { shipActor, type NewEvent } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
+import type { MicRequest } from './mic.js';
 
 /**
  * One moderated conversation of ships (decision 0061): what a participant
@@ -26,6 +27,12 @@ export interface Meeting {
   openedAt: Date;
   /** When it ended; none while it is open. */
   endedAt: Date | null;
+  /** The participant that holds the mic, which may contribute beside the moderator; none while the mic is free (M7). */
+  micHolderShipId: ShipId | null;
+  /** How a free mic passes (M9). */
+  micPattern: MicPattern;
+  /** The ships waiting for the mic, oldest first, each once (M8). */
+  micRequests: MicRequest[];
 }
 
 /** A ship in a meeting, never a type, and when it joined. */
@@ -70,6 +77,9 @@ export function openMeeting(input: {
     participants: shipIds.map((shipId) => ({ shipId, joinedAt: at })),
     openedAt: at,
     endedAt: null,
+    micHolderShipId: null,
+    micPattern: 'moderator',
+    micRequests: [],
   };
   const actor = shipActor(openerShipId);
   return ok({
@@ -91,14 +101,15 @@ export function repeatOfOpen(original: Meeting, requestHash: string): Result<Mee
     : refuse('IDEMPOTENCY_KEY_REUSED', 'This idempotency key was already used for another meeting: open a new meeting with a new key');
 }
 
-export type ContributionRefusal = DomainError<'MEETING_NOT_FOUND' | 'MEETING_ENDED' | 'CONTRIBUTION_REPLIES' | 'CONTRIBUTION_FORCED'>;
+export type ContributionRefusal = DomainError<'MEETING_NOT_FOUND' | 'MEETING_ENDED' | 'CONTRIBUTION_REPLIES' | 'CONTRIBUTION_FORCED' | 'MIC_NOT_HELD'>;
 
 /**
  * Whether the ship may contribute to the meeting (decision 0061), and if so
  * the participants its contribution goes to: every one but itself. A meeting
  * that does not exist and one the ship is no participant of are one refusal,
  * so a stranger learns nothing of it; then an ended meeting; a contribution
- * replies to no message (M18) and is never forced.
+ * replies to no message (M18) and is never forced; and only the moderator
+ * and the mic's holder contribute (M7).
  */
 export function checkContribution(
   meeting: Meeting | undefined,
@@ -116,6 +127,9 @@ export function checkContribution(
   }
   if (contribution.isForced) {
     return refuse('CONTRIBUTION_FORCED', 'A contribution is never forced: send it to the meeting without isForced');
+  }
+  if (senderShipId !== meeting.moderatorShipId && senderShipId !== meeting.micHolderShipId) {
+    return refuse('MIC_NOT_HELD', `You do not hold the mic of meeting ${meetingId}: request the mic, and contribute once it is given to you`);
   }
   return ok(participantsBut(meeting, senderShipId));
 }

@@ -22,7 +22,11 @@ let meetingId: MeetingId;
 
 const OPENED_AT = '2026-10-24T09:00:00.000Z';
 
+/** A contribution by the ship, which the moderator gives the mic first unless it is the moderator (M7). */
 async function contributed(by: ShipCaller, payload: string): Promise<MessageId> {
+  if (by.shipId !== chief.shipId) {
+    unwrap(await messaging.changeMic(chief, { meetingId, change: { kind: 'give', shipId: by.shipId } }));
+  }
   core.clock.advance(1_000);
   return unwrap(await messaging.sendMessage(by, { selector: { kind: 'meeting', meetingId }, payload, idempotencyKey: newKey(), model: SESSION_MODEL })).messageId;
 }
@@ -44,7 +48,7 @@ describe('reading a meeting', () => {
   it('shows the meeting, its title, its owner and moderator, when it opened, and that it is open', async () => {
     const read = unwrap(await messaging.readMeeting(marketing, { meetingId, limit: 20 }));
 
-    expect({ ...read, participants: undefined, contributions: undefined }).toEqual({
+    expect({ ...read, participants: undefined, mic: undefined, contributions: undefined }).toEqual({
       meetingId,
       title: 'Launch plan',
       owner: { id: chief.shipId, name: 'chief' },
@@ -52,6 +56,7 @@ describe('reading a meeting', () => {
       openedAt: new Date(OPENED_AT),
       endedAt: null,
       participants: undefined,
+      mic: undefined,
       contributions: undefined,
     });
   });
@@ -66,6 +71,20 @@ describe('reading a meeting', () => {
       { id: marketing.shipId, name: 'marketing', kind: 'agent', status: 'crewed' },
       { id: product.shipId, name: 'product', kind: 'agent', status: 'awaitingCrew' },
     ]);
+  });
+
+  it('shows who holds the mic, how it passes, and who waits for it, oldest first with their time (M8, M9)', async () => {
+    core.clock.advance(1_000);
+    unwrap(await messaging.changeMic(product, { meetingId, change: { kind: 'request' } }));
+    core.clock.advance(1_000);
+    unwrap(await messaging.changeMic(marketing, { meetingId, change: { kind: 'request' } }));
+    unwrap(await messaging.changeMic(chief, { meetingId, change: { kind: 'give', shipId: marketing.shipId } }));
+
+    expect(unwrap(await messaging.readMeeting(product, { meetingId, limit: 20 })).mic).toEqual({
+      holder: { id: marketing.shipId, name: 'marketing' },
+      pattern: 'moderator',
+      requests: [{ ship: { id: product.shipId, name: 'product' }, requestedAt: new Date('2026-10-24T09:00:01.000Z') }],
+    });
   });
 
   it('shows what was said so far, newest first, with its sender, payload, content type, model and time, and no notice (M12)', async () => {

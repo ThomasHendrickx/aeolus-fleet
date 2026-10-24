@@ -664,4 +664,17 @@ describe('timelineSentence', () => {
       icon: 'received',
     });
   });
+
+  it.each<{ type: EventType; sentence: string; actor: typeof scout; details: Record<string, string>; icon: string }>([
+    { type: 'MicRequested', sentence: 'Requested the mic in a meeting', actor: scout, details: {}, icon: 'sent' },
+    { type: 'MicRequestWithdrawn', sentence: 'Withdrew its mic request in a meeting', actor: scout, details: {}, icon: 'sent' },
+    { type: 'MicGiven', sentence: 'Got the mic in a meeting, given by planner', actor: planner, details: { pattern: 'moderator' }, icon: 'received' },
+    { type: 'MicGiven', sentence: 'Got the mic in a meeting, first in line', actor: planner, details: { pattern: 'fifo' }, icon: 'received' },
+    { type: 'MicReleased', sentence: 'Released the mic in a meeting', actor: scout, details: {}, icon: 'sent' },
+    { type: 'MicTaken', sentence: 'Lost the mic in a meeting, taken by planner', actor: planner, details: {}, icon: 'received' },
+    { type: 'MicPatternSet', sentence: "Set a meeting's mic to first in line", actor: scout, details: { pattern: 'fifo' }, icon: 'sent' },
+    { type: 'MicPatternSet', sentence: "Set a meeting's mic to the moderator's pick", actor: scout, details: { pattern: 'moderator' }, icon: 'sent' },
+  ])('says $type as "$sentence" (decision 0061)', ({ type, sentence, actor, details, icon }) => {
+    expect(onScoutsPage(anEntry(type, { actor, details: { meetingId: newId('meeting'), ...details } }))).toEqual({ sentence, tone: 'ok', icon });
+  });
 });

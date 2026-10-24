@@ -1,7 +1,8 @@
-import { idSchema } from '@aeolus-fleet/common';
+import { idSchema, micPatternSchema, type FleetId, type MeetingId } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import type { Meeting } from '../../domain/messaging/meeting.js';
+import type { MicRequest } from '../../domain/messaging/mic.js';
 import type { MeetingRepository } from '../../domain/messaging/ports.js';
 import { pageOf } from '../../domain/shared/page.js';
 import type { Db } from './client.js';
@@ -18,7 +19,10 @@ const meetingRow = z.object({
   requestHash: z.string(),
   openedAt: z.date(),
   endedAt: z.date().nullable(),
+  micHolderShipId: idSchema('ship').nullable(),
+  micPattern: micPatternSchema,
   participants: z.array(z.object({ shipId: idSchema('ship'), joinedAt: z.date() })),
+  micRequests: z.array(z.object({ shipId: idSchema('ship'), requestedAt: z.date() })),
 });
 
 /** A meeting row with its participants, as the meeting holds them: the opener first, then in the order they joined. */
@@ -26,16 +30,31 @@ function toMeeting(row: unknown): Meeting {
   return meetingRow.parse(row);
 }
 
-/** Each participant once, in the order they joined, the opener first. */
-const PARTICIPANTS = { select: { shipId: true, joinedAt: true }, orderBy: { place: 'asc' } } as const;
+/** Each participant once, in the order they joined, the opener first; and the mic requests, oldest first. */
+const PARTICIPANTS_AND_REQUESTS = {
+  participants: { select: { shipId: true, joinedAt: true }, orderBy: { place: 'asc' } },
+  micRequests: { select: { shipId: true, requestedAt: true }, orderBy: { place: 'asc' } },
+} as const;
 
 /** Meetings on Postgres (decision 0061): a row per meeting and one per participant. */
 export function createPrismaMeetingRepository(db: Db): MeetingRepository {
   return {
     create: async (meeting) => {
-      const { participants, ...rest } = meeting;
+      const { participants, micRequests, ...rest } = meeting;
       await db.meeting.create({ data: rest });
       await db.meetingParticipant.createMany({ data: participants.map((participant, place) => ({ fleetId: meeting.fleetId, meetingId: meeting.id, ...participant, place })) });
+      await saveRequests(db, { fleetId: meeting.fleetId, meetingId: meeting.id, requests: micRequests });
+    },
+    findForUpdate: async (fleetId, meetingId) => {
+      // Held for update until the unit of work ends: mic changes take turns, after the contributions holding it shared.
+      await db.$queryRaw`SELECT 1 FROM meetings WHERE fleet_id = ${fleetId} AND id = ${meetingId} FOR UPDATE`;
+      const row = await db.meeting.findFirst({ where: { fleetId, id: meetingId }, include: PARTICIPANTS_AND_REQUESTS });
+      return row ? toMeeting(row) : undefined;
+    },
+    saveMic: async ({ fleetId, id, micHolderShipId, micPattern, micRequests }) => {
+      await db.meeting.update({ where: { fleetId_id: { fleetId, id } }, data: { micHolderShipId, micPattern } });
+      await db.meetingMicRequest.deleteMany({ where: { fleetId, meetingId: id } });
+      await saveRequests(db, { fleetId, meetingId: id, requests: micRequests });
     },
     lockOpenerKey: async ({ openerShipId, idempotencyKey }) => {
       // A transaction-level advisory lock on the opener and its key, as a send's key is locked
@@ -43,13 +62,13 @@ export function createPrismaMeetingRepository(db: Db): MeetingRepository {
       await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`meeting:${openerShipId}`}), hashtext(${idempotencyKey}))`;
     },
     findByOpenerKey: async ({ fleetId, openerShipId, idempotencyKey }) => {
-      const row = await db.meeting.findFirst({ where: { fleetId, openedByShipId: openerShipId, idempotencyKey }, include: { participants: PARTICIPANTS } });
+      const row = await db.meeting.findFirst({ where: { fleetId, openedByShipId: openerShipId, idempotencyKey }, include: PARTICIPANTS_AND_REQUESTS });
       return row ? toMeeting(row) : undefined;
     },
     findForShare: async (fleetId, meetingId) => {
       // Held shared until the unit of work ends: contributions take turns with a change of who takes part.
       await db.$queryRaw`SELECT 1 FROM meetings WHERE fleet_id = ${fleetId} AND id = ${meetingId} FOR SHARE`;
-      const row = await db.meeting.findFirst({ where: { fleetId, id: meetingId }, include: { participants: PARTICIPANTS } });
+      const row = await db.meeting.findFirst({ where: { fleetId, id: meetingId }, include: PARTICIPANTS_AND_REQUESTS });
       return row ? toMeeting(row) : undefined;
     },
     contributions: async (fleetId, { meetingId, cursor, limit }) => {
@@ -62,8 +81,13 @@ export function createPrismaMeetingRepository(db: Db): MeetingRepository {
       return pageOf(rows.map(toMessage), { limit, cursorOf: (message) => message.id });
     },
     find: async (fleetId, meetingId) => {
-      const row = await db.meeting.findFirst({ where: { fleetId, id: meetingId }, include: { participants: PARTICIPANTS } });
+      const row = await db.meeting.findFirst({ where: { fleetId, id: meetingId }, include: PARTICIPANTS_AND_REQUESTS });
       return row ? toMeeting(row) : undefined;
     },
   };
+}
+
+/** The mic requests as rows, each with its place on the list. */
+async function saveRequests(db: Db, { fleetId, meetingId, requests }: { fleetId: FleetId; meetingId: MeetingId; requests: readonly MicRequest[] }): Promise<void> {
+  await db.meetingMicRequest.createMany({ data: requests.map((request, place) => ({ fleetId, meetingId, ...request, place })) });
 }
