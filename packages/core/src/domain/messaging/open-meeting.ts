@@ -20,9 +20,9 @@ import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { withinDailyMessageLimit, type DailyMessageLimitTx } from './daily-message-limit.js';
 import { openMeeting, repeatOfOpen, type Meeting, type OpenMeetingRefusal } from './meeting.js';
-import { acceptMessage, type AcceptRefusal } from './message.js';
+import type { AcceptRefusal } from './message.js';
+import { tellParticipant } from './meeting-notice.js';
 import type { DeliveryRepository, MeetingRepository, MessageRepository, RequestHasher } from './ports.js';
-import { sendRequestText } from './send-request.js';
 
 export interface OpenMeetingTx extends Omit<ResolveInviteesTx, 'ships'>, Omit<CheckReachTx, 'ships'>, DailyMessageLimitTx {
   ships: ResolveInviteesTx['ships'] & CheckReachTx['ships'];
@@ -137,7 +137,18 @@ async function openWithin(
   }
   const payload = JSON.stringify(await addedNotice(tx, meeting));
   for (const shipId of told) {
-    const notice = await tellAdded(deps, { caller: open.caller, meeting, shipId, payload, model: open.model, at });
+    // The added notice (M11): from the owner, who reached the ship already.
+    const notice = await tellParticipant(deps, {
+      meeting,
+      senderShipId: open.caller.shipId,
+      senderKind: open.caller.kind,
+      ...(open.caller.signedInAccountId === undefined ? {} : { signedInAccountId: open.caller.signedInAccountId }),
+      shipId,
+      contentType: MEETING_ADDED_CONTENT_TYPE,
+      payload,
+      model: open.model,
+      at,
+    });
     if (!notice.isOk) {
       return notice;
     }
@@ -154,52 +165,4 @@ async function addedNotice(tx: Pick<OpenMeetingTx, 'ships'>, meeting: Meeting): 
   }
   const party = (id: ShipId) => ({ id, name: names.get(id) ?? id });
   return { meetingId: meeting.id, title: meeting.title, owner: party(meeting.ownerShipId), moderator: party(meeting.moderatorShipId), participants: meeting.participants.map(({ shipId }) => party(shipId)) };
-}
-
-/**
- * The added notice to one participant (decision 0061, M11): a message from
- * the owner to that ship, the meeting on its envelope, with its pending
- * delivery, MessageAccepted and the notice that wakes it. No reach check: the
- * owner reached it already.
- */
-async function tellAdded(
-  deps: { tx: OpenMeetingTx; ids: IdGenerator; hasher: RequestHasher },
-  notice: { caller: ShipCaller; meeting: Meeting; shipId: ShipId; payload: string; model: string | undefined; at: Date },
-): Promise<Result<undefined, AcceptRefusal>> {
-  const { tx, ids, hasher } = deps;
-  const { caller, meeting, shipId, payload, at } = notice;
-  const recipient = { kind: 'ship' as const, shipId };
-  const messageId = ids('message');
-  const accepted = acceptMessage(
-    { recipient, repliedTo: undefined },
-    {
-      messageId,
-      deliveryId: ids('delivery'),
-      fleetId: meeting.fleetId,
-      senderShipId: caller.shipId,
-      payload,
-      contentType: MEETING_ADDED_CONTENT_TYPE,
-      model: notice.model,
-      senderKind: caller.kind,
-      // The fleet's own key for the notice, as a ping's is: one per message, never the opener's.
-      idempotencyKey: `meeting-added-${messageId}`,
-      requestHash: hasher.hash(sendRequestText({ selector: recipient, payload, contentType: MEETING_ADDED_CONTENT_TYPE, inReplyTo: undefined, isForced: false })),
-      inReplyTo: undefined,
-      isForced: false,
-      meetingId: meeting.id,
-      ...(caller.signedInAccountId === undefined ? {} : { signedInAccountId: caller.signedInAccountId }),
-      at,
-    },
-  );
-  if (!accepted.isOk) {
-    return accepted;
-  }
-  const { message, delivery, events } = accepted.value;
-  await tx.messages.create(message);
-  await tx.deliveries.create(delivery);
-  for (const event of events) {
-    await recordEvent({ events: tx.events, ids }, event);
-  }
-  await tx.notifier.deliveryPending({ fleetId: meeting.fleetId, deliveryId: delivery.id, recipient: delivery.recipient });
-  return ok(undefined);
 }

@@ -1,6 +1,6 @@
 import { readdirSync } from 'node:fs';
 
-import { ANY_LABEL_VALUE, createIdGenerator, idSchema, MEETING_ADDED_CONTENT_TYPE, SAME_LABEL_VALUE, SCOPES, type FleetId, type NetworkRule, type Scope, type SendInput, type ShipId } from '@aeolus-fleet/common';
+import { ANY_LABEL_VALUE, createIdGenerator, idSchema, MEETING_ADDED_CONTENT_TYPE, MEETING_MIC_CONTENT_TYPE, SAME_LABEL_VALUE, SCOPES, type FleetId, type NetworkRule, type Scope, type SendInput, type ShipId } from '@aeolus-fleet/common';
 import { createTRPCClient, httpBatchLink, TRPCClientError, type TRPCClient } from '@trpc/client';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
@@ -266,6 +266,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_ship_kind_listing_index$/),
       expect.stringMatching(/^\d{14}_meetings$/),
       expect.stringMatching(/^\d{14}_meetings_open_scope$/),
+      expect.stringMatching(/^\d{14}_meetings_mic$/),
     ]);
   });
 });
@@ -2312,7 +2313,7 @@ describe('network rules at the API', () => {
     await expect(refusalOf(sender.ship.send.mutate(toShip(strangerId)))).resolves.toEqual({ code: 'FORBIDDEN', message: 'The network rules do not allow this send' });
   });
 
-  it('let two ships a third opened a meeting with exchange contributions though neither reaches the other, each acknowledging its own delivery, and refuse an open to a ship the opener does not reach (decision 0061)', async () => {
+  it('let two ships a third opened a meeting with exchange contributions though neither reaches the other, each with the mic in turn and acknowledging its own delivery, and refuse an open to a ship the opener does not reach (decision 0061)', async () => {
     const asLabeller = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'labels:define', 'labels:assign'])}` });
     const role = await asLabeller.fleet.defineLabel.mutate({ key: 'api-meeting-role', values: ['chief', 'head'] });
     const [chiefValue, headValue] = role.values.map((value) => value.id);
@@ -2342,11 +2343,18 @@ describe('network rules at the API', () => {
     const { meetingId } = await chief.ship.openMeeting.mutate({ ships: [{ shipId: marketingId ?? newId('ship') }, { shipId: productId ?? newId('ship') }], idempotencyKey: newKey(), model: SESSION_MODEL });
     expect((await receivedBy(marketing)).map(({ contentType, meetingId: of }) => ({ contentType, meetingId: of }))).toEqual([{ contentType: MEETING_ADDED_CONTENT_TYPE, meetingId }]);
     await receivedBy(product);
+    // Only the moderator and the mic's holder contribute (M7): first in line, each head requests the mic and gets it in turn.
+    await chief.ship.setMicPattern.mutate({ meetingId, pattern: 'fifo' });
+    await expect(codeOf(product.ship.send.mutate(toMeeting(meetingId, 'Before my turn')))).resolves.toBe('CONFLICT');
+    await marketing.ship.requestMic.mutate({ meetingId });
     await marketing.ship.send.mutate(toMeeting(meetingId, 'Copy is ready'));
+    await marketing.ship.releaseMic.mutate({ meetingId });
+    await product.ship.requestMic.mutate({ meetingId });
     await product.ship.send.mutate(toMeeting(meetingId, 'Friday works'));
+    const micNotice = { payload: JSON.stringify({ meetingId }), contentType: MEETING_MIC_CONTENT_TYPE, meetingId };
 
-    await expect(receivedBy(product)).resolves.toEqual([{ payload: 'Copy is ready', contentType: 'text/plain', meetingId }]);
-    await expect(receivedBy(marketing)).resolves.toEqual([{ payload: 'Friday works', contentType: 'text/plain', meetingId }]);
+    await expect(receivedBy(product)).resolves.toEqual([{ payload: 'Copy is ready', contentType: 'text/plain', meetingId }, micNotice]);
+    await expect(receivedBy(marketing)).resolves.toEqual([micNotice, { payload: 'Friday works', contentType: 'text/plain', meetingId }]);
     await expect(receivedBy(chief)).resolves.toEqual([
       { payload: 'Copy is ready', contentType: 'text/plain', meetingId },
       { payload: 'Friday works', contentType: 'text/plain', meetingId },

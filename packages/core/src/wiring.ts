@@ -80,6 +80,7 @@ import { createPingShip, type PingShip } from './domain/messaging/ping-ship.js';
 import { createSendMessage, type SendMessage } from './domain/messaging/send-message.js';
 import { createOpenMeeting, type OpenMeeting } from './domain/messaging/open-meeting.js';
 import { createReadMeeting, type ReadMeeting } from './domain/messaging/read-meeting.js';
+import { createChangeMic, type ChangeMic } from './domain/messaging/change-mic.js';
 import { createClaimShip, type ClaimShip } from './domain/registry/claim-ship.js';
 import { createCommissionShip, type CommissionShip } from './domain/registry/commission-ship.js';
 import { createDeregister, type Deregister } from './domain/registry/deregister.js';
@@ -238,6 +239,7 @@ export interface UseCases {
   sendMessage: SendMessage;
   openMeeting: OpenMeeting;
   readMeeting: ReadMeeting;
+  changeMic: ChangeMic;
   receiveDeliveries: ReceiveDeliveries;
   receiveReply: ReceiveReply;
   pushReceiveDeliveries: PushReceiveDeliveries;
@@ -450,6 +452,7 @@ export function createUseCases(options: {
     sendMessage: createSendMessage({ uow, clock, ids, hasher: sha256Hasher }),
     openMeeting: createOpenMeeting({ uow, clock, ids, hasher: sha256Hasher }),
     readMeeting: createReadMeeting({ uow }),
+    changeMic: createChangeMic({ uow, clock, ids, hasher: sha256Hasher }),
     receiveDeliveries: createReceiveDeliveries({
       uow,
       clock,

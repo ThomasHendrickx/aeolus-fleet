@@ -38,6 +38,13 @@ export interface MeetingRepository {
    * ends: a contribution holds it, so a change of who takes part waits for it.
    */
   findForShare(fleetId: FleetId, meetingId: MeetingId): Promise<Meeting | undefined>;
+  /**
+   * The meeting with its participants, held for update until the unit of work
+   * ends: mic changes take turns, and wait for the contributions in flight.
+   */
+  findForUpdate(fleetId: FleetId, meetingId: MeetingId): Promise<Meeting | undefined>;
+  /** Stores the meeting's mic as it is now: its holder, its pattern and its requests in order. */
+  saveMic(meeting: Meeting): Promise<void>;
   /** A page of the meeting's contributions, newest first by id, read without a lock: the messages sent to it, never its notices. */
   contributions(fleetId: FleetId, query: { meetingId: MeetingId } & PageQuery<MessageId>): Promise<Page<Message, MessageId>>;
 }

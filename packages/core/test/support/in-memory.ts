@@ -1104,6 +1104,17 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         const found = state.meetings.find((held) => held.fleetId === fleetId && held.id === meetingId);
         return Promise.resolve(found && structuredClone(found));
       },
+      findForUpdate: (fleetId, meetingId) => {
+        const found = state.meetings.find((held) => held.fleetId === fleetId && held.id === meetingId);
+        return Promise.resolve(found && structuredClone(found));
+      },
+      saveMic: ({ fleetId, id, micHolderShipId, micPattern, micRequests }) => {
+        const found = state.meetings.find((held) => held.fleetId === fleetId && held.id === id);
+        if (found) {
+          Object.assign(found, structuredClone({ micHolderShipId, micPattern, micRequests }));
+        }
+        return Promise.resolve();
+      },
       contributions: (fleetId, { meetingId, cursor, limit }) => {
         const rows = state.messages
           .filter((message) => message.fleetId === fleetId && message.selector.kind === 'meeting' && message.selector.meetingId === meetingId && (cursor === undefined || message.id < cursor))
