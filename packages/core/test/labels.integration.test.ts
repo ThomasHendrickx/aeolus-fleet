@@ -138,6 +138,23 @@ describe('labels on Postgres', () => {
   });
 });
 
+describe('the ships each label value counts, on Postgres', () => {
+  it('counts the active ships that carry each value, a retired one left out', async () => {
+    const { shipId: oldId } = unwrap(await core.useCases.commissionShip(plugin, { idempotencyKey: newKey(), name: 'old', type: 'implementer' }));
+    for (const shipId of [builderId, oldId]) {
+      unwrap(await core.useCases.assignLabel(plugin, { shipId, valueId: macos }));
+    }
+    unwrap(await core.useCases.retireShip(argo, { shipId: oldId }));
+
+    const values = (await core.useCases.listLabels(argo)).find((label) => label.id === osId)?.values;
+
+    expect(values?.map((value) => [value.value, value.shipCount])).toEqual([
+      ['macos', 1],
+      ['linux', 0],
+    ]);
+  });
+});
+
 describe('an assignment racing a change of values', () => {
   it('waits for a change that locked the label first, then is refused: the value is gone', async () => {
     const { uow, reached } = heldUnitOfWork(core.prisma, (tx, hold) => ({
