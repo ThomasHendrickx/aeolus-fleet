@@ -254,12 +254,22 @@ function aLiveFleet(answers: Readonly<Record<string, (input: unknown) => unknown
   };
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const trpc = createTRPCOptionsProxy<AppRouter>({ client: createTRPCClient<AppRouter>({ links: [httpLink({ url: SERVER, fetch: fetchFromFleet })] }), queryClient });
-  const onItem = createLiveFleetHandler({ trpc, queryClient, reload: createLiveReloads(queryClient), onCommissioned: () => undefined });
+  const highlighted: ShipId[] = [];
+  const onItem = createLiveFleetHandler({
+    trpc,
+    queryClient,
+    reload: createLiveReloads(queryClient),
+    onPlacedFirst: (shipId) => {
+      highlighted.push(shipId);
+    },
+  });
   const shown: (() => void)[] = [];
   return {
     trpc,
     queryClient,
     onItem,
+    /** The ships the overview highlights, in the order they were placed first. */
+    highlighted,
     askedOf: (procedure: string) => asked.get(procedure) ?? 0,
     /** Shows a read on the page, as a part that asks it does. */
     show: (observer: { subscribe: (listener: () => void) => () => void }) => {
@@ -315,6 +325,69 @@ describe('the live fleet (performance design, decision 3)', () => {
     live.onItem({ kind: 'event', event: anEvent('ShipCommissioned', { shipId: scout.id, hasMessage: false }) });
 
     await expect.poll(() => live.queryClient.getQueryData(live.trpc.fleet.list.queryKey())).toEqual([argo, scout]);
+    live.close();
+  });
+
+  it("replaces a ship's row in place on the overview's loaded pages", async () => {
+    const argo = aShip({ name: 'argo', type: 'operator', kind: 'operator' });
+    const builder = aShip({ status: 'awaitingCrew' });
+    const scout = aShip({ name: 'scout' });
+    const live = aLiveFleet({ 'fleet.list': () => ({ items: [argo, builder, scout], nextCursor: 'more' }), 'fleet.listedShip': () => ({ ...builder, status: 'crewed' }) });
+    const pages = new InfiniteQueryObserver(live.queryClient, live.trpc.fleet.list.infiniteQueryOptions({ limit: 20 }, { getNextPageParam: () => undefined }));
+    live.show(pages);
+    await expect.poll(() => pages.getCurrentResult().data).toBeDefined();
+
+    live.onItem({ kind: 'event', event: anEvent('ShipClaimed', { shipId: builder.id, hasMessage: false }) });
+
+    await expect.poll(() => pages.getCurrentResult().data?.pages.flatMap((page) => page.items)).toEqual([argo, { ...builder, status: 'crewed' }, scout]);
+    live.close();
+  });
+
+  it.each([
+    { what: 'a commissioned ship', type: 'ShipCommissioned' },
+    { what: 'a changed ship beyond the loaded pages', type: 'ShipClaimed' },
+  ] as const)("puts $what first on the overview's loaded pages (#1173)", async ({ type }) => {
+    const argo = aShip({ name: 'argo', type: 'operator', kind: 'operator' });
+    const builder = aShip({});
+    const scout = aShip({ name: 'scout', status: 'awaitingCrew' });
+    const live = aLiveFleet({ 'fleet.list': () => ({ items: [argo, builder], nextCursor: 'more' }), 'fleet.listedShip': () => scout });
+    const pages = new InfiniteQueryObserver(live.queryClient, live.trpc.fleet.list.infiniteQueryOptions({ limit: 20 }, { getNextPageParam: () => undefined }));
+    live.show(pages);
+    await expect.poll(() => pages.getCurrentResult().data).toBeDefined();
+
+    live.onItem({ kind: 'event', event: anEvent(type, { shipId: scout.id, hasMessage: false }) });
+
+    await expect.poll(() => pages.getCurrentResult().data?.pages.flatMap((page) => page.items)).toEqual([scout, argo, builder]);
+    live.close();
+  });
+
+  it("highlights a ship it puts first on the overview's loaded pages (#1173)", async () => {
+    const argo = aShip({ name: 'argo', type: 'operator', kind: 'operator' });
+    const scout = aShip({ name: 'scout', status: 'awaitingCrew' });
+    const live = aLiveFleet({ 'fleet.list': () => ({ items: [argo], nextCursor: 'more' }), 'fleet.listedShip': () => scout });
+    const pages = new InfiniteQueryObserver(live.queryClient, live.trpc.fleet.list.infiniteQueryOptions({ limit: 20 }, { getNextPageParam: () => undefined }));
+    live.show(pages);
+    await expect.poll(() => pages.getCurrentResult().data).toBeDefined();
+
+    live.onItem({ kind: 'event', event: anEvent('ShipClaimed', { shipId: scout.id, hasMessage: false }) });
+
+    await expect.poll(() => live.highlighted).toEqual([scout.id]);
+    live.close();
+  });
+
+  it("highlights no ship the overview's loaded pages already show", async () => {
+    const argo = aShip({ name: 'argo', type: 'operator', kind: 'operator' });
+    const builder = aShip({ status: 'awaitingCrew' });
+    const live = aLiveFleet({ 'fleet.list': () => ({ items: [argo, builder], nextCursor: null }), 'fleet.listedShip': () => ({ ...builder, status: 'crewed' }) });
+    const pages = new InfiniteQueryObserver(live.queryClient, live.trpc.fleet.list.infiniteQueryOptions({ limit: 20 }, { getNextPageParam: () => undefined }));
+    live.show(pages);
+    await expect.poll(() => pages.getCurrentResult().data).toBeDefined();
+
+    live.onItem({ kind: 'event', event: anEvent('ShipClaimed', { shipId: builder.id, hasMessage: false }) });
+    await expect.poll(() => live.askedOf('fleet.listedShip')).toBe(1);
+    await settled();
+
+    expect(live.highlighted).toEqual([]);
     live.close();
   });
 
