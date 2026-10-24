@@ -1,5 +1,7 @@
 'use client';
 
+import type { ListedShip } from '@aeolus-fleet/common';
+
 import { ListPage } from '../../../components/organisms/list-page';
 import { HealthContainer } from '../../../features/health/state/health-container';
 import { SilentMembers } from '../../../features/health/ui/organisms/silent-members';
@@ -7,8 +9,8 @@ import { GetNewCrewLine } from '../../../features/squadrons/organisms/get-new-cr
 import { MachineLiveness } from '../../../features/trierarchs/ui/organisms/machine-card';
 import { useAccess } from '../../../lib/access';
 import { useConsoleFrame } from '../../../lib/console-frame';
-import { useFleetSnapshot } from '../../../lib/fleet';
 import { useStuckSummary } from '../../../lib/fleet-health';
+import { useListedShips } from '../../../lib/listed-ships';
 import { useLiveFleet } from '../../../lib/live-fleet';
 import { useNow } from '../../../lib/now';
 import { useSignInWhenSessionEnds } from '../../../lib/session';
@@ -31,8 +33,7 @@ export default function FleetHealthPage() {
   const squadrons = useSquadrons();
   const silent = silentMembers(squadrons.data ?? []);
   const silentShips = useShips(silent.map(({ member }) => member.shipId));
-  const fleet = useFleetSnapshot();
-  const shipsById = new Map((fleet.data ?? []).map((ship) => [ship.id, ship]));
+  const shipsById = useListedShips(silent.map(({ member }) => member.shipId)) ?? new Map<string, ListedShip>();
   useSignInWhenSessionEnds([summary.error, liveFleet.error]);
 
   return (

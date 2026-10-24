@@ -3,14 +3,14 @@
 import type { StuckCause } from '@aeolus-fleet/common';
 import type { ReactNode } from 'react';
 
-import { useFleetSnapshot } from '../../../lib/fleet';
 import { useAcknowledged, useStuckHistory, useStuckPlaces, useStuckSummary } from '../../../lib/fleet-health';
-import { spotsOf } from '../../../lib/machines';
+import { useListedShips } from '../../../lib/listed-ships';
 import { useNow } from '../../../lib/now';
 import type { PagedList } from '../../../lib/paged-list';
 import { relativeTime } from '../../../lib/relative-time';
 import type { Machine } from '../../../lib/trierarch-plugin-schemas';
 import { useMachines } from '../../../lib/trierarch-plugin';
+import { useMachineShipCounts } from '../hooks/use-machine-ship-counts';
 import { placeNote, type StuckPlace } from '../services/health-view';
 import type { CausePlacesRead } from '../ui/organisms/cause-card';
 import { HealthBoard, type HealthPartRead } from '../ui/organisms/health-board';
@@ -26,9 +26,10 @@ interface HealthContainerProps {
 /**
  * The Health page's board, read live: the stuck summary, each cause's places
  * (read only for a cause with anything stuck), the trend and the
- * acknowledged, each by its own read; each stalled ship's last seen
- * from the fleet snapshot, and the machines with how many ships each crews
- * when the trierarch plugin is connected.
+ * acknowledged, each by its own read; the last seen of each ship a shown
+ * place names, read by id, and the machines with how many ships each crews,
+ * counted per machine, when the trierarch plugin is connected. Never the
+ * whole fleet.
  */
 export function HealthContainer({ renderLiveness, children }: HealthContainerProps) {
   const now = useNow();
@@ -42,20 +43,20 @@ export function HealthContainer({ renderLiveness, children }: HealthContainerPro
   };
   const stuckPerHour = useStuckHistory();
   const acknowledged = useAcknowledged();
-  const fleet = useFleetSnapshot();
   const machines = useMachines();
-  const ships = fleet.data ?? [];
-  const shipsById = new Map(ships.map((ship) => [ship.id, ship]));
+  const shownPlaces = Object.values(places).flatMap((read) => read.places ?? []);
+  const shipsById = useListedShips(shownPlaces.flatMap(({ place }) => (place.kind === 'ship' ? [place.ship.id] : [])));
+  const machineShipCounts = useMachineShipCounts((machines.data ?? []).map((machine) => machine.shipId));
   const notes = new Map<StuckPlace, string>();
-  for (const place of Object.values(places).flatMap((read) => read.places ?? [])) {
-    const ship = place.place.kind === 'ship' ? shipsById.get(place.place.ship.id) : undefined;
+  for (const place of shownPlaces) {
+    const ship = place.place.kind === 'ship' ? shipsById?.get(place.place.ship.id) : undefined;
     const note = placeNote(place, { facts: ship && { lastSeenAt: ship.lastSeenAt }, since: (at) => relativeTime(at, now) });
     if (note !== null) {
       notes.set(place, note);
     }
   }
   const machinesById = new Map<string, Machine>((machines.data ?? []).map((machine) => [machine.shipId, machine]));
-  const healthMachines: HealthMachine[] | undefined = machines.data?.map((machine) => ({ id: machine.shipId, name: machine.name, ships: spotsOf(machine, ships).length }));
+  const healthMachines: HealthMachine[] | undefined = machines.data?.map((machine) => ({ id: machine.shipId, name: machine.name, ships: machineShipCounts.get(machine.shipId) ?? 0 }));
   return (
     <HealthBoard
       summary={partRead(summary)}

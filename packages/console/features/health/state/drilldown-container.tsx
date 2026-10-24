@@ -6,8 +6,8 @@ import { useState } from 'react';
 import { showToast } from '../../../components/atoms/toast';
 import { LoadMore } from '../../../components/molecules/load-more';
 import { useAccess } from '../../../lib/access';
-import { useFleetSnapshot } from '../../../lib/fleet';
 import { useStuckPlaces } from '../../../lib/fleet-health';
+import { useListedShips } from '../../../lib/listed-ships';
 import { DISMISSED_TOAST, useDismissDelivery, useResendDelivery } from '../../../lib/needs-attention';
 import { useNow } from '../../../lib/now';
 import { useStuckMessages } from '../hooks/use-stuck-messages';
@@ -16,21 +16,21 @@ import { StuckDrilldown, type DrilldownShip } from '../ui/organisms/stuck-drilld
 
 /**
  * One cause opened, read live: its places a page at a time, each
- * ship's status, type and last seen from the fleet snapshot, and each stuck
+ * ship's status, type and last seen, read by id, and each stuck
  * delivery's message. A manager resends or dismisses an undeliverable one,
  * with a toast either way.
  */
 export function DrilldownContainer({ cause }: { cause: StuckCause }) {
   const now = useNow();
   const stuck = useStuckPlaces(cause);
-  const fleet = useFleetSnapshot();
   const access = useAccess();
   const resend = useResendDelivery();
   const dismiss = useDismissDelivery();
   const [pendingIds, setPendingIds] = useState<ReadonlySet<DeliveryId>>(new Set());
   const places = stuck.items ?? [];
   const { messages } = useStuckMessages(places.flatMap((place) => place.deliveries.map((delivery) => delivery.messageId)));
-  const ships = new Map<string, DrilldownShip>((fleet.data ?? []).map((ship) => [ship.id, { status: ship.status, type: ship.type, lastSeenAt: ship.lastSeenAt }]));
+  const listed = useListedShips(places.flatMap(({ place }) => (place.kind === 'ship' ? [place.ship.id] : [])));
+  const ships = new Map<string, DrilldownShip>([...(listed?.values() ?? [])].map((ship) => [ship.id, { status: ship.status, type: ship.type, lastSeenAt: ship.lastSeenAt }]));
 
   const act = (deliveryId: DeliveryId, run: () => Promise<void>) => {
     setPendingIds((pending) => new Set([...pending, deliveryId]));
