@@ -9,12 +9,12 @@ import { fleetListFilterOf, fleetListSortOf } from '../services/fleet-list-input
 import { useNow } from '../../../lib/now';
 import { useSquadrons } from '../../../lib/squadrons-api';
 import { shipsInSquadrons } from '../../../lib/squadrons-view';
-import { useFleetCounts, useFleetPages } from '../hooks/fleet-pages';
+import { useFleetCounts, useFleetPages, useShipTypes } from '../hooks/fleet-pages';
 import { FleetTable, type FleetTableProps } from '../ui/organisms/fleet-table';
 
-/** The types the Type filter offers: those of the ships shown and those picked, each once, sorted. */
-function typesOf(ships: readonly { type: string }[], picked: readonly string[]): string[] {
-  return [...new Set([...ships.map((ship) => ship.type), ...picked])].toSorted((first, second) => first.localeCompare(second));
+/** The types the Type filter offers: the fleet's and those picked, each once, sorted. */
+function typesOf(types: readonly string[], picked: readonly string[]): string[] {
+  return [...new Set([...types, ...picked])].toSorted((first, second) => first.localeCompare(second));
 }
 
 /**
@@ -23,7 +23,8 @@ function typesOf(ships: readonly { type: string }[], picked: readonly string[]):
  * behind their dialogs (from the page, since they are another feature), and
  * with squadrons on, each flagship's and member's squadron, and each ship's
  * labels with the label filter (#102). Search, filters and sort come from
- * the page, which keeps them in the URL; the counts from `fleet.shipCounts`.
+ * the page, which keeps them in the URL; the counts from `fleet.shipCounts`
+ * and the Type filter's types from `fleet.shipTypes`.
  */
 export function FleetOverview({
   view,
@@ -45,6 +46,7 @@ export function FleetOverview({
   const filter = fleetListFilterOf(view, { squadronsOf, pluginShipIds });
   const ships = useFleetPages(filter, fleetListSortOf(view.sort));
   const { counts, isOnlyArgo } = useFleetCounts(filter);
+  const types = useShipTypes(view.filters.isRetiredShown);
 
   return (
     <section aria-label="Fleet" className="flex flex-col gap-3">
@@ -52,7 +54,7 @@ export function FleetOverview({
         ships={ships.items ?? []}
         counts={counts}
         isOnlyArgo={isOnlyArgo}
-        types={typesOf(ships.items ?? [], view.filters.type)}
+        types={typesOf(types ?? [], view.filters.type)}
         more={{ hasMore: ships.hasMore, isLoading: ships.isLoadingMore, isFailed: ships.isLoadMoreFailed, onLoad: ships.loadMore }}
         view={view}
         onViewChange={onViewChange}

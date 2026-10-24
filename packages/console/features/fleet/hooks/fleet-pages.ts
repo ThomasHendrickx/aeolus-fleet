@@ -32,6 +32,12 @@ export function useFleetPages(filter: FleetListFilter | null, sort: FleetListSor
   return { ...list, items: list.items?.filter(isInReadReach) };
 }
 
+/** The fleet's ship types for the Type filter (`fleet.shipTypes`): of the active ships, and the retired ones while they are shown. */
+export function useShipTypes(isRetiredShown: boolean): readonly string[] | undefined {
+  const trpc = useTRPC();
+  return useQuery(trpc.fleet.shipTypes.queryOptions(isRetiredShown ? { status: ['awaitingCrew', 'crewed', 'retired'] } : undefined, { placeholderData: keepPreviousData })).data;
+}
+
 /**
  * The overview's counts (`fleet.shipCounts`): the view's, read with its
  * filter, and the fleet's, read without one; undefined until both are read.
