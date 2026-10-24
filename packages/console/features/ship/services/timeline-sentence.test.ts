@@ -648,4 +648,20 @@ describe('timelineSentence', () => {
       { kind: 'ship', party: planner },
     ]);
   });
+
+  it('says the ship opened a meeting, and of how many ships (decision 0061)', () => {
+    expect(onScoutsPage(anEntry('MeetingOpened', { actor: scout, details: { meetingId: newId('meeting'), participants: 3 } }))).toEqual({
+      sentence: 'Opened a meeting of 3 ships',
+      tone: 'ok',
+      icon: 'sent',
+    });
+  });
+
+  it('says the ship joined a meeting, and who added it (decision 0061)', () => {
+    expect(onScoutsPage(anEntry('ParticipantAdded', { actor: planner, details: { meetingId: newId('meeting') } }))).toEqual({
+      sentence: 'Joined a meeting, added by planner',
+      tone: 'ok',
+      icon: 'received',
+    });
+  });
 });
