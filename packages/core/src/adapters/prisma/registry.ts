@@ -701,6 +701,8 @@ export function shipFilterCondition(
     needle === '' ? undefined : Prisma.sql`AND (strpos(lower(s.name), ${needle}) > 0 OR strpos(lower(s.type), ${needle}) > 0)`,
     // An active ship's name is unique: ships_fleet_id_name_active_key finds the one ship.
     name === undefined ? undefined : Prisma.sql`AND s.name = ${name}`,
+    // With the retired ones asked, the name in lower case lets ships_name_listing_every_status_idx find them all.
+    name === undefined || !status.includes('retired') ? undefined : Prisma.sql`AND lower(s.name) COLLATE "C" = lower(${name}) COLLATE "C"`,
     ...statusConditions(status),
     type.length === 0 ? undefined : Prisma.sql`AND s.type = ANY(${[...type]}::text[])`,
     shipKind.length === 0 ? undefined : Prisma.sql`AND s.kind = ANY(${[...shipKind]}::ship_kind[])`,
