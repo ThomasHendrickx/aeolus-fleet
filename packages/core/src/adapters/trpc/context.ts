@@ -31,6 +31,8 @@ import type { SendMessage } from '../../domain/messaging/send-message.js';
 import type { OpenMeeting } from '../../domain/messaging/open-meeting.js';
 import type { ReadMeeting } from '../../domain/messaging/read-meeting.js';
 import type { ChangeMic } from '../../domain/messaging/change-mic.js';
+import type { ChangeMeeting } from '../../domain/messaging/change-meeting.js';
+import type { AddToMeeting } from '../../domain/messaging/add-to-meeting.js';
 import type { ClaimShip } from '../../domain/registry/claim-ship.js';
 import type { IssueSignInTicket } from '../../domain/identity/issue-sign-in-ticket.js';
 import type { RedeemSignInTicket } from '../../domain/identity/redeem-sign-in-ticket.js';
@@ -211,6 +213,8 @@ export interface UseCases {
   openMeeting: OpenMeeting;
   readMeeting: ReadMeeting;
   changeMic: ChangeMic;
+  changeMeeting: ChangeMeeting;
+  addToMeeting: AddToMeeting;
   receiveDeliveries: ReceiveDeliveries;
   receiveReply: ReceiveReply;
   pushReceiveDeliveries: PushReceiveDeliveries;

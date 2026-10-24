@@ -1,6 +1,7 @@
 import type { IdGenerator, ShipId } from '@aeolus-fleet/common';
 
 import { revokeShipSecret, type CredentialTx } from '../identity/public.js';
+import { leaveMeetingsOnRetire, lockMeetingsOf, type AcceptRefusal, type RequestHasher, type RetiredParticipantTx } from '../messaging/public.js';
 import { actorOf, type Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
@@ -18,7 +19,7 @@ import { changeOwner, checkCanRetire, type RetireRefusal } from './ship.js';
 import { releaseWithDeclarer } from './scope-namespace.js';
 import { removeWithRetiredShip } from './verified-facts.js';
 
-export interface RetireShipTx extends LeaseTx, CredentialTx, Omit<CheckManageTx, 'ships' | 'labels' | 'networkSettings' | 'declaredNetworkRules'> {
+export interface RetireShipTx extends LeaseTx, CredentialTx, RetiredParticipantTx, Omit<CheckManageTx, 'ships' | 'labels' | 'networkSettings' | 'declaredNetworkRules' | 'events'> {
   ships: ShipRepository;
   crewRequests: CrewRequestRepository;
   clearRequests: ClearRequestRepository;
@@ -29,7 +30,7 @@ export interface RetireShipTx extends LeaseTx, CredentialTx, Omit<CheckManageTx,
   verifiedFacts: Pick<VerifiedFactsRepository, 'listAbout' | 'listBy' | 'lockWriter' | 'remove'>;
 }
 
-export type RetireShipRefusal = DomainError<'SHIP_NOT_FOUND'> | NotReachable | RetireRefusal;
+export type RetireShipRefusal = DomainError<'SHIP_NOT_FOUND'> | NotReachable | RetireRefusal | AcceptRefusal;
 
 export type RetireShip = (
   caller: Caller,
@@ -58,7 +59,10 @@ export type RetireShip = (
  * Every writer's verified facts about it go, and its own about every ship,
  * one VerifiedFactsRemoved each, under its writer lock, taken last, after
  * every ship this locks, as a set takes it after the ship it writes about
- * (decision 0059).
+ * (decision 0059). It leaves every open meeting it is present in, off the
+ * mic, its moderatorship going to the owner, and a meeting it owns ends, the
+ * others told (decision 0061, M15, M17): those meetings it locks before the
+ * ship, as a contribution locks its meeting before its recipients.
  * The caller, any actor (decision 0057), needs fleet:manage, checked before
  * this runs, and manage reach on the ship here (decision 0034), a refusal
  * storing only its record. That check reads the network
@@ -75,10 +79,12 @@ export function createRetireShip(deps: {
   uow: UnitOfWork<RetireShipTx>;
   clock: Clock;
   ids: IdGenerator;
+  hasher: RequestHasher;
 }): RetireShip {
   return (caller, { shipId }) =>
     keepingReachRefusal(deps.uow, async (tx): Promise<Result<{ abandonedDeliveries: number }, RetireShipRefusal>> => {
       const { fleetId } = caller;
+      const meetings = await lockMeetingsOf(tx, { fleetId, shipId });
       const ship = await tx.ships.findForUpdate(fleetId, shipId);
       if (!ship) {
         return refuse('SHIP_NOT_FOUND', `Ship ${shipId} does not exist`);
@@ -192,6 +198,10 @@ export function createRetireShip(deps: {
         for (const event of released.events) {
           await recordEvent(recorded, event);
         }
+      }
+      const left = await leaveMeetingsOnRetire({ tx, ids: deps.ids, hasher: deps.hasher }, { meetings, shipId, actor, at });
+      if (!left.isOk) {
+        return left;
       }
       await tx.verifiedFacts.lockWriter(fleetId, shipId);
       const facts = removeWithRetiredShip({ about: await tx.verifiedFacts.listAbout(fleetId, shipId), by: await tx.verifiedFacts.listBy(fleetId, shipId) }, { at, actor });

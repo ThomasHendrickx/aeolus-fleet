@@ -2,6 +2,7 @@ import { accountIdSchema, createIdGenerator, type FleetId, type ShipId, type Ver
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
+import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
 import { createRetireShip } from '../src/domain/registry/retire-ship.js';
 import { createSetVerifiedFacts } from '../src/domain/registry/set-verified-facts.js';
 import type { FactWriter } from '../src/domain/registry/verified-facts.js';
@@ -183,7 +184,7 @@ describe('verified facts and a retire on Postgres', () => {
         },
       },
     }));
-    const retiring = createRetireShip({ uow, clock: core.clock, ids: createIdGenerator() })(argo, { shipId: gateway.shipId });
+    const retiring = createRetireShip({ uow, clock: core.clock, ids: createIdGenerator(), hasher: sha256Hasher })(argo, { shipId: gateway.shipId });
     await reached;
 
     const setting = core.useCases.setVerifiedFacts(gateway, { shipId: crmId, facts: [TLS_HOST] });

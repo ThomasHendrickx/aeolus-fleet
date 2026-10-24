@@ -706,12 +706,16 @@ model MeetingMicRequest {
 
 /// A ship in a meeting and when it joined (decision 0061): once per meeting.
 model MeetingParticipant {
-  fleetId   String   @map("fleet_id")
-  meetingId String   @map("meeting_id")
-  shipId    String   @map("ship_id")
-  joinedAt  DateTime @map("joined_at") @db.Timestamptz(3)
+  fleetId   String    @map("fleet_id")
+  meetingId String    @map("meeting_id")
+  shipId    String    @map("ship_id")
+  joinedAt  DateTime  @map("joined_at") @db.Timestamptz(3)
   /// Its place in the order the meeting's ships joined, the opener's 0.
   place     Int
+  /// When it left or was revoked; none while it is present (decision 0061, M13).
+  leftAt    DateTime? @map("left_at") @db.Timestamptz(3)
+  /// Whether the owner revoked its right to rejoin.
+  isRevoked Boolean   @default(false) @map("is_revoked")
 
   fleet      Fleet              @relation(fields: [fleetId], references: [id])
   meeting    Meeting            @relation(fields: [fleetId, meetingId], references: [fleetId, id], onDelete: Restrict)

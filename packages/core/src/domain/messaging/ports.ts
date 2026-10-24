@@ -43,8 +43,13 @@ export interface MeetingRepository {
    * ends: mic changes take turns, and wait for the contributions in flight.
    */
   findForUpdate(fleetId: FleetId, meetingId: MeetingId): Promise<Meeting | undefined>;
-  /** Stores the meeting's mic as it is now: its holder, its pattern and its requests in order. */
-  saveMic(meeting: Meeting): Promise<void>;
+  /**
+   * Stores the meeting as it is now: its owner, moderator and end, its
+   * participants in order, each present, left or revoked, and its mic.
+   */
+  save(meeting: Meeting): Promise<void>;
+  /** The open meetings the ship is present in, each held for update until the unit of work ends, as a retire changes them. */
+  listPresentInForUpdate(fleetId: FleetId, shipId: ShipId): Promise<Meeting[]>;
   /** A page of the meeting's contributions, newest first by id, read without a lock: the messages sent to it, never its notices. */
   contributions(fleetId: FleetId, query: { meetingId: MeetingId } & PageQuery<MessageId>): Promise<Page<Message, MessageId>>;
 }

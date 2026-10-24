@@ -1,4 +1,4 @@
-import { MEETING_ADDED_CONTENT_TYPE, type IdGenerator, type LabelValueId, type MeetingAdded, type MeetingId, type ShipId } from '@aeolus-fleet/common';
+import { MEETING_ADDED_CONTENT_TYPE, type IdGenerator, type LabelValueId, type MeetingId } from '@aeolus-fleet/common';
 
 import {
   checkReach,
@@ -19,9 +19,9 @@ import type { Notifier } from '../shared/notifier.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { withinDailyMessageLimit, type DailyMessageLimitTx } from './daily-message-limit.js';
-import { openMeeting, repeatOfOpen, type Meeting, type OpenMeetingRefusal } from './meeting.js';
+import { openMeeting, repeatOfOpen, type OpenMeetingRefusal } from './meeting.js';
 import type { AcceptRefusal } from './message.js';
-import { tellParticipant } from './meeting-notice.js';
+import { addedNoticeOf, tellParticipant } from './meeting-notice.js';
 import type { DeliveryRepository, MeetingRepository, MessageRepository, RequestHasher } from './ports.js';
 
 export interface OpenMeetingTx extends Omit<ResolveInviteesTx, 'ships'>, Omit<CheckReachTx, 'ships'>, DailyMessageLimitTx {
@@ -135,7 +135,7 @@ async function openWithin(
   for (const event of events) {
     await recordEvent({ events: tx.events, ids }, event);
   }
-  const payload = JSON.stringify(await addedNotice(tx, meeting));
+  const payload = JSON.stringify(await addedNoticeOf(tx, meeting));
   for (const shipId of told) {
     // The added notice (M11): from the owner, who reached the ship already.
     const notice = await tellParticipant(deps, {
@@ -154,15 +154,4 @@ async function openWithin(
     }
   }
   return ok({ meetingId: meeting.id });
-}
-
-/** The added notice's payload: the meeting, its title, its owner, its moderator and its participants, by id and name. */
-async function addedNotice(tx: Pick<OpenMeetingTx, 'ships'>, meeting: Meeting): Promise<MeetingAdded> {
-  const names = new Map<ShipId, string>();
-  for (const { shipId } of meeting.participants) {
-    const ship = await tx.ships.find(meeting.fleetId, shipId);
-    names.set(shipId, ship?.name ?? shipId);
-  }
-  const party = (id: ShipId) => ({ id, name: names.get(id) ?? id });
-  return { meetingId: meeting.id, title: meeting.title, owner: party(meeting.ownerShipId), moderator: party(meeting.moderatorShipId), participants: meeting.participants.map(({ shipId }) => party(shipId)) };
 }

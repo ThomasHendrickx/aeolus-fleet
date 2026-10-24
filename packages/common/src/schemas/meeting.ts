@@ -100,8 +100,18 @@ export const meetingMicReadSchema = z.object({
   requests: z.array(z.object({ ship: partySchema, requestedAt: isoTime })),
 });
 
-/** A participant as the meeting read shows it: who it is, and whether it is crewed now (decision 0061, M14). */
-export const meetingParticipantSchema = partySchema.extend({ kind: shipKindSchema, status: shipStatusSchema });
+/** Whether a participant is in the meeting now, left it keeping its right to rejoin, or was revoked by the owner (decision 0061, M13). */
+export const PARTICIPANT_STATES = ['present', 'left', 'revoked'] as const;
+
+export const participantStateSchema = z.enum(PARTICIPANT_STATES);
+
+export type ParticipantState = z.infer<typeof participantStateSchema>;
+
+/**
+ * A participant as the meeting read shows it: who it is, whether it is crewed
+ * now (decision 0061, M14), and whether it is in the meeting now.
+ */
+export const meetingParticipantSchema = partySchema.extend({ kind: shipKindSchema, status: shipStatusSchema, state: participantStateSchema });
 
 /** One contribution as the meeting read shows it. */
 export const contributionSchema = z.object({

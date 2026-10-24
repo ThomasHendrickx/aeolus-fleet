@@ -105,7 +105,7 @@ describe('adding ships to a meeting', () => {
     unwrap(await messaging.addToMeeting(chief, toAdd({ ships: [{ shipId: marketing.shipId }] })));
     unwrap(await messaging.changeMeeting(marketing, { meetingId, change: { kind: 'leave' } }));
 
-    expect(refusalOf(await messaging.changeMeeting(marketing, { meetingId, change: { kind: 'rejoin' } }))).toBeUndefined();
+    expect((await messaging.changeMeeting(marketing, { meetingId, change: { kind: 'rejoin' } })).isOk).toBe(true);
   });
 
   it('gives an added ship the deliveries from joining on, and the meeting so far to read (M12)', async () => {
@@ -122,7 +122,7 @@ describe('adding ships to a meeting', () => {
 
 describe('an add the meeting refuses', () => {
   function expectNothingStored(messagesBefore: number): void {
-    expect([participantsOf(), core.state.messages.length, core.state.events.filter(({ type }) => type !== 'ReachRefused'), core.state.notices]).toEqual([[chief.shipId, marketing.shipId], messagesBefore, [], []]);
+    expect([participantsOf(), core.state.messages.length, core.state.events, core.state.notices]).toEqual([[chief.shipId, marketing.shipId], messagesBefore, [], []]);
   }
 
   it('refuses a ship the owner does not reach, recording the refusal and adding none of the others (M5)', async () => {
