@@ -9,6 +9,7 @@ import { clockTime, fullDateTime, lastSeen, relativeTime } from '../../../../lib
 import type { Machine } from '../../../../lib/trierarch-plugin-schemas';
 import { Badge } from '../../../../components/atoms/badge';
 import { CapacityBar } from '../molecules/capacity-bar';
+import { NotOfferedLine } from '../../../../components/molecules/not-offered-line';
 import { LocationTag } from '../../../../components/molecules/location-tag';
 
 interface MachineCardProps {
@@ -184,6 +185,7 @@ export function MachineCard({ machine, spots, location, now }: MachineCardProps)
         )}
       </div>
       <Column title="Harnesses, options and flags">
+        {details?.notOffered?.map(({ harness, reason }) => <NotOfferedLine key={harness} harness={harness} reason={reason} />)}
         {details === null ? <span className="text-meta text-muted-foreground">Unknown until it answers</span> : details.harnesses.map((harness) => <HarnessOffer key={harness.harness} harness={harness} now={now} />)}
       </Column>
       <Column title="Workspaces">

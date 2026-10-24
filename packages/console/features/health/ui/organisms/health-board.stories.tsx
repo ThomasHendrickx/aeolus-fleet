@@ -3,6 +3,7 @@ import { expect, fn } from 'storybook/test';
 
 import type { Health, StuckCause, StuckSummary } from '@aeolus-fleet/common';
 
+import { NOT_OFFERED } from '../../../../lib/fixtures/machines.fixtures';
 import { DELIVERING_HEALTH, DELIVERING_SUMMARY, HEALTH_NOW, HETZNER, QUIET_HEALTH, STUCK_HEALTH, STUCK_SUMMARY } from '../../../../lib/fixtures/health.fixtures';
 import { placeNote, type StuckPlace } from '../../services/health-view';
 import type { CausePlacesRead } from './cause-card';
@@ -90,6 +91,14 @@ export const WithMachines: Story = {
   args: { machines: MACHINES },
   play: async ({ canvas }) => {
     await expect(canvas.getByText('2 deliveries stuck on its ships')).toBeVisible();
+  },
+};
+
+/** A machine whose trierarch cannot serve a harness is told on its row (#1215). */
+export const WithHarnessNotOffered: Story = {
+  args: { machines: [{ id: 'shp_01m50fadab99nv2shqvz0sf206', name: 'mac-studio', ships: 6, notOffered: [NOT_OFFERED] }, { id: HETZNER.id, name: HETZNER.name, ships: 2 }] },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByTestId('not-offered')).toHaveTextContent('Codex not offered');
   },
 };
 

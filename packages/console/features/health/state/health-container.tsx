@@ -9,6 +9,7 @@ import { useNow } from '../../../lib/now';
 import type { PagedList } from '../../../lib/paged-list';
 import { relativeTime } from '../../../lib/relative-time';
 import type { Machine } from '../../../lib/trierarch-plugin-schemas';
+import { notOfferedOf } from '../../../lib/machines';
 import { useMachines } from '../../../lib/trierarch-plugin';
 import { useMachineShipCounts } from '../hooks/use-machine-ship-counts';
 import { placeNote, type StuckPlace } from '../services/health-view';
@@ -56,7 +57,8 @@ export function HealthContainer({ renderLiveness, children }: HealthContainerPro
     }
   }
   const machinesById = new Map<string, Machine>((machines.data ?? []).map((machine) => [machine.shipId, machine]));
-  const healthMachines: HealthMachine[] | undefined = machines.data?.map((machine) => ({ id: machine.shipId, name: machine.name, ships: machineShipCounts.get(machine.shipId) ?? 0 }));
+  const notOffered = notOfferedOf(machines.data ?? []);
+  const healthMachines: HealthMachine[] | undefined = machines.data?.map((machine) => ({ id: machine.shipId, name: machine.name, ships: machineShipCounts.get(machine.shipId) ?? 0, notOffered: notOffered.filter((one) => one.machineId === machine.shipId) }));
   return (
     <HealthBoard
       summary={partRead(summary)}

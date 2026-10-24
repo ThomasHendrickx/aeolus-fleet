@@ -1,7 +1,8 @@
 import { createIdGenerator, type CrewSettings, type CrewStatus, type ListedShip } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
-import { capacityLine, harnessOptions, machineLiveness, silentCount, spotsOf, withWorkspaces } from './machines';
+import { ALIVE_MACHINE, NEW_MACHINE, NOT_OFFERED, NOT_OFFERED_MACHINE } from './fixtures/machines.fixtures';
+import { capacityLine, harnessOptions, machineLiveness, notOfferedOf, silentCount, spotsOf, withWorkspaces } from './machines';
 
 const newId = createIdGenerator();
 const TRIERARCH = { id: newId('ship'), name: 'trierarch-mac' };
@@ -119,5 +120,15 @@ describe('harnessOptions', () => {
   it('leaves out what is no option of value names', () => {
     expect(harnessOptions({ properties: { odd: { type: 'string' } } })).toEqual([]);
     expect(harnessOptions({})).toEqual([]);
+  });
+});
+
+describe('notOfferedOf', () => {
+  it('lists each harness a machine cannot serve with its computer and why', () => {
+    expect(notOfferedOf([NOT_OFFERED_MACHINE])).toEqual([{ machineId: NOT_OFFERED_MACHINE.shipId, machineName: NOT_OFFERED_MACHINE.name, ...NOT_OFFERED }]);
+  });
+
+  it('lists nothing for a machine that reports none, or has not reported', () => {
+    expect(notOfferedOf([ALIVE_MACHINE, NEW_MACHINE])).toEqual([]);
   });
 });

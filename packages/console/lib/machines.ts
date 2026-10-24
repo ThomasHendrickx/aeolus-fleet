@@ -14,6 +14,22 @@ export function silentCount(machines: readonly Pick<Machine, 'isSilent'>[]): num
   return machines.filter((machine) => machine.isSilent).length;
 }
 
+/** A harness a machine's trierarch cannot serve now, on its computer, with why (#1215). */
+export interface NotOffered {
+  machineId: Machine['shipId'];
+  machineName: string;
+  harness: string;
+  reason: string;
+}
+
+/** The harnesses the machines cannot serve, machine by machine as they are listed. A machine that has not reported, or reports none, has none. */
+export function notOfferedOf(machines: readonly Machine[]): NotOffered[] {
+  return machines.flatMap((machine) => (machine.details?.notOffered ?? []).map(({ harness, reason }) => ({ machineId: machine.shipId, machineName: machine.name, harness, reason })));
+}
+
+/** What a harness not offered says of its end: the trierarch offers it again by itself once it can serve it. */
+export const NOT_OFFERED_CLEARS = 'Clears itself once the plugin is back.';
+
 /** Whether a machine's trierarch answers: alive, silent, or never crewed yet (joined, its setup line not run). */
 export function machineLiveness(machine: Pick<Machine, 'status' | 'isSilent' | 'lastSeenAt'>): 'alive' | 'silent' | 'not-started' {
   if (machine.status === 'awaitingCrew' && machine.lastSeenAt === null) {

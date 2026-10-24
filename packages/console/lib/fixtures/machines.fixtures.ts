@@ -50,6 +50,11 @@ export const ALIVE_MACHINE: Machine = {
   details: DETAILS,
 };
 
+/** Codex is not offered: its aeolus plugin is missing (#1215). */
+export const NOT_OFFERED = { harness: 'codex', reason: 'its aeolus plugin is not installed (run aeolus-trierarch upgrade)' } as const;
+
+export const NOT_OFFERED_MACHINE: Machine = { ...ALIVE_MACHINE, details: { ...DETAILS, harnesses: DETAILS.harnesses.slice(0, 1), notOffered: [NOT_OFFERED] } };
+
 export const SILENT_MACHINE: Machine = {
   shipId: shipId('trmb'),
   name: 'trierarch-macbook',
