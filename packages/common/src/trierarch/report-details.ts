@@ -27,6 +27,58 @@ const worktreeFolderNameSchema = z
   .max(TRIERARCH_NAME_MAX_LENGTH)
   .refine((name) => !/[/\\]/.test(name) && name !== '.' && name !== '..', 'A folder name is one name, never a path');
 
+const byteCountSchema = z.int().nonnegative();
+const tokenCountSchema = z.int().nonnegative();
+
+/** A share of a whole, from 0 to 100. */
+const percentSchema = z.number().min(0).max(100);
+
+/**
+ * The machine's load as the trierarch last read it (#400): memory, swap, CPU
+ * and the disk its worktree root is on, machine totals only.
+ */
+const machineLoadSchema = z.strictObject({
+  memory: z.strictObject({ totalBytes: byteCountSchema, availableBytes: byteCountSchema }),
+  /** None where the platform does not say it. */
+  swap: z.strictObject({ totalBytes: byteCountSchema, usedBytes: byteCountSchema }).optional(),
+  /** The 1-minute load average, over this many cores. */
+  cpu: z.strictObject({ cores: z.int().positive(), loadAverage: z.number().nonnegative() }),
+  /** The filesystem the trierarch's worktree root is on. */
+  disk: z.strictObject({ totalBytes: byteCountSchema, freeBytes: byteCountSchema }),
+});
+
+/**
+ * What the trierarch reads of its harnesses' usage (#353): how much of each
+ * harness's subscription is used, per window, and the tokens each ship it
+ * crews used per model, with their cost estimated from its price table (null
+ * for a model the table does not price).
+ */
+const harnessUsageSchema = z.strictObject({
+  subscriptions: z.array(
+    z.strictObject({
+      harness: harnessSchema,
+      /** When the trierarch read it (ISO 8601 in UTC). */
+      readAt: z.iso.datetime(),
+      windows: z.array(z.strictObject({ windowMinutes: z.int().positive(), usedPercent: percentSchema, resetsAt: z.iso.datetime() })),
+    }),
+  ),
+  ships: z.array(
+    z.strictObject({
+      shipId: idSchema('ship'),
+      models: z.array(
+        z.strictObject({
+          model: z.string().min(1),
+          tokens: z.strictObject({ input: tokenCountSchema, output: tokenCountSchema, cacheRead: tokenCountSchema, cacheWrite: tokenCountSchema }),
+          estimatedCostUsd: z.number().nonnegative().nullable(),
+        }),
+      ),
+    }),
+  ),
+});
+
+/** The longest reason a harness is not offered: one line for the console. */
+export const NOT_OFFERED_REASON_MAX_LENGTH = 280;
+
 export const trierarchReportDetailsSchema = z.strictObject({
   harnesses: z.array(
     z.strictObject({
@@ -66,6 +118,17 @@ export const trierarchReportDetailsSchema = z.strictObject({
    * None from a trierarch before 0.25.0, which ran them on the host.
    */
   runtime: z.enum(SESSION_RUNTIMES).optional(),
+  /**
+   * The configured harnesses the trierarch cannot serve now, each with why,
+   * such as its aeolus plugin missing (#1212): left out of `harnesses` and
+   * `workspaces`, offered again once the cause is gone. None from a trierarch
+   * before 0.31.0, or with every harness offered.
+   */
+  notOffered: z.array(z.strictObject({ harness: harnessSchema, reason: z.string().min(1).max(NOT_OFFERED_REASON_MAX_LENGTH) })).optional(),
+  /** None from a trierarch before 0.31.0. */
+  load: machineLoadSchema.optional(),
+  /** None from a trierarch before 0.31.0. */
+  usage: harnessUsageSchema.optional(),
   /** The trierarch's own version. */
   version: z.string().min(1),
 });

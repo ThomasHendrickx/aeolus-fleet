@@ -25,7 +25,34 @@ function documentedDetails(): unknown {
     orphans: [{ repository: 'aeolus-fleet', name: 'lookout' }],
     machine: { os: 'macos', arch: 'arm64' },
     runtime: 'host',
-    version: '0.25.0',
+    load: {
+      memory: { totalBytes: 68719476736, availableBytes: 21474836480 },
+      swap: { totalBytes: 8589934592, usedBytes: 1073741824 },
+      cpu: { cores: 12, loadAverage: 3.5 },
+      disk: { totalBytes: 1000000000000, freeBytes: 250000000000 },
+    },
+    usage: {
+      subscriptions: [
+        {
+          harness: 'claude-code',
+          readAt: '2026-10-24T09:30:00.000Z',
+          windows: [
+            { windowMinutes: 300, usedPercent: 3, resetsAt: '2026-10-24T12:00:00.000Z' },
+            { windowMinutes: 10080, usedPercent: 68, resetsAt: '2026-10-27T08:00:00.000Z' },
+          ],
+        },
+      ],
+      ships: [
+        {
+          shipId: 'shp_01m473j7hp3x6gha0gzs1mnf88',
+          models: [
+            { model: 'claude-opus-5-5', tokens: { input: 1200, output: 45000, cacheRead: 9800000, cacheWrite: 410000 }, estimatedCostUsd: 12.5 },
+            { model: 'claude-haiku-5-5', tokens: { input: 300, output: 2000, cacheRead: 50000, cacheWrite: 20000 }, estimatedCostUsd: null },
+          ],
+        },
+      ],
+    },
+    version: '0.31.0',
   };
 }
 
@@ -75,6 +102,63 @@ describe('trierarchReportDetailsSchema', () => {
     const details = { harnesses: [], workspaces: { repositories: [], folders: [] }, caps: { ships: 2, running: 1 }, kept: [], orphans: [], runtime: 'vm', version: '0.25.0' };
 
     expect(trierarchReportDetailsSchema.safeParse(details).success).toBe(false);
+  });
+
+  it('takes the subscription windows exactly at 0 and 100 % used (#353)', () => {
+    const details = {
+      harnesses: [],
+      workspaces: { repositories: [], folders: [] },
+      caps: { ships: 2, running: 1 },
+      kept: [],
+      orphans: [],
+      usage: {
+        subscriptions: [
+          {
+            harness: 'codex',
+            readAt: '2026-10-24T09:30:00.000Z',
+            windows: [
+              { windowMinutes: 300, usedPercent: 0, resetsAt: '2026-10-24T12:00:00.000Z' },
+              { windowMinutes: 10080, usedPercent: 100, resetsAt: '2026-10-27T08:00:00.000Z' },
+            ],
+          },
+        ],
+        ships: [],
+      },
+      version: '0.31.0',
+    };
+
+    expect(trierarchReportDetailsSchema.parse(details)).toEqual(details);
+  });
+
+  it('takes the harnesses the trierarch cannot serve now, each with why, up to a reason of 280 characters (#1212)', () => {
+    const details = {
+      harnesses: [{ harness: 'claude-code', options: {}, flags: [] }],
+      workspaces: { repositories: [], folders: [] },
+      caps: { ships: 2, running: 1 },
+      kept: [],
+      orphans: [],
+      notOffered: [
+        { harness: 'codex', reason: 'its aeolus plugin is not installed (run aeolus-trierarch upgrade)' },
+        { harness: 'gemini', reason: 'x'.repeat(280) },
+      ],
+      version: '0.31.0',
+    };
+
+    expect(trierarchReportDetailsSchema.parse(details)).toEqual(details);
+  });
+
+  it('takes a machine load that names no swap, as a platform may not say it (#400)', () => {
+    const details = {
+      harnesses: [],
+      workspaces: { repositories: [], folders: [] },
+      caps: { ships: 2, running: 1 },
+      kept: [],
+      orphans: [],
+      load: { memory: { totalBytes: 1024, availableBytes: 0 }, cpu: { cores: 1, loadAverage: 0 }, disk: { totalBytes: 1024, freeBytes: 0 } },
+      version: '0.31.0',
+    };
+
+    expect(trierarchReportDetailsSchema.parse(details)).toEqual(details);
   });
 
   it('takes a trierarch with nothing kept and no orphans', () => {
@@ -163,6 +247,16 @@ describe('trierarchReportDetailsSchema', () => {
     ['an unknown field in a harness', (details: Record<string, unknown>) => ({ ...details, harnesses: [{ harness: 'codex', options: {}, flags: [], adapterFlags: [] }] })],
     ['no version', (details: Record<string, unknown>) => ({ ...details, version: undefined })],
     ['a cap of no ships', (details: Record<string, unknown>) => ({ ...details, caps: { ships: 0, running: 1 } })],
+    ['a harness not offered without its reason', (details: Record<string, unknown>) => ({ ...details, notOffered: [{ harness: 'codex' }] })],
+    ['a harness not offered with an empty reason', (details: Record<string, unknown>) => ({ ...details, notOffered: [{ harness: 'codex', reason: '' }] })],
+    ['a harness not offered with a reason over 280 characters', (details: Record<string, unknown>) => ({ ...details, notOffered: [{ harness: 'codex', reason: 'x'.repeat(281) }] })],
+    ['a negative amount of available memory', (details: Record<string, unknown>) => ({ ...details, load: { memory: { totalBytes: 1024, availableBytes: -1 }, cpu: { cores: 1, loadAverage: 0 }, disk: { totalBytes: 1024, freeBytes: 0 } } })],
+    ['a machine with no cores', (details: Record<string, unknown>) => ({ ...details, load: { memory: { totalBytes: 1024, availableBytes: 0 }, cpu: { cores: 0, loadAverage: 0 }, disk: { totalBytes: 1024, freeBytes: 0 } } })],
+    ['an unknown field in the load', (details: Record<string, unknown>) => ({ ...details, load: { memory: { totalBytes: 1024, availableBytes: 0 }, cpu: { cores: 1, loadAverage: 0 }, disk: { totalBytes: 1024, freeBytes: 0 }, gpu: {} } })],
+    ['a subscription window used over 100 %', (details: Record<string, unknown>) => ({ ...details, usage: { subscriptions: [{ harness: 'codex', readAt: '2026-10-24T09:30:00.000Z', windows: [{ windowMinutes: 300, usedPercent: 101, resetsAt: '2026-10-24T12:00:00.000Z' }] }], ships: [] } })],
+    ['a subscription read at a time that is no ISO 8601 time', (details: Record<string, unknown>) => ({ ...details, usage: { subscriptions: [{ harness: 'codex', readAt: 'just now', windows: [] }], ships: [] } })],
+    ['a fraction of a token', (details: Record<string, unknown>) => ({ ...details, usage: { subscriptions: [], ships: [{ shipId: 'shp_01m473j7hp3x6gha0gzs1mnf88', models: [{ model: 'gpt-5.5', tokens: { input: 1.5, output: 0, cacheRead: 0, cacheWrite: 0 }, estimatedCostUsd: null }] }] } })],
+    ['a negative estimated cost', (details: Record<string, unknown>) => ({ ...details, usage: { subscriptions: [], ships: [{ shipId: 'shp_01m473j7hp3x6gha0gzs1mnf88', models: [{ model: 'gpt-5.5', tokens: { input: 1, output: 0, cacheRead: 0, cacheWrite: 0 }, estimatedCostUsd: -1 }] }] } })],
     ['a path as a repository name', (details: Record<string, unknown>) => ({ ...details, workspaces: { repositories: ['../etc'], folders: [] } })],
   ])('refuses %s', (_label, change) => {
     const details = documentedDetails();
