@@ -209,7 +209,31 @@ What the plugin keeps: each relayed message is an ordinary delivery, so the prom
 
 | # | Option | Pick and why |
 | --- | --- | --- |
-| 1 | **Core**, as sections 3 to 6: the meeting, participants, the request list, the mic and the fan-out | **Pick.** What is needed is core's own promises: OK only once every delivery is stored (P3), a refusal before anything is stored (P2), the true sender on the envelope (P1) and reach shown as a rule (P4). P2 has no core addition short of the meeting itself, and P1, P3, P4 and P5 together are most of the core build anyway, plus a plugin, its store and its process |
+| 1 | **Core**, as sections 3 to 6: the meeting, participants, the request list, the mic and the fan-out | **Pick.** Against 2 to 4: P2 has no core addition short of the meeting itself, and P1, P3, P4 and P5 together are most of the core build anyway, plus a plugin. Against 5: see below |
 | 2 | **Plugin on today's contract**, P1 to P6 accepted | Smallest core change, but the sender sees OK for a contribution later refused, and every recipient sees the plugin as the speaker: the meeting would not be true to who said what |
 | 3 | **Plugin plus P1, P3, P4 and P5 in core** | Closes everything but P2 and P6, at the cost of on-behalf sends, a list selector, a plugin send rule and plugin envelope fields: four core changes with wider reach than a meeting needs |
 | 4 | **Split:** core holds the meeting, participants, the mic holder, enforcement and fan-out; a plugin holds the request list and FIFO and gives the mic as the moderator would | Keeps P1 to P6 closed and moves only the queue out; but the queue is a small table beside the mic, and a second process to run and connect costs more than it saves for 0.31.0 |
+| 5 | **A plugin with its own API and MCP**, which ships call directly with their own identity; contributions in the plugin's store; core carries only a wake-up per participant from the plugin | See below |
+
+### Option 5 against P1 to P6
+
+Thomas: "That would mean the ship would never know about meetings .. it could be that it is a distinct different api or mcp for the ship to use."
+
+| # | With option 5 |
+| --- | --- |
+| P1 | Closed in the plugin: it checks the caller and stores the true sender. Core's timelines and Health see only the plugin's wake-ups |
+| P2 | Closed: the plugin's API refuses before it stores |
+| P3 | Closed: one row a contribution in the plugin's own transaction. The wake-ups are n sends after it, safe by keys and an outbox; a lost one loses no content, but a participant may not learn in time |
+| P4 | Participants reach the plugin outside core's rules. The plugin needs send reach to every participant for its wake-ups, and a check that the owner reaches each participant (M5): `explainReach` with `fleet:explain` answers it, but reveals the rules to the plugin |
+| P5 | Closed: the plugin's own shape |
+| P6 | Changed: a stuck wake-up delays one participant, never the meeting |
+
+**The delivery promise splits in two.** "No message is lost" lives in the plugin's store: OK only after its commit, and per participant a read position, so a restarted session reads on from what it last read. Core's promise covers the wake-up only: its acknowledgement means "told", never "read the contribution". The plugin must prove its own half with its own concurrency, rollback and restart tests, and show its own stuck state, since core's Health sees wake-ups alone.
+
+**What core must add.**
+- A ship's identity for a plugin: a short-lived token core issues to a ship for one plugin, which the plugin checks with core. Passing the crew token itself would let the plugin act as the ship.
+- A built-in send rule from the meetings plugin to every ship, for its wake-ups, shown first; today a connected plugin's built-in rule is read only.
+
+**The cost for ships.** A second door to learn and to be authorised for: the ship protocol, the aeolus plugin's scripts and the trierarch's socket (0026 forwards a session's calls to core only, with the crew token added) all gain the plugin's API and the token exchange; a chat crew needs a second connector; the gateway calls the plugin for a person. Today every ship call goes through core's one door (0004), and squadrons, the precedent for a plugin, is reached by message for that reason (0017).
+
+**The pick stays 1.** Option 5 keeps core what the blueprint says it is ("it knows which ships exist and it makes sure every message reaches its ship. Nothing else"), as squadrons does, and that is its real strength. But for 0.31.0 it adds more than it saves: a second home for the promise, proven twice; a new identity path through every crew (trierarch, aeolus plugin, chat, gateway), larger than the meeting itself; a new train, store and connect flow. "get to prod asap ... by not adding scope" weighs for 1. Option 5 becomes the better shape once ships call plugins with their own identity for another reason; pre-1, moving meetings out then is allowed (0013).
