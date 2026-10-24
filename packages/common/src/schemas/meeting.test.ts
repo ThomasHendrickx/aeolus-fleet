@@ -2,15 +2,18 @@ import { describe, expect, it } from 'vitest';
 
 import { createIdGenerator } from '../ids/index.js';
 import {
-  giveMicInputSchema,
+  addToMeetingInputSchema,
   MEETING_ADDED_CONTENT_TYPE,
+  MEETING_ENDED_CONTENT_TYPE,
   MEETING_MIC_CONTENT_TYPE,
   MEETING_TITLE_MAX_LENGTH,
   meetingAddedSchema,
+  meetingEndedSchema,
+  meetingIdInputSchema,
   meetingInputSchema,
   meetingMicSchema,
   meetingOutputSchema,
-  micInputSchema,
+  meetingShipInputSchema,
   openMeetingInputSchema,
   setMicPatternInputSchema,
 } from './meeting.js';
@@ -90,13 +93,13 @@ describe('the mic calls (decision 0061, M7 to M10)', () => {
   it('name the meeting, for a request, a withdrawal, a release and a take', () => {
     const input = { meetingId: newId('meeting') };
 
-    expect(micInputSchema.parse(input)).toEqual(input);
+    expect(meetingIdInputSchema.parse(input)).toEqual(input);
   });
 
   it('give the mic to one participant by id', () => {
     const input = { meetingId: newId('meeting'), shipId: newId('ship') };
 
-    expect(giveMicInputSchema.parse(input)).toEqual(input);
+    expect(meetingShipInputSchema.parse(input)).toEqual(input);
   });
 
   it.each(['moderator', 'fifo'])('set the pattern %s', (pattern) => {
@@ -139,5 +142,29 @@ describe('the mic notice (decision 0061, M11)', () => {
     const notice = { meetingId: newId('meeting') };
 
     expect(meetingMicSchema.parse(notice)).toEqual(notice);
+  });
+});
+
+describe('adding to a meeting (decision 0061, M5, M6)', () => {
+  it('takes the invitees by ship and by a label selection, and the model, as an open does', () => {
+    const input = { meetingId: newId('meeting'), ships: [{ name: 'scout' }], valueIds: [newId('labelValue')], model: 'claude-opus-5-5' };
+
+    expect(addToMeetingInputSchema.parse(input)).toEqual(input);
+  });
+
+  it('refuses an invitee that names a type', () => {
+    expect(addToMeetingInputSchema.safeParse({ meetingId: newId('meeting'), ships: [{ type: 'reviewer' }] }).success).toBe(false);
+  });
+});
+
+describe('the ended notice (decision 0061, M15)', () => {
+  it('is of the meeting ended content type', () => {
+    expect(MEETING_ENDED_CONTENT_TYPE).toBe('application/vnd.aeolus.meeting.ended+json');
+  });
+
+  it('names the meeting that ended', () => {
+    const notice = { meetingId: newId('meeting') };
+
+    expect(meetingEndedSchema.parse(notice)).toEqual(notice);
   });
 });
