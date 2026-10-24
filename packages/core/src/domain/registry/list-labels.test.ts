@@ -1,4 +1,4 @@
-import type { ShipId } from '@aeolus-fleet/common';
+import { idSchema, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { hostedFleet, initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
@@ -50,10 +50,9 @@ describe('how many ships carry each label value', () => {
 
   it('counts the active ships that carry it', async () => {
     const os = unwrap(await registry.defineLabel(argo, { key: 'os', values: ['macos', 'linux'] }));
-    const [macos] = os.values;
     for (const name of ['scout', 'builder']) {
       const { shipId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name, type: 'reviewer' }));
-      unwrap(await registry.assignLabel(argo, { shipId, valueId: macos?.id ?? os.values[0]?.id ?? os.labelId }));
+      unwrap(await registry.assignLabel(argo, { shipId, valueId: idSchema('labelValue').parse(os.values[0]?.id) }));
     }
 
     await expect(shipCountsOf(argo)).resolves.toEqual({ 'os=macos': 2, 'os=linux': 0 });
@@ -62,7 +61,7 @@ describe('how many ships carry each label value', () => {
   it('leaves a retired ship out of the count', async () => {
     const os = unwrap(await registry.defineLabel(argo, { key: 'os', values: ['macos'] }));
     const { shipId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'old', type: 'reviewer' }));
-    unwrap(await registry.assignLabel(argo, { shipId, valueId: os.values[0]?.id ?? os.labelId }));
+    unwrap(await registry.assignLabel(argo, { shipId, valueId: idSchema('labelValue').parse(os.values[0]?.id) }));
     unwrap(await registry.retireShip(argo, { shipId }));
 
     await expect(shipCountsOf(argo)).resolves.toEqual({ 'os=macos': 0 });
@@ -72,7 +71,7 @@ describe('how many ships carry each label value', () => {
     const fleet = await readReachScenario();
     const os = unwrap(await fleet.registry.defineLabel(fleet.argo, { key: 'os', values: ['macos'] }));
     for (const shipId of [fleet.near.shipId, fleet.far.shipId]) {
-      unwrap(await fleet.registry.assignLabel(fleet.argo, { shipId, valueId: os.values[0]?.id ?? os.labelId }));
+      unwrap(await fleet.registry.assignLabel(fleet.argo, { shipId, valueId: idSchema('labelValue').parse(os.values[0]?.id) }));
     }
     await fleet.readRulesApply();
 

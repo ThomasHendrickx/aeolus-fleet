@@ -75,7 +75,7 @@ describe('labels on Postgres', () => {
 
     expect(changed.values.map((value) => value.id).slice(0, 2)).toEqual([macos, linux]);
     await expect(core.useCases.listLabels(argo)).resolves.toEqual([
-      { id: osId, key: 'os', values: [{ id: macos, value: 'macos' }, { id: linux, value: 'linux' }, { id: windows, value: 'windows' }], owner: { kind: 'ship', id: plugin.shipId, name: 'trierarch-plugin' } },
+      { id: osId, key: 'os', values: [{ id: macos, value: 'macos', shipCount: 1 }, { id: linux, value: 'linux', shipCount: 0 }, { id: windows, value: 'windows', shipCount: 1 }], owner: { kind: 'ship', id: plugin.shipId, name: 'trierarch-plugin' } },
     ]);
     await expect(carried()).resolves.toEqual(['builder:os=macos', 'builder:os=windows']);
     expect((await labelEvents()).map((event) => [event.type, event.shipId])).toEqual([

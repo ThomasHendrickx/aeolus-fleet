@@ -438,7 +438,7 @@ export function createUseCases(options: {
     changeLabelValues: createChangeLabelValues({ uow, clock, ids }),
     assignLabel: createAssignLabel({ uow, clock, ids }),
     unassignLabel: createUnassignLabel({ uow, clock, ids }),
-    listLabels: createListLabels({ listing: createPrismaFleetListing(prisma) }),
+    listLabels: createListLabels({ listing: createPrismaFleetListing(prisma), readReach }),
     deleteLabel: createDeleteLabel({ uow, clock, ids }),
     findLabelValue: createFindLabelValue({ listing: createPrismaFleetListing(prisma) }),
     reportLog: createReadReportLog({ leases: createPrismaLeaseRepository(prisma) }),

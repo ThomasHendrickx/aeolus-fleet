@@ -953,6 +953,17 @@ export function createPrismaFleetListing(db: Db): FleetListing {
       ]);
       return { inFlight, open };
     },
+    valueShipCounts: async (fleetId, reach) => {
+      const rows = z.array(z.object({ value_id: idSchema('labelValue'), ship_count: z.number() })).parse(
+        await db.$queryRaw`
+          SELECT sl.value_id, count(*)::int AS ship_count
+          FROM ship_labels sl
+          JOIN ships s ON s.fleet_id = sl.fleet_id AND s.id = sl.ship_id
+          WHERE sl.fleet_id = ${fleetId} AND s.retired_at IS NULL AND ${isInReachOfShip(reach)}
+          GROUP BY sl.value_id`,
+      );
+      return new Map(rows.map((row) => [row.value_id, row.ship_count]));
+    },
     counts: (fleetId, { reach, filter }) => readShipCounts(db, { fleetId, reach, selected: shipFilterCondition(filter, reach) }),
     types: async (fleetId, read) => z.array(z.object({ type: z.string() })).parse(await db.$queryRaw(shipTypesStatement(fleetId, read)))
         .map(({ type }) => type)
