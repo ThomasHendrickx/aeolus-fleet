@@ -1,6 +1,6 @@
 import type { Caller } from '../shared/caller.js';
 import type { FleetListing } from './ports.js';
-import type { ShipFilter } from './ship-filter.js';
+import type { ShipFilter } from '@aeolus-fleet/common/rules';
 import type { ReadReachOf } from './read-reach.js';
 import type { ShipCounts } from './ship-counts.js';
 

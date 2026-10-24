@@ -90,15 +90,6 @@ export interface NewLabelValue {
   newId: LabelValueId;
 }
 
-/**
- * Whether a ship carries every value of the selector: exact matches by id,
- * combined with AND (decision 0031). No selector, or an empty one, selects
- * every ship.
- */
-export function carriesEvery(carried: readonly CarriedLabel[], valueIds: readonly LabelValueId[] | undefined): boolean {
-  return (valueIds ?? []).every((valueId) => carried.some((label) => label.valueId === valueId));
-}
-
 type InvalidKey = DomainError<'INVALID_LABEL_KEY'>;
 type InvalidValue = DomainError<'INVALID_LABEL_VALUE'>;
 type InvalidValues = DomainError<'INVALID_LABEL_VALUES'>;

@@ -57,7 +57,7 @@ import type {
   ShipRepository,
 } from '../../src/domain/registry/ports.js';
 import { isSameOwner, type Label, type LabelOwner, type ListedLabel, type ShipLabel } from '../../src/domain/registry/label.js';
-import { matchesShipFilter } from '../../src/domain/registry/ship-filter.js';
+import { matchesShipFilter } from '@aeolus-fleet/common/rules';
 import { readsShip } from '../../src/domain/registry/read-reach.js';
 import { comparePositions, positionOf } from '../../src/domain/registry/ship-order.js';
 import type { DeclaredNetworkRules } from '../../src/domain/registry/declared-network-rules.js';
