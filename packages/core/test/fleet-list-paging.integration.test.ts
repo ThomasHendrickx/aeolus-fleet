@@ -1,4 +1,4 @@
-import { PAGE_SIZE_MAX, SHIP_SORT_COLUMNS, type FleetId, type LabelValueId, type ShipId, type ShipPosition } from '@aeolus-fleet/common';
+import { idSchema, PAGE_SIZE_MAX, SHIP_SORT_COLUMNS, type FleetId, type LabelValueId, type ShipId, type ShipPosition } from '@aeolus-fleet/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { Prisma } from '../src/adapters/prisma/generated/client.js';
@@ -77,6 +77,43 @@ function loopsOfIndex(plan: unknown, index: string): number {
   const own = node.get('Index Name') === index ? Number(node.get('Actual Loops')) : 0;
   return own + [...node.values()].reduce((sum: number, each) => sum + loopsOfIndex(each, index), 0);
 }
+
+/** How many ships the plan read through the index named, before any filter dropped one, over every node that reads it. */
+function rowsOfIndex(plan: unknown, index: string): number {
+  if (Array.isArray(plan)) {
+    return plan.reduce((sum: number, each) => sum + rowsOfIndex(each, index), 0);
+  }
+  if (typeof plan !== 'object' || plan === null) {
+    return 0;
+  }
+  const node = new Map(Object.entries(plan));
+  const own = node.get('Index Name') === index ? (Number(node.get('Actual Rows')) + Number(node.get('Rows Removed by Filter') ?? 0)) * Number(node.get('Actual Loops')) : 0;
+  return own + [...node.values()].reduce((sum: number, each) => sum + rowsOfIndex(each, index), 0);
+}
+
+/** Seeded ship number i, as the seed names it. */
+function seeded(i: number): { id: ShipId; name: string } {
+  return { id: idSchema('ship').parse(`shp_0${String(i).padStart(25, '0')}`), name: `ship-${String(i)}` };
+}
+
+/** What the listing selects when the caller asks no status: the active ships. */
+const ACTIVE = { status: ['awaitingCrew', 'crewed'] } as const;
+
+describe('a page of 20 at 3,000 ships, read through its keyset index (decision 4 of the performance design)', () => {
+  it('reads only the page of the default order, argo first and then by name, however far on it starts', async () => {
+    const { id, name } = seeded(2_800);
+    const plan = await planOfPage({ after: { isEmpty: true, value: '', name, id }, limit: 21, filter: ACTIVE, reach: { kind: 'every' } });
+
+    expect(rowsOfIndex(plan, 'ships_listing_idx')).toBeOneOf([21, 22]);
+  });
+
+  it.each(['ascending', 'descending'] as const)('reads only the page sorted by ship %s, however far on it starts', async (direction) => {
+    const { id, name } = seeded(2_000);
+    const plan = await planOfPage({ after: { isEmpty: false, value: name, name, id }, limit: 21, filter: ACTIVE, sort: { column: 'ship', direction }, reach: { kind: 'every' } });
+
+    expect(rowsOfIndex(plan, 'ships_name_listing_idx')).toBeOneOf([21, 22]);
+  });
+});
 
 describe('the fleet snapshot at 3,000 ships (decision 4 of the performance design)', () => {
   it('pages every ship once, argo first and then by name, in pages of the size asked', async () => {
