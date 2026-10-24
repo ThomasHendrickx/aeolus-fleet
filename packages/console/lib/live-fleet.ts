@@ -181,7 +181,8 @@ export interface LiveFleet {
  * "Live updates"), only the resources the event concerns (performance
  * design, decision 3): an event reloads the page of each ship that caused it
  * or that it names; a ship's event those ships' rows in the fleet snapshot,
- * each read alone, the ship counts and the stuck deliveries; a message's event the open
+ * each read alone, the ship counts and the stuck deliveries (their count, summary
+ * and places); a message's event the open
  * message, the ships' message lists and argo's inbox, whose delivery states
  * it changes, and the stuck deliveries; an acknowledgement the acknowledged
  * in 24 hours; a delivery
@@ -208,7 +209,9 @@ export function createLiveFleetHandler(input: {
   });
   const reloadStuck = () => {
     reload(trpc.fleet.stuckCount.queryKey());
-    reload(trpc.fleet.stuck.queryKey());
+    reload(trpc.fleet.stuckSummary.queryKey());
+    // Every cause's pages of places, whichever are shown.
+    reload(trpc.fleet.stuck.pathKey());
   };
   return (item) => {
     if (item.kind === 'resync') {

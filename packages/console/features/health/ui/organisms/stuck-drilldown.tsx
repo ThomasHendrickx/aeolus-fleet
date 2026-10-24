@@ -1,6 +1,7 @@
 import type { DeliveryId, ShipStatus, StuckCause } from '@aeolus-fleet/common';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 
 import { Badge } from '../../../../components/atoms/badge';
 import { Button } from '@aeolus-fleet/common/header';
@@ -37,6 +38,8 @@ interface StuckDrilldownProps {
   onResend?: (deliveryId: DeliveryId) => void;
   onDismiss?: (deliveryId: DeliveryId) => void;
   pendingIds: ReadonlySet<DeliveryId>;
+  /** Load more, after the places shown, when more follow; none when they are all. */
+  more?: ReactNode;
   now: Date;
 }
 
@@ -94,7 +97,7 @@ function PlaceHeader({ place, ship, now }: { place: StuckPlace; ship: DrilldownS
  * the message, how long on the shared scale, since when and the state each
  * waits in. An undeliverable one offers Resend (never a ping) and Dismiss.
  */
-export function StuckDrilldown({ cause, state, places, ships, messages, onRetry, onResend, onDismiss, pendingIds, now }: StuckDrilldownProps) {
+export function StuckDrilldown({ cause, state, places, ships, messages, onRetry, onResend, onDismiss, pendingIds, more, now }: StuckDrilldownProps) {
   if (state === 'error') {
     return <InlineError variant="page" title="Couldn’t load the stuck deliveries" description="Nothing changed in the fleet. The page tries again by itself." onRetry={onRetry} />;
   }
@@ -177,6 +180,7 @@ export function StuckDrilldown({ cause, state, places, ships, messages, onRetry,
           </section>
         );
       })}
+      {more}
     </div>
   );
 }

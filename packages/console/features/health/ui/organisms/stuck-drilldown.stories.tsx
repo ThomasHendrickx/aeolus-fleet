@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, fn } from 'storybook/test';
 
+import { LoadMore } from '../../../../components/molecules/load-more';
 import { BUILDER, HEALTH_NOW, SCOUT, STUCK_HEALTH, TESTER } from '../../../../lib/fixtures/health.fixtures';
 import type { StuckPlace } from '../../services/health-view';
 import { StuckDrilldown, type DrilldownMessage, type DrilldownShip } from './stuck-drilldown';
@@ -90,6 +91,14 @@ export const NoShipCanTake: Story = { args: { cause: 'noShipCanTake', places: pl
 export const MessagesLoading: Story = { args: { messages: new Map() } };
 
 export const Empty: Story = { args: { places: [] } };
+
+/** More places follow the first page: Load more after the places shown. */
+export const MorePlaces: Story = {
+  args: { more: <LoadMore what="more places" isLoading={false} isFailed={false} onLoad={fn()} area="drilldown" /> },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByTestId('drilldown-load-more')).toBeVisible();
+  },
+};
 
 export const Loading: Story = { args: { state: 'loading' } };
 
