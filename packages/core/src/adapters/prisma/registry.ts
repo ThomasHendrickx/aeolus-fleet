@@ -689,13 +689,13 @@ function isInReachOfShip(reach: ReadReach): Prisma.Sql {
  * or counts the ships, and no ship is read only to be dropped.
  */
 export function shipFilterCondition(
-  { query, status = [], type = [], crewRequest = [], assignedTo = [], valueIds = [], shipIds = [], kind = [], pluginShipIds = [] }: ShipFilter,
+  { query, status = [], type = [], crewRequest = [], assignedTo = [], needsCrew, valueIds = [], shipIds = [], kind = [], pluginShipIds = [] }: ShipFilter,
   reach: ReadReach,
 ): Prisma.Sql {
   const needle = query?.trim().toLowerCase() ?? '';
   const values = [...new Set(valueIds)];
   // A ship outside read reach shows its name, type and status only: what it does not show never selects it.
-  const isHiddenFilterPicked = crewRequest.length > 0 || assignedTo.length > 0 || kind.length > 0 || values.length > 0;
+  const isHiddenFilterPicked = crewRequest.length > 0 || assignedTo.length > 0 || needsCrew !== undefined || kind.length > 0 || values.length > 0;
   const conditions = [
     isHiddenFilterPicked ? Prisma.sql`AND ${isInReachOfShip(reach)}` : undefined,
     needle === '' ? undefined : Prisma.sql`AND (strpos(lower(s.name), ${needle}) > 0 OR strpos(lower(s.type), ${needle}) > 0)`,
@@ -707,6 +707,7 @@ export function shipFilterCondition(
       : Prisma.sql`AND (SELECT count(*) FROM ship_labels sl
                         WHERE sl.fleet_id = s.fleet_id AND sl.ship_id = s.id AND sl.value_id = ANY(${values}::text[])) = ${values.length}`,
     shipIds.length === 0 ? undefined : Prisma.sql`AND s.id = ANY(${[...shipIds]}::text[])`,
+    needsCrew === undefined ? undefined : needsCrewCondition(needsCrew),
     assignedTo.length === 0
       ? undefined
       : Prisma.sql`AND EXISTS (SELECT 1 FROM crew_requests acr
@@ -735,6 +736,19 @@ function statusConditions(status: readonly ShipStatus[]): Prisma.Sql[] {
   }
   const active = Prisma.sql`AND s.retired_at IS NULL`;
   return isEveryActivePicked ? [active] : [active, Prisma.sql`AND ${statusOfShip} = ANY(${[...status]}::text[])`];
+}
+
+/**
+ * The ships on Needs crew (domain/registry/ship-counts.ts, isNeedingCrew):
+ * an unassigned request no crew by hand took, while the ship awaits crew
+ * without trierarchs and while it is active with them, where also a request
+ * a trierarch holds that is not running or being released.
+ */
+function needsCrewCondition(needsCrew: 'withTrierarchs' | 'withoutTrierarchs'): Prisma.Sql {
+  if (needsCrew === 'withoutTrierarchs') {
+    return Prisma.sql`AND ${statusOfShip} = 'awaitingCrew' AND ${crewRequestKeyOfShip} = 'needsCrew'`;
+  }
+  return Prisma.sql`AND s.retired_at IS NULL AND ${crewRequestKeyOfShip} NOT IN ('crewedByHand', 'running', 'releasing')`;
 }
 
 /** A ship's status as its sort shows it (ship-order's STATUS_WORDS), for the ship `s` of the outer query. */
@@ -769,6 +783,9 @@ function shownSortValueOfShip(sort: ShipSort | undefined): Prisma.Sql {
       return Prisma.sql`CASE WHEN ${statusOfShip} = 'crewed' AND s.kind <> 'viewer'
                              THEN CASE WHEN s.kind = 'operator' THEN 'console' ELSE lower(COALESCE(l.harness, '')) END
                              ELSE '' END`;
+    case 'requested':
+      return Prisma.sql`COALESCE((SELECT to_char(rq.requested_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US')
+                                  FROM crew_requests rq WHERE rq.fleet_id = s.fleet_id AND rq.ship_id = s.id), '')`;
     case 'seen':
       return Prisma.sql`COALESCE(to_char(COALESCE(l.last_seen_at, (SELECT max(cs.last_used_at) FROM console_sessions cs
                                                                    WHERE cs.fleet_id = s.fleet_id AND cs.ship_id = s.id AND cs.lease_id IS NULL))

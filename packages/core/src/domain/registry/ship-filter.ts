@@ -1,6 +1,7 @@
 import type { AgentKind, CrewRequestKey, LabelValueId, ShipId, ShipStatus } from '@aeolus-fleet/common';
 
 import { carriesEvery } from './label.js';
+import { isNeedingCrew } from './ship-counts.js';
 import type { ListedShip } from './list-fleet.js';
 
 /** What the fleet snapshot's reads select by status when the caller asks none: the active ships, so retired ones come only when asked. */
@@ -30,6 +31,8 @@ export interface ShipFilter {
   valueIds?: readonly LabelValueId[];
   /** Ships whose crew request is assigned to any of these trierarch ships: a machine's spots. */
   assignedTo?: readonly ShipId[];
+  /** The ships on Needs crew, with the trierarch plugin connected or without it (isNeedingCrew). */
+  needsCrew?: 'withTrierarchs' | 'withoutTrierarchs';
   /** Any of these ships: a squadron's flagship and members, as the console resolves them. */
   shipIds?: readonly ShipId[];
   /** Any of these agent kinds (agentKindOf). */
@@ -86,7 +89,7 @@ export function crewRequestKeyOf(crewRequest: ListedShip['crewRequest']): CrewRe
  */
 export function matchesShipFilter(ship: ListedShip, { filter, isInReach }: { filter: ShipFilter; isInReach: boolean }): boolean {
   const query = filter.query?.trim().toLowerCase() ?? '';
-  const isHiddenFilterPicked = [filter.crewRequest, filter.assignedTo, filter.kind, filter.valueIds].some((picked) => picked !== undefined && picked.length > 0);
+  const isHiddenFilterPicked = filter.needsCrew !== undefined || [filter.crewRequest, filter.assignedTo, filter.kind, filter.valueIds].some((picked) => picked !== undefined && picked.length > 0);
   return (
     (isInReach || !isHiddenFilterPicked) &&
     (query === '' || ship.name.toLowerCase().includes(query) || ship.type.toLowerCase().includes(query)) &&
@@ -94,6 +97,7 @@ export function matchesShipFilter(ship: ListedShip, { filter, isInReach }: { fil
     isPicked(filter.type, ship.type) &&
     isPicked(filter.crewRequest, crewRequestKeyOf(ship.crewRequest)) &&
     isAssignedToAny(filter.assignedTo, ship.crewRequest) &&
+    (filter.needsCrew === undefined || isNeedingCrew(ship, { hasTrierarchs: filter.needsCrew === 'withTrierarchs' })) &&
     carriesEvery(ship.labels, filter.valueIds) &&
     isPicked(filter.shipIds, ship.id) &&
     isPicked(filter.kind, agentKindOf(ship, filter.pluginShipIds))
