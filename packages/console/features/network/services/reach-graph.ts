@@ -89,12 +89,13 @@ function rounded(percent: number): number {
 }
 
 /** The sentence under the graph: what the picked ship reaches, in words, so the marks never rest on look alone. */
-export function reachSummaryOf(nodes: readonly GraphNode[]): string {
+export function reachSummaryOf(nodes: readonly GraphNode[], sailingShipCount: number = nodes.length): string {
   const picked = nodes.find((node) => node.mark === 'picked');
   if (picked === undefined) {
     return 'Pick a ship to see which ships it may message.';
   }
-  const others = nodes.length - 1;
+  // Out of every ship that sails, as the fleet counts them: the graph draws only the ships the page names.
+  const others = Math.max(sailingShipCount, nodes.length) - 1;
   const reached = nodes.filter((node) => node.mark === 'reached').map((node) => node.ship.name);
   if (nodes.every((node) => node.mark === 'picked' || node.mark === 'none')) {
     return others === 0 ? `${picked.ship.name} is the only ship of the fleet.` : `Finding the ships ${picked.ship.name} may message…`;

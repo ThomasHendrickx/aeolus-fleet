@@ -139,7 +139,9 @@ describe('the network rules on Network', () => {
     const page = await onNetwork();
     const reach = page.getByTestId('network-reach');
 
-    await reach.getByRole('button', { name: 'ops-agent' }).click();
+    // Any ship is picked by its name: the graph draws only the ships the page names, the picked ship and its reach.
+    await reach.getByTestId('network-reach-search').fill('ops');
+    await page.getByRole('option', { name: /ops-agent/ }).click();
     await expect.poll(() => reach.getByTestId('network-reach-summary').textContent(), WITHIN).toBe('ops-agent may message 2 of 3 ships: argo, vault.');
     await reach.getByTestId('network-reach-draft').click();
     await expect.poll(() => reach.getByTestId('network-reach-summary').textContent(), WITHIN).toBe('ops-agent may message 1 of 3 ships: argo.');

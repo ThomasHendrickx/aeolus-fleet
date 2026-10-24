@@ -1,14 +1,20 @@
 import type { ShipId } from '@aeolus-fleet/common';
-import { Ban, Check, Crosshair } from 'lucide-react';
+import { Ban, Check, Crosshair, Search } from 'lucide-react';
 
 import { Button, classNames } from '@aeolus-fleet/common/header';
 import { graphNodesOf, reachSummaryOf, type GraphNode, type GraphShip, type ReachAgainst, type ReachMark } from '../../services/reach-graph';
+import { Combobox } from '../../../../components/atoms/combobox';
 import { Tabs, TabsList, TabsTrigger } from '../../../../components/atoms/tabs';
+import { asHandle } from '../../../../lib/ship-name';
 import { InlineError } from '../../../../components/molecules/inline-error';
 
 export interface FleetReachGraphProps {
-  /** The fleet's ships that sail, argo first (lib/reach-graph.ts). */
+  /** The ships the graph draws, argo first (lib/reach-graph.ts): those the page names, the picked ship and its reach. */
   ships: readonly GraphShip[];
+  /** Find a ship to pick by name, among any of the fleet's: the ships that match what is typed, as the container reads them. */
+  search?: { ships: readonly GraphShip[]; onQueryChange: (query: string) => void };
+  /** How many ships sail in the fleet, drawn or not, for "may message 2 of 14 ships"; the ships drawn while unknown. */
+  sailingShipCount?: number;
   /** The ship argo picked, if any. */
   pickedShipId: ShipId | undefined;
   /** The ships the picked ship reaches, as the fleet explained it; undefined while it is not known. */
@@ -36,7 +42,7 @@ const MARK_WORD: Record<Exclude<ReachMark, 'none'>, string> = { picked: 'picked'
  * wrap as a list, without lines. While the fleet has a draft, a switch
  * shows the reach against the draft instead, as it would be once applied.
  */
-export function FleetReachGraph({ ships, pickedShipId, reachableShipIds, reachError, onPick, onRetry, against = 'applied', onAgainstChange }: FleetReachGraphProps) {
+export function FleetReachGraph({ ships, search, sailingShipCount, pickedShipId, reachableShipIds, reachError, onPick, onRetry, against = 'applied', onAgainstChange }: FleetReachGraphProps) {
   const reach = pickedShipId === undefined ? undefined : { pickedShipId, reachableShipIds: reachError === undefined ? reachableShipIds : undefined };
   const nodes = graphNodesOf(ships, reach);
   const picked = nodes.find((node) => node.mark === 'picked');
@@ -73,6 +79,26 @@ export function FleetReachGraph({ ships, pickedShipId, reachableShipIds, reachEr
           </TabsList>
         </Tabs>
       )}
+      {search === undefined ? null : (
+        <Combobox
+          options={search.ships.map((ship) => ({ value: ship.id, label: ship.name }))}
+          value={null}
+          onValueChange={(shipId) => {
+            const found = search.ships.find((ship) => ship.id === shipId);
+            if (found !== undefined) {
+              onPick(found.id);
+            }
+          }}
+          toQuery={asHandle}
+          onQueryChange={search.onQueryChange}
+          groupLabel="Ships"
+          emptyText={(query) => `No ship matches "${query}". Retired ships are not listed.`}
+          leadingIcon={<Search />}
+          placeholder="Find a ship to pick"
+          aria-label="Find a ship to pick"
+          data-testid="network-reach-search"
+        />
+      )}
       <div className="relative flex flex-wrap gap-2 md:mx-auto md:block md:aspect-square md:w-full md:max-w-xl" data-testid="network-reach-graph">
         {picked === undefined ? null : (
           <svg aria-hidden viewBox="0 0 100 100" preserveAspectRatio="none" className="pointer-events-none absolute inset-0 hidden size-full md:block">
@@ -102,7 +128,7 @@ export function FleetReachGraph({ ships, pickedShipId, reachableShipIds, reachEr
       </div>
       {reachError === undefined ? (
         <p className="text-body" role="status" data-testid="network-reach-summary">
-          {reachSummaryOf(nodes)}
+          {reachSummaryOf(nodes, sailingShipCount)}
         </p>
       ) : (
         <InlineError title="Couldn’t explain this ship’s reach" description={reachError} onRetry={onRetry} />

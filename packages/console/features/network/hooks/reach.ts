@@ -6,6 +6,13 @@ import { skipToken, useQuery } from '@tanstack/react-query';
 import { useTRPC } from '../../../lib/trpc';
 import { sendReachOf, type ReachAgainst } from '../services/reach-graph';
 
+/** How many ships sail in the fleet: every active ship but the viewer (`fleet.shipCounts`); undefined while read. */
+export function useSailingShipCount(): number | undefined {
+  const trpc = useTRPC();
+  const counts = useQuery(trpc.fleet.shipCounts.queryOptions());
+  return counts.data?.filter((kind) => kind.kind !== 'viewer').reduce((total, kind) => total + kind.active, 0);
+}
+
 /**
  * The ships the picked ship sends to, as the fleet explains it (decision
  * 0034), against the applied rules or the draft (decision 0035), by id.
