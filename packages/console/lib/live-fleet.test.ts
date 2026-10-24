@@ -5,6 +5,7 @@ import { createTRPCClient, httpLink } from '@trpc/client';
 import { createTRPCOptionsProxy } from '@trpc/tanstack-react-query';
 import { describe, expect, it } from 'vitest';
 
+import { uniqueById } from './paged-list';
 import { createLiveFleetHandler, createLiveReloads, isAttentionChange, isBuiltInRulesChange, isDeclaredRulesChange, isLabelChange, isNetworkRulesChange, isShipChange, liveStateOf } from './live-fleet';
 
 describe('liveStateOf', () => {
@@ -358,6 +359,26 @@ describe('the live fleet (performance design, decision 3)', () => {
     live.onItem({ kind: 'event', event: anEvent(type, { shipId: scout.id, hasMessage: false }) });
 
     await expect.poll(() => pages.getCurrentResult().data?.pages.flatMap((page) => page.items)).toEqual([scout, argo, builder]);
+    live.close();
+  });
+
+  it("shows a ship it put first once when Load more brings the page that holds it (#1173)", async () => {
+    const argo = aShip({ name: 'argo', type: 'operator', kind: 'operator' });
+    const builder = aShip({});
+    const scout = aShip({ name: 'scout', status: 'awaitingCrew' });
+    const live = aLiveFleet({
+      'fleet.list': (asked) => (typeof asked === 'object' && asked !== null && 'cursor' in asked && asked.cursor === 'page-2' ? { items: [scout], nextCursor: null } : { items: [argo, builder], nextCursor: 'page-2' }),
+      'fleet.listedShip': () => scout,
+    });
+    const pages = new InfiniteQueryObserver(live.queryClient, live.trpc.fleet.list.infiniteQueryOptions({ limit: 20 }, { getNextPageParam: (page) => page.nextCursor ?? undefined }));
+    live.show(pages);
+    await expect.poll(() => pages.getCurrentResult().data).toBeDefined();
+    live.onItem({ kind: 'event', event: anEvent('ShipClaimed', { shipId: scout.id, hasMessage: false }) });
+    await expect.poll(() => pages.getCurrentResult().data?.pages[0]?.items[0]).toEqual(scout);
+
+    await pages.fetchNextPage();
+
+    expect(uniqueById(pages.getCurrentResult().data?.pages.flatMap((page) => page.items) ?? [])).toEqual([scout, argo, builder]);
     live.close();
   });
 
