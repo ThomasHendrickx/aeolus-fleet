@@ -1,6 +1,6 @@
 # Meetings: ships and people in one moderated conversation
 
-Design for [#1168](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1168), Aeolus 0.31.0. Docs only. Purpose, lessons, Thomas's decisions, the flows, the gaps and the open questions.
+Design for [#1168](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1168), Aeolus 0.31.0. Docs only. Purpose, lessons, Thomas's decisions, the flows, the gaps and the slices.
 
 ## 1. Purpose (agreed by Thomas)
 
@@ -46,107 +46,120 @@ From Aeolus:
 | # | Rule |
 | --- | --- |
 | M1 | **Two parts, sharing most logic.** A meeting: finite in time, everyone present at once, moderated with the mic. A room: lasting and async, no mic and no moderator. No recurrence now |
-| M2 | **Owner.** A meeting or room has one owner, always one ship: its creator at first; the owner transfers ownership to another ship. An owner without a session changes nothing: the meeting or room goes on |
-| M3 | **Moderator** (meeting only). Always one, the creator at first; it may change while the owner stays another ship |
-| M4 | **Opening takes a scope; joining takes none** |
-| M5 | **Reach is the owner's.** The owner must reach each participant when it is added, always; inside, participants talk to each other whatever their own reach ("If the owner ship X can reach ship A and B, but ship A cant reach ship B, they both can still be in the same meeting") |
-| M6 | **Invite** by a list of ships, a label selection resolved into the list, or both |
-| M7 | **The mic** (meeting only). Aeolus refuses a contribution from a participant without the mic, storing nothing |
+| M2 | **Owner.** A meeting or room has one owner, always one ship: its creator at first; the owner transfers ownership to a participant. An owner without a session changes nothing: the meeting or room goes on |
+| M3 | **Moderator** (meeting only). Always one, the creator at first; the owner names another participant |
+| M4 | **Opening takes a scope, `meetings:open` or `rooms:open`; joining takes none.** An organisation may allow rooms widely and meetings to a few |
+| M5 | **Reach is the owner's.** The owner must reach each participant by send whenever it is added or rejoins; inside, participants talk to each other whatever their own reach ("If the owner ship X can reach ship A and B, but ship A cant reach ship B, they both can still be in the same meeting"), shown as a built-in rule |
+| M6 | **Invite** by a list of ships, a label selection resolved into the list, or both. A type is never a participant |
+| M7 | **The mic** (meeting only). Aeolus refuses a contribution from a participant without the mic, storing nothing; the moderator always contributes |
 | M8 | **Mic requests live on the meeting, never as messages.** A request keeps its time; one per ship; a ship withdraws its own and leaves the list; a new request goes to the back |
-| M9 | **Pattern.** The moderator gives the mic to whom it likes, or sets a pattern so it does not become the bottleneck: FIFO gives it to the oldest request. A ship that requests again after speaking makes FIFO a round robin |
-| M10 | **Releasing the mic.** The holder says it no longer needs it (a person done reading, say) |
-| M11 | **A late participant** gets deliveries from joining on and reads the meeting's messages so far |
-| M12 | **No outcome required.** The moderator may contribute one before the meeting ends |
-| M13 | **Retired ships.** A participant leaves. A retired moderator's moderatorship and mic go to the owner. A retired owner stops the meeting; a room whose owner retired disappears. The room's owner closes it down |
-| M14 | **No replies to a specific message** in a meeting or room, not today |
-| M15 | **A person** takes part under the same rules through the gateway. An agent acting as the person through the gateway's MCP may request the mic after each of the person's contributions. This answers the reading-time flag: a request stays on the list until it is served or withdrawn, so a slow reader loses no place |
-| M16 | **0.31.0** ships both invites (M6) and the gateway view |
+| M9 | **Pattern.** The moderator gives the mic to whom it likes, or sets FIFO, which gives a free mic to the oldest request. A ship that requests again after speaking makes FIFO a round robin |
+| M10 | **Releasing the mic.** The holder says it no longer needs it (a person done reading, say). A mic never released stays held, with no time limit; the moderator takes it back |
+| M11 | **Told by a delivery from the ship that caused it**, with an Aeolus content type and the meeting's id on the envelope: an added participant by the owner, the new mic holder alone by the moderator (FIFO included, since the moderator set it), every participant of an ended meeting by whoever ended it |
+| M12 | **A late or rejoining participant** gets deliveries from joining on and reads the meeting's messages so far |
+| M13 | **Leaving and rejoining.** A participant may leave by itself and keeps its right to the meeting, so it rejoins by itself; only the owner revokes that right. An owner transfers before it leaves; a moderator leaving gives moderatorship to the owner |
+| M14 | **Presence is not checked.** The meeting read shows each participant's status (crewed or awaiting crew); "Like real life, if someone does not show up it is a choice what to do" |
+| M15 | **Ending.** The owner or the moderator ends a meeting; the owner closes a room down. A retired owner ends a meeting, and a room whose owner retired disappears. Ended or disappeared: no more contributions or participants; messages, their deliveries (pending ones still delivered) and the history stay, read by former participants |
+| M16 | **No outcome required.** The moderator may contribute one before the meeting ends |
+| M17 | **Retired ships.** A retired participant leaves, its deliveries abandoned and its request removed. A retired moderator's moderatorship and mic go to the owner |
+| M18 | **No replies.** A contribution names no message it replies to, and gives no one-to-one answer reach: the answer rule does not cover it, or M5 would become reach no rule shows |
+| M19 | **A person** takes part under the same rules through the gateway. An agent acting as the person through the gateway's MCP may request the mic after each of the person's contributions. This answers the reading-time flag: a request stays on the list until it is served or withdrawn, so a slow reader loses no place |
+| M20 | **0.31.0 ships the meeting only**, with both invites (M6) and the gateway view; the room comes in the next minor. "get to prod asap (not with quality skips, but by not adding scope)" |
 
 ## 4. Flows
 
-A meeting, from creation to its end.
+Each diagram covers one part of the way; together they are the whole of it.
+
+### Meeting: create and add
 
 ```mermaid
 flowchart TD
-  create(["Creator: create meeting with participants"]) --> scope{"Holds the opening scope? (N9)"}
+  create(["Creator: create meeting, ships and labels"]) --> scope{"Holds meetings:open?"}
   scope -->|no| r1([Refused, nothing stored])
-  scope -->|yes| resolve["Resolve the invite: ships listed plus the label selection (M6)"]
-  resolve --> reach{"Owner reaches every participant by send? (M5)"}
+  scope -->|yes| resolve["Resolve the invite into a list (M6)"]
+  resolve --> reach{"Owner reaches every one by send? (M5)"}
   reach -->|no| r2(["Refused: No rule matches, nothing stored"])
-  reach -->|yes| opened["Meeting open; owner and moderator the creator; mic none; event; each participant told (N2)"]
-  opened --> add(["Owner adds a participant later"]) --> reach2{"Owner reaches it?"}
-  reach2 -->|no| r3([Refused])
-  reach2 -->|yes| joined["Participant added, told; deliveries from now; reads the history (M11)"]
-  opened --> send(["A participant contributes"])
-  joined --> send
-  send --> isopen{Meeting open?}
-  isopen -->|no| r4([Refused: ended])
-  isopen -->|yes| part{Sender a participant?}
-  part -->|no| r5([Refused])
-  part -->|yes| reply{"Names a message it replies to?"}
-  reply -->|yes| r6(["Refused (M14)"])
-  reply -->|no| mic{"Holds the mic, or moderates? (M7)"}
-  mic -->|no| r7(["Refused: request the mic (M8)"])
-  mic -->|yes| size{"Payload at most 64 KB?"}
-  size -->|no| r8([Refused: send the reference])
-  size -->|yes| fan["One message, one delivery per other participant, one transaction; then OK"]
-  fan --> way[Each delivery on its own way]
-  way -->|acknowledged| done[Done for that participant]
-  way -->|session gone| wait[Pending until the ship is crewed again]
-  way -->|five failed hand-overs| und["That delivery undeliverable; the others untouched"]
-  opened --> ret(["A ship retires"])
-  ret -->|participant| leave["Leaves; its deliveries abandoned; its mic request removed"]
-  ret -->|moderator| tomod["Moderatorship and mic to the owner (M13)"]
-  ret -->|owner| stop["Meeting ends (M13)"]
-  opened --> transfer(["Owner transfers ownership (N4)"]) --> newowner[New owner; reach rule now its own]
-  opened --> close(["Owner or moderator ends it (N6)"]) --> stop
-  stop --> ended["Ended: no more contributions; delivered messages and history stay (N5)"]
+  reach -->|yes| opened["Open: owner and moderator the creator, mic free; each participant told (M11)"]
+  opened --> add(["Owner adds a ship, or a ship rejoins (M13)"])
+  add --> right{"Rejoin: still holds its right?"}
+  right -->|"no: revoked"| r3([Refused])
+  right -->|"yes, or added by the owner"| reach2{"Owner reaches it? (M5)"}
+  reach2 -->|no| r4([Refused])
+  reach2 -->|yes| joined["Participant; deliveries from now, reads the history (M12)"]
 ```
 
-The mic, inside an open meeting.
+### Meeting: contribute
 
 ```mermaid
 flowchart TD
-  ask(["Participant requests the mic"]) --> has{"Already on the list or holding the mic?"}
+  send(["A ship contributes"]) --> isopen{Meeting open?}
+  isopen -->|no| r1([Refused: ended])
+  isopen -->|yes| part{A participant?}
+  part -->|no| r2([Refused])
+  part -->|yes| reply{"Names a message it replies to?"}
+  reply -->|yes| r3(["Refused (M18)"])
+  reply -->|no| mic{"Holds the mic, or moderates? (M7)"}
+  mic -->|no| r4(["Refused: request the mic"])
+  mic -->|yes| size{"Payload at most 64 KB?"}
+  size -->|no| r5([Refused: send the reference])
+  size -->|yes| fan["One message, one delivery per other participant, one transaction; then OK"]
+  fan --> ack[Acknowledged by that participant]
+  fan --> pend[Pending until that ship is crewed again]
+  fan --> und["Undeliverable after five hand-overs, the others untouched"]
+```
+
+### Meeting: the mic
+
+```mermaid
+flowchart TD
+  ask(["Participant requests the mic"]) --> has{"On the list or holding the mic?"}
   has -->|yes| r1(["Refused: one request per ship (M8)"])
   has -->|no| queued["On the list with its time, at the back"]
-  queued --> withdraw(["Withdraws"]) --> gone[Off the list]
-  queued --> who{"Pattern? (M9)"}
+  queued --> withdraw(["Withdraws: off the list"])
+  queued --> who{"Pattern (M9)"}
   who -->|none| pick["Moderator gives the mic to whom it likes"]
-  who -->|FIFO, mic free| oldest["Oldest request gets the mic"]
-  pick --> holder["Holder told it has the mic (N2); off the list"]
+  who -->|"FIFO, mic free"| oldest["Oldest request gets the mic"]
+  pick --> holder["Holder told (M11), off the list; contributes"]
   oldest --> holder
-  holder --> speak["Contributes, as often as it needs"]
-  speak --> release(["Releases the mic (M10)"])
-  speak --> take(["Moderator takes the mic"])
-  holder -->|never releases| stall["Mic stays held (N3)"] --> take
-  holder -->|"session gone"| stall
-  release --> free[Mic free]
+  holder --> release(["Releases it (M10)"])
+  holder --> take(["Moderator takes it back: never released, or session gone"])
+  release --> free["Mic free; FIFO with an empty list waits for a request"]
   take --> free
   free --> who
-  free -->|"FIFO, list empty"| idle[Mic stays free until a request]
-  idle --> queued
 ```
 
-A room: no mic and no moderator.
+### Meeting: leave, retire and end
 
 ```mermaid
 flowchart TD
-  create(["Creator: create room with participants"]) --> scope{"Holds the opening scope? (N9)"}
-  scope -->|no| r1([Refused, nothing stored])
-  scope -->|yes| reach{"Owner reaches every participant? (M5)"}
-  reach -->|no| r2(["Refused: No rule matches"])
-  reach -->|yes| open["Room open; owner the creator; each participant told (N2)"]
-  open --> send(["A participant contributes, any time"])
-  send --> chk{"Room open, a participant, no reply-to, at most 64 KB?"}
-  chk -->|no| r3([Refused, nothing stored])
-  chk -->|yes| fan["One message, one delivery per other participant; then OK"]
-  fan --> way["Each delivery on its own way: acknowledged, pending until crewed, or undeliverable alone"]
-  open --> add(["Owner adds a participant"]) --> reach
-  open --> transfer(["Owner transfers ownership (N4)"]) --> open
-  open --> nosession(["Owner has no session"]) --> open
-  open --> retp(["Participant retires"]) --> leave[Leaves; its deliveries abandoned]
-  open --> reto(["Owner retires"]) --> gone["Room disappears (N5)"]
+  leave(["Participant leaves (M13)"]) --> role{"Its role?"}
+  role -->|owner| r1([Refused: transfer first])
+  role -->|moderator| tomod["Moderatorship to the owner; keeps its right"]
+  role -->|participant| out["Out; keeps its right to rejoin"]
+  revoke(["Owner revokes a ship's right"]) --> gone["Out, cannot rejoin"]
+  retire(["A ship retires (M17)"]) --> which{"Its role?"}
+  which -->|participant| abandon["Leaves; deliveries abandoned, request removed"]
+  which -->|moderator| tomod2["Moderatorship and mic to the owner"]
+  which -->|owner| ended
+  endit(["Owner or moderator ends it (M15)"]) --> ended["Ended: every participant told; messages, deliveries and history stay"]
+  transfer(["Owner transfers ownership to a participant (M2)"]) --> newowner["New owner; M5 is its reach from now"]
+```
+
+### Room (next minor)
+
+The meeting's create, add and contribute, without the mic and the moderator: `rooms:open`, any participant contributes at any time.
+
+```mermaid
+flowchart TD
+  open(["Room open; owner the creator"]) --> send(["A participant contributes, any time"])
+  send --> chk{"Open, a participant, no reply, at most 64 KB?"}
+  chk -->|no| r1([Refused, nothing stored])
+  chk -->|yes| fan["One delivery per other participant; then OK"]
+  open --> nosession(["Owner has no session: room goes on (M2)"])
+  open --> transfer(["Owner transfers ownership (M2)"])
+  open --> leave(["Participant leaves, rejoins, or is revoked (M13)"])
+  open --> retp(["Participant retires: leaves"])
+  open --> reto(["Owner retires"]) --> gone["Room disappears: no more contributions; history stays (M15)"]
   open --> close(["Owner closes it down"]) --> gone
 ```
 
@@ -154,29 +167,25 @@ flowchart TD
 
 | Today | Gap |
 | --- | --- |
-| Selector `ship` or `type`; one message, one delivery (or one claimed delivery for a type) | A meeting or room as the selector; one message to many deliveries in one transaction. A type is never a participant |
-| Send reach checked sender to recipient at send time | Reach checked owner to participant when added (M5), shown as a built-in rule |
-| Answer rule: a ship can always answer its sender | Whether it covers a contribution (N7) |
-| No meeting, room, participant, mic or request list | New in core, with `fleet_id`, an id prefix and events |
-| Scopes: messages, fleet, crew, labels, scopes | The opening scope (N9) |
-| A ship reads its own inbox and sent | A participant reading the meeting's or room's messages (M11) |
+| Selector `ship` or `type`; one message, one delivery (or one claimed delivery for a type) | A meeting as the selector; one message to many deliveries in one transaction |
+| Send reach checked sender to recipient at send time | Owner to participant when added or rejoining (M5), shown as a built-in rule |
+| Answer rule: a ship can always answer its sender | Not for a contribution (M18) |
+| No meeting, participant, right, mic or request list | New in core, with `fleet_id`, an id prefix and events |
+| Scopes: messages, fleet, crew, labels, scopes | `meetings:open` (M4) |
+| A ship reads its own inbox and sent | A participant reading the meeting's messages and its participants' status (M12, M14) |
 | Label selection exact and AND, in the fleet list | Resolving one at invite (M6) |
-| Ship protocol, plugin scripts, core MCP tools: send to ship or type | Contribute, request, withdraw and release the mic |
-| Gateway: inbox per delivery | A meeting and room view, and the mic calls for a person (gateway train) |
+| Ship protocol, core MCP tools and REST, aeolus plugin scripts: send to ship or type | Contribute, join and leave, request, withdraw and release the mic |
+| Gateway: inbox per delivery | A meeting view and the meeting calls for a person (gateway train) |
 | Pushed sessions: each delivery wakes the session | Every contribution wakes every participant (L2); accepted at six |
 
-## 6. Questions
+## 6. Slices for 0.31.0
 
-| # | Question | Options | Pick and why |
+Meeting only (M20). One PR each, in order; S4 and S5 start once S3 is merged.
+
+| # | Slice | Builds | Done when |
 | --- | --- | --- | --- |
-| N1 | Does the moderator contribute without the mic | 1. Yes, always. 2. Only with the mic, like anyone | **1.** It runs the meeting (opening, closing, an outcome, M12) without queueing behind the list |
-| N2 | How a ship learns it was added, got the mic, or the meeting ended | 1. A delivery to that ship (all participants for an end), from the ship that caused it: the owner for added and ended, the moderator for the mic, FIFO included since the moderator set it; Aeolus content types, the meeting's id on the envelope. 2. Nothing pushed: participants read the meeting | **1.** A pushed session wakes only on a delivery; without one an agent never learns it holds the mic. Sent as the causing ship, so the fleet never speaks for a ship. Only the holder hears a mic change (L2) |
-| N3 | A held mic never released (holder busy, session gone) | 1. No limit; the moderator takes it. 2. A time limit in the pattern | **1.** Small; the moderator is told nothing, so it watches; a limit comes when a meeting shows the need |
-| N4 | Transfers | 1. Owner and moderator both name a participant; the owner names the moderator; a meeting's owner transfers as a room's does. 2. Any ship, participant or not | **1.** Shared logic for both parts; an owner outside its meeting is odd, and the new owner must reach the participants it adds from then on |
-| N5 | What ended and disappeared keep | 1. No more contributions or participants; messages, their deliveries (pending ones still delivered) and the history stay, read by former participants. 2. Deleted | **1.** A stored message is delivered whatever changes later (0034); nothing in Aeolus deletes history but a fleet's deletion |
-| N6 | Who ends a meeting | 1. Owner or moderator. 2. Owner only | **1.** The moderator knows when the outcome is reached (M12); the owner keeps the last word |
-| N7 | The answer rule on a contribution | 1. Off: a contribution gives no one-to-one answer reach. 2. On, as for any message | **1.** M5 lets A and B talk in a meeting though A cannot reach B; the answer rule would turn that into one-to-one reach no rule shows |
-| N8 | A participant leaving by itself | 1. It may; an owner transfers first; a moderator leaving gives moderatorship to the owner. 2. Only the owner removes | **1.** A ship released for good should not hold deliveries open in a meeting it no longer serves |
-| N9 | The opening scope | 1. `meetings:open` and `rooms:open`. 2. One for both | **1.** Two parts; an organisation may allow rooms widely and meetings to a few |
-| N10 | Presence in a meeting ("everyone present at once") | 1. Not checked; the meeting read shows each participant's status (crewed or awaiting crew). 2. Opening refused until all are crewed | **1.** Who must be there is the moderator's call; status is what any ship sees outside read reach (0034) |
-| N11 | What 0.31.0 ships first | 1. Meeting only; the room in the next minor. 2. Both | **1.** The first use case is a meeting and 0.31.0 stays small; the room reuses its parts minus the mic |
+| S1 | Core: open and contribute | Decision record and blueprint terms (meeting, participant, owner, moderator, mic, mic request); the meeting with owner and moderator; `meetings:open`; invite by list and label (M6) with the owner's reach (M5) and its built-in rule; the meeting selector with one delivery per other participant; the added notice (M11); refusals of the contribute flow except the mic; the history read with participants' status | Two of three ships created into a meeting by a third exchange contributions though neither reaches the other; each delivery acknowledged on its own; an unreachable invitee refuses the create; rollback and concurrency tests on the fan-out |
+| S2 | Core: the mic | Mic enforcement with the moderator excepted (M7); the request list (M8); give, take, release (M10); FIFO (M9); the mic notice (M11) | The first use case's round robin runs in a test: five agents and a person ship, FIFO, requests again after speaking; an off-mic contribution stores nothing |
+| S3 | Core: the meeting's life | Add later and rejoin (M5, M13); leave, revoke; transfer of owner and moderator (M2, M3); ending by owner or moderator and the ended notice (M15); retire effects (M17); events for each | Every path of "leave, retire and end" has a test; an ended meeting refuses contributions and still delivers its pending deliveries |
+| S4 | Ships: the surface | Ship protocol rules for a participant; MCP tools and REST over the same procedures; the aeolus plugin's scripts (trierarch train) | A Claude Code session crewing a ship takes part in a meeting through the plugin |
+| S5 | Gateway: a person in a meeting | The meeting view and calls on the gateway's pages and MCP, so an agent acting as the person may request the mic after each contribution (M19) (gateway train) | Thomas contributes, requests and releases the mic from his phone |
