@@ -156,11 +156,17 @@ describe('a page of 20 at 3,000 ships, read through its keyset index (decision 4
   });
 });
 
-describe('the active ship of a name at 3,000 ships', () => {
+describe('the ships of a name at 3,000 ships', () => {
   it('reads that one ship through the unique index of active names, not the fleet in order', async () => {
     const plan = await planOfPage({ limit: 21, filter: { ...ACTIVE, name: seeded(2_800).name }, reach: { kind: 'every' } });
 
     expect([rowsOfIndex(plan, 'ships_fleet_id_name_active_key'), rowsOfIndex(plan, 'ships_listing_idx')]).toEqual([1, 0]);
+  });
+
+  it('reads the ships of a name, retired ones too, through the index of names, not the fleet in order', async () => {
+    const plan = await planOfPage({ limit: 3, filter: { status: ['awaitingCrew', 'crewed', 'retired'], name: seeded(2_800).name }, reach: { kind: 'every' } });
+
+    expect(rowsOfIndex(plan, 'ships_name_listing_every_status_idx')).toEqual(2);
   });
 });
 
