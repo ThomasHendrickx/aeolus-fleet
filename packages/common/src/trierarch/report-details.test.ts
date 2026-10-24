@@ -130,6 +130,23 @@ describe('trierarchReportDetailsSchema', () => {
     expect(trierarchReportDetailsSchema.parse(details)).toEqual(details);
   });
 
+  it('takes the harnesses the trierarch cannot serve now, each with why, up to a reason of 280 characters (#1212)', () => {
+    const details = {
+      harnesses: [{ harness: 'claude-code', options: {}, flags: [] }],
+      workspaces: { repositories: [], folders: [] },
+      caps: { ships: 2, running: 1 },
+      kept: [],
+      orphans: [],
+      notOffered: [
+        { harness: 'codex', reason: 'its aeolus plugin is not installed (run aeolus-trierarch upgrade)' },
+        { harness: 'gemini', reason: 'x'.repeat(280) },
+      ],
+      version: '0.31.0',
+    };
+
+    expect(trierarchReportDetailsSchema.parse(details)).toEqual(details);
+  });
+
   it('takes a machine load that names no swap, as a platform may not say it (#400)', () => {
     const details = {
       harnesses: [],
@@ -230,6 +247,9 @@ describe('trierarchReportDetailsSchema', () => {
     ['an unknown field in a harness', (details: Record<string, unknown>) => ({ ...details, harnesses: [{ harness: 'codex', options: {}, flags: [], adapterFlags: [] }] })],
     ['no version', (details: Record<string, unknown>) => ({ ...details, version: undefined })],
     ['a cap of no ships', (details: Record<string, unknown>) => ({ ...details, caps: { ships: 0, running: 1 } })],
+    ['a harness not offered without its reason', (details: Record<string, unknown>) => ({ ...details, notOffered: [{ harness: 'codex' }] })],
+    ['a harness not offered with an empty reason', (details: Record<string, unknown>) => ({ ...details, notOffered: [{ harness: 'codex', reason: '' }] })],
+    ['a harness not offered with a reason over 280 characters', (details: Record<string, unknown>) => ({ ...details, notOffered: [{ harness: 'codex', reason: 'x'.repeat(281) }] })],
     ['a negative amount of available memory', (details: Record<string, unknown>) => ({ ...details, load: { memory: { totalBytes: 1024, availableBytes: -1 }, cpu: { cores: 1, loadAverage: 0 }, disk: { totalBytes: 1024, freeBytes: 0 } } })],
     ['a machine with no cores', (details: Record<string, unknown>) => ({ ...details, load: { memory: { totalBytes: 1024, availableBytes: 0 }, cpu: { cores: 0, loadAverage: 0 }, disk: { totalBytes: 1024, freeBytes: 0 } } })],
     ['an unknown field in the load', (details: Record<string, unknown>) => ({ ...details, load: { memory: { totalBytes: 1024, availableBytes: 0 }, cpu: { cores: 1, loadAverage: 0 }, disk: { totalBytes: 1024, freeBytes: 0 }, gpu: {} } })],
