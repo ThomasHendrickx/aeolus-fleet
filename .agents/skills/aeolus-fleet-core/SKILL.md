@@ -13,5 +13,6 @@ Load with `domain-modelling` and `typescript`.
 - The tenant scope is the fleet (only exception: decision 0007).
 - Ids and Zod schemas live in `common` (`ShipId`, `idSchema`). The tRPC adapter is the API adapter.
 - A context publishes its port in `public.ts`; no other barrels in the domain.
+- A change to the shape of a public call (what a ship, plugin or app reads or sends) is named under a `Breaking` heading in the PR body, so the release notes carry it.
 
 Enforced by lint/CI (`eslint.config.js`, `scripts/`): core imports and purity, context `public.ts`, Prisma and REST/MCP boundaries, a test beside every use case; `any`, casts, `!`, `@ts-ignore`, exhaustive switches, parameter count, boolean names, default exports, file names, no `throw` in core.
