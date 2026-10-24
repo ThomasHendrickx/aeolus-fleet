@@ -1,4 +1,4 @@
-import type { MeetingId, MessageId, ShipId, ShipKind, ShipStatus } from '@aeolus-fleet/common';
+import type { MeetingId, MessageId, MicPattern, ParticipantState, ShipId, ShipKind, ShipStatus } from '@aeolus-fleet/common';
 
 import { shipStatus, type LeaseRepository, type ShipRepository } from '../registry/public.js';
 import type { ShipCaller } from '../shared/caller.js';
@@ -6,6 +6,7 @@ import { refuse, type DomainError } from '../shared/errors.js';
 import type { Page, PageQuery } from '../shared/page.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
+import type { Participant } from './meeting.js';
 import type { MeetingRepository } from './ports.js';
 
 export interface ReadMeetingTx {
@@ -24,6 +25,15 @@ export interface MeetingParty {
 export interface MeetingParticipantRead extends MeetingParty {
   kind: ShipKind;
   status: ShipStatus;
+  state: ParticipantState;
+}
+
+/** Whether a participant is in the meeting now, left it keeping its right, or was revoked (M13). */
+function participantState(participant: Participant): ParticipantState {
+  if (participant.isRevoked) {
+    return 'revoked';
+  }
+  return participant.leftAt === null ? 'present' : 'left';
 }
 
 /** One contribution as the read shows it. */
@@ -36,6 +46,13 @@ export interface ContributionRead {
   sentAt: Date;
 }
 
+/** The mic as a participant reads it: who holds it, how it passes, and who waits for it, oldest first (M8, M9). */
+export interface MicRead {
+  holder: MeetingParty | null;
+  pattern: MicPattern;
+  requests: { ship: MeetingParty; requestedAt: Date }[];
+}
+
 export interface MeetingRead {
   meetingId: MeetingId;
   title: string | null;
@@ -44,6 +61,7 @@ export interface MeetingRead {
   openedAt: Date;
   endedAt: Date | null;
   participants: MeetingParticipantRead[];
+  mic: MicRead;
   contributions: Page<ContributionRead, MessageId>;
 }
 
@@ -52,7 +70,7 @@ export type ReadMeeting = (caller: ShipCaller, input: { meetingId: MeetingId } &
 /**
  * Use case: a participant reads its meeting (`meeting`, decision 0061): its
  * owner and moderator, when it opened and ended, each participant with its
- * kind and status, crewed or awaiting crew, as it is now (M14), and a page of
+ * kind and status, crewed or awaiting crew, as it is now (M14), its mic, and a page of
  * what was said so far, newest first (M12): its contributions, never the
  * notices. A meeting that does not exist and one the caller takes no part in
  * are one refusal. Reads only.
@@ -63,15 +81,16 @@ export function createReadMeeting(deps: { uow: UnitOfWork<ReadMeetingTx> }): Rea
       const { fleetId } = caller;
       const { meetingId } = input;
       const meeting = await tx.meetings.find(fleetId, meetingId);
+      // A former participant reads it too, whether it left or was revoked (M15).
       if (!meeting?.participants.some((participant) => participant.shipId === caller.shipId)) {
         return refuse('MEETING_NOT_FOUND', `Meeting ${meetingId} does not exist or you are not one of its participants`);
       }
       const participants: MeetingParticipantRead[] = [];
-      for (const { shipId } of meeting.participants) {
-        const ship = await tx.ships.find(fleetId, shipId);
+      for (const participant of meeting.participants) {
+        const ship = await tx.ships.find(fleetId, participant.shipId);
         if (ship) {
-          const lease = await tx.leases.findOpenForShare(fleetId, shipId);
-          participants.push({ id: ship.id, name: ship.name, kind: ship.kind, status: shipStatus(ship, { isCrewed: lease !== undefined }) });
+          const lease = await tx.leases.findOpenForShare(fleetId, participant.shipId);
+          participants.push({ id: ship.id, name: ship.name, kind: ship.kind, status: shipStatus(ship, { isCrewed: lease !== undefined }), state: participantState(participant) });
         }
       }
       const names = new Map(participants.map((participant) => [participant.id, participant.name]));
@@ -81,6 +100,11 @@ export function createReadMeeting(deps: { uow: UnitOfWork<ReadMeetingTx> }): Rea
       for (const message of page.items) {
         items.push({ messageId: message.id, sender: await party(message.senderShipId), payload: message.payload, contentType: message.contentType, model: message.model, sentAt: message.createdAt });
       }
+      const requests: MicRead['requests'] = [];
+      for (const request of meeting.micRequests) {
+        requests.push({ ship: await party(request.shipId), requestedAt: request.requestedAt });
+      }
+      const mic: MicRead = { holder: meeting.micHolderShipId === null ? null : await party(meeting.micHolderShipId), pattern: meeting.micPattern, requests };
       return ok({
         meetingId,
         title: meeting.title,
@@ -89,6 +113,7 @@ export function createReadMeeting(deps: { uow: UnitOfWork<ReadMeetingTx> }): Rea
         openedAt: meeting.openedAt,
         endedAt: meeting.endedAt,
         participants,
+        mic,
         contributions: { items, nextCursor: page.nextCursor },
       });
     });

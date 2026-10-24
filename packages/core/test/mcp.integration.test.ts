@@ -206,6 +206,34 @@ describe('the ship tools at /mcp', () => {
     ).resolves.toBe('LEASE_ENDED: This ship was released; this session no longer crews it.');
   });
 
+  it('take part in a meeting: open it, request the mic, contribute, read it, release the mic and end it (decision 0061)', async () => {
+    const chief = await commissionedWithFleetScopes(['meetings:open']);
+    const head = await commissioned();
+    const [chiefSession, headSession] = [await connect(), await connect()];
+    const [chiefToken, headToken] = [await register(chiefSession, chief), await register(headSession, head)];
+    const changed = z.strictObject({});
+
+    const { meetingId } = await call(chiefSession, {
+      tool: { name: 'openMeeting', answers: z.object({ meetingId: z.string() }) },
+      arguments: { crewToken: chiefToken, ships: [{ name: head.name }], idempotencyKey: freshKey(), model: 'claude-opus-5-5', title: 'Launch' },
+    });
+    await call(headSession, { tool: { name: 'requestMic', answers: changed }, arguments: { crewToken: headToken, meetingId } });
+    await call(chiefSession, { tool: { name: 'giveMic', answers: changed }, arguments: { crewToken: chiefToken, meetingId, shipId: head.shipId } });
+    const { messageId } = await call(headSession, {
+      tool: tools.send,
+      arguments: { crewToken: headToken, model: 'claude-opus-5-5', selector: { kind: 'meeting', meetingId }, payload: 'Copy is ready', idempotencyKey: freshKey() },
+    });
+    const read = await call(chiefSession, {
+      tool: { name: 'meeting', answers: z.object({ title: z.string().nullable(), contributions: z.object({ items: z.array(z.object({ messageId: z.string() })) }) }) },
+      arguments: { crewToken: chiefToken, meetingId },
+    });
+    await call(headSession, { tool: { name: 'releaseMic', answers: changed }, arguments: { crewToken: headToken, meetingId } });
+    await call(chiefSession, { tool: { name: 'endMeeting', answers: changed }, arguments: { crewToken: chiefToken, meetingId } });
+
+    expect(read).toEqual({ title: 'Launch', contributions: { items: [{ messageId }] } });
+    await expect(refusalOf(headSession, { name: 'requestMic', arguments: { crewToken: headToken, meetingId } })).resolves.toBe(`CONFLICT: Meeting ${meetingId} ended: its mic no longer changes`);
+  });
+
   it('pong: a ship answers the ping argo sent it, and the ping is acknowledged', async () => {
     const skiff = await commissioned();
     const session = await connect();

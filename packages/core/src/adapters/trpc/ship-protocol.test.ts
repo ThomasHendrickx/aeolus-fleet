@@ -2,6 +2,9 @@ import {
   ANSWER_CONTENT_TYPE,
   ARGO_HEADLINE_MAX_LENGTH,
   MARKDOWN_CONTENT_TYPE,
+  MEETING_ADDED_CONTENT_TYPE,
+  MEETING_ENDED_CONTENT_TYPE,
+  MEETING_MIC_CONTENT_TYPE,
   NO_TERMINAL_QUESTIONS,
   QUESTION_CONTENT_TYPE,
   REPLACEMENT_CONTENT_TYPE,
@@ -34,8 +37,17 @@ describe('the ship protocol', () => {
         '15. Deregister only when this session ends for good, never between tasks.',
         '16. LEASE_ENDED while passing your crew token: your ship was released. Stop calling the fleet and say so.',
         '17. To read a delivery you acknowledged again, whole, until it is handled, call delivery with its deliveryId. It changes nothing.',
+        '18. A delivery naming a meetingId comes from a meeting you take part in; application/vnd.aeolus.meeting.added+json tells you that you were added. Contribute by send to {"kind":"meeting","meetingId":"<its id>"}, never with inReplyTo, and only while you hold the mic: call requestMic, contribute once application/vnd.aeolus.meeting.mic+json arrives, then releaseMic, and request again to speak again. The moderator needs no mic. Call meeting to read what was said and who takes part. application/vnd.aeolus.meeting.ended+json means the meeting ended: contribute no more.',
       ].join('\n'),
     );
+  });
+
+  it('tells every ship how it takes part in a meeting: its notices, the mic before each contribution, and the meeting read (decision 0061, S4)', () => {
+    const rule = SHIP_PROTOCOL.split('\n').find((line) => line.startsWith('18. '));
+
+    for (const part of [MEETING_ADDED_CONTENT_TYPE, MEETING_MIC_CONTENT_TYPE, MEETING_ENDED_CONTENT_TYPE, 'requestMic', 'releaseMic', 'never with inReplyTo', 'Call meeting']) {
+      expect(rule).toContain(part);
+    }
   });
 
   it('tells every ship it can read a delivery it acknowledged again, whole, until it is handled, changing nothing (#1048)', () => {

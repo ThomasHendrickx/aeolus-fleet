@@ -186,6 +186,18 @@ describe('eventTypeSchema', () => {
       'VerifiedFactsRemoved',
       'MeetingOpened',
       'ParticipantAdded',
+      'MicRequested',
+      'MicRequestWithdrawn',
+      'MicGiven',
+      'MicReleased',
+      'MicTaken',
+      'MicPatternSet',
+      'ParticipantLeft',
+      'ParticipantRejoined',
+      'ParticipantRevoked',
+      'OwnershipTransferred',
+      'ModeratorNamed',
+      'MeetingEnded',
     ]);
   });
 });

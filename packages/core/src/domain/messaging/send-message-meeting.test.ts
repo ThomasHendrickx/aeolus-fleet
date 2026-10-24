@@ -35,8 +35,24 @@ function aContribution(overrides: Partial<MessageToSend> = {}): MessageToSend {
   return { selector: { kind: 'meeting', meetingId }, payload: 'The launch moves to Friday: https://example.com/plan', idempotencyKey: newKey(), model: SESSION_MODEL, ...overrides };
 }
 
+/** Gives the ship the mic, unless it moderates or holds it already: only then may it contribute (M7). */
+async function withTheMic(ship: ShipCaller): Promise<void> {
+  const meeting = core.state.meetings.find(({ id }) => id === meetingId);
+  if (ship.shipId !== chief.shipId && meeting?.micHolderShipId !== ship.shipId) {
+    unwrap(await messaging.changeMic(chief, { meetingId, change: { kind: 'give', shipId: ship.shipId } }));
+  }
+}
+
+/** A contribution by the ship, which gets the mic first, with what that stored and woke cleared. */
 async function contributed(by: ShipCaller, input: MessageToSend = aContribution()): Promise<MessageId> {
+  await withTheMic(by);
+  clearEventsAndNotices();
   return unwrap(await messaging.sendMessage(by, input)).messageId;
+}
+
+function clearEventsAndNotices(): void {
+  core.state.events.length = 0;
+  core.state.notices.length = 0;
 }
 
 /** The deliveries of the message, each with its recipient and state. */
@@ -67,8 +83,7 @@ beforeEach(async () => {
   await applyNetworkRules(registry, { by: networking, rules: [{ verb: 'send', from: [value('role', 'chief')], to: [value('role', 'head')] }] });
   ({ meetingId } = unwrap(await messaging.openMeeting(chief, { ships: [{ shipId: marketing.shipId }, { shipId: product.shipId }], idempotencyKey: newKey(), model: SESSION_MODEL })));
   core.clock.advance(60_000);
-  core.state.events.length = 0;
-  core.state.notices.length = 0;
+  clearEventsAndNotices();
 });
 
 describe('a contribution to a meeting', () => {
@@ -138,6 +153,11 @@ describe('a contribution to a meeting', () => {
 });
 
 describe('a contribution the meeting refuses', () => {
+  beforeEach(async () => {
+    await withTheMic(marketing);
+    clearEventsAndNotices();
+  });
+
   /** That nothing of a refused contribution was stored: no message, delivery, event or wake-up. */
   function expectNothingStored(messagesBefore: number): void {
     expect([core.state.messages.length, core.state.events, core.state.notices]).toEqual([messagesBefore, [], []]);
@@ -160,8 +180,7 @@ describe('a contribution the meeting refuses', () => {
 
   it('refuses a contribution that names a message it replies to (M18)', async () => {
     const asked = await contributed(chief);
-    core.state.events.length = 0;
-    core.state.notices.length = 0;
+    clearEventsAndNotices();
     const before = core.state.messages.length;
 
     expect(refusalOf(await messaging.sendMessage(marketing, aContribution({ inReplyTo: asked })))).toEqual({
@@ -191,6 +210,25 @@ describe('a contribution the meeting refuses', () => {
       kind: 'MEETING_ENDED',
       message: `Meeting ${meetingId} ended: it takes no more contributions`,
     });
+    expectNothingStored(before);
+  });
+
+  it('refuses a contribution from a participant without the mic, telling it to request the mic (M7)', async () => {
+    const before = core.state.messages.length;
+
+    expect(refusalOf(await messaging.sendMessage(product, aContribution()))).toEqual({
+      kind: 'MIC_NOT_HELD',
+      message: `You do not hold the mic of meeting ${meetingId}: request the mic, and contribute once it is given to you`,
+    });
+    expectNothingStored(before);
+  });
+
+  it('refuses a contribution from the holder once the moderator took the mic back', async () => {
+    unwrap(await messaging.changeMic(chief, { meetingId, change: { kind: 'take' } }));
+    clearEventsAndNotices();
+    const before = core.state.messages.length;
+
+    expect(refusalOf(await messaging.sendMessage(marketing, aContribution())).kind).toBe('MIC_NOT_HELD');
     expectNothingStored(before);
   });
 

@@ -1,7 +1,22 @@
 import { describe, expect, it } from 'vitest';
 
 import { createIdGenerator } from '../ids/index.js';
-import { MEETING_ADDED_CONTENT_TYPE, MEETING_TITLE_MAX_LENGTH, meetingAddedSchema, meetingInputSchema, openMeetingInputSchema } from './meeting.js';
+import {
+  addToMeetingInputSchema,
+  MEETING_ADDED_CONTENT_TYPE,
+  MEETING_ENDED_CONTENT_TYPE,
+  MEETING_MIC_CONTENT_TYPE,
+  MEETING_TITLE_MAX_LENGTH,
+  meetingAddedSchema,
+  meetingEndedSchema,
+  meetingIdInputSchema,
+  meetingInputSchema,
+  meetingMicSchema,
+  meetingOutputSchema,
+  meetingShipInputSchema,
+  openMeetingInputSchema,
+  setMicPatternInputSchema,
+} from './meeting.js';
 
 const newId = createIdGenerator();
 
@@ -71,5 +86,89 @@ describe('the added notice (decision 0061)', () => {
     const owner = { id: newId('ship'), name: 'chief-of-staff' };
 
     expect(meetingAddedSchema.safeParse({ meetingId: newId('meeting'), title: null, owner, moderator: owner, participants: [owner] }).success).toBe(true);
+  });
+});
+
+describe('the mic calls (decision 0061, M7 to M10)', () => {
+  it('name the meeting, for a request, a withdrawal, a release and a take', () => {
+    const input = { meetingId: newId('meeting') };
+
+    expect(meetingIdInputSchema.parse(input)).toEqual(input);
+  });
+
+  it('give the mic to one participant by id', () => {
+    const input = { meetingId: newId('meeting'), shipId: newId('ship') };
+
+    expect(meetingShipInputSchema.parse(input)).toEqual(input);
+  });
+
+  it.each(['moderator', 'fifo'])('set the pattern %s', (pattern) => {
+    const input = { meetingId: newId('meeting'), pattern };
+
+    expect(setMicPatternInputSchema.parse(input)).toEqual(input);
+  });
+
+  it('refuse a pattern that is neither', () => {
+    expect(setMicPatternInputSchema.safeParse({ meetingId: newId('meeting'), pattern: 'roundRobin' }).success).toBe(false);
+  });
+});
+
+describe('the meeting read', () => {
+  it('shows each participant with its state, present, left or revoked, and the mic: who holds it (null when free), its pattern, and the requests oldest first with their time', () => {
+    const chief = { id: newId('ship'), name: 'chief' };
+    const product = { id: newId('ship'), name: 'product' };
+    const read = {
+      meetingId: newId('meeting'),
+      title: null,
+      owner: chief,
+      moderator: chief,
+      openedAt: '2026-10-24T09:00:00.000Z',
+      endedAt: null,
+      participants: [
+        { ...product, kind: 'agent', status: 'crewed', state: 'present' },
+        { ...chief, kind: 'agent', status: 'awaitingCrew', state: 'left' },
+        { id: newId('ship'), name: 'design', kind: 'agent', status: 'retired', state: 'revoked' },
+      ],
+      mic: { holder: null, pattern: 'fifo', requests: [{ ship: product, requestedAt: '2026-10-24T09:01:00.000Z' }] },
+      contributions: { items: [], nextCursor: null },
+    };
+
+    expect(meetingOutputSchema.parse(read)).toEqual(read);
+  });
+});
+
+describe('the mic notice (decision 0061, M11)', () => {
+  it('is of the meeting mic content type', () => {
+    expect(MEETING_MIC_CONTENT_TYPE).toBe('application/vnd.aeolus.meeting.mic+json');
+  });
+
+  it('names the meeting whose mic the ship now holds', () => {
+    const notice = { meetingId: newId('meeting') };
+
+    expect(meetingMicSchema.parse(notice)).toEqual(notice);
+  });
+});
+
+describe('adding to a meeting (decision 0061, M5, M6)', () => {
+  it('takes the invitees by ship and by a label selection, and the model, as an open does', () => {
+    const input = { meetingId: newId('meeting'), ships: [{ name: 'scout' }], valueIds: [newId('labelValue')], model: 'claude-opus-5-5' };
+
+    expect(addToMeetingInputSchema.parse(input)).toEqual(input);
+  });
+
+  it('refuses an invitee that names a type', () => {
+    expect(addToMeetingInputSchema.safeParse({ meetingId: newId('meeting'), ships: [{ type: 'reviewer' }] }).success).toBe(false);
+  });
+});
+
+describe('the ended notice (decision 0061, M15)', () => {
+  it('is of the meeting ended content type', () => {
+    expect(MEETING_ENDED_CONTENT_TYPE).toBe('application/vnd.aeolus.meeting.ended+json');
+  });
+
+  it('names the meeting that ended', () => {
+    const notice = { meetingId: newId('meeting') };
+
+    expect(meetingEndedSchema.parse(notice)).toEqual(notice);
   });
 });

@@ -143,7 +143,7 @@ describe('a send racing a retire', () => {
         },
       },
     }));
-    const retire = createRetireShip({ uow, clock: core.clock, ids: newId })(argo, { shipId: scoutId });
+    const retire = createRetireShip({ uow, clock: core.clock, ids: newId, hasher: sha256Hasher })(argo, { shipId: scoutId });
     await reached;
 
     const send = core.useCases.sendMessage(argo, {

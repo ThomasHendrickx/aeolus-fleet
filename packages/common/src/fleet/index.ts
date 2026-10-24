@@ -255,6 +255,18 @@ export const EVENT_TYPES = [
   'VerifiedFactsRemoved',
   'MeetingOpened',
   'ParticipantAdded',
+  'MicRequested',
+  'MicRequestWithdrawn',
+  'MicGiven',
+  'MicReleased',
+  'MicTaken',
+  'MicPatternSet',
+  'ParticipantLeft',
+  'ParticipantRejoined',
+  'ParticipantRevoked',
+  'OwnershipTransferred',
+  'ModeratorNamed',
+  'MeetingEnded',
 ] as const;
 export const eventTypeSchema = z.enum(EVENT_TYPES);
 export type EventType = z.infer<typeof eventTypeSchema>;

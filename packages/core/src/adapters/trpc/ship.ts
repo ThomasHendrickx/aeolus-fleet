@@ -10,11 +10,16 @@ import {
   handledOutputSchema,
   inboxInputSchema,
   inboxOutputSchema,
+  meetingShipInputSchema,
+  addToMeetingInputSchema,
   meetingInputSchema,
   meetingOutputSchema,
+  meetingIdInputSchema,
+  meetingChangedOutputSchema,
   notHandledInputSchema,
   openMeetingInputSchema,
   openMeetingOutputSchema,
+  setMicPatternInputSchema,
   PAGE_SIZE_DEFAULT,
   notHandledOutputSchema,
   PING_CONTENT_TYPE,
@@ -125,7 +130,7 @@ export const shipRouter = router({
         'selector picks the recipient: one ship by name { "kind": "ship", "name": "..." } or by id { "kind": "ship", "shipId": "shp_..." },',
         'or any one ship of a type { "kind": "type", "type": "..." },',
         'or every other participant of a meeting you take part in { "kind": "meeting", "meetingId": "mtg_..." }: a contribution, one delivery each,',
-        'which names no inReplyTo and is never forced.',
+        'which names no inReplyTo and is never forced, from the moderator or the holder of the mic only (request it with requestMic).',
         'inReplyTo, for an answer, is the messageId of the message you answer: the message id, not the delivery id.',
         'payload is text of at most 64 KB: a reference to the content and an instruction, not the content itself.',
         'contentType is text/plain unless you say otherwise.',
@@ -172,7 +177,8 @@ export const shipRouter = router({
     .meta({
       description: [
         'For a meeting you take part in, by its meetingId: its owner and moderator, when it opened and ended,',
-        'each participant with its kind and status (crewed or awaitingCrew), and what was said so far, newest first,',
+        'each participant with its kind and status (crewed or awaitingCrew), its mic (holder, null while free; pattern; requests oldest first),',
+        'and what was said so far, newest first,',
         'a page at a time: pass the nextCursor it answers as cursor for the page before. A late or rejoined participant reads here what it missed.',
         'A meeting you take no part in is refused as one that does not exist (NOT_FOUND).',
       ].join(' '),
@@ -185,8 +191,191 @@ export const shipRouter = router({
         ...read,
         openedAt: read.openedAt.toISOString(),
         endedAt: read.endedAt?.toISOString() ?? null,
+        mic: { ...read.mic, requests: read.mic.requests.map((request) => ({ ...request, requestedAt: request.requestedAt.toISOString() })) },
         contributions: { ...read.contributions, items: read.contributions.items.map((item) => ({ ...item, sentAt: item.sentAt.toISOString() })) },
       };
+    }),
+
+  /** Puts the caller on its meeting's mic list (decision 0061, M8); first in line, a free mic goes to it at once. */
+  requestMic: scopedProcedure('messages:send')
+    .meta({
+      description: [
+        'Requests the mic of a meeting you take part in: only the moderator and the holder of the mic contribute.',
+        'You join the back of the list with the time of your request; one request per ship (CONFLICT for a second, or while you hold it).',
+        'The moderator gives the mic, or it goes to the oldest request when the moderator set fifo.',
+        'When you get it, the moderator sends you a message of application/vnd.aeolus.meeting.mic+json naming the meeting. The moderator needs no mic (BAD_REQUEST).',
+      ].join(' '),
+    })
+    .input(meetingIdInputSchema)
+    .output(meetingChangedOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.changeMic(ctx.caller, { meetingId: input.meetingId, change: { kind: 'request' } }));
+      return {};
+    }),
+
+  /** Takes the caller's request off its meeting's mic list (decision 0061, M8). */
+  withdrawMicRequest: scopedProcedure('messages:send')
+    .meta({ description: 'Withdraws your request for the mic of a meeting: you leave the list. CONFLICT when you have no request.' })
+    .input(meetingIdInputSchema)
+    .output(meetingChangedOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.changeMic(ctx.caller, { meetingId: input.meetingId, change: { kind: 'withdraw' } }));
+      return {};
+    }),
+
+  /** The holder frees the mic of its meeting (decision 0061, M10). */
+  releaseMic: scopedProcedure('messages:send')
+    .meta({
+      description: [
+        'Releases the mic of a meeting you hold it in: say you no longer need it once you are done. It never frees by itself.',
+        'With fifo set, it goes on to the oldest request. To speak again, request it again. CONFLICT when you do not hold it.',
+      ].join(' '),
+    })
+    .input(meetingIdInputSchema)
+    .output(meetingChangedOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.changeMic(ctx.caller, { meetingId: input.meetingId, change: { kind: 'release' } }));
+      return {};
+    }),
+
+  /** The moderator gives the mic of its meeting to a participant (decision 0061, M9). */
+  giveMic: scopedProcedure('messages:send')
+    .meta({
+      description: [
+        'For the moderator: gives the mic of the meeting to the participant shipId, on the list or not, straight from its holder if one holds it.',
+        'That ship leaves the list and is told by a message from you of application/vnd.aeolus.meeting.mic+json.',
+        'FORBIDDEN for a ship that does not moderate; NOT_FOUND for a ship that takes no part.',
+      ].join(' '),
+    })
+    .input(meetingShipInputSchema)
+    .output(meetingChangedOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.changeMic(ctx.caller, { meetingId: input.meetingId, change: { kind: 'give', shipId: input.shipId } }));
+      return {};
+    }),
+
+  /** The moderator takes the mic of its meeting back from its holder (decision 0061, M10). */
+  takeMic: scopedProcedure('messages:send')
+    .meta({
+      description: [
+        'For the moderator: takes the mic of the meeting back from its holder, as when it is never released or its session is gone.',
+        'With fifo set, it goes on to the oldest request. CONFLICT while the mic is free; FORBIDDEN for a ship that does not moderate.',
+      ].join(' '),
+    })
+    .input(meetingIdInputSchema)
+    .output(meetingChangedOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.changeMic(ctx.caller, { meetingId: input.meetingId, change: { kind: 'take' } }));
+      return {};
+    }),
+
+  /** The moderator sets how its meeting's free mic passes (decision 0061, M9). */
+  setMicPattern: scopedProcedure('messages:send')
+    .meta({
+      description: [
+        'For the moderator: sets how the free mic of the meeting passes. moderator (the default): you give it to whom you like;',
+        'fifo: a free mic goes to the oldest request at once, and a ship that requests again after speaking makes it a round robin.',
+        'The holder keeps the mic either way. FORBIDDEN for a ship that does not moderate.',
+      ].join(' '),
+    })
+    .input(setMicPatternInputSchema)
+    .output(meetingChangedOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.changeMic(ctx.caller, { meetingId: input.meetingId, change: { kind: 'setPattern', pattern: input.pattern } }));
+      return {};
+    }),
+
+  /** The owner adds ships to its open meeting later (decision 0061, M5, M6, M13). */
+  addToMeeting: scopedProcedure('messages:send')
+    .meta({
+      description: [
+        'For the owner: adds ships to the meeting, by id { "shipId": "shp_..." } or name { "name": "..." } in ships, and by a label selection in valueIds, as openMeeting names them.',
+        'You must reach each one by send, or none is added (NOT_REACHABLE). A ship that left or was revoked comes back with its right; one present stays as it is.',
+        'Each added ship gets a message from you of application/vnd.aeolus.meeting.added+json, its deliveries from joining on, and reads what was said so far with meeting.',
+        'model is the exact model id you run now, as on send.',
+      ].join(' '),
+      requiredOfCrews: ['model'],
+    })
+    .input(addToMeetingInputSchema)
+    .output(meetingChangedOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.addToMeeting(ctx.caller, input));
+      return {};
+    }),
+
+  /** A participant leaves its meeting, keeping its right to rejoin (decision 0061, M13). */
+  leaveMeeting: scopedProcedure('messages:send')
+    .meta({
+      description: [
+        'Leaves a meeting you take part in: contributions no longer reach you and your mic request goes. You keep your right: rejoin with rejoinMeeting.',
+        'The owner cannot leave (CONFLICT): transfer the meeting first. A moderator that leaves gives the moderatorship to the owner.',
+      ].join(' '),
+    })
+    .input(meetingIdInputSchema)
+    .output(meetingChangedOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.changeMeeting(ctx.caller, { meetingId: input.meetingId, change: { kind: 'leave' } }));
+      return {};
+    }),
+
+  /** A ship that left its meeting comes back by itself (decision 0061, M5, M13). */
+  rejoinMeeting: scopedProcedure('messages:send')
+    .meta({
+      description: [
+        'Rejoins a meeting you left: deliveries reach you from now on, and meeting reads what you missed.',
+        "Checked on the owner's reach of your ship (NOT_REACHABLE). Refused once the owner revoked your right (FORBIDDEN), and while you take part (CONFLICT).",
+      ].join(' '),
+    })
+    .input(meetingIdInputSchema)
+    .output(meetingChangedOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.changeMeeting(ctx.caller, { meetingId: input.meetingId, change: { kind: 'rejoin' } }));
+      return {};
+    }),
+
+  /** The owner revokes a ship's right to its meeting (decision 0061, M13). */
+  revokeFromMeeting: scopedProcedure('messages:send')
+    .meta({ description: 'For the owner: takes the ship shipId out of the meeting and its right with it. It cannot rejoin; only you adding it again brings it back. The owner is never revoked.' })
+    .input(meetingShipInputSchema)
+    .output(meetingChangedOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.changeMeeting(ctx.caller, { meetingId: input.meetingId, change: { kind: 'revoke', shipId: input.shipId } }));
+      return {};
+    }),
+
+  /** The owner transfers its meeting to another participant (decision 0061, M2). */
+  transferMeeting: scopedProcedure('messages:send')
+    .meta({ description: "For the owner: makes the participant shipId the owner of the meeting. From then on its reach decides who is added and who rejoins; you may then leave." })
+    .input(meetingShipInputSchema)
+    .output(meetingChangedOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.changeMeeting(ctx.caller, { meetingId: input.meetingId, change: { kind: 'transfer', shipId: input.shipId } }));
+      return {};
+    }),
+
+  /** The owner names the moderator of its meeting (decision 0061, M3). */
+  nameModerator: scopedProcedure('messages:send')
+    .meta({ description: 'For the owner: makes the participant shipId the moderator of the meeting. It needs no mic, so a mic it held is freed and its request goes.' })
+    .input(meetingShipInputSchema)
+    .output(meetingChangedOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.changeMeeting(ctx.caller, { meetingId: input.meetingId, change: { kind: 'nameModerator', shipId: input.shipId } }));
+      return {};
+    }),
+
+  /** The owner or the moderator ends its meeting (decision 0061, M15). */
+  endMeeting: scopedProcedure('messages:send')
+    .meta({
+      description: [
+        'For the owner or the moderator: ends the meeting. Every other participant gets a message from you of application/vnd.aeolus.meeting.ended+json naming it.',
+        'It then takes no contributions, participants or mic changes; deliveries pending still arrive, and every former participant reads it with meeting.',
+      ].join(' '),
+    })
+    .input(meetingIdInputSchema)
+    .output(meetingChangedOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.changeMeeting(ctx.caller, { meetingId: input.meetingId, change: { kind: 'end' } }));
+      return {};
     }),
 
   /**
