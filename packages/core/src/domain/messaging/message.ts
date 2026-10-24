@@ -1,4 +1,4 @@
-import { isPingContentType, type AccountId, type DeliveryId, type DeliveryState, type FleetId, type LeaseId, type MessageId, type ShipId, type ShipKind } from '@aeolus-fleet/common';
+import { isPingContentType, type AccountId, type DeliveryId, type DeliveryState, type FleetId, type LeaseId, type MeetingId, type MessageId, type ShipId, type ShipKind } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
 import { shipActor, type Actor, type NewEvent } from '../shared/events.js';
@@ -30,6 +30,8 @@ export interface Message {
   inReplyToMessageId: MessageId | null;
   /** The message this one resends: an undeliverable one the operator sent again. */
   resendOfMessageId: MessageId | null;
+  /** The meeting it tells of: the notice that added its recipient (decision 0061). */
+  meetingId: MeetingId | null;
   createdAt: Date;
 }
 
@@ -101,6 +103,8 @@ export interface MessageToAccept {
   actor?: Actor;
   /** The account signed in to the console as argo when argo sends or resends it (decision 0054). */
   signedInAccountId?: AccountId;
+  /** The meeting it tells of, for the notice that adds its recipient to one (decision 0061). */
+  meetingId?: MeetingId;
   at: Date;
 }
 
@@ -166,6 +170,7 @@ export function acceptMessage(
     requestHash: send.requestHash,
     inReplyToMessageId: inReplyTo ?? null,
     resendOfMessageId: resendOf?.messageId ?? null,
+    meetingId: send.meetingId ?? null,
     createdAt: at,
   };
   const delivery: Delivery = {
@@ -201,6 +206,7 @@ export function acceptMessage(
           model: send.model ?? null,
           ...(resendOf && { resendOf: resendOf.messageId }),
           ...(send.isForced && { forced: true }),
+          ...(send.meetingId && { meetingId: send.meetingId }),
         },
       },
     ],

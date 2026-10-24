@@ -557,6 +557,7 @@ const messageRow = z.object({
   requestHash: z.string(),
   inReplyToMessageId: idSchema('message').nullable(),
   resendOfMessageId: idSchema('message').nullable(),
+  meetingId: idSchema('meeting').nullable(),
   createdAt: z.date(),
 });
 

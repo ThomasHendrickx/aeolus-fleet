@@ -78,6 +78,7 @@ describe('sending a message to a ship', () => {
         model: null,
         inReplyToMessageId: null,
         resendOfMessageId: null,
+        meetingId: null,
         createdAt: core.clock.now(),
       },
     ]);
@@ -531,6 +532,7 @@ describe('a send refused', () => {
       requestHash: 'elsewhere',
       inReplyToMessageId: null,
       resendOfMessageId: null,
+      meetingId: null,
       createdAt: core.clock.now(),
     });
 

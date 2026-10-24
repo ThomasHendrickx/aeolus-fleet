@@ -131,6 +131,7 @@ describe('sending a message on Postgres', () => {
         requestHash: stored?.requestHash,
         inReplyToMessageId: null,
         resendOfMessageId: null,
+        meetingId: null,
         createdAt: core.clock.now(),
       },
     ]);

@@ -1,5 +1,6 @@
-import type { DeliveryId, FleetId, LeaseId, MessageId, ShipId } from '@aeolus-fleet/common';
+import type { DeliveryId, FleetId, LeaseId, MeetingId, MessageId, ShipId } from '@aeolus-fleet/common';
 
+import type { Meeting } from './meeting.js';
 import type { Delivery, Message } from './message.js';
 import type { Overdue, PushedCrew } from './overdue.js';
 
@@ -8,6 +9,29 @@ export interface SenderKey {
   fleetId: FleetId;
   senderShipId: ShipId;
   idempotencyKey: string;
+}
+
+/** One opener's idempotency key for a meeting, in its fleet. */
+export interface OpenerKey {
+  fleetId: FleetId;
+  openerShipId: ShipId;
+  idempotencyKey: string;
+}
+
+/** Outbound port: meetings and their participants, always within one fleet (decision 0061). */
+export interface MeetingRepository {
+  /** Stores the meeting with its participants. */
+  create(meeting: Meeting): Promise<void>;
+  /**
+   * Holds the lock on the opener's key until the unit of work ends, so two
+   * opens with one key take turns and the second finds the first one's
+   * meeting. Taken before anything else an open locks.
+   */
+  lockOpenerKey(key: OpenerKey): Promise<void>;
+  /** The meeting the opener opened with this key, if any. */
+  findByOpenerKey(key: OpenerKey): Promise<Meeting | undefined>;
+  /** The meeting with its participants, read without a lock. */
+  find(fleetId: FleetId, meetingId: MeetingId): Promise<Meeting | undefined>;
 }
 
 /** Outbound port: messages, always within one fleet. Never changed once stored. */

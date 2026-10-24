@@ -161,7 +161,7 @@ describe('the added notice', () => {
   });
 
   it('needs the model of an agent opener, as a send does, and stores nothing without it', async () => {
-    const { model: _model, ...withoutModel } = aMeeting();
+    const withoutModel: MeetingToOpen = { ...aMeeting(), model: undefined };
 
     expect(refusalOf(await messaging.openMeeting(chief, withoutModel)).kind).toBe('MODEL_REQUIRED');
     expect([core.state.meetings, core.state.messages, core.state.events]).toEqual([[], [], []]);
