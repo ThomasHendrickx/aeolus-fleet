@@ -4,11 +4,15 @@ import type { ReactNode } from 'react';
 
 import { Button } from '@aeolus-fleet/common/header';
 
+import { NotOfferedLine } from '../../../../components/molecules/not-offered-line';
+
 /** A machine as the Health page lists it: its trierarch ship, and how many ships it crews. */
 export interface HealthMachine {
   id: string;
   name: string;
   ships: number;
+  /** The harnesses its trierarch cannot serve now, with why (#1215). */
+  notOffered?: readonly { harness: string; reason: string }[];
 }
 
 interface MachinesPanelProps {
@@ -22,7 +26,8 @@ interface MachinesPanelProps {
 /**
  * The machines last on Health (mock-up A): each one's trierarch, whether it
  * answers, how many ships it crews, and how many deliveries are stuck on
- * them, with the machine to open when any are.
+ * them, with the machine to open when any are, and each harness its trierarch
+ * cannot serve (#1215).
  */
 export function MachinesPanel({ machines, stuckByMachine, renderLiveness }: MachinesPanelProps) {
   return (
@@ -37,7 +42,7 @@ export function MachinesPanel({ machines, stuckByMachine, renderLiveness }: Mach
         {machines.map((machine) => {
           const stuck = stuckByMachine.get(machine.id) ?? 0;
           return (
-            <li key={machine.id} data-testid="health-machine" className="flex items-center gap-4 py-3 first:pt-0 last:pb-0 max-sm:flex-wrap max-sm:gap-2">
+            <li key={machine.id} data-testid="health-machine" className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3 first:pt-0 last:pb-0 max-sm:gap-x-2">
               <span className="inline-flex min-w-40 items-center gap-2 font-medium text-foreground">
                 <Server aria-hidden className="size-(--size-icon) text-muted-foreground" />
                 {machine.name}
@@ -59,6 +64,11 @@ export function MachinesPanel({ machines, stuckByMachine, renderLiveness }: Mach
                   Open machine
                 </Button>
               )}
+              {machine.notOffered?.map(({ harness, reason }) => (
+                <div key={harness} className="basis-full">
+                  <NotOfferedLine harness={harness} reason={reason} />
+                </div>
+              ))}
             </li>
           );
         })}

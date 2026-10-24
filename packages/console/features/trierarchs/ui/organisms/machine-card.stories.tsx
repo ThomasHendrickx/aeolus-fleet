@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, within } from 'storybook/test';
 
-import { ALIVE_MACHINE, NEW_MACHINE, NOW, SILENT_MACHINE, SPOTS } from '../../../../lib/fixtures/machines.fixtures';
+import { ALIVE_MACHINE, NEW_MACHINE, NOT_OFFERED_MACHINE, NOW, SILENT_MACHINE, SPOTS } from '../../../../lib/fixtures/machines.fixtures';
 import { MachineCard } from './machine-card';
 
 const meta = {
@@ -32,3 +32,14 @@ export const DetectedVersions: Story = {
 };
 export const NotAnswering: Story = { args: { machine: SILENT_MACHINE, spots: SPOTS.slice(0, 2), location: { kind: 'DEVICE', description: 'MacBook' } } };
 export const NotStarted: Story = { args: { machine: NEW_MACHINE, spots: [], location: null } };
+
+/** A harness its trierarch cannot serve is told above the ones it offers, with why and that it clears itself (#1215). */
+export const HarnessNotOffered: Story = {
+  args: { machine: NOT_OFFERED_MACHINE },
+  play: async ({ canvasElement }) => {
+    const line = within(canvasElement).getByTestId('not-offered');
+    await expect(line).toHaveTextContent('Codex not offered');
+    await expect(line).toHaveTextContent('its aeolus plugin is not installed (run aeolus-trierarch upgrade).');
+    await expect(line).toHaveTextContent('Clears itself once the plugin is back.');
+  },
+};

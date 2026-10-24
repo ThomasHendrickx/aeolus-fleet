@@ -1,7 +1,7 @@
 import { createIdGenerator, type CrewSettings, type CrewStatus, type ListedShip } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
-import { ALIVE_MACHINE, NEW_MACHINE } from './fixtures/machines.fixtures';
+import { ALIVE_MACHINE, NEW_MACHINE, NOT_OFFERED, NOT_OFFERED_MACHINE } from './fixtures/machines.fixtures';
 import { capacityLine, harnessOptions, machineLiveness, notOfferedOf, silentCount, spotsOf, withWorkspaces } from './machines';
 
 const newId = createIdGenerator();
@@ -124,12 +124,8 @@ describe('harnessOptions', () => {
 });
 
 describe('notOfferedOf', () => {
-  const missing = { harness: 'codex', reason: 'its aeolus plugin is not installed (run aeolus-trierarch upgrade)' } as const;
-
   it('lists each harness a machine cannot serve with its computer and why', () => {
-    const machine = { ...ALIVE_MACHINE, details: { ...ALIVE_MACHINE.details!, notOffered: [missing] } };
-
-    expect(notOfferedOf([machine])).toEqual([{ machineId: machine.shipId, machineName: machine.name, ...missing }]);
+    expect(notOfferedOf([NOT_OFFERED_MACHINE])).toEqual([{ machineId: NOT_OFFERED_MACHINE.shipId, machineName: NOT_OFFERED_MACHINE.name, ...NOT_OFFERED }]);
   });
 
   it('lists nothing for a machine that reports none, or has not reported', () => {
