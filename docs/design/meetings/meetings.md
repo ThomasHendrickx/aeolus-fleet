@@ -4,7 +4,7 @@ Design for [#1168](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1168),
 
 ## 1. Purpose (agreed by Thomas)
 
-Several ships, people's ships among them, hold one shared conversation: everything one participant says reaches every other participant under the delivery promise, and one participant, the moderator, decides who speaks, while Aeolus refuses anyone else. A meeting is aimed at an outcome and ends, or is permanent; that is the only difference between the two.
+Several ships, people's ships among them, hold one shared conversation: everything one participant says reaches every other participant under the delivery promise, and one participant, the moderator, decides who speaks, while Aeolus refuses anyone else. Two parts share most of their logic (Thomas, Q1): a meeting, finite in time with everyone present at once, and a lasting, async conversation of many participants (its name is Q1). No recurrence now.
 
 The first use case: Thomas (his person ship), four heads of agents (marketing, commercial, product, engineering) and a chief of staff agent that moderates and holds the mic. Round robin first: the chief of staff gives the mic to each head in turn; a head with nothing to say passes and is skipped; a head may ask for the mic.
 
@@ -108,7 +108,8 @@ flowchart TD
 
 | # | Question | Options | Pick and why |
 | --- | --- | --- | --- |
-| Q1 | One term or two | 1. Meeting, aimed at an outcome or permanent. 2. Meeting and channel | **1.** Thomas: "it can be both aimed for outcome but also permanent": one part. `channel` is 0040's hand-over channel |
+| Q1 | The name of the lasting, async conversation | 1. Room. 2. Thread. 3. Conversation. 4. Group chat | **1.** No blueprint term uses it. Thread is a message and its replies (blueprint, inbox); conversation is a chat crewing a ship (0015); group is 0052's and chat a harness (`claude-chat`); channel is 0040's |
+| Q1b | What differs in a room | 1. No mic and no moderator: any participant contributes at any time; its opener invites and removes; it never closes, so Q3 to Q5, Q10 and the moderator half of Q11 do not apply; Q6 to Q9 and Q12 to Q14 hold as for a meeting. 2. A room with the mic too | **1.** Async means nobody waits for a turn, and a mic held while its holder is away blocks everyone. Flooding (L1) stays the ships' to avoid, by the ship protocol. A room needing a moderator is a meeting |
 | Q2 | Name for the right to speak | 1. Mic. 2. Turn. 3. Floor | **1.** Thomas's word ("holds the mic"); `turn` is 0040's |
 | Q3 | Who enforces the mic | 1. Aeolus refuses a contribution without the mic; the moderator sets it. 2. A ship convention, Aeolus carries only. 3. Aeolus picks the speaker | **1.** A convention fails exactly when an agent floods (L1). The mic is state a ship sets, visible as events, so no policy (0016). 3 makes Aeolus an orchestrator |
 | Q4 | A contribution without the mic | 1. Refused, nothing stored. 2. Stored and held for the moderator | **1.** Nothing half-sent; asking is its own contribution (Q5) |
