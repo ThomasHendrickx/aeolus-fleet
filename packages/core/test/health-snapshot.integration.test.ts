@@ -256,7 +256,10 @@ describe('a restart mid-hour', () => {
         ),
     });
 
-    await expect(cutOff()).rejects.toThrow('core stopped');
+    const failures: unknown[] = [];
+    await cutOff((_fleetId, error) => failures.push(error));
+
+    expect(failures).toEqual([new Error('core stopped')]);
     await expect(rows()).resolves.toHaveLength(1);
     await expect(core.prisma.healthSnapshotDelivery.count()).resolves.toBe(0);
 
