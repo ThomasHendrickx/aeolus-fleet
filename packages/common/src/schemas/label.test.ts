@@ -169,3 +169,13 @@ describe('findLabelValueInputSchema and findLabelValueOutputSchema', () => {
     expect(findLabelValueOutputSchema.parse(found)).toEqual(found);
   });
 });
+
+describe("fleet.list's sort", () => {
+  it.each(['ship', 'status', 'report', 'runsOn', 'seen'])('sorts by %s', (column) => {
+    expect(fleetListInputSchema.safeParse({ sort: { column, direction: 'ascending' } }).success).toBe(true);
+  });
+
+  it('refuses to sort by the labels: the column shows them, the label filter selects by them', () => {
+    expect(fleetListInputSchema.safeParse({ sort: { column: 'labels', direction: 'ascending' } }).success).toBe(false);
+  });
+});

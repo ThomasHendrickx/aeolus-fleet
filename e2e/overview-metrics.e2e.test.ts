@@ -90,9 +90,10 @@ describe("the overview's metric cards", () => {
 
     await page.getByTestId('overview-awaiting').click();
     await page.waitForURL(/status=awaitingCrew/);
-    await page.getByRole('row', { name: /reviewer-1/ }).waitFor();
+    // The last view's rows stay until the server answers the new one.
+    await page.getByRole('row', { name: /builder/ }).waitFor({ state: 'detached' });
 
-    await expect(page.getByRole('row', { name: /builder/ }).count()).resolves.toBe(0);
+    await expect(page.getByRole('row', { name: /reviewer-1/ }).count()).resolves.toBe(1);
   });
 });
 

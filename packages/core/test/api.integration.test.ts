@@ -261,6 +261,8 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_reach_refusals_page_index$/),
       expect.stringMatching(/^\d{14}_messages_question_id_index$/),
       expect.stringMatching(/^\d{14}_health_snapshot_acknowledged_waits$/),
+      expect.stringMatching(/^\d{14}_ship_listing_indexes$/),
+      expect.stringMatching(/^\d{14}_ship_listing_every_status_indexes$/),
     ]);
   });
 });

@@ -25,10 +25,6 @@ function sortValueOf(ship: ListedShip, column: ShipSortColumn): string | undefin
       return STATUS_WORDS[ship.status];
     case 'report':
       return (ship.kind === 'agent' || ship.kind === 'plugin') && ship.status === 'crewed' ? (ship.report?.note ?? undefined) : undefined;
-    case 'labels': {
-      const [first] = ship.labels;
-      return first === undefined ? undefined : `${first.key}=${first.value}`;
-    }
     case 'runsOn':
       if (ship.status !== 'crewed' || ship.kind === 'viewer') {
         return undefined;

@@ -2,19 +2,29 @@
 
 import type { ShipId } from '@aeolus-fleet/common';
 
-import { useFleetSnapshot, useLabelContext } from '../../../lib/fleet';
+import { useLabelContext } from '../../../lib/fleet';
 import { usePluginShipIds } from '../../../lib/plugin-ships';
 import type { FleetView } from '../services/fleet-filter';
+import { fleetListFilterOf, fleetListSortOf } from '../services/fleet-list-input';
 import { useNow } from '../../../lib/now';
 import { useSquadrons } from '../../../lib/squadrons-api';
 import { shipsInSquadrons } from '../../../lib/squadrons-view';
+import { useFleetCounts, useFleetPages, useShipTypes } from '../hooks/fleet-pages';
 import { FleetTable, type FleetTableProps } from '../ui/organisms/fleet-table';
 
+/** The types the Type filter offers: the fleet's and those picked, each once, sorted. */
+function typesOf(types: readonly string[], picked: readonly string[]): string[] {
+  return [...new Set([...types, ...picked])].toSorted((first, second) => first.localeCompare(second));
+}
+
 /**
- * The fleet overview: the live snapshot in FleetTable, each ship with its
- * actions behind their dialogs (from the page, since they are another feature), and with squadrons on, each flagship's and
- * member's squadron, and each ship's labels with the label filter (#102). Search and filters come from the page, which
- * keeps them in the URL.
+ * The fleet overview: the ships the view selects, 20 a page as `fleet.list`
+ * orders them, with Load more, in FleetTable, each ship with its actions
+ * behind their dialogs (from the page, since they are another feature), and
+ * with squadrons on, each flagship's and member's squadron, and each ship's
+ * labels with the label filter (#102). Search, filters and sort come from
+ * the page, which keeps them in the URL; the counts from `fleet.shipCounts`
+ * and the Type filter's types from `fleet.shipTypes`.
  */
 export function FleetOverview({
   view,
@@ -28,29 +38,32 @@ export function FleetOverview({
   newShipIds: ReadonlySet<ShipId>;
   renderRowActions: FleetTableProps['renderRowActions'];
 }) {
-  const fleet = useFleetSnapshot();
   const now = useNow();
   const squadrons = useSquadrons();
   const labels = useLabelContext();
   const pluginShipIds = usePluginShipIds();
+  const squadronsOf = squadrons.data ? shipsInSquadrons(squadrons.data) : undefined;
+  const filter = fleetListFilterOf(view, { squadronsOf, pluginShipIds });
+  const ships = useFleetPages(filter, fleetListSortOf(view.sort));
+  const { counts, isOnlyArgo } = useFleetCounts(filter);
+  const types = useShipTypes(view.filters.isRetiredShown);
 
   return (
     <section aria-label="Fleet" className="flex flex-col gap-3">
       <FleetTable
-        ships={fleet.data ?? []}
+        ships={ships.items ?? []}
+        counts={counts}
+        isOnlyArgo={isOnlyArgo}
+        types={typesOf(types ?? [], view.filters.type)}
+        more={{ hasMore: ships.hasMore, isLoading: ships.isLoadingMore, isFailed: ships.isLoadMoreFailed, onLoad: ships.loadMore }}
         view={view}
         onViewChange={onViewChange}
-        state={fleet.isPending ? 'loading' : fleet.isError ? 'error' : 'ready'}
-        error={{
-          detail: fleet.error?.message,
-          onRetry: () => {
-            void fleet.refetch();
-          },
-        }}
+        state={ships.isFailed ? 'error' : ships.items === undefined ? 'loading' : 'ready'}
+        error={{ detail: ships.error instanceof Error ? ships.error.message : undefined, onRetry: ships.retry }}
         highlightedShipIds={newShipIds}
         now={now}
         renderRowActions={renderRowActions}
-        squadronsOf={squadrons.data ? shipsInSquadrons(squadrons.data) : undefined}
+        squadronsOf={squadronsOf}
         labels={labels}
         pluginShipIds={pluginShipIds}
       />

@@ -10,6 +10,7 @@ import { threadBefore, type ThreadMessage } from './inbox-thread';
 import type { PluginAnswer } from './plugin-answer';
 import { callPlugin, sessionCookieOf } from './plugin-call';
 import { serverInternalUrlFrom } from './server-url';
+import { EVERY_SHIP_STATUS } from './every-ship-status';
 
 /**
  * argo's inbox as the inbox page reaches it from the web app's server
@@ -52,7 +53,7 @@ export async function readQuestionInbox(deliveryId: DeliveryId): Promise<PluginA
 
 /** The fleet's ships argo reads whole: every one (decision 0034), page after page. */
 async function readShips() {
-  const ships = await everyPage((cursor) => callFleet('fleet.list', { input: { cursor, limit: PAGE_SIZE_MAX }, answers: fleetListOutputSchema }));
+  const ships = await everyPage((cursor) => callFleet('fleet.list', { input: { cursor, limit: PAGE_SIZE_MAX, status: EVERY_SHIP_STATUS }, answers: fleetListOutputSchema }));
   return ships.kind === 'answered' ? { ...ships, data: ships.data.filter(isInReadReach) } : ships;
 }
 

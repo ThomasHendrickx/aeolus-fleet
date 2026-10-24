@@ -494,7 +494,7 @@ describe('listing the fleet on Postgres', () => {
       data: { invalidatedAt: core.clock.now() },
     });
 
-    const listed = wholeShips((await core.useCases.listFleet(argo)).ships);
+    const listed = wholeShips((await core.useCases.listFleet(argo, { status: ['awaitingCrew', 'crewed', 'retired'] })).ships);
 
     expect(listed.find((ship) => ship.name === 'lookout')?.retiredAt).toEqual(core.clock.now());
     expect(listed.map((ship) => [ship.name, ship.status, ship.startingPrompt?.isClaimed ?? null, ship.location])).toEqual([

@@ -44,8 +44,13 @@ beforeEach(async () => {
   core.clock.advance(60_000);
 });
 
-async function listedScout() {
-  return wholeShips((await useCases.listFleet(argo)).ships).find((ship) => ship.id === scoutId);
+async function listedScout(input?: Parameters<typeof useCases.listFleet>[1]) {
+  return wholeShips((await useCases.listFleet(argo, input)).ships).find((ship) => ship.id === scoutId);
+}
+
+/** The scout as a listing that asks for retired ships shows it. */
+async function listedRetiredScout() {
+  return listedScout({ status: ['retired'] });
 }
 
 function scout() {
@@ -97,7 +102,7 @@ describe('since when a ship awaits crew', () => {
   it('is null once the ship is retired', async () => {
     unwrap(await useCases.retireShip(argo, { shipId: scoutId }));
 
-    await expect(listedScout()).resolves.toMatchObject({ awaitingCrewSince: null });
+    await expect(listedRetiredScout()).resolves.toMatchObject({ awaitingCrewSince: null });
   });
 });
 
@@ -111,7 +116,7 @@ describe('when a ship was retired', () => {
 
     unwrap(await useCases.retireShip(argo, { shipId: scoutId }));
 
-    await expect(listedScout()).resolves.toMatchObject({ status: 'retired', retiredAt });
+    await expect(listedRetiredScout()).resolves.toMatchObject({ status: 'retired', retiredAt });
   });
 });
 
@@ -279,7 +284,19 @@ describe('listing the fleet', () => {
       retired.retiredAt = core.clock.now();
     }
 
-    await expect(listedScout()).resolves.toMatchObject({ status: 'retired' });
+    await expect(listedRetiredScout()).resolves.toMatchObject({ status: 'retired' });
+  });
+
+  it('answers the active ships only while the status filter asks for no retired ship', async () => {
+    unwrap(await useCases.retireShip(argo, { shipId: scoutId }));
+
+    await expect(useCases.listFleet(argo).then((page) => page.ships.map((ship) => ship.id))).resolves.toEqual([argoId]);
+  });
+
+  it('answers the retired ships too when the status filter asks for them beside the active ones', async () => {
+    unwrap(await useCases.retireShip(argo, { shipId: scoutId }));
+
+    await expect(useCases.listFleet(argo, { status: ['crewed', 'retired'] }).then((page) => page.ships.map((ship) => ship.id))).resolves.toEqual([argoId, scoutId]);
   });
 
   it("lists only the caller's fleet", async () => {
@@ -476,7 +493,7 @@ describe('listing the fleet within read reach (decision 0034)', () => {
     expect(listed.find((ship) => ship.id === fleet.near.shipId)).toEqual((await fleet.registry.listFleet(fleet.argo)).ships.find((ship) => ship.id === fleet.near.shipId));
   });
 
-  it.each(['report', 'labels', 'runsOn', 'seen'] as const)(
+  it.each(['report', 'runsOn', 'seen'] as const)(
     'gives a ship outside read reach no %s to sort by, so the cursor after it holds only its name and id',
     async (column) => {
       const cursors = [];
@@ -605,20 +622,6 @@ describe('a page of the fleet (decision 4 of the performance design)', () => {
       'scout',
     ]);
   });
-
-  it('sorts by the first label a ship carries, by key then value', async () => {
-    const [testerId, builderId] = await commissionShips(['tester', 'builder']);
-    unwrap(await useCases.defineLabel(argo, { key: 'os', values: ['macos', 'linux'] }));
-    unwrap(await useCases.assignLabel(argo, { shipId: testerId ?? scoutId, valueId: valueIdOf(core, { key: 'os', value: 'linux' }) }));
-    unwrap(await useCases.assignLabel(argo, { shipId: builderId ?? scoutId, valueId: valueIdOf(core, { key: 'os', value: 'macos' }) }));
-
-    await expect(namesPaged({ sort: { column: 'labels', direction: 'ascending' }, limit: 2 }).then((pages) => pages.flat())).resolves.toEqual([
-      'tester',
-      'builder',
-      'argo',
-      'scout',
-    ]);
-  });
 });
 
 describe('selecting the ships of a page by what the overview filters (decision 4 of the performance design)', () => {
@@ -637,7 +640,7 @@ describe('selecting the ships of a page by what the overview filters (decision 4
   }
 
   it('selects the ships whose name or type holds the search text, in any case', async () => {
-    await expect(namesSelected({ query: 'REVIEW' })).resolves.toEqual(['old', 'scout']);
+    await expect(namesSelected({ query: 'REVIEW' })).resolves.toEqual(['scout']);
     await expect(namesSelected({ query: 'uild' })).resolves.toEqual(['builder']);
   });
 
@@ -656,7 +659,7 @@ describe('selecting the ships of a page by what the overview filters (decision 4
 
     await expect(namesSelected({ crewRequest: ['needsCrew'] })).resolves.toEqual(['builder']);
     await expect(namesSelected({ crewRequest: ['crewedByHand'] })).resolves.toEqual(['tester']);
-    await expect(namesSelected({ crewRequest: ['none'] })).resolves.toEqual(['argo', 'old', 'scout']);
+    await expect(namesSelected({ crewRequest: ['none'] })).resolves.toEqual(['argo', 'scout']);
   });
 
   it("selects the ships by the status their trierarch wrote, an assigned request without one as crewing", async () => {
@@ -688,7 +691,7 @@ describe('selecting the ships of a page by what the overview filters (decision 4
     ['plugin', []],
     ['trierarch', ['mac-mini']],
     ['codex', ['tester']],
-    ['other', ['builder', 'old', 'scout']],
+    ['other', ['builder', 'scout']],
   ] as const)('selects the ships whose agent kind is %s', async (kind, names) => {
     await shipWithScopes({ registry: useCases, argo }, { name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] });
     crewShip(core, { fleetId, shipId: testerId, harness: 'codex' });

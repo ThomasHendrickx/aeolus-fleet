@@ -1,8 +1,8 @@
-import { PAGE_SIZE_MAX, SHIP_SORT_COLUMNS, type FleetId, type LabelValueId, type ShipId, type ShipPosition } from '@aeolus-fleet/common';
+import { idSchema, PAGE_SIZE_MAX, SHIP_SORT_COLUMNS, type FleetId, type LabelValueId, type ShipId, type ShipPosition } from '@aeolus-fleet/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { Prisma } from '../src/adapters/prisma/generated/client.js';
-import { fleetListingStatement } from '../src/adapters/prisma/registry.js';
+import { fleetListingStatement, shipTypesStatement } from '../src/adapters/prisma/registry.js';
 import type { ShipPage } from '../src/domain/registry/ports.js';
 import type { ShipCaller } from '../src/domain/shared/caller.js';
 import { operatorCaller } from './support/core-fixtures.js';
@@ -16,6 +16,7 @@ import { withOperatorLogin } from './support/operator-login.js';
 // own. The plan is asserted, not a time, which would flake under load;
 // staging measures the time (decision 7).
 
+/** Active ships seeded, and as many retired ones. */
 const SHIPS = 3_000;
 /** One seeded ship in this many carries the label value. */
 const LABELLED_EVERY = 7;
@@ -35,6 +36,11 @@ beforeAll(async () => {
   await core.prisma.$executeRaw`
     INSERT INTO ships (id, fleet_id, name, type, created_at, kind, scopes)
     SELECT 'shp_0' || lpad(i::text, 25, '0'), ${fleetId}, 'ship-' || i, 'agent', now(), 'agent', '{}'
+    FROM generate_series(1, ${SHIPS}::int) i`;
+  // As many retired ships under the same names, as a fleet keeps them: in among the active ones in name order.
+  await core.prisma.$executeRaw`
+    INSERT INTO ships (id, fleet_id, name, type, created_at, kind, scopes, retired_at)
+    SELECT 'shp_1' || lpad(i::text, 25, '0'), ${fleetId}, 'ship-' || i, 'agent', now(), 'agent', '{}', now()
     FROM generate_series(1, ${SHIPS}::int) i`;
   await core.prisma.$executeRaw`
     INSERT INTO ship_labels (fleet_id, ship_id, label_id, value_id)
@@ -78,10 +84,92 @@ function loopsOfIndex(plan: unknown, index: string): number {
   return own + [...node.values()].reduce((sum: number, each) => sum + loopsOfIndex(each, index), 0);
 }
 
+/** How many ships the plan read through the index named, before any filter dropped one, over every node that reads it. */
+function rowsOfIndex(plan: unknown, index: string): number {
+  if (Array.isArray(plan)) {
+    return plan.reduce((sum: number, each) => sum + rowsOfIndex(each, index), 0);
+  }
+  if (typeof plan !== 'object' || plan === null) {
+    return 0;
+  }
+  const node = new Map(Object.entries(plan));
+  const own = node.get('Index Name') === index ? (Number(node.get('Actual Rows')) + Number(node.get('Rows Removed by Filter') ?? 0)) * Number(node.get('Actual Loops')) : 0;
+  return own + [...node.values()].reduce((sum: number, each) => sum + rowsOfIndex(each, index), 0);
+}
+
+/** The tables the plan reads, each once. */
+function relationsOf(plan: unknown): string[] {
+  const relations = new Set<string>();
+  const walk = (node: unknown): void => {
+    if (Array.isArray(node)) {
+      node.forEach(walk);
+    } else if (typeof node === 'object' && node !== null) {
+      const fields = new Map<string, unknown>(Object.entries(node));
+      const relation = fields.get('Relation Name');
+      if (typeof relation === 'string') {
+        relations.add(relation);
+      }
+      [...fields.values()].forEach(walk);
+    }
+  };
+  walk(plan);
+  return [...relations];
+}
+
+/** Seeded ship number i, as the seed names it. */
+function seeded(i: number): { id: ShipId; name: string } {
+  return { id: idSchema('ship').parse(`shp_0${String(i).padStart(25, '0')}`), name: `ship-${String(i)}` };
+}
+
+/** What the listing selects when the caller asks no status: the active ships. */
+const ACTIVE = { status: ['awaitingCrew', 'crewed'] } as const;
+
+describe('a page of 20 at 3,000 ships, read through its keyset index (decision 4 of the performance design)', () => {
+  it('reads only the page of the default order, argo first and then by name, however far on it starts', async () => {
+    const { id, name } = seeded(2_800);
+    const plan = await planOfPage({ after: { isEmpty: true, value: '', name, id }, limit: 21, filter: ACTIVE, reach: { kind: 'every' } });
+
+    expect(rowsOfIndex(plan, 'ships_listing_idx')).toBeOneOf([21, 22]);
+  });
+
+  it('reads only the page of the default order with the retired ships asked, however far on it starts', async () => {
+    const { id, name } = seeded(2_800);
+    const plan = await planOfPage({ after: { isEmpty: true, value: '', name, id }, limit: 21, filter: { status: ['awaitingCrew', 'crewed', 'retired'] }, reach: { kind: 'every' } });
+
+    expect(rowsOfIndex(plan, 'ships_listing_every_status_idx')).toBeOneOf([21, 22]);
+  });
+
+  it('reads only the page sorted by ship with the retired ships asked, however far on it starts', async () => {
+    const { id, name } = seeded(2_000);
+    const plan = await planOfPage({ after: { isEmpty: false, value: name, name, id }, limit: 21, filter: { status: ['awaitingCrew', 'crewed', 'retired'] }, sort: { column: 'ship', direction: 'descending' }, reach: { kind: 'every' } });
+
+    // Beyond the page: the cursor's own ship, and one more that ends the last name's ties.
+    expect(rowsOfIndex(plan, 'ships_name_listing_every_status_idx')).toBeOneOf([21, 22, 23]);
+  });
+
+  it.each(['ascending', 'descending'] as const)('reads only the page sorted by ship %s, however far on it starts', async (direction) => {
+    const { id, name } = seeded(2_000);
+    const plan = await planOfPage({ after: { isEmpty: false, value: name, name, id }, limit: 21, filter: ACTIVE, sort: { column: 'ship', direction }, reach: { kind: 'every' } });
+
+    // Beyond the page: the cursor's own ship, and one more that ends the last name's ties.
+    expect(rowsOfIndex(plan, 'ships_name_listing_idx')).toBeOneOf([21, 22, 23]);
+  });
+});
+
+describe("the fleet's ship types at 3,000 ships", () => {
+  it('answers each type once, reading the ships table alone, no read per ship', async () => {
+    const [row] = await core.prisma.$queryRaw<{ 'QUERY PLAN': unknown }[]>(
+      Prisma.sql`EXPLAIN (ANALYZE, FORMAT JSON) ${shipTypesStatement(fleetId, { status: ['awaitingCrew', 'crewed'], reach: { kind: 'every' } })}`,
+    );
+
+    expect([await core.useCases.listShipTypes(argo), relationsOf(row?.['QUERY PLAN'])]).toEqual([['agent', 'operator'], ['ships']]);
+  });
+});
+
 describe('the fleet snapshot at 3,000 ships (decision 4 of the performance design)', () => {
   it('pages every ship once, argo first and then by name, in pages of the size asked', async () => {
     const pages = await everyPage({ limit: PAGE_SIZE_MAX });
-    const ships = await core.prisma.ship.findMany({ where: { fleetId }, select: { id: true, name: true, kind: true } });
+    const ships = await core.prisma.ship.findMany({ where: { fleetId, retiredAt: null }, select: { id: true, name: true, kind: true } });
     const expected = ships
       .toSorted((first, second) => Number(first.kind !== 'operator') - Number(second.kind !== 'operator') || (first.name < second.name ? -1 : first.name > second.name ? 1 : 0))
       .map(({ id }) => id);
@@ -94,8 +182,8 @@ describe('the fleet snapshot at 3,000 ships (decision 4 of the performance desig
     async (sort) => {
       const shipIds = await everyPage({ sort, limit: 450 });
 
-      expect(new Set(shipIds.flat()).size).toEqual(await core.prisma.ship.count({ where: { fleetId } }));
-      expect(shipIds.flat()).toHaveLength(await core.prisma.ship.count({ where: { fleetId } }));
+      expect(new Set(shipIds.flat()).size).toEqual(await core.prisma.ship.count({ where: { fleetId, retiredAt: null } }));
+      expect(shipIds.flat()).toHaveLength(await core.prisma.ship.count({ where: { fleetId, retiredAt: null } }));
     },
   );
 

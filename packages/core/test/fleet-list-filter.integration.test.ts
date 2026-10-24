@@ -55,8 +55,12 @@ describe("fleet.list's filters on Postgres (decision 4 of the performance design
     await expect(namesSelected({ status: ['crewed', 'retired'] })).resolves.toEqual(['argo', 'by-hand', 'old']);
   });
 
+  it('answers the active ships only while the status filter asks for no retired ship', async () => {
+    expect([await namesSelected({ type: ['reviewer'] }), await namesSelected({ type: ['reviewer'], status: ['retired'] })]).toEqual([[], ['old']]);
+  });
+
   it('selects the ships of any type picked', async () => {
-    await expect(namesSelected({ type: ['implementer', 'reviewer'] })).resolves.toEqual(['builder', 'by-hand', 'old']);
+    await expect(namesSelected({ type: ['implementer', 'reviewer'] })).resolves.toEqual(['builder', 'by-hand']);
   });
 
   it.each([
@@ -69,7 +73,7 @@ describe("fleet.list's filters on Postgres (decision 4 of the performance design
   });
 
   it('selects the ships without a crew request', async () => {
-    await expect(namesSelected({ crewRequest: ['none'] })).resolves.toEqual(['argo', 'mac-mini', 'old', 'trierarch-plugin']);
+    await expect(namesSelected({ crewRequest: ['none'] })).resolves.toEqual(['argo', 'mac-mini', 'trierarch-plugin']);
   });
 
   it('combines the filters with AND, a page holding only matches', async () => {
