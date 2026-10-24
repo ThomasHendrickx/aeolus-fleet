@@ -27,6 +27,7 @@ describe("listing the fleet's scopes (decision 0046)", () => {
       ['crew', null],
       ['labels', null],
       ['scopes', null],
+      ['meetings', null],
     ]);
     expect(listed.flatMap(({ scopes }) => scopes.map(({ scope }) => scope))).toEqual(SCOPES.toSorted((first, second) => namespaceOrder(first) - namespaceOrder(second)));
   });
@@ -43,7 +44,7 @@ describe("listing the fleet's scopes (decision 0046)", () => {
     unwrap(await registry.declareScopes(squadrons, { namespace: 'squadrons', scopes: [{ scope: 'squadrons:form', description: 'Form a squadron' }] }));
     unwrap(await registry.declareScopes(builders, { namespace: 'builds', scopes: [] }));
 
-    const plugins = (await registry.listScopes(argo)).slice(5);
+    const plugins = (await registry.listScopes(argo)).slice(6);
 
     expect(plugins).toEqual([
       { namespace: 'builds', declaredBy: { id: builders.shipId, name: 'builders' }, scopes: [] },
@@ -64,11 +65,11 @@ describe("listing the fleet's scopes (decision 0046)", () => {
     const otherArgo: ShipCaller = { ...argo, fleetId: other.fleetId, shipId: other.operatorShipId };
     unwrap(await registry.declareScopes(otherArgo, { namespace: 'squadrons', scopes: [] }));
 
-    await expect(registry.listScopes(argo)).resolves.toHaveLength(5);
+    await expect(registry.listScopes(argo)).resolves.toHaveLength(6);
   });
 });
 
 /** Where a scope's namespace stands among the core namespaces. */
 function namespaceOrder(scope: string): number {
-  return ['messages', 'fleet', 'crew', 'labels', 'scopes'].indexOf(scope.slice(0, scope.indexOf(':')));
+  return ['messages', 'fleet', 'crew', 'labels', 'scopes', 'meetings'].indexOf(scope.slice(0, scope.indexOf(':')));
 }

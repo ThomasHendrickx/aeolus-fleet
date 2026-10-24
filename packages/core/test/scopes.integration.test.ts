@@ -84,7 +84,7 @@ describe('declaring scopes on Postgres', () => {
     const declared = await Promise.all([first, second].map((ship) => core.useCases.declareScopes(ship, { namespace: 'squadrons', scopes: [FORM] })));
 
     expect(declared.map((result) => (result.isOk ? 'declared' : result.error.kind)).toSorted()).toEqual(['NAMESPACE_TAKEN', 'declared']);
-    await expect(core.useCases.listScopes(argo()).then((listed) => listed.slice(5).map(({ namespace }) => namespace))).resolves.toEqual(['squadrons']);
+    await expect(core.useCases.listScopes(argo()).then((listed) => listed.slice(6).map(({ namespace }) => namespace))).resolves.toEqual(['squadrons']);
   });
 
   it('gives one ship one of two namespaces it declares at once', async () => {
@@ -93,7 +93,7 @@ describe('declaring scopes on Postgres', () => {
     const declared = await Promise.all(['squadrons', 'fleets'].map((namespace) => core.useCases.declareScopes(squadrons, { namespace, scopes: [] })));
 
     expect(declared.map((result) => (result.isOk ? 'declared' : result.error.kind)).toSorted()).toEqual(['SECOND_NAMESPACE', 'declared']);
-    await expect(core.useCases.listScopes(argo()).then((listed) => listed.slice(5))).resolves.toHaveLength(1);
+    await expect(core.useCases.listScopes(argo()).then((listed) => listed.slice(6))).resolves.toHaveLength(1);
   });
 
   it('refuses to remove a scope an active ship holds, and keeps the list it had', async () => {

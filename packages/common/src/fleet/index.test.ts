@@ -15,7 +15,7 @@ import {
 } from './index.js';
 
 describe('the scopes', () => {
-  it('are the message scopes, then the fleet scopes, then the scopes for what was argo\'s alone, then declaring and granting scopes, and nothing else (decisions 0046, 0053)', () => {
+  it('are the message scopes, then the fleet scopes, then the scopes for what was argo\'s alone, then declaring and granting scopes, then opening meetings, and nothing else (decisions 0046, 0053, 0061)', () => {
     expect(SCOPES).toEqual([
       'messages:send',
       'messages:receive',
@@ -38,6 +38,7 @@ describe('the scopes', () => {
       'fleet:verify',
       'scopes:declare',
       'scopes:grant',
+      'meetings:open',
     ]);
   });
 
@@ -59,13 +60,14 @@ describe('the scopes', () => {
       'fleet:connect',
       'labels:any',
       'fleet:verify',
+      'meetings:open',
     ]);
   });
 });
 
 describe('the core namespaces', () => {
-  it('are messages, fleet, crew, labels and scopes, reserved for core (decision 0046)', () => {
-    expect(CORE_NAMESPACES).toEqual(['messages', 'fleet', 'crew', 'labels', 'scopes']);
+  it('are messages, fleet, crew, labels, scopes and meetings, reserved for core (decisions 0046, 0061)', () => {
+    expect(CORE_NAMESPACES).toEqual(['messages', 'fleet', 'crew', 'labels', 'scopes', 'meetings']);
   });
 
   it('name every core scope', () => {
@@ -182,6 +184,8 @@ describe('eventTypeSchema', () => {
       'PluginDisconnected',
       'VerifiedFactsSet',
       'VerifiedFactsRemoved',
+      'MeetingOpened',
+      'ParticipantAdded',
     ]);
   });
 });
@@ -193,8 +197,8 @@ describe('shipStatusSchema', () => {
 });
 
 describe('selectorKindSchema', () => {
-  it('knows ship and type, nothing else yet', () => {
-    expect(selectorKindSchema.options).toEqual(['ship', 'type']);
+  it('knows ship, type and meeting, nothing else yet (decision 0061)', () => {
+    expect(selectorKindSchema.options).toEqual(['ship', 'type', 'meeting']);
   });
 });
 

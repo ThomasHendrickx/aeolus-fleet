@@ -148,6 +148,7 @@ describe('deliveryOutputSchema', () => {
     sentAt: '2026-10-21T12:01:00.000Z',
     attempts: 1,
     isForced: false,
+    meetingId: null,
     state: 'acknowledged',
   };
 
@@ -186,6 +187,7 @@ describe('receivedDeliverySchema', () => {
     sentAt: '2026-09-30T12:00:00.000Z',
     attempts: 1,
     isForced: false,
+    meetingId: null,
   };
 
   it("accepts a delivery to the ship, with its message and its sender's id, name and type", () => {
@@ -204,6 +206,12 @@ describe('receivedDeliverySchema', () => {
     expect(receivedDeliverySchema.parse(toType)).toEqual(toType);
   });
 
+  it('accepts a delivery of a meeting, which names it (decision 0061)', () => {
+    const ofMeeting = { ...delivery, meetingId: newId('meeting') };
+
+    expect(receivedDeliverySchema.parse(ofMeeting)).toEqual(ofMeeting);
+  });
+
   it('accepts a forced delivery, which says so (decision 0040)', () => {
     const forced = { ...delivery, isForced: true };
 
@@ -218,6 +226,7 @@ describe('receivedDeliverySchema', () => {
     ['no sender name', { ...delivery, senderName: undefined }],
     ['no sender type', { ...delivery, senderType: undefined }],
     ['no word on whether it was forced', { ...delivery, isForced: undefined }],
+    ['no word on its meeting', { ...delivery, meetingId: undefined }],
   ])('rejects %s', (_label, candidate) => {
     expect(receivedDeliverySchema.safeParse(candidate).success).toBe(false);
   });
@@ -299,6 +308,7 @@ describe('pushReceivedDeliverySchema', () => {
     sentAt: '2026-10-12T12:00:00.000Z',
     attempts: 0,
     isForced: false,
+    meetingId: null,
     state: 'received',
     handOverNumber: null,
   };

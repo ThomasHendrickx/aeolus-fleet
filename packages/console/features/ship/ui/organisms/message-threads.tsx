@@ -13,6 +13,7 @@ import { InlineError } from '../../../../components/molecules/inline-error';
 import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
 import { Sentence } from '../molecules/sentence';
 import { StatusBadge } from '../../../../components/molecules/status-badge';
+import { recipientGroupWords } from '../../../../lib/recipient';
 
 interface MessageThreadsProps {
   /** The ship whose page this is: a message is sent by it or received. */
@@ -35,7 +36,7 @@ function counterparty(message: ListedMessage, isSent: boolean): SentencePart[] {
   }
   return message.recipient.kind === 'ship'
     ? [text('To '), ship(message.recipient.ship)]
-    : [text(`To any ship of type ${message.recipient.type}`)];
+    : [text(`To ${recipientGroupWords(message.recipient)}`)];
 }
 
 function MessageRow({

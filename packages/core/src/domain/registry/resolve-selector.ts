@@ -2,7 +2,7 @@ import type { FleetId } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
-import type { Recipient, Selector } from '../shared/selector.js';
+import type { Recipient, RecipientSelector } from '../shared/selector.js';
 import type { ShipRepository } from './ports.js';
 import { addressShip } from './ship.js';
 
@@ -26,7 +26,7 @@ export type UnresolvableSelector = DomainError<'UNRESOLVABLE_SELECTOR'>;
  */
 export async function resolveSelector(
   tx: ResolveSelectorTx,
-  input: { fleetId: FleetId; selector: Selector },
+  input: { fleetId: FleetId; selector: RecipientSelector },
 ): Promise<Result<Recipient, UnresolvableSelector>> {
   const { fleetId, selector } = input;
   switch (selector.kind) {

@@ -25,6 +25,8 @@ export const ID_PREFIXES = {
   reachRefusal: 'rfs',
   /** A pending request for an outside party, which the gateway keeps (decision 0056). */
   request: 'req',
+  /** A meeting of ships (decision 0061). */
+  meeting: 'mtg',
 } as const;
 
 export type IdKind = keyof typeof ID_PREFIXES;
@@ -51,6 +53,7 @@ export type LabelId = Id<'label'>;
 export type LabelValueId = Id<'labelValue'>;
 export type ReachRefusalId = Id<'reachRefusal'>;
 export type RequestId = Id<'request'>;
+export type MeetingId = Id<'meeting'>;
 
 /** Crockford base32, lowercase. Leaves out i, l, o and u. */
 const ALPHABET = '0123456789abcdefghjkmnpqrstvwxyz';

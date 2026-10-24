@@ -1,6 +1,6 @@
 import { readdirSync } from 'node:fs';
 
-import { ANY_LABEL_VALUE, createIdGenerator, idSchema, SAME_LABEL_VALUE, SCOPES, type FleetId, type NetworkRule, type Scope, type SendInput, type ShipId } from '@aeolus-fleet/common';
+import { ANY_LABEL_VALUE, createIdGenerator, idSchema, MEETING_ADDED_CONTENT_TYPE, SAME_LABEL_VALUE, SCOPES, type FleetId, type NetworkRule, type Scope, type SendInput, type ShipId } from '@aeolus-fleet/common';
 import { createTRPCClient, httpBatchLink, TRPCClientError, type TRPCClient } from '@trpc/client';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
@@ -264,6 +264,8 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_ship_listing_indexes$/),
       expect.stringMatching(/^\d{14}_ship_listing_every_status_indexes$/),
       expect.stringMatching(/^\d{14}_ship_kind_listing_index$/),
+      expect.stringMatching(/^\d{14}_meetings$/),
+      expect.stringMatching(/^\d{14}_meetings_open_scope$/),
     ]);
   });
 });
@@ -981,6 +983,7 @@ describe('ship.receive and ship.ack at the API', () => {
         sentAt: clock.now().toISOString(),
         attempts: 1,
         isForced: false,
+        meetingId: null,
       },
     ]);
     await expect(receiver.asShip.ship.ack.mutate({ deliveryId })).resolves.toEqual({});
@@ -2307,6 +2310,53 @@ describe('network rules at the API', () => {
     });
     expect((await sender.ship.send.mutate(toShip(neighbourId))).messageId).toMatch(/^msg_/);
     await expect(refusalOf(sender.ship.send.mutate(toShip(strangerId)))).resolves.toEqual({ code: 'FORBIDDEN', message: 'The network rules do not allow this send' });
+  });
+
+  it('let two ships a third opened a meeting with exchange contributions though neither reaches the other, each acknowledging its own delivery, and refuse an open to a ship the opener does not reach (decision 0061)', async () => {
+    const asLabeller = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'labels:define', 'labels:assign'])}` });
+    const role = await asLabeller.fleet.defineLabel.mutate({ key: 'api-meeting-role', values: ['chief', 'head'] });
+    const [chiefValue, headValue] = role.values.map((value) => value.id);
+    const chief = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'meetings:open'])}` });
+    const marketing = client({ authorization: `Bearer ${await crewedShip()}` });
+    const product = client({ authorization: `Bearer ${await crewedShip()}` });
+    const [chiefId, marketingId, productId] = await Promise.all([chief, marketing, product].map(async (ship) => (await commissionedBy(asLabeller, await ship.ship.whoami.query())).shipId));
+    const { shipId: outsiderId } = await agentShip();
+    for (const [shipId, valueId] of [
+      [chiefId, chiefValue],
+      [marketingId, headValue],
+      [productId, headValue],
+    ] as const) {
+      await asLabeller.fleet.assignLabel.mutate({ shipId: shipId ?? newId('ship'), valueId: valueId ?? newId('labelValue') });
+    }
+    await applied(await networker(), [{ verb: 'send', from: [chiefValue ?? newId('labelValue')], to: [headValue ?? newId('labelValue')] }]);
+    const toMeeting = (meetingId: string, payload: string) => ({ selector: { kind: 'meeting' as const, meetingId: idSchema('meeting').parse(meetingId) }, payload, idempotencyKey: newKey(), model: SESSION_MODEL });
+    /** Receives every waiting delivery of the ship, acknowledging each, and answers their payloads and meetings. */
+    async function receivedBy(ship: TRPCClient<AppRouter>) {
+      const { deliveries } = await ship.ship.receive.mutate({ max: 10 });
+      for (const { deliveryId } of deliveries) {
+        await ship.ship.ack.mutate({ deliveryId });
+      }
+      return deliveries.map(({ payload, contentType, meetingId }) => ({ payload, contentType, meetingId }));
+    }
+
+    const { meetingId } = await chief.ship.openMeeting.mutate({ ships: [{ shipId: marketingId ?? newId('ship') }, { shipId: productId ?? newId('ship') }], idempotencyKey: newKey(), model: SESSION_MODEL });
+    expect((await receivedBy(marketing)).map(({ contentType, meetingId: of }) => ({ contentType, meetingId: of }))).toEqual([{ contentType: MEETING_ADDED_CONTENT_TYPE, meetingId }]);
+    await receivedBy(product);
+    await marketing.ship.send.mutate(toMeeting(meetingId, 'Copy is ready'));
+    await product.ship.send.mutate(toMeeting(meetingId, 'Friday works'));
+
+    await expect(receivedBy(product)).resolves.toEqual([{ payload: 'Copy is ready', contentType: 'text/plain', meetingId }]);
+    await expect(receivedBy(marketing)).resolves.toEqual([{ payload: 'Friday works', contentType: 'text/plain', meetingId }]);
+    await expect(receivedBy(chief)).resolves.toEqual([
+      { payload: 'Copy is ready', contentType: 'text/plain', meetingId },
+      { payload: 'Friday works', contentType: 'text/plain', meetingId },
+    ]);
+    await expect(refusalOf(marketing.ship.send.mutate({ selector: { kind: 'ship', shipId: productId ?? newId('ship') }, payload: 'Just us', idempotencyKey: newKey(), model: SESSION_MODEL }))).resolves.toEqual({
+      code: 'FORBIDDEN',
+      message: 'The network rules do not allow this send',
+    });
+    await expect(product.ship.meeting.query({ meetingId })).resolves.toMatchObject({ contributions: { items: [{ payload: 'Friday works' }, { payload: 'Copy is ready' }], nextCursor: null } });
+    await expect(codeOf(chief.ship.openMeeting.mutate({ ships: [{ shipId: outsiderId }], idempotencyKey: newKey(), model: SESSION_MODEL }))).resolves.toBe('FORBIDDEN');
   });
 
   it('take a term of any value, and answer a term of the same value on one side only with BAD_REQUEST naming decision 0034', async () => {

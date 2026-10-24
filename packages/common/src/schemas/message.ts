@@ -61,12 +61,14 @@ export const modelSchema = z
 
 /**
  * Who a message is for (docs/blueprint.md, "Selector"): one ship, by id or by
- * name, or any ship of a type. A name is resolved to the ship's id at send time.
+ * name, any ship of a type, or every other participant of a meeting (decision
+ * 0061). A name is resolved to the ship's id at send time.
  */
 export const selectorSchema = z.union([
   z.strictObject({ kind: z.literal('ship'), shipId: idSchema('ship') }),
   z.strictObject({ kind: z.literal('ship'), name: shipHandleSchema }),
   z.strictObject({ kind: z.literal('type'), type: shipHandleSchema }),
+  z.strictObject({ kind: z.literal('meeting'), meetingId: idSchema('meeting') }),
 ]);
 
 export type SelectorInput = z.infer<typeof selectorSchema>;

@@ -98,6 +98,7 @@ describe('selectorSchema', () => {
     ['a ship by name', { kind: 'ship', name: 'scout' }],
     ['argo by name', { kind: 'ship', name: 'argo' }],
     ['a type', { kind: 'type', type: 'reviewer' }],
+    ['a meeting (decision 0061)', { kind: 'meeting', meetingId: newId('meeting') }],
   ])('accepts %s', (_label, selector) => {
     expect(selectorSchema.parse(selector)).toEqual(selector);
   });
@@ -110,6 +111,7 @@ describe('selectorSchema', () => {
     ['a type that is not a handle', { kind: 'type', type: 'Reviewer' }],
     ['a type with a name', { kind: 'type', type: 'reviewer', name: 'scout' }],
     ['a group, which comes later', { kind: 'group', group: 'reviewers' }],
+    ['a meeting id of another kind', { kind: 'meeting', meetingId: newId('message') }],
   ])('rejects %s', (_label, selector) => {
     expect(selectorSchema.safeParse(selector).success).toBe(false);
   });

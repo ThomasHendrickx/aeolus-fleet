@@ -148,6 +148,8 @@ describe('migrations', () => {
       'label_values',
       'labels',
       'leases',
+      'meeting_participants',
+      'meetings',
       'message_days',
       'messages',
       'network_rules_drafts',
@@ -1456,8 +1458,8 @@ describe('the handed migration', () => {
       await before.$executeRaw`
         INSERT INTO leases (id, fleet_id, ship_id, location, started_at)
         VALUES (${leaseId}, ${fleetId}, ${shipId}, 'DEVICE', ${now})`;
-      await before.message.create({
-        data: { id: messageId, fleetId, senderShipId: shipId, selectorKind: 'ship', selectorShipId: shipId, payload: '{}', contentType: 'application/json', idempotencyKey: messageId, requestHash: messageId, createdAt: now },
+      await before.message.createMany({
+        data: [{ id: messageId, fleetId, senderShipId: shipId, selectorKind: 'ship', selectorShipId: shipId, payload: '{}', contentType: 'application/json', idempotencyKey: messageId, requestHash: messageId, createdAt: now }],
       });
       // Raw: the generated client knows no state delivered any more.
       await before.$executeRaw`
@@ -1667,6 +1669,83 @@ describe('the verify scope migration', () => {
       await expect(
         client.ship.create({ data: { id: newId('ship'), fleetId, name: 'gateway', type: 'gateway', kind: 'agent', scopes: ['messages:send', 'messages:receive', 'fleet:verify'], createdAt: now } }),
       ).resolves.toBeDefined();
+    } finally {
+      await client.$disconnect();
+    }
+  });
+});
+
+describe('the meetings:open scope migration', () => {
+  const MIGRATIONS = fileURLToPath(new URL('../src/adapters/prisma/migrations', import.meta.url));
+  const meetingsOpen = readdirSync(MIGRATIONS).find((name) => name.endsWith('_meetings_open_scope'));
+  const everyScopeBefore = ['messages:send', 'messages:receive', 'messages:force', 'messages:resend', 'fleet:read', 'fleet:commission', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'fleet:on-behalf', 'fleet:person', 'fleet:owner', 'fleet:explain', 'fleet:connect', 'labels:any', 'fleet:verify', 'scopes:declare', 'scopes:grant', 'squadrons:form'];
+
+  it("gives every fleet's argo meetings:open in catalogue order, once, and no other ship (decision 0061)", async () => {
+    const url = await createMigratedDatabase();
+    const client = createPrismaClient(url);
+    const fleetId = newId('fleet');
+    const argoId = newId('ship');
+    const scoutId = newId('ship');
+    try {
+      await client.fleet.create({ data: { id: fleetId, name: 'old fleet', createdAt: now } });
+      await client.ship.createMany({
+        data: [
+          { id: argoId, fleetId, name: 'argo', type: 'operator', kind: 'operator', scopes: everyScopeBefore, createdAt: now },
+          { id: scoutId, fleetId, name: 'scout', type: 'reviewer', kind: 'agent', scopes: ['messages:send', 'messages:receive', 'fleet:read'], createdAt: now },
+        ],
+      });
+
+      await executeSqlFile(url, `${MIGRATIONS}/${meetingsOpen ?? 'missing'}/migration.sql`);
+      await executeSqlFile(url, `${MIGRATIONS}/${meetingsOpen ?? 'missing'}/migration.sql`);
+
+      const ships = await client.ship.findMany({ where: { fleetId }, select: { id: true, scopes: true } });
+      expect(new Map(ships.map(({ id, scopes }) => [id, scopes]))).toEqual(
+        new Map([
+          [
+            argoId,
+            ['messages:send', 'messages:receive', 'messages:force', 'messages:resend', 'fleet:read', 'fleet:commission', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'fleet:on-behalf', 'fleet:person', 'fleet:owner', 'fleet:explain', 'fleet:connect', 'labels:any', 'fleet:verify', 'scopes:declare', 'scopes:grant', 'meetings:open', 'squadrons:form'],
+          ],
+          [scoutId, ['messages:send', 'messages:receive', 'fleet:read']],
+        ]),
+      );
+    } finally {
+      await client.$disconnect();
+    }
+  });
+
+  it('records ScopesChanged for each argo it changes, adding meetings:open, by the system, at the next number of its fleet', async () => {
+    const url = await createMigratedDatabase();
+    const client = createPrismaClient(url);
+    const fleetId = newId('fleet');
+    const argoId = newId('ship');
+    try {
+      await client.fleet.create({ data: { id: fleetId, name: 'old fleet', createdAt: now, lastEventSeq: 1n } });
+      await client.ship.create({ data: { id: argoId, fleetId, name: 'argo', type: 'operator', kind: 'operator', scopes: everyScopeBefore, createdAt: now } });
+
+      await executeSqlFile(url, `${MIGRATIONS}/${meetingsOpen ?? 'missing'}/migration.sql`);
+
+      const recorded = await client.event.findMany({ where: { fleetId } });
+      expect(recorded).toMatchObject([
+        { type: 'ScopesChanged', actorKind: 'system', actorShipId: null, shipId: argoId, details: { added: 'meetings:open', removed: '' }, seq: 2n },
+      ]);
+    } finally {
+      await client.$disconnect();
+    }
+  });
+
+  it('lets a ship hold meetings:open, and keeps the meetings namespace from any plugin', async () => {
+    const url = await createMigratedDatabase();
+    const client = createPrismaClient(url);
+    const fleetId = newId('fleet');
+    try {
+      await client.fleet.create({ data: { id: fleetId, name: 'fleet', createdAt: now } });
+
+      await expect(
+        client.ship.create({ data: { id: newId('ship'), fleetId, name: 'chief', type: 'chief-of-staff', kind: 'agent', scopes: ['messages:send', 'messages:receive', 'meetings:open'], createdAt: now } }),
+      ).resolves.toBeDefined();
+      await expect(
+        client.ship.create({ data: { id: newId('ship'), fleetId, name: 'rogue', type: 'rogue', kind: 'agent', scopes: ['messages:send', 'meetings:close'], createdAt: now } }),
+      ).rejects.toThrow();
     } finally {
       await client.$disconnect();
     }

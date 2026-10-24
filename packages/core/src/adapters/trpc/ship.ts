@@ -10,7 +10,12 @@ import {
   handledOutputSchema,
   inboxInputSchema,
   inboxOutputSchema,
+  meetingInputSchema,
+  meetingOutputSchema,
   notHandledInputSchema,
+  openMeetingInputSchema,
+  openMeetingOutputSchema,
+  PAGE_SIZE_DEFAULT,
   notHandledOutputSchema,
   PING_CONTENT_TYPE,
   pongInputSchema,
@@ -118,7 +123,9 @@ export const shipRouter = router({
         'Sends a message from your ship. It answers with the messageId only once the message is stored:',
         'from then on it reaches its recipient, even one that is not running now.',
         'selector picks the recipient: one ship by name { "kind": "ship", "name": "..." } or by id { "kind": "ship", "shipId": "shp_..." },',
-        'or any one ship of a type { "kind": "type", "type": "..." }.',
+        'or any one ship of a type { "kind": "type", "type": "..." },',
+        'or every other participant of a meeting you take part in { "kind": "meeting", "meetingId": "mtg_..." }: a contribution, one delivery each,',
+        'which names no inReplyTo and is never forced.',
         'inReplyTo, for an answer, is the messageId of the message you answer: the message id, not the delivery id.',
         'payload is text of at most 64 KB: a reference to the content and an instruction, not the content itself.',
         'contentType is text/plain unless you say otherwise.',
@@ -134,6 +141,53 @@ export const shipRouter = router({
     .input(sendInputSchema)
     .output(sendOutputSchema)
     .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.sendMessage(ctx.caller, input))),
+
+  /**
+   * Opens a meeting of the calling ship and the ships it invites, owned and
+   * moderated by the caller (decision 0061). Answers with the meeting's id
+   * only once the meeting and every added notice are stored.
+   */
+  openMeeting: scopedProcedure('meetings:open')
+    .meta({
+      description: [
+        'Needs meetings:open. Opens a meeting: you own and moderate it, and every ship you invite takes part.',
+        'ships invites ships by id { "shipId": "shp_..." } or by name { "name": "..." }; valueIds invites the ships carrying every one of those label values.',
+        'You must reach every invitee by send, or nothing is opened (NOT_REACHABLE); inside, participants reach each other whatever their own reach.',
+        'Each invitee gets a message from you of application/vnd.aeolus.meeting.added+json naming the meeting, its owner, moderator and participants.',
+        'Contribute with send and the selector { "kind": "meeting", "meetingId": "mtg_..." }.',
+        'model is the exact model id you run now, as on send. idempotencyKey is a new unique string for every meeting:',
+        'a retry with it answers the same meetingId, and another request with a used key is refused (CONFLICT).',
+      ].join(' '),
+      requiredOfCrews: ['model'],
+    })
+    .input(openMeetingInputSchema)
+    .output(openMeetingOutputSchema)
+    .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.openMeeting(ctx.caller, input))),
+
+  /**
+   * A meeting the caller takes part in, with its participants as they are
+   * now and a page of what was said so far, newest first (decision 0061).
+   */
+  meeting: scopedProcedure('messages:receive')
+    .meta({
+      description: [
+        'For a meeting you take part in, by its meetingId: its owner and moderator, when it opened and ended,',
+        'each participant with its kind and status (crewed or awaitingCrew), and what was said so far, newest first,',
+        'a page at a time: pass the nextCursor it answers as cursor for the page before. A late or rejoined participant reads here what it missed.',
+        'A meeting you take no part in is refused as one that does not exist (NOT_FOUND).',
+      ].join(' '),
+    })
+    .input(meetingInputSchema)
+    .output(meetingOutputSchema)
+    .query(async ({ ctx, input }) => {
+      const read = okOrThrow(await ctx.useCases.readMeeting(ctx.caller, { meetingId: input.meetingId, cursor: input.cursor, limit: input.limit ?? PAGE_SIZE_DEFAULT }));
+      return {
+        ...read,
+        openedAt: read.openedAt.toISOString(),
+        endedAt: read.endedAt?.toISOString() ?? null,
+        contributions: { ...read.contributions, items: read.contributions.items.map((item) => ({ ...item, sentAt: item.sentAt.toISOString() })) },
+      };
+    }),
 
   /**
    * Hands the crew up to `max` deliveries, 1 to 10, one by default: forced

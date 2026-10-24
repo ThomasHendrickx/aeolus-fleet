@@ -94,18 +94,19 @@ export const discardNetworkRulesDraftOutputSchema = z.object({});
  * The built-in rules, core's own (decision 0034): argo to and from every ship,
  * the owner's ship to the ships it owns, an answer to the sender of the
  * message it answers, and a connected plugin's ship reading every ship, which
- * are never off; the viewer reading every ship,
+ * are never off; the participants of a meeting reaching each other within it,
+ * never off (decision 0061); the viewer reading every ship,
  * which an actor holding fleet:network turns off or on; the installation
  * managing person ships and the ships they own, never off (decision 0020); and
  * open, every ship to every ship by every verb, on exactly while the fleet has
  * no rules applied.
  */
-export const BUILT_IN_RULES = ['argo', 'owner', 'answer', 'pluginRead', 'viewerRead', 'installation', 'open'] as const;
+export const BUILT_IN_RULES = ['argo', 'owner', 'answer', 'pluginRead', 'meeting', 'viewerRead', 'installation', 'open'] as const;
 
 export type BuiltInRule = (typeof BUILT_IN_RULES)[number];
 
 /** The built-in rules that are never off. */
-export const FIXED_BUILT_IN_RULES = ['argo', 'owner', 'answer', 'pluginRead', 'installation'] as const satisfies readonly BuiltInRule[];
+export const FIXED_BUILT_IN_RULES = ['argo', 'owner', 'answer', 'pluginRead', 'meeting', 'installation'] as const satisfies readonly BuiltInRule[];
 
 /** Input of `fleet.setBuiltInRule` (fleet:network): a built-in rule turned on or off; the server turns only the viewer reading. */
 export const setBuiltInRuleInputSchema = z.object({ rule: z.enum(BUILT_IN_RULES), isOn: z.boolean() });

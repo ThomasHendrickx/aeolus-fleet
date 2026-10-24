@@ -143,6 +143,7 @@ describe('receiving on Postgres', () => {
           sentAt: message.createdAt,
           attempts: 1,
           isForced: false,
+          meetingId: null,
         },
       ],
     });

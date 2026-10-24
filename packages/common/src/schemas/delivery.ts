@@ -62,6 +62,8 @@ export const receivedDeliverySchema = z.object({
   attempts: z.int().positive(),
   /** Whether its message was sent forced, to act on now (decision 0040). */
   isForced: z.boolean(),
+  /** The meeting its message was contributed to or tells of; null outside a meeting (decision 0061). */
+  meetingId: idSchema('meeting').nullable(),
 });
 
 export type ReceivedDelivery = z.infer<typeof receivedDeliverySchema>;

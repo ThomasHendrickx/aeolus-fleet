@@ -152,6 +152,7 @@ describe('handing a delivery over', () => {
           sentAt: message?.createdAt,
           attempts: 1,
           isForced: false,
+          meetingId: null,
         },
       ],
     });
