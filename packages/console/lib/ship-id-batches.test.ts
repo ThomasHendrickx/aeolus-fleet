@@ -1,7 +1,7 @@
 import { idSchema, type ShipId } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
-import { SHIP_IDS_PER_READ, shipIdBatchesOf } from './listed-ships';
+import { SHIP_IDS_PER_READ, shipIdBatchesOf } from './ship-id-batches';
 
 function shipId(index: number): ShipId {
   return idSchema('ship').parse(`shp_01m3tbfspe96yf1rnr4an${String(index).padStart(5, '0')}`);
