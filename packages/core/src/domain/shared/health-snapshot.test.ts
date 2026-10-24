@@ -57,7 +57,7 @@ function anEvent(type: EventType, about: { at: Date; deliveryId?: DeliveryId; sh
   };
 }
 
-function crewsOf(parts: Partial<HealthCrews> = {}): HealthCrews {
+function crewsOf(parts: Partial<HealthCrews> = {}): HealthCrews & { machines: [] } {
   return { ships: [scout, planner, mapper], leases: [], machines: [], ...parts };
 }
 

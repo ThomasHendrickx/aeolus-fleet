@@ -65,6 +65,7 @@ import type { NetworkRulesDraft } from '../../src/domain/registry/network-rules-
 import type { ScopeNamespace } from '../../src/domain/registry/scope-namespace.js';
 import { noNetworkSettings, type NetworkSettings } from '../../src/domain/registry/network-settings.js';
 import type { ReachRefusal } from '../../src/domain/registry/reach-refusal.js';
+import { shipCountsOf } from '../../src/domain/registry/ship-counts.js';
 import { isSameCommissioner, type Ship } from '../../src/domain/registry/ship.js';
 import { listedShipOf } from '../../src/domain/registry/list-fleet.js';
 import type { ShipReport } from '../../src/domain/registry/ship-report.js';
@@ -1492,6 +1493,15 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       const held = state.ships.find((candidate) => candidate.fleetId === fleetId && candidate.id === shipId);
       return Promise.resolve(held && factsOf(held));
     },
+    counts: (fleetId, { reach, filter }) =>
+      Promise.resolve(
+        shipCountsOf(
+          state.ships
+            .filter((held) => held.fleetId === fleetId && readsShip(reach, held.id))
+            .map((held) => listedShipOf(factsOf(held)))
+            .filter((listed) => matchesShipFilter(listed, { filter, isInReach: true })),
+        ),
+      ),
     labels: (fleetId) =>
       Promise.resolve(
         state.labels

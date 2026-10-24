@@ -82,6 +82,8 @@ import { createSetInstallationSettings } from '../../src/domain/registry/set-ins
 import { createReadFleetLimits } from '../../src/domain/shared/read-fleet-limits.js';
 import { createDeregister } from '../../src/domain/registry/deregister.js';
 import { createGetShip } from '../../src/domain/registry/get-ship.js';
+import { createReadListedShip } from '../../src/domain/registry/read-listed-ship.js';
+import { createCountShips } from '../../src/domain/registry/count-ships.js';
 import { createReadOnBehalf } from '../../src/domain/registry/read-on-behalf.js';
 import { createGetStartingPrompt } from '../../src/domain/registry/get-starting-prompt.js';
 import { createInitialiseFleet, type FleetInitialised } from '../../src/domain/registry/initialise-fleet.js';
@@ -130,7 +132,12 @@ import { createReadMessage } from '../../src/domain/shared/read-message.js';
 import { createReadSentMessage } from '../../src/domain/shared/read-sent-message.js';
 import { createReadShipWay } from '../../src/domain/shared/read-ship-way.js';
 import { createReadNeedsAttention } from '../../src/domain/shared/read-needs-attention.js';
+import { createReadAcknowledged } from '../../src/domain/shared/read-acknowledged.js';
 import { createReadHealth } from '../../src/domain/shared/read-health.js';
+import { createReadStuckCount } from '../../src/domain/shared/read-stuck-count.js';
+import { createReadStuckHistory } from '../../src/domain/shared/read-stuck-history.js';
+import { createReadStuckSummary } from '../../src/domain/shared/read-stuck-summary.js';
+import { createReadStuck } from '../../src/domain/shared/read-stuck.js';
 import { createReadShipMessages } from '../../src/domain/shared/read-ship-messages.js';
 import { createReadShipTimeline } from '../../src/domain/shared/read-ship-timeline.js';
 import type { Recipient } from '../../src/domain/shared/selector.js';
@@ -281,6 +288,8 @@ export function registryUseCases(core: InMemoryCore) {
     getInstallationFleet: createGetInstallationFleet({ fleets: core.installationFleets, settings: core.installationSettings, health: core.health, snapshots: core.healthSnapshots, clock: core.clock }),
     listFleet: createListFleet({ listing: core.listing, readReach: readReachOf(core) }),
     getShip: createGetShip({ listing: core.listing, readReach: readReachOf(core) }),
+    readListedShip: createReadListedShip({ listing: core.listing, readReach: readReachOf(core) }),
+    countShips: createCountShips({ listing: core.listing, readReach: readReachOf(core) }),
     readOnBehalf: createReadOnBehalf({ ships: core.ships }),
     whoami: createWhoami({ ships: core.ships }),
     report: createReport({ uow: core.uow, clock: core.clock, ids: core.ids }),
@@ -316,6 +325,11 @@ export function historyUseCases(core: InMemoryCore) {
     readShipWay: createReadShipWay({ history: core.history, uow: core.uow, clock: core.clock, ids: core.ids }),
     readNeedsAttention: createReadNeedsAttention({ history: core.history, readReach }),
     readHealth: createReadHealth({ health: core.health, snapshots: core.healthSnapshots, clock: core.clock, readReach }),
+    readStuckCount: createReadStuckCount({ health: core.health, snapshots: core.healthSnapshots, clock: core.clock, readReach }),
+    readStuck: createReadStuck({ health: core.health, snapshots: core.healthSnapshots, clock: core.clock, readReach }),
+    readStuckSummary: createReadStuckSummary({ health: core.health, snapshots: core.healthSnapshots, clock: core.clock, readReach }),
+    readStuckHistory: createReadStuckHistory({ health: core.health, snapshots: core.healthSnapshots, clock: core.clock, readReach }),
+    readAcknowledged: createReadAcknowledged({ health: core.health, snapshots: core.healthSnapshots, clock: core.clock, readReach }),
     readInbox: createReadInbox({ history: core.history, ships: core.ships, readReach }),
     readInboxMessage: createReadInboxMessage({ history: core.history, ships: core.ships, readReach }),
     readInboxWithdrawals: createReadInboxWithdrawals({ history: core.history, ships: core.ships, readReach }),

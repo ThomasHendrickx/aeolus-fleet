@@ -1,14 +1,17 @@
-import { createIdGenerator, idSchema, type DeliveryId, type MessageId } from '@aeolus-fleet/common';
+import { createIdGenerator, idSchema, type DeliveryId, type MessageId, type ShipId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
 import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
 import { createPrismaClient } from '../src/adapters/prisma/client.js';
+import { createPrismaHealthSnapshots } from '../src/adapters/prisma/health-snapshots.js';
 import { createPrismaFleetRepository } from '../src/adapters/prisma/registry.js';
 import { createPrismaSnapshotUnitOfWork, type PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
 import { createSendMessage } from '../src/domain/messaging/send-message.js';
+import type { MessageParties } from '../src/domain/registry/public.js';
 import type { Crew, ShipCaller } from '../src/domain/shared/caller.js';
 import { createCloseHealthSnapshots } from '../src/domain/shared/close-health-snapshots.js';
+import type { HourSnapshot, StuckCount } from '../src/domain/shared/health-snapshot.js';
 import type { Health } from '../src/domain/shared/health.js';
 import { ok } from '../src/domain/shared/result.js';
 import type { Selector } from '../src/domain/shared/selector.js';
@@ -396,5 +399,86 @@ describe('missed hours', () => {
     expect(closed).toHaveLength(168);
     expect(closed.at(-1)?.hour).toEqual(new Date('2026-10-06T14:00:00.000Z'));
     await expect(stuckAt('2026-10-06T14:00:00.000Z')).resolves.toBe(1);
+  });
+});
+
+describe('the closed hours a read takes', () => {
+  // The stuck history and the acknowledged spent their time parsing every
+  // hour's groups in Node, each by message: Postgres now sums what the reader
+  // reads (decision 0034) and answers one number, or one set of waits, per
+  // hour.
+  const HOUR = new Date('2026-09-29T14:00:00.000Z');
+
+  /** An hour with one stuck and one acknowledged group of each kind of message, each count a power of two, so every sum names the groups in it. */
+  async function writeHour(): Promise<void> {
+    const at = new Date('2026-09-29T13:00:00.000Z');
+    const toShip = (shipId: ShipId) => ({ kind: 'ship' as const, shipId });
+    const toType = (type: string) => ({ kind: 'type' as const, type });
+    const messages: MessageParties[] = [
+      { senderId: scout.shipId, recipient: toShip(planner.shipId), claimedBy: null },
+      { senderId: planner.shipId, recipient: toShip(argo.shipId), claimedBy: null },
+      { senderId: planner.shipId, recipient: toType('planner'), claimedBy: null },
+      { senderId: planner.shipId, recipient: toType('tester'), claimedBy: scout.shipId },
+      { senderId: planner.shipId, recipient: toType('tester'), claimedBy: null },
+      { senderId: planner.shipId, recipient: toType('planner'), claimedBy: argo.shipId },
+    ];
+    const hour: HourSnapshot = {
+      hour: HOUR,
+      stuck: messages.map((message, index): StuckCount => ({ cause: 'waitingForCrew', place: message.recipient, message, count: 2 ** index, oldestSince: at })),
+      // Each group's waits in bucket 10, the third's also in bucket 20.
+      acknowledged: messages.map((message, index) => ({ message, waits: new Map(index === 2 ? [[10, 2 ** index], [20, 64]] : [[10, 2 ** index]]) })),
+    };
+    const empty: HourSnapshot = { hour: new Date(HOUR.getTime() + HOUR_MS), stuck: [], acknowledged: [] };
+    unwrap(
+      await createPrismaSnapshotUnitOfWork(core.prisma).run(async (tx) => {
+        await tx.healthSnapshots.write(argo.fleetId, { hours: [hour, empty], fold: { seq: 0, deliveries: [], turns: [] } });
+        return ok(undefined);
+      }),
+    );
+  }
+
+  it('count, for a reader of every ship, every delivery stuck at each hour', async () => {
+    await writeHour();
+
+    const counts = await createPrismaHealthSnapshots(core.prisma).stuckCounts(argo.fleetId, { since: new Date(HOUR.getTime() - HOUR_MS), reach: { kind: 'every' } });
+
+    expect(counts).toEqual([
+      { hour: HOUR, count: 63 },
+      { hour: new Date(HOUR.getTime() + HOUR_MS), count: 0 },
+    ]);
+  });
+
+  it('count only the deliveries whose message the reader reads: by its sender, its recipient ship, the ship that claimed it, or while none has, its type', async () => {
+    await writeHour();
+
+    const counts = await createPrismaHealthSnapshots(core.prisma).stuckCounts(argo.fleetId, {
+      since: new Date(HOUR.getTime() - HOUR_MS),
+      reach: { kind: 'some', shipIds: new Set([scout.shipId]), types: new Set(['planner']) },
+    });
+
+    // Scout's own message (1), the planner type's unclaimed one (4) and the one scout claimed (8).
+    expect(counts.map(({ count }) => count)).toEqual([13, 0]);
+  });
+
+  it('sum, for a reader of every ship, the waits of every delivery acknowledged in each hour', async () => {
+    await writeHour();
+
+    const waits = await createPrismaHealthSnapshots(core.prisma).acknowledgedWaits(argo.fleetId, { since: new Date(HOUR.getTime() - HOUR_MS), reach: { kind: 'every' } });
+
+    expect(waits).toEqual([
+      { hour: HOUR, waits: new Map([[10, 63], [20, 64]]) },
+      { hour: new Date(HOUR.getTime() + HOUR_MS), waits: new Map() },
+    ]);
+  });
+
+  it('sum only the waits of the deliveries whose message the reader reads', async () => {
+    await writeHour();
+
+    const waits = await createPrismaHealthSnapshots(core.prisma).acknowledgedWaits(argo.fleetId, {
+      since: new Date(HOUR.getTime() - HOUR_MS),
+      reach: { kind: 'some', shipIds: new Set([scout.shipId]), types: new Set(['planner']) },
+    });
+
+    expect(waits.map((hour) => hour.waits)).toEqual([new Map([[10, 13], [20, 64]]), new Map()]);
   });
 });

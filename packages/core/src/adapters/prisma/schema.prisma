@@ -713,16 +713,18 @@ model OverdueDelivery {
 /// kept for 168 hours. Its counts are by message parties, so a read counts
 /// only what its caller reads (decision 0034).
 model HealthSnapshot {
-  fleetId      String   @map("fleet_id")
-  hour         DateTime @db.Timestamptz(3)
+  fleetId           String   @map("fleet_id")
+  hour              DateTime @db.Timestamptz(3)
   /// The last event folded into it, by its seq.
-  seq          BigInt
+  seq               BigInt
   /// Stuck at the hour mark: cause, place, message parties, count and oldest since, each.
-  stuck        Json
+  stuck             Json
   /// The waits from send to acknowledgement in the hour, by message parties, as counts per duration bucket.
-  acknowledged Json
+  acknowledged      Json
+  /// The same waits summed over every message, as a reader of every ship reads them.
+  acknowledgedWaits Json     @map("acknowledged_waits")
   /// Each lease's latest turn as of seq; the latest row's is the fold's.
-  turns        Json
+  turns             Json
 
   fleet Fleet @relation(fields: [fleetId], references: [id])
 

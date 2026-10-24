@@ -6,7 +6,8 @@ import type { FleetId } from '@aeolus-fleet/common';
 
 import type { SequencedEvent } from '../../src/domain/shared/events.js';
 import { foldAt, type HealthFold } from '../../src/domain/shared/health-fold.js';
-import { hourMarkOf, type HealthSnapshotWriter, type HourSnapshot } from '../../src/domain/shared/health-snapshot.js';
+import { readsMessage } from '../../src/domain/registry/public.js';
+import { acknowledgedWaitsOf, hourMarkOf, stuckCountOf, type HealthSnapshotWriter, type HourSnapshot } from '../../src/domain/shared/health-snapshot.js';
 import type { HealthRecords } from '../../src/domain/shared/health.js';
 import type { DeliveryRecord } from '../../src/domain/shared/stuck.js';
 import type { InMemoryState } from './in-memory.js';
@@ -56,6 +57,18 @@ export function createInMemoryHealthSnapshots(state: InMemoryState, health: Heal
           .filter((row) => row.hour > since)
           .map(({ hour, stuck, acknowledged }) => structuredClone({ hour, stuck, acknowledged })),
       ),
+    stuckCounts: (fleetId, { since, reach }) =>
+      Promise.resolve(
+        rowsOf(fleetId)
+          .filter((row) => row.hour > since)
+          .map((row) => stuckCountOf(row, (message) => readsMessage(reach, message))),
+      ),
+    acknowledgedWaits: (fleetId, { since, reach }) =>
+      Promise.resolve(
+        rowsOf(fleetId)
+          .filter((row) => row.hour > since)
+          .map((row) => acknowledgedWaitsOf(row, (message) => readsMessage(reach, message))),
+      ),
     eventsAfter: (fleetId, { seq, limit }) => {
       const events = numbered(fleetId)
         .filter((event) => event.seq > seq)
@@ -63,9 +76,20 @@ export function createInMemoryHealthSnapshots(state: InMemoryState, health: Heal
       return Promise.resolve({ events, sent: sentOf(fleetId, events) });
     },
     crews: async (fleetId, since) => {
-      const { ships, leases, machines } = await health.read(fleetId, since);
-      return { ships, leases: leases.map((lease) => ({ ...lease, turns: [] })), machines };
+      const { ships, leases } = await health.read(fleetId, since);
+      return { ships, leases: leases.map((lease) => ({ ...lease, turns: [] })) };
     },
+    crewsTouching: async (fleetId, { since, touched }) => {
+      const { ships, leases } = await health.read(fleetId, since);
+      const ofLeases = new Set(leases.filter((lease) => touched.leaseIds.includes(lease.leaseId)).map((lease) => lease.shipId));
+      const touchedShips = ships.filter((ship) => touched.shipIds.includes(ship.shipId) || touched.types.includes(ship.type) || ofLeases.has(ship.shipId));
+      const shipIds = new Set(touchedShips.map((ship) => ship.shipId));
+      return {
+        ships: touchedShips,
+        leases: leases.filter((lease) => shipIds.has(lease.shipId) || touched.leaseIds.includes(lease.leaseId)).map((lease) => ({ ...lease, turns: [] })),
+      };
+    },
+    machines: async (fleetId) => (await health.read(fleetId, new Date(0))).machines,
     tryLock: (fleetId) => Promise.resolve(!state.healthSnapshotLocks.includes(fleetId)),
     baseAt: async (fleetId, hour) => {
       const events = numbered(fleetId);

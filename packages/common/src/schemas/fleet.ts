@@ -236,6 +236,27 @@ export { isInReadReach } from '../rules/read-reach.js';
  */
 export const fleetListOutputSchema = pageOutputOf(z.union([listedShipSchema, shipOutsideReadReachSchema]), z.string());
 
+/** Output of `fleet.listedShip`: one ship exactly as `fleet.list` lists it. */
+export const listedShipOutputSchema = z.union([listedShipSchema, shipOutsideReadReachSchema]);
+
+/**
+ * Output of `fleet.shipCounts`: the ships in the caller's read reach counted per
+ * kind, only the kinds there are: active (not retired), crewed, awaiting crew,
+ * retired, needing crew with the trierarch plugin connected and without it,
+ * and the active ship that has awaited crew longest.
+ */
+export const shipCountsOutputSchema = z.array(
+  z.object({
+    kind: shipKindSchema,
+    active: z.int().min(0),
+    crewed: z.int().min(0),
+    awaitingCrew: z.int().min(0),
+    retired: z.int().min(0),
+    needsCrew: z.object({ withTrierarchs: z.int().min(0), withoutTrierarchs: z.int().min(0) }),
+    longestWait: z.object({ id: idSchema('ship'), name: z.string(), awaitingCrewSince: z.iso.datetime() }).nullable(),
+  }),
+);
+
 /** Up to 15 digits: every number below 2^53, so it stays an exact JavaScript number. */
 const STREAM_POSITION_PATTERN = /^\d{1,15}$/;
 

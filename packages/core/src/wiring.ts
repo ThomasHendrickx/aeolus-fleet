@@ -83,6 +83,8 @@ import { createCommissionShip, type CommissionShip } from './domain/registry/com
 import { createDeregister, type Deregister } from './domain/registry/deregister.js';
 import { createGetStartingPrompt, type GetStartingPrompt } from './domain/registry/get-starting-prompt.js';
 import { createGetShip, type GetShip } from './domain/registry/get-ship.js';
+import { createReadListedShip, type ReadListedShip } from './domain/registry/read-listed-ship.js';
+import { createCountShips, type CountShips } from './domain/registry/count-ships.js';
 import { createReadOnBehalf, type ReadOnBehalf } from './domain/registry/read-on-behalf.js';
 import { createInitialiseFleet, type InitialiseFleet } from './domain/registry/initialise-fleet.js';
 import { createListFleet, type ListFleet } from './domain/registry/list-fleet.js';
@@ -159,7 +161,12 @@ import { createReadMessage, type ReadMessage } from './domain/shared/read-messag
 import { createReadSentMessage, type ReadSentMessage } from './domain/shared/read-sent-message.js';
 import { createReadShipWay, type ReadShipWay } from './domain/shared/read-ship-way.js';
 import { createReadNeedsAttention, type ReadNeedsAttention } from './domain/shared/read-needs-attention.js';
+import { createReadAcknowledged, type ReadAcknowledged } from './domain/shared/read-acknowledged.js';
 import { createReadHealth, type ReadHealth } from './domain/shared/read-health.js';
+import { createReadStuckCount, type ReadStuckCount } from './domain/shared/read-stuck-count.js';
+import { createReadStuckHistory, type ReadStuckHistory } from './domain/shared/read-stuck-history.js';
+import { createReadStuck, type ReadStuck } from './domain/shared/read-stuck.js';
+import { createReadStuckSummary, type ReadStuckSummary } from './domain/shared/read-stuck-summary.js';
 import { createCloseHealthSnapshots, type CloseHealthSnapshots } from './domain/shared/close-health-snapshots.js';
 import { createReadShipMessages, type ReadShipMessages } from './domain/shared/read-ship-messages.js';
 import { createReadShipTimeline, type ReadShipTimeline } from './domain/shared/read-ship-timeline.js';
@@ -178,6 +185,8 @@ export interface UseCases {
   recrewShip: RecrewShip;
   listFleet: ListFleet;
   getShip: GetShip;
+  readListedShip: ReadListedShip;
+  countShips: CountShips;
   readOnBehalf: ReadOnBehalf;
   claimShip: ClaimShip;
   whoami: Whoami;
@@ -251,6 +260,11 @@ export interface UseCases {
   readShipWay: ReadShipWay;
   readNeedsAttention: ReadNeedsAttention;
   readHealth: ReadHealth;
+  readStuckCount: ReadStuckCount;
+  readStuck: ReadStuck;
+  readStuckSummary: ReadStuckSummary;
+  readStuckHistory: ReadStuckHistory;
+  readAcknowledged: ReadAcknowledged;
   readInbox: ReadInbox;
   readInboxMessage: ReadInboxMessage;
   readInboxWithdrawals: ReadInboxWithdrawals;
@@ -331,6 +345,7 @@ export function createUseCases(options: {
   const guideProgress = createPrismaGuideProgress(prisma);
   const accountCutOffs = createPrismaAccountCutOffs(prisma);
   const hostedFleets = createPrismaHostedFleets(prisma);
+  const healthReads = { health: createPrismaHealthRecords(prisma), snapshots: createPrismaHealthSnapshots(prisma) };
 
   return {
     ping: createPing({ clock, fleets: createPrismaFleetCounter(prisma) }),
@@ -379,6 +394,8 @@ export function createUseCases(options: {
     recrewShip: createRecrewShip({ uow, clock, ids, secrets }),
     listFleet: createListFleet({ listing: createPrismaFleetListing(prisma), readReach }),
     getShip: createGetShip({ listing: createPrismaFleetListing(prisma), readReach }),
+    readListedShip: createReadListedShip({ listing: createPrismaFleetListing(prisma), readReach }),
+    countShips: createCountShips({ listing: createPrismaFleetListing(prisma), readReach }),
     readOnBehalf: createReadOnBehalf({ ships: createPrismaShipRepository(prisma) }),
     claimShip: createClaimShip({ uow, clock, ids, secrets }),
     whoami: createWhoami({ ships: createPrismaShipRepository(prisma) }),
@@ -474,7 +491,12 @@ export function createUseCases(options: {
     sentMessage: createReadSentMessage({ history: createPrismaShipHistory(prisma) }),
     readShipWay: createReadShipWay({ history: createPrismaShipHistory(prisma), uow, clock, ids }),
     readNeedsAttention: createReadNeedsAttention({ history: createPrismaShipHistory(prisma), readReach }),
-    readHealth: createReadHealth({ health: createPrismaHealthRecords(prisma), snapshots: createPrismaHealthSnapshots(prisma), clock, readReach }),
+    readHealth: createReadHealth({ ...healthReads, clock, readReach }),
+    readStuckCount: createReadStuckCount({ ...healthReads, clock, readReach }),
+    readStuck: createReadStuck({ ...healthReads, clock, readReach }),
+    readStuckSummary: createReadStuckSummary({ ...healthReads, clock, readReach }),
+    readStuckHistory: createReadStuckHistory({ ...healthReads, clock, readReach }),
+    readAcknowledged: createReadAcknowledged({ ...healthReads, clock, readReach }),
     readInbox: createReadInbox({ history: createPrismaShipHistory(prisma), ships: createPrismaShipRepository(prisma), readReach }),
     readInboxMessage: createReadInboxMessage({ history: createPrismaShipHistory(prisma), ships: createPrismaShipRepository(prisma), readReach }),
     readInboxWithdrawals: createReadInboxWithdrawals({ history: createPrismaShipHistory(prisma), ships: createPrismaShipRepository(prisma), readReach }),
