@@ -16,7 +16,8 @@ export interface CloseHealthSnapshotsTx {
   healthSnapshots: HealthSnapshotWriter;
 }
 
-export type CloseHealthSnapshots = () => Promise<void>;
+/** Closes the hours of every fleet; `onFleetError` (the pass always gives it) is told of a fleet whose close threw, and the pass goes on with the next fleet. */
+export type CloseHealthSnapshots = (onFleetError?: (fleetId: FleetId, error: unknown) => void) => Promise<void>;
 
 /** What one unit of work did: wrote an hour with more to close, or is done with the fleet for this pass. */
 type Closing = 'more' | 'done';
@@ -47,7 +48,8 @@ async function eventsUpTo(snapshots: HealthSnapshotWriter, read: { fleetId: Flee
  * at the oldest of the 168 hours, from the deliveries open then; each hour
  * after the latest up to the last hour mark is then closed in turn, oldest
  * first, so no unit of work reads more than an hour of events. A unit of work
- * that fails rolls back whole, and the next pass closes the hour again.
+ * that fails rolls back whole, and the next pass closes the hour again; a
+ * fleet whose close throws is reported and the pass goes on with the next fleet.
  */
 export function createCloseHealthSnapshots(deps: { fleets: Pick<FleetRepository, 'list'>; uow: UnitOfWork<CloseHealthSnapshotsTx>; clock: Clock }): CloseHealthSnapshots {
   const closeOne = (fleetId: FleetId) =>
@@ -74,12 +76,16 @@ export function createCloseHealthSnapshots(deps: { fleets: Pick<FleetRepository,
       return ok<Closing>(closed.hour.hour < lastHour ? 'more' : 'done');
     });
 
-  return async () => {
+  return async (onFleetError) => {
     for (const fleet of await deps.fleets.list()) {
-      let closing: Closing = 'more';
-      while (closing === 'more') {
-        const result = await closeOne(fleet.id);
-        closing = result.isOk ? result.value : 'done';
+      try {
+        let closing: Closing = 'more';
+        while (closing === 'more') {
+          const result = await closeOne(fleet.id);
+          closing = result.isOk ? result.value : 'done';
+        }
+      } catch (error) {
+        onFleetError?.(fleet.id, error);
       }
     }
   };

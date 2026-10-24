@@ -1,18 +1,22 @@
+import type { FleetId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { historyScenario, type HistoryScenario } from '../../../test/support/history-scenario.js';
 import { unwrap } from '../../testing/result.js';
-import { createCloseHealthSnapshots, type CloseHealthSnapshots } from './close-health-snapshots.js';
+import { createCloseHealthSnapshots } from './close-health-snapshots.js';
 
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
 
 let scene: HistoryScenario;
-let close: CloseHealthSnapshots;
+let close: () => Promise<void>;
+let failures: { fleetId: FleetId; error: unknown }[];
 
 beforeEach(async () => {
   scene = await historyScenario();
-  close = createCloseHealthSnapshots({ fleets: scene.core.fleets, uow: scene.core.uow, clock: scene.core.clock });
+  const closeSnapshots = createCloseHealthSnapshots({ fleets: scene.core.fleets, uow: scene.core.uow, clock: scene.core.clock });
+  failures = [];
+  close = () => closeSnapshots((fleetId, error) => failures.push({ fleetId, error }));
 });
 
 function rows() {
@@ -114,5 +118,33 @@ describe('closing the stuck snapshot in the pass', () => {
     expect(rows()).toHaveLength(168);
     expect(rows().at(-1)?.hour.toISOString()).toBe('2026-10-08T11:00:00.000Z');
     expect(stuckAt('2026-10-08T11:00:00.000Z')).toBe(1);
+  });
+
+  it('goes on with the next fleet when one fleet fails to close, and tells which', async () => {
+    await close();
+    await sendToNoShip();
+    scene.core.clock.set('2026-10-01T10:30:00.000Z');
+    const fleets = await scene.core.fleets.list();
+    const failingId = 'flt_failing';
+    const boom = new Error('close failed');
+    let isFirstRun = true;
+    const closeAll = createCloseHealthSnapshots({
+      fleets: { list: () => Promise.resolve(fleets.flatMap((fleet) => [{ ...fleet, id: failingId }, fleet])) },
+      uow: {
+        run: (work) => {
+          if (isFirstRun) {
+            isFirstRun = false;
+            return Promise.reject(boom);
+          }
+          return scene.core.uow.run(work);
+        },
+      },
+      clock: scene.core.clock,
+    });
+
+    await closeAll((fleetId, error) => failures.push({ fleetId, error }));
+
+    expect(failures).toEqual([{ fleetId: failingId, error: boom }]);
+    expect(rows().at(-1)?.hour.toISOString()).toBe('2026-10-01T10:00:00.000Z');
   });
 });
