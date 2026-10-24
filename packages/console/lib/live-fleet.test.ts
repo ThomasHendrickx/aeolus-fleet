@@ -1,6 +1,6 @@
 import { createIdGenerator, EVENT_TYPES, type EventType, type ListedShip, type LiveFleetEvent, type ShipId } from '@aeolus-fleet/common';
 import type { AppRouter } from '@aeolus-fleet/core';
-import { QueryClient, QueryObserver } from '@tanstack/react-query';
+import { InfiniteQueryObserver, QueryClient, QueryObserver } from '@tanstack/react-query';
 import { createTRPCClient, httpLink } from '@trpc/client';
 import { createTRPCOptionsProxy } from '@trpc/tanstack-react-query';
 import { describe, expect, it } from 'vitest';
@@ -342,6 +342,27 @@ describe('the live fleet (performance design, decision 3)', () => {
     live.onItem({ kind: 'event', event: anEvent(type, { shipId: builder.id, hasMessage }) });
 
     await expect.poll(() => live.askedOf('fleet.stuckCount')).toBe(2);
+    live.close();
+  });
+
+  it.each([
+    { what: 'a delivery that moves', type: 'DeliveryReceived', hasMessage: true },
+    { what: 'a crew, which changes why a delivery waits', type: 'ShipClaimed', hasMessage: false },
+  ] as const)("reloads the stuck summary and each cause's page of stuck places for $what", async ({ type, hasMessage }) => {
+    const builder = aShip({});
+    const live = aLiveFleet({
+      'fleet.stuckSummary': () => ({ count: 0, places: 0, oldestSince: null, byCause: [], byMachine: [] }),
+      'fleet.stuck': () => ({ items: [], nextCursor: null }),
+      'fleet.listedShip': () => builder,
+    });
+    live.show(new QueryObserver(live.queryClient, live.trpc.fleet.stuckSummary.queryOptions()));
+    live.show(new InfiniteQueryObserver(live.queryClient, live.trpc.fleet.stuck.infiniteQueryOptions({ cause: 'waitingForCrew' }, { getNextPageParam: () => undefined })));
+    live.show(new InfiniteQueryObserver(live.queryClient, live.trpc.fleet.stuck.infiniteQueryOptions({ cause: 'undeliverable' }, { getNextPageParam: () => undefined })));
+    await expect.poll(() => [live.askedOf('fleet.stuckSummary'), live.askedOf('fleet.stuck')]).toEqual([1, 2]);
+
+    live.onItem({ kind: 'event', event: anEvent(type, { shipId: builder.id, hasMessage }) });
+
+    await expect.poll(() => [live.askedOf('fleet.stuckSummary'), live.askedOf('fleet.stuck')]).toEqual([2, 4]);
     live.close();
   });
 });

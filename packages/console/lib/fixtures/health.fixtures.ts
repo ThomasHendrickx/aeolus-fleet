@@ -1,4 +1,4 @@
-import { idSchema, type Health } from '@aeolus-fleet/common';
+import { idSchema, type Health, type StuckSummary } from '@aeolus-fleet/common';
 
 /**
  * The harbour fleet of the Health mock-ups (#304, direction A): 9 deliveries
@@ -97,3 +97,20 @@ export const QUIET_HEALTH: Health = {
   stuckPerHour: trend().map((hour) => ({ ...hour, count: 0 })),
   acknowledged: { count: 0, medianMs: null, perHour: ACKNOWLEDGED_PER_HOUR.map((_count, index) => ({ at: hoursAgo(23 - index), count: 0 })) },
 };
+
+/** The stuck summary of STUCK_HEALTH, its causes in the order the server may answer them. */
+export const STUCK_SUMMARY: StuckSummary = {
+  count: 9,
+  places: 5,
+  oldestSince: minutesAgo(43 * 60),
+  byCause: [
+    { cause: 'undeliverable', count: 1, places: 1 },
+    { cause: 'stalledInFlight', count: 3, places: 2 },
+    { cause: 'waitingForCrew', count: 3, places: 1 },
+    { cause: 'noShipCanTake', count: 2, places: 1 },
+  ],
+  byMachine: [{ machine: { id: HETZNER.id, name: HETZNER.name }, count: 2 }],
+};
+
+/** The stuck summary of a fleet where nothing is stuck. */
+export const DELIVERING_SUMMARY: StuckSummary = { count: 0, places: 0, oldestSince: null, byCause: [], byMachine: [] };
