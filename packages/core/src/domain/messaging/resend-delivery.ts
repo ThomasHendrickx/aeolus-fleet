@@ -11,7 +11,7 @@ import { isAnswerToSender } from './answer.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { withinDailyMessageLimit, type DailyMessageLimitTx } from './daily-message-limit.js';
 import { dismissForResend, type DismissRefusal } from './delivery.js';
-import { acceptMessage, repeatOf, type AcceptRefusal, type RepeatRefusal } from './message.js';
+import { acceptMessage, deliveredTo, repeatOf, type AcceptRefusal, type RepeatRefusal } from './message.js';
 import type { DeliveryRepository, MessageRepository, RequestHasher } from './ports.js';
 import { sendRequestText } from './send-request.js';
 
@@ -83,14 +83,15 @@ export function createResendDelivery(deps: {
       const { fleetId } = caller;
       const delivery = await tx.deliveries.findForUpdate(fleetId, input.deliveryId);
       const original = delivery && (await tx.messages.find(fleetId, delivery.messageId));
-      if (!delivery || !original || !readsMessage(readReach, { senderId: original.senderShipId, recipient: original.selector, claimedBy: delivery.claimedByShipId })) {
+      if (!delivery || !original || !readsMessage(readReach, { senderId: original.senderShipId, recipient: deliveredTo(original, delivery), claimedBy: delivery.claimedByShipId })) {
         return refuse('DELIVERY_NOT_FOUND', `Delivery ${input.deliveryId} does not exist`);
       }
       if (isPingContentType(original.contentType)) {
         return refuse('PING_NOT_RESENT', 'A ping is not resent: dismiss it, and ping the ship again');
       }
 
-      const selector = original.selector;
+      // A contribution's undeliverable delivery is resent to its participant alone, as a message of its own.
+      const selector = deliveredTo(original, delivery);
       const inReplyTo = original.inReplyToMessageId ?? undefined;
       const requestHash = deps.hasher.hash(
         sendRequestText({ selector, payload: original.payload, contentType: original.contentType, inReplyTo, isForced: false }),

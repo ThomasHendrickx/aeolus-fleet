@@ -135,6 +135,21 @@ describe('the ship calls at /api/v1', () => {
       '/ship/register',
       '/ship/whoami',
       '/ship/send',
+      '/ship/openMeeting',
+      '/ship/meeting',
+      '/ship/requestMic',
+      '/ship/withdrawMicRequest',
+      '/ship/releaseMic',
+      '/ship/giveMic',
+      '/ship/takeMic',
+      '/ship/setMicPattern',
+      '/ship/addToMeeting',
+      '/ship/leaveMeeting',
+      '/ship/rejoinMeeting',
+      '/ship/revokeFromMeeting',
+      '/ship/transferMeeting',
+      '/ship/nameModerator',
+      '/ship/endMeeting',
       '/ship/receive',
       '/ship/receiveReply',
       '/ship/pushReceive',
@@ -394,6 +409,33 @@ describe('the ship calls at /api/v1', () => {
 
     await expect(request('handed', { crewToken, body: { deliveryId: 'dlv_01m4rm7txqv22v2h7znfatqcfw', handOverNumber: 0 } })).resolves.toMatchObject({
       status: 400,
+    });
+  });
+
+  it('take part in a meeting: open it, request the mic, contribute, read it, release the mic and end it (decision 0061)', async () => {
+    const chief = await crewedWithFleetScopes(['meetings:open']);
+    const head = await commissioned();
+    const headToken = await register(head);
+    const changed = z.strictObject({});
+
+    const { meetingId } = await ok(
+      request('openMeeting', { crewToken: chief.crewToken, body: { ships: [{ name: head.name }], idempotencyKey: freshKey(), model: 'claude-opus-5-5' } }),
+      z.object({ meetingId: z.string() }),
+    );
+    await ok(request('requestMic', { crewToken: headToken, body: { meetingId } }), changed);
+    await ok(request('giveMic', { crewToken: chief.crewToken, body: { meetingId, shipId: head.shipId } }), changed);
+    const { messageId } = await ok(
+      request('send', { crewToken: headToken, body: { selector: { kind: 'meeting', meetingId }, payload: 'Copy is ready', model: 'claude-opus-5-5', idempotencyKey: freshKey() } }),
+      z.object({ messageId: z.string() }),
+    );
+    const read = await ok(request('meeting', { crewToken: chief.crewToken, body: { meetingId } }), z.object({ contributions: z.object({ items: z.array(z.object({ messageId: z.string() })) }) }));
+    await ok(request('releaseMic', { crewToken: headToken, body: { meetingId } }), changed);
+    await ok(request('endMeeting', { crewToken: chief.crewToken, body: { meetingId } }), changed);
+
+    expect(read.contributions.items).toEqual([{ messageId }]);
+    await expect(request('requestMic', { crewToken: headToken, body: { meetingId } })).resolves.toEqual({
+      status: 409,
+      body: { code: 'CONFLICT', message: `Meeting ${meetingId} ended: its mic no longer changes` },
     });
   });
 

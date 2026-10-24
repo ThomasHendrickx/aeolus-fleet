@@ -94,6 +94,9 @@ export function createPrismaFleetRepository(db: Db): FleetRepository {
       await db.$executeRaw`DELETE FROM deliveries WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`UPDATE messages SET in_reply_to_message_id = NULL, resend_of_message_id = NULL WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM messages WHERE fleet_id = ${fleetId}`;
+      await db.$executeRaw`DELETE FROM meeting_mic_requests WHERE fleet_id = ${fleetId}`;
+      await db.$executeRaw`DELETE FROM meeting_participants WHERE fleet_id = ${fleetId}`;
+      await db.$executeRaw`DELETE FROM meetings WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM message_days WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM notice_dismissals WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM guide_progress WHERE fleet_id = ${fleetId}`;
@@ -368,6 +371,13 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
     list: async (fleetId) => (await db.ship.findMany({ where: { fleetId }, orderBy: { id: 'asc' } })).map(toShip),
     listActive: async (fleetId) =>
       (await db.ship.findMany({ where: { fleetId, retiredAt: null, kind: { not: 'viewer' } }, orderBy: { id: 'asc' } })).map(toShip),
+    listActiveCarryingEvery: async (fleetId, valueIds) =>
+      (
+        await db.ship.findMany({
+          where: { fleetId, retiredAt: null, kind: { not: 'viewer' }, AND: valueIds.map((valueId) => ({ labels: { some: { valueId } } })) },
+          orderBy: { id: 'asc' },
+        })
+      ).map(toShip),
     listActiveOfType: async (fleetId, type) =>
       (await db.ship.findMany({ where: { fleetId, type, retiredAt: null, kind: { not: 'viewer' } }, orderBy: { id: 'asc' } })).map(toShip),
     hasActiveShipOfType: async (fleetId, type) => {

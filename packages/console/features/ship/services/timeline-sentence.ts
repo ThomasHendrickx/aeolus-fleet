@@ -3,6 +3,7 @@ import type { Party, ReportState, TimelineEntry } from '@aeolus-fleet/common';
 import { locationKindWord } from '../../../lib/location';
 import { REPORT_TONES } from '../../../lib/report';
 import { capitalised, counted, ship, text, type SentencePart } from '../../../lib/sentence';
+import { recipientGroupWords } from '../../../lib/recipient';
 
 /** The tone family of a timeline row's tile (docs/design/conventions.md, "Colour"). */
 export type TimelineTone = 'waiting' | 'active' | 'ok' | 'attention' | 'ended';
@@ -148,7 +149,7 @@ function messageAccepted(entry: TimelineEntry, shipId: string): SentencePart[] {
   if (sent.sender.id === shipId) {
     return sent.recipient.kind === 'ship'
       ? [text('Sent a message to '), ship(sent.recipient.ship)]
-      : [text(`Sent a message to any ship of type ${sent.recipient.type}`)];
+      : [text(`Sent a message to ${recipientGroupWords(sent.recipient)}`)];
   }
   return [text('Received a message from '), ship(sent.sender)];
 }
@@ -292,6 +293,40 @@ export function timelineSentence(entry: TimelineEntry, shipId: string): Timeline
       return { parts: [text('Connected as a plugin: reads every ship'), ...by(entry.actor)], tone: 'ended', icon: 'fleet' };
     case 'PluginDisconnected':
       return { parts: [text(`No longer a connected plugin: ${stringDetail(entry, 'why') ?? ''}`), ...by(entry.actor)], tone: 'ended', icon: 'fleet' };
+    case 'MeetingOpened': {
+      const participants = entry.details.participants;
+      return { parts: [text(`Opened a meeting of ${typeof participants === 'number' ? counted(participants, { one: 'ship', many: 'ships' }) : 'ships'}`)], tone: 'ok', icon: 'sent' };
+    }
+    case 'ParticipantAdded':
+      return { parts: [text('Joined a meeting'), ...(entry.actor ? [text(', added by '), ship(entry.actor)] : [])], tone: 'ok', icon: 'received' };
+    case 'MicRequested':
+      return { parts: [text('Requested the mic in a meeting')], tone: 'ok', icon: 'sent' };
+    case 'MicRequestWithdrawn':
+      return { parts: [text('Withdrew its mic request in a meeting')], tone: 'ok', icon: 'sent' };
+    case 'MicGiven':
+      return {
+        parts: entry.details.pattern === 'fifo' ? [text('Got the mic in a meeting, first in line')] : [text('Got the mic in a meeting'), ...(entry.actor ? [text(', given by '), ship(entry.actor)] : [])],
+        tone: 'ok',
+        icon: 'received',
+      };
+    case 'MicReleased':
+      return { parts: [text('Released the mic in a meeting')], tone: 'ok', icon: 'sent' };
+    case 'MicTaken':
+      return { parts: [text('Lost the mic in a meeting'), ...(entry.actor ? [text(', taken by '), ship(entry.actor)] : [])], tone: 'ok', icon: 'received' };
+    case 'MicPatternSet':
+      return { parts: [text(entry.details.pattern === 'fifo' ? "Set a meeting's mic to first in line" : "Set a meeting's mic to the moderator's pick")], tone: 'ok', icon: 'sent' };
+    case 'ParticipantLeft':
+      return { parts: [text('Left a meeting')], tone: 'ok', icon: 'sent' };
+    case 'ParticipantRejoined':
+      return { parts: [text('Rejoined a meeting')], tone: 'ok', icon: 'sent' };
+    case 'ParticipantRevoked':
+      return { parts: [text('Taken off a meeting'), ...(entry.actor ? [text(', by '), ship(entry.actor)] : [])], tone: 'ok', icon: 'received' };
+    case 'OwnershipTransferred':
+      return { parts: [text('Got the ownership of a meeting'), ...(entry.actor ? [text(', from '), ship(entry.actor)] : [])], tone: 'ok', icon: 'received' };
+    case 'ModeratorNamed':
+      return { parts: [text('Became the moderator of a meeting'), ...(entry.actor ? [text(', named by '), ship(entry.actor)] : [])], tone: 'ok', icon: 'received' };
+    case 'MeetingEnded':
+      return { parts: [text('Ended a meeting')], tone: 'ok', icon: 'sent' };
     case 'VerifiedFactsRemoved':
       return {
         parts: [text(`Verified facts removed: ${String(entry.details.facts ?? '')}, ${stringDetail(entry, 'why') === 'writerRetired' ? 'their writer retired' : 'the ship retired'}`)],

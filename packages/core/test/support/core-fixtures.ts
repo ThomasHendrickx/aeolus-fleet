@@ -51,6 +51,11 @@ import { createReceiveDeliveries } from '../../src/domain/messaging/receive-deli
 import { createReceiveReply } from '../../src/domain/messaging/receive-reply.js';
 import { createResendDelivery } from '../../src/domain/messaging/resend-delivery.js';
 import { createSendMessage } from '../../src/domain/messaging/send-message.js';
+import { createOpenMeeting } from '../../src/domain/messaging/open-meeting.js';
+import { createReadMeeting } from '../../src/domain/messaging/read-meeting.js';
+import { createChangeMic } from '../../src/domain/messaging/change-mic.js';
+import { createChangeMeeting } from '../../src/domain/messaging/change-meeting.js';
+import { createAddToMeeting } from '../../src/domain/messaging/add-to-meeting.js';
 import { createTellOverdueDeliveries } from '../../src/domain/messaging/tell-overdue-deliveries.js';
 import { createReadDeclaredNetworkRules } from '../../src/domain/registry/read-declared-network-rules.js';
 import { createReadReachRefusals } from '../../src/domain/registry/read-reach-refusals.js';
@@ -235,7 +240,7 @@ export function registryUseCases(core: InMemoryCore) {
     commissionShip: createCommissionShip(deps),
     getStartingPrompt: createGetStartingPrompt(deps),
     releaseShip: createReleaseShip(deps),
-    retireShip: createRetireShip(deps),
+    retireShip: createRetireShip({ ...deps, hasher: core.hasher }),
     requestCrew: createRequestCrew(deps),
     removeCrewRequest: createRemoveCrewRequest(deps),
     assignCrew: createAssignCrew(deps),
@@ -344,6 +349,11 @@ export function messagingUseCases(core: InMemoryCore) {
   const deps = { uow: core.uow, clock: core.clock, ids: core.ids };
   return {
     sendMessage: createSendMessage({ ...deps, hasher: core.hasher }),
+    openMeeting: createOpenMeeting({ ...deps, hasher: core.hasher }),
+    readMeeting: createReadMeeting({ uow: core.uow }),
+    changeMic: createChangeMic({ ...deps, hasher: core.hasher }),
+    changeMeeting: createChangeMeeting({ ...deps, hasher: core.hasher }),
+    addToMeeting: createAddToMeeting({ ...deps, hasher: core.hasher }),
     receiveDeliveries: createReceiveDeliveries({ ...deps, wakeups: core.wakeups }),
     receiveReply: createReceiveReply({ ...deps, wakeups: core.wakeups }),
     pushReceiveDeliveries: createPushReceiveDeliveries({ ...deps, wakeups: core.wakeups }),
@@ -601,6 +611,7 @@ export function deliveryInFlight(
     requestHash: `sha256(in-flight-${messageId})`,
     inReplyToMessageId: null,
     resendOfMessageId: null,
+    meetingId: null,
     createdAt: at,
   });
   core.state.deliveries.push({

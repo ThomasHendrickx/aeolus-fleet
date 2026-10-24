@@ -1,4 +1,4 @@
-import { isPingContentType, PING_CONTENT_TYPE, type IdGenerator, type MessageId } from '@aeolus-fleet/common';
+import { isPingContentType, PING_CONTENT_TYPE, type IdGenerator, type MessageId, type ShipId } from '@aeolus-fleet/common';
 
 import { checkReach, resolveSelector, type CheckReachTx, type NotReachable, type ResolveSelectorTx, type UnresolvableSelector } from '../registry/public.js';
 import { hasScope, type ShipCaller } from '../shared/caller.js';
@@ -8,20 +8,22 @@ import { recordEvent, type Actor, type EventLog } from '../shared/events.js';
 import type { Notifier } from '../shared/notifier.js';
 import { err, ok, type Result } from '../shared/result.js';
 import { isAnswerToSender } from './answer.js';
-import type { Selector } from '../shared/selector.js';
+import type { MeetingSelector, Selector } from '../shared/selector.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { contentType } from './content-type.js';
 import { withinDailyMessageLimit, type DailyMessageLimitTx } from './daily-message-limit.js';
 import { idempotencyKey } from '../shared/idempotency-key.js';
-import { acceptMessage, repeatOf, type AcceptRefusal, type RepeatRefusal } from './message.js';
+import { acceptContribution, acceptMessage, repeatOf, type AcceptRefusal, type RepeatRefusal } from './message.js';
 import { payload } from './payload.js';
-import type { DeliveryRepository, MessageRepository, RequestHasher } from './ports.js';
+import type { DeliveryRepository, MeetingRepository, MessageRepository, RequestHasher } from './ports.js';
+import { checkContribution, type ContributionRefusal } from './meeting.js';
 import { sendRequestText } from './send-request.js';
 
 export interface SendMessageTx extends Omit<ResolveSelectorTx, 'ships'>, Omit<CheckReachTx, 'ships'>, DailyMessageLimitTx {
   ships: ResolveSelectorTx['ships'] & CheckReachTx['ships'];
   messages: MessageRepository;
   deliveries: DeliveryRepository;
+  meetings: Pick<MeetingRepository, 'findForShare'>;
   events: EventLog;
   notifier: Notifier;
 }
@@ -51,6 +53,7 @@ export type SendMessageRefusal =
   | UnresolvableSelector
   | AcceptRefusal
   | NotReachable
+  | ContributionRefusal
   | DomainError<'MESSAGE_LIMIT_REACHED'>;
 
 export type SendMessage = (caller: ShipCaller, input: MessageToSend) => Promise<Result<MessageSent, SendMessageRefusal>>;
@@ -85,6 +88,10 @@ export type SendMessage = (caller: ShipCaller, input: MessageToSend) => Promise<
  * A forced send (decision 0040) needs messages:force, checked before the unit
  * of work starts, so a refusal stores nothing; it rides send reach as any
  * send. Its delivery records that it was forced and comes first.
+ *
+ * A send to a meeting is a contribution (decision 0061): one message, one
+ * delivery per other participant, in the same unit of work, with no reach
+ * check: the owner reached each participant when it joined.
  */
 export function createSendMessage(deps: {
   uow: UnitOfWork<SendMessageTx>;
@@ -169,6 +176,9 @@ export async function sendWithin(
     return repeat.isOk ? ok({ messageId: repeat.value }) : repeat;
   }
 
+  if (selector.kind === 'meeting') {
+    return contributeWithin(deps, { ...send, meeting: selector });
+  }
   const recipient = await resolveSelector(tx, { fleetId, selector });
   if (!recipient.isOk) {
     return recipient;
@@ -224,5 +234,72 @@ export async function sendWithin(
     await recordEvent({ events: tx.events, ids }, event);
   }
   await tx.notifier.deliveryPending({ fleetId, deliveryId: delivery.id, recipient: delivery.recipient });
+  return ok({ messageId: message.id });
+}
+
+/**
+ * A contribution to a meeting, inside the send's unit of work, its key
+ * checked already (decision 0061). The meeting stays held until the unit of
+ * work ends, and so does every participant it goes to, as a send holds the
+ * ship it addresses; a retired participant is addressed no more and gets
+ * none. One message, one delivery per other participant, one MessageAccepted
+ * and one notice each.
+ */
+async function contributeWithin(
+  deps: { tx: SendMessageTx; clock: Clock; ids: IdGenerator },
+  send: { caller: ShipCaller; request: CheckedSend; actor?: Actor; meeting: MeetingSelector },
+): Promise<Result<MessageSent, SendMessageRefusal>> {
+  const { tx, clock, ids } = deps;
+  const { fleetId, shipId: senderShipId } = send.caller;
+  const { meetingId } = send.meeting;
+  const meeting = await tx.meetings.findForShare(fleetId, meetingId);
+  const participants = checkContribution(meeting, { meetingId, senderShipId, inReplyTo: send.request.inReplyTo, isForced: send.request.isForced });
+  if (!participants.isOk) {
+    return participants;
+  }
+  const reached: ShipId[] = [];
+  for (const shipId of participants.value) {
+    const ship = await tx.ships.findForShare(fleetId, shipId);
+    if (ship?.retiredAt === null) {
+      reached.push(shipId);
+    }
+  }
+  if (reached.length === 0) {
+    return refuse('UNRESOLVABLE_SELECTOR', `No other participant of meeting ${meetingId} is active: a retired ship is never addressed again`);
+  }
+  const at = clock.now();
+  const withinLimit = await withinDailyMessageLimit(tx, { fleetId, time: at });
+  if (!withinLimit.isOk) {
+    return withinLimit;
+  }
+  const accepted = acceptContribution({
+    messageId: ids('message'),
+    fleetId,
+    senderShipId,
+    meetingId,
+    deliveries: reached.map((shipId) => ({ deliveryId: ids('delivery'), shipId })),
+    payload: send.request.payload,
+    contentType: send.request.contentType,
+    model: send.request.model,
+    senderKind: send.caller.kind,
+    idempotencyKey: send.request.idempotencyKey,
+    requestHash: send.request.requestHash,
+    ...(send.caller.signedInAccountId === undefined ? {} : { signedInAccountId: send.caller.signedInAccountId }),
+    at,
+  });
+  if (!accepted.isOk) {
+    return accepted;
+  }
+  const { message, deliveries, events } = accepted.value;
+  await tx.messages.create(message);
+  for (const delivery of deliveries) {
+    await tx.deliveries.create(delivery);
+  }
+  for (const event of events) {
+    await recordEvent({ events: tx.events, ids }, event);
+  }
+  for (const delivery of deliveries) {
+    await tx.notifier.deliveryPending({ fleetId, deliveryId: delivery.id, recipient: delivery.recipient });
+  }
   return ok({ messageId: message.id });
 }

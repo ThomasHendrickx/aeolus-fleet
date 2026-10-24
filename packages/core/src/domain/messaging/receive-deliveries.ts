@@ -1,4 +1,4 @@
-import type { DeliveryId, IdGenerator, MessageId, ShipId } from '@aeolus-fleet/common';
+import type { DeliveryId, IdGenerator, MeetingId, MessageId, ShipId } from '@aeolus-fleet/common';
 
 import { findShip, holdLease, isLeasePushed, type FindShipTx, type HoldLeaseTx, type LeaseEnded, type LeaseRepository, type Ship } from '../registry/public.js';
 import type { Crew } from '../shared/caller.js';
@@ -39,6 +39,8 @@ export interface ReceivedDelivery {
   attempts: number;
   /** Whether its message was sent forced (decision 0040). */
   isForced: boolean;
+  /** The meeting its message was contributed to or tells of; none outside a meeting (decision 0061). */
+  meetingId: MeetingId | null;
 }
 
 export interface DeliveriesReceived {
@@ -84,6 +86,7 @@ export async function receivedDeliveryOf(
     sentAt: message.createdAt,
     attempts: delivery.attempts,
     isForced: delivery.isForced,
+    meetingId: message.meetingId,
   });
 }
 

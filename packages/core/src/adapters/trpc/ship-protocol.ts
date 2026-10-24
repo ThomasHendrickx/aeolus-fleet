@@ -2,6 +2,9 @@ import {
   ANSWER_CONTENT_TYPE,
   ARGO_HEADLINE_MAX_LENGTH,
   MARKDOWN_CONTENT_TYPE,
+  MEETING_ADDED_CONTENT_TYPE,
+  MEETING_ENDED_CONTENT_TYPE,
+  MEETING_MIC_CONTENT_TYPE,
   NO_TERMINAL_QUESTIONS,
   PING_CONTENT_TYPE,
   QUESTION_CONTENT_TYPE,
@@ -37,4 +40,5 @@ export const SHIP_PROTOCOL = [
   '15. Deregister only when this session ends for good, never between tasks.',
   '16. LEASE_ENDED while passing your crew token: your ship was released. Stop calling the fleet and say so.',
   '17. To read a delivery you acknowledged again, whole, until it is handled, call delivery with its deliveryId. It changes nothing.',
+  `18. A delivery naming a meetingId comes from a meeting you take part in; ${MEETING_ADDED_CONTENT_TYPE} tells you that you were added. Contribute by send to {"kind":"meeting","meetingId":"<its id>"}, never with inReplyTo, and only while you hold the mic: call requestMic, contribute once ${MEETING_MIC_CONTENT_TYPE} arrives, then releaseMic, and request again to speak again. The moderator needs no mic. Call meeting to read what was said and who takes part. ${MEETING_ENDED_CONTENT_TYPE} means the meeting ended: contribute no more.`,
 ].join('\n');

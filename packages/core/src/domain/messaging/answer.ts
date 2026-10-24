@@ -8,10 +8,11 @@ import type { Delivery, Message } from './message.js';
  * return traffic the network rules always allow (decision 0034): it names the
  * message (inReplyTo), it goes to that message's sender, and the message
  * reached the answering ship, by a delivery to it or one of its type it
- * claimed.
+ * claimed. A contribution to a meeting gives no answer reach (decision 0061,
+ * M18): no rule would show it.
  */
 export function isAnswerToSender(answer: { senderShipId: ShipId; recipient: Recipient }, asked: { message: Message; delivery: Delivery } | undefined): boolean {
-  if (!asked || answer.recipient.kind !== 'ship' || answer.recipient.shipId !== asked.message.senderShipId) {
+  if (!asked || asked.message.selector.kind === 'meeting' || answer.recipient.kind !== 'ship' || answer.recipient.shipId !== asked.message.senderShipId) {
     return false;
   }
   const { delivery } = asked;

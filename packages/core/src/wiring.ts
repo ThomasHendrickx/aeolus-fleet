@@ -78,6 +78,11 @@ import { createReplyToMessage, type ReplyToMessage } from './domain/messaging/re
 import { createResendDelivery, type ResendDelivery } from './domain/messaging/resend-delivery.js';
 import { createPingShip, type PingShip } from './domain/messaging/ping-ship.js';
 import { createSendMessage, type SendMessage } from './domain/messaging/send-message.js';
+import { createOpenMeeting, type OpenMeeting } from './domain/messaging/open-meeting.js';
+import { createReadMeeting, type ReadMeeting } from './domain/messaging/read-meeting.js';
+import { createChangeMic, type ChangeMic } from './domain/messaging/change-mic.js';
+import { createChangeMeeting, type ChangeMeeting } from './domain/messaging/change-meeting.js';
+import { createAddToMeeting, type AddToMeeting } from './domain/messaging/add-to-meeting.js';
 import { createClaimShip, type ClaimShip } from './domain/registry/claim-ship.js';
 import { createCommissionShip, type CommissionShip } from './domain/registry/commission-ship.js';
 import { createDeregister, type Deregister } from './domain/registry/deregister.js';
@@ -234,6 +239,11 @@ export interface UseCases {
   reportLog: ReadReportLog;
   deregister: Deregister;
   sendMessage: SendMessage;
+  openMeeting: OpenMeeting;
+  readMeeting: ReadMeeting;
+  changeMic: ChangeMic;
+  changeMeeting: ChangeMeeting;
+  addToMeeting: AddToMeeting;
   receiveDeliveries: ReceiveDeliveries;
   receiveReply: ReceiveReply;
   pushReceiveDeliveries: PushReceiveDeliveries;
@@ -389,7 +399,7 @@ export function createUseCases(options: {
     commissionShip: createCommissionShip({ uow, clock, ids, secrets }),
     getStartingPrompt: createGetStartingPrompt({ uow, clock, ids, secrets }),
     releaseShip: createReleaseShip({ uow, clock, ids }),
-    retireShip: createRetireShip({ uow: bulkUow, clock, ids }),
+    retireShip: createRetireShip({ uow: bulkUow, clock, ids, hasher: sha256Hasher }),
     renameShip: createRenameShip({ uow, clock, ids }),
     setOwner: createSetOwner({ uow, clock, ids }),
     setVerifiedFacts: createSetVerifiedFacts({ uow, clock, ids }),
@@ -444,6 +454,11 @@ export function createUseCases(options: {
     reportLog: createReadReportLog({ leases: createPrismaLeaseRepository(prisma) }),
     deregister: createDeregister({ uow, clock, ids }),
     sendMessage: createSendMessage({ uow, clock, ids, hasher: sha256Hasher }),
+    openMeeting: createOpenMeeting({ uow, clock, ids, hasher: sha256Hasher }),
+    readMeeting: createReadMeeting({ uow }),
+    changeMic: createChangeMic({ uow, clock, ids, hasher: sha256Hasher }),
+    changeMeeting: createChangeMeeting({ uow, clock, ids, hasher: sha256Hasher }),
+    addToMeeting: createAddToMeeting({ uow, clock, ids, hasher: sha256Hasher }),
     receiveDeliveries: createReceiveDeliveries({
       uow,
       clock,

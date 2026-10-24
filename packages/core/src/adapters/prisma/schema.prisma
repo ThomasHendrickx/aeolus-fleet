@@ -43,36 +43,39 @@ model Fleet {
   dailyMessageLimitSet Boolean  @default(false) @map("daily_message_limit_set")
   dailyMessageLimit    Int?     @map("daily_message_limit")
 
-  ships            Ship[]
-  leases           Lease[]
-  crewRequests     CrewRequest[]
-  crewRequestGiveBacks CrewRequestGiveBack[]
-  clearRequests    WorktreeClearRequest[]
-  labels           Label[]
-  labelValues      LabelValue[]
-  shipLabels       ShipLabel[]
-  networkSettings  NetworkSettings?
-  networkRulesDraft NetworkRulesDraft?
-  declaredNetworkRules DeclaredNetworkRules[]
+  ships                            Ship[]
+  leases                           Lease[]
+  crewRequests                     CrewRequest[]
+  crewRequestGiveBacks             CrewRequestGiveBack[]
+  clearRequests                    WorktreeClearRequest[]
+  labels                           Label[]
+  labelValues                      LabelValue[]
+  shipLabels                       ShipLabel[]
+  networkSettings                  NetworkSettings?
+  networkRulesDraft                NetworkRulesDraft?
+  declaredNetworkRules             DeclaredNetworkRules[]
   installationDeclaredNetworkRules InstallationDeclaredNetworkRules?
-  scopeNamespaces  ScopeNamespace[]
-  verifiedFacts    VerifiedFacts[]
-  reachRefusals    ReachRefusal[]
-  credentials      Credential[]
-  messages         Message[]
-  messageDays      MessageDay[]
-  deliveries       Delivery[]
-  overdueDeliveries OverdueDelivery[]
-  events           Event[]
-  consoleSessions  ConsoleSession[]
-  signInTickets    SignInTicket[]
-  noticeDismissals NoticeDismissal[]
-  guideProgress    GuideProgress[]
-  accountNoticeDismissals AccountNoticeDismissal[]
-  accountGuideProgress    AccountGuideProgress[]
-  operator         Operator?
-  healthSnapshots  HealthSnapshot[]
-  healthSnapshotDeliveries HealthSnapshotDelivery[]
+  scopeNamespaces                  ScopeNamespace[]
+  verifiedFacts                    VerifiedFacts[]
+  reachRefusals                    ReachRefusal[]
+  credentials                      Credential[]
+  messages                         Message[]
+  messageDays                      MessageDay[]
+  deliveries                       Delivery[]
+  overdueDeliveries                OverdueDelivery[]
+  events                           Event[]
+  consoleSessions                  ConsoleSession[]
+  signInTickets                    SignInTicket[]
+  noticeDismissals                 NoticeDismissal[]
+  guideProgress                    GuideProgress[]
+  accountNoticeDismissals          AccountNoticeDismissal[]
+  accountGuideProgress             AccountGuideProgress[]
+  operator                         Operator?
+  healthSnapshots                  HealthSnapshot[]
+  healthSnapshotDeliveries         HealthSnapshotDelivery[]
+  meetings                         Meeting[]
+  meetingParticipants              MeetingParticipant[]
+  meetingMicRequests               MeetingMicRequest[]
 
   @@map("fleets")
 }
@@ -92,49 +95,54 @@ enum ShipKind {
 /// A durable, addressable identity with an inbox. Ids start with shp_.
 /// Scopes are set when the ship is created and checked before every call.
 model Ship {
-  id                    String    @id
-  fleetId               String    @map("fleet_id")
+  id                    String            @id
+  fleetId               String            @map("fleet_id")
   name                  String
   type                  String
   kind                  ShipKind
   scopes                String[]
   note                  String?
-  createdAt             DateTime  @map("created_at") @db.Timestamptz(3)
-  retiredAt             DateTime? @map("retired_at") @db.Timestamptz(3)
+  createdAt             DateTime          @map("created_at") @db.Timestamptz(3)
+  retiredAt             DateTime?         @map("retired_at") @db.Timestamptz(3)
   /// The actor that commissioned it, its idempotency key and the request's hash; null for argo.
   /// commissioned_by names the actor: a ship's id, an account's id, or `installation`.
   commissionedByKind    CommissionerKind? @map("commissioned_by_kind")
-  commissionedBy        String?   @map("commissioned_by")
-  commissionKey         String?   @map("commission_key")
-  commissionRequestHash String?   @map("commission_request_hash")
+  commissionedBy        String?           @map("commissioned_by")
+  commissionKey         String?           @map("commission_key")
+  commissionRequestHash String?           @map("commission_request_hash")
   /// The ship that answers for it, a person's ship or argo (decision 0045); null for argo and the viewer.
-  ownerShipId           String?   @map("owner_ship_id")
+  ownerShipId           String?           @map("owner_ship_id")
 
-  fleet             Fleet            @relation(fields: [fleetId], references: [id])
-  owner             Ship?            @relation("ShipOwner", fields: [fleetId, ownerShipId], references: [fleetId, id], onDelete: Restrict)
-  ownedShips        Ship[]           @relation("ShipOwner")
-  leases            Lease[]
-  credentials       Credential[]
-  sentMessages      Message[]        @relation("MessageSender")
-  addressedMessages Message[]        @relation("MessageSelectorShip")
-  deliveries        Delivery[]       @relation("DeliveryRecipientShip")
-  claimedDeliveries Delivery[]       @relation("DeliveryClaimedByShip")
-  overdueDeliveries OverdueDelivery[]
-  consoleSessions   ConsoleSession[]
-  actorOfEvents     Event[]          @relation("EventActorShip")
-  actorThroughOfEvents Event[]       @relation("EventActorThroughShip")
-  events            Event[]          @relation("EventShip")
-  crewRequest       CrewRequest?     @relation("CrewRequestShip")
-  assignedCrews     CrewRequest[]    @relation("CrewRequestAssignee")
-  givenBackCrews    CrewRequestGiveBack[] @relation("CrewRequestGiveBackTrierarch")
-  clearRequests     WorktreeClearRequest[] @relation("WorktreeClearRequestTrierarch")
-  clearedWorktrees  WorktreeClearRequest[] @relation("WorktreeClearRequestShip")
-  requestedClears   WorktreeClearRequest[] @relation("WorktreeClearRequestRequester")
-  ownedLabels       Label[]          @relation("LabelOwner")
-  labels            ShipLabel[]      @relation("ShipLabelShip")
+  fleet                Fleet                  @relation(fields: [fleetId], references: [id])
+  owner                Ship?                  @relation("ShipOwner", fields: [fleetId, ownerShipId], references: [fleetId, id], onDelete: Restrict)
+  ownedShips           Ship[]                 @relation("ShipOwner")
+  leases               Lease[]
+  credentials          Credential[]
+  sentMessages         Message[]              @relation("MessageSender")
+  addressedMessages    Message[]              @relation("MessageSelectorShip")
+  deliveries           Delivery[]             @relation("DeliveryRecipientShip")
+  claimedDeliveries    Delivery[]             @relation("DeliveryClaimedByShip")
+  overdueDeliveries    OverdueDelivery[]
+  consoleSessions      ConsoleSession[]
+  actorOfEvents        Event[]                @relation("EventActorShip")
+  actorThroughOfEvents Event[]                @relation("EventActorThroughShip")
+  events               Event[]                @relation("EventShip")
+  crewRequest          CrewRequest?           @relation("CrewRequestShip")
+  assignedCrews        CrewRequest[]          @relation("CrewRequestAssignee")
+  givenBackCrews       CrewRequestGiveBack[]  @relation("CrewRequestGiveBackTrierarch")
+  clearRequests        WorktreeClearRequest[] @relation("WorktreeClearRequestTrierarch")
+  clearedWorktrees     WorktreeClearRequest[] @relation("WorktreeClearRequestShip")
+  requestedClears      WorktreeClearRequest[] @relation("WorktreeClearRequestRequester")
+  ownedLabels          Label[]                @relation("LabelOwner")
+  labels               ShipLabel[]            @relation("ShipLabelShip")
   declaredNetworkRules DeclaredNetworkRules[]
-  declaredNamespace ScopeNamespace?
-  verifiedFacts     VerifiedFacts[]
+  declaredNamespace    ScopeNamespace?
+  verifiedFacts        VerifiedFacts[]
+  ownedMeetings        Meeting[]              @relation("MeetingOwner")
+  moderatedMeetings    Meeting[]              @relation("MeetingModerator")
+  openedMeetings       Meeting[]              @relation("MeetingOpener")
+  micHeldMeetings      Meeting[]              @relation("MeetingMicHolder")
+  meetings             MeetingParticipant[]
 
   @@unique([fleetId, id])
   /// An idempotency key is used once per commissioning actor.
@@ -225,8 +233,8 @@ model Lease {
   turnAt               DateTime?    @map("turn_at") @db.Timestamptz(3)
   endedAt              DateTime?    @map("ended_at") @db.Timestamptz(3)
 
-  fleet             Fleet            @relation(fields: [fleetId], references: [id])
-  ship              Ship             @relation(fields: [fleetId, shipId], references: [fleetId, id])
+  fleet             Fleet             @relation(fields: [fleetId], references: [id])
+  ship              Ship              @relation(fields: [fleetId, shipId], references: [fleetId, id])
   consoleSessions   ConsoleSession[]
   claimedDeliveries Delivery[]
   overdueDeliveries OverdueDelivery[]
@@ -256,27 +264,27 @@ enum CrewStatus {
 /// 16 KB, checked but never acted on; each request replaces them and moves their
 /// version by one.
 model CrewRequest {
-  shipId          String      @id @map("ship_id")
-  fleetId         String      @map("fleet_id")
-  settings        Json
-  settingsVersion Int         @map("settings_version")
-  requestedAt     DateTime    @map("requested_at") @db.Timestamptz(3)
+  shipId           String      @id @map("ship_id")
+  fleetId          String      @map("fleet_id")
+  settings         Json
+  settingsVersion  Int         @map("settings_version")
+  requestedAt      DateTime    @map("requested_at") @db.Timestamptz(3)
   /// The trierarch ship it is assigned to; null while unassigned.
-  assignedTo      String?     @map("assigned_to_ship_id")
+  assignedTo       String?     @map("assigned_to_ship_id")
   /// How its trierarch says the crew stands; null until it says.
-  status          CrewStatus?
+  status           CrewStatus?
   /// Why no trierarch can take it, written by the assigner while unassigned; null when none.
-  reason          String?
+  reason           String?
   /// How many times its trierarch restarted the session within its restart window, with the status: 0 on its first start.
-  attempt          Int       @default(0)
+  attempt          Int         @default(0)
   /// When the session its trierarch runs now started, with the status; null while none runs.
-  sessionStartedAt DateTime? @map("session_started_at") @db.Timestamptz(3)
+  sessionStartedAt DateTime?   @map("session_started_at") @db.Timestamptz(3)
   /// Whether its crew is final: set by its trierarch's first running, restarting or crashed, kept whatever status follows, cleared on every new settings version.
-  isFinal          Boolean   @default(false) @map("is_final")
+  isFinal          Boolean     @default(false) @map("is_final")
 
-  fleet    Fleet @relation(fields: [fleetId], references: [id])
-  ship     Ship  @relation("CrewRequestShip", fields: [fleetId, shipId], references: [fleetId, id])
-  assignee Ship? @relation("CrewRequestAssignee", fields: [fleetId, assignedTo], references: [fleetId, id])
+  fleet     Fleet                 @relation(fields: [fleetId], references: [id])
+  ship      Ship                  @relation("CrewRequestShip", fields: [fleetId, shipId], references: [fleetId, id])
+  assignee  Ship?                 @relation("CrewRequestAssignee", fields: [fleetId, assignedTo], references: [fleetId, id])
   givenBack CrewRequestGiveBack[]
 
   @@unique([fleetId, shipId])
@@ -328,8 +336,8 @@ model WorktreeClearRequest {
 /// owned by the ship that defined it. Ids start with lbl_. A retired or deleted
 /// label is deleted with its values; its events stay.
 model Label {
-  id          String @id
-  fleetId     String @map("fleet_id")
+  id          String         @id
+  fleetId     String         @map("fleet_id")
   key         String
   /// A ship or the installation (decision 0031); the installation's label names no owner ship.
   ownerKind   LabelOwnerKind @default(ship) @map("owner_kind")
@@ -534,6 +542,7 @@ model Credential {
 enum SelectorKind {
   ship
   type
+  meeting
 
   @@map("selector_kind")
 }
@@ -574,6 +583,8 @@ model Message {
   requestHash        String       @map("request_hash")
   inReplyToMessageId String?      @map("in_reply_to_message_id")
   resendOfMessageId  String?      @map("resend_of_message_id")
+  /// The meeting it was sent to, or the meeting whose added notice it is (decision 0061).
+  meetingId          String?      @map("meeting_id")
   createdAt          DateTime     @map("created_at") @db.Timestamptz(3)
 
   fleet        Fleet      @relation(fields: [fleetId], references: [id])
@@ -583,6 +594,7 @@ model Message {
   replies      Message[]  @relation("MessageInReplyTo")
   resendOf     Message?   @relation("MessageResendOf", fields: [fleetId, resendOfMessageId], references: [fleetId, id], onDelete: Restrict)
   resends      Message[]  @relation("MessageResendOf")
+  meeting      Meeting?   @relation(fields: [fleetId, meetingId], references: [fleetId, id], onDelete: Restrict)
   deliveries   Delivery[]
   events       Event[]
 
@@ -601,6 +613,8 @@ model Message {
   @@index([fleetId, selectorShipId, id])
   @@index([fleetId, inReplyToMessageId])
   @@index([fleetId, resendOfMessageId])
+  /// A meeting's contributions page newest first by id (decision 0061).
+  @@index([fleetId, meetingId, id])
   @@index([fleetId, selectorShipId, createdAt, id], map: "messages_pings_idx", where: raw("(content_type = 'application/vnd.aeolus.ping'::text)"))
   @@map("messages")
 }
@@ -629,6 +643,91 @@ enum DeliveryState {
 /// For a type under network rules, the ships of the type its sender may reach,
 /// fixed at send time: only they claim it (decision 0034). Empty: any ship of
 /// the type, as a send no ship of the type may take is refused.
+/// A meeting of ships (decision 0061), id mtg_: one owner and one moderator,
+/// both participants, the opener at first.
+model Meeting {
+  id              String     @id
+  fleetId         String     @map("fleet_id")
+  title           String?
+  ownerShipId     String     @map("owner_ship_id")
+  moderatorShipId String     @map("moderator_ship_id")
+  openedByShipId  String     @map("opened_by_ship_id")
+  idempotencyKey  String     @map("idempotency_key")
+  requestHash     String     @map("request_hash")
+  openedAt        DateTime   @map("opened_at") @db.Timestamptz(3)
+  endedAt         DateTime?  @map("ended_at") @db.Timestamptz(3)
+  /// The participant that holds the mic; none while it is free.
+  micHolderShipId String?    @map("mic_holder_ship_id")
+  micPattern      MicPattern @default(moderator) @map("mic_pattern")
+
+  fleet        Fleet                @relation(fields: [fleetId], references: [id])
+  micHolder    Ship?                @relation("MeetingMicHolder", fields: [fleetId, micHolderShipId], references: [fleetId, id], onDelete: Restrict)
+  micRequests  MeetingMicRequest[]
+  owner        Ship                 @relation("MeetingOwner", fields: [fleetId, ownerShipId], references: [fleetId, id], onDelete: Restrict)
+  moderator    Ship                 @relation("MeetingModerator", fields: [fleetId, moderatorShipId], references: [fleetId, id], onDelete: Restrict)
+  openedBy     Ship                 @relation("MeetingOpener", fields: [fleetId, openedByShipId], references: [fleetId, id], onDelete: Restrict)
+  participants MeetingParticipant[]
+  messages     Message[]
+
+  @@unique([fleetId, id])
+  /// An opener uses an idempotency key once.
+  @@unique([fleetId, openedByShipId, idempotencyKey])
+  /// Every foreign key has an index leading with its columns (#331).
+  @@index([fleetId, ownerShipId])
+  @@index([fleetId, moderatorShipId])
+  @@index([fleetId, micHolderShipId])
+  @@map("meetings")
+}
+
+/// How a meeting's free mic passes (decision 0061, M9): the moderator's pick, or the oldest request.
+enum MicPattern {
+  moderator
+  fifo
+
+  @@map("mic_pattern")
+}
+
+/// A participant waiting for the mic of its meeting, since its time (decision 0061, M8): once per meeting.
+model MeetingMicRequest {
+  fleetId     String   @map("fleet_id")
+  meetingId   String   @map("meeting_id")
+  shipId      String   @map("ship_id")
+  requestedAt DateTime @map("requested_at") @db.Timestamptz(3)
+  /// Its place on the list, the oldest request's 0.
+  place       Int
+
+  fleet       Fleet              @relation(fields: [fleetId], references: [id])
+  meeting     Meeting            @relation(fields: [fleetId, meetingId], references: [fleetId, id], onDelete: Restrict)
+  participant MeetingParticipant @relation(fields: [fleetId, meetingId, shipId], references: [fleetId, meetingId, shipId], onDelete: Restrict)
+
+  @@id([fleetId, meetingId, shipId])
+  @@map("meeting_mic_requests")
+}
+
+/// A ship in a meeting and when it joined (decision 0061): once per meeting.
+model MeetingParticipant {
+  fleetId   String    @map("fleet_id")
+  meetingId String    @map("meeting_id")
+  shipId    String    @map("ship_id")
+  joinedAt  DateTime  @map("joined_at") @db.Timestamptz(3)
+  /// Its place in the order the meeting's ships joined, the opener's 0.
+  place     Int
+  /// When it left or was revoked; none while it is present (decision 0061, M13).
+  leftAt    DateTime? @map("left_at") @db.Timestamptz(3)
+  /// Whether the owner revoked its right to rejoin.
+  isRevoked Boolean   @default(false) @map("is_revoked")
+
+  fleet      Fleet              @relation(fields: [fleetId], references: [id])
+  meeting    Meeting            @relation(fields: [fleetId, meetingId], references: [fleetId, id], onDelete: Restrict)
+  ship       Ship               @relation(fields: [fleetId, shipId], references: [fleetId, id], onDelete: Restrict)
+  micRequest MeetingMicRequest?
+
+  @@id([fleetId, meetingId, shipId])
+  /// A ship's meetings, and a retire checking them.
+  @@index([fleetId, shipId])
+  @@map("meeting_participants")
+}
+
 model Delivery {
   id               String        @id
   fleetId          String        @map("fleet_id")
@@ -648,11 +747,11 @@ model Delivery {
   readAt           DateTime?     @map("read_at") @db.Timestamptz(3)
   createdAt        DateTime      @map("created_at") @db.Timestamptz(3)
 
-  fleet          Fleet   @relation(fields: [fleetId], references: [id])
-  message        Message @relation(fields: [fleetId, messageId], references: [fleetId, id])
-  recipientShip  Ship?   @relation("DeliveryRecipientShip", fields: [fleetId, recipientShipId], references: [fleetId, id], onDelete: Restrict)
-  claimedByShip  Ship?   @relation("DeliveryClaimedByShip", fields: [fleetId, claimedByShipId], references: [fleetId, id], onDelete: Restrict)
-  claimedByLease Lease?  @relation(fields: [fleetId, claimedByLeaseId], references: [fleetId, id], onDelete: Restrict)
+  fleet          Fleet             @relation(fields: [fleetId], references: [id])
+  message        Message           @relation(fields: [fleetId, messageId], references: [fleetId, id])
+  recipientShip  Ship?             @relation("DeliveryRecipientShip", fields: [fleetId, recipientShipId], references: [fleetId, id], onDelete: Restrict)
+  claimedByShip  Ship?             @relation("DeliveryClaimedByShip", fields: [fleetId, claimedByShipId], references: [fleetId, id], onDelete: Restrict)
+  claimedByLease Lease?            @relation(fields: [fleetId, claimedByLeaseId], references: [fleetId, id], onDelete: Restrict)
   events         Event[]
   overdue        OverdueDelivery[]
 
@@ -764,34 +863,34 @@ model HealthSnapshotDelivery {
 /// actor_ship_id is null), the ship, message and delivery it concerns, and a few
 /// details as a flat JSON object.
 model Event {
-  id          String   @id
-  fleetId     String   @map("fleet_id")
-  type        String
-  occurredAt  DateTime @map("occurred_at") @db.Timestamptz(3)
+  id                     String         @id
+  fleetId                String         @map("fleet_id")
+  type                   String
+  occurredAt             DateTime       @map("occurred_at") @db.Timestamptz(3)
   /// Who caused it (decision 0057): a ship, an account, the installation or the system.
-  actorKind   EventActorKind @default(system) @map("actor_kind")
-  actorShipId String?  @map("actor_ship_id")
+  actorKind              EventActorKind @default(system) @map("actor_kind")
+  actorShipId            String?        @map("actor_ship_id")
   /// The account that caused it, by pagasae's id only: never an email.
-  actorAccountId String? @map("actor_account_id")
+  actorAccountId         String?        @map("actor_account_id")
   /// The ship that presented the account's token, a plugin's page or the gateway, if one did.
-  actorThroughShipId String? @map("actor_through_ship_id")
+  actorThroughShipId     String?        @map("actor_through_ship_id")
   /// The account signed in to the console as argo when argo caused it, by its id only (decision 0054).
-  actorSignedInAccountId String? @map("actor_signed_in_account_id")
-  shipId      String?  @map("ship_id")
-  messageId   String?  @map("message_id")
-  deliveryId  String?  @map("delivery_id")
-  details     Json
+  actorSignedInAccountId String?        @map("actor_signed_in_account_id")
+  shipId                 String?        @map("ship_id")
+  messageId              String?        @map("message_id")
+  deliveryId             String?        @map("delivery_id")
+  details                Json
   /// The event's place in its fleet's stream, in commit order and without
   /// gaps: where a live subscription resumes. The id is not, since ids are
   /// taken before their transaction commits.
-  seq         BigInt
+  seq                    BigInt
 
-  fleet     Fleet     @relation(fields: [fleetId], references: [id])
-  actorShip Ship?     @relation("EventActorShip", fields: [fleetId, actorShipId], references: [fleetId, id], onDelete: Restrict)
-  actorThroughShip Ship? @relation("EventActorThroughShip", fields: [fleetId, actorThroughShipId], references: [fleetId, id], onDelete: Restrict)
-  ship      Ship?     @relation("EventShip", fields: [fleetId, shipId], references: [fleetId, id], onDelete: Restrict)
-  message   Message?  @relation(fields: [fleetId, messageId], references: [fleetId, id], onDelete: Restrict)
-  delivery  Delivery? @relation(fields: [fleetId, deliveryId], references: [fleetId, id], onDelete: Restrict)
+  fleet            Fleet     @relation(fields: [fleetId], references: [id])
+  actorShip        Ship?     @relation("EventActorShip", fields: [fleetId, actorShipId], references: [fleetId, id], onDelete: Restrict)
+  actorThroughShip Ship?     @relation("EventActorThroughShip", fields: [fleetId, actorThroughShipId], references: [fleetId, id], onDelete: Restrict)
+  ship             Ship?     @relation("EventShip", fields: [fleetId, shipId], references: [fleetId, id], onDelete: Restrict)
+  message          Message?  @relation(fields: [fleetId, messageId], references: [fleetId, id], onDelete: Restrict)
+  delivery         Delivery? @relation(fields: [fleetId, deliveryId], references: [fleetId, id], onDelete: Restrict)
 
   @@unique([fleetId, seq])
   /// Every foreign key has an index leading with its columns, so deleting a

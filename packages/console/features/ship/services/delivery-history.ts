@@ -5,6 +5,7 @@ import { undeliverableReason } from '../../../lib/needs-attention';
 import { duration } from '../../../lib/relative-time';
 import { ship, text, type SentencePart } from '../../../lib/sentence';
 import { statusLabel, type PushedStepState } from '../../../components/molecules/status-badge';
+import { recipientGroupWords } from '../../../lib/recipient';
 
 /** The StatusBadge of a step of a delivery's way. */
 export type DeliveryStepState = DeliveryState | PushedStepState;
@@ -163,7 +164,7 @@ export function deliveryHistorySentence(
     case 'MessageAccepted':
       return recipient.kind === 'ship'
         ? [text('Stored in the inbox of '), ship(recipient.ship), text('.')]
-        : [text(`Queued for any ship of type ${recipient.type}.`)];
+        : [text(`Queued for ${recipientGroupWords(recipient)}.`)];
     case 'DeliveryReceived':
       return [text(entry.isAgain ? 'Received again' : 'Received'), ...byWhom(entry), text(' for '), ...shipOf(entry), text('.')];
     case 'DeliveryHanded':

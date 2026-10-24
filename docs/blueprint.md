@@ -277,7 +277,7 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Reach | Where a ship may act: whom it may send to, read or manage, by network rules (0034) | core |
 | Verb | send (with force and discovery), read (with resend), manage (rename, release, recrew, retire, ping, crew request) | core |
 | Network rule | Lets ships matching one selection reach ships matching another by one verb; a selection is of label and owner terms, never type; allow-only (0034) | core |
-| Built-in rule | A rule every fleet starts with, shown first: argo, the owner, an answer, and a ship of kind plugin reading every ship, never off; the viewer reading, switchable; open, on while no rules are applied (0034) | core |
+| Built-in rule | A rule every fleet starts with, shown first: argo, the owner, an answer, a ship of kind plugin reading every ship, and participants of one meeting reaching each other, never off; the viewer reading, switchable; open, on while no rules are applied (0034, 0061) | core |
 | Declared rule | A rule a ship declares on labels it defined; in force beside the fleet's own (0037) | core |
 | Network settings | A fleet's applied rules, the viewer reading's switch and a version | core |
 | Draft | The fleet's one draft of its own rules: looked at, then applied or discarded; never checked against (0035) | core |
@@ -291,7 +291,7 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Term | Meaning | Held by |
 | --- | --- | --- |
 | Message | An immutable envelope with an opaque payload of at most 64 KB and a content type, from one ship to a selector; may reply to or resend another | core |
-| Selector | Who a message is for: `ship` (id, or name resolved at send) or `type`; `group` and `fleet` later. Not a rule's selection | core |
+| Selector | Who a message is for: `ship` (id, or name resolved at send), `type` or `meeting`; `group` and `fleet` later. Not a rule's selection | core |
 | Delivery | One message to one recipient, with its state: pending, received, handed, acknowledged, handled, not handled, undeliverable, dismissed, abandoned (0040) | core |
 | Acknowledgement | The receiver taking a delivery on receipt; Aeolus distributes, never executes (0001) | core |
 | Forced | A send with `messages:force`: comes first, stopping a busy turn (0040) | core |
@@ -302,6 +302,18 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Question | A message of `application/vnd.aeolus.question+json` to the asker's owner's ship, open until answered (0038) | ships |
 | Answer | The owner's reply of `application/vnd.aeolus.answer+json` (0038) | ships |
 | Event | The record of a state change, written in its transaction, naming its actor | core |
+
+### Meetings
+
+| Term | Meaning | Held by |
+| --- | --- | --- |
+| Meeting | One moderated conversation of ships, `mtg_…`, opened with `meetings:open` and an optional short title: what a participant says reaches every other participant, one delivery each (0061) | core |
+| Participant | A ship in a meeting, never a type; the owner reaches each by send when it joins, then participants reach each other whatever their own reach; present, left (keeping its right to rejoin) or revoked (0061) | core |
+| Meeting owner | The participant that answers for a meeting, its opener at first; its reach decides who joins (0061) | core |
+| Moderator | The participant that decides who speaks, its opener at first; it always contributes (0061) | core |
+| Contribution | A message to a meeting: no reply, never forced (0061) | core |
+| Mic | What a participant holds to contribute; the moderator gives and takes it | core |
+| Mic request | A participant's place on the meeting's list for the mic, with its time; one per ship | core |
 
 ### Plugins and the gateway
 
@@ -380,7 +392,8 @@ The operator and the agents use the same API. The only dependency between contex
 | Registry | Label | A key is unique among the fleet's labels. Its values are 1 to 50, each once; keys and values are lowercase letters, digits and hyphens, at most 63 characters. Only its owner changes its values, deletes it, assigns and unassigns its values, on any ship, its own included. A value keeps its id while the label has it. A value a ship carries is never removed, and a label a ship carries a value of is never deleted. A ship carries at most 20 label values; a retired ship carries none. A label retires with its owner, after every assignment of it |
 | Registry | Ship | `argo` exists once per fleet and can never be retired, released or renamed; its name is reserved. Scopes are set when a ship is created. Name is a handle, unique among active ships and reusable after retirement. Renaming is allowed: messages always store the resolved id, so a rename or reuse never redirects a sent message. At most one session holds the lease. A retired ship can never be claimed or addressed again. Status (awaiting crew, crewed, retired) is derived from the lease, never set by hand; `argo` and the viewer ship, the console's own, are always crewed |
 | Messaging | Message | Immutable once accepted. Accepted only if its selector resolves to at least one non-retired ship, and, with network rules set, a rule or a fixed exception lets its sender reach it (decision 0034); otherwise the sender gets a rejection, never an OK. Stored in the same transaction that returns the OK |
-| Messaging | Delivery | Created together with its message, one per resolved recipient (for a `type` selector: one delivery, handed to the first ship of that type to receive it; if that ship is released before acknowledging, any ship of that type can receive it; with network rules set, only the ships of the type its sender could reach at send time). Leaves `pending` only by acknowledgement, undeliverable, or operator abandon. Handed again by every `receive` of the same crew while it holds it, one attempt each, and redelivered after a lease is lost, until acknowledged, so receivers treat the delivery id as an idempotency key |
+| Messaging | Meeting | One owner and one moderator, both participants; a participant is a ship, never a type, once per meeting; every participant was reached by the owner by send when it joined; only the moderator and the mic's holder contribute; at most one holder, never the moderator, and one request per participant; owner, moderator and holder are present participants; an ended meeting never changes (0061) |
+| Messaging | Delivery | Created together with its message, one per resolved recipient (for a `meeting` selector: one per participant but the sender; for a `type` selector: one delivery, handed to the first ship of that type to receive it; if that ship is released before acknowledging, any ship of that type can receive it; with network rules set, only the ships of the type its sender could reach at send time). Leaves `pending` only by acknowledgement, undeliverable, or operator abandon. Handed again by every `receive` of the same crew while it holds it, one attempt each, and redelivered after a lease is lost, until acknowledged, so receivers treat the delivery id as an idempotency key |
 | Identity | Ship credential | Only the hash of the secret is stored. At most one valid secret per ship. Releasing the ship or deregistering invalidates it. Getting a starting prompt creates a new secret and invalidates any earlier one, and is only possible while the ship awaits crew. An invalid secret fails on the next `register`; a session already crewing keeps its crew token until the lease ends |
 
 ### Domain events
@@ -424,7 +437,21 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `ShipRenamed` | Registry | The ship goes by its new name; details hold the name it had and the name it has. Its id, history and session stay |
 | `ShipRetired` | Registry | Unprocessed direct deliveries marked abandoned by operator, id blocked forever |
 | `DeliveryAbandoned` | Registry | One per direct delivery a retire abandoned, written with `ShipRetired`; it stays in the timelines and its sender can see it |
-| `MessageAccepted` | Messaging | Deliveries created, receivers woken; details hold the model the sender stated, and `forced` for a forced send (0040) |
+| `MessageAccepted` | Messaging | Deliveries created, receivers woken; details hold the model the sender stated, and `forced` for a forced send (0040). One per delivery of a contribution, each with its meeting (0061) |
+| `MeetingOpened` | Messaging | A ship opened a meeting, owner and moderator itself (0061): details hold the meeting and how many participants |
+| `ParticipantAdded` | Messaging | The ship joined a meeting, one per participant, the opener included (0061): details hold the meeting |
+| `MicRequested` | Messaging | The ship requested the mic of its meeting (0061): details hold the meeting |
+| `MicRequestWithdrawn` | Messaging | The ship withdrew its mic request (0061): details hold the meeting |
+| `MicGiven` | Messaging | The ship got the mic, from the moderator, by its pick or first in line (0061): details hold the meeting and the pattern |
+| `MicReleased` | Messaging | The ship released the mic it held (0061): details hold the meeting |
+| `MicTaken` | Messaging | The moderator took the mic from the ship, back or to give it on (0061): details hold the meeting |
+| `MicPatternSet` | Messaging | The moderator set how the meeting's free mic passes (0061): details hold the meeting and the pattern |
+| `ParticipantLeft` | Messaging | The ship left a meeting, keeping its right, by itself or as it retired (0061): details hold the meeting |
+| `ParticipantRejoined` | Messaging | The ship that left a meeting rejoined it (0061): details hold the meeting |
+| `ParticipantRevoked` | Messaging | The owner revoked the ship's right to a meeting (0061): details hold the meeting |
+| `OwnershipTransferred` | Messaging | The ship became the owner of a meeting, from its owner (0061): details hold the meeting |
+| `ModeratorNamed` | Messaging | The ship became the moderator of a meeting, named by the owner or as the moderator went (0061): details hold the meeting |
+| `MeetingEnded` | Messaging | The ship ended a meeting, as its owner or moderator, or as its owner retired (0061): details hold the meeting |
 | `LeasePushed` | Registry | The lease's first push receive: from now until the lease ends, its computer side receives for it and the agent's plain receive answers nothing (decision 0040); details hold the lease, and the waker when the push receive stated one |
 | `DeliveryReceived` | Messaging | A push receive took the delivery for a crew's computer side: in flight with that ship and lease, no attempt counted. Its details say `again: true` when the crew already held it, and nothing changed |
 | `DeliveryHanded` | Messaging | A plain receive hands the delivery to a crew, or a pushed crew's computer side reports it handed it to the agent with a new hand-over number: in flight with that ship and lease, one more attempt counted. Its details hold the hand-over number when there is one, and the channel when the computer side named one. Marked `onceMore`, it hands a confirmed message once more after its turn died: still acknowledged, no attempt counted |

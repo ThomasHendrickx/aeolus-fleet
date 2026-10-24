@@ -5,6 +5,7 @@ import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
 import { createAssignLabel } from '../src/domain/registry/assign-label.js';
 import { createChangeLabelValues } from '../src/domain/registry/change-label-values.js';
 import { createDeleteLabel } from '../src/domain/registry/delete-label.js';
+import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
 import { createRetireShip } from '../src/domain/registry/retire-ship.js';
 import type { ShipCaller } from '../src/domain/shared/caller.js';
 import { operatorCaller } from './support/core-fixtures.js';
@@ -214,7 +215,7 @@ describe("an assignment racing its owner's retire", () => {
     const assign = createAssignLabel({ uow, clock: core.clock, ids: newId })(plugin, { shipId: builderId, valueId: macos });
     await reached;
 
-    const retire = createRetireShip({ uow: createPrismaUnitOfWork(core.prisma), clock: core.clock, ids: newId })(argo, { shipId: plugin.shipId });
+    const retire = createRetireShip({ uow: createPrismaUnitOfWork(core.prisma), clock: core.clock, ids: newId, hasher: sha256Hasher })(argo, { shipId: plugin.shipId });
 
     await expect(assign).resolves.toEqual({ isOk: true, value: undefined });
     await expect(retire).resolves.toMatchObject({ isOk: true });

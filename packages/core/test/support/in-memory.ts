@@ -19,10 +19,12 @@ import type {
   OperatorAccountLookup,
   OperatorAccountRepository,
 } from '../../src/domain/identity/ports.js';
+import type { Meeting } from '../../src/domain/messaging/meeting.js';
 import type { Delivery, Message } from '../../src/domain/messaging/message.js';
 import type { Overdue, PushedCrew, WaitingDelivery } from '../../src/domain/messaging/overdue.js';
 import type {
   DeliveryRepository,
+  MeetingRepository,
   MessageRepository,
   OverdueDeliveryRepository,
   PushedCrews,
@@ -87,7 +89,7 @@ import {
   type TimelineEntry,
 } from '../../src/domain/shared/history.js';
 import type { FleetLimitReads } from '../../src/domain/shared/read-fleet-limits.js';
-import type { Recipient } from '../../src/domain/shared/selector.js';
+import type { Addressee } from '../../src/domain/shared/selector.js';
 import { appliedLimits } from '../../src/domain/registry/applied-limits.js';
 import type { DeliveryNotice, Notifier } from '../../src/domain/shared/notifier.js';
 import type { PasswordHasher, RandomTokens, SecretHasher } from '../../src/domain/shared/secrets.js';
@@ -123,6 +125,8 @@ export interface InMemoryState {
   guideProgress: ({ fleetId: FleetId; signIn: ConsoleSignIn; at: Date } & GuideProgress)[];
   messages: Message[];
   deliveries: Delivery[];
+  /** The meetings with their participants (decision 0061). */
+  meetings: Meeting[];
   /** When each lease was last seen through a call by its crew: the last_seen_at column, apart from the Lease. */
   leaseSeen: { fleetId: FleetId; leaseId: Lease['id']; at: Date }[];
   /** Each lease's crew report: the report columns, apart from the Lease. */
@@ -187,6 +191,7 @@ export interface InMemoryTx {
   signInTickets: SignInTicketRepository;
   messages: MessageRepository;
   deliveries: DeliveryRepository;
+  meetings: MeetingRepository;
   overdueDeliveries: OverdueDeliveryRepository;
   events: EventLog;
   notifier: Notifier;
@@ -315,6 +320,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     guideProgress: [],
     messages: [],
     deliveries: [],
+    meetings: [],
     deliveryReads: [],
     leaseSeen: [],
     leaseReports: [],
@@ -523,6 +529,19 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         Promise.resolve(
           state.ships
             .filter((held) => held.fleetId === fleetId && held.retiredAt === null && held.kind !== 'viewer')
+            .sort((first, second) => first.id.localeCompare(second.id))
+            .map((held) => structuredClone(held)),
+        ),
+      listActiveCarryingEvery: (fleetId, valueIds) =>
+        Promise.resolve(
+          state.ships
+            .filter(
+              (held) =>
+                held.fleetId === fleetId &&
+                held.retiredAt === null &&
+                held.kind !== 'viewer' &&
+                valueIds.every((valueId) => state.shipLabels.some((carried) => carried.fleetId === fleetId && carried.shipId === held.id && carried.valueId === valueId)),
+            )
             .sort((first, second) => first.id.localeCompare(second.id))
             .map((held) => structuredClone(held)),
         ),
@@ -1065,6 +1084,50 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
           session.endReason = reason;
         }
         return Promise.resolve(open.map((session) => ({ ...session })));
+      },
+    },
+    meetings: {
+      create: (meeting) => {
+        state.meetings.push(structuredClone(meeting));
+        return Promise.resolve();
+      },
+      lockOpenerKey: () => Promise.resolve(),
+      findByOpenerKey: ({ fleetId, openerShipId, idempotencyKey }) => {
+        const found = state.meetings.find((held) => held.fleetId === fleetId && held.openedByShipId === openerShipId && held.idempotencyKey === idempotencyKey);
+        return Promise.resolve(found && structuredClone(found));
+      },
+      find: (fleetId, meetingId) => {
+        const found = state.meetings.find((held) => held.fleetId === fleetId && held.id === meetingId);
+        return Promise.resolve(found && structuredClone(found));
+      },
+      findForShare: (fleetId, meetingId) => {
+        const found = state.meetings.find((held) => held.fleetId === fleetId && held.id === meetingId);
+        return Promise.resolve(found && structuredClone(found));
+      },
+      findForUpdate: (fleetId, meetingId) => {
+        const found = state.meetings.find((held) => held.fleetId === fleetId && held.id === meetingId);
+        return Promise.resolve(found && structuredClone(found));
+      },
+      save: (meeting) => {
+        const at = state.meetings.findIndex((held) => held.fleetId === meeting.fleetId && held.id === meeting.id);
+        if (at >= 0) {
+          state.meetings[at] = structuredClone(meeting);
+        }
+        return Promise.resolve();
+      },
+      listPresentInForUpdate: (fleetId, shipId) =>
+        Promise.resolve(
+          state.meetings
+            .filter((held) => held.fleetId === fleetId && held.endedAt === null && held.participants.some((participant) => participant.shipId === shipId && participant.leftAt === null))
+            .map((held) => structuredClone(held)),
+        ),
+      contributions: (fleetId, { meetingId, cursor, limit }) => {
+        const rows = state.messages
+          .filter((message) => message.fleetId === fleetId && message.selector.kind === 'meeting' && message.selector.meetingId === meetingId && (cursor === undefined || message.id < cursor))
+          .sort((first, second) => second.id.localeCompare(first.id))
+          .slice(0, limit + 1)
+          .map((message) => structuredClone(message));
+        return Promise.resolve(pageOf(rows, { limit, cursorOf: (message) => message.id }));
       },
     },
     messages: {
@@ -1616,7 +1679,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     }
     return { id: found.id, name: found.name };
   };
-  const recipientOf = (fleetId: FleetId, recipient: Recipient): HistoryRecipient =>
+  const recipientOf = (fleetId: FleetId, recipient: Addressee): HistoryRecipient =>
     recipient.kind === 'ship' ? { kind: 'ship', ship: partyOf(fleetId, recipient.shipId) } : recipient;
   const messageOf = (fleetId: FleetId, messageId: FleetEvent['messageId']): Message | undefined =>
     state.messages.find((held) => held.fleetId === fleetId && held.id === messageId);
@@ -1774,6 +1837,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
           .filter(
             (message) =>
               message.fleetId === fleetId &&
+              message.selector.kind !== 'meeting' &&
               (message.senderShipId === shipId ||
                 (message.selector.kind === 'ship' && message.selector.shipId === shipId) ||
                 claimed.has(message.id)) &&
@@ -2025,6 +2089,7 @@ const FLEET_TABLES = [
   'consoleSessions',
   'signInTickets',
   'messages',
+  'meetings',
   'deliveries',
   'deliveryReads',
   'leaseSeen',
@@ -2061,6 +2126,7 @@ const TABLES = [
   'signInTickets',
   'messages',
   'deliveries',
+  'meetings',
   'deliveryReads',
   'leaseSeen',
   'pushedLeases',

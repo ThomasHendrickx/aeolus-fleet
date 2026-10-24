@@ -145,6 +145,7 @@ describe('a retired owner on Postgres', () => {
       },
       clock: core.clock,
       ids: newId,
+      hasher: sha256Hasher,
     });
 
     await expect(failingRetire(argo, { shipId: thomasId })).rejects.toThrow('disk full');

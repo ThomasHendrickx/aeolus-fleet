@@ -66,6 +66,7 @@ From Aeolus:
 | M19 | **A person** takes part under the same rules through the gateway. An agent acting as the person through the gateway's MCP may request the mic after each of the person's contributions. This answers the reading-time flag: a request stays on the list until it is served or withdrawn, so a slow reader loses no place |
 | M20 | **0.31.0 ships the meeting only**, with both invites (M6) and the gateway view; the room comes in the next minor. "get to prod asap (not with quality skips, but by not adding scope)" |
 | M21 | **Meetings live in core** (Thomas, on #1180: "A"). What a meeting needs is core's own promises: OK only once every participant's delivery is stored, a refusal before anything is stored, the true sender on the envelope, and reach shown as a rule. One door for ships (0004), one home for the promise |
+| M22 | **A title.** A meeting takes an optional short title, carried in the added notice and the meeting read (Thomas, on #1175: "yep lets add a title, is more human readable when auditing later") |
 
 ## 4. Flows
 

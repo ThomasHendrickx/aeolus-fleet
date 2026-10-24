@@ -29,5 +29,7 @@ function selectorFields(selector: Selector): string[] {
       return 'shipId' in selector ? ['ship', 'id', selector.shipId] : ['ship', 'name', selector.name];
     case 'type':
       return ['type', selector.type];
+    case 'meeting':
+      return ['meeting', selector.meetingId];
   }
 }

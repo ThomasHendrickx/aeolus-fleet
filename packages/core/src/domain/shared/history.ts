@@ -10,6 +10,7 @@ import {
   type EventId,
   type EventType,
   type FleetId,
+  type MeetingId,
   type MessageId,
   type ShipId,
 } from '@aeolus-fleet/common';
@@ -34,7 +35,7 @@ export interface HistoryParty {
 }
 
 /** Who a message was addressed to: one ship, or any ship of a type. */
-export type HistoryRecipient = { kind: 'ship'; ship: HistoryParty } | { kind: 'type'; type: string };
+export type HistoryRecipient = { kind: 'ship'; ship: HistoryParty } | { kind: 'type'; type: string } | { kind: 'meeting'; meetingId: MeetingId };
 
 /** One event on a ship's timeline, with its parties named. */
 export interface TimelineEntry {
@@ -52,14 +53,30 @@ export interface TimelineEntry {
   details: EventDetails;
 }
 
-/** A message's parties as read reach sees them; for a type, `claimedBy` is the ship that claimed it, if one has. */
+/**
+ * A message's parties as read reach sees them; for a type, `claimedBy` is the
+ * ship that claimed it, if one has. A contribution to a meeting is read
+ * through its sender or the participant its delivery went to, `claimedBy`
+ * here, else through its sender alone (decision 0061).
+ */
 export function partiesOf(message: { sender: HistoryParty; recipient: HistoryRecipient }, claimedBy: HistoryParty | null): MessageParties {
   const { sender, recipient } = message;
   return {
     senderId: sender.id,
-    recipient: recipient.kind === 'ship' ? { kind: 'ship', shipId: recipient.ship.id } : recipient,
+    recipient: recipientParty(recipient, claimedBy ?? sender),
     claimedBy: claimedBy?.id ?? null,
   };
+}
+
+function recipientParty(recipient: HistoryRecipient, participant: HistoryParty): MessageParties['recipient'] {
+  switch (recipient.kind) {
+    case 'ship':
+      return { kind: 'ship', shipId: recipient.ship.id };
+    case 'type':
+      return recipient;
+    case 'meeting':
+      return { kind: 'ship', shipId: participant.id };
+  }
 }
 
 /** A message as a read shows it: whether it is a ping, told by its content type, so no reader repeats that rule. */

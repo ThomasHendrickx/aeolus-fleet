@@ -32,7 +32,7 @@ import {
   type ShipHistory,
 } from '../../domain/shared/history.js';
 import type { Message } from '../../domain/messaging/message.js';
-import type { Recipient } from '../../domain/shared/selector.js';
+import type { Addressee } from '../../domain/shared/selector.js';
 import { pageOf, type PageQuery } from '../../domain/shared/page.js';
 import type { Db } from './client.js';
 import { Prisma } from './generated/client.js';
@@ -78,7 +78,7 @@ function shipsNamedBy(message: Message): ShipId[] {
   return message.selector.kind === 'ship' ? [message.senderShipId, message.selector.shipId] : [message.senderShipId];
 }
 
-function recipientOf(selector: Recipient, party: (id: ShipId) => HistoryParty): HistoryRecipient {
+function recipientOf(selector: Addressee, party: (id: ShipId) => HistoryParty): HistoryRecipient {
   return selector.kind === 'ship' ? { kind: 'ship', ship: party(selector.shipId) } : selector;
 }
 
@@ -268,10 +268,12 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
       // of their type, each read newest first through its own index, then
       // merged: an OR would read every message of the ship to sort them. A
       // message to a type shows on the page of each ship that claimed it,
-      // which only the event log remembers once another ship holds it.
+      // which only the event log remembers once another ship holds it. A
+      // contribution to a meeting is left out: the meeting's read shows it,
+      // with a delivery for each participant (decision 0061).
       const before = cursor === undefined ? {} : { lt: cursor };
       const [sent, sentTo, claimed] = await Promise.all([
-        db.message.findMany({ where: { fleetId, senderShipId: shipId, id: before }, select: { id: true }, orderBy: { id: 'desc' }, take: limit + 1 }),
+        db.message.findMany({ where: { fleetId, senderShipId: shipId, selectorKind: { not: 'meeting' }, id: before }, select: { id: true }, orderBy: { id: 'desc' }, take: limit + 1 }),
         db.message.findMany({ where: { fleetId, selectorShipId: shipId, id: before }, select: { id: true }, orderBy: { id: 'desc' }, take: limit + 1 }),
         db.$queryRaw`
           SELECT DISTINCT message_id AS id FROM events
@@ -283,7 +285,7 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
       const newestFirst = [...new Set([...sent, ...sentTo, ...claimed].map((row) => idSchema('message').parse(row.id)))].sort().reverse();
       const page = pageOf(newestFirst, { limit, cursorOf: (id) => id });
       const rows = await db.message.findMany({
-        where: { fleetId, id: { in: page.items } },
+        where: { fleetId, id: { in: page.items }, selectorKind: { not: 'meeting' } },
         orderBy: { id: 'desc' },
         include: { deliveries: { select: DELIVERY_SELECT } },
       });

@@ -95,11 +95,11 @@ describe('saveNetworkRulesDraftInputSchema', () => {
   });
 });
 
-describe('the built-in rules (decision 0034)', () => {
-  it("are argo, the owner, the answer, a connected plugin's reading, the viewer reading, the installation's managing and open, all but the viewer reading and open never off", () => {
+describe('the built-in rules (decisions 0034, 0061)', () => {
+  it("are argo, the owner, the answer, a connected plugin's reading, a meeting's participants, the viewer reading, the installation's managing and open, all but the viewer reading and open never off", () => {
     expect([BUILT_IN_RULES, FIXED_BUILT_IN_RULES]).toEqual([
-      ['argo', 'owner', 'answer', 'pluginRead', 'viewerRead', 'installation', 'open'],
-      ['argo', 'owner', 'answer', 'pluginRead', 'installation'],
+      ['argo', 'owner', 'answer', 'pluginRead', 'meeting', 'viewerRead', 'installation', 'open'],
+      ['argo', 'owner', 'answer', 'pluginRead', 'meeting', 'installation'],
     ]);
   });
 });

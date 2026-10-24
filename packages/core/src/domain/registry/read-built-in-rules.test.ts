@@ -23,13 +23,14 @@ beforeEach(async () => {
   readBuiltInRules = createReadBuiltInRules({ uow: core.uow });
 });
 
-describe('reading the built-in rules (decision 0034)', () => {
+describe('reading the built-in rules (decisions 0034, 0061)', () => {
   it('answers every built-in rule in the order the rule list shows them, all on for a fleet that never changed them', async () => {
     expect(unwrap(await readBuiltInRules(argo))).toEqual([
       { rule: 'argo', isOn: true },
       { rule: 'owner', isOn: true },
       { rule: 'answer', isOn: true },
       { rule: 'pluginRead', isOn: true },
+      { rule: 'meeting', isOn: true },
       { rule: 'viewerRead', isOn: true },
       { rule: 'installation', isOn: true },
       { rule: 'open', isOn: true },
@@ -46,6 +47,7 @@ describe('reading the built-in rules (decision 0034)', () => {
       { rule: 'owner', isOn: true },
       { rule: 'answer', isOn: true },
       { rule: 'pluginRead', isOn: true },
+      { rule: 'meeting', isOn: true },
       { rule: 'viewerRead', isOn: false },
       { rule: 'installation', isOn: true },
       { rule: 'open', isOn: false },
