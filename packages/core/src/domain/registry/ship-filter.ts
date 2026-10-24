@@ -21,6 +21,8 @@ export function statusesAsked(status: readonly ShipStatus[] | undefined): readon
 export interface ShipFilter {
   /** Text the ship's name or type holds, in any case. */
   query?: string;
+  /** The ship's exact name: whether a ship has it, for a name field's hint. */
+  name?: string;
   /** Any of these statuses. */
   status?: readonly ShipStatus[];
   /** Any of these types. */
@@ -93,6 +95,7 @@ export function matchesShipFilter(ship: ListedShip, { filter, isInReach }: { fil
   return (
     (isInReach || !isHiddenFilterPicked) &&
     (query === '' || ship.name.toLowerCase().includes(query) || ship.type.toLowerCase().includes(query)) &&
+    (filter.name === undefined || ship.name === filter.name) &&
     isPicked(filter.status, ship.status) &&
     isPicked(filter.type, ship.type) &&
     isPicked(filter.crewRequest, crewRequestKeyOf(ship.crewRequest)) &&

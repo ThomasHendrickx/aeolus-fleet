@@ -44,7 +44,8 @@ export type AgentKind = z.infer<typeof agentKindSchema>;
 
 /**
  * Which ships `fleet.list` and the counts read select, every filter combined
- * with AND: the search text its name or type holds, in any case; any of the
+ * with AND: the search text its name or type holds, in any case; its exact
+ * name; any of the
  * statuses, types, crew request keys, ship ids and agent kinds picked; and
  * every label value id given (exact matches, decision 0031). A filter left
  * out selects every ship. `pluginShipIds` names the ships the console's
@@ -52,6 +53,7 @@ export type AgentKind = z.infer<typeof agentKindSchema>;
  */
 export const fleetListFilterSchema = z.object({
   query: z.string().optional(),
+  name: z.string().optional(),
   status: z.array(shipStatusSchema).optional(),
   type: z.array(z.string()).optional(),
   crewRequest: z.array(crewRequestKeySchema).optional(),
