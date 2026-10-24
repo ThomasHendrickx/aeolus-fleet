@@ -2,7 +2,7 @@ import { idSchema, PAGE_SIZE_MAX, SHIP_SORT_COLUMNS, type FleetId, type LabelVal
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { Prisma } from '../src/adapters/prisma/generated/client.js';
-import { fleetListingStatement } from '../src/adapters/prisma/registry.js';
+import { fleetListingStatement, shipTypesStatement } from '../src/adapters/prisma/registry.js';
 import type { ShipPage } from '../src/domain/registry/ports.js';
 import type { ShipCaller } from '../src/domain/shared/caller.js';
 import { operatorCaller } from './support/core-fixtures.js';
@@ -113,6 +113,16 @@ describe('a page of 20 at 3,000 ships, read through its keyset index (decision 4
 
     // Beyond the page: the cursor's own ship, and one more that ends the last name's ties.
     expect(rowsOfIndex(plan, 'ships_name_listing_idx')).toBeOneOf([21, 22, 23]);
+  });
+});
+
+describe("the fleet's ship types at 3,000 ships", () => {
+  it('answers each type once, read from the type index alone', async () => {
+    const [row] = await core.prisma.$queryRaw<{ 'QUERY PLAN': unknown }[]>(
+      Prisma.sql`EXPLAIN (ANALYZE, FORMAT JSON) ${shipTypesStatement(fleetId, { status: ['awaitingCrew', 'crewed'], reach: { kind: 'every' } })}`,
+    );
+
+    expect([await core.useCases.listShipTypes(argo), rowsOfIndex(row?.['QUERY PLAN'], 'ships_type_listing_idx') > 0]).toEqual([['agent', 'operator'], true]);
   });
 });
 
