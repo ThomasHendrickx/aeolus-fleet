@@ -10,6 +10,7 @@ import { toMessage } from './rows.js';
 const meetingRow = z.object({
   id: idSchema('meeting'),
   fleetId: idSchema('fleet'),
+  title: z.string().nullable(),
   ownerShipId: idSchema('ship'),
   moderatorShipId: idSchema('ship'),
   openedByShipId: idSchema('ship'),

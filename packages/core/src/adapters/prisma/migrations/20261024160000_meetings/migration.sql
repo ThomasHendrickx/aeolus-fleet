@@ -9,6 +9,7 @@ ALTER TABLE "messages" ADD COLUMN "meeting_id" TEXT;
 CREATE TABLE "meetings" (
     "id" TEXT NOT NULL,
     "fleet_id" TEXT NOT NULL,
+    "title" TEXT,
     "owner_ship_id" TEXT NOT NULL,
     "moderator_ship_id" TEXT NOT NULL,
     "opened_by_ship_id" TEXT NOT NULL,

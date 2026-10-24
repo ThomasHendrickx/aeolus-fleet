@@ -307,7 +307,7 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 
 | Term | Meaning | Held by |
 | --- | --- | --- |
-| Meeting | One moderated conversation of ships, `mtg_…`, opened with `meetings:open`: what a participant says reaches every other participant, one delivery each (0061) | core |
+| Meeting | One moderated conversation of ships, `mtg_…`, opened with `meetings:open` and an optional short title: what a participant says reaches every other participant, one delivery each (0061) | core |
 | Participant | A ship in a meeting, never a type; the owner reaches each by send when it joins, then participants reach each other whatever their own reach (0061) | core |
 | Meeting owner | The participant that answers for a meeting, its opener at first; its reach decides who joins (0061) | core |
 | Moderator | The participant that decides who speaks, its opener at first; it always contributes (0061) | core |

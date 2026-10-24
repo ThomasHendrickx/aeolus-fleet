@@ -646,6 +646,7 @@ enum DeliveryState {
 model Meeting {
   id              String    @id
   fleetId         String    @map("fleet_id")
+  title           String?
   ownerShipId     String    @map("owner_ship_id")
   moderatorShipId String    @map("moderator_ship_id")
   openedByShipId  String    @map("opened_by_ship_id")

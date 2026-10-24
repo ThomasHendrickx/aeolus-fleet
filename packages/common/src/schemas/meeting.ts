@@ -18,6 +18,9 @@ import { pageInputOf, pageOutputOf } from './page.js';
 /** ISO 8601 in UTC. */
 const isoTime = z.iso.datetime();
 
+/** The most characters a meeting's title holds: a short name a person reads when auditing later. */
+export const MEETING_TITLE_MAX_LENGTH = 200;
+
 /** An invitee: one ship, by id or by name, never a type. */
 export const inviteeSchema = z.union([z.strictObject({ shipId: idSchema('ship') }), z.strictObject({ name: shipHandleSchema })]);
 
@@ -25,13 +28,15 @@ export const inviteeSchema = z.union([z.strictObject({ shipId: idSchema('ship') 
  * Input of `ship.openMeeting` (meetings:open): the invitees by ship and by a
  * label selection (value ids, exact and AND), folded into one list with the
  * opener, which owns and moderates it; the opener's idempotency key; and the
- * model its session runs, which the added notices state.
+ * model its session runs, which the added notices state; and an optional
+ * short title.
  */
 export const openMeetingInputSchema = z.object({
   ships: z.array(inviteeSchema).optional(),
   valueIds: z.array(idSchema('labelValue')).optional(),
   idempotencyKey: idempotencyKeySchema,
   model: modelSchema.optional(),
+  title: z.string().trim().max(MEETING_TITLE_MAX_LENGTH, `A meeting title is at most ${String(MEETING_TITLE_MAX_LENGTH)} characters`).optional(),
 });
 
 export type OpenMeetingInput = z.infer<typeof openMeetingInputSchema>;
@@ -58,12 +63,13 @@ export const contributionSchema = z.object({
 });
 
 /**
- * Output of `ship.meeting`: the meeting, its owner and moderator, when it
+ * Output of `ship.meeting`: the meeting, its title (null without one), its owner and moderator, when it
  * opened and ended (null while open), its participants, and a page of its
  * contributions, newest first.
  */
 export const meetingOutputSchema = z.object({
   meetingId: idSchema('meeting'),
+  title: z.string().nullable(),
   owner: partySchema,
   moderator: partySchema,
   openedAt: isoTime,
@@ -77,9 +83,10 @@ export type MeetingOutput = z.infer<typeof meetingOutputSchema>;
 /** The content type of the notice the owner sends each ship it added to a meeting. */
 export const MEETING_ADDED_CONTENT_TYPE = 'application/vnd.aeolus.meeting.added+json';
 
-/** The payload of the added notice: the meeting, its owner, its moderator and its participants, by id and name. */
+/** The payload of the added notice: the meeting, its title (null without one), its owner, its moderator and its participants, by id and name. */
 export const meetingAddedSchema = z.object({
   meetingId: idSchema('meeting'),
+  title: z.string().nullable(),
   owner: partySchema,
   moderator: partySchema,
   participants: z.array(partySchema),

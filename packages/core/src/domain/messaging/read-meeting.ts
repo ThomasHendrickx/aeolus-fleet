@@ -38,6 +38,7 @@ export interface ContributionRead {
 
 export interface MeetingRead {
   meetingId: MeetingId;
+  title: string | null;
   owner: MeetingParty;
   moderator: MeetingParty;
   openedAt: Date;
@@ -82,6 +83,7 @@ export function createReadMeeting(deps: { uow: UnitOfWork<ReadMeetingTx> }): Rea
       }
       return ok({
         meetingId,
+        title: meeting.title,
         owner: await party(meeting.ownerShipId),
         moderator: await party(meeting.moderatorShipId),
         openedAt: meeting.openedAt,

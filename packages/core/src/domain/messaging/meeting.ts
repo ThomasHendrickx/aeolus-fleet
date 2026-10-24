@@ -12,6 +12,8 @@ import { ok, type Result } from '../shared/result.js';
 export interface Meeting {
   id: MeetingId;
   fleetId: FleetId;
+  /** A short name a person reads when auditing later; none when it was opened without one. */
+  title: string | null;
   ownerShipId: ShipId;
   moderatorShipId: ShipId;
   /** The ship that opened it, whose idempotency key it was opened with. */
@@ -44,6 +46,7 @@ export type OpenMeetingRefusal = DomainError<'MEETING_WITHOUT_INVITEES'>;
 export function openMeeting(input: {
   meetingId: MeetingId;
   fleetId: FleetId;
+  title: string | null;
   openerShipId: ShipId;
   invitedShipIds: readonly ShipId[];
   idempotencyKey: string;
@@ -58,6 +61,7 @@ export function openMeeting(input: {
   const meeting: Meeting = {
     id: meetingId,
     fleetId,
+    title: input.title,
     ownerShipId: openerShipId,
     moderatorShipId: openerShipId,
     openedByShipId: openerShipId,

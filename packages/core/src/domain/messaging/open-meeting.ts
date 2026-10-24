@@ -41,6 +41,8 @@ export interface MeetingToOpen {
   idempotencyKey: string;
   /** The exact model the opener's session runs, which its added notices state, as a send does. */
   model?: string;
+  /** A short name a person reads when auditing later. */
+  title?: string;
 }
 
 export interface MeetingOpened {
@@ -82,8 +84,9 @@ export function createOpenMeeting(deps: { uow: UnitOfWork<OpenMeetingTx>; clock:
     }
     const ships = input.ships ?? [];
     const valueIds = input.valueIds ?? [];
-    const requestHash = deps.hasher.hash(JSON.stringify([ships.map(inviteeText), valueIds]));
-    return keepingReachRefusal(deps.uow, (tx) => openWithin({ tx, ...deps }, { caller, ships, valueIds, idempotencyKey: key.value, requestHash, model: input.model }));
+    const title = input.title ?? null;
+    const requestHash = deps.hasher.hash(JSON.stringify([ships.map(inviteeText), valueIds, title]));
+    return keepingReachRefusal(deps.uow, (tx) => openWithin({ tx, ...deps }, { caller, ships, valueIds, title, idempotencyKey: key.value, requestHash, model: input.model }));
   };
 }
 
@@ -94,7 +97,7 @@ function inviteeText(invitee: Invitee): string[] {
 
 async function openWithin(
   deps: { tx: OpenMeetingTx; clock: Clock; ids: IdGenerator; hasher: RequestHasher },
-  open: { caller: ShipCaller; ships: readonly Invitee[]; valueIds: readonly LabelValueId[]; idempotencyKey: string; requestHash: string; model: string | undefined },
+  open: { caller: ShipCaller; ships: readonly Invitee[]; valueIds: readonly LabelValueId[]; title: string | null; idempotencyKey: string; requestHash: string; model: string | undefined },
 ): Promise<Result<MeetingOpened, OpenMeetingFailure>> {
   const { tx, clock, ids } = deps;
   const { fleetId, shipId: openerShipId } = open.caller;
@@ -111,7 +114,7 @@ async function openWithin(
     return invited;
   }
   const at = clock.now();
-  const opened = openMeeting({ meetingId: ids('meeting'), fleetId, openerShipId, invitedShipIds: invited.value, idempotencyKey: open.idempotencyKey, requestHash: open.requestHash, at });
+  const opened = openMeeting({ meetingId: ids('meeting'), fleetId, title: open.title, openerShipId, invitedShipIds: invited.value, idempotencyKey: open.idempotencyKey, requestHash: open.requestHash, at });
   if (!opened.isOk) {
     return opened;
   }
@@ -142,7 +145,7 @@ async function openWithin(
   return ok({ meetingId: meeting.id });
 }
 
-/** The added notice's payload: the meeting, its owner, its moderator and its participants, by id and name. */
+/** The added notice's payload: the meeting, its title, its owner, its moderator and its participants, by id and name. */
 async function addedNotice(tx: Pick<OpenMeetingTx, 'ships'>, meeting: Meeting): Promise<MeetingAdded> {
   const names = new Map<ShipId, string>();
   for (const { shipId } of meeting.participants) {
@@ -150,7 +153,7 @@ async function addedNotice(tx: Pick<OpenMeetingTx, 'ships'>, meeting: Meeting): 
     names.set(shipId, ship?.name ?? shipId);
   }
   const party = (id: ShipId) => ({ id, name: names.get(id) ?? id });
-  return { meetingId: meeting.id, owner: party(meeting.ownerShipId), moderator: party(meeting.moderatorShipId), participants: meeting.participants.map(({ shipId }) => party(shipId)) };
+  return { meetingId: meeting.id, title: meeting.title, owner: party(meeting.ownerShipId), moderator: party(meeting.moderatorShipId), participants: meeting.participants.map(({ shipId }) => party(shipId)) };
 }
 
 /**
