@@ -3,7 +3,9 @@ import { z } from 'zod';
 
 import type { Meeting } from '../../domain/messaging/meeting.js';
 import type { MeetingRepository } from '../../domain/messaging/ports.js';
+import { pageOf } from '../../domain/shared/page.js';
 import type { Db } from './client.js';
+import { toMessage } from './rows.js';
 
 const meetingRow = z.object({
   id: idSchema('meeting'),
@@ -48,6 +50,15 @@ export function createPrismaMeetingRepository(db: Db): MeetingRepository {
       await db.$queryRaw`SELECT 1 FROM meetings WHERE fleet_id = ${fleetId} AND id = ${meetingId} FOR SHARE`;
       const row = await db.meeting.findFirst({ where: { fleetId, id: meetingId }, include: { participants: PARTICIPANTS } });
       return row ? toMeeting(row) : undefined;
+    },
+    contributions: async (fleetId, { meetingId, cursor, limit }) => {
+      // Read newest first through messages_fleet_id_meeting_id_id_idx; a notice names the meeting too, but is sent to a ship.
+      const rows = await db.message.findMany({
+        where: { fleetId, meetingId, selectorKind: 'meeting', ...(cursor === undefined ? {} : { id: { lt: cursor } }) },
+        orderBy: { id: 'desc' },
+        take: limit + 1,
+      });
+      return pageOf(rows.map(toMessage), { limit, cursorOf: (message) => message.id });
     },
     find: async (fleetId, meetingId) => {
       const row = await db.meeting.findFirst({ where: { fleetId, id: meetingId }, include: { participants: PARTICIPANTS } });

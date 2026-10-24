@@ -31,6 +31,8 @@ const SHIP_TOOLS = [
   'register',
   'whoami',
   'send',
+  'openMeeting',
+  'meeting',
   'receive',
   'receiveReply',
   'pushReceive',

@@ -52,6 +52,7 @@ import { createReceiveReply } from '../../src/domain/messaging/receive-reply.js'
 import { createResendDelivery } from '../../src/domain/messaging/resend-delivery.js';
 import { createSendMessage } from '../../src/domain/messaging/send-message.js';
 import { createOpenMeeting } from '../../src/domain/messaging/open-meeting.js';
+import { createReadMeeting } from '../../src/domain/messaging/read-meeting.js';
 import { createTellOverdueDeliveries } from '../../src/domain/messaging/tell-overdue-deliveries.js';
 import { createReadDeclaredNetworkRules } from '../../src/domain/registry/read-declared-network-rules.js';
 import { createReadReachRefusals } from '../../src/domain/registry/read-reach-refusals.js';
@@ -346,6 +347,7 @@ export function messagingUseCases(core: InMemoryCore) {
   return {
     sendMessage: createSendMessage({ ...deps, hasher: core.hasher }),
     openMeeting: createOpenMeeting({ ...deps, hasher: core.hasher }),
+    readMeeting: createReadMeeting({ uow: core.uow }),
     receiveDeliveries: createReceiveDeliveries({ ...deps, wakeups: core.wakeups }),
     receiveReply: createReceiveReply({ ...deps, wakeups: core.wakeups }),
     pushReceiveDeliveries: createPushReceiveDeliveries({ ...deps, wakeups: core.wakeups }),

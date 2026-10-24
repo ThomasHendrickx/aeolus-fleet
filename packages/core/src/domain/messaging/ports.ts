@@ -1,5 +1,6 @@
 import type { DeliveryId, FleetId, LeaseId, MeetingId, MessageId, ShipId } from '@aeolus-fleet/common';
 
+import type { Page, PageQuery } from '../shared/page.js';
 import type { Meeting } from './meeting.js';
 import type { Delivery, Message } from './message.js';
 import type { Overdue, PushedCrew } from './overdue.js';
@@ -37,6 +38,8 @@ export interface MeetingRepository {
    * ends: a contribution holds it, so a change of who takes part waits for it.
    */
   findForShare(fleetId: FleetId, meetingId: MeetingId): Promise<Meeting | undefined>;
+  /** A page of the meeting's contributions, newest first by id, read without a lock: the messages sent to it, never its notices. */
+  contributions(fleetId: FleetId, query: { meetingId: MeetingId } & PageQuery<MessageId>): Promise<Page<Message, MessageId>>;
 }
 
 /** Outbound port: messages, always within one fleet. Never changed once stored. */

@@ -1,4 +1,4 @@
-import { createIdGenerator, MEETING_ADDED_CONTENT_TYPE, type FleetId, type MeetingId, type ShipId } from '@aeolus-fleet/common';
+import { createIdGenerator, MEETING_ADDED_CONTENT_TYPE, type FleetId, type MeetingId, type MessageId, type ShipId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
@@ -354,5 +354,39 @@ describe('contributing to a meeting on Postgres', () => {
       const listed = unwrap(await core.useCases.readShipMessages(argo, { shipId, limit: 50 }));
       expect(listed.items.map((message) => message.id)).not.toContain(messageId);
     }
+  });
+});
+
+describe('reading a meeting on Postgres', () => {
+  it('shows its participants in the order they joined with their status, and what was said newest first, a page at a time', async () => {
+    const { meetingId } = unwrap(await core.useCases.openMeeting(chief, aMeeting()));
+    const marketing = agentCaller({ fleetId, shipId: marketingId });
+    await crewOf(marketingId);
+    const said: MessageId[] = [];
+    for (const [by, payload] of [
+      [chief, 'Agenda: the launch'],
+      [marketing, 'Copy is ready'],
+      [chief, 'Friday then'],
+    ] as const) {
+      core.clock.advance(1_000);
+      said.push(unwrap(await core.useCases.sendMessage(by, { selector: { kind: 'meeting', meetingId }, payload, idempotencyKey: newKey(), model: MODEL })).messageId);
+    }
+
+    const first = unwrap(await core.useCases.readMeeting(marketing, { meetingId, limit: 2 }));
+    const second = unwrap(await core.useCases.readMeeting(marketing, { meetingId, limit: 2, cursor: first.contributions.nextCursor ?? undefined }));
+
+    expect(first.participants.map(({ id, name, status }) => ({ id, name, status }))).toEqual([
+      { id: chief.shipId, name: 'chief', status: 'awaitingCrew' },
+      { id: marketingId, name: 'marketing', status: 'crewed' },
+      { id: productId, name: 'product', status: 'awaitingCrew' },
+    ]);
+    expect([first.contributions.items.map(({ messageId, payload }) => ({ messageId, payload })), second.contributions.items.map(({ messageId }) => messageId), second.contributions.nextCursor]).toEqual([
+      [
+        { messageId: said[2], payload: 'Friday then' },
+        { messageId: said[1], payload: 'Copy is ready' },
+      ],
+      [said[0]],
+      null,
+    ]);
   });
 });

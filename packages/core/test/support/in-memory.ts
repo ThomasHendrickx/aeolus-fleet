@@ -1104,6 +1104,14 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         const found = state.meetings.find((held) => held.fleetId === fleetId && held.id === meetingId);
         return Promise.resolve(found && structuredClone(found));
       },
+      contributions: (fleetId, { meetingId, cursor, limit }) => {
+        const rows = state.messages
+          .filter((message) => message.fleetId === fleetId && message.selector.kind === 'meeting' && message.selector.meetingId === meetingId && (cursor === undefined || message.id < cursor))
+          .sort((first, second) => second.id.localeCompare(first.id))
+          .slice(0, limit + 1)
+          .map((message) => structuredClone(message));
+        return Promise.resolve(pageOf(rows, { limit, cursorOf: (message) => message.id }));
+      },
     },
     messages: {
       lockDailyCount: () => Promise.resolve(),
