@@ -28,6 +28,8 @@ export interface ShipFilter {
   crewRequest?: readonly CrewRequestKey[];
   /** Every one of these label values (decision 0031). */
   valueIds?: readonly LabelValueId[];
+  /** Ships whose crew request is assigned to any of these trierarch ships: a machine's spots. */
+  assignedTo?: readonly ShipId[];
   /** Any of these ships: a squadron's flagship and members, as the console resolves them. */
   shipIds?: readonly ShipId[];
   /** Any of these agent kinds (agentKindOf). */
@@ -79,22 +81,29 @@ export function crewRequestKeyOf(crewRequest: ListedShip['crewRequest']): CrewRe
 /**
  * Whether the filter selects the ship. A ship outside the caller's read reach
  * shows its name, type and status only (decision 0034), so the filters on
- * what it does not show (crew request, agent kind, label values) never
+ * what it does not show (crew request and its trierarch, agent kind, label values) never
  * select it.
  */
 export function matchesShipFilter(ship: ListedShip, { filter, isInReach }: { filter: ShipFilter; isInReach: boolean }): boolean {
   const query = filter.query?.trim().toLowerCase() ?? '';
-  const isHiddenFilterPicked = [filter.crewRequest, filter.kind, filter.valueIds].some((picked) => picked !== undefined && picked.length > 0);
+  const isHiddenFilterPicked = [filter.crewRequest, filter.assignedTo, filter.kind, filter.valueIds].some((picked) => picked !== undefined && picked.length > 0);
   return (
     (isInReach || !isHiddenFilterPicked) &&
     (query === '' || ship.name.toLowerCase().includes(query) || ship.type.toLowerCase().includes(query)) &&
     isPicked(filter.status, ship.status) &&
     isPicked(filter.type, ship.type) &&
     isPicked(filter.crewRequest, crewRequestKeyOf(ship.crewRequest)) &&
+    isAssignedToAny(filter.assignedTo, ship.crewRequest) &&
     carriesEvery(ship.labels, filter.valueIds) &&
     isPicked(filter.shipIds, ship.id) &&
     isPicked(filter.kind, agentKindOf(ship, filter.pluginShipIds))
   );
+}
+
+/** Whether the ship's crew request is assigned to one of the trierarchs picked; nothing picked passes every ship. */
+function isAssignedToAny(trierarchShipIds: readonly ShipId[] | undefined, crewRequest: ListedShip['crewRequest']): boolean {
+  const assignedTo = crewRequest?.assignedTo?.id;
+  return trierarchShipIds === undefined || trierarchShipIds.length === 0 || (assignedTo !== undefined && trierarchShipIds.includes(assignedTo));
 }
 
 function isPicked<Value>(picked: readonly Value[] | undefined, value: Value): boolean {

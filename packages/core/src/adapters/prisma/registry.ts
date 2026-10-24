@@ -689,13 +689,13 @@ function isInReachOfShip(reach: ReadReach): Prisma.Sql {
  * or counts the ships, and no ship is read only to be dropped.
  */
 export function shipFilterCondition(
-  { query, status = [], type = [], crewRequest = [], valueIds = [], shipIds = [], kind = [], pluginShipIds = [] }: ShipFilter,
+  { query, status = [], type = [], crewRequest = [], assignedTo = [], valueIds = [], shipIds = [], kind = [], pluginShipIds = [] }: ShipFilter,
   reach: ReadReach,
 ): Prisma.Sql {
   const needle = query?.trim().toLowerCase() ?? '';
   const values = [...new Set(valueIds)];
   // A ship outside read reach shows its name, type and status only: what it does not show never selects it.
-  const isHiddenFilterPicked = crewRequest.length > 0 || kind.length > 0 || values.length > 0;
+  const isHiddenFilterPicked = crewRequest.length > 0 || assignedTo.length > 0 || kind.length > 0 || values.length > 0;
   const conditions = [
     isHiddenFilterPicked ? Prisma.sql`AND ${isInReachOfShip(reach)}` : undefined,
     needle === '' ? undefined : Prisma.sql`AND (strpos(lower(s.name), ${needle}) > 0 OR strpos(lower(s.type), ${needle}) > 0)`,
@@ -707,6 +707,10 @@ export function shipFilterCondition(
       : Prisma.sql`AND (SELECT count(*) FROM ship_labels sl
                         WHERE sl.fleet_id = s.fleet_id AND sl.ship_id = s.id AND sl.value_id = ANY(${values}::text[])) = ${values.length}`,
     shipIds.length === 0 ? undefined : Prisma.sql`AND s.id = ANY(${[...shipIds]}::text[])`,
+    assignedTo.length === 0
+      ? undefined
+      : Prisma.sql`AND EXISTS (SELECT 1 FROM crew_requests acr
+                               WHERE acr.fleet_id = s.fleet_id AND acr.ship_id = s.id AND acr.assigned_to_ship_id = ANY(${[...assignedTo]}::text[]))`,
     kind.length === 0 ? undefined : Prisma.sql`AND ${agentKindOfShip(pluginShipIds)} = ANY(${[...kind]}::text[])`,
   ].filter((condition) => condition !== undefined);
   return conditions.length === 0 ? Prisma.empty : Prisma.join(conditions, ' ');

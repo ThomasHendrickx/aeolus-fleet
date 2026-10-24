@@ -55,6 +55,7 @@ export const fleetListFilterSchema = z.object({
   status: z.array(shipStatusSchema).optional(),
   type: z.array(z.string()).optional(),
   crewRequest: z.array(crewRequestKeySchema).optional(),
+  assignedTo: z.array(idSchema('ship')).optional(),
   valueIds: z.array(idSchema('labelValue')).optional(),
   shipIds: z.array(idSchema('ship')).optional(),
   kind: z.array(agentKindSchema).optional(),
