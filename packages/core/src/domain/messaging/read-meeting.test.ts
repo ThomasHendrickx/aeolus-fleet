@@ -37,15 +37,16 @@ beforeEach(async () => {
   marketing = await shipWithScopes({ registry, argo }, { name: 'marketing', type: 'head', scopes: [] });
   product = await shipWithScopes({ registry, argo }, { name: 'product', type: 'head', scopes: [] });
   engineering = await shipWithScopes({ registry, argo }, { name: 'engineering', type: 'head', scopes: [] });
-  ({ meetingId } = unwrap(await messaging.openMeeting(chief, { ships: [{ shipId: marketing.shipId }, { shipId: product.shipId }], idempotencyKey: newKey(), model: SESSION_MODEL })));
+  ({ meetingId } = unwrap(await messaging.openMeeting(chief, { ships: [{ shipId: marketing.shipId }, { shipId: product.shipId }], idempotencyKey: newKey(), model: SESSION_MODEL, title: 'Launch plan' })));
 });
 
 describe('reading a meeting', () => {
-  it('shows the meeting, its owner and moderator, when it opened, and that it is open', async () => {
+  it('shows the meeting, its title, its owner and moderator, when it opened, and that it is open', async () => {
     const read = unwrap(await messaging.readMeeting(marketing, { meetingId, limit: 20 }));
 
     expect({ ...read, participants: undefined, contributions: undefined }).toEqual({
       meetingId,
+      title: 'Launch plan',
       owner: { id: chief.shipId, name: 'chief' },
       moderator: { id: chief.shipId, name: 'chief' },
       openedAt: new Date(OPENED_AT),

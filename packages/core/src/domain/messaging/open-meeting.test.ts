@@ -138,16 +138,23 @@ describe('the added notice', () => {
     ]);
   });
 
-  it('carries the meeting, its owner, its moderator and its participants by id and name', async () => {
-    const meetingId = await opened();
+  it('carries the meeting, its title, its owner, its moderator and its participants by id and name', async () => {
+    const meetingId = await opened(aMeeting({ title: 'Launch plan' }));
 
     const chiefParty = { id: chief.shipId, name: 'chief' };
     expect(meetingAddedSchema.parse(JSON.parse(core.state.messages[0]?.payload ?? ''))).toEqual({
       meetingId,
+      title: 'Launch plan',
       owner: chiefParty,
       moderator: chiefParty,
       participants: [chiefParty, { id: marketing.shipId, name: 'marketing' }, { id: product.shipId, name: 'product' }],
     });
+  });
+
+  it('carries a null title for a meeting opened without one', async () => {
+    await opened();
+
+    expect(meetingAddedSchema.parse(JSON.parse(core.state.messages[0]?.payload ?? '')).title).toBeNull();
   });
 
   it('writes MessageAccepted for each notice and wakes each participant told', async () => {

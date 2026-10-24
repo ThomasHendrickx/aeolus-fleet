@@ -358,8 +358,8 @@ describe('contributing to a meeting on Postgres', () => {
 });
 
 describe('reading a meeting on Postgres', () => {
-  it('shows its participants in the order they joined with their status, and what was said newest first, a page at a time', async () => {
-    const { meetingId } = unwrap(await core.useCases.openMeeting(chief, aMeeting()));
+  it('shows its title, its participants in the order they joined with their status, and what was said newest first, a page at a time', async () => {
+    const { meetingId } = unwrap(await core.useCases.openMeeting(chief, aMeeting({ title: 'Launch plan' })));
     const marketing = agentCaller({ fleetId, shipId: marketingId });
     await crewOf(marketingId);
     const said: MessageId[] = [];
@@ -375,6 +375,7 @@ describe('reading a meeting on Postgres', () => {
     const first = unwrap(await core.useCases.readMeeting(marketing, { meetingId, limit: 2 }));
     const second = unwrap(await core.useCases.readMeeting(marketing, { meetingId, limit: 2, cursor: first.contributions.nextCursor ?? undefined }));
 
+    expect(first.title).toBe('Launch plan');
     expect(first.participants.map(({ id, name, status }) => ({ id, name, status }))).toEqual([
       { id: chief.shipId, name: 'chief', status: 'awaitingCrew' },
       { id: marketingId, name: 'marketing', status: 'crewed' },
