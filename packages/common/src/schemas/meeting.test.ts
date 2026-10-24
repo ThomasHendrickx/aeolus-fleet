@@ -113,8 +113,8 @@ describe('the mic calls (decision 0061, M7 to M10)', () => {
   });
 });
 
-describe('the mic in the meeting read', () => {
-  it('shows who holds it (null when free), its pattern, and the requests oldest first with their time', () => {
+describe('the meeting read', () => {
+  it('shows each participant with its state, present, left or revoked, and the mic: who holds it (null when free), its pattern, and the requests oldest first with their time', () => {
     const chief = { id: newId('ship'), name: 'chief' };
     const product = { id: newId('ship'), name: 'product' };
     const read = {
@@ -124,7 +124,11 @@ describe('the mic in the meeting read', () => {
       moderator: chief,
       openedAt: '2026-10-24T09:00:00.000Z',
       endedAt: null,
-      participants: [],
+      participants: [
+        { ...product, kind: 'agent', status: 'crewed', state: 'present' },
+        { ...chief, kind: 'agent', status: 'awaitingCrew', state: 'left' },
+        { id: newId('ship'), name: 'design', kind: 'agent', status: 'retired', state: 'revoked' },
+      ],
       mic: { holder: null, pattern: 'fifo', requests: [{ ship: product, requestedAt: '2026-10-24T09:01:00.000Z' }] },
       contributions: { items: [], nextCursor: null },
     };
