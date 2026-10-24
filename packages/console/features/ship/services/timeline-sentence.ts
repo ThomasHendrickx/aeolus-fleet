@@ -292,6 +292,12 @@ export function timelineSentence(entry: TimelineEntry, shipId: string): Timeline
       return { parts: [text('Connected as a plugin: reads every ship'), ...by(entry.actor)], tone: 'ended', icon: 'fleet' };
     case 'PluginDisconnected':
       return { parts: [text(`No longer a connected plugin: ${stringDetail(entry, 'why') ?? ''}`), ...by(entry.actor)], tone: 'ended', icon: 'fleet' };
+    case 'MeetingOpened': {
+      const participants = entry.details.participants;
+      return { parts: [text(`Opened a meeting of ${typeof participants === 'number' ? counted(participants, { one: 'ship', many: 'ships' }) : 'ships'}`)], tone: 'ok', icon: 'sent' };
+    }
+    case 'ParticipantAdded':
+      return { parts: [text('Joined a meeting'), ...(entry.actor ? [text(', added by '), ship(entry.actor)] : [])], tone: 'ok', icon: 'received' };
     case 'VerifiedFactsRemoved':
       return {
         parts: [text(`Verified facts removed: ${String(entry.details.facts ?? '')}, ${stringDetail(entry, 'why') === 'writerRetired' ? 'their writer retired' : 'the ship retired'}`)],

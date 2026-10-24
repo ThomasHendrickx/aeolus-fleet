@@ -15,6 +15,7 @@ import { z } from 'zod';
  * (decision 0046). `fleet:person`, `fleet:owner`, `fleet:explain`,
  * `fleet:connect` and `labels:any` are the jobs that were argo's alone
  * (decision 0053). `fleet:verify` writes verified facts (decision 0059).
+ * `meetings:open` opens a meeting (decision 0061).
  */
 export const SCOPES = [
   'messages:send',
@@ -38,6 +39,7 @@ export const SCOPES = [
   'fleet:verify',
   'scopes:declare',
   'scopes:grant',
+  'meetings:open',
 ] as const;
 export const scopeSchema = z.enum(SCOPES);
 export type Scope = z.infer<typeof scopeSchema>;
@@ -65,10 +67,11 @@ export const CORE_SCOPE_DESCRIPTIONS: Readonly<Record<Scope, string>> = {
   'fleet:verify': 'Write and withdraw its verified facts about the ships it manages',
   'scopes:declare': 'Take up one plugin namespace and declare its scopes',
   'scopes:grant': 'Grant and revoke scopes on a live ship, within what its ship may grant',
+  'meetings:open': 'Open a meeting of the ships its ship reaches, owning and moderating it',
 };
 
 /** The namespaces core reserves and enforces; every other one is a plugin's (decision 0046). */
-export const CORE_NAMESPACES = ['messages', 'fleet', 'crew', 'labels', 'scopes'] as const;
+export const CORE_NAMESPACES = ['messages', 'fleet', 'crew', 'labels', 'scopes', 'meetings'] as const;
 
 /** A namespace or an action: lowercase letters, digits and hyphens, starting with a letter, 1 to 32 characters (decision 0046). */
 const SCOPE_PART = '[a-z][a-z0-9-]{0,31}';
@@ -107,7 +110,8 @@ export type ScopeName = z.infer<typeof scopeNameSchema>;
  * (decision 0031). `fleet:network` sets the fleet's network rules (decision
  * 0034). `fleet:on-behalf` reads on behalf of a named ship (decision 0034).
  * The jobs that were argo's alone are scopes an agent ship can hold too
- * (decision 0053), and so is writing verified facts (decision 0059).
+ * (decision 0053), and so is writing verified facts (decision 0059) and
+ * opening meetings (decision 0061).
  */
 export const FLEET_SCOPES = [
   'messages:resend',
@@ -126,6 +130,7 @@ export const FLEET_SCOPES = [
   'fleet:connect',
   'labels:any',
   'fleet:verify',
+  'meetings:open',
 ] as const;
 export const fleetScopeSchema = z.enum(FLEET_SCOPES);
 export type FleetScope = z.infer<typeof fleetScopeSchema>;
@@ -159,8 +164,8 @@ export const SHIP_STATUSES = ['awaitingCrew', 'crewed', 'retired'] as const;
 export const shipStatusSchema = z.enum(SHIP_STATUSES);
 export type ShipStatus = z.infer<typeof shipStatusSchema>;
 
-/** Who a message is for: one ship (by id or by name) or any ship of a type. Group and fleet come later. */
-export const SELECTOR_KINDS = ['ship', 'type'] as const;
+/** Who a message is for: one ship (by id or by name), any ship of a type, or every other participant of a meeting (decision 0061). Group and fleet come later. */
+export const SELECTOR_KINDS = ['ship', 'type', 'meeting'] as const;
 export const selectorKindSchema = z.enum(SELECTOR_KINDS);
 export type SelectorKind = z.infer<typeof selectorKindSchema>;
 
@@ -248,6 +253,8 @@ export const EVENT_TYPES = [
   'PluginDisconnected',
   'VerifiedFactsSet',
   'VerifiedFactsRemoved',
+  'MeetingOpened',
+  'ParticipantAdded',
 ] as const;
 export const eventTypeSchema = z.enum(EVENT_TYPES);
 export type EventType = z.infer<typeof eventTypeSchema>;
