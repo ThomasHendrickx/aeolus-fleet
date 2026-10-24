@@ -189,3 +189,27 @@ Meeting only (M20). One PR each, in order; S4 and S5 start once S3 is merged.
 | S3 | Core: the meeting's life | Add later and rejoin (M5, M13); leave, revoke; transfer of owner and moderator (M2, M3); ending by owner or moderator and the ended notice (M15); retire effects (M17); events for each | Every path of "leave, retire and end" has a test; an ended meeting refuses contributions and still delivers its pending deliveries |
 | S4 | Ships: the surface | Ship protocol rules for a participant; MCP tools and REST over the same procedures; the aeolus plugin's scripts (trierarch train) | A Claude Code session crewing a ship takes part in a meeting through the plugin |
 | S5 | Gateway: a person in a meeting | The meeting view and calls on the gateway's pages and MCP, so an agent acting as the person may request the mic after each contribution (M19) (gateway train) | Thomas contributes, requests and releases the mic from his phone |
+
+## 7. Core or plugin (open)
+
+Thomas: "One thing that needs a think is, if this is a plugin or core. Depends on what is NEEDED for this to work". The plugin read: a meetings ship like squadrons, connected by argo, with its own store, holding meetings, participants and the request list. A participant sends its contribution to that ship; the plugin checks it and sends one message per other participant, as itself, through core's public contract only.
+
+What the plugin loses against core, and the least core would add to close it:
+
+| # | Lost as a plugin | Least core addition |
+| --- | --- | --- |
+| P1 | **The true sender.** Every recipient, timeline, Health entry and refusal names the plugin; the real sender travels in the payload, a claim core never checks | A send on behalf: a plugin with `fleet:on-behalf` sends with a named ship as the sender (0046 allows on-behalf reads and commissions, not sends) |
+| P2 | **A refusal at once.** The sender's OK means the plugin stored it; off the mic, not a participant, ended or replying is refused later, by a message back, after the sender moved on (M7 says "storing nothing") | None short of core asking the plugin inside the send, a call out of core's transaction: in effect the meeting back in core |
+| P3 | **One-transaction fan-out.** The OK covers only the hop to the plugin; the relay is n sends, made safe by idempotency keys and an outbox but never all or none | A send to a list of ships, one message and n deliveries in one transaction (the blueprint's n-to-n hook) |
+| P4 | **Reach between participants (M5).** The plugin must send to every participant and every participant to the plugin, so fleet rules or rules the plugin declares must allow it; declared rules work on labels, and a label is never membership (0031) | A built-in send rule between a connected plugin and every ship, both ways, shown first |
+| P5 | **The envelope.** The meeting's id, the real sender and the notices ride inside a wrapped payload, the wrapper counting against 64 KB; recipients unwrap | Envelope fields a plugin may set, which core carries without reading |
+| P6 | **Two hops, two deliveries a contribution.** The contribution to the plugin can itself go stuck or undeliverable, holding up the whole meeting | None: inherent to a relay |
+
+What the plugin keeps: each relayed message is an ordinary delivery, so the promise per participant (L5) holds; core stays as it is.
+
+| # | Option | Pick and why |
+| --- | --- | --- |
+| 1 | **Core**, as sections 3 to 6: the meeting, participants, the request list, the mic and the fan-out | **Pick.** What is needed is core's own promises: OK only once every delivery is stored (P3), a refusal before anything is stored (P2), the true sender on the envelope (P1) and reach shown as a rule (P4). P2 has no core addition short of the meeting itself, and P1, P3, P4 and P5 together are most of the core build anyway, plus a plugin, its store and its process |
+| 2 | **Plugin on today's contract**, P1 to P6 accepted | Smallest core change, but the sender sees OK for a contribution later refused, and every recipient sees the plugin as the speaker: the meeting would not be true to who said what |
+| 3 | **Plugin plus P1, P3, P4 and P5 in core** | Closes everything but P2 and P6, at the cost of on-behalf sends, a list selector, a plugin send rule and plugin envelope fields: four core changes with wider reach than a meeting needs |
+| 4 | **Split:** core holds the meeting, participants, the mic holder, enforcement and fan-out; a plugin holds the request list and FIFO and gives the mic as the moderator would | Keeps P1 to P6 closed and moves only the queue out; but the queue is a small table beside the mic, and a second process to run and connect costs more than it saves for 0.31.0 |
