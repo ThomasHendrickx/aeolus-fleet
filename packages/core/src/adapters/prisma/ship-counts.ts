@@ -36,21 +36,29 @@ function inReach(reach: ReadReach): Prisma.Sql {
  * not per ship, and the longest wait is one row per kind, not a sort of every
  * waiting ship: per-ship subqueries put the estimate past Postgres's JIT
  * threshold at 23,000 ships, and compiling cost more than the statement.
+ * Only the active ships go through the status and crew request stages; the
+ * retired ones are counted as they are, so a fleet's retired ships, which
+ * only grow, cost a count and not the stages (about 60 to 27 ms at 3,000 active
+ * and 20,000 retired).
  */
 export function shipCountsStatement(fleetId: FleetId, read: { reach: ReadReach; selected: Prisma.Sql }): Prisma.Sql {
   const { reach, selected } = read;
   return Prisma.sql`
     WITH shown AS (
       SELECT s.id, s.name, s.kind::text AS kind, s.created_at,
-        CASE WHEN s.retired_at IS NOT NULL THEN 'retired'
-             WHEN l.id IS NOT NULL OR s.kind IN ('operator', 'viewer') THEN 'crewed'
+        CASE WHEN l.id IS NOT NULL OR s.kind IN ('operator', 'viewer') THEN 'crewed'
              ELSE 'awaitingCrew' END AS status,
         l.id AS lease_id, l.started_at AS lease_started_at,
         cr.ship_id IS NOT NULL AS has_request, cr.assigned_to_ship_id, cr.status::text AS crew_status
       FROM ships s
       LEFT JOIN leases l ON l.fleet_id = s.fleet_id AND l.ship_id = s.id AND l.ended_at IS NULL
       LEFT JOIN crew_requests cr ON cr.fleet_id = s.fleet_id AND cr.ship_id = s.id
-      WHERE s.fleet_id = ${fleetId} AND ${inReach(reach)} ${selected}
+      WHERE s.fleet_id = ${fleetId} AND s.retired_at IS NULL AND ${inReach(reach)} ${selected}
+    ),
+    retired AS (
+      SELECT s.kind::text AS kind, count(*)::int AS retired FROM ships s
+      WHERE s.fleet_id = ${fleetId} AND s.retired_at IS NOT NULL AND ${inReach(reach)} ${selected}
+      GROUP BY s.kind
     ),
     -- Crewed by hand: the open lease's crew claimed a starting prompt issued before it started.
     crewed_by_hand AS (
@@ -78,17 +86,24 @@ export function shipCountsStatement(fleetId: FleetId, read: { reach: ReadReach; 
     ),
     counted AS (
       SELECT kind,
-        count(*) FILTER (WHERE status <> 'retired')::int AS active,
+        count(*)::int AS active,
         count(*) FILTER (WHERE status = 'crewed')::int AS crewed,
         count(*) FILTER (WHERE status = 'awaitingCrew')::int AS awaiting_crew,
-        count(*) FILTER (WHERE status = 'retired')::int AS retired,
-        count(*) FILTER (WHERE status <> 'retired' AND (is_unassigned
-          OR (assigned_to_ship_id IS NOT NULL AND crew_status IS DISTINCT FROM 'running' AND crew_status IS DISTINCT FROM 'releasing')))::int AS needs_crew_with_trierarchs,
+        count(*) FILTER (WHERE is_unassigned
+          OR (assigned_to_ship_id IS NOT NULL AND crew_status IS DISTINCT FROM 'running' AND crew_status IS DISTINCT FROM 'releasing'))::int AS needs_crew_with_trierarchs,
         count(*) FILTER (WHERE status = 'awaitingCrew' AND is_unassigned)::int AS needs_crew_without_trierarchs
       FROM staged
       GROUP BY kind
     )
-    SELECT counted.*, longest.longest_wait FROM counted LEFT JOIN longest ON longest.kind = counted.kind`;
+    -- A kind with only retired ships has no active row; one with none retired, no retired row.
+    SELECT COALESCE(counted.kind, retired.kind) AS kind,
+      COALESCE(counted.active, 0) AS active, COALESCE(counted.crewed, 0) AS crewed, COALESCE(counted.awaiting_crew, 0) AS awaiting_crew,
+      COALESCE(retired.retired, 0) AS retired,
+      COALESCE(counted.needs_crew_with_trierarchs, 0) AS needs_crew_with_trierarchs, COALESCE(counted.needs_crew_without_trierarchs, 0) AS needs_crew_without_trierarchs,
+      longest.longest_wait
+    FROM counted
+    FULL JOIN retired ON retired.kind = counted.kind
+    LEFT JOIN longest ON longest.kind = COALESCE(counted.kind, retired.kind)`;
 }
 
 /** The ships in `reach` that `selected` keeps, counted per kind, in the kinds' order. */
