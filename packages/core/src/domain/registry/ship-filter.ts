@@ -3,6 +3,14 @@ import type { AgentKind, CrewRequestKey, LabelValueId, ShipId, ShipStatus } from
 import { carriesEvery } from './label.js';
 import type { ListedShip } from './list-fleet.js';
 
+/** What the fleet snapshot's reads select by status when the caller asks none: the active ships, so retired ones come only when asked. */
+export const ACTIVE_STATUSES: readonly ShipStatus[] = ['awaitingCrew', 'crewed'];
+
+/** The statuses asked, or the active ones when none are. */
+export function statusesAsked(status: readonly ShipStatus[] | undefined): readonly ShipStatus[] {
+  return status === undefined || status.length === 0 ? ACTIVE_STATUSES : status;
+}
+
 /**
  * Which ships a page of the fleet snapshot selects (decision 4 of the
  * performance design): the overview's search and filters, applied where the

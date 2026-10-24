@@ -6,7 +6,7 @@ import type { Location } from './lease.js';
 import { pingStatusOf, type PingStatus } from './ping-status.js';
 import type { CrewRequest } from './crew-request.js';
 import type { CarriedLabel } from './label.js';
-import type { ShipFilter } from './ship-filter.js';
+import { statusesAsked, type ShipFilter } from './ship-filter.js';
 import type { ShipSort } from './ship-order.js';
 import type { FleetListing, ShipFacts } from './ports.js';
 import type { ShipReport } from './ship-report.js';
@@ -74,9 +74,6 @@ export function outsideReadReach({ id, name, type, status }: Pick<ListedShip, 'i
   return { id, name, type, status, isInReadReach: false };
 }
 
-/** What the listing selects by status when the caller asks none: the active ships, so retired ones come only when asked. */
-const ACTIVE_STATUSES: readonly ShipStatus[] = ['awaitingCrew', 'crewed'];
-
 export type ListFleet = (
   caller: Caller,
   input?: ShipFilter & { sort?: ShipSort; cursor?: ShipPosition; limit?: number },
@@ -97,7 +94,7 @@ export type ListFleet = (
 export function createListFleet(deps: { listing: FleetListing; readReach: ReadReachOf }): ListFleet {
   return async (caller, input) => {
     const { cursor, limit = PAGE_SIZE_DEFAULT, sort, status, ...rest } = input ?? {};
-    const filter = { ...rest, status: status === undefined || status.length === 0 ? ACTIVE_STATUSES : status };
+    const filter = { ...rest, status: statusesAsked(status) };
     const reach = await deps.readReach(caller);
     // One ship past the page tells whether another page follows.
     const read = await deps.listing.ships(caller.fleetId, { after: cursor, limit: limit + 1, filter, sort, reach });

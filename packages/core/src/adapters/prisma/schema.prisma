@@ -146,6 +146,7 @@ model Ship {
   /// At most one viewer ship per fleet (decision 0022).
   @@unique([fleetId], map: "ships_fleet_id_viewer_key", where: raw("kind = 'viewer'::ship_kind"))
   @@index([fleetId, ownerShipId])
+  @@index([fleetId, type], map: "ships_type_listing_idx", where: { retiredAt: null })
   @@map("ships")
 }
 

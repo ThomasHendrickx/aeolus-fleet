@@ -91,6 +91,25 @@ function rowsOfIndex(plan: unknown, index: string): number {
   return own + [...node.values()].reduce((sum: number, each) => sum + rowsOfIndex(each, index), 0);
 }
 
+/** The tables the plan reads, each once. */
+function relationsOf(plan: unknown): string[] {
+  const relations = new Set<string>();
+  const walk = (node: unknown): void => {
+    if (Array.isArray(node)) {
+      node.forEach(walk);
+    } else if (typeof node === 'object' && node !== null) {
+      const fields = new Map<string, unknown>(Object.entries(node));
+      const relation = fields.get('Relation Name');
+      if (typeof relation === 'string') {
+        relations.add(relation);
+      }
+      [...fields.values()].forEach(walk);
+    }
+  };
+  walk(plan);
+  return [...relations];
+}
+
 /** Seeded ship number i, as the seed names it. */
 function seeded(i: number): { id: ShipId; name: string } {
   return { id: idSchema('ship').parse(`shp_0${String(i).padStart(25, '0')}`), name: `ship-${String(i)}` };
@@ -117,12 +136,12 @@ describe('a page of 20 at 3,000 ships, read through its keyset index (decision 4
 });
 
 describe("the fleet's ship types at 3,000 ships", () => {
-  it('answers each type once, read from the type index alone', async () => {
+  it('answers each type once, reading the ships table alone, no read per ship', async () => {
     const [row] = await core.prisma.$queryRaw<{ 'QUERY PLAN': unknown }[]>(
       Prisma.sql`EXPLAIN (ANALYZE, FORMAT JSON) ${shipTypesStatement(fleetId, { status: ['awaitingCrew', 'crewed'], reach: { kind: 'every' } })}`,
     );
 
-    expect([await core.useCases.listShipTypes(argo), rowsOfIndex(row?.['QUERY PLAN'], 'ships_type_listing_idx') > 0]).toEqual([['agent', 'operator'], true]);
+    expect([await core.useCases.listShipTypes(argo), relationsOf(row?.['QUERY PLAN'])]).toEqual([['agent', 'operator'], ['ships']]);
   });
 });
 

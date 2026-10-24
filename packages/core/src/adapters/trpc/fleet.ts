@@ -22,6 +22,8 @@ import {
   acknowledgedSchema,
   listedShipOutputSchema,
   shipCountsInputSchema,
+  shipTypesInputSchema,
+  shipTypesOutputSchema,
   shipCountsOutputSchema,
   stuckCountOutputSchema,
   stuckInputSchema,
@@ -888,6 +890,12 @@ export const fleetRouter = router({
         longestWait: longestWait && { ...longestWait, awaitingCrewSince: longestWait.awaitingCrewSince.toISOString() },
       })),
     ),
+
+  /** The types of the ships in read reach, each once, sorted: active ones unless status asks for retired. */
+  shipTypes: actorScopedProcedure('fleet:read')
+    .input(shipTypesInputSchema)
+    .output(shipTypesOutputSchema)
+    .query(({ ctx, input }) => ctx.useCases.listShipTypes(ctx.caller, { status: input?.status })),
 
   /** One ship exactly as fleet_list lists it, retired ones included: what a change to that ship reloads. */
   listedShip: actorScopedProcedure('fleet:read')

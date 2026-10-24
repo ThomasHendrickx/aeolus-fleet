@@ -7,3 +7,7 @@ CREATE INDEX "ships_listing_idx" ON "ships"("fleet_id", (kind <> 'operator'::shi
   WHERE "retired_at" IS NULL;
 CREATE INDEX "ships_name_listing_idx" ON "ships"("fleet_id", (lower("name")) COLLATE "C", "id" COLLATE "C")
   WHERE "retired_at" IS NULL;
+-- The overview's Type filter reads the distinct types of the active ships
+-- from this index alone.
+CREATE INDEX "ships_type_listing_idx" ON "ships"("fleet_id", "type")
+  WHERE "retired_at" IS NULL;

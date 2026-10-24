@@ -64,6 +64,12 @@ export const fleetListFilterSchema = z.object({
 /** Input of `fleet.shipCounts`: count only the ships the fleet snapshot's filter selects; none counts every ship. */
 export const shipCountsInputSchema = z.object({ filter: fleetListFilterSchema.optional() }).optional();
 
+/** Input of `fleet.shipTypes`: the types of the ships of any of these statuses; none asks the active ships. */
+export const shipTypesInputSchema = z.object({ status: z.array(shipStatusSchema).optional() }).optional();
+
+/** Output of `fleet.shipTypes`: each type once, sorted. */
+export const shipTypesOutputSchema = z.array(z.string());
+
 /** The columns `fleet.list` sorts by, as the overview shows them. */
 export const SHIP_SORT_COLUMNS = ['ship', 'status', 'report', 'labels', 'runsOn', 'seen'] as const;
 export type ShipSortColumn = (typeof SHIP_SORT_COLUMNS)[number];

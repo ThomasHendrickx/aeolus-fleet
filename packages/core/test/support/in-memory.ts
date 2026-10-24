@@ -1502,6 +1502,18 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
             .filter((listed) => matchesShipFilter(listed, { filter, isInReach: true })),
         ),
       ),
+    types: (fleetId, { reach, status }) =>
+      Promise.resolve(
+        [
+          ...new Set(
+            state.ships
+              .filter((held) => held.fleetId === fleetId && readsShip(reach, held.id))
+              .map((held) => listedShipOf(factsOf(held)))
+              .filter((listed) => status.includes(listed.status))
+              .map((listed) => listed.type),
+          ),
+        ].toSorted(),
+      ),
     labels: (fleetId) =>
       Promise.resolve(
         state.labels

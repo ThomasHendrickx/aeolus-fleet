@@ -1,4 +1,4 @@
-import type { DeliveryId, DeliveryState, FleetId, LabelId, LabelValueId, LeaseId, LeaseWaker, MessageId, ReachRefusalId, ScopeName, ShipId, ShipPosition } from '@aeolus-fleet/common';
+import type { DeliveryId, DeliveryState, FleetId, LabelId, LabelValueId, LeaseId, LeaseWaker, MessageId, ReachRefusalId, ScopeName, ShipId, ShipPosition, ShipStatus } from '@aeolus-fleet/common';
 
 import type { Page, PageQuery } from '../shared/page.js';
 import type { Recipient } from '../shared/selector.js';
@@ -493,6 +493,8 @@ export interface FleetListing {
   ship(fleetId: FleetId, shipId: ShipId): Promise<ShipFacts | undefined>;
   /** The ships in `reach` that `filter` selects, counted per kind as `shipCountsOf` counts them, without reading each ship. */
   counts(fleetId: FleetId, read: { reach: ReadReach; filter: ShipFilter }): Promise<ShipCounts[]>;
+  /** The types of the ships in `reach` of any of the statuses, each once, sorted, without reading each ship. */
+  types(fleetId: FleetId, read: { reach: ReadReach; status: readonly ShipStatus[] }): Promise<string[]>;
   /**
    * The ship's deliveries as its page counts them: in flight with it (what a
    * release returns) and its direct ones pending or in flight (what a retire
