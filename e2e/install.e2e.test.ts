@@ -218,6 +218,26 @@ describe('installed from npm', () => {
     });
   });
 
+  it('starts the web app with an OTLP endpoint set, so telemetry is on, and its /health answers the server up', async () => {
+    const telemetryWebUrl = `http://localhost:${String(await freePort())}`;
+    // Nothing listens there: the console only has to start with telemetry on.
+    const collector = `http://localhost:${String(await freePort())}`;
+    const web = startBin({
+      bin: 'aeolus-console',
+      args: ['start'],
+      env: { PORT: new URL(telemetryWebUrl).port, AEOLUS_SERVER_URL: serverUrl, AEOLUS_CONSOLE_URL: telemetryWebUrl, OTEL_EXPORTER_OTLP_ENDPOINT: collector },
+    });
+
+    await expect
+      .poll(() => healthStatus(telemetryWebUrl), { timeout: ANSWER_TIMEOUT_MS, interval: 500, message: web.output() })
+      .toBe(200);
+    await expect(fetch(`${telemetryWebUrl}/health`).then((response) => response.json())).resolves.toEqual({
+      web: 'up',
+      server: 'up',
+      database: 'up',
+    });
+  });
+
   it('signs argo in with the link fleet:init printed: the browser calls the server at the address the web app started with', async () => {
     browser = await launchChromium();
     const page = await browser.newPage({ baseURL: webUrl });
