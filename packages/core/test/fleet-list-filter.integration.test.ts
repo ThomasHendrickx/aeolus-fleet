@@ -1,3 +1,4 @@
+import type { ShipId } from '@aeolus-fleet/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import type { ShipCaller } from '../src/domain/shared/caller.js';
@@ -15,6 +16,7 @@ import { withOperatorLogin } from './support/operator-login.js';
 
 let core: PostgresCore;
 let argo: ShipCaller;
+let trierarchId: ShipId;
 
 beforeAll(async () => {
   core = await createPostgresCore();
@@ -22,6 +24,7 @@ beforeAll(async () => {
   const commission = async (name: string, type: string) => unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name, type }));
   const plugin = await shipWithScopes({ registry: core.useCases, argo }, { name: 'trierarch-plugin', type: 'plugin', scopes: ['crew:assign'] });
   const trierarch = await shipWithScopes({ registry: core.useCases, argo }, { name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] });
+  trierarchId = trierarch.shipId;
   const builder = await commission('builder', 'implementer');
   const byHand = await commission('by-hand', 'implementer');
   const crashed = await commission('crashed', 'tester');
@@ -47,6 +50,16 @@ async function namesSelected(input: Parameters<PostgresCore['useCases']['listFle
 }
 
 describe("fleet.list's filters on Postgres (decision 4 of the performance design)", () => {
+  it('selects the ships whose crew request is assigned to a trierarch given, and none for a trierarch with none', async () => {
+    expect([await namesSelected({ assignedTo: [trierarchId] }), await namesSelected({ assignedTo: [argo.shipId] })]).toEqual([['crashed', 'crewing'], []]);
+  });
+
+  it('counts the ships assigned to a trierarch as it lists them', async () => {
+    const counts = await core.useCases.countShips(argo, { filter: { assignedTo: [trierarchId] } });
+
+    expect(counts.reduce((sum, kind) => sum + kind.active, 0)).toBe(2);
+  });
+
   it('selects the ships whose name or type holds the search text, in any case', async () => {
     await expect(namesSelected({ query: ' TEST ' })).resolves.toEqual(['crashed', 'crewing']);
   });

@@ -675,6 +675,19 @@ describe('selecting the ships of a page by what the overview filters (decision 4
     await expect(namesSelected({ crewRequest: ['crewing'] })).resolves.toEqual(['builder']);
   });
 
+  it('selects the ships whose crew request is assigned to any trierarch given', async () => {
+    const plugin = await shipWithScopes({ registry: useCases, argo }, { name: 'trierarch-plugin', type: 'plugin', scopes: ['crew:assign'] });
+    const mac = await shipWithScopes({ registry: useCases, argo }, { name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] });
+    const linux = await shipWithScopes({ registry: useCases, argo }, { name: 'linux-box', type: 'trierarch', scopes: ['crew:run'] });
+    for (const [shipId, trierarchShipId] of [[builderId, mac.shipId], [testerId, linux.shipId]] as const) {
+      unwrap(await useCases.requestCrew(argo, { shipId, settings: aCrewSettings() }));
+      unwrap(await useCases.assignCrew(plugin, { shipId, trierarchShipId }));
+    }
+
+    await expect(namesSelected({ assignedTo: [mac.shipId] })).resolves.toEqual(['builder']);
+    await expect(namesSelected({ assignedTo: [mac.shipId, linux.shipId] })).resolves.toEqual(['builder', 'tester']);
+  });
+
   it('combines the filters with AND, and fills a page with matches only', async () => {
     const page = await useCases.listFleet(argo, { query: 'r', status: ['awaitingCrew'], type: ['reviewer', 'implementer'], limit: 1 });
     const next = await useCases.listFleet(argo, { query: 'r', status: ['awaitingCrew'], type: ['reviewer', 'implementer'], cursor: page.nextCursor ?? undefined, limit: 1 });
