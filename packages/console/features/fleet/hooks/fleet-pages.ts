@@ -5,7 +5,7 @@ import { isInReadReach } from '@aeolus-fleet/common/rules';
 import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 
 import { LAST_SEEN_REFRESH_MS } from '../../../lib/fleet';
-import { CONSOLE_PAGE_SIZE, nextCursorOf, pagedListOf, type PagedList } from '../../../lib/paged-list';
+import { CONSOLE_PAGE_SIZE, nextCursorOf, pagedListOf, uniqueById, type PagedList } from '../../../lib/paged-list';
 import { useTRPC } from '../../../lib/trpc';
 import { fleetCountsOf, isOnlyArgoIn, type FleetCounts } from '../services/fleet-counts';
 
@@ -29,7 +29,8 @@ export function useFleetPages(filter: FleetListFilter | null, sort: FleetListSor
   if (filter === null) {
     return { ...list, items: [], hasMore: false };
   }
-  return { ...list, items: list.items?.filter(isInReadReach) };
+  // A ship live put first shows once, first, when Load more brings its page (#1173).
+  return { ...list, items: list.items && uniqueById(list.items).filter(isInReadReach) };
 }
 
 /**
