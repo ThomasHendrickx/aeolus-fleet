@@ -5,12 +5,14 @@ import { useState } from 'react';
 
 import { Badge } from '../../../components/atoms/badge';
 import { Button } from '@aeolus-fleet/common/header';
+import { useAssignedShips } from '../../../features/trierarchs/hooks/assigned-ships';
 import { MachineList } from '../../../features/trierarchs/ui/organisms/machine-list';
 import { ListPage } from '../../../components/organisms/list-page';
 import { useConsoleFrame } from '../../../lib/console-frame';
 import { lazyDialog } from '../../../lib/lazy-dialog';
 import { useAccess } from '../../../lib/access';
 import { useFleetSnapshot } from '../../../lib/fleet';
+import { useListedShips } from '../../../lib/listed-ships';
 import { useLiveFleet } from '../../../lib/live-fleet';
 import { useNeedsAttention } from '../../../lib/needs-attention';
 import { useNow } from '../../../lib/now';
@@ -34,6 +36,10 @@ export default function TrierarchsPage() {
   const fleet = useFleetSnapshot();
   const connection = useTrierarchPluginConnection();
   const machines = useMachines();
+  const machineShipIds = machines.data?.map((machine) => machine.shipId);
+  // The ships the machines crew, for their spots, and the machines' own ships, for where each runs.
+  const assigned = useAssignedShips(machineShipIds) ?? [];
+  const machineShips = useListedShips(machineShipIds ?? []);
   const pluginVersion = useTrierarchPluginVersion();
   const join = useJoinMachine();
   const access = useAccess();
@@ -69,7 +75,7 @@ export default function TrierarchsPage() {
       <MachineList
         connection={connection}
         machines={machines.data}
-        ships={fleet.data ?? []}
+        ships={[...assigned, ...(machineShips?.values() ?? [])]}
         error={machines.isError ? machines.error.message : undefined}
         onRetry={() => {
           void machines.refetch();

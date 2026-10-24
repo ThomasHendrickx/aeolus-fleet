@@ -10,8 +10,10 @@ import { DetailPage } from '../../../../components/organisms/detail-page';
 import { useConsoleFrame } from '../../../../lib/console-frame';
 import { lazyDialog } from '../../../../lib/lazy-dialog';
 import { useAccess } from '../../../../lib/access';
+import { useAssignedShips } from '../../../../features/trierarchs/hooks/assigned-ships';
 import { useClearRequests, useClearWorktree } from '../../../../features/trierarchs/hooks/clear-requests';
-import { useFleetSnapshot, useLabelContext } from '../../../../lib/fleet';
+import { useLabelContext } from '../../../../lib/fleet';
+import { useListedShips } from '../../../../lib/listed-ships';
 import { chipsOf } from '../../../../lib/labels';
 import { useLiveFleet } from '../../../../lib/live-fleet';
 import { useCrewSettings } from '../../../../lib/crew-settings';
@@ -32,8 +34,6 @@ export default function MachinePage({ params }: { params: Promise<{ shipId: stri
   const frame = useConsoleFrame();
   const attention = useNeedsAttention();
   const liveFleet = useLiveFleet();
-  const fleet = useFleetSnapshot();
-  const labelContext = useLabelContext();
   const connection = useTrierarchPluginConnection();
   const machines = useMachines();
   const access = useAccess();
@@ -42,9 +42,12 @@ export default function MachinePage({ params }: { params: Promise<{ shipId: stri
   const clearWorktree = useClearWorktree();
   useSignInWhenSessionEnds([attention.error, liveFleet.error]);
   const machine = machines.data?.find((each) => each.shipId === shipId);
-  const ships = fleet.data ?? [];
+  const ships = useAssignedShips(machine === undefined ? undefined : [machine.shipId]) ?? [];
   const spots = machine === undefined ? [] : spotsOf(machine, ships);
-  const trierarchShip = ships.find((ship) => ship.id === shipId);
+  // The trierarch's own ship, for its location and labels, and the ships its kept worktrees belonged to, by name.
+  const named = useListedShips([...(machine === undefined ? [] : [machine.shipId]), ...(machine?.details?.kept.map((kept) => kept.shipId) ?? [])]);
+  const labelContext = useLabelContext();
+  const trierarchShip = machine === undefined ? undefined : named?.get(machine.shipId);
   // Each ship's workspace sits in its crew request's settings, which only its page read answers.
   const shipPages = useShips(spots.map((spot) => spot.shipId));
   // Parsed on the web app's server: the fleet stores them without meaning.
@@ -71,7 +74,7 @@ export default function MachinePage({ params }: { params: Promise<{ shipId: stri
             location={trierarchShip?.location ?? null}
             {...(labelContext === undefined || trierarchShip === undefined ? {} : { labels: chipsOf(trierarchShip, labelContext) })}
             now={now}
-            shipNames={new Map(ships.map((ship) => [ship.id, ship.name]))}
+            shipNames={new Map([...(named?.values() ?? [])].map((ship) => [ship.id, ship.name]))}
             clearRequests={clearRequests.data ?? []}
             {...(access.canManage && machine !== undefined
               ? {
