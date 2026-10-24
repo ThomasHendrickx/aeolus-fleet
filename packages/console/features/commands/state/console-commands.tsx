@@ -35,7 +35,7 @@ interface ConsoleCommandsProps {
  */
 export function ConsoleCommands({ isOpen, onOpenChange, onCompose, switcher }: ConsoleCommandsProps) {
   const router = useRouter();
-  const fleet = useFleetSnapshot();
+  const fleet = useFleetSnapshot(isOpen);
   const hasSquadrons = useHasSquadrons();
   const squadrons = useSquadrons();
   const catalogue = useCatalogue();

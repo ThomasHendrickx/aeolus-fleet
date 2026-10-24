@@ -23,15 +23,17 @@ export const LAST_SEEN_REFRESH_MS = 30_000;
  * stays within its budget while the page shows every ship (decision 4 of the
  * performance design). Only the ships the session reads whole: argo reads
  * every ship, a viewer every ship while argo leaves the viewer reading on
- * (decision 0034).
+ * (decision 0034). Read only while `isEnabled`: a dialog asks it only while
+ * it is open.
  */
-export function useFleetSnapshot() {
+export function useFleetSnapshot(isEnabled = true) {
   const trpc = useTRPC();
   const client = useTRPCClient();
   return useQuery({
     queryKey: trpc.fleet.list.queryKey(),
     queryFn: async () =>
       dataOf(await everyPage(async (cursor: string | undefined) => ({ kind: 'answered', data: await client.fleet.list.query({ cursor, limit: PAGE_SIZE_MAX, status: EVERY_SHIP_STATUS }) }))),
+    enabled: isEnabled,
     refetchInterval: LAST_SEEN_REFRESH_MS,
     select: (ships) => ships.filter(isInReadReach),
   });

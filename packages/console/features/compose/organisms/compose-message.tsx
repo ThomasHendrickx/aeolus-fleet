@@ -31,7 +31,7 @@ interface ComposeMessageProps {
  * with its recipient set and names the message it answers.
  */
 export function ComposeMessage({ isOpen, onOpenChange, replyTo, toShipId }: ComposeMessageProps) {
-  const fleet = useFleetSnapshot();
+  const fleet = useFleetSnapshot(isOpen);
   const send = useSendMessage();
   const limits = useFleetLimits();
   const accountUrl = useHostedAccountUrl();
