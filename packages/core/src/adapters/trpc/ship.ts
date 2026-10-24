@@ -10,11 +10,11 @@ import {
   handledOutputSchema,
   inboxInputSchema,
   inboxOutputSchema,
-  giveMicInputSchema,
+  meetingShipInputSchema,
   meetingInputSchema,
   meetingOutputSchema,
-  micInputSchema,
-  micOutputSchema,
+  meetingIdInputSchema,
+  meetingChangedOutputSchema,
   notHandledInputSchema,
   openMeetingInputSchema,
   openMeetingOutputSchema,
@@ -205,8 +205,8 @@ export const shipRouter = router({
         'When you get it, the moderator sends you a message of application/vnd.aeolus.meeting.mic+json naming the meeting. The moderator needs no mic (BAD_REQUEST).',
       ].join(' '),
     })
-    .input(micInputSchema)
-    .output(micOutputSchema)
+    .input(meetingIdInputSchema)
+    .output(meetingChangedOutputSchema)
     .mutation(async ({ ctx, input }) => {
       okOrThrow(await ctx.useCases.changeMic(ctx.caller, { meetingId: input.meetingId, change: { kind: 'request' } }));
       return {};
@@ -215,8 +215,8 @@ export const shipRouter = router({
   /** Takes the caller's request off its meeting's mic list (decision 0061, M8). */
   withdrawMicRequest: scopedProcedure('messages:send')
     .meta({ description: 'Withdraws your request for the mic of a meeting: you leave the list. CONFLICT when you have no request.' })
-    .input(micInputSchema)
-    .output(micOutputSchema)
+    .input(meetingIdInputSchema)
+    .output(meetingChangedOutputSchema)
     .mutation(async ({ ctx, input }) => {
       okOrThrow(await ctx.useCases.changeMic(ctx.caller, { meetingId: input.meetingId, change: { kind: 'withdraw' } }));
       return {};
@@ -230,8 +230,8 @@ export const shipRouter = router({
         'With fifo set, it goes on to the oldest request. To speak again, request it again. CONFLICT when you do not hold it.',
       ].join(' '),
     })
-    .input(micInputSchema)
-    .output(micOutputSchema)
+    .input(meetingIdInputSchema)
+    .output(meetingChangedOutputSchema)
     .mutation(async ({ ctx, input }) => {
       okOrThrow(await ctx.useCases.changeMic(ctx.caller, { meetingId: input.meetingId, change: { kind: 'release' } }));
       return {};
@@ -246,8 +246,8 @@ export const shipRouter = router({
         'FORBIDDEN for a ship that does not moderate; NOT_FOUND for a ship that takes no part.',
       ].join(' '),
     })
-    .input(giveMicInputSchema)
-    .output(micOutputSchema)
+    .input(meetingShipInputSchema)
+    .output(meetingChangedOutputSchema)
     .mutation(async ({ ctx, input }) => {
       okOrThrow(await ctx.useCases.changeMic(ctx.caller, { meetingId: input.meetingId, change: { kind: 'give', shipId: input.shipId } }));
       return {};
@@ -261,8 +261,8 @@ export const shipRouter = router({
         'With fifo set, it goes on to the oldest request. CONFLICT while the mic is free; FORBIDDEN for a ship that does not moderate.',
       ].join(' '),
     })
-    .input(micInputSchema)
-    .output(micOutputSchema)
+    .input(meetingIdInputSchema)
+    .output(meetingChangedOutputSchema)
     .mutation(async ({ ctx, input }) => {
       okOrThrow(await ctx.useCases.changeMic(ctx.caller, { meetingId: input.meetingId, change: { kind: 'take' } }));
       return {};
@@ -278,7 +278,7 @@ export const shipRouter = router({
       ].join(' '),
     })
     .input(setMicPatternInputSchema)
-    .output(micOutputSchema)
+    .output(meetingChangedOutputSchema)
     .mutation(async ({ ctx, input }) => {
       okOrThrow(await ctx.useCases.changeMic(ctx.caller, { meetingId: input.meetingId, change: { kind: 'setPattern', pattern: input.pattern } }));
       return {};
