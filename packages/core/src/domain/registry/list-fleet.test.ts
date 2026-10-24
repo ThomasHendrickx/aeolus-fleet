@@ -648,6 +648,12 @@ describe('selecting the ships of a page by what the overview filters (decision 4
     expect([await namesSelected({ name: 'builder' }), await namesSelected({ name: 'build' }), await namesSelected({ name: 'old' })]).toEqual([['builder'], [], []]);
   });
 
+  it('selects the ships of any kind picked: argo and the person ships', async () => {
+    unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'alice', type: 'person', kind: 'person' }));
+
+    await expect(namesSelected({ shipKind: ['operator', 'person'] })).resolves.toEqual(['argo', 'alice']);
+  });
+
   it('selects the ships of any status picked', async () => {
     await expect(namesSelected({ status: ['crewed', 'retired'] })).resolves.toEqual(['argo', 'old']);
   });

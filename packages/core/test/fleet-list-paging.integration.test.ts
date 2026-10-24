@@ -164,6 +164,15 @@ describe('the active ship of a name at 3,000 ships', () => {
   });
 });
 
+describe('the ships of a kind at 3,000 ships', () => {
+  it('reads only the ships of the kinds asked through their index, not every ship', async () => {
+    const plan = await planOfPage({ limit: 501, filter: { ...ACTIVE, shipKind: ['operator', 'person'] }, reach: { kind: 'every' } });
+
+    // argo alone: the seeded ships are agents.
+    expect([rowsOfIndex(plan, 'ships_kind_listing_idx'), rowsOfIndex(plan, 'ships_listing_idx')]).toEqual([1, 0]);
+  });
+});
+
 describe("the fleet's ship types at 3,000 ships", () => {
   it('answers each type once, reading the ships table alone, no read per ship', async () => {
     const [row] = await core.prisma.$queryRaw<{ 'QUERY PLAN': unknown }[]>(

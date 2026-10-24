@@ -25,6 +25,7 @@ beforeAll(async () => {
   const plugin = await shipWithScopes({ registry: core.useCases, argo }, { name: 'trierarch-plugin', type: 'plugin', scopes: ['crew:assign'] });
   const trierarch = await shipWithScopes({ registry: core.useCases, argo }, { name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] });
   trierarchId = trierarch.shipId;
+  unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'alice', type: 'person', kind: 'person' }));
   const builder = await commission('builder', 'implementer');
   const byHand = await commission('by-hand', 'implementer');
   const crashed = await commission('crashed', 'tester');
@@ -80,6 +81,10 @@ describe("fleet.list's filters on Postgres (decision 4 of the performance design
     expect([await namesSelected({ name: 'crewing' }), await namesSelected({ name: 'crew' }), await namesSelected({ name: 'old' })]).toEqual([['crewing'], [], []]);
   });
 
+  it('selects the ships of any kind picked: argo and the person ships', async () => {
+    await expect(namesSelected({ shipKind: ['operator', 'person'] })).resolves.toEqual(['argo', 'alice']);
+  });
+
   it('selects the ships whose name or type holds the search text, in any case', async () => {
     await expect(namesSelected({ query: ' TEST ' })).resolves.toEqual(['crashed', 'crewing']);
   });
@@ -106,7 +111,7 @@ describe("fleet.list's filters on Postgres (decision 4 of the performance design
   });
 
   it('selects the ships without a crew request', async () => {
-    await expect(namesSelected({ crewRequest: ['none'] })).resolves.toEqual(['argo', 'mac-mini', 'trierarch-plugin']);
+    await expect(namesSelected({ crewRequest: ['none'] })).resolves.toEqual(['argo', 'alice', 'mac-mini', 'trierarch-plugin']);
   });
 
   it('combines the filters with AND, a page holding only matches', async () => {
