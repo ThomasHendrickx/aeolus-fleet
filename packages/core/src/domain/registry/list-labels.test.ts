@@ -30,8 +30,8 @@ describe("listing the fleet's labels", () => {
     const os = unwrap(await registry.defineLabel(argo, { key: 'os', values: ['macos', 'linux'] }));
 
     await expect(registry.listLabels(argo)).resolves.toEqual([
-      { id: os.labelId, key: 'os', values: os.values.map((value) => ({ ...value, shipCount: 0 })), owner: { kind: 'ship', id: argo.shipId, name: 'argo' } },
-      { id: project.labelId, key: 'project', values: project.values.map((value) => ({ ...value, shipCount: 0 })), owner: { kind: 'ship', id: pluginId, name: 'trierarch-plugin' } },
+      { id: os.labelId, key: 'os', shipCount: 0, values: os.values.map((value) => ({ ...value, shipCount: 0 })), owner: { kind: 'ship', id: argo.shipId, name: 'argo' } },
+      { id: project.labelId, key: 'project', shipCount: 0, values: project.values.map((value) => ({ ...value, shipCount: 0 })), owner: { kind: 'ship', id: pluginId, name: 'trierarch-plugin' } },
     ]);
   });
 
@@ -56,6 +56,16 @@ describe('how many ships carry each label value', () => {
     }
 
     await expect(shipCountsOf(argo)).resolves.toEqual({ 'os=macos': 2, 'os=linux': 0 });
+  });
+
+  it('counts each ship once for its label, however many of its values the ship carries', async () => {
+    const area = unwrap(await registry.defineLabel(argo, { key: 'area', values: ['backend', 'frontend'] }));
+    const { shipId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'full-stack', type: 'implementer' }));
+    for (const value of area.values) {
+      unwrap(await registry.assignLabel(argo, { shipId, valueId: value.id }));
+    }
+
+    await expect(registry.listLabels(argo).then((labels) => labels.map((label) => [label.key, label.shipCount]))).resolves.toEqual([['area', 1]]);
   });
 
   it('leaves a retired ship out of the count', async () => {
