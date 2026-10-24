@@ -16,6 +16,7 @@ import { withOperatorLogin } from './support/operator-login.js';
 // own. The plan is asserted, not a time, which would flake under load;
 // staging measures the time (decision 7).
 
+/** Active ships seeded, and as many retired ones. */
 const SHIPS = 3_000;
 /** One seeded ship in this many carries the label value. */
 const LABELLED_EVERY = 7;
@@ -35,6 +36,11 @@ beforeAll(async () => {
   await core.prisma.$executeRaw`
     INSERT INTO ships (id, fleet_id, name, type, created_at, kind, scopes)
     SELECT 'shp_0' || lpad(i::text, 25, '0'), ${fleetId}, 'ship-' || i, 'agent', now(), 'agent', '{}'
+    FROM generate_series(1, ${SHIPS}::int) i`;
+  // As many retired ships under the same names, as a fleet keeps them: in among the active ones in name order.
+  await core.prisma.$executeRaw`
+    INSERT INTO ships (id, fleet_id, name, type, created_at, kind, scopes, retired_at)
+    SELECT 'shp_1' || lpad(i::text, 25, '0'), ${fleetId}, 'ship-' || i, 'agent', now(), 'agent', '{}', now()
     FROM generate_series(1, ${SHIPS}::int) i`;
   await core.prisma.$executeRaw`
     INSERT INTO ship_labels (fleet_id, ship_id, label_id, value_id)
@@ -163,7 +169,7 @@ describe("the fleet's ship types at 3,000 ships", () => {
 describe('the fleet snapshot at 3,000 ships (decision 4 of the performance design)', () => {
   it('pages every ship once, argo first and then by name, in pages of the size asked', async () => {
     const pages = await everyPage({ limit: PAGE_SIZE_MAX });
-    const ships = await core.prisma.ship.findMany({ where: { fleetId }, select: { id: true, name: true, kind: true } });
+    const ships = await core.prisma.ship.findMany({ where: { fleetId, retiredAt: null }, select: { id: true, name: true, kind: true } });
     const expected = ships
       .toSorted((first, second) => Number(first.kind !== 'operator') - Number(second.kind !== 'operator') || (first.name < second.name ? -1 : first.name > second.name ? 1 : 0))
       .map(({ id }) => id);
@@ -176,8 +182,8 @@ describe('the fleet snapshot at 3,000 ships (decision 4 of the performance desig
     async (sort) => {
       const shipIds = await everyPage({ sort, limit: 450 });
 
-      expect(new Set(shipIds.flat()).size).toEqual(await core.prisma.ship.count({ where: { fleetId } }));
-      expect(shipIds.flat()).toHaveLength(await core.prisma.ship.count({ where: { fleetId } }));
+      expect(new Set(shipIds.flat()).size).toEqual(await core.prisma.ship.count({ where: { fleetId, retiredAt: null } }));
+      expect(shipIds.flat()).toHaveLength(await core.prisma.ship.count({ where: { fleetId, retiredAt: null } }));
     },
   );
 

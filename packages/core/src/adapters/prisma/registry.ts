@@ -713,19 +713,24 @@ export function shipFilterCondition(
 }
 
 /**
- * The ships of any status picked: a pick without retired reads only active
- * ships, which the listing indexes hold, and a pick of every active status
- * needs nothing more.
+ * The ships of any status picked, written so the listing indexes serve the
+ * common picks: every status needs no condition, retired alone is its
+ * retirement, and a pick without retired reads only active ships, which the
+ * active listing indexes hold, every active status needing nothing more.
  */
 function statusConditions(status: readonly ShipStatus[]): Prisma.Sql[] {
-  if (status.length === 0) {
+  const isEveryActivePicked = status.includes('awaitingCrew') && status.includes('crewed');
+  if (status.length === 0 || (status.includes('retired') && isEveryActivePicked)) {
     return [];
+  }
+  if (status.length === 1 && status[0] === 'retired') {
+    return [Prisma.sql`AND s.retired_at IS NOT NULL`];
   }
   if (status.includes('retired')) {
     return [Prisma.sql`AND ${statusOfShip} = ANY(${[...status]}::text[])`];
   }
   const active = Prisma.sql`AND s.retired_at IS NULL`;
-  return status.includes('awaitingCrew') && status.includes('crewed') ? [active] : [active, Prisma.sql`AND ${statusOfShip} = ANY(${[...status]}::text[])`];
+  return isEveryActivePicked ? [active] : [active, Prisma.sql`AND ${statusOfShip} = ANY(${[...status]}::text[])`];
 }
 
 /** A ship's status as its sort shows it (ship-order's STATUS_WORDS), for the ship `s` of the outer query. */
