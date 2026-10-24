@@ -126,6 +126,21 @@ describe('a page of 20 at 3,000 ships, read through its keyset index (decision 4
     expect(rowsOfIndex(plan, 'ships_listing_idx')).toBeOneOf([21, 22]);
   });
 
+  it('reads only the page of the default order with the retired ships asked, however far on it starts', async () => {
+    const { id, name } = seeded(2_800);
+    const plan = await planOfPage({ after: { isEmpty: true, value: '', name, id }, limit: 21, filter: { status: ['awaitingCrew', 'crewed', 'retired'] }, reach: { kind: 'every' } });
+
+    expect(rowsOfIndex(plan, 'ships_listing_every_status_idx')).toBeOneOf([21, 22]);
+  });
+
+  it('reads only the page sorted by ship with the retired ships asked, however far on it starts', async () => {
+    const { id, name } = seeded(2_000);
+    const plan = await planOfPage({ after: { isEmpty: false, value: name, name, id }, limit: 21, filter: { status: ['awaitingCrew', 'crewed', 'retired'] }, sort: { column: 'ship', direction: 'descending' }, reach: { kind: 'every' } });
+
+    // Beyond the page: the cursor's own ship, and one more that ends the last name's ties.
+    expect(rowsOfIndex(plan, 'ships_name_listing_every_status_idx')).toBeOneOf([21, 22, 23]);
+  });
+
   it.each(['ascending', 'descending'] as const)('reads only the page sorted by ship %s, however far on it starts', async (direction) => {
     const { id, name } = seeded(2_000);
     const plan = await planOfPage({ after: { isEmpty: false, value: name, name, id }, limit: 21, filter: ACTIVE, sort: { column: 'ship', direction }, reach: { kind: 'every' } });
