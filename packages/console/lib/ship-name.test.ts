@@ -39,6 +39,10 @@ describe('typeHint', () => {
     expect(typeHint('', 0)).toBe('Free text. Pick a type in use or write a new one.');
   });
 
+  it('states the rule while the ships of the type are counted', () => {
+    expect(typeHint('reviewer', undefined)).toBe('Free text. Pick a type in use or write a new one.');
+  });
+
   it('says a type no ship uses becomes a new type', () => {
     expect(typeHint('auditor', 0)).toBe('No ship uses this type yet. auditor becomes a new type.');
   });

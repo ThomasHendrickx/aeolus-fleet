@@ -7,7 +7,6 @@ import { Fragment, useState, type ComponentType, type ReactNode } from 'react';
 
 import {
   useFleetLabels,
-  useFleetSnapshot,
   useGetStartingPrompt,
   usePingShip,
   useRecrewShip,
@@ -18,6 +17,7 @@ import {
 import { lazyDialog } from '../../../lib/lazy-dialog';
 import { useAccess, type Access } from '../../../lib/access';
 import { retiredLabelsOf, retireLabelLines } from '../../../lib/labels';
+import { useIsShipNameTaken } from '../../../lib/ship-name-taken';
 import { canPing } from '../../../lib/ping';
 import { useShip } from '../../../lib/ship';
 import { useSquadronsConnection } from '../../../lib/squadrons';
@@ -170,7 +170,8 @@ function ShipActionsOf({
   const recrewShip = useRecrewShip();
   const renameShip = useRenameShip();
   const pingShip = usePingShip();
-  const fleet = useFleetSnapshot();
+  const [typedName, setTypedName] = useState('');
+  const isNameTaken = useIsShipNameTaken(dialog === 'rename' ? typedName : '');
   const labels = useFleetLabels();
   const counted = useShip(dialog === 'release' || dialog === 'recrew' || dialog === 'retire' || dialog === 'remove' ? ship.id : undefined);
   const removeMember = useRemoveMember();
@@ -350,7 +351,8 @@ function ShipActionsOf({
       )}
       <RenameDialog
         shipName={ship.name}
-        activeNames={(fleet.data ?? []).filter((each) => each.status !== 'retired').map((each) => each.name)}
+        takenNames={isNameTaken === true ? [typedName] : []}
+        onNameChange={setTypedName}
         isOpen={dialog === 'rename'}
         onOpenChange={(isOpen) => {
           if (!isOpen) {

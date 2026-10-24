@@ -11,12 +11,12 @@ import { ListPage } from '../../../components/organisms/list-page';
 import { useConsoleFrame } from '../../../lib/console-frame';
 import { lazyDialog } from '../../../lib/lazy-dialog';
 import { useAccess } from '../../../lib/access';
-import { useFleetSnapshot } from '../../../lib/fleet';
 import { useListedShips } from '../../../lib/listed-ships';
 import { useLiveFleet } from '../../../lib/live-fleet';
 import { useNeedsAttention } from '../../../lib/needs-attention';
 import { useNow } from '../../../lib/now';
 import { useSignInWhenSessionEnds } from '../../../lib/session';
+import { useIsShipNameTaken } from '../../../lib/ship-name-taken';
 import { useJoinMachine, useMachines, useTrierarchPluginConnection, useTrierarchPluginVersion } from '../../../lib/trierarch-plugin';
 
 // Dialogs load when first opened, not with the page.
@@ -33,7 +33,6 @@ export default function TrierarchsPage() {
   const frame = useConsoleFrame();
   const attention = useNeedsAttention();
   const liveFleet = useLiveFleet();
-  const fleet = useFleetSnapshot();
   const connection = useTrierarchPluginConnection();
   const machines = useMachines();
   const machineShipIds = machines.data?.map((machine) => machine.shipId);
@@ -44,6 +43,8 @@ export default function TrierarchsPage() {
   const join = useJoinMachine();
   const access = useAccess();
   const [isJoining, setIsJoining] = useState(false);
+  const [typedName, setTypedName] = useState('');
+  const isNameTaken = useIsShipNameTaken(isJoining ? typedName : '');
   useSignInWhenSessionEnds([attention.error, liveFleet.error]);
   const canJoin = access.canManage && connection === 'connected';
   const openJoin = () => {
@@ -85,7 +86,8 @@ export default function TrierarchsPage() {
       />
       {canJoin && (
         <JoinMachineDialog
-          activeNames={(fleet.data ?? []).filter((ship) => ship.status !== 'retired').map((ship) => ship.name)}
+          takenNames={isNameTaken === true ? [typedName] : []}
+          onNameChange={setTypedName}
           isOpen={isJoining}
           onOpenChange={(isOpen) => {
             setIsJoining(isOpen);

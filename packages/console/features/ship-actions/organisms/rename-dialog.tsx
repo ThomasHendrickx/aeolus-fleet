@@ -12,8 +12,10 @@ import { InlineError } from '../../../components/molecules/inline-error';
 
 interface RenameDialogProps {
   shipName: string;
-  /** The names of the fleet's active ships, to say early whether a name is free. */
-  activeNames: readonly string[];
+  /** The names known to be an active ship's, read for the name typed (`onNameChange`), to say early whether it is free. */
+  takenNames: readonly string[];
+  /** The name as typed, so the container reads whether an active ship has it. */
+  onNameChange?: (name: string) => void;
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   isPending: boolean;
@@ -23,12 +25,12 @@ interface RenameDialogProps {
 }
 
 /** The open dialog's fields: they start empty each time it opens. */
-function RenameDialogBody({ shipName, activeNames, isPending, error, onSubmit }: Omit<RenameDialogProps, 'isOpen' | 'onOpenChange'>) {
+function RenameDialogBody({ shipName, takenNames, onNameChange, isPending, error, onSubmit }: Omit<RenameDialogProps, 'isOpen' | 'onOpenChange'>) {
   const { shipHandleMaxLength } = useConsoleConstants();
   const nameId = useId();
   const statusId = useId();
   const [name, setName] = useState('');
-  const check = checkShipName(name, { activeNames, current: shipName });
+  const check = checkShipName(name, { activeNames: takenNames, current: shipName });
   const isProblem = check.kind === 'invalid' || check.kind === 'reserved' || check.kind === 'taken';
   const canRename = check.kind === 'available';
 
@@ -69,6 +71,7 @@ function RenameDialogBody({ shipName, activeNames, isPending, error, onSubmit }:
             value={name}
             onChange={(event) => {
               setName(asHandle(event.target.value));
+              onNameChange?.(asHandle(event.target.value));
             }}
           />
           {check.kind === 'available' ? (

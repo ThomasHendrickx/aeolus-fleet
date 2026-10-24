@@ -44,10 +44,10 @@ export function checkShipName(name: string, fleet: { activeNames: readonly strin
   return { kind: 'available', message: `${name} is available.` };
 }
 
-/** What the typed type means for the fleet (docs/design/png/CommissionForm.png): a new type, or how many ships use it. */
-export function typeHint(type: string, shipsOfType: number): string {
+/** What the typed type means for the fleet (docs/design/png/CommissionForm.png): a new type, or how many ships use it; the rule while the count is read. */
+export function typeHint(type: string, shipsOfType: number | undefined): string {
   const trimmed = type.trim();
-  if (trimmed === '') {
+  if (trimmed === '' || shipsOfType === undefined) {
     return 'Free text. Pick a type in use or write a new one.';
   }
   if (shipsOfType === 0) {

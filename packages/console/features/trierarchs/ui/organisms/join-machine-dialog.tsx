@@ -14,8 +14,10 @@ import { CrewLines } from '../../../../components/molecules/crew-lines';
 import { InlineError } from '../../../../components/molecules/inline-error';
 
 interface JoinMachineDialogProps {
-  /** The names of the fleet's active ships, to say early whether a name is free. */
-  activeNames: readonly string[];
+  /** The names known to be an active ship's, read for the name typed (`onNameChange`), to say early whether it is free. */
+  takenNames: readonly string[];
+  /** The name as typed, so the container reads whether an active ship has it. */
+  onNameChange?: (name: string) => void;
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   isPending: boolean;
@@ -27,12 +29,12 @@ interface JoinMachineDialogProps {
 }
 
 /** The name the operator gives the machine: no prefill; the trierarch's ship goes by it (#245, h). */
-function NameStep({ activeNames, isPending, error, onSubmit }: Pick<JoinMachineDialogProps, 'activeNames' | 'isPending' | 'error' | 'onSubmit'>) {
+function NameStep({ takenNames, onNameChange, isPending, error, onSubmit }: Pick<JoinMachineDialogProps, 'takenNames' | 'onNameChange' | 'isPending' | 'error' | 'onSubmit'>) {
   const { shipHandleMaxLength } = useConsoleConstants();
   const nameId = useId();
   const statusId = useId();
   const [name, setName] = useState('');
-  const check = checkShipName(name, { activeNames });
+  const check = checkShipName(name, { activeNames: takenNames });
   const isProblem = check.kind === 'invalid' || check.kind === 'reserved' || check.kind === 'taken';
   const canJoin = check.kind === 'available';
 
@@ -76,6 +78,7 @@ function NameStep({ activeNames, isPending, error, onSubmit }: Pick<JoinMachineD
             value={name}
             onChange={(event) => {
               setName(asHandle(event.target.value));
+              onNameChange?.(asHandle(event.target.value));
             }}
           />
           {check.kind === 'available' ? (

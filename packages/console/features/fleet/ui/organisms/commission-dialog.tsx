@@ -1,6 +1,6 @@
 'use client';
 
-import type { CrewSettings, ListedShip } from '@aeolus-fleet/common';
+import type { CrewSettings } from '@aeolus-fleet/common';
 import { isShipHandle } from '@aeolus-fleet/common/rules';
 import { CircleCheck, CircleX, Tag } from 'lucide-react';
 import { useId, useState } from 'react';
@@ -30,8 +30,16 @@ interface OfferedScopes {
 }
 
 interface CommissionDialogProps {
-  /** The fleet's active ships: their names are taken, their types suggested. */
-  activeShips: readonly ListedShip[];
+  /** The types the fleet's active ships have, suggested for Type. */
+  types: readonly string[];
+  /**
+   * What the fleet holds of what is typed, as the container reads it for
+   * `onTypedChange`: the names an active ship has, and how many active ships
+   * have each type. A name or type not in them is not read yet, or is free.
+   */
+  taken: { names: readonly string[]; typeShipCounts: ReadonlyMap<string, number> };
+  /** The name and type as typed, so the container reads whether the name is taken and how many ships have the type. */
+  onTypedChange?: (typed: { name: string; type: string }) => void;
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   isPending: boolean;
@@ -62,7 +70,7 @@ interface CommissionDialogProps {
 }
 
 /** The open dialog's fields: they start empty each time it opens. */
-function CommissionDialogBody({ activeShips, isPending, error, shipLimit, accountUrl, crewRequest, scopeGroups, onSubmit }: Omit<CommissionDialogProps, 'isOpen' | 'onOpenChange'>) {
+function CommissionDialogBody({ types, taken, onTypedChange, isPending, error, shipLimit, accountUrl, crewRequest, scopeGroups, onSubmit }: Omit<CommissionDialogProps, 'isOpen' | 'onOpenChange'>) {
   const constants = useConsoleConstants();
   const { shipHandleMaxLength, firstPromptMaxBytes } = constants;
   const nameId = useId();
@@ -83,12 +91,11 @@ function CommissionDialogBody({ activeShips, isPending, error, shipLimit, accoun
   const refusal = crewRequest?.check?.kind === 'refused' ? crewRequest.check : undefined;
   const isCrewReady =
     !isCrewRequested || crewRequest === undefined || (crewSettings !== undefined && refusal === undefined && promptBytes(crewValues.firstPrompt) <= firstPromptMaxBytes);
-  const check = checkShipName(name, { activeNames: activeShips.map((ship) => ship.name) });
+  const check = checkShipName(name, { activeNames: taken.names });
   const isNameProblem = check.kind === 'invalid' || check.kind === 'reserved' || check.kind === 'taken';
   const trimmedType = type.trim();
   const isTypeValid = isShipHandle(trimmedType);
   const isTypeProblem = trimmedType !== '' && !isTypeValid;
-  const types = [...new Set(activeShips.map((ship) => ship.type))].sort();
   const canCommission = check.kind === 'available' && isTypeValid && shipLimit === undefined && isCrewReady;
   const hasCrewSettings = crewRequest !== undefined && isCrewRequested;
 
@@ -142,6 +149,7 @@ function CommissionDialogBody({ activeShips, isPending, error, shipLimit, accoun
             value={name}
             onChange={(event) => {
               setName(asHandle(event.target.value));
+              onTypedChange?.({ name: asHandle(event.target.value), type: trimmedType });
             }}
           />
           {check.kind === 'available' ? (
@@ -166,6 +174,7 @@ function CommissionDialogBody({ activeShips, isPending, error, shipLimit, accoun
           value={type === '' ? null : type}
           onValueChange={(value) => {
             setType(value ?? '');
+            onTypedChange?.({ name, type: (value ?? '').trim() });
           }}
           isFreeText
           toQuery={asHandle}
@@ -178,7 +187,7 @@ function CommissionDialogBody({ activeShips, isPending, error, shipLimit, accoun
         <p id={typeHintId} className={classNames('text-meta', isTypeProblem ? 'text-destructive-text' : 'text-muted-foreground')}>
           {isTypeProblem
             ? `Use 1 to ${String(shipHandleMaxLength)} lowercase letters, digits, hyphens or colons.`
-            : typeHint(type, activeShips.filter((ship) => ship.type === trimmedType).length)}
+            : typeHint(type, taken.typeShipCounts.get(trimmedType))}
         </p>
       </div>
       <div className="flex flex-col gap-1.5">

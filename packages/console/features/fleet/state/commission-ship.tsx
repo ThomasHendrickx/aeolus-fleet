@@ -7,8 +7,9 @@ import { useState } from 'react';
 import { lazyDialog } from '../../../lib/lazy-dialog';
 import { useConsoleConstants } from '../../../lib/console-constants';
 import { defaultValues, offersOf, settingsOf } from '../../../lib/crew-settings-form';
-import { useCommissionShip, useFleetScopes, useFleetSnapshot, useLabelContext, useRequestCrew } from '../../../lib/fleet';
+import { useCommissionShip, useFleetScopes, useLabelContext, useRequestCrew } from '../../../lib/fleet';
 import { machineLabelsInputOf } from '../../../lib/machine-labels';
+import { useIsShipNameTaken } from '../../../lib/ship-name-taken';
 import { Button } from '@aeolus-fleet/common/header';
 import { showToast } from '../../../components/atoms/toast';
 import { useFleetLimits } from '../../../lib/fleet-limits';
@@ -17,6 +18,7 @@ import { shipLimitReached } from '../../../lib/limits';
 import { useSquadronsConnection } from '../../../lib/squadrons';
 import { useSquadrons } from '../../../lib/squadrons-api';
 import { useCrewSettingsCheck, useMachines, useTrierarchPluginConnection } from '../../../lib/trierarch-plugin';
+import { useShipTypes, useTypeShipCount } from '../hooks/fleet-pages';
 import { grantableScopes } from '../services/grantable-scopes';
 
 // Dialogs load when first opened, not with the page.
@@ -32,7 +34,6 @@ const StartingPromptDialog = lazyDialog(() => import('../../../components/organi
  * The page or the command palette may open it too, through `isOpen`.
  */
 export function CommissionShip({ isOpen, onOpenChange }: { isOpen: boolean; onOpenChange: (isOpen: boolean) => void }) {
-  const fleet = useFleetSnapshot();
   const limits = useFleetLimits();
   const accountUrl = useHostedAccountUrl();
   const commission = useCommissionShip();
@@ -51,7 +52,10 @@ export function CommissionShip({ isOpen, onOpenChange }: { isOpen: boolean; onOp
   const scopes = useFleetScopes();
   const machineLabels = labelContext === undefined || machines.data === undefined ? undefined : machineLabelsInputOf(labelContext, { machines: machines.data, shipLabelsMax });
   const check = useCrewSettingsCheck(isOpen && hasTrierarchs ? (crewSettings === null ? settingsOf(defaultValues(offers)) : crewSettings) : undefined);
-  const activeShips = (fleet.data ?? []).filter((ship) => ship.status !== 'retired');
+  const types = useShipTypes(false);
+  const [typed, setTyped] = useState({ name: '', type: '' });
+  const isNameTaken = useIsShipNameTaken(typed.name);
+  const typeShipCount = useTypeShipCount(typed.type);
 
   const commissionThenRequest = (ship: Parameters<typeof commission.mutate>[0], request: { settings: CrewSettings | Record<string, never> } | undefined) => {
     commission.mutate(ship, {
@@ -96,7 +100,9 @@ export function CommissionShip({ isOpen, onOpenChange }: { isOpen: boolean; onOp
         Commission ship
       </Button>
       <CommissionDialog
-        activeShips={activeShips}
+        types={types ?? []}
+        taken={{ names: isNameTaken === true ? [typed.name] : [], typeShipCounts: new Map(typeShipCount === undefined ? [] : [[typed.type, typeShipCount]]) }}
+        onTypedChange={setTyped}
         isOpen={isOpen}
         onOpenChange={onOpenChange}
         isPending={commission.isPending}
