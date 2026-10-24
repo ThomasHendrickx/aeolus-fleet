@@ -1,7 +1,7 @@
 import { createIdGenerator, type ListedShip } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
-import { composeTargets, sendInputOf } from './compose';
+import { composeShips, sendInputOf } from './compose';
 
 const newId = createIdGenerator();
 
@@ -22,18 +22,15 @@ function aShip(ship: Partial<ListedShip>): ListedShip {
   };
 }
 
-describe('composeTargets', () => {
-  it('offers the active agent ships, never argo and never a retired one, and their types once each, sorted', () => {
+describe('composeShips', () => {
+  it('offers the active agent ships, never argo and never a retired one, each once', () => {
     const reviewer = aShip({ name: 'reviewer-01', type: 'reviewer' });
     const waiting = aShip({ name: 'tester-01', type: 'tester', status: 'awaitingCrew' });
     const second = aShip({ name: 'reviewer-02', type: 'reviewer' });
     const argo = aShip({ name: 'argo', type: 'operator', kind: 'operator' });
     const retired = aShip({ name: 'old', type: 'deployer', status: 'retired' });
 
-    expect(composeTargets([reviewer, waiting, second, argo, retired])).toEqual({
-      ships: [reviewer, waiting, second],
-      types: ['reviewer', 'tester'],
-    });
+    expect(composeShips([reviewer, waiting, second, argo, retired, reviewer])).toEqual([reviewer, waiting, second]);
   });
 });
 

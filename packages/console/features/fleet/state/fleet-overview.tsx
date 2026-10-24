@@ -9,7 +9,8 @@ import { fleetListFilterOf, fleetListSortOf } from '../services/fleet-list-input
 import { useNow } from '../../../lib/now';
 import { useSquadrons } from '../../../lib/squadrons-api';
 import { shipsInSquadrons } from '../../../lib/squadrons-view';
-import { useFleetCounts, useFleetPages, useShipTypes } from '../hooks/fleet-pages';
+import { useShipTypes } from '../../../lib/ship-types';
+import { useFleetCounts, useFleetPages } from '../hooks/fleet-pages';
 import { FleetTable, type FleetTableProps } from '../ui/organisms/fleet-table';
 
 /** The types the Type filter offers: the fleet's and those picked, each once, sorted. */

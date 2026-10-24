@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { fn } from 'storybook/test';
 
-import { COMPOSE_SHIPS, COMPOSE_TYPES, REVIEWER_01 } from '../molecules/selector-picker.fixtures';
+import { COMPOSE_SHIPS, COMPOSE_TYPE_SHIP_COUNTS, COMPOSE_TYPES, REVIEWER_01 } from '../molecules/selector-picker.fixtures';
 import { ComposeDialog } from './compose-dialog';
 
 const DRAFT = {
@@ -18,6 +18,7 @@ const meta = {
     onOpenChange: fn(),
     ships: COMPOSE_SHIPS,
     types: COMPOSE_TYPES,
+    typeShipCounts: COMPOSE_TYPE_SHIP_COUNTS,
     state: 'editing',
     onSend: fn(),
   },

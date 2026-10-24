@@ -23,10 +23,14 @@ interface SelectorPickerProps {
   /** The chosen ship (ship mode) or the typed type (type mode); null while empty. */
   value: SelectorValue | null;
   onChange: (value: SelectorValue | null) => void;
-  /** Ships the operator may pick: the caller passes active ships, never argo, never retired. */
+  /** Ships the operator may pick, those matching what is typed: the caller passes active ships, never argo, never retired. */
   ships: readonly ListedShip[];
+  /** Each change of the ship name typed, so the caller reads the ships that match. */
+  onShipQueryChange?: (query: string) => void;
   /** Type suggestions: the types of active ships. */
   types: readonly string[];
+  /** How many active ships have each type, as far as the caller read them: the type typed. */
+  typeShipCounts: ReadonlyMap<string, number>;
   error?: string;
 }
 
@@ -43,24 +47,20 @@ function shipOption(ship: ListedShip): ComboboxOption {
 
 const SHIPS = { one: 'ship', many: 'ships' };
 
-function shipsOfType(ships: readonly ListedShip[], type: string): number {
-  return ships.filter((ship) => ship.type === type).length;
-}
-
 /**
  * Chooses who a message goes to (docs/design/png/SelectorPicker.png): one
  * ship by name, or any ship of a type. Ship mode searches the ships it is
- * given, which the caller keeps to active ships other than argo. Type mode is
+ * given as the operator types, which the caller keeps to active ships other than argo. Type mode is
  * free text with the types in use as suggestions; an unknown type is refused
  * by the server, not guessed here. The hint under the field says what the
  * choice means: a ship without crew keeps the message in its inbox; a type
  * is a queue any of its ships claims from.
  */
-export function SelectorPicker({ mode, onModeChange, value, onChange, ships, types, error }: SelectorPickerProps) {
+export function SelectorPicker({ mode, onModeChange, value, onChange, ships, onShipQueryChange, types, typeShipCounts, error }: SelectorPickerProps) {
   const fieldId = useId();
   const hintId = useId();
   const typed = value?.kind === 'type' ? value.type : null;
-  const users = typed === null ? 0 : shipsOfType(ships, typed);
+  const users = typed === null ? undefined : typeShipCounts.get(typed);
 
   return (
     <div data-slot="selector-picker" className="flex flex-col gap-1.5">
@@ -94,6 +94,7 @@ export function SelectorPicker({ mode, onModeChange, value, onChange, ships, typ
             onChange(ship ? { kind: 'ship', shipId: ship.id } : null);
           }}
           toQuery={asHandle}
+          onQueryChange={onShipQueryChange}
           groupLabel="Ships"
           emptyText={(query) => `No ship matches "${query}". Retired ships are not listed.`}
           leadingIcon={<Search />}
@@ -109,11 +110,15 @@ export function SelectorPicker({ mode, onModeChange, value, onChange, ships, typ
           options={types.map((type) => ({
             value: type,
             label: type,
-            trailing: (
-              <span className="text-meta text-muted-foreground tabular-nums">
-                {counted(shipsOfType(ships, type), SHIPS)}
-              </span>
-            ),
+            ...(typeShipCounts.has(type)
+              ? {
+                  trailing: (
+                    <span className="text-meta text-muted-foreground tabular-nums">
+                      {counted(typeShipCounts.get(type) ?? 0, SHIPS)}
+                    </span>
+                  ),
+                }
+              : {}),
           }))}
           value={typed}
           onValueChange={(type) => {
@@ -133,7 +138,7 @@ export function SelectorPicker({ mode, onModeChange, value, onChange, ships, typ
           {mode === 'ship'
             ? 'If the ship has no crew right now, the message waits in its inbox.'
             : `Goes to a queue any ship of this type can claim from.${
-                typed === null ? '' : ` ${counted(users, SHIPS)} ${users === 1 ? 'uses' : 'use'} this type.`
+                users === undefined ? '' : ` ${counted(users, SHIPS)} ${users === 1 ? 'uses' : 'use'} this type.`
               }`}
         </p>
       ) : (

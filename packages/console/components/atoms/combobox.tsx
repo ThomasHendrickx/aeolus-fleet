@@ -29,6 +29,8 @@ interface ComboboxProps {
   toQuery?: (typed: string) => string;
   /** A label over the suggestions: "Ships". */
   groupLabel?: string;
+  /** Each change of the typed text, so the owner can ask the server for the options that match. */
+  onQueryChange?: (query: string) => void;
   /** What the popup says when nothing matches the typed text. */
   emptyText?: (query: string) => ReactNode;
   /** A decorative icon inside the field, before the text. */
@@ -62,6 +64,7 @@ export function Combobox({
   onValueChange,
   isFreeText = false,
   toQuery,
+  onQueryChange,
   groupLabel,
   emptyText,
   leadingIcon,
@@ -100,6 +103,9 @@ export function Combobox({
         }
         const typed = details.reason === 'input-change' && toQuery ? toQuery(text) : text;
         setQuery(typed);
+        if (details.reason === 'input-change') {
+          onQueryChange?.(typed);
+        }
         if (isFreeText) {
           onValueChange(typed === '' ? null : typed);
         } else if (selected !== undefined && typed !== selected.label) {

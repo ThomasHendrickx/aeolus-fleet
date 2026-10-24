@@ -88,3 +88,12 @@ export const OpeningAnotherApp: Story = {
 
 /** Phone: full screen, with Cancel (H6). */
 export const Phone: Story = { globals: { viewport: { value: 'mobile1' } } };
+
+/** Each change of the query is handed out as typed, so the app can ask the server for what matches. */
+export const HandsOutTheQuery: Story = {
+  args: { onQueryChange: fn() },
+  play: async ({ args }) => {
+    await userEvent.type(screen.getByTestId('command-palette-input'), 'ga');
+    await waitFor(() => expect(args.onQueryChange).toHaveBeenLastCalledWith('ga'));
+  },
+};

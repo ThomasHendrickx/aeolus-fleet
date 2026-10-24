@@ -18,8 +18,14 @@ import { SendShortcutHint } from '../../../components/molecules/send-shortcut-hi
 interface ComposeDialogProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
+  /** The ships that match the name typed, as the container reads them for `onShipQueryChange`. */
   ships: readonly ListedShip[];
+  onShipQueryChange?: (query: string) => void;
   types: readonly string[];
+  /** How many active ships have each type, as far as the container read them for `onTypeChange`. */
+  typeShipCounts: ReadonlyMap<string, number>;
+  /** The type picked or typed, so the container counts its ships. */
+  onTypeChange?: (type: string) => void;
   state: 'editing' | 'sending' | 'failed';
   /** The server's refusal to show, kept with the operator's input. */
   error?: string;
@@ -38,7 +44,7 @@ type ComposeFormProps = Omit<ComposeDialogProps, 'isOpen' | 'onOpenChange'>;
  * The fields, mounted only while the dialog is open, so each opening starts
  * empty while a failed send keeps what the operator wrote.
  */
-function ComposeForm({ ships, types, state, error, messageLimit, accountUrl, onSend, draft }: ComposeFormProps) {
+function ComposeForm({ ships, onShipQueryChange, types, typeShipCounts, onTypeChange, state, error, messageLimit, accountUrl, onSend, draft }: ComposeFormProps) {
   const payloadId = useId();
   const sizeErrorId = useId();
   const [mode, setMode] = useState<SelectorMode>(draft?.selector.kind ?? 'ship');
@@ -66,9 +72,16 @@ function ComposeForm({ ships, types, state, error, messageLimit, accountUrl, onS
           setSelector(null);
         }}
         value={selector}
-        onChange={setSelector}
+        onChange={(next) => {
+          setSelector(next);
+          if (next?.kind === 'type') {
+            onTypeChange?.(next.type);
+          }
+        }}
         ships={ships}
+        onShipQueryChange={onShipQueryChange}
         types={types}
+        typeShipCounts={typeShipCounts}
       />
       <div className="flex flex-col gap-1.5">
         <Label htmlFor={payloadId}>Message</Label>

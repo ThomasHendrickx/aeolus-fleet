@@ -2,12 +2,12 @@
 
 import type { AppSwitcherModel } from '@aeolus-fleet/common/header';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import { lazyDialog } from '../../../lib/lazy-dialog';
 import { useAccess } from '../../../lib/access';
 import { allowedPaletteItems, paletteItemsOf } from '../services/command-palette';
-import { useFleetSnapshot } from '../../../lib/fleet';
+import { useShipSearch } from '../../../lib/ship-search';
 import { useHasSquadrons } from '../../../lib/squadrons';
 import { useCatalogue, useSquadrons } from '../../../lib/squadrons-api';
 import { blueprintChoices } from '../../../lib/squadrons-view';
@@ -25,7 +25,8 @@ interface ConsoleCommandsProps {
 }
 
 /**
- * The CommandPalette on every console page, with the fleet's ships, the
+ * The CommandPalette on every console page, with the ships that match what
+ * is typed (the first 20, read as it is typed), the
  * actions, the pages and the other apps the account may open; Cmd+K
  * (Ctrl+K) opens it. A ship opens its page, a
  * page its route, Compose the page's Compose, Commission ship the fleet
@@ -35,7 +36,8 @@ interface ConsoleCommandsProps {
  */
 export function ConsoleCommands({ isOpen, onOpenChange, onCompose, switcher }: ConsoleCommandsProps) {
   const router = useRouter();
-  const fleet = useFleetSnapshot(isOpen);
+  const [query, setQuery] = useState('');
+  const ships = useShipSearch(query, isOpen);
   const hasSquadrons = useHasSquadrons();
   const squadrons = useSquadrons();
   const catalogue = useCatalogue();
@@ -57,12 +59,19 @@ export function ConsoleCommands({ isOpen, onOpenChange, onCompose, switcher }: C
   return (
     <CommandPalette
       isOpen={isOpen}
-      onOpenChange={onOpenChange}
-      isLoading={fleet.isPending}
+      onOpenChange={(isNowOpen) => {
+        // Each opening starts with no query, as the palette's field does.
+        if (!isNowOpen) {
+          setQuery('');
+        }
+        onOpenChange(isNowOpen);
+      }}
+      isLoading={ships === undefined}
+      onQueryChange={setQuery}
       apps={(switcher?.apps ?? []).filter((app) => !app.isCurrent).map(({ label, url }) => ({ label, url }))}
       items={allowedPaletteItems(
         paletteItemsOf(
-          fleet.data ?? [],
+          ships ?? [],
           hasSquadrons ? { squadrons: squadrons.data ?? [], blueprints: blueprintChoices(catalogue.data ?? { blueprints: [] }) } : undefined,
         ),
         access,

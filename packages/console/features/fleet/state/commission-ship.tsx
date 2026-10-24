@@ -18,7 +18,7 @@ import { shipLimitReached } from '../../../lib/limits';
 import { useSquadronsConnection } from '../../../lib/squadrons';
 import { useSquadrons } from '../../../lib/squadrons-api';
 import { useCrewSettingsCheck, useMachines, useTrierarchPluginConnection } from '../../../lib/trierarch-plugin';
-import { useShipTypes, useTypeShipCount } from '../hooks/fleet-pages';
+import { useShipTypes, useTypeShipCount } from '../../../lib/ship-types';
 import { grantableScopes } from '../services/grantable-scopes';
 
 // Dialogs load when first opened, not with the page.

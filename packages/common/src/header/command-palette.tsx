@@ -43,6 +43,8 @@ export interface CommandPaletteProps {
   isLoading?: boolean;
   /** What the search starts with when it opens; empty when not given. For stories. */
   initialQuery?: string;
+  /** Each change of the query as typed, so the app can ask the server for what matches. */
+  onQueryChange?: (query: string) => void;
 }
 
 /** Rows standing in while the entries load. */
@@ -62,7 +64,7 @@ function LoadingRows() {
 }
 
 /** The open palette: its query, the entry the keys move to and the one opening live here, so each opening starts fresh. */
-function PaletteBody({ groupsOf, onSelect, onOpenChange, label, emptyMessage, isLoading = false, initialQuery = '' }: Omit<CommandPaletteProps, 'isOpen'>) {
+function PaletteBody({ groupsOf, onSelect, onOpenChange, label, emptyMessage, isLoading = false, initialQuery = '', onQueryChange }: Omit<CommandPaletteProps, 'isOpen'>) {
   const listId = useId();
   const optionId = useId();
   const [query, setQuery] = useState(initialQuery);
@@ -123,6 +125,7 @@ function PaletteBody({ groupsOf, onSelect, onOpenChange, label, emptyMessage, is
           onChange={(event) => {
             setQuery(event.target.value);
             setActiveIndex(0);
+            onQueryChange?.(event.target.value);
           }}
           onKeyDown={onKeyDown}
         />
