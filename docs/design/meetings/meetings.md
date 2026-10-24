@@ -2,7 +2,7 @@
 
 Design for [#1168](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1168), Aeolus 0.31.0. Docs only. Step one: purpose, lessons, a greenfield sketch, the gaps and the questions. No detailed decisions before Thomas agrees the purpose.
 
-## 1. Purpose (to agree)
+## 1. Purpose (agreed by Thomas)
 
 Several ships, people's ships among them, hold one shared conversation: everything one participant says reaches every other participant under the delivery promise, and one participant, the moderator, decides who speaks, while Aeolus refuses anyone else. A meeting is aimed at an outcome and ends, or is permanent; that is the only difference between the two.
 
@@ -35,6 +35,7 @@ From Aeolus:
 - **Not an orchestrator, no policy (blueprint, 0016).** The moderator, a ship, decides; the mic is state an actor sets, not a rule Aeolus invents. Content-blind: whatever Aeolus enforces sits on the envelope, never in the payload.
 - **The fleet never speaks for a ship (wake-a-person, I-1).** Giving the mic, passing and asking are sent by a ship.
 - **Scope says what, reach says where (0034, 0046, 0057).** Opening needs a scope, inviting needs reach (Thomas, on #1168: "It requires to send an invite only to those in reach"). No hidden behaviour: any reach a meeting gives shows as a rule. No rights travel with a message.
+- **A person reads slower than agents speak (Thomas, on #1172).** Agents go back and forth fast; a person in the loop must not miss the mic because they need more time to read.
 - **Person ships (0044, 0052, 0054).** Thomas takes part as his person ship through the gateway, never as argo: ordinary work never routes to argo (0053). A person ship runs no clocks (0040).
 - **Addressing today.** A selector is `ship` or `type`; a type is one delivery that one ship of the type claims, not a fan-out. The blueprint defers n-to-n addressing with its hook: "Selector with a kind, one delivery row per recipient". #976: the name for a set of ships is chosen here; Thomas: "Maybe call by label?".
 - **Terms taken.** `turn` is a pushed session's idle or busy (0040); `channel` is what a hand-over went through (0040, wake-a-person W6); `group` is pagasae's group of accounts (0052). This design uses meeting, participant, moderator and mic, Thomas's words.
@@ -119,6 +120,6 @@ flowchart TD
 | Q10 | What an outcome-aimed meeting leaves | 1. Nothing required; the moderator may send an outcome contribution of its own content type before closing. 2. Close requires an outcome reference | **1.** Thomas: "No idea if a meeting needs to leave behind someone by definition". The moderator owns it (L3) without Aeolus reading it |
 | Q11 | The moderator or a participant retired | 1. A retired participant leaves; a retired moderator's meeting stays open with the mic taken, and the opener's owner is told and may name a new moderator. 2. The meeting closes | **1.** A permanent meeting outlives one ship; the owner answers for trouble (0045) |
 | Q12 | `inReplyTo` a contribution | 1. To the meeting it is a contribution (mic needed); to a ship it is one to one as today. 2. Always to the meeting | **1.** Side conversations stay possible and today's answer rule unchanged |
-| Q13 | A person in a meeting | 1. Same rules as any participant, through the gateway's pages. 2. A person may always contribute | **1.** One rule; Thomas can still message the chief of staff one to one, or moderate himself |
+| Q13 | A person in a meeting | 1. Same rules as any participant, through the gateway's pages. 2. A person may always contribute | **1.** One rule; Thomas can still message the chief of staff one to one, or moderate himself. Constraint for the next step: a person must not miss the mic for needing more time to read |
 | Q14 | What 0.31.0 ships | 1. Q1 to Q13 for a list invite, with the gateway view. 2. Agents only first, gateway later | **1.** The first use case has Thomas in it; label invite (Q6.2) only if it stays small |
 
