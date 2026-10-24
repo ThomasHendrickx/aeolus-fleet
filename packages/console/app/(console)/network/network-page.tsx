@@ -109,6 +109,8 @@ export function NetworkPageFor({ pickedShipId, against }: { pickedShipId?: ShipI
   } else if (network.data === undefined || context === undefined || fleet.data === undefined) {
     content = <LoadingSkeleton variant="detail" rows={4} label="Loading the network" />;
   } else {
+    // The rules editor offers every person ship as an owner and names the ships rules point at: the snapshot's ships, while the page reads them.
+    const networkContext = { ...context, ships: fleet.data };
     content = (
       <>
         <BuiltInNetworkRules
@@ -124,7 +126,7 @@ export function NetworkPageFor({ pickedShipId, against }: { pickedShipId?: ShipI
         <NetworkRulesEditor
           key={JSON.stringify(network.data.draft ?? network.data.applied)}
           rules={(network.data.draft ?? network.data.applied).rules}
-          context={context}
+          context={networkContext}
           limits={{ rulesMax: networkRulesMax, selectorMax: shipLabelsMax }}
           isSaving={saveDraft.isPending}
           saveError={saveDraft.error?.message}
@@ -216,7 +218,7 @@ export function NetworkPageFor({ pickedShipId, against }: { pickedShipId?: ShipI
           onRetry={() => {
             void declared.refetch();
           }}
-          context={context}
+          context={networkContext}
         />
         <FleetReachGraph
           ships={graphShipsOf(fleet.data)}
@@ -247,7 +249,7 @@ export function NetworkPageFor({ pickedShipId, against }: { pickedShipId?: ShipI
               <LoadMore what="older refusals" isLoading={refusals.isLoadingMore} isFailed={refusals.isLoadMoreFailed} onLoad={refusals.loadMore} area="network-refusals" />
             ) : null
           }
-          context={context}
+          context={networkContext}
           now={now}
         />
       </>
