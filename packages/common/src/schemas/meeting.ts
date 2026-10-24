@@ -59,17 +59,39 @@ export const micPatternSchema = z.enum(MIC_PATTERNS);
 
 export type MicPattern = z.infer<typeof micPatternSchema>;
 
-/** Input of `ship.requestMic`, `ship.withdrawMicRequest`, `ship.releaseMic` and `ship.takeMic`: the meeting. */
-export const micInputSchema = z.object({ meetingId: idSchema('meeting') });
+/**
+ * Input of a call on a meeting alone: `ship.requestMic`, `ship.withdrawMicRequest`,
+ * `ship.releaseMic`, `ship.takeMic`, `ship.leaveMeeting`, `ship.rejoinMeeting`
+ * and `ship.endMeeting`.
+ */
+export const meetingIdInputSchema = z.object({ meetingId: idSchema('meeting') });
 
-/** Input of `ship.giveMic` (the moderator): the meeting and the participant it gives the mic to. */
-export const giveMicInputSchema = z.object({ meetingId: idSchema('meeting'), shipId: idSchema('ship') });
+/**
+ * Input of a call on a meeting and one of its ships: `ship.giveMic` (the
+ * moderator), `ship.revokeFromMeeting`, `ship.transferMeeting` and
+ * `ship.nameModerator` (the owner).
+ */
+export const meetingShipInputSchema = z.object({ meetingId: idSchema('meeting'), shipId: idSchema('ship') });
+
+/**
+ * Input of `ship.addToMeeting` (the owner): more invitees, by ship and by a
+ * label selection, as an open names them, and the model the owner's session
+ * runs, which the added notices state.
+ */
+export const addToMeetingInputSchema = z.object({
+  meetingId: idSchema('meeting'),
+  ships: z.array(inviteeSchema).optional(),
+  valueIds: z.array(idSchema('labelValue')).optional(),
+  model: modelSchema.optional(),
+});
+
+export type AddToMeetingInput = z.infer<typeof addToMeetingInputSchema>;
 
 /** Input of `ship.setMicPattern` (the moderator): the meeting and how its mic passes from now. */
 export const setMicPatternInputSchema = z.object({ meetingId: idSchema('meeting'), pattern: micPatternSchema });
 
-/** Output of every mic call: nothing, once the change and its notice are stored. */
-export const micOutputSchema = z.object({});
+/** Output of every mic call and every change of a meeting's life: nothing, once the change and its notices are stored. */
+export const meetingChangedOutputSchema = z.object({});
 
 /** The mic as the meeting read shows it: who holds it, null while free; its pattern; and the requests, oldest first. */
 export const meetingMicReadSchema = z.object({
@@ -78,8 +100,18 @@ export const meetingMicReadSchema = z.object({
   requests: z.array(z.object({ ship: partySchema, requestedAt: isoTime })),
 });
 
-/** A participant as the meeting read shows it: who it is, and whether it is crewed now (decision 0061, M14). */
-export const meetingParticipantSchema = partySchema.extend({ kind: shipKindSchema, status: shipStatusSchema });
+/** Whether a participant is in the meeting now, left it keeping its right to rejoin, or was revoked by the owner (decision 0061, M13). */
+export const PARTICIPANT_STATES = ['present', 'left', 'revoked'] as const;
+
+export const participantStateSchema = z.enum(PARTICIPANT_STATES);
+
+export type ParticipantState = z.infer<typeof participantStateSchema>;
+
+/**
+ * A participant as the meeting read shows it: who it is, whether it is crewed
+ * now (decision 0061, M14), and whether it is in the meeting now.
+ */
+export const meetingParticipantSchema = partySchema.extend({ kind: shipKindSchema, status: shipStatusSchema, state: participantStateSchema });
 
 /** One contribution as the meeting read shows it. */
 export const contributionSchema = z.object({
@@ -131,3 +163,11 @@ export const MEETING_MIC_CONTENT_TYPE = 'application/vnd.aeolus.meeting.mic+json
 export const meetingMicSchema = z.object({ meetingId: idSchema('meeting') });
 
 export type MeetingMic = z.infer<typeof meetingMicSchema>;
+
+/** The content type of the notice the ship that ended a meeting sends every other participant. */
+export const MEETING_ENDED_CONTENT_TYPE = 'application/vnd.aeolus.meeting.ended+json';
+
+/** The payload of the ended notice: the meeting that ended. */
+export const meetingEndedSchema = z.object({ meetingId: idSchema('meeting') });
+
+export type MeetingEnded = z.infer<typeof meetingEndedSchema>;

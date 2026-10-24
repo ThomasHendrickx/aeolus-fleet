@@ -83,9 +83,9 @@ describe('opening a meeting', () => {
         openedAt: new Date('2026-10-24T09:01:00.000Z'),
         endedAt: null,
         participants: [
-          { shipId: chief.shipId, joinedAt: new Date('2026-10-24T09:01:00.000Z') },
-          { shipId: marketing.shipId, joinedAt: new Date('2026-10-24T09:01:00.000Z') },
-          { shipId: product.shipId, joinedAt: new Date('2026-10-24T09:01:00.000Z') },
+          { shipId: chief.shipId, joinedAt: new Date('2026-10-24T09:01:00.000Z'), leftAt: null, isRevoked: false },
+          { shipId: marketing.shipId, joinedAt: new Date('2026-10-24T09:01:00.000Z'), leftAt: null, isRevoked: false },
+          { shipId: product.shipId, joinedAt: new Date('2026-10-24T09:01:00.000Z'), leftAt: null, isRevoked: false },
         ],
       }),
     ]);

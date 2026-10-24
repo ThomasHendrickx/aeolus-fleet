@@ -1,9 +1,10 @@
-import type { AccountId, IdGenerator, ShipId, ShipKind } from '@aeolus-fleet/common';
+import { MEETING_ENDED_CONTENT_TYPE, MEETING_MIC_CONTENT_TYPE, type AccountId, type IdGenerator, type MeetingAdded, type MeetingEnded, type MeetingMic, type ShipId, type ShipKind } from '@aeolus-fleet/common';
 
 import { recordEvent, type EventLog } from '../shared/events.js';
 import type { Notifier } from '../shared/notifier.js';
 import { ok, type Result } from '../shared/result.js';
-import type { Meeting } from './meeting.js';
+import type { ShipRepository } from '../registry/public.js';
+import { participantsBut, type Meeting } from './meeting.js';
 import { acceptMessage, type AcceptRefusal } from './message.js';
 import type { DeliveryRepository, MessageRepository, RequestHasher } from './ports.js';
 import { sendRequestText } from './send-request.js';
@@ -71,5 +72,48 @@ export async function tellParticipant(deps: { tx: MeetingNoticeTx; ids: IdGenera
     await recordEvent({ events: tx.events, ids }, event);
   }
   await tx.notifier.deliveryPending({ fleetId: meeting.fleetId, deliveryId: delivery.id, recipient: delivery.recipient });
+  return ok(undefined);
+}
+
+/** The added notice's payload: the meeting, its title, its owner, its moderator and its present participants, by id and name. */
+export async function addedNoticeOf(tx: { ships: Pick<ShipRepository, 'find'> }, meeting: Meeting): Promise<MeetingAdded> {
+  const names = new Map<ShipId, string>();
+  const present = meeting.participants.filter(({ leftAt }) => leftAt === null);
+  for (const { shipId } of present) {
+    const ship = await tx.ships.find(meeting.fleetId, shipId);
+    names.set(shipId, ship?.name ?? shipId);
+  }
+  const party = (id: ShipId) => ({ id, name: names.get(id) ?? id });
+  return { meetingId: meeting.id, title: meeting.title, owner: party(meeting.ownerShipId), moderator: party(meeting.moderatorShipId), participants: present.map(({ shipId }) => party(shipId)) };
+}
+
+/**
+ * The notices a change of the meeting owes (M11): to the ship that got the
+ * mic by it, from the moderator; and once it ended, to every other present
+ * participant, from the ship that ended it. Neither states a model: the change
+ * may be another ship's, as a release under first in line or a retire.
+ */
+export async function tellOfChange(
+  deps: { tx: MeetingNoticeTx; ids: IdGenerator; hasher: RequestHasher },
+  change: { meeting: Meeting; micGivenTo: ShipId | null; endedBy: ShipId | null; at: Date },
+): Promise<Result<undefined, AcceptRefusal>> {
+  const { meeting, at } = change;
+  const notices: MeetingNotice[] = [];
+  if (change.micGivenTo !== null) {
+    const payload: MeetingMic = { meetingId: meeting.id };
+    notices.push({ meeting, senderShipId: meeting.moderatorShipId, shipId: change.micGivenTo, contentType: MEETING_MIC_CONTENT_TYPE, payload: JSON.stringify(payload), model: undefined, at });
+  }
+  if (change.endedBy !== null) {
+    const payload: MeetingEnded = { meetingId: meeting.id };
+    for (const shipId of participantsBut(meeting, change.endedBy)) {
+      notices.push({ meeting, senderShipId: change.endedBy, shipId, contentType: MEETING_ENDED_CONTENT_TYPE, payload: JSON.stringify(payload), model: undefined, at });
+    }
+  }
+  for (const notice of notices) {
+    const told = await tellParticipant(deps, notice);
+    if (!told.isOk) {
+      return told;
+    }
+  }
   return ok(undefined);
 }

@@ -192,6 +192,12 @@ describe('eventTypeSchema', () => {
       'MicReleased',
       'MicTaken',
       'MicPatternSet',
+      'ParticipantLeft',
+      'ParticipantRejoined',
+      'ParticipantRevoked',
+      'OwnershipTransferred',
+      'ModeratorNamed',
+      'MeetingEnded',
     ]);
   });
 });

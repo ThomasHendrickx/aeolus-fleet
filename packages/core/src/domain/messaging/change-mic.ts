@@ -1,17 +1,17 @@
-import { MEETING_MIC_CONTENT_TYPE, type IdGenerator, type MeetingId, type MeetingMic } from '@aeolus-fleet/common';
+import type { IdGenerator, MeetingId } from '@aeolus-fleet/common';
 
 import type { ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { recordEvent } from '../shared/events.js';
-import { ok, type Result } from '../shared/result.js';
+import type { Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
-import { tellParticipant, type MeetingNoticeTx } from './meeting-notice.js';
+import { tellOfChange, type MeetingNoticeTx } from './meeting-notice.js';
 import type { AcceptRefusal } from './message.js';
 import { changeMic, type MicChange, type MicRefusal } from './mic.js';
 import type { MeetingRepository, RequestHasher } from './ports.js';
 
 export interface ChangeMicTx extends MeetingNoticeTx {
-  meetings: Pick<MeetingRepository, 'findForUpdate' | 'saveMic'>;
+  meetings: Pick<MeetingRepository, 'findForUpdate' | 'save'>;
 }
 
 export type ChangeMicFailure = MicRefusal | AcceptRefusal;
@@ -35,17 +35,10 @@ export function createChangeMic(deps: { uow: UnitOfWork<ChangeMicTx>; clock: Clo
         return changed;
       }
       const { meeting, events, givenTo } = changed.value;
-      await tx.meetings.saveMic(meeting);
+      await tx.meetings.save(meeting);
       for (const event of events) {
         await recordEvent({ events: tx.events, ids: deps.ids }, event);
       }
-      if (givenTo === null) {
-        return ok(undefined);
-      }
-      const payload: MeetingMic = { meetingId: meeting.id };
-      return tellParticipant(
-        { tx, ids: deps.ids, hasher: deps.hasher },
-        { meeting, senderShipId: meeting.moderatorShipId, shipId: givenTo, contentType: MEETING_MIC_CONTENT_TYPE, payload: JSON.stringify(payload), model: undefined, at },
-      );
+      return tellOfChange({ tx, ids: deps.ids, hasher: deps.hasher }, { meeting, micGivenTo: givenTo, endedBy: null, at });
     });
 }

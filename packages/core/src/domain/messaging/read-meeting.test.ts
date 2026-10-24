@@ -67,10 +67,24 @@ describe('reading a meeting', () => {
     const read = unwrap(await messaging.readMeeting(chief, { meetingId, limit: 20 }));
 
     expect(read.participants).toEqual([
-      { id: chief.shipId, name: 'chief', kind: 'agent', status: 'awaitingCrew' },
-      { id: marketing.shipId, name: 'marketing', kind: 'agent', status: 'crewed' },
-      { id: product.shipId, name: 'product', kind: 'agent', status: 'awaitingCrew' },
+      { id: chief.shipId, name: 'chief', kind: 'agent', status: 'awaitingCrew', state: 'present' },
+      { id: marketing.shipId, name: 'marketing', kind: 'agent', status: 'crewed', state: 'present' },
+      { id: product.shipId, name: 'product', kind: 'agent', status: 'awaitingCrew', state: 'present' },
     ]);
+  });
+
+  it('shows each former participant with its state, left or revoked, and lets it read the meeting (M13, M15)', async () => {
+    unwrap(await messaging.changeMeeting(marketing, { meetingId, change: { kind: 'leave' } }));
+    unwrap(await messaging.changeMeeting(chief, { meetingId, change: { kind: 'revoke', shipId: product.shipId } }));
+
+    const [byLeft, byRevoked] = [unwrap(await messaging.readMeeting(marketing, { meetingId, limit: 20 })), unwrap(await messaging.readMeeting(product, { meetingId, limit: 20 }))];
+
+    expect(byLeft.participants.map(({ id, state }) => ({ id, state }))).toEqual([
+      { id: chief.shipId, state: 'present' },
+      { id: marketing.shipId, state: 'left' },
+      { id: product.shipId, state: 'revoked' },
+    ]);
+    expect(byRevoked.meetingId).toBe(meetingId);
   });
 
   it('shows who holds the mic, how it passes, and who waits for it, oldest first with their time (M8, M9)', async () => {

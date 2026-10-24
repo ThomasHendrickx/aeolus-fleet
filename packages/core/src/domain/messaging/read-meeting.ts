@@ -1,4 +1,4 @@
-import type { MeetingId, MessageId, MicPattern, ShipId, ShipKind, ShipStatus } from '@aeolus-fleet/common';
+import type { MeetingId, MessageId, MicPattern, ParticipantState, ShipId, ShipKind, ShipStatus } from '@aeolus-fleet/common';
 
 import { shipStatus, type LeaseRepository, type ShipRepository } from '../registry/public.js';
 import type { ShipCaller } from '../shared/caller.js';
@@ -6,6 +6,7 @@ import { refuse, type DomainError } from '../shared/errors.js';
 import type { Page, PageQuery } from '../shared/page.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
+import type { Participant } from './meeting.js';
 import type { MeetingRepository } from './ports.js';
 
 export interface ReadMeetingTx {
@@ -24,6 +25,15 @@ export interface MeetingParty {
 export interface MeetingParticipantRead extends MeetingParty {
   kind: ShipKind;
   status: ShipStatus;
+  state: ParticipantState;
+}
+
+/** Whether a participant is in the meeting now, left it keeping its right, or was revoked (M13). */
+function participantState(participant: Participant): ParticipantState {
+  if (participant.isRevoked) {
+    return 'revoked';
+  }
+  return participant.leftAt === null ? 'present' : 'left';
 }
 
 /** One contribution as the read shows it. */
@@ -71,15 +81,16 @@ export function createReadMeeting(deps: { uow: UnitOfWork<ReadMeetingTx> }): Rea
       const { fleetId } = caller;
       const { meetingId } = input;
       const meeting = await tx.meetings.find(fleetId, meetingId);
+      // A former participant reads it too, whether it left or was revoked (M15).
       if (!meeting?.participants.some((participant) => participant.shipId === caller.shipId)) {
         return refuse('MEETING_NOT_FOUND', `Meeting ${meetingId} does not exist or you are not one of its participants`);
       }
       const participants: MeetingParticipantRead[] = [];
-      for (const { shipId } of meeting.participants) {
-        const ship = await tx.ships.find(fleetId, shipId);
+      for (const participant of meeting.participants) {
+        const ship = await tx.ships.find(fleetId, participant.shipId);
         if (ship) {
-          const lease = await tx.leases.findOpenForShare(fleetId, shipId);
-          participants.push({ id: ship.id, name: ship.name, kind: ship.kind, status: shipStatus(ship, { isCrewed: lease !== undefined }) });
+          const lease = await tx.leases.findOpenForShare(fleetId, participant.shipId);
+          participants.push({ id: ship.id, name: ship.name, kind: ship.kind, status: shipStatus(ship, { isCrewed: lease !== undefined }), state: participantState(participant) });
         }
       }
       const names = new Map(participants.map((participant) => [participant.id, participant.name]));
