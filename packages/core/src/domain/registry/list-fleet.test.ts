@@ -675,6 +675,26 @@ describe('selecting the ships of a page by what the overview filters (decision 4
     await expect(namesSelected({ crewRequest: ['crewing'] })).resolves.toEqual(['builder']);
   });
 
+  it('selects the ships needing crew, as the trierarch plugin being connected decides', async () => {
+    const plugin = await shipWithScopes({ registry: useCases, argo }, { name: 'trierarch-plugin', type: 'plugin', scopes: ['crew:assign'] });
+    const trierarch = await shipWithScopes({ registry: useCases, argo }, { name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] });
+    unwrap(await useCases.requestCrew(argo, { shipId: builderId, settings: aCrewSettings() }));
+    unwrap(await useCases.requestCrew(argo, { shipId: testerId, settings: aCrewSettings() }));
+    unwrap(await useCases.assignCrew(plugin, { shipId: testerId, trierarchShipId: trierarch.shipId }));
+    unwrap(await useCases.reportCrewStatus(trierarch, { shipId: testerId, status: 'crashed' }));
+
+    await expect(namesSelected({ needsCrew: 'withoutTrierarchs' })).resolves.toEqual(['builder']);
+    await expect(namesSelected({ needsCrew: 'withTrierarchs' })).resolves.toEqual(['builder', 'tester']);
+  });
+
+  it('sorts by when crew was requested, the oldest request first, ships without one last', async () => {
+    unwrap(await useCases.requestCrew(argo, { shipId: testerId, settings: aCrewSettings() }));
+    core.clock.advance(60_000);
+    unwrap(await useCases.requestCrew(argo, { shipId: builderId, settings: aCrewSettings() }));
+
+    await expect(namesSelected({ sort: { column: 'requested', direction: 'ascending' } })).resolves.toEqual(['tester', 'builder', 'argo', 'scout']);
+  });
+
   it('selects the ships whose crew request is assigned to any trierarch given', async () => {
     const plugin = await shipWithScopes({ registry: useCases, argo }, { name: 'trierarch-plugin', type: 'plugin', scopes: ['crew:assign'] });
     const mac = await shipWithScopes({ registry: useCases, argo }, { name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] });

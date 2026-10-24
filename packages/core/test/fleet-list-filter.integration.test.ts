@@ -54,6 +54,22 @@ describe("fleet.list's filters on Postgres (decision 4 of the performance design
     expect([await namesSelected({ assignedTo: [trierarchId] }), await namesSelected({ assignedTo: [argo.shipId] })]).toEqual([['crashed', 'crewing'], []]);
   });
 
+  it('selects the ships needing crew with the trierarch plugin connected or without it, as many as shipCounts counts', async () => {
+    const counts = await core.useCases.countShips(argo);
+    const counted = (plugin: 'withTrierarchs' | 'withoutTrierarchs') => counts.reduce((sum, kind) => sum + kind.needsCrew[plugin], 0);
+
+    expect([
+      await namesSelected({ needsCrew: 'withoutTrierarchs' }),
+      await namesSelected({ needsCrew: 'withTrierarchs' }),
+      counted('withoutTrierarchs'),
+      counted('withTrierarchs'),
+    ]).toEqual([['builder'], ['builder', 'crashed', 'crewing'], 1, 3]);
+  });
+
+  it('sorts the ships needing crew by when crew was requested, the oldest first', async () => {
+    await expect(namesSelected({ needsCrew: 'withTrierarchs', sort: { column: 'requested', direction: 'ascending' } })).resolves.toEqual(['builder', 'crashed', 'crewing']);
+  });
+
   it('counts the ships assigned to a trierarch as it lists them', async () => {
     const counts = await core.useCases.countShips(argo, { filter: { assignedTo: [trierarchId] } });
 
