@@ -44,8 +44,13 @@ beforeEach(async () => {
   core.clock.advance(60_000);
 });
 
-async function listedScout() {
-  return wholeShips((await useCases.listFleet(argo)).ships).find((ship) => ship.id === scoutId);
+async function listedScout(input?: Parameters<typeof useCases.listFleet>[1]) {
+  return wholeShips((await useCases.listFleet(argo, input)).ships).find((ship) => ship.id === scoutId);
+}
+
+/** The scout as a listing that asks for retired ships shows it. */
+async function listedRetiredScout() {
+  return listedScout({ status: ['retired'] });
 }
 
 function scout() {
@@ -97,7 +102,7 @@ describe('since when a ship awaits crew', () => {
   it('is null once the ship is retired', async () => {
     unwrap(await useCases.retireShip(argo, { shipId: scoutId }));
 
-    await expect(listedScout()).resolves.toMatchObject({ awaitingCrewSince: null });
+    await expect(listedRetiredScout()).resolves.toMatchObject({ awaitingCrewSince: null });
   });
 });
 
@@ -111,7 +116,7 @@ describe('when a ship was retired', () => {
 
     unwrap(await useCases.retireShip(argo, { shipId: scoutId }));
 
-    await expect(listedScout()).resolves.toMatchObject({ status: 'retired', retiredAt });
+    await expect(listedRetiredScout()).resolves.toMatchObject({ status: 'retired', retiredAt });
   });
 });
 
@@ -279,7 +284,19 @@ describe('listing the fleet', () => {
       retired.retiredAt = core.clock.now();
     }
 
-    await expect(listedScout()).resolves.toMatchObject({ status: 'retired' });
+    await expect(listedRetiredScout()).resolves.toMatchObject({ status: 'retired' });
+  });
+
+  it('answers the active ships only while the status filter asks for no retired ship', async () => {
+    unwrap(await useCases.retireShip(argo, { shipId: scoutId }));
+
+    await expect(useCases.listFleet(argo).then((page) => page.ships.map((ship) => ship.id))).resolves.toEqual([argoId]);
+  });
+
+  it('answers the retired ships too when the status filter asks for them beside the active ones', async () => {
+    unwrap(await useCases.retireShip(argo, { shipId: scoutId }));
+
+    await expect(useCases.listFleet(argo, { status: ['crewed', 'retired'] }).then((page) => page.ships.map((ship) => ship.id))).resolves.toEqual([argoId, scoutId]);
   });
 
   it("lists only the caller's fleet", async () => {
