@@ -76,6 +76,9 @@ const harnessUsageSchema = z.strictObject({
   ),
 });
 
+/** The longest reason a harness is not offered: one line for the console. */
+export const NOT_OFFERED_REASON_MAX_LENGTH = 280;
+
 export const trierarchReportDetailsSchema = z.strictObject({
   harnesses: z.array(
     z.strictObject({
@@ -115,6 +118,13 @@ export const trierarchReportDetailsSchema = z.strictObject({
    * None from a trierarch before 0.25.0, which ran them on the host.
    */
   runtime: z.enum(SESSION_RUNTIMES).optional(),
+  /**
+   * The configured harnesses the trierarch cannot serve now, each with why,
+   * such as its aeolus plugin missing (#1212): left out of `harnesses` and
+   * `workspaces`, offered again once the cause is gone. None from a trierarch
+   * before 0.31.0, or with every harness offered.
+   */
+  notOffered: z.array(z.strictObject({ harness: harnessSchema, reason: z.string().min(1).max(NOT_OFFERED_REASON_MAX_LENGTH) })).optional(),
   /** None from a trierarch before 0.31.0. */
   load: machineLoadSchema.optional(),
   /** None from a trierarch before 0.31.0. */
