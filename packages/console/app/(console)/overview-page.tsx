@@ -21,7 +21,7 @@ import { useAccess } from '../../lib/access';
 import { useFleetLimits } from '../../lib/fleet-limits';
 import { useHostedAccountUrl } from '../../lib/hosted-account';
 import { messageLimitNotice, messageLimitReached } from '../../lib/limits';
-import { useFleetSnapshot } from '../../lib/fleet';
+import { useShipCounts } from '../../lib/ship-counts';
 import { fleetViewParams, type FleetView } from '../../features/fleet/services/fleet-filter';
 import { useLiveFleet } from '../../lib/live-fleet';
 import { overviewSubtitle } from '../../features/fleet/services/overview-metrics';
@@ -38,7 +38,7 @@ import { usePluginNav } from '../../lib/plugin-nav';
  */
 export function OverviewPage({ view, isCommissionAsked }: { view: FleetView; isCommissionAsked: boolean }) {
   const router = useRouter();
-  const fleet = useFleetSnapshot();
+  const counts = useShipCounts();
   const liveFleet = useLiveFleet();
   const frame = useConsoleFrame();
   const messageLimit = messageLimitReached(useFleetLimits().data);
@@ -47,7 +47,7 @@ export function OverviewPage({ view, isCommissionAsked }: { view: FleetView; isC
   const pluginNav = usePluginNav();
   const [isCommissioning, setIsCommissioning] = useState(false);
   const [shownView, setShownView] = useOptimistic(view);
-  useSignInWhenSessionEnds([fleet.error, liveFleet.error]);
+  useSignInWhenSessionEnds([counts.error, liveFleet.error]);
 
   const changeView = (next: FleetView) => {
     const params = fleetViewParams(next).toString();
@@ -61,7 +61,7 @@ export function OverviewPage({ view, isCommissionAsked }: { view: FleetView; isC
     <ListPage
       {...frame}
       title="Fleet overview"
-      description={fleet.data ? overviewSubtitle({ ships: fleet.data, canCommission: access.canManage }) : 'Loading your fleet'}
+      description={counts.data ? overviewSubtitle({ counts: counts.data, canCommission: access.canManage }) : 'Loading your fleet'}
       primaryAction={
         <div className="flex flex-wrap items-center gap-2 max-sm:flex-col max-sm:items-stretch">
           <Button render={<Link href="/labels" />} nativeButton={false} icon={<Tag />} data-testid="overview-labels">

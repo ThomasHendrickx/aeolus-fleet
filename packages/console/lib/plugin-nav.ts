@@ -1,10 +1,9 @@
 'use client';
 
 import { useAccess } from './access';
-import { useFleetSnapshot } from './fleet';
 import { useHasGateway } from './gateway';
-import { needsCrew } from './needs-crew';
 import { useHasOwnSignIn } from './own-sign-in';
+import { needsCrewCountOf, useShipCounts } from './ship-counts';
 import { useHasSquadrons } from './squadrons';
 import { silentCount } from './machines';
 import { useHasTrierarchPlugin, useMachines } from './trierarch-plugin';
@@ -23,9 +22,9 @@ export function usePluginNav(): { needsCrewCount?: number; hasSquadrons: boolean
   const hasGateway = useHasGateway();
   const hasOwnSignIn = useHasOwnSignIn();
   const machines = useMachines();
-  const fleet = useFleetSnapshot();
+  const counts = useShipCounts();
   return {
-    ...(fleet.data === undefined ? {} : { needsCrewCount: needsCrew(fleet.data, { hasTrierarchs }).length }),
+    ...(counts.data === undefined ? {} : { needsCrewCount: needsCrewCountOf(counts.data, { hasTrierarchs }) }),
     hasSquadrons,
     hasTrierarchs,
     ...(machines.data === undefined ? {} : { trierarchsCount: silentCount(machines.data) }),

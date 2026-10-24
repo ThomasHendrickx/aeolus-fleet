@@ -1,6 +1,5 @@
-import type { ListedShip } from '@aeolus-fleet/common';
-
 import { duration } from '../../../lib/relative-time';
+import type { ShipKindCount } from '../../../lib/ship-counts';
 
 /** What the overview's metric cards count (docs/blueprint.md, "Console"). */
 export interface OverviewMetrics {
@@ -10,30 +9,21 @@ export interface OverviewMetrics {
   awaitingCount: number;
   /** The ship that has awaited crew longest, and for how long; none while every active ship is crewed. */
   longestWait: { name: string; wait: string } | undefined;
-  /** Since how long the oldest stuck delivery waits (decision 0042); none while nothing is stuck. */
-  oldestStuck: string | undefined;
 }
 
-function activeShipsOf(ships: readonly ListedShip[]): ListedShip[] {
-  return ships.filter((ship) => ship.kind === 'agent' && ship.status !== 'retired');
+function agentsOf(counts: readonly ShipKindCount[]): ShipKindCount | undefined {
+  return counts.find((count) => count.kind === 'agent');
 }
 
-/** The overview's metrics from the fleet snapshot and the places where deliveries are stuck, at `now`. */
-export function overviewMetrics(input: { ships: readonly ListedShip[]; stuck: readonly { oldestSince: string }[]; now: Date }): OverviewMetrics {
-  const active = activeShipsOf(input.ships);
-  const awaiting = active.filter((ship) => ship.status === 'awaitingCrew');
-  const longest = awaiting
-    .flatMap((ship) => (ship.awaitingCrewSince === null ? [] : [{ name: ship.name, since: new Date(ship.awaitingCrewSince) }]))
-    .sort((first, second) => first.since.getTime() - second.since.getTime())[0];
-  const oldest = input.stuck
-    .map((place) => new Date(place.oldestSince))
-    .sort((first, second) => first.getTime() - second.getTime())[0];
+/** The overview's ship metrics from the ship counts, at `now`. */
+export function overviewMetrics(input: { counts: readonly ShipKindCount[]; now: Date }): OverviewMetrics {
+  const agents = agentsOf(input.counts);
+  const longest = agents?.longestWait ?? null;
   return {
-    activeCount: active.length,
-    crewedCount: active.filter((ship) => ship.status === 'crewed').length,
-    awaitingCount: awaiting.length,
-    longestWait: longest && { name: longest.name, wait: duration(longest.since, input.now) },
-    oldestStuck: oldest && duration(oldest, input.now),
+    activeCount: agents?.active ?? 0,
+    crewedCount: agents?.crewed ?? 0,
+    awaitingCount: agents?.awaitingCrew ?? 0,
+    longestWait: longest === null ? undefined : { name: longest.name, wait: duration(new Date(longest.awaitingCrewSince), input.now) },
   };
 }
 
@@ -42,9 +32,10 @@ function ships(count: number): string {
 }
 
 /** The overview's subtitle: the active ships and argo, and how many are retired; with only argo, what to do next. */
-export function overviewSubtitle(input: { ships: readonly ListedShip[]; canCommission: boolean }): string {
-  const active = activeShipsOf(input.ships).length;
-  const retired = input.ships.filter((ship) => ship.kind === 'agent' && ship.status === 'retired').length;
+export function overviewSubtitle(input: { counts: readonly ShipKindCount[]; canCommission: boolean }): string {
+  const agents = agentsOf(input.counts);
+  const active = agents?.active ?? 0;
+  const retired = agents?.retired ?? 0;
   if (active === 0 && retired === 0) {
     return input.canCommission ? 'Only argo so far. Ships you commission appear here.' : 'Only argo so far.';
   }
