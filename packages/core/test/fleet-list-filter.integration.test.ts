@@ -76,6 +76,10 @@ describe("fleet.list's filters on Postgres (decision 4 of the performance design
     expect(counts.reduce((sum, kind) => sum + kind.active, 0)).toBe(2);
   });
 
+  it('selects the active ship of the exact name given, never one whose name only holds it, nor a retired one', async () => {
+    expect([await namesSelected({ name: 'crewing' }), await namesSelected({ name: 'crew' }), await namesSelected({ name: 'old' })]).toEqual([['crewing'], [], []]);
+  });
+
   it('selects the ships whose name or type holds the search text, in any case', async () => {
     await expect(namesSelected({ query: ' TEST ' })).resolves.toEqual(['crashed', 'crewing']);
   });

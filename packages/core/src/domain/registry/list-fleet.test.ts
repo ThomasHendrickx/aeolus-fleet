@@ -644,6 +644,10 @@ describe('selecting the ships of a page by what the overview filters (decision 4
     await expect(namesSelected({ query: 'uild' })).resolves.toEqual(['builder']);
   });
 
+  it('selects the active ship of the exact name given, never one whose name only holds it, nor a retired one', async () => {
+    expect([await namesSelected({ name: 'builder' }), await namesSelected({ name: 'build' }), await namesSelected({ name: 'old' })]).toEqual([['builder'], [], []]);
+  });
+
   it('selects the ships of any status picked', async () => {
     await expect(namesSelected({ status: ['crewed', 'retired'] })).resolves.toEqual(['argo', 'old']);
   });

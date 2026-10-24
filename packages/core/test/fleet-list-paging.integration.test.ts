@@ -156,6 +156,14 @@ describe('a page of 20 at 3,000 ships, read through its keyset index (decision 4
   });
 });
 
+describe('the active ship of a name at 3,000 ships', () => {
+  it('reads that one ship through the name index, not the fleet in order', async () => {
+    const plan = await planOfPage({ limit: 21, filter: { ...ACTIVE, name: seeded(2_800).name }, reach: { kind: 'every' } });
+
+    expect([rowsOfIndex(plan, 'ships_name_listing_idx'), rowsOfIndex(plan, 'ships_listing_idx')]).toEqual([1, 0]);
+  });
+});
+
 describe("the fleet's ship types at 3,000 ships", () => {
   it('answers each type once, reading the ships table alone, no read per ship', async () => {
     const [row] = await core.prisma.$queryRaw<{ 'QUERY PLAN': unknown }[]>(
