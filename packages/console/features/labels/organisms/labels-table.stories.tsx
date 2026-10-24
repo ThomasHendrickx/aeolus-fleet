@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { fn } from 'storybook/test';
 
-import { activeShipCount, labelRowsOf } from '../../../lib/labels';
+import { labelRowsOf } from '../../../lib/labels';
 import { LabelsTable } from './labels-table';
 import { labelContext, labelledFleet } from '../../../lib/fixtures/labels.fixtures';
 
@@ -13,7 +13,8 @@ const meta = {
   component: LabelsTable,
   args: {
     rows: labelRowsOf(CONTEXT),
-    shipTotal: activeShipCount(CONTEXT),
+    // argo, the two plugins and the five labelled ships.
+    shipTotal: 8,
     onRetry: fn(),
     onDefine: fn(),
     onChangeValues: fn(),

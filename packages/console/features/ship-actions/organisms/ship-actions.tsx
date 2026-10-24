@@ -6,9 +6,9 @@ import Link from 'next/link';
 import { Fragment, useState, type ComponentType, type ReactNode } from 'react';
 
 import {
+  useFleetLabels,
   useFleetSnapshot,
   useGetStartingPrompt,
-  useLabelContext,
   usePingShip,
   useRecrewShip,
   useReleaseShip,
@@ -171,7 +171,7 @@ function ShipActionsOf({
   const renameShip = useRenameShip();
   const pingShip = usePingShip();
   const fleet = useFleetSnapshot();
-  const labels = useLabelContext();
+  const labels = useFleetLabels();
   const counted = useShip(dialog === 'release' || dialog === 'recrew' || dialog === 'retire' || dialog === 'remove' ? ship.id : undefined);
   const removeMember = useRemoveMember();
 
@@ -326,7 +326,7 @@ function ShipActionsOf({
         onConfirm={() => {
           retireShip.mutate({ shipId: ship.id }, { onSuccess: close });
         }}
-        labelLines={labels === undefined ? undefined : retireLabelLines(retiredLabelsOf(ship, labels))}
+        labelLines={labels.data === undefined ? undefined : retireLabelLines(retiredLabelsOf(ship, { labels: labels.data }))}
       />
       {squadron && member && (
         <RemoveMemberDialog

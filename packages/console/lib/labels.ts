@@ -1,11 +1,13 @@
-import type { ListedLabel, ListedShip, ShipId } from '@aeolus-fleet/common';
+import type { CountedLabel, ListedLabel, ListedShip, ShipId } from '@aeolus-fleet/common';
 import { isLabelHandle, LABEL_HANDLE_MAX_LENGTH } from '@aeolus-fleet/common/rules';
 
 /**
  * Labels as the console shows them (#102, canvas Labels; decision 0031):
  * chips of `key=value`, each marked by who owns its label, the filter's keys
  * grouped by owner with how many ships carry each value, and which ships
- * carry every value picked. Pure, from the fleet's labels and its ships.
+ * carry every value picked. Pure, from the fleet's labels with their counts
+ * and the ships a screen names, never the whole fleet (decision 4 of the
+ * performance design).
  */
 
 /**
@@ -38,9 +40,9 @@ export interface LabelChip {
 
 /** The fleet's labels as chips and the filter read them: each label's owner and how its chips mark it. */
 export interface LabelContext {
-  labels: readonly ListedLabel[];
+  labels: readonly CountedLabel[];
   ownerOf: ReadonlyMap<string, { name: string; mark: OwnerMark; isYours: boolean }>;
-  /** The ships, by id, for how many carry each value. */
+  /** The ships the screen names: the labels' owners and the ones it asked for. */
   ships: readonly ListedShip[];
 }
 
@@ -59,7 +61,7 @@ function labelOwnerShipId(owner: ListedLabel['owner']): ShipId | undefined {
  * The operator's own labels are argo's; a viewer owns none, so it sees every
  * label by its owner.
  */
-export function labelContextOf(labels: readonly ListedLabel[], fleet: { ships: readonly ListedShip[]; isOperator: boolean }): LabelContext {
+export function labelContextOf(labels: readonly CountedLabel[], fleet: { ships: readonly ListedShip[]; isOperator: boolean }): LabelContext {
   const typeOf = new Map(fleet.ships.map((ship) => [ship.id, ship]));
   const ownerOf = new Map(
     labels.map((label) => {
@@ -138,7 +140,6 @@ export interface FilterGroup {
  * each value with how many ships that are not retired carry it.
  */
 export function filterGroupsOf(context: LabelContext): FilterGroup[] {
-  const active = context.ships.filter((ship) => ship.status !== 'retired');
   const groups = new Map<string, { title: string; isYours: boolean; keys: FilterKey[] }>();
   for (const label of context.labels) {
     const owner = context.ownerOf.get(label.id);
@@ -149,11 +150,7 @@ export function filterGroupsOf(context: LabelContext): FilterGroup[] {
       labelId: label.id,
       key: label.key,
       mark: owner?.mark ?? 'ship',
-      values: label.values.map((value) => ({
-        valueId: value.id,
-        value: value.value,
-        shipCount: active.filter((ship) => ship.labels.some((carried) => carried.valueId === value.id)).length,
-      })),
+      values: label.values.map((value) => ({ valueId: value.id, value: value.value, shipCount: value.shipCount })),
     });
     groups.set(title, group);
   }
@@ -185,24 +182,17 @@ export interface LabelRow {
   shipCount: number;
 }
 
-/** The ships that are not retired: "of 15" on the Labels page. */
-export function activeShipCount(context: Pick<LabelContext, 'ships'>): number {
-  return context.ships.filter((ship) => ship.status !== 'retired').length;
-}
-
 /** The Labels page's rows: yours first, then by owner name, each owner's by key. */
 export function labelRowsOf(context: LabelContext): LabelRow[] {
-  const active = context.ships.filter((ship) => ship.status !== 'retired');
   return context.labels
     .map((label) => {
       const owner = context.ownerOf.get(label.id);
-      const carries = (valueId: string) => (ship: ListedShip) => ship.labels.some((carried) => carried.valueId === valueId);
       return {
         labelId: label.id,
         key: label.key,
         owner: { name: labelOwnerName(label.owner), isYours: owner?.isYours ?? false, mark: owner?.mark ?? 'ship' },
-        values: label.values.map((value) => ({ valueId: value.id, value: value.value, shipCount: active.filter(carries(value.id)).length })),
-        shipCount: active.filter((ship) => ship.labels.some((carried) => carried.labelId === label.id)).length,
+        values: label.values.map((value) => ({ valueId: value.id, value: value.value, shipCount: value.shipCount })),
+        shipCount: label.shipCount,
       };
     })
     .toSorted(
@@ -269,22 +259,29 @@ export function listed(words: readonly string[]): string {
   return words.length <= 1 ? (words[0] ?? '') : `${words.slice(0, -1).join(', ')} and ${words.at(-1) ?? ''}`;
 }
 
+/** One label a retiring ship owns, with how many other ships that are not retired carry it. */
+export interface OwnedLabel {
+  key: string;
+  carrierCount: number;
+}
+
 /**
  * What retiring a ship does to labels (canvas LbRetireShip, LbRetireOwner;
  * Q11): the values it carries go, and the labels it owns retire with it, off
- * every ship that carries them. None when neither.
+ * every ship that carries them, counted as `fleet.labels` counts them rather
+ * than named, so the confirm reads no carrier. None when neither.
  */
-export function retiredLabelsOf(ship: Pick<ListedShip, 'id' | 'labels'>, context: LabelContext): { carried: string[]; owned?: { keys: string[]; carriers: string[] } } {
+export function retiredLabelsOf(ship: Pick<ListedShip, 'id' | 'labels'>, context: Pick<LabelContext, 'labels'>): { carried: string[]; owned?: OwnedLabel[] } {
   const carried = ship.labels.map((each) => `${each.key}=${each.value}`);
-  const owned = context.labels.filter((label) => labelOwnerShipId(label.owner) === ship.id);
-  if (owned.length === 0) {
-    return { carried };
-  }
-  const ownedIds = new Set<string>(owned.map((label) => label.id));
-  const carriers = context.ships
-    .filter((each) => each.status !== 'retired' && each.id !== ship.id && each.labels.some((carried) => ownedIds.has(carried.labelId)))
-    .map((each) => each.name);
-  return { carried, owned: { keys: owned.map((label) => label.key), carriers } };
+  const owned = context.labels
+    .filter((label) => labelOwnerShipId(label.owner) === ship.id)
+    .map((label) => ({ key: label.key, carrierCount: label.shipCount - Number(ship.labels.some((each) => each.labelId === label.id)) }));
+  return owned.length === 0 ? { carried } : { carried, owned };
+}
+
+/** "1 ship", "3 ships". */
+function shipsCounted(count: number): string {
+  return `${String(count)} ${count === 1 ? 'ship' : 'ships'}`;
 }
 
 /**
@@ -298,10 +295,14 @@ export function retireLabelLines(labels: ReturnType<typeof retiredLabelsOf>): st
     lines.push(`Its ${labels.carried.length === 1 ? 'label is' : `${String(labels.carried.length)} labels are`} removed with it: ${labels.carried.join(', ')}.`);
   }
   if (labels.owned !== undefined) {
-    const { keys, carriers } = labels.owned;
+    const keys = labels.owned.map((label) => label.key);
     lines.push(`Its ${keys.length === 1 ? 'label retires' : `${String(keys.length)} labels retire`} with it: ${listed(keys)}. Nobody can assign ${keys.length === 1 ? 'it' : 'them'} again.`);
-    if (carriers.length > 0) {
-      lines.push(`${keys.length === 1 ? 'It is' : 'They are'} removed from the ${carriers.length === 1 ? 'ship that carries' : `${String(carriers.length)} ships that carry`} ${keys.length === 1 ? 'it' : 'them'}: ${listed(carriers)}.`);
+    const carried = labels.owned.filter((label) => label.carrierCount > 0);
+    const [only] = labels.owned;
+    if (labels.owned.length === 1 && only !== undefined && only.carrierCount > 0) {
+      lines.push(`It is removed from the ${only.carrierCount === 1 ? 'ship that carries' : `${String(only.carrierCount)} ships that carry`} it.`);
+    } else if (labels.owned.length > 1 && carried.length > 0) {
+      lines.push(`They are removed from the ships that carry them: ${listed(carried.map((label) => `${label.key} from ${shipsCounted(label.carrierCount)}`))}.`);
     }
   }
   return lines;

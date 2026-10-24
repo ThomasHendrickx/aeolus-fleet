@@ -44,7 +44,7 @@ export const OwnerOfLabels: Story = {
     openDeliveries: 0,
     labelLines: [
       'Its 3 labels retire with it: os, arch and site. Nobody can assign them again.',
-      'They are removed from the 3 ships that carry them: trierarch-mac, trierarch-hetzner and trierarch-macbook.',
+      'They are removed from the ships that carry them: os from 3 ships, arch from 3 ships and site from 2 ships.',
     ],
   },
 };

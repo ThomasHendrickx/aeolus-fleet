@@ -46,7 +46,7 @@ export function CommissionShip({ isOpen, onOpenChange }: { isOpen: boolean; onOp
   // Null until the form changes: the check then asks for the settings the form starts with.
   const [crewSettings, setCrewSettings] = useState<CrewSettings | undefined | null>(null);
   const offers = offersOf(machines.data ?? []);
-  const labelContext = useLabelContext();
+  const labelContext = useLabelContext(machines.data?.map((machine) => machine.shipId));
   const { shipLabelsMax, fleetScopes } = useConsoleConstants();
   const scopes = useFleetScopes();
   const machineLabels = labelContext === undefined || machines.data === undefined ? undefined : machineLabelsInputOf(labelContext, { machines: machines.data, shipLabelsMax });

@@ -1,3 +1,4 @@
+import type { ShipId } from '@aeolus-fleet/common';
 import { isInReadReach, PAGE_SIZE_MAX } from '@aeolus-fleet/common/rules';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -5,6 +6,7 @@ import { useAccess } from './access';
 import { useAnalytics } from './analytics-client';
 import { labelContextOf, type LabelContext } from './labels';
 import { everyPage } from './every-page';
+import { useListedShips } from './listed-ships';
 import { dataOf } from './plugin-answer';
 import { useTRPC, useTRPCClient } from './trpc';
 import { EVERY_SHIP_STATUS } from './every-ship-status';
@@ -42,18 +44,26 @@ export function useFleetLabels() {
 }
 
 /**
- * The fleet's labels as chips and the label filter read them, with the
- * snapshot's ships; undefined until both are read. The operator's own labels
- * are argo's; a viewer owns none.
+ * The fleet's labels as chips and the label filter read them, with their
+ * owners and the ships the screen names (`shipIds`), read by id; undefined
+ * until all are read. The operator's own labels are argo's; a viewer owns none.
  */
-export function useLabelContext(): LabelContext | undefined {
+export function useLabelContext(shipIds: readonly ShipId[] = []): LabelContext | undefined {
   const labels = useFleetLabels();
-  const fleet = useFleetSnapshot();
+  const ownerIds = (labels.data ?? []).flatMap((label) => (label.owner.kind === 'ship' ? [label.owner.id] : []));
+  const ships = useListedShips([...ownerIds, ...shipIds]);
   const access = useAccess();
-  if (labels.data === undefined || fleet.data === undefined) {
+  if (labels.data === undefined || ships === undefined) {
     return undefined;
   }
-  return labelContextOf(labels.data, { ships: fleet.data, isOperator: !access.isViewer });
+  return labelContextOf(labels.data, { ships: [...ships.values()], isOperator: !access.isViewer });
+}
+
+/** How many ships in the session's read reach are not retired, argo included: "of 15" on the Labels page; undefined until read. */
+export function useActiveShipCount(): number | undefined {
+  const trpc = useTRPC();
+  const counts = useQuery(trpc.fleet.shipCounts.queryOptions());
+  return counts.data?.reduce((total, kind) => total + kind.active, 0);
 }
 
 /** The fleet's scopes by namespace, each with its one-line description: the core ones, then each plugin's (decision 0046). */

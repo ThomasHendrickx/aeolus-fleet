@@ -1,4 +1,4 @@
-import { idSchema, type ListedLabel, type ListedShip } from '@aeolus-fleet/common';
+import { idSchema, type CountedLabel, type ListedLabel, type ListedShip } from '@aeolus-fleet/common';
 
 import { labelContextOf, type LabelContext } from '../labels';
 
@@ -33,9 +33,21 @@ export const AREA = aLabel('area', { suffix: 'ar', values: ['backend', 'infra', 
 export const COST = aLabel('cost', { suffix: 'cs', values: ['low', 'high'], owner: OWNERS.argo });
 export const OS = aLabel('os', { suffix: 'x5', values: ['macos', 'linux'], owner: OWNERS.trierarchPlugin });
 export const BLUEPRINT = aLabel('blueprint', { suffix: 'bp', values: ['hemma-feature', 'aeolus-review'], owner: OWNERS.squadrons });
-export const LABELS: ListedLabel[] = [PROJECT, AREA, COST, OS, BLUEPRINT];
+/** The labels as `fleet.labels` answers them, counted on the Labels page's fleet. */
+export const LABELS: CountedLabel[] = countedIn([PROJECT, AREA, COST, OS, BLUEPRINT], labelledFleet());
 /** The trierarch plugin's arch, for the machine label stories; not in LABELS, so the Labels page stories keep their rows. */
 export const ARCH = aLabel('arch', { suffix: 'x6', values: ['arm64', 'amd64'], owner: OWNERS.trierarchPlugin });
+
+/** The labels as `fleet.labels` answers them: each, and each value, with how many of the ships that are not retired carry it. */
+export function countedIn(labels: readonly ListedLabel[], ships: readonly ListedShip[]): CountedLabel[] {
+  const active = ships.filter((ship) => ship.status !== 'retired');
+  const carriers = (isCarried: (carried: ListedShip['labels'][number]) => boolean) => active.filter((ship) => ship.labels.some(isCarried)).length;
+  return labels.map((label) => ({
+    ...label,
+    shipCount: carriers((carried) => carried.labelId === label.id),
+    values: label.values.map((value) => ({ ...value, shipCount: carriers((carried) => carried.valueId === value.id) })),
+  }));
+}
 
 /** One value of a label as a ship carries it. */
 export function carried(label: ListedLabel, value: string): ListedShip['labels'][number] {

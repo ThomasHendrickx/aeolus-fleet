@@ -375,9 +375,10 @@ const SQUADRON_LABEL = {
   id: idSchema('label').parse('lbl_01m3tbfspe96yf1rnr4ankh3aa'),
   owner: OWNERS.squadrons,
   key: 'squadron',
-  values: [{ id: idSchema('labelValue').parse('lbv_01m3tbfspe96yf1rnr4ankh3ab'), value: SQUADRON_ID }],
+  shipCount: 1,
+  values: [{ id: idSchema('labelValue').parse('lbv_01m3tbfspe96yf1rnr4ankh3ab'), value: SQUADRON_ID, shipCount: 1 }],
 };
-const ROLE_LABEL = { ...COST, id: idSchema('label').parse('lbl_01m3tbfspe96yf1rnr4ankh3ac'), owner: OWNERS.squadrons, key: 'squadron-role', values: [{ id: idSchema('labelValue').parse('lbv_01m3tbfspe96yf1rnr4ankh3ad'), value: 'implementer' }] };
+const ROLE_LABEL = { ...COST, id: idSchema('label').parse('lbl_01m3tbfspe96yf1rnr4ankh3ac'), owner: OWNERS.squadrons, key: 'squadron-role', shipCount: 1, values: [{ id: idSchema('labelValue').parse('lbv_01m3tbfspe96yf1rnr4ankh3ad'), value: 'implementer', shipCount: 1 }] };
 const IMPLEMENTER = ship('h2aa', {
   name: 'launch-implementer',
   harness: 'codex',
