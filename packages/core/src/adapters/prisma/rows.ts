@@ -42,7 +42,7 @@ import type { Lease } from '../../domain/registry/lease.js';
 import type { ShipFacts } from '../../domain/registry/ports.js';
 import type { Commissioner, Ship } from '../../domain/registry/ship.js';
 import type { ShipCaller, Crew } from '../../domain/shared/caller.js';
-import type { Recipient } from '../../domain/shared/selector.js';
+import type { Addressee, Recipient } from '../../domain/shared/selector.js';
 
 // Maps database rows to domain objects. A row is outside data: each one is
 // parsed with the common schemas, so an id, kind or scope the domain does not
@@ -561,7 +561,7 @@ const messageRow = z.object({
   createdAt: z.date(),
 });
 
-/** The selector columns of a message: a ship's id for a ship selector, a type for a type selector. */
+/** The selector columns of a message: a ship's id for a ship selector, a type for a type selector, the meeting for a meeting selector. */
 const selectorColumns = z.union([
   z
     .object({ selectorKind: z.literal('ship'), selectorShipId: idSchema('ship'), selectorType: z.null() })
@@ -569,6 +569,9 @@ const selectorColumns = z.union([
   z
     .object({ selectorKind: z.literal('type'), selectorShipId: z.null(), selectorType: z.string() })
     .transform((row): Recipient => ({ kind: 'type', type: row.selectorType })),
+  z
+    .object({ selectorKind: z.literal('meeting'), selectorShipId: z.null(), selectorType: z.null(), meetingId: idSchema('meeting') })
+    .transform((row): Addressee => ({ kind: 'meeting', meetingId: row.meetingId })),
 ]);
 
 export function toMessage(row: unknown): Message {

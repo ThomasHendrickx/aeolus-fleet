@@ -14,6 +14,7 @@ import { InlineError } from '../molecules/inline-error';
 import { LoadingSkeleton } from '../molecules/loading-skeleton';
 import { ShipName } from '../molecules/ship-name';
 import { StatusBadge } from '../molecules/status-badge';
+import { recipientGroupWords } from '../../lib/recipient';
 
 interface NeedsAttentionListProps {
   /** Oldest first, as the server lists them. */
@@ -43,7 +44,7 @@ function PartyName({ party }: { party: Party }) {
 }
 
 function recipientWords(recipient: MessageRecipient): string {
-  return recipient.kind === 'ship' ? recipient.ship.name : `any ship of type ${recipient.type}`;
+  return recipient.kind === 'ship' ? recipient.ship.name : recipientGroupWords(recipient);
 }
 
 /** "builder-core · 3K2P → tester-01 · Q8ZR": who sent it and who it was for. */
@@ -54,7 +55,7 @@ function Route({ delivery }: { delivery: NeedsAttentionDelivery }) {
       <PartyName party={sender} />
       <span aria-hidden>→</span>
       <span className="sr-only">to</span>
-      {recipient.kind === 'ship' ? <PartyName party={recipient.ship} /> : <span>any ship of type {recipient.type}</span>}
+      {recipient.kind === 'ship' ? <PartyName party={recipient.ship} /> : <span>{recipientGroupWords(recipient)}</span>}
     </span>
   );
 }

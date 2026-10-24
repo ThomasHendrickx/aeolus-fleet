@@ -3,6 +3,7 @@ import type { Party, ReportState, TimelineEntry } from '@aeolus-fleet/common';
 import { locationKindWord } from '../../../lib/location';
 import { REPORT_TONES } from '../../../lib/report';
 import { capitalised, counted, ship, text, type SentencePart } from '../../../lib/sentence';
+import { recipientGroupWords } from '../../../lib/recipient';
 
 /** The tone family of a timeline row's tile (docs/design/conventions.md, "Colour"). */
 export type TimelineTone = 'waiting' | 'active' | 'ok' | 'attention' | 'ended';
@@ -148,7 +149,7 @@ function messageAccepted(entry: TimelineEntry, shipId: string): SentencePart[] {
   if (sent.sender.id === shipId) {
     return sent.recipient.kind === 'ship'
       ? [text('Sent a message to '), ship(sent.recipient.ship)]
-      : [text(`Sent a message to any ship of type ${sent.recipient.type}`)];
+      : [text(`Sent a message to ${recipientGroupWords(sent.recipient)}`)];
   }
   return [text('Received a message from '), ship(sent.sender)];
 }

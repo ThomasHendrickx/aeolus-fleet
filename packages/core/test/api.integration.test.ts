@@ -983,6 +983,7 @@ describe('ship.receive and ship.ack at the API', () => {
         sentAt: clock.now().toISOString(),
         attempts: 1,
         isForced: false,
+        meetingId: null,
       },
     ]);
     await expect(receiver.asShip.ship.ack.mutate({ deliveryId })).resolves.toEqual({});

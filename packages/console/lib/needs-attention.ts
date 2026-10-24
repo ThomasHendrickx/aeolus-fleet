@@ -3,6 +3,7 @@ import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-q
 
 import { CONSOLE_PAGE_SIZE, nextCursorOf, pagedListOf } from './paged-list';
 import { useTRPC } from './trpc';
+import { recipientGroupWords } from './recipient';
 
 /**
  * Whether Needs attention offers Resend: never for a ping, which pings never
@@ -71,7 +72,7 @@ export function useDismissDelivery() {
 /** Who a message went to, in words: the ship's name, or any ship of its type. */
 function recipientWords(delivery: Pick<NeedsAttentionDelivery, 'message'>): string {
   const { recipient } = delivery.message;
-  return recipient.kind === 'ship' ? recipient.ship.name : `any ship of type ${recipient.type}`;
+  return recipient.kind === 'ship' ? recipient.ship.name : recipientGroupWords(recipient);
 }
 
 /** The toast after a resend: what happened, as facts. */

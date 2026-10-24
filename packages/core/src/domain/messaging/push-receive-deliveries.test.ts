@@ -121,6 +121,7 @@ describe('a push receive', () => {
           sentAt: message?.createdAt,
           attempts: 0,
           isForced: false,
+          meetingId: null,
           state: 'received',
           handOverNumber: null,
         },

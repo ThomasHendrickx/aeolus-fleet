@@ -8,6 +8,7 @@ import { recordEvent, type EventLog } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { dismissDelivery, type DismissRefusal } from './delivery.js';
+import { deliveredTo } from './message.js';
 import type { DeliveryRepository, MessageRepository } from './ports.js';
 
 export interface DismissDeliveryTx {
@@ -42,7 +43,7 @@ export function createDismissDelivery(deps: {
     return deps.uow.run(async (tx): Promise<Result<undefined, DismissDeliveryRefusal>> => {
       const delivery = await tx.deliveries.findForUpdate(caller.fleetId, input.deliveryId);
       const message = delivery && (await tx.messages.find(caller.fleetId, delivery.messageId));
-      if (!delivery || !message || !readsMessage(reach, { senderId: message.senderShipId, recipient: message.selector, claimedBy: delivery.claimedByShipId })) {
+      if (!delivery || !message || !readsMessage(reach, { senderId: message.senderShipId, recipient: deliveredTo(message, delivery), claimedBy: delivery.claimedByShipId })) {
         return refuse('DELIVERY_NOT_FOUND', `Delivery ${input.deliveryId} does not exist`);
       }
       const dismissed = dismissDelivery(delivery, { by: actorOf(caller), at: deps.clock.now() });

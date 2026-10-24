@@ -148,6 +148,7 @@ describe('deliveryOutputSchema', () => {
     sentAt: '2026-10-21T12:01:00.000Z',
     attempts: 1,
     isForced: false,
+    meetingId: null,
     state: 'acknowledged',
   };
 
@@ -307,6 +308,7 @@ describe('pushReceivedDeliverySchema', () => {
     sentAt: '2026-10-12T12:00:00.000Z',
     attempts: 0,
     isForced: false,
+    meetingId: null,
     state: 'received',
     handOverNumber: null,
   };

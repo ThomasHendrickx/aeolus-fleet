@@ -3,7 +3,7 @@ import { isPingContentType, type AccountId, type DeliveryId, type DeliveryState,
 import { refuse, type DomainError } from '../shared/errors.js';
 import { shipActor, type Actor, type NewEvent } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
-import type { Recipient } from '../shared/selector.js';
+import type { Addressee, Recipient } from '../shared/selector.js';
 
 /**
  * An immutable envelope plus an opaque payload, sent by one ship to a
@@ -15,8 +15,8 @@ export interface Message {
   fleetId: FleetId;
   /** The calling ship: every sender is a ship, `argo` included. */
   senderShipId: ShipId;
-  /** The selector as resolved at send time: a ship's id, never its name, or a type. */
-  selector: Recipient;
+  /** The selector as resolved at send time: a ship's id, never its name, a type, or a meeting (decision 0061). */
+  selector: Addressee;
   payload: string;
   /** A media type, exactly as the sender gave it. */
   contentType: string;
@@ -30,7 +30,7 @@ export interface Message {
   inReplyToMessageId: MessageId | null;
   /** The message this one resends: an undeliverable one the operator sent again. */
   resendOfMessageId: MessageId | null;
-  /** The meeting it tells of: the notice that added its recipient (decision 0061). */
+  /** The meeting it was contributed to, or tells of as the notice that added its recipient (decision 0061). */
   meetingId: MeetingId | null;
   createdAt: Date;
 }
@@ -108,6 +108,11 @@ export interface MessageToAccept {
   at: Date;
 }
 
+/** Who the delivery of the message went to: its message's recipient, or for a contribution to a meeting the participant it is for (decision 0061). */
+export function deliveredTo(message: Pick<Message, 'selector'>, delivery: Pick<Delivery, 'recipient'>): Recipient {
+  return message.selector.kind === 'meeting' ? delivery.recipient : message.selector;
+}
+
 export type RepeatRefusal = DomainError<'IDEMPOTENCY_KEY_REUSED'>;
 
 /**
@@ -147,15 +152,9 @@ export function acceptMessage(
   if (inReplyTo !== undefined && repliedTo?.id !== inReplyTo) {
     return refuse('IN_REPLY_TO_NOT_FOUND', `Message ${inReplyTo} does not exist: a reply names a message of the fleet`);
   }
-  const isStated = resendOf === undefined && !isPingContentType(send.contentType);
-  if (isStated && send.senderKind === 'operator' && send.model !== undefined) {
-    return refuse('MODEL_FROM_ARGO', 'argo states no model: send without one');
-  }
-  if (isStated && (send.senderKind === 'person' || send.senderKind === 'app' || send.senderKind === 'plugin') && send.model !== undefined) {
-    return refuse('MODEL_FROM_PERSON_APP_OR_PLUGIN', `A ${send.senderKind} ship states no model: send without one`);
-  }
-  if (isStated && send.senderKind === 'agent' && send.model === undefined) {
-    return refuse('MODEL_REQUIRED', 'send needs model: the exact model id this session runs, such as claude-opus-5-5');
+  const stated = checkModel(send);
+  if (!stated.isOk) {
+    return stated;
   }
 
   const message: Message = {
@@ -210,5 +209,90 @@ export function acceptMessage(
         },
       },
     ],
+  });
+}
+
+/**
+ * The model rule: only an agent ship states the model its session runs
+ * (decisions 0018, 0044 and 0050); a resend carries the original's and a
+ * ping none, so neither is asked.
+ */
+function checkModel(send: Pick<MessageToAccept, 'resendOf' | 'contentType' | 'senderKind' | 'model'>): Result<undefined, AcceptRefusal> {
+  const isStated = send.resendOf === undefined && !isPingContentType(send.contentType);
+  if (isStated && send.senderKind === 'operator' && send.model !== undefined) {
+    return refuse('MODEL_FROM_ARGO', 'argo states no model: send without one');
+  }
+  if (isStated && (send.senderKind === 'person' || send.senderKind === 'app' || send.senderKind === 'plugin') && send.model !== undefined) {
+    return refuse('MODEL_FROM_PERSON_APP_OR_PLUGIN', `A ${send.senderKind} ship states no model: send without one`);
+  }
+  if (isStated && send.senderKind === 'agent' && send.model === undefined) {
+    return refuse('MODEL_REQUIRED', 'send needs model: the exact model id this session runs, such as claude-opus-5-5');
+  }
+  return ok(undefined);
+}
+
+/** What a participant contributes to a meeting, its payload and key already checked, with one delivery id per participant it goes to. */
+export type ContributionToAccept = Omit<MessageToAccept, 'deliveryId' | 'inReplyTo' | 'isForced' | 'resendOf' | 'meetingId'> & {
+  meetingId: MeetingId;
+  deliveries: readonly { deliveryId: DeliveryId; shipId: ShipId }[];
+};
+
+/**
+ * Accepts a contribution to a meeting (decision 0061): one message to the
+ * meeting, carrying it on its envelope, and one pending delivery per other
+ * participant, each with its own MessageAccepted naming that participant and
+ * the meeting, caused by the sender. The model rule is a send's.
+ */
+export function acceptContribution(send: ContributionToAccept): Result<{ message: Message; deliveries: Delivery[]; events: NewEvent[] }, AcceptRefusal> {
+  const { messageId, fleetId, senderShipId, meetingId, at } = send;
+  const stated = checkModel(send);
+  if (!stated.isOk) {
+    return stated;
+  }
+  const message: Message = {
+    id: messageId,
+    fleetId,
+    senderShipId,
+    selector: { kind: 'meeting', meetingId },
+    payload: send.payload,
+    contentType: send.contentType,
+    model: send.model ?? null,
+    idempotencyKey: send.idempotencyKey,
+    requestHash: send.requestHash,
+    inReplyToMessageId: null,
+    resendOfMessageId: null,
+    meetingId,
+    createdAt: at,
+  };
+  const deliveries = send.deliveries.map(
+    ({ deliveryId, shipId }): Delivery => ({
+      id: deliveryId,
+      fleetId,
+      messageId,
+      recipient: { kind: 'ship', shipId },
+      state: 'pending',
+      claimedByShipId: null,
+      claimedByLeaseId: null,
+      attempts: 0,
+      handOverNumber: null,
+      handedOnceMoreAt: null,
+      isForced: false,
+      createdAt: at,
+    }),
+  );
+  const actor = send.signedInAccountId === undefined ? shipActor(senderShipId) : { kind: 'ship' as const, shipId: senderShipId, signedInAccountId: send.signedInAccountId };
+  return ok({
+    message,
+    deliveries,
+    events: send.deliveries.map(({ deliveryId, shipId }): NewEvent => ({
+      fleetId,
+      type: 'MessageAccepted',
+      occurredAt: at,
+      actor,
+      shipId,
+      messageId,
+      deliveryId,
+      details: { selector: 'meeting', recipientType: null, model: send.model ?? null, meetingId },
+    })),
   });
 }

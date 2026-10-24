@@ -32,6 +32,11 @@ export interface MeetingRepository {
   findByOpenerKey(key: OpenerKey): Promise<Meeting | undefined>;
   /** The meeting with its participants, read without a lock. */
   find(fleetId: FleetId, meetingId: MeetingId): Promise<Meeting | undefined>;
+  /**
+   * The meeting with its participants, held shared until the unit of work
+   * ends: a contribution holds it, so a change of who takes part waits for it.
+   */
+  findForShare(fleetId: FleetId, meetingId: MeetingId): Promise<Meeting | undefined>;
 }
 
 /** Outbound port: messages, always within one fleet. Never changed once stored. */

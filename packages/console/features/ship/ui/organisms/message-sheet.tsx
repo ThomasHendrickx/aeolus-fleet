@@ -19,6 +19,7 @@ import { statusLabel } from '../../../../components/molecules/status-badge';
 import { messageWay, type WayMachine } from '../../services/message-way';
 import { WayLines } from '../molecules/way-lines';
 import { DeliveryHistory } from './delivery-history';
+import { recipientGroupWords } from '../../../../lib/recipient';
 
 interface MessageSheetProps {
   /** The message, once loaded. */
@@ -42,7 +43,7 @@ const SECTION_TITLE = 'text-section font-semibold text-foreground';
 function recipientParts(message: MessageDetail): SentencePart[] {
   return message.recipient.kind === 'ship'
     ? [text('To '), ship(message.recipient.ship)]
-    : [text(`To any ship of type ${message.recipient.type}`)];
+    : [text(`To ${recipientGroupWords(message.recipient)}`)];
 }
 
 function EnvelopeRow({ label, children }: { label: string; children: ReactNode }) {
@@ -76,9 +77,13 @@ function Envelope({ message }: { message: MessageDetail }) {
             shipId={recipient.ship.id}
             isSuffixShown={recipient.ship.name !== OPERATOR_NAME}
           />
-        ) : (
+        ) : recipient.kind === 'type' ? (
           <span>
             Any ship of type <span className="font-mono text-id">{recipient.type}</span>
+          </span>
+        ) : (
+          <span>
+            Every other participant of meeting <span className="font-mono text-id">{recipient.meetingId}</span>
           </span>
         )}
       </EnvelopeRow>

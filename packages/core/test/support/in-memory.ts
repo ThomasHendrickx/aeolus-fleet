@@ -89,7 +89,7 @@ import {
   type TimelineEntry,
 } from '../../src/domain/shared/history.js';
 import type { FleetLimitReads } from '../../src/domain/shared/read-fleet-limits.js';
-import type { Recipient } from '../../src/domain/shared/selector.js';
+import type { Addressee } from '../../src/domain/shared/selector.js';
 import { appliedLimits } from '../../src/domain/registry/applied-limits.js';
 import type { DeliveryNotice, Notifier } from '../../src/domain/shared/notifier.js';
 import type { PasswordHasher, RandomTokens, SecretHasher } from '../../src/domain/shared/secrets.js';
@@ -1100,6 +1100,10 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         const found = state.meetings.find((held) => held.fleetId === fleetId && held.id === meetingId);
         return Promise.resolve(found && structuredClone(found));
       },
+      findForShare: (fleetId, meetingId) => {
+        const found = state.meetings.find((held) => held.fleetId === fleetId && held.id === meetingId);
+        return Promise.resolve(found && structuredClone(found));
+      },
     },
     messages: {
       lockDailyCount: () => Promise.resolve(),
@@ -1650,7 +1654,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     }
     return { id: found.id, name: found.name };
   };
-  const recipientOf = (fleetId: FleetId, recipient: Recipient): HistoryRecipient =>
+  const recipientOf = (fleetId: FleetId, recipient: Addressee): HistoryRecipient =>
     recipient.kind === 'ship' ? { kind: 'ship', ship: partyOf(fleetId, recipient.shipId) } : recipient;
   const messageOf = (fleetId: FleetId, messageId: FleetEvent['messageId']): Message | undefined =>
     state.messages.find((held) => held.fleetId === fleetId && held.id === messageId);
@@ -1808,6 +1812,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
           .filter(
             (message) =>
               message.fleetId === fleetId &&
+              message.selector.kind !== 'meeting' &&
               (message.senderShipId === shipId ||
                 (message.selector.kind === 'ship' && message.selector.shipId === shipId) ||
                 claimed.has(message.id)) &&

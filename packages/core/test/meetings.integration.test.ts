@@ -1,23 +1,26 @@
-import { createIdGenerator, MEETING_ADDED_CONTENT_TYPE, type FleetId, type ShipId } from '@aeolus-fleet/common';
+import { createIdGenerator, MEETING_ADDED_CONTENT_TYPE, type FleetId, type MeetingId, type ShipId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
 import { listenForPendingDeliveries, type DeliveryListener } from '../src/adapters/prisma/delivery-notices.js';
 import { createPrismaUnitOfWork, type PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
 import { createOpenMeeting, type MeetingToOpen } from '../src/domain/messaging/open-meeting.js';
-import type { ShipCaller } from '../src/domain/shared/caller.js';
+import type { Crew, ShipCaller } from '../src/domain/shared/caller.js';
+import { createSendMessage, type MessageToSend } from '../src/domain/messaging/send-message.js';
 import type { DeliveryNotice } from '../src/domain/shared/notifier.js';
 import type { UnitOfWork } from '../src/domain/shared/unit-of-work.js';
 import { newKey } from '../src/testing/keys.js';
 import { unwrap } from '../src/testing/result.js';
-import { agentCaller, operatorCaller } from './support/core-fixtures.js';
+import { agentCaller, operatorCaller, secretOf } from './support/core-fixtures.js';
 import { withOperatorLogin } from './support/operator-login.js';
 import { createPostgresCore, racingUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 
 // Meetings on a real Postgres through the Prisma adapters (decision 0061):
 // what an open stores, the label selection resolved in SQL, one meeting for
 // concurrent opens with one key, and that an open failing halfway stores
-// nothing and wakes nobody.
+// nothing and wakes nobody; then what a contribution stores, that one failing
+// halfway through its fan-out stores nothing and wakes nobody, concurrent
+// contributions and receives, and the ship's message list.
 
 const newId = createIdGenerator();
 const MODEL = 'claude-opus-5-5';
@@ -181,5 +184,175 @@ describe('an open that fails', () => {
     const { messageId } = unwrap(await core.useCases.sendMessage(chief, { selector: { kind: 'ship', name: 'argo' }, payload: 'probe', idempotencyKey: newKey(), model: MODEL }));
     const probe = await core.prisma.delivery.findFirstOrThrow({ where: { messageId } });
     await expect.poll(() => notices.map((notice) => notice.deliveryId)).toEqual([probe.id]);
+  });
+});
+
+/** The ship's crew, claimed with its secret as a session claims it. */
+async function crewOf(shipId: ShipId): Promise<Crew> {
+  const { secret } = unwrap(await core.useCases.getStartingPrompt(argo, { shipId }));
+  const { crewToken } = unwrap(await core.useCases.claimShip({ shipId, secret: secretOf(secret), location: { kind: 'CLOUD' }, harness: 'claude-code' }));
+  return unwrap(await core.useCases.authenticate.byCrewToken(crewToken));
+}
+
+describe('contributing to a meeting on Postgres', () => {
+  let meetingId: MeetingId;
+
+  beforeEach(async () => {
+    ({ meetingId } = unwrap(await core.useCases.openMeeting(chief, aMeeting())));
+    await expect.poll(() => notices.length).toBe(2);
+    notices.length = 0;
+  });
+
+  function aContribution(overrides: Partial<MessageToSend> = {}): MessageToSend {
+    return { selector: { kind: 'meeting', meetingId }, payload: 'The launch moves to Friday', idempotencyKey: newKey(), model: MODEL, ...overrides };
+  }
+
+  function sendMessageWith(uow: UnitOfWork<PrismaTx>) {
+    return createSendMessage({ uow, clock: core.clock, ids: newId, hasher: sha256Hasher });
+  }
+
+  async function contributionCounts() {
+    return {
+      messages: await core.prisma.message.count({ where: { selectorKind: 'meeting' } }),
+      deliveries: await core.prisma.delivery.count({ where: { message: { selectorKind: 'meeting' } } }),
+      accepted: await core.prisma.event.count({ where: { type: 'MessageAccepted', message: { selectorKind: 'meeting' } } }),
+    };
+  }
+
+  it('stores one message to the meeting and one pending delivery per other participant, each with its MessageAccepted, waking each after commit', async () => {
+    const marketing = agentCaller({ fleetId, shipId: marketingId });
+
+    const { messageId } = unwrap(await core.useCases.sendMessage(marketing, aContribution()));
+
+    const [stored] = await core.prisma.message.findMany({ where: { id: messageId }, include: { deliveries: { orderBy: { recipientShipId: 'asc' } } } });
+    expect(stored).toMatchObject({ senderShipId: marketingId, selectorKind: 'meeting', selectorShipId: null, selectorType: null, meetingId });
+    expect(stored?.deliveries.map(({ recipientShipId, state }) => ({ recipientShipId, state }))).toEqual(
+      [chief.shipId, productId].sort().map((recipientShipId) => ({ recipientShipId, state: 'pending' })),
+    );
+    await expect(core.prisma.event.findMany({ where: { messageId, type: 'MessageAccepted' }, select: { shipId: true, details: true }, orderBy: { seq: 'asc' } })).resolves.toEqual([
+      { shipId: chief.shipId, details: { selector: 'meeting', recipientType: null, model: MODEL, meetingId } },
+      { shipId: productId, details: { selector: 'meeting', recipientType: null, model: MODEL, meetingId } },
+    ]);
+    await expect.poll(() => notices.map((notice) => notice.recipient)).toEqual([
+      { kind: 'ship', shipId: chief.shipId },
+      { kind: 'ship', shipId: productId },
+    ]);
+  });
+
+  it.each([
+    {
+      label: 'at its second delivery',
+      wrap: (tx: PrismaTx): PrismaTx => {
+        let created = 0;
+        return {
+          ...tx,
+          deliveries: {
+            ...tx.deliveries,
+            create: async (delivery) => {
+              created += 1;
+              if (created === 2) {
+                throw new Error('disk full');
+              }
+              await tx.deliveries.create(delivery);
+            },
+          },
+        };
+      },
+    },
+    {
+      label: 'after its first notice was queued',
+      wrap: (tx: PrismaTx): PrismaTx => ({
+        ...tx,
+        notifier: {
+          deliveryPending: async (notice) => {
+            await tx.notifier.deliveryPending(notice);
+            throw new Error('disk full');
+          },
+        },
+      }),
+    },
+  ])('failing $label leaves no message, no delivery and no event, and wakes nobody', async ({ wrap }) => {
+    const sendMessage = sendMessageWith(unitOfWorkWith(wrap));
+
+    await expect(sendMessage(agentCaller({ fleetId, shipId: marketingId }), aContribution())).rejects.toThrow('disk full');
+
+    await expect(contributionCounts()).resolves.toEqual({ messages: 0, deliveries: 0, accepted: 0 });
+    const { messageId } = unwrap(await core.useCases.sendMessage(chief, { selector: { kind: 'ship', name: 'argo' }, payload: 'probe', idempotencyKey: newKey(), model: MODEL }));
+    const probe = await core.prisma.delivery.findFirstOrThrow({ where: { messageId } });
+    await expect.poll(() => notices.map((notice) => notice.deliveryId)).toEqual([probe.id]);
+  });
+
+  it('stores every contribution of participants contributing at once, each with all its deliveries', async () => {
+    const senders = [chief, agentCaller({ fleetId, shipId: marketingId }), agentCaller({ fleetId, shipId: productId })];
+    const sendMessage = sendMessageWith(
+      racingUnitOfWork({ prisma: core.prisma, transactions: senders.length }, (tx, allArrived) => ({
+        ...tx,
+        meetings: {
+          ...tx.meetings,
+          findForShare: async (fleet, meeting) => {
+            const found = await tx.meetings.findForShare(fleet, meeting);
+            await allArrived();
+            return found;
+          },
+        },
+      })),
+    );
+
+    const results = await Promise.all(senders.map((sender) => sendMessage(sender, aContribution())));
+
+    expect(results.map((result) => result.isOk)).toEqual([true, true, true]);
+    await expect(contributionCounts()).resolves.toEqual({ messages: 3, deliveries: 6, accepted: 6 });
+  });
+
+  it('stores one contribution for concurrent sends with one key: every send gets its id', async () => {
+    const marketing = agentCaller({ fleetId, shipId: marketingId });
+    const sendMessage = sendMessageWith(
+      racingUnitOfWork({ prisma: core.prisma, transactions: 3 }, (tx, allArrived) => ({
+        ...tx,
+        messages: {
+          ...tx.messages,
+          findByIdempotencyKey: async (key) => {
+            await allArrived();
+            return tx.messages.findByIdempotencyKey(key);
+          },
+        },
+      })),
+    );
+    const input = aContribution();
+
+    const results = await Promise.all(Array.from({ length: 3 }, () => sendMessage(marketing, input)));
+
+    const [message] = await core.prisma.message.findMany({ where: { selectorKind: 'meeting' } });
+    expect(results).toEqual(Array.from({ length: 3 }, () => ({ isOk: true, value: { messageId: message?.id } })));
+    await expect(contributionCounts()).resolves.toEqual({ messages: 1, deliveries: 2, accepted: 2 });
+  });
+
+  it('is received and acknowledged by each participant on its own, the two receiving at once', async () => {
+    const [chiefCrew, productCrew] = [await crewOf(chief.shipId), await crewOf(productId)];
+    const { messageId } = unwrap(await core.useCases.sendMessage(agentCaller({ fleetId, shipId: marketingId }), aContribution()));
+
+    const received = await Promise.all([chiefCrew, productCrew].map(async (crew) => unwrap(await core.useCases.receiveDeliveries(crew, { max: 10 })).deliveries.filter((delivery) => delivery.messageId === messageId)));
+    const [byChief, byProduct] = received.map((deliveries) => deliveries.map(({ deliveryId, meetingId: of }) => ({ deliveryId, meetingId: of })));
+    unwrap(await core.useCases.acknowledgeDelivery(productCrew, { deliveryId: byProduct?.[0]?.deliveryId ?? newId('delivery') }));
+
+    expect([byChief?.length, byProduct?.length, byChief?.[0]?.meetingId, byProduct?.[0]?.meetingId]).toEqual([1, 1, meetingId, meetingId]);
+    expect(byChief?.[0]?.deliveryId).not.toBe(byProduct?.[0]?.deliveryId);
+    await expect(core.prisma.delivery.findMany({ where: { messageId }, select: { recipientShipId: true, state: true }, orderBy: { recipientShipId: 'asc' } })).resolves.toEqual(
+      [
+        { recipientShipId: chief.shipId, state: 'handed' },
+        { recipientShipId: productId, state: 'acknowledged' },
+      ].sort((first, second) => first.recipientShipId.localeCompare(second.recipientShipId)),
+    );
+  });
+
+  it("leaves contributions off a ship's message list: the meeting's read shows them", async () => {
+    const { messageId } = unwrap(await core.useCases.sendMessage(agentCaller({ fleetId, shipId: marketingId }), aContribution()));
+    const productCrew = await crewOf(productId);
+    unwrap(await core.useCases.receiveDeliveries(productCrew, { max: 10 }));
+
+    for (const shipId of [marketingId, productId]) {
+      const listed = unwrap(await core.useCases.readShipMessages(argo, { shipId, limit: 50 }));
+      expect(listed.items.map((message) => message.id)).not.toContain(messageId);
+    }
   });
 });

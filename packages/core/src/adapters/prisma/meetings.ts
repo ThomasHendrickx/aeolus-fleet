@@ -43,6 +43,12 @@ export function createPrismaMeetingRepository(db: Db): MeetingRepository {
       const row = await db.meeting.findFirst({ where: { fleetId, openedByShipId: openerShipId, idempotencyKey }, include: { participants: PARTICIPANTS } });
       return row ? toMeeting(row) : undefined;
     },
+    findForShare: async (fleetId, meetingId) => {
+      // Held shared until the unit of work ends: contributions take turns with a change of who takes part.
+      await db.$queryRaw`SELECT 1 FROM meetings WHERE fleet_id = ${fleetId} AND id = ${meetingId} FOR SHARE`;
+      const row = await db.meeting.findFirst({ where: { fleetId, id: meetingId }, include: { participants: PARTICIPANTS } });
+      return row ? toMeeting(row) : undefined;
+    },
     find: async (fleetId, meetingId) => {
       const row = await db.meeting.findFirst({ where: { fleetId, id: meetingId }, include: { participants: PARTICIPANTS } });
       return row ? toMeeting(row) : undefined;

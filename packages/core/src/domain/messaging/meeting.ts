@@ -1,4 +1,4 @@
-import type { FleetId, MeetingId, ShipId } from '@aeolus-fleet/common';
+import type { FleetId, MeetingId, MessageId, ShipId } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
 import { shipActor, type NewEvent } from '../shared/events.js';
@@ -85,6 +85,35 @@ export function repeatOfOpen(original: Meeting, requestHash: string): Result<Mee
   return original.requestHash === requestHash
     ? ok(original.id)
     : refuse('IDEMPOTENCY_KEY_REUSED', 'This idempotency key was already used for another meeting: open a new meeting with a new key');
+}
+
+export type ContributionRefusal = DomainError<'MEETING_NOT_FOUND' | 'MEETING_ENDED' | 'CONTRIBUTION_REPLIES' | 'CONTRIBUTION_FORCED'>;
+
+/**
+ * Whether the ship may contribute to the meeting (decision 0061), and if so
+ * the participants its contribution goes to: every one but itself. A meeting
+ * that does not exist and one the ship is no participant of are one refusal,
+ * so a stranger learns nothing of it; then an ended meeting; a contribution
+ * replies to no message (M18) and is never forced.
+ */
+export function checkContribution(
+  meeting: Meeting | undefined,
+  contribution: { meetingId: MeetingId; senderShipId: ShipId; inReplyTo: MessageId | undefined; isForced: boolean },
+): Result<ShipId[], ContributionRefusal> {
+  const { meetingId, senderShipId } = contribution;
+  if (!meeting?.participants.some((participant) => participant.shipId === senderShipId)) {
+    return refuse('MEETING_NOT_FOUND', `Meeting ${meetingId} does not exist or you are not one of its participants`);
+  }
+  if (meeting.endedAt !== null) {
+    return refuse('MEETING_ENDED', `Meeting ${meetingId} ended: it takes no more contributions`);
+  }
+  if (contribution.inReplyTo !== undefined) {
+    return refuse('CONTRIBUTION_REPLIES', 'A contribution replies to no message: send it to the meeting without inReplyTo');
+  }
+  if (contribution.isForced) {
+    return refuse('CONTRIBUTION_FORCED', 'A contribution is never forced: send it to the meeting without isForced');
+  }
+  return ok(participantsBut(meeting, senderShipId));
 }
 
 /** The participants but the one given, in the meeting's order. */
