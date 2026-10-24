@@ -10,16 +10,14 @@ import {
   activeFilterCount,
   activeFilterLabels,
   DEFAULT_FLEET_VIEW,
-  filterFleet,
   fleetSquadrons,
-  fleetTypes,
-  retiredCount,
   STATUS_WORDS,
   type FleetFilters,
   type FleetView,
   type StatusFilter,
 } from '../../services/fleet-filter';
 import { AGENT_KIND_WORDS, isAgentKind } from '../../services/agent-kind';
+import type { FleetCounts } from '../../services/fleet-counts';
 import { nextSort, type FleetSort, type SortColumn } from '../../services/fleet-sort';
 import { chipsOf, filterGroupsOf, pickedChips, type LabelContext } from '../../../../lib/labels';
 import type { ShipInSquadron } from '../../../../lib/squadrons-view';
@@ -31,6 +29,7 @@ import { Switch } from '../../../../components/atoms/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableSortHead } from '../../../../components/atoms/table';
 import { EmptyState } from '../../../../components/molecules/empty-state';
 import { InlineError } from '../../../../components/molecules/inline-error';
+import { LoadMore } from '../../../../components/molecules/load-more';
 import { LabelChip } from '../../../../components/molecules/label-chip';
 import { LabelChips } from '../molecules/label-chips';
 import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
@@ -49,8 +48,16 @@ import { LabelFilterButton, PhoneLabelFilter, PickedLabels } from './label-filte
 export type RowActionsLayout = 'table' | 'phone' | 'next';
 
 export interface FleetTableProps {
-  /** Every ship of the fleet, argo and retired ships included; the table filters and orders them. */
+  /** The ships of the pages loaded, as `fleet.list` selects and orders them for the view; the table shows them as they come. */
   ships: readonly ListedShip[];
+  /** The view's and the fleet's counts; undefined until counted. */
+  counts?: FleetCounts;
+  /** Whether argo is the fleet's only active ship: the empty state. */
+  isOnlyArgo: boolean;
+  /** The fleet's ship types, for the Type filter. */
+  types: readonly string[];
+  /** The next page: Load more while more ships follow (decision 4 of the performance design). */
+  more?: { hasMore: boolean; isLoading: boolean; isFailed: boolean; onLoad: () => void };
   /** Search and filters, kept by the page in the URL. */
   view: FleetView;
   onViewChange: (view: FleetView) => void;
@@ -106,11 +113,6 @@ function clearLabel(query: string, filters: FleetFilters): string {
     return 'Clear filters';
   }
   return isFiltered ? 'Clear search and filters' : 'Clear search';
-}
-
-/** Whether only argo sails: nothing but the operator, retired ships aside. */
-function isOnlyArgo(ships: readonly ListedShip[]): boolean {
-  return ships.every((ship) => ship.kind === 'operator' || ship.status === 'retired');
 }
 
 /**
@@ -215,13 +217,13 @@ function ReportCell({ ship, now, next }: { ship: ListedShip; now: Date; next: Re
 }
 
 function FilterControls({
-  ships,
+  types,
   view,
   onViewChange,
   size,
   squadronsOf,
   labels,
-}: Pick<FleetTableProps, 'ships' | 'view' | 'onViewChange' | 'squadronsOf' | 'labels'> & { size: 'sm' | 'touch' }) {
+}: Pick<FleetTableProps, 'types' | 'view' | 'onViewChange' | 'squadronsOf' | 'labels'> & { size: 'sm' | 'touch' }) {
   const crewRequestItems = crewRequestItemsOf(useConsoleConstants().crewStatuses);
   const { filters } = view;
   const change = (next: Partial<FleetFilters>) => {
@@ -262,7 +264,7 @@ function FilterControls({
       />
       <FilterSelect
         label="Type"
-        items={wordsOf(fleetTypes(ships, filters.isRetiredShown))}
+        items={wordsOf(types)}
         picked={filters.type}
         onPickedChange={(picked) => {
           change({ type: picked });
@@ -309,7 +311,12 @@ function FilterControls({
 }
 
 /** Show retired on desktop: it sits with the ship count at the end of the filter bar's first row, however the filters wrap. */
-function ShowRetiredSwitch({ ships, view, onViewChange }: Pick<FleetTableProps, 'ships' | 'view' | 'onViewChange'>) {
+/** "(n)" after Show retired, once counted. */
+function retiredCountWords(counts: FleetCounts | undefined): string {
+  return counts === undefined ? '' : ` (${String(counts.retired)})`;
+}
+
+function ShowRetiredSwitch({ counts, view, onViewChange }: Pick<FleetTableProps, 'counts' | 'view' | 'onViewChange'>) {
   const switchId = 'fleet-show-retired';
   return (
     <div className="inline-flex items-center gap-2">
@@ -322,7 +329,7 @@ function ShowRetiredSwitch({ ships, view, onViewChange }: Pick<FleetTableProps, 
         }}
       />
       <Label htmlFor={switchId} className="text-meta font-normal text-muted-foreground">
-        Show retired ({retiredCount(ships)})
+        Show retired{retiredCountWords(counts)}
       </Label>
     </div>
   );
@@ -334,20 +341,19 @@ function ShowRetiredSwitch({ ships, view, onViewChange }: Pick<FleetTableProps, 
  * to close it. Reset puts every filter back; the search stays.
  */
 function PhoneFilters({
-  ships,
+  types,
+  counts,
   view,
   onViewChange,
-  shownCount,
   squadronsOf,
   labels,
-}: Pick<FleetTableProps, 'ships' | 'view' | 'onViewChange' | 'squadronsOf' | 'labels'> & { shownCount: number }) {
+}: Pick<FleetTableProps, 'types' | 'counts' | 'view' | 'onViewChange' | 'squadronsOf' | 'labels'>) {
   const crewRequestItems = crewRequestItemsOf(useConsoleConstants().crewStatuses);
   const { filters } = view;
   const change = (next: Partial<FleetFilters>) => {
     onViewChange({ ...view, filters: { ...filters, ...next } });
   };
   const active = activeFilterCount(filters);
-  const retired = retiredCount(ships);
   return (
     <Sheet>
       <SheetTrigger
@@ -408,7 +414,7 @@ function PhoneFilters({
           <FilterToggles
             label="Type"
             allLabel="All types"
-            items={wordsOf(fleetTypes(ships, filters.isRetiredShown))}
+            items={wordsOf(types)}
             picked={filters.type}
             onPickedChange={(picked) => {
               change({ type: picked });
@@ -438,7 +444,7 @@ function PhoneFilters({
           )}
           <div className="flex items-center justify-between gap-2 py-1">
             <Label htmlFor="fleet-show-retired-touch" className="text-body-touch font-normal">
-              Show retired ships <span className="text-muted-foreground">({retired})</span>
+              Show retired ships <span className="text-muted-foreground">{retiredCountWords(counts)}</span>
             </Label>
             <Switch
               id="fleet-show-retired-touch"
@@ -449,7 +455,7 @@ function PhoneFilters({
             />
           </div>
           <SheetClose render={<Button size="touch" data-testid="fleet-filters-apply" />}>
-            {shownCount === 1 ? 'Show 1 ship' : `Show ${String(shownCount)} ships`}
+            {counts === undefined ? 'Show ships' : counts.shown === 1 ? 'Show 1 ship' : `Show ${String(counts.shown)} ships`}
           </SheetClose>
         </SheetBody>
       </SheetContent>
@@ -494,13 +500,13 @@ function PhoneFilterChips({ view, onViewChange, labels }: Pick<FleetTableProps, 
 }
 
 function Toolbar({
-  ships,
+  types,
+  counts,
   view,
   onViewChange,
-  shownCount,
   squadronsOf,
   labels,
-}: Pick<FleetTableProps, 'ships' | 'view' | 'onViewChange' | 'squadronsOf' | 'labels'> & { shownCount: number }) {
+}: Pick<FleetTableProps, 'types' | 'counts' | 'view' | 'onViewChange' | 'squadronsOf' | 'labels'>) {
   return (
     // On desktop one row (docs/design/png/FleetTable.png): the search and the filters wrap within their own group, Show retired and the count stay at the end of the first row (#1116).
     <div data-slot="fleet-toolbar" className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:items-start">
@@ -520,18 +526,20 @@ function Toolbar({
           />
         </div>
         <div className="max-sm:hidden sm:contents">
-          <FilterControls ships={ships} view={view} onViewChange={onViewChange} squadronsOf={squadronsOf} labels={labels} size="sm" />
+          <FilterControls types={types} view={view} onViewChange={onViewChange} squadronsOf={squadronsOf} labels={labels} size="sm" />
         </div>
-        <PhoneFilters ships={ships} view={view} onViewChange={onViewChange} shownCount={shownCount} squadronsOf={squadronsOf} labels={labels} />
+        <PhoneFilters types={types} counts={counts} view={view} onViewChange={onViewChange} squadronsOf={squadronsOf} labels={labels} />
       </div>
       <PhoneFilterChips view={view} onViewChange={onViewChange} labels={labels} />
       <div className="flex shrink-0 items-center gap-2 max-sm:w-full sm:h-(--size-control-sm)">
         <div className="max-sm:hidden">
-          <ShowRetiredSwitch ships={ships} view={view} onViewChange={onViewChange} />
+          <ShowRetiredSwitch counts={counts} view={view} onViewChange={onViewChange} />
         </div>
-        <p aria-live="polite" className="text-meta text-muted-foreground tabular-nums">
-          {shownCount} of {ships.length} ships
-        </p>
+        {counts === undefined ? null : (
+          <p aria-live="polite" className="text-meta text-muted-foreground tabular-nums" data-testid="fleet-count">
+            {counts.shown} of {counts.total} ships
+          </p>
+        )}
       </div>
     </div>
   );
@@ -687,11 +695,15 @@ function PhoneList({
  * (harness, location, muted model hint), seen and the existing row menu.
  * Phone separates the name, status, membership and session metadata; labels
  * remain on the ship page. A header sorts by its column, A to Z, Z to A,
- * then back to the default order (argo first, then by name); the phone list
- * follows the same order.
+ * then back to the default order (argo first, then by name); the server
+ * orders and selects the rows, and Load more reads the next page.
  */
 export function FleetTable({
   ships,
+  counts,
+  isOnlyArgo,
+  types,
+  more,
   view,
   onViewChange,
   state,
@@ -725,7 +737,7 @@ export function FleetTable({
   }
 
   const rows = { highlightedShipIds, now, renderRowActions, squadronsOf, pluginShipIds };
-  if (isOnlyArgo(ships)) {
+  if (isOnlyArgo) {
     const argo = ships.filter((ship) => ship.kind === 'operator');
     return (
       <div data-slot="fleet-table" data-state="empty" className="flex flex-col gap-3">
@@ -741,11 +753,10 @@ export function FleetTable({
     );
   }
 
-  const shown = filterFleet(ships, { ...view, squadronsOf, pluginShipIds });
   const query = view.query.trim();
   return (
     <div data-slot="fleet-table" data-state="ready" className="flex flex-col gap-3">
-      <Toolbar ships={ships} view={view} onViewChange={onViewChange} shownCount={shown.length} squadronsOf={squadronsOf} labels={labels} />
+      <Toolbar types={types} counts={counts} view={view} onViewChange={onViewChange} squadronsOf={squadronsOf} labels={labels} />
       {labels === undefined ? null : (
         <PickedLabels
           groups={filterGroupsOf(labels)}
@@ -761,7 +772,7 @@ export function FleetTable({
           }}
         />
       )}
-      {shown.length === 0 ? (
+      {ships.length === 0 ? (
         <EmptyState
           variant="no-results"
           title={query === '' ? 'No ships match these filters.' : `No ships match “${query}”.`}
@@ -780,7 +791,7 @@ export function FleetTable({
       ) : (
         <>
           <DesktopTable
-            ships={shown}
+            ships={ships}
             labels={labels}
             sort={view.sort}
             onSort={(column) => {
@@ -788,7 +799,8 @@ export function FleetTable({
             }}
             {...rows}
           />
-          <PhoneList ships={shown} {...rows} />
+          <PhoneList ships={ships} {...rows} />
+          {more?.hasMore === true ? <LoadMore what="more ships" isLoading={more.isLoading} isFailed={more.isFailed} onLoad={more.onLoad} area="fleet" /> : null}
         </>
       )}
     </div>

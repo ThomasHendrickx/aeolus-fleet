@@ -150,8 +150,10 @@ export function useLiveFleet(): LiveFleet {
   const isReopening = useIsReopening();
 
   const [reload] = useState(() => createLiveReloads(queryClient));
+  // The snapshot, every page the overview loaded for its view, and their counts.
   const reloadSnapshot = () => {
-    reload(trpc.fleet.list.queryKey());
+    reload(trpc.fleet.list.pathKey());
+    reload(trpc.fleet.shipCounts.pathKey());
   };
 
   const subscription = useSubscription(

@@ -4,6 +4,7 @@ import { Ellipsis, Plus } from 'lucide-react';
 import { useState, type ComponentProps } from 'react';
 import { expect, fn, userEvent, within } from 'storybook/test';
 
+import { agentKindOf } from '../../services/agent-kind';
 import { DEFAULT_FLEET_VIEW, type FleetView } from '../../services/fleet-filter';
 import { Button } from '@aeolus-fleet/common/header';
 import { FleetTable, type RowActionsLayout } from './fleet-table';
@@ -126,17 +127,32 @@ function rowActions(listed: ListedShip, layout: RowActionsLayout) {
   return <Button variant="ghost" size="xs" isIconOnly aria-label={`Actions for ${listed.name}`} icon={<Ellipsis />} />;
 }
 
-/** Keeps the view the way a page keeps it in the URL. */
-function StatefulFleetTable({ view: initialView, ...props }: ComponentProps<typeof FleetTable>) {
+/** The active ships of the story fleet: what `fleet.list` answers while Show retired is off. */
+const ACTIVE_FLEET = FLEET.filter((listed) => listed.status !== 'retired');
+
+/** Counts of a story fleet whose view selects `shown` ships. */
+function countsOf(shown: readonly ListedShip[]) {
+  return { shown: shown.length, total: FLEET.length, retired: FLEET.length - ACTIVE_FLEET.length };
+}
+
+/**
+ * Keeps the view the way a page keeps it in the URL; with `rowsOf`, the rows
+ * answer each view as the server would, so a story can pick and sort.
+ */
+function StatefulFleetTable({ view: initialView, rowsOf, ...props }: ComponentProps<typeof FleetTable> & { rowsOf?: (view: FleetView) => readonly ListedShip[] }) {
   const [view, setView] = useState<FleetView>(initialView);
-  return <FleetTable {...props} view={view} onViewChange={setView} />;
+  const rows = rowsOf?.(view) ?? props.ships;
+  return <FleetTable {...props} ships={rows} counts={props.counts && { ...props.counts, shown: rows.length }} view={view} onViewChange={setView} />;
 }
 
 const meta = {
   title: 'Organisms/FleetTable',
   component: StatefulFleetTable,
   args: {
-    ships: FLEET,
+    ships: ACTIVE_FLEET,
+    counts: countsOf(ACTIVE_FLEET),
+    isOnlyArgo: false,
+    types: [...new Set(FLEET.map((listed) => listed.type))].toSorted(),
     view: DEFAULT_FLEET_VIEW,
     onViewChange: fn(),
     state: 'ready',
@@ -161,6 +177,8 @@ export const NewShipHighlighted: Story = {
 
 export const RetiredShown: Story = {
   args: {
+    ships: FLEET,
+    counts: countsOf(FLEET),
     view: {
       ...DEFAULT_FLEET_VIEW,
       filters: { ...DEFAULT_FLEET_VIEW.filters, isRetiredShown: true },
@@ -169,10 +187,47 @@ export const RetiredShown: Story = {
 };
 
 export const NoResults: Story = {
-  args: { view: { ...DEFAULT_FLEET_VIEW, query: 'deploy' } },
+  args: { ships: [], counts: countsOf([]), view: { ...DEFAULT_FLEET_VIEW, query: 'deploy' } },
 };
 
-export const EmptyOnlyArgo: Story = { args: { ships: [argo] } };
+export const EmptyOnlyArgo: Story = { args: { ships: [argo], isOnlyArgo: true } };
+
+/** More ships follow the pages loaded: Load more at the end of the list. */
+export const MorePages: Story = {
+  args: { more: { hasMore: true, isLoading: false, isFailed: false, onLoad: fn() } },
+  play: async ({ args, canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByTestId('fleet-load-more'));
+    await expect(args.more?.onLoad).toHaveBeenCalledOnce();
+  },
+};
+
+/** The next page on its way: Load more working, the rows shown kept. */
+export const LoadingMore: Story = {
+  args: { more: { hasMore: true, isLoading: true, isFailed: false, onLoad: fn() } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByTestId('fleet-load-more')).toHaveTextContent('Loading more ships...');
+    await expect(canvas.getByTestId('fleet-row-argo')).toBeVisible();
+  },
+};
+
+/** The next page failed: what failed with Try again, the rows shown kept. */
+export const LoadMoreFailed: Story = {
+  args: { more: { hasMore: true, isLoading: false, isFailed: true, onLoad: fn() } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText('Couldn’t load more ships')).toBeVisible();
+    await expect(canvas.getByTestId('fleet-row-argo')).toBeVisible();
+  },
+};
+
+/** Every ship the view selects is loaded: no Load more. */
+export const LastPage: Story = {
+  args: { more: { hasMore: false, isLoading: false, isFailed: false, onLoad: fn() } },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).queryByTestId('fleet-load-more')).toBeNull();
+  },
+};
 
 export const Loading: Story = { args: { state: 'loading' } };
 
@@ -188,12 +243,16 @@ export const Phone: Story = { globals: { viewport: { value: 'mobile1' } } };
 /** Phone with filters in force: the chips under the search, Clear filters, and the filter button marked. */
 export const PhoneFiltered: Story = {
   globals: { viewport: { value: 'mobile1' } },
-  args: { view: { ...DEFAULT_FLEET_VIEW, filters: { ...DEFAULT_FLEET_VIEW.filters, status: ['crewed'], isRetiredShown: true } } },
+  args: {
+    ships: ACTIVE_FLEET.filter((listed) => listed.status === 'crewed'),
+    counts: countsOf(ACTIVE_FLEET.filter((listed) => listed.status === 'crewed')),
+    view: { ...DEFAULT_FLEET_VIEW, filters: { ...DEFAULT_FLEET_VIEW.filters, status: ['crewed'], isRetiredShown: true } },
+  },
 };
 
 /** Filters and a search with nothing left: one action clears both. */
 export const NoResultsFiltered: Story = {
-  args: { view: { ...DEFAULT_FLEET_VIEW, query: 'deploy', filters: { ...DEFAULT_FLEET_VIEW.filters, status: ['awaitingCrew'] } } },
+  args: { ships: [], counts: countsOf([]), view: { ...DEFAULT_FLEET_VIEW, query: 'deploy', filters: { ...DEFAULT_FLEET_VIEW.filters, status: ['awaitingCrew'] } } },
 };
 
 /** Crewed ships with when each last called: one live, one whose session went quiet. */
@@ -286,12 +345,16 @@ export const Labels: Story = { args: { ships: LABELLED_FLEET, labels: labelConte
 
 /** Two label values picked: "Ships with project=hemma and area=frontend", each with ×, Add and Clear labels. */
 export const LabelsFiltered: Story = {
-  args: { ...Labels.args, view: { ...DEFAULT_FLEET_VIEW, filters: { ...DEFAULT_FLEET_VIEW.filters, labelValueIds: PICKED } } },
+  args: {
+    ...Labels.args,
+    ships: LABELLED_FLEET.filter((listed) => PICKED.every((valueId) => listed.labels.some((label) => label.valueId === valueId))),
+    view: { ...DEFAULT_FLEET_VIEW, filters: { ...DEFAULT_FLEET_VIEW.filters, labelValueIds: PICKED } },
+  },
 };
 
 /** Label values no ship carries together: nothing left, one action clears them. */
 export const LabelsNoMatch: Story = {
-  args: { ...Labels.args, view: { ...DEFAULT_FLEET_VIEW, filters: { ...DEFAULT_FLEET_VIEW.filters, labelValueIds: [carried(PROJECT, 'website').valueId, carried(COST, 'high').valueId] } } },
+  args: { ...Labels.args, ships: [], counts: countsOf([]), view: { ...DEFAULT_FLEET_VIEW, filters: { ...DEFAULT_FLEET_VIEW.filters, labelValueIds: [carried(PROJECT, 'website').valueId, carried(COST, 'high').valueId] } } },
 };
 
 /** A viewer: every label marked by its owner, argo's too; the filter works the same. */
@@ -445,7 +508,35 @@ const KIND_FLEET = [
   IMPLEMENTER,
   FLEET[2] ?? argo,
 ];
-const KIND_ARGS = { ships: KIND_FLEET, pluginShipIds: new Set([PLUGIN_SHIP.id]) };
+const KIND_PLUGINS: ReadonlySet<string> = new Set([PLUGIN_SHIP.id]);
+
+/** The story's report sort reads the note, a ship without one last either way. */
+function reportNoteOf(listed: ListedShip): string | undefined {
+  return listed.report?.note ?? undefined;
+}
+
+/** The kind fleet as the server answers a view: the kinds picked, sorted by ship or report; otherwise argo first and then by name, as the stories need no more. */
+function kindRowsOf(view: FleetView): ListedShip[] {
+  const picked = KIND_FLEET.filter((listed) => view.filters.kind.length === 0 || view.filters.kind.includes(agentKindOf(listed, KIND_PLUGINS)));
+  const sign = view.sort?.direction === 'descending' ? -1 : 1;
+  switch (view.sort?.column) {
+    case 'ship':
+      return picked.toSorted((first, second) => sign * first.name.localeCompare(second.name));
+    case 'report':
+      return picked.toSorted((first, second) => {
+        const [one, other] = [reportNoteOf(first), reportNoteOf(second)];
+        return one === undefined || other === undefined ? Number(one === undefined) - Number(other === undefined) : sign * one.localeCompare(other);
+      });
+    case 'status':
+    case 'squadronAndLabels':
+    case 'runsOn':
+    case 'seen':
+    case undefined:
+      return picked.toSorted((first, second) => Number(second.kind === 'operator') - Number(first.kind === 'operator') || first.name.localeCompare(second.name));
+  }
+}
+
+const KIND_ARGS = { ships: KIND_FLEET, rowsOf: kindRowsOf, pluginShipIds: KIND_PLUGINS };
 
 /** The Kind filter on Codex: only the ships whose session runs in Codex. */
 export const KindFiltered: Story = {

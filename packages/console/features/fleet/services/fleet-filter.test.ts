@@ -5,11 +5,8 @@ import {
   activeFilterCount,
   activeFilterLabels,
   DEFAULT_FLEET_VIEW,
-  filterFleet,
   fleetSquadrons,
-  fleetTypes,
   fleetViewParams,
-  retiredCount,
   urlParamsOf,
   type FleetView,
 } from './fleet-filter';
@@ -38,78 +35,11 @@ function aShip(overrides: Partial<ListedShip> & Pick<ListedShip, 'name'>): Liste
 const argo = aShip({ name: 'argo', type: 'operator', kind: 'operator' });
 const reviewer = aShip({ name: 'reviewer-01', type: 'reviewer' });
 const builder = aShip({ name: 'builder-web', status: 'awaitingCrew', location: null });
-const retired = aShip({ name: 'old-bot', type: 'triage', status: 'retired', location: null });
-const fleet = [reviewer, retired, builder, argo];
 
 function view(changes: Partial<FleetView['filters']> & { query?: string }): FleetView {
   const { query = '', ...filters } = changes;
   return { query, filters: { ...DEFAULT_FLEET_VIEW.filters, ...filters }, sort: null };
 }
-
-function names(ships: readonly ListedShip[]): string[] {
-  return ships.map((ship) => ship.name);
-}
-
-describe('filterFleet', () => {
-  it('pins argo first and orders the other ships by name', () => {
-    expect(names(filterFleet(fleet, DEFAULT_FLEET_VIEW))).toEqual(['argo', 'builder-web', 'reviewer-01']);
-  });
-
-  it('hides retired ships until Show retired is on', () => {
-    expect(names(filterFleet(fleet, view({ isRetiredShown: true })))).toContain('old-bot');
-  });
-
-  it('matches the search on name or type, ignoring case', () => {
-    expect(names(filterFleet(fleet, view({ query: 'REVIEW' })))).toEqual(['reviewer-01']);
-    expect(names(filterFleet(fleet, view({ query: 'builder' })))).toEqual(['builder-web']);
-  });
-
-  it('applies the search to argo like any ship', () => {
-    expect(names(filterFleet(fleet, view({ query: 'web' })))).toEqual(['builder-web']);
-  });
-
-  it('filters by status', () => {
-    expect(names(filterFleet(fleet, view({ status: ['awaitingCrew'] })))).toEqual(['builder-web']);
-  });
-
-  it('filters by type', () => {
-    expect(names(filterFleet(fleet, view({ type: ['reviewer'] })))).toEqual(['reviewer-01']);
-  });
-
-  it('filters by kind, read with the ships the console plugins run as', () => {
-    const codex = aShip({ name: 'codex-bot', harness: 'codex' });
-    const plugin = aShip({ name: 'squadrons', type: 'squadrons', harness: 'codex' });
-    const pluginShipIds = new Set([plugin.id]);
-    expect(names(filterFleet([...fleet, codex, plugin], { ...view({ kind: ['codex'] }), pluginShipIds }))).toEqual(['codex-bot']);
-    expect(names(filterFleet([...fleet, codex, plugin], { ...view({ kind: ['plugin'] }), pluginShipIds }))).toEqual(['squadrons']);
-    expect(names(filterFleet(fleet, view({ kind: ['console'] })))).toEqual(['argo']);
-  });
-
-  it('keeps the order when a ship changes, so rows never move under the pointer', () => {
-    const changed = fleet.map((ship) => (ship === builder ? { ...ship, status: 'crewed' as const } : ship));
-    expect(names(filterFleet(changed, DEFAULT_FLEET_VIEW))).toEqual(['argo', 'builder-web', 'reviewer-01']);
-  });
-});
-
-describe('a filter with several values picked', () => {
-  const claudeCode = aShip({ name: 'claude-bot', harness: 'claude-code' });
-  const codex = aShip({ name: 'codex-bot', harness: 'codex', status: 'awaitingCrew' });
-  const ships = [...fleet, claudeCode, codex];
-
-  it('keeps a ship that matches any value picked in it', () => {
-    expect(names(filterFleet(ships, view({ kind: ['claudeCode', 'codex'] })))).toEqual(['claude-bot', 'codex-bot']);
-    expect(names(filterFleet(fleet, view({ status: ['crewed', 'awaitingCrew'] })))).toEqual(['argo', 'builder-web', 'reviewer-01']);
-    expect(names(filterFleet(fleet, view({ type: ['reviewer', 'operator'] })))).toEqual(['argo', 'reviewer-01']);
-  });
-
-  it('keeps only the ships that match every filter in force', () => {
-    expect(names(filterFleet(ships, view({ kind: ['claudeCode', 'codex'], status: ['awaitingCrew'] })))).toEqual(['codex-bot']);
-  });
-
-  it('keeps every ship while nothing is picked', () => {
-    expect(names(filterFleet(ships, view({ kind: [], status: [], type: [], crewRequest: [], squadron: [] })))).toEqual(['argo', 'builder-web', 'claude-bot', 'codex-bot', 'reviewer-01']);
-  });
-});
 
 describe('the squadron filter', () => {
   const squadronsOf = new Map([
@@ -117,43 +47,8 @@ describe('the squadron filter', () => {
     [builder.id, { squadronId: 'team-a1b2c3', role: 'builder' }],
   ]);
 
-  it("keeps the squadron's flagship and members only", () => {
-    expect(names(filterFleet(fleet, { ...view({ squadron: ['team-a1b2c3'] }), squadronsOf }))).toEqual(['builder-web', 'reviewer-01']);
-  });
-
-  it('keeps every ship while none is picked', () => {
-    expect(names(filterFleet(fleet, { ...DEFAULT_FLEET_VIEW, squadronsOf }))).toEqual(['argo', 'builder-web', 'reviewer-01']);
-  });
-
-  it('keeps the flagships and members of every squadron picked', () => {
-    const docsOf = new Map([...squadronsOf, [argo.id, { squadronId: 'docs-x7q2w9', role: 'writer' }]]);
-    expect(names(filterFleet(fleet, { ...view({ squadron: ['team-a1b2c3', 'docs-x7q2w9'] }), squadronsOf: docsOf }))).toEqual(['argo', 'builder-web', 'reviewer-01']);
-  });
-
   it('lists each squadron once, sorted', () => {
     expect(fleetSquadrons(new Map([...squadronsOf, [argo.id, { squadronId: 'docs-x7q2w9', role: 'writer' }]]))).toEqual(['docs-x7q2w9', 'team-a1b2c3']);
-  });
-});
-
-describe('fleetTypes', () => {
-  it('lists each type once, sorted, without retired ships unless they are shown', () => {
-    expect(fleetTypes(fleet, false)).toEqual(['builder', 'operator', 'reviewer']);
-    expect(fleetTypes(fleet, true)).toEqual(['builder', 'operator', 'reviewer', 'triage']);
-  });
-});
-
-describe('retiredCount', () => {
-  it('counts the retired ships', () => {
-    expect(retiredCount(fleet)).toBe(1);
-  });
-});
-
-describe('the crew request filter (#245)', () => {
-  const requested = aShip({ name: 'scout', status: 'awaitingCrew', crewRequest: { settingsVersion: 1, requestedAt: '2026-10-07T10:00:00.000Z', assignedTo: null, status: null, reason: null, crewedBy: null, attempt: 0, startedAt: null, givenBack: [] } });
-
-  it('keeps the ships whose crew request stands so, and those without one for No request', () => {
-    expect(names(filterFleet([...fleet, requested], view({ crewRequest: ['needsCrew'] })))).toEqual(['scout']);
-    expect(names(filterFleet([...fleet, requested], view({ crewRequest: ['none'] })))).toEqual(['argo', 'builder-web', 'reviewer-01']);
   });
 });
 
@@ -162,19 +57,6 @@ describe('the label filter (#102)', () => {
   const HEMMA = { ...PROJECT, valueId: idSchema('labelValue').parse('lbv_01m3tbfspe96yf1rnr4ank9h1a'), value: 'hemma' };
   const AEOLUS = { ...PROJECT, valueId: idSchema('labelValue').parse('lbv_01m3tbfspe96yf1rnr4ank9h2a'), value: 'aeolus' };
   const BACKEND = { labelId: idSchema('label').parse('lbl_01m3tbfspe96yf1rnr4ank9h3a'), key: 'area', valueId: idSchema('labelValue').parse('lbv_01m3tbfspe96yf1rnr4ank9h4a'), value: 'backend' };
-  const api = aShip({ name: 'hemma-api', labels: [HEMMA, BACKEND] });
-  const web = aShip({ name: 'hemma-web', labels: [HEMMA] });
-  const core = aShip({ name: 'aeolus-core', labels: [AEOLUS, BACKEND] });
-  const labelled = [api, web, core];
-
-  it('keeps the ships that carry every value picked: exact matches, all must hold', () => {
-    expect(names(filterFleet(labelled, view({ labelValueIds: [HEMMA.valueId, BACKEND.valueId] })))).toEqual(['hemma-api']);
-  });
-
-  it('keeps every ship with no value picked', () => {
-    expect(names(filterFleet(labelled, DEFAULT_FLEET_VIEW))).toEqual(['aeolus-core', 'hemma-api', 'hemma-web']);
-  });
-
   it('keeps the values picked in the URL, in order, and leaves out what is no label value id', () => {
     const written = view({ labelValueIds: [HEMMA.valueId, BACKEND.valueId] });
     expect(readFleetView(fleetViewParams(written))).toEqual(written);

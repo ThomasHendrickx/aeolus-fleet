@@ -1,10 +1,8 @@
-import type { LabelValueId, ListedShip, ShipStatus } from '@aeolus-fleet/common';
+import type { LabelValueId, ShipStatus } from '@aeolus-fleet/common';
 
-import { agentKindOf, AGENT_KIND_WORDS, type AgentKind } from './agent-kind';
-import { compareBySort, type FleetSort } from './fleet-sort';
-import { crewRequestStage } from '../../../lib/crew-request';
-import { carriesEvery } from '../../../lib/labels';
-import { crewRequestKey, crewRequestKeyWord, type CrewRequestKey } from '../../../lib/needs-crew';
+import { AGENT_KIND_WORDS, type AgentKind } from './agent-kind';
+import type { FleetSort } from './fleet-sort';
+import { crewRequestKeyWord, type CrewRequestKey } from '../../../lib/needs-crew';
 import type { ShipInSquadron } from '../../../lib/squadrons-view';
 
 /** The overview filters (docs/design/png/FleetTable.png): status, crew request (#245), kind (#401), type, squadron (with squadrons on), labels (#102) and Show retired. */
@@ -14,7 +12,8 @@ export type StatusFilter = Exclude<ShipStatus, 'retired'>;
 /**
  * The overview filters (docs/design/png/FleetTable.png): status, crew request (#245), kind (#401), type, squadron (with squadrons on), labels (#102) and Show retired.
  * Each of status, crew request, kind, type and squadron holds the values picked, in the order picked: a ship
- * matches any of them; none picked is no filter (#815). A ship is shown when it matches every filter in force.
+ * matches any of them; none picked is no filter (#815). A ship is shown when it matches every filter in force,
+ * as `fleet.list` selects it (fleet-list-input).
  */
 export interface FleetFilters {
   status: readonly StatusFilter[];
@@ -45,80 +44,11 @@ export const DEFAULT_FLEET_VIEW: FleetView = {
   sort: null,
 };
 
-/** The view as filtering reads it: with squadrons on, which squadron each ship belongs to; and the ships the console's plugins run as. */
-export type FilteredView = FleetView & { squadronsOf?: ReadonlyMap<string, ShipInSquadron>; pluginShipIds?: ReadonlySet<string> };
-
 /** URL parameter names; defaults are left out, so a clean overview has a clean URL. A filter repeats its parameter once for each value picked. */
 export const PARAMS = { query: 'q', status: 'status', crewRequest: 'crew', kind: 'kind', type: 'type', squadron: 'squadron', isRetiredShown: 'retired', labelValueIds: 'label', sort: 'sort', order: 'order' } as const;
 export const RETIRED_SHOWN = '1';
 /** The `order` value for Z to A; A to Z is the default and left out. */
 export const DESCENDING = 'desc';
-
-function matchesQuery(ship: ListedShip, query: string): boolean {
-  const needle = query.trim().toLowerCase();
-  return needle === '' || ship.name.toLowerCase().includes(needle) || ship.type.toLowerCase().includes(needle);
-}
-
-const NO_PLUGIN_SHIPS: ReadonlySet<string> = new Set();
-
-/** Whether a ship's value passes a filter: any value picked, or nothing picked. */
-function isPassing<T>(picked: readonly T[], value: T | undefined): boolean {
-  return picked.length === 0 || (value !== undefined && picked.includes(value));
-}
-
-function matchesFilters(ship: ListedShip, view: Pick<FilteredView, 'filters' | 'squadronsOf' | 'pluginShipIds'>): boolean {
-  const { filters, squadronsOf, pluginShipIds = NO_PLUGIN_SHIPS } = view;
-  if (ship.status === 'retired' && !filters.isRetiredShown) {
-    return false;
-  }
-  const status = ship.status === 'retired' ? undefined : ship.status;
-  return (
-    isPassing(filters.squadron, squadronsOf?.get(ship.id)?.squadronId) &&
-    isPassing(filters.status, status) &&
-    isPassing(filters.crewRequest, crewRequestKey(crewRequestStage(ship))) &&
-    isPassing(filters.kind, agentKindOf(ship, pluginShipIds)) &&
-    isPassing(filters.type, ship.type) &&
-    carriesEvery(ship, filters.labelValueIds)
-  );
-}
-
-/** The default order: argo first, then by name. */
-function compareByDefault(first: ListedShip, second: ListedShip): number {
-  if (first.kind !== second.kind) {
-    return first.kind === 'operator' ? -1 : second.kind === 'operator' ? 1 : 0;
-  }
-  return 0;
-}
-
-function compareByName(first: ListedShip, second: ListedShip): number {
-  return first.name.localeCompare(second.name) || first.id.localeCompare(second.id);
-}
-
-/**
- * The ships the overview shows, in its order: argo first, then by name; or by
- * the column the operator sorted, argo among the rest. The order depends on
- * the ships alone, so a live update changes a row in place and never
- * reorders the rows under the pointer while unsorted. Search and filters
- * apply to argo like any ship. The squadron filter keeps a squadron's
- * flagship and members, as `squadronsOf` names them.
- */
-export function filterFleet(ships: readonly ListedShip[], view: FilteredView): ListedShip[] {
-  const compare = view.sort === null ? compareByDefault : compareBySort(view.sort, view.squadronsOf);
-  return ships
-    .filter((ship) => matchesQuery(ship, view.query) && matchesFilters(ship, view))
-    .toSorted((first, second) => compare(first, second) || compareByName(first, second));
-}
-
-/** The types in the fleet, for the type filter, sorted. Retired ships count only while shown. */
-export function fleetTypes(ships: readonly ListedShip[], isRetiredShown: boolean): string[] {
-  const types = ships.filter((ship) => isRetiredShown || ship.status !== 'retired').map((ship) => ship.type);
-  return [...new Set(types)].toSorted((first, second) => first.localeCompare(second));
-}
-
-/** How many retired ships there are, for "Show retired (1)". */
-export function retiredCount(ships: readonly ListedShip[]): number {
-  return ships.filter((ship) => ship.status === 'retired').length;
-}
 
 /** A page's search params as URL parameters, every value of a repeated one kept (the label filter repeats `label`). */
 export function urlParamsOf(searchParams: Readonly<Record<string, string | string[] | undefined>>): URLSearchParams {
