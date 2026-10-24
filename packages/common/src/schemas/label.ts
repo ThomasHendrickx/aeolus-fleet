@@ -113,6 +113,10 @@ export const fleetListInputSchema = pageInputOf(shipCursorSchema)
   .extend({ ...fleetListFilterSchema.shape, sort: fleetListSortSchema.optional() })
   .optional();
 
+/** `fleet.list`'s filter and sort as a caller writes them, ids as text. */
+export type FleetListFilter = z.input<typeof fleetListFilterSchema>;
+export type FleetListSort = z.input<typeof fleetListSortSchema>;
+
 /** Input of `fleet.defineLabel` (labels:define): the key, unique in the fleet, and its values. */
 export const defineLabelInputSchema = z.object({ key: labelTextSchema, values: z.array(labelTextSchema) });
 
