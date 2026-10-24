@@ -1,6 +1,6 @@
 import type { EventType, FleetStreamItem, ListedShip, ShipId, ShipOutsideReadReach } from '@aeolus-fleet/common';
 import type { AppRouter } from '@aeolus-fleet/core';
-import { useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { useQueryClient, type InfiniteData, type QueryClient } from '@tanstack/react-query';
 import { useSubscription, type TRPCOptionsProxy } from '@trpc/tanstack-react-query';
 import { useState } from 'react';
 
@@ -120,6 +120,29 @@ export function withListedShip(ships: readonly ShipRow[], row: ShipRow): ShipRow
   return ships.some((ship) => ship.id === row.id) ? ships.map((ship) => (ship.id === row.id ? row : ship)) : [...ships, row];
 }
 
+/** A page of ships as `fleet.list` answers it. */
+interface ShipPage {
+  items: ShipRow[];
+  nextCursor: string | null;
+}
+
+function isOnPages(pages: InfiniteData<ShipPage>, shipId: ShipId): boolean {
+  return pages.pages.some((page) => page.items.some((ship) => ship.id === shipId));
+}
+
+/**
+ * The overview's loaded pages with a ship's row as read alone: in its place,
+ * or first in the first page when no loaded page shows it, until the pages'
+ * refresh puts it in its place or drops it (Thomas's rule, #1173).
+ */
+export function withListedShipOnPages(pages: InfiniteData<ShipPage>, row: ShipRow): InfiniteData<ShipPage> {
+  if (isOnPages(pages, row.id)) {
+    return { ...pages, pages: pages.pages.map((page) => ({ ...page, items: withListedShip(page.items, row) })) };
+  }
+  const [first, ...rest] = pages.pages;
+  return first === undefined ? pages : { ...pages, pages: [{ ...first, items: [row, ...first.items] }, ...rest] };
+}
+
 export function isShipChange(type: EventType): boolean {
   return SHIP_EVENTS.has(type);
 }
@@ -170,8 +193,8 @@ export function liveStateOf(status: 'idle' | 'connecting' | 'pending' | 'error')
 
 export interface LiveFleet {
   live: LiveState;
-  /** Ships commissioned since the page opened: their rows get the highlight. */
-  newShipIds: ReadonlySet<ShipId>;
+  /** Ships a live event put first on the overview's loaded pages since the page opened: their rows get the highlight. */
+  placedFirstShipIds: ReadonlySet<ShipId>;
   /** Why the subscription ended, when it was refused: the page sends the operator to sign in. */
   error: unknown;
 }
@@ -180,8 +203,9 @@ export interface LiveFleet {
  * What each item of the fleet's live stream reloads (docs/architecture.md,
  * "Live updates"), only the resources the event concerns (performance
  * design, decision 3): an event reloads the page of each ship that caused it
- * or that it names; a ship's event those ships' rows in the fleet snapshot,
- * each read alone, the ship counts and the stuck deliveries (their count, summary
+ * or that it names; a ship's event those ships' rows in the fleet snapshot
+ * and on the overview's loaded pages, each read alone (a ship not on them
+ * goes first, highlighted), the ship counts and the stuck deliveries (their count, summary
  * and places); a message's event the open
  * message, the ships' message lists and argo's inbox, whose delivery states
  * it changes, and the stuck deliveries; an acknowledgement the acknowledged
@@ -196,15 +220,24 @@ export function createLiveFleetHandler(input: {
   trpc: TRPCOptionsProxy<AppRouter>;
   queryClient: QueryClient;
   reload: (queryKey: readonly unknown[]) => void;
-  onCommissioned: (shipId: ShipId) => void;
+  /** A ship's row went first on the overview's loaded pages, which shows none of it. */
+  onPlacedFirst: (shipId: ShipId) => void;
 }): (item: FleetStreamItem) => void {
   const { trpc, queryClient, reload } = input;
   // The snapshot holds every page's ships in one array (useFleetSnapshot), not the page fleet.list answers.
   const snapshotKey: readonly unknown[] = [...trpc.fleet.list.queryKey()];
+  // Every view's pages the overview loaded (features/fleet/hooks/fleet-pages.ts).
+  const pagesKey: readonly unknown[] = [...trpc.fleet.list.infiniteQueryKey()];
+  const loadedPages = () => queryClient.getQueriesData<InfiniteData<ShipPage>>({ queryKey: pagesKey }).flatMap(([, pages]) => (pages === undefined ? [] : [pages]));
   const reloadRow = createShipRowReloads({
     readRow: (shipId) => queryClient.query({ ...trpc.fleet.listedShip.queryOptions({ shipId }), staleTime: 0 }),
     writeRow: (row) => {
       queryClient.setQueryData<ShipRow[]>(snapshotKey, (ships) => ships && withListedShip(ships, row));
+      const isPlacedFirst = loadedPages().some((pages) => !isOnPages(pages, row.id));
+      queryClient.setQueriesData<InfiniteData<ShipPage>>({ queryKey: pagesKey }, (pages) => pages && withListedShipOnPages(pages, row));
+      if (isPlacedFirst) {
+        input.onPlacedFirst(row.id);
+      }
     },
   });
   const reloadStuck = () => {
@@ -262,8 +295,8 @@ export function createLiveFleetHandler(input: {
     if (!isShipChange(event.type)) {
       return;
     }
-    // Only a page that shows the snapshot needs the rows.
-    if (queryClient.getQueryData(snapshotKey) !== undefined) {
+    // Only a page that shows the snapshot or the overview's pages needs the rows.
+    if (queryClient.getQueryData(snapshotKey) !== undefined || loadedPages().length > 0) {
       for (const concerned of new Set([event.shipId, event.actorShipId])) {
         if (concerned !== null) {
           reloadRow(concerned);
@@ -274,10 +307,6 @@ export function createLiveFleetHandler(input: {
     reload(trpc.fleet.shipCounts.pathKey());
     // A commission, a crew or a release changes why a delivery waits.
     reloadStuck();
-    const { shipId } = event;
-    if (event.type === 'ShipCommissioned' && shipId !== null) {
-      input.onCommissioned(shipId);
-    }
   };
 }
 
@@ -290,7 +319,7 @@ export function createLiveFleetHandler(input: {
 export function useLiveFleet(): LiveFleet {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const [newShipIds, setNewShipIds] = useState<ReadonlySet<ShipId>>(new Set());
+  const [placedFirstShipIds, setPlacedFirstShipIds] = useState<ReadonlySet<ShipId>>(new Set());
   const isReopening = useIsReopening();
 
   const [onItem] = useState(() =>
@@ -298,8 +327,8 @@ export function useLiveFleet(): LiveFleet {
       trpc,
       queryClient,
       reload: createLiveReloads(queryClient),
-      onCommissioned: (shipId) => {
-        setNewShipIds((shown) => new Set([...shown, shipId]));
+      onPlacedFirst: (shipId) => {
+        setPlacedFirstShipIds((shown) => new Set([...shown, shipId]));
       },
     }),
   );
@@ -317,5 +346,5 @@ export function useLiveFleet(): LiveFleet {
 
   // Reopening after a renewal, the server replays what commits meanwhile: still Live (accounts design, A4).
   const live = subscription.status === 'connecting' && isReopening ? 'live' : liveStateOf(subscription.status);
-  return { live, newShipIds, error: subscription.error };
+  return { live, placedFirstShipIds, error: subscription.error };
 }

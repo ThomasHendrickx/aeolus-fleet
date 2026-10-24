@@ -30,13 +30,13 @@ function typesOf(types: readonly string[], picked: readonly string[]): string[] 
 export function FleetOverview({
   view,
   onViewChange,
-  newShipIds,
+  placedFirstShipIds,
   renderRowActions,
 }: {
   view: FleetView;
   onViewChange: (view: FleetView) => void;
-  /** Ships commissioned since the page opened: their rows get the highlight. */
-  newShipIds: ReadonlySet<ShipId>;
+  /** Ships a live event put first on the loaded pages: their rows get the highlight. */
+  placedFirstShipIds: ReadonlySet<ShipId>;
   renderRowActions: FleetTableProps['renderRowActions'];
 }) {
   const now = useNow();
@@ -61,7 +61,7 @@ export function FleetOverview({
         onViewChange={onViewChange}
         state={ships.isFailed ? 'error' : ships.items === undefined ? 'loading' : 'ready'}
         error={{ detail: ships.error instanceof Error ? ships.error.message : undefined, onRetry: ships.retry }}
-        highlightedShipIds={newShipIds}
+        highlightedShipIds={placedFirstShipIds}
         now={now}
         renderRowActions={renderRowActions}
         squadronsOf={squadronsOf}
