@@ -34,14 +34,14 @@ describe('isShipChange', () => {
     'LabelUnassigned',
     'LabelRetired',
   ] as const)(
-    'reloads the snapshot for %s',
+    "changes a ship's row for %s",
     (type) => {
       expect(isShipChange(type)).toBe(true);
     },
   );
 
   it.each(['MessageAccepted', 'DeliveryHanded', 'DeliveryReturned'] as const)(
-    'leaves the snapshot alone for %s',
+    "leaves the ships' rows alone for %s",
     (type) => {
       expect(isShipChange(type)).toBe(false);
     },
@@ -287,7 +287,7 @@ function aLiveFleet(answers: Readonly<Record<string, (input: unknown) => unknown
 const settled = () => new Promise((resolve) => setTimeout(resolve, SETTLE_MS));
 
 describe('the live fleet (performance design, decision 3)', () => {
-  it('reloads neither the fleet snapshot nor the full health for any event', async () => {
+  it('reloads neither fleet.list nor the full health for any event', async () => {
     const builder = aShip({});
     const live = aLiveFleet({ 'fleet.list': () => [builder], 'fleet.health': () => ({}), 'fleet.listedShip': () => builder, 'fleet.stuckCount': () => ({ count: 0, oldestSince: null }) });
     live.show(new QueryObserver(live.queryClient, live.trpc.fleet.list.queryOptions()));
@@ -300,32 +300,6 @@ describe('the live fleet (performance design, decision 3)', () => {
     await settled();
 
     expect({ list: live.askedOf('fleet.list'), health: live.askedOf('fleet.health') }).toEqual({ list: 1, health: 1 });
-    live.close();
-  });
-
-  it("writes the ship's row, read alone, into the fleet snapshot for an event that changes it", async () => {
-    const builder = aShip({ status: 'awaitingCrew' });
-    const argo = aShip({ name: 'argo', type: 'operator', kind: 'operator' });
-    const live = aLiveFleet({ 'fleet.list': () => [argo, builder], 'fleet.listedShip': () => ({ ...builder, status: 'crewed' }) });
-    live.show(new QueryObserver(live.queryClient, live.trpc.fleet.list.queryOptions()));
-    await expect.poll(() => live.askedOf('fleet.list')).toBe(1);
-
-    live.onItem({ kind: 'event', event: anEvent('ShipClaimed', { shipId: builder.id, hasMessage: false }) });
-
-    await expect.poll(() => live.queryClient.getQueryData(live.trpc.fleet.list.queryKey())).toEqual([argo, { ...builder, status: 'crewed' }]);
-    live.close();
-  });
-
-  it("adds a commissioned ship's row to the fleet snapshot", async () => {
-    const argo = aShip({ name: 'argo', type: 'operator', kind: 'operator' });
-    const scout = aShip({ name: 'scout', status: 'awaitingCrew' });
-    const live = aLiveFleet({ 'fleet.list': () => [argo], 'fleet.listedShip': () => scout });
-    live.show(new QueryObserver(live.queryClient, live.trpc.fleet.list.queryOptions()));
-    await expect.poll(() => live.askedOf('fleet.list')).toBe(1);
-
-    live.onItem({ kind: 'event', event: anEvent('ShipCommissioned', { shipId: scout.id, hasMessage: false }) });
-
-    await expect.poll(() => live.queryClient.getQueryData(live.trpc.fleet.list.queryKey())).toEqual([argo, scout]);
     live.close();
   });
 

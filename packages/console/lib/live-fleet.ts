@@ -10,10 +10,10 @@ import { useIsReopening } from './live-updates';
 import { useTRPC } from './trpc';
 
 /**
- * The events that change what the fleet snapshot shows: a ship, its crew,
+ * The events that change what a ship's row shows: a ship, its crew,
  * its secret, its starting prompt, its crew's report, its crew request, the labels it carries, or how its last ping stands. An ack can
  * answer a ping and an undeliverable ping shows none, so those two reload it;
- * other message events leave the snapshot as it is.
+ * other message events leave the rows as they are.
  */
 const SHIP_EVENTS: ReadonlySet<EventType> = new Set<EventType>([
   'FleetInitialised',
@@ -78,14 +78,14 @@ export function createLiveReloads(queryClient: QueryClient): (queryKey: readonly
   };
 }
 
-/** A ship as the fleet snapshot lists it: whole, or by name, type and status outside the session's read reach. */
+/** A ship as `fleet.list` lists it: whole, or by name, type and status outside the session's read reach. */
 type ShipRow = ListedShip | ShipOutsideReadReach;
 
 /**
  * Reads ships' rows after live events, at most one read of a ship's row at a
  * time, as createLiveReloads does for a query: an event during a read asks
  * for one more read once it ends. A row that cannot be read is left as it
- * is; the snapshot reads again by itself (LAST_SEEN_REFRESH_MS).
+ * is; the pages read again by themselves (LAST_SEEN_REFRESH_MS).
  */
 export function createShipRowReloads(input: { readRow: (shipId: ShipId) => Promise<ShipRow>; writeRow: (row: ShipRow) => void }): (shipId: ShipId) => void {
   const reading = new Set<ShipId>();
@@ -99,7 +99,7 @@ export function createShipRowReloads(input: { readRow: (shipId: ShipId) => Promi
         input.writeRow(await input.readRow(shipId));
       } while (readAgain.has(shipId));
     } catch {
-      // Left as it is: the snapshot's own refresh brings the row.
+      // Left as it is: the pages' own refresh brings the row.
     } finally {
       reading.delete(shipId);
       readAgain.delete(shipId);
@@ -115,9 +115,9 @@ export function createShipRowReloads(input: { readRow: (shipId: ShipId) => Promi
   };
 }
 
-/** The fleet snapshot with a ship's row as read alone: in its place, or last when the ship is new. */
-export function withListedShip(ships: readonly ShipRow[], row: ShipRow): ShipRow[] {
-  return ships.some((ship) => ship.id === row.id) ? ships.map((ship) => (ship.id === row.id ? row : ship)) : [...ships, row];
+/** The rows with a ship's row as read alone in its place. */
+function withShipInPlace(ships: readonly ShipRow[], row: ShipRow): ShipRow[] {
+  return ships.map((ship) => (ship.id === row.id ? row : ship));
 }
 
 /** A page of ships as `fleet.list` answers it. */
@@ -162,7 +162,7 @@ export function withListedShipOnPages(pages: InfiniteData<ShipPage>, { row, isLi
     return { ...pages, pages: pages.pages.map((page) => ({ ...page, items: page.items.filter((ship) => ship.id !== row.id) })) };
   }
   if (isOnPages(pages, row.id)) {
-    return { ...pages, pages: pages.pages.map((page) => ({ ...page, items: withListedShip(page.items, row) })) };
+    return { ...pages, pages: pages.pages.map((page) => ({ ...page, items: withShipInPlace(page.items, row) })) };
   }
   const [first, ...rest] = pages.pages;
   return first === undefined ? pages : { ...pages, pages: [{ ...first, items: [row, ...first.items] }, ...rest] };
@@ -228,8 +228,8 @@ export interface LiveFleet {
  * What each item of the fleet's live stream reloads (docs/architecture.md,
  * "Live updates"), only the resources the event concerns (performance
  * design, decision 3): an event reloads the page of each ship that caused it
- * or that it names; a ship's event those ships' rows in the fleet snapshot
- * and on the overview's loaded pages, each read alone (a ship not on them
+ * or that it names; a ship's event those ships' rows on the overview's
+ * loaded pages, each read alone (a ship not on them
  * goes first, highlighted), the ship counts and the stuck deliveries (their count, summary
  * and places); a message's event the open
  * message, the ships' message lists and argo's inbox, whose delivery states
@@ -249,15 +249,12 @@ export function createLiveFleetHandler(input: {
   onPlacedFirst: (shipId: ShipId) => void;
 }): (item: FleetStreamItem) => void {
   const { trpc, queryClient, reload } = input;
-  // The snapshot holds every page's ships in one array (useFleetSnapshot), not the page fleet.list answers.
-  const snapshotKey: readonly unknown[] = [...trpc.fleet.list.queryKey()];
   // Every view's pages the overview loaded (features/fleet/hooks/fleet-pages.ts).
   const pagesKey: readonly unknown[] = [...trpc.fleet.list.infiniteQueryKey()];
   const loadedPages = () => queryClient.getQueriesData<InfiniteData<ShipPage>>({ queryKey: pagesKey }).flatMap(([, pages]) => (pages === undefined ? [] : [pages]));
   const reloadRow = createShipRowReloads({
     readRow: (shipId) => queryClient.query({ ...trpc.fleet.listedShip.queryOptions({ shipId }), staleTime: 0 }),
     writeRow: (row) => {
-      queryClient.setQueryData<ShipRow[]>(snapshotKey, (ships) => ships && withListedShip(ships, row));
       const views = queryClient.getQueriesData<InfiniteData<ShipPage>>({ queryKey: pagesKey }).flatMap(([queryKey, pages]) => (pages === undefined ? [] : [{ queryKey, pages, isListed: isListedBy(queryKey, row) }]));
       for (const { queryKey, pages, isListed } of views) {
         queryClient.setQueryData<InfiniteData<ShipPage>>(queryKey, withListedShipOnPages(pages, { row, isListed }));
@@ -322,8 +319,8 @@ export function createLiveFleetHandler(input: {
     if (!isShipChange(event.type)) {
       return;
     }
-    // Only a page that shows the snapshot or the overview's pages needs the rows.
-    if (queryClient.getQueryData(snapshotKey) !== undefined || loadedPages().length > 0) {
+    // Only a page that shows the overview's pages needs the rows.
+    if (loadedPages().length > 0) {
       for (const concerned of new Set([event.shipId, event.actorShipId])) {
         if (concerned !== null) {
           reloadRow(concerned);
