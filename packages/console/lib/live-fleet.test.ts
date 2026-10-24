@@ -370,53 +370,6 @@ describe('the live fleet (performance design, decision 3)', () => {
     live.close();
   });
 
-  it.each([
-    { what: 'a view of the active ships', status: undefined },
-    { what: 'a view of the ships awaiting crew', status: ['awaitingCrew'] as const },
-  ])("drops a ship whose status $what does not list from its loaded pages", async ({ status }) => {
-    const argo = aShip({ name: 'argo', type: 'operator', kind: 'operator' });
-    const castaway = aShip({ name: 'castaway', status: 'awaitingCrew' });
-    const live = aLiveFleet({ 'fleet.list': () => ({ items: [argo, castaway], nextCursor: null }), 'fleet.listedShip': () => ({ ...castaway, status: 'retired' }) });
-    const pages = new InfiniteQueryObserver(live.queryClient, live.trpc.fleet.list.infiniteQueryOptions({ limit: 20, ...(status === undefined ? {} : { status: [...status] }) }, { getNextPageParam: () => undefined }));
-    live.show(pages);
-    await expect.poll(() => pages.getCurrentResult().data).toBeDefined();
-
-    live.onItem({ kind: 'event', event: anEvent('ShipRetired', { shipId: castaway.id, hasMessage: false }) });
-
-    await expect.poll(() => pages.getCurrentResult().data?.pages.flatMap((page) => page.items)).toEqual([argo]);
-    live.close();
-  });
-
-  it("puts no ship first on loaded pages whose view does not list its status, nor highlights it", async () => {
-    const argo = aShip({ name: 'argo', type: 'operator', kind: 'operator' });
-    const castaway = aShip({ name: 'castaway', status: 'retired' });
-    const live = aLiveFleet({ 'fleet.list': () => ({ items: [argo], nextCursor: 'more' }), 'fleet.listedShip': () => castaway });
-    const pages = new InfiniteQueryObserver(live.queryClient, live.trpc.fleet.list.infiniteQueryOptions({ limit: 20 }, { getNextPageParam: () => undefined }));
-    live.show(pages);
-    await expect.poll(() => pages.getCurrentResult().data).toBeDefined();
-
-    live.onItem({ kind: 'event', event: anEvent('ShipRetired', { shipId: castaway.id, hasMessage: false }) });
-    await expect.poll(() => live.askedOf('fleet.listedShip')).toBe(1);
-    await settled();
-
-    expect({ rows: pages.getCurrentResult().data?.pages.flatMap((page) => page.items), highlighted: live.highlighted }).toEqual({ rows: [argo], highlighted: [] });
-    live.close();
-  });
-
-  it("puts a retired ship first on loaded pages whose view lists the retired ships", async () => {
-    const argo = aShip({ name: 'argo', type: 'operator', kind: 'operator' });
-    const castaway = aShip({ name: 'castaway', status: 'retired' });
-    const live = aLiveFleet({ 'fleet.list': () => ({ items: [argo], nextCursor: 'more' }), 'fleet.listedShip': () => castaway });
-    const pages = new InfiniteQueryObserver(live.queryClient, live.trpc.fleet.list.infiniteQueryOptions({ limit: 20, status: ['awaitingCrew', 'crewed', 'retired'] }, { getNextPageParam: () => undefined }));
-    live.show(pages);
-    await expect.poll(() => pages.getCurrentResult().data).toBeDefined();
-
-    live.onItem({ kind: 'event', event: anEvent('ShipRetired', { shipId: castaway.id, hasMessage: false }) });
-
-    await expect.poll(() => pages.getCurrentResult().data?.pages.flatMap((page) => page.items)).toEqual([castaway, argo]);
-    live.close();
-  });
-
   it("highlights no ship the overview's loaded pages already show", async () => {
     const argo = aShip({ name: 'argo', type: 'operator', kind: 'operator' });
     const builder = aShip({ status: 'awaitingCrew' });

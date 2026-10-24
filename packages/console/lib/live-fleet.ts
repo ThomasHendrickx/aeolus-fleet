@@ -1,6 +1,6 @@
 import type { EventType, FleetStreamItem, ListedShip, ShipId, ShipOutsideReadReach } from '@aeolus-fleet/common';
 import type { AppRouter } from '@aeolus-fleet/core';
-import { useQueryClient, type InfiniteData, type QueryClient, type QueryKey } from '@tanstack/react-query';
+import { useQueryClient, type InfiniteData, type QueryClient } from '@tanstack/react-query';
 import { useSubscription, type TRPCOptionsProxy } from '@trpc/tanstack-react-query';
 import { useState } from 'react';
 
@@ -130,37 +130,13 @@ function isOnPages(pages: InfiniteData<ShipPage>, shipId: ShipId): boolean {
   return pages.pages.some((page) => page.items.some((ship) => ship.id === shipId));
 }
 
-/** The statuses a view's pages ask `fleet.list` for, read from their query key; undefined when they ask none. */
-function statusesAskedOf(queryKey: QueryKey): readonly unknown[] | undefined {
-  const [, options] = queryKey;
-  if (typeof options !== 'object' || options === null || !('input' in options)) {
-    return undefined;
-  }
-  const { input } = options;
-  if (typeof input !== 'object' || input === null || !('status' in input) || !Array.isArray(input.status)) {
-    return undefined;
-  }
-  const asked: readonly unknown[] = input.status;
-  return asked;
-}
-
-/** Whether a view lists a ship of the row's status: the statuses it asks, or the active ships when it asks none (as `fleet.list` answers). */
-function isListedBy(queryKey: QueryKey, row: ShipRow): boolean {
-  const asked = statusesAskedOf(queryKey);
-  return asked === undefined ? row.status !== 'retired' : asked.includes(row.status);
-}
-
 /**
  * A view's loaded pages with a ship's row as read alone: in its place, or
  * first in the first page when no loaded page shows it, until the pages'
- * refresh puts it in its place or drops it (Thomas's rule, #1173). A row
- * whose status the view does not list leaves its pages, as a retired ship
- * leaves the active ships.
+ * refresh puts it in its place or drops it (Thomas's rule, #1173). The view
+ * shows the row only while it matches the view's filter (lib/ship-rows.ts).
  */
-export function withListedShipOnPages(pages: InfiniteData<ShipPage>, { row, isListed }: { row: ShipRow; isListed: boolean }): InfiniteData<ShipPage> {
-  if (!isListed) {
-    return { ...pages, pages: pages.pages.map((page) => ({ ...page, items: page.items.filter((ship) => ship.id !== row.id) })) };
-  }
+export function withListedShipOnPages(pages: InfiniteData<ShipPage>, row: ShipRow): InfiniteData<ShipPage> {
   if (isOnPages(pages, row.id)) {
     return { ...pages, pages: pages.pages.map((page) => ({ ...page, items: withShipInPlace(page.items, row) })) };
   }
@@ -255,11 +231,9 @@ export function createLiveFleetHandler(input: {
   const reloadRow = createShipRowReloads({
     readRow: (shipId) => queryClient.query({ ...trpc.fleet.listedShip.queryOptions({ shipId }), staleTime: 0 }),
     writeRow: (row) => {
-      const views = queryClient.getQueriesData<InfiniteData<ShipPage>>({ queryKey: pagesKey }).flatMap(([queryKey, pages]) => (pages === undefined ? [] : [{ queryKey, pages, isListed: isListedBy(queryKey, row) }]));
-      for (const { queryKey, pages, isListed } of views) {
-        queryClient.setQueryData<InfiniteData<ShipPage>>(queryKey, withListedShipOnPages(pages, { row, isListed }));
-      }
-      if (views.some(({ pages, isListed }) => isListed && !isOnPages(pages, row.id))) {
+      const isPlacedFirst = loadedPages().some((pages) => !isOnPages(pages, row.id));
+      queryClient.setQueriesData<InfiniteData<ShipPage>>({ queryKey: pagesKey }, (pages) => pages && withListedShipOnPages(pages, row));
+      if (isPlacedFirst) {
         input.onPlacedFirst(row.id);
       }
     },
