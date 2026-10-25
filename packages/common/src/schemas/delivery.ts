@@ -104,10 +104,11 @@ export type PushReceivedDelivery = z.infer<typeof pushReceivedDeliverySchema>;
 /**
  * Input of `ship.pushReceive`: at most how many deliveries to take, 1 to 10,
  * one without it, and what wakes the ship, kept from the lease's first push
- * receive (interop 5.1).
+ * receive (interop 5.1). With shouldSkipHanded, leave handed deliveries out;
+ * received deliveries still return so a lost answer remains recoverable.
  */
 export const pushReceiveInputSchema = z
-  .object({ max: z.int().min(1).max(RECEIVE_MAX_UPPER_BOUND).optional(), waker: leaseWakerSchema.optional() })
+  .object({ max: z.int().min(1).max(RECEIVE_MAX_UPPER_BOUND).optional(), waker: leaseWakerSchema.optional(), shouldSkipHanded: z.boolean().optional() })
   .optional();
 
 export type PushReceiveInput = z.infer<typeof pushReceiveInputSchema>;

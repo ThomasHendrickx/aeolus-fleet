@@ -1055,6 +1055,8 @@ model Event {
   @@index([fleetId, occurredAt], map: "events_turn_reported_idx", where: raw("(type = 'TurnReported'::text)"))
   /// The pruning pass finds the mic and participant events of ended meetings (decision 0066).
   @@index([fleetId, seq], map: "events_meeting_parts_idx", where: raw("(type = ANY (ARRAY['ParticipantAdded'::text, 'ParticipantLeft'::text, 'ParticipantRejoined'::text, 'ParticipantRevoked'::text, 'MicRequested'::text, 'MicRequestWithdrawn'::text, 'MicGiven'::text, 'MicReleased'::text, 'MicTaken'::text, 'MicPatternSet'::text]))"))
+  /// The pruning pass finds a crew's session and secret events past the cutoff (decision 0066).
+  @@index([fleetId, occurredAt], map: "events_crew_idx", where: raw("(type = ANY (ARRAY['ShipClaimed'::text, 'LeaseRevoked'::text, 'LeasePushed'::text, 'ShipReported'::text, 'TurnReported'::text, 'StatementSet'::text, 'CrewStatusChanged'::text, 'SignInTicketIssued'::text, 'ViewerSessionStarted'::text, 'StartingPromptIssued'::text, 'CredentialRevoked'::text]))"))
   @@map("events")
 }
 

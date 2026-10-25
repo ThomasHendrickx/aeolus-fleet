@@ -10,6 +10,7 @@ import { newKey } from '../src/testing/keys.js';
 import { unwrap } from '../src/testing/result.js';
 import { agentCaller, modelOf, operatorCaller, secretOf } from './support/core-fixtures.js';
 import { withOperatorLogin } from './support/operator-login.js';
+import { OPERATOR } from '../src/testing/fleet.js';
 import { createPostgresCore, heldUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 
 // Pruning finished history on a real Postgres (decision 0066; the retention
@@ -267,6 +268,194 @@ function heldAtCandidates(until?: Promise<unknown>) {
 function settledOrWaiting(work: Promise<unknown>): Promise<unknown> {
   return Promise.race([work.catch(() => undefined), new Promise((resolve) => setTimeout(resolve, RACE_WAIT_MS))]);
 }
+
+describe("a pruning pass on Postgres, the rest of a fleet's finished history (S3)", () => {
+  /** The scout's crew released: its lease ended and its secret invalidated, with LeaseRevoked and CredentialRevoked. */
+  async function releaseScout(): Promise<void> {
+    core.clock.advance(1_000);
+    unwrap(await core.useCases.releaseShip(argo, { shipId: scout.shipId }));
+  }
+
+  async function eventTypes(): Promise<string[]> {
+    return (await core.prisma.event.findMany({ where: { fleetId: argo.fleetId }, select: { type: true } })).map((event) => event.type);
+  }
+
+  async function signIn(): Promise<void> {
+    core.clock.advance(1_000);
+    unwrap(await core.useCases.signIn({ email: OPERATOR.email, password: OPERATOR.password }));
+  }
+
+  it("lets a crew's session and secret events past the retention go, and keeps the fleet's own changes", async () => {
+    await releaseScout();
+
+    await passAfter((RETENTION_DAYS + 1) * DAY_MS);
+
+    expect((await eventTypes()).filter((type) => ['ShipClaimed', 'StartingPromptIssued', 'LeaseRevoked', 'CredentialRevoked'].includes(type))).toEqual([]);
+    expect(await eventTypes()).toEqual(expect.arrayContaining(['FleetInitialised', 'ShipCommissioned', 'HistoryPruned']));
+  });
+
+  it("keeps a crew's session and secret events younger than the retention", async () => {
+    await releaseScout();
+
+    await passAfter((RETENTION_DAYS - 1) * DAY_MS);
+
+    expect(await eventTypes()).toEqual(expect.arrayContaining(['ShipClaimed', 'StartingPromptIssued', 'LeaseRevoked', 'CredentialRevoked']));
+  });
+
+  it("keeps a crew's event the newest snapshot has not folded until it folds it (R7)", async () => {
+    core.clock.advance((RETENTION_DAYS + 1) * DAY_MS);
+    await core.useCases.closeHealthSnapshots();
+    const id = newId('event');
+    await core.prisma.$executeRaw`
+      INSERT INTO events (id, fleet_id, type, occurred_at, ship_id, details, seq)
+      SELECT ${id}, ${argo.fleetId}, 'ShipReported', ${new Date(core.clock.now().getTime() - (RETENTION_DAYS + 1) * DAY_MS)}, ${scout.shipId}, '{}'::jsonb, max(seq) + 1
+      FROM events WHERE fleet_id = ${argo.fleetId}`;
+
+    await core.useCases.pruneHistory();
+    const isKeptBeforeTheFold = (await core.prisma.event.count({ where: { id } })) === 1;
+    await passAfter(HOUR_MS);
+
+    expect(isKeptBeforeTheFold).toBe(true);
+    expect(await core.prisma.event.count({ where: { id } })).toBe(0);
+  });
+
+  it('lets a lease that ended and a secret invalidated before the cutoff go, and keeps the open ones and the ship', async () => {
+    await releaseScout();
+
+    await passAfter((RETENTION_DAYS + 1) * DAY_MS);
+
+    expect(await core.prisma.lease.count({ where: { shipId: scout.shipId } })).toBe(0);
+    expect(await core.prisma.credential.count({ where: { shipId: scout.shipId } })).toBe(0);
+    expect(await core.prisma.lease.count({ where: { shipId: planner.shipId, endedAt: null } })).toBe(1);
+    expect(await core.prisma.credential.count({ where: { shipId: planner.shipId, invalidatedAt: null } })).toBe(1);
+    expect(await core.prisma.ship.count({ where: { id: scout.shipId } })).toBe(1);
+  });
+
+  it('keeps an ended lease a kept delivery names', async () => {
+    const question = await sendTo(scout.shipId, { from: planner, contentType: QUESTION_CONTENT_TYPE });
+    await acknowledged(scout, question);
+    await releaseScout();
+
+    await passAfter((RETENTION_DAYS + 1) * DAY_MS);
+
+    expect(await isKept(question)).toBe(true);
+    expect(await core.prisma.lease.count({ where: { shipId: scout.shipId } })).toBe(1);
+  });
+
+  it('lets a console session that ended before the cutoff go, with its notice dismissals, its guide progress and the lease it held', async () => {
+    await signIn();
+    const ended = await core.prisma.consoleSession.findFirstOrThrow({ where: { fleetId: argo.fleetId } });
+    await core.prisma.noticeDismissal.create({ data: { fleetId: argo.fleetId, consoleSessionId: ended.id, noticeId: 'welcome', dismissedAt: core.clock.now() } });
+    await core.prisma.guideProgress.create({ data: { fleetId: argo.fleetId, consoleSessionId: ended.id, step: 1, state: 'open', recordedAt: core.clock.now() } });
+    await signIn();
+
+    await passAfter((RETENTION_DAYS + 1) * DAY_MS);
+
+    const live = await core.prisma.consoleSession.findMany({ where: { fleetId: argo.fleetId } });
+    expect(live.map((session) => session.endedAt)).toEqual([null]);
+    expect(await core.prisma.noticeDismissal.count({ where: { consoleSessionId: ended.id } })).toBe(0);
+    expect(await core.prisma.guideProgress.count({ where: { consoleSessionId: ended.id } })).toBe(0);
+    expect(await core.prisma.lease.count({ where: { id: ended.leaseId ?? undefined } })).toBe(0);
+    expect(await core.prisma.lease.count({ where: { id: live[0]?.leaseId ?? undefined } })).toBe(1);
+  });
+
+  it('lets a console session that expired before the cutoff go, never ended, and keeps the open lease it held', async () => {
+    await signIn();
+    const expired = await core.prisma.consoleSession.findFirstOrThrow({ where: { fleetId: argo.fleetId } });
+
+    await passAfter(expired.expiresAt.getTime() - core.clock.now().getTime() + (RETENTION_DAYS + 1) * DAY_MS);
+
+    expect(await core.prisma.consoleSession.count({ where: { id: expired.id } })).toBe(0);
+    expect(await core.prisma.lease.count({ where: { id: expired.leaseId ?? undefined, endedAt: null } })).toBe(1);
+  });
+
+  it('keeps an ended lease a live console session names', async () => {
+    await signIn();
+    const session = await core.prisma.consoleSession.findFirstOrThrow({ where: { fleetId: argo.fleetId } });
+    await core.prisma.lease.update({ where: { id: session.leaseId ?? undefined }, data: { endedAt: core.clock.now() } });
+
+    await passAfter((RETENTION_DAYS + 1) * DAY_MS);
+
+    expect(await core.prisma.lease.count({ where: { id: session.leaseId ?? undefined } })).toBe(1);
+  });
+
+  it('lets a sign-in ticket used or expired before the cutoff go, and keeps a fresh one', async () => {
+    const ticket = (tokenHash: string, { at, usedAt }: { at: Date; usedAt: Date | null }) => ({
+      tokenHash,
+      fleetId: argo.fleetId,
+      signInAs: 'operator' as const,
+      issuedAt: at,
+      expiresAt: new Date(at.getTime() + 2 * 60_000),
+      usedAt,
+    });
+    const at = core.clock.now();
+    await core.prisma.signInTicket.createMany({ data: [ticket('used', { at, usedAt: at }), ticket('expired', { at, usedAt: null })] });
+    core.clock.advance((RETENTION_DAYS + 1) * DAY_MS);
+    await core.prisma.signInTicket.create({ data: ticket('fresh', { at: core.clock.now(), usedAt: null }) });
+
+    await passAfter(0);
+
+    expect((await core.prisma.signInTicket.findMany({ where: { fleetId: argo.fleetId } })).map((row) => row.tokenHash)).toEqual(['fresh']);
+  });
+
+  it('lets a reach refusal older than the retention go, and keeps a younger one', async () => {
+    const refusal = (at: Date) => ({
+      id: newId('reachRefusal'),
+      fleetId: argo.fleetId,
+      at,
+      sender: { kind: 'ship', id: scout.shipId, name: 'scout', labels: [], owner: null },
+      recipient: { kind: 'ship', ship: { id: planner.shipId, name: 'planner', labels: [], owner: null } },
+      verb: 'send',
+      settingsVersion: 1,
+    });
+    const old = refusal(core.clock.now());
+    await core.prisma.reachRefusal.create({ data: old });
+    core.clock.advance((RETENTION_DAYS + 1) * DAY_MS);
+    const young = refusal(core.clock.now());
+    await core.prisma.reachRefusal.create({ data: young });
+
+    await passAfter(0);
+
+    expect((await core.prisma.reachRefusal.findMany({ where: { fleetId: argo.fleetId } })).map((row) => row.id)).toEqual([young.id]);
+  });
+
+  it('counts each kind that went in HistoryPruned', async () => {
+    await releaseScout();
+
+    await passAfter((RETENTION_DAYS + 1) * DAY_MS);
+
+    const [event] = await core.prisma.event.findMany({ where: { fleetId: argo.fleetId, type: 'HistoryPruned' } });
+    expect(event?.details).toMatchObject({ leases: 1, credentials: 1, consoleSessions: 0, signInTickets: 0, reachRefusals: 0 });
+  });
+
+  it('rolls a batch that fails mid-way back whole: the ended lease, its secret and their events stay', async () => {
+    await releaseScout();
+    core.clock.advance((RETENTION_DAYS + 1) * DAY_MS);
+    await core.useCases.closeHealthSnapshots();
+    const failing = createPrismaUnitOfWork(core.prisma);
+
+    await passWith({
+      run: (work) =>
+        failing.run((tx) =>
+          work({
+            ...tx,
+            historyPruner: {
+              ...tx.historyPruner,
+              go: async (...args) => {
+                await tx.historyPruner.go(...args);
+                throw new Error('disk full');
+              },
+            },
+          }),
+        ),
+    })(() => undefined);
+
+    expect(await core.prisma.lease.count({ where: { shipId: scout.shipId } })).toBe(1);
+    expect(await core.prisma.credential.count({ where: { shipId: scout.shipId } })).toBe(1);
+    expect(await eventTypes()).toEqual(expect.arrayContaining(['LeaseRevoked', 'CredentialRevoked']));
+    expect(await historyPruned()).toBe(0);
+  });
+});
 
 describe('a pruning pass racing', () => {
   it('an acknowledgement of a delivery it holds: the delivery is acknowledged and its message kept', async () => {

@@ -191,6 +191,22 @@ export interface InMemoryState {
   historyPruneLocks: FleetId[];
   /** The messages whose rows another transaction holds, as a test sets it: a pass skips them. */
   lockedMessages: MessageId[];
+  /** The places in each fleet's stream of the events a pruning pass let go: the events left keep theirs, as Postgres's seq column does. */
+  prunedEventSeqs: { fleetId: FleetId; seq: number }[];
+}
+
+/** A fleet's events, numbered in the order they were appended, the places of pruned events skipped. */
+export function numberedEvents(state: Pick<InMemoryState, 'events' | 'prunedEventSeqs'>, fleetId: FleetId): SequencedEvent[] {
+  const gone = new Set(state.prunedEventSeqs.filter((row) => row.fleetId === fleetId).map((row) => row.seq));
+  let seq = 0;
+  return state.events
+    .filter((event) => event.fleetId === fleetId)
+    .map((event) => {
+      do {
+        seq += 1;
+      } while (gone.has(seq));
+      return { ...event, seq };
+    });
 }
 
 export interface InMemoryTx {
@@ -380,6 +396,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     fleetPrunes: [],
     historyPruneLocks: [],
     lockedMessages: [],
+    prunedEventSeqs: [],
   };
 
   let now = new Date(startAt);
@@ -1274,10 +1291,10 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         state.deliveries.push(structuredClone(delivery));
         return Promise.resolve();
       },
-      findClaimableForUpdate: ({ fleetId, shipId, type, leaseId, limit, excluding, inReplyTo }) => {
+      findClaimableForUpdate: ({ fleetId, shipId, type, leaseId, limit, excluding, inReplyTo, shouldSkipHanded }) => {
         const isReplyAsked = (delivery: Delivery) =>
           inReplyTo === undefined || state.messages.some((held) => held.id === delivery.messageId && held.inReplyToMessageId === inReplyTo);
-        const ofFleet = state.deliveries.filter((delivery) => delivery.fleetId === fleetId && isReplyAsked(delivery));
+        const ofFleet = state.deliveries.filter((delivery) => delivery.fleetId === fleetId && isReplyAsked(delivery) && (!shouldSkipHanded || delivery.state !== 'handed'));
         const inFlight = ofFleet
           .filter(
             (delivery) =>
@@ -1785,10 +1802,10 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
   const wakeups: InMemoryWakeups = { ...receiverWatches, watch: (address) => receiverWatches.watch({ ...address }) };
   const fleetNews: InMemoryFleetNews = recordedWatches<FleetId>([]);
 
-  const numbered = (fleetId: FleetId) =>
-    state.events.filter((event) => event.fleetId === fleetId).map((event, index) => ({ ...event, seq: index + 1 }));
+  const numbered = (fleetId: FleetId) => numberedEvents(state, fleetId);
   const feed: FleetEventFeed = {
-    lastSeq: (fleetId) => Promise.resolve(numbered(fleetId).length),
+    lastSeq: (fleetId) =>
+      Promise.resolve(Math.max(numbered(fleetId).at(-1)?.seq ?? 0, ...state.prunedEventSeqs.filter((row) => row.fleetId === fleetId).map((row) => row.seq))),
     after: (fleetId, { seq, limit }) => Promise.resolve(numbered(fleetId).slice(seq, seq + limit)),
   };
 

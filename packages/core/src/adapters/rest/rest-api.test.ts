@@ -575,6 +575,27 @@ describe('a ship call at /api/v1', () => {
     expect(message).toContain('Call report like this: {"state":"working","note":"reviewing PR 89"}');
   });
 
+  it('push receives a fresh delivery past held hand-overs through REST (#1164)', async () => {
+    start();
+    const lookout = `Bearer ${crewedShip('lookout')}`;
+    const scout = `Bearer ${crewedShip('scout')}`;
+    const send = (payload: string) => server.inject({
+      method: 'POST', url: '/api/v1/ship/send', headers: { authorization: lookout },
+      payload: { selector: { kind: 'ship', name: 'scout' }, payload, contentType: 'text/plain', model: 'gpt-6.1-sol', idempotencyKey: payload },
+    });
+    await send('held');
+    const pushed = await server.inject({ method: 'POST', url: '/api/v1/ship/pushReceive', headers: { authorization: scout }, payload: { max: 1 } });
+    const { deliveryId } = z.object({ deliveries: z.tuple([z.object({ deliveryId: z.string() })]) }).parse(pushed.json()).deliveries[0];
+    const handed = await server.inject({ method: 'POST', url: '/api/v1/ship/handed', headers: { authorization: scout }, payload: { deliveryId, handOverNumber: 1 } });
+    await send('fresh');
+
+    const response = await server.inject({ method: 'POST', url: '/api/v1/ship/pushReceive', headers: { authorization: scout }, payload: { max: 1, shouldSkipHanded: true } });
+
+    expect(handed.statusCode).toBe(200);
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ deliveries: [{ payload: 'fresh', state: 'received', handOverNumber: null }] });
+  });
+
   it('re-reads a delivery taken with pushReceive and acknowledged, with no attempt counted (#1106)', async () => {
     start();
     const lookout = `Bearer ${crewedShip('lookout')}`;
