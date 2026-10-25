@@ -10,6 +10,7 @@ import {
   type EventId,
   type EventType,
   type FleetId,
+  type LabelValueId,
   type MeetingId,
   type MessageId,
   type ShipId,
@@ -34,8 +35,12 @@ export interface HistoryParty {
   name: string;
 }
 
-/** Who a message was addressed to: one ship, or any ship of a type. */
-export type HistoryRecipient = { kind: 'ship'; ship: HistoryParty } | { kind: 'type'; type: string } | { kind: 'meeting'; meetingId: MeetingId };
+/** Who a message was addressed to: one ship, any ship of a type, a meeting, or a label selection (decision 0065). */
+export type HistoryRecipient =
+  | { kind: 'ship'; ship: HistoryParty }
+  | { kind: 'type'; type: string }
+  | { kind: 'meeting'; meetingId: MeetingId }
+  | { kind: 'label'; valueIds: readonly LabelValueId[] };
 
 /** One event on a ship's timeline, with its parties named. */
 export interface TimelineEntry {
@@ -57,7 +62,8 @@ export interface TimelineEntry {
  * A message's parties as read reach sees them; for a type, `claimedBy` is the
  * ship that claimed it, if one has. A contribution to a meeting is read
  * through its sender or the participant its delivery went to, `claimedBy`
- * here, else through its sender alone (decision 0061).
+ * here, else through its sender alone (decision 0061); so is a send to a
+ * label, through the ship its delivery went to (decision 0065).
  */
 export function partiesOf(message: { sender: HistoryParty; recipient: HistoryRecipient }, claimedBy: HistoryParty | null): MessageParties {
   const { sender, recipient } = message;
@@ -75,6 +81,7 @@ function recipientParty(recipient: HistoryRecipient, participant: HistoryParty):
     case 'type':
       return recipient;
     case 'meeting':
+    case 'label':
       return { kind: 'ship', shipId: participant.id };
   }
 }

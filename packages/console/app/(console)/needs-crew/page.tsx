@@ -5,7 +5,7 @@ import { ComposeMessage } from '../../../features/compose/organisms/compose-mess
 import { useNeedsCrewPages } from '../../../features/needs-crew/hooks/needs-crew-pages';
 import { NeedsCrewAction } from '../../../features/needs-crew/state/needs-crew-action';
 import { ShipActions } from '../../../features/ship-actions/organisms/ship-actions';
-import { NewCrewLineFlow } from '../../../features/squadrons/organisms/get-new-crew-line';
+import { NewCrewLineFlow } from '../../../features/squadrons/state/get-new-crew-line';
 import { NeedsCrewList } from '../../../features/needs-crew/ui/organisms/needs-crew-list';
 import { ListPage } from '../../../components/organisms/list-page';
 import { useConsoleFrame } from '../../../lib/console-frame';

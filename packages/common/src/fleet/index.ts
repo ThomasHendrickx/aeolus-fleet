@@ -173,8 +173,12 @@ export const SHIP_STATUSES = ['awaitingCrew', 'crewed', 'retired'] as const;
 export const shipStatusSchema = z.enum(SHIP_STATUSES);
 export type ShipStatus = z.infer<typeof shipStatusSchema>;
 
-/** Who a message is for: one ship (by id or by name), any ship of a type, or every other participant of a meeting (decision 0061). Group and fleet come later. */
-export const SELECTOR_KINDS = ['ship', 'type', 'meeting'] as const;
+/**
+ * Who a message is for: one ship (by id or by name), any ship of a type, every
+ * other participant of a meeting (decision 0061), or every ship a label
+ * selection names (decision 0065).
+ */
+export const SELECTOR_KINDS = ['ship', 'type', 'meeting', 'label'] as const;
 export const selectorKindSchema = z.enum(SELECTOR_KINDS);
 export type SelectorKind = z.infer<typeof selectorKindSchema>;
 

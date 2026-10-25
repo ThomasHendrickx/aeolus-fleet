@@ -17,7 +17,7 @@ import { useHostedAccountUrl } from '../../../lib/hosted-account';
 import { shipLimitReached } from '../../../lib/limits';
 import { useSquadronsConnection } from '../../../lib/squadrons';
 import { useSquadrons } from '../../../lib/squadrons-api';
-import { useCrewSettingsCheck, useMachines, useTrierarchPluginConnection } from '../../../lib/trierarch-plugin';
+import { useCrewSettingsCheck, useEnabledModels, useMachines, useTrierarchPluginConnection } from '../../../lib/trierarch-plugin';
 import { useShipTypes, useTypeShipCount } from '../../../lib/ship-types';
 import { grantableScopes } from '../services/grantable-scopes';
 
@@ -41,12 +41,13 @@ export function CommissionShip({ isOpen, onOpenChange }: { isOpen: boolean; onOp
   // Only a connected plugin can place a request: until then, a request is crewed by hand.
   const hasTrierarchs = useTrierarchPluginConnection() === 'connected';
   const machines = useMachines();
+  const enabledModels = useEnabledModels();
   const squadronsConnection = useSquadronsConnection();
   const squadrons = useSquadrons();
   const [isPromptOpen, setIsPromptOpen] = useState(false);
   // Null until the form changes: the check then asks for the settings the form starts with.
   const [crewSettings, setCrewSettings] = useState<CrewSettings | undefined | null>(null);
-  const offers = offersOf(machines.data ?? []);
+  const offers = offersOf(machines.data ?? [], enabledModels.data ?? []);
   const labelContext = useLabelContext(machines.data?.map((machine) => machine.shipId));
   const { shipLabelsMax, fleetScopes } = useConsoleConstants();
   const scopes = useFleetScopes();

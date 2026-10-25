@@ -4,16 +4,16 @@ import { useRouter } from 'next/navigation';
 import { use, useState } from 'react';
 
 import { ComposeMessage } from '../../../../features/compose/organisms/compose-message';
-import { HandoffWiring } from '../../../../features/squadrons/organisms/handoff-wiring';
-import { KeptMessages } from '../../../../features/squadrons/organisms/kept-messages';
-import { MemberActions } from '../../../../features/squadrons/organisms/member-actions';
-import { SquadronActions } from '../../../../features/squadrons/organisms/squadron-actions';
-import { MemberList } from '../../../../features/squadrons/organisms/member-list';
-import { SquadronHeader } from '../../../../features/squadrons/organisms/squadron-header';
+import { HandoffWiring } from '../../../../features/squadrons/ui/organisms/handoff-wiring';
+import { KeptMessages } from '../../../../features/squadrons/ui/organisms/kept-messages';
+import { MemberActions } from '../../../../features/squadrons/state/member-actions';
+import { SquadronActions } from '../../../../features/squadrons/ui/organisms/squadron-actions';
+import { MemberList } from '../../../../features/squadrons/ui/organisms/member-list';
+import { SquadronHeader } from '../../../../features/squadrons/ui/organisms/squadron-header';
 import { DetailPage } from '../../../../components/organisms/detail-page';
 import { useConsoleFrame } from '../../../../lib/console-frame';
-import { SquadronSummary } from '../../../../features/squadrons/molecules/squadron-summary';
-import { SquadronsNotConnected } from '../../../../features/squadrons/molecules/squadrons-not-connected';
+import { SquadronSummary } from '../../../../features/squadrons/ui/molecules/squadron-summary';
+import { SquadronsNotConnected } from '../../../../features/squadrons/ui/molecules/squadrons-not-connected';
 import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
 import { lazyDialog } from '../../../../lib/lazy-dialog';
 import { useAccess } from '../../../../lib/access';
@@ -37,10 +37,10 @@ import type { AddedMember, Squadron } from '../../../../lib/squadrons-schemas';
 import { healthCounts, otherMembersOfRole, roleOptions, squadronActionsOffered, workCounts } from '../../../../lib/squadrons-view';
 
 // Dialogs load when first opened, not with the page.
-const AddMemberDialog = lazyDialog(() => import('../../../../features/squadrons/organisms/add-member-dialog').then((module) => module.AddMemberDialog), (props) => props.isOpen);
+const AddMemberDialog = lazyDialog(() => import('../../../../features/squadrons/ui/organisms/add-member-dialog').then((module) => module.AddMemberDialog), (props) => props.isOpen);
 const CrewLineDialog = lazyDialog(() => import('../../../../components/organisms/crew-line-dialog').then((module) => module.CrewLineDialog), (props) => props.isOpen);
 const RemoveMemberDialog = lazyDialog(() => import('../../../../components/organisms/remove-member-dialog').then((module) => module.RemoveMemberDialog), (props) => props.isOpen);
-const StandDownDialog = lazyDialog(() => import('../../../../features/squadrons/organisms/stand-down-dialog').then((module) => module.StandDownDialog), (props) => props.isOpen);
+const StandDownDialog = lazyDialog(() => import('../../../../features/squadrons/ui/organisms/stand-down-dialog').then((module) => module.StandDownDialog), (props) => props.isOpen);
 
 /**
  * A squadron's page: its header, its members by role, each on station or

@@ -1462,9 +1462,10 @@ describe('the handed migration', () => {
       await before.$executeRaw`
         INSERT INTO leases (id, fleet_id, ship_id, location, started_at)
         VALUES (${leaseId}, ${fleetId}, ${shipId}, 'DEVICE', ${now})`;
-      await before.message.createMany({
-        data: [{ id: messageId, fleetId, senderShipId: shipId, selectorKind: 'ship', selectorShipId: shipId, payload: '{}', contentType: 'application/json', idempotencyKey: messageId, requestHash: messageId, createdAt: now }],
-      });
+      // Raw: the generated client writes the defaults of columns later migrations add.
+      await before.$executeRaw`
+        INSERT INTO messages (id, fleet_id, sender_ship_id, selector_kind, selector_ship_id, payload, content_type, idempotency_key, request_hash, created_at)
+        VALUES (${messageId}, ${fleetId}, ${shipId}, 'ship', ${shipId}, '{}', 'application/json', ${messageId}, ${messageId}, ${now})`;
       // Raw: the generated client knows no state delivered any more.
       await before.$executeRaw`
         INSERT INTO deliveries (id, fleet_id, message_id, recipient_ship_id, state, claimed_by_ship_id, claimed_by_lease_id, attempts, created_at)

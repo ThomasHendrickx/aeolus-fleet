@@ -201,8 +201,12 @@ export interface DeliveryRepository {
   findForUpdate(fleetId: FleetId, deliveryId: DeliveryId): Promise<Delivery | undefined>;
   /** The delivery, read without a lock. */
   find(fleetId: FleetId, deliveryId: DeliveryId): Promise<Delivery | undefined>;
-  /** The one delivery a message has, read without a lock. */
-  findOfMessage(fleetId: FleetId, messageId: MessageId): Promise<Delivery | undefined>;
+  /**
+   * The delivery of a message that reached the ship, read without a lock:
+   * the one to it, or one of its type it claimed. A message to a label or a
+   * meeting has one per ship (decisions 0061, 0065), so the ship picks it.
+   */
+  findOfMessageReaching(fleetId: FleetId, reached: { messageId: MessageId; shipId: ShipId }): Promise<Delivery | undefined>;
   /**
    * The ping to the ship whose delivery is still open, pending or in flight:
    * at most one, since pings never stack. Locks nothing: a ping holds the ship.

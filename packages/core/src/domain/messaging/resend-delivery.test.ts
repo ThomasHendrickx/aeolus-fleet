@@ -19,6 +19,7 @@ import { UNDELIVERABLE_AT_ATTEMPT } from './delivery.js';
 import { newKey } from '../../testing/keys.js';
 import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
+import { valueIdOf } from '../../../test/support/label-fixtures.js';
 
 let core: InMemoryCore;
 let useCases: ReturnType<typeof messagingUseCases>;
@@ -292,5 +293,33 @@ describe('resending within read reach (decision 0046)', () => {
     await expect(fleet.messaging.resendDelivery(resender, { deliveryId })).resolves.toEqual({ isOk: false, error: { kind: 'DELIVERY_NOT_FOUND', message: `Delivery ${deliveryId} does not exist` } });
     expect(fleet.core.state.deliveries.find((held) => held.id === deliveryId)?.state).toBe('undeliverable');
     expect(fleet.core.state.messages).toHaveLength(messages);
+  });
+});
+
+describe('resending one delivery of a send to a label (decision 0065, R8)', () => {
+  it('sends it to its ship alone, as a message of its own, leaving the other deliveries as they are', async () => {
+    const { shipId: lookoutId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'lookout', type: 'tester' }));
+    unwrap(await registry.defineLabel(argo, { key: 'team', values: ['a'] }));
+    const teamA = valueIdOf(core, { key: 'team', value: 'a' });
+    for (const shipId of [scoutId, lookoutId]) {
+      unwrap(await registry.assignLabel(argo, { shipId, valueId: teamA }));
+    }
+    const { messageId: originalId } = unwrap(
+      await useCases.sendMessage(planner, { ...modelOf(planner), selector: { kind: 'label', valueIds: [teamA] }, payload: 'main is red', idempotencyKey: newKey() }),
+    );
+    const toScout = core.state.deliveries.find((held) => held.messageId === originalId && held.recipient.kind === 'ship' && held.recipient.shipId === scoutId);
+    for (let claim = 1; claim <= UNDELIVERABLE_AT_ATTEMPT; claim += 1) {
+      unwrap(await useCases.receiveDeliveries(scout, {}));
+    }
+    expect(toScout && stored(toScout.id)?.state).toBe('undeliverable');
+
+    const { messageId } = unwrap(await useCases.resendDelivery(argo, { deliveryId: toScout?.id ?? core.ids('delivery') }));
+
+    expect(message(messageId)?.selector).toEqual({ kind: 'ship', shipId: scoutId });
+    expect(core.state.deliveries.filter((held) => held.messageId === messageId).map((held) => held.recipient)).toEqual([{ kind: 'ship', shipId: scoutId }]);
+    expect(core.state.deliveries.filter((held) => held.messageId === originalId).map((held) => [held.recipient, held.state])).toEqual([
+      [{ kind: 'ship', shipId: scoutId }, 'dismissed'],
+      [{ kind: 'ship', shipId: lookoutId }, 'pending'],
+    ]);
   });
 });

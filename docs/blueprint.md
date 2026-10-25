@@ -292,7 +292,7 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Term | Meaning | Held by |
 | --- | --- | --- |
 | Message | An immutable envelope with an opaque payload of at most 64 KB and a content type, from one ship to a selector; may reply to or resend another | core |
-| Selector | Who a message is for: `ship` (id, or name resolved at send), `type` or `meeting`; `group` and `fleet` later. Not a rule's selection | core |
+| Selector | Who a message is for: `ship` (id, or name resolved at send), `type`, `meeting`, or `label`, the ships carrying every value of a label selection, one delivery each (0065). Not a rule's selection | core |
 | Delivery | One message to one recipient, with its state: pending, received, handed, acknowledged, handled, not handled, undeliverable, dismissed, abandoned (0040) | core |
 | Acknowledgement | The receiver taking a delivery on receipt; Aeolus distributes, never executes (0001) | core |
 | Forced | A send with `messages:force`: comes first, stopping a busy turn (0040) | core |
@@ -360,7 +360,7 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Term | Meaning | Held by |
 | --- | --- | --- |
 | Trierarch | A plain process per computer, not an AI, crewing an app ship of type `trierarch` with `crew:run`; starts, restarts, wakes and stops sessions, never picks, commissions or retires (0026, [trierarch.md](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/docs/trierarch.md)) | trierarch |
-| Trierarch plugin | The plugin that brings computers in and assigns crew requests (0030) | trierarch plugin |
+| Trierarch plugin | The plugin that brings computers in and assigns crew requests (0030), placing only the fleet's enabled models when the fleet enables any (0063) | trierarch plugin |
 | Computer | The laptop or server a trierarch runs on, labelled from its report. Not "machine" | trierarch plugin |
 | Crew request | Declared state on a ship: keep it crewed with these settings; written by its requester, the trierarch plugin and the assigned trierarch (0029) | core |
 | Crew settings | Harness, workspace, squadron, first prompt and options, at most 16 KB (0027) | core |
@@ -713,7 +713,6 @@ v1 proves the fleet sails. Everything below is designed for, with a hook already
 | Commanding ships: a ship class (copied at creation) that grants `argo`-level scopes to sessions that steer the fleet, such as a Claude or ChatGPT chat. `argo` stays the one permanent ship. A ship holding `fleet:commission` can commission others, commanding ships included; that is the operator's risk to take | Scopes stored with the ship at creation; every event records the acting ship; release or retire ends its crew token at once |
 | Per-message signing with HMAC-SHA256 | Versioned key format `aeolus_sk_v1_` |
 | Short-lived JWTs for third parties, exchanged for the ship key | Opaque key stays the root credential |
-| Group and fleet-wide addressing (n-to-n) | Selector with a kind, one delivery row per recipient |
 | Usage and limit tracking for Claude and OpenAI subscriptions | Heartbeat payload can carry usage numbers |
 | Payload encryption with AES-256-GCM and a random IV per message | Payloads are already opaque to the fleet |
 

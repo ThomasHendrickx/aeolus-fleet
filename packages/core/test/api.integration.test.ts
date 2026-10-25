@@ -272,6 +272,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_schedules$/),
       expect.stringMatching(/^\d{14}_repeating_schedules$/),
       expect.stringMatching(/^\d{14}_schedule_limits$/),
+      expect.stringMatching(/^\d{14}_send_to_a_label$/),
       expect.stringMatching(/^\d{14}_define_scope$/),
       expect.stringMatching(/^\d{14}_defined_scopes$/),
     ]);
