@@ -12,7 +12,7 @@ const START = new Date('2026-10-25T09:00:00.000Z');
 let sends: Date[];
 let nextAttempts: (Date | undefined)[];
 let errors: unknown[];
-let failing: boolean;
+let isFailing: boolean;
 let timer: ScheduleTimer;
 
 function inMs(ms: number): Date {
@@ -23,7 +23,7 @@ function start(): ScheduleTimer {
   timer = startScheduleTimer({
     send: () => {
       sends.push(new Date());
-      if (failing) {
+      if (isFailing) {
         return Promise.reject(new Error('the database is gone'));
       }
       return Promise.resolve({ nextAttemptAt: nextAttempts.shift() });
@@ -41,7 +41,7 @@ beforeEach(() => {
   sends = [];
   nextAttempts = [];
   errors = [];
-  failing = false;
+  isFailing = false;
 });
 
 afterEach(async () => {
@@ -97,10 +97,10 @@ describe('a schedule timer', () => {
   });
 
   it('tells a failed send to onError and goes on with the next schedule it is told of', async () => {
-    failing = true;
+    isFailing = true;
     start();
     await vi.advanceTimersByTimeAsync(0);
-    failing = false;
+    isFailing = false;
 
     timer.told(inMs(2_000));
     await vi.advanceTimersByTimeAsync(2_000);

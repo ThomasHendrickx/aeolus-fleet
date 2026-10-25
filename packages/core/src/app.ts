@@ -10,6 +10,7 @@ import { createFleetEventWakeups, fleetEventWakeupsOf } from './adapters/prisma/
 import { createReceiverWakeups } from './adapters/prisma/receiver-wakeups.js';
 import type { Clock } from './domain/shared/clock.js';
 import { repeatPass } from './repeating-pass.js';
+import { startScheduleTimer } from './schedule-timer.js';
 import { createUseCases, systemClock } from './wiring.js';
 
 export interface AppOptions {
@@ -32,7 +33,7 @@ export interface AppOptions {
   receiveWaitMs?: number;
   /** The installation token that opens the installation procedures; unset, they are off. */
   installationToken?: string;
-  /** How often the 10 and 60 minute clocks pass; every 30 seconds unless a test says otherwise. */
+  /** How often the 10 and 60 minute clocks and the schedules' fallback pass run; every 30 seconds unless a test says otherwise. */
   overduePassMs?: number;
   /** pagasae's URL, the issuer whose account tokens core trusts (decision 0058); unset, it trusts none. */
   accountTokenIssuer?: string;
@@ -66,8 +67,10 @@ function accountTokenSignaturesOf(issuer: string | undefined, clock: Clock) {
 /**
  * Wires adapters to use cases and returns the HTTP server, not yet listening.
  * The delivery listener starts at once and wakes waiting receives and live
- * subscriptions, and the 10 and 60 minute clocks and the stuck snapshot's
- * close pass every 30 seconds.
+ * subscriptions, and tells the schedule timer of new and advanced schedules;
+ * the timer sends each schedule at its time (decision 0062). The 10 and 60
+ * minute clocks, the stuck snapshot's close and the schedules' fallback
+ * pass every 30 seconds.
  * Closing the server also stops both and disconnects the database.
  */
 export function createApp(options: AppOptions): FastifyInstance {
@@ -100,6 +103,17 @@ export function createApp(options: AppOptions): FastifyInstance {
     consoleOrigin: options.consoleOrigin ?? new URL(options.publicUrl).origin,
   });
 
+  const scheduleSendFailed = (fleetId: string, error: unknown) => {
+    server.log.warn({ ...failureForLog(error), fleetId }, 'a schedule failed to send: sending it again on the next pass');
+  };
+  const scheduleTimer = startScheduleTimer({
+    send: () => useCases.sendDueSchedules(scheduleSendFailed),
+    now: () => Date.now(),
+    onError: (error) => {
+      server.log.warn(failureForLog(error), 'the schedule timer failed to send: the next pass sends what is due');
+    },
+  });
+
   const listener = listenForPendingDeliveries({
     databaseUrl: options.databaseUrl,
     onNotice: (notice) => {
@@ -108,17 +122,23 @@ export function createApp(options: AppOptions): FastifyInstance {
     onFleetEvent: (notice) => {
       fleetEvents.eventCommitted(notice);
     },
+    onScheduleDue: (notice) => {
+      scheduleTimer.told(notice.attemptAt);
+    },
     onListening: () => {
       wakeups.wakeAll();
       fleetEvents.wakeAll();
+      // Notices sent while the listener was away are gone: the timer looks again at once.
+      scheduleTimer.told(new Date());
     },
     onError: (error) => {
       server.log.warn(failureForLog(error), 'delivery listener lost its connection: listening again shortly');
     },
   });
 
-  // One pass, every 30 seconds: the clocks, then the stuck snapshot's close.
-  // Each failure is logged on its own, so one never keeps the other from running.
+  // One pass, every 30 seconds: the clocks, then the stuck snapshot's close,
+  // then whatever schedule is due that a lost timer missed (decision 0062, S14).
+  // Each failure is logged on its own, so one never keeps another from running.
   const overduePasses = repeatPass({
     pass: async () => {
       await useCases.tellOverdueDeliveries().catch((error: unknown) => {
@@ -127,6 +147,10 @@ export function createApp(options: AppOptions): FastifyInstance {
       await useCases.closeHealthSnapshots((fleetId, error) => {
         server.log.warn({ ...failureForLog(error), fleetId }, 'the stuck snapshot failed to close an hour for a fleet: closing it again next pass');
       });
+      const { nextAttemptAt } = await useCases.sendDueSchedules(scheduleSendFailed);
+      if (nextAttemptAt) {
+        scheduleTimer.told(nextAttemptAt);
+      }
     },
     everyMs: options.overduePassMs ?? OVERDUE_PASS_MS,
     onError: (error) => {
@@ -155,6 +179,7 @@ export function createApp(options: AppOptions): FastifyInstance {
 
   server.addHook('onClose', async () => {
     await overduePasses.stop();
+    await scheduleTimer.stop();
     await listener.close();
     await prisma.$disconnect();
   });
