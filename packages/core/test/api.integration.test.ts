@@ -2532,3 +2532,52 @@ describe('verified facts at the API (decision 0059)', () => {
     await expect(database.verifiedFacts.count({ where: { fleetId, shipId: crmId } })).resolves.toBe(0);
   });
 });
+
+describe('scheduled messages (decision 0062)', () => {
+  /** Receives the ship's next delivery, waiting until one comes or five seconds pass. */
+  async function nextDelivery(ship: TRPCClient<AppRouter>) {
+    const until = Date.now() + 5_000;
+    for (;;) {
+      const { deliveries } = await ship.ship.receive.mutate({ max: 1 });
+      if (deliveries.length > 0 || Date.now() > until) {
+        return deliveries;
+      }
+    }
+  }
+
+  it('let a ship schedule a message that core sends at its time as that ship, naming its schedule and send time, and list it ended with its message', async () => {
+    const scout = client({ authorization: `Bearer ${await crewedShip()}` });
+    const chief = client({ authorization: `Bearer ${await crewedShip()}` });
+    const [{ shipId: scoutId }, { shipId: chiefId }] = await Promise.all([scout.ship.whoami.query(), chief.ship.whoami.query()]);
+    // An hour ahead of the test clock, a month behind the database's: due as soon as it is made.
+    const at = new Date(clock.now().getTime() + 3_600_000).toISOString();
+
+    const { scheduleId } = await scout.ship.schedule.mutate({ selector: { kind: 'ship', shipId: chiefId }, payload: 'Check in', idempotencyKey: newKey(), model: SESSION_MODEL, timing: { kind: 'once', at } });
+    const deliveries = await nextDelivery(chief);
+
+    expect(deliveries).toEqual([expect.objectContaining({ senderShipId: scoutId, payload: 'Check in', model: SESSION_MODEL, scheduleId, sendTime: at, meetingId: null })]);
+    const { items } = await scout.ship.schedules.query({ states: ['ended'] });
+    expect(items).toEqual([
+      expect.objectContaining({ scheduleId, shipId: scoutId, state: 'ended', timing: { kind: 'once', at }, nextSendTime: null, lastOutcome: expect.objectContaining({ kind: 'sent', messageId: deliveries[0]?.messageId, sendTime: at }) }),
+    ]);
+  });
+
+  it('let a ship cancel its own, refuse a time in the past, and let a manager list and cancel a ship\'s, but no ship without fleet:manage', async () => {
+    const scout = client({ authorization: `Bearer ${await crewedShip()}` });
+    const manager = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:manage'])}` });
+    const outsider = client({ authorization: `Bearer ${await crewedShip()}` });
+    const { shipId: scoutId } = await scout.ship.whoami.query();
+    const later = (days: number) => ({ kind: 'once' as const, at: new Date(Date.UTC(2027, 0, days)).toISOString() });
+    const toArgo = { selector: { kind: 'ship' as const, name: 'argo' }, payload: 'Reminder', model: SESSION_MODEL };
+    const first = await scout.ship.schedule.mutate({ ...toArgo, idempotencyKey: newKey(), timing: later(1) });
+    const second = await scout.ship.schedule.mutate({ ...toArgo, idempotencyKey: newKey(), timing: later(2) });
+
+    await expect(scout.ship.cancelSchedule.mutate(first)).resolves.toEqual({ scheduleId: first.scheduleId, state: 'cancelled' });
+    await expect(codeOf(scout.ship.schedule.mutate({ ...toArgo, idempotencyKey: newKey(), timing: { kind: 'once', at: '2026-09-29T11:00:00.000Z' } }))).resolves.toBe('BAD_REQUEST');
+    await expect(manager.fleet.schedules.query({ shipId: scoutId })).resolves.toMatchObject({ items: [{ scheduleId: second.scheduleId, state: 'active' }], nextCursor: null });
+    await expect(manager.fleet.cancelSchedule.mutate(second)).resolves.toEqual({ scheduleId: second.scheduleId, state: 'cancelled' });
+    await expect(scout.ship.schedules.query({})).resolves.toEqual({ items: [], nextCursor: null });
+    await expect(codeOf(outsider.fleet.schedules.query({ shipId: scoutId }))).resolves.toBe('FORBIDDEN');
+    await expect(codeOf(outsider.ship.cancelSchedule.mutate(second))).resolves.toBe('NOT_FOUND');
+  });
+});

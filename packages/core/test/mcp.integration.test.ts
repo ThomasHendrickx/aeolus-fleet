@@ -234,6 +234,23 @@ describe('the ship tools at /mcp', () => {
     await expect(refusalOf(headSession, { name: 'requestMic', arguments: { crewToken: headToken, meetingId } })).resolves.toBe(`CONFLICT: Meeting ${meetingId} ended: its mic no longer changes`);
   });
 
+  it('schedule a message, list it and cancel it (decision 0062)', async () => {
+    const scout = await commissioned();
+    const session = await connect();
+    const crewToken = await register(session, scout);
+    const scheduled = z.object({ scheduleId: z.string() });
+
+    const { scheduleId } = await call(session, {
+      tool: { name: 'schedule', answers: scheduled },
+      arguments: { crewToken, model: 'claude-opus-5-5', selector: { kind: 'ship', name: 'argo' }, payload: 'Reminder', idempotencyKey: freshKey(), timing: { kind: 'once', at: '2027-01-01T09:00:00.000Z' } },
+    });
+    const listed = await call(session, { tool: { name: 'schedules', answers: z.object({ items: z.array(z.object({ scheduleId: z.string(), state: z.string() })) }) }, arguments: { crewToken } });
+    const cancelled = await call(session, { tool: { name: 'cancelSchedule', answers: z.object({ scheduleId: z.string(), state: z.string() }) }, arguments: { crewToken, scheduleId } });
+
+    expect(listed.items).toEqual([{ scheduleId, state: 'active' }]);
+    expect(cancelled).toEqual({ scheduleId, state: 'cancelled' });
+  });
+
   it('pong: a ship answers the ping argo sent it, and the ping is acknowledged', async () => {
     const skiff = await commissioned();
     const session = await connect();
