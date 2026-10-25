@@ -1,4 +1,4 @@
-import type { DeliveryId, DeliveryState, MessageId } from '@aeolus-fleet/common';
+import type { DeliveryId, DeliveryState, LabelValueId, MessageId } from '@aeolus-fleet/common';
 
 import type { ShipCaller } from './caller.js';
 import { deliverySinceOf } from './delivery-way.js';
@@ -14,9 +14,12 @@ import { ok, type Result } from './result.js';
 export interface SentMessage {
   messageId: MessageId;
   sentAt: Date;
-  recipient: HistoryRecipient;
+  recipient: SentRecipient;
   deliveries: { deliveryId: DeliveryId; ship: HistoryParty | null; state: DeliveryState; since: Date }[];
 }
+
+/** Who the message was addressed to, a label selection by its value ids as sent. */
+export type SentRecipient = Exclude<HistoryRecipient, { kind: 'label' }> | { kind: 'label'; valueIds: readonly LabelValueId[] };
 
 export type ReadSentMessage = (
   caller: ShipCaller,
@@ -43,7 +46,7 @@ export function createReadSentMessage(deps: { history: ShipHistory }): ReadSentM
     return ok({
       messageId: found.id,
       sentAt: found.sentAt,
-      recipient: found.recipient,
+      recipient: found.recipient.kind === 'label' ? { kind: 'label', valueIds: found.recipient.values.map(({ valueId }) => valueId) } : found.recipient,
       deliveries: found.deliveries.map(({ id, ship, state, steps }) => ({ deliveryId: id, ship, state, since: deliverySinceOf(steps) })),
     });
   };

@@ -225,7 +225,7 @@ describe('reading a send to a label on Postgres', () => {
     const named = { kind: 'label', values: [{ valueId: teamA, key: 'team', value: 'a' }] };
 
     expect(unwrap(await core.useCases.readMessage(argo, { messageId })).recipient).toEqual(named);
-    expect(unwrap(await core.useCases.readShipMessages(argo, { shipId: alpha.shipId })).items.find((message) => message.id === messageId)?.recipient).toEqual(named);
+    expect(unwrap(await core.useCases.readShipMessages(argo, { shipId: lead.shipId })).items.find((message) => message.id === messageId)?.recipient).toEqual(named);
     expect(unwrap(await core.useCases.readShipTimeline(argo, { shipId: alpha.shipId })).items.find((entry) => entry.message?.id === messageId)?.message?.recipient).toEqual(named);
   });
 

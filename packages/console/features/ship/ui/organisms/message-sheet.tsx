@@ -19,7 +19,7 @@ import { statusLabel } from '../../../../components/molecules/status-badge';
 import { messageWay, type WayMachine } from '../../services/message-way';
 import { WayLines } from '../molecules/way-lines';
 import { DeliveryHistory } from './delivery-history';
-import { recipientGroupWords } from '../../../../lib/recipient';
+import { labelSelectionWords, recipientGroupWords } from '../../../../lib/recipient';
 
 interface MessageSheetProps {
   /** The message, once loaded. */
@@ -87,7 +87,7 @@ function Envelope({ message }: { message: MessageDetail }) {
           </span>
         ) : (
           <span>
-            Every ship carrying <span className="font-mono text-id">{recipient.valueIds.join(' and ')}</span>
+            Every ship carrying <span className="font-mono text-id">{labelSelectionWords(recipient.values)}</span>
           </span>
         )}
       </EnvelopeRow>

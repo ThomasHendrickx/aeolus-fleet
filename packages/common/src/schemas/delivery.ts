@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { deliveryStateSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
-import { leaseWakerSchema, messageRecipientSchema, partySchema } from './history.js';
+import { leaseWakerSchema, partySchema } from './history.js';
 import { isOneLine } from './report.js';
 
 /**
@@ -243,7 +243,13 @@ export type SentMessageInput = z.infer<typeof sentMessageInputSchema>;
 export const sentMessageOutputSchema = z.object({
   messageId: idSchema('message'),
   sentAt: z.iso.datetime(),
-  recipient: messageRecipientSchema,
+  /** A label selection by its value ids as sent: its texts are read with fleet:read only. */
+  recipient: z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('ship'), ship: partySchema }),
+    z.object({ kind: z.literal('type'), type: z.string() }),
+    z.object({ kind: z.literal('meeting'), meetingId: idSchema('meeting') }),
+    z.object({ kind: z.literal('label'), valueIds: z.array(idSchema('labelValue')).readonly() }),
+  ]),
   deliveries: z.array(
     z.object({ deliveryId: idSchema('delivery'), ship: partySchema.nullable(), state: deliveryStateSchema, since: z.iso.datetime() }),
   ),

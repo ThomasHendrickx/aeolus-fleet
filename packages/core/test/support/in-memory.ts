@@ -1,4 +1,4 @@
-import { createIdGenerator, idSchema, LEASE_END_REASONS, PING_CONTENT_TYPE, withdrawalOf, type DeliveryId, type FleetId, type IdGenerator, type LeaseWaker, type ShipId } from '@aeolus-fleet/common';
+import { createIdGenerator, idSchema, LEASE_END_REASONS, PING_CONTENT_TYPE, withdrawalOf, type DeliveryId, type FleetId, type IdGenerator, type LabelValueId, type LeaseWaker, type ShipId } from '@aeolus-fleet/common';
 
 import type { ConsoleSession } from '../../src/domain/identity/console-session.js';
 import type { Credential } from '../../src/domain/identity/credential.js';
@@ -89,6 +89,7 @@ import {
   type HistoryMessage,
   type InboxEntry,
   type HistoryParty,
+  type HistoryLabelValue,
   type HistoryRecipient,
   type ShipHistory,
   type TimelineEntry,
@@ -1754,8 +1755,22 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     }
     return { id: found.id, name: found.name };
   };
-  const recipientOf = (fleetId: FleetId, recipient: Addressee): HistoryRecipient =>
-    recipient.kind === 'ship' ? { kind: 'ship', ship: partyOf(fleetId, recipient.shipId) } : recipient;
+  const labelValueOf = (fleetId: FleetId, valueId: LabelValueId): HistoryLabelValue => {
+    const label = state.labels.find((held) => held.fleetId === fleetId && held.values.some((value) => value.id === valueId));
+    const value = label?.values.find((held) => held.id === valueId);
+    return label && value ? { valueId, key: label.key, value: value.value } : { valueId, key: null, value: null };
+  };
+  const recipientOf = (fleetId: FleetId, recipient: Addressee): HistoryRecipient => {
+    switch (recipient.kind) {
+      case 'ship':
+        return { kind: 'ship', ship: partyOf(fleetId, recipient.shipId) };
+      case 'label':
+        return { kind: 'label', values: recipient.valueIds.map((valueId) => labelValueOf(fleetId, valueId)) };
+      case 'type':
+      case 'meeting':
+        return recipient;
+    }
+  };
   const messageOf = (fleetId: FleetId, messageId: FleetEvent['messageId']): Message | undefined =>
     state.messages.find((held) => held.fleetId === fleetId && held.id === messageId);
   /** A message's first delivery by id: its only one, but for a send to a label (decision 0065). */

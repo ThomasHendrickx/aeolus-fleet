@@ -35,12 +35,19 @@ export interface HistoryParty {
   name: string;
 }
 
-/** Who a message was addressed to: one ship, any ship of a type, a meeting, or a label selection (decision 0065). */
+/** A label value of a selection by its texts; both null once its label no longer has the value. */
+export interface HistoryLabelValue {
+  valueId: LabelValueId;
+  key: string | null;
+  value: string | null;
+}
+
+/** Who a message was addressed to: one ship, any ship of a type, a meeting, or a label selection by its texts (decision 0065). */
 export type HistoryRecipient =
   | { kind: 'ship'; ship: HistoryParty }
   | { kind: 'type'; type: string }
   | { kind: 'meeting'; meetingId: MeetingId }
-  | { kind: 'label'; valueIds: readonly LabelValueId[] };
+  | { kind: 'label'; values: readonly HistoryLabelValue[] };
 
 /** One event on a ship's timeline, with its parties named. */
 export interface TimelineEntry {
