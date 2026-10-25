@@ -276,6 +276,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_define_scope$/),
       expect.stringMatching(/^\d{14}_defined_scopes$/),
       expect.stringMatching(/^\d{14}_retention$/),
+      expect.stringMatching(/^\d{14}_history_pruning$/),
     ]);
   });
 });
@@ -912,7 +913,7 @@ describe('ship.send at the API', () => {
     });
     await expect(refusalOf(asShip.ship.send.mutate(toArgo({ inReplyTo })))).resolves.toEqual({
       code: 'NOT_FOUND',
-      message: `Message ${inReplyTo} does not exist: a reply names a message of the fleet`,
+      message: `Message ${inReplyTo} is not in the fleet: it was never sent, or it is no longer kept`,
     });
   });
 
