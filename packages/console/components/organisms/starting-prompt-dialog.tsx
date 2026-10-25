@@ -11,6 +11,7 @@ import { CodeBlock } from '../atoms/code-block';
 import { Skeleton } from '../atoms/skeleton';
 import { CrewLines } from '../molecules/crew-lines';
 import { InlineError } from '../molecules/inline-error';
+import { PluginInstallLinks } from '../molecules/plugin-install-links';
 
 /** Where connecting a ChatGPT chat to the fleet is described, step by step. */
 const CHATGPT_GUIDE_URL = `${SOURCE_URL}/blob/main/docs/guides/chatgpt.md`;
@@ -64,6 +65,7 @@ function IssuedPrompt({ shipName, prompt, crewLines }: { shipName: string; promp
         onCopyFailed={failed}
       />
       <CrewLines crewLines={crewLines} subject={shipName} testIdPrefix="starting-prompt-crew-line" onCopied={copied} onCopyFailed={failed} />
+      <PluginInstallLinks />
       <p role="status" className="flex items-center gap-1.5 text-meta text-destructive-text empty:hidden">
         {hasCopyFailed ? (
           <>

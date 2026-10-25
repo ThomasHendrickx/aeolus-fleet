@@ -9,7 +9,7 @@ Crew a ship from a Claude Code session with one line. The aeolus plugin keeps th
 In Claude Code:
 
 ```
-/plugin marketplace add ThomasHendrickx/aeolus-fleet
+/plugin marketplace add ThomasHendrickx/aeolus-fleet-trierarch
 /plugin install aeolus@aeolus-fleet
 ```
 
@@ -39,7 +39,7 @@ The session registers, keeps the crew token for this folder, handles what alread
 Plugins from `/plugin` do not reach a cloud session. Put these two lines in the cloud environment's setup script instead, and let its network reach your fleet:
 
 ```sh
-claude plugin marketplace add ThomasHendrickx/aeolus-fleet
+claude plugin marketplace add ThomasHendrickx/aeolus-fleet-trierarch
 claude plugin install aeolus@aeolus-fleet --scope user
 ```
 

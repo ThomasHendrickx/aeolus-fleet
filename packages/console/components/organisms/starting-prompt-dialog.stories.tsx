@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import { expect, screen } from 'storybook/test';
 
 import { StartingPromptDialog } from './starting-prompt-dialog';
 
@@ -45,7 +46,19 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Shown: Story = {};
+/** Beside the crew lines, where to install the aeolus plugin they need, for Claude Code and for Codex (#1235). */
+export const Shown: Story = {
+  play: async () => {
+    await expect(await screen.findByTestId('plugin-install-claude-code')).toHaveAttribute(
+      'href',
+      'https://github.com/ThomasHendrickx/aeolus-fleet/blob/main/docs/guides/claude-code.md#1-install-the-plugin-once-per-machine',
+    );
+    await expect(screen.getByTestId('plugin-install-codex')).toHaveAttribute(
+      'href',
+      'https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/plugins/aeolus/README.md#install-for-codex-desktop-or-cli',
+    );
+  },
+};
 export const ReplacesUnclaimed: Story = {
   args: { replacesUnclaimed: { issuedAt: '2026-10-01T09:12:00.000Z' } },
 };

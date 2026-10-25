@@ -8,6 +8,7 @@ import { Skeleton } from '../atoms/skeleton';
 import { CompactCrewLine } from '../molecules/compact-crew-line';
 import { InlineError } from '../molecules/inline-error';
 import { LaunchNote } from '../molecules/launch-note';
+import { PluginInstallLinks } from '../molecules/plugin-install-links';
 
 /** issuing: squadrons is issuing it; shown: the line, once; error: nothing was issued. */
 export type CrewLineDialogState = 'issuing' | 'shown' | 'error';
@@ -47,6 +48,7 @@ function IssuedLines({
     <>
       <LaunchNote note={launchNote} model={model} template={template} testId="crew-line-launch-note" />
       <CompactCrewLine crewLines={crewLines} subject={memberName} testIdPrefix="crew-line-text" />
+      <PluginInstallLinks />
       <p className="flex items-center gap-1.5 text-meta text-muted-foreground">
         <Info aria-hidden className="size-(--size-icon-sm) shrink-0" />
         <span>
