@@ -11,8 +11,8 @@ import { z } from 'zod';
  * and checked by core before every call. `messages:force` sends a forced
  * message, one that comes first (decision 0040); `fleet:on-behalf` reads on
  * behalf of a named ship (decision 0034); `scopes:declare` takes up a
- * plugin namespace and `scopes:grant` grants and revokes on a live ship
- * (decision 0046). `fleet:person`, `fleet:owner`, `fleet:explain`,
+ * plugin namespace, `scopes:grant` grants and revokes on a live ship
+ * (decision 0046) and `scopes:define` defines the fleet's own scopes. `fleet:person`, `fleet:owner`, `fleet:explain`,
  * `fleet:connect` and `labels:any` are the jobs that were argo's alone
  * (decision 0053). `fleet:verify` writes verified facts (decision 0059).
  * `meetings:open` opens a meeting (decision 0061).
@@ -39,6 +39,7 @@ export const SCOPES = [
   'fleet:verify',
   'scopes:declare',
   'scopes:grant',
+  'scopes:define',
   'meetings:open',
 ] as const;
 export const scopeSchema = z.enum(SCOPES);
@@ -67,11 +68,19 @@ export const CORE_SCOPE_DESCRIPTIONS: Readonly<Record<Scope, string>> = {
   'fleet:verify': 'Write and withdraw its verified facts about the ships it manages',
   'scopes:declare': 'Take up one plugin namespace and declare its scopes',
   'scopes:grant': 'Grant and revoke scopes on a live ship, within what its ship may grant',
+  'scopes:define': "Define, describe and remove the fleet's own scopes",
   'meetings:open': 'Open a meeting of the ships its ship reaches, owning and moderating it',
 };
 
 /** The namespaces core reserves and enforces; every other one is a plugin's (decision 0046). */
 export const CORE_NAMESPACES = ['messages', 'fleet', 'crew', 'labels', 'scopes', 'meetings'] as const;
+
+/**
+ * The namespaces of the plugins Aeolus knows, reserved beside the core ones:
+ * the fleet never defines a scope in them, so a known plugin always finds
+ * its namespace free (decision 0046).
+ */
+export const RESERVED_NAMESPACES = ['gateway', 'squadrons', 'trierarch'] as const;
 
 /** A namespace or an action: lowercase letters, digits and hyphens, starting with a letter, 1 to 32 characters (decision 0046). */
 const SCOPE_PART = '[a-z][a-z0-9-]{0,31}';
@@ -249,6 +258,9 @@ export const EVENT_TYPES = [
   'BuiltInRuleChanged',
   'ScopesDeclared',
   'ScopesChanged',
+  'ScopeDefined',
+  'ScopeDescribed',
+  'ScopeRemoved',
   'PluginConnected',
   'PluginDisconnected',
   'VerifiedFactsSet',
