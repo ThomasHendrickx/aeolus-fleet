@@ -33,6 +33,8 @@ import { createPostgresCore, racingUnitOfWork, type PostgresCore } from './suppo
 const newId = createIdGenerator();
 const MODEL = 'claude-opus-5-5';
 const SEND_TIME = '2026-09-29T13:00:00.000Z';
+/** Longer than a claim takes, shorter than a unit of work's timeout: a claim still waiting by then waits on a lock. */
+const CLAIM_WAIT_MS = 2_000;
 
 let core: PostgresCore;
 let fleetId: FleetId;
@@ -238,7 +240,7 @@ describe('two servers', () => {
     expect(await core.prisma.schedule.count({ where: { fleetId, state: 'ended' } })).toBe(20);
   });
 
-  it('never both claim one schedule: two claims that meet, the second skips it', async () => {
+  it('end a schedule once when two claims meet', async () => {
     const scheduleId = await scheduled();
     const racing = racingUnitOfWork({ prisma: core.prisma, transactions: 2 }, (tx, allArrived) => ({
       ...tx,
@@ -257,6 +259,39 @@ describe('two servers', () => {
     // One claim only: a second one would end the schedule a second time, even where the key keeps it to one message.
     expect(await messagesOf(scheduleId)).toHaveLength(1);
     expect(await core.prisma.event.count({ where: { fleetId, type: 'ScheduleEnded' } })).toBe(1);
+  });
+
+  it('never waits on a schedule another server holds: a second claim skips it at once and takes the next one due', async () => {
+    const held = await scheduled();
+    const next = await scheduled();
+    const uow = createPrismaUnitOfWork(core.prisma);
+    let releaseFirst = (): void => undefined;
+    const isReleased = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    let claimedFirst: (claim: ScheduleId | undefined) => void = () => undefined;
+    const firstClaim = new Promise<ScheduleId | undefined>((resolve) => {
+      claimedFirst = resolve;
+    });
+    const first = uow.run(async (tx) => {
+      claimedFirst((await tx.schedules.claimDue(fleetId, []))?.id);
+      await isReleased;
+      return { isOk: true as const, value: undefined };
+    });
+    try {
+      expect(await firstClaim).toBe(held);
+
+      // Without SKIP LOCKED the second claim would wait on the held row until the first transaction ends.
+      const waited = new Promise<'waited'>((resolve) => setTimeout(() => {
+          resolve('waited');
+        }, CLAIM_WAIT_MS));
+      const second = uow.run(async (tx) => ({ isOk: true as const, value: (await tx.schedules.claimDue(fleetId, []))?.id }));
+
+      expect(await Promise.race([second.then((claim) => (claim.isOk ? claim.value : undefined)), waited])).toBe(next);
+    } finally {
+      releaseFirst();
+      await first;
+    }
   });
 
   it('store no second message even for a second claim of the same send time: the derived key finds the first', async () => {
