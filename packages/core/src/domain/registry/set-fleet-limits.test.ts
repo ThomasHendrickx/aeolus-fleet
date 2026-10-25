@@ -16,7 +16,16 @@ beforeEach(async () => {
   core = createInMemoryCore('2026-10-04T12:00:00.000Z');
   setLimits = createSetFleetLimits({ uow: core.uow, clock: core.clock, ids: core.ids });
   ({ fleetId } = await hostedFleet(core));
-  unwrap(await createSetInstallationSettings({ uow: core.uow })({ defaultShipLimit: 10, defaultDailyMessageLimit: 1000, defaultRetentionDays: 30, fleetCap: null }));
+  unwrap(
+    await createSetInstallationSettings({ uow: core.uow })({
+      defaultShipLimit: 10,
+      defaultDailyMessageLimit: 1000,
+      defaultSchedulesPerShipLimit: 20,
+      defaultMinimumScheduleInterval: 60,
+      defaultRetentionDays: 30,
+      fleetCap: null,
+    }),
+  );
   core.state.events.length = 0;
 });
 
@@ -28,12 +37,23 @@ describe("setting a fleet's limits", () => {
       fleetId,
       ships: { setting: { kind: 'fleet', limit: 25 }, applies: 25 },
       dailyMessages: { setting: { kind: 'default' }, applies: 1000 },
+      schedulesPerShip: { setting: { kind: 'default' }, applies: 20 },
+      minimumScheduleInterval: { setting: { kind: 'default' }, applies: 60 },
       retention: { setting: { kind: 'default' }, applies: 30 },
     });
     unwrap(await setLimits({ fleetId, dailyMessages: { kind: 'fleet', limit: null } }));
     await expect(createGetFleetLimits({ uow: core.uow })({ fleetId })).resolves.toMatchObject({
       isOk: true,
       value: { dailyMessages: { setting: { kind: 'fleet', limit: null }, applies: null } },
+    });
+  });
+
+  it('sets the schedules per ship and the minimum schedule interval for the fleet', async () => {
+    const limits = unwrap(await setLimits({ fleetId, schedulesPerShip: { kind: 'fleet', limit: 3 }, minimumScheduleInterval: { kind: 'fleet', limit: null } }));
+
+    expect(limits).toMatchObject({
+      schedulesPerShip: { setting: { kind: 'fleet', limit: 3 }, applies: 3 },
+      minimumScheduleInterval: { setting: { kind: 'fleet', limit: null }, applies: null },
     });
   });
 
@@ -63,7 +83,18 @@ describe("setting a fleet's limits", () => {
         fleetId,
         type: 'FleetLimitsChanged',
         actor: { kind: 'system' },
-        details: { ships: 'fleet', shipLimit: 25, dailyMessages: 'default', dailyMessageLimit: null, retention: 'default', retentionDays: null },
+        details: {
+          ships: 'fleet',
+          shipLimit: 25,
+          dailyMessages: 'default',
+          dailyMessageLimit: null,
+          schedulesPerShip: 'default',
+          schedulesPerShipLimit: null,
+          minimumScheduleInterval: 'default',
+          minimumScheduleIntervalLimit: null,
+          retention: 'default',
+          retentionDays: null,
+        },
       }),
     ]);
   });
@@ -71,12 +102,7 @@ describe("setting a fleet's limits", () => {
   it('writes the retention the fleet now has in FleetLimitsChanged', async () => {
     unwrap(await setLimits({ fleetId, retention: { kind: 'fleet', days: 90 } }));
 
-    expect(core.state.events).toEqual([
-      expect.objectContaining({
-        type: 'FleetLimitsChanged',
-        details: { ships: 'default', shipLimit: null, dailyMessages: 'default', dailyMessageLimit: null, retention: 'fleet', retentionDays: 90 },
-      }),
-    ]);
+    expect(core.state.events).toMatchObject([{ type: 'FleetLimitsChanged', details: { retention: 'fleet', retentionDays: 90 } }]);
   });
 
   it('refuses a retention of 0 days and of part of a day, and changes nothing', async () => {
@@ -87,6 +113,8 @@ describe("setting a fleet's limits", () => {
 
   it('refuses a negative limit, and a fleet the installation does not host', async () => {
     await expect(setLimits({ fleetId, ships: { kind: 'fleet', limit: -1 } })).resolves.toMatchObject({ isOk: false, error: { kind: 'INVALID_LIMIT' } });
+    await expect(setLimits({ fleetId, schedulesPerShip: { kind: 'fleet', limit: -1 } })).resolves.toMatchObject({ isOk: false, error: { kind: 'INVALID_LIMIT' } });
+    await expect(setLimits({ fleetId, minimumScheduleInterval: { kind: 'fleet', limit: 1.5 } })).resolves.toMatchObject({ isOk: false, error: { kind: 'INVALID_LIMIT' } });
     await expect(setLimits({ fleetId: core.ids('fleet'), ships: { kind: 'default' } })).resolves.toMatchObject({ isOk: false, error: { kind: 'FLEET_NOT_FOUND' } });
     expect(core.state.events).toEqual([]);
   });

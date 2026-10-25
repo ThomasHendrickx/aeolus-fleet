@@ -6,6 +6,7 @@ import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-
 import { unwrap } from '../../testing/result.js';
 import { createGetFleetLimits, type GetFleetLimits } from './get-fleet-limits.js';
 import { createSetInstallationSettings } from './set-installation-settings.js';
+import { NO_INSTALLATION_SETTINGS } from './limits.js';
 
 let core: InMemoryCore;
 let getLimits: GetFleetLimits;
@@ -25,13 +26,15 @@ describe("reading a fleet's limits", () => {
         fleetId,
         ships: { setting: { kind: 'default' }, applies: null },
         dailyMessages: { setting: { kind: 'default' }, applies: null },
+        schedulesPerShip: { setting: { kind: 'default' }, applies: null },
+        minimumScheduleInterval: { setting: { kind: 'default' }, applies: null },
         retention: { setting: { kind: 'default' }, applies: null },
       },
     });
   });
 
   it('follows a default as it changes', async () => {
-    unwrap(await createSetInstallationSettings({ uow: core.uow })({ defaultShipLimit: 10, defaultDailyMessageLimit: 1000, defaultRetentionDays: 30, fleetCap: null }));
+    unwrap(await createSetInstallationSettings({ uow: core.uow })({ ...NO_INSTALLATION_SETTINGS, defaultShipLimit: 10, defaultDailyMessageLimit: 1000, defaultRetentionDays: 30, fleetCap: null }));
 
     await expect(getLimits({ fleetId })).resolves.toMatchObject({
       isOk: true,

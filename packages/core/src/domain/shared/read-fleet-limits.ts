@@ -7,7 +7,7 @@ import { nextUtcDayStart, utcDayStart } from './utc-day.js';
 /** Outbound port: what a fleet's limits apply to, read outside a unit of work. */
 export interface FleetLimitReads {
   /** The ship and daily message limits and the retention in days that apply to the fleet now; null where none does. */
-  applied(fleetId: FleetId): Promise<{ ships: number | null; dailyMessages: number | null; retentionDays: number | null }>;
+  applied(fleetId: FleetId): Promise<{ ships: number | null; dailyMessages: number | null; retention: number | null }>;
   /** Its ships that are not retired, argo included. */
   activeShips(fleetId: FleetId): Promise<number>;
   /** The messages it stored on the UTC day that starts at `day`, of any kind and from any sender. */
@@ -43,7 +43,7 @@ export function createReadFleetLimits(deps: { limits: FleetLimitReads; clock: Cl
     return {
       ships: { limit: applied.ships, count: ships },
       dailyMessages: { limit: applied.dailyMessages, count: messages, resetsAt: nextUtcDayStart(now) },
-      retention: { days: applied.retentionDays },
+      retention: { days: applied.retention },
     };
   };
 }

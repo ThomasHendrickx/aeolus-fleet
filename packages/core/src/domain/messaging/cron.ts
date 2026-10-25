@@ -96,6 +96,44 @@ export function cronSendTimeAfter(zoned: { cron: Cron; timeZone: string }, after
   return undefined;
 }
 
+/** How far ahead a cron's send times are walked to find its shortest interval: a year (decision 0062, S12). */
+const INTERVAL_WALK_DAYS = 366;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Two consecutive send times of the cron less than the minimum apart, the
+ * first such pair after an instant within the next year; none when every
+ * pair is at least the minimum apart. Its fields read in UTC, whatever the
+ * schedule's zone: summer time does not shorten a gap.
+ */
+export function cronSendTimesCloserThan(cron: Cron, walk: { after: Date; minimumMs: number }): { first: Date; second: Date } | undefined {
+  const afterMs = walk.after.getTime();
+  const untilMs = afterMs + INTERVAL_WALK_DAYS * DAY_MS;
+  let previousMs: number | undefined;
+  let day = Temporal.Instant.fromEpochMilliseconds(afterMs).toZonedDateTimeISO('UTC').toPlainDate();
+  for (let walked = 0; walked <= INTERVAL_WALK_DAYS; walked += 1, day = day.add({ days: 1 })) {
+    if (!isDayMatching(cron, day)) {
+      continue;
+    }
+    for (const hour of cron.hours) {
+      for (const minute of cron.minutes) {
+        const sendMs = Date.UTC(day.year, day.month - 1, day.day, hour, minute);
+        if (sendMs <= afterMs) {
+          continue;
+        }
+        if (sendMs > untilMs) {
+          return undefined;
+        }
+        if (previousMs !== undefined && sendMs - previousMs < walk.minimumMs) {
+          return { first: new Date(previousMs), second: new Date(sendMs) };
+        }
+        previousMs = sendMs;
+      }
+    }
+  }
+  return undefined;
+}
+
 /** Whether a zone is an IANA zone the server knows. */
 export function isKnownTimeZone(timeZone: string): boolean {
   try {

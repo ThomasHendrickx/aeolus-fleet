@@ -86,6 +86,14 @@ export interface ScheduleRepository {
   save(schedule: Schedule): Promise<void>;
   /** How many messages the schedule has sent: what a repeat's count counts. */
   sentCount(fleetId: FleetId, scheduleId: ScheduleId): Promise<number>;
+  /**
+   * Holds the lock on the ship's schedule count until the unit of work ends,
+   * so creations at the schedules per ship limit take turns and never
+   * overshoot it.
+   */
+  lockShipScheduleCount(fleetId: FleetId, shipId: ShipId): Promise<void>;
+  /** How many schedules the ship holds active or paused: what the schedules per ship limit counts. */
+  countOpenOfShip(fleetId: FleetId, shipId: ShipId): Promise<number>;
   /** The ship's active and paused schedules, oldest first, each held for update, as a retire cancels them. */
   listOpenOfShipForUpdate(fleetId: FleetId, shipId: ShipId): Promise<Schedule[]>;
   /** A page of the ship's schedules in the given states, newest first by id, read without a lock. */

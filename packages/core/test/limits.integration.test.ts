@@ -9,16 +9,17 @@ import { createApp } from '../src/app.js';
 import type { ShipCaller } from '../src/domain/shared/caller.js';
 import type { AppRouter } from '../src/index.js';
 import { createUseCases, type UseCases } from '../src/wiring.js';
-import { FLEET_URL, OPERATOR } from './support/core-fixtures.js';
+import { agentCaller, FLEET_URL, OPERATOR } from './support/core-fixtures.js';
 import { createMigratedDatabase } from '../src/testing/database.js';
 import { newKey } from '../src/testing/keys.js';
 import { createTestClock } from './support/postgres-core.js';
 import { unwrap } from '../src/testing/result.js';
 import { withOperatorLogin } from './support/operator-login.js';
+import { NO_INSTALLATION_SETTINGS } from '../src/domain/registry/limits.js';
 
 // Limits as fleet settings, from HTTP to Postgres and back: the installation
-// sets them, the console reads them, and commission, send and create are
-// refused exactly at them, however many race for the last place.
+// sets them, the console reads them, and commission, send, schedule and
+// create are refused exactly at them, however many race for the last place.
 
 const INSTALLATION_TOKEN = 'aeolus_installation_test_0123456789abcdef';
 const MODEL = 'claude-opus-5-5';
@@ -41,7 +42,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  await installation().settings.set.mutate({ defaultShipLimit: null, defaultDailyMessageLimit: null, defaultRetentionDays: null, fleetCap: null });
+  await installation().settings.set.mutate({ ...NO_INSTALLATION_SETTINGS, defaultShipLimit: null, defaultDailyMessageLimit: null, fleetCap: null });
 });
 
 afterAll(async () => {
@@ -62,6 +63,19 @@ async function newFleet(name: string) {
   return installation().fleets.create.mutate({ requestId: newKey(), name, operatorEmail: `${name}@example.com` });
 }
 
+/** A crewed agent ship of the fleet, as a caller of the use cases and as a tRPC client with its crew token. */
+async function crewedScout(fleet: { fleetId: FleetId; operatorShipId: ShipId }) {
+  const { shipId, secret } = unwrap(await core.commissionShip(argoOf(fleet), { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
+  const { crewToken } = unwrap(await core.claimShip({ shipId, secret: secret ?? '', location: { kind: 'CLOUD' }, harness: 'claude-code' }));
+  const asScout = createTRPCClient<AppRouter>({ links: [httpBatchLink({ url: `${address}/trpc`, headers: { authorization: `Bearer ${crewToken}` } })] });
+  return { scout: agentCaller({ fleetId: fleet.fleetId, shipId }), asScout };
+}
+
+/** A once schedule to argo, a day ahead of the test clock. */
+function aSchedule() {
+  return { selector: { kind: 'ship' as const, name: 'argo' }, payload: 'Check in', model: MODEL, idempotencyKey: newKey(), timing: { kind: 'once' as const, at: new Date('2026-10-05T12:00:00.000Z') } };
+}
+
 /** The tRPC error code and message a call fails with; undefined when it succeeds. */
 async function refusalOf(call: Promise<unknown>): Promise<{ code: string | undefined; message: string } | undefined> {
   try {
@@ -77,33 +91,42 @@ async function refusalOf(call: Promise<unknown>): Promise<{ code: string | undef
 
 describe("the installation's settings", () => {
   it('are no limit and no retention until set, and keep what is set', async () => {
-    await expect(installation().settings.get.query()).resolves.toEqual({ defaultShipLimit: null, defaultDailyMessageLimit: null, defaultRetentionDays: null, fleetCap: null });
+    await expect(installation().settings.get.query()).resolves.toEqual({ ...NO_INSTALLATION_SETTINGS, defaultShipLimit: null, defaultDailyMessageLimit: null, defaultRetentionDays: null, fleetCap: null });
+    const settings = { defaultShipLimit: 10, defaultDailyMessageLimit: 1000, defaultSchedulesPerShipLimit: 20, defaultMinimumScheduleInterval: 300, defaultRetentionDays: 30, fleetCap: 50 };
 
-    await installation().settings.set.mutate({ defaultShipLimit: 10, defaultDailyMessageLimit: 1000, defaultRetentionDays: 30, fleetCap: 50 });
+    await installation().settings.set.mutate(settings);
 
-    await expect(installation().settings.get.query()).resolves.toEqual({ defaultShipLimit: 10, defaultDailyMessageLimit: 1000, defaultRetentionDays: 30, fleetCap: 50 });
+    await expect(installation().settings.get.query()).resolves.toEqual(settings);
   });
 
   it('refuse a default retention of 0 days as a bad request', async () => {
-    await expect(installation().settings.set.mutate({ defaultShipLimit: null, defaultDailyMessageLimit: null, defaultRetentionDays: 0, fleetCap: null })).rejects.toMatchObject({
-      data: { code: 'BAD_REQUEST' },
-    });
+    await expect(installation().settings.set.mutate({ ...NO_INSTALLATION_SETTINGS, defaultRetentionDays: 0 })).rejects.toMatchObject({ data: { code: 'BAD_REQUEST' } });
   });
 });
 
 describe("a fleet's limits", () => {
   it('follow the defaults until set for the fleet, and go back to them', async () => {
     const { fleetId } = await newFleet('limited');
-    await installation().settings.set.mutate({ defaultShipLimit: 10, defaultDailyMessageLimit: 1000, defaultRetentionDays: 30, fleetCap: null });
+    await installation().settings.set.mutate({ ...NO_INSTALLATION_SETTINGS, defaultShipLimit: 10, defaultDailyMessageLimit: 1000, defaultRetentionDays: 30, fleetCap: null });
 
     await expect(
-      installation().fleets.setLimits.mutate({ fleetId, ships: { kind: 'fleet', limit: 25 }, dailyMessages: { kind: 'fleet', limit: null }, retention: { kind: 'fleet', days: 7 } }),
+      installation().fleets.setLimits.mutate({
+        fleetId,
+        ships: { kind: 'fleet', limit: 25 },
+        dailyMessages: { kind: 'fleet', limit: null },
+        schedulesPerShip: { kind: 'fleet', limit: 3 },
+        minimumScheduleInterval: { kind: 'fleet', limit: 600 },
+        retention: { kind: 'fleet', days: 7 },
+      }),
     ).resolves.toEqual({
       fleetId,
       ships: { setting: { kind: 'fleet', limit: 25 }, applies: 25 },
       dailyMessages: { setting: { kind: 'fleet', limit: null }, applies: null },
+      schedulesPerShip: { setting: { kind: 'fleet', limit: 3 }, applies: 3 },
+      minimumScheduleInterval: { setting: { kind: 'fleet', limit: 600 }, applies: 600 },
       retention: { setting: { kind: 'fleet', days: 7 }, applies: 7 },
     });
+    await expect(installation().fleets.get.query({ fleetId })).resolves.toMatchObject({ limits: { schedulesPerShip: { applies: 3 }, minimumScheduleInterval: { applies: 600 } } });
     await installation().fleets.setLimits.mutate({ fleetId, ships: { kind: 'default' }, retention: { kind: 'default' } });
     await expect(installation().fleets.limits.query({ fleetId })).resolves.toMatchObject({
       ships: { setting: { kind: 'default' }, applies: 10 },
@@ -113,7 +136,7 @@ describe("a fleet's limits", () => {
 
   it("keep a fleet's own retention of none while the default keeps 30 days", async () => {
     const { fleetId } = await newFleet('kept');
-    await installation().settings.set.mutate({ defaultShipLimit: null, defaultDailyMessageLimit: null, defaultRetentionDays: 30, fleetCap: null });
+    await installation().settings.set.mutate({ ...NO_INSTALLATION_SETTINGS, defaultRetentionDays: 30 });
 
     await installation().fleets.setLimits.mutate({ fleetId, retention: { kind: 'fleet', days: null } });
 
@@ -127,7 +150,7 @@ describe("a fleet's limits", () => {
   });
 
   it('are read by the console with what each counts', async () => {
-    await installation().settings.set.mutate({ defaultShipLimit: 10, defaultDailyMessageLimit: 1000, defaultRetentionDays: 30, fleetCap: null });
+    await installation().settings.set.mutate({ ...NO_INSTALLATION_SETTINGS, defaultShipLimit: 10, defaultDailyMessageLimit: 1000, defaultRetentionDays: 30, fleetCap: null });
     const signedIn = await fetch(`${address}/trpc/console.signIn`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', origin: new URL(FLEET_URL).origin },
@@ -196,7 +219,7 @@ describe('the limits at their boundary', () => {
 
   it('create fleets up to the cap however many race, and refuse the rest', async () => {
     const hosted = await database.fleet.count();
-    await installation().settings.set.mutate({ defaultShipLimit: null, defaultDailyMessageLimit: null, defaultRetentionDays: null, fleetCap: hosted + 2 });
+    await installation().settings.set.mutate({ ...NO_INSTALLATION_SETTINGS, defaultShipLimit: null, defaultDailyMessageLimit: null, fleetCap: hosted + 2 });
 
     const results = await Promise.all(
       Array.from({ length: 5 }, (_unused, index) => refusalOf(installation().fleets.create.mutate({ requestId: newKey(), name: `capped-${String(index)}`, operatorEmail: `capped-${String(index)}@example.com` }))),
@@ -207,6 +230,48 @@ describe('the limits at their boundary', () => {
       Array.from({ length: 3 }, () => ({ code: 'FORBIDDEN', message: `The installation is at its cap of ${String(hosted + 2)} fleets, so it creates no new one.` })),
     );
     await expect(database.fleet.count()).resolves.toBe(hosted + 2);
+  });
+
+  it("make a ship's schedules up to the schedules per ship limit however many race, and refuse the rest saying so", async () => {
+    const fleet = await newFleet('scheduled');
+    await installation().fleets.setLimits.mutate({ fleetId: fleet.fleetId, schedulesPerShip: { kind: 'fleet', limit: 3 } });
+    const { scout } = await crewedScout(fleet);
+
+    const results = await Promise.all(Array.from({ length: 6 }, () => core.scheduleMessage(scout, aSchedule())));
+
+    expect(results.filter((result) => result.isOk)).toHaveLength(3);
+    expect(results.flatMap((result) => (result.isOk ? [] : [result.error]))).toEqual(
+      Array.from({ length: 3 }, () => ({ kind: 'SCHEDULE_LIMIT_REACHED', message: "The ship holds its fleet's limit of 3 schedules, active or paused: cancel one to make another" })),
+    );
+    await expect(database.schedule.count({ where: { fleetId: fleet.fleetId } })).resolves.toBe(3);
+  });
+
+  it('count a ship\'s paused schedules and not its cancelled ones, and refuse one more over HTTP saying so', async () => {
+    const fleet = await newFleet('paused');
+    await installation().fleets.setLimits.mutate({ fleetId: fleet.fleetId, schedulesPerShip: { kind: 'fleet', limit: 2 } });
+    const { scout, asScout } = await crewedScout(fleet);
+    const paused = unwrap(await core.scheduleMessage(scout, aSchedule()));
+    unwrap(await core.pauseSchedule(scout, paused));
+    unwrap(await core.cancelSchedule(scout, unwrap(await core.scheduleMessage(scout, aSchedule()))));
+    unwrap(await core.scheduleMessage(scout, aSchedule()));
+
+    await expect(refusalOf(asScout.ship.schedule.mutate({ ...aSchedule(), timing: { kind: 'once', at: '2026-10-05T12:00:00.000Z' } }))).resolves.toEqual({
+      code: 'FORBIDDEN',
+      message: "The ship holds its fleet's limit of 2 schedules, active or paused: cancel one to make another",
+    });
+  });
+
+  it('take a repeat of the minimum schedule interval and refuse a shorter one over HTTP saying so', async () => {
+    const fleet = await newFleet('interval');
+    await installation().fleets.setLimits.mutate({ fleetId: fleet.fleetId, minimumScheduleInterval: { kind: 'fleet', limit: 3600 } });
+    const { asScout } = await crewedScout(fleet);
+    const repeat = (every: string) => asScout.ship.schedule.mutate({ ...aSchedule(), timing: { kind: 'every', every } });
+
+    expect((await repeat('PT1H')).scheduleId).toMatch(/^sch_/);
+    await expect(refusalOf(repeat('PT30M'))).resolves.toEqual({
+      code: 'FORBIDDEN',
+      message: "The fleet's send times of a repeating schedule are at least 3600 seconds apart: every PT30M is 1800 seconds",
+    });
   });
 
   it('change nothing while none is set', async () => {

@@ -25,7 +25,7 @@ export interface InstallationFleet {
   storage: number;
   messagesToday: number;
   messagesPerDay: { date: string; count: number }[];
-  limits: { ships: FleetLimit; dailyMessages: FleetLimit; retention: FleetRetention };
+  limits: { ships: FleetLimit; dailyMessages: FleetLimit; schedulesPerShip: FleetLimit; minimumScheduleInterval: FleetLimit; retention: FleetRetention };
   /** Its 0041 figures, and where its deliveries are stuck (decision 0042). */
   health: FleetHealth & Health;
 }
@@ -45,13 +45,13 @@ export function messageWindow(now: Date): InstallationFleetWindow {
 export function installationFleet(facts: InstallationFleetFacts, read: { now: Date; installation: InstallationSettings; health: Health }): InstallationFleet {
   const { messagesSince, messagesPerUtcDay, limitSettings, health, ...rest } = facts;
   const messagesPerDay = utcDays(read.now).map((date) => ({ date, count: messagesPerUtcDay.find((day) => day.date === date)?.count ?? 0 }));
-  const { ships, dailyMessages, retention } = fleetLimitsOf({ fleetId: facts.fleetId, settings: limitSettings, installation: read.installation });
+  const { ships, dailyMessages, schedulesPerShip, minimumScheduleInterval, retention } = fleetLimitsOf({ fleetId: facts.fleetId, settings: limitSettings, installation: read.installation });
   return {
     ...rest,
     health: { ...health, ...read.health },
     messagesLast7Days: messagesSince,
     messagesToday: messagesPerDay.at(-1)?.count ?? 0,
     messagesPerDay,
-    limits: { ships, dailyMessages, retention },
+    limits: { ships, dailyMessages, schedulesPerShip, minimumScheduleInterval, retention },
   };
 }

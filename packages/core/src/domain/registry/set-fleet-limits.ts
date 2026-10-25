@@ -5,7 +5,7 @@ import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, SYSTEM, type EventLog } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
-import { fleetLimitsOf, limit, retentionDays, type FleetLimits, type FleetLimitSetting, type RetentionSetting } from './limits.js';
+import { fleetLimitsOf, limit, retentionDays, type FleetLimits, type FleetLimitSetting, type FleetLimitSettings, type RetentionSetting } from './limits.js';
 import type { FleetRepository, InstallationSettingsRepository } from './ports.js';
 
 export interface SetFleetLimitsTx {
@@ -20,6 +20,8 @@ export type SetFleetLimits = (input: {
   fleetId: FleetId;
   ships?: FleetLimitSetting;
   dailyMessages?: FleetLimitSetting;
+  schedulesPerShip?: FleetLimitSetting;
+  minimumScheduleInterval?: FleetLimitSetting;
   retention?: RetentionSetting;
 }) => Promise<Result<FleetLimits, SetFleetLimitsRefusal>>;
 
@@ -42,9 +44,9 @@ function validRetention(setting: RetentionSetting | undefined): Result<Retention
 }
 
 /**
- * Use case: the installation sets any of a fleet's limits and its retention,
- * each to a number or to none for that fleet, or back to the installation
- * default. A setting left out keeps how it was set. Writes FleetLimitsChanged with the
+ * Use case: the installation sets some or all of a fleet's limits and its
+ * retention, each to a number or to none for that fleet, or back to the
+ * installation default. A setting left out keeps how it was set. Writes FleetLimitsChanged with the
  * settings the fleet now has, and answers which limits now apply.
  */
 export function createSetFleetLimits(deps: { uow: UnitOfWork<SetFleetLimitsTx>; clock: Clock; ids: IdGenerator }): SetFleetLimits {
@@ -57,6 +59,14 @@ export function createSetFleetLimits(deps: { uow: UnitOfWork<SetFleetLimitsTx>; 
     if (!dailyMessages.isOk) {
       return dailyMessages;
     }
+    const schedulesPerShip = validSetting(input.schedulesPerShip);
+    if (!schedulesPerShip.isOk) {
+      return schedulesPerShip;
+    }
+    const minimumScheduleInterval = validSetting(input.minimumScheduleInterval);
+    if (!minimumScheduleInterval.isOk) {
+      return minimumScheduleInterval;
+    }
     const retention = validRetention(input.retention);
     if (!retention.isOk) {
       return retention;
@@ -67,9 +77,11 @@ export function createSetFleetLimits(deps: { uow: UnitOfWork<SetFleetLimitsTx>; 
       if (!current) {
         return refuse('FLEET_NOT_FOUND', `The installation hosts no fleet ${fleetId}`);
       }
-      const settings = {
+      const settings: FleetLimitSettings = {
         ships: ships.value ?? current.ships,
         dailyMessages: dailyMessages.value ?? current.dailyMessages,
+        schedulesPerShip: schedulesPerShip.value ?? current.schedulesPerShip,
+        minimumScheduleInterval: minimumScheduleInterval.value ?? current.minimumScheduleInterval,
         retention: retention.value ?? current.retention,
       };
       await tx.fleets.setLimitSettings(fleetId, settings);
@@ -84,6 +96,10 @@ export function createSetFleetLimits(deps: { uow: UnitOfWork<SetFleetLimitsTx>; 
           shipLimit: settings.ships.kind === 'fleet' ? settings.ships.limit : null,
           dailyMessages: settings.dailyMessages.kind,
           dailyMessageLimit: settings.dailyMessages.kind === 'fleet' ? settings.dailyMessages.limit : null,
+          schedulesPerShip: settings.schedulesPerShip.kind,
+          schedulesPerShipLimit: settings.schedulesPerShip.kind === 'fleet' ? settings.schedulesPerShip.limit : null,
+          minimumScheduleInterval: settings.minimumScheduleInterval.kind,
+          minimumScheduleIntervalLimit: settings.minimumScheduleInterval.kind === 'fleet' ? settings.minimumScheduleInterval.limit : null,
           retention: settings.retention.kind,
           retentionDays: settings.retention.kind === 'fleet' ? settings.retention.days : null,
         },

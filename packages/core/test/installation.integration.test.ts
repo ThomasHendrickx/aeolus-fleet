@@ -203,6 +203,8 @@ describe('the installation procedures on a hosting server', () => {
       limits: {
         ships: { setting: { kind: 'default' }, applies: null },
         dailyMessages: { setting: { kind: 'default' }, applies: null },
+        schedulesPerShip: { setting: { kind: 'default' }, applies: null },
+        minimumScheduleInterval: { setting: { kind: 'default' }, applies: null },
         retention: { setting: { kind: 'default' }, applies: null },
       },
     });

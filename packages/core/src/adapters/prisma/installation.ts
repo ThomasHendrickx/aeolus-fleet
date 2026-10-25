@@ -7,6 +7,7 @@ import type { InstallationRequest } from '../../domain/registry/installation-req
 import { appliedLimits } from '../../domain/registry/applied-limits.js';
 import { NO_INSTALLATION_SETTINGS } from '../../domain/registry/limits.js';
 import type { FleetLimitReads } from '../../domain/shared/read-fleet-limits.js';
+import { limitSettingsOf } from './fleet-limit-settings.js';
 import { createPrismaFleetRepository } from './registry.js';
 import type {
   InstallationFleetFacts,
@@ -73,6 +74,10 @@ const factsRow = z.object({
   shipLimit: z.number().int().nullable(),
   dailyMessageLimitSet: z.boolean(),
   dailyMessageLimit: z.number().int().nullable(),
+  schedulesPerShipLimitSet: z.boolean(),
+  schedulesPerShipLimit: z.number().int().nullable(),
+  minimumScheduleIntervalSet: z.boolean(),
+  minimumScheduleInterval: z.number().int().nullable(),
   retentionSet: z.boolean(),
   retentionDays: z.number().int().nullable(),
   oldestPendingAt: z.date().nullable(),
@@ -83,7 +88,24 @@ const factsRow = z.object({
 });
 
 function toFacts(row: unknown): InstallationFleetFacts {
-  const { shipLimitSet, shipLimit, dailyMessageLimitSet, dailyMessageLimit, retentionSet, retentionDays, oldestPendingAt, oldestInFlightAt, noShipCanTake, needsAttention, overdue, ...facts } = factsRow.parse(row);
+  const {
+    shipLimitSet,
+    shipLimit,
+    dailyMessageLimitSet,
+    dailyMessageLimit,
+    schedulesPerShipLimitSet,
+    schedulesPerShipLimit,
+    minimumScheduleIntervalSet,
+    minimumScheduleInterval,
+    retentionSet,
+    retentionDays,
+    oldestPendingAt,
+    oldestInFlightAt,
+    noShipCanTake,
+    needsAttention,
+    overdue,
+    ...facts
+  } = factsRow.parse(row);
   return {
     ...facts,
     health: { oldestPendingAt, oldestInFlightAt, noShipCanTake: Number(noShipCanTake), needsAttention: Number(needsAttention), overdue: Number(overdue) },
@@ -91,11 +113,18 @@ function toFacts(row: unknown): InstallationFleetFacts {
     shipCount: Number(facts.shipCount),
     messagesSince: Number(facts.messagesSince),
     storage: Number(facts.storage),
-    limitSettings: {
-      ships: shipLimitSet ? { kind: 'fleet', limit: shipLimit } : { kind: 'default' },
-      dailyMessages: dailyMessageLimitSet ? { kind: 'fleet', limit: dailyMessageLimit } : { kind: 'default' },
-      retention: retentionSet ? { kind: 'fleet', days: retentionDays } : { kind: 'default' },
-    },
+    limitSettings: limitSettingsOf({
+      shipLimitSet,
+      shipLimit,
+      dailyMessageLimitSet,
+      dailyMessageLimit,
+      schedulesPerShipLimitSet,
+      schedulesPerShipLimit,
+      minimumScheduleIntervalSet,
+      minimumScheduleInterval,
+      retentionSet,
+      retentionDays,
+    }),
   };
 }
 
@@ -140,6 +169,8 @@ export function installationFleetsStatement(fleetId: FleetId | null, window: Ins
            WHERE o.fleet_id = f.id AND (o.state = 'pending' OR d.claimed_by_lease_id = o.lease_id)) AS "overdue",
           f.ship_limit_set AS "shipLimitSet", f.ship_limit AS "shipLimit",
           f.daily_message_limit_set AS "dailyMessageLimitSet", f.daily_message_limit AS "dailyMessageLimit",
+          f.schedules_per_ship_limit_set AS "schedulesPerShipLimitSet", f.schedules_per_ship_limit AS "schedulesPerShipLimit",
+          f.minimum_schedule_interval_set AS "minimumScheduleIntervalSet", f.minimum_schedule_interval AS "minimumScheduleInterval",
           f.retention_set AS "retentionSet", f.retention_days AS "retentionDays"
         FROM fleets f
         LEFT JOIN operators o ON o.fleet_id = f.id
@@ -172,8 +203,8 @@ export function createPrismaInstallationSettings(db: Db): InstallationSettingsRe
       if (!row) {
         return { ...NO_INSTALLATION_SETTINGS };
       }
-      const { defaultShipLimit, defaultDailyMessageLimit, defaultRetentionDays, fleetCap } = row;
-      return { defaultShipLimit, defaultDailyMessageLimit, defaultRetentionDays, fleetCap };
+      const { defaultShipLimit, defaultDailyMessageLimit, defaultSchedulesPerShipLimit, defaultMinimumScheduleInterval, defaultRetentionDays, fleetCap } = row;
+      return { defaultShipLimit, defaultDailyMessageLimit, defaultSchedulesPerShipLimit, defaultMinimumScheduleInterval, defaultRetentionDays, fleetCap };
     },
     write: async (settings) => {
       await db.installationSettings.upsert({ where: { id: SETTINGS_ROW }, create: { id: SETTINGS_ROW, ...settings }, update: settings });

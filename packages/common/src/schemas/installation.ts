@@ -73,8 +73,14 @@ export const installationFleetSchema = z.object({
   messagesToday: z.int().min(0),
   /** The messages stored on each UTC day of the last 7, today last. */
   messagesPerDay: z.array(z.object({ date: z.iso.date(), count: z.int().min(0) })),
-  /** How each limit and the retention is set and what applies (null: none). */
-  limits: z.object({ ships: fleetLimitSchema, dailyMessages: fleetLimitSchema, retention: fleetRetentionSchema }),
+  /** How each limit is set and the limit that applies (null: none). */
+  limits: z.object({
+    ships: fleetLimitSchema,
+    dailyMessages: fleetLimitSchema,
+    schedulesPerShip: fleetLimitSchema,
+    minimumScheduleInterval: fleetLimitSchema,
+    retention: fleetRetentionSchema,
+  }),
   /** Whether its deliveries reach their ships (#304). */
   health: z.object({
     /** When its oldest pending delivery was sent; null when none is pending. */
@@ -113,31 +119,43 @@ export const installationOperatorsIssueSignInTicketInputSchema = z.strictObject(
 
 export const installationOperatorsIssueSignInTicketOutputSchema = z.object({ ticket: z.string() });
 /**
- * The installation's settings: the ship and daily message limits and the
- * retention a fleet follows unless set for it, and the cap on the number of
- * fleets. Each may be null: no limit, and for the retention kept for good.
+ * The installation's settings: the ship, daily message and schedule limits
+ * and the retention a fleet follows unless set for it, and the cap on the
+ * number of fleets. Each may be null: no limit, and for the retention kept
+ * for good.
  */
 export const installationSettingsSchema = z.strictObject({
   defaultShipLimit: limitSchema,
   defaultDailyMessageLimit: limitSchema,
+  /** The schedules a ship may hold active or paused (decision 0062). */
+  defaultSchedulesPerShipLimit: limitSchema,
+  /** The shortest time between two send times of a repeating schedule, in seconds (decision 0062). */
+  defaultMinimumScheduleInterval: limitSchema,
+  /** The days a fleet keeps its finished history (decision 0066). */
   defaultRetentionDays: retentionDaysSchema,
   fleetCap: limitSchema,
 });
 
 export type InstallationSettings = z.infer<typeof installationSettingsSchema>;
 
-/** A fleet's ship and daily message limits and its retention: how each is set, and the limit or days that apply (null: none). */
+/** A fleet's limits and its retention: how each is set, and the limit or days that apply (null: none). */
 export const installationFleetLimitsSchema = z.object({
   fleetId: idSchema('fleet'),
   ships: fleetLimitSchema,
   dailyMessages: fleetLimitSchema,
+  schedulesPerShip: fleetLimitSchema,
+  minimumScheduleInterval: fleetLimitSchema,
   retention: fleetRetentionSchema,
 });
 
+/** Sets some of a fleet's limits and its retention; one left out keeps how it is set. */
 export const installationFleetsSetLimitsInputSchema = z.strictObject({
   fleetId: idSchema('fleet'),
   ships: fleetLimitSettingSchema.optional(),
   dailyMessages: fleetLimitSettingSchema.optional(),
+  schedulesPerShip: fleetLimitSettingSchema.optional(),
+  /** In seconds. */
+  minimumScheduleInterval: fleetLimitSettingSchema.optional(),
   retention: retentionSettingSchema.optional(),
 });
 
