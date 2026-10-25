@@ -1272,8 +1272,13 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         const found = state.deliveries.find((held) => held.fleetId === fleetId && held.id === deliveryId);
         return Promise.resolve(found && structuredClone(found));
       },
-      findOfMessage: (fleetId, messageId) => {
-        const found = state.deliveries.find((held) => held.fleetId === fleetId && held.messageId === messageId);
+      findOfMessageReaching: (fleetId, { messageId, shipId }) => {
+        const found = state.deliveries.find(
+          (held) =>
+            held.fleetId === fleetId &&
+            held.messageId === messageId &&
+            ((held.recipient.kind === 'ship' && held.recipient.shipId === shipId) || held.claimedByShipId === shipId),
+        );
         return Promise.resolve(found && structuredClone(found));
       },
       findOpenPing: (fleetId, shipId) => {

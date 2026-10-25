@@ -21,7 +21,7 @@ import { sendRequestText } from './send-request.js';
 export interface ScheduleMessageTx extends Omit<ResolveSelectorTx, 'ships'>, Omit<CheckReachTx, 'ships'>, Omit<ScheduleLimitsTx, 'schedules'> {
   ships: ResolveSelectorTx['ships'] & CheckReachTx['ships'];
   messages: Pick<MessageRepository, 'find'>;
-  deliveries: Pick<DeliveryRepository, 'findOfMessage'>;
+  deliveries: Pick<DeliveryRepository, 'findOfMessageReaching'>;
   schedules: ScheduleRepository;
   scheduleNotifier: ScheduleNotifier;
   events: EventLog;
@@ -119,7 +119,7 @@ export function createScheduleMessage(deps: { uow: UnitOfWork<ScheduleMessageTx>
       if (send.inReplyTo !== null && !repliedTo) {
         return refuse('IN_REPLY_TO_NOT_FOUND', `Message ${send.inReplyTo} does not exist: a reply names a message of the fleet`);
       }
-      const repliedDelivery = repliedTo && (await tx.deliveries.findOfMessage(fleetId, repliedTo.id));
+      const repliedDelivery = repliedTo && (await tx.deliveries.findOfMessageReaching(fleetId, { messageId: repliedTo.id, shipId }));
       const reach = await checkReach(
         { tx, ids: deps.ids },
         {

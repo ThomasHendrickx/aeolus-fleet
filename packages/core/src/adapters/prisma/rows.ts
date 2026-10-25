@@ -563,7 +563,11 @@ const messageRow = z.object({
   createdAt: z.date(),
 });
 
-/** The selector columns of a message: a ship's id for a ship selector, a type for a type selector, the meeting for a meeting selector. */
+/**
+ * The selector columns of a message: a ship's id for a ship selector, a type
+ * for a type selector, the meeting for a meeting selector, the value ids as
+ * sent for a label selector.
+ */
 const selectorColumns = z.union([
   z
     .object({ selectorKind: z.literal('ship'), selectorShipId: idSchema('ship'), selectorType: z.null() })
@@ -574,6 +578,9 @@ const selectorColumns = z.union([
   z
     .object({ selectorKind: z.literal('meeting'), selectorShipId: z.null(), selectorType: z.null(), meetingId: idSchema('meeting') })
     .transform((row): Addressee => ({ kind: 'meeting', meetingId: row.meetingId })),
+  z
+    .object({ selectorKind: z.literal('label'), selectorShipId: z.null(), selectorType: z.null(), selectorValueIds: z.array(idSchema('labelValue')).min(1) })
+    .transform((row): Addressee => ({ kind: 'label', valueIds: row.selectorValueIds })),
 ]);
 
 export function toMessage(row: unknown): Message {

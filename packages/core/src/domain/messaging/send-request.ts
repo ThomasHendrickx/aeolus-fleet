@@ -14,8 +14,9 @@ export interface SendRequest {
 /**
  * The request as one text, the same for the same request whatever order its
  * fields came in: the selector as sent (one ship by id and by name are two
- * requests), the payload, the content type, the message it replies to and,
- * only when forced, the force, so a plain send keeps the text it always had.
+ * requests, and so are a label selection's values in another order), the
+ * payload, the content type, the message it replies to and, only when
+ * forced, the force, so a plain send keeps the text it always had.
  * Its hash is kept with the message to tell a repeat from a reused key.
  */
 export function sendRequestText(request: SendRequest): string {
@@ -31,5 +32,7 @@ function selectorFields(selector: Selector): string[] {
       return ['type', selector.type];
     case 'meeting':
       return ['meeting', selector.meetingId];
+    case 'label':
+      return ['label', ...selector.valueIds];
   }
 }

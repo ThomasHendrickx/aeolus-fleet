@@ -56,6 +56,7 @@ export function createPrismaMessageRepository(db: Db): BufferedMessageRepository
           selectorKind: selector.kind,
           selectorShipId: selector.kind === 'ship' ? selector.shipId : null,
           selectorType: selector.kind === 'type' ? selector.type : null,
+          selectorValueIds: selector.kind === 'label' ? [...selector.valueIds] : [],
           payload: message.payload,
           contentType: message.contentType,
           model: message.model,
@@ -190,12 +191,12 @@ export function createPrismaDeliveryRepository(db: Db): DeliveryRepository {
         WHERE fleet_id = ${fleetId} AND id = ${deliveryId}`;
       return row ? toDeliveryFromSql(row) : undefined;
     },
-    findOfMessage: async (fleetId, messageId) => {
+    findOfMessageReaching: async (fleetId, { messageId, shipId }) => {
       const [row] = await db.$queryRaw<unknown[]>`
         SELECT id, fleet_id, message_id, recipient_ship_id, recipient_type, state::text AS state,
                claimed_by_ship_id, claimed_by_lease_id, attempts, hand_over_number, handed_once_more_at, is_forced, created_at
         FROM deliveries
-        WHERE fleet_id = ${fleetId} AND message_id = ${messageId}
+        WHERE fleet_id = ${fleetId} AND message_id = ${messageId} AND (recipient_ship_id = ${shipId} OR claimed_by_ship_id = ${shipId})
         LIMIT 1`;
       return row ? toDeliveryFromSql(row) : undefined;
     },
