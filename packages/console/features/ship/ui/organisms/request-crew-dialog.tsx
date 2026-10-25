@@ -22,6 +22,8 @@ interface RequestCrewDialogProps {
   mode: 'request' | 'edit';
   state: RequestCrewDialogState;
   offers: readonly HarnessOffer[];
+  /** The fleet's enabled models, the offers already filtered by them; none is no rule. Edit swaps a disabled model for an enabled one. */
+  enabledModels: readonly string[];
   /** The settings the request holds, for Edit. */
   heldSettings?: CrewSettings | null;
   /** The fleet's squadrons, when squadrons is on. */
@@ -80,9 +82,9 @@ function Banner({ tone, icon, children }: { tone: keyof typeof TONES; icon: Reac
 /** The open dialog's form: it starts from the held settings, or the defaults, each time it opens. */
 function RequestCrewForm(props: Omit<RequestCrewDialogProps, 'isOpen' | 'onOpenChange'>) {
   const { firstPromptMaxBytes } = useConsoleConstants();
-  const { shipName, mode, offers, heldSettings, squadrons, machineLabels, check, refusedAt, error, isPending, onSettingsChange, onSubmit } = props;
+  const { shipName, mode, offers, enabledModels, heldSettings, squadrons, machineLabels, check, refusedAt, error, isPending, onSettingsChange, onSubmit } = props;
   const words = WORDS[mode];
-  const [values, setValues] = useState<CrewSettingsValues>(() => (mode === 'edit' ? valuesOf(heldSettings, offers) : defaultValues(offers)));
+  const [values, setValues] = useState<CrewSettingsValues>(() => (mode === 'edit' ? valuesOf(heldSettings, { offers, enabledModels }) : defaultValues(offers)));
   const settings = settingsOf(values);
   const refusal = check?.kind === 'refused' ? check : undefined;
   const isPromptTooLong = promptBytes(values.firstPrompt) > firstPromptMaxBytes;

@@ -1,5 +1,6 @@
 'use server';
 
+import { modelSchema } from '@aeolus-fleet/common';
 import { headers } from 'next/headers';
 
 import { connectPlugin, TRIERARCH_PLUGIN_SHIP } from './connect-plugin';
@@ -8,7 +9,7 @@ import { pluginCalls, shownConnection } from './plugin-calls';
 import { serverInternalUrlFrom } from './server-url';
 import type { ShownConnection } from './shown-connection';
 import { call, NOT_HERE, refusalOf, sessionCookie } from './trierarch-plugin-reads';
-import { joinedMachineSchema, type JoinedMachine } from './trierarch-plugin-schemas';
+import { enabledModelsSchema, joinedMachineSchema, type JoinedMachine } from './trierarch-plugin-schemas';
 import { trierarchPluginUrlFrom } from './trierarch-plugin-url';
 
 /**
@@ -46,4 +47,17 @@ export async function connectTrierarchPlugin(): Promise<PluginAnswer<ShownConnec
 
 export async function joinMachine(name: string): Promise<PluginAnswer<JoinedMachine>> {
   return call('machines.join', { input: { name }, isMutation: true, answers: joinedMachineSchema });
+}
+
+/**
+ * Enable or disable one model by its exact id for the fleet (decision 0063),
+ * answering the fleet's enabled models; the plugin's next assignment pass
+ * places by them. Takes fleet:manage, which the plugin checks.
+ */
+export async function setModelEnabled(change: { model: string; isEnabled: boolean }): Promise<PluginAnswer<string[]>> {
+  const model = modelSchema.safeParse(change.model);
+  if (!model.success) {
+    return { kind: 'refused', message: 'That is no model id' };
+  }
+  return call(change.isEnabled ? 'models.enable' : 'models.disable', { input: { model: model.data }, isMutation: true, answers: enabledModelsSchema });
 }

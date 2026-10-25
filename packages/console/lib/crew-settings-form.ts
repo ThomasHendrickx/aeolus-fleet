@@ -27,8 +27,37 @@ function union(into: string[], values: readonly string[]): void {
   }
 }
 
-/** What the answering machines offer, harness by harness, in the order the machines report them; silent ones are left out. */
-export function offersOf(machines: readonly Machine[]): HarnessOffer[] {
+/** The crew settings option that names the model a session runs. */
+const MODEL_OPTION = 'model';
+
+/**
+ * A harness offer under the fleet's enabled models (model governance, M8):
+ * only the enabled values of its model option, at the reported default when
+ * that is enabled, else the first enabled one; undefined when it offers no
+ * enabled model, or no model option at all, as placement does not fit it.
+ */
+function withEnabledModels(offer: HarnessOffer, enabledModels: readonly string[]): HarnessOffer | undefined {
+  const model = offer.options.find((option) => option.name === MODEL_OPTION);
+  const values = model?.values.filter((value) => enabledModels.includes(value)) ?? [];
+  const [first] = values;
+  if (model === undefined || first === undefined) {
+    return undefined;
+  }
+  const defaultValue = model.defaultValue !== undefined && values.includes(model.defaultValue) ? model.defaultValue : first;
+  return { ...offer, options: offer.options.map((option) => (option === model ? { name: MODEL_OPTION, values, defaultValue } : option)) };
+}
+
+/**
+ * What the answering machines offer, harness by harness, in the order the
+ * machines report them; silent ones are left out. In a fleet that enables
+ * models, only those are offered; none enabled is no rule.
+ */
+export function offersOf(machines: readonly Machine[], enabledModels: readonly string[]): HarnessOffer[] {
+  const offers = reportedOffersOf(machines);
+  return enabledModels.length === 0 ? offers : offers.flatMap((offer) => withEnabledModels(offer, enabledModels) ?? []);
+}
+
+function reportedOffersOf(machines: readonly Machine[]): HarnessOffer[] {
   const offers: HarnessOffer[] = [];
   for (const machine of machines) {
     if (machine.isSilent || machine.details === null) {
@@ -103,17 +132,28 @@ export function withHarness(values: CrewSettingsValues, pick: { harness: string;
   return { ...values, harness, workspace: isOffered ? workspace : firstWorkspace(offer), options: defaultOptions(offer) };
 }
 
-/** The form filled from settings a request holds, for Edit; anything that is no crew setting starts as a new form. */
-export function valuesOf(settings: CrewSettings | null | undefined, offers: readonly HarnessOffer[]): CrewSettingsValues {
+/**
+ * The form filled from settings a request holds, for Edit; anything that is
+ * no crew setting starts as a new form. A model the fleet no longer enables
+ * gives way to the harness's enabled default (model governance, M8).
+ */
+export function valuesOf(settings: CrewSettings | null | undefined, offered: { offers: readonly HarnessOffer[]; enabledModels: readonly string[] }): CrewSettingsValues {
+  const { offers, enabledModels } = offered;
   if (settings === undefined || settings === null) {
     return defaultValues(offers);
   }
   const { harness, workspace, options, firstPrompt, squadron, machineLabels } = settings;
+  // Without a harness a trierarch crews with its first; the form picks the first offered (#343).
+  const picked = harness ?? defaultValues(offers).harness;
+  const held: Record<string, string> = Object.fromEntries(Object.entries(options).flatMap(([name, value]) => (typeof value === 'string' ? [[name, value]] : [])));
+  const heldModel = held[MODEL_OPTION];
+  const isModelDisabled = enabledModels.length > 0 && heldModel !== undefined && !enabledModels.includes(heldModel);
+  const enabledDefault = defaultOptions(offers.find((offer) => offer.harness === picked))[MODEL_OPTION];
+  const kept = isModelDisabled ? Object.fromEntries(Object.entries(held).filter(([name]) => name !== MODEL_OPTION)) : held;
   return {
-    // Without a harness a trierarch crews with its first; the form picks the first offered (#343).
-    harness: harness ?? defaultValues(offers).harness,
+    harness: picked,
     workspace: workspace.kind === 'worktree' ? { kind: 'worktree', repository: workspace.repository } : { kind: 'folder', name: workspace.name },
-    options: Object.fromEntries(Object.entries(options).flatMap(([name, value]) => (typeof value === 'string' ? [[name, value]] : []))),
+    options: isModelDisabled && enabledDefault !== undefined ? { ...kept, [MODEL_OPTION]: enabledDefault } : kept,
     firstPrompt: firstPrompt ?? '',
     squadron: squadron ?? '',
     machineLabels: [...(machineLabels ?? [])],

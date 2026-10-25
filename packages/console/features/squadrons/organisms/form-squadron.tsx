@@ -11,7 +11,7 @@ import { machineLabelsInputOf } from '../../../lib/machine-labels';
 import { useBlueprintCrew, useFormSquadron } from '../../../lib/squadrons-api';
 import type { TemplateVersion } from '../../../lib/squadrons-schemas';
 import type { BlueprintChoice } from '../../../lib/squadrons-view';
-import { useHasTrierarchPlugin, useMachines } from '../../../lib/trierarch-plugin';
+import { useEnabledModels, useHasTrierarchPlugin, useMachines } from '../../../lib/trierarch-plugin';
 
 // Dialogs load when first opened, not with the page.
 const FormSquadronDialog = lazyDialog(() => import('./form-squadron-dialog').then((module) => module.FormSquadronDialog), (props) => props.isOpen);
@@ -39,6 +39,8 @@ export function FormSquadron({ blueprints, templates, isOpen, onOpenChange, init
   const [picked, setPicked] = useState<{ repository: string; name: string; version: number }>();
   const crew = useBlueprintCrew(hasTrierarchs ? picked : undefined);
   const machines = useMachines();
+  const enabledModels = useEnabledModels();
+  const isReadingModels = enabledModels.data === undefined && !enabledModels.isError;
   const context = useLabelContext(machines.data?.map((machine) => machine.shipId));
   const { shipLabelsMax } = useConsoleConstants();
   const machineLabels = context === undefined || machines.data === undefined ? undefined : machineLabelsInputOf(context, { machines: machines.data, shipLabelsMax });
@@ -59,15 +61,16 @@ export function FormSquadron({ blueprints, templates, isOpen, onOpenChange, init
       {...(hasTrierarchs
         ? {
             crew: {
-              state: crew.isError || machines.isError ? 'error' : crew.data === undefined || machines.data === undefined ? 'loading' : 'ready',
+              state: crew.isError || machines.isError ? 'error' : crew.data === undefined || machines.data === undefined || isReadingModels ? 'loading' : 'ready',
               members: crew.data ?? [],
-              offers: offersOf(machines.data ?? []),
+              offers: offersOf(machines.data ?? [], enabledModels.data ?? []),
               ...(context === undefined ? {} : { context }),
               ...(machineLabels === undefined ? {} : { machineLabels }),
               ...(crew.error === null ? (machines.error === null ? {} : { error: machines.error.message }) : { error: crew.error.message }),
               onRetry: () => {
                 void crew.refetch();
                 void machines.refetch();
+                void enabledModels.refetch();
               },
             },
           }

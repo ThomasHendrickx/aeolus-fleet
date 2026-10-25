@@ -40,3 +40,6 @@ export const settingsCheckSchema = z.discriminatedUnion('kind', [
 ]);
 
 export type SettingsCheck = z.infer<typeof settingsCheckSchema>;
+
+/** The fleet's enabled models by exact id, as `models.list`, `models.enable` and `models.disable` answer them (decision 0063). */
+export const enabledModelsSchema = z.array(z.string());
