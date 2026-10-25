@@ -56,7 +56,7 @@ import {
 import { TRPCError } from '@trpc/server';
 
 import type { ShipReport } from '../../domain/registry/ship-report.js';
-import { schedulesPageOf } from './schedule-output.js';
+import { scheduleTimingOf, schedulesPageOf } from './schedule-output.js';
 
 import {
   authenticatedProcedure,
@@ -410,13 +410,15 @@ export const shipRouter = router({
           selector: input.selector,
           payload: input.payload,
           idempotencyKey: input.idempotencyKey,
-          timing: { kind: input.timing.kind, at: new Date(input.timing.at) },
+          timing: scheduleTimingOf(input.timing),
           ...(input.contentType === undefined ? {} : { contentType: input.contentType }),
           ...(input.model === undefined ? {} : { model: input.model }),
           ...(input.inReplyTo === undefined ? {} : { inReplyTo: input.inReplyTo }),
           ...(input.isForced === undefined ? {} : { isForced: input.isForced }),
           ...(input.onRefused === undefined ? {} : { onRefused: input.onRefused }),
           ...(input.retryWindow === undefined ? {} : { retryWindow: input.retryWindow }),
+          ...(input.onMissed === undefined ? {} : { onMissed: input.onMissed }),
+          ...(input.grace === undefined ? {} : { grace: input.grace }),
         }),
       ),
     ),

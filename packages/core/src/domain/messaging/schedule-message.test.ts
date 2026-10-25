@@ -72,6 +72,8 @@ describe('making a schedule', () => {
         timing: { kind: 'once', at: new Date(TOMORROW) },
         onRefused: 'skip',
         retryWindow: 'PT1H',
+        onMissed: 'each',
+        grace: 'PT5M',
         idempotencyKey: 'check-in',
         requestHash: core.state.schedules[0]?.requestHash,
         state: 'active',

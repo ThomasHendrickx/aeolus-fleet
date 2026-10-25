@@ -1,6 +1,6 @@
-import type { ScheduleItem, ScheduleTiming } from '@aeolus-fleet/common';
+import type { ScheduleItem, ScheduleTiming as ScheduleTimingInputText, ScheduleTimingItem } from '@aeolus-fleet/common';
 
-import type { Schedule, ScheduleOutcome } from '../../domain/messaging/schedule.js';
+import type { Schedule, ScheduleOutcome, ScheduleTiming, ScheduleTimingInput } from '../../domain/messaging/schedule.js';
 import type { Page } from '../../domain/shared/page.js';
 
 /**
@@ -9,7 +9,6 @@ import type { Page } from '../../domain/shared/page.js';
  * next send time and last outcome, times in ISO 8601.
  */
 function scheduleItemOf(schedule: Schedule): ScheduleItem {
-  const timing: ScheduleTiming = { kind: schedule.timing.kind, at: schedule.timing.at.toISOString() };
   return {
     scheduleId: schedule.id,
     shipId: schedule.shipId,
@@ -18,9 +17,11 @@ function scheduleItemOf(schedule: Schedule): ScheduleItem {
     contentType: schedule.send.contentType,
     inReplyTo: schedule.send.inReplyTo,
     isForced: schedule.send.isForced,
-    timing,
+    timing: timingOf(schedule.timing),
     onRefused: schedule.onRefused,
     retryWindow: schedule.retryWindow,
+    onMissed: schedule.onMissed,
+    grace: schedule.grace,
     nextSendTime: schedule.nextSendTime?.toISOString() ?? null,
     lastOutcome: schedule.lastOutcome && outcomeOf(schedule.lastOutcome),
     createdAt: schedule.createdAt.toISOString(),
@@ -29,11 +30,41 @@ function scheduleItemOf(schedule: Schedule): ScheduleItem {
   };
 }
 
+function timingOf(timing: ScheduleTiming): ScheduleTimingItem {
+  if (timing.kind === 'once') {
+    return { kind: 'once', at: timing.at.toISOString() };
+  }
+  const bounds = { start: timing.start?.toISOString() ?? null, end: timing.end?.toISOString() ?? null, count: timing.count };
+  return timing.kind === 'every' ? { kind: 'every', every: timing.every, ...bounds } : { kind: 'cron', cron: timing.cron, timeZone: timing.timeZone, ...bounds };
+}
+
 function outcomeOf(outcome: ScheduleOutcome): ScheduleItem['lastOutcome'] {
   const times = { sendTime: outcome.sendTime.toISOString(), at: outcome.at.toISOString() };
-  return outcome.kind === 'sent' ? { kind: 'sent', messageId: outcome.messageId, ...times } : { kind: 'refused', code: outcome.code, ...times };
+  switch (outcome.kind) {
+    case 'sent':
+      return { kind: 'sent', messageId: outcome.messageId, ...times };
+    case 'refused':
+      return { kind: 'refused', code: outcome.code, ...times };
+    case 'missed':
+      return { kind: 'missed', ...times };
+  }
 }
 
 export function schedulesPageOf(page: Page<Schedule, Schedule['id']>) {
   return { items: page.items.map(scheduleItemOf), nextCursor: page.nextCursor };
+}
+
+/** The timing a creator gave, its instants as dates; what it leaves out stays out, for the domain's defaults. */
+export function scheduleTimingOf(timing: ScheduleTimingInputText): ScheduleTimingInput {
+  if (timing.kind === 'once') {
+    return { kind: 'once', at: new Date(timing.at) };
+  }
+  const bounds = {
+    ...(timing.start === undefined ? {} : { start: new Date(timing.start) }),
+    ...(timing.end === undefined ? {} : { end: new Date(timing.end) }),
+    ...(timing.count === undefined ? {} : { count: timing.count }),
+  };
+  return timing.kind === 'every'
+    ? { kind: 'every', every: timing.every, ...bounds }
+    : { kind: 'cron', cron: timing.cron, ...(timing.timeZone === undefined ? {} : { timeZone: timing.timeZone }), ...bounds };
 }

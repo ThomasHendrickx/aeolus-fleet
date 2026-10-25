@@ -12,7 +12,7 @@ import { sendWithin, type CheckedSend, type SendMessageTx } from './send-message
 import { sendRequestText } from './send-request.js';
 
 export interface SendDueSchedulesTx extends SendMessageTx {
-  schedules: Pick<ScheduleRepository, 'claimDue' | 'save'>;
+  schedules: Pick<ScheduleRepository, 'claimDue' | 'save' | 'sentCount'>;
   scheduleNotifier: ScheduleNotifier;
 }
 
@@ -80,17 +80,21 @@ export function createSendDueSchedules(deps: {
   };
 }
 
+/** At most this many send times of one schedule in one unit of work, oldest first; the rest on the next pass (S6). */
+export const SEND_TIMES_PER_PASS = 100;
+
 /**
- * One claimed schedule's send time, inside its unit of work. Its ship as it
- * is now is the sender: a retired one sends nothing and its schedule is
- * cancelled, as its retire would have done (S11).
+ * One claimed schedule's due send times, oldest first, inside its unit of
+ * work, at most SEND_TIMES_PER_PASS of them. Its ship as it is now is the
+ * sender: a retired one sends nothing and its schedule is cancelled, as its
+ * retire would have done (S11). A send time kept for a retry, or a pause,
+ * stops the rest.
  */
 async function sendScheduleWithin(deps: { tx: SendDueSchedulesTx; clock: Clock; ids: IdGenerator; hasher: RequestHasher }, schedule: Schedule): Promise<void> {
-  const { tx, clock, ids } = deps;
+  const { tx, clock } = deps;
   const at = clock.now();
-  const sendTime = schedule.nextSendTime;
   const ship = await findShip(tx, { fleetId: schedule.fleetId, shipId: schedule.shipId });
-  if (!ship.isOk || ship.value.retiredAt !== null || sendTime === null) {
+  if (!ship.isOk || ship.value.retiredAt !== null || schedule.nextSendTime === null) {
     const cancelled = cancelSchedule(schedule, { reason: 'retired', actor: SYSTEM, at });
     if (cancelled.isOk) {
       await stored(deps, cancelled.value);
@@ -98,11 +102,33 @@ async function sendScheduleWithin(deps: { tx: SendDueSchedulesTx; clock: Clock; 
     return;
   }
   const caller: ShipCaller = { shipId: ship.value.id, fleetId: ship.value.fleetId, kind: ship.value.kind, scopes: ship.value.scopes };
+  let current = schedule;
+  let sentCount = await tx.schedules.sentCount(schedule.fleetId, schedule.id);
+  for (let handled = 0; handled < SEND_TIMES_PER_PASS; handled += 1) {
+    const sendTime = current.nextSendTime;
+    // The claim judged the first one due by the database's clock; the rest are due by this server's.
+    if (current.state !== 'active' || sendTime === null || (handled > 0 && (current.nextAttemptAt === null || current.nextAttemptAt > at))) {
+      break;
+    }
+    const changed = await sendTimeWithin(deps, { schedule: current, caller, sendTime, at, sentCount });
+    sentCount = changed.sentCount;
+    current = changed.schedule;
+    await recorded(deps, changed.events);
+  }
+  await stored(deps, { schedule: current, events: [] });
+}
+
+/** One send time: sent as the ship, checked as a send by it now, or refused with its code. */
+async function sendTimeWithin(
+  deps: { tx: SendDueSchedulesTx; clock: Clock; ids: IdGenerator; hasher: RequestHasher },
+  sending: { schedule: Schedule; caller: ShipCaller; sendTime: Date; at: Date; sentCount: number },
+): Promise<{ schedule: Schedule; events: NewEvent[]; sentCount: number }> {
+  const { tx, clock, ids } = deps;
+  const { schedule, caller, sendTime, at, sentCount } = sending;
   const { send } = schedule;
   const missingScope = !hasScope(caller, 'messages:send') ? 'messages:send' : send.isForced && !hasScope(caller, 'messages:force') ? 'messages:force' : undefined;
   if (missingScope !== undefined) {
-    await stored(deps, scheduleRefused(schedule, { code: 'FORBIDDEN', sendTime, at }));
-    return;
+    return { ...scheduleRefused(schedule, { code: 'FORBIDDEN', sendTime, at, sentCount }), sentCount };
   }
   const inReplyTo = send.inReplyTo ?? undefined;
   const request: CheckedSend = {
@@ -117,17 +143,24 @@ async function sendScheduleWithin(deps: { tx: SendDueSchedulesTx; clock: Clock; 
     scheduledFor: { scheduleId: schedule.id, sendTime },
   };
   const sent = await sendWithin({ tx, clock, ids }, { caller, request });
-  await stored(deps, sent.isOk ? scheduleSent(schedule, { messageId: sent.value.messageId, sendTime, at }) : scheduleRefused(schedule, { code: sent.error.kind, sendTime, at }));
+  if (!sent.isOk) {
+    return { ...scheduleRefused(schedule, { code: sent.error.kind, sendTime, at, sentCount }), sentCount };
+  }
+  return { ...scheduleSent(schedule, { messageId: sent.value.messageId, sendTime, at, sentCount: sentCount + 1 }), sentCount: sentCount + 1 };
+}
+
+async function recorded(deps: { tx: SendDueSchedulesTx; ids: IdGenerator }, events: readonly NewEvent[]): Promise<void> {
+  for (const event of events) {
+    await recordEvent({ events: deps.tx.events, ids: deps.ids }, event);
+  }
 }
 
 /** Stores the schedule as it changed and its events, and tells the timers of a next attempt. */
 async function stored(deps: { tx: SendDueSchedulesTx; ids: IdGenerator }, changed: { schedule: Schedule; events: NewEvent[] }): Promise<void> {
-  const { tx, ids } = deps;
+  const { tx } = deps;
   const { schedule, events } = changed;
   await tx.schedules.save(schedule);
-  for (const event of events) {
-    await recordEvent({ events: tx.events, ids }, event);
-  }
+  await recorded(deps, events);
   if (schedule.state === 'active' && schedule.nextAttemptAt !== null) {
     await tx.scheduleNotifier.scheduleDue({ fleetId: schedule.fleetId, scheduleId: schedule.id, attemptAt: schedule.nextAttemptAt });
   }

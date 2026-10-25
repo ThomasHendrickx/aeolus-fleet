@@ -84,6 +84,8 @@ export interface ScheduleRepository {
   claimDue(fleetId: FleetId, excluding: readonly ScheduleId[]): Promise<Schedule | undefined>;
   /** Stores the schedule's state, next send time and attempt, last outcome, end and cancel. */
   save(schedule: Schedule): Promise<void>;
+  /** How many messages the schedule has sent: what a repeat's count counts. */
+  sentCount(fleetId: FleetId, scheduleId: ScheduleId): Promise<number>;
   /** The ship's active and paused schedules, oldest first, each held for update, as a retire cancels them. */
   listOpenOfShipForUpdate(fleetId: FleetId, shipId: ShipId): Promise<Schedule[]>;
   /** A page of the ship's schedules in the given states, newest first by id, read without a lock. */

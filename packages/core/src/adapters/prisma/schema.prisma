@@ -708,9 +708,18 @@ model Schedule {
   inReplyToMessageId String?              @map("in_reply_to_message_id")
   isForced           Boolean              @map("is_forced")
   timingKind         ScheduleTimingKind   @map("timing_kind")
-  onceAt             DateTime             @map("once_at") @db.Timestamptz(3)
+  /// The timing: once an instant; every a duration, or a cron and its zone, each from a start to an end or a count of sends.
+  onceAt             DateTime?            @map("once_at") @db.Timestamptz(3)
+  every              String?
+  cron               String?
+  timeZone           String?              @map("time_zone")
+  start              DateTime?            @db.Timestamptz(3)
+  end                DateTime?            @db.Timestamptz(3)
+  count              Int?
   onRefused          RefusalStrategy      @map("on_refused")
   retryWindow        String               @map("retry_window")
+  onMissed           MissedStrategy       @map("on_missed")
+  grace              String
   idempotencyKey     String               @map("idempotency_key")
   requestHash        String               @map("request_hash")
   state              ScheduleState
@@ -757,6 +766,8 @@ enum ScheduleState {
 
 enum ScheduleTimingKind {
   once
+  every
+  cron
 
   @@map("schedule_timing_kind")
 }
@@ -769,9 +780,18 @@ enum RefusalStrategy {
   @@map("refusal_strategy")
 }
 
+enum MissedStrategy {
+  each
+  once
+  skip
+
+  @@map("missed_strategy")
+}
+
 enum ScheduleOutcomeKind {
   sent
   refused
+  missed
 
   @@map("schedule_outcome_kind")
 }
