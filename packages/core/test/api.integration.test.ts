@@ -403,7 +403,7 @@ describe('the fleet procedures at the API', () => {
 
   it('refuse every fleet procedure but its own to a ship with only crew:run', async () => {
     const crewToken = await crewedShip(['messages:send', 'messages:receive', 'crew:run']);
-    const others = Object.entries(appRouter.fleet).filter(([name]) => !['ship', 'getStartingPrompt', 'release', 'reportCrewStatus', 'confirmCrewRelease', 'giveBackCrewRequest', 'assignedCrewRequests', 'clearRequests', 'confirmWorktreeCleared'].includes(name));
+    const others = Object.entries(appRouter.fleet).filter(([name]) => !['ship', 'getStartingPrompt', 'release', 'reportCrewStatus', 'confirmCrewRelease', 'giveBackCrewRequest', 'assignedCrewRequests', 'clearRequests', 'confirmWorktreeCleared', 'checkManage'].includes(name));
     // argo's inbox takes the message scopes every agent ship holds: each refuses any ship but argo once its input parses.
     const deliveryId = newId('delivery');
     const inputs: Record<string, unknown> = {
@@ -1686,6 +1686,17 @@ describe('rename at the API', () => {
     await expect(codeOf(asArgo.fleet.rename.mutate({ shipId: argoId, name: 'helm' }))).resolves.toBe('FORBIDDEN');
     await expect(codeOf(asArgo.fleet.rename.mutate({ shipId, name: taken }))).resolves.toBe('CONFLICT');
     await expect(codeOf(reader.fleet.rename.mutate({ shipId, name: 'any' }))).resolves.toBe('FORBIDDEN');
+  });
+});
+
+describe('checking manage reach at the API (design gateway-scopes 4.2)', () => {
+  it('answer a ship with no scope OK for a ship it manages, and NOT_FOUND for one that does not exist', async () => {
+    const asArgo = await signedInArgo();
+    const { shipId } = await asArgo.fleet.commission.mutate({ idempotencyKey: newKey(), name: `managed-${newId('ship').slice(-6)}`, type: 'reviewer' });
+    const unscoped = client({ authorization: `Bearer ${await crewedShip([])}` });
+
+    await expect(unscoped.fleet.checkManage.query({ shipId })).resolves.toEqual({});
+    await expect(codeOf(unscoped.fleet.checkManage.query({ shipId: newId('ship') }))).resolves.toBe('NOT_FOUND');
   });
 });
 

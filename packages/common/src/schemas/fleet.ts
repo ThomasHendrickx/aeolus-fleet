@@ -119,6 +119,12 @@ export const setOwnerInputSchema = z.object({ shipId: idSchema('ship'), ownerShi
 /** Output of `fleet.setOwner`: nothing; the OK is the answer. */
 export const setOwnerOutputSchema = z.strictObject({});
 
+/** Input of `fleet.checkManage`: the ship the caller asks whether it manages (design gateway-scopes 4.2). */
+export const checkManageInputSchema = z.object({ shipId: idSchema('ship') });
+
+/** Output of `fleet.checkManage`: nothing; the OK is the answer, NOT_REACHABLE the refusal. */
+export const checkManageOutputSchema = z.strictObject({});
+
 /** Input of `fleet.retire`: the ship to end for good. Never argo. */
 export const retireShipInputSchema = z.object({ shipId: idSchema('ship') });
 
