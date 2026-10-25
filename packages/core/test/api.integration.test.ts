@@ -271,6 +271,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_scheduled_messages_envelope$/),
       expect.stringMatching(/^\d{14}_schedules$/),
       expect.stringMatching(/^\d{14}_repeating_schedules$/),
+      expect.stringMatching(/^\d{14}_schedule_limits$/),
     ]);
   });
 });

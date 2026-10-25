@@ -241,7 +241,7 @@ describe('the limits at their boundary', () => {
     const { asScout } = await crewedScout(fleet);
     const repeat = (every: string) => asScout.ship.schedule.mutate({ ...aSchedule(), timing: { kind: 'every', every } });
 
-    await expect(repeat('PT1H')).resolves.toMatchObject({ scheduleId: expect.any(String) });
+    expect((await repeat('PT1H')).scheduleId).toMatch(/^sch_/);
     await expect(refusalOf(repeat('PT30M'))).resolves.toEqual({
       code: 'FORBIDDEN',
       message: "The fleet's send times of a repeating schedule are at least 3600 seconds apart: every PT30M is 1800 seconds",

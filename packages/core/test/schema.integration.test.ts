@@ -1453,7 +1453,8 @@ describe('the handed migration', () => {
     const deliveryId = newId('delivery');
     const [claimed, acknowledged] = [newId('event'), newId('event')];
     try {
-      await before.fleet.create({ data: { id: fleetId, name: 'old fleet', createdAt: now, lastEventSeq: 2n } });
+      // Raw: the generated client writes the defaults of columns later migrations add.
+      await before.$executeRaw`INSERT INTO fleets (id, name, created_at, last_event_seq) VALUES (${fleetId}, 'old fleet', ${now}, 2)`;
       // createMany: it returns no row, so it reads none of the columns later migrations add.
       await before.ship.createMany({ data: [{ id: shipId, fleetId, name: 'scout', type: 'reviewer', kind: 'agent', scopes: [], createdAt: now }] });
       // Raw: the generated client writes the defaults of columns later migrations add.
