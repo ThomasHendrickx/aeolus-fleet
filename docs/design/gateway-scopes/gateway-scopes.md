@@ -1,6 +1,6 @@
-# Gateway: tools by scope, and waking a person in chat
+# Gateway: tools by scope, and ships as Slack bots
 
-Design for [#1152](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1152) (part A) and [#1078](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1078) (part B), as one gateway design for Aeolus 0.32.0. Docs only.
+Design for [#1152](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1152) (part A) and [#1227](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1227) with [#1078](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1078) (part B), as one gateway design for Aeolus 0.32.0. Docs only.
 
 Stage 1: purpose, lessons, questions. Nothing past the purpose is decided until Thomas agrees it.
 
@@ -19,20 +19,24 @@ A good outcome:
 
 Not the purpose: the tool switch per party (#1151, shipped); a scope check inside core for calls to outside parties; outside clients and agents calling into the fleet.
 
-### Part B: wake a person through a chat app
+### Part B: ships as Slack bots
 
-A person learns that something waits for their person ship in the chat app they already have open all day, Slack, Discord or Teams, the same way web push and email wake them today. Thomas: "be where the user is".
+A person in the company talks to a ship of the fleet in Slack as they talk to a colleague: a ship exposed as a Slack bot, with its own name, that they message directly or mention in a channel. Several ships may each be their own bot. Thomas: "Slack integration with potential multiple bots that get exposed to the fleet. So a ship in the fleet becomes a bot in slack." Waking a person in Slack is one part of it: what waits for their person ship shows where they already are ("be where the user is", #1078).
 
-For whom: a person with a person ship who lives in a chat app, and who turned that channel on.
+For whom: people who never open an MCP client or the gateway's page, the non-technical side of the company that Aeolus connects to the technical side (#1228); and whoever decides which ships appear in Slack.
 
 A good outcome:
-1. A delivery reaches Mathilde's person ship while they are away; within a minute their chat app shows a message from the gateway that something waits in their fleet.
-2. The wake is a hand-over on the record, naming the chat channel, exactly as for web push and email (0040).
-3. Nothing is on until the person turns it on, and they can turn it off.
+1. Mathilde messages the bot of the ship `release-notes` in Slack. The message is stored in the fleet as a message from their person ship before Slack is told OK; it is never lost, and a Slack retry never sends it twice.
+2. The ship's answer, a reply to that message, appears in the same Slack conversation, from that ship's bot.
+3. Which ships appear as bots is chosen by someone holding a scope for it. Which person may message which ship stays the network rules, as today: a person whose person ship does not reach the ship gets a plain refusal in Slack.
+4. A message for Mathilde's person ship from any ship shows in Slack once they turned Slack on, and never before.
+5. Every hand-over to Slack is on the record, naming the Slack channel (0040).
 
-Not the purpose: the phone app (#1079); quiet hours or escalation; core holding a chat address or sending anything.
+Not the purpose: Discord and Teams (later, on the shape Slack proves); Slack users with no account in the organisation; ships talking to each other through Slack; Aeolus reading or summarising payloads; meetings in Slack.
 
 ## 2. Lessons to check against
+
+Part A:
 
 | # | Lesson | Source |
 | --- | --- | --- |
@@ -46,12 +50,25 @@ Not the purpose: the phone app (#1079); quiet hours or escalation; core holding 
 | L8 | Scope pickers show raw codes, not the declared descriptions; a party's new scopes would add to that | #1205 |
 | L9 | No policy: scopes are enforced exactly, nothing added on top | [0016](../../decisions/0016-no-policy.md) |
 | L10 | An outside party's own OAuth scopes never become fleet scopes | interop design, `design/interop-mcp` branch |
-| L11 | Web push and email only, "No chat webhook" (W1); each delivery woken once, gathered per window (W3, W10); the wake says only that something waits, by the fleet's name, with a link (W4); a page in focus is the channel (W6); consent first, nothing on by default (W8) | [wake a person](../wake-a-person/README.md), section 4 |
-| L12 | One wake pattern for every kind: the crew's computer side hands over through its actor's channel and reports `handed` naming it; core sends nothing and holds no address | I-1; 0040; wake a person, section 3 |
-| L13 | Email stays in pagasae; the address never leaves it | [0054](../../decisions/0054-sign-in.md), [0058](../../decisions/0058-pagasae-core-link.md); W2 |
-| L14 | The shipped email wake has two open defects: a refused `handed` partway records the email as sent (#1165), and a 401 or 404 from pagasae is retried forever (#1166). A third channel would share that path | #1165, #1166 |
-| L15 | A chat bot's token belongs to the app, not a person, and outlives whoever installed it | [actors](../accounts/actors.md), line 96 |
-| L16 | A person answers in their client or on the gateway's page; the promise ends when they open a delivery (the gateway's ack) | [0038](../../decisions/0038-questions.md), 0001, 0040 |
+
+Part B:
+
+| # | Lesson | Source |
+| --- | --- | --- |
+| L11 | No send returns OK before the message is durably stored; Slack retries an event not answered within 3 seconds, so the Slack event's own id must make a retry the same send | CLAUDE.md promise 2; 0003; Slack Events API retries |
+| L12 | Web push and email only, "No chat webhook" (W1); each delivery woken once, gathered per window (W3, W10); the wake carries no content, only the fleet's name and a link (W4, #1020); consent first, nothing on by default (W8). Part B changes W1 and W4 for Slack | [wake a person](../wake-a-person/README.md), section 4 |
+| L13 | One wake pattern for every kind: the crew hands over through its actor's channel and reports `handed` naming it; core sends nothing and holds no address | I-1; [0040](../../decisions/0040-delivery-protocol.md) |
+| L14 | The promise ends at the actor's confirmation; for a person that is opening the delivery, today the gateway's ack | [0001](../../decisions/0001-ack-on-receipt.md), 0040 |
+| L15 | A person reaches their person ship through the gateway, which crews it for all their clients, with no crew token in the client; a human's messages are their person ship's | [0015](../../decisions/0015-ship-identity-per-conversation.md), [0043](../../decisions/0043-core-surface.md), [0057](../../decisions/0057-actors.md) |
+| L16 | Who may message whom is network rules (send reach), refused with a plain "No rule matches"; no rights travel with a message | [0034](../../decisions/0034-network-rules.md), 0046 |
+| L17 | An outside party needs an owner, which only a real account can be; an anonymous request was rejected. The fleet's outside parties are a switch per fleet, off by default | [0056](../../decisions/0056-outside-parties.md) |
+| L18 | A chat bot's token belongs to the app, not a person, and outlives whoever installed it | [actors](../accounts/actors.md), line 96 |
+| L19 | Identity is pagasae's, and the address stays there; core holds no email | [0054](../../decisions/0054-sign-in.md), [0058](../../decisions/0058-pagasae-core-link.md) |
+| L20 | A delivery once reached another ship's session after a restart (P1); a Slack user to person ship mapping, and a bot to ship mapping, must be exact | #881 |
+| L21 | Bots that answer every message flood or loop; Slack bots skip `bot_message` | [meetings](../meetings/meetings.md), L1 |
+| L22 | A ship's statement (summary, capabilities) is what others see of it; payloads are at most 64 KB | [0047](../../decisions/0047-discovery-and-statements.md), [0006](../../decisions/0006-payload-limit.md) |
+| L23 | The shipped email wake has two open defects on the wake path a Slack channel would share: a refused `handed` partway (#1165), and an error retried forever (#1166) | #1165, #1166 |
+| L24 | Getting into the fleet must be flawless for non-technical people | #1228 |
 
 ## 3. Questions for Thomas
 
@@ -74,32 +91,52 @@ The gateway calls tools of two kinds of party: outside MCP servers (tools from `
 
 Pick: 1. The need in #1151 and #1152 is the company vault; A2A follows when an agent needs it.
 
-### B1. Which chat app first
+### B1. What one bot in Slack is
 
-Slack, Discord and Teams each need a bot registered with the vendor, installed into a workspace, server or tenant.
+In Slack a bot people can message directly, with its own name and picture, is its own Slack app, installed into the workspace (by its admin, or with the admin's approval).
 
-1. **Slack first**, the others later on the same channel shape.
-2. **Slack and Teams:** Teams is where companies on Microsoft live, but needs an Azure bot and a tenant admin's consent.
-3. **All three.**
+1. **One Slack app per exposed ship**, which the gateway makes from Slack's app manifest and someone installs into the workspace once per ship. Each ship is truly its own bot: its own direct messages, mentions and name. Each ship takes one install in Slack.
+2. **One Slack app for the gateway**, where a person names the ship in their message and answers show with the ship's name and picture. One install; but in Slack it is one bot, and a person cannot message a ship directly.
 
-Pick: 1. One app proves the channel; each further app is a small slice once the shape holds.
+Pick: 1. It is Thomas's words, "a ship in the fleet becomes a bot", and it is what a non-technical person expects of a colleague in Slack.
 
-### B2. What the chat wake carries, and whether the person answers there
+### B2. Who may talk to a bot
 
-W4 says the wake carries only that something waits and a link. "Be where the user is" may mean more.
+1. **Only an account of the organisation that linked its Slack account** (one sign in with Slack from the gateway's Overview, or offered at their first message to a bot). Their message is their person ship's; network rules decide which ships they reach.
+2. **Anyone in the workspace:** a linked account as in 1, and anyone else through one proxy ship for the workspace, an outside party with an owner (0056).
 
-1. **The wake as today:** the fleet's name, "something waits", the overview link. W4 unchanged; nothing of a payload reaches the chat vendor.
-2. **Each waiting delivery's sender and first line, opened from chat:** the person sees what waits and opening it in chat acks it. Changes W4; content reaches the chat vendor's servers.
-3. **Read, answer and mark done in chat:** the chat app becomes a full client of the person ship beside their MCP client and the gateway's page. Most "where the user is"; the largest slice, and every payload passes through the vendor.
+Pick: 1. Every message keeps a real sender, network rules stay the one where, and 0056's reason against anonymous requests holds. The link is one step, offered in Slack itself (#1228).
 
-Pick: 1 for 0.32.0. It keeps W4 and the hand-over exactly as web push and email; 2 or 3 can follow as their own design once a person asks for it.
+### B3. Where a bot listens
 
-### B3. Who sets up the chat app, and how a person's chat account is linked
+1. **Direct messages only.**
+2. **Direct messages, and a mention in a channel it was added to**, answered in that message's thread. The person who mentions it is the sender; other people in the thread see the answer.
+3. **As 2, and every message in a channel it was added to.**
 
-The gateway must know which Slack user is which person ship. The address of a person stays out of core (L13), and a bot token belongs to the app (L15).
+Pick: 2. It is how people use a colleague in Slack; 3 floods the ship (L21), and a bot never takes a message from another bot.
 
-1. **One Slack app for the gateway, from its configuration (as the web push keys are); an actor holding a gateway scope installs it into the organisation's workspace on the gateway's page; each person links their own Slack account from the Overview** (sign in with Slack), which also turns the channel on (W8).
-2. **Each organisation brings its own Slack app** and enters its credentials on the gateway's page; persons link as in 1. More setup per organisation; the organisation owns the bot.
-3. **A webhook URL each person pastes in.** No install; W1 said no chat webhook, and the URL is a secret the person carries.
+### B4. When a message to a person counts as received
 
-Pick: 1. The person consents by linking, the organisation decides by installing, and nothing new is asked of core or pagasae.
+A ship's answer, or any message to the person ship, shows in Slack in full. Today the promise ends when the person opens it (L14).
+
+1. **Slack accepted the post: the gateway acks then.** The person's app received it in full (0001); in Slack, there is nothing further to open.
+2. **Handed with the Slack channel; acked when the person opens it on the gateway's page or reacts in Slack.** Closer to "the person saw it"; deliveries stay open while Slack shows them.
+
+Pick: 1. A message shown in full in the person's app is received, as for any app that crews a ship. What Slack cannot show in full (another content type, or over Slack's length) goes as a link and is handed only, as a wake.
+
+### B5. What a message from a ship that is not a bot does in Slack
+
+A ship with no bot, or a question (0038) from any ship, may also wait for the person ship.
+
+1. **Shown in full in a direct message from the gateway's own bot, consent first.** Everything that waits is where the person is; W4 changes for Slack only, web push and email keep it.
+2. **A wake only, as W4:** "something waits", the fleet's name and a link; content only from ships that are bots.
+
+Pick: 1. One place for everything that waits, and a person answers it in the same direct message; the person chose Slack by turning it on (W8).
+
+### B6. Who exposes a ship as a bot
+
+1. **An actor holding `gateway:approve`, within manage reach of the ship**, on the gateway's page; the workspace's own install approval still applies on Slack's side.
+2. **A new gateway scope for Slack**, within manage reach of the ship, so approving outside parties and exposing ships are held apart.
+3. **The ship's owner**, within manage reach, with no gateway scope.
+
+Pick: 2. Putting a ship in front of the whole company is not approving an outside party; a scope of its own lets an organisation give it to the person who runs Slack. It still fits the gateway's 20-scope namespace.
