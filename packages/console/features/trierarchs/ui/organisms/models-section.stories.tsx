@@ -95,3 +95,5 @@ export const PressShowsPending: Story = {
     await expect(canvas.getByRole('switch', { name: 'claude-sonnet-5: enabled' })).toHaveAttribute('aria-disabled', 'true');
   },
 };
+/** On a phone each row stacks its harnesses and machines under the model. */
+export const Phone: Story = { args: { rows: RULE }, globals: { viewport: { value: 'mobile1' } } };

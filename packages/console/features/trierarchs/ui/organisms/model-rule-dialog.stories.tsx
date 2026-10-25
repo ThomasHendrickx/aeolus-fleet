@@ -27,3 +27,5 @@ export const First: Story = {
 export const Last: Story = { args: { change: { model: 'claude-opus-5-5', kind: 'last' } } };
 export const Enabling: Story = { args: { isPending: true } };
 export const Refused: Story = { args: { error: 'the trierarch plugin did not answer: try again in a moment' } };
+/** On a phone the confirm opens as a bottom sheet. */
+export const Phone: Story = { globals: { viewport: { value: 'mobile1' } } };
