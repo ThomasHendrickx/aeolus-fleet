@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { shipKindSchema, shipStatusSchema } from '../fleet/index.js';
+import { scopeNameSchema, shipKindSchema, shipStatusSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
 import { contentTypeSchema } from './message.js';
 import { discoveredVerifiedFactSchema } from './verified-fact.js';
@@ -69,6 +69,8 @@ export const capabilitySchema = z.strictObject({
   deadlineMs: z.int().min(1).max(CAPABILITY_DEADLINE_MAX_MS).optional(),
   /** Whether a call that died before it was confirmed may be handed again; none is not (interop 5.2). */
   repeatable: z.boolean().optional(),
+  /** The scopes a ship needs to call it, all of them; none needs nothing beyond reaching the ship (decision 0064). */
+  scopes: z.array(scopeNameSchema).optional(),
   /** MCP's tool annotations, as the outside server gave them. */
   annotations: toolAnnotationsSchema.optional(),
 });
