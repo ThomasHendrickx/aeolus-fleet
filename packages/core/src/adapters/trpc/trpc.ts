@@ -550,8 +550,12 @@ export const authenticatedProcedure = callerProcedure({ isOnBehalfRead: false, r
 /** A console procedure for whoever is signed in to the console: argo or the viewer by the session cookie, or an account by its token cookie. */
 export const signedInProcedure = callerProcedure({ isOnBehalfRead: false, resolve: async (ctx) => (await resolveShip(ctx)) ?? consoleAccountOf(ctx) });
 
-/** The base of a fleet call for any actor (decision 0057), and of a fleet:read read, which a plugin may make on behalf of a named ship. */
-const actorProcedure = callerProcedure({ isOnBehalfRead: false, resolve: resolveCaller });
+/**
+ * The base of a fleet call for any actor (decision 0057), and of a fleet:read
+ * read, which a plugin may make on behalf of a named ship. Alone, a call any
+ * actor makes with no scope: checking its own manage reach.
+ */
+export const actorProcedure = callerProcedure({ isOnBehalfRead: false, resolve: resolveCaller });
 const readingProcedure = callerProcedure({ isOnBehalfRead: true, resolve: resolveCaller });
 
 /**
