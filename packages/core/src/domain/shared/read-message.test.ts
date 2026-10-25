@@ -5,6 +5,7 @@ import type { MessageId } from '@aeolus-fleet/common';
 import { crewOfToken, deliveryIdOf } from '../../../test/support/core-fixtures.js';
 import { aCrewSettings, shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { historyScenario, type HistoryScenario } from '../../../test/support/history-scenario.js';
+import { valueIdOf } from '../../../test/support/label-fixtures.js';
 import { newKey } from '../../testing/keys.js';
 import { refusalOf, unwrap } from '../../testing/result.js';
 import type { ShipCaller, Crew } from './caller.js';
@@ -67,6 +68,38 @@ describe('reading one message', () => {
       isOk: false,
       error: { kind: 'MESSAGE_NOT_FOUND' },
     });
+  });
+
+  it('gives a message to one ship its one delivery, with its ship, state and since when', async () => {
+    const messageId = await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.scout.shipId } });
+    const sentAt = scene.core.clock.now();
+
+    expect(unwrap(await scene.history.readMessage(scene.argo, { messageId })).deliveries).toEqual([
+      { id: deliveryIdOf(scene.core, messageId), ship: { id: scene.scout.shipId, name: 'scout' }, state: 'pending', since: sentAt },
+    ]);
+  });
+
+  it('gives every delivery of a send to a label, each with its ship, state and since when (decision 0065)', async () => {
+    unwrap(await scene.registry.defineLabel(scene.argo, { key: 'team', values: ['a'] }));
+    const teamA = valueIdOf(scene.core, { key: 'team', value: 'a' });
+    for (const crew of [scene.scout, scene.lookout, scene.planner]) {
+      unwrap(await scene.registry.assignLabel(scene.argo, { shipId: crew.shipId, valueId: teamA }));
+    }
+    const messageId = await scene.send(scene.argo, { to: { kind: 'label', valueIds: [teamA] } });
+    const sentAt = scene.core.clock.now();
+    await scene.receive(scene.lookout);
+    const handedAt = scene.core.clock.now();
+    await scene.receive(scene.planner);
+    await scene.ack(scene.planner, messageId);
+    const ackedAt = scene.core.clock.now();
+    const deliveryTo = (crew: Crew) =>
+      scene.core.state.deliveries.find((held) => held.messageId === messageId && held.recipient.kind === 'ship' && held.recipient.shipId === crew.shipId)?.id;
+
+    expect(unwrap(await scene.history.readMessage(scene.argo, { messageId })).deliveries).toEqual([
+      { id: deliveryTo(scene.scout), ship: { id: scene.scout.shipId, name: 'scout' }, state: 'pending', since: sentAt },
+      { id: deliveryTo(scene.lookout), ship: { id: scene.lookout.shipId, name: 'lookout' }, state: 'handed', since: handedAt },
+      { id: deliveryTo(scene.planner), ship: { id: scene.planner.shipId, name: 'planner' }, state: 'acknowledged', since: ackedAt },
+    ]);
   });
 });
 
