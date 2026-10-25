@@ -572,6 +572,14 @@ describe('a schedule to a label on Postgres (decision 0065, D6)', () => {
     expect(listed.items.map((schedule) => schedule.send.selector)).toEqual([{ kind: 'label', valueIds: [teamA] }]);
   });
 
+  it('names each value of the selection by key and value for argo, who holds fleet:read, in the page of schedules', async () => {
+    await scheduled(toTeamA());
+
+    const listed = unwrap(await core.useCases.listSchedules(argo, { shipId: scout.shipId, limit: 20 }));
+
+    expect(listed.labelValues).toEqual([{ valueId: teamA, key: 'team', value: 'a' }]);
+  });
+
   it('sends each send time to the ships carrying the selection then: a ship labelled between two send times gets the second only', async () => {
     const scheduleId = await scheduled(toTeamA());
 
