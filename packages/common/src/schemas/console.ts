@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { scopeSchema } from '../fleet/index.js';
+import { scopeNameSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
 import { accountIdSchema } from './account-token.js';
 import {
@@ -62,7 +62,8 @@ export const consoleSessionKindSchema = z.enum(['operator', 'viewer', 'account']
  * someone is signed in. The fleet, when the session expires (ISO 8601 in
  * UTC), whose session it is, and the scopes of its ship: a viewer reads only.
  * An account's is its account token: its id, when the token ends, and the
- * scopes it carries.
+ * scopes it carries. Scopes a plugin declares come beside core's, so the
+ * plugin checks its own on the session (#1234).
  */
 export const consoleSessionOutputSchema = z.object({
   fleetId: idSchema('fleet'),
@@ -71,7 +72,7 @@ export const consoleSessionOutputSchema = z.object({
   expiresAt: z.iso.datetime(),
   kind: consoleSessionKindSchema,
   accountId: accountIdSchema.optional(),
-  scopes: z.array(scopeSchema),
+  scopes: z.array(scopeNameSchema),
 });
 
 /** Input of `console.presentAccountToken`: the account token pagasae gave the console's server for this fleet (decision 0058). */

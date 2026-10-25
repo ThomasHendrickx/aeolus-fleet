@@ -12,9 +12,7 @@ import {
   setThemeInputSchema,
   setThemeOutputSchema,
   redeemSignInTicketInputSchema,
-  scopeSchema,
   signInInputSchema,
-  type Scope,
 } from '@aeolus-fleet/common';
 import { TRPCError } from '@trpc/server';
 
@@ -35,10 +33,6 @@ import {
 } from './trpc.js';
 
 /** Only core scopes: a plugin's scopes are never a console sign-in's to hold (decision 0046). */
-function coreScopesOf(scopes: readonly string[]): Scope[] {
-  return scopes.filter((scope): scope is Scope => scopeSchema.safeParse(scope).success);
-}
-
 /**
  * Console procedures: the only ones that exist for the web app alone. They take
  * the operator's email and password once and work with the session cookie,
@@ -139,7 +133,7 @@ export const consoleRouter = router({
       }
       const { fleetId, accountId, scopes, tokenEndsAt } = account;
       const fleetName = okOrThrow(await ctx.useCases.readFleetName({ fleetId }));
-      return { fleetId, fleetName, expiresAt: (tokenEndsAt ?? new Date()).toISOString(), kind: 'account' as const, accountId, scopes: coreScopesOf(scopes) };
+      return { fleetId, fleetName, expiresAt: (tokenEndsAt ?? new Date()).toISOString(), kind: 'account' as const, accountId, scopes: [...scopes] };
     }
     const { fleetId, kind, scopes } = use.caller;
     if (kind !== 'operator' && kind !== 'viewer') {
@@ -147,7 +141,7 @@ export const consoleRouter = router({
       return refuseNoConsoleSignIn();
     }
     const fleetName = okOrThrow(await ctx.useCases.readFleetName({ fleetId }));
-    return { fleetId, fleetName, expiresAt: use.expiresAt.toISOString(), kind, scopes: coreScopesOf(scopes) };
+    return { fleetId, fleetName, expiresAt: use.expiresAt.toISOString(), kind, scopes: [...scopes] };
   }),
 
   /** Stores the operator's theme on their account, so it follows them to any browser. */
