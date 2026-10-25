@@ -21,13 +21,13 @@ describe("listing the fleet's scopes (decision 0046)", () => {
   it('lists the core namespaces first, each with its scopes in catalogue order, declared by no ship', async () => {
     const listed = await registry.listScopes(argo);
 
-    expect(listed.map(({ namespace, declaredBy }) => [namespace, declaredBy])).toEqual([
-      ['messages', null],
-      ['fleet', null],
-      ['crew', null],
-      ['labels', null],
-      ['scopes', null],
-      ['meetings', null],
+    expect(listed.map(({ namespace, kind, declaredBy }) => [namespace, kind, declaredBy])).toEqual([
+      ['messages', 'core', null],
+      ['fleet', 'core', null],
+      ['crew', 'core', null],
+      ['labels', 'core', null],
+      ['scopes', 'core', null],
+      ['meetings', 'core', null],
     ]);
     expect(listed.flatMap(({ scopes }) => scopes.map(({ scope }) => scope))).toEqual(SCOPES.toSorted((first, second) => namespaceOrder(first) - namespaceOrder(second)));
   });
@@ -47,8 +47,32 @@ describe("listing the fleet's scopes (decision 0046)", () => {
     const plugins = (await registry.listScopes(argo)).slice(6);
 
     expect(plugins).toEqual([
-      { namespace: 'builds', declaredBy: { id: builders.shipId, name: 'builders' }, scopes: [] },
-      { namespace: 'squadrons', declaredBy: { id: squadrons.shipId, name: 'squadrons' }, scopes: [{ scope: 'squadrons:form', description: 'Form a squadron' }] },
+      { namespace: 'builds', kind: 'plugin', declaredBy: { id: builders.shipId, name: 'builders' }, scopes: [] },
+      { namespace: 'squadrons', kind: 'plugin', declaredBy: { id: squadrons.shipId, name: 'squadrons' }, scopes: [{ scope: 'squadrons:form', description: 'Form a squadron' }] },
+    ]);
+  });
+
+  it("lists each namespace of the fleet's own scopes beside the plugins', by namespace, as the fleet's, with its scopes by name (design gateway-scopes, 4.1)", async () => {
+    const squadrons = await shipWithScopes({ registry, argo }, { name: 'squadrons', type: 'squadrons', scopes: [] });
+    unwrap(await registry.declareScopes(squadrons, { namespace: 'squadrons', scopes: [] }));
+    unwrap(await registry.defineScope(argo, { scope: 'crm:write-leads', description: 'Write leads in the CRM' }));
+    unwrap(await registry.defineScope(argo, { scope: 'finance:read', description: 'Read the books' }));
+    unwrap(await registry.defineScope(argo, { scope: 'crm:read-leads', description: 'Read leads in the CRM' }));
+
+    const others = (await registry.listScopes(argo)).slice(6);
+
+    expect(others).toEqual([
+      {
+        namespace: 'crm',
+        kind: 'fleet',
+        declaredBy: null,
+        scopes: [
+          { scope: 'crm:read-leads', description: 'Read leads in the CRM' },
+          { scope: 'crm:write-leads', description: 'Write leads in the CRM' },
+        ],
+      },
+      { namespace: 'finance', kind: 'fleet', declaredBy: null, scopes: [{ scope: 'finance:read', description: 'Read the books' }] },
+      { namespace: 'squadrons', kind: 'plugin', declaredBy: { id: squadrons.shipId, name: 'squadrons' }, scopes: [] },
     ]);
   });
 
