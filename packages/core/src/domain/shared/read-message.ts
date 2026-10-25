@@ -29,7 +29,7 @@ export function createReadMessage(deps: { history: ShipHistory; readReach: ReadR
   return async (caller, { messageId }) => {
     const found = await deps.history.message(caller.fleetId, messageId);
     if (!found || !readsMessage(await deps.readReach(caller), partiesOf(found, found.delivery.claimedBy))) {
-      return refuse('MESSAGE_NOT_FOUND', `No message ${messageId} in this fleet`);
+      return refuse('MESSAGE_NOT_FOUND', `No message ${messageId} in this fleet, or it is no longer kept`);
     }
     const { history, replies, lease, overdue, crew, ...message } = found;
     const way = deliveryWayOf({ state: message.delivery.state, history, lease, overdue, crew });

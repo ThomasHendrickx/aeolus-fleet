@@ -112,9 +112,18 @@ describe('a pruning pass on Postgres', () => {
     expect(await historyPruned()).toBe(1);
   });
 
-  it.each<DeliveryState>(['pending', 'received', 'handed', 'undeliverable', 'notHandled'])('keeps a message whose delivery is %s, at any age', async (state) => {
+  it.each<DeliveryState>(['pending', 'received', 'undeliverable', 'notHandled'])('keeps a message whose delivery is %s, at any age', async (state) => {
     const messageId = await sendTo(planner.shipId);
     await core.prisma.delivery.updateMany({ where: { messageId }, data: { state } });
+
+    await passAfter(1_000 * DAY_MS);
+
+    expect(await isKept(messageId)).toBe(true);
+  });
+
+  it('keeps a message whose delivery is handed, at any age', async () => {
+    const messageId = await sendTo(planner.shipId);
+    unwrap(await core.useCases.receiveDeliveries(planner, { max: 10 }));
 
     await passAfter(1_000 * DAY_MS);
 

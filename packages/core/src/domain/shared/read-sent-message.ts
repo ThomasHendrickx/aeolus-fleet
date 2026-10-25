@@ -32,7 +32,7 @@ export function createReadSentMessage(deps: { history: ShipHistory }): ReadSentM
   return async (caller, { messageId }) => {
     const found = await deps.history.message(caller.fleetId, messageId);
     if (found?.sender.id !== caller.shipId) {
-      return refuse('MESSAGE_NOT_FOUND', `No message ${messageId} in this fleet`);
+      return refuse('MESSAGE_NOT_FOUND', `No message ${messageId} in this fleet, or it is no longer kept`);
     }
     const { since } = deliveryWayOf({ state: found.delivery.state, history: found.history, lease: found.lease, overdue: found.overdue, crew: found.crew });
     return ok({
