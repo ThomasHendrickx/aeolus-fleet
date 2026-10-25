@@ -176,7 +176,7 @@ flowchart TD
 | Scopes: messages, fleet, crew, labels, scopes | `meetings:open` (M4) |
 | A ship reads its own inbox and sent | A participant reading the meeting's messages and its participants' status (M12, M14) |
 | Label selection exact and AND, in the fleet list | Resolving one at invite (M6) |
-| Ship protocol, core MCP tools and REST, aeolus plugin scripts: send to ship or type | Contribute, join and leave, request, withdraw and release the mic |
+| Ship protocol, core MCP tools and REST, Aeolus Fleet plugin scripts: send to ship or type | Contribute, join and leave, request, withdraw and release the mic |
 | Gateway: inbox per delivery | A meeting view and the meeting calls for a person (gateway train) |
 | Pushed sessions: each delivery wakes the session | Every contribution wakes every participant (L2); accepted at six |
 
@@ -189,5 +189,5 @@ Meeting only (M20). One PR each, in order; S4 and S5 start once S3 is merged.
 | S1 | Core: open and contribute | Decision record and blueprint terms (meeting, participant, owner, moderator, mic, mic request); the meeting with owner and moderator; `meetings:open`; invite by list and label (M6) with the owner's reach (M5) and its built-in rule; the meeting selector with one delivery per other participant; the added notice (M11); refusals of the contribute flow except the mic; the history read with participants' status | Two of three ships created into a meeting by a third exchange contributions though neither reaches the other; each delivery acknowledged on its own; an unreachable invitee refuses the create; rollback and concurrency tests on the fan-out |
 | S2 | Core: the mic | Mic enforcement with the moderator excepted (M7); the request list (M8); give, take, release (M10); FIFO (M9); the mic notice (M11) | The first use case's round robin runs in a test: five agents and a person ship, FIFO, requests again after speaking; an off-mic contribution stores nothing |
 | S3 | Core: the meeting's life | Add later and rejoin (M5, M13); leave, revoke; transfer of owner and moderator (M2, M3); ending by owner or moderator and the ended notice (M15); retire effects (M17); events for each | Every path of "leave, retire and end" has a test; an ended meeting refuses contributions and still delivers its pending deliveries |
-| S4 | Ships: the surface | Ship protocol rules for a participant; MCP tools and REST over the same procedures; the aeolus plugin's scripts (trierarch train) | A Claude Code session crewing a ship takes part in a meeting through the plugin |
+| S4 | Ships: the surface | Ship protocol rules for a participant; MCP tools and REST over the same procedures; the Aeolus Fleet plugin's scripts (trierarch train) | A Claude Code session crewing a ship takes part in a meeting through the plugin |
 | S5 | Gateway: a person in a meeting | The meeting view and calls on the gateway's pages and MCP, so an agent acting as the person may request the mic after each contribution (M19) (gateway train) | Thomas contributes, requests and releases the mic from his phone |

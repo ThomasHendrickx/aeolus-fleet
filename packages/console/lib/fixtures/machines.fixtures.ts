@@ -50,7 +50,7 @@ export const ALIVE_MACHINE: Machine = {
   details: DETAILS,
 };
 
-/** Codex is not offered: its aeolus plugin is missing (#1215). */
+/** Codex is not offered: its Aeolus Fleet plugin is missing (#1215). */
 export const NOT_OFFERED = { harness: 'codex', reason: 'its aeolus plugin is not installed (run aeolus-trierarch upgrade)' } as const;
 
 export const NOT_OFFERED_MACHINE: Machine = { ...ALIVE_MACHINE, details: { ...DETAILS, harnesses: DETAILS.harnesses.slice(0, 1), notOffered: [NOT_OFFERED] } };
@@ -99,7 +99,7 @@ export const JOINED: JoinedMachine = {
   shipId: NEW_MACHINE.shipId,
   name: NEW_MACHINE.name,
   prompt: 'You crew the Aeolus ship trierarch-new. Register with the fleet at https://fleet.example.com ...',
-  crewLines: [{ harness: 'claude-code', line: '/aeolus:crew https://fleet.example.com shp_01j9k2t4qzr3a9w6m2v5n7trnw aeolus_sk_v1_example' }],
+  crewLines: [{ harness: 'claude-code', line: '/aeolus-fleet:crew https://fleet.example.com shp_01j9k2t4qzr3a9w6m2v5n7trnw aeolus_sk_v1_example' }],
   setupLine: 'npx @aeolus-fleet/trierarch init --fleet-url https://fleet.example.com --ship-id shp_01j9k2t4qzr3a9w6m2v5n7trnw --secret aeolus_sk_v1_example',
 };
 

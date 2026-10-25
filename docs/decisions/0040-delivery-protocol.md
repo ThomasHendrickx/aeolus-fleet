@@ -1,6 +1,6 @@
 # 0040 Delivery protocol
 
-The fleet's promise ends when the agent has confirmed it received the message. A ship with a computer side (the trierarch, or the aeolus plugin's watcher and hooks) is pushed; any other ship pulls.
+The fleet's promise ends when the agent has confirmed it received the message. A ship with a computer side (the trierarch, or the Aeolus Fleet plugin's watcher and hooks) is pushed; any other ship pulls.
 
 - **Push receive** (`pushReceive`): the computer side takes up to `max` deliveries. A pending one becomes `received`, in flight with the crew's ship and lease, with no attempt counted and `DeliveryReceived`. Its own received or handed ones come back first, changing nothing, with `DeliveryReceived` marked `again`, so a restart or a lost answer loses nothing.
 - **Pushed lease**: a lease is pushed from its first push receive, marked once with `LeasePushed`, until it ends; a new lease pulls until its own first push receive. On a pushed lease the agent's plain `receive` answers nothing and claims nothing, pending deliveries included.

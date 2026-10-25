@@ -120,7 +120,7 @@ export const trierarchReportDetailsSchema = z.strictObject({
   runtime: z.enum(SESSION_RUNTIMES).optional(),
   /**
    * The configured harnesses the trierarch cannot serve now, each with why,
-   * such as its aeolus plugin missing (#1212): left out of `harnesses` and
+   * such as its Aeolus Fleet plugin missing (#1212): left out of `harnesses` and
    * `workspaces`, offered again once the cause is gone. None from a trierarch
    * before 0.31.0, or with every harness offered.
    */

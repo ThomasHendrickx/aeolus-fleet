@@ -9,8 +9,8 @@ const meta = {
   component: CrewLines,
   args: {
     crewLines: [
-      { harness: 'claude-code', line: `/aeolus:crew ${IDENTITY}` },
-      { harness: 'codex', line: `$aeolus-crew ${IDENTITY}` },
+      { harness: 'claude-code', line: `/aeolus-fleet:crew ${IDENTITY}` },
+      { harness: 'codex', line: `$aeolus-fleet-crew ${IDENTITY}` },
     ],
     subject: 'reviewer-01',
     testIdPrefix: 'story-crew-line',

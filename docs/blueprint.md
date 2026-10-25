@@ -249,7 +249,7 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Ship secret | `aeolus_sk_v1_<random>`, shown once, stored as a hash, one valid per ship, used only to register (0002) | core |
 | Crew token | `aeolus_ct_v1_<random>` from register, stored as a hash, names one crew on every later call, ends with the lease (0015) | core |
 | Starting prompt | Crew instructions for a chat: the fleet's MCP URL, ship id and secret, how to register and keep the crew token; a new one ends the outstanding one (0019) | core |
-| Crew line | The same in one line per harness with the `aeolus` plugin: `/aeolus:crew <fleetUrl> <shipId> <secret>`, `$aeolus-crew …` for Codex (0019) | core |
+| Crew line | The same in one line per harness with the `aeolus` plugin: `/aeolus-fleet:crew <fleetUrl> <shipId> <secret>`, `$aeolus-fleet-crew …` for Codex (0019) | core |
 | Ship protocol | How a crew works a ship from register to the end of its turn, sent by the fleet to every connecting session | core |
 | Location | Where the session runs: `DEVICE`, `CLOUD`, `SERVER`, or `OTHER` with a description; never interpreted | core |
 | Harness | What the session runs in: free text, known `claude-code`, `claude-chat`, `codex`; read with the location (0018) | core |

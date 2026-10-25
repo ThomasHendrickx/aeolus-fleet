@@ -29,7 +29,7 @@ If the docs do not answer a behaviour question, stop and ask. Never decide produ
 
 ## Architecture rules
 
-- Packages: @aeolus-fleet/common (schemas, ids), @aeolus-fleet/core and @aeolus-fleet/console, core's release train. Squadrons, the trierarch plugin, the trierarch with the aeolus plugin, and the gateway are trains in their own repositories (decision 0049). Separate packages, decided.
+- Packages: @aeolus-fleet/common (schemas, ids), @aeolus-fleet/core and @aeolus-fleet/console, core's release train. Squadrons, the trierarch plugin, the trierarch with the Aeolus Fleet plugin, and the gateway are trains in their own repositories (decision 0049). Separate packages, decided.
 - Ports and adapters. core/src/domain holds domain, use cases and ports, with no framework, Prisma, pg or tRPC imports. The lint rule enforces it; never disable it.
 - Contexts in core: registry, messaging, identity, shared. A context does not reach into another's internals.
 - Prisma lives in src/adapters/prisma only. Locking and notify queries use typed raw SQL there.
