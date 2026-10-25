@@ -322,6 +322,7 @@ describe('the ship tools at /mcp', () => {
     ['fleet_declareScopes', [/scopes:declare/, /at most 20/, /whole list/, /CONFLICT/, /retires/]],
     ['fleet_grantScopes', [/scopes:grant/, /next call/, /declarer/, /never revoked/]],
     ['fleet_setVerifiedFacts', [/fleet:verify/, /decision 0059/, /manage/, /whole/, /withdraw/, /oauthSubject/, /issuer/, /at most 10/]],
+    ['send', [/"kind": "label"/, /"valueIds": \["lbv_\.\.\."\]/, /every value/, /never you/, /fleet_findLabelValue/, /every ship of it/]],
   ])('state the scope and rules of %s in its description', async (name, rules) => {
     await start();
 
