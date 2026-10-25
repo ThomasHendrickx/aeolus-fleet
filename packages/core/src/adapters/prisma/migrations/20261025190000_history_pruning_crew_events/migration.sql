@@ -1,0 +1,2 @@
+-- The pruning pass finds a crew's session and secret events past the cutoff (decision 0066).
+CREATE INDEX "events_crew_idx" ON "events"("fleet_id", "occurred_at") WHERE (type = ANY (ARRAY['ShipClaimed'::text, 'LeaseRevoked'::text, 'LeasePushed'::text, 'ShipReported'::text, 'TurnReported'::text, 'StatementSet'::text, 'CrewStatusChanged'::text, 'SignInTicketIssued'::text, 'ViewerSessionStarted'::text, 'StartingPromptIssued'::text, 'CredentialRevoked'::text]));

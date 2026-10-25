@@ -10,7 +10,7 @@ import { readsMessage } from '../../src/domain/registry/public.js';
 import { acknowledgedWaitsOf, hourMarkOf, stuckCountOf, type HealthSnapshotWriter, type HourSnapshot } from '../../src/domain/shared/health-snapshot.js';
 import type { HealthRecords } from '../../src/domain/shared/health.js';
 import type { DeliveryRecord } from '../../src/domain/shared/stuck.js';
-import type { InMemoryState } from './in-memory.js';
+import { numberedEvents, type InMemoryState } from './in-memory.js';
 
 const HOUR_MS = 60 * 60 * 1000;
 const KEPT_HOURS = 168;
@@ -22,8 +22,7 @@ export interface HeldHourSnapshot extends HourSnapshot {
 }
 
 export function createInMemoryHealthSnapshots(state: InMemoryState, health: HealthRecords): HealthSnapshotWriter {
-  const numbered = (fleetId: FleetId): SequencedEvent[] =>
-    state.events.filter((event) => event.fleetId === fleetId).map((event, index) => ({ ...event, seq: index + 1 }));
+  const numbered = (fleetId: FleetId): SequencedEvent[] => numberedEvents(state, fleetId);
   const rowsOf = (fleetId: FleetId) => state.healthSnapshots.filter((row) => row.fleetId === fleetId).toSorted((first, second) => first.hour.getTime() - second.hour.getTime());
   const sentOf = (fleetId: FleetId, events: readonly SequencedEvent[]): DeliveryRecord[] =>
     events.flatMap((event) => {

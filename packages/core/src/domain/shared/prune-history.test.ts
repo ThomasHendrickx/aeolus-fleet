@@ -1,10 +1,14 @@
-import { idSchema, type FleetId, type MessageId } from '@aeolus-fleet/common';
+import { idSchema, QUESTION_CONTENT_TYPE, type ConsoleSessionId, type FleetId, type MessageId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { historyScenario, type HistoryScenario } from '../../../test/support/history-scenario.js';
 import type { InMemoryState } from '../../../test/support/in-memory.js';
+import { unwrap } from '../../testing/result.js';
 import { createCloseHealthSnapshots } from './close-health-snapshots.js';
+import { CREW_EVENT_TYPES } from './history-pruning.js';
 import { createPruneHistory } from './prune-history.js';
+
+const CREW_EVENTS: readonly string[] = CREW_EVENT_TYPES;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
@@ -124,13 +128,31 @@ describe('the pruning pass', () => {
   it('writes HistoryPruned, by the system, with the cutoff and how many rows of each kind went', async () => {
     retainFor(30);
     const messageId = await aFinishedMessage();
-    const events = eventsOf(messageId).length;
+    const crewEvents = scene.core.state.events.filter((event) => CREW_EVENTS.includes(event.type)).length;
+    const events = eventsOf(messageId).length + crewEvents;
     scene.core.clock.advance(31 * DAY_MS);
 
     await pass();
 
+    expect(crewEvents).toBeGreaterThan(0);
     expect(pruned()).toEqual([
-      expect.objectContaining({ actor: { kind: 'system' }, details: { cutoff: '2026-10-02T09:01:03.000Z', messages: 1, deliveries: 1, events, overdueDeliveries: 0 } }),
+      expect.objectContaining({
+        actor: { kind: 'system' },
+        details: {
+          cutoff: '2026-10-02T09:01:03.000Z',
+          messages: 1,
+          deliveries: 1,
+          events,
+          overdueDeliveries: 0,
+          leases: 0,
+          credentials: 0,
+          consoleSessions: 0,
+          noticeDismissals: 0,
+          guideProgress: 0,
+          signInTickets: 0,
+          reachRefusals: 0,
+        },
+      }),
     ]);
   });
 
@@ -293,5 +315,204 @@ describe('the pruning pass', () => {
 
     expect(core.state.events.filter((event) => event.details.meetingId === meetingId).map((event) => event.type)).toEqual(['MeetingEnded']);
     expect(core.state.meetings.map((held) => held.id)).toContain(meetingId);
+  });
+});
+
+describe("the pruning pass, the rest of a fleet's finished history (S3)", () => {
+  function eventTypes(): string[] {
+    return scene.core.state.events.map((event) => event.type);
+  }
+
+  /** The scout's crew released and two starting prompts issued: its lease ended and the first secret invalidated by the second, with LeaseRevoked, StartingPromptIssued and CredentialRevoked. */
+  async function releaseScout(): Promise<void> {
+    unwrap(await scene.registry.releaseShip(scene.argo, { shipId: scene.scout.shipId }));
+    unwrap(await scene.registry.getStartingPrompt(scene.argo, { shipId: scene.scout.shipId }));
+  }
+
+  function aConsoleSession(endedAt: Date | null): ConsoleSessionId {
+    const { core } = scene;
+    const id = idSchema('consoleSession').parse(core.ids('consoleSession'));
+    const at = core.clock.now();
+    core.state.consoleSessions.push({
+      id,
+      fleetId: scene.fleetId,
+      shipId: scene.argo.shipId,
+      leaseId: null,
+      idleLimitMs: HOUR_MS,
+      endsBy: null,
+      device: 'Mac · Chrome',
+      accountId: null,
+      tokenHash: `hash-${id}`,
+      createdAt: at,
+      lastUsedAt: at,
+      expiresAt: new Date(at.getTime() + HOUR_MS),
+      endedAt,
+      endReason: endedAt === null ? null : 'signedOut',
+    });
+    const signIn = { kind: 'agent' as const, consoleSessionId: id };
+    core.state.noticeDismissals.push({ fleetId: scene.fleetId, signIn, noticeId: 'welcome', at });
+    core.state.guideProgress.push({ fleetId: scene.fleetId, signIn, at, step: 1, state: 'open' });
+    return id;
+  }
+
+  function aSignInTicket(name: string, input: { usedAt: Date | null; expiresAt: Date }): void {
+    scene.core.state.signInTickets.push({
+      fleetId: scene.fleetId,
+      as: 'operator',
+      accountId: null,
+      tokenHash: name,
+      issuedAt: scene.core.clock.now(),
+      ...input,
+    });
+  }
+
+  it("lets a crew's session and secret events older than the retention go, and keeps the fleet's own changes", async () => {
+    retainFor(30);
+    await releaseScout();
+    scene.core.clock.advance(31 * DAY_MS);
+
+    await pass();
+
+    expect(eventTypes().filter((type) => ['StartingPromptIssued', 'LeaseRevoked', 'CredentialRevoked'].includes(type))).toEqual([]);
+    expect(eventTypes()).toEqual(expect.arrayContaining(['FleetInitialised', 'ShipCommissioned']));
+  });
+
+  it("keeps a crew's session and secret events younger than the retention", async () => {
+    retainFor(30);
+    await releaseScout();
+    scene.core.clock.advance(29 * DAY_MS);
+
+    await pass();
+
+    expect(eventTypes()).toEqual(expect.arrayContaining(['StartingPromptIssued', 'LeaseRevoked', 'CredentialRevoked']));
+  });
+
+  it('lets a lease that ended before the cutoff go, and keeps an open one and the ship', async () => {
+    retainFor(30);
+    await releaseScout();
+    scene.core.clock.advance(31 * DAY_MS);
+
+    await pass();
+
+    expect(scene.core.state.leases.map((lease) => lease.id)).not.toContain(scene.scout.leaseId);
+    expect(scene.core.state.leases.map((lease) => lease.id)).toContain(scene.planner.leaseId);
+    expect(scene.core.state.ships.map((ship) => ship.id)).toContain(scene.scout.shipId);
+  });
+
+  it('keeps an ended lease a kept delivery names', async () => {
+    retainFor(30);
+    const question = await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.scout.shipId } });
+    for (const message of scene.core.state.messages.filter((held) => held.id === question)) {
+      message.contentType = QUESTION_CONTENT_TYPE;
+    }
+    await scene.receive(scene.scout);
+    await scene.ack(scene.scout, question);
+    await releaseScout();
+    scene.core.clock.advance(31 * DAY_MS);
+
+    await pass();
+
+    expect(isKept(question)).toBe(true);
+    expect(scene.core.state.leases.map((lease) => lease.id)).toContain(scene.scout.leaseId);
+  });
+
+  it('lets a secret invalidated before the cutoff go, and keeps the valid one', async () => {
+    retainFor(30);
+    await releaseScout();
+    scene.core.clock.advance(31 * DAY_MS);
+
+    await pass();
+
+    expect(scene.core.state.credentials.filter((credential) => credential.shipId === scene.scout.shipId).map((credential) => credential.invalidatedAt)).toEqual([null]);
+  });
+
+  it('lets a console session that ended before the cutoff go, with its notice dismissals and guide progress, and keeps a live one', async () => {
+    retainFor(30);
+    const ended = aConsoleSession(scene.core.clock.now());
+    scene.core.clock.advance(31 * DAY_MS);
+    const live = aConsoleSession(null);
+
+    await pass();
+
+    const sessionOf = (row: { signIn: { kind: string } }) => ('consoleSessionId' in row.signIn ? row.signIn.consoleSessionId : undefined);
+    expect(scene.core.state.consoleSessions.map((session) => session.id)).toEqual([live]);
+    expect(scene.core.state.noticeDismissals.map(sessionOf)).toEqual([live]);
+    expect(scene.core.state.guideProgress.map(sessionOf)).toEqual([live]);
+    expect(ended).not.toBe(live);
+  });
+
+  it('lets a console session that expired before the cutoff go, never ended, with its notice dismissals and guide progress', async () => {
+    retainFor(30);
+    const expired = aConsoleSession(null);
+    scene.core.clock.advance(31 * DAY_MS);
+    const live = aConsoleSession(null);
+
+    await pass();
+
+    expect(scene.core.state.consoleSessions.map((session) => session.id)).toEqual([live]);
+    expect(scene.core.state.noticeDismissals).toHaveLength(1);
+    expect(scene.core.state.guideProgress).toHaveLength(1);
+    expect(expired).not.toBe(live);
+  });
+
+  it('lets a sign-in ticket used or expired before the cutoff go', async () => {
+    retainFor(30);
+    const at = scene.core.clock.now();
+    aSignInTicket('used', { usedAt: at, expiresAt: new Date(at.getTime() + 2 * 60_000) });
+    aSignInTicket('expired', { usedAt: null, expiresAt: new Date(at.getTime() + 2 * 60_000) });
+    scene.core.clock.advance(31 * DAY_MS);
+    aSignInTicket('fresh', { usedAt: null, expiresAt: new Date(scene.core.clock.now().getTime() + 2 * 60_000) });
+
+    await pass();
+
+    expect(scene.core.state.signInTickets.map((ticket) => ticket.tokenHash)).toEqual(['fresh']);
+  });
+
+  it('lets a reach refusal older than the retention go, and keeps a younger one', async () => {
+    retainFor(30);
+    const { core } = scene;
+    const refusal = (at: Date): InMemoryState['reachRefusals'][number] => ({
+      fleetId: scene.fleetId,
+      id: idSchema('reachRefusal').parse(core.ids('reachRefusal')),
+      at,
+      sender: { kind: 'ship', id: scene.scout.shipId, name: 'scout', labels: [], owner: null },
+      askedBy: null,
+      recipient: { kind: 'ship', ship: { id: scene.planner.shipId, name: 'planner', labels: [], owner: null } },
+      verb: 'send',
+      settingsVersion: 1,
+    });
+    const old = refusal(core.clock.now());
+    core.state.reachRefusals.push(old);
+    core.clock.advance(31 * DAY_MS);
+    const young = refusal(core.clock.now());
+    core.state.reachRefusals.push(young);
+
+    await pass();
+
+    expect(core.state.reachRefusals.map((row) => row.id)).toEqual([young.id]);
+  });
+
+  it('counts each kind that went in HistoryPruned', async () => {
+    retainFor(30);
+    await releaseScout();
+    aConsoleSession(scene.core.clock.now());
+    scene.core.clock.advance(31 * DAY_MS);
+
+    await pass();
+
+    expect(pruned()).toMatchObject([{ details: { leases: 1, credentials: 1, consoleSessions: 1, noticeDismissals: 1, guideProgress: 1, signInTickets: 0, reachRefusals: 0 } }]);
+  });
+
+  it('prunes the rest in batches too', async () => {
+    retainFor(30);
+    for (const name of ['first', 'second', 'third']) {
+      aSignInTicket(name, { usedAt: scene.core.clock.now(), expiresAt: scene.core.clock.now() });
+    }
+    scene.core.clock.advance(31 * DAY_MS);
+
+    await pass({ batch: 2 });
+
+    expect(scene.core.state.signInTickets).toEqual([]);
+    expect(pruned().map((event) => event.details.signInTickets)).toEqual([2, 1]);
   });
 });
