@@ -6,7 +6,8 @@ import { fleetWideChangeOf, modelRowsOf } from './model-rows';
 
 const harness = (name: string, models: string[]) => ({ harness: name, options: { type: 'object', properties: { model: { enum: models } } }, flags: [] });
 
-function aMachine(suffix: string, harnesses: ReturnType<typeof harness>[], overrides: Partial<Machine> = {}): Machine {
+function aMachine(suffix: string, at: { harnesses: ReturnType<typeof harness>[]; overrides?: Partial<Machine> }): Machine {
+  const { harnesses, overrides = {} } = at;
   return {
     shipId: idSchema('ship').parse(`shp_01j9k2t4qzr3a9w6m2v5n7${suffix}`),
     name: `trierarch-${suffix}`,
@@ -19,8 +20,8 @@ function aMachine(suffix: string, harnesses: ReturnType<typeof harness>[], overr
   };
 }
 
-const MAC = aMachine('mc01', [harness('claude-code', ['claude-opus-5-5', 'claude-sonnet-5-5']), harness('codex', ['gpt-6'])]);
-const MACBOOK = aMachine('mb02', [harness('claude-code', ['claude-opus-5-5'])]);
+const MAC = aMachine('mc01', { harnesses: [harness('claude-code', ['claude-opus-5-5', 'claude-sonnet-5-5']), harness('codex', ['gpt-6'])] });
+const MACBOOK = aMachine('mb02', { harnesses: [harness('claude-code', ['claude-opus-5-5'])] });
 
 describe('modelRowsOf', () => {
   it('lists each model a trierarch reports once, with the harnesses that report it and how many machines', () => {
@@ -32,7 +33,7 @@ describe('modelRowsOf', () => {
   });
 
   it('names every harness that reports a model', () => {
-    const both = aMachine('bt03', [harness('claude-code', ['shared-model']), harness('codex', ['shared-model'])]);
+    const both = aMachine('bt03', { harnesses: [harness('claude-code', ['shared-model']), harness('codex', ['shared-model'])] });
 
     expect(modelRowsOf([both], [])).toEqual([{ model: 'shared-model', harnesses: ['claude-code', 'codex'], machineCount: 1, isEnabled: false }]);
   });
@@ -45,7 +46,7 @@ describe('modelRowsOf', () => {
   });
 
   it('counts a silent machine by its last report and leaves out a machine that never reported', () => {
-    expect(modelRowsOf([aMachine('sl04', [harness('codex', ['gpt-6'])], { isSilent: true }), aMachine('nw05', [], { details: null })], [])).toEqual([
+    expect(modelRowsOf([aMachine('st04', { harnesses: [harness('codex', ['gpt-6'])], overrides: { isSilent: true } }), aMachine('nw05', { harnesses: [], overrides: { details: null } })], [])).toEqual([
       { model: 'gpt-6', harnesses: ['codex'], machineCount: 1, isEnabled: false },
     ]);
   });
