@@ -111,7 +111,7 @@ describe("a fleet's limits", () => {
     });
   });
 
-  it("keep a fleet's retention of none apart from following a default of none", async () => {
+  it("keep a fleet's own retention of none while the default keeps 30 days", async () => {
     const { fleetId } = await newFleet('kept');
     await installation().settings.set.mutate({ defaultShipLimit: null, defaultDailyMessageLimit: null, defaultRetentionDays: 30, fleetCap: null });
 

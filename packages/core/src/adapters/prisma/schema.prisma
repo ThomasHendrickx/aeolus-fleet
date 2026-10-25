@@ -42,6 +42,9 @@ model Fleet {
   /// The same for its daily message limit.
   dailyMessageLimitSet Boolean  @default(false) @map("daily_message_limit_set")
   dailyMessageLimit    Int?     @map("daily_message_limit")
+  /// The same for its retention in days (decision 0066): null for kept for good.
+  retentionSet         Boolean  @default(false) @map("retention_set")
+  retentionDays        Int?     @map("retention_days")
 
   ships                            Ship[]
   leases                           Lease[]
@@ -1137,12 +1140,14 @@ enum SignInAs {
 }
 
 /// The installation's settings (decision 0020): the default ship and daily message
-/// limits for fleets and the cap on fleets, each null for no limit. One row at most,
-/// and none until the installation sets them. Belongs to no fleet.
+/// limits and the default retention in days for fleets (decision 0066), and the cap
+/// on fleets, each null for none. One row at most, and none until the installation
+/// sets them. Belongs to no fleet.
 model InstallationSettings {
   id                       Int  @id @default(1)
   defaultShipLimit         Int? @map("default_ship_limit")
   defaultDailyMessageLimit Int? @map("default_daily_message_limit")
+  defaultRetentionDays     Int? @map("default_retention_days")
   fleetCap                 Int? @map("fleet_cap")
 
   @@map("installation_settings")

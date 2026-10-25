@@ -81,10 +81,10 @@ export function noticeOutputOf(notice: Notice): Notice & { links: Notice['links'
 /** The installation's fleets: what a service hosting many fleets on this server calls, never a ship. */
 export const installationRouter = router({
   settings: router({
-    /** The default ship and daily message limits for fleets and the cap on fleets; null is no limit. */
+    /** The default ship and daily message limits and retention for fleets and the cap on fleets; null is none. */
     get: installationProcedure.output(installationSettingsSchema).query(({ ctx }) => ctx.useCases.getInstallationSettings()),
 
-    /** Sets all three; a change to a default applies at once to every fleet that follows it. */
+    /** Sets all four; a change to a default applies at once to every fleet that follows it. */
     set: installationProcedure
       .input(installationSettingsSchema)
       .output(installationSettingsSchema)
@@ -142,13 +142,13 @@ export const installationRouter = router({
       }),
   }),
   fleets: router({
-    /** A fleet's limits: how each is set and the limit that applies. */
+    /** A fleet's limits and retention: how each is set and the limit or days that apply. */
     limits: installationProcedure
       .input(installationFleetsGetInputSchema)
       .output(installationFleetLimitsSchema)
       .query(async ({ ctx, input }) => okOrThrow(await ctx.useCases.getFleetLimits(input))),
 
-    /** Sets one or both of a fleet's limits, to a number or to no limit for the fleet, or back to the default. */
+    /** Sets any of a fleet's limits and its retention, to a number or to none for the fleet, or back to the default. */
     setLimits: installationProcedure
       .input(installationFleetsSetLimitsInputSchema)
       .output(installationFleetLimitsSchema)

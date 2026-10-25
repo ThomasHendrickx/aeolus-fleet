@@ -73,6 +73,8 @@ const factsRow = z.object({
   shipLimit: z.number().int().nullable(),
   dailyMessageLimitSet: z.boolean(),
   dailyMessageLimit: z.number().int().nullable(),
+  retentionSet: z.boolean(),
+  retentionDays: z.number().int().nullable(),
   oldestPendingAt: z.date().nullable(),
   oldestInFlightAt: z.date().nullable(),
   noShipCanTake: z.bigint(),
@@ -81,7 +83,7 @@ const factsRow = z.object({
 });
 
 function toFacts(row: unknown): InstallationFleetFacts {
-  const { shipLimitSet, shipLimit, dailyMessageLimitSet, dailyMessageLimit, oldestPendingAt, oldestInFlightAt, noShipCanTake, needsAttention, overdue, ...facts } = factsRow.parse(row);
+  const { shipLimitSet, shipLimit, dailyMessageLimitSet, dailyMessageLimit, retentionSet, retentionDays, oldestPendingAt, oldestInFlightAt, noShipCanTake, needsAttention, overdue, ...facts } = factsRow.parse(row);
   return {
     ...facts,
     health: { oldestPendingAt, oldestInFlightAt, noShipCanTake: Number(noShipCanTake), needsAttention: Number(needsAttention), overdue: Number(overdue) },
@@ -92,6 +94,7 @@ function toFacts(row: unknown): InstallationFleetFacts {
     limitSettings: {
       ships: shipLimitSet ? { kind: 'fleet', limit: shipLimit } : { kind: 'default' },
       dailyMessages: dailyMessageLimitSet ? { kind: 'fleet', limit: dailyMessageLimit } : { kind: 'default' },
+      retention: retentionSet ? { kind: 'fleet', days: retentionDays } : { kind: 'default' },
     },
   };
 }
@@ -136,7 +139,8 @@ export function installationFleetsStatement(fleetId: FleetId | null, window: Ins
            JOIN deliveries d ON d.fleet_id = o.fleet_id AND d.id = o.delivery_id AND d.state = o.state
            WHERE o.fleet_id = f.id AND (o.state = 'pending' OR d.claimed_by_lease_id = o.lease_id)) AS "overdue",
           f.ship_limit_set AS "shipLimitSet", f.ship_limit AS "shipLimit",
-          f.daily_message_limit_set AS "dailyMessageLimitSet", f.daily_message_limit AS "dailyMessageLimit"
+          f.daily_message_limit_set AS "dailyMessageLimitSet", f.daily_message_limit AS "dailyMessageLimit",
+          f.retention_set AS "retentionSet", f.retention_days AS "retentionDays"
         FROM fleets f
         LEFT JOIN operators o ON o.fleet_id = f.id
         WHERE ${fleetId}::text IS NULL OR f.id = ${fleetId}
@@ -168,8 +172,8 @@ export function createPrismaInstallationSettings(db: Db): InstallationSettingsRe
       if (!row) {
         return { ...NO_INSTALLATION_SETTINGS };
       }
-      const { defaultShipLimit, defaultDailyMessageLimit, fleetCap } = row;
-      return { defaultShipLimit, defaultDailyMessageLimit, fleetCap };
+      const { defaultShipLimit, defaultDailyMessageLimit, defaultRetentionDays, fleetCap } = row;
+      return { defaultShipLimit, defaultDailyMessageLimit, defaultRetentionDays, fleetCap };
     },
     write: async (settings) => {
       await db.installationSettings.upsert({ where: { id: SETTINGS_ROW }, create: { id: SETTINGS_ROW, ...settings }, update: settings });

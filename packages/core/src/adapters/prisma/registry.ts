@@ -56,13 +56,17 @@ export function createPrismaFleetRepository(db: Db): FleetRepository {
       await db.fleet.create({ data: fleet });
     },
     limitSettings: async (fleetId) => {
-      const row = await db.fleet.findUnique({ where: { id: fleetId }, select: { shipLimitSet: true, shipLimit: true, dailyMessageLimitSet: true, dailyMessageLimit: true } });
+      const row = await db.fleet.findUnique({
+        where: { id: fleetId },
+        select: { shipLimitSet: true, shipLimit: true, dailyMessageLimitSet: true, dailyMessageLimit: true, retentionSet: true, retentionDays: true },
+      });
       if (!row) {
         return undefined;
       }
       return {
         ships: row.shipLimitSet ? { kind: 'fleet', limit: row.shipLimit } : { kind: 'default' },
         dailyMessages: row.dailyMessageLimitSet ? { kind: 'fleet', limit: row.dailyMessageLimit } : { kind: 'default' },
+        retention: row.retentionSet ? { kind: 'fleet', days: row.retentionDays } : { kind: 'default' },
       };
     },
     setLimitSettings: async (fleetId, settings) => {
@@ -73,6 +77,8 @@ export function createPrismaFleetRepository(db: Db): FleetRepository {
           shipLimit: settings.ships.kind === 'fleet' ? settings.ships.limit : null,
           dailyMessageLimitSet: settings.dailyMessages.kind === 'fleet',
           dailyMessageLimit: settings.dailyMessages.kind === 'fleet' ? settings.dailyMessages.limit : null,
+          retentionSet: settings.retention.kind === 'fleet',
+          retentionDays: settings.retention.kind === 'fleet' ? settings.retention.days : null,
         },
       });
     },
