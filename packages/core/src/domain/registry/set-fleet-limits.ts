@@ -5,7 +5,7 @@ import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, SYSTEM, type EventLog } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
-import { fleetLimitsOf, limit, type FleetLimits, type FleetLimitSetting } from './limits.js';
+import { fleetLimitsOf, limit, type FleetLimits, type FleetLimitSetting, type FleetLimitSettings } from './limits.js';
 import type { FleetRepository, InstallationSettingsRepository } from './ports.js';
 
 export interface SetFleetLimitsTx {
@@ -20,6 +20,8 @@ export type SetFleetLimits = (input: {
   fleetId: FleetId;
   ships?: FleetLimitSetting;
   dailyMessages?: FleetLimitSetting;
+  schedulesPerShip?: FleetLimitSetting;
+  minimumScheduleInterval?: FleetLimitSetting;
 }) => Promise<Result<FleetLimits, SetFleetLimitsRefusal>>;
 
 /** A setting with its limit checked: the default, or a whole number of at least 0 or no limit. */
@@ -32,7 +34,7 @@ function validSetting(setting: FleetLimitSetting | undefined): Result<FleetLimit
 }
 
 /**
- * Use case: the installation sets one or both of a fleet's limits, each to a
+ * Use case: the installation sets some or all of a fleet's limits, each to a
  * number or to no limit for that fleet, or back to the installation default.
  * A limit left out keeps how it was set. Writes FleetLimitsChanged with the
  * settings the fleet now has, and answers which limits now apply.
@@ -47,13 +49,26 @@ export function createSetFleetLimits(deps: { uow: UnitOfWork<SetFleetLimitsTx>; 
     if (!dailyMessages.isOk) {
       return dailyMessages;
     }
+    const schedulesPerShip = validSetting(input.schedulesPerShip);
+    if (!schedulesPerShip.isOk) {
+      return schedulesPerShip;
+    }
+    const minimumScheduleInterval = validSetting(input.minimumScheduleInterval);
+    if (!minimumScheduleInterval.isOk) {
+      return minimumScheduleInterval;
+    }
     return deps.uow.run(async (tx): Promise<Result<FleetLimits, SetFleetLimitsRefusal>> => {
       const { fleetId } = input;
       const current = await tx.fleets.limitSettings(fleetId);
       if (!current) {
         return refuse('FLEET_NOT_FOUND', `The installation hosts no fleet ${fleetId}`);
       }
-      const settings = { ships: ships.value ?? current.ships, dailyMessages: dailyMessages.value ?? current.dailyMessages };
+      const settings: FleetLimitSettings = {
+        ships: ships.value ?? current.ships,
+        dailyMessages: dailyMessages.value ?? current.dailyMessages,
+        schedulesPerShip: schedulesPerShip.value ?? current.schedulesPerShip,
+        minimumScheduleInterval: minimumScheduleInterval.value ?? current.minimumScheduleInterval,
+      };
       await tx.fleets.setLimitSettings(fleetId, settings);
       await recordEvent({ events: tx.events, ids: deps.ids }, {
         fleetId,
@@ -66,6 +81,10 @@ export function createSetFleetLimits(deps: { uow: UnitOfWork<SetFleetLimitsTx>; 
           shipLimit: settings.ships.kind === 'fleet' ? settings.ships.limit : null,
           dailyMessages: settings.dailyMessages.kind,
           dailyMessageLimit: settings.dailyMessages.kind === 'fleet' ? settings.dailyMessages.limit : null,
+          schedulesPerShip: settings.schedulesPerShip.kind,
+          schedulesPerShipLimit: settings.schedulesPerShip.kind === 'fleet' ? settings.schedulesPerShip.limit : null,
+          minimumScheduleInterval: settings.minimumScheduleInterval.kind,
+          minimumScheduleIntervalLimit: settings.minimumScheduleInterval.kind === 'fleet' ? settings.minimumScheduleInterval.limit : null,
         },
       });
       return ok(fleetLimitsOf({ fleetId, settings, installation: await tx.installationSettings.read() }));

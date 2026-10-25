@@ -28,20 +28,26 @@ datasource db {
 
 /// The tenant: one operator's ships, messages and history. Ids start with flt_.
 model Fleet {
-  id                   String   @id
-  name                 String
-  createdAt            DateTime @map("created_at") @db.Timestamptz(3)
+  id                         String   @id
+  name                       String
+  createdAt                  DateTime @map("created_at") @db.Timestamptz(3)
   /// The sequence number of the fleet's last committed event. A unit of work
   /// takes its numbers from it as its last statements, so the row lock orders
   /// the numbers as the transactions commit.
-  lastEventSeq         BigInt   @default(0) @map("last_event_seq")
+  lastEventSeq               BigInt   @default(0) @map("last_event_seq")
   /// Whether the fleet sets its own ship limit (else it follows the installation
   /// default), and that limit: null for no limit.
-  shipLimitSet         Boolean  @default(false) @map("ship_limit_set")
-  shipLimit            Int?     @map("ship_limit")
+  shipLimitSet               Boolean  @default(false) @map("ship_limit_set")
+  shipLimit                  Int?     @map("ship_limit")
   /// The same for its daily message limit.
-  dailyMessageLimitSet Boolean  @default(false) @map("daily_message_limit_set")
-  dailyMessageLimit    Int?     @map("daily_message_limit")
+  dailyMessageLimitSet       Boolean  @default(false) @map("daily_message_limit_set")
+  dailyMessageLimit          Int?     @map("daily_message_limit")
+  /// The same for the schedules each of its ships may hold, and for the
+  /// minimum interval of a repeating schedule, in seconds (decision 0062).
+  schedulesPerShipLimitSet   Boolean  @default(false) @map("schedules_per_ship_limit_set")
+  schedulesPerShipLimit      Int?     @map("schedules_per_ship_limit")
+  minimumScheduleIntervalSet Boolean  @default(false) @map("minimum_schedule_interval_set")
+  minimumScheduleInterval    Int?     @map("minimum_schedule_interval")
 
   ships                            Ship[]
   leases                           Lease[]
@@ -1136,14 +1142,17 @@ enum SignInAs {
   @@map("sign_in_as")
 }
 
-/// The installation's settings (decision 0020): the default ship and daily message
-/// limits for fleets and the cap on fleets, each null for no limit. One row at most,
+/// The installation's settings (decision 0020): the default ship, daily message,
+/// schedules per ship and minimum schedule interval (seconds) limits for fleets
+/// and the cap on fleets, each null for no limit. One row at most,
 /// and none until the installation sets them. Belongs to no fleet.
 model InstallationSettings {
-  id                       Int  @id @default(1)
-  defaultShipLimit         Int? @map("default_ship_limit")
-  defaultDailyMessageLimit Int? @map("default_daily_message_limit")
-  fleetCap                 Int? @map("fleet_cap")
+  id                             Int  @id @default(1)
+  defaultShipLimit               Int? @map("default_ship_limit")
+  defaultDailyMessageLimit       Int? @map("default_daily_message_limit")
+  defaultSchedulesPerShipLimit   Int? @map("default_schedules_per_ship_limit")
+  defaultMinimumScheduleInterval Int? @map("default_minimum_schedule_interval")
+  fleetCap                       Int? @map("fleet_cap")
 
   @@map("installation_settings")
 }

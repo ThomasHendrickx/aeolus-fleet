@@ -7,6 +7,7 @@ A ship schedules its own message (`sch_`); core sends it at its time as that shi
 - Each core server's timer is told by `NOTIFY` after commit; the 30 second pass sends what a timer missed.
 - A retire cancels the ship's schedules in its transaction.
 - One unit of work handles at most 100 send times of a schedule, oldest first, each sent or recorded as missed by the creator's strategy; the rest wait for the next pass.
+- Schedules per ship (active and paused) and the minimum interval (seconds) are 0020 limits, refused at creation naming the limit: the interval of an every is its duration, of a cron the shortest gap between its send times over the next year read in UTC; a once has none.
 - A cron's wall time that summer time skips sends at the first valid minute after it; one it doubles sends once, at its first.
 
 Why: a schedule is an OK for something not yet sent, so its send time must give one message or a recorded reason, across restarts and servers (0003).

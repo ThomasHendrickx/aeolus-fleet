@@ -61,7 +61,7 @@ export const installationFleetSchema = z.object({
   /** The messages stored on each UTC day of the last 7, today last. */
   messagesPerDay: z.array(z.object({ date: z.iso.date(), count: z.int().min(0) })),
   /** How each limit is set and the limit that applies (null: none). */
-  limits: z.object({ ships: fleetLimitSchema, dailyMessages: fleetLimitSchema }),
+  limits: z.object({ ships: fleetLimitSchema, dailyMessages: fleetLimitSchema, schedulesPerShip: fleetLimitSchema, minimumScheduleInterval: fleetLimitSchema }),
   /** Whether its deliveries reach their ships (#304). */
   health: z.object({
     /** When its oldest pending delivery was sent; null when none is pending. */
@@ -100,29 +100,39 @@ export const installationOperatorsIssueSignInTicketInputSchema = z.strictObject(
 
 export const installationOperatorsIssueSignInTicketOutputSchema = z.object({ ticket: z.string() });
 /**
- * The installation's settings: the ship and daily message limits a fleet
- * follows unless set for it, and the cap on the number of fleets. Each may be
- * null: no limit.
+ * The installation's settings: the ship, daily message and schedule limits a
+ * fleet follows unless set for it, and the cap on the number of fleets. Each
+ * may be null: no limit.
  */
 export const installationSettingsSchema = z.strictObject({
   defaultShipLimit: limitSchema,
   defaultDailyMessageLimit: limitSchema,
+  /** The schedules a ship may hold active or paused (decision 0062). */
+  defaultSchedulesPerShipLimit: limitSchema,
+  /** The shortest time between two send times of a repeating schedule, in seconds (decision 0062). */
+  defaultMinimumScheduleInterval: limitSchema,
   fleetCap: limitSchema,
 });
 
 export type InstallationSettings = z.infer<typeof installationSettingsSchema>;
 
-/** A fleet's ship and daily message limits: how each is set, and the limit that applies (null: none). */
+/** A fleet's limits: how each is set, and the limit that applies (null: none). */
 export const installationFleetLimitsSchema = z.object({
   fleetId: idSchema('fleet'),
   ships: fleetLimitSchema,
   dailyMessages: fleetLimitSchema,
+  schedulesPerShip: fleetLimitSchema,
+  minimumScheduleInterval: fleetLimitSchema,
 });
 
+/** Sets some of a fleet's limits; one left out keeps how it is set. */
 export const installationFleetsSetLimitsInputSchema = z.strictObject({
   fleetId: idSchema('fleet'),
   ships: fleetLimitSettingSchema.optional(),
   dailyMessages: fleetLimitSettingSchema.optional(),
+  schedulesPerShip: fleetLimitSettingSchema.optional(),
+  /** In seconds. */
+  minimumScheduleInterval: fleetLimitSettingSchema.optional(),
 });
 
 /**

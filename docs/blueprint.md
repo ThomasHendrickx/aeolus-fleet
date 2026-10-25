@@ -373,7 +373,7 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | --- | --- | --- |
 | Notice | The installation's text above every console page for an audience: everyone, argo's sign-ins, the viewer's or accounts' (0023) | core |
 | Guide | The installation's steps through the console for an audience (0024) | core |
-| Limits | A fleet's ship and daily message limits, from configuration (0020) | core |
+| Limits | A fleet's ship, daily message, schedules per ship and minimum schedule interval limits, from configuration (0020, 0062) | core |
 | Health | A fleet's stuck and overdue deliveries, read from delivery states (0041, 0042) | core |
 
 ## Domain architecture
@@ -491,7 +491,7 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `NetworkRulesDeclared` | Registry | A ship or the installation declared the network rules it needs on the labels it owns, withdrew them, or was retired with them (decision 0037): details hold the number of rules (0 when withdrawn) and, once they moved it, the settings version, never the rules |
 | `NetworkPluginRegistered`, `NetworkPluginUnregistered` | Registry | Written no more: a networking plugin registered or unregistered, when one set the rules; the event log keeps them |
 | `BuiltInRuleChanged` | Registry | The viewer reading was turned on or off (decision 0034); older events also turned open for one verb: details hold the rule, the verb for open, whether it is on and the version |
-| `FleetLimitsChanged` | Registry | The installation set how the fleet's ship and daily message limits are set: each following the default, or the fleet's own limit or none |
+| `FleetLimitsChanged` | Registry | The installation set how the fleet's ship, daily message, schedules per ship and minimum schedule interval limits are set: each following the default, or the fleet's own limit or none |
 
 ## Key flows
 
@@ -551,9 +551,11 @@ A hosting service such as pagasae drives the installation with its token (docs/a
    - **Needs attention:** its undeliverable deliveries.
    - **Overdue:** the overdue deliveries argo was told of that still stand.
    - **Stuck:** its stuck deliveries (decision 0042) by cause, with their count and oldest since, and how many were stuck at each hour of the last 7 days.
-3. Set limits: the installation keeps a default ship limit and a default daily message limit for its fleets, and a cap on the number of fleets. Each of a fleet's limits follows the installation default, or is set for that fleet to a number or to no limit, and can go back to the default; a change to a default applies at once to every fleet that follows it. Unset means no limit, everywhere: Aeolus sets no maximum or minimum of its own (these are configuration, not policy, decision 0016). The limits use the same measures:
+3. Set limits: the installation keeps a default ship limit, a default daily message limit, a default schedules per ship limit and a default minimum schedule interval for its fleets, and a cap on the number of fleets. Each of a fleet's limits follows the installation default, or is set for that fleet to a number or to no limit, and can go back to the default; a change to a default applies at once to every fleet that follows it. Unset means no limit, everywhere: Aeolus sets no maximum or minimum of its own (these are configuration, not policy, decision 0016). The limits use the same measures:
    - **Ship limit:** a commission is refused once the fleet's ships that are not retired, `argo` included, are at the limit.
    - **Daily message limit:** a send is refused once the fleet's message rows created on the current UTC calendar day are at the limit. Every message counts: sends, replies, pings and resends, `argo`'s included. A refused send stores nothing and says which limit refused it, so no message is lost silently. A send that comes again under its key still answers with the message it stored.
+   - **Schedules per ship:** making a schedule is refused once its ship holds that many schedules, active or paused (0062).
+   - **Minimum schedule interval:** making a repeating schedule is refused when two of its send times come closer than it, in seconds: an every by its duration, a cron by its send times over the next year read in UTC; a once is never checked (0062).
    - **Fleet cap:** creating a fleet is refused once the installation's fleets are at the cap.
 
    Each limit refuses exactly at its boundary, however many calls race for the last place. The console shows the fleet at a limit where the operator acts: Commission says the fleet is at its ship limit, and the overview and Compose say today's message limit is reached and when it resets, each with View limits on the hosted account. While any limit applies, the overview shows the fleet's ships against the ship limit and today's messages against the daily limit, with when it resets, as meters: neutral below a limit, At limit at it, Over limit above it (a limit lowered below use), and No limit for one not set; with no limit at all, none show.

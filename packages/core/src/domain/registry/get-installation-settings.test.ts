@@ -10,6 +10,8 @@ describe("reading the installation's settings", () => {
     await expect(createGetInstallationSettings({ settings: core.installationSettings })()).resolves.toEqual({
       defaultShipLimit: null,
       defaultDailyMessageLimit: null,
+      defaultSchedulesPerShipLimit: null,
+      defaultMinimumScheduleInterval: null,
       fleetCap: null,
     });
   });

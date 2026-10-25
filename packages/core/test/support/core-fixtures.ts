@@ -155,6 +155,7 @@ import { createReadShipTimeline } from '../../src/domain/shared/read-ship-timeli
 import type { Recipient } from '../../src/domain/shared/selector.js';
 import type { InMemoryCore } from './in-memory.js';
 import { unwrap } from '../../src/testing/result.js';
+import { NO_INSTALLATION_SETTINGS, type InstallationSettings } from '../../src/domain/registry/limits.js';
 
 /** The identity use cases, wired to the in-memory core. */
 export function identityUseCases(core: InMemoryCore) {
@@ -459,14 +460,9 @@ export async function initialiseFleet(core: InMemoryCore, name = 'test fleet'): 
 /** Sets the installation's settings straight into the state: unset ones stay no limit. */
 export function withInstallationSettings(
   core: InMemoryCore,
-  settings: Partial<{ defaultShipLimit: number | null; defaultDailyMessageLimit: number | null; fleetCap: number | null }>,
+  settings: Partial<InstallationSettings>,
 ): void {
-  core.state.installationSettings.splice(0, core.state.installationSettings.length, {
-    defaultShipLimit: null,
-    defaultDailyMessageLimit: null,
-    fleetCap: null,
-    ...settings,
-  });
+  core.state.installationSettings.splice(0, core.state.installationSettings.length, { ...NO_INSTALLATION_SETTINGS, ...settings });
 }
 
 /** A fleet a hosting installation created, through the use case: its argo and an operator without a password. */

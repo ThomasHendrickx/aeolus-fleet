@@ -115,7 +115,13 @@ describe("a fleet's daily message limit", () => {
 
   it('follows a limit set for the fleet over the default, and no limit sets none', async () => {
     withInstallationSettings(core, { defaultDailyMessageLimit: 1 });
-    core.state.fleetLimitSettings.push({ fleetId, ships: { kind: 'default' }, dailyMessages: { kind: 'fleet', limit: null } });
+    core.state.fleetLimitSettings.push({
+      fleetId,
+      ships: { kind: 'default' },
+      dailyMessages: { kind: 'fleet', limit: null },
+      schedulesPerShip: { kind: 'default' },
+      minimumScheduleInterval: { kind: 'default' },
+    });
 
     unwrap(await fromScout());
     await expect(fromScout()).resolves.toMatchObject({ isOk: true });
