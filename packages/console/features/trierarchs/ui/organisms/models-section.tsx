@@ -17,7 +17,7 @@ export interface ModelChange {
 export interface ModelsSectionProps {
   /** Every model a trierarch reports or the fleet enables; undefined while not known. */
   rows: readonly ModelRow[] | undefined;
-  /** Why the fleet's enabled models could not be read. */
+  /** Why the fleet's enabled models or the machines' reports could not be read. */
   error?: string;
   onRetry: () => void;
   /** fleet:manage: a viewer sees the Switches disabled. */
@@ -52,7 +52,7 @@ export function ModelsSection({ rows, error, onRetry, canManage, pending, failed
   const hasRule = rows?.some((row) => row.isEnabled) ?? false;
   let content;
   if (error !== undefined) {
-    content = <InlineError title="Couldn’t read the fleet’s enabled models" description={`${error}. Nothing changed.`} onRetry={onRetry} />;
+    content = <InlineError title="Couldn’t read the models" description={`${error}. Nothing changed.`} onRetry={onRetry} />;
   } else if (rows === undefined) {
     content = <LoadingSkeleton variant="list" rows={3} label="Loading the models" />;
   } else if (rows.length === 0) {
@@ -112,7 +112,7 @@ export function ModelsSection({ rows, error, onRetry, canManage, pending, failed
       <h2 id="trierarchs-models" className="text-section font-semibold">
         Models
       </h2>
-      {rows === undefined && error === undefined ? null : (
+      {rows === undefined || error !== undefined ? null : (
         <p className="text-meta text-muted-foreground" data-testid="trierarchs-models-rule">
           {hasRule ? WORDS.rule : WORDS.noRule}
         </p>
