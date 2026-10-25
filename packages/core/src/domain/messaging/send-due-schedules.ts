@@ -7,7 +7,7 @@ import { recordEvent, SYSTEM, type NewEvent } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import type { RequestHasher, ScheduleAttempts, ScheduleNotifier, ScheduleRepository } from './ports.js';
-import { cancelSchedule, scheduledMessageKey, scheduleRefused, scheduleSent, type Schedule } from './schedule.js';
+import { cancelSchedule, isSendTimeToSend, scheduledMessageKey, scheduleMissed, scheduleRefused, scheduleSent, type Schedule } from './schedule.js';
 import { sendWithin, type CheckedSend, type SendMessageTx } from './send-message.js';
 import { sendRequestText } from './send-request.js';
 
@@ -110,7 +110,9 @@ async function sendScheduleWithin(deps: { tx: SendDueSchedulesTx; clock: Clock; 
     if (current.state !== 'active' || sendTime === null || (handled > 0 && (current.nextAttemptAt === null || current.nextAttemptAt > at))) {
       break;
     }
-    const changed = await sendTimeWithin(deps, { schedule: current, caller, sendTime, at, sentCount });
+    const changed = isSendTimeToSend(current, { sendTime, at })
+      ? await sendTimeWithin(deps, { schedule: current, caller, sendTime, at, sentCount })
+      : { ...scheduleMissed(current, { sendTime, at, sentCount }), sentCount };
     sentCount = changed.sentCount;
     current = changed.schedule;
     await recorded(deps, changed.events);

@@ -290,7 +290,7 @@ describe('a missed send time', () => {
 
   it('goes on with the next missed one after a refusal it skips, and stops at one it keeps for a retry', async () => {
     const skipping = await scheduled(hourly({ onRefused: 'skip' }));
-    const retrying = await scheduled(hourly({ onRefused: 'retry' }));
+    const retrying = await scheduled(hourly({ onRefused: 'retry', retryWindow: 'PT3H' }));
     await onlyChiefSends();
 
     await passAt('2026-10-25T12:30:00.000Z');

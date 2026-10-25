@@ -174,6 +174,14 @@ function scheduleCancelledParts(entry: TimelineEntry): SentencePart[] {
   return reason === 'manager' ? [text('A scheduled message was cancelled'), ...by(entry.actor)] : [text('Cancelled a scheduled message')];
 }
 
+function schedulePausedParts(entry: TimelineEntry): SentencePart[] {
+  const reason = stringDetail(entry, 'reason');
+  if (reason === 'ship') {
+    return [text('Paused a scheduled message')];
+  }
+  return reason === 'manager' ? [text('A scheduled message was paused'), ...by(entry.actor)] : [text('A scheduled message paused after a refused send')];
+}
+
 /**
  * The one sentence, tone and icon of a timeline row
  * (docs/design/png/ShipTimeline.png), from the point of view of the ship whose
@@ -342,8 +350,12 @@ export function timelineSentence(entry: TimelineEntry, shipId: string): Timeline
       return { parts: scheduleCancelledParts(entry), tone: 'ended', icon: 'released' };
     case 'ScheduledSendRefused':
       return { parts: [text(`A scheduled send was refused: ${stringDetail(entry, 'code') ?? 'refused'}`)], tone: 'waiting', icon: 'undeliverable' };
+    case 'ScheduledSendMissed':
+      return { parts: [text('A scheduled send time was missed')], tone: 'waiting', icon: 'undeliverable' };
     case 'SchedulePaused':
-      return { parts: [text('A scheduled message paused after a refused send')], tone: 'waiting', icon: 'reported' };
+      return { parts: schedulePausedParts(entry), tone: 'waiting', icon: 'reported' };
+    case 'ScheduleResumed':
+      return { parts: [text('Resumed a scheduled message')], tone: 'ok', icon: 'sent' };
     case 'ScheduleEnded':
       return { parts: [text('A scheduled message ended')], tone: 'ended', icon: 'sent' };
     case 'VerifiedFactsRemoved':

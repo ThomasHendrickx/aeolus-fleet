@@ -90,6 +90,9 @@ export interface Schedule {
   cancelledAt: Date | null;
 }
 
+/** How a schedule's last send time went when it ends: sent, refused and skipped, or missed. */
+type EndOutcome = 'sent' | 'skipped' | 'missed';
+
 /** Why a schedule was cancelled: by its ship, by a manager, or by its ship's retire. */
 export type CancelReason = 'ship' | 'manager' | 'retired';
 
@@ -302,8 +305,52 @@ function isInsideRetryWindow(schedule: Schedule, refused: { sendTime: Date; at: 
   return refused.at.getTime() < refused.sendTime.getTime() + (durationMs(schedule.retryWindow) ?? 0);
 }
 
+/**
+ * Whether a due send time is sent (S6): one kept for a retry, and one the
+ * pass reaches within its grace, always; a missed one by the creator's
+ * strategy: each sends it, skip does not, once only when it is the latest
+ * missed.
+ */
+export function isSendTimeToSend(schedule: Schedule, due: { sendTime: Date; at: Date }): boolean {
+  const { sendTime, at } = due;
+  const { lastOutcome } = schedule;
+  if (lastOutcome?.kind === 'refused' && lastOutcome.sendTime.getTime() === sendTime.getTime()) {
+    return true;
+  }
+  if (!isMissed(schedule, { sendTime, at })) {
+    return true;
+  }
+  switch (schedule.onMissed) {
+    case 'each':
+      return true;
+    case 'skip':
+      return false;
+    case 'once': {
+      const next = sendTimeAfter(schedule, sendTime);
+      return next === undefined || next > at || !isMissed(schedule, { sendTime: next, at });
+    }
+  }
+}
+
+/** The send time missed, not sent (S6): recorded with ScheduledSendMissed and as the last outcome, then on to the next. */
+export function scheduleMissed(schedule: Schedule, missed: { sendTime: Date; at: Date; sentCount: number }): { schedule: Schedule; events: NewEvent[] } {
+  const { sendTime, at } = missed;
+  const record = eventOf(schedule, {
+    type: 'ScheduledSendMissed',
+    at,
+    actor: { kind: 'ship', shipId: schedule.shipId },
+    details: { sendTime: sendTime.toISOString(), strategy: schedule.onMissed },
+  });
+  return withEvent(record, advanced({ ...schedule, lastOutcome: { kind: 'missed', sendTime, at } }, { ...missed, outcome: 'missed' }));
+}
+
+/** Whether the pass reaches a send time later than its grace. */
+function isMissed(schedule: Schedule, due: { sendTime: Date; at: Date }): boolean {
+  return due.at.getTime() - due.sendTime.getTime() > (durationMs(schedule.grace) ?? 0);
+}
+
 /** After a send time: on to the next, or ended when it has none or its count of sends is reached. */
-function advanced(schedule: Schedule, after: { sendTime: Date; at: Date; sentCount: number; outcome: 'sent' | 'skipped' }): { schedule: Schedule; events: NewEvent[] } {
+function advanced(schedule: Schedule, after: { sendTime: Date; at: Date; sentCount: number; outcome: EndOutcome }): { schedule: Schedule; events: NewEvent[] } {
   const { timing } = schedule;
   const isCountReached = timing.kind !== 'once' && timing.count !== null && after.sentCount >= timing.count;
   const next = isCountReached ? undefined : sendTimeAfter(schedule, after.sendTime);
@@ -311,7 +358,7 @@ function advanced(schedule: Schedule, after: { sendTime: Date; at: Date; sentCou
 }
 
 /** A schedule after its last send time: ended, sending nothing more. */
-function ended(schedule: Schedule, end: { at: Date; outcome: 'sent' | 'skipped' }): { schedule: Schedule; events: NewEvent[] } {
+function ended(schedule: Schedule, end: { at: Date; outcome: EndOutcome }): { schedule: Schedule; events: NewEvent[] } {
   return {
     schedule: { ...schedule, state: 'ended', nextSendTime: null, nextAttemptAt: null, endedAt: end.at },
     events: [eventOf(schedule, { type: 'ScheduleEnded', at: end.at, actor: { kind: 'ship', shipId: schedule.shipId }, details: { outcome: end.outcome } })],

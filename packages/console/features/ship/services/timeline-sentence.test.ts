@@ -690,7 +690,11 @@ describe('timelineSentence', () => {
     { type: 'ScheduleCancelled', sentence: 'A scheduled message was cancelled by planner', actor: planner, details: { reason: 'manager' }, tone: 'ended', icon: 'released' },
     { type: 'ScheduleCancelled', sentence: 'A scheduled message was cancelled as the ship retired', actor: planner, details: { reason: 'retired' }, tone: 'ended', icon: 'released' },
     { type: 'ScheduledSendRefused', sentence: 'A scheduled send was refused: NOT_REACHABLE', actor: scout, details: { code: 'NOT_REACHABLE' }, tone: 'waiting', icon: 'undeliverable' },
-    { type: 'SchedulePaused', sentence: 'A scheduled message paused after a refused send', actor: scout, details: {}, tone: 'waiting', icon: 'reported' },
+    { type: 'ScheduledSendMissed', sentence: 'A scheduled send time was missed', actor: scout, details: { sendTime: '2026-10-25T10:00:00.000Z', strategy: 'skip' }, tone: 'waiting', icon: 'undeliverable' },
+    { type: 'SchedulePaused', sentence: 'A scheduled message paused after a refused send', actor: scout, details: { reason: 'refused' }, tone: 'waiting', icon: 'reported' },
+    { type: 'SchedulePaused', sentence: 'Paused a scheduled message', actor: scout, details: { reason: 'ship' }, tone: 'waiting', icon: 'reported' },
+    { type: 'SchedulePaused', sentence: 'A scheduled message was paused by planner', actor: planner, details: { reason: 'manager' }, tone: 'waiting', icon: 'reported' },
+    { type: 'ScheduleResumed', sentence: 'Resumed a scheduled message', actor: scout, details: {}, tone: 'ok', icon: 'sent' },
     { type: 'ScheduleEnded', sentence: 'A scheduled message ended', actor: scout, details: {}, tone: 'ended', icon: 'sent' },
   ])('says $type as "$sentence" (decision 0062)', ({ type, sentence, actor, details, tone, icon }) => {
     expect(onScoutsPage(anEntry(type, { actor, details: { scheduleId: newId('schedule'), ...details } }))).toEqual({ sentence, tone, icon });

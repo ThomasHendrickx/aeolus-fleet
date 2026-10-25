@@ -270,7 +270,9 @@ export const EVENT_TYPES = [
   'ScheduleCreated',
   'ScheduleCancelled',
   'ScheduledSendRefused',
+  'ScheduledSendMissed',
   'SchedulePaused',
+  'ScheduleResumed',
   'ScheduleEnded',
 ] as const;
 export const eventTypeSchema = z.enum(EVENT_TYPES);
