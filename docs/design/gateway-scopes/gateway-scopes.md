@@ -2,11 +2,11 @@
 
 Design for [#1152](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1152) (part A) and [#1227](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1227) with [#1078](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1078) (part B), as one gateway design. Part A ships in Aeolus 0.32.0, part B in 0.33.0. Docs only.
 
-Part A: stage 2, the detail (purpose and picks agreed by Thomas, 25 Oct). Part B: stage 1, purpose, lessons and questions; nothing past its purpose is decided until Thomas agrees it.
+Part A: approved by Thomas (25 Oct); the build starts from its slices. Part B: stage 2, the detail, from Thomas's answers (25 Oct), for his review.
 
 ## 1. Purpose
 
-### Part A: which tools of an outside party a ship may call (0.32.0, agreed by Thomas)
+### Part A: which tools of an outside party a ship may call (0.32.0, approved)
 
 The company names what its ships may do at outside parties, in its own words: `crm:read-leads`, `crm:write-leads`, `company-memory:write`, `finance:read`. On an outside MCP server's page, an approver sets which of these scopes a calling ship must hold for each tool; for an outside A2A agent, one scope for the agent as a whole, since its messages name no skill (L26). The gateway refuses a call from a ship that does not hold it. Thomas: "the admin, or ship owner assigns scope requirements in the configuration screen of that MCP or a2a. Scopes can be added by the fleet owner. For example crm:read-leads, and then assigns that scope to the tools of the CRM MCP ship"; and on the principle, "labels would violate the network (labels) is where, scope is what rule".
 
@@ -27,7 +27,7 @@ How it holds together:
 
 Not the purpose: the tool switch per party (#1151, shipped); scope checks for calls between agent ships (a receiving agent ship is never a policy point, 0046); outside clients and agents calling into the fleet; a scope per A2A skill (L26).
 
-### Part B: ships as Slack bots (0.33.0)
+### Part B: ships as Slack bots (0.33.0, purpose agreed)
 
 A person in the company talks to a ship of the fleet in Slack as they talk to a colleague: a ship exposed as a Slack bot, with its own name, that they message directly or mention in a channel. Several ships may each be their own bot. Thomas: "Slack integration with potential multiple bots that get exposed to the fleet. So a ship in the fleet becomes a bot in slack." Waking a person in Slack is one part of it: what waits for their person ship shows where they already are ("be where the user is", #1078).
 
@@ -124,7 +124,7 @@ Thomas: "Ok that design for gateway with your picks I agree with. It allows for 
   3. Holds every required scope: the call goes on as today.
   4. Lacks one or more: the gateway answers the sender a tool error naming what is missing, "update_lead needs crm:write-leads, which release-notes does not hold", and reports the delivery handled. The call never reaches the server. For an A2A agent, the same as a reply to the sender.
   5. Core does not answer the read: the call waits and is tried again, as a call core refused `handed` for today. It is never made unchecked.
-- **The statement.** Each capability states the scopes it needs (open point P1).
+- **The statement.** Each capability states the scopes it needs (P1).
 - **Cost.** One read of the sender's ship per call, beside the hand-over the call already makes. No cache: a scope revoked must hold at the next call (0046).
 
 ### 4.3 Gateway: setting requirements on 50 tools
@@ -158,21 +158,12 @@ The Tools section of an outside MCP server's page becomes a table. Same parts as
 
 **Remove a scope.** The fleet manager removes `crm:admin`. Refused while ships hold it, naming how many; once revoked everywhere, removed. Tools that still require it refuse every call (no ship holds it any more) and show it on the CRM's page as no longer defined, until an approver changes them.
 
-## 6. Part A: open points for Thomas
+## 6. Part A: transparency (Thomas, 25 Oct)
 
-### P1. Does a tool's capability state the scopes it needs?
+Thomas: "P1 yes / P2 yes / I prefer transparancy here / Approved".
 
-1. **Yes**, in the statement every reaching ship reads (0047): an agent sees before it calls that update_lead needs `crm:write-leads`, and does not try and fail. The fleet's scopes are listed to every actor anyway.
-2. **No**: a ship learns only from the refusal.
-
-Pick: 1. A calling agent plans with it; it reveals nothing `fleet.scopes` does not.
-
-### P2. Does a refusal name the missing scope?
-
-1. **Yes**: "update_lead needs crm:write-leads, which lead-scout does not hold". The ship's owner knows what to grant.
-2. **No**: "lead-scout may not call update_lead", as a network refusal says only "No rule matches" (0034).
-
-Pick: 1. Scopes are public in the fleet, and the refusal is the way out (0057's fail-safe: a failure visible and its way out).
+- **P1.** Each capability states the scopes it needs, in the statement every reaching ship reads (0047): an agent sees before it calls that update_lead needs `crm:write-leads`.
+- **P2.** A refusal names what is missing: "update_lead needs crm:write-leads, which lead-scout does not hold".
 
 ## 7. Part A: slices for 0.32.0
 
@@ -185,54 +176,134 @@ Pick: 1. Scopes are public in the fleet, and the refusal is the way out (0057's 
 
 S1 before S3: the gateway needs the fleet's scopes to require them. S2 and S4 follow their server slices.
 
-## 8. Part B: questions for Thomas (0.33.0)
+## 8. Part B: decisions (Thomas, 25 Oct)
 
-### B1. What one bot in Slack is
+Purpose agreed. Thomas on long-running conversations: "I was thinking ling running meetings we will need to look at in the future" (#1254, later).
 
-In Slack a bot people can message directly, with its own name and picture, is its own Slack app, installed into the workspace (by its admin, or with the admin's approval).
+| # | Rule |
+| --- | --- |
+| B1 | **One Slack app per exposed ship**, made by the gateway from Slack's app manifest and installed into the workspace once per ship. Thomas: "Biggest in setup but best in execution and user experience" |
+| B2 | **Only an account of the organisation that linked its Slack account talks to a bot**; its message is its person ship's, and network rules decide which ships it reaches |
+| B3 | **Direct messages, and a mention in a channel the bot was added to**, answered in that message's thread. Thomas: "for 3 we need to look at meetings, a slack bot is for now already a good first step" |
+| B4 | **A message to a person counts as received when Slack accepted the post**: the gateway acks it then. What Slack cannot show in full goes as a link and is handed only |
+| B5 | **A message from a ship that is not a bot shows in full in a direct message from the gateway's own bot, consent first.** W4 changes for Slack only; web push and email keep it |
+| B6 | **A new gateway scope for Slack**, `gateway:slack`, within manage reach of the ship, apart from `gateway:approve` |
 
-1. **One Slack app per exposed ship**, which the gateway makes from Slack's app manifest and someone installs into the workspace once per ship. Each ship is truly its own bot: its own direct messages, mentions and name. Each ship takes one install in Slack.
-2. **One Slack app for the gateway**, where a person names the ship in their message and answers show with the ship's name and picture. One install; but in Slack it is one bot, and a person cannot message a ship directly.
+These change W1 (Slack joins web push and email as a channel; still no chat webhook) and W4 for Slack (L12). The build records them in a decision of their own.
 
-Pick: 1. It is Thomas's words, "a ship in the fleet becomes a bot", and it is what a non-technical person expects of a colleague in Slack.
+## 9. Part B in detail
 
-### B2. Who may talk to a bot
+### 9.1 Connecting a workspace
 
-1. **Only an account of the organisation that linked its Slack account** (one sign in with Slack from the gateway's Overview, or offered at their first message to a bot). Their message is their person ship's; network rules decide which ships they reach.
-2. **Anyone in the workspace:** a linked account as in 1, and anyone else through one proxy ship for the workspace, an outside party with an owner (0056).
+- An actor holding `gateway:slack` opens Slack on the gateway's pages and connects the fleet to one workspace by pasting an app configuration refresh token, which Slack issues per user and workspace on its app management page. The gateway keeps it in its vault and rotates it (`tooling.tokens.rotate`, every 12 hours, single use).
+- With it the gateway makes its own bot first (B5): one Slack app named after the fleet, installed by the same person through Slack's install screen.
+- A workspace may serve several fleets, each connected on its own with its own bots (P-B4).
+- What the page shows: connected (workspace name, by whom), the configuration token's state (fresh, or refused by Slack: "Connect again to make or change bots; bots already installed keep working"), the gateway's bot (installed or not), the ships exposed. Disconnect removes every bot the gateway made (`apps.manifest.delete`) after a confirm.
+- The configuration token belongs to one Slack user and can change only the apps it made (L18). If that user leaves Slack, installed bots keep working on their own bot tokens; making, renaming or removing one waits until someone connects again.
+- `gateway:slack` is the gateway's second declared scope (L3), beside `gateway:approve`.
 
-Pick: 1. Every message keeps a real sender, network rules stay the one where, and 0056's reason against anonymous requests holds. The link is one step, offered in Slack itself (#1228).
+### 9.2 Exposing a ship as a bot
 
-### B3. Where a bot listens
+- An actor holding `gateway:slack`, within manage reach of the ship (B6), picks an agent ship (Combobox) and presses Expose. Agent ships only in 0.33.0 (P-B3).
+- The gateway makes the ship's Slack app from a manifest (`apps.manifest.create`, at most about one a minute): the ship's name as the bot's name, its statement's summary (0047) as the description, a direct messages tab, the events `message.im` and `app_mention`, the bot scopes to read those and to post (`chat:write`, `im:history`, `app_mentions:read`, `reactions:write`), the gateway's events and actions addresses. The signing secret and client credentials go into the vault.
+- Then Install opens Slack's install screen; the bot token Slack returns goes into the vault. Where the workspace makes apps wait for an admin's approval, the page says so ("Waiting for your Slack admin"), and Install works once approved.
+- The bot is tied to the ship by its id, never its name (L20). A rename updates the bot's name in Slack (`apps.manifest.update`) the next time the gateway reads the ship; until then the page shows both names.
+- States on the page per ship: Made, Waiting for install, Waiting for your Slack admin, In Slack, Removed in Slack (`app_uninstalled` or `tokens_revoked`). Remove deletes the app after a confirm. A retired ship's bot is deleted.
 
-1. **Direct messages only.**
-2. **Direct messages, and a mention in a channel it was added to**, answered in that message's thread. The person who mentions it is the sender; other people in the thread see the answer.
-3. **As 2, and every message in a channel it was added to.**
+### 9.3 Linking a person's Slack account
 
-Pick: 2. It is how people use a colleague in Slack; 3 floods the ship (L21), and a bot never takes a message from another bot.
+- From the gateway's Overview, Link Slack: pagasae's sign-in if needed (0054), then Sign in with Slack (OpenID Connect), which gives the Slack user and workspace ids. The link is kept by fleet, Slack workspace and user, and person ship.
+- From Slack: an unlinked person who messages or mentions a bot gets an answer only they see: "Link your Slack account to talk to release-notes", with a button to the same flow. Their message is not stored, since it has no sender yet: the answer says to send it again once linked.
+- One Slack user links to one account per fleet; a second link is refused, naming the first. Unlink on the Overview. An account with no person ship in the fleet cannot link ("Your account has no person ship in this fleet").
+- A disabled account (0055): its person ship is released, its links stop; a message from that Slack user is answered "Your account cannot message the fleet now".
+- Linking lets the person talk to bots, and shows a bot ship's messages to them in that bot's conversation (P-B1). Everything else that waits shows in Slack only once they turn Slack on (B5, W8).
 
-### B4. When a message to a person counts as received
+### 9.4 A message from Slack into the fleet
 
-A ship's answer, or any message to the person ship, shows in Slack in full. Today the promise ends when the person opens it (L14).
+1. Slack sends the event to the gateway (`/gw/slack/events`): a direct message to a bot, or a mention of it. The gateway checks the request's signature with that bot's signing secret and rejects a timestamp more than 5 minutes off.
+2. It ignores what is not a person's new message: a bot's message (L21), an edit, a deletion, a join.
+3. It stores the event in its own database, keyed by Slack's `event_id`, and answers Slack 200 (P-B2). A Slack retry of a stored event is answered 200 and changes nothing.
+4. It finds the ship by the bot's app id and the person ship by the Slack workspace and user, both exact (L20). Unlinked: the link prompt of 9.3.
+5. It sends as the person ship, which it crews (L15): to the ship, `text/markdown` with the text (the mention removed, Slack's markup turned into Markdown), a shared file as its Slack link; `inReplyTo` the fleet message a thread replies to, when it replies to one; the idempotency key from `event_id`, so a retry is the same send (L11).
+6. Core stores it: the gateway adds a reaction to the person's Slack message, so they see it reached the fleet. Core refuses: the gateway answers in the thread with the reason, plainly: "You may not message release-notes" (no rule), "release-notes was retired".
+7. Core does not answer: the gateway sends again with the same key until it does. The reaction is the person's sign; without it, the message is not yet in the fleet.
 
-1. **Slack accepted the post: the gateway acks then.** The person's app received it in full (0001); in Slack, there is nothing further to open.
-2. **Handed with the Slack channel; acked when the person opens it on the gateway's page or reacts in Slack.** Closer to "the person saw it"; deliveries stay open while Slack shows them.
+A mention in a channel works the same: the person who mentions the bot is the sender; the ship's answer goes into that message's thread, where others in the channel see it (B3).
 
-Pick: 1. A message shown in full in the person's app is received, as for any app that crews a ship. What Slack cannot show in full (another content type, or over Slack's length) goes as a link and is handed only, as a wake.
+### 9.5 A message from the fleet into Slack
 
-### B5. What a message from a ship that is not a bot does in Slack
+The gateway waits on every person ship it crews (W7). For each delivery to a linked person's person ship:
+1. **Where:** a reply to a message that came from Slack goes into that conversation or thread. A message from an exposed ship goes into that bot's direct messages with the person. Anything else goes into the gateway's own bot's direct messages, headed by the sender's name, once the person turned Slack on (B5); with Slack off, it wakes through web push or email as today.
+2. **What:** `text/plain` and `text/markdown` as text, Markdown turned into Slack's markup; a question (0038) as its title and context with one button per option, a press sending the answer as the person ship (`inReplyTo` the question); JSON as a code block. Another content type, or a payload over what Slack shows in full (40,000 characters, a block 3,000), goes as a link to the delivery on the gateway's pages.
+3. **Hand-over:** the gateway reports `handed` with channel `slack`, posts, keeps the Slack message's id with the delivery, then acks for the person (B4). A link posted for what Slack cannot show is handed only, as a wake.
+4. **Answer:** the person replies in the thread under it: sent as in 9.4, `inReplyTo` that message, and the delivery reported handled, as answering on the gateway's page does.
+5. **No double wake:** a delivery Slack showed is not fresh, so web push and email do not wake for it (W3, W6).
 
-A ship with no bot, or a question (0038) from any ship, may also wait for the person ship.
+Unhappy paths:
+- Slack answers rate limited: wait its Retry-After, then post again with the same hand-over number, which counts nothing (0040).
+- The bot was removed in Slack, or the person's Slack user deactivated: the delivery falls back to the gateway's bot, or to web push and email; the page and the Overview say why.
+- The gateway stops after posting and before keeping the Slack message's id: at most one duplicate post, as a wake today. #1165's lesson holds: each delivery is handed and acked one by one, never as a batch whose half is recorded (L23).
+- Core refuses the ack: the post stands, and the ack is tried again.
 
-1. **Shown in full in a direct message from the gateway's own bot, consent first.** Everything that waits is where the person is; W4 changes for Slack only, web push and email keep it.
-2. **A wake only, as W4:** "something waits", the fleet's name and a link; content only from ships that are bots.
+### 9.6 Pages
 
-Pick: 1. One place for everything that waits, and a person answers it in the same direct message; the person chose Slack by turning it on (W8).
+- **Gateway, Slack** (actors holding `gateway:slack`; others see the state read-only): the workspace and token state, the gateway's bot, the exposed ships with their states, Expose a ship…, Install, Remove, Disconnect. Loading, success (Toast), refusals inline, as part A's pages.
+- **Gateway, Overview** (each person): Slack linked as @mathilde in Acme, Unlink; a switch, Show everything that waits in Slack (B5), off until turned on (W8).
+- **Console:** nothing new in 0.33.0.
 
-### B6. Who exposes a ship as a bot
+## 10. Part B: flows
 
-1. **An actor holding `gateway:approve`, within manage reach of the ship**, on the gateway's page; the workspace's own install approval still applies on Slack's side.
-2. **A new gateway scope for Slack**, within manage reach of the ship, so approving outside parties and exposing ships are held apart.
-3. **The ship's owner**, within manage reach, with no gateway scope.
+**Set up.** Ana, holding `gateway:slack`, connects the Acme workspace with a configuration token; the gateway makes its bot, Ana installs it. Ana exposes `release-notes`: the gateway makes its app, Ana installs it. In Slack, `release-notes` appears under Apps.
+- Unhappy: Slack refuses the token (expired, revoked): "Connect again", nothing made. The workspace needs an admin's approval: Waiting for your Slack admin, Install once approved. Ana lacks manage reach on the ship: refused by name.
 
-Pick: 2. Putting a ship in front of the whole company is not approving an outside party; a scope of its own lets an organisation give it to the person who runs Slack. It still fits the gateway's 20-scope namespace.
+**Mathilde asks.** Mathilde, unlinked, messages `release-notes`: only they see "Link your Slack account"; they link in two steps and send again. The gateway stores the event, sends it as Mathilde's person ship, core stores it, the reaction appears. `release-notes` answers; the answer appears in the same conversation, and the delivery is acked.
+- Unhappy: Slack retries the event, the same send, nothing new. Core is down: no reaction yet, the gateway sends again until core stores it. No rule lets Mathilde's person ship reach `release-notes`: "You may not message release-notes" in the thread.
+
+**A question from another ship.** `budget-check`, not a bot, asks Mathilde a question (0038). Mathilde turned Slack on: the gateway's bot shows it with its options as buttons; they press one; the answer goes back as their person ship.
+- Unhappy: Slack off, so web push wakes them as today. The bot was removed in Slack: falls back to web push and email, and the Overview says so.
+
+**A channel.** In #launch, Joris mentions `release-notes`: Joris is the sender; the answer goes into the thread, everyone in #launch sees it. Another bot's message in the thread is ignored.
+
+## 11. Part B: open points for Thomas
+
+### P-B1. Do a bot ship's messages show in its conversation with the person on linking alone?
+
+1. **Yes**: linking is the person's consent to talk to bots, both ways; the Slack switch covers only messages from ships that are not bots (B5).
+2. **No**: every message into Slack waits for the switch, a reply to the person's own Slack message included.
+
+Pick: 1. A person who asked `release-notes` something expects its answer in the same place. It reads the agreed purpose's outcome 4 ("once they turned Slack on, and never before") as: linking turns Slack on for bots, the switch for everything else.
+
+### P-B2. When the gateway tells Slack OK
+
+1. **Once the gateway stored the event in its own database**, then sends to core until core stores it, showing a reaction on the person's message when it has. Slack's 3-second limit never loses a message while core is slow or down.
+2. **Only once core stored it**: Slack retries three times over about 5 minutes; after that the message never reaches the fleet, and the person is not told.
+
+Pick: 1. The person's sign of the fleet's OK is the reaction, given only once core stored it, so promise 2 holds; the gateway's own store keeps promise 1 against a slow core.
+
+### P-B3. Which ships may be exposed
+
+1. **Agent ships only.**
+2. **Agent ships and outside parties' proxy ships** (the CRM as a bot in Slack).
+
+Pick: 1. The need is people talking to the fleet's agents; a proxy ship in Slack adds tool calls typed by hand.
+
+### P-B4. One workspace per fleet
+
+1. **A fleet connects one workspace; a workspace may serve several fleets**, each with its own bots, and a person links once per fleet.
+2. **A fleet connects several workspaces.**
+
+Pick: 1. One organisation, one workspace is the usual case; a second workspace can come when asked.
+
+## 12. Part B: slices for 0.33.0
+
+All in aeolus-fleet-gateway; core and pagasae unchanged (`handed` takes the channel `slack` as it is).
+
+| # | Slice | Done when |
+| --- | --- | --- |
+| S5 | Connect a workspace: configuration token in the vault and its rotation, the gateway's bot, `gateway:slack` declared, the Slack page | Tested against a Slack double; refused and expired tokens shown |
+| S6 | Expose a ship: app from manifest, install, admin approval, removal in Slack, rename and retire | Each state on the page; ids, never names |
+| S7 | Link a Slack account: Sign in with Slack from the Overview and from a first message; unlink; disabled accounts | A second link refused; an unlinked message never stored |
+| S8 | Slack into the fleet: events, signatures, the gateway's store, sending as the person ship, retries by `event_id`, threads, reactions and refusals | A Slack retry and a core outage each give exactly one message |
+| S9 | The fleet into Slack: where, what, hand-over and ack, answers in threads, questions as buttons, the gateway's bot and the switch, rate limits and fallbacks | Every delivery shown once, handed once; no wake for what Slack showed |
+
+The staging walk uses a real Slack test workspace.
