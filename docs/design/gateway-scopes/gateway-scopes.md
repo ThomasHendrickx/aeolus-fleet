@@ -17,7 +17,9 @@ A good outcome:
 2. Granting or revoking that scope is the existing scope grant on the ship, effective at its next call, with its event. No network rule or label changes.
 3. Every ship that reaches the party still sees which tools exist; a tool with no scope set needs none beyond reaching the party.
 
-Not the purpose: the tool switch per party (#1151, shipped); a scope check inside core for calls to outside parties; outside clients and agents calling into the fleet.
+A tool call is already something a ship does towards another ship: the ship sends a message to the party's proxy ship, naming the tool. Core checks the sender's send reach to the proxy ship (where). The gateway, crewing the proxy ship, checks that the sender holds the scope the tool needs (what), as squadrons checks `squadrons:form` on a ship that asks it by message (L25). The proxy ship's own scopes are not part of that check: they say what the outside party may do in the fleet, checked by core as for any ship.
+
+Not the purpose: the tool switch per party (#1151, shipped); a scope check inside core for calls to outside parties; outside clients and agents calling into the fleet; skills of outside A2A agents, since an A2A message names no skill and the agent picks one itself, so reaching the agent is all there is to check, and that is the network rules' (L26).
 
 ### Part B: ships as Slack bots (0.33.0)
 
@@ -50,6 +52,8 @@ Part A:
 | L8 | Scope pickers show raw codes, not the declared descriptions; a party's new scopes would add to that | #1205 |
 | L9 | No policy: scopes are enforced exactly, nothing added on top | [0016](../../decisions/0016-no-policy.md) |
 | L10 | An outside party's own OAuth scopes never become fleet scopes | interop design, `design/interop-mcp` branch |
+| L25 | A plugin ship asked by message checks the asker's scope in its own namespace, read from core: squadrons forms a squadron by message from any ship holding `squadrons:form`. No rights travel with the message; the plugin enforces its own scopes | [0017](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/blob/main/docs/decisions/0017-squadrons-package.md), [blueprint](../../blueprint.md) "Scopes say what", 0046 |
+| L26 | The gateway sends an outside A2A agent an A2A message with no skill named; the card's skills only describe the agent | gateway `src/core/a2a-out/agent-message.ts`, `agent-statement.ts` |
 
 Part B:
 
@@ -74,22 +78,13 @@ Part B:
 
 ### A1. Where the party scopes live
 
-#1152 names scopes per party in their own namespace, such as `company-memory:read`. 0046 lets the gateway hold one namespace, at most 20 scopes, and rejected a plugin taking several namespaces and resource-scoped scopes. A scope named after a party also says where, which L1 gives to network rules.
+#1152 names scopes per party in their own namespace, such as `company-memory:read`. 0046 lets the gateway hold one namespace, at most 20 scopes, and rejected a plugin taking several namespaces and resource-scoped scopes. A scope named after a party also says where, which L1 gives to network rules. Whichever option, the check is the one in L25: the gateway reads the calling ship's scopes from core on each call; the proxy ship's own scopes play no part.
 
 1. **Kinds of tool, not parties:** the gateway declares a few scopes in `gateway`, such as `gateway:read` and `gateway:write`; the approver marks each tool with one. A ship's network rules decide which parties it reaches, its scope which kind of tool. Fits 0034 and 0046 as they stand. A ship that may write at the CRM may also write at the vault if it reaches both.
 2. **Party scopes inside `gateway`:** `gateway:company-memory-read`. Exactly the per-party control #1152 asks; fits 0046, but the 20-scope cap allows about nine parties of two scopes each, and a party's name sits in a 32-character action.
 3. **A namespace per party** as #1152 writes it: changes 0046 (several namespaces per plugin, a namespace freed when its party retires). Most direct for the approver; reopens a recorded decision and mixes where into what.
 
 Pick: 1. It is Thomas's own rule taken strictly: where a ship sends is the network, what it does there is the scope. It needs no change to 0046 and no cap.
-
-### A2. Which outside parties it covers
-
-The gateway calls tools of two kinds of party: outside MCP servers (tools from `tools/list`) and outside A2A agents (skills on their card, called by message).
-
-1. **Outside MCP servers only.** The tool switch and the company vault are MCP; A2A agents keep their party-wide call.
-2. **Both.** One rule for every outside tool; an A2A skill has no switch today, so this also adds a switch per skill.
-
-Pick: 1. The need in #1151 and #1152 is the company vault; A2A follows when an agent needs it.
 
 ### B1. What one bot in Slack is
 
