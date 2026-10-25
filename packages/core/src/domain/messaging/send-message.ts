@@ -207,7 +207,7 @@ export async function sendWithin(
   }
   const at = clock.now();
   const repliedTo = inReplyTo === undefined ? undefined : await tx.messages.find(fleetId, inReplyTo);
-  const repliedDelivery = repliedTo && (await tx.deliveries.findOfMessage(fleetId, repliedTo.id));
+  const repliedDelivery = repliedTo && (await tx.deliveries.findOfMessageReaching(fleetId, { messageId: repliedTo.id, shipId: senderShipId }));
   const reach = await checkReach(
     { tx, ids },
     {
@@ -347,7 +347,7 @@ async function sendToLabelWithin(
   }
   const at = clock.now();
   const repliedTo = inReplyTo === undefined ? undefined : await tx.messages.find(fleetId, inReplyTo);
-  const repliedDelivery = repliedTo && (await tx.deliveries.findOfMessage(fleetId, repliedTo.id));
+  const repliedDelivery = repliedTo && (await tx.deliveries.findOfMessageReaching(fleetId, { messageId: repliedTo.id, shipId: senderShipId }));
   for (const shipId of ships.value) {
     const recipient = { kind: 'ship' as const, shipId };
     const reach = await checkReach(

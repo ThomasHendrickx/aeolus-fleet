@@ -114,7 +114,7 @@ export function createResendDelivery(deps: {
         return recipient;
       }
       const repliedTo = inReplyTo === undefined ? undefined : await tx.messages.find(fleetId, inReplyTo);
-      const repliedDelivery = repliedTo && (await tx.deliveries.findOfMessage(fleetId, repliedTo.id));
+      const repliedDelivery = repliedTo && (await tx.deliveries.findOfMessageReaching(fleetId, { messageId: repliedTo.id, shipId: original.senderShipId }));
       const reach = await checkReach(
         { tx, ids: deps.ids },
         {
