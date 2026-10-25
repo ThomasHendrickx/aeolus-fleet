@@ -17,7 +17,7 @@ import { createPostgresCore, heldUnitOfWork, type PostgresCore } from './support
 // waiting on a person, survives a pass at any age; what is finished past the
 // retention goes with its deliveries and events and takes its bytes off
 // storage; what the newest stuck snapshot has not folded stays (R7); and a
-// pass racing a send, an acknowledgement, a second server or a
+// pass racing a send, an acknowledgement, a lease end, a second server or a
 // fleet's delete, or failing mid-batch, loses nothing it should keep.
 
 const newId = createIdGenerator();
@@ -309,6 +309,28 @@ describe('a pruning pass racing', () => {
 
     expect((await reply).isOk).toBe(true);
     expect(await isKept(original)).toBe(false);
+  });
+
+  it('a lease end that makes an acknowledged pushed delivery final: the lease ends, and the next pass lets the message go', async () => {
+    const messageId = await aFinishedMessage();
+    await core.prisma.lease.updateMany({ where: { shipId: planner.shipId, endedAt: null }, data: { pushedAt: core.clock.now() } });
+    core.clock.advance((RETENTION_DAYS + 1) * DAY_MS);
+    await core.useCases.closeHealthSnapshots();
+    const releasing = Promise.withResolvers<unknown>();
+    const held = heldAtCandidates(settledOrWaiting(releasing.promise));
+
+    const passing = passWith(held.uow)();
+    await held.reached;
+    const release = core.useCases.releaseShip(argo, { shipId: planner.shipId });
+    releasing.resolve(release);
+    await passing;
+    const isKeptByThePass = await isKept(messageId);
+    await passAfter(HOUR_MS);
+
+    expect((await release).isOk).toBe(true);
+    expect(await core.prisma.lease.count({ where: { shipId: planner.shipId, endedAt: null } })).toBe(0);
+    expect(isKeptByThePass).toBe(true);
+    expect(await isKept(messageId)).toBe(false);
   });
 
   it("a second server's pass: it skips the fleet, and the history goes once", async () => {
