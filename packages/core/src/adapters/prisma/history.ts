@@ -24,6 +24,7 @@ import { z } from 'zod';
 
 import { deliveryStepOf, type StandingOverdue, type WayCrew, type WayLease } from '../../domain/shared/delivery-way.js';
 import {
+  isDeliveryChangeType,
   isKeptBy,
   type HistoryMessage,
   type HistoryParty,
@@ -106,7 +107,7 @@ function historyMessageOf(
   };
 }
 
-/** A message's one delivery: v1 sends every message to one recipient. */
+/** A message's first delivery by id: its only one, but for a send to a label (decision 0065), whose deliveries the read orders by id. */
 function onlyDelivery(row: { id: string; deliveries: unknown[] }): DeliveryNow {
   const [delivery] = row.deliveries;
   if (delivery === undefined) {
@@ -303,19 +304,21 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
     message: async (fleetId, messageId) => {
       const row = await db.message.findFirst({
         where: { fleetId, id: messageId },
-        include: { deliveries: { select: { ...DELIVERY_SELECT, claimedByLeaseId: true, recipientShipId: true } } },
+        include: { deliveries: { select: { ...DELIVERY_SELECT, claimedByLeaseId: true, recipientShipId: true }, orderBy: { id: 'asc' } } },
       });
       if (!row) {
         return undefined;
       }
       const message = toMessage(row);
       const delivery = onlyDelivery(row);
-      const events = (
+      const all = row.deliveries.map((each) => ({ ...deliveryRow.parse(each), recipientShipId: idSchema('ship').nullable().parse(each.recipientShipId) }));
+      const allEvents = (
         await db.event.findMany({
-          where: { fleetId, deliveryId: delivery.id, type: { in: [...DELIVERY_HISTORY_TYPES] } },
+          where: { fleetId, deliveryId: { in: all.map((each) => each.id) }, type: { in: [...DELIVERY_HISTORY_TYPES] } },
           orderBy: { seq: 'desc' },
         })
       ).map(toSequencedEvent);
+      const events = allEvents.filter((event) => event.deliveryId === delivery.id);
       const leaseId = await leaseOfDelivery(db, { fleetId, delivery: deliveryLeaseRow.parse(row.deliveries[0]) });
       const leases = await wayLeases(db, {
         fleetId,
@@ -331,7 +334,7 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
         fleetId,
         shipIds: [
           ...shipsNamedBy(message),
-          ...(delivery.claimedByShipId === null ? [] : [delivery.claimedByShipId]),
+          ...all.flatMap((each) => [each.recipientShipId, each.claimedByShipId].filter((shipId) => shipId !== null)),
           ...events.flatMap((event) => (event.shipId === undefined ? [] : [event.shipId])),
           ...replies.map((reply) => reply.senderShipId),
           ...[...leases.values()].flatMap(({ trierarch }) => (trierarch ? [trierarch.id] : [])),
@@ -340,6 +343,17 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
       return {
         ...historyMessageOf({ message, delivery }, party),
         history: events.flatMap((event) => deliveryStepOf(event, { party, leases })),
+        deliveries: all.map((each) => {
+          const shipId = each.recipientShipId ?? each.claimedByShipId;
+          return {
+            id: each.id,
+            ship: shipId === null ? null : party(shipId),
+            state: each.state,
+            steps: allEvents.flatMap(({ deliveryId, type, occurredAt, details }) =>
+              deliveryId === each.id && isDeliveryChangeType(type) ? [{ type, occurredAt, isAgain: details.again === true, isOnceMore: details.onceMore === true }] : [],
+            ),
+          };
+        }),
         replies: replies.map((reply) => ({ id: reply.id, sender: party(reply.senderShipId), sentAt: reply.createdAt })),
         lease: (leaseId === null ? undefined : leases.get(leaseId)) ?? null,
         overdue: await standingOverdue(db, { fleetId, deliveryId: delivery.id }),

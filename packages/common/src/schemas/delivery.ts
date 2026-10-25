@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { deliveryStateSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
-import { leaseWakerSchema, messageRecipientSchema } from './history.js';
+import { leaseWakerSchema, messageRecipientSchema, partySchema } from './history.js';
 import { isOneLine } from './report.js';
 
 /**
@@ -235,14 +235,18 @@ export const sentMessageInputSchema = z.object({ messageId: idSchema('message') 
 export type SentMessageInput = z.infer<typeof sentMessageInputSchema>;
 
 /**
- * Output of `ship.sentMessage`: where the delivery of a message its sender
- * sent stands, and since when, with its recipient by name or type. No payload.
+ * Output of `ship.sentMessage`: where each delivery of a message its sender
+ * sent stands, and since when, with its ship (null while no ship of a type
+ * claimed it): one for a ship or a type, one per ship for a label (decision
+ * 0065). Its recipient by name, type or value ids. No payload.
  */
 export const sentMessageOutputSchema = z.object({
   messageId: idSchema('message'),
   sentAt: z.iso.datetime(),
   recipient: messageRecipientSchema,
-  delivery: z.object({ deliveryId: idSchema('delivery'), state: deliveryStateSchema, since: z.iso.datetime() }),
+  deliveries: z.array(
+    z.object({ deliveryId: idSchema('delivery'), ship: partySchema.nullable(), state: deliveryStateSchema, since: z.iso.datetime() }),
+  ),
 });
 
 export type SentMessageOutput = z.infer<typeof sentMessageOutputSchema>;

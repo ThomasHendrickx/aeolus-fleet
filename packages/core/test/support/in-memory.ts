@@ -1758,8 +1758,9 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     recipient.kind === 'ship' ? { kind: 'ship', ship: partyOf(fleetId, recipient.shipId) } : recipient;
   const messageOf = (fleetId: FleetId, messageId: FleetEvent['messageId']): Message | undefined =>
     state.messages.find((held) => held.fleetId === fleetId && held.id === messageId);
+  /** A message's first delivery by id: its only one, but for a send to a label (decision 0065). */
   const deliveryOfMessage = (message: Message): Delivery => {
-    const found = state.deliveries.find((held) => held.messageId === message.id);
+    const found = state.deliveries.filter((held) => held.messageId === message.id).toSorted((first, second) => first.id.localeCompare(second.id))[0];
     if (!found) {
       throw new Error(`no delivery of ${message.id}`);
     }
@@ -1939,9 +1940,25 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         .toSorted((first, second) => first.createdAt.getTime() - second.createdAt.getTime() || first.id.localeCompare(second.id))
         .map((reply) => ({ id: reply.id, sender: partyOf(fleetId, reply.senderShipId), sentAt: reply.createdAt }));
       const lease = leaseOfDelivery(delivery);
+      const deliveries = state.deliveries
+        .filter((held) => held.fleetId === fleetId && held.messageId === message.id)
+        .toSorted((first, second) => first.id.localeCompare(second.id))
+        .map((held) => {
+          const shipId = held.recipient.kind === 'ship' ? held.recipient.shipId : held.claimedByShipId;
+          return {
+            id: held.id,
+            ship: shipId === null ? null : partyOf(fleetId, shipId),
+            state: held.state,
+            steps: numbered(fleetId)
+              .filter((event) => event.deliveryId === held.id)
+              .reverse()
+              .flatMap((event) => deliveryStepOf(event, { party: (id) => partyOf(fleetId, id), leases })),
+          };
+        });
       return Promise.resolve({
         ...historyMessageOf(message),
         history: changes,
+        deliveries,
         replies,
         lease: lease ? wayLeaseOf(lease) : null,
         overdue: standingOverdueOf(delivery),

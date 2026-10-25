@@ -18,7 +18,7 @@ import {
 
 import type { OverdueClock } from '../messaging/public.js';
 import type { Location, MessageParties } from '../registry/public.js';
-import type { StandingOverdue, WayCrew, WayLease } from './delivery-way.js';
+import type { DeliveryStateStep, StandingOverdue, WayCrew, WayLease } from './delivery-way.js';
 import type { EventDetails } from './events.js';
 import type { Page, PageQuery } from './page.js';
 
@@ -164,13 +164,28 @@ export interface HistoryReply {
 }
 
 /**
+ * One delivery of a message: the ship it went to, or the ship of the type
+ * that claimed it (null while none has), its state, and the steps that tell
+ * when it entered it, newest first.
+ */
+export interface MessageDelivery {
+  id: DeliveryId;
+  ship: HistoryParty | null;
+  state: DeliveryState;
+  steps: DeliveryStateStep[];
+}
+
+/**
  * One message as the history reads it: its delivery's steps newest first,
  * its replies oldest first, and what its way is read from: the lease that
  * holds it or that a pending delivery to one ship waits for, the overdue
- * clock that stands, and the crew request of that lease's ship.
+ * clock that stands, and the crew request of that lease's ship. Every
+ * delivery of it comes too, by id: one per ship of a send to a label
+ * (decision 0065), whose first is the delivery above.
  */
 export type MessageRead = HistoryMessage & {
   history: DeliveryChange[];
+  deliveries: MessageDelivery[];
   replies: HistoryReply[];
   lease: WayLease | null;
   overdue: StandingOverdue | null;

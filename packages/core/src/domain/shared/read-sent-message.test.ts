@@ -4,6 +4,7 @@ import { deliveryIdOf } from '../../../test/support/core-fixtures.js';
 import { valueIdOf } from '../../../test/support/label-fixtures.js';
 import { historyScenario, type HistoryScenario } from '../../../test/support/history-scenario.js';
 import { refusalOf, unwrap } from '../../testing/result.js';
+import type { Crew } from './caller.js';
 import { createReadSentMessage, type ReadSentMessage } from './read-sent-message.js';
 
 let scene: HistoryScenario;
@@ -78,15 +79,17 @@ describe('a sender reading the delivery of a message it sent', () => {
     await scene.receive(scene.lookout);
     await scene.ack(scene.lookout, messageId);
     const ackedAt = scene.core.clock.now();
+    const deliveryTo = (crew: Crew) =>
+      scene.core.state.deliveries.find((held) => held.messageId === messageId && held.recipient.kind === 'ship' && held.recipient.shipId === crew.shipId)?.id;
 
     expect(unwrap(await sentMessage(scene.argo, { messageId }))).toEqual({
       messageId,
       sentAt,
       recipient: { kind: 'label', valueIds: [teamA] },
       deliveries: [
-        { deliveryId: expect.stringMatching(/^dlv_/), ship: { id: scene.scout.shipId, name: 'scout' }, state: 'handed', since: handedAt },
-        { deliveryId: expect.stringMatching(/^dlv_/), ship: { id: scene.lookout.shipId, name: 'lookout' }, state: 'acknowledged', since: ackedAt },
-        { deliveryId: expect.stringMatching(/^dlv_/), ship: { id: scene.planner.shipId, name: 'planner' }, state: 'pending', since: sentAt },
+        { deliveryId: deliveryTo(scene.scout), ship: { id: scene.scout.shipId, name: 'scout' }, state: 'handed', since: handedAt },
+        { deliveryId: deliveryTo(scene.lookout), ship: { id: scene.lookout.shipId, name: 'lookout' }, state: 'acknowledged', since: ackedAt },
+        { deliveryId: deliveryTo(scene.planner), ship: { id: scene.planner.shipId, name: 'planner' }, state: 'pending', since: sentAt },
       ],
     });
   });

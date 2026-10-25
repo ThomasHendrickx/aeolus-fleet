@@ -353,7 +353,7 @@ describe('the ship tools at /mcp', () => {
     ['receive', [/about 25 seconds/i, /senderName/, /stays yours/i, /undeliverable/i, /key of the work/i]],
     ['send', [/inReplyTo/, /message id, not the delivery id/i, /idempotencyKey/, /new unique/i, /retry/i]],
     ['receiveReply', [/messageId/, /inReplyTo/, /about 25 seconds/i, /stays yours/i, /undeliverable/i, /ack/]],
-    ['sentMessage', [/messages:send/, /you sent/i, /state/, /since/, /no payload/i, /MESSAGE_NOT_FOUND/]],
+    ['sentMessage', [/messages:send/, /you sent/i, /each of its deliveries/i, /state/, /since/, /one per ship for a label/i, /no payload/i, /MESSAGE_NOT_FOUND/]],
     ['delivery', [/messages:receive/, /deliveryId/, /again/i, /whole/i, /acknowledged/i, /handled/i, /changes nothing/i, /DELIVERY_NOT_ACKNOWLEDGED/, /DELIVERY_NOT_FOUND/]],
     ['setStatement', [/waitMs/, /deadlineMs/, /repeatable/, /annotations/]],
     ['pushReceive', [/trierarch or the plugin watcher/i, /not the agent/i, /received/, /no attempt/i, /handed/, /about 25 seconds/i]],
