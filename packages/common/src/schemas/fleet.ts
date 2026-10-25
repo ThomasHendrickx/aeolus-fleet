@@ -59,8 +59,8 @@ export const getStartingPromptInputSchema = z.object({ shipId: idSchema('ship') 
 
 /**
  * One crew line: the starting prompt's identity in one line for a harness
- * with the aeolus plugin, `/aeolus:crew <fleetUrl> <shipId> <secret>` for
- * Claude Code, `$aeolus-crew <fleetUrl> <shipId> <secret>` for Codex.
+ * with the Aeolus Fleet plugin, `/aeolus-fleet:crew <fleetUrl> <shipId> <secret>` for
+ * Claude Code, `$aeolus-fleet-crew <fleetUrl> <shipId> <secret>` for Codex.
  */
 export const crewLineSchema = z.object({ harness: z.string(), line: z.string() });
 

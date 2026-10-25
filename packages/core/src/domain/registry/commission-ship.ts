@@ -181,7 +181,7 @@ async function commissionPersonShip(
       actor,
       commission: { by: { kind: 'installation' }, idempotencyKey: request.idempotencyKey, requestHash: deps.secrets.hasher.hash(commissionRequestText(request)) },
     },
-    { activeShipNamed: await tx.ships.findActiveByName(fleetId, name), namespaces: new Map() },
+    { activeShipNamed: await tx.ships.findActiveByName(fleetId, name), namespaces: new Map(), defined: new Set() },
   );
   if (!commissioned.isOk) {
     return commissioned;
@@ -319,10 +319,10 @@ export function createCommissionShip(deps: {
       // Held FOR SHARE, as an asking ship's owner is: a retire of the named owner waits, so the new ship never keeps a retired owner.
       const namedOwner = input.owner === undefined ? undefined : await tx.ships.findForShare(fleetId, input.owner);
       await tx.ships.lockName(fleetId, input.name);
-      const namespaces = await lockNamedNamespaces(tx, { fleetId, scopes: input.scopes ?? [] });
+      const { namespaces, defined } = await lockNamedNamespaces(tx, { fleetId, scopes: input.scopes ?? [] });
       const commissioned = commissionShip(
         { ...input, id: deps.ids('ship'), fleetId, commissioner, argoShipId: argo.id, askingShip, namedOwner, at, actor, commission: { by: commissionKey.by, idempotencyKey: key.value, requestHash } },
-        { activeShipNamed: await tx.ships.findActiveByName(fleetId, input.name), namespaces },
+        { activeShipNamed: await tx.ships.findActiveByName(fleetId, input.name), namespaces, defined },
       );
       if (!commissioned.isOk) {
         return commissioned;

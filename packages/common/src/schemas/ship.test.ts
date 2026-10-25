@@ -105,7 +105,7 @@ describe('whoamiOutputSchema', () => {
     expect(whoamiOutputSchema.safeParse({ ...output, ownerShipId: undefined }).success).toBe(false);
   });
 
-  // The aeolus plugin's scripts read name, shipId and type as the last of their key in the answer (#819's reader).
+  // The Aeolus Fleet plugin's scripts read name, shipId and type as the last of their key in the answer (#819's reader).
   it("names the owner in keys of its own, never a second name, shipId or type", () => {
     expect(JSON.stringify(whoamiOutputSchema.parse(output)).match(/"(name|shipId|type)"/g)).toEqual(['"shipId"', '"name"', '"type"']);
   });

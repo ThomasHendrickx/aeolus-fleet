@@ -58,6 +58,7 @@ import type {
   DeclaredNetworkRulesRepository,
   NetworkRulesDraftRepository,
   ScopeNamespaceRepository,
+  DefinedScopeRepository,
   VerifiedFactsRepository,
   NetworkSettingsRepository,
   ReachRefusalRepository,
@@ -69,6 +70,7 @@ import { readsShip } from '../../src/domain/registry/read-reach.js';
 import { comparePositions, positionOf } from '../../src/domain/registry/ship-order.js';
 import type { DeclaredNetworkRules } from '../../src/domain/registry/declared-network-rules.js';
 import type { NetworkRulesDraft } from '../../src/domain/registry/network-rules-draft.js';
+import type { DefinedScope } from '../../src/domain/registry/defined-scope.js';
 import type { ScopeNamespace } from '../../src/domain/registry/scope-namespace.js';
 import { noNetworkSettings, type NetworkSettings } from '../../src/domain/registry/network-settings.js';
 import type { ReachRefusal } from '../../src/domain/registry/reach-refusal.js';
@@ -157,6 +159,8 @@ export interface InMemoryState {
   networkRulesDrafts: NetworkRulesDraft[];
   /** The plugin namespaces, one per declaring ship (decision 0046). */
   scopeNamespaces: ScopeNamespace[];
+  /** The fleet's own scopes (design gateway-scopes, 4.1). */
+  definedScopes: DefinedScope[];
   /** The verified facts, one set per ship and writer (decision 0059). */
   verifiedFacts: WrittenFacts[];
   /** The records of the sends the network rules refused, oldest first. */
@@ -191,6 +195,7 @@ export interface InMemoryTx {
   declaredNetworkRules: DeclaredNetworkRulesRepository;
   networkRulesDrafts: NetworkRulesDraftRepository;
   scopeNamespaces: ScopeNamespaceRepository;
+  definedScopes: DefinedScopeRepository;
   verifiedFacts: VerifiedFactsRepository;
   reachRefusals: ReachRefusalRepository;
   inFlightDeliveries: InFlightDeliveries;
@@ -264,6 +269,8 @@ export interface InMemoryCore {
   declaredNetworkRules: DeclaredNetworkRulesRepository;
   /** The plugin namespaces, read outside a unit of work. */
   scopeNamespaces: ScopeNamespaceRepository;
+  /** The fleet's own scopes, read outside a unit of work. */
+  definedScopes: DefinedScopeRepository;
   callers: CallerLookup;
   accounts: OperatorAccountLookup;
   listing: FleetListing;
@@ -349,6 +356,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     declaredNetworkRules: [],
     networkRulesDrafts: [],
     scopeNamespaces: [],
+    definedScopes: [],
     verifiedFacts: [],
     reachRefusals: [],
     events: [],
@@ -593,6 +601,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         Promise.resolve(
           [...new Set(state.ships.filter((held) => held.fleetId === fleetId && held.retiredAt === null).flatMap((held) => held.scopes.filter((scope) => scope.startsWith(`${namespace}:`))))].toSorted(),
         ),
+      countHolding: (fleetId, scope) => Promise.resolve(state.ships.filter((held) => held.fleetId === fleetId && held.retiredAt === null && held.scopes.includes(scope)).length),
     },
     crewRequests: {
       find: (fleetId, shipId) => {
@@ -714,6 +723,26 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         state.scopeNamespaces.splice(0, state.scopeNamespaces.length, ...state.scopeNamespaces.filter((held) => held.fleetId !== fleetId || held.namespace !== namespace));
         return Promise.resolve();
       },
+    },
+    definedScopes: {
+      find: (fleetId, scope) => Promise.resolve(structuredClone(state.definedScopes.find((held) => held.fleetId === fleetId && held.scope === scope))),
+      save: (defined) => {
+        const index = state.definedScopes.findIndex((held) => held.fleetId === defined.fleetId && held.scope === defined.scope);
+        state.definedScopes.splice(index === -1 ? state.definedScopes.length : index, index === -1 ? 0 : 1, structuredClone(defined));
+        return Promise.resolve();
+      },
+      remove: (fleetId, scope) => {
+        state.definedScopes.splice(0, state.definedScopes.length, ...state.definedScopes.filter((held) => held.fleetId !== fleetId || held.scope !== scope));
+        return Promise.resolve();
+      },
+      list: (fleetId) =>
+        Promise.resolve(
+          state.definedScopes
+            .filter((held) => held.fleetId === fleetId)
+            .toSorted((first, second) => (first.scope < second.scope ? -1 : 1))
+            .map((held) => structuredClone(held)),
+        ),
+      usesNamespace: (fleetId, namespace) => Promise.resolve(state.definedScopes.some((held) => held.fleetId === fleetId && held.scope.startsWith(`${namespace}:`))),
     },
     verifiedFacts: {
       find: (fleetId, { shipId, writer }) =>
@@ -2160,7 +2189,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
   };
 
-  return { state, uow, fleets: tx.fleets, scheduleAttempts, pushedCrews, ships: tx.ships, leases: tx.leases, crewRequests: tx.crewRequests, clearRequests: tx.clearRequests, labels: tx.labels, reachRefusals: tx.reachRefusals, declaredNetworkRules: tx.declaredNetworkRules, scopeNamespaces: tx.scopeNamespaces, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, health: healthRecords, healthSnapshots, notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeups, fleetNews };
+  return { state, uow, fleets: tx.fleets, scheduleAttempts, pushedCrews, ships: tx.ships, leases: tx.leases, crewRequests: tx.crewRequests, clearRequests: tx.clearRequests, labels: tx.labels, reachRefusals: tx.reachRefusals, declaredNetworkRules: tx.declaredNetworkRules, scopeNamespaces: tx.scopeNamespaces, definedScopes: tx.definedScopes, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, health: healthRecords, healthSnapshots, notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeups, fleetNews };
 }
 
 /** The tables whose rows belong to a fleet by their fleet id: all but the fleets and the installation's requests. */
@@ -2191,6 +2220,7 @@ const FLEET_TABLES = [
   'declaredNetworkRules',
   'networkRulesDrafts',
   'scopeNamespaces',
+  'definedScopes',
   'verifiedFacts',
   'reachRefusals',
   'events',
@@ -2229,6 +2259,7 @@ const TABLES = [
   'declaredNetworkRules',
   'networkRulesDrafts',
   'scopeNamespaces',
+  'definedScopes',
   'verifiedFacts',
   'reachRefusals',
   'events',

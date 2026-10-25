@@ -27,8 +27,8 @@ const meta = {
       'Not a chat? Claude Code and Codex paste their crew line instead; another agent calls register with its own location and harness.',
     ].join('\n'),
     crewLines: [
-      { harness: 'claude-code', line: `/aeolus:crew https://fleet.example.com ${SHIP_ID} ${SECRET}` },
-      { harness: 'codex', line: `$aeolus-crew https://fleet.example.com ${SHIP_ID} ${SECRET}` },
+      { harness: 'claude-code', line: `/aeolus-fleet:crew https://fleet.example.com ${SHIP_ID} ${SECRET}` },
+      { harness: 'codex', line: `$aeolus-fleet-crew https://fleet.example.com ${SHIP_ID} ${SECRET}` },
     ],
     isOpen: true,
     onOpenChange: () => undefined,
@@ -46,7 +46,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Beside the crew lines, where to install the aeolus plugin they need, for Claude Code and for Codex (#1235). */
+/** Beside the crew lines, where to install the Aeolus Fleet plugin they need, for Claude Code and for Codex (#1235). */
 export const Shown: Story = {
   play: async () => {
     await expect(await screen.findByTestId('plugin-install-claude-code')).toHaveAttribute(
@@ -55,7 +55,7 @@ export const Shown: Story = {
     );
     await expect(screen.getByTestId('plugin-install-codex')).toHaveAttribute(
       'href',
-      'https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/plugins/aeolus/README.md#install-for-codex-desktop-or-cli',
+      'https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/plugins/aeolus-fleet/README.md#install-for-codex-desktop-or-cli',
     );
   },
 };

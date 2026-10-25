@@ -65,6 +65,7 @@ model Fleet {
   declaredNetworkRules             DeclaredNetworkRules[]
   installationDeclaredNetworkRules InstallationDeclaredNetworkRules?
   scopeNamespaces                  ScopeNamespace[]
+  definedScopes                    DefinedScope[]
   verifiedFacts                    VerifiedFacts[]
   reachRefusals                    ReachRefusal[]
   credentials                      Credential[]
@@ -481,6 +482,18 @@ model ScopeNamespace {
   @@id([fleetId, namespace])
   @@unique([fleetId, declaredBy])
   @@map("scope_namespaces")
+}
+
+/// One of the fleet's own scopes (design gateway-scopes, 4.1), with its one-line description.
+model DefinedScope {
+  fleetId     String @map("fleet_id")
+  scope       String
+  description String
+
+  fleet Fleet @relation(fields: [fleetId], references: [id])
+
+  @@id([fleetId, scope])
+  @@map("defined_scopes")
 }
 
 /// One writer's verified facts about a ship (decision 0059): what it checked,

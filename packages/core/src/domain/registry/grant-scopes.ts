@@ -7,13 +7,14 @@ import { recordEvent, type EventLog } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { checkManage, keepingReachRefusal, type CheckManageTx, type NotReachable } from './check-reach.js';
-import type { ScopeNamespaceRepository, ShipRepository } from './ports.js';
+import type { DefinedScopeRepository, ScopeNamespaceRepository, ShipRepository } from './ports.js';
 import { grantScopes, type GrantScopesRefusal } from './scope-grant.js';
 import { lockNamedNamespaces } from './named-namespaces.js';
 
 export interface GrantScopesTx extends Omit<CheckManageTx, 'ships'> {
   ships: Pick<ShipRepository, 'find' | 'findForUpdate' | 'setScopes'>;
   scopeNamespaces: Pick<ScopeNamespaceRepository, 'lockNamespace' | 'find'>;
+  definedScopes: Pick<DefinedScopeRepository, 'find'>;
   events: EventLog;
 }
 
@@ -29,8 +30,8 @@ export type GrantScopesUseCaseRefusal = GrantScopesRefusal | NotReachable | Doma
  * within its manage reach (decisions 0046, 0053), within what it may grant,
  * read from the server or its checked token. A refused reach keeps its record.
  * Its scope (scopes:grant) is checked before this runs. In one unit of work,
- * holding the ship, then each plugin namespace the scopes name, so a
- * declaration that removes a scope waits: the ship's scopes and
+ * holding the ship, then each namespace the scopes name, so a declaration
+ * that removes a scope, or a removal of one of the fleet's own, waits: the ship's scopes and
  * ScopesChanged. The ship's crew holds them from its next call.
  */
 export function createGrantScopes(deps: { uow: UnitOfWork<GrantScopesTx>; clock: Clock; ids: IdGenerator }): GrantScopes {
@@ -46,11 +47,11 @@ export function createGrantScopes(deps: { uow: UnitOfWork<GrantScopesTx>; clock:
       if (!managed.isOk) {
         return managed;
       }
-      const namespaces = await lockNamedNamespaces(tx, { fleetId, scopes: [...input.grant, ...input.revoke] });
+      const named = await lockNamedNamespaces(tx, { fleetId, scopes: [...input.grant, ...input.revoke] });
       const granter = { shipId: isShipCaller(caller) ? caller.shipId : null, isOperator: caller.kind === 'operator', scopes: caller.scopes };
       const granted = grantScopes(
         { ship, granter, grant: input.grant, revoke: input.revoke, at, actor: actorOf(caller) },
-        { namespaces },
+        named,
       );
       if (!granted.isOk) {
         return granted;

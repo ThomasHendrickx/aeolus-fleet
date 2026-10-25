@@ -153,6 +153,9 @@ const FLEET_ACTIONS = [
   'scopes',
   'declareScopes',
   'grantScopes',
+  'defineScope',
+  'describeScope',
+  'removeScope',
   'setVerifiedFacts',
 ] as const;
 

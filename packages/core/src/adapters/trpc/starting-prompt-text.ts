@@ -8,14 +8,14 @@ import {
 /**
  * How a starting prompt reads (docs/blueprint.md, "Launch a ship"): the crew
  * instructions the operator pastes into a chat, and one crew line per harness
- * with the aeolus plugin. Core issues only the secret; this is presentation, so it
+ * with the Aeolus Fleet plugin. Core issues only the secret; this is presentation, so it
  * lives here, and tRPC, REST and MCP share it because they map onto the same
  * procedures. It holds the secret, so it is shown once and never stored.
  */
 
 /**
  * The starting prompt's text: the ship's crew instructions for a chat, which
- * has no aeolus plugin. Where the fleet's MCP server is and how to connect it,
+ * has no Aeolus Fleet plugin. Where the fleet's MCP server is and how to connect it,
  * the ship's id and secret, how to register, and to keep the crew token in the
  * conversation, since a chat client may run each tool call on its own. One
  * short line sends any other session to its crew line or to register. The
@@ -45,7 +45,7 @@ function startingPromptText(input: {
 
 /**
  * The crew lines: the same identity in one line for each harness with the
- * aeolus plugin, which registers and keeps the crew token itself. The fleet
+ * Aeolus Fleet plugin, which registers and keeps the crew token itself. The fleet
  * URL is where the plugin reaches the fleet; it finds the MCP server and REST
  * under it.
  */
@@ -56,8 +56,8 @@ function crewLines(input: {
 }): CrewLine[] {
   const identity = `${input.fleetUrl} ${input.shipId} ${input.secret}`;
   return [
-    { harness: "claude-code", line: `/aeolus:crew ${identity}` },
-    { harness: "codex", line: `$aeolus-crew ${identity}` },
+    { harness: "claude-code", line: `/aeolus-fleet:crew ${identity}` },
+    { harness: "codex", line: `$aeolus-fleet-crew ${identity}` },
   ];
 }
 

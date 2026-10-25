@@ -2,7 +2,7 @@
 
 - The packages ship in release trains, each with its own version, release workflow and repository:
   - core: common, core and console;
-  - the trierarch: the trierarch, the aeolus plugin and the session image;
+  - the trierarch: the trierarch, the Aeolus Fleet plugin and the session image;
   - squadrons; the trierarch plugin: one train each;
   - the A2A gateway (0048): its own train and repository from its first commit.
 - 0.27.1 is the last release with one version for all packages. Each train's first release of its own is 0.28.0.
@@ -12,4 +12,4 @@
 
 Why: A fix to one part republishes only its train: a console fix no longer moves every machine and harness (v0.26.1), or takes a hotfix branch because main holds other parts' work (v0.24.1). The parts that move together stay one version. A repository per train lets a part's licence and visibility differ later.
 
-Rejected: one version for all packages; an independent version per package (the trierarch and the aeolus plugin move together); one monorepo with a workflow per train; a compatibility layer between versions.
+Rejected: one version for all packages; an independent version per package (the trierarch and the Aeolus Fleet plugin move together); one monorepo with a workflow per train; a compatibility layer between versions.
