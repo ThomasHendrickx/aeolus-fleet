@@ -220,6 +220,7 @@ describe('the ship calls at /api/v1', () => {
       '/fleet/describeScope',
       '/fleet/removeScope',
       '/fleet/setVerifiedFacts',
+      '/fleet/checkManage',
     ]);
   });
 
