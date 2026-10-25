@@ -9,7 +9,7 @@ import { createApp } from '../src/app.js';
 import type { ShipCaller } from '../src/domain/shared/caller.js';
 import type { AppRouter } from '../src/index.js';
 import { createUseCases, type UseCases } from '../src/wiring.js';
-import { FLEET_URL, OPERATOR } from './support/core-fixtures.js';
+import { agentCaller, FLEET_URL, OPERATOR } from './support/core-fixtures.js';
 import { createMigratedDatabase } from '../src/testing/database.js';
 import { newKey } from '../src/testing/keys.js';
 import { createTestClock } from './support/postgres-core.js';
@@ -18,8 +18,8 @@ import { withOperatorLogin } from './support/operator-login.js';
 import { NO_INSTALLATION_SETTINGS } from '../src/domain/registry/limits.js';
 
 // Limits as fleet settings, from HTTP to Postgres and back: the installation
-// sets them, the console reads them, and commission, send and create are
-// refused exactly at them, however many race for the last place.
+// sets them, the console reads them, and commission, send, schedule and
+// create are refused exactly at them, however many race for the last place.
 
 const INSTALLATION_TOKEN = 'aeolus_installation_test_0123456789abcdef';
 const MODEL = 'claude-opus-5-5';
@@ -61,6 +61,19 @@ function argoOf(fleet: { fleetId: FleetId; operatorShipId: ShipId }): ShipCaller
 /** A fleet of its own for a test, created through the installation. */
 async function newFleet(name: string) {
   return installation().fleets.create.mutate({ requestId: newKey(), name, operatorEmail: `${name}@example.com` });
+}
+
+/** A crewed agent ship of the fleet, as a caller of the use cases and as a tRPC client with its crew token. */
+async function crewedScout(fleet: { fleetId: FleetId; operatorShipId: ShipId }) {
+  const { shipId, secret } = unwrap(await core.commissionShip(argoOf(fleet), { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
+  const { crewToken } = unwrap(await core.claimShip({ shipId, secret: secret ?? '', location: { kind: 'CLOUD' }, harness: 'claude-code' }));
+  const asScout = createTRPCClient<AppRouter>({ links: [httpBatchLink({ url: `${address}/trpc`, headers: { authorization: `Bearer ${crewToken}` } })] });
+  return { scout: agentCaller({ fleetId: fleet.fleetId, shipId }), asScout };
+}
+
+/** A once schedule to argo, a day ahead of the test clock. */
+function aSchedule() {
+  return { selector: { kind: 'ship' as const, name: 'argo' }, payload: 'Check in', model: MODEL, idempotencyKey: newKey(), timing: { kind: 'once' as const, at: new Date('2026-10-05T12:00:00.000Z') } };
 }
 
 /** The tRPC error code and message a call fails with; undefined when it succeeds. */
@@ -191,6 +204,48 @@ describe('the limits at their boundary', () => {
       Array.from({ length: 3 }, () => ({ code: 'FORBIDDEN', message: `The installation is at its cap of ${String(hosted + 2)} fleets, so it creates no new one.` })),
     );
     await expect(database.fleet.count()).resolves.toBe(hosted + 2);
+  });
+
+  it("make a ship's schedules up to the schedules per ship limit however many race, and refuse the rest saying so", async () => {
+    const fleet = await newFleet('scheduled');
+    await installation().fleets.setLimits.mutate({ fleetId: fleet.fleetId, schedulesPerShip: { kind: 'fleet', limit: 3 } });
+    const { scout } = await crewedScout(fleet);
+
+    const results = await Promise.all(Array.from({ length: 6 }, () => core.scheduleMessage(scout, aSchedule())));
+
+    expect(results.filter((result) => result.isOk)).toHaveLength(3);
+    expect(results.flatMap((result) => (result.isOk ? [] : [result.error]))).toEqual(
+      Array.from({ length: 3 }, () => ({ kind: 'SCHEDULE_LIMIT_REACHED', message: "The ship holds its fleet's limit of 3 schedules, active or paused: cancel one to make another" })),
+    );
+    await expect(database.schedule.count({ where: { fleetId: fleet.fleetId } })).resolves.toBe(3);
+  });
+
+  it('count a ship\'s paused schedules and not its cancelled ones, and refuse one more over HTTP saying so', async () => {
+    const fleet = await newFleet('paused');
+    await installation().fleets.setLimits.mutate({ fleetId: fleet.fleetId, schedulesPerShip: { kind: 'fleet', limit: 2 } });
+    const { scout, asScout } = await crewedScout(fleet);
+    const paused = unwrap(await core.scheduleMessage(scout, aSchedule()));
+    unwrap(await core.pauseSchedule(scout, paused));
+    unwrap(await core.cancelSchedule(scout, unwrap(await core.scheduleMessage(scout, aSchedule()))));
+    unwrap(await core.scheduleMessage(scout, aSchedule()));
+
+    await expect(refusalOf(asScout.ship.schedule.mutate({ ...aSchedule(), timing: { kind: 'once', at: '2026-10-05T12:00:00.000Z' } }))).resolves.toEqual({
+      code: 'FORBIDDEN',
+      message: "The ship holds its fleet's limit of 2 schedules, active or paused: cancel one to make another",
+    });
+  });
+
+  it('take a repeat of the minimum schedule interval and refuse a shorter one over HTTP saying so', async () => {
+    const fleet = await newFleet('interval');
+    await installation().fleets.setLimits.mutate({ fleetId: fleet.fleetId, minimumScheduleInterval: { kind: 'fleet', limit: 3600 } });
+    const { asScout } = await crewedScout(fleet);
+    const repeat = (every: string) => asScout.ship.schedule.mutate({ ...aSchedule(), timing: { kind: 'every', every } });
+
+    await expect(repeat('PT1H')).resolves.toMatchObject({ scheduleId: expect.any(String) });
+    await expect(refusalOf(repeat('PT30M'))).resolves.toEqual({
+      code: 'FORBIDDEN',
+      message: "The fleet's send times of a repeating schedule are at least 3600 seconds apart: every PT30M is 1800 seconds",
+    });
   });
 
   it('change nothing while none is set', async () => {
