@@ -165,6 +165,8 @@ export interface ClaimableDeliveries {
   excluding: readonly DeliveryId[];
   /** Set to claim only deliveries of replies to this message, in flight or pending. */
   inReplyTo?: MessageId;
+  /** Leave handed deliveries out while keeping received deliveries recoverable. */
+  shouldSkipHanded?: boolean;
 }
 
 /** How many deliveries wait for a crew, and how many of them are forced and not handed over yet. */
