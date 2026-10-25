@@ -43,6 +43,8 @@ export function grantScopes(
   fleet: {
     /** The plugin namespaces the granted and revoked scopes name, with their declarers' names, by namespace. */
     namespaces: ReadonlyMap<string, { namespace: ScopeNamespace; declarerName: string }>;
+    /** Which of the granted and revoked scopes the fleet defined as its own (design gateway-scopes, 4.1). */
+    defined: ReadonlySet<ScopeName>;
   },
 ): Result<{ ship: Ship; events: NewEvent[] }, GrantScopesRefusal> {
   const { ship, granter, at, actor } = input;
@@ -56,7 +58,7 @@ export function grantScopes(
     return refuse('SHIP_ALREADY_RETIRED', `${ship.name} is retired: its scopes stay as they were`);
   }
   for (const scope of [...input.grant, ...input.revoke]) {
-    const allowed = mayGrant(scope, { granter, namespaces: fleet.namespaces });
+    const allowed = mayGrant(scope, { granter, namespaces: fleet.namespaces, defined: fleet.defined });
     if (!allowed.isOk) {
       return allowed;
     }
@@ -83,24 +85,28 @@ export function grantScopes(
 
 /**
  * Whether the granter may grant or revoke the scope, at commission or on a
- * live ship: a core scope it holds, or a declared plugin scope it holds or
- * declared (decision 0053).
+ * live ship: a core scope it holds, a declared plugin scope it holds or
+ * declared (decision 0053), or one of the fleet's own scopes it holds
+ * (design gateway-scopes, 4.1): defining a scope never lets an actor grant it.
  */
 export function mayGrant(
   scope: string,
-  at: { granter: Granter; namespaces: ReadonlyMap<string, { namespace: ScopeNamespace; declarerName: string }> },
+  at: { granter: Granter; namespaces: ReadonlyMap<string, { namespace: ScopeNamespace; declarerName: string }>; defined: ReadonlySet<ScopeName> },
 ): Result<null, DomainError<'INVALID_SCOPE' | 'SCOPE_NOT_DECLARED' | 'SCOPE_NOT_HELD'>> {
-  const { granter, namespaces } = at;
+  const { granter, namespaces, defined } = at;
   if (!scopeNameSchema.safeParse(scope).success) {
     return refuse('INVALID_SCOPE', `${scope} is no scope: a core scope, or a plugin's <namespace>:<action>`);
   }
   if (scopeSchema.safeParse(scope).success) {
     return granter.isOperator || granter.scopes.includes(scope) ? ok(null) : refuse('SCOPE_NOT_HELD', `You do not hold ${scope}, so you cannot grant it`);
   }
+  if (defined.has(scope)) {
+    return granter.isOperator || granter.scopes.includes(scope) ? ok(null) : refuse('SCOPE_NOT_HELD', `You do not hold ${scope}, so you cannot grant it`);
+  }
   const namespace = scope.slice(0, scope.indexOf(':'));
   const declared = namespaces.get(namespace);
   if (declared?.namespace.scopes.some((each) => each.scope === scope) !== true) {
-    return refuse('SCOPE_NOT_DECLARED', `No plugin declared ${scope}`);
+    return refuse('SCOPE_NOT_DECLARED', `Neither a plugin declared ${scope} nor the fleet defined it`);
   }
   if (!granter.isOperator && !granter.scopes.includes(scope) && declared.namespace.declaredBy !== granter.shipId) {
     return refuse('SCOPE_NOT_HELD', `You do not hold ${scope}, so you cannot grant it`);

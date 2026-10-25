@@ -68,6 +68,8 @@ export function createPrismaFleetRepository(db: Db): FleetRepository {
           schedulesPerShipLimit: true,
           minimumScheduleIntervalSet: true,
           minimumScheduleInterval: true,
+          retentionSet: true,
+          retentionDays: true,
         },
       });
       return row ? limitSettingsOf(row) : undefined;
@@ -84,6 +86,8 @@ export function createPrismaFleetRepository(db: Db): FleetRepository {
           schedulesPerShipLimit: settings.schedulesPerShip.kind === 'fleet' ? settings.schedulesPerShip.limit : null,
           minimumScheduleIntervalSet: settings.minimumScheduleInterval.kind === 'fleet',
           minimumScheduleInterval: settings.minimumScheduleInterval.kind === 'fleet' ? settings.minimumScheduleInterval.limit : null,
+          retentionSet: settings.retention.kind === 'fleet',
+          retentionDays: settings.retention.kind === 'fleet' ? settings.retention.days : null,
         },
       });
     },
@@ -127,6 +131,7 @@ export function createPrismaFleetRepository(db: Db): FleetRepository {
       await db.$executeRaw`DELETE FROM declared_network_rules WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM installation_declared_network_rules WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM scope_namespaces WHERE fleet_id = ${fleetId}`;
+      await db.$executeRaw`DELETE FROM defined_scopes WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM verified_facts WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM ship_labels WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM label_values WHERE fleet_id = ${fleetId}`;
@@ -407,6 +412,7 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
         ORDER BY held.scope`;
       return rows.map(({ scope }) => scopeNameSchema.parse(scope));
     },
+    countHolding: async (fleetId, scope) => await db.ship.count({ where: { fleetId, retiredAt: null, scopes: { has: scope } } }),
     rename: async ({ fleetId, shipId, name }) => {
       await db.ship.updateMany({ where: { fleetId, id: shipId }, data: { name } });
     },

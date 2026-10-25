@@ -6,6 +6,7 @@ import {
   eventTypeSchema,
   FLEET_SCOPES,
   locationKindSchema,
+  RESERVED_NAMESPACES,
   SCOPES,
   scopeNameSchema,
   scopeSchema,
@@ -15,7 +16,7 @@ import {
 } from './index.js';
 
 describe('the scopes', () => {
-  it('are the message scopes, then the fleet scopes, then the scopes for what was argo\'s alone, then declaring and granting scopes, then opening meetings, and nothing else (decisions 0046, 0053, 0061)', () => {
+  it('are the message scopes, then the fleet scopes, then the scopes for what was argo\'s alone, then declaring, granting and defining scopes, then opening meetings, and nothing else (decisions 0046, 0053, 0061)', () => {
     expect(SCOPES).toEqual([
       'messages:send',
       'messages:receive',
@@ -38,6 +39,7 @@ describe('the scopes', () => {
       'fleet:verify',
       'scopes:declare',
       'scopes:grant',
+      'scopes:define',
       'meetings:open',
     ]);
   });
@@ -72,6 +74,12 @@ describe('the core namespaces', () => {
 
   it('name every core scope', () => {
     expect(SCOPES.filter((scope) => !CORE_NAMESPACES.some((namespace) => scope.startsWith(`${namespace}:`)))).toEqual([]);
+  });
+});
+
+describe('the reserved namespaces', () => {
+  it('are the known plugins\' namespaces, gateway, squadrons and trierarch, which the fleet never defines (design gateway-scopes, A3)', () => {
+    expect(RESERVED_NAMESPACES).toEqual(['gateway', 'squadrons', 'trierarch']);
   });
 });
 
@@ -180,6 +188,9 @@ describe('eventTypeSchema', () => {
       'BuiltInRuleChanged',
       'ScopesDeclared',
       'ScopesChanged',
+      'ScopeDefined',
+      'ScopeDescribed',
+      'ScopeRemoved',
       'PluginConnected',
       'PluginDisconnected',
       'VerifiedFactsSet',

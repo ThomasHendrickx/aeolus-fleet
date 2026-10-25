@@ -189,8 +189,8 @@ describe('startingPromptOutputSchema', () => {
     shipId: newId('ship'),
     prompt: 'Ship secret: aeolus_sk_v1_abc',
     crewLines: [
-      { harness: 'claude-code', line: '/aeolus:crew https://fleet.example.com shp_01 aeolus_sk_v1_abc' },
-      { harness: 'codex', line: '$aeolus-crew https://fleet.example.com shp_01 aeolus_sk_v1_abc' },
+      { harness: 'claude-code', line: '/aeolus-fleet:crew https://fleet.example.com shp_01 aeolus_sk_v1_abc' },
+      { harness: 'codex', line: '$aeolus-fleet-crew https://fleet.example.com shp_01 aeolus_sk_v1_abc' },
     ],
     secret: 'aeolus_sk_v1_abc',
   };
@@ -202,7 +202,7 @@ describe('startingPromptOutputSchema', () => {
   it.each([
     ['a missing prompt', { ...output, prompt: undefined }],
     ['missing crew lines', { ...output, crewLines: undefined }],
-    ['a crew line without its harness', { ...output, crewLines: [{ line: '/aeolus:crew' }] }],
+    ['a crew line without its harness', { ...output, crewLines: [{ line: '/aeolus-fleet:crew' }] }],
     ['a missing secret', { ...output, secret: undefined }],
   ])('rejects %s', (_label, candidate) => {
     expect(startingPromptOutputSchema.safeParse(candidate).success).toBe(false);
@@ -214,7 +214,7 @@ describe('commissionShipOutputSchema', () => {
     const first = {
       shipId: newId('ship'),
       prompt: 'Ship secret: aeolus_sk_v1_abc',
-      crewLines: [{ harness: 'claude-code', line: '/aeolus:crew https://fleet.example.com shp_01 aeolus_sk_v1_abc' }],
+      crewLines: [{ harness: 'claude-code', line: '/aeolus-fleet:crew https://fleet.example.com shp_01 aeolus_sk_v1_abc' }],
       secret: 'aeolus_sk_v1_abc',
       startingPrompt: { issuedAt: '2026-10-04T09:00:00.000Z', isClaimed: false },
     };
@@ -496,18 +496,25 @@ describe('pingStateSchema', () => {
 });
 
 describe('fleetLimitsOutputSchema', () => {
-  it("gives the fleet's ship and daily message limits with what each counts, and when today's count starts again", () => {
+  it("gives the fleet's ship and daily message limits with what each counts, when today's count starts again, and its retention", () => {
     const limits = {
       ships: { limit: 10, count: 7 },
       dailyMessages: { limit: 1000, count: 12, resetsAt: '2026-10-05T00:00:00.000Z' },
+      retention: { days: 30 },
     };
 
     expect(fleetLimitsOutputSchema.parse(limits)).toEqual(limits);
   });
 
-  it('gives no limit as null', () => {
-    const limits = { ships: { limit: null, count: 7 }, dailyMessages: { limit: null, count: 12, resetsAt: '2026-10-05T00:00:00.000Z' } };
+  it('gives no limit and no retention (kept for good) as null', () => {
+    const limits = { ships: { limit: null, count: 7 }, dailyMessages: { limit: null, count: 12, resetsAt: '2026-10-05T00:00:00.000Z' }, retention: { days: null } };
 
     expect(fleetLimitsOutputSchema.parse(limits)).toEqual(limits);
+  });
+
+  it('refuses a retention of 0 days', () => {
+    const limits = { ships: { limit: null, count: 7 }, dailyMessages: { limit: null, count: 12, resetsAt: '2026-10-05T00:00:00.000Z' }, retention: { days: 0 } };
+
+    expect(fleetLimitsOutputSchema.safeParse(limits).success).toBe(false);
   });
 });

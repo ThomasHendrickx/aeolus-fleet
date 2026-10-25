@@ -273,6 +273,9 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_repeating_schedules$/),
       expect.stringMatching(/^\d{14}_schedule_limits$/),
       expect.stringMatching(/^\d{14}_send_to_a_label$/),
+      expect.stringMatching(/^\d{14}_define_scope$/),
+      expect.stringMatching(/^\d{14}_defined_scopes$/),
+      expect.stringMatching(/^\d{14}_retention$/),
       expect.stringMatching(/^\d{14}_message_deliveries_page$/),
     ]);
   });
@@ -1431,8 +1434,8 @@ describe('retire and re-crew at the API', () => {
     const issued = await asArgo.fleet.recrew.mutate({ shipId });
 
     expect(issued.crewLines).toEqual([
-      { harness: 'claude-code', line: `/aeolus:crew ${FLEET_URL} ${shipId} ${issued.secret}` },
-      { harness: 'codex', line: `$aeolus-crew ${FLEET_URL} ${shipId} ${issued.secret}` },
+      { harness: 'claude-code', line: `/aeolus-fleet:crew ${FLEET_URL} ${shipId} ${issued.secret}` },
+      { harness: 'codex', line: `$aeolus-fleet-crew ${FLEET_URL} ${shipId} ${issued.secret}` },
     ]);
     expect(secretIn(issued.prompt)).toBe(issued.secret);
     await expect(codeOf(client({ authorization: `Bearer ${crewToken}` }).ship.whoami.query())).resolves.toBe('UNAUTHORIZED');
@@ -2035,6 +2038,40 @@ describe('scopes at the API (decision 0046)', () => {
       code: 'FORBIDDEN',
       message: 'This call needs the scopes:declare scope',
     });
+  });
+
+  it("let an actor with scopes:define define, describe and remove the fleet's own scopes, and refuse one without (design gateway-scopes, 4.1)", async () => {
+    const steward = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:read', 'scopes:define'])}` });
+    const reader = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:read'])}` });
+
+    await expect(steward.fleet.defineScope.mutate({ scope: 'api-crm:read-leads', description: 'Read leads' })).resolves.toEqual({ scope: 'api-crm:read-leads', description: 'Read leads' });
+    await expect(steward.fleet.describeScope.mutate({ scope: 'api-crm:read-leads', description: 'Read leads in the CRM' })).resolves.toEqual({
+      scope: 'api-crm:read-leads',
+      description: 'Read leads in the CRM',
+    });
+    await expect(reader.fleet.scopes.query().then((listed) => listed.find(({ namespace }) => namespace === 'api-crm'))).resolves.toEqual({
+      namespace: 'api-crm',
+      kind: 'fleet',
+      declaredBy: null,
+      scopes: [{ scope: 'api-crm:read-leads', description: 'Read leads in the CRM' }],
+    });
+    await expect(steward.fleet.removeScope.mutate({ scope: 'api-crm:read-leads' })).resolves.toEqual({});
+    await expect(refusalOf(reader.fleet.defineScope.mutate({ scope: 'api-crm:write-leads', description: 'Write leads' }))).resolves.toEqual({
+      code: 'FORBIDDEN',
+      message: 'This call needs the scopes:define scope',
+    });
+  });
+
+  it("answer the fleet's own scope refusals by their codes: reserved, taken, held, unknown", async () => {
+    const steward = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'scopes:define'])}` });
+    const grantee = await agentShip();
+    await steward.fleet.defineScope.mutate({ scope: 'api-held:use', description: 'Use' });
+    await database.ship.update({ where: { id: grantee.shipId }, data: { scopes: ['messages:send', 'messages:receive', 'api-held:use'] } });
+
+    await expect(codeOf(steward.fleet.defineScope.mutate({ scope: 'gateway:approve-more', description: 'Approve' }))).resolves.toBe('BAD_REQUEST');
+    await expect(codeOf(steward.fleet.defineScope.mutate({ scope: 'api-held:use', description: 'Use' }))).resolves.toBe('CONFLICT');
+    await expect(codeOf(steward.fleet.removeScope.mutate({ scope: 'api-held:use' }))).resolves.toBe('CONFLICT');
+    await expect(codeOf(steward.fleet.removeScope.mutate({ scope: 'api-held:none' }))).resolves.toBe('NOT_FOUND');
   });
 
   it('answer a namespace another ship took as a conflict', async () => {

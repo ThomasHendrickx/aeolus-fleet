@@ -200,7 +200,13 @@ describe('the installation procedures on a hosting server', () => {
       storage: 23,
       messagesToday: 1,
       messagesPerDay: ['2026-09-28', '2026-09-29', '2026-09-30', '2026-10-01', '2026-10-02', '2026-10-03', '2026-10-04'].map((date) => ({ date, count: date === '2026-10-04' ? 1 : 0 })),
-      limits: { ships: { setting: { kind: 'default' }, applies: null }, dailyMessages: { setting: { kind: 'default' }, applies: null }, schedulesPerShip: { setting: { kind: 'default' }, applies: null }, minimumScheduleInterval: { setting: { kind: 'default' }, applies: null } },
+      limits: {
+        ships: { setting: { kind: 'default' }, applies: null },
+        dailyMessages: { setting: { kind: 'default' }, applies: null },
+        schedulesPerShip: { setting: { kind: 'default' }, applies: null },
+        minimumScheduleInterval: { setting: { kind: 'default' }, applies: null },
+        retention: { setting: { kind: 'default' }, applies: null },
+      },
     });
     // Its one message waits pending for scout, which awaits crew.
     expect(health).toMatchObject({

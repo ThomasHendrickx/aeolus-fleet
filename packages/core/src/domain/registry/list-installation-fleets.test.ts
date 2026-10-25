@@ -104,8 +104,8 @@ describe('listing the fleets of the installation', () => {
   });
 
   it('gives the limits that apply to it: each following the installation default or set for the fleet', async () => {
-    withInstallationSettings(core, { defaultShipLimit: 10, defaultDailyMessageLimit: 1000 });
-    core.state.fleetLimitSettings.push({ ...FOLLOWING_DEFAULTS, fleetId: hemma, ships: { kind: 'fleet', limit: 25 }, dailyMessages: { kind: 'default' } });
+    withInstallationSettings(core, { defaultShipLimit: 10, defaultDailyMessageLimit: 1000, defaultRetentionDays: 30 });
+    core.state.fleetLimitSettings.push({ ...FOLLOWING_DEFAULTS, fleetId: hemma, ships: { kind: 'fleet', limit: 25 }, dailyMessages: { kind: 'default' }, retention: { kind: 'fleet', days: 7 } });
 
     const fleet = (await listFleets()).find((each) => each.fleetId === hemma);
 
@@ -114,6 +114,7 @@ describe('listing the fleets of the installation', () => {
       dailyMessages: { setting: { kind: 'default' }, applies: 1000 },
       schedulesPerShip: { setting: { kind: 'default' }, applies: null },
       minimumScheduleInterval: { setting: { kind: 'default' }, applies: null },
+      retention: { setting: { kind: 'fleet', days: 7 }, applies: 7 },
     });
   });
 

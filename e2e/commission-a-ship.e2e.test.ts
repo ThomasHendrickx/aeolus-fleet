@@ -220,15 +220,15 @@ describe('commissioning a ship in the console', () => {
     await expect(isValid(second)).resolves.toBe(true);
   });
 
-  it('shows a crew line per harness with the aeolus plugin beside the prompt, Claude Code and Codex, with the same ship and secret', async () => {
+  it('shows a crew line per harness with the Aeolus Fleet plugin beside the prompt, Claude Code and Codex, with the same ship and secret', async () => {
     const page = await signedInPage();
     await commission(page, { name: 'bosun', type: 'reviewer' });
     const block = promptBlock(page, 'bosun');
     const prompt = await promptTextIn(page, 'bosun');
     const identity = `${FLEET_URL} ${shipIdIn(prompt)} ${secretIn(prompt)}`;
 
-    await expect(block.getByTestId('starting-prompt-crew-line-claude-code').textContent()).resolves.toBe(`/aeolus:crew ${identity}`);
-    await expect(block.getByTestId('starting-prompt-crew-line-codex').textContent()).resolves.toBe(`$aeolus-crew ${identity}`);
+    await expect(block.getByTestId('starting-prompt-crew-line-claude-code').textContent()).resolves.toBe(`/aeolus-fleet:crew ${identity}`);
+    await expect(block.getByTestId('starting-prompt-crew-line-codex').textContent()).resolves.toBe(`$aeolus-fleet-crew ${identity}`);
   });
 
   it('copies the starting prompt', async () => {
@@ -353,7 +353,7 @@ describe('re-crewing a crewed ship', () => {
     const dialog = page.getByTestId('starting-prompt-dialog');
     const prompt = (await dialog.getByTestId('starting-prompt-text').textContent()) ?? '';
     await expect(dialog.getByTestId('starting-prompt-crew-line-claude-code').textContent()).resolves.toBe(
-      `/aeolus:crew ${FLEET_URL} ${shipIdIn(prompt)} ${secretIn(prompt)}`,
+      `/aeolus-fleet:crew ${FLEET_URL} ${shipIdIn(prompt)} ${secretIn(prompt)}`,
     );
     await expect(isValid(secretIn(prompt))).resolves.toBe(true);
     await expect(sessionClient(crewToken).ship.whoami.query()).rejects.toThrow();

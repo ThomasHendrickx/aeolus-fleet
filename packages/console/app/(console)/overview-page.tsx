@@ -1,6 +1,6 @@
 'use client';
 
-import { Tag } from 'lucide-react';
+import { KeyRound, Tag } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { startTransition, useOptimistic, useState } from 'react';
@@ -66,6 +66,9 @@ export function OverviewPage({ view, isCommissionAsked }: { view: FleetView; isC
         <div className="flex flex-wrap items-center gap-2 max-sm:flex-col max-sm:items-stretch">
           <Button render={<Link href="/labels" />} nativeButton={false} icon={<Tag />} data-testid="overview-labels">
             {access.canDefineLabels ? 'Manage labels' : 'View labels'}
+          </Button>
+          <Button render={<Link href="/scopes" />} nativeButton={false} icon={<KeyRound />} data-testid="overview-scopes">
+            {access.canDefineScopes ? 'Manage scopes' : 'View scopes'}
           </Button>
           {access.canManage ? (
             <CommissionShip

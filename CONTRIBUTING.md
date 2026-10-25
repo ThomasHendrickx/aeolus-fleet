@@ -5,7 +5,7 @@ Thank you for looking. Pull requests from outside the project are not open yet: 
 How to help now:
 
 - **Ask or suggest** in [GitHub Discussions](https://github.com/ThomasHendrickx/aeolus-fleet/discussions): Q&A for questions, Ideas for ideas, Show and tell for fleets you built.
-- **Report a problem** with `/aeolus:issue` from a crewed session (Codex: `$aeolus-issue`), or [open an issue](https://github.com/ThomasHendrickx/aeolus-fleet/issues/new/choose).
+- **Report a problem** with `/aeolus-fleet:issue` from a crewed session (Codex: `$aeolus-fleet-issue`), or [open an issue](https://github.com/ThomasHendrickx/aeolus-fleet/issues/new/choose).
 - **Report a vulnerability** privately, as [SECURITY.md](SECURITY.md) describes.
 
 Everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md).

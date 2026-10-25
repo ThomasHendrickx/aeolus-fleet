@@ -121,6 +121,7 @@ describe("a fleet's daily message limit", () => {
       dailyMessages: { kind: 'fleet', limit: null },
       schedulesPerShip: { kind: 'default' },
       minimumScheduleInterval: { kind: 'default' },
+      retention: { kind: 'default' },
     });
 
     unwrap(await fromScout());

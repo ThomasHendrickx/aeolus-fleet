@@ -74,7 +74,7 @@ describe('declaring scopes on Postgres', () => {
 
     unwrap(await core.useCases.declareScopes(squadrons, { namespace: 'squadrons', scopes: [FORM, scale] }));
 
-    await expect(core.useCases.listScopes(argo()).then((listed) => listed.at(-1))).resolves.toEqual({ namespace: 'squadrons', declaredBy: { id: squadrons.shipId, name: 'squadrons' }, scopes: [FORM, scale] });
+    await expect(core.useCases.listScopes(argo()).then((listed) => listed.at(-1))).resolves.toEqual({ namespace: 'squadrons', kind: 'plugin', declaredBy: { id: squadrons.shipId, name: 'squadrons' }, scopes: [FORM, scale] });
     await expect(core.prisma.event.findMany({ where: { type: 'ScopesDeclared' }, select: { shipId: true, details: true } })).resolves.toEqual([{ shipId: squadrons.shipId, details: { namespace: 'squadrons', scopes: 2 } }]);
   });
 
@@ -200,5 +200,102 @@ describe("retiring a namespace's declarer on Postgres", () => {
       { scopes: ['messages:send', 'messages:receive'] },
       { scopes: ['messages:send', 'messages:receive'] },
     ]);
+  });
+});
+
+describe("the fleet's own scopes on Postgres (design gateway-scopes, 4.1)", () => {
+  const READ_LEADS = { scope: 'crm:read-leads', description: 'Read leads in the CRM' };
+
+  /** A commissioned plugin ship as the caller its crew token resolves to. */
+  async function plugin(name: string) {
+    const { shipId } = unwrap(await core.useCases.commissionShip(argo(), { idempotencyKey: newKey(), name, type: 'plugin' }));
+    return { shipId, fleetId, kind: 'agent' as const, scopes: ['messages:send', 'messages:receive', 'scopes:declare'] };
+  }
+
+  it('keeps each change with its event in the same transaction: defined, described, removed', async () => {
+    unwrap(await core.useCases.defineScope(argo(), READ_LEADS));
+    await expect(core.prisma.definedScope.findMany({ select: { fleetId: true, scope: true, description: true } })).resolves.toEqual([{ fleetId, ...READ_LEADS }]);
+
+    unwrap(await core.useCases.describeScope(argo(), { scope: 'crm:read-leads', description: 'Read every lead' }));
+    await expect(core.useCases.listScopes(argo()).then((listed) => listed.at(-1))).resolves.toEqual({
+      namespace: 'crm',
+      kind: 'fleet',
+      declaredBy: null,
+      scopes: [{ scope: 'crm:read-leads', description: 'Read every lead' }],
+    });
+
+    unwrap(await core.useCases.removeScope(argo(), { scope: 'crm:read-leads' }));
+    await expect(core.prisma.definedScope.count()).resolves.toBe(0);
+    await expect(core.prisma.event.findMany({ where: { type: { in: ['ScopeDefined', 'ScopeDescribed', 'ScopeRemoved'] } }, orderBy: { seq: 'asc' }, select: { type: true, actorShipId: true, shipId: true, details: true } })).resolves.toEqual([
+      { type: 'ScopeDefined', actorShipId: argoId, shipId: null, details: READ_LEADS },
+      { type: 'ScopeDescribed', actorShipId: argoId, shipId: null, details: { scope: 'crm:read-leads', description: 'Read every lead' } },
+      { type: 'ScopeRemoved', actorShipId: argoId, shipId: null, details: { scope: 'crm:read-leads' } },
+    ]);
+  });
+
+  it("gives a namespace to one of a define and a plugin's declare racing for it, never to both", async () => {
+    const namespaces = ['crm', 'vault', 'finance', 'payroll', 'notes', 'leads', 'books', 'tickets'];
+    const declarers = await Promise.all(namespaces.map((namespace) => plugin(`${namespace}-plugin`)));
+
+    const raced = await Promise.all(
+      namespaces.map(async (namespace, at) => {
+        const [defined, declared] = await Promise.all([
+          core.useCases.defineScope(argo(), { scope: `${namespace}:read`, description: 'Read' }),
+          core.useCases.declareScopes(declarers[at] ?? argo(), { namespace, scopes: [] }),
+        ]);
+        return [defined.isOk ? 'defined' : defined.error.kind, declared.isOk ? 'declared' : declared.error.kind];
+      }),
+    );
+
+    for (const outcome of raced) {
+      expect([
+        ['defined', 'NAMESPACE_TAKEN'],
+        ['NAMESPACE_TAKEN', 'declared'],
+      ]).toContainEqual(outcome);
+    }
+    const listed = (await core.useCases.listScopes(argo())).slice(6);
+    expect(listed.map(({ namespace }) => namespace).toSorted()).toEqual(namespaces.toSorted());
+    expect(listed.map(({ namespace, kind }) => [namespace, kind]).toSorted()).toEqual(
+      namespaces.map((namespace, at) => [namespace, raced[at]?.[0] === 'defined' ? 'fleet' : 'plugin']).toSorted(),
+    );
+  });
+
+  it('lets a grant of a scope and its removal take turns: the scope is either granted and kept, or removed and refused', async () => {
+    unwrap(await core.useCases.defineScope(argo(), READ_LEADS));
+    const { shipId } = await claimedScout();
+
+    const [granted, removed] = await Promise.all([
+      core.useCases.grantScopes(argo(), { shipId, grant: ['crm:read-leads'], revoke: [] }),
+      core.useCases.removeScope(argo(), { scope: 'crm:read-leads' }),
+    ]);
+
+    const outcome = [granted.isOk ? 'granted' : granted.error.kind, removed.isOk ? 'removed' : removed.error.kind];
+    expect([
+      ['granted', 'SCOPE_HELD'],
+      ['SCOPE_NOT_DECLARED', 'removed'],
+    ]).toContainEqual(outcome);
+    await expect(core.prisma.definedScope.count()).resolves.toBe(outcome[0] === 'granted' ? 1 : 0);
+  });
+
+  it('counts only active ships as holding a scope, by the ships table', async () => {
+    unwrap(await core.useCases.defineScope(argo(), READ_LEADS));
+    const { shipId } = await claimedScout();
+    unwrap(await core.useCases.grantScopes(argo(), { shipId, grant: ['crm:read-leads'], revoke: [] }));
+
+    await expect(core.useCases.removeScope(argo(), { scope: 'crm:read-leads' })).resolves.toMatchObject({ isOk: false, error: { kind: 'SCOPE_HELD', message: '1 ship holds crm:read-leads: revoke it from it first' } });
+    unwrap(await core.useCases.retireShip(argo(), { shipId }));
+    await expect(core.useCases.removeScope(argo(), { scope: 'crm:read-leads' })).resolves.toMatchObject({ isOk: true });
+  });
+
+  it('refuses a scope row of no scope shape', async () => {
+    await expect(core.prisma.definedScope.create({ data: { fleetId, scope: 'CRM:read', description: 'Read' } })).rejects.toThrow(/defined_scopes_scope_check/);
+  });
+
+  it('go with their fleet when it is deleted', async () => {
+    unwrap(await core.useCases.defineScope(argo(), READ_LEADS));
+
+    unwrap(await core.useCases.deleteFleet({ requestId: 'delete-home-fleet', fleetId }));
+
+    await expect(core.prisma.definedScope.count()).resolves.toBe(0);
   });
 });

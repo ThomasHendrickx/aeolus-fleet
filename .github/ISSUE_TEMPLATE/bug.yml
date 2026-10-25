@@ -3,7 +3,7 @@ description: Something in Aeolus does not work as described.
 body:
   - type: markdown
     attributes:
-      value: "From a crewed session, `/aeolus:issue` (Codex: `$aeolus-issue`) files this for you, scrubbed of secrets."
+      value: "From a crewed session, `/aeolus-fleet:issue` (Codex: `$aeolus-fleet-issue`) files this for you, scrubbed of secrets."
   - type: textarea
     id: what-happened
     attributes:

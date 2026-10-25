@@ -26,6 +26,19 @@ export type FleetLimitSetting = z.infer<typeof fleetLimitSettingSchema>;
 
 const fleetLimitSchema = z.object({ setting: fleetLimitSettingSchema, applies: limitSchema });
 
+/** A retention as configured: a whole number of days of at least 1, or null for kept for good (decision 0066). */
+export const retentionDaysSchema = z.int().min(1).nullable();
+
+/** How a fleet's retention is set: it follows the installation default, or is set for the fleet to a number of days or to none. */
+export const retentionSettingSchema = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('default') }),
+  z.strictObject({ kind: z.literal('fleet'), days: retentionDaysSchema }),
+]);
+
+export type RetentionSetting = z.infer<typeof retentionSettingSchema>;
+
+const fleetRetentionSchema = z.object({ setting: retentionSettingSchema, applies: retentionDaysSchema });
+
 /** A new fleet with its operator, who has no password: a hosted operator signs in another way. */
 export const installationFleetsCreateInputSchema = z.strictObject({
   requestId: idempotencyKeySchema,
@@ -61,7 +74,13 @@ export const installationFleetSchema = z.object({
   /** The messages stored on each UTC day of the last 7, today last. */
   messagesPerDay: z.array(z.object({ date: z.iso.date(), count: z.int().min(0) })),
   /** How each limit is set and the limit that applies (null: none). */
-  limits: z.object({ ships: fleetLimitSchema, dailyMessages: fleetLimitSchema, schedulesPerShip: fleetLimitSchema, minimumScheduleInterval: fleetLimitSchema }),
+  limits: z.object({
+    ships: fleetLimitSchema,
+    dailyMessages: fleetLimitSchema,
+    schedulesPerShip: fleetLimitSchema,
+    minimumScheduleInterval: fleetLimitSchema,
+    retention: fleetRetentionSchema,
+  }),
   /** Whether its deliveries reach their ships (#304). */
   health: z.object({
     /** When its oldest pending delivery was sent; null when none is pending. */
@@ -100,9 +119,10 @@ export const installationOperatorsIssueSignInTicketInputSchema = z.strictObject(
 
 export const installationOperatorsIssueSignInTicketOutputSchema = z.object({ ticket: z.string() });
 /**
- * The installation's settings: the ship, daily message and schedule limits a
- * fleet follows unless set for it, and the cap on the number of fleets. Each
- * may be null: no limit.
+ * The installation's settings: the ship, daily message and schedule limits
+ * and the retention a fleet follows unless set for it, and the cap on the
+ * number of fleets. Each may be null: no limit, and for the retention kept
+ * for good.
  */
 export const installationSettingsSchema = z.strictObject({
   defaultShipLimit: limitSchema,
@@ -111,21 +131,24 @@ export const installationSettingsSchema = z.strictObject({
   defaultSchedulesPerShipLimit: limitSchema,
   /** The shortest time between two send times of a repeating schedule, in seconds (decision 0062). */
   defaultMinimumScheduleInterval: limitSchema,
+  /** The days a fleet keeps its finished history (decision 0066). */
+  defaultRetentionDays: retentionDaysSchema,
   fleetCap: limitSchema,
 });
 
 export type InstallationSettings = z.infer<typeof installationSettingsSchema>;
 
-/** A fleet's limits: how each is set, and the limit that applies (null: none). */
+/** A fleet's limits and its retention: how each is set, and the limit or days that apply (null: none). */
 export const installationFleetLimitsSchema = z.object({
   fleetId: idSchema('fleet'),
   ships: fleetLimitSchema,
   dailyMessages: fleetLimitSchema,
   schedulesPerShip: fleetLimitSchema,
   minimumScheduleInterval: fleetLimitSchema,
+  retention: fleetRetentionSchema,
 });
 
-/** Sets some of a fleet's limits; one left out keeps how it is set. */
+/** Sets some of a fleet's limits and its retention; one left out keeps how it is set. */
 export const installationFleetsSetLimitsInputSchema = z.strictObject({
   fleetId: idSchema('fleet'),
   ships: fleetLimitSettingSchema.optional(),
@@ -133,6 +156,7 @@ export const installationFleetsSetLimitsInputSchema = z.strictObject({
   schedulesPerShip: fleetLimitSettingSchema.optional(),
   /** In seconds. */
   minimumScheduleInterval: fleetLimitSettingSchema.optional(),
+  retention: retentionSettingSchema.optional(),
 });
 
 /**

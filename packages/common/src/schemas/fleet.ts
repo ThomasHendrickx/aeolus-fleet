@@ -59,8 +59,8 @@ export const getStartingPromptInputSchema = z.object({ shipId: idSchema('ship') 
 
 /**
  * One crew line: the starting prompt's identity in one line for a harness
- * with the aeolus plugin, `/aeolus:crew <fleetUrl> <shipId> <secret>` for
- * Claude Code, `$aeolus-crew <fleetUrl> <shipId> <secret>` for Codex.
+ * with the Aeolus Fleet plugin, `/aeolus-fleet:crew <fleetUrl> <shipId> <secret>` for
+ * Claude Code, `$aeolus-fleet-crew <fleetUrl> <shipId> <secret>` for Codex.
  */
 export const crewLineSchema = z.object({ harness: z.string(), line: z.string() });
 
@@ -313,10 +313,13 @@ export type FleetStreamItem = z.infer<typeof fleetStreamItemSchema>;
  * The calling fleet's ship and daily message limits, with what each counts:
  * its ships that are not retired (argo included), and the messages it stored
  * since 00:00 UTC, which count again from `resetsAt`. A limit of null is none.
+ * Beside them its retention: the days it keeps its finished history, null
+ * for kept for good (decision 0066).
  */
 export const fleetLimitsOutputSchema = z.object({
   ships: z.object({ limit: z.int().min(0).nullable(), count: z.int().min(0) }),
   dailyMessages: z.object({ limit: z.int().min(0).nullable(), count: z.int().min(0), resetsAt: z.iso.datetime() }),
+  retention: z.object({ days: z.int().min(1).nullable() }),
 });
 
 export type FleetLimitsOutput = z.infer<typeof fleetLimitsOutputSchema>;

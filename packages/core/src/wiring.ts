@@ -34,6 +34,7 @@ import {
 } from './adapters/prisma/installation.js';
 import { createPrismaDeclaredNetworkRulesRepository, createPrismaReachRefusalRepository } from './adapters/prisma/network.js';
 import { createPrismaScopeNamespaceRepository } from './adapters/prisma/scope-namespaces.js';
+import { createPrismaDefinedScopeRepository } from './adapters/prisma/defined-scopes.js';
 import { createPrismaBulkUnitOfWork, createPrismaCallers, createPrismaSnapshotUnitOfWork, createPrismaUnitOfWork } from './adapters/prisma/unit-of-work.js';
 import { createAuthenticate, type Authenticate } from './domain/identity/authenticate.js';
 import { createAuthenticateAccount, type AuthenticateAccount } from './domain/identity/authenticate-account.js';
@@ -125,6 +126,9 @@ import { createReadClearRequests, type ReadClearRequests } from './domain/regist
 import { createRequestWorktreeClear, type RequestWorktreeClear } from './domain/registry/request-worktree-clear.js';
 import { createExplainCrewRequest, type ExplainCrewRequest } from './domain/registry/explain-crew-request.js';
 import { createDeclareScopes, type DeclareScopes } from './domain/registry/declare-scopes.js';
+import { createDefineScope, type DefineScope } from './domain/registry/define-scope.js';
+import { createDescribeScope, type DescribeScope } from './domain/registry/describe-scope.js';
+import { createRemoveScope, type RemoveScope } from './domain/registry/remove-scope.js';
 import { createGrantScopes, type GrantScopes } from './domain/registry/grant-scopes.js';
 import { createDefineLabel, type DefineLabel } from './domain/registry/define-label.js';
 import { createExplainReach, type ExplainReach } from './domain/registry/explain-reach.js';
@@ -222,6 +226,9 @@ export interface UseCases {
   explainCrewRequest: ExplainCrewRequest;
   defineLabel: DefineLabel;
   declareScopes: DeclareScopes;
+  defineScope: DefineScope;
+  describeScope: DescribeScope;
+  removeScope: RemoveScope;
   grantScopes: GrantScopes;
   listScopes: ListScopes;
   saveNetworkRulesDraft: SaveNetworkRulesDraft;
@@ -445,8 +452,11 @@ export function createUseCases(options: {
     confirmWorktreeCleared: createConfirmWorktreeCleared({ uow, clock, ids }),
     defineLabel: createDefineLabel({ uow, clock, ids }),
     declareScopes: createDeclareScopes({ uow, clock, ids }),
+    defineScope: createDefineScope({ uow, clock, ids }),
+    describeScope: createDescribeScope({ uow, clock, ids }),
+    removeScope: createRemoveScope({ uow, clock, ids }),
     grantScopes: createGrantScopes({ uow, clock, ids }),
-    listScopes: createListScopes({ scopeNamespaces: createPrismaScopeNamespaceRepository(prisma), ships: createPrismaShipRepository(prisma) }),
+    listScopes: createListScopes({ scopeNamespaces: createPrismaScopeNamespaceRepository(prisma), definedScopes: createPrismaDefinedScopeRepository(prisma), ships: createPrismaShipRepository(prisma) }),
     saveNetworkRulesDraft: createSaveNetworkRulesDraft({ uow, clock, ids }),
     discardNetworkRulesDraft: createDiscardNetworkRulesDraft({ uow, clock, ids }),
     applyNetworkRules: createApplyNetworkRules({ uow, clock, ids }),

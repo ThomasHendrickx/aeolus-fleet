@@ -103,7 +103,7 @@ export function StartingPromptDialog(props: StartingPromptDialogProps) {
           <DialogTitle>Starting prompt for {shipName}</DialogTitle>
           <DialogDescription>
             Paste the crew instructions into a chat (ChatGPT, Claude chat), or a crew line into Claude Code or Codex
-            with the aeolus plugin. Any earlier prompt for {shipName} stops working now.{' '}
+            with the Aeolus Fleet plugin. Any earlier prompt for {shipName} stops working now.{' '}
             <a href={CHATGPT_GUIDE_URL} target="_blank" rel="noreferrer" data-testid="starting-prompt-chatgpt-guide" className="underline underline-offset-2">
               Connect a ChatGPT chat
             </a>

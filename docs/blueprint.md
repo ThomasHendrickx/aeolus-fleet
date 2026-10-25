@@ -151,7 +151,7 @@ What an agent never has to do: poll other agents, know their location, retry by 
 
 Two questions decide whether an actor (a ship, an account or the installation, 0057) may do something: may it do this at all, and may it do it to that ship? A scope answers the first, reach the second. A call needs both.
 
-**Scopes say what.** A scope such as `messages:send` or `fleet:commission` is a permission stored with the ship on the server, or carried in an account's token that pagasae signs (0058), never carried by a message. Every agent, person and app ship can send and receive. Everything else is granted: by whoever commissions the ship, or later on the live ship by a ship holding `scopes:grant`. A ship grants only scopes it holds itself, so no ship widens its own access. Plugins add scopes of their own, such as `squadrons:form`, and enforce them themselves. The full list, with what each scope allows and where it applies, is decision 0046.
+**Scopes say what.** A scope such as `messages:send` or `fleet:commission` is a permission stored with the ship on the server, or carried in an account's token that pagasae signs (0058), never carried by a message. Every agent, person and app ship can send and receive. Everything else is granted: by whoever commissions the ship, or later on the live ship by a ship holding `scopes:grant`. A ship grants only scopes it holds itself, so no ship widens its own access. Plugins add scopes of their own, such as `squadrons:form`, and enforce them themselves. The fleet defines its own too, in the company's words, such as `crm:read-leads`, for whoever enforces them, such as the gateway on a tool call. The full list, with what each scope allows and where it applies, is decision 0046.
 
 **Reach says where.** Reach is set by network rules. Each rule names one verb, send, read or manage, and says that the ships matching one selector may do it to the ships matching another. A selector picks ships by their labels or their owner, never by their type, and an account by the `group` values in its account token. Rules only allow: when no rule matches, the call is refused.
 
@@ -249,7 +249,7 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Ship secret | `aeolus_sk_v1_<random>`, shown once, stored as a hash, one valid per ship, used only to register (0002) | core |
 | Crew token | `aeolus_ct_v1_<random>` from register, stored as a hash, names one crew on every later call, ends with the lease (0015) | core |
 | Starting prompt | Crew instructions for a chat: the fleet's MCP URL, ship id and secret, how to register and keep the crew token; a new one ends the outstanding one (0019) | core |
-| Crew line | The same in one line per harness with the `aeolus` plugin: `/aeolus:crew <fleetUrl> <shipId> <secret>`, `$aeolus-crew …` for Codex (0019) | core |
+| Crew line | The same in one line per harness with the Aeolus Fleet plugin: `/aeolus-fleet:crew <fleetUrl> <shipId> <secret>`, `$aeolus-fleet-crew …` for Codex (0019) | core |
 | Ship protocol | How a crew works a ship from register to the end of its turn, sent by the fleet to every connecting session | core |
 | Location | Where the session runs: `DEVICE`, `CLOUD`, `SERVER`, or `OTHER` with a description; never interpreted | core |
 | Harness | What the session runs in: free text, known `claude-code`, `claude-chat`, `codex`; read with the location (0018) | core |
@@ -272,7 +272,8 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Actor | Whoever a call is authorised for and an event names: a ship, an account (by its account token) or the installation. Not a ship: only what sends or receives messages is a ship (0057) | core |
 | Account token | A short token pagasae signs for one account in one fleet, with the scopes and labels its groups and own rights give there (every scope for the fleet manager, 0051); core checks it on every call and stores no account. Not a crew token (0058) | pagasae, core |
 | Scope | What an actor may do, `<namespace>:<action>`, stored with a ship or carried in an account token, never in a message; the only source of rights (0046, 0057) | core |
-| Scope namespace | A plugin's scopes, declared once for good, enforced by the plugin (0046) | core |
+| Scope namespace | The first part of a scope; it holds core's scopes, one plugin's, declared once for good and enforced by the plugin, or the fleet's own (0046) | core |
+| Defined scope | One of the fleet's own scopes, defined, described and removed with `scopes:define`, never retired with whoever defined it (0046) | core |
 | Grant | Give a ship a scope, at commission or live with `scopes:grant`; a ship grants only scopes it holds (0046) | core |
 | Reach | Where a ship may act: whom it may send to, read or manage, by network rules (0034) | core |
 | Verb | send (with force and discovery), read (with resend), manage (rename, release, recrew, retire, ping, crew request) | core |
@@ -374,6 +375,7 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Notice | The installation's text above every console page for an audience: everyone, argo's sign-ins, the viewer's or accounts' (0023) | core |
 | Guide | The installation's steps through the console for an audience (0024) | core |
 | Limits | A fleet's ship, daily message, schedules per ship and minimum schedule interval limits, from configuration (0020, 0062) | core |
+| Retention | The days a fleet keeps its finished history, from configuration beside the limits; none is kept for good (0066) | core |
 | Health | A fleet's stuck and overdue deliveries, read from delivery states (0041, 0042) | core |
 
 ## Domain architecture
@@ -426,6 +428,9 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `OwnerChanged` | Registry | argo changed a ship's owner, or its owner's ship retired and it fell to argo: the old and new owner and why (decision 0045) |
 | `ScopesDeclared` | Registry | A plugin declared its namespace and scopes: the declaring ship, the namespace, how many scopes (decision 0046) |
 | `ScopesChanged` | Registry | A live ship's scopes were granted or revoked: added, removed, by whom (decision 0046) |
+| `ScopeDefined` | Registry | The fleet defined a scope of its own: the scope, its description, by whom (decision 0046) |
+| `ScopeDescribed` | Registry | One of the fleet's own scopes got a new description: the scope, the description, by whom (decision 0046) |
+| `ScopeRemoved` | Registry | One of the fleet's own scopes was removed: the scope, by whom (decision 0046) |
 | `PluginConnected` | Registry | The ship was commissioned as kind plugin, its connect: it reads every ship, whatever the rules (decisions 0034, 0050) |
 | `PluginDisconnected` | Registry | A plugin ship's read ended: why, its ship retired (decisions 0034, 0050) |
 | `VerifiedFactsSet` | Registry | A writer set its verified facts about the ship, or withdrew them: details hold how many, never their values; the actor is the writer (decision 0059) |
@@ -491,7 +496,7 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `NetworkRulesDeclared` | Registry | A ship or the installation declared the network rules it needs on the labels it owns, withdrew them, or was retired with them (decision 0037): details hold the number of rules (0 when withdrawn) and, once they moved it, the settings version, never the rules |
 | `NetworkPluginRegistered`, `NetworkPluginUnregistered` | Registry | Written no more: a networking plugin registered or unregistered, when one set the rules; the event log keeps them |
 | `BuiltInRuleChanged` | Registry | The viewer reading was turned on or off (decision 0034); older events also turned open for one verb: details hold the rule, the verb for open, whether it is on and the version |
-| `FleetLimitsChanged` | Registry | The installation set how the fleet's ship, daily message, schedules per ship and minimum schedule interval limits are set: each following the default, or the fleet's own limit or none |
+| `FleetLimitsChanged` | Registry | The installation set how the fleet's ship, daily message, schedules per ship and minimum schedule interval limits and its retention are set: each following the default, or the fleet's own limit or days, or none |
 
 ## Key flows
 
@@ -542,7 +547,7 @@ A hosting service such as pagasae drives the installation with its token (docs/a
    - **Last activity:** the time of the fleet's newest event, of any kind.
    - **Storage:** the UTF-8 bytes of every message payload the fleet ever stored.
 
-   Beside them: its messages today and per UTC day of the last 7 days (each day 00:00 to 24:00 UTC, every message row counted), and the limits that apply to it.
+   Beside them: its messages today and per UTC day of the last 7 days (each day 00:00 to 24:00 UTC, every message row counted), and the limits and the retention that apply to it.
 
    And its health (decision 0041), where its deliveries wait, read from their states and times, never their payloads:
    - **Oldest pending:** when its oldest pending delivery was sent; none when nothing is pending.
@@ -558,7 +563,9 @@ A hosting service such as pagasae drives the installation with its token (docs/a
    - **Minimum schedule interval:** making a repeating schedule is refused when two of its send times come closer than it, in seconds: an every by its duration, a cron by its send times over the next year read in UTC; a once is never checked (0062).
    - **Fleet cap:** creating a fleet is refused once the installation's fleets are at the cap.
 
-   Each limit refuses exactly at its boundary, however many calls race for the last place. The console shows the fleet at a limit where the operator acts: Commission says the fleet is at its ship limit, and the overview and Compose say today's message limit is reached and when it resets, each with View limits on the hosted account. While any limit applies, the overview shows the fleet's ships against the ship limit and today's messages against the daily limit, with when it resets, as meters: neutral below a limit, At limit at it, Over limit above it (a limit lowered below use), and No limit for one not set; with no limit at all, none show.
+   Beside the limits, a default retention in days, set and read the same way: each fleet follows it, or keeps its own number of days, or none, kept for good; unset is kept for good everywhere. A retention is a whole number of days of at least 1. It says how long the fleet keeps its finished history (decision 0066); every fleet manager reads it with the fleet's limits. Nothing is pruned yet.
+
+   Each limit refuses exactly at its boundary, however many calls race for the last place. The console shows the fleet at a limit where the operator acts: Commission says the fleet is at its ship limit, and the overview and Compose say today's message limit is reached and when it resets, each with View limits on the hosted account. While any limit applies, the overview shows the fleet's ships against the ship limit and today's messages against the daily limit, with when it resets, as meters: neutral below a limit, At limit at it, Over limit above it (a limit lowered below use), and No limit for one not set. Under them a line says how long the fleet keeps its finished history, or that it keeps it for good. With no limit and no retention at all, none show.
 4. Sign an account in as argo: the hosting service asks for a sign-in ticket naming the account (one use, valid 2 minutes, stored as its hash) and sends the operator's browser to the console with it. The console redeems it and the session starts exactly as after a password sign-in: it takes argo's lease over and ends any previous session. A used, expired or unknown ticket shows that the sign-in did not go through, with a link back to the hosting service's sign-in. A hosted console never serves a password form: its sign-in page redirects to the hosting service at once, except after a sign-in elsewhere ended the session: then it says so first, with a link to the hosting service's sign-in. A hosted fleet has no argo's own sign-in, and the password reset command refuses it. A viewer ticket, for a fleet with a viewer only, is issued and redeemed the same way and starts a viewer session instead.
 5. Delete a fleet: it is gone for good, in one transaction, with every record in it, which ends its console session and leases. No event survives it (the event log is the fleet's own), so the server logs the delete with the fleet's id, name and operator email. Nothing of the fleet stays behind: the record that answers a replayed delete keeps only the request's hash.
 6. Set notices: the installation sets what the console says above every page (decision 0023), replacing the notices it set before. Each is plain text with optional links, for everyone, for operators, for viewers or for accounts, and dismissible or not. A console sign-in shows the notices of its audience in the installation's order; dismissing one hides it for that session only, or for an account across its sign-ins. A link may sign out first: the session ends, then the browser goes on to the link, or to sign in.
@@ -573,7 +580,7 @@ The flows of accounts, each with its happy and unhappy paths, are in [docs/desig
 ### Launch a ship
 
 1. The operator creates a ship in the web app: name, type, optional note.
-2. Aeolus generates the ship id and secret, and shows the starting prompt once: the ship's crew instructions for a chat. Beside it, a crew line per harness with the `aeolus` plugin, Claude Code and Codex, and where to install the plugin for each. A prompt lost before use costs nothing: the operator gets a new one, which invalidates the lost one. Commissioning takes the caller's own idempotency key, as `send` does, so a retry never creates a second ship: a repeat with the same key and the same request returns the original ship id and its starting prompt state (when it was issued, whether it is claimed), with no secret and no crew lines, and the same key with a different request is refused. A caller that lost the answer and still needs a crew line gets a new starting prompt.
+2. Aeolus generates the ship id and secret, and shows the starting prompt once: the ship's crew instructions for a chat. Beside it, a crew line per harness with the Aeolus Fleet plugin, Claude Code and Codex, and where to install the plugin for each. A prompt lost before use costs nothing: the operator gets a new one, which invalidates the lost one. Commissioning takes the caller's own idempotency key, as `send` does, so a retry never creates a second ship: a repeat with the same key and the same request returns the original ship id and its starting prompt state (when it was issued, whether it is claimed), with no secret and no crew lines, and the same key with a different request is refused. A caller that lost the answer and still needs a crew line gets a new starting prompt.
 3. The operator pastes the crew instructions into a chat, or a crew line into Claude Code or Codex with the plugin.
 4. The session connects to the fleet, reads the ship protocol it sends (how to crew a ship), calls `register`, gets the lease and a crew token, and the ship shows as Crewed in the snapshot.
 5. From then on the session pulls its inbox with `receive`.

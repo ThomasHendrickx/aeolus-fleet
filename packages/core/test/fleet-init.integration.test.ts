@@ -22,7 +22,7 @@ describe('initialising the fleet on Postgres', () => {
     );
 
     await expect(core.prisma.fleet.findMany()).resolves.toEqual([
-      { id: fleetId, name: 'home fleet', createdAt: core.clock.now(), lastEventSeq: 2n, shipLimitSet: false, shipLimit: null, dailyMessageLimitSet: false, dailyMessageLimit: null, schedulesPerShipLimitSet: false, schedulesPerShipLimit: null, minimumScheduleIntervalSet: false, minimumScheduleInterval: null },
+      { id: fleetId, name: 'home fleet', createdAt: core.clock.now(), lastEventSeq: 2n, shipLimitSet: false, shipLimit: null, dailyMessageLimitSet: false, dailyMessageLimit: null, schedulesPerShipLimitSet: false, schedulesPerShipLimit: null, minimumScheduleIntervalSet: false, minimumScheduleInterval: null, retentionSet: false, retentionDays: null },
     ]);
     await expect(core.prisma.ship.findMany()).resolves.toEqual([
       expect.objectContaining({
@@ -31,7 +31,7 @@ describe('initialising the fleet on Postgres', () => {
         name: 'argo',
         type: 'operator',
         kind: 'operator',
-        scopes: ['messages:send', 'messages:receive', 'messages:force', 'messages:resend', 'fleet:read', 'fleet:commission', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'fleet:on-behalf', 'fleet:person', 'fleet:owner', 'fleet:explain', 'fleet:connect', 'labels:any', 'fleet:verify', 'scopes:declare', 'scopes:grant', 'meetings:open'],
+        scopes: ['messages:send', 'messages:receive', 'messages:force', 'messages:resend', 'fleet:read', 'fleet:commission', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'fleet:on-behalf', 'fleet:person', 'fleet:owner', 'fleet:explain', 'fleet:connect', 'labels:any', 'fleet:verify', 'scopes:declare', 'scopes:grant', 'scopes:define', 'meetings:open'],
         retiredAt: null,
       }),
     ]);

@@ -60,10 +60,10 @@ describe('the starting prompt text: the ship\'s crew instructions for a chat', (
 });
 
 describe('the crew lines', () => {
-  it('gives one crew line per harness with the aeolus plugin: Claude Code and Codex, each with the fleet URL, the ship id and the secret', () => {
+  it('gives one crew line per harness with the Aeolus Fleet plugin: Claude Code and Codex, each with the fleet URL, the ship id and the secret', () => {
     expect(presented.crewLines).toEqual([
-      { harness: 'claude-code', line: `/aeolus:crew ${FLEET_URL} ${shipId} aeolus_sk_v1_abc` },
-      { harness: 'codex', line: `$aeolus-crew ${FLEET_URL} ${shipId} aeolus_sk_v1_abc` },
+      { harness: 'claude-code', line: `/aeolus-fleet:crew ${FLEET_URL} ${shipId} aeolus_sk_v1_abc` },
+      { harness: 'codex', line: `$aeolus-fleet-crew ${FLEET_URL} ${shipId} aeolus_sk_v1_abc` },
     ]);
   });
 });

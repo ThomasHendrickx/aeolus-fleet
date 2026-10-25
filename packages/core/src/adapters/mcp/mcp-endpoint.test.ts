@@ -112,6 +112,9 @@ const SHIP_TOOLS = [
   'fleet_scopes',
   'fleet_declareScopes',
   'fleet_grantScopes',
+  'fleet_defineScope',
+  'fleet_describeScope',
+  'fleet_removeScope',
   'fleet_setVerifiedFacts',
 ];
 
@@ -318,9 +321,12 @@ describe('the ship tools at /mcp', () => {
     ['fleet_setBuiltInRule', [/fleet:network/, /decision 0034/, /never off/, /viewerRead/]],
     ['fleet_declareNetworkRules', [/labels:define/, /decision 0037/, /owns/, /at most 20/, /withdraw/, /in force/]],
     ['fleet_declaredNetworkRules', [/fleet:network/, /decision 0037/, /each ship/]],
-    ['fleet_scopes', [/fleet:read/, /core namespaces/, /plugin namespace/]],
+    ['fleet_scopes', [/fleet:read/, /core namespaces/, /plugin namespace/, /fleet's own/, /kind/]],
     ['fleet_declareScopes', [/scopes:declare/, /at most 20/, /whole list/, /CONFLICT/, /retires/]],
-    ['fleet_grantScopes', [/scopes:grant/, /next call/, /declarer/, /never revoked/]],
+    ['fleet_grantScopes', [/scopes:grant/, /next call/, /declarer/, /fleet's own/, /never revoked/]],
+    ['fleet_defineScope', [/scopes:define/, /<namespace>:<action>/, /reserved/, /no cap/, /CONFLICT/, /scopes:grant/]],
+    ['fleet_describeScope', [/scopes:define/, /never renamed/]],
+    ['fleet_removeScope', [/scopes:define/, /holds it/, /CONFLICT/, /frees/]],
     ['fleet_setVerifiedFacts', [/fleet:verify/, /decision 0059/, /manage/, /whole/, /withdraw/, /oauthSubject/, /issuer/, /at most 10/]],
     ['send', [/"kind": "label"/, /"valueIds": \["lbv_\.\.\."\]/, /every value/, /never you/, /fleet_findLabelValue/, /every ship of it/]],
   ])('state the scope and rules of %s in its description', async (name, rules) => {
