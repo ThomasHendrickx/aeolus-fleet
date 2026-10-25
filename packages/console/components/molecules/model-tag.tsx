@@ -1,7 +1,7 @@
 import { Package, Sparkles } from 'lucide-react';
 
 import { classNames, Tooltip, TooltipContent, TooltipTrigger } from '@aeolus-fleet/common/header';
-import { isSoftwareModel, modelStatedWords } from '../../services/model-tag';
+import { isSoftwareModel, modelStatedWords } from '../../lib/model-tag';
 
 /**
  * What a ship's session last stated it runs on, exactly as stated
@@ -10,6 +10,8 @@ import { isSoftwareModel, modelStatedWords } from '../../services/model-tag';
  * and muted text. Its tooltip (canvas, OverviewModelHover) and accessible name
  * carry the full value, what it is and when it was stated. "Not stated yet" for a crewed ship that has sent nothing;
  * nothing for argo and ships without a session (awaiting crew, retired).
+ * A model no session stated, such as one the Trierarchs page's Models
+ * section lists, has no stated time.
  */
 export function ModelTag({
   model,
@@ -18,10 +20,11 @@ export function ModelTag({
   testId,
 }: {
   /** The ship's current model and when it was stated; null before any. */
-  model: { id: string; statedAt: string } | null;
+  model: { id: string; statedAt?: string } | null;
   /** Whether a session crews the ship: only then does it show anything. */
   isCrewed: boolean;
-  now: Date;
+  /** For when it was stated; a model no session stated needs none. */
+  now?: Date;
   testId?: string;
 }) {
   if (!isCrewed) {
@@ -36,7 +39,8 @@ export function ModelTag({
   }
   const isSoftware = isSoftwareModel(model.id);
   const Icon = isSoftware ? Package : Sparkles;
-  const stated = modelStatedWords(model, now);
+  const { statedAt } = model;
+  const stated = statedAt === undefined || now === undefined ? (isSoftware ? 'Software' : 'Model') : modelStatedWords({ id: model.id, statedAt }, now);
   return (
     <Tooltip>
       <TooltipTrigger

@@ -19,3 +19,5 @@ export const OtherVendor: Story = { args: { model: { id: 'gpt-6-sol', statedAt: 
 export const Software: Story = { args: { model: { id: '@aeolus-fleet/squadrons@0.12.0', statedAt: STATED } } };
 export const ModelWithDate: Story = { args: { model: { id: 'claude-opus-4@20250514', statedAt: STATED } } };
 export const NotStatedYet: Story = { args: { model: null } };
+/** A model no session stated, as the Trierarchs page's Models section lists it. */
+export const NotStatedBySession: Story = { args: { model: { id: 'claude-sonnet-5-5' } } };

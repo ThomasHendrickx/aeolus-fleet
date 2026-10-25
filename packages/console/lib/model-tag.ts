@@ -1,4 +1,4 @@
-import { relativeTime } from '../../../lib/relative-time';
+import { relativeTime } from './relative-time';
 
 const MINUTE_MS = 60_000;
 const SECOND_MS = 1_000;
