@@ -208,6 +208,8 @@ export function commissionShip(
     activeShipNamed: Ship | undefined;
     /** The plugin namespaces the scopes name, with their declarers' names, by namespace. */
     namespaces: ReadonlyMap<string, { namespace: ScopeNamespace; declarerName: string }>;
+    /** Which of the scopes the fleet defined as its own (design gateway-scopes, 4.1). */
+    defined: ReadonlySet<ScopeName>;
   },
 ): Result<{ ship: Ship; events: NewEvent[] }, CommissionRefusal> {
   const { kind = 'agent' } = input;
@@ -241,7 +243,7 @@ export function commissionShip(
   const granter = { shipId: commissioningShip?.id ?? null, isOperator: commissioningShip?.kind === 'operator', scopes: held };
   // Every ship has the agent scopes, so naming one grants nothing.
   for (const scope of asked.filter((each) => !AGENT_SCOPES.some((agentScope) => agentScope === each))) {
-    const allowed = mayGrant(scope, { granter, namespaces: fleet.namespaces });
+    const allowed = mayGrant(scope, { granter, namespaces: fleet.namespaces, defined: fleet.defined });
     if (!allowed.isOk) {
       return allowed;
     }
