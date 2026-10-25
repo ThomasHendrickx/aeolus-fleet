@@ -13,7 +13,7 @@ export interface ResolveLabelSelectionTx {
 
 /**
  * The ships a send to a label selection goes to, at send time (decision
- * 0063): every ship carrying each value that is not retired, awaiting crew or
+ * 0065): every ship carrying each value that is not retired, awaiting crew or
  * crewed, never the viewer and never the sender. Each is held in id order as
  * a send holds the ship it addresses, so a retire waits for the send and a
  * ship retired before its hold is left out. No ship refuses the send.

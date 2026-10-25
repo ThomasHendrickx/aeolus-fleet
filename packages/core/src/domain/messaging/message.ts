@@ -15,7 +15,7 @@ export interface Message {
   fleetId: FleetId;
   /** The calling ship: every sender is a ship, `argo` included. */
   senderShipId: ShipId;
-  /** The selector as resolved at send time: a ship's id, never its name, a type, a meeting (decision 0061), or a label selection as sent (decision 0063). */
+  /** The selector as resolved at send time: a ship's id, never its name, a type, a meeting (decision 0061), or a label selection as sent (decision 0065). */
   selector: Addressee;
   payload: string;
   /** A media type, exactly as the sender gave it. */
@@ -122,7 +122,7 @@ export interface MessageToAccept {
 /**
  * Who the delivery of the message went to: its message's recipient, or for a
  * contribution to a meeting (decision 0061) or a send to a label (decision
- * 0063) the ship it is for.
+ * 0065) the ship it is for.
  */
 export function deliveredTo(message: Pick<Message, 'selector'>, delivery: Pick<Delivery, 'recipient'>): Recipient {
   return message.selector.kind === 'meeting' || message.selector.kind === 'label' ? delivery.recipient : message.selector;
@@ -317,14 +317,14 @@ export function acceptContribution(send: ContributionToAccept): Result<{ message
   });
 }
 
-/** A send to a label selection, its payload and key already checked, with one delivery id per ship the selection resolved to (decision 0063). */
+/** A send to a label selection, its payload and key already checked, with one delivery id per ship the selection resolved to (decision 0065). */
 export type LabelMessageToAccept = Omit<MessageToAccept, 'deliveryId' | 'resendOf' | 'meetingId'> & {
   valueIds: readonly LabelValueId[];
   deliveries: readonly { deliveryId: DeliveryId; shipId: ShipId }[];
 };
 
 /**
- * Accepts a send to a label selection (decision 0063): one message keeping
+ * Accepts a send to a label selection (decision 0065): one message keeping
  * the selection as sent, and one pending delivery per ship it resolved to,
  * each with its own MessageAccepted naming that ship, caused by the sender.
  * The reply, model and force rules are a send's.

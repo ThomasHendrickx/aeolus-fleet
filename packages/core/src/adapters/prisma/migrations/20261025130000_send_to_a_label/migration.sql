@@ -1,4 +1,4 @@
--- A send to a label (decision 0063): a message keeps the label selection it was sent to, its value ids as sent.
+-- A send to a label (decision 0065): a message keeps the label selection it was sent to, its value ids as sent.
 
 -- AlterEnum
 ALTER TYPE "selector_kind" ADD VALUE 'label';

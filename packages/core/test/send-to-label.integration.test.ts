@@ -16,7 +16,7 @@ import { withOperatorLogin } from './support/operator-login.js';
 import { createPostgresCore, racingUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 
 // A send to a label on a real Postgres through the Prisma adapters (decision
-// 0063): lead sends to team=a, carried by alpha, bravo and charlie (and lead),
+// 0065): lead sends to team=a, carried by alpha, bravo and charlie (and lead),
 // not by delta. The list is resolved in SQL and each ship acknowledges on its
 // own; one ship out of reach refuses all of it; a failure at the second
 // delivery stores nothing and wakes nobody; a retire racing the send abandons

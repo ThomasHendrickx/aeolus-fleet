@@ -1,4 +1,4 @@
-# 0063 Send to a label
+# 0065 Send to a label
 
 A ship sends one message to the ships a label selection names (`{ kind: 'label', valueIds }`); each ship of it gets its own delivery. The rules are R1 to R11 of [the selector design](../design/selector/selector.md).
 

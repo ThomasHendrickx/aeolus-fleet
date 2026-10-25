@@ -27,7 +27,7 @@ export type Party = z.infer<typeof partySchema>;
 /**
  * Who a message was addressed to: one ship, any ship of a type, every other
  * participant of a meeting (decision 0061), or the ships of a label
- * selection, its value ids as sent (decision 0063).
+ * selection, its value ids as sent (decision 0065).
  */
 export const messageRecipientSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('ship'), ship: partySchema }),

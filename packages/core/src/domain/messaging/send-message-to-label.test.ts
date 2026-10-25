@@ -12,7 +12,7 @@ import type { ShipCaller } from '../shared/caller.js';
 import type { MessageToSend } from './send-message.js';
 
 /**
- * A send to a label (decision 0063): lead tells every ship labelled
+ * A send to a label (decision 0065): lead tells every ship labelled
  * `team=a`. alpha, bravo and charlie carry team=a, lead carries it too, and
  * delta carries team=b. alpha and bravo also carry site=north.
  */

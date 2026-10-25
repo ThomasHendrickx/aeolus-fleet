@@ -35,7 +35,7 @@ export interface HistoryParty {
   name: string;
 }
 
-/** Who a message was addressed to: one ship, any ship of a type, a meeting, or a label selection (decision 0063). */
+/** Who a message was addressed to: one ship, any ship of a type, a meeting, or a label selection (decision 0065). */
 export type HistoryRecipient =
   | { kind: 'ship'; ship: HistoryParty }
   | { kind: 'type'; type: string }
@@ -63,7 +63,7 @@ export interface TimelineEntry {
  * ship that claimed it, if one has. A contribution to a meeting is read
  * through its sender or the participant its delivery went to, `claimedBy`
  * here, else through its sender alone (decision 0061); so is a send to a
- * label, through the ship its delivery went to (decision 0063).
+ * label, through the ship its delivery went to (decision 0065).
  */
 export function partiesOf(message: { sender: HistoryParty; recipient: HistoryRecipient }, claimedBy: HistoryParty | null): MessageParties {
   const { sender, recipient } = message;

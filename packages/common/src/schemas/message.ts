@@ -61,7 +61,7 @@ export const modelSchema = z
   .regex(/^\S+$/, 'A model id has no spaces');
 
 /**
- * A label selection a message is sent to (decision 0063): one value id up to
+ * A label selection a message is sent to (decision 0065): one value id up to
  * as many as a ship carries, each once; exact and AND, so a ship carrying
  * every value gets a delivery. Ids only, never texts (decision 0031).
  */
@@ -77,7 +77,7 @@ export const labelValuesSelectorSchema = z.strictObject({
 /**
  * Who a message is for (docs/blueprint.md, "Selector"): one ship, by id or by
  * name, any ship of a type, every other participant of a meeting (decision
- * 0061), or every ship a label selection names (decision 0063). A name is
+ * 0061), or every ship a label selection names (decision 0065). A name is
  * resolved to the ship's id at send time.
  */
 export const selectorSchema = z.union([

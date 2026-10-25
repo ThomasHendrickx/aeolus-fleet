@@ -11,7 +11,7 @@ export interface MeetingSelector {
 
 /**
  * Every ship carrying each of these label values but the sender (decision
- * 0063): a selection by value ids, kept as sent, each ship of it getting a
+ * 0065): a selection by value ids, kept as sent, each ship of it getting a
  * delivery of its own.
  */
 export interface LabelSelector {

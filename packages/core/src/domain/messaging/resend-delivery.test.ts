@@ -296,7 +296,7 @@ describe('resending within read reach (decision 0046)', () => {
   });
 });
 
-describe('resending one delivery of a send to a label (decision 0063, R8)', () => {
+describe('resending one delivery of a send to a label (decision 0065, R8)', () => {
   it('sends it to its ship alone, as a message of its own, leaving the other deliveries as they are', async () => {
     const { shipId: lookoutId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'lookout', type: 'tester' }));
     unwrap(await registry.defineLabel(argo, { key: 'team', values: ['a'] }));

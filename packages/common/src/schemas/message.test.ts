@@ -100,7 +100,7 @@ describe('selectorSchema', () => {
     ['argo by name', { kind: 'ship', name: 'argo' }],
     ['a type', { kind: 'type', type: 'reviewer' }],
     ['a meeting (decision 0061)', { kind: 'meeting', meetingId: newId('meeting') }],
-    ['a label selection of one value (decision 0063)', { kind: 'label', valueIds: [newId('labelValue')] }],
+    ['a label selection of one value (decision 0065)', { kind: 'label', valueIds: [newId('labelValue')] }],
     ['a label selection of the 20 values a ship carries', { kind: 'label', valueIds: Array.from({ length: 20 }, () => newId('labelValue')) }],
   ])('accepts %s', (_label, selector) => {
     expect(selectorSchema.parse(selector)).toEqual(selector);

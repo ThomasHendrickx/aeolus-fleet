@@ -204,7 +204,7 @@ export interface DeliveryRepository {
   /**
    * The delivery of a message that reached the ship, read without a lock:
    * the one to it, or one of its type it claimed. A message to a label or a
-   * meeting has one per ship (decisions 0061, 0063), so the ship picks it.
+   * meeting has one per ship (decisions 0061, 0065), so the ship picks it.
    */
   findOfMessageReaching(fleetId: FleetId, reached: { messageId: MessageId; shipId: ShipId }): Promise<Delivery | undefined>;
   /**

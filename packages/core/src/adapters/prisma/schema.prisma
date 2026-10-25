@@ -585,7 +585,7 @@ model Message {
   selectorKind       SelectorKind @map("selector_kind")
   selectorShipId     String?      @map("selector_ship_id")
   selectorType       String?      @map("selector_type")
-  /// The label selection a send to a label was sent to, its value ids as sent (decision 0063); none for any other selector.
+  /// The label selection a send to a label was sent to, its value ids as sent (decision 0065); none for any other selector.
   selectorValueIds   String[]     @default([]) @map("selector_value_ids")
   payload            String
   contentType        String       @map("content_type")

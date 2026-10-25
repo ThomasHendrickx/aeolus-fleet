@@ -16,7 +16,7 @@ describe('recipientGroupWords', () => {
     expect(recipientGroupWords({ kind: 'meeting', meetingId })).toBe(`every other participant of meeting ${meetingId}`);
   });
 
-  it('says a send to a label went to every ship carrying its values (decision 0063)', () => {
+  it('says a send to a label went to every ship carrying its values (decision 0065)', () => {
     const [team, site] = [newId('labelValue'), newId('labelValue')];
 
     expect(recipientGroupWords({ kind: 'label', valueIds: [team, site] })).toBe(`every ship carrying ${team} and ${site}`);

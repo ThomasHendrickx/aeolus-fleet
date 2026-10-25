@@ -102,7 +102,7 @@ export type SendMessage = (caller: ShipCaller, input: MessageToSend) => Promise<
  * delivery per other participant, in the same unit of work, with no reach
  * check: the owner reached each participant when it joined.
  *
- * A send to a label (decision 0063) resolves the selection into its ships,
+ * A send to a label (decision 0065) resolves the selection into its ships,
  * never the sender, each held in id order after the key; the sender must
  * reach every one, or the send is refused whole. One message, one delivery
  * per ship, in the same unit of work.
@@ -329,7 +329,7 @@ async function contributeWithin(
 
 /**
  * A send to a label selection, inside the send's unit of work, its key
- * checked already (decision 0063). Every ship of the list stays held until
+ * checked already (decision 0065). Every ship of the list stays held until
  * the unit of work ends; the reach to each is checked as a send to it, and
  * the first refused refuses the whole send with only its record stored. One
  * message, one delivery per ship, one MessageAccepted and one notice each.
