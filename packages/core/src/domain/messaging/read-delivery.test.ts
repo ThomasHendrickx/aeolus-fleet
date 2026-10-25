@@ -119,6 +119,8 @@ describe('delivery, re-read', () => {
         attempts: 1,
         isForced: false,
         meetingId: null,
+        scheduleId: null,
+        sendTime: null,
         state: 'acknowledged',
       }),
     );

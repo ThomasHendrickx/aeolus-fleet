@@ -1,5 +1,11 @@
 import {
   ackInputSchema,
+  cancelScheduleInputSchema,
+  cancelScheduleOutputSchema,
+  scheduleInputSchema,
+  scheduleOutputSchema,
+  schedulesInputSchema,
+  schedulesOutputSchema,
   ackOutputSchema,
   deregisterOutputSchema,
   handedInputSchema,
@@ -50,6 +56,7 @@ import {
 import { TRPCError } from '@trpc/server';
 
 import type { ShipReport } from '../../domain/registry/ship-report.js';
+import { schedulesPageOf } from './schedule-output.js';
 
 import {
   authenticatedProcedure,
@@ -379,6 +386,79 @@ export const shipRouter = router({
     }),
 
   /**
+   * Schedules a message that core sends at its time as the caller (decision
+   * 0062): a whole send input, checked now as a send, and its reach now.
+   * Answers the schedule's id once it is stored.
+   */
+  schedule: scopedProcedure('messages:send')
+    .meta({
+      description: [
+        'Needs messages:send, and messages:force when isForced. Schedules a message that the fleet sends as you at its time, once, even while your ship has no crew:',
+        'a whole send input (selector of a ship by id or name, or a type; payload; contentType; inReplyTo; isForced), stored as given, and timing { "kind": "once", "at": "<ISO 8601 instant with its offset>" } in the future.',
+        'You must reach the selector by send now, and at the send time it is checked again as a send by you then (scopes, reach, the daily message limit).',
+        'onRefused says what a refused send time does: skip (default) records it and ends the schedule; retry tries again each pass until retryWindow (ISO 8601 duration from the send time, PT1H by default) ends, then skips; pause records it and pauses the schedule.',
+        'The message names scheduleId and sendTime, beside the contentType you picked. model is the exact model id you run now; the message states it.',
+        'idempotencyKey is a new unique string for every schedule: a retry with it answers the same scheduleId, and another request with a used key is refused (CONFLICT).',
+      ].join(' '),
+      requiredOfCrews: ['model'],
+    })
+    .input(scheduleInputSchema)
+    .output(scheduleOutputSchema)
+    .mutation(async ({ ctx, input }) =>
+      okOrThrow(
+        await ctx.useCases.scheduleMessage(ctx.caller, {
+          selector: input.selector,
+          payload: input.payload,
+          idempotencyKey: input.idempotencyKey,
+          timing: { kind: input.timing.kind, at: new Date(input.timing.at) },
+          ...(input.contentType === undefined ? {} : { contentType: input.contentType }),
+          ...(input.model === undefined ? {} : { model: input.model }),
+          ...(input.inReplyTo === undefined ? {} : { inReplyTo: input.inReplyTo }),
+          ...(input.isForced === undefined ? {} : { isForced: input.isForced }),
+          ...(input.onRefused === undefined ? {} : { onRefused: input.onRefused }),
+          ...(input.retryWindow === undefined ? {} : { retryWindow: input.retryWindow }),
+        }),
+      ),
+    ),
+
+  /** The caller's own schedules, newest first, a page at a time (decision 0062). */
+  schedules: scopedProcedure('messages:send')
+    .meta({
+      description: [
+        'Your schedules, newest first, without their payloads: each with its state (active, paused, ended, cancelled), timing, refusal strategy, next send time',
+        'and last outcome: the message it sent, or the code a send time was refused with, each with its send time.',
+        'Active and paused ones unless states names others, such as ["ended"] to read how a once schedule went.',
+        'A page at a time: pass the nextCursor it answers as cursor for the next page.',
+      ].join(' '),
+    })
+    .input(schedulesInputSchema)
+    .output(schedulesOutputSchema)
+    .query(async ({ ctx, input }) =>
+      schedulesPageOf(
+        okOrThrow(
+          await ctx.useCases.listSchedules(ctx.caller, {
+            shipId: ctx.caller.shipId,
+            limit: input.limit ?? PAGE_SIZE_DEFAULT,
+            ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
+            ...(input.states === undefined ? {} : { states: input.states }),
+          }),
+        ),
+      ),
+    ),
+
+  /** Cancels one of the caller's schedules: it sends nothing more (decision 0062). */
+  cancelSchedule: scopedProcedure('messages:send')
+    .meta({
+      description: [
+        'Cancels one of your schedules by its scheduleId: it sends nothing more. Cancelling a cancelled one answers it cancelled again; an ended one is refused (CONFLICT).',
+        'There is no edit: cancel and schedule anew.',
+      ].join(' '),
+    })
+    .input(cancelScheduleInputSchema)
+    .output(cancelScheduleOutputSchema)
+    .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.cancelSchedule(ctx.caller, input))),
+
+  /**
    * Hands the crew up to `max` deliveries, 1 to 10, one by default: forced
    * ones first (decision 0040), then its own in flight, then the oldest
    * pending for its ship or its type. Waits
@@ -401,7 +481,7 @@ export const shipRouter = router({
     .output(receiveOutputSchema)
     .mutation(async ({ ctx, input }) => {
       const { deliveries } = okOrThrow(await ctx.useCases.receiveDeliveries(ctx.crew, { max: input?.max }));
-      return { deliveries: deliveries.map((delivery) => ({ ...delivery, sentAt: delivery.sentAt.toISOString() })) };
+      return { deliveries: deliveries.map((delivery) => ({ ...delivery, sentAt: delivery.sentAt.toISOString(), sendTime: delivery.sendTime?.toISOString() ?? null })) };
     }),
 
   /**
@@ -423,7 +503,7 @@ export const shipRouter = router({
     .output(receiveOutputSchema)
     .mutation(async ({ ctx, input }) => {
       const { deliveries } = okOrThrow(await ctx.useCases.receiveReply(ctx.crew, input));
-      return { deliveries: deliveries.map((delivery) => ({ ...delivery, sentAt: delivery.sentAt.toISOString() })) };
+      return { deliveries: deliveries.map((delivery) => ({ ...delivery, sentAt: delivery.sentAt.toISOString(), sendTime: delivery.sendTime?.toISOString() ?? null })) };
     }),
 
   /**
@@ -451,7 +531,7 @@ export const shipRouter = router({
       const { deliveries } = okOrThrow(
         await ctx.useCases.pushReceiveDeliveries(ctx.crew, { max: input?.max, ...(input?.waker === undefined ? {} : { waker: input.waker }) }),
       );
-      return { deliveries: deliveries.map((delivery) => ({ ...delivery, sentAt: delivery.sentAt.toISOString() })) };
+      return { deliveries: deliveries.map((delivery) => ({ ...delivery, sentAt: delivery.sentAt.toISOString(), sendTime: delivery.sendTime?.toISOString() ?? null })) };
     }),
 
   /**
@@ -683,7 +763,7 @@ export const shipRouter = router({
     .output(deliveryOutputSchema)
     .query(async ({ ctx, input }) => {
       const reread = okOrThrow(await ctx.useCases.readDelivery(ctx.crew, input));
-      return { ...reread, sentAt: reread.sentAt.toISOString() };
+      return { ...reread, sentAt: reread.sentAt.toISOString(), sendTime: reread.sendTime?.toISOString() ?? null };
     }),
 
   /**

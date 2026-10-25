@@ -65,6 +65,11 @@ import { createReadDelivery, type ReadDelivery } from './domain/messaging/read-d
 import { createReportHandled, type ReportHandled } from './domain/messaging/report-handled.js';
 import { createReportNotHandled, type ReportNotHandled } from './domain/messaging/report-not-handled.js';
 import { createTellOverdueDeliveries, type TellOverdueDeliveries } from './domain/messaging/tell-overdue-deliveries.js';
+import { createScheduleMessage, type ScheduleMessage } from './domain/messaging/schedule-message.js';
+import { createListSchedules, type ListSchedules } from './domain/messaging/list-schedules.js';
+import { createCancelSchedule, type CancelSchedule } from './domain/messaging/cancel-schedule.js';
+import { createSendDueSchedules, type SendDueSchedules } from './domain/messaging/send-due-schedules.js';
+import { createPrismaScheduleAttempts } from './adapters/prisma/schedules.js';
 import { createAnswerPing, type AnswerPing } from './domain/messaging/answer-ping.js';
 import { createCheckInbox, type CheckInbox } from './domain/messaging/check-inbox.js';
 import { createDismissDelivery, type DismissDelivery } from './domain/messaging/dismiss-delivery.js';
@@ -253,6 +258,11 @@ export interface UseCases {
   reportNotHandled: ReportNotHandled;
   /** One pass of the 10 and 60 minute clocks; core runs it, never the API. */
   tellOverdueDeliveries: TellOverdueDeliveries;
+  scheduleMessage: ScheduleMessage;
+  listSchedules: ListSchedules;
+  cancelSchedule: CancelSchedule;
+  /** Sends every schedule that is due; core runs it on its timer and its pass, never the API. */
+  sendDueSchedules: SendDueSchedules;
   closeHealthSnapshots: CloseHealthSnapshots;
   acknowledgeDelivery: AcknowledgeDelivery;
   answerPing: AnswerPing;
@@ -485,6 +495,10 @@ export function createUseCases(options: {
     readDelivery: createReadDelivery({ uow }),
     reportNotHandled: createReportNotHandled({ uow, clock, ids }),
     tellOverdueDeliveries: createTellOverdueDeliveries({ fleets: createPrismaFleetRepository(prisma), pushedCrews: createPrismaPushedCrews(prisma), uow, clock, ids }),
+    scheduleMessage: createScheduleMessage({ uow, clock, ids, hasher: sha256Hasher }),
+    listSchedules: createListSchedules({ uow, clock, ids }),
+    cancelSchedule: createCancelSchedule({ uow, clock, ids }),
+    sendDueSchedules: createSendDueSchedules({ fleets: createPrismaFleetRepository(prisma), scheduleAttempts: createPrismaScheduleAttempts(prisma), uow, clock, ids, hasher: sha256Hasher }),
     closeHealthSnapshots: createCloseHealthSnapshots({ fleets: createPrismaFleetRepository(prisma), uow: createPrismaSnapshotUnitOfWork(prisma), clock }),
     acknowledgeDelivery: createAcknowledgeDelivery({ uow, clock, ids }),
     answerPing: createAnswerPing({ uow, clock, ids }),

@@ -160,6 +160,7 @@ describe('migrations', () => {
       'operators',
       'overdue_deliveries',
       'reach_refusals',
+      'schedules',
       'scope_namespaces',
       'ship_labels',
       'ships',

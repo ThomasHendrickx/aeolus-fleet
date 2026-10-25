@@ -1,4 +1,4 @@
-import { isPingContentType, PING_CONTENT_TYPE, type IdGenerator, type MessageId, type ShipId } from '@aeolus-fleet/common';
+import { isPingContentType, PING_CONTENT_TYPE, SCHEDULE_IDEMPOTENCY_KEY_PREFIX, type IdGenerator, type MessageId, type ShipId } from '@aeolus-fleet/common';
 
 import { checkReach, resolveSelector, type CheckReachTx, type NotReachable, type ResolveSelectorTx, type UnresolvableSelector } from '../registry/public.js';
 import { hasScope, type ShipCaller } from '../shared/caller.js';
@@ -13,7 +13,7 @@ import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { contentType } from './content-type.js';
 import { withinDailyMessageLimit, type DailyMessageLimitTx } from './daily-message-limit.js';
 import { idempotencyKey } from '../shared/idempotency-key.js';
-import { acceptContribution, acceptMessage, repeatOf, type AcceptRefusal, type RepeatRefusal } from './message.js';
+import { acceptContribution, acceptMessage, repeatOf, type AcceptRefusal, type RepeatRefusal, type ScheduledFor } from './message.js';
 import { payload } from './payload.js';
 import type { DeliveryRepository, MeetingRepository, MessageRepository, RequestHasher } from './ports.js';
 import { checkContribution, type ContributionRefusal } from './meeting.js';
@@ -132,6 +132,8 @@ export interface CheckedSend {
   inReplyTo: MessageId | undefined;
   isForced: boolean;
   requestHash: string;
+  /** For a schedule's send: the schedule and its send time, carried on the envelope (decision 0062). */
+  scheduledFor?: ScheduledFor;
 }
 
 /**
@@ -151,6 +153,9 @@ export function checkedSend(input: MessageToSend, hasher: RequestHasher): Result
   const key = idempotencyKey(input.idempotencyKey);
   if (!key.isOk) {
     return key;
+  }
+  if (key.value.startsWith(SCHEDULE_IDEMPOTENCY_KEY_PREFIX)) {
+    return refuse('INVALID_IDEMPOTENCY_KEY', `An idempotency key starting ${SCHEDULE_IDEMPOTENCY_KEY_PREFIX} is reserved for scheduled messages: pick another key`);
   }
   const { selector, inReplyTo } = input;
   const isForced = input.isForced === true;
@@ -220,6 +225,7 @@ export async function sendWithin(
       isForced: send.request.isForced,
       ...(send.caller.signedInAccountId === undefined ? {} : { signedInAccountId: send.caller.signedInAccountId }),
       ...(send.actor && { actor: send.actor }),
+      ...(send.request.scheduledFor && { scheduledFor: send.request.scheduledFor }),
       at,
     },
   );

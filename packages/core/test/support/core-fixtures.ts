@@ -57,6 +57,10 @@ import { createChangeMic } from '../../src/domain/messaging/change-mic.js';
 import { createChangeMeeting } from '../../src/domain/messaging/change-meeting.js';
 import { createAddToMeeting } from '../../src/domain/messaging/add-to-meeting.js';
 import { createTellOverdueDeliveries } from '../../src/domain/messaging/tell-overdue-deliveries.js';
+import { createScheduleMessage } from '../../src/domain/messaging/schedule-message.js';
+import { createListSchedules } from '../../src/domain/messaging/list-schedules.js';
+import { createCancelSchedule } from '../../src/domain/messaging/cancel-schedule.js';
+import { createSendDueSchedules } from '../../src/domain/messaging/send-due-schedules.js';
 import { createReadDeclaredNetworkRules } from '../../src/domain/registry/read-declared-network-rules.js';
 import { createReadReachRefusals } from '../../src/domain/registry/read-reach-refusals.js';
 import { createSaveNetworkRulesDraft } from '../../src/domain/registry/save-network-rules-draft.js';
@@ -371,6 +375,10 @@ export function messagingUseCases(core: InMemoryCore) {
     pingShip: createPingShip({ ...deps, hasher: core.hasher }),
     answerPing: createAnswerPing(deps),
     tellOverdueDeliveries: createTellOverdueDeliveries({ ...deps, fleets: core.fleets, pushedCrews: core.pushedCrews }),
+    scheduleMessage: createScheduleMessage({ ...deps, hasher: core.hasher }),
+    listSchedules: createListSchedules(deps),
+    cancelSchedule: createCancelSchedule(deps),
+    sendDueSchedules: createSendDueSchedules({ ...deps, hasher: core.hasher, fleets: core.fleets, scheduleAttempts: core.scheduleAttempts }),
   };
 }
 
@@ -612,6 +620,8 @@ export function deliveryInFlight(
     inReplyToMessageId: null,
     resendOfMessageId: null,
     meetingId: null,
+    scheduleId: null,
+    sendTime: null,
     createdAt: at,
   });
   core.state.deliveries.push({

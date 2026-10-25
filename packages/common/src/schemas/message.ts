@@ -71,17 +71,27 @@ export const selectorSchema = z.union([
   z.strictObject({ kind: z.literal('meeting'), meetingId: idSchema('meeting') }),
 ]);
 
+/** A selector of one ship, by id or by name, or of a type: what a schedule sends to (decision 0062), never a meeting. */
+export const shipOrTypeSelectorSchema = z.union([
+  z.strictObject({ kind: z.literal('ship'), shipId: idSchema('ship') }),
+  z.strictObject({ kind: z.literal('ship'), name: shipHandleSchema }),
+  z.strictObject({ kind: z.literal('type'), type: shipHandleSchema }),
+]);
+
+/** A payload: any text of at most 64 KB in UTF-8 (ADR 0006). */
+export const payloadSchema = z
+  .string()
+  .refine(
+    (payload) => payloadBytes(payload) <= PAYLOAD_MAX_BYTES,
+    `A payload is at most ${PAYLOAD_MAX_BYTES} bytes (64 KB) in UTF-8`,
+  );
+
 export type SelectorInput = z.infer<typeof selectorSchema>;
 
 /** Input of `ship.send`. The sender is the calling ship, never named in the input. */
 export const sendInputSchema = z.object({
   selector: selectorSchema,
-  payload: z
-    .string()
-    .refine(
-      (payload) => payloadBytes(payload) <= PAYLOAD_MAX_BYTES,
-      `A payload is at most ${PAYLOAD_MAX_BYTES} bytes (64 KB) in UTF-8`,
-    ),
+  payload: payloadSchema,
   /** Without it, the payload is text/plain. */
   contentType: contentTypeSchema.optional(),
   /** The exact model the sending session runs now. Every ship states it; argo states none. */

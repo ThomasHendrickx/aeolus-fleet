@@ -92,7 +92,9 @@ export function createPrismaFleetRepository(db: Db): FleetRepository {
       await db.$executeRaw`DELETE FROM events WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM overdue_deliveries WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM deliveries WHERE fleet_id = ${fleetId}`;
-      await db.$executeRaw`UPDATE messages SET in_reply_to_message_id = NULL, resend_of_message_id = NULL WHERE fleet_id = ${fleetId}`;
+      // A schedule names the messages it replies to and sent, and a message the schedule it was sent for.
+      await db.$executeRaw`UPDATE messages SET in_reply_to_message_id = NULL, resend_of_message_id = NULL, schedule_id = NULL, send_time = NULL WHERE fleet_id = ${fleetId}`;
+      await db.$executeRaw`DELETE FROM schedules WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM messages WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM meeting_mic_requests WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM meeting_participants WHERE fleet_id = ${fleetId}`;

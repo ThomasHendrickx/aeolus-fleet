@@ -1,7 +1,7 @@
 import type { IdGenerator, ShipId } from '@aeolus-fleet/common';
 
 import { revokeShipSecret, type CredentialTx } from '../identity/public.js';
-import { leaveMeetingsOnRetire, lockMeetingsOf, type AcceptRefusal, type RequestHasher, type RetiredParticipantTx } from '../messaging/public.js';
+import { cancelSchedulesOnRetire, leaveMeetingsOnRetire, lockMeetingsOf, lockSchedulesOf, type AcceptRefusal, type RequestHasher, type RetiredParticipantTx, type RetiredSchedulerTx } from '../messaging/public.js';
 import { actorOf, type Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
@@ -19,7 +19,7 @@ import { changeOwner, checkCanRetire, type RetireRefusal } from './ship.js';
 import { releaseWithDeclarer } from './scope-namespace.js';
 import { removeWithRetiredShip } from './verified-facts.js';
 
-export interface RetireShipTx extends LeaseTx, CredentialTx, RetiredParticipantTx, Omit<CheckManageTx, 'ships' | 'labels' | 'networkSettings' | 'declaredNetworkRules' | 'events'> {
+export interface RetireShipTx extends LeaseTx, CredentialTx, RetiredParticipantTx, RetiredSchedulerTx, Omit<CheckManageTx, 'ships' | 'labels' | 'networkSettings' | 'declaredNetworkRules' | 'events'> {
   ships: ShipRepository;
   crewRequests: CrewRequestRepository;
   clearRequests: ClearRequestRepository;
@@ -63,6 +63,9 @@ export type RetireShip = (
  * mic, its moderatorship going to the owner, and a meeting it owns ends, the
  * others told (decision 0061, M15, M17): those meetings it locks before the
  * ship, as a contribution locks its meeting before its recipients.
+ * Its active and paused schedules are cancelled, one ScheduleCancelled each
+ * (decision 0062, S11), locked before the ship too, as a send time locks its
+ * schedule before the ship it sends to.
  * The caller, any actor (decision 0057), needs fleet:manage, checked before
  * this runs, and manage reach on the ship here (decision 0034), a refusal
  * storing only its record. That check reads the network
@@ -85,6 +88,7 @@ export function createRetireShip(deps: {
     keepingReachRefusal(deps.uow, async (tx): Promise<Result<{ abandonedDeliveries: number }, RetireShipRefusal>> => {
       const { fleetId } = caller;
       const meetings = await lockMeetingsOf(tx, { fleetId, shipId });
+      const schedules = await lockSchedulesOf(tx, { fleetId, shipId });
       const ship = await tx.ships.findForUpdate(fleetId, shipId);
       if (!ship) {
         return refuse('SHIP_NOT_FOUND', `Ship ${shipId} does not exist`);
@@ -203,6 +207,7 @@ export function createRetireShip(deps: {
       if (!left.isOk) {
         return left;
       }
+      await cancelSchedulesOnRetire({ tx, ids: deps.ids }, { schedules, actor, at });
       await tx.verifiedFacts.lockWriter(fleetId, shipId);
       const facts = removeWithRetiredShip({ about: await tx.verifiedFacts.listAbout(fleetId, shipId), by: await tx.verifiedFacts.listBy(fleetId, shipId) }, { at, actor });
       for (const written of facts.removed) {

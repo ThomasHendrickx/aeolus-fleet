@@ -36,6 +36,7 @@ const CALLS: [string, (shipId: ShipId) => Promise<unknown>][] = [
   ['retire', (shipId) => fleet.registry.retireShip(manager, { shipId })],
   ['getStartingPrompt', (shipId) => fleet.registry.getStartingPrompt(manager, { shipId })],
   ['ping', (shipId) => fleet.messaging.pingShip(manager, { shipId })],
+  ['schedules', (shipId) => fleet.messaging.listSchedules(manager, { shipId, limit: 20 })],
   ['crewRequest', (shipId) => fleet.registry.requestCrew(manager, { shipId, settings: aCrewSettings() })],
   ['removeCrewRequest', (shipId) => fleet.registry.removeCrewRequest(manager, { shipId })],
   ['clearWorktree', (shipId) => fleet.registry.requestWorktreeClear(manager, { trierarchShipId: fleet.reader.shipId, shipId, repository: 'aeolus-fleet' })],

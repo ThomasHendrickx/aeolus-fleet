@@ -79,6 +79,8 @@ describe('sending a message to a ship', () => {
         inReplyToMessageId: null,
         resendOfMessageId: null,
         meetingId: null,
+        scheduleId: null,
+        sendTime: null,
         createdAt: core.clock.now(),
       },
     ]);
@@ -533,6 +535,8 @@ describe('a send refused', () => {
       inReplyToMessageId: null,
       resendOfMessageId: null,
       meetingId: null,
+      scheduleId: null,
+      sendTime: null,
       createdAt: core.clock.now(),
     });
 
@@ -561,6 +565,19 @@ describe('a send refused', () => {
       kind: 'INVALID_IDEMPOTENCY_KEY',
       message: 'An idempotency key is 1 to 256 characters',
     });
+  });
+
+  it('refuses a key starting schedule:, reserved for the messages schedules send (decision 0062)', async () => {
+    await expectRefused(aReview({ idempotencyKey: 'schedule:sch_01m5rrh6na973459r8p9hsrtyy:2026-10-26T09:00:00.000Z' }), {
+      kind: 'INVALID_IDEMPOTENCY_KEY',
+      message: 'An idempotency key starting schedule: is reserved for scheduled messages: pick another key',
+    });
+  });
+
+  it('takes a key with schedule: further in', async () => {
+    await sent(argo, aReview({ idempotencyKey: 'my-schedule:check-in' }));
+
+    expect(core.state.messages).toHaveLength(1);
   });
 });
 

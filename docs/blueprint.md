@@ -315,6 +315,14 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Mic | What a participant holds to contribute; the moderator gives and takes it | core |
 | Mic request | A participant's place on the meeting's list for the mic, with its time; one per ship | core |
 
+### Scheduled messages
+
+| Term | Meaning | Held by |
+| --- | --- | --- |
+| Schedule | A ship's own message, `sch_…`, that core sends at its time as that ship: a whole send input with its timing; active, paused, ended or cancelled (0062) | core |
+| Send time | When a schedule sends: the message carries it on its envelope beside the schedule's id (0062) | core |
+| Refusal strategy | What a refused send time does, the creator's choice: `skip`, `retry` within a retry window, or `pause` (0062) | core |
+
 ### Plugins and the gateway
 
 | Term | Meaning | Held by |
@@ -393,6 +401,7 @@ The operator and the agents use the same API. The only dependency between contex
 | Registry | Ship | `argo` exists once per fleet and can never be retired, released or renamed; its name is reserved. Scopes are set when a ship is created. Name is a handle, unique among active ships and reusable after retirement. Renaming is allowed: messages always store the resolved id, so a rename or reuse never redirects a sent message. At most one session holds the lease. A retired ship can never be claimed or addressed again. Status (awaiting crew, crewed, retired) is derived from the lease, never set by hand; `argo` and the viewer ship, the console's own, are always crewed |
 | Messaging | Message | Immutable once accepted. Accepted only if its selector resolves to at least one non-retired ship, and, with network rules set, a rule or a fixed exception lets its sender reach it (decision 0034); otherwise the sender gets a rejection, never an OK. Stored in the same transaction that returns the OK |
 | Messaging | Meeting | One owner and one moderator, both participants; a participant is a ship, never a type, once per meeting; every participant was reached by the owner by send when it joined; only the moderator and the mic's holder contribute; at most one holder, never the moderator, and one request per participant; owner, moderator and holder are present participants; an ended meeting never changes (0061) |
+| Messaging | Schedule | Belongs to the ship that made it and sends only as that ship; its send input never changes; each send time gives at most one message, or a recorded refusal, in the transaction that advances it; a cancelled or ended schedule never sends again (0062) |
 | Messaging | Delivery | Created together with its message, one per resolved recipient (for a `meeting` selector: one per participant but the sender; for a `type` selector: one delivery, handed to the first ship of that type to receive it; if that ship is released before acknowledging, any ship of that type can receive it; with network rules set, only the ships of the type its sender could reach at send time). Leaves `pending` only by acknowledgement, undeliverable, or operator abandon. Handed again by every `receive` of the same crew while it holds it, one attempt each, and redelivered after a lease is lost, until acknowledged, so receivers treat the delivery id as an idempotency key |
 | Identity | Ship credential | Only the hash of the secret is stored. At most one valid secret per ship. Releasing the ship or deregistering invalidates it. Getting a starting prompt creates a new secret and invalidates any earlier one, and is only possible while the ship awaits crew. An invalid secret fails on the next `register`; a session already crewing keeps its crew token until the lease ends |
 
@@ -437,7 +446,7 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `ShipRenamed` | Registry | The ship goes by its new name; details hold the name it had and the name it has. Its id, history and session stay |
 | `ShipRetired` | Registry | Unprocessed direct deliveries marked abandoned by operator, id blocked forever |
 | `DeliveryAbandoned` | Registry | One per direct delivery a retire abandoned, written with `ShipRetired`; it stays in the timelines and its sender can see it |
-| `MessageAccepted` | Messaging | Deliveries created, receivers woken; details hold the model the sender stated, and `forced` for a forced send (0040). One per delivery of a contribution, each with its meeting (0061) |
+| `MessageAccepted` | Messaging | Deliveries created, receivers woken; details hold the model the sender stated, and `forced` for a forced send (0040). One per delivery of a contribution, each with its meeting (0061). A scheduled send's names its schedule and send time (0062) |
 | `MeetingOpened` | Messaging | A ship opened a meeting, owner and moderator itself (0061): details hold the meeting and how many participants |
 | `ParticipantAdded` | Messaging | The ship joined a meeting, one per participant, the opener included (0061): details hold the meeting |
 | `MicRequested` | Messaging | The ship requested the mic of its meeting (0061): details hold the meeting |
@@ -452,6 +461,11 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `OwnershipTransferred` | Messaging | The ship became the owner of a meeting, from its owner (0061): details hold the meeting |
 | `ModeratorNamed` | Messaging | The ship became the moderator of a meeting, named by the owner or as the moderator went (0061): details hold the meeting |
 | `MeetingEnded` | Messaging | The ship ended a meeting, as its owner or moderator, or as its owner retired (0061): details hold the meeting |
+| `ScheduleCreated` | Messaging | The ship made a schedule (0062): details hold the schedule, its timing and next send time |
+| `ScheduleCancelled` | Messaging | The schedule was cancelled by its ship, a manager or its ship's retire (0062): details hold the schedule and the reason (`ship`, `manager`, `retired`) |
+| `ScheduledSendRefused` | Messaging | A send time of the ship's schedule was refused (0062): details hold the schedule, the send time, the code and the strategy |
+| `SchedulePaused` | Messaging | The ship's schedule paused on a refused send by its `pause` strategy (0062): details hold the schedule |
+| `ScheduleEnded` | Messaging | The ship's once schedule ended, sent or skipped (0062): details hold the schedule |
 | `LeasePushed` | Registry | The lease's first push receive: from now until the lease ends, its computer side receives for it and the agent's plain receive answers nothing (decision 0040); details hold the lease, and the waker when the push receive stated one |
 | `DeliveryReceived` | Messaging | A push receive took the delivery for a crew's computer side: in flight with that ship and lease, no attempt counted. Its details say `again: true` when the crew already held it, and nothing changed |
 | `DeliveryHanded` | Messaging | A plain receive hands the delivery to a crew, or a pushed crew's computer side reports it handed it to the agent with a new hand-over number: in flight with that ship and lease, one more attempt counted. Its details hold the hand-over number when there is one, and the channel when the computer side named one. Marked `onceMore`, it hands a confirmed message once more after its turn died: still acknowledged, no attempt counted |

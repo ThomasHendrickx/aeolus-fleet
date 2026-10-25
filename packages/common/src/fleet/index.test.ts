@@ -198,6 +198,11 @@ describe('eventTypeSchema', () => {
       'OwnershipTransferred',
       'ModeratorNamed',
       'MeetingEnded',
+      'ScheduleCreated',
+      'ScheduleCancelled',
+      'ScheduledSendRefused',
+      'SchedulePaused',
+      'ScheduleEnded',
     ]);
   });
 });

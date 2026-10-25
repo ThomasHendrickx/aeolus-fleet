@@ -64,6 +64,9 @@ export const receivedDeliverySchema = z.object({
   isForced: z.boolean(),
   /** The meeting its message was contributed to or tells of; null outside a meeting (decision 0061). */
   meetingId: idSchema('meeting').nullable(),
+  /** The schedule its message was sent for, and that send time; both null on a live send (decision 0062). */
+  scheduleId: idSchema('schedule').nullable(),
+  sendTime: z.iso.datetime().nullable(),
 });
 
 export type ReceivedDelivery = z.infer<typeof receivedDeliverySchema>;
