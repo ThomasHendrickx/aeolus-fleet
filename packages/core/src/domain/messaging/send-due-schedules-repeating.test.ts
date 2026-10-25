@@ -179,3 +179,128 @@ describe('a repeating send time', () => {
     expect(sendTimes()).toEqual(['2027-03-28T01:00:00.000Z']);
   });
 });
+
+describe('a missed send time', () => {
+  it('is on time when the pass reaches it exactly at its grace, and missed a millisecond later', async () => {
+    await scheduled(hourly({ onMissed: 'skip' }));
+    await passAt('2026-10-25T10:05:00.000Z');
+
+    await passAt('2026-10-25T11:05:00.001Z');
+
+    expect(sendTimes()).toEqual(['2026-10-25T10:00:00.000Z']);
+    expect(eventsOf('ScheduledSendMissed')).toEqual([expect.objectContaining({ sendTime: '2026-10-25T11:00:00.000Z' })]);
+  });
+
+  it('sends every missed one under each, oldest first, each stamped with its own send time', async () => {
+    const scheduleId = await scheduled(hourly({ onMissed: 'each' }));
+
+    await passAt('2026-10-25T13:30:00.000Z');
+
+    expect(sendTimes()).toEqual(['2026-10-25T10:00:00.000Z', '2026-10-25T11:00:00.000Z', '2026-10-25T12:00:00.000Z', '2026-10-25T13:00:00.000Z']);
+    expect(scheduleOf(scheduleId)).toMatchObject({ state: 'active', nextSendTime: new Date('2026-10-25T14:00:00.000Z'), nextAttemptAt: new Date('2026-10-25T14:00:00.000Z') });
+    expect(eventsOf('ScheduledSendMissed')).toEqual([]);
+  });
+
+  it('catches up every missed one when the creator says nothing', async () => {
+    await scheduled();
+
+    await passAt('2026-10-25T12:30:00.000Z');
+
+    expect(sendTimes()).toHaveLength(3);
+  });
+
+  it('sends only the latest missed one under once, recording the others as missed', async () => {
+    const scheduleId = await scheduled(hourly({ onMissed: 'once' }));
+
+    await passAt('2026-10-25T13:30:00.000Z');
+
+    expect(sendTimes()).toEqual(['2026-10-25T13:00:00.000Z']);
+    expect(eventsOf('ScheduledSendMissed')).toEqual(
+      ['2026-10-25T10:00:00.000Z', '2026-10-25T11:00:00.000Z', '2026-10-25T12:00:00.000Z'].map((sendTime) => ({ scheduleId, sendTime, strategy: 'once' })),
+    );
+    expect(scheduleOf(scheduleId)?.nextSendTime).toEqual(new Date('2026-10-25T14:00:00.000Z'));
+  });
+
+  it('sends an on-time one after the missed under once: the latest missed and the one inside its grace', async () => {
+    await scheduled(hourly({ timing: { kind: 'every', every: 'PT10M' }, onMissed: 'once' }));
+
+    await passAt('2026-10-25T09:43:00.000Z');
+
+    expect(sendTimes()).toEqual(['2026-10-25T09:30:00.000Z', '2026-10-25T09:40:00.000Z']);
+  });
+
+  it('sends none of the missed ones under skip, recording each with its send time, and waits for the next', async () => {
+    const scheduleId = await scheduled(hourly({ onMissed: 'skip' }));
+
+    await passAt('2026-10-25T12:30:00.000Z');
+
+    expect(sendTimes()).toEqual([]);
+    expect(eventsOf('ScheduledSendMissed')).toEqual(['2026-10-25T10:00:00.000Z', '2026-10-25T11:00:00.000Z', '2026-10-25T12:00:00.000Z'].map((sendTime) => ({ scheduleId, sendTime, strategy: 'skip' })));
+    expect(scheduleOf(scheduleId)).toMatchObject({
+      state: 'active',
+      nextSendTime: new Date('2026-10-25T13:00:00.000Z'),
+      lastOutcome: { kind: 'missed', sendTime: new Date('2026-10-25T12:00:00.000Z'), at: new Date('2026-10-25T12:30:00.000Z') },
+    });
+  });
+
+  it('ends a once schedule missed under skip, sending nothing', async () => {
+    const scheduleId = await scheduled(hourly({ timing: { kind: 'once', at: new Date('2026-10-25T10:00:00.000Z') }, onMissed: 'skip' }));
+
+    await passAt('2026-10-25T11:00:00.000Z');
+
+    expect(sendTimes()).toEqual([]);
+    expect(scheduleOf(scheduleId)).toMatchObject({ state: 'ended', lastOutcome: { kind: 'missed' } });
+    expect(eventsOf('ScheduleEnded')).toEqual([{ scheduleId, outcome: 'missed' }]);
+  });
+
+  it('never misses a send time it keeps for a retry, however late the retry', async () => {
+    await scheduled(hourly({ onRefused: 'retry', retryWindow: 'PT30M', onMissed: 'skip' }));
+    await onlyChiefSends();
+    await passAt('2026-10-25T10:00:00.000Z');
+    await applyNetworkRules(registry, { by: networking, rules: null });
+
+    await passAt('2026-10-25T10:20:00.000Z');
+
+    expect(sendTimes()).toEqual(['2026-10-25T10:00:00.000Z']);
+    expect(eventsOf('ScheduledSendMissed')).toEqual([]);
+  });
+
+  it('handles at most 100 send times in a pass, oldest first, the rest on the next pass', async () => {
+    const scheduleId = await scheduled(hourly({ timing: { kind: 'every', every: 'PT1M' } }));
+
+    await passAt('2026-10-25T11:30:00.000Z');
+
+    expect(sendTimes()).toHaveLength(100);
+    expect(sendTimes().at(-1)).toBe('2026-10-25T10:40:00.000Z');
+    expect(scheduleOf(scheduleId)).toMatchObject({ nextSendTime: new Date('2026-10-25T10:41:00.000Z'), nextAttemptAt: new Date('2026-10-25T10:41:00.000Z') });
+
+    await passAt('2026-10-25T11:30:00.000Z');
+
+    expect(sendTimes()).toHaveLength(150);
+    expect(sendTimes().at(-1)).toBe('2026-10-25T11:30:00.000Z');
+  });
+
+  it('records at most 100 missed send times in a pass under skip', async () => {
+    await scheduled(hourly({ timing: { kind: 'every', every: 'PT1M' }, onMissed: 'skip' }));
+
+    await passAt('2026-10-25T11:30:00.000Z');
+
+    expect(eventsOf('ScheduledSendMissed')).toHaveLength(100);
+  });
+
+  it('goes on with the next missed one after a refusal it skips, and stops at one it keeps for a retry', async () => {
+    const skipping = await scheduled(hourly({ onRefused: 'skip' }));
+    const retrying = await scheduled(hourly({ onRefused: 'retry' }));
+    await onlyChiefSends();
+
+    await passAt('2026-10-25T12:30:00.000Z');
+
+    expect(eventsOf('ScheduledSendRefused').map((details) => [details.scheduleId, details.sendTime])).toEqual([
+      [skipping, '2026-10-25T10:00:00.000Z'],
+      [skipping, '2026-10-25T11:00:00.000Z'],
+      [skipping, '2026-10-25T12:00:00.000Z'],
+      [retrying, '2026-10-25T10:00:00.000Z'],
+    ]);
+    expect(scheduleOf(retrying)?.nextSendTime).toEqual(new Date('2026-10-25T10:00:00.000Z'));
+  });
+});
