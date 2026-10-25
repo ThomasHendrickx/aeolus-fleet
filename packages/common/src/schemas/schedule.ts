@@ -9,8 +9,9 @@ import { pageInputOf, pageOutputOf } from './page.js';
 /**
  * Inputs and outputs of scheduled messages (decision 0062): making a schedule
  * (`ship.schedule`), listing a ship's schedules (`ship.schedules`,
- * `fleet.schedules`) and cancelling one (`ship.cancelSchedule`,
- * `fleet.cancelSchedule`).
+ * `fleet.schedules`), pausing one (`ship.pauseSchedule`,
+ * `fleet.pauseSchedule`), resuming one (`ship.resumeSchedule`) and cancelling
+ * one (`ship.cancelSchedule`, `fleet.cancelSchedule`).
  */
 
 export { durationMs } from '../rules/duration.js';
@@ -146,6 +147,17 @@ export type SchedulesInput = z.infer<typeof schedulesInputSchema>;
 export const fleetSchedulesInputSchema = schedulesInputSchema.extend({ shipId: idSchema('ship') });
 
 export const schedulesOutputSchema = pageOutputOf(scheduleItemSchema, idSchema('schedule'));
+
+/** Input of `ship.pauseSchedule` and `fleet.pauseSchedule`. */
+export const pauseScheduleInputSchema = z.object({ scheduleId: idSchema('schedule') });
+
+export const pauseScheduleOutputSchema = z.object({ scheduleId: idSchema('schedule'), state: z.literal('paused') });
+
+/** Input of `ship.resumeSchedule`. */
+export const resumeScheduleInputSchema = z.object({ scheduleId: idSchema('schedule') });
+
+/** Active again, or ended when no send time is left after now. */
+export const resumeScheduleOutputSchema = z.object({ scheduleId: idSchema('schedule'), state: z.enum(['active', 'ended']) });
 
 /** Input of `ship.cancelSchedule` and `fleet.cancelSchedule`. */
 export const cancelScheduleInputSchema = z.object({ scheduleId: idSchema('schedule') });

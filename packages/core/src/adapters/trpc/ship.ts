@@ -2,6 +2,10 @@ import {
   ackInputSchema,
   cancelScheduleInputSchema,
   cancelScheduleOutputSchema,
+  pauseScheduleInputSchema,
+  pauseScheduleOutputSchema,
+  resumeScheduleInputSchema,
+  resumeScheduleOutputSchema,
   scheduleInputSchema,
   scheduleOutputSchema,
   schedulesInputSchema,
@@ -393,10 +397,15 @@ export const shipRouter = router({
   schedule: scopedProcedure('messages:send')
     .meta({
       description: [
-        'Needs messages:send, and messages:force when isForced. Schedules a message that the fleet sends as you at its time, once, even while your ship has no crew:',
-        'a whole send input (selector of a ship by id or name, or a type; payload; contentType; inReplyTo; isForced), stored as given, and timing { "kind": "once", "at": "<ISO 8601 instant with its offset>" } in the future.',
-        'You must reach the selector by send now, and at the send time it is checked again as a send by you then (scopes, reach, the daily message limit).',
-        'onRefused says what a refused send time does: skip (default) records it and ends the schedule; retry tries again each pass until retryWindow (ISO 8601 duration from the send time, PT1H by default) ends, then skips; pause records it and pauses the schedule.',
+        'Needs messages:send, and messages:force when isForced. Schedules a message that the fleet sends as you at its times, even while your ship has no crew:',
+        'a whole send input (selector of a ship by id or name, or a type; payload; contentType; inReplyTo; isForced), stored as given, and a timing:',
+        '{ "kind": "once", "at": "<ISO 8601 instant with its offset>" } in the future;',
+        '{ "kind": "every", "every": "<ISO 8601 duration such as PT6H>" }, from start or else one interval after now;',
+        'or { "kind": "cron", "cron": "<five fields such as 0 9 * * MON-FRI>", "timeZone": "<IANA zone, UTC by default>" }, a wall time summer time skips sending at the first valid minute after it, a doubled one once.',
+        'every and cron take optional start and end (instants with their offset) and count (the number of messages it sends), either of the last two ending it.',
+        'You must reach the selector by send now, and at each send time it is checked again as a send by you then (scopes, reach, the daily message limit).',
+        'onRefused says what a refused send time does: skip (default) records it and goes on to the next send time; retry tries again each pass until retryWindow (ISO 8601 duration from the send time, PT1H by default) ends, then skips; pause records it and pauses the schedule.',
+        'onMissed says what a send time the fleet reaches later than grace (ISO 8601 duration, PT5M by default) does: each (default) sends every missed one, oldest first, at most 100 a pass; once sends only the latest; skip sends none; each one not sent is recorded.',
         'The message names scheduleId and sendTime, beside the contentType you picked. model is the exact model id you run now; the message states it.',
         'idempotencyKey is a new unique string for every schedule: a retry with it answers the same scheduleId, and another request with a used key is refused (CONFLICT).',
       ].join(' '),
@@ -427,9 +436,9 @@ export const shipRouter = router({
   schedules: scopedProcedure('messages:send')
     .meta({
       description: [
-        'Your schedules, newest first, without their payloads: each with its state (active, paused, ended, cancelled), timing, refusal strategy, next send time',
-        'and last outcome: the message it sent, or the code a send time was refused with, each with its send time.',
-        'Active and paused ones unless states names others, such as ["ended"] to read how a once schedule went.',
+        'Your schedules, newest first, without their payloads: each with its state (active, paused, ended, cancelled), timing, strategies, next send time',
+        'and last outcome: the message it sent, the code a send time was refused with, or a send time missed, each with its send time.',
+        'Active and paused ones unless states names others, such as ["ended"] to read how a schedule ended.',
         'A page at a time: pass the nextCursor it answers as cursor for the next page.',
       ].join(' '),
     })
@@ -447,6 +456,30 @@ export const shipRouter = router({
         ),
       ),
     ),
+
+  /** Pauses one of the caller's schedules until it resumes it (decision 0062, S10). */
+  pauseSchedule: scopedProcedure('messages:send')
+    .meta({
+      description: [
+        'Pauses one of your schedules by its scheduleId: it sends nothing until you resume it. Pausing a paused one answers it paused again;',
+        'an ended or cancelled one is refused (CONFLICT). A fleet manager may pause it too.',
+      ].join(' '),
+    })
+    .input(pauseScheduleInputSchema)
+    .output(pauseScheduleOutputSchema)
+    .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.pauseSchedule(ctx.caller, input))),
+
+  /** Resumes one of the caller's paused schedules, skipping the send times passed while paused (decision 0062, S10). */
+  resumeSchedule: scopedProcedure('messages:send')
+    .meta({
+      description: [
+        'Resumes one of your paused schedules by its scheduleId. The send times passed while it was paused are skipped: it goes on at its next send time after now,',
+        'or ends (state ended) when it has none left. Resuming an active one answers it active again; an ended or cancelled one is refused (CONFLICT).',
+      ].join(' '),
+    })
+    .input(resumeScheduleInputSchema)
+    .output(resumeScheduleOutputSchema)
+    .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.resumeSchedule(ctx.caller, input))),
 
   /** Cancels one of the caller's schedules: it sends nothing more (decision 0062). */
   cancelSchedule: scopedProcedure('messages:send')

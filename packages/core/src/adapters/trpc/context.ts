@@ -32,6 +32,8 @@ import type { OpenMeeting } from '../../domain/messaging/open-meeting.js';
 import type { ScheduleMessage } from '../../domain/messaging/schedule-message.js';
 import type { ListSchedules } from '../../domain/messaging/list-schedules.js';
 import type { CancelSchedule } from '../../domain/messaging/cancel-schedule.js';
+import type { PauseSchedule } from '../../domain/messaging/pause-schedule.js';
+import type { ResumeSchedule } from '../../domain/messaging/resume-schedule.js';
 import type { ReadMeeting } from '../../domain/messaging/read-meeting.js';
 import type { ChangeMic } from '../../domain/messaging/change-mic.js';
 import type { ChangeMeeting } from '../../domain/messaging/change-meeting.js';
@@ -217,6 +219,8 @@ export interface UseCases {
   scheduleMessage: ScheduleMessage;
   listSchedules: ListSchedules;
   cancelSchedule: CancelSchedule;
+  pauseSchedule: PauseSchedule;
+  resumeSchedule: ResumeSchedule;
   readMeeting: ReadMeeting;
   changeMic: ChangeMic;
   changeMeeting: ChangeMeeting;

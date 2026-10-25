@@ -2,7 +2,7 @@ import { durationMs, SCHEDULE_IDEMPOTENCY_KEY_PREFIX, type FleetId, type Message
 
 import { refuse, type DomainError } from '../shared/errors.js';
 import type { Actor, NewEvent } from '../shared/events.js';
-import { ok, type Result } from '../shared/result.js';
+import { ok, type Err, type Result } from '../shared/result.js';
 import type { RecipientSelector } from '../shared/selector.js';
 import { cronSendTimeAfter, isKnownTimeZone, parseCron } from './cron.js';
 
@@ -273,12 +273,74 @@ export function scheduleRefused(schedule: Schedule, refused: { code: string; sen
     case 'pause':
       return {
         schedule: { ...recorded, state: 'paused', nextAttemptAt: null },
-        events: [refusal, eventOf(schedule, { type: 'SchedulePaused', at, actor: { kind: 'ship', shipId: schedule.shipId }, details: {} })],
+        events: [refusal, eventOf(schedule, { type: 'SchedulePaused', at, actor: { kind: 'ship', shipId: schedule.shipId }, details: { reason: 'refused' } })],
       };
   }
 }
 
 export type CancelRefusal = DomainError<'SCHEDULE_ENDED'>;
+
+export type PauseRefusal = DomainError<'SCHEDULE_ENDED' | 'SCHEDULE_CANCELLED'>;
+
+/** Who paused a schedule by hand: its ship, or a manager (S10). */
+export type PauseReason = 'ship' | 'manager';
+
+/**
+ * Pauses an active schedule, keeping its next send time, with SchedulePaused
+ * caused by the actor; a paused one stays as it is, with no event. An ended
+ * or cancelled one is refused.
+ */
+export function pauseSchedule(schedule: Schedule, pause: { reason: PauseReason; actor: Actor; at: Date }): Result<{ schedule: Schedule; events: NewEvent[] }, PauseRefusal> {
+  const closed = closedRefusal(schedule);
+  if (closed) {
+    return closed;
+  }
+  if (schedule.state === 'paused') {
+    return ok({ schedule, events: [] });
+  }
+  return ok({
+    schedule: { ...schedule, state: 'paused', nextAttemptAt: null },
+    events: [eventOf(schedule, { type: 'SchedulePaused', at: pause.at, actor: pause.actor, details: { reason: pause.reason } })],
+  });
+}
+
+/**
+ * Resumes a paused schedule with ScheduleResumed: the send times passed
+ * while paused are skipped, so it goes on at its first send time after now,
+ * or ends when it has none. An active one stays as it is, with no event. An
+ * ended or cancelled one is refused.
+ */
+export function resumeSchedule(schedule: Schedule, resume: { actor: Actor; at: Date }): Result<{ schedule: Schedule; events: NewEvent[] }, PauseRefusal> {
+  const closed = closedRefusal(schedule);
+  if (closed) {
+    return closed;
+  }
+  if (schedule.state === 'active') {
+    return ok({ schedule, events: [] });
+  }
+  const { at, actor } = resume;
+  const next = schedule.nextSendTime !== null && schedule.nextSendTime > at ? schedule.nextSendTime : sendTimeAfter(schedule, at);
+  if (next === undefined) {
+    const resumed = eventOf(schedule, { type: 'ScheduleResumed', at, actor, details: {} });
+    return ok(withEvent(resumed, ended({ ...schedule, state: 'active' }, { at, outcome: 'skipped' })));
+  }
+  return ok({
+    schedule: { ...schedule, state: 'active', nextSendTime: next, nextAttemptAt: next },
+    events: [eventOf(schedule, { type: 'ScheduleResumed', at, actor, details: { nextSendTime: next.toISOString() } })],
+  });
+}
+
+function closedRefusal(schedule: Schedule): Err<PauseRefusal> | undefined {
+  switch (schedule.state) {
+    case 'ended':
+      return refuse('SCHEDULE_ENDED', `Schedule ${schedule.id} ended: it sends nothing more`);
+    case 'cancelled':
+      return refuse('SCHEDULE_CANCELLED', `Schedule ${schedule.id} was cancelled: it sends nothing more`);
+    case 'active':
+    case 'paused':
+      return undefined;
+  }
+}
 
 /**
  * Cancels an active or paused schedule, with ScheduleCancelled on its ship
