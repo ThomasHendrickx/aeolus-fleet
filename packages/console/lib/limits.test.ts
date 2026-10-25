@@ -1,6 +1,17 @@
 import { describe, expect, it } from 'vitest';
 
-import { composeRefusedNotice, hasLimits, messageLimitNotice, messageLimitReached, meterCaption, meterState, resetTime, shipLimitNotice, shipLimitReached } from './limits';
+import {
+  composeRefusedNotice,
+  hasLimits,
+  messageLimitNotice,
+  messageLimitReached,
+  meterCaption,
+  meterState,
+  resetTime,
+  retentionLine,
+  shipLimitNotice,
+  shipLimitReached,
+} from './limits';
 
 const RESETS = '2026-10-05T00:00:00.000Z';
 
@@ -38,6 +49,21 @@ describe('the limits the console shows', () => {
   });
 });
 
+describe('the retention line', () => {
+  it('says for how many days finished history is kept', () => {
+    expect(retentionLine({ days: 30 })).toBe('Finished history is kept for 30 days');
+    expect(retentionLine({ days: 1000 })).toBe('Finished history is kept for 1,000 days');
+  });
+
+  it('says one day in the singular', () => {
+    expect(retentionLine({ days: 1 })).toBe('Finished history is kept for 1 day');
+  });
+
+  it('says it is kept for good when no retention applies', () => {
+    expect(retentionLine({ days: null })).toBe('Finished history is kept for good');
+  });
+});
+
 describe('the limit meters', () => {
   it('stand below, at or over the limit, or show no limit when none applies', () => {
     expect(meterState({ count: 7, limit: 10 })).toBe('below');
@@ -52,6 +78,10 @@ describe('the limit meters', () => {
     expect(meterCaption({ count: 10, limit: 10 })).toBe('Limit reached');
     expect(meterCaption({ count: 12, limit: 10 })).toBe('2 over the limit');
     expect(meterCaption({ count: 5, limit: null })).toBeUndefined();
+  });
+
+  it('are shown when only a retention applies', () => {
+    expect(hasLimits({ ships: { limit: null, count: 1 }, dailyMessages: { limit: null, count: 0, resetsAt: RESETS }, retention: { days: 30 } })).toBe(true);
   });
 
   it('are shown when any limit applies, and not without one', () => {
