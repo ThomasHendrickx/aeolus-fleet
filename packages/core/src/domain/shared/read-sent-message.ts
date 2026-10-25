@@ -1,9 +1,9 @@
-import type { DeliveryId, DeliveryState, LabelValueId, MessageId } from '@aeolus-fleet/common';
+import { PAGE_SIZE_MAX, type DeliveryId, type DeliveryState, type LabelValueId, type MessageId } from '@aeolus-fleet/common';
 
 import type { ShipCaller } from './caller.js';
 import { deliverySinceOf } from './delivery-way.js';
 import { refuse, type DomainError } from './errors.js';
-import type { HistoryParty, HistoryRecipient, ShipHistory } from './history.js';
+import type { HistoryParty, HistoryRecipient, MessageDelivery, ShipHistory } from './history.js';
 import { ok, type Result } from './result.js';
 
 /**
@@ -38,6 +38,18 @@ export type ReadSentMessage = (
  * caller's scope (messages:send) is checked before this runs.
  */
 export function createReadSentMessage(deps: { history: ShipHistory }): ReadSentMessage {
+  /** Every delivery of the message, read a page at a time in the database: its answer holds them all. */
+  const deliveriesOf = async (fleetId: ShipCaller['fleetId'], messageId: MessageId): Promise<MessageDelivery[]> => {
+    const deliveries: MessageDelivery[] = [];
+    let cursor: DeliveryId | undefined;
+    do {
+      const page = await deps.history.messageDeliveries(fleetId, { messageId, cursor, limit: PAGE_SIZE_MAX });
+      deliveries.push(...page.items);
+      cursor = page.nextCursor ?? undefined;
+    } while (cursor !== undefined);
+    return deliveries;
+  };
+
   return async (caller, { messageId }) => {
     const found = await deps.history.message(caller.fleetId, messageId);
     if (found?.sender.id !== caller.shipId) {
@@ -47,7 +59,7 @@ export function createReadSentMessage(deps: { history: ShipHistory }): ReadSentM
       messageId: found.id,
       sentAt: found.sentAt,
       recipient: found.recipient.kind === 'label' ? { kind: 'label', valueIds: found.recipient.values.map(({ valueId }) => valueId) } : found.recipient,
-      deliveries: found.deliveries.map(({ id, ship, state, steps }) => ({ deliveryId: id, ship, state, since: deliverySinceOf(steps) })),
+      deliveries: (await deliveriesOf(caller.fleetId, messageId)).map(({ id, ship, state, steps }) => ({ deliveryId: id, ship, state, since: deliverySinceOf(steps) })),
     });
   };
 }

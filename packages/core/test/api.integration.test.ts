@@ -273,6 +273,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_repeating_schedules$/),
       expect.stringMatching(/^\d{14}_schedule_limits$/),
       expect.stringMatching(/^\d{14}_send_to_a_label$/),
+      expect.stringMatching(/^\d{14}_message_deliveries_page$/),
     ]);
   });
 });
@@ -1364,6 +1365,7 @@ describe('the ship page reads at the API', () => {
     const timeline = await asArgo.fleet.shipTimeline.query({ shipId });
     const messages = await asArgo.fleet.shipMessages.query({ shipId });
     const message = await asArgo.fleet.message.query({ messageId });
+    const deliveries = await asArgo.fleet.messageDeliveries.query({ messageId, limit: 20 });
 
     expect(ship).toMatchObject({ id: shipId, status: 'crewed', crewedSince: clock.now().toISOString(), retiredAt: null });
     expect(timeline.items[0]).toMatchObject({ type: 'MessageAccepted', actor: { id: shipId }, message: { id: messageId } });
@@ -1373,7 +1375,9 @@ describe('the ship page reads at the API', () => {
       payload: 'Done with PR 48',
       recipient: { kind: 'ship', ship: { id: argoId, name: 'argo' } },
       delivery: { state: 'pending', history: [{ type: 'MessageAccepted' }] },
+      deliveryCount: 1,
     });
+    expect(deliveries).toEqual({ items: [{ id: message.delivery.id, ship: { id: argoId, name: 'argo' }, state: 'pending', since: message.sentAt }], nextCursor: null });
   });
 
   it("serve a ship with its crew's statement (decision 0047)", async () => {
@@ -1394,6 +1398,7 @@ describe('the ship page reads at the API', () => {
     await expect(codeOf(reader.fleet.shipTimeline.query({ shipId: argoId }))).resolves.toBe('FORBIDDEN');
     await expect(codeOf(reader.fleet.shipMessages.query({ shipId: argoId }))).resolves.toBe('FORBIDDEN');
     await expect(codeOf(reader.fleet.message.query({ messageId: newId('message') }))).resolves.toBe('FORBIDDEN');
+    await expect(codeOf(reader.fleet.messageDeliveries.query({ messageId: newId('message') }))).resolves.toBe('FORBIDDEN');
   });
 
   it('answer NOT_FOUND for a ship or message the fleet does not have', async () => {
@@ -1403,6 +1408,7 @@ describe('the ship page reads at the API', () => {
     await expect(codeOf(asArgo.fleet.shipTimeline.query({ shipId: newId('ship') }))).resolves.toBe('NOT_FOUND');
     await expect(codeOf(asArgo.fleet.shipMessages.query({ shipId: newId('ship') }))).resolves.toBe('NOT_FOUND');
     await expect(codeOf(asArgo.fleet.message.query({ messageId: newId('message') }))).resolves.toBe('NOT_FOUND');
+    await expect(codeOf(asArgo.fleet.messageDeliveries.query({ messageId: newId('message') }))).resolves.toBe('NOT_FOUND');
   });
 });
 

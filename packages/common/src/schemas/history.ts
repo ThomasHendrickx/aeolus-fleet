@@ -275,8 +275,9 @@ export type MessageDelivery = z.infer<typeof messageDeliverySchema>;
 
 /**
  * Output of `fleet.message`: the envelope, the payload, its replies and the
- * delivery with its way and its history, newest first; and every delivery of
- * it by id, one per ship for a label (decision 0065), whose first is that delivery.
+ * delivery with its way and its history, newest first; and how many
+ * deliveries it has, one per ship for a label (decision 0065), whose first by
+ * id is that delivery. `fleet.messageDeliveries` lists them a page at a time.
  */
 export const messageOutputSchema = listedMessageSchema.omit({ preview: true, delivery: true }).extend({
   payload: z.string(),
@@ -289,10 +290,16 @@ export const messageOutputSchema = listedMessageSchema.omit({ preview: true, del
     way: deliveryWaySchema,
     history: z.array(deliveryHistoryEntrySchema),
   }),
-  deliveries: z.array(messageDeliverySchema),
+  deliveryCount: z.int().min(0),
 });
 
 export type MessageDetail = z.infer<typeof messageOutputSchema>;
+
+/** Input of `fleet.messageDeliveries`: the message, and the cursor and size of a page of its deliveries. */
+export const messageDeliveriesInputSchema = messageInputSchema.extend(pageInputOf(idSchema('delivery')).shape);
+
+/** Output of `fleet.messageDeliveries`: a page of the message's deliveries, by id. */
+export const messageDeliveriesOutputSchema = pageOutputOf(messageDeliverySchema, idSchema('delivery'));
 
 /**
  * Output of `fleet.shipWay`: a ship's side of the way (#756). The open

@@ -1955,10 +1955,26 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         .toSorted((first, second) => first.createdAt.getTime() - second.createdAt.getTime() || first.id.localeCompare(second.id))
         .map((reply) => ({ id: reply.id, sender: partyOf(fleetId, reply.senderShipId), sentAt: reply.createdAt }));
       const lease = leaseOfDelivery(delivery);
-      const deliveries = state.deliveries
-        .filter((held) => held.fleetId === fleetId && held.messageId === message.id)
-        .toSorted((first, second) => first.id.localeCompare(second.id))
-        .map((held) => {
+      return Promise.resolve({
+        ...historyMessageOf(message),
+        history: changes,
+        deliveryCount: state.deliveries.filter((held) => held.fleetId === fleetId && held.messageId === message.id).length,
+        replies,
+        lease: lease ? wayLeaseOf(lease) : null,
+        overdue: standingOverdueOf(delivery),
+        crew: crewOf(lease),
+      });
+    },
+    messageDeliveries: (fleetId, { messageId, cursor, limit }) => {
+      const leases = wayLeases(fleetId);
+      const page = pageOf(
+        state.deliveries
+          .filter((held) => held.fleetId === fleetId && held.messageId === messageId && (cursor === undefined || held.id > cursor))
+          .toSorted((first, second) => first.id.localeCompare(second.id)),
+        { limit, cursorOf: (held) => held.id },
+      );
+      return Promise.resolve({
+        items: page.items.map((held) => {
           const shipId = held.recipient.kind === 'ship' ? held.recipient.shipId : held.claimedByShipId;
           return {
             id: held.id,
@@ -1969,15 +1985,8 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
               .reverse()
               .flatMap((event) => deliveryStepOf(event, { party: (id) => partyOf(fleetId, id), leases })),
           };
-        });
-      return Promise.resolve({
-        ...historyMessageOf(message),
-        history: changes,
-        deliveries,
-        replies,
-        lease: lease ? wayLeaseOf(lease) : null,
-        overdue: standingOverdueOf(delivery),
-        crew: crewOf(lease),
+        }),
+        nextCursor: page.nextCursor,
       });
     },
     messageParties: (fleetId, messageIds) =>

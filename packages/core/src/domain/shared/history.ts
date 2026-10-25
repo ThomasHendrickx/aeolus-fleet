@@ -186,13 +186,13 @@ export interface MessageDelivery {
  * One message as the history reads it: its delivery's steps newest first,
  * its replies oldest first, and what its way is read from: the lease that
  * holds it or that a pending delivery to one ship waits for, the overdue
- * clock that stands, and the crew request of that lease's ship. Every
- * delivery of it comes too, by id: one per ship of a send to a label
- * (decision 0065), whose first is the delivery above.
+ * clock that stands, and the crew request of that lease's ship. How many
+ * deliveries it has comes too: one per ship of a send to a label (decision
+ * 0065), whose first by id is the delivery above.
  */
 export type MessageRead = HistoryMessage & {
   history: DeliveryChange[];
-  deliveries: MessageDelivery[];
+  deliveryCount: number;
   replies: HistoryReply[];
   lease: WayLease | null;
   overdue: StandingOverdue | null;
@@ -281,6 +281,8 @@ export interface ShipHistory {
   messages(fleetId: FleetId, query: { shipId: ShipId } & PageQuery<MessageId>): Promise<Page<HistoryMessage, MessageId> | undefined>;
   /** The message, with its delivery's steps newest first and what its way is read from. */
   message(fleetId: FleetId, messageId: MessageId): Promise<MessageRead | undefined>;
+  /** A page of the message's deliveries by id, after the delivery the cursor names; empty when the fleet has no such message. */
+  messageDeliveries(fleetId: FleetId, query: { messageId: MessageId } & PageQuery<DeliveryId>): Promise<Page<MessageDelivery, DeliveryId>>;
   /**
    * A page of the undeliverable or not handled deliveries, or those in one
    * of the two states, the fleet's or those naming one ship, oldest first by since when, after the delivery the
