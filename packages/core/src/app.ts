@@ -128,8 +128,6 @@ export function createApp(options: AppOptions): FastifyInstance {
     onListening: () => {
       wakeups.wakeAll();
       fleetEvents.wakeAll();
-      // Notices sent while the listener was away are gone: the timer looks again at once.
-      scheduleTimer.told(new Date());
     },
     onError: (error) => {
       server.log.warn(failureForLog(error), 'delivery listener lost its connection: listening again shortly');

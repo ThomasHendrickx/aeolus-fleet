@@ -18,9 +18,10 @@ const MIN_GAP_MS = 1_000;
 const MAX_WAIT_MS = 2 ** 31 - 1;
 
 /**
- * Starts the timer: it sends at once, for what came due while no server
- * ran, then whenever the earliest attempt it was told of, or that a send
- * answered, is due. One send at a time, at least a second apart. A send that
+ * Starts the timer, unarmed: it sends whenever the earliest attempt it was
+ * told of, or that a send answered, is due. What came due while no server
+ * ran, or while the listener was away, the 30 second pass sends, so a
+ * server's start queries nothing outside a call. One send at a time, at least a second apart. A send that
  * fails goes to `onError`; the next schedule it is told of, or the 30 second
  * pass, sends what it missed, since a send reads its work from the database.
  */
@@ -83,7 +84,6 @@ export function startScheduleTimer(options: {
       });
   };
 
-  arm(options.now());
   return {
     told: (at) => {
       arm(at.getTime());
