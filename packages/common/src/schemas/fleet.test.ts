@@ -189,8 +189,8 @@ describe('startingPromptOutputSchema', () => {
     shipId: newId('ship'),
     prompt: 'Ship secret: aeolus_sk_v1_abc',
     crewLines: [
-      { harness: 'claude-code', line: '/aeolus:crew https://fleet.example.com shp_01 aeolus_sk_v1_abc' },
-      { harness: 'codex', line: '$aeolus-crew https://fleet.example.com shp_01 aeolus_sk_v1_abc' },
+      { harness: 'claude-code', line: '/aeolus-fleet:crew https://fleet.example.com shp_01 aeolus_sk_v1_abc' },
+      { harness: 'codex', line: '$aeolus-fleet-crew https://fleet.example.com shp_01 aeolus_sk_v1_abc' },
     ],
     secret: 'aeolus_sk_v1_abc',
   };
@@ -202,7 +202,7 @@ describe('startingPromptOutputSchema', () => {
   it.each([
     ['a missing prompt', { ...output, prompt: undefined }],
     ['missing crew lines', { ...output, crewLines: undefined }],
-    ['a crew line without its harness', { ...output, crewLines: [{ line: '/aeolus:crew' }] }],
+    ['a crew line without its harness', { ...output, crewLines: [{ line: '/aeolus-fleet:crew' }] }],
     ['a missing secret', { ...output, secret: undefined }],
   ])('rejects %s', (_label, candidate) => {
     expect(startingPromptOutputSchema.safeParse(candidate).success).toBe(false);
@@ -214,7 +214,7 @@ describe('commissionShipOutputSchema', () => {
     const first = {
       shipId: newId('ship'),
       prompt: 'Ship secret: aeolus_sk_v1_abc',
-      crewLines: [{ harness: 'claude-code', line: '/aeolus:crew https://fleet.example.com shp_01 aeolus_sk_v1_abc' }],
+      crewLines: [{ harness: 'claude-code', line: '/aeolus-fleet:crew https://fleet.example.com shp_01 aeolus_sk_v1_abc' }],
       secret: 'aeolus_sk_v1_abc',
       startingPrompt: { issuedAt: '2026-10-04T09:00:00.000Z', isClaimed: false },
     };

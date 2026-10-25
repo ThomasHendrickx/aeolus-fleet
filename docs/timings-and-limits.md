@@ -46,7 +46,7 @@ Defined in `@aeolus-fleet/common`, checked by core on every call and by the clie
 | 300 characters | A guide step's text | [schemas/guide.ts](../packages/common/src/schemas/guide.ts) `GUIDE_STEP_TEXT_MAX` | [0024](decisions/0024-guide.md) |
 | 200 characters | A guide step's page path | [schemas/guide.ts](../packages/common/src/schemas/guide.ts) `GUIDE_STEP_PATH_MAX` | [0024](decisions/0024-guide.md) |
 | 64 characters | A guide step's anchor (inline pattern) | [schemas/guide.ts](../packages/common/src/schemas/guide.ts) | [0024](decisions/0024-guide.md) |
-| 80 characters | The headline a message to argo opens with; the trierarch, squadrons and the aeolus plugin cut a longer one with an ellipsis | [fleet/argo-message.ts](../packages/common/src/fleet/argo-message.ts) `ARGO_HEADLINE_MAX_LENGTH` | [blueprint.md](blueprint.md#operator-inbox), #849 |
+| 80 characters | The headline a message to argo opens with; the trierarch, squadrons and the Aeolus Fleet plugin cut a longer one with an ellipsis | [fleet/argo-message.ts](../packages/common/src/fleet/argo-message.ts) `ARGO_HEADLINE_MAX_LENGTH` | [blueprint.md](blueprint.md#operator-inbox), #849 |
 | 1 to 15 digits | An event stream position, kept below 2^53 | [schemas/fleet.ts](../packages/common/src/schemas/fleet.ts) `STREAM_POSITION_PATTERN` | none recorded |
 | 26 characters after the prefix; time up to 2^48 - 1 ms | A prefixed id | [ids/index.ts](../packages/common/src/ids/index.ts) `BODY_PATTERN`, `MAX_TIME` | [0005](decisions/0005-prefixed-ids.md) |
 
@@ -73,7 +73,7 @@ Defined in `@aeolus-fleet/common`, checked by core on every call and by the clie
 | --- | --- | --- | --- |
 | 0 to 25 s | The wait an inbox check may ask for | [schemas/delivery.ts](../packages/common/src/schemas/delivery.ts) `INBOX_WAIT_MAX_SECONDS` | [blueprint.md](blueprint.md) |
 | 0 to 25 s | The wait a `fleet.follow` may ask for | [schemas/follow.ts](../packages/common/src/schemas/follow.ts) `FOLLOW_WAIT_MAX_SECONDS` | none recorded |
-| 1, 2, 4, 8 s, each drawn between half and all of it | The waits before a fleet client calls again while the fleet answers busy: 5 calls in all. Squadrons, the trierarch and the trierarch plugin use it; the aeolus plugin keeps a copy (below) | [fleet/index.ts](../packages/common/src/fleet/index.ts) `FLEET_BUSY_WAITS_MS`; [fleet/busy-wait.ts](../packages/common/src/fleet/busy-wait.ts) `busyWaitMs` | [architecture.md](architecture.md), #734 |
+| 1, 2, 4, 8 s, each drawn between half and all of it | The waits before a fleet client calls again while the fleet answers busy: 5 calls in all. Squadrons, the trierarch and the trierarch plugin use it; the Aeolus Fleet plugin keeps a copy (below) | [fleet/index.ts](../packages/common/src/fleet/index.ts) `FLEET_BUSY_WAITS_MS`; [fleet/busy-wait.ts](../packages/common/src/fleet/busy-wait.ts) `busyWaitMs` | [architecture.md](architecture.md), #734 |
 
 ## Core
 
@@ -189,5 +189,5 @@ Defined in `@aeolus-fleet/common`, checked by core on every call and by the clie
 Each holds its own timings and limits in its repository (decision 0049):
 
 - squadrons: [aeolus-fleet-squadrons](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/blob/main/docs/timings-and-limits.md)
-- the trierarch and the aeolus plugin: [aeolus-fleet-trierarch](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/docs/timings-and-limits.md)
+- the trierarch and the Aeolus Fleet plugin: [aeolus-fleet-trierarch](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/docs/timings-and-limits.md)
 - the trierarch plugin: [aeolus-fleet-trierarch-plugin](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch-plugin/blob/main/docs/timings-and-limits.md)

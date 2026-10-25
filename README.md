@@ -74,24 +74,24 @@ Open http://localhost:3000 and sign in with the operator email and password. Eve
 
 ## Crew a ship from Claude Code or Codex
 
-Install the plugin for [Claude Code](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/plugins/aeolus/README.md#install-for-claude-code) or follow the [Codex setup](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/plugins/aeolus/README.md#install-for-codex-desktop-or-cli):
+Install the plugin for [Claude Code](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/plugins/aeolus-fleet/README.md#install-for-claude-code) or follow the [Codex setup](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/plugins/aeolus-fleet/README.md#install-for-codex-desktop-or-cli):
 
 ```
 /plugin marketplace add ThomasHendrickx/aeolus-fleet-trierarch
-/plugin install aeolus@aeolus-fleet
+/plugin install aeolus-fleet@aeolus-fleet
 ```
 
 In the console, Commission ship (or Get starting prompt) shows a crew line per harness. Paste the Claude Code one into a Claude Code session in the folder that should crew the ship:
 
 ```
-/aeolus:crew <fleetUrl> <shipId> <secret>
+/aeolus-fleet:crew <fleetUrl> <shipId> <secret>
 ```
 
-In Codex, add the marketplace and the plugin (`codex plugin marketplace add ThomasHendrickx/aeolus-fleet-trierarch`, then `codex plugin add aeolus@aeolus-fleet`), do the one-time setup in the [plugin README](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/plugins/aeolus/README.md#install-for-codex-desktop-or-cli), and paste the Codex crew line:
+In Codex, add the marketplace and the plugin (`codex plugin marketplace add ThomasHendrickx/aeolus-fleet-trierarch`, then `codex plugin add aeolus-fleet@aeolus-fleet`), do the one-time setup in the [plugin README](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/plugins/aeolus-fleet/README.md#install-for-codex-desktop-or-cli), and paste the Codex crew line:
 
-    $aeolus-crew <fleetUrl> <shipId> <secret>
+    $aeolus-fleet-crew <fleetUrl> <shipId> <secret>
 
-The plugin makes every fleet call through its scripts, so the crew token never reaches the model or its transcript: wherever a session has a shell, crew with the plugin rather than over MCP. Codex, cloud sessions and the rest are in the [plugin README](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/plugins/aeolus/README.md). Any other agent reaches the same calls over MCP at `/mcp` or REST at `/api/v1`, as the [core README](packages/core/README.md#ships) describes.
+The plugin makes every fleet call through its scripts, so the crew token never reaches the model or its transcript: wherever a session has a shell, crew with the plugin rather than over MCP. Codex, cloud sessions and the rest are in the [plugin README](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/plugins/aeolus-fleet/README.md). Any other agent reaches the same calls over MCP at `/mcp` or REST at `/api/v1`, as the [core README](packages/core/README.md#ships) describes.
 
 ## Keep sessions running
 
@@ -127,7 +127,7 @@ Each release train has its own repository and version (decision [0049](docs/deci
 | `@aeolus-fleet/squadrons` | Optional: forms squadrons of ships from blueprints in git and leads them | [aeolus-fleet-squadrons](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons) |
 | `@aeolus-fleet/trierarch-plugin` | Optional: brings machines into the fleet and assigns crew requests to their trierarchs | [aeolus-fleet-trierarch-plugin](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch-plugin) |
 | `@aeolus-fleet/trierarch` | Optional: keeps ships crewed on a machine, one session each | [aeolus-fleet-trierarch](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch) |
-| `aeolus` | The plugin for Claude Code and Codex | [aeolus-fleet-trierarch](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/plugins/aeolus/README.md) |
+| `aeolus-fleet` | The plugin for Claude Code and Codex | [aeolus-fleet-trierarch](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/plugins/aeolus-fleet/README.md) |
 
 ## Development
 
@@ -158,7 +158,7 @@ This repository's releases (common, core and console) are published only by its 
 
 ## Community
 
-Questions, ideas, and fleets you built: [GitHub Discussions](https://github.com/ThomasHendrickx/aeolus-fleet/discussions). To report a problem from a crewed session, run `/aeolus:issue` (Codex: `$aeolus-issue`): it files the issue scrubbed of secrets. Or [open an issue](https://github.com/ThomasHendrickx/aeolus-fleet/issues/new/choose).
+Questions, ideas, and fleets you built: [GitHub Discussions](https://github.com/ThomasHendrickx/aeolus-fleet/discussions). To report a problem from a crewed session, run `/aeolus-fleet:issue` (Codex: `$aeolus-fleet-issue`): it files the issue scrubbed of secrets. Or [open an issue](https://github.com/ThomasHendrickx/aeolus-fleet/issues/new/choose).
 
 ## Security
 
