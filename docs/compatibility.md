@@ -22,3 +22,7 @@ The ship contract is `/api/v1`, REST over the same procedures as `/trpc` and `/m
 | gateway | 0044, 0056 | `ship/register`, `whoami`, `pushReceive`, `receiveReply`, `sentMessage`, `ack`, `delivery`, `handed`, `handled`, `notHandled`, `inbox`, `send`, `discover`, `setStatement`, `deregister`, `meeting`, `requestMic`, `withdrawMicRequest`, `releaseMic`; `fleet/commission`, `ship`, `getStartingPrompt`, `release`, `declareScopes`, `networkRules`. With argo's console cookie, `/trpc` `console.session` and `fleet.networkRules` |
 
 Every package also builds against `@aeolus-fleet/common`: its schemas are the shapes of these calls, of plugin details per ship type (decision 0028) and of crew settings (decision 0027).
+
+## What the console needs from the trierarch plugin
+
+The console calls the trierarch plugin's tRPC procedures from the web app's server with the operator's console session (decision 0033). It needs trierarch plugin 0.32.0 or later, which serves the fleet's enabled models: `models.list`, `models.enable` and `models.disable` (decision 0063).

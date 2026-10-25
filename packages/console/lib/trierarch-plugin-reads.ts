@@ -8,7 +8,7 @@ import { callPlugin, sessionCookieOf } from './plugin-call';
 import { readShownConnection } from './plugin-calls';
 import { serverInternalUrlFrom } from './server-url';
 import { shownConnectionOf, type ShownConnection } from './shown-connection';
-import { machineSchema, settingsCheckSchema, type Machine, type SettingsCheck } from './trierarch-plugin-schemas';
+import { enabledModelsSchema, machineSchema, settingsCheckSchema, type Machine, type SettingsCheck } from './trierarch-plugin-schemas';
 import { trierarchPluginUrlFrom } from './trierarch-plugin-url';
 import { trierarchPluginVersionOf } from './version';
 
@@ -74,6 +74,11 @@ export async function readTrierarchPluginVersion(): Promise<string | undefined> 
 
 export async function listMachines(): Promise<PluginAnswer<Machine[]>> {
   return call('machines.list', { answers: z.array(machineSchema) });
+}
+
+/** The fleet's enabled models by exact id (decision 0063); none is no rule. */
+export async function listEnabledModels(): Promise<PluginAnswer<string[]>> {
+  return call('models.list', { answers: enabledModelsSchema });
 }
 
 export async function checkCrewSettings(settings: unknown): Promise<PluginAnswer<SettingsCheck>> {

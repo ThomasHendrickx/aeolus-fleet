@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { Badge } from '../../../components/atoms/badge';
 import { Button } from '@aeolus-fleet/common/header';
 import { useAssignedShips } from '../../../features/trierarchs/hooks/assigned-ships';
+import { ModelsContainer } from '../../../features/trierarchs/state/models-container';
 import { MachineList } from '../../../features/trierarchs/ui/organisms/machine-list';
 import { ListPage } from '../../../components/organisms/list-page';
 import { useConsoleFrame } from '../../../lib/console-frame';
@@ -26,7 +27,8 @@ const JoinMachineDialog = lazyDialog(() => import('../../../features/trierarchs/
  * Trierarchs (#245): the machines that run sessions for crew requests, each
  * with its capacity and what it offers, and Join a machine. Without the
  * trierarch plugin it says what the plugin does and how to set it up. The
- * version the plugin runs sits beside the title (canvas TpMachines).
+ * version the plugin runs sits beside the title (canvas TpMachines). Below
+ * them, the fleet's enabled models (model governance, M7).
  */
 export default function TrierarchsPage() {
   const now = useNow();
@@ -84,6 +86,7 @@ export default function TrierarchsPage() {
         onJoin={canJoin ? openJoin : undefined}
         now={now}
       />
+      {connection === 'connected' && <ModelsContainer />}
       {canJoin && (
         <JoinMachineDialog
           takenNames={isNameTaken === true ? [typedName] : []}

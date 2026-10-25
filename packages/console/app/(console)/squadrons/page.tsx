@@ -6,20 +6,20 @@ import { use, useState } from 'react';
 
 import { Button } from '@aeolus-fleet/common/header';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/atoms/tabs';
-import { BlueprintTable } from '../../../features/squadrons/organisms/blueprint-table';
-import { TemplateTable } from '../../../features/squadrons/organisms/template-table';
-import { FormSquadron } from '../../../features/squadrons/organisms/form-squadron';
-import { SquadronTable } from '../../../features/squadrons/organisms/squadron-table';
+import { BlueprintTable } from '../../../features/squadrons/ui/organisms/blueprint-table';
+import { TemplateTable } from '../../../features/squadrons/ui/organisms/template-table';
+import { FormSquadron } from '../../../features/squadrons/state/form-squadron';
+import { SquadronTable } from '../../../features/squadrons/ui/organisms/squadron-table';
 import { ListPage } from '../../../components/organisms/list-page';
 import { useConsoleFrame } from '../../../lib/console-frame';
-import { SquadronsNotConnected } from '../../../features/squadrons/molecules/squadrons-not-connected';
+import { SquadronsNotConnected } from '../../../features/squadrons/ui/molecules/squadrons-not-connected';
 import { useAccess } from '../../../lib/access';
 import { useLiveFleet } from '../../../lib/live-fleet';
 import { useNeedsAttention } from '../../../lib/needs-attention';
 import { useSignInWhenSessionEnds } from '../../../lib/session';
 import { useSquadronsConnection } from '../../../lib/squadrons';
 import { useCatalogue, useSquadrons } from '../../../lib/squadrons-api';
-import { readSquadronView, squadronViewParams, type SquadronView } from '../../../features/squadrons/lib/squadron-filter';
+import { readSquadronView, squadronViewParams, type SquadronView } from '../../../features/squadrons/services/squadron-filter';
 import { blueprintChoices, templateChoices } from '../../../lib/squadrons-view';
 
 /** The page's sections, in the URL as `tab`; Squadrons when none. */

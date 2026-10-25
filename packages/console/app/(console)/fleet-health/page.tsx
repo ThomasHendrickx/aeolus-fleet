@@ -5,7 +5,7 @@ import type { ListedShip } from '@aeolus-fleet/common';
 import { ListPage } from '../../../components/organisms/list-page';
 import { HealthContainer } from '../../../features/health/state/health-container';
 import { SilentMembers } from '../../../features/health/ui/organisms/silent-members';
-import { GetNewCrewLine } from '../../../features/squadrons/organisms/get-new-crew-line';
+import { GetNewCrewLine } from '../../../features/squadrons/state/get-new-crew-line';
 import { MachineLiveness } from '../../../features/trierarchs/ui/organisms/machine-card';
 import { useAccess } from '../../../lib/access';
 import { useConsoleFrame } from '../../../lib/console-frame';
