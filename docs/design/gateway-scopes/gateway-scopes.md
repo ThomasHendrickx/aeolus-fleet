@@ -2,7 +2,7 @@
 
 Design for [#1152](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1152) (part A) and [#1227](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1227) with [#1078](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1078) (part B), as one gateway design. Part A ships in Aeolus 0.32.0, part B in 0.33.0. Docs only.
 
-Part A: approved by Thomas (25 Oct); the build starts from its slices. Part B: stage 2, the detail, from Thomas's answers (25 Oct), for his review.
+Part A: approved by Thomas (25 Oct); the build starts from its slices. Part B: stage 2, the detail, from Thomas's answers (25 Oct), for Thomas's review.
 
 ## 1. Purpose
 
