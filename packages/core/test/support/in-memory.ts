@@ -1675,6 +1675,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     applied: (fleetId) => appliedLimits(tx, fleetId),
     activeShips: (fleetId) => Promise.resolve(state.ships.filter((ship) => ship.fleetId === fleetId && ship.retiredAt === null).length),
     messagesOn: (fleetId, day) => Promise.resolve(state.messages.filter((message) => message.fleetId === fleetId && utcDayStart(message.createdAt).getTime() === day.getTime()).length),
+    keptFrom: (fleetId) => Promise.resolve(state.fleetPrunes.find((row) => row.fleetId === fleetId)?.keptFrom ?? null),
   };
 
   const listing: FleetListing = {

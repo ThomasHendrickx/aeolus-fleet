@@ -18,6 +18,8 @@ import { ShipPageLabels } from '../../../../features/ship/state/ship-page-labels
 import { ShipTimeline } from '../../../../features/ship/ui/organisms/ship-timeline';
 import { MessageDeliveries } from '../../../../features/ship/ui/organisms/message-deliveries';
 import { LoadMore } from '../../../../components/molecules/load-more';
+import { HistoryKeptFrom } from '../../../../components/molecules/history-kept-from';
+import { useFleetLimits } from '../../../../lib/fleet-limits';
 import { useSignedInAccountNames } from '../../../../features/ship/hooks/use-signed-in-account-names';
 import { DetailPage } from '../../../../components/organisms/detail-page';
 import { useConsoleFrame } from '../../../../lib/console-frame';
@@ -55,8 +57,10 @@ function pathOf(shipId: ShipId, view: { tab: ShipTab; messageId?: MessageId }): 
 /**
  * A ship's page, live: its header, its timeline from the event log and its
  * messages grouped into threads, each opening in the MessageSheet with its
- * delivery history, and, for a session that manages the fleet, its schedules. The tab and the open message live in the URL, parsed on
- * the web app's server (page.tsx).
+ * delivery history, and, for a session that manages the fleet, its schedules.
+ * Under the timeline and the threads, where the fleet's kept history begins.
+ * The tab and the open message live in the URL, parsed on the web app's
+ * server (page.tsx).
  */
 export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: ShipTab; messageId?: MessageId }) {
   const router = useRouter();
@@ -71,6 +75,7 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
   // Only a send to a label lists its deliveries; each other message has one, on its way.
   const deliveries = useMessageDeliveries(message.data?.recipient.kind === 'label' ? message.data.id : undefined);
   const way = useShipWay(shipId);
+  const keptFrom = useFleetLimits().data?.retention.keptFrom ?? null;
   const machines = useMachines();
   const liveFleet = useLiveFleet();
   const frame = useConsoleFrame();
@@ -188,6 +193,7 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
             ) : null}
           </TabsList>
           <TabsContent value={SHIP_TABS.timeline} className="pt-4">
+            <div className="flex flex-col gap-3">
             <ShipTimeline
               shipId={shipId}
               entries={timeline.items ?? []}
@@ -202,8 +208,11 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
               onOpenMessage={openMessageAt}
               accountNames={accountNames}
             />
+            <HistoryKeptFrom keptFrom={keptFrom} area="ship-timeline" />
+            </div>
           </TabsContent>
           <TabsContent value={SHIP_TABS.messages} className="pt-4">
+            <div className="flex flex-col gap-3">
             <MessageThreads
               shipId={shipId}
               messages={messages.items ?? []}
@@ -217,6 +226,8 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
               now={now}
               onOpenMessage={openMessageAt}
             />
+            <HistoryKeptFrom keptFrom={keptFrom} area="message-threads" />
+            </div>
           </TabsContent>
           {access.canManage ? (
             <TabsContent value={SHIP_TABS.schedules} className="pt-4">

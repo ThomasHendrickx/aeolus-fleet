@@ -261,5 +261,6 @@ export function createPrismaFleetLimitReads(prisma: PrismaClient): FleetLimitRea
       const row = await prisma.messageDay.findUnique({ where: { fleetId_day: { fleetId, day } }, select: { messages: true } });
       return row?.messages ?? 0;
     },
+    keptFrom: async (fleetId) => (await prisma.fleet.findUnique({ where: { id: fleetId }, select: { keptFrom: true } }))?.keptFrom ?? null,
   };
 }
