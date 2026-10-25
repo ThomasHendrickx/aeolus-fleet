@@ -1,12 +1,12 @@
 # Gateway: tools by scope, and ships as Slack bots
 
-Design for [#1152](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1152) (part A) and [#1227](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1227) with [#1078](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1078) (part B), as one gateway design for Aeolus 0.32.0. Docs only.
+Design for [#1152](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1152) (part A) and [#1227](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1227) with [#1078](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1078) (part B), as one gateway design. Part A ships in Aeolus 0.32.0, part B in 0.33.0. Docs only.
 
 Stage 1: purpose, lessons, questions. Nothing past the purpose is decided until Thomas agrees it.
 
 ## 1. Purpose
 
-### Part A: which tools of an outside party a ship may call
+### Part A: which tools of an outside party a ship may call (0.32.0)
 
 An approver lets one ship search the company vault and another ship also write to it, without a network rule or a label for it. Network rules say where a ship may send: whether it reaches an outside party's proxy ship at all. Scopes say what it may do there: which of the party's switched-on tools it may call. Thomas: "labels would violate the network (labels) is where, scope is what rule".
 
@@ -19,7 +19,7 @@ A good outcome:
 
 Not the purpose: the tool switch per party (#1151, shipped); a scope check inside core for calls to outside parties; outside clients and agents calling into the fleet.
 
-### Part B: ships as Slack bots
+### Part B: ships as Slack bots (0.33.0)
 
 A person in the company talks to a ship of the fleet in Slack as they talk to a colleague: a ship exposed as a Slack bot, with its own name, that they message directly or mention in a channel. Several ships may each be their own bot. Thomas: "Slack integration with potential multiple bots that get exposed to the fleet. So a ship in the fleet becomes a bot in slack." Waking a person in Slack is one part of it: what waits for their person ship shows where they already are ("be where the user is", #1078).
 
