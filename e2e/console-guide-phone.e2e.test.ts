@@ -28,6 +28,10 @@ const ANCHOR = 'ship-timeline-entry';
 const SETTLE_MS = 500;
 /** How much later than the timeline and the guide the parts above the timeline answer, as on a slow network (#1194). */
 const LATE_MS = 400;
+/** How far the visitor scrolls down: past the anchor, so it leaves the top of the window. */
+const VISITOR_SCROLL = 600;
+/** The parts of a ship page that answer at once; the parts above the timeline wait. */
+const EARLY = /shipTimeline|console\.guide/;
 
 let database: PrismaClient;
 let server: FastifyInstance;
@@ -138,11 +142,37 @@ describe('a guide step on a phone', () => {
   it('keeps them in sight when what sits above the anchor loads after it', async () => {
     const page = await signedInViewer();
     await page.route('**/trpc/**', async (route) => {
-      if (!/shipTimeline|console\.guide/.test(route.request().url())) {
+      if (!EARLY.test(route.request().url())) {
         await new Promise((resolve) => setTimeout(resolve, LATE_MS));
       }
       await route.continue();
     });
     await expectAnchorAndNextEntryInSight(page);
   });
+
+  it('leaves the page where the visitor scrolled it when what sits above the anchor loads later', async () => {
+    const page = await signedInViewer();
+    const late = Promise.withResolvers<undefined>();
+    await page.route('**/trpc/**', async (route) => {
+      if (!EARLY.test(route.request().url())) {
+        await late.promise;
+      }
+      await route.continue();
+    });
+    await page.goto(`/ships/${shipId}`);
+    const step = page.getByTestId('tour-step');
+    await step.getByText('What happened last').waitFor();
+    await expect.poll(() => step.getAttribute('data-placement')).toBe('anchored');
+    const entries = page.locator(`[data-testid="${ANCHOR}"]:visible`);
+    await page.mouse.move(PHONE.viewport.width / 2, PHONE.viewport.height / 2);
+    await page.mouse.wheel(0, VISITOR_SCROLL);
+    await expect.poll(async () => (await entries.nth(0).boundingBox())?.y).toBeLessThan(0);
+    late.resolve(undefined);
+    await page.getByRole('heading', { name: `scout-${String(RENAMES)}` }).waitFor();
+
+    const [, newest] = await settled([step, entries.nth(0), entries.nth(1)]);
+
+    expect(newest.y).toBeLessThan(0);
+  });
 });
+
