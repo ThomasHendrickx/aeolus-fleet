@@ -16,6 +16,7 @@ import {
 } from './message.js';
 
 const newId = createIdGenerator();
+const VALUE_ID = newId('labelValue');
 
 describe('payloadBytes', () => {
   it.each([
@@ -99,6 +100,8 @@ describe('selectorSchema', () => {
     ['argo by name', { kind: 'ship', name: 'argo' }],
     ['a type', { kind: 'type', type: 'reviewer' }],
     ['a meeting (decision 0061)', { kind: 'meeting', meetingId: newId('meeting') }],
+    ['a label selection of one value (decision 0063)', { kind: 'label', valueIds: [newId('labelValue')] }],
+    ['a label selection of the 20 values a ship carries', { kind: 'label', valueIds: Array.from({ length: 20 }, () => newId('labelValue')) }],
   ])('accepts %s', (_label, selector) => {
     expect(selectorSchema.parse(selector)).toEqual(selector);
   });
@@ -112,6 +115,11 @@ describe('selectorSchema', () => {
     ['a type with a name', { kind: 'type', type: 'reviewer', name: 'scout' }],
     ['a group, which comes later', { kind: 'group', group: 'reviewers' }],
     ['a meeting id of another kind', { kind: 'meeting', meetingId: newId('message') }],
+    ['a label selection of no value', { kind: 'label', valueIds: [] }],
+    ['a label selection of 21 values, more than a ship carries', { kind: 'label', valueIds: Array.from({ length: 21 }, () => newId('labelValue')) }],
+    ['a label selection naming a value twice', { kind: 'label', valueIds: [VALUE_ID, VALUE_ID] }],
+    ['a label selection by texts', { kind: 'label', valueIds: ['team=a'] }],
+    ['a label value id of another kind', { kind: 'label', valueIds: [newId('label')] }],
   ])('rejects %s', (_label, selector) => {
     expect(selectorSchema.safeParse(selector).success).toBe(false);
   });
