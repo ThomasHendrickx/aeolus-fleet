@@ -119,11 +119,20 @@ function ScopeForm({ describing, isPending, error, onSubmit }: Omit<ScopeDialogP
  * Define scope, and Change description (design gateway-scopes, 4.1): one of
  * the fleet's own scopes and its one-line description. A malformed, core,
  * reserved or plugin's namespace, or a scope the fleet has, is refused by the
- * server by name, shown inline with the input kept.
+ * server by name, shown inline with the input kept; the dialog stays open
+ * while pending so the answer is seen.
  */
 export function ScopeDialog({ isOpen, onOpenChange, describing, isPending, error, onSubmit }: ScopeDialogProps) {
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(isOpening) => {
+        // Escape or an outside click while pending would hide the answer: a refusal and the input with it.
+        if (!isPending) {
+          onOpenChange(isOpening);
+        }
+      }}
+    >
       <DialogContent data-testid="scope-dialog">{isOpen ? <ScopeForm describing={describing} isPending={isPending} error={error} onSubmit={onSubmit} /> : null}</DialogContent>
     </Dialog>
   );
