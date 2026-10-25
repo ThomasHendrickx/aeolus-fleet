@@ -4,7 +4,7 @@ import { z } from 'zod';
 import type { ScheduleAttempts, ScheduleNotice, ScheduleNotifier, ScheduleRepository } from '../../domain/messaging/ports.js';
 import type { Schedule, ScheduleOutcome, ScheduleTiming } from '../../domain/messaging/schedule.js';
 import { pageOf } from '../../domain/shared/page.js';
-import type { RecipientSelector } from '../../domain/shared/selector.js';
+import type { ScheduleSelector } from '../../domain/shared/selector.js';
 import type { Db, PrismaClient } from './client.js';
 
 /** The one channel every server's schedule timer listens on (decision 0062). */
@@ -14,10 +14,11 @@ const scheduleRow = z.object({
   id: idSchema('schedule'),
   fleetId: idSchema('fleet'),
   shipId: idSchema('ship'),
-  selectorKind: z.enum(['ship', 'type']),
+  selectorKind: z.enum(['ship', 'type', 'label']),
   selectorShipId: idSchema('ship').nullable(),
   selectorShipName: z.string().nullable(),
   selectorType: z.string().nullable(),
+  selectorValueIds: z.array(idSchema('labelValue')),
   payload: z.string(),
   contentType: z.string(),
   model: z.string().nullable(),
@@ -52,7 +53,10 @@ const scheduleRow = z.object({
 
 type ScheduleRow = z.infer<typeof scheduleRow>;
 
-function selectorOf(row: ScheduleRow): RecipientSelector {
+function selectorOf(row: ScheduleRow): ScheduleSelector {
+  if (row.selectorKind === 'label' && row.selectorValueIds.length > 0) {
+    return { kind: 'label', valueIds: row.selectorValueIds };
+  }
   if (row.selectorKind === 'type' && row.selectorType !== null) {
     return { kind: 'type', type: row.selectorType };
   }
@@ -168,6 +172,7 @@ export function createPrismaScheduleRepository(db: Db): ScheduleRepository {
           selectorShipId: 'shipId' in selector ? selector.shipId : null,
           selectorShipName: 'name' in selector ? selector.name : null,
           selectorType: selector.kind === 'type' ? selector.type : null,
+          selectorValueIds: selector.kind === 'label' ? [...selector.valueIds] : [],
           payload: schedule.send.payload,
           contentType: schedule.send.contentType,
           model: schedule.send.model,

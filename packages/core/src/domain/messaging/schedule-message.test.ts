@@ -1,4 +1,4 @@
-import { PAYLOAD_MAX_BYTES, type FleetId, type ScheduleId } from '@aeolus-fleet/common';
+import { PAYLOAD_MAX_BYTES, type FleetId, type LabelValueId, type ScheduleId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { applyNetworkRules, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, SESSION_MODEL, withInstallationSettings } from '../../../test/support/core-fixtures.js';
@@ -204,6 +204,50 @@ describe('making a schedule', () => {
 
     expect(refusalOf(refused).kind).toBe('NOT_REACHABLE');
     expect(core.state.reachRefusals.map((refusal) => refusedShip(refusal.sender).id)).toEqual([scout.shipId]);
+    expect([core.state.schedules, core.state.scheduleNotices, core.state.events]).toEqual([[], [], []]);
+  });
+});
+
+describe('making a schedule to a label (decision 0065)', () => {
+  let teamA: LabelValueId;
+
+  beforeEach(async () => {
+    unwrap(await registry.defineLabel(argo, { key: 'team', values: ['a', 'b'] }));
+    teamA = valueIdOf(core, { key: 'team', value: 'a' });
+    for (const ship of [scout, chief]) {
+      unwrap(await registry.assignLabel(argo, { shipId: ship.shipId, valueId: teamA }));
+    }
+    core.state.events.length = 0;
+  });
+
+  it('stores the label selection as given, resolving nothing into the schedule', async () => {
+    await scheduled(aSchedule({ selector: { kind: 'label', valueIds: [teamA] } }));
+
+    expect(core.state.schedules[0]?.send.selector).toEqual({ kind: 'label', valueIds: [teamA] });
+  });
+
+  it('refuses a selection no ship but the creator carries now, storing nothing', async () => {
+    const onlyScout = await messaging.scheduleMessage(chief, aSchedule({ selector: { kind: 'label', valueIds: [valueIdOf(core, { key: 'team', value: 'b' })] } }));
+
+    expect(refusalOf(onlyScout).kind).toBe('UNRESOLVABLE_SELECTOR');
+    expect([core.state.schedules, core.state.events]).toEqual([[], []]);
+  });
+
+  it('refuses the whole schedule when the creator does not reach one ship of the selection by send now, storing only the refusal record', async () => {
+    const networking = await shipWithScopes({ registry, argo }, { name: 'networking', type: 'networking', scopes: ['fleet:network'] });
+    const lead = await shipWithScopes({ registry, argo }, { name: 'lead', type: 'lead', scopes: [] });
+    unwrap(await registry.defineLabel(argo, { key: 'reach', values: ['lead', 'open'] }));
+    const reachLead = valueIdOf(core, { key: 'reach', value: 'lead' });
+    const reachOpen = valueIdOf(core, { key: 'reach', value: 'open' });
+    unwrap(await registry.assignLabel(argo, { shipId: lead.shipId, valueId: reachLead }));
+    unwrap(await registry.assignLabel(argo, { shipId: scout.shipId, valueId: reachOpen }));
+    await applyNetworkRules(registry, { by: networking, rules: [{ verb: 'send', from: [reachLead], to: [reachOpen] }] });
+    core.state.events.length = 0;
+
+    const refused = await messaging.scheduleMessage(lead, aSchedule({ selector: { kind: 'label', valueIds: [teamA] } }));
+
+    expect(refusalOf(refused).kind).toBe('NOT_REACHABLE');
+    expect(core.state.reachRefusals.map((refusal) => refusedShip(refusal.sender).id)).toEqual([lead.shipId]);
     expect([core.state.schedules, core.state.scheduleNotices, core.state.events]).toEqual([[], [], []]);
   });
 });

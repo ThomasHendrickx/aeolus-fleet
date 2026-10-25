@@ -400,12 +400,12 @@ export const shipRouter = router({
     .meta({
       description: [
         'Needs messages:send, and messages:force when isForced. Schedules a message that the fleet sends as you at its times, even while your ship has no crew:',
-        'a whole send input (selector of a ship by id or name, or a type; payload; contentType; inReplyTo; isForced), stored as given, and a timing:',
+        'a whole send input (selector of a ship by id or name, a type, or a label selection { "kind": "label", "valueIds": ["lbv_..."] }; payload; contentType; inReplyTo; isForced), stored as given, and a timing:',
         '{ "kind": "once", "at": "<ISO 8601 instant with its offset>" } in the future;',
         '{ "kind": "every", "every": "<ISO 8601 duration such as PT6H>" }, from start or else one interval after now;',
         'or { "kind": "cron", "cron": "<five fields such as 0 9 * * MON-FRI>", "timeZone": "<IANA zone, UTC by default>" }, a wall time summer time skips sending at the first valid minute after it, a doubled one once.',
         'every and cron take optional start and end (instants with their offset) and count (the number of messages it sends), either of the last two ending it.',
-        'You must reach the selector by send now, and at each send time it is checked again as a send by you then (scopes, reach, the daily message limit).',
+        'You must reach the selector by send now, and at each send time it is checked again as a send by you then (scopes, reach, the daily message limit); a label selection resolves at each send time into the ships carrying every value then, and you must reach each of them.',
         'onRefused says what a refused send time does: skip (default) records it and goes on to the next send time; retry tries again each pass until retryWindow (ISO 8601 duration from the send time, PT1H by default) ends, then skips; pause records it and pauses the schedule.',
         'onMissed says what a send time the fleet reaches later than grace (ISO 8601 duration, PT5M by default) does: each (default) sends every missed one, oldest first, at most 100 a pass; once sends only the latest; skip sends none; each one not sent is recorded.',
         'The message names scheduleId and sendTime, beside the contentType you picked. model is the exact model id you run now; the message states it.',

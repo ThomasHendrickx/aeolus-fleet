@@ -1,4 +1,4 @@
-import { createIdGenerator, type FleetId, type ScheduleId, type ShipId } from '@aeolus-fleet/common';
+import { createIdGenerator, idSchema, type FleetId, type LabelValueId, type ScheduleId, type ShipId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
@@ -535,5 +535,76 @@ describe('a repeating schedule on Postgres', () => {
 
     expect(await sendTimesOf(scheduleId)).toEqual([]);
     expect(await scheduleRow(scheduleId)).toEqual(before);
+  });
+});
+
+describe('a schedule to a label on Postgres (decision 0065, D6)', () => {
+  let teamA: LabelValueId;
+  let bravoId: ShipId;
+
+  /** Every minute from 12:00 on the test clock: each pass sends one send time, the next one a minute ahead of the server's clock. */
+  const toTeamA = (overrides: Partial<MessageToSchedule> = {}) => aSchedule({ selector: { kind: 'label', valueIds: [teamA] }, timing: { kind: 'every', every: 'PT1M' }, ...overrides });
+
+  async function recipientsBySendTime(scheduleId: ScheduleId): Promise<[string, ShipId[]][]> {
+    const messages = await core.prisma.message.findMany({ where: { fleetId, scheduleId }, orderBy: { sendTime: 'asc' }, include: { deliveries: { orderBy: { recipientShipId: 'asc' } } } });
+    return messages.map((message) => [message.sendTime?.toISOString() ?? '', message.deliveries.map((delivery) => idSchema('ship').parse(delivery.recipientShipId))]);
+  }
+
+  beforeEach(async () => {
+    bravoId = await commissioned('bravo', 'reviewer');
+    const team = unwrap(await core.useCases.defineLabel(argo, { key: 'team', values: ['a'] }));
+    const [a] = team.values.map((value) => value.id);
+    if (a === undefined) {
+      throw new Error('the team label has no value a');
+    }
+    teamA = a;
+    for (const shipId of [scout.shipId, chiefId]) {
+      unwrap(await core.useCases.assignLabel(argo, { shipId, valueId: teamA }));
+    }
+  });
+
+  it('stores and lists the label selection as given', async () => {
+    const scheduleId = await scheduled(toTeamA());
+
+    const listed = unwrap(await core.useCases.listSchedules(scout, { shipId: scout.shipId, limit: 20 }));
+
+    expect(await scheduleRow(scheduleId)).toMatchObject({ selectorKind: 'label', selectorValueIds: [teamA], selectorShipId: null, selectorShipName: null, selectorType: null });
+    expect(listed.items.map((schedule) => schedule.send.selector)).toEqual([{ kind: 'label', valueIds: [teamA] }]);
+  });
+
+  it('names each value of the selection by key and value for argo, who holds fleet:read, in the page of schedules', async () => {
+    await scheduled(toTeamA());
+
+    const listed = unwrap(await core.useCases.listSchedules(argo, { shipId: scout.shipId, limit: 20 }));
+
+    expect(listed.labelValues).toEqual([{ valueId: teamA, key: 'team', value: 'a' }]);
+  });
+
+  it('sends each send time to the ships carrying the selection then: a ship labelled between two send times gets the second only', async () => {
+    const scheduleId = await scheduled(toTeamA());
+
+    await core.useCases.sendDueSchedules();
+    unwrap(await core.useCases.assignLabel(argo, { shipId: bravoId, valueId: teamA }));
+    core.clock.advance(60_000);
+    await core.useCases.sendDueSchedules();
+
+    expect(await recipientsBySendTime(scheduleId)).toEqual([
+      ['2026-09-29T12:01:00.000Z', [chiefId]],
+      ['2026-09-29T12:02:00.000Z', [bravoId, chiefId].sort()],
+    ]);
+  });
+
+  it('refuses a send time the creator no longer reaches one ship of, recorded on the schedule with the refusal record, and goes on', async () => {
+    const scheduleId = await scheduled(toTeamA());
+    const networking = agentCaller({ fleetId, shipId: unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'networking', type: 'networking', scopes: ['fleet:network'] })).shipId });
+    const rules = { ...networking, scopes: ['fleet:network' as const] };
+    const { savedAgainstVersion } = unwrap(await core.useCases.saveNetworkRulesDraft(rules, { rules: [] }));
+    unwrap(await core.useCases.applyNetworkRules(rules, { version: savedAgainstVersion }));
+
+    await core.useCases.sendDueSchedules();
+
+    expect(await messagesOf(scheduleId)).toEqual([]);
+    expect(await scheduleRow(scheduleId)).toMatchObject({ state: 'active', lastOutcomeKind: 'refused', lastRefusalCode: 'NOT_REACHABLE', lastSendTime: new Date('2026-09-29T12:01:00.000Z') });
+    expect(await core.prisma.reachRefusal.count({ where: { fleetId, verb: 'send' } })).toBe(1);
   });
 });

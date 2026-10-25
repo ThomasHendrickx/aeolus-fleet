@@ -36,6 +36,26 @@ describe('scheduleRowOf: who it sends to', () => {
     expect(scheduleRowOf(aSchedule(), NOW).recipient).toBe('To chief-of-staff');
   });
 
+  it('names a label selection by its key and value texts (decision 0065)', () => {
+    const [teamA, siteNorth] = [idSchema('labelValue').parse('lbv_01m5saxrvna1k3ywca6fjp6qca'), idSchema('labelValue').parse('lbv_01m5saxrvna1k3ywca6fjp6qcb')];
+    const selector = {
+      kind: 'label' as const,
+      valueIds: [teamA, siteNorth],
+      values: [
+        { valueId: teamA, key: 'team', value: 'a' },
+        { valueId: siteNorth, key: 'site', value: 'north' },
+      ],
+    };
+
+    expect(scheduleRowOf(aSchedule({ selector }), NOW).recipient).toBe('To every ship carrying team=a and site=north');
+  });
+
+  it('names a label selection given without texts by its value ids', () => {
+    const teamA = idSchema('labelValue').parse('lbv_01m5saxrvna1k3ywca6fjp6qca');
+
+    expect(scheduleRowOf(aSchedule({ selector: { kind: 'label', valueIds: [teamA] } }), NOW).recipient).toBe(`To every ship carrying ${teamA}`);
+  });
+
   it('names a ship given by id by its id', () => {
     expect(scheduleRowOf(aSchedule({ selector: { kind: 'ship', shipId: plannerId } }), NOW).recipient).toBe(`To ${plannerId}`);
   });

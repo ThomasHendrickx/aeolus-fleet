@@ -54,6 +54,12 @@ const ENDED: ScheduleItem = {
   nextSendTime: null,
   endedAt: minutesAgo(900),
 };
+const TEAM_A = idSchema('labelValue').parse('lbv_01j8zd2vqzr3a9w6m2v5n7t3a1');
+const TO_A_LABEL: ScheduleItem = {
+  ...CHECK_IN,
+  scheduleId: scheduleId('a4b5'),
+  selector: { kind: 'label', valueIds: [TEAM_A], values: [{ valueId: TEAM_A, key: 'team', value: 'a' }] },
+};
 const CANCELLED: ScheduleItem = { ...CHECK_IN, scheduleId: scheduleId('c5n6'), state: 'cancelled', nextSendTime: null, lastOutcome: { kind: 'missed', sendTime: minutesAgo(1500), at: minutesAgo(1490) }, cancelledAt: minutesAgo(1400) };
 
 const meta = {
@@ -127,6 +133,14 @@ export const PauseFailed: Story = {
 };
 
 /** Paused: the row shows its new state, with only Cancel left. */
+/** A schedule to a label (decision 0065) names its selection by key and value. */
+export const Label: Story = {
+  args: { schedules: [TO_A_LABEL] },
+  play: async ({ canvasElement }) => {
+    await expect(rowOf(canvasElement, TO_A_LABEL).getByText('To every ship carrying team=a')).toBeVisible();
+  },
+};
+
 export const Paused: Story = { args: { schedules: [{ ...CHECK_IN, state: 'paused' }] } };
 
 export const Loading: Story = { args: { state: 'loading' } };

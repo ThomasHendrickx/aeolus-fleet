@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
+import { labelIdOf, valueIdOf } from '../../../test/support/label-fixtures.js';
 import { newKey } from '../../testing/keys.js';
 import { refusalOf, unwrap } from '../../testing/result.js';
 import type { ShipCaller } from '../shared/caller.js';
@@ -83,6 +84,52 @@ describe("listing a ship's schedules", () => {
   });
 
   it('answers no schedules for a ship that has none', async () => {
-    expect(unwrap(await messaging.listSchedules(chief, { shipId: chief.shipId, limit: 20 }))).toEqual({ items: [], nextCursor: null });
+    expect(unwrap(await messaging.listSchedules(chief, { shipId: chief.shipId, limit: 20 }))).toEqual({ items: [], nextCursor: null, labelValues: [] });
+  });
+});
+
+describe('the label values a page of schedules names (decision 0065, R10)', () => {
+  let reader: ShipCaller;
+
+  beforeEach(async () => {
+    reader = await shipWithScopes({ registry, argo }, { name: 'reader', type: 'manager', scopes: ['fleet:manage', 'fleet:read'] });
+    unwrap(await registry.defineLabel(argo, { key: 'team', values: ['a', 'b'] }));
+    unwrap(await registry.assignLabel(argo, { shipId: chief.shipId, valueId: valueIdOf(core, { key: 'team', value: 'a' }) }));
+    unwrap(await registry.assignLabel(argo, { shipId: chief.shipId, valueId: valueIdOf(core, { key: 'team', value: 'b' }) }));
+    core.clock.advance(1);
+    unwrap(
+      await messaging.scheduleMessage(scout, {
+        selector: { kind: 'label', valueIds: [valueIdOf(core, { key: 'team', value: 'b' }), valueIdOf(core, { key: 'team', value: 'a' })] },
+        payload: 'Main is red',
+        model: SESSION_MODEL,
+        idempotencyKey: newKey(),
+        timing: { kind: 'once', at: new Date('2026-10-25T13:00:00.000Z') },
+      }),
+    );
+  });
+
+  it('names each value of a selection by its key and value for a caller holding fleet:read, once each', async () => {
+    const page = unwrap(await messaging.listSchedules(reader, { shipId: scout.shipId, limit: 20 }));
+
+    expect(page.labelValues).toEqual([
+      { valueId: valueIdOf(core, { key: 'team', value: 'b' }), key: 'team', value: 'b' },
+      { valueId: valueIdOf(core, { key: 'team', value: 'a' }), key: 'team', value: 'a' },
+    ]);
+  });
+
+  it('names a value its label no longer has by its id alone', async () => {
+    const teamB = valueIdOf(core, { key: 'team', value: 'b' });
+    unwrap(await registry.unassignLabel(argo, { shipId: chief.shipId, valueId: teamB }));
+    unwrap(await registry.changeLabelValues(argo, { labelId: labelIdOf(core, 'team'), values: ['a'] }));
+
+    const page = unwrap(await messaging.listSchedules(reader, { shipId: scout.shipId, limit: 20 }));
+
+    expect(page.labelValues[0]).toEqual({ valueId: teamB, key: null, value: null });
+  });
+
+  it('names no values for a caller without fleet:read: its ship reads the value ids as given', async () => {
+    const page = unwrap(await messaging.listSchedules(scout, { shipId: scout.shipId, limit: 20 }));
+
+    expect(page.labelValues).toEqual([]);
   });
 });

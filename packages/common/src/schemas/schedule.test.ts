@@ -42,6 +42,12 @@ describe('scheduleInputSchema', () => {
     expect(scheduleInputSchema.parse(whole)).toEqual(whole);
   });
 
+  it('accepts a label selection: the ships carrying every value at each send time (decision 0065)', () => {
+    const toLabel = { ...input, selector: { kind: 'label', valueIds: [newId('labelValue'), newId('labelValue')] } };
+
+    expect(scheduleInputSchema.parse(toLabel)).toEqual(toLabel);
+  });
+
   it('accepts an every schedule of a duration, with its start, end and count', () => {
     const every = { ...input, timing: { kind: 'every', every: 'PT6H', start: '2026-10-26T06:00:00+02:00', end: '2026-12-31T00:00:00Z', count: 10 } };
 
@@ -70,6 +76,7 @@ describe('scheduleInputSchema', () => {
   it.each([
     ['a payload one byte over 64 KB', { ...input, payload: 'a'.repeat(PAYLOAD_MAX_BYTES + 1) }],
     ['a meeting selector', { ...input, selector: { kind: 'meeting', meetingId: newId('meeting') } }],
+    ['an empty label selection', { ...input, selector: { kind: 'label', valueIds: [] } }],
     ['an instant without its offset', { ...input, timing: { kind: 'once', at: '2026-10-26T09:00:00' } }],
     ['a date without a time', { ...input, timing: { kind: 'once', at: '2026-10-26' } }],
     ['a timing of an unknown kind', { ...input, timing: { kind: 'hourly' } }],
@@ -178,6 +185,17 @@ describe('schedulesOutputSchema', () => {
     const refused = { ...schedule, lastOutcome: { kind: 'refused', code: 'NOT_REACHABLE', sendTime: '2026-10-26T07:00:00.000Z', at: '2026-10-26T07:00:01.000Z' } };
 
     expect(schedulesOutputSchema.parse({ items: [sent, refused], nextCursor: null }).items).toEqual([sent, refused]);
+  });
+
+  it('answers a label selection by its value ids, with each value by key and value when the caller holds fleet:read (decision 0065)', () => {
+    const [teamA, gone] = [newId('labelValue'), newId('labelValue')];
+    const asGiven = { ...schedule, selector: { kind: 'label', valueIds: [teamA, gone] } };
+    const named = {
+      ...schedule,
+      selector: { kind: 'label', valueIds: [teamA, gone], values: [{ valueId: teamA, key: 'team', value: 'a' }, { valueId: gone, key: null, value: null }] },
+    };
+
+    expect(schedulesOutputSchema.parse({ items: [asGiven, named], nextCursor: null }).items).toEqual([asGiven, named]);
   });
 
   it('answers a repeat with its bounds and a missed outcome with its send time', () => {

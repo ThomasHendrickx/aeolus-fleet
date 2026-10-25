@@ -19,6 +19,7 @@ import { err, ok, type Result } from '../shared/result.js';
 import { isAnswerToSender } from './answer.js';
 import type { LabelSelector, MeetingSelector, Selector } from '../shared/selector.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
+import { checkReachToEach } from './check-reach-to-each.js';
 import { contentType } from './content-type.js';
 import { withinDailyMessageLimit, type DailyMessageLimitTx } from './daily-message-limit.js';
 import { idempotencyKey } from '../shared/idempotency-key.js';
@@ -348,21 +349,12 @@ async function sendToLabelWithin(
   const at = clock.now();
   const repliedTo = inReplyTo === undefined ? undefined : await tx.messages.find(fleetId, inReplyTo);
   const repliedDelivery = repliedTo && (await tx.deliveries.findOfMessageReaching(fleetId, { messageId: repliedTo.id, shipId: senderShipId }));
-  for (const shipId of ships.value) {
-    const recipient = { kind: 'ship' as const, shipId };
-    const reach = await checkReach(
-      { tx, ids },
-      {
-        fleetId,
-        senderShipId,
-        recipient,
-        isAnswerToSender: isAnswerToSender({ senderShipId, recipient }, repliedTo && repliedDelivery && { message: repliedTo, delivery: repliedDelivery }),
-        at,
-      },
-    );
-    if (!reach.isOk) {
-      return reach;
-    }
+  const reach = await checkReachToEach(
+    { tx, ids },
+    { fleetId, senderShipId, recipients: ships.value.map((shipId) => ({ kind: 'ship', shipId })), asked: repliedTo && repliedDelivery && { message: repliedTo, delivery: repliedDelivery }, at },
+  );
+  if (!reach.isOk) {
+    return reach;
   }
   const withinLimit = await withinDailyMessageLimit(tx, { fleetId, time: at });
   if (!withinLimit.isOk) {
