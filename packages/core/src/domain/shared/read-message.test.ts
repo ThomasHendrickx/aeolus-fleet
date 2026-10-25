@@ -79,6 +79,36 @@ describe('reading one message', () => {
     ]);
   });
 
+  it('names the selection of a send to a label by the key and value texts of each value (decision 0065)', async () => {
+    unwrap(await scene.registry.defineLabel(scene.argo, { key: 'team', values: ['a'] }));
+    unwrap(await scene.registry.defineLabel(scene.argo, { key: 'site', values: ['north'] }));
+    const teamA = valueIdOf(scene.core, { key: 'team', value: 'a' });
+    const siteNorth = valueIdOf(scene.core, { key: 'site', value: 'north' });
+    for (const valueId of [teamA, siteNorth]) {
+      unwrap(await scene.registry.assignLabel(scene.argo, { shipId: scene.scout.shipId, valueId }));
+    }
+    const messageId = await scene.send(scene.argo, { to: { kind: 'label', valueIds: [teamA, siteNorth] } });
+
+    expect(unwrap(await scene.history.readMessage(scene.argo, { messageId })).recipient).toEqual({
+      kind: 'label',
+      values: [
+        { valueId: teamA, key: 'team', value: 'a' },
+        { valueId: siteNorth, key: 'site', value: 'north' },
+      ],
+    });
+  });
+
+  it('names a value its label no longer has by its id alone', async () => {
+    const { labelId } = unwrap(await scene.registry.defineLabel(scene.argo, { key: 'team', values: ['a', 'b'] }));
+    const teamA = valueIdOf(scene.core, { key: 'team', value: 'a' });
+    unwrap(await scene.registry.assignLabel(scene.argo, { shipId: scene.scout.shipId, valueId: teamA }));
+    const messageId = await scene.send(scene.argo, { to: { kind: 'label', valueIds: [teamA] } });
+    unwrap(await scene.registry.unassignLabel(scene.argo, { shipId: scene.scout.shipId, valueId: teamA }));
+    unwrap(await scene.registry.changeLabelValues(scene.argo, { labelId, values: ['b'] }));
+
+    expect(unwrap(await scene.history.readMessage(scene.argo, { messageId })).recipient).toEqual({ kind: 'label', values: [{ valueId: teamA, key: null, value: null }] });
+  });
+
   it('gives every delivery of a send to a label, each with its ship, state and since when (decision 0065)', async () => {
     unwrap(await scene.registry.defineLabel(scene.argo, { key: 'team', values: ['a'] }));
     const teamA = valueIdOf(scene.core, { key: 'team', value: 'a' });
