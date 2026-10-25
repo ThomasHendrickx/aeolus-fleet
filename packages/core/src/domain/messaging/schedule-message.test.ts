@@ -1,7 +1,7 @@
 import { PAYLOAD_MAX_BYTES, type FleetId, type ScheduleId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { applyNetworkRules, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
+import { applyNetworkRules, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, SESSION_MODEL, withInstallationSettings } from '../../../test/support/core-fixtures.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { valueIdOf } from '../../../test/support/label-fixtures.js';
@@ -274,5 +274,129 @@ describe('making a repeating schedule', () => {
 
   it('refuses a grace that is no duration of a fixed length', async () => {
     expect(refusalOf(await messaging.scheduleMessage(scout, aSchedule({ timing: { kind: 'every', every: 'PT1H' }, grace: 'P1Y' }))).kind).toBe('INVALID_GRACE');
+  });
+});
+
+describe("the fleet's schedules per ship limit", () => {
+  beforeEach(() => {
+    withInstallationSettings(core, { defaultSchedulesPerShipLimit: 2 });
+  });
+
+  it('takes a ship\'s schedules up to the limit and refuses one more, naming the limit, storing nothing', async () => {
+    await scheduled();
+    await scheduled();
+
+    const refused = refusalOf(await messaging.scheduleMessage(scout, aSchedule()));
+
+    expect(refused).toEqual({ kind: 'SCHEDULE_LIMIT_REACHED', message: "Ship scout holds its fleet's limit of 2 schedules, active or paused: cancel one to make another" });
+    expect(core.state.schedules).toHaveLength(2);
+  });
+
+  it('counts paused schedules, not cancelled or ended ones', async () => {
+    const paused = await scheduled();
+    unwrap(await messaging.pauseSchedule(scout, { scheduleId: paused }));
+    const cancelled = await scheduled();
+    unwrap(await messaging.cancelSchedule(scout, { scheduleId: cancelled }));
+    const ended = await scheduled();
+    core.state.schedules = core.state.schedules.map((schedule) => (schedule.id === ended ? { ...schedule, state: 'ended', nextSendTime: null, nextAttemptAt: null } : schedule));
+
+    await scheduled();
+
+    expect(refusalOf(await messaging.scheduleMessage(scout, aSchedule())).kind).toBe('SCHEDULE_LIMIT_REACHED');
+  });
+
+  it("counts each ship's own schedules", async () => {
+    await scheduled();
+    await scheduled();
+
+    await expect(messaging.scheduleMessage(chief, aSchedule({ selector: { kind: 'ship', name: 'scout' } }))).resolves.toMatchObject({ isOk: true });
+  });
+
+  it('answers the same schedule for a repeat of its key at the limit', async () => {
+    const first = aSchedule();
+    const scheduleId = await scheduled(first);
+    await scheduled();
+
+    await expect(messaging.scheduleMessage(scout, first)).resolves.toEqual({ isOk: true, value: { scheduleId } });
+  });
+
+  it("follows the fleet's own limit over the default, and no limit sets none", async () => {
+    core.state.fleetLimitSettings.push({
+      fleetId,
+      ships: { kind: 'default' },
+      dailyMessages: { kind: 'default' },
+      schedulesPerShip: { kind: 'fleet', limit: null },
+      minimumScheduleInterval: { kind: 'default' },
+    });
+
+    await scheduled();
+    await scheduled();
+
+    await expect(messaging.scheduleMessage(scout, aSchedule())).resolves.toMatchObject({ isOk: true });
+  });
+
+  it('refuses every schedule under a limit of 0', async () => {
+    withInstallationSettings(core, { defaultSchedulesPerShipLimit: 0 });
+
+    expect(refusalOf(await messaging.scheduleMessage(scout, aSchedule())).kind).toBe('SCHEDULE_LIMIT_REACHED');
+  });
+});
+
+describe("the fleet's minimum schedule interval", () => {
+  const HOUR_SECONDS = 3600;
+
+  beforeEach(() => {
+    withInstallationSettings(core, { defaultMinimumScheduleInterval: HOUR_SECONDS });
+  });
+
+  it('takes an every of exactly the minimum and refuses one a second shorter, naming the minimum, storing nothing', async () => {
+    await scheduled(aSchedule({ timing: { kind: 'every', every: 'PT1H' } }));
+
+    const refused = refusalOf(await messaging.scheduleMessage(scout, aSchedule({ timing: { kind: 'every', every: 'PT59M59S' } })));
+
+    expect(refused).toEqual({
+      kind: 'SCHEDULE_INTERVAL_TOO_SHORT',
+      message: "The fleet's send times of a repeating schedule are at least 3600 seconds apart: every PT59M59S is 3599 seconds",
+    });
+    expect(core.state.schedules).toHaveLength(1);
+  });
+
+  it('takes a cron whose send times are the minimum apart and refuses one closer, naming the minimum', async () => {
+    await scheduled(aSchedule({ timing: { kind: 'cron', cron: '0 * * * *' } }));
+
+    expect(refusalOf(await messaging.scheduleMessage(scout, aSchedule({ timing: { kind: 'cron', cron: '*/30 * * * *' } })))).toEqual({
+      kind: 'SCHEDULE_INTERVAL_TOO_SHORT',
+      message: "The fleet's send times of a repeating schedule are at least 3600 seconds apart: cron */30 * * * * sends 1800 seconds apart, at 2026-10-25T09:30:00.000Z and 2026-10-25T10:00:00.000Z",
+    });
+  });
+
+  it('refuses a cron whose shortest gap is across midnight', async () => {
+    withInstallationSettings(core, { defaultMinimumScheduleInterval: 2 * HOUR_SECONDS });
+
+    expect(refusalOf(await messaging.scheduleMessage(scout, aSchedule({ timing: { kind: 'cron', cron: '0 0,23 * * *' } }))).kind).toBe('SCHEDULE_INTERVAL_TOO_SHORT');
+  });
+
+  it('takes a weekly cron under a two day minimum, its days counted', async () => {
+    withInstallationSettings(core, { defaultMinimumScheduleInterval: 2 * 24 * HOUR_SECONDS });
+
+    await expect(messaging.scheduleMessage(scout, aSchedule({ timing: { kind: 'cron', cron: '0 9 * * MON' } }))).resolves.toMatchObject({ isOk: true });
+  });
+
+  it('measures a cron in UTC: a daily cron in a zone with summer time is a day apart', async () => {
+    withInstallationSettings(core, { defaultMinimumScheduleInterval: 24 * HOUR_SECONDS });
+
+    await expect(messaging.scheduleMessage(scout, aSchedule({ timing: { kind: 'cron', cron: '30 2 * * *', timeZone: 'Europe/Brussels' } }))).resolves.toMatchObject({ isOk: true });
+  });
+
+  it('never checks a once schedule', async () => {
+    withInstallationSettings(core, { defaultMinimumScheduleInterval: 7 * 24 * HOUR_SECONDS });
+
+    await expect(messaging.scheduleMessage(scout, aSchedule({ timing: { kind: 'once', at: new Date('2026-10-25T09:01:00.000Z') } }))).resolves.toMatchObject({ isOk: true });
+  });
+
+  it('refuses a short interval before the schedules per ship limit', async () => {
+    withInstallationSettings(core, { defaultMinimumScheduleInterval: HOUR_SECONDS, defaultSchedulesPerShipLimit: 0 });
+
+    expect(refusalOf(await messaging.scheduleMessage(scout, aSchedule({ timing: { kind: 'every', every: 'PT1M' } }))).kind).toBe('SCHEDULE_INTERVAL_TOO_SHORT');
   });
 });
