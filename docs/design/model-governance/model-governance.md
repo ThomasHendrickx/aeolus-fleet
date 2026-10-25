@@ -50,7 +50,7 @@ Not the purpose: proving which model a session really runs (self-reported, 0018)
 | M9 | **What the stated model does** is unchanged: it is self-reported (0018) and the mismatch tell (L8) still compares it with the request's model. A session that switches to a disabled model is not stopped or told |
 | M10 | **Docs.** A decision "Model governance" with the next free number in the plugin repository (rule, why, rejected: a deny list, families, a fleet setting in core, taking back assigned requests), its line in both decision indexes, 0030's database sentence amended, the trierarch plugin's glossary line in the blueprint naming the fleet's enabled models, the reasons in aeolus-fleet-trierarch's `docs/trierarch.md`, "Assignment", and the console's minimum plugin version in `docs/compatibility.md` |
 
-Not in 0.32.0: who changed the set and when (the plugin keeps no events); a tell to argo when a model is disabled while requests name it (the needs-crew to-do already lists them with the reason).
+Later, filed: who changed a fleet's enabled models and when ([#1255](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1255)); telling argo when a disabled model leaves requests waiting ([#1256](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1256)).
 
 ## 4. Flows
 
