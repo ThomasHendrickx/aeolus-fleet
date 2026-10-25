@@ -1,0 +1,207 @@
+import { PAYLOAD_MAX_BYTES, type FleetId, type ScheduleId } from '@aeolus-fleet/common';
+import { beforeEach, describe, expect, it } from 'vitest';
+
+import { applyNetworkRules, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
+import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
+import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
+import { valueIdOf } from '../../../test/support/label-fixtures.js';
+import { refusedShip } from '../../../test/support/refused-sender.js';
+import { newKey } from '../../testing/keys.js';
+import { refusalOf, unwrap } from '../../testing/result.js';
+import type { ShipCaller } from '../shared/caller.js';
+import type { MessageToSchedule } from './schedule-message.js';
+
+/**
+ * Making a schedule (decision 0062): scout schedules a check-in to chief, a
+ * day ahead. The clock stands at 2026-10-25T09:00Z.
+ */
+let core: InMemoryCore;
+let registry: ReturnType<typeof registryUseCases>;
+let messaging: ReturnType<typeof messagingUseCases>;
+let fleetId: FleetId;
+let argo: ShipCaller;
+let scout: ShipCaller;
+let chief: ShipCaller;
+
+const TOMORROW = '2026-10-26T09:00:00.000Z';
+
+function aSchedule(overrides: Partial<MessageToSchedule> = {}): MessageToSchedule {
+  return {
+    selector: { kind: 'ship', name: 'chief' },
+    payload: 'Check in: what changed in the last 6 hours?',
+    model: SESSION_MODEL,
+    idempotencyKey: newKey(),
+    timing: { kind: 'once', at: new Date(TOMORROW) },
+    ...overrides,
+  };
+}
+
+async function scheduled(input: MessageToSchedule = aSchedule(), by: ShipCaller = scout): Promise<ScheduleId> {
+  return unwrap(await messaging.scheduleMessage(by, input)).scheduleId;
+}
+
+beforeEach(async () => {
+  core = createInMemoryCore('2026-10-25T09:00:00.000Z');
+  const fleet = await initialiseFleet(core);
+  ({ fleetId } = fleet);
+  argo = operatorCaller(fleet);
+  registry = registryUseCases(core);
+  messaging = messagingUseCases(core);
+  scout = await shipWithScopes({ registry, argo }, { name: 'scout', type: 'reviewer', scopes: [] });
+  chief = await shipWithScopes({ registry, argo }, { name: 'chief', type: 'chief-of-staff', scopes: [] });
+  core.state.events.length = 0;
+});
+
+describe('making a schedule', () => {
+  it("stores an active once schedule of the calling ship with its send input as given, its next send time its instant, and the defaults' strategy", async () => {
+    const scheduleId = await scheduled(aSchedule({ idempotencyKey: 'check-in' }));
+
+    expect(core.state.schedules).toEqual([
+      {
+        id: scheduleId,
+        fleetId,
+        shipId: scout.shipId,
+        send: {
+          selector: { kind: 'ship', name: 'chief' },
+          payload: 'Check in: what changed in the last 6 hours?',
+          contentType: 'text/plain',
+          model: SESSION_MODEL,
+          inReplyTo: null,
+          isForced: false,
+        },
+        timing: { kind: 'once', at: new Date(TOMORROW) },
+        onRefused: 'skip',
+        retryWindow: 'PT1H',
+        idempotencyKey: 'check-in',
+        requestHash: expect.any(String),
+        state: 'active',
+        nextSendTime: new Date(TOMORROW),
+        nextAttemptAt: new Date(TOMORROW),
+        lastOutcome: null,
+        createdAt: new Date('2026-10-25T09:00:00.000Z'),
+        endedAt: null,
+        cancelledAt: null,
+      },
+    ]);
+  });
+
+  it('keeps the content type, the reply, the force, the strategy and the retry window the creator picked', async () => {
+    const forcer = await shipWithScopes({ registry, argo }, { name: 'forcer', type: 'reviewer', scopes: ['messages:force'] });
+    const { messageId } = unwrap(await messaging.sendMessage(chief, { selector: { kind: 'ship', name: 'forcer' }, payload: 'Remind me', model: SESSION_MODEL, idempotencyKey: newKey() }));
+
+    await scheduled(
+      aSchedule({ contentType: 'application/vnd.aeolus.check-in+json', inReplyTo: messageId, isForced: true, onRefused: 'retry', retryWindow: 'PT30M' }),
+      forcer,
+    );
+
+    expect(core.state.schedules[0]).toMatchObject({
+      send: { contentType: 'application/vnd.aeolus.check-in+json', inReplyTo: messageId, isForced: true },
+      onRefused: 'retry',
+      retryWindow: 'PT30M',
+    });
+  });
+
+  it('records ScheduleCreated on its ship, caused by it, and tells the servers when it is due', async () => {
+    const scheduleId = await scheduled();
+
+    expect(core.state.events).toEqual([
+      expect.objectContaining({
+        type: 'ScheduleCreated',
+        shipId: scout.shipId,
+        actor: { kind: 'ship', shipId: scout.shipId },
+        details: { scheduleId, timing: 'once', nextSendTime: TOMORROW },
+      }),
+    ]);
+    expect(core.state.scheduleNotices).toEqual([{ fleetId, scheduleId, attemptAt: new Date(TOMORROW) }]);
+  });
+
+  it('sends nothing at creation', async () => {
+    await scheduled();
+
+    expect([core.state.messages, core.state.deliveries, core.state.notices]).toEqual([[], [], []]);
+  });
+
+  it('answers the same schedule for the same request under the same key, storing nothing more', async () => {
+    const input = aSchedule();
+    const first = await scheduled(input);
+
+    await expect(messaging.scheduleMessage(scout, input)).resolves.toEqual({ isOk: true, value: { scheduleId: first } });
+    expect(core.state.schedules).toHaveLength(1);
+    expect(core.state.events).toHaveLength(1);
+  });
+
+  it('refuses another request under a used key', async () => {
+    const input = aSchedule();
+    await scheduled(input);
+
+    expect(refusalOf(await messaging.scheduleMessage(scout, { ...input, payload: 'Another check-in' })).kind).toBe('IDEMPOTENCY_KEY_REUSED');
+  });
+
+  it("keeps each ship's keys apart", async () => {
+    const input = aSchedule({ selector: { kind: 'type', type: 'reviewer' } });
+    await scheduled(input);
+    await scheduled(input, chief);
+
+    expect(core.state.schedules).toHaveLength(2);
+  });
+
+  it('takes a payload of exactly 64 KB and refuses one byte more, storing nothing', async () => {
+    await scheduled(aSchedule({ payload: 'a'.repeat(PAYLOAD_MAX_BYTES) }));
+
+    expect(refusalOf(await messaging.scheduleMessage(scout, aSchedule({ payload: 'a'.repeat(PAYLOAD_MAX_BYTES + 1) }))).kind).toBe('PAYLOAD_TOO_LARGE');
+    expect(core.state.schedules).toHaveLength(1);
+  });
+
+  it('refuses a once schedule at or before now, storing nothing', async () => {
+    const now = await messaging.scheduleMessage(scout, aSchedule({ timing: { kind: 'once', at: new Date('2026-10-25T09:00:00.000Z') } }));
+    const past = await messaging.scheduleMessage(scout, aSchedule({ timing: { kind: 'once', at: new Date('2026-10-25T08:59:59.999Z') } }));
+
+    expect([refusalOf(now).kind, refusalOf(past).kind]).toEqual(['INVALID_TIMING', 'INVALID_TIMING']);
+    expect(core.state.schedules).toEqual([]);
+  });
+
+  it('takes a once schedule a millisecond ahead', async () => {
+    await scheduled(aSchedule({ timing: { kind: 'once', at: new Date('2026-10-25T09:00:00.001Z') } }));
+
+    expect(core.state.schedules).toHaveLength(1);
+  });
+
+  it('refuses a retry window that is no duration of a fixed length', async () => {
+    expect(refusalOf(await messaging.scheduleMessage(scout, aSchedule({ onRefused: 'retry', retryWindow: 'P1M' }))).kind).toBe('INVALID_RETRY_WINDOW');
+  });
+
+  it('refuses a forced schedule without messages:force, storing nothing', async () => {
+    expect(refusalOf(await messaging.scheduleMessage(scout, aSchedule({ isForced: true }))).kind).toBe('FORCE_NOT_ALLOWED');
+    expect(core.state.schedules).toEqual([]);
+  });
+
+  it('refuses an agent that states no model, as a send does', async () => {
+    expect(refusalOf(await messaging.scheduleMessage(scout, aSchedule({ model: undefined }))).kind).toBe('MODEL_REQUIRED');
+  });
+
+  it('refuses the ping content type, reserved for pings', async () => {
+    expect(refusalOf(await messaging.scheduleMessage(scout, aSchedule({ contentType: 'application/vnd.aeolus.ping' }))).kind).toBe('RESERVED_CONTENT_TYPE');
+  });
+
+  it('refuses a ship that does not exist and a reply to no message of the fleet', async () => {
+    const nobody = await messaging.scheduleMessage(scout, aSchedule({ selector: { kind: 'ship', name: 'nobody' } }));
+    const noMessage = await messaging.scheduleMessage(scout, aSchedule({ inReplyTo: core.ids('message') }));
+
+    expect([refusalOf(nobody).kind, refusalOf(noMessage).kind]).toEqual(['UNRESOLVABLE_SELECTOR', 'IN_REPLY_TO_NOT_FOUND']);
+    expect(core.state.schedules).toEqual([]);
+  });
+
+  it('refuses a selector the creator does not reach by send now, storing only the refusal record', async () => {
+    const networking = await shipWithScopes({ registry, argo }, { name: 'networking', type: 'networking', scopes: ['fleet:network'] });
+    unwrap(await registry.defineLabel(argo, { key: 'role', values: ['chief'] }));
+    unwrap(await registry.assignLabel(argo, { shipId: chief.shipId, valueId: valueIdOf(core, { key: 'role', value: 'chief' }) }));
+    await applyNetworkRules(registry, { by: networking, rules: [{ verb: 'send', from: [valueIdOf(core, { key: 'role', value: 'chief' })], to: [] }] });
+    core.state.events.length = 0;
+
+    const refused = await messaging.scheduleMessage(scout, aSchedule());
+
+    expect(refusalOf(refused).kind).toBe('NOT_REACHABLE');
+    expect(core.state.reachRefusals.map((refusal) => refusedShip(refusal.sender).id)).toEqual([scout.shipId]);
+    expect([core.state.schedules, core.state.scheduleNotices, core.state.events]).toEqual([[], [], []]);
+  });
+});

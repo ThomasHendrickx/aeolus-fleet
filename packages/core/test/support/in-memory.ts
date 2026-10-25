@@ -20,6 +20,7 @@ import type {
   OperatorAccountRepository,
 } from '../../src/domain/identity/ports.js';
 import type { Meeting } from '../../src/domain/messaging/meeting.js';
+import type { Schedule } from '../../src/domain/messaging/schedule.js';
 import type { Delivery, Message } from '../../src/domain/messaging/message.js';
 import type { Overdue, PushedCrew, WaitingDelivery } from '../../src/domain/messaging/overdue.js';
 import type {
@@ -30,6 +31,10 @@ import type {
   PushedCrews,
   ReceiverAddress,
   ReceiverWakeups,
+  ScheduleAttempts,
+  ScheduleNotice,
+  ScheduleNotifier,
+  ScheduleRepository,
 } from '../../src/domain/messaging/ports.js';
 import type { Fleet } from '../../src/domain/registry/fleet.js';
 import type { InstallationRequest } from '../../src/domain/registry/installation-request.js';
@@ -127,6 +132,10 @@ export interface InMemoryState {
   deliveries: Delivery[];
   /** The meetings with their participants (decision 0061). */
   meetings: Meeting[];
+  /** The ships' schedules (decision 0062). */
+  schedules: Schedule[];
+  /** The notices a unit of work sent for the servers' schedule timers: gone again when it rolls back, as a NOTIFY. */
+  scheduleNotices: ScheduleNotice[];
   /** When each lease was last seen through a call by its crew: the last_seen_at column, apart from the Lease. */
   leaseSeen: { fleetId: FleetId; leaseId: Lease['id']; at: Date }[];
   /** Each lease's crew report: the report columns, apart from the Lease. */
@@ -192,9 +201,11 @@ export interface InMemoryTx {
   messages: MessageRepository;
   deliveries: DeliveryRepository;
   meetings: MeetingRepository;
+  schedules: ScheduleRepository;
   overdueDeliveries: OverdueDeliveryRepository;
   events: EventLog;
   notifier: Notifier;
+  scheduleNotifier: ScheduleNotifier;
   installationRequests: InstallationRequestRepository;
   installationSettings: InstallationSettingsRepository;
   healthSnapshots: HealthSnapshotWriter;
@@ -237,6 +248,8 @@ export interface InMemoryCore {
   leases: LeaseRepository;
   /** The fleets, read outside a unit of work. */
   fleets: FleetRepository;
+  /** When each fleet's next schedule attempt is due, read outside a unit of work. */
+  scheduleAttempts: ScheduleAttempts;
   /** The open pushed leases and what waits for them, for the clocks. */
   pushedCrews: PushedCrews;
   /** The crew requests, read outside a unit of work. */
@@ -321,6 +334,8 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     messages: [],
     deliveries: [],
     meetings: [],
+    schedules: [],
+    scheduleNotices: [],
     deliveryReads: [],
     leaseSeen: [],
     leaseReports: [],
@@ -1130,6 +1145,49 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         return Promise.resolve(pageOf(rows, { limit, cursorOf: (message) => message.id }));
       },
     },
+    schedules: {
+      create: (schedule) => {
+        state.schedules.push(structuredClone(schedule));
+        return Promise.resolve();
+      },
+      lockCreatorKey: () => Promise.resolve(),
+      findByCreatorKey: ({ fleetId, shipId, idempotencyKey }) => {
+        const found = state.schedules.find((held) => held.fleetId === fleetId && held.shipId === shipId && held.idempotencyKey === idempotencyKey);
+        return Promise.resolve(found && structuredClone(found));
+      },
+      findForUpdate: (fleetId, scheduleId) => {
+        const found = state.schedules.find((held) => held.fleetId === fleetId && held.id === scheduleId);
+        return Promise.resolve(found && structuredClone(found));
+      },
+      claimDue: (fleetId, excluding) => {
+        // Due by the clock, as Postgres judges it by its now().
+        const due = state.schedules
+          .filter((held) => held.fleetId === fleetId && held.state === 'active' && held.nextAttemptAt !== null && held.nextAttemptAt <= clock.now() && !excluding.includes(held.id))
+          .sort((first, second) => (first.nextAttemptAt?.getTime() ?? 0) - (second.nextAttemptAt?.getTime() ?? 0) || first.id.localeCompare(second.id));
+        return Promise.resolve(due[0] && structuredClone(due[0]));
+      },
+      save: (schedule) => {
+        const at = state.schedules.findIndex((held) => held.fleetId === schedule.fleetId && held.id === schedule.id);
+        if (at >= 0) {
+          state.schedules[at] = structuredClone(schedule);
+        }
+        return Promise.resolve();
+      },
+      listOpenOfShipForUpdate: (fleetId, shipId) =>
+        Promise.resolve(
+          state.schedules
+            .filter((held) => held.fleetId === fleetId && held.shipId === shipId && (held.state === 'active' || held.state === 'paused'))
+            .map((held) => structuredClone(held)),
+        ),
+      page: (fleetId, { shipId, states, cursor, limit }) => {
+        const rows = state.schedules
+          .filter((held) => held.fleetId === fleetId && held.shipId === shipId && states.includes(held.state) && (cursor === undefined || held.id < cursor))
+          .sort((first, second) => second.id.localeCompare(first.id))
+          .slice(0, limit + 1)
+          .map((held) => structuredClone(held));
+        return Promise.resolve(pageOf(rows, { limit, cursorOf: (schedule) => schedule.id }));
+      },
+    },
     messages: {
       lockDailyCount: () => Promise.resolve(),
       countStoredOn: (fleetId, day) => Promise.resolve(state.messages.filter((message) => message.fleetId === fleetId && utcDayStart(message.createdAt).getTime() === day.getTime()).length),
@@ -1294,6 +1352,12 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     notifier: {
       deliveryPending: (notice) => {
         state.notices.push(structuredClone(notice));
+        return Promise.resolve();
+      },
+    },
+    scheduleNotifier: {
+      scheduleDue: (notice) => {
+        state.scheduleNotices.push(structuredClone(notice));
         return Promise.resolve();
       },
     },
@@ -2076,7 +2140,14 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
   };
 
-  return { state, uow, fleets: tx.fleets, pushedCrews, ships: tx.ships, leases: tx.leases, crewRequests: tx.crewRequests, clearRequests: tx.clearRequests, labels: tx.labels, reachRefusals: tx.reachRefusals, declaredNetworkRules: tx.declaredNetworkRules, scopeNamespaces: tx.scopeNamespaces, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, health: healthRecords, healthSnapshots, notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeups, fleetNews };
+  const scheduleAttempts: ScheduleAttempts = {
+    nextAttemptAt: (fleetId) => {
+      const times = state.schedules.flatMap((held) => (held.fleetId === fleetId && held.state === 'active' && held.nextAttemptAt !== null ? [held.nextAttemptAt.getTime()] : []));
+      return Promise.resolve(times.length === 0 ? undefined : new Date(Math.min(...times)));
+    },
+  };
+
+  return { state, uow, fleets: tx.fleets, scheduleAttempts, pushedCrews, ships: tx.ships, leases: tx.leases, crewRequests: tx.crewRequests, clearRequests: tx.clearRequests, labels: tx.labels, reachRefusals: tx.reachRefusals, declaredNetworkRules: tx.declaredNetworkRules, scopeNamespaces: tx.scopeNamespaces, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, health: healthRecords, healthSnapshots, notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeups, fleetNews };
 }
 
 /** The tables whose rows belong to a fleet by their fleet id: all but the fleets and the installation's requests. */
@@ -2090,6 +2161,8 @@ const FLEET_TABLES = [
   'signInTickets',
   'messages',
   'meetings',
+  'schedules',
+  'scheduleNotices',
   'deliveries',
   'deliveryReads',
   'leaseSeen',
@@ -2127,6 +2200,8 @@ const TABLES = [
   'messages',
   'deliveries',
   'meetings',
+  'schedules',
+  'scheduleNotices',
   'deliveryReads',
   'leaseSeen',
   'pushedLeases',
