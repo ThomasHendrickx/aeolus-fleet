@@ -14,24 +14,30 @@ beforeEach(() => {
 });
 
 describe("setting the installation's settings", () => {
-  it('stores the default ship and daily message limits and the fleet cap, each a number or no limit', async () => {
-    unwrap(await setSettings({ defaultShipLimit: 10, defaultDailyMessageLimit: null, fleetCap: 500 }));
+  it('stores the default ship, daily message and schedule limits and the fleet cap, each a number or no limit', async () => {
+    unwrap(await setSettings({ defaultShipLimit: 10, defaultDailyMessageLimit: null, defaultSchedulesPerShipLimit: 20, defaultMinimumScheduleInterval: 300, fleetCap: 500 }));
 
     await expect(createGetInstallationSettings({ settings: core.installationSettings })()).resolves.toEqual({
       defaultShipLimit: 10,
       defaultDailyMessageLimit: null,
+      defaultSchedulesPerShipLimit: 20,
+      defaultMinimumScheduleInterval: 300,
       fleetCap: 500,
     });
   });
 
   it.each([
-    ['a negative limit', { defaultShipLimit: -1, defaultDailyMessageLimit: null, fleetCap: null }],
-    ['a fractional limit', { defaultShipLimit: null, defaultDailyMessageLimit: 2.5, fleetCap: null }],
+    ['a negative limit', { defaultShipLimit: -1, defaultDailyMessageLimit: null, defaultSchedulesPerShipLimit: null, defaultMinimumScheduleInterval: null, fleetCap: null }],
+    ['a fractional limit', { defaultShipLimit: null, defaultDailyMessageLimit: 2.5, defaultSchedulesPerShipLimit: null, defaultMinimumScheduleInterval: null, fleetCap: null }],
+    ['a negative schedules per ship limit', { defaultShipLimit: null, defaultDailyMessageLimit: null, defaultSchedulesPerShipLimit: -1, defaultMinimumScheduleInterval: null, fleetCap: null }],
+    ['a fractional minimum schedule interval', { defaultShipLimit: null, defaultDailyMessageLimit: null, defaultSchedulesPerShipLimit: null, defaultMinimumScheduleInterval: 0.5, fleetCap: null }],
   ])('refuses %s and changes nothing', async (_case, settings) => {
     await expect(setSettings(settings)).resolves.toMatchObject({ isOk: false, error: { kind: 'INVALID_LIMIT' } });
     await expect(createGetInstallationSettings({ settings: core.installationSettings })()).resolves.toEqual({
       defaultShipLimit: null,
       defaultDailyMessageLimit: null,
+      defaultSchedulesPerShipLimit: null,
+      defaultMinimumScheduleInterval: null,
       fleetCap: null,
     });
   });
