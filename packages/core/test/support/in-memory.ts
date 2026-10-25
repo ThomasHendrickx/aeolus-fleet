@@ -431,7 +431,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
           return Promise.resolve(undefined);
         }
         const set = state.fleetLimitSettings.find((held) => held.fleetId === fleetId);
-        return Promise.resolve(set ? { ships: set.ships, dailyMessages: set.dailyMessages } : FOLLOWING_DEFAULTS);
+        return Promise.resolve(set ? { ships: set.ships, dailyMessages: set.dailyMessages, retention: set.retention } : FOLLOWING_DEFAULTS);
       },
       setLimitSettings: (fleetId, settings) => {
         state.fleetLimitSettings.splice(0, state.fleetLimitSettings.length, ...state.fleetLimitSettings.filter((held) => held.fleetId !== fleetId), { fleetId, ...settings });

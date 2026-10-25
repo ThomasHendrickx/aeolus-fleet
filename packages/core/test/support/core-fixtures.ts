@@ -459,11 +459,12 @@ export async function initialiseFleet(core: InMemoryCore, name = 'test fleet'): 
 /** Sets the installation's settings straight into the state: unset ones stay no limit. */
 export function withInstallationSettings(
   core: InMemoryCore,
-  settings: Partial<{ defaultShipLimit: number | null; defaultDailyMessageLimit: number | null; fleetCap: number | null }>,
+  settings: Partial<{ defaultShipLimit: number | null; defaultDailyMessageLimit: number | null; defaultRetentionDays: number | null; fleetCap: number | null }>,
 ): void {
   core.state.installationSettings.splice(0, core.state.installationSettings.length, {
     defaultShipLimit: null,
     defaultDailyMessageLimit: null,
+    defaultRetentionDays: null,
     fleetCap: null,
     ...settings,
   });

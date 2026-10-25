@@ -41,7 +41,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  await installation().settings.set.mutate({ defaultShipLimit: null, defaultDailyMessageLimit: null, fleetCap: null });
+  await installation().settings.set.mutate({ defaultShipLimit: null, defaultDailyMessageLimit: null, defaultRetentionDays: null, fleetCap: null });
 });
 
 afterAll(async () => {
@@ -76,31 +76,58 @@ async function refusalOf(call: Promise<unknown>): Promise<{ code: string | undef
 }
 
 describe("the installation's settings", () => {
-  it('are no limit until set, and keep what is set', async () => {
-    await expect(installation().settings.get.query()).resolves.toEqual({ defaultShipLimit: null, defaultDailyMessageLimit: null, fleetCap: null });
+  it('are no limit and no retention until set, and keep what is set', async () => {
+    await expect(installation().settings.get.query()).resolves.toEqual({ defaultShipLimit: null, defaultDailyMessageLimit: null, defaultRetentionDays: null, fleetCap: null });
 
-    await installation().settings.set.mutate({ defaultShipLimit: 10, defaultDailyMessageLimit: 1000, fleetCap: 50 });
+    await installation().settings.set.mutate({ defaultShipLimit: 10, defaultDailyMessageLimit: 1000, defaultRetentionDays: 30, fleetCap: 50 });
 
-    await expect(installation().settings.get.query()).resolves.toEqual({ defaultShipLimit: 10, defaultDailyMessageLimit: 1000, fleetCap: 50 });
+    await expect(installation().settings.get.query()).resolves.toEqual({ defaultShipLimit: 10, defaultDailyMessageLimit: 1000, defaultRetentionDays: 30, fleetCap: 50 });
+  });
+
+  it('refuse a default retention of 0 days as a bad request', async () => {
+    await expect(installation().settings.set.mutate({ defaultShipLimit: null, defaultDailyMessageLimit: null, defaultRetentionDays: 0, fleetCap: null })).rejects.toMatchObject({
+      data: { code: 'BAD_REQUEST' },
+    });
   });
 });
 
 describe("a fleet's limits", () => {
   it('follow the defaults until set for the fleet, and go back to them', async () => {
     const { fleetId } = await newFleet('limited');
-    await installation().settings.set.mutate({ defaultShipLimit: 10, defaultDailyMessageLimit: 1000, fleetCap: null });
+    await installation().settings.set.mutate({ defaultShipLimit: 10, defaultDailyMessageLimit: 1000, defaultRetentionDays: 30, fleetCap: null });
 
-    await expect(installation().fleets.setLimits.mutate({ fleetId, ships: { kind: 'fleet', limit: 25 }, dailyMessages: { kind: 'fleet', limit: null } })).resolves.toEqual({
+    await expect(
+      installation().fleets.setLimits.mutate({ fleetId, ships: { kind: 'fleet', limit: 25 }, dailyMessages: { kind: 'fleet', limit: null }, retention: { kind: 'fleet', days: 7 } }),
+    ).resolves.toEqual({
       fleetId,
       ships: { setting: { kind: 'fleet', limit: 25 }, applies: 25 },
       dailyMessages: { setting: { kind: 'fleet', limit: null }, applies: null },
+      retention: { setting: { kind: 'fleet', days: 7 }, applies: 7 },
     });
-    await installation().fleets.setLimits.mutate({ fleetId, ships: { kind: 'default' } });
-    await expect(installation().fleets.limits.query({ fleetId })).resolves.toMatchObject({ ships: { setting: { kind: 'default' }, applies: 10 } });
+    await installation().fleets.setLimits.mutate({ fleetId, ships: { kind: 'default' }, retention: { kind: 'default' } });
+    await expect(installation().fleets.limits.query({ fleetId })).resolves.toMatchObject({
+      ships: { setting: { kind: 'default' }, applies: 10 },
+      retention: { setting: { kind: 'default' }, applies: 30 },
+    });
+  });
+
+  it("keep a fleet's retention of none apart from following a default of none", async () => {
+    const { fleetId } = await newFleet('kept');
+    await installation().settings.set.mutate({ defaultShipLimit: null, defaultDailyMessageLimit: null, defaultRetentionDays: 30, fleetCap: null });
+
+    await installation().fleets.setLimits.mutate({ fleetId, retention: { kind: 'fleet', days: null } });
+
+    await expect(installation().fleets.get.query({ fleetId })).resolves.toMatchObject({ limits: { retention: { setting: { kind: 'fleet', days: null }, applies: null } } });
+  });
+
+  it("refuse a fleet's retention of 0 days as a bad request", async () => {
+    const { fleetId } = await newFleet('unkept');
+
+    await expect(installation().fleets.setLimits.mutate({ fleetId, retention: { kind: 'fleet', days: 0 } })).rejects.toMatchObject({ data: { code: 'BAD_REQUEST' } });
   });
 
   it('are read by the console with what each counts', async () => {
-    await installation().settings.set.mutate({ defaultShipLimit: 10, defaultDailyMessageLimit: 1000, fleetCap: null });
+    await installation().settings.set.mutate({ defaultShipLimit: 10, defaultDailyMessageLimit: 1000, defaultRetentionDays: 30, fleetCap: null });
     const signedIn = await fetch(`${address}/trpc/console.signIn`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', origin: new URL(FLEET_URL).origin },
@@ -114,6 +141,7 @@ describe("a fleet's limits", () => {
     expect(limits.ships.limit).toBe(10);
     expect(limits.ships.count).toBe(await database.ship.count({ where: { fleetId: homeFleet, retiredAt: null } }));
     expect(limits.dailyMessages).toMatchObject({ limit: 1000, resetsAt: '2026-10-05T00:00:00.000Z' });
+    expect(limits.retention).toEqual({ days: 30 });
   });
 });
 
@@ -168,7 +196,7 @@ describe('the limits at their boundary', () => {
 
   it('create fleets up to the cap however many race, and refuse the rest', async () => {
     const hosted = await database.fleet.count();
-    await installation().settings.set.mutate({ defaultShipLimit: null, defaultDailyMessageLimit: null, fleetCap: hosted + 2 });
+    await installation().settings.set.mutate({ defaultShipLimit: null, defaultDailyMessageLimit: null, defaultRetentionDays: null, fleetCap: hosted + 2 });
 
     const results = await Promise.all(
       Array.from({ length: 5 }, (_unused, index) => refusalOf(installation().fleets.create.mutate({ requestId: newKey(), name: `capped-${String(index)}`, operatorEmail: `capped-${String(index)}@example.com` }))),

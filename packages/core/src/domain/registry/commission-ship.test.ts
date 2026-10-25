@@ -1061,7 +1061,7 @@ describe("commissioning at the fleet's ship limit", () => {
 
   it('follows a limit set for the fleet over the default, and no limit sets none', async () => {
     withInstallationSettings(core, { defaultShipLimit: 1 });
-    core.state.fleetLimitSettings.push({ fleetId, ships: { kind: 'fleet', limit: null }, dailyMessages: { kind: 'default' } });
+    core.state.fleetLimitSettings.push({ fleetId, ships: { kind: 'fleet', limit: null }, dailyMessages: { kind: 'default' }, retention: { kind: 'default' } });
 
     await expect(commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' })).resolves.toMatchObject({ isOk: true });
   });

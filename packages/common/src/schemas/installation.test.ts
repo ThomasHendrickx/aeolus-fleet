@@ -76,6 +76,7 @@ describe('installationFleetSchema', () => {
     limits: {
       ships: { setting: { kind: 'default' }, applies: 10 },
       dailyMessages: { setting: { kind: 'fleet', limit: null }, applies: null },
+      retention: { setting: { kind: 'fleet', days: 30 }, applies: 30 },
     },
     health: {
       oldestPendingAt: '2026-10-04T11:00:00.000Z',
@@ -171,16 +172,23 @@ describe('installationOperatorsIssueSignInTicket', () => {
 });
 
 describe('installation settings', () => {
-  it('hold the default ship and daily message limits for new fleets and the cap on fleets; each may be no limit', () => {
-    const settings = { defaultShipLimit: 10, defaultDailyMessageLimit: null, fleetCap: 500 };
+  it('hold the default ship and daily message limits and retention for new fleets and the cap on fleets; each may be none', () => {
+    const settings = { defaultShipLimit: 10, defaultDailyMessageLimit: null, defaultRetentionDays: 30, fleetCap: 500 };
 
     expect(installationSettingsSchema.parse(settings)).toEqual(settings);
   });
 
+  it('take a default retention of 1 day, the least there is, and none', () => {
+    expect(installationSettingsSchema.parse({ defaultShipLimit: null, defaultDailyMessageLimit: null, defaultRetentionDays: 1, fleetCap: null })).toMatchObject({ defaultRetentionDays: 1 });
+    expect(installationSettingsSchema.parse({ defaultShipLimit: null, defaultDailyMessageLimit: null, defaultRetentionDays: null, fleetCap: null })).toMatchObject({ defaultRetentionDays: null });
+  });
+
   it.each([
-    ['a negative limit', { defaultShipLimit: -1, defaultDailyMessageLimit: null, fleetCap: null }],
-    ['a fractional limit', { defaultShipLimit: 1.5, defaultDailyMessageLimit: null, fleetCap: null }],
-    ['a missing cap', { defaultShipLimit: 1, defaultDailyMessageLimit: 1 }],
+    ['a negative limit', { defaultShipLimit: -1, defaultDailyMessageLimit: null, defaultRetentionDays: null, fleetCap: null }],
+    ['a fractional limit', { defaultShipLimit: 1.5, defaultDailyMessageLimit: null, defaultRetentionDays: null, fleetCap: null }],
+    ['a missing cap', { defaultShipLimit: 1, defaultDailyMessageLimit: 1, defaultRetentionDays: null }],
+    ['a retention of 0 days', { defaultShipLimit: null, defaultDailyMessageLimit: null, defaultRetentionDays: 0, fleetCap: null }],
+    ['a missing retention', { defaultShipLimit: null, defaultDailyMessageLimit: null, fleetCap: null }],
   ])('refuse %s', (_case, settings) => {
     expect(installationSettingsSchema.safeParse(settings).success).toBe(false);
   });
@@ -194,9 +202,20 @@ describe("a fleet's limits", () => {
       fleetId,
       ships: { setting: { kind: 'default' }, applies: 10 },
       dailyMessages: { setting: { kind: 'fleet', limit: null }, applies: null },
+      retention: { setting: { kind: 'default' }, applies: 30 },
     };
 
     expect(installationFleetLimitsSchema.parse(limits)).toEqual(limits);
+  });
+
+  it('set the retention for the fleet to a number of days or to none (kept for good)', () => {
+    expect(installationFleetsSetLimitsInputSchema.parse({ fleetId, retention: { kind: 'fleet', days: 7 } })).toEqual({ fleetId, retention: { kind: 'fleet', days: 7 } });
+    expect(installationFleetsSetLimitsInputSchema.parse({ fleetId, retention: { kind: 'fleet', days: null } })).toEqual({ fleetId, retention: { kind: 'fleet', days: null } });
+  });
+
+  it('refuse a retention of 0 days or of part of a day', () => {
+    expect(installationFleetsSetLimitsInputSchema.safeParse({ fleetId, retention: { kind: 'fleet', days: 0 } }).success).toBe(false);
+    expect(installationFleetsSetLimitsInputSchema.safeParse({ fleetId, retention: { kind: 'fleet', days: 1.5 } }).success).toBe(false);
   });
 
   it('are set one or both at a time, back to the default too', () => {
