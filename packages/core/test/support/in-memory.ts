@@ -731,6 +731,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         state.definedScopes.splice(0, state.definedScopes.length, ...state.definedScopes.filter((held) => held.fleetId !== fleetId || held.scope !== scope));
         return Promise.resolve();
       },
+      usesNamespace: (fleetId, namespace) => Promise.resolve(state.definedScopes.some((held) => held.fleetId === fleetId && held.scope.startsWith(`${namespace}:`))),
     },
     verifiedFacts: {
       find: (fleetId, { shipId, writer }) =>

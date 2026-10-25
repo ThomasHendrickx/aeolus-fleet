@@ -5,12 +5,13 @@ import type { Clock } from '../shared/clock.js';
 import { recordEvent, shipActor, type EventLog } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
-import type { ScopeNamespaceRepository, ShipRepository } from './ports.js';
+import type { DefinedScopeRepository, ScopeNamespaceRepository, ShipRepository } from './ports.js';
 import { declareScopes, type DeclaredScope, type DeclareScopesRefusal } from './scope-namespace.js';
 
 export interface DeclareScopesTx {
   ships: Pick<ShipRepository, 'find' | 'findForUpdate' | 'scopesHeldIn'>;
   scopeNamespaces: Pick<ScopeNamespaceRepository, 'lockNamespace' | 'find' | 'findByDeclarer' | 'save'>;
+  definedScopes: Pick<DefinedScopeRepository, 'usesNamespace'>;
   events: EventLog;
 }
 
@@ -30,8 +31,9 @@ export type DeclareScopes = (
  * list of scopes, the first time or again (decision 0046). Its scope
  * (scopes:declare) is checked before this runs. In one unit of work, holding
  * the declaring ship, so one ship never takes two namespaces, then the
- * namespace, so two ships never both find it free and a grant of its scopes
- * waits: the namespace and ScopesDeclared.
+ * namespace, so two ships, or a ship and the fleet defining a scope, never
+ * both find it free and a grant of its scopes waits: the namespace and
+ * ScopesDeclared.
  */
 export function createDeclareScopes(deps: { uow: UnitOfWork<DeclareScopesTx>; clock: Clock; ids: IdGenerator }): DeclareScopes {
   return (caller, input) =>
@@ -47,6 +49,7 @@ export function createDeclareScopes(deps: { uow: UnitOfWork<DeclareScopesTx>; cl
           taken: taken && { namespace: taken, declarerName: declarer?.name ?? taken.declaredBy },
           ofDeclarer: await tx.scopeNamespaces.findByDeclarer(fleetId, shipId),
           held: taken === undefined ? [] : await tx.ships.scopesHeldIn(fleetId, input.namespace),
+          isUsedByFleet: await tx.definedScopes.usesNamespace(fleetId, input.namespace),
         },
       );
       if (!declared.isOk) {

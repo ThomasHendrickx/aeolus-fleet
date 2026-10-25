@@ -180,6 +180,8 @@ export interface DefinedScopeRepository {
   save(defined: DefinedScope): Promise<void>;
   /** The scope goes. */
   remove(fleetId: FleetId, scope: ScopeName): Promise<void>;
+  /** Whether the fleet has a scope of its own in this namespace. */
+  usesNamespace(fleetId: FleetId, namespace: string): Promise<boolean>;
 }
 
 /** Outbound port: leases, always within one fleet. */

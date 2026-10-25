@@ -42,7 +42,7 @@ export type DeclareScopesRefusal = DomainError<
  * A ship declares its namespace with its whole list of scopes, the first
  * time or again (decision 0046). Refused: a malformed namespace or scope, a
  * scope of another namespace or twice, a description not on one line, a core
- * namespace, a namespace another ship took, a second namespace, more than 20
+ * namespace, a namespace the fleet uses for its own scopes, a namespace another ship took, a second namespace, more than 20
  * scopes, and removing a scope an active ship holds. Writes ScopesDeclared.
  */
 export function declareScopes(
@@ -54,6 +54,8 @@ export function declareScopes(
     ofDeclarer: ScopeNamespace | undefined;
     /** The scopes of this namespace an active ship holds. */
     held: readonly ScopeName[];
+    /** Whether the fleet has scopes of its own in this namespace (design gateway-scopes, 4.1). */
+    isUsedByFleet: boolean;
   },
 ): Result<{ namespace: ScopeNamespace; events: NewEvent[] }, DeclareScopesRefusal> {
   const { fleetId, declarer, namespace, at, actor } = input;
@@ -69,6 +71,9 @@ export function declareScopes(
   const scopes = declaredScopes(namespace, input.scopes);
   if (!scopes.isOk) {
     return scopes;
+  }
+  if (fleet.isUsedByFleet) {
+    return refuse('NAMESPACE_TAKEN', `The namespace ${namespace} is taken, by the fleet`);
   }
   if (fleet.taken !== undefined && fleet.taken.namespace.declaredBy !== declarer) {
     return refuse('NAMESPACE_TAKEN', `The namespace ${namespace} is taken, by ${fleet.taken.declarerName}`);

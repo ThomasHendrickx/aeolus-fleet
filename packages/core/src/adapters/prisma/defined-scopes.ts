@@ -22,5 +22,6 @@ export function createPrismaDefinedScopeRepository(db: Db): DefinedScopeReposito
     remove: async (fleetId, scope) => {
       await db.definedScope.deleteMany({ where: { fleetId, scope } });
     },
+    usesNamespace: async (fleetId, namespace) => (await db.definedScope.count({ where: { fleetId, scope: { startsWith: `${namespace}:` } } })) > 0,
   };
 }
