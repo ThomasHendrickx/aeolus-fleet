@@ -90,7 +90,7 @@ export function createResendDelivery(deps: {
         return refuse('PING_NOT_RESENT', 'A ping is not resent: dismiss it, and ping the ship again');
       }
 
-      // A contribution's undeliverable delivery is resent to its participant alone, as a message of its own.
+      // A contribution's or a label send's undeliverable delivery is resent to its ship alone, as a message of its own.
       const selector = deliveredTo(original, delivery);
       const inReplyTo = original.inReplyToMessageId ?? undefined;
       const requestHash = deps.hasher.hash(
