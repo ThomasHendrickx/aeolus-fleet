@@ -150,7 +150,7 @@ describe('a schedule on Postgres', () => {
 
     expect(refused).toMatchObject({ isOk: false, error: { kind: 'NOT_REACHABLE' } });
     expect(await core.prisma.schedule.count({ where: { fleetId } })).toBe(0);
-    expect(await core.prisma.reachRefusal.count({ where: { fleetId, senderShipId: scout.shipId } })).toBe(1);
+    expect(await core.prisma.reachRefusal.count({ where: { fleetId, verb: 'send' } })).toBe(1);
   });
 
   it('lists and cancels on Postgres, newest first, by state', async () => {
@@ -191,7 +191,7 @@ describe('a send time on Postgres', () => {
 
     expect(await messagesOf(scheduleId)).toEqual([]);
     expect(await scheduleRow(scheduleId)).toMatchObject({ state: 'ended', lastOutcomeKind: 'refused', lastRefusalCode: 'NOT_REACHABLE', lastSendTime: new Date(SEND_TIME) });
-    expect(await core.prisma.reachRefusal.count({ where: { fleetId, senderShipId: scout.shipId } })).toBe(1);
+    expect(await core.prisma.reachRefusal.count({ where: { fleetId, verb: 'send' } })).toBe(1);
   });
 
   it('is cancelled by its ship retiring, in the same transaction, and sends nothing after', async () => {
@@ -253,7 +253,9 @@ describe('two servers', () => {
 
     await Promise.all([pass(), pass()]);
 
+    // One claim only: a second one would end the schedule a second time, even where the key keeps it to one message.
     expect(await messagesOf(scheduleId)).toHaveLength(1);
+    expect(await core.prisma.event.count({ where: { fleetId, type: 'ScheduleEnded' } })).toBe(1);
   });
 
   it('store no second message even for a second claim of the same send time: the derived key finds the first', async () => {

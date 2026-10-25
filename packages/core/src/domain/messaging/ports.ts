@@ -1,9 +1,10 @@
-import type { DeliveryId, FleetId, LeaseId, MeetingId, MessageId, ShipId } from '@aeolus-fleet/common';
+import type { DeliveryId, FleetId, LeaseId, MeetingId, MessageId, ScheduleId, ScheduleState, ShipId } from '@aeolus-fleet/common';
 
 import type { Page, PageQuery } from '../shared/page.js';
 import type { Meeting } from './meeting.js';
 import type { Delivery, Message } from './message.js';
 import type { Overdue, PushedCrew } from './overdue.js';
+import type { Schedule } from './schedule.js';
 
 /** One sender's idempotency key, in its fleet. */
 export interface SenderKey {
@@ -52,6 +53,62 @@ export interface MeetingRepository {
   listPresentInForUpdate(fleetId: FleetId, shipId: ShipId): Promise<Meeting[]>;
   /** A page of the meeting's contributions, newest first by id, read without a lock: the messages sent to it, never its notices. */
   contributions(fleetId: FleetId, query: { meetingId: MeetingId } & PageQuery<MessageId>): Promise<Page<Message, MessageId>>;
+}
+
+/** One creator's idempotency key for a schedule, in its fleet. */
+export interface CreatorKey {
+  fleetId: FleetId;
+  shipId: ShipId;
+  idempotencyKey: string;
+}
+
+/** Outbound port: the ships' schedules, always within one fleet (decision 0062). */
+export interface ScheduleRepository {
+  create(schedule: Schedule): Promise<void>;
+  /**
+   * Holds the lock on the creator's key until the unit of work ends, so two
+   * creations with one key take turns and the second finds the first one's
+   * schedule.
+   */
+  lockCreatorKey(key: CreatorKey): Promise<void>;
+  findByCreatorKey(key: CreatorKey): Promise<Schedule | undefined>;
+  /** The schedule, held for update until the unit of work ends. */
+  findForUpdate(fleetId: FleetId, scheduleId: ScheduleId): Promise<Schedule | undefined>;
+  /**
+   * One active schedule whose next attempt is due by the database's clock,
+   * earliest attempt first, held for update until the unit of work ends; one
+   * another unit of work holds is skipped, never waited for, so two servers
+   * never claim the same schedule (ADR 0003). Those excluded are left out:
+   * the ones this pass tried already.
+   */
+  claimDue(fleetId: FleetId, excluding: readonly ScheduleId[]): Promise<Schedule | undefined>;
+  /** Stores the schedule's state, next send time and attempt, last outcome, end and cancel. */
+  save(schedule: Schedule): Promise<void>;
+  /** The ship's active and paused schedules, oldest first, each held for update, as a retire cancels them. */
+  listOpenOfShipForUpdate(fleetId: FleetId, shipId: ShipId): Promise<Schedule[]>;
+  /** A page of the ship's schedules in the given states, newest first by id, read without a lock. */
+  page(fleetId: FleetId, query: { shipId: ShipId; states: readonly ScheduleState[] } & PageQuery<ScheduleId>): Promise<Page<Schedule, ScheduleId>>;
+}
+
+/** Outbound port: when a fleet's next schedule attempt is due, read without a lock, for the servers' timers. */
+export interface ScheduleAttempts {
+  nextAttemptAt(fleetId: FleetId): Promise<Date | undefined>;
+}
+
+/** That a schedule's next attempt is due at a time: a hint for the servers' timers, never its content. */
+export interface ScheduleNotice {
+  fleetId: FleetId;
+  scheduleId: ScheduleId;
+  attemptAt: Date;
+}
+
+/**
+ * Outbound port: tells every core server's timer of a new or advanced
+ * schedule. Sent as part of the caller's unit of work: it reaches the
+ * servers only once that commits, and never when it rolls back.
+ */
+export interface ScheduleNotifier {
+  scheduleDue(notice: ScheduleNotice): Promise<void>;
 }
 
 /** Outbound port: messages, always within one fleet. Never changed once stored. */

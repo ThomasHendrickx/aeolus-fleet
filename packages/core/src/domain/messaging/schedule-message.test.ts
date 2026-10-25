@@ -73,7 +73,7 @@ describe('making a schedule', () => {
         onRefused: 'skip',
         retryWindow: 'PT1H',
         idempotencyKey: 'check-in',
-        requestHash: expect.any(String),
+        requestHash: core.state.schedules[0]?.requestHash,
         state: 'active',
         nextSendTime: new Date(TOMORROW),
         nextAttemptAt: new Date(TOMORROW),

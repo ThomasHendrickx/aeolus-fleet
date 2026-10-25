@@ -76,6 +76,7 @@ model Fleet {
   meetings                         Meeting[]
   meetingParticipants              MeetingParticipant[]
   meetingMicRequests               MeetingMicRequest[]
+  schedules                        Schedule[]
 
   @@map("fleets")
 }
@@ -143,6 +144,8 @@ model Ship {
   openedMeetings       Meeting[]              @relation("MeetingOpener")
   micHeldMeetings      Meeting[]              @relation("MeetingMicHolder")
   meetings             MeetingParticipant[]
+  schedules            Schedule[]             @relation("ScheduleShip")
+  scheduledTo          Schedule[]             @relation("ScheduleSelectorShip")
 
   @@unique([fleetId, id])
   /// An idempotency key is used once per commissioning actor.
@@ -590,16 +593,19 @@ model Message {
   sendTime           DateTime?    @map("send_time") @db.Timestamptz(3)
   createdAt          DateTime     @map("created_at") @db.Timestamptz(3)
 
-  fleet        Fleet      @relation(fields: [fleetId], references: [id])
-  senderShip   Ship       @relation("MessageSender", fields: [fleetId, senderShipId], references: [fleetId, id], onDelete: Restrict)
-  selectorShip Ship?      @relation("MessageSelectorShip", fields: [fleetId, selectorShipId], references: [fleetId, id], onDelete: Restrict)
-  inReplyTo    Message?   @relation("MessageInReplyTo", fields: [fleetId, inReplyToMessageId], references: [fleetId, id], onDelete: Restrict)
-  replies      Message[]  @relation("MessageInReplyTo")
-  resendOf     Message?   @relation("MessageResendOf", fields: [fleetId, resendOfMessageId], references: [fleetId, id], onDelete: Restrict)
-  resends      Message[]  @relation("MessageResendOf")
-  meeting      Meeting?   @relation(fields: [fleetId, meetingId], references: [fleetId, id], onDelete: Restrict)
-  deliveries   Delivery[]
-  events       Event[]
+  fleet                Fleet      @relation(fields: [fleetId], references: [id])
+  senderShip           Ship       @relation("MessageSender", fields: [fleetId, senderShipId], references: [fleetId, id], onDelete: Restrict)
+  selectorShip         Ship?      @relation("MessageSelectorShip", fields: [fleetId, selectorShipId], references: [fleetId, id], onDelete: Restrict)
+  inReplyTo            Message?   @relation("MessageInReplyTo", fields: [fleetId, inReplyToMessageId], references: [fleetId, id], onDelete: Restrict)
+  replies              Message[]  @relation("MessageInReplyTo")
+  resendOf             Message?   @relation("MessageResendOf", fields: [fleetId, resendOfMessageId], references: [fleetId, id], onDelete: Restrict)
+  resends              Message[]  @relation("MessageResendOf")
+  meeting              Meeting?   @relation(fields: [fleetId, meetingId], references: [fleetId, id], onDelete: Restrict)
+  schedule             Schedule?  @relation("MessageSchedule", fields: [fleetId, scheduleId], references: [fleetId, id], onDelete: Restrict)
+  repliedToBySchedules Schedule[] @relation("ScheduleInReplyTo")
+  lastSentBySchedules  Schedule[] @relation("ScheduleLastMessage")
+  deliveries           Delivery[]
+  events               Event[]
 
   @@unique([fleetId, id])
   /// A sender uses an idempotency key once: a repeat of the same request, told by its
@@ -616,6 +622,8 @@ model Message {
   @@index([fleetId, selectorShipId, id])
   @@index([fleetId, inReplyToMessageId])
   @@index([fleetId, resendOfMessageId])
+  /// The messages a schedule sent (decision 0062): the foreign key's index (#331).
+  @@index([fleetId, scheduleId])
   /// A meeting's contributions page newest first by id (decision 0061).
   @@index([fleetId, meetingId, id])
   @@index([fleetId, selectorShipId, createdAt, id], map: "messages_pings_idx", where: raw("(content_type = 'application/vnd.aeolus.ping'::text)"))
@@ -683,6 +691,91 @@ model Meeting {
 }
 
 /// How a meeting's free mic passes (decision 0061, M9): the moderator's pick, or the oldest request.
+/// A ship's scheduled message (decision 0062): its send input as given, its timing and
+/// refusal strategy, its state, next send time and attempt, and its last outcome.
+model Schedule {
+  id                 String               @id
+  fleetId            String               @map("fleet_id")
+  shipId             String               @map("ship_id")
+  /// The selector as the creator gave it: a ship by id or by name, or a type; never a meeting.
+  selectorKind       SelectorKind         @map("selector_kind")
+  selectorShipId     String?              @map("selector_ship_id")
+  selectorShipName   String?              @map("selector_ship_name")
+  selectorType       String?              @map("selector_type")
+  payload            String
+  contentType        String               @map("content_type")
+  model              String?
+  inReplyToMessageId String?              @map("in_reply_to_message_id")
+  isForced           Boolean              @map("is_forced")
+  timingKind         ScheduleTimingKind   @map("timing_kind")
+  onceAt             DateTime             @map("once_at") @db.Timestamptz(3)
+  onRefused          RefusalStrategy      @map("on_refused")
+  retryWindow        String               @map("retry_window")
+  idempotencyKey     String               @map("idempotency_key")
+  requestHash        String               @map("request_hash")
+  state              ScheduleState
+  nextSendTime       DateTime?            @map("next_send_time") @db.Timestamptz(3)
+  nextAttemptAt      DateTime?            @map("next_attempt_at") @db.Timestamptz(3)
+  lastOutcomeKind    ScheduleOutcomeKind? @map("last_outcome_kind")
+  lastMessageId      String?              @map("last_message_id")
+  lastRefusalCode    String?              @map("last_refusal_code")
+  lastSendTime       DateTime?            @map("last_send_time") @db.Timestamptz(3)
+  lastOutcomeAt      DateTime?            @map("last_outcome_at") @db.Timestamptz(3)
+  createdAt          DateTime             @map("created_at") @db.Timestamptz(3)
+  endedAt            DateTime?            @map("ended_at") @db.Timestamptz(3)
+  cancelledAt        DateTime?            @map("cancelled_at") @db.Timestamptz(3)
+
+  fleet        Fleet     @relation(fields: [fleetId], references: [id])
+  ship         Ship      @relation("ScheduleShip", fields: [fleetId, shipId], references: [fleetId, id], onDelete: Restrict)
+  selectorShip Ship?     @relation("ScheduleSelectorShip", fields: [fleetId, selectorShipId], references: [fleetId, id], onDelete: Restrict)
+  inReplyTo    Message?  @relation("ScheduleInReplyTo", fields: [fleetId, inReplyToMessageId], references: [fleetId, id], onDelete: Restrict)
+  lastMessage  Message?  @relation("ScheduleLastMessage", fields: [fleetId, lastMessageId], references: [fleetId, id], onDelete: Restrict)
+  messages     Message[] @relation("MessageSchedule")
+
+  @@unique([fleetId, id])
+  /// A ship uses an idempotency key once for its schedules.
+  @@unique([fleetId, shipId, idempotencyKey])
+  /// A ship's schedules page newest first by id.
+  @@index([fleetId, shipId, id])
+  /// The claim of the active schedules that are due, earliest attempt first.
+  @@index([fleetId, nextAttemptAt, id], map: "schedules_due_idx", where: raw("(state = 'active'::schedule_state)"))
+  /// Every foreign key has an index leading with its columns (#331).
+  @@index([fleetId, selectorShipId])
+  @@index([fleetId, inReplyToMessageId])
+  @@index([fleetId, lastMessageId])
+  @@map("schedules")
+}
+
+enum ScheduleState {
+  active
+  paused
+  ended
+  cancelled
+
+  @@map("schedule_state")
+}
+
+enum ScheduleTimingKind {
+  once
+
+  @@map("schedule_timing_kind")
+}
+
+enum RefusalStrategy {
+  skip
+  retry
+  pause
+
+  @@map("refusal_strategy")
+}
+
+enum ScheduleOutcomeKind {
+  sent
+  refused
+
+  @@map("schedule_outcome_kind")
+}
+
 enum MicPattern {
   moderator
   fifo

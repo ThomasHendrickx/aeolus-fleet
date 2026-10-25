@@ -4,15 +4,18 @@
  * only when that transaction commits, and drops it when it rolls back. The
  * payload says which delivery is pending and for whom, never the message's
  * payload. The same connection hears committed events (event-log.ts) for the
- * live subscriptions.
+ * live subscriptions, and new or advanced schedules (schedules.ts) for the
+ * server's schedule timer.
  */
 import pg from 'pg';
 
 import type { FleetEventNotice } from '../../domain/shared/events.js';
 import type { DeliveryNotice, Notifier } from '../../domain/shared/notifier.js';
 import type { Db } from './client.js';
+import type { ScheduleNotice } from '../../domain/messaging/ports.js';
 import { FLEET_EVENT_CHANNEL } from './event-log.js';
 import { toDeliveryNotice, toFleetEventNotice } from './rows.js';
+import { SCHEDULE_DUE_CHANNEL, toScheduleNotice } from './schedules.js';
 
 /** The one channel every pending delivery is announced on. */
 export const DELIVERY_PENDING_CHANNEL = 'aeolus_delivery_pending';
@@ -56,6 +59,8 @@ export function listenForPendingDeliveries(options: {
   onNotice: (notice: DeliveryNotice) => void;
   /** Hears that a fleet's events up to a number have committed (event-log.ts), for live subscriptions. */
   onFleetEvent?: (notice: FleetEventNotice) => void;
+  /** Hears that a schedule's next attempt is due at a time (schedules.ts), for the server's schedule timer. */
+  onScheduleDue?: (notice: ScheduleNotice) => void;
   onListening?: () => void;
   onError?: (error: Error) => void;
   /** The first wait before trying again; 1 second unless a test says otherwise. */
@@ -103,6 +108,8 @@ export function listenForPendingDeliveries(options: {
           options.onNotice(toDeliveryNotice(JSON.parse(payload)));
         } else if (channel === FLEET_EVENT_CHANNEL) {
           options.onFleetEvent?.(toFleetEventNotice(JSON.parse(payload)));
+        } else if (channel === SCHEDULE_DUE_CHANNEL) {
+          options.onScheduleDue?.(toScheduleNotice(JSON.parse(payload)));
         }
       } catch (error) {
         report(error);
@@ -111,7 +118,7 @@ export function listenForPendingDeliveries(options: {
     client
       .connect()
       // The channels are constants, never outside input.
-      .then(() => client.query(`LISTEN ${DELIVERY_PENDING_CHANNEL}; LISTEN ${FLEET_EVENT_CHANNEL}`))
+      .then(() => client.query(`LISTEN ${DELIVERY_PENDING_CHANNEL}; LISTEN ${FLEET_EVENT_CHANNEL}; LISTEN ${SCHEDULE_DUE_CHANNEL}`))
       .then(
         () => {
           if (client !== current) {

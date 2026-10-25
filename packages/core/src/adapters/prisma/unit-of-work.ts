@@ -5,7 +5,7 @@ import type {
   OperatorAccountRepository,
   SignInTicketRepository,
 } from '../../domain/identity/ports.js';
-import type { DeliveryRepository, MeetingRepository, OverdueDeliveryRepository } from '../../domain/messaging/ports.js';
+import type { DeliveryRepository, MeetingRepository, OverdueDeliveryRepository, ScheduleNotifier, ScheduleRepository } from '../../domain/messaging/ports.js';
 import type {
   ClearRequestRepository,
   CrewRequestRepository,
@@ -42,6 +42,7 @@ import { createPrismaInstallationRequestRepository, createPrismaInstallationSett
 import { createPrismaMeetingRepository } from './meetings.js';
 import { createPrismaDeliveryRepository, createPrismaMessageRepository, type BufferedMessageRepository } from './messaging.js';
 import { createPrismaOverdueDeliveryRepository } from './overdue.js';
+import { createPrismaScheduleNotifier, createPrismaScheduleRepository } from './schedules.js';
 import { createPrismaDeclaredNetworkRulesRepository, createPrismaNetworkRulesDraftRepository, createPrismaNetworkSettingsRepository, createPrismaReachRefusalRepository } from './network.js';
 import { createPrismaVerifiedFactsRepository } from './verified-facts.js';
 import { createPrismaScopeNamespaceRepository } from './scope-namespaces.js';
@@ -77,9 +78,11 @@ export interface PrismaTx {
   messages: BufferedMessageRepository;
   deliveries: DeliveryRepository;
   meetings: MeetingRepository;
+  schedules: ScheduleRepository;
   overdueDeliveries: OverdueDeliveryRepository;
   events: BufferedEventLog;
   notifier: Notifier;
+  scheduleNotifier: ScheduleNotifier;
   installationRequests: InstallationRequestRepository;
   installationSettings: InstallationSettingsRepository;
   healthSnapshots: HealthSnapshotWriter;
@@ -107,11 +110,13 @@ export function createPrismaTx(db: Db): PrismaTx {
     messages: createPrismaMessageRepository(db),
     deliveries: createPrismaDeliveryRepository(db),
     meetings: createPrismaMeetingRepository(db),
+    schedules: createPrismaScheduleRepository(db),
     overdueDeliveries: createPrismaOverdueDeliveryRepository(db),
     events: createPrismaEventLog(db),
     installationRequests: createPrismaInstallationRequestRepository(db),
     installationSettings: createPrismaInstallationSettings(db),
     notifier: createPrismaNotifier(db),
+    scheduleNotifier: createPrismaScheduleNotifier(db),
     healthSnapshots: createPrismaHealthSnapshots(db),
   };
 }

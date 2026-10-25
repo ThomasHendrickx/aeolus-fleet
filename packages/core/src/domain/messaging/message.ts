@@ -231,7 +231,7 @@ export function acceptMessage(
  * (decisions 0018, 0044 and 0050); a resend carries the original's and a
  * ping none, so neither is asked.
  */
-function checkModel(send: Pick<MessageToAccept, 'resendOf' | 'contentType' | 'senderKind' | 'model'>): Result<undefined, AcceptRefusal> {
+export function checkModel(send: Pick<MessageToAccept, 'resendOf' | 'contentType' | 'senderKind' | 'model'>): Result<undefined, AcceptRefusal> {
   const isStated = send.resendOf === undefined && !isPingContentType(send.contentType);
   if (isStated && send.senderKind === 'operator' && send.model !== undefined) {
     return refuse('MODEL_FROM_ARGO', 'argo states no model: send without one');
