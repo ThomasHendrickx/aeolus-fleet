@@ -168,6 +168,27 @@ describe('the pruning pass', () => {
     expect(isKept(messageId)).toBe(false);
   });
 
+  it('keeps a message acknowledged after the newest snapshot until the snapshot folds the acknowledgement (R7)', async () => {
+    retainFor(30);
+    const { core } = scene;
+    const messageId = await scene.send(scene.scout, { to: { kind: 'ship', shipId: scene.planner.shipId } });
+    await scene.receive(scene.planner);
+    scene.core.clock.advance(31 * DAY_MS);
+    await pass();
+    await scene.ack(scene.planner, messageId);
+    scene.core.clock.advance(HOUR_MS);
+
+    await createPruneHistory({ fleets: core.fleets, uow: core.uow, clock: core.clock, ids: core.ids })();
+    const isKeptBeforeTheFold = isKept(messageId);
+    scene.core.clock.advance(HOUR_MS);
+    await pass();
+    const latest = await core.healthSnapshots.latest(scene.fleetId);
+
+    expect(isKeptBeforeTheFold).toBe(true);
+    expect(isKept(messageId)).toBe(false);
+    expect(latest?.fold.deliveries.filter((delivery) => delivery.messageId === messageId)).toEqual([]);
+  });
+
   it('prunes in batches until nothing older than the cutoff is left', async () => {
     retainFor(30);
     const messageIds = [await aFinishedMessage(), await aFinishedMessage(), await aFinishedMessage(), await aFinishedMessage(), await aFinishedMessage()];
