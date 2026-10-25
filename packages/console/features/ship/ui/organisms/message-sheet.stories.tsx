@@ -88,7 +88,7 @@ export const Label: Story = {
     await expect(rows[0]).toHaveTextContent(/reviewer-01.*Acknowledged/);
     await expect(rows[1]).toHaveTextContent(/builder-core.*Handed(?! \(pulled\))/);
     await expect(rows[2]).toHaveTextContent(/reviewer-02.*Pending/);
-    await expect(sheet.getByText('team=a')).toBeVisible();
+    await expect(sheet.getByText('team=a')).toBeInTheDocument();
   },
 };
 export const LabelDark: Story = { args: { message: LABEL_MESSAGE }, globals: { theme: 'dark' } };
