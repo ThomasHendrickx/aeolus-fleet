@@ -144,6 +144,8 @@ export interface ShipRepository {
   listActiveHoldingInForUpdate(fleetId: FleetId, namespace: string): Promise<Ship[]>;
   /** The scopes of this plugin namespace that a ship not retired holds, each once, by name (decision 0046). */
   scopesHeldIn(fleetId: FleetId, namespace: string): Promise<ScopeName[]>;
+  /** How many active ships hold the scope. */
+  countHolding(fleetId: FleetId, scope: ScopeName): Promise<number>;
 }
 
 /**
@@ -176,6 +178,8 @@ export interface DefinedScopeRepository {
   find(fleetId: FleetId, scope: ScopeName): Promise<DefinedScope | undefined>;
   /** Stores the scope, or its new description. */
   save(defined: DefinedScope): Promise<void>;
+  /** The scope goes. */
+  remove(fleetId: FleetId, scope: ScopeName): Promise<void>;
 }
 
 /** Outbound port: leases, always within one fleet. */

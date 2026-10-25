@@ -2,7 +2,7 @@ import { isCoreNamespace, RESERVED_NAMESPACES, SCOPE_DESCRIPTION_MAX_LENGTH, SCO
 
 import { refuse, type DomainError } from '../shared/errors.js';
 import type { Actor, NewEvent } from '../shared/events.js';
-import { ok, type Result } from '../shared/result.js';
+import { ok, type Err, type Result } from '../shared/result.js';
 import { isScopeDescription } from './scope-namespace.js';
 
 /**
@@ -65,4 +65,54 @@ export function defineScope(
     defined: { fleetId, scope, description },
     events: [{ fleetId, type: 'ScopeDefined', occurredAt: at, actor, details: { scope, description } }],
   });
+}
+
+/**
+ * The fleet changes the description of one of its scopes; its name never
+ * changes, a new name is a new scope. Refused: a scope the fleet does not
+ * have and a malformed description. Writes ScopeDescribed when the
+ * description changes.
+ */
+export function describeScope(
+  defined: DefinedScope | undefined,
+  input: { scope: string; description: string; at: Date; actor: Actor },
+): Result<{ defined: DefinedScope; events: NewEvent[] }, DomainError<'SCOPE_NOT_DEFINED' | 'INVALID_SCOPE_DESCRIPTION'>> {
+  const { scope, description, at, actor } = input;
+  if (defined === undefined) {
+    return notDefined(scope);
+  }
+  if (!isScopeDescription(description)) {
+    return refuse('INVALID_SCOPE_DESCRIPTION', `The description of ${scope} is one line of 1 to ${String(SCOPE_DESCRIPTION_MAX_LENGTH)} characters`);
+  }
+  if (description === defined.description) {
+    return ok({ defined, events: [] });
+  }
+  return ok({
+    defined: { ...defined, description },
+    events: [{ fleetId: defined.fleetId, type: 'ScopeDescribed', occurredAt: at, actor, details: { scope, description } }],
+  });
+}
+
+/**
+ * The fleet removes one of its scopes, refused while an active ship holds
+ * it (decision 0046), naming how many. Removing the last scope of a
+ * namespace frees it. Writes ScopeRemoved.
+ */
+export function removeScope(
+  defined: DefinedScope | undefined,
+  input: { scope: string; holders: number; at: Date; actor: Actor },
+): Result<{ events: NewEvent[] }, DomainError<'SCOPE_NOT_DEFINED' | 'SCOPE_HELD'>> {
+  const { scope, holders, at, actor } = input;
+  if (defined === undefined) {
+    return notDefined(scope);
+  }
+  if (holders > 0) {
+    const who = holders === 1 ? '1 ship holds' : `${String(holders)} ships hold`;
+    return refuse('SCOPE_HELD', `${who} ${scope}: revoke it from ${holders === 1 ? 'it' : 'them'} first`);
+  }
+  return ok({ events: [{ fleetId: defined.fleetId, type: 'ScopeRemoved', occurredAt: at, actor, details: { scope } }] });
+}
+
+function notDefined(scope: string): Err<DomainError<'SCOPE_NOT_DEFINED'>> {
+  return refuse('SCOPE_NOT_DEFINED', `The fleet has no scope ${scope}`);
 }

@@ -408,6 +408,7 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
         ORDER BY held.scope`;
       return rows.map(({ scope }) => scopeNameSchema.parse(scope));
     },
+    countHolding: async (fleetId, scope) => await db.ship.count({ where: { fleetId, retiredAt: null, scopes: { has: scope } } }),
     rename: async ({ fleetId, shipId, name }) => {
       await db.ship.updateMany({ where: { fleetId, id: shipId }, data: { name } });
     },

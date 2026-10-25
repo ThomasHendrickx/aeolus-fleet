@@ -19,5 +19,8 @@ export function createPrismaDefinedScopeRepository(db: Db): DefinedScopeReposito
     save: async ({ fleetId, scope, description }) => {
       await db.definedScope.upsert({ where: { fleetId_scope: { fleetId, scope } }, create: { fleetId, scope, description }, update: { description } });
     },
+    remove: async (fleetId, scope) => {
+      await db.definedScope.deleteMany({ where: { fleetId, scope } });
+    },
   };
 }

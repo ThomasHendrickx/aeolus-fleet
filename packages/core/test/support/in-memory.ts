@@ -597,6 +597,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         Promise.resolve(
           [...new Set(state.ships.filter((held) => held.fleetId === fleetId && held.retiredAt === null).flatMap((held) => held.scopes.filter((scope) => scope.startsWith(`${namespace}:`))))].toSorted(),
         ),
+      countHolding: (fleetId, scope) => Promise.resolve(state.ships.filter((held) => held.fleetId === fleetId && held.retiredAt === null && held.scopes.includes(scope)).length),
     },
     crewRequests: {
       find: (fleetId, shipId) => {
@@ -724,6 +725,10 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       save: (defined) => {
         const index = state.definedScopes.findIndex((held) => held.fleetId === defined.fleetId && held.scope === defined.scope);
         state.definedScopes.splice(index === -1 ? state.definedScopes.length : index, index === -1 ? 0 : 1, structuredClone(defined));
+        return Promise.resolve();
+      },
+      remove: (fleetId, scope) => {
+        state.definedScopes.splice(0, state.definedScopes.length, ...state.definedScopes.filter((held) => held.fleetId !== fleetId || held.scope !== scope));
         return Promise.resolve();
       },
     },
