@@ -171,6 +171,7 @@ describe('ID_KINDS', () => {
       'reachRefusal',
       'request',
       'meeting',
+      'schedule',
     ]);
   });
 
@@ -180,6 +181,10 @@ describe('ID_KINDS', () => {
 
   it('gives a meeting the mtg_ prefix (decision 0061)', () => {
     expect(ID_PREFIXES.meeting).toBe('mtg');
+  });
+
+  it('gives a schedule the sch_ prefix (decision 0062)', () => {
+    expect(ID_PREFIXES.schedule).toBe('sch');
   });
 
   it('gives a reach refusal the rfs_ prefix', () => {
