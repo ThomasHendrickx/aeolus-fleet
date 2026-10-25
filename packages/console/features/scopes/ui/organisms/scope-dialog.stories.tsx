@@ -25,6 +25,15 @@ export const Defines: Story = {
 };
 /** Being defined: the button says so and cannot be pressed twice. */
 export const Defining: Story = { args: { isPending: true } };
+/** Escape does not close it while it is being defined, so a refusal still shows with the input kept. */
+export const StaysOpenWhileDefining: Story = {
+  args: { isPending: true },
+  play: async ({ args }) => {
+    await screen.findByTestId('scope-dialog-scope');
+    await userEvent.keyboard('{Escape}');
+    await expect(args.onOpenChange).not.toHaveBeenCalled();
+  },
+};
 /** A namespace reserved for a known plugin, refused by name; the input stays. */
 export const Reserved: Story = { args: { error: 'gateway is reserved for a plugin Aeolus knows: pick another namespace' } };
 /** A scope the fleet has. */
