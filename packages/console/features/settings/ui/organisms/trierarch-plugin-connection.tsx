@@ -83,7 +83,7 @@ export function TrierarchPluginConnection({ settings, loadError, onRetry, isConn
               Connect trierarch plugin
             </Button>
           </div>
-          {connectError !== undefined && <InlineError variant="field" title="Couldn’t connect the trierarch plugin" description={connectError} />}
+          {connectError !== undefined && <InlineError title="Couldn’t connect the trierarch plugin" description={connectError} />}
         </>
       )}
     </section>

@@ -68,7 +68,7 @@ export function SquadronsConnection({ settings, loadError, onRetry, isConnecting
               Connect squadrons
             </Button>
           </div>
-          {connectError !== undefined && <InlineError variant="field" title="Couldn’t connect squadrons" description={connectError} />}
+          {connectError !== undefined && <InlineError title="Couldn’t connect squadrons" description={connectError} />}
         </>
       )}
     </section>

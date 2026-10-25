@@ -72,7 +72,7 @@ export function GatewayConnection({ settings, loadError, onRetry, isConnecting, 
               Connect gateway
             </Button>
           </div>
-          {connectError !== undefined && <InlineError variant="field" title="Couldn’t connect the gateway" description={connectError} />}
+          {connectError !== undefined && <InlineError title="Couldn’t connect the gateway" description={connectError} />}
         </>
       )}
     </section>
