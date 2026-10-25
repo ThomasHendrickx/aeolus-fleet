@@ -124,6 +124,7 @@ describe('sending a message on Postgres', () => {
         selectorKind: 'ship',
         selectorShipId: scoutId,
         selectorType: null,
+        selectorValueIds: [],
         payload: input.payload,
         contentType: 'application/json',
         model: null,
