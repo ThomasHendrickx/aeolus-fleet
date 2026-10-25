@@ -26,6 +26,8 @@ const RENAMES = 12;
 const ANCHOR = 'ship-timeline-entry';
 /** How long a box must stay put before the page counts as settled. */
 const SETTLE_MS = 500;
+/** How much later than the timeline and the guide the parts above the timeline answer, as on a slow network (#1194). */
+const LATE_MS = 400;
 
 let database: PrismaClient;
 let server: FastifyInstance;
@@ -110,22 +112,37 @@ async function settled(locators: [Locator, Locator, Locator]): Promise<[Box, Box
   return [first, second, third];
 }
 
+/** Opens the step's page and checks its anchor and the entry below it are in sight beside its popover. */
+async function expectAnchorAndNextEntryInSight(page: Page): Promise<void> {
+  await page.goto(`/ships/${shipId}`);
+  const step = page.getByTestId('tour-step');
+  await step.getByText('What happened last').waitFor();
+  await expect.poll(() => step.getAttribute('data-placement')).toBe('anchored');
+  const entries = page.locator(`[data-testid="${ANCHOR}"]:visible`);
+  await expect.poll(() => entries.count()).toBeGreaterThan(RENAMES);
+
+  const [popover, newest, next] = await settled([step, entries.nth(0), entries.nth(1)]);
+
+  for (const entry of [newest, next]) {
+    expect(entry.y).toBeGreaterThanOrEqual(0);
+    expect(entry.y + entry.height).toBeLessThanOrEqual(PHONE.viewport.height);
+    expect(overlaps(popover, entry)).toBe(false);
+  }
+}
+
 describe('a guide step on a phone', () => {
   it('leaves its anchor and the entry below it in sight beside its popover', async () => {
+    await expectAnchorAndNextEntryInSight(await signedInViewer());
+  });
+
+  it('keeps them in sight when what sits above the anchor loads after it', async () => {
     const page = await signedInViewer();
-    await page.goto(`/ships/${shipId}`);
-    const step = page.getByTestId('tour-step');
-    await step.getByText('What happened last').waitFor();
-    await expect.poll(() => step.getAttribute('data-placement')).toBe('anchored');
-    const entries = page.locator(`[data-testid="${ANCHOR}"]:visible`);
-    await expect.poll(() => entries.count()).toBeGreaterThan(RENAMES);
-
-    const [popover, newest, next] = await settled([step, entries.nth(0), entries.nth(1)]);
-
-    for (const entry of [newest, next]) {
-      expect(entry.y).toBeGreaterThanOrEqual(0);
-      expect(entry.y + entry.height).toBeLessThanOrEqual(PHONE.viewport.height);
-      expect(overlaps(popover, entry)).toBe(false);
-    }
+    await page.route('**/trpc/**', async (route) => {
+      if (!/shipTimeline|console\.guide/.test(route.request().url())) {
+        await new Promise((resolve) => setTimeout(resolve, LATE_MS));
+      }
+      await route.continue();
+    });
+    await expectAnchorAndNextEntryInSight(page);
   });
 });
