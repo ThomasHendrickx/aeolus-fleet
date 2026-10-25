@@ -186,6 +186,7 @@ import { createReadStuckHistory, type ReadStuckHistory } from './domain/shared/r
 import { createReadStuck, type ReadStuck } from './domain/shared/read-stuck.js';
 import { createReadStuckSummary, type ReadStuckSummary } from './domain/shared/read-stuck-summary.js';
 import { createCloseHealthSnapshots, type CloseHealthSnapshots } from './domain/shared/close-health-snapshots.js';
+import { createPruneHistory, type PruneHistory } from './domain/shared/prune-history.js';
 import { createReadShipMessages, type ReadShipMessages } from './domain/shared/read-ship-messages.js';
 import { createReadShipTimeline, type ReadShipTimeline } from './domain/shared/read-ship-timeline.js';
 
@@ -276,6 +277,8 @@ export interface UseCases {
   /** Sends every schedule that is due; core runs it on its timer and its pass, never the API. */
   sendDueSchedules: SendDueSchedules;
   closeHealthSnapshots: CloseHealthSnapshots;
+  /** One pruning pass of every fleet with a retention (decision 0066); core runs it, never the API. */
+  pruneHistory: PruneHistory;
   acknowledgeDelivery: AcknowledgeDelivery;
   answerPing: AnswerPing;
   pingShip: PingShip;
@@ -518,6 +521,7 @@ export function createUseCases(options: {
     resumeSchedule: createResumeSchedule({ uow, clock, ids }),
     sendDueSchedules: createSendDueSchedules({ fleets: createPrismaFleetRepository(prisma), scheduleAttempts: createPrismaScheduleAttempts(prisma), uow, clock, ids, hasher: sha256Hasher }),
     closeHealthSnapshots: createCloseHealthSnapshots({ fleets: createPrismaFleetRepository(prisma), uow: createPrismaSnapshotUnitOfWork(prisma), clock }),
+    pruneHistory: createPruneHistory({ fleets: createPrismaFleetRepository(prisma), uow: bulkUow, clock, ids }),
     acknowledgeDelivery: createAcknowledgeDelivery({ uow, clock, ids }),
     answerPing: createAnswerPing({ uow, clock, ids }),
     pingShip: createPingShip({ uow, clock, ids, hasher: sha256Hasher }),

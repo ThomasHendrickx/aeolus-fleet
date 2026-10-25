@@ -333,6 +333,6 @@ describe('reading one message within read reach (decision 0034)', () => {
   it('answers a message between ships outside its read reach as no message, so its existence does not show', async () => {
     const messageId = await fleet.send(fleet.far, { kind: 'ship', shipId: fleet.argo.shipId });
 
-    expect(refusalOf(await fleet.history.readMessage(fleet.reader, { messageId }))).toEqual({ kind: 'MESSAGE_NOT_FOUND', message: `No message ${messageId} in this fleet` });
+    expect(refusalOf(await fleet.history.readMessage(fleet.reader, { messageId }))).toEqual({ kind: 'MESSAGE_NOT_FOUND', message: `No message ${messageId} in this fleet, or it is no longer kept` });
   });
 });
