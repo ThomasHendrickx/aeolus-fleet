@@ -4,6 +4,7 @@ import type { ShownConnection } from '../../../../lib/shown-connection';
 import { Button } from '@aeolus-fleet/common/header';
 import { InlineError } from '../../../../components/molecules/inline-error';
 import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
+import { MissingScopes } from '../molecules/missing-scopes';
 
 interface SquadronsConnectionProps {
   /** Squadrons as the web app's server reads it; undefined while it loads. */
@@ -14,6 +15,8 @@ interface SquadronsConnectionProps {
   isConnecting: boolean;
   /** Why the last Connect squadrons failed, as squadrons or the fleet says it. */
   connectError?: string;
+  /** The last Connect, or Grant missing scopes, succeeded. */
+  hasConnected: boolean;
   onConnect: () => void;
 }
 
@@ -23,7 +26,7 @@ interface SquadronsConnectionProps {
  * ship and hands its secret to squadrons; the console never sees the secret.
  * Without squadrons it shows nothing: no trace of squadrons in the console.
  */
-export function SquadronsConnection({ settings, loadError, onRetry, isConnecting, connectError, onConnect }: SquadronsConnectionProps) {
+export function SquadronsConnection({ settings, loadError, onRetry, isConnecting, connectError, hasConnected, onConnect }: SquadronsConnectionProps) {
   if (loadError !== undefined) {
     return <InlineError title="Couldn’t read squadrons" description={loadError} onRetry={onRetry} />;
   }
@@ -39,10 +42,22 @@ export function SquadronsConnection({ settings, loadError, onRetry, isConnecting
         Squadrons
       </h2>
       {settings.state === 'connected' ? (
-        <p className="text-body" data-testid="settings-squadrons-state">
-          Connected as <span className="font-mono">{settings.ship?.name}</span>{' '}
-          <span className="font-mono text-muted-foreground">({settings.ship?.shipId})</span>
-        </p>
+        <>
+          <p className="text-body" data-testid="settings-squadrons-state">
+            Connected as <span className="font-mono">{settings.ship?.name}</span>{' '}
+            <span className="font-mono text-muted-foreground">({settings.ship?.shipId})</span>
+          </p>
+          <MissingScopes
+            plugin="squadrons"
+            shipName={settings.ship?.name ?? 'squadrons'}
+            missingScopes={settings.missingScopes}
+            isGranting={isConnecting}
+            hasGranted={hasConnected}
+            {...(connectError === undefined ? {} : { grantError: connectError })}
+            onGrant={onConnect}
+            testId="settings-squadrons"
+          />
+        </>
       ) : (
         <>
           <p className="text-body" data-testid="settings-squadrons-state">
@@ -53,7 +68,7 @@ export function SquadronsConnection({ settings, loadError, onRetry, isConnecting
               Connect squadrons
             </Button>
           </div>
-          {connectError !== undefined && <InlineError variant="field" title="Couldn’t connect squadrons" description={connectError} />}
+          {connectError !== undefined && <InlineError title="Couldn’t connect squadrons" description={connectError} />}
         </>
       )}
     </section>

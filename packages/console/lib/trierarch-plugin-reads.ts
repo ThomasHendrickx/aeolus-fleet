@@ -1,11 +1,12 @@
 import { cookies } from 'next/headers';
 import { z } from 'zod';
 
-import { ConnectPluginError } from './connect-plugin';
+import { ConnectPluginError, TRIERARCH_PLUGIN_SHIP } from './connect-plugin';
 import type { PluginAnswer } from './plugin-answer';
 import { TRIERARCH_PLUGIN_NO_ANSWER } from './no-answer';
 import { callPlugin, sessionCookieOf } from './plugin-call';
-import { readPluginConnection } from './plugin-calls';
+import { readShownConnection } from './plugin-calls';
+import { serverInternalUrlFrom } from './server-url';
 import { shownConnectionOf, type ShownConnection } from './shown-connection';
 import { machineSchema, settingsCheckSchema, type Machine, type SettingsCheck } from './trierarch-plugin-schemas';
 import { trierarchPluginUrlFrom } from './trierarch-plugin-url';
@@ -47,10 +48,10 @@ export function refusalOf(error: unknown): PluginAnswer<never> {
 export async function readTrierarchPluginConnection(): Promise<PluginAnswer<ShownConnection>> {
   const url = trierarchPluginUrlFrom(process.env);
   if (url === undefined) {
-    return { kind: 'answered', data: shownConnectionOf(undefined) };
+    return { kind: 'answered', data: shownConnectionOf(undefined, []) };
   }
   try {
-    return { kind: 'answered', data: shownConnectionOf(await readPluginConnection(url, await sessionCookie())) };
+    return { kind: 'answered', data: await readShownConnection({ serverUrl: serverInternalUrlFrom(process.env), pluginUrl: url }, { cookie: await sessionCookie(), wanted: TRIERARCH_PLUGIN_SHIP }) };
   } catch (error) {
     return refusalOf(error);
   }

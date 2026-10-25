@@ -5,6 +5,7 @@ import type { ShownConnection } from '../../../../lib/shown-connection';
 import { Button } from '@aeolus-fleet/common/header';
 import { InlineError } from '../../../../components/molecules/inline-error';
 import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
+import { MissingScopes } from '../molecules/missing-scopes';
 
 interface TrierarchPluginConnectionProps {
   /** The trierarch plugin as the web app's server reads it; undefined while it loads. */
@@ -15,6 +16,8 @@ interface TrierarchPluginConnectionProps {
   isConnecting: boolean;
   /** Why the last Connect failed, as the trierarch plugin or the fleet says it. */
   connectError?: string;
+  /** The last Connect, or Grant missing scopes, succeeded. */
+  hasConnected: boolean;
   onConnect: () => void;
 }
 
@@ -28,7 +31,7 @@ const WHAT_IT_DOES = 'Starts, restarts and stops sessions for crew requests on y
  * secret. Not set up (no AEOLUS_TRIERARCH_PLUGIN_URL, or off for this fleet)
  * is a normal state: it says what the plugin does and where to set it up.
  */
-export function TrierarchPluginConnection({ settings, loadError, onRetry, isConnecting, connectError, onConnect }: TrierarchPluginConnectionProps) {
+export function TrierarchPluginConnection({ settings, loadError, onRetry, isConnecting, connectError, hasConnected, onConnect }: TrierarchPluginConnectionProps) {
   if (loadError !== undefined) {
     return <InlineError title="Couldn’t read the trierarch plugin" description={loadError} onRetry={onRetry} />;
   }
@@ -53,10 +56,22 @@ export function TrierarchPluginConnection({ settings, loadError, onRetry, isConn
           </div>
         </>
       ) : settings.state === 'connected' ? (
-        <p className="text-body" data-testid="settings-trierarchs-state">
-          Connected as <span className="font-mono">{settings.ship?.name}</span>{' '}
-          <span className="font-mono text-muted-foreground">({settings.ship?.shipId})</span>
-        </p>
+        <>
+          <p className="text-body" data-testid="settings-trierarchs-state">
+            Connected as <span className="font-mono">{settings.ship?.name}</span>{' '}
+            <span className="font-mono text-muted-foreground">({settings.ship?.shipId})</span>
+          </p>
+          <MissingScopes
+            plugin="the trierarch plugin"
+            shipName={settings.ship?.name ?? 'trierarch-plugin'}
+            missingScopes={settings.missingScopes}
+            isGranting={isConnecting}
+            hasGranted={hasConnected}
+            {...(connectError === undefined ? {} : { grantError: connectError })}
+            onGrant={onConnect}
+            testId="settings-trierarchs"
+          />
+        </>
       ) : (
         <>
           <p className="text-body" data-testid="settings-trierarchs-state">
@@ -68,7 +83,7 @@ export function TrierarchPluginConnection({ settings, loadError, onRetry, isConn
               Connect trierarch plugin
             </Button>
           </div>
-          {connectError !== undefined && <InlineError variant="field" title="Couldn’t connect the trierarch plugin" description={connectError} />}
+          {connectError !== undefined && <InlineError title="Couldn’t connect the trierarch plugin" description={connectError} />}
         </>
       )}
     </section>

@@ -4,6 +4,7 @@ import type { ShownConnection } from '../../../../lib/shown-connection';
 import { Button } from '@aeolus-fleet/common/header';
 import { InlineError } from '../../../../components/molecules/inline-error';
 import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
+import { MissingScopes } from '../molecules/missing-scopes';
 
 interface GatewayConnectionProps {
   /** The gateway as the web app's server reads it; undefined while it loads. */
@@ -14,6 +15,8 @@ interface GatewayConnectionProps {
   isConnecting: boolean;
   /** Why the last Connect failed, as the gateway or the fleet says it. */
   connectError?: string;
+  /** The last Connect, or Grant missing scopes, succeeded. */
+  hasConnected: boolean;
   onConnect: () => void;
 }
 
@@ -25,7 +28,7 @@ interface GatewayConnectionProps {
  * while the gateway is on for the fleet: off, the browser learns nothing of
  * it (decision 0033).
  */
-export function GatewayConnection({ settings, loadError, onRetry, isConnecting, connectError, onConnect }: GatewayConnectionProps) {
+export function GatewayConnection({ settings, loadError, onRetry, isConnecting, connectError, hasConnected, onConnect }: GatewayConnectionProps) {
   if (loadError !== undefined) {
     return <InlineError title="Couldn’t read the gateway" description={loadError} onRetry={onRetry} />;
   }
@@ -42,10 +45,22 @@ export function GatewayConnection({ settings, loadError, onRetry, isConnecting, 
         Gateway
       </h2>
       {settings.state === 'connected' ? (
-        <p className="text-body" data-testid="settings-gateway-state">
-          Connected as <span className="font-mono">{settings.ship?.name}</span>{' '}
-          <span className="font-mono text-muted-foreground">({settings.ship?.shipId})</span>. It commissions an app ship for each outside party you approve.
-        </p>
+        <>
+          <p className="text-body" data-testid="settings-gateway-state">
+            Connected as <span className="font-mono">{settings.ship?.name}</span>{' '}
+            <span className="font-mono text-muted-foreground">({settings.ship?.shipId})</span>. It commissions an app ship for each outside party you approve.
+          </p>
+          <MissingScopes
+            plugin="the gateway"
+            shipName={settings.ship?.name ?? 'gateway'}
+            missingScopes={settings.missingScopes}
+            isGranting={isConnecting}
+            hasGranted={hasConnected}
+            {...(connectError === undefined ? {} : { grantError: connectError })}
+            onGrant={onConnect}
+            testId="settings-gateway"
+          />
+        </>
       ) : (
         <>
           <p className="text-body" data-testid="settings-gateway-state">
@@ -57,7 +72,7 @@ export function GatewayConnection({ settings, loadError, onRetry, isConnecting, 
               Connect gateway
             </Button>
           </div>
-          {connectError !== undefined && <InlineError variant="field" title="Couldn’t connect the gateway" description={connectError} />}
+          {connectError !== undefined && <InlineError title="Couldn’t connect the gateway" description={connectError} />}
         </>
       )}
     </section>

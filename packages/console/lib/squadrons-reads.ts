@@ -1,11 +1,12 @@
 import { cookies } from 'next/headers';
 import { z } from 'zod';
 
-import { ConnectPluginError } from './connect-plugin';
+import { ConnectPluginError, SQUADRONS_SHIP } from './connect-plugin';
 import type { PluginAnswer } from './plugin-answer';
 import { SQUADRONS_NO_ANSWER } from './no-answer';
 import { callPlugin, sessionCookieOf } from './plugin-call';
-import { readPluginConnection } from './plugin-calls';
+import { readShownConnection } from './plugin-calls';
+import { serverInternalUrlFrom } from './server-url';
 import { shownConnectionOf, type ShownConnection } from './shown-connection';
 import {
   catalogueSchema,
@@ -55,10 +56,10 @@ export function refusalOf(error: unknown): PluginAnswer<never> {
 export async function readSquadronsConnection(): Promise<PluginAnswer<ShownConnection>> {
   const url = squadronsUrlFrom(process.env);
   if (url === undefined) {
-    return { kind: 'answered', data: shownConnectionOf(undefined) };
+    return { kind: 'answered', data: shownConnectionOf(undefined, []) };
   }
   try {
-    return { kind: 'answered', data: shownConnectionOf(await readPluginConnection(url, await sessionCookie())) };
+    return { kind: 'answered', data: await readShownConnection({ serverUrl: serverInternalUrlFrom(process.env), pluginUrl: url }, { cookie: await sessionCookie(), wanted: SQUADRONS_SHIP }) };
   } catch (error) {
     return refusalOf(error);
   }

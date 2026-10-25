@@ -4,9 +4,9 @@ import { headers } from 'next/headers';
 
 import { connectPlugin, TRIERARCH_PLUGIN_SHIP } from './connect-plugin';
 import type { PluginAnswer } from './plugin-answer';
-import { pluginCalls } from './plugin-calls';
+import { pluginCalls, shownConnection } from './plugin-calls';
 import { serverInternalUrlFrom } from './server-url';
-import { shownConnectionOf, type ShownConnection } from './shown-connection';
+import type { ShownConnection } from './shown-connection';
 import { call, NOT_HERE, refusalOf, sessionCookie } from './trierarch-plugin-reads';
 import { joinedMachineSchema, type JoinedMachine } from './trierarch-plugin-schemas';
 import { trierarchPluginUrlFrom } from './trierarch-plugin-url';
@@ -37,7 +37,8 @@ export async function connectTrierarchPlugin(): Promise<PluginAnswer<ShownConnec
   }
   const calls = pluginCalls({ serverUrl: serverInternalUrlFrom(process.env), pluginUrl: url }, { cookie: await sessionCookie(), origin });
   try {
-    return { kind: 'answered', data: shownConnectionOf(await connectPlugin(calls, { ship: TRIERARCH_PLUGIN_SHIP, newKey: () => crypto.randomUUID() })) };
+    const connection = await connectPlugin(calls, { ship: TRIERARCH_PLUGIN_SHIP, newKey: () => crypto.randomUUID() });
+    return { kind: 'answered', data: await shownConnection(calls, { connection, wanted: TRIERARCH_PLUGIN_SHIP }) };
   } catch (error) {
     return refusalOf(error);
   }

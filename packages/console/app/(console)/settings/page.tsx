@@ -65,6 +65,7 @@ export default function SettingsPage() {
           }}
           isConnecting={connect.isPending}
           connectError={connect.isError ? connect.error.message : undefined}
+          hasConnected={connect.isSuccess}
           onConnect={() => {
             connect.mutate();
           }}
@@ -79,6 +80,7 @@ export default function SettingsPage() {
           }}
           isConnecting={connectTrierarchPlugin.isPending}
           connectError={connectTrierarchPlugin.isError ? connectTrierarchPlugin.error.message : undefined}
+          hasConnected={connectTrierarchPlugin.isSuccess}
           onConnect={() => {
             connectTrierarchPlugin.mutate();
           }}
@@ -93,6 +95,7 @@ export default function SettingsPage() {
           }}
           isConnecting={connectGateway.isPending}
           connectError={connectGateway.isError ? connectGateway.error.message : undefined}
+          hasConnected={connectGateway.isSuccess}
           onConnect={() => {
             connectGateway.mutate();
           }}

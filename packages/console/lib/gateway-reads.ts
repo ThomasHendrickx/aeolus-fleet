@@ -1,11 +1,12 @@
 import { cookies } from 'next/headers';
 
-import { ConnectPluginError } from './connect-plugin';
+import { ConnectPluginError, GATEWAY_SHIP } from './connect-plugin';
 import { gatewayUrlFrom } from './gateway-url';
 import { GATEWAY_NO_ANSWER } from './no-answer';
 import type { PluginAnswer } from './plugin-answer';
 import { sessionCookieOf } from './plugin-call';
-import { readPluginConnection } from './plugin-calls';
+import { readShownConnection } from './plugin-calls';
+import { serverInternalUrlFrom } from './server-url';
 import { shownConnectionOf, type ShownConnection } from './shown-connection';
 
 /**
@@ -32,10 +33,10 @@ export function refusalOf(error: unknown): PluginAnswer<never> {
 export async function readGatewayConnection(): Promise<PluginAnswer<ShownConnection>> {
   const url = gatewayUrlFrom(process.env);
   if (url === undefined) {
-    return { kind: 'answered', data: shownConnectionOf(undefined) };
+    return { kind: 'answered', data: shownConnectionOf(undefined, []) };
   }
   try {
-    return { kind: 'answered', data: shownConnectionOf(await readPluginConnection(url, await sessionCookie())) };
+    return { kind: 'answered', data: await readShownConnection({ serverUrl: serverInternalUrlFrom(process.env), pluginUrl: url }, { cookie: await sessionCookie(), wanted: GATEWAY_SHIP }) };
   } catch (error) {
     return refusalOf(error);
   }

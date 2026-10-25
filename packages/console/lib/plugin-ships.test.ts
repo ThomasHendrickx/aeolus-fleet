@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { pluginShipIdsOf } from './plugin-ships';
 
-const connected = (shipId: string) => ({ state: 'connected' as const, ship: { shipId, name: 'plugin' }, lastShipId: shipId });
+const connected = (shipId: string) => ({ state: 'connected' as const, ship: { shipId, name: 'plugin' }, lastShipId: shipId, missingScopes: [] });
 
 describe('pluginShipIdsOf (#368)', () => {
   it("holds squadrons' and the trierarch plugin's ship, each as connected", () => {
