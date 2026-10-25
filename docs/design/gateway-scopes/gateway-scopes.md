@@ -8,18 +8,24 @@ Stage 1: purpose, lessons, questions. Nothing past the purpose is decided until 
 
 ### Part A: which tools of an outside party a ship may call (0.32.0)
 
-An approver lets one ship search the company vault and another ship also write to it, without a network rule or a label for it. Network rules say where a ship may send: whether it reaches an outside party's proxy ship at all. Scopes say what it may do there: which of the party's switched-on tools it may call. Thomas: "labels would violate the network (labels) is where, scope is what rule".
+The company names what its ships may do at outside parties, in its own words: `crm:read-leads`, `crm:write-leads`, `company-memory:write`, `finance:read`. On an outside MCP server's page, an approver sets which of these scopes a calling ship must hold for each tool; for an outside A2A agent, one scope for the agent as a whole, since its messages name no skill (L26). The gateway refuses a call from a ship that does not hold it. Thomas: "the admin, or ship owner assigns scope requirements in the configuration screen of that MCP or a2a. Scopes can be added by the fleet owner. For example crm:read-leads, and then assigns that scope to the tools of the CRM MCP ship"; and on the principle, "labels would violate the network (labels) is where, scope is what rule".
 
-For whom: the approver (`gateway:approve`), who knows what each tool of an outside MCP server does; and whoever grants scopes on ships (`scopes:grant`), who decides what each ship may do.
+For whom: the fleet manager (0050's word for Thomas's "fleet owner"), who knows the company's words for what work may be done; the approver (`gateway:approve`), who knows what each tool does; whoever grants scopes on ships (`scopes:grant`).
 
 A good outcome:
-1. A ship that reaches the company vault's proxy ship without the scope a tool needs gets a plain refusal on calling it, and the call never reaches the outside server.
-2. Granting or revoking that scope is the existing scope grant on the ship, effective at its next call, with its event. No network rule or label changes.
-3. Every ship that reaches the party still sees which tools exist; a tool with no scope set needs none beyond reaching the party.
+1. On the CRM's page the approver sets search_leads and read_lead to need `crm:read-leads`, and update_lead to need `crm:write-leads`. On the company vault's page, write_note and delete_note need `company-memory:write`; search and read need none.
+2. A ship that reaches the CRM's proxy ship without `crm:write-leads` gets a plain refusal on update_lead, and the call never reaches the CRM.
+3. One scope may guard tools of several parties: `finance:read` on the accounting server and on the payroll server.
+4. Defined scopes are granted like any scope (`scopes:grant`, or a group in pagasae), effective at the next call, with its event. No network rule or label changes.
+5. Renaming or retiring a proxy ship moves no grant: nothing is keyed by a ship's name.
 
-A tool call is already something a ship does towards another ship: the ship sends a message to the party's proxy ship, naming the tool. Core checks the sender's send reach to the proxy ship (where). The gateway, crewing the proxy ship, checks that the sender holds the scope the tool needs (what), as squadrons checks `squadrons:form` on a ship that asks it by message (L25). The proxy ship's own scopes are not part of that check: they say what the outside party may do in the fleet, checked by core as for any ship.
+How it holds together:
+- A tool call is something a ship does towards another ship: it sends a message to the party's proxy ship, naming the tool. Core checks the sender's send reach to the proxy ship (where). The gateway, crewing the proxy ship, checks that the sender holds the scope the tool needs (what), read from core on each call (0057), as squadrons checks `squadrons:form` on a ship that asks it by message (L25). The proxy ship's own scopes are not part of that check.
+- A scope names a kind of work (`crm:read-leads`), never a ship: a second CRM server takes the same scope, and which server a ship reaches stays the network rules'.
+- **Core adds** defined scopes: define a scope with its description, change the description, remove it (refused while a ship holds it, as 0046 refuses today), listed by `fleet.scopes` beside the plugins' namespaces, granted as any scope; a new kind of namespace holder beside the plugins, which changes 0046 (A1, A3).
+- **The gateway adds** a required scope per tool and per A2A agent, kept with the party by scope text; the check on each call; the control on the party's page. A required scope no longer defined refuses every call to that tool until changed: closed, never open.
 
-Not the purpose: the tool switch per party (#1151, shipped); a scope check inside core for calls to outside parties; outside clients and agents calling into the fleet; skills of outside A2A agents, since an A2A message names no skill and the agent picks one itself, so reaching the agent is all there is to check, and that is the network rules' (L26).
+Not the purpose: the tool switch per party (#1151, shipped); scope checks for calls between agent ships (a receiving agent ship is never a policy point, 0046); outside clients and agents calling into the fleet; a scope per A2A skill (L26).
 
 ### Part B: ships as Slack bots (0.33.0)
 
@@ -54,6 +60,9 @@ Part A:
 | L10 | An outside party's own OAuth scopes never become fleet scopes | interop design, `design/interop-mcp` branch |
 | L25 | A plugin ship asked by message checks the asker's scope in its own namespace, read from core: squadrons forms a squadron by message from any ship holding `squadrons:form`. No rights travel with the message; the plugin enforces its own scopes | [0017](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/blob/main/docs/decisions/0017-squadrons-package.md), [blueprint](../../blueprint.md) "Scopes say what", 0046 |
 | L26 | The gateway sends an outside A2A agent an A2A message with no skill named; the card's skills only describe the agent | gateway `src/core/a2a-out/agent-message.ts`, `agent-statement.ts` |
+| L27 | Labels are defined by an actor holding `labels:define`, owned by it and retired with it, referred to by ids so a text change moves nothing | [0031](../../decisions/0031-labels.md) |
+| L28 | Owner is only a ship's; the fleet manager manages one fleet and holds every scope it offers | [0050](../../decisions/0050-domain-language.md), [0051](../../decisions/0051-organisation.md) |
+| L29 | Groups in pagasae give scopes per fleet; an account's scopes ride in its token | [0052](../../decisions/0052-groups.md), [0058](../../decisions/0058-pagasae-core-link.md) |
 
 Part B:
 
@@ -76,20 +85,32 @@ Part B:
 
 ## 3. Questions for Thomas
 
-### A1. Where the party scopes live
+### A1. Who defines scopes, and whose they are
 
-#1152 names scopes per party in their own namespace, such as `company-memory:read`. 0046 lets the gateway hold one namespace, at most 20 scopes, and rejected a plugin taking several namespaces and resource-scoped scopes. A scope named after a party also says where, which L1 gives to network rules. Whichever option, the check is the one in L25: the gateway reads the calling ship's scopes from core on each call; the proxy ship's own scopes play no part.
+1. **A new core scope, `scopes:define`, held by any actor (0053); defined scopes are the fleet's own**, changed and removed by any holder, never retired with the one who defined them. The fleet manager holds it, as every scope (0051).
+2. **As labels (0031): a defined scope belongs to its definer**, only it changes or removes it, and it goes when the definer retires. One owner answers for each scope; a retired ship takes the company's words with it, and every tool that needed them then refuses.
+3. **Only the fleet manager**, as an account right in pagasae. Simplest to explain; against 0053, where every job is a scope any actor may hold.
 
-1. **Kinds of tool, not parties:** the gateway declares a few scopes in `gateway`, such as `gateway:read` and `gateway:write`; the approver marks each tool with one. A ship's network rules decide which parties it reaches, its scope which kind of tool. Fits 0034 and 0046 as they stand. A ship that may write at the CRM may also write at the vault if it reaches both.
-2. **Party scopes inside `gateway`:** `gateway:company-memory-read`. Exactly the per-party control #1152 asks; fits 0046, but the 20-scope cap allows about nine parties of two scopes each, and a party's name sits in a 32-character action.
-3. **A namespace per party** as #1152 writes it: changes 0046 (several namespaces per plugin, a namespace freed when its party retires). Most direct for the approver; reopens a recorded decision and mixes where into what.
-4. **`gateway:<proxy ship name>:<scope>`** (Thomas): `gateway:company-memory:read`, `gateway:company-memory:write`, or per tool, `gateway:company-memory:delete-note`. It gives what 2 gives, control per party and per kind of tool or per tool, with no cap per party in the name. It changes:
-   - **The grammar.** A scope is two parts today, `namespace:action`, in common's pattern (`packages/common/src/fleet/index.ts`), core's declare and grant checks, the account token and the scope pickers. Three parts is a core change. A ship name may itself hold colons (`hemma:planner`) and run to 48 characters, where a scope part stops at 32.
-   - **0046.** Its cap of 20 per namespace no longer fits a list that grows with each party, and it rejected resource-scoped scopes; this is one, with the proxy ship as the resource. The gateway would declare scopes as parties come and go, and removing a scope a ship holds is refused today.
-   - **The proxy ship's life.** A rename leaves every granted scope naming the old name, unless core renames them. A retired ship's name is free to reuse: a new party under the same name would find the old grants waiting, unless retiring removes them. Both need a rule in core.
-   - **Where and what.** The scope names the party, which is where; the network rule still decides whether the ship reaches it. Holding `gateway:company-memory:write` without reach does nothing, so nothing breaks, but the where is said twice.
+Pick: 1. Scopes are the company's words, not one ship's; a definer leaving must not close tools across the fleet.
 
-Pick: 1. Where a ship sends is the network, what it does there is the scope, with no change to core. Option 4 is the right shape if a ship must write at one party and only read at another it also reaches; then it is a change to 0046 and the scope grammar, best keyed by something a rename and a reuse cannot move (the proxy ship's id, or an alias the gateway fixes at approval), and its own slice.
+### A2. Who sets which scope a tool needs
+
+1. **An actor holding `gateway:approve`, within manage reach of the proxy ship**, exactly as switching a tool on or off (#1151). The proxy ship's owner has manage reach by the built-in rule (0034), so an owner who holds `gateway:approve` sets it.
+2. **Also the proxy ship's owner without `gateway:approve`.** Thomas's "or ship owner" read literally; ownership becomes a right of its own, which no decision makes it today (0045: the owner is asked; 0053: every job is a scope).
+
+Pick: 1. One rule for everything on a party's page, and rights stay scopes.
+
+### A3. Which namespaces a defined scope may use
+
+Today a namespace is taken by a plugin for good (`gateway`, `squadrons`, `trierarch`), and core's five are reserved (0046).
+
+1. **Any free namespace, with the known plugins' namespaces reserved beside core's**; a plugin declaring a namespace the fleet defined scopes in is refused CONFLICT, naming it. Company words as Thomas wrote them (`crm:read-leads`).
+2. **Any free namespace, nothing reserved**: the first to take a name keeps it. A fleet that defines `squadrons:...` stops squadrons from connecting.
+3. **One fixed namespace for every defined scope**, such as `org:crm-read-leads`. No clash with plugins ever; the company's word squeezed into one 32-character action.
+
+Pick: 1. Thomas's form, and the plugins Aeolus ships never collide.
+
+Pick for part A as a whole: Thomas's proposal over the gateway-only options weighed before (kinds of tool in `gateway`, party scopes in `gateway`, a namespace per party, `gateway:<proxy ship>:<scope>`). It gives control per kind of work in the company's words, across parties, keyed by nothing that a rename or a reuse moves, with the two-part grammar unchanged. Its cost is a core slice for defined scopes and a change to 0046, before the gateway slice.
 
 ### B1. What one bot in Slack is
 
