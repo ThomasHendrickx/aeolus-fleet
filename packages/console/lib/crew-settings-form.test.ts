@@ -24,6 +24,9 @@ function aMachine(suffix: string, at: { details?: Partial<NonNullable<Machine['d
   };
 }
 
+/** A fleet that enables no model: every model is allowed. */
+const NO_RULE: readonly string[] = [];
+
 describe('offersOf', () => {
   it('merges what the answering machines offer per harness: workspaces and option values, the first default kept', () => {
     const other = aMachine('mb02', {
@@ -33,13 +36,54 @@ describe('offersOf', () => {
       },
     });
 
-    expect(offersOf([aMachine('mc01'), other])).toEqual([
+    expect(offersOf([aMachine('mc01'), other], NO_RULE)).toEqual([
       { harness: 'claude-code', repositories: ['aeolus-fleet', 'hemma'], folders: ['notes'], options: [{ name: 'model', values: ['opus', 'sonnet', 'haiku'], defaultValue: 'opus' }] },
     ]);
   });
 
   it('leaves out silent machines and machines that never reported', () => {
-    expect(offersOf([aMachine('mc01', { overrides: { isSilent: true } }), aMachine('mb02', { overrides: { details: null } })])).toEqual([]);
+    expect(offersOf([aMachine('mc01', { overrides: { isSilent: true } }), aMachine('mb02', { overrides: { details: null } })], NO_RULE)).toEqual([]);
+  });
+});
+
+describe('offersOf in a fleet that enables models (model governance, M8)', () => {
+  const THREE_MODELS = { ...CLAUDE, options: { type: 'object', properties: { model: { enum: ['opus', 'sonnet', 'haiku'], default: 'opus' }, effort: { enum: ['low', 'high'] } } } };
+  const CODEX_WITHOUT_MODEL = { harness: 'codex', options: { type: 'object', properties: { effort: { enum: ['low', 'high'] } } }, flags: [] };
+  const machine = aMachine('mc01', { details: { harnesses: [THREE_MODELS, CODEX_WITHOUT_MODEL] } });
+
+  it('offers only the enabled models, at the reported default when it is enabled', () => {
+    expect(offersOf([machine], ['sonnet', 'opus'])[0]?.options).toEqual([
+      { name: 'model', values: ['opus', 'sonnet'], defaultValue: 'opus' },
+      { name: 'effort', values: ['low', 'high'] },
+    ]);
+  });
+
+  it('defaults to the first enabled model when the reported default is disabled', () => {
+    expect(offersOf([machine], ['haiku', 'sonnet'])[0]?.options[0]).toEqual({ name: 'model', values: ['sonnet', 'haiku'], defaultValue: 'sonnet' });
+  });
+
+  it('leaves out a harness with no enabled model and a harness with no model option', () => {
+    expect(offersOf([machine, aMachine('mb02')], ['claude-opus-5-5'])).toEqual([]);
+  });
+
+  it('offers a harness whose enabled model only one machine reports', () => {
+    expect(offersOf([machine, aMachine('mb02')], ['haiku']).map((offer) => offer.harness)).toEqual(['claude-code']);
+  });
+});
+
+describe('valuesOf in a fleet that enables models (model governance, M8)', () => {
+  const held: CrewSettings = { harness: 'claude-code', workspace: { kind: 'folder', name: 'notes' }, options: { model: 'opus' } };
+
+  it('offers the enabled default when editing a request whose model is now disabled', () => {
+    const offers = offersOf([aMachine('mc01')], ['sonnet']);
+
+    expect(valuesOf(held, { offers, enabledModels: ['sonnet'] }).options).toEqual({ model: 'sonnet' });
+  });
+
+  it('keeps the model a request holds while it is enabled', () => {
+    const offers = offersOf([aMachine('mc01')], ['sonnet', 'opus']);
+
+    expect(valuesOf(held, { offers, enabledModels: ['sonnet', 'opus'] }).options).toEqual({ model: 'opus' });
   });
 });
 
@@ -47,7 +91,7 @@ describe('offersOf', () => {
 const LINUX: LabelValueId = 'lbv_01m3tbfspe96yf1rnr4ank9h1a';
 
 describe('the form values', () => {
-  const offers = offersOf([aMachine('mc01', { details: { harnesses: [CLAUDE, { harness: 'codex', options: {}, flags: [] }], workspaces: { repositories: [], folders: ['notes'] } } })]);
+  const offers = offersOf([aMachine('mc01', { details: { harnesses: [CLAUDE, { harness: 'codex', options: {}, flags: [] }], workspaces: { repositories: [], folders: ['notes'] } } })], NO_RULE);
 
   it('start at the first harness, its first workspace and its options at their defaults', () => {
     expect(defaultValues(offers)).toEqual({ harness: 'claude-code', workspace: { kind: 'folder', name: 'notes' }, options: { model: 'opus' }, firstPrompt: '', squadron: '', machineLabels: [] });
@@ -76,12 +120,12 @@ describe('the form values', () => {
   it('fill from the settings a request holds, for Edit; settings that are none start a new form', () => {
     const held: CrewSettings = { harness: 'codex', workspace: { kind: 'worktree', repository: 'hemma' }, options: { model: 'gpt-6' }, firstPrompt: 'Go', machineLabels: [LINUX] };
 
-    expect(valuesOf(held, offers)).toEqual({ harness: 'codex', workspace: { kind: 'worktree', repository: 'hemma' }, options: { model: 'gpt-6' }, firstPrompt: 'Go', squadron: '', machineLabels: [LINUX] });
-    expect(valuesOf(null, offers)).toEqual(defaultValues(offers));
+    expect(valuesOf(held, { offers, enabledModels: NO_RULE })).toEqual({ harness: 'codex', workspace: { kind: 'worktree', repository: 'hemma' }, options: { model: 'gpt-6' }, firstPrompt: 'Go', squadron: '', machineLabels: [LINUX] });
+    expect(valuesOf(null, { offers, enabledModels: NO_RULE })).toEqual(defaultValues(offers));
   });
 
   it('fill a request without a harness with the first harness offered, as a trierarch crews it with its first (#343)', () => {
-    expect(valuesOf({ workspace: { kind: 'folder', name: 'notes' }, options: {} }, offers).harness).toBe(defaultValues(offers).harness);
+    expect(valuesOf({ workspace: { kind: 'folder', name: 'notes' }, options: {} }, { offers, enabledModels: NO_RULE }).harness).toBe(defaultValues(offers).harness);
   });
 });
 
