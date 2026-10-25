@@ -115,15 +115,16 @@ export async function connectPlugin(calls: ConnectCalls, at: { ship: PluginShip;
 /**
  * The scopes the plugin lists that its connected ship lacks, for Settings to
  * name and offer to grant with a connect (#1226): none while not connected,
- * and none when the fleet shows the ship without its scopes, claiming no
- * lack it cannot see.
+ * and none when the fleet shows the ship without its scopes or does not
+ * answer for it, claiming no lack it cannot see.
  */
 export async function missingScopesOf(calls: Pick<ConnectCalls, 'shipScopes'>, at: { connection: PluginConnection; wanted: PluginShip }): Promise<Scope[]> {
   const { connection, wanted } = at;
   if (connection.state !== 'connected' || connection.ship === null) {
     return [];
   }
-  const held = await calls.shipScopes(connection.ship.shipId);
+  // The connection gates the plugin's pages: a ship the fleet does not answer for is a lack it cannot see, not a failed read.
+  const held = await calls.shipScopes(connection.ship.shipId).catch(() => undefined);
   return held === undefined ? [] : wanted.scopes.filter((scope) => !held.includes(scope));
 }
 
