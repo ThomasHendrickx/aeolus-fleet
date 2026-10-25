@@ -2,6 +2,8 @@
 
 Design for [#976](https://github.com/ThomasHendrickx/aeolus-fleet/issues/976), Aeolus 0.32.0. Docs only. Purpose, lessons, Thomas's decisions, the detail, the flows, the gaps and the slices.
 
+Approved by Thomas (25 Oct): "sending to a set of ships approved".
+
 ## 1. Purpose (agreed by Thomas)
 
 A ship sends one message to a set of ships, named by their labels, and each ship of the set gets its own delivery under the delivery promise. Today a ship reaches one ship (`ship`), one claiming ship of a type (`type`), or the participants of a meeting (`meeting`). Telling a set of ships the same thing means one send per ship, and the sender must first find out who is in the set.
