@@ -1,8 +1,8 @@
 # Selector: one message to a set of ships
 
-Design for [#976](https://github.com/ThomasHendrickx/aeolus-fleet/issues/976), Aeolus 0.32.0. Docs only. Stage 1: purpose, lessons, questions. No decisions until Thomas agrees the purpose.
+Design for [#976](https://github.com/ThomasHendrickx/aeolus-fleet/issues/976), Aeolus 0.32.0. Docs only. Purpose, lessons, Thomas's decisions, the detail, the flows, the gaps and the slices.
 
-## 1. Purpose (for Thomas to agree)
+## 1. Purpose (agreed by Thomas)
 
 A ship sends one message to a set of ships, named by their labels, and each ship of the set gets its own delivery under the delivery promise. Today a ship reaches one ship (`ship`), one claiming ship of a type (`type`), or the participants of a meeting (`meeting`). Telling a set of ships the same thing means one send per ship, and the sender must first find out who is in the set.
 
@@ -34,45 +34,111 @@ Not the purpose: a conversation where everyone hears every answer (that is a mee
 | L12 | Type is metadata that can become a label; rules never select by type | #412; 0034 |
 | L13 | No hidden behaviour, scope says what and reach says where, no policy of Aeolus's own, pre-1.0 with no compatibility work | blueprint Principles; 0013, 0016, 0034, 0046 |
 
-## 3. Questions for Thomas
+| L14 | A contribution's undeliverable delivery is resent to its participant alone, as a message of its own | `resend-delivery.ts` |
+| L15 | Texts are for people, ids for machines: a send selects by value ids; `fleet.findLabelValue` (`fleet:read`) turns a key and value into ids; selecting by texts is rejected | 0031 |
+| L16 | `sentMessage` answers one delivery: a sender reads where its message stands without `fleet:read` | `read-sent-message.ts`; interop 3.5 |
+| L17 | A schedule stores a ship or type selector and is checked as a send at each send time | scheduled messages design S3, S5 |
 
-### Q1. Does a send to a set still earn its place beside meetings and rooms?
+## 3. Decisions (Thomas, 25 Oct, on #1221)
 
-Meetings invite by label and give n-to-n inside; the room (next minor) is a lasting conversation with no mic. A send to a set is one-way: the recipients do not hear each other's answers.
+| # | Rule |
+| --- | --- |
+| D1 | **A one-way send to a set** (Q1). One message, one delivery per ship of the set; each recipient answers the sender alone, by the answer rule, as to any send |
+| D2 | **The set is a label selection, selector kind `label`** (Q2). Value ids, exact and AND, as meeting invites take (L3, L4). The name is the label value; `group` stays pagasae's (L1) |
+| D3 | **No whole-fleet send** (Q3). An empty selection is refused; a fleet that wants every ship labels them. The blueprint drops `group` and `fleet` from the later kinds |
+| D4 | **Reach to every ship, or nothing** (Q4). Thomas: "It resolved to a list of ships and then sends." One ship of the list out of the sender's send reach refuses the whole send, nothing stored, the refusal recorded as any other (L7) |
+| D5 | **`messages:send` is enough** (Q5). No scope of its own; the daily message limit counts the message once |
 
-1. **Yes, a one-way send to a set.** One message, one delivery each, answers go to the sender alone. Cheap: no `meetings:open`, no lifecycle, no square cost (L9).
-2. **No, close #976.** Meetings and rooms cover n-to-n; strike `group` and `fleet` from the blueprint's later kinds. One fewer way to address, but telling ten ships one thing means opening a room for a message nobody discusses.
+## 4. Detail
 
-Pick: **1.** Most coordination is "tell these ships"; a room would make every answer reach every ship, the flood L9 warns of.
+Each rule follows from a decision above or from a rule the docs already hold; none is new policy.
 
-### Q2. What names the set?
+| # | Rule | From |
+| --- | --- | --- |
+| R1 | The selector is `{ kind: 'label', valueIds: [lbv_…] }`, one to as many ids as a ship can carry (20), each once. Ids only; a sender learns them from its task or through `fleet.findLabelValue` | D2, L15 |
+| R2 | Resolved at send, in the send's unit of work, into the ships that carry every value and are not retired, awaiting crew or crewed. The viewer receives nothing and is never in the list | blueprint Send; 0022 |
+| R3 | No ship in the list (an unknown id, a value nobody carries): refused `UNRESOLVABLE_SELECTOR`, nothing stored | D3, L8 |
+| R4 | Reach checked by send from the sender to each ship of the list, as one send checks one ship; any refusal refuses the whole send `NOT_REACHABLE` and records it | D4, L7 |
+| R5 | One message keeping its selector as sent, one pending delivery per ship of the list, `MessageAccepted` per delivery, all in one transaction; OK only after commit; then each ship is woken | D1, outcome 1 |
+| R6 | Everything else is a send's: payload at most 64 KB, content type, idempotency key over the whole request (a repeat answers the first message, whoever carries the label now), `inReplyTo`, force with `messages:force` | blueprint Send |
+| R7 | Each delivery lives on its own: pending while its ship awaits crew, undeliverable after five hand-overs, abandoned when its ship retires, the others untouched | outcome 2, 0040 |
+| R8 | A resend of one delivery goes to its ship alone, as a message of its own, as a contribution's does | L14 |
+| R9 | `sentMessage` answers every delivery of the message, each with its ship and state; one delivery for a ship or type send, as today | outcome 3, L16 |
+| R10 | Wherever a reader sees a message's recipient, a label message shows its selection as key and value texts, then each delivery with its ship | outcome 3, L15 |
+| R11 | Locks: the sender's key, then the ships of the list in id order, held for share as a send to one ship holds it, so a retire and a send never pass each other | `resolve-selector.ts` |
 
-1. **A label selection, kind `label`.** The same exact-and-AND selection by value ids as meeting invites (L3, L4). The label value is the name, owned and assigned under existing rules (L10). Nothing new to keep.
-2. **A label selection plus a list of ships, as meeting invites take (M6).** One input shape across meeting invites and sends; covers "these three ships" without a label.
-3. **A stored, named list of ships.** A new thing with its own lifecycle and a new term, kept apart from labels.
+## 5. Flows
 
-Pick: **1.** Thomas's own suggestion (L2), no new term, and a label is already the fleet's way to select ships. A list of named ships stays a few sends, or a label.
+### Send to a label
 
-### Q3. What about the whole fleet (`fleet` later)?
+```mermaid
+flowchart TD
+  send(["Ship sends to { kind: label, valueIds }"]) --> scope{"Holds messages:send?"}
+  scope -->|no| r1([Refused, nothing stored])
+  scope -->|yes| shape{"1 to 20 value ids, payload at most 64 KB?"}
+  shape -->|no| r2([Refused: invalid input])
+  shape -->|yes| key{"Idempotency key used before?"}
+  key -->|"same request"| first([OK: the first message])
+  key -->|"other request"| r3([Refused: key reused])
+  key -->|no| limit{"Daily message limit left? (D5)"}
+  limit -->|no| r4([Refused: limit reached])
+  limit -->|yes| resolve["Resolve: ships carrying every value, not retired, never the viewer (R2)"]
+  resolve --> any{"One ship or more?"}
+  any -->|no| r5(["Refused UNRESOLVABLE_SELECTOR, nothing stored (R3)"])
+  any -->|yes| reach{"Sender reaches every one by send? (D4)"}
+  reach -->|no| r6(["Refused NOT_REACHABLE, refusal recorded, nothing else stored (R4)"])
+  reach -->|yes| store["One message, one delivery per ship, MessageAccepted each, one transaction (R5)"]
+  store --> fail{"Commit fails midway?"}
+  fail -->|yes| r7([Rolled back: nothing stored, nobody woken])
+  fail -->|no| ok(["OK with the message id; each ship woken"])
+```
 
-1. **Drop it.** An empty selection is refused; a fleet that wants "every ship" labels them. No broadcast flood path.
-2. **An empty selection means every ship the sender reaches.** Broadcast for free, and the easiest way to wake every session in a fleet by mistake.
-3. **Keep `fleet` as its own later kind**, decided when someone needs it.
+### Each delivery on its own
 
-Pick: **1.** Smallest surface; anyone who needs it gets it from a label, and the blueprint's later list shrinks to what is designed.
+```mermaid
+flowchart TD
+  ok(["Message stored, one delivery per ship"]) --> a["Ship A crewed: receives, acknowledges"]
+  ok --> b["Ship B awaiting crew: pending until crewed (R7)"]
+  ok --> c["Ship C fails five hand-overs: undeliverable, on Health"]
+  ok --> d["Ship D retires: its delivery abandoned"]
+  c --> resend(["Operator resends C's delivery"]) --> alone["A new message to C alone (R8)"]
+  a --> answer(["A answers"]) --> sender["Reaches the sender alone, by the answer rule (D1)"]
+  ok --> read(["Sender reads sentMessage"]) --> each["Every delivery with its ship and state (R9)"]
+```
 
-### Q4. Some ships of the set are out of the sender's reach
+### The list changes around a send
 
-1. **Refuse the whole send, nothing stored**, as a meeting open does (L4, L7). OK means every ship of the set got its delivery; the sender narrows the selection. In a fleet with rules, one unreachable ship in a label blocks every send to it.
-2. **The set is the ships of the selection the sender reaches**, as a type's claimants are (L6); none reachable refuses. Never blocked, but the sender cannot tell who was left out.
-3. **As 2, and the answer names the ships left out.** Nothing hidden, but a send answers a partial result, a new shape for OK, and it tells the sender about ships it cannot reach.
+```mermaid
+flowchart TD
+  t1(["Label value assigned or unassigned, or a ship retires"]) --> when{"Before or after the send's commit?"}
+  when -->|before| in["The send resolves the new list"]
+  when -->|after| kept["Stored deliveries stay; a ship gaining the label later gets nothing; a ship losing it keeps its delivery"]
+  t2(["Retire races the send"]) --> lock["Ship held for share during the send (R11): retire waits, then abandons the new delivery"]
+```
 
-Pick: **1.** It keeps "it works or doesnt" and the meeting's rule; the network rules design (#1154) is where reach gets easier, not the selector.
+## 6. Gaps in today's fleet
 
-### Q5. Who may send to a set?
+| Today | Gap |
+| --- | --- |
+| Selector `ship`, `type` or `meeting` (common `selectorSchema`) | Kind `label` with value ids |
+| `resolveSelector` answers one ship or a type; meeting invites resolve a label selection | Resolving a label selection for a send, holding each ship |
+| Fan-out stored only for a contribution | A send storing one delivery per ship of the list, with rollback and concurrency tests |
+| `sentMessage` answers one delivery | Every delivery with its ship |
+| Console's message read and sheet show one recipient (#1186 review: the first delivery only) | Every delivery of a label message, its ship and state; the selection as label texts |
+| Blueprint Selector row: "`group` and `fleet` later"; deferred row for n-to-n | `label` in the row; the deferred row gone |
 
-1. **`messages:send`, with reach to every ship of the set.** Scope says what, reach says where (L13); the daily message limit counts the message once.
-2. **As 1, and the daily limit counts each delivery.** A send to fifty ships spends fifty; harder to flood, but a limit now means two things.
-3. **A scope of its own beyond `messages:send`**, as meetings have `meetings:open`. An organisation can keep fan-out to a few, at the cost of one more scope to grant.
+## 7. Slices for 0.32.0
 
-Pick: **1.** Reach already bounds who a ship can tell; a second gate is policy nobody has asked for yet (0016).
+One PR each, in order.
+
+| # | Slice | Builds | Done when |
+| --- | --- | --- | --- |
+| S1 | Core: send to a label | Decision record and blueprint (Selector row, deferred row); `label` in common's selector; resolving the list with locks (R2, R11); refusals R3, R4; one message, one delivery per ship (R5); resend to one ship (R8); MCP and REST through the same procedure | Three ships labelled `team=a`, one not: a send reaches the three, each acknowledges on its own; one unreachable ship refuses the send and stores nothing; a failure at the second delivery rolls back all; a retire racing the send abandons its delivery; a repeat key answers the first message after the label moved |
+| S2 | Core and console: who received it | `sentMessage` answers every delivery (R9); the console's message read and sheet list every delivery with its ship and state, the selection as label texts (R10) | A sender reads three deliveries with three states; the console's sheet of a label message shows every ship, on desktop and phone |
+
+## 8. Open for Thomas
+
+| # | Question | Options | Pick |
+| --- | --- | --- | --- |
+| O1 | May a schedule send to a label? Scheduled messages (0.32.0) store a ship or type selector (L17) | 1. Yes: the schedule stores the selection and each send time resolves and checks it as a send (D4); one line in S3 of that design. 2. Not now: ship or type only | **1.** A schedule is a send by its ship at its time; "tell the team every morning" is the first use that combines them |
+| O2 | Is the sender in its own list when it carries the label? | 1. Never: every other ship, as a contribution goes to every other participant. 2. Yes, it gets a delivery as any carrier | **1.** A ship telling its team does not need its own message back |
