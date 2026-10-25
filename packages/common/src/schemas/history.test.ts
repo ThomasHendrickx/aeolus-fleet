@@ -254,10 +254,21 @@ describe('messageOutputSchema', () => {
         { ...step, seq: 1, type: 'MessageAccepted', occurredAt: AT, ship: null },
       ],
     },
+    deliveries: [{ id: newId('delivery'), ship: planner, state: 'handed', since: AT }],
   };
 
   it('accepts the envelope, the payload, its replies and the delivery with its way and its history, newest first', () => {
     expect(messageOutputSchema.parse(message)).toEqual(message);
+  });
+
+  it('accepts every delivery of a send to a label, a ship each, and a type delivery no ship claimed yet (decision 0065)', () => {
+    const deliveries = [
+      { id: newId('delivery'), ship: planner, state: 'acknowledged', since: AT },
+      { id: newId('delivery'), ship: scout, state: 'pending', since: AT },
+      { id: newId('delivery'), ship: null, state: 'pending', since: AT },
+    ];
+
+    expect(messageOutputSchema.parse({ ...message, deliveries }).deliveries).toEqual(deliveries);
   });
 
   it.each([

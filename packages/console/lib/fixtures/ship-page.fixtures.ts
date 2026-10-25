@@ -292,6 +292,7 @@ export const TYPE_MESSAGE: MessageDetail = {
   payload: '{"task":"review","repo":"web","pr":321}',
   replies: [],
   delivery: { id: deliveryId('0003'), state: 'handed', attempts: 2, claimedBy: REVIEWER, way: PULLED_WAY, history: TYPE_HISTORY },
+  deliveries: [{ id: deliveryId('0003'), ship: REVIEWER, state: 'handed', since: PULLED_WAY.since }],
 };
 
 /** planner's answer to reviewer-01, acknowledged. */
@@ -312,6 +313,7 @@ export const DIRECT_MESSAGE: MessageDetail = {
     way: { ...PULLED_WAY, since: '2026-09-28T14:27:40Z' },
     history: DIRECT_HISTORY,
   },
+  deliveries: [{ id: deliveryId('0001'), ship: REVIEWER, state: 'acknowledged', since: '2026-09-28T14:27:40Z' }],
 };
 
 /** The trierarch on mac-mini, which crews reviewer-01 in the pushed examples. */
@@ -356,6 +358,7 @@ function pushed(suffix: string, delivery: Pick<MessageDetail['delivery'], 'state
     payload: 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/48',
     replies: [],
     delivery: { id: deliveryId(suffix), claimedBy: delivery.state === 'pending' ? null : REVIEWER, ...delivery },
+    deliveries: [{ id: deliveryId(suffix), ship: REVIEWER, state: delivery.state, since: delivery.way.since }],
   };
 }
 

@@ -260,7 +260,20 @@ export const messageReplySchema = z.object({ id: idSchema('message'), sender: pa
 
 export type MessageReply = z.infer<typeof messageReplySchema>;
 
-/** Output of `fleet.message`: the envelope, the payload, its replies and the delivery with its way and its history, newest first. */
+/**
+ * One delivery of a message as `fleet.message` lists it: the ship it went to,
+ * or the ship of the type that claimed it (null while none has), its state
+ * and since when.
+ */
+export const messageDeliverySchema = z.object({ id: idSchema('delivery'), ship: partySchema.nullable(), state: deliveryStateSchema, since: isoTime });
+
+export type MessageDelivery = z.infer<typeof messageDeliverySchema>;
+
+/**
+ * Output of `fleet.message`: the envelope, the payload, its replies and the
+ * delivery with its way and its history, newest first; and every delivery of
+ * it by id, one per ship for a label (decision 0065), whose first is that delivery.
+ */
 export const messageOutputSchema = listedMessageSchema.omit({ preview: true, delivery: true }).extend({
   payload: z.string(),
   replies: z.array(messageReplySchema),
@@ -272,6 +285,7 @@ export const messageOutputSchema = listedMessageSchema.omit({ preview: true, del
     way: deliveryWaySchema,
     history: z.array(deliveryHistoryEntrySchema),
   }),
+  deliveries: z.array(messageDeliverySchema),
 });
 
 export type MessageDetail = z.infer<typeof messageOutputSchema>;

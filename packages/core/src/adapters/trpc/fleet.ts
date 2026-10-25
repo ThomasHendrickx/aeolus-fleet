@@ -972,7 +972,7 @@ export const fleetRouter = router({
       return { items: items.map((message) => ({ ...message, sentAt: message.sentAt.toISOString() })), nextCursor };
     }),
 
-  /** One message: envelope, payload, its replies, and its delivery's way through with every step, newest first. */
+  /** One message: envelope, payload, its replies, its delivery's way through with every step, newest first, and every delivery with its ship. */
   message: actorScopedProcedure('fleet:read')
     .input(messageInputSchema)
     .output(messageOutputSchema)
@@ -987,6 +987,7 @@ export const fleetRouter = router({
           way: wayOutputOf(message.delivery.way),
           history: message.delivery.history.map((change) => ({ ...change, occurredAt: change.occurredAt.toISOString() })),
         },
+        deliveries: message.deliveries.map((delivery) => ({ ...delivery, since: delivery.since.toISOString() })),
       };
     }),
 
