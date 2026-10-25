@@ -1,10 +1,11 @@
 /**
- * The pruning pass on Postgres (docs/design/retention/retention.md, R2, R6,
- * R7, R8, R12 and R16). A batch takes a transaction-level advisory lock on the
+ * The pruning pass on Postgres (docs/design/retention/retention.md, R2 to R4,
+ * R6 to R8, R12, R13 and R16). A batch takes a transaction-level advisory lock on the
  * fleet's pruning with try, so a second server skips the fleet, and locks the
  * messages it reads and their deliveries FOR UPDATE SKIP LOCKED before it
  * reads what decides: a row another transaction holds is skipped, and its
- * message marked locked, waiting for the next pass. The one step that makes a
+ * message marked locked, waiting for the next pass; the rows that go by age
+ * are locked the same way, a held one left for the next pass. The one step that makes a
  * set go deletes it children first, its events under the transaction-local
  * setting `aeolus.pruning_fleet`, the only way events go apart from a fleet's
  * delete.
@@ -12,8 +13,12 @@
 import { ANSWER_CONTENT_TYPE, deliveryStateSchema, idSchema } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
-import type { HistoryPruner, PruneCandidate } from '../../domain/shared/history-pruning.js';
+import { CREW_EVENT_TYPES, type HistoryPruner, type PruneCandidate } from '../../domain/shared/history-pruning.js';
 import type { Db } from './client.js';
+import { Prisma } from './generated/client.js';
+
+/** The crew event types as SQL literals, so the query's filter matches the events_crew_idx partial index. */
+const CREW_EVENT_TYPES_SQL = Prisma.raw(CREW_EVENT_TYPES.map((type) => `'${type}'`).join(', '));
 
 const idRows = z.array(z.object({ id: idSchema('message') }));
 
@@ -143,9 +148,75 @@ export function createPrismaHistoryPruner(db: Db): HistoryPruner {
       );
       return rows.map((row) => row.id);
     },
+    agedRows: async (fleetId, { cutoff, messageIds, limit }) => {
+      const ids = <T extends 'event' | 'lease' | 'credential' | 'consoleSession' | 'reachRefusal'>(kind: T, rows: unknown) =>
+        z
+          .array(z.object({ id: idSchema(kind) }))
+          .parse(rows)
+          .map((row) => row.id);
+      // Through the events_crew_idx partial index; only events the newest
+      // snapshot folded (R7), as a message's events are.
+      const eventIds = ids(
+        'event',
+        await db.$queryRaw`
+          SELECT e.id FROM events e
+          WHERE e.fleet_id = ${fleetId} AND e.type IN (${CREW_EVENT_TYPES_SQL}) AND e.occurred_at < ${cutoff}
+            AND e.message_id IS NULL AND e.delivery_id IS NULL
+            AND e.seq <= COALESCE((SELECT seq FROM health_snapshots WHERE fleet_id = ${fleetId} ORDER BY hour DESC LIMIT 1), 0)
+          ORDER BY e.occurred_at
+          LIMIT ${limit}`,
+      );
+      const consoleSessionIds = ids(
+        'consoleSession',
+        await db.$queryRaw`
+          SELECT id FROM console_sessions WHERE fleet_id = ${fleetId} AND ended_at < ${cutoff}
+          ORDER BY ended_at LIMIT ${limit} FOR UPDATE SKIP LOCKED`,
+      );
+      // An ended lease goes only when no row outside the set names it: a
+      // delivery, an overdue row or a console session (R4).
+      const leaseIds = ids(
+        'lease',
+        await db.$queryRaw`
+          SELECT l.id FROM leases l
+          WHERE l.fleet_id = ${fleetId} AND l.ended_at < ${cutoff}
+            AND NOT EXISTS (
+              SELECT 1 FROM deliveries d
+              WHERE d.fleet_id = ${fleetId} AND d.claimed_by_lease_id = l.id AND NOT (d.message_id = ANY(${[...messageIds]}::text[]))
+            )
+            AND NOT EXISTS (
+              SELECT 1 FROM overdue_deliveries o JOIN deliveries d ON d.fleet_id = o.fleet_id AND d.id = o.delivery_id
+              WHERE o.fleet_id = ${fleetId} AND o.lease_id = l.id AND NOT (d.message_id = ANY(${[...messageIds]}::text[]))
+            )
+            AND NOT EXISTS (
+              SELECT 1 FROM console_sessions s
+              WHERE s.fleet_id = ${fleetId} AND s.lease_id = l.id AND NOT (s.id = ANY(${consoleSessionIds}::text[]))
+            )
+          ORDER BY l.ended_at LIMIT ${limit} FOR UPDATE OF l SKIP LOCKED`,
+      );
+      const credentialIds = ids(
+        'credential',
+        await db.$queryRaw`
+          SELECT id FROM credentials WHERE fleet_id = ${fleetId} AND invalidated_at < ${cutoff}
+          ORDER BY invalidated_at LIMIT ${limit} FOR UPDATE SKIP LOCKED`,
+      );
+      const signInTicketHashes = z
+        .array(z.object({ tokenHash: z.string() }))
+        .parse(
+          await db.$queryRaw`
+            SELECT token_hash AS "tokenHash" FROM sign_in_tickets WHERE fleet_id = ${fleetId} AND (used_at < ${cutoff} OR expires_at < ${cutoff})
+            LIMIT ${limit} FOR UPDATE SKIP LOCKED`,
+        )
+        .map((row) => row.tokenHash);
+      const reachRefusalIds = ids(
+        'reachRefusal',
+        await db.$queryRaw`SELECT id FROM reach_refusals WHERE fleet_id = ${fleetId} AND at < ${cutoff} ORDER BY id LIMIT ${limit}`,
+      );
+      return { eventIds, leaseIds, credentialIds, consoleSessionIds, signInTicketHashes, reachRefusalIds };
+    },
     go: async (fleetId, set) => {
       const messageIds = [...set.messageIds];
       const meetingEventIds = [...set.meetingEventIds];
+      const consoleSessionIds = [...set.consoleSessionIds];
       await db.$queryRaw`SELECT set_config('aeolus.pruning_fleet', ${fleetId}, true)`;
       // Storage is what the fleet holds now (R6): each message's payload bytes
       // come off its UTC day, as the send counted them; the day's count stays.
@@ -165,10 +236,30 @@ export function createPrismaHistoryPruner(db: Db): HistoryPruner {
       const messageEvents = await db.$executeRaw`DELETE FROM events WHERE fleet_id = ${fleetId} AND message_id = ANY(${messageIds})`;
       const deliveryEvents = await db.$executeRaw`DELETE FROM events WHERE fleet_id = ${fleetId} AND delivery_id = ANY(${deliveryIds})`;
       const meetingEvents = await db.$executeRaw`DELETE FROM events WHERE fleet_id = ${fleetId} AND id = ANY(${meetingEventIds})`;
+      const crewEvents = await db.$executeRaw`DELETE FROM events WHERE fleet_id = ${fleetId} AND id = ANY(${[...set.eventIds]}::text[])`;
       const overdueDeliveries = await db.$executeRaw`DELETE FROM overdue_deliveries WHERE fleet_id = ${fleetId} AND delivery_id = ANY(${deliveryIds})`;
       const deliveries = await db.$executeRaw`DELETE FROM deliveries WHERE fleet_id = ${fleetId} AND id = ANY(${deliveryIds})`;
       const messages = await db.$executeRaw`DELETE FROM messages WHERE fleet_id = ${fleetId} AND id = ANY(${messageIds})`;
-      return { messages, deliveries, events: messageEvents + deliveryEvents + meetingEvents, overdueDeliveries };
+      const noticeDismissals = await db.$executeRaw`DELETE FROM notice_dismissals WHERE fleet_id = ${fleetId} AND console_session_id = ANY(${consoleSessionIds}::text[])`;
+      const guideProgress = await db.$executeRaw`DELETE FROM guide_progress WHERE fleet_id = ${fleetId} AND console_session_id = ANY(${consoleSessionIds}::text[])`;
+      const consoleSessions = await db.$executeRaw`DELETE FROM console_sessions WHERE fleet_id = ${fleetId} AND id = ANY(${consoleSessionIds}::text[])`;
+      const leases = await db.$executeRaw`DELETE FROM leases WHERE fleet_id = ${fleetId} AND id = ANY(${[...set.leaseIds]}::text[])`;
+      const credentials = await db.$executeRaw`DELETE FROM credentials WHERE fleet_id = ${fleetId} AND id = ANY(${[...set.credentialIds]}::text[])`;
+      const signInTickets = await db.$executeRaw`DELETE FROM sign_in_tickets WHERE fleet_id = ${fleetId} AND token_hash = ANY(${[...set.signInTicketHashes]}::text[])`;
+      const reachRefusals = await db.$executeRaw`DELETE FROM reach_refusals WHERE fleet_id = ${fleetId} AND id = ANY(${[...set.reachRefusalIds]}::text[])`;
+      return {
+        messages,
+        deliveries,
+        events: messageEvents + deliveryEvents + meetingEvents + crewEvents,
+        overdueDeliveries,
+        leases,
+        credentials,
+        consoleSessions,
+        noticeDismissals,
+        guideProgress,
+        signInTickets,
+        reachRefusals,
+      };
     },
     keepFrom: async (fleetId, at) => {
       await db.$executeRaw`UPDATE fleets SET kept_from = ${at} WHERE id = ${fleetId}`;

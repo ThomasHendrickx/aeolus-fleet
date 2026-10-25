@@ -4,9 +4,11 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { historyScenario, type HistoryScenario } from '../../../test/support/history-scenario.js';
 import type { InMemoryState } from '../../../test/support/in-memory.js';
 import { unwrap } from '../../testing/result.js';
-import type { ReachRefusal } from '../registry/reach-refusal.js';
 import { createCloseHealthSnapshots } from './close-health-snapshots.js';
+import { CREW_EVENT_TYPES } from './history-pruning.js';
 import { createPruneHistory } from './prune-history.js';
+
+const CREW_EVENTS: readonly string[] = CREW_EVENT_TYPES;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
@@ -126,13 +128,31 @@ describe('the pruning pass', () => {
   it('writes HistoryPruned, by the system, with the cutoff and how many rows of each kind went', async () => {
     retainFor(30);
     const messageId = await aFinishedMessage();
-    const events = eventsOf(messageId).length;
+    const crewEvents = scene.core.state.events.filter((event) => CREW_EVENTS.includes(event.type)).length;
+    const events = eventsOf(messageId).length + crewEvents;
     scene.core.clock.advance(31 * DAY_MS);
 
     await pass();
 
+    expect(crewEvents).toBeGreaterThan(0);
     expect(pruned()).toEqual([
-      expect.objectContaining({ actor: { kind: 'system' }, details: { cutoff: '2026-10-02T09:01:03.000Z', messages: 1, deliveries: 1, events, overdueDeliveries: 0 } }),
+      expect.objectContaining({
+        actor: { kind: 'system' },
+        details: {
+          cutoff: '2026-10-02T09:01:03.000Z',
+          messages: 1,
+          deliveries: 1,
+          events,
+          overdueDeliveries: 0,
+          leases: 0,
+          credentials: 0,
+          consoleSessions: 0,
+          noticeDismissals: 0,
+          guideProgress: 0,
+          signInTickets: 0,
+          reachRefusals: 0,
+        },
+      }),
     ]);
   });
 
@@ -382,7 +402,9 @@ describe("the pruning pass, the rest of a fleet's finished history (S3)", () => 
   it('keeps an ended lease a kept delivery names', async () => {
     retainFor(30);
     const question = await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.scout.shipId } });
-    scene.core.state.messages.find((message) => message.id === question)!.contentType = QUESTION_CONTENT_TYPE;
+    for (const message of scene.core.state.messages.filter((held) => held.id === question)) {
+      message.contentType = QUESTION_CONTENT_TYPE;
+    }
     await scene.receive(scene.scout);
     await scene.ack(scene.scout, question);
     await releaseScout();
@@ -435,7 +457,7 @@ describe("the pruning pass, the rest of a fleet's finished history (S3)", () => 
   it('lets a reach refusal older than the retention go, and keeps a younger one', async () => {
     retainFor(30);
     const { core } = scene;
-    const refusal = (at: Date): ReachRefusal => ({
+    const refusal = (at: Date): InMemoryState['reachRefusals'][number] => ({
       fleetId: scene.fleetId,
       id: idSchema('reachRefusal').parse(core.ids('reachRefusal')),
       at,
@@ -464,11 +486,7 @@ describe("the pruning pass, the rest of a fleet's finished history (S3)", () => 
 
     await pass();
 
-    expect(pruned()).toEqual([
-      expect.objectContaining({
-        details: expect.objectContaining({ leases: 1, credentials: 1, consoleSessions: 1, noticeDismissals: 1, guideProgress: 1, signInTickets: 0, reachRefusals: 0 }),
-      }),
-    ]);
+    expect(pruned()).toMatchObject([{ details: { leases: 1, credentials: 1, consoleSessions: 1, noticeDismissals: 1, guideProgress: 1, signInTickets: 0, reachRefusals: 0 } }]);
   });
 
   it('prunes the rest in batches too', async () => {

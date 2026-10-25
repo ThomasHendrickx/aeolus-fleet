@@ -64,6 +64,8 @@ function rowsOf(fleetId: FleetId): Record<keyof InMemoryState, number> {
     // Another server's prune lock and another transaction's row locks, as a test holds them: no row.
     historyPruneLocks: 0,
     lockedMessages: 0,
+    // The places of pruned events in the fleet's stream: the seq column of the events left, no row.
+    prunedEventSeqs: 0,
     // The installation's settings belong to no fleet.
     installationSettings: 0,
     // Neither do its console notices (decision 0023).

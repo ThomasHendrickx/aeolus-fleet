@@ -1,8 +1,19 @@
-import { QUESTION_CONTENT_TYPE, type DeliveryState, type EventId, type FleetId, type MessageId } from '@aeolus-fleet/common';
+import {
+  QUESTION_CONTENT_TYPE,
+  type ConsoleSessionId,
+  type CredentialId,
+  type DeliveryState,
+  type EventId,
+  type EventType,
+  type FleetId,
+  type LeaseId,
+  type MessageId,
+  type ReachRefusalId,
+} from '@aeolus-fleet/common';
 
 /**
  * What a fleet's pruning pass may let go (docs/design/retention/retention.md,
- * R2, R7 and R12): the rules, as plain functions, and the port the pass reads
+ * R2 to R4, R7, R12 and R13): the rules, as plain functions, and the port the pass reads
  * and prunes through. The port's query only offers messages its own filter
  * finds finished; these rules decide again on the rows it locked, so a row
  * that changed or was skipped as locked stays.
@@ -86,12 +97,38 @@ export function pruningCutoff(input: { now: Date; retentionDays: number; newestS
   return new Date(Math.min(byRetention, input.newestSnapshotHour.getTime()));
 }
 
+/**
+ * A crew's session events and its secret's, which name no message or
+ * delivery and go by age past the cutoff (R3, Q8). Every other event that
+ * names none is a change to the fleet itself, kept for good.
+ */
+export const CREW_EVENT_TYPES = [
+  'ShipClaimed',
+  'LeaseRevoked',
+  'LeasePushed',
+  'ShipReported',
+  'TurnReported',
+  'StatementSet',
+  'CrewStatusChanged',
+  'SignInTicketIssued',
+  'ViewerSessionStarted',
+  'StartingPromptIssued',
+  'CredentialRevoked',
+] as const satisfies readonly EventType[];
+
 /** How many rows of each kind one batch let go: what its HistoryPruned event says (R9). */
 export interface PrunedCounts {
   messages: number;
   deliveries: number;
   events: number;
   overdueDeliveries: number;
+  leases: number;
+  credentials: number;
+  consoleSessions: number;
+  noticeDismissals: number;
+  guideProgress: number;
+  signInTickets: number;
+  reachRefusals: number;
 }
 
 /** Where the next batch picks up: after the last candidate the last batch read, oldest first. */
@@ -100,8 +137,22 @@ export interface PruneCursor {
   id: MessageId;
 }
 
+/** The rows that go by age past the cutoff, whatever messages go (R3, R4, R13). */
+export interface AgedRows {
+  /** A crew's session and secret events, ones the newest snapshot folded (R3, R7). */
+  eventIds: readonly EventId[];
+  /** Ended leases no row outside the set names. */
+  leaseIds: readonly LeaseId[];
+  credentialIds: readonly CredentialId[];
+  /** Ended console sessions; each takes its notice dismissals and guide progress with it. */
+  consoleSessionIds: readonly ConsoleSessionId[];
+  /** Used or expired sign-in tickets, by their token hash. */
+  signInTicketHashes: readonly string[];
+  reachRefusalIds: readonly ReachRefusalId[];
+}
+
 /** The rows one batch chose, as one set (R16). */
-export interface PruneSet {
+export interface PruneSet extends AgedRows {
   messageIds: readonly MessageId[];
   /** The mic and participant events of meetings ended before the cutoff (R12). */
   meetingEventIds: readonly EventId[];
@@ -119,6 +170,12 @@ export interface HistoryPruner {
   candidates(fleetId: FleetId, input: { cutoff: Date; after: PruneCursor | null; limit: number }): Promise<PruneCandidate[]>;
   /** Up to `limit` mic and participant events of meetings ended before the cutoff. */
   meetingEvents(fleetId: FleetId, input: { cutoff: Date; limit: number }): Promise<EventId[]>;
+  /**
+   * Up to `limit` rows of each kind that ended, were used or expired, or
+   * happened before the cutoff (R3, R4, R13); an ended lease only when no row
+   * outside the set, with `messageIds` going, names it.
+   */
+  agedRows(fleetId: FleetId, input: { cutoff: Date; messageIds: readonly MessageId[]; limit: number }): Promise<AgedRows>;
   /** Makes the set go, children first, taking each message's payload bytes off its day (R6, R16). */
   go(fleetId: FleetId, set: PruneSet): Promise<PrunedCounts>;
   /** Records where the fleet's finished history begins (R9). */
