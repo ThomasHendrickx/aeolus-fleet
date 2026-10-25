@@ -1,6 +1,6 @@
 # The trierarch starts and talks to a session without a terminal
 
-Design for [#882](https://github.com/ThomasHendrickx/aeolus-fleet/issues/882) and [#1085](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1085), as one design for Aeolus 0.33.0: how the trierarch starts a session and talks to it. Docs only.
+Design for [#882](https://github.com/ThomasHendrickx/aeolus-fleet/issues/882) and [#1085](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1085), as one design for Aeolus 0.33.0: how the trierarch starts a session and talks to it. Approved by Thomas, 25 Oct: "headless --> approved". Docs only.
 
 The trierarch lives in its own repository (0049); its docs, code and decisions cited below are in `aeolus-fleet-trierarch`.
 
@@ -68,7 +68,7 @@ Thomas's answers (25 Oct):
 | H6 | **An API key is kept on the machine, in the trierarch's files beside the model token (mode 600), one login per harness, key or subscription,** set by the person who runs the trierarch and stated in its report details |
 | H7 | **A model proxy on the machine holds the key; the session gets only the proxy's address** |
 
-The detail that follows from them, for review:
+The detail that follows from them (approved with the design):
 
 | # | Rule |
 | --- | --- |
