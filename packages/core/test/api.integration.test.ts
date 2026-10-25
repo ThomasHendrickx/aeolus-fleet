@@ -278,6 +278,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_retention$/),
       expect.stringMatching(/^\d{14}_message_deliveries_page$/),
       expect.stringMatching(/^\d{14}_history_pruning$/),
+      expect.stringMatching(/^\d{14}_history_pruning_crew_events$/),
     ]);
   });
 });
