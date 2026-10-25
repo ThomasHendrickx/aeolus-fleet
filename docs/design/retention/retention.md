@@ -57,7 +57,7 @@ Thomas's answers, then what follows from them. R1 to R6 answer Q1 to Q6.
 | --- | --- |
 | R1 | **Retention is configuration, as the limits are** (Q1: 1; Thomas: "We can make that into a pricing model this way"). The installation sets a default retention in days; each fleet follows it, or has its own number of days, or none; unset means kept for good. Set with `installation.settings.set` and `installation.fleets.setLimits` beside the ship and daily message limits, which write `FleetLimitsChanged`; read with `fleet.limits` (`fleet:read`), so every fleet manager sees it. A whole number of days, at least 1; core sets no other minimum or maximum (0016). |
 | R2 | **A message is finished** when every delivery of it is final, and it is not an open question or a contribution to a meeting or room not ended (Q2: 2). Final: handled, dismissed, abandoned, or acknowledged where no re-read can come (its claiming lease ended, or never pushed). Pending, received, handed, undeliverable and not handled are never final (L1, L2). An open question: of the question content type, with no reply of the answer content type (L6, L21; Q7). A finished message older than the cutoff goes with its deliveries and their events. |
-| R3 | **Events split in three** (Q3: 2): those of a message go with it (any event naming a message or delivery); those of a crew's sessions go by age past the cutoff (Q8); every other event, the changes to the fleet itself, is kept for good. Section 4 holds the split on production. |
+| R3 | **Events split in three** (Q3: 2): those of a message go with it (any event naming a message or delivery); those of a crew's sessions and secrets go by age past the cutoff (Q8); every other event, the changes to the fleet itself, is kept for good. Section 4 holds the split on production. |
 | R4 | **Ended leases, invalidated credentials and ended console sessions go** once ended before the cutoff and no kept row names them; used or expired sign-in tickets go with them; a retired ship's row stays for good (Q4: 1). A console session takes its notice dismissals and guide progress with it. |
 | R5 | **Nothing in core for the demo fleet** (Q5: 1): pagasae's nightly delete prunes it (L15). The demo part of #1080 closes on confirming that in pagasae. |
 | R6 | **Storage is what the fleet holds now** (Q6: 1): a pruned message's payload bytes come off its day's row in `message_days` in the transaction that prunes it. The day's message count stays: the messages per day and the daily limit count what was sent. |
@@ -72,15 +72,22 @@ Thomas's answers, then what follows from them. R1 to R6 answer Q1 to Q6.
 
 ## 4. The split of the events (R3)
 
-Thomas: "What is the split? What percentage is permanent and what is archive able with this rule?" Asked of aeolus-fleet-infra on 25 Oct, read-only aggregates on production.
+Thomas: "What is the split? What percentage is permanent and what is archive able with this rule?" From production core on 25 Oct, about 04:20 UTC, read-only aggregates by aeolus-fleet-infra. The Aeolus fleet, 30 Sep to 25 Oct (the demo fleet is rebuilt every night and test-fleet holds 13 events). Size is each row's stored size; the events table is 77 MB with its indexes, of which 24 MB rows.
 
-_Production's numbers follow here once they arrive._
+| Class | Event types | Goes | Events | Size |
+| --- | --- | --- | --- | --- |
+| A message's | `MessageAccepted` and every `Delivery*`; a meeting's mic and participant events (none yet) | With its message (R2, R12) | 29,051 (55%) | 9.5 MB (59%) |
+| A crew's sessions | `ShipReported` 5,052, `TurnReported` 4,545, `ShipClaimed` 2,148, `LeaseRevoked` 2,130, `CrewStatusChanged` 1,957, `LeasePushed`, `StatementSet`, `SignInTicketIssued`, `ViewerSessionStarted` | By age past the cutoff (Q8) | 16,097 (31%) | 4.9 MB (30%) |
+| A crew's secret | `StartingPromptIssued` 2,306, `CredentialRevoked` 2,289: once per crew, as the trierarch crews ships again | Q8 | 4,595 (9%) | 1.2 MB (7%) |
+| The fleet itself | Crew requests and their assignment (1,982), commission (240), retire (216), owners, plugins, network rules, labels, scopes, limits, rename | Kept for good | 2,806 (5%) | 0.7 MB (4%) |
 
-| Class | Event types | Goes | Share of events, by size |
-| --- | --- | --- | --- |
-| A message's | `MessageAccepted`, every `Delivery*` (`DeliveryReceived`, `DeliveryHanded`, `DeliveryAcknowledged`, `DeliveryHandled`, `DeliveryNotHandled`, `DeliveryOverdue`, `DeliveryUndeliverable`, `DeliveryDismissed`, `DeliveryReturned`, `DeliveryAbandoned`), and a meeting's mic and participant events | With the message (R2, R12) | pending |
-| A crew's sessions | `ShipClaimed`, `LeaseRevoked`, `LeasePushed`, `TurnReported`, `ShipReported`, `StatementSet`, `CrewStatusChanged`, `SignInTicketIssued`, `ViewerSessionStarted` | By age past the cutoff (Q8) | pending |
-| The fleet itself | Every other type: commission, retire, rename, owners, scopes, plugins, labels, network rules, crew requests and their assignment, worktree clears, verified facts, credentials revoked, sign-in changes, limits, `HistoryPruned` | Kept for good | pending |
+By count, with Q8's pick 3, 95% of events can go once past the cutoff and 5% stay for good; with pick 1, 86% and 14%; with pick 2, 55% and 45%.
+
+Other facts from the same read:
+- Messages 31 MB, deliveries 22 MB with indexes. Of the Aeolus fleet's 8,511 messages, 64 are not finished (R2): 17 younger than 7 days, 47 between 7 and 30. Nothing is older than 30 days yet, so a 30-day retention would prune nothing today.
+- Ended leases 2,130 (0.55 MB), invalidated credentials 2,289 (0.47 MB), ended console sessions 67: small beside the events.
+- Reach refusals: none stored.
+- Pruned rows free their space for Postgres to use again (autovacuum); the database file stops growing rather than shrinking. Storage (R6) counts payload bytes, not the file.
 
 ## 5. Flows
 
@@ -137,15 +144,15 @@ Core sees an answer (a reply to its question) but not a withdrawal or a replacem
 
 Pick: 1. Few rows, no new rule; 2 is right if withdrawals turn out common.
 
-### Q8. Do the crew's session events go by age?
+### Q8. Do the crew's session and secret events go by age?
 
-Q3's pick named "sends, receives, hand-overs, turns" as the bulk that goes. A ship's claims, lease ends, pushes, reports, statements and crew statuses are not a message's but are the same kind of traffic, and `TurnReported` comes with every turn.
+Q3's pick named "sends, receives, hand-overs, turns" as the bulk that goes. A ship's claims, lease ends, pushes, reports, statements and crew statuses are not a message's but are the same traffic; so is each crew's secret, issued and revoked once per crew (section 4).
 
-1. **Yes, by age past the cutoff**: a ship's timeline keeps who crewed it and how within the window; the lease row keeps its start, end and location until it goes (R4).
-2. **Kept for good**, as changes to the fleet.
-3. **`TurnReported` and `ShipReported` go by age; claims, lease ends and pushes are kept.**
+1. **The session events go by age past the cutoff; the secret events are kept for good.** 14% of events stay for good.
+2. **Both are kept for good**, as changes to the fleet. 45% stay for good.
+3. **Both go by age past the cutoff**; the credential rows go with them (R4). 5% stay for good: commission, retire, owners, scopes, labels, rules, plugins, crew requests.
 
-Pick: 1, pending the split in section 4: if these are a large share, 2 costs that share for good.
+Pick: 3. What stays is what the fleet manager changed; the rest repeats with every crew, and a ship's timeline still shows its crews within the retention.
 
 ### Q9. Reach refusals
 
