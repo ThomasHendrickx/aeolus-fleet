@@ -1,6 +1,6 @@
 # Model governance: the models a fleet may run
 
-Design for [#375](https://github.com/ThomasHendrickx/aeolus-fleet/issues/375), Aeolus 0.32.0. Docs only. Stage 2: purpose and lessons as agreed, Thomas's answers as rules, the flows and the slices.
+Design for [#375](https://github.com/ThomasHendrickx/aeolus-fleet/issues/375), Aeolus 0.32.0. Docs only. Approved by Thomas (25 Oct): "model governance approved". Purpose and lessons as agreed, Thomas's answers as rules, the flows and the slices.
 
 ## 1. Purpose (agreed by Thomas, 25 Oct)
 
