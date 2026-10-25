@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   composeRefusedNotice,
   hasLimits,
+  keptFromLine,
   messageLimitNotice,
   messageLimitReached,
   meterCaption,
@@ -61,6 +62,12 @@ describe('the retention line', () => {
 
   it('says it is kept for good when no retention applies', () => {
     expect(retentionLine({ days: null, keptFrom: null })).toBe('Finished history is kept for good');
+  });
+});
+
+describe('where the kept history begins', () => {
+  it('says from when the fleet keeps its finished history, and that older open deliveries stay', () => {
+    expect(keptFromLine(new Date(2026, 8, 4, 13, 0).toISOString())).toBe('This fleet keeps its finished history from 4 Sep 2026, 13:00. Older open deliveries stay.');
   });
 });
 
