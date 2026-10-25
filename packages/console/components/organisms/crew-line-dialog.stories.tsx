@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { expect, screen } from 'storybook/test';
+import { expect, screen, waitFor } from 'storybook/test';
 
 import { CrewLineDialog } from './crew-line-dialog';
 
@@ -31,7 +31,10 @@ type Story = StoryObj<typeof meta>;
 /** Under the crew line, where to install the aeolus plugin it needs, for Claude Code and for Codex (#1235). */
 export const Shown: Story = {
   play: async () => {
-    await expect(await screen.findByTestId('plugin-install-claude-code')).toBeVisible();
+    // The dialog fades in: wait until it shows rather than check it at once.
+    await waitFor(async () => {
+      await expect(await screen.findByTestId('plugin-install-claude-code')).toBeVisible();
+    });
     await expect(screen.getByTestId('plugin-install-codex')).toBeVisible();
   },
 };
