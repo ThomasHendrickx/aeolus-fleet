@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import { expect, within } from 'storybook/test';
 
 import { TrierarchPluginConnection } from './trierarch-plugin-connection';
 
@@ -17,8 +18,12 @@ type Story = StoryObj<typeof meta>;
 export const NotSetUp: Story = { args: { settings: { state: 'none' } } };
 export const NotConnected: Story = { args: { settings: { state: 'not-connected', ship: null, lastShipId: null } } };
 export const Connecting: Story = { args: { ...NotConnected.args, isConnecting: true } };
+/** Connecting failed: the reason shows, as the plugin or the fleet says it, so the operator knows what to do. */
 export const ConnectFailed: Story = {
   args: { ...NotConnected.args, connectError: 'A ship named trierarch-plugin of another type exists: rename or retire it, then connect again' },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByRole('alert')).toHaveTextContent('A ship named trierarch-plugin of another type exists: rename or retire it, then connect again');
+  },
 };
 export const Connected: Story = {
   args: { settings: { state: 'connected', ship: { shipId: SHIP_ID, name: 'trierarch-plugin' }, lastShipId: SHIP_ID, missingScopes: [] } },

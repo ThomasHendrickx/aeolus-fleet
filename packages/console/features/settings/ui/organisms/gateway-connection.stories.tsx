@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import { expect, within } from 'storybook/test';
 
 import { GatewayConnection } from './gateway-connection';
 
@@ -18,8 +19,12 @@ export const NotSetUp: Story = { args: { settings: { state: 'none' } } };
 export const NotConnected: Story = { args: { settings: { state: 'not-connected', ship: null, lastShipId: null } } };
 export const Connecting: Story = { args: { ...NotConnected.args, isConnecting: true } };
 /** The gateway refuses to connect, and says why. */
+/** Connecting failed: the reason shows, as the plugin or the fleet says it, so the operator knows what to do. */
 export const ConnectFailed: Story = {
   args: { ...NotConnected.args, connectError: 'The ship needs fleet:read, fleet:commission, fleet:on-behalf, scopes:declare, fleet:verify' },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByRole('alert')).toHaveTextContent('The ship needs fleet:read, fleet:commission, fleet:on-behalf, scopes:declare, fleet:verify');
+  },
 };
 export const Connected: Story = {
   args: { settings: { state: 'connected', ship: { shipId: SHIP_ID, name: 'gateway' }, lastShipId: SHIP_ID, missingScopes: [] } },
