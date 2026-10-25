@@ -2,11 +2,11 @@
 
 Design for [#1152](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1152) (part A) and [#1227](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1227) with [#1078](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1078) (part B), as one gateway design. Part A ships in Aeolus 0.32.0, part B in 0.33.0. Docs only.
 
-Stage 1: purpose, lessons, questions. Nothing past the purpose is decided until Thomas agrees it.
+Part A: stage 2, the detail (purpose and picks agreed by Thomas, 25 Oct). Part B: stage 1, purpose, lessons and questions; nothing past its purpose is decided until Thomas agrees it.
 
 ## 1. Purpose
 
-### Part A: which tools of an outside party a ship may call (0.32.0)
+### Part A: which tools of an outside party a ship may call (0.32.0, agreed by Thomas)
 
 The company names what its ships may do at outside parties, in its own words: `crm:read-leads`, `crm:write-leads`, `company-memory:write`, `finance:read`. On an outside MCP server's page, an approver sets which of these scopes a calling ship must hold for each tool; for an outside A2A agent, one scope for the agent as a whole, since its messages name no skill (L26). The gateway refuses a call from a ship that does not hold it. Thomas: "the admin, or ship owner assigns scope requirements in the configuration screen of that MCP or a2a. Scopes can be added by the fleet owner. For example crm:read-leads, and then assigns that scope to the tools of the CRM MCP ship"; and on the principle, "labels would violate the network (labels) is where, scope is what rule".
 
@@ -83,34 +83,109 @@ Part B:
 | L23 | The shipped email wake has two open defects on the wake path a Slack channel would share: a refused `handed` partway (#1165), and an error retried forever (#1166) | #1165, #1166 |
 | L24 | Getting into the fleet must be flawless for non-technical people | #1228 |
 
-## 3. Questions for Thomas
+## 3. Part A: decisions (Thomas, 25 Oct)
 
-### A1. Who defines scopes, and whose they are
+Thomas: "Ok that design for gateway with your picks I agree with. It allows for the value where it matters and gives control to users without opening the flood gates."
 
-1. **A new core scope, `scopes:define`, held by any actor (0053); defined scopes are the fleet's own**, changed and removed by any holder, never retired with the one who defined them. The fleet manager holds it, as every scope (0051).
-2. **As labels (0031): a defined scope belongs to its definer**, only it changes or removes it, and it goes when the definer retires. One owner answers for each scope; a retired ship takes the company's words with it, and every tool that needed them then refuses.
-3. **Only the fleet manager**, as an account right in pagasae. Simplest to explain; against 0053, where every job is a scope any actor may hold.
+| # | Rule |
+| --- | --- |
+| A1 | **A new core scope, `scopes:define`, held by any actor; defined scopes are the fleet's own**, changed and removed by any holder, never retired with the one who defined them |
+| A2 | **An actor holding `gateway:approve`, within manage reach of the proxy ship, sets which scopes a tool needs**, exactly as switching a tool |
+| A3 | **A defined scope takes any free namespace; core's and the known plugins' namespaces are reserved**; a plugin declaring a namespace the fleet uses is refused |
+| A4 | **No cap on the fleet's scopes**; the 20 per namespace stays for plugins. Thomas: "The 20 max limitation will not count for the fleet owner, as Argo can also hold as many labels as needed" |
+| A5 | **A tool may require several scopes: always AND**, the calling ship holds every one |
+| A6 | **Setting requirements is quick for a server with 50 tools.** Thomas: "we need some UX friendly ways to set these on the tools. Mcp with 50 tools takes some time" |
 
-Pick: 1. Scopes are the company's words, not one ship's; a definer leaving must not close tools across the fleet.
+## 4. Part A in detail
 
-### A2. Who sets which scope a tool needs
+### 4.1 Core: the fleet's scopes
 
-1. **An actor holding `gateway:approve`, within manage reach of the proxy ship**, exactly as switching a tool on or off (#1151). The proxy ship's owner has manage reach by the built-in rule (0034), so an owner who holds `gateway:approve` sets it.
-2. **Also the proxy ship's owner without `gateway:approve`.** Thomas's "or ship owner" read literally; ownership becomes a right of its own, which no decision makes it today (0045: the owner is asked; 0053: every job is a scope).
+- **`scopes:define`** joins the catalogue (0046): define, change and remove the fleet's scopes; where: the fleet. argo holds it as every scope; the fleet manager's account holds it (0051); a group may give it (0052).
+- **Define** (`fleet.defineScope`): a scope `<namespace>:<action>` in today's grammar (common's `SCOPE_NAME_PATTERN`) and a one-line description of 1 to 200 characters. Refused, each by name: a malformed scope or description; a core namespace; a reserved namespace (`gateway`, `squadrons`, `trierarch`, a list in common beside the core ones); a namespace a plugin declared (NAMESPACE_TAKEN, naming the plugin's ship); a scope the fleet has (CONFLICT). Writes `ScopeDefined`.
+- **Change the description** (`fleet.describeScope`). Writes `ScopeDescribed`. A scope is never renamed: a new name is a new scope.
+- **Remove** (`fleet.removeScope`): refused while an active ship holds it (SCOPE_HELD, naming how many ships), as 0046 refuses a declaration that drops a held scope. Writes `ScopeRemoved`. An account token naming a removed scope gives nothing: the scope no longer exists to be checked.
+- **A namespace holds either the fleet's scopes or one plugin's.** `fleet.declareScopes` by a plugin for a namespace the fleet uses is refused NAMESPACE_TAKEN, "by the fleet". Removing the fleet's last scope of a namespace frees it.
+- **Listed** by `fleet.scopes` beside the core and plugin namespaces, each namespace saying whose it is: core, a plugin's ship, or the fleet. pagasae's group editor and every scope picker read this list, so the fleet's scopes appear there with their descriptions (#1205).
+- **Granted as any scope** (0046): at commission or by `scopes:grant`, only by an actor that holds it. A newly defined scope is held by argo and the fleet manager, who grant it onwards. Holding `scopes:define` does not let an actor grant a scope it does not hold, so no one widens their own access by defining one.
+- **No cap.** Every refusal of a malformed or taken name names the rule.
+- **Console.** A Scopes page beside Labels and Network: every namespace with its scopes and descriptions, read-only for core and plugin namespaces; for the fleet's, Define scope (Dialog), Change description and Remove (each refusal inline). Shown to actors holding `fleet:read`; the controls to actors holding `scopes:define`.
 
-Pick: 1. One rule for everything on a party's page, and rights stay scopes.
+### 4.2 Gateway: what a tool needs, and the check
 
-### A3. Which namespaces a defined scope may use
+- **Requirements, kept with the party in the gateway's database:**
+  - an outside MCP server: a set of scopes for the party as a whole, and a set per tool;
+  - an outside A2A agent: one set for the agent (its messages name no skill, L26).
+  - A tool needs the party's set and its own, all of them (A5). An empty set needs nothing beyond reaching the party. A tool the server adds later needs the party's set, and starts off as today (#1151).
+  - Kept by scope text and tool name, never by a ship's name or id; retiring the party removes them.
+- **Changing them** takes `gateway:approve` and manage reach on the proxy ship (A2). A change names the party's requirements version it was made on and is refused CONFLICT once they moved, so two approvers never overwrite each other unseen. Every scope set must be in `fleet.scopes`; one that is not is refused by name. Any listed scope may be required (core, a plugin's, the fleet's): no policy (0016).
+- **The check, on every call**, after the tool switch, before the hand-over (gateway `src/core/mcp-out/hand-call.ts`; `src/core/a2a-out/hand-a2a-message.ts` for an agent):
+  1. Re-read the party's requirements as they are now, as the switch is re-read: an approver may change them while a call waits.
+  2. Read the calling ship's scopes from core (`fleet.ship` on the delivery's sender, the gateway reading every ship by the plugin rule), never from the message (0057).
+  3. Holds every required scope: the call goes on as today.
+  4. Lacks one or more: the gateway answers the sender a tool error naming what is missing, "update_lead needs crm:write-leads, which release-notes does not hold", and reports the delivery handled. The call never reaches the server. For an A2A agent, the same as a reply to the sender.
+  5. Core does not answer the read: the call waits and is tried again, as a call core refused `handed` for today. It is never made unchecked.
+- **The statement.** Each capability states the scopes it needs (open point P1).
+- **Cost.** One read of the sender's ship per call, beside the hand-over the call already makes. No cache: a scope revoked must hold at the next call (0046).
 
-Today a namespace is taken by a plugin for good (`gateway`, `squadrons`, `trierarch`), and core's five are reserved (0046).
+### 4.3 Gateway: setting requirements on 50 tools
 
-1. **Any free namespace, with the known plugins' namespaces reserved beside core's**; a plugin declaring a namespace the fleet defined scopes in is refused CONFLICT, naming it. Company words as Thomas wrote them (`crm:read-leads`).
-2. **Any free namespace, nothing reserved**: the first to take a name keeps it. A fleet that defines `squadrons:...` stops squadrons from connecting.
-3. **One fixed namespace for every defined scope**, such as `org:crm-read-leads`. No clash with plugins ever; the company's word squeezed into one 32-character action.
+The Tools section of an outside MCP server's page becomes a table. Same parts as the gateway's pages today (Switch, Tag, Dialog); controls only for an actor holding `gateway:approve` within manage reach, others see the same table read-only.
 
-Pick: 1. Thomas's form, and the plugins Aeolus ships never collide.
+- **Columns:** a checkbox; the tool's name (mono) and description; the server's hints as tags, Read only (readOnlyHint) and Destructive (destructiveHint), shown only where the server gives them; On or Off (the switch, as today); Needs: each required scope as a chip, the party's set shown muted, the tool's own plain.
+- **Toolbar:** a filter by name; a filter by state (All, On, Off, New, Needs nothing); Select all shown; the count selected.
+- **For the whole party:** a line above the table, Every tool needs, with its chips and Change… (Dialog). This is the default A6 asks for: one scope that guards the whole server is set once.
+- **Bulk on the selected tools:** Set scopes… opens a Dialog: a Combobox of the fleet's listed scopes with their descriptions (search helps), several at once, and a choice of Add to each, Remove from each, or Replace with these; the footer says "Applies to 12 tools". Switch on and Switch off act on the selection too.
+- **Suggestions from hints:** Suggest from hints… opens a Dialog with two pickers, Scopes for read-only tools and Scopes for the other tools, and the list it would change: every tool with no scope of its own and a hint from the server, read-only (readOnlyHint) into the first, readOnlyHint false or destructiveHint into the second. Tools without hints are listed apart, untouched. Nothing applies until the approver confirms: hints are the server's claim, never trusted on their own (gateway `src/core/mcp-out/ports.ts`).
+- **Feedback:**
+  - loading: the table shows skeleton rows while the server's `tools/list` is read; a server that does not answer shows the requirements kept per tool name and says the server did not answer, editing still allowed;
+  - saving: the Dialog's action shows its spinner and blocks input; a bulk change is one transaction, all tools or none;
+  - success: the Dialog closes, the changed rows highlight (`--highlight`), and a Toast says "crm:read-leads set on 12 tools";
+  - failure: the Dialog stays open with the refusal inline (a scope not listed, no longer an approver, CONFLICT "The requirements changed since you opened this page", with Reload), nothing changed.
+- **An A2A agent's page** shows one Needs line with Change…, as the party line above.
+- **Phone:** rows stack; the toolbar's filters and the bulk actions open in a bottom Sheet (conventions).
 
-Pick for part A as a whole: Thomas's proposal over the gateway-only options weighed before (kinds of tool in `gateway`, party scopes in `gateway`, a namespace per party, `gateway:<proxy ship>:<scope>`). It gives control per kind of work in the company's words, across parties, keyed by nothing that a rename or a reuse moves, with the two-part grammar unchanged. Its cost is a core slice for defined scopes and a change to 0046, before the gateway slice.
+## 5. Part A: flows
+
+**Define and grant.** The fleet manager opens Scopes in the console and defines `crm:read-leads` ("Read leads in the CRM") and `crm:write-leads`. Core writes `ScopeDefined` twice. pagasae's group editor now offers both; the fleet manager gives Sales agents `crm:read-leads`, or grants it on the ship `lead-scout` with `scopes:grant` (`ScopesChanged`).
+- Unhappy: `squadrons:read` is reserved; `gateway:x` is taken by the gateway's ship; `crm:read-leads` exists already; each refused by name, nothing written.
+
+**Set the requirements.** An approver opens the CRM's page: 50 tools, skeleton rows, then the table. They set Every tool needs to nothing, use Suggest from hints with `crm:read-leads` and `crm:write-leads`: 31 tools get read, 14 get write, 5 have no hint and are listed apart. They filter by "delete", select the 3 delete tools and Add `crm:admin`. Each step one transaction, a Toast, rows highlighted.
+- Unhappy: another approver changed the CRM meanwhile, CONFLICT inline with Reload; `crm:admin` not defined, refused by name; the approver lost `gateway:approve`, refused and the controls go at reload.
+
+**A call.** `lead-scout` sends the CRM's proxy ship a call of update_lead. Core checks send reach (where) and stores it. The gateway takes the delivery: the switch is on; update_lead needs `crm:write-leads`; core answers `lead-scout`'s scopes: `crm:read-leads` only. The gateway replies "update_lead needs crm:write-leads, which lead-scout does not hold" and reports handled; the CRM never sees the call.
+- Happy: with `crm:write-leads` granted, the next call goes through, as today.
+- Unhappy: core does not answer the scope read, the call waits and is tried again, never made unchecked; the scope is revoked while the call waits, the check at hand-over refuses it; the requirement is removed while it waits, the call goes on.
+
+**Remove a scope.** The fleet manager removes `crm:admin`. Refused while ships hold it, naming how many; once revoked everywhere, removed. Tools that still require it refuse every call (no ship holds it any more) and show it on the CRM's page as no longer defined, until an approver changes them.
+
+## 6. Part A: open points for Thomas
+
+### P1. Does a tool's capability state the scopes it needs?
+
+1. **Yes**, in the statement every reaching ship reads (0047): an agent sees before it calls that update_lead needs `crm:write-leads`, and does not try and fail. The fleet's scopes are listed to every actor anyway.
+2. **No**: a ship learns only from the refusal.
+
+Pick: 1. A calling agent plans with it; it reveals nothing `fleet.scopes` does not.
+
+### P2. Does a refusal name the missing scope?
+
+1. **Yes**: "update_lead needs crm:write-leads, which lead-scout does not hold". The ship's owner knows what to grant.
+2. **No**: "lead-scout may not call update_lead", as a network refusal says only "No rule matches" (0034).
+
+Pick: 1. Scopes are public in the fleet, and the refusal is the way out (0057's fail-safe: a failure visible and its way out).
+
+## 7. Part A: slices for 0.32.0
+
+| # | Slice | Repository | Done when |
+| --- | --- | --- | --- |
+| S1 | Core: the fleet's scopes. `scopes:define`; define, describe, remove; reserved namespaces; a plugin refused a namespace the fleet uses; `fleet.scopes` says whose each namespace is; granting as any scope; events. 0046 and its index line changed, the blueprint's scope lines | aeolus-fleet | Use cases with in-memory ports, the repository with Testcontainers, including a define racing a plugin's declare of the same namespace |
+| S2 | Console: the Scopes page; scope pickers show descriptions (#1205 for the fleet's scopes) | aeolus-fleet | Storybook states (empty, list, define, refusals), Playwright: define, describe, remove refused while held |
+| S3 | Gateway: requirements per party, per tool and per A2A agent (AND); changing them with the version check; the check on every call for MCP and A2A; the statement (P1); minimum core version raised (docs/compatibility.md) | aeolus-fleet-gateway | A call refused without reaching the server, a call that goes through, a revoke while waiting, core not answering, concurrent changes refused |
+| S4 | Gateway pages: the tools table, filters, select many, bulk Set scopes and switches, Every tool needs, Suggest from hints, loading, success and failure | aeolus-fleet-gateway | Each state shown with a 50-tool test server; one transaction per bulk change |
+
+S1 before S3: the gateway needs the fleet's scopes to require them. S2 and S4 follow their server slices.
+
+## 8. Part B: questions for Thomas (0.33.0)
 
 ### B1. What one bot in Slack is
 
