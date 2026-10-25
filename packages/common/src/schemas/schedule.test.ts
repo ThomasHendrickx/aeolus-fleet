@@ -187,6 +187,17 @@ describe('schedulesOutputSchema', () => {
     expect(schedulesOutputSchema.parse({ items: [sent, refused], nextCursor: null }).items).toEqual([sent, refused]);
   });
 
+  it('answers a label selection by its value ids, with each value by key and value when the caller holds fleet:read (decision 0065)', () => {
+    const [teamA, gone] = [newId('labelValue'), newId('labelValue')];
+    const asGiven = { ...schedule, selector: { kind: 'label', valueIds: [teamA, gone] } };
+    const named = {
+      ...schedule,
+      selector: { kind: 'label', valueIds: [teamA, gone], values: [{ valueId: teamA, key: 'team', value: 'a' }, { valueId: gone, key: null, value: null }] },
+    };
+
+    expect(schedulesOutputSchema.parse({ items: [asGiven, named], nextCursor: null }).items).toEqual([asGiven, named]);
+  });
+
   it('answers a repeat with its bounds and a missed outcome with its send time', () => {
     const cron = {
       ...schedule,
