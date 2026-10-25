@@ -1,4 +1,8 @@
 import {
+  cancelScheduleInputSchema,
+  cancelScheduleOutputSchema,
+  fleetSchedulesInputSchema,
+  schedulesOutputSchema,
   PAGE_SIZE_DEFAULT,
   PAGE_SIZE_MAX,
   shipCursorOf,
@@ -138,6 +142,7 @@ import type { SequencedEvent } from '../../domain/shared/events.js';
 import type { InboxEntry } from '../../domain/shared/history.js';
 import { describedAcknowledged, describedHealth, describedPerHour, describedStuck } from './health.js';
 import { presentStartingPrompt } from './starting-prompt-text.js';
+import { schedulesPageOf } from './schedule-output.js';
 import { actorAllScopesProcedure, actorAnyScopeProcedure, actorScopedProcedure, anyScopeProcedure, callerStillHolding, okOrThrow, ownPersonShipOrAnyScopeProcedure, router, scopedCrewCallerProcedure, scopedProcedure } from './trpc.js';
 
 /** A crew request as the API answers it: its times in ISO 8601, and when its session started as `startedAt`. */
@@ -282,6 +287,38 @@ export const fleetRouter = router({
     .input(retireShipInputSchema)
     .output(retireShipOutputSchema)
     .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.retireShip(ctx.caller, input))),
+
+  /** A ship's schedules, for an actor that manages it (decision 0062): as ship.schedules lists a ship's own. */
+  schedules: actorScopedProcedure('fleet:manage')
+    .meta({
+      description: [
+        'Needs fleet:manage, within manage reach of the ship. Lists the ship\'s schedules, newest first, as it lists its own with schedules:',
+        'active and paused ones unless states names others, a page at a time.',
+      ].join(' '),
+    })
+    .input(fleetSchedulesInputSchema)
+    .output(schedulesOutputSchema)
+    .query(async ({ ctx, input }) =>
+      schedulesPageOf(
+        okOrThrow(
+          await ctx.useCases.listSchedules(ctx.caller, {
+            shipId: input.shipId,
+            limit: input.limit ?? PAGE_SIZE_DEFAULT,
+            ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
+            ...(input.states === undefined ? {} : { states: input.states }),
+          }),
+        ),
+      ),
+    ),
+
+  /** Cancels any ship's schedule, for an actor that manages it: the fail-safe for a schedule that misbehaves (decision 0062). */
+  cancelSchedule: actorScopedProcedure('fleet:manage')
+    .meta({
+      description: 'Needs fleet:manage, within manage reach of the schedule\'s ship. Cancels the schedule by its scheduleId: it sends nothing more.',
+    })
+    .input(cancelScheduleInputSchema)
+    .output(cancelScheduleOutputSchema)
+    .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.cancelSchedule(ctx.caller, input))),
 
   /**
    * Asks that a ship be kept crewed, with crew settings it checks but never acts on,

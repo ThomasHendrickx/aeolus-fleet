@@ -2557,9 +2557,7 @@ describe('scheduled messages (decision 0062)', () => {
 
     expect(deliveries).toEqual([expect.objectContaining({ senderShipId: scoutId, payload: 'Check in', model: SESSION_MODEL, scheduleId, sendTime: at, meetingId: null })]);
     const { items } = await scout.ship.schedules.query({ states: ['ended'] });
-    expect(items).toEqual([
-      expect.objectContaining({ scheduleId, shipId: scoutId, state: 'ended', timing: { kind: 'once', at }, nextSendTime: null, lastOutcome: expect.objectContaining({ kind: 'sent', messageId: deliveries[0]?.messageId, sendTime: at }) }),
-    ]);
+    expect(items).toMatchObject([{ scheduleId, shipId: scoutId, state: 'ended', timing: { kind: 'once', at }, nextSendTime: null, lastOutcome: { kind: 'sent', messageId: deliveries[0]?.messageId, sendTime: at } }]);
   });
 
   it('let a ship cancel its own, refuse a time in the past, and let a manager list and cancel a ship\'s, but no ship without fleet:manage', async () => {

@@ -116,6 +116,8 @@ const FLEET_ACTIONS = [
   'release',
   'recrew',
   'retire',
+  'schedules',
+  'cancelSchedule',
   'ping',
   'follow',
   'crewRequest',
