@@ -215,6 +215,11 @@ export function createPrismaScheduleRepository(db: Db): ScheduleRepository {
       await db.schedule.update({ where: { fleetId_id: { fleetId: schedule.fleetId, id: schedule.id } }, data: changingColumns(schedule) });
     },
     sentCount: (fleetId, scheduleId) => db.message.count({ where: { fleetId, scheduleId } }),
+    lockShipScheduleCount: async (fleetId, shipId) => {
+      // A transaction-level advisory lock on the ship's schedule count, released at commit or rollback.
+      await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`schedule-count:${fleetId}`}), hashtext(${shipId}))`;
+    },
+    countOpenOfShip: (fleetId, shipId) => db.schedule.count({ where: { fleetId, shipId, state: { in: ['active', 'paused'] } } }),
     listOpenOfShipForUpdate: async (fleetId, shipId) => {
       // Held for update in id order, so two units of work never lock them in a cycle.
       const rows = await db.$queryRaw<unknown[]>`

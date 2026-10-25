@@ -288,7 +288,7 @@ describe("the fleet's schedules per ship limit", () => {
 
     const refused = refusalOf(await messaging.scheduleMessage(scout, aSchedule()));
 
-    expect(refused).toEqual({ kind: 'SCHEDULE_LIMIT_REACHED', message: "Ship scout holds its fleet's limit of 2 schedules, active or paused: cancel one to make another" });
+    expect(refused).toEqual({ kind: 'SCHEDULE_LIMIT_REACHED', message: "The ship holds its fleet's limit of 2 schedules, active or paused: cancel one to make another" });
     expect(core.state.schedules).toHaveLength(2);
   });
 

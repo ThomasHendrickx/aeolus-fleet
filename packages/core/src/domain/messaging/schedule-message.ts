@@ -15,9 +15,10 @@ import { checkModel, type AcceptRefusal } from './message.js';
 import { payload } from './payload.js';
 import type { DeliveryRepository, MessageRepository, RequestHasher, ScheduleNotifier, ScheduleRepository } from './ports.js';
 import { GRACE_DEFAULT, MISSED_STRATEGY_DEFAULT, planSchedule, RETRY_WINDOW_DEFAULT, TIME_ZONE_DEFAULT, type ScheduledSend, type ScheduleRefusal, type ScheduleTimingInput } from './schedule.js';
+import { withinScheduleLimits, type ScheduleLimitRefusal, type ScheduleLimitsTx } from './schedule-limits.js';
 import { sendRequestText } from './send-request.js';
 
-export interface ScheduleMessageTx extends Omit<ResolveSelectorTx, 'ships'>, Omit<CheckReachTx, 'ships'> {
+export interface ScheduleMessageTx extends Omit<ResolveSelectorTx, 'ships'>, Omit<CheckReachTx, 'ships'>, Omit<ScheduleLimitsTx, 'schedules'> {
   ships: ResolveSelectorTx['ships'] & CheckReachTx['ships'];
   messages: Pick<MessageRepository, 'find'>;
   deliveries: Pick<DeliveryRepository, 'findOfMessage'>;
@@ -51,6 +52,7 @@ export type ScheduleMessageRefusal =
   | DomainError<'PAYLOAD_TOO_LARGE' | 'INVALID_CONTENT_TYPE' | 'INVALID_IDEMPOTENCY_KEY' | 'RESERVED_CONTENT_TYPE' | 'FORCE_NOT_ALLOWED' | 'IDEMPOTENCY_KEY_REUSED' | 'IN_REPLY_TO_NOT_FOUND'>
   | AcceptRefusal
   | ScheduleRefusal
+  | ScheduleLimitRefusal
   | UnresolvableSelector
   | NotReachable;
 
@@ -63,7 +65,8 @@ export type ScheduleMessage = (caller: ShipCaller, input: MessageToSchedule) => 
  * model rule, and messages:force for a forced one (messages:send is checked
  * before this runs). The ship's key is checked first in the unit of work, so
  * a retry answers the same schedule; the key with another request is
- * refused. Then the timing: it gives a send time after now (S1). The selector
+ * refused. Then the timing: it gives a send time after now (S1), and the
+ * fleet's minimum interval and schedules per ship limit take it (S12). The selector
  * resolves now and the creator must reach it by send now (S5), or the
  * refusal is recorded and nothing else is stored. A reply names a message of
  * the fleet. The schedule, ScheduleCreated and the notice that tells every
@@ -103,6 +106,10 @@ export function createScheduleMessage(deps: { uow: UnitOfWork<ScheduleMessageTx>
       });
       if (!planned.isOk) {
         return planned;
+      }
+      const withinLimits = await withinScheduleLimits(tx, { fleetId, shipId, timing: planned.value.schedule.timing, at });
+      if (!withinLimits.isOk) {
+        return withinLimits;
       }
       const recipient = await resolveSelector(tx, { fleetId, selector: send.selector });
       if (!recipient.isOk) {

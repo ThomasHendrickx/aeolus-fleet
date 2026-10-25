@@ -1176,6 +1176,9 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         return Promise.resolve();
       },
       sentCount: (fleetId, scheduleId) => Promise.resolve(state.messages.filter((message) => message.fleetId === fleetId && message.scheduleId === scheduleId).length),
+      lockShipScheduleCount: () => Promise.resolve(),
+      countOpenOfShip: (fleetId, shipId) =>
+        Promise.resolve(state.schedules.filter((held) => held.fleetId === fleetId && held.shipId === shipId && (held.state === 'active' || held.state === 'paused')).length),
       listOpenOfShipForUpdate: (fleetId, shipId) =>
         Promise.resolve(
           state.schedules
