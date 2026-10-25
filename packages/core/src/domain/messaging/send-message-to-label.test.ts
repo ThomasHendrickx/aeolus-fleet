@@ -224,4 +224,12 @@ describe('a send to a label under network rules (D4)', () => {
 
     expect(recipientsOf(messageId).sort()).toEqual(byId(alpha, bravo));
   });
+
+  it('lets each ship of the list answer the sender, as the answer rule lets any recipient (D1)', async () => {
+    const messageId = await sent(toTeamA({ selector: { kind: 'label', valueIds: [value('reach', 'open')] } }));
+
+    const answered = await messaging.sendMessage(bravo, { selector: { kind: 'ship', shipId: lead.shipId }, payload: 'on it', idempotencyKey: newKey(), model: SESSION_MODEL, inReplyTo: messageId });
+
+    expect(answered.isOk).toBe(true);
+  });
 });
