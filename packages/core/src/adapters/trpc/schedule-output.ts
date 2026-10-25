@@ -1,20 +1,22 @@
-import type { ScheduleItem, ScheduleTiming as ScheduleTimingInputText, ScheduleTimingItem } from '@aeolus-fleet/common';
+import type { LabelValueId, ScheduleItem, ScheduleTiming as ScheduleTimingInputText, ScheduleTimingItem } from '@aeolus-fleet/common';
 
+import type { SchedulesPage } from '../../domain/messaging/list-schedules.js';
 import type { Schedule, ScheduleOutcome, ScheduleTiming, ScheduleTimingInput } from '../../domain/messaging/schedule.js';
-import type { Page } from '../../domain/shared/page.js';
+import type { HistoryLabelValue } from '../../domain/shared/history.js';
 import type { ScheduleSelector } from '../../domain/shared/selector.js';
 
 /**
  * A schedule as `ship.schedules` and `fleet.schedules` answer it (decision
  * 0062): its send input but the payload, its timing and strategy, its state,
- * next send time and last outcome, times in ISO 8601.
+ * next send time and last outcome, times in ISO 8601; a label selection with
+ * each value by its texts when the page names them.
  */
-function scheduleItemOf(schedule: Schedule): ScheduleItem {
+function scheduleItemOf(schedule: Schedule, labelValues: ReadonlyMap<LabelValueId, HistoryLabelValue>): ScheduleItem {
   return {
     scheduleId: schedule.id,
     shipId: schedule.shipId,
     state: schedule.state,
-    selector: selectorOf(schedule.send.selector),
+    selector: selectorOf(schedule.send.selector, labelValues),
     contentType: schedule.send.contentType,
     inReplyTo: schedule.send.inReplyTo,
     isForced: schedule.send.isForced,
@@ -31,8 +33,12 @@ function scheduleItemOf(schedule: Schedule): ScheduleItem {
   };
 }
 
-function selectorOf(selector: ScheduleSelector): ScheduleItem['selector'] {
-  return selector.kind === 'label' ? { kind: 'label', valueIds: [...selector.valueIds] } : selector;
+function selectorOf(selector: ScheduleSelector, labelValues: ReadonlyMap<LabelValueId, HistoryLabelValue>): ScheduleItem['selector'] {
+  if (selector.kind !== 'label') {
+    return selector;
+  }
+  const values = selector.valueIds.flatMap((valueId) => labelValues.get(valueId) ?? []);
+  return { kind: 'label', valueIds: [...selector.valueIds], ...(values.length === 0 ? {} : { values }) };
 }
 
 function timingOf(timing: ScheduleTiming): ScheduleTimingItem {
@@ -55,8 +61,9 @@ function outcomeOf(outcome: ScheduleOutcome): ScheduleItem['lastOutcome'] {
   }
 }
 
-export function schedulesPageOf(page: Page<Schedule, Schedule['id']>) {
-  return { items: page.items.map(scheduleItemOf), nextCursor: page.nextCursor };
+export function schedulesPageOf(page: SchedulesPage) {
+  const labelValues = new Map(page.labelValues.map((value) => [value.valueId, value]));
+  return { items: page.items.map((schedule) => scheduleItemOf(schedule, labelValues)), nextCursor: page.nextCursor };
 }
 
 /** The timing a creator gave, its instants as dates; what it leaves out stays out, for the domain's defaults. */

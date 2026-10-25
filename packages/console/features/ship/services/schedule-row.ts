@@ -2,7 +2,7 @@ import type { MessageId, ScheduleItem, ScheduleState, ScheduleTimingItem } from 
 import { durationMs } from '@aeolus-fleet/common/rules';
 
 import { duration, relativeTime, shortDateTime } from '../../../lib/relative-time';
-import { recipientGroupWords } from '../../../lib/recipient';
+import { labelSelectionWords, recipientGroupWords } from '../../../lib/recipient';
 import { counted } from '../../../lib/sentence';
 
 const MINUTE_MS = 60_000;
@@ -30,7 +30,7 @@ function recipientOf(selector: ScheduleItem['selector']): string {
     return `To ${recipientGroupWords(selector)}`;
   }
   if (selector.kind === 'label') {
-    return `To every ship carrying ${selector.valueIds.join(' and ')}`;
+    return `To every ship carrying ${labelSelectionWords(selector.values ?? selector.valueIds.map((valueId) => ({ valueId, key: null, value: null })))}`;
   }
   return 'name' in selector ? `To ${selector.name}` : `To ${selector.shipId}`;
 }

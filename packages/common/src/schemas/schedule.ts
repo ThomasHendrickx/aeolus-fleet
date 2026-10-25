@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { idSchema } from '../ids/index.js';
 import { durationMs } from '../rules/duration.js';
 import { idempotencyKeySchema } from './idempotency-key.js';
+import { labelValueTextSchema } from './history.js';
 import { contentTypeSchema, modelSchema, payloadSchema, scheduleSelectorSchema } from './message.js';
 import { pageInputOf, pageOutputOf } from './page.js';
 
@@ -114,12 +115,24 @@ export const scheduleTimingItemSchema = z.discriminatedUnion('kind', [
 
 export type ScheduleTimingItem = z.infer<typeof scheduleTimingItemSchema>;
 
+/**
+ * What a schedule sends to, as a list shows it: as the creator gave it, a
+ * label selection with each value by its texts for a caller holding
+ * fleet:read (decision 0065, R10).
+ */
+const scheduleItemSelectorSchema = z.union([
+  z.object({ kind: z.literal('ship'), shipId: idSchema('ship') }),
+  z.object({ kind: z.literal('ship'), name: z.string() }),
+  z.object({ kind: z.literal('type'), type: z.string() }),
+  z.object({ kind: z.literal('label'), valueIds: z.array(idSchema('labelValue')), values: z.array(labelValueTextSchema).optional() }),
+]);
+
 /** One schedule as a list shows it: its send input but the payload, its timing and strategies, its state, next send time and last outcome. */
 export const scheduleItemSchema = z.object({
   scheduleId: idSchema('schedule'),
   shipId: idSchema('ship'),
   state: scheduleStateSchema,
-  selector: scheduleSelectorSchema,
+  selector: scheduleItemSelectorSchema,
   contentType: z.string(),
   inReplyTo: idSchema('message').nullable(),
   isForced: z.boolean(),
