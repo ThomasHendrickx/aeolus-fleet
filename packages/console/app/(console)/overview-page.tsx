@@ -12,7 +12,7 @@ import { CommissionShip } from '../../features/fleet/state/commission-ship';
 import { FleetLimits } from '../../features/fleet/state/fleet-limits';
 import { FleetOverview } from '../../features/fleet/state/fleet-overview';
 import { ShipActions } from '../../features/ship-actions/organisms/ship-actions';
-import { NewCrewLineFlow } from '../../features/squadrons/organisms/get-new-crew-line';
+import { NewCrewLineFlow } from '../../features/squadrons/state/get-new-crew-line';
 import { LimitNotice } from '../../components/molecules/limit-notice';
 import { ListPage } from '../../components/organisms/list-page';
 import { useConsoleFrame } from '../../lib/console-frame';

@@ -135,7 +135,6 @@ const featuresInTheOldLayout = [
   'labels',
   'notices',
   'ship-actions',
-  'squadrons',
 ];
 
 const newFeatureLayout = 'packages/console/features/*/@(ui/@(atoms|molecules|organisms)|state|hooks|services)/**';

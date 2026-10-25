@@ -10,7 +10,7 @@ import { MessageThreads } from '../../../../features/ship/ui/organisms/message-t
 import { ShipCrewRequest } from '../../../../features/ship/state/ship-crew-request';
 import { ShipSquadron } from '../../../../features/ship/state/ship-squadron';
 import { ShipActions } from '../../../../features/ship-actions/organisms/ship-actions';
-import { NewCrewLineFlow } from '../../../../features/squadrons/organisms/get-new-crew-line';
+import { NewCrewLineFlow } from '../../../../features/squadrons/state/get-new-crew-line';
 import { ShipHeader } from '../../../../features/ship/ui/organisms/ship-header';
 import { ShipWayLines } from '../../../../features/ship/ui/molecules/ship-way-lines';
 import { shipWayView } from '../../../../features/ship/services/ship-way';

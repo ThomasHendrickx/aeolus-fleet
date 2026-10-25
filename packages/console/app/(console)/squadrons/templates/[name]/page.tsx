@@ -5,9 +5,9 @@ import { use } from 'react';
 
 import { EmptyState } from '../../../../../components/molecules/empty-state';
 import { InlineError } from '../../../../../components/molecules/inline-error';
-import { SquadronsNotConnected } from '../../../../../features/squadrons/molecules/squadrons-not-connected';
+import { SquadronsNotConnected } from '../../../../../features/squadrons/ui/molecules/squadrons-not-connected';
 import { LoadingSkeleton } from '../../../../../components/molecules/loading-skeleton';
-import { TemplateView } from '../../../../../features/squadrons/organisms/template-view';
+import { TemplateView } from '../../../../../features/squadrons/ui/organisms/template-view';
 import { DetailPage } from '../../../../../components/organisms/detail-page';
 import { useConsoleFrame } from '../../../../../lib/console-frame';
 import { useLiveFleet } from '../../../../../lib/live-fleet';
