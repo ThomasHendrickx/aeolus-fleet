@@ -2,7 +2,7 @@
 
 Design for [#1152](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1152) (part A) and [#1227](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1227) with [#1078](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1078) (part B), as one gateway design. Part A ships in Aeolus 0.32.0, part B in 0.33.0. Docs only.
 
-Part A: approved by Thomas (25 Oct); the build starts from its slices. Part B: stage 2, the detail, every question answered (25 Oct), ready for Thomas's approval.
+Part A: approved by Thomas (25 Oct); the build starts from its slices. Part B: approved by Thomas (25 Oct), "slack bots approved"; the build starts from its slices.
 
 ## 1. Purpose
 
@@ -27,7 +27,7 @@ How it holds together:
 
 Not the purpose: the tool switch per party (#1151, shipped); scope checks for calls between agent ships (a receiving agent ship is never a policy point, 0046); outside clients and agents calling into the fleet; a scope per A2A skill (L26).
 
-### Part B: ships as Slack bots (0.33.0, purpose agreed)
+### Part B: ships as Slack bots (0.33.0, approved)
 
 A person in the company talks to a ship of the fleet in Slack as they talk to a colleague: a ship exposed as a Slack bot, with its own name, that they message directly or mention in a channel. Several ships may each be their own bot. Thomas: "Slack integration with potential multiple bots that get exposed to the fleet. So a ship in the fleet becomes a bot in slack." Waking a person in Slack is one part of it: what waits for their person ship shows where they already are ("be where the user is", #1078).
 
