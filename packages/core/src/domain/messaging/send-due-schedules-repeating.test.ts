@@ -1,4 +1,4 @@
-import type { ScheduleId } from '@aeolus-fleet/common';
+import type { LabelValueId, ScheduleId, ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { applyNetworkRules, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
@@ -302,5 +302,67 @@ describe('a missed send time', () => {
       [retrying, '2026-10-25T10:00:00.000Z'],
     ]);
     expect(scheduleOf(retrying)?.nextSendTime).toEqual(new Date('2026-10-25T10:00:00.000Z'));
+  });
+});
+
+describe('a repeating send time to a label (decision 0065, D6)', () => {
+  let teamA: LabelValueId;
+  let bravo: ShipCaller;
+
+  function recipientsAt(sendTime: string): ShipId[] {
+    const message = core.state.messages.find((sent) => sent.sendTime?.toISOString() === sendTime);
+    return core.state.deliveries
+      .filter((delivery) => delivery.messageId === message?.id)
+      .flatMap(({ recipient }) => (recipient.kind === 'ship' ? [recipient.shipId] : []))
+      .sort();
+  }
+
+  beforeEach(async () => {
+    bravo = await shipWithScopes({ registry, argo }, { name: 'bravo', type: 'reviewer', scopes: [] });
+    unwrap(await registry.defineLabel(argo, { key: 'team', values: ['a'] }));
+    teamA = valueIdOf(core, { key: 'team', value: 'a' });
+    for (const ship of [scout, chief]) {
+      unwrap(await registry.assignLabel(argo, { shipId: ship.shipId, valueId: teamA }));
+    }
+  });
+
+  it('sends to the ships carrying the selection at each send time: a ship labelled between two send times gets the second only', async () => {
+    await scheduled(hourly({ selector: { kind: 'label', valueIds: [teamA] } }));
+
+    await passAt('2026-10-25T10:00:00.000Z');
+    unwrap(await registry.assignLabel(argo, { shipId: bravo.shipId, valueId: teamA }));
+    await passAt('2026-10-25T11:00:00.000Z');
+
+    expect([recipientsAt('2026-10-25T10:00:00.000Z'), recipientsAt('2026-10-25T11:00:00.000Z')]).toEqual([[chief.shipId], [bravo.shipId, chief.shipId].sort()]);
+    expect(core.state.messages.map((message) => message.selector)).toEqual([
+      { kind: 'label', valueIds: [teamA] },
+      { kind: 'label', valueIds: [teamA] },
+    ]);
+  });
+
+  it('refuses a send time when the creator no longer reaches one ship of the selection, records it NOT_REACHABLE and goes on under skip', async () => {
+    const scheduleId = await scheduled(hourly({ selector: { kind: 'label', valueIds: [teamA] } }));
+    unwrap(await registry.assignLabel(argo, { shipId: bravo.shipId, valueId: teamA }));
+    await onlyChiefSends();
+    core.state.reachRefusals.length = 0;
+
+    await passAt('2026-10-25T10:00:00.000Z');
+
+    expect(core.state.messages).toEqual([]);
+    expect(core.state.reachRefusals).toHaveLength(1);
+    expect(scheduleOf(scheduleId)).toMatchObject({
+      state: 'active',
+      nextSendTime: new Date('2026-10-25T11:00:00.000Z'),
+      lastOutcome: { kind: 'refused', code: 'NOT_REACHABLE', sendTime: new Date('2026-10-25T10:00:00.000Z') },
+    });
+  });
+
+  it('refuses a send time UNRESOLVABLE_SELECTOR when no ship but the creator carries the selection then', async () => {
+    const scheduleId = await scheduled(hourly({ selector: { kind: 'label', valueIds: [teamA] } }));
+    unwrap(await registry.unassignLabel(argo, { shipId: chief.shipId, valueId: teamA }));
+
+    await passAt('2026-10-25T10:00:00.000Z');
+
+    expect(scheduleOf(scheduleId)?.lastOutcome).toMatchObject({ kind: 'refused', code: 'UNRESOLVABLE_SELECTOR' });
   });
 });
