@@ -2578,4 +2578,22 @@ describe('scheduled messages (decision 0062)', () => {
     await expect(codeOf(outsider.fleet.schedules.query({ shipId: scoutId }))).resolves.toBe('FORBIDDEN');
     await expect(codeOf(outsider.ship.cancelSchedule.mutate(second))).resolves.toBe('NOT_FOUND');
   });
+
+  it('let a ship schedule a repeat by cron in its zone, pause and resume it, and a manager pause it, but not resume it', async () => {
+    const scout = client({ authorization: `Bearer ${await crewedShip()}` });
+    const manager = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'fleet:manage'])}` });
+    const timing = { kind: 'cron' as const, cron: '0 9 * * *', timeZone: 'Europe/Brussels', end: '2027-01-01T00:00:00.000Z' };
+    const toArgo = { selector: { kind: 'ship' as const, name: 'argo' }, payload: 'Daily check-in', model: SESSION_MODEL };
+
+    const repeat = await scout.ship.schedule.mutate({ ...toArgo, idempotencyKey: newKey(), timing, onMissed: 'skip', grace: 'PT10M' });
+
+    await expect(scout.ship.schedules.query({})).resolves.toMatchObject({
+      items: [{ scheduleId: repeat.scheduleId, state: 'active', timing: { ...timing, start: null, count: null }, onMissed: 'skip', grace: 'PT10M', nextSendTime: '2026-09-30T07:00:00.000Z' }],
+    });
+    await expect(scout.ship.pauseSchedule.mutate(repeat)).resolves.toEqual({ ...repeat, state: 'paused' });
+    await expect(scout.ship.resumeSchedule.mutate(repeat)).resolves.toEqual({ ...repeat, state: 'active' });
+    await expect(manager.fleet.pauseSchedule.mutate(repeat)).resolves.toEqual({ ...repeat, state: 'paused' });
+    await expect(codeOf(manager.ship.resumeSchedule.mutate(repeat))).resolves.toBe('NOT_FOUND');
+    await expect(codeOf(scout.ship.schedule.mutate({ ...toArgo, idempotencyKey: newKey(), timing: { kind: 'cron', cron: '0 9 * *' } }))).resolves.toBe('BAD_REQUEST');
+  });
 });
