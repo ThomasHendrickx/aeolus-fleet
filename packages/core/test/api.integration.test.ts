@@ -986,6 +986,8 @@ describe('ship.receive and ship.ack at the API', () => {
         attempts: 1,
         isForced: false,
         meetingId: null,
+        scheduleId: null,
+        sendTime: null,
       },
     ]);
     await expect(receiver.asShip.ship.ack.mutate({ deliveryId })).resolves.toEqual({});

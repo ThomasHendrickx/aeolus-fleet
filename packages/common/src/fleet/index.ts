@@ -267,6 +267,11 @@ export const EVENT_TYPES = [
   'OwnershipTransferred',
   'ModeratorNamed',
   'MeetingEnded',
+  'ScheduleCreated',
+  'ScheduleCancelled',
+  'ScheduledSendRefused',
+  'SchedulePaused',
+  'ScheduleEnded',
 ] as const;
 export const eventTypeSchema = z.enum(EVENT_TYPES);
 export type EventType = z.infer<typeof eventTypeSchema>;

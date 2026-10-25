@@ -165,6 +165,15 @@ function overdueReason(entry: TimelineEntry): string {
   return `waiting ${after} while its session is ${clock === 'busy' ? 'busy' : 'idle'}`;
 }
 
+/** Who cancelled a schedule (decision 0062): its ship, a manager, or its ship's retire. */
+function scheduleCancelledParts(entry: TimelineEntry): SentencePart[] {
+  const reason = stringDetail(entry, 'reason');
+  if (reason === 'retired') {
+    return [text('A scheduled message was cancelled as the ship retired')];
+  }
+  return reason === 'manager' ? [text('A scheduled message was cancelled'), ...by(entry.actor)] : [text('Cancelled a scheduled message')];
+}
+
 /**
  * The one sentence, tone and icon of a timeline row
  * (docs/design/png/ShipTimeline.png), from the point of view of the ship whose
@@ -327,6 +336,16 @@ export function timelineSentence(entry: TimelineEntry, shipId: string): Timeline
       return { parts: [text('Became the moderator of a meeting'), ...(entry.actor ? [text(', named by '), ship(entry.actor)] : [])], tone: 'ok', icon: 'received' };
     case 'MeetingEnded':
       return { parts: [text('Ended a meeting')], tone: 'ok', icon: 'sent' };
+    case 'ScheduleCreated':
+      return { parts: [text('Scheduled a message')], tone: 'ok', icon: 'sent' };
+    case 'ScheduleCancelled':
+      return { parts: scheduleCancelledParts(entry), tone: 'ended', icon: 'released' };
+    case 'ScheduledSendRefused':
+      return { parts: [text(`A scheduled send was refused: ${stringDetail(entry, 'code') ?? 'refused'}`)], tone: 'waiting', icon: 'undeliverable' };
+    case 'SchedulePaused':
+      return { parts: [text('A scheduled message paused after a refused send')], tone: 'waiting', icon: 'reported' };
+    case 'ScheduleEnded':
+      return { parts: [text('A scheduled message ended')], tone: 'ended', icon: 'sent' };
     case 'VerifiedFactsRemoved':
       return {
         parts: [text(`Verified facts removed: ${String(entry.details.facts ?? '')}, ${stringDetail(entry, 'why') === 'writerRetired' ? 'their writer retired' : 'the ship retired'}`)],

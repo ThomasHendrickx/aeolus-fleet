@@ -79,6 +79,8 @@ describe('sending a message to a ship', () => {
         inReplyToMessageId: null,
         resendOfMessageId: null,
         meetingId: null,
+        scheduleId: null,
+        sendTime: null,
         createdAt: core.clock.now(),
       },
     ]);
@@ -533,6 +535,8 @@ describe('a send refused', () => {
       inReplyToMessageId: null,
       resendOfMessageId: null,
       meetingId: null,
+      scheduleId: null,
+      sendTime: null,
       createdAt: core.clock.now(),
     });
 

@@ -401,7 +401,7 @@ export const shipRouter = router({
     .output(receiveOutputSchema)
     .mutation(async ({ ctx, input }) => {
       const { deliveries } = okOrThrow(await ctx.useCases.receiveDeliveries(ctx.crew, { max: input?.max }));
-      return { deliveries: deliveries.map((delivery) => ({ ...delivery, sentAt: delivery.sentAt.toISOString() })) };
+      return { deliveries: deliveries.map((delivery) => ({ ...delivery, sentAt: delivery.sentAt.toISOString(), sendTime: delivery.sendTime?.toISOString() ?? null })) };
     }),
 
   /**
@@ -423,7 +423,7 @@ export const shipRouter = router({
     .output(receiveOutputSchema)
     .mutation(async ({ ctx, input }) => {
       const { deliveries } = okOrThrow(await ctx.useCases.receiveReply(ctx.crew, input));
-      return { deliveries: deliveries.map((delivery) => ({ ...delivery, sentAt: delivery.sentAt.toISOString() })) };
+      return { deliveries: deliveries.map((delivery) => ({ ...delivery, sentAt: delivery.sentAt.toISOString(), sendTime: delivery.sendTime?.toISOString() ?? null })) };
     }),
 
   /**
@@ -451,7 +451,7 @@ export const shipRouter = router({
       const { deliveries } = okOrThrow(
         await ctx.useCases.pushReceiveDeliveries(ctx.crew, { max: input?.max, ...(input?.waker === undefined ? {} : { waker: input.waker }) }),
       );
-      return { deliveries: deliveries.map((delivery) => ({ ...delivery, sentAt: delivery.sentAt.toISOString() })) };
+      return { deliveries: deliveries.map((delivery) => ({ ...delivery, sentAt: delivery.sentAt.toISOString(), sendTime: delivery.sendTime?.toISOString() ?? null })) };
     }),
 
   /**
@@ -683,7 +683,7 @@ export const shipRouter = router({
     .output(deliveryOutputSchema)
     .query(async ({ ctx, input }) => {
       const reread = okOrThrow(await ctx.useCases.readDelivery(ctx.crew, input));
-      return { ...reread, sentAt: reread.sentAt.toISOString() };
+      return { ...reread, sentAt: reread.sentAt.toISOString(), sendTime: reread.sendTime?.toISOString() ?? null };
     }),
 
   /**

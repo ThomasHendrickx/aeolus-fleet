@@ -153,6 +153,8 @@ describe('handing a delivery over', () => {
           attempts: 1,
           isForced: false,
           meetingId: null,
+          scheduleId: null,
+          sendTime: null,
         },
       ],
     });

@@ -27,6 +27,8 @@ export const ID_PREFIXES = {
   request: 'req',
   /** A meeting of ships (decision 0061). */
   meeting: 'mtg',
+  /** A ship's scheduled message (decision 0062). */
+  schedule: 'sch',
 } as const;
 
 export type IdKind = keyof typeof ID_PREFIXES;
@@ -54,6 +56,7 @@ export type LabelValueId = Id<'labelValue'>;
 export type ReachRefusalId = Id<'reachRefusal'>;
 export type RequestId = Id<'request'>;
 export type MeetingId = Id<'meeting'>;
+export type ScheduleId = Id<'schedule'>;
 
 /** Crockford base32, lowercase. Leaves out i, l, o and u. */
 const ALPHABET = '0123456789abcdefghjkmnpqrstvwxyz';

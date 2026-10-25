@@ -585,6 +585,9 @@ model Message {
   resendOfMessageId  String?      @map("resend_of_message_id")
   /// The meeting it was sent to, or the meeting whose added notice it is (decision 0061).
   meetingId          String?      @map("meeting_id")
+  /// The schedule it was sent for, and that send time; none on a live send (decision 0062).
+  scheduleId         String?      @map("schedule_id")
+  sendTime           DateTime?    @map("send_time") @db.Timestamptz(3)
   createdAt          DateTime     @map("created_at") @db.Timestamptz(3)
 
   fleet        Fleet      @relation(fields: [fleetId], references: [id])

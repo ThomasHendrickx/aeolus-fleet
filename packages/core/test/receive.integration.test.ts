@@ -144,6 +144,8 @@ describe('receiving on Postgres', () => {
           attempts: 1,
           isForced: false,
           meetingId: null,
+          scheduleId: null,
+          sendTime: null,
         },
       ],
     });

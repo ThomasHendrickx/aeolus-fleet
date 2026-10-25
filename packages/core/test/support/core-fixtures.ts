@@ -612,6 +612,8 @@ export function deliveryInFlight(
     inReplyToMessageId: null,
     resendOfMessageId: null,
     meetingId: null,
+    scheduleId: null,
+    sendTime: null,
     createdAt: at,
   });
   core.state.deliveries.push({

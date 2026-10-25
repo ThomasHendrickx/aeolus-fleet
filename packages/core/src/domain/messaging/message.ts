@@ -1,4 +1,4 @@
-import { isPingContentType, type AccountId, type DeliveryId, type DeliveryState, type FleetId, type LeaseId, type MeetingId, type MessageId, type ShipId, type ShipKind } from '@aeolus-fleet/common';
+import { isPingContentType, type AccountId, type DeliveryId, type DeliveryState, type FleetId, type LeaseId, type MeetingId, type MessageId, type ScheduleId, type ShipId, type ShipKind } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
 import { shipActor, type Actor, type NewEvent } from '../shared/events.js';
@@ -32,7 +32,16 @@ export interface Message {
   resendOfMessageId: MessageId | null;
   /** The meeting it was contributed to, or tells of as the notice that added its recipient (decision 0061). */
   meetingId: MeetingId | null;
+  /** The schedule it was sent for, and that send time; none on a live send (decision 0062). */
+  scheduleId: ScheduleId | null;
+  sendTime: Date | null;
   createdAt: Date;
+}
+
+/** The schedule a message is sent for, and the send time it is sent at (decision 0062). */
+export interface ScheduledFor {
+  scheduleId: ScheduleId;
+  sendTime: Date;
 }
 
 /**
@@ -105,6 +114,8 @@ export interface MessageToAccept {
   signedInAccountId?: AccountId;
   /** The meeting it tells of, for the notice that adds its recipient to one (decision 0061). */
   meetingId?: MeetingId;
+  /** The schedule it is sent for, and that send time (decision 0062). */
+  scheduledFor?: ScheduledFor;
   at: Date;
 }
 
@@ -170,6 +181,8 @@ export function acceptMessage(
     inReplyToMessageId: inReplyTo ?? null,
     resendOfMessageId: resendOf?.messageId ?? null,
     meetingId: send.meetingId ?? null,
+    scheduleId: send.scheduledFor?.scheduleId ?? null,
+    sendTime: send.scheduledFor?.sendTime ?? null,
     createdAt: at,
   };
   const delivery: Delivery = {
@@ -206,6 +219,7 @@ export function acceptMessage(
           ...(resendOf && { resendOf: resendOf.messageId }),
           ...(send.isForced && { forced: true }),
           ...(send.meetingId && { meetingId: send.meetingId }),
+          ...(send.scheduledFor && { scheduleId: send.scheduledFor.scheduleId, sendTime: send.scheduledFor.sendTime.toISOString() }),
         },
       },
     ],
@@ -232,7 +246,7 @@ function checkModel(send: Pick<MessageToAccept, 'resendOf' | 'contentType' | 'se
 }
 
 /** What a participant contributes to a meeting, its payload and key already checked, with one delivery id per participant it goes to. */
-export type ContributionToAccept = Omit<MessageToAccept, 'deliveryId' | 'inReplyTo' | 'isForced' | 'resendOf' | 'meetingId'> & {
+export type ContributionToAccept = Omit<MessageToAccept, 'deliveryId' | 'inReplyTo' | 'isForced' | 'resendOf' | 'meetingId' | 'scheduledFor'> & {
   meetingId: MeetingId;
   deliveries: readonly { deliveryId: DeliveryId; shipId: ShipId }[];
 };
@@ -262,6 +276,8 @@ export function acceptContribution(send: ContributionToAccept): Result<{ message
     inReplyToMessageId: null,
     resendOfMessageId: null,
     meetingId,
+    scheduleId: null,
+    sendTime: null,
     createdAt: at,
   };
   const deliveries = send.deliveries.map(

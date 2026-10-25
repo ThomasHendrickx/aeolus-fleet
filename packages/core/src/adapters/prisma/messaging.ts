@@ -64,6 +64,8 @@ export function createPrismaMessageRepository(db: Db): BufferedMessageRepository
           inReplyToMessageId: message.inReplyToMessageId,
           resendOfMessageId: message.resendOfMessageId,
           meetingId: message.meetingId,
+          scheduleId: message.scheduleId,
+          sendTime: message.sendTime,
           createdAt: message.createdAt,
         },
       });

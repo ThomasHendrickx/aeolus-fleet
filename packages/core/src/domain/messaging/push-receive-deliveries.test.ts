@@ -122,6 +122,8 @@ describe('a push receive', () => {
           attempts: 0,
           isForced: false,
           meetingId: null,
+          scheduleId: null,
+          sendTime: null,
           state: 'received',
           handOverNumber: null,
         },
