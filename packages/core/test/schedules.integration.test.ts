@@ -435,3 +435,105 @@ describe('running servers', () => {
     }
   });
 });
+
+describe('a repeating schedule on Postgres', () => {
+  /** Every minute from 12:00 on the test clock; the database's clock is a month on, so every send time is due by its now(). */
+  const everyMinute = (overrides: Partial<MessageToSchedule> = {}) => aSchedule({ timing: { kind: 'every', every: 'PT1M' }, ...overrides });
+
+  async function sendTimesOf(scheduleId: ScheduleId): Promise<string[]> {
+    return (await core.prisma.message.findMany({ where: { fleetId, scheduleId }, orderBy: { sendTime: 'asc' } })).map((message) => message.sendTime?.toISOString() ?? '');
+  }
+
+  it('stores and lists its timing, its bounds and its strategies as given', async () => {
+    const timing = { kind: 'cron', cron: '0 9 * * MON-FRI', timeZone: 'Europe/Brussels', start: new Date('2026-10-01T00:00:00.000Z'), end: new Date('2026-12-31T00:00:00.000Z'), count: 40 } as const;
+    const cron = await scheduled(aSchedule({ timing, onMissed: 'once', grace: 'PT10M' }));
+    const every = await scheduled(everyMinute());
+
+    const listed = unwrap(await core.useCases.listSchedules(scout, { shipId: scout.shipId, limit: 20 }));
+
+    expect(listed.items.map((schedule) => [schedule.id, schedule.timing, schedule.onMissed, schedule.grace, schedule.nextSendTime])).toEqual([
+      [every, { kind: 'every', every: 'PT1M', start: null, end: null, count: null }, 'each', 'PT5M', new Date('2026-09-29T12:01:00.000Z')],
+      [cron, timing, 'once', 'PT10M', new Date('2026-10-01T07:00:00.000Z')],
+    ]);
+  });
+
+  it('sends each send time of a catch-up once, at most 100 a unit of work, stamped with its own send time', async () => {
+    const scheduleId = await scheduled(everyMinute());
+    core.clock.advance(150 * 60_000);
+
+    await core.useCases.sendDueSchedules();
+
+    expect(await sendTimesOf(scheduleId)).toHaveLength(100);
+    expect(await scheduleRow(scheduleId)).toMatchObject({ state: 'active', nextSendTime: new Date('2026-09-29T13:41:00.000Z') });
+  });
+
+  it('counts its sends from the messages it stored: ended at its count', async () => {
+    const scheduleId = await scheduled(everyMinute({ timing: { kind: 'every', every: 'PT1M', count: 3 } }));
+    core.clock.advance(2 * 60_000);
+    await core.useCases.sendDueSchedules();
+    core.clock.advance(5 * 60_000);
+
+    await core.useCases.sendDueSchedules();
+
+    expect(await sendTimesOf(scheduleId)).toEqual(['2026-09-29T12:01:00.000Z', '2026-09-29T12:02:00.000Z', '2026-09-29T12:03:00.000Z']);
+    expect(await scheduleRow(scheduleId)).toMatchObject({ state: 'ended', nextSendTime: null });
+  });
+
+  it('records a missed send time as its last outcome under skip', async () => {
+    const scheduleId = await scheduled(everyMinute({ onMissed: 'skip' }));
+    core.clock.advance(10 * 60_000);
+
+    await core.useCases.sendDueSchedules();
+
+    expect(await sendTimesOf(scheduleId)).toEqual(['2026-09-29T12:05:00.000Z', '2026-09-29T12:06:00.000Z', '2026-09-29T12:07:00.000Z', '2026-09-29T12:08:00.000Z', '2026-09-29T12:09:00.000Z', '2026-09-29T12:10:00.000Z']);
+    expect(await core.prisma.event.count({ where: { fleetId, type: 'ScheduledSendMissed' } })).toBe(4);
+  });
+
+  it('pauses and resumes on Postgres, skipping the send times passed while paused', async () => {
+    const scheduleId = await scheduled(everyMinute());
+    unwrap(await core.useCases.pauseSchedule(scout, { scheduleId }));
+    core.clock.advance(10 * 60_000 + 30_000);
+    await core.useCases.sendDueSchedules();
+
+    unwrap(await core.useCases.resumeSchedule(scout, { scheduleId }));
+
+    expect(await sendTimesOf(scheduleId)).toEqual([]);
+    expect(await scheduleRow(scheduleId)).toMatchObject({ state: 'active', nextSendTime: new Date('2026-09-29T12:11:00.000Z'), nextAttemptAt: new Date('2026-09-29T12:11:00.000Z') });
+  });
+
+  it('two servers never send the same send time twice over a catch-up: each send time one message', async () => {
+    const scheduleIds = [await scheduled(everyMinute()), await scheduled(everyMinute()), await scheduled(everyMinute())];
+    core.clock.advance(150 * 60_000);
+    const other = createPrismaClient(core.databaseUrl);
+    try {
+      const otherServer = createUseCases({ prisma: other, clock: core.clock });
+
+      await Promise.all([core.useCases.sendDueSchedules(), otherServer.sendDueSchedules(), core.useCases.sendDueSchedules(), otherServer.sendDueSchedules()]);
+      await Promise.all([core.useCases.sendDueSchedules(), otherServer.sendDueSchedules()]);
+    } finally {
+      await other.$disconnect();
+    }
+
+    // A pass may also send the next send time of a schedule it caught up: the database's clock, which judges it due, is a month on.
+    const sent = await core.prisma.message.groupBy({ by: ['scheduleId', 'sendTime'], where: { fleetId, scheduleId: { in: scheduleIds } }, _count: { _all: true } });
+    expect(sent.length).toBeGreaterThanOrEqual(3 * 150);
+    expect(sent.filter((row) => row._count._all !== 1)).toEqual([]);
+  });
+
+  it('rolls back a whole catch-up that fails before commit: no message, and the send time not advanced', async () => {
+    const scheduleId = await scheduled(everyMinute());
+    core.clock.advance(30 * 60_000);
+    const before = await scheduleRow(scheduleId);
+    const failing = passWith(
+      unitOfWorkWith((tx) => ({
+        ...tx,
+        schedules: { ...tx.schedules, save: () => Promise.reject(new Error('the server failed before commit')) },
+      })),
+    );
+
+    await failing(() => undefined);
+
+    expect(await sendTimesOf(scheduleId)).toEqual([]);
+    expect(await scheduleRow(scheduleId)).toEqual(before);
+  });
+});
