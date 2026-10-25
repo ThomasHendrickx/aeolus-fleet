@@ -32,6 +32,8 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
+        env:
+          NODE_OPTIONS: --max-old-space-size=12288
       - run: npm run test:unit
 
   storybook:

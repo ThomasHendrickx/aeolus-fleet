@@ -78,7 +78,7 @@ export function createAddToMeeting(deps: { uow: UnitOfWork<AddToMeetingTx>; cloc
       if (added.value.added.length === 0) {
         return ok(undefined);
       }
-      const withinLimit = await withinDailyMessageLimit(tx, { fleetId, time: at });
+      const withinLimit = await withinDailyMessageLimit(tx, { fleetId, time: at, count: added.value.added.length });
       if (!withinLimit.isOk) {
         return withinLimit;
       }

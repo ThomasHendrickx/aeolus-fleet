@@ -165,7 +165,7 @@ export function acceptMessage(
   const { recipient, repliedTo, reachableShipIds } = fleet;
   const { messageId, deliveryId, fleetId, senderShipId, inReplyTo, resendOf, at } = send;
   if (inReplyTo !== undefined && repliedTo?.id !== inReplyTo) {
-    return refuse('IN_REPLY_TO_NOT_FOUND', `Message ${inReplyTo} does not exist: a reply names a message of the fleet`);
+    return refuse('IN_REPLY_TO_NOT_FOUND', `Message ${inReplyTo} is not in the fleet: it was never sent, or it is no longer kept`);
   }
   const stated = checkModel(send);
   if (!stated.isOk) {
@@ -335,7 +335,7 @@ export function acceptLabelMessage(
 ): Result<{ message: Message; deliveries: Delivery[]; events: NewEvent[] }, AcceptRefusal> {
   const { messageId, fleetId, senderShipId, inReplyTo, at } = send;
   if (inReplyTo !== undefined && repliedTo?.id !== inReplyTo) {
-    return refuse('IN_REPLY_TO_NOT_FOUND', `Message ${inReplyTo} does not exist: a reply names a message of the fleet`);
+    return refuse('IN_REPLY_TO_NOT_FOUND', `Message ${inReplyTo} is not in the fleet: it was never sent, or it is no longer kept`);
   }
   const stated = checkModel(send);
   if (!stated.isOk) {

@@ -122,6 +122,10 @@ describe('timelineSentence', () => {
     expect(onScoutsPage(anEntry('FleetLimitsChanged'))).toEqual({ sentence: 'Fleet limits changed', tone: 'ended', icon: 'fleet' });
   });
 
+  it('says the finished history past the retention was pruned', () => {
+    expect(onScoutsPage(anEntry('HistoryPruned'))).toEqual({ sentence: 'Finished history past the retention pruned', tone: 'ended', icon: 'fleet' });
+  });
+
   it('says someone started viewing the fleet through the viewer ship', () => {
     expect(onScoutsPage(anEntry('ViewerSessionStarted'))).toEqual({
       sentence: 'Someone started viewing the fleet',

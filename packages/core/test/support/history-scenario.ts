@@ -80,7 +80,12 @@ export async function historyScenario(): Promise<HistoryScenario> {
     },
     ack: async (crew, messageId) => {
       core.clock.advance(1_000);
-      const delivery = core.state.deliveries.find((held) => held.messageId === messageId);
+      // The crew's own delivery of it: a send to a label has one per ship.
+      const delivery = core.state.deliveries.find(
+        (held) =>
+          held.messageId === messageId &&
+          (held.claimedByShipId === crew.shipId || (held.recipient.kind === 'ship' && held.recipient.shipId === crew.shipId)),
+      );
       if (!delivery) {
         throw new Error(`No delivery of ${messageId}`);
       }

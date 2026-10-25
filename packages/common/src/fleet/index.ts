@@ -290,6 +290,7 @@ export const EVENT_TYPES = [
   'SchedulePaused',
   'ScheduleResumed',
   'ScheduleEnded',
+  'HistoryPruned',
 ] as const;
 export const eventTypeSchema = z.enum(EVENT_TYPES);
 export type EventType = z.infer<typeof eventTypeSchema>;

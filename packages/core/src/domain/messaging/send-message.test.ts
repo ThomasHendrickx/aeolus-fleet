@@ -515,7 +515,7 @@ describe('a send refused', () => {
 
     await expectRefused(aReview({ inReplyTo }), {
       kind: 'IN_REPLY_TO_NOT_FOUND',
-      message: `Message ${inReplyTo} does not exist: a reply names a message of the fleet`,
+      message: `Message ${inReplyTo} is not in the fleet: it was never sent, or it is no longer kept`,
     });
   });
 

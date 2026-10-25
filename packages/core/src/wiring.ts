@@ -175,6 +175,7 @@ import { createCountOpenInbox, type CountOpenInbox } from './domain/shared/count
 import { createReadInboxMessage, type ReadInboxMessage } from './domain/shared/read-inbox-message.js';
 import { createReadInboxWithdrawals, type ReadInboxWithdrawals } from './domain/shared/read-inbox-withdrawals.js';
 import { createReadMessage, type ReadMessage } from './domain/shared/read-message.js';
+import { createReadMessageDeliveries, type ReadMessageDeliveries } from './domain/shared/read-message-deliveries.js';
 import { createReadSentMessage, type ReadSentMessage } from './domain/shared/read-sent-message.js';
 import { createReadShipWay, type ReadShipWay } from './domain/shared/read-ship-way.js';
 import { createReadNeedsAttention, type ReadNeedsAttention } from './domain/shared/read-needs-attention.js';
@@ -185,6 +186,7 @@ import { createReadStuckHistory, type ReadStuckHistory } from './domain/shared/r
 import { createReadStuck, type ReadStuck } from './domain/shared/read-stuck.js';
 import { createReadStuckSummary, type ReadStuckSummary } from './domain/shared/read-stuck-summary.js';
 import { createCloseHealthSnapshots, type CloseHealthSnapshots } from './domain/shared/close-health-snapshots.js';
+import { createPruneHistory, type PruneHistory } from './domain/shared/prune-history.js';
 import { createReadShipMessages, type ReadShipMessages } from './domain/shared/read-ship-messages.js';
 import { createReadShipTimeline, type ReadShipTimeline } from './domain/shared/read-ship-timeline.js';
 
@@ -275,6 +277,8 @@ export interface UseCases {
   /** Sends every schedule that is due; core runs it on its timer and its pass, never the API. */
   sendDueSchedules: SendDueSchedules;
   closeHealthSnapshots: CloseHealthSnapshots;
+  /** One pruning pass of every fleet with a retention (decision 0066); core runs it, never the API. */
+  pruneHistory: PruneHistory;
   acknowledgeDelivery: AcknowledgeDelivery;
   answerPing: AnswerPing;
   pingShip: PingShip;
@@ -289,6 +293,7 @@ export interface UseCases {
   readShipTimeline: ReadShipTimeline;
   readShipMessages: ReadShipMessages;
   readMessage: ReadMessage;
+  readMessageDeliveries: ReadMessageDeliveries;
   sentMessage: ReadSentMessage;
   readShipWay: ReadShipWay;
   readNeedsAttention: ReadNeedsAttention;
@@ -516,6 +521,7 @@ export function createUseCases(options: {
     resumeSchedule: createResumeSchedule({ uow, clock, ids }),
     sendDueSchedules: createSendDueSchedules({ fleets: createPrismaFleetRepository(prisma), scheduleAttempts: createPrismaScheduleAttempts(prisma), uow, clock, ids, hasher: sha256Hasher }),
     closeHealthSnapshots: createCloseHealthSnapshots({ fleets: createPrismaFleetRepository(prisma), uow: createPrismaSnapshotUnitOfWork(prisma), clock }),
+    pruneHistory: createPruneHistory({ fleets: createPrismaFleetRepository(prisma), uow: bulkUow, clock, ids }),
     acknowledgeDelivery: createAcknowledgeDelivery({ uow, clock, ids }),
     answerPing: createAnswerPing({ uow, clock, ids }),
     pingShip: createPingShip({ uow, clock, ids, hasher: sha256Hasher }),
@@ -536,6 +542,7 @@ export function createUseCases(options: {
     readShipTimeline: createReadShipTimeline({ history: createPrismaShipHistory(prisma), readReach }),
     readShipMessages: createReadShipMessages({ history: createPrismaShipHistory(prisma), readReach }),
     readMessage: createReadMessage({ history: createPrismaShipHistory(prisma), readReach }),
+    readMessageDeliveries: createReadMessageDeliveries({ history: createPrismaShipHistory(prisma), readReach }),
     sentMessage: createReadSentMessage({ history: createPrismaShipHistory(prisma) }),
     readShipWay: createReadShipWay({ history: createPrismaShipHistory(prisma), uow, clock, ids }),
     readNeedsAttention: createReadNeedsAttention({ history: createPrismaShipHistory(prisma), readReach }),

@@ -216,6 +216,7 @@ describe('eventTypeSchema', () => {
       'SchedulePaused',
       'ScheduleResumed',
       'ScheduleEnded',
+      'HistoryPruned',
     ]);
   });
 });

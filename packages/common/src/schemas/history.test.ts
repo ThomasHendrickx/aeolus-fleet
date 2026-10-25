@@ -4,6 +4,8 @@ import { createIdGenerator } from '../ids/index.js';
 import {
   deliveryHistoryEntrySchema,
   messageInputSchema,
+  messageDeliveriesInputSchema,
+  messageDeliveriesOutputSchema,
   messageOutputSchema,
   shipDetailOutputSchema,
   shipOutputSchema,
@@ -254,10 +256,15 @@ describe('messageOutputSchema', () => {
         { ...step, seq: 1, type: 'MessageAccepted', occurredAt: AT, ship: null },
       ],
     },
+    deliveryCount: 1,
   };
 
   it('accepts the envelope, the payload, its replies and the delivery with its way and its history, newest first', () => {
     expect(messageOutputSchema.parse(message)).toEqual(message);
+  });
+
+  it('refuses a delivery count below zero', () => {
+    expect(messageOutputSchema.safeParse({ ...message, deliveryCount: -1 }).success).toBe(false);
   });
 
   it.each([
@@ -326,5 +333,25 @@ describe('shipOutputSchema', () => {
     const outside = { id: createIdGenerator()('ship'), name: 'vault', type: 'keeper', status: 'retired', isInReadReach: false };
 
     expect(shipOutputSchema.parse(outside)).toEqual(outside);
+  });
+});
+
+describe('messageDeliveriesOutputSchema', () => {
+  it('accepts a page of the deliveries of a send to a label, a ship each, and a type delivery no ship claimed yet, with the next cursor (decision 0065)', () => {
+    const deliveries = [
+      { id: newId('delivery'), ship: planner, state: 'acknowledged', since: AT },
+      { id: newId('delivery'), ship: null, state: 'pending', since: AT },
+    ];
+    const page = { items: deliveries, nextCursor: deliveries[1]?.id };
+
+    expect(messageDeliveriesOutputSchema.parse(page)).toEqual(page);
+  });
+});
+
+describe('messageDeliveriesInputSchema', () => {
+  it('takes the message, and the cursor and size of a page of its deliveries', () => {
+    const input = { messageId: newId('message'), cursor: newId('delivery'), limit: 20 };
+
+    expect(messageDeliveriesInputSchema.parse(input)).toEqual(input);
   });
 });

@@ -1,4 +1,4 @@
-import { createIdGenerator, idSchema, LEASE_END_REASONS, PING_CONTENT_TYPE, withdrawalOf, type DeliveryId, type FleetId, type IdGenerator, type LeaseWaker, type ShipId } from '@aeolus-fleet/common';
+import { createIdGenerator, idSchema, LEASE_END_REASONS, PING_CONTENT_TYPE, withdrawalOf, type DeliveryId, type FleetId, type IdGenerator, type LabelValueId, type LeaseWaker, type MessageId, type ShipId } from '@aeolus-fleet/common';
 
 import type { ConsoleSession } from '../../src/domain/identity/console-session.js';
 import type { Credential } from '../../src/domain/identity/credential.js';
@@ -91,6 +91,7 @@ import {
   type HistoryMessage,
   type InboxEntry,
   type HistoryParty,
+  type HistoryLabelValue,
   type HistoryRecipient,
   type ShipHistory,
   type TimelineEntry,
@@ -106,7 +107,9 @@ import type { HealthRecords } from '../../src/domain/shared/health.js';
 import { pageOf } from '../../src/domain/shared/page.js';
 import { createInMemoryHealthRecords } from './in-memory-health.js';
 import type { HealthSnapshotWriter } from '../../src/domain/shared/health-snapshot.js';
+import type { HistoryPruner } from '../../src/domain/shared/history-pruning.js';
 import { createInMemoryHealthSnapshots, type HeldHourSnapshot } from './in-memory-health-snapshots.js';
+import { createInMemoryHistoryPruner } from './in-memory-history-pruner.js';
 
 /**
  * In-memory ports for unit tests of the core. Every repository reads and writes
@@ -182,6 +185,12 @@ export interface InMemoryState {
   healthSnapshots: HeldHourSnapshot[];
   /** The fleets whose snapshot lock another instance holds, as a test sets it. */
   healthSnapshotLocks: FleetId[];
+  /** Each fleet's last pruning pass and where its finished history begins: the columns on its fleets row (decision 0066). */
+  fleetPrunes: { fleetId: FleetId; prunedAt: Date | null; keptFrom: Date | null }[];
+  /** The fleets whose prune lock another server holds, as a test sets it. */
+  historyPruneLocks: FleetId[];
+  /** The messages whose rows another transaction holds, as a test sets it: a pass skips them. */
+  lockedMessages: MessageId[];
 }
 
 export interface InMemoryTx {
@@ -214,6 +223,7 @@ export interface InMemoryTx {
   installationRequests: InstallationRequestRepository;
   installationSettings: InstallationSettingsRepository;
   healthSnapshots: HealthSnapshotWriter;
+  historyPruner: HistoryPruner;
 }
 
 /**
@@ -367,6 +377,9 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     notices: [],
     healthSnapshots: [],
     healthSnapshotLocks: [],
+    fleetPrunes: [],
+    historyPruneLocks: [],
+    lockedMessages: [],
   };
 
   let now = new Date(startAt);
@@ -426,6 +439,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
   const healthSnapshots = createInMemoryHealthSnapshots(state, healthRecords);
   const tx: InMemoryTx = {
     healthSnapshots,
+    historyPruner: createInMemoryHistoryPruner(state),
     fleets: {
       lockInitialisation: () => Promise.resolve(),
       count: () => Promise.resolve(state.fleets.length),
@@ -1785,12 +1799,27 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     }
     return { id: found.id, name: found.name };
   };
-  const recipientOf = (fleetId: FleetId, recipient: Addressee): HistoryRecipient =>
-    recipient.kind === 'ship' ? { kind: 'ship', ship: partyOf(fleetId, recipient.shipId) } : recipient;
+  const labelValueOf = (fleetId: FleetId, valueId: LabelValueId): HistoryLabelValue => {
+    const label = state.labels.find((held) => held.fleetId === fleetId && held.values.some((value) => value.id === valueId));
+    const value = label?.values.find((held) => held.id === valueId);
+    return label && value ? { valueId, key: label.key, value: value.value } : { valueId, key: null, value: null };
+  };
+  const recipientOf = (fleetId: FleetId, recipient: Addressee): HistoryRecipient => {
+    switch (recipient.kind) {
+      case 'ship':
+        return { kind: 'ship', ship: partyOf(fleetId, recipient.shipId) };
+      case 'label':
+        return { kind: 'label', values: recipient.valueIds.map((valueId) => labelValueOf(fleetId, valueId)) };
+      case 'type':
+      case 'meeting':
+        return recipient;
+    }
+  };
   const messageOf = (fleetId: FleetId, messageId: FleetEvent['messageId']): Message | undefined =>
     state.messages.find((held) => held.fleetId === fleetId && held.id === messageId);
+  /** A message's first delivery by id: its only one, but for a send to a label (decision 0065). */
   const deliveryOfMessage = (message: Message): Delivery => {
-    const found = state.deliveries.find((held) => held.messageId === message.id);
+    const found = state.deliveries.filter((held) => held.messageId === message.id).toSorted((first, second) => first.id.localeCompare(second.id))[0];
     if (!found) {
       throw new Error(`no delivery of ${message.id}`);
     }
@@ -1973,10 +2002,35 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       return Promise.resolve({
         ...historyMessageOf(message),
         history: changes,
+        deliveryCount: state.deliveries.filter((held) => held.fleetId === fleetId && held.messageId === message.id).length,
         replies,
         lease: lease ? wayLeaseOf(lease) : null,
         overdue: standingOverdueOf(delivery),
         crew: crewOf(lease),
+      });
+    },
+    messageDeliveries: (fleetId, { messageId, cursor, limit }) => {
+      const leases = wayLeases(fleetId);
+      const page = pageOf(
+        state.deliveries
+          .filter((held) => held.fleetId === fleetId && held.messageId === messageId && (cursor === undefined || held.id > cursor))
+          .toSorted((first, second) => first.id.localeCompare(second.id)),
+        { limit, cursorOf: (held) => held.id },
+      );
+      return Promise.resolve({
+        items: page.items.map((held) => {
+          const shipId = held.recipient.kind === 'ship' ? held.recipient.shipId : held.claimedByShipId;
+          return {
+            id: held.id,
+            ship: shipId === null ? null : partyOf(fleetId, shipId),
+            state: held.state,
+            steps: numbered(fleetId)
+              .filter((event) => event.deliveryId === held.id)
+              .reverse()
+              .flatMap((event) => deliveryStepOf(event, { party: (id) => partyOf(fleetId, id), leases })),
+          };
+        }),
+        nextCursor: page.nextCursor,
       });
     },
     messageParties: (fleetId, messageIds) =>
@@ -2229,6 +2283,7 @@ const FLEET_TABLES = [
   'noticeDismissals',
   'guideProgress',
   'fleetLimitSettings',
+  'fleetPrunes',
 ] as const satisfies readonly Exclude<keyof InMemoryState, 'fleets' | 'installationRequests' | 'installationSettings' | 'installationNotices' | 'installationGuide'>[];
 
 const TABLES = [
@@ -2267,6 +2322,7 @@ const TABLES = [
   'installationRequests',
   'installationSettings',
   'fleetLimitSettings',
+  'fleetPrunes',
   'notices',
 ] as const satisfies readonly (keyof InMemoryState)[];
 

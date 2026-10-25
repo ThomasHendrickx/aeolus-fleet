@@ -149,9 +149,17 @@ function holderOf(state: DeliveryState, lease: WayLease | null): DeliveryHolder 
   }
 }
 
+/** What of a delivery's step tells when it entered its state. */
+export type DeliveryStateStep = Pick<DeliveryChange, 'type' | 'occurredAt' | 'isAgain' | 'isOnceMore'>;
+
 /** Whether a step changed the delivery's state: an overdue clock, a receive again and a hand-over once more do not. */
-function isStateChange(step: DeliveryChange): boolean {
+function isStateChange(step: DeliveryStateStep): boolean {
   return step.type !== 'DeliveryOverdue' && !step.isAgain && !step.isOnceMore;
+}
+
+/** When a delivery entered its state, from its steps newest first: the newest that changed it, else its first. */
+export function deliverySinceOf(steps: readonly DeliveryStateStep[]): Date {
+  return (steps.find(isStateChange) ?? steps.at(-1))?.occurredAt ?? new Date(0);
 }
 
 /**
@@ -167,11 +175,10 @@ export function deliveryWayOf(read: {
   crew: WayCrew | null;
 }): DeliveryWay {
   const { state, history, lease, overdue, crew } = read;
-  const entered = history.find(isStateChange);
   const lastHandOver = history.find((step) => step.type === 'DeliveryHanded');
   return {
     holder: holderOf(state, lease),
-    since: entered?.occurredAt ?? history.at(-1)?.occurredAt ?? new Date(0),
+    since: deliverySinceOf(history),
     isPulled: lastHandOver?.handOverNumber === null && !lastHandOver.isOnceMore,
     overdue,
     lease: lease && { by: computerSideOf(lease), isEnded: lease.isEnded, turn: lease.turn },

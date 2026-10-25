@@ -765,14 +765,15 @@ export const shipRouter = router({
     .query(async ({ ctx }) => okOrThrow(await ctx.useCases.discover(ctx.caller))),
 
   /**
-   * Where the delivery of a message the caller sent stands, and since when
+   * Where each delivery of a message the caller sent stands, and since when
    * (interop 3.5). Needs messages:send; its own messages only, and no payload.
    */
   sentMessage: scopedProcedure('messages:send')
     .meta({
       description: [
-        'Needs messages:send. For a message you sent, by its messageId: where its delivery stands (its state: pending, received, handed, acknowledged,',
-        'handled, notHandled, undeliverable, dismissed or abandoned) and since when, with its recipient by name or type. No payload comes back.',
+        'Needs messages:send. For a message you sent, by its messageId: where each of its deliveries stands (its state: pending, received, handed, acknowledged,',
+        'handled, notHandled, undeliverable, dismissed or abandoned), since when and the ship it went to (null while no ship of a type claimed it):',
+        'one delivery for a ship or a type, one per ship for a label. Its recipient by name, type or the value ids you sent to. No payload comes back.',
         'A message another ship sent, or one the fleet does not have, is refused as MESSAGE_NOT_FOUND.',
       ].join(' '),
     })
@@ -780,7 +781,7 @@ export const shipRouter = router({
     .output(sentMessageOutputSchema)
     .query(async ({ ctx, input }) => {
       const sent = okOrThrow(await ctx.useCases.sentMessage(ctx.caller, input));
-      return { ...sent, sentAt: sent.sentAt.toISOString(), delivery: { ...sent.delivery, since: sent.delivery.since.toISOString() } };
+      return { ...sent, sentAt: sent.sentAt.toISOString(), deliveries: sent.deliveries.map((delivery) => ({ ...delivery, since: delivery.since.toISOString() })) };
     }),
 
   /**

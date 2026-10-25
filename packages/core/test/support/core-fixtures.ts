@@ -144,6 +144,7 @@ import { createReadInboxMessage } from '../../src/domain/shared/read-inbox-messa
 import { createReadInboxWithdrawals } from '../../src/domain/shared/read-inbox-withdrawals.js';
 import { createCountOpenInbox } from '../../src/domain/shared/count-open-inbox.js';
 import { createReadMessage } from '../../src/domain/shared/read-message.js';
+import { createReadMessageDeliveries } from '../../src/domain/shared/read-message-deliveries.js';
 import { createReadSentMessage } from '../../src/domain/shared/read-sent-message.js';
 import { createReadShipWay } from '../../src/domain/shared/read-ship-way.js';
 import { createReadNeedsAttention } from '../../src/domain/shared/read-needs-attention.js';
@@ -341,6 +342,7 @@ export function historyUseCases(core: InMemoryCore) {
     readShipTimeline: createReadShipTimeline({ history: core.history, readReach }),
     readShipMessages: createReadShipMessages({ history: core.history, readReach }),
     readMessage: createReadMessage({ history: core.history, readReach }),
+    readMessageDeliveries: createReadMessageDeliveries({ history: core.history, readReach }),
     sentMessage: createReadSentMessage({ history: core.history }),
     readShipWay: createReadShipWay({ history: core.history, uow: core.uow, clock: core.clock, ids: core.ids }),
     readNeedsAttention: createReadNeedsAttention({ history: core.history, readReach }),

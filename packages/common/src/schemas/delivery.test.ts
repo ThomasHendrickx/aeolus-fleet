@@ -94,16 +94,25 @@ describe('sentMessageInputSchema', () => {
 });
 
 describe('sentMessageOutputSchema', () => {
-  it('answers the message, its recipient by name or type, and its delivery with its state and since when, and no payload', () => {
+  it('answers the message, its recipient by name or type, and each delivery with its ship, state and since when, and no payload', () => {
+    const scout = { id: newId('ship'), name: 'scout' };
     const answer = {
       messageId: newId('message'),
       sentAt: '2026-10-18T12:00:00.000Z',
-      recipient: { kind: 'ship', ship: { id: newId('ship'), name: 'scout' } },
-      delivery: { deliveryId: newId('delivery'), state: 'handed', since: '2026-10-18T12:00:05.000Z' },
+      recipient: { kind: 'ship', ship: scout },
+      deliveries: [{ deliveryId: newId('delivery'), ship: scout, state: 'handed', since: '2026-10-18T12:00:05.000Z' }],
     };
 
     expect(sentMessageOutputSchema.parse(answer)).toEqual(answer);
     expect(sentMessageOutputSchema.parse({ ...answer, recipient: { kind: 'type', type: 'reviewer' } }).recipient).toEqual({ kind: 'type', type: 'reviewer' });
+  });
+
+  it('answers a delivery no ship of the type claimed yet with no ship', () => {
+    const delivery = { deliveryId: newId('delivery'), ship: null, state: 'pending', since: '2026-10-18T12:00:00.000Z' };
+
+    expect(
+      sentMessageOutputSchema.parse({ messageId: newId('message'), sentAt: '2026-10-18T12:00:00.000Z', recipient: { kind: 'type', type: 'reviewer' }, deliveries: [delivery] }).deliveries,
+    ).toEqual([delivery]);
   });
 
   it('refuses a delivery state it does not know', () => {
@@ -111,7 +120,7 @@ describe('sentMessageOutputSchema', () => {
       messageId: newId('message'),
       sentAt: '2026-10-18T12:00:00.000Z',
       recipient: { kind: 'type', type: 'reviewer' },
-      delivery: { deliveryId: newId('delivery'), state: 'lost', since: '2026-10-18T12:00:05.000Z' },
+      deliveries: [{ deliveryId: newId('delivery'), ship: null, state: 'lost', since: '2026-10-18T12:00:05.000Z' }],
     };
 
     expect(sentMessageOutputSchema.safeParse(answer).success).toBe(false);
