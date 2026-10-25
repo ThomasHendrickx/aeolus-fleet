@@ -23,6 +23,8 @@ export interface ConsoleConstants {
   firstPromptMaxBytes: number;
   /** The most network rules a fleet holds of its own (decision 0037). */
   networkRulesMax: number;
+  /** The longest one-line description of a scope (decision 0046). */
+  scopeDescriptionMaxLength: number;
 }
 
 export const ConsoleConstantsContext = createContext<ConsoleConstants | undefined>(undefined);

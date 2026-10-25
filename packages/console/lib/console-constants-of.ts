@@ -7,6 +7,7 @@ import {
   NETWORK_RULES_MAX,
   NO_MACHINE_MATCHES_REASON,
   REPORT_STATES,
+  SCOPE_DESCRIPTION_MAX_LENGTH,
   SHIP_HANDLE_MAX_LENGTH,
   SHIP_LABELS_MAX,
   THEMES,
@@ -28,5 +29,6 @@ export function consoleConstantsOf(): ConsoleConstants {
     labelValuesMax: LABEL_VALUES_MAX,
     firstPromptMaxBytes: FIRST_PROMPT_MAX_BYTES,
     networkRulesMax: NETWORK_RULES_MAX,
+    scopeDescriptionMaxLength: SCOPE_DESCRIPTION_MAX_LENGTH,
   };
 }
