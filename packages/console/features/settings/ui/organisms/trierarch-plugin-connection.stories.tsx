@@ -7,7 +7,7 @@ const SHIP_ID = 'shp_01m4ahmavehywpqm4hnbgzs03w';
 const meta = {
   title: 'Organisms/TrierarchPluginConnection',
   component: TrierarchPluginConnection,
-  args: { onRetry: () => undefined, onConnect: () => undefined, isConnecting: false },
+  args: { onRetry: () => undefined, onConnect: () => undefined, isConnecting: false, hasConnected: false },
 } satisfies Meta<typeof TrierarchPluginConnection>;
 
 export default meta;
@@ -23,5 +23,12 @@ export const ConnectFailed: Story = {
 export const Connected: Story = {
   args: { settings: { state: 'connected', ship: { shipId: SHIP_ID, name: 'trierarch-plugin' }, lastShipId: SHIP_ID, missingScopes: [] } },
 };
+/** Connected before the trierarch plugin listed scopes:declare (#1226): Settings names it and offers to grant it. */
+export const ConnectedMissingScopes: Story = {
+  args: { settings: { state: 'connected', ship: { shipId: SHIP_ID, name: 'trierarch-plugin' }, lastShipId: SHIP_ID, missingScopes: ['scopes:declare'] } },
+};
+export const GrantingMissingScopes: Story = { args: { ...ConnectedMissingScopes.args, isConnecting: true } };
+export const GrantFailed: Story = { args: { ...ConnectedMissingScopes.args, connectError: 'This call needs the scopes:grant scope' } };
+export const Granted: Story = { args: { ...Connected.args, hasConnected: true } };
 export const Loading: Story = { args: { settings: undefined } };
 export const LoadFailed: Story = { args: { settings: undefined, loadError: 'the trierarch plugin or the fleet did not answer: try again in a moment' } };

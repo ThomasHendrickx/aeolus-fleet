@@ -7,7 +7,7 @@ const SHIP_ID = 'shp_01m4jtkdcqe51e0v00c76eec2e';
 const meta = {
   title: 'Organisms/GatewayConnection',
   component: GatewayConnection,
-  args: { onRetry: () => undefined, onConnect: () => undefined, isConnecting: false },
+  args: { onRetry: () => undefined, onConnect: () => undefined, isConnecting: false, hasConnected: false },
 } satisfies Meta<typeof GatewayConnection>;
 
 export default meta;

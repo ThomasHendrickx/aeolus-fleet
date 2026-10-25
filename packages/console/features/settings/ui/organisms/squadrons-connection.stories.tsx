@@ -5,7 +5,7 @@ import { SquadronsConnection } from './squadrons-connection';
 const meta = {
   title: 'Organisms/SquadronsConnection',
   component: SquadronsConnection,
-  args: { onRetry: () => undefined, onConnect: () => undefined, isConnecting: false },
+  args: { onRetry: () => undefined, onConnect: () => undefined, isConnecting: false, hasConnected: false },
 } satisfies Meta<typeof SquadronsConnection>;
 
 export default meta;
