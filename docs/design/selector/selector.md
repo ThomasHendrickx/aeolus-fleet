@@ -37,7 +37,7 @@ Not the purpose: a conversation where everyone hears every answer (that is a mee
 | L14 | A contribution's undeliverable delivery is resent to its participant alone, as a message of its own | `resend-delivery.ts` |
 | L15 | Texts are for people, ids for machines: a send selects by value ids; `fleet.findLabelValue` (`fleet:read`) turns a key and value into ids; selecting by texts is rejected | 0031 |
 | L16 | `sentMessage` answers one delivery: a sender reads where its message stands without `fleet:read` | `read-sent-message.ts`; interop 3.5 |
-| L17 | A schedule stores a ship or type selector and is checked as a send at each send time | scheduled messages design S3, S5 |
+| L17 | A schedule stores a whole send input and is checked as a send at each send time | scheduled messages design S3, S5 |
 
 ## 3. Decisions (Thomas, 25 Oct, on #1221)
 
@@ -48,6 +48,8 @@ Not the purpose: a conversation where everyone hears every answer (that is a mee
 | D3 | **No whole-fleet send** (Q3). An empty selection is refused; a fleet that wants every ship labels them. The blueprint drops `group` and `fleet` from the later kinds |
 | D4 | **Reach to every ship, or nothing** (Q4). Thomas: "It resolved to a list of ships and then sends." One ship of the list out of the sender's send reach refuses the whole send, nothing stored, the refusal recorded as any other (L7) |
 | D5 | **`messages:send` is enough** (Q5). No scope of its own; the daily message limit counts the message once |
+| D6 | **A schedule may send to a label** (O1). Thomas: "it is just a message so same mechanics": the schedule stores the selection, and each send time resolves and checks it as a send (D4, R2 to R4) |
+| D7 | **The sender is never in its own list** (O2), as a contribution goes to every other participant |
 
 ## 4. Detail
 
@@ -56,7 +58,7 @@ Each rule follows from a decision above or from a rule the docs already hold; no
 | # | Rule | From |
 | --- | --- | --- |
 | R1 | The selector is `{ kind: 'label', valueIds: [lbv_…] }`, one to as many ids as a ship can carry (20), each once. Ids only; a sender learns them from its task or through `fleet.findLabelValue` | D2, L15 |
-| R2 | Resolved at send, in the send's unit of work, into the ships that carry every value and are not retired, awaiting crew or crewed. The viewer receives nothing and is never in the list | blueprint Send; 0022 |
+| R2 | Resolved at send, in the send's unit of work, into the ships that carry every value and are not retired, awaiting crew or crewed, never the sender. The viewer receives nothing and is never in the list | blueprint Send; 0022; D7 |
 | R3 | No ship in the list (an unknown id, a value nobody carries): refused `UNRESOLVABLE_SELECTOR`, nothing stored | D3, L8 |
 | R4 | Reach checked by send from the sender to each ship of the list, as one send checks one ship; any refusal refuses the whole send `NOT_REACHABLE` and records it | D4, L7 |
 | R5 | One message keeping its selector as sent, one pending delivery per ship of the list, `MessageAccepted` per delivery, all in one transaction; OK only after commit; then each ship is woken | D1, outcome 1 |
@@ -82,7 +84,7 @@ flowchart TD
   key -->|"other request"| r3([Refused: key reused])
   key -->|no| limit{"Daily message limit left? (D5)"}
   limit -->|no| r4([Refused: limit reached])
-  limit -->|yes| resolve["Resolve: ships carrying every value, not retired, never the viewer (R2)"]
+  limit -->|yes| resolve["Resolve: ships carrying every value, not retired, never the sender or the viewer (R2, D7)"]
   resolve --> any{"One ship or more?"}
   any -->|no| r5(["Refused UNRESOLVABLE_SELECTOR, nothing stored (R3)"])
   any -->|yes| reach{"Sender reaches every one by send? (D4)"}
@@ -126,6 +128,7 @@ flowchart TD
 | `sentMessage` answers one delivery | Every delivery with its ship |
 | Console's message read and sheet show one recipient (#1186 review: the first delivery only) | Every delivery of a label message, its ship and state; the selection as label texts |
 | Blueprint Selector row: "`group` and `fleet` later"; deferred row for n-to-n | `label` in the row; the deferred row gone |
+| A schedule stores a ship or type selector | A label selector too (D6) |
 
 ## 7. Slices for 0.32.0
 
@@ -135,10 +138,4 @@ One PR each, in order.
 | --- | --- | --- | --- |
 | S1 | Core: send to a label | Decision record and blueprint (Selector row, deferred row); `label` in common's selector; resolving the list with locks (R2, R11); refusals R3, R4; one message, one delivery per ship (R5); resend to one ship (R8); MCP and REST through the same procedure | Three ships labelled `team=a`, one not: a send reaches the three, each acknowledges on its own; one unreachable ship refuses the send and stores nothing; a failure at the second delivery rolls back all; a retire racing the send abandons its delivery; a repeat key answers the first message after the label moved |
 | S2 | Core and console: who received it | `sentMessage` answers every delivery (R9); the console's message read and sheet list every delivery with its ship and state, the selection as label texts (R10) | A sender reads three deliveries with three states; the console's sheet of a label message shows every ship, on desktop and phone |
-
-## 8. Open for Thomas
-
-| # | Question | Options | Pick |
-| --- | --- | --- | --- |
-| O1 | May a schedule send to a label? Scheduled messages (0.32.0) store a ship or type selector (L17) | 1. Yes: the schedule stores the selection and each send time resolves and checks it as a send (D4); one line in S3 of that design. 2. Not now: ship or type only | **1.** A schedule is a send by its ship at its time; "tell the team every morning" is the first use that combines them |
-| O2 | Is the sender in its own list when it carries the label? | 1. Never: every other ship, as a contribution goes to every other participant. 2. Yes, it gets a delivery as any carrier | **1.** A ship telling its team does not need its own message back |
+| S3 | Core: a schedule to a label | A schedule takes the `label` selector; each send time resolves and checks it as S1's send (D6) | A schedule to `team=a` sends to the ships carrying it at each send time; a ship labelled between two send times gets the second only; an unreachable one refuses that send time, recorded as the schedule's refusal strategy says |

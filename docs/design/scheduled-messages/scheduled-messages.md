@@ -44,7 +44,7 @@ From Aeolus:
 | --- | --- |
 | S1 | **Timing reads like cron.** Once (an instant with its offset), every (an ISO 8601 duration), or cron (five fields) with an IANA time zone, UTC when none; a repeat takes an optional start, end time and number of sends, either ending it. The options are the ones listed here: "we are almost reinventing the cron job ... keep as close to that spec with the options we determine" |
 | S2 | **Summer time.** A skipped wall time sends at the first valid minute after it; a doubled one sends once, at its first. Once and every are instants, untouched |
-| S3 | **A whole send input.** Ship or type selector, payload (at most 64 KB), content type the creator picks, optional in-reply-to, optional force; stored as given, never changed |
+| S3 | **A whole send input.** Ship, type or label selector (a label resolved and checked at each send time as a send, [selector design](../selector/selector.md) D6), payload (at most 64 KB), content type the creator picks, optional in-reply-to, optional force; stored as given, never changed |
 | S4 | **The scope is the send's.** `messages:send`, and `messages:force` for a forced one: "a delayed send of a message conceptually or a message that gets send multiple times" |
 | S5 | **Reach checked at creation and at every send time.** "Conceptually ... it is sending the message from the source (creator) at the desired time, even if that creator is no longer there" |
 | S6 | **A missed send time.** A send time the pass reaches later than its grace is missed. The creator picks `each` (every missed one, oldest first, at most 100 a pass), `once` (the latest only) or `skip` (none, wait for the next); default `each`, grace 5 minutes. Each one not sent is recorded with its time |
