@@ -5,9 +5,9 @@ import { z } from 'zod';
 
 import { connectPlugin, SQUADRONS_SHIP, type PluginConnection } from './connect-plugin';
 import type { PluginAnswer } from './plugin-answer';
-import { pluginCalls } from './plugin-calls';
+import { pluginCalls, shownConnection } from './plugin-calls';
 import { serverInternalUrlFrom } from './server-url';
-import { shownConnectionOf, type ShownConnection } from './shown-connection';
+import type { ShownConnection } from './shown-connection';
 import { addedMemberSchema, formedSquadronSchema, newCrewLineSchema, repositorySchema, type AddedMember, type FormedSquadron, type NewCrewLine, type TemplateRepository } from './squadrons-schemas';
 import { call, NOT_HERE, refusalOf, sessionCookie } from './squadrons-reads';
 import { squadronsUrlFrom } from './squadrons-url';
@@ -38,7 +38,7 @@ export async function connectSquadrons(): Promise<PluginAnswer<ShownConnection>>
   const calls = pluginCalls({ serverUrl: serverInternalUrlFrom(process.env), pluginUrl: url }, { cookie: await sessionCookie(), origin });
   try {
     const connection: PluginConnection = await connectPlugin(calls, { ship: SQUADRONS_SHIP, newKey: () => crypto.randomUUID() });
-    return { kind: 'answered', data: shownConnectionOf(connection) };
+    return { kind: 'answered', data: await shownConnection(calls, { connection, wanted: SQUADRONS_SHIP }) };
   } catch (error) {
     return refusalOf(error);
   }

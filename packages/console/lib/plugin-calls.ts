@@ -1,10 +1,11 @@
 import { commissionShipOutputSchema, fleetListOutputSchema, grantScopesOutputSchema, PAGE_SIZE_MAX, shipOutputSchema, startingPromptOutputSchema } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
-import { ConnectPluginError, type ConnectCalls, type PluginConnection } from './connect-plugin';
+import { ConnectPluginError, missingScopesOf, type ConnectCalls, type PluginConnection, type PluginShip } from './connect-plugin';
 import { everyPage } from './every-page';
 import { dataOf } from './plugin-answer';
 import { EVERY_SHIP_STATUS } from './every-ship-status';
+import { shownConnectionOf, type ShownConnection } from './shown-connection';
 
 /**
  * The calls connecting a plugin makes from the web app's server, each with
@@ -89,4 +90,17 @@ async function readShipScopes(fleet: { url: string; cookie: string }, shipId: st
 /** Squadrons' connection as the operator's session reads it. */
 export function readPluginConnection(squadronsUrl: string, cookie: string): Promise<PluginConnection> {
   return trpc({ url: squadronsUrl, cookie, procedure: 'connection.status', answers: connectionSchema });
+}
+
+/** A plugin's connection as Settings shows it, with the scopes the plugin lists that its connected ship lacks (#1226); nothing of a plugin that is off. */
+export async function shownConnection(calls: Pick<ConnectCalls, 'shipScopes'>, at: { connection: PluginConnection; wanted: PluginShip }): Promise<ShownConnection> {
+  const { connection } = at;
+  return shownConnectionOf(connection, connection.isEnabled ? await missingScopesOf(calls, at) : []);
+}
+
+/** A plugin's connection as the operator's session reads it for Settings: the plugin's answer and its ship's scopes in the fleet. */
+export async function readShownConnection(urls: { serverUrl: string; pluginUrl: string }, at: { cookie: string; wanted: PluginShip }): Promise<ShownConnection> {
+  const connection = await readPluginConnection(urls.pluginUrl, at.cookie);
+  const fleet = { url: urls.serverUrl, cookie: at.cookie };
+  return shownConnection({ shipScopes: (shipId) => readShipScopes(fleet, shipId) }, { connection, wanted: at.wanted });
 }

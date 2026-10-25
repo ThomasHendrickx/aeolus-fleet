@@ -6,9 +6,9 @@ import { connectPlugin, GATEWAY_SHIP } from './connect-plugin';
 import { NOT_HERE, refusalOf, sessionCookie } from './gateway-reads';
 import { gatewayUrlFrom } from './gateway-url';
 import type { PluginAnswer } from './plugin-answer';
-import { pluginCalls } from './plugin-calls';
+import { pluginCalls, shownConnection } from './plugin-calls';
 import { serverInternalUrlFrom } from './server-url';
-import { shownConnectionOf, type ShownConnection } from './shown-connection';
+import type { ShownConnection } from './shown-connection';
 
 /**
  * Connect the gateway, the operator's one button: commissions its ship,
@@ -28,7 +28,8 @@ export async function connectGateway(): Promise<PluginAnswer<ShownConnection>> {
   }
   const calls = pluginCalls({ serverUrl: serverInternalUrlFrom(process.env), pluginUrl: url }, { cookie: await sessionCookie(), origin });
   try {
-    return { kind: 'answered', data: shownConnectionOf(await connectPlugin(calls, { ship: GATEWAY_SHIP, newKey: () => crypto.randomUUID() })) };
+    const connection = await connectPlugin(calls, { ship: GATEWAY_SHIP, newKey: () => crypto.randomUUID() });
+    return { kind: 'answered', data: await shownConnection(calls, { connection, wanted: GATEWAY_SHIP }) };
   } catch (error) {
     return refusalOf(error);
   }

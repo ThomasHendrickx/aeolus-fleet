@@ -21,7 +21,7 @@ export const ConnectFailed: Story = {
   args: { ...NotConnected.args, connectError: 'A ship named trierarch-plugin of another type exists: rename or retire it, then connect again' },
 };
 export const Connected: Story = {
-  args: { settings: { state: 'connected', ship: { shipId: SHIP_ID, name: 'trierarch-plugin' }, lastShipId: SHIP_ID } },
+  args: { settings: { state: 'connected', ship: { shipId: SHIP_ID, name: 'trierarch-plugin' }, lastShipId: SHIP_ID, missingScopes: [] } },
 };
 export const Loading: Story = { args: { settings: undefined } };
 export const LoadFailed: Story = { args: { settings: undefined, loadError: 'the trierarch plugin or the fleet did not answer: try again in a moment' } };
