@@ -1,7 +1,7 @@
 import type { FleetId, ScheduleId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { applyNetworkRules, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, SESSION_MODEL, withInstallationSettings } from '../../../test/support/core-fixtures.js';
+import { applyNetworkRules, crewAboard, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, SESSION_MODEL, withInstallationSettings } from '../../../test/support/core-fixtures.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore, type InMemoryTx } from '../../../test/support/in-memory.js';
 import { valueIdOf } from '../../../test/support/label-fixtures.js';
@@ -105,6 +105,16 @@ describe('a send time', () => {
     ]);
     expect(core.state.deliveries).toEqual([expect.objectContaining({ recipient: { kind: 'ship', shipId: chief.shipId }, state: 'pending', isForced: false })]);
     expect(core.state.notices).toEqual([expect.objectContaining({ recipient: { kind: 'ship', shipId: chief.shipId } })]);
+  });
+
+  it("hands the recipient a delivery that names the schedule and its send time", async () => {
+    const scheduleId = await scheduled();
+    core.clock.set(SEND_TIME);
+    await pass();
+
+    const { deliveries } = unwrap(await messaging.receiveDeliveries(crewAboard(core, chief), {}));
+
+    expect(deliveries).toEqual([expect.objectContaining({ senderShipId: scout.shipId, scheduleId, sendTime: new Date(SEND_TIME) })]);
   });
 
   it('sends a forced schedule forced, and a reply as a reply', async () => {
@@ -339,7 +349,8 @@ describe('a refused send time', () => {
     await pass();
     expect(scheduleOf(scheduleId)?.state).toBe('active');
 
-    core.clock.set('2026-10-25T10:10:00.000Z');
+    // Its next try, a pass later, comes after the window.
+    core.clock.set('2026-10-25T10:10:30.000Z');
     await pass();
 
     expect(scheduleOf(scheduleId)).toMatchObject({ state: 'ended', nextSendTime: null, nextAttemptAt: null });
