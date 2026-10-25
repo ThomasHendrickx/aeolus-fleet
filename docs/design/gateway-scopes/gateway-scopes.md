@@ -269,7 +269,7 @@ Unhappy paths:
 | # | Rule |
 | --- | --- |
 | P-B1 | **Yes: linking lets a person talk to bots both ways**; the Slack switch covers only messages from ships that are not bots. Outcome 4 of the purpose reads: linking turns Slack on for bots |
-| P-B2 | **Save first: the gateway stores the event, answers Slack, then sends to core until core stored it.** Thomas: "save first, but this is temporary. Gateway does not cummulate." Kept as 9.4 step 3 says |
+| P-B2 | **Save first: the gateway stores the event, answers Slack, then sends to core until core stored it.** Thomas: "save first, but this is temporary. Gateway does not cummulate." Kept as 9.4 step 3 says: the event id 1 hour after core took it, an event core has not taken deleted after 24 hours and the person told. Thomas approved the timings: "P-B2 --> approved" |
 | P-B3 | **Agent ships and outside A2A agents' proxy ships can be bots; outside MCP servers' proxy ships cannot.** An MCP server reaches Slack through an agent ship that uses its tools, exposed as a bot. Thomas: "ok lets include A2A but exclude mcp. Exposing an mcp to slack through an agent is spinning up a dedicated ship that mediates between mcp and slack but that is the exact agent ship path." |
 | P-B4 | **A fleet connects one workspace; a workspace may serve several fleets.** Thomas: "if ever needs change we pick it up then" |
 
