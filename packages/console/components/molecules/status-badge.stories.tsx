@@ -1,4 +1,4 @@
-import { DELIVERY_STATES, SHIP_STATUSES } from '@aeolus-fleet/common';
+import { DELIVERY_STATES, SCHEDULE_STATES, SHIP_STATUSES } from '@aeolus-fleet/common';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 
 import { StatusBadge } from './status-badge';
@@ -56,6 +56,18 @@ export const HealthStates: Story = {
   render: () => (
     <div className="flex flex-wrap gap-3">
       {(['stuck', 'delivering', 'noShipCanTake', 'waitingForCrew', 'stalledInFlight', 'undeliverable'] as const).map((status) => (
+        <StatusBadge key={status} status={status} />
+      ))}
+    </div>
+  ),
+};
+
+/** A ship's schedule (decision 0062): it sends while active, and an ended or cancelled one never sends again. */
+export const ScheduleStates: Story = {
+  args: { status: 'active' },
+  render: () => (
+    <div className="flex flex-wrap gap-3">
+      {SCHEDULE_STATES.map((status) => (
         <StatusBadge key={status} status={status} />
       ))}
     </div>

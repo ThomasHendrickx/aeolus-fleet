@@ -1,6 +1,6 @@
 import type { ListedShip } from '@aeolus-fleet/common';
 
-import { modelStatedWords } from '../../services/model-tag';
+import { modelStatedWords } from '../../../../lib/model-tag';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@aeolus-fleet/common/header';
 
 /** The overview's quiet model hint; the full ModelTag remains on the ship page. */

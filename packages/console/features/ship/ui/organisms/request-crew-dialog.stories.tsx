@@ -12,6 +12,7 @@ const meta = {
     mode: 'request',
     state: 'ready',
     offers: OFFERS,
+    enabledModels: [],
     squadrons: ['hemma-feature-63p5sx'],
     machineLabels: MACHINE_LABELS,
     isPending: false,

@@ -10,7 +10,7 @@ import { MessageThreads } from '../../../../features/ship/ui/organisms/message-t
 import { ShipCrewRequest } from '../../../../features/ship/state/ship-crew-request';
 import { ShipSquadron } from '../../../../features/ship/state/ship-squadron';
 import { ShipActions } from '../../../../features/ship-actions/organisms/ship-actions';
-import { NewCrewLineFlow } from '../../../../features/squadrons/organisms/get-new-crew-line';
+import { NewCrewLineFlow } from '../../../../features/squadrons/state/get-new-crew-line';
 import { ShipHeader } from '../../../../features/ship/ui/organisms/ship-header';
 import { ShipWayLines } from '../../../../features/ship/ui/molecules/ship-way-lines';
 import { shipWayView } from '../../../../features/ship/services/ship-way';
@@ -32,7 +32,8 @@ import { useSquadrons } from '../../../../lib/squadrons-api';
 import { NotHandled } from './not-handled';
 import { useMachines } from '../../../../lib/trierarch-plugin';
 import { shipsInSquadrons } from '../../../../lib/squadrons-view';
-import { SHIP_TABS, type ShipTab } from '../../../../features/ship/services/ship-tab';
+import { SHIP_TABS, shipTabOf, type ShipTab } from '../../../../features/ship/services/ship-tab';
+import { ShipPageSchedules } from '../../../../features/ship/state/ship-page-schedules';
 
 // Dialogs load when first opened, not with the page.
 const MessageSheet = lazyDialog(() => import('../../../../features/ship/ui/organisms/message-sheet').then((module) => module.MessageSheet), (props) => props.isOpen);
@@ -53,7 +54,7 @@ function pathOf(shipId: ShipId, view: { tab: ShipTab; messageId?: MessageId }): 
 /**
  * A ship's page, live: its header, its timeline from the event log and its
  * messages grouped into threads, each opening in the MessageSheet with its
- * delivery history. The tab and the open message live in the URL, parsed on
+ * delivery history, and, for a session that manages the fleet, its schedules. The tab and the open message live in the URL, parsed on
  * the web app's server (page.tsx).
  */
 export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: ShipTab; messageId?: MessageId }) {
@@ -88,6 +89,8 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
   const wayView = way.data && ship.data?.kind === 'agent' ? shipWayView(way.data, { now, machines: machines.data ?? [] }) : undefined;
   // A ship in a squadron sits below it: Squadrons, then its squadron.
   const inSquadron = shipsInSquadrons(squadrons.data ?? []).get(shipId);
+  // Listing a ship's schedules needs fleet:manage (decision 0062): a viewer has no Schedules tab.
+  const shownTab = tab === SHIP_TABS.schedules && !access.canManage ? SHIP_TABS.timeline : tab;
 
   return (
     <DetailPage
@@ -150,9 +153,9 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
       <>
       {isNotFound ? null : (
         <Tabs
-          value={tab}
+          value={shownTab}
           onValueChange={(value) => {
-            show({ tab: value === SHIP_TABS.messages ? SHIP_TABS.messages : SHIP_TABS.timeline, messageId });
+            show({ tab: shipTabOf(typeof value === 'string' ? value : undefined), messageId });
           }}
         >
           <TabsList variant="line" aria-label={`${ship.data?.name ?? 'Ship'} history`}>
@@ -162,6 +165,11 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
             <TabsTrigger variant="line" value={SHIP_TABS.messages}>
               Messages
             </TabsTrigger>
+            {access.canManage ? (
+              <TabsTrigger variant="line" value={SHIP_TABS.schedules}>
+                Schedules
+              </TabsTrigger>
+            ) : null}
           </TabsList>
           <TabsContent value={SHIP_TABS.timeline} className="pt-4">
             <ShipTimeline
@@ -194,6 +202,11 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
               onOpenMessage={openMessageAt}
             />
           </TabsContent>
+          {access.canManage ? (
+            <TabsContent value={SHIP_TABS.schedules} className="pt-4">
+              <ShipPageSchedules shipId={shipId} now={now} onOpenMessage={openMessageAt} />
+            </TabsContent>
+          ) : null}
         </Tabs>
       )}
       <ComposeMessage

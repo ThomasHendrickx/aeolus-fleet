@@ -70,13 +70,34 @@ export function useGuideAnchor(step: GuideStep | undefined): Element | null {
 /**
  * Brings a step's anchor into view before its popover shows (#690): an anchor
  * below the fold would leave the popover pointing at nothing the visitor sees.
- * Centred, so the popover has room beside it. Called once, where the guide
- * shows.
+ * Centred, so the popover has room beside it. Parts above the anchor can load
+ * after it and push it down (#1194), so it stays centred while the page grows,
+ * until the visitor scrolls, touches or presses a key. Called once, where the
+ * guide shows.
  */
 export function useAnchorInView(anchor: Element | null): void {
   // The page's scroll is an outside system the guide moves, before paint.
   useLayoutEffect(() => {
-    anchor?.scrollIntoView({ block: 'center', inline: 'nearest' });
+    if (anchor === null) {
+      return undefined;
+    }
+    const centre = () => {
+      anchor.scrollIntoView({ block: 'center', inline: 'nearest' });
+    };
+    centre();
+    const pageGrowth = new ResizeObserver(centre);
+    pageGrowth.observe(document.body);
+    const visitorMoves = ['wheel', 'touchstart', 'keydown'] as const;
+    const stop = () => {
+      pageGrowth.disconnect();
+      for (const move of visitorMoves) {
+        window.removeEventListener(move, stop);
+      }
+    };
+    for (const move of visitorMoves) {
+      window.addEventListener(move, stop, { passive: true });
+    }
+    return stop;
   }, [anchor]);
 }
 

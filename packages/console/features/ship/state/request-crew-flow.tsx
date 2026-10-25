@@ -11,7 +11,7 @@ import { useLabelContext, useRequestCrew } from '../../../lib/fleet';
 import { machineLabelsInputOf } from '../../../lib/machine-labels';
 import { useSquadronsConnection } from '../../../lib/squadrons';
 import { useSquadrons } from '../../../lib/squadrons-api';
-import { useCrewSettingsCheck, useMachines } from '../../../lib/trierarch-plugin';
+import { useCrewSettingsCheck, useEnabledModels, useMachines } from '../../../lib/trierarch-plugin';
 import { showToast } from '../../../components/atoms/toast';
 
 // Dialogs load when first opened, not with the page.
@@ -34,6 +34,10 @@ interface RequestCrewFor {
  */
 export function useRequestCrewFlow(of: RequestCrewFor | undefined): { open: (mode: 'request' | 'edit') => void; dialog: ReactNode } {
   const machines = useMachines();
+  const enabledModels = useEnabledModels();
+  // A plugin that cannot answer them leaves the forms as without a rule: placement and its check still apply it.
+  const enabled = enabledModels.data ?? [];
+  const isReading = machines.data === undefined || (enabledModels.data === undefined && !enabledModels.isError);
   const squadronsConnection = useSquadronsConnection();
   const squadrons = useSquadrons();
   const requestCrew = useRequestCrew();
@@ -42,16 +46,16 @@ export function useRequestCrewFlow(of: RequestCrewFor | undefined): { open: (mod
   // Null until the form changes: the check then asks for the settings the form starts with.
   const [edited, setEdited] = useState<CrewSettings | undefined | null>(null);
   const [refusedAt, setRefusedAt] = useState<Date>();
-  const offers = offersOf(machines.data ?? []);
+  const offers = offersOf(machines.data ?? [], enabled);
   const { shipLabelsMax } = useConsoleConstants();
   const machineLabels = labelContext === undefined || machines.data === undefined ? undefined : machineLabelsInputOf(labelContext, { machines: machines.data, shipLabelsMax });
   // The held settings, parsed on the web app's server: Edit opens once they are read.
   const parsedHeld = useCrewSettings(of?.heldSettings === undefined ? [] : [of.heldSettings]);
   const held = parsedHeld?.[0] ?? null;
-  const initial = settingsOf(mode === 'edit' ? valuesOf(held, offers) : defaultValues(offers));
+  const initial = settingsOf(mode === 'edit' ? valuesOf(held, { offers, enabledModels: enabled }) : defaultValues(offers));
   const isOpen = mode !== undefined && of !== undefined && (mode !== 'edit' || parsedHeld !== undefined);
   const settings = edited === null ? initial : edited;
-  const check = useCrewSettingsCheck(isOpen && machines.data !== undefined ? settings : undefined);
+  const check = useCrewSettingsCheck(isOpen && !isReading ? settings : undefined);
 
   const submit = async (picked: CrewSettings) => {
     if (of === undefined || mode === undefined) {
@@ -95,8 +99,9 @@ export function useRequestCrewFlow(of: RequestCrewFor | undefined): { open: (mod
         <RequestCrewDialog
           shipName={of.shipName}
           mode={mode ?? 'request'}
-          state={machines.isError ? 'unreachable' : machines.data === undefined ? 'loading' : 'ready'}
+          state={machines.isError ? 'unreachable' : isReading ? 'loading' : 'ready'}
           offers={offers}
+          enabledModels={enabled}
           heldSettings={held}
           squadrons={squadronsConnection === 'connected' ? (squadrons.data ?? []).filter((squadron) => squadron.state !== 'disbanded').map((squadron) => squadron.id) : undefined}
           {...(machineLabels === undefined ? {} : { machineLabels })}
@@ -117,6 +122,7 @@ export function useRequestCrewFlow(of: RequestCrewFor | undefined): { open: (mod
           onSubmit={(picked) => void submit(picked)}
           onRetry={() => {
             void machines.refetch();
+            void enabledModels.refetch();
           }}
         />
       ),

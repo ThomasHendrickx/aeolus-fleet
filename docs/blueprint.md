@@ -359,7 +359,7 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Term | Meaning | Held by |
 | --- | --- | --- |
 | Trierarch | A plain process per computer, not an AI, crewing an app ship of type `trierarch` with `crew:run`; starts, restarts, wakes and stops sessions, never picks, commissions or retires (0026, [trierarch.md](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/docs/trierarch.md)) | trierarch |
-| Trierarch plugin | The plugin that brings computers in and assigns crew requests (0030) | trierarch plugin |
+| Trierarch plugin | The plugin that brings computers in and assigns crew requests (0030), placing only the fleet's enabled models when the fleet enables any (0063) | trierarch plugin |
 | Computer | The laptop or server a trierarch runs on, labelled from its report. Not "machine" | trierarch plugin |
 | Crew request | Declared state on a ship: keep it crewed with these settings; written by its requester, the trierarch plugin and the assigned trierarch (0029) | core |
 | Crew settings | Harness, workspace, squadron, first prompt and options, at most 16 KB (0027) | core |

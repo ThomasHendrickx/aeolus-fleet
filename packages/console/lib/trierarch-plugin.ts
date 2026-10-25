@@ -7,7 +7,7 @@ import { fetchConsoleRead } from './fetch-console-read';
 import { TRIERARCH_PLUGIN_NO_ANSWER } from './no-answer';
 import { dataFrom, dataOf } from './plugin-answer';
 import type { ShownConnection } from './shown-connection';
-import { connectTrierarchPlugin, joinMachine } from './trierarch-plugin-actions';
+import { connectTrierarchPlugin, joinMachine, setModelEnabled } from './trierarch-plugin-actions';
 import type { SettingsCheck } from './trierarch-plugin-schemas';
 
 /**
@@ -127,4 +127,27 @@ export function useCrewSettingsCheck(settings: unknown) {
   });
   const checkNow = (): Promise<SettingsCheck> => queryClient.query({ queryKey: checkKey(settings), queryFn: check, staleTime: 0 });
   return { ...query, checkNow };
+}
+
+const ENABLED_MODELS_KEY = ['trierarch-plugin', 'enabled-models'];
+
+/** The fleet's enabled models (decision 0063), for the Trierarchs page and the crew forms; asked only while the trierarch plugin is connected. */
+export function useEnabledModels() {
+  const isConnected = useTrierarchPluginConnection() === 'connected';
+  return useConsoleRead({
+    queryKey: ENABLED_MODELS_KEY,
+    queryFn: () => fetchConsoleRead({ read: 'enabled-models' }),
+    enabled: isConnected,
+  });
+}
+
+/** Enable or disable one model; the plugin answers the fleet's enabled models, which replace the ones read. */
+export function useSetModelEnabled() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (change: { model: string; isEnabled: boolean }) => dataFrom(() => setModelEnabled(change), TRIERARCH_PLUGIN_NO_ANSWER),
+    onSuccess: (enabledModels) => {
+      queryClient.setQueryData(ENABLED_MODELS_KEY, enabledModels);
+    },
+  });
 }

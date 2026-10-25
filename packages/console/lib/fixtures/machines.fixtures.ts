@@ -104,7 +104,7 @@ export const JOINED: JoinedMachine = {
 };
 
 /** What the answering machines offer, for the Request crew stories. */
-export const OFFERS = offersOf(MACHINES);
+export const OFFERS = offersOf(MACHINES, []);
 
 /** Crew settings as the plugin's form makes them. */
 export const SETTINGS = { harness: 'claude-code', workspace: { kind: 'worktree' as const, repository: 'aeolus-fleet' }, options: { model: 'claude-opus-5-5', effort: 'high' }, firstPrompt: 'Triage new GitHub issues on aeolus-fleet and send argo a summary each morning.' };
