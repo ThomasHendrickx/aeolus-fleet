@@ -1,16 +1,14 @@
 # The trierarch starts and talks to a session without a terminal
 
-Design for [#882](https://github.com/ThomasHendrickx/aeolus-fleet/issues/882) and [#1085](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1085), as one design: how the trierarch starts a session and talks to it. New core fleet functionality, so it goes purpose first. The lessons and questions below are for review; nothing past the purpose is decided until Thomas agrees the purpose. No code.
+Design for [#882](https://github.com/ThomasHendrickx/aeolus-fleet/issues/882) and [#1085](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1085), as one design for Aeolus 0.33.0: how the trierarch starts a session and talks to it. Docs only.
 
-The trierarch lives in its own repository (0049); its docs cited below are in `aeolus-fleet-trierarch`.
+The trierarch lives in its own repository (0049); its docs, code and decisions cited below are in `aeolus-fleet-trierarch`.
 
-## 1. Purpose (to agree)
+## 1. Purpose (agreed by Thomas, 25 Oct)
 
-The trierarch starts each session it crews as a program it talks to through the harness's own API (Claude Code in print mode with streamed JSON or its SDK, `codex exec`), instead of a terminal program in its tmux server that it types into. A session signs in to its model with an API key (Anthropic Console, OpenAI) as well as with a subscription login.
+The trierarch starts each session it crews as a program it talks to through the harness's own API (Claude Code in print mode with streamed JSON, `codex exec`), instead of a terminal program in its tmux server that it types into. A session signs in to its model with an API key (Anthropic Console, OpenAI) as well as with a subscription login.
 
 For whom: the person who runs a trierarch on their computer or a server with no screen, and every ship it crews, whose deliveries must reach that ship's session and no other.
-
-The need: tmux is a dependency of every machine, a session can reach the trierarch's tmux server (#880), and a hand-over depends on typed keys and hooks firing (#881). Thomas, 18 Oct: "Must do". For keys, Thomas: "have session use api keys to work."
 
 The outcomes:
 1. Each session is handed only its own ship's deliveries, by how it is started, not by care. Restarting every session proves it (the test #881 asked for).
@@ -25,91 +23,147 @@ Not the purpose:
 - A cloud runtime (#57).
 - Spend limits, model governance or placement by cost (#375, the trierarch plugin).
 
-## 2. Lessons to check against
+## 2. What is true today
 
-- **0026** (trierarch repo). The trierarch owns wake and liveness for its sessions; a session holds no fleet credential, its calls go over its ship's own socket; each harness is one adapter.
-- **0040.** The pushed lease is the one hand-over contract; `handed` names a channel; the hook's `ack` is the agent's confirmation. Rejected: the computer side acking for the agent. Force is best effort; a stopped turn is not handed once more.
-- **0039** (trierarch repo). Runtime is a machine choice behind the `SessionRuntime` port (list, stop, start, type, interrupt, screen), tmux inside each container. One long-lived token per machine, in `~/.aeolus/trierarch/model-token`, handed by env file, never a command line (#445). Rejected "for now": a credential proxy on the host, because it was unproven with subscription logins and the vendors' terms were unclear; "the preferred route later if they allow it".
-- **0027.** Crew settings carry no paths or flags; a harness declares its options as a JSON Schema. `trierarch.md:203`: no credential travels in a request or the fleet.
-- **0013.** Before 1.0.0 breaking changes are allowed; no compatibility layers.
-- **#881 (P1).** A delivery for one ship reached another's session after a restart. Thomas: "Tmux mapped ships to sessions correctly throughout. The fault is the leaked environment, not the hand-off by name." Lesson: what a session inherits is the risk, whatever carries the hand-over.
-- **#880, #885.** A session could kill every other session (inherited `$TMUX`) and read every ship's crew token. Fixed by contained access (R5); headless must keep it.
-- **#479, `trierarch.md:70`.** An upgrade killed every session until the tmux server left the service's cgroup (`KillMode=process`). Sessions must outlive the trierarch.
-- **#846, #1016, #890.** Only `Stop` closes a turn; the text must reach the turn before the ack; an unforced delivery waits for an idle turn.
-- **#490.** Checks rest on documented, long-term supported signals, never on terminal rendering. #888, #768, #995: screen reads are flaky.
-- **`trierarch.md:182`, `:217`.** The screen is read today for prompts that stop a session before its hooks run (trust, login method, bypass warning); Codex refusals are read from its undocumented session log. Headless removes the screen, not the need to see these.
-- **`trierarch.md:279`.** Codex runs turns in a daemon that outlives its pane, hence `--no-daemon`: a session must be a process that owns its work.
-- **#852.** A refused model login comes back as "no activity" without its cause. An API key that is wrong or out of credit must say so.
-- **`trierarch.md:140`, `:79`, #392.** Usage is read as subscription windows; a login's rights decide which models are offered. A key has cost, not windows, and may offer other models.
-- **`trierarch.md:186`.** Every hand-over line says no human reads the terminal (#756); nobody watches a session the trierarch starts.
+- **`SessionRuntime`** (`core/ports.ts:230`): `list`, `stop`, `start`, `type`, `interrupt`, `screen`. The host adapter runs every session in the tmux server `aeolus-trierarch`, started in a systemd scope of its own so it outlives the service (`tmux.ts:17`, #479). The container adapter runs one Podman container per ship with tmux inside; every `type`, `interrupt` and `screen` is a `podman exec` into it (`container.ts`).
+- **Hand-over** (`trierarch.md:186`): each pass, while the turn marker says idle, the trierarch runs `aeolus-push.sh hand`, which push receives and prints a line, and types that line into the pane. The plugin's `UserPromptSubmit` hook acks the delivery and adds it to the turn. `Stop` marks the turn idle; `StopFailure` and Codex's `Interrupt` mark a death unless the forced-stop marker is set.
+- **Force** (`stop-turn.ts`): Escape into the pane, then screen reads every 250 ms until the screen settles, then the line is typed.
+- **Launch window** (`reconciler.ts:90`, 60 s): hook markers (`started`, `active`, `refused`), the screen for prompts that stop a session before its hooks run, and Codex's session log for a refused model.
+- **Restart**: budget 5 in 60 minutes, delays 5 s to 10 min (`restart-policy.ts`); Claude Code gets `--continue` when its folder has a conversation, Codex `codex resume --last`.
+- **Fleet socket**: `sockets/<shipId>/fleet.sock`, named in the folder's identity file; it answers only a caller under that ship's session root (`caller-check.ts`).
+- **Logins**: host sessions use the machine's own login; containers get the one long-lived Claude token from `~/.aeolus/trierarch/model-token` as `CLAUDE_CODE_OAUTH_TOKEN` through an env file. Codex is not offered in containers. No API-key path exists.
+- **Watching**: `tmux -L aeolus-trierarch attach`, or Remote Control on host Claude Code sessions (refused with containers).
+- **Usage**: subscription windows read from a probe turn (Claude Code) or rollout logs (Codex); tokens from the harnesses' transcripts; `prices` in the configuration.
 
-## 3. Questions
+What the harnesses offer headless (vendor docs, 25 Oct):
+- **Claude Code** `claude -p --input-format stream-json --output-format stream-json --verbose` is one long-lived process taking user messages on stdin, one JSON line each, and emitting `system/init` (with `session_id`), `assistant`, `user` and one `result` per turn. Plugins and hooks load as in an interactive session. No trust dialog. SIGINT ends the turn. Credentials by precedence: `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_API_KEY`, `apiKeyHelper`, `CLAUDE_CODE_OAUTH_TOKEN`, then the login. `ANTHROPIC_BASE_URL` points it at a gateway; it still needs a credential of its own. `result` carries `total_cost_usd`. Remote Control is interactive only and unavailable with a key or a base URL.
+- **Codex** `codex exec --json "<prompt>"` runs one turn and emits `thread.started`, `turn.started`, `turn.completed` (with token usage), `turn.failed`, `item.*`, `error`; `codex exec resume <thread id> --json "<prompt>"` runs the next. `codex app-server` is long-lived but marked experimental and not for production. Hooks exist (`SessionStart`, `UserPromptSubmit`, `Stop`, `Interrupt` and more); the docs do not say whether they run in `exec`. A provider is set by `model_providers.<id>.base_url` with `env_key` naming the variable that holds its credential.
 
-Each has options and my pick. They follow once the purpose is agreed.
+## 3. Lessons checked against
 
-### H1 How does a session outlive a trierarch restart or upgrade?
+- **0026.** The trierarch owns wake and liveness; a session holds no fleet credential; each harness is one adapter. Kept: the hold process (H8) is part of the trierarch, and the adapters stay one per harness.
+- **0040.** The hook's `ack` stays the confirmation (H5); `handed` names a channel; force is best effort; a stopped turn is not handed once more, and stopping is not dying.
+- **0039.** Runtime is a machine choice behind `SessionRuntime`; tmux leaves both adapters (H4). Its rejected credential proxy, rejected for subscription logins, becomes the route for keys (H7).
+- **0027, `trierarch.md:203`.** No credential and no flag in a crew request or the fleet (H6).
+- **0013.** No compatibility layer: tmux goes in this release. Thomas on H4: "Ok let's do this, if this is irritating then we can always revert to tmux". The revert is git, not a second runtime kept in the code.
+- **#881.** What a session inherits is the risk: the hold starts the harness with an environment it builds from nothing (H10), and S1 carries the restart-every-session test.
+- **#880, #885.** No shared server a session can reach; the hold's socket answers only the trierarch (H9).
+- **#479.** Sessions outlive the service: holds are started in their own scope, as the tmux server is (H8).
+- **#846, #1016, #890.** Only `Stop` closes a turn; the text reaches the turn before the ack; an unforced delivery waits for an idle turn. Unchanged: the hooks still do this (H5).
+- **#490, #888, #768, #995.** Documented signals, never the screen: the launch window and force read the harness's own events (H13, H12).
+- **#852.** A refused login must say why: the cause comes from the harness's error event (H13). What the trierarch then does stays #852's open question.
+- **`trierarch.md:279`.** A session must be a process that owns its work: a Codex turn is one `codex exec` process (H11).
 
-Today the tmux server keeps sessions running while the trierarch restarts (#479). A headless session is a process whose input and output the trierarch holds.
+## 4. Decisions
 
-1. **A small process per session, started outside the service, holds the session's input and output; the restarted trierarch connects to it again over a socket.** Keeps today's rule that sessions outlive the trierarch.
-2. Sessions are the trierarch's children. A restart ends them; each starts again resuming its conversation (`--resume`, `codex resume`), and a handed delivery not yet confirmed goes once more (0040). Simplest, but every upgrade stops every busy turn.
-3. Option 2, but an upgrade waits until every session is idle, with a deadline. Fewer stopped turns; upgrades can wait long.
+Thomas's answers (25 Oct):
 
-**Pick 1.** Upgrades are frequent and #479 showed what stopping every session costs; the per-session process is also the one thing that holds that ship's input, which is outcome 1.
+| # | Rule |
+| --- | --- |
+| H1 | **A small process per session, started outside the service, holds the session's input and output; a restarted trierarch connects to it again** |
+| H2 | **The trierarch keeps each session's streamed events on the machine, read with a trierarch command, and puts the session's latest activity in its report details** so the console shows it |
+| H3 | **The operator talks to a ship by sending it a message; steering a busy turn is a forced delivery.** Remote Control is dropped |
+| H4 | **Headless replaces tmux on the host and in containers in one release;** tmux leaves the machine requirements and the session image |
+| H5 | **The plugin's hooks run inside the headless session and confirm, report the turn and handled, as today.** A harness whose hooks do not run headless is not offered until they do |
+| H6 | **An API key is kept on the machine, in the trierarch's files beside the model token (mode 600), one login per harness, key or subscription,** set by the person who runs the trierarch and stated in its report details |
+| H7 | **A model proxy on the machine holds the key; the session gets only the proxy's address** |
 
-### H2 How does the operator watch a session?
+The detail that follows from them, for review:
 
-Today: `tmux attach`, or Remote Control on the host.
+| # | Rule |
+| --- | --- |
+| H8 | **The hold process.** `aeolus-trierarch hold <shipId>` is the trierarch program run once per session, started through `systemd-run --user --scope` (launchd: its own job) so it outlives the service. It starts the harness as its child and is the only holder of its stdin and stdout; when one of the two ends, both end. Its files: `~/.aeolus/trierarch/sessions/<shipId>/` with `hold.sock`, `hold.pid`, `events.jsonl` and the harness's session or thread id |
+| H9 | **The hold socket** answers only the trierarch's own process (peer credentials, as `caller-check.ts` does for the fleet socket), never a session. Its calls: `send <line>`, `interrupt`, `state` (running or exited, the harness's session id, the hold's version). `SessionRuntime` becomes `list`, `start`, `stop`, `send`, `interrupt`, `events`; `type` and `screen` go |
+| H10 | **A clean environment.** The hold builds the harness's environment from a fixed list (`HOME`, `PATH`, `AEOLUS_LAUNCH`, the login of H15) and inherits nothing else from the trierarch |
+| H11 | **Per harness.** Claude Code: one long-lived `claude -p --input-format stream-json --output-format stream-json --verbose`, with the configured flags (the bypass permission mode included, since print mode denies by default); a hand-over is one user line on stdin. Codex: the first prompt is `codex exec --json`, every later hand-over one `codex exec resume <thread id> --json`; between turns no Codex process runs, and the hold stays |
+| H12 | **Hand-over and force.** The pass is unchanged: while the turn marker says idle, `aeolus-push.sh hand` prints the line and the trierarch calls the hold's `send` instead of typing; `handed` names channel `harness`. Force sets the forced-stop marker as today and calls `interrupt`: SIGINT to the harness, then the hold waits for the turn's `result` (Claude Code) or the `exec` process's end (Codex), at most 10 s, before the forced line is sent. A Claude Code that exits on SIGINT is started again by the hold with `--resume <session id>`, counted as no restart |
+| H13 | **Launch window from events.** The hook markers stay. The screen fallback becomes the harness's last error event in `events.jsonl` (`result` with `is_error`, `turn.failed`, `error`), carried as the cause of a start with no activity. Codex's refused model is read from that event, not its session log. Codex's hook trust is still written before every launch (`codex-setup.ts`) |
+| H14 | **Watching.** The hold appends every event line the harness writes to `events.jsonl`, rotated at 10 MB with one previous file kept. `aeolus-trierarch watch <ship name>` prints it as readable lines (text, tool calls, results, errors) and follows it. The report details carry per ship `activity: { at, kind, tool? }` with `kind` one of `text`, `tool`, `result`, `error`: no content, since the fleet should hold none of a transcript. The console's Trierarchs page shows it |
+| H15 | **Logins.** `aeolus-trierarch login <harness> --api-key` reads a key from stdin into `~/.aeolus/trierarch/keys/<harness>` (mode 600); `--subscription` removes it. A harness with a key file uses it; without one, the subscription login as today (the machine's login on the host, `model-token` in a container). The report details state each harness's login, `apiKey` or `subscription`, never the key |
+| H16 | **The model proxy.** `aeolus-trierarch proxy` runs once per machine while any harness has a key, started in its own scope like a hold, listening on a loopback port; the trierarch starts it again when it is gone. Each session gets a random proxy token of its own: Claude Code as `ANTHROPIC_BASE_URL` plus `ANTHROPIC_AUTH_TOKEN`, Codex as `-c model_providers.aeolus.base_url=...` with `env_key` naming the token's variable. The proxy accepts only tokens of running sessions, replaces the token with the key, forwards only to that harness's vendor API, and knows each request's ship. Containers reach it at Podman's host address |
+| H17 | **Usage with a key.** No subscription windows: `usage` states the login and the tokens per model from the transcripts as today; cost comes from Claude Code's `total_cost_usd` or the configured `prices` |
+| H18 | **Containers.** The hold runs on the host for every runtime. With the container runtime it starts `podman run --rm -i` (no detach) with the harness command, so the container lives as long as the hold and SIGINT reaches the harness through `tini`. tmux leaves the image; `session-init` stays the entry before the harness. Codex in containers stays not offered (0039) |
+| H19 | **An older hold after an upgrade.** A hold states its version. The trierarch speaks only its own hold protocol; a hold of another version is stopped and started again, resuming the conversation, as soon as its turn is idle, and is handed nothing until then |
+| H20 | **Remote Control** in a harness's flags is refused by `config check` and at start, for every runtime |
 
-1. **The trierarch keeps each session's streamed events on the machine as its transcript, read with a trierarch command, and puts the turn's latest activity in its report details** (0028, 16 KB) so the console shows it.
-2. Option 1 without the console line: local only.
-3. The console shows the whole live transcript, carried by the fleet. Most visible; new fleet functionality, and transcripts can hold secrets the fleet should not store.
+## 5. Flow
 
-**Pick 1.** Watching stays on the machine, and the console still answers "what is it doing now" without a screen.
+The backbone: one hold per session; the trierarch's pass drives it.
 
-### H3 Can the operator still talk to a session directly?
+```mermaid
+flowchart TD
+  crew([Crew loop: entry crewing, registered, fleet socket open]) --> start["Start the hold in its own scope (H8): clean env (H10), login (H15)"]
+  start --> harness["Hold starts the harness: claude -p stream-json, or codex exec with the wake prompt (H11)"]
+  harness --> window{"Launch window, 60 s (H13)"}
+  window -->|hooks mark started and active| run[Running]
+  window -->|refused model| refused[Start failed: refused, counted against the budget]
+  window -->|no activity| cause["Start failed: cause from the last error event, counted"]
+  refused --> budget
+  cause --> budget
+  run --> pass{Each pass: turn marker}
+  pass -->|busy| pass
+  pass -->|idle| hand["aeolus-push.sh hand: push receive, print the line"]
+  hand -->|nothing| pass
+  hand -->|a line| send["Hold send (H9, H12): stdin line, or codex exec resume"]
+  send --> handed["handed, channel harness"]
+  handed --> hook["UserPromptSubmit hook acks: the promise ends (0040)"]
+  hook --> turn[Turn busy until Stop marks idle] --> pass
+  run -->|forced delivery| force["Forced-stop marker, hold interrupt: SIGINT, wait for the turn's end, at most 10 s"]
+  force --> send
+  run -->|harness or hold exits| exited[Session exited] --> died["aeolus-push.sh died: held deliveries once more"]
+  died --> budget{Restart budget left?}
+  budget -->|yes, after the delay| start
+  budget -->|no| crashed([Crashed: the owner is told])
+  run -.->|trierarch restarts| relist["New trierarch: list holds by hold.pid and state, reopen fleet sockets"]
+  relist -->|same version| pass
+  relist -->|other version| idle["Wait for an idle turn, hand nothing, then stop and start again resuming (H19)"] --> start
+```
 
-Today the operator can attach and type, which is also a way in for a mistake (#880).
+Unhappy paths the diagram does not show:
+- **Crash between `send` and `handed`.** The hook's ack may already have come; `handed` then answers `acknowledged`. If the session never took the line, the delivery comes back from `hand` as received and is sent again: one duplicate, nothing lost, as with a typed line today.
+- **The hold dies mid-turn.** The harness ends with it; the session exited, so `died` marks held deliveries for once more, and the restart resumes the conversation.
+- **The harness exits on SIGINT** (Claude Code, if so): the hold starts it again with `--resume` and no restart is counted (H12); the forced line then goes in.
+- **Interrupt never ends the turn within 10 s.** The forced line is sent anyway; Claude Code queues it for the next turn, and for Codex the hold ends the `exec` process. Force stays best effort (0040).
+- **A session writes to another ship's hold socket.** The socket refuses any caller that is not the trierarch (H9).
+- **The machine restarts.** Holds are gone; entries still `running` are started again with no restart counted, as today.
+- **The proxy is down.** Model requests fail and the harness retries; the trierarch starts the proxy again within a pass. A session that gives up shows the error as its activity and in `events.jsonl`.
+- **A key is wrong or out of credit.** The vendor's error reaches the harness through the proxy; the start fails with that cause (H13), or a running session shows it as its activity.
+- **A key is removed while sessions run.** The proxy refuses their tokens; they are started again on the subscription login at their next idle turn.
+- **Codex's hooks do not run in `exec`.** Codex is not offered headless (H5) and S2 stops to ask Thomas.
 
-1. **No: the operator talks to a ship by sending it a message; steering a busy turn is a forced delivery** (0040). Remote Control is dropped where the headless harness lacks it.
-2. A trierarch command opens the session interactively in the operator's own terminal, with hand-overs paused until it closes.
-3. Keep Remote Control on host sessions wherever the harness offers it in headless mode, and option 1 otherwise.
+## 6. Slices for 0.33.0
 
-**Pick 1.** The fleet stays the one door to a ship, and no second input path exists to leak; option 2 can follow if a real need shows.
+All in `aeolus-fleet-trierarch` except S4's console part. S1 first; S2, S3, S4 and S5 follow S1; S5's container part follows S3.
 
-### H4 Does headless replace tmux, and in which runtimes?
+### S1 The hold and Claude Code headless on the host (H8 to H13, H19, H20)
 
-1. **Headless replaces tmux on the host and in containers in one release; tmux leaves the machine requirements and the session image** (0013).
-2. Headless and tmux both kept, a machine's choice.
-3. Host first; containers keep tmux until a later release.
+- `aeolus-trierarch hold` with its socket, files and clean environment; `SessionRuntime` becomes `list`, `start`, `stop`, `send`, `interrupt`, `events`. The host adapter starts holds instead of tmux; the container adapter keeps tmux behind the new port until S3.
+- The Claude Code adapter runs `claude -p` stream-json; hand-over by `send`, channel `harness`; force by `interrupt`; the launch window's cause from events; restart with `--continue` or `--resume`.
+- The fleet socket's caller check takes the hold as the session root.
+- An older hold is replaced at its next idle turn. Remote Control is refused.
+- Tests: the restart-every-session test from #881, each session handed only its own ship's deliveries; a trierarch restart keeps every session running and handing; an upgrade with an older hold replaces it only when idle; an unforced delivery waits for `Stop`; a forced one interrupts and goes in; the hold's death marks once more and restarts; the hold socket refuses a session's process; the harness sees none of the trierarch's environment; a refused login names its cause. The session runtime contract test runs against both adapters.
 
-**Pick 1.** Outcome 2 holds only when tmux is gone everywhere, and a second runtime is the compatibility work 0013 rules out.
+### S2 Codex headless on the host (H11, H13)
 
-### H5 What is the agent's confirmation in a headless session?
+- First prove that Codex's hooks run in `codex exec` and `codex exec resume`. If they do not, stop and ask Thomas (H5).
+- The Codex adapter runs one `codex exec --json` per turn with the thread id the hold keeps; force ends the `exec` process; the refused model is read from its error event; the session log reader goes.
+- Tests: a hand-over starts one `exec resume` and its `Stop` marks idle; force ends the turn and the forced line runs next; a refused model is reported from a captured event; no Codex process runs between turns.
 
-0040 makes the hook's `ack` the confirmation and rejects the computer side acking for the agent. Claude Code runs its hooks in print mode; Codex in `codex exec` is to be proven.
+### S3 Containers through the hold; tmux leaves (H4, H18)
 
-1. **The plugin's hooks run inside the headless session and confirm, report the turn and handled, as today.** 0040 unchanged; a harness whose hooks do not run headless is not offered headless until they do.
-2. The harness API's own event that a turn began with that message is the confirmation, reported by the trierarch. Works without hooks; reopens 0040's rejection.
-3. The agent confirms with a fleet call of its own in the turn. Depends on the model doing it.
+- The container adapter starts `podman run --rm -i` from the hold; tmux leaves the image, the session script, the machine requirements and the code (`tmux.ts`, `stop-turn.ts`, the screen matchers, `held-command.ts`).
+- Tests: a container session takes a hand-over and a forced delivery; stopping the hold removes the container; a trierarch restart keeps container sessions; `config check` no longer asks for tmux.
 
-**Pick 1.** It keeps the promise ending at the agent, as 0040 decided, and needs no new contract.
+### S4 Watching (H2, H14)
 
-### H6 Where is an API key kept and who sets it?
+- `events.jsonl` with rotation; `aeolus-trierarch watch <ship name>`; `activity` per ship in the report details.
+- Core: the console's Trierarchs page shows each ship's latest activity and its age from the details.
+- Tests: watch prints a session's text, tool calls and errors and follows new ones; rotation keeps one previous file; the details carry no event content; the page shows the activity.
 
-1. **On the machine, in the trierarch's configuration beside the model token (mode 600), one login per harness: key or subscription, set by the person who runs the trierarch; which one is stated in its report details** so placement can see it.
-2. Option 1, with several named keys per harness and a declared harness option (0027) naming which key a crew request uses.
-3. Per fleet, stored on the server and handed to trierarchs. Central, but a credential then travels through the fleet.
-4. Per crew request. Same, and against 0027.
+### S5 API keys and the model proxy (H6, H7, H15 to H17)
 
-**Pick 1.** No credential travels in a request or the fleet; option 2 can follow when one machine must bill two ways.
+- `aeolus-trierarch login`, the key files, the proxy with its per-session tokens, Claude Code and Codex wired to it, the login in the report details, usage without windows.
+- Containers reach the proxy at Podman's host address (after S3); the model token stays for the subscription login.
+- Tests: a session with a key works and its environment holds no key; a token of a stopped session is refused; a request to any host but the vendor's is refused; a wrong key fails the start with the vendor's cause; removing a key moves sessions back to the subscription login; the details state the login and never the key.
 
-### H7 How does the key reach the session without being shown?
-
-The model in a session has a shell and can read its own environment, as it can read today's container token.
-
-1. **A credential proxy on the machine holds the key; the session gets only the proxy's address.** 0039 rejected a proxy for subscription logins because the vendors' terms were unclear; API keys are meant for this use, so that reason falls.
-2. The key in the session's environment from an env file, as the container token today. Simplest; the session's model can read it.
-3. The harness's own key helper (Claude Code `apiKeyHelper`) reading the key file. Off the environment, still readable by the model.
-
-**Pick 1.** It keeps the rule 0026 holds for the crew token, a session holds no secret, and 0039 already named it the preferred route.
+Docs each slice updates: `trierarch.md` (Crewing a ship, Unattended, Restart, Release, Session runtime, report details), `architecture.md` (adapters, files on the machine, the diagrams), decisions 0026 and 0039 and their lines in core's `docs/decisions/README.md`, `packages/trierarch/README.md` (requirements, attach), `timings-and-limits.md` (the 10 s interrupt wait, the 10 MB rotation).
