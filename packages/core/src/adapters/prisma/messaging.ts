@@ -136,7 +136,7 @@ export function createPrismaDeliveryRepository(db: Db): DeliveryRepository {
       ]);
       return { waiting, forced };
     },
-    findClaimableForUpdate: async ({ fleetId, shipId, type, leaseId, limit, excluding, inReplyTo }) => {
+    findClaimableForUpdate: async ({ fleetId, shipId, type, leaseId, limit, excluding, inReplyTo, shouldSkipHanded }) => {
       // SKIP LOCKED: a delivery another receive holds is passed over, never
       // waited for, so two receivers never get the same one (ADR 0003). The
       // limit counts the rows locked, not the rows scanned. Read committed: a
@@ -154,6 +154,7 @@ export function createPrismaDeliveryRepository(db: Db): DeliveryRepository {
                OR (state = 'pending'
                    AND (recipient_ship_id = ${shipId}
                         OR (recipient_type = ${type} AND (cardinality(reachable_ship_ids) = 0 OR ${shipId} = ANY(reachable_ship_ids))))))
+          AND (${shouldSkipHanded ?? false} = false OR state <> 'handed')
           AND (${inReplyTo ?? null}::text IS NULL
                OR message_id IN (SELECT id FROM messages WHERE fleet_id = ${fleetId} AND in_reply_to_message_id = ${inReplyTo ?? null}))
         ORDER BY is_forced DESC, state = 'pending', created_at, id

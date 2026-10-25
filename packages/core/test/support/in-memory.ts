@@ -1274,10 +1274,10 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         state.deliveries.push(structuredClone(delivery));
         return Promise.resolve();
       },
-      findClaimableForUpdate: ({ fleetId, shipId, type, leaseId, limit, excluding, inReplyTo }) => {
+      findClaimableForUpdate: ({ fleetId, shipId, type, leaseId, limit, excluding, inReplyTo, shouldSkipHanded }) => {
         const isReplyAsked = (delivery: Delivery) =>
           inReplyTo === undefined || state.messages.some((held) => held.id === delivery.messageId && held.inReplyToMessageId === inReplyTo);
-        const ofFleet = state.deliveries.filter((delivery) => delivery.fleetId === fleetId && isReplyAsked(delivery));
+        const ofFleet = state.deliveries.filter((delivery) => delivery.fleetId === fleetId && isReplyAsked(delivery) && (!shouldSkipHanded || delivery.state !== 'handed'));
         const inFlight = ofFleet
           .filter(
             (delivery) =>

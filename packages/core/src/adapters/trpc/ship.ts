@@ -559,6 +559,7 @@ export const shipRouter = router({
         'Forced deliveries come first; then your own received or handed ones again, unchanged, so a restart loses nothing. With none there it waits about 25 seconds, then answers with none.',
         'From your first pushReceive until your lease ends, the agent\'s plain receive answers nothing.',
         'Your first pushReceive may state waker, what wakes the ship: trierarch, pluginWatcher, personApp, gateway or adapter; the lease keeps the first one, and the ship\'s page shows it.',
+        'With shouldSkipHanded true, handed deliveries are left out before max; received deliveries still return after a lost answer.',
         'Report each hand-over to the agent with handed.',
       ].join(' '),
     })
@@ -566,7 +567,7 @@ export const shipRouter = router({
     .output(pushReceiveOutputSchema)
     .mutation(async ({ ctx, input }) => {
       const { deliveries } = okOrThrow(
-        await ctx.useCases.pushReceiveDeliveries(ctx.crew, { max: input?.max, ...(input?.waker === undefined ? {} : { waker: input.waker }) }),
+        await ctx.useCases.pushReceiveDeliveries(ctx.crew, { max: input?.max, shouldSkipHanded: input?.shouldSkipHanded ?? false, ...(input?.waker === undefined ? {} : { waker: input.waker }) }),
       );
       return { deliveries: deliveries.map((delivery) => ({ ...delivery, sentAt: delivery.sentAt.toISOString(), sendTime: delivery.sendTime?.toISOString() ?? null })) };
     }),
