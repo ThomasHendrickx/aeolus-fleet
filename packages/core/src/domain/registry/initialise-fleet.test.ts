@@ -162,6 +162,7 @@ describe('initialise fleet', () => {
       declaredNetworkRules: [],
       networkRulesDrafts: [],
       scopeNamespaces: [],
+      definedScopes: [],
       verifiedFacts: [],
       reachRefusals: [],
       events: [],

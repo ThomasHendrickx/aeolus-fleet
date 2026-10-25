@@ -19,6 +19,7 @@ import type {
   NetworkRulesDraftRepository,
   VerifiedFactsRepository,
   ScopeNamespaceRepository,
+  DefinedScopeRepository,
   NetworkSettingsRepository,
   ReachRefusalRepository,
   ShipRepository,
@@ -46,6 +47,7 @@ import { createPrismaScheduleNotifier, createPrismaScheduleRepository } from './
 import { createPrismaDeclaredNetworkRulesRepository, createPrismaNetworkRulesDraftRepository, createPrismaNetworkSettingsRepository, createPrismaReachRefusalRepository } from './network.js';
 import { createPrismaVerifiedFactsRepository } from './verified-facts.js';
 import { createPrismaScopeNamespaceRepository } from './scope-namespaces.js';
+import { createPrismaDefinedScopeRepository } from './defined-scopes.js';
 import {
   createPrismaClearRequestRepository,
   createPrismaCrewRequestRepository,
@@ -68,6 +70,7 @@ export interface PrismaTx {
   declaredNetworkRules: DeclaredNetworkRulesRepository;
   networkRulesDrafts: NetworkRulesDraftRepository;
   scopeNamespaces: ScopeNamespaceRepository;
+  definedScopes: DefinedScopeRepository;
   verifiedFacts: VerifiedFactsRepository;
   reachRefusals: ReachRefusalRepository;
   inFlightDeliveries: InFlightDeliveries;
@@ -100,6 +103,7 @@ export function createPrismaTx(db: Db): PrismaTx {
     declaredNetworkRules: createPrismaDeclaredNetworkRulesRepository(db),
     networkRulesDrafts: createPrismaNetworkRulesDraftRepository(db),
     scopeNamespaces: createPrismaScopeNamespaceRepository(db),
+    definedScopes: createPrismaDefinedScopeRepository(db),
     verifiedFacts: createPrismaVerifiedFactsRepository(db),
     reachRefusals: createPrismaReachRefusalRepository(db),
     inFlightDeliveries: createPrismaInFlightDeliveries(db),

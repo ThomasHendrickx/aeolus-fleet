@@ -112,6 +112,7 @@ import { createReportTurn } from '../../src/domain/registry/report-turn.js';
 import { createRequestCrew } from '../../src/domain/registry/request-crew.js';
 import { createDeclareNetworkRules } from '../../src/domain/registry/declare-network-rules.js';
 import { createDeclareScopes } from '../../src/domain/registry/declare-scopes.js';
+import { createDefineScope } from '../../src/domain/registry/define-scope.js';
 import { createGrantScopes } from '../../src/domain/registry/grant-scopes.js';
 import { createListScopes } from '../../src/domain/registry/list-scopes.js';
 import { createDefineLabel } from '../../src/domain/registry/define-label.js';
@@ -261,6 +262,7 @@ export function registryUseCases(core: InMemoryCore) {
     confirmWorktreeCleared: createConfirmWorktreeCleared(deps),
     defineLabel: createDefineLabel(deps),
     declareScopes: createDeclareScopes(deps),
+    defineScope: createDefineScope(deps),
     grantScopes: createGrantScopes(deps),
     listScopes: createListScopes({ scopeNamespaces: core.scopeNamespaces, ships: core.ships }),
     saveNetworkRulesDraft: createSaveNetworkRulesDraft(deps),

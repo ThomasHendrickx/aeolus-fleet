@@ -58,6 +58,7 @@ import type {
   DeclaredNetworkRulesRepository,
   NetworkRulesDraftRepository,
   ScopeNamespaceRepository,
+  DefinedScopeRepository,
   VerifiedFactsRepository,
   NetworkSettingsRepository,
   ReachRefusalRepository,
@@ -69,6 +70,7 @@ import { readsShip } from '../../src/domain/registry/read-reach.js';
 import { comparePositions, positionOf } from '../../src/domain/registry/ship-order.js';
 import type { DeclaredNetworkRules } from '../../src/domain/registry/declared-network-rules.js';
 import type { NetworkRulesDraft } from '../../src/domain/registry/network-rules-draft.js';
+import type { DefinedScope } from '../../src/domain/registry/defined-scope.js';
 import type { ScopeNamespace } from '../../src/domain/registry/scope-namespace.js';
 import { noNetworkSettings, type NetworkSettings } from '../../src/domain/registry/network-settings.js';
 import type { ReachRefusal } from '../../src/domain/registry/reach-refusal.js';
@@ -157,6 +159,8 @@ export interface InMemoryState {
   networkRulesDrafts: NetworkRulesDraft[];
   /** The plugin namespaces, one per declaring ship (decision 0046). */
   scopeNamespaces: ScopeNamespace[];
+  /** The fleet's own scopes (design gateway-scopes, 4.1). */
+  definedScopes: DefinedScope[];
   /** The verified facts, one set per ship and writer (decision 0059). */
   verifiedFacts: WrittenFacts[];
   /** The records of the sends the network rules refused, oldest first. */
@@ -191,6 +195,7 @@ export interface InMemoryTx {
   declaredNetworkRules: DeclaredNetworkRulesRepository;
   networkRulesDrafts: NetworkRulesDraftRepository;
   scopeNamespaces: ScopeNamespaceRepository;
+  definedScopes: DefinedScopeRepository;
   verifiedFacts: VerifiedFactsRepository;
   reachRefusals: ReachRefusalRepository;
   inFlightDeliveries: InFlightDeliveries;
@@ -349,6 +354,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     declaredNetworkRules: [],
     networkRulesDrafts: [],
     scopeNamespaces: [],
+    definedScopes: [],
     verifiedFacts: [],
     reachRefusals: [],
     events: [],
@@ -710,6 +716,14 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       },
       remove: (fleetId, namespace) => {
         state.scopeNamespaces.splice(0, state.scopeNamespaces.length, ...state.scopeNamespaces.filter((held) => held.fleetId !== fleetId || held.namespace !== namespace));
+        return Promise.resolve();
+      },
+    },
+    definedScopes: {
+      find: (fleetId, scope) => Promise.resolve(structuredClone(state.definedScopes.find((held) => held.fleetId === fleetId && held.scope === scope))),
+      save: (defined) => {
+        const index = state.definedScopes.findIndex((held) => held.fleetId === defined.fleetId && held.scope === defined.scope);
+        state.definedScopes.splice(index === -1 ? state.definedScopes.length : index, index === -1 ? 0 : 1, structuredClone(defined));
         return Promise.resolve();
       },
     },
@@ -2184,6 +2198,7 @@ const FLEET_TABLES = [
   'declaredNetworkRules',
   'networkRulesDrafts',
   'scopeNamespaces',
+  'definedScopes',
   'verifiedFacts',
   'reachRefusals',
   'events',
@@ -2222,6 +2237,7 @@ const TABLES = [
   'declaredNetworkRules',
   'networkRulesDrafts',
   'scopeNamespaces',
+  'definedScopes',
   'verifiedFacts',
   'reachRefusals',
   'events',

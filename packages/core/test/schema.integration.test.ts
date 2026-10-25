@@ -135,6 +135,7 @@ describe('migrations', () => {
       'crew_request_give_backs',
       'crew_requests',
       'declared_network_rules',
+      'defined_scopes',
       'deliveries',
       'events',
       'fleets',

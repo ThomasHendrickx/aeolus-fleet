@@ -125,6 +125,7 @@ import { createReadClearRequests, type ReadClearRequests } from './domain/regist
 import { createRequestWorktreeClear, type RequestWorktreeClear } from './domain/registry/request-worktree-clear.js';
 import { createExplainCrewRequest, type ExplainCrewRequest } from './domain/registry/explain-crew-request.js';
 import { createDeclareScopes, type DeclareScopes } from './domain/registry/declare-scopes.js';
+import { createDefineScope, type DefineScope } from './domain/registry/define-scope.js';
 import { createGrantScopes, type GrantScopes } from './domain/registry/grant-scopes.js';
 import { createDefineLabel, type DefineLabel } from './domain/registry/define-label.js';
 import { createExplainReach, type ExplainReach } from './domain/registry/explain-reach.js';
@@ -221,6 +222,7 @@ export interface UseCases {
   explainCrewRequest: ExplainCrewRequest;
   defineLabel: DefineLabel;
   declareScopes: DeclareScopes;
+  defineScope: DefineScope;
   grantScopes: GrantScopes;
   listScopes: ListScopes;
   saveNetworkRulesDraft: SaveNetworkRulesDraft;
@@ -443,6 +445,7 @@ export function createUseCases(options: {
     confirmWorktreeCleared: createConfirmWorktreeCleared({ uow, clock, ids }),
     defineLabel: createDefineLabel({ uow, clock, ids }),
     declareScopes: createDeclareScopes({ uow, clock, ids }),
+    defineScope: createDefineScope({ uow, clock, ids }),
     grantScopes: createGrantScopes({ uow, clock, ids }),
     listScopes: createListScopes({ scopeNamespaces: createPrismaScopeNamespaceRepository(prisma), ships: createPrismaShipRepository(prisma) }),
     saveNetworkRulesDraft: createSaveNetworkRulesDraft({ uow, clock, ids }),
