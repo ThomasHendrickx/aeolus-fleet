@@ -81,9 +81,13 @@ function Envelope({ message }: { message: MessageDetail }) {
           <span>
             Any ship of type <span className="font-mono text-id">{recipient.type}</span>
           </span>
-        ) : (
+        ) : recipient.kind === 'meeting' ? (
           <span>
             Every other participant of meeting <span className="font-mono text-id">{recipient.meetingId}</span>
+          </span>
+        ) : (
+          <span>
+            Every ship carrying <span className="font-mono text-id">{recipient.valueIds.join(' and ')}</span>
           </span>
         )}
       </EnvelopeRow>

@@ -90,7 +90,7 @@ export function createResendDelivery(deps: {
         return refuse('PING_NOT_RESENT', 'A ping is not resent: dismiss it, and ping the ship again');
       }
 
-      // A contribution's undeliverable delivery is resent to its participant alone, as a message of its own.
+      // A contribution's or a label send's undeliverable delivery is resent to its ship alone, as a message of its own.
       const selector = deliveredTo(original, delivery);
       const inReplyTo = original.inReplyToMessageId ?? undefined;
       const requestHash = deps.hasher.hash(
@@ -114,7 +114,7 @@ export function createResendDelivery(deps: {
         return recipient;
       }
       const repliedTo = inReplyTo === undefined ? undefined : await tx.messages.find(fleetId, inReplyTo);
-      const repliedDelivery = repliedTo && (await tx.deliveries.findOfMessage(fleetId, repliedTo.id));
+      const repliedDelivery = repliedTo && (await tx.deliveries.findOfMessageReaching(fleetId, { messageId: repliedTo.id, shipId: original.senderShipId }));
       const reach = await checkReach(
         { tx, ids: deps.ids },
         {
