@@ -1,6 +1,6 @@
 # Retention: what a fleet keeps, and for how long
 
-Design for [#1080](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1080), Aeolus 0.32.0. Docs only. Thomas agreed the purpose and answered Q1 to Q6 on 25 Oct (section 3). Stage 2: the decisions in detail, the split of the events (section 4), the pruning pass and its flows, the questions it raised, and the slices.
+Design for [#1080](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1080), Aeolus 0.32.0. Docs only. Thomas agreed the purpose and answered Q1 to Q9 on 25 Oct. Stage 2: the decisions in detail (section 3), the split of the events (section 4), the pruning pass and its flows (section 5), the questions it raised (section 6, decided) and the slices (section 7). Audit beyond the retention is [#1230](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1230)'s job (cold storage, later), not this design's.
 
 ## 1. Purpose (agreed by Thomas, 25 Oct)
 
@@ -51,13 +51,13 @@ Not the purpose:
 
 ## 3. Decisions
 
-Thomas's answers, then what follows from them. R1 to R6 answer Q1 to Q6.
+Thomas's answers, then what follows from them. R1 to R6 answer Q1 to Q6; Q7 to Q9 are in R2, R3, R13 and R15.
 
 | # | Decision |
 | --- | --- |
 | R1 | **Retention is configuration, as the limits are** (Q1: 1; Thomas: "We can make that into a pricing model this way"). The installation sets a default retention in days; each fleet follows it, or has its own number of days, or none; unset means kept for good. Set with `installation.settings.set` and `installation.fleets.setLimits` beside the ship and daily message limits, which write `FleetLimitsChanged`; read with `fleet.limits` (`fleet:read`), so every fleet manager sees it. A whole number of days, at least 1; core sets no other minimum or maximum (0016). |
 | R2 | **A message is finished** when every delivery of it is final, and it is not an open question or a contribution to a meeting or room not ended (Q2: 2). Final: handled, dismissed, abandoned, or acknowledged where no re-read can come (its claiming lease ended, or never pushed). Pending, received, handed, undeliverable and not handled are never final (L1, L2). An open question: of the question content type, with no reply of the answer content type (L6, L21; Q7). A finished message older than the cutoff goes with its deliveries and their events. |
-| R3 | **Events split in three** (Q3: 2): those of a message go with it (any event naming a message or delivery); those of a crew's sessions and secrets go by age past the cutoff (Q8); every other event, the changes to the fleet itself, is kept for good. Section 4 holds the split on production. |
+| R3 | **Events split in three** (Q3: 2): those of a message go with it (any event naming a message or delivery); those of a crew's sessions and secrets go by age past the cutoff (Q8: 3); every other event, the changes to the fleet itself, is kept for good. Section 4 holds the split on production. |
 | R4 | **Ended leases, invalidated credentials and ended console sessions go** once ended before the cutoff and no kept row names them; used or expired sign-in tickets go with them; a retired ship's row stays for good (Q4: 1). A console session takes its notice dismissals and guide progress with it. |
 | R5 | **Nothing in core for the demo fleet** (Q5: 1): pagasae's nightly delete prunes it (L15). The demo part of #1080 closes on confirming that in pagasae. |
 | R6 | **Storage is what the fleet holds now** (Q6: 1): a pruned message's payload bytes come off its day's row in `message_days` in the transaction that prunes it. The day's message count stays: the messages per day and the daily limit count what was sent. |
@@ -67,8 +67,10 @@ Thomas's answers, then what follows from them. R1 to R6 answer Q1 to Q6.
 | R10 | **Where history begins is shown**: the ship timeline, the message thread and Health say that the fleet keeps finished history from `kept_from`, older open deliveries apart. |
 | R11 | **The two message references stay as written**: in-reply-to and resend-of lose their foreign keys, so a kept reply may name a pruned message; reading it answers that the message is no longer kept. A new reply to a pruned message is refused as today, `IN_REPLY_TO_NOT_FOUND`, its text saying the message is not kept (L19). |
 | R12 | **A meeting or room that ended before the cutoff** keeps its row and its participants (small, as a retired ship); its contributions go as R2 says, and its mic and participant events go with them. |
-| R13 | **Reach refusals go by age** past the cutoff: a refusal is a record of a call that stored nothing (Q9). |
+| R13 | **Reach refusals go by age** past the cutoff: a refusal is a record of a call that stored nothing (Q9: 1). |
 | R14 | **Proven by tests** (Testcontainers): an open delivery of every state survives a pass at any age; an acknowledged delivery on an open pushed lease survives; an open question survives; a pass racing a send, an ack, a lease end and a second server's pass; a batch rolled back mid-way leaves everything as it was; a restart mid-pass goes on the next hour; storage drops by the pruned bytes; a fleet delete during a pass. |
+| R15 | **A question withdrawn or replaced but never answered is kept for good** (Q7: 1): core sees only answers (L21). Rare and small. |
+| R16 | **"Goes" is one step.** A batch first chooses its rows, every table's, as one set; one step then makes that set go, by deleting it, in the batch's transaction. Thomas: "Go can now be cold storage, I want to have a way for later to audit". #1230's export takes that step's place, or runs just before it in the same transaction, without changing how a batch is chosen; until then, a row that goes is gone. |
 
 ## 4. The split of the events (R3)
 
@@ -77,11 +79,11 @@ Thomas: "What is the split? What percentage is permanent and what is archive abl
 | Class | Event types | Goes | Events | Size |
 | --- | --- | --- | --- | --- |
 | A message's | `MessageAccepted` and every `Delivery*`; a meeting's mic and participant events (none yet) | With its message (R2, R12) | 29,051 (55%) | 9.5 MB (59%) |
-| A crew's sessions | `ShipReported` 5,052, `TurnReported` 4,545, `ShipClaimed` 2,148, `LeaseRevoked` 2,130, `CrewStatusChanged` 1,957, `LeasePushed`, `StatementSet`, `SignInTicketIssued`, `ViewerSessionStarted` | By age past the cutoff (Q8) | 16,097 (31%) | 4.9 MB (30%) |
-| A crew's secret | `StartingPromptIssued` 2,306, `CredentialRevoked` 2,289: once per crew, as the trierarch crews ships again | Q8 | 4,595 (9%) | 1.2 MB (7%) |
+| A crew's sessions | `ShipReported` 5,052, `TurnReported` 4,545, `ShipClaimed` 2,148, `LeaseRevoked` 2,130, `CrewStatusChanged` 1,957, `LeasePushed`, `StatementSet`, `SignInTicketIssued`, `ViewerSessionStarted` | By age past the cutoff (R3) | 16,097 (31%) | 4.9 MB (30%) |
+| A crew's secret | `StartingPromptIssued` 2,306, `CredentialRevoked` 2,289: once per crew, as the trierarch crews ships again | By age past the cutoff (R3) | 4,595 (9%) | 1.2 MB (7%) |
 | The fleet itself | Crew requests and their assignment (1,982), commission (240), retire (216), owners, plugins, network rules, labels, scopes, limits, rename | Kept for good | 2,806 (5%) | 0.7 MB (4%) |
 
-By count, with Q8's pick 3, 95% of events can go once past the cutoff and 5% stay for good; with pick 1, 86% and 14%; with pick 2, 55% and 45%.
+By count, with Q8 decided as 3, 95% of events go once past the cutoff and 5% stay for good (Q8's option 1 would have kept 14%, option 2 45%).
 
 Other facts from the same read:
 - Messages 31 MB, deliveries 22 MB with indexes. Of the Aeolus fleet's 8,511 messages, 64 are not finished (R2): 17 younger than 7 days, 47 between 7 and 30. Nothing is older than 30 days yet, so a 30-day retention would prune nothing today.
@@ -103,11 +105,12 @@ flowchart TD
   cut --> batch["Begin a batch"]
   batch --> pick["Pick up to N finished messages older than the cutoff (R2), their deliveries locked FOR UPDATE SKIP LOCKED"]
   pick --> recheck{"Every delivery still final, and no open question or meeting not ended?"}
-  recheck -->|"no, or a row skipped as locked"| leave["Leave that message for the next pass"]
-  recheck -->|yes| del1["Delete its events, its overdue rows, its deliveries; take its bytes off its day; delete the message"]
+  recheck -->|"no, or a row skipped as locked"| leave["Leave that message out, for the next pass"]
+  recheck -->|yes| take["In the set: the message, its deliveries, their events and overdue rows"]
   leave --> rest
-  del1 --> rest["Delete, older than the cutoff: crew-session events (Q8), ended leases no kept row names, invalidated credentials, ended console sessions with their dismissals and progress, used or expired sign-in tickets, reach refusals (Q9)"]
-  rest --> ev["Write HistoryPruned: cutoff and counts (R9)"]
+  take --> rest["Also in the set, older than the cutoff: crew session and secret events (R3), ended leases no kept row names, invalidated credentials, ended console sessions with their dismissals and progress, used or expired sign-in tickets, reach refusals (R4, R13)"]
+  rest --> go["Go (R16): delete the set, children first; take each message's bytes off its day (R6). #1230's export takes this place or runs just before"]
+  go --> ev["Write HistoryPruned: cutoff and counts (R9)"]
   ev --> commit["Commit"]
   commit --> more{"Rows left older than the cutoff, and time budget left?"}
   more -->|yes| batch
@@ -132,9 +135,9 @@ flowchart TD
   i(["An acknowledged delivery on an open pushed lease"]) --> i1["Not final: kept until handled, not handled or its lease ends (L2)"]
 ```
 
-## 6. Questions for Thomas
+## 6. Questions (decided by Thomas, 25 Oct)
 
-### Q7. A question withdrawn or replaced but never answered
+### Q7. A question withdrawn or replaced but never answered (decided: 1)
 
 Core sees an answer (a reply to its question) but not a withdrawal or a replacement, which name the question only in their payload (L21). Under R2 a withdrawn question is open to core, so kept for good.
 
@@ -144,7 +147,7 @@ Core sees an answer (a reply to its question) but not a withdrawal or a replacem
 
 Pick: 1. Few rows, no new rule; 2 is right if withdrawals turn out common.
 
-### Q8. Do the crew's session and secret events go by age?
+### Q8. Do the crew's session and secret events go by age? (decided: 3)
 
 Q3's pick named "sends, receives, hand-overs, turns" as the bulk that goes. A ship's claims, lease ends, pushes, reports, statements and crew statuses are not a message's but are the same traffic; so is each crew's secret, issued and revoked once per crew (section 4).
 
@@ -154,7 +157,7 @@ Q3's pick named "sends, receives, hand-overs, turns" as the bulk that goes. A sh
 
 Pick: 3. What stays is what the fleet manager changed; the rest repeats with every crew, and a ship's timeline still shows its crews within the retention.
 
-### Q9. Reach refusals
+### Q9. Reach refusals (decided: 1)
 
 A refusal stores its record, read with `fleet:explain` (0034). It is not in #1080's list but only grows.
 
@@ -168,6 +171,6 @@ Pick: 1. It is finished history of a call that stored nothing.
 | # | Slice | Done when |
 | --- | --- | --- |
 | S1 | **Retention as configuration** (R1): the setting on the installation and per fleet, `FleetLimitsChanged`, `fleet.limits`, the console's limits | Set, read and shown; the decision record, blueprint and architecture state retention; nothing pruned yet |
-| S2 | **Pruning messages** (R2, R6, R7, R8, R9, R11, R12, R14): the pass, batches, `HistoryPruned`, storage, the reference keys, the not-kept text | The R14 tests pass by name; staging prunes a seeded fleet within the performance budgets |
-| S3 | **Pruning the rest** (R3 crew sessions per Q8, R4, R13): events by age, leases, credentials, sessions, tickets, refusals | Their tests pass by name |
+| S2 | **Pruning messages** (R2, R6, R7, R8, R9, R11, R12, R14, R15, R16): the pass, batches, `HistoryPruned`, storage, the reference keys, the not-kept text | The R14 tests pass by name; staging prunes a seeded fleet within the performance budgets |
+| S3 | **Pruning the rest** (R3, R4, R13), each a part of the batch's one set (R16): events by age, leases, credentials, sessions, tickets, refusals | Their tests pass by name |
 | S4 | **Where history begins** (R10): `kept_from` on the timeline, thread and Health | Walked on staging |
