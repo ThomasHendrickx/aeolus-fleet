@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
 import { createPrismaClient } from '../src/adapters/prisma/client.js';
+import { createApp } from '../src/app.js';
 import { listenForPendingDeliveries, type DeliveryListener } from '../src/adapters/prisma/delivery-notices.js';
 import { createPrismaFleetRepository } from '../src/adapters/prisma/registry.js';
 import { createPrismaScheduleAttempts } from '../src/adapters/prisma/schedules.js';
@@ -367,5 +368,35 @@ describe('a restart after commit', () => {
     }
 
     expect(await messagesOf(scheduleId)).toHaveLength(1);
+  });
+});
+
+describe('running servers', () => {
+  /** Long enough that only a server's timer sends within a test: the 30 second pass never runs. */
+  const NO_PASS_MS = 600_000;
+
+  it("send a schedule at its time by a server's timer, told by the NOTIFY of its creation, once across two servers", async () => {
+    const servers = [
+      createApp({ databaseUrl: core.databaseUrl, publicUrl: 'http://localhost:3000', logger: false, overduePassMs: NO_PASS_MS }),
+      createApp({ databaseUrl: core.databaseUrl, publicUrl: 'http://localhost:3000', logger: false, overduePassMs: NO_PASS_MS }),
+    ];
+    try {
+      await Promise.all(servers.map((server) => server.ready()));
+      // Long enough for both servers to listen and run their first send before the schedule is made.
+      await new Promise((resolve) => setTimeout(resolve, 1_500));
+      core.clock.set(new Date().toISOString());
+      const scheduleId = await scheduled(aSchedule({ timing: { kind: 'once', at: new Date(Date.now() + 1_000) } }));
+      expect(await messagesOf(scheduleId)).toEqual([]);
+
+      const until = Date.now() + 5_000;
+      while ((await messagesOf(scheduleId)).length === 0 && Date.now() < until) {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1_000));
+
+      expect(await messagesOf(scheduleId)).toHaveLength(1);
+    } finally {
+      await Promise.all(servers.map((server) => server.close()));
+    }
   });
 });
