@@ -4,7 +4,7 @@ import { createInMemoryCore } from '../../../test/support/in-memory.js';
 import { createGetInstallationSettings } from './get-installation-settings.js';
 
 describe("reading the installation's settings", () => {
-  it('answers no limit for each until one is set: an installation sets no limit of its own', async () => {
+  it('answers no limit and no retention until one is set: an installation sets none of its own', async () => {
     const core = createInMemoryCore();
 
     await expect(createGetInstallationSettings({ settings: core.installationSettings })()).resolves.toEqual({
@@ -12,6 +12,7 @@ describe("reading the installation's settings", () => {
       defaultDailyMessageLimit: null,
       defaultSchedulesPerShipLimit: null,
       defaultMinimumScheduleInterval: null,
+      defaultRetentionDays: null,
       fleetCap: null,
     });
   });

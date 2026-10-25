@@ -275,6 +275,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_send_to_a_label$/),
       expect.stringMatching(/^\d{14}_define_scope$/),
       expect.stringMatching(/^\d{14}_defined_scopes$/),
+      expect.stringMatching(/^\d{14}_retention$/),
     ]);
   });
 });

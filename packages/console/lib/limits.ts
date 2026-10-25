@@ -38,9 +38,17 @@ export function meterCaption(metered: Metered): string | undefined {
   return state === 'below' ? `${counted(limit - count)} left` : state === 'at' ? 'Limit reached' : `${counted(count - limit)} over the limit`;
 }
 
-/** Whether any limit applies to the fleet: without one, the console shows no meters. */
+/** Whether any limit or a retention applies to the fleet: without one, the console shows no limits. */
 export function hasLimits(limits: FleetLimitsOutput | undefined): limits is FleetLimitsOutput {
-  return limits !== undefined && (limits.ships.limit !== null || limits.dailyMessages.limit !== null);
+  return limits !== undefined && (limits.ships.limit !== null || limits.dailyMessages.limit !== null || limits.retention.days !== null);
+}
+
+/** The line under the meters: how long the fleet keeps its finished history, or that it keeps it for good, so nothing goes silently. */
+export function retentionLine({ days }: FleetLimitsOutput['retention']): string {
+  if (days === null) {
+    return 'Finished history is kept for good';
+  }
+  return `Finished history is kept for ${counted(days)} ${days === 1 ? 'day' : 'days'}`;
 }
 
 /** A count as the meters write it: 1,000. */

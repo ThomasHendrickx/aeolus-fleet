@@ -440,7 +440,9 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         }
         const set = state.fleetLimitSettings.find((held) => held.fleetId === fleetId);
         return Promise.resolve(
-          set ? { ships: set.ships, dailyMessages: set.dailyMessages, schedulesPerShip: set.schedulesPerShip, minimumScheduleInterval: set.minimumScheduleInterval } : FOLLOWING_DEFAULTS,
+          set
+            ? { ships: set.ships, dailyMessages: set.dailyMessages, schedulesPerShip: set.schedulesPerShip, minimumScheduleInterval: set.minimumScheduleInterval, retention: set.retention }
+            : FOLLOWING_DEFAULTS,
         );
       },
       setLimitSettings: (fleetId, settings) => {

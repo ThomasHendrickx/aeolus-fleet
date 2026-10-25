@@ -2,15 +2,17 @@
 
 import { useFleetLimits } from '../../../lib/fleet-limits';
 import { useHostedAccountUrl } from '../../../lib/hosted-account';
-import { hasLimits } from '../../../lib/limits';
+import { hasLimits, retentionLine } from '../../../lib/limits';
 import { LimitMeter } from '../ui/molecules/limit-meter';
 
 /**
  * The fleet's limits on the overview, when any applies (fleet.limits): ships
  * used of the ship limit, and messages sent today of the daily limit with when
  * it resets, as meters; a limit not set shows No limit beside one that is.
- * View limits opens the hosted account when the console knows it. With no
- * limit at all, as on a self-hosted installation, nothing shows.
+ * Under the meters, how long the fleet keeps its finished history, or that it
+ * keeps it for good. View limits opens the hosted account when the console
+ * knows it. With no limit and no retention at all, as on a self-hosted
+ * installation, nothing shows.
  */
 export function FleetLimits() {
   const limits = useFleetLimits().data;
@@ -34,6 +36,9 @@ export function FleetLimits() {
         <LimitMeter kind="ships" count={limits.ships.count} limit={limits.ships.limit} />
         <LimitMeter kind="messages" count={limits.dailyMessages.count} limit={limits.dailyMessages.limit} resetsAt={limits.dailyMessages.resetsAt} />
       </div>
+      <p data-testid="overview-limits-retention" className="text-meta text-muted-foreground">
+        {retentionLine(limits.retention)}
+      </p>
     </section>
   );
 }

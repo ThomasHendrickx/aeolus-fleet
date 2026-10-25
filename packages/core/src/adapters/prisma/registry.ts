@@ -68,6 +68,8 @@ export function createPrismaFleetRepository(db: Db): FleetRepository {
           schedulesPerShipLimit: true,
           minimumScheduleIntervalSet: true,
           minimumScheduleInterval: true,
+          retentionSet: true,
+          retentionDays: true,
         },
       });
       return row ? limitSettingsOf(row) : undefined;
@@ -84,6 +86,8 @@ export function createPrismaFleetRepository(db: Db): FleetRepository {
           schedulesPerShipLimit: settings.schedulesPerShip.kind === 'fleet' ? settings.schedulesPerShip.limit : null,
           minimumScheduleIntervalSet: settings.minimumScheduleInterval.kind === 'fleet',
           minimumScheduleInterval: settings.minimumScheduleInterval.kind === 'fleet' ? settings.minimumScheduleInterval.limit : null,
+          retentionSet: settings.retention.kind === 'fleet',
+          retentionDays: settings.retention.kind === 'fleet' ? settings.retention.days : null,
         },
       });
     },

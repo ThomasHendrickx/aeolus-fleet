@@ -327,6 +327,7 @@ describe("the fleet's schedules per ship limit", () => {
       dailyMessages: { kind: 'default' },
       schedulesPerShip: { kind: 'fleet', limit: null },
       minimumScheduleInterval: { kind: 'default' },
+      retention: { kind: 'default' },
     });
 
     await scheduled();

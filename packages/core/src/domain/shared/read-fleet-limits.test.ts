@@ -20,15 +20,16 @@ beforeEach(async () => {
 });
 
 describe("reading the caller's fleet's limits", () => {
-  it('gives no limit for either while none applies, with what each counts', async () => {
+  it('gives no limit for either and no retention while none applies, with what each counts', async () => {
     await expect(readLimits(argo)).resolves.toEqual({
       ships: { limit: null, count: 1 },
       dailyMessages: { limit: null, count: 0, resetsAt: new Date('2026-10-05T00:00:00.000Z') },
+      retention: { days: null },
     });
   });
 
   it("counts the ships that are not retired, argo included, and the messages stored since 00:00 UTC, against the limits that apply", async () => {
-    withInstallationSettings(core, { defaultShipLimit: 10, defaultDailyMessageLimit: 1000 });
+    withInstallationSettings(core, { defaultShipLimit: 10, defaultDailyMessageLimit: 1000, defaultRetentionDays: 30 });
     const scout = addAgentShip(core, { fleetId });
     addAgentShip(core, { fleetId, retiredAt: core.clock.now() });
     const crew = crewAboard(core, { fleetId, shipId: scout.shipId });
@@ -40,6 +41,7 @@ describe("reading the caller's fleet's limits", () => {
     await expect(readLimits(argo)).resolves.toEqual({
       ships: { limit: 10, count: 2 },
       dailyMessages: { limit: 1000, count: 1, resetsAt: new Date('2026-10-05T00:00:00.000Z') },
+      retention: { days: 30 },
     });
   });
 });

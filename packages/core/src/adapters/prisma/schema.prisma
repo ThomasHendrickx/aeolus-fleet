@@ -48,6 +48,9 @@ model Fleet {
   schedulesPerShipLimit      Int?     @map("schedules_per_ship_limit")
   minimumScheduleIntervalSet Boolean  @default(false) @map("minimum_schedule_interval_set")
   minimumScheduleInterval    Int?     @map("minimum_schedule_interval")
+  /// The same for its retention in days (decision 0066): null for kept for good.
+  retentionSet               Boolean  @default(false) @map("retention_set")
+  retentionDays              Int?     @map("retention_days")
 
   ships                            Ship[]
   leases                           Lease[]
@@ -1159,15 +1162,17 @@ enum SignInAs {
 }
 
 /// The installation's settings (decision 0020): the default ship, daily message,
-/// schedules per ship and minimum schedule interval (seconds) limits for fleets
-/// and the cap on fleets, each null for no limit. One row at most,
-/// and none until the installation sets them. Belongs to no fleet.
+/// schedules per ship and minimum schedule interval (seconds) limits and the
+/// default retention in days (decision 0066) for fleets, and the cap on fleets,
+/// each null for none. One row at most, and none until the installation sets
+/// them. Belongs to no fleet.
 model InstallationSettings {
   id                             Int  @id @default(1)
   defaultShipLimit               Int? @map("default_ship_limit")
   defaultDailyMessageLimit       Int? @map("default_daily_message_limit")
   defaultSchedulesPerShipLimit   Int? @map("default_schedules_per_ship_limit")
   defaultMinimumScheduleInterval Int? @map("default_minimum_schedule_interval")
+  defaultRetentionDays           Int? @map("default_retention_days")
   fleetCap                       Int? @map("fleet_cap")
 
   @@map("installation_settings")

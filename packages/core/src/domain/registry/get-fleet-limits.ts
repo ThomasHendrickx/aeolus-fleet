@@ -13,7 +13,7 @@ export interface GetFleetLimitsTx {
 
 export type GetFleetLimits = (input: { fleetId: FleetId }) => Promise<Result<FleetLimits, DomainError<'FLEET_NOT_FOUND'>>>;
 
-/** Use case: a fleet's ship and daily message limits, how each is set and the limit that applies. */
+/** Use case: a fleet's ship and daily message limits and its retention, how each is set and the limit or days that apply. */
 export function createGetFleetLimits(deps: { uow: UnitOfWork<GetFleetLimitsTx> }): GetFleetLimits {
   return ({ fleetId }) =>
     deps.uow.run(async (tx): Promise<Result<FleetLimits, DomainError<'FLEET_NOT_FOUND'>>> => {
