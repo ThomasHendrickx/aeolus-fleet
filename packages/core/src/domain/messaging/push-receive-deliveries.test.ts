@@ -97,7 +97,7 @@ describe('a push receive', () => {
     }
     const eleventh = await sendTo(toScout());
 
-    const input = { max: 10, onlyNeverHanded: true };
+    const input = { max: 10, shouldSkipHanded: true };
     const { deliveries } = unwrap(await useCases.pushReceiveDeliveries(scout, input));
 
     expect(deliveries.map((delivery) => delivery.deliveryId)).toEqual([eleventh]);

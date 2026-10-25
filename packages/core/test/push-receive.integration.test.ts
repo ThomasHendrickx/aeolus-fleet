@@ -101,7 +101,7 @@ describe('a push receive on Postgres', () => {
     }
     const eleventh = await sendTo(toShip(scout));
 
-    const input = { max: 10, onlyNeverHanded: true };
+    const input = { max: 10, shouldSkipHanded: true };
     const { deliveries } = unwrap(await useCases.pushReceiveDeliveries(scout, input));
 
     expect(deliveries.map((delivery) => delivery.deliveryId)).toEqual([eleventh]);
