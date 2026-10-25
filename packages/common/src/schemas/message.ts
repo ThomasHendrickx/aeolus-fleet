@@ -4,6 +4,7 @@ import { idSchema } from '../ids/index.js';
 import { PAYLOAD_MAX_BYTES, payloadBytes } from '../rules/payload.js';
 import { shipHandleSchema } from './fleet.js';
 import { idempotencyKeySchema } from './idempotency-key.js';
+import { SHIP_LABELS_MAX } from './label.js';
 
 /**
  * Inputs and outputs of sending a message (`ship.send`): who it is for, its
@@ -60,15 +61,31 @@ export const modelSchema = z
   .regex(/^\S+$/, 'A model id has no spaces');
 
 /**
+ * A label selection a message is sent to (decision 0063): one value id up to
+ * as many as a ship carries, each once; exact and AND, so a ship carrying
+ * every value gets a delivery. Ids only, never texts (decision 0031).
+ */
+export const labelValuesSelectorSchema = z.strictObject({
+  kind: z.literal('label'),
+  valueIds: z
+    .array(idSchema('labelValue'))
+    .min(1, 'A label selection names at least one value id')
+    .max(SHIP_LABELS_MAX, `A label selection names at most ${String(SHIP_LABELS_MAX)} value ids, as many as a ship carries`)
+    .refine((valueIds) => new Set(valueIds).size === valueIds.length, 'A label selection names each value id once'),
+});
+
+/**
  * Who a message is for (docs/blueprint.md, "Selector"): one ship, by id or by
- * name, any ship of a type, or every other participant of a meeting (decision
- * 0061). A name is resolved to the ship's id at send time.
+ * name, any ship of a type, every other participant of a meeting (decision
+ * 0061), or every ship a label selection names (decision 0063). A name is
+ * resolved to the ship's id at send time.
  */
 export const selectorSchema = z.union([
   z.strictObject({ kind: z.literal('ship'), shipId: idSchema('ship') }),
   z.strictObject({ kind: z.literal('ship'), name: shipHandleSchema }),
   z.strictObject({ kind: z.literal('type'), type: shipHandleSchema }),
   z.strictObject({ kind: z.literal('meeting'), meetingId: idSchema('meeting') }),
+  labelValuesSelectorSchema,
 ]);
 
 /** A selector of one ship, by id or by name, or of a type: what a schedule sends to (decision 0062), never a meeting. */
