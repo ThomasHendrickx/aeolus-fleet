@@ -441,6 +441,20 @@ describe("the pruning pass, the rest of a fleet's finished history (S3)", () => 
     expect(ended).not.toBe(live);
   });
 
+  it('lets a console session that expired before the cutoff go, never ended, with its notice dismissals and guide progress', async () => {
+    retainFor(30);
+    const expired = aConsoleSession(null);
+    scene.core.clock.advance(31 * DAY_MS);
+    const live = aConsoleSession(null);
+
+    await pass();
+
+    expect(scene.core.state.consoleSessions.map((session) => session.id)).toEqual([live]);
+    expect(scene.core.state.noticeDismissals).toHaveLength(1);
+    expect(scene.core.state.guideProgress).toHaveLength(1);
+    expect(expired).not.toBe(live);
+  });
+
   it('lets a sign-in ticket used or expired before the cutoff go', async () => {
     retainFor(30);
     const at = scene.core.clock.now();

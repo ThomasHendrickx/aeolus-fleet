@@ -359,6 +359,16 @@ describe("a pruning pass on Postgres, the rest of a fleet's finished history (S3
     expect(await core.prisma.lease.count({ where: { id: live[0]?.leaseId ?? undefined } })).toBe(1);
   });
 
+  it('lets a console session that expired before the cutoff go, never ended, and keeps the open lease it held', async () => {
+    await signIn();
+    const expired = await core.prisma.consoleSession.findFirstOrThrow({ where: { fleetId: argo.fleetId } });
+
+    await passAfter(expired.expiresAt.getTime() - core.clock.now().getTime() + (RETENTION_DAYS + 1) * DAY_MS);
+
+    expect(await core.prisma.consoleSession.count({ where: { id: expired.id } })).toBe(0);
+    expect(await core.prisma.lease.count({ where: { id: expired.leaseId ?? undefined, endedAt: null } })).toBe(1);
+  });
+
   it('keeps an ended lease a live console session names', async () => {
     await signIn();
     const session = await core.prisma.consoleSession.findFirstOrThrow({ where: { fleetId: argo.fleetId } });
