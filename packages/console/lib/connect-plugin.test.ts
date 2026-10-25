@@ -1,7 +1,7 @@
 import type { ShipKind, ShipStatus } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { ConnectPluginError, connectPlugin, GATEWAY_SHIP, SQUADRONS_SHIP, TRIERARCH_PLUGIN_SHIP, type ConnectCalls, type PluginConnection } from './connect-plugin';
+import { ConnectPluginError, connectPlugin, GATEWAY_SHIP, missingScopesOf, SQUADRONS_SHIP, TRIERARCH_PLUGIN_SHIP, type ConnectCalls, type PluginConnection } from './connect-plugin';
 
 interface FleetShip {
   id: string;
@@ -37,6 +37,7 @@ function fakes(start: { ships?: FleetShip[]; connection?: PluginConnection } = {
       state.connection = { isEnabled: true, state: 'connected', ship: { shipId: ship.id, name: ship.name }, lastShipId: ship.id };
       return Promise.resolve(state.connection);
     },
+    shipScopes: (shipId) => Promise.resolve(state.ships.find((each) => each.id === shipId)?.scopes),
     ships: () => Promise.resolve(state.ships.map(({ id, name, type, kind, status, scopes }) => ({ id, name, type, kind, status, scopes }))),
     grantScopes: (shipId, grant) => {
       const ship = state.ships.find((each) => each.id === shipId);
@@ -260,5 +261,45 @@ describe("an existing plugin ship holds every scope its plugin's ship lists (#11
     });
     await connectPlugin(connected.calls, { ship: wanted, newKey });
     expect(connected.state.ships[0]?.scopes).toEqual(wanted.scopes);
+  });
+});
+
+describe("a connected plugin's ship missing a scope its plugin lists, as Settings shows it (#1226)", () => {
+  /** The trierarch plugin's ship as commissioned before it listed scopes:declare. */
+  const BEFORE_SCOPES_DECLARE = ['fleet:read', 'fleet:commission', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign'];
+  const connected: PluginConnection = { isEnabled: true, state: 'connected', ship: { shipId: 'shp_4', name: 'trierarch-plugin' }, lastShipId: 'shp_4' };
+  const connectedShip = (scopes: readonly string[]): FleetShip => ({ id: 'shp_4', name: 'trierarch-plugin', type: 'trierarch-plugin', kind: 'plugin', status: 'crewed', secret: null, scopes });
+
+  it('names the scopes the plugin lists that its connected ship lacks', async () => {
+    const { calls } = fakes({ ships: [connectedShip(BEFORE_SCOPES_DECLARE)], connection: connected });
+
+    await expect(missingScopesOf(calls, { connection: connected, wanted: TRIERARCH_PLUGIN_SHIP })).resolves.toEqual(['scopes:declare']);
+  });
+
+  it('names none once connecting again granted them', async () => {
+    const { calls } = fakes({ ships: [connectedShip(BEFORE_SCOPES_DECLARE)], connection: connected });
+
+    const connection = await connectPlugin(calls, { ship: TRIERARCH_PLUGIN_SHIP, newKey });
+
+    await expect(missingScopesOf(calls, { connection, wanted: TRIERARCH_PLUGIN_SHIP })).resolves.toEqual([]);
+  });
+
+  it('names none for a connected ship that holds every scope, and more', async () => {
+    const { calls } = fakes({ ships: [connectedShip(['messages:send', ...TRIERARCH_PLUGIN_SHIP.scopes])], connection: connected });
+
+    await expect(missingScopesOf(calls, { connection: connected, wanted: TRIERARCH_PLUGIN_SHIP })).resolves.toEqual([]);
+  });
+
+  it('names none while the plugin is not connected, and reads no ship', async () => {
+    const notConnected: PluginConnection = { isEnabled: true, state: 'not-connected', ship: null, lastShipId: 'shp_4' };
+    const { calls } = fakes({ ships: [connectedShip([])], connection: notConnected });
+
+    await expect(missingScopesOf(calls, { connection: notConnected, wanted: TRIERARCH_PLUGIN_SHIP })).resolves.toEqual([]);
+  });
+
+  it('names none when the fleet shows the ship without its scopes, as out of read reach: it claims no lack it cannot see', async () => {
+    const { calls } = fakes({ connection: connected });
+
+    await expect(missingScopesOf(calls, { connection: connected, wanted: TRIERARCH_PLUGIN_SHIP })).resolves.toEqual([]);
   });
 });
