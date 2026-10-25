@@ -2,7 +2,7 @@
 
 Design for [#1152](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1152) (part A) and [#1227](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1227) with [#1078](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1078) (part B), as one gateway design. Part A ships in Aeolus 0.32.0, part B in 0.33.0. Docs only.
 
-Part A: approved by Thomas (25 Oct); the build starts from its slices. Part B: stage 2, the detail, from Thomas's answers (25 Oct), for Thomas's review.
+Part A: approved by Thomas (25 Oct); the build starts from its slices. Part B: stage 2, the detail, every question answered (25 Oct), ready for Thomas's approval.
 
 ## 1. Purpose
 
@@ -204,7 +204,7 @@ These change W1 (Slack joins web push and email as a channel; still no chat webh
 
 ### 9.2 Exposing a ship as a bot
 
-- An actor holding `gateway:slack`, within manage reach of the ship (B6), picks an agent ship (Combobox) and presses Expose. Agent ships only in 0.33.0 (P-B3).
+- An actor holding `gateway:slack`, within manage reach of the ship (B6), picks an agent ship or an outside A2A agent's proxy ship (Combobox) and presses Expose (P-B3). An outside MCP server's proxy ship is not offered: it takes tool calls, not a person's words.
 - The gateway makes the ship's Slack app from a manifest (`apps.manifest.create`, at most about one a minute): the ship's name as the bot's name, its statement's summary (0047) as the description, a direct messages tab, the events `message.im` and `app_mention`, the bot scopes to read those and to post (`chat:write`, `im:history`, `app_mentions:read`, `reactions:write`), the gateway's events and actions addresses. The signing secret and client credentials go into the vault.
 - Then Install opens Slack's install screen; the bot token Slack returns goes into the vault. Where the workspace makes apps wait for an admin's approval, the page says so ("Waiting for your Slack admin"), and Install works once approved.
 - The bot is tied to the ship by its id, never its name (L20). A rename updates the bot's name in Slack (`apps.manifest.update`) the next time the gateway reads the ship; until then the page shows both names.
@@ -270,7 +270,7 @@ Unhappy paths:
 | --- | --- |
 | P-B1 | **Yes: linking lets a person talk to bots both ways**; the Slack switch covers only messages from ships that are not bots. Outcome 4 of the purpose reads: linking turns Slack on for bots |
 | P-B2 | **Save first: the gateway stores the event, answers Slack, then sends to core until core stored it.** Thomas: "save first, but this is temporary. Gateway does not cummulate." Kept as 9.4 step 3 says |
-| P-B3 | **Agent ships only for now.** Thomas: "could be a really neat usecase though" |
+| P-B3 | **Agent ships and outside A2A agents' proxy ships can be bots; outside MCP servers' proxy ships cannot.** An MCP server reaches Slack through an agent ship that uses its tools, exposed as a bot. Thomas: "ok lets include A2A but exclude mcp. Exposing an mcp to slack through an agent is spinning up a dedicated ship that mediates between mcp and slack but that is the exact agent ship path." |
 | P-B4 | **A fleet connects one workspace; a workspace may serve several fleets.** Thomas: "if ever needs change we pick it up then" |
 
 On P-B3, Thomas asked: "what is the difference between agents ships and proxy ships for the slack bot model?"
@@ -285,7 +285,7 @@ All in aeolus-fleet-gateway; core and pagasae unchanged (`handed` takes the chan
 | # | Slice | Done when |
 | --- | --- | --- |
 | S5 | Connect a workspace: configuration token in the vault and its rotation, the gateway's bot, `gateway:slack` declared, the Slack page | Tested against a Slack double; refused and expired tokens shown |
-| S6 | Expose a ship: app from manifest, install, admin approval, removal in Slack, rename and retire | Each state on the page; ids, never names |
+| S6 | Expose a ship, an agent ship or an A2A agent's proxy ship (never an MCP server's): app from manifest, install, admin approval, removal in Slack, rename and retire | Each state on the page; ids, never names |
 | S7 | Link a Slack account: Sign in with Slack from the Overview and from a first message; unlink; disabled accounts | A second link refused; an unlinked message never stored |
 | S8 | Slack into the fleet: events, signatures, the gateway's store, sending as the person ship, retries by `event_id`, threads, reactions and refusals | A Slack retry and a core outage each give exactly one message |
 | S9 | The fleet into Slack: where, what, hand-over and ack, answers in threads, questions as buttons, the gateway's bot and the switch, rate limits and fallbacks | Every delivery shown once, handed once; no wake for what Slack showed |
