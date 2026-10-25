@@ -18,7 +18,7 @@ import {
 
 import type { OverdueClock } from '../messaging/public.js';
 import type { Location, MessageParties } from '../registry/public.js';
-import type { StandingOverdue, WayCrew, WayLease } from './delivery-way.js';
+import type { DeliveryStateStep, StandingOverdue, WayCrew, WayLease } from './delivery-way.js';
 import type { EventDetails } from './events.js';
 import type { Page, PageQuery } from './page.js';
 
@@ -35,12 +35,19 @@ export interface HistoryParty {
   name: string;
 }
 
-/** Who a message was addressed to: one ship, any ship of a type, a meeting, or a label selection (decision 0065). */
+/** A label value of a selection by its texts; both null once its label no longer has the value. */
+export interface HistoryLabelValue {
+  valueId: LabelValueId;
+  key: string | null;
+  value: string | null;
+}
+
+/** Who a message was addressed to: one ship, any ship of a type, a meeting, or a label selection by its texts (decision 0065). */
 export type HistoryRecipient =
   | { kind: 'ship'; ship: HistoryParty }
   | { kind: 'type'; type: string }
   | { kind: 'meeting'; meetingId: MeetingId }
-  | { kind: 'label'; valueIds: readonly LabelValueId[] };
+  | { kind: 'label'; values: readonly HistoryLabelValue[] };
 
 /** One event on a ship's timeline, with its parties named. */
 export interface TimelineEntry {
@@ -164,13 +171,28 @@ export interface HistoryReply {
 }
 
 /**
+ * One delivery of a message: the ship it went to, or the ship of the type
+ * that claimed it (null while none has), its state, and the steps that tell
+ * when it entered it, newest first.
+ */
+export interface MessageDelivery {
+  id: DeliveryId;
+  ship: HistoryParty | null;
+  state: DeliveryState;
+  steps: DeliveryStateStep[];
+}
+
+/**
  * One message as the history reads it: its delivery's steps newest first,
  * its replies oldest first, and what its way is read from: the lease that
  * holds it or that a pending delivery to one ship waits for, the overdue
- * clock that stands, and the crew request of that lease's ship.
+ * clock that stands, and the crew request of that lease's ship. How many
+ * deliveries it has comes too: one per ship of a send to a label (decision
+ * 0065), whose first by id is the delivery above.
  */
 export type MessageRead = HistoryMessage & {
   history: DeliveryChange[];
+  deliveryCount: number;
   replies: HistoryReply[];
   lease: WayLease | null;
   overdue: StandingOverdue | null;
@@ -259,6 +281,8 @@ export interface ShipHistory {
   messages(fleetId: FleetId, query: { shipId: ShipId } & PageQuery<MessageId>): Promise<Page<HistoryMessage, MessageId> | undefined>;
   /** The message, with its delivery's steps newest first and what its way is read from. */
   message(fleetId: FleetId, messageId: MessageId): Promise<MessageRead | undefined>;
+  /** A page of the message's deliveries by id, after the delivery the cursor names; empty when the fleet has no such message. */
+  messageDeliveries(fleetId: FleetId, query: { messageId: MessageId } & PageQuery<DeliveryId>): Promise<Page<MessageDelivery, DeliveryId>>;
   /**
    * A page of the undeliverable or not handled deliveries, or those in one
    * of the two states, the fleet's or those naming one ship, oldest first by since when, after the delivery the

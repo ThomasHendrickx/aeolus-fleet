@@ -264,6 +264,7 @@ export function createLiveFleetHandler(input: {
       // A delivery to a type waits for every ship of the type; an overdue one clears as its delivery moves on.
       reload(trpc.fleet.shipWay.pathKey());
       reload(trpc.fleet.message.queryKey({ messageId: event.messageId }));
+      reload(trpc.fleet.messageDeliveries.infiniteQueryKey({ messageId: event.messageId }));
       reload(trpc.fleet.inbox.pathKey());
       reload(trpc.fleet.inboxCount.queryKey());
       reload(INBOX_KEY);

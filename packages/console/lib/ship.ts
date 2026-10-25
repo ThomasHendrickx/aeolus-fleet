@@ -56,6 +56,16 @@ export function useMessage(messageId: MessageId | undefined) {
   return useQuery(trpc.fleet.message.queryOptions(messageId === undefined ? skipToken : { messageId }));
 }
 
+/** The deliveries of a send to a label, by id, a page at a time; idle while no message is given. */
+export function useMessageDeliveries(messageId: MessageId | undefined) {
+  const trpc = useTRPC();
+  return pagedListOf(
+    useInfiniteQuery(
+      trpc.fleet.messageDeliveries.infiniteQueryOptions(messageId === undefined ? skipToken : { messageId, limit: CONSOLE_PAGE_SIZE }, { getNextPageParam: nextCursorOf }),
+    ),
+  );
+}
+
 /** A ship's side of the way: the part that serves it, its turn and its oldest delivery waiting (#756). */
 export function useShipWay(shipId: ShipId) {
   const trpc = useTRPC();

@@ -1,4 +1,4 @@
-import type { MessageId } from '@aeolus-fleet/common';
+import { idSchema, type MessageId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
@@ -61,7 +61,37 @@ describe('a sender reading its sent message on Postgres', () => {
     expect(unwrap(await useCases.sentMessage(scout, { messageId }))).toMatchObject({
       messageId,
       recipient: { kind: 'ship', ship: { id: lookout.shipId, name: 'lookout' } },
-      delivery: { state: 'handed', since: handed.occurredAt },
+      deliveries: [{ ship: { id: lookout.shipId, name: 'lookout' }, state: 'handed', since: handed.occurredAt }],
+    });
+  });
+
+  it('gives every delivery of its send to a label, each with its ship, state and since when, and the selection as sent (decision 0065)', async () => {
+    const watcher = await crewedReviewer('watcher');
+    const team = unwrap(await useCases.defineLabel(argo, { key: 'team', values: ['a'] }));
+    const teamA = team.values[0]?.id;
+    if (teamA === undefined) {
+      throw new Error('team has no value a');
+    }
+    for (const ship of [scout, lookout, watcher]) {
+      unwrap(await useCases.assignLabel(argo, { shipId: ship.shipId, valueId: teamA }));
+    }
+    const { messageId } = unwrap(
+      await useCases.sendMessage(argo, { selector: { kind: 'label', valueIds: [teamA] }, payload: 'main is red', contentType: 'text/plain', idempotencyKey: newKey() }),
+    );
+    unwrap(await useCases.receiveDeliveries(lookout, {}));
+    unwrap(await useCases.receiveDeliveries(watcher, {}));
+    const [watcherDelivery] = await prisma.delivery.findMany({ where: { messageId, recipientShipId: watcher.shipId } });
+    unwrap(await useCases.acknowledgeDelivery(watcher, { deliveryId: idSchema('delivery').parse(watcherDelivery?.id) }));
+    const at = async (type: 'DeliveryHanded' | 'DeliveryAcknowledged', shipId: string) => (await prisma.event.findFirstOrThrow({ where: { messageId, type, shipId } })).occurredAt;
+    const accepted = await prisma.event.findFirstOrThrow({ where: { messageId, type: 'MessageAccepted', delivery: { recipientShipId: scout.shipId } } });
+
+    expect(unwrap(await useCases.sentMessage(argo, { messageId }))).toMatchObject({
+      recipient: { kind: 'label', valueIds: [teamA] },
+      deliveries: [
+        { ship: { id: scout.shipId, name: 'scout' }, state: 'pending', since: accepted.occurredAt },
+        { ship: { id: lookout.shipId, name: 'lookout' }, state: 'handed', since: await at('DeliveryHanded', lookout.shipId) },
+        { ship: { id: watcher.shipId, name: 'watcher' }, state: 'acknowledged', since: await at('DeliveryAcknowledged', watcher.shipId) },
+      ],
     });
   });
 

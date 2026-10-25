@@ -10,6 +10,8 @@ import { ok, type Result } from './result.js';
 export type MessageDetail = HistoryMessage & {
   replies: HistoryReply[];
   delivery: HistoryMessage['delivery'] & { way: DeliveryWay; history: DeliveryChange[] };
+  /** How many deliveries it has: one per ship for a label (decision 0065). */
+  deliveryCount: number;
 };
 
 export type ReadMessage = (
@@ -21,7 +23,8 @@ export type ReadMessage = (
  * Use case: one message of the caller's fleet: its envelope, its whole
  * payload, its replies, and its delivery's way through: who holds it, since
  * when, the clocks that speak for it and every step newest first, from the
- * event log. A message outside the caller's read reach is answered as none,
+ * event log; and how many deliveries it has, one per ship for a label
+ * (decision 0065). A message outside the caller's read reach is answered as none,
  * so its existence does not show (decision 0034). The caller's scope
  * (fleet:read) is checked before this runs.
  */

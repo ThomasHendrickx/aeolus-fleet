@@ -16,9 +16,18 @@ describe('recipientGroupWords', () => {
     expect(recipientGroupWords({ kind: 'meeting', meetingId })).toBe(`every other participant of meeting ${meetingId}`);
   });
 
-  it('says a send to a label went to every ship carrying its values (decision 0065)', () => {
-    const [team, site] = [newId('labelValue'), newId('labelValue')];
+  it('says a send to a label went to every ship carrying its values, each by its key and value (decision 0065)', () => {
+    const values = [
+      { valueId: newId('labelValue'), key: 'team', value: 'a' },
+      { valueId: newId('labelValue'), key: 'site', value: 'north' },
+    ];
 
-    expect(recipientGroupWords({ kind: 'label', valueIds: [team, site] })).toBe(`every ship carrying ${team} and ${site}`);
+    expect(recipientGroupWords({ kind: 'label', values })).toBe('every ship carrying team=a and site=north');
+  });
+
+  it('names a value its label no longer has by its id', () => {
+    const valueId = newId('labelValue');
+
+    expect(recipientGroupWords({ kind: 'label', values: [{ valueId, key: null, value: null }] })).toBe(`every ship carrying ${valueId}`);
   });
 });

@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { deliveryStateSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
-import { leaseWakerSchema, messageRecipientSchema } from './history.js';
+import { leaseWakerSchema, partySchema } from './history.js';
 import { isOneLine } from './report.js';
 
 /**
@@ -235,14 +235,24 @@ export const sentMessageInputSchema = z.object({ messageId: idSchema('message') 
 export type SentMessageInput = z.infer<typeof sentMessageInputSchema>;
 
 /**
- * Output of `ship.sentMessage`: where the delivery of a message its sender
- * sent stands, and since when, with its recipient by name or type. No payload.
+ * Output of `ship.sentMessage`: where each delivery of a message its sender
+ * sent stands, and since when, with its ship (null while no ship of a type
+ * claimed it): one for a ship or a type, one per ship for a label (decision
+ * 0065). Its recipient by name, type or value ids. No payload.
  */
 export const sentMessageOutputSchema = z.object({
   messageId: idSchema('message'),
   sentAt: z.iso.datetime(),
-  recipient: messageRecipientSchema,
-  delivery: z.object({ deliveryId: idSchema('delivery'), state: deliveryStateSchema, since: z.iso.datetime() }),
+  /** A label selection by its value ids as sent: its texts are read with fleet:read only. */
+  recipient: z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('ship'), ship: partySchema }),
+    z.object({ kind: z.literal('type'), type: z.string() }),
+    z.object({ kind: z.literal('meeting'), meetingId: idSchema('meeting') }),
+    z.object({ kind: z.literal('label'), valueIds: z.array(idSchema('labelValue')).readonly() }),
+  ]),
+  deliveries: z.array(
+    z.object({ deliveryId: idSchema('delivery'), ship: partySchema.nullable(), state: deliveryStateSchema, since: z.iso.datetime() }),
+  ),
 });
 
 export type SentMessageOutput = z.infer<typeof sentMessageOutputSchema>;

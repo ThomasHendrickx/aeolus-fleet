@@ -20,6 +20,8 @@ import {
   markReadInputSchema,
   fleetLimitsOutputSchema,
   fleetListOutputSchema,
+  messageDeliveriesInputSchema,
+  messageDeliveriesOutputSchema,
   messageInputSchema,
   messageOutputSchema,
   needsAttentionInputSchema,
@@ -1016,7 +1018,7 @@ export const fleetRouter = router({
       return { items: items.map((message) => ({ ...message, sentAt: message.sentAt.toISOString() })), nextCursor };
     }),
 
-  /** One message: envelope, payload, its replies, and its delivery's way through with every step, newest first. */
+  /** One message: envelope, payload, its replies, its delivery's way through with every step, newest first, and how many deliveries it has. */
   message: actorScopedProcedure('fleet:read')
     .input(messageInputSchema)
     .output(messageOutputSchema)
@@ -1032,6 +1034,15 @@ export const fleetRouter = router({
           history: message.delivery.history.map((change) => ({ ...change, occurredAt: change.occurredAt.toISOString() })),
         },
       };
+    }),
+
+  /** A page of a message's deliveries by id, each with its ship, state and since when: one per ship for a label. */
+  messageDeliveries: actorScopedProcedure('fleet:read')
+    .input(messageDeliveriesInputSchema)
+    .output(messageDeliveriesOutputSchema)
+    .query(async ({ ctx, input }) => {
+      const { items, nextCursor } = okOrThrow(await ctx.useCases.readMessageDeliveries(ctx.caller, input));
+      return { items: items.map((delivery) => ({ ...delivery, since: delivery.since.toISOString() })), nextCursor };
     }),
 
   /** A ship's side of the way: the part that serves its lease, its turn, and its oldest delivery waiting with its way. */
