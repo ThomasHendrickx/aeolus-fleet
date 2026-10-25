@@ -912,7 +912,7 @@ model Delivery {
   @@index([fleetId, claimedByLeaseId, state])
   /// Every foreign key has an index leading with its columns, so deleting a
   /// referenced row checks it with an index, not a scan (#331).
-  @@index([fleetId, messageId])
+  @@index([fleetId, messageId, id])
   @@index([fleetId, claimedByShipId])
   @@map("deliveries")
 }

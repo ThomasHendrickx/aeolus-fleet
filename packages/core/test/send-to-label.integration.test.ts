@@ -219,6 +219,39 @@ describe('a send to a label on Postgres', () => {
   });
 });
 
+describe('reading a send to a label on Postgres', () => {
+  it('names its selection by key and value texts in the message, the ship page list and the timeline (R10)', async () => {
+    const { messageId } = unwrap(await core.useCases.sendMessage(lead, toTeamA()));
+    const named = { kind: 'label', values: [{ valueId: teamA, key: 'team', value: 'a' }] };
+
+    expect(unwrap(await core.useCases.readMessage(argo, { messageId })).recipient).toEqual(named);
+    expect(unwrap(await core.useCases.readShipMessages(argo, { shipId: lead.shipId })).items.find((message) => message.id === messageId)?.recipient).toEqual(named);
+    expect(unwrap(await core.useCases.readShipTimeline(argo, { shipId: alpha.shipId })).items.find((entry) => entry.message?.id === messageId)?.message?.recipient).toEqual(named);
+  });
+
+  it('lists every delivery with its ship, a sender reading them by their value ids as sent', async () => {
+    const { messageId } = unwrap(await core.useCases.sendMessage(lead, toTeamA()));
+
+    const read = unwrap(await core.useCases.readMessageDeliveries(argo, { messageId }));
+    const sent = unwrap(await core.useCases.sentMessage(lead, { messageId }));
+
+    expect(read.items.map(({ ship, state }) => ({ shipId: ship?.id, state }))).toEqual(byId(alpha, bravo, charlie).map((shipId) => ({ shipId, state: 'pending' })));
+    expect(unwrap(await core.useCases.readMessage(argo, { messageId })).deliveryCount).toBe(3);
+    expect(sent.recipient).toEqual({ kind: 'label', valueIds: [teamA] });
+    expect(sent.deliveries.map(({ deliveryId }) => deliveryId)).toEqual(read.items.map(({ id }) => id));
+  });
+
+  it('pages the deliveries by id in the database, each page after the cursor the last one answered', async () => {
+    const { messageId } = unwrap(await core.useCases.sendMessage(lead, toTeamA()));
+
+    const first = unwrap(await core.useCases.readMessageDeliveries(argo, { messageId, limit: 2 }));
+    const second = unwrap(await core.useCases.readMessageDeliveries(argo, { messageId, limit: 2, ...(first.nextCursor ? { cursor: first.nextCursor } : {}) }));
+
+    expect([...first.items, ...second.items].map(({ ship }) => ship?.id)).toEqual(byId(alpha, bravo, charlie));
+    expect([first.items.length, first.nextCursor, second.items.length, second.nextCursor]).toEqual([2, first.items[1]?.id, 1, null]);
+  });
+});
+
 describe('a send to a label under network rules on Postgres', () => {
   it('refuses the whole send when one ship of the list is out of reach, storing only the refusal', async () => {
     const networking = await crewed('networking', ['fleet:network']);

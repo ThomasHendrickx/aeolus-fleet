@@ -27,13 +27,17 @@ export type Party = z.infer<typeof partySchema>;
 /**
  * Who a message was addressed to: one ship, any ship of a type, every other
  * participant of a meeting (decision 0061), or the ships of a label
- * selection, its value ids as sent (decision 0065).
+ * selection, each value by its key and value texts (decision 0065).
  */
 export const messageRecipientSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('ship'), ship: partySchema }),
   z.object({ kind: z.literal('type'), type: z.string() }),
   z.object({ kind: z.literal('meeting'), meetingId: idSchema('meeting') }),
-  z.object({ kind: z.literal('label'), valueIds: z.array(idSchema('labelValue')).readonly() }),
+  z.object({
+    kind: z.literal('label'),
+    /** Each value by its texts; both null once its label no longer has the value. */
+    values: z.array(z.object({ valueId: idSchema('labelValue'), key: z.string().nullable(), value: z.string().nullable() })).readonly(),
+  }),
 ]);
 
 export type MessageRecipient = z.infer<typeof messageRecipientSchema>;
@@ -260,7 +264,21 @@ export const messageReplySchema = z.object({ id: idSchema('message'), sender: pa
 
 export type MessageReply = z.infer<typeof messageReplySchema>;
 
-/** Output of `fleet.message`: the envelope, the payload, its replies and the delivery with its way and its history, newest first. */
+/**
+ * One delivery of a message as `fleet.message` lists it: the ship it went to,
+ * or the ship of the type that claimed it (null while none has), its state
+ * and since when.
+ */
+export const messageDeliverySchema = z.object({ id: idSchema('delivery'), ship: partySchema.nullable(), state: deliveryStateSchema, since: isoTime });
+
+export type MessageDelivery = z.infer<typeof messageDeliverySchema>;
+
+/**
+ * Output of `fleet.message`: the envelope, the payload, its replies and the
+ * delivery with its way and its history, newest first; and how many
+ * deliveries it has, one per ship for a label (decision 0065), whose first by
+ * id is that delivery. `fleet.messageDeliveries` lists them a page at a time.
+ */
 export const messageOutputSchema = listedMessageSchema.omit({ preview: true, delivery: true }).extend({
   payload: z.string(),
   replies: z.array(messageReplySchema),
@@ -272,9 +290,16 @@ export const messageOutputSchema = listedMessageSchema.omit({ preview: true, del
     way: deliveryWaySchema,
     history: z.array(deliveryHistoryEntrySchema),
   }),
+  deliveryCount: z.int().min(0),
 });
 
 export type MessageDetail = z.infer<typeof messageOutputSchema>;
+
+/** Input of `fleet.messageDeliveries`: the message, and the cursor and size of a page of its deliveries. */
+export const messageDeliveriesInputSchema = messageInputSchema.extend(pageInputOf(idSchema('delivery')).shape);
+
+/** Output of `fleet.messageDeliveries`: a page of the message's deliveries, by id. */
+export const messageDeliveriesOutputSchema = pageOutputOf(messageDeliverySchema, idSchema('delivery'));
 
 /**
  * Output of `fleet.shipWay`: a ship's side of the way (#756). The open

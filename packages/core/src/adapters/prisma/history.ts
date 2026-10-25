@@ -17,6 +17,7 @@ import {
   withdrawalOf,
   type DeliveryId,
   type FleetId,
+  type LabelValueId,
   type LeaseId,
   type ShipId,
 } from '@aeolus-fleet/common';
@@ -24,6 +25,7 @@ import { z } from 'zod';
 
 import { deliveryStepOf, type StandingOverdue, type WayCrew, type WayLease } from '../../domain/shared/delivery-way.js';
 import {
+  isDeliveryChangeType,
   isKeptBy,
   type HistoryMessage,
   type HistoryParty,
@@ -78,19 +80,41 @@ function shipsNamedBy(message: Message): ShipId[] {
   return message.selector.kind === 'ship' ? [message.senderShipId, message.selector.shipId] : [message.senderShipId];
 }
 
-function recipientOf(selector: Addressee, party: (id: ShipId) => HistoryParty): HistoryRecipient {
-  return selector.kind === 'ship' ? { kind: 'ship', ship: party(selector.shipId) } : selector;
+/** The texts of every label value the messages' selections name, read in one query. */
+type LabelTexts = ReadonlyMap<LabelValueId, { key: string; value: string }>;
+
+async function labelTextsOf(db: Db, of: { fleetId: FleetId; messages: Iterable<Message> }): Promise<LabelTexts> {
+  const valueIds = [...new Set([...of.messages].flatMap((message) => (message.selector.kind === 'label' ? message.selector.valueIds : [])))];
+  if (valueIds.length === 0) {
+    return new Map();
+  }
+  const values = await db.labelValue.findMany({ where: { fleetId: of.fleetId, id: { in: valueIds } }, select: { id: true, value: true, label: { select: { key: true } } } });
+  return new Map(values.map((row) => [idSchema('labelValue').parse(row.id), { key: row.label.key, value: row.value }]));
+}
+
+/** Who a message went to, its ship by name and a label selection by its texts; a value its label no longer has by its id alone. */
+function recipientOf(selector: Addressee, names: { party: (id: ShipId) => HistoryParty; labelTexts: LabelTexts }): HistoryRecipient {
+  switch (selector.kind) {
+    case 'ship':
+      return { kind: 'ship', ship: names.party(selector.shipId) };
+    case 'label':
+      return { kind: 'label', values: selector.valueIds.map((valueId) => ({ valueId, key: null, value: null, ...names.labelTexts.get(valueId) })) };
+    case 'type':
+    case 'meeting':
+      return selector;
+  }
 }
 
 function historyMessageOf(
   found: { message: Message; delivery: DeliveryNow },
-  party: (id: ShipId) => HistoryParty,
+  names: { party: (id: ShipId) => HistoryParty; labelTexts: LabelTexts },
 ): HistoryMessage {
   const { message, delivery } = found;
+  const { party } = names;
   return {
     id: message.id,
     sender: party(message.senderShipId),
-    recipient: recipientOf(message.selector, party),
+    recipient: recipientOf(message.selector, names),
     inReplyTo: message.inReplyToMessageId,
     sentAt: message.createdAt,
     contentType: message.contentType,
@@ -106,7 +130,7 @@ function historyMessageOf(
   };
 }
 
-/** A message's one delivery: v1 sends every message to one recipient. */
+/** A message's first delivery by id: its only one, but for a send to a label (decision 0065), whose deliveries the read orders by id. */
 function onlyDelivery(row: { id: string; deliveries: unknown[] }): DeliveryNow {
   const [delivery] = row.deliveries;
   if (delivery === undefined) {
@@ -235,6 +259,7 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
           ...[...messages.values()].flatMap(shipsNamedBy),
         ],
       });
+      const labelTexts = await labelTextsOf(db, { fleetId, messages: messages.values() });
       const entries = events.map((event) => {
         const message = event.messageId === undefined ? undefined : messages.get(event.messageId);
         return {
@@ -249,7 +274,7 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
             ? {
                 id: message.id,
                 sender: party(message.senderShipId),
-                recipient: recipientOf(message.selector, party),
+                recipient: recipientOf(message.selector, { party, labelTexts }),
                 contentType: message.contentType,
                 model: message.model,
               }
@@ -297,14 +322,18 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
           ...(delivery.claimedByShipId === null ? [] : [delivery.claimedByShipId]),
         ]),
       });
-      return { items: found.map((each) => historyMessageOf(each, party)), nextCursor: page.nextCursor };
+      const labelTexts = await labelTextsOf(db, { fleetId, messages: found.map(({ message }) => message) });
+      return { items: found.map((each) => historyMessageOf(each, { party, labelTexts })), nextCursor: page.nextCursor };
     },
 
     message: async (fleetId, messageId) => {
-      const row = await db.message.findFirst({
-        where: { fleetId, id: messageId },
-        include: { deliveries: { select: { ...DELIVERY_SELECT, claimedByLeaseId: true, recipientShipId: true } } },
-      });
+      const [row, deliveryCount] = await Promise.all([
+        db.message.findFirst({
+          where: { fleetId, id: messageId },
+          include: { deliveries: { select: { ...DELIVERY_SELECT, claimedByLeaseId: true, recipientShipId: true }, orderBy: { id: 'asc' }, take: 1 } },
+        }),
+        db.delivery.count({ where: { fleetId, messageId } }),
+      ]);
       if (!row) {
         return undefined;
       }
@@ -337,13 +366,48 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
           ...[...leases.values()].flatMap(({ trierarch }) => (trierarch ? [trierarch.id] : [])),
         ],
       });
+      const labelTexts = await labelTextsOf(db, { fleetId, messages: [message] });
       return {
-        ...historyMessageOf({ message, delivery }, party),
+        ...historyMessageOf({ message, delivery }, { party, labelTexts }),
         history: events.flatMap((event) => deliveryStepOf(event, { party, leases })),
+        deliveryCount,
         replies: replies.map((reply) => ({ id: reply.id, sender: party(reply.senderShipId), sentAt: reply.createdAt })),
         lease: (leaseId === null ? undefined : leases.get(leaseId)) ?? null,
         overdue: await standingOverdue(db, { fleetId, deliveryId: delivery.id }),
         crew: leaseId === null ? null : await crewOfLease(db, { fleetId, leaseId }),
+      };
+    },
+
+    messageDeliveries: async (fleetId, { messageId, cursor, limit }) => {
+      // Through deliveries_fleet_id_message_id_id_idx: a page costs the same however many ships a label reached.
+      const page = pageOf(
+        await db.delivery.findMany({
+          where: { fleetId, messageId, ...(cursor === undefined ? {} : { id: { gt: cursor } }) },
+          select: { id: true, state: true, recipientShipId: true, claimedByShipId: true },
+          orderBy: { id: 'asc' },
+          take: limit + 1,
+        }),
+        { limit, cursorOf: (row) => idSchema('delivery').parse(row.id) },
+      );
+      const rows = page.items.map((row) => ({ id: idSchema('delivery').parse(row.id), state: deliveryStateSchema.parse(row.state), shipId: idSchema('ship').nullable().parse(row.recipientShipId ?? row.claimedByShipId) }));
+      const [events, party] = await Promise.all([
+        db.event.findMany({
+          where: { fleetId, deliveryId: { in: rows.map((row) => row.id) }, type: { in: [...DELIVERY_HISTORY_TYPES] } },
+          orderBy: { seq: 'desc' },
+        }),
+        partiesOf(db, { fleetId, shipIds: rows.flatMap((row) => (row.shipId === null ? [] : [row.shipId])) }),
+      ]);
+      const steps = events.map(toSequencedEvent);
+      return {
+        items: rows.map((row) => ({
+          id: row.id,
+          ship: row.shipId === null ? null : party(row.shipId),
+          state: row.state,
+          steps: steps.flatMap(({ deliveryId, type, occurredAt, details }) =>
+            deliveryId === row.id && isDeliveryChangeType(type) ? [{ type, occurredAt, isAgain: details.again === true, isOnceMore: details.onceMore === true }] : [],
+          ),
+        })),
+        nextCursor: page.nextCursor,
       };
     },
 
@@ -462,6 +526,7 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
         return { deliveryId, state: row.state, attempts: row.attempts, isPushed: row.handOverNumber !== null, message: toMessage(row.message), event, shipId: event.shipId };
       });
       const party = await partiesOf(db, { fleetId, shipIds: found.flatMap(({ message, shipId }) => [...shipsNamedBy(message), shipId]) });
+      const labelTexts = await labelTextsOf(db, { fleetId, messages: found.map(({ message }) => message) });
       const items = found
         .sort((first, second) => first.event.seq - second.event.seq)
         .map(({ deliveryId, state, attempts, isPushed, message, event, shipId: sinceShipId }) => ({
@@ -475,7 +540,7 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
           message: {
             id: message.id,
             sender: party(message.senderShipId),
-            recipient: recipientOf(message.selector, party),
+            recipient: recipientOf(message.selector, { party, labelTexts }),
             inReplyTo: message.inReplyToMessageId,
             sentAt: message.createdAt,
             contentType: message.contentType,

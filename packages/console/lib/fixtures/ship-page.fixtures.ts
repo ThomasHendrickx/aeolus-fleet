@@ -3,6 +3,7 @@ import {
   idSchema,
   type DeliveryHistoryEntry,
   type ListedMessage,
+  type MessageDelivery,
   type MessageDetail,
   type Party,
   type ShipDetail,
@@ -292,6 +293,7 @@ export const TYPE_MESSAGE: MessageDetail = {
   payload: '{"task":"review","repo":"web","pr":321}',
   replies: [],
   delivery: { id: deliveryId('0003'), state: 'handed', attempts: 2, claimedBy: REVIEWER, way: PULLED_WAY, history: TYPE_HISTORY },
+  deliveryCount: 1,
 };
 
 /** planner's answer to reviewer-01, acknowledged. */
@@ -312,7 +314,40 @@ export const DIRECT_MESSAGE: MessageDetail = {
     way: { ...PULLED_WAY, since: '2026-09-28T14:27:40Z' },
     history: DIRECT_HISTORY,
   },
+  deliveryCount: 1,
 };
+
+/** A second reviewer, which carries team=a in the label example. */
+export const SECOND_REVIEWER: Party = { id: shipId('q7m1'), name: 'reviewer-02' };
+
+/** planner's "main is red" to every ship carrying team=a (decision 0065): one delivery per ship, each on its own. */
+export const LABEL_MESSAGE: MessageDetail = {
+  id: messageId('0005'),
+  sender: PLANNER,
+  recipient: { kind: 'label', values: [{ valueId: idSchema('labelValue').parse('lbv_01j8xk4tqzr3a9w6m2v5n7te4a'), key: 'team', value: 'a' }] },
+  inReplyTo: null,
+  sentAt: '2026-09-28T14:26:03Z',
+  contentType: 'text/plain',
+  model: 'claude-opus-5-5',
+  payload: 'main is red',
+  replies: [],
+  delivery: {
+    id: deliveryId('0051'),
+    state: 'acknowledged',
+    attempts: 1,
+    claimedBy: REVIEWER,
+    way: { ...PULLED_WAY, since: '2026-09-28T14:27:40Z' },
+    history: DIRECT_HISTORY,
+  },
+  deliveryCount: 3,
+};
+
+/** The deliveries of LABEL_MESSAGE, by id: one per ship carrying team=a. */
+export const LABEL_DELIVERIES: MessageDelivery[] = [
+  { id: deliveryId('0051'), ship: REVIEWER, state: 'acknowledged', since: '2026-09-28T14:27:40Z' },
+  { id: deliveryId('0052'), ship: BUILDER, state: 'handed', since: '2026-09-28T14:28:10Z' },
+  { id: deliveryId('0053'), ship: SECOND_REVIEWER, state: 'pending', since: '2026-09-28T14:26:03Z' },
+];
 
 /** The trierarch on mac-mini, which crews reviewer-01 in the pushed examples. */
 export const MAC_MINI: Party = { id: shipId('mm01'), name: 'mac-mini' };
@@ -356,6 +391,7 @@ function pushed(suffix: string, delivery: Pick<MessageDetail['delivery'], 'state
     payload: 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/48',
     replies: [],
     delivery: { id: deliveryId(suffix), claimedBy: delivery.state === 'pending' ? null : REVIEWER, ...delivery },
+    deliveryCount: 1,
   };
 }
 

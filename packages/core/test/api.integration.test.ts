@@ -276,6 +276,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_define_scope$/),
       expect.stringMatching(/^\d{14}_defined_scopes$/),
       expect.stringMatching(/^\d{14}_retention$/),
+      expect.stringMatching(/^\d{14}_message_deliveries_page$/),
       expect.stringMatching(/^\d{14}_history_pruning$/),
     ]);
   });
@@ -717,6 +718,16 @@ describe('statements and discovery at the API (decision 0047)', () => {
 
     await expect(statementOf(planner.crew, reviewer.shipId)).resolves.toEqual({ by: 'crew', version: 1, ...REVIEWS });
     await expect(statementOf(await signedInArgo(), reviewer.shipId)).resolves.toEqual({ by: 'crew', version: 1, ...REVIEWS });
+  });
+
+  it('keep the scopes each capability needs, which another crew discovers', async () => {
+    const crm = await crewed('statement-crm');
+    const caller = await crewed('statement-caller');
+    const scoped = { summary: 'The CRM.', capabilities: [{ name: 'update_lead', scopes: ['crm:write-leads'] }, { name: 'search_leads' }] };
+
+    await crm.crew.ship.setStatement.mutate(scoped);
+
+    await expect(statementOf(caller.crew, crm.shipId)).resolves.toEqual({ by: 'crew', version: 1, ...scoped });
   });
 
   it('show the commission note until a crew states one, and again once the ship is released', async () => {
@@ -1368,6 +1379,7 @@ describe('the ship page reads at the API', () => {
     const timeline = await asArgo.fleet.shipTimeline.query({ shipId });
     const messages = await asArgo.fleet.shipMessages.query({ shipId });
     const message = await asArgo.fleet.message.query({ messageId });
+    const deliveries = await asArgo.fleet.messageDeliveries.query({ messageId, limit: 20 });
 
     expect(ship).toMatchObject({ id: shipId, status: 'crewed', crewedSince: clock.now().toISOString(), retiredAt: null });
     expect(timeline.items[0]).toMatchObject({ type: 'MessageAccepted', actor: { id: shipId }, message: { id: messageId } });
@@ -1377,7 +1389,9 @@ describe('the ship page reads at the API', () => {
       payload: 'Done with PR 48',
       recipient: { kind: 'ship', ship: { id: argoId, name: 'argo' } },
       delivery: { state: 'pending', history: [{ type: 'MessageAccepted' }] },
+      deliveryCount: 1,
     });
+    expect(deliveries).toEqual({ items: [{ id: message.delivery.id, ship: { id: argoId, name: 'argo' }, state: 'pending', since: message.sentAt }], nextCursor: null });
   });
 
   it("serve a ship with its crew's statement (decision 0047)", async () => {
@@ -1398,6 +1412,7 @@ describe('the ship page reads at the API', () => {
     await expect(codeOf(reader.fleet.shipTimeline.query({ shipId: argoId }))).resolves.toBe('FORBIDDEN');
     await expect(codeOf(reader.fleet.shipMessages.query({ shipId: argoId }))).resolves.toBe('FORBIDDEN');
     await expect(codeOf(reader.fleet.message.query({ messageId: newId('message') }))).resolves.toBe('FORBIDDEN');
+    await expect(codeOf(reader.fleet.messageDeliveries.query({ messageId: newId('message') }))).resolves.toBe('FORBIDDEN');
   });
 
   it('answer NOT_FOUND for a ship or message the fleet does not have', async () => {
@@ -1407,6 +1422,7 @@ describe('the ship page reads at the API', () => {
     await expect(codeOf(asArgo.fleet.shipTimeline.query({ shipId: newId('ship') }))).resolves.toBe('NOT_FOUND');
     await expect(codeOf(asArgo.fleet.shipMessages.query({ shipId: newId('ship') }))).resolves.toBe('NOT_FOUND');
     await expect(codeOf(asArgo.fleet.message.query({ messageId: newId('message') }))).resolves.toBe('NOT_FOUND');
+    await expect(codeOf(asArgo.fleet.messageDeliveries.query({ messageId: newId('message') }))).resolves.toBe('NOT_FOUND');
   });
 });
 

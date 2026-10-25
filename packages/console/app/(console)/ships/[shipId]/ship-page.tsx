@@ -16,6 +16,7 @@ import { ShipWayLines } from '../../../../features/ship/ui/molecules/ship-way-li
 import { shipWayView } from '../../../../features/ship/services/ship-way';
 import { ShipPageLabels } from '../../../../features/ship/state/ship-page-labels';
 import { ShipTimeline } from '../../../../features/ship/ui/organisms/ship-timeline';
+import { MessageDeliveries } from '../../../../features/ship/ui/organisms/message-deliveries';
 import { LoadMore } from '../../../../components/molecules/load-more';
 import { useSignedInAccountNames } from '../../../../features/ship/hooks/use-signed-in-account-names';
 import { DetailPage } from '../../../../components/organisms/detail-page';
@@ -27,7 +28,7 @@ import { useLiveFleet } from '../../../../lib/live-fleet';
 import { useNow } from '../../../../lib/now';
 import { usePluginShipIds } from '../../../../lib/plugin-ships';
 import { useSignInWhenSessionEnds } from '../../../../lib/session';
-import { useMessage, useShip, useShipMessages, useShipTimeline, useShipWay } from '../../../../lib/ship';
+import { useMessage, useMessageDeliveries, useShip, useShipMessages, useShipTimeline, useShipWay } from '../../../../lib/ship';
 import { useSquadrons } from '../../../../lib/squadrons-api';
 import { NotHandled } from './not-handled';
 import { useMachines } from '../../../../lib/trierarch-plugin';
@@ -67,6 +68,8 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
   const accountNames = useSignedInAccountNames(timeline.items ?? []);
   const messages = useShipMessages(shipId);
   const message = useMessage(messageId);
+  // Only a send to a label lists its deliveries; each other message has one, on its way.
+  const deliveries = useMessageDeliveries(message.data?.recipient.kind === 'label' ? message.data.id : undefined);
   const way = useShipWay(shipId);
   const machines = useMachines();
   const liveFleet = useLiveFleet();
@@ -74,7 +77,7 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
   const squadrons = useSquadrons();
   const access = useAccess();
   const [replyTo, setReplyTo] = useState<{ messageId: MessageId; sender: Party }>();
-  useSignInWhenSessionEnds([ship.error, timeline.error, messages.error, message.error, liveFleet.error]);
+  useSignInWhenSessionEnds([ship.error, timeline.error, messages.error, message.error, deliveries.error, liveFleet.error]);
 
   const show = (view: { tab: ShipTab; messageId?: MessageId }) => {
     router.replace(pathOf(shipId, view), { scroll: false });
@@ -134,6 +137,19 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
           isOpen={messageId !== undefined}
           now={now}
           machines={machines.data ?? []}
+          deliveries={
+            <MessageDeliveries
+              deliveries={deliveries.items ?? []}
+              state={deliveries.isFailed ? 'error' : deliveries.items ? 'ready' : 'loading'}
+              onRetry={deliveries.retry}
+              more={
+                deliveries.hasMore ? (
+                  <LoadMore what="more deliveries" isLoading={deliveries.isLoadingMore} isFailed={deliveries.isLoadMoreFailed} onLoad={deliveries.loadMore} area="message-deliveries" />
+                ) : null
+              }
+              now={now}
+            />
+          }
           onOpenMessage={openMessageAt}
           onOpenChange={(isOpen) => {
             if (!isOpen) {
