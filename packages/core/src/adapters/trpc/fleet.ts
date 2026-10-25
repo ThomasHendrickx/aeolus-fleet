@@ -544,13 +544,17 @@ export const fleetRouter = router({
   limits: actorScopedProcedure('fleet:read')
     .meta({
       description: [
-        "Needs fleet:read. The fleet's ship limit with its ships that are not retired (argo included), and its daily message limit with the messages it stored since 00:00 UTC and when that count starts again. A limit of null is none. Its retention: the days it keeps its finished history, null for kept for good.",
+        "Needs fleet:read. The fleet's ship limit with its ships that are not retired (argo included), and its daily message limit with the messages it stored since 00:00 UTC and when that count starts again. A limit of null is none. Its retention: the days it keeps its finished history, null for kept for good, and keptFrom, where its kept history begins: older finished history is no longer kept, older open deliveries are; null while nothing was pruned.",
       ].join(' '),
     })
     .output(fleetLimitsOutputSchema)
     .query(async ({ ctx }) => {
       const { ships, dailyMessages, retention } = await ctx.useCases.readFleetLimits(ctx.caller);
-      return { ships, dailyMessages: { ...dailyMessages, resetsAt: dailyMessages.resetsAt.toISOString() }, retention };
+      return {
+        ships,
+        dailyMessages: { ...dailyMessages, resetsAt: dailyMessages.resetsAt.toISOString() },
+        retention: { days: retention.days, keptFrom: retention.keptFrom?.toISOString() ?? null },
+      };
     }),
 
   /** A page of the caller's fleet, each ship with its status and prompt state, or of the ships that carry the label values given. Never a secret. */

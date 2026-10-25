@@ -17,16 +17,16 @@ const RESETS = '2026-10-05T00:00:00.000Z';
 
 describe('the limits the console shows', () => {
   it('finds the fleet at its ship limit only when a limit applies and its ships reach it', () => {
-    expect(shipLimitReached({ ships: { limit: 10, count: 10 }, dailyMessages: { limit: null, count: 0, resetsAt: RESETS }, retention: { days: null } })).toBe(10);
-    expect(shipLimitReached({ ships: { limit: 10, count: 9 }, dailyMessages: { limit: null, count: 0, resetsAt: RESETS }, retention: { days: null } })).toBeUndefined();
-    expect(shipLimitReached({ ships: { limit: null, count: 99 }, dailyMessages: { limit: null, count: 0, resetsAt: RESETS }, retention: { days: null } })).toBeUndefined();
+    expect(shipLimitReached({ ships: { limit: 10, count: 10 }, dailyMessages: { limit: null, count: 0, resetsAt: RESETS }, retention: { days: null, keptFrom: null } })).toBe(10);
+    expect(shipLimitReached({ ships: { limit: 10, count: 9 }, dailyMessages: { limit: null, count: 0, resetsAt: RESETS }, retention: { days: null, keptFrom: null } })).toBeUndefined();
+    expect(shipLimitReached({ ships: { limit: null, count: 99 }, dailyMessages: { limit: null, count: 0, resetsAt: RESETS }, retention: { days: null, keptFrom: null } })).toBeUndefined();
     expect(shipLimitReached(undefined)).toBeUndefined();
   });
 
   it('finds the daily message limit reached only when a limit applies and today reaches it', () => {
-    expect(messageLimitReached({ ships: { limit: null, count: 1 }, dailyMessages: { limit: 1000, count: 1000, resetsAt: RESETS }, retention: { days: null } })).toEqual({ limit: 1000, resetsAt: RESETS });
-    expect(messageLimitReached({ ships: { limit: null, count: 1 }, dailyMessages: { limit: 1000, count: 999, resetsAt: RESETS }, retention: { days: null } })).toBeUndefined();
-    expect(messageLimitReached({ ships: { limit: null, count: 1 }, dailyMessages: { limit: null, count: 5000, resetsAt: RESETS }, retention: { days: null } })).toBeUndefined();
+    expect(messageLimitReached({ ships: { limit: null, count: 1 }, dailyMessages: { limit: 1000, count: 1000, resetsAt: RESETS }, retention: { days: null, keptFrom: null } })).toEqual({ limit: 1000, resetsAt: RESETS });
+    expect(messageLimitReached({ ships: { limit: null, count: 1 }, dailyMessages: { limit: 1000, count: 999, resetsAt: RESETS }, retention: { days: null, keptFrom: null } })).toBeUndefined();
+    expect(messageLimitReached({ ships: { limit: null, count: 1 }, dailyMessages: { limit: null, count: 5000, resetsAt: RESETS }, retention: { days: null, keptFrom: null } })).toBeUndefined();
   });
 
   it('words when the count resets in UTC', () => {
@@ -51,16 +51,16 @@ describe('the limits the console shows', () => {
 
 describe('the retention line', () => {
   it('says for how many days finished history is kept', () => {
-    expect(retentionLine({ days: 30 })).toBe('Finished history is kept for 30 days');
-    expect(retentionLine({ days: 1000 })).toBe('Finished history is kept for 1,000 days');
+    expect(retentionLine({ days: 30, keptFrom: null })).toBe('Finished history is kept for 30 days');
+    expect(retentionLine({ days: 1000, keptFrom: null })).toBe('Finished history is kept for 1,000 days');
   });
 
   it('says one day in the singular', () => {
-    expect(retentionLine({ days: 1 })).toBe('Finished history is kept for 1 day');
+    expect(retentionLine({ days: 1, keptFrom: null })).toBe('Finished history is kept for 1 day');
   });
 
   it('says it is kept for good when no retention applies', () => {
-    expect(retentionLine({ days: null })).toBe('Finished history is kept for good');
+    expect(retentionLine({ days: null, keptFrom: null })).toBe('Finished history is kept for good');
   });
 });
 
@@ -81,13 +81,13 @@ describe('the limit meters', () => {
   });
 
   it('are shown when only a retention applies', () => {
-    expect(hasLimits({ ships: { limit: null, count: 1 }, dailyMessages: { limit: null, count: 0, resetsAt: RESETS }, retention: { days: 30 } })).toBe(true);
+    expect(hasLimits({ ships: { limit: null, count: 1 }, dailyMessages: { limit: null, count: 0, resetsAt: RESETS }, retention: { days: 30, keptFrom: null } })).toBe(true);
   });
 
   it('are shown when any limit applies, and not without one', () => {
-    expect(hasLimits({ ships: { limit: 10, count: 1 }, dailyMessages: { limit: null, count: 0, resetsAt: RESETS }, retention: { days: null } })).toBe(true);
-    expect(hasLimits({ ships: { limit: null, count: 1 }, dailyMessages: { limit: 1000, count: 0, resetsAt: RESETS }, retention: { days: null } })).toBe(true);
-    expect(hasLimits({ ships: { limit: null, count: 1 }, dailyMessages: { limit: null, count: 0, resetsAt: RESETS }, retention: { days: null } })).toBe(false);
+    expect(hasLimits({ ships: { limit: 10, count: 1 }, dailyMessages: { limit: null, count: 0, resetsAt: RESETS }, retention: { days: null, keptFrom: null } })).toBe(true);
+    expect(hasLimits({ ships: { limit: null, count: 1 }, dailyMessages: { limit: 1000, count: 0, resetsAt: RESETS }, retention: { days: null, keptFrom: null } })).toBe(true);
+    expect(hasLimits({ ships: { limit: null, count: 1 }, dailyMessages: { limit: null, count: 0, resetsAt: RESETS }, retention: { days: null, keptFrom: null } })).toBe(false);
     expect(hasLimits(undefined)).toBe(false);
   });
 });
