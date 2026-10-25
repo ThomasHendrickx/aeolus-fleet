@@ -2,6 +2,7 @@ import type { ScheduleItem, ScheduleTiming as ScheduleTimingInputText, ScheduleT
 
 import type { Schedule, ScheduleOutcome, ScheduleTiming, ScheduleTimingInput } from '../../domain/messaging/schedule.js';
 import type { Page } from '../../domain/shared/page.js';
+import type { ScheduleSelector } from '../../domain/shared/selector.js';
 
 /**
  * A schedule as `ship.schedules` and `fleet.schedules` answer it (decision
@@ -13,7 +14,7 @@ function scheduleItemOf(schedule: Schedule): ScheduleItem {
     scheduleId: schedule.id,
     shipId: schedule.shipId,
     state: schedule.state,
-    selector: schedule.send.selector,
+    selector: selectorOf(schedule.send.selector),
     contentType: schedule.send.contentType,
     inReplyTo: schedule.send.inReplyTo,
     isForced: schedule.send.isForced,
@@ -28,6 +29,10 @@ function scheduleItemOf(schedule: Schedule): ScheduleItem {
     endedAt: schedule.endedAt?.toISOString() ?? null,
     cancelledAt: schedule.cancelledAt?.toISOString() ?? null,
   };
+}
+
+function selectorOf(selector: ScheduleSelector): ScheduleItem['selector'] {
+  return selector.kind === 'label' ? { kind: 'label', valueIds: [...selector.valueIds] } : selector;
 }
 
 function timingOf(timing: ScheduleTiming): ScheduleTimingItem {

@@ -3,7 +3,7 @@ import { durationMs, SCHEDULE_IDEMPOTENCY_KEY_PREFIX, type FleetId, type Message
 import { refuse, type DomainError } from '../shared/errors.js';
 import type { Actor, NewEvent } from '../shared/events.js';
 import { ok, type Err, type Result } from '../shared/result.js';
-import type { RecipientSelector } from '../shared/selector.js';
+import type { ScheduleSelector } from '../shared/selector.js';
 import { cronSendTimeAfter, isKnownTimeZone, parseCron } from './cron.js';
 
 /**
@@ -30,7 +30,7 @@ export const TIME_ZONE_DEFAULT = 'UTC';
 
 /** The send input, stored as the creator gave it: the selector as addressed, a name resolved only at each send time. */
 export interface ScheduledSend {
-  selector: RecipientSelector;
+  selector: ScheduleSelector;
   payload: string;
   contentType: string;
   /** The model the creator stated: every send states it (S13). */

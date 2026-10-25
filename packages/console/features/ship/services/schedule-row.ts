@@ -29,6 +29,9 @@ function recipientOf(selector: ScheduleItem['selector']): string {
   if (selector.kind === 'type') {
     return `To ${recipientGroupWords(selector)}`;
   }
+  if (selector.kind === 'label') {
+    return `To every ship carrying ${selector.valueIds.join(' and ')}`;
+  }
   return 'name' in selector ? `To ${selector.name}` : `To ${selector.shipId}`;
 }
 

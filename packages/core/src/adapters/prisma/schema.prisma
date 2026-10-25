@@ -722,11 +722,12 @@ model Schedule {
   id                 String               @id
   fleetId            String               @map("fleet_id")
   shipId             String               @map("ship_id")
-  /// The selector as the creator gave it: a ship by id or by name, or a type; never a meeting.
+  /// The selector as the creator gave it: a ship by id or by name, a type, or a label selection by value ids; never a meeting.
   selectorKind       SelectorKind         @map("selector_kind")
   selectorShipId     String?              @map("selector_ship_id")
   selectorShipName   String?              @map("selector_ship_name")
   selectorType       String?              @map("selector_type")
+  selectorValueIds   String[]             @default([]) @map("selector_value_ids")
   payload            String
   contentType        String               @map("content_type")
   model              String?

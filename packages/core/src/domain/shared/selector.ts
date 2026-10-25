@@ -19,6 +19,9 @@ export interface LabelSelector {
   valueIds: readonly LabelValueId[];
 }
 
+/** What a schedule sends to (decision 0062): a recipient, or a label selection resolved at each send time (decision 0065). */
+export type ScheduleSelector = RecipientSelector | LabelSelector;
+
 /** Who a message is for, as its sender addressed it (docs/blueprint.md, "Selector"). */
 export type Selector = RecipientSelector | MeetingSelector | LabelSelector;
 

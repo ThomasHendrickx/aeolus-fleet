@@ -88,11 +88,16 @@ export const selectorSchema = z.union([
   labelValuesSelectorSchema,
 ]);
 
-/** A selector of one ship, by id or by name, or of a type: what a schedule sends to (decision 0062), never a meeting. */
-export const shipOrTypeSelectorSchema = z.union([
+/**
+ * What a schedule sends to (decision 0062): one ship, by id or by name, a
+ * type, or a label selection resolved at each send time (decision 0065);
+ * never a meeting.
+ */
+export const scheduleSelectorSchema = z.union([
   z.strictObject({ kind: z.literal('ship'), shipId: idSchema('ship') }),
   z.strictObject({ kind: z.literal('ship'), name: shipHandleSchema }),
   z.strictObject({ kind: z.literal('type'), type: shipHandleSchema }),
+  labelValuesSelectorSchema,
 ]);
 
 /** A payload: any text of at most 64 KB in UTF-8 (ADR 0006). */

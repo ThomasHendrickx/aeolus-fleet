@@ -1,15 +1,24 @@
-import { isPingContentType, PING_CONTENT_TYPE, type IdGenerator, type MessageId, type MissedStrategy, type RefusalStrategy, type ScheduleId } from '@aeolus-fleet/common';
+import { isPingContentType, PING_CONTENT_TYPE, type FleetId, type IdGenerator, type MessageId, type MissedStrategy, type RefusalStrategy, type ScheduleId, type ShipId } from '@aeolus-fleet/common';
 
-import { checkReach, keepingReachRefusal, resolveSelector, type CheckReachTx, type NotReachable, type ResolveSelectorTx, type UnresolvableSelector } from '../registry/public.js';
+import {
+  keepingReachRefusal,
+  resolveLabelSelection,
+  resolveSelector,
+  type CheckReachTx,
+  type NotReachable,
+  type ResolveLabelSelectionTx,
+  type ResolveSelectorTx,
+  type UnresolvableSelector,
+} from '../registry/public.js';
 import { hasScope, type ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, type EventLog } from '../shared/events.js';
 import { idempotencyKey } from '../shared/idempotency-key.js';
 import { ok, type Result } from '../shared/result.js';
-import type { RecipientSelector } from '../shared/selector.js';
+import type { Recipient, ScheduleSelector } from '../shared/selector.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
-import { isAnswerToSender } from './answer.js';
+import { checkReachToEach } from './check-reach-to-each.js';
 import { contentType } from './content-type.js';
 import { checkModel, type AcceptRefusal } from './message.js';
 import { payload } from './payload.js';
@@ -19,7 +28,7 @@ import { withinScheduleLimits, type ScheduleLimitRefusal, type ScheduleLimitsTx 
 import { sendRequestText } from './send-request.js';
 
 export interface ScheduleMessageTx extends Omit<ResolveSelectorTx, 'ships'>, Omit<CheckReachTx, 'ships'>, Omit<ScheduleLimitsTx, 'schedules'> {
-  ships: ResolveSelectorTx['ships'] & CheckReachTx['ships'];
+  ships: ResolveSelectorTx['ships'] & ResolveLabelSelectionTx['ships'] & CheckReachTx['ships'];
   messages: Pick<MessageRepository, 'find'>;
   deliveries: Pick<DeliveryRepository, 'findOfMessageReaching'>;
   schedules: ScheduleRepository;
@@ -29,7 +38,7 @@ export interface ScheduleMessageTx extends Omit<ResolveSelectorTx, 'ships'>, Omi
 
 /** What a ship schedules: a whole send input, its timing, what a refused send time does, and its key. */
 export interface MessageToSchedule {
-  selector: RecipientSelector;
+  selector: ScheduleSelector;
   payload: string;
   /** text/plain when the creator gives none. */
   contentType?: string;
@@ -111,24 +120,18 @@ export function createScheduleMessage(deps: { uow: UnitOfWork<ScheduleMessageTx>
       if (!withinLimits.isOk) {
         return withinLimits;
       }
-      const recipient = await resolveSelector(tx, { fleetId, selector: send.selector });
-      if (!recipient.isOk) {
-        return recipient;
+      const recipients = await recipientsNow(tx, { fleetId, shipId, selector: send.selector });
+      if (!recipients.isOk) {
+        return recipients;
       }
       const repliedTo = send.inReplyTo === null ? undefined : await tx.messages.find(fleetId, send.inReplyTo);
       if (send.inReplyTo !== null && !repliedTo) {
         return refuse('IN_REPLY_TO_NOT_FOUND', `Message ${send.inReplyTo} does not exist: a reply names a message of the fleet`);
       }
       const repliedDelivery = repliedTo && (await tx.deliveries.findOfMessageReaching(fleetId, { messageId: repliedTo.id, shipId }));
-      const reach = await checkReach(
+      const reach = await checkReachToEach(
         { tx, ids: deps.ids },
-        {
-          fleetId,
-          senderShipId: shipId,
-          recipient: recipient.value,
-          isAnswerToSender: isAnswerToSender({ senderShipId: shipId, recipient: recipient.value }, repliedTo && repliedDelivery && { message: repliedTo, delivery: repliedDelivery }),
-          at,
-        },
+        { fleetId, senderShipId: shipId, recipients: recipients.value, asked: repliedTo && repliedDelivery && { message: repliedTo, delivery: repliedDelivery }, at },
       );
       if (!reach.isOk) {
         return reach;
@@ -144,6 +147,24 @@ export function createScheduleMessage(deps: { uow: UnitOfWork<ScheduleMessageTx>
       return ok({ scheduleId: schedule.id });
     });
   };
+}
+
+/**
+ * Who the selector reaches now, as a send would resolve it: its one
+ * recipient, or every ship of a label selection but the creator (decision
+ * 0065); none refuses the schedule.
+ */
+async function recipientsNow(
+  tx: ScheduleMessageTx,
+  input: { fleetId: FleetId; shipId: ShipId; selector: ScheduleSelector },
+): Promise<Result<readonly Recipient[], UnresolvableSelector>> {
+  const { fleetId, shipId, selector } = input;
+  if (selector.kind === 'label') {
+    const ships = await resolveLabelSelection(tx, { fleetId, valueIds: selector.valueIds, senderShipId: shipId });
+    return ships.isOk ? ok(ships.value.map((labelled) => ({ kind: 'ship', shipId: labelled }))) : ships;
+  }
+  const recipient = await resolveSelector(tx, { fleetId, selector });
+  return recipient.isOk ? ok([recipient.value]) : recipient;
 }
 
 /** The send input as a send checks it, the key, and the hash of the whole request: what a repeat of the key must ask for too. */

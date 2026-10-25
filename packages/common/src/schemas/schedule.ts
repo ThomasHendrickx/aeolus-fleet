@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { idSchema } from '../ids/index.js';
 import { durationMs } from '../rules/duration.js';
 import { idempotencyKeySchema } from './idempotency-key.js';
-import { contentTypeSchema, modelSchema, payloadSchema, shipOrTypeSelectorSchema } from './message.js';
+import { contentTypeSchema, modelSchema, payloadSchema, scheduleSelectorSchema } from './message.js';
 import { pageInputOf, pageOutputOf } from './page.js';
 
 /**
@@ -72,7 +72,7 @@ export type ScheduleTiming = z.infer<typeof scheduleTimingSchema>;
  * what a refused send time does and the ship's idempotency key.
  */
 export const scheduleInputSchema = z.object({
-  selector: shipOrTypeSelectorSchema,
+  selector: scheduleSelectorSchema,
   payload: payloadSchema,
   /** Without it, the payload is text/plain. */
   contentType: contentTypeSchema.optional(),
@@ -119,7 +119,7 @@ export const scheduleItemSchema = z.object({
   scheduleId: idSchema('schedule'),
   shipId: idSchema('ship'),
   state: scheduleStateSchema,
-  selector: shipOrTypeSelectorSchema,
+  selector: scheduleSelectorSchema,
   contentType: z.string(),
   inReplyTo: idSchema('message').nullable(),
   isForced: z.boolean(),
