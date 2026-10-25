@@ -62,7 +62,15 @@ export const Viewer: Story = {
   },
 };
 export const Loading: Story = { args: { rows: undefined } };
-export const ReadFailed: Story = { args: { rows: undefined, error: 'the trierarch plugin did not answer: try again in a moment' } };
+/** The plugin did not answer: no rule is claimed, only the failure with Try again. */
+export const ReadFailed: Story = {
+  args: { rows: undefined, error: 'the trierarch plugin did not answer: try again in a moment' },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole('alert')).toHaveTextContent('Couldn’t read the models');
+    await expect(canvas.queryByTestId('trierarchs-models-rule')).toBeNull();
+  },
+};
 export const Empty: Story = { args: { rows: [] } };
 export const Saving: Story = { args: { rows: RULE, pending: { model: 'claude-sonnet-5', isEnabled: true } } };
 /** The change was refused: the Switch is back, the reason by its row with Try again. */
