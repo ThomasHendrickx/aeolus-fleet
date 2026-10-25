@@ -126,7 +126,7 @@ export function createScheduleMessage(deps: { uow: UnitOfWork<ScheduleMessageTx>
       }
       const repliedTo = send.inReplyTo === null ? undefined : await tx.messages.find(fleetId, send.inReplyTo);
       if (send.inReplyTo !== null && !repliedTo) {
-        return refuse('IN_REPLY_TO_NOT_FOUND', `Message ${send.inReplyTo} does not exist: a reply names a message of the fleet`);
+        return refuse('IN_REPLY_TO_NOT_FOUND', `Message ${send.inReplyTo} is not in the fleet: it was never sent, or it is no longer kept`);
       }
       const repliedDelivery = repliedTo && (await tx.deliveries.findOfMessageReaching(fleetId, { messageId: repliedTo.id, shipId }));
       const reach = await checkReachToEach(

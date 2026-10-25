@@ -28,29 +28,33 @@ datasource db {
 
 /// The tenant: one operator's ships, messages and history. Ids start with flt_.
 model Fleet {
-  id                         String   @id
+  id                         String    @id
   name                       String
-  createdAt                  DateTime @map("created_at") @db.Timestamptz(3)
+  createdAt                  DateTime  @map("created_at") @db.Timestamptz(3)
   /// The sequence number of the fleet's last committed event. A unit of work
   /// takes its numbers from it as its last statements, so the row lock orders
   /// the numbers as the transactions commit.
-  lastEventSeq               BigInt   @default(0) @map("last_event_seq")
+  lastEventSeq               BigInt    @default(0) @map("last_event_seq")
   /// Whether the fleet sets its own ship limit (else it follows the installation
   /// default), and that limit: null for no limit.
-  shipLimitSet               Boolean  @default(false) @map("ship_limit_set")
-  shipLimit                  Int?     @map("ship_limit")
+  shipLimitSet               Boolean   @default(false) @map("ship_limit_set")
+  shipLimit                  Int?      @map("ship_limit")
   /// The same for its daily message limit.
-  dailyMessageLimitSet       Boolean  @default(false) @map("daily_message_limit_set")
-  dailyMessageLimit          Int?     @map("daily_message_limit")
+  dailyMessageLimitSet       Boolean   @default(false) @map("daily_message_limit_set")
+  dailyMessageLimit          Int?      @map("daily_message_limit")
   /// The same for the schedules each of its ships may hold, and for the
   /// minimum interval of a repeating schedule, in seconds (decision 0062).
-  schedulesPerShipLimitSet   Boolean  @default(false) @map("schedules_per_ship_limit_set")
-  schedulesPerShipLimit      Int?     @map("schedules_per_ship_limit")
-  minimumScheduleIntervalSet Boolean  @default(false) @map("minimum_schedule_interval_set")
-  minimumScheduleInterval    Int?     @map("minimum_schedule_interval")
+  schedulesPerShipLimitSet   Boolean   @default(false) @map("schedules_per_ship_limit_set")
+  schedulesPerShipLimit      Int?      @map("schedules_per_ship_limit")
+  minimumScheduleIntervalSet Boolean   @default(false) @map("minimum_schedule_interval_set")
+  minimumScheduleInterval    Int?      @map("minimum_schedule_interval")
   /// The same for its retention in days (decision 0066): null for kept for good.
-  retentionSet               Boolean  @default(false) @map("retention_set")
-  retentionDays              Int?     @map("retention_days")
+  retentionSet               Boolean   @default(false) @map("retention_set")
+  retentionDays              Int?      @map("retention_days")
+  /// When its last pruning pass ran, and from when it keeps its finished
+  /// history, as its last finished pass left it (decision 0066); null before any.
+  prunedAt                   DateTime? @map("pruned_at") @db.Timestamptz(3)
+  keptFrom                   DateTime? @map("kept_from") @db.Timestamptz(3)
 
   ships                            Ship[]
   leases                           Lease[]
@@ -609,6 +613,8 @@ model Message {
   model              String?
   idempotencyKey     String       @map("idempotency_key")
   requestHash        String       @map("request_hash")
+  /// The message it replies to and the one it resends, as written: no foreign
+  /// key, so a kept message may name one that is no longer kept (decision 0066).
   inReplyToMessageId String?      @map("in_reply_to_message_id")
   resendOfMessageId  String?      @map("resend_of_message_id")
   /// The meeting it was sent to, or the meeting whose added notice it is (decision 0061).
@@ -621,10 +627,6 @@ model Message {
   fleet                Fleet      @relation(fields: [fleetId], references: [id])
   senderShip           Ship       @relation("MessageSender", fields: [fleetId, senderShipId], references: [fleetId, id], onDelete: Restrict)
   selectorShip         Ship?      @relation("MessageSelectorShip", fields: [fleetId, selectorShipId], references: [fleetId, id], onDelete: Restrict)
-  inReplyTo            Message?   @relation("MessageInReplyTo", fields: [fleetId, inReplyToMessageId], references: [fleetId, id], onDelete: Restrict)
-  replies              Message[]  @relation("MessageInReplyTo")
-  resendOf             Message?   @relation("MessageResendOf", fields: [fleetId, resendOfMessageId], references: [fleetId, id], onDelete: Restrict)
-  resends              Message[]  @relation("MessageResendOf")
   meeting              Meeting?   @relation(fields: [fleetId, meetingId], references: [fleetId, id], onDelete: Restrict)
   schedule             Schedule?  @relation("MessageSchedule", fields: [fleetId, scheduleId], references: [fleetId, id], onDelete: Restrict)
   repliedToBySchedules Schedule[] @relation("ScheduleInReplyTo")
@@ -1051,6 +1053,8 @@ model Event {
   @@index([fleetId, shipId, messageId], map: "events_delivery_handed_idx", where: raw("(type = 'DeliveryHanded'::text)"))
   /// A first stuck snapshot reads each lease's turn at its oldest hour from the turn reports alone.
   @@index([fleetId, occurredAt], map: "events_turn_reported_idx", where: raw("(type = 'TurnReported'::text)"))
+  /// The pruning pass finds the mic and participant events of ended meetings (decision 0066).
+  @@index([fleetId, seq], map: "events_meeting_parts_idx", where: raw("(type = ANY (ARRAY['ParticipantAdded'::text, 'ParticipantLeft'::text, 'ParticipantRejoined'::text, 'ParticipantRevoked'::text, 'MicRequested'::text, 'MicRequestWithdrawn'::text, 'MicGiven'::text, 'MicReleased'::text, 'MicTaken'::text, 'MicPatternSet'::text]))"))
   @@map("events")
 }
 

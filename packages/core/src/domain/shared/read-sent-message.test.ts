@@ -98,13 +98,13 @@ describe('a sender reading the delivery of a message it sent', () => {
     const messageId = await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.scout.shipId } });
 
     for (const caller of [scene.scout, scene.lookout, scene.argo]) {
-      expect(refusalOf(await sentMessage(caller, { messageId }))).toEqual({ kind: 'MESSAGE_NOT_FOUND', message: `No message ${messageId} in this fleet` });
+      expect(refusalOf(await sentMessage(caller, { messageId }))).toEqual({ kind: 'MESSAGE_NOT_FOUND', message: `No message ${messageId} in this fleet, or it is no longer kept` });
     }
   });
 
   it('refuses a message the fleet does not have', async () => {
     const messageId = scene.core.ids('message');
 
-    expect(refusalOf(await sentMessage(scene.planner, { messageId }))).toEqual({ kind: 'MESSAGE_NOT_FOUND', message: `No message ${messageId} in this fleet` });
+    expect(refusalOf(await sentMessage(scene.planner, { messageId }))).toEqual({ kind: 'MESSAGE_NOT_FOUND', message: `No message ${messageId} in this fleet, or it is no longer kept` });
   });
 });
