@@ -216,8 +216,8 @@ describe('shipStatusSchema', () => {
 });
 
 describe('selectorKindSchema', () => {
-  it('knows ship, type and meeting, nothing else yet (decision 0061)', () => {
-    expect(selectorKindSchema.options).toEqual(['ship', 'type', 'meeting']);
+  it('knows ship, type, meeting and label, nothing else (decisions 0061, 0063)', () => {
+    expect(selectorKindSchema.options).toEqual(['ship', 'type', 'meeting', 'label']);
   });
 });
 
