@@ -24,7 +24,7 @@ describe("reading the caller's fleet's limits", () => {
     await expect(readLimits(argo)).resolves.toEqual({
       ships: { limit: null, count: 1 },
       dailyMessages: { limit: null, count: 0, resetsAt: new Date('2026-10-05T00:00:00.000Z') },
-      retention: { days: null },
+      retention: { days: null, keptFrom: null },
     });
   });
 
@@ -41,7 +41,14 @@ describe("reading the caller's fleet's limits", () => {
     await expect(readLimits(argo)).resolves.toEqual({
       ships: { limit: 10, count: 2 },
       dailyMessages: { limit: 1000, count: 1, resetsAt: new Date('2026-10-05T00:00:00.000Z') },
-      retention: { days: 30 },
+      retention: { days: 30, keptFrom: null },
     });
+  });
+
+  it('says where its finished history begins once a pruning pass let older history go', async () => {
+    withInstallationSettings(core, { defaultRetentionDays: 30 });
+    core.state.fleetPrunes.push({ fleetId, prunedAt: new Date('2026-10-04T11:00:30.000Z'), keptFrom: new Date('2026-09-04T11:00:00.000Z') });
+
+    await expect(readLimits(argo)).resolves.toMatchObject({ retention: { days: 30, keptFrom: new Date('2026-09-04T11:00:00.000Z') } });
   });
 });

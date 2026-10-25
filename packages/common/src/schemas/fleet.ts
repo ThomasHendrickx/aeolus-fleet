@@ -325,7 +325,7 @@ export type FleetStreamItem = z.infer<typeof fleetStreamItemSchema>;
 export const fleetLimitsOutputSchema = z.object({
   ships: z.object({ limit: z.int().min(0).nullable(), count: z.int().min(0) }),
   dailyMessages: z.object({ limit: z.int().min(0).nullable(), count: z.int().min(0), resetsAt: z.iso.datetime() }),
-  retention: z.object({ days: z.int().min(1).nullable() }),
+  retention: z.object({ days: z.int().min(1).nullable(), keptFrom: z.iso.datetime().nullable() }),
 });
 
 export type FleetLimitsOutput = z.infer<typeof fleetLimitsOutputSchema>;

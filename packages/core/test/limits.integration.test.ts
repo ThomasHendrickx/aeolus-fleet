@@ -164,7 +164,14 @@ describe("a fleet's limits", () => {
     expect(limits.ships.limit).toBe(10);
     expect(limits.ships.count).toBe(await database.ship.count({ where: { fleetId: homeFleet, retiredAt: null } }));
     expect(limits.dailyMessages).toMatchObject({ limit: 1000, resetsAt: '2026-10-05T00:00:00.000Z' });
-    expect(limits.retention).toEqual({ days: 30 });
+    expect(limits.retention).toEqual({ days: 30, keptFrom: null });
+  });
+
+  it("are read with where the fleet's finished history begins once a pruning pass let older history go", async () => {
+    await installation().settings.set.mutate({ ...NO_INSTALLATION_SETTINGS, defaultShipLimit: null, defaultDailyMessageLimit: null, defaultRetentionDays: 30, fleetCap: null });
+    await database.$executeRaw`UPDATE fleets SET kept_from = ${new Date('2026-09-04T11:00:00.000Z')} WHERE id = ${homeFleet}`;
+
+    await expect(core.readFleetLimits(argoOf({ fleetId: homeFleet, operatorShipId: homeArgo }))).resolves.toMatchObject({ retention: { days: 30, keptFrom: new Date('2026-09-04T11:00:00.000Z') } });
   });
 });
 

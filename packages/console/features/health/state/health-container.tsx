@@ -3,6 +3,8 @@
 import type { StuckCause } from '@aeolus-fleet/common';
 import type { ReactNode } from 'react';
 
+import { HistoryKeptFrom } from '../../../components/molecules/history-kept-from';
+import { useFleetLimits } from '../../../lib/fleet-limits';
 import { useAcknowledged, useStuckHistory, useStuckPlaces, useStuckSummary } from '../../../lib/fleet-health';
 import { useListedShips } from '../../../lib/listed-ships';
 import { useNow } from '../../../lib/now';
@@ -29,8 +31,8 @@ interface HealthContainerProps {
  * (read only for a cause with anything stuck), the trend and the
  * acknowledged, each by its own read; the last seen of each ship a shown
  * place names, read by id, and the machines with how many ships each crews,
- * counted per machine, when the trierarch plugin is connected. Never the
- * whole fleet.
+ * counted per machine, when the trierarch plugin is connected; last, where
+ * the fleet's kept history begins (fleet.limits). Never the whole fleet.
  */
 export function HealthContainer({ renderLiveness, children }: HealthContainerProps) {
   const now = useNow();
@@ -44,6 +46,7 @@ export function HealthContainer({ renderLiveness, children }: HealthContainerPro
   };
   const stuckPerHour = useStuckHistory();
   const acknowledged = useAcknowledged();
+  const keptFrom = useFleetLimits().data?.retention.keptFrom ?? null;
   const machines = useMachines();
   const shownPlaces = Object.values(places).flatMap((read) => read.places ?? []);
   const shipsById = useListedShips(shownPlaces.flatMap(({ place }) => (place.kind === 'ship' ? [place.ship.id] : [])));
@@ -74,6 +77,7 @@ export function HealthContainer({ renderLiveness, children }: HealthContainerPro
       now={now}
     >
       {children}
+      <HistoryKeptFrom keptFrom={keptFrom} area="health" />
     </HealthBoard>
   );
 }
