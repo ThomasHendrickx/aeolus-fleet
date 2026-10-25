@@ -21,14 +21,22 @@ describe("reading a fleet's limits", () => {
   it('follows the installation defaults until set for the fleet, and none applies without a default', async () => {
     await expect(getLimits({ fleetId })).resolves.toEqual({
       isOk: true,
-      value: { fleetId, ships: { setting: { kind: 'default' }, applies: null }, dailyMessages: { setting: { kind: 'default' }, applies: null } },
+      value: {
+        fleetId,
+        ships: { setting: { kind: 'default' }, applies: null },
+        dailyMessages: { setting: { kind: 'default' }, applies: null },
+        retention: { setting: { kind: 'default' }, applies: null },
+      },
     });
   });
 
   it('follows a default as it changes', async () => {
-    unwrap(await createSetInstallationSettings({ uow: core.uow })({ defaultShipLimit: 10, defaultDailyMessageLimit: 1000, fleetCap: null }));
+    unwrap(await createSetInstallationSettings({ uow: core.uow })({ defaultShipLimit: 10, defaultDailyMessageLimit: 1000, defaultRetentionDays: 30, fleetCap: null }));
 
-    await expect(getLimits({ fleetId })).resolves.toMatchObject({ isOk: true, value: { ships: { applies: 10 }, dailyMessages: { applies: 1000 } } });
+    await expect(getLimits({ fleetId })).resolves.toMatchObject({
+      isOk: true,
+      value: { ships: { applies: 10 }, dailyMessages: { applies: 1000 }, retention: { applies: 30 } },
+    });
   });
 
   it('refuses a fleet the installation does not host', async () => {

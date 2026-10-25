@@ -32,7 +32,11 @@ describe('getting one fleet of the installation', () => {
         storage: 0,
         messagesToday: 0,
         messagesPerDay: ['2026-09-28', '2026-09-29', '2026-09-30', '2026-10-01', '2026-10-02', '2026-10-03', '2026-10-04'].map((date) => ({ date, count: 0 })),
-        limits: { ships: { setting: { kind: 'default' }, applies: null }, dailyMessages: { setting: { kind: 'default' }, applies: null } },
+        limits: {
+          ships: { setting: { kind: 'default' }, applies: null },
+          dailyMessages: { setting: { kind: 'default' }, applies: null },
+          retention: { setting: { kind: 'default' }, applies: null },
+        },
         health: {
           oldestPendingAt: null,
           oldestInFlightAt: null,
