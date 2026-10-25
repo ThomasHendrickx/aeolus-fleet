@@ -493,6 +493,12 @@ describe('timelineSentence', () => {
     expect(onScoutsPage(anEntry('ScopesChanged', { actor: argo, details: { added: '', removed: 'squadrons:form' } })).sentence).toBe('Scopes changed: revoked squadrons:form by argo');
   });
 
+  it('says which of the fleet\'s scopes was defined, described or removed, and by whom (design gateway-scopes, 4.1)', () => {
+    expect(onScoutsPage(anEntry('ScopeDefined', { actor: argo, details: { scope: 'crm:read-leads' } })).sentence).toBe('Scope crm:read-leads defined by argo');
+    expect(onScoutsPage(anEntry('ScopeDescribed', { actor: argo, details: { scope: 'crm:read-leads' } })).sentence).toBe('Scope crm:read-leads described by argo');
+    expect(onScoutsPage(anEntry('ScopeRemoved', { actor: argo, details: { scope: 'crm:read-leads' } })).sentence).toBe('Scope crm:read-leads removed by argo');
+  });
+
   it('says one scope in the singular', () => {
     expect(onScoutsPage(anEntry('ScopesDeclared', { actor: scout, details: { namespace: 'squadrons', scopes: 1 } })).sentence).toBe('Scopes declared: namespace squadrons, 1 scope by scout');
   });

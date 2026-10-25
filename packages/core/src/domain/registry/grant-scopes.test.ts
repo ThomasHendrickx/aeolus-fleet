@@ -170,6 +170,54 @@ describe('granting scopes on a live ship (decision 0046)', () => {
   });
 });
 
+describe("granting the fleet's own scopes (design gateway-scopes, 4.1)", () => {
+  const mathilde = accountIdSchema.parse('acc-mathilde');
+  const READ_LEADS = { scope: 'crm:read-leads', description: 'Read leads in the CRM' };
+
+  beforeEach(async () => {
+    unwrap(await registry.defineScope(argo, READ_LEADS));
+    core.state.events.length = 0;
+  });
+
+  it('lets argo grant and revoke one, as any scope, with ScopesChanged', async () => {
+    unwrap(await registry.grantScopes(argo, { shipId: scout.shipId, grant: ['crm:read-leads'], revoke: [] }));
+    expect(scopesOf(scout.shipId)).toEqual(['messages:send', 'messages:receive', 'crm:read-leads']);
+
+    unwrap(await registry.grantScopes(argo, { shipId: scout.shipId, grant: [], revoke: ['crm:read-leads'] }));
+    expect(scopesOf(scout.shipId)).toEqual(['messages:send', 'messages:receive']);
+    expect(core.state.events.map(({ type, details }) => [type, details])).toEqual([
+      ['ScopesChanged', { added: 'crm:read-leads', removed: '' }],
+      ['ScopesChanged', { added: '', removed: 'crm:read-leads' }],
+    ]);
+  });
+
+  it('lets an account whose token carries it grant it', async () => {
+    const manager: AccountCaller = { kind: 'account', accountId: mathilde, fleetId: argo.fleetId, scopes: ['scopes:grant', 'crm:read-leads'], groupValues: [], personShipId: null, throughShipId: null };
+
+    unwrap(await registry.grantScopes(manager, { shipId: scout.shipId, grant: ['crm:read-leads'], revoke: [] }));
+
+    expect(scopesOf(scout.shipId)).toEqual(['messages:send', 'messages:receive', 'crm:read-leads']);
+  });
+
+  it('refuses it to an actor that does not hold it, though it may define scopes: no one widens their own access by defining one', async () => {
+    const steward: AccountCaller = { kind: 'account', accountId: mathilde, fleetId: argo.fleetId, scopes: ['scopes:grant', 'scopes:define'], groupValues: [], personShipId: null, throughShipId: null };
+
+    expect(refusalOf(await registry.grantScopes(steward, { shipId: scout.shipId, grant: ['crm:read-leads'], revoke: [] }))).toEqual({
+      kind: 'SCOPE_NOT_HELD',
+      message: 'You do not hold crm:read-leads, so you cannot grant it',
+    });
+    expect(scopesOf(scout.shipId)).toEqual(['messages:send', 'messages:receive']);
+  });
+
+  it('refuses a scope of a namespace the fleet uses that the fleet does not have, or no longer has', async () => {
+    unwrap(await registry.defineScope(argo, { scope: 'crm:admin', description: 'Administer the CRM' }));
+    unwrap(await registry.removeScope(argo, { scope: 'crm:admin' }));
+
+    expect(refusalOf(await registry.grantScopes(argo, { shipId: scout.shipId, grant: ['crm:write-leads'], revoke: [] }))).toMatchObject({ kind: 'SCOPE_NOT_DECLARED' });
+    expect(refusalOf(await registry.grantScopes(argo, { shipId: scout.shipId, grant: ['crm:admin'], revoke: [] }))).toMatchObject({ kind: 'SCOPE_NOT_DECLARED' });
+  });
+});
+
 describe('granting on a ship outside the granter\'s manage reach (decision 0053)', () => {
   it('is refused as a manage the rules do not allow, recording the refusal and changing nothing', async () => {
     const fleet = await readReachScenario();

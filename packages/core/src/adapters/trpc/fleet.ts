@@ -90,6 +90,10 @@ import {
   changeLabelValuesInputSchema,
   changeLabelValuesOutputSchema,
   declareScopesInputSchema,
+  defineScopeInputSchema,
+  definedScopeOutputSchema,
+  removeScopeInputSchema,
+  removeScopeOutputSchema,
   declareScopesOutputSchema,
   grantScopesInputSchema,
   grantScopesOutputSchema,
@@ -577,8 +581,8 @@ export const fleetRouter = router({
   scopes: actorScopedProcedure('fleet:read')
     .meta({
       description: [
-        "Needs fleet:read. The fleet's scopes by namespace: the core namespaces first (messages, fleet, crew, labels, scopes), declared by no ship,",
-        'then each plugin namespace by name, with the ship that declared it by id and name. Each scope with its one-line description.',
+        "Needs fleet:read. The fleet's scopes by namespace, each saying whose it is by kind (core, plugin or fleet): the core namespaces first (messages, fleet, crew, labels, scopes, meetings), declared by no ship,",
+        "then each plugin namespace and each namespace of the fleet's own scopes by name, a plugin namespace with the ship that declared it by id and name. Each scope with its one-line description.",
       ].join(' '),
     })
     .output(scopesOutputSchema)
@@ -605,7 +609,7 @@ export const fleetRouter = router({
     .meta({
       description: [
         'Needs scopes:grant. Grants and revokes scopes on a live agent, person or app ship at once; its crew holds them from its next call.',
-        "Each scope is one your ship holds (a core scope), or, for argo and a namespace's declarer only, a declared scope of that plugin namespace. Revoking follows the same rule.",
+        "Each scope is one your ship holds: a core scope, a declared plugin scope, or one of the fleet's own scopes; a namespace's declarer may also grant its plugin namespace's scopes. Revoking follows the same rule.",
         "messages:send and messages:receive are never revoked; argo's, the viewer's and your own ship's scopes are not changed here. Answers every scope the ship holds now.",
       ].join(' '),
     })
@@ -614,6 +618,45 @@ export const fleetRouter = router({
     .mutation(async ({ ctx, input }) => {
       const { scopes } = okOrThrow(await ctx.useCases.grantScopes(ctx.caller, input));
       return { scopes: [...scopes] };
+    }),
+
+  /** Defines one of the fleet's own scopes (design gateway-scopes, 4.1). */
+  defineScope: actorScopedProcedure('scopes:define')
+    .meta({
+      description: [
+        "Needs scopes:define. Defines one of the fleet's own scopes, <namespace>:<action> in the company's words such as crm:read-leads, with a one-line description of 1 to 200 characters.",
+        'A core namespace, a namespace reserved for a plugin Aeolus knows (gateway, squadrons, trierarch) and a namespace a plugin declared are refused; a scope the fleet has is CONFLICT.',
+        "The fleet's scopes have no cap. Defining a scope grants it to no one: argo holds it, and an actor that holds it grants it onwards with scopes:grant.",
+      ].join(' '),
+    })
+    .input(defineScopeInputSchema)
+    .output(definedScopeOutputSchema)
+    .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.defineScope(ctx.caller, input))),
+
+  /** Changes the description of one of the fleet's own scopes (design gateway-scopes, 4.1). */
+  describeScope: actorScopedProcedure('scopes:define')
+    .meta({
+      description: [
+        "Needs scopes:define. Changes the one-line description of one of the fleet's own scopes. A scope is never renamed: a new name is a new scope.",
+      ].join(' '),
+    })
+    .input(defineScopeInputSchema)
+    .output(definedScopeOutputSchema)
+    .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.describeScope(ctx.caller, input))),
+
+  /** Removes one of the fleet's own scopes, refused while a ship holds it (design gateway-scopes, 4.1). */
+  removeScope: actorScopedProcedure('scopes:define')
+    .meta({
+      description: [
+        "Needs scopes:define. Removes one of the fleet's own scopes. While an active ship holds it, the removal is CONFLICT, naming how many ships: revoke it from them first.",
+        'Removing the last scope of a namespace frees it for a plugin.',
+      ].join(' '),
+    })
+    .input(removeScopeInputSchema)
+    .output(removeScopeOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.removeScope(ctx.caller, input));
+      return {};
     }),
 
   /** Sets the caller's verified facts about a ship within its manage reach, whole (decision 0059). */

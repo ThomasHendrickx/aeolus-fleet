@@ -1,7 +1,7 @@
 # 0046 Scopes: the catalogue, declaring and granting
 
 - A scope is `<namespace>:<action>`: lowercase `a-z`, `0-9`, `-`, starting with a letter, 1 to 32 characters each. Scopes say what a ship may do; reach says where (0034). No rights travel with a message: a receiving ship is never a policy point, and core and the plugins enforce scopes and reach.
-- Core namespaces, reserved and enforced by core only: `messages`, `fleet`, `crew`, `labels`, `scopes`.
+- Core namespaces, reserved and enforced by core only: `messages`, `fleet`, `crew`, `labels`, `scopes`, `meetings`. A namespace holds core's scopes, one plugin's, or the fleet's own, never two of them.
 
 | Scope | Allows | Where |
 | --- | --- | --- |
@@ -25,13 +25,16 @@
 | `fleet:on-behalf` | a plugin's calls for another ship: read on behalf of a named ship (0034), name the asking ship's owner at commission, the owner its approver picked for an app ship it commissions, or the asking account's person ship as owner (0045, 0055) | the named ship's read reach |
 | `scopes:declare` | take up one plugin namespace and declare its scopes | its own namespace |
 | `scopes:grant` | grant and revoke on a live ship | what it may grant |
+| `scopes:define` | define, describe and remove the fleet's own scopes | the fleet |
 
 - Scopes are held by a ship, or carried in an account's token from its groups and its own rights (0052, 0058), and checked the same way for every actor (0057).
 - Granting: at commission, scopes the commissioner holds and scopes of its own namespace. On a live ship, `scopes:grant` within the same rule and the ship's manage reach, effective at the next call, with `ScopesChanged`. argo holds and grants everything. Every agent, person and app ship gets `messages:send` and `messages:receive`.
-- A plugin declares one namespace for good with `fleet.declareScopes` (its whole list, at most 20, one-line descriptions), `ScopesDeclared`. Core stores and answers its scopes and never checks them; the plugin enforces them. Retiring the declarer frees the namespace and removes its scopes from every ship. `fleet.scopes` lists every namespace.
-- Refused, each by name: a malformed scope, a core namespace declared, a namespace taken (CONFLICT), a second namespace, more than 20, removing a scope ships hold, granting an undeclared scope, granting a core scope the granter lacks, granting a plugin scope the granter does not hold, unless it is its declarer.
+- A plugin declares one namespace for good with `fleet.declareScopes` (its whole list, at most 20, one-line descriptions), `ScopesDeclared`. Core stores and answers its scopes and never checks them; the plugin enforces them. Retiring the declarer frees the namespace and removes its scopes from every ship.
+- The fleet's own scopes, in the company's words such as `crm:read-leads`: any actor holding `scopes:define` defines one with a one-line description (`fleet.defineScope`, `ScopeDefined`), changes its description (`fleet.describeScope`, `ScopeDescribed`; never renamed) and removes it (`fleet.removeScope`, `ScopeRemoved`). They are the fleet's, never retired with whoever defined them, with no cap. Granted as any scope: only by an actor that holds it, so defining one widens no one's access. Whoever needs them enforces them, such as the gateway on a tool call. The namespaces of the plugins Aeolus knows (`gateway`, `squadrons`, `trierarch`) are reserved; removing the fleet's last scope of a namespace frees it.
+- `fleet.scopes` lists every namespace, saying whose it is: core's, a plugin's with its declaring ship, or the fleet's.
+- Refused, each by name: a malformed scope, a core namespace declared or defined, a reserved namespace defined, a namespace taken by a plugin or the fleet (CONFLICT), a second namespace, more than 20 in a plugin's namespace, a scope the fleet has defined again (CONFLICT), removing a scope active ships hold (CONFLICT, naming how many), granting a scope neither declared nor defined, granting a core or fleet scope the granter lacks, granting a plugin scope the granter does not hold, unless it is its declarer.
 - Not scopes: argo's, the viewer's and the installation's built-in reach (0034). Nothing is argo's alone (0053).
 
-Why: the operator grants only what a ship needs, and plugins police their own scopes without core knowing them. A ship grants only what it holds, so nothing widens itself. Scope changes on a live ship take effect at once and leave an event.
+Why: the operator grants only what a ship needs, and plugins police their own scopes without core knowing them. The fleet names in its own words what its ships may do at outside parties (design gateway-scopes); a cap fits a plugin's list, not the fleet's words. A ship grants only what it holds, so nothing widens itself. Scope changes on a live ship take effect at once and leave an event.
 
-Rejected: resource-scoped scopes and roles that bundle scopes (models B and C of the design); scopes fixed at commission (a ship retired to change one); a plugin taking several namespaces; a request carrying its asker's scopes (policy, and a receiving ship as a policy point).
+Rejected: resource-scoped scopes and roles that bundle scopes (models B and C of the design); scopes fixed at commission (a ship retired to change one); a plugin taking several namespaces; a request carrying its asker's scopes (policy, and a receiving ship as a policy point); the fleet's scopes owned and retired with whoever defined them, as labels are; a namespace shared by the fleet and a plugin.

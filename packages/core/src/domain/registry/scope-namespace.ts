@@ -42,7 +42,7 @@ export type DeclareScopesRefusal = DomainError<
  * A ship declares its namespace with its whole list of scopes, the first
  * time or again (decision 0046). Refused: a malformed namespace or scope, a
  * scope of another namespace or twice, a description not on one line, a core
- * namespace, a namespace another ship took, a second namespace, more than 20
+ * namespace, a namespace the fleet uses for its own scopes, a namespace another ship took, a second namespace, more than 20
  * scopes, and removing a scope an active ship holds. Writes ScopesDeclared.
  */
 export function declareScopes(
@@ -54,6 +54,8 @@ export function declareScopes(
     ofDeclarer: ScopeNamespace | undefined;
     /** The scopes of this namespace an active ship holds. */
     held: readonly ScopeName[];
+    /** Whether the fleet has scopes of its own in this namespace (design gateway-scopes, 4.1). */
+    isUsedByFleet: boolean;
   },
 ): Result<{ namespace: ScopeNamespace; events: NewEvent[] }, DeclareScopesRefusal> {
   const { fleetId, declarer, namespace, at, actor } = input;
@@ -69,6 +71,9 @@ export function declareScopes(
   const scopes = declaredScopes(namespace, input.scopes);
   if (!scopes.isOk) {
     return scopes;
+  }
+  if (fleet.isUsedByFleet) {
+    return refuse('NAMESPACE_TAKEN', `The namespace ${namespace} is taken, by the fleet`);
   }
   if (fleet.taken !== undefined && fleet.taken.namespace.declaredBy !== declarer) {
     return refuse('NAMESPACE_TAKEN', `The namespace ${namespace} is taken, by ${fleet.taken.declarerName}`);
@@ -102,13 +107,18 @@ function declaredScopes(
     if (seen.has(scope)) {
       return refuse('INVALID_SCOPE', `${scope} is declared twice`);
     }
-    if (description.trim() === '' || description.includes('\n') || description.length > SCOPE_DESCRIPTION_MAX_LENGTH) {
+    if (!isScopeDescription(description)) {
       return refuse('INVALID_SCOPE_DESCRIPTION', `The description of ${scope} is one line of 1 to ${String(SCOPE_DESCRIPTION_MAX_LENGTH)} characters`);
     }
     seen.add(scope);
     declared.push({ scope, description });
   }
   return ok(declared);
+}
+
+/** Whether the description is one line of 1 to 200 characters, as every scope's is (decision 0046). */
+export function isScopeDescription(description: string): boolean {
+  return description.trim() !== '' && !description.includes('\n') && description.length <= SCOPE_DESCRIPTION_MAX_LENGTH;
 }
 
 /**

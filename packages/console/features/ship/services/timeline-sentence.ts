@@ -306,6 +306,12 @@ export function timelineSentence(entry: TimelineEntry, shipId: string): Timeline
       const changes = [...(granted === '' ? [] : [`granted ${granted}`]), ...(revoked === '' ? [] : [`revoked ${revoked}`])];
       return { parts: [text(`Scopes changed: ${changes.join(', ')}`), ...by(entry.actor)], tone: 'ended', icon: 'fleet' };
     }
+    case 'ScopeDefined':
+      return { parts: [text(`Scope ${stringDetail(entry, 'scope') ?? ''} defined`), ...by(entry.actor)], tone: 'ended', icon: 'fleet' };
+    case 'ScopeDescribed':
+      return { parts: [text(`Scope ${stringDetail(entry, 'scope') ?? ''} described`), ...by(entry.actor)], tone: 'ended', icon: 'fleet' };
+    case 'ScopeRemoved':
+      return { parts: [text(`Scope ${stringDetail(entry, 'scope') ?? ''} removed`), ...by(entry.actor)], tone: 'ended', icon: 'fleet' };
     case 'PluginConnected':
       return { parts: [text('Connected as a plugin: reads every ship'), ...by(entry.actor)], tone: 'ended', icon: 'fleet' };
     case 'PluginDisconnected':

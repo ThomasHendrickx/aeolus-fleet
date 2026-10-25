@@ -16,6 +16,7 @@ import type { DeclaredNetworkRules } from './declared-network-rules.js';
 import type { NetworkSettings } from './network-settings.js';
 import type { NetworkRulesDraft } from './network-rules-draft.js';
 import type { ReachRefusal } from './reach-refusal.js';
+import type { DefinedScope } from './defined-scope.js';
 import type { ScopeNamespace } from './scope-namespace.js';
 import type { Commissioner, Ship } from './ship.js';
 import type { ShipCounts } from './ship-counts.js';
@@ -143,6 +144,8 @@ export interface ShipRepository {
   listActiveHoldingInForUpdate(fleetId: FleetId, namespace: string): Promise<Ship[]>;
   /** The scopes of this plugin namespace that a ship not retired holds, each once, by name (decision 0046). */
   scopesHeldIn(fleetId: FleetId, namespace: string): Promise<ScopeName[]>;
+  /** How many active ships hold the scope. */
+  countHolding(fleetId: FleetId, scope: ScopeName): Promise<number>;
 }
 
 /**
@@ -163,6 +166,24 @@ export interface ScopeNamespaceRepository {
   save(namespace: ScopeNamespace): Promise<void>;
   /** The namespace goes, freed for another ship. */
   remove(fleetId: FleetId, namespace: string): Promise<void>;
+}
+
+/**
+ * The fleet's own scopes (design gateway-scopes, 4.1). A change holds the
+ * lock on the scope's namespace (ScopeNamespaceRepository.lockNamespace), so
+ * a definition and a plugin's declaration of one namespace wait for each other.
+ */
+export interface DefinedScopeRepository {
+  /** The scope, if the fleet has it. */
+  find(fleetId: FleetId, scope: ScopeName): Promise<DefinedScope | undefined>;
+  /** Stores the scope, or its new description. */
+  save(defined: DefinedScope): Promise<void>;
+  /** The scope goes. */
+  remove(fleetId: FleetId, scope: ScopeName): Promise<void>;
+  /** Every scope of the fleet's own, by name. */
+  list(fleetId: FleetId): Promise<DefinedScope[]>;
+  /** Whether the fleet has a scope of its own in this namespace. */
+  usesNamespace(fleetId: FleetId, namespace: string): Promise<boolean>;
 }
 
 /** Outbound port: leases, always within one fleet. */

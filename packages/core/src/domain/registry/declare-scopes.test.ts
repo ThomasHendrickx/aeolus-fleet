@@ -108,6 +108,27 @@ describe('declaring scopes (decision 0046)', () => {
     expect(core.state.events).toEqual([]);
   });
 
+  it("refuses a namespace the fleet uses for its own scopes, by the fleet, and stores nothing (design gateway-scopes, 4.1)", async () => {
+    const vault = await shipWithScopes({ registry, argo }, { name: 'vault', type: 'vault', scopes: ['fleet:read'] });
+    unwrap(await registry.defineScope(argo, { scope: 'vault:write', description: 'Write notes' }));
+    core.state.events.length = 0;
+
+    expect(refusalOf(await registry.declareScopes(vault, { namespace: 'vault', scopes: [] }))).toEqual({
+      kind: 'NAMESPACE_TAKEN',
+      message: 'The namespace vault is taken, by the fleet',
+    });
+    expect(core.state.scopeNamespaces).toEqual([]);
+    expect(core.state.events).toEqual([]);
+  });
+
+  it("takes a namespace once the fleet removed its last scope there (design gateway-scopes, 4.1)", async () => {
+    const vault = await shipWithScopes({ registry, argo }, { name: 'vault', type: 'vault', scopes: ['fleet:read'] });
+    unwrap(await registry.defineScope(argo, { scope: 'vault:write', description: 'Write notes' }));
+    unwrap(await registry.removeScope(argo, { scope: 'vault:write' }));
+
+    await expect(registry.declareScopes(vault, { namespace: 'vault', scopes: [] })).resolves.toMatchObject({ isOk: true });
+  });
+
   it('refuses a second namespace to a ship that declared one, and stores nothing', async () => {
     unwrap(await registry.declareScopes(squadrons, { namespace: 'squadrons', scopes: [FORM] }));
     core.state.events.length = 0;
