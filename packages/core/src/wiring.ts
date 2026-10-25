@@ -108,6 +108,7 @@ import { createRecrewShip, type RecrewShip } from './domain/registry/recrew-ship
 import { createReleaseShip, type ReleaseShip } from './domain/registry/release-ship.js';
 import { createRenameShip, type RenameShip } from './domain/registry/rename-ship.js';
 import { createSetOwner, type SetOwner } from './domain/registry/set-owner.js';
+import { createCheckManage, type CheckManage } from './domain/registry/check-manage.js';
 import { createSetVerifiedFacts, type SetVerifiedFacts } from './domain/registry/set-verified-facts.js';
 import { createRetireShip, type RetireShip } from './domain/registry/retire-ship.js';
 import { createReport, type Report } from './domain/registry/report.js';
@@ -199,6 +200,7 @@ export interface UseCases {
   retireShip: RetireShip;
   renameShip: RenameShip;
   setOwner: SetOwner;
+  checkManage: CheckManage;
   setVerifiedFacts: SetVerifiedFacts;
   recrewShip: RecrewShip;
   listFleet: ListFleet;
@@ -425,6 +427,7 @@ export function createUseCases(options: {
     retireShip: createRetireShip({ uow: bulkUow, clock, ids, hasher: sha256Hasher }),
     renameShip: createRenameShip({ uow, clock, ids }),
     setOwner: createSetOwner({ uow, clock, ids }),
+    checkManage: createCheckManage({ uow, clock, ids }),
     setVerifiedFacts: createSetVerifiedFacts({ uow, clock, ids }),
     recrewShip: createRecrewShip({ uow, clock, ids, secrets }),
     listFleet: createListFleet({ listing: createPrismaFleetListing(prisma), readReach }),

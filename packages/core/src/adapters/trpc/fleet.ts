@@ -107,6 +107,8 @@ import {
   reachRefusalsOutputSchema,
   explainReachInputSchema,
   setOwnerInputSchema,
+  checkManageInputSchema,
+  checkManageOutputSchema,
   setOwnerOutputSchema,
   setVerifiedFactsInputSchema,
   setVerifiedFactsOutputSchema,
@@ -151,7 +153,7 @@ import type { InboxEntry } from '../../domain/shared/history.js';
 import { describedAcknowledged, describedHealth, describedPerHour, describedStuck } from './health.js';
 import { presentStartingPrompt } from './starting-prompt-text.js';
 import { schedulesPageOf } from './schedule-output.js';
-import { actorAllScopesProcedure, actorAnyScopeProcedure, actorScopedProcedure, anyScopeProcedure, callerStillHolding, okOrThrow, ownPersonShipOrAnyScopeProcedure, router, scopedCrewCallerProcedure, scopedProcedure } from './trpc.js';
+import { actorAllScopesProcedure, actorAnyScopeProcedure, actorProcedure, actorScopedProcedure, anyScopeProcedure, callerStillHolding, okOrThrow, ownPersonShipOrAnyScopeProcedure, router, scopedCrewCallerProcedure, scopedProcedure } from './trpc.js';
 
 /** A crew request as the API answers it: its times in ISO 8601, and when its session started as `startedAt`. */
 function crewRequestOutputOf<T extends { requestedAt: Date; sessionStartedAt: Date | null; givenBack: ShipFacts['crewRequestGivenBack'] }>(request: T | null) {
@@ -517,6 +519,25 @@ export const fleetRouter = router({
     .output(setOwnerOutputSchema)
     .mutation(async ({ ctx, input }) => {
       okOrThrow(await ctx.useCases.setOwner(ctx.caller, input));
+      return {};
+    }),
+
+  /**
+   * Whether the caller manages a ship now, by the rule every fleet:manage
+   * call checks (decision 0034): the gateway asks it as an approver before it
+   * changes what a proxy ship's tools need (design gateway-scopes 4.2).
+   */
+  checkManage: actorProcedure
+    .meta({
+      description: [
+        'Needs no scope. Answers OK when the ship is within your manage reach, by the rule every fleet:manage call checks (decision 0034).',
+        'A ship outside it is refused NOT_REACHABLE, naming no rule, and the refusal is recorded as any manage refusal is; a ship that does not exist is refused SHIP_NOT_FOUND.',
+      ].join(' '),
+    })
+    .input(checkManageInputSchema)
+    .output(checkManageOutputSchema)
+    .query(async ({ ctx, input }) => {
+      okOrThrow(await ctx.useCases.checkManage(ctx.caller, input));
       return {};
     }),
 
