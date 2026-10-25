@@ -47,6 +47,8 @@ export interface ConnectCalls {
   status(): Promise<PluginConnection>;
   connect(handOver: { shipId: string; secret: string }): Promise<PluginConnection>;
   /** The fleet's ships; a ship out of the caller's read reach shows no kind and no scopes. */
+  /** A ship's scopes; undefined when the fleet shows it without them, as out of the caller's read reach. */
+  shipScopes(shipId: string): Promise<readonly string[] | undefined>;
   ships(): Promise<{ id: string; name: string; type: string; kind?: ShipKind; status: ShipStatus; scopes?: readonly string[] }[]>;
   /** Grants a ship scopes, writing ScopesChanged; answers every scope it holds now. */
   grantScopes(shipId: string, grant: readonly Scope[]): Promise<{ scopes: readonly string[] }>;
@@ -108,6 +110,21 @@ export async function connectPlugin(calls: ConnectCalls, at: { ship: PluginShip;
     secret = commissioned.secret ?? (await calls.startingPrompt(commissioned.shipId)).secret;
   }
   return calls.connect({ shipId, secret });
+}
+
+/**
+ * The scopes the plugin lists that its connected ship lacks, for Settings to
+ * name and offer to grant with a connect (#1226): none while not connected,
+ * and none when the fleet shows the ship without its scopes, claiming no
+ * lack it cannot see.
+ */
+export async function missingScopesOf(calls: Pick<ConnectCalls, 'shipScopes'>, at: { connection: PluginConnection; wanted: PluginShip }): Promise<Scope[]> {
+  const { connection, wanted } = at;
+  if (connection.state !== 'connected' || connection.ship === null) {
+    return [];
+  }
+  const held = await calls.shipScopes(connection.ship.shipId);
+  return held === undefined ? [] : wanted.scopes.filter((scope) => !held.includes(scope));
 }
 
 async function grantMissingScopes(calls: ConnectCalls, at: { ship: { id: string; scopes?: readonly string[] }; wanted: PluginShip }): Promise<void> {

@@ -1,4 +1,4 @@
-import { commissionShipOutputSchema, fleetListOutputSchema, grantScopesOutputSchema, PAGE_SIZE_MAX, startingPromptOutputSchema } from '@aeolus-fleet/common';
+import { commissionShipOutputSchema, fleetListOutputSchema, grantScopesOutputSchema, PAGE_SIZE_MAX, shipOutputSchema, startingPromptOutputSchema } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import { ConnectPluginError, type ConnectCalls, type PluginConnection } from './connect-plugin';
@@ -63,6 +63,7 @@ export function pluginCalls(urls: { serverUrl: string; pluginUrl: string }, sess
   return {
     status: () => trpc({ ...plugin, procedure: 'connection.status', answers: connectionSchema }),
     connect: (handOver) => trpc({ ...plugin, procedure: 'connection.connect', input: handOver, answers: connectionSchema }),
+    shipScopes: (shipId) => readShipScopes(fleet, shipId),
     ships: async () =>
       dataOf(
         await everyPage(async (cursor) => ({
@@ -77,6 +78,12 @@ export function pluginCalls(urls: { serverUrl: string; pluginUrl: string }, sess
     },
     startingPrompt: (shipId) => trpc({ ...fleet, procedure: 'fleet.getStartingPrompt', input: { shipId }, answers: startingPromptOutputSchema }),
   };
+}
+
+/** A ship's scopes as the operator's session reads them (fleet.ship); undefined when the fleet shows it without them. */
+async function readShipScopes(fleet: { url: string; cookie: string }, shipId: string): Promise<readonly string[] | undefined> {
+  const ship = await trpc({ ...fleet, procedure: 'fleet.ship', input: { shipId }, isQuery: true, answers: shipOutputSchema });
+  return 'scopes' in ship ? ship.scopes : undefined;
 }
 
 /** Squadrons' connection as the operator's session reads it. */
