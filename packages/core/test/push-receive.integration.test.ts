@@ -90,6 +90,26 @@ function eventTypesOf(deliveryId: DeliveryId) {
 }
 
 describe('a push receive on Postgres', () => {
+  it('takes the 11th delivery behind ten held hand-overs when only never handed are requested', async () => {
+    const held: DeliveryId[] = [];
+    for (let index = 0; index < 10; index += 1) {
+      held.push(await sendTo(toShip(scout)));
+    }
+    await pushReceive(scout, 10);
+    for (const deliveryId of held) {
+      unwrap(await useCases.handOverDelivery(scout, { deliveryId, handOverNumber: 1 }));
+    }
+    const eleventh = await sendTo(toShip(scout));
+
+    const input = { max: 10, onlyNeverHanded: true };
+    const { deliveries } = unwrap(await useCases.pushReceiveDeliveries(scout, input));
+
+    expect(deliveries.map((delivery) => delivery.deliveryId)).toEqual([eleventh]);
+    // A lost answer before hand-over must still return the received delivery.
+    const again = unwrap(await useCases.pushReceiveDeliveries(scout, input));
+    expect(again.deliveries.map((delivery) => delivery.deliveryId)).toEqual([eleventh]);
+  });
+
   it("stores the delivery received, in flight with the ship and its crew's lease, no attempt, and DeliveryReceived", async () => {
     const deliveryId = await sendTo(toShip(scout));
 

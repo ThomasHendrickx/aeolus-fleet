@@ -353,6 +353,12 @@ describe('pushReceivedDeliverySchema', () => {
 });
 
 describe('pushReceiveInputSchema', () => {
+  it('keeps the optional filter for never-handed deliveries', () => {
+    expect(pushReceiveInputSchema.parse({ onlyNeverHanded: true })).toEqual({ onlyNeverHanded: true });
+    expect(pushReceiveInputSchema.parse({ onlyNeverHanded: false })).toEqual({ onlyNeverHanded: false });
+    expect(pushReceiveInputSchema.safeParse({ onlyNeverHanded: 'true' }).success).toBe(false);
+  });
+
   it('takes no input, a max, and who wakes the ship', () => {
     expect(pushReceiveInputSchema.parse(undefined)).toBeUndefined();
     expect(pushReceiveInputSchema.parse({ max: 3, waker: 'gateway' })).toEqual({ max: 3, waker: 'gateway' });

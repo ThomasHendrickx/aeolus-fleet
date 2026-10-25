@@ -86,6 +86,26 @@ async function endLeaseOf(crew: Crew): Promise<void> {
 }
 
 describe('a push receive', () => {
+  it('takes the 11th delivery behind ten held hand-overs when only never handed are requested', async () => {
+    const held: DeliveryId[] = [];
+    for (let index = 0; index < 10; index += 1) {
+      held.push(await sendTo(toScout()));
+    }
+    await pushReceive(scout, 10);
+    for (const deliveryId of held) {
+      unwrap(await useCases.handOverDelivery(scout, { deliveryId, handOverNumber: 1 }));
+    }
+    const eleventh = await sendTo(toScout());
+
+    const input = { max: 10, onlyNeverHanded: true };
+    const { deliveries } = unwrap(await useCases.pushReceiveDeliveries(scout, input));
+
+    expect(deliveries.map((delivery) => delivery.deliveryId)).toEqual([eleventh]);
+    // A lost answer before hand-over must still return the received delivery.
+    const again = unwrap(await useCases.pushReceiveDeliveries(scout, input));
+    expect(again.deliveries.map((delivery) => delivery.deliveryId)).toEqual([eleventh]);
+  });
+
   it("marks a pending delivery received, in flight with the ship and its crew's lease, and counts no attempt", async () => {
     const deliveryId = await sendTo(toScout());
 
