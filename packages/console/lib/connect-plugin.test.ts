@@ -297,6 +297,13 @@ describe("a connected plugin's ship missing a scope its plugin lists, as Setting
     await expect(missingScopesOf(calls, { connection: notConnected, wanted: TRIERARCH_PLUGIN_SHIP })).resolves.toEqual([]);
   });
 
+  it("names none when the fleet does not answer for the ship, so the connection still shows and the plugin's pages stay", async () => {
+    const { calls } = fakes({ connection: connected });
+    const failing = { shipScopes: () => Promise.reject(new Error('NOT_FOUND')) };
+
+    await expect(missingScopesOf({ ...calls, ...failing }, { connection: connected, wanted: TRIERARCH_PLUGIN_SHIP })).resolves.toEqual([]);
+  });
+
   it('names none when the fleet shows the ship without its scopes, as out of read reach: it claims no lack it cannot see', async () => {
     const { calls } = fakes({ connection: connected });
 
