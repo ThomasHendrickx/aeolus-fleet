@@ -1,4 +1,4 @@
-import type { FleetId, LabelValueId, MessageId, ShipId } from '@aeolus-fleet/common';
+import type { LabelValueId, MessageId, ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { applyNetworkRules, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
@@ -19,7 +19,6 @@ import type { MessageToSend } from './send-message.js';
 let core: InMemoryCore;
 let registry: ReturnType<typeof registryUseCases>;
 let messaging: ReturnType<typeof messagingUseCases>;
-let fleetId: FleetId;
 let argo: ShipCaller;
 let lead: ShipCaller;
 let alpha: ShipCaller;
@@ -50,7 +49,6 @@ function byId(...ships: ShipCaller[]): ShipId[] {
 beforeEach(async () => {
   core = createInMemoryCore('2026-10-25T09:00:00.000Z');
   const fleet = await initialiseFleet(core);
-  ({ fleetId } = fleet);
   argo = operatorCaller(fleet);
   registry = registryUseCases(core);
   messaging = messagingUseCases(core);
@@ -140,7 +138,8 @@ describe('a send to a label', () => {
 
     unwrap(await messaging.sendMessage(forcer, toTeamA({ isForced: true })));
 
-    expect(core.state.deliveries.map((delivery) => delivery.isForced)).toEqual([true, true, true]);
+    // forcer carries no team value, so lead gets one too.
+    expect(core.state.deliveries.map((delivery) => delivery.isForced)).toEqual([true, true, true, true]);
   });
 
   it('names the message it replies to', async () => {

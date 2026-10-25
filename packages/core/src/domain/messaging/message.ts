@@ -1,9 +1,9 @@
-import { isPingContentType, type AccountId, type DeliveryId, type DeliveryState, type FleetId, type LeaseId, type MeetingId, type MessageId, type ScheduleId, type ShipId, type ShipKind } from '@aeolus-fleet/common';
+import { isPingContentType, type AccountId, type DeliveryId, type DeliveryState, type FleetId, type LabelValueId, type LeaseId, type MeetingId, type MessageId, type ScheduleId, type ShipId, type ShipKind } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
 import { shipActor, type Actor, type NewEvent } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
-import type { Addressee, Recipient } from '../shared/selector.js';
+import type { Addressee, LabelSelector, Recipient } from '../shared/selector.js';
 
 /**
  * An immutable envelope plus an opaque payload, sent by one ship to a
@@ -15,7 +15,7 @@ export interface Message {
   fleetId: FleetId;
   /** The calling ship: every sender is a ship, `argo` included. */
   senderShipId: ShipId;
-  /** The selector as resolved at send time: a ship's id, never its name, a type, or a meeting (decision 0061). */
+  /** The selector as resolved at send time: a ship's id, never its name, a type, a meeting (decision 0061), or a label selection as sent (decision 0063). */
   selector: Addressee;
   payload: string;
   /** A media type, exactly as the sender gave it. */
@@ -119,9 +119,13 @@ export interface MessageToAccept {
   at: Date;
 }
 
-/** Who the delivery of the message went to: its message's recipient, or for a contribution to a meeting the participant it is for (decision 0061). */
+/**
+ * Who the delivery of the message went to: its message's recipient, or for a
+ * contribution to a meeting (decision 0061) or a send to a label (decision
+ * 0063) the ship it is for.
+ */
 export function deliveredTo(message: Pick<Message, 'selector'>, delivery: Pick<Delivery, 'recipient'>): Recipient {
-  return message.selector.kind === 'meeting' ? delivery.recipient : message.selector;
+  return message.selector.kind === 'meeting' || message.selector.kind === 'label' ? delivery.recipient : message.selector;
 }
 
 export type RepeatRefusal = DomainError<'IDEMPOTENCY_KEY_REUSED'>;
@@ -309,6 +313,87 @@ export function acceptContribution(send: ContributionToAccept): Result<{ message
       messageId,
       deliveryId,
       details: { selector: 'meeting', recipientType: null, model: send.model ?? null, meetingId },
+    })),
+  });
+}
+
+/** A send to a label selection, its payload and key already checked, with one delivery id per ship the selection resolved to (decision 0063). */
+export type LabelMessageToAccept = Omit<MessageToAccept, 'deliveryId' | 'resendOf' | 'meetingId'> & {
+  valueIds: readonly LabelValueId[];
+  deliveries: readonly { deliveryId: DeliveryId; shipId: ShipId }[];
+};
+
+/**
+ * Accepts a send to a label selection (decision 0063): one message keeping
+ * the selection as sent, and one pending delivery per ship it resolved to,
+ * each with its own MessageAccepted naming that ship, caused by the sender.
+ * The reply, model and force rules are a send's.
+ */
+export function acceptLabelMessage(
+  repliedTo: Message | undefined,
+  send: LabelMessageToAccept,
+): Result<{ message: Message; deliveries: Delivery[]; events: NewEvent[] }, AcceptRefusal> {
+  const { messageId, fleetId, senderShipId, inReplyTo, at } = send;
+  if (inReplyTo !== undefined && repliedTo?.id !== inReplyTo) {
+    return refuse('IN_REPLY_TO_NOT_FOUND', `Message ${inReplyTo} does not exist: a reply names a message of the fleet`);
+  }
+  const stated = checkModel(send);
+  if (!stated.isOk) {
+    return stated;
+  }
+  const selector: LabelSelector = { kind: 'label', valueIds: [...send.valueIds] };
+  const message: Message = {
+    id: messageId,
+    fleetId,
+    senderShipId,
+    selector,
+    payload: send.payload,
+    contentType: send.contentType,
+    model: send.model ?? null,
+    idempotencyKey: send.idempotencyKey,
+    requestHash: send.requestHash,
+    inReplyToMessageId: inReplyTo ?? null,
+    resendOfMessageId: null,
+    meetingId: null,
+    scheduleId: send.scheduledFor?.scheduleId ?? null,
+    sendTime: send.scheduledFor?.sendTime ?? null,
+    createdAt: at,
+  };
+  const deliveries = send.deliveries.map(
+    ({ deliveryId, shipId }): Delivery => ({
+      id: deliveryId,
+      fleetId,
+      messageId,
+      recipient: { kind: 'ship', shipId },
+      state: 'pending',
+      claimedByShipId: null,
+      claimedByLeaseId: null,
+      attempts: 0,
+      handOverNumber: null,
+      handedOnceMoreAt: null,
+      isForced: send.isForced,
+      createdAt: at,
+    }),
+  );
+  const actor = send.signedInAccountId === undefined ? shipActor(senderShipId) : { kind: 'ship' as const, shipId: senderShipId, signedInAccountId: send.signedInAccountId };
+  return ok({
+    message,
+    deliveries,
+    events: send.deliveries.map(({ deliveryId, shipId }): NewEvent => ({
+      fleetId,
+      type: 'MessageAccepted',
+      occurredAt: at,
+      actor: send.actor ?? actor,
+      shipId,
+      messageId,
+      deliveryId,
+      details: {
+        selector: 'label',
+        recipientType: null,
+        model: send.model ?? null,
+        ...(send.isForced && { forced: true }),
+        ...(send.scheduledFor && { scheduleId: send.scheduledFor.scheduleId, sendTime: send.scheduledFor.sendTime.toISOString() }),
+      },
     })),
   });
 }

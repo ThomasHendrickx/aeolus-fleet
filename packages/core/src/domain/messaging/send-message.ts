@@ -1,6 +1,15 @@
 import { isPingContentType, PING_CONTENT_TYPE, SCHEDULE_IDEMPOTENCY_KEY_PREFIX, type IdGenerator, type MessageId, type ShipId } from '@aeolus-fleet/common';
 
-import { checkReach, resolveSelector, type CheckReachTx, type NotReachable, type ResolveSelectorTx, type UnresolvableSelector } from '../registry/public.js';
+import {
+  checkReach,
+  resolveLabelSelection,
+  resolveSelector,
+  type CheckReachTx,
+  type NotReachable,
+  type ResolveLabelSelectionTx,
+  type ResolveSelectorTx,
+  type UnresolvableSelector,
+} from '../registry/public.js';
 import { hasScope, type ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
@@ -8,19 +17,19 @@ import { recordEvent, type Actor, type EventLog } from '../shared/events.js';
 import type { Notifier } from '../shared/notifier.js';
 import { err, ok, type Result } from '../shared/result.js';
 import { isAnswerToSender } from './answer.js';
-import type { MeetingSelector, Selector } from '../shared/selector.js';
+import type { LabelSelector, MeetingSelector, Selector } from '../shared/selector.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { contentType } from './content-type.js';
 import { withinDailyMessageLimit, type DailyMessageLimitTx } from './daily-message-limit.js';
 import { idempotencyKey } from '../shared/idempotency-key.js';
-import { acceptContribution, acceptMessage, repeatOf, type AcceptRefusal, type RepeatRefusal, type ScheduledFor } from './message.js';
+import { acceptContribution, acceptLabelMessage, acceptMessage, repeatOf, type AcceptRefusal, type RepeatRefusal, type ScheduledFor } from './message.js';
 import { payload } from './payload.js';
 import type { DeliveryRepository, MeetingRepository, MessageRepository, RequestHasher } from './ports.js';
 import { checkContribution, type ContributionRefusal } from './meeting.js';
 import { sendRequestText } from './send-request.js';
 
 export interface SendMessageTx extends Omit<ResolveSelectorTx, 'ships'>, Omit<CheckReachTx, 'ships'>, DailyMessageLimitTx {
-  ships: ResolveSelectorTx['ships'] & CheckReachTx['ships'];
+  ships: ResolveSelectorTx['ships'] & CheckReachTx['ships'] & ResolveLabelSelectionTx['ships'];
   messages: MessageRepository;
   deliveries: DeliveryRepository;
   meetings: Pick<MeetingRepository, 'findForShare'>;
@@ -92,6 +101,11 @@ export type SendMessage = (caller: ShipCaller, input: MessageToSend) => Promise<
  * A send to a meeting is a contribution (decision 0061): one message, one
  * delivery per other participant, in the same unit of work, with no reach
  * check: the owner reached each participant when it joined.
+ *
+ * A send to a label (decision 0063) resolves the selection into its ships,
+ * never the sender, each held in id order after the key; the sender must
+ * reach every one, or the send is refused whole. One message, one delivery
+ * per ship, in the same unit of work.
  */
 export function createSendMessage(deps: {
   uow: UnitOfWork<SendMessageTx>;
@@ -183,6 +197,9 @@ export async function sendWithin(
 
   if (selector.kind === 'meeting') {
     return contributeWithin(deps, { ...send, meeting: selector });
+  }
+  if (selector.kind === 'label') {
+    return sendToLabelWithin(deps, { ...send, label: selector });
   }
   const recipient = await resolveSelector(tx, { fleetId, selector });
   if (!recipient.isOk) {
@@ -291,6 +308,83 @@ async function contributeWithin(
     idempotencyKey: send.request.idempotencyKey,
     requestHash: send.request.requestHash,
     ...(send.caller.signedInAccountId === undefined ? {} : { signedInAccountId: send.caller.signedInAccountId }),
+    at,
+  });
+  if (!accepted.isOk) {
+    return accepted;
+  }
+  const { message, deliveries, events } = accepted.value;
+  await tx.messages.create(message);
+  for (const delivery of deliveries) {
+    await tx.deliveries.create(delivery);
+  }
+  for (const event of events) {
+    await recordEvent({ events: tx.events, ids }, event);
+  }
+  for (const delivery of deliveries) {
+    await tx.notifier.deliveryPending({ fleetId, deliveryId: delivery.id, recipient: delivery.recipient });
+  }
+  return ok({ messageId: message.id });
+}
+
+/**
+ * A send to a label selection, inside the send's unit of work, its key
+ * checked already (decision 0063). Every ship of the list stays held until
+ * the unit of work ends; the reach to each is checked as a send to it, and
+ * the first refused refuses the whole send with only its record stored. One
+ * message, one delivery per ship, one MessageAccepted and one notice each.
+ */
+async function sendToLabelWithin(
+  deps: { tx: SendMessageTx; clock: Clock; ids: IdGenerator },
+  send: { caller: ShipCaller; request: CheckedSend; actor?: Actor; label: LabelSelector },
+): Promise<Result<MessageSent, SendMessageRefusal>> {
+  const { tx, clock, ids } = deps;
+  const { fleetId, shipId: senderShipId } = send.caller;
+  const { inReplyTo } = send.request;
+  const ships = await resolveLabelSelection(tx, { fleetId, valueIds: send.label.valueIds, senderShipId });
+  if (!ships.isOk) {
+    return ships;
+  }
+  const at = clock.now();
+  const repliedTo = inReplyTo === undefined ? undefined : await tx.messages.find(fleetId, inReplyTo);
+  const repliedDelivery = repliedTo && (await tx.deliveries.findOfMessage(fleetId, repliedTo.id));
+  for (const shipId of ships.value) {
+    const recipient = { kind: 'ship' as const, shipId };
+    const reach = await checkReach(
+      { tx, ids },
+      {
+        fleetId,
+        senderShipId,
+        recipient,
+        isAnswerToSender: isAnswerToSender({ senderShipId, recipient }, repliedTo && repliedDelivery && { message: repliedTo, delivery: repliedDelivery }),
+        at,
+      },
+    );
+    if (!reach.isOk) {
+      return reach;
+    }
+  }
+  const withinLimit = await withinDailyMessageLimit(tx, { fleetId, time: at });
+  if (!withinLimit.isOk) {
+    return withinLimit;
+  }
+  const accepted = acceptLabelMessage(repliedTo, {
+    messageId: ids('message'),
+    fleetId,
+    senderShipId,
+    valueIds: send.label.valueIds,
+    deliveries: ships.value.map((shipId) => ({ deliveryId: ids('delivery'), shipId })),
+    payload: send.request.payload,
+    contentType: send.request.contentType,
+    model: send.request.model,
+    senderKind: send.caller.kind,
+    idempotencyKey: send.request.idempotencyKey,
+    requestHash: send.request.requestHash,
+    inReplyTo,
+    isForced: send.request.isForced,
+    ...(send.caller.signedInAccountId === undefined ? {} : { signedInAccountId: send.caller.signedInAccountId }),
+    ...(send.actor && { actor: send.actor }),
+    ...(send.request.scheduledFor && { scheduledFor: send.request.scheduledFor }),
     at,
   });
   if (!accepted.isOk) {

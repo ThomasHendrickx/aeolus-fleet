@@ -24,11 +24,16 @@ export const partySchema = z.object({ id: idSchema('ship'), name: z.string() });
 
 export type Party = z.infer<typeof partySchema>;
 
-/** Who a message was addressed to: one ship, any ship of a type, or every other participant of a meeting (decision 0061). */
+/**
+ * Who a message was addressed to: one ship, any ship of a type, every other
+ * participant of a meeting (decision 0061), or the ships of a label
+ * selection, its value ids as sent (decision 0063).
+ */
 export const messageRecipientSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('ship'), ship: partySchema }),
   z.object({ kind: z.literal('type'), type: z.string() }),
   z.object({ kind: z.literal('meeting'), meetingId: idSchema('meeting') }),
+  z.object({ kind: z.literal('label'), valueIds: z.array(idSchema('labelValue')).readonly() }),
 ]);
 
 export type MessageRecipient = z.infer<typeof messageRecipientSchema>;
