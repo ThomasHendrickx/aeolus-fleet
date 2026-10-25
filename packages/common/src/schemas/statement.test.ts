@@ -7,6 +7,7 @@ import {
   STATEMENT_MAX_BYTES,
   STATEMENT_SUMMARY_MAX_LENGTH,
   discoverOutputSchema,
+  discoveredStatementSchema,
   setStatementInputSchema,
   setStatementOutputSchema,
   statementBytes,
@@ -113,6 +114,28 @@ describe('what a capability states for a call through the gateway (interop 3.4, 
     ['an annotation MCP does not define', { annotations: { costHint: 3 } }],
   ])('refuses %s', (_label, capability) => {
     expect(setStatementInputSchema.safeParse(withCapability(capability)).success).toBe(false);
+  });
+});
+
+describe('the scopes a capability needs (decision 0064)', () => {
+  const withScopes = (scopes: unknown) => ({ summary: 'The CRM.', capabilities: [{ name: 'update_lead', scopes }] });
+
+  it('takes the scopes a call needs, and none at all', () => {
+    const statement = withScopes(['crm:write-leads', 'company-memory:write']);
+
+    expect(setStatementInputSchema.parse(statement)).toEqual(statement);
+    expect(setStatementInputSchema.parse({ summary: 'The CRM.', capabilities: [{ name: 'update_lead' }] }).capabilities[0]).toEqual({ name: 'update_lead' });
+  });
+
+  it('refuses a scope that is not a scope name', () => {
+    expect(setStatementInputSchema.safeParse(withScopes(['Not A Scope'])).success).toBe(false);
+  });
+
+  it('shows the scopes in discovery', () => {
+    const scoped = { name: 'update_lead', scopes: ['crm:write-leads'] };
+    const statement = { by: 'crew', version: 1, summary: 'The CRM.', capabilities: [scoped] };
+
+    expect(discoveredStatementSchema.parse(statement)).toEqual(statement);
   });
 });
 
