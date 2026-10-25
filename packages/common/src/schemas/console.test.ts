@@ -73,6 +73,17 @@ describe('consoleSessionOutputSchema', () => {
 
     expect(consoleSessionOutputSchema.parse(account)).toEqual(account);
   });
+
+  it("answers the scopes a plugin declares that the session holds, beside core's, so the plugin checks them (#1234)", () => {
+    const account = { ...output, kind: 'account', accountId: 'acc-mathilde', scopes: ['fleet:read', 'trierarch:join'] };
+
+    expect(consoleSessionOutputSchema.parse(account)).toEqual(account);
+  });
+
+  it('rejects a scope that is no scope name, and a core scope that does not exist', () => {
+    expect(consoleSessionOutputSchema.safeParse({ ...output, scopes: ['trierarch'] }).success).toBe(false);
+    expect(consoleSessionOutputSchema.safeParse({ ...output, scopes: ['fleet:fly'] }).success).toBe(false);
+  });
 });
 
 describe('presentAccountTokenInputSchema', () => {

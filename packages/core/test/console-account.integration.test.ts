@@ -170,6 +170,12 @@ describe('an account signed in by its token cookie', () => {
     });
   });
 
+  it("answers the scopes a plugin declares that its token carries, beside core's, so a plugin checks them on the account (#1234)", async () => {
+    const cookie = await signedInCookie({ scope: 'fleet:read trierarch:join' });
+
+    await expect(asBrowser(cookie).console.session.query()).resolves.toMatchObject({ kind: 'account', scopes: ['fleet:read', 'trierarch:join'] });
+  });
+
   it("reads who holds argo's sign-in when its token allows it as argo, for the warning before signing in as argo", async () => {
     const { ticket } = unwrap(await useCases.issueSignInTicket({ fleetId, account: { id: accountIdSchema.parse('acc-thomas') } }));
     unwrap(await useCases.redeemSignInTicket({ ticket }));
