@@ -22,7 +22,7 @@ describe('initialising the fleet on Postgres', () => {
     );
 
     await expect(core.prisma.fleet.findMany()).resolves.toEqual([
-      { id: fleetId, name: 'home fleet', createdAt: core.clock.now(), lastEventSeq: 2n, shipLimitSet: false, shipLimit: null, dailyMessageLimitSet: false, dailyMessageLimit: null, schedulesPerShipLimitSet: false, schedulesPerShipLimit: null, minimumScheduleIntervalSet: false, minimumScheduleInterval: null, retentionSet: false, retentionDays: null },
+      { id: fleetId, name: 'home fleet', createdAt: core.clock.now(), lastEventSeq: 2n, shipLimitSet: false, shipLimit: null, dailyMessageLimitSet: false, dailyMessageLimit: null, schedulesPerShipLimitSet: false, schedulesPerShipLimit: null, minimumScheduleIntervalSet: false, minimumScheduleInterval: null, retentionSet: false, retentionDays: null, prunedAt: null, keptFrom: null },
     ]);
     await expect(core.prisma.ship.findMany()).resolves.toEqual([
       expect.objectContaining({

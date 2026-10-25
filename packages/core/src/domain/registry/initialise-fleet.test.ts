@@ -177,6 +177,9 @@ describe('initialise fleet', () => {
       guideProgress: [],
       healthSnapshots: [],
       healthSnapshotLocks: [],
+      fleetPrunes: [],
+      historyPruneLocks: [],
+      lockedMessages: [],
     });
   });
 });
