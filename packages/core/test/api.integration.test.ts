@@ -719,6 +719,16 @@ describe('statements and discovery at the API (decision 0047)', () => {
     await expect(statementOf(await signedInArgo(), reviewer.shipId)).resolves.toEqual({ by: 'crew', version: 1, ...REVIEWS });
   });
 
+  it('keep the scopes each capability needs, which another crew discovers', async () => {
+    const crm = await crewed('statement-crm');
+    const caller = await crewed('statement-caller');
+    const scoped = { summary: 'The CRM.', capabilities: [{ name: 'update_lead', scopes: ['crm:write-leads'] }, { name: 'search_leads' }] };
+
+    await crm.crew.ship.setStatement.mutate(scoped);
+
+    await expect(statementOf(caller.crew, crm.shipId)).resolves.toEqual({ by: 'crew', version: 1, ...scoped });
+  });
+
   it('show the commission note until a crew states one, and again once the ship is released', async () => {
     const reviewer = await crewed('statement-released');
     const planner = await crewed('statement-asker');
