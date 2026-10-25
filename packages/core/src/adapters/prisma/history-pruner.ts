@@ -1,6 +1,6 @@
 /**
  * The pruning pass on Postgres (docs/design/retention/retention.md, R2, R6,
- * R8, R12 and R16). A batch takes a transaction-level advisory lock on the
+ * R7, R8, R12 and R16). A batch takes a transaction-level advisory lock on the
  * fleet's pruning with try, so a second server skips the fleet, and locks the
  * messages it reads and their deliveries FOR UPDATE SKIP LOCKED before it
  * reads what decides: a row another transaction holds is skipped, and its
@@ -25,6 +25,7 @@ const candidateRows = z.array(
     isAnswered: z.boolean(),
     meeting: z.enum(['none', 'open', 'ended']),
     isNamedBySchedule: z.boolean(),
+    hasUnfoldedEvent: z.boolean(),
     deliveries: z.int(),
   }),
 );
@@ -101,9 +102,24 @@ export function createPrismaHistoryPruner(db: Db): HistoryPruner {
               EXISTS (SELECT 1 FROM schedules s WHERE s.fleet_id = ${fleetId} AND s.in_reply_to_message_id = m.id)
               OR EXISTS (SELECT 1 FROM schedules s WHERE s.fleet_id = ${fleetId} AND s.last_message_id = m.id)
             ) AS "isNamedBySchedule",
+            -- An event numbered after the newest snapshot's fold, of the
+            -- message or of one of its deliveries (R7). Events take their
+            -- numbers in commit order and this reads after the deliveries are
+            -- locked: an acknowledgement committed before the lock is seen
+            -- here, and one after it waits for the batch.
+            (
+              EXISTS (SELECT 1 FROM events e WHERE e.fleet_id = ${fleetId} AND e.message_id = m.id AND e.seq > folded.seq)
+              OR EXISTS (
+                SELECT 1 FROM deliveries d JOIN events e ON e.fleet_id = d.fleet_id AND e.delivery_id = d.id
+                WHERE d.fleet_id = ${fleetId} AND d.message_id = m.id AND e.seq > folded.seq
+              )
+            ) AS "hasUnfoldedEvent",
             (SELECT count(*)::int FROM deliveries d WHERE d.fleet_id = ${fleetId} AND d.message_id = m.id) AS deliveries
           FROM messages m
           LEFT JOIN meetings mt ON mt.fleet_id = m.fleet_id AND mt.id = m.meeting_id
+          CROSS JOIN (
+            SELECT COALESCE((SELECT seq FROM health_snapshots WHERE fleet_id = ${fleetId} ORDER BY hour DESC LIMIT 1), 0) AS seq
+          ) folded
           WHERE m.fleet_id = ${fleetId} AND m.id = ANY(${ids})
           ORDER BY m.created_at, m.id`,
       );

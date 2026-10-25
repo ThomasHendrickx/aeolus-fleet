@@ -32,6 +32,8 @@ export interface PruneCandidate {
   isNamedBySchedule: boolean;
   /** Whether the message or one of its deliveries was locked by another transaction and skipped. */
   isLocked: boolean;
+  /** Whether an event of the message or of one of its deliveries is one the newest snapshot has not folded yet (R7). */
+  hasUnfoldedEvent: boolean;
   deliveries: readonly CandidateDelivery[];
 }
 
@@ -61,11 +63,11 @@ export function isFinalDelivery(delivery: CandidateDelivery): boolean {
  * A message is finished when every delivery of it is final, and it is not an
  * open question (L6, L21; a withdrawn or replaced one too, R15) or a
  * contribution to a meeting not ended (R2); a message a schedule names stays,
- * as the schedule does, and a row another transaction holds waits for the
- * next pass.
+ * as the schedule does, and a row another transaction holds, or one with an
+ * event the snapshot has not folded yet (R7), waits for the next pass.
  */
 export function isFinished(candidate: PruneCandidate): boolean {
-  if (candidate.isLocked || candidate.isNamedBySchedule || candidate.meeting === 'open') {
+  if (candidate.isLocked || candidate.hasUnfoldedEvent || candidate.isNamedBySchedule || candidate.meeting === 'open') {
     return false;
   }
   if (candidate.contentType === QUESTION_CONTENT_TYPE && !candidate.isAnswered) {

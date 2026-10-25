@@ -50,6 +50,16 @@ export function createInMemoryHistoryPruner(state: InMemoryState): HistoryPruner
     return state.pushedLeases.some((pushed) => pushed.leaseId === lease.id) ? 'openPushed' : 'open';
   };
 
+  /** Whether an event of the message or its deliveries comes after the newest snapshot's fold, numbered as the in-memory snapshot numbers them. */
+  const hasUnfoldedEvent = (message: Message): boolean => {
+    const newest = state.healthSnapshots.filter((row) => row.fleetId === message.fleetId).toSorted((first, second) => second.hour.getTime() - first.hour.getTime())[0];
+    const foldedSeq = newest?.fold.seq ?? 0;
+    const deliveryIds = state.deliveries.filter((delivery) => delivery.fleetId === message.fleetId && delivery.messageId === message.id).map((delivery) => delivery.id);
+    return state.events
+      .filter((event) => event.fleetId === message.fleetId)
+      .some((event, index) => index + 1 > foldedSeq && (event.messageId === message.id || (event.deliveryId !== undefined && deliveryIds.includes(event.deliveryId))));
+  };
+
   const candidateOf = (message: Message): PruneCandidate => {
     const meeting = message.meetingId === null ? undefined : state.meetings.find((held) => held.fleetId === message.fleetId && held.id === message.meetingId);
     return {
@@ -64,6 +74,7 @@ export function createInMemoryHistoryPruner(state: InMemoryState): HistoryPruner
           (schedule.send.inReplyTo === message.id || (schedule.lastOutcome?.kind === 'sent' && schedule.lastOutcome.messageId === message.id)),
       ),
       isLocked: state.lockedMessages.includes(message.id),
+      hasUnfoldedEvent: hasUnfoldedEvent(message),
       deliveries: state.deliveries
         .filter((delivery) => delivery.fleetId === message.fleetId && delivery.messageId === message.id)
         .map((delivery) => ({ state: delivery.state, claimingLease: claimingLease(delivery) })),

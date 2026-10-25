@@ -13,10 +13,11 @@ import { withOperatorLogin } from './support/operator-login.js';
 import { createPostgresCore, heldUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 
 // Pruning finished history on a real Postgres (decision 0066; the retention
-// design, R2, R6, R11, R12 and R14): what is still on its way, or still
+// design, R2, R6, R7, R11, R12 and R14): what is still on its way, or still
 // waiting on a person, survives a pass at any age; what is finished past the
 // retention goes with its deliveries and events and takes its bytes off
-// storage; and a pass racing a send, an acknowledgement, a second server or a
+// storage; what the newest stuck snapshot has not folded stays (R7); and a
+// pass racing a send, an acknowledgement, a second server or a
 // fleet's delete, or failing mid-batch, loses nothing it should keep.
 
 const newId = createIdGenerator();
@@ -170,6 +171,26 @@ describe('a pruning pass on Postgres', () => {
     await passAfter((RETENTION_DAYS + 1) * DAY_MS);
 
     expect(await isKept(messageId)).toBe(true);
+  });
+
+  it('keeps a message acknowledged after the newest snapshot until the snapshot folds the acknowledgement (R7)', async () => {
+    const messageId = await sendTo(planner.shipId);
+    core.clock.advance(1_000);
+    unwrap(await core.useCases.receiveDeliveries(planner, { max: 10 }));
+    await passAfter((RETENTION_DAYS + 1) * DAY_MS);
+    const { id } = await core.prisma.delivery.findFirstOrThrow({ where: { messageId } });
+    unwrap(await core.useCases.acknowledgeDelivery(planner, { deliveryId: idSchema('delivery').parse(id) }));
+    core.clock.advance(HOUR_MS);
+
+    await core.useCases.pruneHistory();
+    const isKeptBeforeTheFold = await isKept(messageId);
+    const acknowledgements = await core.prisma.event.count({ where: { deliveryId: id, type: 'DeliveryAcknowledged' } });
+    await passAfter(HOUR_MS);
+
+    expect(isKeptBeforeTheFold).toBe(true);
+    expect(acknowledgements).toBe(1);
+    expect(await isKept(messageId)).toBe(false);
+    expect(await core.prisma.healthSnapshotDelivery.count({ where: { deliveryId: id } })).toBe(0);
   });
 
   it('takes the pruned payload bytes off storage, and keeps the day counted', async () => {

@@ -12,6 +12,7 @@ function aCandidate(overrides: Partial<PruneCandidate> = {}): PruneCandidate {
     meeting: 'none',
     isNamedBySchedule: false,
     isLocked: false,
+    hasUnfoldedEvent: false,
     deliveries: [{ state: 'handled', claimingLease: 'ended' }],
     ...overrides,
   };
@@ -70,6 +71,10 @@ describe('a finished message (R2)', () => {
 
   it('waits for the next pass while another transaction holds its rows', () => {
     expect(isFinished(aCandidate({ isLocked: true }))).toBe(false);
+  });
+
+  it('waits for the next pass while the newest snapshot has not folded one of its events (R7)', () => {
+    expect(isFinished(aCandidate({ hasUnfoldedEvent: true }))).toBe(false);
   });
 });
 
