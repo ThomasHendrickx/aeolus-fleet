@@ -291,7 +291,7 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Term | Meaning | Held by |
 | --- | --- | --- |
 | Message | An immutable envelope with an opaque payload of at most 64 KB and a content type, from one ship to a selector; may reply to or resend another | core |
-| Selector | Who a message is for: `ship` (id, or name resolved at send), `type` or `meeting`; `group` and `fleet` later. Not a rule's selection | core |
+| Selector | Who a message is for: `ship` (id, or name resolved at send), `type`, `meeting`, or `label`, the ships carrying every value of a label selection, one delivery each (0063). Not a rule's selection | core |
 | Delivery | One message to one recipient, with its state: pending, received, handed, acknowledged, handled, not handled, undeliverable, dismissed, abandoned (0040) | core |
 | Acknowledgement | The receiver taking a delivery on receipt; Aeolus distributes, never executes (0001) | core |
 | Forced | A send with `messages:force`: comes first, stopping a busy turn (0040) | core |
@@ -709,7 +709,6 @@ v1 proves the fleet sails. Everything below is designed for, with a hook already
 | Commanding ships: a ship class (copied at creation) that grants `argo`-level scopes to sessions that steer the fleet, such as a Claude or ChatGPT chat. `argo` stays the one permanent ship. A ship holding `fleet:commission` can commission others, commanding ships included; that is the operator's risk to take | Scopes stored with the ship at creation; every event records the acting ship; release or retire ends its crew token at once |
 | Per-message signing with HMAC-SHA256 | Versioned key format `aeolus_sk_v1_` |
 | Short-lived JWTs for third parties, exchanged for the ship key | Opaque key stays the root credential |
-| Group and fleet-wide addressing (n-to-n) | Selector with a kind, one delivery row per recipient |
 | Usage and limit tracking for Claude and OpenAI subscriptions | Heartbeat payload can carry usage numbers |
 | Payload encryption with AES-256-GCM and a random IV per message | Payloads are already opaque to the fleet |
 
