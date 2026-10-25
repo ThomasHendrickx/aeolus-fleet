@@ -1,5 +1,7 @@
 import type { FleetLimitsOutput } from '@aeolus-fleet/common';
 
+import { clockTime, dayDate } from './relative-time';
+
 const COUNT = new Intl.NumberFormat('en-US');
 
 /** A count as the console writes it: 1,000. */
@@ -49,6 +51,12 @@ export function retentionLine({ days }: FleetLimitsOutput['retention']): string 
     return 'Finished history is kept for good';
   }
   return `Finished history is kept for ${counted(days)} ${days === 1 ? 'day' : 'days'}`;
+}
+
+/** Where the fleet's kept history begins (retention design, R10): the timeline, the threads and Health say it once a pruning pass let older history go. */
+export function keptFromLine(keptFrom: string): string {
+  const at = new Date(keptFrom);
+  return `This fleet keeps its finished history from ${dayDate(at)}, ${clockTime(at)}. Older open deliveries stay.`;
 }
 
 /** A count as the meters write it: 1,000. */
