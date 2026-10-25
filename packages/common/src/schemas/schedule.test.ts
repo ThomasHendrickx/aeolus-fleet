@@ -42,6 +42,23 @@ describe('scheduleInputSchema', () => {
     expect(scheduleInputSchema.parse(whole)).toEqual(whole);
   });
 
+  it('accepts an every schedule of a duration, with its start, end and count', () => {
+    const every = { ...input, timing: { kind: 'every', every: 'PT6H', start: '2026-10-26T06:00:00+02:00', end: '2026-12-31T00:00:00Z', count: 10 } };
+
+    expect(scheduleInputSchema.parse(every)).toEqual(every);
+  });
+
+  it('accepts a cron schedule, with or without its zone', () => {
+    const zoned = { ...input, timing: { kind: 'cron', cron: '0 9 * * MON-FRI', timeZone: 'Europe/Brussels' } };
+    const utc = { ...input, timing: { kind: 'cron', cron: '0 */6 * * *' } };
+
+    expect([scheduleInputSchema.parse(zoned), scheduleInputSchema.parse(utc)]).toEqual([zoned, utc]);
+  });
+
+  it.each(['each', 'once', 'skip'])('accepts the missed strategy %s with a grace', (onMissed) => {
+    expect(scheduleInputSchema.parse({ ...input, onMissed, grace: 'PT1M' })).toMatchObject({ onMissed, grace: 'PT1M' });
+  });
+
   it.each(['skip', 'retry', 'pause'])('accepts the refusal strategy %s', (onRefused) => {
     expect(scheduleInputSchema.parse({ ...input, onRefused }).onRefused).toBe(onRefused);
   });
@@ -61,6 +78,11 @@ describe('scheduleInputSchema', () => {
     ['a retry window that is no duration', { ...input, retryWindow: 'an hour' }],
     ['a retry window in months, which have no fixed length', { ...input, retryWindow: 'P1M' }],
     ['no idempotency key', { ...input, idempotencyKey: undefined }],
+    ['a count that is no whole number', { ...input, timing: { kind: 'every', every: 'PT1H', count: 1.5 } }],
+    ['an end without its offset', { ...input, timing: { kind: 'every', every: 'PT1H', end: '2026-12-31T00:00:00' } }],
+    ['a zone on an every', { ...input, timing: { kind: 'every', every: 'PT1H', timeZone: 'UTC' } }],
+    ['an unknown missed strategy', { ...input, onMissed: 'all' }],
+    ['a grace in years', { ...input, grace: 'P1Y' }],
   ])('rejects %s', (_label, candidate) => {
     expect(scheduleInputSchema.safeParse(candidate).success).toBe(false);
   });
@@ -136,6 +158,8 @@ describe('schedulesOutputSchema', () => {
     timing: { kind: 'once', at: '2026-10-26T07:00:00.000Z' },
     onRefused: 'skip',
     retryWindow: 'PT1H',
+    onMissed: 'each',
+    grace: 'PT5M',
     nextSendTime: '2026-10-26T07:00:00.000Z',
     lastOutcome: null,
     createdAt: '2026-10-25T07:00:00.000Z',
@@ -154,6 +178,16 @@ describe('schedulesOutputSchema', () => {
     const refused = { ...schedule, lastOutcome: { kind: 'refused', code: 'NOT_REACHABLE', sendTime: '2026-10-26T07:00:00.000Z', at: '2026-10-26T07:00:01.000Z' } };
 
     expect(schedulesOutputSchema.parse({ items: [sent, refused], nextCursor: null }).items).toEqual([sent, refused]);
+  });
+
+  it('answers a repeat with its bounds and a missed outcome with its send time', () => {
+    const cron = {
+      ...schedule,
+      timing: { kind: 'cron', cron: '0 9 * * *', timeZone: 'Europe/Brussels', start: null, end: '2026-12-31T00:00:00.000Z', count: null },
+      lastOutcome: { kind: 'missed', sendTime: '2026-10-26T07:00:00.000Z', at: '2026-10-26T08:00:00.000Z' },
+    };
+
+    expect(schedulesOutputSchema.parse({ items: [cron], nextCursor: null }).items).toEqual([cron]);
   });
 
   it('rejects an unknown state', () => {

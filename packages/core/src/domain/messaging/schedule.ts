@@ -1,9 +1,10 @@
-import { durationMs, SCHEDULE_IDEMPOTENCY_KEY_PREFIX, type FleetId, type MessageId, type RefusalStrategy, type ScheduleId, type ScheduleState, type ShipId } from '@aeolus-fleet/common';
+import { durationMs, SCHEDULE_IDEMPOTENCY_KEY_PREFIX, type FleetId, type MessageId, type MissedStrategy, type RefusalStrategy, type ScheduleId, type ScheduleState, type ShipId } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
 import type { Actor, NewEvent } from '../shared/events.js';
-import { ok, type Result } from '../shared/result.js';
+import { ok, type Err, type Result } from '../shared/result.js';
 import type { RecipientSelector } from '../shared/selector.js';
+import { cronSendTimeAfter, isKnownTimeZone, parseCron } from './cron.js';
 
 /**
  * A ship's scheduled message (decision 0062): a whole send input that core
@@ -18,6 +19,15 @@ export const RETRY_WINDOW_DEFAULT = 'PT1H';
 /** How long a refused send under retry waits for its next try: one pass of core. */
 export const RETRY_EVERY_MS = 30_000;
 
+/** What a missed send time does, unless the creator says: every missed one is sent (S6). */
+export const MISSED_STRATEGY_DEFAULT: MissedStrategy = 'each';
+
+/** How late a pass may reach a send time before it is missed, unless the creator says (S6). */
+export const GRACE_DEFAULT = 'PT5M';
+
+/** A cron's zone unless the creator says (S1). */
+export const TIME_ZONE_DEFAULT = 'UTC';
+
 /** The send input, stored as the creator gave it: the selector as addressed, a name resolved only at each send time. */
 export interface ScheduledSend {
   selector: RecipientSelector;
@@ -29,14 +39,30 @@ export interface ScheduledSend {
   isForced: boolean;
 }
 
-/** When it sends: once, at an instant. */
-export interface ScheduleTiming {
-  kind: 'once';
-  at: Date;
+/** Where a repeat begins and ends: at or after its start, at or before its end, and no more sends than its count. */
+export interface RepeatBounds {
+  start: Date | null;
+  end: Date | null;
+  count: number | null;
 }
 
-/** What a send time came to: the message stored, or the code it was refused with. */
-export type ScheduleOutcome = { kind: 'sent'; messageId: MessageId; sendTime: Date; at: Date } | { kind: 'refused'; code: string; sendTime: Date; at: Date };
+/**
+ * When it sends (S1): once, at an instant; every fixed duration, from its
+ * start or else its creation; or at a cron's wall times in its zone.
+ */
+export type ScheduleTiming = { kind: 'once'; at: Date } | ({ kind: 'every'; every: string } & RepeatBounds) | ({ kind: 'cron'; cron: string; timeZone: string } & RepeatBounds);
+
+/** The timing as a creator gives it: a repeat's bounds and a cron's zone are optional. */
+export type ScheduleTimingInput =
+  | { kind: 'once'; at: Date }
+  | ({ kind: 'every'; every: string } & Partial<RepeatBounds>)
+  | ({ kind: 'cron'; cron: string; timeZone?: string } & Partial<RepeatBounds>);
+
+/** What a send time came to: the message stored, the code it was refused with, or missed (S6). */
+export type ScheduleOutcome =
+  | { kind: 'sent'; messageId: MessageId; sendTime: Date; at: Date }
+  | { kind: 'refused'; code: string; sendTime: Date; at: Date }
+  | { kind: 'missed'; sendTime: Date; at: Date };
 
 export interface Schedule {
   id: ScheduleId;
@@ -48,6 +74,9 @@ export interface Schedule {
   onRefused: RefusalStrategy;
   /** An ISO 8601 duration of a fixed length, as the creator gave it. */
   retryWindow: string;
+  onMissed: MissedStrategy;
+  /** How late a send time may be sent on time: an ISO 8601 duration of a fixed length. */
+  grace: string;
   idempotencyKey: string;
   requestHash: string;
   state: ScheduleState;
@@ -61,10 +90,13 @@ export interface Schedule {
   cancelledAt: Date | null;
 }
 
+/** How a schedule's last send time went when it ends: sent, refused and skipped, or missed. */
+type EndOutcome = 'sent' | 'skipped' | 'missed';
+
 /** Why a schedule was cancelled: by its ship, by a manager, or by its ship's retire. */
 export type CancelReason = 'ship' | 'manager' | 'retired';
 
-export type ScheduleRefusal = DomainError<'INVALID_TIMING' | 'INVALID_RETRY_WINDOW'>;
+export type ScheduleRefusal = DomainError<'INVALID_TIMING' | 'INVALID_RETRY_WINDOW' | 'INVALID_GRACE'>;
 
 /** What a creator asks for, its send checked already. */
 export interface ScheduleToPlan {
@@ -72,41 +104,56 @@ export interface ScheduleToPlan {
   fleetId: FleetId;
   shipId: ShipId;
   send: ScheduledSend;
-  timing: ScheduleTiming;
+  timing: ScheduleTimingInput;
   onRefused: RefusalStrategy | undefined;
   retryWindow: string | undefined;
+  onMissed: MissedStrategy | undefined;
+  grace: string | undefined;
   idempotencyKey: string;
   requestHash: string;
   at: Date;
 }
 
 /**
- * A new schedule, active, its next send time its instant, and
- * ScheduleCreated on its ship. A once schedule is in the future; a retry
- * window is a duration of a fixed length.
+ * A new schedule, active, its next send time its first, and ScheduleCreated
+ * on its ship. Its timing is valid and gives a send time after now: a once
+ * schedule in the future, an every of a fixed duration, a cron of five fields
+ * in a zone the server knows, an end after its start, a count of at least
+ * one. A retry window and a grace are durations of a fixed length.
  */
 export function planSchedule(plan: ScheduleToPlan): Result<{ schedule: Schedule; events: NewEvent[] }, ScheduleRefusal> {
-  const { at, timing } = plan;
-  if (timing.at.getTime() <= at.getTime()) {
-    return refuse('INVALID_TIMING', `A once schedule is in the future: ${timing.at.toISOString()} is not after ${at.toISOString()}`);
+  const { at } = plan;
+  const timing = timingOf(plan.timing);
+  if (!timing.isOk) {
+    return timing;
   }
   const retryWindow = plan.retryWindow ?? RETRY_WINDOW_DEFAULT;
   if (durationMs(retryWindow) === undefined) {
     return refuse('INVALID_RETRY_WINDOW', 'A retry window is an ISO 8601 duration of weeks, or days, hours, minutes and seconds, such as PT30M');
+  }
+  const grace = plan.grace ?? GRACE_DEFAULT;
+  if (durationMs(grace) === undefined) {
+    return refuse('INVALID_GRACE', 'A grace is an ISO 8601 duration of weeks, or days, hours, minutes and seconds, such as PT5M');
+  }
+  const firstSendTime = sendTimeAfter({ timing: timing.value, createdAt: at }, at);
+  if (firstSendTime === undefined) {
+    return refuse('INVALID_TIMING', 'This timing has no send time after now: a once schedule is in the future, and a repeat sends at least once before its end');
   }
   const schedule: Schedule = {
     id: plan.scheduleId,
     fleetId: plan.fleetId,
     shipId: plan.shipId,
     send: plan.send,
-    timing,
+    timing: timing.value,
     onRefused: plan.onRefused ?? 'skip',
     retryWindow,
+    onMissed: plan.onMissed ?? MISSED_STRATEGY_DEFAULT,
+    grace,
     idempotencyKey: plan.idempotencyKey,
     requestHash: plan.requestHash,
     state: 'active',
-    nextSendTime: timing.at,
-    nextAttemptAt: timing.at,
+    nextSendTime: firstSendTime,
+    nextAttemptAt: firstSendTime,
     lastOutcome: null,
     createdAt: at,
     endedAt: null,
@@ -114,8 +161,70 @@ export function planSchedule(plan: ScheduleToPlan): Result<{ schedule: Schedule;
   };
   return ok({
     schedule,
-    events: [eventOf(schedule, { type: 'ScheduleCreated', at, actor: { kind: 'ship', shipId: schedule.shipId }, details: { timing: timing.kind, nextSendTime: timing.at.toISOString() } })],
+    events: [eventOf(schedule, { type: 'ScheduleCreated', at, actor: { kind: 'ship', shipId: schedule.shipId }, details: { timing: timing.value.kind, nextSendTime: firstSendTime.toISOString() } })],
   });
+}
+
+/**
+ * The schedule's first send time strictly after an instant, within its start
+ * and end; none when it has no more. An every sends on the beat of its start,
+ * or else of its creation, never at the creation itself.
+ */
+export function sendTimeAfter(schedule: Pick<Schedule, 'timing' | 'createdAt'>, after: Date): Date | undefined {
+  const { timing } = schedule;
+  if (timing.kind === 'once') {
+    return timing.at > after ? timing.at : undefined;
+  }
+  const next = timing.kind === 'every' ? everySendTimeAfter({ every: timing.every, start: timing.start, createdAt: schedule.createdAt }, after) : cronAfter(timing, after);
+  return next !== undefined && (timing.end === null || next <= timing.end) ? next : undefined;
+}
+
+function everySendTimeAfter(every: { every: string; start: Date | null; createdAt: Date }, after: Date): Date | undefined {
+  const intervalMs = durationMs(every.every);
+  if (intervalMs === undefined) {
+    return undefined;
+  }
+  const anchorMs = (every.start ?? every.createdAt).getTime();
+  const beats = Math.max(every.start === null ? 1 : 0, Math.floor((after.getTime() - anchorMs) / intervalMs) + 1);
+  return new Date(anchorMs + beats * intervalMs);
+}
+
+function cronAfter(timing: { cron: string; timeZone: string; start: Date | null }, after: Date): Date | undefined {
+  const cron = parseCron(timing.cron);
+  if (!cron.isOk) {
+    return undefined;
+  }
+  // A send time may fall on the start itself, so look from just before it.
+  const from = timing.start !== null && timing.start > after ? new Date(timing.start.getTime() - 1) : after;
+  return cronSendTimeAfter({ cron: cron.value, timeZone: timing.timeZone }, from);
+}
+
+/** The timing as stored, its defaults filled in, or why it is not valid. */
+function timingOf(input: ScheduleTimingInput): Result<ScheduleTiming, ScheduleRefusal> {
+  if (input.kind === 'once') {
+    return ok(input);
+  }
+  const bounds: RepeatBounds = { start: input.start ?? null, end: input.end ?? null, count: input.count ?? null };
+  if (bounds.count !== null && (!Number.isInteger(bounds.count) || bounds.count < 1)) {
+    return refuse('INVALID_TIMING', `A repeat's count is a whole number of sends of at least 1, not ${bounds.count}`);
+  }
+  if (bounds.start !== null && bounds.end !== null && bounds.end <= bounds.start) {
+    return refuse('INVALID_TIMING', `A repeat's end is after its start: ${bounds.end.toISOString()} is not after ${bounds.start.toISOString()}`);
+  }
+  if (input.kind === 'every') {
+    return durationMs(input.every) === undefined
+      ? refuse('INVALID_TIMING', `every is an ISO 8601 duration of weeks, or days, hours, minutes and seconds, such as PT6H: "${input.every}" is not one`)
+      : ok({ kind: 'every', every: input.every, ...bounds });
+  }
+  const cron = parseCron(input.cron);
+  if (!cron.isOk) {
+    return cron;
+  }
+  const timeZone = input.timeZone ?? TIME_ZONE_DEFAULT;
+  if (!isKnownTimeZone(timeZone)) {
+    return refuse('INVALID_TIMING', `A cron's zone is an IANA time zone, such as Europe/Brussels: "${timeZone}" is not one this server knows`);
+  }
+  return ok({ kind: 'cron', cron: input.cron, timeZone, ...bounds });
 }
 
 /**
@@ -127,20 +236,26 @@ export function scheduledMessageKey(scheduleId: ScheduleId, sendTime: Date): str
   return `${SCHEDULE_IDEMPOTENCY_KEY_PREFIX}${scheduleId}:${sendTime.toISOString()}`;
 }
 
-/** The send time sent: the message is its outcome, and a once schedule ends with ScheduleEnded. */
-export function scheduleSent(schedule: Schedule, sent: { messageId: MessageId; sendTime: Date; at: Date }): { schedule: Schedule; events: NewEvent[] } {
-  const outcome: ScheduleOutcome = { kind: 'sent', ...sent };
-  return ended({ ...schedule, lastOutcome: outcome }, { at: sent.at, outcome: 'sent' });
+/**
+ * The send time sent: the message is its outcome, and the schedule goes on to
+ * its next send time, or ends with ScheduleEnded past its end or its count,
+ * counting the sends so far with this one.
+ */
+export function scheduleSent(schedule: Schedule, sent: { messageId: MessageId; sendTime: Date; at: Date; sentCount: number }): { schedule: Schedule; events: NewEvent[] } {
+  const { messageId, sendTime, at, sentCount } = sent;
+  return advanced({ ...schedule, lastOutcome: { kind: 'sent', messageId, sendTime, at } }, { sendTime, at, sentCount, outcome: 'sent' });
 }
 
 /**
  * The send time refused with its code, recorded with ScheduledSendRefused,
- * then the creator's strategy (S7): skip ends a once schedule; retry keeps
- * the send time and tries again a pass later while inside its window, then
- * skips; pause pauses it, keeping its send time, with SchedulePaused.
+ * then the creator's strategy (S7): skip goes on to the next send time, so a
+ * once schedule ends; retry keeps the send time and tries again a pass later
+ * while inside its window, then skips; pause pauses it, keeping its send
+ * time, with SchedulePaused.
  */
-export function scheduleRefused(schedule: Schedule, refused: { code: string; sendTime: Date; at: Date }): { schedule: Schedule; events: NewEvent[] } {
-  const { at, sendTime, code } = refused;
+export function scheduleRefused(schedule: Schedule, refused: { code: string; sendTime: Date; at: Date; sentCount: number }): { schedule: Schedule; events: NewEvent[] } {
+  const { at, sendTime, code, sentCount } = refused;
+  const skipped = { sendTime, at, sentCount, outcome: 'skipped' } as const;
   const recorded: Schedule = { ...schedule, lastOutcome: { kind: 'refused', code, sendTime, at } };
   const refusal = eventOf(schedule, {
     type: 'ScheduledSendRefused',
@@ -150,20 +265,82 @@ export function scheduleRefused(schedule: Schedule, refused: { code: string; sen
   });
   switch (schedule.onRefused) {
     case 'skip':
-      return withEvent(refusal, ended(recorded, { at, outcome: 'skipped' }));
+      return withEvent(refusal, advanced(recorded, skipped));
     case 'retry':
       return isInsideRetryWindow(schedule, { sendTime, at })
         ? { schedule: { ...recorded, nextAttemptAt: new Date(at.getTime() + RETRY_EVERY_MS) }, events: [refusal] }
-        : withEvent(refusal, ended(recorded, { at, outcome: 'skipped' }));
+        : withEvent(refusal, advanced(recorded, skipped));
     case 'pause':
       return {
         schedule: { ...recorded, state: 'paused', nextAttemptAt: null },
-        events: [refusal, eventOf(schedule, { type: 'SchedulePaused', at, actor: { kind: 'ship', shipId: schedule.shipId }, details: {} })],
+        events: [refusal, eventOf(schedule, { type: 'SchedulePaused', at, actor: { kind: 'ship', shipId: schedule.shipId }, details: { reason: 'refused' } })],
       };
   }
 }
 
 export type CancelRefusal = DomainError<'SCHEDULE_ENDED'>;
+
+export type PauseRefusal = DomainError<'SCHEDULE_ENDED' | 'SCHEDULE_CANCELLED'>;
+
+/** Who paused a schedule by hand: its ship, or a manager (S10). */
+export type PauseReason = 'ship' | 'manager';
+
+/**
+ * Pauses an active schedule, keeping its next send time, with SchedulePaused
+ * caused by the actor; a paused one stays as it is, with no event. An ended
+ * or cancelled one is refused.
+ */
+export function pauseSchedule(schedule: Schedule, pause: { reason: PauseReason; actor: Actor; at: Date }): Result<{ schedule: Schedule; events: NewEvent[] }, PauseRefusal> {
+  const closed = closedRefusal(schedule);
+  if (closed) {
+    return closed;
+  }
+  if (schedule.state === 'paused') {
+    return ok({ schedule, events: [] });
+  }
+  return ok({
+    schedule: { ...schedule, state: 'paused', nextAttemptAt: null },
+    events: [eventOf(schedule, { type: 'SchedulePaused', at: pause.at, actor: pause.actor, details: { reason: pause.reason } })],
+  });
+}
+
+/**
+ * Resumes a paused schedule with ScheduleResumed: the send times passed
+ * while paused are skipped, so it goes on at its first send time after now,
+ * or ends when it has none. An active one stays as it is, with no event. An
+ * ended or cancelled one is refused.
+ */
+export function resumeSchedule(schedule: Schedule, resume: { actor: Actor; at: Date }): Result<{ schedule: Schedule; events: NewEvent[] }, PauseRefusal> {
+  const closed = closedRefusal(schedule);
+  if (closed) {
+    return closed;
+  }
+  if (schedule.state === 'active') {
+    return ok({ schedule, events: [] });
+  }
+  const { at, actor } = resume;
+  const next = schedule.nextSendTime !== null && schedule.nextSendTime > at ? schedule.nextSendTime : sendTimeAfter(schedule, at);
+  if (next === undefined) {
+    const resumed = eventOf(schedule, { type: 'ScheduleResumed', at, actor, details: {} });
+    return ok(withEvent(resumed, ended({ ...schedule, state: 'active' }, { at, outcome: 'skipped' })));
+  }
+  return ok({
+    schedule: { ...schedule, state: 'active', nextSendTime: next, nextAttemptAt: next },
+    events: [eventOf(schedule, { type: 'ScheduleResumed', at, actor, details: { nextSendTime: next.toISOString() } })],
+  });
+}
+
+function closedRefusal(schedule: Schedule): Err<PauseRefusal> | undefined {
+  switch (schedule.state) {
+    case 'ended':
+      return refuse('SCHEDULE_ENDED', `Schedule ${schedule.id} ended: it sends nothing more`);
+    case 'cancelled':
+      return refuse('SCHEDULE_CANCELLED', `Schedule ${schedule.id} was cancelled: it sends nothing more`);
+    case 'active':
+    case 'paused':
+      return undefined;
+  }
+}
 
 /**
  * Cancels an active or paused schedule, with ScheduleCancelled on its ship
@@ -190,8 +367,60 @@ function isInsideRetryWindow(schedule: Schedule, refused: { sendTime: Date; at: 
   return refused.at.getTime() < refused.sendTime.getTime() + (durationMs(schedule.retryWindow) ?? 0);
 }
 
-/** A once schedule after its send time: ended, sending nothing more. */
-function ended(schedule: Schedule, end: { at: Date; outcome: 'sent' | 'skipped' }): { schedule: Schedule; events: NewEvent[] } {
+/**
+ * Whether a due send time is sent (S6): one kept for a retry, and one the
+ * pass reaches within its grace, always; a missed one by the creator's
+ * strategy: each sends it, skip does not, once only when it is the latest
+ * missed.
+ */
+export function isSendTimeToSend(schedule: Schedule, due: { sendTime: Date; at: Date }): boolean {
+  const { sendTime, at } = due;
+  const { lastOutcome } = schedule;
+  if (lastOutcome?.kind === 'refused' && lastOutcome.sendTime.getTime() === sendTime.getTime()) {
+    return true;
+  }
+  if (!isMissed(schedule, { sendTime, at })) {
+    return true;
+  }
+  switch (schedule.onMissed) {
+    case 'each':
+      return true;
+    case 'skip':
+      return false;
+    case 'once': {
+      const next = sendTimeAfter(schedule, sendTime);
+      return next === undefined || next > at || !isMissed(schedule, { sendTime: next, at });
+    }
+  }
+}
+
+/** The send time missed, not sent (S6): recorded with ScheduledSendMissed and as the last outcome, then on to the next. */
+export function scheduleMissed(schedule: Schedule, missed: { sendTime: Date; at: Date; sentCount: number }): { schedule: Schedule; events: NewEvent[] } {
+  const { sendTime, at } = missed;
+  const record = eventOf(schedule, {
+    type: 'ScheduledSendMissed',
+    at,
+    actor: { kind: 'ship', shipId: schedule.shipId },
+    details: { sendTime: sendTime.toISOString(), strategy: schedule.onMissed },
+  });
+  return withEvent(record, advanced({ ...schedule, lastOutcome: { kind: 'missed', sendTime, at } }, { ...missed, outcome: 'missed' }));
+}
+
+/** Whether the pass reaches a send time later than its grace. */
+function isMissed(schedule: Schedule, due: { sendTime: Date; at: Date }): boolean {
+  return due.at.getTime() - due.sendTime.getTime() > (durationMs(schedule.grace) ?? 0);
+}
+
+/** After a send time: on to the next, or ended when it has none or its count of sends is reached. */
+function advanced(schedule: Schedule, after: { sendTime: Date; at: Date; sentCount: number; outcome: EndOutcome }): { schedule: Schedule; events: NewEvent[] } {
+  const { timing } = schedule;
+  const isCountReached = timing.kind !== 'once' && timing.count !== null && after.sentCount >= timing.count;
+  const next = isCountReached ? undefined : sendTimeAfter(schedule, after.sendTime);
+  return next === undefined ? ended(schedule, after) : { schedule: { ...schedule, nextSendTime: next, nextAttemptAt: next }, events: [] };
+}
+
+/** A schedule after its last send time: ended, sending nothing more. */
+function ended(schedule: Schedule, end: { at: Date; outcome: EndOutcome }): { schedule: Schedule; events: NewEvent[] } {
   return {
     schedule: { ...schedule, state: 'ended', nextSendTime: null, nextAttemptAt: null, endedAt: end.at },
     events: [eventOf(schedule, { type: 'ScheduleEnded', at: end.at, actor: { kind: 'ship', shipId: schedule.shipId }, details: { outcome: end.outcome } })],

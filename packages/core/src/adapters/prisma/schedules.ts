@@ -1,8 +1,8 @@
-import { idSchema, refusalStrategySchema, scheduleStateSchema, type ScheduleId } from '@aeolus-fleet/common';
+import { idSchema, missedStrategySchema, refusalStrategySchema, scheduleStateSchema, type ScheduleId } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import type { ScheduleAttempts, ScheduleNotice, ScheduleNotifier, ScheduleRepository } from '../../domain/messaging/ports.js';
-import type { Schedule, ScheduleOutcome } from '../../domain/messaging/schedule.js';
+import type { Schedule, ScheduleOutcome, ScheduleTiming } from '../../domain/messaging/schedule.js';
 import { pageOf } from '../../domain/shared/page.js';
 import type { RecipientSelector } from '../../domain/shared/selector.js';
 import type { Db, PrismaClient } from './client.js';
@@ -23,16 +23,24 @@ const scheduleRow = z.object({
   model: z.string().nullable(),
   inReplyToMessageId: idSchema('message').nullable(),
   isForced: z.boolean(),
-  timingKind: z.literal('once'),
-  onceAt: z.date(),
+  timingKind: z.enum(['once', 'every', 'cron']),
+  onceAt: z.date().nullable(),
+  every: z.string().nullable(),
+  cron: z.string().nullable(),
+  timeZone: z.string().nullable(),
+  start: z.date().nullable(),
+  end: z.date().nullable(),
+  count: z.number().int().nullable(),
   onRefused: refusalStrategySchema,
   retryWindow: z.string(),
+  onMissed: missedStrategySchema,
+  grace: z.string(),
   idempotencyKey: z.string(),
   requestHash: z.string(),
   state: scheduleStateSchema,
   nextSendTime: z.date().nullable(),
   nextAttemptAt: z.date().nullable(),
-  lastOutcomeKind: z.enum(['sent', 'refused']).nullable(),
+  lastOutcomeKind: z.enum(['sent', 'refused', 'missed']).nullable(),
   lastMessageId: idSchema('message').nullable(),
   lastRefusalCode: z.string().nullable(),
   lastSendTime: z.date().nullable(),
@@ -57,6 +65,33 @@ function selectorOf(row: ScheduleRow): RecipientSelector {
   throw new Error(`Schedule ${row.id} has no selector`);
 }
 
+function timingOf(row: ScheduleRow): ScheduleTiming {
+  const bounds = { start: row.start, end: row.end, count: row.count };
+  if (row.timingKind === 'once' && row.onceAt !== null) {
+    return { kind: 'once', at: row.onceAt };
+  }
+  if (row.timingKind === 'every' && row.every !== null) {
+    return { kind: 'every', every: row.every, ...bounds };
+  }
+  if (row.timingKind === 'cron' && row.cron !== null && row.timeZone !== null) {
+    return { kind: 'cron', cron: row.cron, timeZone: row.timeZone, ...bounds };
+  }
+  throw new Error(`Schedule ${row.id} has no whole timing`);
+}
+
+/** The timing's columns, each empty that its kind does not use. */
+function timingColumns(timing: ScheduleTiming) {
+  const empty = { onceAt: null, every: null, cron: null, timeZone: null, start: null, end: null, count: null };
+  switch (timing.kind) {
+    case 'once':
+      return { ...empty, timingKind: timing.kind, onceAt: timing.at };
+    case 'every':
+      return { ...empty, timingKind: timing.kind, every: timing.every, start: timing.start, end: timing.end, count: timing.count };
+    case 'cron':
+      return { ...empty, timingKind: timing.kind, cron: timing.cron, timeZone: timing.timeZone, start: timing.start, end: timing.end, count: timing.count };
+  }
+}
+
 function outcomeOf(row: ScheduleRow): ScheduleOutcome | null {
   const { lastOutcomeKind, lastMessageId, lastRefusalCode, lastSendTime, lastOutcomeAt } = row;
   if (lastOutcomeKind === null || lastSendTime === null || lastOutcomeAt === null) {
@@ -65,10 +100,13 @@ function outcomeOf(row: ScheduleRow): ScheduleOutcome | null {
   if (lastOutcomeKind === 'sent' && lastMessageId !== null) {
     return { kind: 'sent', messageId: lastMessageId, sendTime: lastSendTime, at: lastOutcomeAt };
   }
+  if (lastOutcomeKind === 'missed') {
+    return { kind: 'missed', sendTime: lastSendTime, at: lastOutcomeAt };
+  }
   return { kind: 'refused', code: lastRefusalCode ?? '', sendTime: lastSendTime, at: lastOutcomeAt };
 }
 
-/** A schedules row as the schedule holds it; the table's checks keep its selector and outcome whole. */
+/** A schedules row as the schedule holds it; the table's checks keep its selector, timing and outcome whole. */
 function toSchedule(raw: unknown): Schedule {
   const row = scheduleRow.parse(raw);
   return {
@@ -76,9 +114,11 @@ function toSchedule(raw: unknown): Schedule {
     fleetId: row.fleetId,
     shipId: row.shipId,
     send: { selector: selectorOf(row), payload: row.payload, contentType: row.contentType, model: row.model, inReplyTo: row.inReplyToMessageId, isForced: row.isForced },
-    timing: { kind: row.timingKind, at: row.onceAt },
+    timing: timingOf(row),
     onRefused: row.onRefused,
     retryWindow: row.retryWindow,
+    onMissed: row.onMissed,
+    grace: row.grace,
     idempotencyKey: row.idempotencyKey,
     requestHash: row.requestHash,
     state: row.state,
@@ -133,10 +173,11 @@ export function createPrismaScheduleRepository(db: Db): ScheduleRepository {
           model: schedule.send.model,
           inReplyToMessageId: schedule.send.inReplyTo,
           isForced: schedule.send.isForced,
-          timingKind: schedule.timing.kind,
-          onceAt: schedule.timing.at,
+          ...timingColumns(schedule.timing),
           onRefused: schedule.onRefused,
           retryWindow: schedule.retryWindow,
+          onMissed: schedule.onMissed,
+          grace: schedule.grace,
           idempotencyKey: schedule.idempotencyKey,
           requestHash: schedule.requestHash,
           createdAt: schedule.createdAt,
@@ -173,6 +214,7 @@ export function createPrismaScheduleRepository(db: Db): ScheduleRepository {
     save: async (schedule) => {
       await db.schedule.update({ where: { fleetId_id: { fleetId: schedule.fleetId, id: schedule.id } }, data: changingColumns(schedule) });
     },
+    sentCount: (fleetId, scheduleId) => db.message.count({ where: { fleetId, scheduleId } }),
     listOpenOfShipForUpdate: async (fleetId, shipId) => {
       // Held for update in id order, so two units of work never lock them in a cycle.
       const rows = await db.$queryRaw<unknown[]>`

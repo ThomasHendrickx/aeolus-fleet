@@ -1,4 +1,4 @@
-import { isPingContentType, PING_CONTENT_TYPE, type IdGenerator, type MessageId, type RefusalStrategy, type ScheduleId } from '@aeolus-fleet/common';
+import { isPingContentType, PING_CONTENT_TYPE, type IdGenerator, type MessageId, type MissedStrategy, type RefusalStrategy, type ScheduleId } from '@aeolus-fleet/common';
 
 import { checkReach, keepingReachRefusal, resolveSelector, type CheckReachTx, type NotReachable, type ResolveSelectorTx, type UnresolvableSelector } from '../registry/public.js';
 import { hasScope, type ShipCaller } from '../shared/caller.js';
@@ -14,7 +14,7 @@ import { contentType } from './content-type.js';
 import { checkModel, type AcceptRefusal } from './message.js';
 import { payload } from './payload.js';
 import type { DeliveryRepository, MessageRepository, RequestHasher, ScheduleNotifier, ScheduleRepository } from './ports.js';
-import { planSchedule, RETRY_WINDOW_DEFAULT, type ScheduledSend, type ScheduleRefusal, type ScheduleTiming } from './schedule.js';
+import { GRACE_DEFAULT, MISSED_STRATEGY_DEFAULT, planSchedule, RETRY_WINDOW_DEFAULT, TIME_ZONE_DEFAULT, type ScheduledSend, type ScheduleRefusal, type ScheduleTimingInput } from './schedule.js';
 import { sendRequestText } from './send-request.js';
 
 export interface ScheduleMessageTx extends Omit<ResolveSelectorTx, 'ships'>, Omit<CheckReachTx, 'ships'> {
@@ -36,11 +36,15 @@ export interface MessageToSchedule {
   idempotencyKey: string;
   inReplyTo?: MessageId;
   isForced?: boolean;
-  timing: ScheduleTiming;
+  timing: ScheduleTimingInput;
   /** skip when the creator gives none. */
   onRefused?: RefusalStrategy;
   /** PT1H when the creator gives none. */
   retryWindow?: string;
+  /** each when the creator gives none. */
+  onMissed?: MissedStrategy;
+  /** PT5M when the creator gives none. */
+  grace?: string;
 }
 
 export type ScheduleMessageRefusal =
@@ -59,7 +63,7 @@ export type ScheduleMessage = (caller: ShipCaller, input: MessageToSchedule) => 
  * model rule, and messages:force for a forced one (messages:send is checked
  * before this runs). The ship's key is checked first in the unit of work, so
  * a retry answers the same schedule; the key with another request is
- * refused. Then the timing: a once schedule is in the future. The selector
+ * refused. Then the timing: it gives a send time after now (S1). The selector
  * resolves now and the creator must reach it by send now (S5), or the
  * refusal is recorded and nothing else is stored. A reply names a message of
  * the fleet. The schedule, ScheduleCreated and the notice that tells every
@@ -91,6 +95,8 @@ export function createScheduleMessage(deps: { uow: UnitOfWork<ScheduleMessageTx>
         timing: input.timing,
         onRefused: input.onRefused,
         retryWindow: input.retryWindow,
+        onMissed: input.onMissed,
+        grace: input.grace,
         idempotencyKey: key,
         requestHash,
         at,
@@ -125,7 +131,9 @@ export function createScheduleMessage(deps: { uow: UnitOfWork<ScheduleMessageTx>
       for (const event of events) {
         await recordEvent({ events: tx.events, ids: deps.ids }, event);
       }
-      await tx.scheduleNotifier.scheduleDue({ fleetId, scheduleId: schedule.id, attemptAt: input.timing.at });
+      if (schedule.nextAttemptAt !== null) {
+        await tx.scheduleNotifier.scheduleDue({ fleetId, scheduleId: schedule.id, attemptAt: schedule.nextAttemptAt });
+      }
       return ok({ scheduleId: schedule.id });
     });
   };
@@ -160,11 +168,21 @@ function checkedSchedule({ caller, input, hasher }: { caller: ShipCaller; input:
   const requestHash = hasher.hash(
     JSON.stringify([
       sendRequestText({ selector: send.selector, payload: send.payload, contentType: send.contentType, inReplyTo: input.inReplyTo, isForced }),
-      input.timing.kind,
-      input.timing.at.toISOString(),
+      ...timingText(input.timing),
       input.onRefused ?? 'skip',
       input.retryWindow ?? RETRY_WINDOW_DEFAULT,
+      input.onMissed ?? MISSED_STRATEGY_DEFAULT,
+      input.grace ?? GRACE_DEFAULT,
     ]),
   );
   return ok({ send, key: key.value, requestHash });
+}
+
+/** The timing as the request's hash reads it, in a fixed order, its defaults filled in. */
+function timingText(timing: ScheduleTimingInput): (string | number | null)[] {
+  if (timing.kind === 'once') {
+    return [timing.kind, timing.at.toISOString()];
+  }
+  const bounds = [timing.start?.toISOString() ?? null, timing.end?.toISOString() ?? null, timing.count ?? null];
+  return timing.kind === 'every' ? [timing.kind, timing.every, ...bounds] : [timing.kind, timing.cron, timing.timeZone ?? TIME_ZONE_DEFAULT, ...bounds];
 }

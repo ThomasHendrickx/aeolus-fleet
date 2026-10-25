@@ -60,6 +60,8 @@ import { createTellOverdueDeliveries } from '../../src/domain/messaging/tell-ove
 import { createScheduleMessage } from '../../src/domain/messaging/schedule-message.js';
 import { createListSchedules } from '../../src/domain/messaging/list-schedules.js';
 import { createCancelSchedule } from '../../src/domain/messaging/cancel-schedule.js';
+import { createPauseSchedule } from '../../src/domain/messaging/pause-schedule.js';
+import { createResumeSchedule } from '../../src/domain/messaging/resume-schedule.js';
 import { createSendDueSchedules } from '../../src/domain/messaging/send-due-schedules.js';
 import { createReadDeclaredNetworkRules } from '../../src/domain/registry/read-declared-network-rules.js';
 import { createReadReachRefusals } from '../../src/domain/registry/read-reach-refusals.js';
@@ -378,6 +380,8 @@ export function messagingUseCases(core: InMemoryCore) {
     scheduleMessage: createScheduleMessage({ ...deps, hasher: core.hasher }),
     listSchedules: createListSchedules(deps),
     cancelSchedule: createCancelSchedule(deps),
+    pauseSchedule: createPauseSchedule(deps),
+    resumeSchedule: createResumeSchedule(deps),
     sendDueSchedules: createSendDueSchedules({ ...deps, hasher: core.hasher, fleets: core.fleets, scheduleAttempts: core.scheduleAttempts }),
   };
 }

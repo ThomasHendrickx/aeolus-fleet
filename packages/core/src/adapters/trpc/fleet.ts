@@ -1,6 +1,8 @@
 import {
   cancelScheduleInputSchema,
   cancelScheduleOutputSchema,
+  pauseScheduleInputSchema,
+  pauseScheduleOutputSchema,
   fleetSchedulesInputSchema,
   schedulesOutputSchema,
   PAGE_SIZE_DEFAULT,
@@ -310,6 +312,15 @@ export const fleetRouter = router({
         ),
       ),
     ),
+
+  /** Pauses any ship's schedule, for an actor that manages it; only its ship resumes it (decision 0062, S10). */
+  pauseSchedule: actorScopedProcedure('fleet:manage')
+    .meta({
+      description: 'Needs fleet:manage, within manage reach of the schedule\'s ship. Pauses the schedule by its scheduleId: it sends nothing until its ship resumes it.',
+    })
+    .input(pauseScheduleInputSchema)
+    .output(pauseScheduleOutputSchema)
+    .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.pauseSchedule(ctx.caller, input))),
 
   /** Cancels any ship's schedule, for an actor that manages it: the fail-safe for a schedule that misbehaves (decision 0062). */
   cancelSchedule: actorScopedProcedure('fleet:manage')

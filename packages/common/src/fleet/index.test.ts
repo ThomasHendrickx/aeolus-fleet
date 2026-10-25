@@ -201,7 +201,9 @@ describe('eventTypeSchema', () => {
       'ScheduleCreated',
       'ScheduleCancelled',
       'ScheduledSendRefused',
+      'ScheduledSendMissed',
       'SchedulePaused',
+      'ScheduleResumed',
       'ScheduleEnded',
     ]);
   });

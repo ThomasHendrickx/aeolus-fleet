@@ -68,6 +68,8 @@ import { createTellOverdueDeliveries, type TellOverdueDeliveries } from './domai
 import { createScheduleMessage, type ScheduleMessage } from './domain/messaging/schedule-message.js';
 import { createListSchedules, type ListSchedules } from './domain/messaging/list-schedules.js';
 import { createCancelSchedule, type CancelSchedule } from './domain/messaging/cancel-schedule.js';
+import { createPauseSchedule, type PauseSchedule } from './domain/messaging/pause-schedule.js';
+import { createResumeSchedule, type ResumeSchedule } from './domain/messaging/resume-schedule.js';
 import { createSendDueSchedules, type SendDueSchedules } from './domain/messaging/send-due-schedules.js';
 import { createPrismaScheduleAttempts } from './adapters/prisma/schedules.js';
 import { createAnswerPing, type AnswerPing } from './domain/messaging/answer-ping.js';
@@ -261,6 +263,8 @@ export interface UseCases {
   scheduleMessage: ScheduleMessage;
   listSchedules: ListSchedules;
   cancelSchedule: CancelSchedule;
+  pauseSchedule: PauseSchedule;
+  resumeSchedule: ResumeSchedule;
   /** Sends every schedule that is due; core runs it on its timer and its pass, never the API. */
   sendDueSchedules: SendDueSchedules;
   closeHealthSnapshots: CloseHealthSnapshots;
@@ -498,6 +502,8 @@ export function createUseCases(options: {
     scheduleMessage: createScheduleMessage({ uow, clock, ids, hasher: sha256Hasher }),
     listSchedules: createListSchedules({ uow, clock, ids }),
     cancelSchedule: createCancelSchedule({ uow, clock, ids }),
+    pauseSchedule: createPauseSchedule({ uow, clock, ids }),
+    resumeSchedule: createResumeSchedule({ uow, clock, ids }),
     sendDueSchedules: createSendDueSchedules({ fleets: createPrismaFleetRepository(prisma), scheduleAttempts: createPrismaScheduleAttempts(prisma), uow, clock, ids, hasher: sha256Hasher }),
     closeHealthSnapshots: createCloseHealthSnapshots({ fleets: createPrismaFleetRepository(prisma), uow: createPrismaSnapshotUnitOfWork(prisma), clock }),
     acknowledgeDelivery: createAcknowledgeDelivery({ uow, clock, ids }),

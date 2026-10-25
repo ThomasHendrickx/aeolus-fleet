@@ -1173,6 +1173,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         }
         return Promise.resolve();
       },
+      sentCount: (fleetId, scheduleId) => Promise.resolve(state.messages.filter((message) => message.fleetId === fleetId && message.scheduleId === scheduleId).length),
       listOpenOfShipForUpdate: (fleetId, shipId) =>
         Promise.resolve(
           state.schedules

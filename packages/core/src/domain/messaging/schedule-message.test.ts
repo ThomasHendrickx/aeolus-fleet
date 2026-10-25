@@ -72,6 +72,8 @@ describe('making a schedule', () => {
         timing: { kind: 'once', at: new Date(TOMORROW) },
         onRefused: 'skip',
         retryWindow: 'PT1H',
+        onMissed: 'each',
+        grace: 'PT5M',
         idempotencyKey: 'check-in',
         requestHash: core.state.schedules[0]?.requestHash,
         state: 'active',
@@ -203,5 +205,74 @@ describe('making a schedule', () => {
     expect(refusalOf(refused).kind).toBe('NOT_REACHABLE');
     expect(core.state.reachRefusals.map((refusal) => refusedShip(refusal.sender).id)).toEqual([scout.shipId]);
     expect([core.state.schedules, core.state.scheduleNotices, core.state.events]).toEqual([[], [], []]);
+  });
+});
+
+describe('making a repeating schedule', () => {
+  it('sends an every schedule first one interval after its creation, catching up every missed send time within 5 minutes unless the creator says', async () => {
+    const scheduleId = await scheduled(aSchedule({ timing: { kind: 'every', every: 'PT6H' } }));
+
+    expect(core.state.schedules[0]).toMatchObject({
+      timing: { kind: 'every', every: 'PT6H', start: null, end: null, count: null },
+      onMissed: 'each',
+      grace: 'PT5M',
+      nextSendTime: new Date('2026-10-25T15:00:00.000Z'),
+      nextAttemptAt: new Date('2026-10-25T15:00:00.000Z'),
+    });
+    expect(core.state.events).toEqual([expect.objectContaining({ type: 'ScheduleCreated', details: { scheduleId, timing: 'every', nextSendTime: '2026-10-25T15:00:00.000Z' } })]);
+    expect(core.state.scheduleNotices).toEqual([{ fleetId, scheduleId, attemptAt: new Date('2026-10-25T15:00:00.000Z') }]);
+  });
+
+  it('sends an every schedule first at its start when the start is ahead', async () => {
+    await scheduled(aSchedule({ timing: { kind: 'every', every: 'PT6H', start: new Date('2026-10-26T06:00:00.000Z') } }));
+
+    expect(core.state.schedules[0]?.nextSendTime).toEqual(new Date('2026-10-26T06:00:00.000Z'));
+  });
+
+  it('keeps an every schedule on the beat of a start already passed', async () => {
+    await scheduled(aSchedule({ timing: { kind: 'every', every: 'PT1H', start: new Date('2026-10-25T07:30:00.000Z') } }));
+
+    expect(core.state.schedules[0]?.nextSendTime).toEqual(new Date('2026-10-25T09:30:00.000Z'));
+  });
+
+  it('sends a cron schedule first at its next wall time in its zone, UTC unless the creator says', async () => {
+    await scheduled(aSchedule({ timing: { kind: 'cron', cron: '0 9 * * *', timeZone: 'Asia/Tokyo' } }));
+    await scheduled(aSchedule({ timing: { kind: 'cron', cron: '0 9 * * *' } }));
+
+    expect(core.state.schedules.map((schedule) => [schedule.timing, schedule.nextSendTime])).toEqual([
+      [{ kind: 'cron', cron: '0 9 * * *', timeZone: 'Asia/Tokyo', start: null, end: null, count: null }, new Date('2026-10-26T00:00:00.000Z')],
+      [{ kind: 'cron', cron: '0 9 * * *', timeZone: 'UTC', start: null, end: null, count: null }, new Date('2026-10-26T09:00:00.000Z')],
+    ]);
+  });
+
+  it('keeps the missed strategy, the grace, the end and the count the creator picked', async () => {
+    const timing = { kind: 'cron', cron: '0 */6 * * *', timeZone: 'UTC', start: new Date('2026-10-26T00:00:00.000Z'), end: new Date('2026-11-01T00:00:00.000Z'), count: 3 } as const;
+
+    await scheduled(aSchedule({ timing, onMissed: 'skip', grace: 'PT1M' }));
+
+    expect(core.state.schedules[0]).toMatchObject({ timing, onMissed: 'skip', grace: 'PT1M', nextSendTime: new Date('2026-10-26T00:00:00.000Z') });
+  });
+
+  it.each([
+    { label: 'an interval of no fixed length', timing: { kind: 'every', every: 'P1M' } },
+    { label: 'a cron of four fields', timing: { kind: 'cron', cron: '0 9 * *' } },
+    { label: 'a zone the server does not know', timing: { kind: 'cron', cron: '0 9 * * *', timeZone: 'Mars/Olympus' } },
+    { label: 'a cron that never sends', timing: { kind: 'cron', cron: '0 0 30 2 *' } },
+    { label: 'a count of none', timing: { kind: 'every', every: 'PT1H', count: 0 } },
+    { label: 'an end at its start', timing: { kind: 'every', every: 'PT1H', start: new Date('2026-10-26T00:00:00.000Z'), end: new Date('2026-10-26T00:00:00.000Z') } },
+    { label: 'an end before its first send time', timing: { kind: 'every', every: 'PT1H', end: new Date('2026-10-25T09:59:59.999Z') } },
+  ] as const)('refuses $label, storing nothing', async ({ timing }) => {
+    expect(refusalOf(await messaging.scheduleMessage(scout, aSchedule({ timing }))).kind).toBe('INVALID_TIMING');
+    expect(core.state.schedules).toEqual([]);
+  });
+
+  it('takes an end at its first send time', async () => {
+    await scheduled(aSchedule({ timing: { kind: 'every', every: 'PT1H', end: new Date('2026-10-25T10:00:00.000Z') } }));
+
+    expect(core.state.schedules[0]?.nextSendTime).toEqual(new Date('2026-10-25T10:00:00.000Z'));
+  });
+
+  it('refuses a grace that is no duration of a fixed length', async () => {
+    expect(refusalOf(await messaging.scheduleMessage(scout, aSchedule({ timing: { kind: 'every', every: 'PT1H' }, grace: 'P1Y' }))).kind).toBe('INVALID_GRACE');
   });
 });
