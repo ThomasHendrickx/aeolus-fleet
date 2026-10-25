@@ -25,11 +25,12 @@ export type SendDueSchedules = (onError?: ScheduleSendFailed) => Promise<{ nextA
  * Use case: sends every schedule that is due (decision 0062), run by core on
  * a server's timer and on the 30 second pass, never through the API. Each
  * one is its own unit of work: claim one due schedule, skipping those another
- * server holds; send its message as its ship, checked as a send by that ship
- * now (its scopes, reach, the daily limit, the selector), its payload as
- * stored, its schedule and send time on the envelope, its key derived from
- * both; record the outcome on the schedule, by its refusal strategy when
- * refused; advance it; commit. A unit of work that fails stores nothing and
+ * server holds; for each of its due send times, oldest first, at most 100,
+ * send its message as its ship, checked as a send by that ship now (its
+ * scopes, reach, the daily limit, the selector), its payload as stored, its
+ * schedule and send time on the envelope, its key derived from both, or
+ * record it missed by its missed strategy; record the outcome on the
+ * schedule, by its refusal strategy when refused; advance it; commit. A unit of work that fails stores nothing and
  * advances nothing, so the next pass sends that send time; a committed one
  * advanced it, so nothing is sent again, and the derived key would find the
  * stored message even under a second claim. A pass tries each schedule
