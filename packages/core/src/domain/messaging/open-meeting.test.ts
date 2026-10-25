@@ -1,7 +1,7 @@
 import { MEETING_ADDED_CONTENT_TYPE, meetingAddedSchema, type FleetId, type LabelValueId, type MeetingId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { applyNetworkRules, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
+import { applyNetworkRules, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, SESSION_MODEL, withInstallationSettings } from '../../../test/support/core-fixtures.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { valueIdOf } from '../../../test/support/label-fixtures.js';
@@ -204,6 +204,22 @@ describe('an open the fleet refuses', () => {
       [chief.shipId, vault.shipId],
     ]);
     expect([core.state.meetings, core.state.messages, core.state.deliveries, core.state.events, core.state.notices]).toEqual([[], [], [], [], []]);
+  });
+
+  it('refuses an open whose added notices would pass the daily message limit, storing nothing', async () => {
+    withInstallationSettings(core, { defaultDailyMessageLimit: 1 });
+
+    const refused = await messaging.openMeeting(chief, aMeeting({ ships: [{ shipId: marketing.shipId }, { shipId: product.shipId }] }));
+
+    expect(refusalOf(refused).kind).toBe('MESSAGE_LIMIT_REACHED');
+    expect([core.state.meetings, core.state.messages, core.state.deliveries, core.state.events, core.state.notices]).toEqual([[], [], [], [], []]);
+  });
+
+  it('opens when the added notices fit the daily message limit exactly', async () => {
+    withInstallationSettings(core, { defaultDailyMessageLimit: 2 });
+
+    await expect(messaging.openMeeting(chief, aMeeting({ ships: [{ shipId: marketing.shipId }, { shipId: product.shipId }] }))).resolves.toMatchObject({ isOk: true });
+    expect(core.state.messages).toHaveLength(2);
   });
 
   it('refuses a ship that does not exist', async () => {

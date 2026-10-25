@@ -135,7 +135,8 @@ export function createApp(options: AppOptions): FastifyInstance {
   });
 
   // One pass, every 30 seconds: the clocks, then the stuck snapshot's close,
-  // then whatever schedule is due that a lost timer missed (decision 0062, S14).
+  // then the pruning of finished history (decision 0066), then whatever
+  // schedule is due that a lost timer missed (decision 0062, S14).
   // Each failure is logged on its own, so one never keeps another from running.
   const overduePasses = repeatPass({
     pass: async () => {
@@ -144,6 +145,9 @@ export function createApp(options: AppOptions): FastifyInstance {
       });
       await useCases.closeHealthSnapshots((fleetId, error) => {
         server.log.warn({ ...failureForLog(error), fleetId }, 'the stuck snapshot failed to close an hour for a fleet: closing it again next pass');
+      });
+      await useCases.pruneHistory((fleetId, error) => {
+        server.log.warn({ ...failureForLog(error), fleetId }, 'the pruning pass failed for a fleet: pruning it again next hour');
       });
       const { nextAttemptAt } = await useCases.sendDueSchedules(scheduleSendFailed);
       if (nextAttemptAt) {
