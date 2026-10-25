@@ -126,7 +126,7 @@ async function openWithin(
       return reach;
     }
   }
-  const withinLimit = await withinDailyMessageLimit(tx, { fleetId, time: at });
+  const withinLimit = await withinDailyMessageLimit(tx, { fleetId, time: at, count: told.length });
   if (!withinLimit.isOk) {
     return withinLimit;
   }

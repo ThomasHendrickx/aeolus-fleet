@@ -1,7 +1,7 @@
 import { MEETING_ADDED_CONTENT_TYPE, meetingAddedSchema, type LabelValueId, type MeetingId, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { applyNetworkRules, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
+import { applyNetworkRules, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, SESSION_MODEL, withInstallationSettings } from '../../../test/support/core-fixtures.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { valueIdOf } from '../../../test/support/label-fixtures.js';
@@ -118,6 +118,14 @@ describe('adding ships to a meeting', () => {
 
     expect([deliveredToProduct.map(({ messageId }) => messageId), read.contributions.items.map(({ messageId }) => messageId)]).toEqual([[after], [after, before]]);
   });
+
+  it('adds when the added notices fit the daily message limit exactly', async () => {
+    withInstallationSettings(core, { defaultDailyMessageLimit: 3 });
+
+    unwrap(await messaging.addToMeeting(chief, toAdd({ ships: [{ shipId: product.shipId }, { shipId: design.shipId }] })));
+
+    expect(participantsOf()).toEqual([chief.shipId, marketing.shipId, product.shipId, design.shipId]);
+  });
 });
 
 describe('an add the meeting refuses', () => {
@@ -130,6 +138,14 @@ describe('an add the meeting refuses', () => {
 
     expect(refusalOf(await messaging.addToMeeting(chief, toAdd({ ships: [{ shipId: product.shipId }, { shipId: vault.shipId }] })))).toEqual({ kind: 'NOT_REACHABLE', message: 'The network rules do not allow this send' });
     expect(core.state.reachRefusals.map((refusal) => ({ fromShipId: refusedShip(refusal.sender).id, toShipId: refusal.recipient.kind === 'ship' ? refusal.recipient.ship.id : null }))).toContainEqual({ fromShipId: chief.shipId, toShipId: vault.shipId });
+    expectNothingStored(before);
+  });
+
+  it('refuses an add whose added notices would pass the daily message limit, storing nothing', async () => {
+    withInstallationSettings(core, { defaultDailyMessageLimit: 2 });
+    const before = core.state.messages.length;
+
+    expect(refusalOf(await messaging.addToMeeting(chief, toAdd({ ships: [{ shipId: product.shipId }, { shipId: design.shipId }] }))).kind).toBe('MESSAGE_LIMIT_REACHED');
     expectNothingStored(before);
   });
 
