@@ -2,6 +2,8 @@
 
 Design for [#1080](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1080), Aeolus 0.32.0. Docs only. Thomas agreed the purpose and answered Q1 to Q9 on 25 Oct. Stage 2: the decisions in detail (section 3), the split of the events (section 4), the pruning pass and its flows (section 5), the questions it raised (section 6, decided) and the slices (section 7). Audit beyond the retention is [#1230](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1230)'s job (cold storage, later), not this design's.
 
+Approved by Thomas, 25 Oct: "ok retention approved, once we start selling to enterprise 1230 becomes top priority". The build follows the slices in section 7.
+
 ## 1. Purpose (agreed by Thomas, 25 Oct)
 
 A fleet keeps what the delivery promise and its people still need, and lets the rest go, so its database grows with what the fleet does now, not with everything it ever did.
