@@ -144,7 +144,7 @@ export interface AgedRows {
   /** Ended leases no row outside the set names. */
   leaseIds: readonly LeaseId[];
   credentialIds: readonly CredentialId[];
-  /** Ended console sessions; each takes its notice dismissals and guide progress with it. */
+  /** Console sessions ended or expired, which no use renews again; each takes its notice dismissals and guide progress with it. */
   consoleSessionIds: readonly ConsoleSessionId[];
   /** Used or expired sign-in tickets, by their token hash. */
   signInTicketHashes: readonly string[];

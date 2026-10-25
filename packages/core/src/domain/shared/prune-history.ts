@@ -32,8 +32,8 @@ type Batch = { kind: 'more'; after: PruneCursor | null } | { kind: 'done' } | { 
  * unit of work under the fleet's prune lock taken with try: a batch picks the
  * finished messages older than the cutoff, the mic and participant events of
  * meetings ended before it, and the rows that go by age past it (a crew's
- * session and secret events, ended leases, invalidated secrets, ended console
- * sessions, used or expired sign-in tickets and reach refusals), makes that
+ * session and secret events, ended leases, invalidated secrets, ended or
+ * expired console sessions, used or expired sign-in tickets and reach refusals), makes that
  * one set go and writes HistoryPruned. A batch that fails rolls back whole; a fleet another server
  * is pruning is skipped. Once nothing older than the cutoff is left, the
  * fleet's kept from moves to the cutoff; a pass whose time budget is spent

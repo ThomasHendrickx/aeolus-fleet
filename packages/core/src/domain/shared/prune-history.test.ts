@@ -429,8 +429,8 @@ describe("the pruning pass, the rest of a fleet's finished history (S3)", () => 
   it('lets a console session that ended before the cutoff go, with its notice dismissals and guide progress, and keeps a live one', async () => {
     retainFor(30);
     const ended = aConsoleSession(scene.core.clock.now());
-    const live = aConsoleSession(null);
     scene.core.clock.advance(31 * DAY_MS);
+    const live = aConsoleSession(null);
 
     await pass();
 

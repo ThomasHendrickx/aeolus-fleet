@@ -138,7 +138,7 @@ export function createInMemoryHistoryPruner(state: InMemoryState): HistoryPruner
         .slice(0, limit)
         .map((event) => event.id);
       const consoleSessionIds = state.consoleSessions
-        .filter((session) => session.fleetId === fleetId && session.endedAt !== null && session.endedAt < cutoff)
+        .filter((session) => session.fleetId === fleetId && ((session.endedAt !== null && session.endedAt < cutoff) || session.expiresAt < cutoff))
         .slice(0, limit)
         .map((session) => session.id);
       const keptDeliveries = state.deliveries.filter((delivery) => delivery.fleetId === fleetId && !messageIds.includes(delivery.messageId));

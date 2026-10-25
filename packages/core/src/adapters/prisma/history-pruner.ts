@@ -169,8 +169,8 @@ export function createPrismaHistoryPruner(db: Db): HistoryPruner {
       const consoleSessionIds = ids(
         'consoleSession',
         await db.$queryRaw`
-          SELECT id FROM console_sessions WHERE fleet_id = ${fleetId} AND ended_at < ${cutoff}
-          ORDER BY ended_at LIMIT ${limit} FOR UPDATE SKIP LOCKED`,
+          SELECT id FROM console_sessions WHERE fleet_id = ${fleetId} AND (ended_at < ${cutoff} OR expires_at < ${cutoff})
+          LIMIT ${limit} FOR UPDATE SKIP LOCKED`,
       );
       // An ended lease goes only when no row outside the set names it: a
       // delivery, an overdue row or a console session (R4).
