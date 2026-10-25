@@ -43,3 +43,19 @@ export const grantScopesInputSchema = z.object({ shipId: idSchema('ship'), grant
 
 /** Output of `fleet.grantScopes`: every scope the ship holds now. */
 export const grantScopesOutputSchema = z.object({ scopes: z.array(scopeNameSchema) });
+
+/**
+ * Input of `fleet.defineScope` and `fleet.describeScope` (scopes:define):
+ * one of the fleet's own scopes and its one-line description (design
+ * gateway-scopes, 4.1). Core checks each rule and names its refusal.
+ */
+export const defineScopeInputSchema = z.object({ scope: z.string(), description: z.string() });
+
+/** Output of `fleet.defineScope` and `fleet.describeScope`: the scope as the fleet has it now. */
+export const definedScopeOutputSchema = declaredScopeSchema;
+
+/** Input of `fleet.removeScope` (scopes:define): one of the fleet's own scopes. */
+export const removeScopeInputSchema = z.object({ scope: z.string() });
+
+/** Output of `fleet.removeScope`: nothing, once the scope is gone. */
+export const removeScopeOutputSchema = z.object({});
