@@ -221,6 +221,25 @@ describe('what a commission may grant (decision 0046)', () => {
     expect(scopesOf('former')).toEqual(['messages:send', 'messages:receive', 'squadrons:form']);
   });
 
+  it("lets argo grant one of the fleet's own scopes, and a ship that holds it grant it onwards (design gateway-scopes, 4.1)", async () => {
+    unwrap(await registryUseCases(core).defineScope(argo, { scope: 'crm:read-leads', description: 'Read leads in the CRM' }));
+    const lead = await shipCommissionedByArgo('lead', ['crm:read-leads']);
+
+    unwrap(await commissionShip(lead, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer', scopes: ['crm:read-leads'] }));
+
+    expect(scopesOf('lead')).toEqual(['messages:send', 'messages:receive', 'fleet:commission', 'crm:read-leads']);
+    expect(scopesOf('scout')).toEqual(['messages:send', 'messages:receive', 'crm:read-leads']);
+  });
+
+  it("refuses one of the fleet's own scopes to a ship that does not hold it, though it may define scopes", async () => {
+    unwrap(await registryUseCases(core).defineScope(argo, { scope: 'crm:read-leads', description: 'Read leads in the CRM' }));
+    const steward = await shipCommissionedByArgo('steward', ['scopes:define']);
+
+    const refused = await commissionShip(steward, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer', scopes: ['crm:read-leads'] });
+
+    expect(refused).toMatchObject({ isOk: false, error: { kind: 'SCOPE_NOT_HELD', message: 'You do not hold crm:read-leads, so you cannot grant it' } });
+  });
+
   it('refuses a plugin scope from a ship that neither holds it nor declared its namespace, and stores nothing', async () => {
     const squadrons = await shipCommissionedByArgo('squadrons', ['scopes:declare']);
     unwrap(await registryUseCases(core).declareScopes(squadrons, { namespace: 'squadrons', scopes: [FORM] }));
