@@ -1,10 +1,11 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { fn } from 'storybook/test';
+import { expect, fn, within } from 'storybook/test';
 
 import { MessageSheet } from './message-sheet';
 import {
   DIRECT_MESSAGE,
   HANDED_NOT_CONFIRMED_MESSAGE,
+  LABEL_MESSAGE,
   LEASE_ENDED_MESSAGE,
   MAC_MINI,
   NOT_HANDLED_MESSAGE,
@@ -76,3 +77,19 @@ export const Loading: Story = { args: { message: undefined, state: 'loading' } }
 export const NotFound: Story = { args: { message: undefined, messageId: UNKNOWN_MESSAGE_ID, state: 'not-found' } };
 export const Phone: Story = { globals: { viewport: { value: 'mobile1' } } };
 export const PhonePushed: Story = { args: { message: HANDED_NOT_CONFIRMED_MESSAGE }, globals: { viewport: { value: 'mobile1' } } };
+/** A send to a label (decision 0065): every ship of it with its delivery's state, the selection by its texts. */
+export const Label: Story = {
+  args: { message: LABEL_MESSAGE },
+  play: async ({ canvasElement }) => {
+    // The sheet renders in a portal on the body, outside the story's canvas.
+    const sheet = within(canvasElement.ownerDocument.body);
+    const rows = sheet.getAllByTestId('message-delivery');
+    await expect(rows).toHaveLength(3);
+    await expect(rows[0]).toHaveTextContent(/reviewer-01.*Acknowledged/);
+    await expect(rows[1]).toHaveTextContent(/builder-core.*Handed(?! \(pulled\))/);
+    await expect(rows[2]).toHaveTextContent(/reviewer-02.*Pending/);
+    await expect(sheet.getByText('team=a')).toBeVisible();
+  },
+};
+export const LabelDark: Story = { args: { message: LABEL_MESSAGE }, globals: { theme: 'dark' } };
+export const LabelPhone: Story = { args: { message: LABEL_MESSAGE }, globals: { viewport: { value: 'mobile1' } } };

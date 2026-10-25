@@ -316,6 +316,35 @@ export const DIRECT_MESSAGE: MessageDetail = {
   deliveries: [{ id: deliveryId('0001'), ship: REVIEWER, state: 'acknowledged', since: '2026-09-28T14:27:40Z' }],
 };
 
+/** A second reviewer, which carries team=a in the label example. */
+export const SECOND_REVIEWER: Party = { id: shipId('q7m1'), name: 'reviewer-02' };
+
+/** planner's "main is red" to every ship carrying team=a (decision 0065): one delivery per ship, each on its own. */
+export const LABEL_MESSAGE: MessageDetail = {
+  id: messageId('0005'),
+  sender: PLANNER,
+  recipient: { kind: 'label', values: [{ valueId: idSchema('labelValue').parse('lbv_01j8xk4tqzr3a9w6m2v5n7te4a'), key: 'team', value: 'a' }] },
+  inReplyTo: null,
+  sentAt: '2026-09-28T14:26:03Z',
+  contentType: 'text/plain',
+  model: 'claude-opus-5-5',
+  payload: 'main is red',
+  replies: [],
+  delivery: {
+    id: deliveryId('0051'),
+    state: 'acknowledged',
+    attempts: 1,
+    claimedBy: REVIEWER,
+    way: { ...PULLED_WAY, since: '2026-09-28T14:27:40Z' },
+    history: DIRECT_HISTORY,
+  },
+  deliveries: [
+    { id: deliveryId('0051'), ship: REVIEWER, state: 'acknowledged', since: '2026-09-28T14:27:40Z' },
+    { id: deliveryId('0052'), ship: BUILDER, state: 'handed', since: '2026-09-28T14:28:10Z' },
+    { id: deliveryId('0053'), ship: SECOND_REVIEWER, state: 'pending', since: '2026-09-28T14:26:03Z' },
+  ],
+};
+
 /** The trierarch on mac-mini, which crews reviewer-01 in the pushed examples. */
 export const MAC_MINI: Party = { id: shipId('mm01'), name: 'mac-mini' };
 const AT_MAC_MINI = { kind: 'trierarch', trierarch: MAC_MINI } as const;

@@ -19,6 +19,7 @@ import { statusLabel } from '../../../../components/molecules/status-badge';
 import { messageWay, type WayMachine } from '../../services/message-way';
 import { WayLines } from '../molecules/way-lines';
 import { DeliveryHistory } from './delivery-history';
+import { MessageDeliveries } from './message-deliveries';
 import { labelSelectionWords, recipientGroupWords } from '../../../../lib/recipient';
 
 interface MessageSheetProps {
@@ -44,6 +45,15 @@ function recipientParts(message: MessageDetail): SentencePart[] {
   return message.recipient.kind === 'ship'
     ? [text('To '), ship(message.recipient.ship)]
     : [text(`To ${recipientGroupWords(message.recipient)}`)];
+}
+
+/** Where the message stands: its delivery's way, or for a label how many ships it went to, each delivery on its own. */
+function standing(message: MessageDetail, at: { now: Date; machines: readonly WayMachine[] }): string {
+  if (message.recipient.kind === 'label') {
+    const count = message.deliveries.length;
+    return `${count} ${count === 1 ? 'delivery' : 'deliveries'}`;
+  }
+  return statusLabel(messageWay(message, at).status);
 }
 
 function EnvelopeRow({ label, children }: { label: string; children: ReactNode }) {
@@ -176,6 +186,17 @@ function Replies({ message, now, onOpenMessage }: { message: MessageDetail; now:
 }
 
 function Delivery({ message, now, machines, onOpenMessage }: { message: MessageDetail; now: Date; machines: readonly WayMachine[]; onOpenMessage?: (messageId: MessageId) => void }) {
+  if (message.recipient.kind === 'label') {
+    return (
+      <section aria-label="Deliveries" className="flex flex-col gap-2 max-sm:order-first">
+        <h3 className={SECTION_TITLE}>Deliveries</h3>
+        <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3">
+          <MessageDeliveries deliveries={message.deliveries} now={now} />
+          <Replies message={message} now={now} {...(onOpenMessage ? { onOpenMessage } : {})} />
+        </div>
+      </section>
+    );
+  }
   const way = messageWay(message, { now, machines });
   return (
     <section aria-label="Delivery" className="flex flex-col gap-2 max-sm:order-first">
@@ -205,7 +226,9 @@ function Loading() {
 /**
  * One message without leaving the page (docs/design/png/MessageSheet.png):
  * envelope, payload (Formatted for JSON, or Raw) and its delivery: where it
- * stands on its way, its DeliveryHistory and the replies beneath it. A
+ * stands on its way, its DeliveryHistory and the replies beneath it; a send
+ * to a label lists every delivery with its ship and state instead (decision
+ * 0065), each delivery on its own. A
  * 560 px side sheet on desktop; full width on phone, where the delivery comes
  * first. Reply answers its sender as argo, through Compose with the
  * recipient and the reply already set.
@@ -228,7 +251,7 @@ export function MessageSheet({ message, messageId, state, isOpen, onOpenChange, 
                 />
               </SheetTitle>
               <SheetDescription>
-                <Sentence parts={recipientParts(message)} />. {statusLabel(messageWay(message, { now, machines }).status)}.
+                <Sentence parts={recipientParts(message)} />. {standing(message, { now, machines })}.
               </SheetDescription>
               {onReply && message.sender.name !== OPERATOR_NAME ? (
                 <div>
