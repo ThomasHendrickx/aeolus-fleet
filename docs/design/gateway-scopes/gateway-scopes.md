@@ -222,7 +222,7 @@ These change W1 (Slack joins web push and email as a channel; still no chat webh
 
 1. Slack sends the event to the gateway (`/gw/slack/events`): a direct message to a bot, or a mention of it. The gateway checks the request's signature with that bot's signing secret and rejects a timestamp more than 5 minutes off.
 2. It ignores what is not a person's new message: a bot's message (L21), an edit, a deletion, a join.
-3. It stores the event in its own database, keyed by Slack's `event_id`, and answers Slack 200 (P-B2). A Slack retry of a stored event is answered 200 and changes nothing.
+3. It stores the event in its own database, keyed by Slack's `event_id`, and answers Slack 200 (P-B2). A Slack retry of a stored event is answered 200 and changes nothing. The store is temporary and does not accumulate (Thomas): the event is deleted as soon as core stored or refused the message; after that only its `event_id` is kept, for 1 hour, to answer Slack's retries (at most 3, within about 5 minutes). An event core has not taken within 24 hours is deleted and the person told in the thread: "This message did not reach the fleet; send it again".
 4. It finds the ship by the bot's app id and the person ship by the Slack workspace and user, both exact (L20). Unlinked: the link prompt of 9.3.
 5. It sends as the person ship, which it crews (L15): to the ship, `text/markdown` with the text (the mention removed, Slack's markup turned into Markdown), a shared file as its Slack link; `inReplyTo` the fleet message a thread replies to, when it replies to one; the idempotency key from `event_id`, so a retry is the same send (L11).
 6. Core stores it: the gateway adds a reaction to the person's Slack message, so they see it reached the fleet. Core refuses: the gateway answers in the thread with the reason, plainly: "You may not message release-notes" (no rule), "release-notes was retired".
@@ -264,35 +264,19 @@ Unhappy paths:
 
 **A channel.** In #launch, Joris mentions `release-notes`: Joris is the sender; the answer goes into the thread, everyone in #launch sees it. Another bot's message in the thread is ignored.
 
-## 11. Part B: open points for Thomas
+## 11. Part B: open points, answered (Thomas, 25 Oct)
 
-### P-B1. Do a bot ship's messages show in its conversation with the person on linking alone?
+| # | Rule |
+| --- | --- |
+| P-B1 | **Yes: linking lets a person talk to bots both ways**; the Slack switch covers only messages from ships that are not bots. Outcome 4 of the purpose reads: linking turns Slack on for bots |
+| P-B2 | **Save first: the gateway stores the event, answers Slack, then sends to core until core stored it.** Thomas: "save first, but this is temporary. Gateway does not cummulate." Kept as 9.4 step 3 says |
+| P-B3 | **Agent ships only for now.** Thomas: "could be a really neat usecase though" |
+| P-B4 | **A fleet connects one workspace; a workspace may serve several fleets.** Thomas: "if ever needs change we pick it up then" |
 
-1. **Yes**: linking is the person's consent to talk to bots, both ways; the Slack switch covers only messages from ships that are not bots (B5).
-2. **No**: every message into Slack waits for the switch, a reply to the person's own Slack message included.
-
-Pick: 1. A person who asked `release-notes` something expects its answer in the same place. It reads the agreed purpose's outcome 4 ("once they turned Slack on, and never before") as: linking turns Slack on for bots, the switch for everything else.
-
-### P-B2. When the gateway tells Slack OK
-
-1. **Once the gateway stored the event in its own database**, then sends to core until core stores it, showing a reaction on the person's message when it has. Slack's 3-second limit never loses a message while core is slow or down.
-2. **Only once core stored it**: Slack retries three times over about 5 minutes; after that the message never reaches the fleet, and the person is not told.
-
-Pick: 1. The person's sign of the fleet's OK is the reaction, given only once core stored it, so promise 2 holds; the gateway's own store keeps promise 1 against a slow core.
-
-### P-B3. Which ships may be exposed
-
-1. **Agent ships only.**
-2. **Agent ships and outside parties' proxy ships** (the CRM as a bot in Slack).
-
-Pick: 1. The need is people talking to the fleet's agents; a proxy ship in Slack adds tool calls typed by hand.
-
-### P-B4. One workspace per fleet
-
-1. **A fleet connects one workspace; a workspace may serve several fleets**, each with its own bots, and a person links once per fleet.
-2. **A fleet connects several workspaces.**
-
-Pick: 1. One organisation, one workspace is the usual case; a second workspace can come when asked.
+On P-B3, Thomas asked: "what is the difference between agents ships and proxy ships for the slack bot model?"
+- **An outside A2A agent's proxy ship** takes a message and answers, as an agent ship does: the gateway passes a text message on as an A2A message and the agent's answer comes back as a reply (0060). For a Slack bot there is no difference: the same model works with no new part. Its required scopes (part A) are checked on the person ship that sends.
+- **An outside MCP server's proxy ship** takes tool calls, a tool's name with JSON arguments, never free text: a person's Slack message has no tool to call. As a bot it would need either a form per tool, built from the tool's input schema, in which the person picks a tool and fills its fields; or an agent ship that reads the person's words and calls the tools, which is an agent ship exposed as a bot, as today.
+- So the line is not agent or proxy, but whether the ship takes a message and answers. Agent ships and A2A proxy ships do; MCP proxy ships do not.
 
 ## 12. Part B: slices for 0.33.0
 
