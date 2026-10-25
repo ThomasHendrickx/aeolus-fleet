@@ -9,6 +9,7 @@ import type { DeliveryState } from '@aeolus-fleet/common';
 import type { ShipCaller } from '../shared/caller.js';
 import { createCreateFleet } from './create-fleet.js';
 import { createListInstallationFleets, type ListInstallationFleets } from './list-installation-fleets.js';
+import { FOLLOWING_DEFAULTS } from './limits.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -104,13 +105,15 @@ describe('listing the fleets of the installation', () => {
 
   it('gives the limits that apply to it: each following the installation default or set for the fleet', async () => {
     withInstallationSettings(core, { defaultShipLimit: 10, defaultDailyMessageLimit: 1000 });
-    core.state.fleetLimitSettings.push({ fleetId: hemma, ships: { kind: 'fleet', limit: 25 }, dailyMessages: { kind: 'default' } });
+    core.state.fleetLimitSettings.push({ ...FOLLOWING_DEFAULTS, fleetId: hemma, ships: { kind: 'fleet', limit: 25 }, dailyMessages: { kind: 'default' } });
 
     const fleet = (await listFleets()).find((each) => each.fleetId === hemma);
 
     expect(fleet?.limits).toEqual({
       ships: { setting: { kind: 'fleet', limit: 25 }, applies: 25 },
       dailyMessages: { setting: { kind: 'default' }, applies: 1000 },
+      schedulesPerShip: { setting: { kind: 'default' }, applies: null },
+      minimumScheduleInterval: { setting: { kind: 'default' }, applies: null },
     });
   });
 

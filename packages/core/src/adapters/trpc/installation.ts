@@ -81,10 +81,10 @@ export function noticeOutputOf(notice: Notice): Notice & { links: Notice['links'
 /** The installation's fleets: what a service hosting many fleets on this server calls, never a ship. */
 export const installationRouter = router({
   settings: router({
-    /** The default ship and daily message limits for fleets and the cap on fleets; null is no limit. */
+    /** The default ship, daily message and schedule limits for fleets and the cap on fleets; null is no limit. */
     get: installationProcedure.output(installationSettingsSchema).query(({ ctx }) => ctx.useCases.getInstallationSettings()),
 
-    /** Sets all three; a change to a default applies at once to every fleet that follows it. */
+    /** Sets them all; a change to a default applies at once to every fleet that follows it. */
     set: installationProcedure
       .input(installationSettingsSchema)
       .output(installationSettingsSchema)

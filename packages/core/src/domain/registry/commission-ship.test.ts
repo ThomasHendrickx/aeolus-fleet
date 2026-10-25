@@ -16,6 +16,7 @@ import type { AccountCaller, InstallationCaller, ShipCaller } from '../shared/ca
 import { createCommissionShip } from './commission-ship.js';
 import type { Ship } from './ship.js';
 import { newKey } from '../../testing/keys.js';
+import { FOLLOWING_DEFAULTS } from './limits.js';
 
 let core: InMemoryCore;
 let fleetId: FleetId;
@@ -1061,7 +1062,7 @@ describe("commissioning at the fleet's ship limit", () => {
 
   it('follows a limit set for the fleet over the default, and no limit sets none', async () => {
     withInstallationSettings(core, { defaultShipLimit: 1 });
-    core.state.fleetLimitSettings.push({ fleetId, ships: { kind: 'fleet', limit: null }, dailyMessages: { kind: 'default' } });
+    core.state.fleetLimitSettings.push({ ...FOLLOWING_DEFAULTS, fleetId, ships: { kind: 'fleet', limit: null }, dailyMessages: { kind: 'default' } });
 
     await expect(commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' })).resolves.toMatchObject({ isOk: true });
   });

@@ -76,6 +76,8 @@ describe('installationFleetSchema', () => {
     limits: {
       ships: { setting: { kind: 'default' }, applies: 10 },
       dailyMessages: { setting: { kind: 'fleet', limit: null }, applies: null },
+      schedulesPerShip: { setting: { kind: 'fleet', limit: 5 }, applies: 5 },
+      minimumScheduleInterval: { setting: { kind: 'default' }, applies: 60 },
     },
     health: {
       oldestPendingAt: '2026-10-04T11:00:00.000Z',
@@ -171,16 +173,17 @@ describe('installationOperatorsIssueSignInTicket', () => {
 });
 
 describe('installation settings', () => {
-  it('hold the default ship and daily message limits for new fleets and the cap on fleets; each may be no limit', () => {
-    const settings = { defaultShipLimit: 10, defaultDailyMessageLimit: null, fleetCap: 500 };
+  it('hold the default ship, daily message and schedule limits for new fleets and the cap on fleets; each may be no limit', () => {
+    const settings = { defaultShipLimit: 10, defaultDailyMessageLimit: null, defaultSchedulesPerShipLimit: 20, defaultMinimumScheduleInterval: null, fleetCap: 500 };
 
     expect(installationSettingsSchema.parse(settings)).toEqual(settings);
   });
 
   it.each([
-    ['a negative limit', { defaultShipLimit: -1, defaultDailyMessageLimit: null, fleetCap: null }],
-    ['a fractional limit', { defaultShipLimit: 1.5, defaultDailyMessageLimit: null, fleetCap: null }],
-    ['a missing cap', { defaultShipLimit: 1, defaultDailyMessageLimit: 1 }],
+    ['a negative limit', { defaultShipLimit: -1, defaultDailyMessageLimit: null, defaultSchedulesPerShipLimit: null, defaultMinimumScheduleInterval: null, fleetCap: null }],
+    ['a fractional limit', { defaultShipLimit: 1.5, defaultDailyMessageLimit: null, defaultSchedulesPerShipLimit: null, defaultMinimumScheduleInterval: null, fleetCap: null }],
+    ['a missing cap', { defaultShipLimit: 1, defaultDailyMessageLimit: 1, defaultSchedulesPerShipLimit: null, defaultMinimumScheduleInterval: null }],
+    ['a missing minimum schedule interval', { defaultShipLimit: 1, defaultDailyMessageLimit: 1, defaultSchedulesPerShipLimit: null, fleetCap: null }],
   ])('refuse %s', (_case, settings) => {
     expect(installationSettingsSchema.safeParse(settings).success).toBe(false);
   });
@@ -194,6 +197,8 @@ describe("a fleet's limits", () => {
       fleetId,
       ships: { setting: { kind: 'default' }, applies: 10 },
       dailyMessages: { setting: { kind: 'fleet', limit: null }, applies: null },
+      schedulesPerShip: { setting: { kind: 'fleet', limit: 5 }, applies: 5 },
+      minimumScheduleInterval: { setting: { kind: 'default' }, applies: 60 },
     };
 
     expect(installationFleetLimitsSchema.parse(limits)).toEqual(limits);

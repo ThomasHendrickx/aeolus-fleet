@@ -38,6 +38,7 @@ import {
   toStatedStatement,
   toTurn,
 } from './rows.js';
+import { limitSettingsOf } from './fleet-limit-settings.js';
 import { readShipCounts } from './ship-counts.js';
 
 export function createPrismaFleetRepository(db: Db): FleetRepository {
@@ -56,14 +57,20 @@ export function createPrismaFleetRepository(db: Db): FleetRepository {
       await db.fleet.create({ data: fleet });
     },
     limitSettings: async (fleetId) => {
-      const row = await db.fleet.findUnique({ where: { id: fleetId }, select: { shipLimitSet: true, shipLimit: true, dailyMessageLimitSet: true, dailyMessageLimit: true } });
-      if (!row) {
-        return undefined;
-      }
-      return {
-        ships: row.shipLimitSet ? { kind: 'fleet', limit: row.shipLimit } : { kind: 'default' },
-        dailyMessages: row.dailyMessageLimitSet ? { kind: 'fleet', limit: row.dailyMessageLimit } : { kind: 'default' },
-      };
+      const row = await db.fleet.findUnique({
+        where: { id: fleetId },
+        select: {
+          shipLimitSet: true,
+          shipLimit: true,
+          dailyMessageLimitSet: true,
+          dailyMessageLimit: true,
+          schedulesPerShipLimitSet: true,
+          schedulesPerShipLimit: true,
+          minimumScheduleIntervalSet: true,
+          minimumScheduleInterval: true,
+        },
+      });
+      return row ? limitSettingsOf(row) : undefined;
     },
     setLimitSettings: async (fleetId, settings) => {
       await db.fleet.update({
@@ -73,6 +80,10 @@ export function createPrismaFleetRepository(db: Db): FleetRepository {
           shipLimit: settings.ships.kind === 'fleet' ? settings.ships.limit : null,
           dailyMessageLimitSet: settings.dailyMessages.kind === 'fleet',
           dailyMessageLimit: settings.dailyMessages.kind === 'fleet' ? settings.dailyMessages.limit : null,
+          schedulesPerShipLimitSet: settings.schedulesPerShip.kind === 'fleet',
+          schedulesPerShipLimit: settings.schedulesPerShip.kind === 'fleet' ? settings.schedulesPerShip.limit : null,
+          minimumScheduleIntervalSet: settings.minimumScheduleInterval.kind === 'fleet',
+          minimumScheduleInterval: settings.minimumScheduleInterval.kind === 'fleet' ? settings.minimumScheduleInterval.limit : null,
         },
       });
     },

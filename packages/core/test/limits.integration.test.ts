@@ -15,6 +15,7 @@ import { newKey } from '../src/testing/keys.js';
 import { createTestClock } from './support/postgres-core.js';
 import { unwrap } from '../src/testing/result.js';
 import { withOperatorLogin } from './support/operator-login.js';
+import { NO_INSTALLATION_SETTINGS } from '../src/domain/registry/limits.js';
 
 // Limits as fleet settings, from HTTP to Postgres and back: the installation
 // sets them, the console reads them, and commission, send and create are
@@ -41,7 +42,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  await installation().settings.set.mutate({ defaultShipLimit: null, defaultDailyMessageLimit: null, fleetCap: null });
+  await installation().settings.set.mutate({ ...NO_INSTALLATION_SETTINGS, defaultShipLimit: null, defaultDailyMessageLimit: null, fleetCap: null });
 });
 
 afterAll(async () => {
@@ -77,30 +78,41 @@ async function refusalOf(call: Promise<unknown>): Promise<{ code: string | undef
 
 describe("the installation's settings", () => {
   it('are no limit until set, and keep what is set', async () => {
-    await expect(installation().settings.get.query()).resolves.toEqual({ defaultShipLimit: null, defaultDailyMessageLimit: null, fleetCap: null });
+    await expect(installation().settings.get.query()).resolves.toEqual({ ...NO_INSTALLATION_SETTINGS, defaultShipLimit: null, defaultDailyMessageLimit: null, fleetCap: null });
 
-    await installation().settings.set.mutate({ defaultShipLimit: 10, defaultDailyMessageLimit: 1000, fleetCap: 50 });
+    await installation().settings.set.mutate({ defaultShipLimit: 10, defaultDailyMessageLimit: 1000, defaultSchedulesPerShipLimit: 20, defaultMinimumScheduleInterval: 300, fleetCap: 50 });
 
-    await expect(installation().settings.get.query()).resolves.toEqual({ defaultShipLimit: 10, defaultDailyMessageLimit: 1000, fleetCap: 50 });
+    await expect(installation().settings.get.query()).resolves.toEqual({ defaultShipLimit: 10, defaultDailyMessageLimit: 1000, defaultSchedulesPerShipLimit: 20, defaultMinimumScheduleInterval: 300, fleetCap: 50 });
   });
 });
 
 describe("a fleet's limits", () => {
   it('follow the defaults until set for the fleet, and go back to them', async () => {
     const { fleetId } = await newFleet('limited');
-    await installation().settings.set.mutate({ defaultShipLimit: 10, defaultDailyMessageLimit: 1000, fleetCap: null });
+    await installation().settings.set.mutate({ ...NO_INSTALLATION_SETTINGS, defaultShipLimit: 10, defaultDailyMessageLimit: 1000, fleetCap: null });
 
-    await expect(installation().fleets.setLimits.mutate({ fleetId, ships: { kind: 'fleet', limit: 25 }, dailyMessages: { kind: 'fleet', limit: null } })).resolves.toEqual({
+    await expect(
+      installation().fleets.setLimits.mutate({
+        fleetId,
+        ships: { kind: 'fleet', limit: 25 },
+        dailyMessages: { kind: 'fleet', limit: null },
+        schedulesPerShip: { kind: 'fleet', limit: 3 },
+        minimumScheduleInterval: { kind: 'fleet', limit: 600 },
+      }),
+    ).resolves.toEqual({
       fleetId,
       ships: { setting: { kind: 'fleet', limit: 25 }, applies: 25 },
       dailyMessages: { setting: { kind: 'fleet', limit: null }, applies: null },
+      schedulesPerShip: { setting: { kind: 'fleet', limit: 3 }, applies: 3 },
+      minimumScheduleInterval: { setting: { kind: 'fleet', limit: 600 }, applies: 600 },
     });
+    await expect(installation().fleets.get.query({ fleetId })).resolves.toMatchObject({ limits: { schedulesPerShip: { applies: 3 }, minimumScheduleInterval: { applies: 600 } } });
     await installation().fleets.setLimits.mutate({ fleetId, ships: { kind: 'default' } });
     await expect(installation().fleets.limits.query({ fleetId })).resolves.toMatchObject({ ships: { setting: { kind: 'default' }, applies: 10 } });
   });
 
   it('are read by the console with what each counts', async () => {
-    await installation().settings.set.mutate({ defaultShipLimit: 10, defaultDailyMessageLimit: 1000, fleetCap: null });
+    await installation().settings.set.mutate({ ...NO_INSTALLATION_SETTINGS, defaultShipLimit: 10, defaultDailyMessageLimit: 1000, fleetCap: null });
     const signedIn = await fetch(`${address}/trpc/console.signIn`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', origin: new URL(FLEET_URL).origin },
@@ -168,7 +180,7 @@ describe('the limits at their boundary', () => {
 
   it('create fleets up to the cap however many race, and refuse the rest', async () => {
     const hosted = await database.fleet.count();
-    await installation().settings.set.mutate({ defaultShipLimit: null, defaultDailyMessageLimit: null, fleetCap: hosted + 2 });
+    await installation().settings.set.mutate({ ...NO_INSTALLATION_SETTINGS, defaultShipLimit: null, defaultDailyMessageLimit: null, fleetCap: hosted + 2 });
 
     const results = await Promise.all(
       Array.from({ length: 5 }, (_unused, index) => refusalOf(installation().fleets.create.mutate({ requestId: newKey(), name: `capped-${String(index)}`, operatorEmail: `capped-${String(index)}@example.com` }))),
