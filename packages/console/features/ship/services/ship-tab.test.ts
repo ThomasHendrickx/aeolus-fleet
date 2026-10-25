@@ -7,6 +7,10 @@ describe('the ship page tab a URL opens', () => {
     expect(shipTabOf('messages')).toBe('messages');
   });
 
+  it('is Schedules when the URL says so', () => {
+    expect(shipTabOf('schedules')).toBe('schedules');
+  });
+
   it('is Timeline otherwise', () => {
     expect(shipTabOf(undefined)).toBe('timeline');
     expect(shipTabOf('other')).toBe('timeline');

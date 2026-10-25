@@ -1,9 +1,12 @@
-import type { CrewStatus, DeliveryState, ShipStatus, StuckCause } from '@aeolus-fleet/common';
+import type { CrewStatus, DeliveryState, ScheduleState, ShipStatus, StuckCause } from '@aeolus-fleet/common';
 import {
   AlarmClock,
   Anchor,
   Archive,
   Ban,
+  CalendarCheck,
+  CalendarClock,
+  CalendarX,
   CircleAlert,
   CircleArrowRight,
   CircleCheckBig,
@@ -43,7 +46,7 @@ export type UnassignedCrewState = 'needsCrew' | 'crewedByHand';
 export type PushedStepState = 'handedPushed' | 'overdue';
 /** The fleet's health (decision 0042): its verdict, stuck or delivering, and why a delivery is stuck. */
 export type HealthState = 'stuck' | 'delivering' | StuckCause;
-type Status = ShipStatus | DeliveryState | SquadronState | LimitState | CrewStatus | UnassignedCrewState | PushedStepState | HealthState;
+type Status = ShipStatus | DeliveryState | SquadronState | LimitState | CrewStatus | UnassignedCrewState | PushedStepState | HealthState | ScheduleState;
 import { Badge } from '../atoms/badge';
 
 type Tone = 'waiting' | 'active' | 'ok' | 'attention' | 'ended';
@@ -57,7 +60,7 @@ const TONE_CLASSES: Record<Tone, string> = {
 };
 
 /**
- * Every ship status, delivery state, squadron state, limit state and crew request state with its tone, icon
+ * Every ship status, delivery state, squadron state, limit state, crew request state and schedule state with its tone, icon
  * and label (docs/design/conventions.md, "Colour"). A handed delivery is in
  * flight: a receive handed it to a crew, which has not acknowledged it yet. A
  * receive is all a pull ship does, so handed reads "Handed (pulled)"; a
@@ -100,6 +103,10 @@ const STATUSES: Record<Status, { tone: Tone; Icon: LucideIcon; label: string }> 
   noShipCanTake: { tone: 'attention', Icon: CircleSlash, label: 'No ship can take' },
   waitingForCrew: { tone: 'waiting', Icon: UserRoundSearch, label: 'Waiting for crew' },
   stalledInFlight: { tone: 'waiting', Icon: CirclePause, label: 'Stalled in flight' },
+  active: { tone: 'ok', Icon: CalendarClock, label: 'Active' },
+  paused: { tone: 'waiting', Icon: CirclePause, label: 'Paused' },
+  ended: { tone: 'ended', Icon: CalendarCheck, label: 'Ended' },
+  cancelled: { tone: 'ended', Icon: CalendarX, label: 'Cancelled' },
 };
 
 /**
