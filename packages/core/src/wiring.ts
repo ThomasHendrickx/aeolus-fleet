@@ -34,6 +34,7 @@ import {
 } from './adapters/prisma/installation.js';
 import { createPrismaDeclaredNetworkRulesRepository, createPrismaReachRefusalRepository } from './adapters/prisma/network.js';
 import { createPrismaScopeNamespaceRepository } from './adapters/prisma/scope-namespaces.js';
+import { createPrismaDefinedScopeRepository } from './adapters/prisma/defined-scopes.js';
 import { createPrismaBulkUnitOfWork, createPrismaCallers, createPrismaSnapshotUnitOfWork, createPrismaUnitOfWork } from './adapters/prisma/unit-of-work.js';
 import { createAuthenticate, type Authenticate } from './domain/identity/authenticate.js';
 import { createAuthenticateAccount, type AuthenticateAccount } from './domain/identity/authenticate-account.js';
@@ -453,7 +454,7 @@ export function createUseCases(options: {
     describeScope: createDescribeScope({ uow, clock, ids }),
     removeScope: createRemoveScope({ uow, clock, ids }),
     grantScopes: createGrantScopes({ uow, clock, ids }),
-    listScopes: createListScopes({ scopeNamespaces: createPrismaScopeNamespaceRepository(prisma), ships: createPrismaShipRepository(prisma) }),
+    listScopes: createListScopes({ scopeNamespaces: createPrismaScopeNamespaceRepository(prisma), definedScopes: createPrismaDefinedScopeRepository(prisma), ships: createPrismaShipRepository(prisma) }),
     saveNetworkRulesDraft: createSaveNetworkRulesDraft({ uow, clock, ids }),
     discardNetworkRulesDraft: createDiscardNetworkRulesDraft({ uow, clock, ids }),
     applyNetworkRules: createApplyNetworkRules({ uow, clock, ids }),

@@ -269,6 +269,8 @@ export interface InMemoryCore {
   declaredNetworkRules: DeclaredNetworkRulesRepository;
   /** The plugin namespaces, read outside a unit of work. */
   scopeNamespaces: ScopeNamespaceRepository;
+  /** The fleet's own scopes, read outside a unit of work. */
+  definedScopes: DefinedScopeRepository;
   callers: CallerLookup;
   accounts: OperatorAccountLookup;
   listing: FleetListing;
@@ -731,6 +733,13 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         state.definedScopes.splice(0, state.definedScopes.length, ...state.definedScopes.filter((held) => held.fleetId !== fleetId || held.scope !== scope));
         return Promise.resolve();
       },
+      list: (fleetId) =>
+        Promise.resolve(
+          state.definedScopes
+            .filter((held) => held.fleetId === fleetId)
+            .toSorted((first, second) => (first.scope < second.scope ? -1 : 1))
+            .map((held) => structuredClone(held)),
+        ),
       usesNamespace: (fleetId, namespace) => Promise.resolve(state.definedScopes.some((held) => held.fleetId === fleetId && held.scope.startsWith(`${namespace}:`))),
     },
     verifiedFacts: {
@@ -2173,7 +2182,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
   };
 
-  return { state, uow, fleets: tx.fleets, scheduleAttempts, pushedCrews, ships: tx.ships, leases: tx.leases, crewRequests: tx.crewRequests, clearRequests: tx.clearRequests, labels: tx.labels, reachRefusals: tx.reachRefusals, declaredNetworkRules: tx.declaredNetworkRules, scopeNamespaces: tx.scopeNamespaces, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, health: healthRecords, healthSnapshots, notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeups, fleetNews };
+  return { state, uow, fleets: tx.fleets, scheduleAttempts, pushedCrews, ships: tx.ships, leases: tx.leases, crewRequests: tx.crewRequests, clearRequests: tx.clearRequests, labels: tx.labels, reachRefusals: tx.reachRefusals, declaredNetworkRules: tx.declaredNetworkRules, scopeNamespaces: tx.scopeNamespaces, definedScopes: tx.definedScopes, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, health: healthRecords, healthSnapshots, notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeups, fleetNews };
 }
 
 /** The tables whose rows belong to a fleet by their fleet id: all but the fleets and the installation's requests. */

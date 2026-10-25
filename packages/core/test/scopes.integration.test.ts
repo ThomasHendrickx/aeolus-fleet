@@ -74,7 +74,7 @@ describe('declaring scopes on Postgres', () => {
 
     unwrap(await core.useCases.declareScopes(squadrons, { namespace: 'squadrons', scopes: [FORM, scale] }));
 
-    await expect(core.useCases.listScopes(argo()).then((listed) => listed.at(-1))).resolves.toEqual({ namespace: 'squadrons', declaredBy: { id: squadrons.shipId, name: 'squadrons' }, scopes: [FORM, scale] });
+    await expect(core.useCases.listScopes(argo()).then((listed) => listed.at(-1))).resolves.toEqual({ namespace: 'squadrons', kind: 'plugin', declaredBy: { id: squadrons.shipId, name: 'squadrons' }, scopes: [FORM, scale] });
     await expect(core.prisma.event.findMany({ where: { type: 'ScopesDeclared' }, select: { shipId: true, details: true } })).resolves.toEqual([{ shipId: squadrons.shipId, details: { namespace: 'squadrons', scopes: 2 } }]);
   });
 

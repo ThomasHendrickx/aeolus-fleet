@@ -268,7 +268,7 @@ export function registryUseCases(core: InMemoryCore) {
     describeScope: createDescribeScope(deps),
     removeScope: createRemoveScope(deps),
     grantScopes: createGrantScopes(deps),
-    listScopes: createListScopes({ scopeNamespaces: core.scopeNamespaces, ships: core.ships }),
+    listScopes: createListScopes({ scopeNamespaces: core.scopeNamespaces, definedScopes: core.definedScopes, ships: core.ships }),
     saveNetworkRulesDraft: createSaveNetworkRulesDraft(deps),
     discardNetworkRulesDraft: createDiscardNetworkRulesDraft(deps),
     applyNetworkRules: createApplyNetworkRules(deps),
