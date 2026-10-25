@@ -3,6 +3,7 @@ import {
   idSchema,
   type DeliveryHistoryEntry,
   type ListedMessage,
+  type MessageDelivery,
   type MessageDetail,
   type Party,
   type ShipDetail,
@@ -292,7 +293,7 @@ export const TYPE_MESSAGE: MessageDetail = {
   payload: '{"task":"review","repo":"web","pr":321}',
   replies: [],
   delivery: { id: deliveryId('0003'), state: 'handed', attempts: 2, claimedBy: REVIEWER, way: PULLED_WAY, history: TYPE_HISTORY },
-  deliveries: [{ id: deliveryId('0003'), ship: REVIEWER, state: 'handed', since: PULLED_WAY.since }],
+  deliveryCount: 1,
 };
 
 /** planner's answer to reviewer-01, acknowledged. */
@@ -313,7 +314,7 @@ export const DIRECT_MESSAGE: MessageDetail = {
     way: { ...PULLED_WAY, since: '2026-09-28T14:27:40Z' },
     history: DIRECT_HISTORY,
   },
-  deliveries: [{ id: deliveryId('0001'), ship: REVIEWER, state: 'acknowledged', since: '2026-09-28T14:27:40Z' }],
+  deliveryCount: 1,
 };
 
 /** A second reviewer, which carries team=a in the label example. */
@@ -338,12 +339,15 @@ export const LABEL_MESSAGE: MessageDetail = {
     way: { ...PULLED_WAY, since: '2026-09-28T14:27:40Z' },
     history: DIRECT_HISTORY,
   },
-  deliveries: [
-    { id: deliveryId('0051'), ship: REVIEWER, state: 'acknowledged', since: '2026-09-28T14:27:40Z' },
-    { id: deliveryId('0052'), ship: BUILDER, state: 'handed', since: '2026-09-28T14:28:10Z' },
-    { id: deliveryId('0053'), ship: SECOND_REVIEWER, state: 'pending', since: '2026-09-28T14:26:03Z' },
-  ],
+  deliveryCount: 3,
 };
+
+/** The deliveries of LABEL_MESSAGE, by id: one per ship carrying team=a. */
+export const LABEL_DELIVERIES: MessageDelivery[] = [
+  { id: deliveryId('0051'), ship: REVIEWER, state: 'acknowledged', since: '2026-09-28T14:27:40Z' },
+  { id: deliveryId('0052'), ship: BUILDER, state: 'handed', since: '2026-09-28T14:28:10Z' },
+  { id: deliveryId('0053'), ship: SECOND_REVIEWER, state: 'pending', since: '2026-09-28T14:26:03Z' },
+];
 
 /** The trierarch on mac-mini, which crews reviewer-01 in the pushed examples. */
 export const MAC_MINI: Party = { id: shipId('mm01'), name: 'mac-mini' };
@@ -387,7 +391,7 @@ function pushed(suffix: string, delivery: Pick<MessageDetail['delivery'], 'state
     payload: 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/48',
     replies: [],
     delivery: { id: deliveryId(suffix), claimedBy: delivery.state === 'pending' ? null : REVIEWER, ...delivery },
-    deliveries: [{ id: deliveryId(suffix), ship: REVIEWER, state: delivery.state, since: delivery.way.since }],
+    deliveryCount: 1,
   };
 }
 
