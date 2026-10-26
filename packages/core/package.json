@@ -104,6 +104,7 @@
     "@trpc/client": "^11.19.0",
     "@types/pg": "^8.23.1",
     "@types/ws": "^8.18.2",
+    "temporal-polyfill": "^1.0.6",
     "testcontainers": "^12.2.0",
     "tsx": "^4.23.15"
   }
