@@ -253,7 +253,7 @@ const reactInCommon = [
 const noModuleMocks = ['mock', 'doMock'].map((property) => ({
   object: 'vi',
   property,
-  message: 'No module mocks: hand-write an in-memory fake of the port and assert outcomes (test-driven-development skill).',
+  message: 'No module mocks: hand-write an in-memory fake of the port and assert outcomes (behaviour-driven-development skill).',
 }));
 
 /**
@@ -265,7 +265,7 @@ const noTestDoubles = ['fn', 'spyOn'].map((property) => ({
   object: 'vi',
   property,
   message:
-    'No vi.fn or vi.spyOn in core and common: hand-write an in-memory fake and assert outcomes and stored state, not calls (test-driven-development skill).',
+    'No vi.fn or vi.spyOn in core and common: hand-write an in-memory fake and assert outcomes and stored state, not calls (behaviour-driven-development skill).',
 }));
 
 // esquery regex literals cannot contain a slash, so write it as \x2F.

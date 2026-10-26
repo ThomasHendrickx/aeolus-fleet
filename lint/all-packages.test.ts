@@ -5,7 +5,7 @@ import { createLint, reportsOf } from './support/lint-probe.ts';
 // Rules for every package: no type assertions, exhaustive switches, at most
 // two parameters, named exports, kebab-case file names, boolean names and no
 // module mocks; no vi.fn or vi.spyOn in core and common (typescript and
-// test-driven-development skills).
+// behaviour-driven-development skills).
 
 const probes = {
   core: 'packages/core/src/domain/registry/rules-probe.ts',
