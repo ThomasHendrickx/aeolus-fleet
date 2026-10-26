@@ -65,6 +65,8 @@ async function newPage(): Promise<Page> {
 async function expectSignedIn(page: Page): Promise<void> {
   await page.waitForURL(`${web.url}/`);
   await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+  // Live shows once the page is hydrated: a menu click before that does nothing.
+  await page.getByRole('banner').getByText('Live', { exact: true }).waitFor({ timeout: 20_000 });
 }
 
 async function expectSentToSignIn(page: Page): Promise<void> {
