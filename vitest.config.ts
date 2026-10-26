@@ -80,6 +80,7 @@ export default defineConfig({
           root: 'packages/core',
           include: ['src/**/*.test.ts', 'test/**/*.test.ts'],
           exclude: [...configDefaults.exclude, '**/*.integration.test.ts'],
+          setupFiles: ['src/testing/temporal-setup.ts'],
         },
       },
       {
