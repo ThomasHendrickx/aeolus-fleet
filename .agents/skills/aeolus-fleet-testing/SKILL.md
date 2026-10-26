@@ -1,11 +1,11 @@
 ---
 name: aeolus-fleet-testing
-description: Mandatory with test-driven-development for every aeolus-fleet code change. Scope, paths, guarantees and what CI enforces.
+description: Mandatory with behaviour-driven-development for every aeolus-fleet code change. Scope, paths, guarantees and what CI enforces.
 ---
 
 # Testing in aeolus-fleet (decision 0014)
 
-Load with `test-driven-development`.
+Load with `behaviour-driven-development`.
 
 - Strict for server and common; web: tests alongside.
 - Commit scope is the context: `test(<context>): <rule> (red)`.
