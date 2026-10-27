@@ -31,7 +31,7 @@ export interface StuckDelivery {
 /**
  * A ship as the rule reads it over time; argo and the viewer ship are always
  * crewed. A person ship awaiting crew is its person away, and a trierarch
- * ship awaiting crew is a machine whose setup has not run, so neither is
+ * ship awaiting crew is a computer whose setup has not run, so neither is
  * stuck (decisions 0044 and 0026).
  */
 export interface ShipRecord {
