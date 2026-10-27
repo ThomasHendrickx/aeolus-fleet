@@ -1,9 +1,11 @@
-import { SCOPES, type FleetId, type ShipId } from '@aeolus-fleet/common';
+import { createIdGenerator, SCOPES, type FleetId, type ShipId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { cryptoRandomTokens, sha256Hasher } from '../src/adapters/crypto/secrets.js';
+import { createCommissionShip } from '../src/domain/registry/commission-ship.js';
 import { secretOf } from './support/core-fixtures.js';
 import { newKey } from '../src/testing/keys.js';
-import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
+import { createPostgresCore, heldUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { unwrap } from '../src/testing/result.js';
 import { withOperatorLogin } from './support/operator-login.js';
 
@@ -175,6 +177,43 @@ describe('commissioning with plugin scopes on Postgres', () => {
     const ships = await core.prisma.ship.findMany({ where: { fleetId, name: 'scaler' }, select: { scopes: true } });
     expect(ships.map(({ scopes }) => scopes)).toEqual(outcome[0] === 'commissioned' ? [['messages:send', 'messages:receive', 'squadrons:scale']] : []);
   });
+});
+
+describe('commissioning on behalf of the asking ship on Postgres (design on-behalf-scopes)', () => {
+  it('never gives the new ship a scope the asking ship has lost: a revoke waits for the commission that read the scope, and lands after it', async () => {
+    const { shipId: askingId } = unwrap(await core.useCases.commissionShip(argo(), { idempotencyKey: newKey(), name: 'lead', type: 'lead', scopes: ['fleet:read'] }));
+    const { shipId: squadronsId } = unwrap(await core.useCases.commissionShip(argo(), { idempotencyKey: newKey(), name: 'squadrons', type: 'plugin', scopes: ['fleet:commission', 'fleet:on-behalf'] }));
+    const squadrons = { shipId: squadronsId, fleetId, kind: 'agent' as const, scopes: ['messages:send', 'messages:receive', 'fleet:commission', 'fleet:on-behalf'] };
+    const { uow, reached } = heldUnitOfWork(core.prisma, (tx, hold) => ({
+      ...tx,
+      ships: {
+        ...tx.ships,
+        lockName: async (shipFleetId, name) => {
+          // The asking ship and its scopes are read; the commission holds here, before it locks a namespace, until a revoke waits for the asking ship.
+          await hold();
+          await tx.ships.lockName(shipFleetId, name);
+        },
+      },
+    }));
+    const commission = createCommissionShip({ uow, clock: core.clock, ids: createIdGenerator(), secrets: { hasher: sha256Hasher, random: cryptoRandomTokens } });
+    const steps: string[] = [];
+
+    const commissioning = commission(squadrons, { idempotencyKey: newKey(), name: 'login-flow', type: 'flagship', ownerOf: askingId, scopes: ['fleet:read'] }).then((result) => {
+      steps.push('commission stored');
+      return result;
+    });
+    await reached;
+    const revoking = core.useCases.grantScopes(argo(), { shipId: askingId, grant: [], revoke: ['fleet:read'] }).then((result) => {
+      steps.push('revoke landed');
+      return result;
+    });
+    await Promise.all([commissioning, revoking]);
+
+    expect(steps).toEqual(['commission stored', 'revoke landed']);
+    const { shipId } = unwrap(await commissioning);
+    await expect(core.prisma.ship.findUniqueOrThrow({ where: { id: shipId }, select: { scopes: true } })).resolves.toEqual({ scopes: ['messages:send', 'messages:receive', 'fleet:read'] });
+    await expect(core.prisma.ship.findUniqueOrThrow({ where: { id: askingId }, select: { scopes: true } })).resolves.toEqual({ scopes: ['messages:send', 'messages:receive'] });
+  }, 20_000);
 });
 
 describe("retiring a namespace's declarer on Postgres", () => {
