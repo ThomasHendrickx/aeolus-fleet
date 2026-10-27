@@ -2442,6 +2442,31 @@ describe('network rules at the API', () => {
     await expect(codeOf(chief.ship.openMeeting.mutate({ ships: [{ shipId: outsiderId }], idempotencyKey: newKey(), model: SESSION_MODEL }))).resolves.toBe('FORBIDDEN');
   });
 
+  it('answers a mic request with the holder, ordered queue and caller place', async () => {
+    const chief = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'meetings:open'])}` });
+    const first = client({ authorization: `Bearer ${await crewedShip()}` });
+    const second = client({ authorization: `Bearer ${await crewedShip()}` });
+    const [, firstShip, secondShip] = await Promise.all([chief.ship.whoami.query(), first.ship.whoami.query(), second.ship.whoami.query()]);
+    const { meetingId } = await chief.ship.openMeeting.mutate({ ships: [{ shipId: firstShip.shipId }, { shipId: secondShip.shipId }], idempotencyKey: newKey(), model: SESSION_MODEL });
+    await chief.ship.setMicPattern.mutate({ meetingId, pattern: 'fifo' });
+
+    const holding = await first.ship.requestMic.mutate({ meetingId });
+    const waiting = await second.ship.requestMic.mutate({ meetingId });
+
+    expect(holding).toEqual({
+      mic: { holder: { id: firstShip.shipId, name: firstShip.name }, pattern: 'fifo', requests: [] },
+      caller: { kind: 'holding' },
+    });
+    expect(waiting).toEqual({
+      mic: {
+        holder: { id: firstShip.shipId, name: firstShip.name },
+        pattern: 'fifo',
+        requests: [{ ship: { id: secondShip.shipId, name: secondShip.name }, requestedAt: clock.now().toISOString() }],
+      },
+      caller: { kind: 'waiting', place: 1 },
+    });
+  });
+
   it('take a term of any value, and answer a term of the same value on one side only with BAD_REQUEST naming decision 0034', async () => {
     const editor = await networker();
     const labelId = newId('label');

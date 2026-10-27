@@ -386,6 +386,8 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
         FOR SHARE`;
       return row ? toShipFromSql(row) : undefined;
     },
+    findMany: async (fleetId, shipIds) =>
+      shipIds.length === 0 ? [] : (await db.ship.findMany({ where: { fleetId, id: { in: [...shipIds] } }, orderBy: { id: 'asc' } })).map(toShip),
     list: async (fleetId) => (await db.ship.findMany({ where: { fleetId }, orderBy: { id: 'asc' } })).map(toShip),
     listActive: async (fleetId) =>
       (await db.ship.findMany({ where: { fleetId, retiredAt: null, kind: { not: 'viewer' } }, orderBy: { id: 'asc' } })).map(toShip),

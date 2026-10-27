@@ -7,6 +7,7 @@ import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-
 import { newKey } from '../../testing/keys.js';
 import { refusalOf, unwrap } from '../../testing/result.js';
 import type { ShipCaller } from '../shared/caller.js';
+import { createChangeMic } from './change-mic.js';
 import type { MicChange } from './mic.js';
 
 /**
@@ -75,6 +76,74 @@ describe('a meeting opens', () => {
 });
 
 describe('a mic request (M8)', () => {
+  it('answers with the current queue and the caller holding the mic when fifo grants it at once', async () => {
+    await done(chief, { kind: 'setPattern', pattern: 'fifo' });
+
+    const response = unwrap(await changed(product, { kind: 'request' }));
+
+    expect(response).toEqual({
+      mic: { holder: { id: product.shipId, name: 'product' }, pattern: 'fifo', requests: [] },
+      caller: { kind: 'holding' },
+    });
+  });
+
+  it('answers with who holds the mic, the ordered line and the caller place', async () => {
+    await done(chief, { kind: 'setPattern', pattern: 'fifo' });
+    await done(product, { kind: 'request' });
+
+    const response = unwrap(await changed(marketing, { kind: 'request' }));
+
+    expect(response).toEqual({
+      mic: {
+        holder: { id: product.shipId, name: 'product' },
+        pattern: 'fifo',
+        requests: [{ ship: { id: marketing.shipId, name: 'marketing' }, requestedAt: new Date('2026-10-24T09:00:03.000Z') }],
+      },
+      caller: { kind: 'waiting', place: 1 },
+    });
+  });
+
+  it('answers a meeting with a long mic queue in one ship read, the queue in request order', async () => {
+    const names = Array.from({ length: 40 }, (_, index) => `crew-${String(index).padStart(2, '0')}`);
+    const crowd: ShipCaller[] = [];
+    for (const name of names) {
+      crowd.push(await shipWithScopes({ registry, argo }, { name, type: 'head', scopes: [] }));
+    }
+    const last = crowd.pop() ?? marketing;
+    await done(chief, { kind: 'give', shipId: marketing.shipId });
+    unwrap(await messaging.addToMeeting(chief, { meetingId, ships: [...crowd, last].map(({ shipId }) => ({ shipId })), model: SESSION_MODEL }));
+    for (const member of crowd) {
+      await done(member, { kind: 'request' });
+    }
+    let shipReads = 0;
+    const counted = createChangeMic({
+      uow: {
+        run: (work) =>
+          core.uow.run((tx) =>
+            work({
+              ...tx,
+              ships: {
+                findMany: (fleetId, shipIds) => {
+                  shipReads += 1;
+                  return tx.ships.findMany(fleetId, shipIds);
+                },
+              },
+            }),
+          ),
+      },
+      clock: core.clock,
+      ids: core.ids,
+      hasher: core.hasher,
+    });
+
+    core.clock.advance(1_000);
+    const response = unwrap(await counted(last, { meetingId, change: { kind: 'request' } }));
+
+    expect(response?.mic.requests.map(({ ship }) => ship.name)).toEqual(names);
+    expect(response?.caller).toEqual({ kind: 'waiting', place: 40 });
+    expect(shipReads).toBe(1);
+  });
+
   it('puts the ship on the list with its time, a new request at the back', async () => {
     await done(product, { kind: 'request' });
     await done(marketing, { kind: 'request' });

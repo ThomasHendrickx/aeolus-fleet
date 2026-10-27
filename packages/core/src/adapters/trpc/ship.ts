@@ -26,6 +26,7 @@ import {
   meetingOutputSchema,
   meetingIdInputSchema,
   meetingChangedOutputSchema,
+  requestMicOutputSchema,
   notHandledInputSchema,
   openMeetingInputSchema,
   openMeetingOutputSchema,
@@ -220,10 +221,13 @@ export const shipRouter = router({
       ].join(' '),
     })
     .input(meetingIdInputSchema)
-    .output(meetingChangedOutputSchema)
+    .output(requestMicOutputSchema)
     .mutation(async ({ ctx, input }) => {
-      okOrThrow(await ctx.useCases.changeMic(ctx.caller, { meetingId: input.meetingId, change: { kind: 'request' } }));
-      return {};
+      const response = okOrThrow(await ctx.useCases.changeMic(ctx.caller, { meetingId: input.meetingId, change: { kind: 'request' } }));
+      if (response === undefined) {
+        throw new Error('A mic request did not return its queue');
+      }
+      return { ...response, mic: { ...response.mic, requests: response.mic.requests.map((request) => ({ ...request, requestedAt: request.requestedAt.toISOString() })) } };
     }),
 
   /** Takes the caller's request off its meeting's mic list (decision 0061, M8). */

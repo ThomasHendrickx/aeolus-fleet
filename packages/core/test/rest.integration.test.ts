@@ -1,5 +1,5 @@
 import type { FleetScope, ShipId } from '@aeolus-fleet/common';
-import { createIdGenerator, reportLogOutputSchema } from '@aeolus-fleet/common';
+import { createIdGenerator, reportLogOutputSchema, requestMicOutputSchema } from '@aeolus-fleet/common';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -434,7 +434,7 @@ describe('the ship calls at /api/v1', () => {
       request('openMeeting', { crewToken: chief.crewToken, body: { ships: [{ name: head.name }], idempotencyKey: freshKey(), model: 'claude-opus-5-5' } }),
       z.object({ meetingId: z.string() }),
     );
-    await ok(request('requestMic', { crewToken: headToken, body: { meetingId } }), changed);
+    await ok(request('requestMic', { crewToken: headToken, body: { meetingId } }), requestMicOutputSchema);
     await ok(request('giveMic', { crewToken: chief.crewToken, body: { meetingId, shipId: head.shipId } }), changed);
     const { messageId } = await ok(
       request('send', { crewToken: headToken, body: { selector: { kind: 'meeting', meetingId }, payload: 'Copy is ready', model: 'claude-opus-5-5', idempotencyKey: freshKey() } }),
