@@ -1,6 +1,6 @@
 # Scopes granted on behalf of the asking ship
 
-New core fleet functionality, so it goes purpose first. Nothing past the purpose is decided until Thomas agrees it. No code.
+Approved by Thomas on 27 Oct 2026. The rule is decision 0046.
 
 ## 1. Purpose
 
@@ -20,7 +20,7 @@ Not the purpose: the gateway's app ships (it names `owner`, not `ownerOf`, and i
 - **Kubernetes RBAC escalation prevention.** A user creates or updates a Role or binding only with every permission it grants already held (or the `escalate` and `bind` verbs). Our rule today. The on-behalf case matches Kubernetes impersonation: a holder of `impersonate` acts with another user's permissions, never more, and the audit log names both the real user and the impersonated one. So: the asking ship's scopes, never more, and the event names both ships.
 - **No policy (0016).** Core adds no guard beyond the scopes; it records.
 
-## 3. The rule (decision draft)
+## 3. The rule
 
 **Checked against which ship.**
 
@@ -33,11 +33,15 @@ Not the purpose: the gateway's app ships (it names `owner`, not `ownerOf`, and i
 | Label values | The commissioner (unchanged, 0053) |
 | The owner | The asking ship's owner (unchanged, 0045) |
 
-**Stays refused.** A scope the asking ship does not hold (`SCOPE_NOT_HELD`, naming the asking ship), even when the commissioner holds it; `ownerOf` from a ship without `fleet:on-behalf` (unchanged); a scope neither declared nor defined.
+**Stays refused.** A scope the asking ship does not hold (`SCOPE_NOT_HELD`, naming the asking ship), even when the commissioner holds it; `ownerOf` from a ship without `fleet:on-behalf` (unchanged); a scope neither declared nor defined; a retired asking ship (`SHIP_ALREADY_RETIRED`): a retired ship grants nothing, so squadrons names its owner instead, as it already proxies to it.
+
+**Trust.** Core cannot see who asked: it trusts the `fleet:on-behalf` holder to name the ship that did, as 0045 already trusts it for the owner, and records it. Core does not prove it by message id: a console form by argo and an add-member to the flagship are no messages to squadrons' ship.
 
 **What squadrons guarantees.** `ownerOf` is the sender of the request it acts on, as the fleet names it: the forming ship on a form or add-member, argo for a console form, the forming ship's owner once the forming ship is retired (squadrons docs/squadrons.md, forming step 8). Never a name from a payload. squadrons checks a template's scopes against that ship before commissioning anything, as it checks the subset rule now.
 
-**Recorded.** `ShipCommissioned` names the ship the scopes were checked against (`scopesFrom: <shipId>`), beside `OwnerSet`'s `askingShipId`. A wrong `ownerOf` then shows on the new ship's timeline.
+**Recorded.** With `ownerOf`, `ShipCommissioned` names the ship the scopes were checked against (`scopesFrom: <shipId>`), beside `OwnerSet`'s `askingShipId`, so the scopes and where they came from read in one event. A wrong `ownerOf` then shows on the new ship's timeline.
+
+**Not on a live ship.** `scopes:grant` keeps checking the granter: squadrons never changes a member's scopes (a squadron never changes, 0017).
 
 ## 4. Flow
 
@@ -61,26 +65,8 @@ flowchart TD
 - **Asking ship lacks it.** Given X lacks `fleet:manage` and squadrons holds it, when squadrons commissions with `ownerOf` X and scope `fleet:manage`, then core refuses `SCOPE_NOT_HELD` naming X and commissions nothing.
 - **Own namespace.** Given X lacks `squadrons:scale`, when squadrons commissions with `ownerOf` X and scope `squadrons:scale`, then the ship holds it.
 - **argo asks.** Given argo formed in the console, when squadrons commissions with `ownerOf` argo and any declared or core scope, then it is granted.
+- **Retired asking ship.** Given X is retired, when squadrons commissions with `ownerOf` X, then core refuses `SHIP_ALREADY_RETIRED` and commissions nothing.
 - **No on-behalf.** Given ship Y holds `fleet:commission` but not `fleet:on-behalf`, when Y commissions with `ownerOf` X, then core refuses `SCOPE_NOT_HELD` and commissions nothing (unchanged).
 - **Without ownerOf.** Given squadrons commissions with no `ownerOf` and scope `meetings:open`, then core refuses `SCOPE_NOT_HELD` (unchanged).
 - **squadrons names a ship that did not ask** (squadrons). Given X sends a form request whose payload names argo, when squadrons commissions, then `ownerOf` is X, never argo.
-- **squadrons names a ship that did not ask** (core). Given squadrons commissions with `ownerOf` argo though X asked, then core grants as argo and records `scopesFrom` argo: core cannot tell (question 1).
-
-## 6. Questions
-
-1. **How is "`ownerOf` asked" enforced?**
-   - a. squadrons guarantees it; core trusts the `fleet:on-behalf` holder and records `scopesFrom` (as Kubernetes impersonation, and as 0045 already trusts it for the owner).
-   - b. Core proves it: the commission names the asking message's id, and core checks that `ownerOf` sent it to the commissioner. Needs every path to be a message; a console form by argo and an add-member to the flagship are not messages to squadrons' ship today.
-   - Pick a: no new surface, same trust `fleet:on-behalf` already carries, and the event makes a wrong name visible.
-2. **What the event records.**
-   - a. `scopesFrom` on `ShipCommissioned`, only with `ownerOf`.
-   - b. Nothing new: `OwnerSet` already names `askingShipId`.
-   - Pick a: the scopes and where they came from read in one event.
-3. **A retired asking ship.**
-   - a. Refused (`SHIP_ALREADY_RETIRED`): squadrons names its owner instead, as it already proxies to it.
-   - b. Allowed, checked against its scopes as they stood.
-   - Pick a: a retired ship grants nothing.
-4. **The same rule for `scopes:grant` on a live ship on behalf** (a member's scopes changed later)?
-   - a. Not now: squadrons never changes a member's scopes (a squadron never changes, 0017).
-   - b. Yes, with an `onBehalfOf` input.
-   - Pick a.
+- **squadrons names a ship that did not ask** (core). Given squadrons commissions with `ownerOf` argo though X asked, then core grants as argo and records `scopesFrom` argo: core cannot tell, and the timeline shows it.
