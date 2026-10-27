@@ -16,7 +16,7 @@ import { shipActor, type Actor, type NewEvent } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { Recipient } from '../shared/selector.js';
 import { refuseEndedLease, type Lease, type LeaseEnded, type Location } from './lease.js';
-import { mayGrant } from './scope-grant.js';
+import { mayGrant, type Granter } from './scope-grant.js';
 import type { ScopeNamespace } from './scope-namespace.js';
 import { shipName, shipType } from './ship-handle.js';
 import { shipNote } from './ship-note.js';
@@ -163,6 +163,7 @@ export type CommissionRefusal = DomainError<
   | 'SCOPE_NOT_DECLARED'
   | 'SCOPE_NOT_HELD'
   | 'INVALID_OWNER'
+  | 'SHIP_ALREADY_RETIRED'
 >;
 
 /**
@@ -180,7 +181,9 @@ export type CommissionRefusal = DomainError<
  * is owned by it, an account's by its person ship, which it must have; any
  * other by the commissioner's owner, argo by default; a commissioner holding
  * fleet:on-behalf, a plugin's ship, may name instead the ship that asked it,
- * whose owner it gets (decision 0045).
+ * whose owner it gets (decision 0045); the scopes are then checked against
+ * that ship, never a retired one, beside the commissioner's own namespace,
+ * and ShipCommissioned names it as scopesFrom (design on-behalf-scopes).
  */
 export function commissionShip(
   input: {
@@ -238,9 +241,21 @@ export function commissionShip(
   if (fleet.activeShipNamed) {
     return refuse('SHIP_NAME_TAKEN', `An active ship is already named ${name.value}`);
   }
+  const { askingShip } = input;
+  if (askingShip !== undefined && !isOnBehalf) {
+    return refuse('SCOPE_NOT_HELD', 'Naming the ship that asked for this one needs the fleet:on-behalf scope: commission without ownerOf');
+  }
+  if (askingShip !== undefined && askingShip.retiredAt !== null) {
+    return refuse('SHIP_ALREADY_RETIRED', `${askingShip.name}, named as the ship that asked, is retired and grants nothing: name its owner instead`);
+  }
   const asked = input.scopes ?? [];
   const commissioningShip = input.commissioner.kind === 'ship' ? input.commissioner.ship : undefined;
-  const granter = { shipId: commissioningShip?.id ?? null, isOperator: commissioningShip?.kind === 'operator', scopes: held };
+  const shipId = commissioningShip?.id ?? null;
+  // On behalf, the asking ship's scopes are checked; the commissioner still grants its own namespace (design on-behalf-scopes).
+  const granter: Granter =
+    askingShip === undefined
+      ? { shipId, isOperator: commissioningShip?.kind === 'operator', scopes: held }
+      : { shipId, isOperator: askingShip.kind === 'operator', scopes: askingShip.scopes, onBehalfOf: askingShip.name };
   // Every ship has the agent scopes, so naming one grants nothing.
   for (const scope of asked.filter((each) => !AGENT_SCOPES.some((agentScope) => agentScope === each))) {
     const allowed = mayGrant(scope, { granter, namespaces: fleet.namespaces, defined: fleet.defined });
@@ -249,11 +264,8 @@ export function commissionShip(
     }
   }
 
-  if (input.askingShip !== undefined && !isOnBehalf) {
-    return refuse('SCOPE_NOT_HELD', 'Naming the ship that asked for this one needs the fleet:on-behalf scope: commission without ownerOf');
-  }
   if (input.owner !== undefined) {
-    const named = checkNamedOwner({ kind, isOnBehalf, askingShip: input.askingShip, namedOwner: input.namedOwner });
+    const named = checkNamedOwner({ kind, isOnBehalf, askingShip, namedOwner: input.namedOwner });
     if (!named.isOk) {
       return named;
     }
@@ -288,7 +300,14 @@ export function commissionShip(
         occurredAt: at,
         actor,
         shipId: id,
-        details: { name: ship.name, type: ship.type, kind: ship.kind, scopes: ship.scopes.join(' ') },
+        details: {
+          name: ship.name,
+          type: ship.type,
+          kind: ship.kind,
+          scopes: ship.scopes.join(' '),
+          // The ship the scopes were checked against, when not the commissioner (design on-behalf-scopes).
+          ...(askingShip === undefined ? {} : { scopesFrom: askingShip.id }),
+        },
       },
       { fleetId, type: 'OwnerSet', occurredAt: at, actor, shipId: id, details: owner },
       // A plugin's commission is its connect: from now on it reads every ship, by its kind (decision 0050).
