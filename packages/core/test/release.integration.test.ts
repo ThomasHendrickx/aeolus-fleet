@@ -300,8 +300,8 @@ describe.each(endings)('$name on Postgres', ({ reason, end }) => {
   }, LONG_WAIT_TEST_MS);
 });
 
-describe('a session its trierarch stops before it acks (#536)', () => {
-  it('has its delivery received again by the next session the trierarch crews: released, a new starting prompt, registered', async () => {
+describe('a trierarch releases a crewed ship with an open crew request (#1308)', () => {
+  it('removes the crew request so the trierarch does not start the finished session again', async () => {
     const { shipId: pluginId } = unwrap(
       await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'trierarch-plugin', type: 'plugin', scopes: ['crew:assign'] }),
     );
@@ -313,16 +313,12 @@ describe('a session its trierarch stops before it acks (#536)', () => {
     const { shipId } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'pilot', type: 'navigator' }));
     unwrap(await useCases.requestCrew(argo, { shipId, settings: aCrewSettings({ harness: 'claude-code' }) }));
     unwrap(await useCases.assignCrew(plugin, { shipId, trierarchShipId: trierarchId }));
-    const stopped = await register(shipId, unwrap(await useCases.getStartingPrompt(trierarch, { shipId })).secret);
-    const deliveryId = await sendTo({ kind: 'ship', shipId });
-    // The fleet answers the receive; the session is stopped before it acks, so it never calls again.
-    expect(await receive(stopped)).toEqual([deliveryId]);
+    await register(shipId, unwrap(await useCases.getStartingPrompt(trierarch, { shipId })).secret);
 
     unwrap(await useCases.releaseShip(trierarch, { shipId }));
-    const next = await register(shipId, unwrap(await useCases.getStartingPrompt(trierarch, { shipId })).secret);
 
-    expect(await receive(next)).toEqual([deliveryId]);
-    await expect(stored(deliveryId)).resolves.toMatchObject({ state: 'handed', claimedByLeaseId: next.crew.leaseId, attempts: 2 });
+    await expect(useCases.readAssignedCrewRequests(trierarch)).resolves.toEqual([]);
+    await expect(prisma.crewRequest.findUnique({ where: { fleetId_shipId: { fleetId, shipId } } })).resolves.toBeNull();
   });
 });
 
