@@ -15,7 +15,7 @@ import type { MeetingParty, MicRead } from './read-meeting.js';
 
 export interface ChangeMicTx extends MeetingNoticeTx {
   meetings: Pick<MeetingRepository, 'findForUpdate' | 'save'>;
-  ships: Pick<ShipRepository, 'find'>;
+  ships: Pick<ShipRepository, 'findMany'>;
 }
 
 export type ChangeMicFailure = MicRefusal | AcceptRefusal;
@@ -57,15 +57,15 @@ export function createChangeMic(deps: { uow: UnitOfWork<ChangeMicTx>; clock: Clo
 }
 
 async function requestResponse(tx: ChangeMicTx, { meeting, callerShipId }: { meeting: Meeting; callerShipId: ShipCaller['shipId'] }): Promise<RequestMicResponse> {
-  const party = async (shipId: ShipCaller['shipId']): Promise<MeetingParty> => {
-    const ship = await tx.ships.find(meeting.fleetId, shipId);
-    return { id: shipId, name: ship?.name ?? shipId };
+  // One read for the holder and the whole queue: a ship waits once, so the ids are as many as the meeting has participants.
+  const named = [...new Set([...(meeting.micHolderShipId === null ? [] : [meeting.micHolderShipId]), ...meeting.micRequests.map(({ shipId }) => shipId)])];
+  const names = new Map((await tx.ships.findMany(meeting.fleetId, named)).map(({ id, name }) => [id, name]));
+  const party = (shipId: ShipCaller['shipId']): MeetingParty => ({ id: shipId, name: names.get(shipId) ?? shipId });
+  const mic: MicRead = {
+    holder: meeting.micHolderShipId === null ? null : party(meeting.micHolderShipId),
+    pattern: meeting.micPattern,
+    requests: meeting.micRequests.map((request) => ({ ship: party(request.shipId), requestedAt: request.requestedAt })),
   };
-  const requests: MicRead['requests'] = [];
-  for (const request of meeting.micRequests) {
-    requests.push({ ship: await party(request.shipId), requestedAt: request.requestedAt });
-  }
-  const mic: MicRead = { holder: meeting.micHolderShipId === null ? null : await party(meeting.micHolderShipId), pattern: meeting.micPattern, requests };
   if (meeting.micHolderShipId === callerShipId) {
     return { mic, caller: { kind: 'holding' } };
   }

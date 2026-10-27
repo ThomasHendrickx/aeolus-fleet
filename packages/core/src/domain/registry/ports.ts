@@ -85,6 +85,8 @@ export interface ShipRepository {
   lockName(fleetId: FleetId, name: string): Promise<void>;
   /** The ship, read without a lock. */
   find(fleetId: FleetId, shipId: ShipId): Promise<Ship | undefined>;
+  /** The ships of the fleet with these ids, in one read and without a lock; an id that names no ship is left out. By id. */
+  findMany(fleetId: FleetId, shipIds: readonly ShipId[]): Promise<Ship[]>;
   /** The ship of the fleet that is not retired and has this name. */
   findActiveByName(fleetId: FleetId, name: string): Promise<Ship | undefined>;
   /**

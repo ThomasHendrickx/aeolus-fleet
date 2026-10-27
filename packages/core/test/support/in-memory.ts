@@ -538,6 +538,13 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         const found = ship(fleetId, shipId);
         return Promise.resolve(found && { ...found });
       },
+      findMany: (fleetId, shipIds) =>
+        Promise.resolve(
+          state.ships
+            .filter((held) => held.fleetId === fleetId && shipIds.includes(held.id))
+            .toSorted((first, second) => first.id.localeCompare(second.id))
+            .map((held) => ({ ...held })),
+        ),
       rename: ({ fleetId, shipId, name }) => {
         const found = ship(fleetId, shipId);
         if (found) {
