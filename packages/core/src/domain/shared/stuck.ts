@@ -30,8 +30,9 @@ export interface StuckDelivery {
 
 /**
  * A ship as the rule reads it over time; argo and the viewer ship are always
- * crewed. A person ship awaiting crew is its person away, never stuck
- * (decision 0044).
+ * crewed. A person ship awaiting crew is its person away, and a trierarch
+ * ship awaiting crew is a computer whose setup has not run, so neither is
+ * stuck (decisions 0044 and 0026).
  */
 export interface ShipRecord {
   shipId: ShipId;
@@ -232,7 +233,7 @@ class FleetAt {
     }
     const crewed = takers.filter((ship) => this.isCrewed(ship));
     if (crewed.length === 0) {
-      return takers.some((ship) => ship.isPerson) ? undefined : { cause: 'waitingForCrew', place: placeOf(delivery.recipient) };
+      return takers.some((ship) => ship.isPerson || ship.type === 'trierarch') ? undefined : { cause: 'waitingForCrew', place: placeOf(delivery.recipient) };
     }
     // A person away is not stuck (interop 5.1): only the clocks of other crewed ships speak for it.
     const leases = crewed.filter((ship) => !ship.isPerson).flatMap((ship) => this.leaseOf(ship.shipId) ?? []);
