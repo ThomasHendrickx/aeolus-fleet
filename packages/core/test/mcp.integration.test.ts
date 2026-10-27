@@ -1,5 +1,5 @@
 import type { FleetScope, ShipId } from '@aeolus-fleet/common';
-import { createIdGenerator, reportLogOutputSchema } from '@aeolus-fleet/common';
+import { createIdGenerator, reportLogOutputSchema, requestMicOutputSchema } from '@aeolus-fleet/common';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
@@ -217,7 +217,7 @@ describe('the ship tools at /mcp', () => {
       tool: { name: 'openMeeting', answers: z.object({ meetingId: z.string() }) },
       arguments: { crewToken: chiefToken, ships: [{ name: head.name }], idempotencyKey: freshKey(), model: 'claude-opus-5-5', title: 'Launch' },
     });
-    await call(headSession, { tool: { name: 'requestMic', answers: changed }, arguments: { crewToken: headToken, meetingId } });
+    await call(headSession, { tool: { name: 'requestMic', answers: requestMicOutputSchema }, arguments: { crewToken: headToken, meetingId } });
     await call(chiefSession, { tool: { name: 'giveMic', answers: changed }, arguments: { crewToken: chiefToken, meetingId, shipId: head.shipId } });
     const { messageId } = await call(headSession, {
       tool: tools.send,
