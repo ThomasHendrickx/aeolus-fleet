@@ -511,6 +511,139 @@ describe('an owner named on behalf of the asking ship (decisions 0045, 0017)', (
   });
 });
 
+describe('scopes granted on behalf of the asking ship (design on-behalf-scopes, decision 0046)', () => {
+  const SCALE = { scope: 'squadrons:scale', description: 'Scale a squadron' };
+  let asking: ShipId;
+  let squadrons: ShipCaller;
+
+  beforeEach(async () => {
+    asking = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'tech-lead', type: 'lead', scopes: ['meetings:open'] })).shipId;
+    const squadronsId = unwrap(
+      await commissionShip(argo, {
+        idempotencyKey: newKey(),
+        name: 'squadrons',
+        type: 'squadrons',
+        scopes: ['fleet:commission', 'fleet:manage', 'fleet:on-behalf', 'scopes:declare'],
+      }),
+    ).shipId;
+    squadrons = { fleetId, shipId: squadronsId, kind: 'agent', scopes: [] };
+    unwrap(await registryUseCases(core).declareScopes(squadrons, { namespace: 'squadrons', scopes: [SCALE] }));
+    core.state.events.length = 0;
+  });
+
+  function scopesOf(name: string) {
+    return shipsNamed(name)[0]?.scopes;
+  }
+
+  function shipCommissionedOf(name: string) {
+    return core.state.events.filter((event) => event.type === 'ShipCommissioned' && event.shipId === shipsNamed(name)[0]?.id).map((event) => event.details);
+  }
+
+  it('Asking ship holds it', async () => {
+    // Given tech-lead holds meetings:open and squadrons does not
+
+    // When squadrons commissions with ownerOf tech-lead and scope meetings:open
+    unwrap(await commissionShip(squadrons, { idempotencyKey: newKey(), name: 'member', type: 'reviewer', ownerOf: asking, scopes: ['meetings:open'] }));
+
+    // Then the ship holds meetings:open and ShipCommissioned names scopesFrom tech-lead
+    expect(scopesOf('member')).toEqual(['messages:send', 'messages:receive', 'meetings:open']);
+    expect(shipCommissionedOf('member')).toEqual([
+      { name: 'member', type: 'reviewer', kind: 'agent', scopes: 'messages:send messages:receive meetings:open', scopesFrom: asking },
+    ]);
+  });
+
+  it('Asking ship lacks it', async () => {
+    // Given tech-lead lacks fleet:manage and squadrons holds it
+
+    // When squadrons commissions with ownerOf tech-lead and scope fleet:manage
+    const refused = await commissionShip(squadrons, { idempotencyKey: newKey(), name: 'member', type: 'reviewer', ownerOf: asking, scopes: ['fleet:manage'] });
+
+    // Then core refuses SCOPE_NOT_HELD naming tech-lead and commissions nothing
+    expect(refused).toEqual({
+      isOk: false,
+      error: { kind: 'SCOPE_NOT_HELD', message: 'tech-lead, the ship that asked, does not hold fleet:manage, so you cannot grant it on its behalf' },
+    });
+    expect(shipsNamed('member')).toEqual([]);
+    expect(core.state.events).toEqual([]);
+  });
+
+  it('Own namespace', async () => {
+    // Given tech-lead lacks squadrons:scale
+
+    // When squadrons commissions with ownerOf tech-lead and scope squadrons:scale
+    unwrap(await commissionShip(squadrons, { idempotencyKey: newKey(), name: 'member', type: 'reviewer', ownerOf: asking, scopes: ['squadrons:scale'] }));
+
+    // Then the ship holds it
+    expect(scopesOf('member')).toEqual(['messages:send', 'messages:receive', 'squadrons:scale']);
+  });
+
+  it('argo asks', async () => {
+    // Given argo formed in the console
+
+    // When squadrons commissions with ownerOf argo and any declared or core scope
+    unwrap(
+      await commissionShip(squadrons, {
+        idempotencyKey: newKey(),
+        name: 'member',
+        type: 'reviewer',
+        ownerOf: argoId,
+        scopes: ['crew:run', 'scopes:grant', 'squadrons:scale'],
+      }),
+    );
+
+    // Then it is granted
+    expect(scopesOf('member')).toEqual(['messages:send', 'messages:receive', 'crew:run', 'scopes:grant', 'squadrons:scale']);
+  });
+
+  it('Retired asking ship', async () => {
+    // Given tech-lead is retired
+    unwrap(await registryUseCases(core).retireShip(argo, { shipId: asking }));
+    core.state.events.length = 0;
+
+    // When squadrons commissions with ownerOf tech-lead
+    const refused = await commissionShip(squadrons, { idempotencyKey: newKey(), name: 'member', type: 'reviewer', ownerOf: asking, scopes: ['meetings:open'] });
+
+    // Then core refuses SHIP_ALREADY_RETIRED and commissions nothing
+    expect(refused).toMatchObject({ isOk: false, error: { kind: 'SHIP_ALREADY_RETIRED' } });
+    expect(shipsNamed('member')).toEqual([]);
+    expect(core.state.events).toEqual([]);
+  });
+
+  it('No on-behalf', async () => {
+    // Given ship Y holds fleet:commission but not fleet:on-behalf
+    const y = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'y', type: 'lead', scopes: ['fleet:commission', 'meetings:open'] })).shipId;
+    core.state.events.length = 0;
+
+    // When Y commissions with ownerOf tech-lead
+    const refused = await commissionShip({ fleetId, shipId: y, kind: 'agent', scopes: [] }, { idempotencyKey: newKey(), name: 'member', type: 'reviewer', ownerOf: asking, scopes: ['meetings:open'] });
+
+    // Then core refuses SCOPE_NOT_HELD and commissions nothing
+    expect(refused).toMatchObject({ isOk: false, error: { kind: 'SCOPE_NOT_HELD' } });
+    expect(shipsNamed('member')).toEqual([]);
+    expect(core.state.events).toEqual([]);
+  });
+
+  it('Without ownerOf', async () => {
+    // Given squadrons commissions with no ownerOf and scope meetings:open
+    const refused = await commissionShip(squadrons, { idempotencyKey: newKey(), name: 'member', type: 'reviewer', scopes: ['meetings:open'] });
+
+    // Then core refuses SCOPE_NOT_HELD
+    expect(refused).toMatchObject({ isOk: false, error: { kind: 'SCOPE_NOT_HELD', message: 'You do not hold meetings:open, so you cannot grant it' } });
+    expect(shipsNamed('member')).toEqual([]);
+  });
+
+  it('squadrons names a ship that did not ask (core)', async () => {
+    // Given squadrons commissions with ownerOf argo though tech-lead asked
+
+    // When it grants a scope only argo holds
+    unwrap(await commissionShip(squadrons, { idempotencyKey: newKey(), name: 'member', type: 'reviewer', ownerOf: argoId, scopes: ['crew:run'] }));
+
+    // Then core grants as argo and records scopesFrom argo: core cannot tell
+    expect(scopesOf('member')).toEqual(['messages:send', 'messages:receive', 'crew:run']);
+    expect(shipCommissionedOf('member')).toEqual([expect.objectContaining({ scopesFrom: argoId })]);
+  });
+});
+
 describe('an app ship commissioned by the gateway, with the owner argo picked (decisions 0044, 0045)', () => {
   let thomas: ShipId;
 
