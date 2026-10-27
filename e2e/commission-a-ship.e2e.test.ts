@@ -146,6 +146,20 @@ describe('commissioning a ship in the console', () => {
     await expect(page.getByTestId('starting-prompt-text').count()).resolves.toBe(0);
   });
 
+  it('shows a starting prompt when the browser resent the commission and the server answered it without its secret', async () => {
+    const page = await signedInPage();
+    // A browser resends a request whose reused connection the server closed: the same key, answered with no secret.
+    await page.route('**/trpc/fleet.commission', async (route) => {
+      await route.fetch();
+      await route.fulfill({ response: await route.fetch() });
+    });
+
+    await commission(page, { name: 'resent', type: 'reviewer' });
+
+    const secret = await promptSecretIn(page, 'resent');
+    await expect(isValid(secret)).resolves.toBe(true);
+  });
+
   it('commissions a ship whose name and type hold a colon, and lists them as typed', async () => {
     const page = await signedInPage();
 
