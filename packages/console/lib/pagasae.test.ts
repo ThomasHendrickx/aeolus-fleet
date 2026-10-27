@@ -215,7 +215,7 @@ describe('why the console says pagasae is unreachable', () => {
   const SIGN_IN = { signIn: 'cookie-secret', fleetId: 'flt_1' };
 
   /** What the console's server logged as a warning, joined. */
-  function logged(warn: ReturnType<typeof vi.spyOn>): string {
+  function logged(warn: { mock: { calls: unknown[][] } }): string {
     return warn.mock.calls.map((call) => call.join(' ')).join('\n');
   }
 

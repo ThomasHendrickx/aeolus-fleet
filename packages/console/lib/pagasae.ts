@@ -69,6 +69,35 @@ export interface PagasaeAt {
   fetchImplementation?: typeof fetch;
 }
 
+/** Which call of the console's server to pagasae. */
+type PagasaeCall = 'token exchange' | 'argo ticket exchange' | 'apps list';
+
+/**
+ * Logs on the server why a call maps to unreachable, so the next occurrence
+ * names its cause. The reason holds a status, an error name or a cause code,
+ * never a token, a secret or a body.
+ */
+function logUnreachable(call: PagasaeCall, reason: string): void {
+  console.warn(`pagasae unreachable: ${call}: ${reason}`);
+}
+
+/** The code of a network error's cause, such as ECONNRESET. */
+function codeOf(cause: unknown): string | undefined {
+  return z.object({ code: z.string() }).safeParse(cause).data?.code;
+}
+
+/** Why a call to pagasae threw: a timeout, or a network error with its name and cause code. */
+function thrownReasonOf(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return 'network error';
+  }
+  if (error.name === 'TimeoutError') {
+    return `timeout after ${PAGASAE_TIMEOUT_MS} ms`;
+  }
+  const code = codeOf(error.cause);
+  return `network error ${error.name}${code === undefined ? '' : ` ${code}`}`;
+}
+
 function post({ pagasae, fetchImplementation = fetch }: PagasaeAt, request: { path: string; form: Record<string, string> }): Promise<Response> {
   const { path, form } = request;
   return fetchImplementation(`${pagasae.url}${path}`, {
@@ -117,7 +146,7 @@ const tokenAnswerSchema = z.object({
 const errorAnswerSchema = z.object({ error: z.string() });
 
 /** A token exchange of the shared sign-in for the fleet (RFC 8693): pagasae's status and body, parsed or not. */
-async function exchange(at: PagasaeAt, exchange: { signIn: string; fleetId: string; requestedTokenType?: string }): Promise<{ isOk: boolean; body: unknown }> {
+async function exchange(at: PagasaeAt, exchange: { signIn: string; fleetId: string; requestedTokenType?: string }): Promise<{ isOk: boolean; status: number; body: unknown }> {
   const response = await post(at, {
     path: '/oauth/token',
     form: {
@@ -128,7 +157,19 @@ async function exchange(at: PagasaeAt, exchange: { signIn: string; fleetId: stri
       ...(exchange.requestedTokenType === undefined ? {} : { requested_token_type: exchange.requestedTokenType }),
     },
   });
-  return { isOk: response.ok, body: await response.json().catch(() => undefined) };
+  return { isOk: response.ok, status: response.status, body: await response.json().catch(() => undefined) };
+}
+
+/** Why an exchange answer maps to unreachable: its status, and the OAuth error it named or why it had none. */
+function exchangeReasonOf(answer: { isOk: boolean; status: number; body: unknown }): string {
+  if (answer.body === undefined) {
+    return `status ${answer.status}, unparseable body`;
+  }
+  if (answer.isOk) {
+    return `status ${answer.status}, answer without the expected fields`;
+  }
+  const error = errorOf(answer.body);
+  return error === undefined ? `status ${answer.status}, answer without an error` : `status ${answer.status}, error ${error}`;
 }
 
 /** The OAuth error pagasae answered, if it named one. */
@@ -138,23 +179,29 @@ function errorOf(body: unknown): string | undefined {
 
 export async function exchangeSignIn(at: PagasaeAt, signIn: { signIn: string; fleetId: string }): Promise<ExchangedToken> {
   try {
-    const { isOk, body } = await exchange(at, signIn);
-    if (isOk) {
-      const answer = tokenAnswerSchema.safeParse(body);
-      return answer.success
-        ? {
-            kind: 'token',
-            token: answer.data.access_token,
-            expiresInSeconds: answer.data.expires_in,
-          }
-        : { kind: 'unreachable' };
+    const answered = await exchange(at, signIn);
+    if (answered.isOk) {
+      const answer = tokenAnswerSchema.safeParse(answered.body);
+      if (answer.success) {
+        return {
+          kind: 'token',
+          token: answer.data.access_token,
+          expiresInSeconds: answer.data.expires_in,
+        };
+      }
+    } else {
+      const error = errorOf(answered.body);
+      if (error === 'invalid_grant') {
+        return { kind: 'ended' };
+      }
+      if (error === 'invalid_target') {
+        return { kind: 'noRights' };
+      }
     }
-    const error = errorOf(body);
-    if (error === 'invalid_grant') {
-      return { kind: 'ended' };
-    }
-    return error === 'invalid_target' ? { kind: 'noRights' } : { kind: 'unreachable' };
-  } catch {
+    logUnreachable('token exchange', exchangeReasonOf(answered));
+    return { kind: 'unreachable' };
+  } catch (error) {
+    logUnreachable('token exchange', thrownReasonOf(error));
     return { kind: 'unreachable' };
   }
 }
@@ -174,17 +221,25 @@ const ticketAnswerSchema = z.object({ access_token: z.string().min(1) });
 
 export async function exchangeArgoTicket(at: PagasaeAt, signIn: { signIn: string; fleetId: string }): Promise<ExchangedArgoTicket> {
   try {
-    const { isOk, body } = await exchange(at, { ...signIn, requestedTokenType: ARGO_TICKET_TOKEN_TYPE });
-    if (isOk) {
-      const answer = ticketAnswerSchema.safeParse(body);
-      return answer.success ? { kind: 'ticket', ticket: answer.data.access_token } : { kind: 'unreachable' };
+    const answered = await exchange(at, { ...signIn, requestedTokenType: ARGO_TICKET_TOKEN_TYPE });
+    if (answered.isOk) {
+      const answer = ticketAnswerSchema.safeParse(answered.body);
+      if (answer.success) {
+        return { kind: 'ticket', ticket: answer.data.access_token };
+      }
+    } else {
+      const error = errorOf(answered.body);
+      if (error === 'invalid_grant') {
+        return { kind: 'ended' };
+      }
+      if (error === 'invalid_target') {
+        return { kind: 'notAllowed' };
+      }
     }
-    const error = errorOf(body);
-    if (error === 'invalid_grant') {
-      return { kind: 'ended' };
-    }
-    return error === 'invalid_target' ? { kind: 'notAllowed' } : { kind: 'unreachable' };
-  } catch {
+    logUnreachable('argo ticket exchange', exchangeReasonOf(answered));
+    return { kind: 'unreachable' };
+  } catch (error) {
+    logUnreachable('argo ticket exchange', thrownReasonOf(error));
     return { kind: 'unreachable' };
   }
 }
@@ -222,8 +277,10 @@ export async function fleetsOf({ pagasae, fetchImplementation = fetch }: Pagasae
     if (response.status === 401) {
       return 'ended';
     }
-    const answer = appsAnswerSchema.safeParse(await response.json().catch(() => undefined));
+    const body: unknown = await response.json().catch(() => undefined);
+    const answer = appsAnswerSchema.safeParse(body);
     if (!response.ok || !answer.success) {
+      logUnreachable('apps list', exchangeReasonOf({ isOk: response.ok, status: response.status, body }));
       return 'unreachable';
     }
     return answer.data.fleets.map(({ id, name, argo, apps }) => ({
@@ -232,7 +289,8 @@ export async function fleetsOf({ pagasae, fetchImplementation = fetch }: Pagasae
       hasConsole: apps.some(({ app }) => app === 'console'),
       isArgoAllowed: argo,
     }));
-  } catch {
+  } catch (error) {
+    logUnreachable('apps list', thrownReasonOf(error));
     return 'unreachable';
   }
 }
