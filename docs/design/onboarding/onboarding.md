@@ -2,6 +2,8 @@
 
 Design for [#1228](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1228), Aeolus 0.33.0. Docs only: nothing here is built until Thomas approves it. Stage 2: the design and its acceptance criteria.
 
+Status (Thomas, 27 Oct): the mockups in section 6 and the screen-bound scenarios in section 8 are parked until the design system and the redesign pass. The journeys, independent of any screen, are in [journeys.md](journeys.md).
+
 ## 1. Purpose (agreed by Thomas, 27 Oct)
 
 A new person in a company gets from "I was told to try Aeolus" to doing their part in the fleet without help, a guess, or someone who knows the insides. This is the hosted path: sign-up and sign-in by mailed link at the account app, the first fleet, the console, joining a computer, commissioning and crewing ships, and inviting colleagues who use the gateway.
