@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { authorizeUrlOf, basicAuthOf, codeChallengeOf, exchangeArgoTicket, exchangeSignIn, fleetsOf, pagasaeFrom, revokeSignIn } from './pagasae';
 
@@ -208,5 +208,73 @@ describe('signing out at pagasae', () => {
       client_id: 'console',
       client_secret: 's'.repeat(32),
     });
+  });
+});
+
+describe('why the console says pagasae is unreachable', () => {
+  const SIGN_IN = { signIn: 'cookie-secret', fleetId: 'flt_1' };
+
+  /** What the console's server logged as a warning, joined. */
+  function logged(warn: ReturnType<typeof vi.spyOn>): string {
+    return warn.mock.calls.map((call) => call.join(' ')).join('\n');
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('names the token exchange and a timeout', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const timeout = new DOMException('The operation timed out.', 'TimeoutError');
+    await exchangeSignIn({ pagasae: PAGASAE, fetchImplementation: () => Promise.reject(timeout) }, SIGN_IN);
+    expect(logged(warn)).toContain('pagasae unreachable: token exchange: timeout after 10000 ms');
+  });
+
+  it('names the argo ticket exchange and a network error with its cause', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const failure = new TypeError('fetch failed', { cause: Object.assign(new Error('reset'), { code: 'ECONNRESET' }) });
+    await exchangeArgoTicket({ pagasae: PAGASAE, fetchImplementation: () => Promise.reject(failure) }, SIGN_IN);
+    expect(logged(warn)).toContain('pagasae unreachable: argo ticket exchange: network error TypeError ECONNRESET');
+  });
+
+  it('names the apps list and the status pagasae answered', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    await fleetsOf({ pagasae: PAGASAE, fetchImplementation: answering(502, { error: 'bad_gateway' }).fetchImplementation }, 'cookie-secret');
+    expect(logged(warn)).toContain('pagasae unreachable: apps list: status 502');
+  });
+
+  it('names an unparseable body with its status', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const html: typeof fetch = () => Promise.resolve(new Response('<html>bad gateway</html>', { status: 502 }));
+    await exchangeSignIn({ pagasae: PAGASAE, fetchImplementation: html }, SIGN_IN);
+    expect(logged(warn)).toContain('pagasae unreachable: token exchange: status 502, unparseable body');
+  });
+
+  it('names the OAuth error pagasae answered that the console does not map', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    await exchangeSignIn({ pagasae: PAGASAE, fetchImplementation: answering(400, { error: 'invalid_client' }).fetchImplementation }, SIGN_IN);
+    expect(logged(warn)).toContain('pagasae unreachable: token exchange: status 400, error invalid_client');
+  });
+
+  it('names an answer without a token', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    await exchangeSignIn({ pagasae: PAGASAE, fetchImplementation: answering(200, { access_token: 'tok-secret' }).fetchImplementation }, SIGN_IN);
+    expect(logged(warn)).toContain('pagasae unreachable: token exchange: status 200, answer without the expected fields');
+  });
+
+  it('logs no secret, token, sign-in or body', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    await exchangeSignIn({ pagasae: PAGASAE, fetchImplementation: answering(200, { access_token: 'tok-secret' }).fetchImplementation }, SIGN_IN);
+    await fleetsOf({ pagasae: PAGASAE, fetchImplementation: answering(500, { detail: 'body-secret' }).fetchImplementation }, 'cookie-secret');
+    const output = logged(warn);
+    for (const secret of [PAGASAE.clientSecret, 'tok-secret', 'cookie-secret', 'body-secret']) {
+      expect(output).not.toContain(secret);
+    }
+  });
+
+  it('logs nothing when pagasae answers a mapped outcome', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    await exchangeSignIn({ pagasae: PAGASAE, fetchImplementation: answering(400, { error: 'invalid_grant' }).fetchImplementation }, SIGN_IN);
+    expect(warn).not.toHaveBeenCalled();
   });
 });
