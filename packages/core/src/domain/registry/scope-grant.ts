@@ -15,12 +15,22 @@ export type GrantScopesRefusal = DomainError<
 
 /**
  * Who grants: a ship by its id, or an account or the installation, with none;
- * argo holds every scope, plugin scopes included (decision 0046).
+ * argo holds every scope, plugin scopes included (decision 0046). On behalf
+ * of the ship that asked, at commission (design on-behalf-scopes), the scopes
+ * and whether it is argo are the asking ship's, named by `onBehalfOf`, while
+ * the granting ship still grants its own namespace.
  */
 export interface Granter {
   shipId: ShipId | null;
   isOperator: boolean;
   scopes: readonly ScopeName[];
+  onBehalfOf?: string;
+}
+
+function notHeld(scope: string, granter: Granter): Result<never, DomainError<'SCOPE_NOT_HELD'>> {
+  return granter.onBehalfOf === undefined
+    ? refuse('SCOPE_NOT_HELD', `You do not hold ${scope}, so you cannot grant it`)
+    : refuse('SCOPE_NOT_HELD', `${granter.onBehalfOf}, the ship that asked, does not hold ${scope}, so you cannot grant it on its behalf`);
 }
 
 /**
@@ -98,10 +108,10 @@ export function mayGrant(
     return refuse('INVALID_SCOPE', `${scope} is no scope: a core scope, or a plugin's <namespace>:<action>`);
   }
   if (scopeSchema.safeParse(scope).success) {
-    return granter.isOperator || granter.scopes.includes(scope) ? ok(null) : refuse('SCOPE_NOT_HELD', `You do not hold ${scope}, so you cannot grant it`);
+    return granter.isOperator || granter.scopes.includes(scope) ? ok(null) : notHeld(scope, granter);
   }
   if (defined.has(scope)) {
-    return granter.isOperator || granter.scopes.includes(scope) ? ok(null) : refuse('SCOPE_NOT_HELD', `You do not hold ${scope}, so you cannot grant it`);
+    return granter.isOperator || granter.scopes.includes(scope) ? ok(null) : notHeld(scope, granter);
   }
   const namespace = scope.slice(0, scope.indexOf(':'));
   const declared = namespaces.get(namespace);
@@ -109,7 +119,7 @@ export function mayGrant(
     return refuse('SCOPE_NOT_DECLARED', `Neither a plugin declared ${scope} nor the fleet defined it`);
   }
   if (!granter.isOperator && !granter.scopes.includes(scope) && declared.namespace.declaredBy !== granter.shipId) {
-    return refuse('SCOPE_NOT_HELD', `You do not hold ${scope}, so you cannot grant it`);
+    return notHeld(scope, granter);
   }
   return ok(null);
 }
