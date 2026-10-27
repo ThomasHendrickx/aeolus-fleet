@@ -141,6 +141,12 @@ describe('a stuck delivery', () => {
       expect(stuckAt(records({ ships: [scout, thomas], deliveries: [aDelivery(toType('reviewer'))] }), NOW)).toEqual([]);
     });
 
+    it('is not stuck while a machine waits for its setup line to crew its trierarch ship', () => {
+      const macMini = aShip({ name: 'mac-mini', type: 'trierarch' });
+
+      expect(stuckAt(records({ ships: [macMini], deliveries: [aDelivery(toShip(macMini))] }), NOW)).toEqual([]);
+    });
+
     it('is never pending to argo, which is always crewed', () => {
       const argo = aShip({ name: 'argo', type: 'operator', isAlwaysCrewed: true });
 
