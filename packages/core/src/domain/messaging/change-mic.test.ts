@@ -75,6 +75,33 @@ describe('a meeting opens', () => {
 });
 
 describe('a mic request (M8)', () => {
+  it('answers with the current queue and the caller holding the mic when fifo grants it at once', async () => {
+    await done(chief, { kind: 'setPattern', pattern: 'fifo' });
+
+    const response = unwrap(await changed(product, { kind: 'request' }));
+
+    expect(response).toEqual({
+      mic: { holder: { id: product.shipId, name: 'product' }, pattern: 'fifo', requests: [] },
+      caller: { kind: 'holding' },
+    });
+  });
+
+  it('answers with who holds the mic, the ordered line and the caller place', async () => {
+    await done(chief, { kind: 'setPattern', pattern: 'fifo' });
+    await done(product, { kind: 'request' });
+
+    const response = unwrap(await changed(marketing, { kind: 'request' }));
+
+    expect(response).toEqual({
+      mic: {
+        holder: { id: product.shipId, name: 'product' },
+        pattern: 'fifo',
+        requests: [{ ship: { id: marketing.shipId, name: 'marketing' }, requestedAt: new Date('2026-10-24T09:00:03.000Z') }],
+      },
+      caller: { kind: 'waiting', place: 1 },
+    });
+  });
+
   it('puts the ship on the list with its time, a new request at the back', async () => {
     await done(product, { kind: 'request' });
     await done(marketing, { kind: 'request' });
