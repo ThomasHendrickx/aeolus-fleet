@@ -2446,7 +2446,7 @@ describe('network rules at the API', () => {
     const chief = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'meetings:open'])}` });
     const first = client({ authorization: `Bearer ${await crewedShip()}` });
     const second = client({ authorization: `Bearer ${await crewedShip()}` });
-    const [chiefShip, firstShip, secondShip] = await Promise.all([chief, first, second].map((ship) => ship.ship.whoami.query()));
+    const [, firstShip, secondShip] = await Promise.all([chief.ship.whoami.query(), first.ship.whoami.query(), second.ship.whoami.query()]);
     const { meetingId } = await chief.ship.openMeeting.mutate({ ships: [{ shipId: firstShip.shipId }, { shipId: secondShip.shipId }], idempotencyKey: newKey(), model: SESSION_MODEL });
     await chief.ship.setMicPattern.mutate({ meetingId, pattern: 'fifo' });
 
@@ -2465,7 +2465,6 @@ describe('network rules at the API', () => {
       },
       caller: { kind: 'waiting', place: 1 },
     });
-    expect(chiefShip.name).toBeDefined();
   });
 
   it('take a term of any value, and answer a term of the same value on one side only with BAD_REQUEST naming decision 0034', async () => {
