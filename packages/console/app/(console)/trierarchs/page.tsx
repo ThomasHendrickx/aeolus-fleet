@@ -18,14 +18,17 @@ import { useNeedsAttention } from '../../../lib/needs-attention';
 import { useNow } from '../../../lib/now';
 import { useSignInWhenSessionEnds } from '../../../lib/session';
 import { useIsShipNameTaken } from '../../../lib/ship-name-taken';
-import { useJoinMachine, useMachines, useTrierarchPluginConnection, useTrierarchPluginVersion } from '../../../lib/trierarch-plugin';
+import type { Machine } from '../../../lib/trierarch-plugin-schemas';
+import { useJoinMachine, useMachines, useNewSetupLine, useTrierarchPluginConnection, useTrierarchPluginVersion } from '../../../lib/trierarch-plugin';
 
 // Dialogs load when first opened, not with the page.
 const JoinMachineDialog = lazyDialog(() => import('../../../features/trierarchs/ui/organisms/join-machine-dialog').then((module) => module.JoinMachineDialog), (props) => props.isOpen);
+const NewSetupLineDialog = lazyDialog(() => import('../../../features/trierarchs/ui/organisms/new-setup-line-dialog').then((module) => module.NewSetupLineDialog), (props) => props.isOpen);
 
 /**
  * Trierarchs (#245): the machines that run sessions for crew requests, each
- * with its capacity and what it offers, and Join a machine. Without the
+ * with its capacity and what it offers, and Join a machine; on each card, a
+ * new setup line for a lost one (#1239). Without the
  * trierarch plugin it says what the plugin does and how to set it up. The
  * version the plugin runs sits beside the title (canvas TpMachines). Below
  * them, the fleet's enabled models (model governance, M7).
@@ -47,6 +50,8 @@ export default function TrierarchsPage() {
   const [isJoining, setIsJoining] = useState(false);
   const [typedName, setTypedName] = useState('');
   const isNameTaken = useIsShipNameTaken(isJoining ? typedName : '');
+  const newLine = useNewSetupLine();
+  const [lineFor, setLineFor] = useState<Pick<Machine, 'shipId' | 'name'> | undefined>(undefined);
   useSignInWhenSessionEnds([attention.error, liveFleet.error]);
   const canJoin = access.canManage && connection === 'connected';
   const openJoin = () => {
@@ -84,6 +89,14 @@ export default function TrierarchsPage() {
           void machines.refetch();
         }}
         onJoin={canJoin ? openJoin : undefined}
+        onNewSetupLine={
+          canJoin
+            ? (machine) => {
+                newLine.reset();
+                setLineFor(machine);
+              }
+            : undefined
+        }
         now={now}
       />
       {connection === 'connected' && <ModelsContainer />}
@@ -104,6 +117,25 @@ export default function TrierarchsPage() {
           joined={join.data}
           onSubmit={(name) => {
             join.mutate(name);
+          }}
+        />
+      )}
+      {canJoin && lineFor !== undefined && (
+        <NewSetupLineDialog
+          name={lineFor.name}
+          isOpen
+          onOpenChange={(isOpen) => {
+            if (!isOpen) {
+              // What was shown once is gone with the dialog.
+              setLineFor(undefined);
+              newLine.reset();
+            }
+          }}
+          isPending={newLine.isPending}
+          error={newLine.error?.message}
+          setupLine={newLine.data?.setupLine}
+          onConfirm={() => {
+            newLine.mutate(lineFor.shipId);
           }}
         />
       )}

@@ -7,7 +7,7 @@ import { fetchConsoleRead } from './fetch-console-read';
 import { TRIERARCH_PLUGIN_NO_ANSWER } from './no-answer';
 import { dataFrom, dataOf } from './plugin-answer';
 import type { ShownConnection } from './shown-connection';
-import { connectTrierarchPlugin, joinMachine, setModelEnabled } from './trierarch-plugin-actions';
+import { connectTrierarchPlugin, joinMachine, newSetupLine, setModelEnabled } from './trierarch-plugin-actions';
 import type { SettingsCheck } from './trierarch-plugin-schemas';
 
 /**
@@ -103,6 +103,21 @@ export function useJoinMachine() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (name: string) => dataOf(await joinMachine(name)),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: MACHINES_KEY });
+    },
+  });
+}
+
+/**
+ * A machine's new setup line (#1239): its old line stops working, and a
+ * trierarch running with it loses its crew. The answer is shown once, kept
+ * only in this browser's memory while the dialog is open.
+ */
+export function useNewSetupLine() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (shipId: string) => dataOf(await newSetupLine(shipId)),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: MACHINES_KEY });
     },
