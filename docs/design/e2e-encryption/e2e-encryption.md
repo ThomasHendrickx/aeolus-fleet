@@ -1,10 +1,10 @@
 # End-to-end encryption: who can read a fleet's messages
 
-Design run for Thomas's ask of 28 Oct 2026: "do a design run for end to end encryption". Backbone work, so this is the first part only: purpose, the lessons to check against, the options at a high level and the questions. Docs only. No mechanism is picked here; the detailed decisions, the flows and the slices follow once Thomas agrees the purpose and answers the questions.
+Design run for Thomas's ask of 28 Oct 2026: "do a design run for end to end encryption". Backbone work. Docs only. Thomas agreed the purpose and answered Q1 to Q10 on 28 Oct (section 4). This part designs level B in detail (section 5), with its flows (section 6), acceptance scenarios (section 7), the questions it raised (section 8), the screens that need mockups (section 9) and the slices (section 10). Level C is a later design.
 
 Why now: Aeolus is about to be demoed to Belgian digital platforms that handle regulated data (Doccle, Silverfin, Qover). The site's trust page says today that messages are stored readable on the server, that the maintainer could reach them, and that end-to-end encryption is not available. The blueprint lists payload encryption under Deferred on purpose, with "Payloads are already opaque to the fleet" as its hook.
 
-## 1. Purpose (to agree)
+## 1. Purpose (agreed by Thomas, 28 Oct)
 
 A company that puts regulated data in its fleet's messages can show its auditors who is able to read them, and the answer leaves out everyone who does not act on a message: whoever hosts the fleet, a copy of its database, another tenant, and Aeolus's maintainer.
 
@@ -96,54 +96,281 @@ Each option is a level, not a mechanism. They stack: B includes A, C includes B'
 
 What stays readable in every option: the metadata in section 1, report notes and details, statements, meeting titles, and everything the receiving end and its model provider see.
 
-## 4. Questions for Thomas
 
-**Q1. Is the purpose right?**
-Context: section 1 aims at the host, a copy, another tenant and the maintainer, for the company's admin, people and ships, and leaves out the ends, model providers and metadata.
-Options: (a) agree as written; (b) also hide ships from each other inside the company (the purpose of option D); (c) narrow it to copies and other tenants only (option A or B).
-Pick: (a). The trust page's sentence is about the host and the maintainer; that is what a regulated buyer reads. (b) is a separate want that costs F3 and F4, and (c) leaves the sentence as it is.
+## 4. Decisions
 
-**Q2. Which threat matters for the first platform customers?**
-Context: Doccle, Silverfin and Qover will run a vendor assessment (L11). The questions there are "can your staff read our data" and "can we cut you off".
-Options: (a) a copy of the data and other tenants; (b) the hosting operator and the maintainer; (c) other ships and people inside their own company.
-Pick: (b), with (a) as the floor. It is the threat the trust page names. (c) is handled today by network rules and read reach (0034) and is the company's own choice.
+Thomas's answers of 28 Oct. D1 to D10 answer Q1 to Q10.
 
-**Q3. Do hosted and self-hosted differ?**
-Context: a self-hosted company is its own host (F14); only copies and scoping bugs remain for it. Hosted Aeolus runs core, the console and the plugins at pagasae.
-Options: (a) one mechanism for both, turned on per fleet; (b) hosted only; (c) no encryption feature: the strictest customers self-host, or run their own gateway and console beside hosted core.
-Pick: (a). One mechanism keeps one test surface and one trust story; hosted is the reason for it, and self-hosted gets copy protection for free. (c) stays the answer for a customer who will not trust any code Thomas publishes (F15).
+| # | Decision |
+| --- | --- |
+| D1 | **The purpose is section 1 as written.** Keep out the host, a copy, another tenant and the maintainer; the ends, model providers and metadata stay readable. |
+| D2 | **The threat first is the hosting operator and the maintainer**, with copies and other tenants as the floor every level meets. Ships and people inside one company are kept apart by scopes, network rules and read reach (0034), not by encryption. |
+| D3 | **One mechanism per fleet**, the same for hosted and self-hosted, turned on per fleet. A self-hosted company gets copy and tenant protection from the same code. |
+| D4 | **The gateway stays an end the company trusts.** It reads what reaches the ships it crews; the console marks each such ship as read by the gateway. A company may run its own gateway ([#1367](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1367)). |
+| D5 | **Recovery is the company's own**: its key vault (the KMS keeps and backs up the key), or an offline recovery key it holds. Aeolus never holds a copy of a key it can use on its own. |
+| D6 | **Level B now**: a key per fleet in the company's own KMS (section 5). **Level C later**, for fleets that opt in ([#1363](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1363)). |
+| D7 | **The console shows a sealed payload as sealed** and never decrypts in the browser (0033 stands). What that means at level B is question N1 (section 8). |
+| D8 | **A ship whose crew cannot hold a key cannot send or receive sealed messages.** At level B no crew holds a key (core seals and unseals), so every ship sends and receives as today; D8 takes effect with level C. |
+| D9 | **Payloads only.** Report notes and details, statements, meeting titles, commission notes and verified facts stay readable, and the docs say so, so a crew keeps client data out of them. A schedule's payload is the payload of a message to be, so it is sealed too. |
+| D10 | **The model provider is out of scope.** The trust page says so and points to model governance (0063) for choosing provider and region. |
 
-**Q4. What happens to the gateway's Slack, MCP and A2A features?**
-Context: the gateway is an end for person ships and outside parties (F8). Slack, an outside MCP server and an A2A agent hold the content once it reaches them, whatever Aeolus does.
-Options: (a) the gateway stays an end the company trusts: in hosted Aeolus it reads what reaches the ships it crews, and the console and discovery say so per ship, as WhatsApp marks a hosted business (L4); (b) a fleet that seals payloads runs its own gateway, so only the company's parts read; (c) sealed messages may not reach a gateway-crewed ship at all.
-Pick: (a), with (b) open to a company that asks. Slack and outside servers read the content anyway, so sealing it from the gateway alone gains little, and (c) takes away people and outside parties, the reason the company connects at all.
+## 5. Level B in detail
 
-**Q5. Key recovery: who gets the key back when every crew lost it?**
-Context: a lost key is a lost message, against F1. Signal accepts loss (L1); Matrix and WhatsApp add a backup behind a recovery key (L3, L4); Proton and Tresorit give the business admin recovery (L8, L9); KMS makes recovery the customer's KMS's job (L6).
-Options: (a) no recovery; (b) a company recovery key the organisation admin keeps offline; (c) the root key in the company's own KMS or HSM; (d) Aeolus holds an escrow copy.
-Pick: (c), with (b) for a company without a KMS. The company recovers without Aeolus, which keeps the maintainer out; (a) breaks "never lost" and (d) breaks the purpose.
+### 5.1 Words
 
-**Q6. Which level to design first?**
-Context: section 3. B keeps every feature and answers copies, tenants and the kill switch, but the running service still reads. C keeps the host out but costs the hosted gateway, console and chat crews (F8, F9, F11). D costs the fail-safe and type sends (F4, F9).
-Options: (a) B now, then C for fleets that turn it on; (b) C directly; (c) A only, and change the trust page's words; (d) D.
-Pick: (a). B can be true by the demo's follow-up and lets the trust page say "your key, your kill switch, your log"; C then answers "the host cannot read" for the fleets that accept its costs. Neither (b) nor (d) fits before the demo, and (c) changes no answer a buyer asks.
+Few new words, each for one thing:
 
-**Q7. May argo and the console read a sealed fleet's payloads?**
-Context: argo is the fail-safe and the operator inbox renders payloads on the console's server (F9, 0033). Under C, a hosted console cannot render what it cannot decrypt.
-Options: (a) the console shows a sealed payload as sealed, and argo reads it through a part the company runs; (b) decrypt in the browser, an exception to 0033, with L10's weakness; (c) messages to argo are never sealed.
-Pick: (a). It keeps 0033 and L10 out of the trust story. Most of what reaches argo comes from plugin ships and carries no client data; (c) would be a hidden rule a sender cannot see.
+- **Sealed fleet**: a fleet that turned sealing on. It stores no payload readable.
+- **Company key**: the key in the company's own KMS that wraps the fleet's data keys. Core never sees it; it asks the KMS to wrap and unwrap. Named by its reference (an AWS KMS key ARN first, question N3).
+- **Data key**: a 256-bit AES key that seals payloads. Core keeps it only wrapped by the company key (and by the recovery key, when set), and holds it unwrapped only in memory for a short time.
+- **Recovery key**: an optional offline key pair the company makes and keeps; core holds only its public half and wraps each data key to it too.
+- **Seal / unseal**: encrypt / decrypt a payload with a data key.
 
-**Q8. Chat crews and REST-only ships in a sealed fleet?**
-Context: a chat with no shell cannot hold a key (F11).
-Options: (a) a ship whose crew cannot hold a key cannot receive or send sealed messages, and the console says so on the ship; (b) core decrypts for it, which makes core an end again; (c) no chat crews in a sealed fleet at all.
-Pick: (a). It is true to what the ship is (blueprint, Principles), refuses at the send rather than storing what no one can read (F1), and keeps chats for everything else.
+### 5.2 What level B achieves of the purpose
 
-**Q9. Payloads only, or also report notes, statements and meeting titles?**
-Context: these are stored readable beside the payload and are read by discovery and the plugins (section 1).
-Options: (a) payloads only, and the docs say what else stays readable, so a crew keeps client data out of notes and titles; (b) seal notes and titles too; (c) seal statements as well.
-Pick: (a). Statements drive discovery and the gateway's tools; notes and titles are short and chosen by the crew. Sealing them costs features for little.
+| Truth (section 1) | At level B |
+| --- | --- |
+| 1. A copy reveals no payload | Yes, for everything sealed. A backup taken before the fleet turned sealing on keeps plain payloads until it ages out of the backup store. |
+| Another tenant | Yes: each fleet has its own data keys under its own company key, bound to its fleet id (B4). A scoping bug shows ciphertext. |
+| 2. Host and maintainer | Partly. While the company's grant stands, the running service can unwrap, so whoever controls core can read. The company sees every unwrap in its KMS log and can cut it off. Keeping them out fully is level C. |
+| 3. Cut off, and see reads | Yes: revoke the grant or disable the key (B11). The KMS log shows each unwrap of a data key, at most once per cache period per server, not each payload; each delivery's receive is in the fleet's events as today. A finer audit is [#1366](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1366). |
+| 4. Both promises unchanged | Yes: a send that cannot seal is refused and stores nothing; a receive that cannot unseal claims nothing and counts no attempt (B8, B9). |
+| 5. The trust page says exactly who reads | Yes, B16. |
 
-**Q10. The model provider.**
-Context: an agent ship's session sends the payload to its model provider; no option changes that.
-Options: (a) out of scope, stated on the trust page with a pointer to model governance (0063) for choosing provider and region; (b) a fleet setting that limits sealed messages to sessions on named providers.
-Pick: (a). Which models a fleet allows is already 0063's rule, kept in the trierarch plugin; a second rule here would split it.
+### 5.3 The rules
+
+| # | Rule |
+| --- | --- |
+| B1 | **Where it runs.** Core seals on the way in and unseals on the way out, inside the use cases that store or answer a payload. Ships, the gateway, plugins and the console send and receive plain text as today; no client changes, except handling one new refusal (B9). |
+| B2 | **The key vault port.** A domain port, `KeyVault`: make a data key under a company key, unwrap one, wrap a given one, rewrap from one company key to another; every call carries the encryption context `aeolus:fleet = <fleet id>`. First adapter AWS KMS (`GenerateDataKey`, `Decrypt`, `Encrypt`, `ReEncrypt`), tested with LocalStack in Testcontainers. Others are [#1364](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1364). |
+| B3 | **The installation's identity in the KMS.** The installation configures one KMS principal and its credentials (environment, as core's other configuration); hosted Aeolus has pagasae's. The company grants that principal use of its key in the key policy, with a condition on the encryption context naming its fleet id. No company credential is stored in Aeolus. |
+| B4 | **Turning sealing on** (`fleet.turnOnSealing`, scope `fleet:keys`, see N5): given a company key reference and optionally a recovery key (an `age` X25519 recipient). Core checks, in order: the caller holds `fleet:keys`; the fleet is not sealed; the KMS makes a data key under the company key for this fleet's context and unwraps it again; the KMS refuses a data key for the same key under another fleet's context (a key policy without the fleet condition is refused `KEY_NOT_BOUND_TO_FLEET`, so one tenant can never point at another's key). Then one transaction: the fleet marked sealed with its company key reference and recovery key fingerprint, the first data key, `FleetSealingTurnedOn`. A KMS refusal or timeout answers `KEY_UNAVAILABLE` with the KMS's reason and changes nothing. |
+| B5 | **The sealing pass.** A fleet with stored plain payloads (messages and schedules from before) is sealed in batches by the 30 second pass, as the pruning pass runs (0066): one transaction per batch, rows locked `FOR UPDATE SKIP LOCKED`, under a per-fleet lock taken with try. Anything stored plain after turning on (a send that read the fleet before the switch) is caught by the same pass. When none is left: `FleetPayloadsSealed`. The fleet's sealing state reads `sealing` until then, `sealed` after. `fleet.sealing` (`fleet:read`) reads the state, the company key reference, the recovery key fingerprint, the key's availability and the data keys' ages, never a key. |
+| B6 | **A data key** (`data_keys`, id `dky_`): fleet, wrapped by the company key, wrapped by the recovery key (when set), a check value (HMAC-SHA-256 of a fixed text under the key, to prove an unwrap or a recovery gives the right key), created at, current or not. One current key per fleet, a unique partial index. Old keys stay to unseal old payloads. |
+| B7 | **Sealing a payload.** AES-256-GCM, a random 96-bit nonce, additional data `aeolus/v1`, the fleet id and the id of the row it belongs to (message or schedule), so a sealed payload moved to another row or fleet does not open. Stored beside the row as the data key id, the nonce and the ciphertext with its tag; the plain `payload` column is null. The row keeps the plain payload's UTF-8 byte count: the 64 KB limit, `message_days` and pruning count plain bytes, the same number whatever the fleet (F7). |
+| B8 | **A send in a sealed fleet.** Core checks the request as today, takes the current data key (from its cache, or unwrapped through the KMS), seals with the new message's id, and stores message, deliveries, events and the day's counts in one transaction; OK after commit. No KMS call runs inside the transaction. A key that cannot be had refuses `KEY_UNAVAILABLE`: nothing stored, so nothing lost (F1). A data key retired meanwhile is fine: every old key keeps unsealing. |
+| B9 | **A receive in a sealed fleet** (receive, push receive, `delivery`, `receiveReply`, and every read that answers a payload). Core unwraps the data keys of the deliveries it is about to claim before it commits the claim; a key that cannot be had rolls the claim back: nothing claimed, no attempt counted, `KEY_UNAVAILABLE`. The delivery stays pending for the next receive. A read that claims nothing (re-read, inbox, message page, thread, meeting read, sent message, schedules list) answers `KEY_UNAVAILABLE` for a payload it cannot unseal, or, where it lists several, marks that payload unreadable and lists the rest. |
+| B10 | **Idempotent sends.** The request hash of a sealed message covers the selector, content type and in-reply-to, not the payload. A repeat with the same key unseals the stored payload and compares it with the repeat's: equal answers the original, different is refused as today (F2). The hash never holds a fingerprint of the payload, so a guessed payload cannot be confirmed from a copy. |
+| B11 | **The data key cache and the kill switch.** Each server keeps an unwrapped data key in memory for at most 5 minutes from its unwrap (question N2), never on disk, never logged. The company cuts off every read by disabling its key or removing the grant: within 5 minutes every server's cache runs out and every seal and unseal is refused (B8, B9). Core writes `FleetKeyUnavailable` (with the KMS's reason: access denied, disabled, not found, unreachable) on the first failure after a success, and `FleetKeyAvailable` on the first success after; one event per change, not per call. The fleet's sealing state and Health say so. Restoring the grant restores everything; nothing waiting is lost. |
+| B12 | **What still works with the key cut off.** Everything that reads no payload: commission, release, leases, pings answered by pong, acknowledge, handled and not handled, the overdue clocks, network rules, labels, pruning (0066 reads states and times only). A due schedule's send is refused `KEY_UNAVAILABLE` and recorded as its refusal (0062). Resend is refused. The sealing pass and the data key rotation wait. |
+| B13 | **Rotation.** (a) A new data key when the current one is 30 days old, made by the 30 second pass under the per-fleet lock, `FleetDataKeyCreated`; a KMS failure keeps the current one and tries next pass. (b) The company rotates its key's material inside its KMS (AWS automatic rotation): nothing changes in Aeolus. (c) Changing the company key (`fleet.changeCompanyKey`, `fleet:keys`): the new key checked as in B4, every data key rewrapped from the old company key to the new one in the KMS, then one transaction swaps every wrap and the reference, `FleetCompanyKeyChanged`. The old key must be reachable; if it is not, recovery (B15) is the way. (d) Changing the recovery key (`fleet.changeRecoveryKey`): every data key unwrapped and wrapped to the new public key, one transaction, `FleetRecoveryKeyChanged`. No payload is sealed again by any rotation. |
+| B14 | **No person or ship holds a key.** A leaver (0055), a released crew or a retired ship needs no rotation: access stays scopes, reach and leases. |
+| B15 | **Recovery** (D5). If the company key is lost and a recovery key was set: a recovery command in core's CLI, run on the company's computer with its offline private key and its own KMS credentials, reads the fleet's recovery set (`fleet.recoverySet`, `fleet:keys`: each data key wrapped to the recovery key, with its check value), opens each locally, wraps each under a new company key in the company's KMS for this fleet's context, and uploads them (`fleet.recoverKeys`). Core unwraps each through its own grant on the new key and compares the check value; one mismatch refuses all, changing nothing; else one transaction swaps the wraps and the reference, `FleetKeysRecovered`. No plain data key ever reaches Aeolus outside the KMS. Without a recovery key, recovery is the KMS's own (a key scheduled for deletion can be cancelled within its waiting period). |
+| B16 | **A destroyed key** with no recovery: the fleet's sealed payloads are unreadable for good, the company's own step. Its deliveries wait pending, metadata and events stay, retention prunes only what is finished (question N4). |
+| B17 | **Every payload in a sealed fleet is sealed**, whoever wrote it: a ship's, a schedule's, a resend's (unsealed and sealed again for the new message id), a meeting contribution, and the ones core writes itself (pings, meeting notices). One rule for the trust page: a sealed fleet stores no payload readable. |
+| B18 | **The question id moves out of the payload.** Core finds a question's withdrawals and replacements by the `questionId` in their payload, through an index on the payload. Core reads it at send, as now, and stores it in its own column for the protocol's question content types, so the lookup works on a sealed fleet; a uuid is metadata, not client data. |
+| B19 | **The gateway mark** (D4). In a sealed fleet, the console's ship page says that the gateway reads a ship's payloads when the gateway crews it (its lease's waker is `gateway`, 0040) or it is a proxy ship (0056), naming the gateway's plugin ship. |
+| B20 | **Proven by tests** (Testcontainers, LocalStack KMS): a send refused with the key disabled stores nothing; a receive refused leaves the delivery pending with its attempts unchanged, also for a push receive and a lease that ends meanwhile; a restart loses no sealed message and needs no state but the database; concurrent sends during a data key rotation all unseal; two servers rotating at once make one current key; a company key change rolled back mid-way leaves every wrap as it was; a recovery with one wrong wrap changes nothing; a sealing pass racing a send, a resend and a pruning pass; a sealed payload moved to another row or fleet does not open; no payload, data key or wrapped key in a log line. |
+
+### 5.4 Changes to the data
+
+| Table | Change |
+| --- | --- |
+| `fleets` | Sealing state (none, sealing, sealed), company key reference, recovery key public half and fingerprint, key availability and since when |
+| `data_keys` (new) | B6 |
+| `messages` | Sealed payload (data key, nonce, ciphertext), the plain payload's byte count, the question id (B18); `payload` null when sealed |
+| `schedules` | Sealed payload as `messages` |
+
+New id prefix `dky_` (0005). New scope `fleet:keys` (0046, N5). New refusals `KEY_UNAVAILABLE` and `KEY_NOT_BOUND_TO_FLEET`. New events `FleetSealingTurnedOn`, `FleetPayloadsSealed`, `FleetDataKeyCreated`, `FleetCompanyKeyChanged`, `FleetRecoveryKeyChanged`, `FleetKeysRecovered`, `FleetKeyUnavailable`, `FleetKeyAvailable`; none carries a payload or a key, wrapped or not.
+
+### 5.5 Who reads a sealed fleet's payloads at level B
+
+The trust page's statement (truth 5 of section 1):
+
+- **Readable**: the ships that receive a message, and what they run (their crew's harness, its model provider, D10); the gateway for the ships it crews (D4); connected plugins as their rules allow (0034); and while the company's grant stands, the running Aeolus service, so whoever controls it.
+- **Not readable**: a copy of the database or a backup taken after sealing; another tenant; anyone at all once the company cuts its grant.
+- **Always readable**: the metadata of section 1, report notes and details, statements, meeting titles, commission notes and verified facts (D9).
+
+## 6. Flows
+
+### The whole of level B, happy and unhappy paths
+
+```mermaid
+flowchart TD
+  subgraph setup["Key setup"]
+    s1(["Fleet manager: turn sealing on, with a company key and optionally a recovery key"]) --> s2{"Holds fleet:keys?"}
+    s2 -->|no| sx1["Refused FORBIDDEN; nothing changes"]
+    s2 -->|yes| s3{"Fleet already sealed?"}
+    s3 -->|yes| sx2["Refused; nothing changes"]
+    s3 -->|no| s4["KMS: make a data key under the company key, context this fleet; unwrap it again"]
+    s4 -->|"refused or timed out"| sx3["Refused KEY_UNAVAILABLE with the KMS's reason; nothing stored"]
+    s4 -->|works| s5{"KMS refuses the same key for another fleet's context?"}
+    s5 -->|"no, it allows it"| sx4["Refused KEY_NOT_BOUND_TO_FLEET; nothing stored"]
+    s5 -->|yes| s6["Wrap the data key to the recovery key, if given"]
+    s6 --> s7["One transaction: fleet sealing, data key, FleetSealingTurnedOn"]
+    s7 --> s8["Sealing pass: a batch of plain payloads sealed, one transaction"]
+    s8 --> s9{"Plain payloads left?"}
+    s9 -->|yes| s8
+    s9 -->|none| s10["FleetPayloadsSealed; the fleet stores no payload readable"]
+  end
+
+  subgraph send["A send"]
+    a1(["A ship sends, a schedule is due, or a resend"]) --> a2{"Fleet sealed?"}
+    a2 -->|no| a9["Stored plain, as today"]
+    a2 -->|yes| a3{"Current data key in the cache, under 5 minutes old?"}
+    a3 -->|no| a4["Unwrap through the KMS"]
+    a4 -->|"refused or timed out"| ax1["Refused KEY_UNAVAILABLE; nothing stored; FleetKeyUnavailable on a change; a schedule records its refusal"]
+    a4 -->|unwrapped| a5
+    a3 -->|yes| a5{"Same sender and idempotency key already stored?"}
+    a5 -->|yes| a6["Unseal the stored payload; compare it and the request hash"]
+    a6 -->|same| a7["Answer the original"]
+    a6 -->|different| ax2["Refused as today"]
+    a5 -->|no| a8["Seal: AES-256-GCM, random nonce, bound to fleet and message id"]
+    a8 --> a10["One transaction: message, deliveries, events, the day's plain bytes"]
+    a9 --> a10
+    a10 --> a11["Commit, then OK"]
+  end
+
+  subgraph receive["A receive, redelivery and restart"]
+    r1(["Receive, push receive or re-read"]) --> r2["Pick the deliveries to claim"]
+    r2 --> r3{"Their data keys unwrapped, from cache or KMS?"}
+    r3 -->|no| rx1["Claim rolled back: nothing claimed, no attempt counted; KEY_UNAVAILABLE"]
+    rx1 --> r1
+    r3 -->|yes| r4["Unseal, commit the claim, answer the payload"]
+    r4 --> r5{"Acknowledged?"}
+    r5 -->|yes| r6["Done, as today"]
+    r5 -->|"no, the lease ends"| r7["Back to pending, attempts kept; the next crew's receive unseals again from storage"]
+    r7 --> r1
+    r8(["Core restarts"]) --> r9["Cache empty; the first use unwraps again; a send or claim not committed never happened"]
+    r9 --> r1
+  end
+
+  subgraph rotation["Key rotation"]
+    t1(["30 second pass: the current data key is 30 days old"]) --> t2{"Per-fleet key lock, try"}
+    t2 -->|"held elsewhere"| t0(["Next fleet"])
+    t2 -->|taken| t3["KMS: a new data key; wrap it to the recovery key too"]
+    t3 -->|"KMS fails"| tx1["Keep the current key; FleetKeyUnavailable on a change; next pass tries again"]
+    t3 -->|works| t4["One transaction: new current key, FleetDataKeyCreated; old keys kept for old payloads"]
+    c1(["Fleet manager: change the company key"]) --> c2["Check the new key as at setup"]
+    c2 -->|fails| cx1["Refused; nothing changes"]
+    c2 -->|works| c3{"KMS rewraps every data key from the old key to the new one?"}
+    c3 -->|"old key not reachable"| cx2["Refused KEY_UNAVAILABLE: recovery is the way"]
+    c3 -->|yes| c4["One transaction: every wrap swapped, FleetCompanyKeyChanged"]
+  end
+
+  subgraph kill["A revoked key: the kill switch"]
+    k1(["The company disables its key or removes the grant"]) --> k2["Each server's cached data keys run out within 5 minutes"]
+    k2 --> k3["Sends and resends refused, nothing stored; receives refused, nothing claimed, no attempt; the console shows payloads sealed, key not reachable; everything without a payload goes on"]
+    k3 --> k4["FleetKeyUnavailable; the fleet's sealing page and Health say so"]
+    k4 --> k5{"What the company does"}
+    k5 -->|"restores the grant"| k6["Next use unwraps; FleetKeyAvailable; waiting deliveries flow; nothing lost"]
+    k5 -->|"destroys the key, recovery key set"| recovery
+    k5 -->|"destroys the key, no recovery key"| k7["Payloads unreadable for good; deliveries wait pending; metadata and events stay"]
+  end
+
+  subgraph recovery["Recovery"]
+    v1(["The company key is lost; the company holds the offline recovery key"]) --> v2["Recovery command on the company's computer: read the recovery set"]
+    v2 --> v3["Open each data key with the offline key, locally"]
+    v3 --> v4["Wrap each under a new company key in its own KMS, context this fleet"]
+    v4 --> v5["Upload the new reference and the wraps"]
+    v5 --> v6{"Core unwraps each through its grant and every check value matches?"}
+    v6 -->|no| vx1["Refused; nothing changes"]
+    v6 -->|yes| v7["One transaction: wraps and reference swapped, FleetKeysRecovered"]
+    v7 --> k6
+  end
+```
+
+### What goes wrong
+
+```mermaid
+flowchart TD
+  a(["KMS slow or down"]) --> a1["Calls time out; served from cache up to 5 minutes; then refused KEY_UNAVAILABLE, never stored half"]
+  b(["Server dies after sealing, before commit"]) --> b1["Nothing stored; the sender's retry with the same key seals again with a new nonce and stores once"]
+  c(["Server dies mid claim"]) --> c1["Rolled back; the delivery is pending with its attempts"]
+  d(["Two servers make a new data key at once"]) --> d1["The second fails the try lock; one current key, unique by index"]
+  e(["A send races a rotation"]) --> e1["Sealed under the old or the new key; both unseal"]
+  f(["A send races turning sealing on"]) --> f1["Stored plain; the sealing pass seals it"]
+  g(["Company key change dies mid way"]) --> g1["The swap is one transaction: every wrap old or every wrap new"]
+  h(["A recovery uploads one wrong wrap"]) --> h1["Check value mismatch; refused whole"]
+  i(["A database copy of a sealed fleet"]) --> i1["Ciphertext and wrapped keys only; opening needs the company's KMS grant or the offline key"]
+  j(["Another tenant points at this fleet's company key"]) --> j1["The key policy binds the key to this fleet's id; the check refuses KEY_NOT_BOUND_TO_FLEET"]
+  k(["A sealed payload copied into another row"]) --> k1["The additional data names its row; GCM refuses to open it"]
+```
+
+## 7. Acceptance scenarios
+
+**Key setup**
+1. Given a fleet without sealing and a company key whose policy grants the installation for this fleet's id, when the fleet manager turns sealing on, then the fleet reads sealing then sealed, has one current data key, and `FleetSealingTurnedOn` names the key reference and no key material.
+2. Given a company key whose policy grants the installation without a fleet condition, when the fleet manager turns sealing on, then it is refused `KEY_NOT_BOUND_TO_FLEET` and the fleet is unchanged.
+3. Given a company key the installation may not use, when the fleet manager turns sealing on, then it is refused `KEY_UNAVAILABLE` naming access denied, and nothing is stored.
+4. Given an account without `fleet:keys`, when it turns sealing on, then it is refused and nothing changes.
+5. Given a fleet with a thousand plain messages and ten schedules, when it turns sealing on, then the sealing pass seals every one in batches, `FleetPayloadsSealed` is written once, and the database holds no plain payload of the fleet.
+6. Given a recovery key at turning on, then every data key is also wrapped to it, and the fleet shows its fingerprint.
+
+**A send**
+7. Given a sealed fleet, when a ship sends, then the stored row holds ciphertext, the plain byte count and no plain payload, and the sender gets OK only after commit.
+8. Given a sealed fleet, when a ship sends a 64 KB payload, then it is accepted, as in a fleet without sealing.
+9. Given a sealed fleet whose key is disabled and whose cache ran out, when a ship sends, then it is refused `KEY_UNAVAILABLE` and no message, delivery or event is stored.
+10. Given a sealed message sent with key K, when the sender repeats the same request with K, then it answers the original; with a different payload, then it is refused as today.
+11. Given a sealed fleet, when a ship sends a question and later a withdrawal, then the recipient's inbox finds the withdrawal by the question id.
+
+**A receive, redelivery and restart**
+12. Given a pending sealed delivery, when its ship receives, then it gets the plain payload, exactly as sent.
+13. Given a pending sealed delivery and the key cut off, when its ship receives or push receives, then it is refused `KEY_UNAVAILABLE`, the delivery stays pending and its attempts are unchanged.
+14. Given a sealed delivery received and not acknowledged, when the lease ends and a new crew receives, then the new crew gets the plain payload.
+15. Given sealed deliveries waiting, when core restarts, then every one is received as sent after the restart.
+16. Given a resend of a sealed undeliverable message, then the new message is sealed for its own id and its recipient reads the original's payload.
+17. Given a sealed payload copied into another message's row, when that message is received, then it does not open.
+
+**Rotation**
+18. Given a current data key 30 days old, when the pass runs, then a new current key exists, the old one is kept, and messages sealed under both are received.
+19. Given two servers, when both run the pass at once, then there is one current data key.
+20. Given a reachable old and new company key, when the fleet manager changes the company key, then every data key is wrapped by the new one, `FleetCompanyKeyChanged` is written, no payload is rewritten, and every message is still received.
+21. Given an old company key that is not reachable, when the fleet manager changes the company key, then it is refused `KEY_UNAVAILABLE` and nothing changes.
+
+**The kill switch**
+22. Given a sealed fleet, when the company disables its key, then within 5 minutes sends and receives are refused `KEY_UNAVAILABLE`, `FleetKeyUnavailable` is written once, and pong, acknowledge and pruning go on.
+23. Given a disabled key with deliveries waiting, when the company enables it again, then `FleetKeyAvailable` is written once and every waiting delivery is received; none is lost or undeliverable for the outage.
+24. Given a disabled key, when a schedule is due, then its send is recorded as refused `KEY_UNAVAILABLE`.
+25. Given a disabled key, when the console shows a sealed message, then it shows its metadata and that its payload is sealed and the key not reachable.
+
+**Recovery**
+26. Given a lost company key and a recovery key, when the company runs the recovery command with its offline key and a new company key, then `FleetKeysRecovered` is written and every message is received again.
+27. Given a recovery upload with one wrap that opens to another key, then it is refused whole and nothing changes.
+28. Given the recovery set, then it holds no data key any Aeolus key can open.
+
+**Leaks**
+29. Given any of the above, then no log line holds a payload, a data key or a wrapped key, and no event holds a payload or key material.
+
+## 8. Questions for Thomas (raised by level B)
+
+**N1. What does D7 mean at level B?** Context: at B core unseals for any actor allowed to read, so the console's server could render a sealed fleet's payload as today, each unwrap in the company's KMS log. Options: (1) render as today, marked sealed, and show "sealed, key not reachable" when cut off; showing only "sealed" waits for C; (2) never render a sealed fleet's payload in the console, so argo reads none there. Pick: (1). Under (2) argo, the fail-safe, cannot read in a sealed fleet, which costs more than it hides: the running service reads at B anyway.
+
+**N2. How fast must the kill switch bite?** Context: the data key cache sets both the delay before a revoke bites and how often core calls the KMS. Options: (1) 5 minutes; (2) 1 minute; (3) no cache, a KMS call on every send and receive. Pick: (1). A call per message puts the KMS's latency and charge on every message, and 5 minutes is short for a decision a company takes once.
+
+**N3. Which KMS first?** Options: (1) AWS KMS; (2) Azure Key Vault; (3) ask Doccle, Silverfin and Qover first. Pick: (1), unless the demo customers name another: the most common, a full emulator for tests (LocalStack), and `ReEncrypt` for B13. The others are [#1364](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1364).
+
+**N4. Deliveries whose key was destroyed with no recovery.** Options: (1) they wait pending, like a delivery to a type with no ship; (2) they become undeliverable, so Needs attention lists them for Dismiss. Pick: (1). Destroying is the company's step and may be undone within the KMS's waiting period; marking them undeliverable would end them while the key may still come back.
+
+**N5. Who turns sealing on and changes keys?** Options: (1) a new scope `fleet:keys`, which the fleet manager holds (0051) and a group may give; (2) `fleet:manage`. Pick: (1). Changing a key is a company decision with its own blast radius, not ship management.
+
+## 9. Screens that need a before and after mockup for Thomas
+
+1. **The fleet's sealing page** (new): state (none, sealing with progress, sealed), company key reference, recovery key fingerprint, key availability and since when, data keys and their ages; turn on, change company key, change recovery key.
+2. **The fleet overview**: a notice when the company key is not reachable.
+3. **A message's page, the operator inbox and a thread**: a payload marked sealed; "sealed, key not reachable" in its place when cut off (N1).
+4. **The ship page**: the mark that the gateway reads this ship's payloads (B19).
+
+## 10. Slices
+
+Each one PR, in order. Every slice after S0 is built red, green, refactor from the scenarios it names.
+
+| # | Repo | Slice | Done when |
+| --- | --- | --- | --- |
+| S0 | aeolus-fleet | **The decision record.** A decision for level B (D1 to D10, B1 to B20); the blueprint's deferred row replaced by the rule; architecture's tables, ports, refusals and events; 0005's prefix `dky_`; 0046's `fleet:keys` | Docs merged; N1 to N5 answered |
+| S1 | aeolus-fleet | **The key vault.** The `KeyVault` port, its in-memory adapter, the AWS KMS adapter with the installation's principal from configuration, LocalStack in Testcontainers; `data_keys`; seal and unseal (B6, B7) as one unit | Wrap, unwrap, rewrap, a refused grant, a disabled key and the row binding (17) pass by name |
+| S2 | aeolus-fleet | **Sealed sends and receives.** `fleet.turnOnSealing` with its checks (B4) for an empty fleet, callable by the installation only until S5; send (B8), receive, push receive, re-read and `receiveReply` (B9), idempotent repeat (B10), the question id column (B18), plain byte counts | Scenarios 1 to 4, 7, 8, 10 to 12, 14, 15 pass by name |
+| S3 | aeolus-fleet | **Every other payload.** Resend, schedules, meeting contributions and reads, sent message, inbox, message page and thread reads, pings and meeting notices (B17) | Scenario 16 passes; a test for each procedure that stores or answers a payload |
+| S4 | aeolus-fleet | **The kill switch.** The 5 minute cache (B11), `KEY_UNAVAILABLE` on every path without claiming or counting (B9, B12), `FleetKeyUnavailable` and `FleetKeyAvailable`, the sealing state read (`fleet.sealing`) and Health | Scenarios 9, 13, 22 to 24 pass by name |
+| S5 | aeolus-fleet | **Sealing a fleet with history.** The sealing pass (B5), `FleetPayloadsSealed`; `fleet:keys` in the catalogue, held by the fleet manager | Scenario 5 passes; the pass racing a send, a resend and pruning passes by name |
+| S6 | aeolus-fleet | **Rotation.** Data keys by age (B13a), changing the company key (B13c) | Scenarios 18 to 21 pass by name |
+| S7 | aeolus-fleet | **The recovery key.** Set at turning on and changed (B13d), each data key wrapped to it | Scenario 6 passes |
+| S8 | aeolus-fleet | **Recovery.** `fleet.recoverySet`, `fleet.recoverKeys`, the recovery command in core's CLI (B15) | Scenarios 26 to 28 pass by name |
+| S9 | aeolus-fleet | **The console's sealing page** (screen 1), after Thomas approves its mockup | Walked on staging against LocalStack or a test AWS key |
+| S10 | aeolus-fleet | **Sealed in the console** (screens 2 to 4), after Thomas approves their mockups | Scenario 25 walked on staging |
+| S11 | aeolus-fleet-trierarch | **The trierarch and the Aeolus Fleet plugin wait on `KEY_UNAVAILABLE`**: push receive and the watcher back off and report, never spin, never mark the crew dead | Tested by name against a refusing core |
+| S12 | aeolus-fleet-gateway | **The gateway waits on `KEY_UNAVAILABLE`**: its pages and Slack say the message is sealed and the key not reachable, and it backs off | Tested by name |
+| S13 | aeolus-fleet-squadrons | **Squadrons waits on `KEY_UNAVAILABLE`**: a check-in it cannot read waits; no member marked late or silent for the outage | Tested by name |
+| S14 | aeolus-fleet-infra | **Hosted Aeolus's KMS principal**: the installation's AWS identity and its credentials in core's configuration; the key policy a company adds, as a template | A test company key on staging seals and unseals |
+| S15 | aeolus-site | **The trust page** states who reads what per level (5.5), with the key policy template | Published |
+
