@@ -244,6 +244,7 @@ describe('the OpenAPI spec at /api/v1/openapi.json', () => {
       ['/fleet/removeScope', ['post']],
       ['/fleet/setVerifiedFacts', ['post']],
       ['/fleet/checkManage', ['post']],
+      ['/fleet/limits', ['get']],
     ]);
   });
 

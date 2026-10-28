@@ -1,5 +1,5 @@
 import type { FleetScope, ShipId } from '@aeolus-fleet/common';
-import { createIdGenerator, reportLogOutputSchema, requestMicOutputSchema } from '@aeolus-fleet/common';
+import { createIdGenerator, fleetLimitsOutputSchema, reportLogOutputSchema, requestMicOutputSchema } from '@aeolus-fleet/common';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -221,6 +221,7 @@ describe('the ship calls at /api/v1', () => {
       '/fleet/removeScope',
       '/fleet/setVerifiedFacts',
       '/fleet/checkManage',
+      '/fleet/limits',
     ]);
   });
 
@@ -557,6 +558,18 @@ describe('the fleet actions at /api/v1/fleet', () => {
     expect(commissionedByManager.prompt).toContain(`Ship id: ${commissionedByManager.shipId}`);
     expect(repeated).toMatchObject({ shipId: commissionedByManager.shipId, startingPrompt: { isClaimed: false } });
     expect(pinged.isNew).toBe(true);
+  });
+
+  it("let a ship with fleet:read read its fleet's limits and retention, as the trierarch plugin prunes by it", async () => {
+    // Given a fleet that keeps its finished history for 30 days, and a ship with fleet:read
+    await database.fleet.update({ where: { id: argo.fleetId }, data: { retentionSet: true, retentionDays: 30 } });
+    const reader = await crewedWithFleetScopes(['fleet:read']);
+
+    // When it reads the fleet's limits
+    const limits = await ok(request('fleet/limits', { crewToken: reader.crewToken, method: 'GET' }), fleetLimitsOutputSchema);
+
+    // Then it reads the fleet's retention
+    expect(limits.retention).toEqual({ days: 30, keptFrom: null });
   });
 
   it('follow the fleet: the current number without a position, then the events after it', async () => {
