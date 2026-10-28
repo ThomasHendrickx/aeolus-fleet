@@ -1,6 +1,6 @@
 'use client';
 
-import { CircleAlert, CircleCheck, CircleX, Info } from 'lucide-react';
+import { CircleAlert, CircleCheck, CircleX } from 'lucide-react';
 import { useId, useState } from 'react';
 
 import { useConsoleConstants } from '../../../../lib/console-constants';
@@ -12,6 +12,7 @@ import { Input } from '../../../../components/atoms/input';
 import { Label } from '../../../../components/atoms/label';
 import { CrewLines } from '../../../../components/molecules/crew-lines';
 import { InlineError } from '../../../../components/molecules/inline-error';
+import { SetupLineBlock } from '../molecules/setup-line-block';
 
 interface JoinMachineDialogProps {
   /** The names known to be an active ship's, read for the name typed (`onNameChange`), to say early whether it is free. */
@@ -117,23 +118,7 @@ function JoinedStep({ joined }: { joined: JoinedMachine }) {
         <DialogTitle>{joined.name} joined</DialogTitle>
         <DialogDescription>Run the setup line on the machine. It installs the trierarch, which then crews {joined.name} and reports what the machine offers.</DialogDescription>
       </DialogHeader>
-      <p className="flex gap-2 rounded-lg border border-border bg-muted px-3 py-2 text-meta text-foreground">
-        <Info aria-hidden className="mt-0.5 size-(--size-icon-sm) shrink-0 text-muted-foreground" />
-        <span>
-          <span className="font-medium">Shown once. Copy it now.</span> It carries the ship’s secret. If you lose it, get a new starting prompt on {joined.name}’s
-          ship page.
-        </span>
-      </p>
-      <CodeBlock
-        label="Setup line"
-        code={joined.setupLine}
-        isWrapped
-        copyLabel={`Copy the setup line for ${joined.name}`}
-        codeTestId="join-machine-setup-line"
-        copyTestId="join-machine-setup-line-copy"
-        onCopied={copied}
-        onCopyFailed={failed}
-      />
+      <SetupLineBlock name={joined.name} setupLine={joined.setupLine} testIdPrefix="join-machine" onCopied={copied} onCopyFailed={failed} />
       <CodeBlock
         label={`Starting prompt for ${joined.name}`}
         code={joined.prompt}

@@ -31,7 +31,7 @@ export async function sessionCookie(): Promise<string> {
   return sessionCookieOf((await cookies()).toString());
 }
 
-export async function call<T>(procedure: string, request: { input?: unknown; isMutation?: boolean; answers: z.ZodType<T> }): Promise<PluginAnswer<T>> {
+export async function call<T>(procedure: string, request: { input?: unknown; isMutation?: boolean; origin?: string; answers: z.ZodType<T> }): Promise<PluginAnswer<T>> {
   const url = trierarchPluginUrlFrom(process.env);
   if (url === undefined) {
     return NOT_HERE;

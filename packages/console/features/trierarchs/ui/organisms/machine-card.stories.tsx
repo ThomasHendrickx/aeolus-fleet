@@ -30,6 +30,13 @@ export const DetectedVersions: Story = {
     await expect(card.getByText('0.160.1 · no model confirmed')).toBeVisible();
   },
 };
+/** For a session that may join a machine, a new setup line under whether it answers (#1239); the rest of the card as it is. */
+export const NewSetupLine: Story = {
+  args: { onNewSetupLine: () => undefined },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByTestId('machine-card-new-setup-line')).toHaveTextContent('New setup line');
+  },
+};
 export const NotAnswering: Story = { args: { machine: SILENT_MACHINE, spots: SPOTS.slice(0, 2), location: { kind: 'DEVICE', description: 'MacBook' } } };
 export const NotStarted: Story = { args: { machine: NEW_MACHINE, spots: [], location: null } };
 

@@ -32,6 +32,11 @@ export const joinedMachineSchema = z.object({
 
 export type JoinedMachine = z.infer<typeof joinedMachineSchema>;
 
+/** A machine's new setup line, with a new secret for its ship, shown once (#1239). */
+export const newSetupLineSchema = z.object({ shipId: idSchema('ship'), setupLine: z.string() });
+
+export type NewSetupLine = z.infer<typeof newSetupLineSchema>;
+
 /** What checking crew settings answers: a trierarch fits, none takes them (naming the settings field at fault), or none has room now. */
 export const settingsCheckSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('fits') }),

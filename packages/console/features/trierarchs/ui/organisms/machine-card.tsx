@@ -8,6 +8,7 @@ import { harnessOptions, machineLiveness, type Spot } from '../../../../lib/mach
 import { clockTime, fullDateTime, lastSeen, relativeTime } from '../../../../lib/relative-time';
 import type { Machine } from '../../../../lib/trierarch-plugin-schemas';
 import { Badge } from '../../../../components/atoms/badge';
+import { Button } from '@aeolus-fleet/common/header';
 import { CapacityBar } from '../molecules/capacity-bar';
 import { NotOfferedLine } from '../../../../components/molecules/not-offered-line';
 import { LocationTag } from '../../../../components/molecules/location-tag';
@@ -18,6 +19,8 @@ interface MachineCardProps {
   spots: readonly Spot[];
   /** Where its trierarch's session runs, from the fleet. */
   location: { kind: LocationKind; description: string | null } | null;
+  /** Get a new setup line, for a session that may join a machine (#1239). */
+  onNewSetupLine?: () => void;
   now: Date;
 }
 
@@ -150,9 +153,9 @@ export function WorkspaceOffer({ workspaces }: { workspaces: NonNullable<Machine
  * its trierarch as a link to the machine's page, whether it answers, where it
  * runs and its version, its capacity, the harnesses it offers with their
  * options and flags, and its workspaces. Until it reported, what it offers is
- * unknown.
+ * unknown. Under whether it answers, a new setup line for a lost one (#1239).
  */
-export function MachineCard({ machine, spots, location, now }: MachineCardProps) {
+export function MachineCard({ machine, spots, location, onNewSetupLine, now }: MachineCardProps) {
   const { details, report } = machine;
   const reportedAt = report === null ? null : new Date(report.reportedAt);
   return (
@@ -171,6 +174,11 @@ export function MachineCard({ machine, spots, location, now }: MachineCardProps)
           {machine.name}
         </Link>
         <MachineLiveness machine={machine} now={now} />
+        {onNewSetupLine === undefined ? null : (
+          <Button size="sm" className="self-start" onClick={onNewSetupLine} data-testid="machine-card-new-setup-line">
+            New setup line
+          </Button>
+        )}
         <span className="flex flex-wrap items-center gap-1.5 text-meta text-muted-foreground">
           <LocationTag kind={location?.kind ?? null} description={location?.description} />
           {details === null ? null : <span className="font-mono text-id">· trierarch {details.version}</span>}

@@ -9,7 +9,7 @@ import { pluginCalls, shownConnection } from './plugin-calls';
 import { serverInternalUrlFrom } from './server-url';
 import type { ShownConnection } from './shown-connection';
 import { call, NOT_HERE, refusalOf, sessionCookie } from './trierarch-plugin-reads';
-import { enabledModelsSchema, joinedMachineSchema, type JoinedMachine } from './trierarch-plugin-schemas';
+import { enabledModelsSchema, joinedMachineSchema, newSetupLineSchema, type JoinedMachine, type NewSetupLine } from './trierarch-plugin-schemas';
 import { trierarchPluginUrlFrom } from './trierarch-plugin-url';
 
 /**
@@ -47,6 +47,21 @@ export async function connectTrierarchPlugin(): Promise<PluginAnswer<ShownConnec
 
 export async function joinMachine(name: string): Promise<PluginAnswer<JoinedMachine>> {
   return call('machines.join', { input: { name }, isMutation: true, answers: joinedMachineSchema });
+}
+
+/**
+ * A machine's new setup line (#1239): the trierarch plugin releases its ship
+ * when crewed, then gets it a new starting prompt, both as the operator, so
+ * the old line stops working. The request's Origin goes along, through the
+ * plugin to the fleet, which takes the session's state-changing calls only
+ * from the console.
+ */
+export async function newSetupLine(shipId: string): Promise<PluginAnswer<NewSetupLine>> {
+  const origin = (await headers()).get('origin');
+  if (origin === null) {
+    return { kind: 'refused', message: 'Get a new setup line from the console' };
+  }
+  return call('machines.newSetupLine', { input: { shipId }, isMutation: true, origin, answers: newSetupLineSchema });
 }
 
 /**
