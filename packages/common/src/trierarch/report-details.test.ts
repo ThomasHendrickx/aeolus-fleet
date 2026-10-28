@@ -322,6 +322,15 @@ describe('trierarchReportDetailsSchema', () => {
       expect(trierarchReportDetailsSchema.parse(details)).toEqual(details);
     });
 
+    it("takes each ship's harness with its login and its usage, so the console counts each harness's own ships", () => {
+      const details = onLogins({
+        logins: [{ shipId: SHIP, harness: 'claude-code', login: 'apiKey' }],
+        usage: { subscriptions: [], ships: [{ shipId: SHIP, harness: 'claude-code', models: [{ model: 'claude-opus-5-5', login: 'apiKey', tokens: { input: 1, output: 1, cacheRead: 1, cacheWrite: 1 }, estimatedCostUsd: 0.5 }] }] },
+      });
+
+      expect(trierarchReportDetailsSchema.parse(details)).toEqual(details);
+    });
+
     it('takes the tokens of each model split per login, so the cost on the key is the sum of its apiKey entries', () => {
       const tokens = { input: 100, output: 2000, cacheRead: 50000, cacheWrite: 1000 };
       const details = onLogins({
