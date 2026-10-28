@@ -7,10 +7,11 @@ import { useState } from 'react';
 import { lazyDialog } from '../../../lib/lazy-dialog';
 import { useConsoleConstants } from '../../../lib/console-constants';
 import { defaultValues, offersOf, settingsOf } from '../../../lib/crew-settings-form';
-import { useCommissionShip, useFleetScopes, useLabelContext, useRequestCrew } from '../../../lib/fleet';
+import { useCommissionShip, useFleetScopes, useGetStartingPrompt, useLabelContext, useRequestCrew } from '../../../lib/fleet';
 import { machineLabelsInputOf } from '../../../lib/machine-labels';
 import { useIsShipNameTaken } from '../../../lib/ship-name-taken';
 import { Button } from '@aeolus-fleet/common/header';
+import type { StartingPromptDialogState } from '../../../components/organisms/starting-prompt-dialog';
 import { showToast } from '../../../components/atoms/toast';
 import { useFleetLimits } from '../../../lib/fleet-limits';
 import { useHostedAccountUrl } from '../../../lib/hosted-account';
@@ -38,6 +39,7 @@ export function CommissionShip({ isOpen, onOpenChange }: { isOpen: boolean; onOp
   const accountUrl = useHostedAccountUrl();
   const commission = useCommissionShip();
   const requestCrew = useRequestCrew();
+  const getStartingPrompt = useGetStartingPrompt();
   // Only a connected plugin can place a request: until then, a request is crewed by hand.
   const hasTrierarchs = useTrierarchPluginConnection() === 'connected';
   const machines = useMachines();
@@ -58,13 +60,19 @@ export function CommissionShip({ isOpen, onOpenChange }: { isOpen: boolean; onOp
   const isNameTaken = useIsShipNameTaken(typed.name);
   const typeShipCount = useTypeShipCount(typed.type);
 
+  const issued = commission.data?.prompt == null ? getStartingPrompt.data : commission.data;
+  const promptState: StartingPromptDialogState = issued ? 'shown' : getStartingPrompt.isError ? 'error' : 'issuing';
+
   const commissionThenRequest = (ship: Parameters<typeof commission.mutate>[0], request: { settings: CrewSettings | Record<string, never> } | undefined) => {
     commission.mutate(ship, {
-      onSuccess: ({ shipId }) => {
+      onSuccess: ({ shipId, prompt }) => {
         onOpenChange(false);
         const isCrewedByTrierarch = hasTrierarchs && request !== undefined;
         if (!isCrewedByTrierarch) {
           setIsPromptOpen(true);
+          if (prompt === null) {
+            getStartingPrompt.mutate({ shipId });
+          }
         }
         if (request === undefined) {
           return;
@@ -94,6 +102,7 @@ export function CommissionShip({ isOpen, onOpenChange }: { isOpen: boolean; onOp
         data-testid="fleet-commission"
         onClick={() => {
           commission.reset();
+          getStartingPrompt.reset();
           setCrewSettings(null);
           onOpenChange(true);
         }}
@@ -143,17 +152,23 @@ export function CommissionShip({ isOpen, onOpenChange }: { isOpen: boolean; onOp
       />
       <StartingPromptDialog
         shipName={commission.variables?.name ?? ''}
-        state="shown"
-        prompt={commission.data?.prompt ?? undefined}
-        crewLines={commission.data?.crewLines ?? undefined}
+        state={promptState}
+        prompt={issued?.prompt ?? undefined}
+        crewLines={issued?.crewLines ?? undefined}
+        error={getStartingPrompt.error?.message}
         isOpen={isPromptOpen && commission.data !== undefined}
         onOpenChange={(isNowOpen) => {
           if (!isNowOpen) {
             setIsPromptOpen(false);
             commission.reset();
+            getStartingPrompt.reset();
           }
         }}
-        onConfirm={() => undefined}
+        onConfirm={() => {
+          if (commission.data !== undefined) {
+            getStartingPrompt.mutate({ shipId: commission.data.shipId });
+          }
+        }}
       />
     </>
   );
