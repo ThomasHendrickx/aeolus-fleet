@@ -37,10 +37,15 @@ const environmentSchema = z.object({
     .optional(),
   INSTALLATION_TOKEN: z.string().min(INSTALLATION_TOKEN_MIN_LENGTH, `must be at least ${String(INSTALLATION_TOKEN_MIN_LENGTH)} characters`).optional(),
   ACCOUNT_TOKEN_ISSUER: z.url({ protocol: /^https$/, error: 'must be an https:// URL' }).optional(),
+  KMS_REGION: z.string().min(1).optional(),
+  KMS_ENDPOINT: z.url({ protocol: /^https?$/, error: 'must be an http:// or https:// URL' }).optional(),
+}).refine((environment) => environment.KMS_ENDPOINT === undefined || environment.KMS_REGION !== undefined, {
+  path: ['KMS_REGION'],
+  message: 'must be set with KMS_ENDPOINT',
 });
 
 /** What `aeolus-core migrate` reads: the database alone. */
-const databaseEnvironmentSchema = environmentSchema.pick({ DATABASE_URL: true });
+const databaseEnvironmentSchema = z.object({ DATABASE_URL: environmentSchema.shape.DATABASE_URL });
 
 export interface Config {
   databaseUrl: string;
@@ -70,6 +75,18 @@ export interface Config {
    * fetched over HTTPS (decision 0058). Unset: no account token is trusted.
    */
   accountTokenIssuer: string | undefined;
+  /**
+   * The AWS KMS the installation's one principal seals fleets through
+   * (decision 0068): its region, and another endpoint than AWS's own when set.
+   * The principal's credentials come from the AWS SDK's own chain. Unset: no
+   * fleet can be sealed.
+   */
+  kms: KmsConfig | undefined;
+}
+
+export interface KmsConfig {
+  region: string;
+  endpoint: string | undefined;
 }
 
 export class ConfigError extends Error {
@@ -102,7 +119,7 @@ export function loadConfig(environment: Record<string, string | undefined>): Con
     throw configErrorOf(result.error);
   }
 
-  const { DATABASE_URL, PUBLIC_URL, HOST, PORT, LOG_LEVEL, TRUST_PROXY, COOKIE_DOMAIN, CONSOLE_ORIGIN, INSTALLATION_TOKEN, ACCOUNT_TOKEN_ISSUER } = result.data;
+  const { DATABASE_URL, PUBLIC_URL, HOST, PORT, LOG_LEVEL, TRUST_PROXY, COOKIE_DOMAIN, CONSOLE_ORIGIN, INSTALLATION_TOKEN, ACCOUNT_TOKEN_ISSUER, KMS_REGION, KMS_ENDPOINT } = result.data;
   return {
     databaseUrl: DATABASE_URL,
     publicUrl: PUBLIC_URL,
@@ -114,6 +131,7 @@ export function loadConfig(environment: Record<string, string | undefined>): Con
     consoleOrigin: CONSOLE_ORIGIN ?? new URL(PUBLIC_URL).origin,
     installationToken: INSTALLATION_TOKEN,
     accountTokenIssuer: ACCOUNT_TOKEN_ISSUER,
+    kms: KMS_REGION === undefined ? undefined : { region: KMS_REGION, endpoint: KMS_ENDPOINT },
   };
 }
 
