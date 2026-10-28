@@ -15,7 +15,7 @@ What Aeolus deliberately is not:
 
 - **Not an orchestrator.** It never decides who does what. Coordination is done by ships.
 - **No policy.** Aeolus enforces scopes exactly and adds no rules of its own. What a scope allows is allowed; weighing the risk is the operator's call, not Aeolus's (decision 0016): "else it would be us guessing and putting a security stamp on it." Organisation rules belong to the organisation.
-- **Content-blind.** Payloads are opaque. Aeolus never reads, interprets or changes them.
+- **Content-blind.** Payloads are opaque. Aeolus never reads, interprets or changes them. A sealed fleet stores them sealed under the company's own key (decision 0068).
 - **Ship-agnostic.** It has no idea what a ship does. What happens on board is defined by the ship's class and the session crewing it.
 - **Harness-agnostic.** Claude Code, Codex or any other agent runtime can crew a ship, as long as it speaks the ship contract.
 - **Not tied to Tiphys or any other workload.** Zero dependencies on any ship type.
@@ -303,6 +303,11 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Question | A message of `application/vnd.aeolus.question+json` to the asker's owner's ship, open until answered (0038) | ships |
 | Answer | The owner's reply of `application/vnd.aeolus.answer+json` (0038) | ships |
 | Event | The record of a state change, written in its transaction, naming its actor | core |
+| Sealed fleet | A fleet that turned sealing on: it stores no payload readable (0068) | core |
+| Company key | The key in the company's own KMS that wraps a sealed fleet's data keys, named by its reference; core never sees it (0068) | the company |
+| Data key | A 256-bit AES key, `dky_…`, that seals payloads; kept only wrapped, unwrapped only in memory for at most 5 minutes (0068) | core |
+| Recovery key | An optional offline key pair the company keeps; core holds its public half and wraps each data key to it too (0068) | the company |
+| Seal, unseal | Encrypt, decrypt a payload with a data key (0068) | core |
 
 ### Meetings
 
@@ -496,6 +501,14 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `NetworkRulesDeclared` | Registry | A ship or the installation declared the network rules it needs on the labels it owns, withdrew them, or was retired with them (decision 0037): details hold the number of rules (0 when withdrawn) and, once they moved it, the settings version, never the rules |
 | `NetworkPluginRegistered`, `NetworkPluginUnregistered` | Registry | Written no more: a networking plugin registered or unregistered, when one set the rules; the event log keeps them |
 | `BuiltInRuleChanged` | Registry | The viewer reading was turned on or off (decision 0034); older events also turned open for one verb: details hold the rule, the verb for open, whether it is on and the version |
+| `FleetSealingTurnedOn` | Messaging | The fleet is sealed from now on, under its company key, with its first data key (0068): details hold the key reference and the recovery key's fingerprint, never a key |
+| `FleetPayloadsSealed` | Messaging | The sealing pass left no payload of the fleet stored plain (0068) |
+| `FleetDataKeyCreated` | Messaging | The fleet's current data key was 30 days old and a new one is current (0068) |
+| `FleetCompanyKeyChanged` | Messaging | Every data key of the fleet is wrapped by its new company key (0068): details hold both references |
+| `FleetRecoveryKeyChanged` | Messaging | Every data key of the fleet is wrapped to its new recovery key (0068): details hold both fingerprints |
+| `FleetKeysRecovered` | Messaging | The company recovered the fleet's data keys under a new company key with its recovery key (0068): details hold the new reference |
+| `FleetKeyUnavailable` | Messaging | The fleet's company key could not be had after it could (0068): details hold the KMS's reason (access denied, disabled, not found, unreachable). One per change, not per call |
+| `FleetKeyAvailable` | Messaging | The fleet's company key could be had again (0068) |
 | `HistoryPruned` | Messaging | A batch of the hourly pruning pass let the fleet's finished history older than its retention go (0066): details hold the cutoff and how many messages, deliveries, events, overdue rows, leases, credentials, console sessions with their notice dismissals and guide progress, sign-in tickets and reach refusals went |
 | `FleetLimitsChanged` | Registry | The installation set how the fleet's ship, daily message, schedules per ship and minimum schedule interval limits and its retention are set: each following the default, or the fleet's own limit or days, or none |
 
@@ -629,6 +642,14 @@ The operator restarting a session is not a recovery step for messages: nothing w
 6. A resend is a retry of the same delivery: a new message with the original's sender, selector, payload, content type and reply, naming the message it resends, so an answer goes back to whoever asked. The event log records the operator as the one who resent it. Resending the same delivery twice gives the same new message. When the selector no longer resolves (the ship is retired, or no ship of the type is left), the resend is refused and only Dismiss remains.
 7. A not handled delivery, whose turn died twice on a pushed ship, is never stuck: it shows on the page of the ship whose crew reported it, with its reason, where the operator resends or dismisses it as an undeliverable one.
 
+### Sealed fleets
+
+1. The fleet manager, or any actor holding `fleet:keys`, turns sealing on with a company key in the company's own KMS, AWS KMS first, and optionally a recovery key. The company grants the installation use of its key for this fleet only; a key not bound to the fleet is refused (decision 0068).
+2. From then on core seals every payload it stores and unseals every payload it answers. Ships, the gateway, plugins and the console send and receive plain text as today. Payloads stored before are sealed by a pass.
+3. The company cuts off every read by disabling its key or removing its grant: within 5 minutes every send is refused `KEY_UNAVAILABLE` storing nothing, and every receive claims nothing, its deliveries waiting pending. Restoring the grant restores everything; nothing waiting is lost.
+4. The console renders a sealed fleet's payload as today, marked sealed, and "sealed, key not reachable" in its place when cut off. In a sealed fleet a ship's page says when the gateway reads its payloads.
+5. Metadata, report notes and details, statements, meeting titles, commission notes and verified facts stay readable: a crew keeps client data out of them.
+
 ### Ping a ship
 
 1. The operator presses Ping on a crewed ship, in its fleet row or on its page. Never offered while the ship awaits crew (no session to answer it), for a retired ship or for `argo`.
@@ -718,7 +739,6 @@ v1 proves the fleet sails. Everything below is designed for, with a hook already
 | Per-message signing with HMAC-SHA256 | Versioned key format `aeolus_sk_v1_` |
 | Short-lived JWTs for third parties, exchanged for the ship key | Opaque key stays the root credential |
 | Usage and limit tracking for Claude and OpenAI subscriptions | Heartbeat payload can carry usage numbers |
-| Payload encryption with AES-256-GCM and a random IV per message | Payloads are already opaque to the fleet |
 
 ## Open decisions
 
