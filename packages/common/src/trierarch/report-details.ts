@@ -55,9 +55,19 @@ export const subscriptionReadingSchema = z.strictObject({
   windows: z.array(z.strictObject({ windowMinutes: z.int().positive(), usedPercent: percentSchema, resetsAt: z.iso.datetime() })),
 });
 
+/** The logins a session runs on (aeolus-fleet-trierarch's api keys design, K5): its harness's subscription, or an API key kept on the computer. */
+export const SESSION_LOGINS = ['subscription', 'apiKey'] as const;
+
+const sessionLoginSchema = z.enum(SESSION_LOGINS);
+
+/** Where a harness's API key stands (K8): none on the computer, ready, refused by its vendor, or out of credit. */
+export const KEY_STATES = ['none', 'ready', 'refused', 'outOfCredit'] as const;
+
 /** The tokens of one model, with their cost estimated from the trierarch's price table (null for a model it does not price). */
 export const modelUsageSchema = z.strictObject({
   model: z.string().min(1),
+  /** The login of the sessions that used them (K8), so a ship's cost on the key is the sum of its apiKey entries. None from a trierarch before 0.34.0. */
+  login: sessionLoginSchema.optional(),
   tokens: z.strictObject({ input: tokenCountSchema, output: tokenCountSchema, cacheRead: tokenCountSchema, cacheWrite: tokenCountSchema }),
   estimatedCostUsd: z.number().nonnegative().nullable(),
 });
@@ -94,6 +104,12 @@ export const trierarchReportDetailsSchema = z.strictObject({
       version: z.string().min(1).optional(),
       /** When the trierarch last confirmed this harness's models (ISO 8601 in UTC); null while none is. None with no version. */
       modelsConfirmedAt: z.iso.datetime().nullable().optional(),
+      /**
+       * The login the harness's sessions run on by default, and its API key's
+       * state, never the key (K7, K8), with since when (ISO 8601 in UTC) where
+       * the trierarch knows it. None from a trierarch before 0.34.0.
+       */
+      login: z.strictObject({ default: sessionLoginSchema, key: z.enum(KEY_STATES), keyStateAt: z.iso.datetime().optional() }).optional(),
     }),
   ),
   workspaces: z.strictObject({ repositories: z.array(trierarchNameSchema), folders: z.array(trierarchNameSchema) }),
@@ -122,6 +138,12 @@ export const trierarchReportDetailsSchema = z.strictObject({
    * before 0.31.0, or with every harness offered.
    */
   notOffered: z.array(z.strictObject({ harness: harnessSchema, reason: z.string().min(1).max(NOT_OFFERED_REASON_MAX_LENGTH) })).optional(),
+  /**
+   * The login of each ship it crews (K8): its running or last session's, and
+   * `next` when its next start would use the other one (K3). None from a
+   * trierarch before 0.34.0.
+   */
+  logins: z.array(z.strictObject({ shipId: idSchema('ship'), login: sessionLoginSchema, next: sessionLoginSchema.optional() })).optional(),
   /** None from a trierarch before 0.31.0. */
   load: machineLoadSchema.optional(),
   /** None from a trierarch before 0.31.0. */
