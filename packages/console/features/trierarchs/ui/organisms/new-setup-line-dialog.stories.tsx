@@ -25,7 +25,18 @@ type Story = StoryObj<typeof meta>;
 /** The confirm: the old line stops working, and a running trierarch loses its crew. */
 export const Confirm: Story = {
   play: async () => {
-    await expect(await screen.findByText(/The old setup line stops working\. A trierarch already running with it loses its crew/)).toBeVisible();
+    // The dialog fades in: wait until each part shows rather than check it at once.
+    await waitFor(async () => {
+      await expect(await screen.findByRole('heading', { name: 'Get a new setup line for trierarch-mac?' })).toBeVisible();
+    });
+    await waitFor(async () => {
+      await expect(screen.getByText(/The old setup line stops working\. A trierarch already running with it loses its crew/)).toBeVisible();
+    });
+    await waitFor(async () => {
+      await expect(screen.getByRole('button', { name: 'Cancel' })).toBeVisible();
+      await expect(screen.getByTestId('new-setup-line-confirm')).toBeVisible();
+    });
+    await expect(screen.getByTestId('new-setup-line-confirm')).toHaveTextContent('Get new setup line');
   },
 };
 export const Getting: Story = { args: { isPending: true } };
