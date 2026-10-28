@@ -87,8 +87,8 @@ The gate: every screen, mail and terminal text below is a mockup first. Nothing 
 
 1. **The fleet's state for the next step (Q2).** Plugin connected, computer joined and ship commissioned are known to the console today (Trierarchs and the fleet read). Whether a colleague has joined is the count of person ships in the fleet, which I read from the ship kinds (0044) and did not test.
 2. **Production's plugin defaults (Q3).** They live in pagasae's `plugin_defaults` table, set by the app admin at `/admin/settings`. No repository holds production's values. The only hint is a comment in the infrastructure repository's `walk/seed.ts`: "turns the gateway on for new fleets as production has it". Staging is reset and seeded to match. Q3 is only met if production has the switch on; Thomas or the app admin confirms it, nothing in the code does.
-3. **Changing the setup choices later (Q5).** Thomas's answer says "from the console or a command". Decision 0027 says the console never carries paths or flags, so the console cannot change caps, permission flags or repositories. Today the later change is a command on the computer (`aeolus-trierarch init` again, `aeolus-trierarch add repository`, or editing `config.json`). The design uses the command and says so; see question N3.
-4. **What the safe defaults do (Q5).** `init --yes` takes caps 4 and 2, Claude Code without `--dangerously-skip-permissions`, no remote control, and no repository or folder. Two effects follow that I could not check without a walk: a session that asks before every tool may wait for an answer nobody gives (N2), and a computer with no repository or folder "can crew no request", so the first ship needs one more step (the mockup of the computer card).
+3. **Changing the setup choices later (Q5).** Thomas's answer says "from the console or a command". Decision 0027 says the console never carries paths or flags, so the console cannot change caps, permission flags or repositories. Today the later change is a command on the computer (`aeolus-trierarch init` again, `aeolus-trierarch add repository`, or editing `config.json`). The design uses the command and says so (N3, section 9).
+4. **What the safe defaults do (Q5).** `init --yes` takes caps 4 and 2, Claude Code without `--dangerously-skip-permissions`, no remote control, and no repository or folder. Two effects follow that I could not check without a walk: a session that asks before every tool may wait for an answer nobody gives, and since 0.33.0 sessions run headless, so the walk runs headless in auto permission mode (N2, [#1329](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1329)); and a computer with no repository or folder "can crew no request", so the first ship needs one more step (the mockup of the computer card).
 5. **A computer whose setup has not finished (Q6).** The plugin stores nothing per computer. A computer that registered and has not reported shows as crewed with no report. That is an inference, not a stored state. A setup stopped before registering shows as awaiting crew.
 6. **The expired link's address (Q9).** The page needs the address the link was sent to. I could not tell whether the sign-in link row keeps it after expiry. The mockup masks it (`b••@northwind.example`).
 7. **Her time zone (gateway).** The gateway does not know the viewer's time zone today. The browser does; the design reads it there.
@@ -198,7 +198,7 @@ Files are `<name>-<390 or 1440>-<light or dark>.png` beside their `<name>.html`.
 - Gateway-off page and the colleague's Home wording when the gateway is off: Q3 pick 3's wording already exists on main ("The gateway is off for this fleet: the admin of hosted Aeolus can turn it on", and the gateway's own off page).
 - F17 "Can't reach the sign-in service" once in two sign-ups: no cause is known (#1248). The page already says nothing changed and offers Try again.
 - F2 on hosted ([#1303](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1303), [#1258](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1258)): a release order, held by the final walk.
-- Help in the account menu (F20): see N4.
+- Help in the account menu (F20): stays as it is (N4).
 
 ## 7. Parts and contracts
 
@@ -699,6 +699,7 @@ Scenario: the operator is not the fail-safe
 ```gherkin
 Scenario: a walk of both people on staging, no help
   Given staging runs every train at the release's version
+  And the sessions run headless in auto permission mode
   And a technical person and a non-technical person, new to Aeolus, with no help
   When the technical person goes from the sign-up mail to her first ship answering
   And the non-technical person goes from the invite mail to her first answered question
@@ -706,42 +707,14 @@ Scenario: a walk of both people on staging, no help
   And every Rough step is listed for Thomas
 ```
 
-## 9. Questions for Thomas
+## 9. Decisions on the questions (Thomas, 28 Oct)
 
-**N1. How does Ada send her first message?**
-The console's Compose says it sends "from argo", and the audit found it only when signed in as argo. Outcome 1 ends in Ada's first answered message, and L4 says argo is never the normal path. I did not check the console as an account; scenario 8.6 assumes it.
-1. Compose sends as the signed-in account's person ship when it holds `messages:send`; as argo only for argo.
-2. Ada sends from the gateway's pages; Compose stays argo's.
-3. Keep Compose for argo and have the first-run page say how to sign in as argo.
+| # | Decision | Where it shows |
+| --- | --- | --- |
+| N1 | Compose sends as the signed-in account's person ship when it holds `messages:send`; as argo only for argo | 8.6 "Ada messages her ship as herself" |
+| N2 | The first ship's permission wait is walked first. Since 0.33.0 sessions run headless, so the walk runs headless in auto permission mode. The route of a permission to the owner is [#1329](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1329) | 4.4, 8.10 |
+| N3 | The setup choices change by the command on the computer only, said in the terminal's last lines and on the computer card | 4.3, 8.4 |
+| N4 | Help stays as it is. A guide for colleagues, possibly at docs.aeolus-fleet.com, belongs to the marketing plan, long term and not part of this design | 6.3 |
+| N5 | The next-step empty state says "a fleet manager" and no name | M7, 8.2 |
 
-Pick 1. It keeps Ada in the console and off argo, with no new part.
-
-**N2. A first ship that waits for a permission nobody gives**
-Safe defaults start Claude Code without `--dangerously-skip-permissions`. A session that asks before every tool may stop at its first question, and Ada's first message gets no answer. I could not see it without a walk on a real computer.
-1. Keep the safe default and tell Ada on the card and in the terminal what to do when a session waits for permission.
-2. Default to skipping permissions, and say so at the end of setup.
-3. Walk it first: I propose the walk, then decide.
-
-Pick 3. The right default depends on what a session does, and the walk is already the release gate (Q1).
-
-**N3. Changing the setup choices later**
-The answer to Q5 said "from the console or a command". Decision 0027 means the console cannot set caps, permission flags or repositories; only the command on the computer can.
-1. The command only, said in the terminal's last lines and on the computer card.
-2. A console page for them: reopens 0027 and needs the contract of Q5 option 2.
-
-Pick 1. It is today's rule and the mockups show it.
-
-**N4. Where does Help go?**
-Help in the account menu opens the GitHub repository, for Bea too (F20). No help page for a colleague exists, and I may not invent one.
-1. Leave Help as it is.
-2. Point Help at the guide for people who answer ships, written as a doc and shown by the apps.
-3. Remove Help from a colleague's menu.
-
-Pick 1. No page exists to point to, so the friction waits for a decision that a guide is wanted.
-
-**N5. What a person who may do nothing sees on the next-step empty state**
-M7's last frame names "a fleet manager" and offers no button. Core cannot tell the viewer who the managers are by name without a new read.
-1. Say "a fleet manager" and no name.
-2. Name the fleet's managers: a new read of who holds `fleet:manage`.
-
-Pick 1. It needs nothing new; names are a later question if the walk shows it matters.
+The journey-level decisions J1 to J4 are in [journeys.md](journeys.md) section 8.

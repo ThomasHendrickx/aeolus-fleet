@@ -2,7 +2,7 @@
 
 Part of [#1228](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1228), docs only. Thomas (27 Oct): the screen mockups wait for the design system and the redesign pass; the user journeys can be designed in parallel, as they should work conceptually, loose from the design system. This file is that. It names no screen, layout or component. [onboarding.md](onboarding.md) keeps the purpose, the lessons, the decisions Q1 to Q10 and the parked mockups; its sections 6 and 8 wait for the redesign pass and this file's scenarios (section 7) are the behaviour they must meet.
 
-Terms are the blueprint's: organisation, organisation admin, account, fleet, fleet manager, person ship, gateway, trierarch, computer, join, commission, crew, crew line, starting prompt, lease, scope, group. Where the docs do not say how something works, it is a question (section 8), not a guess.
+Terms are the blueprint's: organisation, organisation admin, account, fleet, fleet manager, person ship, gateway, trierarch, computer, join, commission, crew, crew line, starting prompt, lease, scope, group. Where the docs do not say how something works, it is a question for Thomas, not a guess. Section 8 holds what he decided.
 
 ## 1. The people and what each needs
 
@@ -32,7 +32,7 @@ The founder wants to try Aeolus for their company and cannot set up a computer. 
 | F2 | Start the organisation | The organisation's name, the fleet's name, the terms | Creates the organisation, its first account (organisation admin), and its first fleet. The account is the fleet manager and holds every scope the fleet offers, with no step | A name missing: says which. Creation refused: nothing was created, the names are kept, try again |
 | F3 | Know what comes next | That the fleet needs a computer joined, and that a person with a computer does that | Says what the fleet still lacks, from its own state: no trierarch plugin connected, no computer joined, no ship commissioned. For a founder with no computer to hand, says a technical colleague does this and offers to invite one | Cannot read the fleet: says so and guesses no step |
 | F4 | Hand the setup to a technical colleague | Whom. Which rights that person needs (join a computer, commission and crew ships) | Adds the account and mails the colleague a link that names the founder and the organisation and says what is asked of them. Gives the account the rights, by group or by its own rights (0052) | Mail not sent: says so, nothing changed. Wrong address: the mail goes to someone else, but a link signs in only that address and expires in 15 minutes. The account is disabled and added again (0055). Right missing for the colleague: the colleague's refusal names the right and says an organisation admin or fleet manager gives it (see H1) |
-| F5 | Wait without being stranded | Whether the colleague has started | Shows the fleet's next step, which moves on as the colleague joins a computer and commissions a ship | Colleague never starts: see J4 |
+| F5 | Wait without being stranded | Whether the colleague has started | Shows the fleet's next step, which moves on as the colleague joins a computer and commissions a ship | Colleague never starts: the founder sees only the fleet's next step, which stays where it is; nothing shows whether the colleague signed in (J4) |
 | F6 | Use the fleet | That ships ask them questions, and where they answer | The founder's account has a person ship. They answer through the gateway as Bea does (section 5) | No gateway for the fleet: says it is off and who turns it on (Q3) |
 
 ### 2.2 Diagram
@@ -64,8 +64,9 @@ flowchart TD
 | | |
 | --- | --- |
 | From, to | The founder, an organisation admin and the fleet manager, to a technical colleague whose account is new |
-| What passes | The invitation (a link that names the founder and the organisation and says what is asked), and the rights: to join a computer and to commission and crew ships |
-| What stays with the founder | The fleet, as fleet manager; the decision which ships exist and what they are for |
+| What passes | The invitation (a link that names the founder and the organisation and says what is asked), and the rights: to join a computer and to commission and crew ships, given through a group or the account's own rights (0052) |
+| What stays with the founder | The fleet, as fleet manager (the only one; Ada is given rights, not made a second manager, J2); the decision which ships exist and what they are for, said when handing over |
+| Who commissions | Ada commissions and crews the first ship herself, with the rights the founder gave (J1). The secret is shown once, to her |
 | What the colleague must not need | To ask the founder what to do. The invitation says it. To ask the hosting service for a right: the founder gives it |
 | If the right is missing | The colleague is refused when joining a computer; the refusal names the right and says a fleet manager or organisation admin gives it. Nothing changed. The colleague tells the founder, the founder gives it, the colleague tries again |
 | Who owns the computer | The computer joined by the colleague is owned by the colleague's person ship (L3, 0030), not by the founder |
@@ -94,11 +95,11 @@ Ada is technical and can reach a computer with Node and Claude Code. She comes i
 | A2 | Know what the fleet needs first | That the fleet lacks, in order, the trierarch plugin connected, a computer joined, a ship commissioned | Says the first missing one. Offers the action only if she holds the right; otherwise says who gives it | Fleet cannot be read: says so, guesses nothing |
 | A3 | Connect the trierarch plugin | That the trierarch plugin does the joining | Connects it | Fails: nothing changed, try again |
 | A4 | Join her computer | A name for the computer. What a trierarch is, in one sentence. What the computer needs: Node 26 and Claude Code, signed in | Checks she holds `trierarch:join`. Issues a setup line, shown once | No right: refused, names the right and who gives it, nothing changed (H1). Name taken by an active ship, or over 100 characters: says which |
-| A5 | Run the setup line on the computer | Nothing to decide | Checks Node and Claude Code before touching the fleet. Asks no question. Sets safe defaults and says what they are and how to change them later (N3) | Node too old or Claude Code missing or not signed in: stops, says what to install, says the fleet does not know the computer yet, nothing changed. Interrupted after joining: the same line runs again and registers nothing twice. Line lost: a new setup line is issued, the old one stops |
+| A5 | Run the setup line on the computer | Nothing to decide | Checks Node and Claude Code before touching the fleet. Asks no question. Sets safe defaults and says what they are and how to change them later: by the command on the computer (N3) | Node too old or Claude Code missing or not signed in: stops, says what to install, says the fleet does not know the computer yet, nothing changed. Interrupted after joining: the same line runs again and registers nothing twice. Line lost: a new setup line is issued, the old one stops |
 | A6 | See the computer is alive | Whether setup finished | The computer reports alive. A computer that joined and has not reported reads as setup not finished, with the way to get a new setup line | Computer has no repository or folder: says it can crew no ship yet and what to run |
 | A7 | Commission her first ship | Its name, what it may do, whether to ask the computer for a crew | Shows each right as a sentence, by group, with its scope name beside it. Says why commissioning cannot proceed when it cannot | Nothing joined yet: says so and offers to commission without asking for a crew. Prompt not shown: nothing is lost, a new starting prompt ends the old one |
 | A8 | Crew the ship | The crew line or the starting prompt, from the one place it shows | Shows the secret once | Lost: a new starting prompt ends the old one. A second claim on a ship already crewed fails (lease) |
-| A9 | Send the ship a message and get an answer | Nothing: she sends as herself (N1) | Stores the message before it answers OK. Delivers it when the ship is crewed, now or later | Ship not yet crewed: the message is stored and waits. A session that waits for permission nobody gives: see N2 |
+| A9 | Send the ship a message and get an answer | Nothing: she sends as herself (N1) | Stores the message before it answers OK. Delivers it when the ship is crewed, now or later | Ship not yet crewed: the message is stored and waits. A session that waits for a permission nobody gives: sessions run headless, the walk (7.8) runs in auto permission mode, and the route of a permission to the owner is [#1329](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1329) (N2) |
 | A10 | Bring in the people the ship asks | Whom, and which rights | Same as the organisation admin (section 4) | As section 4 |
 
 ### 3.2 Diagram
@@ -132,7 +133,7 @@ flowchart TD
   A8b -- already crewed --> A8f[Second claim fails, lease holds]
   A8b --> A9[Sends a message as herself]
   A9 -- ship not crewed --> A9e[Stored, delivered when crewed] --> A9
-  A9 -- session waits for permission --> A9p[Open, N2]
+  A9 -- session waits for permission --> A9p[Walk 7.8, #1329, N2]
   A9 --> A9r[Ship answers]
   A9r --> H2b([Hand-over H2: tells the founder])
   A9r --> H3([Hand-over H3: invites Bea, section 4])
@@ -157,7 +158,7 @@ An organisation admin's right sits on the account and implies no fleet scope (00
 | O3 | Know it worked | That the colleague can now do their part | The gateway is on for the fleet, so a colleague with the rights can use it. If the gateway is off, says who turns it on | Gateway off: the colleague is told, the admin is told (Q3, F1 in the audit) |
 | O4 | Fix a colleague who is stuck | Why the colleague sees nothing | A colleague with no rights is told that, and to ask an organisation admin | The admin gives a right (O2); nothing else changes |
 | O5 | Add another organisation admin | Whom | Grants the organisation admin right | Cannot remove the last one: refused, the organisation needs one (0051) |
-| O6 | Remove someone | Whom | Disables the account: ends its tokens and sign-ins, releases its person ship and the trierarchs it owns, and their leases. Ships stay | Last organisation admin: refused. Fleet manager: see J2 |
+| O6 | Remove someone | Whom | Disables the account: ends its tokens and sign-ins, releases its person ship and the trierarchs it owns, and their leases. Ships stay | Last organisation admin: refused. Fleet manager: the design names no second one (J2) |
 
 ### 4.2 Diagram
 
@@ -186,7 +187,7 @@ flowchart TD
 | --- | --- |
 | What passes | The invitation (a link, the inviter and the organisation named, what Aeolus is, what the person will be asked), and the rights the part needs |
 | What the colleague must not need | To ask the admin what to do (the invitation says it), or the hosting service for a right (the admin gives it) |
-| If the colleague has an account in another organisation too | A sign-in with that email asks which organisation (0051). How the invitation helps them choose is J3 |
+| If the colleague has an account in another organisation too | A sign-in with that email asks which organisation (0051). The invitation names the organisation, and the choice lists organisations by name with the invited one marked (J3) |
 
 ## 5. Bea
 
@@ -197,7 +198,7 @@ Bea is non-technical and never sees a terminal. Her part is to answer what ships
 | # | Goal | Needs to know or decide | The product | Where it fails, and the way out |
 | --- | --- | --- | --- | --- |
 | B1 | Understand why she got a mail | Who invited her, to what, and what she is asked | The mail names the inviter and the organisation, says what Aeolus is and what she will do, in plain words. It holds one link | Link expired or used: a new link to the same address, which shows only a masked address. Fourth link in 15 minutes: says when to try again. Mail not sent: says so |
-| B2 | Be signed in | The terms | Signs her in as the address the link was sent to, and no other. Names the organisation | An account in two organisations: she is asked which (J3) |
+| B2 | Be signed in | The terms | Signs her in as the address the link was sent to, and no other. Names the organisation | An account in two organisations: she is asked which, from organisation names with the invited one marked (J3) |
 | B3 | Reach the gateway | Nothing about fleets or scopes | Takes her to the gateway, the one address. Finds her fleet from her account and crews her person ship | Gateway off for the fleet: says so and who turns it on, and does not silently send her elsewhere. No rights: says she has none there and to ask an organisation admin |
 | B4 | Choose how to be told | Whether to be mailed when something waits | Asks once, never turned on by default. A mail holds a link and no content | Declines by not answering: it does not ask again, and email stays off. Mail service cannot send: it does not ask |
 | B5 | Answer a question | What is asked, from whom | Lists what waits on her and what is only a notice, apart. Stores her answer before it says sent | Answer not sent: says nothing was sent, keeps her words, the question still waits, try again |
@@ -298,6 +299,13 @@ Scenario: what when it fails: creation is refused
   Given the server refuses the fleet
   When the founder asks to create
   Then they are told nothing was created, the names they gave are kept, and they may try again
+
+Scenario: a colleague in two organisations is asked which, and the invited one is marked
+  Given bea@northwind.example has accounts in Northwind Onboarding and Contoso
+  And she was invited to Northwind Onboarding
+  When she signs in with that address
+  Then she is asked which organisation, listed by name
+  And Northwind Onboarding is marked as the one she was invited to
 ```
 
 ### 7.2 What comes next (Founder F3, F5; Ada A2)
@@ -338,6 +346,12 @@ Scenario: another fleet is never read
   Given fleet A has no computer and fleet B has one
   When Ada asks what comes next in fleet A
   Then the answer is to join a computer, whatever fleet B holds
+
+Scenario: the founder is not shown whether the colleague has signed in
+  Given the founder added ada@northwind.example and she has not signed in
+  When the founder asks what comes next
+  Then the answer is the fleet's next step
+  And nothing says whether ada@northwind.example signed in
 ```
 
 ### 7.3 Hand-over H1: founder to Ada, and any admin to a colleague (O1 to O4)
@@ -429,6 +443,7 @@ Scenario: setup asks no question and says what it set
   Given Node 26 and a signed-in Claude Code on the computer
   When Ada runs the setup line
   Then it prints its checks, the defaults it set, whether Claude Code asks before it runs a tool, and how to change them later
+  And it says the change is the command on the computer, not the console
   And it waits for no answer
   And the checks end within 10 seconds (proposed)
 
@@ -673,6 +688,7 @@ Scenario: the operator is not the fail-safe
 ```gherkin
 Scenario: a walk of both people on staging, no help
   Given staging runs every train at the release's version
+  And the sessions run headless in auto permission mode
   And a technical person and a non-technical person, new to Aeolus, with no help
   When the technical person goes from the sign-up mail to her first ship answering
   And the non-technical person goes from the invitation mail to her first answered question
@@ -686,48 +702,18 @@ Scenario: a walk of the hand-over on staging
   And the founder reaches an answered question
 ```
 
-## 8. Open questions
+## 8. Decisions on the questions
 
-### 8.1 N1 to N5, still open
+Thomas decided these on 28 Oct. N1 to N5 are the same decisions as in [onboarding.md](onboarding.md) section 9.
 
-They are unchanged in [onboarding.md](onboarding.md) section 9. At journey level:
-
-| # | Matters here? | Where | Why |
-| --- | --- | --- | --- |
-| N1 | Yes | A9 | Ada's first message is the end of her journey; it must not be as argo. Scenario 7.4 assumes pick 1 |
-| N2 | Yes | A9 | A first ship that waits for a permission nobody gives ends the journey without an answer. Needs the walk (7.8) |
-| N3 | Yes, a little | A5 | The journey says only that the change is possible later; whether by command or console is open |
-| N4 | Yes | Bea B3 to B8, any person stuck | When a colleague is stuck and the invitation did not help, there is no guide to point to; the journey leans on the organisation admin |
-| N5 | Yes | A2, F3 | A person who may not do the next step is told "a fleet manager"; the founder's own journey never meets it, Cleo's does |
-
-### 8.2 New at journey level
-
-The docs do not answer these; I have decided nothing.
-
-**J1. When the founder hands the setup to Ada, who commissions the first ship?**
-Both work mechanically: the founder is the fleet manager and holds every scope; Ada may be given the rights.
-1. Ada commissions and crews it herself, with the rights the founder gave (H1).
-2. The founder commissions, and passes the starting prompt to Ada, who crews it on her computer.
-
-Pick 1. The secret is shown once, and to whoever commissions; passing it on between people is where it gets lost. The founder still decides what the ship is for by saying so when they hand over.
-
-**J2. How does the founder name a second fleet manager, and what does the founder give Ada?**
-The blueprint says the fleet manager is whoever created or brought the fleet, and that deleting it requires naming a new one (0051). Rights come by group or an account's own rights (0052). Nothing says how an organisation admin who is not the fleet manager may give a scope they do not hold (0046 says granting only what the granter holds, for ships).
-1. Ada is given the rights she needs through a group, and the founder stays the fleet manager.
-2. The founder can make Ada a fleet manager as well.
-
-Pick 1. It uses only what the decisions say today. Option 2 needs a decision on naming a manager.
-
-**J3. A colleague with an account in two organisations.**
-A sign-in with such an email asks which organisation (0051). The docs do not say what the invitation and the welcome do to help them choose.
-1. The invitation names the organisation, and the choice lists organisations by name, and the invited one is marked.
-2. Leave as the sign-in asks today.
-
-Pick 1. The invitation already names the organisation (7.3), so it costs nothing new.
-
-**J4. Can the founder see that Ada has not started?**
-F5 and H2 assume the founder is not left waiting. The docs say nothing about whether the account shows that an invited colleague has signed in.
-1. Show whether each invited account has signed in.
-2. Show nothing; the founder sees only the fleet's next step.
-
-Pick 2. No new record or screen, and the fleet's state already moves on. Pick 1 if the walk shows founders stuck.
+| # | Decision | Where it shows |
+| --- | --- | --- |
+| N1 | Compose sends as the signed-in account's person ship when it holds `messages:send`; as argo only for argo | A9, scenario 7.4 "Ada messages her ship as herself" |
+| N2 | The first ship's permission wait is walked first. Sessions run headless, so the walk runs headless in auto permission mode. The route of a permission to the owner is [#1329](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1329) | A9, 7.8 |
+| N3 | The setup choices change by the command on the computer only, said in the terminal's last lines and on the computer card | A5, 7.4 "setup asks no question and says what it set" |
+| N4 | Help stays as it is. A guide for colleagues, possibly at docs.aeolus-fleet.com, belongs to the marketing plan, long term and not part of this design | Bea B3 to B8 |
+| N5 | A person who may do nothing is told "a fleet manager", with no name | A2, F3, scenario 7.2 "a person who may not do the step is told who can" |
+| J1 | Ada commissions and crews the first ship herself, with the rights the founder gave; the founder says what the ship is for when handing over | H1 |
+| J2 | Ada is given the rights she needs through a group or the account's own rights; the founder stays the fleet manager. No second fleet manager is named | H1, O6 |
+| J3 | The invitation names the organisation; the choice lists organisations by name and marks the invited one | H3, B2, scenario 7.1 |
+| J4 | The account shows nothing of whether an invited colleague has signed in; the founder sees only the fleet's next step | F5, scenario 7.2 |
