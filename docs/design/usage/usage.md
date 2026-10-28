@@ -55,7 +55,7 @@ Thomas's answers, each a rule.
 | U11 | No backfill: history starts when this ships. |
 | U12 | Usage reaches the trierarch plugin as messages from the trierarch to the plugin's ship, hours by the transcript's own time. A message is stored before the send returns OK and waits while the plugin is down. |
 | U13 | The trierarch sends once an hour, at the first token read after the hour turns, and once at release. The current hour shows once it ends; the machine card keeps the live reading. |
-| U14 | "Tokens" adds up all four kinds (input, output, cache read, cache write); each kind is in the tooltip and the table, and token kind is a sixth split. |
+| U14 | "Tokens" adds up all four kinds (input, output, cache read, cache write); each kind is in the tooltip and the table, and token kind is a sixth split. The trierarch estimates the cost of each kind, so estimated cost splits by token kind too. |
 | U15 | Ranges over 7 days show UTC days from the rollup, the axis saying "days in UTC"; ranges up to 7 days show hours in the viewer's time zone. |
 
 ## 4. Design
@@ -72,7 +72,7 @@ The trierarch sends its usage to the trierarch plugin's ship as a message, so it
       { "hour": "2026-10-28T09:00:00Z",
         "ships": [
           { "shipId": "shp_…", "harness": "claude-code", "folderMadeAt": "2026-10-27T14:02:11Z", "login": null,
-            "models": [ { "model": "claude-opus-5-5", "tokens": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 }, "estimatedCostUsd": 0 } ] } ] } ],
+            "models": [ { "model": "claude-opus-5-5", "tokens": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 }, "estimatedCostUsd": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 } } ] } ] } ],
     "subscriptions": [
       { "harness": "claude-code", "readAt": "2026-10-28T09:31:02Z", "windows": [ { "windowMinutes": 300, "usedPercent": 0, "resetsAt": "2026-10-28T12:00:00Z" } ] } ],
     "readAt": "2026-10-28T10:00:40Z"
@@ -91,8 +91,8 @@ Three tables in its own database (amending 0030), each with fleet_id first in it
 
 | Table | Key | Columns | Written |
 | --- | --- | --- | --- |
-| `usage_hours` | `fleet_id`, `hour`, `machine_ship_id`, `ship_id`, `folder_made_at`, `model` | `harness`, `login` (null: not reported), `input`, `output`, `cache_read`, `cache_write` (bigint), `estimated_cost_usd` (numeric, null: not priced), `read_at` | Upsert per row, kept only when its `read_at` is newer than the stored one, so a late or repeated message changes nothing |
-| `usage_days` | `fleet_id`, `day` (UTC), `machine_ship_id`, `ship_id`, `model`, `harness`, `login` | the same token and cost columns, plus `unpriced_tokens` | In the same transaction as `usage_hours`, adding the difference between the new and the stored hour row: a rollup for ranges over 7 days (L14) |
+| `usage_hours` | `fleet_id`, `hour`, `machine_ship_id`, `ship_id`, `folder_made_at`, `model` | `harness`, `login` (null: not reported), `input`, `output`, `cache_read`, `cache_write` (bigint), `estimated_cost_input_usd`, `estimated_cost_output_usd`, `estimated_cost_cache_read_usd`, `estimated_cost_cache_write_usd` (numeric, null: not priced), `read_at` | Upsert per row, kept only when its `read_at` is newer than the stored one, so a late or repeated message changes nothing |
+| `usage_days` | `fleet_id`, `day` (UTC), `machine_ship_id`, `ship_id`, `model`, `harness`, `login` | the same token and cost columns, plus the tokens not priced per kind (`unpriced_input`, `unpriced_output`, `unpriced_cache_read`, `unpriced_cache_write`) | In the same transaction as `usage_hours`, adding the difference between the new and the stored hour row: a rollup for ranges over 7 days (L14) |
 | `subscription_readings` | `fleet_id`, `machine_ship_id`, `harness`, `window_minutes`, `read_at` | `used_percent`, `resets_at` | Insert, a repeat changes nothing |
 
 Index for the read: `usage_hours (fleet_id, hour)` and `usage_days (fleet_id, day)`, both with the token columns included, so a range is one index range scan.
@@ -105,7 +105,7 @@ The console reads usage from the trierarch plugin over its tRPC, checked with th
 
 | Procedure | Input | Answers |
 | --- | --- | --- |
-| `usage.tokens` | `from`, `to`, `splitBy` (`machine`, `harness`, `model`, `ship`, `login`, `kind` or none), filters (machine, harness, model, ship and login ids, each a list) | `grain` (hour up to 7 days, else day from `usage_days`); per bucket and series the four token kinds, the estimated cost and the tokens not priced; the series, at most 7 by total in the range and `other` for the rest, each with its name |
+| `usage.tokens` | `from`, `to`, `splitBy` (`machine`, `harness`, `model`, `ship`, `login`, `kind` or none), `measure` (tokens or estimated cost, which ranks the series), filters (machine, harness, model, ship and login ids, each a list) | `grain` (hour up to 7 days, else day from `usage_days`); per bucket and series the four token kinds, the estimated cost and the tokens not priced; the series, at most 7 by total of the measure in the range and `other` for the rest (from 8 values on), each with its name; the models in the range not priced |
 | `usage.values` | `from`, `to`, one breakdown, a cursor | that breakdown's values in the range with their totals, 20 per page, for the filter menus |
 | `usage.windows` | `from`, `to`, machine and harness filters, a cursor | per machine and harness, 20 per page, each window's readings in the range |
 

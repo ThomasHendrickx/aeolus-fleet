@@ -10,7 +10,7 @@ function aShip(overrides: Record<string, unknown> = {}): Record<string, unknown>
     harness: 'claude-code',
     folderMadeAt: '2026-10-27T14:02:11Z',
     login: null,
-    models: [{ model: 'claude-opus-5-5', tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, estimatedCostUsd: 0 }],
+    models: [{ model: 'claude-opus-5-5', tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, estimatedCostUsd: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } }],
     ...overrides,
   };
 }
@@ -70,10 +70,43 @@ describe('trierarchUsageMessageSchema', () => {
 
   it('refuses a negative token count', () => {
     // Given a model with negative output tokens
-    const message = aMessage({ ship: aShip({ models: [{ model: 'claude-opus-5-5', tokens: { input: 0, output: -1, cacheRead: 0, cacheWrite: 0 }, estimatedCostUsd: 0 }] }) });
+    const message = aMessage({ ship: aShip({ models: [{ model: 'claude-opus-5-5', tokens: { input: 0, output: -1, cacheRead: 0, cacheWrite: 0 }, estimatedCostUsd: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } }] }) });
 
     // When it is parsed
     const parsed = trierarchUsageMessageSchema.safeParse(message);
+
+    // Then it is refused
+    expect(parsed.success).toBe(false);
+  });
+
+  it('takes the estimated cost of each token kind, so the Usage page splits cost by kind', () => {
+    // Given a model priced per kind, as the trierarch's price table prices it
+    const ship = aShip({ models: [{ model: 'claude-opus-5-5', tokens: { input: 10, output: 2, cacheRead: 100, cacheWrite: 5 }, estimatedCostUsd: { input: 0.05, output: 0.05, cacheRead: 0.05, cacheWrite: 0.03 } }] });
+
+    // When it is parsed
+    const parsed = trierarchUsageMessageSchema.safeParse(aMessage({ ship }));
+
+    // Then it is taken
+    expect(parsed.success).toBe(true);
+  });
+
+  it('refuses one estimated cost for the whole model, since cost is kept per token kind', () => {
+    // Given a model with one cost for all its tokens, as the report details carry it
+    const ship = aShip({ models: [{ model: 'claude-opus-5-5', tokens: { input: 10, output: 2, cacheRead: 100, cacheWrite: 5 }, estimatedCostUsd: 0.18 }] });
+
+    // When it is parsed
+    const parsed = trierarchUsageMessageSchema.safeParse(aMessage({ ship }));
+
+    // Then it is refused
+    expect(parsed.success).toBe(false);
+  });
+
+  it('refuses a negative estimated cost of a kind', () => {
+    // Given a model with a negative cost for its output
+    const ship = aShip({ models: [{ model: 'claude-opus-5-5', tokens: { input: 10, output: 2, cacheRead: 0, cacheWrite: 0 }, estimatedCostUsd: { input: 0.05, output: -0.01, cacheRead: 0, cacheWrite: 0 } }] });
+
+    // When it is parsed
+    const parsed = trierarchUsageMessageSchema.safeParse(aMessage({ ship }));
 
     // Then it is refused
     expect(parsed.success).toBe(false);
