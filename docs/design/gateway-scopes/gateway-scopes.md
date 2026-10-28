@@ -240,7 +240,7 @@ The gateway waits on every person ship it crews (W7). For each delivery to a lin
 5. **No double wake:** a delivery Slack showed is not fresh, so web push and email do not wake for it (W3, W6).
 6. **Slack or the open page (P-B5):** while a page of the person is in focus (W6), their choice While a gateway page is open in focus decides where what Slack would show goes:
    - **Slack** (the default): Slack shows it as steps 1 to 5 say, even while the page is in focus.
-   - **The page**: the page shows it: each delivery is handed with channel `page` and nothing is posted in Slack. Handed, it is not fresh, so Slack does not post it when the page leaves focus; it waits on the page until the person handles it. Out of focus, Slack shows it as steps 1 to 5 say.
+   - **Gateway page**: the gateway page shows it: each delivery is handed with channel `page` and nothing is posted in Slack. Handed, it is not fresh, so Slack does not post it when the page leaves focus; it waits on the page until the person handles it. Out of focus, Slack shows it as steps 1 to 5 say.
    - **Both**: Slack shows it as steps 1 to 5 say, and Slack's acceptance acks the delivery (B4). While the page is in focus it shows only that Slack took it, never the message waiting. Out of focus, Slack alone.
    The choice covers every delivery Slack would show, a bot ship's and, with Show everything that waits in Slack on, the others'. With no page in focus it changes nothing.
 
@@ -253,7 +253,7 @@ Unhappy paths:
 ### 9.6 Pages
 
 - **Gateway, Slack** (actors holding `gateway:slack`; others see the state read-only): the workspace and token state, the gateway's bot, the exposed ships with their states, Expose a ship…, Install, Remove, Disconnect. Loading, success (Toast), refusals inline, as part A's pages.
-- **Gateway, Overview** (each person): Slack linked as @mathilde in Acme, Unlink; a switch, Show everything that waits in Slack (B5), off until turned on (W8); below it, once linked, a choice of three, While a gateway page is open in focus: Slack, The page, Both (P-B5), Slack until changed. Its caption says what the chosen one does: "Slack: what Slack can show goes to Slack, even while this page is in focus.", "The page: while this page is in focus, what arrives shows here, not in Slack.", "Both: while this page is in focus, what arrives shows in Slack, and this page shows only that Slack took it." A change saves at once, a Toast confirms it, a refusal shows inline.
+- **Gateway, Overview** (each person): Slack linked as @mathilde in Acme, Unlink; a switch, Show everything that waits in Slack (B5), off until turned on (W8); below it, once linked, a Select, While a gateway page is open in focus: Slack, Gateway page, Both (P-B5), Slack until changed; a Select so more choices can join later. Its caption says what the chosen one does: "Slack: what Slack can show goes to Slack, even while this page is in focus.", "Gateway page: while this page is in focus, what arrives shows here, not in Slack.", "Both: while this page is in focus, what arrives shows in Slack, and this page shows only that Slack took it." A change saves at once, a Toast confirms it, a refusal shows inline.
 - **Console:** nothing new in 0.33.0.
 
 ## 10. Part B: flows
@@ -277,7 +277,7 @@ Unhappy paths:
 | P-B2 | **Save first: the gateway stores the event, answers Slack, then sends to core until core stored it.** Thomas: "save first, but this is temporary. Gateway does not cummulate." Kept as 9.4 step 3 says: the event id 1 hour after core took it, an event core has not taken deleted after 24 hours and the person told. Thomas approved the timings: "P-B2 --> approved" |
 | P-B3 | **Agent ships and outside A2A agents' proxy ships can be bots; outside MCP servers' proxy ships cannot.** An MCP server reaches Slack through an agent ship that uses its tools, exposed as a bot. Thomas: "ok lets include A2A but exclude mcp. Exposing an mcp to slack through an agent is spinning up a dedicated ship that mediates between mcp and slack but that is the exact agent ship path." |
 | P-B4 | **A fleet connects one workspace; a workspace may serve several fleets.** Thomas: "if ever needs change we pick it up then" |
-| P-B5 | **When Slack and an open page of the person could both show a delivery, the person chooses** (9.5 step 6, 9.6): Slack, the page, or both; Slack until changed, as built. Thomas (28 Oct): "ok option (z): user preference" |
+| P-B5 | **When Slack and an open page of the person could both show a delivery, the person chooses** (9.5 step 6, 9.6): Slack, the gateway page, or both; Slack until changed, as built. Thomas (28 Oct): "ok option (z): user preference" |
 
 On P-B3, Thomas asked: "what is the difference between agents ships and proxy ships for the slack bot model?"
 - **An outside A2A agent's proxy ship** takes a message and answers, as an agent ship does: the gateway passes a text message on as an A2A message and the agent's answer comes back as a reply (0060). For a Slack bot there is no difference: the same model works with no new part. Its required scopes (part A) are checked on the person ship that sends.
