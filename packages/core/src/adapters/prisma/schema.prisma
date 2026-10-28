@@ -88,6 +88,7 @@ model Fleet {
   healthSnapshots                  HealthSnapshot[]
   healthSnapshotDeliveries         HealthSnapshotDelivery[]
   meetings                         Meeting[]
+  dataKeys                         DataKey[]
   meetingParticipants              MeetingParticipant[]
   meetingMicRequests               MeetingMicRequest[]
   schedules                        Schedule[]
@@ -1363,4 +1364,24 @@ enum LabelOwnerKind {
   installation
 
   @@map("label_owner_kind")
+}
+
+/// A sealed fleet's data key (decision 0068): kept only wrapped, by the company key and by the recovery key
+/// when set, with a check value (HMAC-SHA-256 of a fixed text under the key) that proves an unwrap gave
+/// the right key. Never unwrapped in the database. Old keys stay to unseal old payloads.
+model DataKey {
+  id                   String   @id
+  fleetId              String   @map("fleet_id")
+  wrappedByCompanyKey  Bytes    @map("wrapped_by_company_key")
+  wrappedByRecoveryKey Bytes?   @map("wrapped_by_recovery_key")
+  checkValue           Bytes    @map("check_value")
+  createdAt            DateTime @map("created_at") @db.Timestamptz(3)
+  isCurrent            Boolean  @map("is_current")
+
+  fleet Fleet @relation(fields: [fleetId], references: [id])
+
+  @@unique([fleetId, id])
+  /// One current data key per fleet.
+  @@unique([fleetId], map: "data_keys_fleet_id_current_key", where: { isCurrent: true })
+  @@map("data_keys")
 }
