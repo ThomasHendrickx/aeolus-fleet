@@ -38,7 +38,7 @@ Not the purpose: the bill (the vendors' consoles stay the bill); limits, budgets
 
 ## 3. What is settled
 
-Thomas answered the first eleven questions, each with the pick.
+Thomas's answers, each a rule.
 
 | # | Rule |
 | --- | --- |
@@ -47,12 +47,16 @@ Thomas answered the first eleven questions, each with the pick.
 | U3 | Kept: tokens per ship, machine, harness, model and login, with the estimated cost as the trierarch reported it at the time; and each harness's subscription windows per machine. The login is kept from the day the trierarch reports it (#35); before that it reads "not reported". |
 | U4 | Tokens are kept per hour. |
 | U5 | Kept for the fleet's retention (0066), for good when unset. |
-| U6 | One chart of tokens over time for the whole fleet, split by one of machine, harness, model, ship or login, with a filter per breakdown. The subscription windows in a chart of their own. |
+| U6 | One chart of tokens over time for the whole fleet, split by one of machine, harness, model, ship, login or token kind, with a filter per breakdown. The subscription windows in a chart of their own. |
 | U7 | A switch between tokens and estimated cost, opening on tokens. On a subscription the dollars are list prices, which the page says once. |
 | U8 | A Usage page of its own in the navigation, shown only with the trierarch plugin; the ship page and the machine card link to it filtered to them. |
 | U9 | The trierarch reads a ship's tokens once more when the ship is released, before it removes its folder, and sends them. |
 | U10 | #1309's attribution to a release is out: hourly history per ship adds a release up by its time span. |
 | U11 | No backfill: history starts when this ships. |
+| U12 | Usage reaches the trierarch plugin as messages from the trierarch to the plugin's ship, hours by the transcript's own time. A message is stored before the send returns OK and waits while the plugin is down. |
+| U13 | The trierarch sends once an hour, at the first token read after the hour turns, and once at release. The current hour shows once it ends; the machine card keeps the live reading. |
+| U14 | "Tokens" adds up all four kinds (input, output, cache read, cache write); each kind is in the tooltip and the table, and token kind is a sixth split. |
+| U15 | Ranges over 7 days show UTC days from the rollup, the axis saying "days in UTC"; ranges up to 7 days show hours in the viewer's time zone. |
 
 ## 4. Design
 
@@ -77,7 +81,7 @@ The trierarch sends its usage to the trierarch plugin's ship as a message, so it
 - **Hours by the transcript's own time**: each Claude Code message and each Codex turn counts in the UTC hour it happened, not the hour it was read (L2). An hour's tokens are its total so far, set, never added: sending an hour again changes nothing.
 - **folderMadeAt** tells two folders of one ship on one machine apart, so a fresh folder in the same hour never overwrites the old folder's tokens.
 - **login**: as #35 names it, null until the trierarch reports one.
-- **When**: once an hour, at the first token read after the hour turns (question N2), and once more when a ship is released (U9): it reads the ship's transcripts, sends, and removes the folder only after that send returned OK. Each send carries every hour whose totals changed since the last OK send, so an hour a late transcript entry changes is sent again.
+- **When**: once an hour, at the first token read after the hour turns (U13), and once more when a ship is released (U9): it reads the ship's transcripts, sends, and removes the folder only after that send returned OK. Each send carries every hour whose totals changed since the last OK send, so an hour a late transcript entry changes is sent again.
 - **Idempotency key** `usage:<trierarch ship id>:<readAt>`. A send that fails (fleet unreachable, the daily message limit) changes nothing in the trierarch: the next send carries those hours too. A payload over 64 KB is split into several messages of whole hours.
 - **What the trierarch keeps**: per folder, the totals it last sent per hour, in its state. Lost state only means it sends every hour its transcripts hold again, which changes nothing.
 
@@ -101,7 +105,7 @@ The console reads usage from the trierarch plugin over its tRPC, checked with th
 
 | Procedure | Input | Answers |
 | --- | --- | --- |
-| `usage.tokens` | `from`, `to`, `splitBy` (`machine`, `harness`, `model`, `ship`, `login` or none), filters (machine, harness, model, ship and login ids, each a list) | `grain` (hour up to 7 days, else day from `usage_days`); per bucket and series the four token kinds, the estimated cost and the tokens not priced; the series, at most 7 by total in the range and `other` for the rest, each with its name |
+| `usage.tokens` | `from`, `to`, `splitBy` (`machine`, `harness`, `model`, `ship`, `login`, `kind` or none), filters (machine, harness, model, ship and login ids, each a list) | `grain` (hour up to 7 days, else day from `usage_days`); per bucket and series the four token kinds, the estimated cost and the tokens not priced; the series, at most 7 by total in the range and `other` for the rest, each with its name |
 | `usage.values` | `from`, `to`, one breakdown, a cursor | that breakdown's values in the range with their totals, 20 per page, for the filter menus |
 | `usage.windows` | `from`, `to`, machine and harness filters, a cursor | per machine and harness, 20 per page, each window's readings in the range |
 
@@ -180,34 +184,7 @@ Unhappy paths in words:
 - **Links**: the machine card and a ship's Crew request card get a "Usage" link to the page filtered to that machine or ship.
 - **States**: loading, empty ("No usage in this range"), cannot read ("Usage cannot be read now: the trierarch plugin does not answer"), and partial (machines sending no usage named under the chart).
 
-## 5. Questions
-
-N1. **How usage reaches the plugin.** Context: the plugin already reads every report each pass (L9), but details hold only running totals, latest only (L2, L4).
-   1. The trierarch sends hourly usage as messages to the plugin's ship, hours by the transcript's own time (section 4).
-   2. The plugin turns each report's running totals into the tokens since its last reading, in the hour it reads them.
-
-   Pick: 1. A message is stored before OK and waits while the plugin is down; hours by transcript time stay right when the trierarch or the plugin was offline, where 2 puts hours of work into the hour the plugin came back. It costs a trierarch change and 24 messages a day per machine.
-
-N2. **How often the trierarch sends.** Context: the daily message limit (L13), freshness of the chart.
-   1. Once an hour, after the hour turns, and at each release: the current hour shows once it ends.
-   2. After each 5 minute read with new tokens: the current hour shows within 5 minutes, up to 288 messages a day per machine.
-
-   Pick: 1. The grain is an hour (U4); a partial hour reads as a dip; the machine card keeps the live reading.
-
-N3. **What "tokens" adds up.** Context: on Claude Code the cache reads are usually far more than every other kind together (L1), so a sum of all four is mostly cache reads.
-   1. All four kinds summed, each kind in the tooltip and the table.
-   2. Input and output only, the cache in the tooltip and the table.
-   3. All four summed, and token kind offered as a sixth split.
-
-   Pick: 3. The sum is what a model processed, and splitting by kind shows at once how much was cache; the cost switch weighs them.
-
-N4. **Days past 7 days.** Context: the day rollup is kept in UTC days, so a day bar for someone in Brussels runs from 01:00 or 02:00.
-   1. UTC days, the axis saying "days in UTC".
-   2. Days in the viewer's time zone, summed from hours at read time, with no day rollup (slower past 7 days).
-
-   Pick: 1. The rollup keeps 90 days within the read budget at fleet scale; ranges up to 7 days are hours in the viewer's own time zone.
-
-## 6. Today
+## 5. Today
 
 What the console shows of usage now: nothing outside report details, and only the latest reading.
 
