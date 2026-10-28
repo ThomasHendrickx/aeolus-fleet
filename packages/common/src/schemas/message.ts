@@ -50,8 +50,9 @@ export const MODEL_MAX_LENGTH = 100;
 
 /**
  * The model a session runs, as it states it on each send (docs/blueprint.md,
- * "Model"): its exact id, such as claude-opus-5-5, trimmed, without spaces.
- * Self-reported: the fleet stores it and never verifies it.
+ * "Model"): its exact id, such as claude-opus-5-5, or auto when the harness
+ * chooses the model per request, trimmed, without spaces. Self-reported: the
+ * fleet stores it and never verifies it, not even auto against the harness.
  */
 export const modelSchema = z
   .string()

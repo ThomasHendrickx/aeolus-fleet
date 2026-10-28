@@ -253,7 +253,7 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Ship protocol | How a crew works a ship from register to the end of its turn, sent by the fleet to every connecting session | core |
 | Location | Where the session runs: `DEVICE`, `CLOUD`, `SERVER`, or `OTHER` with a description; never interpreted | core |
 | Harness | What the session runs in: free text, known `claude-code`, `claude-chat`, `codex`; read with the location (0018) | core |
-| Model | The exact model id stated on every agent send, never on a ping or resend; self-reported, the last stated is the ship's (0018) | core |
+| Model | The exact model id stated on every agent send, or `auto` when the harness chooses the model per request, never on a ping or resend; self-reported, the last stated is the ship's (0018) | core |
 | Report | A crew's latest word: working, blocked or idle, a note of at most 200 characters, optional details; on the lease (0028) | core |
 | Details | A report's JSON part, at most 16 KB, versioned; its shape per ship type in common (0028) | core |
 | Statement | What a ship is and offers: a summary and capabilities, stated by its crew (0047) | core |

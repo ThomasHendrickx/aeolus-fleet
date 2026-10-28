@@ -130,6 +130,10 @@ describe('modelSchema', () => {
     expect(modelSchema.parse('  claude-opus-5-5 ')).toBe('claude-opus-5-5');
   });
 
+  it('takes auto, stated when the harness chooses the model per request', () => {
+    expect(modelSchema.parse('auto')).toBe('auto');
+  });
+
   it('accepts an id of exactly 100 characters', () => {
     expect(modelSchema.safeParse('m'.repeat(MODEL_MAX_LENGTH)).success).toBe(true);
   });
