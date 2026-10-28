@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { idSchema } from '../ids/index.js';
 import { harnessSchema } from '../schemas/ship.js';
-import { modelUsageSchema, subscriptionReadingSchema } from './report-details.js';
+import { subscriptionReadingSchema } from './report-details.js';
 
 /** The content type of a trierarch's usage message to the trierarch plugin's ship. */
 export const TRIERARCH_USAGE_CONTENT_TYPE = 'application/vnd.aeolus.trierarch.usage+json';
@@ -15,6 +15,20 @@ const utcHourSchema = z.iso.datetime().refine((value) => {
   const at = new Date(value);
   return at.getUTCMinutes() === 0 && at.getUTCSeconds() === 0 && at.getUTCMilliseconds() === 0;
 }, 'An hour starts a UTC hour');
+
+const tokenCountSchema = z.int().nonnegative();
+const costSchema = z.number().nonnegative();
+
+/**
+ * The tokens of one model in one hour, each kind with its cost estimated from
+ * the trierarch's price table, so the Usage page splits cost by token kind;
+ * null for a model the table does not price.
+ */
+const modelHourUsageSchema = z.strictObject({
+  model: z.string().min(1),
+  tokens: z.strictObject({ input: tokenCountSchema, output: tokenCountSchema, cacheRead: tokenCountSchema, cacheWrite: tokenCountSchema }),
+  estimatedCostUsd: z.strictObject({ input: costSchema, output: costSchema, cacheRead: costSchema, cacheWrite: costSchema }).nullable(),
+});
 
 /**
  * The usage a trierarch sends its trierarch plugin's ship (aeolus-fleet's
@@ -35,7 +49,7 @@ export const trierarchUsageMessageSchema = z.strictObject({
           folderMadeAt: z.iso.datetime(),
           /** The subscription or API key the ship ran on; null while the trierarch names none. */
           login: z.string().min(1).nullable(),
-          models: z.array(modelUsageSchema),
+          models: z.array(modelHourUsageSchema),
         }),
       ),
     }),
