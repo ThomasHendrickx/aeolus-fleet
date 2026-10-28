@@ -100,6 +100,7 @@ export function MachineList({ connection, machines, ships, error, onRetry, onJoi
           key={machine.shipId}
           machine={machine}
           spots={spotsOf(machine, ships)}
+          ships={ships}
           location={ships.find((ship) => ship.id === machine.shipId)?.location ?? null}
           onNewSetupLine={onNewSetupLine === undefined ? undefined : () => {
             onNewSetupLine(machine);

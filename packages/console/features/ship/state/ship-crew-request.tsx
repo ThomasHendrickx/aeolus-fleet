@@ -3,6 +3,7 @@
 import type { ShipDetail, TimelineEntry } from '@aeolus-fleet/common';
 import { useState } from 'react';
 
+import { shipLoginOf } from '../../../lib/api-key-logins';
 import { lazyDialog } from '../../../lib/lazy-dialog';
 import { useAccess } from '../../../lib/access';
 import { crewRequestStage, releaseSteps, requestedBy, statusChangedAt, type CrewRequestStage } from '../../../lib/crew-request';
@@ -12,7 +13,7 @@ import { pickedChips } from '../../../lib/labels';
 import { useCrewSettings } from '../../../lib/crew-settings';
 import { machineLabelIdsOf } from '../../../lib/machine-labels';
 import { isUnclaimedPromptOut } from '../../../lib/starting-prompt';
-import { useHasTrierarchPlugin } from '../../../lib/trierarch-plugin';
+import { useHasTrierarchPlugin, useMachines } from '../../../lib/trierarch-plugin';
 import { showToast } from '../../../components/atoms/toast';
 import { CrewRequestCard, type CrewRequestBusy } from '../ui/organisms/crew-request-card';
 import { useRequestCrewFlow } from './request-crew-flow';
@@ -37,6 +38,7 @@ function sessionLocationOf(ship: ShipDetail): string | null {
 export function ShipCrewRequest({ ship, timeline, now }: { ship: ShipDetail; timeline: readonly TimelineEntry[]; now: Date }) {
   const access = useAccess();
   const hasTrierarchs = useHasTrierarchPlugin();
+  const machines = useMachines();
   const requestCrew = useRequestCrew();
   const labelContext = useLabelContext();
   const removeCrewRequest = useRemoveCrewRequest();
@@ -57,6 +59,12 @@ export function ShipCrewRequest({ ship, timeline, now }: { ship: ShipDetail; tim
   }
   const stage = crewRequestStage(ship);
   const request = ship.crewRequest;
+  // The login its trierarch reports for it (K8), read from that machine's report.
+  const machineDetails = stage.kind === 'assigned' ? machines.data?.find((machine) => machine.shipId === stage.trierarch.id)?.details : undefined;
+  const login =
+    stage.kind === 'assigned' && machineDetails !== undefined && machineDetails !== null
+      ? shipLoginOf(machineDetails, { shipId: ship.id, harness: settings?.harness ?? ship.harness ?? undefined, isRunning: stage.status === 'running' })
+      : undefined;
 
   /** Runs one call of the card, showing it busy, and keeps its failure on the card. */
   const run = async (action: Exclude<CrewRequestBusy, undefined>, call: () => Promise<unknown>): Promise<boolean> => {
@@ -134,6 +142,7 @@ export function ShipCrewRequest({ ship, timeline, now }: { ship: ShipDetail; tim
         busy={busy}
         error={error}
         settingsRows={request === null ? undefined : settingsRows(settings)}
+        {...(login === undefined ? {} : { login })}
         {...(request === null || labelContext === undefined ? {} : { machineLabels: pickedChips(machineLabelIdsOf(settings), labelContext) })}
         onRequest={() => {
           if (hasTrierarchs) {
