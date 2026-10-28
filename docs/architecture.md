@@ -84,6 +84,7 @@ One server may host many fleets for a hosting service such as pagasae (decision 
 | `Notifier` | Wake receivers and live subscriptions after commit | Postgres `LISTEN/NOTIFY` |
 | `SecretHasher`, `PasswordHasher` | Hash ship secrets, crew tokens and session tokens (SHA-256); hash the operator password (Argon2id) | Node crypto for both (`crypto.argon2` for Argon2id) |
 | `KeyVault` | Make a data key under a company key, unwrap one, wrap a given one, rewrap from one company key to another; every call carries the encryption context `aeolus:fleet = <fleet id>` (decision 0068). Called outside every transaction | AWS KMS (`GenerateDataKey`, `Decrypt`, `Encrypt`, `ReEncrypt`), LocalStack in Testcontainers; in memory for unit tests |
+| `PayloadSealer` | Seal and unseal a payload with an unwrapped data key, bound to its fleet and row; the check value of a data key (decision 0068) | Node crypto (AES-256-GCM, HMAC-SHA-256) |
 | `Clock`, `IdGenerator` | Time and prefixed ids, injectable so tests are deterministic | System clock, id library |
 
 The cross-context calls, Messaging asking Registry to resolve a selector, check that a ship is not retired, name a delivery's sender, hold a crew's lease during a receive, find a crewed ship to ping and mark a lease seen on pong, go through a Registry port, never through Registry's tables.
