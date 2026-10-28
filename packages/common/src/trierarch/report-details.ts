@@ -80,7 +80,8 @@ export const modelUsageSchema = z.strictObject({
  */
 const harnessUsageSchema = z.strictObject({
   subscriptions: z.array(subscriptionReadingSchema),
-  ships: z.array(z.strictObject({ shipId: idSchema('ship'), models: z.array(modelUsageSchema) })),
+  /** Each ship's harness: none from a trierarch before 0.34.0. */
+  ships: z.array(z.strictObject({ shipId: idSchema('ship'), harness: harnessSchema.optional(), models: z.array(modelUsageSchema) })),
 });
 
 /** The longest reason a harness is not offered: one line for the console. */
@@ -140,10 +141,11 @@ export const trierarchReportDetailsSchema = z.strictObject({
   notOffered: z.array(z.strictObject({ harness: harnessSchema, reason: z.string().min(1).max(NOT_OFFERED_REASON_MAX_LENGTH) })).optional(),
   /**
    * The login of each ship it crews (K8): its running or last session's, and
-   * `next` when its next start would use the other one (K3). None from a
+   * `next` when its next start would use the other one (K3), with the
+   * ship's harness, so each harness counts its own ships (K12). None from a
    * trierarch before 0.34.0.
    */
-  logins: z.array(z.strictObject({ shipId: idSchema('ship'), login: sessionLoginSchema, next: sessionLoginSchema.optional() })).optional(),
+  logins: z.array(z.strictObject({ shipId: idSchema('ship'), harness: harnessSchema.optional(), login: sessionLoginSchema, next: sessionLoginSchema.optional() })).optional(),
   /** None from a trierarch before 0.31.0. */
   load: machineLoadSchema.optional(),
   /** None from a trierarch before 0.31.0. */
