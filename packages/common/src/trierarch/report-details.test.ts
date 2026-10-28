@@ -266,4 +266,80 @@ describe('trierarchReportDetailsSchema', () => {
 
     expect(trierarchReportDetailsSchema.safeParse(change({ ...details })).success).toBe(false);
   });
+
+  describe('the logins sessions run on (aeolus-fleet-trierarch api keys K8)', () => {
+    const SHIP = 'shp_01m473j7hp3x6gha0gzs1mnf88';
+    const OTHER_SHIP = 'shp_01m473j7hp3x6gha0gzs1mnf89';
+    const onLogins = (fields: { harnesses?: unknown[]; logins?: unknown; usage?: unknown }) => ({
+      harnesses: [],
+      workspaces: { repositories: [], folders: [] },
+      caps: { ships: 2, running: 1 },
+      kept: [],
+      orphans: [],
+      ...fields,
+      version: '0.34.0',
+    });
+
+    it("takes each harness's default login and its key's state, since when it is not ready", () => {
+      const details = onLogins({
+        harnesses: [
+          { harness: 'claude-code', options: {}, flags: [], login: { default: 'apiKey', key: 'outOfCredit', keyStateAt: '2026-10-28T14:02:00.000Z' } },
+          { harness: 'codex', options: {}, flags: [], login: { default: 'subscription', key: 'none' } },
+        ],
+      });
+
+      expect(trierarchReportDetailsSchema.parse(details)).toEqual(details);
+    });
+
+    it.each(['none', 'ready', 'refused', 'outOfCredit'])('takes the key state %s', (key) => {
+      const details = onLogins({ harnesses: [{ harness: 'claude-code', options: {}, flags: [], login: { default: 'subscription', key } }] });
+
+      expect(trierarchReportDetailsSchema.parse(details)).toEqual(details);
+    });
+
+    it('refuses a key state or a login it does not know', () => {
+      const unknownState = onLogins({ harnesses: [{ harness: 'claude-code', options: {}, flags: [], login: { default: 'subscription', key: 'expired' } }] });
+      const unknownLogin = onLogins({ harnesses: [{ harness: 'claude-code', options: {}, flags: [], login: { default: 'bedrock', key: 'none' } }] });
+
+      expect(trierarchReportDetailsSchema.safeParse(unknownState).success).toBe(false);
+      expect(trierarchReportDetailsSchema.safeParse(unknownLogin).success).toBe(false);
+    });
+
+    it('refuses a key in a harness\'s login: the key stays on the computer (K7)', () => {
+      const details = onLogins({ harnesses: [{ harness: 'claude-code', options: {}, flags: [], login: { default: 'apiKey', key: 'ready', apiKey: 'test-key-not-real' } }] });
+
+      expect(trierarchReportDetailsSchema.safeParse(details).success).toBe(false);
+    });
+
+    it('takes the login of each ship it crews, and the other one its next start would use', () => {
+      const details = onLogins({
+        logins: [
+          { shipId: SHIP, login: 'apiKey' },
+          { shipId: OTHER_SHIP, login: 'apiKey', next: 'subscription' },
+        ],
+      });
+
+      expect(trierarchReportDetailsSchema.parse(details)).toEqual(details);
+    });
+
+    it('takes the tokens of each model split per login, so the cost on the key is the sum of its apiKey entries', () => {
+      const tokens = { input: 100, output: 2000, cacheRead: 50000, cacheWrite: 1000 };
+      const details = onLogins({
+        usage: {
+          subscriptions: [],
+          ships: [
+            {
+              shipId: SHIP,
+              models: [
+                { model: 'claude-opus-5-5', login: 'subscription', tokens, estimatedCostUsd: 1.5 },
+                { model: 'claude-opus-5-5', login: 'apiKey', tokens, estimatedCostUsd: 1.5 },
+              ],
+            },
+          ],
+        },
+      });
+
+      expect(trierarchReportDetailsSchema.parse(details)).toEqual(details);
+    });
+  });
 });
