@@ -2,6 +2,8 @@
 
 Design for the gateway calling outside MCP servers that accept only the authorization code flow, where a human signs in and consents in a browser, such as Attio's hosted server `https://mcp.attio.com/mcp` ("Authentication is OAuth only", no API key). Docs only: purpose, lessons, decisions, the flow, acceptance scenarios and the build slices.
 
+Approved by Thomas on 28 Oct 2026, with his answers to Q14 to Q17 below as the approval. The build starts from its slices.
+
 ## 1. Purpose
 
 In Thomas's words (28 Oct 2026): "I would make a dedicated Aeolus account in attio ... problem is tracking, but this is core of our setups. We connect your apps, so this needs to work".
@@ -96,27 +98,12 @@ Every ship has an owner, a person ship or argo, and a person ship owns itself (0
 - **Q11 A grant serves every ship its person owns.** Every ship the person owns, their person ship included, calls under their grant, within reach and the tool switches; a change of owner moves a ship to the new owner's grant from its next call. Why: ownership already says who answers for a ship (L33). Rejected: the person picking which of their ships may use their grant.
 - **Q12 Who sees grants.** Each person sees their own grant on the page: the outside account, when signed in, last used, and its state. Every actor holding `gateway:approve` within manage reach of the proxy ship sees the list of all of them, never a token. The proxy ship's verified facts keep the issuer only (0059). Why: an approver must see who is set up to remove a leaver's or a wrong grant. Rejected: each person seeing only their own.
 - **Q13 Two persons, one outside account: refused where the gateway can tell.** Where the server gives an `openid` subject, a second person's sign-in as an outside account another person's grant already names is turned away with why; where it gives none, the list (Q12) shows what the gateway knows. Why: a shared outside account is the shared grant Q1 turned away. Rejected: allowed and shown; allowed without a word.
+- **Q14 A leaver's grants: removed when the account is disabled.** When pagasae tells the gateway an account was disabled, as it stops a Slack link, the gateway removes every grant of that account; the account's ships then answer as Q5 until a new owner signs in (Q11). Why: a leaver's outside account must stop acting for the fleet when their access does; disabling an account keeps their ships (0055), which would otherwise still call as the leaver. Rejected: grants going only when the person ship is retired.
+- **Q15 Whose grant reads the server's tools: the approver's, then any usable grant.** Adding a server ends with the approver signing in for themselves; their grant reads `tools/list` for the proxy ship's statement and the tool switches. Later statements use any usable grant, the most recently used first. Why: the approver who adds a server is a person too and is the one who checks its tools. Rejected: the proxy ship unstated, and its tools unswitched, until any person signs in (a party no ship can see until someone happens to sign in).
+- **Q16 Who may sign in on the server's page: every account of the fleet with a person ship.** Each sees the server's page with their own sign-in; changing the party still needs its scopes. Why: who reaches the server changes with labels and rules, and tying the page to it would hide the sign-in from a person whose ship gets reach tomorrow; a grant alone calls nothing, as reach, the switches and the scope check gate every call (L29). Rejected: only accounts whose owned ships may reach the proxy ship.
+- **Q17 A server without dynamic registration: refused, for now.** Adding a server whose authorization server offers no `registration_endpoint` is refused saying so, and nothing is kept. Why: Q4 registers a client per party by dynamic registration, and the first server, Attio, offers it (L10). Rejected for now: a pre-registered client id the approver enters; CIMD comes when the first server offers it (Q4).
 
-## 4. Questions the flow raises
-
-Writing the flow found three behaviours the decisions do not settle. The flow, scenarios and slices below follow each pick; a different answer changes the marked lines only.
-
-14. **What happens to a leaver's grants when their account is disabled?**
-   Context: disabling an account releases its person ship and keeps every ship (0055); Q6 removes grants only when the person ship is retired. Until then a leaver's agent ships would still call as the leaver's outside account. pagasae already tells the gateway when an account is disabled (gateway README, Slack: "its link stops").
-   Options: (a) the gateway removes every grant of the account when pagasae says it was disabled, as it stops a Slack link; (b) grants go only when the person ship is retired, as Q6 says.
-   Pick: (a). A leaver's outside account must stop acting for the fleet when their access does; their ships then answer as Q5 until a new owner signs in (Q11).
-
-15. **Whose grant reads the server's tools, for the proxy ship's statement and its switches?**
-   Context: the gateway states the proxy ship from the server's `tools/list` and the approver switches tools on the add page (gateway README, Parties). An OAuth-only server lists no tools without a grant. Q3 puts the sign-in on the same page as adding.
-   Options: (a) adding a server ends with the approver signing in for themselves; their grant reads the tools, and later statements use any usable grant, the most recently used first; (b) the proxy ship stays unstated, and tools unswitched, until any person signs in.
-   Pick: (a). The approver who adds a server is a person too and is the one who checks its tools; (b) leaves a party no ship can see until someone happens to sign in.
-
-16. **Who may sign in on the server's page?**
-   Context: today the parties pages are for accounts by scope. Q3 and Q9 send every person to the server's page, and reach, the switches and the scope check already gate every call (L29).
-   Options: (a) every account of the fleet with a person ship sees the server's page with its own sign-in; changing the party still needs its scopes; (b) only accounts whose person ship's owned ships may reach the proxy ship.
-   Pick: (a). Who reaches the server changes with labels and rules; tying the page to it would hide the sign-in from a person whose ship gets reach tomorrow. A grant alone calls nothing.
-
-## 5. Flow
+## 4. Flow
 
 ```mermaid
 flowchart TD
@@ -126,7 +113,7 @@ flowchart TD
     A2 -- yes --> A3{"Authorization server metadata found, issuer matches, PKCE S256 stated?"}
     A3 -- no --> AX2["Refused, naming the failed check. Nothing kept"]
     A3 -- yes --> A4{"registration_endpoint offered?"}
-    A4 -- no --> AX3["Refused: the server offers no dynamic registration. Nothing kept"]
+    A4 -- no --> AX3["Refused: the server offers no dynamic registration (Q17). Nothing kept"]
     A4 -- yes --> A5["Dynamic registration for this party: redirect URI, client name naming the party (Q4)"]
     A5 -- refused or no answer --> AX4["Refused with the server's error. Nothing kept"]
     A5 -- client id and secret --> A6["Party kept with its client, bound to its issuer; proxy ship commissioned and crewed"]
@@ -186,13 +173,13 @@ flowchart TD
 
 A call checks the grant when it is handed over, never earlier: a grant removed while a call waits refuses it, and one signed in while it waits lets it through. A call already made when its grant is removed completes.
 
-## 6. Acceptance scenarios
+## 5. Acceptance scenarios
 
 ### Add a server
 
 1. **Given** an approver and Attio's metadata (L10), **when** they add `https://mcp.attio.com/mcp` with each person signing in, **then** the gateway registers one client for the party, keeps it bound to `https://app.attio.com`, commissions the proxy ship and sends the approver to sign in.
 2. **Given** a server whose authorization server does not state PKCE S256, **when** an approver adds it, **then** it is refused naming PKCE S256, and nothing is kept.
-3. **Given** a server that offers no dynamic registration, **when** an approver adds it, **then** it is refused saying so, and nothing is kept.
+3. **Given** a server that offers no dynamic registration, **when** an approver adds it, **then** it is refused saying so, and nothing is kept (Q17).
 4. **Given** the approver just added Attio, **when** they sign in for themselves, **then** the gateway lists the tools under their grant, they switch tools, and the proxy ship is stated with the issuer as its verified fact (Q15).
 5. **Given** two fleets that each add Attio, **when** both are added, **then** each party has its own client, and retiring one leaves the other's grants working (Q4).
 
@@ -234,7 +221,7 @@ A call checks the grant when it is handed over, never earlier: a grant removed w
 30. **Given** Mathilde's account is disabled, **when** pagasae tells the gateway, **then** every grant of hers is revoked and dropped, and her ships' calls get Q5's error result (Q14).
 31. **Given** Attio's party is retired, **when** it is retired, **then** every grant of the party is revoked and dropped, and the client is deleted where Attio offers it.
 
-## 7. Screens
+## 6. Screens
 
 Each needs a before and after mockup Thomas approves before its slice starts.
 
@@ -242,13 +229,13 @@ Each needs a before and after mockup Thomas approves before its slice starts.
 - **M2 A server's page, your sign-in** (`/outside-parties/<name>`, for every account of the fleet with a person ship, Q16): not signed in, with Sign in; signed in as an outside account, when, last used, Sign in again and Remove; lost, with why and Sign in again; the sign-in failed and turned away states (scenarios 7, 8, 10).
 - **M3 A server's page, everyone's sign-ins** (for `gateway:approve` within manage reach): each person, their outside account, state, last used, and Remove; empty, loading and refusal states.
 
-## 8. Slices
+## 7. Slices
 
 Each one PR. S1 first; each page slice after its API slice and its mockup.
 
 | # | Slice | Repository | Done when |
 | --- | --- | --- | --- |
-| S1 | The decision file for outside OAuth sign-ins per person, Q1 to Q16 as rules, and its index line | aeolus-fleet | The index names it; no open question left in the design |
+| S1 | The decision file for outside OAuth sign-ins per person, Q1 to Q17 as rules, and its index line | aeolus-fleet | The index names it; no open question left in the design |
 | S2 | Add an OAuth sign-in server, API: discovery (L1), the checks, dynamic registration per party (Q4), the party and its client kept, the proxy ship commissioned unstated | aeolus-fleet-gateway | Scenarios 1 (to the sign-in), 2, 3, 5 against an authorization server double shaped as Attio's |
 | S3 | A person signs in, API and callback: state, PKCE, `resource`, `iss` where stated, the token exchange, the grant, the `openid` subject and Q13, remove your own grant, the proxy ship stated from the first grant (Q15) | aeolus-fleet-gateway | Scenarios 4, 6 to 10, 24 against the double |
 | S4 | A call under its owner's grant: the owner read at hand-over, Q10, Q5's error result, Q6 and Q9's message once, 401 refresh once, 403 `insufficient_scope` | aeolus-fleet-gateway | Scenarios 11 to 16, 18, 23; a restart replies again and never calls again |
