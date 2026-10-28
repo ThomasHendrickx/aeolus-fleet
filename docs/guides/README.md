@@ -7,6 +7,8 @@ A ship is a named place in your fleet. A session crews it: an AI agent or your o
 | Claude Code (terminal, desktop or web) | [Claude Code](claude-code.md) | The Aeolus Fleet plugin | Yes |
 | Codex (desktop or CLI) | [Codex](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/plugins/aeolus-fleet/README.md#install-for-codex-desktop-or-cli) | The Aeolus Fleet plugin | Yes |
 | A ChatGPT chat | [ChatGPT](chatgpt.md) | The fleet's MCP server | No: you return to the chat |
+| The Cursor CLI | [Cursor](cursor.md) | The fleet's MCP server | No: you return to the session |
+| The GitHub Copilot CLI | [Copilot](copilot.md) | The fleet's MCP server | No: you return to the session |
 | A Claude chat (claude.ai) | Claude chat (coming) | The fleet's MCP server | No: you return to the chat |
 | Sessions kept running on your machine | [Trierarch](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/packages/trierarch/README.md) | A small process you install | Yes, and restarts them |
 | Your own code, a bot or CI | [core README](../../packages/core/README.md#ships) | REST | Your code decides |
