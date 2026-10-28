@@ -47,6 +47,21 @@ const machineLoadSchema = z.strictObject({
   disk: z.strictObject({ totalBytes: byteCountSchema, freeBytes: byteCountSchema }),
 });
 
+/** How much of one harness's subscription is used, per window, as the trierarch read it. */
+export const subscriptionReadingSchema = z.strictObject({
+  harness: harnessSchema,
+  /** When the trierarch read it (ISO 8601 in UTC). */
+  readAt: z.iso.datetime(),
+  windows: z.array(z.strictObject({ windowMinutes: z.int().positive(), usedPercent: percentSchema, resetsAt: z.iso.datetime() })),
+});
+
+/** The tokens of one model, with their cost estimated from the trierarch's price table (null for a model it does not price). */
+export const modelUsageSchema = z.strictObject({
+  model: z.string().min(1),
+  tokens: z.strictObject({ input: tokenCountSchema, output: tokenCountSchema, cacheRead: tokenCountSchema, cacheWrite: tokenCountSchema }),
+  estimatedCostUsd: z.number().nonnegative().nullable(),
+});
+
 /**
  * What the trierarch reads of its harnesses' usage (#353): how much of each
  * harness's subscription is used, per window, and the tokens each ship it
@@ -54,26 +69,8 @@ const machineLoadSchema = z.strictObject({
  * for a model the table does not price).
  */
 const harnessUsageSchema = z.strictObject({
-  subscriptions: z.array(
-    z.strictObject({
-      harness: harnessSchema,
-      /** When the trierarch read it (ISO 8601 in UTC). */
-      readAt: z.iso.datetime(),
-      windows: z.array(z.strictObject({ windowMinutes: z.int().positive(), usedPercent: percentSchema, resetsAt: z.iso.datetime() })),
-    }),
-  ),
-  ships: z.array(
-    z.strictObject({
-      shipId: idSchema('ship'),
-      models: z.array(
-        z.strictObject({
-          model: z.string().min(1),
-          tokens: z.strictObject({ input: tokenCountSchema, output: tokenCountSchema, cacheRead: tokenCountSchema, cacheWrite: tokenCountSchema }),
-          estimatedCostUsd: z.number().nonnegative().nullable(),
-        }),
-      ),
-    }),
-  ),
+  subscriptions: z.array(subscriptionReadingSchema),
+  ships: z.array(z.strictObject({ shipId: idSchema('ship'), models: z.array(modelUsageSchema) })),
 });
 
 /** The longest reason a harness is not offered: one line for the console. */
