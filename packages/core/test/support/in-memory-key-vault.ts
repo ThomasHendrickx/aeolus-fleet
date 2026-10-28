@@ -6,8 +6,6 @@
  */
 import { randomBytes } from 'node:crypto';
 
-import type { FleetId } from '@aeolus-fleet/common';
-
 import type { CompanyKeyReference, CompanyKeyUse, KeyUnavailable, KeyUnavailableReason, KeyVault, WrappedDataKey } from '../../src/domain/messaging/key-vault.js';
 import { err, ok, type Result } from '../../src/domain/shared/result.js';
 import type { KeyVaultWorld } from './key-vault-contract.js';
@@ -30,7 +28,7 @@ function refused(reason: KeyUnavailableReason): Result<never, KeyUnavailable> {
   return err({ kind: 'keyUnavailable', reason });
 }
 
-function wrapOf(companyKey: CompanyKeyReference, fleetId: FleetId, material: Uint8Array): WrappedDataKey {
+function wrapOf({ companyKey, fleetId }: CompanyKeyUse, material: Uint8Array): WrappedDataKey {
   return new Uint8Array(Buffer.from([companyKey, fleetId, Buffer.from(material).toString('hex')].join(SEPARATOR), 'utf8'));
 }
 
@@ -68,7 +66,7 @@ export function createInMemoryKeyVault(): KeyVaultWorld {
 
   const wrapWith = (use: CompanyKeyUse, material: Uint8Array): Result<WrappedDataKey, KeyUnavailable> => {
     const reason = usable(use.companyKey);
-    return reason === undefined ? ok(wrapOf(use.companyKey, use.fleetId, material)) : refused(reason);
+    return reason === undefined ? ok(wrapOf(use, material)) : refused(reason);
   };
 
   const vault: KeyVault = {
@@ -85,7 +83,7 @@ export function createInMemoryKeyVault(): KeyVaultWorld {
       if (!opened.isOk) {
         return Promise.resolve(opened);
       }
-      return Promise.resolve(reason === undefined ? ok(wrapOf(change.to, change.fleetId, opened.value)) : refused(reason));
+      return Promise.resolve(reason === undefined ? ok(wrapOf({ companyKey: change.to, fleetId: change.fleetId }, opened.value)) : refused(reason));
     },
   };
 

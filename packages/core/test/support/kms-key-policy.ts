@@ -94,7 +94,7 @@ export async function startKmsKeyPolicy(kmsEndpoint: string): Promise<KmsKeyPoli
     close: () =>
       new Promise<void>((resolve) => {
         server.closeAllConnections();
-        server.close(() => resolve());
+        server.close(() => { resolve(); });
       }),
   };
 }

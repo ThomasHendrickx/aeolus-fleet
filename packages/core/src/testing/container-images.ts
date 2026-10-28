@@ -13,8 +13,15 @@ export const POSTGRES_IMAGE = 'public.ecr.aws/docker/library/postgres:16-alpine'
 /** Ryuk, the reaper Testcontainers starts to remove containers a run leaves behind, from Testcontainers' own GitHub registry. */
 export const REAPER_IMAGE = 'ghcr.io/testcontainers/ryuk:0.14.0';
 
+/**
+ * LocalStack, the AWS KMS the key vault is tested against (decision 0068), from
+ * LocalStack's own Amazon ECR Public repository. Pinned: a release after it may
+ * ask for an account's token.
+ */
+export const LOCALSTACK_IMAGE = 'public.ecr.aws/localstack/localstack:4.14.0';
+
 /** Every image the tests start, one per line when this file runs, for CI to cache. */
-export const TEST_IMAGES: readonly string[] = [POSTGRES_IMAGE, REAPER_IMAGE];
+export const TEST_IMAGES: readonly string[] = [POSTGRES_IMAGE, REAPER_IMAGE, LOCALSTACK_IMAGE];
 
 if (import.meta.main) {
   console.log(TEST_IMAGES.join('\n'));
