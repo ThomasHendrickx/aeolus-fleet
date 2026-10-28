@@ -19,7 +19,24 @@ describe('loadConfig', () => {
       consoleOrigin: publicUrl,
       installationToken: undefined,
       accountTokenIssuer: undefined,
+      kms: undefined,
     });
+  });
+
+  it("reads the KMS region the installation's principal uses for sealed fleets; without one no fleet can be sealed (decision 0068)", () => {
+    expect(loadConfig({ ...required, KMS_REGION: 'eu-west-1' }).kms).toEqual({ region: 'eu-west-1', endpoint: undefined });
+  });
+
+  it('reads another KMS endpoint than AWS\'s own, such as LocalStack\'s', () => {
+    expect(loadConfig({ ...required, KMS_REGION: 'eu-west-1', KMS_ENDPOINT: 'http://localhost:4566' }).kms).toEqual({
+      region: 'eu-west-1',
+      endpoint: 'http://localhost:4566',
+    });
+  });
+
+  it('refuses a KMS endpoint that is no http URL, and one without a region', () => {
+    expect(() => loadConfig({ ...required, KMS_REGION: 'eu-west-1', KMS_ENDPOINT: 'localstack' })).toThrow(/KMS_ENDPOINT/);
+    expect(() => loadConfig({ ...required, KMS_ENDPOINT: 'http://localhost:4566' })).toThrow(/KMS_REGION/);
   });
 
   it("reads pagasae's URL, the issuer whose account tokens core trusts; without one it trusts none", () => {
