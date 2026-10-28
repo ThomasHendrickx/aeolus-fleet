@@ -134,6 +134,7 @@ describe('migrations', () => {
       'credentials',
       'crew_request_give_backs',
       'crew_requests',
+      'data_keys',
       'declared_network_rules',
       'defined_scopes',
       'deliveries',
@@ -193,6 +194,32 @@ describe('migrations', () => {
       ORDER BY 1, 2`;
 
     expect(unindexed.map((key) => `${key.table_name} (${key.columns})`)).toEqual([]);
+  });
+});
+
+describe('data keys (decision 0068, B6)', () => {
+  /** A data key row as the vault and the sealer leave it: only wrapped, with its check value. */
+  function insertDataKey(fleetId: FleetId, isCurrent: boolean) {
+    const wrapped = Buffer.from('wrapped by the company key');
+    const checkValue = Buffer.alloc(32, 1);
+    return database.$executeRaw`
+      INSERT INTO data_keys (id, fleet_id, wrapped_by_company_key, check_value, created_at, is_current)
+      VALUES (${newId('dataKey')}, ${fleetId}, ${wrapped}, ${checkValue}, ${now}, ${isCurrent})`;
+  }
+
+  it('keep one current data key per fleet, beside the old ones that still unseal old payloads', async () => {
+    const fleetId = await createFleet();
+    await insertDataKey(fleetId, false);
+    await insertDataKey(fleetId, false);
+    await insertDataKey(fleetId, true);
+
+    await expect(insertDataKey(fleetId, true)).rejects.toThrow(/data_keys_fleet_id_current_key/);
+  });
+
+  it("let each fleet have its own current data key", async () => {
+    await insertDataKey(await createFleet(), true);
+
+    await expect(insertDataKey(await createFleet(), true)).resolves.toBe(1);
   });
 });
 
