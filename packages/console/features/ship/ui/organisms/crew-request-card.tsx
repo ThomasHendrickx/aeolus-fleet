@@ -3,15 +3,16 @@ import { CircleX, Clock, KeyRound, ListChecks, LoaderCircle, Pen, Power, RotateC
 import Link from 'next/link';
 import { Fragment, type ReactNode } from 'react';
 
+import { KEY_NOTE_WORDS, LOGIN_WORDS, NEXT_TOOLTIP, SPEND_TOOLTIP, usd, type ShipLogin } from '../../../../lib/api-key-logins';
 import { useConsoleConstants } from '../../../../lib/console-constants';
 import { crewRequestAction, isRestartable, restartWords, type CrewRequestStage } from '../../../../lib/crew-request';
 import type { SettingsRow } from '../../../../lib/crew-settings-form';
 import { harnessWord } from '../../../../lib/harness';
 import type { LabelChip as LabelChipData } from '../../../../lib/labels';
 import { machineLabelsText, noMatchWords } from '../../../../lib/machine-labels';
-import { fullDateTime, relativeTime, sinceTime } from '../../../../lib/relative-time';
+import { clockTime, fullDateTime, relativeTime, sinceTime } from '../../../../lib/relative-time';
 import { capitalised, OPERATOR_NAME } from '../../../../lib/sentence';
-import { Button } from '@aeolus-fleet/common/header';
+import { Button, Tooltip, TooltipContent, TooltipTrigger } from '@aeolus-fleet/common/header';
 import { InlineError } from '../../../../components/molecules/inline-error';
 import { LabelChip } from '../../../../components/molecules/label-chip';
 import { StatusBadge } from '../../../../components/molecules/status-badge';
@@ -40,6 +41,8 @@ interface CrewRequestCardProps {
   settingsRows?: readonly SettingsRow[];
   /** The machine labels it asks for, as chips; none for any machine (#102). */
   machineLabels?: readonly LabelChipData[];
+  /** The login its trierarch reports for it, what it spent on the key, and its key while not ready (aeolus-fleet-trierarch's api keys design, K12). */
+  login?: ShipLogin;
   /** Edit the request's settings (decision 3); none without the plugin. */
   onEdit?: () => void;
   busy?: CrewRequestBusy;
@@ -206,6 +209,55 @@ function SettingsGrid({ rows, machineLabels = [] }: { rows: readonly SettingsRow
   );
 }
 
+/** "API key", or "Subscription, next: API key" while its next start would use the other login (K3). */
+function LoginWords({ login }: { login: ShipLogin }) {
+  return (
+    <span className="text-meta" data-testid="crew-request-login">
+      <span className="text-muted-foreground">· </span>
+      {LOGIN_WORDS[login.login]}
+      {login.next === undefined ? null : (
+        <>
+          ,{' '}
+          <Tooltip>
+            <TooltipTrigger render={<span data-testid="crew-request-login-next" />}>next: {LOGIN_WORDS[login.next]}</TooltipTrigger>
+            <TooltipContent>{NEXT_TOOLTIP}</TooltipContent>
+          </Tooltip>
+        </>
+      )}
+    </span>
+  );
+}
+
+/** One note in the attention tone while its key is not ready: since when, and that deliveries wait (K9). */
+function KeyNote({ keyNotReady }: { keyNotReady: NonNullable<ShipLogin['keyNotReady']> }) {
+  return (
+    <Note tone="attention" icon={<KeyRound aria-hidden />}>
+      <strong className="font-medium">{KEY_NOTE_WORDS[keyNotReady.key]}</strong>
+      {keyNotReady.at === undefined ? null : (
+        <>
+          {' '}since{' '}
+          <time dateTime={keyNotReady.at} title={fullDateTime(new Date(keyNotReady.at))} className="tabular-nums">
+            {clockTime(new Date(keyNotReady.at))}
+          </time>
+        </>
+      )}
+      . Deliveries wait.
+    </Note>
+  );
+}
+
+/** "Spent on key $12.50", at list prices. */
+function SpentOnKey({ amount }: { amount: number }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger render={<span data-testid="crew-request-spent-on-key" className="self-start text-meta text-muted-foreground" />}>
+        Spent on key <span className="font-medium text-foreground tabular-nums">{usd(amount)}</span>
+      </TooltipTrigger>
+      <TooltipContent>{SPEND_TOOLTIP}</TooltipContent>
+    </Tooltip>
+  );
+}
+
 function Heading() {
   return (
     <span className="inline-flex items-center gap-2">
@@ -285,6 +337,7 @@ export function CrewRequestCard(props: CrewRequestCardProps) {
         {stage.kind === 'assigned' ? (
           <span className="inline-flex min-w-0 items-center gap-1 text-meta">
             on <TrierarchLink trierarch={stage.trierarch} hasTrierarchs={props.hasTrierarchs ?? false} />
+            {props.login === undefined ? null : <LoginWords login={props.login} />}
           </span>
         ) : null}
         <span className="flex-1" />
@@ -321,6 +374,7 @@ export function CrewRequestCard(props: CrewRequestCardProps) {
           </div>
         ) : null}
       </div>
+      {stage.kind === 'assigned' && props.login?.keyNotReady !== undefined ? <KeyNote keyNotReady={props.login.keyNotReady} /> : null}
       {stage.kind === 'assigned' ? statusNote(stage, { statusChangedAt: props.statusChangedAt, now }) : null}
       {stage.kind === 'needsCrew' && props.hasTrierarchs ? (
         stage.reason === null ? (
@@ -340,6 +394,7 @@ export function CrewRequestCard(props: CrewRequestCardProps) {
       ) : null}
       {failed}
       {props.settingsRows === undefined ? null : <SettingsGrid rows={props.settingsRows} machineLabels={props.machineLabels} />}
+      {stage.kind === 'assigned' && props.login?.spentOnKeyUsd !== undefined ? <SpentOnKey amount={props.login.spentOnKeyUsd} /> : null}
       <p className="text-meta text-muted-foreground">
         {stage.kind === 'needsCrew' && !props.hasTrierarchs
           ? 'On your Needs crew list. Crew it by hand: get a starting prompt and start a session with it. Crewing it fulfils the request; the request stays until you remove it. '

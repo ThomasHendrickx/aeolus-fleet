@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, within } from 'storybook/test';
 
-import { ALIVE_MACHINE, NEW_MACHINE, NOT_OFFERED_MACHINE, NOW, SILENT_MACHINE, SPOTS } from '../../../../lib/fixtures/machines.fixtures';
+import { ALIVE_MACHINE, KEY_MACHINE, NEW_MACHINE, NO_KEY_MACHINE, NOT_OFFERED_MACHINE, NOW, OUT_OF_CREDIT_MACHINE, REFUSED_MACHINE, SILENT_MACHINE, SPOT_HARNESSES, SPOTS } from '../../../../lib/fixtures/machines.fixtures';
 import { MachineCard } from './machine-card';
 
 const meta = {
@@ -48,5 +48,38 @@ export const HarnessNotOffered: Story = {
     await expect(line).toHaveTextContent('Codex not offered');
     await expect(line).toHaveTextContent('its aeolus plugin is not installed (run aeolus-trierarch upgrade).');
     await expect(line).toHaveTextContent('Clears itself once the plugin is back.');
+  },
+};
+
+/** Each harness's login line: its default, its ships on the other login, and what they spent on the key (aeolus-fleet-trierarch's api keys design, K12). */
+export const KeyReady: Story = {
+  args: { machine: KEY_MACHINE, ships: SPOT_HARNESSES },
+  play: async ({ canvasElement }) => {
+    const lines = within(canvasElement).getAllByTestId('machine-login-line');
+    await expect(lines.map((line) => line.textContent)).toEqual(['loginAPI key·2 on Subscription·$41.20 on key', 'loginSubscription·1 on API key·$3.10 on key']);
+    await expect(within(canvasElement).queryByTestId('machine-key-chip')).toBeNull();
+  },
+};
+/** Claude Code's key out of credit: a chip under its login line, and how many ships wait (K9, K12). */
+export const KeyOutOfCredit: Story = {
+  args: { machine: OUT_OF_CREDIT_MACHINE, ships: SPOT_HARNESSES },
+  play: async ({ canvasElement }) => {
+    const card = within(canvasElement);
+    await expect(card.getByTestId('machine-key-chip')).toHaveTextContent('Out of credit');
+    await expect(card.getByTestId('machine-ships-wait')).toHaveTextContent('3 ships wait');
+  },
+};
+/** Claude Code's key refused by its vendor (K10). */
+export const KeyRefused: Story = {
+  args: { machine: REFUSED_MACHINE, ships: SPOT_HARNESSES },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByTestId('machine-key-chip')).toHaveTextContent('Refused');
+  },
+};
+/** Claude Code with no API key on the computer. */
+export const NoKey: Story = {
+  args: { machine: NO_KEY_MACHINE, ships: SPOT_HARNESSES },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByTestId('machine-key-chip')).toHaveTextContent('No key');
   },
 };
