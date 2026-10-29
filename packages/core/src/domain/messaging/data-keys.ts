@@ -8,6 +8,7 @@
  */
 import { payloadBytes, type DataKeyId, type FleetId } from '@aeolus-fleet/common';
 
+import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { err, ok, type Result } from '../shared/result.js';
 import { keyUnavailable } from './key-unavailable.js';
@@ -47,30 +48,60 @@ export function isDataKeysNeeded(error: unknown): error is DataKeysNeeded {
   return typeof error === 'object' && error !== null && 'kind' in error && error.kind === 'dataKeysNeeded';
 }
 
+/** How long a server keeps a data key it unwrapped in memory (N2): a cut grant or a disabled key bites within it. */
+export const DATA_KEY_CACHE_MS = 5 * 60 * 1000;
+
+/** A data key held in memory, and when it was unwrapped. */
+interface CachedDataKey {
+  readonly dataKey: DataKey;
+  readonly unwrappedAt: number;
+}
+
 /**
  * The fleet's data keys from their wraps, each checked against its check
  * value, so a vault that answered another key is refused as a wrap that
- * does not open.
+ * does not open. Each key unwrapped is kept in this server's memory for 5
+ * minutes from its unwrap (B11), never longer, never on disk, so the key
+ * vault is asked once per key and period, and a company that cuts its grant
+ * stops every seal and unseal within 5 minutes.
  */
-export function createFleetDataKeys(deps: { sealings: Pick<FleetSealingRepository, 'wrappedDataKeys'>; vault: KeyVault; sealer: PayloadSealer }): FleetDataKeys {
+export function createFleetDataKeys(deps: { sealings: Pick<FleetSealingRepository, 'wrappedDataKeys'>; vault: KeyVault; sealer: PayloadSealer; clock: Clock }): FleetDataKeys {
+  // Keyed by fleet and data key, so a fleet is answered only the keys it holds.
+  const cache = new Map<`${FleetId}/${DataKeyId}`, CachedDataKey>();
+
+  const heldNow = (now: number): void => {
+    for (const [id, cached] of cache) {
+      if (now - cached.unwrappedAt >= DATA_KEY_CACHE_MS) {
+        cache.delete(id);
+      }
+    }
+  };
+
   return {
     unwrap: async (fleetId, dataKeyIds) => {
-      const wrapped = await deps.sealings.wrappedDataKeys(fleetId, dataKeyIds);
-      if (wrapped?.dataKeys.length !== dataKeyIds.length) {
-        return err({ kind: 'keyUnavailable', reason: 'notFound' });
-      }
-      const unwrapped: DataKey[] = [];
-      for (const dataKey of wrapped.dataKeys) {
-        const material = await deps.vault.unwrap({ fleetId, companyKey: wrapped.companyKey }, dataKey.wrappedByCompanyKey);
-        if (!material.isOk) {
-          return material;
+      const now = deps.clock.now().getTime();
+      heldNow(now);
+      const missing = dataKeyIds.filter((id) => !cache.has(`${fleetId}/${id}`));
+      if (missing.length > 0) {
+        const wrapped = await deps.sealings.wrappedDataKeys(fleetId, missing);
+        if (wrapped?.dataKeys.length !== missing.length) {
+          return err({ kind: 'keyUnavailable', reason: 'notFound' });
         }
-        if (!Buffer.from(deps.sealer.checkValue(material.value)).equals(dataKey.checkValue)) {
-          return err({ kind: 'keyUnavailable', reason: 'invalidWrap' });
+        for (const dataKey of wrapped.dataKeys) {
+          const material = await deps.vault.unwrap({ fleetId, companyKey: wrapped.companyKey }, dataKey.wrappedByCompanyKey);
+          if (!material.isOk) {
+            return material;
+          }
+          if (!Buffer.from(deps.sealer.checkValue(material.value)).equals(dataKey.checkValue)) {
+            return err({ kind: 'keyUnavailable', reason: 'invalidWrap' });
+          }
+          cache.set(`${fleetId}/${dataKey.id}`, { dataKey: { id: dataKey.id, material: material.value }, unwrappedAt: now });
         }
-        unwrapped.push({ id: dataKey.id, material: material.value });
       }
-      return ok(unwrapped);
+      return ok(dataKeyIds.flatMap((id) => {
+        const cached = cache.get(`${fleetId}/${id}`);
+        return cached === undefined ? [] : [cached.dataKey];
+      }));
     },
   };
 }

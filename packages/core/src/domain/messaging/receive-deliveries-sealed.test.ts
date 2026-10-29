@@ -9,6 +9,7 @@ import { endLease } from '../registry/public.js';
 import type { Crew, ShipCaller } from '../shared/caller.js';
 import { shipActor } from '../shared/events.js';
 import { ok } from '../shared/result.js';
+import { DATA_KEY_CACHE_MS } from './data-keys.js';
 
 let core: InMemoryCore;
 let useCases: ReturnType<typeof messagingUseCases>;
@@ -75,9 +76,10 @@ describe('a receive in a sealed fleet (decision 0068, B9)', () => {
     expect(deliveries.map(({ deliveryId: id, payload, attempts }) => ({ id, payload, attempts }))).toEqual([{ id: deliveryId, payload: PAYLOAD, attempts: 2 }]);
   });
 
-  it('claims nothing and counts no attempt when the company key cannot be used: the delivery waits pending', async () => {
+  it('claims nothing and counts no attempt when the company key cannot be used and the data key cache ran out: the delivery waits pending', async () => {
     const { deliveryId } = await sentToScout();
     await core.keyVault.disable(companyKey);
+    core.clock.advance(DATA_KEY_CACHE_MS);
     const before = structuredClone(core.state);
 
     const refusal = refusalOf(await useCases.receiveDeliveries(scout, {}));
