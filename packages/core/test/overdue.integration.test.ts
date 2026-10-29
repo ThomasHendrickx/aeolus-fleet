@@ -1,31 +1,20 @@
-import {
-  createIdGenerator,
-  type DeliveryId,
-  type FleetId,
-} from "@aeolus-fleet/common";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { createIdGenerator, type DeliveryId, type FleetId } from '@aeolus-fleet/common';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { createPrismaClient } from "../src/adapters/prisma/client.js";
-import { createApp } from "../src/app.js";
-import { createPrismaPushedCrews } from "../src/adapters/prisma/overdue.js";
-import { createPrismaFleetRepository } from "../src/adapters/prisma/registry.js";
-import {
-  createPrismaUnitOfWork,
-  type PrismaTx,
-} from "../src/adapters/prisma/unit-of-work.js";
-import { createTellOverdueDeliveries } from "../src/domain/messaging/tell-overdue-deliveries.js";
-import type { ShipCaller, Crew } from "../src/domain/shared/caller.js";
-import type { UnitOfWork } from "../src/domain/shared/unit-of-work.js";
-import { createUseCases, type UseCases } from "../src/wiring.js";
-import { operatorCaller, secretOf } from "./support/core-fixtures.js";
-import { newKey } from "../src/testing/keys.js";
-import {
-  createPostgresCore,
-  racingUnitOfWork,
-  type PostgresCore,
-} from "./support/postgres-core.js";
-import { unwrap } from "../src/testing/result.js";
-import { withOperatorLogin } from "./support/operator-login.js";
+import { createPrismaClient } from '../src/adapters/prisma/client.js';
+import { createApp } from '../src/app.js';
+import { createPrismaPushedCrews } from '../src/adapters/prisma/overdue.js';
+import { createPrismaFleetRepository } from '../src/adapters/prisma/registry.js';
+import { createPrismaUnitOfWork, type PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
+import { createTellOverdueDeliveries } from '../src/domain/messaging/tell-overdue-deliveries.js';
+import type { ShipCaller, Crew } from '../src/domain/shared/caller.js';
+import type { UnitOfWork } from '../src/domain/shared/unit-of-work.js';
+import { createUseCases, type UseCases } from '../src/wiring.js';
+import { operatorCaller, secretOf } from './support/core-fixtures.js';
+import { newKey } from '../src/testing/keys.js';
+import { createPostgresCore, racingUnitOfWork, type PostgresCore } from './support/postgres-core.js';
+import { unwrap } from '../src/testing/result.js';
+import { withOperatorLogin } from './support/operator-login.js';
 
 // The 10 and 60 minute clocks on a real Postgres (decision 0040), on a test
 // clock: argo is told at the time, not before, and once, also when two passes
@@ -46,29 +35,11 @@ let scout: Crew;
 beforeEach(async () => {
   core = await createPostgresCore();
   ({ useCases } = core);
-  const fleet = unwrap(
-    await withOperatorLogin(
-      core.prisma,
-      useCases.initialiseFleet({ name: "home fleet" }),
-    ),
-  );
+  const fleet = unwrap(await withOperatorLogin(core.prisma, useCases.initialiseFleet({ name: 'home fleet' })));
   ({ fleetId } = fleet);
   argo = operatorCaller(fleet);
-  const { shipId, secret } = unwrap(
-    await useCases.commissionShip(argo, {
-      idempotencyKey: newKey(),
-      name: "scout",
-      type: "reviewer",
-    }),
-  );
-  const { crewToken } = unwrap(
-    await useCases.claimShip({
-      shipId,
-      secret: secretOf(secret),
-      location: { kind: "DEVICE" },
-      harness: "claude-code",
-    }),
-  );
+  const { shipId, secret } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
+  const { crewToken } = unwrap(await useCases.claimShip({ shipId, secret: secretOf(secret), location: { kind: 'DEVICE' }, harness: 'claude-code' }));
   scout = unwrap(await useCases.authenticate.byCrewToken(crewToken));
 });
 
@@ -80,24 +51,17 @@ afterEach(async () => {
 async function handed(): Promise<DeliveryId> {
   unwrap(
     await useCases.sendMessage(argo, {
-      selector: { kind: "ship", shipId: scout.shipId },
-      payload: "Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/25",
-      contentType: "text/plain",
+      selector: { kind: 'ship', shipId: scout.shipId },
+      payload: 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/25',
+      contentType: 'text/plain',
       idempotencyKey: newKey(),
     }),
   );
-  const [received] = unwrap(
-    await useCases.pushReceiveDeliveries(scout, {}),
-  ).deliveries;
+  const [received] = unwrap(await useCases.pushReceiveDeliveries(scout, {})).deliveries;
   if (!received) {
-    throw new Error("The push receive took nothing");
+    throw new Error('The push receive took nothing');
   }
-  unwrap(
-    await useCases.handOverDelivery(scout, {
-      deliveryId: received.deliveryId,
-      handOverNumber: 1,
-    }),
-  );
+  unwrap(await useCases.handOverDelivery(scout, { deliveryId: received.deliveryId, handOverNumber: 1 }));
   return received.deliveryId;
 }
 
@@ -113,18 +77,15 @@ function clocksWith(uow: UnitOfWork<PrismaTx>) {
 }
 
 function overdueEvents() {
-  return core.prisma.event.findMany({
-    where: { fleetId, type: "DeliveryOverdue" },
-    orderBy: { seq: "asc" },
-  });
+  return core.prisma.event.findMany({ where: { fleetId, type: 'DeliveryOverdue' }, orderBy: { seq: 'asc' } });
 }
 
 function overdueRows() {
   return core.prisma.overdueDelivery.findMany({ where: { fleetId } });
 }
 
-describe("the clocks on Postgres", () => {
-  it("tell argo once a handed delivery is not confirmed for 10 minutes, not before, and once", async () => {
+describe('the clocks on Postgres', () => {
+  it('tell argo once a handed delivery is not confirmed for 10 minutes, not before, and once', async () => {
     const deliveryId = await handed();
 
     core.clock.advance(10 * MINUTE - 1);
@@ -142,30 +103,20 @@ describe("the clocks on Postgres", () => {
         actorShipId: null,
         deliveryId,
         occurredAt: new Date(core.clock.now().getTime() - MINUTE),
-        details: { leaseId: scout.leaseId, clock: "notConfirmed", minutes: 10 },
+        details: { leaseId: scout.leaseId, clock: 'notConfirmed', minutes: 10 },
       },
     ]);
-    await expect(overdueRows()).resolves.toMatchObject([
-      {
-        shipId: scout.shipId,
-        leaseId: scout.leaseId,
-        deliveryId,
-        state: "handed",
-        clock: "notConfirmed",
-      },
-    ]);
+    await expect(overdueRows()).resolves.toMatchObject([{ shipId: scout.shipId, leaseId: scout.leaseId, deliveryId, state: 'handed', clock: 'notConfirmed' }]);
   });
 
-  it("tell argo of a delivery to the ship type waiting 60 minutes while the session is busy, not at 10", async () => {
+  it('tell argo of a delivery to the ship type waiting 60 minutes while the session is busy, not at 10', async () => {
     unwrap(await useCases.pushReceiveDeliveries(scout, {}));
-    unwrap(
-      await useCases.reportTurn(scout, { turn: "busy", at: core.clock.now() }),
-    );
+    unwrap(await useCases.reportTurn(scout, { turn: 'busy', at: core.clock.now() }));
     unwrap(
       await useCases.sendMessage(argo, {
-        selector: { kind: "type", type: "reviewer" },
-        payload: "Anyone free to review?",
-        contentType: "text/plain",
+        selector: { kind: 'type', type: 'reviewer' },
+        payload: 'Anyone free to review?',
+        contentType: 'text/plain',
         idempotencyKey: newKey(),
       }),
     );
@@ -176,34 +127,18 @@ describe("the clocks on Postgres", () => {
 
     core.clock.advance(1);
     await useCases.tellOverdueDeliveries();
-    await expect(overdueEvents()).resolves.toMatchObject([
-      {
-        shipId: scout.shipId,
-        details: { leaseId: scout.leaseId, clock: "busy", minutes: 60 },
-      },
-    ]);
+    await expect(overdueEvents()).resolves.toMatchObject([{ shipId: scout.shipId, details: { leaseId: scout.leaseId, clock: 'busy', minutes: 60 } }]);
   });
 
-  it("count a delivery from the state it is in now: received again on the next lease, after it was handed and returned", async () => {
+  it('count a delivery from the state it is in now: received again on the next lease, after it was handed and returned', async () => {
     const deliveryId = await handed();
     core.clock.advance(30 * MINUTE);
     unwrap(await useCases.releaseShip(argo, { shipId: scout.shipId }));
-    const { secret } = unwrap(
-      await useCases.getStartingPrompt(argo, { shipId: scout.shipId }),
-    );
-    const { crewToken } = unwrap(
-      await useCases.claimShip({
-        shipId: scout.shipId,
-        secret: secretOf(secret),
-        location: { kind: "DEVICE" },
-        harness: "claude-code",
-      }),
-    );
+    const { secret } = unwrap(await useCases.getStartingPrompt(argo, { shipId: scout.shipId }));
+    const { crewToken } = unwrap(await useCases.claimShip({ shipId: scout.shipId, secret: secretOf(secret), location: { kind: 'DEVICE' }, harness: 'claude-code' }));
     const next = unwrap(await useCases.authenticate.byCrewToken(crewToken));
     unwrap(await useCases.pushReceiveDeliveries(next, {}));
-    unwrap(
-      await useCases.reportTurn(next, { turn: "busy", at: core.clock.now() }),
-    );
+    unwrap(await useCases.reportTurn(next, { turn: 'busy', at: core.clock.now() }));
 
     core.clock.advance(60 * MINUTE - 1);
     await useCases.tellOverdueDeliveries();
@@ -211,51 +146,23 @@ describe("the clocks on Postgres", () => {
 
     core.clock.advance(1);
     await useCases.tellOverdueDeliveries();
-    await expect(overdueEvents()).resolves.toMatchObject([
-      { deliveryId, details: { leaseId: next.leaseId, clock: "busy" } },
-    ]);
+    await expect(overdueEvents()).resolves.toMatchObject([{ deliveryId, details: { leaseId: next.leaseId, clock: 'busy' } }]);
   });
 });
 
-describe("a person ship on Postgres", () => {
-  it("is never told overdue, its delivery handed and not opened for hours (interop 5.1)", async () => {
-    const { shipId, secret } = unwrap(
-      await useCases.commissionShip(argo, {
-        idempotencyKey: newKey(),
-        name: "thomas",
-        type: "person",
-        kind: "person",
-      }),
-    );
-    const { crewToken } = unwrap(
-      await useCases.claimShip({
-        shipId,
-        secret: secretOf(secret),
-        location: { kind: "DEVICE" },
-        harness: "claude-code",
-      }),
-    );
+describe('a person ship on Postgres', () => {
+  it('is never told overdue, its delivery handed and not opened for hours (interop 5.1)', async () => {
+    const { shipId, secret } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person' }));
+    const { crewToken } = unwrap(await useCases.claimShip({ shipId, secret: secretOf(secret), location: { kind: 'DEVICE' }, harness: 'claude-code' }));
     const thomas = unwrap(await useCases.authenticate.byCrewToken(crewToken));
     unwrap(
-      await useCases.sendMessage(argo, {
-        selector: { kind: "ship", shipId },
-        payload: "Your go on the release?",
-        contentType: "text/plain",
-        idempotencyKey: newKey(),
-      }),
+      await useCases.sendMessage(argo, { selector: { kind: 'ship', shipId }, payload: 'Your go on the release?', contentType: 'text/plain', idempotencyKey: newKey() }),
     );
-    const [received] = unwrap(
-      await useCases.pushReceiveDeliveries(thomas, {}),
-    ).deliveries;
+    const [received] = unwrap(await useCases.pushReceiveDeliveries(thomas, {})).deliveries;
     if (!received) {
-      throw new Error("The push receive took nothing");
+      throw new Error('The push receive took nothing');
     }
-    unwrap(
-      await useCases.handOverDelivery(thomas, {
-        deliveryId: received.deliveryId,
-        handOverNumber: 1,
-      }),
-    );
+    unwrap(await useCases.handOverDelivery(thomas, { deliveryId: received.deliveryId, handOverNumber: 1 }));
 
     core.clock.advance(180 * MINUTE);
     await useCases.tellOverdueDeliveries();
@@ -264,18 +171,15 @@ describe("a person ship on Postgres", () => {
   });
 });
 
-describe("a restart of core", () => {
-  it("tells nothing again: what argo was told is kept in Postgres", async () => {
+describe('a restart of core', () => {
+  it('tells nothing again: what argo was told is kept in Postgres', async () => {
     await handed();
     core.clock.advance(10 * MINUTE);
     await useCases.tellOverdueDeliveries();
 
     const restarted = createPrismaClient(core.databaseUrl);
     try {
-      const afterRestart = createUseCases({
-        prisma: restarted,
-        clock: core.clock,
-      });
+      const afterRestart = createUseCases({ prisma: restarted, clock: core.clock });
       core.clock.advance(MINUTE);
       await afterRestart.tellOverdueDeliveries();
     } finally {
@@ -287,23 +191,20 @@ describe("a restart of core", () => {
   });
 });
 
-describe("two passes racing", () => {
-  it("tell argo once: one row and one DeliveryOverdue", async () => {
+describe('two passes racing', () => {
+  it('tell argo once: one row and one DeliveryOverdue', async () => {
     await handed();
     core.clock.advance(10 * MINUTE);
     const racing = clocksWith(
-      racingUnitOfWork(
-        { prisma: core.prisma, transactions: 2 },
-        (tx, allArrived): PrismaTx => ({
-          ...tx,
-          overdueDeliveries: {
-            tell: async (overdue, at) => {
-              await allArrived();
-              return tx.overdueDeliveries.tell(overdue, at);
-            },
+      racingUnitOfWork({ prisma: core.prisma, transactions: 2 }, (tx, allArrived): PrismaTx => ({
+        ...tx,
+        overdueDeliveries: {
+          tell: async (overdue, at) => {
+            await allArrived();
+            return tx.overdueDeliveries.tell(overdue, at);
           },
-        }),
-      ),
+        },
+      })),
     );
 
     await Promise.all([racing(), racing()]);
@@ -313,8 +214,8 @@ describe("two passes racing", () => {
   });
 });
 
-describe("a pass that fails midway", () => {
-  it("stores nothing, so the next pass tells argo", async () => {
+describe('a pass that fails midway', () => {
+  it('stores nothing, so the next pass tells argo', async () => {
     await handed();
     core.clock.advance(10 * MINUTE);
     const failing = clocksWith({
@@ -326,14 +227,14 @@ describe("a pass that fails midway", () => {
               ...tx.events,
               append: async (event) => {
                 await tx.events.append(event);
-                throw new Error("disk full");
+                throw new Error('disk full');
               },
             },
           }),
         ),
     });
 
-    await expect(failing()).rejects.toThrow("disk full");
+    await expect(failing()).rejects.toThrow('disk full');
     await expect(overdueEvents()).resolves.toEqual([]);
     await expect(overdueRows()).resolves.toEqual([]);
 
@@ -342,8 +243,8 @@ describe("a pass that fails midway", () => {
   });
 });
 
-describe("a delivery confirmed after the pass judged it", () => {
-  it("is not told: the tell stores only while the delivery is still in the state it was judged in", async () => {
+describe('a delivery confirmed after the pass judged it', () => {
+  it('is not told: the tell stores only while the delivery is still in the state it was judged in', async () => {
     const deliveryId = await handed();
     core.clock.advance(10 * MINUTE);
     const confirmedMeanwhile = clocksWith({
@@ -353,9 +254,7 @@ describe("a delivery confirmed after the pass judged it", () => {
             ...tx,
             overdueDeliveries: {
               tell: async (overdue, at) => {
-                unwrap(
-                  await useCases.acknowledgeDelivery(scout, { deliveryId }),
-                );
+                unwrap(await useCases.acknowledgeDelivery(scout, { deliveryId }));
                 return tx.overdueDeliveries.tell(overdue, at);
               },
             },
@@ -370,21 +269,13 @@ describe("a delivery confirmed after the pass judged it", () => {
   });
 });
 
-describe("the running server", () => {
-  it("runs the clocks by itself, pass after pass, until it closes", async () => {
+describe('the running server', () => {
+  it('runs the clocks by itself, pass after pass, until it closes', async () => {
     const deliveryId = await handed();
-    const server = createApp({
-      databaseUrl: core.databaseUrl,
-      publicUrl: "http://localhost:3000",
-      clock: core.clock,
-      logger: false,
-      overduePassMs: PASS_MS,
-    });
+    const server = createApp({ databaseUrl: core.databaseUrl, publicUrl: 'http://localhost:3000', clock: core.clock, logger: false, overduePassMs: PASS_MS });
     try {
       core.clock.advance(10 * MINUTE);
-      await expect
-        .poll(overdueEvents, { timeout: 5_000 })
-        .toMatchObject([{ deliveryId }]);
+      await expect.poll(overdueEvents, { timeout: 5_000 }).toMatchObject([{ deliveryId }]);
     } finally {
       await server.close();
     }

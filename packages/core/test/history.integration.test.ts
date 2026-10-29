@@ -1,24 +1,14 @@
-import {
-  accountIdSchema,
-  createIdGenerator,
-  idSchema,
-  type DeliveryId,
-  type MessageId,
-  type ShipId,
-} from "@aeolus-fleet/common";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { accountIdSchema, createIdGenerator, idSchema, type DeliveryId, type MessageId, type ShipId } from '@aeolus-fleet/common';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import type { ShipCaller, Crew } from "../src/domain/shared/caller.js";
-import type { Selector } from "../src/domain/shared/selector.js";
-import { operatorCaller, secretOf, modelOf } from "./support/core-fixtures.js";
-import {
-  createPostgresCore,
-  type PostgresCore,
-} from "./support/postgres-core.js";
-import { unwrap } from "../src/testing/result.js";
-import { newKey } from "../src/testing/keys.js";
-import { aCrewSettings } from "./support/crew-fixtures.js";
-import { withOperatorLogin } from "./support/operator-login.js";
+import type { ShipCaller, Crew } from '../src/domain/shared/caller.js';
+import type { Selector } from '../src/domain/shared/selector.js';
+import { operatorCaller, secretOf, modelOf } from './support/core-fixtures.js';
+import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
+import { unwrap } from '../src/testing/result.js';
+import { newKey } from '../src/testing/keys.js';
+import { aCrewSettings } from './support/crew-fixtures.js';
+import { withOperatorLogin } from './support/operator-login.js';
 
 // The history reads on a real Postgres through the Prisma adapter: a ship's
 // timeline and messages and one message's delivery history, within the
@@ -31,73 +21,33 @@ let scout: Crew;
 let lookout: Crew;
 let planner: Crew;
 
-async function crewed(ship: {
-  name: string;
-  type: string;
-  location: { kind: "DEVICE" | "SERVER" };
-}): Promise<Crew> {
+async function crewed(ship: { name: string; type: string; location: { kind: 'DEVICE' | 'SERVER' } }): Promise<Crew> {
   const { name, type, location } = ship;
-  const { shipId, secret } = unwrap(
-    await core.useCases.commissionShip(argo, {
-      idempotencyKey: newKey(),
-      name,
-      type,
-    }),
-  );
-  const { crewToken } = unwrap(
-    await core.useCases.claimShip({
-      shipId,
-      secret: secretOf(secret),
-      location,
-      harness: "claude-code",
-    }),
-  );
+  const { shipId, secret } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name, type }));
+  const { crewToken } = unwrap(await core.useCases.claimShip({ shipId, secret: secretOf(secret), location, harness: 'claude-code' }));
   return unwrap(await core.useCases.authenticate.byCrewToken(crewToken));
 }
 
 beforeEach(async () => {
   core = await createPostgresCore();
-  argo = operatorCaller(
-    unwrap(
-      await withOperatorLogin(
-        core.prisma,
-        core.useCases.initialiseFleet({ name: "home fleet" }),
-      ),
-    ),
-  );
-  scout = await crewed({
-    name: "scout",
-    type: "reviewer",
-    location: { kind: "DEVICE" },
-  });
-  lookout = await crewed({
-    name: "lookout",
-    type: "reviewer",
-    location: { kind: "SERVER" },
-  });
-  planner = await crewed({
-    name: "planner",
-    type: "planner",
-    location: { kind: "DEVICE" },
-  });
+  argo = operatorCaller(unwrap(await withOperatorLogin(core.prisma, core.useCases.initialiseFleet({ name: 'home fleet' }))));
+  scout = await crewed({ name: 'scout', type: 'reviewer', location: { kind: 'DEVICE' } });
+  lookout = await crewed({ name: 'lookout', type: 'reviewer', location: { kind: 'SERVER' } });
+  planner = await crewed({ name: 'planner', type: 'planner', location: { kind: 'DEVICE' } });
 });
 
 afterEach(async () => {
   await core.close();
 });
 
-async function send(
-  from: ShipCaller,
-  message: { to: Selector; payload?: string; inReplyTo?: MessageId },
-): Promise<MessageId> {
+async function send(from: ShipCaller, message: { to: Selector; payload?: string; inReplyTo?: MessageId }): Promise<MessageId> {
   core.clock.advance(1_000);
-  const { to, payload = "Review PR 48", inReplyTo } = message;
+  const { to, payload = 'Review PR 48', inReplyTo } = message;
   return unwrap(
-    await core.useCases.sendMessage(from, {
-      ...modelOf(from),
+    await core.useCases.sendMessage(from, { ...modelOf(from),
       selector: to,
       payload,
-      contentType: "text/plain",
+      contentType: 'text/plain',
       idempotencyKey: `key-${String(core.clock.now().getTime())}`,
       ...(inReplyTo === undefined ? {} : { inReplyTo }),
     }),
@@ -106,448 +56,216 @@ async function send(
 
 async function receive(crew: Crew): Promise<DeliveryId[]> {
   core.clock.advance(1_000);
-  return unwrap(
-    await core.useCases.receiveDeliveries(crew, { max: 10 }),
-  ).deliveries.map((delivery) => delivery.deliveryId);
+  return unwrap(await core.useCases.receiveDeliveries(crew, { max: 10 })).deliveries.map((delivery) => delivery.deliveryId);
 }
 
-async function ack(
-  crew: Crew,
-  deliveryId: DeliveryId | undefined,
-): Promise<void> {
+async function ack(crew: Crew, deliveryId: DeliveryId | undefined): Promise<void> {
   core.clock.advance(1_000);
-  unwrap(
-    await core.useCases.acknowledgeDelivery(crew, {
-      deliveryId: idSchema("delivery").parse(deliveryId),
-    }),
-  );
+  unwrap(await core.useCases.acknowledgeDelivery(crew, { deliveryId: idSchema('delivery').parse(deliveryId) }));
 }
 
-describe("the history reads on Postgres", () => {
+describe('the history reads on Postgres', () => {
   it("give a ship's timeline: the events naming it or caused by it, newest first, with the parties named", async () => {
-    const messageId = await send(scout, {
-      to: { kind: "ship", shipId: planner.shipId },
-    });
+    const messageId = await send(scout, { to: { kind: 'ship', shipId: planner.shipId } });
 
-    const timeline = unwrap(
-      await core.useCases.readShipTimeline(argo, { shipId: scout.shipId }),
-    ).items;
+    const timeline = unwrap(await core.useCases.readShipTimeline(argo, { shipId: scout.shipId })).items;
 
     expect(timeline.map((entry) => entry.type)).toEqual([
-      "MessageAccepted",
-      "ShipClaimed",
-      "StartingPromptIssued",
-      "OwnerSet",
-      "ShipCommissioned",
+      'MessageAccepted',
+      'ShipClaimed',
+      'StartingPromptIssued',
+      'OwnerSet',
+      'ShipCommissioned',
     ]);
     expect(timeline[0]).toMatchObject({
-      actor: { id: scout.shipId, name: "scout" },
-      ship: { id: planner.shipId, name: "planner" },
+      actor: { id: scout.shipId, name: 'scout' },
+      ship: { id: planner.shipId, name: 'planner' },
       message: {
         id: messageId,
-        sender: { id: scout.shipId, name: "scout" },
-        recipient: {
-          kind: "ship",
-          ship: { id: planner.shipId, name: "planner" },
-        },
-        contentType: "text/plain",
-        model: "claude-opus-5-5",
+        sender: { id: scout.shipId, name: 'scout' },
+        recipient: { kind: 'ship', ship: { id: planner.shipId, name: 'planner' } },
+        contentType: 'text/plain',
+        model: 'claude-opus-5-5',
       },
-      details: { selector: "ship" },
+      details: { selector: 'ship' },
     });
-    expect(timeline.at(-1)).toMatchObject({
-      actor: { id: argo.shipId, name: "argo" },
-      message: null,
-    });
+    expect(timeline.at(-1)).toMatchObject({ actor: { id: argo.shipId, name: 'argo' }, message: null });
   });
 
   it("give a ship's timeline naming the account signed in as argo when argo caused it, by its id", async () => {
-    await send(
-      { ...argo, signedInAccountId: accountIdSchema.parse("acc-01mathilde") },
-      { to: { kind: "ship", shipId: scout.shipId } },
-    );
-    await send(argo, { to: { kind: "ship", shipId: scout.shipId } });
+    await send({ ...argo, signedInAccountId: accountIdSchema.parse('acc-01mathilde') }, { to: { kind: 'ship', shipId: scout.shipId } });
+    await send(argo, { to: { kind: 'ship', shipId: scout.shipId } });
 
-    const timeline = unwrap(
-      await core.useCases.readShipTimeline(argo, { shipId: scout.shipId }),
-    ).items;
+    const timeline = unwrap(await core.useCases.readShipTimeline(argo, { shipId: scout.shipId })).items;
 
-    expect(
-      timeline.slice(0, 2).map((entry) => entry.signedInAccountId),
-    ).toEqual([null, "acc-01mathilde"]);
+    expect(timeline.slice(0, 2).map((entry) => entry.signedInAccountId)).toEqual([null, 'acc-01mathilde']);
   });
 
   it("give a ship's timeline page by page, each after the last page's cursor, the last with none", async () => {
-    await send(scout, { to: { kind: "ship", shipId: planner.shipId } });
-    await send(planner, { to: { kind: "ship", shipId: scout.shipId } });
-    const whole = unwrap(
-      await core.useCases.readShipTimeline(argo, { shipId: scout.shipId }),
-    ).items;
-    const first = unwrap(
-      await core.useCases.readShipTimeline(argo, {
-        shipId: scout.shipId,
-        limit: 4,
-      }),
-    );
+    await send(scout, { to: { kind: 'ship', shipId: planner.shipId } });
+    await send(planner, { to: { kind: 'ship', shipId: scout.shipId } });
+    const whole = unwrap(await core.useCases.readShipTimeline(argo, { shipId: scout.shipId })).items;
+    const first = unwrap(await core.useCases.readShipTimeline(argo, { shipId: scout.shipId, limit: 4 }));
 
-    const second = unwrap(
-      await core.useCases.readShipTimeline(argo, {
-        shipId: scout.shipId,
-        limit: 4,
-        cursor: first.nextCursor ?? undefined,
-      }),
-    );
+    const second = unwrap(await core.useCases.readShipTimeline(argo, { shipId: scout.shipId, limit: 4, cursor: first.nextCursor ?? undefined }));
 
-    expect([...first.items, ...second.items].map((entry) => entry.id)).toEqual(
-      whole.map((entry) => entry.id),
-    );
-    expect([first.nextCursor, second.nextCursor]).toEqual([
-      first.items.at(-1)?.id,
-      null,
-    ]);
+    expect([...first.items, ...second.items].map((entry) => entry.id)).toEqual(whole.map((entry) => entry.id));
+    expect([first.nextCursor, second.nextCursor]).toEqual([first.items.at(-1)?.id, null]);
   });
 
   it("give no events after a cursor that names no event of the fleet", async () => {
-    const page = unwrap(
-      await core.useCases.readShipTimeline(argo, {
-        shipId: scout.shipId,
-        cursor: createIdGenerator()("event"),
-      }),
-    );
+    const page = unwrap(await core.useCases.readShipTimeline(argo, { shipId: scout.shipId, cursor: createIdGenerator()('event') }));
 
     expect(page).toEqual({ items: [], nextCursor: null });
   });
 
   it("give a ship's messages: sent, received and claimed by type, newest first, with a preview and the delivery now", async () => {
-    const asked = await send(planner, {
-      to: { kind: "ship", shipId: scout.shipId },
-      payload: "Can you\n  review   PR 48?",
-    });
+    const asked = await send(planner, { to: { kind: 'ship', shipId: scout.shipId }, payload: 'Can you\n  review   PR 48?' });
     const [askedDelivery] = await receive(scout);
     await ack(scout, askedDelivery);
-    const answered = await send(scout, {
-      to: { kind: "ship", shipId: planner.shipId },
-      inReplyTo: asked,
-    });
-    const toReviewers = await send(planner, {
-      to: { kind: "type", type: "reviewer" },
-    });
+    const answered = await send(scout, { to: { kind: 'ship', shipId: planner.shipId }, inReplyTo: asked });
+    const toReviewers = await send(planner, { to: { kind: 'type', type: 'reviewer' } });
     await receive(lookout);
 
-    const scoutMessages = unwrap(
-      await core.useCases.readShipMessages(argo, { shipId: scout.shipId }),
-    ).items;
-    const lookoutMessages = unwrap(
-      await core.useCases.readShipMessages(argo, { shipId: lookout.shipId }),
-    ).items;
+    const scoutMessages = unwrap(await core.useCases.readShipMessages(argo, { shipId: scout.shipId })).items;
+    const lookoutMessages = unwrap(await core.useCases.readShipMessages(argo, { shipId: lookout.shipId })).items;
 
     expect(scoutMessages).toMatchObject([
-      {
-        id: answered,
-        inReplyTo: asked,
-        delivery: { state: "pending", claimedBy: null },
-      },
+      { id: answered, inReplyTo: asked, delivery: { state: 'pending', claimedBy: null } },
       {
         id: asked,
-        sender: { name: "planner" },
-        recipient: { kind: "ship", ship: { name: "scout" } },
-        preview: "Can you review PR 48?",
-        delivery: {
-          state: "acknowledged",
-          claimedBy: { id: scout.shipId, name: "scout" },
-        },
+        sender: { name: 'planner' },
+        recipient: { kind: 'ship', ship: { name: 'scout' } },
+        preview: 'Can you review PR 48?',
+        delivery: { state: 'acknowledged', claimedBy: { id: scout.shipId, name: 'scout' } },
       },
     ]);
     expect(scoutMessages).toHaveLength(2);
     expect(lookoutMessages).toMatchObject([
-      {
-        id: toReviewers,
-        recipient: { kind: "type", type: "reviewer" },
-        delivery: { state: "handed", claimedBy: { name: "lookout" } },
-      },
+      { id: toReviewers, recipient: { kind: 'type', type: 'reviewer' }, delivery: { state: 'handed', claimedBy: { name: 'lookout' } } },
     ]);
   });
 
   it("give a ship's messages page by page, sent, sent to it and claimed by its type alike, each after the last page's cursor", async () => {
-    const claimed = await send(planner, {
-      to: { kind: "type", type: "reviewer" },
-    });
+    const claimed = await send(planner, { to: { kind: 'type', type: 'reviewer' } });
     await receive(scout);
-    const sentTo = await send(planner, {
-      to: { kind: "ship", shipId: scout.shipId },
-    });
-    const sent = await send(scout, {
-      to: { kind: "ship", shipId: planner.shipId },
-    });
-    const read = async (cursor?: MessageId) =>
-      unwrap(
-        await core.useCases.readShipMessages(argo, {
-          shipId: scout.shipId,
-          limit: 2,
-          cursor,
-        }),
-      );
+    const sentTo = await send(planner, { to: { kind: 'ship', shipId: scout.shipId } });
+    const sent = await send(scout, { to: { kind: 'ship', shipId: planner.shipId } });
+    const read = async (cursor?: MessageId) => unwrap(await core.useCases.readShipMessages(argo, { shipId: scout.shipId, limit: 2, cursor }));
 
     const first = await read();
     const second = await read(first.nextCursor ?? undefined);
 
-    expect([
-      first.items.map((message) => message.id),
-      first.nextCursor,
-    ]).toEqual([[sent, sentTo], sentTo]);
-    expect([
-      second.items.map((message) => message.id),
-      second.nextCursor,
-    ]).toEqual([[claimed], null]);
+    expect([first.items.map((message) => message.id), first.nextCursor]).toEqual([[sent, sentTo], sentTo]);
+    expect([second.items.map((message) => message.id), second.nextCursor]).toEqual([[claimed], null]);
   });
 
   it("give a ship's messages telling a pushed hand-over from a plain receive's (pulled)", async () => {
-    const pushed = await send(planner, {
-      to: { kind: "ship", shipId: scout.shipId },
-    });
+    const pushed = await send(planner, { to: { kind: 'ship', shipId: scout.shipId } });
     core.clock.advance(1_000);
-    const [received] = unwrap(
-      await core.useCases.pushReceiveDeliveries(scout, {}),
-    ).deliveries;
-    unwrap(
-      await core.useCases.handOverDelivery(scout, {
-        deliveryId: idSchema("delivery").parse(received?.deliveryId),
-        handOverNumber: 1,
-        isOnceMore: false,
-      }),
-    );
-    const pulled = await send(planner, {
-      to: { kind: "ship", shipId: lookout.shipId },
-    });
+    const [received] = unwrap(await core.useCases.pushReceiveDeliveries(scout, {})).deliveries;
+    unwrap(await core.useCases.handOverDelivery(scout, { deliveryId: idSchema('delivery').parse(received?.deliveryId), handOverNumber: 1, isOnceMore: false }));
+    const pulled = await send(planner, { to: { kind: 'ship', shipId: lookout.shipId } });
     await receive(lookout);
 
-    const listed = unwrap(
-      await core.useCases.readShipMessages(argo, { shipId: planner.shipId }),
-    ).items;
+    const listed = unwrap(await core.useCases.readShipMessages(argo, { shipId: planner.shipId })).items;
 
-    expect(
-      listed.map(({ id, delivery }) => [id, delivery.state, delivery.isPulled]),
-    ).toEqual([
-      [pulled, "handed", true],
-      [pushed, "handed", false],
+    expect(listed.map(({ id, delivery }) => [id, delivery.state, delivery.isPulled])).toEqual([
+      [pulled, 'handed', true],
+      [pushed, 'handed', false],
     ]);
   });
 
   it("give one message with its delivery's history: stored, claimed where the session ran, returned and claimed again", async () => {
-    const messageId = await send(planner, {
-      to: { kind: "type", type: "reviewer" },
-      payload: '{"pr":48}',
-    });
+    const messageId = await send(planner, { to: { kind: 'type', type: 'reviewer' }, payload: '{"pr":48}' });
     await receive(scout);
     unwrap(await core.useCases.releaseShip(argo, { shipId: scout.shipId }));
     const [deliveryId] = await receive(lookout);
     await ack(lookout, deliveryId);
 
-    const message = unwrap(
-      await core.useCases.readMessage(argo, { messageId }),
-    );
+    const message = unwrap(await core.useCases.readMessage(argo, { messageId }));
 
     expect(message).toMatchObject({
       id: messageId,
-      sender: { name: "planner" },
-      recipient: { kind: "type", type: "reviewer" },
+      sender: { name: 'planner' },
+      recipient: { kind: 'type', type: 'reviewer' },
       payload: '{"pr":48}',
-      delivery: {
-        state: "acknowledged",
-        attempts: 2,
-        claimedBy: { name: "lookout" },
-      },
+      delivery: { state: 'acknowledged', attempts: 2, claimedBy: { name: 'lookout' } },
     });
     expect(message.delivery.history).toMatchObject([
-      {
-        type: "DeliveryAcknowledged",
-        ship: { name: "lookout" },
-        location: null,
-        attempts: null,
-      },
-      {
-        type: "DeliveryHanded",
-        ship: { name: "lookout" },
-        location: { kind: "SERVER", description: null },
-        harness: "claude-code",
-        attempts: 2,
-      },
-      {
-        type: "DeliveryReturned",
-        ship: { name: "scout" },
-        location: null,
-        attempts: 1,
-      },
-      {
-        type: "DeliveryHanded",
-        ship: { name: "scout" },
-        location: { kind: "DEVICE", description: null },
-        harness: "claude-code",
-        attempts: 1,
-      },
-      { type: "MessageAccepted", ship: null, location: null, attempts: null },
+      { type: 'DeliveryAcknowledged', ship: { name: 'lookout' }, location: null, attempts: null },
+      { type: 'DeliveryHanded', ship: { name: 'lookout' }, location: { kind: 'SERVER', description: null }, harness: 'claude-code', attempts: 2 },
+      { type: 'DeliveryReturned', ship: { name: 'scout' }, location: null, attempts: 1 },
+      { type: 'DeliveryHanded', ship: { name: 'scout' }, location: { kind: 'DEVICE', description: null }, harness: 'claude-code', attempts: 1 },
+      { type: 'MessageAccepted', ship: null, location: null, attempts: null },
     ]);
   });
 
   it("give a pushed delivery's way through on a session its trierarch crewed: the trierarch on its computer, the overdue clock, the crew it runs and the replies", async () => {
     const { shipId: trierarchId } = unwrap(
-      await core.useCases.commissionShip(argo, {
-        idempotencyKey: newKey(),
-        name: "mac-mini",
-        type: "trierarch",
-        scopes: ["crew:run"],
-      }),
+      await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] }),
     );
     const { shipId: pluginId } = unwrap(
-      await core.useCases.commissionShip(argo, {
-        idempotencyKey: newKey(),
-        name: "trierarch-plugin",
-        type: "plugin",
-        scopes: ["crew:assign"],
-      }),
+      await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'trierarch-plugin', type: 'plugin', scopes: ['crew:assign'] }),
     );
-    const trierarch: ShipCaller = {
-      fleetId: argo.fleetId,
-      shipId: trierarchId,
-      kind: "agent",
-      scopes: ["messages:send", "messages:receive", "crew:run"],
-    };
-    const plugin: ShipCaller = {
-      fleetId: argo.fleetId,
-      shipId: pluginId,
-      kind: "agent",
-      scopes: ["messages:send", "messages:receive", "crew:assign"],
-    };
-    const { shipId: builderId } = unwrap(
-      await core.useCases.commissionShip(argo, {
-        idempotencyKey: newKey(),
-        name: "builder",
-        type: "builder",
-      }),
-    );
-    unwrap(
-      await core.useCases.requestCrew(argo, {
-        shipId: builderId,
-        settings: aCrewSettings({ harness: "claude-code" }),
-      }),
-    );
-    unwrap(
-      await core.useCases.assignCrew(plugin, {
-        shipId: builderId,
-        trierarchShipId: trierarchId,
-      }),
-    );
-    const { secret } = unwrap(
-      await core.useCases.getStartingPrompt(trierarch, { shipId: builderId }),
-    );
+    const trierarch: ShipCaller = { fleetId: argo.fleetId, shipId: trierarchId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:run'] };
+    const plugin: ShipCaller = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'] };
+    const { shipId: builderId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'builder', type: 'builder' }));
+    unwrap(await core.useCases.requestCrew(argo, { shipId: builderId, settings: aCrewSettings({ harness: 'claude-code' }) }));
+    unwrap(await core.useCases.assignCrew(plugin, { shipId: builderId, trierarchShipId: trierarchId }));
+    const { secret } = unwrap(await core.useCases.getStartingPrompt(trierarch, { shipId: builderId }));
     core.clock.advance(1_000);
-    const { crewToken } = unwrap(
-      await core.useCases.claimShip({
-        shipId: builderId,
-        secret,
-        location: { kind: "DEVICE" },
-        harness: "claude-code",
-      }),
-    );
-    const builder = unwrap(
-      await core.useCases.authenticate.byCrewToken(crewToken),
-    );
-    unwrap(
-      await core.useCases.reportCrewStatus(trierarch, {
-        shipId: builderId,
-        status: "running",
-        attempt: 1,
-      }),
-    );
+    const { crewToken } = unwrap(await core.useCases.claimShip({ shipId: builderId, secret, location: { kind: 'DEVICE' }, harness: 'claude-code' }));
+    const builder = unwrap(await core.useCases.authenticate.byCrewToken(crewToken));
+    unwrap(await core.useCases.reportCrewStatus(trierarch, { shipId: builderId, status: 'running', attempt: 1 }));
 
-    const messageId = await send(planner, {
-      to: { kind: "ship", shipId: builderId },
-    });
+    const messageId = await send(planner, { to: { kind: 'ship', shipId: builderId } });
     core.clock.advance(1_000);
-    const [received] = unwrap(
-      await core.useCases.pushReceiveDeliveries(builder, {}),
-    ).deliveries;
+    const [received] = unwrap(await core.useCases.pushReceiveDeliveries(builder, {})).deliveries;
     core.clock.advance(1_000);
     unwrap(await core.useCases.pushReceiveDeliveries(builder, {}));
     core.clock.advance(1_000);
-    unwrap(
-      await core.useCases.handOverDelivery(builder, {
-        deliveryId: idSchema("delivery").parse(received?.deliveryId),
-        handOverNumber: 1,
-      }),
-    );
+    unwrap(await core.useCases.handOverDelivery(builder, { deliveryId: idSchema('delivery').parse(received?.deliveryId), handOverNumber: 1 }));
     const handedAt = core.clock.now();
     core.clock.advance(10 * 60_000);
     await core.useCases.tellOverdueDeliveries();
     const toldAt = core.clock.now();
-    await send(builder, {
-      to: { kind: "ship", shipId: planner.shipId },
-      inReplyTo: messageId,
-    });
+    await send(builder, { to: { kind: 'ship', shipId: planner.shipId }, inReplyTo: messageId });
 
-    const message = unwrap(
-      await core.useCases.readMessage(argo, { messageId }),
-    );
+    const message = unwrap(await core.useCases.readMessage(argo, { messageId }));
 
-    const atMacMini = {
-      kind: "trierarch",
-      trierarch: { id: trierarchId, name: "mac-mini" },
-    };
-    expect(
-      message.delivery.history.map((step) => [
-        step.type,
-        step.by,
-        step.handOverNumber,
-        step.isAgain,
-        step.overdue,
-      ]),
-    ).toEqual([
-      [
-        "DeliveryOverdue",
-        null,
-        null,
-        false,
-        { clock: "notConfirmed", minutes: 10 },
-      ],
-      ["DeliveryHanded", atMacMini, 1, false, null],
-      ["DeliveryReceived", atMacMini, null, true, null],
-      ["DeliveryReceived", atMacMini, null, false, null],
-      ["MessageAccepted", null, null, false, null],
+    const atMacMini = { kind: 'trierarch', trierarch: { id: trierarchId, name: 'mac-mini' } };
+    expect(message.delivery.history.map((step) => [step.type, step.by, step.handOverNumber, step.isAgain, step.overdue])).toEqual([
+      ['DeliveryOverdue', null, null, false, { clock: 'notConfirmed', minutes: 10 }],
+      ['DeliveryHanded', atMacMini, 1, false, null],
+      ['DeliveryReceived', atMacMini, null, true, null],
+      ['DeliveryReceived', atMacMini, null, false, null],
+      ['MessageAccepted', null, null, false, null],
     ]);
     expect(message.delivery.way).toEqual({
-      holder: { kind: "agent" },
+      holder: { kind: 'agent' },
       since: handedAt,
       isPulled: false,
-      overdue: { clock: "notConfirmed", minutes: 10, toldAt },
+      overdue: { clock: 'notConfirmed', minutes: 10, toldAt },
       lease: { by: atMacMini, isEnded: false, turn: null },
-      crew: { status: "running", attempt: 1, startedAt: null },
+      crew: { status: 'running', attempt: 1, startedAt: null },
     });
-    expect(message.replies).toMatchObject([
-      { sender: { id: builderId, name: "builder" }, sentAt: core.clock.now() },
-    ]);
+    expect(message.replies).toMatchObject([{ sender: { id: builderId, name: 'builder' }, sentAt: core.clock.now() }]);
   });
 
   it("give a delivery's way on a session crewed by hand: the plugin watcher, the turn it waits through, and the lease end that returned it", async () => {
     // A first push receive takes a message, so the lease is pushed without waiting on an empty inbox.
-    await send(planner, { to: { kind: "ship", shipId: scout.shipId } });
+    await send(planner, { to: { kind: 'ship', shipId: scout.shipId } });
     core.clock.advance(1_000);
     unwrap(await core.useCases.pushReceiveDeliveries(scout, {}));
     const busyAt = core.clock.now();
-    unwrap(await core.useCases.reportTurn(scout, { turn: "busy", at: busyAt }));
-    const messageId = await send(planner, {
-      to: { kind: "ship", shipId: scout.shipId },
-    });
+    unwrap(await core.useCases.reportTurn(scout, { turn: 'busy', at: busyAt }));
+    const messageId = await send(planner, { to: { kind: 'ship', shipId: scout.shipId } });
 
-    const pending = unwrap(
-      await core.useCases.readMessage(argo, { messageId }),
-    );
+    const pending = unwrap(await core.useCases.readMessage(argo, { messageId }));
     expect(pending.delivery.way).toMatchObject({
-      holder: { kind: "fleet" },
-      lease: {
-        by: { kind: "pluginWatcher" },
-        isEnded: false,
-        turn: { state: "busy", at: busyAt },
-      },
+      holder: { kind: 'fleet' },
+      lease: { by: { kind: 'pluginWatcher' }, isEnded: false, turn: { state: 'busy', at: busyAt } },
       crew: null,
     });
 
@@ -555,100 +273,57 @@ describe("the history reads on Postgres", () => {
     unwrap(await core.useCases.pushReceiveDeliveries(scout, { max: 2 }));
     unwrap(await core.useCases.releaseShip(argo, { shipId: scout.shipId }));
 
-    const returned = unwrap(
-      await core.useCases.readMessage(argo, { messageId }),
-    );
+    const returned = unwrap(await core.useCases.readMessage(argo, { messageId }));
     expect(returned.delivery.history.slice(0, 2)).toMatchObject([
-      { type: "DeliveryReturned", leaseEnd: "released" },
-      { type: "DeliveryReceived", by: { kind: "pluginWatcher" } },
+      { type: 'DeliveryReturned', leaseEnd: 'released' },
+      { type: 'DeliveryReceived', by: { kind: 'pluginWatcher' } },
     ]);
-    expect(returned.delivery.way).toMatchObject({
-      holder: { kind: "fleet" },
-      lease: null,
-    });
+    expect(returned.delivery.way).toMatchObject({ holder: { kind: 'fleet' }, lease: null });
   });
 
-  it("give an acknowledged delivery whose lease ended, pulled by a plain receive", async () => {
-    const messageId = await send(planner, {
-      to: { kind: "ship", shipId: scout.shipId },
-    });
+  it('give an acknowledged delivery whose lease ended, pulled by a plain receive', async () => {
+    const messageId = await send(planner, { to: { kind: 'ship', shipId: scout.shipId } });
     const [deliveryId] = await receive(scout);
     await ack(scout, deliveryId);
     unwrap(await core.useCases.releaseShip(argo, { shipId: scout.shipId }));
 
-    const message = unwrap(
-      await core.useCases.readMessage(argo, { messageId }),
-    );
+    const message = unwrap(await core.useCases.readMessage(argo, { messageId }));
 
-    expect(message.delivery.way).toMatchObject({
-      holder: { kind: "agent" },
-      isPulled: true,
-      lease: { by: null, isEnded: true },
-    });
+    expect(message.delivery.way).toMatchObject({ holder: { kind: 'agent' }, isPulled: true, lease: { by: null, isEnded: true } });
   });
 
   it("give a ship's side of the way: its plugin watcher, its turn, and its oldest delivery waiting among those for its type", async () => {
-    const oldest = await send(planner, {
-      to: { kind: "ship", shipId: scout.shipId },
-    });
+    const oldest = await send(planner, { to: { kind: 'ship', shipId: scout.shipId } });
     core.clock.advance(1_000);
     unwrap(await core.useCases.pushReceiveDeliveries(scout, {}));
     const idleAt = core.clock.now();
-    unwrap(await core.useCases.reportTurn(scout, { turn: "idle", at: idleAt }));
-    await send(planner, { to: { kind: "type", type: "reviewer" } });
-    await send(planner, { to: { kind: "ship", shipId: lookout.shipId } });
+    unwrap(await core.useCases.reportTurn(scout, { turn: 'idle', at: idleAt }));
+    await send(planner, { to: { kind: 'type', type: 'reviewer' } });
+    await send(planner, { to: { kind: 'ship', shipId: lookout.shipId } });
 
-    const way = unwrap(
-      await core.useCases.readShipWay(argo, { shipId: scout.shipId }),
-    );
+    const way = unwrap(await core.useCases.readShipWay(argo, { shipId: scout.shipId }));
 
     expect(way).toMatchObject({
-      lease: {
-        by: { kind: "pluginWatcher" },
-        turn: { state: "idle", at: idleAt },
-      },
+      lease: { by: { kind: 'pluginWatcher' }, turn: { state: 'idle', at: idleAt } },
       waiting: 2,
-      oldest: {
-        messageId: oldest,
-        delivery: {
-          state: "received",
-          way: { holder: { kind: "pluginWatcher" } },
-        },
-      },
+      oldest: { messageId: oldest, delivery: { state: 'received', way: { holder: { kind: 'pluginWatcher' } } } },
     });
   });
 
   it("give no side of the way for a ship no session crews, and a pull lease's none", async () => {
     unwrap(await core.useCases.releaseShip(argo, { shipId: scout.shipId }));
 
-    await expect(
-      core.useCases.readShipWay(argo, { shipId: scout.shipId }),
-    ).resolves.toMatchObject({
-      value: { lease: null, waiting: 0, oldest: null },
-    });
-    await expect(
-      core.useCases.readShipWay(argo, { shipId: lookout.shipId }),
-    ).resolves.toMatchObject({ value: { lease: { by: null, turn: null } } });
+    await expect(core.useCases.readShipWay(argo, { shipId: scout.shipId })).resolves.toMatchObject({ value: { lease: null, waiting: 0, oldest: null } });
+    await expect(core.useCases.readShipWay(argo, { shipId: lookout.shipId })).resolves.toMatchObject({ value: { lease: { by: null, turn: null } } });
   });
 
-  it("know no ship or message of another fleet", async () => {
-    const messageId = await send(planner, {
-      to: { kind: "ship", shipId: scout.shipId },
-    });
-    const elsewhere = {
-      ...argo,
-      fleetId: idSchema("fleet").parse(`flt_${"0".repeat(26)}`),
-    };
+  it('know no ship or message of another fleet', async () => {
+    const messageId = await send(planner, { to: { kind: 'ship', shipId: scout.shipId } });
+    const elsewhere = { ...argo, fleetId: idSchema('fleet').parse(`flt_${'0'.repeat(26)}`) };
     const shipId: ShipId = scout.shipId;
 
-    await expect(
-      core.useCases.readShipTimeline(elsewhere, { shipId }),
-    ).resolves.toMatchObject({ error: { kind: "SHIP_NOT_FOUND" } });
-    await expect(
-      core.useCases.readShipMessages(elsewhere, { shipId }),
-    ).resolves.toMatchObject({ error: { kind: "SHIP_NOT_FOUND" } });
-    await expect(
-      core.useCases.readMessage(elsewhere, { messageId }),
-    ).resolves.toMatchObject({ error: { kind: "MESSAGE_NOT_FOUND" } });
+    await expect(core.useCases.readShipTimeline(elsewhere, { shipId })).resolves.toMatchObject({ error: { kind: 'SHIP_NOT_FOUND' } });
+    await expect(core.useCases.readShipMessages(elsewhere, { shipId })).resolves.toMatchObject({ error: { kind: 'SHIP_NOT_FOUND' } });
+    await expect(core.useCases.readMessage(elsewhere, { messageId })).resolves.toMatchObject({ error: { kind: 'MESSAGE_NOT_FOUND' } });
   });
 });

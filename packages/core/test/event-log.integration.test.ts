@@ -1,22 +1,15 @@
-import {
-  accountIdSchema,
-  createIdGenerator,
-  type FleetId,
-} from "@aeolus-fleet/common";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { accountIdSchema, createIdGenerator, type FleetId } from '@aeolus-fleet/common';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import {
-  createPrismaClient,
-  type PrismaClient,
-} from "../src/adapters/prisma/client.js";
-import { listenForPendingDeliveries } from "../src/adapters/prisma/delivery-notices.js";
-import { createPrismaFleetEventFeed } from "../src/adapters/prisma/event-log.js";
-import { createPrismaUnitOfWork } from "../src/adapters/prisma/unit-of-work.js";
-import type { FleetEvent } from "../src/domain/shared/events.js";
-import { SYSTEM } from "../src/domain/shared/events.js";
-import { refuse } from "../src/domain/shared/errors.js";
-import { ok } from "../src/domain/shared/result.js";
-import { createMigratedDatabase } from "../src/testing/database.js";
+import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
+import { listenForPendingDeliveries } from '../src/adapters/prisma/delivery-notices.js';
+import { createPrismaFleetEventFeed } from '../src/adapters/prisma/event-log.js';
+import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
+import type { FleetEvent } from '../src/domain/shared/events.js';
+import { SYSTEM } from '../src/domain/shared/events.js';
+import { refuse } from '../src/domain/shared/errors.js';
+import { ok } from '../src/domain/shared/result.js';
+import { createMigratedDatabase } from '../src/testing/database.js';
 
 // The event log's stream position on a real Postgres. Event ids are taken when
 // an event is written, not when its transaction commits, so they cannot tell a
@@ -38,13 +31,9 @@ afterAll(async () => {
 });
 
 async function aFleet(): Promise<FleetId> {
-  const fleetId = newId("fleet");
+  const fleetId = newId('fleet');
   await createPrismaUnitOfWork(prisma).run(async (tx) => {
-    await tx.fleets.create({
-      id: fleetId,
-      name: "home fleet",
-      createdAt: new Date("2026-09-29T12:00:00.000Z"),
-    });
+    await tx.fleets.create({ id: fleetId, name: 'home fleet', createdAt: new Date('2026-09-29T12:00:00.000Z') });
     return ok(undefined);
   });
   return fleetId;
@@ -52,10 +41,10 @@ async function aFleet(): Promise<FleetId> {
 
 function anEvent(fleetId: FleetId): FleetEvent {
   return {
-    id: newId("event"),
+    id: newId('event'),
     fleetId,
-    type: "FleetInitialised",
-    occurredAt: new Date("2026-09-29T12:00:00.000Z"),
+    type: 'FleetInitialised',
+    occurredAt: new Date('2026-09-29T12:00:00.000Z'),
     actor: SYSTEM,
     details: {},
   };
@@ -68,16 +57,14 @@ async function appendInOwnUnit(event: FleetEvent): Promise<void> {
   });
 }
 
-async function sequenceOf(
-  fleetId: FleetId,
-): Promise<{ id: string; seq: number }[]> {
+async function sequenceOf(fleetId: FleetId): Promise<{ id: string; seq: number }[]> {
   const rows = await prisma.$queryRaw<{ id: string; seq: bigint }[]>`
     SELECT id, seq FROM events WHERE fleet_id = ${fleetId} ORDER BY seq`;
   return rows.map(({ id, seq }) => ({ id, seq: Number(seq) }));
 }
 
-describe("the event sequence", () => {
-  it("numbers the events of a fleet 1, 2, 3 in the order they were appended within one unit of work", async () => {
+describe('the event sequence', () => {
+  it('numbers the events of a fleet 1, 2, 3 in the order they were appended within one unit of work', async () => {
     const fleetId = await aFleet();
     const events = [anEvent(fleetId), anEvent(fleetId), anEvent(fleetId)];
 
@@ -88,12 +75,10 @@ describe("the event sequence", () => {
       return ok(undefined);
     });
 
-    await expect(sequenceOf(fleetId)).resolves.toEqual(
-      events.map((event, index) => ({ id: event.id, seq: index + 1 })),
-    );
+    await expect(sequenceOf(fleetId)).resolves.toEqual(events.map((event, index) => ({ id: event.id, seq: index + 1 })));
   });
 
-  it("numbers events in commit order: a transaction that wrote its event first but commits last comes last", async () => {
+  it('numbers events in commit order: a transaction that wrote its event first but commits last comes last', async () => {
     const fleetId = await aFleet();
     const early = anEvent(fleetId);
     const late = anEvent(fleetId);
@@ -115,7 +100,7 @@ describe("the event sequence", () => {
     ]);
   });
 
-  it("leaves no gap for a unit of work that refused: the next commit takes the next number", async () => {
+  it('leaves no gap for a unit of work that refused: the next commit takes the next number', async () => {
     const fleetId = await aFleet();
     const first = anEvent(fleetId);
     const refused = anEvent(fleetId);
@@ -124,7 +109,7 @@ describe("the event sequence", () => {
     await appendInOwnUnit(first);
     await createPrismaUnitOfWork(prisma).run(async (tx) => {
       await tx.events.append(refused);
-      return refuse("SHIP_NOT_FOUND", "refused after an event");
+      return refuse('SHIP_NOT_FOUND', 'refused after an event');
     });
     await appendInOwnUnit(next);
 
@@ -134,7 +119,7 @@ describe("the event sequence", () => {
     ]);
   });
 
-  it("keeps a sequence per fleet", async () => {
+  it('keeps a sequence per fleet', async () => {
     const home = await aFleet();
     const away = await aFleet();
     const homeEvent = anEvent(home);
@@ -143,12 +128,10 @@ describe("the event sequence", () => {
     await appendInOwnUnit(homeEvent);
     await appendInOwnUnit(awayEvent);
 
-    await expect(sequenceOf(away)).resolves.toEqual([
-      { id: awayEvent.id, seq: 1 },
-    ]);
+    await expect(sequenceOf(away)).resolves.toEqual([{ id: awayEvent.id, seq: 1 }]);
   });
 
-  it("announces the fleet and the last number once the unit of work commits", async () => {
+  it('announces the fleet and the last number once the unit of work commits', async () => {
     const fleetId = await aFleet();
     const heard: unknown[] = [];
     const listener = listenForPendingDeliveries({
@@ -173,7 +156,7 @@ describe("the event sequence", () => {
     }
   });
 
-  it("announces nothing for a unit of work that refused", async () => {
+  it('announces nothing for a unit of work that refused', async () => {
     const fleetId = await aFleet();
     const heard: unknown[] = [];
     const listener = listenForPendingDeliveries({
@@ -188,7 +171,7 @@ describe("the event sequence", () => {
 
       await createPrismaUnitOfWork(prisma).run(async (tx) => {
         await tx.events.append(anEvent(fleetId));
-        return refuse("SHIP_NOT_FOUND", "refused after an event");
+        return refuse('SHIP_NOT_FOUND', 'refused after an event');
       });
       await appendInOwnUnit(anEvent(fleetId));
 
@@ -199,8 +182,8 @@ describe("the event sequence", () => {
   });
 });
 
-describe("the event feed", () => {
-  it("gives the last number of a fleet, and 0 before its first event", async () => {
+describe('the event feed', () => {
+  it('gives the last number of a fleet, and 0 before its first event', async () => {
     const fleetId = await aFleet();
     const feed = createPrismaFleetEventFeed(prisma);
     await expect(feed.lastSeq(fleetId)).resolves.toBe(0);
@@ -211,23 +194,15 @@ describe("the event feed", () => {
     await expect(feed.lastSeq(fleetId)).resolves.toBe(2);
   });
 
-  it("gives up to the limit of events after a number, lowest first, as they were written", async () => {
+  it('gives up to the limit of events after a number, lowest first, as they were written', async () => {
     const fleetId = await aFleet();
-    const events = [
-      anEvent(fleetId),
-      anEvent(fleetId),
-      anEvent(fleetId),
-      anEvent(fleetId),
-    ];
+    const events = [anEvent(fleetId), anEvent(fleetId), anEvent(fleetId), anEvent(fleetId)];
     for (const event of events) {
       await appendInOwnUnit(event);
     }
     await appendInOwnUnit(anEvent(await aFleet()));
 
-    const read = await createPrismaFleetEventFeed(prisma).after(fleetId, {
-      seq: 1,
-      limit: 2,
-    });
+    const read = await createPrismaFleetEventFeed(prisma).after(fleetId, { seq: 1, limit: 2 });
 
     expect(read).toEqual([
       { ...events[1], seq: 2 },
@@ -235,91 +210,55 @@ describe("the event feed", () => {
     ]);
   });
 
-  it("gives an event its actor ship and what it concerns", async () => {
+  it('gives an event its actor ship and what it concerns', async () => {
     const fleetId = await aFleet();
-    const shipId = newId("ship");
+    const shipId = newId('ship');
     await prisma.ship.create({
-      data: {
-        id: shipId,
-        fleetId,
-        name: "scout",
-        type: "reviewer",
-        kind: "agent",
-        scopes: [],
-        createdAt: new Date(),
-      },
+      data: { id: shipId, fleetId, name: 'scout', type: 'reviewer', kind: 'agent', scopes: [], createdAt: new Date() },
     });
     const event: FleetEvent = {
       ...anEvent(fleetId),
-      type: "ShipCommissioned",
-      actor: { kind: "ship", shipId },
+      type: 'ShipCommissioned',
+      actor: { kind: 'ship', shipId },
       shipId,
-      details: { name: "scout" },
+      details: { name: 'scout' },
     };
     await appendInOwnUnit(event);
 
-    await expect(
-      createPrismaFleetEventFeed(prisma).after(fleetId, { seq: 0, limit: 10 }),
-    ).resolves.toEqual([{ ...event, seq: 1 }]);
+    await expect(createPrismaFleetEventFeed(prisma).after(fleetId, { seq: 0, limit: 10 })).resolves.toEqual([
+      { ...event, seq: 1 },
+    ]);
   });
-  it("gives an event an account as its actor, by its id only, with the ship it came through (decision 0057)", async () => {
+  it('gives an event an account as its actor, by its id only, with the ship it came through (decision 0057)', async () => {
     const fleetId = await aFleet();
-    const gatewayId = newId("ship");
+    const gatewayId = newId('ship');
     await prisma.ship.create({
-      data: {
-        id: gatewayId,
-        fleetId,
-        name: "gateway",
-        type: "gateway",
-        kind: "app",
-        scopes: [],
-        createdAt: new Date(),
-      },
+      data: { id: gatewayId, fleetId, name: 'gateway', type: 'gateway', kind: 'app', scopes: [], createdAt: new Date() },
     });
     const event: FleetEvent = {
       ...anEvent(fleetId),
-      type: "ShipRenamed",
-      actor: {
-        kind: "account",
-        accountId: accountIdSchema.parse("acc-mathilde"),
-        throughShipId: gatewayId,
-      },
+      type: 'ShipRenamed',
+      actor: { kind: 'account', accountId: accountIdSchema.parse('acc-mathilde'), throughShipId: gatewayId },
       details: {},
     };
     await appendInOwnUnit(event);
 
-    await expect(
-      createPrismaFleetEventFeed(prisma).after(fleetId, { seq: 0, limit: 10 }),
-    ).resolves.toEqual([{ ...event, seq: 1 }]);
+    await expect(createPrismaFleetEventFeed(prisma).after(fleetId, { seq: 0, limit: 10 })).resolves.toEqual([{ ...event, seq: 1 }]);
   });
 
-  it("gives an event an account as its actor when no ship presented its token", async () => {
+  it('gives an event an account as its actor when no ship presented its token', async () => {
     const fleetId = await aFleet();
-    const event: FleetEvent = {
-      ...anEvent(fleetId),
-      actor: {
-        kind: "account",
-        accountId: accountIdSchema.parse("acc-mathilde"),
-        throughShipId: null,
-      },
-    };
+    const event: FleetEvent = { ...anEvent(fleetId), actor: { kind: 'account', accountId: accountIdSchema.parse('acc-mathilde'), throughShipId: null } };
     await appendInOwnUnit(event);
 
-    await expect(
-      createPrismaFleetEventFeed(prisma).after(fleetId, { seq: 0, limit: 10 }),
-    ).resolves.toEqual([{ ...event, seq: 1 }]);
+    await expect(createPrismaFleetEventFeed(prisma).after(fleetId, { seq: 0, limit: 10 })).resolves.toEqual([{ ...event, seq: 1 }]);
   });
 
-  it("gives an event the installation as its actor", async () => {
+  it('gives an event the installation as its actor', async () => {
     const fleetId = await aFleet();
-    const event: FleetEvent = {
-      ...anEvent(fleetId),
-      actor: { kind: "installation" },
-    };
+    const event: FleetEvent = { ...anEvent(fleetId), actor: { kind: 'installation' } };
     await appendInOwnUnit(event);
 
-    await expect(
-      createPrismaFleetEventFeed(prisma).after(fleetId, { seq: 0, limit: 10 }),
-    ).resolves.toEqual([{ ...event, seq: 1 }]);
+    await expect(createPrismaFleetEventFeed(prisma).after(fleetId, { seq: 0, limit: 10 })).resolves.toEqual([{ ...event, seq: 1 }]);
   });
 });

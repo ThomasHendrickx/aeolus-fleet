@@ -1,35 +1,21 @@
-import type { FleetScope, ShipId } from "@aeolus-fleet/common";
-import {
-  createIdGenerator,
-  reportLogOutputSchema,
-  requestMicOutputSchema,
-} from "@aeolus-fleet/common";
-import {
-  Client,
-  StreamableHTTPClientTransport,
-} from "@modelcontextprotocol/client";
-import type { FastifyInstance } from "fastify";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { z } from "zod";
+import type { FleetScope, ShipId } from '@aeolus-fleet/common';
+import { createIdGenerator, reportLogOutputSchema, requestMicOutputSchema } from '@aeolus-fleet/common';
+import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
+import type { FastifyInstance } from 'fastify';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { z } from 'zod';
 
-import {
-  createPrismaClient,
-  type PrismaClient,
-} from "../src/adapters/prisma/client.js";
-import { SHIP_CALLS } from "../src/adapters/trpc/ship-contract.js";
-import { createApp } from "../src/app.js";
-import type { ShipCaller } from "../src/domain/shared/caller.js";
-import { createUseCases } from "../src/wiring.js";
-import {
-  FLEET_URL,
-  operatorCaller,
-  secretOf,
-} from "./support/core-fixtures.js";
-import { createMigratedDatabase } from "../src/testing/database.js";
-import { unwrap } from "../src/testing/result.js";
-import { newKey } from "../src/testing/keys.js";
-import { wholeShips } from "./support/ships.js";
-import { withOperatorLogin } from "./support/operator-login.js";
+import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
+import { SHIP_CALLS } from '../src/adapters/trpc/ship-contract.js';
+import { createApp } from '../src/app.js';
+import type { ShipCaller } from '../src/domain/shared/caller.js';
+import { createUseCases } from '../src/wiring.js';
+import { FLEET_URL, operatorCaller, secretOf } from './support/core-fixtures.js';
+import { createMigratedDatabase } from '../src/testing/database.js';
+import { unwrap } from '../src/testing/result.js';
+import { newKey } from '../src/testing/keys.js';
+import { wholeShips } from './support/ships.js';
+import { withOperatorLogin } from './support/operator-login.js';
 
 // The ship contract as MCP tools, from the official MCP client over HTTP to
 // Postgres and back. A conversation registers with its ship's id and secret
@@ -42,7 +28,7 @@ const newId = createIdGenerator();
 const RECEIVE_WAIT_MS = 500;
 
 /** The protocol revisions the SDK client speaks: the 2025-era handshake by default, 2026-07-28 when it negotiates. */
-const ERAS = ["2025 handshake", "2026-07-28 negotiation"] as const;
+const ERAS = ['2025 handshake', '2026-07-28 negotiation'] as const;
 type Era = (typeof ERAS)[number];
 
 let databaseUrl: string;
@@ -57,22 +43,10 @@ beforeAll(async () => {
   databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
   argo = operatorCaller(
-    unwrap(
-      await withOperatorLogin(
-        database,
-        createUseCases({ prisma: database }).initialiseFleet({
-          name: "home fleet",
-        }),
-      ),
-    ),
+    unwrap(await withOperatorLogin(database, createUseCases({ prisma: database }).initialiseFleet({ name: 'home fleet' }))),
   );
-  server = createApp({
-    databaseUrl,
-    publicUrl: FLEET_URL,
-    logger: false,
-    receiveWaitMs: RECEIVE_WAIT_MS,
-  });
-  address = await server.listen({ host: "127.0.0.1", port: 0 });
+  server = createApp({ databaseUrl, publicUrl: FLEET_URL, logger: false, receiveWaitMs: RECEIVE_WAIT_MS });
+  address = await server.listen({ host: '127.0.0.1', port: 0 });
 });
 
 afterEach(async () => {
@@ -86,16 +60,12 @@ afterAll(async () => {
 });
 
 /** A new MCP connection to the fleet, as a Claude Code session configured with /mcp holds one. */
-async function connect(era: Era = "2025 handshake"): Promise<Client> {
+async function connect(era: Era = '2025 handshake'): Promise<Client> {
   const client = new Client(
-    { name: "ship-session", version: "1.0.0" },
-    era === "2026-07-28 negotiation"
-      ? { versionNegotiation: { mode: "auto" } }
-      : {},
+    { name: 'ship-session', version: '1.0.0' },
+    era === '2026-07-28 negotiation' ? { versionNegotiation: { mode: 'auto' } } : {},
   );
-  await client.connect(
-    new StreamableHTTPClientTransport(new URL(`${address}/mcp`)),
-  );
+  await client.connect(new StreamableHTTPClientTransport(new URL(`${address}/mcp`)));
   clients.push(client);
   return client;
 }
@@ -107,36 +77,23 @@ async function commissionedWithFleetScopes(
   shipCount += 1;
   const name = `manager-${shipCount}`;
   const { shipId, secret } = unwrap(
-    await createUseCases({ prisma: database }).commissionShip(argo, {
-      idempotencyKey: newKey(),
-      name,
-      type: "squadron",
-      scopes: fleetScopes,
-    }),
+    await createUseCases({ prisma: database }).commissionShip(argo, { idempotencyKey: newKey(), name, type: 'squadron', scopes: fleetScopes }),
   );
   return { shipId, name, secret: secretOf(secret) };
 }
 
 /** A new agent ship, commissioned by argo: its id, name and the secret its starting prompt holds. */
-async function commissioned(): Promise<{
-  shipId: ShipId;
-  name: string;
-  secret: string;
-}> {
+async function commissioned(): Promise<{ shipId: ShipId; name: string; secret: string }> {
   shipCount += 1;
   const name = `ship-${shipCount}`;
   const { shipId, secret } = unwrap(
-    await createUseCases({ prisma: database }).commissionShip(argo, {
-      idempotencyKey: newKey(),
-      name,
-      type: "reviewer",
-    }),
+    await createUseCases({ prisma: database }).commissionShip(argo, { idempotencyKey: newKey(), name, type: 'reviewer' }),
   );
   return { shipId, name, secret: secretOf(secret) };
 }
 
 const toolResultSchema = z.object({
-  content: z.array(z.object({ type: z.literal("text"), text: z.string() })),
+  content: z.array(z.object({ type: z.literal('text'), text: z.string() })),
   structuredContent: z.unknown().optional(),
   isError: z.boolean().optional(),
 });
@@ -152,45 +109,28 @@ interface ToolCall<T> {
  * JSON text of a tool that answers a list. Fails with the tool's own text when
  * it answers with an error.
  */
-async function call<T>(
-  client: Client,
-  { tool, arguments: args }: ToolCall<T>,
-): Promise<T> {
-  const result = toolResultSchema.parse(
-    await client.callTool({ name: tool.name, arguments: args }),
-  );
+async function call<T>(client: Client, { tool, arguments: args }: ToolCall<T>): Promise<T> {
+  const result = toolResultSchema.parse(await client.callTool({ name: tool.name, arguments: args }));
   if (result.isError) {
-    throw new Error(
-      `${tool.name} answered an error: ${result.content.map((block) => block.text).join("\n")}`,
-    );
+    throw new Error(`${tool.name} answered an error: ${result.content.map((block) => block.text).join('\n')}`);
   }
-  const text = result.content.map((block) => block.text).join("");
+  const text = result.content.map((block) => block.text).join('');
   return tool.answers.parse(result.structuredContent ?? JSON.parse(text));
 }
 
 /** The text a tool answers with an error. Fails when the call succeeds. */
-async function refusalOf(
-  client: Client,
-  request: { name: string; arguments: Record<string, unknown> },
-): Promise<string> {
+async function refusalOf(client: Client, request: { name: string; arguments: Record<string, unknown> }): Promise<string> {
   const result = toolResultSchema.parse(await client.callTool(request));
   expect(result.isError, `${request.name} succeeded`).toBe(true);
-  return result.content.map((block) => block.text).join("\n");
+  return result.content.map((block) => block.text).join('\n');
 }
 
 const tools = {
-  register: { name: "register", answers: z.object({ crewToken: z.string() }) },
-  whoami: {
-    name: "whoami",
-    answers: z.object({
-      shipId: z.string(),
-      name: z.string(),
-      type: z.string(),
-    }),
-  },
-  send: { name: "send", answers: z.object({ messageId: z.string() }) },
+  register: { name: 'register', answers: z.object({ crewToken: z.string() }) },
+  whoami: { name: 'whoami', answers: z.object({ shipId: z.string(), name: z.string(), type: z.string() }) },
+  send: { name: 'send', answers: z.object({ messageId: z.string() }) },
   receive: {
-    name: "receive",
+    name: 'receive',
     answers: z.object({
       deliveries: z.array(
         z.object({
@@ -204,403 +144,197 @@ const tools = {
       ),
     }),
   },
-  ack: { name: "ack", answers: z.strictObject({}) },
-  pong: { name: "pong", answers: z.strictObject({}) },
-  deregister: { name: "deregister", answers: z.strictObject({}) },
+  ack: { name: 'ack', answers: z.strictObject({}) },
+  pong: { name: 'pong', answers: z.strictObject({}) },
+  deregister: { name: 'deregister', answers: z.strictObject({}) },
 };
 
 /** Claims the ship through the register tool, from a DEVICE. Returns the crew token. */
-async function register(
-  client: Client,
-  ship: { shipId: ShipId; secret: string },
-): Promise<string> {
-  const { crewToken } = await call(client, {
-    tool: tools.register,
-    arguments: {
-      ...ship,
-      location: { kind: "DEVICE" },
-      harness: "claude-code",
-    },
-  });
+async function register(client: Client, ship: { shipId: ShipId; secret: string }): Promise<string> {
+  const { crewToken } = await call(client, { tool: tools.register, arguments: { ...ship, location: { kind: 'DEVICE' }, harness: 'claude-code' } });
   return crewToken;
 }
 
-describe("the ship tools at /mcp", () => {
-  it.each(ERAS)(
-    "register, send, receive, ack and deregister: two ships exchange a message and its answer (%s)",
-    async (era) => {
-      const harbour = await commissioned();
-      const mooring = await commissioned();
-      const harbourSession = await connect(era);
-      const mooringSession = await connect(era);
-      const harbourToken = await register(harbourSession, harbour);
-      const mooringToken = await register(mooringSession, mooring);
+describe('the ship tools at /mcp', () => {
+  it.each(ERAS)('register, send, receive, ack and deregister: two ships exchange a message and its answer (%s)', async (era) => {
+    const harbour = await commissioned();
+    const mooring = await commissioned();
+    const harbourSession = await connect(era);
+    const mooringSession = await connect(era);
+    const harbourToken = await register(harbourSession, harbour);
+    const mooringToken = await register(mooringSession, mooring);
 
-      const { messageId } = await call(harbourSession, {
-        tool: tools.send,
-        arguments: {
-          crewToken: harbourToken,
-          model: "claude-opus-5-5",
-          selector: { kind: "ship", name: mooring.name },
-          payload:
-            "Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/32",
-          idempotencyKey: freshKey(),
-        },
-      });
-      const received = await call(mooringSession, {
-        tool: tools.receive,
-        arguments: { crewToken: mooringToken },
-      });
-      const [delivery] = received.deliveries;
-      if (!delivery) {
-        throw new Error("mooring received nothing");
-      }
-      await call(mooringSession, {
-        tool: tools.ack,
-        arguments: { crewToken: mooringToken, deliveryId: delivery.deliveryId },
-      });
-      const { messageId: answerId } = await call(mooringSession, {
-        tool: tools.send,
-        arguments: {
-          crewToken: mooringToken,
-          model: "claude-opus-5-5",
-          selector: { kind: "ship", name: delivery.senderName },
-          payload: "Reviewed: approved",
-          idempotencyKey: freshKey(),
-          inReplyTo: delivery.messageId,
-        },
-      });
-      const answered = await call(harbourSession, {
-        tool: tools.receive,
-        arguments: { crewToken: harbourToken },
-      });
-      const [answer] = answered.deliveries;
-      await call(harbourSession, {
-        tool: tools.ack,
-        arguments: { crewToken: harbourToken, deliveryId: answer?.deliveryId },
-      });
-      await call(mooringSession, {
-        tool: tools.deregister,
-        arguments: { crewToken: mooringToken },
-      });
+    const { messageId } = await call(harbourSession, {
+      tool: tools.send,
+      arguments: {
+        crewToken: harbourToken,
+        model: 'claude-opus-5-5',
+        selector: { kind: 'ship', name: mooring.name },
+        payload: 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/32',
+        idempotencyKey: freshKey(),
+      },
+    });
+    const received = await call(mooringSession, { tool: tools.receive, arguments: { crewToken: mooringToken } });
+    const [delivery] = received.deliveries;
+    if (!delivery) {
+      throw new Error('mooring received nothing');
+    }
+    await call(mooringSession, { tool: tools.ack, arguments: { crewToken: mooringToken, deliveryId: delivery.deliveryId } });
+    const { messageId: answerId } = await call(mooringSession, {
+      tool: tools.send,
+      arguments: {
+        crewToken: mooringToken,
+        model: 'claude-opus-5-5',
+        selector: { kind: 'ship', name: delivery.senderName },
+        payload: 'Reviewed: approved',
+        idempotencyKey: freshKey(),
+        inReplyTo: delivery.messageId,
+      },
+    });
+    const answered = await call(harbourSession, { tool: tools.receive, arguments: { crewToken: harbourToken } });
+    const [answer] = answered.deliveries;
+    await call(harbourSession, { tool: tools.ack, arguments: { crewToken: harbourToken, deliveryId: answer?.deliveryId } });
+    await call(mooringSession, { tool: tools.deregister, arguments: { crewToken: mooringToken } });
 
-      expect(delivery).toMatchObject({
-        messageId,
-        senderShipId: harbour.shipId,
-        senderName: harbour.name,
-      });
-      expect(answer).toMatchObject({
-        messageId: answerId,
-        senderName: mooring.name,
-        inReplyTo: messageId,
-      });
-      await expect(
-        call(harbourSession, {
-          tool: tools.receive,
-          arguments: { crewToken: harbourToken },
-        }),
-      ).resolves.toEqual({
-        deliveries: [],
-      });
-      await expect(
-        refusalOf(mooringSession, {
-          name: "whoami",
-          arguments: { crewToken: mooringToken },
-        }),
-      ).resolves.toBe(
-        "LEASE_ENDED: This ship was released; this session no longer crews it.",
-      );
-    },
-  );
+    expect(delivery).toMatchObject({ messageId, senderShipId: harbour.shipId, senderName: harbour.name });
+    expect(answer).toMatchObject({ messageId: answerId, senderName: mooring.name, inReplyTo: messageId });
+    await expect(call(harbourSession, { tool: tools.receive, arguments: { crewToken: harbourToken } })).resolves.toEqual({
+      deliveries: [],
+    });
+    await expect(
+      refusalOf(mooringSession, { name: 'whoami', arguments: { crewToken: mooringToken } }),
+    ).resolves.toBe('LEASE_ENDED: This ship was released; this session no longer crews it.');
+  });
 
-  it("take part in a meeting: open it, request the mic, contribute, read it, release the mic and end it (decision 0061)", async () => {
-    const chief = await commissionedWithFleetScopes(["meetings:open"]);
+  it('take part in a meeting: open it, request the mic, contribute, read it, release the mic and end it (decision 0061)', async () => {
+    const chief = await commissionedWithFleetScopes(['meetings:open']);
     const head = await commissioned();
     const [chiefSession, headSession] = [await connect(), await connect()];
-    const [chiefToken, headToken] = [
-      await register(chiefSession, chief),
-      await register(headSession, head),
-    ];
+    const [chiefToken, headToken] = [await register(chiefSession, chief), await register(headSession, head)];
     const changed = z.strictObject({});
 
     const { meetingId } = await call(chiefSession, {
-      tool: {
-        name: "openMeeting",
-        answers: z.object({ meetingId: z.string() }),
-      },
-      arguments: {
-        crewToken: chiefToken,
-        ships: [{ name: head.name }],
-        idempotencyKey: freshKey(),
-        model: "claude-opus-5-5",
-        title: "Launch",
-      },
+      tool: { name: 'openMeeting', answers: z.object({ meetingId: z.string() }) },
+      arguments: { crewToken: chiefToken, ships: [{ name: head.name }], idempotencyKey: freshKey(), model: 'claude-opus-5-5', title: 'Launch' },
     });
-    await call(headSession, {
-      tool: { name: "requestMic", answers: requestMicOutputSchema },
-      arguments: { crewToken: headToken, meetingId },
-    });
-    await call(chiefSession, {
-      tool: { name: "giveMic", answers: changed },
-      arguments: { crewToken: chiefToken, meetingId, shipId: head.shipId },
-    });
+    await call(headSession, { tool: { name: 'requestMic', answers: requestMicOutputSchema }, arguments: { crewToken: headToken, meetingId } });
+    await call(chiefSession, { tool: { name: 'giveMic', answers: changed }, arguments: { crewToken: chiefToken, meetingId, shipId: head.shipId } });
     const { messageId } = await call(headSession, {
       tool: tools.send,
-      arguments: {
-        crewToken: headToken,
-        model: "claude-opus-5-5",
-        selector: { kind: "meeting", meetingId },
-        payload: "Copy is ready",
-        idempotencyKey: freshKey(),
-      },
+      arguments: { crewToken: headToken, model: 'claude-opus-5-5', selector: { kind: 'meeting', meetingId }, payload: 'Copy is ready', idempotencyKey: freshKey() },
     });
     const read = await call(chiefSession, {
-      tool: {
-        name: "meeting",
-        answers: z.object({
-          title: z.string().nullable(),
-          contributions: z.object({
-            items: z.array(z.object({ messageId: z.string() })),
-          }),
-        }),
-      },
+      tool: { name: 'meeting', answers: z.object({ title: z.string().nullable(), contributions: z.object({ items: z.array(z.object({ messageId: z.string() })) }) }) },
       arguments: { crewToken: chiefToken, meetingId },
     });
-    await call(headSession, {
-      tool: { name: "releaseMic", answers: changed },
-      arguments: { crewToken: headToken, meetingId },
-    });
-    await call(chiefSession, {
-      tool: { name: "endMeeting", answers: changed },
-      arguments: { crewToken: chiefToken, meetingId },
-    });
+    await call(headSession, { tool: { name: 'releaseMic', answers: changed }, arguments: { crewToken: headToken, meetingId } });
+    await call(chiefSession, { tool: { name: 'endMeeting', answers: changed }, arguments: { crewToken: chiefToken, meetingId } });
 
-    expect(read).toEqual({
-      title: "Launch",
-      contributions: { items: [{ messageId }] },
-    });
-    await expect(
-      refusalOf(headSession, {
-        name: "requestMic",
-        arguments: { crewToken: headToken, meetingId },
-      }),
-    ).resolves.toBe(
-      `CONFLICT: Meeting ${meetingId} ended: its mic no longer changes`,
-    );
+    expect(read).toEqual({ title: 'Launch', contributions: { items: [{ messageId }] } });
+    await expect(refusalOf(headSession, { name: 'requestMic', arguments: { crewToken: headToken, meetingId } })).resolves.toBe(`CONFLICT: Meeting ${meetingId} ended: its mic no longer changes`);
   });
 
-  it("schedule a message, list it and cancel it (decision 0062)", async () => {
+  it('schedule a message, list it and cancel it (decision 0062)', async () => {
     const scout = await commissioned();
     const session = await connect();
     const crewToken = await register(session, scout);
     const scheduled = z.object({ scheduleId: z.string() });
 
     const { scheduleId } = await call(session, {
-      tool: { name: "schedule", answers: scheduled },
-      arguments: {
-        crewToken,
-        model: "claude-opus-5-5",
-        selector: { kind: "ship", name: "argo" },
-        payload: "Reminder",
-        idempotencyKey: freshKey(),
-        timing: { kind: "once", at: "2027-01-01T09:00:00.000Z" },
-      },
+      tool: { name: 'schedule', answers: scheduled },
+      arguments: { crewToken, model: 'claude-opus-5-5', selector: { kind: 'ship', name: 'argo' }, payload: 'Reminder', idempotencyKey: freshKey(), timing: { kind: 'once', at: '2027-01-01T09:00:00.000Z' } },
     });
-    const listed = await call(session, {
-      tool: {
-        name: "schedules",
-        answers: z.object({
-          items: z.array(
-            z.object({ scheduleId: z.string(), state: z.string() }),
-          ),
-        }),
-      },
-      arguments: { crewToken },
-    });
-    const cancelled = await call(session, {
-      tool: {
-        name: "cancelSchedule",
-        answers: z.object({ scheduleId: z.string(), state: z.string() }),
-      },
-      arguments: { crewToken, scheduleId },
-    });
+    const listed = await call(session, { tool: { name: 'schedules', answers: z.object({ items: z.array(z.object({ scheduleId: z.string(), state: z.string() })) }) }, arguments: { crewToken } });
+    const cancelled = await call(session, { tool: { name: 'cancelSchedule', answers: z.object({ scheduleId: z.string(), state: z.string() }) }, arguments: { crewToken, scheduleId } });
 
-    expect(listed.items).toEqual([{ scheduleId, state: "active" }]);
-    expect(cancelled).toEqual({ scheduleId, state: "cancelled" });
+    expect(listed.items).toEqual([{ scheduleId, state: 'active' }]);
+    expect(cancelled).toEqual({ scheduleId, state: 'cancelled' });
   });
 
-  it("pong: a ship answers the ping argo sent it, and the ping is acknowledged", async () => {
+  it('pong: a ship answers the ping argo sent it, and the ping is acknowledged', async () => {
     const skiff = await commissioned();
     const session = await connect();
     const crewToken = await register(session, skiff);
     const { messageId } = unwrap(
-      await createUseCases({ prisma: database }).pingShip(argo, {
-        shipId: skiff.shipId,
-      }),
+      await createUseCases({ prisma: database }).pingShip(argo, { shipId: skiff.shipId }),
     );
-    const [ping] = (
-      await call(session, { tool: tools.receive, arguments: { crewToken } })
-    ).deliveries;
+    const [ping] = (await call(session, { tool: tools.receive, arguments: { crewToken } })).deliveries;
 
-    await call(session, {
-      tool: tools.pong,
-      arguments: { crewToken, deliveryId: ping?.deliveryId },
-    });
+    await call(session, { tool: tools.pong, arguments: { crewToken, deliveryId: ping?.deliveryId } });
 
     expect(ping).toMatchObject({ messageId });
-    await expect(
-      database.delivery.findFirstOrThrow({ where: { messageId } }),
-    ).resolves.toMatchObject({
-      state: "acknowledged",
+    await expect(database.delivery.findFirstOrThrow({ where: { messageId } })).resolves.toMatchObject({
+      state: 'acknowledged',
     });
   });
 
-  it("lets a ship with fleet:read and fleet:manage list the fleet and commission a ship through the fleet tools", async () => {
-    const manager = await commissionedWithFleetScopes([
-      "fleet:read",
-      "fleet:commission",
-      "fleet:manage",
-    ]);
+  it('lets a ship with fleet:read and fleet:manage list the fleet and commission a ship through the fleet tools', async () => {
+    const manager = await commissionedWithFleetScopes(['fleet:read', 'fleet:commission', 'fleet:manage']);
     const session = await connect();
     const crewToken = await register(session, manager);
 
     const listed = await call(session, {
-      tool: {
-        name: "fleet_list",
-        answers: z.object({ items: z.array(z.object({ name: z.string() })) }),
-      },
+      tool: { name: 'fleet_list', answers: z.object({ items: z.array(z.object({ name: z.string() })) }) },
       arguments: { crewToken },
     });
     const { shipId } = await call(session, {
-      tool: {
-        name: "fleet_commission",
-        answers: z.object({ shipId: z.string() }),
-      },
-      arguments: {
-        crewToken,
-        name: `${manager.name}-member`,
-        type: "squadron",
-        idempotencyKey: "commission-member",
-      },
+      tool: { name: 'fleet_commission', answers: z.object({ shipId: z.string() }) },
+      arguments: { crewToken, name: `${manager.name}-member`, type: 'squadron', idempotencyKey: 'commission-member' },
     });
 
     expect(listed.items.map((ship) => ship.name)).toContain(manager.name);
     expect(shipId).toMatch(/^shp_/);
   });
 
-  it("refuses through fleet_crewRequest settings no trierarch could take, with the reason, and stores nothing (#809)", async () => {
-    const manager = await commissionedWithFleetScopes([
-      "fleet:read",
-      "fleet:commission",
-      "fleet:manage",
-    ]);
+  it('refuses through fleet_crewRequest settings no trierarch could take, with the reason, and stores nothing (#809)', async () => {
+    const manager = await commissionedWithFleetScopes(['fleet:read', 'fleet:commission', 'fleet:manage']);
     const scout = await commissioned();
     const session = await connect();
     const crewToken = await register(session, manager);
-    const settings = {
-      workspace: { kind: "folder", name: "notes" },
-      options: {},
-      firstPrompt: "x".repeat(8 * 1024 + 1),
-    };
+    const settings = { workspace: { kind: 'folder', name: 'notes' }, options: {}, firstPrompt: 'x'.repeat(8 * 1024 + 1) };
 
-    await expect(
-      refusalOf(session, {
-        name: "fleet_crewRequest",
-        arguments: { crewToken, shipId: scout.shipId, settings },
-      }),
-    ).resolves.toContain(
-      "settings are not valid crew settings: firstPrompt: A first prompt is at most 8192 bytes",
+    await expect(refusalOf(session, { name: 'fleet_crewRequest', arguments: { crewToken, shipId: scout.shipId, settings } })).resolves.toContain(
+      'settings are not valid crew settings: firstPrompt: A first prompt is at most 8192 bytes',
     );
-    await expect(
-      database.crewRequest.count({ where: { shipId: scout.shipId } }),
-    ).resolves.toBe(0);
+    await expect(database.crewRequest.count({ where: { shipId: scout.shipId } })).resolves.toBe(0);
   });
 
-  it("refuses through fleet_crewRequest a machine label that is no label value of the fleet, with the reason, and stores nothing (#811)", async () => {
-    const manager = await commissionedWithFleetScopes([
-      "fleet:read",
-      "fleet:commission",
-      "fleet:manage",
-    ]);
+  it('refuses through fleet_crewRequest a machine label that is no label value of the fleet, with the reason, and stores nothing (#811)', async () => {
+    const manager = await commissionedWithFleetScopes(['fleet:read', 'fleet:commission', 'fleet:manage']);
     const scout = await commissioned();
     const session = await connect();
     const crewToken = await register(session, manager);
-    const unknown = newId("labelValue");
-    const settings = {
-      workspace: { kind: "folder", name: "notes" },
-      options: {},
-      machineLabels: [unknown],
-    };
+    const unknown = newId('labelValue');
+    const settings = { workspace: { kind: 'folder', name: 'notes' }, options: {}, machineLabels: [unknown] };
 
-    await expect(
-      refusalOf(session, {
-        name: "fleet_crewRequest",
-        arguments: { crewToken, shipId: scout.shipId, settings },
-      }),
-    ).resolves.toContain(
+    await expect(refusalOf(session, { name: 'fleet_crewRequest', arguments: { crewToken, shipId: scout.shipId, settings } })).resolves.toContain(
       `settings are not valid crew settings: machineLabels.0: The fleet has no label value ${unknown}`,
     );
-    await expect(
-      database.crewRequest.count({ where: { shipId: scout.shipId } }),
-    ).resolves.toBe(0);
+    await expect(database.crewRequest.count({ where: { shipId: scout.shipId } })).resolves.toBe(0);
   });
 
-  it("lets a ship with fleet:read follow the fleet through fleet_follow", async () => {
-    const reader = await commissionedWithFleetScopes(["fleet:read"]);
+  it('lets a ship with fleet:read follow the fleet through fleet_follow', async () => {
+    const reader = await commissionedWithFleetScopes(['fleet:read']);
     const session = await connect();
     const crewToken = await register(session, reader);
-    const followed = {
-      name: "fleet_follow",
-      answers: z.object({
-        events: z.array(z.object({ type: z.string() })),
-        lastSeq: z.number(),
-      }),
-    };
-    const { lastSeq } = await call(session, {
-      tool: followed,
-      arguments: { crewToken },
-    });
+    const followed = { name: 'fleet_follow', answers: z.object({ events: z.array(z.object({ type: z.string() })), lastSeq: z.number() }) };
+    const { lastSeq } = await call(session, { tool: followed, arguments: { crewToken } });
     await commissioned();
 
-    const { events } = await call(session, {
-      tool: followed,
-      arguments: { crewToken, afterSeq: lastSeq },
-    });
+    const { events } = await call(session, { tool: followed, arguments: { crewToken, afterSeq: lastSeq } });
 
-    expect(events.map((event) => event.type)).toEqual([
-      "ShipCommissioned",
-      "OwnerSet",
-      "StartingPromptIssued",
-    ]);
+    expect(events.map((event) => event.type)).toEqual(['ShipCommissioned', 'OwnerSet', 'StartingPromptIssued']);
   });
 
-  it("refuses every fleet tool but its own to a ship with only crew:run", async () => {
-    const trierarch = await commissionedWithFleetScopes(["crew:run"]);
+  it('refuses every fleet tool but its own to a ship with only crew:run', async () => {
+    const trierarch = await commissionedWithFleetScopes(['crew:run']);
     const session = await connect();
     const crewToken = await register(session, trierarch);
     const others = SHIP_CALLS.map((each) => each.name).filter(
-      (name) =>
-        name.startsWith("fleet_") &&
-        ![
-          "fleet_ship",
-          "fleet_getStartingPrompt",
-          "fleet_release",
-          "fleet_reportCrewStatus",
-          "fleet_confirmCrewRelease",
-          "fleet_giveBackCrewRequest",
-          "fleet_assignedCrewRequests",
-          "fleet_clearRequests",
-          "fleet_confirmWorktreeCleared",
-          "fleet_checkManage",
-        ].includes(name),
+      (name) => name.startsWith('fleet_') && !['fleet_ship', 'fleet_getStartingPrompt', 'fleet_release', 'fleet_reportCrewStatus', 'fleet_confirmCrewRelease', 'fleet_giveBackCrewRequest', 'fleet_assignedCrewRequests', 'fleet_clearRequests', 'fleet_confirmWorktreeCleared', 'fleet_checkManage'].includes(name),
     );
 
-    const refusals = await Promise.all(
-      others.map(async (name) => [
-        name,
-        await refusalOf(session, { name, arguments: { crewToken } }),
-      ]),
-    );
+    const refusals = await Promise.all(others.map(async (name) => [name, await refusalOf(session, { name, arguments: { crewToken } })]));
 
     expect(others.length).toBeGreaterThan(0);
     for (const [name, refusal] of refusals) {
@@ -608,55 +342,39 @@ describe("the ship tools at /mcp", () => {
     }
   });
 
-  it("refuses a fleet tool to a ship without its scope, with the code first", async () => {
+  it('refuses a fleet tool to a ship without its scope, with the code first', async () => {
     const agent = await commissioned();
     const session = await connect();
     const crewToken = await register(session, agent);
 
-    await expect(
-      refusalOf(session, { name: "fleet_list", arguments: { crewToken } }),
-    ).resolves.toBe("FORBIDDEN: This call needs the fleet:read scope");
+    await expect(refusalOf(session, { name: 'fleet_list', arguments: { crewToken } })).resolves.toBe(
+      'FORBIDDEN: This call needs the fleet:read scope',
+    );
   });
 
-  it("report: a crew says it is blocked, shown with its ship", async () => {
+  it('report: a crew says it is blocked, shown with its ship', async () => {
     const skiff = await commissioned();
     const session = await connect();
     const crewToken = await register(session, skiff);
 
-    await call(session, {
-      tool: { name: "report", answers: z.strictObject({}) },
-      arguments: { crewToken, state: "blocked", note: "waiting for review" },
-    });
+    await call(session, { tool: { name: 'report', answers: z.strictObject({}) }, arguments: { crewToken, state: 'blocked', note: 'waiting for review' } });
 
-    const listed = wholeShips(
-      (await createUseCases({ prisma: database }).listFleet(argo)).ships,
-    );
-    expect(
-      listed.find((ship) => ship.id === skiff.shipId)?.report,
-    ).toMatchObject({ state: "blocked", note: "waiting for review" });
+    const listed = wholeShips((await createUseCases({ prisma: database }).listFleet(argo)).ships);
+    expect(listed.find((ship) => ship.id === skiff.shipId)?.report).toMatchObject({ state: 'blocked', note: 'waiting for review' });
   });
 
   it("reportLog: a crew patches its report's details and reads them back", async () => {
     const skiff = await commissioned();
     const session = await connect();
     const crewToken = await register(session, skiff);
-    await call(session, {
-      tool: { name: "report", answers: z.strictObject({}) },
-      arguments: { crewToken, state: "working", detailsPatch: { running: 4 } },
-    });
+    await call(session, { tool: { name: 'report', answers: z.strictObject({}) }, arguments: { crewToken, state: 'working', detailsPatch: { running: 4 } } });
 
-    const log = await call(session, {
-      tool: { name: "reportLog", answers: reportLogOutputSchema },
-      arguments: { crewToken },
-    });
+    const log = await call(session, { tool: { name: 'reportLog', answers: reportLogOutputSchema }, arguments: { crewToken } });
 
-    expect(log).toMatchObject({
-      report: { state: "working", details: { running: 4 }, detailsVersion: 1 },
-      previousCrew: null,
-    });
+    expect(log).toMatchObject({ report: { state: 'working', details: { running: 4 }, detailsVersion: 1 }, previousCrew: null });
   });
 
-  it("crews two different ships from two conversations on one connection, each by its own crew token", async () => {
+  it('crews two different ships from two conversations on one connection, each by its own crew token', async () => {
     const scout = await commissioned();
     const lookout = await commissioned();
     const connection = await connect();
@@ -667,95 +385,62 @@ describe("the ship tools at /mcp", () => {
       tool: tools.send,
       arguments: {
         crewToken: scoutToken,
-        model: "claude-opus-5-5",
-        selector: { kind: "ship", name: lookout.name },
-        payload: "Land ho",
+        model: 'claude-opus-5-5',
+        selector: { kind: 'ship', name: lookout.name },
+        payload: 'Land ho',
         idempotencyKey: freshKey(),
       },
     });
 
-    await expect(
-      call(connection, {
-        tool: tools.whoami,
-        arguments: { crewToken: scoutToken },
-      }),
-    ).resolves.toMatchObject({
+    await expect(call(connection, { tool: tools.whoami, arguments: { crewToken: scoutToken } })).resolves.toMatchObject({
       shipId: scout.shipId,
       name: scout.name,
     });
-    await expect(
-      call(connection, {
-        tool: tools.whoami,
-        arguments: { crewToken: lookoutToken },
-      }),
-    ).resolves.toMatchObject({
+    await expect(call(connection, { tool: tools.whoami, arguments: { crewToken: lookoutToken } })).resolves.toMatchObject({
       shipId: lookout.shipId,
       name: lookout.name,
     });
-    await expect(
-      call(connection, {
-        tool: tools.receive,
-        arguments: { crewToken: lookoutToken },
-      }),
-    ).resolves.toMatchObject({
-      deliveries: [{ payload: "Land ho", senderShipId: scout.shipId }],
+    await expect(call(connection, { tool: tools.receive, arguments: { crewToken: lookoutToken } })).resolves.toMatchObject({
+      deliveries: [{ payload: 'Land ho', senderShipId: scout.shipId }],
     });
-    await expect(
-      call(connection, {
-        tool: tools.receive,
-        arguments: { crewToken: scoutToken },
-      }),
-    ).resolves.toEqual({
+    await expect(call(connection, { tool: tools.receive, arguments: { crewToken: scoutToken } })).resolves.toEqual({
       deliveries: [],
     });
   });
 
-  it("refuses a second register of a ship a session crews, with readable text naming its code", async () => {
+  it('refuses a second register of a ship a session crews, with readable text naming its code', async () => {
     const scout = await commissioned();
     await register(await connect(), scout);
 
     const text = await refusalOf(await connect(), {
-      name: "register",
-      arguments: {
-        shipId: scout.shipId,
-        secret: scout.secret,
-        location: { kind: "CLOUD" },
-        harness: "claude-code",
-      },
+      name: 'register',
+      arguments: { shipId: scout.shipId, secret: scout.secret, location: { kind: 'CLOUD' }, harness: 'claude-code' },
     });
 
-    expect(text).toBe(
-      `CONFLICT: ${scout.name} is crewed: a session claims a ship only while it awaits crew`,
-    );
+    expect(text).toBe(`CONFLICT: ${scout.name} is crewed: a session claims a ship only while it awaits crew`);
   });
 
-  it("refuses a tool call without a crew token, or with one that is not valid", async () => {
+  it('refuses a tool call without a crew token, or with one that is not valid', async () => {
     const scout = await commissioned();
     const connection = await connect();
     await register(connection, scout);
     const sending = {
-      selector: { kind: "ship", name: scout.name },
-      payload: "Anyone aboard?",
-      model: "claude-opus-5-5",
+      selector: { kind: 'ship', name: scout.name },
+      payload: 'Anyone aboard?',
+      model: 'claude-opus-5-5',
       idempotencyKey: freshKey(),
     };
     const messagesBefore = await database.message.count();
 
+    await expect(refusalOf(connection, { name: 'send', arguments: sending })).resolves.toBe(
+      'UNAUTHORIZED: Call with the crew token register gave you',
+    );
     await expect(
-      refusalOf(connection, { name: "send", arguments: sending }),
-    ).resolves.toBe("UNAUTHORIZED: Call with the crew token register gave you");
-    await expect(
-      refusalOf(connection, {
-        name: "send",
-        arguments: { ...sending, crewToken: "aeolus_ct_v1_not-a-crew" },
-      }),
-    ).resolves.toBe("UNAUTHORIZED: Call with the crew token register gave you");
-    await expect(
-      refusalOf(connection, {
-        name: "receive",
-        arguments: { crewToken: scout.secret },
-      }),
-    ).resolves.toMatch(/^UNAUTHORIZED: /);
+      refusalOf(connection, { name: 'send', arguments: { ...sending, crewToken: 'aeolus_ct_v1_not-a-crew' } }),
+    ).resolves.toBe('UNAUTHORIZED: Call with the crew token register gave you');
+    await expect(refusalOf(connection, { name: 'receive', arguments: { crewToken: scout.secret } })).resolves.toMatch(
+      /^UNAUTHORIZED: /,
+    );
     await expect(database.message.count()).resolves.toBe(messagesBefore);
   });
 });

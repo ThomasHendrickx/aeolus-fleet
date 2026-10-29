@@ -1,29 +1,20 @@
-import {
-  createIdGenerator,
-  type LabelId,
-  type LabelValueId,
-  type ShipId,
-} from "@aeolus-fleet/common";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { createIdGenerator, type LabelId, type LabelValueId, type ShipId } from '@aeolus-fleet/common';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { createPrismaUnitOfWork } from "../src/adapters/prisma/unit-of-work.js";
-import { createAssignLabel } from "../src/domain/registry/assign-label.js";
-import { createChangeLabelValues } from "../src/domain/registry/change-label-values.js";
-import { createDeleteLabel } from "../src/domain/registry/delete-label.js";
-import { sha256Hasher } from "../src/adapters/crypto/secrets.js";
-import { createRetireShip } from "../src/domain/registry/retire-ship.js";
-import type { ShipCaller } from "../src/domain/shared/caller.js";
-import { operatorCaller } from "./support/core-fixtures.js";
-import { newKey } from "../src/testing/keys.js";
-import {
-  createPostgresCore,
-  heldUnitOfWork,
-  type PostgresCore,
-} from "./support/postgres-core.js";
-import { refusalOf, unwrap } from "../src/testing/result.js";
-import { wholeShips } from "./support/ships.js";
-import { withOperatorLogin } from "./support/operator-login.js";
-import { unsealedFleetsOnly } from "./support/sealing.js";
+import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
+import { createAssignLabel } from '../src/domain/registry/assign-label.js';
+import { createChangeLabelValues } from '../src/domain/registry/change-label-values.js';
+import { createDeleteLabel } from '../src/domain/registry/delete-label.js';
+import { sha256Hasher } from '../src/adapters/crypto/secrets.js';
+import { createRetireShip } from '../src/domain/registry/retire-ship.js';
+import type { ShipCaller } from '../src/domain/shared/caller.js';
+import { operatorCaller } from './support/core-fixtures.js';
+import { newKey } from '../src/testing/keys.js';
+import { createPostgresCore, heldUnitOfWork, type PostgresCore } from './support/postgres-core.js';
+import { refusalOf, unwrap } from '../src/testing/result.js';
+import { wholeShips } from './support/ships.js';
+import { withOperatorLogin } from './support/operator-login.js';
+import { unsealedFleetsOnly } from './support/sealing.js';
 
 // Labels on a real Postgres (decision 0031): a key once per fleet, even when
 // two ships define it at once; a label and each value with its own id, the
@@ -44,56 +35,21 @@ let linux: LabelValueId;
 
 beforeEach(async () => {
   core = await createPostgresCore();
-  argo = operatorCaller(
-    unwrap(
-      await withOperatorLogin(
-        core.prisma,
-        core.useCases.initialiseFleet({ name: "home fleet" }),
-      ),
-    ),
-  );
+  argo = operatorCaller(unwrap(await withOperatorLogin(core.prisma, core.useCases.initialiseFleet({ name: 'home fleet' }))));
   const { shipId: pluginId } = unwrap(
     await core.useCases.commissionShip(argo, {
       idempotencyKey: newKey(),
-      name: "trierarch-plugin",
-      type: "trierarch-plugin",
-      scopes: [
-        "fleet:read",
-        "fleet:commission",
-        "labels:define",
-        "labels:assign",
-      ],
+      name: 'trierarch-plugin',
+      type: 'trierarch-plugin',
+      scopes: ['fleet:read', 'fleet:commission', 'labels:define', 'labels:assign'],
     }),
   );
-  plugin = {
-    fleetId: argo.fleetId,
-    shipId: pluginId,
-    kind: "agent",
-    scopes: [
-      "messages:send",
-      "messages:receive",
-      "fleet:read",
-      "fleet:commission",
-      "labels:define",
-      "labels:assign",
-    ],
-  };
-  ({ shipId: builderId } = unwrap(
-    await core.useCases.commissionShip(plugin, {
-      idempotencyKey: newKey(),
-      name: "builder",
-      type: "implementer",
-    }),
-  ));
-  const defined = unwrap(
-    await core.useCases.defineLabel(plugin, {
-      key: "os",
-      values: ["macos", "linux"],
-    }),
-  );
+  plugin = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:commission', 'labels:define', 'labels:assign'] };
+  ({ shipId: builderId } = unwrap(await core.useCases.commissionShip(plugin, { idempotencyKey: newKey(), name: 'builder', type: 'implementer' })));
+  const defined = unwrap(await core.useCases.defineLabel(plugin, { key: 'os', values: ['macos', 'linux'] }));
   osId = defined.labelId;
-  macos = defined.values[0]?.id ?? newId("labelValue");
-  linux = defined.values[1]?.id ?? newId("labelValue");
+  macos = defined.values[0]?.id ?? newId('labelValue');
+  linux = defined.values[1]?.id ?? newId('labelValue');
 });
 
 afterEach(async () => {
@@ -101,270 +57,108 @@ afterEach(async () => {
 });
 
 async function labels() {
-  return (await core.useCases.listLabels(argo)).map((label) => ({
-    key: label.key,
-    values: label.values.map((value) => value.value),
-    owner: label.owner.kind === "ship" ? label.owner.id : label.owner.kind,
-  }));
+  return (await core.useCases.listLabels(argo)).map((label) => ({ key: label.key, values: label.values.map((value) => value.value), owner: label.owner.kind === 'ship' ? label.owner.id : label.owner.kind }));
 }
 
 async function carried() {
-  return wholeShips((await core.useCases.listFleet(argo)).ships).flatMap(
-    (ship) =>
-      ship.labels.map((label) => `${ship.name}:${label.key}=${label.value}`),
-  );
+  return wholeShips((await core.useCases.listFleet(argo)).ships).flatMap((ship) => ship.labels.map((label) => `${ship.name}:${label.key}=${label.value}`));
 }
 
 function labelEvents() {
-  return core.prisma.event.findMany({
-    where: { type: { startsWith: "Label" } },
-    orderBy: { seq: "asc" },
-    select: { type: true, shipId: true, details: true },
-  });
+  return core.prisma.event.findMany({ where: { type: { startsWith: 'Label' } }, orderBy: { seq: 'asc' }, select: { type: true, shipId: true, details: true } });
 }
 
-describe("labels on Postgres", () => {
-  it("keep a label and its values with their ids, the ids kept when the values change, and a set of values on each ship, with their events", async () => {
-    const changed = unwrap(
-      await core.useCases.changeLabelValues(plugin, {
-        labelId: osId,
-        values: ["macos", "linux", "windows"],
-      }),
-    );
-    const windows = changed.values[2]?.id ?? newId("labelValue");
-    unwrap(
-      await core.useCases.assignLabel(plugin, {
-        shipId: builderId,
-        valueId: macos,
-      }),
-    );
-    unwrap(
-      await core.useCases.assignLabel(plugin, {
-        shipId: builderId,
-        valueId: windows,
-      }),
-    );
+describe('labels on Postgres', () => {
+  it('keep a label and its values with their ids, the ids kept when the values change, and a set of values on each ship, with their events', async () => {
+    const changed = unwrap(await core.useCases.changeLabelValues(plugin, { labelId: osId, values: ['macos', 'linux', 'windows'] }));
+    const windows = changed.values[2]?.id ?? newId('labelValue');
+    unwrap(await core.useCases.assignLabel(plugin, { shipId: builderId, valueId: macos }));
+    unwrap(await core.useCases.assignLabel(plugin, { shipId: builderId, valueId: windows }));
 
-    expect(changed.values.map((value) => value.id).slice(0, 2)).toEqual([
-      macos,
-      linux,
-    ]);
+    expect(changed.values.map((value) => value.id).slice(0, 2)).toEqual([macos, linux]);
     await expect(core.useCases.listLabels(argo)).resolves.toEqual([
-      {
-        id: osId,
-        key: "os",
-        shipCount: 1,
-        values: [
-          { id: macos, value: "macos", shipCount: 1 },
-          { id: linux, value: "linux", shipCount: 0 },
-          { id: windows, value: "windows", shipCount: 1 },
-        ],
-        owner: { kind: "ship", id: plugin.shipId, name: "trierarch-plugin" },
-      },
+      { id: osId, key: 'os', shipCount: 1, values: [{ id: macos, value: 'macos', shipCount: 1 }, { id: linux, value: 'linux', shipCount: 0 }, { id: windows, value: 'windows', shipCount: 1 }], owner: { kind: 'ship', id: plugin.shipId, name: 'trierarch-plugin' } },
     ]);
-    await expect(carried()).resolves.toEqual([
-      "builder:os=macos",
-      "builder:os=windows",
+    await expect(carried()).resolves.toEqual(['builder:os=macos', 'builder:os=windows']);
+    expect((await labelEvents()).map((event) => [event.type, event.shipId])).toEqual([
+      ['LabelDefined', plugin.shipId],
+      ['LabelValuesChanged', plugin.shipId],
+      ['LabelAssigned', builderId],
+      ['LabelAssigned', builderId],
     ]);
-    expect(
-      (await labelEvents()).map((event) => [event.type, event.shipId]),
-    ).toEqual([
-      ["LabelDefined", plugin.shipId],
-      ["LabelValuesChanged", plugin.shipId],
-      ["LabelAssigned", builderId],
-      ["LabelAssigned", builderId],
-    ]);
-    expect((await labelEvents())[2]?.details).toEqual({
-      labelId: osId,
-      key: "os",
-      valueId: macos,
-      value: "macos",
-    });
+    expect((await labelEvents())[2]?.details).toEqual({ labelId: osId, key: 'os', valueId: macos, value: 'macos' });
   });
 
-  it("take a value off a ship, and refuse to remove a value a ship carries", async () => {
-    unwrap(
-      await core.useCases.assignLabel(plugin, {
-        shipId: builderId,
-        valueId: linux,
-      }),
-    );
+  it('take a value off a ship, and refuse to remove a value a ship carries', async () => {
+    unwrap(await core.useCases.assignLabel(plugin, { shipId: builderId, valueId: linux }));
 
-    await expect(
-      core.useCases.changeLabelValues(plugin, {
-        labelId: osId,
-        values: ["macos"],
-      }),
-    ).resolves.toMatchObject({
-      isOk: false,
-      error: { kind: "LABEL_VALUE_CARRIED" },
-    });
-    unwrap(
-      await core.useCases.unassignLabel(plugin, {
-        shipId: builderId,
-        valueId: linux,
-      }),
-    );
-    unwrap(
-      await core.useCases.changeLabelValues(plugin, {
-        labelId: osId,
-        values: ["macos"],
-      }),
-    );
+    await expect(core.useCases.changeLabelValues(plugin, { labelId: osId, values: ['macos'] })).resolves.toMatchObject({ isOk: false, error: { kind: 'LABEL_VALUE_CARRIED' } });
+    unwrap(await core.useCases.unassignLabel(plugin, { shipId: builderId, valueId: linux }));
+    unwrap(await core.useCases.changeLabelValues(plugin, { labelId: osId, values: ['macos'] }));
 
     await expect(carried()).resolves.toEqual([]);
-    await expect(labels()).resolves.toEqual([
-      { key: "os", values: ["macos"], owner: plugin.shipId },
-    ]);
+    await expect(labels()).resolves.toEqual([{ key: 'os', values: ['macos'], owner: plugin.shipId }]);
   });
 
-  it("are read with the fleet: each ship with what it carries, and selected by value ids, combined with AND", async () => {
-    const { shipId: testerId } = unwrap(
-      await core.useCases.commissionShip(plugin, {
-        idempotencyKey: newKey(),
-        name: "tester",
-        type: "implementer",
-      }),
-    );
-    const hemma =
-      unwrap(
-        await core.useCases.defineLabel(plugin, {
-          key: "project",
-          values: ["hemma"],
-        }),
-      ).values[0]?.id ?? newId("labelValue");
-    unwrap(
-      await core.useCases.assignLabel(plugin, {
-        shipId: builderId,
-        valueId: macos,
-      }),
-    );
-    unwrap(
-      await core.useCases.assignLabel(plugin, {
-        shipId: builderId,
-        valueId: hemma,
-      }),
-    );
-    unwrap(
-      await core.useCases.assignLabel(plugin, {
-        shipId: testerId,
-        valueId: macos,
-      }),
-    );
+  it('are read with the fleet: each ship with what it carries, and selected by value ids, combined with AND', async () => {
+    const { shipId: testerId } = unwrap(await core.useCases.commissionShip(plugin, { idempotencyKey: newKey(), name: 'tester', type: 'implementer' }));
+    const hemma = unwrap(await core.useCases.defineLabel(plugin, { key: 'project', values: ['hemma'] })).values[0]?.id ?? newId('labelValue');
+    unwrap(await core.useCases.assignLabel(plugin, { shipId: builderId, valueId: macos }));
+    unwrap(await core.useCases.assignLabel(plugin, { shipId: builderId, valueId: hemma }));
+    unwrap(await core.useCases.assignLabel(plugin, { shipId: testerId, valueId: macos }));
 
-    await expect(carried()).resolves.toEqual([
-      "builder:os=macos",
-      "builder:project=hemma",
-      "tester:os=macos",
-    ]);
-    expect(
-      (
-        await core.useCases.listFleet(argo, { valueIds: [macos, hemma] })
-      ).ships.map((ship) => ship.name),
-    ).toEqual(["builder"]);
-    await expect(
-      core.useCases.getShip(argo, { shipId: testerId }),
-    ).resolves.toMatchObject({
-      value: {
-        labels: [{ labelId: osId, key: "os", valueId: macos, value: "macos" }],
-      },
-    });
+    await expect(carried()).resolves.toEqual(['builder:os=macos', 'builder:project=hemma', 'tester:os=macos']);
+    expect((await core.useCases.listFleet(argo, { valueIds: [macos, hemma] })).ships.map((ship) => ship.name)).toEqual(['builder']);
+    await expect(core.useCases.getShip(argo, { shipId: testerId })).resolves.toMatchObject({ value: { labels: [{ labelId: osId, key: 'os', valueId: macos, value: 'macos' }] } });
   });
 
-  it("go with a retired ship, and retire with their owner, every assignment first, freeing the key", async () => {
-    const { shipId: testerId } = unwrap(
-      await core.useCases.commissionShip(plugin, {
-        idempotencyKey: newKey(),
-        name: "tester",
-        type: "implementer",
-      }),
-    );
-    const core1 =
-      unwrap(
-        await core.useCases.defineLabel(argo, {
-          key: "team",
-          values: ["core"],
-        }),
-      ).values[0]?.id ?? newId("labelValue");
-    unwrap(
-      await core.useCases.assignLabel(plugin, {
-        shipId: builderId,
-        valueId: macos,
-      }),
-    );
-    unwrap(
-      await core.useCases.assignLabel(plugin, {
-        shipId: testerId,
-        valueId: linux,
-      }),
-    );
-    unwrap(
-      await core.useCases.assignLabel(argo, {
-        shipId: builderId,
-        valueId: core1,
-      }),
-    );
+  it('go with a retired ship, and retire with their owner, every assignment first, freeing the key', async () => {
+    const { shipId: testerId } = unwrap(await core.useCases.commissionShip(plugin, { idempotencyKey: newKey(), name: 'tester', type: 'implementer' }));
+    const core1 = unwrap(await core.useCases.defineLabel(argo, { key: 'team', values: ['core'] })).values[0]?.id ?? newId('labelValue');
+    unwrap(await core.useCases.assignLabel(plugin, { shipId: builderId, valueId: macos }));
+    unwrap(await core.useCases.assignLabel(plugin, { shipId: testerId, valueId: linux }));
+    unwrap(await core.useCases.assignLabel(argo, { shipId: builderId, valueId: core1 }));
 
     unwrap(await core.useCases.retireShip(argo, { shipId: builderId }));
-    await expect(carried()).resolves.toEqual(["tester:os=linux"]);
+    await expect(carried()).resolves.toEqual(['tester:os=linux']);
 
     unwrap(await core.useCases.retireShip(argo, { shipId: plugin.shipId }));
     await expect(carried()).resolves.toEqual([]);
-    await expect(labels()).resolves.toEqual([
-      { key: "team", values: ["core"], owner: argo.shipId },
-    ]);
-    await expect(
-      core.useCases.defineLabel(argo, { key: "os", values: ["windows"] }),
-    ).resolves.toMatchObject({ isOk: true });
+    await expect(labels()).resolves.toEqual([{ key: 'team', values: ['core'], owner: argo.shipId }]);
+    await expect(core.useCases.defineLabel(argo, { key: 'os', values: ['windows'] })).resolves.toMatchObject({ isOk: true });
   });
 
-  it("keep a key once in the fleet when two ships define it at once: one is refused, naming the owner", async () => {
+  it('keep a key once in the fleet when two ships define it at once: one is refused, naming the owner', async () => {
     const defined = await Promise.all([
-      core.useCases.defineLabel(plugin, { key: "project", values: ["hemma"] }),
-      core.useCases.defineLabel(argo, { key: "project", values: ["aeolus"] }),
+      core.useCases.defineLabel(plugin, { key: 'project', values: ['hemma'] }),
+      core.useCases.defineLabel(argo, { key: 'project', values: ['aeolus'] }),
     ]);
 
     expect(defined.filter((result) => result.isOk)).toHaveLength(1);
-    expect(
-      defined
-        .filter((result) => !result.isOk)
-        .map((result) => refusalOf(result).kind),
-    ).toEqual(["LABEL_KEY_TAKEN"]);
-    await expect(
-      core.prisma.label.count({ where: { key: "project" } }),
-    ).resolves.toBe(1);
+    expect(defined.filter((result) => !result.isOk).map((result) => refusalOf(result).kind)).toEqual(['LABEL_KEY_TAKEN']);
+    await expect(core.prisma.label.count({ where: { key: 'project' } })).resolves.toBe(1);
   });
 });
 
-describe("the ships each label value counts, on Postgres", () => {
-  it("counts the active ships that carry each value, a retired one left out", async () => {
-    const { shipId: oldId } = unwrap(
-      await core.useCases.commissionShip(plugin, {
-        idempotencyKey: newKey(),
-        name: "old",
-        type: "implementer",
-      }),
-    );
+describe('the ships each label value counts, on Postgres', () => {
+  it('counts the active ships that carry each value, a retired one left out', async () => {
+    const { shipId: oldId } = unwrap(await core.useCases.commissionShip(plugin, { idempotencyKey: newKey(), name: 'old', type: 'implementer' }));
     for (const shipId of [builderId, oldId]) {
-      unwrap(
-        await core.useCases.assignLabel(plugin, { shipId, valueId: macos }),
-      );
+      unwrap(await core.useCases.assignLabel(plugin, { shipId, valueId: macos }));
     }
     unwrap(await core.useCases.retireShip(argo, { shipId: oldId }));
 
-    const values = (await core.useCases.listLabels(argo)).find(
-      (label) => label.id === osId,
-    )?.values;
+    const values = (await core.useCases.listLabels(argo)).find((label) => label.id === osId)?.values;
 
     expect(values?.map((value) => [value.value, value.shipCount])).toEqual([
-      ["macos", 1],
-      ["linux", 0],
+      ['macos', 1],
+      ['linux', 0],
     ]);
   });
 });
 
-describe("an assignment racing a change of values", () => {
-  it("waits for a change that locked the label first, then is refused: the value is gone", async () => {
+describe('an assignment racing a change of values', () => {
+  it('waits for a change that locked the label first, then is refused: the value is gone', async () => {
     const { uow, reached } = heldUnitOfWork(core.prisma, (tx, hold) => ({
       ...tx,
       labels: {
@@ -375,27 +169,17 @@ describe("an assignment racing a change of values", () => {
         },
       },
     }));
-    const change = createChangeLabelValues({
-      uow,
-      clock: core.clock,
-      ids: newId,
-    })(plugin, { labelId: osId, values: ["macos"] });
+    const change = createChangeLabelValues({ uow, clock: core.clock, ids: newId })(plugin, { labelId: osId, values: ['macos'] });
     await reached;
 
-    const assign = core.useCases.assignLabel(plugin, {
-      shipId: builderId,
-      valueId: linux,
-    });
+    const assign = core.useCases.assignLabel(plugin, { shipId: builderId, valueId: linux });
 
     await expect(change).resolves.toMatchObject({ isOk: true });
-    await expect(assign).resolves.toMatchObject({
-      isOk: false,
-      error: { kind: "LABEL_VALUE_NOT_FOUND" },
-    });
+    await expect(assign).resolves.toMatchObject({ isOk: false, error: { kind: 'LABEL_VALUE_NOT_FOUND' } });
     await expect(carried()).resolves.toEqual([]);
   });
 
-  it("makes a change wait for an assignment that holds the label, then refuses the change: a ship carries the value", async () => {
+  it('makes a change wait for an assignment that holds the label, then refuses the change: a ship carries the value', async () => {
     const { uow, reached } = heldUnitOfWork(core.prisma, (tx, hold) => ({
       ...tx,
       labels: {
@@ -406,28 +190,19 @@ describe("an assignment racing a change of values", () => {
         },
       },
     }));
-    const assign = createAssignLabel({ uow, clock: core.clock, ids: newId })(
-      plugin,
-      { shipId: builderId, valueId: linux },
-    );
+    const assign = createAssignLabel({ uow, clock: core.clock, ids: newId })(plugin, { shipId: builderId, valueId: linux });
     await reached;
 
-    const change = core.useCases.changeLabelValues(plugin, {
-      labelId: osId,
-      values: ["macos"],
-    });
+    const change = core.useCases.changeLabelValues(plugin, { labelId: osId, values: ['macos'] });
 
     await expect(assign).resolves.toEqual({ isOk: true, value: undefined });
-    await expect(change).resolves.toMatchObject({
-      isOk: false,
-      error: { kind: "LABEL_VALUE_CARRIED" },
-    });
-    await expect(carried()).resolves.toEqual(["builder:os=linux"]);
+    await expect(change).resolves.toMatchObject({ isOk: false, error: { kind: 'LABEL_VALUE_CARRIED' } });
+    await expect(carried()).resolves.toEqual(['builder:os=linux']);
   });
 });
 
 describe("an assignment racing its owner's retire", () => {
-  it("makes the retire wait, then the retire takes the new assignment with the label", async () => {
+  it('makes the retire wait, then the retire takes the new assignment with the label', async () => {
     const { uow, reached } = heldUnitOfWork(core.prisma, (tx, hold) => ({
       ...tx,
       labels: {
@@ -438,19 +213,10 @@ describe("an assignment racing its owner's retire", () => {
         },
       },
     }));
-    const assign = createAssignLabel({ uow, clock: core.clock, ids: newId })(
-      plugin,
-      { shipId: builderId, valueId: macos },
-    );
+    const assign = createAssignLabel({ uow, clock: core.clock, ids: newId })(plugin, { shipId: builderId, valueId: macos });
     await reached;
 
-    const retire = createRetireShip({
-      uow: createPrismaUnitOfWork(core.prisma),
-      clock: core.clock,
-      ids: newId,
-      hasher: sha256Hasher,
-      sealing: unsealedFleetsOnly,
-    })(argo, { shipId: plugin.shipId });
+    const retire = createRetireShip({ uow: createPrismaUnitOfWork(core.prisma), clock: core.clock, ids: newId, hasher: sha256Hasher, sealing: unsealedFleetsOnly })(argo, { shipId: plugin.shipId });
 
     await expect(assign).resolves.toEqual({ isOk: true, value: undefined });
     await expect(retire).resolves.toMatchObject({ isOk: true });
@@ -459,54 +225,27 @@ describe("an assignment racing its owner's retire", () => {
   });
 });
 
-describe("deleting a label on Postgres", () => {
-  it("deletes it with its values and LabelDeleted, freeing the key, and refuses one a ship carries", async () => {
-    const team = unwrap(
-      await core.useCases.defineLabel(plugin, {
-        key: "team",
-        values: ["core"],
-      }),
-    );
-    unwrap(
-      await core.useCases.assignLabel(plugin, {
-        shipId: builderId,
-        valueId: macos,
-      }),
-    );
+describe('deleting a label on Postgres', () => {
+  it('deletes it with its values and LabelDeleted, freeing the key, and refuses one a ship carries', async () => {
+    const team = unwrap(await core.useCases.defineLabel(plugin, { key: 'team', values: ['core'] }));
+    unwrap(await core.useCases.assignLabel(plugin, { shipId: builderId, valueId: macos }));
 
     unwrap(await core.useCases.deleteLabel(plugin, { labelId: team.labelId }));
-    await expect(
-      core.useCases.deleteLabel(plugin, { labelId: osId }),
-    ).resolves.toMatchObject({ isOk: false, error: { kind: "LABEL_CARRIED" } });
+    await expect(core.useCases.deleteLabel(plugin, { labelId: osId })).resolves.toMatchObject({ isOk: false, error: { kind: 'LABEL_CARRIED' } });
 
-    await expect(labels()).resolves.toEqual([
-      { key: "os", values: ["macos", "linux"], owner: plugin.shipId },
-    ]);
-    await expect(
-      core.prisma.labelValue.count({ where: { labelId: team.labelId } }),
-    ).resolves.toBe(0);
-    expect((await labelEvents()).at(-1)).toEqual({
-      type: "LabelDeleted",
-      shipId: plugin.shipId,
-      details: { labelId: team.labelId, key: "team" },
-    });
-    await expect(
-      core.useCases.defineLabel(argo, { key: "team", values: ["web"] }),
-    ).resolves.toMatchObject({ isOk: true });
+    await expect(labels()).resolves.toEqual([{ key: 'os', values: ['macos', 'linux'], owner: plugin.shipId }]);
+    await expect(core.prisma.labelValue.count({ where: { labelId: team.labelId } })).resolves.toBe(0);
+    expect((await labelEvents()).at(-1)).toEqual({ type: 'LabelDeleted', shipId: plugin.shipId, details: { labelId: team.labelId, key: 'team' } });
+    await expect(core.useCases.defineLabel(argo, { key: 'team', values: ['web'] })).resolves.toMatchObject({ isOk: true });
   });
 
-  it("finds a value by its key and value text", async () => {
-    await expect(
-      core.useCases.findLabelValue(argo, { key: "OS", value: "linux" }),
-    ).resolves.toEqual({
-      isOk: true,
-      value: { labelId: osId, valueId: linux },
-    });
+  it('finds a value by its key and value text', async () => {
+    await expect(core.useCases.findLabelValue(argo, { key: 'OS', value: 'linux' })).resolves.toEqual({ isOk: true, value: { labelId: osId, valueId: linux } });
   });
 });
 
-describe("an assignment racing a delete", () => {
-  it("makes the delete wait for an assignment that holds the label, then refuses the delete: a ship carries it", async () => {
+describe('an assignment racing a delete', () => {
+  it('makes the delete wait for an assignment that holds the label, then refuses the delete: a ship carries it', async () => {
     const { uow, reached } = heldUnitOfWork(core.prisma, (tx, hold) => ({
       ...tx,
       labels: {
@@ -517,23 +256,17 @@ describe("an assignment racing a delete", () => {
         },
       },
     }));
-    const assign = createAssignLabel({ uow, clock: core.clock, ids: newId })(
-      plugin,
-      { shipId: builderId, valueId: macos },
-    );
+    const assign = createAssignLabel({ uow, clock: core.clock, ids: newId })(plugin, { shipId: builderId, valueId: macos });
     await reached;
 
     const deleted = core.useCases.deleteLabel(plugin, { labelId: osId });
 
     await expect(assign).resolves.toEqual({ isOk: true, value: undefined });
-    await expect(deleted).resolves.toMatchObject({
-      isOk: false,
-      error: { kind: "LABEL_CARRIED" },
-    });
-    await expect(carried()).resolves.toEqual(["builder:os=macos"]);
+    await expect(deleted).resolves.toMatchObject({ isOk: false, error: { kind: 'LABEL_CARRIED' } });
+    await expect(carried()).resolves.toEqual(['builder:os=macos']);
   });
 
-  it("refuses an assignment that waited for a delete that locked the label first: the value is gone", async () => {
+  it('refuses an assignment that waited for a delete that locked the label first: the value is gone', async () => {
     const { uow, reached } = heldUnitOfWork(core.prisma, (tx, hold) => ({
       ...tx,
       labels: {
@@ -544,41 +277,22 @@ describe("an assignment racing a delete", () => {
         },
       },
     }));
-    const deleted = createDeleteLabel({ uow, clock: core.clock, ids: newId })(
-      plugin,
-      { labelId: osId },
-    );
+    const deleted = createDeleteLabel({ uow, clock: core.clock, ids: newId })(plugin, { labelId: osId });
     await reached;
 
-    const assign = core.useCases.assignLabel(plugin, {
-      shipId: builderId,
-      valueId: macos,
-    });
+    const assign = core.useCases.assignLabel(plugin, { shipId: builderId, valueId: macos });
 
     await expect(deleted).resolves.toMatchObject({ isOk: true });
-    await expect(assign).resolves.toMatchObject({
-      isOk: false,
-      error: { kind: "LABEL_VALUE_NOT_FOUND" },
-    });
+    await expect(assign).resolves.toMatchObject({ isOk: false, error: { kind: 'LABEL_VALUE_NOT_FOUND' } });
     await expect(labels()).resolves.toEqual([]);
   });
 });
 
-describe("two assignments to one ship at its label limit", () => {
-  it("take turns: the twenty-first value is refused", async () => {
-    const many = unwrap(
-      await core.useCases.defineLabel(plugin, {
-        key: "many",
-        values: Array.from({ length: 19 }, (_, index) => `v${String(index)}`),
-      }),
-    );
+describe('two assignments to one ship at its label limit', () => {
+  it('take turns: the twenty-first value is refused', async () => {
+    const many = unwrap(await core.useCases.defineLabel(plugin, { key: 'many', values: Array.from({ length: 19 }, (_, index) => `v${String(index)}`) }));
     for (const value of many.values) {
-      unwrap(
-        await core.useCases.assignLabel(plugin, {
-          shipId: builderId,
-          valueId: value.id,
-        }),
-      );
+      unwrap(await core.useCases.assignLabel(plugin, { shipId: builderId, valueId: value.id }));
     }
 
     const assigned = await Promise.all([
@@ -586,13 +300,7 @@ describe("two assignments to one ship at its label limit", () => {
       core.useCases.assignLabel(plugin, { shipId: builderId, valueId: linux }),
     ]);
 
-    expect(
-      assigned
-        .filter((result) => !result.isOk)
-        .map((result) => refusalOf(result).kind),
-    ).toEqual(["SHIP_LABEL_LIMIT_REACHED"]);
-    await expect(
-      core.prisma.shipLabel.count({ where: { shipId: builderId } }),
-    ).resolves.toBe(20);
+    expect(assigned.filter((result) => !result.isOk).map((result) => refusalOf(result).kind)).toEqual(['SHIP_LABEL_LIMIT_REACHED']);
+    await expect(core.prisma.shipLabel.count({ where: { shipId: builderId } })).resolves.toBe(20);
   });
 });

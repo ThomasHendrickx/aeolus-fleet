@@ -1,16 +1,13 @@
-import type { FleetId } from "@aeolus-fleet/common";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { z } from "zod";
+import type { FleetId } from '@aeolus-fleet/common';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { z } from 'zod';
 
-import { Prisma } from "../src/adapters/prisma/generated/client.js";
-import { installationFleetsStatement } from "../src/adapters/prisma/installation.js";
-import { messageWindow } from "../src/domain/registry/installation-fleet.js";
-import { unwrap } from "../src/testing/result.js";
-import { withOperatorLogin } from "./support/operator-login.js";
-import {
-  createPostgresCore,
-  type PostgresCore,
-} from "./support/postgres-core.js";
+import { Prisma } from '../src/adapters/prisma/generated/client.js';
+import { installationFleetsStatement } from '../src/adapters/prisma/installation.js';
+import { messageWindow } from '../src/domain/registry/installation-fleet.js';
+import { unwrap } from '../src/testing/result.js';
+import { withOperatorLogin } from './support/operator-login.js';
+import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
 
 // The installation's figures on a fleet as busy as the scale fleet: on
 // staging, counting the messages of the last 7 times 24 hours took 110 ms of
@@ -48,12 +45,7 @@ async function seedMessages(): Promise<void> {
 
 beforeAll(async () => {
   core = await createPostgresCore();
-  fleetId = unwrap(
-    await withOperatorLogin(
-      core.prisma,
-      core.useCases.initialiseFleet({ name: "home fleet" }),
-    ),
-  ).fleetId;
+  fleetId = unwrap(await withOperatorLogin(core.prisma, core.useCases.initialiseFleet({ name: 'home fleet' }))).fleetId;
   start = new Date(core.clock.now().getTime() - DAYS * DAY_MS);
   await seedMessages();
 }, 300_000);
@@ -63,36 +55,22 @@ afterAll(async () => {
 });
 
 describe("the installation's figures of a busy fleet", () => {
-  it("count the messages of the last 7 times 24 hours", async () => {
+  it('count the messages of the last 7 times 24 hours', async () => {
     const window = messageWindow(core.clock.now());
 
-    const [row] = z
-      .array(z.object({ messagesSince: z.coerce.number() }))
-      .parse(
-        await core.prisma.$queryRaw(
-          installationFleetsStatement(fleetId, window),
-        ),
-      );
+    const [row] = z.array(z.object({ messagesSince: z.coerce.number() })).parse(await core.prisma.$queryRaw(installationFleetsStatement(fleetId, window)));
 
     // The seed's messages sent at or after the window's start: the last 7 of its 8 days, to the spacing.
-    const first = Math.ceil(
-      (window.since.getTime() - start.getTime()) / SPACING_MS,
-    );
+    const first = Math.ceil((window.since.getTime() - start.getTime()) / SPACING_MS);
     expect(row?.messagesSince).toBe(DAYS * MESSAGES_PER_DAY - first + 1);
   });
 
-  it("read from the messages at most the first, partial day of the window", async () => {
-    const plan = (
-      await core.prisma.$queryRaw<{ "QUERY PLAN": string }[]>(
-        Prisma.sql`EXPLAIN ${installationFleetsStatement(fleetId, messageWindow(core.clock.now()))}`,
-      )
-    )
-      .map((row) => row["QUERY PLAN"])
-      .join("\n");
+  it('read from the messages at most the first, partial day of the window', async () => {
+    const plan = (await core.prisma.$queryRaw<{ 'QUERY PLAN': string }[]>(Prisma.sql`EXPLAIN ${installationFleetsStatement(fleetId, messageWindow(core.clock.now()))}`))
+      .map((row) => row['QUERY PLAN'])
+      .join('\n');
 
-    const messageRows = [
-      ...plan.matchAll(/Scan\b[^\n]* on messages\b[^\n]*?rows=(\d+)/g),
-    ].map((match) => Number(match[1]));
+    const messageRows = [...plan.matchAll(/Scan\b[^\n]* on messages\b[^\n]*?rows=(\d+)/g)].map((match) => Number(match[1]));
     expect(messageRows.length).toBeGreaterThan(0);
     expect(Math.max(...messageRows)).toBeLessThanOrEqual(MESSAGES_PER_DAY);
   });

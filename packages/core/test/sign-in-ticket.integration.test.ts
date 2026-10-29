@@ -1,32 +1,23 @@
-import type { FleetId } from "@aeolus-fleet/common";
-import {
-  createTRPCClient,
-  httpBatchLink,
-  httpLink,
-  TRPCClientError,
-  type TRPCClient,
-} from "@trpc/client";
-import type { FastifyInstance } from "fastify";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { z } from "zod";
+import type { FleetId } from '@aeolus-fleet/common';
+import { createTRPCClient, httpBatchLink, httpLink, TRPCClientError, type TRPCClient } from '@trpc/client';
+import type { FastifyInstance } from 'fastify';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { z } from 'zod';
 
-import {
-  createPrismaClient,
-  type PrismaClient,
-} from "../src/adapters/prisma/client.js";
-import { createApp } from "../src/app.js";
-import type { AppRouter } from "../src/index.js";
-import { FLEET_URL } from "./support/core-fixtures.js";
-import { createMigratedDatabase } from "../src/testing/database.js";
-import { newKey } from "../src/testing/keys.js";
-import { createTestClock } from "./support/postgres-core.js";
+import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
+import { createApp } from '../src/app.js';
+import type { AppRouter } from '../src/index.js';
+import { FLEET_URL } from './support/core-fixtures.js';
+import { createMigratedDatabase } from '../src/testing/database.js';
+import { newKey } from '../src/testing/keys.js';
+import { createTestClock } from './support/postgres-core.js';
 
 // Hosted sign-in from HTTP to Postgres and back: the installation issues a
 // sign-in ticket, and the console redeems it once for a session cookie.
 
-const INSTALLATION_TOKEN = "aeolus_installation_test_0123456789abcdef";
+const INSTALLATION_TOKEN = 'aeolus_installation_test_0123456789abcdef';
 const TWO_MINUTES_MS = 2 * 60 * 1000;
-const clock = createTestClock("2026-10-04T12:00:00.000Z");
+const clock = createTestClock('2026-10-04T12:00:00.000Z');
 
 let database: PrismaClient;
 let hosting: FastifyInstance;
@@ -38,26 +29,11 @@ let fleetId: FleetId;
 beforeAll(async () => {
   const databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
-  hosting = createApp({
-    databaseUrl,
-    publicUrl: FLEET_URL,
-    clock,
-    logger: false,
-    installationToken: INSTALLATION_TOKEN,
-  });
-  hostingAddress = await hosting.listen({ host: "127.0.0.1", port: 0 });
-  selfHosted = createApp({
-    databaseUrl,
-    publicUrl: FLEET_URL,
-    clock,
-    logger: false,
-  });
-  selfHostedAddress = await selfHosted.listen({ host: "127.0.0.1", port: 0 });
-  ({ fleetId } = await installation().fleets.create.mutate({
-    requestId: newKey(),
-    name: "hemma",
-    operatorEmail: "lena@example.com",
-  }));
+  hosting = createApp({ databaseUrl, publicUrl: FLEET_URL, clock, logger: false, installationToken: INSTALLATION_TOKEN });
+  hostingAddress = await hosting.listen({ host: '127.0.0.1', port: 0 });
+  selfHosted = createApp({ databaseUrl, publicUrl: FLEET_URL, clock, logger: false });
+  selfHostedAddress = await selfHosted.listen({ host: '127.0.0.1', port: 0 });
+  ({ fleetId } = await installation().fleets.create.mutate({ requestId: newKey(), name: 'hemma', operatorEmail: 'lena@example.com' }));
 });
 
 afterAll(async () => {
@@ -66,35 +42,21 @@ afterAll(async () => {
   await database.$disconnect();
 });
 
-function installation(
-  address = hostingAddress,
-): TRPCClient<AppRouter>["installation"] {
-  return createTRPCClient<AppRouter>({
-    links: [
-      httpBatchLink({
-        url: `${address}/trpc`,
-        headers: { "x-aeolus-installation-token": INSTALLATION_TOKEN },
-      }),
-    ],
-  }).installation;
+function installation(address = hostingAddress): TRPCClient<AppRouter>['installation'] {
+  return createTRPCClient<AppRouter>({ links: [httpBatchLink({ url: `${address}/trpc`, headers: { 'x-aeolus-installation-token': INSTALLATION_TOKEN } })] }).installation;
 }
 
 /** Redeems the ticket as the console's server does, and answers the session cookie it was given, or the refusal's code. */
-async function redeem(
-  ticket: string,
-): Promise<{ cookie: string } | { code: string | undefined }> {
-  let cookie = "";
+async function redeem(ticket: string): Promise<{ cookie: string } | { code: string | undefined }> {
+  let cookie = '';
   const client = createTRPCClient<AppRouter>({
     links: [
       httpLink({
         url: `${hostingAddress}/trpc`,
-        headers: {
-          "user-agent":
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15",
-        },
+        headers: { 'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15' },
         fetch: async (...call: Parameters<typeof fetch>) => {
           const response = await fetch(...call);
-          cookie = response.headers.get("set-cookie")?.split(";")[0] ?? "";
+          cookie = response.headers.get('set-cookie')?.split(';')[0] ?? '';
           return response;
         },
       }),
@@ -105,9 +67,7 @@ async function redeem(
     return { cookie };
   } catch (error) {
     if (error instanceof TRPCClientError) {
-      return {
-        code: z.object({ code: z.string() }).safeParse(error.data).data?.code,
-      };
+      return { code: z.object({ code: z.string() }).safeParse(error.data).data?.code };
     }
     throw error;
   }
@@ -115,206 +75,104 @@ async function redeem(
 
 /** The signed-in account a session cookie gives. */
 function accountWith(cookie: string) {
-  return createTRPCClient<AppRouter>({
-    links: [
-      httpBatchLink({ url: `${hostingAddress}/trpc`, headers: { cookie } }),
-    ],
-  }).console.account.query();
+  return createTRPCClient<AppRouter>({ links: [httpBatchLink({ url: `${hostingAddress}/trpc`, headers: { cookie } })] }).console.account.query();
 }
 
-describe("a sign-in ticket", () => {
+describe('a sign-in ticket', () => {
   it("signs the fleet's operator in: the console gets a session cookie crewing argo, named for the device", async () => {
-    const { ticket } = await installation().operators.issueSignInTicket.mutate({
-      fleetId,
-    });
+    const { ticket } = await installation().operators.issueSignInTicket.mutate({ fleetId });
 
     const redeemed = await redeem(ticket);
 
-    const cookie = "cookie" in redeemed ? redeemed.cookie : "";
+    const cookie = 'cookie' in redeemed ? redeemed.cookie : '';
     expect(cookie).toMatch(/^aeolus_session=.+/);
-    await expect(accountWith(cookie)).resolves.toMatchObject({
-      email: "lena@example.com",
-      session: { device: "Mac · Safari" },
-    });
+    await expect(accountWith(cookie)).resolves.toMatchObject({ email: 'lena@example.com', session: { device: 'Mac · Safari' } });
   });
 
-  it("signs in the account it names as argo: the console session keeps its id, and the account read names it (decision 0054)", async () => {
-    const { ticket } = await installation().operators.issueSignInTicket.mutate({
-      fleetId,
-      account: { id: "acc-01mathilde" },
-    });
+  it('signs in the account it names as argo: the console session keeps its id, and the account read names it (decision 0054)', async () => {
+    const { ticket } = await installation().operators.issueSignInTicket.mutate({ fleetId, account: { id: 'acc-01mathilde' } });
 
     const redeemed = await redeem(ticket);
 
-    const cookie = "cookie" in redeemed ? redeemed.cookie : "";
-    await expect(accountWith(cookie)).resolves.toMatchObject({
-      session: { accountId: "acc-01mathilde" },
-    });
-    await expect(
-      database.consoleSession.findFirst({
-        where: { endedAt: null, fleetId },
-        select: { accountId: true },
-      }),
-    ).resolves.toEqual({ accountId: "acc-01mathilde" });
+    const cookie = 'cookie' in redeemed ? redeemed.cookie : '';
+    await expect(accountWith(cookie)).resolves.toMatchObject({ session: { accountId: 'acc-01mathilde' } });
+    await expect(database.consoleSession.findFirst({ where: { endedAt: null, fleetId }, select: { accountId: true } })).resolves.toEqual({ accountId: 'acc-01mathilde' });
   });
 
-  it("writes the account on every event argo writes while it is signed in by it (decision 0054)", async () => {
-    const { ticket } = await installation().operators.issueSignInTicket.mutate({
-      fleetId,
-      account: { id: "acc-01lena" },
-    });
-    const before =
-      (
-        await database.event.aggregate({
-          where: { fleetId },
-          _max: { seq: true },
-        })
-      )._max.seq ?? 0;
+  it('writes the account on every event argo writes while it is signed in by it (decision 0054)', async () => {
+    const { ticket } = await installation().operators.issueSignInTicket.mutate({ fleetId, account: { id: 'acc-01lena' } });
+    const before = (await database.event.aggregate({ where: { fleetId }, _max: { seq: true } }))._max.seq ?? 0;
     const redeemed = await redeem(ticket);
-    const cookie = "cookie" in redeemed ? redeemed.cookie : "";
-    const asArgo = createTRPCClient<AppRouter>({
-      links: [
-        httpLink({
-          url: `${hostingAddress}/trpc`,
-          headers: { cookie, origin: new URL(FLEET_URL).origin },
-        }),
-      ],
-    });
+    const cookie = 'cookie' in redeemed ? redeemed.cookie : '';
+    const asArgo = createTRPCClient<AppRouter>({ links: [httpLink({ url: `${hostingAddress}/trpc`, headers: { cookie, origin: new URL(FLEET_URL).origin } })] });
 
-    const { shipId } = await asArgo.fleet.commission.mutate({
-      name: "lenas-scout",
-      type: "reviewer",
-      idempotencyKey: newKey(),
-    });
-    await asArgo.fleet.rename.mutate({ shipId, name: "lenas-lookout" });
-    await asArgo.ship.send.mutate({
-      selector: { kind: "ship", name: "lenas-lookout" },
-      payload: "hello",
-      idempotencyKey: newKey(),
-    });
+    const { shipId } = await asArgo.fleet.commission.mutate({ name: 'lenas-scout', type: 'reviewer', idempotencyKey: newKey() });
+    await asArgo.fleet.rename.mutate({ shipId, name: 'lenas-lookout' });
+    await asArgo.ship.send.mutate({ selector: { kind: 'ship', name: 'lenas-lookout' }, payload: 'hello', idempotencyKey: newKey() });
     await asArgo.fleet.retire.mutate({ shipId });
 
-    const argos = await database.event.findMany({
-      where: { fleetId, seq: { gt: before }, actorKind: "ship" },
-      select: { type: true, actorSignedInAccountId: true },
-    });
-    expect(argos.map((event) => event.type)).toEqual(
-      expect.arrayContaining([
-        "ShipClaimed",
-        "ShipCommissioned",
-        "ShipRenamed",
-        "MessageAccepted",
-        "ShipRetired",
-      ]),
-    );
-    expect(
-      argos.filter((event) => event.actorSignedInAccountId !== "acc-01lena"),
-    ).toEqual([]);
+    const argos = await database.event.findMany({ where: { fleetId, seq: { gt: before }, actorKind: 'ship' }, select: { type: true, actorSignedInAccountId: true } });
+    expect(argos.map((event) => event.type)).toEqual(expect.arrayContaining(['ShipClaimed', 'ShipCommissioned', 'ShipRenamed', 'MessageAccepted', 'ShipRetired']));
+    expect(argos.filter((event) => event.actorSignedInAccountId !== 'acc-01lena')).toEqual([]);
   });
 
   it("ends the account's console sign-in as argo when the installation cuts the account off, and argo's lease with it (decision 0055)", async () => {
-    const { ticket } = await installation().operators.issueSignInTicket.mutate({
-      fleetId,
-      account: { id: "acc-01burak" },
-    });
+    const { ticket } = await installation().operators.issueSignInTicket.mutate({ fleetId, account: { id: 'acc-01burak' } });
     const redeemed = await redeem(ticket);
-    const cookie = "cookie" in redeemed ? redeemed.cookie : "";
+    const cookie = 'cookie' in redeemed ? redeemed.cookie : '';
 
-    await installation().accounts.cutOff.mutate({ accountId: "acc-01burak" });
+    await installation().accounts.cutOff.mutate({ accountId: 'acc-01burak' });
 
-    await expect(accountWith(cookie)).rejects.toMatchObject({
-      data: { code: "UNAUTHORIZED" },
-    });
-    const session = await database.consoleSession.findFirst({
-      where: { fleetId, accountId: "acc-01burak" },
-      select: { endReason: true, leaseId: true },
-    });
-    expect(session?.endReason).toBe("accountCutOff");
-    await expect(
-      database.lease.count({
-        where: { fleetId, id: session?.leaseId ?? "", endedAt: null },
-      }),
-    ).resolves.toBe(0);
+    await expect(accountWith(cookie)).rejects.toMatchObject({ data: { code: 'UNAUTHORIZED' } });
+    const session = await database.consoleSession.findFirst({ where: { fleetId, accountId: 'acc-01burak' }, select: { endReason: true, leaseId: true } });
+    expect(session?.endReason).toBe('accountCutOff');
+    await expect(database.lease.count({ where: { fleetId, id: session?.leaseId ?? '', endedAt: null } })).resolves.toBe(0);
   });
 
   it("ends the account's console sign-in as argo when the installation says it signed out in the account app, and argo's lease with it", async () => {
-    const { ticket } = await installation().operators.issueSignInTicket.mutate({
-      fleetId,
-      account: { id: "acc-01noor" },
-    });
+    const { ticket } = await installation().operators.issueSignInTicket.mutate({ fleetId, account: { id: 'acc-01noor' } });
     const redeemed = await redeem(ticket);
-    const cookie = "cookie" in redeemed ? redeemed.cookie : "";
+    const cookie = 'cookie' in redeemed ? redeemed.cookie : '';
 
-    await expect(
-      installation().accounts.signOut.mutate({ accountId: "acc-01noor" }),
-    ).resolves.toEqual({});
+    await expect(installation().accounts.signOut.mutate({ accountId: 'acc-01noor' })).resolves.toEqual({});
 
-    await expect(accountWith(cookie)).rejects.toMatchObject({
-      data: { code: "UNAUTHORIZED" },
-    });
-    const session = await database.consoleSession.findFirst({
-      where: { fleetId, accountId: "acc-01noor" },
-      select: { endReason: true, leaseId: true },
-    });
-    expect(session?.endReason).toBe("signedOut");
-    await expect(
-      database.lease.count({
-        where: { fleetId, id: session?.leaseId ?? "", endedAt: null },
-      }),
-    ).resolves.toBe(0);
+    await expect(accountWith(cookie)).rejects.toMatchObject({ data: { code: 'UNAUTHORIZED' } });
+    const session = await database.consoleSession.findFirst({ where: { fleetId, accountId: 'acc-01noor' }, select: { endReason: true, leaseId: true } });
+    expect(session?.endReason).toBe('signedOut');
+    await expect(database.lease.count({ where: { fleetId, id: session?.leaseId ?? '', endedAt: null } })).resolves.toBe(0);
   });
 
-  it("signs in once and never again", async () => {
-    const { ticket } = await installation().operators.issueSignInTicket.mutate({
-      fleetId,
-    });
+  it('signs in once and never again', async () => {
+    const { ticket } = await installation().operators.issueSignInTicket.mutate({ fleetId });
     await redeem(ticket);
 
-    await expect(redeem(ticket)).resolves.toEqual({ code: "UNAUTHORIZED" });
+    await expect(redeem(ticket)).resolves.toEqual({ code: 'UNAUTHORIZED' });
   });
 
-  it("signs in once however many redeems race for it", async () => {
-    const { ticket } = await installation().operators.issueSignInTicket.mutate({
-      fleetId,
-    });
+  it('signs in once however many redeems race for it', async () => {
+    const { ticket } = await installation().operators.issueSignInTicket.mutate({ fleetId });
 
-    const redeemed = await Promise.all(
-      Array.from({ length: 5 }, () => redeem(ticket)),
-    );
+    const redeemed = await Promise.all(Array.from({ length: 5 }, () => redeem(ticket)));
 
-    expect(redeemed.filter((result) => "cookie" in result)).toHaveLength(1);
-    await expect(
-      database.signInTicket.count({ where: { usedAt: { not: null } } }),
-    ).resolves.toBeGreaterThan(0);
+    expect(redeemed.filter((result) => 'cookie' in result)).toHaveLength(1);
+    await expect(database.signInTicket.count({ where: { usedAt: { not: null } } })).resolves.toBeGreaterThan(0);
   });
 
-  it("expires 2 minutes after it was issued", async () => {
-    const { ticket } = await installation().operators.issueSignInTicket.mutate({
-      fleetId,
-    });
+  it('expires 2 minutes after it was issued', async () => {
+    const { ticket } = await installation().operators.issueSignInTicket.mutate({ fleetId });
     clock.advance(TWO_MINUTES_MS);
 
-    await expect(redeem(ticket)).resolves.toEqual({ code: "UNAUTHORIZED" });
+    await expect(redeem(ticket)).resolves.toEqual({ code: 'UNAUTHORIZED' });
   });
 
-  it("is stored as its hash only", async () => {
-    const { ticket } = await installation().operators.issueSignInTicket.mutate({
-      fleetId,
-    });
+  it('is stored as its hash only', async () => {
+    const { ticket } = await installation().operators.issueSignInTicket.mutate({ fleetId });
 
     const rows = await database.signInTicket.findMany();
     expect(JSON.stringify(rows)).not.toContain(ticket);
   });
 
-  it("is not issued by a server without an installation token", async () => {
-    await expect(
-      installation(selfHostedAddress)
-        .operators.issueSignInTicket.mutate({ fleetId })
-        .catch((error: unknown) =>
-          error instanceof TRPCClientError
-            ? z.object({ code: z.string() }).parse(error.data).code
-            : error,
-        ),
-    ).resolves.toBe("NOT_FOUND");
+  it('is not issued by a server without an installation token', async () => {
+    await expect(installation(selfHostedAddress).operators.issueSignInTicket.mutate({ fleetId }).catch((error: unknown) => (error instanceof TRPCClientError ? z.object({ code: z.string() }).parse(error.data).code : error))).resolves.toBe('NOT_FOUND');
   });
 });

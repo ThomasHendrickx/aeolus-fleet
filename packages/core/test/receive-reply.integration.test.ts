@@ -1,39 +1,22 @@
-import {
-  createIdGenerator,
-  idSchema,
-  type DeliveryId,
-  type MessageId,
-} from "@aeolus-fleet/common";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { createIdGenerator, idSchema, type DeliveryId, type MessageId } from '@aeolus-fleet/common';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import {
-  createPrismaClient,
-  type PrismaClient,
-} from "../src/adapters/prisma/client.js";
-import {
-  listenForPendingDeliveries,
-  type DeliveryListener,
-} from "../src/adapters/prisma/delivery-notices.js";
-import {
-  createReceiverWakeups,
-  type ReceiverWakeupHub,
-} from "../src/adapters/prisma/receiver-wakeups.js";
-import {
-  createPrismaUnitOfWork,
-  type PrismaTx,
-} from "../src/adapters/prisma/unit-of-work.js";
-import { createReceiveReply } from "../src/domain/messaging/receive-reply.js";
-import type { ShipCaller, Crew } from "../src/domain/shared/caller.js";
-import type { Selector } from "../src/domain/shared/selector.js";
-import type { UnitOfWork } from "../src/domain/shared/unit-of-work.js";
-import { createUseCases, systemClock, type UseCases } from "../src/wiring.js";
-import { operatorCaller, secretOf } from "./support/core-fixtures.js";
-import { createMigratedDatabase } from "../src/testing/database.js";
-import { newKey } from "../src/testing/keys.js";
-import { racingUnitOfWork } from "./support/postgres-core.js";
-import { unwrap } from "../src/testing/result.js";
-import { withOperatorLogin } from "./support/operator-login.js";
-import { unsealedFleetsOnly } from "./support/sealing.js";
+import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
+import { listenForPendingDeliveries, type DeliveryListener } from '../src/adapters/prisma/delivery-notices.js';
+import { createReceiverWakeups, type ReceiverWakeupHub } from '../src/adapters/prisma/receiver-wakeups.js';
+import { createPrismaUnitOfWork, type PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
+import { createReceiveReply } from '../src/domain/messaging/receive-reply.js';
+import type { ShipCaller, Crew } from '../src/domain/shared/caller.js';
+import type { Selector } from '../src/domain/shared/selector.js';
+import type { UnitOfWork } from '../src/domain/shared/unit-of-work.js';
+import { createUseCases, systemClock, type UseCases } from '../src/wiring.js';
+import { operatorCaller, secretOf } from './support/core-fixtures.js';
+import { createMigratedDatabase } from '../src/testing/database.js';
+import { newKey } from '../src/testing/keys.js';
+import { racingUnitOfWork } from './support/postgres-core.js';
+import { unwrap } from '../src/testing/result.js';
+import { withOperatorLogin } from './support/operator-login.js';
+import { unsealedFleetsOnly } from './support/sealing.js';
 
 // Receiving the reply to one message on a real Postgres, with the listener and
 // the wake-ups the server runs: the claim's filter in SQL, a reply in flight
@@ -70,21 +53,11 @@ beforeEach(async () => {
     },
   });
   await listener.listening;
-  useCases = createUseCases({
-    prisma,
-    clock: systemClock,
-    wakeups,
-    receiveWaitMs: WAIT_MS,
-  });
-  const fleet = unwrap(
-    await withOperatorLogin(
-      prisma,
-      useCases.initialiseFleet({ name: "home fleet" }),
-    ),
-  );
+  useCases = createUseCases({ prisma, clock: systemClock, wakeups, receiveWaitMs: WAIT_MS });
+  const fleet = unwrap(await withOperatorLogin(prisma, useCases.initialiseFleet({ name: 'home fleet' })));
   argo = operatorCaller(fleet);
-  scout = await crewedReviewer("scout");
-  lookout = await crewedReviewer("lookout");
+  scout = await crewedReviewer('scout');
+  lookout = await crewedReviewer('lookout');
 });
 
 afterEach(async () => {
@@ -93,21 +66,8 @@ afterEach(async () => {
 });
 
 async function crewedReviewer(name: string): Promise<Crew> {
-  const { shipId, secret } = unwrap(
-    await useCases.commissionShip(argo, {
-      idempotencyKey: newKey(),
-      name,
-      type: "reviewer",
-    }),
-  );
-  const { crewToken } = unwrap(
-    await useCases.claimShip({
-      shipId,
-      secret: secretOf(secret),
-      location: { kind: "CLOUD" },
-      harness: "claude-code",
-    }),
-  );
+  const { shipId, secret } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name, type: 'reviewer' }));
+  const { crewToken } = unwrap(await useCases.claimShip({ shipId, secret: secretOf(secret), location: { kind: 'CLOUD' }, harness: 'claude-code' }));
   return unwrap(await useCases.authenticate.byCrewToken(crewToken));
 }
 
@@ -115,10 +75,10 @@ async function crewedReviewer(name: string): Promise<Crew> {
 async function ask(): Promise<MessageId> {
   const { messageId } = unwrap(
     await useCases.sendMessage(scout, {
-      selector: { kind: "ship", shipId: argo.shipId },
-      payload: "Look up account 42",
-      contentType: "text/plain",
-      model: "claude-opus-5-5",
+      selector: { kind: 'ship', shipId: argo.shipId },
+      payload: 'Look up account 42',
+      contentType: 'text/plain',
+      model: 'claude-opus-5-5',
       idempotencyKey: newKey(),
     }),
   );
@@ -126,55 +86,38 @@ async function ask(): Promise<MessageId> {
 }
 
 /** Argo sends a message, a reply to `inReplyTo` when given, and gets its delivery's id. */
-async function sendFromArgo(
-  selector: Selector,
-  inReplyTo?: MessageId,
-): Promise<DeliveryId> {
+async function sendFromArgo(selector: Selector, inReplyTo?: MessageId): Promise<DeliveryId> {
   const { messageId } = unwrap(
     await useCases.sendMessage(argo, {
       selector,
-      payload: "Account 42 is Acme",
-      contentType: "text/plain",
+      payload: 'Account 42 is Acme',
+      contentType: 'text/plain',
       idempotencyKey: newKey(),
       ...(inReplyTo === undefined ? {} : { inReplyTo }),
     }),
   );
-  const { id } = await prisma.delivery.findFirstOrThrow({
-    where: { messageId },
-  });
-  return idSchema("delivery").parse(id);
+  const { id } = await prisma.delivery.findFirstOrThrow({ where: { messageId } });
+  return idSchema('delivery').parse(id);
 }
 
-const toScout = (): Selector => ({ kind: "ship", shipId: scout.shipId });
-const toReviewers: Selector = { kind: "type", type: "reviewer" };
+const toScout = (): Selector => ({ kind: 'ship', shipId: scout.shipId });
+const toReviewers: Selector = { kind: 'type', type: 'reviewer' };
 
-async function receiveReplyTo(
-  crew: Crew,
-  messageId: MessageId,
-): Promise<DeliveryId[]> {
-  const { deliveries } = unwrap(
-    await useCases.receiveReply(crew, { messageId }),
-  );
+async function receiveReplyTo(crew: Crew, messageId: MessageId): Promise<DeliveryId[]> {
+  const { deliveries } = unwrap(await useCases.receiveReply(crew, { messageId }));
   return deliveries.map((delivery) => delivery.deliveryId);
 }
 
 function receiveReplyWith(uow: UnitOfWork<PrismaTx>, waitMs = WAIT_MS) {
-  return createReceiveReply({
-    sealing: unsealedFleetsOnly,
-    uow,
-    clock: systemClock,
-    ids: newId,
-    wakeups,
-    waitMs,
-  });
+  return createReceiveReply({ sealing: unsealedFleetsOnly, uow, clock: systemClock, ids: newId, wakeups, waitMs });
 }
 
 function pause(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-describe("receiving the reply to one message on Postgres", () => {
-  it("hands the oldest reply to that message, passing over older deliveries that are no reply or reply to another message", async () => {
+describe('receiving the reply to one message on Postgres', () => {
+  it('hands the oldest reply to that message, passing over older deliveries that are no reply or reply to another message', async () => {
     const [request, other] = [await ask(), await ask()];
     const plain = await sendFromArgo(toScout());
     const toOther = await sendFromArgo(toScout(), other);
@@ -182,18 +125,13 @@ describe("receiving the reply to one message on Postgres", () => {
     const later = await sendFromArgo(toScout(), request);
 
     expect(await receiveReplyTo(scout, request)).toEqual([reply]);
-    const states = await prisma.delivery.findMany({
-      where: { id: { in: [plain, toOther, reply, later] } },
-      select: { id: true, state: true, attempts: true },
-    });
-    expect(
-      new Map(states.map((held) => [held.id, [held.state, held.attempts]])),
-    ).toEqual(
+    const states = await prisma.delivery.findMany({ where: { id: { in: [plain, toOther, reply, later] } }, select: { id: true, state: true, attempts: true } });
+    expect(new Map(states.map((held) => [held.id, [held.state, held.attempts]]))).toEqual(
       new Map([
-        [plain, ["pending", 0]],
-        [toOther, ["pending", 0]],
-        [reply, ["handed", 1]],
-        [later, ["pending", 0]],
+        [plain, ['pending', 0]],
+        [toOther, ['pending', 0]],
+        [reply, ['handed', 1]],
+        [later, ['pending', 0]],
       ]),
     );
   });
@@ -206,19 +144,14 @@ describe("receiving the reply to one message on Postgres", () => {
     await receiveReplyTo(scout, request);
 
     expect(await receiveReplyTo(scout, request)).toEqual([reply]);
-    await expect(
-      prisma.delivery.findUniqueOrThrow({ where: { id: reply } }),
-    ).resolves.toMatchObject({ attempts: 2 });
+    await expect(prisma.delivery.findUniqueOrThrow({ where: { id: reply } })).resolves.toMatchObject({ attempts: 2 });
   });
 });
 
-describe("concurrent receivers of replies to one message", () => {
-  it("never get the same reply, even while both hold their claims open", async () => {
+describe('concurrent receivers of replies to one message', () => {
+  it('never get the same reply, even while both hold their claims open', async () => {
     const request = await ask();
-    const sent = [
-      await sendFromArgo(toReviewers, request),
-      await sendFromArgo(toReviewers, request),
-    ];
+    const sent = [await sendFromArgo(toReviewers, request), await sendFromArgo(toReviewers, request)];
     const racing = receiveReplyWith(
       racingUnitOfWork({ prisma, transactions: 2 }, (tx, allArrived) => ({
         ...tx,
@@ -233,39 +166,26 @@ describe("concurrent receivers of replies to one message", () => {
       })),
     );
 
-    const [byScout, byLookout] = await Promise.all([
-      racing(scout, { messageId: request }),
-      racing(lookout, { messageId: request }),
-    ]);
+    const [byScout, byLookout] = await Promise.all([racing(scout, { messageId: request }), racing(lookout, { messageId: request })]);
 
-    const got = [
-      ...unwrap(byScout).deliveries,
-      ...unwrap(byLookout).deliveries,
-    ].map((delivery) => delivery.deliveryId);
+    const got = [...unwrap(byScout).deliveries, ...unwrap(byLookout).deliveries].map((delivery) => delivery.deliveryId);
     expect(got.sort()).toEqual([...sent].sort());
   });
 });
 
-describe("a receiveReply waiting for its reply", () => {
-  it("returns as soon as the reply commits, and not for a delivery that is no reply to that message", async () => {
+describe('a receiveReply waiting for its reply', () => {
+  it('returns as soon as the reply commits, and not for a delivery that is no reply to that message', async () => {
     const request = await ask();
     const startedAt = performance.now();
-    const receiving = receiveReplyWith(
-      createPrismaUnitOfWork(prisma),
-      LONG_WAIT_MS,
-    )(scout, { messageId: request });
+    const receiving = receiveReplyWith(createPrismaUnitOfWork(prisma), LONG_WAIT_MS)(scout, { messageId: request });
     await pause(SETTLE_MS);
 
     const plain = await sendFromArgo(toScout());
     await pause(SETTLE_MS);
     const reply = await sendFromArgo(toScout(), request);
 
-    expect(
-      unwrap(await receiving).deliveries.map((delivery) => delivery.deliveryId),
-    ).toEqual([reply]);
+    expect(unwrap(await receiving).deliveries.map((delivery) => delivery.deliveryId)).toEqual([reply]);
     expect(performance.now() - startedAt).toBeLessThan(LONG_WAIT_MS / 2);
-    await expect(
-      prisma.delivery.findUniqueOrThrow({ where: { id: plain } }),
-    ).resolves.toMatchObject({ state: "pending" });
+    await expect(prisma.delivery.findUniqueOrThrow({ where: { id: plain } })).resolves.toMatchObject({ state: 'pending' });
   });
 });

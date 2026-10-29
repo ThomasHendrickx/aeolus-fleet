@@ -1,29 +1,21 @@
-import { randomBytes } from "node:crypto";
-import { connect, createServer, type Socket } from "node:net";
+import { randomBytes } from 'node:crypto';
+import { connect, createServer, type Socket } from 'node:net';
 
-import type { SendInput } from "@aeolus-fleet/common";
-import type { FastifyInstance } from "fastify";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { z } from "zod";
+import type { SendInput } from '@aeolus-fleet/common';
+import type { FastifyInstance } from 'fastify';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { z } from 'zod';
 
-import {
-  createPrismaClient,
-  type PrismaClient,
-} from "../src/adapters/prisma/client.js";
-import { LISTENER_APPLICATION_NAME } from "../src/adapters/prisma/delivery-notices.js";
-import { createApp } from "../src/app.js";
-import type { ShipCaller } from "../src/domain/shared/caller.js";
-import { createUseCases } from "../src/wiring.js";
-import {
-  FLEET_URL,
-  OPERATOR,
-  operatorCaller,
-  secretOf,
-} from "./support/core-fixtures.js";
-import { createMigratedDatabase } from "../src/testing/database.js";
-import { newKey } from "../src/testing/keys.js";
-import { unwrap } from "../src/testing/result.js";
-import { withOperatorLogin } from "./support/operator-login.js";
+import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
+import { LISTENER_APPLICATION_NAME } from '../src/adapters/prisma/delivery-notices.js';
+import { createApp } from '../src/app.js';
+import type { ShipCaller } from '../src/domain/shared/caller.js';
+import { createUseCases } from '../src/wiring.js';
+import { FLEET_URL, OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
+import { createMigratedDatabase } from '../src/testing/database.js';
+import { newKey } from '../src/testing/keys.js';
+import { unwrap } from '../src/testing/result.js';
+import { withOperatorLogin } from './support/operator-login.js';
 
 // Every call runs in one transaction on a pool of 10 connections. Here each
 // send holds its connection for 3 s, so 200 sends at once are a minute of
@@ -39,9 +31,8 @@ const SEND_HOLDS_SECONDS = 3;
 const SENDS_AT_ONCE = 200;
 
 const BUSY_REFUSAL = {
-  code: "SERVICE_UNAVAILABLE",
-  message:
-    "The fleet is busy; nothing was stored. Make the same call again (for send, with the same idempotency key).",
+  code: 'SERVICE_UNAVAILABLE',
+  message: 'The fleet is busy; nothing was stored. Make the same call again (for send, with the same idempotency key).',
 };
 
 /** How long a crew-token lookup holds its connection: well past the 10 s a call waits for one. */
@@ -50,10 +41,7 @@ const LOOKUP_HOLDS_SECONDS = 20;
 const POOL_SIZE = 10;
 
 /** Makes every crew-token lookup but the given ship's hold its connection for a while. */
-async function slowLookupsExceptFor(
-  database: PrismaClient,
-  shipId: string,
-): Promise<void> {
+async function slowLookupsExceptFor(database: PrismaClient, shipId: string): Promise<void> {
   await database.$executeRawUnsafe(
     `CREATE OR REPLACE FUNCTION hold_lookup() RETURNS trigger AS $$ BEGIN PERFORM pg_sleep(${LOOKUP_HOLDS_SECONDS}); RETURN NEW; END $$ LANGUAGE plpgsql`,
   );
@@ -64,10 +52,7 @@ async function slowLookupsExceptFor(
 }
 
 /** Waits until the given number of crew-token lookups hold their connections. */
-async function untilLookupsHeld(
-  database: PrismaClient,
-  count: number,
-): Promise<void> {
+async function untilLookupsHeld(database: PrismaClient, count: number): Promise<void> {
   for (;;) {
     const [row] = await database.$queryRaw<{ held: bigint }[]>`
       SELECT count(*) AS held FROM pg_stat_activity
@@ -98,11 +83,11 @@ async function slowMessageInserts(database: PrismaClient): Promise<void> {
     `CREATE FUNCTION hold_message() RETURNS trigger AS $$ BEGIN PERFORM pg_sleep(${SEND_HOLDS_SECONDS}); RETURN NEW; END $$ LANGUAGE plpgsql`,
   );
   await database.$executeRawUnsafe(
-    "CREATE TRIGGER hold_message BEFORE INSERT ON messages FOR EACH ROW EXECUTE FUNCTION hold_message()",
+    'CREATE TRIGGER hold_message BEFORE INSERT ON messages FOR EACH ROW EXECUTE FUNCTION hold_message()',
   );
 }
 
-describe("a fleet whose connections are all in use", () => {
+describe('a fleet whose connections are all in use', () => {
   let database: PrismaClient;
   let argo: ShipCaller;
   let server: FastifyInstance;
@@ -112,17 +97,10 @@ describe("a fleet whose connections are all in use", () => {
     const databaseUrl = await createMigratedDatabase();
     database = createPrismaClient(databaseUrl);
     argo = operatorCaller(
-      unwrap(
-        await withOperatorLogin(
-          database,
-          createUseCases({ prisma: database }).initialiseFleet({
-            name: "home fleet",
-          }),
-        ),
-      ),
+      unwrap(await withOperatorLogin(database, createUseCases({ prisma: database }).initialiseFleet({ name: 'home fleet' }))),
     );
     server = createApp({ databaseUrl, publicUrl: FLEET_URL, logger: false });
-    address = await server.listen({ host: "127.0.0.1", port: 0 });
+    address = await server.listen({ host: '127.0.0.1', port: 0 });
   });
 
   afterAll(async () => {
@@ -136,133 +114,73 @@ describe("a fleet whose connections are all in use", () => {
   }
 
   /** A ship commissioned by argo and crewed through REST: its id and crew token. */
-  async function crewedShip(
-    name: string,
-  ): Promise<{ shipId: string; crewToken: string }> {
+  async function crewedShip(name: string): Promise<{ shipId: string; crewToken: string }> {
     const { shipId, secret } = unwrap(
-      await createUseCases({ prisma: database }).commissionShip(argo, {
-        idempotencyKey: newKey(),
-        name,
-        type: "reviewer",
-      }),
+      await createUseCases({ prisma: database }).commissionShip(argo, { idempotencyKey: newKey(), name, type: 'reviewer' }),
     );
     const response = await fetch(`${address}/api/v1/ship/register`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        shipId,
-        secret: secretOf(secret),
-        location: { kind: "DEVICE" },
-        harness: "claude-code",
-      }),
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ shipId, secret: secretOf(secret), location: { kind: 'DEVICE' }, harness: 'claude-code' }),
     });
-    return {
-      shipId,
-      crewToken: z
-        .object({ crewToken: z.string() })
-        .parse(await response.json()).crewToken,
-    };
+    return { shipId, crewToken: z.object({ crewToken: z.string() }).parse(await response.json()).crewToken };
   }
 
   function send(token: string, input: SendInput): Promise<Response> {
     return fetch(`${address}/api/v1/ship/send`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: `Bearer ${token}`,
-      },
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
       body: JSON.stringify(input),
     });
   }
 
   function toArgo(idempotencyKey: string): SendInput {
-    return {
-      selector: { kind: "ship", name: "argo" },
-      payload: idempotencyKey,
-      contentType: "text/plain",
-      model: "claude-opus-5-5",
-      idempotencyKey,
-    };
+    return { selector: { kind: 'ship', name: 'argo' }, payload: idempotencyKey, contentType: 'text/plain', model: 'claude-opus-5-5', idempotencyKey };
   }
 
-  it(
-    "answers every send with OK or a busy refusal, and stores nothing for a refused one",
-    { timeout: 120_000 },
-    async () => {
-      const token = await crewToken("busy-sender");
-      await slowMessageInserts(database);
-      const keys = Array.from({ length: SENDS_AT_ONCE }, () => newKey());
+  it('answers every send with OK or a busy refusal, and stores nothing for a refused one', { timeout: 120_000 }, async () => {
+    const token = await crewToken('busy-sender');
+    await slowMessageInserts(database);
+    const keys = Array.from({ length: SENDS_AT_ONCE }, () => newKey());
 
-      const answers = await Promise.all(
-        keys.map(async (key) => {
-          const response = await send(token, toArgo(key));
-          return {
-            key,
-            status: response.status,
-            body: z
-              .record(z.string(), z.unknown())
-              .parse(await response.json()),
-          };
-        }),
-      );
+    const answers = await Promise.all(
+      keys.map(async (key) => {
+        const response = await send(token, toArgo(key));
+        return { key, status: response.status, body: z.record(z.string(), z.unknown()).parse(await response.json()) };
+      }),
+    );
 
-      const stored = new Set(
-        (
-          await database.$queryRaw<
-            { idempotency_key: string }[]
-          >`SELECT idempotency_key FROM messages`
-        ).map((row) => row.idempotency_key),
-      );
-      const sent = answers.filter((answer) => answer.status === 200);
-      const refused = answers.filter((answer) => answer.status !== 200);
-      expect(sent.length).toBeGreaterThan(0);
-      expect(refused.length).toBeGreaterThan(0);
-      for (const answer of refused) {
-        expect({ status: answer.status, body: answer.body }).toEqual({
-          status: 503,
-          body: BUSY_REFUSAL,
-        });
-      }
-      expect(refused.filter((answer) => stored.has(answer.key))).toEqual([]);
-      expect(sent.filter((answer) => !stored.has(answer.key))).toEqual([]);
-    },
-  );
+    const stored = new Set(
+      (await database.$queryRaw<{ idempotency_key: string }[]>`SELECT idempotency_key FROM messages`).map((row) => row.idempotency_key),
+    );
+    const sent = answers.filter((answer) => answer.status === 200);
+    const refused = answers.filter((answer) => answer.status !== 200);
+    expect(sent.length).toBeGreaterThan(0);
+    expect(refused.length).toBeGreaterThan(0);
+    for (const answer of refused) {
+      expect({ status: answer.status, body: answer.body }).toEqual({ status: 503, body: BUSY_REFUSAL });
+    }
+    expect(refused.filter((answer) => stored.has(answer.key))).toEqual([]);
+    expect(sent.filter((answer) => !stored.has(answer.key))).toEqual([]);
+  });
 
-  it(
-    "refuses a call as busy when it gets no connection to look up its crew token, and stores nothing",
-    { timeout: 120_000 },
-    async () => {
-      const holders = await Promise.all(
-        Array.from({ length: POOL_SIZE }, (_, index) =>
-          crewToken(`holder-${index}`),
-        ),
-      );
-      const prober = await crewedShip("prober");
-      await slowLookupsExceptFor(database, prober.shipId);
-      const held = holders.map((token) =>
-        fetch(`${address}/api/v1/ship/whoami`, {
-          headers: { authorization: `Bearer ${token}` },
-        }),
-      );
-      await untilLookupsHeld(database, POOL_SIZE);
-      const key = newKey();
+  it('refuses a call as busy when it gets no connection to look up its crew token, and stores nothing', { timeout: 120_000 }, async () => {
+    const holders = await Promise.all(Array.from({ length: POOL_SIZE }, (_, index) => crewToken(`holder-${index}`)));
+    const prober = await crewedShip('prober');
+    await slowLookupsExceptFor(database, prober.shipId);
+    const held = holders.map((token) =>
+      fetch(`${address}/api/v1/ship/whoami`, { headers: { authorization: `Bearer ${token}` } }),
+    );
+    await untilLookupsHeld(database, POOL_SIZE);
+    const key = newKey();
 
-      const response = await send(prober.crewToken, toArgo(key));
+    const response = await send(prober.crewToken, toArgo(key));
 
-      const answer = {
-        status: response.status,
-        body: z.record(z.string(), z.unknown()).parse(await response.json()),
-      };
-      const stored = await database.$queryRaw<
-        { id: string }[]
-      >`SELECT id FROM messages WHERE idempotency_key = ${key}`;
-      await Promise.all(held);
-      expect({ answer, stored }).toEqual({
-        answer: { status: 503, body: BUSY_REFUSAL },
-        stored: [],
-      });
-    },
-  );
+    const answer = { status: response.status, body: z.record(z.string(), z.unknown()).parse(await response.json()) };
+    const stored = await database.$queryRaw<{ id: string }[]>`SELECT id FROM messages WHERE idempotency_key = ${key}`;
+    await Promise.all(held);
+    expect({ answer, stored }).toEqual({ answer: { status: 503, body: BUSY_REFUSAL }, stored: [] });
+  });
 });
 
 // A console call looks up its session before its transaction, in the same
@@ -270,7 +188,7 @@ describe("a fleet whose connections are all in use", () => {
 // session ended. A console call that gets no connection for either in the
 // 10 s a call waits is refused as busy, as a ship's call is.
 
-describe("a fleet whose connections are all in use when a console session is looked up", () => {
+describe('a fleet whose connections are all in use when a console session is looked up', () => {
   let database: PrismaClient;
   let argo: ShipCaller;
   let server: FastifyInstance;
@@ -280,17 +198,10 @@ describe("a fleet whose connections are all in use when a console session is loo
     const databaseUrl = await createMigratedDatabase();
     database = createPrismaClient(databaseUrl);
     argo = operatorCaller(
-      unwrap(
-        await withOperatorLogin(
-          database,
-          createUseCases({ prisma: database }).initialiseFleet({
-            name: "home fleet",
-          }),
-        ),
-      ),
+      unwrap(await withOperatorLogin(database, createUseCases({ prisma: database }).initialiseFleet({ name: 'home fleet' }))),
     );
     server = createApp({ databaseUrl, publicUrl: FLEET_URL, logger: false });
-    address = await server.listen({ host: "127.0.0.1", port: 0 });
+    address = await server.listen({ host: '127.0.0.1', port: 0 });
   });
 
   afterAll(async () => {
@@ -303,115 +214,75 @@ describe("a fleet whose connections are all in use when a console session is loo
     return Promise.all(
       Array.from({ length: count }, async (_, index) => {
         const { shipId, secret } = unwrap(
-          await createUseCases({ prisma: database }).commissionShip(argo, {
-            idempotencyKey: newKey(),
-            name: `${prefix}-${index}`,
-            type: "reviewer",
-          }),
+          await createUseCases({ prisma: database }).commissionShip(argo, { idempotencyKey: newKey(), name: `${prefix}-${index}`, type: 'reviewer' }),
         );
         const response = await fetch(`${address}/api/v1/ship/register`, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            shipId,
-            secret: secretOf(secret),
-            location: { kind: "DEVICE" },
-            harness: "claude-code",
-          }),
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ shipId, secret: secretOf(secret), location: { kind: 'DEVICE' }, harness: 'claude-code' }),
         });
-        return z.object({ crewToken: z.string() }).parse(await response.json())
-          .crewToken;
+        return z.object({ crewToken: z.string() }).parse(await response.json()).crewToken;
       }),
     );
   }
 
   /** Each holder's crew-token lookup holds a connection until its trigger lets go. */
   function holdConnections(tokens: string[]): Promise<Response>[] {
-    return tokens.map((token) =>
-      fetch(`${address}/api/v1/ship/whoami`, {
-        headers: { authorization: `Bearer ${token}` },
-      }),
-    );
+    return tokens.map((token) => fetch(`${address}/api/v1/ship/whoami`, { headers: { authorization: `Bearer ${token}` } }));
   }
 
   /** A console query as the browser makes it, with the session cookie: its answer. */
-  async function consoleCall(
-    sessionToken: string,
-  ): Promise<{ status: number; error: unknown }> {
-    const response = await fetch(`${address}/trpc/console.notices`, {
-      headers: { cookie: `aeolus_session=${sessionToken}` },
-    });
-    const { error } = z
-      .object({
-        error: z.object({
-          message: z.string(),
-          data: z.object({ code: z.string() }),
-        }),
-      })
-      .parse(await response.json());
-    return {
-      status: response.status,
-      error: { code: error.data.code, message: error.message },
-    };
+  async function consoleCall(sessionToken: string): Promise<{ status: number; error: unknown }> {
+    const response = await fetch(`${address}/trpc/console.notices`, { headers: { cookie: `aeolus_session=${sessionToken}` } });
+    const { error } = z.object({ error: z.object({ message: z.string(), data: z.object({ code: z.string() }) }) }).parse(await response.json());
+    return { status: response.status, error: { code: error.data.code, message: error.message } };
   }
 
-  it(
-    "refuses a console call as busy when it gets no connection to use its session",
-    { timeout: 120_000 },
-    async () => {
-      const tokens = await holders("live", POOL_SIZE);
-      const { token } = unwrap(
-        await createUseCases({ prisma: database }).signIn(OPERATOR),
-      );
-      await slowLookupsExceptFor(database, argo.shipId);
-      const held = holdConnections(tokens);
-      await untilLookupsHeld(database, POOL_SIZE);
+  it('refuses a console call as busy when it gets no connection to use its session', { timeout: 120_000 }, async () => {
+    const tokens = await holders('live', POOL_SIZE);
+    const { token } = unwrap(await createUseCases({ prisma: database }).signIn(OPERATOR));
+    await slowLookupsExceptFor(database, argo.shipId);
+    const held = holdConnections(tokens);
+    await untilLookupsHeld(database, POOL_SIZE);
 
-      const answer = await consoleCall(token);
+    const answer = await consoleCall(token);
 
-      await Promise.all(held);
-      expect(answer).toEqual({ status: 503, error: BUSY_REFUSAL });
-    },
-  );
+    await Promise.all(held);
+    expect(answer).toEqual({ status: 503, error: BUSY_REFUSAL });
+  });
 
-  it(
-    "refuses a console call as busy when it gets no connection to learn why its session ended",
-    { timeout: 120_000 },
-    async () => {
-      const tokens = await holders("ended", POOL_SIZE);
-      const { token } = unwrap(
-        await createUseCases({ prisma: database }).signIn(OPERATOR),
-      );
-      await slowLookupsExceptFor(database, argo.shipId);
-      let letGo = (): void => undefined;
-      let ended = (): void => undefined;
-      const sessionEnded = new Promise<void>((resolve) => (ended = resolve));
-      // Ends the session in a transaction kept open, so the console call's use
-      // of the session waits on its row, holding a connection, until it commits.
-      const ending = database.$transaction(
-        async (tx) => {
-          await tx.$executeRaw`
+  it('refuses a console call as busy when it gets no connection to learn why its session ended', { timeout: 120_000 }, async () => {
+    const tokens = await holders('ended', POOL_SIZE);
+    const { token } = unwrap(await createUseCases({ prisma: database }).signIn(OPERATOR));
+    await slowLookupsExceptFor(database, argo.shipId);
+    let letGo = (): void => undefined;
+    let ended = (): void => undefined;
+    const sessionEnded = new Promise<void>((resolve) => (ended = resolve));
+    // Ends the session in a transaction kept open, so the console call's use
+    // of the session waits on its row, holding a connection, until it commits.
+    const ending = database.$transaction(
+      async (tx) => {
+        await tx.$executeRaw`
           UPDATE console_sessions SET ended_at = now(), end_reason = 'takenOver'
           WHERE fleet_id = ${argo.fleetId} AND ended_at IS NULL AND lease_id IS NOT NULL`;
-          ended();
-          await new Promise<void>((resolve) => (letGo = resolve));
-        },
-        { timeout: 60_000 },
-      );
-      await sessionEnded;
-      const answering = consoleCall(token);
-      await untilSessionUseWaits(database);
-      const held = holdConnections(tokens);
-      await untilLookupsHeld(database, POOL_SIZE - 1);
-      letGo();
-      await ending;
+        ended();
+        await new Promise<void>((resolve) => (letGo = resolve));
+      },
+      { timeout: 60_000 },
+    );
+    await sessionEnded;
+    const answering = consoleCall(token);
+    await untilSessionUseWaits(database);
+    const held = holdConnections(tokens);
+    await untilLookupsHeld(database, POOL_SIZE - 1);
+    letGo();
+    await ending;
 
-      const answer = await answering;
+    const answer = await answering;
 
-      await Promise.all(held);
-      expect(answer).toEqual({ status: 503, error: BUSY_REFUSAL });
-    },
-  );
+    await Promise.all(held);
+    expect(answer).toEqual({ status: 503, error: BUSY_REFUSAL });
+  });
 });
 
 // The database can be too busy for a send in more ways than a full pool: a
@@ -427,30 +298,28 @@ const TRANSACTION_TIME_SECONDS = 5;
  * connection is accepted but never reaches Postgres, as when Postgres is too
  * loaded to answer; connections made before go on as they are.
  */
-async function startConnectionHolder(
-  postgresUrl: string,
-): Promise<{ url: string; hold: () => void; close: () => Promise<void> }> {
+async function startConnectionHolder(postgresUrl: string): Promise<{ url: string; hold: () => void; close: () => Promise<void> }> {
   const postgres = new URL(postgresUrl);
   const sockets = new Set<Socket>();
   let isHolding = false;
   const proxy = createServer((socket) => {
     sockets.add(socket);
-    socket.on("error", () => undefined);
+    socket.on('error', () => undefined);
     if (isHolding) {
       return;
     }
     const upstream = connect(Number(postgres.port), postgres.hostname);
     sockets.add(upstream);
-    upstream.on("error", () => socket.destroy());
+    upstream.on('error', () => socket.destroy());
     socket.pipe(upstream).pipe(socket);
   });
-  await new Promise<void>((resolve) => proxy.listen(0, "127.0.0.1", resolve));
+  await new Promise<void>((resolve) => proxy.listen(0, '127.0.0.1', resolve));
   const address = proxy.address();
-  if (address === null || typeof address === "string") {
-    throw new Error("the connection holder has no port");
+  if (address === null || typeof address === 'string') {
+    throw new Error('the connection holder has no port');
   }
   const url = new URL(postgresUrl);
-  url.hostname = "127.0.0.1";
+  url.hostname = '127.0.0.1';
   url.port = String(address.port);
   return {
     url: url.toString(),
@@ -471,10 +340,7 @@ async function startConnectionHolder(
 }
 
 /** Waits until the delivery listener of a fleet server is connected as the given database user. */
-async function untilListenerConnected(
-  database: PrismaClient,
-  user: string,
-): Promise<void> {
+async function untilListenerConnected(database: PrismaClient, user: string): Promise<void> {
   for (;;) {
     const [row] = await database.$queryRaw<{ connected: bigint }[]>`
       SELECT count(*) AS connected FROM pg_stat_activity
@@ -486,7 +352,7 @@ async function untilListenerConnected(
   }
 }
 
-describe("a fleet whose database is too busy for a send", () => {
+describe('a fleet whose database is too busy for a send', () => {
   let databaseUrl: string;
   let database: PrismaClient;
   let argo: ShipCaller;
@@ -497,17 +363,10 @@ describe("a fleet whose database is too busy for a send", () => {
     databaseUrl = await createMigratedDatabase();
     database = createPrismaClient(databaseUrl);
     argo = operatorCaller(
-      unwrap(
-        await withOperatorLogin(
-          database,
-          createUseCases({ prisma: database }).initialiseFleet({
-            name: "home fleet",
-          }),
-        ),
-      ),
+      unwrap(await withOperatorLogin(database, createUseCases({ prisma: database }).initialiseFleet({ name: 'home fleet' }))),
     );
     server = createApp({ databaseUrl, publicUrl: FLEET_URL, logger: false });
-    address = await server.listen({ host: "127.0.0.1", port: 0 });
+    address = await server.listen({ host: '127.0.0.1', port: 0 });
   });
 
   afterAll(async () => {
@@ -518,152 +377,83 @@ describe("a fleet whose database is too busy for a send", () => {
   /** A ship commissioned by argo and crewed through REST: its crew token. */
   async function crewToken(name: string): Promise<string> {
     const { shipId, secret } = unwrap(
-      await createUseCases({ prisma: database }).commissionShip(argo, {
-        idempotencyKey: newKey(),
-        name,
-        type: "reviewer",
-      }),
+      await createUseCases({ prisma: database }).commissionShip(argo, { idempotencyKey: newKey(), name, type: 'reviewer' }),
     );
     const response = await fetch(`${address}/api/v1/ship/register`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        shipId,
-        secret: secretOf(secret),
-        location: { kind: "DEVICE" },
-        harness: "claude-code",
-      }),
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ shipId, secret: secretOf(secret), location: { kind: 'DEVICE' }, harness: 'claude-code' }),
     });
-    return z.object({ crewToken: z.string() }).parse(await response.json())
-      .crewToken;
+    return z.object({ crewToken: z.string() }).parse(await response.json()).crewToken;
   }
 
   /** A send to argo through the given fleet server: its answer, and whether its message was stored. */
-  async function sendThrough(
-    serverAddress: string,
-    token: string,
-  ): Promise<{
-    answer: { status: number; body: unknown };
-    stored: { id: string }[];
-  }> {
+  async function sendThrough(serverAddress: string, token: string): Promise<{ answer: { status: number; body: unknown }; stored: { id: string }[] }> {
     const key = newKey();
     const response = await fetch(`${serverAddress}/api/v1/ship/send`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        selector: { kind: "ship", name: "argo" },
-        payload: key,
-        contentType: "text/plain",
-        model: "claude-opus-5-5",
-        idempotencyKey: key,
-      }),
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+      body: JSON.stringify({ selector: { kind: 'ship', name: 'argo' }, payload: key, contentType: 'text/plain', model: 'claude-opus-5-5', idempotencyKey: key }),
     });
-    const answer = {
-      status: response.status,
-      body: z.record(z.string(), z.unknown()).parse(await response.json()),
-    };
-    const stored = await database.$queryRaw<
-      { id: string }[]
-    >`SELECT id FROM messages WHERE idempotency_key = ${key}`;
+    const answer = { status: response.status, body: z.record(z.string(), z.unknown()).parse(await response.json()) };
+    const stored = await database.$queryRaw<{ id: string }[]>`SELECT id FROM messages WHERE idempotency_key = ${key}`;
     return { answer, stored };
   }
 
-  it(
-    "refuses a send as busy when its transaction runs past its time, and stores nothing",
-    { timeout: 60_000 },
-    async () => {
-      const token = await crewToken("slow-sender");
-      await database.$executeRawUnsafe(
-        `CREATE FUNCTION hold_message_past_time() RETURNS trigger AS $$ BEGIN PERFORM pg_sleep(${TRANSACTION_TIME_SECONDS + 1}); RETURN NEW; END $$ LANGUAGE plpgsql`,
-      );
-      await database.$executeRawUnsafe(
-        "CREATE TRIGGER hold_message_past_time BEFORE INSERT ON messages FOR EACH ROW EXECUTE FUNCTION hold_message_past_time()",
-      );
+  it('refuses a send as busy when its transaction runs past its time, and stores nothing', { timeout: 60_000 }, async () => {
+    const token = await crewToken('slow-sender');
+    await database.$executeRawUnsafe(
+      `CREATE FUNCTION hold_message_past_time() RETURNS trigger AS $$ BEGIN PERFORM pg_sleep(${TRANSACTION_TIME_SECONDS + 1}); RETURN NEW; END $$ LANGUAGE plpgsql`,
+    );
+    await database.$executeRawUnsafe(
+      'CREATE TRIGGER hold_message_past_time BEFORE INSERT ON messages FOR EACH ROW EXECUTE FUNCTION hold_message_past_time()',
+    );
 
-      const sent = await sendThrough(address, token);
+    const sent = await sendThrough(address, token);
 
-      await database.$executeRawUnsafe(
-        "DROP TRIGGER hold_message_past_time ON messages",
-      );
-      expect(sent).toEqual({
-        answer: { status: 503, body: BUSY_REFUSAL },
-        stored: [],
-      });
-    },
-  );
+    await database.$executeRawUnsafe('DROP TRIGGER hold_message_past_time ON messages');
+    expect(sent).toEqual({ answer: { status: 503, body: BUSY_REFUSAL }, stored: [] });
+  });
 
-  it(
-    "refuses a send as busy when Postgres refuses a connection as one too many, and stores nothing",
-    { timeout: 60_000 },
-    async () => {
-      const token = await crewToken("crowded-sender");
-      const owner = new URL(databaseUrl).username;
-      const role = `limited_${randomBytes(6).toString("hex")}`;
-      const password = randomBytes(12).toString("hex");
-      // A member of the owner role reaches every table as the owner does, but
-      // is no superuser, so Postgres holds it to its connection limit: one for
-      // the delivery listener and one more.
-      // The role and password are generated above, never outside input.
-      await database.$executeRawUnsafe(
-        `CREATE ROLE ${role} LOGIN PASSWORD '${password}' CONNECTION LIMIT 2 IN ROLE "${owner}"`,
-      );
-      const limitedUrl = new URL(databaseUrl);
-      limitedUrl.username = role;
-      limitedUrl.password = password;
-      const crowded = createApp({
-        databaseUrl: limitedUrl.toString(),
-        publicUrl: FLEET_URL,
-        logger: false,
-      });
-      const crowdedAddress = await crowded.listen({
-        host: "127.0.0.1",
-        port: 0,
-      });
-      await untilListenerConnected(database, role);
-      // Its one query leaves the role's last connection open, idle in its pool.
-      const lastConnection = createPrismaClient(limitedUrl.toString());
-      await lastConnection.$queryRaw`SELECT 1`;
+  it('refuses a send as busy when Postgres refuses a connection as one too many, and stores nothing', { timeout: 60_000 }, async () => {
+    const token = await crewToken('crowded-sender');
+    const owner = new URL(databaseUrl).username;
+    const role = `limited_${randomBytes(6).toString('hex')}`;
+    const password = randomBytes(12).toString('hex');
+    // A member of the owner role reaches every table as the owner does, but
+    // is no superuser, so Postgres holds it to its connection limit: one for
+    // the delivery listener and one more.
+    // The role and password are generated above, never outside input.
+    await database.$executeRawUnsafe(`CREATE ROLE ${role} LOGIN PASSWORD '${password}' CONNECTION LIMIT 2 IN ROLE "${owner}"`);
+    const limitedUrl = new URL(databaseUrl);
+    limitedUrl.username = role;
+    limitedUrl.password = password;
+    const crowded = createApp({ databaseUrl: limitedUrl.toString(), publicUrl: FLEET_URL, logger: false });
+    const crowdedAddress = await crowded.listen({ host: '127.0.0.1', port: 0 });
+    await untilListenerConnected(database, role);
+    // Its one query leaves the role's last connection open, idle in its pool.
+    const lastConnection = createPrismaClient(limitedUrl.toString());
+    await lastConnection.$queryRaw`SELECT 1`;
 
-      const sent = await sendThrough(crowdedAddress, token);
+    const sent = await sendThrough(crowdedAddress, token);
 
-      await lastConnection.$disconnect();
-      await crowded.close();
-      expect(sent).toEqual({
-        answer: { status: 503, body: BUSY_REFUSAL },
-        stored: [],
-      });
-    },
-  );
+    await lastConnection.$disconnect();
+    await crowded.close();
+    expect(sent).toEqual({ answer: { status: 503, body: BUSY_REFUSAL }, stored: [] });
+  });
 
-  it(
-    "refuses a send as busy when a new connection is not made within 10 s, and stores nothing",
-    { timeout: 60_000 },
-    async () => {
-      const token = await crewToken("stalled-sender");
-      const holder = await startConnectionHolder(databaseUrl);
-      const stalled = createApp({
-        databaseUrl: holder.url,
-        publicUrl: FLEET_URL,
-        logger: false,
-      });
-      const stalledAddress = await stalled.listen({
-        host: "127.0.0.1",
-        port: 0,
-      });
-      await untilListenerConnected(database, new URL(databaseUrl).username);
-      holder.hold();
+  it('refuses a send as busy when a new connection is not made within 10 s, and stores nothing', { timeout: 60_000 }, async () => {
+    const token = await crewToken('stalled-sender');
+    const holder = await startConnectionHolder(databaseUrl);
+    const stalled = createApp({ databaseUrl: holder.url, publicUrl: FLEET_URL, logger: false });
+    const stalledAddress = await stalled.listen({ host: '127.0.0.1', port: 0 });
+    await untilListenerConnected(database, new URL(databaseUrl).username);
+    holder.hold();
 
-      const sent = await sendThrough(stalledAddress, token);
+    const sent = await sendThrough(stalledAddress, token);
 
-      await holder.close();
-      await stalled.close();
-      expect(sent).toEqual({
-        answer: { status: 503, body: BUSY_REFUSAL },
-        stored: [],
-      });
-    },
-  );
+    await holder.close();
+    await stalled.close();
+    expect(sent).toEqual({ answer: { status: 503, body: BUSY_REFUSAL }, stored: [] });
+  });
 });
