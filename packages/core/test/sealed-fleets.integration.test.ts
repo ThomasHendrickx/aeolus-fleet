@@ -503,4 +503,16 @@ describe('the kill switch on Postgres and a LocalStack KMS (decision 0068, B9, B
       dataKeys: [{ id: dataKey?.id, createdAt: dataKey?.createdAt.toISOString(), isCurrent: true }],
     });
   });
+
+  it('fleet.health says the company key is not reachable, with its reason and since when', async () => {
+    const fleet = await aSealedFleetWithItsKey();
+    const scout = await aCrewedReviewer(fleet, 'scout');
+    const server = aServerAt('2026-10-29T12:00:00.000Z');
+    await disableKey(fleet.companyKey);
+    refusalOf(await server.useCases.sendMessage(fleet.argo, aMessageTo(scout.shipId)));
+
+    const health = await installationIn(fleet.fleetId).fleet.health.query();
+
+    expect(health.keyUnavailable).toEqual({ reason: 'disabled', since: '2026-10-29T12:00:00.000Z' });
+  });
 });
