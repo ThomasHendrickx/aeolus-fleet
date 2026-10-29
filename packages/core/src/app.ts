@@ -140,7 +140,8 @@ export function createApp(options: AppOptions): FastifyInstance {
 
   // One pass, every 30 seconds: the clocks, then the stuck snapshot's close,
   // then the pruning of finished history (decision 0066), then the sealing of
-  // what a sealing fleet stored plain (decision 0068), then whatever
+  // what a sealing fleet stored plain and the data keys by age (decision
+  // 0068), then whatever
   // schedule is due that a lost timer missed (decision 0062, S14).
   // Each failure is logged on its own, so one never keeps another from running.
   const overduePasses = repeatPass({
@@ -156,6 +157,9 @@ export function createApp(options: AppOptions): FastifyInstance {
       });
       await useCases.sealStoredPayloads((fleetId, error) => {
         server.log.warn({ ...failureForLog(error), fleetId }, 'the sealing pass failed for a fleet: sealing it again next pass');
+      });
+      await useCases.rotateDataKeys((fleetId, error) => {
+        server.log.warn({ ...failureForLog(error), fleetId }, 'the data key rotation failed for a fleet: rotating it again next pass');
       });
       const { nextAttemptAt } = await useCases.sendDueSchedules(scheduleSendFailed);
       if (nextAttemptAt) {

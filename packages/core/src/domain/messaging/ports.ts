@@ -340,4 +340,8 @@ export interface FleetSealingRepository {
   sealPayloads(fleetId: FleetId, sealed: SealedPayloads): Promise<void>;
   /** Marks a sealing fleet sealed: it stores no payload plain. */
   markSealed(fleetId: FleetId): Promise<void>;
+  /** The sealed fleets whose current data key was made at or before the cutoff, across the installation: the ones a new data key is due in (B13a). */
+  fleetsDueANewDataKey(cutoff: Date): Promise<FleetId[]>;
+  /** Makes the given data key the fleet's current one; the one current before stays, to unseal what it sealed. */
+  addCurrentDataKey(dataKey: StoredDataKey): Promise<void>;
 }

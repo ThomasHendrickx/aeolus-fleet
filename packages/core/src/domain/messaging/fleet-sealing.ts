@@ -41,3 +41,17 @@ export interface StoredDataKey {
 
 /** A data key as the fleet's sealing read shows it: its id, when it was made and whether it seals now. */
 export type DataKeyAge = Pick<StoredDataKey, 'id' | 'createdAt' | 'isCurrent'>;
+
+/** How old the current data key grows before the 30 second pass makes a new one current (B13a). */
+export const DATA_KEY_ROTATION_MS = 30 * 24 * 60 * 60 * 1000;
+
+/** The time a current data key made at or before is due a new one (B13a). */
+export function dataKeyRotationCutoff(now: Date): Date {
+  return new Date(now.getTime() - DATA_KEY_ROTATION_MS);
+}
+
+/** Whether the fleet's current data key is 30 days old or older, so a new one is due (B13a); a fleet with none is not. */
+export function isDueANewDataKey(dataKeys: readonly DataKeyAge[], now: Date): boolean {
+  const current = dataKeys.find((dataKey) => dataKey.isCurrent);
+  return current !== undefined && current.createdAt.getTime() <= dataKeyRotationCutoff(now).getTime();
+}

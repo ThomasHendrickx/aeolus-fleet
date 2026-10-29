@@ -89,6 +89,7 @@ import { createSendMessage, type SendMessage } from './domain/messaging/send-mes
 import { createTurnOnSealing, type TurnOnSealing } from './domain/messaging/turn-on-sealing.js';
 import { createReadSealing, type ReadSealing } from './domain/messaging/read-sealing.js';
 import { createSealStoredPayloads, type SealStoredPayloads } from './domain/messaging/seal-stored-payloads.js';
+import { createRotateDataKeys, type RotateDataKeys } from './domain/messaging/rotate-data-keys.js';
 import { createFleetDataKeys } from './domain/messaging/data-keys.js';
 import type { KeyVault } from './domain/messaging/key-vault.js';
 import { aesGcmPayloadSealer } from './adapters/crypto/payload-sealer.js';
@@ -292,6 +293,8 @@ export interface UseCases {
   /** One pruning pass of every fleet with a retention (decision 0066); core runs it, never the API. */
   pruneHistory: PruneHistory;
   sealStoredPayloads: SealStoredPayloads;
+  /** Makes a new data key current in every sealed fleet whose current one is 30 days old (decision 0068); core runs it, never the API. */
+  rotateDataKeys: RotateDataKeys;
   acknowledgeDelivery: AcknowledgeDelivery;
   answerPing: AnswerPing;
   pingShip: PingShip;
@@ -547,6 +550,7 @@ export function createUseCases(options: {
     closeHealthSnapshots: createCloseHealthSnapshots({ fleets: createPrismaFleetRepository(prisma), uow: createPrismaSnapshotUnitOfWork(prisma), clock }),
     pruneHistory: createPruneHistory({ fleets: createPrismaFleetRepository(prisma), uow: bulkUow, clock, ids }),
     sealStoredPayloads: createSealStoredPayloads({ sealings, uow, clock, ids, hasher: sha256Hasher, sealing }),
+    rotateDataKeys: createRotateDataKeys({ sealings, uow, clock, ids, dataKeys: sealing.dataKeys }),
     acknowledgeDelivery: createAcknowledgeDelivery({ uow, clock, ids }),
     answerPing: createAnswerPing({ uow, clock, ids }),
     pingShip: createPingShip({ uow, clock, ids, hasher: sha256Hasher, sealing }),

@@ -162,5 +162,14 @@ export function createPrismaFleetSealingRepository(db: Db): FleetSealingReposito
     markSealed: async (fleetId) => {
       await db.fleet.updateMany({ where: { id: fleetId, sealingState: 'sealing' }, data: { sealingState: 'sealed' } });
     },
+    fleetsDueANewDataKey: async (cutoff) => {
+      const rows = await db.dataKey.findMany({ where: { isCurrent: true, createdAt: { lte: cutoff } }, select: { fleetId: true }, orderBy: { fleetId: 'asc' } });
+      return rows.map((row) => idSchema('fleet').parse(row.fleetId));
+    },
+    addCurrentDataKey: async (dataKey) => {
+      // The one current before first, so the unique index on the current key holds at every statement.
+      await db.dataKey.updateMany({ where: { fleetId: dataKey.fleetId, isCurrent: true }, data: { isCurrent: false } });
+      await db.dataKey.create({ data: dataKey });
+    },
   };
 }

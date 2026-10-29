@@ -130,6 +130,10 @@ describe('timelineSentence', () => {
     expect(onScoutsPage(anEntry('FleetPayloadsSealed'))).toEqual({ sentence: 'Every stored payload sealed', tone: 'ended', icon: 'fleet' });
   });
 
+  it('says a new data key of the fleet is current', () => {
+    expect(onScoutsPage(anEntry('FleetDataKeyCreated'))).toEqual({ sentence: 'New data key made', tone: 'ended', icon: 'fleet' });
+  });
+
   it('says someone started viewing the fleet through the viewer ship', () => {
     expect(onScoutsPage(anEntry('ViewerSessionStarted'))).toEqual({
       sentence: 'Someone started viewing the fleet',
