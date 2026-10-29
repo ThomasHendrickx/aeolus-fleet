@@ -239,7 +239,9 @@ const ERROR_CODES: Record<DomainErrorKind, TRPCError['code']> = {
  * hide: a crew whose lease has ended reads LEASE_ENDED, not UNAUTHORIZED, so
  * it can tell a released ship from a wrong crew token; a refusal about a
  * delivery reads its delivery code, not CONFLICT or FORBIDDEN, so a crew can
- * tell what became of that delivery, and that its crew token still holds (#832).
+ * tell what became of that delivery, and that its crew token still holds (#832);
+ * KEY_UNAVAILABLE, not SERVICE_UNAVAILABLE, so a crew can tell its fleet's
+ * key is cut off from a server that is down, and wait (decision 0068).
  */
 const SHIP_REFUSAL_CODES = [
   'LEASE_ENDED',
@@ -252,6 +254,7 @@ const SHIP_REFUSAL_CODES = [
   'DELIVERY_NOT_IN_FLIGHT',
   'DELIVERY_NOT_OPEN',
   'DELIVERY_NOT_UNDELIVERABLE',
+  'KEY_UNAVAILABLE',
 ] as const satisfies readonly DomainErrorKind[];
 
 type ShipRefusalCodeKind = (typeof SHIP_REFUSAL_CODES)[number];

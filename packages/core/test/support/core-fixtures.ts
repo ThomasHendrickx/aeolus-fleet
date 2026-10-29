@@ -369,6 +369,7 @@ export function messagingUseCases(core: InMemoryCore) {
   const { sealing } = core;
   return {
     sendMessage: createSendMessage({ ...deps, hasher: core.hasher, sealing }),
+    turnOnSealing: createTurnOnSealing({ ...deps, vault: core.keyVault.vault, sealer: sealing.sealer, sealings: core.sealings }),
     openMeeting: createOpenMeeting({ ...deps, hasher: core.hasher }),
     readMeeting: createReadMeeting({ uow: core.uow, sealing }),
     changeMic: createChangeMic({ ...deps, hasher: core.hasher }),

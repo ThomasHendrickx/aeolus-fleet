@@ -1,4 +1,6 @@
 import {
+  turnOnSealingInputSchema,
+  turnOnSealingOutputSchema,
   cancelScheduleInputSchema,
   cancelScheduleOutputSchema,
   pauseScheduleInputSchema,
@@ -520,6 +522,20 @@ export const fleetRouter = router({
     .mutation(async ({ ctx, input }) => {
       okOrThrow(await ctx.useCases.setOwner(ctx.caller, input));
       return {};
+    }),
+
+  /**
+   * Turns sealing on for the fleet (decision 0068, B4): every payload it
+   * stores from then on is sealed under a data key its company key wraps.
+   * The installation's alone for now; any other caller is refused FORBIDDEN.
+   */
+  turnOnSealing: actorProcedure
+    .input(turnOnSealingInputSchema)
+    .output(turnOnSealingOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const turnedOn = okOrThrow(await ctx.useCases.turnOnSealing(ctx.caller, input));
+      ctx.log.info({ fleetId: ctx.caller.fleetId, companyKey: turnedOn.companyKey, state: turnedOn.state }, 'sealing turned on');
+      return turnedOn;
     }),
 
   /**

@@ -3,6 +3,7 @@ import { FLEET_HEADER, idSchema, SCOPES, WITHDRAWAL_CONTENT_TYPE, type DeliveryI
 import { createTRPCClient, httpBatchLink, TRPCClientError, type TRPCClient } from '@trpc/client';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { z } from 'zod';
 
 import { createAwsKmsKeyVault } from '../src/adapters/kms/aws-kms-key-vault.js';
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
@@ -114,12 +115,12 @@ async function aSealedFleet(): Promise<HostedFleet> {
 }
 
 /** The tRPC error a call fails with, with the code a refusal reads. */
-async function refusalOfCall(call: Promise<unknown>): Promise<{ code: unknown; message: string }> {
+async function refusalOfCall(call: Promise<unknown>): Promise<{ code: string | undefined; message: string }> {
   try {
     await call;
   } catch (error) {
     if (error instanceof TRPCClientError) {
-      return { code: error.data?.code, message: error.message };
+      return { code: z.object({ code: z.string() }).safeParse(error.data).data?.code, message: error.message };
     }
     throw error;
   }
