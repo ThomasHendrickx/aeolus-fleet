@@ -733,6 +733,53 @@ describe('the sealing pass on Postgres and a LocalStack KMS (decision 0068, B5)'
   });
 });
 
+describe('data keys by age on Postgres and a LocalStack KMS (decision 0068, B13a)', () => {
+  it('scenario 18: a current data key 30 days old gets a new current key, the old one kept, and messages sealed under both are received', async () => {
+    const fleet = await aSealedFleetWithItsKey();
+    const scout = await aCrewedReviewer(fleet, 'scout');
+    const server = aServerAt('2026-10-29T12:00:00.000Z');
+    unwrap(await server.useCases.sendMessage(fleet.argo, aMessageTo(scout.shipId, 'sealed under the first key')));
+    server.clock.set('2026-11-28T12:00:00.000Z');
+
+    await server.useCases.rotateDataKeys();
+    unwrap(await server.useCases.sendMessage(fleet.argo, aMessageTo(scout.shipId, 'sealed under the second key')));
+
+    const keys = await prisma.dataKey.findMany({ where: { fleetId: fleet.fleetId }, orderBy: { id: 'asc' }, select: { id: true, createdAt: true, isCurrent: true } });
+    expect(keys.map(({ createdAt, isCurrent }) => ({ createdAt: createdAt.toISOString(), isCurrent }))).toEqual([
+      { createdAt: '2026-10-29T12:00:00.000Z', isCurrent: false },
+      { createdAt: '2026-11-28T12:00:00.000Z', isCurrent: true },
+    ]);
+    const messages = await prisma.message.findMany({ where: { fleetId: fleet.fleetId }, orderBy: { id: 'asc' }, select: { sealedDataKeyId: true } });
+    expect(messages.map(({ sealedDataKeyId }) => sealedDataKeyId)).toEqual(keys.map(({ id }) => id));
+    expect(await prisma.event.findMany({ where: { fleetId: fleet.fleetId, type: 'FleetDataKeyCreated' }, select: { actorKind: true, details: true } })).toEqual([{ actorKind: 'system', details: { dataKeyId: keys[1]?.id } }]);
+    expect(await everyPayloadReceived(scout)).toEqual(['sealed under the first key', 'sealed under the second key']);
+  });
+
+  it('scenario 19: two servers running the pass at once make one current data key', async () => {
+    const fleet = await aSealedFleetWithItsKey();
+    const servers = [aServerAt('2026-11-28T12:00:00.000Z'), aServerAt('2026-11-28T12:00:00.000Z')];
+
+    await Promise.all(servers.map((server) => server.useCases.rotateDataKeys()));
+
+    const keys = await prisma.dataKey.findMany({ where: { fleetId: fleet.fleetId }, select: { isCurrent: true } });
+    expect(keys.map(({ isCurrent }) => isCurrent).toSorted()).toEqual([false, true]);
+    expect(await prisma.event.count({ where: { fleetId: fleet.fleetId, type: 'FleetDataKeyCreated' } })).toBe(1);
+  });
+
+  it('sends racing a rotation are each sealed under the old or the new key, and all are received as sent', { timeout: 60_000 }, async () => {
+    const fleet = await aSealedFleetWithItsKey();
+    const scout = await aCrewedReviewer(fleet, 'scout');
+    const server = aServerAt('2026-11-28T12:00:00.000Z');
+    const payloads = Array.from({ length: 40 }, (_, index) => `${PAYLOAD} during #${index}`);
+
+    const [, ...sent] = await Promise.all([server.useCases.rotateDataKeys(), ...payloads.map((payload) => server.useCases.sendMessage(fleet.argo, aMessageTo(scout.shipId, payload)))]);
+
+    expect(sent.filter((result) => !result.isOk)).toEqual([]);
+    expect(await prisma.dataKey.count({ where: { fleetId: fleet.fleetId } })).toBe(2);
+    expect(new Set(await everyPayloadReceived(scout))).toEqual(new Set(payloads));
+  });
+});
+
 /** How many server processes of this database wait on a lock now. */
 async function backendsWaitingOnALock(): Promise<number> {
   const [row] = z
