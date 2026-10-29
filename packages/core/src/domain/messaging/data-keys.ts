@@ -6,10 +6,13 @@
  * claiming nothing. The keys are then unwrapped outside it and the work runs
  * again with them; a key the vault does not give refuses KEY_UNAVAILABLE.
  */
-import { payloadBytes, type DataKeyId, type FleetId } from '@aeolus-fleet/common';
+import { payloadBytes, type DataKeyId, type FleetId, type IdGenerator } from '@aeolus-fleet/common';
 
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
+import { recordEvent, SYSTEM, type EventLog } from '../shared/events.js';
+import type { UnitOfWork } from '../shared/unit-of-work.js';
+import type { KeyAvailability } from './fleet-sealing.js';
 import { err, ok, type Result } from '../shared/result.js';
 import { keyUnavailable } from './key-unavailable.js';
 import type { KeyUnavailable, KeyVault } from './key-vault.js';
@@ -57,15 +60,32 @@ interface CachedDataKey {
   readonly unwrappedAt: number;
 }
 
+/** What a change of the company key's availability is written through. */
+export interface KeyAvailabilityTx {
+  sealings: Pick<FleetSealingRepository, 'changeKeyAvailability'>;
+  events: EventLog;
+}
+
 /**
  * The fleet's data keys from their wraps, each checked against its check
  * value, so a vault that answered another key is refused as a wrap that
  * does not open. Each key unwrapped is kept in this server's memory for 5
  * minutes from its unwrap (B11), never longer, never on disk, so the key
  * vault is asked once per key and period, and a company that cuts its grant
- * stops every seal and unseal within 5 minutes.
+ * stops every seal and unseal within 5 minutes. Each answer of the key vault
+ * that changes the company key's availability writes it with its event in one
+ * unit of work: FleetKeyUnavailable with the vault's reason on the first
+ * refusal after a success, FleetKeyAvailable on the first success after; a
+ * wrap that does not open is the key answering, and changes nothing.
  */
-export function createFleetDataKeys(deps: { sealings: Pick<FleetSealingRepository, 'wrappedDataKeys'>; vault: KeyVault; sealer: PayloadSealer; clock: Clock }): FleetDataKeys {
+export function createFleetDataKeys(deps: {
+  sealings: Pick<FleetSealingRepository, 'wrappedDataKeys'>;
+  vault: KeyVault;
+  sealer: PayloadSealer;
+  clock: Clock;
+  uow: UnitOfWork<KeyAvailabilityTx>;
+  ids: IdGenerator;
+}): FleetDataKeys {
   // Keyed by fleet and data key, so a fleet is answered only the keys it holds.
   const cache = new Map<`${FleetId}/${DataKeyId}`, CachedDataKey>();
 
@@ -77,25 +97,52 @@ export function createFleetDataKeys(deps: { sealings: Pick<FleetSealingRepositor
     }
   };
 
+  const changeAvailability = async (fleetId: FleetId, availability: KeyAvailability): Promise<void> => {
+    await deps.uow.run(async (tx) => {
+      if (await tx.sealings.changeKeyAvailability(fleetId, availability)) {
+        await recordEvent(
+          { events: tx.events, ids: deps.ids },
+          availability.isAvailable
+            ? { fleetId, type: 'FleetKeyAvailable', occurredAt: availability.since, actor: SYSTEM }
+            : { fleetId, type: 'FleetKeyUnavailable', occurredAt: availability.since, actor: SYSTEM, details: { reason: availability.reason } },
+        );
+      }
+      return ok(undefined);
+    });
+  };
+
+  const unwrapped = async (fleetId: FleetId, dataKeyIds: readonly DataKeyId[]): Promise<Result<undefined, KeyUnavailable>> => {
+    const now = deps.clock.now();
+    const wrapped = await deps.sealings.wrappedDataKeys(fleetId, dataKeyIds);
+    if (wrapped?.dataKeys.length !== dataKeyIds.length) {
+      return err({ kind: 'keyUnavailable', reason: 'notFound' });
+    }
+    for (const dataKey of wrapped.dataKeys) {
+      const material = await deps.vault.unwrap({ fleetId, companyKey: wrapped.companyKey }, dataKey.wrappedByCompanyKey);
+      if (!material.isOk) {
+        const { reason } = material.error;
+        if (reason !== 'invalidWrap') {
+          await changeAvailability(fleetId, { isAvailable: false, reason, since: now });
+        }
+        return material;
+      }
+      await changeAvailability(fleetId, { isAvailable: true, since: now });
+      if (!Buffer.from(deps.sealer.checkValue(material.value)).equals(dataKey.checkValue)) {
+        return err({ kind: 'keyUnavailable', reason: 'invalidWrap' });
+      }
+      cache.set(`${fleetId}/${dataKey.id}`, { dataKey: { id: dataKey.id, material: material.value }, unwrappedAt: now.getTime() });
+    }
+    return ok(undefined);
+  };
+
   return {
     unwrap: async (fleetId, dataKeyIds) => {
-      const now = deps.clock.now().getTime();
-      heldNow(now);
+      heldNow(deps.clock.now().getTime());
       const missing = dataKeyIds.filter((id) => !cache.has(`${fleetId}/${id}`));
       if (missing.length > 0) {
-        const wrapped = await deps.sealings.wrappedDataKeys(fleetId, missing);
-        if (wrapped?.dataKeys.length !== missing.length) {
-          return err({ kind: 'keyUnavailable', reason: 'notFound' });
-        }
-        for (const dataKey of wrapped.dataKeys) {
-          const material = await deps.vault.unwrap({ fleetId, companyKey: wrapped.companyKey }, dataKey.wrappedByCompanyKey);
-          if (!material.isOk) {
-            return material;
-          }
-          if (!Buffer.from(deps.sealer.checkValue(material.value)).equals(dataKey.checkValue)) {
-            return err({ kind: 'keyUnavailable', reason: 'invalidWrap' });
-          }
-          cache.set(`${fleetId}/${dataKey.id}`, { dataKey: { id: dataKey.id, material: material.value }, unwrappedAt: now });
+        const outcome = await unwrapped(fleetId, missing);
+        if (!outcome.isOk) {
+          return outcome;
         }
       }
       return ok(dataKeyIds.flatMap((id) => {

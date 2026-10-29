@@ -397,7 +397,7 @@ export function createUseCases(options: {
   const healthReads = { health: createPrismaHealthRecords(prisma), snapshots: createPrismaHealthSnapshots(prisma) };
   const keyVault = options.keyVault ?? noKeyVault;
   const sealings = createPrismaFleetSealingRepository(prisma);
-  const sealing = { sealer: aesGcmPayloadSealer, dataKeys: createFleetDataKeys({ sealings, vault: keyVault, sealer: aesGcmPayloadSealer, clock }) };
+  const sealing = { sealer: aesGcmPayloadSealer, dataKeys: createFleetDataKeys({ sealings, vault: keyVault, sealer: aesGcmPayloadSealer, clock, uow, ids }) };
 
   return {
     ping: createPing({ clock, fleets: createPrismaFleetCounter(prisma) }),

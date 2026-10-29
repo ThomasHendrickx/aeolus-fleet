@@ -225,6 +225,10 @@ export function timelineSentence(entry: TimelineEntry, shipId: string): Timeline
       return { parts: [text('Finished history past the retention pruned')], tone: 'ended', icon: 'fleet' };
     case 'FleetSealingTurnedOn':
       return { parts: [text('Sealing turned on')], tone: 'ended', icon: 'fleet' };
+    case 'FleetKeyUnavailable':
+      return { parts: [text('Company key not reachable')], tone: 'waiting', icon: 'fleet' };
+    case 'FleetKeyAvailable':
+      return { parts: [text('Company key reachable again')], tone: 'ended', icon: 'fleet' };
     case 'SignInTicketIssued':
       return { parts: [text('Sign-in ticket issued')], tone: 'ended', icon: 'password' };
     case 'ViewerSessionStarted':

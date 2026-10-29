@@ -76,7 +76,7 @@ describe('a receive in a sealed fleet (decision 0068, B9)', () => {
     expect(deliveries.map(({ deliveryId: id, payload, attempts }) => ({ id, payload, attempts }))).toEqual([{ id: deliveryId, payload: PAYLOAD, attempts: 2 }]);
   });
 
-  it('claims nothing and counts no attempt when the company key cannot be used and the data key cache ran out: the delivery waits pending', async () => {
+  it('scenario 13: with the company key disabled and the data key cache run out, a receive is refused KEY_UNAVAILABLE, claims nothing and counts no attempt: the delivery waits pending', async () => {
     const { deliveryId } = await sentToScout();
     await core.keyVault.disable(companyKey);
     core.clock.advance(DATA_KEY_CACHE_MS);
@@ -85,7 +85,8 @@ describe('a receive in a sealed fleet (decision 0068, B9)', () => {
     const refusal = refusalOf(await useCases.receiveDeliveries(scout, {}));
 
     expect(refusal.kind).toBe('KEY_UNAVAILABLE');
-    expect(core.state).toEqual(before);
+    expect({ deliveries: core.state.deliveries, leases: core.state.leases }).toEqual({ deliveries: before.deliveries, leases: before.leases });
+    expect(core.state.events.slice(before.events.length).map(({ type }) => type)).toEqual(['FleetKeyUnavailable']);
     expect(core.state.deliveries.find((held) => held.id === deliveryId)).toMatchObject({ state: 'pending', attempts: 0 });
   });
 });

@@ -507,6 +507,8 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `FleetCompanyKeyChanged` | Messaging | Every data key of the fleet is wrapped by its new company key (0068): details hold both references |
 | `FleetRecoveryKeyChanged` | Messaging | Every data key of the fleet is wrapped to its new recovery key (0068): details hold both fingerprints |
 | `FleetKeysRecovered` | Messaging | The company recovered the fleet's data keys under a new company key with its recovery key (0068): details hold the new reference |
+| `FleetKeyUnavailable` | Messaging | The fleet's company key refused its first unwrap after a success (0068): details hold the key vault's reason (`accessDenied`, `disabled`, `notFound`, `unreachable`). One per change, not per call |
+| `FleetKeyAvailable` | Messaging | The fleet's company key answered its first unwrap after a refusal (0068). One per change, not per call |
 | `FleetKeyUnavailable` | Messaging | The fleet's company key could not be had after it could (0068): details hold the KMS's reason (access denied, disabled, not found, unreachable). One per change, not per call |
 | `FleetKeyAvailable` | Messaging | The fleet's company key could be had again (0068) |
 | `HistoryPruned` | Messaging | A batch of the hourly pruning pass let the fleet's finished history older than its retention go (0066): details hold the cutoff and how many messages, deliveries, events, overdue rows, leases, credentials, console sessions with their notice dismissals and guide progress, sign-in tickets and reach refusals went |

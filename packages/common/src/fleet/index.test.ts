@@ -218,6 +218,8 @@ describe('eventTypeSchema', () => {
       'ScheduleEnded',
       'HistoryPruned',
       'FleetSealingTurnedOn',
+      'FleetKeyUnavailable',
+      'FleetKeyAvailable',
     ]);
   });
 });

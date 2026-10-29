@@ -1,7 +1,7 @@
 import type { DataKeyId, DeliveryId, FleetId, LeaseId, MeetingId, MessageId, ScheduleId, ScheduleState, ShipId } from '@aeolus-fleet/common';
 
 import type { Page, PageQuery } from '../shared/page.js';
-import type { FleetSealing, StoredDataKey } from './fleet-sealing.js';
+import type { FleetSealing, KeyAvailability, StoredDataKey } from './fleet-sealing.js';
 import type { CompanyKeyReference } from './key-vault.js';
 import type { Meeting } from './meeting.js';
 import type { Delivery, Message } from './message.js';
@@ -290,6 +290,12 @@ export interface FleetSealingRepository {
   turnOn(sealing: FleetSealing, firstKey: StoredDataKey): Promise<void>;
   /** The id of the fleet's current data key: the one that seals; none while it is not sealed. */
   currentDataKeyId(fleetId: FleetId): Promise<DataKeyId | undefined>;
+  /**
+   * Sets the company key's availability when it changes from available to
+   * unavailable or back, and answers whether it changed: of two calls racing
+   * the same change, one changes it. A sealed fleet only.
+   */
+  changeKeyAvailability(fleetId: FleetId, availability: KeyAvailability): Promise<boolean>;
   /** The company key and the named data keys of a sealed fleet, wrapped, read without a lock; none while it is not sealed. */
   wrappedDataKeys(fleetId: FleetId, dataKeyIds: readonly DataKeyId[]): Promise<WrappedDataKeys | undefined>;
 }

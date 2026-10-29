@@ -7,6 +7,7 @@ import { newKey } from '../../testing/keys.js';
 import { refusalOf, unwrap } from '../../testing/result.js';
 import type { ShipCaller } from '../shared/caller.js';
 import type { MessageToSend, SendMessage } from './send-message.js';
+import { DATA_KEY_CACHE_MS } from './data-keys.js';
 
 let core: InMemoryCore;
 let sendMessage: SendMessage;
@@ -95,14 +96,16 @@ describe('a send in a sealed fleet (decision 0068, B8)', () => {
     expect(stored(messageId)).toMatchObject({ questionId: QUESTION_ID, payload: { plainBytes: 53 } });
   });
 
-  it('refuses KEY_UNAVAILABLE and stores nothing when the company key cannot be used', async () => {
+  it('scenario 9: with the company key disabled and the data key cache run out, a send is refused KEY_UNAVAILABLE and stores no message, delivery or event of its own', async () => {
     const [sealing] = core.state.fleetSealings;
     await core.keyVault.disable(sealing?.companyKey ?? '');
+    core.clock.advance(DATA_KEY_CACHE_MS);
     const before = structuredClone(core.state);
 
     const refusal = refusalOf(await sendMessage(scout, aReview()));
 
     expect(refusal.kind).toBe('KEY_UNAVAILABLE');
-    expect(core.state).toEqual(before);
+    expect({ messages: core.state.messages, deliveries: core.state.deliveries }).toEqual({ messages: before.messages, deliveries: before.deliveries });
+    expect(core.state.events.slice(before.events.length).map(({ type }) => type)).toEqual(['FleetKeyUnavailable']);
   });
 });

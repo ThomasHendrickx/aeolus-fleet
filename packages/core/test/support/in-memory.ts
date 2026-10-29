@@ -492,6 +492,14 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         return Promise.resolve();
       },
       currentDataKeyId: (fleetId) => Promise.resolve(state.dataKeys.find((held) => held.fleetId === fleetId && held.isCurrent)?.id),
+      changeKeyAvailability: (fleetId, availability) => {
+        const sealing = state.fleetSealings.find((held) => held.fleetId === fleetId);
+        if (sealing === undefined || sealing.keyAvailability.isAvailable === availability.isAvailable) {
+          return Promise.resolve(false);
+        }
+        sealing.keyAvailability = structuredClone(availability);
+        return Promise.resolve(true);
+      },
       wrappedDataKeys: (fleetId, dataKeyIds) => {
         const sealing = state.fleetSealings.find((held) => held.fleetId === fleetId);
         return Promise.resolve(
@@ -2317,7 +2325,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
   };
 
-  return { state, uow, fleets: tx.fleets, scheduleAttempts, pushedCrews, ships: tx.ships, leases: tx.leases, crewRequests: tx.crewRequests, clearRequests: tx.clearRequests, labels: tx.labels, reachRefusals: tx.reachRefusals, declaredNetworkRules: tx.declaredNetworkRules, scopeNamespaces: tx.scopeNamespaces, definedScopes: tx.definedScopes, sealings: tx.sealings, keyVault, sealing: { sealer: inMemoryPayloadSealer, dataKeys: createFleetDataKeys({ sealings: tx.sealings, vault: keyVault.vault, sealer: inMemoryPayloadSealer, clock }) }, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, health: healthRecords, healthSnapshots, notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeups, fleetNews };
+  return { state, uow, fleets: tx.fleets, scheduleAttempts, pushedCrews, ships: tx.ships, leases: tx.leases, crewRequests: tx.crewRequests, clearRequests: tx.clearRequests, labels: tx.labels, reachRefusals: tx.reachRefusals, declaredNetworkRules: tx.declaredNetworkRules, scopeNamespaces: tx.scopeNamespaces, definedScopes: tx.definedScopes, sealings: tx.sealings, keyVault, sealing: { sealer: inMemoryPayloadSealer, dataKeys: createFleetDataKeys({ sealings: tx.sealings, vault: keyVault.vault, sealer: inMemoryPayloadSealer, clock, uow, ids }) }, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, health: healthRecords, healthSnapshots, notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeups, fleetNews };
 }
 
 /** The tables whose rows belong to a fleet by their fleet id: all but the fleets and the installation's requests. */
