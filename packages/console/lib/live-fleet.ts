@@ -155,6 +155,22 @@ export function isLabelChange(type: EventType): boolean {
   return LABEL_EVENTS.has(type);
 }
 
+/** The events that change a fleet's sealing (decision 0068): its state, its keys, or whether its company key is reachable. */
+const SEALING_EVENTS: ReadonlySet<EventType> = new Set<EventType>([
+  'FleetSealingTurnedOn',
+  'FleetPayloadsSealed',
+  'FleetDataKeyCreated',
+  'FleetCompanyKeyChanged',
+  'FleetRecoveryKeyChanged',
+  'FleetKeysRecovered',
+  'FleetKeyUnavailable',
+  'FleetKeyAvailable',
+]);
+
+export function isSealingChange(type: EventType): boolean {
+  return SEALING_EVENTS.has(type);
+}
+
 /** The events that change Needs attention: a delivery becomes undeliverable or not handled, or the operator lets one go. */
 const ATTENTION_EVENTS: ReadonlySet<EventType> = new Set<EventType>(['DeliveryUndeliverable', 'DeliveryNotHandled', 'DeliveryDismissed']);
 
@@ -212,7 +228,7 @@ export interface LiveFleet {
  * it changes, and the stuck deliveries; an acknowledgement the acknowledged
  * in 24 hours; a delivery
  * that becomes undeliverable or not handled, or is dismissed, Needs
- * attention; a label's event the fleet's labels; NetworkRulesDeclared the
+ * attention; a label's event the fleet's labels; a sealing event the fleet's sealing; NetworkRulesDeclared the
  * declared network rules; and a change of the rules or the draft the network
  * rules, what the draft changes and the reach. `resync`, sent first and
  * whenever the browser fell too far behind, reloads every one of them.
@@ -279,6 +295,9 @@ export function createLiveFleetHandler(input: {
     }
     if (isLabelChange(event.type)) {
       reload(trpc.fleet.labels.queryKey());
+    }
+    if (isSealingChange(event.type)) {
+      reload(trpc.fleet.sealing.queryKey());
     }
     if (isDeclaredRulesChange(event.type)) {
       reload(trpc.fleet.declaredNetworkRules.queryKey());

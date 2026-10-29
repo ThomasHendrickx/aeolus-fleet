@@ -90,3 +90,5 @@ export const recoverKeysInputSchema = z.strictObject({
 
 /** Output of `fleet.recoverKeys`: the company key that wraps every data key of the fleet now. */
 export const recoverKeysOutputSchema = z.object({ companyKey: z.string() });
+
+export type SealingOutput = z.infer<typeof sealingOutputSchema>;
