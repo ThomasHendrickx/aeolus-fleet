@@ -1,20 +1,33 @@
-import { fleetStreamItemSchema, type FleetScope, type FleetStreamItem, type ShipId } from '@aeolus-fleet/common';
-import type { FastifyInstance } from 'fastify';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import WebSocket from 'ws';
-import { z } from 'zod';
+import {
+  fleetStreamItemSchema,
+  type FleetScope,
+  type FleetStreamItem,
+  type ShipId,
+} from "@aeolus-fleet/common";
+import type { FastifyInstance } from "fastify";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import WebSocket from "ws";
+import { z } from "zod";
 
-import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
-import { LISTENER_APPLICATION_NAME } from '../src/adapters/prisma/delivery-notices.js';
-import { createApp } from '../src/app.js';
-import type { ShipCaller } from '../src/domain/shared/caller.js';
-import { createUseCases, type UseCases } from '../src/wiring.js';
-import { FLEET_URL, OPERATOR, operatorCaller, secretOf } from './support/core-fixtures.js';
-import { createMigratedDatabase } from '../src/testing/database.js';
-import { createTestClock } from './support/postgres-core.js';
-import { unwrap } from '../src/testing/result.js';
-import { newKey } from '../src/testing/keys.js';
-import { withOperatorLogin } from './support/operator-login.js';
+import {
+  createPrismaClient,
+  type PrismaClient,
+} from "../src/adapters/prisma/client.js";
+import { LISTENER_APPLICATION_NAME } from "../src/adapters/prisma/delivery-notices.js";
+import { createApp } from "../src/app.js";
+import type { ShipCaller } from "../src/domain/shared/caller.js";
+import { createUseCases, type UseCases } from "../src/wiring.js";
+import {
+  FLEET_URL,
+  OPERATOR,
+  operatorCaller,
+  secretOf,
+} from "./support/core-fixtures.js";
+import { createMigratedDatabase } from "../src/testing/database.js";
+import { createTestClock } from "./support/postgres-core.js";
+import { unwrap } from "../src/testing/result.js";
+import { newKey } from "../src/testing/keys.js";
+import { withOperatorLogin } from "./support/operator-login.js";
 
 // The live fleet view's subscription over a WebSocket, from Postgres to the
 // browser: each committed event arrives with its number in commit order, a
@@ -22,7 +35,7 @@ import { withOperatorLogin } from './support/operator-login.js';
 // it, and the subscription is the console session's: from the console's
 // origin only, and over once the session ends.
 
-const clock = createTestClock('2026-10-01T09:00:00.000Z');
+const clock = createTestClock("2026-10-01T09:00:00.000Z");
 /** Where the console runs: the fleet's own origin, as no other console origin is configured. */
 const CONSOLE = new URL(FLEET_URL).origin;
 /** Sign-ins are not what these tests count. */
@@ -41,9 +54,22 @@ beforeAll(async () => {
   databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
   useCases = createUseCases({ prisma: database, clock });
-  argo = operatorCaller(unwrap(await withOperatorLogin(database, useCases.initialiseFleet({ name: 'home fleet' }))));
-  server = createApp({ databaseUrl, publicUrl: FLEET_URL, clock, logger: false, signInRateLimit: SIGN_IN_RATE_LIMIT });
-  address = await server.listen({ host: '127.0.0.1', port: 0 });
+  argo = operatorCaller(
+    unwrap(
+      await withOperatorLogin(
+        database,
+        useCases.initialiseFleet({ name: "home fleet" }),
+      ),
+    ),
+  );
+  server = createApp({
+    databaseUrl,
+    publicUrl: FLEET_URL,
+    clock,
+    logger: false,
+    signInRateLimit: SIGN_IN_RATE_LIMIT,
+  });
+  address = await server.listen({ host: "127.0.0.1", port: 0 });
 });
 
 afterEach(() => {
@@ -63,17 +89,23 @@ afterAll(async () => {
 /** The session cookie of a new console session. */
 async function signIn(): Promise<string> {
   const response = await fetch(`${address}/trpc/console.signIn`, {
-    method: 'POST',
-    headers: { origin: CONSOLE, 'content-type': 'application/json' },
+    method: "POST",
+    headers: { origin: CONSOLE, "content-type": "application/json" },
     body: JSON.stringify(OPERATOR),
   });
   const [cookie] = response.headers.getSetCookie();
-  return cookie?.split(';')[0] ?? '';
+  return cookie?.split(";")[0] ?? "";
 }
 
 const answerSchema = z.object({
   id: z.number(),
-  result: z.object({ type: z.string(), id: z.string().optional(), data: z.unknown().optional() }).optional(),
+  result: z
+    .object({
+      type: z.string(),
+      id: z.string().optional(),
+      data: z.unknown().optional(),
+    })
+    .optional(),
   error: z.object({ data: z.object({ code: z.string() }) }).optional(),
 });
 
@@ -91,35 +123,47 @@ interface Following {
  * /trpc, one subscription to fleet.events, from the console's origin unless
  * told another.
  */
-async function follow(options: { cookie?: string; origin?: string; lastEventId?: string }): Promise<Following> {
+async function follow(options: {
+  cookie?: string;
+  origin?: string;
+  lastEventId?: string;
+}): Promise<Following> {
   const following: Following = { items: [] };
   const headers: Record<string, string> = { origin: options.origin ?? CONSOLE };
   if (options.cookie !== undefined) {
     headers.cookie = options.cookie;
   }
-  const socket = new WebSocket(`${address.replace(/^http/, 'ws')}/trpc`, { headers });
+  const socket = new WebSocket(`${address.replace(/^http/, "ws")}/trpc`, {
+    headers,
+  });
   browsers.push(socket);
-  socket.on('message', (raw: Buffer) => {
+  socket.on("message", (raw: Buffer) => {
     const answer = answerSchema.parse(JSON.parse(raw.toString()));
     if (answer.error) {
       following.refusal = answer.error.data.code;
-    } else if (answer.result?.type === 'data') {
+    } else if (answer.result?.type === "data") {
       // A tracked item travels as { id, data }; its id is the event's number.
       const { id, data } = trackedSchema.parse(answer.result.data);
-      following.items.push({ trackedId: id, item: fleetStreamItemSchema.parse(data) });
+      following.items.push({
+        trackedId: id,
+        item: fleetStreamItemSchema.parse(data),
+      });
     }
   });
   await new Promise<void>((resolve, reject) => {
-    socket.once('open', () => {
+    socket.once("open", () => {
       resolve();
     });
-    socket.once('error', reject);
+    socket.once("error", reject);
   });
   socket.send(
     JSON.stringify({
       id: 1,
-      method: 'subscription',
-      params: { path: 'fleet.events', input: { lastEventId: options.lastEventId ?? null } },
+      method: "subscription",
+      params: {
+        path: "fleet.events",
+        input: { lastEventId: options.lastEventId ?? null },
+      },
     }),
   );
   return following;
@@ -127,7 +171,9 @@ async function follow(options: { cookie?: string; origin?: string; lastEventId?:
 
 /** The event types heard so far, in order; `resync` for the word to load the fleet again. */
 function heard(following: Following): string[] {
-  return following.items.map(({ item }) => (item.kind === 'event' ? item.event.type : 'resync'));
+  return following.items.map(({ item }) =>
+    item.kind === "event" ? item.event.type : "resync",
+  );
 }
 
 /** The number of the last event heard. */
@@ -139,23 +185,38 @@ function lastSeq(following: Following): number {
  * A crew following the fleet as a ship's client does: over HTTP, as server-sent
  * events, with its crew token and, for a plugin, the ship it reads on behalf of.
  */
-function followAsCrew(options: { crewToken: string; onBehalfOf?: ShipId }): Following {
+function followAsCrew(options: {
+  crewToken: string;
+  onBehalfOf?: ShipId;
+}): Following {
   const following: Following = { items: [] };
-  const headers: Record<string, string> = { authorization: `Bearer ${options.crewToken}`, accept: 'text/event-stream' };
+  const headers: Record<string, string> = {
+    authorization: `Bearer ${options.crewToken}`,
+    accept: "text/event-stream",
+  };
   if (options.onBehalfOf !== undefined) {
-    headers['aeolus-on-behalf-of'] = options.onBehalfOf;
+    headers["aeolus-on-behalf-of"] = options.onBehalfOf;
   }
   const stopped = new AbortController();
   streams.push(stopped);
   const input = encodeURIComponent(JSON.stringify({ lastEventId: null }));
   void (async () => {
-    const response = await fetch(`${address}/trpc/fleet.events?input=${input}`, { headers, signal: stopped.signal });
-    const reader = response.body?.pipeThrough(new TextDecoderStream()).getReader();
-    let buffered = '';
-    for (let read = await reader?.read(); read && !read.done; read = await reader?.read()) {
+    const response = await fetch(
+      `${address}/trpc/fleet.events?input=${input}`,
+      { headers, signal: stopped.signal },
+    );
+    const reader = response.body
+      ?.pipeThrough(new TextDecoderStream())
+      .getReader();
+    let buffered = "";
+    for (
+      let read = await reader?.read();
+      read && !read.done;
+      read = await reader?.read()
+    ) {
       buffered += read.value;
-      const messages = buffered.split('\n\n');
-      buffered = messages.pop() ?? '';
+      const messages = buffered.split("\n\n");
+      buffered = messages.pop() ?? "";
       for (const message of messages) {
         heardOver(following, message);
       }
@@ -168,57 +229,105 @@ const sseErrorSchema = z.object({ data: z.object({ code: z.string() }) });
 
 /** One server-sent message: an item tracked by its event id, or the error the subscription ended with. */
 function heardOver(following: Following, message: string): void {
-  const fields = new Map(message.split('\n').map((line) => [line.slice(0, line.indexOf(':')), line.slice(line.indexOf(':') + 1).trim()]));
-  const data = fields.get('data');
+  const fields = new Map(
+    message
+      .split("\n")
+      .map((line) => [
+        line.slice(0, line.indexOf(":")),
+        line.slice(line.indexOf(":") + 1).trim(),
+      ]),
+  );
+  const data = fields.get("data");
   if (data === undefined) {
     return;
   }
-  if (fields.get('event') === 'serialized-error') {
+  if (fields.get("event") === "serialized-error") {
     following.refusal = sseErrorSchema.parse(JSON.parse(data)).data.code;
-  } else if (fields.get('event') === undefined && fields.has('id')) {
-    following.items.push({ trackedId: fields.get('id') ?? '', item: fleetStreamItemSchema.parse(JSON.parse(data)) });
+  } else if (fields.get("event") === undefined && fields.has("id")) {
+    following.items.push({
+      trackedId: fields.get("id") ?? "",
+      item: fleetStreamItemSchema.parse(JSON.parse(data)),
+    });
   }
 }
 
 /** A ship argo commissions with the given scopes and a session claims: its id and crew token. */
-async function crewed(name: string, scopes: FleetScope[]): Promise<{ shipId: ShipId; crewToken: string }> {
-  const { shipId, secret } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name, type: 'reviewer', scopes }));
-  const { crewToken } = unwrap(await useCases.claimShip({ shipId, secret: secretOf(secret), location: { kind: 'CLOUD' }, harness: 'claude-code' }));
+async function crewed(
+  name: string,
+  scopes: FleetScope[],
+): Promise<{ shipId: ShipId; crewToken: string }> {
+  const { shipId, secret } = unwrap(
+    await useCases.commissionShip(argo, {
+      idempotencyKey: newKey(),
+      name,
+      type: "reviewer",
+      scopes,
+    }),
+  );
+  const { crewToken } = unwrap(
+    await useCases.claimShip({
+      shipId,
+      secret: secretOf(secret),
+      location: { kind: "CLOUD" },
+      harness: "claude-code",
+    }),
+  );
   return { shipId, crewToken };
 }
 
-async function commissionScout(name: string): Promise<{ shipId: ShipId; secret: string }> {
-  const { shipId, secret } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name, type: 'reviewer' }));
+async function commissionScout(
+  name: string,
+): Promise<{ shipId: ShipId; secret: string }> {
+  const { shipId, secret } = unwrap(
+    await useCases.commissionShip(argo, {
+      idempotencyKey: newKey(),
+      name,
+      type: "reviewer",
+    }),
+  );
   return { shipId, secret: secretOf(secret) };
 }
 
-describe('following the fleet live', () => {
-  it('tells a browser without a position to load the fleet, at the last number', async () => {
+describe("following the fleet live", () => {
+  it("tells a browser without a position to load the fleet, at the last number", async () => {
     const following = await follow({ cookie: await signIn() });
 
-    await expect.poll(() => heard(following)).toEqual(['resync']);
-    expect(lastSeq(following)).toBe(Number((await database.fleet.findFirstOrThrow()).lastEventSeq));
+    await expect.poll(() => heard(following)).toEqual(["resync"]);
+    expect(lastSeq(following)).toBe(
+      Number((await database.fleet.findFirstOrThrow()).lastEventSeq),
+    );
   });
 
-  it('sends a ship commissioned, claimed and released as each commits, numbered one after another', async () => {
+  it("sends a ship commissioned, claimed and released as each commits, numbered one after another", async () => {
     const following = await follow({ cookie: await signIn() });
-    await expect.poll(() => heard(following)).toEqual(['resync']);
+    await expect.poll(() => heard(following)).toEqual(["resync"]);
     const start = lastSeq(following);
 
-    const { shipId, secret } = await commissionScout('scout');
-    unwrap(await useCases.claimShip({ shipId, secret, location: { kind: 'DEVICE' }, harness: 'claude-code' }));
+    const { shipId, secret } = await commissionScout("scout");
+    unwrap(
+      await useCases.claimShip({
+        shipId,
+        secret,
+        location: { kind: "DEVICE" },
+        harness: "claude-code",
+      }),
+    );
     unwrap(await useCases.releaseShip(argo, { shipId }));
 
-    await expect.poll(() => heard(following)).toEqual([
-      'resync',
-      'ShipCommissioned',
-      'OwnerSet',
-      'StartingPromptIssued',
-      'ShipClaimed',
-      'CredentialRevoked',
-      'LeaseRevoked',
-    ]);
-    expect(following.items.slice(1).map(({ trackedId }) => Number(trackedId))).toEqual([
+    await expect
+      .poll(() => heard(following))
+      .toEqual([
+        "resync",
+        "ShipCommissioned",
+        "OwnerSet",
+        "StartingPromptIssued",
+        "ShipClaimed",
+        "CredentialRevoked",
+        "LeaseRevoked",
+      ]);
+    expect(
+      following.items.slice(1).map(({ trackedId }) => Number(trackedId)),
+    ).toEqual([
       start + 1,
       start + 2,
       start + 3,
@@ -227,39 +336,43 @@ describe('following the fleet live', () => {
       start + 6,
     ]);
     expect(following.items[1]?.item).toMatchObject({
-      kind: 'event',
-      event: { seq: start + 1, type: 'ShipCommissioned', shipId },
+      kind: "event",
+      event: { seq: start + 1, type: "ShipCommissioned", shipId },
     });
   });
 
-  it('gives a browser coming back with its number every event committed while it was away, then follows', async () => {
+  it("gives a browser coming back with its number every event committed while it was away, then follows", async () => {
     const cookie = await signIn();
     const away = await follow({ cookie });
-    await expect.poll(() => heard(away)).toEqual(['resync']);
+    await expect.poll(() => heard(away)).toEqual(["resync"]);
     const reached = lastSeq(away);
     browsers.splice(0).forEach((socket) => {
       socket.close();
     });
 
-    await commissionScout('lookout');
+    await commissionScout("lookout");
     const back = await follow({ cookie, lastEventId: String(reached) });
-    await expect.poll(() => heard(back)).toEqual(['ShipCommissioned', 'OwnerSet', 'StartingPromptIssued']);
-    await commissionScout('pilot');
+    await expect
+      .poll(() => heard(back))
+      .toEqual(["ShipCommissioned", "OwnerSet", "StartingPromptIssued"]);
+    await commissionScout("pilot");
 
-    await expect.poll(() => heard(back)).toEqual([
-      'ShipCommissioned',
-      'OwnerSet',
-      'StartingPromptIssued',
-      'ShipCommissioned',
-      'OwnerSet',
-      'StartingPromptIssued',
-    ]);
+    await expect
+      .poll(() => heard(back))
+      .toEqual([
+        "ShipCommissioned",
+        "OwnerSet",
+        "StartingPromptIssued",
+        "ShipCommissioned",
+        "OwnerSet",
+        "StartingPromptIssued",
+      ]);
     expect(Number(back.items[0]?.trackedId)).toBe(reached + 1);
   });
 
-  it('still sends an event committed while the listener had lost its connection, once it listens again', async () => {
+  it("still sends an event committed while the listener had lost its connection, once it listens again", async () => {
     const following = await follow({ cookie: await signIn() });
-    await expect.poll(() => heard(following)).toEqual(['resync']);
+    await expect.poll(() => heard(following)).toEqual(["resync"]);
 
     const listeners = await database.$queryRaw<{ pid: number }[]>`
       SELECT pid FROM pg_stat_activity
@@ -267,56 +380,81 @@ describe('following the fleet live', () => {
     for (const { pid } of listeners) {
       await database.$queryRaw`SELECT pg_terminate_backend(${pid})`;
     }
-    await commissionScout('helmsman');
+    await commissionScout("helmsman");
 
-    await expect.poll(() => heard(following), { timeout: 10_000 }).toEqual(['resync', 'ShipCommissioned', 'OwnerSet', 'StartingPromptIssued']);
+    await expect
+      .poll(() => heard(following), { timeout: 10_000 })
+      .toEqual([
+        "resync",
+        "ShipCommissioned",
+        "OwnerSet",
+        "StartingPromptIssued",
+      ]);
   });
 
-  it('refuses a browser that is not signed in', async () => {
+  it("refuses a browser that is not signed in", async () => {
     const following = await follow({});
 
-    await expect.poll(() => following.refusal).toBe('UNAUTHORIZED');
+    await expect.poll(() => following.refusal).toBe("UNAUTHORIZED");
     expect(following.items).toEqual([]);
   });
 
   it("refuses a page on another origin, even with the operator's cookie", async () => {
-    const following = await follow({ cookie: await signIn(), origin: 'https://elsewhere.example.com' });
+    const following = await follow({
+      cookie: await signIn(),
+      origin: "https://elsewhere.example.com",
+    });
 
-    await expect.poll(() => following.refusal).toBe('FORBIDDEN');
+    await expect.poll(() => following.refusal).toBe("FORBIDDEN");
     expect(following.items).toEqual([]);
   });
 
-  it('ends when the operator signs in somewhere else', async () => {
+  it("ends when the operator signs in somewhere else", async () => {
     const following = await follow({ cookie: await signIn() });
-    await expect.poll(() => heard(following)).toEqual(['resync']);
+    await expect.poll(() => heard(following)).toEqual(["resync"]);
 
     await signIn();
 
-    await expect.poll(() => following.refusal).toBe('UNAUTHORIZED');
+    await expect.poll(() => following.refusal).toBe("UNAUTHORIZED");
   });
 });
 
-describe('a crew following the fleet live', () => {
-  it('ends once argo revokes its fleet:read, and sends nothing after', async () => {
-    const watcher = await crewed('watcher', ['fleet:read']);
+describe("a crew following the fleet live", () => {
+  it("ends once argo revokes its fleet:read, and sends nothing after", async () => {
+    const watcher = await crewed("watcher", ["fleet:read"]);
     const following = followAsCrew({ crewToken: watcher.crewToken });
-    await expect.poll(() => heard(following)).toEqual(['resync']);
+    await expect.poll(() => heard(following)).toEqual(["resync"]);
 
-    unwrap(await useCases.grantScopes(argo, { shipId: watcher.shipId, grant: [], revoke: ['fleet:read'] }));
+    unwrap(
+      await useCases.grantScopes(argo, {
+        shipId: watcher.shipId,
+        grant: [],
+        revoke: ["fleet:read"],
+      }),
+    );
 
-    await expect.poll(() => following.refusal).toBe('FORBIDDEN');
-    expect(heard(following)).toEqual(['resync']);
+    await expect.poll(() => following.refusal).toBe("FORBIDDEN");
+    expect(heard(following)).toEqual(["resync"]);
   });
 
-  it('ends once argo revokes fleet:on-behalf from a plugin reading on behalf of a ship, and sends nothing after', async () => {
-    const plugin = await crewed('plugin', ['fleet:read', 'fleet:on-behalf']);
-    const named = await crewed('named', []);
-    const following = followAsCrew({ crewToken: plugin.crewToken, onBehalfOf: named.shipId });
-    await expect.poll(() => heard(following)).toEqual(['resync']);
+  it("ends once argo revokes fleet:on-behalf from a plugin reading on behalf of a ship, and sends nothing after", async () => {
+    const plugin = await crewed("plugin", ["fleet:read", "fleet:on-behalf"]);
+    const named = await crewed("named", []);
+    const following = followAsCrew({
+      crewToken: plugin.crewToken,
+      onBehalfOf: named.shipId,
+    });
+    await expect.poll(() => heard(following)).toEqual(["resync"]);
 
-    unwrap(await useCases.grantScopes(argo, { shipId: plugin.shipId, grant: [], revoke: ['fleet:on-behalf'] }));
+    unwrap(
+      await useCases.grantScopes(argo, {
+        shipId: plugin.shipId,
+        grant: [],
+        revoke: ["fleet:on-behalf"],
+      }),
+    );
 
-    await expect.poll(() => following.refusal).toBe('FORBIDDEN');
-    expect(heard(following)).toEqual(['resync']);
+    await expect.poll(() => following.refusal).toBe("FORBIDDEN");
+    expect(heard(following)).toEqual(["resync"]);
   });
 });

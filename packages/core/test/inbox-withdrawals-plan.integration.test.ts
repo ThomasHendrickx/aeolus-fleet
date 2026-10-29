@@ -1,11 +1,18 @@
-import { WITHDRAWAL_CONTENT_TYPE, type FleetId, type ShipId } from '@aeolus-fleet/common';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import {
+  WITHDRAWAL_CONTENT_TYPE,
+  type FleetId,
+  type ShipId,
+} from "@aeolus-fleet/common";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { Prisma } from '../src/adapters/prisma/generated/client.js';
-import { inboxWithdrawalsStatement } from '../src/adapters/prisma/history.js';
-import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
-import { unwrap } from '../src/testing/result.js';
-import { withOperatorLogin } from './support/operator-login.js';
+import { Prisma } from "../src/adapters/prisma/generated/client.js";
+import { inboxWithdrawalsStatement } from "../src/adapters/prisma/history.js";
+import {
+  createPostgresCore,
+  type PostgresCore,
+} from "./support/postgres-core.js";
+import { unwrap } from "../src/testing/result.js";
+import { withOperatorLogin } from "./support/operator-login.js";
 
 // A question's withdrawals are found by the question id they name, through
 // messages_fleet_id_question_id_idx, not by reading argo's inbox: answering or opening
@@ -22,7 +29,12 @@ let argoId: ShipId;
 
 beforeAll(async () => {
   core = await createPostgresCore();
-  ({ fleetId, operatorShipId: argoId } = unwrap(await withOperatorLogin(core.prisma, core.useCases.initialiseFleet({ name: 'home fleet' }))));
+  ({ fleetId, operatorShipId: argoId } = unwrap(
+    await withOperatorLogin(
+      core.prisma,
+      core.useCases.initialiseFleet({ name: "home fleet" }),
+    ),
+  ));
   await core.prisma.$executeRaw`
     INSERT INTO messages (id, fleet_id, payload, question_id, content_type, idempotency_key, created_at, request_hash, selector_kind, selector_ship_id, sender_ship_id)
     SELECT 'msg_seed' || i, ${fleetId},
@@ -43,10 +55,18 @@ afterAll(async () => {
 });
 
 describe("a question's withdrawals on an inbox with a history", () => {
-  it('are read through the index of question ids, not every message to argo', async () => {
-    const statement = inboxWithdrawalsStatement(fleetId, { shipId: argoId, questionId: '3f1c2a9e-7b4d-4e8a-9c1f-2d6b8e0a5c47', limit: 100 });
-    const rows = await core.prisma.$queryRaw<{ 'QUERY PLAN': string }[]>(Prisma.sql`EXPLAIN ${statement}`);
+  it("are read through the index of question ids, not every message to argo", async () => {
+    const statement = inboxWithdrawalsStatement(fleetId, {
+      shipId: argoId,
+      questionId: "3f1c2a9e-7b4d-4e8a-9c1f-2d6b8e0a5c47",
+      limit: 100,
+    });
+    const rows = await core.prisma.$queryRaw<{ "QUERY PLAN": string }[]>(
+      Prisma.sql`EXPLAIN ${statement}`,
+    );
 
-    expect(rows.map((row) => row['QUERY PLAN']).join('\n')).toContain('messages_fleet_id_question_id_idx');
+    expect(rows.map((row) => row["QUERY PLAN"]).join("\n")).toContain(
+      "messages_fleet_id_question_id_idx",
+    );
   });
 });

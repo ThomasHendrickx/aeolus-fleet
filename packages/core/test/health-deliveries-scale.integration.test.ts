@@ -1,14 +1,22 @@
-import type { FleetId } from '@aeolus-fleet/common';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import type { FleetId } from "@aeolus-fleet/common";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { Prisma } from '../src/adapters/prisma/generated/client.js';
-import { baseCandidatesStatement, baseDeliveriesStatement, createPrismaHealthRecords, replayDeliveriesStatement } from '../src/adapters/prisma/health.js';
-import { createPrismaSnapshotUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
-import { hourMarkOf } from '../src/domain/shared/health-snapshot.js';
-import { ok } from '../src/domain/shared/result.js';
-import { unwrap } from '../src/testing/result.js';
-import { withOperatorLogin } from './support/operator-login.js';
-import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
+import { Prisma } from "../src/adapters/prisma/generated/client.js";
+import {
+  baseCandidatesStatement,
+  baseDeliveriesStatement,
+  createPrismaHealthRecords,
+  replayDeliveriesStatement,
+} from "../src/adapters/prisma/health.js";
+import { createPrismaSnapshotUnitOfWork } from "../src/adapters/prisma/unit-of-work.js";
+import { hourMarkOf } from "../src/domain/shared/health-snapshot.js";
+import { ok } from "../src/domain/shared/result.js";
+import { unwrap } from "../src/testing/result.js";
+import { withOperatorLogin } from "./support/operator-login.js";
+import {
+  createPostgresCore,
+  type PostgresCore,
+} from "./support/postgres-core.js";
 
 // The deliveries the stuck rule replays, on a fleet with a long history: on
 // the scale fleet (#1161) the replay's "open, or with an event since" was one
@@ -69,7 +77,12 @@ function sentBetween(from: Date, to: Date): number {
 
 beforeAll(async () => {
   core = await createPostgresCore();
-  fleetId = unwrap(await withOperatorLogin(core.prisma, core.useCases.initialiseFleet({ name: 'home fleet' }))).fleetId;
+  fleetId = unwrap(
+    await withOperatorLogin(
+      core.prisma,
+      core.useCases.initialiseFleet({ name: "home fleet" }),
+    ),
+  ).fleetId;
   start = new Date(core.clock.now().getTime() - DAYS * DAY_MS);
   await seedHistory();
 }, 300_000);
@@ -79,50 +92,92 @@ afterAll(async () => {
 });
 
 async function planOf(statement: Prisma.Sql): Promise<string> {
-  const rows = await core.prisma.$queryRaw<{ 'QUERY PLAN': string }[]>(Prisma.sql`EXPLAIN ${statement}`);
-  return rows.map((row) => row['QUERY PLAN']).join('\n');
+  const rows = await core.prisma.$queryRaw<{ "QUERY PLAN": string }[]>(
+    Prisma.sql`EXPLAIN ${statement}`,
+  );
+  return rows.map((row) => row["QUERY PLAN"]).join("\n");
 }
 
 describe("the replay's deliveries on a fleet with a long history", () => {
-  it('reads the open deliveries and those with an event since through their indexes, never every delivery or message', async () => {
-    const plan = await planOf(replayDeliveriesStatement(fleetId, new Date(core.clock.now().getTime() - 7 * DAY_MS)));
+  it("reads the open deliveries and those with an event since through their indexes, never every delivery or message", async () => {
+    const plan = await planOf(
+      replayDeliveriesStatement(
+        fleetId,
+        new Date(core.clock.now().getTime() - 7 * DAY_MS),
+      ),
+    );
 
     expect(plan).not.toMatch(/Seq Scan on (deliveries|messages|events)/);
   });
 
-  it('answers the open deliveries and those with an event since, each with its steps', async () => {
+  it("answers the open deliveries and those with an event since, each with its steps", async () => {
     const since = new Date(core.clock.now().getTime() - DAY_MS);
 
-    const { deliveries } = await createPrismaHealthRecords(core.prisma).read(fleetId, since);
+    const { deliveries } = await createPrismaHealthRecords(core.prisma).read(
+      fleetId,
+      since,
+    );
 
     // An event at most two minutes after its send, and the open ones the newest.
-    expect(deliveries).toHaveLength(sentBetween(new Date(since.getTime() - 2 * MINUTE_MS), new Date(core.clock.now().getTime() + 1)));
-    expect(deliveries.filter((delivery) => delivery.steps.length === 0)).toHaveLength(OPEN);
+    expect(deliveries).toHaveLength(
+      sentBetween(
+        new Date(since.getTime() - 2 * MINUTE_MS),
+        new Date(core.clock.now().getTime() + 1),
+      ),
+    );
+    expect(
+      deliveries.filter((delivery) => delivery.steps.length === 0),
+    ).toHaveLength(OPEN);
   });
 });
 
 describe("the first snapshot's base on a fleet with a long history", () => {
-  it('reads the deliveries open at the hour through their indexes, never every delivery or message', async () => {
-    const plan = await planOf(baseDeliveriesStatement(fleetId, hourMarkOf(new Date(core.clock.now().getTime() - 167 * HOUR_MS))));
+  it("reads the deliveries open at the hour through their indexes, never every delivery or message", async () => {
+    const plan = await planOf(
+      baseDeliveriesStatement(
+        fleetId,
+        hourMarkOf(new Date(core.clock.now().getTime() - 167 * HOUR_MS)),
+      ),
+    );
 
     expect(plan).not.toMatch(/Seq Scan on (deliveries|messages|events)/);
   });
 
-  it('looks up only the deliveries sent by the hour, dropping those sent after it in the scan of the events after it', async () => {
-    const hour = hourMarkOf(new Date(core.clock.now().getTime() - 167 * HOUR_MS));
+  it("looks up only the deliveries sent by the hour, dropping those sent after it in the scan of the events after it", async () => {
+    const hour = hourMarkOf(
+      new Date(core.clock.now().getTime() - 167 * HOUR_MS),
+    );
 
-    const candidates = await core.prisma.$queryRaw<{ id: string }[]>(baseCandidatesStatement(fleetId, hour));
+    const candidates = await core.prisma.$queryRaw<{ id: string }[]>(
+      baseCandidatesStatement(fleetId, hour),
+    );
 
     // Sent by the hour with an event after it: dismissed after the hour.
-    expect(candidates).toHaveLength(sentBetween(new Date(hour.getTime() - 2 * MINUTE_MS + 1), new Date(hour.getTime() + 1)));
+    expect(candidates).toHaveLength(
+      sentBetween(
+        new Date(hour.getTime() - 2 * MINUTE_MS + 1),
+        new Date(hour.getTime() + 1),
+      ),
+    );
   });
 
-  it('keeps the deliveries open at the hour, each at its latest step by then', async () => {
-    const hour = hourMarkOf(new Date(core.clock.now().getTime() - 167 * HOUR_MS));
+  it("keeps the deliveries open at the hour, each at its latest step by then", async () => {
+    const hour = hourMarkOf(
+      new Date(core.clock.now().getTime() - 167 * HOUR_MS),
+    );
 
-    const base = unwrap(await createPrismaSnapshotUnitOfWork(core.prisma).run(async (tx) => ok(await tx.healthSnapshots.baseAt(fleetId, hour))));
+    const base = unwrap(
+      await createPrismaSnapshotUnitOfWork(core.prisma).run(async (tx) =>
+        ok(await tx.healthSnapshots.baseAt(fleetId, hour)),
+      ),
+    );
 
     // Sent in the two minutes before the hour: not yet dismissed by then.
-    expect(base.deliveries).toHaveLength(sentBetween(new Date(hour.getTime() - 2 * MINUTE_MS + 1), new Date(hour.getTime() + 1)));
+    expect(base.deliveries).toHaveLength(
+      sentBetween(
+        new Date(hour.getTime() - 2 * MINUTE_MS + 1),
+        new Date(hour.getTime() + 1),
+      ),
+    );
   });
 });

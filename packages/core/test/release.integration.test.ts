@@ -1,29 +1,46 @@
-import { createIdGenerator, idSchema, type DeliveryId, type FleetId } from '@aeolus-fleet/common';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import {
+  createIdGenerator,
+  idSchema,
+  type DeliveryId,
+  type FleetId,
+} from "@aeolus-fleet/common";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
-import { listenForPendingDeliveries, type DeliveryListener } from '../src/adapters/prisma/delivery-notices.js';
-import { createReceiverWakeups, type ReceiverWakeupHub } from '../src/adapters/prisma/receiver-wakeups.js';
-import { createPrismaUnitOfWork, type PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
-import { createReceiveDeliveries } from '../src/domain/messaging/receive-deliveries.js';
-import { createDeregister } from '../src/domain/registry/deregister.js';
-import { createReleaseShip } from '../src/domain/registry/release-ship.js';
-import type { ShipCaller, Crew } from '../src/domain/shared/caller.js';
-import type { DomainError } from '../src/domain/shared/errors.js';
-import type { DeliveryNotice } from '../src/domain/shared/notifier.js';
-import type { Result } from '../src/domain/shared/result.js';
-import type { Selector } from '../src/domain/shared/selector.js';
-import type { UnitOfWork } from '../src/domain/shared/unit-of-work.js';
-import { createUseCases, systemClock, type UseCases } from '../src/wiring.js';
-import { operatorCaller, secretOf } from './support/core-fixtures.js';
-import { createMigratedDatabase } from '../src/testing/database.js';
-import { everyRow, heldUnitOfWork } from './support/postgres-core.js';
-import { unwrap } from '../src/testing/result.js';
-import { newKey } from '../src/testing/keys.js';
-import { waitingWakeups } from './support/waiting-wakeups.js';
-import { aCrewSettings } from './support/crew-fixtures.js';
-import { withOperatorLogin } from './support/operator-login.js';
-import { unsealedFleetsOnly } from './support/sealing.js';
+import {
+  createPrismaClient,
+  type PrismaClient,
+} from "../src/adapters/prisma/client.js";
+import {
+  listenForPendingDeliveries,
+  type DeliveryListener,
+} from "../src/adapters/prisma/delivery-notices.js";
+import {
+  createReceiverWakeups,
+  type ReceiverWakeupHub,
+} from "../src/adapters/prisma/receiver-wakeups.js";
+import {
+  createPrismaUnitOfWork,
+  type PrismaTx,
+} from "../src/adapters/prisma/unit-of-work.js";
+import { createReceiveDeliveries } from "../src/domain/messaging/receive-deliveries.js";
+import { createDeregister } from "../src/domain/registry/deregister.js";
+import { createReleaseShip } from "../src/domain/registry/release-ship.js";
+import type { ShipCaller, Crew } from "../src/domain/shared/caller.js";
+import type { DomainError } from "../src/domain/shared/errors.js";
+import type { DeliveryNotice } from "../src/domain/shared/notifier.js";
+import type { Result } from "../src/domain/shared/result.js";
+import type { Selector } from "../src/domain/shared/selector.js";
+import type { UnitOfWork } from "../src/domain/shared/unit-of-work.js";
+import { createUseCases, systemClock, type UseCases } from "../src/wiring.js";
+import { operatorCaller, secretOf } from "./support/core-fixtures.js";
+import { createMigratedDatabase } from "../src/testing/database.js";
+import { everyRow, heldUnitOfWork } from "./support/postgres-core.js";
+import { unwrap } from "../src/testing/result.js";
+import { newKey } from "../src/testing/keys.js";
+import { waitingWakeups } from "./support/waiting-wakeups.js";
+import { aCrewSettings } from "./support/crew-fixtures.js";
+import { withOperatorLogin } from "./support/operator-login.js";
+import { unsealedFleetsOnly } from "./support/sealing.js";
 
 // Releasing a ship and deregistering on a real Postgres, with the listener and
 // the wake-ups the server runs: the lease, the secret and the crew token end
@@ -78,13 +95,35 @@ beforeEach(async () => {
     },
   });
   await listener.listening;
-  useCases = createUseCases({ prisma, clock: systemClock, wakeups, receiveWaitMs: WAIT_MS });
-  const fleet = unwrap(await withOperatorLogin(prisma, useCases.initialiseFleet({ name: 'home fleet' })));
+  useCases = createUseCases({
+    prisma,
+    clock: systemClock,
+    wakeups,
+    receiveWaitMs: WAIT_MS,
+  });
+  const fleet = unwrap(
+    await withOperatorLogin(
+      prisma,
+      useCases.initialiseFleet({ name: "home fleet" }),
+    ),
+  );
   ({ fleetId } = fleet);
   argo = operatorCaller(fleet);
-  const scoutShip = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
+  const scoutShip = unwrap(
+    await useCases.commissionShip(argo, {
+      idempotencyKey: newKey(),
+      name: "scout",
+      type: "reviewer",
+    }),
+  );
   scout = await register(scoutShip.shipId, secretOf(scoutShip.secret));
-  const lookoutShip = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'lookout', type: 'reviewer' }));
+  const lookoutShip = unwrap(
+    await useCases.commissionShip(argo, {
+      idempotencyKey: newKey(),
+      name: "lookout",
+      type: "reviewer",
+    }),
+  );
   lookout = await register(lookoutShip.shipId, secretOf(lookoutShip.secret));
 });
 
@@ -94,8 +133,18 @@ afterEach(async () => {
 });
 
 /** A session claims the ship with the secret its starting prompt holds. */
-async function register(shipId: Crew['shipId'], secret: string): Promise<Crewed> {
-  const { crewToken } = unwrap(await useCases.claimShip({ shipId, secret, location: { kind: 'CLOUD' }, harness: 'claude-code' }));
+async function register(
+  shipId: Crew["shipId"],
+  secret: string,
+): Promise<Crewed> {
+  const { crewToken } = unwrap(
+    await useCases.claimShip({
+      shipId,
+      secret,
+      location: { kind: "CLOUD" },
+      harness: "claude-code",
+    }),
+  );
   const crew = unwrap(await useCases.authenticate.byCrewToken(crewToken));
   return { crew, crewToken, secret };
 }
@@ -107,26 +156,33 @@ async function nextCrewOf(crewed: Crewed): Promise<Crewed> {
   return register(shipId, secret);
 }
 
-const toShip = (crewed: Crewed): Selector => ({ kind: 'ship', shipId: crewed.crew.shipId });
-const toReviewers: Selector = { kind: 'type', type: 'reviewer' };
+const toShip = (crewed: Crewed): Selector => ({
+  kind: "ship",
+  shipId: crewed.crew.shipId,
+});
+const toReviewers: Selector = { kind: "type", type: "reviewer" };
 
 /** Sends a plain-text message from argo and returns its delivery's id. */
 async function sendTo(selector: Selector): Promise<DeliveryId> {
   const { messageId } = unwrap(
     await useCases.sendMessage(argo, {
       selector,
-      payload: 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/28',
-      contentType: 'text/plain',
-      idempotencyKey: `review-${newId('message')}`,
+      payload: "Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/28",
+      contentType: "text/plain",
+      idempotencyKey: `review-${newId("message")}`,
     }),
   );
-  const { id } = await prisma.delivery.findFirstOrThrow({ where: { messageId } });
-  return idSchema('delivery').parse(id);
+  const { id } = await prisma.delivery.findFirstOrThrow({
+    where: { messageId },
+  });
+  return idSchema("delivery").parse(id);
 }
 
 /** The ids of the deliveries one receive returns. */
 async function receive(crewed: Crewed): Promise<DeliveryId[]> {
-  const { deliveries } = unwrap(await useCases.receiveDeliveries(crewed.crew, {}));
+  const { deliveries } = unwrap(
+    await useCases.receiveDeliveries(crewed.crew, {}),
+  );
   return deliveries.map((delivery) => delivery.deliveryId);
 }
 
@@ -143,10 +199,14 @@ function stored(deliveryId: DeliveryId) {
  */
 function receiveWaiting(crewed: Crewed, waitMs: number) {
   const { wakeups: watched, waiting } = waitingWakeups(wakeups);
-  const answer = createReceiveDeliveries({ sealing: unsealedFleetsOnly, uow: createPrismaUnitOfWork(prisma), clock: systemClock, ids: newId, wakeups: watched, waitMs })(
-    crewed.crew,
-    {},
-  );
+  const answer = createReceiveDeliveries({
+    sealing: unsealedFleetsOnly,
+    uow: createPrismaUnitOfWork(prisma),
+    clock: systemClock,
+    ids: newId,
+    wakeups: watched,
+    waitMs,
+  })(crewed.crew, {});
   return { answer, waiting };
 }
 
@@ -156,8 +216,10 @@ function receiveWaiting(crewed: Crewed, waitMs: number) {
  * arrives, every notice of a transaction that committed before it has too.
  */
 async function probe(): Promise<void> {
-  const deliveryId = await sendTo({ kind: 'ship', shipId: argo.shipId });
-  await expect.poll(() => notices.map((notice) => notice.deliveryId)).toContain(deliveryId);
+  const deliveryId = await sendTo({ kind: "ship", shipId: argo.shipId });
+  await expect
+    .poll(() => notices.map((notice) => notice.deliveryId))
+    .toContain(deliveryId);
 }
 
 /** The Prisma unit of work, failing right after the use case queued its first notice. */
@@ -171,7 +233,7 @@ function failingAfterItsNotice(): UnitOfWork<PrismaTx> {
           notifier: {
             deliveryPending: async (notice) => {
               await tx.notifier.deliveryPending(notice);
-              throw new Error('disk full');
+              throw new Error("disk full");
             },
           },
         }),
@@ -188,93 +250,155 @@ interface Ending {
 
 /** The two ways a lease ends cleanly: the operator releases the ship, or its crew deregisters. */
 const endings: Ending[] = [
-  { name: 'a release', reason: 'released', end: (crewed) => useCases.releaseShip(argo, { shipId: crewed.crew.shipId }) },
-  { name: 'a deregister', reason: 'deregistered', end: (crewed) => useCases.deregister(crewed.crew) },
+  {
+    name: "a release",
+    reason: "released",
+    end: (crewed) => useCases.releaseShip(argo, { shipId: crewed.crew.shipId }),
+  },
+  {
+    name: "a deregister",
+    reason: "deregistered",
+    end: (crewed) => useCases.deregister(crewed.crew),
+  },
 ];
 
-describe.each(endings)('$name on Postgres', ({ reason, end }) => {
-  it('ends the lease, and with it the crew token, and invalidates the secret', async () => {
+describe.each(endings)("$name on Postgres", ({ reason, end }) => {
+  it("ends the lease, and with it the crew token, and invalidates the secret", async () => {
     unwrap(await end(scout));
 
-    const lease = await prisma.lease.findUniqueOrThrow({ where: { id: scout.crew.leaseId } });
+    const lease = await prisma.lease.findUniqueOrThrow({
+      where: { id: scout.crew.leaseId },
+    });
     expect(lease.endedAt).not.toBeNull();
-    await expect(useCases.authenticate.byCrewToken(scout.crewToken)).resolves.toMatchObject({
+    await expect(
+      useCases.authenticate.byCrewToken(scout.crewToken),
+    ).resolves.toMatchObject({
       isOk: false,
-      error: { kind: 'LEASE_ENDED' },
+      error: { kind: "LEASE_ENDED" },
     });
     await expect(
-      useCases.claimShip({ shipId: scout.crew.shipId, secret: scout.secret, location: { kind: 'CLOUD' }, harness: 'claude-code' }),
-    ).resolves.toMatchObject({ isOk: false, error: { kind: 'WRONG_SHIP_ID_OR_SECRET' } });
-    await expect(prisma.credential.count({ where: { shipId: scout.crew.shipId, invalidatedAt: null } })).resolves.toBe(0);
+      useCases.claimShip({
+        shipId: scout.crew.shipId,
+        secret: scout.secret,
+        location: { kind: "CLOUD" },
+        harness: "claude-code",
+      }),
+    ).resolves.toMatchObject({
+      isOk: false,
+      error: { kind: "WRONG_SHIP_ID_OR_SECRET" },
+    });
+    await expect(
+      prisma.credential.count({
+        where: { shipId: scout.crew.shipId, invalidatedAt: null },
+      }),
+    ).resolves.toBe(0);
   });
 
-  it('returns a direct delivery in flight to the ship, attempts kept, and the next crew receives it', async () => {
+  it("returns a direct delivery in flight to the ship, attempts kept, and the next crew receives it", async () => {
     const deliveryId = await sendTo(toShip(scout));
     expect(await receive(scout)).toEqual([deliveryId]);
 
     unwrap(await end(scout));
 
     await expect(stored(deliveryId)).resolves.toMatchObject({
-      state: 'pending',
+      state: "pending",
       claimedByShipId: null,
       claimedByLeaseId: null,
       attempts: 1,
     });
     const next = await nextCrewOf(scout);
     expect(await receive(next)).toEqual([deliveryId]);
-    await expect(stored(deliveryId)).resolves.toMatchObject({ claimedByLeaseId: next.crew.leaseId, attempts: 2 });
+    await expect(stored(deliveryId)).resolves.toMatchObject({
+      claimedByLeaseId: next.crew.leaseId,
+      attempts: 2,
+    });
   });
 
-  it('returns a type delivery in flight to the queue of its type, and another ship of that type receives it', async () => {
+  it("returns a type delivery in flight to the queue of its type, and another ship of that type receives it", async () => {
     const deliveryId = await sendTo(toReviewers);
     expect(await receive(scout)).toEqual([deliveryId]);
 
     unwrap(await end(scout));
 
     await expect(stored(deliveryId)).resolves.toMatchObject({
-      recipientType: 'reviewer',
-      state: 'pending',
+      recipientType: "reviewer",
+      state: "pending",
       claimedByShipId: null,
       attempts: 1,
     });
     expect(await receive(lookout)).toEqual([deliveryId]);
-    await expect(stored(deliveryId)).resolves.toMatchObject({ claimedByLeaseId: lookout.crew.leaseId, attempts: 2 });
+    await expect(stored(deliveryId)).resolves.toMatchObject({
+      claimedByLeaseId: lookout.crew.leaseId,
+      attempts: 2,
+    });
   });
 
   it("returns only that lease's deliveries in flight: an acknowledged one and another crew's stay as they are", async () => {
     const acknowledged = await sendTo(toShip(scout));
     expect(await receive(scout)).toEqual([acknowledged]);
-    unwrap(await useCases.acknowledgeDelivery(scout.crew, { deliveryId: acknowledged }));
+    unwrap(
+      await useCases.acknowledgeDelivery(scout.crew, {
+        deliveryId: acknowledged,
+      }),
+    );
     const lookouts = await sendTo(toShip(lookout));
     expect(await receive(lookout)).toEqual([lookouts]);
 
     unwrap(await end(scout));
 
-    await expect(stored(acknowledged)).resolves.toMatchObject({ state: 'acknowledged', claimedByLeaseId: scout.crew.leaseId });
-    await expect(stored(lookouts)).resolves.toMatchObject({ state: 'handed', claimedByLeaseId: lookout.crew.leaseId });
+    await expect(stored(acknowledged)).resolves.toMatchObject({
+      state: "acknowledged",
+      claimedByLeaseId: scout.crew.leaseId,
+    });
+    await expect(stored(lookouts)).resolves.toMatchObject({
+      state: "handed",
+      claimedByLeaseId: lookout.crew.leaseId,
+    });
   });
 
-  it('writes CredentialRevoked, LeaseRevoked and one DeliveryReturned per returned delivery', async () => {
+  it("writes CredentialRevoked, LeaseRevoked and one DeliveryReturned per returned delivery", async () => {
     const first = await sendTo(toShip(scout));
     const second = await sendTo(toReviewers);
-    const { deliveries } = unwrap(await useCases.receiveDeliveries(scout.crew, { max: 2 }));
-    expect(deliveries.map((delivery) => delivery.deliveryId)).toEqual([first, second]);
+    const { deliveries } = unwrap(
+      await useCases.receiveDeliveries(scout.crew, { max: 2 }),
+    );
+    expect(deliveries.map((delivery) => delivery.deliveryId)).toEqual([
+      first,
+      second,
+    ]);
     const { shipId, leaseId } = scout.crew;
-    const credential = await prisma.credential.findFirstOrThrow({ where: { shipId, invalidatedAt: null } });
+    const credential = await prisma.credential.findFirstOrThrow({
+      where: { shipId, invalidatedAt: null },
+    });
     const since = await prisma.event.count();
 
     unwrap(await end(scout));
 
-    const events = await prisma.event.findMany({ orderBy: { id: 'asc' }, skip: since });
-    expect(events.map((event) => [event.type, event.shipId, event.deliveryId, event.details])).toEqual([
-      ['CredentialRevoked', shipId, null, { credentialId: credential.id }],
-      ['LeaseRevoked', shipId, null, { leaseId, reason, returnedDeliveries: 2 }],
-      ['DeliveryReturned', shipId, first, { leaseId, attempts: 1 }],
-      ['DeliveryReturned', shipId, second, { leaseId, attempts: 1 }],
+    const events = await prisma.event.findMany({
+      orderBy: { id: "asc" },
+      skip: since,
+    });
+    expect(
+      events.map((event) => [
+        event.type,
+        event.shipId,
+        event.deliveryId,
+        event.details,
+      ]),
+    ).toEqual([
+      ["CredentialRevoked", shipId, null, { credentialId: credential.id }],
+      [
+        "LeaseRevoked",
+        shipId,
+        null,
+        { leaseId, reason, returnedDeliveries: 2 },
+      ],
+      ["DeliveryReturned", shipId, first, { leaseId, attempts: 1 }],
+      ["DeliveryReturned", shipId, second, { leaseId, attempts: 1 }],
     ]);
   });
 
-  it('wakes a receive of another ship of the type waiting on an empty inbox: it gets the returned type delivery at once', async () => {
+  it("wakes a receive of another ship of the type waiting on an empty inbox: it gets the returned type delivery at once", async () => {
     const deliveryId = await sendTo(toReviewers);
     expect(await receive(scout)).toEqual([deliveryId]);
     const startedAt = performance.now();
@@ -283,48 +407,104 @@ describe.each(endings)('$name on Postgres', ({ reason, end }) => {
 
     unwrap(await end(scout));
 
-    expect(unwrap(await receiving.answer).deliveries.map((delivery) => delivery.deliveryId)).toEqual([deliveryId]);
+    expect(
+      unwrap(await receiving.answer).deliveries.map(
+        (delivery) => delivery.deliveryId,
+      ),
+    ).toEqual([deliveryId]);
     expect(performance.now() - startedAt).toBeLessThan(LONG_WAIT_MS / 2);
   });
 
-  it('completes promptly while a receive of the crew waits, and the receive answers without deliveries', async () => {
-    const receiving = receiveWaiting(scout, LONG_WAIT_MS);
-    await receiving.waiting;
+  it(
+    "completes promptly while a receive of the crew waits, and the receive answers without deliveries",
+    async () => {
+      const receiving = receiveWaiting(scout, LONG_WAIT_MS);
+      await receiving.waiting;
 
-    const startedAt = performance.now();
-    unwrap(await end(scout));
-    const tookMs = performance.now() - startedAt;
+      const startedAt = performance.now();
+      unwrap(await end(scout));
+      const tookMs = performance.now() - startedAt;
 
-    // Held up, the release would end only with the receive's wait.
-    expect(tookMs).toBeLessThan(LONG_WAIT_MS / 2);
-    await expect(receiving.answer).resolves.toEqual({ isOk: true, value: { deliveries: [] } });
-  }, LONG_WAIT_TEST_MS);
+      // Held up, the release would end only with the receive's wait.
+      expect(tookMs).toBeLessThan(LONG_WAIT_MS / 2);
+      await expect(receiving.answer).resolves.toEqual({
+        isOk: true,
+        value: { deliveries: [] },
+      });
+    },
+    LONG_WAIT_TEST_MS,
+  );
 });
 
-describe('a trierarch releases a crewed ship with an open crew request (#1308)', () => {
-  it('removes the crew request so the trierarch does not start the finished session again', async () => {
+describe("a trierarch releases a crewed ship with an open crew request (#1308)", () => {
+  it("removes the crew request so the trierarch does not start the finished session again", async () => {
     const { shipId: pluginId } = unwrap(
-      await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'trierarch-plugin', type: 'plugin', scopes: ['crew:assign'] }),
+      await useCases.commissionShip(argo, {
+        idempotencyKey: newKey(),
+        name: "trierarch-plugin",
+        type: "plugin",
+        scopes: ["crew:assign"],
+      }),
     );
     const { shipId: trierarchId } = unwrap(
-      await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] }),
+      await useCases.commissionShip(argo, {
+        idempotencyKey: newKey(),
+        name: "mac-mini",
+        type: "trierarch",
+        scopes: ["crew:run"],
+      }),
     );
-    const plugin: ShipCaller = { fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'] };
-    const trierarch: ShipCaller = { fleetId, shipId: trierarchId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:run'] };
-    const { shipId } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'pilot', type: 'navigator' }));
-    unwrap(await useCases.requestCrew(argo, { shipId, settings: aCrewSettings({ harness: 'claude-code' }) }));
-    unwrap(await useCases.assignCrew(plugin, { shipId, trierarchShipId: trierarchId }));
-    await register(shipId, unwrap(await useCases.getStartingPrompt(trierarch, { shipId })).secret);
+    const plugin: ShipCaller = {
+      fleetId,
+      shipId: pluginId,
+      kind: "agent",
+      scopes: ["messages:send", "messages:receive", "crew:assign"],
+    };
+    const trierarch: ShipCaller = {
+      fleetId,
+      shipId: trierarchId,
+      kind: "agent",
+      scopes: ["messages:send", "messages:receive", "crew:run"],
+    };
+    const { shipId } = unwrap(
+      await useCases.commissionShip(argo, {
+        idempotencyKey: newKey(),
+        name: "pilot",
+        type: "navigator",
+      }),
+    );
+    unwrap(
+      await useCases.requestCrew(argo, {
+        shipId,
+        settings: aCrewSettings({ harness: "claude-code" }),
+      }),
+    );
+    unwrap(
+      await useCases.assignCrew(plugin, {
+        shipId,
+        trierarchShipId: trierarchId,
+      }),
+    );
+    await register(
+      shipId,
+      unwrap(await useCases.getStartingPrompt(trierarch, { shipId })).secret,
+    );
 
     unwrap(await useCases.releaseShip(trierarch, { shipId }));
 
-    await expect(useCases.readAssignedCrewRequests(trierarch)).resolves.toEqual([]);
-    await expect(prisma.crewRequest.findUnique({ where: { fleetId_shipId: { fleetId, shipId } } })).resolves.toBeNull();
+    await expect(useCases.readAssignedCrewRequests(trierarch)).resolves.toEqual(
+      [],
+    );
+    await expect(
+      prisma.crewRequest.findUnique({
+        where: { fleetId_shipId: { fleetId, shipId } },
+      }),
+    ).resolves.toBeNull();
   });
 });
 
-describe('a release that fails', () => {
-  it('stores nothing: the crew keeps the ship, its secret and its delivery', async () => {
+describe("a release that fails", () => {
+  it("stores nothing: the crew keeps the ship, its secret and its delivery", async () => {
     await sendTo(toShip(scout));
     expect(await receive(scout)).toHaveLength(1);
     const before = await everyRow(prisma);
@@ -332,40 +512,55 @@ describe('a release that fails', () => {
       uow: {
         run: (work) =>
           createPrismaUnitOfWork(prisma).run((tx) =>
-            work({ ...tx, events: { append: () => Promise.reject(new Error('disk full')) } }),
+            work({
+              ...tx,
+              events: { append: () => Promise.reject(new Error("disk full")) },
+            }),
           ),
       },
       clock: systemClock,
       ids: newId,
     });
 
-    await expect(failingRelease(argo, { shipId: scout.crew.shipId })).rejects.toThrow('disk full');
+    await expect(
+      failingRelease(argo, { shipId: scout.crew.shipId }),
+    ).rejects.toThrow("disk full");
 
     await expect(everyRow(prisma)).resolves.toBe(before);
-    await expect(useCases.authenticate.byCrewToken(scout.crewToken)).resolves.toMatchObject({
+    await expect(
+      useCases.authenticate.byCrewToken(scout.crewToken),
+    ).resolves.toMatchObject({
       isOk: true,
       value: { leaseId: scout.crew.leaseId },
     });
   });
 
-  it('after it queued the notice of a returned delivery, stores nothing and wakes nobody', async () => {
+  it("after it queued the notice of a returned delivery, stores nothing and wakes nobody", async () => {
     const deliveryId = await sendTo(toReviewers);
     expect(await receive(scout)).toEqual([deliveryId]);
     await probe();
     notices.length = 0;
     const before = await everyRow(prisma);
-    const failingRelease = createReleaseShip({ uow: failingAfterItsNotice(), clock: systemClock, ids: newId });
+    const failingRelease = createReleaseShip({
+      uow: failingAfterItsNotice(),
+      clock: systemClock,
+      ids: newId,
+    });
 
-    await expect(failingRelease(argo, { shipId: scout.crew.shipId })).rejects.toThrow('disk full');
+    await expect(
+      failingRelease(argo, { shipId: scout.crew.shipId }),
+    ).rejects.toThrow("disk full");
 
     await expect(everyRow(prisma)).resolves.toBe(before);
     await probe();
-    expect(notices.map((notice) => notice.recipient)).toEqual([{ kind: 'ship', shipId: argo.shipId }]);
+    expect(notices.map((notice) => notice.recipient)).toEqual([
+      { kind: "ship", shipId: argo.shipId },
+    ]);
   });
 });
 
-describe('a deregister that fails', () => {
-  it('stores nothing: the crew keeps the ship, its secret and its delivery', async () => {
+describe("a deregister that fails", () => {
+  it("stores nothing: the crew keeps the ship, its secret and its delivery", async () => {
     await sendTo(toShip(scout));
     expect(await receive(scout)).toHaveLength(1);
     const before = await everyRow(prisma);
@@ -373,40 +568,56 @@ describe('a deregister that fails', () => {
       uow: {
         run: (work) =>
           createPrismaUnitOfWork(prisma).run((tx) =>
-            work({ ...tx, events: { append: () => Promise.reject(new Error('disk full')) } }),
+            work({
+              ...tx,
+              events: { append: () => Promise.reject(new Error("disk full")) },
+            }),
           ),
       },
       clock: systemClock,
       ids: newId,
     });
 
-    await expect(failingDeregister(scout.crew)).rejects.toThrow('disk full');
+    await expect(failingDeregister(scout.crew)).rejects.toThrow("disk full");
 
     await expect(everyRow(prisma)).resolves.toBe(before);
   });
 
-  it('after it queued the notice of a returned delivery, stores nothing and wakes nobody', async () => {
+  it("after it queued the notice of a returned delivery, stores nothing and wakes nobody", async () => {
     const deliveryId = await sendTo(toReviewers);
     expect(await receive(scout)).toEqual([deliveryId]);
     await probe();
     notices.length = 0;
     const before = await everyRow(prisma);
-    const failingDeregister = createDeregister({ uow: failingAfterItsNotice(), clock: systemClock, ids: newId });
+    const failingDeregister = createDeregister({
+      uow: failingAfterItsNotice(),
+      clock: systemClock,
+      ids: newId,
+    });
 
-    await expect(failingDeregister(scout.crew)).rejects.toThrow('disk full');
+    await expect(failingDeregister(scout.crew)).rejects.toThrow("disk full");
 
     await expect(everyRow(prisma)).resolves.toBe(before);
     await probe();
-    expect(notices.map((notice) => notice.recipient)).toEqual([{ kind: 'ship', shipId: argo.shipId }]);
+    expect(notices.map((notice) => notice.recipient)).toEqual([
+      { kind: "ship", shipId: argo.shipId },
+    ]);
   });
 });
 
-describe('a release racing a receive', () => {
+describe("a release racing a receive", () => {
   function receiveWith(uow: UnitOfWork<PrismaTx>) {
-    return createReceiveDeliveries({ sealing: unsealedFleetsOnly, uow, clock: systemClock, ids: newId, wakeups, waitMs: WAIT_MS });
+    return createReceiveDeliveries({
+      sealing: unsealedFleetsOnly,
+      uow,
+      clock: systemClock,
+      ids: newId,
+      wakeups,
+      waitMs: WAIT_MS,
+    });
   }
 
-  it('waits for a receive holding the lease, then returns what it claimed: nothing stays claimed by the ended lease', async () => {
+  it("waits for a receive holding the lease, then returns what it claimed: nothing stays claimed by the ended lease", async () => {
     const deliveryId = await sendTo(toShip(scout));
     const { uow, reached } = heldUnitOfWork(prisma, (tx, hold) => ({
       ...tx,
@@ -425,24 +636,31 @@ describe('a release racing a receive', () => {
     const received = unwrap(await receiving);
     unwrap(await releasing);
 
-    expect(received.deliveries.map((delivery) => delivery.deliveryId)).toEqual([deliveryId]);
+    expect(received.deliveries.map((delivery) => delivery.deliveryId)).toEqual([
+      deliveryId,
+    ]);
     await expect(stored(deliveryId)).resolves.toMatchObject({
-      state: 'pending',
+      state: "pending",
       claimedByShipId: null,
       claimedByLeaseId: null,
       attempts: 1,
     });
-    await expect(prisma.event.count({ where: { type: 'DeliveryReturned', deliveryId } })).resolves.toBe(1);
+    await expect(
+      prisma.event.count({ where: { type: "DeliveryReturned", deliveryId } }),
+    ).resolves.toBe(1);
   });
 
-  it('makes a receive that starts while it holds the lease wait, then refuses it: it claims nothing', async () => {
+  it("makes a receive that starts while it holds the lease wait, then refuses it: it claims nothing", async () => {
     const deliveryId = await sendTo(toShip(scout));
     const { uow, reached } = heldUnitOfWork(prisma, (tx, hold) => ({
       ...tx,
       inFlightDeliveries: {
         ...tx.inFlightDeliveries,
         returnToPending: async (fleet, leaseId) => {
-          const returned = await tx.inFlightDeliveries.returnToPending(fleet, leaseId);
+          const returned = await tx.inFlightDeliveries.returnToPending(
+            fleet,
+            leaseId,
+          );
           await hold();
           return returned;
         },
@@ -455,11 +673,18 @@ describe('a release racing a receive', () => {
     const receiving = useCases.receiveDeliveries(scout.crew, {});
     unwrap(await releasing);
 
-    await expect(receiving).resolves.toMatchObject({ isOk: false, error: { kind: 'LEASE_ENDED' } });
-    await expect(stored(deliveryId)).resolves.toMatchObject({ state: 'pending', claimedByLeaseId: null, attempts: 0 });
+    await expect(receiving).resolves.toMatchObject({
+      isOk: false,
+      error: { kind: "LEASE_ENDED" },
+    });
+    await expect(stored(deliveryId)).resolves.toMatchObject({
+      state: "pending",
+      claimedByLeaseId: null,
+      attempts: 0,
+    });
   });
 
-  it('never leaves a delivery claimed by an ended lease, however many receives race it', async () => {
+  it("never leaves a delivery claimed by an ended lease, however many receives race it", async () => {
     const sent: DeliveryId[] = [];
     for (let count = 0; count < 12; count += 1) {
       sent.push(await sendTo(toReviewers));
@@ -472,9 +697,20 @@ describe('a release racing a receive', () => {
     await Promise.all(receives);
 
     await expect(
-      prisma.delivery.count({ where: { claimedByLeaseId: scout.crew.leaseId, state: 'handed' } }),
+      prisma.delivery.count({
+        where: { claimedByLeaseId: scout.crew.leaseId, state: "handed" },
+      }),
     ).resolves.toBe(0);
-    const returned = await prisma.delivery.count({ where: { fleetId, id: { in: sent }, state: 'pending', attempts: { gt: 0 } } });
-    await expect(prisma.event.count({ where: { type: 'DeliveryReturned' } })).resolves.toBe(returned);
+    const returned = await prisma.delivery.count({
+      where: {
+        fleetId,
+        id: { in: sent },
+        state: "pending",
+        attempts: { gt: 0 },
+      },
+    });
+    await expect(
+      prisma.event.count({ where: { type: "DeliveryReturned" } }),
+    ).resolves.toBe(returned);
   });
 });

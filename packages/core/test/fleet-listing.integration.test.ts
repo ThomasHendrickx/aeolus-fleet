@@ -1,11 +1,18 @@
-import { PAGE_SIZE_MAX, PING_CONTENT_TYPE, type FleetId } from '@aeolus-fleet/common';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import {
+  PAGE_SIZE_MAX,
+  PING_CONTENT_TYPE,
+  type FleetId,
+} from "@aeolus-fleet/common";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { Prisma } from '../src/adapters/prisma/generated/client.js';
-import { fleetListingStatement } from '../src/adapters/prisma/registry.js';
-import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
-import { unwrap } from '../src/testing/result.js';
-import { withOperatorLogin } from './support/operator-login.js';
+import { Prisma } from "../src/adapters/prisma/generated/client.js";
+import { fleetListingStatement } from "../src/adapters/prisma/registry.js";
+import {
+  createPostgresCore,
+  type PostgresCore,
+} from "./support/postgres-core.js";
+import { unwrap } from "../src/testing/result.js";
+import { withOperatorLogin } from "./support/operator-login.js";
 
 // The fleet snapshot on a fleet with a history (#1027): at 113 ships the
 // listing walked every event of the fleet once per ship to find who crewed
@@ -57,7 +64,12 @@ async function seedHistory(): Promise<void> {
 
 beforeAll(async () => {
   core = await createPostgresCore();
-  fleetId = unwrap(await withOperatorLogin(core.prisma, core.useCases.initialiseFleet({ name: 'home fleet' }))).fleetId;
+  fleetId = unwrap(
+    await withOperatorLogin(
+      core.prisma,
+      core.useCases.initialiseFleet({ name: "home fleet" }),
+    ),
+  ).fleetId;
   await seedHistory();
 }, 120_000);
 
@@ -66,16 +78,18 @@ afterAll(async () => {
 });
 
 async function listingPlan(): Promise<string> {
-  const rows = await core.prisma.$queryRaw<{ 'QUERY PLAN': string }[]>(Prisma.sql`EXPLAIN ${fleetListingStatement(fleetId, { limit: PAGE_SIZE_MAX + 1, filter: {}, reach: { kind: 'every' } })}`);
-  return rows.map((row) => row['QUERY PLAN']).join('\n');
+  const rows = await core.prisma.$queryRaw<{ "QUERY PLAN": string }[]>(
+    Prisma.sql`EXPLAIN ${fleetListingStatement(fleetId, { limit: PAGE_SIZE_MAX + 1, filter: {}, reach: { kind: "every" } })}`,
+  );
+  return rows.map((row) => row["QUERY PLAN"]).join("\n");
 }
 
-describe('the fleet snapshot on a fleet with a history (#1027)', () => {
+describe("the fleet snapshot on a fleet with a history (#1027)", () => {
   it("finds who crewed each ship through the index of starting prompts issued, not the fleet's every event", async () => {
-    expect(await listingPlan()).toContain('events_starting_prompt_issued_idx');
+    expect(await listingPlan()).toContain("events_starting_prompt_issued_idx");
   });
 
-  it('finds the last ping to each ship through the index of pings, not every delivery to it', async () => {
-    expect(await listingPlan()).toContain('messages_pings_idx');
+  it("finds the last ping to each ship through the index of pings, not every delivery to it", async () => {
+    expect(await listingPlan()).toContain("messages_pings_idx");
   });
 });

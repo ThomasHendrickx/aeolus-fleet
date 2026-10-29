@@ -1,15 +1,23 @@
-import { createIdGenerator, idSchema, type DeliveryId, type MessageId } from '@aeolus-fleet/common';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { z } from 'zod';
+import {
+  createIdGenerator,
+  idSchema,
+  type DeliveryId,
+  type MessageId,
+} from "@aeolus-fleet/common";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { z } from "zod";
 
-import { UNDELIVERABLE_AT_ATTEMPT } from '../src/domain/messaging/delivery.js';
-import type { ShipCaller, Crew } from '../src/domain/shared/caller.js';
-import type { Selector } from '../src/domain/shared/selector.js';
-import { operatorCaller, secretOf, modelOf } from './support/core-fixtures.js';
-import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
-import { unwrap } from '../src/testing/result.js';
-import { newKey } from '../src/testing/keys.js';
-import { withOperatorLogin } from './support/operator-login.js';
+import { UNDELIVERABLE_AT_ATTEMPT } from "../src/domain/messaging/delivery.js";
+import type { ShipCaller, Crew } from "../src/domain/shared/caller.js";
+import type { Selector } from "../src/domain/shared/selector.js";
+import { operatorCaller, secretOf, modelOf } from "./support/core-fixtures.js";
+import {
+  createPostgresCore,
+  type PostgresCore,
+} from "./support/postgres-core.js";
+import { unwrap } from "../src/testing/result.js";
+import { newKey } from "../src/testing/keys.js";
+import { withOperatorLogin } from "./support/operator-login.js";
 
 // The fleet health on a real Postgres (decision 0042): the stuck deliveries by
 // cause and place, read from the ships, leases, deliveries and their events,
@@ -26,20 +34,39 @@ let scout: Crew;
 let planner: Crew;
 
 async function commission(ship: { name: string; type: string }) {
-  return unwrap(await core.useCases.commissionShip(argo, { ...ship, idempotencyKey: newKey() }));
+  return unwrap(
+    await core.useCases.commissionShip(argo, {
+      ...ship,
+      idempotencyKey: newKey(),
+    }),
+  );
 }
 
 async function crewed(ship: { name: string; type: string }): Promise<Crew> {
   const { shipId, secret } = await commission(ship);
-  const { crewToken } = unwrap(await core.useCases.claimShip({ shipId, secret: secretOf(secret), location: { kind: 'DEVICE' }, harness: 'claude-code' }));
+  const { crewToken } = unwrap(
+    await core.useCases.claimShip({
+      shipId,
+      secret: secretOf(secret),
+      location: { kind: "DEVICE" },
+      harness: "claude-code",
+    }),
+  );
   return unwrap(await core.useCases.authenticate.byCrewToken(crewToken));
 }
 
 beforeEach(async () => {
   core = await createPostgresCore();
-  argo = operatorCaller(unwrap(await withOperatorLogin(core.prisma, core.useCases.initialiseFleet({ name: 'home fleet' }))));
-  scout = await crewed({ name: 'scout', type: 'tester' });
-  planner = await crewed({ name: 'planner', type: 'planner' });
+  argo = operatorCaller(
+    unwrap(
+      await withOperatorLogin(
+        core.prisma,
+        core.useCases.initialiseFleet({ name: "home fleet" }),
+      ),
+    ),
+  );
+  scout = await crewed({ name: "scout", type: "tester" });
+  planner = await crewed({ name: "planner", type: "planner" });
 });
 
 afterEach(async () => {
@@ -49,20 +76,28 @@ afterEach(async () => {
 async function sendTo(selector: Selector): Promise<MessageId> {
   core.clock.advance(SECOND_MS);
   return unwrap(
-    await core.useCases.sendMessage(planner, { ...modelOf(planner), selector, payload: 'Test pr-304', contentType: 'text/plain', idempotencyKey: `key-${newId('message')}` }),
+    await core.useCases.sendMessage(planner, {
+      ...modelOf(planner),
+      selector,
+      payload: "Test pr-304",
+      contentType: "text/plain",
+      idempotencyKey: `key-${newId("message")}`,
+    }),
   ).messageId;
 }
 
 async function deliveryOf(messageId: MessageId): Promise<DeliveryId> {
-  const { id } = await core.prisma.delivery.findFirstOrThrow({ where: { messageId } });
-  return idSchema('delivery').parse(id);
+  const { id } = await core.prisma.delivery.findFirstOrThrow({
+    where: { messageId },
+  });
+  return idSchema("delivery").parse(id);
 }
 
-const toScout = (): Selector => ({ kind: 'ship', shipId: scout.shipId });
+const toScout = (): Selector => ({ kind: "ship", shipId: scout.shipId });
 
-describe('the fleet health on Postgres', () => {
-  it('places a delivery to a type whose last ship retired at the type, and replays it into the trend', async () => {
-    const messageId = await sendTo({ kind: 'type', type: 'planner' });
+describe("the fleet health on Postgres", () => {
+  it("places a delivery to a type whose last ship retired at the type, and replays it into the trend", async () => {
+    const messageId = await sendTo({ kind: "type", type: "planner" });
     const sentAt = core.clock.now();
     unwrap(await core.useCases.retireShip(argo, { shipId: planner.shipId }));
     core.clock.advance(2 * HOUR_MS);
@@ -70,27 +105,60 @@ describe('the fleet health on Postgres', () => {
     const health = await core.useCases.readHealth(argo);
 
     expect(health.stuck).toEqual([
-      { cause: 'noShipCanTake', place: { kind: 'type', type: 'planner' }, count: 1, oldestSince: sentAt, deliveries: [{ deliveryId: await deliveryOf(messageId), messageId, state: 'pending', since: sentAt }] },
+      {
+        cause: "noShipCanTake",
+        place: { kind: "type", type: "planner" },
+        count: 1,
+        oldestSince: sentAt,
+        deliveries: [
+          {
+            deliveryId: await deliveryOf(messageId),
+            messageId,
+            state: "pending",
+            since: sentAt,
+          },
+        ],
+      },
     ]);
     expect(health.stuckPerHour).toHaveLength(168);
-    expect(health.stuckPerHour.slice(-4).map((hour) => hour.count)).toEqual([0, 1, 1, 1]);
+    expect(health.stuckPerHour.slice(-4).map((hour) => hour.count)).toEqual([
+      0, 1, 1, 1,
+    ]);
   });
 
-  it('places a delivery to a ship awaiting crew at that ship, with the machine its crew request is assigned to', async () => {
-    const docsWriter = await commission({ name: 'docs-writer', type: 'writer' });
-    const macStudio = await crewed({ name: 'mac-studio', type: 'trierarch' });
+  it("places a delivery to a ship awaiting crew at that ship, with the machine its crew request is assigned to", async () => {
+    const docsWriter = await commission({
+      name: "docs-writer",
+      type: "writer",
+    });
+    const macStudio = await crewed({ name: "mac-studio", type: "trierarch" });
     const crewedAt = core.clock.now();
     await core.prisma.crewRequest.create({
-      data: { fleetId: argo.fleetId, shipId: docsWriter.shipId, settings: {}, settingsVersion: 1, requestedAt: crewedAt, assignedTo: macStudio.shipId },
+      data: {
+        fleetId: argo.fleetId,
+        shipId: docsWriter.shipId,
+        settings: {},
+        settingsVersion: 1,
+        requestedAt: crewedAt,
+        assignedTo: macStudio.shipId,
+      },
     });
-    await sendTo({ kind: 'ship', shipId: docsWriter.shipId });
+    await sendTo({ kind: "ship", shipId: docsWriter.shipId });
     const sentAt = core.clock.now();
 
     await expect(core.useCases.readHealth(argo)).resolves.toMatchObject({
       stuck: [
         {
-          cause: 'waitingForCrew',
-          place: { kind: 'ship', ship: { id: docsWriter.shipId, name: 'docs-writer' }, machine: { id: macStudio.shipId, name: 'mac-studio', lastSeenAt: crewedAt } },
+          cause: "waitingForCrew",
+          place: {
+            kind: "ship",
+            ship: { id: docsWriter.shipId, name: "docs-writer" },
+            machine: {
+              id: macStudio.shipId,
+              name: "mac-studio",
+              lastSeenAt: crewedAt,
+            },
+          },
           count: 1,
           oldestSince: sentAt,
         },
@@ -98,18 +166,27 @@ describe('the fleet health on Postgres', () => {
     });
   });
 
-  it('leaves out a delivery pending to a person ship awaiting crew, now and in the trend (decision 0044)', async () => {
-    const thomas = unwrap(await core.useCases.commissionShip(argo, { name: 'thomas', type: 'person', kind: 'person', idempotencyKey: newKey() }));
-    await sendTo({ kind: 'ship', shipId: thomas.shipId });
+  it("leaves out a delivery pending to a person ship awaiting crew, now and in the trend (decision 0044)", async () => {
+    const thomas = unwrap(
+      await core.useCases.commissionShip(argo, {
+        name: "thomas",
+        type: "person",
+        kind: "person",
+        idempotencyKey: newKey(),
+      }),
+    );
+    await sendTo({ kind: "ship", shipId: thomas.shipId });
     core.clock.advance(2 * HOUR_MS);
 
     const health = await core.useCases.readHealth(argo);
 
     expect(health.stuck).toEqual([]);
-    expect(health.stuckPerHour.slice(-3).map((hour) => hour.count)).toEqual([0, 0, 0]);
+    expect(health.stuckPerHour.slice(-3).map((hour) => hour.count)).toEqual([
+      0, 0, 0,
+    ]);
   });
 
-  it('places a delivery handed on a plain lease whose session went quiet for 10 minutes at its ship', async () => {
+  it("places a delivery handed on a plain lease whose session went quiet for 10 minutes at its ship", async () => {
     await sendTo(toScout());
     core.clock.advance(SECOND_MS);
     unwrap(await core.useCases.receiveDeliveries(scout, {}));
@@ -117,58 +194,104 @@ describe('the fleet health on Postgres', () => {
     core.clock.advance(10 * MINUTE_MS);
 
     await expect(core.useCases.readHealth(argo)).resolves.toMatchObject({
-      stuck: [{ cause: 'stalledInFlight', place: { kind: 'ship', ship: { id: scout.shipId, name: 'scout' }, machine: null }, oldestSince: handedAt }],
+      stuck: [
+        {
+          cause: "stalledInFlight",
+          place: {
+            kind: "ship",
+            ship: { id: scout.shipId, name: "scout" },
+            machine: null,
+          },
+          oldestSince: handedAt,
+        },
+      ],
     });
   });
 
-  it('places a delivery received on a pushed lease at its ship once its busy clock ran out, not before', async () => {
+  it("places a delivery received on a pushed lease at its ship once its busy clock ran out, not before", async () => {
     await sendTo(toScout());
-    unwrap(await core.useCases.reportTurn(scout, { turn: 'busy', at: core.clock.now() }));
+    unwrap(
+      await core.useCases.reportTurn(scout, {
+        turn: "busy",
+        at: core.clock.now(),
+      }),
+    );
     unwrap(await core.useCases.pushReceiveDeliveries(scout, {}));
     core.clock.advance(59 * MINUTE_MS);
     const before = await core.useCases.readHealth(argo);
     core.clock.advance(MINUTE_MS);
 
     expect(before.stuck).toEqual([]);
-    await expect(core.useCases.readHealth(argo)).resolves.toMatchObject({ stuck: [{ cause: 'stalledInFlight', place: { kind: 'ship', ship: { name: 'scout' } } }] });
+    await expect(core.useCases.readHealth(argo)).resolves.toMatchObject({
+      stuck: [
+        {
+          cause: "stalledInFlight",
+          place: { kind: "ship", ship: { name: "scout" } },
+        },
+      ],
+    });
   });
 
-  it('places an undeliverable delivery at the ship whose fifth attempt made it so', async () => {
+  it("places an undeliverable delivery at the ship whose fifth attempt made it so", async () => {
     const messageId = await sendTo(toScout());
     const next = await sendTo(toScout());
     for (let claim = 1; claim <= UNDELIVERABLE_AT_ATTEMPT; claim += 1) {
       core.clock.advance(SECOND_MS);
       unwrap(await core.useCases.receiveDeliveries(scout, {}));
     }
-    unwrap(await core.useCases.acknowledgeDelivery(scout, { deliveryId: await deliveryOf(next) }));
-    const stored = await core.prisma.delivery.findUniqueOrThrow({ where: { id: await deliveryOf(messageId) } });
+    unwrap(
+      await core.useCases.acknowledgeDelivery(scout, {
+        deliveryId: await deliveryOf(next),
+      }),
+    );
+    const stored = await core.prisma.delivery.findUniqueOrThrow({
+      where: { id: await deliveryOf(messageId) },
+    });
 
-    expect(stored.state).toBe('undeliverable');
-    await expect(core.useCases.readHealth(argo)).resolves.toMatchObject({ stuck: [{ cause: 'undeliverable', place: { kind: 'ship', ship: { name: 'scout' } }, count: 1 }] });
+    expect(stored.state).toBe("undeliverable");
+    await expect(core.useCases.readHealth(argo)).resolves.toMatchObject({
+      stuck: [
+        {
+          cause: "undeliverable",
+          place: { kind: "ship", ship: { name: "scout" } },
+          count: 1,
+        },
+      ],
+    });
   });
 
-  it('counts the deliveries acknowledged in the last 24 hours, with the median time from send to acknowledgement', async () => {
+  it("counts the deliveries acknowledged in the last 24 hours, with the median time from send to acknowledgement", async () => {
     const before = await sendTo(toScout());
     unwrap(await core.useCases.receiveDeliveries(scout, {}));
-    unwrap(await core.useCases.acknowledgeDelivery(scout, { deliveryId: await deliveryOf(before) }));
+    unwrap(
+      await core.useCases.acknowledgeDelivery(scout, {
+        deliveryId: await deliveryOf(before),
+      }),
+    );
     core.clock.advance(25 * HOUR_MS);
     for (const waits of [2 * SECOND_MS, 10 * SECOND_MS, 60 * SECOND_MS]) {
       const messageId = await sendTo(toScout());
       core.clock.advance(waits);
       unwrap(await core.useCases.receiveDeliveries(scout, {}));
-      unwrap(await core.useCases.acknowledgeDelivery(scout, { deliveryId: await deliveryOf(messageId) }));
+      unwrap(
+        await core.useCases.acknowledgeDelivery(scout, {
+          deliveryId: await deliveryOf(messageId),
+        }),
+      );
     }
 
     const health = await core.useCases.readHealth(argo);
 
     // The median is read from duration buckets under half a percent wide (performance design, decision 10).
     expect(health).toMatchObject({ stuck: [], acknowledged: { count: 3 } });
-    expect(health.acknowledged.medianMs).toBeGreaterThan(0.995 * 10 * SECOND_MS);
+    expect(health.acknowledged.medianMs).toBeGreaterThan(
+      0.995 * 10 * SECOND_MS,
+    );
     expect(health.acknowledged.medianMs).toBeLessThan(1.005 * 10 * SECOND_MS);
   });
 });
 
-describe('the trend replay on Postgres', () => {
+describe("the trend replay on Postgres", () => {
   it("finds the deliveries with a step in the window through the events' (fleet_id, occurred_at) index, not a scan of the fleet's whole history", async () => {
     // The fleet's history lies before the window, as a fleet's does once it
     // has run a while, and the planner reads that from the table's statistics.
@@ -181,12 +304,14 @@ describe('the trend replay on Postgres', () => {
     const plan = await core.prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SET LOCAL enable_seqscan = off`;
       await tx.$executeRaw`ANALYZE events`;
-      return z.array(z.object({ 'QUERY PLAN': z.string() })).parse(
+      return z.array(z.object({ "QUERY PLAN": z.string() })).parse(
         await tx.$queryRaw`
           EXPLAIN SELECT e.delivery_id FROM events e WHERE e.fleet_id = ${argo.fleetId} AND e.occurred_at >= ${since} AND e.delivery_id IS NOT NULL`,
       );
     });
 
-    expect(plan.map((row) => row['QUERY PLAN']).join('\n')).toContain('events_fleet_id_occurred_at_idx');
+    expect(plan.map((row) => row["QUERY PLAN"]).join("\n")).toContain(
+      "events_fleet_id_occurred_at_idx",
+    );
   });
 });

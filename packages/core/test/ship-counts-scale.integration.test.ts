@@ -1,11 +1,14 @@
-import type { FleetId } from '@aeolus-fleet/common';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import type { FleetId } from "@aeolus-fleet/common";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { Prisma } from '../src/adapters/prisma/generated/client.js';
-import { shipCountsStatement } from '../src/adapters/prisma/ship-counts.js';
-import { unwrap } from '../src/testing/result.js';
-import { withOperatorLogin } from './support/operator-login.js';
-import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
+import { Prisma } from "../src/adapters/prisma/generated/client.js";
+import { shipCountsStatement } from "../src/adapters/prisma/ship-counts.js";
+import { unwrap } from "../src/testing/result.js";
+import { withOperatorLogin } from "./support/operator-login.js";
+import {
+  createPostgresCore,
+  type PostgresCore,
+} from "./support/postgres-core.js";
 
 // The ship counts on a fleet the size of the scale fleet: on staging the
 // statement ran in 93 ms, but a subquery per ship awaiting crew, planned
@@ -42,7 +45,12 @@ async function seedShips(start: Date): Promise<void> {
 
 beforeAll(async () => {
   core = await createPostgresCore();
-  fleetId = unwrap(await withOperatorLogin(core.prisma, core.useCases.initialiseFleet({ name: 'home fleet' }))).fleetId;
+  fleetId = unwrap(
+    await withOperatorLogin(
+      core.prisma,
+      core.useCases.initialiseFleet({ name: "home fleet" }),
+    ),
+  ).fleetId;
   await seedShips(new Date(core.clock.now().getTime() - 30 * DAY_MS));
 }, 120_000);
 
@@ -50,23 +58,27 @@ afterAll(async () => {
   await core.close();
 });
 
-describe('the ship counts on a fleet of 23,000 ships', () => {
+describe("the ship counts on a fleet of 23,000 ships", () => {
   it("is estimated under Postgres's JIT threshold, so no call spends its time compiling the statement", async () => {
-    const [plan] = await core.prisma.$queryRaw<{ 'QUERY PLAN': string }[]>(
-      Prisma.sql`EXPLAIN ${shipCountsStatement(fleetId, { reach: { kind: 'every' }, selected: Prisma.sql`` })}`,
+    const [plan] = await core.prisma.$queryRaw<{ "QUERY PLAN": string }[]>(
+      Prisma.sql`EXPLAIN ${shipCountsStatement(fleetId, { reach: { kind: "every" }, selected: Prisma.sql`` })}`,
     );
-    const totalCost = Number(/cost=[\d.]+\.\.([\d.]+)/.exec(plan?.['QUERY PLAN'] ?? '')?.[1]);
+    const totalCost = Number(
+      /cost=[\d.]+\.\.([\d.]+)/.exec(plan?.["QUERY PLAN"] ?? "")?.[1],
+    );
 
     expect(totalCost).toBeLessThan(JIT_ABOVE_COST);
   });
 
-  it('works out the status and crew request stage of the active ships only, and counts the retired ones as they are', async () => {
-    const [row] = await core.prisma.$queryRaw<{ 'QUERY PLAN': unknown }[]>(
-      Prisma.sql`EXPLAIN (ANALYZE, FORMAT JSON) ${shipCountsStatement(fleetId, { reach: { kind: 'every' }, selected: Prisma.sql`` })}`,
+  it("works out the status and crew request stage of the active ships only, and counts the retired ones as they are", async () => {
+    const [row] = await core.prisma.$queryRaw<{ "QUERY PLAN": unknown }[]>(
+      Prisma.sql`EXPLAIN (ANALYZE, FORMAT JSON) ${shipCountsStatement(fleetId, { reach: { kind: "every" }, selected: Prisma.sql`` })}`,
     );
 
     // argo and the crewed and awaiting ships; the 20,000 retired ones never go through the stages.
-    expect(Math.max(...rowsOfNodes(row?.['QUERY PLAN'], 'CTE Scan'))).toBe(1 + CREWED + AWAITING);
+    expect(Math.max(...rowsOfNodes(row?.["QUERY PLAN"], "CTE Scan"))).toBe(
+      1 + CREWED + AWAITING,
+    );
   });
 });
 
@@ -75,10 +87,16 @@ function rowsOfNodes(plan: unknown, nodeType: string): number[] {
   if (Array.isArray(plan)) {
     return plan.flatMap((each) => rowsOfNodes(each, nodeType));
   }
-  if (typeof plan !== 'object' || plan === null) {
+  if (typeof plan !== "object" || plan === null) {
     return [];
   }
   const node = new Map(Object.entries(plan));
-  const own = node.get('Node Type') === nodeType ? [Number(node.get('Actual Rows')) * Number(node.get('Actual Loops'))] : [];
-  return [...own, ...[...node.values()].flatMap((each) => rowsOfNodes(each, nodeType))];
+  const own =
+    node.get("Node Type") === nodeType
+      ? [Number(node.get("Actual Rows")) * Number(node.get("Actual Loops"))]
+      : [];
+  return [
+    ...own,
+    ...[...node.values()].flatMap((each) => rowsOfNodes(each, nodeType)),
+  ];
 }

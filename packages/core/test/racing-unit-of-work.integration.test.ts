@@ -1,10 +1,13 @@
-import { createIdGenerator } from '@aeolus-fleet/common';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { createIdGenerator } from "@aeolus-fleet/common";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
-import { ok } from '../src/domain/shared/result.js';
-import { createMigratedDatabase } from '../src/testing/database.js';
-import { racingUnitOfWork } from './support/postgres-core.js';
+import {
+  createPrismaClient,
+  type PrismaClient,
+} from "../src/adapters/prisma/client.js";
+import { ok } from "../src/domain/shared/result.js";
+import { createMigratedDatabase } from "../src/testing/database.js";
+import { racingUnitOfWork } from "./support/postgres-core.js";
 
 // The racing unit of work the race tests build on: its transactions go on
 // from the held step only once all of them have met there, however late one
@@ -24,51 +27,70 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-describe('a racing unit of work', () => {
-  it('holds every transaction at its step until all of them get there, however late one comes', async () => {
+describe("a racing unit of work", () => {
+  it("holds every transaction at its step until all of them get there, however late one comes", async () => {
     const steps: string[] = [];
-    const uow = racingUnitOfWork({ prisma, transactions: 2 }, (tx, allArrived) => ({
-      ...tx,
-      fleets: {
-        ...tx.fleets,
-        findForUpdate: async (id) => {
-          await allArrived();
-          steps.push('one goes on');
-          return tx.fleets.findForUpdate(id);
+    const uow = racingUnitOfWork(
+      { prisma, transactions: 2 },
+      (tx, allArrived) => ({
+        ...tx,
+        fleets: {
+          ...tx.fleets,
+          findForUpdate: async (id) => {
+            await allArrived();
+            steps.push("one goes on");
+            return tx.fleets.findForUpdate(id);
+          },
         },
-      },
-    }));
-    const race = () => uow.run(async (tx) => ok(await tx.fleets.findForUpdate(newId('fleet'))));
+      }),
+    );
+    const race = () =>
+      uow.run(async (tx) => ok(await tx.fleets.findForUpdate(newId("fleet"))));
 
     const early = race();
     await new Promise((resolve) => setTimeout(resolve, LATE_MS));
-    steps.push('the late one comes');
+    steps.push("the late one comes");
     await Promise.all([early, race()]);
 
-    expect(steps).toEqual(['the late one comes', 'one goes on', 'one goes on']);
+    expect(steps).toEqual(["the late one comes", "one goes on", "one goes on"]);
   });
 
-  it('lets them take turns when a lock taken before the step keeps them apart', async () => {
-    const fleetId = newId('fleet');
-    await prisma.fleet.create({ data: { id: fleetId, name: 'home fleet', createdAt: new Date('2026-09-29T12:00:00.000Z') } });
-    const steps: string[] = [];
-    const uow = racingUnitOfWork({ prisma, transactions: 2 }, (tx, allArrived) => ({
-      ...tx,
-      fleets: {
-        ...tx.fleets,
-        findForUpdate: async (id) => {
-          const fleet = await tx.fleets.findForUpdate(id);
-          steps.push('one locks');
-          await allArrived();
-          steps.push('one goes on');
-          return fleet;
-        },
+  it("lets them take turns when a lock taken before the step keeps them apart", async () => {
+    const fleetId = newId("fleet");
+    await prisma.fleet.create({
+      data: {
+        id: fleetId,
+        name: "home fleet",
+        createdAt: new Date("2026-09-29T12:00:00.000Z"),
       },
-    }));
-    const race = () => uow.run(async (tx) => ok(await tx.fleets.findForUpdate(fleetId)));
+    });
+    const steps: string[] = [];
+    const uow = racingUnitOfWork(
+      { prisma, transactions: 2 },
+      (tx, allArrived) => ({
+        ...tx,
+        fleets: {
+          ...tx.fleets,
+          findForUpdate: async (id) => {
+            const fleet = await tx.fleets.findForUpdate(id);
+            steps.push("one locks");
+            await allArrived();
+            steps.push("one goes on");
+            return fleet;
+          },
+        },
+      }),
+    );
+    const race = () =>
+      uow.run(async (tx) => ok(await tx.fleets.findForUpdate(fleetId)));
 
     await Promise.all([race(), race()]);
 
-    expect(steps).toEqual(['one locks', 'one goes on', 'one locks', 'one goes on']);
+    expect(steps).toEqual([
+      "one locks",
+      "one goes on",
+      "one locks",
+      "one goes on",
+    ]);
   });
 });

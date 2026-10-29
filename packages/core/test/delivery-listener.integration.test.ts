@@ -1,21 +1,27 @@
-import { createIdGenerator } from '@aeolus-fleet/common';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createIdGenerator } from "@aeolus-fleet/common";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
+import {
+  createPrismaClient,
+  type PrismaClient,
+} from "../src/adapters/prisma/client.js";
 import {
   LISTENER_APPLICATION_NAME,
   listenForPendingDeliveries,
   type DeliveryListener,
-} from '../src/adapters/prisma/delivery-notices.js';
-import { createReceiverWakeups, type ReceiverWakeupHub } from '../src/adapters/prisma/receiver-wakeups.js';
-import type { ShipCaller, Crew } from '../src/domain/shared/caller.js';
-import { createUseCases, systemClock, type UseCases } from '../src/wiring.js';
-import { operatorCaller, secretOf } from './support/core-fixtures.js';
-import { createMigratedDatabase } from '../src/testing/database.js';
-import { unwrap } from '../src/testing/result.js';
-import { newKey } from '../src/testing/keys.js';
-import { waitingWakeups } from './support/waiting-wakeups.js';
-import { withOperatorLogin } from './support/operator-login.js';
+} from "../src/adapters/prisma/delivery-notices.js";
+import {
+  createReceiverWakeups,
+  type ReceiverWakeupHub,
+} from "../src/adapters/prisma/receiver-wakeups.js";
+import type { ShipCaller, Crew } from "../src/domain/shared/caller.js";
+import { createUseCases, systemClock, type UseCases } from "../src/wiring.js";
+import { operatorCaller, secretOf } from "./support/core-fixtures.js";
+import { createMigratedDatabase } from "../src/testing/database.js";
+import { unwrap } from "../src/testing/result.js";
+import { newKey } from "../src/testing/keys.js";
+import { waitingWakeups } from "./support/waiting-wakeups.js";
+import { withOperatorLogin } from "./support/operator-login.js";
 
 // The delivery listener losing its database connection: it never throws,
 // listens again, and wakes every waiting receive when it does, so a delivery
@@ -61,10 +67,28 @@ beforeEach(async () => {
   });
   await listener.listening;
   const useCases = wired(SHORT_WAIT_MS);
-  const fleet = unwrap(await withOperatorLogin(prisma, useCases.initialiseFleet({ name: 'home fleet' })));
+  const fleet = unwrap(
+    await withOperatorLogin(
+      prisma,
+      useCases.initialiseFleet({ name: "home fleet" }),
+    ),
+  );
   argo = operatorCaller(fleet);
-  const { shipId, secret } = unwrap(await useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' }));
-  const { crewToken } = unwrap(await useCases.claimShip({ shipId, secret: secretOf(secret), location: { kind: 'CLOUD' }, harness: 'claude-code' }));
+  const { shipId, secret } = unwrap(
+    await useCases.commissionShip(argo, {
+      idempotencyKey: newKey(),
+      name: "scout",
+      type: "reviewer",
+    }),
+  );
+  const { crewToken } = unwrap(
+    await useCases.claimShip({
+      shipId,
+      secret: secretOf(secret),
+      location: { kind: "CLOUD" },
+      harness: "claude-code",
+    }),
+  );
   scout = unwrap(await useCases.authenticate.byCrewToken(crewToken));
 });
 
@@ -92,10 +116,10 @@ async function killListenerConnection(): Promise<void> {
 async function sendToScout(): Promise<string> {
   const { messageId } = unwrap(
     await wired(SHORT_WAIT_MS).sendMessage(argo, {
-      selector: { kind: 'ship', shipId: scout.shipId },
-      payload: 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/25',
-      contentType: 'text/plain',
-      idempotencyKey: `review-${newId('message')}`,
+      selector: { kind: "ship", shipId: scout.shipId },
+      payload: "Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/25",
+      contentType: "text/plain",
+      idempotencyKey: `review-${newId("message")}`,
     }),
   );
   return (await prisma.delivery.findFirstOrThrow({ where: { messageId } })).id;
@@ -112,12 +136,17 @@ function pause(ms: number): Promise<void> {
  */
 function receiveWaiting(waitMs: number) {
   const { wakeups: watched, waiting } = waitingWakeups(wakeups);
-  const answer = createUseCases({ prisma, clock: systemClock, wakeups: watched, receiveWaitMs: waitMs }).receiveDeliveries(scout, {});
+  const answer = createUseCases({
+    prisma,
+    clock: systemClock,
+    wakeups: watched,
+    receiveWaitMs: waitMs,
+  }).receiveDeliveries(scout, {});
   return { answer, waiting };
 }
 
-describe('the delivery listener', () => {
-  it('reports a killed connection, never throws, and listens again', async () => {
+describe("the delivery listener", () => {
+  it("reports a killed connection, never throws, and listens again", async () => {
     await killListenerConnection();
 
     await vi.waitFor(
@@ -129,7 +158,7 @@ describe('the delivery listener', () => {
     expect(errors.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('wakes a waiting receive for a send once it listens again after its connection was killed', async () => {
+  it("wakes a waiting receive for a send once it listens again after its connection was killed", async () => {
     await killListenerConnection();
     await vi.waitFor(
       () => {
@@ -143,11 +172,15 @@ describe('the delivery listener', () => {
 
     const deliveryId = await sendToScout();
 
-    expect(unwrap(await receiving.answer).deliveries.map((delivery) => delivery.deliveryId)).toEqual([deliveryId]);
+    expect(
+      unwrap(await receiving.answer).deliveries.map(
+        (delivery) => delivery.deliveryId,
+      ),
+    ).toEqual([deliveryId]);
     expect(performance.now() - startedAt).toBeLessThan(LONG_WAIT_MS / 2);
   });
 
-  it('finds a delivery sent while it did not listen as soon as it listens again', async () => {
+  it("finds a delivery sent while it did not listen as soon as it listens again", async () => {
     const startedAt = performance.now();
     const receiving = receiveWaiting(LONG_WAIT_MS);
     await receiving.waiting;
@@ -156,26 +189,33 @@ describe('the delivery listener', () => {
 
     const deliveryId = await sendToScout();
 
-    expect(unwrap(await receiving.answer).deliveries.map((delivery) => delivery.deliveryId)).toEqual([deliveryId]);
+    expect(
+      unwrap(await receiving.answer).deliveries.map(
+        (delivery) => delivery.deliveryId,
+      ),
+    ).toEqual([deliveryId]);
     expect(performance.now() - startedAt).toBeLessThan(LONG_WAIT_MS / 2);
     expect(listens).toBe(2);
   });
 
-  it('lets a receive waiting while it reconnects return within its wait', async () => {
+  it("lets a receive waiting while it reconnects return within its wait", async () => {
     const startedAt = performance.now();
     const receiving = receiveWaiting(SHORT_WAIT_MS);
     await receiving.waiting;
 
     await killListenerConnection();
 
-    await expect(receiving.answer).resolves.toEqual({ isOk: true, value: { deliveries: [] } });
+    await expect(receiving.answer).resolves.toEqual({
+      isOk: true,
+      value: { deliveries: [] },
+    });
     expect(performance.now() - startedAt).toBeLessThan(SHORT_WAIT_MS + 1_000);
   });
 
-  it('keeps trying, without throwing, while the database cannot be reached, and stops once closed', async () => {
+  it("keeps trying, without throwing, while the database cannot be reached, and stops once closed", async () => {
     const unreachable: Error[] = [];
     const unreachableUrl = new URL(databaseUrl);
-    unreachableUrl.port = '1';
+    unreachableUrl.port = "1";
     const stranded = listenForPendingDeliveries({
       databaseUrl: unreachableUrl.toString(),
       onNotice: () => undefined,

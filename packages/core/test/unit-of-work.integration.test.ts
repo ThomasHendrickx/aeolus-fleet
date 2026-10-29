@@ -1,12 +1,15 @@
-import { createIdGenerator } from '@aeolus-fleet/common';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { createIdGenerator } from "@aeolus-fleet/common";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
-import { createPrismaUnitOfWork } from '../src/adapters/prisma/unit-of-work.js';
-import type { Fleet } from '../src/domain/registry/fleet.js';
-import { refuse } from '../src/domain/shared/errors.js';
-import { ok } from '../src/domain/shared/result.js';
-import { createMigratedDatabase } from '../src/testing/database.js';
+import {
+  createPrismaClient,
+  type PrismaClient,
+} from "../src/adapters/prisma/client.js";
+import { createPrismaUnitOfWork } from "../src/adapters/prisma/unit-of-work.js";
+import type { Fleet } from "../src/domain/registry/fleet.js";
+import { refuse } from "../src/domain/shared/errors.js";
+import { ok } from "../src/domain/shared/result.js";
+import { createMigratedDatabase } from "../src/testing/database.js";
 
 // The unit of work on a real Postgres: a use case's writes commit together
 // when it succeeds, and none of them stay when it refuses or fails.
@@ -24,11 +27,15 @@ afterAll(async () => {
 });
 
 function aFleet(): Fleet {
-  return { id: newId('fleet'), name: 'home fleet', createdAt: new Date('2026-09-29T12:00:00.000Z') };
+  return {
+    id: newId("fleet"),
+    name: "home fleet",
+    createdAt: new Date("2026-09-29T12:00:00.000Z"),
+  };
 }
 
-describe('the Prisma unit of work', () => {
-  it('commits what the work wrote when it returns an ok result', async () => {
+describe("the Prisma unit of work", () => {
+  it("commits what the work wrote when it returns an ok result", async () => {
     const fleet = aFleet();
 
     const result = await createPrismaUnitOfWork(prisma).run(async (tx) => {
@@ -37,30 +44,63 @@ describe('the Prisma unit of work', () => {
     });
 
     expect(result).toEqual(ok(fleet.id));
-    await expect(prisma.fleet.findUnique({ where: { id: fleet.id } })).resolves.toEqual({ ...fleet, lastEventSeq: 0n, shipLimitSet: false, shipLimit: null, dailyMessageLimitSet: false, dailyMessageLimit: null, schedulesPerShipLimitSet: false, schedulesPerShipLimit: null, minimumScheduleIntervalSet: false, minimumScheduleInterval: null, retentionSet: false, retentionDays: null, prunedAt: null, keptFrom: null, sealingState: null, companyKey: null, recoveryKey: null, recoveryKeyFingerprint: null, keyUnavailableReason: null, keyAvailabilitySince: null });
+    await expect(
+      prisma.fleet.findUnique({ where: { id: fleet.id } }),
+    ).resolves.toEqual({
+      ...fleet,
+      lastEventSeq: 0n,
+      shipLimitSet: false,
+      shipLimit: null,
+      dailyMessageLimitSet: false,
+      dailyMessageLimit: null,
+      schedulesPerShipLimitSet: false,
+      schedulesPerShipLimit: null,
+      minimumScheduleIntervalSet: false,
+      minimumScheduleInterval: null,
+      retentionSet: false,
+      retentionDays: null,
+      prunedAt: null,
+      keptFrom: null,
+      sealingState: null,
+      sealingStateSince: null,
+      payloadsToSeal: 0,
+      payloadsSealed: 0,
+      companyKey: null,
+      recoveryKey: null,
+      recoveryKeyFingerprint: null,
+      keyUnavailableReason: null,
+      keyAvailabilitySince: null,
+    });
   });
 
-  it('rolls back what the work wrote when it refuses, and returns the refusal', async () => {
+  it("rolls back what the work wrote when it refuses, and returns the refusal", async () => {
     const fleet = aFleet();
 
     const result = await createPrismaUnitOfWork(prisma).run(async (tx) => {
       await tx.fleets.create(fleet);
-      return refuse('FLEET_ALREADY_EXISTS', 'refused after a write');
+      return refuse("FLEET_ALREADY_EXISTS", "refused after a write");
     });
 
-    expect(result).toEqual({ isOk: false, error: { kind: 'FLEET_ALREADY_EXISTS', message: 'refused after a write' } });
-    await expect(prisma.fleet.findUnique({ where: { id: fleet.id } })).resolves.toBeNull();
+    expect(result).toEqual({
+      isOk: false,
+      error: { kind: "FLEET_ALREADY_EXISTS", message: "refused after a write" },
+    });
+    await expect(
+      prisma.fleet.findUnique({ where: { id: fleet.id } }),
+    ).resolves.toBeNull();
   });
 
-  it('rolls back what the work wrote when it throws, and passes the error on', async () => {
+  it("rolls back what the work wrote when it throws, and passes the error on", async () => {
     const fleet = aFleet();
 
     const run = createPrismaUnitOfWork(prisma).run(async (tx) => {
       await tx.fleets.create(fleet);
-      throw new Error('disk full');
+      throw new Error("disk full");
     });
 
-    await expect(run).rejects.toThrow('disk full');
-    await expect(prisma.fleet.findUnique({ where: { id: fleet.id } })).resolves.toBeNull();
+    await expect(run).rejects.toThrow("disk full");
+    await expect(
+      prisma.fleet.findUnique({ where: { id: fleet.id } }),
+    ).resolves.toBeNull();
   });
 });
