@@ -7,6 +7,7 @@ import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-
 import { newKey } from '../../testing/keys.js';
 import { unwrap } from '../../testing/result.js';
 import type { ShipCaller } from '../shared/caller.js';
+import { DATA_KEY_CACHE_MS } from './data-keys.js';
 import { isSealedPayload } from './sealed-payload.js';
 
 /**
@@ -23,6 +24,7 @@ let marketing: ShipCaller;
 let product: ShipCaller;
 let design: ShipCaller;
 let meetingId: MeetingId;
+let companyKey: string;
 
 /** A payload with bytes past ASCII, so it comes back exactly or not at all. */
 const CONTRIBUTION = 'Launch copy for the café: 5 € off';
@@ -37,7 +39,7 @@ beforeEach(async () => {
   marketing = await shipWithScopes({ registry, argo }, { name: 'marketing', type: 'head', scopes: [] });
   product = await shipWithScopes({ registry, argo }, { name: 'product', type: 'head', scopes: [] });
   design = await shipWithScopes({ registry, argo }, { name: 'design', type: 'head', scopes: [] });
-  await sealFleet(core, fleet.fleetId);
+  companyKey = await sealFleet(core, fleet.fleetId);
   ({ meetingId } = unwrap(await messaging.openMeeting(chief, { ships: [{ shipId: marketing.shipId }, { shipId: product.shipId }], idempotencyKey: newKey(), model: SESSION_MODEL, title: 'Launch' })));
 });
 
@@ -103,5 +105,16 @@ describe('a meeting in a sealed fleet (decision 0068, B17)', () => {
 
     noPayloadStoredPlain();
     expect(received.filter(({ contentType }) => contentType === MEETING_ENDED_CONTENT_TYPE)).toEqual([{ contentType: MEETING_ENDED_CONTENT_TYPE, payload: JSON.stringify({ meetingId }) }]);
+  });
+
+  it('with the company key cut off, the meeting read marks each contribution it cannot unseal unreadable and answers the meeting (B9)', async () => {
+    const { messageId } = unwrap(await messaging.sendMessage(chief, { selector: { kind: 'meeting', meetingId }, payload: CONTRIBUTION, idempotencyKey: newKey(), model: SESSION_MODEL }));
+    await core.keyVault.disable(companyKey);
+    core.clock.advance(DATA_KEY_CACHE_MS);
+
+    const read = unwrap(await messaging.readMeeting(product, { meetingId, limit: 10 }));
+
+    expect(read.title).toBe('Launch');
+    expect(read.contributions.items.map(({ messageId: id, sender, payload }) => ({ id, sender: sender.name, payload }))).toEqual([{ id: messageId, sender: 'chief', payload: { kind: 'unreadable' } }]);
   });
 });

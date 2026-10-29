@@ -515,4 +515,23 @@ describe('the kill switch on Postgres and a LocalStack KMS (decision 0068, B9, B
 
     expect(health.keyUnavailable).toEqual({ reason: 'disabled', since: '2026-10-29T12:00:00.000Z' });
   });
+
+  it("fleet.inbox marks a payload it cannot unseal unreadable, with no payload, and lists the rest", async () => {
+    const fleet = await aHostedFleet();
+    const scout = await aCrewedReviewer(fleet, 'scout');
+    const server = aServerAt('2026-10-29T12:00:00.000Z');
+    const { messageId: plain } = unwrap(await server.useCases.sendMessage(scout, aMessageTo(fleet.argo.shipId, 'sent before sealing')));
+    const companyKey = await aKeyBoundTo(fleet.fleetId);
+    await installationIn(fleet.fleetId).fleet.turnOnSealing.mutate({ companyKey });
+    const { messageId: sealed } = unwrap(await server.useCases.sendMessage(scout, aMessageTo(fleet.argo.shipId)));
+    await disableKey(companyKey);
+    server.clock.advance(DATA_KEY_CACHE_MS);
+
+    const inbox = await installationIn(fleet.fleetId).fleet.inbox.query({ filter: 'all' });
+
+    expect(inbox.items.map(({ message }) => ({ id: message.id, payload: message.payload, isPayloadUnreadable: message.isPayloadUnreadable }))).toEqual([
+      { id: sealed, payload: '', isPayloadUnreadable: true },
+      { id: plain, payload: 'sent before sealing', isPayloadUnreadable: false },
+    ]);
+  });
 });
