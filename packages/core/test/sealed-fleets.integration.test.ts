@@ -312,6 +312,8 @@ describe('every other payload sealed on Postgres and a LocalStack KMS (decision 
 
     await scheduling.sendDueSchedules();
 
+    // The app's own schedule timer may hold it while this pass looks: whichever pass sends it, it is sent once.
+    await expect.poll(() => prisma.message.count({ where: { fleetId: fleet.fleetId, scheduleId } })).toBe(1);
     const schedule = await prisma.schedule.findUniqueOrThrow({ where: { id: scheduleId } });
     expectSealedRow(schedule, 'Review');
     expect(schedule.sealedPayloadBytes).toBe(84);

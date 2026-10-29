@@ -283,6 +283,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_data_keys$/),
       expect.stringMatching(/^\d{14}_sealed_messages$/),
       expect.stringMatching(/^\d{14}_sealed_schedules$/),
+      expect.stringMatching(/^\d{14}_key_availability$/),
     ]);
   });
 });
@@ -1639,7 +1640,7 @@ describe("argo's inbox at the API", () => {
       expect.objectContaining({ messageId: reply.messageId, contentType: 'application/vnd.example.answer+json', inReplyTo: messageId }),
     ]);
     expect((await asArgo.fleet.inbox.query({ filter: 'all' }).then(({ items }) => items)).find((entry) => entry.deliveryId === deliveryId)?.replies).toEqual([
-      { id: reply.messageId, contentType: 'application/vnd.example.answer+json', payload: '{"go":true}', sentAt: clock.now().toISOString() },
+      { id: reply.messageId, contentType: 'application/vnd.example.answer+json', payload: '{"go":true}', isPayloadUnreadable: false, sentAt: clock.now().toISOString() },
     ]);
   });
 
