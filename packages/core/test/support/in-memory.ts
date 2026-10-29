@@ -204,6 +204,8 @@ export interface InMemoryState {
   fleetSealings: FleetSealing[];
   /** The sealed fleets' data keys, kept only wrapped (decision 0068). */
   dataKeys: StoredDataKey[];
+  /** The fleets whose sealing lock another server holds, as a test sets it (decision 0068, B5). */
+  sealingLocks: FleetId[];
 }
 
 /** A fleet's events, numbered in the order they were appended, the places of pruned events skipped. */
@@ -417,6 +419,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     prunedEventSeqs: [],
     fleetSealings: [],
     dataKeys: [],
+    sealingLocks: [],
   };
 
   let now = new Date(startAt);
