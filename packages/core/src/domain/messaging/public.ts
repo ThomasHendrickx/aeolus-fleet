@@ -5,4 +5,5 @@ export { leaveMeetingsOnRetire, lockMeetingsOf, type RetiredParticipantTx } from
 export { cancelSchedulesOnRetire, lockSchedulesOf, type RetiredSchedulerTx } from './retired-scheduler.js';
 export type { RequestHasher } from './ports.js';
 export type { AcceptRefusal } from './message.js';
-export { withDataKeys, type DataKeysNeeded, type PayloadSealing } from './data-keys.js';
+export { heldForRead, plainForRead, withDataKeys, type DataKeysNeeded, type HeldDataKeys, type PayloadSealing } from './data-keys.js';
+export type { StoredPayload } from './sealed-payload.js';

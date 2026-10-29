@@ -1108,7 +1108,7 @@ export const fleetRouter = router({
     .input(needsAttentionInputSchema)
     .output(needsAttentionOutputSchema)
     .query(async ({ ctx, input }) => {
-      const { items, nextCursor } = await ctx.useCases.readNeedsAttention(ctx.caller, input);
+      const { items, nextCursor } = okOrThrow(await ctx.useCases.readNeedsAttention(ctx.caller, input));
       return {
         items: items.map((entry) => ({ ...entry, since: entry.since.toISOString(), message: { ...entry.message, sentAt: entry.message.sentAt.toISOString() } })),
         nextCursor,
@@ -1180,7 +1180,7 @@ export const fleetRouter = router({
     .input(operatorInboxInputSchema)
     .output(operatorInboxOutputSchema)
     .query(async ({ ctx, input }) => {
-      const { items, nextCursor } = await ctx.useCases.readInbox(ctx.caller, input);
+      const { items, nextCursor } = okOrThrow(await ctx.useCases.readInbox(ctx.caller, input));
       return { items: items.map(inboxEntryOutputOf), nextCursor };
     }),
 
@@ -1195,7 +1195,7 @@ export const fleetRouter = router({
     .input(inboxWithdrawalsInputSchema)
     .output(operatorInboxOutputSchema)
     .query(async ({ ctx, input }) => {
-      const { items, nextCursor } = await ctx.useCases.readInboxWithdrawals(ctx.caller, input);
+      const { items, nextCursor } = okOrThrow(await ctx.useCases.readInboxWithdrawals(ctx.caller, input));
       return { items: items.map(inboxEntryOutputOf), nextCursor };
     }),
 

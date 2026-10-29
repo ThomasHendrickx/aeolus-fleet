@@ -23,7 +23,7 @@ import {
 import { z } from 'zod';
 
 import { deliveryStepOf, type StandingOverdue, type WayCrew, type WayLease } from '../../domain/shared/delivery-way.js';
-import { isSealedPayload } from '../../domain/messaging/sealed-payload.js';
+import type { StoredPayload } from '../../domain/messaging/sealed-payload.js';
 import {
   isDeliveryChangeType,
   isKeptBy,
@@ -105,23 +105,10 @@ function recipientOf(selector: Addressee, names: { party: (id: ShipId) => Histor
   }
 }
 
-/**
- * A message's payload as these reads answer it: plain. A sealed payload is
- * unsealed only by the ship's own receive and re-read so far; a read here of
- * one fails rather than answer a payload that is not the one sent (decision
- * 0068; the design's slice S3 unseals these reads).
- */
-function plainPayloadOf(message: Pick<Message, 'id' | 'payload'>): string {
-  if (isSealedPayload(message.payload)) {
-    throw new Error(`Message ${message.id} is sealed: this read does not unseal a payload`);
-  }
-  return message.payload;
-}
-
 function historyMessageOf(
   found: { message: Message; delivery: DeliveryNow },
   names: { party: (id: ShipId) => HistoryParty; labelTexts: LabelTexts },
-): HistoryMessage {
+): HistoryMessage<StoredPayload> {
   const { message, delivery } = found;
   const { party } = names;
   return {
@@ -132,7 +119,7 @@ function historyMessageOf(
     sentAt: message.createdAt,
     contentType: message.contentType,
     model: message.model,
-    payload: plainPayloadOf(message),
+    payload: message.payload,
     delivery: {
       id: delivery.id,
       state: delivery.state,
@@ -183,7 +170,7 @@ const INBOX_ROW = { id: true, state: true, readAt: true, message: true } as cons
 async function inboxEntriesOf(
   db: Db,
   { fleetId, shipId, rows }: { fleetId: FleetId; shipId: ShipId; rows: Prisma.DeliveryGetPayload<{ select: typeof INBOX_ROW }>[] },
-): Promise<InboxEntry[]> {
+): Promise<InboxEntry<StoredPayload>[]> {
   const acknowledged = new Map(
     (
       await db.event.findMany({
@@ -214,7 +201,7 @@ async function inboxEntriesOf(
       repliedWith: typeof reply === 'string' ? idSchema('message').parse(reply) : null,
       replies: replies
         .filter((held) => held.inReplyToMessageId === message.id)
-        .map((held) => ({ id: held.id, contentType: held.contentType, payload: plainPayloadOf(held), sentAt: held.createdAt })),
+        .map((held) => ({ id: held.id, contentType: held.contentType, payload: held.payload, sentAt: held.createdAt })),
       message: {
         id: message.id,
         sender: party(message.senderShipId),
@@ -222,7 +209,7 @@ async function inboxEntriesOf(
         sentAt: message.createdAt,
         contentType: message.contentType,
         model: message.model,
-        payload: plainPayloadOf(message),
+        payload: message.payload,
       },
     };
   });
@@ -556,7 +543,7 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
             sentAt: message.createdAt,
             contentType: message.contentType,
             model: message.model,
-            payload: plainPayloadOf(message),
+            payload: message.payload,
           },
         }));
       return { items, nextCursor: page.nextCursor };

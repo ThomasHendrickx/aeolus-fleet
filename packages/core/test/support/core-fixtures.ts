@@ -344,21 +344,21 @@ export function historyUseCases(core: InMemoryCore) {
   const readReach = readReachOf(core);
   return {
     readShipTimeline: createReadShipTimeline({ history: core.history, readReach }),
-    readShipMessages: createReadShipMessages({ history: core.history, readReach }),
-    readMessage: createReadMessage({ history: core.history, readReach }),
+    readShipMessages: createReadShipMessages({ history: core.history, readReach , sealing: core.sealing }),
+    readMessage: createReadMessage({ history: core.history, readReach , sealing: core.sealing }),
     readMessageDeliveries: createReadMessageDeliveries({ history: core.history, readReach }),
     sentMessage: createReadSentMessage({ history: core.history }),
     readShipWay: createReadShipWay({ history: core.history, uow: core.uow, clock: core.clock, ids: core.ids }),
-    readNeedsAttention: createReadNeedsAttention({ history: core.history, readReach }),
+    readNeedsAttention: createReadNeedsAttention({ history: core.history, readReach , sealing: core.sealing }),
     readHealth: createReadHealth({ health: core.health, snapshots: core.healthSnapshots, clock: core.clock, readReach }),
     readStuckCount: createReadStuckCount({ health: core.health, snapshots: core.healthSnapshots, clock: core.clock, readReach }),
     readStuck: createReadStuck({ health: core.health, snapshots: core.healthSnapshots, clock: core.clock, readReach }),
     readStuckSummary: createReadStuckSummary({ health: core.health, snapshots: core.healthSnapshots, clock: core.clock, readReach }),
     readStuckHistory: createReadStuckHistory({ health: core.health, snapshots: core.healthSnapshots, clock: core.clock, readReach }),
     readAcknowledged: createReadAcknowledged({ health: core.health, snapshots: core.healthSnapshots, clock: core.clock, readReach }),
-    readInbox: createReadInbox({ history: core.history, ships: core.ships, readReach }),
-    readInboxMessage: createReadInboxMessage({ history: core.history, ships: core.ships, readReach }),
-    readInboxWithdrawals: createReadInboxWithdrawals({ history: core.history, ships: core.ships, readReach }),
+    readInbox: createReadInbox({ history: core.history, ships: core.ships, readReach , sealing: core.sealing }),
+    readInboxMessage: createReadInboxMessage({ history: core.history, ships: core.ships, readReach , sealing: core.sealing }),
+    readInboxWithdrawals: createReadInboxWithdrawals({ history: core.history, ships: core.ships, readReach , sealing: core.sealing }),
     countOpenInbox: createCountOpenInbox({ history: core.history, ships: core.ships, readReach }),
   };
 }

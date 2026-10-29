@@ -39,7 +39,7 @@ describe('reading one message to argo by its delivery', () => {
     const asked = await send({ kind: 'ship', shipId: argoId }, 'Promote 2.14?');
     unwrap(await messaging.replyToMessage(argo, { deliveryId: asked.deliveryId, payload: 'go', idempotencyKey: 'go' }));
     await send({ kind: 'ship', shipId: argoId }, 'Deployed.');
-    const [listed] = (await history.readInbox(argo, { filter: 'done' })).items;
+    const [listed] = (await history.readInbox(argo, { filter: 'done' }).then(unwrap)).items;
 
     await expect(history.readInboxMessage(argo, { deliveryId: asked.deliveryId })).resolves.toEqual({ isOk: true, value: listed });
   });
@@ -58,7 +58,7 @@ describe('a viewer reading one message to argo', () => {
     const fleet = await readReachScenario();
     await fleet.readRulesApply();
     const asked = await fleet.send(fleet.far, { kind: 'ship', shipId: fleet.argo.shipId });
-    const [listed] = (await fleet.history.readInbox(fleet.viewer, { filter: 'all' })).items;
+    const [listed] = (await fleet.history.readInbox(fleet.viewer, { filter: 'all' }).then(unwrap)).items;
     const deliveryId = listed?.deliveryId ?? fleet.core.ids('delivery');
 
     await expect(fleet.history.readInboxMessage(fleet.viewer, { deliveryId })).resolves.toMatchObject({ isOk: true, value: { message: { id: asked } } });

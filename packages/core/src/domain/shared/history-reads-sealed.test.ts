@@ -5,7 +5,6 @@ import { argoAboard, crewAboard, deliveryIdOf, historyUseCases, initialiseFleet,
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { newKey } from '../../testing/keys.js';
 import { unwrap } from '../../testing/result.js';
-import { UNDELIVERABLE_AT_ATTEMPT } from '../messaging/delivery.js';
 import type { Crew, ShipCaller } from './caller.js';
 
 /**
@@ -22,6 +21,9 @@ let argoId: ShipId;
 let argo: Crew;
 let tester: Crew;
 let scout: Crew;
+
+/** The attempt at which a delivery received and never acknowledged becomes undeliverable. */
+const UNDELIVERABLE_AT_ATTEMPT = 5;
 
 /** Payloads with bytes past ASCII, so they come back exactly or not at all. */
 const QUESTION = 'checkout-e2e failed 3 of 5 runs at the café since 12:00: rerun?';
@@ -74,13 +76,16 @@ describe('the history reads in a sealed fleet (decision 0068, B9)', () => {
   });
 
   it("answers a message's page with its whole payload, and the ship page with its preview", async () => {
-    const { messageId } = await askedAndAnswered();
+    const { messageId, replyId } = await askedAndAnswered();
 
     const page = unwrap(await history.readMessage(operator, { messageId }));
     const listed = unwrap(await history.readShipMessages(operator, { shipId: tester.shipId })).items;
 
     expect(page.payload).toBe(QUESTION);
-    expect(listed.map(({ id, preview }) => ({ id, preview }))).toEqual([{ id: messageId, preview: QUESTION }]);
+    expect(listed.map(({ id, preview }) => ({ id, preview }))).toEqual([
+      { id: replyId, preview: ANSWER },
+      { id: messageId, preview: QUESTION },
+    ]);
   });
 
   it('answers Needs attention with each undeliverable message whole', async () => {
