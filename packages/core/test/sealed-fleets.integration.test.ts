@@ -523,10 +523,14 @@ describe('the kill switch on Postgres and a LocalStack KMS (decision 0068, B9, B
     refusalOf(await server.useCases.sendMessage(fleet.argo, aMessageTo(scout.shipId)));
     const [dataKey] = await prisma.dataKey.findMany({ where: { fleetId: fleet.fleetId } });
 
+    const { sealingStateSince } = await prisma.fleet.findUniqueOrThrow({ where: { id: fleet.fleetId }, select: { sealingStateSince: true } });
+
     const sealing = await installationIn(fleet.fleetId).fleet.sealing.query();
 
     expect(sealing).toEqual({
       state: 'sealed',
+      since: sealingStateSince?.toISOString(),
+      progress: null,
       companyKey: fleet.companyKey,
       recoveryKeyFingerprint: null,
       keyAvailability: { isAvailable: false, reason: 'disabled', since: '2026-10-29T12:00:00.000Z' },
@@ -638,6 +642,23 @@ describe('the sealing pass on Postgres and a LocalStack KMS (decision 0068, B5)'
     const payloads = await everyPayloadReceived(scout);
     expect(payloads).toHaveLength(1000);
     expect(new Set(payloads)).toEqual(new Set(Array.from({ length: 1000 }, (_, index) => `${PAYLOAD} #${index}`)));
+  });
+
+  it('fleet.sealing reads how many of the payloads stored plain before turning on are sealed, then sealed since the pass left none', { timeout: 180_000 }, async () => {
+    const fleet = await aHostedFleet();
+    const scout = await aCrewedReviewer(fleet, 'scout');
+    await plainSends(fleet, { to: scout, count: 3 });
+
+    unwrap(await useCases.turnOnSealing(fleet.argo, { companyKey: await aKeyBoundTo(fleet.fleetId) }));
+    const turnedOn = await installationIn(fleet.fleetId).fleet.sealing.query();
+    await useCases.sealStoredPayloads();
+    const sealed = await installationIn(fleet.fleetId).fleet.sealing.query();
+
+    expect(turnedOn).toMatchObject({ state: 'sealing', progress: { sealed: 0, total: 3 } });
+    expect(sealed).toMatchObject({ state: 'sealed', progress: null });
+    const { payloadsToSeal, payloadsSealed, sealingStateSince } = await prisma.fleet.findUniqueOrThrow({ where: { id: fleet.fleetId } });
+    const [sealedEvent] = await prisma.event.findMany({ where: { fleetId: fleet.fleetId, type: 'FleetPayloadsSealed' } });
+    expect({ payloadsToSeal, payloadsSealed, sealingStateSince }).toEqual({ payloadsToSeal: 3, payloadsSealed: 3, sealingStateSince: sealedEvent?.occurredAt });
   });
 
   it('the pass racing a send: a send that read no data key before sealing was turned on commits its plain payload before turning on looks for one, and the pass seals it', { timeout: 180_000 }, async () => {

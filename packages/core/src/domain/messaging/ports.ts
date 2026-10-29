@@ -340,8 +340,10 @@ export interface FleetSealingRepository {
    * another unit of work holds is skipped, not waited for.
    */
   plainPayloads(fleetId: FleetId, input: { after: SealingCursor | null; limit: number }): Promise<PlainPayloads>;
-  /** Stores each payload sealed in place of its plain one, with its request hash that leaves the payload out, and counts them in the fleet's sealing progress. */
+  /** Stores each payload sealed in place of its plain one, with its request hash that leaves the payload out. */
   sealPayloads(fleetId: FleetId, sealed: SealedPayloads): Promise<void>;
+  /** Adds the payloads a batch of the sealing pass sealed to a sealing fleet's progress. */
+  countSealed(fleetId: FleetId, count: number): Promise<void>;
   /** Marks a sealing fleet sealed since the given time: it stores no payload plain. */
   markSealed(fleetId: FleetId, at: Date): Promise<void>;
   /** The sealed fleets whose current data key was made at or before the cutoff, across the installation: the ones a new data key is due in (B13a). */

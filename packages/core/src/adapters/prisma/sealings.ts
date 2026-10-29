@@ -186,17 +186,15 @@ export function createPrismaFleetSealingRepository(db: Db): FleetSealingReposito
       return { messages: messages.map(toMessage), schedules: schedules.map(toSchedule) };
     },
     sealPayloads: async (fleetId, sealed) => {
-      let count = 0;
       for (const { id, payload, requestHash } of sealed.messages) {
-        count += (await db.message.updateMany({ where: { fleetId, id }, data: { ...payloadColumnsOf(payload), requestHash } })).count;
+        await db.message.updateMany({ where: { fleetId, id }, data: { ...payloadColumnsOf(payload), requestHash } });
       }
       for (const { id, payload, requestHash } of sealed.schedules) {
-        count += (await db.schedule.updateMany({ where: { fleetId, id }, data: { ...payloadColumnsOf(payload), requestHash } })).count;
+        await db.schedule.updateMany({ where: { fleetId, id }, data: { ...payloadColumnsOf(payload), requestHash } });
       }
-      if (count > 0) {
-        // Last, so the fleet's row is held only until the batch commits, right after.
-        await db.fleet.update({ where: { id: fleetId }, data: { payloadsSealed: { increment: count } } });
-      }
+    },
+    countSealed: async (fleetId, count) => {
+      await db.fleet.updateMany({ where: { id: fleetId, sealingState: 'sealing' }, data: { payloadsSealed: { increment: count } } });
     },
     markSealed: async (fleetId, at) => {
       await db.fleet.updateMany({ where: { id: fleetId, sealingState: 'sealing' }, data: { sealingState: 'sealed', sealingStateSince: at } });

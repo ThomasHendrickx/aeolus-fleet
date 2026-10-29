@@ -536,13 +536,11 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         return Promise.resolve(structuredClone({ messages, schedules }));
       },
       sealPayloads: (fleetId, sealed) => {
-        let count = 0;
         for (const { id, payload, requestHash } of sealed.messages) {
           const message = state.messages.find((held) => held.fleetId === fleetId && held.id === id);
           if (message !== undefined) {
             message.payload = structuredClone(payload);
             message.requestHash = requestHash;
-            count += 1;
           }
         }
         for (const { id, payload, requestHash } of sealed.schedules) {
@@ -550,10 +548,12 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
           if (schedule !== undefined) {
             schedule.send.payload = structuredClone(payload);
             schedule.requestHash = requestHash;
-            count += 1;
           }
         }
-        const sealing = state.fleetSealings.find((held) => held.fleetId === fleetId);
+        return Promise.resolve();
+      },
+      countSealed: (fleetId, count) => {
+        const sealing = state.fleetSealings.find((held) => held.fleetId === fleetId && held.state === 'sealing');
         if (sealing !== undefined) {
           sealing.progress.sealed += count;
         }
