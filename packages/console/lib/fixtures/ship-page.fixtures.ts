@@ -161,10 +161,10 @@ export const TIMELINE: TimelineEntry[] = [
 
 function listed(
   suffix: string,
-  message: Omit<ListedMessage, 'id' | 'delivery'> & { state: ListedMessage['delivery']['state']; claimedBy: Party | null; isPulled?: boolean },
+  message: Omit<ListedMessage, 'id' | 'delivery' | 'isPayloadUnreadable'> & { state: ListedMessage['delivery']['state']; claimedBy: Party | null; isPulled?: boolean },
 ): ListedMessage {
   const { state, claimedBy, isPulled = false, ...rest } = message;
-  return { id: messageId(suffix), ...rest, delivery: { id: deliveryId(suffix), state, claimedBy, isPulled } };
+  return { id: messageId(suffix), ...rest, isPayloadUnreadable: false, delivery: { id: deliveryId(suffix), state, claimedBy, isPulled } };
 }
 
 /** reviewer-01's messages: a question and its answer, and a task from builder-core to its type. */

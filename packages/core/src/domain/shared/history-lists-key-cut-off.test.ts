@@ -5,7 +5,7 @@ import { argoAboard, crewAboard, deliveryIdOf, historyUseCases, initialiseFleet,
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { newKey } from '../../testing/keys.js';
 import { refusalOf, unwrap } from '../../testing/result.js';
-import { DATA_KEY_CACHE_MS } from '../messaging/data-keys.js';
+import { DATA_KEY_CACHE_MS } from '../messaging/public.js';
 import type { Crew, ShipCaller } from './caller.js';
 
 /**
@@ -45,9 +45,9 @@ beforeEach(async () => {
   history = historyUseCases(core);
 });
 
-async function sentTo(shipId: ShipId, payload: string, options: { contentType?: string } = {}): Promise<MessageId> {
+async function sentTo(shipId: ShipId, message: { payload: string; contentType?: string }): Promise<MessageId> {
   core.clock.advance(1_000);
-  return unwrap(await messaging.sendMessage(tester, { ...modelOf(tester), selector: { kind: 'ship', shipId }, payload, idempotencyKey: newKey(), ...options })).messageId;
+  return unwrap(await messaging.sendMessage(tester, { ...modelOf(tester), selector: { kind: 'ship', shipId }, idempotencyKey: newKey(), ...message })).messageId;
 }
 
 /** The company disables its key and every server's data key cache runs out. */
@@ -58,9 +58,9 @@ async function keyCutOff(companyKey: string): Promise<void> {
 
 describe('the history lists with the company key cut off (decision 0068, B9)', () => {
   it("argo's inbox marks the payload it cannot unseal unreadable and lists the rest", async () => {
-    const plain = await sentTo(argoId, PLAIN);
+    const plain = await sentTo(argoId, { payload: PLAIN });
     const companyKey = await sealFleet(core, fleetId);
-    const sealed = await sentTo(argoId, SEALED);
+    const sealed = await sentTo(argoId, { payload: SEALED });
     await keyCutOff(companyKey);
 
     const inbox = unwrap(await history.readInbox(argo, { filter: 'all' })).items;
@@ -72,7 +72,7 @@ describe('the history lists with the company key cut off (decision 0068, B9)', (
   });
 
   it("one message of argo's inbox reads its plain payload and marks the reply argo sent sealed unreadable", async () => {
-    const plain = await sentTo(argoId, PLAIN);
+    const plain = await sentTo(argoId, { payload: PLAIN });
     const deliveryId = deliveryIdOf(core, plain);
     const companyKey = await sealFleet(core, fleetId);
     const { messageId: replyId } = unwrap(await messaging.replyToMessage(argo, { deliveryId, payload: SEALED, idempotencyKey: newKey() }));
@@ -85,9 +85,9 @@ describe('the history lists with the company key cut off (decision 0068, B9)', (
 
   it('the withdrawals of a question mark the payload they cannot unseal unreadable and list the rest', async () => {
     const withdrawal = JSON.stringify({ questionId: QUESTION_ID });
-    const plain = await sentTo(argoId, withdrawal, { contentType: WITHDRAWAL_CONTENT_TYPE });
+    const plain = await sentTo(argoId, { payload: withdrawal, contentType: WITHDRAWAL_CONTENT_TYPE });
     const companyKey = await sealFleet(core, fleetId);
-    const sealed = await sentTo(argoId, withdrawal, { contentType: WITHDRAWAL_CONTENT_TYPE });
+    const sealed = await sentTo(argoId, { payload: withdrawal, contentType: WITHDRAWAL_CONTENT_TYPE });
     await keyCutOff(companyKey);
 
     const withdrawals = unwrap(await history.readInboxWithdrawals(argo, { questionId: QUESTION_ID })).items;
@@ -99,9 +99,9 @@ describe('the history lists with the company key cut off (decision 0068, B9)', (
   });
 
   it("the ship page marks the preview it cannot unseal unreadable and lists the rest", async () => {
-    const plain = await sentTo(scout.shipId, PLAIN);
+    const plain = await sentTo(scout.shipId, { payload: PLAIN });
     const companyKey = await sealFleet(core, fleetId);
-    const sealed = await sentTo(scout.shipId, SEALED);
+    const sealed = await sentTo(scout.shipId, { payload: SEALED });
     await keyCutOff(companyKey);
 
     const listed = unwrap(await history.readShipMessages(operator, { shipId: tester.shipId })).items;
@@ -113,9 +113,9 @@ describe('the history lists with the company key cut off (decision 0068, B9)', (
   });
 
   it('Needs attention marks the payload it cannot unseal unreadable and lists the rest', async () => {
-    const plain = await sentTo(scout.shipId, PLAIN);
+    const plain = await sentTo(scout.shipId, { payload: PLAIN });
     const companyKey = await sealFleet(core, fleetId);
-    const sealed = await sentTo(scout.shipId, SEALED);
+    const sealed = await sentTo(scout.shipId, { payload: SEALED });
     for (let claim = 1; claim <= UNDELIVERABLE_AT_ATTEMPT; claim += 1) {
       unwrap(await messaging.receiveDeliveries(scout, { max: 10 }));
     }
@@ -131,7 +131,7 @@ describe('the history lists with the company key cut off (decision 0068, B9)', (
 
   it("a message's page, one payload, is refused KEY_UNAVAILABLE", async () => {
     const companyKey = await sealFleet(core, fleetId);
-    const sealed = await sentTo(argoId, SEALED);
+    const sealed = await sentTo(argoId, { payload: SEALED });
     await keyCutOff(companyKey);
 
     const refusal = refusalOf(await history.readMessage(operator, { messageId: sealed }));

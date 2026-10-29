@@ -31,7 +31,19 @@ export interface DataKeysNeeded {
 export interface HeldDataKeys {
   readonly sealer: PayloadSealer;
   readonly keys: ReadonlyMap<DataKeyId, DataKey>;
+  /** For a list: the data keys the vault did not give, whose payloads it marks unreadable (B9). */
+  readonly unreachable?: ReadonlySet<DataKeyId>;
 }
+
+/** A payload a list cannot unseal: its data key is not reachable, or it does not open for its row (B9). */
+export interface UnreadablePayload {
+  readonly kind: 'unreadable';
+}
+
+export const UNREADABLE_PAYLOAD: UnreadablePayload = { kind: 'unreadable' };
+
+/** A payload as a list answers it: plain, or marked unreadable while the rest are listed (B9). */
+export type ListedPayload = string | UnreadablePayload;
 
 /** Unwraps a fleet's data keys through its company key, outside every unit of work. */
 export interface FleetDataKeys {
@@ -156,16 +168,38 @@ export function createFleetDataKeys(deps: {
 /**
  * Runs the work, holding no key at first, and again with the keys it met,
  * unwrapped outside its unit of work. A fleet that is not sealed never meets
- * one, so its work runs once and the key vault is never called.
+ * one, so its work runs once and the key vault is never called. A key the
+ * vault does not give refuses KEY_UNAVAILABLE.
  */
-export async function withDataKeys<T, E>(
+export function withDataKeys<T, E>(
   of: { sealing: PayloadSealing; fleetId: FleetId },
   work: (held: HeldDataKeys) => Promise<Result<T, E | DataKeysNeeded>>,
 ): Promise<Result<T, E | DomainError<'KEY_UNAVAILABLE'>>> {
+  return runWithDataKeys(of, { work, onUnreachable: 'refuse' });
+}
+
+/**
+ * As {@link withDataKeys}, for a read that lists several payloads (B9): a key
+ * the vault does not give is held as unreachable, and the work runs again, so
+ * it marks the payloads under it unreadable with {@link listedUnsealed} and
+ * lists the rest.
+ */
+export function withDataKeysForList<T, E>(
+  of: { sealing: PayloadSealing; fleetId: FleetId },
+  work: (held: HeldDataKeys) => Promise<Result<T, E | DataKeysNeeded>>,
+): Promise<Result<T, E | DomainError<'KEY_UNAVAILABLE'>>> {
+  return runWithDataKeys(of, { work, onUnreachable: 'markUnreadable' });
+}
+
+async function runWithDataKeys<T, E>(
+  of: { sealing: PayloadSealing; fleetId: FleetId },
+  run: { work: (held: HeldDataKeys) => Promise<Result<T, E | DataKeysNeeded>>; onUnreachable: 'refuse' | 'markUnreadable' },
+): Promise<Result<T, E | DomainError<'KEY_UNAVAILABLE'>>> {
   const { sealing, fleetId } = of;
   const keys = new Map<DataKeyId, DataKey>();
-  for (let run = 1; ; run += 1) {
-    const outcome = await work({ sealer: sealing.sealer, keys });
+  const unreachable = new Set<DataKeyId>();
+  for (let attempt = 1; ; attempt += 1) {
+    const outcome = await run.work({ sealer: sealing.sealer, keys, unreachable });
     if (outcome.isOk) {
       return outcome;
     }
@@ -173,10 +207,15 @@ export async function withDataKeys<T, E>(
     if (!isDataKeysNeeded(error)) {
       return err(error);
     }
-    if (run === MAX_RUNS) {
+    if (attempt === MAX_RUNS) {
       return refuse('KEY_UNAVAILABLE', "The fleet's data keys changed while this call ran: call again");
     }
-    const unwrapped = await sealing.dataKeys.unwrap(fleetId, error.dataKeyIds.filter((id) => !keys.has(id)));
+    const missing = error.dataKeyIds.filter((id) => !keys.has(id) && !unreachable.has(id));
+    if (run.onUnreachable === 'markUnreadable') {
+      await heldEach({ sealing, fleetId }, { dataKeyIds: missing, keys, unreachable });
+      continue;
+    }
+    const unwrapped = await sealing.dataKeys.unwrap(fleetId, missing);
     if (!unwrapped.isOk) {
       return keyUnavailable(unwrapped.error);
     }
@@ -184,6 +223,50 @@ export async function withDataKeys<T, E>(
       keys.set(dataKey.id, dataKey);
     }
   }
+}
+
+/** Unwraps each data key on its own, holding those the vault gives and noting those it does not. */
+async function heldEach(of: { sealing: PayloadSealing; fleetId: FleetId }, into: { dataKeyIds: readonly DataKeyId[]; keys: Map<DataKeyId, DataKey>; unreachable: Set<DataKeyId> }): Promise<void> {
+  for (const id of into.dataKeyIds) {
+    const unwrapped = await of.sealing.dataKeys.unwrap(of.fleetId, [id]);
+    if (!unwrapped.isOk) {
+      into.unreachable.add(id);
+      continue;
+    }
+    for (const dataKey of unwrapped.value) {
+      into.keys.set(dataKey.id, dataKey);
+    }
+  }
+}
+
+/**
+ * The data keys a read that lists several payloads holds (B9): each key its
+ * stored payloads were sealed under, unwrapped on its own, outside any unit of
+ * work; a key the vault does not give is held as unreachable, never refused.
+ */
+export async function heldForList(of: { sealing: PayloadSealing; fleetId: FleetId }, payloads: readonly StoredPayload[]): Promise<HeldDataKeys> {
+  const keys = new Map<DataKeyId, DataKey>();
+  const unreachable = new Set<DataKeyId>();
+  const dataKeyIds = [...new Set(payloads.flatMap((payload) => (isSealedPayload(payload) ? [payload.sealed.dataKeyId] : [])))];
+  await heldEach(of, { dataKeyIds, keys, unreachable });
+  return { sealer: of.sealing.sealer, keys, unreachable };
+}
+
+/**
+ * The payload as a list answers it (B9): plain, or unreadable when its data
+ * key is unreachable or it does not open for its row; a key neither held nor
+ * unreachable is still needed.
+ */
+export function listedUnsealed(held: HeldDataKeys, stored: { row: SealedRow; payload: StoredPayload }): Result<ListedPayload, DataKeysNeeded> {
+  const { payload } = stored;
+  if (isSealedPayload(payload) && held.unreachable?.has(payload.sealed.dataKeyId) === true) {
+    return ok(UNREADABLE_PAYLOAD);
+  }
+  const plain = unsealed(held, stored);
+  if (plain.isOk) {
+    return plain;
+  }
+  return isDataKeysNeeded(plain.error) ? err(plain.error) : ok(UNREADABLE_PAYLOAD);
 }
 
 /** The payload sealed under the fleet's current data key, or plain in a fleet that has none. */

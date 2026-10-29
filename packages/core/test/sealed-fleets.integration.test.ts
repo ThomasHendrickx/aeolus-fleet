@@ -520,10 +520,10 @@ describe('the kill switch on Postgres and a LocalStack KMS (decision 0068, B9, B
     const fleet = await aHostedFleet();
     const scout = await aCrewedReviewer(fleet, 'scout');
     const server = aServerAt('2026-10-29T12:00:00.000Z');
-    const { messageId: plain } = unwrap(await server.useCases.sendMessage(scout, aMessageTo(fleet.argo.shipId, 'sent before sealing')));
+    const { messageId: plain } = unwrap(await server.useCases.sendMessage(scout, { ...aMessageTo(fleet.argo.shipId, 'sent before sealing'), model: 'claude-opus-5-5' }));
     const companyKey = await aKeyBoundTo(fleet.fleetId);
     await installationIn(fleet.fleetId).fleet.turnOnSealing.mutate({ companyKey });
-    const { messageId: sealed } = unwrap(await server.useCases.sendMessage(scout, aMessageTo(fleet.argo.shipId)));
+    const { messageId: sealed } = unwrap(await server.useCases.sendMessage(scout, { ...aMessageTo(fleet.argo.shipId), model: 'claude-opus-5-5' }));
     await disableKey(companyKey);
     server.clock.advance(DATA_KEY_CACHE_MS);
 

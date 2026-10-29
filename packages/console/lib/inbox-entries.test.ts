@@ -30,7 +30,7 @@ function aMessage({ sender = ORCHESTRATOR, contentType = 'text/plain', payload =
     doneAt: null,
     repliedWith: null,
     replies: [],
-    message: { id: newId('message'), sender: { id: sender.id, name: sender.name }, inReplyTo: null, sentAt: AT, contentType, model: 'claude-opus-5-5', payload },
+    message: { id: newId('message'), sender: { id: sender.id, name: sender.name }, inReplyTo: null, sentAt: AT, contentType, model: 'claude-opus-5-5', payload, isPayloadUnreadable: false },
   };
 }
 
@@ -106,7 +106,7 @@ describe('inboxEntriesOf', () => {
   });
 
   it("lays out argo's replies to a message", () => {
-    const message = { ...aMessage(), replies: [{ id: newId('message'), contentType: 'text/plain', payload: 'Go.', sentAt: AT }] };
+    const message = { ...aMessage(), replies: [{ id: newId('message'), contentType: 'text/plain', payload: 'Go.', isPayloadUnreadable: false, sentAt: AT }] };
 
     const [entry] = inboxEntriesOf([message], SHIPS);
 

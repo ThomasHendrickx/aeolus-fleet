@@ -4,15 +4,14 @@ import { readsMessage, type ReadReachOf } from '../registry/public.js';
 import type { Caller } from './caller.js';
 import { partiesOf, withPing, type NeedsAttentionState, type ShipHistory, type ShownNeedsAttentionEntry } from './history.js';
 import type { Page } from './page.js';
-import type { DomainError } from './errors.js';
-import { plainNeedsAttention } from './plain-history.js';
+import { listedNeedsAttention } from './plain-history.js';
 import { ok, type Result } from './result.js';
-import type { PayloadSealing } from '../messaging/public.js';
+import type { ListedPayload, PayloadSealing } from '../messaging/public.js';
 
 export type ReadNeedsAttention = (
   caller: Caller,
   input: { shipId?: ShipId; state?: NeedsAttentionState; cursor?: DeliveryId; limit?: number },
-) => Promise<Result<Page<ShownNeedsAttentionEntry, DeliveryId>, DomainError<'KEY_UNAVAILABLE'>>>;
+) => Promise<Result<Page<ShownNeedsAttentionEntry<ListedPayload>, DeliveryId>, never>>;
 
 /**
  * Use case: a page of Needs attention, the undeliverable or not handled
@@ -21,17 +20,14 @@ export type ReadNeedsAttention = (
  * ping, for the operator to resend or dismiss. Abandoned deliveries are never
  * listed: they stay in the timelines only. Only the deliveries whose message
  * the caller reads (decision 0034). The caller's scope (fleet:read) is
- * checked before this runs. In a sealed fleet each payload is unsealed
- * (decision 0068, B9).
+ * checked before this runs. In a sealed fleet each payload is unsealed, or
+ * marked unreadable when its key cannot be had (decision 0068, B9).
  */
 export function createReadNeedsAttention(deps: { history: ShipHistory; readReach: ReadReachOf; sealing: PayloadSealing }): ReadNeedsAttention {
   return async (caller, { shipId, state, cursor, limit = PAGE_SIZE_DEFAULT }) => {
     const [page, reach] = await Promise.all([deps.history.needsAttention(caller.fleetId, { shipId, state, cursor, limit }), deps.readReach(caller)]);
     const entries = page.items.filter((entry) => readsMessage(reach, partiesOf(entry.message, entry.ship)));
-    const plain = await plainNeedsAttention({ sealing: deps.sealing, fleetId: caller.fleetId }, entries);
-    if (!plain.isOk) {
-      return plain;
-    }
-    return ok({ items: plain.value.map((entry) => ({ ...entry, message: withPing(entry.message) })), nextCursor: page.nextCursor });
+    const listed = await listedNeedsAttention({ sealing: deps.sealing, fleetId: caller.fleetId }, entries);
+    return ok({ items: listed.map((entry) => ({ ...entry, message: withPing(entry.message) })), nextCursor: page.nextCursor });
   };
 }

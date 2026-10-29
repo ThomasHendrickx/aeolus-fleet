@@ -62,6 +62,7 @@ import { TRPCError } from '@trpc/server';
 
 import type { ShipReport } from '../../domain/registry/ship-report.js';
 import { scheduleTimingOf, schedulesPageOf } from './schedule-output.js';
+import { listedPayloadOutputOf } from './listed-payload.js';
 
 import {
   authenticatedProcedure,
@@ -206,7 +207,7 @@ export const shipRouter = router({
         openedAt: read.openedAt.toISOString(),
         endedAt: read.endedAt?.toISOString() ?? null,
         mic: { ...read.mic, requests: read.mic.requests.map((request) => ({ ...request, requestedAt: request.requestedAt.toISOString() })) },
-        contributions: { ...read.contributions, items: read.contributions.items.map((item) => ({ ...item, sentAt: item.sentAt.toISOString() })) },
+        contributions: { ...read.contributions, items: read.contributions.items.map((item) => ({ ...item, ...listedPayloadOutputOf(item.payload), sentAt: item.sentAt.toISOString() })) },
       };
     }),
 

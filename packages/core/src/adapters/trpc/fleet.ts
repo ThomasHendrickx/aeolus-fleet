@@ -153,6 +153,8 @@ import type { RefusedActor } from '../../domain/registry/reach-refusal.js';
 import type { DeliveryWay } from '../../domain/shared/delivery-way.js';
 import type { SequencedEvent } from '../../domain/shared/events.js';
 import type { InboxEntry } from '../../domain/shared/history.js';
+import type { ListedPayload } from '../../domain/messaging/public.js';
+import { listedPayloadOutputOf } from './listed-payload.js';
 import { describedAcknowledged, describedHealth, describedPerHour, describedStuck } from './health.js';
 import { presentStartingPrompt } from './starting-prompt-text.js';
 import { schedulesPageOf } from './schedule-output.js';
@@ -174,13 +176,13 @@ function crewRequestOutputOf<T extends { requestedAt: Date; sessionStartedAt: Da
 
 /** A ship's last ping as the API states it: its dates in ISO 8601. */
 /** A delivery's way as the API answers it: its times in ISO 8601. */
-function inboxEntryOutputOf(entry: InboxEntry) {
+function inboxEntryOutputOf(entry: InboxEntry<ListedPayload>) {
   return {
     ...entry,
     readAt: entry.readAt?.toISOString() ?? null,
     doneAt: entry.doneAt?.toISOString() ?? null,
-    replies: entry.replies.map((reply) => ({ ...reply, sentAt: reply.sentAt.toISOString() })),
-    message: { ...entry.message, sentAt: entry.message.sentAt.toISOString() },
+    replies: entry.replies.map((reply) => ({ ...reply, ...listedPayloadOutputOf(reply.payload), sentAt: reply.sentAt.toISOString() })),
+    message: { ...entry.message, ...listedPayloadOutputOf(entry.message.payload), sentAt: entry.message.sentAt.toISOString() },
   };
 }
 
@@ -1131,7 +1133,11 @@ export const fleetRouter = router({
     .query(async ({ ctx, input }) => {
       const { items, nextCursor } = okOrThrow(await ctx.useCases.readNeedsAttention(ctx.caller, input));
       return {
-        items: items.map((entry) => ({ ...entry, since: entry.since.toISOString(), message: { ...entry.message, sentAt: entry.message.sentAt.toISOString() } })),
+        items: items.map((entry) => ({
+          ...entry,
+          since: entry.since.toISOString(),
+          message: { ...entry.message, ...listedPayloadOutputOf(entry.message.payload), sentAt: entry.message.sentAt.toISOString() },
+        })),
         nextCursor,
       };
     }),

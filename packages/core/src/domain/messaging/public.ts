@@ -6,5 +6,18 @@ export { cancelSchedulesOnRetire, lockSchedulesOf, type RetiredSchedulerTx } fro
 export type { FleetSealingRepository, RequestHasher } from './ports.js';
 export type { CompanyKeyUnavailableReason } from './fleet-sealing.js';
 export type { AcceptRefusal } from './message.js';
-export { heldForRead, plainForRead, withDataKeys, type DataKeysNeeded, type HeldDataKeys, type PayloadSealing } from './data-keys.js';
+export {
+  DATA_KEY_CACHE_MS,
+  heldForList,
+  heldForRead,
+  listedUnsealed,
+  plainForRead,
+  withDataKeys,
+  type DataKeysNeeded,
+  type HeldDataKeys,
+  type ListedPayload,
+  type PayloadSealing,
+  type UnreadablePayload,
+  UNREADABLE_PAYLOAD,
+} from './data-keys.js';
 export type { StoredPayload } from './sealed-payload.js';

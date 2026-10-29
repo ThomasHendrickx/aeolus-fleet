@@ -41,6 +41,8 @@ export const needsAttentionDeliverySchema = z.object({
     /** Whether it is a ping, told by its content type: a ping is never resent. */
     isPing: z.boolean(),
     payload: z.string(),
+    /** Its payload is sealed under a data key that cannot be had now, or does not open: the payload is empty (decision 0068, B9). */
+    isPayloadUnreadable: z.boolean(),
   }),
 });
 

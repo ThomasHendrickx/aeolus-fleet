@@ -63,6 +63,7 @@ describe('operatorInboxOutputSchema', () => {
       contentType: 'text/plain',
       model: 'claude-opus-5-5',
       payload: 'Release 2.14 is staged on hetzner-2. Promote to production? Reply "go" to promote.',
+      isPayloadUnreadable: false,
     },
   };
 
@@ -71,7 +72,7 @@ describe('operatorInboxOutputSchema', () => {
   });
 
   it("takes argo's replies to it, each with its content type and payload", () => {
-    const replied = { ...open, replies: [{ id: newId('message'), contentType: 'application/json', payload: '{"go":true}', sentAt: AT }] };
+    const replied = { ...open, replies: [{ id: newId('message'), contentType: 'application/json', payload: '{"go":true}', isPayloadUnreadable: false, sentAt: AT }] };
 
     expect(operatorInboxOutputSchema.parse(lastPage(replied))).toEqual(lastPage(replied));
   });

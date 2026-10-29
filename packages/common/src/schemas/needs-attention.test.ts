@@ -52,6 +52,7 @@ describe('needsAttentionOutputSchema', () => {
       contentType: 'application/json',
       isPing: false,
       payload: '{"run":"e2e","ref":"pr-320"}',
+      isPayloadUnreadable: false,
     },
   };
 

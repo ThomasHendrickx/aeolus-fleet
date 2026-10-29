@@ -6,7 +6,7 @@ import { refuse, type DomainError } from '../shared/errors.js';
 import type { Page, PageQuery } from '../shared/page.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
-import { unsealed, withDataKeys, type DataKeysNeeded, type PayloadSealing } from './data-keys.js';
+import { listedUnsealed, withDataKeysForList, type DataKeysNeeded, type ListedPayload, type PayloadSealing } from './data-keys.js';
 import type { Participant } from './meeting.js';
 import type { MeetingRepository } from './ports.js';
 
@@ -41,7 +41,8 @@ function participantState(participant: Participant): ParticipantState {
 export interface ContributionRead {
   messageId: MessageId;
   sender: MeetingParty;
-  payload: string;
+  /** Plain, or marked unreadable when its data key cannot be had (decision 0068, B9). */
+  payload: ListedPayload;
   contentType: string;
   model: string | null;
   sentAt: Date;
@@ -78,11 +79,11 @@ export type ReadMeeting = (caller: ShipCaller, input: { meetingId: MeetingId } &
  * notices. A meeting that does not exist and one the caller takes no part in
  * are one refusal. Reads only. In a sealed fleet each contribution is
  * unsealed with data keys unwrapped before the unit of work (decision 0068,
- * B9); a key it cannot get refuses KEY_UNAVAILABLE.
+ * B9); one whose key cannot be had is marked unreadable and the rest listed.
  */
 export function createReadMeeting(deps: { uow: UnitOfWork<ReadMeetingTx>; sealing: PayloadSealing }): ReadMeeting {
   return (caller, input) =>
-    withDataKeys({ sealing: deps.sealing, fleetId: caller.fleetId }, (keys) => deps.uow.run(async (tx): Promise<Result<MeetingRead, ReadMeetingRefusal | DataKeysNeeded>> => {
+    withDataKeysForList({ sealing: deps.sealing, fleetId: caller.fleetId }, (keys) => deps.uow.run(async (tx): Promise<Result<MeetingRead, ReadMeetingRefusal | DataKeysNeeded>> => {
       const { fleetId } = caller;
       const { meetingId } = input;
       const meeting = await tx.meetings.find(fleetId, meetingId);
@@ -103,7 +104,7 @@ export function createReadMeeting(deps: { uow: UnitOfWork<ReadMeetingTx>; sealin
       const page = await tx.meetings.contributions(fleetId, { meetingId, cursor: input.cursor, limit: input.limit });
       const items: ContributionRead[] = [];
       for (const message of page.items) {
-        const payload = unsealed(keys, { row: { fleetId, rowId: message.id }, payload: message.payload });
+        const payload = listedUnsealed(keys, { row: { fleetId, rowId: message.id }, payload: message.payload });
         if (!payload.isOk) {
           return payload;
         }
