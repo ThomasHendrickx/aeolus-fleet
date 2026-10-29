@@ -577,7 +577,7 @@ async function plainSends(fleet: HostedFleet, sends: { to: Crew; count: number }
 async function everyPayloadReceived(crew: Crew): Promise<string[]> {
   const payloads: string[] = [];
   for (;;) {
-    const { deliveries } = unwrap(await useCases.receiveDeliveries(crew, { max: 100 }));
+    const { deliveries } = unwrap(await useCases.receiveDeliveries(crew, { max: 10 }));
     if (deliveries.length === 0) {
       return payloads;
     }
@@ -712,8 +712,10 @@ describe('the sealing pass on Postgres and a LocalStack KMS (decision 0068, B5)'
     for (let index = 0; index < 300; index += 1) {
       unwrap(await server.useCases.sendMessage(fleet.argo, aMessageTo(scout.shipId, `${PAYLOAD} #${index}`)));
     }
-    for (const { deliveryId } of unwrap(await server.useCases.receiveDeliveries(scout, { max: 100 })).deliveries) {
-      unwrap(await server.useCases.acknowledgeDelivery(scout, { deliveryId }));
+    for (let page = 0; page < 10; page += 1) {
+      for (const { deliveryId } of unwrap(await server.useCases.receiveDeliveries(scout, { max: 10 })).deliveries) {
+        unwrap(await server.useCases.acknowledgeDelivery(scout, { deliveryId }));
+      }
     }
     await prisma.$executeRaw`UPDATE fleets SET retention_set = true, retention_days = 1 WHERE id = ${fleet.fleetId}`;
     unwrap(await server.useCases.turnOnSealing(fleet.argo, { companyKey: await aKeyBoundTo(fleet.fleetId) }));
