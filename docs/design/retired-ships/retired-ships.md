@@ -1,6 +1,6 @@
 # Retired ships: hidden now, removed after a retention period
 
-Design, stage 2. Docs only. Thomas agreed the purpose and answered Q1 to Q5 on 29 Oct (section 3, recorded as [decision 0069](../../decisions/0069-retired-ships.md)). This stage holds the decisions in detail (section 4), the flows (section 5), the acceptance scenarios (section 6), the screens that need a before and after mockup (section 7), the slices (section 8) and the question it raised (section 9).
+Design, stage 2. Docs only. Thomas agreed the purpose and answered Q1 to Q5 and N1 on 29 Oct (section 3, recorded as [decision 0069](../../decisions/0069-retired-ships.md)). This stage holds the decisions in detail (section 4), the flows (section 5), the acceptance scenarios (section 6), the screens that need a before and after mockup (section 7), the slices (section 8) and the question it raised, answered (section 9).
 
 Thomas's choice, option 3 of his question: "Both: hide now, remove after a retention period". Retired ships are hidden everywhere by default now; after a retention period they are removed; their messages and events stay and show them as a retired ship.
 
@@ -68,6 +68,7 @@ Not the purpose:
 | Q3 | Option 1: the fleet's retention (0066), the hourly pass |
 | Q4 | Option 1, against the pick: a repeated idempotent commission after removal creates a new ship. Thomas: "name is unique for ships within those that are known, id is unique always." |
 | Q5 | Option 1: a link to a removed ship opens its remnant page with its kept history |
+| N1 | Option 1: "known" is active; a ship's name is unique among active ships, so a retired ship's name is free at once, removed or not (today's rule) |
 
 ## 4. Decisions
 
@@ -187,7 +188,7 @@ Each one PR, in order, built red, green, refactor from the scenarios it names.
 | S2 | **No retired count** (D1, screen 1), after Thomas approves its mockup: `fleet.shipCounts` without retired ships, the overview's subtitle, switch and count line | Scenarios 1 and 2 pass by name; walked on staging |
 | S3 | **The removed ship's page** (D8, screen 2), after Thomas approves its mockup | Scenario 19 passes by name; walked on staging |
 
-## 9. Question for Thomas
+## 9. Question for Thomas (answered: option 1)
 
 ### N1. Which ships "known" means for a name
 
