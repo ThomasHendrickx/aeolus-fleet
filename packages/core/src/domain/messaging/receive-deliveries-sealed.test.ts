@@ -89,4 +89,21 @@ describe('a receive in a sealed fleet (decision 0068, B9)', () => {
     expect(core.state.events.slice(before.events.length).map(({ type }) => type)).toEqual(['FleetKeyUnavailable']);
     expect(core.state.deliveries.find((held) => held.id === deliveryId)).toMatchObject({ state: 'pending', attempts: 0 });
   });
+
+  it('with the key cut off, a re-read and a receive of a reply are refused KEY_UNAVAILABLE and claim nothing', async () => {
+    const { messageId, deliveryId } = await sentToScout();
+    unwrap(await useCases.receiveDeliveries(scout, {}));
+    unwrap(await useCases.acknowledgeDelivery(scout, { deliveryId }));
+    const asker = crewAboard(core, { fleetId, shipId: argo.shipId });
+    unwrap(await useCases.sendMessage(scout, { selector: { kind: 'ship', shipId: argo.shipId }, payload: PAYLOAD, contentType: 'text/plain', idempotencyKey: newKey(), inReplyTo: messageId, model: 'claude-opus-5-5' }));
+    await core.keyVault.disable(companyKey);
+    core.clock.advance(DATA_KEY_CACHE_MS);
+    const before = structuredClone(core.state.deliveries);
+
+    const reread = refusalOf(await useCases.readDelivery(scout, { deliveryId }));
+    const reply = refusalOf(await useCases.receiveReply(asker, { messageId }));
+
+    expect([reread.kind, reply.kind]).toEqual(['KEY_UNAVAILABLE', 'KEY_UNAVAILABLE']);
+    expect(core.state.deliveries).toEqual(before);
+  });
 });
