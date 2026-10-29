@@ -230,7 +230,7 @@ describe('a send time', () => {
           }),
         ),
     };
-    const failingPass = createSendDueSchedules({ fleets: core.fleets, scheduleAttempts: core.scheduleAttempts, uow: failing, clock: core.clock, ids: core.ids, hasher: core.hasher });
+    const failingPass = createSendDueSchedules({ fleets: core.fleets, scheduleAttempts: core.scheduleAttempts, uow: failing, clock: core.clock, ids: core.ids, hasher: core.hasher, sealing: core.sealing });
     const errors: unknown[] = [];
 
     await failingPass((_fleetId, error) => errors.push(error));

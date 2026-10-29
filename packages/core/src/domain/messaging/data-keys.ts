@@ -137,11 +137,11 @@ export function unsealed(held: HeldDataKeys, stored: { row: SealedRow; payload: 
 
 /** The message as the fleet stores it: sealed in a sealed fleet, under its current data key, with the request hash that leaves the payload out. */
 export async function sealedMessage(
-  deps: { tx: { sealings: Pick<FleetSealingRepository, 'currentDataKeyId'> }; held: HeldDataKeys | undefined },
+  deps: { tx: { sealings: Pick<FleetSealingRepository, 'currentDataKeyId'> }; held: HeldDataKeys },
   accepted: { message: Message; sealedRequestHash: string },
 ): Promise<Result<Message, DataKeysNeeded>> {
   const { message, sealedRequestHash } = accepted;
-  if (deps.held === undefined || typeof message.payload !== 'string') {
+  if (typeof message.payload !== 'string') {
     return ok(message);
   }
   const currentDataKeyId = await deps.tx.sealings.currentDataKeyId(message.fleetId);

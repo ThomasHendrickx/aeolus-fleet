@@ -753,7 +753,13 @@ model Schedule {
   selectorShipName   String?              @map("selector_ship_name")
   selectorType       String?              @map("selector_type")
   selectorValueIds   String[]             @default([]) @map("selector_value_ids")
-  payload            String
+  /// Null in a sealed fleet (decision 0068): the sealed payload is the data key, nonce and ciphertext with its tag,
+  /// beside the plain payload's UTF-8 byte count, as a message's.
+  payload            String?
+  sealedDataKeyId    String?              @map("sealed_data_key_id")
+  sealedNonce        Bytes?               @map("sealed_nonce")
+  sealedCiphertext   Bytes?               @map("sealed_ciphertext")
+  sealedPayloadBytes Int?                 @map("sealed_payload_bytes")
   contentType        String               @map("content_type")
   model              String?
   inReplyToMessageId String?              @map("in_reply_to_message_id")
@@ -785,12 +791,13 @@ model Schedule {
   endedAt            DateTime?            @map("ended_at") @db.Timestamptz(3)
   cancelledAt        DateTime?            @map("cancelled_at") @db.Timestamptz(3)
 
-  fleet        Fleet     @relation(fields: [fleetId], references: [id])
-  ship         Ship      @relation("ScheduleShip", fields: [fleetId, shipId], references: [fleetId, id], onDelete: Restrict)
-  selectorShip Ship?     @relation("ScheduleSelectorShip", fields: [fleetId, selectorShipId], references: [fleetId, id], onDelete: Restrict)
-  inReplyTo    Message?  @relation("ScheduleInReplyTo", fields: [fleetId, inReplyToMessageId], references: [fleetId, id], onDelete: Restrict)
-  lastMessage  Message?  @relation("ScheduleLastMessage", fields: [fleetId, lastMessageId], references: [fleetId, id], onDelete: Restrict)
-  messages     Message[] @relation("MessageSchedule")
+  fleet         Fleet     @relation(fields: [fleetId], references: [id])
+  ship          Ship      @relation("ScheduleShip", fields: [fleetId, shipId], references: [fleetId, id], onDelete: Restrict)
+  selectorShip  Ship?     @relation("ScheduleSelectorShip", fields: [fleetId, selectorShipId], references: [fleetId, id], onDelete: Restrict)
+  inReplyTo     Message?  @relation("ScheduleInReplyTo", fields: [fleetId, inReplyToMessageId], references: [fleetId, id], onDelete: Restrict)
+  sealedDataKey DataKey?  @relation(fields: [fleetId, sealedDataKeyId], references: [fleetId, id], onDelete: Restrict)
+  lastMessage   Message?  @relation("ScheduleLastMessage", fields: [fleetId, lastMessageId], references: [fleetId, id], onDelete: Restrict)
+  messages      Message[] @relation("MessageSchedule")
 
   @@unique([fleetId, id])
   /// A ship uses an idempotency key once for its schedules.
@@ -803,6 +810,7 @@ model Schedule {
   @@index([fleetId, selectorShipId])
   @@index([fleetId, inReplyToMessageId])
   @@index([fleetId, lastMessageId])
+  @@index([fleetId, sealedDataKeyId])
   @@map("schedules")
 }
 
@@ -1400,8 +1408,9 @@ model DataKey {
   createdAt            DateTime @map("created_at") @db.Timestamptz(3)
   isCurrent            Boolean  @map("is_current")
 
-  fleet    Fleet     @relation(fields: [fleetId], references: [id])
-  messages Message[]
+  fleet     Fleet      @relation(fields: [fleetId], references: [id])
+  messages  Message[]
+  schedules Schedule[]
 
   @@unique([fleetId, id])
   /// One current data key per fleet.

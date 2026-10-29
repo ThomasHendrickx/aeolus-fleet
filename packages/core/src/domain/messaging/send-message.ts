@@ -26,7 +26,7 @@ import { idempotencyKey } from '../shared/idempotency-key.js';
 import { acceptContribution, acceptLabelMessage, acceptMessage, repeatOf, type AcceptRefusal, type RepeatRefusal, type ScheduledFor } from './message.js';
 import { payload } from './payload.js';
 import type { DeliveryRepository, FleetSealingRepository, MeetingRepository, MessageRepository, RequestHasher } from './ports.js';
-import { isDataKeysNeeded, sealedMessage, unsealed, withDataKeys, type DataKeysNeeded, type HeldDataKeys, type PayloadSealing } from './data-keys.js';
+import { sealedMessage, unsealed, withDataKeys, type DataKeysNeeded, type HeldDataKeys, type PayloadSealing } from './data-keys.js';
 import type { Message } from './message.js';
 import { checkContribution, type ContributionRefusal } from './meeting.js';
 import { sendRequestText } from './send-request.js';
@@ -194,16 +194,12 @@ export function checkedSend(input: MessageToSend, hasher: RequestHasher): Result
   return ok({ selector, payload: text.value, contentType: mediaType.value, model: input.model, idempotencyKey: key.value, inReplyTo, isForced, requestHash, sealedRequestHash });
 }
 
-/**
- * The data keys a send seals and unseals with. None stores the payload plain
- * whatever the fleet: a ping's and a schedule's send, which the design's
- * slice S3 seals too (decision 0068, B17).
- */
+/** What a send runs with inside its unit of work: the data keys it seals and unseals with among them (decision 0068). */
 export interface SendDeps {
   tx: SendMessageTx;
   clock: Clock;
   ids: IdGenerator;
-  held: HeldDataKeys | undefined;
+  held: HeldDataKeys;
 }
 
 /** Sends a checked request inside the caller's unit of work, as {@link createSendMessage} describes. */
@@ -291,33 +287,12 @@ export async function sendWithin(
 }
 
 /**
- * Sends a checked request holding no data keys, its payload stored plain
- * whatever the fleet: a ping's and a schedule's send (see SendDeps).
- */
-export async function sendPlainWithin(
-  deps: Omit<SendDeps, 'held'>,
-  send: { caller: ShipCaller; request: CheckedSend; actor?: Actor },
-): Promise<Result<MessageSent, SendMessageRefusal>> {
-  const sent = await sendWithin({ ...deps, held: undefined }, send);
-  if (sent.isOk) {
-    return sent;
-  }
-  const { error } = sent;
-  // Holding no keys, a send stores plain and never asks for one.
-  return isDataKeysNeeded(error) ? refuse('KEY_UNAVAILABLE', 'This send holds no data keys') : err(error);
-}
-
-/**
  * A repeat of the sender's key: the original's id when it is the same request,
  * its payload unsealed when sealed, so a sealed original needs its data key.
  */
 function repeatWithin(deps: SendDeps, repeat: { original: Message; request: CheckedSend }): Result<MessageSent, SendMessageRefusal | DataKeysNeeded> {
   const { original, request } = repeat;
-  const plainPayload = deps.held === undefined ? undefined : unsealed(deps.held, { row: { fleetId: original.fleetId, rowId: original.id }, payload: original.payload });
-  if (plainPayload === undefined) {
-    // A send that holds no data keys never repeats a sealed message: its keys are its own (see SendDeps).
-    return typeof original.payload === 'string' ? ok({ messageId: original.id }) : refuse('KEY_UNAVAILABLE', `Message ${original.id} is sealed`);
-  }
+  const plainPayload = unsealed(deps.held, { row: { fleetId: original.fleetId, rowId: original.id }, payload: original.payload });
   if (!plainPayload.isOk) {
     return plainPayload;
   }

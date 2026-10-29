@@ -392,12 +392,12 @@ export function messagingUseCases(core: InMemoryCore) {
     pingShip: createPingShip({ ...deps, hasher: core.hasher, sealing }),
     answerPing: createAnswerPing(deps),
     tellOverdueDeliveries: createTellOverdueDeliveries({ ...deps, fleets: core.fleets, pushedCrews: core.pushedCrews }),
-    scheduleMessage: createScheduleMessage({ ...deps, hasher: core.hasher }),
+    scheduleMessage: createScheduleMessage({ ...deps, hasher: core.hasher, sealing }),
     listSchedules: createListSchedules(deps),
     cancelSchedule: createCancelSchedule(deps),
     pauseSchedule: createPauseSchedule(deps),
     resumeSchedule: createResumeSchedule(deps),
-    sendDueSchedules: createSendDueSchedules({ ...deps, hasher: core.hasher, fleets: core.fleets, scheduleAttempts: core.scheduleAttempts }),
+    sendDueSchedules: createSendDueSchedules({ ...deps, hasher: core.hasher, fleets: core.fleets, scheduleAttempts: core.scheduleAttempts, sealing }),
   };
 }
 

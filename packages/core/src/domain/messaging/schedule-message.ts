@@ -22,8 +22,9 @@ import { checkReachToEach } from './check-reach-to-each.js';
 import { contentType } from './content-type.js';
 import { checkModel, type AcceptRefusal } from './message.js';
 import { payload } from './payload.js';
-import type { DeliveryRepository, MessageRepository, RequestHasher, ScheduleNotifier, ScheduleRepository } from './ports.js';
-import { GRACE_DEFAULT, MISSED_STRATEGY_DEFAULT, planSchedule, RETRY_WINDOW_DEFAULT, TIME_ZONE_DEFAULT, type ScheduledSend, type ScheduleRefusal, type ScheduleTimingInput } from './schedule.js';
+import type { DeliveryRepository, FleetSealingRepository, MessageRepository, RequestHasher, ScheduleNotifier, ScheduleRepository } from './ports.js';
+import { sealedFor, unsealed, withDataKeys, type DataKeysNeeded, type HeldDataKeys, type PayloadSealing } from './data-keys.js';
+import { GRACE_DEFAULT, MISSED_STRATEGY_DEFAULT, planSchedule, repeatOfSchedule, RETRY_WINDOW_DEFAULT, TIME_ZONE_DEFAULT, type Schedule, type ScheduledSend, type ScheduleRefusal, type ScheduleTimingInput } from './schedule.js';
 import { withinScheduleLimits, type ScheduleLimitRefusal, type ScheduleLimitsTx } from './schedule-limits.js';
 import { sendRequestText } from './send-request.js';
 
@@ -33,6 +34,7 @@ export interface ScheduleMessageTx extends Omit<ResolveSelectorTx, 'ships'>, Omi
   deliveries: Pick<DeliveryRepository, 'findOfMessageReaching'>;
   schedules: ScheduleRepository;
   scheduleNotifier: ScheduleNotifier;
+  sealings: Pick<FleetSealingRepository, 'currentDataKeyId'>;
   events: EventLog;
 }
 
@@ -58,7 +60,7 @@ export interface MessageToSchedule {
 }
 
 export type ScheduleMessageRefusal =
-  | DomainError<'PAYLOAD_TOO_LARGE' | 'INVALID_CONTENT_TYPE' | 'INVALID_IDEMPOTENCY_KEY' | 'RESERVED_CONTENT_TYPE' | 'FORCE_NOT_ALLOWED' | 'IDEMPOTENCY_KEY_REUSED' | 'IN_REPLY_TO_NOT_FOUND'>
+  | DomainError<'PAYLOAD_TOO_LARGE' | 'INVALID_CONTENT_TYPE' | 'INVALID_IDEMPOTENCY_KEY' | 'RESERVED_CONTENT_TYPE' | 'FORCE_NOT_ALLOWED' | 'IDEMPOTENCY_KEY_REUSED' | 'IN_REPLY_TO_NOT_FOUND' | 'KEY_UNAVAILABLE'>
   | AcceptRefusal
   | ScheduleRefusal
   | ScheduleLimitRefusal
@@ -80,23 +82,31 @@ export type ScheduleMessage = (caller: ShipCaller, input: MessageToSchedule) => 
  * refusal is recorded and nothing else is stored. A reply names a message of
  * the fleet. The schedule, ScheduleCreated and the notice that tells every
  * server's timer when it is due are one unit of work.
+ *
+ * In a sealed fleet (decision 0068, B7) the payload is stored sealed under
+ * the fleet's current data key, bound to the schedule's id, and its request
+ * hash leaves the payload out; a repeat unseals the original's to compare.
+ * The data keys are unwrapped before the unit of work, never in it.
  */
-export function createScheduleMessage(deps: { uow: UnitOfWork<ScheduleMessageTx>; clock: Clock; ids: IdGenerator; hasher: RequestHasher }): ScheduleMessage {
+export function createScheduleMessage(deps: { uow: UnitOfWork<ScheduleMessageTx>; clock: Clock; ids: IdGenerator; hasher: RequestHasher; sealing: PayloadSealing }): ScheduleMessage {
   return async (caller, input) => {
     const checked = checkedSchedule({ caller, input, hasher: deps.hasher });
     if (!checked.isOk) {
       return checked;
     }
-    const { send, key, requestHash } = checked.value;
-    return keepingReachRefusal(deps.uow, async (tx): Promise<Result<{ scheduleId: ScheduleId }, ScheduleMessageRefusal>> => {
+    const { send, key, requestHash, sealedRequestHash } = checked.value;
+    return withDataKeys({ sealing: deps.sealing, fleetId: caller.fleetId }, (held) => keepingReachRefusal(deps.uow, async (tx): Promise<Result<{ scheduleId: ScheduleId }, ScheduleMessageRefusal | DataKeysNeeded>> => {
       const { fleetId, shipId } = caller;
       const creatorKey = { fleetId, shipId, idempotencyKey: key };
       await tx.schedules.lockCreatorKey(creatorKey);
       const original = await tx.schedules.findByCreatorKey(creatorKey);
       if (original) {
-        return original.requestHash === requestHash
-          ? ok({ scheduleId: original.id })
-          : refuse('IDEMPOTENCY_KEY_REUSED', 'This idempotency key was already used for another schedule: make a new schedule with a new key');
+        const plainPayload = unsealed(held, { row: { fleetId, rowId: original.id }, payload: original.send.payload });
+        if (!plainPayload.isOk) {
+          return plainPayload;
+        }
+        const repeat = repeatOfSchedule({ schedule: original, plainPayload: plainPayload.value }, { requestHash, sealedRequestHash, payload: send.payload });
+        return repeat.isOk ? ok({ scheduleId: repeat.value }) : repeat;
       }
       const at = deps.clock.now();
       const planned = planSchedule({
@@ -136,17 +146,37 @@ export function createScheduleMessage(deps: { uow: UnitOfWork<ScheduleMessageTx>
       if (!reach.isOk) {
         return reach;
       }
-      const { schedule, events } = planned.value;
-      await tx.schedules.create(schedule);
+      const { events } = planned.value;
+      const schedule = await sealedSchedule({ tx, held }, { schedule: planned.value.schedule, sealedRequestHash });
+      if (!schedule.isOk) {
+        return schedule;
+      }
+      await tx.schedules.create(schedule.value);
       for (const event of events) {
         await recordEvent({ events: tx.events, ids: deps.ids }, event);
       }
-      if (schedule.nextAttemptAt !== null) {
-        await tx.scheduleNotifier.scheduleDue({ fleetId, scheduleId: schedule.id, attemptAt: schedule.nextAttemptAt });
+      const { nextAttemptAt } = schedule.value;
+      if (nextAttemptAt !== null) {
+        await tx.scheduleNotifier.scheduleDue({ fleetId, scheduleId: schedule.value.id, attemptAt: nextAttemptAt });
       }
-      return ok({ scheduleId: schedule.id });
-    });
+      return ok({ scheduleId: schedule.value.id });
+    }));
   };
+}
+
+/** The schedule as the fleet stores it: sealed in a sealed fleet, under its current data key, with the request hash that leaves the payload out. */
+async function sealedSchedule(deps: { tx: ScheduleMessageTx; held: HeldDataKeys }, planned: { schedule: Schedule; sealedRequestHash: string }): Promise<Result<Schedule, DataKeysNeeded>> {
+  const { schedule, sealedRequestHash } = planned;
+  const { payload } = schedule.send;
+  if (typeof payload !== 'string') {
+    return ok(schedule);
+  }
+  const currentDataKeyId = await deps.tx.sealings.currentDataKeyId(schedule.fleetId);
+  const stored = sealedFor(deps.held, { currentDataKeyId, row: { fleetId: schedule.fleetId, rowId: schedule.id }, payload });
+  if (!stored.isOk) {
+    return stored;
+  }
+  return ok(typeof stored.value === 'string' ? schedule : { ...schedule, send: { ...schedule.send, payload: stored.value }, requestHash: sealedRequestHash });
 }
 
 /**
@@ -168,7 +198,7 @@ async function recipientsNow(
 }
 
 /** The send input as a send checks it, the key, and the hash of the whole request: what a repeat of the key must ask for too. */
-function checkedSchedule({ caller, input, hasher }: { caller: ShipCaller; input: MessageToSchedule; hasher: RequestHasher }): Result<{ send: ScheduledSend; key: string; requestHash: string }, ScheduleMessageRefusal> {
+function checkedSchedule({ caller, input, hasher }: { caller: ShipCaller; input: MessageToSchedule; hasher: RequestHasher }): Result<{ send: ScheduledSend & { payload: string }; key: string; requestHash: string; sealedRequestHash: string }, ScheduleMessageRefusal> {
   if (input.contentType !== undefined && isPingContentType(input.contentType)) {
     return refuse('RESERVED_CONTENT_TYPE', `${PING_CONTENT_TYPE} is reserved for pings: ping a ship from the console`);
   }
@@ -192,18 +222,19 @@ function checkedSchedule({ caller, input, hasher }: { caller: ShipCaller; input:
   if (!stated.isOk) {
     return stated;
   }
-  const send: ScheduledSend = { selector: input.selector, payload: text.value, contentType: mediaType.value, model: input.model ?? null, inReplyTo: input.inReplyTo ?? null, isForced };
-  const requestHash = hasher.hash(
-    JSON.stringify([
-      sendRequestText({ selector: send.selector, payload: send.payload, contentType: send.contentType, inReplyTo: input.inReplyTo, isForced }),
-      ...timingText(input.timing),
-      input.onRefused ?? 'skip',
-      input.retryWindow ?? RETRY_WINDOW_DEFAULT,
-      input.onMissed ?? MISSED_STRATEGY_DEFAULT,
-      input.grace ?? GRACE_DEFAULT,
-    ]),
-  );
-  return ok({ send, key: key.value, requestHash });
+  const send = { selector: input.selector, payload: text.value, contentType: mediaType.value, model: input.model ?? null, inReplyTo: input.inReplyTo ?? null, isForced };
+  const hashOf = (payloadText: string | undefined) =>
+    hasher.hash(
+      JSON.stringify([
+        sendRequestText({ selector: send.selector, payload: payloadText, contentType: send.contentType, inReplyTo: input.inReplyTo, isForced }),
+        ...timingText(input.timing),
+        input.onRefused ?? 'skip',
+        input.retryWindow ?? RETRY_WINDOW_DEFAULT,
+        input.onMissed ?? MISSED_STRATEGY_DEFAULT,
+        input.grace ?? GRACE_DEFAULT,
+      ]),
+    );
+  return ok({ send, key: key.value, requestHash: hashOf(send.payload), sealedRequestHash: hashOf(undefined) });
 }
 
 /** The timing as the request's hash reads it, in a fixed order, its defaults filled in. */

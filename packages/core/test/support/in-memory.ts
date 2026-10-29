@@ -489,7 +489,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       storesPlainPayload: (fleetId) =>
         Promise.resolve(
           state.messages.some((held) => held.fleetId === fleetId && typeof held.payload === 'string') ||
-            state.schedules.some((held) => held.fleetId === fleetId),
+            state.schedules.some((held) => held.fleetId === fleetId && typeof held.send.payload === 'string'),
         ),
       turnOn: (sealing, firstKey) => {
         if (state.dataKeys.some((held) => held.fleetId === firstKey.fleetId && held.isCurrent)) {
