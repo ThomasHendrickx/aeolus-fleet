@@ -1,4 +1,8 @@
-import { CreateKeyCommand, DisableKeyCommand, EnableKeyCommand, KMSClient } from '@aws-sdk/client-kms';
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { CreateKeyCommand, DisableKeyCommand, EnableKeyCommand, KMSClient, ScheduleKeyDeletionCommand } from '@aws-sdk/client-kms';
 import { createIdGenerator, FLEET_HEADER, idSchema, MEETING_ADDED_CONTENT_TYPE, PING_CONTENT_TYPE, SCOPES, WITHDRAWAL_CONTENT_TYPE, type DeliveryId, type FleetId } from '@aeolus-fleet/common';
 import { Decrypter, generateX25519Identity, identityToRecipient } from 'age-encryption';
 import { createTRPCClient, httpBatchLink, TRPCClientError, type TRPCClient } from '@trpc/client';
@@ -6,6 +10,8 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
+import { fleetRecoverKeys } from '../src/adapters/cli/fleet-recover-keys.js';
+import type { CommandIo } from '../src/adapters/cli/io.js';
 import { createAwsKmsKeyVault } from '../src/adapters/kms/aws-kms-key-vault.js';
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
 import { createPrismaTx, createPrismaUnitOfWork, type PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
@@ -988,6 +994,151 @@ describe('the recovery key on Postgres and a LocalStack KMS (decision 0068, B6, 
 
     expect(refusal.code).toBe('BAD_REQUEST');
     expect(await prisma.dataKey.count({ where: { fleetId: fleet.fleetId } })).toBe(0);
+  });
+});
+
+describe('recovery on Postgres and a LocalStack KMS (decision 0068, B15)', () => {
+  /**
+   * A fleet sealed under company key A with a throwaway recovery key, its
+   * data key rotated once, a message sealed under each waiting for scout;
+   * then company key A was scheduled for deletion, so it is lost. The
+   * recovery key's private half is in a file on the company's computer, in
+   * this test only.
+   */
+  async function aFleetThatLostItsCompanyKey() {
+    const fleet = await aHostedFleet();
+    const companyKey = await aKeyBoundTo(fleet.fleetId);
+    const identity = await generateX25519Identity();
+    const identityFile = join(await mkdtemp(join(tmpdir(), 'aeolus-recovery-')), 'recovery-key.txt');
+    await writeFile(identityFile, `# created: 2026-10-29T12:00:00Z\n# public key: ${await identityToRecipient(identity)}\n${identity}\n`, { mode: 0o600 });
+    unwrap(await useCases.turnOnSealing(fleet.argo, { companyKey, recoveryKey: await identityToRecipient(identity) }));
+    const scout = await aCrewedReviewer(fleet, 'scout');
+    const server = aServerAt('2026-10-29T12:00:00.000Z');
+    unwrap(await server.useCases.sendMessage(fleet.argo, aMessageTo(scout.shipId, 'sealed under the first data key')));
+    server.clock.set('2026-11-28T12:00:00.000Z');
+    await server.useCases.rotateDataKeys();
+    unwrap(await server.useCases.sendMessage(fleet.argo, aMessageTo(scout.shipId, 'sealed under the second data key')));
+    await company.send(new ScheduleKeyDeletionCommand({ KeyId: companyKey, PendingWindowInDays: 7 }));
+    const { crewToken, crew } = await aClaimedReviewer(fleet, 'keeper');
+    unwrap(await useCases.grantScopes(fleet.argo, { shipId: crew.shipId, grant: ['fleet:keys'], revoke: [] }));
+    return { ...fleet, companyKey, identity, identityFile, scout, crewToken, keyHolder: client({ authorization: `Bearer ${crewToken}` }) };
+  }
+
+  async function keysOf(fleetId: FleetId) {
+    const [fleet, dataKeys, messages] = await Promise.all([
+      prisma.fleet.findUniqueOrThrow({ where: { id: fleetId }, select: { companyKey: true, recoveryKey: true } }),
+      prisma.dataKey.findMany({ where: { fleetId }, orderBy: { id: 'asc' } }),
+      prisma.message.findMany({ where: { fleetId }, orderBy: { id: 'asc' } }),
+    ]);
+    return { ...fleet, dataKeys, messages };
+  }
+
+  function recordingIo(): CommandIo & { stdout: string[]; stderr: string[] } {
+    const stdout: string[] = [];
+    const stderr: string[] = [];
+    return { stdout, stderr, out: (text) => stdout.push(text), err: (text) => stderr.push(text), ask: () => Promise.resolve(undefined) };
+  }
+
+  /** The company's own KMS, as its credentials on its own computer reach it: not the installation's principal. */
+  const theCompanysKms = () => createAwsKmsKeyVault({ region: REGION, endpoint: localStack.kmsEndpoint, credentials: CREDENTIALS });
+
+  it('scenario 26: given a lost company key and a recovery key, when the company runs the recovery command with its offline key and a new company key, then FleetKeysRecovered is written and every message is received again', async () => {
+    const fleet = await aFleetThatLostItsCompanyKey();
+    const keyB = await aKeyBoundTo(fleet.fleetId);
+    const before = await keysOf(fleet.fleetId);
+    const io = recordingIo();
+
+    const code = await fleetRecoverKeys(['--identity', fleet.identityFile, '--company-key', keyB], {
+      environment: { AEOLUS_URL: address, AEOLUS_CREW_TOKEN: fleet.crewToken },
+      fetch,
+      readFile: (path) => readFile(path, 'utf8'),
+      vaultFor: theCompanysKms,
+      io,
+    });
+
+    expect({ code, stderr: io.stderr }).toEqual({ code: 0, stderr: [] });
+    expect(io.stdout.join('\n')).toContain(`Recovered 2 data keys of fleet ${fleet.fleetId} under ${keyB}`);
+    expect(io.stdout.join('\n')).not.toContain(fleet.identity);
+    const after = await keysOf(fleet.fleetId);
+    expect(after.companyKey).toBe(keyB);
+    expect(after.messages).toEqual(before.messages);
+    expect(after.dataKeys.map(({ id, checkValue, wrappedByRecoveryKey }) => ({ id, checkValue, wrappedByRecoveryKey }))).toEqual(before.dataKeys.map(({ id, checkValue, wrappedByRecoveryKey }) => ({ id, checkValue, wrappedByRecoveryKey })));
+    const events = await prisma.event.findMany({ where: { fleetId: fleet.fleetId, type: 'FleetKeysRecovered' }, select: { actorKind: true, details: true } });
+    expect(events).toEqual([{ actorKind: 'ship', details: { companyKey: keyB } }]);
+    const { deliveries } = unwrap(await aServerAt('2026-11-28T12:00:00.000Z').useCases.receiveDeliveries(fleet.scout, { max: 10 }));
+    expect(deliveries.map(({ payload }) => payload)).toEqual(['sealed under the first data key', 'sealed under the second data key']);
+  });
+
+  it('scenario 27: given a recovery upload with one wrap that opens to another key, then it is refused whole and nothing changes', async () => {
+    const fleet = await aFleetThatLostItsCompanyKey();
+    const keyB = await aKeyBoundTo(fleet.fleetId);
+    const set = await fleet.keyHolder.fleet.recoverySet.query();
+    const companysKms = theCompanysKms();
+    const dataKeys = await Promise.all(
+      set.dataKeys.map(async ({ id, wrappedByRecoveryKey }, index) => {
+        const decrypter = new Decrypter();
+        decrypter.addIdentity(fleet.identity);
+        const material = index === 0 ? new Uint8Array(await decrypter.decrypt(Buffer.from(wrappedByRecoveryKey, 'base64'))) : new Uint8Array(32).fill(7);
+        return { id, wrappedByCompanyKey: Buffer.from(unwrap(await companysKms.wrap({ fleetId: fleet.fleetId, companyKey: keyB }, material))).toString('base64') };
+      }),
+    );
+    const before = await keysOf(fleet.fleetId);
+
+    const refusal = await refusalOfCall(fleet.keyHolder.fleet.recoverKeys.mutate({ companyKey: keyB, dataKeys }));
+
+    expect(refusal.code).toBe('BAD_REQUEST');
+    expect(refusal.message).toContain(`The wrap of data key ${set.dataKeys[1]?.id ?? ''} opens to another key than its check value names`);
+    expect(await keysOf(fleet.fleetId)).toEqual(before);
+    expect(await prisma.event.count({ where: { fleetId: fleet.fleetId, type: 'FleetKeysRecovered' } })).toBe(0);
+  });
+
+  it('scenario 28: given the recovery set, then it holds no data key any Aeolus key can open', async () => {
+    const fleet = await aFleetThatLostItsCompanyKey();
+    const stored = await keysOf(fleet.fleetId);
+    // The installation's grant on a company key that still stands, as the fleet's would.
+    const reachable = await aKeyBoundTo(fleet.fleetId);
+
+    const set = await fleet.keyHolder.fleet.recoverySet.query();
+
+    expect(set).toMatchObject({ fleetId: fleet.fleetId, recoveryKeyFingerprint: expect.stringMatching(/^SHA256:/) });
+    expect(set.dataKeys.map(({ id }) => id)).toEqual(stored.dataKeys.map(({ id }) => id));
+    for (const dataKey of set.dataKeys) {
+      expect(Object.keys(dataKey).sort()).toEqual(['checkValue', 'id', 'wrappedByRecoveryKey']);
+      const wrapped = new Uint8Array(Buffer.from(dataKey.wrappedByRecoveryKey, 'base64'));
+      for (const companyKey of [fleet.companyKey, reachable]) {
+        expect((await keyVault.unwrap({ fleetId: fleet.fleetId, companyKey }, wrapped)).isOk).toBe(false);
+      }
+    }
+  });
+
+  it('refuses a fleet sealed without a recovery key, NO_RECOVERY_KEY', async () => {
+    const fleet = await aSealedFleet();
+
+    const refusal = await refusalOfCall((await aKeyHolder(fleet)).fleet.recoverySet.query());
+
+    expect(refusal.code).toBe('CONFLICT');
+    expect(refusal.message).toContain('was sealed without a recovery key');
+  });
+
+  it('the recovery command refuses an identity that is not the fleet recovery key, before it wraps or uploads anything', async () => {
+    const fleet = await aFleetThatLostItsCompanyKey();
+    const keyB = await aKeyBoundTo(fleet.fleetId);
+    const otherIdentity = await generateX25519Identity();
+    const before = await keysOf(fleet.fleetId);
+    const io = recordingIo();
+
+    const code = await fleetRecoverKeys(['--identity', 'other-key.txt', '--company-key', keyB], {
+      environment: { AEOLUS_URL: address, AEOLUS_CREW_TOKEN: fleet.crewToken },
+      fetch,
+      readFile: () => Promise.resolve(`${otherIdentity}\n`),
+      vaultFor: theCompanysKms,
+      io,
+    });
+
+    expect(code).toBe(1);
+    expect(io.stderr.join('\n')).toContain("other-key.txt is not this fleet's recovery key");
+    expect([...io.stdout, ...io.stderr].join('\n')).not.toContain(otherIdentity);
+    expect(await keysOf(fleet.fleetId)).toEqual(before);
   });
 });
 
