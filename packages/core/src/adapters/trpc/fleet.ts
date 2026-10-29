@@ -1,6 +1,7 @@
 import {
   turnOnSealingInputSchema,
   turnOnSealingOutputSchema,
+  sealingOutputSchema,
   cancelScheduleInputSchema,
   cancelScheduleOutputSchema,
   pauseScheduleInputSchema,
@@ -536,6 +537,26 @@ export const fleetRouter = router({
       const turnedOn = okOrThrow(await ctx.useCases.turnOnSealing(ctx.caller, input));
       ctx.log.info({ fleetId: ctx.caller.fleetId, companyKey: turnedOn.companyKey, state: turnedOn.state }, 'sealing turned on');
       return turnedOn;
+    }),
+
+  /**
+   * The fleet's sealing (decision 0068, B5, B11): none, or its state, its
+   * company key by reference, whether that key answered its last unwrap and
+   * since when, and its data keys' ages. Never a key.
+   */
+  sealing: actorScopedProcedure('fleet:read')
+    .output(sealingOutputSchema)
+    .query(async ({ ctx }) => {
+      const sealing = await ctx.useCases.readSealing(ctx.caller);
+      if (sealing.state === 'none') {
+        return sealing;
+      }
+      const { keyAvailability, dataKeys } = sealing;
+      return {
+        ...sealing,
+        keyAvailability: { ...keyAvailability, since: keyAvailability.since.toISOString() },
+        dataKeys: dataKeys.map((dataKey) => ({ ...dataKey, createdAt: dataKey.createdAt.toISOString() })),
+      };
     }),
 
   /**

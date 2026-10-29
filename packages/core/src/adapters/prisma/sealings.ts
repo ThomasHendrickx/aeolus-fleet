@@ -71,6 +71,10 @@ export function createPrismaFleetSealingRepository(db: Db): FleetSealingReposito
       });
       await db.dataKey.create({ data: firstKey });
     },
+    dataKeyAges: async (fleetId) => {
+      const rows = await db.dataKey.findMany({ where: { fleetId }, orderBy: { id: 'asc' }, select: { id: true, createdAt: true, isCurrent: true } });
+      return rows.map((row) => ({ ...row, id: idSchema('dataKey').parse(row.id) }));
+    },
     currentDataKeyId: async (fleetId) => {
       const row = await db.dataKey.findFirst({ where: { fleetId, isCurrent: true }, select: { id: true } });
       return row === null ? undefined : idSchema('dataKey').parse(row.id);

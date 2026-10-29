@@ -87,6 +87,7 @@ import { createResendDelivery, type ResendDelivery } from './domain/messaging/re
 import { createPingShip, type PingShip } from './domain/messaging/ping-ship.js';
 import { createSendMessage, type SendMessage } from './domain/messaging/send-message.js';
 import { createTurnOnSealing, type TurnOnSealing } from './domain/messaging/turn-on-sealing.js';
+import { createReadSealing, type ReadSealing } from './domain/messaging/read-sealing.js';
 import { createFleetDataKeys } from './domain/messaging/data-keys.js';
 import type { KeyVault } from './domain/messaging/key-vault.js';
 import { aesGcmPayloadSealer } from './adapters/crypto/payload-sealer.js';
@@ -264,6 +265,7 @@ export interface UseCases {
   deregister: Deregister;
   sendMessage: SendMessage;
   turnOnSealing: TurnOnSealing;
+  readSealing: ReadSealing;
   openMeeting: OpenMeeting;
   readMeeting: ReadMeeting;
   changeMic: ChangeMic;
@@ -499,6 +501,7 @@ export function createUseCases(options: {
     deregister: createDeregister({ uow, clock, ids }),
     sendMessage: createSendMessage({ uow, clock, ids, hasher: sha256Hasher, sealing }),
     turnOnSealing: createTurnOnSealing({ uow, clock, ids, vault: keyVault, sealer: aesGcmPayloadSealer, sealings }),
+    readSealing: createReadSealing({ sealings }),
     openMeeting: createOpenMeeting({ uow, clock, ids, hasher: sha256Hasher, sealing }),
     readMeeting: createReadMeeting({ uow, sealing }),
     changeMic: createChangeMic({ uow, clock, ids, hasher: sha256Hasher, sealing }),

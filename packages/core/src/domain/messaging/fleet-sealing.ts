@@ -38,3 +38,6 @@ export interface StoredDataKey {
   /** One current per fleet: the key that seals; old ones only unseal. */
   isCurrent: boolean;
 }
+
+/** A data key as the fleet's sealing read shows it: its id, when it was made and whether it seals now. */
+export type DataKeyAge = Pick<StoredDataKey, 'id' | 'createdAt' | 'isCurrent'>;

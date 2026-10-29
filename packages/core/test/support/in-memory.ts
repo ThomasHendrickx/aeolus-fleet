@@ -491,6 +491,8 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         state.dataKeys.push(structuredClone(firstKey));
         return Promise.resolve();
       },
+      dataKeyAges: (fleetId) =>
+        Promise.resolve(state.dataKeys.filter((held) => held.fleetId === fleetId).map(({ id, createdAt, isCurrent }) => ({ id, createdAt: new Date(createdAt), isCurrent }))),
       currentDataKeyId: (fleetId) => Promise.resolve(state.dataKeys.find((held) => held.fleetId === fleetId && held.isCurrent)?.id),
       changeKeyAvailability: (fleetId, availability) => {
         const sealing = state.fleetSealings.find((held) => held.fleetId === fleetId);

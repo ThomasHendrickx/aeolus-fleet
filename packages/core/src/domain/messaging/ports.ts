@@ -1,7 +1,7 @@
 import type { DataKeyId, DeliveryId, FleetId, LeaseId, MeetingId, MessageId, ScheduleId, ScheduleState, ShipId } from '@aeolus-fleet/common';
 
 import type { Page, PageQuery } from '../shared/page.js';
-import type { FleetSealing, KeyAvailability, StoredDataKey } from './fleet-sealing.js';
+import type { DataKeyAge, FleetSealing, KeyAvailability, StoredDataKey } from './fleet-sealing.js';
 import type { CompanyKeyReference } from './key-vault.js';
 import type { Meeting } from './meeting.js';
 import type { Delivery, Message } from './message.js';
@@ -288,6 +288,8 @@ export interface FleetSealingRepository {
   storesPlainPayload(fleetId: FleetId): Promise<boolean>;
   /** Marks the fleet sealing or sealed under its company key, with its first data key, current. */
   turnOn(sealing: FleetSealing, firstKey: StoredDataKey): Promise<void>;
+  /** The fleet's data keys, oldest first, each with when it was made and whether it is current: never a wrap. */
+  dataKeyAges(fleetId: FleetId): Promise<DataKeyAge[]>;
   /** The id of the fleet's current data key: the one that seals; none while it is not sealed. */
   currentDataKeyId(fleetId: FleetId): Promise<DataKeyId | undefined>;
   /**
