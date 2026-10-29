@@ -113,10 +113,12 @@ export function SealingKeys({ sealing, now, onChangeCompanyKey, onChangeRecovery
             </KeyRow>
           )}
           <KeyRow name="Company key" action={onChangeCompanyKey === undefined ? undefined : <KeyAction label="Change company key…" testId="sealing-change-company-key" onClick={onChangeCompanyKey} />}>
-            <span className="min-w-0 truncate font-mono text-id" title={companyKey} data-testid="sealing-company-key">
-              {shortCompanyKey(companyKey)}
+            <span className="flex min-w-0 items-center gap-2 max-sm:w-full">
+              <span className="min-w-0 truncate font-mono text-id" title={companyKey} data-testid="sealing-company-key">
+                {shortCompanyKey(companyKey)}
+              </span>
+              <CopyButton value={companyKey} label="Copy key reference" size="xs" />
             </span>
-            <CopyButton value={companyKey} label="Copy key reference" size="xs" />
             <span className="text-meta text-muted-foreground max-sm:hidden">AWS KMS</span>
             <span className="flex w-full flex-wrap items-center gap-2 sm:hidden">
               <Availability keyAvailability={keyAvailability} now={now} />

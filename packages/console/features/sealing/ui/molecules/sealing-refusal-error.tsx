@@ -2,6 +2,7 @@ import type { FleetId } from '@aeolus-fleet/common';
 
 import { InlineError } from '../../../../components/molecules/inline-error';
 import type { SealingRefusal } from '../../services/sealing-refusal';
+import { shortened } from '../../services/sealing-view';
 import { keyCondition } from './key-condition';
 
 /** Why a key change was refused, inline in its dialog, saying nothing changed and what to do (sealing page mockup). */
@@ -13,7 +14,11 @@ export function SealingRefusalError({ refusal, fleetId, failed }: { refusal: Sea
           title="The key’s policy doesn’t name this fleet"
           description={
             <>
-              Add the condition <span className="font-mono">{keyCondition(fleetId)}</span> to it and try again. Nothing changed.
+              Add the condition{' '}
+              <span className="font-mono" title={keyCondition(fleetId)}>
+                aeolus:fleet = {shortened(fleetId)}
+              </span>{' '}
+              to it and try again. Nothing changed.
             </>
           }
         />
