@@ -485,4 +485,22 @@ describe('the kill switch on Postgres and a LocalStack KMS (decision 0068, B9, B
     expect(await prisma.event.count({ where: { fleetId: fleet.fleetId, type: 'ScheduledSendRefused' } })).toBe(1);
     expect(await prisma.message.count({ where: { fleetId: fleet.fleetId, scheduleId } })).toBe(0);
   });
+
+  it("fleet.sealing reads the state, the company key, its availability since when and the data keys' ages, never a key", async () => {
+    const fleet = await aSealedFleetWithItsKey();
+    const scout = await aCrewedReviewer(fleet, 'scout');
+    const server = aServerAt('2026-10-29T12:00:00.000Z');
+    await disableKey(fleet.companyKey);
+    refusalOf(await server.useCases.sendMessage(fleet.argo, aMessageTo(scout.shipId)));
+    const [dataKey] = await prisma.dataKey.findMany({ where: { fleetId: fleet.fleetId } });
+
+    const sealing = await installationIn(fleet.fleetId).fleet.sealing.query();
+
+    expect(sealing).toEqual({
+      state: 'sealed',
+      companyKey: fleet.companyKey,
+      keyAvailability: { isAvailable: false, reason: 'disabled', since: '2026-10-29T12:00:00.000Z' },
+      dataKeys: [{ id: dataKey?.id, createdAt: dataKey?.createdAt.toISOString(), isCurrent: true }],
+    });
+  });
 });
