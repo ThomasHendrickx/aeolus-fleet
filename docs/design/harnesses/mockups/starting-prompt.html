@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Starting prompt: Copilot and Cursor crew lines (S6, S11)</title>
+<style>:root {
+  --background:oklch(0.99 0.002 247);
+  --card:oklch(1 0 0);
+  --popover:oklch(1 0 0);
+  --muted:oklch(0.967 0.005 247);
+  --secondary:oklch(0.955 0.007 247);
+  --accent:oklch(0.95 0.009 247);
+  --sidebar:oklch(0.976 0.004 247);
+  --highlight:oklch(0.95 0.035 250);
+  --overlay:oklch(0.2 0.02 257 / 0.42);
+  --foreground:oklch(0.22 0.02 257);
+  --muted-foreground:oklch(0.5 0.02 257);
+  --destructive-text:oklch(0.53 0.2 27);
+  --border:oklch(0.912 0.008 247);
+  --input:oklch(0.885 0.01 247);
+  --ring:oklch(0.56 0.12 257);
+  --primary:oklch(0.34 0.08 257);
+  --primary-hover:oklch(0.29 0.075 257);
+  --primary-foreground:oklch(0.985 0.003 247);
+  --destructive:oklch(0.53 0.2 27);
+  --destructive-foreground:oklch(0.99 0 0);
+  --tone-waiting-bg:oklch(0.965 0.045 85);
+  --tone-waiting-fg:oklch(0.47 0.1 62);
+  --tone-waiting-border:oklch(0.87 0.08 80);
+  --tone-active-bg:oklch(0.955 0.03 250);
+  --tone-active-fg:oklch(0.45 0.14 257);
+  --tone-active-border:oklch(0.86 0.06 252);
+  --tone-ok-bg:oklch(0.96 0.04 155);
+  --tone-ok-fg:oklch(0.44 0.1 155);
+  --tone-ok-border:oklch(0.86 0.07 155);
+  --tone-attention-bg:oklch(0.957 0.028 25);
+  --tone-attention-fg:oklch(0.5 0.19 27);
+  --tone-attention-border:oklch(0.86 0.07 25);
+  --tone-ended-bg:oklch(0.957 0.005 247);
+  --tone-ended-fg:oklch(0.47 0.015 257);
+  --tone-ended-border:oklch(0.87 0.01 247);
+  --card-foreground:var(--foreground);
+  --popover-foreground:var(--foreground);
+  --secondary-foreground:var(--foreground);
+  --accent-foreground:var(--foreground);
+  --sidebar-foreground:var(--foreground);
+  --font-sans:var(--font-geist-sans, "Geist"), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono:var(--font-geist-mono, "Geist Mono"), ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --shadow-sm:0 1px 2px oklch(0.2 0.02 257 / 0.06);
+  --shadow-md:0 2px 6px oklch(0.2 0.02 257 / 0.08);
+  --shadow-lg:0 16px 40px oklch(0.2 0.02 257 / 0.16), 0 2px 8px oklch(0.2 0.02 257 / 0.08);
+  --radius:8px;
+  --radius-xs:4px;
+  --radius-sm:6px;
+  --radius-md:8px;
+  --radius-lg:10px;
+  --radius-xl:12px;
+  --radius-2xl:18px;
+  --radius-full:9999px;
+  --spacing:4px;
+  --text-micro:11px;
+  --text-micro--line-height:14px;
+  --text-caption:12px;
+  --text-caption--line-height:16px;
+  --text-meta:13px;
+  --text-meta--line-height:18px;
+  --text-body:14px;
+  --text-body--line-height:20px;
+  --text-section:15px;
+  --text-section--line-height:20px;
+  --text-body-touch:15px;
+  --text-body-touch--line-height:22px;
+  --text-input-touch:16px;
+  --text-input-touch--line-height:24px;
+  --text-heading:18px;
+  --text-heading--line-height:24px;
+  --text-heading-touch:20px;
+  --text-heading-touch--line-height:26px;
+  --text-title:22px;
+  --text-title--line-height:28px;
+  --text-title-touch:24px;
+  --text-title-touch--line-height:30px;
+  --text-metric:28px;
+  --text-metric--line-height:32px;
+  --text-id:12px;
+  --text-id--line-height:16px;
+  --text-code:13px;
+  --text-code--line-height:20px;
+  --size-control-xs:28px;
+  --size-control-sm:32px;
+  --size-control:36px;
+  --size-control-touch:44px;
+  --size-row-header:40px;
+  --size-row:48px;
+  --size-sidebar:256px;
+  --size-rail:64px;
+  --size-header:56px;
+  --size-tabbar:68px;
+  --size-dialog-sm:512px;
+  --size-dialog-md:560px;
+  --size-palette:600px;
+  --size-sheet:560px;
+  --size-toast:380px;
+  --size-icon-sm:14px;
+  --size-icon:16px;
+  --size-icon-lg:20px;
+  --size-icon-tab:22px;
+  --size-icon-xl:24px;
+  --duration-fast:150ms;
+  --duration-base:200ms;
+  --duration-slow:300ms;
+  --duration-highlight:600ms;
+  --duration-pulse:1800ms;
+  --ease-standard:cubic-bezier(0.2, 0, 0, 1);
+  --ease-exit:cubic-bezier(0.4, 0, 1, 1);
+}
+
+.dark {
+  color-scheme:dark;
+  --background:oklch(0.172 0.012 257);
+  --card:oklch(0.2 0.013 257);
+  --popover:oklch(0.215 0.013 257);
+  --muted:oklch(0.228 0.012 257);
+  --secondary:oklch(0.255 0.013 257);
+  --accent:oklch(0.26 0.014 257);
+  --sidebar:oklch(0.19 0.012 257);
+  --highlight:oklch(0.27 0.045 255);
+  --overlay:oklch(0.08 0.01 257 / 0.62);
+  --foreground:oklch(0.955 0.005 247);
+  --muted-foreground:oklch(0.72 0.016 257);
+  --destructive-text:oklch(0.7 0.16 25);
+  --border:oklch(0.29 0.014 257);
+  --input:oklch(0.34 0.015 257);
+  --ring:oklch(0.7 0.1 252);
+  --primary:oklch(0.86 0.055 250);
+  --primary-hover:oklch(0.92 0.035 250);
+  --primary-foreground:oklch(0.21 0.035 257);
+  --destructive:oklch(0.56 0.19 25);
+  --destructive-foreground:oklch(0.99 0 0);
+  --tone-waiting-bg:oklch(0.29 0.055 72);
+  --tone-waiting-fg:oklch(0.87 0.11 82);
+  --tone-waiting-border:oklch(0.41 0.075 72);
+  --tone-active-bg:oklch(0.29 0.06 257);
+  --tone-active-fg:oklch(0.85 0.08 252);
+  --tone-active-border:oklch(0.42 0.09 257);
+  --tone-ok-bg:oklch(0.29 0.05 155);
+  --tone-ok-fg:oklch(0.86 0.1 155);
+  --tone-ok-border:oklch(0.41 0.07 155);
+  --tone-attention-bg:oklch(0.3 0.07 25);
+  --tone-attention-fg:oklch(0.84 0.09 25);
+  --tone-attention-border:oklch(0.45 0.11 25);
+  --tone-ended-bg:oklch(0.255 0.01 257);
+  --tone-ended-fg:oklch(0.78 0.015 257);
+  --tone-ended-border:oklch(0.36 0.012 257);
+  --shadow-sm:0 1px 2px oklch(0 0 0 / 0.3);
+  --shadow-md:0 2px 6px oklch(0 0 0 / 0.35);
+  --shadow-lg:0 16px 40px oklch(0 0 0 / 0.55), 0 2px 8px oklch(0 0 0 / 0.3);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:#e9e7ef}html.dark{background:#0b0d12}
+body{font-family:var(--font-sans);color:var(--foreground);font-size:14px;line-height:20px;-webkit-font-smoothing:antialiased}
+.i{width:var(--size-icon);height:var(--size-icon);fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.i.sm{width:var(--size-icon-sm);height:var(--size-icon-sm)}.i.lg{width:var(--size-icon-lg);height:var(--size-icon-lg)}.i.xl{width:var(--size-icon-xl);height:var(--size-icon-xl)}
+.mono{font-family:var(--font-mono);font-size:var(--text-id);line-height:var(--text-id--line-height)}
+.code{font-family:var(--font-mono);font-size:var(--text-code);line-height:var(--text-code--line-height)}
+.meta{font-size:var(--text-meta);line-height:var(--text-meta--line-height);color:var(--muted-foreground)}
+.cap{font-size:var(--text-caption);line-height:var(--text-caption--line-height)}
+.fg{color:var(--foreground)}.mute{color:var(--muted-foreground)}.w5{font-weight:500}.w6{font-weight:600}
+.row{display:flex;align-items:center;gap:8px;min-width:0}.g15{gap:6px}.g3{gap:12px}.wrap{flex-wrap:wrap}.end{margin-left:auto}
+.col{display:flex;flex-direction:column;min-width:0}.col.g2{gap:8px}.col.g3{gap:12px}.col.g4{gap:16px}
+.trunc{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* mockup sheet */
+.doc{padding:28px 32px 64px;display:flex;flex-direction:column;gap:36px;max-width:1720px;margin:0 auto}
+.doc>header{display:flex;flex-direction:column;gap:6px}
+.doc h1{font-size:24px;line-height:30px;font-weight:600}
+.doc .lede{color:var(--muted-foreground);max-width:900px}
+.theme{display:flex;gap:4px;margin-top:6px;align-items:center;flex-wrap:wrap}
+.theme button{font:inherit;font-size:13px;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--foreground);cursor:pointer}
+.theme button[aria-pressed=true]{background:var(--primary);color:var(--primary-foreground);border-color:var(--primary)}
+.key{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted-foreground);margin-left:12px}
+.key i{display:inline-block;width:22px;height:14px;border:2px dashed #e0287d;border-radius:3px}
+.scene{display:flex;flex-direction:column;gap:14px}
+.scene>h2{font-size:18px;line-height:24px;font-weight:600}
+.scene>p{font-size:13px;color:var(--muted-foreground)}
+.state{display:flex;flex-direction:column;gap:8px}
+.state>.label{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.state>.label b{font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--foreground);color:var(--background)}
+.state>.label b.after{background:#e0287d;color:#fff}
+.state>.label span{font-size:13px;color:var(--muted-foreground)}
+.frames{display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap}
+.chg{outline:2px dashed #e0287d;outline-offset:3px;border-radius:4px;position:relative}
+.chg::after{content:attr(data-chg);position:absolute;top:-11px;right:-4px;background:#e0287d;color:#fff;font:600 10px/14px var(--font-sans);padding:1px 6px;border-radius:999px;white-space:nowrap;pointer-events:none;z-index:2}
+/* parts */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:var(--size-control);padding:0 14px;border-radius:var(--radius-md);border:1px solid var(--input);background:var(--card);color:var(--foreground);font:500 14px/20px var(--font-sans)}
+.btn.primary{background:var(--primary);color:var(--primary-foreground);border-color:var(--primary)}
+.btn.primary[disabled]{opacity:.5}
+.btn.xs{height:var(--size-control-xs);padding:0 8px;font-size:12px;border-color:transparent;background:transparent;color:var(--muted-foreground)}
+.codeblock{overflow:hidden;border-radius:var(--radius-lg);border:1px solid var(--border);background:var(--muted)}
+.codeblock .hd{height:36px;display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:1px solid var(--border);padding:0 6px 0 12px}
+.codeblock .hd>span{display:flex;align-items:center;gap:6px;min-width:0;font-size:var(--text-caption);line-height:var(--text-caption--line-height);color:var(--muted-foreground)}
+.codeblock pre{padding:12px;font-family:var(--font-mono);font-size:var(--text-code);line-height:var(--text-code--line-height);white-space:pre-wrap;word-break:break-all;color:var(--foreground)}
+.note{display:flex;gap:8px;border-radius:var(--radius-lg);border:1px solid var(--border);background:var(--muted);padding:8px 12px;font-size:var(--text-meta);line-height:var(--text-meta--line-height)}
+.waiting{border-radius:var(--radius-lg);border:1px solid var(--tone-waiting-border);background:var(--tone-waiting-bg);color:var(--tone-waiting-fg);padding:8px 12px;font-size:var(--text-meta);line-height:var(--text-meta--line-height)}
+.err{display:flex;gap:10px;border-radius:var(--radius-lg);border:1px solid var(--tone-attention-border);background:var(--tone-attention-bg);color:var(--tone-attention-fg);padding:12px}
+.err b{display:block;font-weight:600}
+.err p{font-size:var(--text-meta);line-height:var(--text-meta--line-height)}
+.sk{border-radius:var(--radius-lg);background:var(--secondary);animation:pulse var(--duration-pulse) ease-in-out infinite}
+@keyframes pulse{50%{opacity:.55}}
+@media (prefers-reduced-motion:reduce){.sk{animation:none}}
+.link{text-decoration:underline;text-underline-offset:2px;color:inherit}
+.badge{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;border:1px solid}
+.badge.ok{background:var(--tone-ok-bg);color:var(--tone-ok-fg);border-color:var(--tone-ok-border)}
+.badge.waiting{background:var(--tone-waiting-bg);color:var(--tone-waiting-fg);border-color:var(--tone-waiting-border);padding:0 8px}
+.loc{display:inline-flex;min-width:0;align-items:center;gap:6px;color:var(--muted-foreground)}
+.loc.md{font-size:var(--text-body)}.loc.sm{font-size:var(--text-meta)}
+.loc .i{width:var(--size-icon-sm);height:var(--size-icon-sm)}
+.loc .n{color:var(--foreground)}
+span.chg{outline:none;border:1.5px dashed #e0287d;border-radius:3px;background:color-mix(in oklch,#e0287d 10%,transparent);-webkit-box-decoration-break:clone;box-decoration-break:clone;padding:0 2px}
+span.chg::after{display:none}
+.desk{width:820px;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--background);position:relative;padding:40px 0;display:flex;justify-content:center;box-shadow:var(--shadow-md)}
+.desk::before{content:'';position:absolute;inset:0;background:var(--overlay);z-index:1}
+.behind{position:absolute;inset:24px 32px;display:flex;flex-direction:column;gap:14px}
+.bar{height:14px;width:40%;border-radius:4px;background:var(--secondary)}.bar.w{width:70%}
+.dlg{position:relative;z-index:2;width:var(--size-dialog-md);background:var(--popover);border:1px solid var(--border);border-radius:var(--radius-xl);box-shadow:var(--shadow-lg);padding:24px;display:flex;flex-direction:column;gap:16px}
+.dlg.full{width:100%;min-height:100%;border:0;border-radius:0;box-shadow:none;padding:20px 16px}
+.dfoot{justify-content:flex-end}
+.dlg.full .dfoot{position:sticky;bottom:0;background:var(--popover);padding-top:12px;border-top:1px solid var(--border)}
+.dlg.full .dfoot .btn{flex:1;height:var(--size-control-touch)}
+.phone{width:390px;min-height:780px;border:1px solid var(--border);border-radius:28px;overflow:hidden;background:var(--popover);display:flex;flex-direction:column;box-shadow:var(--shadow-md)}
+</style></head><body>
+<div class="doc"><header><h1>Starting prompt: Copilot and Cursor crew lines (S6, S11)</h1><p class="lede">StartingPromptDialog with its CrewLineBlocks. S6 adds Copilot’s line, S11 Cursor’s, each after Codex’s. Each line comes only once its harness wakes by hand (CC12); its exact text is set when that slice proves the wake. Desktop dialog, phone full screen.</p>
+<div class="theme"><button data-theme="light" aria-pressed="true" onclick="setTheme('light')">Light</button><button data-theme="dark" aria-pressed="false" onclick="setTheme('dark')">Dark</button><span class="key"><i></i>what changed</span></div></header>
+<div id="scenes" class="col" style="gap:40px"></div></div>
+<script>const PATHS = {
+  terminal: '<path d="m7 11 2-2-2-2"/><path d="M11 13h4"/><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>',
+  copy: '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+  alert: '<circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>',
+  retry: '<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>',
+  x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  laptop: '<path d="M18 5a2 2 0 0 1 2 2v8.526a2 2 0 0 0 .212.897l1.068 2.127a1 1 0 0 1-.9 1.45H3.62a1 1 0 0 1-.9-1.45l1.068-2.127A2 2 0 0 0 4 15.526V7a2 2 0 0 1 2-2z"/><path d="M20.054 15.987H3.946"/>',
+  cloud: '<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>',
+  server: '<rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/>',
+  pin: '<path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>',
+  chat: '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>',
+  window: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="M10 4v4"/><path d="M2 8h20"/><path d="M6 4v4"/>',
+  bot: '<path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/>',
+  usercheck: '<path d="m16 11 2 2 4-4"/><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>',
+  ship: '<path d="M12 10.189V14"/><path d="M12 2v3"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-8.188-3.639a2 2 0 0 0-1.624 0L3 14a11.6 11.6 0 0 0 2.81 7.76"/><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1s1.2 1 2.5 1c2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>',
+  chevron: '<path d="m9 18 6-6-6-6"/>',
+};
+const ic = (name, cls = '') => `<svg class="i ${cls}" viewBox="0 0 24 24" aria-hidden="true">${PATHS[name]}</svg>`;
+/** Wraps html in the change box when a label is given. */
+const chg = (html, label) => (label ? `<div class="chg" data-chg="${label}">${html}</div>` : html);
+const chgIn = (html, label) => (label ? `<span class="chg" data-chg="${label}">${html}</span>` : html);
+function setTheme(theme) {
+  document.documentElement.classList.toggle('dark', theme === 'dark');
+  document.querySelectorAll('.theme button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.theme === theme)));
+}
+function state(tag, isAfter, text, frames) {
+  return `<div class="state"><div class="label"><b class="${isAfter ? 'after' : ''}">${tag}</b><span>${text}</span></div><div class="frames">${frames}</div></div>`;
+}
+const SHIP = 'reviewer-01';
+const SHIP_ID = 'shp_01j8xk4t9qf3m2n9xw5r6ryb4c';
+const SECRET = 'aeolus_sk_v1_3Vn8Qe1Rt6Yu9Io2Pa5Sd7Fg';
+const IDENTITY = `https://fleet.example.com ${SHIP_ID} ${SECRET}`;
+
+/** What each phase adds: the harnesses with a crew line, and how the copy names them. */
+const PHASES = {
+  before: { added: [], list: 'Claude Code or Codex', pasters: 'Claude Code and Codex', installs: ['Claude Code', 'Codex'] },
+  s6: { added: ['copilot'], list: 'Claude Code, Codex or Copilot', pasters: 'Claude Code, Codex and Copilot', installs: ['Claude Code', 'Codex', 'Copilot'] },
+  s11: { added: ['copilot', 'cursor'], list: 'Claude Code, Codex, Copilot or Cursor', pasters: 'Claude Code, Codex, Copilot and Cursor', installs: ['Claude Code', 'Codex', 'Copilot', 'Cursor'] },
+};
+const LINES = [
+  { harness: 'claude-code', word: 'Claude Code', line: `/aeolus-fleet:crew ${IDENTITY}` },
+  { harness: 'codex', word: 'Codex', line: `$aeolus-fleet-crew ${IDENTITY}` },
+  { harness: 'copilot', word: 'Copilot', line: `/aeolus-fleet-crew ${IDENTITY}`, mark: 'S6: new line' },
+  { harness: 'cursor', word: 'Cursor', line: `/aeolus-fleet-crew ${IDENTITY}`, mark: 'S11: new line' },
+];
+const markFor = (phase) => (phase === 'before' ? null : phase === 's6' ? 'S6' : 'S11');
+
+function codeBlock(label, code, copied = false) {
+  return `<div class="codeblock"><div class="hd"><span>${ic('terminal', 'sm')}<span class="trunc">${label}</span></span>
+    <button class="btn xs">${copied ? ic('check', 'sm') + 'Copied' : ic('copy', 'sm') + 'Copy'}</button></div><pre>${code}</pre></div>`;
+}
+
+function prompt(phase) {
+  const p = PHASES[phase];
+  const last = chgIn(`Not a chat? ${p.pasters} paste their crew line instead; another agent calls register with its own location and harness.`, markFor(phase));
+  return [
+    'You crew a ship in an Aeolus fleet, from this chat.',
+    '',
+    'Fleet MCP URL: https://fleet.example.com/mcp',
+    `Ship id: ${SHIP_ID}`,
+    `Ship secret: ${SECRET}`,
+    '',
+    "Connect the fleet's MCP server at that URL in this chat app as a remote MCP server or connector, without auth, if it is not connected yet.",
+    'Then call register with that ship id and secret, location CLOUD, and harness chatgpt or claude-chat, whichever chat you are.',
+    'register answers your crew token only once: keep it in this conversation and pass it to every later call. Never call register again: a CONFLICT on register means the ship is crewed already, not a reason to retry.',
+    '',
+    last,
+  ].join('\n');
+}
+
+function installLine(phase) {
+  const names = PHASES[phase].installs;
+  const links = names.map((n, i) => `<a class="link" href="#">${i === 0 ? 'install it in ' + n : 'in ' + n}</a>`);
+  const joined = links.length === 2 ? `${links[0]} or ${links[1]}` : `${links.slice(0, -1).join(', ')} or ${links[links.length - 1]}`;
+  return chg(`<p class="meta">A crew line needs the Aeolus Fleet plugin, installed once per computer: ${joined}.</p>`, markFor(phase));
+}
+
+function crewLines(phase, copiedHarness) {
+  const shown = LINES.filter((l) => l.harness === 'claude-code' || l.harness === 'codex' || PHASES[phase].added.includes(l.harness));
+  return shown
+    .map((l) => {
+      const block = codeBlock(`Crew line, ${l.word} with the Aeolus Fleet plugin`, l.line, l.harness === copiedHarness);
+      const isNewHere = (phase === 's6' && l.harness === 'copilot') || (phase === 's11' && l.harness === 'cursor');
+      return isNewHere ? chg(block, l.mark) : block;
+    })
+    .join('');
+}
+
+/** The dialog's body for one state. */
+function body(phase, st) {
+  const p = PHASES[phase];
+  const desc = `<p class="meta">Paste the crew instructions into a chat (ChatGPT, Claude chat), or a crew line into ${chgIn(p.list, markFor(phase))} with the Aeolus Fleet plugin. Any earlier prompt for ${SHIP} stops working now. <a class="link" href="#">Connect a ChatGPT chat</a>.</p>`;
+  let main = '';
+  let footer = `<button class="btn primary">Done</button>`;
+  if (st === 'issuing') {
+    main = `<div class="col g3" aria-busy="true"><div class="sk" style="height:40px"></div><div class="sk" style="height:160px"></div></div>`;
+    footer = `<button class="btn primary" disabled>Done</button>`;
+  } else if (st === 'error') {
+    main = `<div class="err">${ic('alert')}<div><b>Couldn’t issue a starting prompt</b><p>The server did not answer. No new secret was created; any earlier prompt still works.</p></div></div>`;
+    footer = `<button class="btn">Close</button><button class="btn primary">${ic('retry', 'sm')}Try again</button>`;
+  } else {
+    const replaces = st === 'replaces' ? `<p class="waiting">This prompt stops the one issued <time>28 Oct, 14:02</time> working.</p>` : '';
+    const failed = st === 'copyFailed' ? `<p class="row g15 meta" style="color:var(--destructive-text)">${ic('alert', 'sm')}Could not copy: select the text and copy it by hand.</p>` : '';
+    main = `${replaces}<p class="note">${ic('info', 'sm mute')}<span><span class="w5">Shown once. Copy it now.</span> If you lose it, get a new one; this one then stops working.</span></p>
+      ${codeBlock(`Crew instructions for a chat, for ${SHIP}`, prompt(phase))}
+      ${crewLines(phase, st === 'copied' ? (phase === 's11' ? 'cursor' : phase === 's6' ? 'copilot' : 'codex') : null)}
+      ${installLine(phase)}${failed}`;
+  }
+  return { desc, main, footer };
+}
+
+function dialog(phase, st, isPhone) {
+  const { desc, main, footer } = body(phase, st);
+  const title = isPhone ? 'font-size:var(--text-heading-touch);line-height:var(--text-heading-touch--line-height)' : 'font-size:var(--text-heading);line-height:var(--text-heading--line-height)';
+  return `<div class="dlg ${isPhone ? 'full' : ''}">
+    <div class="col g2"><div class="row"><h3 class="w6" style="${title}">Starting prompt for ${SHIP}</h3><span class="end mute">${ic('x')}</span></div>${desc}</div>
+    <div class="col g3 dbody">${main}</div>
+    <div class="row dfoot">${footer}</div></div>`;
+}
+
+const desk = (phase, st) => `<div class="desk"><div class="behind"><div class="bar"></div><div class="bar w"></div><div class="bar"></div></div>${dialog(phase, st, false)}</div>`;
+const phone = (phase, st) => `<div class="phone">${dialog(phase, st, true)}</div>`;
+const pair = (phase, st) => desk(phase, st) + phone(phase, st);
+
+document.getElementById('scenes').innerHTML = [
+  `<section class="scene"><h2>Shown, once</h2>
+    ${state('Before', false, 'Two crew lines: Claude Code, Codex.', pair('before', 'shown'))}
+    ${state('After S6', true, 'Copilot’s line after Codex’s; the copy names Copilot.', pair('s6', 'shown'))}
+    ${state('After S11', true, 'Cursor’s line after Copilot’s.', pair('s11', 'shown'))}</section>`,
+  `<section class="scene"><h2>Copied</h2><p>Each line keeps its own copy button.</p>
+    ${state('After S11', true, 'The Cursor line copied.', pair('s11', 'copied'))}</section>`,
+  `<section class="scene"><h2>Could not copy</h2>
+    ${state('After S11', true, 'Same message, under the install line.', pair('s11', 'copyFailed'))}</section>`,
+  `<section class="scene"><h2>Replaces an unclaimed prompt</h2>
+    ${state('After S11', true, 'Notice unchanged.', pair('s11', 'replaces'))}</section>`,
+  `<section class="scene"><h2>Issuing (loading)</h2>
+    ${state('Before = after', false, 'Unchanged in S6 and S11.', pair('before', 'issuing'))}</section>`,
+  `<section class="scene"><h2>Error</h2>
+    ${state('Before = after', false, 'Unchanged in S6 and S11.', pair('before', 'error'))}</section>`,
+  `<section class="scene"><h2>Empty</h2><p>None: opening the dialog always issues a prompt. A ship with no prompt out shows its status on the ship page, unchanged.</p></section>`,
+].join('');
+</script></body></html>
