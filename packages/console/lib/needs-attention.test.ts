@@ -25,6 +25,7 @@ function anUndeliverable(recipient: NeedsAttentionDelivery['message']['recipient
       contentType: 'application/json',
       isPing: false,
       payload: '{"run":"e2e","ref":"pr-320"}',
+      isPayloadUnreadable: false,
     },
   };
 }

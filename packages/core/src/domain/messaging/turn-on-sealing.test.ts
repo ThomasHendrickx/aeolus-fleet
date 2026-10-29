@@ -40,7 +40,7 @@ describe('turning sealing on (decision 0068, B4)', () => {
     const turnedOn = unwrap(await turnOnSealing(installation, { companyKey }));
 
     expect(turnedOn).toEqual({ state: 'sealed', companyKey });
-    expect(core.state.fleetSealings).toEqual([{ fleetId, state: 'sealed', companyKey }]);
+    expect(core.state.fleetSealings).toEqual([{ fleetId, state: 'sealed', companyKey, keyAvailability: { isAvailable: true, since: new Date('2026-10-29T12:00:00.000Z') } }]);
     const [dataKey, ...others] = core.state.dataKeys;
     expect(others).toEqual([]);
     expect(dataKey).toMatchObject({ fleetId, isCurrent: true, createdAt: new Date('2026-10-29T12:00:00.000Z') });

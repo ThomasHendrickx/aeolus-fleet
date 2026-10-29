@@ -1,6 +1,7 @@
 import {
   turnOnSealingInputSchema,
   turnOnSealingOutputSchema,
+  sealingOutputSchema,
   cancelScheduleInputSchema,
   cancelScheduleOutputSchema,
   pauseScheduleInputSchema,
@@ -28,7 +29,7 @@ import {
   messageOutputSchema,
   needsAttentionInputSchema,
   needsAttentionOutputSchema,
-  healthOutputSchema,
+  fleetHealthOutputSchema,
   acknowledgedSchema,
   listedShipOutputSchema,
   shipCountsInputSchema,
@@ -152,6 +153,8 @@ import type { RefusedActor } from '../../domain/registry/reach-refusal.js';
 import type { DeliveryWay } from '../../domain/shared/delivery-way.js';
 import type { SequencedEvent } from '../../domain/shared/events.js';
 import type { InboxEntry } from '../../domain/shared/history.js';
+import type { ListedPayload } from '../../domain/messaging/public.js';
+import { listedPayloadOutputOf } from './listed-payload.js';
 import { describedAcknowledged, describedHealth, describedPerHour, describedStuck } from './health.js';
 import { presentStartingPrompt } from './starting-prompt-text.js';
 import { schedulesPageOf } from './schedule-output.js';
@@ -173,13 +176,13 @@ function crewRequestOutputOf<T extends { requestedAt: Date; sessionStartedAt: Da
 
 /** A ship's last ping as the API states it: its dates in ISO 8601. */
 /** A delivery's way as the API answers it: its times in ISO 8601. */
-function inboxEntryOutputOf(entry: InboxEntry) {
+function inboxEntryOutputOf(entry: InboxEntry<ListedPayload>) {
   return {
     ...entry,
     readAt: entry.readAt?.toISOString() ?? null,
     doneAt: entry.doneAt?.toISOString() ?? null,
-    replies: entry.replies.map((reply) => ({ ...reply, sentAt: reply.sentAt.toISOString() })),
-    message: { ...entry.message, sentAt: entry.message.sentAt.toISOString() },
+    replies: entry.replies.map((reply) => ({ ...reply, ...listedPayloadOutputOf(reply.payload), sentAt: reply.sentAt.toISOString() })),
+    message: { ...entry.message, ...listedPayloadOutputOf(entry.message.payload), sentAt: entry.message.sentAt.toISOString() },
   };
 }
 
@@ -536,6 +539,26 @@ export const fleetRouter = router({
       const turnedOn = okOrThrow(await ctx.useCases.turnOnSealing(ctx.caller, input));
       ctx.log.info({ fleetId: ctx.caller.fleetId, companyKey: turnedOn.companyKey, state: turnedOn.state }, 'sealing turned on');
       return turnedOn;
+    }),
+
+  /**
+   * The fleet's sealing (decision 0068, B5, B11): none, or its state, its
+   * company key by reference, whether that key answered its last unwrap and
+   * since when, and its data keys' ages. Never a key.
+   */
+  sealing: actorScopedProcedure('fleet:read')
+    .output(sealingOutputSchema)
+    .query(async ({ ctx }) => {
+      const sealing = await ctx.useCases.readSealing(ctx.caller);
+      if (sealing.state === 'none') {
+        return sealing;
+      }
+      const { keyAvailability, dataKeys } = sealing;
+      return {
+        ...sealing,
+        keyAvailability: { ...keyAvailability, since: keyAvailability.since.toISOString() },
+        dataKeys: dataKeys.map((dataKey) => ({ ...dataKey, createdAt: dataKey.createdAt.toISOString() })),
+      };
     }),
 
   /**
@@ -1110,15 +1133,22 @@ export const fleetRouter = router({
     .query(async ({ ctx, input }) => {
       const { items, nextCursor } = okOrThrow(await ctx.useCases.readNeedsAttention(ctx.caller, input));
       return {
-        items: items.map((entry) => ({ ...entry, since: entry.since.toISOString(), message: { ...entry.message, sentAt: entry.message.sentAt.toISOString() } })),
+        items: items.map((entry) => ({
+          ...entry,
+          since: entry.since.toISOString(),
+          message: { ...entry.message, ...listedPayloadOutputOf(entry.message.payload), sentAt: entry.message.sentAt.toISOString() },
+        })),
         nextCursor,
       };
     }),
 
   /** The fleet's health (decision 0042): its stuck deliveries by cause and place, the 7-day trend and the acknowledged in 24 hours. */
   health: actorScopedProcedure('fleet:read')
-    .output(healthOutputSchema)
-    .query(async ({ ctx }) => describedHealth(await ctx.useCases.readHealth(ctx.caller))),
+    .output(fleetHealthOutputSchema)
+    .query(async ({ ctx }) => {
+      const { keyUnavailable, ...health } = await ctx.useCases.readHealth(ctx.caller);
+      return { ...describedHealth(health), keyUnavailable: keyUnavailable && { ...keyUnavailable, since: keyUnavailable.since.toISOString() } };
+    }),
 
   /** How many deliveries are stuck now and since when the oldest waits: the navigation's count and the overview's card. */
   stuckCount: actorScopedProcedure('fleet:read')

@@ -32,6 +32,7 @@ const fromArgo: NeedsAttentionDelivery = {
     contentType: 'text/plain',
     isPing: false,
     payload: 'Pause all reviews until 15:00.',
+    isPayloadUnreadable: false,
   },
 };
 
@@ -52,6 +53,7 @@ const fromBuilder: NeedsAttentionDelivery = {
     contentType: 'application/json',
     isPing: false,
     payload: '{"run":"e2e","ref":"pr-320"}',
+    isPayloadUnreadable: false,
   },
 };
 
@@ -73,6 +75,7 @@ const notHandled: NeedsAttentionDelivery = {
     contentType: 'text/plain',
     isPing: false,
     payload: 'Rebase pr-320 on main and run the suite.',
+    isPayloadUnreadable: false,
   },
 };
 

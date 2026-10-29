@@ -5,7 +5,7 @@ import { refuse, type DomainError } from './errors.js';
 import { readsMessage, type ReadReachOf } from '../registry/public.js';
 import { partiesOf, type HistoryMessage, type ShipHistory } from './history.js';
 import type { Page } from './page.js';
-import { plainMessages, type PlainHistoryOf } from './plain-history.js';
+import { listedMessages, type PlainHistoryOf } from './plain-history.js';
 import { ok, type Result } from './result.js';
 import type { PayloadSealing } from '../messaging/public.js';
 
@@ -14,7 +14,10 @@ export const PREVIEW_LENGTH = 120;
 
 /** A message as the ship page lists it: its payload cut to a preview. */
 export type ListedMessage = Omit<HistoryMessage, 'payload' | 'delivery'> & {
+  /** Empty when its payload is unreadable. */
   preview: string;
+  /** Its payload is sealed under a data key that cannot be had, or does not open (decision 0068, B9). */
+  isPayloadUnreadable: boolean;
   delivery: Omit<HistoryMessage['delivery'], 'attempts' | 'handOverNumber'> & {
     /** Handed by a plain receive, with no hand-over number: it reads handed (pulled). False in every other state. */
     isPulled: boolean;
@@ -24,7 +27,7 @@ export type ListedMessage = Omit<HistoryMessage, 'payload' | 'delivery'> & {
 export type ReadShipMessages = (
   caller: Caller,
   input: { shipId: ShipId; cursor?: MessageId; limit?: number },
-) => Promise<Result<Page<ListedMessage, MessageId>, DomainError<'SHIP_NOT_FOUND' | 'KEY_UNAVAILABLE'>>>;
+) => Promise<Result<Page<ListedMessage, MessageId>, DomainError<'SHIP_NOT_FOUND'>>>;
 
 /** The start of a payload on one line: whitespace runs become one space. */
 export function previewOf(payload: string): string {
@@ -38,7 +41,8 @@ export function previewOf(payload: string): string {
  * type. Only the messages the caller reads, through their sender or their
  * recipient (decision 0034). The caller's scope (fleet:read) is checked
  * before this runs. In a sealed fleet each preview is cut from its payload
- * unsealed (decision 0068, B9).
+ * unsealed; one whose key cannot be had is marked unreadable, with no
+ * preview (decision 0068, B9).
  */
 export function createReadShipMessages(deps: { history: ShipHistory; readReach: ReadReachOf; sealing: PayloadSealing }): ReadShipMessages {
   return async (caller, { shipId, cursor, limit = PAGE_SIZE_DEFAULT }) => {
@@ -48,14 +52,12 @@ export function createReadShipMessages(deps: { history: ShipHistory; readReach: 
     }
     const reach = await deps.readReach(caller);
     const of: PlainHistoryOf = { sealing: deps.sealing, fleetId: caller.fleetId };
-    const read = await plainMessages(of, messages.items.filter((message) => readsMessage(reach, partiesOf(message, message.delivery.claimedBy))));
-    if (!read.isOk) {
-      return read;
-    }
+    const listed = await listedMessages(of, messages.items.filter((message) => readsMessage(reach, partiesOf(message, message.delivery.claimedBy))));
     return ok({
-      items: read.value.map(({ payload, delivery, ...message }) => ({
+      items: listed.map(({ payload, delivery, ...message }) => ({
         ...message,
-        preview: previewOf(payload),
+        preview: typeof payload === 'string' ? previewOf(payload) : '',
+        isPayloadUnreadable: typeof payload !== 'string',
         delivery: {
           id: delivery.id,
           state: delivery.state,

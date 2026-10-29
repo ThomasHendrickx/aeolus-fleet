@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { crewAboard, deliveryIdOf } from '../../../test/support/core-fixtures.js';
+import { crewAboard, deliveryIdOf, sealFleet } from '../../../test/support/core-fixtures.js';
 import { historyScenario, type HistoryScenario } from '../../../test/support/history-scenario.js';
 import { newKey } from '../../testing/keys.js';
-import { unwrap } from '../../testing/result.js';
+import { refusalOf, unwrap } from '../../testing/result.js';
 import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
 import type { InMemoryCore } from '../../../test/support/in-memory.js';
 import { createCloseHealthSnapshots } from './close-health-snapshots.js';
@@ -274,5 +274,28 @@ describe('reading the fleet health within read reach (decision 0034)', () => {
       [{ kind: 'ship', ship: { id: fleet.far.shipId, name: 'far' }, machine: null }],
       [macStudio],
     ]);
+  });
+});
+
+describe("the company key of a sealed fleet on its health (decision 0068, B11)", () => {
+  it('says nothing of a company key for a fleet that is not sealed, or whose key answers', async () => {
+    const notSealed = await readHealth();
+    await sealFleet(scene.core, scene.argo.fleetId);
+
+    const sealed = await readHealth();
+
+    expect([notSealed.keyUnavailable, sealed.keyUnavailable]).toEqual([null, null]);
+  });
+
+  it("says the company key is not reachable, with the key vault's reason and since when", async () => {
+    const companyKey = await sealFleet(scene.core, scene.argo.fleetId);
+    const [dataKey] = scene.core.state.dataKeys;
+    await scene.core.keyVault.disable(companyKey);
+    const refusedAt = scene.core.clock.now();
+    refusalOf(await scene.core.sealing.dataKeys.unwrap(scene.argo.fleetId, [dataKey?.id ?? scene.core.ids('dataKey')]));
+
+    const health = await readHealth();
+
+    expect(health.keyUnavailable).toEqual({ reason: 'disabled', since: refusedAt });
   });
 });

@@ -104,7 +104,7 @@ export function withPing<T extends { contentType: string }>(message: T): WithPin
 export type ShownTimelineEntry = Omit<TimelineEntry, 'message'> & { message: WithPing<NonNullable<TimelineEntry['message']>> | null };
 
 /** A delivery in Needs attention as it is answered, its message telling whether it is a ping. */
-export type ShownNeedsAttentionEntry = Omit<NeedsAttentionEntry, 'message'> & { message: WithPing<NeedsAttentionEntry['message']> };
+export type ShownNeedsAttentionEntry<Payload = string> = Omit<NeedsAttentionEntry<Payload>, 'message'> & { message: WithPing<NeedsAttentionEntry<Payload>['message']> };
 
 /** One message with its delivery as it stands; its payload plain, or as stored when the port reads it (decision 0068). */
 export interface HistoryMessage<Payload = string> {

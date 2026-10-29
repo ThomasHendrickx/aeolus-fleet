@@ -507,7 +507,7 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `FleetCompanyKeyChanged` | Messaging | Every data key of the fleet is wrapped by its new company key (0068): details hold both references |
 | `FleetRecoveryKeyChanged` | Messaging | Every data key of the fleet is wrapped to its new recovery key (0068): details hold both fingerprints |
 | `FleetKeysRecovered` | Messaging | The company recovered the fleet's data keys under a new company key with its recovery key (0068): details hold the new reference |
-| `FleetKeyUnavailable` | Messaging | The fleet's company key could not be had after it could (0068): details hold the KMS's reason (access denied, disabled, not found, unreachable). One per change, not per call |
+| `FleetKeyUnavailable` | Messaging | The fleet's company key could not be had after it could (0068): details hold the key vault's reason (`accessDenied`, `disabled`, `notFound`, `unreachable`). One per change, not per call |
 | `FleetKeyAvailable` | Messaging | The fleet's company key could be had again (0068) |
 | `HistoryPruned` | Messaging | A batch of the hourly pruning pass let the fleet's finished history older than its retention go (0066): details hold the cutoff and how many messages, deliveries, events, overdue rows, leases, credentials, console sessions with their notice dismissals and guide progress, sign-in tickets and reach refusals went |
 | `FleetLimitsChanged` | Registry | The installation set how the fleet's ship, daily message, schedules per ship and minimum schedule interval limits and its retention are set: each following the default, or the fleet's own limit or days, or none |
@@ -646,7 +646,7 @@ The operator restarting a session is not a recovery step for messages: nothing w
 
 1. The fleet manager, or any actor holding `fleet:keys`, turns sealing on with a company key in the company's own KMS, AWS KMS first, and optionally a recovery key. The company grants the installation use of its key for this fleet only; a key not bound to the fleet is refused (decision 0068).
 2. From then on core seals every payload it stores and unseals every payload it answers. Ships, the gateway, plugins and the console send and receive plain text as today. Payloads stored before are sealed by a pass.
-3. The company cuts off every read by disabling its key or removing its grant: within 5 minutes every send is refused `KEY_UNAVAILABLE` storing nothing, and every receive claims nothing, its deliveries waiting pending. Restoring the grant restores everything; nothing waiting is lost.
+3. The company cuts off every read by disabling its key or removing its grant: within 5 minutes every send is refused `KEY_UNAVAILABLE` storing nothing, and every receive claims nothing, its deliveries waiting pending. A read of one payload is refused `KEY_UNAVAILABLE`; a list marks each payload it cannot unseal unreadable and lists the rest. The fleet's sealing (`fleet.sealing`) and Health say the key is not reachable, why and since when. Restoring the grant restores everything; nothing waiting is lost.
 4. The console renders a sealed fleet's payload as today, marked sealed, and "sealed, key not reachable" in its place when cut off. In a sealed fleet a ship's page says when the gateway reads its payloads.
 5. Metadata, report notes and details, statements, meeting titles, commission notes and verified facts stay readable: a crew keeps client data out of them.
 

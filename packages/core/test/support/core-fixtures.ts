@@ -163,6 +163,7 @@ import { unwrap } from '../../src/testing/result.js';
 import { NO_INSTALLATION_SETTINGS, type InstallationSettings } from '../../src/domain/registry/limits.js';
 import { isSealedPayload, type StoredPayload } from '../../src/domain/messaging/sealed-payload.js';
 import { createTurnOnSealing } from '../../src/domain/messaging/turn-on-sealing.js';
+import { createReadSealing } from '../../src/domain/messaging/read-sealing.js';
 
 /** The identity use cases, wired to the in-memory core. */
 export function identityUseCases(core: InMemoryCore) {
@@ -350,7 +351,7 @@ export function historyUseCases(core: InMemoryCore) {
     sentMessage: createReadSentMessage({ history: core.history }),
     readShipWay: createReadShipWay({ history: core.history, uow: core.uow, clock: core.clock, ids: core.ids }),
     readNeedsAttention: createReadNeedsAttention({ history: core.history, readReach , sealing: core.sealing }),
-    readHealth: createReadHealth({ health: core.health, snapshots: core.healthSnapshots, clock: core.clock, readReach }),
+    readHealth: createReadHealth({ health: core.health, snapshots: core.healthSnapshots, clock: core.clock, readReach, sealings: core.sealings }),
     readStuckCount: createReadStuckCount({ health: core.health, snapshots: core.healthSnapshots, clock: core.clock, readReach }),
     readStuck: createReadStuck({ health: core.health, snapshots: core.healthSnapshots, clock: core.clock, readReach }),
     readStuckSummary: createReadStuckSummary({ health: core.health, snapshots: core.healthSnapshots, clock: core.clock, readReach }),
@@ -370,6 +371,7 @@ export function messagingUseCases(core: InMemoryCore) {
   return {
     sendMessage: createSendMessage({ ...deps, hasher: core.hasher, sealing }),
     turnOnSealing: createTurnOnSealing({ ...deps, vault: core.keyVault.vault, sealer: sealing.sealer, sealings: core.sealings }),
+    readSealing: createReadSealing({ sealings: core.sealings }),
     openMeeting: createOpenMeeting({ ...deps, hasher: core.hasher, sealing: core.sealing }),
     readMeeting: createReadMeeting({ uow: core.uow, sealing }),
     changeMic: createChangeMic({ ...deps, hasher: core.hasher, sealing: core.sealing }),

@@ -118,8 +118,10 @@ export const listedMessageSchema = z.object({
   contentType: z.string(),
   /** The model the sender's session stated it runs; null from argo and on messages from before models were stated. */
   model: z.string().nullable(),
-  /** The start of the payload, for the list; the whole payload comes with `fleet.message`. */
+  /** The start of the payload, for the list; the whole payload comes with `fleet.message`. Empty when unreadable. */
   preview: z.string(),
+  /** Its payload is sealed under a data key that cannot be had now, or does not open: the preview is empty (decision 0068, B9). */
+  isPayloadUnreadable: z.boolean(),
   delivery: z.object({
     id: idSchema('delivery'),
     state: deliveryStateSchema,
@@ -278,7 +280,7 @@ export type MessageDelivery = z.infer<typeof messageDeliverySchema>;
  * deliveries it has, one per ship for a label (decision 0065), whose first by
  * id is that delivery. `fleet.messageDeliveries` lists them a page at a time.
  */
-export const messageOutputSchema = listedMessageSchema.omit({ preview: true, delivery: true }).extend({
+export const messageOutputSchema = listedMessageSchema.omit({ preview: true, isPayloadUnreadable: true, delivery: true }).extend({
   payload: z.string(),
   replies: z.array(messageReplySchema),
   delivery: z.object({

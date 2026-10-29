@@ -82,7 +82,7 @@ export function createTurnOnSealing(deps: {
       const at = deps.clock.now();
       const state: SealingState = (await tx.sealings.storesPlainPayload(fleetId)) ? 'sealing' : 'sealed';
       await tx.sealings.turnOn(
-        { fleetId, state, companyKey },
+        { fleetId, state, companyKey, keyAvailability: { isAvailable: true, since: at } },
         { id: deps.ids('dataKey'), fleetId, wrappedByCompanyKey: made.value.wrapped, checkValue, createdAt: at, isCurrent: true },
       );
       await recordEvent({ events: tx.events, ids: deps.ids }, { fleetId, type: 'FleetSealingTurnedOn', occurredAt: at, actor: actorOf(caller), details: { companyKey } });

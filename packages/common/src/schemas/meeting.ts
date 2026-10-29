@@ -124,6 +124,8 @@ export const contributionSchema = z.object({
   messageId: idSchema('message'),
   sender: partySchema,
   payload: z.string(),
+  /** Its payload is sealed under a data key that cannot be had now, or does not open: the payload is empty (decision 0068, B9). */
+  isPayloadUnreadable: z.boolean(),
   contentType: z.string(),
   model: z.string().nullable(),
   sentAt: isoTime,

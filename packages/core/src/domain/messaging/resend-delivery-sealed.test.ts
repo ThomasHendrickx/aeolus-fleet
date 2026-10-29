@@ -4,7 +4,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { crewAboard, deliveryIdOf, initialiseFleet, messagingUseCases, modelOf, operatorCaller, registryUseCases, sealFleet } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { newKey } from '../../testing/keys.js';
-import { unwrap } from '../../testing/result.js';
+import { refusalOf, unwrap } from '../../testing/result.js';
+import { DATA_KEY_CACHE_MS } from './data-keys.js';
 import type { Crew, ShipCaller } from '../shared/caller.js';
 import { UNDELIVERABLE_AT_ATTEMPT } from './delivery.js';
 
@@ -72,5 +73,19 @@ describe('a resend in a sealed fleet (decision 0068, B17)', () => {
 
     expect(again).toEqual(first);
     expect(core.state).toEqual(before);
+  });
+
+  it('with the company key cut off, a resend is refused KEY_UNAVAILABLE and stores no message (B12)', async () => {
+    const { deliveryId } = await undeliverable();
+    const [sealing] = core.state.fleetSealings;
+    await core.keyVault.disable(sealing?.companyKey ?? '');
+    core.clock.advance(DATA_KEY_CACHE_MS);
+    const before = structuredClone(core.state.messages);
+
+    const refusal = refusalOf(await useCases.resendDelivery(argo, { deliveryId }));
+
+    expect(refusal.kind).toBe('KEY_UNAVAILABLE');
+    expect(core.state.messages).toEqual(before);
+    expect(core.state.deliveries.find((held) => held.id === deliveryId)?.state).toBe('undeliverable');
   });
 });

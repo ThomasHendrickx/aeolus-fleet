@@ -68,7 +68,16 @@ export function createSendDueSchedules(deps: {
               return handled.isOk ? ok(schedule.id) : handled;
             }),
           );
-          if (!sent.isOk || sent.value === undefined) {
+          if (!sent.isOk) {
+            // The fleet's company key gave no data key: the send time claimed is refused KEY_UNAVAILABLE, recorded by its refusal strategy (B12).
+            const refused = claimed.scheduleId === undefined ? undefined : await keyUnavailableRecorded(deps, { fleetId: fleet.id, scheduleId: claimed.scheduleId, tried });
+            if (refused === undefined) {
+              break;
+            }
+            tried.push(refused);
+            continue;
+          }
+          if (sent.value === undefined) {
             break;
           }
           tried.push(sent.value);
@@ -87,6 +96,28 @@ export function createSendDueSchedules(deps: {
     }
     return { nextAttemptAt };
   };
+}
+
+/**
+ * A due send time refused KEY_UNAVAILABLE (decision 0068, B12): the claimed
+ * schedule claimed again in a unit of work of its own, which needs no data
+ * key, and its refusal recorded as any refusal. Answers the schedule, or none
+ * when the claim takes another one or none, so the pass stops for this fleet.
+ */
+async function keyUnavailableRecorded(
+  deps: { uow: UnitOfWork<SendDueSchedulesTx>; clock: Clock; ids: IdGenerator },
+  claimed: { fleetId: FleetId; scheduleId: ScheduleId; tried: readonly ScheduleId[] },
+): Promise<ScheduleId | undefined> {
+  const recorded = await deps.uow.run(async (tx): Promise<Result<ScheduleId | undefined, never>> => {
+    const schedule = await tx.schedules.claimDue(claimed.fleetId, claimed.tried);
+    if (schedule?.id !== claimed.scheduleId || schedule.state !== 'active' || schedule.nextSendTime === null) {
+      return ok(undefined);
+    }
+    const sentCount = await tx.schedules.sentCount(schedule.fleetId, schedule.id);
+    await stored({ tx, ids: deps.ids }, scheduleRefused(schedule, { code: 'KEY_UNAVAILABLE', sendTime: schedule.nextSendTime, at: deps.clock.now(), sentCount }));
+    return ok(schedule.id);
+  });
+  return recorded.isOk ? recorded.value : undefined;
 }
 
 /** At most this many send times of one schedule in one unit of work, oldest first; the rest on the next pass (S6). */

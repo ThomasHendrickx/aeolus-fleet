@@ -197,6 +197,7 @@ describe('shipMessagesOutputSchema', () => {
     contentType: 'text/plain',
     model: 'claude-opus-5-5',
     preview: 'Review PR 48',
+    isPayloadUnreadable: false,
     delivery: { id: newId('delivery'), state: 'acknowledged', claimedBy: planner, isPulled: false },
   };
 

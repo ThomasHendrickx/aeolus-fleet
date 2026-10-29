@@ -109,6 +109,10 @@ export function createInMemoryKeyVault(): KeyVaultWorld {
       change(companyKey, { isEnabled: false });
       return Promise.resolve();
     },
+    enable: (companyKey) => {
+      change(companyKey, { isEnabled: true });
+      return Promise.resolve();
+    },
     refuseGrant: (companyKey) => {
       change(companyKey, { isGranted: false });
       return Promise.resolve();

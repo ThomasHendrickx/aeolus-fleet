@@ -22,7 +22,7 @@ function aMessage(sender: { id: ShipId; name: string }): InboxMessage {
     doneAt: null,
     repliedWith: null,
     replies: [],
-    message: { id: newId('message'), sender: { id: sender.id, name: sender.name }, inReplyTo: null, sentAt: AT, contentType: 'text/plain', model: 'claude-opus-5-5', payload: 'Slice 7 done' },
+    message: { id: newId('message'), sender: { id: sender.id, name: sender.name }, inReplyTo: null, sentAt: AT, contentType: 'text/plain', model: 'claude-opus-5-5', payload: 'Slice 7 done', isPayloadUnreadable: false },
   };
 }
 

@@ -16,6 +16,8 @@ export interface KeyVaultWorld {
   aCompanyKey(): Promise<CompanyKeyReference>;
   /** The company disables its key. */
   disable(companyKey: CompanyKeyReference): Promise<void>;
+  /** The company enables its key again. */
+  enable(companyKey: CompanyKeyReference): Promise<void>;
   /** The company's key policy no longer grants the installation its key. */
   refuseGrant(companyKey: CompanyKeyReference): Promise<void>;
   /**

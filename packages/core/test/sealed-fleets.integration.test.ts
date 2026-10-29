@@ -1,4 +1,4 @@
-import { CreateKeyCommand, KMSClient } from '@aws-sdk/client-kms';
+import { CreateKeyCommand, DisableKeyCommand, EnableKeyCommand, KMSClient } from '@aws-sdk/client-kms';
 import { FLEET_HEADER, idSchema, MEETING_ADDED_CONTENT_TYPE, PING_CONTENT_TYPE, SCOPES, WITHDRAWAL_CONTENT_TYPE, type DeliveryId, type FleetId } from '@aeolus-fleet/common';
 import { createTRPCClient, httpBatchLink, TRPCClientError, type TRPCClient } from '@trpc/client';
 import type { FastifyInstance } from 'fastify';
@@ -20,6 +20,7 @@ import { startKmsKeyPolicy, type KmsKeyPolicy } from './support/kms-key-policy.j
 import { startLocalStack, type StartedLocalStack } from './support/localstack.js';
 import { createTestClock } from './support/postgres-core.js';
 import { PING_PAYLOAD } from '../src/domain/messaging/ping-ship.js';
+import { DATA_KEY_CACHE_MS } from '../src/domain/messaging/data-keys.js';
 
 // Sealed fleets (decision 0068) from the installation's call to Postgres and
 // a LocalStack KMS. LocalStack without a licence keeps no key policy, so the
@@ -311,6 +312,8 @@ describe('every other payload sealed on Postgres and a LocalStack KMS (decision 
 
     await scheduling.sendDueSchedules();
 
+    // The app's own schedule timer may hold it while this pass looks: whichever pass sends it, it is sent once.
+    await expect.poll(() => prisma.message.count({ where: { fleetId: fleet.fleetId, scheduleId } })).toBe(1);
     const schedule = await prisma.schedule.findUniqueOrThrow({ where: { id: scheduleId } });
     expectSealedRow(schedule, 'Review');
     expect(schedule.sealedPayloadBytes).toBe(84);
@@ -331,5 +334,206 @@ describe('every other payload sealed on Postgres and a LocalStack KMS (decision 
 
     expect(page.payload).toBe(PAYLOAD);
     expect([entry?.message.payload, entry?.replies.map(({ payload }) => payload)]).toEqual([PAYLOAD, ['Done, 5 € spent']]);
+  });
+});
+
+/** A sealed fleet with the reference of its company key, which the company may disable. */
+async function aSealedFleetWithItsKey(): Promise<HostedFleet & { companyKey: string }> {
+  const fleet = await aHostedFleet();
+  const companyKey = await aKeyBoundTo(fleet.fleetId);
+  await installationIn(fleet.fleetId).fleet.turnOnSealing.mutate({ companyKey });
+  return { ...fleet, companyKey };
+}
+
+/** One server with its own data key cache and its own clock, from the given time. */
+function aServerAt(iso: string) {
+  const at = createTestClock(iso);
+  return { clock: at, useCases: createUseCases({ prisma, clock: at, keyVault, receiveWaitMs: 0 }) };
+}
+
+async function disableKey(companyKey: string): Promise<void> {
+  await company.send(new DisableKeyCommand({ KeyId: companyKey }));
+}
+
+async function enableKey(companyKey: string): Promise<void> {
+  await company.send(new EnableKeyCommand({ KeyId: companyKey }));
+}
+
+const KEY_AVAILABILITY_EVENTS = ['FleetKeyUnavailable', 'FleetKeyAvailable'];
+
+async function keyAvailabilityEvents(fleetId: FleetId) {
+  return prisma.event.findMany({ where: { fleetId, type: { in: KEY_AVAILABILITY_EVENTS } }, orderBy: { seq: 'asc' }, select: { type: true, details: true } });
+}
+
+/** The fleet's messages and deliveries, and its events but those marking the key's availability. */
+async function storedOf(fleetId: FleetId) {
+  const [messages, deliveries, events] = await Promise.all([
+    prisma.message.findMany({ where: { fleetId }, orderBy: { id: 'asc' } }),
+    prisma.delivery.findMany({ where: { fleetId }, orderBy: { id: 'asc' } }),
+    prisma.event.findMany({ where: { fleetId, type: { notIn: KEY_AVAILABILITY_EVENTS } }, orderBy: { seq: 'asc' } }),
+  ]);
+  return { messages, deliveries, events };
+}
+
+function aMessageTo(shipId: Crew['shipId'], payload = PAYLOAD) {
+  return { selector: { kind: 'ship' as const, shipId }, payload, contentType: 'text/plain', idempotencyKey: newKey() };
+}
+
+describe('the kill switch on Postgres and a LocalStack KMS (decision 0068, B9, B11, B12)', () => {
+  it('scenario 9: with the company key disabled and the data key cache run out, a send is refused KEY_UNAVAILABLE and no message, delivery or event is stored', async () => {
+    const fleet = await aSealedFleetWithItsKey();
+    const scout = await aCrewedReviewer(fleet, 'scout');
+    const server = aServerAt('2026-10-29T12:00:00.000Z');
+    unwrap(await server.useCases.sendMessage(fleet.argo, aMessageTo(scout.shipId)));
+    await disableKey(fleet.companyKey);
+    server.clock.advance(DATA_KEY_CACHE_MS);
+    const before = await storedOf(fleet.fleetId);
+
+    const refusal = refusalOf(await server.useCases.sendMessage(fleet.argo, aMessageTo(scout.shipId)));
+
+    expect(refusal.kind).toBe('KEY_UNAVAILABLE');
+    expect(await storedOf(fleet.fleetId)).toEqual(before);
+  });
+
+  it('scenario 13: with the key cut off, a receive and a push receive are refused KEY_UNAVAILABLE, the delivery stays pending and its attempts are unchanged', async () => {
+    const fleet = await aSealedFleetWithItsKey();
+    const scout = await aCrewedReviewer(fleet, 'scout');
+    const server = aServerAt('2026-10-29T12:00:00.000Z');
+    const { messageId } = unwrap(await server.useCases.sendMessage(fleet.argo, aMessageTo(scout.shipId)));
+    await disableKey(fleet.companyKey);
+    server.clock.advance(DATA_KEY_CACHE_MS);
+
+    const received = refusalOf(await server.useCases.receiveDeliveries(scout, {}));
+    const pushed = refusalOf(await server.useCases.pushReceiveDeliveries(scout, {}));
+
+    expect([received.kind, pushed.kind]).toEqual(['KEY_UNAVAILABLE', 'KEY_UNAVAILABLE']);
+    expect(await prisma.delivery.findFirstOrThrow({ where: { messageId }, select: { state: true, attempts: true } })).toEqual({ state: 'pending', attempts: 0 });
+  });
+
+  it('scenario 22: when the company disables its key, sends and receives are refused KEY_UNAVAILABLE within 5 minutes, FleetKeyUnavailable is written once, and pong, acknowledge and pruning go on', async () => {
+    const fleet = await aSealedFleetWithItsKey();
+    const scout = await aCrewedReviewer(fleet, 'scout');
+    const server = aServerAt('2026-10-29T12:00:00.000Z');
+    const { messageId: finished } = unwrap(await server.useCases.sendMessage(fleet.argo, aMessageTo(scout.shipId)));
+    const { messageId: ping } = unwrap(await server.useCases.pingShip(fleet.argo, { shipId: scout.shipId }));
+    const handed = unwrap(await server.useCases.receiveDeliveries(scout, { max: 10 })).deliveries;
+    await prisma.$executeRaw`UPDATE fleets SET retention_set = true, retention_days = 1 WHERE id = ${fleet.fleetId}`;
+    await disableKey(fleet.companyKey);
+    server.clock.advance(DATA_KEY_CACHE_MS - 1_000);
+    unwrap(await server.useCases.sendMessage(fleet.argo, aMessageTo(scout.shipId, 'served from the cache')));
+
+    server.clock.advance(1_000);
+    const sent = refusalOf(await server.useCases.sendMessage(fleet.argo, aMessageTo(scout.shipId)));
+    const received = refusalOf(await server.useCases.receiveDeliveries(scout, {}));
+    const deliveryOf = (messageId: string) => handed.find((delivery) => delivery.messageId === messageId)?.deliveryId ?? idSchema('delivery').parse(newKey());
+    unwrap(await server.useCases.acknowledgeDelivery(scout, { deliveryId: deliveryOf(finished) }));
+    unwrap(await server.useCases.answerPing(scout, { deliveryId: deliveryOf(ping) }));
+    // The 30 second pass past the retention: the snapshot close, then the pruning pass.
+    server.clock.advance(2 * 24 * 60 * 60 * 1000);
+    await server.useCases.closeHealthSnapshots();
+    await server.useCases.pruneHistory();
+
+    expect([sent.kind, received.kind]).toEqual(['KEY_UNAVAILABLE', 'KEY_UNAVAILABLE']);
+    expect(await keyAvailabilityEvents(fleet.fleetId)).toEqual([{ type: 'FleetKeyUnavailable', details: { reason: 'disabled' } }]);
+    expect(await prisma.message.count({ where: { id: { in: [finished, ping] } } })).toBe(0);
+  });
+
+  it('scenario 23: when the company enables its disabled key again, FleetKeyAvailable is written once and every waiting delivery is received, none lost or undeliverable', async () => {
+    const fleet = await aSealedFleetWithItsKey();
+    const scout = await aCrewedReviewer(fleet, 'scout');
+    const server = aServerAt('2026-10-29T12:00:00.000Z');
+    for (const payload of [PAYLOAD, `${PAYLOAD} again`]) {
+      unwrap(await server.useCases.sendMessage(fleet.argo, aMessageTo(scout.shipId, payload)));
+    }
+    await disableKey(fleet.companyKey);
+    server.clock.advance(DATA_KEY_CACHE_MS);
+    for (let refused = 0; refused < 5; refused += 1) {
+      refusalOf(await server.useCases.receiveDeliveries(scout, {}));
+    }
+
+    await enableKey(fleet.companyKey);
+    const { deliveries } = unwrap(await server.useCases.receiveDeliveries(scout, { max: 10 }));
+    unwrap(await server.useCases.sendMessage(fleet.argo, aMessageTo(scout.shipId)));
+
+    expect(deliveries.map(({ payload, attempts }) => ({ payload, attempts }))).toEqual([
+      { payload: PAYLOAD, attempts: 1 },
+      { payload: `${PAYLOAD} again`, attempts: 1 },
+    ]);
+    expect((await keyAvailabilityEvents(fleet.fleetId)).map(({ type }) => type)).toEqual(['FleetKeyUnavailable', 'FleetKeyAvailable']);
+  });
+
+  it('scenario 24: with the key disabled, a due schedule records its send refused KEY_UNAVAILABLE', async () => {
+    const fleet = await aSealedFleetWithItsKey();
+    const scout = await aCrewedReviewer(fleet, 'scout');
+    // A month before the database's clock: a schedule an hour ahead here is due by the claim's now().
+    const server = aServerAt('2026-09-29T12:00:00.000Z');
+    const { scheduleId } = unwrap(
+      await server.useCases.scheduleMessage(scout, {
+        selector: { kind: 'ship', name: 'argo' },
+        payload: PAYLOAD,
+        model: 'claude-opus-5-5',
+        idempotencyKey: newKey(),
+        timing: { kind: 'once', at: new Date('2026-09-29T13:00:00.000Z') },
+        onRefused: 'skip',
+      }),
+    );
+    await disableKey(fleet.companyKey);
+    server.clock.set('2026-09-29T13:00:00.000Z');
+
+    await server.useCases.sendDueSchedules();
+
+    // The app's own schedule timer may claim it first: whichever pass records the refusal, it is recorded once.
+    await expect.poll(async () => prisma.schedule.findUniqueOrThrow({ where: { id: scheduleId }, select: { lastOutcomeKind: true, lastRefusalCode: true } })).toEqual({ lastOutcomeKind: 'refused', lastRefusalCode: 'KEY_UNAVAILABLE' });
+    expect(await prisma.event.count({ where: { fleetId: fleet.fleetId, type: 'ScheduledSendRefused' } })).toBe(1);
+    expect(await prisma.message.count({ where: { fleetId: fleet.fleetId, scheduleId } })).toBe(0);
+  });
+
+  it("fleet.sealing reads the state, the company key, its availability since when and the data keys' ages, never a key", async () => {
+    const fleet = await aSealedFleetWithItsKey();
+    const scout = await aCrewedReviewer(fleet, 'scout');
+    const server = aServerAt('2026-10-29T12:00:00.000Z');
+    await disableKey(fleet.companyKey);
+    refusalOf(await server.useCases.sendMessage(fleet.argo, aMessageTo(scout.shipId)));
+    const [dataKey] = await prisma.dataKey.findMany({ where: { fleetId: fleet.fleetId } });
+
+    const sealing = await installationIn(fleet.fleetId).fleet.sealing.query();
+
+    expect(sealing).toEqual({
+      state: 'sealed',
+      companyKey: fleet.companyKey,
+      keyAvailability: { isAvailable: false, reason: 'disabled', since: '2026-10-29T12:00:00.000Z' },
+      dataKeys: [{ id: dataKey?.id, createdAt: dataKey?.createdAt.toISOString(), isCurrent: true }],
+    });
+  });
+
+  it('fleet.health says the company key is not reachable, with its reason and since when', async () => {
+    const fleet = await aSealedFleetWithItsKey();
+    const scout = await aCrewedReviewer(fleet, 'scout');
+    const server = aServerAt('2026-10-29T12:00:00.000Z');
+    await disableKey(fleet.companyKey);
+    refusalOf(await server.useCases.sendMessage(fleet.argo, aMessageTo(scout.shipId)));
+
+    const health = await installationIn(fleet.fleetId).fleet.health.query();
+
+    expect(health.keyUnavailable).toEqual({ reason: 'disabled', since: '2026-10-29T12:00:00.000Z' });
+  });
+
+  it("fleet.inbox marks a payload it cannot unseal unreadable, with no payload, and lists the rest", async () => {
+    const fleet = await aHostedFleet();
+    const scout = await aCrewedReviewer(fleet, 'scout');
+    const server = aServerAt('2026-10-29T12:00:00.000Z');
+    const { messageId: plain } = unwrap(await server.useCases.sendMessage(scout, { ...aMessageTo(fleet.argo.shipId, 'sent before sealing'), model: 'claude-opus-5-5' }));
+    const companyKey = await aKeyBoundTo(fleet.fleetId);
+    await installationIn(fleet.fleetId).fleet.turnOnSealing.mutate({ companyKey });
+    const { messageId: sealed } = unwrap(await server.useCases.sendMessage(scout, { ...aMessageTo(fleet.argo.shipId), model: 'claude-opus-5-5' }));
+    await disableKey(companyKey);
+    server.clock.advance(DATA_KEY_CACHE_MS);
+
+    const inbox = await installationIn(fleet.fleetId).fleet.inbox.query({ filter: 'all' });
+
+    expect(inbox.items.map(({ message }) => ({ id: message.id, payload: message.payload, isPayloadUnreadable: message.isPayloadUnreadable }))).toEqual([
+      { id: sealed, payload: '', isPayloadUnreadable: true },
+      { id: plain, payload: 'sent before sealing', isPayloadUnreadable: false },
+    ]);
   });
 });
