@@ -217,6 +217,7 @@ describe('eventTypeSchema', () => {
       'ScheduleResumed',
       'ScheduleEnded',
       'HistoryPruned',
+      'FleetSealingTurnedOn',
     ]);
   });
 });

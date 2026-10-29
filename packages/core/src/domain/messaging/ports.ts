@@ -1,6 +1,8 @@
-import type { DeliveryId, FleetId, LeaseId, MeetingId, MessageId, ScheduleId, ScheduleState, ShipId } from '@aeolus-fleet/common';
+import type { DataKeyId, DeliveryId, FleetId, LeaseId, MeetingId, MessageId, ScheduleId, ScheduleState, ShipId } from '@aeolus-fleet/common';
 
 import type { Page, PageQuery } from '../shared/page.js';
+import type { FleetSealing, StoredDataKey } from './fleet-sealing.js';
+import type { CompanyKeyReference } from './key-vault.js';
 import type { Meeting } from './meeting.js';
 import type { Delivery, Message } from './message.js';
 import type { Overdue, PushedCrew } from './overdue.js';
@@ -268,4 +270,26 @@ export interface OverdueDeliveryRepository {
    * at once store it once.
    */
   tell(overdue: Overdue, at: Date): Promise<boolean>;
+}
+
+/** A sealed fleet's company key and the wraps of some of its data keys: what unwraps them. */
+export interface WrappedDataKeys {
+  companyKey: CompanyKeyReference;
+  dataKeys: StoredDataKey[];
+}
+
+/** Outbound port: the fleets' sealing and their data keys (decision 0068), always within one fleet. */
+export interface FleetSealingRepository {
+  /** The fleet's sealing, none while it is not sealed, read without a lock. */
+  find(fleetId: FleetId): Promise<FleetSealing | undefined>;
+  /** The fleet's sealing, none while it is not sealed, held for update until the unit of work ends. */
+  findForUpdate(fleetId: FleetId): Promise<FleetSealing | undefined>;
+  /** Whether the fleet stores a payload plain: a message's or a schedule's. */
+  storesPlainPayload(fleetId: FleetId): Promise<boolean>;
+  /** Marks the fleet sealing or sealed under its company key, with its first data key, current. */
+  turnOn(sealing: FleetSealing, firstKey: StoredDataKey): Promise<void>;
+  /** The id of the fleet's current data key: the one that seals; none while it is not sealed. */
+  currentDataKeyId(fleetId: FleetId): Promise<DataKeyId | undefined>;
+  /** The company key and the named data keys of a sealed fleet, wrapped, read without a lock; none while it is not sealed. */
+  wrappedDataKeys(fleetId: FleetId, dataKeyIds: readonly DataKeyId[]): Promise<WrappedDataKeys | undefined>;
 }

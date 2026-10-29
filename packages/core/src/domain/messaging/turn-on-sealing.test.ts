@@ -1,26 +1,27 @@
-import { accountIdSchema, type FleetId } from '@aeolus-fleet/common';
+import { accountIdSchema, type FleetId, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { argoAboard, hostedFleet } from '../../../test/support/core-fixtures.js';
+import { hostedFleet } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { createInMemoryKeyVault } from '../../../test/support/in-memory-key-vault.js';
 import type { KeyVaultWorld } from '../../../test/support/key-vault-contract.js';
-import { aesGcmPayloadSealer } from '../../adapters/crypto/payload-sealer.js';
+import { inMemoryPayloadSealer } from '../../../test/support/in-memory-payload-sealer.js';
 import { refusalOf, unwrap } from '../../testing/result.js';
-import type { AccountCaller, InstallationCaller } from '../shared/caller.js';
+import type { AccountCaller, InstallationCaller, ShipCaller } from '../shared/caller.js';
 import { createTurnOnSealing, type TurnOnSealing } from './turn-on-sealing.js';
 
 let core: InMemoryCore;
 let world: KeyVaultWorld;
 let turnOnSealing: TurnOnSealing;
 let fleetId: FleetId;
+let operatorShipId: ShipId;
 let installation: InstallationCaller;
 
 beforeEach(async () => {
   core = createInMemoryCore('2026-10-29T12:00:00.000Z');
   world = createInMemoryKeyVault();
-  turnOnSealing = createTurnOnSealing({ uow: core.uow, clock: core.clock, ids: core.ids, vault: world.vault, sealer: aesGcmPayloadSealer, sealings: core.sealings });
-  ({ fleetId } = await hostedFleet(core));
+  turnOnSealing = createTurnOnSealing({ uow: core.uow, clock: core.clock, ids: core.ids, vault: world.vault, sealer: inMemoryPayloadSealer, sealings: core.sealings });
+  ({ fleetId, operatorShipId } = await hostedFleet(core));
   installation = { kind: 'installation', fleetId, scopes: [] };
   core.state.events.length = 0;
 });
@@ -74,7 +75,7 @@ describe('turning sealing on (decision 0068, B4)', () => {
   it('scenario 4: an account without fleet:keys, or a ship, is refused and nothing changes', async () => {
     const companyKey = await aBoundCompanyKey();
     const account: AccountCaller = { kind: 'account', accountId: accountIdSchema.parse('acc_lena'), fleetId, scopes: ['fleet:read', 'fleet:manage'], groupValues: [], personShipId: null, throughShipId: null };
-    const argo = await argoAboard(core);
+    const argo: ShipCaller = { kind: 'operator', shipId: operatorShipId, fleetId, scopes: ['fleet:read', 'fleet:manage'] };
     const before = structuredClone(core.state);
 
     expect(refusalOf(await turnOnSealing(account, { companyKey })).kind).toBe('FORBIDDEN');
