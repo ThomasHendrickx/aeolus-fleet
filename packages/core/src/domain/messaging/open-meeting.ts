@@ -22,13 +22,15 @@ import { withinDailyMessageLimit, type DailyMessageLimitTx } from './daily-messa
 import { openMeeting, repeatOfOpen, type OpenMeetingRefusal } from './meeting.js';
 import type { AcceptRefusal } from './message.js';
 import { addedNoticeOf, tellParticipant } from './meeting-notice.js';
-import type { DeliveryRepository, MeetingRepository, MessageRepository, RequestHasher } from './ports.js';
+import type { DeliveryRepository, FleetSealingRepository, MeetingRepository, MessageRepository, RequestHasher } from './ports.js';
+import { withDataKeys, type DataKeysNeeded, type HeldDataKeys, type PayloadSealing } from './data-keys.js';
 
 export interface OpenMeetingTx extends Omit<ResolveInviteesTx, 'ships'>, Omit<CheckReachTx, 'ships'>, DailyMessageLimitTx {
   ships: ResolveInviteesTx['ships'] & CheckReachTx['ships'];
   meetings: MeetingRepository;
   messages: MessageRepository;
   deliveries: DeliveryRepository;
+  sealings: Pick<FleetSealingRepository, 'currentDataKeyId'>;
   events: EventLog;
   notifier: Notifier;
 }
@@ -51,7 +53,7 @@ export interface MeetingOpened {
 }
 
 export type OpenMeetingFailure =
-  | DomainError<'INVALID_IDEMPOTENCY_KEY' | 'IDEMPOTENCY_KEY_REUSED' | 'MESSAGE_LIMIT_REACHED'>
+  | DomainError<'INVALID_IDEMPOTENCY_KEY' | 'IDEMPOTENCY_KEY_REUSED' | 'MESSAGE_LIMIT_REACHED' | 'KEY_UNAVAILABLE'>
   | OpenMeetingRefusal
   | UnresolvableSelector
   | NotReachable
@@ -75,8 +77,11 @@ export type OpenMeeting = (caller: ShipCaller, input: MeetingToOpen) => Promise<
  * the original meeting and stores nothing; the same key with another request
  * is refused. Locks, in this order: the opener's key, then each invitee as
  * a send holds the ship it addresses, then the network settings, shared.
+ *
+ * In a sealed fleet the added notices are sealed with data keys unwrapped
+ * before the unit of work (decision 0068, B17).
  */
-export function createOpenMeeting(deps: { uow: UnitOfWork<OpenMeetingTx>; clock: Clock; ids: IdGenerator; hasher: RequestHasher }): OpenMeeting {
+export function createOpenMeeting(deps: { uow: UnitOfWork<OpenMeetingTx>; clock: Clock; ids: IdGenerator; hasher: RequestHasher; sealing: PayloadSealing }): OpenMeeting {
   return async (caller, input) => {
     const key = idempotencyKey(input.idempotencyKey);
     if (!key.isOk) {
@@ -86,7 +91,8 @@ export function createOpenMeeting(deps: { uow: UnitOfWork<OpenMeetingTx>; clock:
     const valueIds = input.valueIds ?? [];
     const title = input.title ?? null;
     const requestHash = deps.hasher.hash(JSON.stringify([ships.map(inviteeText), valueIds, title]));
-    return keepingReachRefusal(deps.uow, (tx) => openWithin({ tx, ...deps }, { caller, ships, valueIds, title, idempotencyKey: key.value, requestHash, model: input.model }));
+    const open = { caller, ships, valueIds, title, idempotencyKey: key.value, requestHash, model: input.model };
+    return withDataKeys({ sealing: deps.sealing, fleetId: caller.fleetId }, (held) => keepingReachRefusal(deps.uow, (tx) => openWithin({ tx, clock: deps.clock, ids: deps.ids, hasher: deps.hasher, held }, open)));
   };
 }
 
@@ -96,9 +102,9 @@ function inviteeText(invitee: Invitee): string[] {
 }
 
 async function openWithin(
-  deps: { tx: OpenMeetingTx; clock: Clock; ids: IdGenerator; hasher: RequestHasher },
+  deps: { tx: OpenMeetingTx; clock: Clock; ids: IdGenerator; hasher: RequestHasher; held: HeldDataKeys },
   open: { caller: ShipCaller; ships: readonly Invitee[]; valueIds: readonly LabelValueId[]; title: string | null; idempotencyKey: string; requestHash: string; model: string | undefined },
-): Promise<Result<MeetingOpened, OpenMeetingFailure>> {
+): Promise<Result<MeetingOpened, OpenMeetingFailure | DataKeysNeeded>> {
   const { tx, clock, ids } = deps;
   const { fleetId, shipId: openerShipId } = open.caller;
   const openerKey = { fleetId, openerShipId, idempotencyKey: open.idempotencyKey };

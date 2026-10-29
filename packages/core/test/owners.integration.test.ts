@@ -12,6 +12,7 @@ import { createPostgresCore, everyRow, type PostgresCore } from './support/postg
 import { unwrap } from '../src/testing/result.js';
 import { newKey } from '../src/testing/keys.js';
 import { withOperatorLogin } from './support/operator-login.js';
+import { unsealedFleetsOnly } from './support/sealing.js';
 
 // Owners on a real Postgres (decision 0045): every ship but argo and the
 // viewer has one, set and changed with its event in the same transaction.
@@ -146,6 +147,7 @@ describe('a retired owner on Postgres', () => {
       clock: core.clock,
       ids: newId,
       hasher: sha256Hasher,
+      sealing: unsealedFleetsOnly,
     });
 
     await expect(failingRetire(argo, { shipId: thomasId })).rejects.toThrow('disk full');

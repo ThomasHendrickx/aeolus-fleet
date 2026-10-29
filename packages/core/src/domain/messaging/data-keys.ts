@@ -13,6 +13,7 @@ import { err, ok, type Result } from '../shared/result.js';
 import { keyUnavailable } from './key-unavailable.js';
 import type { KeyUnavailable, KeyVault } from './key-vault.js';
 import type { DataKey, PayloadSealer, SealedRow } from './payload-sealer.js';
+import type { Message } from './message.js';
 import type { FleetSealingRepository } from './ports.js';
 import { isSealedPayload, type StoredPayload } from './sealed-payload.js';
 
@@ -132,4 +133,21 @@ export function unsealed(held: HeldDataKeys, stored: { row: SealedRow; payload: 
   }
   const opened = held.sealer.unseal({ key, row }, payload.sealed);
   return opened.isOk ? opened : refuse('KEY_UNAVAILABLE', `The sealed payload of ${row.rowId} does not open under its data key`);
+}
+
+/** The message as the fleet stores it: sealed in a sealed fleet, under its current data key, with the request hash that leaves the payload out. */
+export async function sealedMessage(
+  deps: { tx: { sealings: Pick<FleetSealingRepository, 'currentDataKeyId'> }; held: HeldDataKeys | undefined },
+  accepted: { message: Message; sealedRequestHash: string },
+): Promise<Result<Message, DataKeysNeeded>> {
+  const { message, sealedRequestHash } = accepted;
+  if (deps.held === undefined || typeof message.payload !== 'string') {
+    return ok(message);
+  }
+  const currentDataKeyId = await deps.tx.sealings.currentDataKeyId(message.fleetId);
+  const payload = sealedFor(deps.held, { currentDataKeyId, row: { fleetId: message.fleetId, rowId: message.id }, payload: message.payload });
+  if (!payload.isOk) {
+    return payload;
+  }
+  return ok(typeof payload.value === 'string' ? message : { ...message, payload: payload.value, requestHash: sealedRequestHash });
 }

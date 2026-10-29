@@ -47,7 +47,7 @@ function aMeeting(overrides: Partial<MeetingToOpen> = {}): MeetingToOpen {
 }
 
 function openMeetingWith(uow: UnitOfWork<PrismaTx>) {
-  return createOpenMeeting({ uow, clock: core.clock, ids: newId, hasher: sha256Hasher });
+  return createOpenMeeting({ uow, clock: core.clock, ids: newId, hasher: sha256Hasher, sealing: unsealedFleetsOnly });
 }
 
 /** The Prisma unit of work with a step of the open wrapped: `wrap` gets the transaction's ports and returns them with that step changed. */
@@ -413,7 +413,7 @@ describe('the mic on Postgres', () => {
   });
 
   function changeMicWith(uow: UnitOfWork<PrismaTx>) {
-    return createChangeMic({ uow, clock: core.clock, ids: newId, hasher: sha256Hasher });
+    return createChangeMic({ uow, clock: core.clock, ids: newId, hasher: sha256Hasher, sealing: unsealedFleetsOnly });
   }
 
   async function micNotices() {
@@ -571,6 +571,7 @@ describe("a meeting's life on Postgres", () => {
       clock: core.clock,
       ids: newId,
       hasher: sha256Hasher,
+      sealing: unsealedFleetsOnly,
     });
 
     await expect(changeMeeting(chief, { meetingId, change: { kind: 'end' } })).rejects.toThrow('disk full');
@@ -607,7 +608,7 @@ describe("a meeting's life on Postgres", () => {
     }));
     const sending = createSendMessage({ sealing: unsealedFleetsOnly, uow, clock: core.clock, ids: newId, hasher: sha256Hasher })(marketing, aMeetingContribution(meetingId));
 
-    const [sent, retiredShip] = await Promise.all([sending, createRetireShip({ uow, clock: core.clock, ids: newId, hasher: sha256Hasher })(argo, { shipId: productId })]);
+    const [sent, retiredShip] = await Promise.all([sending, createRetireShip({ uow, clock: core.clock, ids: newId, hasher: sha256Hasher, sealing: unsealedFleetsOnly })(argo, { shipId: productId })]);
 
     expect([sent.isOk, retiredShip.isOk]).toEqual([true, true]);
     await expect(participantRows()).resolves.toContainEqual({ shipId: productId, leftAt: core.clock.now(), isRevoked: false, place: 2 });

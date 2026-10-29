@@ -26,7 +26,7 @@ import { idempotencyKey } from '../shared/idempotency-key.js';
 import { acceptContribution, acceptLabelMessage, acceptMessage, repeatOf, type AcceptRefusal, type RepeatRefusal, type ScheduledFor } from './message.js';
 import { payload } from './payload.js';
 import type { DeliveryRepository, FleetSealingRepository, MeetingRepository, MessageRepository, RequestHasher } from './ports.js';
-import { isDataKeysNeeded, sealedFor, unsealed, withDataKeys, type DataKeysNeeded, type HeldDataKeys, type PayloadSealing } from './data-keys.js';
+import { isDataKeysNeeded, sealedMessage, unsealed, withDataKeys, type DataKeysNeeded, type HeldDataKeys, type PayloadSealing } from './data-keys.js';
 import type { Message } from './message.js';
 import { checkContribution, type ContributionRefusal } from './meeting.js';
 import { sendRequestText } from './send-request.js';
@@ -323,23 +323,6 @@ function repeatWithin(deps: SendDeps, repeat: { original: Message; request: Chec
   }
   const same = repeatOf({ message: original, plainPayload: plainPayload.value }, request);
   return same.isOk ? ok({ messageId: same.value }) : same;
-}
-
-/** The message as the fleet stores it: sealed in a sealed fleet, under its current data key, with the request hash that leaves the payload out. */
-export async function sealedMessage(
-  deps: { tx: Pick<SendMessageTx, 'sealings'>; held: HeldDataKeys | undefined },
-  accepted: { message: Message; sealedRequestHash: string },
-): Promise<Result<Message, DataKeysNeeded>> {
-  const { message, sealedRequestHash } = accepted;
-  if (deps.held === undefined || typeof message.payload !== 'string') {
-    return ok(message);
-  }
-  const currentDataKeyId = await deps.tx.sealings.currentDataKeyId(message.fleetId);
-  const payload = sealedFor(deps.held, { currentDataKeyId, row: { fleetId: message.fleetId, rowId: message.id }, payload: message.payload });
-  if (!payload.isOk) {
-    return payload;
-  }
-  return ok(typeof payload.value === 'string' ? message : { ...message, payload: payload.value, requestHash: sealedRequestHash });
 }
 
 /**

@@ -13,8 +13,7 @@ import { withinDailyMessageLimit, type DailyMessageLimitTx } from './daily-messa
 import { dismissForResend, type DismissRefusal } from './delivery.js';
 import { acceptMessage, deliveredTo, repeatOf, type AcceptRefusal, type RepeatRefusal } from './message.js';
 import type { DeliveryRepository, FleetSealingRepository, MessageRepository, RequestHasher } from './ports.js';
-import { unsealed, withDataKeys, type DataKeysNeeded, type PayloadSealing } from './data-keys.js';
-import { sealedMessage } from './send-message.js';
+import { sealedMessage, unsealed, withDataKeys, type DataKeysNeeded, type PayloadSealing } from './data-keys.js';
 import { sendRequestText } from './send-request.js';
 
 export interface ResendDeliveryTx extends Omit<ResolveSelectorTx, 'ships'>, Omit<CheckReachTx, 'ships'>, DailyMessageLimitTx {

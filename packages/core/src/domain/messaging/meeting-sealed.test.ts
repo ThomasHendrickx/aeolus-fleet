@@ -1,4 +1,4 @@
-import { MEETING_ADDED_CONTENT_TYPE, MEETING_ENDED_CONTENT_TYPE, MEETING_MIC_CONTENT_TYPE, type MeetingId } from '@aeolus-fleet/common';
+import { MEETING_ADDED_CONTENT_TYPE, MEETING_ENDED_CONTENT_TYPE, MEETING_MIC_CONTENT_TYPE, meetingAddedSchema, type MeetingId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { crewAboard, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, sealFleet, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
@@ -57,7 +57,7 @@ describe('a meeting in a sealed fleet (decision 0068, B17)', () => {
     const received = await receivedBy(marketing);
 
     noPayloadStoredPlain();
-    expect(received).toEqual([{ contentType: MEETING_ADDED_CONTENT_TYPE, payload: expect.stringContaining(`"meetingId":"${meetingId}","title":"Launch"`) as unknown }]);
+    expect(received.map(({ contentType, payload }) => ({ contentType, notice: meetingAddedSchema.parse(JSON.parse(payload)) }))).toMatchObject([{ contentType: MEETING_ADDED_CONTENT_TYPE, notice: { meetingId, title: 'Launch' } }]);
   });
 
   it('stores the added notice of a ship added to the meeting sealed, and the ship receives it as written', async () => {
@@ -66,13 +66,13 @@ describe('a meeting in a sealed fleet (decision 0068, B17)', () => {
     const received = await receivedBy(design);
 
     noPayloadStoredPlain();
-    expect(received).toEqual([{ contentType: MEETING_ADDED_CONTENT_TYPE, payload: expect.stringContaining(`"meetingId":"${meetingId}","title":"Launch"`) as unknown }]);
+    expect(received.map(({ contentType, payload }) => ({ contentType, notice: meetingAddedSchema.parse(JSON.parse(payload)) }))).toMatchObject([{ contentType: MEETING_ADDED_CONTENT_TYPE, notice: { meetingId, title: 'Launch' } }]);
   });
 
   it("stores the moderator's contribution sealed, and the meeting read answers it as written", async () => {
     unwrap(await messaging.sendMessage(chief, { selector: { kind: 'meeting', meetingId }, payload: CONTRIBUTION, idempotencyKey: newKey(), model: SESSION_MODEL }));
 
-    const read = unwrap(await messaging.readMeeting(product, { meetingId }));
+    const read = unwrap(await messaging.readMeeting(product, { meetingId, limit: 10 }));
 
     noPayloadStoredPlain();
     expect(read.contributions.items.map(({ payload }) => payload)).toEqual([CONTRIBUTION]);

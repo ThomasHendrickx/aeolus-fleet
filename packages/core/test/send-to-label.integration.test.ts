@@ -212,7 +212,7 @@ describe('a send to a label on Postgres', () => {
     const sending = sendMessageWith(uow)(lead, toTeamA());
     await stored;
 
-    const retiring = createRetireShip({ uow: createPrismaUnitOfWork(core.prisma), clock: core.clock, ids: newId, hasher: sha256Hasher })(argo, { shipId: charlie.shipId });
+    const retiring = createRetireShip({ uow: createPrismaUnitOfWork(core.prisma), clock: core.clock, ids: newId, hasher: sha256Hasher, sealing: unsealedFleetsOnly })(argo, { shipId: charlie.shipId });
     const [sent, retired] = await Promise.all([sending, retiring]);
 
     expect([sent.isOk, retired.isOk]).toEqual([true, true]);
