@@ -1,12 +1,12 @@
 # Retired ships: hidden now, removed after a retention period
 
-Design, stage 1: the purpose for Thomas to agree, the lessons to check against, and the questions. Docs only. No detailed decisions until the purpose is agreed.
+Design, stage 2. Docs only. Thomas agreed the purpose and answered Q1 to Q5 on 29 Oct (section 3, recorded as [decision 0069](../../decisions/0069-retired-ships.md)). This stage holds the decisions in detail (section 4), the flows (section 5), the acceptance scenarios (section 6), the screens that need a before and after mockup (section 7), the slices (section 8) and the question it raised (section 9).
 
 Thomas's choice, option 3 of his question: "Both: hide now, remove after a retention period". Retired ships are hidden everywhere by default now; after a retention period they are removed; their messages and events stay and show them as a retired ship.
 
 Today a retired ship is kept for good: blueprint, Registry rules and Retire a ship; decisions 0029, 0031, 0045, 0059; retention R4 ("a retired ship's row stays for good", 0066); the `ShipRetired` and `DeliveryAbandoned` events.
 
-## 1. Purpose (for Thomas to agree)
+## 1. Purpose (agreed by Thomas, 29 Oct)
 
 The fleet snapshot shows the ships that sail, and a retired ship leaves the fleet for good: hidden from every view and count at once, and after the fleet's retention period nothing of it is kept but what its kept history needs to name it.
 
@@ -55,52 +55,145 @@ Not the purpose:
 | L18 | Every change writes its event; no hidden behaviour | blueprint, Principles |
 | L19 | Pre-1.0: no compatibility work | 0013 |
 
-## 3. Questions for Thomas
+| L20 | A retire cancels the ship's schedules but keeps their rows, payload included; a schedule keeps the messages it names from pruning | 0062; `retire-ship.ts`; 0066 |
+| L21 | A commission locks its key per commissioning actor, then looks it up; the key is unique per actor and fleet | `commission-ship.ts`; `ships_commission_key_key` |
+| L22 | Kept fleet-change events carry what the change was: `ShipCommissioned` the name, type, kind and scopes, `OwnerSet` and `OwnerChanged` the owner, `ScopesChanged` the scopes; events are append-only | `ship.ts`; blueprint, Domain events; architecture |
 
-### Q1. What "hide everywhere by default" still changes
+## 3. Thomas's answers (29 Oct)
 
-The fleet list, ship types, discovery, pickers and the reach graph hide retired ships already (L1, L4). What still shows them by default: the retired count (L2) and the "Show retired (n)" switch with its number.
+| Q | Answer |
+| --- | --- |
+| Q1 | Option 1: drop the retired count, keep Show retired off by default |
+| Q2 | Option 1: a remnant row (id, name, type, kind, dates), the rest cleared, foreign keys kept |
+| Q3 | Option 1: the fleet's retention (0066), the hourly pass |
+| Q4 | Option 1, against the pick: a repeated idempotent commission after removal creates a new ship. Thomas: "name is unique for ships within those that are known, id is unique always." |
+| Q5 | Option 1: a link to a removed ship opens its remnant page with its kept history |
 
-1. **Hide what is left by default**: no retired count in the fleet's counts; the switch stays, off by default, as the one deliberate step; a retired ship's page still opens from a link.
-2. **No way to list them**: the switch and the retired status filter go; a retired ship is reached only from a link in a timeline or thread.
-3. **Nothing more**: hiding is done; this design is only about removal.
+## 4. Decisions
 
-Pick: 1. It meets "hidden by default" and keeps the one deliberate step outcome 1 asks for; 2 takes away the only way to find a ship you know retired without its history.
+| # | Decision |
+| --- | --- |
+| D1 | **No retired count** (Q1). `fleet.shipCounts` counts no retired ships; the overview's subtitle loses "n retired", the Show retired switch its "(n)", and "x of y ships" counts ships that are not retired. The switch stays, off by default, the one deliberate step: on, the list shows the retired ships not yet removed, and its count line says how many rows it shows. |
+| D2 | **A removed ship is a remnant** (Q2). The ship row keeps its id, name, type, kind, commission date (`created_at`) and retire date, and gets `removed_at`. Its scopes are emptied; its note, owner, commissioner, idempotency key and request hash are cleared. Its schedules, every one cancelled at retire (L20), go with it, so the messages they named can be pruned. |
+| D3 | **Foreign keys stay** (Q2). Every row that names a removed ship (messages, deliveries, events, meetings, participants, other ships' schedules, overdue rows) stays or goes by its own rule (0066); its ended leases and invalidated credentials go by age as R4 says. Removal deletes no event: the kept fleet changes keep naming the ship and what each change was (L22), as the fleet's history, not the ship's data. |
+| D4 | **Nothing lists a remnant.** `fleet.list` (the retired status too), `fleet.shipCounts`, `fleet.listShipTypes`, discovery, pickers, the reach graph and the network rules' owner picker leave it out. The ship limit never counted it. |
+| D5 | **Removed by the hourly pass** (Q3). The pruning pass (0066 R8) removes ships retired before its cutoff (R7), up to 500 per batch, each ship row locked `FOR UPDATE SKIP LOCKED`; a row another transaction holds waits for the next pass. The batch's `HistoryPruned` counts the ships removed. A fleet with no retention removes none: its retired ships are kept for good, as all its history. |
+| D6 | **Still retired.** A remnant's status is retired: its id is never claimed or addressed again (register, a send or resend to it and a schedule to it are refused as today, with the same codes); its name stays reusable, as a retired ship's is (blueprint, Ship name). |
+| D7 | **A repeated commission after removal is a new request** (Q4). Removal clears the key, so a commission repeated with it commissions a new ship with a new id, checked as any commission (name, limits, scopes, owner). Before removal it answers the retired ship, as today. Thomas: "name is unique for ships within those that are known, id is unique always." |
+| D8 | **A link opens the remnant** (Q5). `fleet.ship` answers a removed ship within read reach: id, name, type, kind, status retired, its commission, retire and removed dates, empty scopes and no owner, note, statement, labels or crew. Its timeline answers what the fleet still keeps that names it (its history within the retention, the fleet changes for good). Every link to a ship (timeline, thread, inbox senders, delivery history, Health) opens it, as for any retired ship. |
+| D9 | **Proven by tests** (Testcontainers): a ship retired before the cutoff is removed and one after it is not; a fleet with no retention removes none; the remnant keeps its messages, deliveries, events and meetings readable by name and type; a batch rolled back leaves the ship as it was; a removal racing a commission with the ship's key answers either the retired ship or a new one, never two ships for one key at once; a restart mid-pass goes on the next hour; the stuck snapshot reads a remnant's dates. |
 
-### Q2. What "removed" leaves of a ship
+## 5. Flows
 
-Messages and events stay and must show the ship as retired (outcome 2), and about 30 foreign keys name it (L10).
+### Removal in the pruning pass
 
-1. **A remnant row**: the ship row stays with only its id, name, type, kind and commission and retire dates; its scopes, owner, note, commissioner and idempotency key are cleared. The foreign keys stay; nothing lists it, not even the switch; a link opens a page saying it is a removed retired ship, with its kept history.
-2. **Delete the row**: the foreign keys to ships go, and every row that names a ship copies its name and type, so reads still show it.
-3. **Delete the row once nothing names it**: wait until retention pruned every message, delivery and event naming it.
+The pass is the retention design's (section 5); removal is one more part of a batch's one set (R16).
 
-Pick: 1. It keeps names, types and the stuck snapshot's dates (L13) with no copy, keeps the id from ever being claimed (outcome 4), and the remnant is a few bytes. 2 copies a name into every message, delivery and event (a second source of truth). 3 never happens: kept-for-good events (commission, retire) name it forever (L11).
+```mermaid
+flowchart TD
+  batch(["A batch of the hourly pass, cutoff taken (0066 R7)"]) --> pick["Pick up to 500 ships with retired_at before the cutoff and no removed_at, oldest retire first, FOR UPDATE SKIP LOCKED"]
+  pick --> any{"Any picked?"}
+  any -->|"none, or every one locked by another transaction"| rest["The rest of the batch as 0066 says"]
+  any -->|yes| sched["In the set: the picked ships' schedules (cancelled at retire)"]
+  sched --> clear["Clear each row: scopes empty, note, owner, commissioner, key and request hash null; removed_at now"]
+  clear --> rest
+  rest --> go["Go (R16): delete the set children first, update the ship rows"]
+  go --> ev["HistoryPruned: cutoff and counts, ships among them (D5)"]
+  ev --> commit["Commit"]
+  commit --> more{"Rows or ships left before the cutoff, and time budget left?"}
+  more -->|yes| batch
+  more -->|"none left"| done(["kept_from moves to the cutoff"])
+  more -->|"budget spent"| later(["The next hour goes on"])
+```
 
-### Q3. Which retention period
+### Reading and commissioning after removal
 
-1. **The fleet's retention** (0066): a ship retired before the cutoff is removed by the hourly pass, counted in `HistoryPruned`; unset means kept for good, as all history.
-2. **A separate retired-ship retention** setting beside it.
-3. **A fixed period in core**, the same in every fleet.
+```mermaid
+flowchart TD
+  link(["A reader opens a link to a ship"]) --> found{"Ship in the fleet and in read reach?"}
+  found -->|no| nf["SHIP_NOT_FOUND, as today"]
+  found -->|"yes, removed"| rem["Remnant page: name, type, kind, retired, removed; kept timeline (D8)"]
+  found -->|"yes, retired, not removed"| ret["Retired ship page, as today"]
+  com(["A commission repeated with an earlier key"]) --> lock["Lock the key, look it up (L21)"]
+  lock --> key{"A ship holds the key?"}
+  key -->|"yes, same request"| same["Answers that ship, retired or not"]
+  key -->|"yes, another request"| reused["IDEMPOTENCY_KEY_REUSED"]
+  key -->|"no: never used, or its ship removed"| new["A new ship, new id, checked as any commission (D7)"]
+```
 
-Pick: 1. One number the fleet manager already sets and pays by, one pass and one event already built (L17); 2 adds a setting nobody asked for; 3 is a limit core sets itself, against 0016.
+### What goes wrong
 
-### Q4. An idempotent commission repeated after removal
+```mermaid
+flowchart TD
+  a(["Server dies, or a statement fails, mid-batch"]) --> a1["Rolled back: the ships unremoved, their schedules kept, no HistoryPruned"] --> a2["The next pass picks them again"]
+  b(["Two servers run the pass at once"]) --> b1["The second finds the pass claimed or the lock held and skips the fleet"]
+  c(["A repeated commission races the removal of its ship"]) --> c1["The commission reads before the removal commits: answers the retired ship. Reads after: a new ship. The key is on one row at a time"]
+  d(["A send, resend or schedule names a removed ship"]) --> d1["Refused as for a retired ship (D6); nothing stored"]
+  e(["An undeliverable delivery to the ship is still on Health"]) --> e1["Kept, naming the remnant (D3); resend refused, dismiss goes on as today"]
+  f(["Retention set on a fleet with years of retired ships"]) --> f1["Removed 500 per batch within the budget, the rest the next hours"]
+  g(["Retention raised or set to none"]) --> g1["Nothing comes back; removal slows or stops"]
+  h(["A plugin reads a removed member or app ship by id"]) --> h1["fleet.ship answers the remnant: retired, no owner, no scopes"]
+  i(["The fleet is deleted during a pass"]) --> i1["The delete waits on the batch's locks; either way the fleet is gone"]
+```
 
-The key and request hash live on the ship row (L15). Clearing them (Q2, 1) means a commission repeated with the same key after removal commissions a new ship.
+## 6. Acceptance scenarios
 
-1. **Clear them**: a retry weeks after the retire is a new request.
-2. **Keep them on the remnant**: the retry answers the removed ship, as it answers a retired one today.
+Each one becomes a test by name in the slice that builds it.
 
-Pick: 2. A key is small, and an idempotent call must never answer two ships for one key; a retry answering a retired ship is the behaviour today.
+Hidden by default (D1, D4)
+1. Given a fleet with 3 active agent ships and 2 retired ones, when argo opens the overview, then the subtitle says "3 active ships and argo" with no retired number, Show retired is off and says no count, and the count line says "3 of 3 ships".
+2. Given the same fleet, when argo turns Show retired on, then the list shows the 2 retired ships with the 3 active ones and its count line says 5 rows.
+3. Given a retired ship that was removed, when argo turns Show retired on, then it is not in the list, and `fleet.list` with the retired status does not answer it.
+4. Given a removed ship, when a ship calls discover or opens a send picker, the reach graph or the network rules' owner picker, then the removed ship is not there.
 
-### Q5. What a link to a removed ship shows
+Removal (D2, D3, D5)
+5. Given a fleet with a 30 day retention and a ship retired 31 days ago, when the hourly pass runs, then the ship row keeps its id, name, type, kind, commission and retire dates, gets `removed_at`, has no scopes, note, owner, commissioner, key or request hash, and `HistoryPruned` counts 1 ship.
+6. Given a ship retired 29 days ago in that fleet, when the pass runs, then it is not removed.
+7. Given a fleet with no retention and a ship retired a year ago, when the pass runs, then it is not removed.
+8. Given a removed ship's cancelled schedule that named a finished message older than the cutoff, when the pass runs, then the schedule goes with the removal, and the message goes in a later batch or pass.
+9. Given messages, deliveries, events and an ended meeting naming a ship, when the ship is removed, then each stays as its own rule says, and a thread, timeline or meeting shows the ship by name and type as retired.
+10. Given an undeliverable delivery to a removed ship, then it stays on Health naming the ship; resend is refused and dismiss works as today.
+11. Given a batch that fails after clearing a ship row, then the ship is as it was, its schedules kept, and no `HistoryPruned` is written.
+12. Given more retired ships before the cutoff than a batch takes, when the pass runs, then they are removed oldest retire first, 500 per batch, the rest within the budget or the next hour.
 
-1. **Its remnant page**: name, type, kind, retired and removed dates, and the kept history that names it (its timeline within the retention, the fleet changes for good).
-2. **Not found**: the page says the ship is no longer kept; timelines and threads still name it but link nowhere.
+Still retired (D6)
+13. Given a removed ship, when a session registers with its id, a ship sends or resends to it, or a schedule names it, then each is refused as for a retired ship, storing nothing.
+14. Given a removed ship named `planner`, when a ship is commissioned named `planner`, then it is commissioned with a new id.
 
-Pick: 1. A timeline entry that opens nothing is a dead end; the remnant and its timeline query exist already.
+Repeated commission (D7)
+15. Given a ship commissioned with key `k` and retired, when the same commission is repeated with `k` before removal, then it answers the retired ship.
+16. Given that ship removed, when the same commission is repeated with `k`, then a new ship is commissioned with a new id, checked as any commission.
+17. Given a commission repeated with `k` while the pass removes its ship, then it answers either the retired ship or a new ship, and no two ships hold `k`.
 
-## 4. Next
+The remnant's page (D8)
+18. Given a removed ship within read reach, when a reader calls `fleet.ship` with its id, then it answers its id, name, type, kind, status retired, its commission, retire and removed dates, no scopes, and no owner, note, statement, labels or crew.
+19. Given a timeline entry naming a removed ship, when argo opens its link, then the ship page says the ship was retired and removed, with both dates, offers no action, and shows the kept history that names it.
+20. Given a removed ship outside the reader's read reach, when the reader calls `fleet.ship`, then it is refused as today.
 
-Once Thomas agrees the purpose and answers Q1 to Q5: stage 2 with the decisions in detail, the flows (happy and unhappy, as the pruning pass's), the decision record (a new one or a change to 0066 R4), and the slices.
+## 7. Screens that need a before and after mockup for Thomas
+
+Each is built only after Thomas approves its mockup.
+
+1. **The fleet overview** (desktop and the phone's filter sheet). Before: subtitle "12 active ships and argo, 216 retired", "Show retired (216)", "12 of 228 ships". After: "12 active ships and argo", "Show retired" with no number, "12 of 12 ships"; with Show retired on, the retired ships not removed in the list and a count of the rows shown.
+2. **The ship page of a removed ship.** Before: a retired ship's header, its notice "Retired on ... Read-only.", the meta strip with owner, scopes, note and labels. After: the header with name, type and kind; the notice "Retired on ..., removed on .... Kept: its name, type and the history that names it."; a meta strip with commission, retire and removed dates only; the timeline with what the fleet still keeps, its kept-from line as today.
+
+## 8. Slices
+
+Each one PR, in order, built red, green, refactor from the scenarios it names.
+
+| # | Slice | Done when |
+| --- | --- | --- |
+| S1 | **Removal** (D2 to D7, D9): `removed_at`, the pass removing ships, clearing the row and its schedules, `HistoryPruned`'s ship count; reads leaving remnants out of every list, count and picker; `fleet.ship` answering `removedAt`; the blueprint (Retire a ship, Ship name, Registry rules, `HistoryPruned`, the retention paragraph) and architecture (`ships`, the pass, operation 8) | Scenarios 3 to 18 and 20 pass by name |
+| S2 | **No retired count** (D1, screen 1), after Thomas approves its mockup: `fleet.shipCounts` without retired ships, the overview's subtitle, switch and count line | Scenarios 1 and 2 pass by name; walked on staging |
+| S3 | **The removed ship's page** (D8, screen 2), after Thomas approves its mockup | Scenario 19 passes by name; walked on staging |
+
+## 9. Question for Thomas
+
+### N1. Which ships "known" means for a name
+
+Thomas's note on Q4: "name is unique for ships within those that are known, id is unique always." Today a name is unique among active ships and reusable at once after retire (blueprint, Ship name; the partial unique index on `retired_at`).
+
+1. **Known is active**: today's rule stays; a retired ship's name is free at once, removed or not. D6 and scenario 14 as written.
+2. **Known is not removed**: a retired ship's name stays taken until the ship is removed, then is free; a commission or rename to it is refused until then.
+
+Pick: 1. Squadrons and the gateway retire and commission ships under the same names as routine work (216 retires in under a month); option 2 would block a name for the fleet's whole retention, or for good in a fleet with none.
