@@ -314,6 +314,8 @@ export interface FleetSealingRepository {
   findForUpdate(fleetId: FleetId): Promise<FleetSealing | undefined>;
   /** Whether the fleet stores a payload plain: a message's or a schedule's. */
   storesPlainPayload(fleetId: FleetId): Promise<boolean>;
+  /** How many payloads the fleet stores plain: its messages' and its schedules'. */
+  plainPayloadCount(fleetId: FleetId): Promise<number>;
   /** Marks the fleet sealing or sealed under its company key, with its first data key, current. */
   turnOn(sealing: FleetSealing, firstKey: StoredDataKey): Promise<void>;
   /** The fleet's data keys, oldest first, each with when it was made and whether it is current: never a wrap. */
@@ -338,10 +340,10 @@ export interface FleetSealingRepository {
    * another unit of work holds is skipped, not waited for.
    */
   plainPayloads(fleetId: FleetId, input: { after: SealingCursor | null; limit: number }): Promise<PlainPayloads>;
-  /** Stores each payload sealed in place of its plain one, with its request hash that leaves the payload out. */
+  /** Stores each payload sealed in place of its plain one, with its request hash that leaves the payload out, and counts them in the fleet's sealing progress. */
   sealPayloads(fleetId: FleetId, sealed: SealedPayloads): Promise<void>;
-  /** Marks a sealing fleet sealed: it stores no payload plain. */
-  markSealed(fleetId: FleetId): Promise<void>;
+  /** Marks a sealing fleet sealed since the given time: it stores no payload plain. */
+  markSealed(fleetId: FleetId, at: Date): Promise<void>;
   /** The sealed fleets whose current data key was made at or before the cutoff, across the installation: the ones a new data key is due in (B13a). */
   fleetsDueANewDataKey(cutoff: Date): Promise<FleetId[]>;
   /** Makes the given data key the fleet's current one; the one current before stays, to unseal what it sealed. */

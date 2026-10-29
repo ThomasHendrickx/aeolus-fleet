@@ -40,7 +40,8 @@ export const keyAvailabilitySchema = z.discriminatedUnion('isAvailable', [
 
 /**
  * Output of `fleet.sealing` (decision 0068, B5): none for a fleet that is not
- * sealed; else its state, its company key by reference, its recovery key by
+ * sealed; else its state and since when (turned on, or sealed), while sealing
+ * how many of the payloads stored plain before are sealed, its company key by reference, its recovery key by
  * fingerprint (none when the company set none), the key's availability and its data keys oldest first, each with when it was made and
  * whether it seals now. Never a key, wrapped or not.
  */
@@ -48,6 +49,8 @@ export const sealingOutputSchema = z.union([
   z.object({ state: z.literal('none') }),
   z.object({
     state: z.enum(['sealing', 'sealed']),
+    since: z.iso.datetime(),
+    progress: z.object({ sealed: z.number().int().nonnegative(), total: z.number().int().nonnegative() }).nullable(),
     companyKey: z.string(),
     recoveryKeyFingerprint: z.string().nullable(),
     keyAvailability: keyAvailabilitySchema,

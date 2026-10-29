@@ -610,8 +610,8 @@ export const fleetRouter = router({
     }),
 
   /**
-   * The fleet's sealing (decision 0068, B5, B11): none, or its state, its
-   * company key by reference, whether that key answered its last unwrap and
+   * The fleet's sealing (decision 0068, B5, B11): none, or its state and
+   * since when, the sealing pass's progress, its company key by reference, whether that key answered its last unwrap and
    * since when, and its data keys' ages. Never a key.
    */
   sealing: actorScopedProcedure('fleet:read')
@@ -621,9 +621,10 @@ export const fleetRouter = router({
       if (sealing.state === 'none') {
         return sealing;
       }
-      const { keyAvailability, dataKeys } = sealing;
+      const { since, keyAvailability, dataKeys } = sealing;
       return {
         ...sealing,
+        since: since.toISOString(),
         keyAvailability: { ...keyAvailability, since: keyAvailability.since.toISOString() },
         dataKeys: dataKeys.map((dataKey) => ({ ...dataKey, createdAt: dataKey.createdAt.toISOString() })),
       };

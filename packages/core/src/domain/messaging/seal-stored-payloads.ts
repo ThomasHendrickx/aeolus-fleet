@@ -94,8 +94,9 @@ export function createSealStoredPayloads(deps: {
       if (sealing?.state !== 'sealing' || (await tx.sealings.storesPlainPayload(fleetId))) {
         return ok(undefined);
       }
-      await tx.sealings.markSealed(fleetId);
-      await recordEvent({ events: tx.events, ids: deps.ids }, { fleetId, type: 'FleetPayloadsSealed', occurredAt: deps.clock.now(), actor: SYSTEM });
+      const at = deps.clock.now();
+      await tx.sealings.markSealed(fleetId, at);
+      await recordEvent({ events: tx.events, ids: deps.ids }, { fleetId, type: 'FleetPayloadsSealed', occurredAt: at, actor: SYSTEM });
       return ok(undefined);
     });
 
