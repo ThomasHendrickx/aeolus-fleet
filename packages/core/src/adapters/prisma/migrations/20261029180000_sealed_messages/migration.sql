@@ -35,5 +35,8 @@ DROP INDEX "messages_question_id_idx";
 -- CreateIndex
 CREATE INDEX "messages_fleet_id_question_id_idx" ON "messages"("fleet_id", "question_id") WHERE ("question_id" IS NOT NULL);
 
+-- A data key is never deleted while a message sealed under it is kept: the check reads this index.
+CREATE INDEX "messages_fleet_id_sealed_data_key_id_idx" ON "messages"("fleet_id", "sealed_data_key_id");
+
 -- AddForeignKey
 ALTER TABLE "messages" ADD CONSTRAINT "messages_fleet_id_sealed_data_key_id_fkey" FOREIGN KEY ("fleet_id", "sealed_data_key_id") REFERENCES "data_keys"("fleet_id", "id") ON DELETE RESTRICT ON UPDATE CASCADE;

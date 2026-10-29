@@ -665,6 +665,8 @@ model Message {
   @@index([fleetId, createdAt])
   /// A question's withdrawals and replacements, found by the question uuid they name (decisions 0038, 0068).
   @@index([fleetId, questionId], map: "messages_fleet_id_question_id_idx", where: { questionId: { not: null } })
+  /// A data key's sealed messages, for its foreign key.
+  @@index([fleetId, sealedDataKeyId])
   /// Every foreign key has an index leading with its columns, so deleting a
   /// referenced row checks it with an index, not a scan (#331).
   @@index([fleetId, selectorShipId, id])
