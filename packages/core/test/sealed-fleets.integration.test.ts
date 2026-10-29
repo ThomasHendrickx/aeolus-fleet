@@ -110,9 +110,16 @@ async function aCrewedReviewer(fleet: HostedFleet, name: string): Promise<Crew> 
   return (await aClaimedReviewer(fleet, name)).crew;
 }
 
+/** A ship argo granted fleet:keys (decision 0046), calling with its crew token. */
+async function aKeyHolder(fleet: HostedFleet): Promise<TRPCClient<AppRouter>> {
+  const { crewToken, crew } = await aClaimedReviewer(fleet, 'keeper');
+  unwrap(await useCases.grantScopes(fleet.argo, { shipId: crew.shipId, grant: ['fleet:keys'], revoke: [] }));
+  return client({ authorization: `Bearer ${crewToken}` });
+}
+
 async function aSealedFleet(): Promise<HostedFleet> {
   const fleet = await aHostedFleet();
-  await installationIn(fleet.fleetId).fleet.turnOnSealing.mutate({ companyKey: await aKeyBoundTo(fleet.fleetId) });
+  unwrap(await useCases.turnOnSealing(fleet.argo, { companyKey: await aKeyBoundTo(fleet.fleetId) }));
   return fleet;
 }
 
@@ -138,10 +145,11 @@ async function sealingOf(fleetId: FleetId) {
 
 describe('turning sealing on, on Postgres and a LocalStack KMS (decision 0068, B4)', () => {
   it('scenario 1: a company key granted for this fleet seals the empty fleet with one current data key, and FleetSealingTurnedOn names the key reference and no key material', async () => {
-    const { fleetId } = await aHostedFleet();
+    const fleet = await aHostedFleet();
+    const { fleetId } = fleet;
     const companyKey = await aKeyBoundTo(fleetId);
 
-    const turnedOn = await installationIn(fleetId).fleet.turnOnSealing.mutate({ companyKey });
+    const turnedOn = await (await aKeyHolder(fleet)).fleet.turnOnSealing.mutate({ companyKey });
 
     expect(turnedOn).toEqual({ state: 'sealed', companyKey });
     const sealing = await sealingOf(fleetId);
@@ -150,9 +158,10 @@ describe('turning sealing on, on Postgres and a LocalStack KMS (decision 0068, B
   });
 
   it('scenario 2: a company key granted without a fleet condition is refused KEY_NOT_BOUND_TO_FLEET and the fleet is unchanged', async () => {
-    const { fleetId } = await aHostedFleet();
+    const fleet = await aHostedFleet();
+    const { fleetId } = fleet;
 
-    const refusal = await refusalOfCall(installationIn(fleetId).fleet.turnOnSealing.mutate({ companyKey: await aCompanyKey() }));
+    const refusal = await refusalOfCall((await aKeyHolder(fleet)).fleet.turnOnSealing.mutate({ companyKey: await aCompanyKey() }));
 
     expect(refusal.code).toBe('BAD_REQUEST');
     expect(refusal.message).toContain('condition naming fleet');
@@ -160,25 +169,26 @@ describe('turning sealing on, on Postgres and a LocalStack KMS (decision 0068, B
   });
 
   it('scenario 3: a company key the installation may not use is refused KEY_UNAVAILABLE naming access denied, and nothing is stored', async () => {
-    const { fleetId } = await aHostedFleet();
+    const fleet = await aHostedFleet();
+    const { fleetId } = fleet;
     const companyKey = await aKeyBoundTo(fleetId);
     policy.refuseGrant(companyKey);
 
-    const refusal = await refusalOfCall(installationIn(fleetId).fleet.turnOnSealing.mutate({ companyKey }));
+    const refusal = await refusalOfCall((await aKeyHolder(fleet)).fleet.turnOnSealing.mutate({ companyKey }));
 
     expect(refusal).toEqual({ code: 'SERVICE_UNAVAILABLE', message: "The fleet's company key is not reachable: access denied" });
     expect(await sealingOf(fleetId)).toEqual({ sealingState: null, companyKey: null, dataKeys: [], events: [] });
   });
 
-  it('scenario 4: a ship of the fleet, argo included, is refused and nothing changes', async () => {
+  it('scenario 4: a ship without fleet:keys is refused and nothing changes, nor does the installation without it', async () => {
     const fleet = await aHostedFleet();
     const { crewToken } = await aClaimedReviewer(fleet, 'scout');
     const companyKey = await aKeyBoundTo(fleet.fleetId);
 
     const byShip = await refusalOfCall(client({ authorization: `Bearer ${crewToken}` }).fleet.turnOnSealing.mutate({ companyKey }));
-    const byArgo = refusalOf(await useCases.turnOnSealing(fleet.argo, { companyKey }));
+    const byInstallation = await refusalOfCall(installationIn(fleet.fleetId).fleet.turnOnSealing.mutate({ companyKey }));
 
-    expect([byShip.code, byArgo.kind]).toEqual(['FORBIDDEN', 'FORBIDDEN']);
+    expect([byShip.code, byInstallation.code]).toEqual(['FORBIDDEN', 'FORBIDDEN']);
     expect(await sealingOf(fleet.fleetId)).toEqual({ sealingState: null, companyKey: null, dataKeys: [], events: [] });
   });
 });
@@ -341,7 +351,7 @@ describe('every other payload sealed on Postgres and a LocalStack KMS (decision 
 async function aSealedFleetWithItsKey(): Promise<HostedFleet & { companyKey: string }> {
   const fleet = await aHostedFleet();
   const companyKey = await aKeyBoundTo(fleet.fleetId);
-  await installationIn(fleet.fleetId).fleet.turnOnSealing.mutate({ companyKey });
+  unwrap(await useCases.turnOnSealing(fleet.argo, { companyKey }));
   return { ...fleet, companyKey };
 }
 
@@ -524,7 +534,7 @@ describe('the kill switch on Postgres and a LocalStack KMS (decision 0068, B9, B
     const server = aServerAt('2026-10-29T12:00:00.000Z');
     const { messageId: plain } = unwrap(await server.useCases.sendMessage(scout, { ...aMessageTo(fleet.argo.shipId, 'sent before sealing'), model: 'claude-opus-5-5' }));
     const companyKey = await aKeyBoundTo(fleet.fleetId);
-    await installationIn(fleet.fleetId).fleet.turnOnSealing.mutate({ companyKey });
+    unwrap(await useCases.turnOnSealing(fleet.argo, { companyKey }));
     const { messageId: sealed } = unwrap(await server.useCases.sendMessage(scout, { ...aMessageTo(fleet.argo.shipId), model: 'claude-opus-5-5' }));
     await disableKey(companyKey);
     server.clock.advance(DATA_KEY_CACHE_MS);

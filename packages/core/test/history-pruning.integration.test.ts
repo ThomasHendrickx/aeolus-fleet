@@ -251,7 +251,7 @@ describe('a pruning pass on Postgres, in a sealed fleet (decision 0068)', () => 
     await core.prisma.$executeRaw`UPDATE fleets SET retention_set = true, retention_days = ${RETENTION_DAYS} WHERE id = ${argo.fleetId}`;
     const companyKey = await world.aCompanyKey();
     await world.bindToFleet(companyKey, argo.fleetId);
-    unwrap(await core.useCases.turnOnSealing({ kind: 'installation', fleetId: argo.fleetId, scopes: [] }, { companyKey }));
+    unwrap(await core.useCases.turnOnSealing(argo, { companyKey }));
     const before = await storage();
     const messageId = await aFinishedMessage('é'.repeat(500));
     const sent = await storage();

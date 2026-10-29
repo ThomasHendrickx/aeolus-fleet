@@ -1,5 +1,6 @@
 import { FLEET_URL, OPERATOR } from '../../src/testing/fleet.js';
 import {
+  accountIdSchema,
   idSchema,
   type DeliveryId,
   type FleetId,
@@ -137,7 +138,7 @@ import { createExplainCrewRequest } from '../../src/domain/registry/explain-crew
 import { createReadReportLog } from '../../src/domain/registry/report-log.js';
 import { createWhoami } from '../../src/domain/registry/whoami.js';
 import type { NetworkRule } from '../../src/domain/registry/network-settings.js';
-import { isCrew, type Caller, type ShipCaller, type Crew } from '../../src/domain/shared/caller.js';
+import { isCrew, type AccountCaller, type Caller, type ShipCaller, type Crew } from '../../src/domain/shared/caller.js';
 import { createReadFleetEvents } from '../../src/domain/shared/read-fleet-events.js';
 import { createFollowFleet } from '../../src/domain/shared/follow-fleet.js';
 import { createReadInbox } from '../../src/domain/shared/read-inbox.js';
@@ -662,7 +663,7 @@ export function deliveryInFlight(
 export const SESSION_MODEL = 'claude-opus-5-5';
 
 /**
- * Seals the fleet as the installation turns sealing on (decision 0068),
+ * Seals the fleet as its fleet manager, holding `fleet:keys`, turns sealing on (decision 0068),
  * under a company key of the in-memory key vault granted for this fleet
  * alone. Answers the company key.
  */
@@ -670,7 +671,8 @@ export async function sealFleet(core: InMemoryCore, fleetId: FleetId): Promise<s
   const companyKey = await core.keyVault.aCompanyKey();
   await core.keyVault.bindToFleet(companyKey, fleetId);
   const turnOn = createTurnOnSealing({ uow: core.uow, clock: core.clock, ids: core.ids, vault: core.keyVault.vault, sealer: core.sealing.sealer, sealings: core.sealings });
-  unwrap(await turnOn({ kind: 'installation', fleetId, scopes: [] }, { companyKey }));
+  const fleetManager: AccountCaller = { kind: 'account', accountId: accountIdSchema.parse('acc_fleetmanager'), fleetId, scopes: ['fleet:keys'], groupValues: [], personShipId: null, throughShipId: null };
+  unwrap(await turnOn(fleetManager, { companyKey }));
   return companyKey;
 }
 
