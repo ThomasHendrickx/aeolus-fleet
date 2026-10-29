@@ -930,7 +930,7 @@ describe('the recovery key on Postgres and a LocalStack KMS (decision 0068, B6, 
     expect(stored.dataKeys.map(({ isCurrent }) => isCurrent)).toEqual([false, true]);
     expect(await everyDataKeyOpensUnder(recovery, fleet.fleetId)).toBe(true);
     expect(stored.events).toEqual([{ type: 'FleetSealingTurnedOn', details: { companyKey, recoveryKeyFingerprint } }]);
-    expect(await keyHolder.fleet.sealing.query()).toMatchObject({ state: 'sealed', recoveryKeyFingerprint });
+    expect(await installationIn(fleet.fleetId).fleet.sealing.query()).toMatchObject({ state: 'sealed', recoveryKeyFingerprint });
   });
 
   it('changing the recovery key wraps every data key to the new one, FleetRecoveryKeyChanged names both fingerprints, and every message is still received', async () => {

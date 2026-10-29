@@ -671,7 +671,12 @@ export const SESSION_MODEL = 'claude-opus-5-5';
  * under a company key of the in-memory key vault granted for this fleet
  * alone. Answers the company key.
  */
-export async function sealFleet(core: InMemoryCore, fleetId: FleetId, options: { recoveryKey?: string } = {}): Promise<string> {
+export function sealFleet(core: InMemoryCore, fleetId: FleetId): Promise<string> {
+  return sealFleetWith(core, { fleetId });
+}
+
+/** Seals the fleet as {@link sealFleet} does, with a recovery key when one is given (decision 0068, B6). */
+export async function sealFleetWith(core: InMemoryCore, { fleetId, ...options }: { fleetId: FleetId; recoveryKey?: string }): Promise<string> {
   const companyKey = await core.keyVault.aCompanyKey();
   await core.keyVault.bindToFleet(companyKey, fleetId);
   const turnOn = createTurnOnSealing({ uow: core.uow, clock: core.clock, ids: core.ids, vault: core.keyVault.vault, sealer: core.sealing.sealer, recoveryKeys: core.recoveryKeys, sealings: core.sealings });

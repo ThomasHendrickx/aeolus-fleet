@@ -58,6 +58,10 @@ model Fleet {
   /// Its sealing (decision 0068): null while it is not sealed; then sealing until no payload is stored plain, and sealed. The company key that wraps its data keys, by its reference.
   sealingState               SealingState? @map("sealing_state")
   companyKey                 String?       @map("company_key")
+  /// Its recovery key (decision 0068, B6), when the company set one: the public half, an age X25519 recipient, and
+  /// its fingerprint (SHA256: and the unpadded base64 SHA-256 of the recipient). Each data key is wrapped to it too.
+  recoveryKey                String?       @map("recovery_key")
+  recoveryKeyFingerprint     String?       @map("recovery_key_fingerprint")
   /// Whether its company key answered its last unwrap, and since when (decision 0068, B11): the key vault's reason
   /// while it refuses (accessDenied, disabled, notFound, unreachable), null while it answers. Since when set with the sealing.
   keyUnavailableReason       String?       @map("key_unavailable_reason")

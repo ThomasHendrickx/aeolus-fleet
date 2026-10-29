@@ -1,7 +1,7 @@
 import type { FleetId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { crewAboard, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, sealFleet, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
+import { crewAboard, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, sealFleet, sealFleetWith, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { openedByRecoveryKey } from '../../../test/support/in-memory-recovery-keys.js';
@@ -71,7 +71,7 @@ describe('data keys by age (decision 0068, B13a)', () => {
   it('scenario 6: given a recovery key at turning on, a new data key is also wrapped to it', async () => {
     const other = createInMemoryCore('2026-10-29T09:00:00.000Z');
     const otherFleetId = (await initialiseFleet(other)).fleetId;
-    const otherCompanyKey = await sealFleet(other, otherFleetId, { recoveryKey: 'age1recoverykeyofacme' });
+    const otherCompanyKey = await sealFleetWith(other, { fleetId: otherFleetId, recoveryKey: 'age1recoverykeyofacme' });
     other.clock.set('2026-11-28T09:00:00.000Z');
 
     await createRotateDataKeys({ sealings: other.sealings, uow: other.uow, clock: other.clock, ids: other.ids, dataKeys: other.sealing.dataKeys })();

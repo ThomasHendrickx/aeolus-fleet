@@ -1,7 +1,7 @@
 import { accountIdSchema, type FleetId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, sealFleet, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
+import { initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, sealFleetWith, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { inMemoryRecoveryKeys, openedByRecoveryKey } from '../../../test/support/in-memory-recovery-keys.js';
@@ -40,7 +40,7 @@ async function aFleetSealedWith(options: { recoveryKey?: string }): Promise<void
   scout = await shipWithScopes({ registry, argo: operatorCaller(fleet) }, { name: 'scout', type: 'reviewer', scopes: [] });
   await shipWithScopes({ registry, argo: operatorCaller(fleet) }, { name: 'chief', type: 'chief-of-staff', scopes: [] });
   fleetManager = { kind: 'account', accountId: accountIdSchema.parse('acc_ines'), fleetId, scopes: ['fleet:read', 'fleet:manage', 'fleet:keys'], groupValues: [], personShipId: null, throughShipId: null };
-  companyKey = await sealFleet(core, fleetId, options);
+  companyKey = await sealFleetWith(core, { fleetId, ...options });
   await send('sealed under the first data key');
   core.clock.set('2026-11-28T09:00:00.000Z');
   await rotation()();

@@ -1,7 +1,7 @@
 import { SCOPES, type FleetId, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { hostedFleet, sealFleet } from '../../../test/support/core-fixtures.js';
+import { hostedFleet, sealFleet, sealFleetWith } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { refusalOf } from '../../testing/result.js';
 import type { ShipCaller } from '../shared/caller.js';
@@ -42,7 +42,7 @@ describe("reading a fleet's sealing (decision 0068, B5, B11)", () => {
   });
 
   it("scenario 6: shows the recovery key's fingerprint, never the recovery key", async () => {
-    await sealFleet(core, fleetId, { recoveryKey: 'age1recoverykeyofacme' });
+    await sealFleetWith(core, { fleetId, recoveryKey: 'age1recoverykeyofacme' });
 
     const sealing = await readSealing(argo);
 
