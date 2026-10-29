@@ -22,6 +22,7 @@ export async function start(): Promise<void> {
     consoleOrigin: config.consoleOrigin,
     installationToken: config.installationToken,
     accountTokenIssuer: config.accountTokenIssuer,
+    ...(config.kms === undefined ? {} : { kms: config.kms }),
   });
   for (const warning of startupWarnings(config)) {
     server.log.warn(warning);

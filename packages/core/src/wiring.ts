@@ -86,6 +86,12 @@ import { createReplyToMessage, type ReplyToMessage } from './domain/messaging/re
 import { createResendDelivery, type ResendDelivery } from './domain/messaging/resend-delivery.js';
 import { createPingShip, type PingShip } from './domain/messaging/ping-ship.js';
 import { createSendMessage, type SendMessage } from './domain/messaging/send-message.js';
+import { createTurnOnSealing, type TurnOnSealing } from './domain/messaging/turn-on-sealing.js';
+import { createFleetDataKeys } from './domain/messaging/data-keys.js';
+import type { KeyVault } from './domain/messaging/key-vault.js';
+import { aesGcmPayloadSealer } from './adapters/crypto/payload-sealer.js';
+import { noKeyVault } from './adapters/kms/no-key-vault.js';
+import { createPrismaFleetSealingRepository } from './adapters/prisma/sealings.js';
 import { createOpenMeeting, type OpenMeeting } from './domain/messaging/open-meeting.js';
 import { createReadMeeting, type ReadMeeting } from './domain/messaging/read-meeting.js';
 import { createChangeMic, type ChangeMic } from './domain/messaging/change-mic.js';
@@ -257,6 +263,7 @@ export interface UseCases {
   reportLog: ReadReportLog;
   deregister: Deregister;
   sendMessage: SendMessage;
+  turnOnSealing: TurnOnSealing;
   openMeeting: OpenMeeting;
   readMeeting: ReadMeeting;
   changeMic: ChangeMic;
@@ -368,6 +375,8 @@ export function createUseCases(options: {
   receiveWaitMs?: number;
   /** pagasae's signatures on account tokens (decision 0058); without them, no account token is trusted. */
   accountTokenSignatures?: AccountTokenSignatures;
+  /** The installation's KMS for sealed fleets (decision 0068); without it, no fleet can be sealed. */
+  keyVault?: KeyVault;
 }): UseCases {
   const { prisma } = options;
   const clock = options.clock ?? systemClock;
@@ -386,6 +395,9 @@ export function createUseCases(options: {
   const accountCutOffs = createPrismaAccountCutOffs(prisma);
   const hostedFleets = createPrismaHostedFleets(prisma);
   const healthReads = { health: createPrismaHealthRecords(prisma), snapshots: createPrismaHealthSnapshots(prisma) };
+  const keyVault = options.keyVault ?? noKeyVault;
+  const sealings = createPrismaFleetSealingRepository(prisma);
+  const sealing = { sealer: aesGcmPayloadSealer, dataKeys: createFleetDataKeys({ sealings, vault: keyVault, sealer: aesGcmPayloadSealer }) };
 
   return {
     ping: createPing({ clock, fleets: createPrismaFleetCounter(prisma) }),
@@ -485,9 +497,10 @@ export function createUseCases(options: {
     findLabelValue: createFindLabelValue({ listing: createPrismaFleetListing(prisma) }),
     reportLog: createReadReportLog({ leases: createPrismaLeaseRepository(prisma) }),
     deregister: createDeregister({ uow, clock, ids }),
-    sendMessage: createSendMessage({ uow, clock, ids, hasher: sha256Hasher }),
+    sendMessage: createSendMessage({ uow, clock, ids, hasher: sha256Hasher, sealing }),
+    turnOnSealing: createTurnOnSealing({ uow, clock, ids, vault: keyVault, sealer: aesGcmPayloadSealer, sealings }),
     openMeeting: createOpenMeeting({ uow, clock, ids, hasher: sha256Hasher }),
-    readMeeting: createReadMeeting({ uow }),
+    readMeeting: createReadMeeting({ uow, sealing }),
     changeMic: createChangeMic({ uow, clock, ids, hasher: sha256Hasher }),
     changeMeeting: createChangeMeeting({ uow, clock, ids, hasher: sha256Hasher }),
     addToMeeting: createAddToMeeting({ uow, clock, ids, hasher: sha256Hasher }),
@@ -495,6 +508,7 @@ export function createUseCases(options: {
       uow,
       clock,
       ids,
+      sealing,
       wakeups,
       waitMs: options.receiveWaitMs,
     }),
@@ -502,6 +516,7 @@ export function createUseCases(options: {
       uow,
       clock,
       ids,
+      sealing,
       wakeups,
       waitMs: options.receiveWaitMs,
     }),
@@ -509,12 +524,13 @@ export function createUseCases(options: {
       uow,
       clock,
       ids,
+      sealing,
       wakeups,
       waitMs: options.receiveWaitMs,
     }),
     handOverDelivery: createHandOverDelivery({ uow, clock, ids }),
     reportHandled: createReportHandled({ uow, clock, ids }),
-    readDelivery: createReadDelivery({ uow }),
+    readDelivery: createReadDelivery({ uow, sealing }),
     reportNotHandled: createReportNotHandled({ uow, clock, ids }),
     tellOverdueDeliveries: createTellOverdueDeliveries({ fleets: createPrismaFleetRepository(prisma), pushedCrews: createPrismaPushedCrews(prisma), uow, clock, ids }),
     scheduleMessage: createScheduleMessage({ uow, clock, ids, hasher: sha256Hasher }),
@@ -533,7 +549,7 @@ export function createUseCases(options: {
     resendDelivery: createResendDelivery({ uow, clock, ids, hasher: sha256Hasher, readReach }),
     markRead: createMarkRead({ uow, clock }),
     markDone: createMarkDone({ uow, clock, ids }),
-    replyToMessage: createReplyToMessage({ uow, clock, ids, hasher: sha256Hasher }),
+    replyToMessage: createReplyToMessage({ uow, clock, ids, hasher: sha256Hasher, sealing }),
     readFleetEvents: createReadFleetEvents({ feed: createPrismaFleetEventFeed(prisma), history: createPrismaShipHistory(prisma), readReach }),
     followFleet: createFollowFleet({
       feed: createPrismaFleetEventFeed(prisma),

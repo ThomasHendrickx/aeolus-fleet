@@ -14,7 +14,6 @@ import {
   locationKindSchema,
   turnStateSchema,
   leaseWakerSchema,
-  withdrawalOf,
   type DeliveryId,
   type FleetId,
   type LabelValueId,
@@ -24,6 +23,7 @@ import {
 import { z } from 'zod';
 
 import { deliveryStepOf, type StandingOverdue, type WayCrew, type WayLease } from '../../domain/shared/delivery-way.js';
+import { isSealedPayload } from '../../domain/messaging/sealed-payload.js';
 import {
   isDeliveryChangeType,
   isKeptBy,
@@ -105,6 +105,19 @@ function recipientOf(selector: Addressee, names: { party: (id: ShipId) => Histor
   }
 }
 
+/**
+ * A message's payload as these reads answer it: plain. A sealed payload is
+ * unsealed only by the ship's own receive and re-read so far; a read here of
+ * one fails rather than answer a payload that is not the one sent (decision
+ * 0068; the design's slice S3 unseals these reads).
+ */
+function plainPayloadOf(message: Pick<Message, 'id' | 'payload'>): string {
+  if (isSealedPayload(message.payload)) {
+    throw new Error(`Message ${message.id} is sealed: this read does not unseal a payload`);
+  }
+  return message.payload;
+}
+
 function historyMessageOf(
   found: { message: Message; delivery: DeliveryNow },
   names: { party: (id: ShipId) => HistoryParty; labelTexts: LabelTexts },
@@ -119,7 +132,7 @@ function historyMessageOf(
     sentAt: message.createdAt,
     contentType: message.contentType,
     model: message.model,
-    payload: message.payload,
+    payload: plainPayloadOf(message),
     delivery: {
       id: delivery.id,
       state: delivery.state,
@@ -144,16 +157,15 @@ const DELIVERY_SELECT = { id: true, state: true, attempts: true, claimedByShipId
 /**
  * The deliveries to the ship of the messages that withdraw or replace the
  * question, oldest first: one more than the page. Read through
- * messages_question_id_idx, whose expression reads the question id from the
- * payload and never fails on one that is not JSON.
+ * messages_fleet_id_question_id_idx, by the question id each stored at send
+ * (decision 0068, B18), so a sealed fleet's are found too.
  */
 export function inboxWithdrawalsStatement(fleetId: FleetId, { shipId, questionId, cursor, limit }: { shipId: ShipId; questionId: string } & PageQuery<DeliveryId>): Prisma.Sql {
   return Prisma.sql`
     SELECT d.id FROM messages m
     JOIN deliveries d ON d.fleet_id = m.fleet_id AND d.message_id = m.id
     WHERE m.fleet_id = ${fleetId}
-      AND lower(m.content_type) LIKE 'application/vnd.aeolus.question-%'
-      AND substring(m.payload from '"questionId"\\s*:\\s*"([^"]*)"') = ${questionId}
+      AND m.question_id = ${questionId}
       AND d.recipient_ship_id = ${shipId}
       ${cursor === undefined ? Prisma.empty : Prisma.sql`AND d.id > ${cursor}`}
     ORDER BY d.id ASC
@@ -202,7 +214,7 @@ async function inboxEntriesOf(
       repliedWith: typeof reply === 'string' ? idSchema('message').parse(reply) : null,
       replies: replies
         .filter((held) => held.inReplyToMessageId === message.id)
-        .map((held) => ({ id: held.id, contentType: held.contentType, payload: held.payload, sentAt: held.createdAt })),
+        .map((held) => ({ id: held.id, contentType: held.contentType, payload: plainPayloadOf(held), sentAt: held.createdAt })),
       message: {
         id: message.id,
         sender: party(message.senderShipId),
@@ -210,7 +222,7 @@ async function inboxEntriesOf(
         sentAt: message.createdAt,
         contentType: message.contentType,
         model: message.model,
-        payload: message.payload,
+        payload: plainPayloadOf(message),
       },
     };
   });
@@ -465,8 +477,7 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
       const ids = z.array(z.object({ id: idSchema('delivery') })).parse(await db.$queryRaw(inboxWithdrawalsStatement(fleetId, { shipId, questionId, cursor, limit })));
       const page = pageOf(ids, { limit, cursorOf: (row) => row.id });
       const rows = await db.delivery.findMany({ where: { fleetId, id: { in: page.items.map((row) => row.id) } }, select: INBOX_ROW, orderBy: { id: 'asc' } });
-      // The index finds candidates; the payload parsed decides.
-      const entries = await inboxEntriesOf(db, { fleetId, shipId, rows: rows.filter((row) => withdrawalOf(row.message)?.questionId === questionId) });
+      const entries = await inboxEntriesOf(db, { fleetId, shipId, rows });
       return { items: entries, nextCursor: page.nextCursor };
     },
 
@@ -545,7 +556,7 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
             sentAt: message.createdAt,
             contentType: message.contentType,
             model: message.model,
-            payload: message.payload,
+            payload: plainPayloadOf(message),
           },
         }));
       return { items, nextCursor: page.nextCursor };

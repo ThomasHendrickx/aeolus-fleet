@@ -12,6 +12,8 @@ import type { Clock } from './domain/shared/clock.js';
 import { repeatPass } from './repeating-pass.js';
 import { startScheduleTimer } from './schedule-timer.js';
 import { createUseCases, systemClock } from './wiring.js';
+import { createAwsKmsKeyVault } from './adapters/kms/aws-kms-key-vault.js';
+import type { KmsConfig } from './config.js';
 
 export interface AppOptions {
   databaseUrl: string;
@@ -37,6 +39,8 @@ export interface AppOptions {
   overduePassMs?: number;
   /** pagasae's URL, the issuer whose account tokens core trusts (decision 0058); unset, it trusts none. */
   accountTokenIssuer?: string;
+  /** The installation's KMS for sealed fleets (decision 0068); unset, no fleet can be sealed. */
+  kms?: KmsConfig;
 }
 
 /** How often core runs the 10 and 60 minute clocks: argo hears of an overdue delivery within this of its clock running out. */
@@ -86,6 +90,7 @@ export function createApp(options: AppOptions): FastifyInstance {
     fleetEventWakeups: fleetEventWakeupsOf(fleetEvents),
     receiveWaitMs: options.receiveWaitMs,
     accountTokenSignatures: accountTokenSignaturesOf(options.accountTokenIssuer, clock),
+    ...(options.kms === undefined ? {} : { keyVault: createAwsKmsKeyVault(options.kms) }),
   });
   const server = buildHttpServer({
     useCases,

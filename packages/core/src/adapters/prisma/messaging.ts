@@ -2,7 +2,8 @@ import { PING_CONTENT_TYPE, type FleetId } from '@aeolus-fleet/common';
 
 import type { DeliveryRepository, MessageRepository } from '../../domain/messaging/ports.js';
 import type { Db } from './client.js';
-import { toDeliveryFromSql, toMessage } from './rows.js';
+import { payloadColumnsOf, toDeliveryFromSql, toMessage } from './rows.js';
+import { plainBytesOf } from '../../domain/messaging/sealed-payload.js';
 
 export interface BufferedMessageRepository extends MessageRepository {
   /** Adds the stored messages to their fleets' days. The unit of work's last step before commit, after the events are numbered. */
@@ -57,7 +58,8 @@ export function createPrismaMessageRepository(db: Db): BufferedMessageRepository
           selectorShipId: selector.kind === 'ship' ? selector.shipId : null,
           selectorType: selector.kind === 'type' ? selector.type : null,
           selectorValueIds: selector.kind === 'label' ? [...selector.valueIds] : [],
-          payload: message.payload,
+          ...payloadColumnsOf(message.payload),
+          questionId: message.questionId,
           contentType: message.contentType,
           model: message.model,
           idempotencyKey: message.idempotencyKey,
@@ -70,7 +72,7 @@ export function createPrismaMessageRepository(db: Db): BufferedMessageRepository
           createdAt: message.createdAt,
         },
       });
-      counted.push({ fleetId: message.fleetId, day: message.createdAt.toISOString().slice(0, 10), payloadBytes: Buffer.byteLength(message.payload, 'utf8') });
+      counted.push({ fleetId: message.fleetId, day: message.createdAt.toISOString().slice(0, 10), payloadBytes: plainBytesOf(message.payload) });
     },
     lockIdempotencyKey: async ({ senderShipId, idempotencyKey }) => {
       // A transaction-level advisory lock on the sender and its key, released at

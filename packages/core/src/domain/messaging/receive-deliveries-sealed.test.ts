@@ -38,10 +38,8 @@ async function sentToScout(options: { inReplyTo?: MessageId } = {}): Promise<{ m
     await useCases.sendMessage(argo, { selector: { kind: 'ship', shipId: scoutId }, payload: PAYLOAD, contentType: 'text/plain', idempotencyKey: newKey(), ...options }),
   );
   const delivery = core.state.deliveries.find((held) => held.messageId === messageId);
-  if (delivery === undefined) {
-    throw new Error(`Message ${messageId} has no delivery`);
-  }
-  return { messageId, deliveryId: delivery.id };
+  expect(delivery).toBeDefined();
+  return { messageId, deliveryId: delivery?.id ?? core.ids('delivery') };
 }
 
 describe('a receive in a sealed fleet (decision 0068, B9)', () => {

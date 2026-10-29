@@ -42,9 +42,7 @@ function aReview(overrides: Partial<MessageToSend> = {}): MessageToSend {
 
 function stored(messageId: string) {
   const message = core.state.messages.find((held) => held.id === messageId);
-  if (message === undefined) {
-    throw new Error(`No message ${messageId} is stored`);
-  }
+  expect(message).toBeDefined();
   return message;
 }
 
@@ -56,8 +54,8 @@ describe('a send in a sealed fleet (decision 0068, B8)', () => {
 
     const message = stored(messageId);
     const [currentKey] = core.state.dataKeys;
-    expect(typeof message.payload).toBe('object');
-    expect(message.payload).toMatchObject({ sealed: { dataKeyId: currentKey?.id }, plainBytes: 28 });
+    expect(typeof message?.payload).toBe('object');
+    expect(message?.payload).toMatchObject({ sealed: { dataKeyId: currentKey?.id }, plainBytes: 28 });
     expect(JSON.stringify(core.state.messages)).not.toContain('café');
     expect(core.state.deliveries.filter((delivery) => delivery.messageId === messageId)).toHaveLength(1);
   });
@@ -67,7 +65,7 @@ describe('a send in a sealed fleet (decision 0068, B8)', () => {
 
     const { messageId } = unwrap(await sendMessage(scout, aReview({ payload })));
 
-    expect(stored(messageId).payload).toMatchObject({ plainBytes: PAYLOAD_MAX_BYTES });
+    expect(stored(messageId)?.payload).toMatchObject({ plainBytes: PAYLOAD_MAX_BYTES });
   });
 
   it('scenario 10: a repeat of the same request with its key answers the original; with another payload it is refused as today', async () => {
@@ -86,7 +84,7 @@ describe('a send in a sealed fleet (decision 0068, B8)', () => {
     const { messageId: one } = unwrap(await sendMessage(scout, aReview({ payload: 'yes' })));
     const { messageId: other } = unwrap(await sendMessage(scout, aReview({ payload: 'no' })));
 
-    expect(stored(one).requestHash).toBe(stored(other).requestHash);
+    expect(stored(one)?.requestHash).toBe(stored(other)?.requestHash);
   });
 
   it('scenario 11: a withdrawal stores the question id it names in its own column, found though its payload is sealed (B18)', async () => {
