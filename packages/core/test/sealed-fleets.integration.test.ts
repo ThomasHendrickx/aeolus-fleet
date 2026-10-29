@@ -19,6 +19,7 @@ import { createPrismaFleetSealingRepository } from '../src/adapters/prisma/seali
 import { aesGcmPayloadSealer } from '../src/adapters/crypto/payload-sealer.js';
 import { createChangeCompanyKey } from '../src/domain/messaging/change-company-key.js';
 import { createChangeRecoveryKey } from '../src/domain/messaging/change-recovery-key.js';
+import { createRecoverKeys } from '../src/domain/messaging/recover-keys.js';
 import { ageRecoveryKeys } from '../src/adapters/crypto/age-recovery-keys.js';
 import { createFleetDataKeys } from '../src/domain/messaging/data-keys.js';
 import type { UnitOfWork } from '../src/domain/shared/unit-of-work.js';
@@ -1110,6 +1111,31 @@ describe('recovery on Postgres and a LocalStack KMS (decision 0068, B15)', () =>
         expect((await keyVault.unwrap({ fleetId: fleet.fleetId, companyKey }, wrapped)).isOk).toBe(false);
       }
     }
+  });
+
+  it('a recovery rolled back mid-way leaves every wrap and the reference as they were', async () => {
+    const fleet = await aFleetThatLostItsCompanyKey();
+    const keyB = await aKeyBoundTo(fleet.fleetId);
+    const set = await fleet.keyHolder.fleet.recoverySet.query();
+    const companysKms = theCompanysKms();
+    const dataKeys = await Promise.all(
+      set.dataKeys.map(async ({ id, wrappedByRecoveryKey }) => {
+        const decrypter = new Decrypter();
+        decrypter.addIdentity(fleet.identity);
+        const material = new Uint8Array(await decrypter.decrypt(Buffer.from(wrappedByRecoveryKey, 'base64')));
+        return { id: idSchema('dataKey').parse(id), wrappedByCompanyKey: unwrap(await companysKms.wrap({ fleetId: fleet.fleetId, companyKey: keyB }, material)) };
+      }),
+    );
+    const before = await keysOf(fleet.fleetId);
+    const uow = createPrismaUnitOfWork(prisma);
+    const failingBeforeCommit: UnitOfWork<PrismaTx> = {
+      run: (work) => uow.run((tx) => work({ ...tx, events: { ...tx.events, append: () => Promise.reject(new Error('the server failed before commit')) } })),
+    };
+    const recover = createRecoverKeys({ uow: failingBeforeCommit, clock, ids: newId, vault: keyVault, sealer: aesGcmPayloadSealer, sealings: createPrismaFleetSealingRepository(prisma) });
+
+    await expect(recover(fleet.argo, { companyKey: keyB, dataKeys })).rejects.toThrow('the server failed before commit');
+
+    expect(await keysOf(fleet.fleetId)).toEqual(before);
   });
 
   it('refuses a fleet sealed without a recovery key, NO_RECOVERY_KEY', async () => {
