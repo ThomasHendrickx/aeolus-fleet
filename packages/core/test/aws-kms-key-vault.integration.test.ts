@@ -1,6 +1,6 @@
 import { createServer } from 'node:net';
 
-import { CreateKeyCommand, DisableKeyCommand, KMSClient } from '@aws-sdk/client-kms';
+import { CreateKeyCommand, DisableKeyCommand, EnableKeyCommand, KMSClient } from '@aws-sdk/client-kms';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createAwsKmsKeyVault } from '../src/adapters/kms/aws-kms-key-vault.js';
@@ -46,6 +46,9 @@ function aWorld(): KeyVaultWorld {
     aCompanyKey,
     disable: async (companyKey) => {
       await company.send(new DisableKeyCommand({ KeyId: companyKey }));
+    },
+    enable: async (companyKey) => {
+      await company.send(new EnableKeyCommand({ KeyId: companyKey }));
     },
     refuseGrant: (companyKey) => {
       policy.refuseGrant(companyKey);
