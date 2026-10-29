@@ -1100,7 +1100,8 @@ describe('recovery on Postgres and a LocalStack KMS (decision 0068, B15)', () =>
 
     const set = await fleet.keyHolder.fleet.recoverySet.query();
 
-    expect(set).toMatchObject({ fleetId: fleet.fleetId, recoveryKeyFingerprint: expect.stringMatching(/^SHA256:/) });
+    expect(set.fleetId).toBe(fleet.fleetId);
+    expect(set.recoveryKeyFingerprint).toMatch(/^SHA256:/);
     expect(set.dataKeys.map(({ id }) => id)).toEqual(stored.dataKeys.map(({ id }) => id));
     for (const dataKey of set.dataKeys) {
       expect(Object.keys(dataKey).sort()).toEqual(['checkValue', 'id', 'wrappedByRecoveryKey']);
