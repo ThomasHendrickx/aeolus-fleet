@@ -222,6 +222,8 @@ describe('eventTypeSchema', () => {
       'FleetPayloadsSealed',
       'FleetKeyUnavailable',
       'FleetKeyAvailable',
+      'FleetDataKeyCreated',
+      'FleetCompanyKeyChanged',
     ]);
   });
 });

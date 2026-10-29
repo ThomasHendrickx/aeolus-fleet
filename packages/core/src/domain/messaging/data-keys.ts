@@ -15,7 +15,7 @@ import type { UnitOfWork } from '../shared/unit-of-work.js';
 import type { KeyAvailability } from './fleet-sealing.js';
 import { err, ok, type Result } from '../shared/result.js';
 import { keyUnavailable } from './key-unavailable.js';
-import type { KeyUnavailable, KeyVault } from './key-vault.js';
+import type { CompanyKeyReference, KeyUnavailable, KeyVault, WrappedDataKey } from './key-vault.js';
 import type { DataKey, PayloadSealer, SealedRow } from './payload-sealer.js';
 import type { Message } from './message.js';
 import type { FleetSealingRepository } from './ports.js';
@@ -45,9 +45,21 @@ export const UNREADABLE_PAYLOAD: UnreadablePayload = { kind: 'unreadable' };
 /** A payload as a list answers it: plain, or marked unreadable while the rest are listed (B9). */
 export type ListedPayload = string | UnreadablePayload;
 
+/** A new data key for a fleet, kept only wrapped: the company key that wraps it, its wrap and its check value. */
+export interface NewDataKey {
+  readonly companyKey: CompanyKeyReference;
+  readonly wrappedByCompanyKey: WrappedDataKey;
+  readonly checkValue: Uint8Array<ArrayBuffer>;
+}
+
 /** Unwraps a fleet's data keys through its company key, outside every unit of work. */
 export interface FleetDataKeys {
   unwrap(fleetId: FleetId, dataKeyIds: readonly DataKeyId[]): Promise<Result<DataKey[], KeyUnavailable>>;
+}
+
+/** Makes a fleet's new data key through its company key, outside every unit of work, for the data key rotation (B13a). */
+export interface FleetDataKeyMaker {
+  make(fleetId: FleetId): Promise<Result<NewDataKey, KeyUnavailable>>;
 }
 
 /** What a use case seals and unseals payloads with. */
@@ -88,16 +100,18 @@ export interface KeyAvailabilityTx {
  * that changes the company key's availability writes it with its event in one
  * unit of work: FleetKeyUnavailable with the vault's reason on the first
  * refusal after a success, FleetKeyAvailable on the first success after; a
- * wrap that does not open is the key answering, and changes nothing.
+ * wrap that does not open is the key answering, and changes nothing. A new
+ * data key for the rotation is made under the company key the fleet names
+ * then, its answer written the same way.
  */
 export function createFleetDataKeys(deps: {
-  sealings: Pick<FleetSealingRepository, 'wrappedDataKeys'>;
+  sealings: Pick<FleetSealingRepository, 'find' | 'wrappedDataKeys'>;
   vault: KeyVault;
   sealer: PayloadSealer;
   clock: Clock;
   uow: UnitOfWork<KeyAvailabilityTx>;
   ids: IdGenerator;
-}): FleetDataKeys {
+}): FleetDataKeys & FleetDataKeyMaker {
   // Keyed by fleet and data key, so a fleet is answered only the keys it holds.
   const cache = new Map<`${FleetId}/${DataKeyId}`, CachedDataKey>();
 
@@ -123,6 +137,17 @@ export function createFleetDataKeys(deps: {
     });
   };
 
+  /** The key vault's answer, its change of the company key's availability written. */
+  const answered = async <T>(fleetId: FleetId, answer: { at: Date; outcome: Result<T, KeyUnavailable> }): Promise<Result<T, KeyUnavailable>> => {
+    const { at, outcome } = answer;
+    if (outcome.isOk) {
+      await changeAvailability(fleetId, { isAvailable: true, since: at });
+    } else if (outcome.error.reason !== 'invalidWrap') {
+      await changeAvailability(fleetId, { isAvailable: false, reason: outcome.error.reason, since: at });
+    }
+    return outcome;
+  };
+
   const unwrapped = async (fleetId: FleetId, dataKeyIds: readonly DataKeyId[]): Promise<Result<undefined, KeyUnavailable>> => {
     const now = deps.clock.now();
     const wrapped = await deps.sealings.wrappedDataKeys(fleetId, dataKeyIds);
@@ -130,15 +155,10 @@ export function createFleetDataKeys(deps: {
       return err({ kind: 'keyUnavailable', reason: 'notFound' });
     }
     for (const dataKey of wrapped.dataKeys) {
-      const material = await deps.vault.unwrap({ fleetId, companyKey: wrapped.companyKey }, dataKey.wrappedByCompanyKey);
+      const material = await answered(fleetId, { at: now, outcome: await deps.vault.unwrap({ fleetId, companyKey: wrapped.companyKey }, dataKey.wrappedByCompanyKey) });
       if (!material.isOk) {
-        const { reason } = material.error;
-        if (reason !== 'invalidWrap') {
-          await changeAvailability(fleetId, { isAvailable: false, reason, since: now });
-        }
         return material;
       }
-      await changeAvailability(fleetId, { isAvailable: true, since: now });
       if (!Buffer.from(deps.sealer.checkValue(material.value)).equals(dataKey.checkValue)) {
         return err({ kind: 'keyUnavailable', reason: 'invalidWrap' });
       }
@@ -161,6 +181,18 @@ export function createFleetDataKeys(deps: {
         const cached = cache.get(`${fleetId}/${id}`);
         return cached === undefined ? [] : [cached.dataKey];
       }));
+    },
+    make: async (fleetId) => {
+      const sealing = await deps.sealings.find(fleetId);
+      if (sealing === undefined) {
+        return err({ kind: 'keyUnavailable', reason: 'notFound' });
+      }
+      const { companyKey } = sealing;
+      const made = await answered(fleetId, { at: deps.clock.now(), outcome: await deps.vault.makeDataKey({ fleetId, companyKey }) });
+      if (!made.isOk) {
+        return made;
+      }
+      return ok({ companyKey, wrappedByCompanyKey: made.value.wrapped, checkValue: deps.sealer.checkValue(made.value.material) });
     },
   };
 }

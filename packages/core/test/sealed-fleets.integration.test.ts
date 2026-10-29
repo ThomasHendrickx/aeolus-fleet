@@ -7,7 +7,11 @@ import { z } from 'zod';
 
 import { createAwsKmsKeyVault } from '../src/adapters/kms/aws-kms-key-vault.js';
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
-import { createPrismaTx } from '../src/adapters/prisma/unit-of-work.js';
+import { createPrismaTx, createPrismaUnitOfWork, type PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
+import { createPrismaFleetSealingRepository } from '../src/adapters/prisma/sealings.js';
+import { aesGcmPayloadSealer } from '../src/adapters/crypto/payload-sealer.js';
+import { createChangeCompanyKey } from '../src/domain/messaging/change-company-key.js';
+import type { UnitOfWork } from '../src/domain/shared/unit-of-work.js';
 import { createApp } from '../src/app.js';
 import type { KeyVault } from '../src/domain/messaging/key-vault.js';
 import type { Crew, ShipCaller } from '../src/domain/shared/caller.js';
@@ -730,6 +734,138 @@ describe('the sealing pass on Postgres and a LocalStack KMS (decision 0068, B5)'
     expect(failures).toEqual([]);
     expect(await sealingPassOf(fleet.fleetId)).toEqual({ plainMessages: 0, plainSchedules: 0, state: 'sealed', sealedEvents: [{ actorKind: 'system' }] });
     expect(await prisma.message.count({ where: { fleetId: fleet.fleetId } })).toBeGreaterThanOrEqual(200);
+  });
+});
+
+describe('data keys by age on Postgres and a LocalStack KMS (decision 0068, B13a)', () => {
+  it('scenario 18: a current data key 30 days old gets a new current key, the old one kept, and messages sealed under both are received', async () => {
+    const fleet = await aSealedFleetWithItsKey();
+    const scout = await aCrewedReviewer(fleet, 'scout');
+    const server = aServerAt('2026-10-29T12:00:00.000Z');
+    unwrap(await server.useCases.sendMessage(fleet.argo, aMessageTo(scout.shipId, 'sealed under the first key')));
+    server.clock.set('2026-11-28T12:00:00.000Z');
+
+    await server.useCases.rotateDataKeys();
+    unwrap(await server.useCases.sendMessage(fleet.argo, aMessageTo(scout.shipId, 'sealed under the second key')));
+
+    const keys = await prisma.dataKey.findMany({ where: { fleetId: fleet.fleetId }, orderBy: { id: 'asc' }, select: { id: true, createdAt: true, isCurrent: true } });
+    expect(keys.map(({ createdAt, isCurrent }) => ({ createdAt: createdAt.toISOString(), isCurrent }))).toEqual([
+      { createdAt: '2026-10-29T12:00:00.000Z', isCurrent: false },
+      { createdAt: '2026-11-28T12:00:00.000Z', isCurrent: true },
+    ]);
+    const messages = await prisma.message.findMany({ where: { fleetId: fleet.fleetId }, orderBy: { id: 'asc' }, select: { sealedDataKeyId: true } });
+    expect(messages.map(({ sealedDataKeyId }) => sealedDataKeyId)).toEqual(keys.map(({ id }) => id));
+    expect(await prisma.event.findMany({ where: { fleetId: fleet.fleetId, type: 'FleetDataKeyCreated' }, select: { actorKind: true, details: true } })).toEqual([{ actorKind: 'system', details: { dataKeyId: keys[1]?.id } }]);
+    expect(await everyPayloadReceived(scout)).toEqual(['sealed under the first key', 'sealed under the second key']);
+  });
+
+  it('scenario 19: two servers running the pass at once make one current data key', async () => {
+    const fleet = await aSealedFleetWithItsKey();
+    const servers = [aServerAt('2026-11-28T12:00:00.000Z'), aServerAt('2026-11-28T12:00:00.000Z')];
+
+    await Promise.all(servers.map((server) => server.useCases.rotateDataKeys()));
+
+    const keys = await prisma.dataKey.findMany({ where: { fleetId: fleet.fleetId }, select: { isCurrent: true } });
+    expect(keys.map(({ isCurrent }) => isCurrent).toSorted()).toEqual([false, true]);
+    expect(await prisma.event.count({ where: { fleetId: fleet.fleetId, type: 'FleetDataKeyCreated' } })).toBe(1);
+  });
+
+  it('sends racing a rotation are each sealed under the old or the new key, and all are received as sent', { timeout: 60_000 }, async () => {
+    const fleet = await aSealedFleetWithItsKey();
+    const scout = await aCrewedReviewer(fleet, 'scout');
+    const server = aServerAt('2026-11-28T12:00:00.000Z');
+    const payloads = Array.from({ length: 40 }, (_, index) => `${PAYLOAD} during #${index}`);
+
+    const [, ...sent] = await Promise.all([server.useCases.rotateDataKeys(), ...payloads.map((payload) => server.useCases.sendMessage(fleet.argo, aMessageTo(scout.shipId, payload)))]);
+
+    expect(sent.filter((result) => !result.isOk)).toEqual([]);
+    expect(await prisma.dataKey.count({ where: { fleetId: fleet.fleetId } })).toBe(2);
+    expect(new Set(await everyPayloadReceived(scout))).toEqual(new Set(payloads));
+  });
+});
+
+describe('changing the company key on Postgres and a LocalStack KMS (decision 0068, B13c)', () => {
+  /** A sealed fleet under company key A with two data keys, a message sealed under each, waiting for scout. */
+  async function aFleetWithTwoDataKeys() {
+    const fleet = await aSealedFleetWithItsKey();
+    const scout = await aCrewedReviewer(fleet, 'scout');
+    const server = aServerAt('2026-10-29T12:00:00.000Z');
+    unwrap(await server.useCases.sendMessage(fleet.argo, aMessageTo(scout.shipId, 'sealed under the first data key')));
+    server.clock.set('2026-11-28T12:00:00.000Z');
+    await server.useCases.rotateDataKeys();
+    unwrap(await server.useCases.sendMessage(fleet.argo, aMessageTo(scout.shipId, 'sealed under the second data key')));
+    return { ...fleet, scout };
+  }
+
+  async function keysOf(fleetId: FleetId) {
+    const [fleet, dataKeys, messages, events] = await Promise.all([
+      prisma.fleet.findUniqueOrThrow({ where: { id: fleetId }, select: { companyKey: true } }),
+      prisma.dataKey.findMany({ where: { fleetId }, orderBy: { id: 'asc' } }),
+      prisma.message.findMany({ where: { fleetId }, orderBy: { id: 'asc' } }),
+      prisma.event.findMany({ where: { fleetId, type: 'FleetCompanyKeyChanged' }, select: { actorKind: true, details: true } }),
+    ]);
+    return { companyKey: fleet.companyKey, dataKeys, messages, events };
+  }
+
+  it('scenario 20: every data key is wrapped by the new company key, FleetCompanyKeyChanged is written, no payload is rewritten, and every message is still received', async () => {
+    const fleet = await aFleetWithTwoDataKeys();
+    const keyB = await aKeyBoundTo(fleet.fleetId);
+    const before = await keysOf(fleet.fleetId);
+    const keyHolder = await aKeyHolder(fleet);
+
+    const changed = await keyHolder.fleet.changeCompanyKey.mutate({ companyKey: keyB });
+    await disableKey(fleet.companyKey);
+
+    const after = await keysOf(fleet.fleetId);
+    expect(changed).toEqual({ companyKey: keyB });
+    expect(after.companyKey).toBe(keyB);
+    expect(after.events).toEqual([{ actorKind: 'ship', details: { from: fleet.companyKey, to: keyB } }]);
+    expect(after.messages).toEqual(before.messages);
+    expect(after.dataKeys.map(({ id, checkValue, isCurrent }) => ({ id, checkValue, isCurrent }))).toEqual(before.dataKeys.map(({ id, checkValue, isCurrent }) => ({ id, checkValue, isCurrent })));
+    for (const dataKey of after.dataKeys) {
+      expect((await keyVault.unwrap({ fleetId: fleet.fleetId, companyKey: keyB }, new Uint8Array(dataKey.wrappedByCompanyKey))).isOk).toBe(true);
+    }
+    // A server with no data key in its memory: each key unwraps under the new company key alone.
+    const { deliveries } = unwrap(await aServerAt('2026-11-28T12:00:00.000Z').useCases.receiveDeliveries(fleet.scout, { max: 10 }));
+    expect(deliveries.map(({ payload }) => payload)).toEqual(['sealed under the first data key', 'sealed under the second data key']);
+  });
+
+  it('scenario 21: an old company key that is not reachable is refused KEY_UNAVAILABLE, and nothing changes', async () => {
+    const fleet = await aFleetWithTwoDataKeys();
+    const keyB = await aKeyBoundTo(fleet.fleetId);
+    const keyHolder = await aKeyHolder(fleet);
+    await disableKey(fleet.companyKey);
+    const before = await keysOf(fleet.fleetId);
+
+    const refusal = await refusalOfCall(keyHolder.fleet.changeCompanyKey.mutate({ companyKey: keyB }));
+
+    expect(refusal.code).toBe('SERVICE_UNAVAILABLE');
+    expect(refusal.message).toContain("The fleet's company key is not reachable: disabled");
+    expect(await keysOf(fleet.fleetId)).toEqual(before);
+  });
+
+  it('a change rolled back mid-way leaves every wrap and the reference as they were', async () => {
+    const fleet = await aFleetWithTwoDataKeys();
+    const keyB = await aKeyBoundTo(fleet.fleetId);
+    const before = await keysOf(fleet.fleetId);
+    const uow = createPrismaUnitOfWork(prisma);
+    const failingBeforeCommit: UnitOfWork<PrismaTx> = {
+      run: (work) => uow.run((tx) => work({ ...tx, events: { ...tx.events, append: () => Promise.reject(new Error('the server failed before commit')) } })),
+    };
+    const change = createChangeCompanyKey({ uow: failingBeforeCommit, clock, ids: newId, vault: keyVault, sealer: aesGcmPayloadSealer, sealings: createPrismaFleetSealingRepository(prisma) });
+
+    await expect(change(fleet.argo, { companyKey: keyB })).rejects.toThrow('the server failed before commit');
+
+    expect(await keysOf(fleet.fleetId)).toEqual(before);
+  });
+
+  it('refuses a fleet that is not sealed, FLEET_NOT_SEALED', async () => {
+    const fleet = await aHostedFleet();
+    const keyHolder = await aKeyHolder(fleet);
+
+    const refusal = await refusalOfCall(keyHolder.fleet.changeCompanyKey.mutate({ companyKey: await aKeyBoundTo(fleet.fleetId) }));
+
+    expect(refusal).toEqual({ code: 'CONFLICT', message: `Fleet ${fleet.fleetId} is not sealed: turn sealing on with the company key instead` });
   });
 });
 

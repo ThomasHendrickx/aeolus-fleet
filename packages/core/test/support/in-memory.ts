@@ -111,7 +111,7 @@ import type { HistoryPruner } from '../../src/domain/shared/history-pruning.js';
 import { createInMemoryHealthSnapshots, type HeldHourSnapshot } from './in-memory-health-snapshots.js';
 import { createInMemoryHistoryPruner } from './in-memory-history-pruner.js';
 import type { FleetSealing, StoredDataKey } from '../../src/domain/messaging/fleet-sealing.js';
-import { createFleetDataKeys, type PayloadSealing } from '../../src/domain/messaging/data-keys.js';
+import { createFleetDataKeys, type FleetDataKeyMaker, type FleetDataKeys, type PayloadSealing } from '../../src/domain/messaging/data-keys.js';
 import { plainBytesOf, type StoredPayload } from '../../src/domain/messaging/sealed-payload.js';
 import { createInMemoryKeyVault } from './in-memory-key-vault.js';
 import type { KeyVaultWorld } from './key-vault-contract.js';
@@ -315,8 +315,8 @@ export interface InMemoryCore {
   sealings: FleetSealingRepository;
   /** The company's key vault, as the company keeps its keys (decision 0068). */
   keyVault: KeyVaultWorld;
-  /** What the use cases seal and unseal payloads with: the in-memory sealer and key vault. */
-  sealing: PayloadSealing;
+  /** What the use cases seal and unseal payloads with, and the data key rotation makes keys with: the in-memory sealer and key vault. */
+  sealing: PayloadSealing & { dataKeys: FleetDataKeys & FleetDataKeyMaker };
   callers: CallerLookup;
   accounts: OperatorAccountLookup;
   listing: FleetListing;
@@ -548,6 +548,31 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         if (sealing !== undefined) {
           sealing.state = 'sealed';
         }
+        return Promise.resolve();
+      },
+      fleetsDueANewDataKey: (cutoff) =>
+        Promise.resolve(state.dataKeys.filter((held) => held.isCurrent && held.createdAt.getTime() <= cutoff.getTime()).map((held) => held.fleetId)),
+      lockSealing: () => Promise.resolve(),
+      changeCompanyKey: (fleetId, { companyKey, dataKeys }) => {
+        const sealing = state.fleetSealings.find((held) => held.fleetId === fleetId);
+        if (sealing !== undefined) {
+          sealing.companyKey = companyKey;
+        }
+        for (const { id, wrappedByCompanyKey } of dataKeys) {
+          const held = state.dataKeys.find((dataKey) => dataKey.fleetId === fleetId && dataKey.id === id);
+          if (held !== undefined) {
+            held.wrappedByCompanyKey = new Uint8Array(wrappedByCompanyKey);
+          }
+        }
+        return Promise.resolve();
+      },
+      addCurrentDataKey: (dataKey) => {
+        for (const held of state.dataKeys) {
+          if (held.fleetId === dataKey.fleetId) {
+            held.isCurrent = false;
+          }
+        }
+        state.dataKeys.push(structuredClone(dataKey));
         return Promise.resolve();
       },
     },

@@ -163,6 +163,7 @@ import type { InMemoryCore } from './in-memory.js';
 import { unwrap } from '../../src/testing/result.js';
 import { NO_INSTALLATION_SETTINGS, type InstallationSettings } from '../../src/domain/registry/limits.js';
 import { isSealedPayload, type StoredPayload } from '../../src/domain/messaging/sealed-payload.js';
+import { createChangeCompanyKey } from '../../src/domain/messaging/change-company-key.js';
 import { createTurnOnSealing } from '../../src/domain/messaging/turn-on-sealing.js';
 import { createReadSealing } from '../../src/domain/messaging/read-sealing.js';
 
@@ -372,6 +373,7 @@ export function messagingUseCases(core: InMemoryCore) {
   return {
     sendMessage: createSendMessage({ ...deps, hasher: core.hasher, sealing }),
     turnOnSealing: createTurnOnSealing({ ...deps, vault: core.keyVault.vault, sealer: sealing.sealer, sealings: core.sealings }),
+    changeCompanyKey: createChangeCompanyKey({ ...deps, vault: core.keyVault.vault, sealer: sealing.sealer, sealings: core.sealings }),
     readSealing: createReadSealing({ sealings: core.sealings }),
     openMeeting: createOpenMeeting({ ...deps, hasher: core.hasher, sealing: core.sealing }),
     readMeeting: createReadMeeting({ uow: core.uow, sealing }),

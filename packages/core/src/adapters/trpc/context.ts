@@ -140,6 +140,7 @@ import type { ReadShipWay } from '../../domain/shared/read-ship-way.js';
 import type { ReadShipMessages } from '../../domain/shared/read-ship-messages.js';
 import type { ReadShipTimeline } from '../../domain/shared/read-ship-timeline.js';
 import type { TurnOnSealing } from '../../domain/messaging/turn-on-sealing.js';
+import type { ChangeCompanyKey } from '../../domain/messaging/change-company-key.js';
 import type { ReadSealing } from '../../domain/messaging/read-sealing.js';
 
 /** The use cases procedures can call. Wired once at startup. */
@@ -172,6 +173,7 @@ export interface UseCases {
   setOwner: SetOwner;
   checkManage: CheckManage;
   turnOnSealing: TurnOnSealing;
+  changeCompanyKey: ChangeCompanyKey;
   readSealing: ReadSealing;
   setVerifiedFacts: SetVerifiedFacts;
   recrewShip: RecrewShip;
