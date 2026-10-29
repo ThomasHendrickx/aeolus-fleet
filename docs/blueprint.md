@@ -648,7 +648,7 @@ The operator restarting a session is not a recovery step for messages: nothing w
 
 1. The fleet manager, or any actor holding `fleet:keys`, turns sealing on with a company key in the company's own KMS, AWS KMS first, and optionally a recovery key. The company grants the installation use of its key for this fleet only; a key not bound to the fleet is refused (decision 0068).
 2. From then on core seals every payload it stores and unseals every payload it answers. Ships, the gateway, plugins and the console send and receive plain text as today. Payloads stored before are sealed by a pass.
-3. The company cuts off every read by disabling its key or removing its grant: within 5 minutes every send is refused `KEY_UNAVAILABLE` storing nothing, and every receive claims nothing, its deliveries waiting pending. Restoring the grant restores everything; nothing waiting is lost.
+3. The company cuts off every read by disabling its key or removing its grant: within 5 minutes every send is refused `KEY_UNAVAILABLE` storing nothing, and every receive claims nothing, its deliveries waiting pending. A read of one payload is refused `KEY_UNAVAILABLE`; a list marks each payload it cannot unseal unreadable and lists the rest. The fleet's sealing (`fleet.sealing`) and Health say the key is not reachable, why and since when. Restoring the grant restores everything; nothing waiting is lost.
 4. The console renders a sealed fleet's payload as today, marked sealed, and "sealed, key not reachable" in its place when cut off. In a sealed fleet a ship's page says when the gateway reads its payloads.
 5. Metadata, report notes and details, statements, meeting titles, commission notes and verified facts stay readable: a crew keeps client data out of them.
 
