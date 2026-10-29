@@ -4,6 +4,9 @@ import {
   changeCompanyKeyOutputSchema,
   changeRecoveryKeyInputSchema,
   changeRecoveryKeyOutputSchema,
+  recoverySetOutputSchema,
+  recoverKeysInputSchema,
+  recoverKeysOutputSchema,
   turnOnSealingOutputSchema,
   sealingOutputSchema,
   cancelScheduleInputSchema,
@@ -572,6 +575,38 @@ export const fleetRouter = router({
       const changed = okOrThrow(await ctx.useCases.changeRecoveryKey(ctx.caller, input));
       ctx.log.info({ fleetId: ctx.caller.fleetId, recoveryKeyFingerprint: changed.recoveryKeyFingerprint }, 'recovery key changed');
       return changed;
+    }),
+
+  /**
+   * The sealed fleet's recovery set (decision 0068, B15): each data key
+   * wrapped to the recovery key alone, with its check value, for the recovery
+   * command on the company's computer. Nothing in it opens with any key
+   * Aeolus can use.
+   */
+  recoverySet: actorScopedProcedure('fleet:keys')
+    .output(recoverySetOutputSchema)
+    .query(async ({ ctx }) => {
+      const set = okOrThrow(await ctx.useCases.readRecoverySet(ctx.caller));
+      return {
+        ...set,
+        dataKeys: set.dataKeys.map(({ id, wrappedByRecoveryKey, checkValue }) => ({ id, wrappedByRecoveryKey: base64Of(wrappedByRecoveryKey), checkValue: base64Of(checkValue) })),
+      };
+    }),
+
+  /**
+   * Recovers the sealed fleet's data keys under a new company key (decision
+   * 0068, B15), as the recovery command wrapped them in the company's KMS:
+   * every wrap must open to its data key, or nothing changes. No payload is
+   * sealed again.
+   */
+  recoverKeys: actorScopedProcedure('fleet:keys')
+    .input(recoverKeysInputSchema)
+    .output(recoverKeysOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const dataKeys = input.dataKeys.map(({ id, wrappedByCompanyKey }) => ({ id, wrappedByCompanyKey: new Uint8Array(Buffer.from(wrappedByCompanyKey, 'base64')) }));
+      const recovered = okOrThrow(await ctx.useCases.recoverKeys(ctx.caller, { companyKey: input.companyKey, dataKeys }));
+      ctx.log.info({ fleetId: ctx.caller.fleetId, companyKey: recovered.companyKey, dataKeys: dataKeys.length }, 'data keys recovered');
+      return recovered;
     }),
 
   /**
@@ -1397,4 +1432,8 @@ function liveEventOf(event: SequencedEvent) {
     messageId: event.messageId ?? null,
     deliveryId: event.deliveryId ?? null,
   };
+}
+
+function base64Of(bytes: Uint8Array): string {
+  return Buffer.from(bytes).toString('base64');
 }

@@ -90,6 +90,8 @@ import { createTurnOnSealing, type TurnOnSealing } from './domain/messaging/turn
 import { createChangeCompanyKey, type ChangeCompanyKey } from './domain/messaging/change-company-key.js';
 import { createChangeRecoveryKey, type ChangeRecoveryKey } from './domain/messaging/change-recovery-key.js';
 import { createReadSealing, type ReadSealing } from './domain/messaging/read-sealing.js';
+import { createReadRecoverySet, type ReadRecoverySet } from './domain/messaging/read-recovery-set.js';
+import { createRecoverKeys, type RecoverKeys } from './domain/messaging/recover-keys.js';
 import { createSealStoredPayloads, type SealStoredPayloads } from './domain/messaging/seal-stored-payloads.js';
 import { createRotateDataKeys, type RotateDataKeys } from './domain/messaging/rotate-data-keys.js';
 import { createFleetDataKeys } from './domain/messaging/data-keys.js';
@@ -273,6 +275,8 @@ export interface UseCases {
   changeCompanyKey: ChangeCompanyKey;
   changeRecoveryKey: ChangeRecoveryKey;
   readSealing: ReadSealing;
+  readRecoverySet: ReadRecoverySet;
+  recoverKeys: RecoverKeys;
   openMeeting: OpenMeeting;
   readMeeting: ReadMeeting;
   changeMic: ChangeMic;
@@ -514,6 +518,8 @@ export function createUseCases(options: {
     changeCompanyKey: createChangeCompanyKey({ uow, clock, ids, vault: keyVault, sealer: aesGcmPayloadSealer, sealings }),
     changeRecoveryKey: createChangeRecoveryKey({ uow, clock, ids, recoveryKeys: ageRecoveryKeys, sealing, sealings }),
     readSealing: createReadSealing({ sealings }),
+    readRecoverySet: createReadRecoverySet({ sealings }),
+    recoverKeys: createRecoverKeys({ uow, clock, ids, vault: keyVault, sealer: aesGcmPayloadSealer, sealings }),
     openMeeting: createOpenMeeting({ uow, clock, ids, hasher: sha256Hasher, sealing }),
     readMeeting: createReadMeeting({ uow, sealing }),
     changeMic: createChangeMic({ uow, clock, ids, hasher: sha256Hasher, sealing }),

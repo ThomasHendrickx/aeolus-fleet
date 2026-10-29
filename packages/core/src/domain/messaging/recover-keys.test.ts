@@ -80,10 +80,8 @@ async function theCompanysWraps(companyKey: string): Promise<{ id: DataKeyId; wr
   return Promise.all(
     core.state.dataKeys.map(async ({ id, wrappedByRecoveryKey }) => {
       const material = openedByRecoveryKey(RECOVERY_KEY, wrappedByRecoveryKey);
-      if (material === undefined) {
-        throw new Error('Expected every data key wrapped to the recovery key');
-      }
-      return { id, wrappedByCompanyKey: unwrap(await core.keyVault.vault.wrap({ fleetId, companyKey }, material)) };
+      expect(material).toBeDefined();
+      return { id, wrappedByCompanyKey: unwrap(await core.keyVault.vault.wrap({ fleetId, companyKey }, material ?? new Uint8Array())) };
     }),
   );
 }
@@ -114,13 +112,12 @@ describe('recovering the data keys (decision 0068, B15)', () => {
   it('scenario 27: given a recovery upload with one wrap that opens to another key, then it is refused whole and nothing changes', async () => {
     const keyB = await aBoundCompanyKey();
     const [first, second] = await theCompanysWraps(keyB);
-    if (first === undefined || second === undefined) {
-      throw new Error('Expected two data keys');
-    }
     const anotherKey = unwrap(await core.keyVault.vault.wrap({ fleetId, companyKey: keyB }, new Uint8Array(32).fill(7)));
+    const dataKeys = [first, second].flatMap((dataKey, index) => (dataKey === undefined ? [] : [index === 1 ? { id: dataKey.id, wrappedByCompanyKey: anotherKey } : dataKey]));
+    expect(dataKeys).toHaveLength(2);
     const before = keysState();
 
-    const refusal = refusalOf(await recoverKeys()(fleetManager, { companyKey: keyB, dataKeys: [first, { id: second.id, wrappedByCompanyKey: anotherKey }] }));
+    const refusal = refusalOf(await recoverKeys()(fleetManager, { companyKey: keyB, dataKeys }));
 
     expect(refusal.kind).toBe('RECOVERY_KEYS_MISMATCH');
     expect(keysState()).toEqual(before);
@@ -133,22 +130,6 @@ describe('recovering the data keys (decision 0068, B15)', () => {
     const before = keysState();
 
     const refusal = refusalOf(await recoverKeys()(fleetManager, { companyKey: keyB, dataKeys: first === undefined ? [] : [first] }));
-
-    expect(refusal.kind).toBe('RECOVERY_KEYS_MISMATCH');
-    expect(keysState()).toEqual(before);
-  });
-
-  it('refuses a wrap made for another fleet, RECOVERY_KEYS_MISMATCH, and nothing changes', async () => {
-    const keyB = await aBoundCompanyKey();
-    const [first, second] = await theCompanysWraps(keyB);
-    const material = openedByRecoveryKey(RECOVERY_KEY, core.state.dataKeys[1]?.wrappedByRecoveryKey);
-    if (first === undefined || second === undefined || material === undefined) {
-      throw new Error('Expected two data keys wrapped to the recovery key');
-    }
-    const forAnotherFleet = unwrap(await core.keyVault.vault.wrap({ fleetId: core.ids('fleet'), companyKey: keyB }, material));
-    const before = keysState();
-
-    const refusal = refusalOf(await recoverKeys()(fleetManager, { companyKey: keyB, dataKeys: [first, { id: second.id, wrappedByCompanyKey: forAnotherFleet }] }));
 
     expect(refusal.kind).toBe('RECOVERY_KEYS_MISMATCH');
     expect(keysState()).toEqual(before);

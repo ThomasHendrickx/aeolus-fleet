@@ -167,6 +167,8 @@ import { createChangeCompanyKey } from '../../src/domain/messaging/change-compan
 import { createTurnOnSealing } from '../../src/domain/messaging/turn-on-sealing.js';
 import { createChangeRecoveryKey } from '../../src/domain/messaging/change-recovery-key.js';
 import { createReadSealing } from '../../src/domain/messaging/read-sealing.js';
+import { createReadRecoverySet } from '../../src/domain/messaging/read-recovery-set.js';
+import { createRecoverKeys } from '../../src/domain/messaging/recover-keys.js';
 
 /** The identity use cases, wired to the in-memory core. */
 export function identityUseCases(core: InMemoryCore) {
@@ -377,6 +379,8 @@ export function messagingUseCases(core: InMemoryCore) {
     changeCompanyKey: createChangeCompanyKey({ ...deps, vault: core.keyVault.vault, sealer: sealing.sealer, sealings: core.sealings }),
     changeRecoveryKey: createChangeRecoveryKey({ ...deps, recoveryKeys: core.recoveryKeys, sealing, sealings: core.sealings }),
     readSealing: createReadSealing({ sealings: core.sealings }),
+    readRecoverySet: createReadRecoverySet({ sealings: core.sealings }),
+    recoverKeys: createRecoverKeys({ ...deps, vault: core.keyVault.vault, sealer: sealing.sealer, sealings: core.sealings }),
     openMeeting: createOpenMeeting({ ...deps, hasher: core.hasher, sealing: core.sealing }),
     readMeeting: createReadMeeting({ uow: core.uow, sealing }),
     changeMic: createChangeMic({ ...deps, hasher: core.hasher, sealing: core.sealing }),

@@ -143,6 +143,8 @@ import type { TurnOnSealing } from '../../domain/messaging/turn-on-sealing.js';
 import type { ChangeCompanyKey } from '../../domain/messaging/change-company-key.js';
 import type { ChangeRecoveryKey } from '../../domain/messaging/change-recovery-key.js';
 import type { ReadSealing } from '../../domain/messaging/read-sealing.js';
+import type { ReadRecoverySet } from '../../domain/messaging/read-recovery-set.js';
+import type { RecoverKeys } from '../../domain/messaging/recover-keys.js';
 
 /** The use cases procedures can call. Wired once at startup. */
 export interface UseCases {
@@ -177,6 +179,8 @@ export interface UseCases {
   changeCompanyKey: ChangeCompanyKey;
   changeRecoveryKey: ChangeRecoveryKey;
   readSealing: ReadSealing;
+  readRecoverySet: ReadRecoverySet;
+  recoverKeys: RecoverKeys;
   setVerifiedFacts: SetVerifiedFacts;
   recrewShip: RecrewShip;
   listFleet: ListFleet;
