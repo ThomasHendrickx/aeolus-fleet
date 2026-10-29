@@ -165,6 +165,7 @@ import { NO_INSTALLATION_SETTINGS, type InstallationSettings } from '../../src/d
 import { isSealedPayload, type StoredPayload } from '../../src/domain/messaging/sealed-payload.js';
 import { createChangeCompanyKey } from '../../src/domain/messaging/change-company-key.js';
 import { createTurnOnSealing } from '../../src/domain/messaging/turn-on-sealing.js';
+import { createChangeRecoveryKey } from '../../src/domain/messaging/change-recovery-key.js';
 import { createReadSealing } from '../../src/domain/messaging/read-sealing.js';
 
 /** The identity use cases, wired to the in-memory core. */
@@ -372,8 +373,9 @@ export function messagingUseCases(core: InMemoryCore) {
   const { sealing } = core;
   return {
     sendMessage: createSendMessage({ ...deps, hasher: core.hasher, sealing }),
-    turnOnSealing: createTurnOnSealing({ ...deps, vault: core.keyVault.vault, sealer: sealing.sealer, sealings: core.sealings }),
+    turnOnSealing: createTurnOnSealing({ ...deps, vault: core.keyVault.vault, sealer: sealing.sealer, recoveryKeys: core.recoveryKeys, sealings: core.sealings }),
     changeCompanyKey: createChangeCompanyKey({ ...deps, vault: core.keyVault.vault, sealer: sealing.sealer, sealings: core.sealings }),
+    changeRecoveryKey: createChangeRecoveryKey({ ...deps, recoveryKeys: core.recoveryKeys, sealing, sealings: core.sealings }),
     readSealing: createReadSealing({ sealings: core.sealings }),
     openMeeting: createOpenMeeting({ ...deps, hasher: core.hasher, sealing: core.sealing }),
     readMeeting: createReadMeeting({ uow: core.uow, sealing }),
@@ -669,12 +671,12 @@ export const SESSION_MODEL = 'claude-opus-5-5';
  * under a company key of the in-memory key vault granted for this fleet
  * alone. Answers the company key.
  */
-export async function sealFleet(core: InMemoryCore, fleetId: FleetId): Promise<string> {
+export async function sealFleet(core: InMemoryCore, fleetId: FleetId, options: { recoveryKey?: string } = {}): Promise<string> {
   const companyKey = await core.keyVault.aCompanyKey();
   await core.keyVault.bindToFleet(companyKey, fleetId);
-  const turnOn = createTurnOnSealing({ uow: core.uow, clock: core.clock, ids: core.ids, vault: core.keyVault.vault, sealer: core.sealing.sealer, sealings: core.sealings });
+  const turnOn = createTurnOnSealing({ uow: core.uow, clock: core.clock, ids: core.ids, vault: core.keyVault.vault, sealer: core.sealing.sealer, recoveryKeys: core.recoveryKeys, sealings: core.sealings });
   const fleetManager: AccountCaller = { kind: 'account', accountId: accountIdSchema.parse('acc_fleetmanager'), fleetId, scopes: ['fleet:keys'], groupValues: [], personShipId: null, throughShipId: null };
-  unwrap(await turnOn(fleetManager, { companyKey }));
+  unwrap(await turnOn(fleetManager, { companyKey, ...options }));
   return companyKey;
 }
 

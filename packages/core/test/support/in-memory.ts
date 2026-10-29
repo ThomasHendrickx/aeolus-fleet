@@ -111,6 +111,8 @@ import type { HistoryPruner } from '../../src/domain/shared/history-pruning.js';
 import { createInMemoryHealthSnapshots, type HeldHourSnapshot } from './in-memory-health-snapshots.js';
 import { createInMemoryHistoryPruner } from './in-memory-history-pruner.js';
 import type { FleetSealing, StoredDataKey } from '../../src/domain/messaging/fleet-sealing.js';
+import type { RecoveryKeys } from '../../src/domain/messaging/recovery-key.js';
+import { inMemoryRecoveryKeys } from './in-memory-recovery-keys.js';
 import { createFleetDataKeys, type FleetDataKeyMaker, type FleetDataKeys, type PayloadSealing } from '../../src/domain/messaging/data-keys.js';
 import { plainBytesOf, type StoredPayload } from '../../src/domain/messaging/sealed-payload.js';
 import { createInMemoryKeyVault } from './in-memory-key-vault.js';
@@ -315,6 +317,7 @@ export interface InMemoryCore {
   sealings: FleetSealingRepository;
   /** The company's key vault, as the company keeps its keys (decision 0068). */
   keyVault: KeyVaultWorld;
+  recoveryKeys: RecoveryKeys;
   /** What the use cases seal and unseal payloads with, and the data key rotation makes keys with: the in-memory sealer and key vault. */
   sealing: PayloadSealing & { dataKeys: FleetDataKeys & FleetDataKeyMaker };
   callers: CallerLookup;
@@ -510,6 +513,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         return Promise.resolve(
           sealing && {
             companyKey: sealing.companyKey,
+            recoveryKey: structuredClone(sealing.recoveryKey),
             dataKeys: structuredClone(state.dataKeys.filter((held) => held.fleetId === fleetId && dataKeyIds.includes(held.id))),
           },
         );
@@ -562,6 +566,19 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
           const held = state.dataKeys.find((dataKey) => dataKey.fleetId === fleetId && dataKey.id === id);
           if (held !== undefined) {
             held.wrappedByCompanyKey = new Uint8Array(wrappedByCompanyKey);
+          }
+        }
+        return Promise.resolve();
+      },
+      changeRecoveryKey: (fleetId, { recoveryKey, dataKeys }) => {
+        const sealing = state.fleetSealings.find((held) => held.fleetId === fleetId);
+        if (sealing !== undefined) {
+          sealing.recoveryKey = structuredClone(recoveryKey);
+        }
+        for (const { id, wrappedByRecoveryKey } of dataKeys) {
+          const held = state.dataKeys.find((dataKey) => dataKey.fleetId === fleetId && dataKey.id === id);
+          if (held !== undefined) {
+            held.wrappedByRecoveryKey = new Uint8Array(wrappedByRecoveryKey);
           }
         }
         return Promise.resolve();
@@ -2391,7 +2408,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
   };
 
-  return { state, uow, fleets: tx.fleets, scheduleAttempts, pushedCrews, ships: tx.ships, leases: tx.leases, crewRequests: tx.crewRequests, clearRequests: tx.clearRequests, labels: tx.labels, reachRefusals: tx.reachRefusals, declaredNetworkRules: tx.declaredNetworkRules, scopeNamespaces: tx.scopeNamespaces, definedScopes: tx.definedScopes, sealings: tx.sealings, keyVault, sealing: { sealer: inMemoryPayloadSealer, dataKeys: createFleetDataKeys({ sealings: tx.sealings, vault: keyVault.vault, sealer: inMemoryPayloadSealer, clock, uow, ids }) }, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, health: healthRecords, healthSnapshots, notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeups, fleetNews };
+  return { state, uow, fleets: tx.fleets, scheduleAttempts, pushedCrews, ships: tx.ships, leases: tx.leases, crewRequests: tx.crewRequests, clearRequests: tx.clearRequests, labels: tx.labels, reachRefusals: tx.reachRefusals, declaredNetworkRules: tx.declaredNetworkRules, scopeNamespaces: tx.scopeNamespaces, definedScopes: tx.definedScopes, sealings: tx.sealings, keyVault, recoveryKeys: inMemoryRecoveryKeys, sealing: { sealer: inMemoryPayloadSealer, dataKeys: createFleetDataKeys({ sealings: tx.sealings, vault: keyVault.vault, sealer: inMemoryPayloadSealer, recoveryKeys: inMemoryRecoveryKeys, clock, uow, ids }) }, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, health: healthRecords, healthSnapshots, notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeups, fleetNews };
 }
 
 /** The tables whose rows belong to a fleet by their fleet id: all but the fleets and the installation's requests. */

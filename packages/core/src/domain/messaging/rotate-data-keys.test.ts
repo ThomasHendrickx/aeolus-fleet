@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { crewAboard, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, sealFleet, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
+import { openedByRecoveryKey } from '../../../test/support/in-memory-recovery-keys.js';
 import { newKey } from '../../testing/keys.js';
 import { unwrap } from '../../testing/result.js';
 import type { Crew, ShipCaller } from '../shared/caller.js';
@@ -65,6 +66,20 @@ describe('data keys by age (decision 0068, B13a)', () => {
     expect(core.state.events.filter(({ type }) => type === 'FleetDataKeyCreated').map(({ actor, details }) => ({ actor, details }))).toEqual([{ actor: { kind: 'system' }, details: { dataKeyId: second?.id } }]);
     const { deliveries } = unwrap(await messaging.receiveDeliveries(chief, { max: 10 }));
     expect(deliveries.map(({ payload }) => payload)).toEqual(['sealed under the first key', 'sealed under the second key']);
+  });
+
+  it('scenario 6: given a recovery key at turning on, a new data key is also wrapped to it', async () => {
+    const other = createInMemoryCore('2026-10-29T09:00:00.000Z');
+    const otherFleetId = (await initialiseFleet(other)).fleetId;
+    const otherCompanyKey = await sealFleet(other, otherFleetId, { recoveryKey: 'age1recoverykeyofacme' });
+    other.clock.set('2026-11-28T09:00:00.000Z');
+
+    await createRotateDataKeys({ sealings: other.sealings, uow: other.uow, clock: other.clock, ids: other.ids, dataKeys: other.sealing.dataKeys })();
+
+    const [, second] = other.state.dataKeys;
+    const material = unwrap(await other.keyVault.vault.unwrap({ fleetId: otherFleetId, companyKey: otherCompanyKey }, second?.wrappedByCompanyKey ?? new Uint8Array()));
+    expect(second?.isCurrent).toBe(true);
+    expect(openedByRecoveryKey('age1recoverykeyofacme', second?.wrappedByRecoveryKey)).toEqual(material);
   });
 
   it('keeps a current data key younger than 30 days', async () => {
