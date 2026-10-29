@@ -11,6 +11,7 @@ import { createPostgresCore, racingUnitOfWork, type PostgresCore } from './suppo
 import { unwrap } from '../src/testing/result.js';
 import { newKey } from '../src/testing/keys.js';
 import { withOperatorLogin } from './support/operator-login.js';
+import { unsealedFleetsOnly } from './support/sealing.js';
 
 // Ping and pong on a real Postgres: what a ping stores, that pings racing for
 // one ship store one, and that a pong acknowledges the ping and marks the
@@ -93,6 +94,7 @@ describe('a ping on Postgres', () => {
       clock: core.clock,
       ids,
       hasher: sha256Hasher,
+      sealing: unsealedFleetsOnly,
     });
 
     const [one, other] = await Promise.all([

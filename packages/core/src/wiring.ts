@@ -543,7 +543,7 @@ export function createUseCases(options: {
     pruneHistory: createPruneHistory({ fleets: createPrismaFleetRepository(prisma), uow: bulkUow, clock, ids }),
     acknowledgeDelivery: createAcknowledgeDelivery({ uow, clock, ids }),
     answerPing: createAnswerPing({ uow, clock, ids }),
-    pingShip: createPingShip({ uow, clock, ids, hasher: sha256Hasher }),
+    pingShip: createPingShip({ uow, clock, ids, hasher: sha256Hasher, sealing }),
     checkInbox: createCheckInbox({ uow, clock, wakeups, fleetNews }),
     dismissDelivery: createDismissDelivery({ uow, clock, ids, readReach }),
     resendDelivery: createResendDelivery({ uow, clock, ids, hasher: sha256Hasher, readReach, sealing }),
