@@ -1,5 +1,5 @@
 import { CreateKeyCommand, DisableKeyCommand, EnableKeyCommand, KMSClient } from '@aws-sdk/client-kms';
-import { FLEET_HEADER, idSchema, MEETING_ADDED_CONTENT_TYPE, PING_CONTENT_TYPE, SCOPES, WITHDRAWAL_CONTENT_TYPE, type DeliveryId, type FleetId } from '@aeolus-fleet/common';
+import { createIdGenerator, FLEET_HEADER, idSchema, MEETING_ADDED_CONTENT_TYPE, PING_CONTENT_TYPE, SCOPES, WITHDRAWAL_CONTENT_TYPE, type DeliveryId, type FleetId } from '@aeolus-fleet/common';
 import { createTRPCClient, httpBatchLink, TRPCClientError, type TRPCClient } from '@trpc/client';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -7,6 +7,7 @@ import { z } from 'zod';
 
 import { createAwsKmsKeyVault } from '../src/adapters/kms/aws-kms-key-vault.js';
 import { createPrismaClient, type PrismaClient } from '../src/adapters/prisma/client.js';
+import { createPrismaTx } from '../src/adapters/prisma/unit-of-work.js';
 import { createApp } from '../src/app.js';
 import type { KeyVault } from '../src/domain/messaging/key-vault.js';
 import type { Crew, ShipCaller } from '../src/domain/shared/caller.js';
@@ -33,6 +34,7 @@ const INSTALLATION_TOKEN = 'aeolus_installation_test_0123456789abcdef';
 const PAYLOAD = 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/1373, before 5 € lunch';
 const QUESTION_ID = '0f8e2c1a-5b7d-4e3f-9a6b-2c4d8e1f0a3b';
 const clock = createTestClock('2026-10-29T12:00:00.000Z');
+const newId = createIdGenerator();
 
 let localStack: StartedLocalStack;
 let policy: KmsKeyPolicy;
@@ -547,3 +549,192 @@ describe('the kill switch on Postgres and a LocalStack KMS (decision 0068, B9, B
     ]);
   });
 });
+
+/** The fleet's messages and schedules still stored plain, and its sealing pass's state and events. */
+async function sealingPassOf(fleetId: FleetId) {
+  const [plainMessages, plainSchedules, fleet, sealedEvents] = await Promise.all([
+    prisma.message.count({ where: { fleetId, payload: { not: null } } }),
+    prisma.schedule.count({ where: { fleetId, payload: { not: null } } }),
+    prisma.fleet.findUniqueOrThrow({ where: { id: fleetId }, select: { sealingState: true } }),
+    prisma.event.findMany({ where: { fleetId, type: 'FleetPayloadsSealed' }, select: { actorKind: true } }),
+  ]);
+  return { plainMessages, plainSchedules, state: fleet.sealingState, sealedEvents };
+}
+
+/** Sends from argo to the ship, a few at once, each with its own payload. */
+async function plainSends(fleet: HostedFleet, sends: { to: Crew; count: number }): Promise<void> {
+  const { to, count } = sends;
+  const AT_ONCE = 25;
+  for (let first = 0; first < count; first += AT_ONCE) {
+    const sends = Array.from({ length: Math.min(AT_ONCE, count - first) }, (_, offset) => useCases.sendMessage(fleet.argo, aMessageTo(to.shipId, `${PAYLOAD} #${first + offset}`)));
+    for (const sent of await Promise.all(sends)) {
+      unwrap(sent);
+    }
+  }
+}
+
+/** Every delivery waiting for the ship, received in pages: their payloads, in the order sent. */
+async function everyPayloadReceived(crew: Crew): Promise<string[]> {
+  const payloads: string[] = [];
+  for (;;) {
+    const { deliveries } = unwrap(await useCases.receiveDeliveries(crew, { max: 100 }));
+    if (deliveries.length === 0) {
+      return payloads;
+    }
+    payloads.push(...deliveries.map(({ payload }) => payload));
+    for (const { deliveryId } of deliveries) {
+      unwrap(await useCases.acknowledgeDelivery(crew, { deliveryId }));
+    }
+  }
+}
+
+describe('the sealing pass on Postgres and a LocalStack KMS (decision 0068, B5)', () => {
+  it('scenario 5: given a fleet with a thousand plain messages and ten schedules, when it turns sealing on, then the sealing pass seals every one in batches, FleetPayloadsSealed is written once, and the database holds no plain payload of the fleet', { timeout: 180_000 }, async () => {
+    const fleet = await aHostedFleet();
+    const scout = await aCrewedReviewer(fleet, 'scout');
+    await plainSends(fleet, { to: scout, count: 1000 });
+    for (let day = 1; day <= 10; day += 1) {
+      unwrap(
+        await useCases.scheduleMessage(scout, {
+          selector: { kind: 'ship', name: 'argo' },
+          payload: `${PAYLOAD} on day ${day}`,
+          model: 'claude-opus-5-5',
+          idempotencyKey: newKey(),
+          timing: { kind: 'once', at: new Date(`2026-12-${String(day).padStart(2, '0')}T10:00:00.000Z`) },
+        }),
+      );
+    }
+    const before = await prisma.message.findFirstOrThrow({ where: { fleetId: fleet.fleetId }, orderBy: { id: 'asc' }, select: { id: true, requestHash: true } });
+
+    const turnedOn = unwrap(await useCases.turnOnSealing(fleet.argo, { companyKey: await aKeyBoundTo(fleet.fleetId) }));
+    await useCases.sealStoredPayloads();
+    await useCases.sealStoredPayloads();
+
+    expect(turnedOn.state).toBe('sealing');
+    expect(await sealingPassOf(fleet.fleetId)).toEqual({ plainMessages: 0, plainSchedules: 0, state: 'sealed', sealedEvents: [{ actorKind: 'system' }] });
+    const [message, schedule] = await Promise.all([
+      prisma.message.findUniqueOrThrow({ where: { id: before.id } }),
+      prisma.schedule.findFirstOrThrow({ where: { fleetId: fleet.fleetId } }),
+    ]);
+    expectSealedRow(message, 'Review');
+    expectSealedRow(schedule, 'Review');
+    expect(message.requestHash).not.toBe(before.requestHash);
+    const payloads = await everyPayloadReceived(scout);
+    expect(payloads).toHaveLength(1000);
+    expect(new Set(payloads)).toEqual(new Set(Array.from({ length: 1000 }, (_, index) => `${PAYLOAD} #${index}`)));
+  });
+
+  it('the pass racing a send: a send that read no data key before sealing was turned on commits its plain payload before turning on looks for one, and the pass seals it', { timeout: 180_000 }, async () => {
+    const fleet = await aHostedFleet();
+    const scout = await aCrewedReviewer(fleet, 'scout');
+    const companyKey = await aKeyBoundTo(fleet.fleetId);
+    const at = clock.now();
+    const messageId = newId('message');
+    let turnedOn: ReturnType<typeof useCases.turnOnSealing> | undefined;
+
+    // The send's own unit of work, held open between its read of the key and its commit.
+    await prisma.$transaction(
+      async (tx) => {
+        const unit = createPrismaTx(tx);
+        expect(await unit.sealings.currentDataKeyId(fleet.fleetId)).toBeUndefined();
+        turnedOn = useCases.turnOnSealing(fleet.argo, { companyKey });
+        await expect.poll(() => backendsWaitingOnALock(), { timeout: 20_000 }).toBeGreaterThan(0);
+        await unit.messages.create({
+          id: messageId,
+          fleetId: fleet.fleetId,
+          senderShipId: fleet.argo.shipId,
+          selector: { kind: 'ship', shipId: scout.shipId },
+          payload: PAYLOAD,
+          contentType: 'text/plain',
+          model: null,
+          idempotencyKey: newKey(),
+          requestHash: 'a request hash',
+          questionId: null,
+          inReplyToMessageId: null,
+          resendOfMessageId: null,
+          meetingId: null,
+          scheduleId: null,
+          sendTime: null,
+          createdAt: at,
+        });
+      },
+      { timeout: 30_000 },
+    );
+    const state = unwrap(await (turnedOn ?? Promise.reject(new Error('turning sealing on never started')))).state;
+    await useCases.sealStoredPayloads();
+
+    expect(state).toBe('sealing');
+    expect(await sealingPassOf(fleet.fleetId)).toEqual({ plainMessages: 0, plainSchedules: 0, state: 'sealed', sealedEvents: [{ actorKind: 'system' }] });
+    expectSealedRow(await prisma.message.findUniqueOrThrow({ where: { id: messageId } }), 'Review');
+  });
+
+  it('the pass racing sends: each send during the pass is stored sealed or sealed by it, none plain, and each is received as sent', { timeout: 180_000 }, async () => {
+    const fleet = await aHostedFleet();
+    const scout = await aCrewedReviewer(fleet, 'scout');
+    await plainSends(fleet, { to: scout, count: 400 });
+    unwrap(await useCases.turnOnSealing(fleet.argo, { companyKey: await aKeyBoundTo(fleet.fleetId) }));
+
+    const sendsDuringThePass = Array.from({ length: 40 }, (_, index) => useCases.sendMessage(fleet.argo, aMessageTo(scout.shipId, `${PAYLOAD} during #${index}`)));
+    const [, ...sent] = await Promise.all([useCases.sealStoredPayloads(), ...sendsDuringThePass]);
+    await useCases.sealStoredPayloads();
+
+    expect(sent.filter((result) => !result.isOk)).toEqual([]);
+    expect(await sealingPassOf(fleet.fleetId)).toEqual({ plainMessages: 0, plainSchedules: 0, state: 'sealed', sealedEvents: [{ actorKind: 'system' }] });
+    expect(await everyPayloadReceived(scout)).toHaveLength(440);
+  });
+
+  it("the pass racing a resend: a plain undeliverable message resent during the pass is sealed, the resend sealed for its own id, and its recipient reads the original's payload", { timeout: 180_000 }, async () => {
+    const fleet = await aHostedFleet();
+    const scout = await aCrewedReviewer(fleet, 'scout');
+    const { messageId: originalId } = unwrap(await useCases.sendMessage(fleet.argo, aMessageTo(scout.shipId)));
+    for (let claim = 1; claim <= 5; claim += 1) {
+      unwrap(await useCases.receiveDeliveries(scout, {}));
+    }
+    const { id: deliveryId } = await prisma.delivery.findFirstOrThrow({ where: { fleetId: fleet.fleetId, messageId: originalId, state: 'undeliverable' }, select: { id: true } });
+    await plainSends(fleet, { to: scout, count: 200 });
+    unwrap(await useCases.turnOnSealing(fleet.argo, { companyKey: await aKeyBoundTo(fleet.fleetId) }));
+
+    const [, resent] = await Promise.all([useCases.sealStoredPayloads(), useCases.resendDelivery(fleet.argo, { deliveryId: idSchema('delivery').parse(deliveryId) })]);
+    await useCases.sealStoredPayloads();
+
+    const { messageId } = unwrap(resent);
+    expect(await sealingPassOf(fleet.fleetId)).toEqual({ plainMessages: 0, plainSchedules: 0, state: 'sealed', sealedEvents: [{ actorKind: 'system' }] });
+    expectSealedRow(await prisma.message.findUniqueOrThrow({ where: { id: originalId } }), 'Review');
+    expectSealedRow(await prisma.message.findUniqueOrThrow({ where: { id: messageId } }), 'Review');
+    const received = await everyPayloadReceived(scout);
+    expect(received.filter((payload) => payload === PAYLOAD)).toHaveLength(1);
+  });
+
+  it('the pass racing a pruning pass: each finished message past the retention is pruned or sealed, none left plain, and neither pass fails', { timeout: 180_000 }, async () => {
+    const fleet = await aHostedFleet();
+    const scout = await aCrewedReviewer(fleet, 'scout');
+    const server = aServerAt('2026-10-29T12:00:00.000Z');
+    for (let index = 0; index < 300; index += 1) {
+      unwrap(await server.useCases.sendMessage(fleet.argo, aMessageTo(scout.shipId, `${PAYLOAD} #${index}`)));
+    }
+    for (const { deliveryId } of unwrap(await server.useCases.receiveDeliveries(scout, { max: 100 })).deliveries) {
+      unwrap(await server.useCases.acknowledgeDelivery(scout, { deliveryId }));
+    }
+    await prisma.$executeRaw`UPDATE fleets SET retention_set = true, retention_days = 1 WHERE id = ${fleet.fleetId}`;
+    unwrap(await server.useCases.turnOnSealing(fleet.argo, { companyKey: await aKeyBoundTo(fleet.fleetId) }));
+    // The 30 second pass past the retention: the snapshot close, then the pruning and the sealing passes at once.
+    server.clock.advance(2 * 24 * 60 * 60 * 1000);
+    await server.useCases.closeHealthSnapshots();
+    const failures: unknown[] = [];
+
+    await Promise.all([server.useCases.pruneHistory((_, error) => failures.push(error)), server.useCases.sealStoredPayloads((_, error) => failures.push(error))]);
+    await server.useCases.sealStoredPayloads((_, error) => failures.push(error));
+
+    expect(failures).toEqual([]);
+    expect(await sealingPassOf(fleet.fleetId)).toEqual({ plainMessages: 0, plainSchedules: 0, state: 'sealed', sealedEvents: [{ actorKind: 'system' }] });
+    expect(await prisma.message.count({ where: { fleetId: fleet.fleetId } })).toBeGreaterThanOrEqual(200);
+  });
+});
+
+/** How many server processes of this database wait on a lock now. */
+async function backendsWaitingOnALock(): Promise<number> {
+  const [row] = z
+    .array(z.object({ waiting: z.bigint() }))
+    .parse(await prisma.$queryRaw`SELECT count(*) AS waiting FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'`);
+  return Number(row?.waiting ?? 0n);
+}
