@@ -76,6 +76,32 @@ describe("unwrapping a fleet data keys (decision 0068, B8)", () => {
   });
 });
 
+describe("the data key cache (decision 0068, B11)", () => {
+  const FIVE_MINUTES_MS = 5 * 60 * 1000;
+
+  it("serves an unwrapped data key from memory until 5 minutes after its unwrap, also once the company key is disabled", async () => {
+    const id = currentDataKeyId();
+    unwrap(await core.sealing.dataKeys.unwrap(fleetId, [id]));
+    await core.keyVault.disable(companyKey);
+    core.clock.advance(FIVE_MINUTES_MS - 1);
+
+    const [dataKey] = unwrap(await core.sealing.dataKeys.unwrap(fleetId, [id]));
+
+    expect(dataKey?.id).toBe(id);
+  });
+
+  it("unwraps it again 5 minutes after its unwrap, so a disabled company key then refuses", async () => {
+    const id = currentDataKeyId();
+    unwrap(await core.sealing.dataKeys.unwrap(fleetId, [id]));
+    await core.keyVault.disable(companyKey);
+    core.clock.advance(FIVE_MINUTES_MS);
+
+    const unavailable = refusalOf(await core.sealing.dataKeys.unwrap(fleetId, [id]));
+
+    expect(unavailable).toEqual({ kind: "keyUnavailable", reason: "disabled" });
+  });
+});
+
 describe("running work with data keys (decision 0068, B8)", () => {
   it("runs the work once, holding no key, when it meets none", async () => {
     let runs = 0;
