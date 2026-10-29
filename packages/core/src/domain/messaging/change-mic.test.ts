@@ -134,6 +134,7 @@ describe('a mic request (M8)', () => {
       clock: core.clock,
       ids: core.ids,
       hasher: core.hasher,
+      sealing: core.sealing,
     });
 
     core.clock.advance(1_000);

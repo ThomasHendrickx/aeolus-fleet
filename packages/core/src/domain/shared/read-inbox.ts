@@ -2,10 +2,14 @@ import { PAGE_SIZE_DEFAULT, type DeliveryId, type InboxFilter, type ShipId } fro
 
 import { readsMessage, type ReadReachOf, type ShipRepository } from '../registry/public.js';
 import { isShipCaller, type Caller } from './caller.js';
-import type { InboxEntry, ShipHistory } from './history.js';
+import type { DomainError } from './errors.js';
+import type { HistoryParty, InboxEntry, ShipHistory } from './history.js';
+import { plainInboxEntries } from './plain-history.js';
+import { ok, type Result } from './result.js';
+import type { PayloadSealing } from '../messaging/public.js';
 import type { Page } from './page.js';
 
-export type ReadInbox = (caller: Caller, input: { filter: InboxFilter; cursor?: DeliveryId; limit?: number }) => Promise<Page<InboxEntry, DeliveryId>>;
+export type ReadInbox = (caller: Caller, input: { filter: InboxFilter; cursor?: DeliveryId; limit?: number }) => Promise<Result<Page<InboxEntry, DeliveryId>, DomainError<'KEY_UNAVAILABLE'>>>;
 
 /**
  * Whose inbox the caller reads and which of its messages: a ship its own,
@@ -15,7 +19,7 @@ export type ReadInbox = (caller: Caller, input: { filter: InboxFilter; cursor?: 
 export async function inboxReadOf(
   deps: { ships: Pick<ShipRepository, 'findOperatorShip'>; readReach: ReadReachOf },
   caller: Caller,
-): Promise<{ shipId: ShipId; reads: (entry: InboxEntry) => boolean } | undefined> {
+): Promise<{ shipId: ShipId; reads: (entry: { message: { sender: HistoryParty } }) => boolean } | undefined> {
   if (isShipCaller(caller) && caller.kind !== 'viewer') {
     return { shipId: caller.shipId, reads: () => true };
   }
@@ -37,15 +41,17 @@ export async function inboxReadOf(
  * messages its read reach reads: none while argo has turned viewer reading
  * off (decision 0034). An account holding fleet:read reads argo's inbox the
  * same way, by its own read reach (header design, C3); Done and Reply stay
- * argo's. The caller's scope (fleet:read) is checked before this runs.
+ * argo's. The caller's scope (fleet:read) is checked before this runs. In a
+ * sealed fleet each payload is unsealed (decision 0068, B9).
  */
-export function createReadInbox(deps: { history: ShipHistory; ships: Pick<ShipRepository, 'findOperatorShip'>; readReach: ReadReachOf }): ReadInbox {
+export function createReadInbox(deps: { history: ShipHistory; ships: Pick<ShipRepository, 'findOperatorShip'>; readReach: ReadReachOf; sealing: PayloadSealing }): ReadInbox {
   return async (caller, { filter, cursor, limit = PAGE_SIZE_DEFAULT }) => {
     const inbox = await inboxReadOf(deps, caller);
     if (!inbox) {
-      return { items: [], nextCursor: null };
+      return ok({ items: [], nextCursor: null });
     }
     const page = await deps.history.inbox(caller.fleetId, { shipId: inbox.shipId, filter, cursor, limit });
-    return { items: page.items.filter(inbox.reads), nextCursor: page.nextCursor };
+    const entries = await plainInboxEntries({ sealing: deps.sealing, fleetId: caller.fleetId }, page.items.filter(inbox.reads));
+    return entries.isOk ? ok({ items: entries.value, nextCursor: page.nextCursor }) : entries;
   };
 }

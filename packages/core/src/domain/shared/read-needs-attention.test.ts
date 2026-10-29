@@ -47,7 +47,7 @@ async function notHandled(crew: Crew, report: { messageId: MessageId; reason?: s
 
 /** The first page of Needs attention as argo reads it. */
 async function needsAttentionOf() {
-  return (await scene.history.readNeedsAttention(scene.argo, {})).items;
+  return (await scene.history.readNeedsAttention(scene.argo, {}).then(unwrap)).items;
 }
 
 describe('reading Needs attention', () => {
@@ -223,7 +223,7 @@ describe('reading Needs attention', () => {
       sent.push(await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.scout.shipId } }));
       await receiveUntilUndeliverable(scene.scout);
     }
-    const read = (cursor?: DeliveryId) => scene.history.readNeedsAttention(scene.argo, { limit: 2, cursor });
+    const read = (cursor?: DeliveryId) => scene.history.readNeedsAttention(scene.argo, { limit: 2, cursor }).then(unwrap);
 
     const first = await read();
     const second = await read(first.nextCursor ?? undefined);
@@ -237,10 +237,10 @@ describe('reading Needs attention', () => {
     await receiveUntilUndeliverable(scene.scout);
     const second = await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.scout.shipId } });
     await receiveUntilUndeliverable(scene.scout);
-    const page = await scene.history.readNeedsAttention(scene.argo, { limit: 1 });
+    const page = await scene.history.readNeedsAttention(scene.argo, { limit: 1 }).then(unwrap);
     unwrap(await scene.messaging.dismissDelivery(scene.argo, { deliveryId: deliveryIdOf(scene.core, first) }));
 
-    const next = await scene.history.readNeedsAttention(scene.argo, { limit: 1, cursor: page.nextCursor ?? undefined });
+    const next = await scene.history.readNeedsAttention(scene.argo, { limit: 1, cursor: page.nextCursor ?? undefined }).then(unwrap);
 
     expect(next.items.map((entry) => entry.message.id)).toEqual([second]);
   });
@@ -251,7 +251,7 @@ describe('reading Needs attention', () => {
     const lookouts = await scene.send(scene.planner, { to: { kind: 'type', type: 'reviewer' } });
     await notHandled(scene.lookout, { messageId: lookouts });
 
-    const page = await scene.history.readNeedsAttention(scene.argo, { shipId: scene.lookout.shipId });
+    const page = await scene.history.readNeedsAttention(scene.argo, { shipId: scene.lookout.shipId }).then(unwrap);
 
     expect(page.items.map((entry) => entry.message.id)).toEqual([lookouts]);
   });
@@ -262,7 +262,7 @@ describe('reading Needs attention', () => {
     const lookouts = await scene.send(scene.planner, { to: { kind: 'type', type: 'reviewer' } });
     await notHandled(scene.lookout, { messageId: lookouts });
 
-    const page = await scene.history.readNeedsAttention(scene.argo, { shipId: scene.lookout.shipId, state: 'notHandled' });
+    const page = await scene.history.readNeedsAttention(scene.argo, { shipId: scene.lookout.shipId, state: 'notHandled' }).then(unwrap);
 
     expect(page.items.map((entry) => [entry.message.id, entry.state])).toEqual([[lookouts, 'notHandled']]);
   });
@@ -272,7 +272,7 @@ describe('reading Needs attention', () => {
     await receiveUntilUndeliverable(scene.scout);
     const elsewhere = { ...scene.argo, fleetId: scene.core.ids('fleet') };
 
-    await expect(scene.history.readNeedsAttention(elsewhere, {}).then(({ items }) => items)).resolves.toEqual([]);
+    await expect(scene.history.readNeedsAttention(elsewhere, {}).then(unwrap).then(({ items }) => items)).resolves.toEqual([]);
   });
 });
 
@@ -293,7 +293,7 @@ describe('reading Needs attention within read reach (decision 0034)', () => {
       unwrap(await fleet.messaging.receiveDeliveries(fleet.far, { max: 10 }));
     }
 
-    const [read, all] = [(await fleet.history.readNeedsAttention(fleet.reader, {})).items, (await fleet.history.readNeedsAttention(fleet.argo, {})).items];
+    const [read, all] = [(await fleet.history.readNeedsAttention(fleet.reader, {}).then(unwrap)).items, (await fleet.history.readNeedsAttention(fleet.argo, {}).then(unwrap)).items];
 
     expect([read.map((entry) => entry.message.id), all.length]).toEqual([[toNear], 2]);
   });
@@ -306,9 +306,9 @@ describe('reading Needs attention within read reach (decision 0034)', () => {
       unwrap(await fleet.messaging.receiveDeliveries(fleet.far, { max: 10 }));
       unwrap(await fleet.messaging.receiveDeliveries(fleet.near, { max: 10 }));
     }
-    const first = await fleet.history.readNeedsAttention(fleet.reader, { limit: 1 });
+    const first = await fleet.history.readNeedsAttention(fleet.reader, { limit: 1 }).then(unwrap);
 
-    const next = await fleet.history.readNeedsAttention(fleet.reader, { limit: 1, cursor: first.nextCursor ?? undefined });
+    const next = await fleet.history.readNeedsAttention(fleet.reader, { limit: 1, cursor: first.nextCursor ?? undefined }).then(unwrap);
 
     expect([first.items.length, next.items.map((entry) => entry.message.id)]).toEqual([0, [toNear]]);
   });

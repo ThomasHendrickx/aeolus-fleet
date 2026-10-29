@@ -1,5 +1,5 @@
 import { CreateKeyCommand, KMSClient } from '@aws-sdk/client-kms';
-import { FLEET_HEADER, idSchema, SCOPES, WITHDRAWAL_CONTENT_TYPE, type DeliveryId, type FleetId } from '@aeolus-fleet/common';
+import { FLEET_HEADER, idSchema, MEETING_ADDED_CONTENT_TYPE, PING_CONTENT_TYPE, SCOPES, WITHDRAWAL_CONTENT_TYPE, type DeliveryId, type FleetId } from '@aeolus-fleet/common';
 import { createTRPCClient, httpBatchLink, TRPCClientError, type TRPCClient } from '@trpc/client';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -19,6 +19,7 @@ import { createUseCases, type UseCases } from '../src/wiring.js';
 import { startKmsKeyPolicy, type KmsKeyPolicy } from './support/kms-key-policy.js';
 import { startLocalStack, type StartedLocalStack } from './support/localstack.js';
 import { createTestClock } from './support/postgres-core.js';
+import { PING_PAYLOAD } from '../src/domain/messaging/ping-ship.js';
 
 // Sealed fleets (decision 0068) from the installation's call to Postgres and
 // a LocalStack KMS. LocalStack without a licence keeps no key policy, so the
@@ -242,5 +243,93 @@ describe('sealed sends and receives on Postgres and a LocalStack KMS (decision 0
       { deliveryId: sent[0], payload: PAYLOAD },
       { deliveryId: sent[1], payload: `${PAYLOAD} again` },
     ]);
+  });
+});
+
+/** A sealed message's or schedule's row holds no plain payload: ciphertext under a data key, beside the plain byte count. */
+function expectSealedRow(row: { payload: string | null; sealedDataKeyId: string | null; sealedCiphertext: Uint8Array | null }, plainText: string): void {
+  expect(row.payload).toBeNull();
+  expect(row.sealedDataKeyId).toMatch(/^dky_/);
+  expect(Buffer.from(row.sealedCiphertext ?? new Uint8Array()).toString('utf8')).not.toContain(plainText);
+}
+
+describe('every other payload sealed on Postgres and a LocalStack KMS (decision 0068, B17)', () => {
+  it("scenario 16: a resend of a sealed undeliverable message is sealed for its own id, and its recipient reads the original's payload", async () => {
+    const fleet = await aSealedFleet();
+    const scout = await aCrewedReviewer(fleet, 'scout');
+    const { messageId: originalId } = unwrap(await useCases.sendMessage(fleet.argo, { selector: { kind: 'ship', shipId: scout.shipId }, payload: PAYLOAD, contentType: 'text/plain', idempotencyKey: newKey() }));
+    for (let claim = 1; claim <= 5; claim += 1) {
+      unwrap(await useCases.receiveDeliveries(scout, {}));
+    }
+    const { id: deliveryId } = await prisma.delivery.findFirstOrThrow({ where: { fleetId: fleet.fleetId, messageId: originalId, state: 'undeliverable' }, select: { id: true } });
+
+    const { messageId } = unwrap(await useCases.resendDelivery(fleet.argo, { deliveryId: idSchema('delivery').parse(deliveryId) }));
+
+    const [original, resent] = await Promise.all([prisma.message.findUniqueOrThrow({ where: { id: originalId } }), prisma.message.findUniqueOrThrow({ where: { id: messageId } })]);
+    expectSealedRow(resent, 'Review');
+    expect(resent.sealedCiphertext).not.toEqual(original.sealedCiphertext);
+    const { deliveries } = unwrap(await useCases.receiveDeliveries(scout, {}));
+    expect(deliveries.map(({ messageId: id, payload }) => ({ id, payload }))).toEqual([{ id: messageId, payload: PAYLOAD }]);
+  });
+
+  it('stores a ping core writes sealed, and its ship receives it as written', async () => {
+    const fleet = await aSealedFleet();
+    const scout = await aCrewedReviewer(fleet, 'scout');
+
+    const { messageId } = unwrap(await useCases.pingShip(fleet.argo, { shipId: scout.shipId }));
+
+    expectSealedRow(await prisma.message.findUniqueOrThrow({ where: { id: messageId } }), 'Ping');
+    const { deliveries } = unwrap(await useCases.receiveDeliveries(scout, {}));
+    expect(deliveries.map(({ contentType, payload }) => ({ contentType, payload }))).toEqual([{ contentType: PING_CONTENT_TYPE, payload: PING_PAYLOAD }]);
+  });
+
+  it("stores a meeting's added notice sealed, and the participant receives it as written", async () => {
+    const fleet = await aSealedFleet();
+    const scout = await aCrewedReviewer(fleet, 'scout');
+
+    const { meetingId } = unwrap(await useCases.openMeeting(fleet.argo, { ships: [{ shipId: scout.shipId }], idempotencyKey: newKey(), title: 'Launch' }));
+
+    const [notice] = await prisma.message.findMany({ where: { fleetId: fleet.fleetId, meetingId } });
+    expect(notice).toBeDefined();
+    expectSealedRow(notice ?? { payload: '', sealedDataKeyId: null, sealedCiphertext: null }, 'Launch');
+    const { deliveries } = unwrap(await useCases.receiveDeliveries(scout, {}));
+    expect(deliveries.map(({ contentType, payload }) => ({ contentType, payload: z.object({ meetingId: z.string(), title: z.string() }).parse(JSON.parse(payload)) }))).toEqual([
+      { contentType: MEETING_ADDED_CONTENT_TYPE, payload: { meetingId, title: 'Launch' } },
+    ]);
+  });
+
+  it("stores a schedule's payload sealed, and the message it sends at its time sealed for its own id, read in argo's inbox as scheduled", async () => {
+    const fleet = await aSealedFleet();
+    const scout = await aCrewedReviewer(fleet, 'scout');
+    // A month before the database's clock: a schedule an hour ahead here is due by the claim's now().
+    const monthEarlier = createTestClock('2026-09-29T12:00:00.000Z');
+    const scheduling = createUseCases({ prisma, clock: monthEarlier, keyVault, receiveWaitMs: 0 });
+    const { scheduleId } = unwrap(
+      await scheduling.scheduleMessage(scout, { selector: { kind: 'ship', name: 'argo' }, payload: PAYLOAD, model: 'claude-opus-5-5', idempotencyKey: newKey(), timing: { kind: 'once', at: new Date('2026-09-29T13:00:00.000Z') } }),
+    );
+    monthEarlier.set('2026-09-29T13:00:00.000Z');
+
+    await scheduling.sendDueSchedules();
+
+    const schedule = await prisma.schedule.findUniqueOrThrow({ where: { id: scheduleId } });
+    expectSealedRow(schedule, 'Review');
+    expect(schedule.sealedPayloadBytes).toBe(84);
+    const sent = await prisma.message.findFirstOrThrow({ where: { fleetId: fleet.fleetId, scheduleId } });
+    expectSealedRow(sent, 'Review');
+    const inbox = unwrap(await useCases.readInbox(fleet.argo, { filter: 'all' })).items;
+    expect(inbox.map(({ message }) => ({ id: message.id, payload: message.payload }))).toEqual([{ id: sent.id, payload: PAYLOAD }]);
+  });
+
+  it("answers a message's page and the reply argo sent to it in its inbox, each payload as sent", async () => {
+    const fleet = await aSealedFleet();
+    const scout = await aCrewedReviewer(fleet, 'scout');
+    const { messageId: asked } = unwrap(await useCases.sendMessage(scout, { selector: { kind: 'ship', shipId: fleet.argo.shipId }, payload: PAYLOAD, idempotencyKey: newKey(), model: 'claude-opus-5-5' }));
+    unwrap(await useCases.sendMessage(fleet.argo, { selector: { kind: 'ship', shipId: scout.shipId }, payload: 'Done, 5 € spent', inReplyTo: asked, idempotencyKey: newKey() }));
+
+    const page = unwrap(await useCases.readMessage(fleet.argo, { messageId: asked }));
+    const [entry] = unwrap(await useCases.readInbox(fleet.argo, { filter: 'all' })).items;
+
+    expect(page.payload).toBe(PAYLOAD);
+    expect([entry?.message.payload, entry?.replies.map(({ payload }) => payload)]).toEqual([PAYLOAD, ['Done, 5 € spent']]);
   });
 });

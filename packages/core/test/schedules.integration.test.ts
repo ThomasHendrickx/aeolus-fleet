@@ -19,6 +19,7 @@ import { createUseCases } from '../src/wiring.js';
 import { agentCaller, operatorCaller } from './support/core-fixtures.js';
 import { withOperatorLogin } from './support/operator-login.js';
 import { createPostgresCore, racingUnitOfWork, type PostgresCore } from './support/postgres-core.js';
+import { unsealedFleetsOnly } from './support/sealing.js';
 
 // Scheduled messages on a real Postgres through the Prisma adapters (decision
 // 0062): what a schedule stores, the claim in SQL, and the guarantees: two
@@ -65,6 +66,7 @@ function passWith(uow: UnitOfWork<PrismaTx>) {
     clock: core.clock,
     ids: newId,
     hasher: sha256Hasher,
+    sealing: unsealedFleetsOnly,
   });
 }
 
@@ -370,6 +372,7 @@ describe('a send that fails before commit', () => {
         clock: core.clock,
         ids: newId,
         hasher: sha256Hasher,
+        sealing: unsealedFleetsOnly,
       });
 
       await dyingPass(() => undefined).catch(() => undefined);

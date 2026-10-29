@@ -547,7 +547,7 @@ export function toConsoleSessionCaller(row: unknown): { caller: ShipCaller | Cre
   return { caller: lease_id === null ? caller : { ...caller, leaseId: lease_id }, expiresAt: expires_at };
 }
 
-/** A message's payload columns: plain, or sealed whole with its plain byte count (decision 0068). */
+/** A message's or a schedule's payload columns: plain, or sealed whole with its plain byte count (decision 0068). */
 const payloadColumns = z.union([
   z
     .object({ payload: z.string(), sealedDataKeyId: z.null(), sealedNonce: z.null(), sealedCiphertext: z.null(), sealedPayloadBytes: z.null() })
@@ -560,7 +560,12 @@ const payloadColumns = z.union([
     })),
 ]);
 
-/** A payload as a message's columns hold it: plain in `payload`, or sealed in the sealed columns. */
+/** A message's or a schedule's payload from its columns (decision 0068). */
+export function storedPayloadOf(row: unknown): StoredPayload {
+  return payloadColumns.parse(row);
+}
+
+/** A payload as a message's or a schedule's columns hold it: plain in `payload`, or sealed in the sealed columns. */
 export function payloadColumnsOf(payload: StoredPayload): { payload: string | null; sealedDataKeyId: string | null; sealedNonce: Uint8Array<ArrayBuffer> | null; sealedCiphertext: Uint8Array<ArrayBuffer> | null; sealedPayloadBytes: number | null } {
   return isSealedPayload(payload)
     ? { payload: null, sealedDataKeyId: payload.sealed.dataKeyId, sealedNonce: payload.sealed.nonce, sealedCiphertext: payload.sealed.ciphertext, sealedPayloadBytes: payload.plainBytes }
@@ -605,7 +610,7 @@ const selectorColumns = z.union([
 ]);
 
 export function toMessage(row: unknown): Message {
-  return { ...messageRow.parse(row), payload: payloadColumns.parse(row), selector: selectorColumns.parse(row) };
+  return { ...messageRow.parse(row), payload: storedPayloadOf(row), selector: selectorColumns.parse(row) };
 }
 
 const recipientSchema = z.discriminatedUnion('kind', [

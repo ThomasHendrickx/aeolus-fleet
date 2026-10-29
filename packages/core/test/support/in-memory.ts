@@ -112,7 +112,7 @@ import { createInMemoryHealthSnapshots, type HeldHourSnapshot } from './in-memor
 import { createInMemoryHistoryPruner } from './in-memory-history-pruner.js';
 import type { FleetSealing, StoredDataKey } from '../../src/domain/messaging/fleet-sealing.js';
 import { createFleetDataKeys, type PayloadSealing } from '../../src/domain/messaging/data-keys.js';
-import { isSealedPayload, plainBytesOf } from '../../src/domain/messaging/sealed-payload.js';
+import { plainBytesOf, type StoredPayload } from '../../src/domain/messaging/sealed-payload.js';
 import { createInMemoryKeyVault } from './in-memory-key-vault.js';
 import type { KeyVaultWorld } from './key-vault-contract.js';
 import { inMemoryPayloadSealer } from './in-memory-payload-sealer.js';
@@ -204,14 +204,6 @@ export interface InMemoryState {
   fleetSealings: FleetSealing[];
   /** The sealed fleets' data keys, kept only wrapped (decision 0068). */
   dataKeys: StoredDataKey[];
-}
-
-/** A payload as the history reads answer it: they unseal none (decision 0068; the design's slice S3 unseals them). */
-function plainPayloadOf(message: Pick<Message, 'id' | 'payload'>): string {
-  if (isSealedPayload(message.payload)) {
-    throw new Error(`Message ${message.id} is sealed: this read does not unseal a payload`);
-  }
-  return message.payload;
 }
 
 /** A fleet's events, numbered in the order they were appended, the places of pruned events skipped. */
@@ -489,7 +481,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       storesPlainPayload: (fleetId) =>
         Promise.resolve(
           state.messages.some((held) => held.fleetId === fleetId && typeof held.payload === 'string') ||
-            state.schedules.some((held) => held.fleetId === fleetId),
+            state.schedules.some((held) => held.fleetId === fleetId && typeof held.send.payload === 'string'),
         ),
       turnOn: (sealing, firstKey) => {
         if (state.dataKeys.some((held) => held.fleetId === firstKey.fleetId && held.isCurrent)) {
@@ -1929,7 +1921,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       details: event.details,
     };
   };
-  const historyMessageOf = (message: Message): HistoryMessage => {
+  const historyMessageOf = (message: Message): HistoryMessage<StoredPayload> => {
     const delivery = deliveryOfMessage(message);
     return {
       id: message.id,
@@ -1939,7 +1931,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       sentAt: message.createdAt,
       contentType: message.contentType,
       model: message.model,
-      payload: plainPayloadOf(message),
+      payload: message.payload,
       delivery: {
         id: delivery.id,
         state: delivery.state,
@@ -1958,7 +1950,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         return message ? [{ delivery, message }] : [];
       });
   /** A message to the ship itself as its inbox lists it. */
-  const inboxEntryOf = (fleetId: FleetId, { shipId, delivery, message }: { shipId: ShipId; delivery: Delivery; message: Message }): InboxEntry => {
+  const inboxEntryOf = (fleetId: FleetId, { shipId, delivery, message }: { shipId: ShipId; delivery: Delivery; message: Message }): InboxEntry<StoredPayload> => {
     const acknowledged = numbered(fleetId).findLast((event) => event.deliveryId === delivery.id && event.type === 'DeliveryAcknowledged');
     const reply = acknowledged?.details.reply;
     const { id, sender, inReplyTo, sentAt, contentType, model, payload } = historyMessageOf(message);
@@ -1971,7 +1963,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       replies: state.messages
         .filter((held) => held.fleetId === fleetId && held.senderShipId === shipId && held.inReplyToMessageId === message.id)
         .sort((first, second) => newestFirst(second, first))
-        .map((held) => ({ id: held.id, contentType: held.contentType, payload: plainPayloadOf(held), sentAt: held.createdAt })),
+        .map((held) => ({ id: held.id, contentType: held.contentType, payload: held.payload, sentAt: held.createdAt })),
       message: { id, sender, inReplyTo, sentAt, contentType, model, payload },
     };
   };

@@ -63,7 +63,7 @@ describe("argo's inbox on Postgres", () => {
     unwrap(await core.useCases.markDone(argo, { deliveryId: older.deliveryId }));
     const doneAt = core.clock.now();
 
-    const all = await core.useCases.readInbox(argo, { filter: 'all' }).then(({ items }) => items);
+    const all = await core.useCases.readInbox(argo, { filter: 'all' }).then(unwrap).then(({ items }) => items);
 
     expect(all.map((entry) => entry.message.id)).toEqual([newer.messageId, older.messageId]);
     expect(all[0]).toMatchObject({
@@ -73,8 +73,8 @@ describe("argo's inbox on Postgres", () => {
       message: { sender: { id: captain.shipId, name: 'release-captain' }, payload: 'Promote 2.14?' },
     });
     expect(all[1]).toMatchObject({ state: 'acknowledged', readAt: null, doneAt, repliedWith: null });
-    await expect(core.useCases.readInbox(argo, { filter: 'open' }).then(({ items }) => items)).resolves.toEqual([all[0]]);
-    await expect(core.useCases.readInbox(argo, { filter: 'done' }).then(({ items }) => items)).resolves.toEqual([all[1]]);
+    await expect(core.useCases.readInbox(argo, { filter: 'open' }).then(unwrap).then(({ items }) => items)).resolves.toEqual([all[0]]);
+    await expect(core.useCases.readInbox(argo, { filter: 'done' }).then(unwrap).then(({ items }) => items)).resolves.toEqual([all[1]]);
   });
 
   it("pages the messages to argo newest first, each page after the last page's cursor, keeping to the filter", async () => {
@@ -83,7 +83,7 @@ describe("argo's inbox on Postgres", () => {
     unwrap(await core.useCases.markDone(argo, { deliveryId: done.deliveryId }));
     const middle = await toArgo('three');
     const newest = await toArgo('four');
-    const read = (cursor?: DeliveryId) => core.useCases.readInbox(argo, { filter: 'open', limit: 2, cursor });
+    const read = (cursor?: DeliveryId) => core.useCases.readInbox(argo, { filter: 'open', limit: 2, cursor }).then(unwrap);
 
     const first = await read();
     const second = await read(first.nextCursor ?? undefined);
@@ -97,7 +97,7 @@ describe("argo's inbox on Postgres", () => {
   it('reads one message to argo by its delivery, as the inbox lists it, and refuses one not in it', async () => {
     const asked = await toArgo('Promote 2.14?');
     await toArgo('Deployed.');
-    const listed = (await core.useCases.readInbox(argo, { filter: 'all' })).items.find((entry) => entry.deliveryId === asked.deliveryId);
+    const listed = (await core.useCases.readInbox(argo, { filter: 'all' }).then(unwrap)).items.find((entry) => entry.deliveryId === asked.deliveryId);
 
     await expect(core.useCases.readInboxMessage(argo, { deliveryId: asked.deliveryId })).resolves.toEqual({ isOk: true, value: listed });
     await expect(core.useCases.readInboxMessage(argo, { deliveryId: newId('delivery') })).resolves.toMatchObject({ isOk: false, error: { kind: 'DELIVERY_NOT_FOUND' } });
@@ -113,12 +113,12 @@ describe("argo's inbox on Postgres", () => {
     await toArgo('not json at all', WITHDRAWAL_CONTENT_TYPE);
     const replacement = await toArgo(JSON.stringify({ questionId, question: replacing }, null, 2), `${REPLACEMENT_CONTENT_TYPE}; charset=utf-8`);
 
-    const first = await core.useCases.readInboxWithdrawals(argo, { questionId, limit: 1 });
-    const next = await core.useCases.readInboxWithdrawals(argo, { questionId, limit: 1, cursor: first.nextCursor ?? undefined });
+    const first = await core.useCases.readInboxWithdrawals(argo, { questionId, limit: 1 }).then(unwrap);
+    const next = await core.useCases.readInboxWithdrawals(argo, { questionId, limit: 1, cursor: first.nextCursor ?? undefined }).then(unwrap);
 
     expect([first.items.map((entry) => entry.deliveryId), first.nextCursor]).toEqual([[withdrawal.deliveryId], withdrawal.deliveryId]);
     expect([next.items.map((entry) => entry.deliveryId), next.nextCursor]).toEqual([[replacement.deliveryId], null]);
-    expect(first.items[0]).toEqual((await core.useCases.readInbox(argo, { filter: 'all' })).items.find((entry) => entry.deliveryId === withdrawal.deliveryId));
+    expect(first.items[0]).toEqual((await core.useCases.readInbox(argo, { filter: 'all' }).then(unwrap)).items.find((entry) => entry.deliveryId === withdrawal.deliveryId));
   });
 
   it('counts the open messages to argo, not those done', async () => {
@@ -234,7 +234,7 @@ describe("argo's inbox on Postgres", () => {
       inReplyToMessageId: asked.messageId,
       payload: 'go',
     });
-    await expect(core.useCases.readInbox(argo, { filter: 'done' }).then(({ items }) => items)).resolves.toEqual([
+    await expect(core.useCases.readInbox(argo, { filter: 'done' }).then(unwrap).then(({ items }) => items)).resolves.toEqual([
       expect.objectContaining({ deliveryId: asked.deliveryId, repliedWith: messageId }),
     ]);
   });
@@ -260,7 +260,7 @@ describe("argo's inbox on Postgres", () => {
       }),
     );
 
-    const [entry] = await core.useCases.readInbox(argo, { filter: 'all' }).then(({ items }) => items);
+    const [entry] = await core.useCases.readInbox(argo, { filter: 'all' }).then(unwrap).then(({ items }) => items);
 
     expect(entry?.replies).toEqual([
       { id: first, contentType: 'text/plain', payload: 'go', sentAt: firstAt },

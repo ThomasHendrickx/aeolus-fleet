@@ -1,7 +1,19 @@
 import type { IdGenerator, ShipId } from '@aeolus-fleet/common';
 
 import { revokeShipSecret, type CredentialTx } from '../identity/public.js';
-import { cancelSchedulesOnRetire, leaveMeetingsOnRetire, lockMeetingsOf, lockSchedulesOf, type AcceptRefusal, type RequestHasher, type RetiredParticipantTx, type RetiredSchedulerTx } from '../messaging/public.js';
+import {
+  cancelSchedulesOnRetire,
+  leaveMeetingsOnRetire,
+  lockMeetingsOf,
+  lockSchedulesOf,
+  withDataKeys,
+  type AcceptRefusal,
+  type DataKeysNeeded,
+  type PayloadSealing,
+  type RequestHasher,
+  type RetiredParticipantTx,
+  type RetiredSchedulerTx,
+} from '../messaging/public.js';
 import { actorOf, type Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
@@ -30,7 +42,7 @@ export interface RetireShipTx extends LeaseTx, CredentialTx, RetiredParticipantT
   verifiedFacts: Pick<VerifiedFactsRepository, 'listAbout' | 'listBy' | 'lockWriter' | 'remove'>;
 }
 
-export type RetireShipRefusal = DomainError<'SHIP_NOT_FOUND'> | NotReachable | RetireRefusal | AcceptRefusal;
+export type RetireShipRefusal = DomainError<'SHIP_NOT_FOUND' | 'KEY_UNAVAILABLE'> | NotReachable | RetireRefusal | AcceptRefusal;
 
 export type RetireShip = (
   caller: Caller,
@@ -77,15 +89,19 @@ export type RetireShip = (
  * serialise: a send that commits first has its delivery abandoned here, and a
  * send after finds the ship retired and is refused. Then it holds the
  * network settings exclusively, after the ship as every send takes them.
+ *
+ * In a sealed fleet the notices to the meetings it leaves are sealed with
+ * data keys unwrapped before the unit of work (decision 0068, B17).
  */
 export function createRetireShip(deps: {
   uow: UnitOfWork<RetireShipTx>;
   clock: Clock;
   ids: IdGenerator;
   hasher: RequestHasher;
+  sealing: PayloadSealing;
 }): RetireShip {
   return (caller, { shipId }) =>
-    keepingReachRefusal(deps.uow, async (tx): Promise<Result<{ abandonedDeliveries: number }, RetireShipRefusal>> => {
+    withDataKeys({ sealing: deps.sealing, fleetId: caller.fleetId }, (held) => keepingReachRefusal(deps.uow, async (tx): Promise<Result<{ abandonedDeliveries: number }, RetireShipRefusal | DataKeysNeeded>> => {
       const { fleetId } = caller;
       const meetings = await lockMeetingsOf(tx, { fleetId, shipId });
       const schedules = await lockSchedulesOf(tx, { fleetId, shipId });
@@ -203,7 +219,7 @@ export function createRetireShip(deps: {
           await recordEvent(recorded, event);
         }
       }
-      const left = await leaveMeetingsOnRetire({ tx, ids: deps.ids, hasher: deps.hasher }, { meetings, shipId, actor, at });
+      const left = await leaveMeetingsOnRetire({ tx, ids: deps.ids, hasher: deps.hasher, held }, { meetings, shipId, actor, at });
       if (!left.isOk) {
         return left;
       }
@@ -217,5 +233,5 @@ export function createRetireShip(deps: {
         await recordEvent(recorded, event);
       }
       return ok({ abandonedDeliveries: abandoned.length });
-    });
+    }));
 }

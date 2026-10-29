@@ -14,6 +14,7 @@ import { createPostgresCore, heldUnitOfWork, type PostgresCore } from './support
 import { refusalOf, unwrap } from '../src/testing/result.js';
 import { wholeShips } from './support/ships.js';
 import { withOperatorLogin } from './support/operator-login.js';
+import { unsealedFleetsOnly } from './support/sealing.js';
 
 // Labels on a real Postgres (decision 0031): a key once per fleet, even when
 // two ships define it at once; a label and each value with its own id, the
@@ -215,7 +216,7 @@ describe("an assignment racing its owner's retire", () => {
     const assign = createAssignLabel({ uow, clock: core.clock, ids: newId })(plugin, { shipId: builderId, valueId: macos });
     await reached;
 
-    const retire = createRetireShip({ uow: createPrismaUnitOfWork(core.prisma), clock: core.clock, ids: newId, hasher: sha256Hasher })(argo, { shipId: plugin.shipId });
+    const retire = createRetireShip({ uow: createPrismaUnitOfWork(core.prisma), clock: core.clock, ids: newId, hasher: sha256Hasher, sealing: unsealedFleetsOnly })(argo, { shipId: plugin.shipId });
 
     await expect(assign).resolves.toEqual({ isOk: true, value: undefined });
     await expect(retire).resolves.toMatchObject({ isOk: true });

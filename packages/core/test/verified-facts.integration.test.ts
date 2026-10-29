@@ -13,6 +13,7 @@ import { unwrap } from '../src/testing/result.js';
 import { operatorCaller } from './support/core-fixtures.js';
 import { createPostgresCore, heldUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 import { withOperatorLogin } from './support/operator-login.js';
+import { unsealedFleetsOnly } from './support/sealing.js';
 
 // Verified facts on a real Postgres (decision 0059): each writer's facts
 // about a ship kept with the ship, set whole, with VerifiedFactsSet in the
@@ -184,7 +185,7 @@ describe('verified facts and a retire on Postgres', () => {
         },
       },
     }));
-    const retiring = createRetireShip({ uow, clock: core.clock, ids: createIdGenerator(), hasher: sha256Hasher })(argo, { shipId: gateway.shipId });
+    const retiring = createRetireShip({ uow, clock: core.clock, ids: createIdGenerator(), hasher: sha256Hasher, sealing: unsealedFleetsOnly })(argo, { shipId: gateway.shipId });
     await reached;
 
     const setting = core.useCases.setVerifiedFacts(gateway, { shipId: crmId, facts: [TLS_HOST] });

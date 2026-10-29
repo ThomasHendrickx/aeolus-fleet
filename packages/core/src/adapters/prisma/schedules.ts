@@ -6,6 +6,7 @@ import type { Schedule, ScheduleOutcome, ScheduleTiming } from '../../domain/mes
 import { pageOf } from '../../domain/shared/page.js';
 import type { ScheduleSelector } from '../../domain/shared/selector.js';
 import type { Db, PrismaClient } from './client.js';
+import { payloadColumnsOf, storedPayloadOf } from './rows.js';
 
 /** The one channel every server's schedule timer listens on (decision 0062). */
 export const SCHEDULE_DUE_CHANNEL = 'aeolus_schedule_due';
@@ -19,7 +20,6 @@ const scheduleRow = z.object({
   selectorShipName: z.string().nullable(),
   selectorType: z.string().nullable(),
   selectorValueIds: z.array(idSchema('labelValue')),
-  payload: z.string(),
   contentType: z.string(),
   model: z.string().nullable(),
   inReplyToMessageId: idSchema('message').nullable(),
@@ -113,11 +113,12 @@ function outcomeOf(row: ScheduleRow): ScheduleOutcome | null {
 /** A schedules row as the schedule holds it; the table's checks keep its selector, timing and outcome whole. */
 function toSchedule(raw: unknown): Schedule {
   const row = scheduleRow.parse(raw);
+  const payload = storedPayloadOf(raw);
   return {
     id: row.id,
     fleetId: row.fleetId,
     shipId: row.shipId,
-    send: { selector: selectorOf(row), payload: row.payload, contentType: row.contentType, model: row.model, inReplyTo: row.inReplyToMessageId, isForced: row.isForced },
+    send: { selector: selectorOf(row), payload, contentType: row.contentType, model: row.model, inReplyTo: row.inReplyToMessageId, isForced: row.isForced },
     timing: timingOf(row),
     onRefused: row.onRefused,
     retryWindow: row.retryWindow,
@@ -173,7 +174,7 @@ export function createPrismaScheduleRepository(db: Db): ScheduleRepository {
           selectorShipName: 'name' in selector ? selector.name : null,
           selectorType: selector.kind === 'type' ? selector.type : null,
           selectorValueIds: selector.kind === 'label' ? [...selector.valueIds] : [],
-          payload: schedule.send.payload,
+          ...payloadColumnsOf(schedule.send.payload),
           contentType: schedule.send.contentType,
           model: schedule.send.model,
           inReplyToMessageId: schedule.send.inReplyTo,

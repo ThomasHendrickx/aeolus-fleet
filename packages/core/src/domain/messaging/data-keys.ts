@@ -13,6 +13,7 @@ import { err, ok, type Result } from '../shared/result.js';
 import { keyUnavailable } from './key-unavailable.js';
 import type { KeyUnavailable, KeyVault } from './key-vault.js';
 import type { DataKey, PayloadSealer, SealedRow } from './payload-sealer.js';
+import type { Message } from './message.js';
 import type { FleetSealingRepository } from './ports.js';
 import { isSealedPayload, type StoredPayload } from './sealed-payload.js';
 
@@ -132,4 +133,53 @@ export function unsealed(held: HeldDataKeys, stored: { row: SealedRow; payload: 
   }
   const opened = held.sealer.unseal({ key, row }, payload.sealed);
   return opened.isOk ? opened : refuse('KEY_UNAVAILABLE', `The sealed payload of ${row.rowId} does not open under its data key`);
+}
+
+/** The message as the fleet stores it: sealed in a sealed fleet, under its current data key, with the request hash that leaves the payload out. */
+export async function sealedMessage(
+  deps: { tx: { sealings: Pick<FleetSealingRepository, 'currentDataKeyId'> }; held: HeldDataKeys },
+  accepted: { message: Message; sealedRequestHash: string },
+): Promise<Result<Message, DataKeysNeeded>> {
+  const { message, sealedRequestHash } = accepted;
+  if (typeof message.payload !== 'string') {
+    return ok(message);
+  }
+  const currentDataKeyId = await deps.tx.sealings.currentDataKeyId(message.fleetId);
+  const payload = sealedFor(deps.held, { currentDataKeyId, row: { fleetId: message.fleetId, rowId: message.id }, payload: message.payload });
+  if (!payload.isOk) {
+    return payload;
+  }
+  return ok(typeof payload.value === 'string' ? message : { ...message, payload: payload.value, requestHash: sealedRequestHash });
+}
+
+/**
+ * The data keys a read that claims nothing holds (decision 0068, B9): every
+ * key its stored payloads were sealed under, each unwrapped once, outside
+ * any unit of work. A key the vault does not give refuses KEY_UNAVAILABLE.
+ */
+export async function heldForRead(of: { sealing: PayloadSealing; fleetId: FleetId }, payloads: readonly StoredPayload[]): Promise<Result<HeldDataKeys, DomainError<'KEY_UNAVAILABLE'>>> {
+  const { sealing, fleetId } = of;
+  const dataKeyIds = [...new Set(payloads.flatMap((payload) => (isSealedPayload(payload) ? [payload.sealed.dataKeyId] : [])))];
+  const keys = new Map<DataKeyId, DataKey>();
+  if (dataKeyIds.length > 0) {
+    const unwrapped = await sealing.dataKeys.unwrap(fleetId, dataKeyIds);
+    if (!unwrapped.isOk) {
+      return keyUnavailable(unwrapped.error);
+    }
+    for (const dataKey of unwrapped.value) {
+      keys.set(dataKey.id, dataKey);
+    }
+  }
+  return ok({ sealer: sealing.sealer, keys });
+}
+
+/** The plain payload of a stored one, with the keys {@link heldForRead} unwrapped; one that does not open refuses KEY_UNAVAILABLE. */
+export function plainForRead(held: HeldDataKeys, stored: { row: SealedRow; payload: StoredPayload }): Result<string, DomainError<'KEY_UNAVAILABLE'>> {
+  const plain = unsealed(held, stored);
+  if (plain.isOk) {
+    return plain;
+  }
+  const { error } = plain;
+  // heldForRead unwrapped every key these payloads name: one not held is never met.
+  return isDataKeysNeeded(error) ? refuse('KEY_UNAVAILABLE', `The data key of ${stored.row.rowId} is not held`) : err(error);
 }
