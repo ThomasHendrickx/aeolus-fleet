@@ -21,6 +21,7 @@ npx aeolus-core start
 | `aeolus-core fleet:init --name "<fleet name>"` | See Server commands below |
 | `aeolus-core sign-in` | See Server commands below |
 | `aeolus-core operator:reset-password` | See Server commands below |
+| `aeolus-core fleet:recover-keys --identity <file> --company-key <ARN>` | See Recovering a sealed fleet's keys below: run on the company's own computer, not the server |
 
 Prisma Migrate holds a Postgres advisory lock while it migrates, so two processes starting at once never migrate at once: the second waits, then finds nothing left to apply. It never asks Prisma's servers for a newer version.
 
@@ -95,6 +96,27 @@ Run on the server, against the configured database, once it is migrated:
 | `aeolus-core operator:reset-password` | Asks for a new operator password (twice, not shown, at least 12 characters) and sets it. The old one stops working and every console session ends. Refused while argo has no password yet (sign in with a link and set one in Settings), and for an operator a hosting installation created, who signs in only through the hosting service |
 
 `operator:reset-password` reads its answers a line at a time from standard input, so a script can pipe them in. Like the API, the commands refuse any answer or name holding the character U+0000, naming what holds it, and change nothing. In this repository they run as `npm run fleet:init -w @aeolus-fleet/core -- --name "<fleet name>"`, `npm run sign-in -w @aeolus-fleet/core` and `npm run operator:reset-password -w @aeolus-fleet/core`, and `npm run db:migrate -w @aeolus-fleet/core` migrates.
+
+## Recovering a sealed fleet's keys
+
+When a sealed fleet's company key is lost and the fleet has a recovery key (decision 0068), the company runs, on its own computer with its offline key, never on the server:
+
+```sh
+npx aeolus-core fleet:recover-keys --identity recovery-key.txt --company-key arn:aws:kms:eu-west-1:111122223333:key/<new key id>
+```
+
+`--identity` is the age identity file holding the recovery key's private half (`AGE-SECRET-KEY-1...`); `--company-key` is the new company key, whose key policy grants the installation's principal for this fleet's id, as at turning sealing on. The command reads the fleet's recovery set (`fleet.recoverySet`), checks the identity is the fleet's recovery key, opens each data key locally and checks it against its check value, wraps each under the new key in the company's KMS for this fleet, and uploads them (`fleet.recoverKeys`). Nothing is uploaded unless every data key opened right, and the fleet changes nothing unless every wrap opens there to its key. No private key, data key or AWS credential leaves the computer, and none is printed.
+
+It reaches the fleet over its API, and the company's KMS with the AWS SDK's own credentials on that computer (a profile, SSO or the environment), in the region the key's ARN names (else `AWS_REGION`):
+
+| Variable | Holds |
+| --- | --- |
+| `AEOLUS_URL` | The fleet's address, such as `https://fleet.example.com` |
+| `AEOLUS_CREW_TOKEN` | The crew token of a ship holding `fleet:keys` |
+| `AEOLUS_ACCOUNT_TOKEN` | Optional, with `AEOLUS_CREW_TOKEN`: an account's token, so the account holding `fleet:keys` acts through that ship |
+| `AEOLUS_INSTALLATION_TOKEN`, `AEOLUS_FLEET` | Instead, on a self-hosted server: the installation token and the fleet id it acts in |
+
+It exits 0 when the keys are recovered, 1 when the fleet or the KMS refuses (a fleet sealed without a recovery key `NO_RECOVERY_KEY`, an identity or wrap that does not match `RECOVERY_KEYS_MISMATCH`, a new key not bound to the fleet `KEY_NOT_BOUND_TO_FLEET`), and 2 for wrong usage.
 
 argo signs in to the console with the link; in Settings it can then set an email and password (at least 12 characters) to sign in with instead. Either way the session crews `argo`, which has no secret. The password is stored as an Argon2id hash. The console keeps only a session cookie (httpOnly, Secure, SameSite=Strict), valid 30 days after its last use. A wrong email and a wrong password get the same answer.
 

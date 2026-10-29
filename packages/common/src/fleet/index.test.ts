@@ -225,6 +225,7 @@ describe('eventTypeSchema', () => {
       'FleetDataKeyCreated',
       'FleetCompanyKeyChanged',
       'FleetRecoveryKeyChanged',
+      'FleetKeysRecovered',
     ]);
   });
 });

@@ -3,7 +3,11 @@
  * `aeolus-core <command>`: what an operator runs on the server, installed
  * from npm. Every setting comes from environment variables (see the README).
  */
+import { readFile } from 'node:fs/promises';
+
 import { fleetInit } from '../adapters/cli/fleet-init.js';
+import { fleetRecoverKeys } from '../adapters/cli/fleet-recover-keys.js';
+import { companyKeyVaultFor } from '../adapters/kms/company-key-vault.js';
 import { migrate } from '../adapters/cli/migrate.js';
 import { operatorResetPassword } from '../adapters/cli/operator-reset-password.js';
 import { runAtTerminal, runCommand } from '../adapters/cli/run.js';
@@ -13,7 +17,7 @@ import { migrateDatabase, MigrationError } from '../adapters/prisma/migrate.js';
 import { ConfigError } from '../config.js';
 import { start } from '../start.js';
 
-const USAGE = 'Usage: aeolus-core start | migrate | fleet:init --name "<fleet name>" | sign-in | operator:reset-password';
+const USAGE = 'Usage: aeolus-core start | migrate | fleet:init --name "<fleet name>" | sign-in | operator:reset-password | fleet:recover-keys --identity <file> --company-key <ARN>';
 
 const [command, ...args] = process.argv.slice(2);
 
@@ -49,6 +53,12 @@ switch (command) {
         resetOperatorPassword: useCases.resetOperatorPassword,
         io,
       }),
+    );
+    break;
+  case 'fleet:recover-keys':
+    // Runs on the company's own computer: it reaches the fleet over its API, never its database.
+    await runAtTerminal((io) =>
+      fleetRecoverKeys(args, { environment: process.env, fetch, readFile: (path) => readFile(path, 'utf8'), vaultFor: (companyKey) => companyKeyVaultFor(companyKey, process.env), io }),
     );
     break;
   case undefined:

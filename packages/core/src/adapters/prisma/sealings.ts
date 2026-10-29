@@ -130,7 +130,7 @@ export function createPrismaFleetSealingRepository(db: Db): FleetSealingReposito
       if (sealing === undefined) {
         return undefined;
       }
-      const rows = await db.dataKey.findMany({ where: { fleetId, id: { in: [...dataKeyIds] } }, select: DATA_KEY_SELECT });
+      const rows = await db.dataKey.findMany({ where: { fleetId, id: { in: [...dataKeyIds] } }, orderBy: { id: 'asc' }, select: DATA_KEY_SELECT });
       return { companyKey: sealing.companyKey, recoveryKey: sealing.recoveryKey, dataKeys: rows.map(toDataKey) };
     },
     sealingFleetIds: async () => {

@@ -54,3 +54,36 @@ export const sealingOutputSchema = z.union([
     dataKeys: z.array(z.object({ id: idSchema('dataKey'), createdAt: z.iso.datetime(), isCurrent: z.boolean() })),
   }),
 ]);
+
+/** The longest wrapped data key taken, in base64: an AWS KMS ciphertext blob or an age file holding a 256-bit key fits well within it. */
+const WRAPPED_DATA_KEY_MAX_LENGTH = 8192;
+
+/** The most data keys a recovery names: a fleet makes one per 30 days, so this lasts it 80 years. */
+const RECOVERY_DATA_KEYS_MAX = 1000;
+
+/**
+ * Output of `fleet.recoverySet` (decision 0068, B15): the fleet whose
+ * encryption context the new wraps name, its recovery key by fingerprint, and
+ * each data key oldest first, wrapped to the recovery key alone (an age file,
+ * base64) with its check value (HMAC-SHA-256, base64). Only the company's
+ * offline private half opens it.
+ */
+export const recoverySetOutputSchema = z.object({
+  fleetId: idSchema('fleet'),
+  recoveryKeyFingerprint: z.string(),
+  dataKeys: z.array(z.object({ id: idSchema('dataKey'), wrappedByRecoveryKey: z.base64(), checkValue: z.base64() })),
+});
+
+/**
+ * Input of `fleet.recoverKeys` (decision 0068, B15): the new company key, by
+ * its reference in the company's own KMS, and each of the fleet's data keys
+ * wrapped under it for this fleet's context (an AWS KMS ciphertext blob,
+ * base64), as the recovery command made them on the company's computer.
+ */
+export const recoverKeysInputSchema = z.strictObject({
+  companyKey: z.string().min(1).max(COMPANY_KEY_MAX_LENGTH),
+  dataKeys: z.array(z.strictObject({ id: idSchema('dataKey'), wrappedByCompanyKey: z.base64().min(1).max(WRAPPED_DATA_KEY_MAX_LENGTH) })).max(RECOVERY_DATA_KEYS_MAX),
+});
+
+/** Output of `fleet.recoverKeys`: the company key that wraps every data key of the fleet now. */
+export const recoverKeysOutputSchema = z.object({ companyKey: z.string() });
