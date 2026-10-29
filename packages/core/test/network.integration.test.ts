@@ -13,6 +13,7 @@ import { createPostgresCore, everyRow, heldUnitOfWork, type PostgresCore } from 
 import { refusalOf, unwrap } from '../src/testing/result.js';
 import { refusedShip } from './support/refused-sender.js';
 import { withOperatorLogin } from './support/operator-login.js';
+import { unsealedFleetsOnly } from './support/sealing.js';
 
 // The fleet's network rules on a real Postgres (decision 0034): the settings
 // kept with their version, and a draft apart from them that only an apply
@@ -401,7 +402,7 @@ describe('a send and an apply of rules', () => {
         },
       },
     }));
-    const send = createSendMessage({ uow, clock: core.clock, ids: newId, hasher: sha256Hasher })(planner, aMessage(vault));
+    const send = createSendMessage({ sealing: unsealedFleetsOnly, uow, clock: core.clock, ids: newId, hasher: sha256Hasher })(planner, aMessage(vault));
     await reached;
 
     const change = await core.useCases.applyNetworkRules(networking, { version: 1 });

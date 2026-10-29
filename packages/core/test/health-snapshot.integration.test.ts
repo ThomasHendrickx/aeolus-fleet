@@ -22,6 +22,7 @@ import { createUseCases } from '../src/wiring.js';
 import { modelOf, operatorCaller, secretOf } from './support/core-fixtures.js';
 import { withOperatorLogin } from './support/operator-login.js';
 import { createPostgresCore, heldUnitOfWork, racingUnitOfWork, type PostgresCore } from './support/postgres-core.js';
+import { unsealedFleetsOnly } from './support/sealing.js';
 
 // The stuck snapshot on a real Postgres (docs/design/performance/performance.md,
 // sections 5 and 6): the 30 second pass closes each hour once, under the
@@ -337,7 +338,7 @@ describe('a late commit', () => {
         },
       },
     }));
-    const send = createSendMessage({ uow, clock: core.clock, ids: newId, hasher: sha256Hasher });
+    const send = createSendMessage({ sealing: unsealedFleetsOnly, uow, clock: core.clock, ids: newId, hasher: sha256Hasher });
     // To a ship awaiting crew: stuck from its send, waiting for crew.
     const { shipId: writer } = unwrap(await core.useCases.commissionShip(argo, { name: 'docs-writer', type: 'writer', idempotencyKey: newKey() }));
     const sending = send(scout, { ...modelOf(scout), selector: { kind: 'ship', shipId: writer }, payload: 'Docs for pr-1130', contentType: 'text/plain', idempotencyKey: newKey() });

@@ -161,6 +161,8 @@ import type { Recipient } from '../../src/domain/shared/selector.js';
 import type { InMemoryCore } from './in-memory.js';
 import { unwrap } from '../../src/testing/result.js';
 import { NO_INSTALLATION_SETTINGS, type InstallationSettings } from '../../src/domain/registry/limits.js';
+import { isSealedPayload, type StoredPayload } from '../../src/domain/messaging/sealed-payload.js';
+import { createTurnOnSealing } from '../../src/domain/messaging/turn-on-sealing.js';
 
 /** The identity use cases, wired to the in-memory core. */
 export function identityUseCases(core: InMemoryCore) {
@@ -364,26 +366,27 @@ export function historyUseCases(core: InMemoryCore) {
 /** The messaging use cases, wired to the in-memory core; a receive waits on its scripted wake-ups. */
 export function messagingUseCases(core: InMemoryCore) {
   const deps = { uow: core.uow, clock: core.clock, ids: core.ids };
+  const { sealing } = core;
   return {
-    sendMessage: createSendMessage({ ...deps, hasher: core.hasher }),
+    sendMessage: createSendMessage({ ...deps, hasher: core.hasher, sealing }),
     openMeeting: createOpenMeeting({ ...deps, hasher: core.hasher }),
-    readMeeting: createReadMeeting({ uow: core.uow }),
+    readMeeting: createReadMeeting({ uow: core.uow, sealing }),
     changeMic: createChangeMic({ ...deps, hasher: core.hasher }),
     changeMeeting: createChangeMeeting({ ...deps, hasher: core.hasher }),
     addToMeeting: createAddToMeeting({ ...deps, hasher: core.hasher }),
-    receiveDeliveries: createReceiveDeliveries({ ...deps, wakeups: core.wakeups }),
-    receiveReply: createReceiveReply({ ...deps, wakeups: core.wakeups }),
-    pushReceiveDeliveries: createPushReceiveDeliveries({ ...deps, wakeups: core.wakeups }),
+    receiveDeliveries: createReceiveDeliveries({ ...deps, sealing, wakeups: core.wakeups }),
+    receiveReply: createReceiveReply({ ...deps, sealing, wakeups: core.wakeups }),
+    pushReceiveDeliveries: createPushReceiveDeliveries({ ...deps, sealing, wakeups: core.wakeups }),
     handOverDelivery: createHandOverDelivery(deps),
     reportHandled: createReportHandled(deps),
-    readDelivery: createReadDelivery(deps),
+    readDelivery: createReadDelivery({ uow: core.uow, sealing }),
     reportNotHandled: createReportNotHandled(deps),
     acknowledgeDelivery: createAcknowledgeDelivery(deps),
     checkInbox: createCheckInbox({ ...deps, wakeups: core.wakeups, fleetNews: core.fleetNews }),
     dismissDelivery: createDismissDelivery({ ...deps, readReach: readReachOf(core) }),
     markDone: createMarkDone(deps),
     markRead: createMarkRead(deps),
-    replyToMessage: createReplyToMessage({ ...deps, hasher: core.hasher }),
+    replyToMessage: createReplyToMessage({ ...deps, hasher: core.hasher, sealing }),
     resendDelivery: createResendDelivery({ ...deps, hasher: core.hasher, readReach: readReachOf(core) }),
     pingShip: createPingShip({ ...deps, hasher: core.hasher }),
     answerPing: createAnswerPing(deps),
@@ -627,6 +630,7 @@ export function deliveryInFlight(
     model: null,
     idempotencyKey: `in-flight-${messageId}`,
     requestHash: `sha256(in-flight-${messageId})`,
+    questionId: null,
     inReplyToMessageId: null,
     resendOfMessageId: null,
     meetingId: null,
@@ -653,6 +657,27 @@ export function deliveryInFlight(
 
 /** The model a test session states on its sends: every ship but argo states one. */
 export const SESSION_MODEL = 'claude-opus-5-5';
+
+/**
+ * Seals the fleet as the installation turns sealing on (decision 0068),
+ * under a company key of the in-memory key vault granted for this fleet
+ * alone. Answers the company key.
+ */
+export async function sealFleet(core: InMemoryCore, fleetId: FleetId): Promise<string> {
+  const companyKey = await core.keyVault.aCompanyKey();
+  await core.keyVault.bindToFleet(companyKey, fleetId);
+  const turnOn = createTurnOnSealing({ uow: core.uow, clock: core.clock, ids: core.ids, vault: core.keyVault.vault, sealer: core.sealing.sealer, sealings: core.sealings });
+  unwrap(await turnOn({ kind: 'installation', fleetId, scopes: [] }, { companyKey }));
+  return companyKey;
+}
+
+/** A stored message's payload in a fleet that is not sealed: plain text, or the test fails. */
+export function plainPayloadOf(message: { payload: StoredPayload } | undefined): string {
+  if (message === undefined || isSealedPayload(message.payload)) {
+    throw new Error('Expected a message stored plain');
+  }
+  return message.payload;
+}
 
 /** The model field a send from the caller carries: none from argo, the session's model from any other ship. */
 export function modelOf(caller: { kind: string }): { model?: string } {

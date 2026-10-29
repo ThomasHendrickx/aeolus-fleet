@@ -181,6 +181,8 @@ describe('initialise fleet', () => {
       historyPruneLocks: [],
       lockedMessages: [],
       prunedEventSeqs: [],
+      fleetSealings: [],
+      dataKeys: [],
     });
   });
 });

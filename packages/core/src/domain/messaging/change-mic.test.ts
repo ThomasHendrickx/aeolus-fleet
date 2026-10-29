@@ -1,7 +1,7 @@
 import { MEETING_MIC_CONTENT_TYPE, meetingMicSchema, type MeetingId, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
+import { initialiseFleet, plainPayloadOf, messagingUseCases, operatorCaller, registryUseCases, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { newKey } from '../../testing/keys.js';
@@ -48,7 +48,7 @@ function micState(): { holder: ShipId | null; waiting: ShipId[] } {
 function micNotices() {
   return core.state.messages
     .filter(({ contentType }) => contentType === MEETING_MIC_CONTENT_TYPE)
-    .map(({ senderShipId, selector, meetingId: of, model, payload }) => ({ senderShipId, selector, meetingId: of, model, payload: meetingMicSchema.parse(JSON.parse(payload)) }));
+    .map(({ senderShipId, selector, meetingId: of, model, payload }) => ({ senderShipId, selector, meetingId: of, model, payload: meetingMicSchema.parse(JSON.parse(plainPayloadOf({ payload }))) }));
 }
 
 beforeEach(async () => {

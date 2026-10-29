@@ -14,6 +14,7 @@ import { unwrap } from '../src/testing/result.js';
 import { operatorCaller, secretOf } from './support/core-fixtures.js';
 import { withOperatorLogin } from './support/operator-login.js';
 import { createPostgresCore, racingUnitOfWork, type PostgresCore } from './support/postgres-core.js';
+import { unsealedFleetsOnly } from './support/sealing.js';
 
 // A send to a label on a real Postgres through the Prisma adapters (decision
 // 0065): lead sends to team=a, carried by alpha, bravo and charlie (and lead),
@@ -50,7 +51,7 @@ function toTeamA(overrides: Partial<MessageToSend> = {}): MessageToSend {
 }
 
 function sendMessageWith(uow: UnitOfWork<PrismaTx>) {
-  return createSendMessage({ uow, clock: core.clock, ids: newId, hasher: sha256Hasher });
+  return createSendMessage({ sealing: unsealedFleetsOnly, uow, clock: core.clock, ids: newId, hasher: sha256Hasher });
 }
 
 /** The Prisma unit of work with a step of the send wrapped: `wrap` gets the transaction's ports and returns them with that step changed. */

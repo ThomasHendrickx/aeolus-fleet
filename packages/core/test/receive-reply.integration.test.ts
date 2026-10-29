@@ -16,6 +16,7 @@ import { newKey } from '../src/testing/keys.js';
 import { racingUnitOfWork } from './support/postgres-core.js';
 import { unwrap } from '../src/testing/result.js';
 import { withOperatorLogin } from './support/operator-login.js';
+import { unsealedFleetsOnly } from './support/sealing.js';
 
 // Receiving the reply to one message on a real Postgres, with the listener and
 // the wake-ups the server runs: the claim's filter in SQL, a reply in flight
@@ -108,7 +109,7 @@ async function receiveReplyTo(crew: Crew, messageId: MessageId): Promise<Deliver
 }
 
 function receiveReplyWith(uow: UnitOfWork<PrismaTx>, waitMs = WAIT_MS) {
-  return createReceiveReply({ uow, clock: systemClock, ids: newId, wakeups, waitMs });
+  return createReceiveReply({ sealing: unsealedFleetsOnly, uow, clock: systemClock, ids: newId, wakeups, waitMs });
 }
 
 function pause(ms: number): Promise<void> {

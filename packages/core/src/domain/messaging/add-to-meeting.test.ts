@@ -1,7 +1,7 @@
 import { MEETING_ADDED_CONTENT_TYPE, meetingAddedSchema, type LabelValueId, type MeetingId, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { applyNetworkRules, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, SESSION_MODEL, withInstallationSettings } from '../../../test/support/core-fixtures.js';
+import { plainPayloadOf, applyNetworkRules, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, SESSION_MODEL, withInstallationSettings } from '../../../test/support/core-fixtures.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { valueIdOf } from '../../../test/support/label-fixtures.js';
@@ -79,7 +79,7 @@ describe('adding ships to a meeting', () => {
     expect(added.map(({ senderShipId, selector, model, meetingId: of }) => ({ senderShipId, selector, model, meetingId: of }))).toEqual([
       { senderShipId: chief.shipId, selector: { kind: 'ship', shipId: product.shipId }, model: SESSION_MODEL, meetingId },
     ]);
-    expect(meetingAddedSchema.parse(JSON.parse(added[0]?.payload ?? '')).participants.map(({ id }) => id)).toEqual([chief.shipId, marketing.shipId, product.shipId]);
+    expect(meetingAddedSchema.parse(JSON.parse(plainPayloadOf(added[0]))).participants.map(({ id }) => id)).toEqual([chief.shipId, marketing.shipId, product.shipId]);
     expect(core.state.notices.map(({ recipient }) => recipient)).toEqual([{ kind: 'ship', shipId: product.shipId }]);
   });
 

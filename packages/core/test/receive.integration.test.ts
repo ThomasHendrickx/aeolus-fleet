@@ -18,6 +18,7 @@ import { heldUnitOfWork, racingUnitOfWork } from './support/postgres-core.js';
 import { unwrap } from '../src/testing/result.js';
 import { newKey } from '../src/testing/keys.js';
 import { withOperatorLogin } from './support/operator-login.js';
+import { unsealedFleetsOnly } from './support/sealing.js';
 
 // Receiving and acknowledging on a real Postgres, with the listener and the
 // wake-ups the server runs: what a claim stores, the order and the limit of a
@@ -104,7 +105,7 @@ async function receive(crew: Crew, max?: number): Promise<DeliveryId[]> {
 }
 
 function receiveWith(uow: UnitOfWork<PrismaTx>, waitMs = WAIT_MS) {
-  return createReceiveDeliveries({ uow, clock: systemClock, ids: newId, wakeups, waitMs });
+  return createReceiveDeliveries({ sealing: unsealedFleetsOnly, uow, clock: systemClock, ids: newId, wakeups, waitMs });
 }
 
 /** The operator releases the crew's ship: its lease ends, and what it held in flight returns to pending. */
@@ -302,7 +303,7 @@ describe('a receive waiting on an empty inbox', () => {
   });
 
   it('never returns for a send that rolls back: it waits out its wait, empty', async () => {
-    const failingSend = createSendMessage({
+    const failingSend = createSendMessage({ sealing: unsealedFleetsOnly,
       uow: {
         run: (work) =>
           createPrismaUnitOfWork(prisma).run((tx) =>
