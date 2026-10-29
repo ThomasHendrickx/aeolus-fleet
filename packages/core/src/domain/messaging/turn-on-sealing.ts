@@ -7,7 +7,7 @@ import { recordEvent, type EventLog } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import type { SealingState } from './fleet-sealing.js';
-import { keyUnavailable } from './key-unavailable.js';
+import { checkCompanyKey } from './company-key-check.js';
 import type { CompanyKeyReference, KeyVault } from './key-vault.js';
 import type { PayloadSealer } from './payload-sealer.js';
 import type { FleetSealingRepository } from './ports.js';
@@ -58,22 +58,11 @@ export function createTurnOnSealing(deps: {
     if ((await deps.sealings.find(fleetId)) !== undefined) {
       return refuse('FLEET_ALREADY_SEALED', `Fleet ${fleetId} is sealed already`);
     }
-    const made = await deps.vault.makeDataKey({ fleetId, companyKey });
+    const made = await checkCompanyKey(deps, { fleetId, companyKey });
     if (!made.isOk) {
-      return keyUnavailable(made.error);
+      return made;
     }
-    const unwrapped = await deps.vault.unwrap({ fleetId, companyKey }, made.value.wrapped);
-    if (!unwrapped.isOk) {
-      return keyUnavailable(unwrapped.error);
-    }
-    const otherFleet = await deps.vault.makeDataKey({ fleetId: deps.ids('fleet'), companyKey });
-    if (otherFleet.isOk) {
-      return refuse('KEY_NOT_BOUND_TO_FLEET', `The key policy of ${companyKey} grants it for any fleet: grant it with a condition naming fleet ${fleetId}`);
-    }
-    if (otherFleet.error.reason !== 'accessDenied') {
-      return keyUnavailable(otherFleet.error);
-    }
-    const checkValue = deps.sealer.checkValue(unwrapped.value);
+    const checkValue = deps.sealer.checkValue(made.value.unwrapped);
 
     return deps.uow.run(async (tx): Promise<Result<SealingTurnedOn, TurnOnSealingRefusal>> => {
       if ((await tx.sealings.findForUpdate(fleetId)) !== undefined) {

@@ -1,5 +1,7 @@
 import {
   turnOnSealingInputSchema,
+  changeCompanyKeyInputSchema,
+  changeCompanyKeyOutputSchema,
   turnOnSealingOutputSchema,
   sealingOutputSchema,
   cancelScheduleInputSchema,
@@ -539,6 +541,20 @@ export const fleetRouter = router({
       const turnedOn = okOrThrow(await ctx.useCases.turnOnSealing(ctx.caller, input));
       ctx.log.info({ fleetId: ctx.caller.fleetId, companyKey: turnedOn.companyKey, state: turnedOn.state }, 'sealing turned on');
       return turnedOn;
+    }),
+
+  /**
+   * Moves every data key of the sealed fleet to a new company key (decision
+   * 0068, B13c), rewrapped inside the company's KMS; the old key must be
+   * reachable. No payload is sealed again.
+   */
+  changeCompanyKey: actorScopedProcedure('fleet:keys')
+    .input(changeCompanyKeyInputSchema)
+    .output(changeCompanyKeyOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const changed = okOrThrow(await ctx.useCases.changeCompanyKey(ctx.caller, input));
+      ctx.log.info({ fleetId: ctx.caller.fleetId, companyKey: changed.companyKey }, 'company key changed');
+      return changed;
     }),
 
   /**

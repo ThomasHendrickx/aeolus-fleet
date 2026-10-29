@@ -11,6 +11,12 @@ export const turnOnSealingInputSchema = z.strictObject({ companyKey: z.string().
 /** Output of `fleet.turnOnSealing`: sealing while payloads stored plain before wait for the sealing pass, else sealed. */
 export const turnOnSealingOutputSchema = z.object({ state: z.enum(['sealing', 'sealed']), companyKey: z.string() });
 
+/** Input of `fleet.changeCompanyKey` (decision 0068, B13c): the new company key, by its reference in the company's own KMS. */
+export const changeCompanyKeyInputSchema = z.strictObject({ companyKey: z.string().min(1).max(COMPANY_KEY_MAX_LENGTH) });
+
+/** Output of `fleet.changeCompanyKey`: the company key that wraps every data key of the fleet now. */
+export const changeCompanyKeyOutputSchema = z.object({ companyKey: z.string() });
+
 /** Why the company key vault refused a sealed fleet's company key (decision 0068, B11). */
 export const companyKeyUnavailableReasonSchema = z.enum(['accessDenied', 'disabled', 'notFound', 'unreachable']);
 

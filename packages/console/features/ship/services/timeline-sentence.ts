@@ -233,6 +233,8 @@ export function timelineSentence(entry: TimelineEntry, shipId: string): Timeline
       return { parts: [text('Company key reachable again')], tone: 'ended', icon: 'fleet' };
     case 'FleetDataKeyCreated':
       return { parts: [text('New data key made')], tone: 'ended', icon: 'fleet' };
+    case 'FleetCompanyKeyChanged':
+      return { parts: [text('Company key changed'), ...by(entry.actor)], tone: 'ended', icon: 'fleet' };
     case 'SignInTicketIssued':
       return { parts: [text('Sign-in ticket issued')], tone: 'ended', icon: 'password' };
     case 'ViewerSessionStarted':

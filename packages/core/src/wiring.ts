@@ -87,6 +87,7 @@ import { createResendDelivery, type ResendDelivery } from './domain/messaging/re
 import { createPingShip, type PingShip } from './domain/messaging/ping-ship.js';
 import { createSendMessage, type SendMessage } from './domain/messaging/send-message.js';
 import { createTurnOnSealing, type TurnOnSealing } from './domain/messaging/turn-on-sealing.js';
+import { createChangeCompanyKey, type ChangeCompanyKey } from './domain/messaging/change-company-key.js';
 import { createReadSealing, type ReadSealing } from './domain/messaging/read-sealing.js';
 import { createSealStoredPayloads, type SealStoredPayloads } from './domain/messaging/seal-stored-payloads.js';
 import { createRotateDataKeys, type RotateDataKeys } from './domain/messaging/rotate-data-keys.js';
@@ -267,6 +268,7 @@ export interface UseCases {
   deregister: Deregister;
   sendMessage: SendMessage;
   turnOnSealing: TurnOnSealing;
+  changeCompanyKey: ChangeCompanyKey;
   readSealing: ReadSealing;
   openMeeting: OpenMeeting;
   readMeeting: ReadMeeting;
@@ -506,6 +508,7 @@ export function createUseCases(options: {
     deregister: createDeregister({ uow, clock, ids }),
     sendMessage: createSendMessage({ uow, clock, ids, hasher: sha256Hasher, sealing }),
     turnOnSealing: createTurnOnSealing({ uow, clock, ids, vault: keyVault, sealer: aesGcmPayloadSealer, sealings }),
+    changeCompanyKey: createChangeCompanyKey({ uow, clock, ids, vault: keyVault, sealer: aesGcmPayloadSealer, sealings }),
     readSealing: createReadSealing({ sealings }),
     openMeeting: createOpenMeeting({ uow, clock, ids, hasher: sha256Hasher, sealing }),
     readMeeting: createReadMeeting({ uow, sealing }),

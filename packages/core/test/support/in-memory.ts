@@ -552,6 +552,20 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       },
       fleetsDueANewDataKey: (cutoff) =>
         Promise.resolve(state.dataKeys.filter((held) => held.isCurrent && held.createdAt.getTime() <= cutoff.getTime()).map((held) => held.fleetId)),
+      lockSealing: () => Promise.resolve(),
+      changeCompanyKey: (fleetId, { companyKey, dataKeys }) => {
+        const sealing = state.fleetSealings.find((held) => held.fleetId === fleetId);
+        if (sealing !== undefined) {
+          sealing.companyKey = companyKey;
+        }
+        for (const { id, wrappedByCompanyKey } of dataKeys) {
+          const held = state.dataKeys.find((dataKey) => dataKey.fleetId === fleetId && dataKey.id === id);
+          if (held !== undefined) {
+            held.wrappedByCompanyKey = new Uint8Array(wrappedByCompanyKey);
+          }
+        }
+        return Promise.resolve();
+      },
       addCurrentDataKey: (dataKey) => {
         for (const held of state.dataKeys) {
           if (held.fleetId === dataKey.fleetId) {

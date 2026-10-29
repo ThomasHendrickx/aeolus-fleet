@@ -839,7 +839,8 @@ describe('changing the company key on Postgres and a LocalStack KMS (decision 00
 
     const refusal = await refusalOfCall(keyHolder.fleet.changeCompanyKey.mutate({ companyKey: keyB }));
 
-    expect(refusal.code).toBe('KEY_UNAVAILABLE');
+    expect(refusal.code).toBe('SERVICE_UNAVAILABLE');
+    expect(refusal.message).toContain("The fleet's company key is not reachable: disabled");
     expect(await keysOf(fleet.fleetId)).toEqual(before);
   });
 
@@ -849,7 +850,7 @@ describe('changing the company key on Postgres and a LocalStack KMS (decision 00
     const before = await keysOf(fleet.fleetId);
     const uow = createPrismaUnitOfWork(prisma);
     const failingBeforeCommit: UnitOfWork<PrismaTx> = {
-      run: (work) => uow.run((tx) => work({ ...tx, events: { append: () => Promise.reject(new Error('the server failed before commit')) } })),
+      run: (work) => uow.run((tx) => work({ ...tx, events: { ...tx.events, append: () => Promise.reject(new Error('the server failed before commit')) } })),
     };
     const change = createChangeCompanyKey({ uow: failingBeforeCommit, clock, ids: newId, vault: keyVault, sealer: aesGcmPayloadSealer, sealings: createPrismaFleetSealingRepository(prisma) });
 
@@ -864,7 +865,7 @@ describe('changing the company key on Postgres and a LocalStack KMS (decision 00
 
     const refusal = await refusalOfCall(keyHolder.fleet.changeCompanyKey.mutate({ companyKey: await aKeyBoundTo(fleet.fleetId) }));
 
-    expect(refusal.code).toBe('FLEET_NOT_SEALED');
+    expect(refusal).toEqual({ code: 'CONFLICT', message: `Fleet ${fleet.fleetId} is not sealed: turn sealing on with the company key instead` });
   });
 });
 

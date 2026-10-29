@@ -223,6 +223,7 @@ describe('eventTypeSchema', () => {
       'FleetKeyUnavailable',
       'FleetKeyAvailable',
       'FleetDataKeyCreated',
+      'FleetCompanyKeyChanged',
     ]);
   });
 });

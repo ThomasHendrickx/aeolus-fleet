@@ -2,7 +2,7 @@ import type { DataKeyId, DeliveryId, FleetId, LeaseId, MeetingId, MessageId, Sch
 
 import type { Page, PageQuery } from '../shared/page.js';
 import type { DataKeyAge, FleetSealing, KeyAvailability, StoredDataKey } from './fleet-sealing.js';
-import type { CompanyKeyReference } from './key-vault.js';
+import type { CompanyKeyReference, WrappedDataKey } from './key-vault.js';
 import type { Meeting } from './meeting.js';
 import type { Delivery, Message } from './message.js';
 import type { Overdue, PushedCrew } from './overdue.js';
@@ -344,4 +344,8 @@ export interface FleetSealingRepository {
   fleetsDueANewDataKey(cutoff: Date): Promise<FleetId[]>;
   /** Makes the given data key the fleet's current one; the one current before stays, to unseal what it sealed. */
   addCurrentDataKey(dataKey: StoredDataKey): Promise<void>;
+  /** Takes the fleet's sealing lock, waiting for the unit of work that holds it, until this one ends. */
+  lockSealing(fleetId: FleetId): Promise<void>;
+  /** Names the fleet's new company key and stores each data key's wrap by it. */
+  changeCompanyKey(fleetId: FleetId, change: { companyKey: CompanyKeyReference; dataKeys: readonly { id: DataKeyId; wrappedByCompanyKey: WrappedDataKey }[] }): Promise<void>;
 }

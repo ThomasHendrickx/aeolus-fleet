@@ -166,6 +166,16 @@ export function createPrismaFleetSealingRepository(db: Db): FleetSealingReposito
       const rows = await db.dataKey.findMany({ where: { isCurrent: true, createdAt: { lte: cutoff } }, select: { fleetId: true }, orderBy: { fleetId: 'asc' } });
       return rows.map((row) => idSchema('fleet').parse(row.fleetId));
     },
+    lockSealing: async (fleetId) => {
+      // The same lock the sealing pass and the data key rotation take with try: held here, no rotation adds a key under the old company key.
+      await db.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${fleetId}), hashtext('sealing'))::text`;
+    },
+    changeCompanyKey: async (fleetId, { companyKey, dataKeys }) => {
+      await db.fleet.update({ where: { id: fleetId }, data: { companyKey } });
+      for (const { id, wrappedByCompanyKey } of dataKeys) {
+        await db.dataKey.updateMany({ where: { fleetId, id }, data: { wrappedByCompanyKey } });
+      }
+    },
     addCurrentDataKey: async (dataKey) => {
       // The one current before first, so the unique index on the current key holds at every statement.
       await db.dataKey.updateMany({ where: { fleetId: dataKey.fleetId, isCurrent: true }, data: { isCurrent: false } });
