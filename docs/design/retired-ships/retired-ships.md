@@ -173,7 +173,7 @@ The remnant's page (D8)
 
 ## 7. Screens that need a before and after mockup for Thomas
 
-Each is built only after Thomas approves its mockup.
+Each is built only after Thomas approves its mockup: [screen 1](mockups/fleet-overview.html), [screen 2](mockups/removed-ship-page.html).
 
 1. **The fleet overview** (desktop and the phone's filter sheet). Before: subtitle "12 active ships and argo, 216 retired", "Show retired (216)", "12 of 228 ships". After: "12 active ships and argo", "Show retired" with no number, "12 of 12 ships"; with Show retired on, the retired ships not removed in the list and a count of the rows shown.
 2. **The ship page of a removed ship.** Before: a retired ship's header, its notice "Retired on ... Read-only.", the meta strip with owner, scopes, note and labels. After: the header with name, type and kind; the notice "Retired on ..., removed on .... Kept: its name, type and the history that names it."; a meta strip with commission, retire and removed dates only; the timeline with what the fleet still keeps, its kept-from line as today.
