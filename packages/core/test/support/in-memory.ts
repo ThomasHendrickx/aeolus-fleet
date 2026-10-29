@@ -204,6 +204,8 @@ export interface InMemoryState {
   fleetSealings: FleetSealing[];
   /** The sealed fleets' data keys, kept only wrapped (decision 0068). */
   dataKeys: StoredDataKey[];
+  /** The fleets whose sealing lock another server holds, as a test sets it (decision 0068, B5). */
+  sealingLocks: FleetId[];
 }
 
 /** A fleet's events, numbered in the order they were appended, the places of pruned events skipped. */
@@ -417,6 +419,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     prunedEventSeqs: [],
     fleetSealings: [],
     dataKeys: [],
+    sealingLocks: [],
   };
 
   let now = new Date(startAt);
@@ -510,6 +513,42 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
             dataKeys: structuredClone(state.dataKeys.filter((held) => held.fleetId === fleetId && dataKeyIds.includes(held.id))),
           },
         );
+      },
+      sealingFleetIds: () => Promise.resolve(state.fleetSealings.filter((held) => held.state === 'sealing').map((held) => held.fleetId)),
+      tryLockSealing: (fleetId) => Promise.resolve(!state.sealingLocks.includes(fleetId)),
+      plainPayloads: (fleetId, { after, limit }) => {
+        const isAfter = (message: Message) =>
+          after === null || message.createdAt.getTime() > after.createdAt.getTime() || (message.createdAt.getTime() === after.createdAt.getTime() && message.id > after.id);
+        const messages = state.messages
+          .filter((held) => held.fleetId === fleetId && typeof held.payload === 'string' && !state.lockedMessages.includes(held.id) && isAfter(held))
+          .toSorted((one, other) => one.createdAt.getTime() - other.createdAt.getTime() || (one.id < other.id ? -1 : 1))
+          .slice(0, limit);
+        const schedules = state.schedules.filter((held) => held.fleetId === fleetId && typeof held.send.payload === 'string').slice(0, limit);
+        return Promise.resolve(structuredClone({ messages, schedules }));
+      },
+      sealPayloads: (fleetId, sealed) => {
+        for (const { id, payload, requestHash } of sealed.messages) {
+          const message = state.messages.find((held) => held.fleetId === fleetId && held.id === id);
+          if (message !== undefined) {
+            message.payload = structuredClone(payload);
+            message.requestHash = requestHash;
+          }
+        }
+        for (const { id, payload, requestHash } of sealed.schedules) {
+          const schedule = state.schedules.find((held) => held.fleetId === fleetId && held.id === id);
+          if (schedule !== undefined) {
+            schedule.send.payload = structuredClone(payload);
+            schedule.requestHash = requestHash;
+          }
+        }
+        return Promise.resolve();
+      },
+      markSealed: (fleetId) => {
+        const sealing = state.fleetSealings.find((held) => held.fleetId === fleetId);
+        if (sealing !== undefined) {
+          sealing.state = 'sealed';
+        }
+        return Promise.resolve();
       },
     },
     healthSnapshots,

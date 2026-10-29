@@ -31,7 +31,7 @@ describe('initialise fleet', () => {
         name: 'argo',
         type: 'operator',
         kind: 'operator',
-        scopes: ['messages:send', 'messages:receive', 'messages:force', 'messages:resend', 'fleet:read', 'fleet:commission', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'fleet:on-behalf', 'fleet:person', 'fleet:owner', 'fleet:explain', 'fleet:connect', 'labels:any', 'fleet:verify', 'scopes:declare', 'scopes:grant', 'scopes:define', 'meetings:open'],
+        scopes: ['messages:send', 'messages:receive', 'messages:force', 'messages:resend', 'fleet:read', 'fleet:commission', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'fleet:on-behalf', 'fleet:person', 'fleet:owner', 'fleet:explain', 'fleet:connect', 'labels:any', 'fleet:verify', 'scopes:declare', 'scopes:grant', 'scopes:define', 'meetings:open', 'fleet:keys'],
         note: null,
         createdAt: new Date('2026-09-29T12:00:00.000Z'),
         retiredAt: null,
@@ -183,6 +183,7 @@ describe('initialise fleet', () => {
       prunedEventSeqs: [],
       fleetSealings: [],
       dataKeys: [],
+      sealingLocks: [],
     });
   });
 });

@@ -41,6 +41,7 @@ export const SCOPES = [
   'scopes:grant',
   'scopes:define',
   'meetings:open',
+  'fleet:keys',
 ] as const;
 export const scopeSchema = z.enum(SCOPES);
 export type Scope = z.infer<typeof scopeSchema>;
@@ -70,6 +71,7 @@ export const CORE_SCOPE_DESCRIPTIONS: Readonly<Record<Scope, string>> = {
   'scopes:grant': 'Grant and revoke scopes on a live ship, within what its ship may grant',
   'scopes:define': "Define, describe and remove the fleet's own scopes",
   'meetings:open': 'Open a meeting of the ships its ship reaches, owning and moderating it',
+  'fleet:keys': "Turn sealing on and change the fleet's company key and recovery key",
 };
 
 /** The namespaces core reserves and enforces; every other one is a plugin's (decision 0046). */
@@ -292,6 +294,7 @@ export const EVENT_TYPES = [
   'ScheduleEnded',
   'HistoryPruned',
   'FleetSealingTurnedOn',
+  'FleetPayloadsSealed',
   'FleetKeyUnavailable',
   'FleetKeyAvailable',
 ] as const;

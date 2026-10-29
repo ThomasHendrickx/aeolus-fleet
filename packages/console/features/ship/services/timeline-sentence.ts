@@ -225,6 +225,8 @@ export function timelineSentence(entry: TimelineEntry, shipId: string): Timeline
       return { parts: [text('Finished history past the retention pruned')], tone: 'ended', icon: 'fleet' };
     case 'FleetSealingTurnedOn':
       return { parts: [text('Sealing turned on')], tone: 'ended', icon: 'fleet' };
+    case 'FleetPayloadsSealed':
+      return { parts: [text('Every stored payload sealed')], tone: 'ended', icon: 'fleet' };
     case 'FleetKeyUnavailable':
       return { parts: [text('Company key not reachable')], tone: 'waiting', icon: 'fleet' };
     case 'FleetKeyAvailable':

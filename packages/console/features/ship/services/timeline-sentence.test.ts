@@ -126,6 +126,10 @@ describe('timelineSentence', () => {
     expect(onScoutsPage(anEntry('HistoryPruned'))).toEqual({ sentence: 'Finished history past the retention pruned', tone: 'ended', icon: 'fleet' });
   });
 
+  it('says the sealing pass left no payload of the fleet stored plain', () => {
+    expect(onScoutsPage(anEntry('FleetPayloadsSealed'))).toEqual({ sentence: 'Every stored payload sealed', tone: 'ended', icon: 'fleet' });
+  });
+
   it('says someone started viewing the fleet through the viewer ship', () => {
     expect(onScoutsPage(anEntry('ViewerSessionStarted'))).toEqual({
       sentence: 'Someone started viewing the fleet',
