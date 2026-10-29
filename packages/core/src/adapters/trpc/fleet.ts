@@ -29,7 +29,7 @@ import {
   messageOutputSchema,
   needsAttentionInputSchema,
   needsAttentionOutputSchema,
-  healthOutputSchema,
+  fleetHealthOutputSchema,
   acknowledgedSchema,
   listedShipOutputSchema,
   shipCountsInputSchema,
@@ -1138,8 +1138,11 @@ export const fleetRouter = router({
 
   /** The fleet's health (decision 0042): its stuck deliveries by cause and place, the 7-day trend and the acknowledged in 24 hours. */
   health: actorScopedProcedure('fleet:read')
-    .output(healthOutputSchema)
-    .query(async ({ ctx }) => describedHealth(await ctx.useCases.readHealth(ctx.caller))),
+    .output(fleetHealthOutputSchema)
+    .query(async ({ ctx }) => {
+      const { keyUnavailable, ...health } = await ctx.useCases.readHealth(ctx.caller);
+      return { ...describedHealth(health), keyUnavailable: keyUnavailable && { ...keyUnavailable, since: keyUnavailable.since.toISOString() } };
+    }),
 
   /** How many deliveries are stuck now and since when the oldest waits: the navigation's count and the overview's card. */
   stuckCount: actorScopedProcedure('fleet:read')

@@ -568,7 +568,7 @@ export function createUseCases(options: {
     sentMessage: createReadSentMessage({ history: createPrismaShipHistory(prisma) }),
     readShipWay: createReadShipWay({ history: createPrismaShipHistory(prisma), uow, clock, ids }),
     readNeedsAttention: createReadNeedsAttention({ history: createPrismaShipHistory(prisma), readReach , sealing }),
-    readHealth: createReadHealth({ ...healthReads, clock, readReach }),
+    readHealth: createReadHealth({ ...healthReads, clock, readReach, sealings }),
     readStuckCount: createReadStuckCount({ ...healthReads, clock, readReach }),
     readStuck: createReadStuck({ ...healthReads, clock, readReach }),
     readStuckSummary: createReadStuckSummary({ ...healthReads, clock, readReach }),

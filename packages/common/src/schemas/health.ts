@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { idSchema } from '../ids/index.js';
 import { partySchema } from './history.js';
 import { pageInputOf, pageOutputOf } from './page.js';
+import { companyKeyUnavailableReasonSchema } from './sealing.js';
 
 /** Why a delivery is stuck, one cause each (docs/blueprint.md, "Stuck"). */
 export const STUCK_CAUSES = ['undeliverable', 'noShipCanTake', 'waitingForCrew', 'stalledInFlight'] as const;
@@ -68,6 +69,15 @@ export const healthOutputSchema = z.object({
 });
 
 export type Health = z.infer<typeof healthOutputSchema>;
+
+/**
+ * Output of `fleet.health`: the fleet's health, and whether a sealed fleet's
+ * company key refuses it (decision 0068, B11), with the key vault's reason
+ * and since when; null while it answers or the fleet is not sealed.
+ */
+export const fleetHealthOutputSchema = healthOutputSchema.extend({
+  keyUnavailable: z.object({ reason: companyKeyUnavailableReasonSchema, since: z.iso.datetime() }).nullable(),
+});
 
 /** Output of `fleet.stuckCount`: how many deliveries are stuck now, and since when the oldest waits; none when nothing is stuck. */
 export const stuckCountOutputSchema = z.object({ count: z.int().min(0), oldestSince: z.iso.datetime().nullable() });

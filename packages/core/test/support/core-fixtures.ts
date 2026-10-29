@@ -351,7 +351,7 @@ export function historyUseCases(core: InMemoryCore) {
     sentMessage: createReadSentMessage({ history: core.history }),
     readShipWay: createReadShipWay({ history: core.history, uow: core.uow, clock: core.clock, ids: core.ids }),
     readNeedsAttention: createReadNeedsAttention({ history: core.history, readReach , sealing: core.sealing }),
-    readHealth: createReadHealth({ health: core.health, snapshots: core.healthSnapshots, clock: core.clock, readReach }),
+    readHealth: createReadHealth({ health: core.health, snapshots: core.healthSnapshots, clock: core.clock, readReach, sealings: core.sealings }),
     readStuckCount: createReadStuckCount({ health: core.health, snapshots: core.healthSnapshots, clock: core.clock, readReach }),
     readStuck: createReadStuck({ health: core.health, snapshots: core.healthSnapshots, clock: core.clock, readReach }),
     readStuckSummary: createReadStuckSummary({ health: core.health, snapshots: core.healthSnapshots, clock: core.clock, readReach }),
