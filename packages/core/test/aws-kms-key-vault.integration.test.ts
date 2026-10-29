@@ -51,6 +51,10 @@ function aWorld(): KeyVaultWorld {
       policy.refuseGrant(companyKey);
       return Promise.resolve();
     },
+    bindToFleet: (companyKey, fleetId) => {
+      policy.bindToFleet(companyKey, fleetId);
+      return Promise.resolve();
+    },
     missingKey: MISSING_KEY,
   };
 }

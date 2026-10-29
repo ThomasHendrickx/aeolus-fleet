@@ -16,6 +16,8 @@ const SEPARATOR = '|';
 interface CompanyKey {
   isEnabled: boolean;
   isGranted: boolean;
+  /** The fleet the key policy grants it for alone; none grants it for any fleet. */
+  boundTo?: string;
 }
 
 interface Wrap {
@@ -41,19 +43,19 @@ export function createInMemoryKeyVault(): KeyVaultWorld {
   const keys = new Map<CompanyKeyReference, CompanyKey>();
   let made = 0;
 
-  const usable = (companyKey: CompanyKeyReference): KeyUnavailableReason | undefined => {
+  const usable = ({ companyKey, fleetId }: CompanyKeyUse): KeyUnavailableReason | undefined => {
     const key = keys.get(companyKey);
     if (key === undefined) {
       return 'notFound';
     }
-    if (!key.isGranted) {
+    if (!key.isGranted || (key.boundTo !== undefined && key.boundTo !== fleetId)) {
       return 'accessDenied';
     }
     return key.isEnabled ? undefined : 'disabled';
   };
 
   const open = (use: CompanyKeyUse, wrapped: WrappedDataKey): Result<Uint8Array<ArrayBuffer>, KeyUnavailable> => {
-    const reason = usable(use.companyKey);
+    const reason = usable(use);
     if (reason !== undefined) {
       return refused(reason);
     }
@@ -65,7 +67,7 @@ export function createInMemoryKeyVault(): KeyVaultWorld {
   };
 
   const wrapWith = (use: CompanyKeyUse, material: Uint8Array): Result<WrappedDataKey, KeyUnavailable> => {
-    const reason = usable(use.companyKey);
+    const reason = usable(use);
     return reason === undefined ? ok(wrapOf(use, material)) : refused(reason);
   };
 
@@ -78,7 +80,7 @@ export function createInMemoryKeyVault(): KeyVaultWorld {
     unwrap: (use, wrapped) => Promise.resolve(open(use, wrapped)),
     wrap: (use, material) => Promise.resolve(wrapWith(use, material)),
     rewrap: (change, wrapped) => {
-      const reason = usable(change.to);
+      const reason = usable({ fleetId: change.fleetId, companyKey: change.to });
       const opened = open({ fleetId: change.fleetId, companyKey: change.from }, wrapped);
       if (!opened.isOk) {
         return Promise.resolve(opened);
@@ -109,6 +111,10 @@ export function createInMemoryKeyVault(): KeyVaultWorld {
     },
     refuseGrant: (companyKey) => {
       change(companyKey, { isGranted: false });
+      return Promise.resolve();
+    },
+    bindToFleet: (companyKey, fleetId) => {
+      change(companyKey, { boundTo: fleetId });
       return Promise.resolve();
     },
   };
