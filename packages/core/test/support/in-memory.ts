@@ -110,6 +110,8 @@ import type { HealthSnapshotWriter } from '../../src/domain/shared/health-snapsh
 import type { HistoryPruner } from '../../src/domain/shared/history-pruning.js';
 import { createInMemoryHealthSnapshots, type HeldHourSnapshot } from './in-memory-health-snapshots.js';
 import { createInMemoryHistoryPruner } from './in-memory-history-pruner.js';
+import type { FleetSealing, StoredDataKey } from '../../src/domain/messaging/fleet-sealing.js';
+import type { FleetSealingRepository } from '../../src/domain/messaging/ports.js';
 
 /**
  * In-memory ports for unit tests of the core. Every repository reads and writes
@@ -193,6 +195,10 @@ export interface InMemoryState {
   lockedMessages: MessageId[];
   /** The places in each fleet's stream of the events a pruning pass let go: the events left keep theirs, as Postgres's seq column does. */
   prunedEventSeqs: { fleetId: FleetId; seq: number }[];
+  /** Each sealed fleet's sealing: the sealing columns of its fleets row, apart from the Fleet (decision 0068). */
+  fleetSealings: FleetSealing[];
+  /** The sealed fleets' data keys, kept only wrapped (decision 0068). */
+  dataKeys: StoredDataKey[];
 }
 
 /** A fleet's events, numbered in the order they were appended, the places of pruned events skipped. */
@@ -240,6 +246,7 @@ export interface InMemoryTx {
   installationSettings: InstallationSettingsRepository;
   healthSnapshots: HealthSnapshotWriter;
   historyPruner: HistoryPruner;
+  sealings: FleetSealingRepository;
 }
 
 /**
@@ -297,6 +304,8 @@ export interface InMemoryCore {
   scopeNamespaces: ScopeNamespaceRepository;
   /** The fleet's own scopes, read outside a unit of work. */
   definedScopes: DefinedScopeRepository;
+  /** The fleets' sealing and data keys, read outside a unit of work. */
+  sealings: FleetSealingRepository;
   callers: CallerLookup;
   accounts: OperatorAccountLookup;
   listing: FleetListing;
@@ -397,6 +406,8 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     historyPruneLocks: [],
     lockedMessages: [],
     prunedEventSeqs: [],
+    fleetSealings: [],
+    dataKeys: [],
   };
 
   let now = new Date(startAt);
@@ -455,6 +466,33 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
   const healthRecords = createInMemoryHealthRecords(state);
   const healthSnapshots = createInMemoryHealthSnapshots(state, healthRecords);
   const tx: InMemoryTx = {
+    sealings: {
+      find: (fleetId) => Promise.resolve(structuredClone(state.fleetSealings.find((held) => held.fleetId === fleetId))),
+      findForUpdate: (fleetId) => Promise.resolve(structuredClone(state.fleetSealings.find((held) => held.fleetId === fleetId))),
+      storesPlainPayload: (fleetId) =>
+        Promise.resolve(
+          state.messages.some((held) => held.fleetId === fleetId && typeof held.payload === 'string') ||
+            state.schedules.some((held) => held.fleetId === fleetId),
+        ),
+      turnOn: (sealing, firstKey) => {
+        if (state.dataKeys.some((held) => held.fleetId === firstKey.fleetId && held.isCurrent)) {
+          return Promise.reject(new Error('unique violation: the fleet has a current data key'));
+        }
+        state.fleetSealings.push(structuredClone(sealing));
+        state.dataKeys.push(structuredClone(firstKey));
+        return Promise.resolve();
+      },
+      currentDataKeyId: (fleetId) => Promise.resolve(state.dataKeys.find((held) => held.fleetId === fleetId && held.isCurrent)?.id),
+      wrappedDataKeys: (fleetId, dataKeyIds) => {
+        const sealing = state.fleetSealings.find((held) => held.fleetId === fleetId);
+        return Promise.resolve(
+          sealing && {
+            companyKey: sealing.companyKey,
+            dataKeys: structuredClone(state.dataKeys.filter((held) => held.fleetId === fleetId && dataKeyIds.includes(held.id))),
+          },
+        );
+      },
+    },
     healthSnapshots,
     historyPruner: createInMemoryHistoryPruner(state),
     fleets: {
@@ -2268,12 +2306,14 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
   };
 
-  return { state, uow, fleets: tx.fleets, scheduleAttempts, pushedCrews, ships: tx.ships, leases: tx.leases, crewRequests: tx.crewRequests, clearRequests: tx.clearRequests, labels: tx.labels, reachRefusals: tx.reachRefusals, declaredNetworkRules: tx.declaredNetworkRules, scopeNamespaces: tx.scopeNamespaces, definedScopes: tx.definedScopes, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, health: healthRecords, healthSnapshots, notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeups, fleetNews };
+  return { state, uow, fleets: tx.fleets, scheduleAttempts, pushedCrews, ships: tx.ships, leases: tx.leases, crewRequests: tx.crewRequests, clearRequests: tx.clearRequests, labels: tx.labels, reachRefusals: tx.reachRefusals, declaredNetworkRules: tx.declaredNetworkRules, scopeNamespaces: tx.scopeNamespaces, definedScopes: tx.definedScopes, sealings: tx.sealings, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, health: healthRecords, healthSnapshots, notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeups, fleetNews };
 }
 
 /** The tables whose rows belong to a fleet by their fleet id: all but the fleets and the installation's requests. */
 const FLEET_TABLES = [
   'healthSnapshots',
+  'fleetSealings',
+  'dataKeys',
   'ships',
   'leases',
   'credentials',
