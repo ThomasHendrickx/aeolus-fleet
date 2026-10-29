@@ -14,6 +14,7 @@ import { createPostgresCore, racingUnitOfWork, type PostgresCore } from './suppo
 import { unwrap } from '../src/testing/result.js';
 import { newKey } from '../src/testing/keys.js';
 import { withOperatorLogin } from './support/operator-login.js';
+import { unsealedFleetsOnly } from './support/sealing.js';
 
 // Needs attention on a real Postgres: the undeliverable deliveries listed
 // oldest first, a dismiss, and a resend that stores a new message naming the
@@ -273,6 +274,7 @@ describe('Needs attention on Postgres', () => {
       clock: core.clock,
       ids: newId,
       hasher: sha256Hasher,
+      sealing: unsealedFleetsOnly,
     });
 
     const results = await Promise.all(
@@ -301,7 +303,7 @@ describe('Needs attention on Postgres', () => {
 
     const [dismissed, resent] = await Promise.all([
       createDismissDelivery(deps)(argo, { deliveryId: original.deliveryId }),
-      createResendDelivery({ ...deps, hasher: sha256Hasher })(argo, { deliveryId: original.deliveryId }),
+      createResendDelivery({ ...deps, hasher: sha256Hasher, sealing: unsealedFleetsOnly })(argo, { deliveryId: original.deliveryId }),
     ]);
 
     const outcome = [dismissed.isOk ? 'dismissed' : dismissed.error.kind, resent.isOk ? 'resent' : resent.error.kind];

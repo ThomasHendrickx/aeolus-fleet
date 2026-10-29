@@ -546,7 +546,7 @@ export function createUseCases(options: {
     pingShip: createPingShip({ uow, clock, ids, hasher: sha256Hasher }),
     checkInbox: createCheckInbox({ uow, clock, wakeups, fleetNews }),
     dismissDelivery: createDismissDelivery({ uow, clock, ids, readReach }),
-    resendDelivery: createResendDelivery({ uow, clock, ids, hasher: sha256Hasher, readReach }),
+    resendDelivery: createResendDelivery({ uow, clock, ids, hasher: sha256Hasher, readReach, sealing }),
     markRead: createMarkRead({ uow, clock }),
     markDone: createMarkDone({ uow, clock, ids }),
     replyToMessage: createReplyToMessage({ uow, clock, ids, hasher: sha256Hasher, sealing }),

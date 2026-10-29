@@ -388,7 +388,7 @@ export function messagingUseCases(core: InMemoryCore) {
     markDone: createMarkDone(deps),
     markRead: createMarkRead(deps),
     replyToMessage: createReplyToMessage({ ...deps, hasher: core.hasher, sealing }),
-    resendDelivery: createResendDelivery({ ...deps, hasher: core.hasher, readReach: readReachOf(core) }),
+    resendDelivery: createResendDelivery({ ...deps, hasher: core.hasher, readReach: readReachOf(core), sealing }),
     pingShip: createPingShip({ ...deps, hasher: core.hasher }),
     answerPing: createAnswerPing(deps),
     tellOverdueDeliveries: createTellOverdueDeliveries({ ...deps, fleets: core.fleets, pushedCrews: core.pushedCrews }),

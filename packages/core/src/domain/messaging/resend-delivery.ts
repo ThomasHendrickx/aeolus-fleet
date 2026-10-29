@@ -12,14 +12,16 @@ import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { withinDailyMessageLimit, type DailyMessageLimitTx } from './daily-message-limit.js';
 import { dismissForResend, type DismissRefusal } from './delivery.js';
 import { acceptMessage, deliveredTo, repeatOf, type AcceptRefusal, type RepeatRefusal } from './message.js';
-import type { DeliveryRepository, MessageRepository, RequestHasher } from './ports.js';
-import { isSealedPayload } from './sealed-payload.js';
+import type { DeliveryRepository, FleetSealingRepository, MessageRepository, RequestHasher } from './ports.js';
+import { unsealed, withDataKeys, type DataKeysNeeded, type PayloadSealing } from './data-keys.js';
+import { sealedMessage } from './send-message.js';
 import { sendRequestText } from './send-request.js';
 
 export interface ResendDeliveryTx extends Omit<ResolveSelectorTx, 'ships'>, Omit<CheckReachTx, 'ships'>, DailyMessageLimitTx {
   ships: ResolveSelectorTx['ships'] & CheckReachTx['ships'];
   messages: MessageRepository;
   deliveries: DeliveryRepository;
+  sealings: Pick<FleetSealingRepository, 'currentDataKeyId'>;
   events: EventLog;
   notifier: Notifier;
 }
@@ -70,6 +72,10 @@ function resendKey(deliveryId: DeliveryId): string {
  * as the original sender sending (decision 0034): one no rule allows commits
  * only its refusal's record and is refused, and the original stays
  * undeliverable, for the operator to dismiss.
+ *
+ * In a sealed fleet (decision 0068, B17) the original's payload is unsealed
+ * and sealed again under the fleet's current data key for the new message's
+ * id, with its data keys unwrapped before the unit of work, never in it.
  */
 export function createResendDelivery(deps: {
   uow: UnitOfWork<ResendDeliveryTx>;
@@ -77,10 +83,11 @@ export function createResendDelivery(deps: {
   ids: IdGenerator;
   hasher: RequestHasher;
   readReach: ReadReachOf;
+  sealing: PayloadSealing;
 }): ResendDelivery {
   return async (caller, input) => {
     const readReach = await deps.readReach(caller);
-    const outcome = await deps.uow.run(async (tx): Promise<Result<{ messageId: MessageId } | { prevented: NotReachable }, ResendDeliveryRefusal>> => {
+    const outcome = await withDataKeys({ sealing: deps.sealing, fleetId: caller.fleetId }, (held) => deps.uow.run(async (tx): Promise<Result<{ messageId: MessageId } | { prevented: NotReachable }, ResendDeliveryRefusal | DataKeysNeeded>> => {
       const { fleetId } = caller;
       const delivery = await tx.deliveries.findForUpdate(fleetId, input.deliveryId);
       const original = delivery && (await tx.messages.find(fleetId, delivery.messageId));
@@ -90,11 +97,11 @@ export function createResendDelivery(deps: {
       if (isPingContentType(original.contentType)) {
         return refuse('PING_NOT_RESENT', 'A ping is not resent: dismiss it, and ping the ship again');
       }
-      const { payload } = original;
-      if (isSealedPayload(payload)) {
-        // Resend unseals and seals again for the new message in the design's slice S3 (decision 0068, B17).
-        return refuse('KEY_UNAVAILABLE', `Message ${original.id} is sealed: resending a sealed message is not open yet`);
+      const plain = unsealed(held, { row: { fleetId, rowId: original.id }, payload: original.payload });
+      if (!plain.isOk) {
+        return plain;
       }
+      const payload = plain.value;
 
       // A contribution's or a label send's undeliverable delivery is resent to its ship alone, as a message of its own.
       const selector = deliveredTo(original, delivery);
@@ -102,16 +109,16 @@ export function createResendDelivery(deps: {
       const requestHash = deps.hasher.hash(
         sendRequestText({ selector, payload, contentType: original.contentType, inReplyTo, isForced: false }),
       );
+      const sealedRequestHash = deps.hasher.hash(sendRequestText({ selector, payload: undefined, contentType: original.contentType, inReplyTo, isForced: false }));
       const senderKey = { fleetId, senderShipId: original.senderShipId, idempotencyKey: resendKey(delivery.id) };
       await tx.messages.lockIdempotencyKey(senderKey);
       const earlier = await tx.messages.findByIdempotencyKey(senderKey);
       if (earlier) {
-        const sealedRequestHash = deps.hasher.hash(sendRequestText({ selector, payload: undefined, contentType: original.contentType, inReplyTo, isForced: false }));
-        const earlierPayload = earlier.payload;
-        if (isSealedPayload(earlierPayload)) {
-          return refuse('KEY_UNAVAILABLE', `Message ${earlier.id} is sealed: resending a sealed message is not open yet`);
+        const earlierPayload = unsealed(held, { row: { fleetId, rowId: earlier.id }, payload: earlier.payload });
+        if (!earlierPayload.isOk) {
+          return earlierPayload;
         }
-        const repeat = repeatOf({ message: earlier, plainPayload: earlierPayload }, { requestHash, sealedRequestHash, payload });
+        const repeat = repeatOf({ message: earlier, plainPayload: earlierPayload.value }, { requestHash, sealedRequestHash, payload });
         return repeat.isOk ? ok({ messageId: repeat.value }) : repeat;
       }
 
@@ -171,7 +178,12 @@ export function createResendDelivery(deps: {
         return accepted;
       }
 
-      const { message, delivery: resent, events } = accepted.value;
+      const { delivery: resent, events } = accepted.value;
+      const sealed = await sealedMessage({ tx, held }, { message: accepted.value.message, sealedRequestHash });
+      if (!sealed.isOk) {
+        return sealed;
+      }
+      const message = sealed.value;
       await tx.messages.create(message);
       await tx.deliveries.create(resent);
       await tx.deliveries.update(dismissed.value.delivery);
@@ -180,7 +192,7 @@ export function createResendDelivery(deps: {
       }
       await tx.notifier.deliveryPending({ fleetId, deliveryId: resent.id, recipient: resent.recipient });
       return ok({ messageId: message.id });
-    });
+    }));
     if (!outcome.isOk) {
       return outcome;
     }

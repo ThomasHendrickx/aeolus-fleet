@@ -277,7 +277,7 @@ export async function sendWithin(
   }
 
   const { delivery, events } = accepted.value;
-  const message = await stored(deps, { message: accepted.value.message, request: send.request });
+  const message = await sealedMessage(deps, { message: accepted.value.message, sealedRequestHash: send.request.sealedRequestHash });
   if (!message.isOk) {
     return message;
   }
@@ -326,8 +326,11 @@ function repeatWithin(deps: SendDeps, repeat: { original: Message; request: Chec
 }
 
 /** The message as the fleet stores it: sealed in a sealed fleet, under its current data key, with the request hash that leaves the payload out. */
-async function stored(deps: SendDeps, accepted: { message: Message; request: CheckedSend }): Promise<Result<Message, DataKeysNeeded>> {
-  const { message, request } = accepted;
+export async function sealedMessage(
+  deps: { tx: Pick<SendMessageTx, 'sealings'>; held: HeldDataKeys | undefined },
+  accepted: { message: Message; sealedRequestHash: string },
+): Promise<Result<Message, DataKeysNeeded>> {
+  const { message, sealedRequestHash } = accepted;
   if (deps.held === undefined || typeof message.payload !== 'string') {
     return ok(message);
   }
@@ -336,7 +339,7 @@ async function stored(deps: SendDeps, accepted: { message: Message; request: Che
   if (!payload.isOk) {
     return payload;
   }
-  return ok(typeof payload.value === 'string' ? message : { ...message, payload: payload.value, requestHash: request.sealedRequestHash });
+  return ok(typeof payload.value === 'string' ? message : { ...message, payload: payload.value, requestHash: sealedRequestHash });
 }
 
 /**
@@ -393,7 +396,7 @@ async function contributeWithin(
     return accepted;
   }
   const { deliveries, events } = accepted.value;
-  const message = await stored(deps, { message: accepted.value.message, request: send.request });
+  const message = await sealedMessage(deps, { message: accepted.value.message, sealedRequestHash: send.request.sealedRequestHash });
   if (!message.isOk) {
     return message;
   }
@@ -465,7 +468,7 @@ async function sendToLabelWithin(
     return accepted;
   }
   const { deliveries, events } = accepted.value;
-  const message = await stored(deps, { message: accepted.value.message, request: send.request });
+  const message = await sealedMessage(deps, { message: accepted.value.message, sealedRequestHash: send.request.sealedRequestHash });
   if (!message.isOk) {
     return message;
   }
