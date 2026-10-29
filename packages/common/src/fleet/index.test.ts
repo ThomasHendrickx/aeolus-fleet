@@ -219,6 +219,7 @@ describe('eventTypeSchema', () => {
       'ScheduleEnded',
       'HistoryPruned',
       'FleetSealingTurnedOn',
+      'FleetPayloadsSealed',
       'FleetKeyUnavailable',
       'FleetKeyAvailable',
     ]);

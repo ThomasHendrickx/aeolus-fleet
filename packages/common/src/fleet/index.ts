@@ -294,6 +294,7 @@ export const EVENT_TYPES = [
   'ScheduleEnded',
   'HistoryPruned',
   'FleetSealingTurnedOn',
+  'FleetPayloadsSealed',
   'FleetKeyUnavailable',
   'FleetKeyAvailable',
 ] as const;

@@ -139,7 +139,8 @@ export function createApp(options: AppOptions): FastifyInstance {
   });
 
   // One pass, every 30 seconds: the clocks, then the stuck snapshot's close,
-  // then the pruning of finished history (decision 0066), then whatever
+  // then the pruning of finished history (decision 0066), then the sealing of
+  // what a sealing fleet stored plain (decision 0068), then whatever
   // schedule is due that a lost timer missed (decision 0062, S14).
   // Each failure is logged on its own, so one never keeps another from running.
   const overduePasses = repeatPass({
@@ -152,6 +153,9 @@ export function createApp(options: AppOptions): FastifyInstance {
       });
       await useCases.pruneHistory((fleetId, error) => {
         server.log.warn({ ...failureForLog(error), fleetId }, 'the pruning pass failed for a fleet: pruning it again next hour');
+      });
+      await useCases.sealStoredPayloads((fleetId, error) => {
+        server.log.warn({ ...failureForLog(error), fleetId }, 'the sealing pass failed for a fleet: sealing it again next pass');
       });
       const { nextAttemptAt } = await useCases.sendDueSchedules(scheduleSendFailed);
       if (nextAttemptAt) {

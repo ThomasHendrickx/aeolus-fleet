@@ -7,6 +7,7 @@ import type { Meeting } from './meeting.js';
 import type { Delivery, Message } from './message.js';
 import type { Overdue, PushedCrew } from './overdue.js';
 import type { Schedule } from './schedule.js';
+import type { SealedMessagePayload } from './sealed-payload.js';
 
 /** One sender's idempotency key, in its fleet. */
 export interface SenderKey {
@@ -278,6 +279,31 @@ export interface WrappedDataKeys {
   dataKeys: StoredDataKey[];
 }
 
+/** Where the sealing pass goes on from in a fleet's messages: the last one it read, by when it was made and its id. */
+export interface SealingCursor {
+  createdAt: Date;
+  id: MessageId;
+}
+
+/** What one batch of the sealing pass reads, each row held until its unit of work ends: plain messages after its cursor, oldest first, and plain schedules. */
+export interface PlainPayloads {
+  messages: Message[];
+  schedules: Schedule[];
+}
+
+/** A row's payload sealed for that row, and its request hash that leaves the payload out (B10). */
+export interface SealedRowPayload<Id extends MessageId | ScheduleId> {
+  id: Id;
+  payload: SealedMessagePayload;
+  requestHash: string;
+}
+
+/** What one batch of the sealing pass stores in place of what it read. */
+export interface SealedPayloads {
+  messages: SealedRowPayload<MessageId>[];
+  schedules: SealedRowPayload<ScheduleId>[];
+}
+
 /** Outbound port: the fleets' sealing and their data keys (decision 0068), always within one fleet. */
 export interface FleetSealingRepository {
   /** The fleet's sealing, none while it is not sealed, read without a lock. */
@@ -300,4 +326,18 @@ export interface FleetSealingRepository {
   changeKeyAvailability(fleetId: FleetId, availability: KeyAvailability): Promise<boolean>;
   /** The company key and the named data keys of a sealed fleet, wrapped, read without a lock; none while it is not sealed. */
   wrappedDataKeys(fleetId: FleetId, dataKeyIds: readonly DataKeyId[]): Promise<WrappedDataKeys | undefined>;
+  /** The fleets whose sealing reads sealing, across the installation: the ones the sealing pass has work in (B5). */
+  sealingFleetIds(): Promise<FleetId[]>;
+  /** Takes the fleet's sealing lock if no other unit of work holds it, until this one ends: answers whether it did. */
+  tryLockSealing(fleetId: FleetId): Promise<boolean>;
+  /**
+   * Up to `limit` plain messages after the cursor, oldest first, and up to
+   * `limit` plain schedules, each held until the unit of work ends; a row
+   * another unit of work holds is skipped, not waited for.
+   */
+  plainPayloads(fleetId: FleetId, input: { after: SealingCursor | null; limit: number }): Promise<PlainPayloads>;
+  /** Stores each payload sealed in place of its plain one, with its request hash that leaves the payload out. */
+  sealPayloads(fleetId: FleetId, sealed: SealedPayloads): Promise<void>;
+  /** Marks a sealing fleet sealed: it stores no payload plain. */
+  markSealed(fleetId: FleetId): Promise<void>;
 }

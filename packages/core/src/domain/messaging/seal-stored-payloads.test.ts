@@ -35,9 +35,20 @@ beforeEach(async () => {
   chief = crewAboard(core, await shipWithScopes({ registry, argo }, { name: 'chief', type: 'chief-of-staff', scopes: [] }));
 });
 
+/**
+ * What scout sent and scheduled before sealing. The first message is sent
+ * through the use case; the others are its copies straight into the state,
+ * each with its own id, payload and request hash, as a thousand sends would
+ * store them, without a thousand units of work.
+ */
 async function plainHistory(counts: { messages: number; schedules: number }): Promise<void> {
-  for (let index = 0; index < counts.messages; index += 1) {
-    unwrap(await messaging.sendMessage(scout, { selector: { kind: 'ship', name: 'chief' }, payload: `${PAYLOAD} #${index}`, contentType: 'text/plain', model: SESSION_MODEL, idempotencyKey: newKey() }));
+  if (counts.messages > 0) {
+    unwrap(await messaging.sendMessage(scout, { selector: { kind: 'ship', name: 'chief' }, payload: `${PAYLOAD} #0`, contentType: 'text/plain', model: SESSION_MODEL, idempotencyKey: newKey() }));
+  }
+  const [first] = core.state.messages;
+  for (let index = 1; first !== undefined && index < counts.messages; index += 1) {
+    const payload = `${PAYLOAD} #${index}`;
+    core.state.messages.push({ ...structuredClone(first), id: core.ids('message'), payload, idempotencyKey: newKey(), requestHash: core.hasher.hash(payload) });
   }
   for (let index = 0; index < counts.schedules; index += 1) {
     unwrap(
@@ -53,7 +64,7 @@ async function plainHistory(counts: { messages: number; schedules: number }): Pr
 }
 
 function aPass(options: { batch?: number; budgetMs?: number } = {}) {
-  return createSealStoredPayloads({ sealings: core.sealings, uow: core.uow, clock: core.clock, ids: core.ids, sealing: core.sealing, ...options });
+  return createSealStoredPayloads({ sealings: core.sealings, uow: core.uow, clock: core.clock, ids: core.ids, hasher: core.hasher, sealing: core.sealing, ...options });
 }
 
 function plainPayloads() {

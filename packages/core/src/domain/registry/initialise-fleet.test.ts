@@ -183,6 +183,7 @@ describe('initialise fleet', () => {
       prunedEventSeqs: [],
       fleetSealings: [],
       dataKeys: [],
+      sealingLocks: [],
     });
   });
 });

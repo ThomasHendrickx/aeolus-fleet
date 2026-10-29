@@ -111,7 +111,7 @@ function outcomeOf(row: ScheduleRow): ScheduleOutcome | null {
 }
 
 /** A schedules row as the schedule holds it; the table's checks keep its selector, timing and outcome whole. */
-function toSchedule(raw: unknown): Schedule {
+export function toSchedule(raw: unknown): Schedule {
   const row = scheduleRow.parse(raw);
   const payload = storedPayloadOf(raw);
   return {
