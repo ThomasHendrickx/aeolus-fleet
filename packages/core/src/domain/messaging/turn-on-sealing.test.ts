@@ -6,6 +6,7 @@ import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-
 import { createInMemoryKeyVault } from '../../../test/support/in-memory-key-vault.js';
 import type { KeyVaultWorld } from '../../../test/support/key-vault-contract.js';
 import { inMemoryPayloadSealer } from '../../../test/support/in-memory-payload-sealer.js';
+import { inMemoryRecoveryKeys, openedByRecoveryKey } from '../../../test/support/in-memory-recovery-keys.js';
 import { refusalOf, unwrap } from '../../testing/result.js';
 import type { AccountCaller, InstallationCaller, ShipCaller } from '../shared/caller.js';
 import { createTurnOnSealing, type TurnOnSealing } from './turn-on-sealing.js';
@@ -20,11 +21,14 @@ let fleetManager: AccountCaller;
 beforeEach(async () => {
   core = createInMemoryCore('2026-10-29T12:00:00.000Z');
   world = createInMemoryKeyVault();
-  turnOnSealing = createTurnOnSealing({ uow: core.uow, clock: core.clock, ids: core.ids, vault: world.vault, sealer: inMemoryPayloadSealer, sealings: core.sealings });
+  turnOnSealing = createTurnOnSealing({ uow: core.uow, clock: core.clock, ids: core.ids, vault: world.vault, sealer: inMemoryPayloadSealer, recoveryKeys: inMemoryRecoveryKeys, sealings: core.sealings });
   ({ fleetId, operatorShipId } = await hostedFleet(core));
   fleetManager = { kind: 'account', accountId: accountIdSchema.parse('acc_ines'), fleetId, scopes: ['fleet:read', 'fleet:manage', 'fleet:keys'], groupValues: [], personShipId: null, throughShipId: null };
   core.state.events.length = 0;
 });
+
+const RECOVERY_KEY = 'age1recoverykeyofacme';
+const RECOVERY_KEY_FINGERPRINT = 'SHA256:fingerprint-of-age1recoverykeyofacme';
 
 /** A company key whose policy grants the installation for this fleet's id alone. */
 async function aBoundCompanyKey(): Promise<string> {
@@ -40,14 +44,38 @@ describe('turning sealing on (decision 0068, B4)', () => {
     const turnedOn = unwrap(await turnOnSealing(fleetManager, { companyKey }));
 
     expect(turnedOn).toEqual({ state: 'sealed', companyKey });
-    expect(core.state.fleetSealings).toEqual([{ fleetId, state: 'sealed', companyKey, keyAvailability: { isAvailable: true, since: new Date('2026-10-29T12:00:00.000Z') } }]);
+    expect(core.state.fleetSealings).toEqual([{ fleetId, state: 'sealed', companyKey, recoveryKey: null, keyAvailability: { isAvailable: true, since: new Date('2026-10-29T12:00:00.000Z') } }]);
     const [dataKey, ...others] = core.state.dataKeys;
     expect(others).toEqual([]);
-    expect(dataKey).toMatchObject({ fleetId, isCurrent: true, createdAt: new Date('2026-10-29T12:00:00.000Z') });
+    expect(dataKey).toMatchObject({ fleetId, isCurrent: true, createdAt: new Date('2026-10-29T12:00:00.000Z'), wrappedByRecoveryKey: null });
     expect(dataKey?.id).toMatch(/^dky_/);
     expect(core.state.events.map(({ type, actor, details }) => ({ type, actor, details }))).toEqual([
       { type: 'FleetSealingTurnedOn', actor: { kind: 'account', accountId: fleetManager.accountId, throughShipId: null }, details: { companyKey } },
     ]);
+  });
+
+  it('scenario 6: given a recovery key at turning on, the data key is also wrapped to it, and the fleet shows its fingerprint', async () => {
+    const companyKey = await aBoundCompanyKey();
+
+    unwrap(await turnOnSealing(fleetManager, { companyKey, recoveryKey: RECOVERY_KEY }));
+
+    const [dataKey] = core.state.dataKeys;
+    const material = unwrap(await world.vault.unwrap({ fleetId, companyKey }, dataKey?.wrappedByCompanyKey ?? new Uint8Array()));
+    expect(openedByRecoveryKey(RECOVERY_KEY, dataKey?.wrappedByRecoveryKey)).toEqual(material);
+    expect(core.state.fleetSealings.map(({ recoveryKey }) => recoveryKey)).toEqual([{ recipient: RECOVERY_KEY, fingerprint: RECOVERY_KEY_FINGERPRINT }]);
+    expect(core.state.events.map(({ type, details }) => ({ type, details }))).toEqual([
+      { type: 'FleetSealingTurnedOn', details: { companyKey, recoveryKeyFingerprint: RECOVERY_KEY_FINGERPRINT } },
+    ]);
+  });
+
+  it('refuses a recovery key that is no age X25519 recipient INVALID_RECOVERY_KEY, and nothing is stored', async () => {
+    const companyKey = await aBoundCompanyKey();
+    const before = structuredClone(core.state);
+
+    const refusal = refusalOf(await turnOnSealing(fleetManager, { companyKey, recoveryKey: 'AGE-SECRET-KEY-1NOTAPUBLICKEY' }));
+
+    expect(refusal.kind).toBe('INVALID_RECOVERY_KEY');
+    expect(core.state).toEqual(before);
   });
 
   it('scenario 2: a company key granted without a fleet condition is refused KEY_NOT_BOUND_TO_FLEET and the fleet is unchanged', async () => {

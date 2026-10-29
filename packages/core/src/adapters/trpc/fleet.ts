@@ -2,6 +2,8 @@ import {
   turnOnSealingInputSchema,
   changeCompanyKeyInputSchema,
   changeCompanyKeyOutputSchema,
+  changeRecoveryKeyInputSchema,
+  changeRecoveryKeyOutputSchema,
   turnOnSealingOutputSchema,
   sealingOutputSchema,
   cancelScheduleInputSchema,
@@ -539,7 +541,7 @@ export const fleetRouter = router({
     .output(turnOnSealingOutputSchema)
     .mutation(async ({ ctx, input }) => {
       const turnedOn = okOrThrow(await ctx.useCases.turnOnSealing(ctx.caller, input));
-      ctx.log.info({ fleetId: ctx.caller.fleetId, companyKey: turnedOn.companyKey, state: turnedOn.state }, 'sealing turned on');
+      ctx.log.info({ fleetId: ctx.caller.fleetId, companyKey: turnedOn.companyKey, recoveryKeyFingerprint: turnedOn.recoveryKeyFingerprint, state: turnedOn.state }, 'sealing turned on');
       return turnedOn;
     }),
 
@@ -554,6 +556,21 @@ export const fleetRouter = router({
     .mutation(async ({ ctx, input }) => {
       const changed = okOrThrow(await ctx.useCases.changeCompanyKey(ctx.caller, input));
       ctx.log.info({ fleetId: ctx.caller.fleetId, companyKey: changed.companyKey }, 'company key changed');
+      return changed;
+    }),
+
+  /**
+   * Wraps every data key of the sealed fleet to a new recovery key, or sets
+   * one on a fleet sealed without (decision 0068, B13d): an age X25519
+   * recipient, the public half of the company's offline key pair. The
+   * company key must be reachable. No payload is sealed again.
+   */
+  changeRecoveryKey: actorScopedProcedure('fleet:keys')
+    .input(changeRecoveryKeyInputSchema)
+    .output(changeRecoveryKeyOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const changed = okOrThrow(await ctx.useCases.changeRecoveryKey(ctx.caller, input));
+      ctx.log.info({ fleetId: ctx.caller.fleetId, recoveryKeyFingerprint: changed.recoveryKeyFingerprint }, 'recovery key changed');
       return changed;
     }),
 

@@ -6,6 +6,7 @@
 import type { DataKeyId, FleetId } from '@aeolus-fleet/common';
 
 import type { CompanyKeyReference, KeyUnavailableReason, WrappedDataKey } from './key-vault.js';
+import type { RecoveryKey } from './recovery-key.js';
 
 /** Sealing while payloads stored plain before wait for the sealing pass; sealed once none is left. */
 export type SealingState = 'sealing' | 'sealed';
@@ -25,6 +26,8 @@ export interface FleetSealing {
   fleetId: FleetId;
   state: SealingState;
   companyKey: CompanyKeyReference;
+  /** The offline key each data key is wrapped to as well, by its public half; none when the company set none. */
+  recoveryKey: RecoveryKey | null;
   keyAvailability: KeyAvailability;
 }
 
@@ -33,6 +36,8 @@ export interface StoredDataKey {
   id: DataKeyId;
   fleetId: FleetId;
   wrappedByCompanyKey: WrappedDataKey;
+  /** The same key wrapped to the fleet's recovery key; none while the fleet has none. */
+  wrappedByRecoveryKey: WrappedDataKey | null;
   checkValue: Uint8Array<ArrayBuffer>;
   createdAt: Date;
   /** One current per fleet: the key that seals; old ones only unseal. */

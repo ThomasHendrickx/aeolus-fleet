@@ -138,6 +138,10 @@ describe('timelineSentence', () => {
     expect(onScoutsPage(anEntry('FleetCompanyKeyChanged'))).toEqual({ sentence: 'Company key changed', tone: 'ended', icon: 'fleet' });
   });
 
+  it('says the fleet wrapped its data keys to a new recovery key', () => {
+    expect(onScoutsPage(anEntry('FleetRecoveryKeyChanged'))).toEqual({ sentence: 'Recovery key changed', tone: 'ended', icon: 'fleet' });
+  });
+
   it('says someone started viewing the fleet through the viewer ship', () => {
     expect(onScoutsPage(anEntry('ViewerSessionStarted'))).toEqual({
       sentence: 'Someone started viewing the fleet',

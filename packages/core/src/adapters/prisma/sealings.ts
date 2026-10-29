@@ -11,6 +11,8 @@ import { toSchedule } from './schedules.js';
 const sealingRow = z.object({
   sealingState: z.enum(['sealing', 'sealed']),
   companyKey: z.string(),
+  recoveryKey: z.string().nullable(),
+  recoveryKeyFingerprint: z.string().nullable(),
   keyUnavailableReason: z.enum(['accessDenied', 'disabled', 'notFound', 'unreachable']).nullable(),
   keyAvailabilitySince: z.date(),
 });
@@ -19,6 +21,7 @@ const dataKeyRow = z.object({
   id: idSchema('dataKey'),
   fleetId: idSchema('fleet'),
   wrappedByCompanyKey: z.instanceof(Uint8Array),
+  wrappedByRecoveryKey: z.instanceof(Uint8Array).nullable(),
   checkValue: z.instanceof(Uint8Array),
   createdAt: z.date(),
   isCurrent: z.boolean(),
@@ -26,12 +29,19 @@ const dataKeyRow = z.object({
 
 function toDataKey(row: unknown): StoredDataKey {
   const parsed = dataKeyRow.parse(row);
-  return { ...parsed, wrappedByCompanyKey: new Uint8Array(parsed.wrappedByCompanyKey), checkValue: new Uint8Array(parsed.checkValue) };
+  const { wrappedByRecoveryKey } = parsed;
+  return {
+    ...parsed,
+    wrappedByCompanyKey: new Uint8Array(parsed.wrappedByCompanyKey),
+    wrappedByRecoveryKey: wrappedByRecoveryKey === null ? null : new Uint8Array(wrappedByRecoveryKey),
+    checkValue: new Uint8Array(parsed.checkValue),
+  };
 }
 
-const DATA_KEY_SELECT = { id: true, fleetId: true, wrappedByCompanyKey: true, checkValue: true, createdAt: true, isCurrent: true } as const;
+const DATA_KEY_SELECT = { id: true, fleetId: true, wrappedByCompanyKey: true, wrappedByRecoveryKey: true, checkValue: true, createdAt: true, isCurrent: true } as const;
 
 const SEALING_COLUMNS = Prisma.sql`sealing_state::text AS "sealingState", company_key AS "companyKey",
+  recovery_key AS "recoveryKey", recovery_key_fingerprint AS "recoveryKeyFingerprint",
   key_unavailable_reason AS "keyUnavailableReason", key_availability_since AS "keyAvailabilitySince"`;
 
 async function sealingOf(db: Db, { fleetId, isForUpdate }: { fleetId: FleetId; isForUpdate: boolean }): Promise<FleetSealing | undefined> {
@@ -47,10 +57,16 @@ async function sealingOf(db: Db, { fleetId, isForUpdate }: { fleetId: FleetId; i
   if (row === undefined) {
     return undefined;
   }
-  const { sealingState, companyKey, keyUnavailableReason, keyAvailabilitySince } = sealingRow.parse(row);
+  const { sealingState, companyKey, recoveryKey, recoveryKeyFingerprint, keyUnavailableReason, keyAvailabilitySince } = sealingRow.parse(row);
   const keyAvailability: KeyAvailability =
     keyUnavailableReason === null ? { isAvailable: true, since: keyAvailabilitySince } : { isAvailable: false, reason: keyUnavailableReason, since: keyAvailabilitySince };
-  return { fleetId, state: sealingState, companyKey, keyAvailability };
+  return {
+    fleetId,
+    state: sealingState,
+    companyKey,
+    recoveryKey: recoveryKey === null || recoveryKeyFingerprint === null ? null : { recipient: recoveryKey, fingerprint: recoveryKeyFingerprint },
+    keyAvailability,
+  };
 }
 
 /** The fleets' sealing columns and their data keys on Postgres (decision 0068). */
@@ -72,6 +88,8 @@ export function createPrismaFleetSealingRepository(db: Db): FleetSealingReposito
         data: {
           sealingState: sealing.state,
           companyKey: sealing.companyKey,
+          recoveryKey: sealing.recoveryKey?.recipient ?? null,
+          recoveryKeyFingerprint: sealing.recoveryKey?.fingerprint ?? null,
           keyUnavailableReason: keyAvailability.isAvailable ? null : keyAvailability.reason,
           keyAvailabilitySince: keyAvailability.since,
         },
@@ -113,7 +131,7 @@ export function createPrismaFleetSealingRepository(db: Db): FleetSealingReposito
         return undefined;
       }
       const rows = await db.dataKey.findMany({ where: { fleetId, id: { in: [...dataKeyIds] } }, select: DATA_KEY_SELECT });
-      return { companyKey: sealing.companyKey, dataKeys: rows.map(toDataKey) };
+      return { companyKey: sealing.companyKey, recoveryKey: sealing.recoveryKey, dataKeys: rows.map(toDataKey) };
     },
     sealingFleetIds: async () => {
       const rows = await db.fleet.findMany({ where: { sealingState: 'sealing' }, select: { id: true }, orderBy: { id: 'asc' } });
@@ -174,6 +192,12 @@ export function createPrismaFleetSealingRepository(db: Db): FleetSealingReposito
       await db.fleet.update({ where: { id: fleetId }, data: { companyKey } });
       for (const { id, wrappedByCompanyKey } of dataKeys) {
         await db.dataKey.updateMany({ where: { fleetId, id }, data: { wrappedByCompanyKey } });
+      }
+    },
+    changeRecoveryKey: async (fleetId, { recoveryKey, dataKeys }) => {
+      await db.fleet.update({ where: { id: fleetId }, data: { recoveryKey: recoveryKey.recipient, recoveryKeyFingerprint: recoveryKey.fingerprint } });
+      for (const { id, wrappedByRecoveryKey } of dataKeys) {
+        await db.dataKey.updateMany({ where: { fleetId, id }, data: { wrappedByRecoveryKey } });
       }
     },
     addCurrentDataKey: async (dataKey) => {

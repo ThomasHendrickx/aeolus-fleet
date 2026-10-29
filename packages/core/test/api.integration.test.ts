@@ -285,6 +285,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_sealed_schedules$/),
       expect.stringMatching(/^\d{14}_key_availability$/),
       expect.stringMatching(/^\d{14}_keys_scope$/),
+      expect.stringMatching(/^\d{14}_recovery_key$/),
     ]);
   });
 });

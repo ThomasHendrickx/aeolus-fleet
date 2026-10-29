@@ -24,8 +24,9 @@ export type RotateDataKeys = (onFleetError?: (fleetId: FleetId, error: unknown) 
  * availability written as any unwrap's (B11), and the next pass tries again.
  * Then one unit of work under the fleet's sealing lock taken with try (held:
  * another server rotates it now): the current key read again, so a server
- * that rotated it just before leaves it be, and the company key too, so a key
- * made under one the fleet changed from meanwhile is dropped; the new key
+ * that rotated it just before leaves it be, and the company key and the
+ * recovery key too, so a key made under or wrapped to one the fleet changed
+ * from meanwhile is dropped; the new key
  * current, the old ones kept to unseal what they sealed, FleetDataKeyCreated.
  * No payload is sealed again.
  */
@@ -41,7 +42,7 @@ export function createRotateDataKeys(deps: {
     if (!made.isOk) {
       return;
     }
-    const { companyKey, wrappedByCompanyKey, checkValue } = made.value;
+    const { companyKey, wrappedByCompanyKey, recoveryKey, wrappedByRecoveryKey, checkValue } = made.value;
     await deps.uow.run(async (tx) => {
       const { sealings } = tx;
       if (!(await sealings.tryLockSealing(fleetId))) {
@@ -49,11 +50,11 @@ export function createRotateDataKeys(deps: {
       }
       const now = deps.clock.now();
       const sealing = await sealings.find(fleetId);
-      if (sealing?.companyKey !== companyKey || !isDueANewDataKey(await sealings.dataKeyAges(fleetId), now)) {
+      if (sealing?.companyKey !== companyKey || sealing.recoveryKey?.recipient !== recoveryKey?.recipient || !isDueANewDataKey(await sealings.dataKeyAges(fleetId), now)) {
         return ok(undefined);
       }
       const dataKeyId = deps.ids('dataKey');
-      await sealings.addCurrentDataKey({ id: dataKeyId, fleetId, wrappedByCompanyKey, checkValue, createdAt: now, isCurrent: true });
+      await sealings.addCurrentDataKey({ id: dataKeyId, fleetId, wrappedByCompanyKey, wrappedByRecoveryKey, checkValue, createdAt: now, isCurrent: true });
       await recordEvent({ events: tx.events, ids: deps.ids }, { fleetId, type: 'FleetDataKeyCreated', occurredAt: now, actor: SYSTEM, details: { dataKeyId } });
       return ok(undefined);
     });

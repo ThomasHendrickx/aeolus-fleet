@@ -3,6 +3,7 @@ import type { DataKeyId, DeliveryId, FleetId, LeaseId, MeetingId, MessageId, Sch
 import type { Page, PageQuery } from '../shared/page.js';
 import type { DataKeyAge, FleetSealing, KeyAvailability, StoredDataKey } from './fleet-sealing.js';
 import type { CompanyKeyReference, WrappedDataKey } from './key-vault.js';
+import type { RecoveryKey } from './recovery-key.js';
 import type { Meeting } from './meeting.js';
 import type { Delivery, Message } from './message.js';
 import type { Overdue, PushedCrew } from './overdue.js';
@@ -276,6 +277,7 @@ export interface OverdueDeliveryRepository {
 /** A sealed fleet's company key and the wraps of some of its data keys: what unwraps them. */
 export interface WrappedDataKeys {
   companyKey: CompanyKeyReference;
+  recoveryKey: RecoveryKey | null;
   dataKeys: StoredDataKey[];
 }
 
@@ -348,4 +350,6 @@ export interface FleetSealingRepository {
   lockSealing(fleetId: FleetId): Promise<void>;
   /** Names the fleet's new company key and stores each data key's wrap by it. */
   changeCompanyKey(fleetId: FleetId, change: { companyKey: CompanyKeyReference; dataKeys: readonly { id: DataKeyId; wrappedByCompanyKey: WrappedDataKey }[] }): Promise<void>;
+  /** Names the fleet's new recovery key and stores each data key's wrap to it. */
+  changeRecoveryKey(fleetId: FleetId, change: { recoveryKey: RecoveryKey; dataKeys: readonly { id: DataKeyId; wrappedByRecoveryKey: WrappedDataKey }[] }): Promise<void>;
 }

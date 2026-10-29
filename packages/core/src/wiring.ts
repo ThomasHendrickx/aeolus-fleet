@@ -88,12 +88,14 @@ import { createPingShip, type PingShip } from './domain/messaging/ping-ship.js';
 import { createSendMessage, type SendMessage } from './domain/messaging/send-message.js';
 import { createTurnOnSealing, type TurnOnSealing } from './domain/messaging/turn-on-sealing.js';
 import { createChangeCompanyKey, type ChangeCompanyKey } from './domain/messaging/change-company-key.js';
+import { createChangeRecoveryKey, type ChangeRecoveryKey } from './domain/messaging/change-recovery-key.js';
 import { createReadSealing, type ReadSealing } from './domain/messaging/read-sealing.js';
 import { createSealStoredPayloads, type SealStoredPayloads } from './domain/messaging/seal-stored-payloads.js';
 import { createRotateDataKeys, type RotateDataKeys } from './domain/messaging/rotate-data-keys.js';
 import { createFleetDataKeys } from './domain/messaging/data-keys.js';
 import type { KeyVault } from './domain/messaging/key-vault.js';
 import { aesGcmPayloadSealer } from './adapters/crypto/payload-sealer.js';
+import { ageRecoveryKeys } from './adapters/crypto/age-recovery-keys.js';
 import { noKeyVault } from './adapters/kms/no-key-vault.js';
 import { createPrismaFleetSealingRepository } from './adapters/prisma/sealings.js';
 import { createOpenMeeting, type OpenMeeting } from './domain/messaging/open-meeting.js';
@@ -269,6 +271,7 @@ export interface UseCases {
   sendMessage: SendMessage;
   turnOnSealing: TurnOnSealing;
   changeCompanyKey: ChangeCompanyKey;
+  changeRecoveryKey: ChangeRecoveryKey;
   readSealing: ReadSealing;
   openMeeting: OpenMeeting;
   readMeeting: ReadMeeting;
@@ -406,7 +409,7 @@ export function createUseCases(options: {
   const healthReads = { health: createPrismaHealthRecords(prisma), snapshots: createPrismaHealthSnapshots(prisma) };
   const keyVault = options.keyVault ?? noKeyVault;
   const sealings = createPrismaFleetSealingRepository(prisma);
-  const sealing = { sealer: aesGcmPayloadSealer, dataKeys: createFleetDataKeys({ sealings, vault: keyVault, sealer: aesGcmPayloadSealer, clock, uow, ids }) };
+  const sealing = { sealer: aesGcmPayloadSealer, dataKeys: createFleetDataKeys({ sealings, vault: keyVault, sealer: aesGcmPayloadSealer, recoveryKeys: ageRecoveryKeys, clock, uow, ids }) };
 
   return {
     ping: createPing({ clock, fleets: createPrismaFleetCounter(prisma) }),
@@ -507,8 +510,9 @@ export function createUseCases(options: {
     reportLog: createReadReportLog({ leases: createPrismaLeaseRepository(prisma) }),
     deregister: createDeregister({ uow, clock, ids }),
     sendMessage: createSendMessage({ uow, clock, ids, hasher: sha256Hasher, sealing }),
-    turnOnSealing: createTurnOnSealing({ uow, clock, ids, vault: keyVault, sealer: aesGcmPayloadSealer, sealings }),
+    turnOnSealing: createTurnOnSealing({ uow, clock, ids, vault: keyVault, sealer: aesGcmPayloadSealer, recoveryKeys: ageRecoveryKeys, sealings }),
     changeCompanyKey: createChangeCompanyKey({ uow, clock, ids, vault: keyVault, sealer: aesGcmPayloadSealer, sealings }),
+    changeRecoveryKey: createChangeRecoveryKey({ uow, clock, ids, recoveryKeys: ageRecoveryKeys, sealing, sealings }),
     readSealing: createReadSealing({ sealings }),
     openMeeting: createOpenMeeting({ uow, clock, ids, hasher: sha256Hasher, sealing }),
     readMeeting: createReadMeeting({ uow, sealing }),

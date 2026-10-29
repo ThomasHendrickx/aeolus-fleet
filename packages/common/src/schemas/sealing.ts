@@ -5,17 +5,29 @@ import { idSchema } from '../ids/index.js';
 /** The longest company key reference taken: an AWS KMS key ARN or alias ARN fits well within it. */
 const COMPANY_KEY_MAX_LENGTH = 2048;
 
-/** Input of `fleet.turnOnSealing` (decision 0068): the company key, by its reference in the company's own KMS. */
-export const turnOnSealingInputSchema = z.strictObject({ companyKey: z.string().min(1).max(COMPANY_KEY_MAX_LENGTH) });
+/** The longest recovery key taken: an age X25519 recipient is 62 characters. */
+const RECOVERY_KEY_MAX_LENGTH = 256;
 
-/** Output of `fleet.turnOnSealing`: sealing while payloads stored plain before wait for the sealing pass, else sealed. */
-export const turnOnSealingOutputSchema = z.object({ state: z.enum(['sealing', 'sealed']), companyKey: z.string() });
+/** A recovery key as the company gives it: the public half of an `age` X25519 key pair (`age1...`), checked whole by core. */
+const recoveryKeySchema = z.string().min(1).max(RECOVERY_KEY_MAX_LENGTH);
+
+/** Input of `fleet.turnOnSealing` (decision 0068): the company key, by its reference in the company's own KMS, and optionally a recovery key. */
+export const turnOnSealingInputSchema = z.strictObject({ companyKey: z.string().min(1).max(COMPANY_KEY_MAX_LENGTH), recoveryKey: recoveryKeySchema.optional() });
+
+/** Output of `fleet.turnOnSealing`: sealing while payloads stored plain before wait for the sealing pass, else sealed; the recovery key's fingerprint when one was given. */
+export const turnOnSealingOutputSchema = z.object({ state: z.enum(['sealing', 'sealed']), companyKey: z.string(), recoveryKeyFingerprint: z.string().optional() });
 
 /** Input of `fleet.changeCompanyKey` (decision 0068, B13c): the new company key, by its reference in the company's own KMS. */
 export const changeCompanyKeyInputSchema = z.strictObject({ companyKey: z.string().min(1).max(COMPANY_KEY_MAX_LENGTH) });
 
 /** Output of `fleet.changeCompanyKey`: the company key that wraps every data key of the fleet now. */
 export const changeCompanyKeyOutputSchema = z.object({ companyKey: z.string() });
+
+/** Input of `fleet.changeRecoveryKey` (decision 0068, B13d): the new recovery key, the public half of an `age` X25519 key pair. */
+export const changeRecoveryKeyInputSchema = z.strictObject({ recoveryKey: recoveryKeySchema });
+
+/** Output of `fleet.changeRecoveryKey`: the fingerprint of the recovery key every data key of the fleet is wrapped to now. */
+export const changeRecoveryKeyOutputSchema = z.object({ recoveryKeyFingerprint: z.string() });
 
 /** Why the company key vault refused a sealed fleet's company key (decision 0068, B11). */
 export const companyKeyUnavailableReasonSchema = z.enum(['accessDenied', 'disabled', 'notFound', 'unreachable']);
@@ -28,8 +40,8 @@ export const keyAvailabilitySchema = z.discriminatedUnion('isAvailable', [
 
 /**
  * Output of `fleet.sealing` (decision 0068, B5): none for a fleet that is not
- * sealed; else its state, its company key by reference, the key's
- * availability and its data keys oldest first, each with when it was made and
+ * sealed; else its state, its company key by reference, its recovery key by
+ * fingerprint (none when the company set none), the key's availability and its data keys oldest first, each with when it was made and
  * whether it seals now. Never a key, wrapped or not.
  */
 export const sealingOutputSchema = z.union([
@@ -37,6 +49,7 @@ export const sealingOutputSchema = z.union([
   z.object({
     state: z.enum(['sealing', 'sealed']),
     companyKey: z.string(),
+    recoveryKeyFingerprint: z.string().nullable(),
     keyAvailability: keyAvailabilitySchema,
     dataKeys: z.array(z.object({ id: idSchema('dataKey'), createdAt: z.iso.datetime(), isCurrent: z.boolean() })),
   }),

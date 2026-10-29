@@ -1,5 +1,6 @@
 import { CreateKeyCommand, DisableKeyCommand, EnableKeyCommand, KMSClient } from '@aws-sdk/client-kms';
 import { createIdGenerator, FLEET_HEADER, idSchema, MEETING_ADDED_CONTENT_TYPE, PING_CONTENT_TYPE, SCOPES, WITHDRAWAL_CONTENT_TYPE, type DeliveryId, type FleetId } from '@aeolus-fleet/common';
+import { Decrypter, generateX25519Identity, identityToRecipient } from 'age-encryption';
 import { createTRPCClient, httpBatchLink, TRPCClientError, type TRPCClient } from '@trpc/client';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -11,6 +12,9 @@ import { createPrismaTx, createPrismaUnitOfWork, type PrismaTx } from '../src/ad
 import { createPrismaFleetSealingRepository } from '../src/adapters/prisma/sealings.js';
 import { aesGcmPayloadSealer } from '../src/adapters/crypto/payload-sealer.js';
 import { createChangeCompanyKey } from '../src/domain/messaging/change-company-key.js';
+import { createChangeRecoveryKey } from '../src/domain/messaging/change-recovery-key.js';
+import { ageRecoveryKeys } from '../src/adapters/crypto/age-recovery-keys.js';
+import { createFleetDataKeys } from '../src/domain/messaging/data-keys.js';
 import type { UnitOfWork } from '../src/domain/shared/unit-of-work.js';
 import { createApp } from '../src/app.js';
 import type { KeyVault } from '../src/domain/messaging/key-vault.js';
@@ -517,6 +521,7 @@ describe('the kill switch on Postgres and a LocalStack KMS (decision 0068, B9, B
     expect(sealing).toEqual({
       state: 'sealed',
       companyKey: fleet.companyKey,
+      recoveryKeyFingerprint: null,
       keyAvailability: { isAvailable: false, reason: 'disabled', since: '2026-10-29T12:00:00.000Z' },
       dataKeys: [{ id: dataKey?.id, createdAt: dataKey?.createdAt.toISOString(), isCurrent: true }],
     });
@@ -866,6 +871,123 @@ describe('changing the company key on Postgres and a LocalStack KMS (decision 00
     const refusal = await refusalOfCall(keyHolder.fleet.changeCompanyKey.mutate({ companyKey: await aKeyBoundTo(fleet.fleetId) }));
 
     expect(refusal).toEqual({ code: 'CONFLICT', message: `Fleet ${fleet.fleetId} is not sealed: turn sealing on with the company key instead` });
+  });
+});
+
+describe('the recovery key on Postgres and a LocalStack KMS (decision 0068, B6, B13d)', () => {
+  /** A throwaway recovery key: the company's offline key pair, its private half only ever in this test. */
+  async function aRecoveryKey(): Promise<{ recipient: string; opens: (wrapped: Uint8Array) => Promise<Uint8Array> }> {
+    const identity = await generateX25519Identity();
+    const recipient = await identityToRecipient(identity);
+    return {
+      recipient,
+      opens: (wrapped) => {
+        const decrypter = new Decrypter();
+        decrypter.addIdentity(identity);
+        return decrypter.decrypt(wrapped);
+      },
+    };
+  }
+
+  async function recoveryOf(fleetId: FleetId) {
+    const [fleet, dataKeys, events] = await Promise.all([
+      prisma.fleet.findUniqueOrThrow({ where: { id: fleetId }, select: { recoveryKey: true, recoveryKeyFingerprint: true } }),
+      prisma.dataKey.findMany({ where: { fleetId }, orderBy: { id: 'asc' } }),
+      prisma.event.findMany({ where: { fleetId, type: { in: ['FleetSealingTurnedOn', 'FleetRecoveryKeyChanged'] } }, orderBy: { seq: 'asc' }, select: { type: true, details: true } }),
+    ]);
+    return { ...fleet, dataKeys, events };
+  }
+
+  /** Whether every data key of the fleet opens under the recovery key to the key its check value names. */
+  async function everyDataKeyOpensUnder(recovery: { opens: (wrapped: Uint8Array) => Promise<Uint8Array> }, fleetId: FleetId): Promise<boolean> {
+    const { dataKeys } = await recoveryOf(fleetId);
+    for (const dataKey of dataKeys) {
+      if (dataKey.wrappedByRecoveryKey === null) {
+        return false;
+      }
+      const material = new Uint8Array(await recovery.opens(new Uint8Array(dataKey.wrappedByRecoveryKey)));
+      if (!Buffer.from(aesGcmPayloadSealer.checkValue(material)).equals(Buffer.from(dataKey.checkValue))) {
+        return false;
+      }
+    }
+    return dataKeys.length > 0;
+  }
+
+  it('scenario 6: given a recovery key at turning on, every data key is also wrapped to it, and the fleet shows its fingerprint', async () => {
+    const fleet = await aHostedFleet();
+    const companyKey = await aKeyBoundTo(fleet.fleetId);
+    const recovery = await aRecoveryKey();
+    const keyHolder = await aKeyHolder(fleet);
+
+    await keyHolder.fleet.turnOnSealing.mutate({ companyKey, recoveryKey: recovery.recipient });
+    const server = aServerAt('2026-11-28T12:00:00.000Z');
+    await server.useCases.rotateDataKeys();
+
+    const stored = await recoveryOf(fleet.fleetId);
+    const { recoveryKeyFingerprint } = stored;
+    expect(recoveryKeyFingerprint).toMatch(/^SHA256:[A-Za-z0-9+/]{43}$/);
+    expect(stored.recoveryKey).toBe(recovery.recipient);
+    expect(stored.dataKeys.map(({ isCurrent }) => isCurrent)).toEqual([false, true]);
+    expect(await everyDataKeyOpensUnder(recovery, fleet.fleetId)).toBe(true);
+    expect(stored.events).toEqual([{ type: 'FleetSealingTurnedOn', details: { companyKey, recoveryKeyFingerprint } }]);
+    expect(await installationIn(fleet.fleetId).fleet.sealing.query()).toMatchObject({ state: 'sealed', recoveryKeyFingerprint });
+  });
+
+  it('changing the recovery key wraps every data key to the new one, FleetRecoveryKeyChanged names both fingerprints, and every message is still received', async () => {
+    const fleet = await aHostedFleet();
+    const companyKey = await aKeyBoundTo(fleet.fleetId);
+    const first = await aRecoveryKey();
+    const second = await aRecoveryKey();
+    const keyHolder = await aKeyHolder(fleet);
+    await keyHolder.fleet.turnOnSealing.mutate({ companyKey, recoveryKey: first.recipient });
+    const scout = await aCrewedReviewer(fleet, 'scout');
+    const server = aServerAt('2026-10-29T12:00:00.000Z');
+    unwrap(await server.useCases.sendMessage(fleet.argo, aMessageTo(scout.shipId, 'sealed under the first data key')));
+    server.clock.set('2026-11-28T12:00:00.000Z');
+    await server.useCases.rotateDataKeys();
+    unwrap(await server.useCases.sendMessage(fleet.argo, aMessageTo(scout.shipId, 'sealed under the second data key')));
+    const before = await recoveryOf(fleet.fleetId);
+    const messagesBefore = await prisma.message.findMany({ where: { fleetId: fleet.fleetId }, orderBy: { id: 'asc' } });
+
+    const changed = await keyHolder.fleet.changeRecoveryKey.mutate({ recoveryKey: second.recipient });
+
+    const after = await recoveryOf(fleet.fleetId);
+    expect(changed).toEqual({ recoveryKeyFingerprint: after.recoveryKeyFingerprint });
+    expect(after.recoveryKey).toBe(second.recipient);
+    expect(await everyDataKeyOpensUnder(second, fleet.fleetId)).toBe(true);
+    expect(after.dataKeys.map(({ id, wrappedByCompanyKey, checkValue }) => ({ id, wrappedByCompanyKey, checkValue }))).toEqual(before.dataKeys.map(({ id, wrappedByCompanyKey, checkValue }) => ({ id, wrappedByCompanyKey, checkValue })));
+    expect(after.events.at(-1)).toEqual({ type: 'FleetRecoveryKeyChanged', details: { from: before.recoveryKeyFingerprint, to: after.recoveryKeyFingerprint } });
+    expect(await prisma.message.findMany({ where: { fleetId: fleet.fleetId }, orderBy: { id: 'asc' } })).toEqual(messagesBefore);
+    const { deliveries } = unwrap(await aServerAt('2026-11-28T12:00:00.000Z').useCases.receiveDeliveries(scout, { max: 10 }));
+    expect(deliveries.map(({ payload }) => payload)).toEqual(['sealed under the first data key', 'sealed under the second data key']);
+  });
+
+  it('a recovery key change rolled back mid-way leaves every wrap and the recovery key as they were', async () => {
+    const fleet = await aHostedFleet();
+    const companyKey = await aKeyBoundTo(fleet.fleetId);
+    unwrap(await useCases.turnOnSealing(fleet.argo, { companyKey, recoveryKey: (await aRecoveryKey()).recipient }));
+    const before = await recoveryOf(fleet.fleetId);
+    const uow = createPrismaUnitOfWork(prisma);
+    const failingBeforeCommit: UnitOfWork<PrismaTx> = {
+      run: (work) => uow.run((tx) => work({ ...tx, events: { ...tx.events, append: () => Promise.reject(new Error('the server failed before commit')) } })),
+    };
+    const sealings = createPrismaFleetSealingRepository(prisma);
+    const dataKeys = createFleetDataKeys({ sealings, vault: keyVault, sealer: aesGcmPayloadSealer, recoveryKeys: ageRecoveryKeys, clock, uow, ids: newId });
+    const change = createChangeRecoveryKey({ uow: failingBeforeCommit, clock, ids: newId, recoveryKeys: ageRecoveryKeys, sealing: { sealer: aesGcmPayloadSealer, dataKeys }, sealings });
+
+    await expect(change(fleet.argo, { recoveryKey: (await aRecoveryKey()).recipient })).rejects.toThrow('the server failed before commit');
+
+    expect(await recoveryOf(fleet.fleetId)).toEqual(before);
+  });
+
+  it('refuses a recovery key that is no age X25519 recipient INVALID_RECOVERY_KEY, and nothing is stored', async () => {
+    const fleet = await aHostedFleet();
+    const companyKey = await aKeyBoundTo(fleet.fleetId);
+
+    const refusal = await refusalOfCall((await aKeyHolder(fleet)).fleet.turnOnSealing.mutate({ companyKey, recoveryKey: `${(await aRecoveryKey()).recipient}x` }));
+
+    expect(refusal.code).toBe('BAD_REQUEST');
+    expect(await prisma.dataKey.count({ where: { fleetId: fleet.fleetId } })).toBe(0);
   });
 });
 

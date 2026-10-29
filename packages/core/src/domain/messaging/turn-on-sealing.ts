@@ -10,6 +10,7 @@ import type { SealingState } from './fleet-sealing.js';
 import { checkCompanyKey } from './company-key-check.js';
 import type { CompanyKeyReference, KeyVault } from './key-vault.js';
 import type { PayloadSealer } from './payload-sealer.js';
+import { recoveryKey as recoveryKeyOf, type RecoveryKey, type RecoveryKeys } from './recovery-key.js';
 import type { FleetSealingRepository } from './ports.js';
 
 export interface TurnOnSealingTx {
@@ -20,25 +21,30 @@ export interface TurnOnSealingTx {
 export interface SealingTurnedOn {
   state: SealingState;
   companyKey: CompanyKeyReference;
+  /** The recovery key's fingerprint, when the company gave one. */
+  recoveryKeyFingerprint?: string;
 }
 
-export type TurnOnSealingRefusal = DomainError<'FORBIDDEN' | 'FLEET_ALREADY_SEALED' | 'KEY_UNAVAILABLE' | 'KEY_NOT_BOUND_TO_FLEET'>;
+export type TurnOnSealingRefusal = DomainError<'FORBIDDEN' | 'FLEET_ALREADY_SEALED' | 'INVALID_RECOVERY_KEY' | 'KEY_UNAVAILABLE' | 'KEY_NOT_BOUND_TO_FLEET'>;
 
-export type TurnOnSealing = (caller: Caller, input: { companyKey: CompanyKeyReference }) => Promise<Result<SealingTurnedOn, TurnOnSealingRefusal>>;
+export type TurnOnSealing = (caller: Caller, input: { companyKey: CompanyKeyReference; recoveryKey?: string }) => Promise<Result<SealingTurnedOn, TurnOnSealingRefusal>>;
 
 /**
  * Use case: turning sealing on for the caller's fleet (decision 0068, B4),
- * by an actor holding `fleet:keys`, as the fleet manager does. Checked in
- * order: the caller's scope; that the fleet is not sealed; that the
+ * by an actor holding `fleet:keys`, as the fleet manager does, optionally
+ * with a recovery key (B6). Checked in order: the caller's scope; that a
+ * recovery key given is an `age` X25519 recipient; that the fleet is not
+ * sealed; that the
  * company's key vault makes a data key under the company key for this
  * fleet's context and unwraps it again; and that it refuses one for another
  * fleet's context, so a key whose policy has no fleet condition, which one
  * tenant could point at another's key with, is refused
  * KEY_NOT_BOUND_TO_FLEET. Every key vault call runs before the unit of work;
  * a refusal or no answer is KEY_UNAVAILABLE with its reason, and nothing is
- * stored. Then one unit of work: the fleet sealed under its company key,
- * its first data key current, FleetSealingTurnedOn naming the key reference
- * and no key material. A fleet that stores a plain payload reads sealing
+ * stored. The first data key is wrapped to the recovery key too, outside it.
+ * Then one unit of work: the fleet sealed under its company key with its
+ * recovery key, its first data key current, FleetSealingTurnedOn naming the
+ * key reference and the recovery key's fingerprint, and no key material. A fleet that stores a plain payload reads sealing
  * until the sealing pass leaves none; one that stores none reads sealed.
  */
 export function createTurnOnSealing(deps: {
@@ -47,12 +53,22 @@ export function createTurnOnSealing(deps: {
   ids: IdGenerator;
   vault: KeyVault;
   sealer: PayloadSealer;
+  recoveryKeys: RecoveryKeys;
   /** The fleets' sealing, read outside the unit of work. */
   sealings: FleetSealingRepository;
 }): TurnOnSealing {
-  return async (caller, { companyKey }) => {
+  return async (caller, input) => {
+    const { companyKey } = input;
     if (!hasScope(caller, 'fleet:keys')) {
       return refuse('FORBIDDEN', 'Turning sealing on needs the fleet:keys scope');
+    }
+    let recoveryKey: RecoveryKey | null = null;
+    if (input.recoveryKey !== undefined) {
+      const parsed = recoveryKeyOf(deps.recoveryKeys, input.recoveryKey);
+      if (!parsed.isOk) {
+        return parsed;
+      }
+      recoveryKey = parsed.value;
     }
     const { fleetId } = caller;
     if ((await deps.sealings.find(fleetId)) !== undefined) {
@@ -63,6 +79,8 @@ export function createTurnOnSealing(deps: {
       return made;
     }
     const checkValue = deps.sealer.checkValue(made.value.unwrapped);
+    const wrappedByRecoveryKey = recoveryKey === null ? null : await deps.recoveryKeys.wrap(recoveryKey, made.value.unwrapped);
+    const turnedOn: Pick<SealingTurnedOn, 'companyKey' | 'recoveryKeyFingerprint'> = recoveryKey === null ? { companyKey } : { companyKey, recoveryKeyFingerprint: recoveryKey.fingerprint };
 
     return deps.uow.run(async (tx): Promise<Result<SealingTurnedOn, TurnOnSealingRefusal>> => {
       if ((await tx.sealings.findForUpdate(fleetId)) !== undefined) {
@@ -71,11 +89,11 @@ export function createTurnOnSealing(deps: {
       const at = deps.clock.now();
       const state: SealingState = (await tx.sealings.storesPlainPayload(fleetId)) ? 'sealing' : 'sealed';
       await tx.sealings.turnOn(
-        { fleetId, state, companyKey, keyAvailability: { isAvailable: true, since: at } },
-        { id: deps.ids('dataKey'), fleetId, wrappedByCompanyKey: made.value.wrapped, checkValue, createdAt: at, isCurrent: true },
+        { fleetId, state, companyKey, recoveryKey, keyAvailability: { isAvailable: true, since: at } },
+        { id: deps.ids('dataKey'), fleetId, wrappedByCompanyKey: made.value.wrapped, wrappedByRecoveryKey, checkValue, createdAt: at, isCurrent: true },
       );
-      await recordEvent({ events: tx.events, ids: deps.ids }, { fleetId, type: 'FleetSealingTurnedOn', occurredAt: at, actor: actorOf(caller), details: { companyKey } });
-      return ok({ state, companyKey });
+      await recordEvent({ events: tx.events, ids: deps.ids }, { fleetId, type: 'FleetSealingTurnedOn', occurredAt: at, actor: actorOf(caller), details: turnedOn });
+      return ok({ state, ...turnedOn });
     });
   };
 }

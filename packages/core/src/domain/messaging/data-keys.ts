@@ -19,6 +19,7 @@ import type { CompanyKeyReference, KeyUnavailable, KeyVault, WrappedDataKey } fr
 import type { DataKey, PayloadSealer, SealedRow } from './payload-sealer.js';
 import type { Message } from './message.js';
 import type { FleetSealingRepository } from './ports.js';
+import type { RecoveryKey, RecoveryKeys } from './recovery-key.js';
 import { isSealedPayload, type StoredPayload } from './sealed-payload.js';
 
 /** The work met data keys it does not hold: its unit of work rolls back, and it runs again with them. */
@@ -45,10 +46,12 @@ export const UNREADABLE_PAYLOAD: UnreadablePayload = { kind: 'unreadable' };
 /** A payload as a list answers it: plain, or marked unreadable while the rest are listed (B9). */
 export type ListedPayload = string | UnreadablePayload;
 
-/** A new data key for a fleet, kept only wrapped: the company key that wraps it, its wrap and its check value. */
+/** A new data key for a fleet, kept only wrapped: the company key and the recovery key that wrap it, its wraps and its check value. */
 export interface NewDataKey {
   readonly companyKey: CompanyKeyReference;
   readonly wrappedByCompanyKey: WrappedDataKey;
+  readonly recoveryKey: RecoveryKey | null;
+  readonly wrappedByRecoveryKey: WrappedDataKey | null;
   readonly checkValue: Uint8Array<ArrayBuffer>;
 }
 
@@ -102,12 +105,14 @@ export interface KeyAvailabilityTx {
  * refusal after a success, FleetKeyAvailable on the first success after; a
  * wrap that does not open is the key answering, and changes nothing. A new
  * data key for the rotation is made under the company key the fleet names
- * then, its answer written the same way.
+ * then, its answer written the same way, and wrapped to the recovery key the
+ * fleet names then, when it has one.
  */
 export function createFleetDataKeys(deps: {
   sealings: Pick<FleetSealingRepository, 'find' | 'wrappedDataKeys'>;
   vault: KeyVault;
   sealer: PayloadSealer;
+  recoveryKeys: RecoveryKeys;
   clock: Clock;
   uow: UnitOfWork<KeyAvailabilityTx>;
   ids: IdGenerator;
@@ -187,12 +192,14 @@ export function createFleetDataKeys(deps: {
       if (sealing === undefined) {
         return err({ kind: 'keyUnavailable', reason: 'notFound' });
       }
-      const { companyKey } = sealing;
+      const { companyKey, recoveryKey } = sealing;
       const made = await answered(fleetId, { at: deps.clock.now(), outcome: await deps.vault.makeDataKey({ fleetId, companyKey }) });
       if (!made.isOk) {
         return made;
       }
-      return ok({ companyKey, wrappedByCompanyKey: made.value.wrapped, checkValue: deps.sealer.checkValue(made.value.material) });
+      const { material, wrapped } = made.value;
+      const wrappedByRecoveryKey = recoveryKey === null ? null : await deps.recoveryKeys.wrap(recoveryKey, material);
+      return ok({ companyKey, wrappedByCompanyKey: wrapped, recoveryKey, wrappedByRecoveryKey, checkValue: deps.sealer.checkValue(material) });
     },
   };
 }
