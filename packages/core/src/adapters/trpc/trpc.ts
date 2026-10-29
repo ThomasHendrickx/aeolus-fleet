@@ -564,17 +564,6 @@ export const signedInProcedure = callerProcedure({ isOnBehalfRead: false, resolv
  */
 export const actorProcedure = callerProcedure({ isOnBehalfRead: false, resolve: resolveCaller });
 
-/**
- * A fleet call the installation alone makes for now (decision 0057), such
- * as turning sealing on (decision 0068): any other actor is refused
- * FORBIDDEN before its input is read, as a scope it lacks is.
- */
-export const installationActorProcedure = actorProcedure.use(({ ctx, next }) => {
-  if (ctx.caller.kind !== 'installation') {
-    throw new TRPCError({ code: 'FORBIDDEN', message: 'Only the installation makes this call' });
-  }
-  return next();
-});
 const readingProcedure = callerProcedure({ isOnBehalfRead: true, resolve: resolveCaller });
 
 /**

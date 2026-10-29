@@ -1,6 +1,6 @@
 import type { IdGenerator } from '@aeolus-fleet/common';
 
-import { actorOf, type Caller } from '../shared/caller.js';
+import { actorOf, hasScope, type Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent, type EventLog } from '../shared/events.js';
@@ -28,8 +28,8 @@ export type TurnOnSealing = (caller: Caller, input: { companyKey: CompanyKeyRefe
 
 /**
  * Use case: turning sealing on for the caller's fleet (decision 0068, B4),
- * the installation's alone until `fleet:keys` is held by the fleet manager.
- * Checked in order: the caller; that the fleet is not sealed; that the
+ * by an actor holding `fleet:keys`, as the fleet manager does. Checked in
+ * order: the caller's scope; that the fleet is not sealed; that the
  * company's key vault makes a data key under the company key for this
  * fleet's context and unwraps it again; and that it refuses one for another
  * fleet's context, so a key whose policy has no fleet condition, which one
@@ -51,8 +51,8 @@ export function createTurnOnSealing(deps: {
   sealings: FleetSealingRepository;
 }): TurnOnSealing {
   return async (caller, { companyKey }) => {
-    if (caller.kind !== 'installation') {
-      return refuse('FORBIDDEN', 'Only the installation turns sealing on for now');
+    if (!hasScope(caller, 'fleet:keys')) {
+      return refuse('FORBIDDEN', 'Turning sealing on needs the fleet:keys scope');
     }
     const { fleetId } = caller;
     if ((await deps.sealings.find(fleetId)) !== undefined) {
