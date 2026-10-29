@@ -466,14 +466,22 @@ describe('the kill switch on Postgres and a LocalStack KMS (decision 0068, B9, B
     // A month before the database's clock: a schedule an hour ahead here is due by the claim's now().
     const server = aServerAt('2026-09-29T12:00:00.000Z');
     const { scheduleId } = unwrap(
-      await server.useCases.scheduleMessage(scout, { selector: { kind: 'ship', name: 'argo' }, payload: PAYLOAD, model: 'claude-opus-5-5', idempotencyKey: newKey(), timing: { kind: 'once', at: new Date('2026-09-29T13:00:00.000Z') } }),
+      await server.useCases.scheduleMessage(scout, {
+        selector: { kind: 'ship', name: 'argo' },
+        payload: PAYLOAD,
+        model: 'claude-opus-5-5',
+        idempotencyKey: newKey(),
+        timing: { kind: 'once', at: new Date('2026-09-29T13:00:00.000Z') },
+        onRefused: 'skip',
+      }),
     );
     await disableKey(fleet.companyKey);
     server.clock.set('2026-09-29T13:00:00.000Z');
 
     await server.useCases.sendDueSchedules();
 
-    expect(await prisma.schedule.findUniqueOrThrow({ where: { id: scheduleId }, select: { lastOutcomeKind: true, lastRefusalCode: true } })).toEqual({ lastOutcomeKind: 'refused', lastRefusalCode: 'KEY_UNAVAILABLE' });
+    // The app's own schedule timer may claim it first: whichever pass records the refusal, it is recorded once.
+    await expect.poll(async () => prisma.schedule.findUniqueOrThrow({ where: { id: scheduleId }, select: { lastOutcomeKind: true, lastRefusalCode: true } })).toEqual({ lastOutcomeKind: 'refused', lastRefusalCode: 'KEY_UNAVAILABLE' });
     expect(await prisma.event.count({ where: { fleetId: fleet.fleetId, type: 'ScheduledSendRefused' } })).toBe(1);
     expect(await prisma.message.count({ where: { fleetId: fleet.fleetId, scheduleId } })).toBe(0);
   });
