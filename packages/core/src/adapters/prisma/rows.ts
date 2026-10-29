@@ -29,6 +29,7 @@ import type { Credential } from '../../domain/identity/credential.js';
 import type { OperatorAccount } from '../../domain/identity/operator-account.js';
 import type { Delivery, Message } from '../../domain/messaging/message.js';
 import type { PushedCrew, WaitingDelivery } from '../../domain/messaging/overdue.js';
+import { isSealedPayload, type StoredPayload } from '../../domain/messaging/sealed-payload.js';
 import type { ShipReport } from '../../domain/registry/ship-report.js';
 import type { StatedStatement } from '../../domain/registry/statement.js';
 import type { Turn } from '../../domain/registry/turn.js';
@@ -546,11 +547,31 @@ export function toConsoleSessionCaller(row: unknown): { caller: ShipCaller | Cre
   return { caller: lease_id === null ? caller : { ...caller, leaseId: lease_id }, expiresAt: expires_at };
 }
 
+/** A message's payload columns: plain, or sealed whole with its plain byte count (decision 0068). */
+const payloadColumns = z.union([
+  z
+    .object({ payload: z.string(), sealedDataKeyId: z.null(), sealedNonce: z.null(), sealedCiphertext: z.null(), sealedPayloadBytes: z.null() })
+    .transform((row): StoredPayload => row.payload),
+  z
+    .object({ payload: z.null(), sealedDataKeyId: idSchema('dataKey'), sealedNonce: z.instanceof(Uint8Array), sealedCiphertext: z.instanceof(Uint8Array), sealedPayloadBytes: z.int().min(0) })
+    .transform((row): StoredPayload => ({
+      sealed: { dataKeyId: row.sealedDataKeyId, nonce: new Uint8Array(row.sealedNonce), ciphertext: new Uint8Array(row.sealedCiphertext) },
+      plainBytes: row.sealedPayloadBytes,
+    })),
+]);
+
+/** A payload as a message's columns hold it: plain in `payload`, or sealed in the sealed columns. */
+export function payloadColumnsOf(payload: StoredPayload): { payload: string | null; sealedDataKeyId: string | null; sealedNonce: Uint8Array<ArrayBuffer> | null; sealedCiphertext: Uint8Array<ArrayBuffer> | null; sealedPayloadBytes: number | null } {
+  return isSealedPayload(payload)
+    ? { payload: null, sealedDataKeyId: payload.sealed.dataKeyId, sealedNonce: payload.sealed.nonce, sealedCiphertext: payload.sealed.ciphertext, sealedPayloadBytes: payload.plainBytes }
+    : { payload, sealedDataKeyId: null, sealedNonce: null, sealedCiphertext: null, sealedPayloadBytes: null };
+}
+
 const messageRow = z.object({
   id: idSchema('message'),
   fleetId: idSchema('fleet'),
   senderShipId: idSchema('ship'),
-  payload: z.string(),
+  questionId: z.string().nullable(),
   contentType: z.string(),
   model: z.string().nullable(),
   idempotencyKey: z.string(),
@@ -584,7 +605,7 @@ const selectorColumns = z.union([
 ]);
 
 export function toMessage(row: unknown): Message {
-  return { ...messageRow.parse(row), selector: selectorColumns.parse(row) };
+  return { ...messageRow.parse(row), payload: payloadColumns.parse(row), selector: selectorColumns.parse(row) };
 }
 
 const recipientSchema = z.discriminatedUnion('kind', [

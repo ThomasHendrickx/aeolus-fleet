@@ -6,6 +6,7 @@ import { refuse, type DomainError } from '../shared/errors.js';
 import type { Page, PageQuery } from '../shared/page.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
+import { unsealed, withDataKeys, type DataKeysNeeded, type PayloadSealing } from './data-keys.js';
 import type { Participant } from './meeting.js';
 import type { MeetingRepository } from './ports.js';
 
@@ -65,7 +66,9 @@ export interface MeetingRead {
   contributions: Page<ContributionRead, MessageId>;
 }
 
-export type ReadMeeting = (caller: ShipCaller, input: { meetingId: MeetingId } & PageQuery<MessageId>) => Promise<Result<MeetingRead, DomainError<'MEETING_NOT_FOUND'>>>;
+export type ReadMeetingRefusal = DomainError<'MEETING_NOT_FOUND' | 'KEY_UNAVAILABLE'>;
+
+export type ReadMeeting = (caller: ShipCaller, input: { meetingId: MeetingId } & PageQuery<MessageId>) => Promise<Result<MeetingRead, ReadMeetingRefusal>>;
 
 /**
  * Use case: a participant reads its meeting (`meeting`, decision 0061): its
@@ -73,11 +76,13 @@ export type ReadMeeting = (caller: ShipCaller, input: { meetingId: MeetingId } &
  * kind and status, crewed or awaiting crew, as it is now (M14), its mic, and a page of
  * what was said so far, newest first (M12): its contributions, never the
  * notices. A meeting that does not exist and one the caller takes no part in
- * are one refusal. Reads only.
+ * are one refusal. Reads only. In a sealed fleet each contribution is
+ * unsealed with data keys unwrapped before the unit of work (decision 0068,
+ * B9); a key it cannot get refuses KEY_UNAVAILABLE.
  */
-export function createReadMeeting(deps: { uow: UnitOfWork<ReadMeetingTx> }): ReadMeeting {
+export function createReadMeeting(deps: { uow: UnitOfWork<ReadMeetingTx>; sealing: PayloadSealing }): ReadMeeting {
   return (caller, input) =>
-    deps.uow.run(async (tx): Promise<Result<MeetingRead, DomainError<'MEETING_NOT_FOUND'>>> => {
+    withDataKeys({ sealing: deps.sealing, fleetId: caller.fleetId }, (keys) => deps.uow.run(async (tx): Promise<Result<MeetingRead, ReadMeetingRefusal | DataKeysNeeded>> => {
       const { fleetId } = caller;
       const { meetingId } = input;
       const meeting = await tx.meetings.find(fleetId, meetingId);
@@ -98,7 +103,11 @@ export function createReadMeeting(deps: { uow: UnitOfWork<ReadMeetingTx> }): Rea
       const page = await tx.meetings.contributions(fleetId, { meetingId, cursor: input.cursor, limit: input.limit });
       const items: ContributionRead[] = [];
       for (const message of page.items) {
-        items.push({ messageId: message.id, sender: await party(message.senderShipId), payload: message.payload, contentType: message.contentType, model: message.model, sentAt: message.createdAt });
+        const payload = unsealed(keys, { row: { fleetId, rowId: message.id }, payload: message.payload });
+        if (!payload.isOk) {
+          return payload;
+        }
+        items.push({ messageId: message.id, sender: await party(message.senderShipId), payload: payload.value, contentType: message.contentType, model: message.model, sentAt: message.createdAt });
       }
       const requests: MicRead['requests'] = [];
       for (const request of meeting.micRequests) {
@@ -116,5 +125,5 @@ export function createReadMeeting(deps: { uow: UnitOfWork<ReadMeetingTx> }): Rea
         mic,
         contributions: { items, nextCursor: page.nextCursor },
       });
-    });
+    }));
 }

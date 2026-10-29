@@ -13,6 +13,7 @@ import { withinDailyMessageLimit, type DailyMessageLimitTx } from './daily-messa
 import { dismissForResend, type DismissRefusal } from './delivery.js';
 import { acceptMessage, deliveredTo, repeatOf, type AcceptRefusal, type RepeatRefusal } from './message.js';
 import type { DeliveryRepository, MessageRepository, RequestHasher } from './ports.js';
+import { isSealedPayload } from './sealed-payload.js';
 import { sendRequestText } from './send-request.js';
 
 export interface ResendDeliveryTx extends Omit<ResolveSelectorTx, 'ships'>, Omit<CheckReachTx, 'ships'>, DailyMessageLimitTx {
@@ -24,7 +25,7 @@ export interface ResendDeliveryTx extends Omit<ResolveSelectorTx, 'ships'>, Omit
 }
 
 export type ResendDeliveryRefusal =
-  | DomainError<'DELIVERY_NOT_FOUND' | 'PING_NOT_RESENT'>
+  | DomainError<'DELIVERY_NOT_FOUND' | 'PING_NOT_RESENT' | 'KEY_UNAVAILABLE'>
   | DismissRefusal
   | DomainError<'MESSAGE_LIMIT_REACHED'>
   | RepeatRefusal
@@ -89,18 +90,28 @@ export function createResendDelivery(deps: {
       if (isPingContentType(original.contentType)) {
         return refuse('PING_NOT_RESENT', 'A ping is not resent: dismiss it, and ping the ship again');
       }
+      const { payload } = original;
+      if (isSealedPayload(payload)) {
+        // Resend unseals and seals again for the new message in the design's slice S3 (decision 0068, B17).
+        return refuse('KEY_UNAVAILABLE', `Message ${original.id} is sealed: resending a sealed message is not open yet`);
+      }
 
       // A contribution's or a label send's undeliverable delivery is resent to its ship alone, as a message of its own.
       const selector = deliveredTo(original, delivery);
       const inReplyTo = original.inReplyToMessageId ?? undefined;
       const requestHash = deps.hasher.hash(
-        sendRequestText({ selector, payload: original.payload, contentType: original.contentType, inReplyTo, isForced: false }),
+        sendRequestText({ selector, payload, contentType: original.contentType, inReplyTo, isForced: false }),
       );
       const senderKey = { fleetId, senderShipId: original.senderShipId, idempotencyKey: resendKey(delivery.id) };
       await tx.messages.lockIdempotencyKey(senderKey);
       const earlier = await tx.messages.findByIdempotencyKey(senderKey);
       if (earlier) {
-        const repeat = repeatOf(earlier, requestHash);
+        const sealedRequestHash = deps.hasher.hash(sendRequestText({ selector, payload: undefined, contentType: original.contentType, inReplyTo, isForced: false }));
+        const earlierPayload = earlier.payload;
+        if (isSealedPayload(earlierPayload)) {
+          return refuse('KEY_UNAVAILABLE', `Message ${earlier.id} is sealed: resending a sealed message is not open yet`);
+        }
+        const repeat = repeatOf({ message: earlier, plainPayload: earlierPayload }, { requestHash, sealedRequestHash, payload });
         return repeat.isOk ? ok({ messageId: repeat.value }) : repeat;
       }
 
@@ -143,7 +154,7 @@ export function createResendDelivery(deps: {
           deliveryId: deps.ids('delivery'),
           fleetId,
           senderShipId: original.senderShipId,
-          payload: original.payload,
+          payload,
           contentType: original.contentType,
           model: original.model ?? undefined,
           idempotencyKey: senderKey.idempotencyKey,

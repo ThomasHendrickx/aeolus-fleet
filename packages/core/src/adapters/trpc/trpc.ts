@@ -96,6 +96,7 @@ const ERROR_CODES: Record<DomainErrorKind, TRPCError['code']> = {
   DELIVERY_NOT_OPEN: 'CONFLICT',
   DELIVERY_NOT_UNDELIVERABLE: 'CONFLICT',
   FLEET_ALREADY_EXISTS: 'CONFLICT',
+  FLEET_ALREADY_SEALED: 'CONFLICT',
   FLEET_LIMIT_REACHED: 'FORBIDDEN',
   FLEET_NOT_FOUND: 'NOT_FOUND',
   FLEET_HAS_NO_VIEWER: 'NOT_FOUND',
@@ -106,6 +107,9 @@ const ERROR_CODES: Record<DomainErrorKind, TRPCError['code']> = {
   GUIDE_NOT_FOUND: 'NOT_FOUND',
   GUIDE_STEP_NOT_FOUND: 'BAD_REQUEST',
   IDEMPOTENCY_KEY_REUSED: 'CONFLICT',
+  KEY_NOT_BOUND_TO_FLEET: 'BAD_REQUEST',
+  // The company's key vault refused or did not answer: nothing was stored or claimed, and a later call may pass (decision 0068).
+  KEY_UNAVAILABLE: 'SERVICE_UNAVAILABLE',
   IN_REPLY_TO_NOT_FOUND: 'NOT_FOUND',
   MESSAGE_LIMIT_REACHED: 'FORBIDDEN',
   MEETING_WITHOUT_INVITEES: 'BAD_REQUEST',
@@ -235,7 +239,9 @@ const ERROR_CODES: Record<DomainErrorKind, TRPCError['code']> = {
  * hide: a crew whose lease has ended reads LEASE_ENDED, not UNAUTHORIZED, so
  * it can tell a released ship from a wrong crew token; a refusal about a
  * delivery reads its delivery code, not CONFLICT or FORBIDDEN, so a crew can
- * tell what became of that delivery, and that its crew token still holds (#832).
+ * tell what became of that delivery, and that its crew token still holds (#832);
+ * KEY_UNAVAILABLE, not SERVICE_UNAVAILABLE, so a crew can tell its fleet's
+ * key is cut off from a server that is down, and wait (decision 0068).
  */
 const SHIP_REFUSAL_CODES = [
   'LEASE_ENDED',
@@ -248,6 +254,7 @@ const SHIP_REFUSAL_CODES = [
   'DELIVERY_NOT_IN_FLIGHT',
   'DELIVERY_NOT_OPEN',
   'DELIVERY_NOT_UNDELIVERABLE',
+  'KEY_UNAVAILABLE',
 ] as const satisfies readonly DomainErrorKind[];
 
 type ShipRefusalCodeKind = (typeof SHIP_REFUSAL_CODES)[number];
@@ -556,6 +563,18 @@ export const signedInProcedure = callerProcedure({ isOnBehalfRead: false, resolv
  * actor makes with no scope: checking its own manage reach.
  */
 export const actorProcedure = callerProcedure({ isOnBehalfRead: false, resolve: resolveCaller });
+
+/**
+ * A fleet call the installation alone makes for now (decision 0057), such
+ * as turning sealing on (decision 0068): any other actor is refused
+ * FORBIDDEN before its input is read, as a scope it lacks is.
+ */
+export const installationActorProcedure = actorProcedure.use(({ ctx, next }) => {
+  if (ctx.caller.kind !== 'installation') {
+    throw new TRPCError({ code: 'FORBIDDEN', message: 'Only the installation makes this call' });
+  }
+  return next();
+});
 const readingProcedure = callerProcedure({ isOnBehalfRead: true, resolve: resolveCaller });
 
 /**

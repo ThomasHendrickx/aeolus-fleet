@@ -219,11 +219,12 @@ export function createPrismaHistoryPruner(db: Db): HistoryPruner {
       const consoleSessionIds = [...set.consoleSessionIds];
       await db.$queryRaw`SELECT set_config('aeolus.pruning_fleet', ${fleetId}, true)`;
       // Storage is what the fleet holds now (R6): each message's payload bytes
-      // come off its UTC day, as the send counted them; the day's count stays.
+      // come off its UTC day, as the send counted them, a sealed one's plain
+      // byte count (decision 0068); the day's count stays.
       await db.$executeRaw`
         UPDATE message_days md SET payload_bytes = md.payload_bytes - gone.bytes
         FROM (
-          SELECT (created_at AT TIME ZONE 'UTC')::date AS day, sum(octet_length(payload))::bigint AS bytes
+          SELECT (created_at AT TIME ZONE 'UTC')::date AS day, sum(coalesce(octet_length(payload), sealed_payload_bytes))::bigint AS bytes
           FROM messages WHERE fleet_id = ${fleetId} AND id = ANY(${messageIds})
           GROUP BY 1
         ) gone

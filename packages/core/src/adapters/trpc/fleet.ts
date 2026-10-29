@@ -1,4 +1,6 @@
 import {
+  turnOnSealingInputSchema,
+  turnOnSealingOutputSchema,
   cancelScheduleInputSchema,
   cancelScheduleOutputSchema,
   pauseScheduleInputSchema,
@@ -153,7 +155,7 @@ import type { InboxEntry } from '../../domain/shared/history.js';
 import { describedAcknowledged, describedHealth, describedPerHour, describedStuck } from './health.js';
 import { presentStartingPrompt } from './starting-prompt-text.js';
 import { schedulesPageOf } from './schedule-output.js';
-import { actorAllScopesProcedure, actorAnyScopeProcedure, actorProcedure, actorScopedProcedure, anyScopeProcedure, callerStillHolding, okOrThrow, ownPersonShipOrAnyScopeProcedure, router, scopedCrewCallerProcedure, scopedProcedure } from './trpc.js';
+import { actorAllScopesProcedure, actorAnyScopeProcedure, actorProcedure, installationActorProcedure, actorScopedProcedure, anyScopeProcedure, callerStillHolding, okOrThrow, ownPersonShipOrAnyScopeProcedure, router, scopedCrewCallerProcedure, scopedProcedure } from './trpc.js';
 
 /** A crew request as the API answers it: its times in ISO 8601, and when its session started as `startedAt`. */
 function crewRequestOutputOf<T extends { requestedAt: Date; sessionStartedAt: Date | null; givenBack: ShipFacts['crewRequestGivenBack'] }>(request: T | null) {
@@ -520,6 +522,20 @@ export const fleetRouter = router({
     .mutation(async ({ ctx, input }) => {
       okOrThrow(await ctx.useCases.setOwner(ctx.caller, input));
       return {};
+    }),
+
+  /**
+   * Turns sealing on for the fleet (decision 0068, B4): every payload it
+   * stores from then on is sealed under a data key its company key wraps.
+   * The installation's alone for now; any other caller is refused FORBIDDEN.
+   */
+  turnOnSealing: installationActorProcedure
+    .input(turnOnSealingInputSchema)
+    .output(turnOnSealingOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const turnedOn = okOrThrow(await ctx.useCases.turnOnSealing(ctx.caller, input));
+      ctx.log.info({ fleetId: ctx.caller.fleetId, companyKey: turnedOn.companyKey, state: turnedOn.state }, 'sealing turned on');
+      return turnedOn;
     }),
 
   /**

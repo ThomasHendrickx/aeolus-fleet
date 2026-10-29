@@ -11,6 +11,7 @@ import { createPostgresCore, heldUnitOfWork, type PostgresCore } from './support
 import { unwrap } from '../src/testing/result.js';
 import { newKey } from '../src/testing/keys.js';
 import { withOperatorLogin } from './support/operator-login.js';
+import { unsealedFleetsOnly } from './support/sealing.js';
 
 // Retire and re-crew on a real Postgres: a crewed ship's lease ends first,
 // its direct deliveries are abandoned and its type deliveries stay, a
@@ -168,7 +169,7 @@ describe('a send racing a retire', () => {
         },
       },
     }));
-    const send = createSendMessage({ uow, clock: core.clock, ids: newId, hasher: sha256Hasher })(argo, {
+    const send = createSendMessage({ sealing: unsealedFleetsOnly, uow, clock: core.clock, ids: newId, hasher: sha256Hasher })(argo, {
       selector: { kind: 'ship', shipId: scoutId },
       payload: 'Just in time',
       idempotencyKey: 'racing-before',

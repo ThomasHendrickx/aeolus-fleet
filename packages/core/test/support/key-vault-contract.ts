@@ -18,6 +18,11 @@ export interface KeyVaultWorld {
   disable(companyKey: CompanyKeyReference): Promise<void>;
   /** The company's key policy no longer grants the installation its key. */
   refuseGrant(companyKey: CompanyKeyReference): Promise<void>;
+  /**
+   * The company's key policy grants the installation its key for this fleet
+   * alone: a condition on the encryption context naming the fleet id (B3).
+   */
+  bindToFleet(companyKey: CompanyKeyReference, fleetId: FleetId): Promise<void>;
   /** A key reference the vault knows nothing of. */
   readonly missingKey: CompanyKeyReference;
 }
@@ -97,6 +102,16 @@ export function describeKeyVault(name: string, worldOf: () => KeyVaultWorld): vo
       expect(await world.vault.unwrap({ fleetId: FLEET, companyKey }, made.wrapped)).toEqual(refused);
       expect(await world.vault.wrap({ fleetId: FLEET, companyKey }, made.material)).toEqual(refused);
       expect(await world.vault.rewrap({ fleetId: FLEET, from: companyKey, to: otherKey }, made.wrapped)).toEqual(refused);
+    });
+
+    it("refuses a company key bound to its fleet for another fleet's context: access denied (B4)", async () => {
+      await world.bindToFleet(companyKey, FLEET);
+      const made = unwrap(await world.vault.makeDataKey({ fleetId: FLEET, companyKey }));
+
+      const refused = { isOk: false, error: { kind: 'keyUnavailable', reason: 'accessDenied' } };
+      expect(await world.vault.makeDataKey({ fleetId: OTHER_FLEET, companyKey })).toEqual(refused);
+      expect(await world.vault.unwrap({ fleetId: OTHER_FLEET, companyKey }, made.wrapped)).toEqual(refused);
+      expect(unwrap(await world.vault.unwrap({ fleetId: FLEET, companyKey }, made.wrapped))).toEqual(made.material);
     });
 
     it('refuses a company key it does not know: not found', async () => {

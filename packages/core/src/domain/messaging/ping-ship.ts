@@ -17,7 +17,7 @@ import type { Clock } from '../shared/clock.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import type { RequestHasher } from './ports.js';
-import { checkedSend, sendWithin, type SendMessageRefusal, type SendMessageTx } from './send-message.js';
+import { checkedSend, sendPlainWithin, type SendMessageRefusal, type SendMessageTx } from './send-message.js';
 
 /** What every ping says: the session answers it with pong, and does nothing else with it. */
 export const PING_PAYLOAD = 'Ping from argo: answer with pong(deliveryId).';
@@ -86,7 +86,7 @@ export function createPingShip(deps: {
         return sender;
       }
       const sentAt = deps.clock.now();
-      const sent = await sendWithin({ tx, clock: { now: () => sentAt }, ids: deps.ids }, { caller: sender.value, request: request.value, actor: actorOf(caller) });
+      const sent = await sendPlainWithin({ tx, clock: { now: () => sentAt }, ids: deps.ids }, { caller: sender.value, request: request.value, actor: actorOf(caller) });
       return sent.isOk ? ok({ messageId: sent.value.messageId, sentAt, isNew: true }) : sent;
     });
 }

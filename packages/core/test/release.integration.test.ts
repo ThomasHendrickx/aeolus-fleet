@@ -23,6 +23,7 @@ import { newKey } from '../src/testing/keys.js';
 import { waitingWakeups } from './support/waiting-wakeups.js';
 import { aCrewSettings } from './support/crew-fixtures.js';
 import { withOperatorLogin } from './support/operator-login.js';
+import { unsealedFleetsOnly } from './support/sealing.js';
 
 // Releasing a ship and deregistering on a real Postgres, with the listener and
 // the wake-ups the server runs: the lease, the secret and the crew token end
@@ -142,7 +143,7 @@ function stored(deliveryId: DeliveryId) {
  */
 function receiveWaiting(crewed: Crewed, waitMs: number) {
   const { wakeups: watched, waiting } = waitingWakeups(wakeups);
-  const answer = createReceiveDeliveries({ uow: createPrismaUnitOfWork(prisma), clock: systemClock, ids: newId, wakeups: watched, waitMs })(
+  const answer = createReceiveDeliveries({ sealing: unsealedFleetsOnly, uow: createPrismaUnitOfWork(prisma), clock: systemClock, ids: newId, wakeups: watched, waitMs })(
     crewed.crew,
     {},
   );
@@ -402,7 +403,7 @@ describe('a deregister that fails', () => {
 
 describe('a release racing a receive', () => {
   function receiveWith(uow: UnitOfWork<PrismaTx>) {
-    return createReceiveDeliveries({ uow, clock: systemClock, ids: newId, wakeups, waitMs: WAIT_MS });
+    return createReceiveDeliveries({ sealing: unsealedFleetsOnly, uow, clock: systemClock, ids: newId, wakeups, waitMs: WAIT_MS });
   }
 
   it('waits for a receive holding the lease, then returns what it claimed: nothing stays claimed by the ended lease', async () => {

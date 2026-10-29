@@ -8,7 +8,7 @@ import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import type { RequestHasher, ScheduleAttempts, ScheduleNotifier, ScheduleRepository } from './ports.js';
 import { cancelSchedule, isSendTimeToSend, scheduledMessageKey, scheduleMissed, scheduleRefused, scheduleSent, type Schedule } from './schedule.js';
-import { sendWithin, type CheckedSend, type SendMessageTx } from './send-message.js';
+import { sendPlainWithin, type CheckedSend, type SendMessageTx } from './send-message.js';
 import { sendRequestText } from './send-request.js';
 
 export interface SendDueSchedulesTx extends SendMessageTx {
@@ -143,9 +143,10 @@ async function sendTimeWithin(
     inReplyTo,
     isForced: send.isForced,
     requestHash: deps.hasher.hash(sendRequestText({ selector: send.selector, payload: send.payload, contentType: send.contentType, inReplyTo, isForced: send.isForced })),
+    sealedRequestHash: deps.hasher.hash(sendRequestText({ selector: send.selector, payload: undefined, contentType: send.contentType, inReplyTo, isForced: send.isForced })),
     scheduledFor: { scheduleId: schedule.id, sendTime },
   };
-  const sent = await sendWithin({ tx, clock, ids }, { caller, request });
+  const sent = await sendPlainWithin({ tx, clock, ids }, { caller, request });
   if (!sent.isOk) {
     return { ...scheduleRefused(schedule, { code: sent.error.kind, sendTime, at, sentCount }), sentCount };
   }

@@ -1,7 +1,7 @@
 import { MEETING_ADDED_CONTENT_TYPE, meetingAddedSchema, type FleetId, type LabelValueId, type MeetingId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { applyNetworkRules, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, SESSION_MODEL, withInstallationSettings } from '../../../test/support/core-fixtures.js';
+import { plainPayloadOf, applyNetworkRules, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, SESSION_MODEL, withInstallationSettings } from '../../../test/support/core-fixtures.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { valueIdOf } from '../../../test/support/label-fixtures.js';
@@ -142,7 +142,7 @@ describe('the added notice', () => {
     const meetingId = await opened(aMeeting({ title: 'Launch plan' }));
 
     const chiefParty = { id: chief.shipId, name: 'chief' };
-    expect(meetingAddedSchema.parse(JSON.parse(core.state.messages[0]?.payload ?? ''))).toEqual({
+    expect(meetingAddedSchema.parse(JSON.parse(plainPayloadOf(core.state.messages[0])))).toEqual({
       meetingId,
       title: 'Launch plan',
       owner: chiefParty,
@@ -154,7 +154,7 @@ describe('the added notice', () => {
   it('carries a null title for a meeting opened without one', async () => {
     await opened();
 
-    expect(meetingAddedSchema.parse(JSON.parse(core.state.messages[0]?.payload ?? '')).title).toBeNull();
+    expect(meetingAddedSchema.parse(JSON.parse(plainPayloadOf(core.state.messages[0]))).title).toBeNull();
   });
 
   it('writes MessageAccepted for each notice and wakes each participant told', async () => {

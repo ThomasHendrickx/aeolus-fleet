@@ -28,33 +28,36 @@ datasource db {
 
 /// The tenant: one operator's ships, messages and history. Ids start with flt_.
 model Fleet {
-  id                         String    @id
+  id                         String        @id
   name                       String
-  createdAt                  DateTime  @map("created_at") @db.Timestamptz(3)
+  createdAt                  DateTime      @map("created_at") @db.Timestamptz(3)
   /// The sequence number of the fleet's last committed event. A unit of work
   /// takes its numbers from it as its last statements, so the row lock orders
   /// the numbers as the transactions commit.
-  lastEventSeq               BigInt    @default(0) @map("last_event_seq")
+  lastEventSeq               BigInt        @default(0) @map("last_event_seq")
   /// Whether the fleet sets its own ship limit (else it follows the installation
   /// default), and that limit: null for no limit.
-  shipLimitSet               Boolean   @default(false) @map("ship_limit_set")
-  shipLimit                  Int?      @map("ship_limit")
+  shipLimitSet               Boolean       @default(false) @map("ship_limit_set")
+  shipLimit                  Int?          @map("ship_limit")
   /// The same for its daily message limit.
-  dailyMessageLimitSet       Boolean   @default(false) @map("daily_message_limit_set")
-  dailyMessageLimit          Int?      @map("daily_message_limit")
+  dailyMessageLimitSet       Boolean       @default(false) @map("daily_message_limit_set")
+  dailyMessageLimit          Int?          @map("daily_message_limit")
   /// The same for the schedules each of its ships may hold, and for the
   /// minimum interval of a repeating schedule, in seconds (decision 0062).
-  schedulesPerShipLimitSet   Boolean   @default(false) @map("schedules_per_ship_limit_set")
-  schedulesPerShipLimit      Int?      @map("schedules_per_ship_limit")
-  minimumScheduleIntervalSet Boolean   @default(false) @map("minimum_schedule_interval_set")
-  minimumScheduleInterval    Int?      @map("minimum_schedule_interval")
+  schedulesPerShipLimitSet   Boolean       @default(false) @map("schedules_per_ship_limit_set")
+  schedulesPerShipLimit      Int?          @map("schedules_per_ship_limit")
+  minimumScheduleIntervalSet Boolean       @default(false) @map("minimum_schedule_interval_set")
+  minimumScheduleInterval    Int?          @map("minimum_schedule_interval")
   /// The same for its retention in days (decision 0066): null for kept for good.
-  retentionSet               Boolean   @default(false) @map("retention_set")
-  retentionDays              Int?      @map("retention_days")
+  retentionSet               Boolean       @default(false) @map("retention_set")
+  retentionDays              Int?          @map("retention_days")
   /// When its last pruning pass ran, and from when it keeps its finished
   /// history, as its last finished pass left it (decision 0066); null before any.
-  prunedAt                   DateTime? @map("pruned_at") @db.Timestamptz(3)
-  keptFrom                   DateTime? @map("kept_from") @db.Timestamptz(3)
+  prunedAt                   DateTime?     @map("pruned_at") @db.Timestamptz(3)
+  keptFrom                   DateTime?     @map("kept_from") @db.Timestamptz(3)
+  /// Its sealing (decision 0068): null while it is not sealed; then sealing until no payload is stored plain, and sealed. The company key that wraps its data keys, by its reference.
+  sealingState               SealingState? @map("sealing_state")
+  companyKey                 String?       @map("company_key")
 
   ships                            Ship[]
   leases                           Lease[]
@@ -94,6 +97,12 @@ model Fleet {
   schedules                        Schedule[]
 
   @@map("fleets")
+}
+
+/// A sealed fleet's sealing (decision 0068): payloads stored plain before still wait for the sealing pass, or none do.
+enum SealingState {
+  sealing
+  sealed
 }
 
 /// What a ship is (decision 0044): argo the one operator, the viewer, an agent session, a person's ship or an app's.
@@ -608,7 +617,15 @@ model Message {
   selectorType       String?      @map("selector_type")
   /// The label selection a send to a label was sent to, its value ids as sent (decision 0065); none for any other selector.
   selectorValueIds   String[]     @default([]) @map("selector_value_ids")
-  payload            String
+  /// Null in a sealed fleet (decision 0068): the sealed payload is the data key, nonce and ciphertext with its tag,
+  /// beside the plain payload's UTF-8 byte count.
+  payload            String?
+  sealedDataKeyId    String?      @map("sealed_data_key_id")
+  sealedNonce        Bytes?       @map("sealed_nonce")
+  sealedCiphertext   Bytes?       @map("sealed_ciphertext")
+  sealedPayloadBytes Int?         @map("sealed_payload_bytes")
+  /// The question uuid a withdrawal or a replacement names, read at send (decision 0068, B18).
+  questionId         String?      @map("question_id")
   contentType        String       @map("content_type")
   /// The model the sender's session stated; none from argo and on messages from before models were stated.
   model              String?
@@ -630,6 +647,7 @@ model Message {
   selectorShip         Ship?      @relation("MessageSelectorShip", fields: [fleetId, selectorShipId], references: [fleetId, id], onDelete: Restrict)
   meeting              Meeting?   @relation(fields: [fleetId, meetingId], references: [fleetId, id], onDelete: Restrict)
   schedule             Schedule?  @relation("MessageSchedule", fields: [fleetId, scheduleId], references: [fleetId, id], onDelete: Restrict)
+  sealedDataKey        DataKey?   @relation(fields: [fleetId, sealedDataKeyId], references: [fleetId, id], onDelete: Restrict)
   repliedToBySchedules Schedule[] @relation("ScheduleInReplyTo")
   lastSentBySchedules  Schedule[] @relation("ScheduleLastMessage")
   deliveries           Delivery[]
@@ -645,6 +663,10 @@ model Message {
   @@index([fleetId, senderShipId, id])
   /// The installation counts a fleet's messages of the last 7 days (#1126).
   @@index([fleetId, createdAt])
+  /// A question's withdrawals and replacements, found by the question uuid they name (decisions 0038, 0068).
+  @@index([fleetId, questionId], map: "messages_fleet_id_question_id_idx", where: { questionId: { not: null } })
+  /// A data key's sealed messages, for its foreign key.
+  @@index([fleetId, sealedDataKeyId])
   /// Every foreign key has an index leading with its columns, so deleting a
   /// referenced row checks it with an index, not a scan (#331).
   @@index([fleetId, selectorShipId, id])
@@ -1378,7 +1400,8 @@ model DataKey {
   createdAt            DateTime @map("created_at") @db.Timestamptz(3)
   isCurrent            Boolean  @map("is_current")
 
-  fleet Fleet @relation(fields: [fleetId], references: [id])
+  fleet    Fleet     @relation(fields: [fleetId], references: [id])
+  messages Message[]
 
   @@unique([fleetId, id])
   /// One current data key per fleet.

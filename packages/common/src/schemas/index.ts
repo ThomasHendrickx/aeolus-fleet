@@ -24,6 +24,7 @@ export * from './ping.js';
 export * from './question.js';
 export * from './report.js';
 export * from './schedule.js';
+export * from './sealing.js';
 export * from './scopes.js';
 export * from './turn.js';
 export * from './ship.js';

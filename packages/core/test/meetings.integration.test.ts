@@ -17,6 +17,7 @@ import { unwrap } from '../src/testing/result.js';
 import { agentCaller, operatorCaller, secretOf } from './support/core-fixtures.js';
 import { withOperatorLogin } from './support/operator-login.js';
 import { createPostgresCore, racingUnitOfWork, type PostgresCore } from './support/postgres-core.js';
+import { unsealedFleetsOnly } from './support/sealing.js';
 
 // Meetings on a real Postgres through the Prisma adapters (decision 0061):
 // what an open stores, the label selection resolved in SQL, one meeting for
@@ -213,7 +214,7 @@ describe('contributing to a meeting on Postgres', () => {
   }
 
   function sendMessageWith(uow: UnitOfWork<PrismaTx>) {
-    return createSendMessage({ uow, clock: core.clock, ids: newId, hasher: sha256Hasher });
+    return createSendMessage({ sealing: unsealedFleetsOnly, uow, clock: core.clock, ids: newId, hasher: sha256Hasher });
   }
 
   async function contributionCounts() {
@@ -471,7 +472,7 @@ describe('the mic on Postgres', () => {
         },
       },
     }));
-    const sending = createSendMessage({ uow, clock: core.clock, ids: newId, hasher: sha256Hasher })(marketing, { selector: { kind: 'meeting', meetingId }, payload: 'Copy is ready', idempotencyKey: newKey(), model: MODEL });
+    const sending = createSendMessage({ sealing: unsealedFleetsOnly, uow, clock: core.clock, ids: newId, hasher: sha256Hasher })(marketing, { selector: { kind: 'meeting', meetingId }, payload: 'Copy is ready', idempotencyKey: newKey(), model: MODEL });
     await expect.poll(() => isContributionHeld).toBe(true);
 
     const [sent, taken] = await Promise.all([sending, changeMicWith(uow)(chief, { meetingId, change: { kind: 'take' } })]);
@@ -604,7 +605,7 @@ describe("a meeting's life on Postgres", () => {
         },
       },
     }));
-    const sending = createSendMessage({ uow, clock: core.clock, ids: newId, hasher: sha256Hasher })(marketing, aMeetingContribution(meetingId));
+    const sending = createSendMessage({ sealing: unsealedFleetsOnly, uow, clock: core.clock, ids: newId, hasher: sha256Hasher })(marketing, aMeetingContribution(meetingId));
 
     const [sent, retiredShip] = await Promise.all([sending, createRetireShip({ uow, clock: core.clock, ids: newId, hasher: sha256Hasher })(argo, { shipId: productId })]);
 

@@ -13,6 +13,7 @@ import { createPostgresCore, racingUnitOfWork, type PostgresCore } from './suppo
 import { unwrap } from '../src/testing/result.js';
 import { newKey } from '../src/testing/keys.js';
 import { withOperatorLogin } from './support/operator-login.js';
+import { unsealedFleetsOnly } from './support/sealing.js';
 
 // Sending a message on a real Postgres through the Prisma adapters: what a
 // send stores, that nothing stays and nobody is woken when it fails, that a
@@ -67,7 +68,7 @@ function aReview(overrides: Partial<MessageToSend> = {}): MessageToSend {
 }
 
 function sendMessageWith(uow: UnitOfWork<PrismaTx>) {
-  return createSendMessage({ uow, clock: core.clock, ids: newId, hasher: sha256Hasher });
+  return createSendMessage({ sealing: unsealedFleetsOnly, uow, clock: core.clock, ids: newId, hasher: sha256Hasher });
 }
 
 /**
@@ -126,6 +127,11 @@ describe('sending a message on Postgres', () => {
         selectorType: null,
         selectorValueIds: [],
         payload: input.payload,
+        sealedDataKeyId: null,
+        sealedNonce: null,
+        sealedCiphertext: null,
+        sealedPayloadBytes: null,
+        questionId: null,
         contentType: 'application/json',
         model: null,
         idempotencyKey: input.idempotencyKey,

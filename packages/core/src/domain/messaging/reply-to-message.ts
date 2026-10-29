@@ -8,6 +8,7 @@ import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { isInInboxOf } from './delivery.js';
 import { markDoneWithin, type MarkDoneTx, type MarkDoneUseCaseRefusal } from './mark-done.js';
 import type { RequestHasher } from './ports.js';
+import { withDataKeys, type DataKeysNeeded, type PayloadSealing } from './data-keys.js';
 import { checkedSend, sendWithin, type SendMessageRefusal, type SendMessageTx } from './send-message.js';
 
 export type ReplyToMessageTx = SendMessageTx & MarkDoneTx;
@@ -36,12 +37,13 @@ export function createReplyToMessage(deps: {
   clock: Clock;
   ids: IdGenerator;
   hasher: RequestHasher;
+  sealing: PayloadSealing;
 }): ReplyToMessage {
   return async (crew, input) => {
     if (crew.kind !== 'operator') {
       return refuse('NOT_THE_OPERATOR_SHIP', 'Only argo replies from the operator inbox; a ship sends its answer');
     }
-    return deps.uow.run(async (tx): Promise<Result<{ messageId: MessageId }, ReplyToMessageRefusal>> => {
+    return withDataKeys({ sealing: deps.sealing, fleetId: crew.fleetId }, (held) => deps.uow.run(async (tx): Promise<Result<{ messageId: MessageId }, ReplyToMessageRefusal | DataKeysNeeded>> => {
       const { fleetId } = crew;
       const delivery = await tx.deliveries.findForUpdate(fleetId, input.deliveryId);
       const asked = delivery && (await tx.messages.find(fleetId, delivery.messageId));
@@ -61,13 +63,13 @@ export function createReplyToMessage(deps: {
       if (!request.isOk) {
         return request;
       }
-      const inTx = { tx, clock: deps.clock, ids: deps.ids };
+      const inTx = { tx, clock: deps.clock, ids: deps.ids, held };
       const sent = await sendWithin(inTx, { caller: crew, request: request.value });
       if (!sent.isOk) {
         return sent;
       }
       const done = await markDoneWithin(inTx, { crew, deliveryId: delivery.id, reply: sent.value.messageId });
       return done.isOk ? ok(sent.value) : done;
-    });
+    }));
   };
 }
