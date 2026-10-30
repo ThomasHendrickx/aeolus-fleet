@@ -593,6 +593,39 @@ describe('the kill switch on Postgres and a LocalStack KMS (decision 0068, B9, B
       { id: plain, payload: 'sent before sealing', isPayloadUnreadable: false },
     ]);
   });
+
+  it('scenario 25: with the key cut off, fleet.message answers the envelope and the delivery, its payload empty, sealed and unreadable; the reads say which payloads are sealed', async () => {
+    const fleet = await aHostedFleet();
+    const scout = await aCrewedReviewer(fleet, 'scout');
+    const server = aServerAt('2026-10-29T12:00:00.000Z');
+    const { messageId: plain } = unwrap(await server.useCases.sendMessage(scout, { ...aMessageTo(fleet.argo.shipId, 'sent before sealing'), model: 'claude-opus-5-5' }));
+    const companyKey = await aKeyBoundTo(fleet.fleetId);
+    unwrap(await useCases.turnOnSealing(fleet.argo, { companyKey }));
+    const { messageId: sealed } = unwrap(await server.useCases.sendMessage(scout, { ...aMessageTo(fleet.argo.shipId), model: 'claude-opus-5-5' }));
+    const console = installationIn(fleet.fleetId);
+    const listed = await console.fleet.shipMessages.query({ shipId: scout.shipId });
+    const inbox = await console.fleet.inbox.query({ filter: 'all' });
+    await disableKey(companyKey);
+    server.clock.advance(DATA_KEY_CACHE_MS);
+
+    const message = await console.fleet.message.query({ messageId: sealed });
+
+    expect({ sender: message.sender.name, state: message.delivery.state, payload: message.payload, isPayloadSealed: message.isPayloadSealed, isPayloadUnreadable: message.isPayloadUnreadable }).toEqual({
+      sender: 'scout',
+      state: 'pending',
+      payload: '',
+      isPayloadSealed: true,
+      isPayloadUnreadable: true,
+    });
+    expect(listed.items.map(({ id, isPayloadSealed }) => ({ id, isPayloadSealed }))).toEqual([
+      { id: sealed, isPayloadSealed: true },
+      { id: plain, isPayloadSealed: false },
+    ]);
+    expect(inbox.items.map(({ message: { id, isPayloadSealed } }) => ({ id, isPayloadSealed }))).toEqual([
+      { id: sealed, isPayloadSealed: true },
+      { id: plain, isPayloadSealed: false },
+    ]);
+  });
 });
 
 /** The fleet's messages and schedules still stored plain, and its sealing pass's state and events. */
