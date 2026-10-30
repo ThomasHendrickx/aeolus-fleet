@@ -708,3 +708,18 @@ export const PluginShipReport: Story = {
     await expect(within(canvas.getByTestId('fleet-row-trierarch-plugin')).getByTestId('fleet-report')).toHaveTextContent('All crew requests assigned');
   },
 };
+
+const NO_HARNESS = ship('h6aa', { name: 'lookout', harness: null, location: { kind: 'DEVICE', description: 'thomas-linux' } });
+
+/** A crewed agent ship whose session stated no harness (aeolus-fleet#1408): Harness unknown, a fault, beside its location with the machine name; argo stays the console. */
+export const HarnessUnknown: Story = {
+  args: { ships: [argo, NO_HARNESS], counts: countsOf([argo, NO_HARNESS]) },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const runsOn = within(canvas.getByTestId('fleet-row-lookout')).getByTestId('fleet-runs-on');
+    await expect(within(runsOn).getByTestId('harness-unknown')).toHaveTextContent('Harness unknown');
+    await expect(within(runsOn).getByTestId('harness-unknown')).toHaveAttribute('title', 'The session stated no harness: a fault in Aeolus');
+    await expect(runsOn).toHaveTextContent('thomas-linux');
+    await expect(within(canvas.getByTestId('fleet-row-argo')).queryByTestId('harness-unknown')).toBeNull();
+  },
+};

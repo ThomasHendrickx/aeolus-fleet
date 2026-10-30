@@ -186,3 +186,21 @@ export const NotReadByGateway: Story = {
 };
 export const ReadByGatewayCrewPhone: Story = { args: { ship: SUPPORT_DESK, gatewayReader: { as: 'crew', gateway: GATEWAY } }, globals: { viewport: { value: 'mobile1' } } };
 export const ReadByGatewayProxyShipPhone: Story = { args: { ship: ACME_INTAKE, gatewayReader: { as: 'proxyShip', gateway: GATEWAY } }, globals: { viewport: { value: 'mobile1' } } };
+
+/** A crewed agent ship whose session stated no harness (aeolus-fleet#1408): Harness unknown, a fault, in the Location cell before its model. */
+export const HarnessUnknown: Story = {
+  args: { ship: { ...CREWED_SHIP, harness: null, model: { id: 'gpt-5.6-terra', statedAt: minutesAgo(1) } } },
+  play: async ({ canvasElement }) => {
+    const model = within(canvasElement).getByTestId('ship-model');
+    await expect(within(model).getByTestId('harness-unknown')).toHaveTextContent('Harness unknown');
+    await expect(model).toHaveTextContent('gpt-5.6-terra');
+  },
+};
+
+/** argo's console lease states no harness, and that is no fault. */
+export const ArgoNoHarnessFault: Story = {
+  args: { ship: ARGO_SHIP, actions: undefined },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).queryByTestId('harness-unknown')).toBeNull();
+  },
+};
