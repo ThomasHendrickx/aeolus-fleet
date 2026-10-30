@@ -34,7 +34,7 @@ export function runCommand(
     const config = loadConfig(process.env);
     const prisma = createPrismaClient(config.databaseUrl);
     try {
-      return await command({ args, useCases: createUseCases({ prisma }), consoleOrigin: config.consoleOrigin, io });
+      return await command({ args, useCases: createUseCases({ prisma, hasInstallation: config.installationToken !== undefined }), consoleOrigin: config.consoleOrigin, io });
     } finally {
       await prisma.$disconnect();
     }

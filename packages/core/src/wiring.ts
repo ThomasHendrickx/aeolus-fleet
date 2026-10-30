@@ -178,6 +178,10 @@ import { createFleetEventWakeups, fleetEventWakeupsOf } from './adapters/prisma/
 import { createCreateFleet, type CreateFleet } from './domain/registry/create-fleet.js';
 import { createGetFleetLimits, type GetFleetLimits } from './domain/registry/get-fleet-limits.js';
 import { createReadFleetName, type ReadFleetName } from './domain/registry/read-fleet-name.js';
+import { createReadFeatureFlags, type ReadFeatureFlags } from './domain/registry/read-feature-flags.js';
+import { createSetFeatureFlag, type SetFeatureFlag } from './domain/registry/set-feature-flag.js';
+import { featureFlagSource, type FeatureFlagReads } from './domain/registry/feature-flag.js';
+import { createPrismaFeatureFlagRepository } from './adapters/prisma/feature-flags.js';
 import { createGetInstallationSettings, type GetInstallationSettings } from './domain/registry/get-installation-settings.js';
 import { createSetFleetLimits, type SetFleetLimits } from './domain/registry/set-fleet-limits.js';
 import { createSetInstallationSettings, type SetInstallationSettings } from './domain/registry/set-installation-settings.js';
@@ -356,6 +360,8 @@ export interface UseCases {
   deleteFleet: DeleteFleet;
   listInstallationFleets: ListInstallationFleets;
   getInstallationFleet: GetInstallationFleet;
+  readFeatureFlags: ReadFeatureFlags;
+  setFeatureFlag: SetFeatureFlag;
   issueSignInTicket: IssueSignInTicket;
   issueSignInLink: IssueSignInLink;
   redeemSignInTicket: RedeemSignInTicket;
@@ -393,6 +399,8 @@ export function createUseCases(options: {
   accountTokenSignatures?: AccountTokenSignatures;
   /** The installation's KMS for sealed fleets (decision 0068); without it, no fleet can be sealed. */
   keyVault?: KeyVault;
+  /** Whether the server has an installation token, so the installation sets each fleet's feature flags; without one each flag has its own value (decision 0069). */
+  hasInstallation?: boolean;
 }): UseCases {
   const { prisma } = options;
   const clock = options.clock ?? systemClock;
@@ -413,6 +421,10 @@ export function createUseCases(options: {
   const healthReads = { health: createPrismaHealthRecords(prisma), snapshots: createPrismaHealthSnapshots(prisma) };
   const keyVault = options.keyVault ?? noKeyVault;
   const sealings = createPrismaFleetSealingRepository(prisma);
+  const featureFlags: FeatureFlagReads = {
+    source: featureFlagSource({ hasInstallation: options.hasInstallation === true, hasKeyVault: options.keyVault !== undefined }),
+    flags: createPrismaFeatureFlagRepository(prisma),
+  };
   const sealing = { sealer: aesGcmPayloadSealer, dataKeys: createFleetDataKeys({ sealings, vault: keyVault, sealer: aesGcmPayloadSealer, recoveryKeys: ageRecoveryKeys, clock, uow, ids }) };
 
   return {
@@ -427,6 +439,8 @@ export function createUseCases(options: {
     setInstallationSettings: createSetInstallationSettings({ uow }),
     getFleetLimits: createGetFleetLimits({ uow }),
     readFleetName: createReadFleetName({ uow }),
+    readFeatureFlags: createReadFeatureFlags({ featureFlags: featureFlags.flags, source: featureFlags.source }),
+    setFeatureFlag: createSetFeatureFlag({ uow, clock, ids }),
     setFleetLimits: createSetFleetLimits({ uow, clock, ids }),
     setNotices: createSetNotices({ notices }),
     getNotices: createGetNotices({ notices }),
@@ -514,12 +528,12 @@ export function createUseCases(options: {
     reportLog: createReadReportLog({ leases: createPrismaLeaseRepository(prisma) }),
     deregister: createDeregister({ uow, clock, ids }),
     sendMessage: createSendMessage({ uow, clock, ids, hasher: sha256Hasher, sealing }),
-    turnOnSealing: createTurnOnSealing({ uow, clock, ids, vault: keyVault, sealer: aesGcmPayloadSealer, recoveryKeys: ageRecoveryKeys, sealings }),
-    changeCompanyKey: createChangeCompanyKey({ uow, clock, ids, vault: keyVault, sealer: aesGcmPayloadSealer, sealings }),
-    changeRecoveryKey: createChangeRecoveryKey({ uow, clock, ids, recoveryKeys: ageRecoveryKeys, sealing, sealings }),
+    turnOnSealing: createTurnOnSealing({ uow, clock, ids, vault: keyVault, sealer: aesGcmPayloadSealer, recoveryKeys: ageRecoveryKeys, sealings, featureFlags }),
+    changeCompanyKey: createChangeCompanyKey({ uow, clock, ids, vault: keyVault, sealer: aesGcmPayloadSealer, sealings, featureFlags }),
+    changeRecoveryKey: createChangeRecoveryKey({ uow, clock, ids, recoveryKeys: ageRecoveryKeys, sealing, sealings, featureFlags }),
     readSealing: createReadSealing({ sealings }),
-    readRecoverySet: createReadRecoverySet({ sealings }),
-    recoverKeys: createRecoverKeys({ uow, clock, ids, vault: keyVault, sealer: aesGcmPayloadSealer, sealings }),
+    readRecoverySet: createReadRecoverySet({ sealings, featureFlags }),
+    recoverKeys: createRecoverKeys({ uow, clock, ids, vault: keyVault, sealer: aesGcmPayloadSealer, sealings, featureFlags }),
     openMeeting: createOpenMeeting({ uow, clock, ids, hasher: sha256Hasher, sealing }),
     readMeeting: createReadMeeting({ uow, sealing }),
     changeMic: createChangeMic({ uow, clock, ids, hasher: sha256Hasher, sealing }),

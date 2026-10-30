@@ -239,6 +239,10 @@ export function timelineSentence(entry: TimelineEntry, shipId: string): Timeline
       return { parts: [text('Recovery key changed'), ...by(entry.actor)], tone: 'ended', icon: 'fleet' };
     case 'FleetKeysRecovered':
       return { parts: [text('Data keys recovered'), ...by(entry.actor)], tone: 'ended', icon: 'fleet' };
+    case 'FeatureFlagTurnedOn':
+      return { parts: [text(`Feature flag ${stringDetail(entry, 'flag') ?? ''} turned on`)], tone: 'ended', icon: 'fleet' };
+    case 'FeatureFlagTurnedOff':
+      return { parts: [text(`Feature flag ${stringDetail(entry, 'flag') ?? ''} turned off`)], tone: 'ended', icon: 'fleet' };
     case 'SignInTicketIssued':
       return { parts: [text('Sign-in ticket issued')], tone: 'ended', icon: 'password' };
     case 'ViewerSessionStarted':

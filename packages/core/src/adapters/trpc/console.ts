@@ -116,7 +116,8 @@ export const consoleRouter = router({
    * without a login of its own. Only the cookie counts, never a crew token:
    * a ship is no operator. Says whose session it is, the operator's or a
    * viewer's, and its ship's scopes, so that service serves a viewer reads
-   * only; refuses a session a sign-in elsewhere ended saying so, as any call
+   * only, and the fleet's feature flags that are on, so the console shows
+   * nothing of a feature whose flag is off (decision 0069); refuses a session a sign-in elsewhere ended saying so, as any call
    * does, so that service can say so too. Counts as console use, so the session's expiry moves as on any
    * console call. A query: it comes from any origin.
    */
@@ -133,7 +134,8 @@ export const consoleRouter = router({
       }
       const { fleetId, accountId, scopes, tokenEndsAt } = account;
       const fleetName = okOrThrow(await ctx.useCases.readFleetName({ fleetId }));
-      return { fleetId, fleetName, expiresAt: (tokenEndsAt ?? new Date()).toISOString(), kind: 'account' as const, accountId, scopes: [...scopes] };
+      const featureFlags = [...(await ctx.useCases.readFeatureFlags({ fleetId }))];
+      return { fleetId, fleetName, expiresAt: (tokenEndsAt ?? new Date()).toISOString(), kind: 'account' as const, accountId, scopes: [...scopes], featureFlags };
     }
     const { fleetId, kind, scopes } = use.caller;
     if (kind !== 'operator' && kind !== 'viewer') {
@@ -141,7 +143,8 @@ export const consoleRouter = router({
       return refuseNoConsoleSignIn();
     }
     const fleetName = okOrThrow(await ctx.useCases.readFleetName({ fleetId }));
-    return { fleetId, fleetName, expiresAt: use.expiresAt.toISOString(), kind, scopes: [...scopes] };
+    const featureFlags = [...(await ctx.useCases.readFeatureFlags({ fleetId }))];
+    return { fleetId, fleetName, expiresAt: use.expiresAt.toISOString(), kind, scopes: [...scopes], featureFlags };
   }),
 
   /** Stores the operator's theme on their account, so it follows them to any browser. */

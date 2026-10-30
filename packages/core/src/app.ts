@@ -90,6 +90,7 @@ export function createApp(options: AppOptions): FastifyInstance {
     receiveWaitMs: options.receiveWaitMs,
     accountTokenSignatures: accountTokenSignaturesOf(options.accountTokenIssuer, clock),
     ...(options.keyVault === undefined ? {} : { keyVault: options.keyVault }),
+    hasInstallation: options.installationToken !== undefined,
   });
   const server = buildHttpServer({
     useCases,

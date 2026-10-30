@@ -130,6 +130,8 @@ import type { ReadMessageDeliveries } from '../../domain/shared/read-message-del
 import type { ReadSentMessage } from '../../domain/shared/read-sent-message.js';
 import type { ReadNeedsAttention } from '../../domain/shared/read-needs-attention.js';
 import type { ReadFleetName } from '../../domain/registry/read-fleet-name.js';
+import type { ReadFeatureFlags } from '../../domain/registry/read-feature-flags.js';
+import type { SetFeatureFlag } from '../../domain/registry/set-feature-flag.js';
 import type { ReadAcknowledged } from '../../domain/shared/read-acknowledged.js';
 import type { ReadHealth } from '../../domain/shared/read-health.js';
 import type { ReadStuckCount } from '../../domain/shared/read-stuck-count.js';
@@ -285,6 +287,8 @@ export interface UseCases {
   deleteFleet: DeleteFleet;
   listInstallationFleets: ListInstallationFleets;
   getInstallationFleet: GetInstallationFleet;
+  readFeatureFlags: ReadFeatureFlags;
+  setFeatureFlag: SetFeatureFlag;
   issueSignInTicket: IssueSignInTicket;
   redeemSignInTicket: RedeemSignInTicket;
   getInstallationSettings: GetInstallationSettings;
