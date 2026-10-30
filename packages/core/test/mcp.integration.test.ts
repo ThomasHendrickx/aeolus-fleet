@@ -331,7 +331,7 @@ describe('the ship tools at /mcp', () => {
     const session = await connect();
     const crewToken = await register(session, trierarch);
     const others = SHIP_CALLS.map((each) => each.name).filter(
-      (name) => name.startsWith('fleet_') && !['fleet_ship', 'fleet_getStartingPrompt', 'fleet_release', 'fleet_reportCrewStatus', 'fleet_confirmCrewRelease', 'fleet_giveBackCrewRequest', 'fleet_assignedCrewRequests', 'fleet_clearRequests', 'fleet_confirmWorktreeCleared', 'fleet_checkManage'].includes(name),
+      (name) => name.startsWith('fleet_') && !['fleet_ship', 'fleet_getStartingPrompt', 'fleet_release', 'fleet_reportCrewStatus', 'fleet_reportActivity', 'fleet_confirmCrewRelease', 'fleet_giveBackCrewRequest', 'fleet_assignedCrewRequests', 'fleet_clearRequests', 'fleet_confirmWorktreeCleared', 'fleet_checkManage'].includes(name),
     );
 
     const refusals = await Promise.all(others.map(async (name) => [name, await refusalOf(session, { name, arguments: { crewToken } })]));
