@@ -62,6 +62,8 @@ export const shipDetailOutputSchema = listedShipSchema.extend({
   openDeliveries: z.int().min(0),
   /** Its owner by id and name; null for argo and the viewer (decision 0045). */
   owner: partySchema.nullable(),
+  /** The ship that commissioned it, such as the gateway's for its proxy ships (decision 0068, B19); null when an account or the installation did, and for argo. */
+  commissionedByShipId: idSchema('ship').nullable(),
   /** What it is and offers, as discovery shows it: its crew's statement, else its commission note, else none (decision 0047). */
   statement: discoveredStatementSchema,
 });
