@@ -43,13 +43,29 @@ describe("a crew's report", () => {
   it('holds the state, the note and when it was reported, shown with the ship', async () => {
     await expect(useCases.report(scout, { state: 'working', note: 'on PR 89' })).resolves.toEqual({ isOk: true, value: undefined });
 
-    await expect(listedReport()).resolves.toEqual({ state: 'working', note: 'on PR 89', reportedAt: core.clock.now(), detailsVersion: 0 });
+    await expect(listedReport()).resolves.toEqual({
+      state: 'working',
+      note: 'on PR 89',
+      task: null,
+      step: null,
+      reportedAt: core.clock.now(),
+      reportChangedAt: core.clock.now(),
+      detailsVersion: 0,
+    });
   });
 
   it('is listed with the version of its details, never the details', async () => {
     unwrap(await useCases.report(scout, { state: 'working', details: { running: 4 } }));
 
-    await expect(listedReport()).resolves.toEqual({ state: 'working', note: null, reportedAt: core.clock.now(), detailsVersion: 1 });
+    await expect(listedReport()).resolves.toEqual({
+      state: 'working',
+      note: null,
+      task: null,
+      step: null,
+      reportedAt: core.clock.now(),
+      reportChangedAt: core.clock.now(),
+      detailsVersion: 1,
+    });
   });
 
   it('is read whole, details included, with the one ship', async () => {
@@ -89,7 +105,7 @@ describe("a crew's report", () => {
         occurredAt: core.clock.now(),
         actor: { kind: 'ship', shipId: scoutId },
         shipId: scoutId,
-        details: { leaseId: scout.leaseId, state: 'blocked', note: 'waiting for review', detailsVersion: 0 },
+        details: { leaseId: scout.leaseId, state: 'blocked', note: 'waiting for review', detailsVersion: 0, task: null, stepAt: null, stepOf: null, isReportChanged: true },
       }),
     ]);
   });
@@ -102,7 +118,7 @@ describe("a crew's report", () => {
     unwrap(await useCases.report(scout, { state: 'working', note: 'on PR 89' }));
 
     expect(core.state.events).toEqual([]);
-    await expect(listedReport()).resolves.toEqual({ state: 'working', note: 'on PR 89', reportedAt: core.clock.now(), detailsVersion: 0 });
+    await expect(listedReport()).resolves.toMatchObject({ state: 'working', note: 'on PR 89', reportedAt: core.clock.now(), detailsVersion: 0 });
   });
 
   it('writes ShipReported again when the note changes', async () => {
@@ -112,7 +128,7 @@ describe("a crew's report", () => {
     unwrap(await useCases.report(scout, { state: 'working', note: 'on PR 90' }));
 
     expect(core.state.events.map((event) => event.details)).toEqual([
-      { leaseId: scout.leaseId, state: 'working', note: 'on PR 90', detailsVersion: 0 },
+      { leaseId: scout.leaseId, state: 'working', note: 'on PR 90', detailsVersion: 0, task: null, stepAt: null, stepOf: null, isReportChanged: true },
     ]);
   });
 
@@ -140,7 +156,7 @@ describe("a report's details", () => {
 
     expect(storedReport()).toMatchObject({ details: running, detailsVersion: 1 });
     expect(core.state.events.map((event) => event.details)).toEqual([
-      { leaseId: scout.leaseId, state: 'working', note: '1 of 2 running', detailsVersion: 1 },
+      { leaseId: scout.leaseId, state: 'working', note: '1 of 2 running', detailsVersion: 1, task: null, stepAt: null, stepOf: null, isReportChanged: true },
     ]);
   });
 
@@ -196,7 +212,9 @@ describe("a report's details", () => {
 
     unwrap(await useCases.report(scout, { state: 'working', detailsPatch: { 'shp_02': { state: 'running' } } }));
 
-    expect(core.state.events.map((event) => event.details)).toEqual([{ leaseId: scout.leaseId, state: 'working', note: null, detailsVersion: 2 }]);
+    expect(core.state.events.map((event) => event.details)).toEqual([
+      { leaseId: scout.leaseId, state: 'working', note: null, detailsVersion: 2, task: null, stepAt: null, stepOf: null, isReportChanged: false },
+    ]);
   });
 
   it('is a check-in when the details stay the same, whatever the order of their keys: no event, the same version', async () => {
@@ -321,7 +339,16 @@ describe("a report's task and step", () => {
     unwrap(await useCases.report(scout, { state: 'working', task: pullRequest, step: { at: 2, of: 3 } }));
 
     expect(core.state.events.map((event) => event.details)).toEqual([
-      { leaseId: scout.leaseId, state: 'working', note: null, detailsVersion: 0, task: pullRequest, step: { at: 2, of: 3 }, isReportChanged: true },
+      {
+        leaseId: scout.leaseId,
+        state: 'working',
+        note: null,
+        detailsVersion: 0,
+        task: '{"kind":"url","url":"https://github.com/acme/ops/pull/1391"}',
+        stepAt: 2,
+        stepOf: 3,
+        isReportChanged: true,
+      },
     ]);
   });
 

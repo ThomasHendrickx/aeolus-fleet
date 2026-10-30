@@ -243,9 +243,9 @@ export const Phone: Story = { globals: { viewport: { value: 'mobile1' } } };
 /** A Copilot session a trierarch crews: Runs on names Copilot with the coding agent's icon, beside Claude Code and Codex. */
 const HARNESS_FLEET = [
   argo,
-  ship('h4aa', { name: 'reviewer-01', report: { state: 'working', note: 'Reviewing PR 1388', reportedAt: NOW.toISOString(), detailsVersion: 0 } }),
+  ship('h4aa', { name: 'reviewer-01', report: { state: 'working', note: 'Reviewing PR 1388', task: null, step: null, reportedAt: NOW.toISOString(), reportChangedAt: NOW.toISOString(), detailsVersion: 0 } }),
   ship('h4ab', { name: 'builder-02', harness: 'codex', location: { kind: 'CLOUD', description: null }, model: { id: 'gpt-5.5-codex', statedAt: NOW.toISOString() } }),
-  ship('h4ac', { name: 'docs-03', harness: 'copilot', model: { id: 'gpt-5.2', statedAt: NOW.toISOString() }, report: { state: 'working', note: 'Writing the Copilot guide', reportedAt: NOW.toISOString(), detailsVersion: 0 } }),
+  ship('h4ac', { name: 'docs-03', harness: 'copilot', model: { id: 'gpt-5.2', statedAt: NOW.toISOString() }, report: { state: 'working', note: 'Writing the Copilot guide', task: null, step: null, reportedAt: NOW.toISOString(), reportChangedAt: NOW.toISOString(), detailsVersion: 0 } }),
 ];
 export const CopilotRunsOn: Story = {
   args: { ships: HARNESS_FLEET, labels: labelContext(HARNESS_FLEET) },
@@ -313,17 +313,17 @@ export const Reported: Story = {
       ship('h1bf', {
         name: 'implementer-01',
         lastSeenAt: new Date(NOW.getTime() - 20_000).toISOString(),
-        report: { state: 'working', note: 'on PR 89', reportedAt: new Date(NOW.getTime() - 2 * 60_000).toISOString(), detailsVersion: 0 },
+        report: { state: 'working', note: 'on PR 89', task: null, step: null, reportedAt: new Date(NOW.getTime() - 2 * 60_000).toISOString(), reportChangedAt: new Date(NOW.getTime() - 2 * 60_000).toISOString(), detailsVersion: 0 },
       }),
       ship('h1bg', {
         name: 'tester-01',
         lastSeenAt: new Date(NOW.getTime() - 60_000).toISOString(),
-        report: { state: 'blocked', note: 'waiting for implementer-01', reportedAt: new Date(NOW.getTime() - 9 * 60_000).toISOString(), detailsVersion: 0 },
+        report: { state: 'blocked', note: 'waiting for implementer-01', task: null, step: null, reportedAt: new Date(NOW.getTime() - 9 * 60_000).toISOString(), reportChangedAt: new Date(NOW.getTime() - 9 * 60_000).toISOString(), detailsVersion: 0 },
       }),
       ship('h1bh', {
         name: 'planner-01',
         lastSeenAt: new Date(NOW.getTime() - 5 * 60_000).toISOString(),
-        report: { state: 'idle', note: null, reportedAt: new Date(NOW.getTime() - 5 * 60_000).toISOString(), detailsVersion: 0 },
+        report: { state: 'idle', note: null, task: null, step: null, reportedAt: new Date(NOW.getTime() - 5 * 60_000).toISOString(), reportChangedAt: new Date(NOW.getTime() - 5 * 60_000).toISOString(), detailsVersion: 0 },
       }),
     ],
   },
@@ -399,7 +399,7 @@ const IMPLEMENTER = ship('h2aa', {
   harness: 'codex',
   model: { id: 'gpt-6.1-sol', statedAt: NOW.toISOString() },
   labels: [carried(SQUADRON_LABEL, SQUADRON_ID), carried(ROLE_LABEL, 'implementer'), carried(PROJECT, 'aeolus'), carried(OS, 'linux')],
-  report: { state: 'working', note: 'Building the registry adapter', reportedAt: NOW.toISOString(), detailsVersion: 0 },
+  report: { state: 'working', note: 'Building the registry adapter', task: null, step: null, reportedAt: NOW.toISOString(), reportChangedAt: NOW.toISOString(), detailsVersion: 0 },
 });
 const CLEAN_FLEET = [argo, IMPLEMENTER, ship('h2ab', { name: 'harbour-ios', model: null }), ship('h2ac', { name: 'trierarch-plugin', harness: 'node', location: { kind: 'SERVER', description: 'fleet server' }, model: { id: '@aeolus-fleet/trierarch-plugin@0.24.0', statedAt: NOW.toISOString() } }), FLEET[2] ?? argo, FLEET[7] ?? argo];
 const CLEAN_ARGS = {
@@ -514,13 +514,13 @@ export const ReportWithEmptyNextStep: Story = {
 };
 
 /** One ship of every kind (#401): the console's two, a plugin's, a machine's trierarch, Claude Code, Codex, and a ship no session crews. */
-const PLUGIN_SHIP = ship('h3aa', { name: 'trierarch-plugin', type: 'trierarch-plugin', kind: 'plugin', harness: 'node', location: { kind: 'SERVER', description: 'fleet server' }, model: null, report: { state: 'idle', note: 'All crew requests assigned', reportedAt: NOW.toISOString(), detailsVersion: 0 } });
+const PLUGIN_SHIP = ship('h3aa', { name: 'trierarch-plugin', type: 'trierarch-plugin', kind: 'plugin', harness: 'node', location: { kind: 'SERVER', description: 'fleet server' }, model: null, report: { state: 'idle', note: 'All crew requests assigned', task: null, step: null, reportedAt: NOW.toISOString(), reportChangedAt: NOW.toISOString(), detailsVersion: 0 } });
 const KIND_FLEET = [
   argo,
   ship('h3ab', { name: 'viewer', type: 'viewer', kind: 'viewer', harness: null, model: null }),
   PLUGIN_SHIP,
   ship('h3ac', { name: 'trierarch-mac', type: 'trierarch', harness: 'aeolus-trierarch', model: null }),
-  ship('h3ad', { name: 'harbour-ios', report: { state: 'working', note: 'Writing the login screen', reportedAt: NOW.toISOString(), detailsVersion: 0 } }),
+  ship('h3ad', { name: 'harbour-ios', report: { state: 'working', note: 'Writing the login screen', task: null, step: null, reportedAt: NOW.toISOString(), reportChangedAt: NOW.toISOString(), detailsVersion: 0 } }),
   IMPLEMENTER,
   FLEET[2] ?? argo,
 ];

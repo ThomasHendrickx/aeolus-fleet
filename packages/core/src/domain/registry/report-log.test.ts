@@ -42,7 +42,16 @@ describe("a crew's report log", () => {
     await expect(useCases.reportLog(scout)).resolves.toEqual({
       isOk: true,
       value: {
-        report: { state: 'working', note: '4 of 6 running', reportedAt: core.clock.now(), details: { running: 4 }, detailsVersion: 1 },
+        report: {
+          state: 'working',
+          note: '4 of 6 running',
+          task: null,
+          step: null,
+          reportedAt: core.clock.now(),
+          reportChangedAt: core.clock.now(),
+          details: { running: 4 },
+          detailsVersion: 1,
+        },
         previousCrew: null,
       },
     });
@@ -58,7 +67,16 @@ describe("a crew's report log", () => {
       isOk: true,
       value: {
         report: null,
-        previousCrew: { state: 'blocked', note: 'waiting for review', reportedAt, details: { pr: 89 }, detailsVersion: 1 },
+        previousCrew: {
+          state: 'blocked',
+          note: 'waiting for review',
+          task: null,
+          step: null,
+          reportedAt,
+          reportChangedAt: reportedAt,
+          details: { pr: 89 },
+          detailsVersion: 1,
+        },
       },
     });
   });

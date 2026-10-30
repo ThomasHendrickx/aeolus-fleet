@@ -465,7 +465,7 @@ export function createPrismaLeaseRepository(db: Db): LeaseRepository {
     },
     findReportForUpdate: async (fleetId, leaseId) => {
       const [row] = await db.$queryRaw<unknown[]>`
-        SELECT report_state::text AS report_state, report_note, reported_at, report_details, report_details_version
+        SELECT report_state::text AS report_state, report_note, reported_at, report_changed_at, report_task, report_step_at, report_step_of, report_details, report_details_version
         FROM leases
         WHERE fleet_id = ${fleetId} AND id = ${leaseId} AND ended_at IS NULL
         FOR UPDATE`;
@@ -473,7 +473,7 @@ export function createPrismaLeaseRepository(db: Db): LeaseRepository {
     },
     findReportLog: async (fleetId, leaseId) => {
       const [own] = await db.$queryRaw<unknown[]>`
-        SELECT ship_id, report_state::text AS report_state, report_note, reported_at, report_details, report_details_version
+        SELECT ship_id, report_state::text AS report_state, report_note, reported_at, report_changed_at, report_task, report_step_at, report_step_of, report_details, report_details_version
         FROM leases
         WHERE fleet_id = ${fleetId} AND id = ${leaseId} AND ended_at IS NULL`;
       if (own === undefined) {
@@ -482,7 +482,7 @@ export function createPrismaLeaseRepository(db: Db): LeaseRepository {
       const shipId = toLeaseShipId(own);
       // The previous crew: the ship's lease that ended last before this one.
       const [previous] = await db.$queryRaw<unknown[]>`
-        SELECT report_state::text AS report_state, report_note, reported_at, report_details, report_details_version
+        SELECT report_state::text AS report_state, report_note, reported_at, report_changed_at, report_task, report_step_at, report_step_of, report_details, report_details_version
         FROM leases
         WHERE fleet_id = ${fleetId} AND ship_id = ${shipId} AND id <> ${leaseId} AND ended_at IS NOT NULL
         ORDER BY ended_at DESC, id DESC
@@ -496,6 +496,10 @@ export function createPrismaLeaseRepository(db: Db): LeaseRepository {
           reportState: report.state,
           reportNote: report.note,
           reportedAt: report.reportedAt,
+          reportChangedAt: report.reportChangedAt,
+          reportTask: report.task ?? Prisma.DbNull,
+          reportStepAt: report.step?.at ?? null,
+          reportStepOf: report.step?.of ?? null,
           // DbNull: no details is SQL NULL, not the JSON value null.
           reportDetails: report.details ?? Prisma.DbNull,
           reportDetailsVersion: report.detailsVersion,
@@ -935,7 +939,8 @@ export function fleetListingStatement(fleetId: FleetId, { after, limit, filter, 
            s.commissioned_by_kind::text AS commissioned_by_kind, s.commissioned_by, s.commission_key, s.commission_request_hash, s.owner_ship_id,
            l.location::text AS lease_location, l.location_description AS lease_location_description,
            l.harness AS lease_harness, l.started_at AS lease_started_at, l.last_seen_at AS lease_last_seen_at,
-           l.report_state::text AS report_state, l.report_note, l.reported_at, l.report_details, l.report_details_version,
+           l.report_state::text AS report_state, l.report_note, l.reported_at, l.report_changed_at, l.report_task, l.report_step_at, l.report_step_of,
+           l.report_details, l.report_details_version,
            c.issued_at AS secret_issued_at, c.claimed_at AS secret_claimed_at,
            cr.settings AS crew_request_settings, cr.settings_version AS crew_request_settings_version,
            cr.requested_at AS crew_request_requested_at, cr.assigned_to_ship_id AS crew_request_assigned_to,
@@ -1044,7 +1049,8 @@ export function createPrismaFleetListing(db: Db): FleetListing {
                s.commissioned_by_kind::text AS commissioned_by_kind, s.commissioned_by, s.commission_key, s.commission_request_hash, s.owner_ship_id,
                l.location::text AS lease_location, l.location_description AS lease_location_description,
                l.harness AS lease_harness, l.started_at AS lease_started_at, l.last_seen_at AS lease_last_seen_at,
-               l.report_state::text AS report_state, l.report_note, l.reported_at, l.report_details, l.report_details_version,
+               l.report_state::text AS report_state, l.report_note, l.reported_at, l.report_changed_at, l.report_task, l.report_step_at, l.report_step_of,
+           l.report_details, l.report_details_version,
                c.issued_at AS secret_issued_at, c.claimed_at AS secret_claimed_at,
                cr.settings AS crew_request_settings, cr.settings_version AS crew_request_settings_version,
                cr.requested_at AS crew_request_requested_at, cr.assigned_to_ship_id AS crew_request_assigned_to,

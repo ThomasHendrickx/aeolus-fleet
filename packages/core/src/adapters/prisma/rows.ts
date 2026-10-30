@@ -5,6 +5,7 @@ import {
   crewRequestSettingsSchema,
   crewStatusSchema,
   reportDetailsSchema,
+  reportTaskSchema,
   reportStateSchema,
   turnStateSchema,
   eventTypeSchema,
@@ -227,6 +228,10 @@ const shipReportSqlRow = z.object({
   report_state: reportStateSchema.nullable(),
   report_note: z.string().nullable(),
   reported_at: z.date().nullable(),
+  report_changed_at: z.date().nullable(),
+  report_task: reportTaskSchema.nullable(),
+  report_step_at: z.int().nullable(),
+  report_step_of: z.int().nullable(),
   report_details: reportDetailsSchema.nullable(),
   // Null where no lease joins: the column itself is never null.
   report_details_version: z.int().min(0).nullable(),
@@ -234,9 +239,19 @@ const shipReportSqlRow = z.object({
 
 /** A lease's report columns as raw SQL reads them; null until its crew reports. */
 export function toShipReport(row: unknown): ShipReport | null {
-  const { report_state, report_note, reported_at, report_details, report_details_version } = shipReportSqlRow.parse(row);
+  const parsed = shipReportSqlRow.parse(row);
+  const { report_state, report_note, reported_at, report_changed_at, report_task, report_step_at, report_step_of } = parsed;
   return report_state && reported_at
-    ? { state: report_state, note: report_note, reportedAt: reported_at, details: report_details, detailsVersion: report_details_version ?? 0 }
+    ? {
+        state: report_state,
+        note: report_note,
+        task: report_task,
+        step: report_step_at === null || report_step_of === null ? null : { at: report_step_at, of: report_step_of },
+        reportedAt: reported_at,
+        reportChangedAt: report_changed_at ?? reported_at,
+        details: parsed.report_details,
+        detailsVersion: parsed.report_details_version ?? 0,
+      }
     : null;
 }
 

@@ -672,8 +672,9 @@ export const shipRouter = router({
 
   /**
    * The crew says what it is doing: working, blocked or idle, with a short
-   * note and optionally its details, set whole or merge-patched. A check-in:
-   * an event only when the state, note or details change.
+   * note, optionally its task and step, and its details, set whole or
+   * merge-patched. A check-in: an event only when the state, note, task, step
+   * or details change.
    */
   report: crewProcedure
     .meta({
@@ -683,7 +684,10 @@ export const shipRouter = router({
         'For structured status, details: one JSON object of at most 16 KB. details sets it whole and null clears it;',
         'detailsPatch applies a JSON Merge Patch to it (objects merge per key, null deletes a key, arrays are replaced whole).',
         'Give one of them, not both; leave both out to keep your details as they are.',
-        'Call it whenever your state changes; calling it again with the same state, note and details is a check-in.',
+        'task names what you work on, as a reference to where the work lives: {"kind":"url","url":"https://..."} for an issue or PR,',
+        'or {"kind":"message","fleetId":"flt_...","messageId":"msg_..."} for the message that asked. step is where you are in it: {"at":2,"of":3},',
+        'whole numbers with 1 <= at <= of <= 1000. Left out, task and step stay as they are; null clears them.',
+        'Call it whenever your state, note, task or step changes; calling it again with the same is a check-in.',
       ].join(' '),
       example: { state: 'working', note: 'reviewing PR 89' },
     })
@@ -854,5 +858,5 @@ export const shipRouter = router({
 
 /** A report as a ship reads it: its time in ISO 8601, in UTC. */
 function reportOutputOf(report: ShipReport | null): ShipReportOutput | null {
-  return report && { ...report, reportedAt: report.reportedAt.toISOString() };
+  return report && { ...report, reportedAt: report.reportedAt.toISOString(), reportChangedAt: report.reportChangedAt.toISOString() };
 }

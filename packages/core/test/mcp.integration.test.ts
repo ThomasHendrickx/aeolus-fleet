@@ -363,6 +363,20 @@ describe('the ship tools at /mcp', () => {
     expect(listed.find((ship) => ship.id === skiff.shipId)?.report).toMatchObject({ state: 'blocked', note: 'waiting for review' });
   });
 
+  it('report: a crew names its task and step over MCP, and a bad step is refused', async () => {
+    const skiff = await commissioned();
+    const session = await connect();
+    const crewToken = await register(session, skiff);
+    const task = { kind: 'url', url: 'https://github.com/acme/ops/pull/1391' };
+
+    await call(session, { tool: { name: 'report', answers: z.strictObject({}) }, arguments: { crewToken, state: 'working', task, step: { at: 2, of: 3 } } });
+    const refusal = await refusalOf(session, { name: 'report', arguments: { crewToken, state: 'working', step: { at: 0, of: 3 } } });
+
+    expect(refusal).toMatch(/^BAD_REQUEST: /);
+    const log = await call(session, { tool: { name: 'reportLog', answers: reportLogOutputSchema }, arguments: { crewToken } });
+    expect(log).toMatchObject({ report: { state: 'working', task, step: { at: 2, of: 3 } } });
+  });
+
   it("reportLog: a crew patches its report's details and reads them back", async () => {
     const skiff = await commissioned();
     const session = await connect();

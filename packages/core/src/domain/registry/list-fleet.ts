@@ -157,8 +157,8 @@ export function listedShipOf({
   };
 }
 
-function listedReportOf({ state, note, reportedAt, detailsVersion }: ShipReport): ListedShip['report'] {
-  return { state, note, reportedAt, detailsVersion };
+function listedReportOf({ state, note, task, step, reportedAt, reportChangedAt, detailsVersion }: ShipReport): ListedShip['report'] {
+  return { state, note, task, step, reportedAt, reportChangedAt, detailsVersion };
 }
 
 function latestOf(first: Date, second: Date | null): Date {

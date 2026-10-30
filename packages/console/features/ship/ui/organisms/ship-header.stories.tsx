@@ -55,13 +55,13 @@ export const WithFleetScopes: Story = {
 };
 /** A crew that reported it is blocked, with a note. */
 export const Reported: Story = {
-  args: { ship: { ...CREWED_SHIP, report: { state: 'blocked', note: 'waiting for review on PR 88', reportedAt: minutesAgo(3), detailsVersion: 0, details: null, detailsBytes: null } } },
+  args: { ship: { ...CREWED_SHIP, report: { state: 'blocked', note: 'waiting for review on PR 88', task: null, step: null, reportedAt: minutesAgo(3), reportChangedAt: minutesAgo(3), detailsVersion: 0, details: null, detailsBytes: null } } },
 };
 export const WithReportDetails: Story = {
   args: {
     ship: {
       ...CREWED_SHIP,
-      report: { state: 'working', note: '4 of 6 running, 1 crashed', reportedAt: minutesAgo(1), detailsVersion: 12, details: { running: 4, crashed: 1 }, detailsBytes: 25 },
+      report: { state: 'working', note: '4 of 6 running, 1 crashed', task: null, step: null, reportedAt: minutesAgo(1), reportChangedAt: minutesAgo(1), detailsVersion: 12, details: { running: 4, crashed: 1 }, detailsBytes: 25 },
     },
   },
 };
@@ -122,7 +122,7 @@ export const PluginShipReported: Story = {
       name: SQUADRONS_SHIP.name,
       type: SQUADRONS_SHIP.type,
       model: null,
-      report: { state: 'working', note: 'Watching 2 squadrons', reportedAt: minutesAgo(1), detailsVersion: 3, details: { squadrons: 2 }, detailsBytes: 15 },
+      report: { state: 'working', note: 'Watching 2 squadrons', task: null, step: null, reportedAt: minutesAgo(1), reportChangedAt: minutesAgo(1), detailsVersion: 3, details: { squadrons: 2 }, detailsBytes: 15 },
     },
     isPluginShip: true,
   },

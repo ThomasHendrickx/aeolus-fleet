@@ -14,19 +14,19 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const WorkingRow: Story = {
-  args: { report: { state: 'working', note: 'Reviewing PR #322 (api)', reportedAt: '2026-10-03T07:08:00.000Z', detailsVersion: 0 } },
+  args: { report: { state: 'working', note: 'Reviewing PR #322 (api)', task: null, step: null, reportedAt: '2026-10-03T07:08:00.000Z', reportChangedAt: '2026-10-03T07:08:00.000Z', detailsVersion: 0 } },
 };
 export const BlockedRow: Story = {
-  args: { report: { state: 'blocked', note: 'checkout-e2e flaky, needs a decision on retries', reportedAt: '2026-10-03T07:09:26.000Z', detailsVersion: 0 } },
+  args: { report: { state: 'blocked', note: 'checkout-e2e flaky, needs a decision on retries', task: null, step: null, reportedAt: '2026-10-03T07:09:26.000Z', reportChangedAt: '2026-10-03T07:09:26.000Z', detailsVersion: 0 } },
 };
 export const IdleRow: Story = {
-  args: { report: { state: 'idle', note: 'Queue empty', reportedAt: '2026-10-03T07:09:42.000Z', detailsVersion: 0 } },
+  args: { report: { state: 'idle', note: 'Queue empty', task: null, step: null, reportedAt: '2026-10-03T07:09:42.000Z', reportChangedAt: '2026-10-03T07:09:42.000Z', detailsVersion: 0 } },
 };
 export const NoReportYet: Story = {};
 export const ShipPage: Story = {
-  args: { variant: 'full', report: { state: 'working', note: 'Reviewing PR #322 (api)', reportedAt: '2026-10-03T07:08:00.000Z', detailsVersion: 0 } },
+  args: { variant: 'full', report: { state: 'working', note: 'Reviewing PR #322 (api)', task: null, step: null, reportedAt: '2026-10-03T07:08:00.000Z', reportChangedAt: '2026-10-03T07:08:00.000Z', detailsVersion: 0 } },
 };
 export const ShipPageBlocked: Story = {
-  args: { variant: 'full', report: { state: 'blocked', note: 'Waiting for go on 2.15', reportedAt: '2026-10-03T07:08:00.000Z', detailsVersion: 0 } },
+  args: { variant: 'full', report: { state: 'blocked', note: 'Waiting for go on 2.15', task: null, step: null, reportedAt: '2026-10-03T07:08:00.000Z', reportChangedAt: '2026-10-03T07:08:00.000Z', detailsVersion: 0 } },
 };
 export const ShipPageNone: Story = { args: { variant: 'full' } };
