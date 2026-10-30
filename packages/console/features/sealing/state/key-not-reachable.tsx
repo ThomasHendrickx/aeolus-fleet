@@ -1,7 +1,7 @@
 'use client';
 
 import { useNow } from '../../../lib/now';
-import { useFleetSealing } from '../hooks/sealing';
+import { useFleetSealing } from '../../../lib/sealing';
 import { keyNotReachableNotice } from '../services/key-not-reachable';
 import { KeyNotReachableNotice } from '../ui/molecules/key-not-reachable-notice';
 

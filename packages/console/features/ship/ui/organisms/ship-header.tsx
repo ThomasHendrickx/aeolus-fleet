@@ -1,5 +1,5 @@
 import type { ShipDetail, ShipId } from '@aeolus-fleet/common';
-import { Archive, CircleAlert, Info, KeyRound, Plug, UserRound } from 'lucide-react';
+import { Archive, CircleAlert, Eye, Info, KeyRound, Plug, UserRound } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
@@ -11,6 +11,7 @@ import { CopyButton } from '../../../../components/atoms/copy-button';
 import { Skeleton } from '../../../../components/atoms/skeleton';
 import { EmptyState } from '../../../../components/molecules/empty-state';
 import { LocationTag } from '../../../../components/molecules/location-tag';
+import type { GatewayReader } from '../../services/gateway-reader';
 import { ModelLine } from '../molecules/model-line';
 import { PingStatus } from '../molecules/ping-status';
 import { ReportDetails } from '../molecules/report-details';
@@ -41,6 +42,8 @@ interface ShipHeaderProps {
   isPluginShip?: boolean;
   /** Its side of the way (#756): the part that serves it, its turn and its oldest delivery waiting; no Delivery row without it. */
   way?: ReactNode;
+  /** In a sealed fleet, why the gateway reads its payloads (decision 0068, B19); no mark without it. */
+  gatewayReader?: GatewayReader;
 }
 
 function MetaCell({ label, children }: { label: string; children: ReactNode }) {
@@ -124,12 +127,41 @@ function MetaStrip({ ship, now, labels, way }: { ship: ShipDetail; now: Date; la
   );
 }
 
-function Notice({ icon, children }: { icon: ReactNode; children: ReactNode }) {
+function Notice({ icon, children, testId }: { icon: ReactNode; children: ReactNode; testId?: string }) {
   return (
-    <p className="flex items-center gap-2 rounded-lg border border-border bg-muted px-3.5 py-2.5 text-meta text-muted-foreground [&_svg]:size-(--size-icon-sm) [&_svg]:shrink-0">
+    <p data-testid={testId} className="flex items-center gap-2 rounded-lg border border-border bg-muted px-3.5 py-2.5 text-meta text-muted-foreground [&_svg]:size-(--size-icon-sm) [&_svg]:shrink-0">
       {icon}
       <span>{children}</span>
     </p>
+  );
+}
+
+/** The gateway's ship, linked to its page when the console knows its id. */
+function GatewayName({ gateway }: { gateway: GatewayReader['gateway'] }) {
+  return gateway.shipId === undefined ? (
+    <span className="font-medium text-foreground">{gateway.name}</span>
+  ) : (
+    <Link href={`/ships/${gateway.shipId}`} className="font-medium text-foreground underline underline-offset-2">
+      {gateway.name}
+    </Link>
+  );
+}
+
+/** That the gateway reads the ship's payloads, and why, naming the gateway's ship (decision 0068, D4, B19). */
+function GatewayMark({ reader }: { reader: GatewayReader }) {
+  return (
+    <Notice icon={<Eye aria-hidden />} testId="ship-gateway-mark">
+      The gateway reads this ship’s payloads:{' '}
+      {reader.as === 'crew' ? (
+        <>
+          <GatewayName gateway={reader.gateway} /> crews it.
+        </>
+      ) : (
+        <>
+          it is <GatewayName gateway={reader.gateway} />’s proxy ship for an outside party.
+        </>
+      )}
+    </Notice>
   );
 }
 
@@ -138,9 +170,9 @@ function Notice({ icon, children }: { icon: ReactNode; children: ReactNode }) {
  * type or the operator chip, the actions its state allows, and a meta strip
  * of where it runs, since when it is crewed, when it was commissioned and its
  * id, with its side of the way (#756), its statement (decision 0047) and its labels at its foot (#102), then its crew's report details, folded, when it has any. Its crew
- * request card, when given, sits above the meta strip. argo says it is the operator's ship; a retired ship is read-only.
+ * request card, when given, sits above the meta strip. argo says it is the operator's ship; a retired ship is read-only. In a sealed fleet a ship the gateway reads says so, naming the gateway's ship.
  */
-export function ShipHeader({ ship, shipId, state, actions, crewRequest, now, backHref = '/', labels, isPluginShip = false, way }: ShipHeaderProps) {
+export function ShipHeader({ ship, shipId, state, actions, crewRequest, now, backHref = '/', labels, isPluginShip = false, way, gatewayReader }: ShipHeaderProps) {
   const { fleetScopes } = useConsoleConstants();
   if (state === 'loading' || (state === 'ready' && ship === undefined)) {
     return (
@@ -256,6 +288,7 @@ export function ShipHeader({ ship, shipId, state, actions, crewRequest, now, bac
           Retired on {fullDateTime(new Date(ship.retiredAt))}. Read-only.
         </Notice>
       ) : null}
+      {gatewayReader === undefined ? null : <GatewayMark reader={gatewayReader} />}
       {crewRequest}
       <MetaStrip ship={ship} now={now} labels={labels} way={way} />
       {(ship.kind === 'agent' || ship.kind === 'plugin') && ship.report?.details && ship.report.detailsBytes !== null ? (

@@ -1,4 +1,4 @@
-import { SHIP_LABELS_MAX } from '@aeolus-fleet/common';
+import { idSchema, SHIP_LABELS_MAX } from '@aeolus-fleet/common';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { KeyRound } from 'lucide-react';
 import { expect, fn, within } from 'storybook/test';
@@ -154,3 +154,35 @@ export const WithStatement: Story = {
     await expect(canvas.getByTestId('ship-statement')).toHaveTextContent('Reviews pull requests.');
   },
 };
+
+const GATEWAY = { shipId: idSchema('ship').parse('shp_01jc9t5n2w8q4r7x3k6m1v4mzk'), name: 'gateway' };
+const SUPPORT_DESK = { ...CREWED_SHIP, name: 'support-desk', type: 'person', kind: 'person' as const, harness: 'gateway', location: { kind: 'CLOUD' as const, description: null } };
+const ACME_INTAKE = { ...CREWED_SHIP, name: 'acme-intake', type: 'mcp-client', kind: 'app' as const, commissionedByShipId: GATEWAY.shipId };
+
+/** A sealed fleet, a ship the gateway crews: the mark names the gateway's ship (decision 0068, B19). */
+export const ReadByGatewayCrew: Story = {
+  args: { ship: SUPPORT_DESK, gatewayReader: { as: 'crew', gateway: GATEWAY } },
+  play: async ({ canvasElement }) => {
+    const mark = within(canvasElement).getByTestId('ship-gateway-mark');
+    await expect(mark).toHaveTextContent('The gateway reads this ship’s payloads: gateway crews it.');
+    await expect(within(mark).getByRole('link', { name: 'gateway' })).toHaveAttribute('href', `/ships/${GATEWAY.shipId}`);
+  },
+};
+/** A sealed fleet, the gateway's proxy ship: the mark says so. */
+export const ReadByGatewayProxyShip: Story = {
+  args: { ship: ACME_INTAKE, gatewayReader: { as: 'proxyShip', gateway: GATEWAY } },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByTestId('ship-gateway-mark')).toHaveTextContent('The gateway reads this ship’s payloads: it is gateway’s proxy ship for an outside party.');
+  },
+};
+/** The gateway crews it and the console does not know its connection: named, not linked. */
+export const ReadByGatewayUnlinked: Story = { args: { ship: SUPPORT_DESK, gatewayReader: { as: 'crew', gateway: { name: 'gateway' } } } };
+/** A ship crewed elsewhere, or any ship in a fleet without sealing: no mark. */
+export const NotReadByGateway: Story = {
+  args: { ship: SUPPORT_DESK },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).queryByTestId('ship-gateway-mark')).toBeNull();
+  },
+};
+export const ReadByGatewayCrewPhone: Story = { args: { ship: SUPPORT_DESK, gatewayReader: { as: 'crew', gateway: GATEWAY } }, globals: { viewport: { value: 'mobile1' } } };
+export const ReadByGatewayProxyShipPhone: Story = { args: { ship: ACME_INTAKE, gatewayReader: { as: 'proxyShip', gateway: GATEWAY } }, globals: { viewport: { value: 'mobile1' } } };
