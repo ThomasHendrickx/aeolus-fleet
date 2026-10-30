@@ -16,7 +16,7 @@ For whom: the owner of a ship (a person's ship, or argo where argo owns it, 0045
    - its crewed ship has not answered a ping for N minutes.
 2. **Progress, declared.** A crew's report gains a task reference (the issue or PR it works on, or the message that asked) and an optional step x of y. The ship shows when its report last changed, apart from when its crew last called the fleet (last seen).
 3. **Progress, observed.** The activity the trierarch already observes per session (headless design, S4, H14: the latest event's time and kind, no content) reaches the ship's own progress, beside what the crew declares.
-4. **Expectations, if possible.** The owner sets, per ship, what they expect: its report changes within N minutes, its task is done by T. A breach tells the owner, once, and clears by itself when the fact moves. Expectations come last and never block points 1, 2, 3 and 5: if they prove too hard, the rest ships without them.
+4. **Expectations, if possible.** The owner, or a ship the fleet's rules let manage it, sets per ship through the ship API (tRPC, REST, MCP), never needing the console, what they expect: its report changes within N minutes, its task is done by T. A breach tells the owner, once, and clears by itself when the fact moves. Expectations come last and never block points 1, 2, 3 and 5: if they prove too hard, the rest ships without them.
 5. **Shown where work is looked at.** The fleet overview shows each ship's task, step, report changed and activity ages, and any open alert. A sent message shows, per recipient, the progress of the crew whose task is that message.
 
 **Not the purpose:**
@@ -52,6 +52,8 @@ From the decisions: 0001 and 0040 (ack means received; progress stays outside th
 | M9 | 1: expectations on the ship, standing, set by its owner. |
 | M10 | 2: a working report on an idle turn is covered by "report changes within N". |
 | M11 | 1: a sent message shows the recipients whose crew's task names that message. |
+| M12 | The task needs to say what type it is: "gh link can be full url, but message needs also to know which fleet for example, and there maybe more". A typed reference per kind (4.2). |
+| M13 | "expectations setting through console needs to be something that is possible but will not be core. If a user needs to go to console for this we failed." Set through the ship API and MCP, by the owner's ship, the ship that sent the work or a template; the console dialog is optional and last (4.7, 7). |
 
 ## 4. The design
 
@@ -109,21 +111,28 @@ Each signal is one fact the watch reads from core on each pass, with its default
 
 ### 4.6 Telling the owner (the watch)
 
-- Raise first, then send: the watch raises the alert in core, then sends the owner's ship one message, `text/markdown`, with the alert id as idempotency key, headline first (instruction 6), the facts and the ship's page link. A restart between the two sends it then, once, since the same key gives the same message.
+- Raise first, then send: the watch raises the alert in core, then sends the owner's ship one message (and, for an expectation another ship set, that ship one too, question N9), `text/markdown`, with the alert id as idempotency key (the alert id and the recipient when two are told), headline first (instruction 6), the facts and the ship's page link. A restart between the two sends it then, once, since the same key gives the same message.
 - The watch sends nothing on clear (question N3); the lists show it gone.
 - A tell that goes unacknowledged is a delivery like any other; the watch raises no alert on a delivery it sent itself, so there is no loop.
 
 ### 4.7 Expectations (core holds them, the watch compares; last)
 
-- On the ship, standing, at most one of each: `reportChangesWithin` (minutes, 5 to 10080) and `taskDoneBy` (a time, with the task it was set for, kind and fields).
-- Set and cleared by an actor with `fleet:manage` within manage reach (the owner's ship reaches the ships it owns, 0045, 0053), `ships.setExpectations`, `ExpectationsSet` naming the actor.
-- `reportChangesWithin` applies while the ship is crewed and its report is working or blocked (question N5). `taskDoneBy` applies while the report names the task it was set for; once the task changes it lapses, shown as lapsed, and the owner sets a new one.
-- Expectations stay through release and recrew; a retire removes them. The crew is not told of them: they are the owner's, not instructions.
+- On the ship, standing, at most one of each: `reportChangesWithin` (minutes, 5 to 10080) and `taskDoneBy` (a time, with the task it was set for, kind and fields), each with the actor that set it.
+- **Set through the ship API, the normal way** (M13): `ships.setExpectations`, one tRPC procedure that REST and MCP map onto (0004), so a ship sets them from its own session with no console. `ExpectationsSet` names the actor. Three callers, one procedure:
+  - the owner's ship, for the ships it owns;
+  - the ship that sends the work, such as an orchestrator setting `taskDoneBy` beside the message it sends;
+  - a ship template: squadrons sets the template's expectations on each ship it commissions, as its squadrons ship with `fleet:manage` (0017).
+- Who may: an actor with `fleet:manage` within manage reach (0034: the built-in owner rule gives the owner's ship its own ships; any other ship needs a manage rule that reaches the ship). No new scope (question N8).
+- Read back with the ship (`ships.get` and its MCP tool), so the setter checks what holds without the console.
+- `reportChangesWithin` applies while the ship is crewed and its report is working or blocked (question N5). `taskDoneBy` applies while the report names the task it was set for; once the task changes it lapses, shown as lapsed, and a new one is set.
+- A breach tells the ship's owner, as every alert does (4.4), and the ship that set the expectation when it is another ship (question N9).
+- Expectations stay through release and recrew; a retire removes them. The crew is not told of them: they are the setter's, not instructions.
+- **The console dialog is optional**: "Set expectations…" on the ship page calls the same procedure and is the last slice (W9). Without it the ship page still shows the Expectations row, read only.
 
 ### 4.8 Shown in the console (core)
 
 - **Fleet overview.** The Report cell shows the task's label per kind (4.2), the step and the note; its title gives report changed and reported times. The Seen cell gains activity beside last seen. A ship with an open alert shows an alert badge after its status. Above the table, Open alerts: one line each, the ship, what parted, since when, "clears by itself", while any is open; nothing when none.
-- **Ship page.** The report cell shows the task's label per kind, a link where the viewer may open it (4.2), the step, and "changed 42 min ago" apart from "seen 1 min ago"; an Activity line under it. Open alerts above the meta strip. Expectations as a row of the meta strip with "Set expectations…" (last slices).
+- **Ship page.** The report cell shows the task's label per kind, a link where the viewer may open it (4.2), the step, and "changed 42 min ago" apart from "seen 1 min ago"; an Activity line under it. Open alerts above the meta strip. Expectations as a read-only row of the meta strip; "Set expectations…" only with the optional W9.
 - **Sent message.** In the message sheet's deliveries, under each recipient whose crew's task is `message` with this fleet and this message: the report state, step, note and changed age (M11). No line for a recipient working on something else.
 - **Inbox.** An alert is an ordinary markdown message from the watch's ship: no change.
 
@@ -195,7 +204,7 @@ Unhappy paths:
 
 ## 7. Slices, once approved
 
-Expectations last (M0): W1 to W5 stand without them.
+Expectations last (M0): W1 to W5 stand without them. Their API path (W6 to W8) comes before the console dialog (W9), which is optional (M13).
 
 | # | Repo | Slice | Done when |
 | --- | --- | --- | --- |
@@ -205,8 +214,10 @@ Expectations last (M0): W1 to W5 stand without them.
 | W3b | aeolus-fleet-trierarch | The trierarch writes activity each pass with its interval | Walked on staging, trierarch stopped reads unknown |
 | W4 | aeolus-fleet | Alerts in core: table, `fleet:alert`, `alerts.raise` and `alerts.clear` with events, unique per occurrence, retire clears; Open alerts on the overview and the ship page; `DeliveryOverdue` names the owner | Testcontainers: two raises at once give one alert; rollback leaves no event |
 | W5 | the watch plugin | The plugin ship: the four distribution signals, defaults in configuration, raise then send, clear; a restart sends nothing twice | Tests by name per signal, restart and flap; walked on staging with an uncrewed ship |
-| W6 | aeolus-fleet | Expectations on the ship: `ships.setExpectations`, `ExpectationsSet`, the Expectations row and dialog | Tests by name for reach refused and retire removes |
-| W7 | the watch plugin | Report unchanged and task not done by T | Tests by name for breach, clear and a lapsed task |
+| W6 | aeolus-fleet | Expectations on the ship through the ship API: `ships.setExpectations` over tRPC, REST and MCP, `ExpectationsSet`, read back with the ship; the ship page's read-only Expectations row | Tests by name for reach refused, a non-owner with a manage rule allowed, and retire removes; set from a Claude Code session over MCP on staging |
+| W7 | the watch plugin | Report unchanged and task not done by T, told to the owner and the setter | Tests by name for breach, clear and a lapsed task |
+| W8 | aeolus-fleet-squadrons | A ship template carries expectations; squadrons sets them on each ship it commissions | Tests by name; walked on staging |
+| W9 | aeolus-fleet | Optional, last: the console's "Set expectations…" dialog on the same procedure | Walked on staging |
 
 ## 8. Mockups
 
@@ -257,3 +268,16 @@ Pick 1: a lookup would tell a crew whether a message it cannot read exists, a ch
 2. Taken as is with its fields unchecked, shown as text "a task".
 
 Pick 1: M6 says core checks the task, and the console is core's train, so it never meets a kind it cannot show; the watch only compares tasks for equality, so a new kind asks nothing of it.
+
+**N8. Who may set expectations on a ship they do not own?** The sender of the work and squadrons set them through the API (M13).
+1. An actor with `fleet:manage` within manage reach: the owner's ship by the built-in owner rule, any other ship by a manage rule (0034). No new scope.
+2. A new scope `fleet:expect` within manage reach, so a sender sets expectations without holding all of `fleet:manage` (release, recrew, retire).
+3. The ship that sent the message a ship's task names may set `taskDoneBy` for that task, with no scope.
+
+Pick 1: no new term or scope (0013), and reach is already where the fleet says who manages whom (0016, 0034). 2 is the step if a sender holding `fleet:manage` proves too broad; 3 lets any sender put an alert on any ship's owner.
+
+**N9. Who is told when an expectation another ship set is breached?**
+1. The owner and the ship that set it: one message each, the alert id and the recipient as idempotency key.
+2. The owner only, as every other alert.
+
+Pick 1: a sender sets `taskDoneBy` because it waits on the work; told nothing, it would have to poll, and M13 says no one should need the console.
