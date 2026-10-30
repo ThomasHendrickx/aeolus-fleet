@@ -60,3 +60,26 @@ describe('reportStepText', () => {
     expect(reportStepText({ at: 2, of: 3 }, 'full')).toBe('step 2 of 3');
   });
 });
+
+describe('monitoring W2 message task links', () => {
+  it('opens the message sheet only when the server says canOpen', () => {
+    // Given the same reference read for viewers with different access.
+    const task = { kind: 'message', fleetId: VIEWER_FLEET, messageId: MESSAGE_ID };
+    // When their report task labels are rendered.
+    const allowed = reportTaskLabel({ ...task, canOpen: true }, VIEWER_FLEET);
+    const outside = reportTaskLabel({ ...task, canOpen: false }, VIEWER_FLEET);
+    // Then only the allowed viewer has a link to the message sheet.
+    expect(allowed.href).toBe(`/messages/${MESSAGE_ID}`);
+    expect(outside.href).toBeNull();
+  });
+
+  it('names another fleet the viewer belongs to and opens the message there', () => {
+    // Given another-fleet reference authorized by the console server.
+    const task = { kind: 'message', fleetId: OTHER_FLEET, messageId: MESSAGE_ID, fleetName: 'Other fleet', canOpen: true };
+    // When its label is rendered.
+    const label = reportTaskLabel(task, VIEWER_FLEET);
+    // Then the name is shown and the link enters that fleet before opening the sheet.
+    expect(label.label).toBe('a message in Other fleet');
+    expect(label.href).toBe(`/sign-in/enter?fleet=${OTHER_FLEET}&returnTo=${encodeURIComponent(`/messages/${MESSAGE_ID}`)}`);
+  });
+});
