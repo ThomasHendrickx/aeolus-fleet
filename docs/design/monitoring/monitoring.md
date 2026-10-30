@@ -1,6 +1,6 @@
 # Monitoring: the owner sees when distribution or progress stops
 
-Design run for Thomas's "Go" of 30 Oct 2026 to monitoring in Aeolus: not handling execution, monitoring it. Stage 3: Thomas approved the screens and answered stage 2's questions (section 3); the task is a typed reference (4.2), expectations are set through the ship API (4.7) and every message the design sends has its contract (4.9). Section 9 holds the open questions.
+Design run for Thomas's "Go" of 30 Oct 2026 to monitoring in Aeolus: not handling execution, monitoring it. Stage 3: Thomas approved the screens and answered stage 2's questions (section 3); the task is a typed reference (4.2), expectations are set through the ship API (4.7) and every message the design sends has its contract (4.9). No question is open.
 
 ## 1. Purpose (agreed)
 
@@ -53,6 +53,7 @@ From the decisions: 0001 and 0040 (ack means received; progress stays outside th
 | M10 | 2: a working report on an idle turn is covered by "report changes within N". |
 | M11 | 1: a sent message shows the recipients whose crew's task names that message. |
 | MM0 | The screens approved (the mockups before the typed task, M12, and M13). |
+| MM1 | The changed mockups approved: task per kind state, the optional expectations dialog with its dashed button and chip, the PR labels. |
 | N1 | 1: open alerts in core, written by the watch with `fleet:alert`, read in the fleet's one read. |
 | N2 | 1: a new watch plugin with its own repository and train (0049), its ship owned by argo. |
 | N3 | 1: no message when an alert clears; the lists show it gone. |
@@ -61,6 +62,11 @@ From the decisions: 0001 and 0040 (ack means received; progress stays outside th
 | M14 | "For the design of monitoring I want to see that messages contract in all specs": every message the design sends has its full contract (4.9). |
 | M12 | The task needs to say what type it is: "gh link can be full url, but message needs also to know which fleet for example, and there maybe more". A typed reference per kind (4.2). |
 | M13 | "expectations setting through console needs to be something that is possible but will not be core. If a user needs to go to console for this we failed." Set through the ship API and MCP, by the owner's ship, the ship that sent the work or a template; the console dialog is optional and last (4.7, 7). |
+| N6 | 1: core checks the shape of the ids only, for every fleet; no lookup of a message task. |
+| N7 | 2: a task kind core does not know is taken unchecked and shown as a task of unknown type. "It is accepted but the type then just is unknown. Else this would be a blocking for potential upgrades which is against the no policy if not needed concept." |
+| N8 | 1: a ship with `fleet:manage` within its manage reach may set expectations; no new scope. |
+| N9 | 1: when an expectation another ship set breaks, the owner and the ship that set it are told. |
+| N10 | 1: the console shows an alert message's `headline` and its `body` as markdown; other apps read the same two fields. |
 
 ## 4. The design
 
@@ -78,9 +84,9 @@ The task is a reference to where the work lives, never its content. It is one ki
 | Kind | Fields | Core checks | Console shows | Console links to |
 | --- | --- | --- | --- | --- |
 | `url` | `url` | an absolute `https` URL, at most 512 characters; core never fetches it | a GitHub pull request or issue as `PR #1391` or `#1407` with its icon; any other URL as its host and path, cut to fit | the URL, in a new tab |
-| `message` | `fleetId`, `messageId` | `flt_` and `msg_` ids of the right shape (common/src/ids); the message need not be one the crew received, and core does not look it up (question N6) | `a message` when `fleetId` is the viewer's fleet; `a message in <fleet name>` for another fleet the viewer belongs to; otherwise `a message in flt_…` as text | the message sheet, in its fleet, when the viewer may open the message; nothing otherwise |
+| `message` | `fleetId`, `messageId` | `flt_` and `msg_` ids of the right shape (common/src/ids), for every fleet; the message need not be one the crew received, and core does not look it up (N6) | `a message` when `fleetId` is the viewer's fleet; `a message in <fleet name>` for another fleet the viewer belongs to; otherwise `a message in flt_…` as text | the message sheet, in its fleet, when the viewer may open the message; nothing otherwise |
 
-- A kind core does not know is refused, as a bad field is: core checks every kind it holds, so a report never carries a reference nobody can read (question N7). A new kind is a core change that adds one row here, its check and its console part.
+- A kind core does not know is taken unchecked, so a newer plugin never blocks on an older core (N7). The console shows it as `a task of unknown type`, as text with no link; its title holds the kind. A kind core holds is a core change that adds one row here, its check and its console part.
 - Whether the viewer may open a `message` task is read on the server for the viewer (scopes and reach, 0057), in the same read that carries the report, as `canOpen`; the console never guesses it from the ids. A message the viewer may not open, in a fleet they do not belong to or outside their reach, shows as text: no link, no 404.
 - Two tasks are the same task when their kind and every field are equal. The sent message joins on that (4.8: `message` with this fleet and this message), and `taskDoneBy` keeps the task it was set for the same way (4.7).
 - Wherever the task shows, its title holds the full URL or the ids.
@@ -129,10 +135,10 @@ Each signal is one fact the watch reads from core on each pass, with its default
   - the owner's ship, for the ships it owns;
   - the ship that sends the work, such as an orchestrator setting `taskDoneBy` beside the message it sends;
   - a ship template: squadrons sets the template's expectations on each ship it commissions, as its squadrons ship with `fleet:manage` (0017).
-- Who may: an actor with `fleet:manage` within manage reach (0034: the built-in owner rule gives the owner's ship its own ships; any other ship needs a manage rule that reaches the ship). No new scope (question N8).
+- Who may: an actor with `fleet:manage` within manage reach (0034: the built-in owner rule gives the owner's ship its own ships; any other ship needs a manage rule that reaches the ship). No new scope (N8).
 - Read back with the ship (`fleet.ship` and its MCP tool `fleet_ship`), so the setter checks what holds without the console.
 - `reportChangesWithin` applies while the ship is crewed and its report is working or blocked (N5). `taskDoneBy` applies while the report names the task it was set for; once the task changes it lapses, shown as lapsed, and a new one is set.
-- A breach tells the ship's owner, as every alert does (4.4), and the ship that set the expectation when it is another ship (question N9).
+- A breach tells the ship's owner, as every alert does (4.4), and the ship that set the expectation when it is another ship (N9).
 - Expectations stay through release and recrew; a retire removes them. The crew is not told of them: they are the setter's, not instructions.
 - **The console dialog is optional**: "Set expectations…" on the ship page calls the same procedure and is the last slice (W9). Without it the ship page still shows the Expectations row, read only.
 
@@ -141,7 +147,7 @@ Each signal is one fact the watch reads from core on each pass, with its default
 - **Fleet overview.** The Report cell shows the task's label per kind (4.2), the step and the note; its title gives report changed and reported times. The Seen cell gains activity beside last seen. A ship with an open alert shows an alert badge after its status. Above the table, Open alerts: one line each, the ship, what parted, since when, "clears by itself", while any is open; nothing when none.
 - **Ship page.** The report cell shows the task's label per kind, a link where the viewer may open it (4.2), the step, and "changed 42 min ago" apart from "seen 1 min ago"; an Activity line under it. Open alerts above the meta strip. Expectations as a read-only row of the meta strip; "Set expectations…" only with the optional W9.
 - **Sent message.** In the message sheet's deliveries, under each recipient whose crew's task is `message` with this fleet and this message: the report state, step, note and changed age (M11). No line for a recipient working on something else.
-- **Inbox.** An alert message (4.9) shows by its `headline` and its `body` as markdown, from the watch's ship, as a `text/markdown` message does (question N10); a payload that is no alert shows as a plain message.
+- **Inbox.** An alert message (4.9) shows by its `headline` and its `body` as markdown, from the watch's ship, as a `text/markdown` message does (N10); a payload that is no alert shows as a plain message.
 
 ### 4.9 Message contracts
 
@@ -149,7 +155,7 @@ Every message the design sends, with its full contract, as 0038 gives the questi
 
 #### The alert: `application/vnd.aeolus.alert+json`
 
-- **From** the watch's ship (owned by argo, N2). **To** the ship's owner's ship (argo when argo owns the ship, 0045), and, for an expectation another ship set, that ship too (question N9): one message each, never a meeting or a type selector.
+- **From** the watch's ship (owned by argo, N2). **To** the ship's owner's ship (argo when argo owns the ship, 0045), and, for an expectation another ship set, that ship too (N9): one message each, never a meeting or a type selector.
 - **When** the watch raises an alert in core (4.6): after `fleet.raiseAlert` answers, once per alert and recipient.
 - **Idempotency key** `<alertId>` to the owner, `<alertId>:setter` to the setter: a restart or a second pass sends the same message, never a second one.
 - **Headline**: the payload's `headline`, at most 80 characters, naming ships and never their ids (instruction 6), such as `merger-1: report unchanged 3 h 10 min, expected within 60 min`.
@@ -295,37 +301,3 @@ Expectations last (M0): W1 to W5 stand without them. Their API path (W6 to W8) c
 ## 8. Mockups
 
 Before and after, desktop and phone, light and dark, every state, a dashed box on what changed: [the fleet overview, the ship page and the sent message](mockups/console.html).
-
-## 9. Open questions
-
-**N6. Does core look up a `message` task of its own fleet?**
-1. No: core checks the ids' shape only, for every fleet.
-2. Yes: a `message` task of the reporting ship's fleet must name a message that exists there; another fleet's is checked by shape only.
-
-Pick 1: a lookup would tell a crew whether a message it cannot read exists, a check that differs by fleet is two rules for one kind, and a wrong id costs only a label that links nowhere (the sheet answers not found, as any stale link).
-
-**N7. A kind core does not know?**
-1. Refused, as a bad field is: a new kind comes with its check and its console part in one core change.
-2. Taken as is with its fields unchecked, shown as text "a task".
-
-Pick 1: M6 says core checks the task, and the console is core's train, so it never meets a kind it cannot show; the watch only compares tasks for equality, so a new kind asks nothing of it.
-
-**N8. Who may set expectations on a ship they do not own?** The sender of the work and squadrons set them through the API (M13).
-1. An actor with `fleet:manage` within manage reach: the owner's ship by the built-in owner rule, any other ship by a manage rule (0034). No new scope.
-2. A new scope `fleet:expect` within manage reach, so a sender sets expectations without holding all of `fleet:manage` (release, recrew, retire).
-3. The ship that sent the message a ship's task names may set `taskDoneBy` for that task, with no scope.
-
-Pick 1: no new term or scope (0013), and reach is already where the fleet says who manages whom (0016, 0034). 2 is the step if a sender holding `fleet:manage` proves too broad; 3 lets any sender put an alert on any ship's owner.
-
-**N9. Who is told when an expectation another ship set is breached?**
-1. The owner and the ship that set it: one message each, the alert id and the recipient as idempotency key.
-2. The owner only, as every other alert.
-
-Pick 1: a sender sets `taskDoneBy` because it waits on the work; told nothing, it would have to poll, and M13 says no one should need the console.
-
-**N10. How does an inbox show the alert?** M14 makes it JSON, not `text/markdown`.
-1. The console shows an alert message by its `headline` and its `body` as markdown, from `@aeolus-fleet/common`'s schema, in W4; any other app reads the same two fields.
-2. The console shows the JSON as sent, and agents read it; a person reads the alert in the Open alerts list instead.
-3. Two contents in one: `text/markdown` with the JSON in a fenced block after the body.
-
-Pick 1: argo and a person read alerts in an inbox, and the headline is the instruction-6 line they already get; 3 makes every reader parse markdown to reach the facts.
