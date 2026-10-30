@@ -92,7 +92,7 @@ describe('shipDetailOutputSchema', () => {
   });
 
   it("accepts the crew's report with its details, their version and their size", () => {
-    const reported = { ...ship, report: { state: 'working', note: null, reportedAt: AT, detailsVersion: 2, details: { running: 4 }, detailsBytes: 13 } };
+    const reported = { ...ship, report: { state: 'working', note: null, task: null, step: null, reportedAt: AT, reportChangedAt: AT, detailsVersion: 2, details: { running: 4 }, detailsBytes: 13 } };
 
     expect(shipDetailOutputSchema.parse(reported)).toEqual(reported);
   });

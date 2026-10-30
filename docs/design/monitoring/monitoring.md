@@ -274,7 +274,7 @@ Unhappy paths:
 
 ## 6. Decisions to record on approval
 
-- **0070 Monitoring** (new): the facts core keeps (report task, step, `reportChangedAt`; lease activity; expectations; alerts with `fleet:alert`), the watch plugin that compares and tells, one alert per occurrence, raise then send with the alert id as key, the alert message's contract (4.9) as a fleet convention in the ship protocol, no message on clear, defaults in the watch's configuration with each fleet's own value, never an action.
+- **0071 Monitoring** (new): the facts core keeps (report task, step, `reportChangedAt`; lease activity; expectations; alerts with `fleet:alert`), the watch plugin that compares and tells, one alert per occurrence, raise then send with the alert id as key, the alert message's contract (4.9) as a fleet convention in the ship protocol, no message on clear, defaults in the watch's configuration with each fleet's own value, never an action.
 - **0028 Report details**, changed: the report gains checked `task` (a typed reference: a kind and its fields, 4.2) and `step`; `reportChangedAt` moves on a change of state, note, task or step, not of details.
 - **0040 Delivery protocol**, changed on this PR (M5): `DeliveryOverdue` names the ship's owner and reaches the owner through the watch's alert as well as argo.
 - **0029 Crew request**, changed: the assigned trierarch writes its ships' activity with crew:run.
@@ -287,7 +287,7 @@ Expectations last (M0): W1 to W5 stand without them. Their API path (W6 to W8) c
 
 | # | Repo | Slice | Done when |
 | --- | --- | --- | --- |
-| W1 | aeolus-fleet | Report `task`, `step`, `reportChangedAt` in core and the ship contract; ReportLine shows them on the overview and the ship page; 0028 and 0070 recorded | Tests by name: a refused bad task or step changes nothing, details alone keep `reportChangedAt` |
+| W1 | aeolus-fleet | Report `task`, `step`, `reportChangedAt` in core and the ship contract; ReportLine shows them on the overview and the ship page; 0028 and 0071 recorded | Tests by name: a refused bad task or step changes nothing, details alone keep `reportChangedAt` |
 | W2 | aeolus-fleet | The sent message shows each recipient whose task names it | Walked on staging |
 | W3 | aeolus-fleet | Lease activity, `fleet.reportActivity` (crew:run), unknown past the stated interval; the overview's Seen and the ship's Activity line | Tests by name for an unassigned ship refused, the rest taken |
 | W3b | aeolus-fleet-trierarch | The trierarch writes activity each pass with its interval | Walked on staging, trierarch stopped reads unknown |

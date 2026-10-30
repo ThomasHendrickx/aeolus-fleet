@@ -1,4 +1,4 @@
-import type { ShipDetail, ShipId } from '@aeolus-fleet/common';
+import type { FleetId, ShipDetail, ShipId } from '@aeolus-fleet/common';
 import { Archive, CircleAlert, Eye, Info, KeyRound, Plug, UserRound } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
@@ -34,6 +34,8 @@ interface ShipHeaderProps {
   crewRequest?: ReactNode;
   /** The time "Crewed since" is measured to. */
   now: Date;
+  /** The viewer's fleet, for a report's message task; undefined until the session is known. */
+  viewerFleetId: FleetId | undefined;
   /** Where "Back to fleet overview" goes. */
   backHref?: string;
   /** The ship's labels, read-only or with yours to change, once the fleet's labels are read (#102); no Labels row until then. */
@@ -61,7 +63,19 @@ function crewedSince(since: Date, now: Date): string {
   return `${when} · ${duration(since, now)}`;
 }
 
-function MetaStrip({ ship, now, labels, way }: { ship: ShipDetail; now: Date; labels: ReactNode; way: ReactNode }) {
+function MetaStrip({
+  ship,
+  now,
+  viewerFleetId,
+  labels,
+  way,
+}: {
+  ship: ShipDetail;
+  now: Date;
+  viewerFleetId: FleetId | undefined;
+  labels: ReactNode;
+  way: ReactNode;
+}) {
   const isOperator = ship.kind === 'operator';
   const since = ship.crewedSince === null ? null : new Date(ship.crewedSince);
   const commissionedAt = new Date(ship.commissionedAt);
@@ -82,7 +96,7 @@ function MetaStrip({ ship, now, labels, way }: { ship: ShipDetail; now: Date; la
             </time>
           )}
           <PingStatus ping={ship.ping} now={now} testId="ship-ping-status" />
-          {ship.kind !== 'agent' && ship.kind !== 'plugin' ? null : <ReportLine report={ship.report} now={now} variant="full" testId="ship-report" />}
+          {ship.kind !== 'agent' && ship.kind !== 'plugin' ? null : <ReportLine report={ship.report} now={now} variant="full" viewerFleetId={viewerFleetId} testId="ship-report" />}
         </span>
       </MetaCell>
       <MetaCell label="Crewed since">
@@ -172,7 +186,7 @@ function GatewayMark({ reader }: { reader: GatewayReader }) {
  * id, with its side of the way (#756), its statement (decision 0047) and its labels at its foot (#102), then its crew's report details, folded, when it has any. Its crew
  * request card, when given, sits above the meta strip. argo says it is the operator's ship; a retired ship is read-only. In a sealed fleet a ship the gateway reads says so, naming the gateway's ship.
  */
-export function ShipHeader({ ship, shipId, state, actions, crewRequest, now, backHref = '/', labels, isPluginShip = false, way, gatewayReader }: ShipHeaderProps) {
+export function ShipHeader({ ship, shipId, state, actions, crewRequest, now, viewerFleetId, backHref = '/', labels, isPluginShip = false, way, gatewayReader }: ShipHeaderProps) {
   const { fleetScopes } = useConsoleConstants();
   if (state === 'loading' || (state === 'ready' && ship === undefined)) {
     return (
@@ -290,7 +304,7 @@ export function ShipHeader({ ship, shipId, state, actions, crewRequest, now, bac
       ) : null}
       {gatewayReader === undefined ? null : <GatewayMark reader={gatewayReader} />}
       {crewRequest}
-      <MetaStrip ship={ship} now={now} labels={labels} way={way} />
+      <MetaStrip ship={ship} now={now} viewerFleetId={viewerFleetId} labels={labels} way={way} />
       {(ship.kind === 'agent' || ship.kind === 'plugin') && ship.report?.details && ship.report.detailsBytes !== null ? (
         <ReportDetails details={ship.report.details} bytes={ship.report.detailsBytes} version={ship.report.detailsVersion} testId="ship-report-details" />
       ) : null}

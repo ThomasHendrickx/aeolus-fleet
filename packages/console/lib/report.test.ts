@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { REPORT_TONES, reportAge, reportDetailsJson, reportDetailsLabel, reportedWhen, reportText } from './report';
+import { REPORT_TONES, reportAge, reportDetailsJson, reportDetailsLabel, reportChangedWhen, reportedWhen, reportText } from './report';
 
 const NOW = new Date('2026-10-03T07:10:00.000Z');
 const ago = (ms: number) => new Date(NOW.getTime() - ms);
@@ -31,15 +31,21 @@ describe('reportedWhen', () => {
   });
 });
 
+describe('reportChangedWhen', () => {
+  it('says how long ago the report changed, apart from when it was reported', () => {
+    expect(reportChangedWhen(ago(4 * 60_000), NOW)).toBe('changed 4 min ago');
+  });
+});
+
 describe('reportText', () => {
   it('says the state and the note', () => {
-    expect(reportText({ state: 'blocked', note: 'waiting for review', reportedAt: NOW.toISOString(), detailsVersion: 0 })).toBe(
+    expect(reportText({ state: 'blocked', note: 'waiting for review', task: null, step: null, reportedAt: NOW.toISOString(), reportChangedAt: NOW.toISOString(), detailsVersion: 0 })).toBe(
       'Blocked: waiting for review',
     );
   });
 
   it('says the state alone without a note', () => {
-    expect(reportText({ state: 'idle', note: null, reportedAt: NOW.toISOString(), detailsVersion: 0 })).toBe('Idle');
+    expect(reportText({ state: 'idle', note: null, task: null, step: null, reportedAt: NOW.toISOString(), reportChangedAt: NOW.toISOString(), detailsVersion: 0 })).toBe('Idle');
   });
 });
 

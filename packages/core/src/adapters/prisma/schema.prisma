@@ -261,6 +261,13 @@ model Lease {
   reportState          ReportState? @map("report_state")
   reportNote           String?      @map("report_note")
   reportedAt           DateTime?    @map("reported_at") @db.Timestamptz(3)
+  /// When the state, note, task or step last changed; details alone do not move it (decision 0028). Null until it reports.
+  reportChangedAt      DateTime?    @map("report_changed_at") @db.Timestamptz(3)
+  /// What the crew works on: a typed reference, a kind and its fields (decision 0028). Null when it names none.
+  reportTask           Json?        @map("report_task")
+  /// Where the crew is in its task, step at of of; both null when it gives none.
+  reportStepAt         Int?         @map("report_step_at")
+  reportStepOf         Int?         @map("report_step_of")
   /// The report's details: one JSON object stored without meaning, at most 16 KB (decision 0028). Null when there are none.
   reportDetails        Json?        @map("report_details")
   /// Moves by one each time the details change; 0 before any.

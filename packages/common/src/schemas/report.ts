@@ -34,11 +34,34 @@ export const reportDetailsSchema = z.record(z.string(), z.json());
 
 export type ReportDetails = z.infer<typeof reportDetailsSchema>;
 
+/** The longest a url task's URL may be. */
+export const REPORT_TASK_URL_MAX_LENGTH = 512;
+
+/** The most steps a report's step may count. */
+export const REPORT_STEP_MAX = 1000;
+
+/**
+ * What a crew works on, as a typed reference to where the work lives, never
+ * its content: a `kind` and that kind's fields (docs/design/monitoring,
+ * 4.2). Core checks the kinds it knows: `url` (`url`, an absolute https URL)
+ * and `message` (`fleetId`, `messageId`); a kind it does not know is taken
+ * unchecked, so a newer ship never blocks on an older core.
+ */
+export const reportTaskSchema = z.object({ kind: z.string() }).catchall(z.json());
+
+export type ReportTask = z.infer<typeof reportTaskSchema>;
+
+/** Where a crew is in its task: step `at` of `of`, whole numbers with 1 <= at <= of <= 1000. */
+export const reportStepSchema = z.object({ at: z.number(), of: z.number() });
+
+export type ReportStep = z.infer<typeof reportStepSchema>;
+
 /**
  * Input of `report`: the crew's state and a short note on what it is doing,
  * trimmed, and optionally its details. `details` sets them whole, null clears
  * them; `detailsPatch` applies a JSON Merge Patch (RFC 7386) to them; never
- * both. Left out, the details stay as they are. Calling it is a check-in.
+ * both. Left out, the details stay as they are. `task` and `step` likewise:
+ * left out they stay, null clears them. Calling it is a check-in.
  */
 export const reportInputSchema = z
   .object({
@@ -46,6 +69,8 @@ export const reportInputSchema = z
     note: z.string().trim().max(REPORT_NOTE_MAX_LENGTH, NOTE_MESSAGE).refine(isOneLine, NOTE_MESSAGE).optional(),
     details: reportDetailsSchema.nullable().optional(),
     detailsPatch: reportDetailsSchema.nullable().optional(),
+    task: reportTaskSchema.nullable().optional(),
+    step: reportStepSchema.nullable().optional(),
   })
   .refine((input) => input.details === undefined || input.detailsPatch === undefined, {
     message: 'Give details or detailsPatch, not both',
@@ -59,13 +84,17 @@ export const reportOutputSchema = z.strictObject({});
 
 /**
  * A crew's report as the fleet list shows it (ISO 8601 in UTC): its state,
- * its note, when it last reported, and the version of its details, which
- * moves each time they change (0 before any).
+ * its note, its task and step, when it last reported, when the report last
+ * changed (state, note, task or step; details do not count), and the version
+ * of its details, which moves each time they change (0 before any).
  */
 export const listedReportSchema = z.object({
   state: reportStateSchema,
   note: z.string().nullable(),
+  task: reportTaskSchema.nullable(),
+  step: reportStepSchema.nullable(),
   reportedAt: z.iso.datetime(),
+  reportChangedAt: z.iso.datetime(),
   detailsVersion: z.int().min(0),
 });
 

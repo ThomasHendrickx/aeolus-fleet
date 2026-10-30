@@ -93,7 +93,10 @@ describe('reportLogOutputSchema', () => {
   const report = {
     state: 'working',
     note: '4 of 6 running',
+    task: null,
+    step: null,
     reportedAt: '2026-10-06T09:00:00.000Z',
+    reportChangedAt: '2026-10-06T09:00:00.000Z',
     detailsVersion: 3,
     details: { running: 4 },
   };

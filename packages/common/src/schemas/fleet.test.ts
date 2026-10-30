@@ -343,7 +343,15 @@ describe('fleetListOutputSchema', () => {
     const reporting = {
       ...ship,
       status: 'crewed',
-      report: { state: 'blocked', note: 'waiting for review', reportedAt: '2026-09-29T12:05:00.000Z', detailsVersion: 1 },
+      report: {
+        state: 'blocked',
+        note: 'waiting for review',
+        task: { kind: 'url', url: 'https://github.com/acme/ops/pull/1391' },
+        step: { at: 2, of: 3 },
+        reportedAt: '2026-09-29T12:05:00.000Z',
+        reportChangedAt: '2026-09-29T12:04:00.000Z',
+        detailsVersion: 1,
+      },
     };
 
     expect(fleetListOutputSchema.parse(pageOf([reporting]))).toEqual(pageOf([reporting]));

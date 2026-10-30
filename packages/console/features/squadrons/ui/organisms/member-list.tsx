@@ -1,4 +1,4 @@
-import type { CrewLine, ShipDetail } from '@aeolus-fleet/common';
+import type { CrewLine, FleetId, ShipDetail } from '@aeolus-fleet/common';
 import { Info, Inbox } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
@@ -32,6 +32,8 @@ interface MemberListProps {
   ships: ReadonlyMap<string, ShipDetail>;
   /** The time reports are measured from. */
   now: Date;
+  /** The viewer's fleet, for a report's message task; undefined until the session is known. */
+  viewerFleetId: FleetId | undefined;
   /** A member's actions at the end of its row: Get new crew line, Remove from squadron. */
   renderActions?: (member: Squadron['members'][number]) => ReactNode;
 }
@@ -49,14 +51,14 @@ function healthDetail(member: Squadron['members'][number], { ship, now }: { ship
 }
 
 /** A member's ship from the fleet: awaiting crew, or its report, and where its session runs and its open deliveries. */
-function FleetFacts({ ship, now }: { ship: ShipDetail | undefined; now: Date }) {
+function FleetFacts({ ship, now, viewerFleetId }: { ship: ShipDetail | undefined; now: Date; viewerFleetId: FleetId | undefined }) {
   if (!ship) {
     return null;
   }
   return (
     <div className="flex grow flex-wrap items-center justify-end gap-x-4 gap-y-1 text-meta">
       {ship.status === 'crewed' ? (
-        <ReportLine report={ship.report} now={now} variant="row" testId="member-report" />
+        <ReportLine report={ship.report} now={now} variant="row" viewerFleetId={viewerFleetId} testId="member-report" />
       ) : (
         <StatusBadge status={ship.status} />
       )}
@@ -116,7 +118,14 @@ function RoleLaunch({ issued, template }: { issued: IssuedCrewLine; template: st
   );
 }
 
-function MemberRow({ member, issued, ship, now, renderActions }: { member: Member; issued: IssuedCrewLine | undefined; ship: ShipDetail | undefined; now: Date } & Pick<MemberListProps, 'renderActions'>) {
+function MemberRow({
+  member,
+  issued,
+  ship,
+  now,
+  viewerFleetId,
+  renderActions,
+}: { member: Member; issued: IssuedCrewLine | undefined; ship: ShipDetail | undefined; now: Date } & Pick<MemberListProps, 'viewerFleetId' | 'renderActions'>) {
   return (
     <li data-testid="member-row" className="flex flex-col gap-2 px-3 py-2.5">
       <div className="flex items-center gap-3">
@@ -129,7 +138,7 @@ function MemberRow({ member, issued, ship, now, renderActions }: { member: Membe
             Runs {member.model.stated ?? 'an unstated model'}, not {member.model.pinned}
           </span>
         )}
-        <FleetFacts ship={ship} now={now} />
+        <FleetFacts ship={ship} now={now} viewerFleetId={viewerFleetId} />
         {renderActions?.(member)}
       </div>
       {issued && <CompactCrewLine crewLines={issued.crewLines} subject={member.name} testIdPrefix="member-crew-line" />}
@@ -146,7 +155,7 @@ function MemberRow({ member, issued, ship, now, renderActions }: { member: Membe
  * compact crew line with a harness switch: once. Each row ends with the
  * actions the page gives it.
  */
-export function MemberList({ squadron, blueprint, templates, crewLines, ships, now, renderActions }: MemberListProps) {
+export function MemberList({ squadron, blueprint, templates, crewLines, ships, now, viewerFleetId, renderActions }: MemberListProps) {
   if (squadron.members.length === 0) {
     return <EmptyState variant="section" title="No members" description="This squadron has no members." />;
   }
@@ -162,7 +171,7 @@ export function MemberList({ squadron, blueprint, templates, crewLines, ships, n
             {firstIssued && <RoleLaunch issued={firstIssued} template={reference && `${reference.name}@${String(reference.version)}`} />}
             <ul className="divide-y divide-border">
               {group.members.map((member) => (
-                <MemberRow key={member.shipId} member={member} issued={issuedOf(member)} ship={ships.get(member.shipId)} now={now} renderActions={renderActions} />
+                <MemberRow key={member.shipId} member={member} issued={issuedOf(member)} ship={ships.get(member.shipId)} now={now} viewerFleetId={viewerFleetId} renderActions={renderActions} />
               ))}
             </ul>
           </section>
