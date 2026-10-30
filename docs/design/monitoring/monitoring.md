@@ -1,6 +1,6 @@
 # Monitoring: the owner sees when distribution or progress stops
 
-Design run for Thomas's "Go" of 30 Oct 2026 to monitoring in Aeolus: not handling execution, monitoring it. Stage 2: Thomas's answers to stage 1 folded in, the flow, the decisions to record, the slices and the mockups, for Thomas to approve. Section 8 holds the questions stage 2 raised.
+Design run for Thomas's "Go" of 30 Oct 2026 to monitoring in Aeolus: not handling execution, monitoring it. Stage 3: Thomas approved the screens and answered stage 2's questions (section 3); the task is a typed reference (4.2), expectations are set through the ship API (4.7) and every message the design sends has its contract (4.9). Section 9 holds the open questions.
 
 ## 1. Purpose (agreed)
 
@@ -52,6 +52,13 @@ From the decisions: 0001 and 0040 (ack means received; progress stays outside th
 | M9 | 1: expectations on the ship, standing, set by its owner. |
 | M10 | 2: a working report on an idle turn is covered by "report changes within N". |
 | M11 | 1: a sent message shows the recipients whose crew's task names that message. |
+| MM0 | The screens approved (the mockups before the typed task, M12, and M13). |
+| N1 | 1: open alerts in core, written by the watch with `fleet:alert`, read in the fleet's one read. |
+| N2 | 1: a new watch plugin with its own repository and train (0049), its ship owned by argo. |
+| N3 | 1: no message when an alert clears; the lists show it gone. |
+| N4 | 1: activity reads unknown past twice the report interval the trierarch states with each write. |
+| N5 | 1: "report changes within N" counts only while the report says working or blocked. |
+| M14 | "For the design of monitoring I want to see that messages contract in all specs": every message the design sends has its full contract (4.9). |
 | M12 | The task needs to say what type it is: "gh link can be full url, but message needs also to know which fleet for example, and there maybe more". A typed reference per kind (4.2). |
 | M13 | "expectations setting through console needs to be something that is possible but will not be core. If a user needs to go to console for this we failed." Set through the ship API and MCP, by the owner's ship, the ship that sent the work or a template; the console dialog is optional and last (4.7, 7). |
 
@@ -82,7 +89,7 @@ The task is a reference to where the work lives, never its content. It is one ki
 
 - The lease gains `activity`: `{ at, kind, tool? }`, `kind` one of `text`, `tool`, `result`, `error` (H14's shape, no content), and `reportedAt`, when the trierarch wrote it.
 - `fleet.reportActivity` (crew:run): the assigned trierarch writes the activity of the crewed ships it runs, many in one call, each only for a ship whose crew request is assigned to it (0029); any other ship is refused for that entry and the rest are taken. No event (a session's activity is not a fleet change, as turns are not events beside `TurnReported`).
-- Unknown: the console and the watch read activity as unknown when its `reportedAt` is older than the trierarch's own report interval twice over, the interval the trierarch states with it (question N4). Unknown is shown as "Activity unknown, trierarch last reported 25 min ago", never as stopped work.
+- Unknown: the console and the watch read activity as unknown when its `reportedAt` is older than the trierarch's own report interval twice over, the interval the trierarch states with it (N4). Unknown is shown as "Activity unknown, trierarch last reported 25 min ago", never as stopped work.
 - A ship crewed by hand has no activity: the field stays empty and the console shows nothing for it.
 
 ### 4.4 Signals and defaults (the watch)
@@ -105,26 +112,26 @@ Each signal is one fact the watch reads from core on each pass, with its default
 ### 4.5 Alerts (core holds them, the watch writes them)
 
 - An alert: `alt_` id, the ship, the signal, the occurrence key, the owner told, the facts at raise (signal, since, N, the reason or the task), raised at, cleared at. One open per ship, signal and occurrence (unique).
-- `fleet:alert` (new core scope): raise and clear alerts on the ships its ship reads. `alerts.raise` is idempotent by occurrence key (the same key answers the alert already held); `alerts.clear` clears an open one; both write `AlertRaised` and `AlertCleared` in the same transaction.
+- `fleet:alert` (new core scope): raise and clear alerts on the ships its ship reads. `fleet.raiseAlert` is idempotent by occurrence key (the same key answers the alert already held); `fleet.clearAlert` clears an open one; both write `AlertRaised` and `AlertCleared` in the same transaction.
 - Read: the overview's one read carries each ship's open alert count and the fleet's open alerts, newest first, paged; the ship page carries its open ones. Cleared alerts leave the lists and stay in the ship's timeline as their events.
 - A retire clears the ship's open alerts (`AlertCleared`, reason retired). A release does not: an unacknowledged delivery waits on.
 
 ### 4.6 Telling the owner (the watch)
 
-- Raise first, then send: the watch raises the alert in core, then sends the owner's ship one message (and, for an expectation another ship set, that ship one too, question N9), `text/markdown`, with the alert id as idempotency key (the alert id and the recipient when two are told), headline first (instruction 6), the facts and the ship's page link. A restart between the two sends it then, once, since the same key gives the same message.
-- The watch sends nothing on clear (question N3); the lists show it gone.
+- Raise first, then send: the watch raises the alert in core, then sends the owner's ship the alert message (4.9) (and, for an expectation another ship set, that ship one too, question N9), with the idempotency key 4.9 gives. A restart between the two sends it then, once, since the same key gives the same message.
+- The watch sends nothing on clear (N3); the lists show it gone.
 - A tell that goes unacknowledged is a delivery like any other; the watch raises no alert on a delivery it sent itself, so there is no loop.
 
 ### 4.7 Expectations (core holds them, the watch compares; last)
 
 - On the ship, standing, at most one of each: `reportChangesWithin` (minutes, 5 to 10080) and `taskDoneBy` (a time, with the task it was set for, kind and fields), each with the actor that set it.
-- **Set through the ship API, the normal way** (M13): `ships.setExpectations`, one tRPC procedure that REST and MCP map onto (0004), so a ship sets them from its own session with no console. `ExpectationsSet` names the actor. Three callers, one procedure:
+- **Set through the ship API, the normal way** (M13): `fleet.setExpectations`, one tRPC procedure that REST and MCP map onto (0004), so a ship sets them from its own session with no console. `ExpectationsSet` names the actor. Three callers, one procedure:
   - the owner's ship, for the ships it owns;
   - the ship that sends the work, such as an orchestrator setting `taskDoneBy` beside the message it sends;
   - a ship template: squadrons sets the template's expectations on each ship it commissions, as its squadrons ship with `fleet:manage` (0017).
 - Who may: an actor with `fleet:manage` within manage reach (0034: the built-in owner rule gives the owner's ship its own ships; any other ship needs a manage rule that reaches the ship). No new scope (question N8).
-- Read back with the ship (`ships.get` and its MCP tool), so the setter checks what holds without the console.
-- `reportChangesWithin` applies while the ship is crewed and its report is working or blocked (question N5). `taskDoneBy` applies while the report names the task it was set for; once the task changes it lapses, shown as lapsed, and a new one is set.
+- Read back with the ship (`fleet.ship` and its MCP tool `fleet_ship`), so the setter checks what holds without the console.
+- `reportChangesWithin` applies while the ship is crewed and its report is working or blocked (N5). `taskDoneBy` applies while the report names the task it was set for; once the task changes it lapses, shown as lapsed, and a new one is set.
 - A breach tells the ship's owner, as every alert does (4.4), and the ship that set the expectation when it is another ship (question N9).
 - Expectations stay through release and recrew; a retire removes them. The crew is not told of them: they are the setter's, not instructions.
 - **The console dialog is optional**: "Set expectations…" on the ship page calls the same procedure and is the last slice (W9). Without it the ship page still shows the Expectations row, read only.
@@ -134,7 +141,73 @@ Each signal is one fact the watch reads from core on each pass, with its default
 - **Fleet overview.** The Report cell shows the task's label per kind (4.2), the step and the note; its title gives report changed and reported times. The Seen cell gains activity beside last seen. A ship with an open alert shows an alert badge after its status. Above the table, Open alerts: one line each, the ship, what parted, since when, "clears by itself", while any is open; nothing when none.
 - **Ship page.** The report cell shows the task's label per kind, a link where the viewer may open it (4.2), the step, and "changed 42 min ago" apart from "seen 1 min ago"; an Activity line under it. Open alerts above the meta strip. Expectations as a read-only row of the meta strip; "Set expectations…" only with the optional W9.
 - **Sent message.** In the message sheet's deliveries, under each recipient whose crew's task is `message` with this fleet and this message: the report state, step, note and changed age (M11). No line for a recipient working on something else.
-- **Inbox.** An alert is an ordinary markdown message from the watch's ship: no change.
+- **Inbox.** An alert message (4.9) shows by its `headline` and its `body` as markdown, from the watch's ship, as a `text/markdown` message does (question N10); a payload that is no alert shows as a plain message.
+
+### 4.9 Message contracts
+
+Every message the design sends, with its full contract, as 0038 gives the question's. Core sends none: it holds facts and alerts and never speaks for a ship (0040). The watch sends one kind, the alert. Nothing is sent on clear (N3), the watch asks no question of its own and expects no reply. Schemas in `@aeolus-fleet/common` (`schemas/alert.ts`), so the watch and every reader share them; content types compare without case and parameters.
+
+#### The alert: `application/vnd.aeolus.alert+json`
+
+- **From** the watch's ship (owned by argo, N2). **To** the ship's owner's ship (argo when argo owns the ship, 0045), and, for an expectation another ship set, that ship too (question N9): one message each, never a meeting or a type selector.
+- **When** the watch raises an alert in core (4.6): after `fleet.raiseAlert` answers, once per alert and recipient.
+- **Idempotency key** `<alertId>` to the owner, `<alertId>:setter` to the setter: a restart or a second pass sends the same message, never a second one.
+- **Headline**: the payload's `headline`, at most 80 characters, naming ships and never their ids (instruction 6), such as `merger-1: report unchanged 3 h 10 min, expected within 60 min`.
+- **Payload** (JSON, at most 8 KB):
+
+| Field | Type | Required | Meaning |
+| --- | --- | --- | --- |
+| `alertId` | string, `alt_` id | yes | The alert in core; read it back with the ship (`fleet.ship`) to see whether it is still open |
+| `headline` | string, 1 to 80 characters | yes | The line an inbox shows first |
+| `body` | string, markdown, at most 2 KB | yes | The facts in words and the ship's page link, for a reader that shows text |
+| `signal` | `crew-request-unassigned`, `delivery-unacknowledged`, `delivery-overdue`, `ping-unanswered`, `report-unchanged` or `task-not-done` | yes | What parted (4.4) |
+| `ship` | object: `id` (`shp_`), `name` (string) | yes | The ship the alert is on |
+| `fleetId` | string, `flt_` id | yes | The fleet the ship is in |
+| `toldAs` | `owner` or `setter` | yes | Why this recipient is told |
+| `since` | string, ISO 8601 time | yes | When the fact parted: the request's version, the delivery, the ping, the last report change or `doneBy` |
+| `raisedAt` | string, ISO 8601 time | yes | When the watch raised it |
+| `facts` | object, by `signal` (below) | yes | The facts at raise |
+
+`facts` per signal:
+
+| `signal` | Fields (all required unless marked) |
+| --- | --- |
+| `crew-request-unassigned` | `settingsVersion` (integer ≥ 1), `minutes` (integer, the N), `reason` (string or `null`: the assigner's, 0029) |
+| `delivery-unacknowledged` | `deliveryId` (`dlv_`), `messageId` (`msg_`), `state` (`pending`, `received` or `handed`), `awaitingCrew` (boolean), `minutes` (integer) |
+| `delivery-overdue` | `deliveryId` (`dlv_`), `messageId` (`msg_`), `overdueEventId` (`evt_`, the `DeliveryOverdue`, 0040) |
+| `ping-unanswered` | `deliveryId` (`dlv_`), `messageId` (`msg_`, the ping), `minutes` (integer) |
+| `report-unchanged` | `reportChangedAt` (ISO 8601), `state` (`working` or `blocked`), `minutes` (integer, the expectation), `setBy` (`shp_`) |
+| `task-not-done` | `task` (the typed reference, 4.2), `doneBy` (ISO 8601), `setBy` (`shp_`) |
+
+- **Example** (to the owner):
+
+```json
+{
+  "alertId": "alt_01m66p4k2v9qz8f7x3n5c1b0td",
+  "headline": "merger-1: report unchanged 3 h 10 min, expected within 60 min",
+  "body": "merger-1 reports **working**, *Merging to main*, PR #1391 step 2 of 3, unchanged since 12:05.\n\nExpected within 60 min, set by orchestrator-1. Clears by itself when the report changes.\n\n[merger-1](https://fleet.aeolus-fleet.dev/ships/shp_01m6...4ftc)",
+  "signal": "report-unchanged",
+  "ship": { "id": "shp_01m6...4ftc", "name": "merger-1" },
+  "fleetId": "flt_01m6...7acm",
+  "toldAs": "owner",
+  "since": "2026-10-30T12:05:00Z",
+  "raisedAt": "2026-10-30T13:05:20Z",
+  "facts": {
+    "reportChangedAt": "2026-10-30T12:05:00Z",
+    "state": "working",
+    "minutes": 60,
+    "setBy": "shp_01m6...or1x"
+  }
+}
+```
+
+- **How a receiving ship handles it**:
+  1. Ack on receipt, as any delivery (ack means received, 0040).
+  2. It is a fact, not an instruction: what to do is the owner's call (0016), by the receiving ship's own prompt or its person. Aeolus retries, releases and recrews nothing on it.
+  3. Before acting, read the alert back with the ship (`fleet.ship`): a cleared alert needs nothing, since no message says so (N3).
+  4. Send no reply: the watch reads none. A reply to the watch's ship is acknowledged and dropped.
+  5. A message of this type whose payload is no alert is a plain message; an unknown `signal` is shown by its `headline` and `body` and otherwise left alone, so a new signal changes no reader.
+- **Sealed fleets** (0068): the payload is sealed like any other. The console's Open alerts read core's alert record, never the message.
 
 ## 5. The flow
 
@@ -162,7 +235,7 @@ flowchart TD
   ex --> watch
   al --> watch
   watch -->|within N, no alert open| nothing[Nothing; the console shows ages]
-  watch -->|parted, no alert for this occurrence| raise["alerts.raise (idempotent by occurrence)"]
+  watch -->|parted, no alert for this occurrence| raise["fleet.raiseAlert (idempotent by occurrence)"]
   raise -->|AlertRaised| al
   raise --> send["send to the owner's ship, idempotency key = alert id"]
   send --> owner{Owner's ship}
@@ -170,7 +243,7 @@ flowchart TD
   owner -->|argo| argo[argo's inbox]
   owner -->|awaiting crew| waiting[Waits as any delivery]
   watch -->|parted, alert open| nothing
-  watch -->|alert open, fact moved back| clear["alerts.clear, AlertCleared"]
+  watch -->|alert open, fact moved back| clear["fleet.clearAlert, AlertCleared"]
   clear --> al
   al --> console["Console: Open alerts on the overview and the ship"]
 ```
@@ -182,11 +255,11 @@ Unhappy paths:
 | The watch is down | No alert is raised or cleared; the console still shows every fact and its age, and the open alerts as they were. 0040's overdue still reaches argo by its event. Back up, it reads the facts anew: what parted meanwhile is raised once, what moved back is cleared. |
 | The watch restarts between raise and send | The open alert has no message yet; the next pass sends with the alert id as key, so at most one message. |
 | The send is refused (the watch cannot reach the owner) | The alert stays open and shows in the console; the watch retries on the next pass with the same key. Its refusal is in the watch's own log. |
-| Core refuses `alerts.raise` (the ship retired meanwhile) | Nothing is sent. |
+| Core refuses `fleet.raiseAlert` (the ship retired meanwhile) | Nothing is sent. |
 | The owner changes after the alert | The alert names the owner it told; a new occurrence goes to the new owner. A retired owner's ships fall to argo (0045). |
 | The tell itself goes unacknowledged | It is a delivery; the watch never alerts on its own messages. |
 | A fact flaps | Each occurrence has its own key: one alert each; a cleared one is never raised again. |
-| Two watch passes at once | `alerts.raise` is unique per occurrence and the send idempotent: one alert, one message. |
+| Two watch passes at once | `fleet.raiseAlert` is unique per occurrence and the send idempotent: one alert, one message. |
 | The trierarch is down | Activity reads as unknown (4.3), not as stopped; no activity alert exists, so nothing is told on it. |
 | The ship is released or recrewed | Task, step and activity go with the lease; open delivery alerts stay; a report-unchanged alert clears (no crew to report). |
 | The ship is retired | Its open alerts clear and its expectations go. |
@@ -195,12 +268,12 @@ Unhappy paths:
 
 ## 6. Decisions to record on approval
 
-- **0070 Monitoring** (new): the facts core keeps (report task, step, `reportChangedAt`; lease activity; expectations; alerts with `fleet:alert`), the watch plugin that compares and tells, one alert per occurrence, raise then send with the alert id as key, no message on clear, defaults in the watch's configuration with each fleet's own value, never an action.
+- **0070 Monitoring** (new): the facts core keeps (report task, step, `reportChangedAt`; lease activity; expectations; alerts with `fleet:alert`), the watch plugin that compares and tells, one alert per occurrence, raise then send with the alert id as key, the alert message's contract (4.9) as a fleet convention in the ship protocol, no message on clear, defaults in the watch's configuration with each fleet's own value, never an action.
 - **0028 Report details**, changed: the report gains checked `task` (a typed reference: a kind and its fields, 4.2) and `step`; `reportChangedAt` moves on a change of state, note, task or step, not of details.
 - **0040 Delivery protocol**, changed on this PR (M5): `DeliveryOverdue` names the ship's owner and reaches the owner through the watch's alert as well as argo.
 - **0029 Crew request**, changed: the assigned trierarch writes its ships' activity with crew:run.
 - **Blueprint**: Alert, Expectation, Breach, Cleared and Activity in the domain language; Report changed beside Last seen; the events `AlertRaised`, `AlertCleared`, `ExpectationsSet`.
-- **Watch plugin**: its own train (0049, question N2), its decisions in its repository.
+- **Watch plugin**: its own train (0049, N2), its decisions in its repository.
 
 ## 7. Slices, once approved
 
@@ -212,9 +285,9 @@ Expectations last (M0): W1 to W5 stand without them. Their API path (W6 to W8) c
 | W2 | aeolus-fleet | The sent message shows each recipient whose task names it | Walked on staging |
 | W3 | aeolus-fleet | Lease activity, `fleet.reportActivity` (crew:run), unknown past the stated interval; the overview's Seen and the ship's Activity line | Tests by name for an unassigned ship refused, the rest taken |
 | W3b | aeolus-fleet-trierarch | The trierarch writes activity each pass with its interval | Walked on staging, trierarch stopped reads unknown |
-| W4 | aeolus-fleet | Alerts in core: table, `fleet:alert`, `alerts.raise` and `alerts.clear` with events, unique per occurrence, retire clears; Open alerts on the overview and the ship page; `DeliveryOverdue` names the owner | Testcontainers: two raises at once give one alert; rollback leaves no event |
-| W5 | the watch plugin | The plugin ship: the four distribution signals, defaults in configuration, raise then send, clear; a restart sends nothing twice | Tests by name per signal, restart and flap; walked on staging with an uncrewed ship |
-| W6 | aeolus-fleet | Expectations on the ship through the ship API: `ships.setExpectations` over tRPC, REST and MCP, `ExpectationsSet`, read back with the ship; the ship page's read-only Expectations row | Tests by name for reach refused, a non-owner with a manage rule allowed, and retire removes; set from a Claude Code session over MCP on staging |
+| W4 | aeolus-fleet | Alerts in core: table, `fleet:alert`, `fleet.raiseAlert` and `fleet.clearAlert` with events, unique per occurrence, retire clears; Open alerts on the overview and the ship page; `DeliveryOverdue` names the owner; the alert message's schema in common and the inbox showing it by headline and body (4.9) | Testcontainers: two raises at once give one alert; rollback leaves no event |
+| W5 | the watch plugin | The plugin ship: the four distribution signals, defaults in configuration, raise then send the alert message (4.9), clear; a restart sends nothing twice | Tests by name per signal, restart and flap; walked on staging with an uncrewed ship |
+| W6 | aeolus-fleet | Expectations on the ship through the ship API: `fleet.setExpectations` over tRPC, REST and MCP, `ExpectationsSet`, read back with the ship; the ship page's read-only Expectations row | Tests by name for reach refused, a non-owner with a manage rule allowed, and retire removes; set from a Claude Code session over MCP on staging |
 | W7 | the watch plugin | Report unchanged and task not done by T, told to the owner and the setter | Tests by name for breach, clear and a lapsed task |
 | W8 | aeolus-fleet-squadrons | A ship template carries expectations; squadrons sets them on each ship it commissions | Tests by name; walked on staging |
 | W9 | aeolus-fleet | Optional, last: the console's "Set expectations…" dialog on the same procedure | Walked on staging |
@@ -223,39 +296,7 @@ Expectations last (M0): W1 to W5 stand without them. Their API path (W6 to W8) c
 
 Before and after, desktop and phone, light and dark, every state, a dashed box on what changed: [the fleet overview, the ship page and the sent message](mockups/console.html).
 
-## 9. Questions from stage 2
-
-**N1. Where do open alerts live?** The overview and the ship page list them (M2), in core's console.
-1. In core, written by the watch with a new scope `fleet:alert`, read in the fleet's one read.
-2. In the watch plugin's own table, shown on a page the plugin serves (0043).
-3. Derived by core from facts and expectations, with no writer.
-
-Pick 1: the overview must show them from its one read (performance design); 3 would put the comparing in core, against M1.
-
-**N2. Which plugin is the watch?**
-1. A new plugin with its own repository and train (0049), its ship owned by argo, as squadrons.
-2. Inside the trierarch plugin, which already assigns crew requests and sees their reasons.
-
-Pick 1: a fleet without trierarchs (ships crewed by hand) needs alerts too, and monitoring is not crewing.
-
-**N3. Is the owner told when an alert clears?**
-1. No: the lists show it gone; one message per occurrence.
-2. Yes: a short second message, "cleared".
-
-Pick 1: a cleared message is a second item in an inbox for what needs no action; M2 asked for a list that clears by itself.
-
-**N4. When does activity read as unknown?** M8 says a trierarch that is down reads as unknown.
-1. Past twice the report interval the trierarch states with each activity write.
-2. When the trierarch plugin reads that trierarch as not answering (the Trierarchs page's rule).
-3. A fixed age in core.
-
-Pick 1: the trierarch states its own rhythm, so Aeolus holds no threshold (0041), and core's one read decides it without asking the plugin.
-
-**N5. "Report changes within N" while the report says idle?**
-1. Applies only while the report says working or blocked: an idle crew has nothing to move.
-2. Applies whatever the state.
-
-Pick 1: idle is a true report of no work; the failed merge's report said working (M10).
+## 9. Open questions
 
 **N6. Does core look up a `message` task of its own fleet?**
 1. No: core checks the ids' shape only, for every fleet.
@@ -281,3 +322,10 @@ Pick 1: no new term or scope (0013), and reach is already where the fleet says w
 2. The owner only, as every other alert.
 
 Pick 1: a sender sets `taskDoneBy` because it waits on the work; told nothing, it would have to poll, and M13 says no one should need the console.
+
+**N10. How does an inbox show the alert?** M14 makes it JSON, not `text/markdown`.
+1. The console shows an alert message by its `headline` and its `body` as markdown, from `@aeolus-fleet/common`'s schema, in W4; any other app reads the same two fields.
+2. The console shows the JSON as sent, and agents read it; a person reads the alert in the Open alerts list instead.
+3. Two contents in one: `text/markdown` with the JSON in a fenced block after the body.
+
+Pick 1: argo and a person read alerts in an inbox, and the headline is the instruction-6 line they already get; 3 makes every reader parse markdown to reach the facts.
