@@ -13,11 +13,12 @@ import { ShipLabelsEdit } from './ship-labels-edit';
 import { ARGO_SHIP, AWAITING_SHIP, CREWED_SHIP, minutesAgo, NOW, PULL_WAY, RETIRED_SHIP, UNKNOWN_SHIP_ID, WATCHER_BUSY_WAY } from '../../../../lib/fixtures/ship-page.fixtures';
 import { shipWayView } from '../../services/ship-way';
 import { ShipWayLines } from '../molecules/ship-way-lines';
+import { VIEWER_FLEET_ID } from '../../../../lib/fixtures/report.fixtures';
 
 const meta = {
   title: 'Organisms/ShipHeader',
   component: ShipHeader,
-  args: { ship: CREWED_SHIP, state: 'ready', now: NOW, actions: <Button size="sm">Release</Button> },
+  args: { ship: CREWED_SHIP, state: 'ready', now: NOW, viewerFleetId: VIEWER_FLEET_ID, actions: <Button size="sm">Release</Button> },
 } satisfies Meta<typeof ShipHeader>;
 
 export default meta;

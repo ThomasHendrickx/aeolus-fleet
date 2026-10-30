@@ -29,6 +29,7 @@ import { useAccess } from '../../../../lib/access';
 import { trpcErrorCode } from '../../../../lib/errors';
 import { useLiveFleet } from '../../../../lib/live-fleet';
 import { useNow } from '../../../../lib/now';
+import { useSessionFleetId } from '../../../../lib/session-fleet-id';
 import { usePluginShipIds } from '../../../../lib/plugin-ships';
 import { useGatewaySettings } from '../../../../lib/gateway';
 import { useFleetSealing } from '../../../../lib/sealing';
@@ -68,6 +69,7 @@ function pathOf(shipId: ShipId, view: { tab: ShipTab; messageId?: MessageId }): 
 export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: ShipTab; messageId?: MessageId }) {
   const router = useRouter();
   const now = useNow();
+  const viewerFleetId = useSessionFleetId();
   const pluginShipIds = usePluginShipIds();
 
   const ship = useShip(shipId);
@@ -138,6 +140,7 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
           shipId={shipId}
           state={isNotFound ? 'not-found' : ship.data ? 'ready' : 'loading'}
           now={now}
+          viewerFleetId={viewerFleetId}
           actions={ship.data ? <ShipActions ship={ship.data} compose={ComposeMessage} crewLineFlow={NewCrewLineFlow} /> : undefined}
           crewRequest={ship.data ? <ShipCrewRequest ship={ship.data} timeline={timeline.items ?? []} now={now} /> : undefined}
           labels={ship.data ? <ShipPageLabels ship={ship.data} /> : undefined}

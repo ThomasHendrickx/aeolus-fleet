@@ -3,9 +3,9 @@ import { describe, expect, it } from 'vitest';
 
 import { reportStepText, reportTaskLabel } from './report-task';
 
-const VIEWER_FLEET: FleetId = 'flt_01m66p4k2v9qz8f7x3n57acm';
-const OTHER_FLEET: FleetId = 'flt_01m5aa4k2v9qz8f7x3n59q2d';
-const MESSAGE_ID = 'msg_01m66p4k2v9qz8f7x3n5k2q9';
+const VIEWER_FLEET: FleetId = 'flt_01m66p4k2v9qz8f7x3n5c17acm';
+const OTHER_FLEET: FleetId = 'flt_01m5aa4k2v9qz8f7x3n5c19q2d';
+const MESSAGE_ID = 'msg_01m66p4k2v9qz8f7x3n5c1k2q9';
 
 describe('reportTaskLabel: the task per kind, as the overview and the ship page show it', () => {
   it('shows a GitHub pull request as PR and its number, linked in a new tab', () => {

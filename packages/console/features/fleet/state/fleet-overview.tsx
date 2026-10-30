@@ -7,6 +7,7 @@ import { usePluginShipIds } from '../../../lib/plugin-ships';
 import type { FleetView } from '../services/fleet-filter';
 import { fleetListFilterOf, fleetListSortOf } from '../services/fleet-list-input';
 import { useNow } from '../../../lib/now';
+import { useSessionFleetId } from '../../../lib/session-fleet-id';
 import { useSquadrons } from '../../../lib/squadrons-api';
 import { shipsInSquadrons } from '../../../lib/squadrons-view';
 import { useShipTypes } from '../../../lib/ship-types';
@@ -40,6 +41,7 @@ export function FleetOverview({
   renderRowActions: FleetTableProps['renderRowActions'];
 }) {
   const now = useNow();
+  const viewerFleetId = useSessionFleetId();
   const squadrons = useSquadrons();
   const labels = useLabelContext();
   const pluginShipIds = usePluginShipIds();
@@ -63,6 +65,7 @@ export function FleetOverview({
         error={{ detail: ships.error instanceof Error ? ships.error.message : undefined, onRetry: ships.retry }}
         highlightedShipIds={placedFirstShipIds}
         now={now}
+        viewerFleetId={viewerFleetId}
         renderRowActions={renderRowActions}
         squadronsOf={squadronsOf}
         labels={labels}

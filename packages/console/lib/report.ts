@@ -37,6 +37,12 @@ export function reportedWhen(reportedAt: Date, now: Date): string {
   return `reported ${when === 'Just now' ? 'just now' : when}`;
 }
 
+/** When the report last changed, for the ship page: "changed 4 min ago", "changed just now". */
+export function reportChangedWhen(changedAt: Date, now: Date): string {
+  const when = relativeTime(changedAt, now);
+  return `changed ${when === 'Just now' ? 'just now' : when}`;
+}
+
 /** The whole report in one line, for a title or a copy: "Blocked: waiting for review". */
 export function reportText(report: NonNullable<ListedShip['report']>): string {
   const word = REPORT_STATE_WORDS[report.state];

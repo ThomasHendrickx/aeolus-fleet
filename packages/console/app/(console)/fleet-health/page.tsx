@@ -13,6 +13,7 @@ import { useStuckSummary } from '../../../lib/fleet-health';
 import { useListedShips } from '../../../lib/listed-ships';
 import { useLiveFleet } from '../../../lib/live-fleet';
 import { useNow } from '../../../lib/now';
+import { useSessionFleetId } from '../../../lib/session-fleet-id';
 import { useSignInWhenSessionEnds } from '../../../lib/session';
 import { useShips } from '../../../lib/ship';
 import { useSquadrons } from '../../../lib/squadrons-api';
@@ -26,6 +27,7 @@ import { silentMembers } from '../../../lib/squadrons-view';
  */
 export default function FleetHealthPage() {
   const now = useNow();
+  const viewerFleetId = useSessionFleetId();
   const frame = useConsoleFrame();
   const liveFleet = useLiveFleet();
   const summary = useStuckSummary();
@@ -48,6 +50,7 @@ export default function FleetHealthPage() {
               members={silent}
               ships={shipsById}
               now={now}
+              viewerFleetId={viewerFleetId}
               renderAction={
                 access.canManage
                   ? ({ squadronId, member }) => (

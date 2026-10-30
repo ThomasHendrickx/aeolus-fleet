@@ -9,6 +9,7 @@ import { DEFAULT_FLEET_VIEW, type FleetView } from '../../services/fleet-filter'
 import { Button } from '@aeolus-fleet/common/header';
 import { FleetTable, type RowActionsLayout } from './fleet-table';
 import { AREA, BLUEPRINT, carried, COST, labelContext, OS, OWNERS, ownerShips, PROJECT } from '../../../../lib/fixtures/labels.fixtures';
+import { REPORT_TASKS, VIEWER_FLEET_ID } from '../../../../lib/fixtures/report.fixtures';
 
 const NOW = new Date('2026-09-28T14:30:00Z');
 const HOUR_MS = 3_600_000;
@@ -149,6 +150,7 @@ const meta = {
   title: 'Organisms/FleetTable',
   component: StatefulFleetTable,
   args: {
+    viewerFleetId: VIEWER_FLEET_ID,
     ships: ACTIVE_FLEET,
     counts: countsOf(ACTIVE_FLEET),
     isOnlyArgo: false,
@@ -254,6 +256,23 @@ export const CopilotRunsOn: Story = {
   },
 };
 export const CopilotRunsOnPhone: Story = { ...CopilotRunsOn, globals: { viewport: { value: 'mobile1' } } };
+
+/** The monitoring design's overview: each crewed ship's task per kind and step beside its note, the report's changed and reported times in its title. */
+const minutesBefore = (minutes: number) => new Date(NOW.getTime() - minutes * 60_000).toISOString();
+const PROGRESS_FLEET = [
+  argo,
+  ship('h5aa', { name: 'reviewer-3', report: { state: 'working', note: 'Reviewing the merge', task: REPORT_TASKS.pullRequest, step: { at: 3, of: 5 }, reportedAt: minutesBefore(1), reportChangedAt: minutesBefore(2), detailsVersion: 0 } }),
+  ship('h5ab', { name: 'writer-2', report: { state: 'working', note: 'Drafting the guide', task: REPORT_TASKS.message, step: { at: 1, of: 4 }, reportedAt: minutesBefore(1), reportChangedAt: minutesBefore(6), detailsVersion: 0 } }),
+  ship('h5ac', { name: 'triage', report: { state: 'idle', note: 'Nothing waiting', task: null, step: null, reportedAt: minutesBefore(4), reportChangedAt: minutesBefore(4), detailsVersion: 0 } }),
+];
+export const TaskAndStep: Story = {
+  args: { ships: PROGRESS_FLEET, labels: labelContext(PROGRESS_FLEET) },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getAllByRole('link', { name: 'PR #1391' })[0]).toHaveAttribute('href', REPORT_TASKS.pullRequest.url);
+    await expect(within(canvasElement).getAllByText('a message')).not.toHaveLength(0);
+  },
+};
+export const TaskAndStepPhone: Story = { ...TaskAndStep, globals: { viewport: { value: 'mobile1' } } };
 
 /** Phone with filters in force: the chips under the search, Clear filters, and the filter button marked. */
 export const PhoneFiltered: Story = {

@@ -1,6 +1,6 @@
 'use client';
 
-import type { CrewStatus, LabelValueId, ListedShip, ShipId } from '@aeolus-fleet/common';
+import type { CrewStatus, FleetId, LabelValueId, ListedShip, ShipId } from '@aeolus-fleet/common';
 import { Eye, Flag, Plug, Search, Ship, SlidersHorizontal, UserRound } from 'lucide-react';
 import type { ReactNode } from 'react';
 
@@ -69,6 +69,8 @@ export interface FleetTableProps {
   highlightedShipIds?: ReadonlySet<ShipId>;
   /** The time relative times are measured from. */
   now: Date;
+  /** The viewer's fleet, for a report's message task; undefined until the session is known. */
+  viewerFleetId: FleetId | undefined;
   renderRowActions?: (ship: ListedShip, layout: RowActionsLayout) => ReactNode;
   /** The empty state's one action: Commission your first ship. */
   emptyAction?: ReactNode;
@@ -206,11 +208,11 @@ function ShipMetadata({ ship, squadron, labels }: { ship: ListedShip; squadron: 
  * a crewed ship's report with its time in the title. Only an agent or plugin
  * ship reports: argo and the viewer ship never do.
  */
-function ReportCell({ ship, now, next }: { ship: ListedShip; now: Date; next: ReactNode }) {
+function ReportCell({ ship, now, viewerFleetId, next }: { ship: ListedShip; now: Date; viewerFleetId: FleetId | undefined; next: ReactNode }) {
   const isReporting = (ship.kind === 'agent' || ship.kind === 'plugin') && ship.status === 'crewed';
   return (
     <span className="flex min-w-0 items-center gap-2 max-sm:flex-col max-sm:items-stretch [&:has(button)>[data-testid=fleet-report]]:hidden">
-      {isReporting ? <ReportLine report={ship.report} now={now} variant="row" isTimeInTitle testId="fleet-report" /> : null}
+      {isReporting ? <ReportLine report={ship.report} now={now} variant="row" viewerFleetId={viewerFleetId} isTimeInTitle testId="fleet-report" /> : null}
       {next}
     </span>
   );
@@ -565,13 +567,14 @@ function DesktopTable({
   ships,
   highlightedShipIds,
   now,
+  viewerFleetId,
   renderRowActions,
   squadronsOf,
   labels,
   pluginShipIds,
   sort,
   onSort,
-}: Pick<FleetTableProps, 'highlightedShipIds' | 'now' | 'renderRowActions' | 'squadronsOf' | 'labels' | 'pluginShipIds'> & {
+}: Pick<FleetTableProps, 'highlightedShipIds' | 'now' | 'viewerFleetId' | 'renderRowActions' | 'squadronsOf' | 'labels' | 'pluginShipIds'> & {
   ships: readonly ListedShip[];
   /** The column the rows are sorted by; with no `onSort`, the headers are plain. */
   sort?: FleetSort | null;
@@ -630,7 +633,7 @@ function DesktopTable({
                 <StatusBadge status={ship.status} />
               </TableCell>
               <TableCell>
-                <ReportCell ship={ship} now={now} next={renderRowActions?.(ship, 'next')} />
+                <ReportCell ship={ship} now={now} viewerFleetId={viewerFleetId} next={renderRowActions?.(ship, 'next')} />
               </TableCell>
               <TableCell>
                 <ShipMetadata ship={ship} squadron={squadronsOf?.get(ship.id)} labels={labels} />
@@ -654,10 +657,11 @@ function PhoneList({
   ships,
   highlightedShipIds,
   now,
+  viewerFleetId,
   renderRowActions,
   squadronsOf,
   pluginShipIds,
-}: Pick<FleetTableProps, 'highlightedShipIds' | 'now' | 'renderRowActions' | 'squadronsOf' | 'pluginShipIds'> & { ships: readonly ListedShip[] }) {
+}: Pick<FleetTableProps, 'highlightedShipIds' | 'now' | 'viewerFleetId' | 'renderRowActions' | 'squadronsOf' | 'pluginShipIds'> & { ships: readonly ListedShip[] }) {
   return (
     <ul aria-label="Ships" className="overflow-hidden rounded-lg border border-border bg-card sm:hidden">
       {ships.map((ship) => (
@@ -676,7 +680,7 @@ function PhoneList({
               <NameChip ship={ship} squadron={squadronsOf?.get(ship.id)} isPluginShip={pluginShipIds?.has(ship.id) ?? false} />
             </div>
             <ShipMetadata ship={ship} squadron={squadronsOf?.get(ship.id)} />
-            <ReportCell ship={ship} now={now} next={renderRowActions?.(ship, 'next')} />
+            <ReportCell ship={ship} now={now} viewerFleetId={viewerFleetId} next={renderRowActions?.(ship, 'next')} />
             <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
               <RunsOn ship={ship} now={now} />
               <LastSeen seenAt={ship.lastSeenAt} now={now} />
@@ -710,6 +714,7 @@ export function FleetTable({
   error,
   highlightedShipIds,
   now,
+  viewerFleetId,
   renderRowActions,
   emptyAction,
   squadronsOf,
@@ -736,7 +741,7 @@ export function FleetTable({
     );
   }
 
-  const rows = { highlightedShipIds, now, renderRowActions, squadronsOf, pluginShipIds };
+  const rows = { highlightedShipIds, now, viewerFleetId, renderRowActions, squadronsOf, pluginShipIds };
   if (isOnlyArgo) {
     const argo = ships.filter((ship) => ship.kind === 'operator');
     return (

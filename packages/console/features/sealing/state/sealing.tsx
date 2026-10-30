@@ -7,7 +7,7 @@ import { useAccess } from '../../../lib/access';
 import { refusalOf } from '../../../lib/errors';
 import { lazyDialog } from '../../../lib/lazy-dialog';
 import { useNow } from '../../../lib/now';
-import { useSessionFleetId } from '../hooks/fleet-id';
+import { useSessionFleetId } from '../../../lib/session-fleet-id';
 import { useFleetSealing } from '../../../lib/sealing';
 import { useChangeCompanyKey, useChangeRecoveryKey, useTurnOnSealing } from '../hooks/sealing';
 import { sealingRefusalOf, type SealingRefusal } from '../services/sealing-refusal';

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { REPORT_TONES, reportAge, reportDetailsJson, reportDetailsLabel, reportedWhen, reportText } from './report';
+import { REPORT_TONES, reportAge, reportDetailsJson, reportDetailsLabel, reportChangedWhen, reportedWhen, reportText } from './report';
 
 const NOW = new Date('2026-10-03T07:10:00.000Z');
 const ago = (ms: number) => new Date(NOW.getTime() - ms);
@@ -28,6 +28,12 @@ describe('reportedWhen', () => {
 
   it('says just now under a minute', () => {
     expect(reportedWhen(ago(5_000), NOW)).toBe('reported just now');
+  });
+});
+
+describe('reportChangedWhen', () => {
+  it('says how long ago the report changed, apart from when it was reported', () => {
+    expect(reportChangedWhen(ago(4 * 60_000), NOW)).toBe('changed 4 min ago');
   });
 });
 
