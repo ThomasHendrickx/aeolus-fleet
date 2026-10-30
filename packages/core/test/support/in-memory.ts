@@ -1839,6 +1839,8 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       ).map(([date, messages]) => ({ date, count: messages?.length ?? 0 })),
       limitSettings: state.fleetLimitSettings.find((held) => held.fleetId === fleet.id) ?? FOLLOWING_DEFAULTS,
       health: healthOf(fleet.id),
+      featureFlagsOn: state.featureFlags.filter((held) => held.fleetId === fleet.id).map((held) => held.flag),
+      featureUse: { isSealing: state.fleetSealings.some((held) => held.fleetId === fleet.id) },
     };
   };
   const installationFleets: InstallationFleets = {
