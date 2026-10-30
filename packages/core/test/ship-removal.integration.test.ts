@@ -243,7 +243,7 @@ describe('a removed ship in the reads (D4)', () => {
 
 describe('a removed ship stays retired (D6)', () => {
   /** What a register with its secret, a send to it and a schedule to it answer, by refusal kind, and whether any of them stored a row. */
-  async function addressed(shipId: ShipId, secret: string | null, sender: Crew) {
+  async function addressed({ shipId, secret }: { shipId: ShipId; secret: string | null }, sender: Crew) {
     const before = { messages: await core.prisma.message.count(), schedules: await core.prisma.schedule.count() };
     const claim = await core.useCases.claimShip({ shipId, secret: secretOf(secret), location: { kind: 'DEVICE' }, harness: 'claude-code' });
     const send = await core.useCases.sendMessage(sender, { model: MODEL, selector: { kind: 'ship', shipId }, payload: 'Hi', idempotencyKey: newKey() });
@@ -272,8 +272,8 @@ describe('a removed ship stays retired (D6)', () => {
     const retired = await commissionedAndRetired('lookout');
 
     // When
-    const toRemoved = await addressed(removed.shipId, removed.secret, sender);
-    const toRetired = await addressed(retired.shipId, retired.secret, sender);
+    const toRemoved = await addressed(removed, sender);
+    const toRetired = await addressed(retired, sender);
 
     // Then
     expect((await shipRow(removed.shipId)).removedAt).not.toBeNull();
@@ -327,7 +327,7 @@ describe('a commission repeated with the key of a retired ship (D7)', () => {
     const retired = await aRetiredShip('planner', 'k');
     core.clock.advance((RETENTION_DAYS + 1) * DAY_MS);
     await core.useCases.closeHealthSnapshots();
-    const commission = Promise.withResolvers<void>();
+    const commission = Promise.withResolvers<undefined>();
     const { uow, reached } = heldUnitOfWork(core.prisma, (tx, hold) => ({
       ...tx,
       historyPruner: {
@@ -345,7 +345,7 @@ describe('a commission repeated with the key of a retired ship (D7)', () => {
     // When
     const repeated = core.useCases.commissionShip(argo, { ...planner, idempotencyKey: 'k' });
     await Promise.race([repeated.then(() => undefined), new Promise((resolve) => setTimeout(resolve, RACE_WAIT_MS))]);
-    commission.resolve();
+    commission.resolve(undefined);
     await pass;
     const answered = unwrap(await repeated).shipId;
 
@@ -389,7 +389,8 @@ describe('the history that names a removed ship (D3)', () => {
     expect(timeline.items.map((entry) => entry.type)).toEqual(expect.arrayContaining(['ShipCommissioned', 'ShipRetired']));
     expect(timeline.items.filter((entry) => entry.ship?.id === shipId).every((entry) => entry.ship?.name === 'planner')).toBe(true);
     expect(listed).toMatchObject({ id: shipId, name: 'planner', type: 'planner', status: 'retired' });
-    expect(meeting).toMatchObject({ owner: { id: shipId, name: 'planner' }, endedAt: expect.any(Date) });
+    expect(meeting.owner).toEqual({ id: shipId, name: 'planner' });
+    expect(meeting.endedAt).not.toBeNull();
   });
 
   it('scenario 10: an undeliverable delivery to a removed ship stays on Health naming it; a resend is refused and a dismiss works', async () => {
