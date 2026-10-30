@@ -9,6 +9,6 @@
 - What a package of another train needs from core is stated in docs/compatibility.md. Each of squadrons, the trierarch plugin, the trierarch and the gateway states the minimum core version it needs, and refuses to start against an older core, saying both versions. This is a minimum version check, not a compatibility layer (0013).
 - Every train stays Apache-2.0 until the licence of a part is decided.
 
-Why: A fix to one part republishes only its train: a console fix moves no computer or harness, and needs no hotfix branch because main holds other parts' work. The parts that move together stay one version. A repository per train lets a part's licence and visibility differ later.
+Why: A fix to one part republishes only its train: a console fix moves no computer or harness. The parts that move together stay one version. A repository per train lets a part's licence and visibility differ later.
 
 Rejected: one version for all packages; an independent version per package (the trierarch and the Aeolus Fleet plugin move together); one monorepo with a workflow per train; a compatibility layer between versions.
