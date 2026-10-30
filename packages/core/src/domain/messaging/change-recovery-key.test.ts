@@ -53,7 +53,12 @@ beforeEach(async () => {
 });
 
 function changeWith(recoveryKeys: RecoveryKeys): ChangeRecoveryKey {
-  return createChangeRecoveryKey({ uow: core.uow, clock: core.clock, ids: core.ids, recoveryKeys, sealing: core.sealing, sealings: core.sealings });
+  return createChangeRecoveryKey({ uow: core.uow, clock: core.clock, ids: core.ids, recoveryKeys, sealing: core.sealing, sealings: core.sealings, featureFlags: core.featureFlagReads });
+}
+
+/** A fleet sealed before its sealing flag went off: one a server without an installation token or a KMS reads (decision 0069). */
+function theSealingFlagOff(): void {
+  core.state.featureFlags.length = 0;
 }
 
 function rotation() {
@@ -144,6 +149,16 @@ describe('changing the recovery key (decision 0068, B13d)', () => {
     const refusal = refusalOf(await changeWith(inMemoryRecoveryKeys)(fleetManager, { recoveryKey: 'AGE-SECRET-KEY-1NOTAPUBLICKEY' }));
 
     expect(refusal.kind).toBe('INVALID_RECOVERY_KEY');
+    expect(core.state).toEqual(before);
+  });
+
+  it('refuses a fleet whose sealing flag is off FEATURE_FLAG_OFF, and nothing changes (decision 0069)', async () => {
+    theSealingFlagOff();
+    const before = structuredClone(core.state);
+
+    const refusal = refusalOf(await changeWith(inMemoryRecoveryKeys)(fleetManager, { recoveryKey: RECOVERY_KEY_B }));
+
+    expect(refusal.kind).toBe('FEATURE_FLAG_OFF');
     expect(core.state).toEqual(before);
   });
 

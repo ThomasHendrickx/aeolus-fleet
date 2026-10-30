@@ -21,8 +21,9 @@ let fleetManager: AccountCaller;
 beforeEach(async () => {
   core = createInMemoryCore('2026-10-29T12:00:00.000Z');
   world = createInMemoryKeyVault();
-  turnOnSealing = createTurnOnSealing({ uow: core.uow, clock: core.clock, ids: core.ids, vault: world.vault, sealer: inMemoryPayloadSealer, recoveryKeys: inMemoryRecoveryKeys, sealings: core.sealings });
+  turnOnSealing = createTurnOnSealing({ uow: core.uow, clock: core.clock, ids: core.ids, vault: world.vault, sealer: inMemoryPayloadSealer, recoveryKeys: inMemoryRecoveryKeys, sealings: core.sealings, featureFlags: core.featureFlagReads });
   ({ fleetId, operatorShipId } = await hostedFleet(core));
+  core.state.featureFlags.push({ fleetId, flag: 'sealing' });
   fleetManager = { kind: 'account', accountId: accountIdSchema.parse('acc_ines'), fleetId, scopes: ['fleet:read', 'fleet:manage', 'fleet:keys'], groupValues: [], personShipId: null, throughShipId: null };
   core.state.events.length = 0;
 });
@@ -117,6 +118,17 @@ describe('turning sealing on (decision 0068, B4)', () => {
     const argo: ShipCaller = { kind: 'operator', shipId: operatorShipId, fleetId, scopes: ['fleet:read', 'fleet:keys'] };
 
     expect(unwrap(await turnOnSealing(argo, { companyKey: await aBoundCompanyKey() })).state).toBe('sealed');
+  });
+
+  it('refuses a fleet whose sealing flag is off FEATURE_FLAG_OFF, and nothing is stored (decision 0069)', async () => {
+    const companyKey = await aBoundCompanyKey();
+    core.state.featureFlags.length = 0;
+    const before = structuredClone(core.state);
+
+    const refusal = refusalOf(await turnOnSealing(fleetManager, { companyKey }));
+
+    expect(refusal.kind).toBe('FEATURE_FLAG_OFF');
+    expect(core.state).toEqual(before);
   });
 
   it('refuses a fleet that is sealed already, and nothing changes', async () => {

@@ -44,7 +44,12 @@ beforeEach(async () => {
 });
 
 function changeWith(vault: KeyVault): ChangeCompanyKey {
-  return createChangeCompanyKey({ uow: core.uow, clock: core.clock, ids: core.ids, vault, sealer: core.sealing.sealer, sealings: core.sealings });
+  return createChangeCompanyKey({ uow: core.uow, clock: core.clock, ids: core.ids, vault, sealer: core.sealing.sealer, sealings: core.sealings, featureFlags: core.featureFlagReads });
+}
+
+/** A fleet sealed before its sealing flag went off: one a server without an installation token or a KMS reads (decision 0069). */
+function theSealingFlagOff(): void {
+  core.state.featureFlags.length = 0;
 }
 
 function rotation() {
@@ -108,6 +113,17 @@ describe('changing the company key (decision 0068, B13c)', () => {
 
     expect(refusalOf(await changeWith(core.keyVault.vault)(fleetManager, { companyKey: unbound })).kind).toBe('KEY_NOT_BOUND_TO_FLEET');
     expect(refusalOf(await changeWith(core.keyVault.vault)(fleetManager, { companyKey: refused })).kind).toBe('KEY_UNAVAILABLE');
+    expect(core.state).toEqual(before);
+  });
+
+  it('refuses a fleet whose sealing flag is off FEATURE_FLAG_OFF, and nothing changes (decision 0069)', async () => {
+    const keyB = await aBoundCompanyKey();
+    theSealingFlagOff();
+    const before = structuredClone(core.state);
+
+    const refusal = refusalOf(await changeWith(core.keyVault.vault)(fleetManager, { companyKey: keyB }));
+
+    expect(refusal.kind).toBe('FEATURE_FLAG_OFF');
     expect(core.state).toEqual(before);
   });
 
