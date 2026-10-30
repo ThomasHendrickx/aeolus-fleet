@@ -4,12 +4,12 @@ import { z } from 'zod';
 
 import { createPrismaFleetRepository } from '../src/adapters/prisma/registry.js';
 import { createPrismaUnitOfWork, type PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
-import type { ShipCaller } from '../src/domain/shared/caller.js';
+import type { Crew, ShipCaller } from '../src/domain/shared/caller.js';
 import { createPruneHistory } from '../src/domain/shared/prune-history.js';
 import type { UnitOfWork } from '../src/domain/shared/unit-of-work.js';
 import { newKey } from '../src/testing/keys.js';
 import { unwrap } from '../src/testing/result.js';
-import { operatorCaller } from './support/core-fixtures.js';
+import { operatorCaller, secretOf } from './support/core-fixtures.js';
 import { withOperatorLogin } from './support/operator-login.js';
 import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
 
@@ -46,6 +46,19 @@ async function aRetiredShip(name: string, idempotencyKey = newKey()): Promise<Sh
   const { shipId } = unwrap(await core.useCases.commissionShip(argo, { name, type: 'planner', note: 'Plans the retention slice', idempotencyKey }));
   core.clock.advance(1_000);
   unwrap(await core.useCases.retireShip(argo, { shipId }));
+  return shipId;
+}
+
+async function crewed(ship: { name: string; type: string }): Promise<Crew> {
+  const { shipId, secret } = unwrap(await core.useCases.commissionShip(argo, { ...ship, idempotencyKey: newKey() }));
+  const { crewToken } = unwrap(await core.useCases.claimShip({ shipId, secret: secretOf(secret), location: { kind: 'DEVICE' }, harness: 'claude-code' }));
+  return unwrap(await core.useCases.authenticate.byCrewToken(crewToken));
+}
+
+/** A ship retired, then removed by the pass past the retention. */
+async function aRemovedShip(name: string, idempotencyKey = newKey()): Promise<ShipId> {
+  const shipId = await aRetiredShip(name, idempotencyKey);
+  await passAfter((RETENTION_DAYS + 1) * DAY_MS);
   return shipId;
 }
 
@@ -185,5 +198,41 @@ describe('removing retired ships in the pruning pass on Postgres', () => {
     // Then
     expect(removedWithinTheHour).toBeNull();
     expect((await shipRow(shipId)).removedAt).not.toBeNull();
+  });
+});
+
+describe('a removed ship in the reads (D4)', () => {
+  it('scenario 3: with Show retired on, a removed ship is not in the list, and fleet.list with the retired status does not answer it', async () => {
+    // Given
+    const removed = await aRemovedShip('planner');
+    const retired = await aRetiredShip('lookout');
+
+    // When
+    const withRetired = await core.useCases.listFleet(argo, { status: ['awaitingCrew', 'crewed', 'retired'] });
+    const retiredOnly = await core.useCases.listFleet(argo, { status: ['retired'] });
+
+    // Then
+    expect(withRetired.ships.map((ship) => ship.id)).not.toContain(removed);
+    expect(retiredOnly.ships.map((ship) => ship.id)).toEqual([retired]);
+  });
+
+  it('scenario 4: a removed ship is not in discovery, the send and owner pickers, the ship types or the counts', async () => {
+    // Given
+    const removed = await aRemovedShip('planner');
+    const scout = await crewed({ name: 'scout', type: 'reviewer' });
+
+    // When
+    const discovered = unwrap(await core.useCases.discover(scout));
+    const picked = await core.useCases.listFleet(argo, {});
+    const owners = await core.useCases.listFleet(argo, { shipKind: ['operator', 'person'] });
+    const types = await core.useCases.listShipTypes(argo, { status: ['awaitingCrew', 'crewed', 'retired'] });
+    const counts = await core.useCases.countShips(argo);
+
+    // Then
+    expect(discovered.ships.map((ship) => ship.id)).not.toContain(removed);
+    expect(picked.ships.map((ship) => ship.id)).not.toContain(removed);
+    expect(owners.ships.map((ship) => ship.id)).not.toContain(removed);
+    expect(types).not.toContain('planner');
+    expect(counts.find((count) => count.kind === 'agent')?.retired ?? 0).toBe(0);
   });
 });
