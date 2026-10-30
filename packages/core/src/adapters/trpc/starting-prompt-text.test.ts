@@ -64,7 +64,7 @@ describe('the crew lines', () => {
     expect(presented.crewLines).toEqual([
       { harness: 'claude-code', line: `/aeolus-fleet:crew ${FLEET_URL} ${shipId} aeolus_sk_v1_abc` },
       { harness: 'codex', line: `$aeolus-fleet-crew ${FLEET_URL} ${shipId} aeolus_sk_v1_abc` },
-      { harness: 'copilot', line: `/aeolus-fleet-crew ${FLEET_URL} ${shipId} aeolus_sk_v1_abc` },
+      { harness: 'copilot', line: `/aeolus-fleet:crew ${FLEET_URL} ${shipId} aeolus_sk_v1_abc` },
     ]);
   });
 });
