@@ -175,6 +175,7 @@ describe('changing the recovery key (decision 0068, B13d)', () => {
   it('refuses a fleet that is not sealed, FLEET_NOT_SEALED', async () => {
     core = createInMemoryCore('2026-10-29T09:00:00.000Z');
     const fleet = await initialiseFleet(core);
+    core.state.featureFlags.push({ fleetId: fleet.fleetId, flag: 'sealing' });
     const unsealed: AccountCaller = { ...fleetManager, fleetId: fleet.fleetId };
 
     const refusal = refusalOf(await changeWith(inMemoryRecoveryKeys)(unsealed, { recoveryKey: RECOVERY_KEY_B }));

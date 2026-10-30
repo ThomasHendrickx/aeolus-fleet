@@ -89,6 +89,7 @@ describe('the recovery set (decision 0068, B15)', () => {
   it('refuses a fleet that is not sealed, FLEET_NOT_SEALED', async () => {
     core = createInMemoryCore('2026-10-29T09:00:00.000Z');
     const fleet = await initialiseFleet(core);
+    core.state.featureFlags.push({ fleetId: fleet.fleetId, flag: 'sealing' });
 
     expect(refusalOf(await readRecoverySet()({ ...fleetManager, fleetId: fleet.fleetId })).kind).toBe('FLEET_NOT_SEALED');
   });

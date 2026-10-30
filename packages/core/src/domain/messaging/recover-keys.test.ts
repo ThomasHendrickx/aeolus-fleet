@@ -175,6 +175,7 @@ describe('recovering the data keys (decision 0068, B15)', () => {
   it('refuses a fleet that is not sealed, FLEET_NOT_SEALED', async () => {
     core = createInMemoryCore('2026-10-29T09:00:00.000Z');
     const fleet = await initialiseFleet(core);
+    core.state.featureFlags.push({ fleetId: fleet.fleetId, flag: 'sealing' });
 
     const refusal = refusalOf(await recoverKeys()({ ...fleetManager, fleetId: fleet.fleetId }, { companyKey: keyA, dataKeys: [] }));
 

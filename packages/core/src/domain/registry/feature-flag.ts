@@ -78,3 +78,14 @@ export async function featureFlagsOn(source: FeatureFlagSource, flags: Pick<Feat
 export async function isFeatureFlagOnForUpdate(source: FeatureFlagSource, flags: Pick<FeatureFlagRepository, 'isOnForUpdate'>, at: { fleetId: FleetId; flag: FeatureFlag }): Promise<boolean> {
   return source.kind === 'server' ? source.on.includes(at.flag) : flags.isOnForUpdate(at.fleetId, at.flag);
 }
+
+/** The fleets' feature flags as a feature's procedures read them: where this server's come from, and the installation's rows, read outside a unit of work. */
+export interface FeatureFlagReads {
+  source: FeatureFlagSource;
+  flags: Pick<FeatureFlagRepository, 'onFor'>;
+}
+
+/** Refuses a feature's procedure FEATURE_FLAG_OFF while the fleet's flag for it is off. */
+export async function checkFeatureFlag(reads: FeatureFlagReads, at: { fleetId: FleetId; flag: FeatureFlag }): Promise<Result<void, FeatureFlagOff>> {
+  return requireFeatureFlag(at.flag, (await featureFlagsOn(reads.source, reads.flags, at.fleetId)).includes(at.flag));
+}

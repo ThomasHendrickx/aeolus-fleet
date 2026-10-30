@@ -139,6 +139,7 @@ describe('changing the company key (decision 0068, B13c)', () => {
 
   it('refuses a fleet that is not sealed, FLEET_NOT_SEALED', async () => {
     const other = await hostedFleet(core);
+    core.state.featureFlags.push({ fleetId: other.fleetId, flag: 'sealing' });
     const keyB = await core.keyVault.aCompanyKey();
     await core.keyVault.bindToFleet(keyB, other.fleetId);
 
