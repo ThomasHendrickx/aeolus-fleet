@@ -51,6 +51,27 @@ function callTo(sent: readonly HeldCall[], url: string): HeldCall {
 }
 
 describe('createSessionFetch', () => {
+  it('waits for a report read on the console origin before signing out', async () => {
+    // Given a report read through the console server rather than the core origin.
+    const { fetchImplementation, sent } = aHoldingFetch();
+    const sessionFetch = createSessionFetch(fetchImplementation);
+    const report = '/api/reports/fleet.ship?input={}';
+    const reading = sessionFetch(report);
+
+    // When sign out is requested while that read is on its way.
+    const signingOut = sessionFetch(SIGN_OUT, { method: 'POST' });
+    await settled();
+    expect(urlsOf(sent)).toEqual([report]);
+    callTo(sent, report).answer();
+    await reading;
+    await settled();
+
+    // Then the report finishes before sign out can clear its renewed cookie.
+    expect(urlsOf(sent)).toEqual([report, SIGN_OUT]);
+    callTo(sent, SIGN_OUT).answer();
+    await signingOut;
+  });
+
   it('sends a call at once while no sign out is on its way', async () => {
     const { fetchImplementation, sent } = aHoldingFetch();
     const sessionFetch = createSessionFetch(fetchImplementation);
