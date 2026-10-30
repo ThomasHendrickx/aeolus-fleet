@@ -71,9 +71,9 @@ async function crewedScout(fleet: { fleetId: FleetId; operatorShipId: ShipId }) 
   return { scout: agentCaller({ fleetId: fleet.fleetId, shipId }), asScout };
 }
 
-/** A once schedule to argo, a day ahead of the test clock. */
+/** A once schedule to argo, far ahead of the database clock, which the schedule timer reads: a due one is sent and ended, and an ended schedule is no longer counted against the limit. */
 function aSchedule() {
-  return { selector: { kind: 'ship' as const, name: 'argo' }, payload: 'Check in', model: MODEL, idempotencyKey: newKey(), timing: { kind: 'once' as const, at: new Date('2026-10-05T12:00:00.000Z') } };
+  return { selector: { kind: 'ship' as const, name: 'argo' }, payload: 'Check in', model: MODEL, idempotencyKey: newKey(), timing: { kind: 'once' as const, at: new Date('2099-10-05T12:00:00.000Z') } };
 }
 
 /** The tRPC error code and message a call fails with; undefined when it succeeds. */
