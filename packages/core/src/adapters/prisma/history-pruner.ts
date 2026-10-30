@@ -259,7 +259,14 @@ export function createPrismaHistoryPruner(db: Db): HistoryPruner {
       const credentials = await db.$executeRaw`DELETE FROM credentials WHERE fleet_id = ${fleetId} AND id = ANY(${[...set.credentialIds]}::text[])`;
       const signInTickets = await db.$executeRaw`DELETE FROM sign_in_tickets WHERE fleet_id = ${fleetId} AND token_hash = ANY(${[...set.signInTicketHashes]}::text[])`;
       const reachRefusals = await db.$executeRaw`DELETE FROM reach_refusals WHERE fleet_id = ${fleetId} AND id = ANY(${[...set.reachRefusalIds]}::text[])`;
-      // The remnant (decision 0070, D2): every row naming the ship keeps its foreign key.
+      // The ship's schedules go with it (decision 0070, D2), all cancelled at
+      // retire; a kept message one of them sent keeps its content and its send
+      // time, and names no schedule from then on.
+      await db.$executeRaw`
+        UPDATE messages SET schedule_id = NULL
+        WHERE fleet_id = ${fleetId} AND schedule_id IN (SELECT id FROM schedules WHERE fleet_id = ${fleetId} AND ship_id = ANY(${[...set.shipIds]}::text[]))`;
+      await db.$executeRaw`DELETE FROM schedules WHERE fleet_id = ${fleetId} AND ship_id = ANY(${[...set.shipIds]}::text[])`;
+      // The remnant (decision 0070, D2): every other row naming the ship keeps its foreign key.
       const ships = await db.$executeRaw`
         UPDATE ships SET removed_at = ${set.removedAt}, scopes = '{}', note = NULL, owner_ship_id = NULL,
           commissioned_by_kind = NULL, commissioned_by = NULL, commission_key = NULL, commission_request_hash = NULL
