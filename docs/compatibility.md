@@ -21,7 +21,7 @@ The ship contract is `/api/v1`, REST over the same procedures as `/trpc` and `/m
 | trierarch | 0026 | `ship/register`, `whoami`, `receive`, `ack`, `pong`, `send`, `report`, `inbox`; `fleet/ship`, `getStartingPrompt`, `assignedCrewRequests`, `giveBackCrewRequest`, `reportCrewStatus`, `confirmCrewRelease`, `clearRequests`, `confirmWorktreeCleared`, `release` |
 | gateway | 0044, 0056 | `ship/register`, `whoami`, `pushReceive`, `receiveReply`, `sentMessage`, `ack`, `delivery`, `handed`, `handled`, `notHandled`, `inbox`, `send`, `discover`, `setStatement`, `deregister`, `meeting`, `requestMic`, `withdrawMicRequest`, `releaseMic`; `fleet/commission`, `ship`, `getStartingPrompt`, `release`, `declareScopes`, `scopes`, `networkRules`, `checkManage` (core 0.32.0). With argo's console cookie, `/trpc` `console.session` and `fleet.networkRules` |
 
-A payload or a statement over 64 KB, up to 256 KB (decision 0006), needs core 0.34.1; an older core refuses it.
+A payload or a statement over 64 KB, up to 256 KB (decision 0006), needs the core release carrying aeolus-fleet#1418; an older core refuses it.
 
 Every package also builds against `@aeolus-fleet/common`: its schemas are the shapes of these calls, of plugin details per ship type (decision 0028) and of crew settings (decision 0027).
 
