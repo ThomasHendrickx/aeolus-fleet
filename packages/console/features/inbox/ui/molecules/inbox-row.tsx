@@ -6,6 +6,7 @@ import type { InboxEntry } from '../../../../lib/inbox-entry';
 import { clockTime, duration, fullDateTime, shortDateTime } from '../../../../lib/relative-time';
 import { Badge } from '../../../../components/atoms/badge';
 import { SealedMark } from '../../../../components/molecules/sealed-mark';
+import { shownHeadlineOf } from '../../services/shown-headline';
 
 const DAY_MS = 24 * 60 * 60 * 1_000;
 
@@ -73,7 +74,7 @@ interface InboxRowProps {
 export function InboxRow({ entry, isSelected, onSelect, now, isNested = false }: InboxRowProps) {
   const sentAt = new Date(entry.sentAt);
   const isUnreadRow = isUnread(entry);
-  const headline = entry.kind === 'question' ? entry.question.title : entry.text.headline;
+  const headline = entry.kind === 'question' ? entry.question.title : shownHeadlineOf(entry);
   const isKeyNotReachable = entry.sealing === 'keyNotReachable';
   return (
     <li>
@@ -107,7 +108,7 @@ export function InboxRow({ entry, isSelected, onSelect, now, isNested = false }:
             entry.kind === 'question' && entry.stale !== null ? 'text-muted-foreground line-through' : undefined,
           )}
         >
-          {isKeyNotReachable ? 'Sealed, key not reachable' : headline === '' ? 'No text' : headline}
+          {headline === '' ? 'No text' : headline}
         </span>
         {entry.kind === 'question' ? (
           <QuestionLine entry={entry} now={now} />

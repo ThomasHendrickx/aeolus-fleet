@@ -5,6 +5,7 @@ import { Button, classNames } from '@aeolus-fleet/common/header';
 import type { MessageEntry } from '../../../../lib/inbox-entry';
 import { clockTime, fullDateTime } from '../../../../lib/relative-time';
 import { counted } from '../../../../lib/sentence';
+import { shownHeadlineOf } from '../../services/shown-headline';
 import { InboxRow } from './inbox-row';
 
 interface PluginGroupProps {
@@ -55,7 +56,7 @@ export function PluginGroup({ messages, isExpanded, onToggle, selectedId, onSele
               {counted(messages.length, { one: 'message from a plugin ship', many: 'messages from plugin ships' })}
             </span>
             {isExpanded ? null : (
-              <span className="line-clamp-2 text-meta text-muted-foreground max-sm:text-body">{messages.map(({ text }) => text.headline).join(' · ')}</span>
+              <span className="line-clamp-2 text-meta text-muted-foreground max-sm:text-body">{messages.map(shownHeadlineOf).join(' · ')}</span>
             )}
           </span>
           <ChevronDown aria-hidden className={classNames('mt-5 size-(--size-icon) shrink-0 text-muted-foreground transition-transform', isExpanded ? 'rotate-180' : undefined)} />
