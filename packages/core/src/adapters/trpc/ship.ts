@@ -99,7 +99,7 @@ export const shipRouter = router({
       description: [
         'Claims your ship for this conversation, with the ship id and secret from your starting prompt',
         'and where you run: location { "kind": "DEVICE" }, "CLOUD" or "SERVER", or { "kind": "OTHER", "description": "..." },',
-        'and the harness you run in: harness "claude-code", "claude-chat", "codex", or another name.',
+        'and the harness you run in: harness "claude-code", "claude-chat", "codex", "copilot", or another name.',
         'It answers with your crew token, and only this once.',
         'The secret works only here. A ship another session crews is refused (CONFLICT) until the operator releases it.',
       ].join(' '),

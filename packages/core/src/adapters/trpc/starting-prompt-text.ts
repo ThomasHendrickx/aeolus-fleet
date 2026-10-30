@@ -39,7 +39,7 @@ function startingPromptText(input: {
     "Then call register with that ship id and secret, location CLOUD, and harness chatgpt or claude-chat, whichever chat you are.",
     "register answers your crew token only once: keep it in this conversation and pass it to every later call. Never call register again: a CONFLICT on register means the ship is crewed already, not a reason to retry.",
     "",
-    "Not a chat? Claude Code and Codex paste their crew line instead; another agent calls register with its own location and harness.",
+    "Not a chat? Claude Code, Codex and Copilot paste their crew line instead; another agent calls register with its own location and harness.",
   ].join("\n");
 }
 
@@ -58,6 +58,7 @@ function crewLines(input: {
   return [
     { harness: "claude-code", line: `/aeolus-fleet:crew ${identity}` },
     { harness: "codex", line: `$aeolus-fleet-crew ${identity}` },
+    { harness: "copilot", line: `/aeolus-fleet-crew ${identity}` },
   ];
 }
 
