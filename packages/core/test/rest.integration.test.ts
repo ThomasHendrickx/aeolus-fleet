@@ -126,6 +126,14 @@ const deliveriesSchema = z.object({
 });
 
 describe('the ship calls at /api/v1', () => {
+  it('register a session that states no harness, and its lease keeps none: unknown, never a default (aeolus-fleet#1408)', async () => {
+    const { shipId, secret } = await commissioned();
+
+    await ok(request('register', { body: { shipId, secret, location: { kind: 'DEVICE' } } }), z.object({ crewToken: z.string() }));
+
+    await expect(database.lease.findMany({ where: { shipId, endedAt: null }, select: { harness: true } })).resolves.toEqual([{ harness: null }]);
+  });
+
   it('serve an OpenAPI spec that lists every ship procedure, then the fleet actions', async () => {
     const response = await fetch(`${address}/api/v1/openapi.json`);
 
