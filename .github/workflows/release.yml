@@ -148,7 +148,7 @@ jobs:
 
       # Each step skips a package whose version is on npm already, so releasing a
       # version again after it failed partway publishes only what is missing, then
-      # tags. Dispatch it again from main: Re-run jobs replays the failed run's own
+      # tags. Dispatch it again from its release branch: Re-run jobs replays the failed run's own
       # copy of this file.
       - name: Publish @aeolus-fleet/common
         env:
