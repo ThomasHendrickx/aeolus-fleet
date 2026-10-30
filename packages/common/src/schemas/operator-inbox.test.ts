@@ -122,7 +122,7 @@ describe('replyInputSchema', () => {
     expect(replyInputSchema.parse(reply)).toEqual(reply);
   });
 
-  it('takes a payload of 64 KB exactly, and refuses one byte more', () => {
+  it('takes a payload of 256 KB exactly, and refuses one byte more', () => {
     expect(replyInputSchema.safeParse({ ...reply, payload: 'a'.repeat(PAYLOAD_MAX_BYTES) }).success).toBe(true);
     expect(replyInputSchema.safeParse({ ...reply, payload: 'a'.repeat(PAYLOAD_MAX_BYTES + 1) }).success).toBe(false);
   });

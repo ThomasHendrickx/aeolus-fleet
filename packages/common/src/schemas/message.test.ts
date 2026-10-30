@@ -31,8 +31,8 @@ describe('payloadBytes', () => {
 });
 
 describe('PAYLOAD_MAX_BYTES', () => {
-  it('is 64 KB', () => {
-    expect(PAYLOAD_MAX_BYTES).toBe(64 * 1024);
+  it('is 256 KB', () => {
+    expect(PAYLOAD_MAX_BYTES).toBe(256 * 1024);
   });
 });
 
@@ -201,8 +201,8 @@ describe('sendInputSchema', () => {
   });
 
   it.each([
-    ['64 KB of one-byte characters', 'a'.repeat(PAYLOAD_MAX_BYTES)],
-    ['64 KB of two-byte characters', 'é'.repeat(PAYLOAD_MAX_BYTES / 2)],
+    ['256 KB of one-byte characters', 'a'.repeat(PAYLOAD_MAX_BYTES)],
+    ['256 KB of two-byte characters', 'é'.repeat(PAYLOAD_MAX_BYTES / 2)],
   ])('accepts a payload of exactly %s', (_label, payload) => {
     expect(sendInputSchema.safeParse({ ...input, payload }).success).toBe(true);
   });
@@ -210,7 +210,7 @@ describe('sendInputSchema', () => {
   it.each([
     ['one-byte characters', 'a'.repeat(PAYLOAD_MAX_BYTES + 1)],
     ['two-byte characters and one more byte', `${'é'.repeat(PAYLOAD_MAX_BYTES / 2)}a`],
-  ])('rejects a payload one byte over 64 KB: %s', (_label, payload) => {
+  ])('rejects a payload one byte over 256 KB: %s', (_label, payload) => {
     expect(sendInputSchema.safeParse({ ...input, payload }).success).toBe(false);
   });
 
