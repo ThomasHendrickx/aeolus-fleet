@@ -1,6 +1,6 @@
-# 0044 Ship kinds: agent, person, app
+# 0044 Ship kinds
 
-- Kinds: `operator` (argo, 0012), `viewer` (0022), `agent` (a session), `person` (a human's ship, for messaging and owning, linked to their account and owning itself, crewed by their own app, a chat or the gateway), `app` (an application or an outside party, crewed by its adapter).
+- The kinds are listed in 0050: `operator` (argo, 0012), `viewer` (0022), `agent`, `person`, `app` and `plugin`. A person ship is for messaging and owning, linked to its account and owning itself, crewed by the person's own app, a chat or the gateway; an app ship is crewed by its adapter.
 - Only an agent states a model (0018). A person or app ship states none.
 - A person ship is commissioned with `fleet:person` (0053), by the installation for an account (0052). A ship with `fleet:commission` (0046) commissions agents, and app ships too when it also holds `fleet:on-behalf`, which argo grants: the gateway, which commissions a proxy ship once an outside party is approved (0056) (interop I-5).
 - A person's app holds the person's ship's lease, so the ship stays crewed while the person is away. A delivery to a person ship awaiting crew is not stuck (0042).

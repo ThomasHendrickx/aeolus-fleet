@@ -2,14 +2,14 @@
 
 The [Aeolus](https://github.com/ThomasHendrickx/aeolus-fleet) operator web app (Next.js). It reaches the server only through its tRPC API at `/trpc`.
 
-Pre-v1: expect changes between minor releases. Its pages:
+Pre-v1: expect changes between minor releases. Its main pages; every route, the rest of `/sign-in/*` and the console's own `/api/*` included, is under `app/`:
 
 | Path | What |
 | --- | --- |
-| `/sign-in` | Sign in with the operator email and password; the session crews `argo`. Only a session cookie stays in the browser |
+| `/sign-in` | Sign in with argo's email and password once set, or a link from `aeolus-core sign-in`; where the console signs accounts in through pagasae, that sign-in instead, with Sign in as argo for an account allowed as argo. A hosted console sends you to the hosting service's sign-in. The session crews `argo`; only a session cookie stays in the browser |
 | `/` | The fleet overview, live over a WebSocket: every ship with status and where a crewed ship's session runs or an awaiting ship's prompt status, updated without a reload (a ship's type is a filter, not shown in its row; with squadrons on, a member shows its squadron instead); search and filters in the URL; commission a ship; each ship's actions behind their dialogs: get a new starting prompt for a ship awaiting crew (shown once with its crew line; asks first while an unclaimed one is out), release or re-crew a crewed ship (re-crew shows a fresh prompt once), and retire any ship but `argo` (the ship's name typed to confirm when it still has open deliveries; retired ships show under Show retired); sign out from the account menu. Without a session it sends you to `/sign-in`, which says so when you signed in somewhere else |
 | `/ships/[shipId]` | A ship's page, live: status, type, where its session runs, since when, when it was commissioned and its id, and how its last ping stands, and its not handled deliveries with Resend and Dismiss; Ping, Get starting prompt, Re-crew, Release, Rename (live name check and typed confirm) or Retire; a Timeline tab with every change to the ship, newest first, and a Messages tab with its messages grouped into threads by reply. A message opens in a side sheet (`?message=`) with its envelope, payload (formatted JSON or raw) and the history of its delivery, and Reply, which opens Compose with its sender as the recipient and the message it answers |
-| `/fleet-health` | Health, live: whether delivery works, where deliveries are stuck by cause and place with one next step each, the 7-day trend, the acknowledged in 24 hours, the machines and the silent squadron members. Its stuck count shows in the Sidebar and TabBar on every page. `/needs-attention` opens it |
+| `/fleet-health` | Health, live: whether delivery works, where deliveries are stuck by cause and place with one next step each, the 7-day trend, the acknowledged in 24 hours, the computers and the silent squadron members. Its stuck count shows in the Sidebar and TabBar on every page. `/needs-attention` opens it |
 | `/fleet-health/[cause]` | One cause opened: each place's facts and its deliveries one by one. An undeliverable one offers Resend and Dismiss, with a toast |
 | `/inbox` | argo's one inbox, live (#849): questions on top, open ones oldest first with the asker's pick chosen; then messages, newest first, their body rendered (markdown, links) with their thread; then plugin ships' messages folded into one row with one Done. Open and Done on phone, with All on desktop (`?filter=`); two panes with keys (J, K, E, R) on desktop and a page of its own on phone (`?message=`). Opening one marks it read; Mark as unread undoes that; Done, Reply or Answer acknowledges it. Its open count, questions and messages together, shows in the Sidebar and TabBar on every page |
 | `/health` | Web up, plus the server's health. Nothing about fleets |
@@ -56,7 +56,7 @@ On localhost, plain http works. On any other host, serve the console over https:
 
 ## Design system
 
-The console is themed from `tokens.css` in `@aeolus-fleet/common/header` (`packages/common/src/header`), the single copy of the design tokens, which also holds the header and the atoms it stands on (light on `:root`, dark on `.dark`, which follows the system setting). `app/globals.css` maps them onto Tailwind v4. Each feature's parts live in `features/<feature>/` by atomic design level, the shared ones in `components/`; atoms are shadcn/ui on Base UI (`components.json`). Geist and Geist Mono are self-hosted from `app/fonts/` under the SIL Open Font License.
+The console is themed from `tokens.css` in `@aeolus-fleet/common/header` (`packages/common/src/header`), the single copy of the design tokens, which also holds the header and the atoms it stands on (light on `:root`, dark on `.dark`, which follows the system setting). `app/globals.css` maps them onto Tailwind v4. Each feature's parts live in `features/<feature>/` (layout: CLAUDE.md, Web), the shared ones in `components/`; atoms are shadcn/ui on Base UI (`components.json`). Geist and Geist Mono are self-hosted from `app/fonts/` under the SIL Open Font License.
 
 `npm run storybook -w @aeolus-fleet/console` shows every part, with a story per meaningful state and a toolbar for light and dark. `npm run build-storybook -w @aeolus-fleet/console` builds it; CI does on every pull request.
 

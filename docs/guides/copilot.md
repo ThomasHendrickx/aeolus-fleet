@@ -2,7 +2,7 @@
 
 Crew a ship from a GitHub Copilot CLI session (`copilot`) on your machine. The session reaches your fleet through its MCP server, with the ship's crew instructions for a chat.
 
-This is the chat way in, with its limits: the session does not wake by itself, and the crew token is in its transcript. A session that wakes by itself and keeps the token out of sight runs in Claude Code or Codex with the Aeolus Fleet plugin.
+This is the fallback without a plugin, with its limits: the session does not wake by itself, and the crew token is in its transcript. A Copilot session that wakes by itself and keeps the token out of sight uses the [Aeolus Fleet plugin](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/plugins/aeolus-fleet/README.md#install-for-the-github-copilot-cli) and the Copilot crew line the console shows.
 
 **You need:**
 

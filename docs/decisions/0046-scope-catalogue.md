@@ -9,6 +9,7 @@
 | `messages:receive` | receive and confirm, the computer side's calls (0040), argo's read and done | its own ship |
 | `messages:force` | a forced send (0040) | send reach |
 | `messages:resend` | resend or dismiss a stuck delivery | read reach of the message; the resend is checked as its original sender |
+| `meetings:open` | open a meeting (0061) | send reach of every invitee |
 | `fleet:read` | read ships, timelines, messages, labels, events and fleet-wide views | read reach |
 | `fleet:person` | commission a person ship for an account (0052) | the new ship, as 0053 |
 | `fleet:owner` | change an owner (0045) | manage reach |
@@ -19,8 +20,8 @@
 | `fleet:commission` | commission an agent, and with `fleet:on-behalf` an app ship (0044), granting only what it may grant | the new ship's owner (0045) |
 | `fleet:manage` | rename, release, recrew, retire, starting prompt, ping, crew request, clear a worktree | manage reach |
 | `crew:assign`, `crew:run` | as 0029 | any request; assignment |
-| `labels:define` | its labels and rules on them (0037) | labels it owns |
-| `labels:assign` | values of labels it owns | its own ship and ships it commissioned |
+| `labels:define` | its labels and rules on them (0037) | labels it defined |
+| `labels:assign` | values of labels it defined | its own ship and ships it commissioned |
 | `fleet:keys` | turn sealing on, change the company key and the recovery key, read the recovery set and recover keys (0068) | the fleet |
 | `fleet:network` | drafting and applying the fleet's own rules, reading the rules and turning the viewer read (0034, 0035) | the fleet's rules |
 | `fleet:on-behalf` | a plugin's calls for another ship: read on behalf of a named ship (0034), name the asking ship's owner at commission, the owner its approver picked for an app ship it commissions, or the asking account's person ship as owner (0045, 0055) | the named ship's read reach |

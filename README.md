@@ -68,7 +68,7 @@ npx aeolus-core start                           # the API on port 4000
 AEOLUS_SERVER_URL=http://localhost:4000 AEOLUS_CONSOLE_URL=http://localhost:3000 npx aeolus-console start   # the console on port 3000
 ```
 
-Open http://localhost:3000 and sign in with the operator email and password. Every setting, and running behind a proxy or on two hosts, is in the [core](packages/core/README.md) and [console](packages/console/README.md) READMEs.
+Open the link `fleet:init` printed to sign in as argo; an email and password for argo come later, from Settings. Every setting, and running behind a proxy or on two hosts, is in the [core](packages/core/README.md) and [console](packages/console/README.md) READMEs.
 
 **Squadrons** run as their own process with their own database. Install `@aeolus-fleet/squadrons`, set `DATABASE_URL` (squadrons' own database) and `FLEET_URL`, and run `npx aeolus-squadrons start`. Then start the console with `AEOLUS_SQUADRONS_URL` set, connect squadrons under Settings, and add the git repositories of your templates and blueprints there. See the [squadrons README](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/blob/main/packages/squadrons/README.md).
 
@@ -123,10 +123,11 @@ Each release train has its own repository and version (decision [0049](docs/deci
 | --- | --- | --- |
 | `@aeolus-fleet/core` | The API (tRPC, plus REST and MCP for ships) and the domain on Postgres | this one |
 | `@aeolus-fleet/console` | The operator console (Next.js) | this one |
-| `@aeolus-fleet/common` | Shared schemas, prefixed ids and types | this one |
+| `@aeolus-fleet/common` | Shared schemas, prefixed ids and types, and the header every Aeolus web app shows | this one |
 | `@aeolus-fleet/squadrons` | Optional: forms squadrons of ships from blueprints in git and leads them | [aeolus-fleet-squadrons](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons) |
 | `@aeolus-fleet/trierarch-plugin` | Optional: brings machines into the fleet and assigns crew requests to their trierarchs | [aeolus-fleet-trierarch-plugin](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch-plugin) |
 | `@aeolus-fleet/trierarch` | Optional: keeps ships crewed on a machine, one session each | [aeolus-fleet-trierarch](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch) |
+| The gateway | Optional: lets approved outside MCP and A2A parties talk to fleet ships through the fleet (decisions [0048](docs/decisions/0048-mcp-and-a2a.md), [0056](docs/decisions/0056-outside-parties.md)) | aeolus-fleet-gateway |
 | `aeolus-fleet` | The plugin for Claude Code and Codex | [aeolus-fleet-trierarch](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/plugins/aeolus-fleet/README.md) |
 
 ## Development

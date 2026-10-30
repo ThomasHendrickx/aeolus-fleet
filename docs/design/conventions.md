@@ -64,7 +64,7 @@ Rules for cases the Design system page does not show. Names = parts and tokens o
 - ModelTag outside FleetTable: the value exactly as the session stated it, stated time in title. Starts with @ or ends in @x.y.z → software (package mark, dashed outline); otherwise a model (sparkles mark). Empty for argo and ships without a session; "Not stated yet" for a crewed ship that has not stated one.
 - LastSeen: icon only, "Last seen 25 s ago" as title and accessible name. Under 1 min fresh, 1 to 15 min a while, over 15 min long ago; same for squadron members. No icon without a session.
 - FleetScopes: edit in CommissionForm, both off; read-only in the ShipHeader meta strip, "None" when empty.
-- StartingPromptBlock always shows a CrewLineBlock per harness under the prompt: Claude Code, then Codex.
+- StartingPromptBlock always shows a CrewLineBlock per harness under the prompt, in the order core issues them: Claude Code, Codex, Copilot.
 
 ## Squadrons (only when enabled)
 - Off: no Squadrons destination, Squadron filter, flagship chip, squadron states, health or silent members. Nothing else changes.
@@ -117,7 +117,7 @@ Rules for cases the Design system page does not show. Names = parts and tokens o
 - Times: relative under 24 h ("6 min ago"); durations "1 d 2 h", "11 min"; otherwise "28 Sep, 14:21" (24 h clock); envelopes and meta strips "28 Sep 2026, 14:05:51"; seconds only in DeliveryHistory and envelopes; relative times carry the absolute in `title`.
 - Numbers as digits: "1 open", "3 deliveries".
 - Buttons: verb + object, max 4 words ("Commission ship", "Send reply"); "Try again" for retries; "Cancel" before anything is done, "Close" after.
-- LocationTag text: `<Kind> · <description>`. With a harness (FleetTable): `<Harness> · <Kind>`, description in title; claude-code, codex, claude-chat, chatgpt, grok, grokbot and console show icon plus Claude Code, Codex, Claude chat, ChatGPT, Grok, Grokbot, Console; any other harness plain text as stored.
+- LocationTag text: `<Kind> · <description>`. With a harness (FleetTable): `<Harness> · <Kind>`, description in title; claude-code, codex, copilot, claude-chat, chatgpt, grok, grokbot and console show icon plus Claude Code, Codex, Copilot, Claude chat, ChatGPT, Grok, Grokbot, Console; any other harness plain text as stored.
 - Versions: blueprints "v4", templates "tester@4", commits short (`4f2a91c`).
 - No em dashes; use a colon, comma or full stop. Curly quotes and apostrophes.
 
@@ -135,7 +135,7 @@ Rules for cases the Design system page does not show. Names = parts and tokens o
 
 ## Accessibility
 - Contrast: text 4.5:1; text 24 px and up 3:1; focus indicator 3:1. Token pairs on the page pass; recheck any new pair.
-- Focus always visible: `--focus-outline` on buttons, links, rows, tabs, menu items; `--focus-ring` on fields; `--invalid-ring` on invalid fields.
+- Focus always visible: a 2 px `--ring` outline, offset 2 px, on everything focusable (`:focus-visible` in `globals.css`); fields add a `--ring` ring at 22 %; an invalid field (`aria-invalid`) a `--destructive` border and ring at 16 % (`components/atoms/input.tsx`).
 - Keyboard order = visual order: Sidebar, Header, page title, primary action, toolbar, content.
 - Dialog and Sheet: focus the first field or the safest button, trap focus, Esc closes, focus returns to the trigger.
 - Accessible names: visible `<label>` for fields, `aria-label` for icon-only buttons; errors via `aria-invalid` + `aria-describedby`.
