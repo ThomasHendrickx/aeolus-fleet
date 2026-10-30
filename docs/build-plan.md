@@ -2,7 +2,7 @@
 
 Owner: Thomas Hendrickx.
 
-How aeolus-fleet is built: in Claude Code sessions, one slice and one PR each, from the template below. No slice is open; git history holds what each built. A new slice gets a row here (slice, builds, done when) before its session starts. The trains in their own repositories (decision 0049) keep their own plans.
+How aeolus-fleet is built: in Claude Code sessions, one slice and one PR each, from the template below. No slice is open; git history holds what each built. The trains in their own repositories (decision 0049) keep their own plans.
 
 | Who | Owns |
 | --- | --- |

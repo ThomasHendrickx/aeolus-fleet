@@ -1,7 +1,17 @@
 # 0053 Nothing is argo's alone
 
 - Every job argo does is a scope any actor can be granted (0057): a ship, an account through its groups, the installation. argo is the fail-safe (0057), not the holder of jobs no one else may do.
-- Each such job is a scope of the catalogue (0046), with where it applies: commissioning a person ship (`fleet:person`), changing an owner (`fleet:owner`), explaining reach and reading refusals (`fleet:explain`), connecting a plugin (`fleet:connect`), turning the viewer's read rule off (`fleet:network`), assigning values of a label it did not define (`labels:any`), and granting a plugin's scope it holds (`scopes:grant`).
+- The jobs that were argo's alone become scopes (each documented in the scope catalogue, 0046):
+
+| Job | Was | Scope | Where |
+| --- | --- | --- | --- |
+| Commission a person ship | argo alone (0044) | `fleet:person` | the new ship, as below |
+| Change an owner | argo alone (0045) | `fleet:owner` | manage reach of the ship |
+| Explain reach, read refusals | argo alone (0034, 0046) | `fleet:explain` | read reach of the ships asked about |
+| Connect a plugin | argo alone (0034) | `fleet:connect` | the fleet |
+| Turn the viewer's read rule off | argo (0022) | `fleet:network` | the fleet's built-in rules |
+| Assign values of a label it did not define | argo on any ship (0031) | `labels:any` | manage reach |
+| Grant a plugin's scope | argo or the plugin (0046) | `scopes:grant`, holding it | manage reach of the ship |
 
 - Granting stays as 0046 has it: an actor grants only scopes it holds, so nothing widens itself. A grant on a live ship, a change of owner and every `fleet:manage` call are checked against manage reach on the target ship. An account's own scopes come from its groups, never from a grant in the fleet.
 - **A plugin's page** checks the actor's scopes, never whether it is argo: squadrons' writes and the gateway's approving each need a scope the plugin declares. A human on the page is their account, by the account token the page checks as core does (0058); argo and the viewer keep `console.session`. Every page action is also a call a ship holding the scope can make, so an agent does the same (0057).
