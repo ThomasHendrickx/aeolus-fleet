@@ -69,6 +69,7 @@ function rowsOf(fleetId: FleetId): Record<keyof InMemoryState, number> {
     fleetSealings: of(state.fleetSealings),
     dataKeys: of(state.dataKeys),
     sealingLocks: 0,
+    featureFlags: of(state.featureFlags),
     // The installation's settings belong to no fleet.
     installationSettings: 0,
     // Neither do its console notices (decision 0023).

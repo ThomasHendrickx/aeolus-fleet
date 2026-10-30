@@ -1,4 +1,4 @@
-import type { DeliveryId, DeliveryState, FleetId, LabelId, LabelValueId, LeaseId, LeaseWaker, MessageId, ReachRefusalId, ScopeName, ShipId, ShipPosition, ShipStatus } from '@aeolus-fleet/common';
+import type { DeliveryId, DeliveryState, FeatureFlag, FleetId, LabelId, LabelValueId, LeaseId, LeaseWaker, MessageId, ReachRefusalId, ScopeName, ShipId, ShipPosition, ShipStatus } from '@aeolus-fleet/common';
 
 import type { Page, PageQuery } from '../shared/page.js';
 import type { Recipient } from '../shared/selector.js';
@@ -490,6 +490,16 @@ export interface InstallationFleetWindow {
 }
 
 /** Outbound port: the fleets read across the installation; reachable only with the installation token. */
+/** A fleet's feature flags as the installation sets them (decision 0069): a row per flag that is on, none being off. */
+export interface FeatureFlagRepository {
+  /** The flags on for the fleet, read without a lock. */
+  onFor(fleetId: FleetId): Promise<FeatureFlag[]>;
+  /** Whether the flag is on for the fleet, its row held until the unit of work ends, so it cannot go off meanwhile. */
+  isOnForUpdate(fleetId: FleetId, flag: FeatureFlag): Promise<boolean>;
+  turnOn(fleetId: FleetId, flag: FeatureFlag): Promise<void>;
+  turnOff(fleetId: FleetId, flag: FeatureFlag): Promise<void>;
+}
+
 export interface InstallationFleets {
   /** Every fleet, oldest first, counting its messages over the window. */
   list(window: InstallationFleetWindow): Promise<InstallationFleetFacts[]>;
