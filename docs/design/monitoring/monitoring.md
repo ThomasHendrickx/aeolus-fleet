@@ -29,9 +29,9 @@ For whom: the owner of a ship (a person's ship, or argo where argo owns it, 0045
 ## 2. Lessons to check against
 
 This week's:
-- **A review crew request stayed unclaimed 10 hours** (an invalid model option). The assigner wrote why (0029, 0063); nobody was told. Checked by: the unassigned signal carries the assigner's reason (4.3).
-- **A deploy message went to an uncrewed ship.** The send was right to answer OK (the second promise); nobody was told. Checked by: the unacknowledged signal counts a ship awaiting crew (4.3).
-- **A failed merge went unseen 3 hours.** Today `reportedAt` moves on every report call, even an unchanged one. Checked by: report changed at moves only on a change (4.1), observed activity beside it (4.2), and "report changes within N" (4.6).
+- **A review crew request stayed unclaimed 10 hours** (an invalid model option). The assigner wrote why (0029, 0063); nobody was told. Checked by: the unassigned signal carries the assigner's reason (4.4).
+- **A deploy message went to an uncrewed ship.** The send was right to answer OK (the second promise); nobody was told. Checked by: the unacknowledged signal counts a ship awaiting crew (4.4).
+- **A failed merge went unseen 3 hours.** Today `reportedAt` moves on every report call, even an unchanged one. Checked by: report changed at moves only on a change (4.1), observed activity beside it (4.3), and "report changes within N" (4.7).
 - **A ship looked alive by pings while its work had stopped.** Checked by: last seen, report changed and activity are three facts, shown apart (5).
 
 From the decisions: 0001 and 0040 (ack means received; progress stays outside the delivery promise), 0016, 0041 and 0042 (no thresholds of Aeolus's own: the owner's or a configured default), 0040 (the fleet does not speak for a ship), 0045, 0053 and 0057 (trouble to the owner, argo only as owner or fail-safe), 0028 (details stay without meaning), 0029 and 0026 (the trierarch observes, with crew:run), 0023 and 0050 (one meaning per term), 0043 (core is the fleet server and its console), 0013 (minimal), and the performance design (one paged read for the overview).
@@ -57,20 +57,33 @@ From the decisions: 0001 and 0040 (ack means received; progress stays outside th
 
 ### 4.1 Report: task, step, changed at (core)
 
-- A report gains `task`, optional: one of an `https` URL (an issue or PR) or a message id of the fleet (`msg_`), at most 512 characters; and `step`, optional: `{ at, of }`, whole numbers with 1 ≤ at ≤ of ≤ 1000. Core checks both; a bad one is refused with nothing changed. Omitted keeps the held value, `null` clears it, as `note` does.
+- A report gains `task`, optional: a typed reference, a `kind` and that kind's fields (4.2); and `step`, optional: `{ at, of }`, whole numbers with 1 ≤ at ≤ of ≤ 1000. Core checks both; a bad one is refused with nothing changed. Omitted keeps the held value, `null` clears it, as `note` does.
 - `reportChangedAt` on the lease: set when state, note, task or step differs from what the lease held; details alone do not move it (M7). `reportedAt` keeps moving on every call (last seen stays its own fact).
 - `ShipReported` keeps its rule (any change, details included) and carries task, step and whether the report changed, so a details-only change is told apart without a second event.
 - Task and step belong to the lease, as the report does (0028): a release or recrew drops them.
-- A message id as task need not be one the crew received; core checks only its shape and that it is of this fleet. The sent message joins on it (4.7).
 
-### 4.2 Observed activity (core, written by the trierarch)
+### 4.2 The task: a typed reference (core)
+
+The task is a reference to where the work lives, never its content. It is one kind with that kind's fields, so a reader knows what it points at without parsing a string, and a new kind is added beside the others without changing them.
+
+| Kind | Fields | Core checks | Console shows | Console links to |
+| --- | --- | --- | --- | --- |
+| `url` | `url` | an absolute `https` URL, at most 512 characters; core never fetches it | a GitHub pull request or issue as `PR #1391` or `#1407` with its icon; any other URL as its host and path, cut to fit | the URL, in a new tab |
+| `message` | `fleetId`, `messageId` | `flt_` and `msg_` ids of the right shape (common/src/ids); the message need not be one the crew received, and core does not look it up (question N6) | `a message` when `fleetId` is the viewer's fleet; `a message in <fleet name>` for another fleet the viewer belongs to; otherwise `a message in flt_…` as text | the message sheet, in its fleet, when the viewer may open the message; nothing otherwise |
+
+- A kind core does not know is refused, as a bad field is: core checks every kind it holds, so a report never carries a reference nobody can read (question N7). A new kind is a core change that adds one row here, its check and its console part.
+- Whether the viewer may open a `message` task is read on the server for the viewer (scopes and reach, 0057), in the same read that carries the report, as `canOpen`; the console never guesses it from the ids. A message the viewer may not open, in a fleet they do not belong to or outside their reach, shows as text: no link, no 404.
+- Two tasks are the same task when their kind and every field are equal. The sent message joins on that (4.8: `message` with this fleet and this message), and `taskDoneBy` keeps the task it was set for the same way (4.7).
+- Wherever the task shows, its title holds the full URL or the ids.
+
+### 4.3 Observed activity (core, written by the trierarch)
 
 - The lease gains `activity`: `{ at, kind, tool? }`, `kind` one of `text`, `tool`, `result`, `error` (H14's shape, no content), and `reportedAt`, when the trierarch wrote it.
 - `fleet.reportActivity` (crew:run): the assigned trierarch writes the activity of the crewed ships it runs, many in one call, each only for a ship whose crew request is assigned to it (0029); any other ship is refused for that entry and the rest are taken. No event (a session's activity is not a fleet change, as turns are not events beside `TurnReported`).
 - Unknown: the console and the watch read activity as unknown when its `reportedAt` is older than the trierarch's own report interval twice over, the interval the trierarch states with it (question N4). Unknown is shown as "Activity unknown, trierarch last reported 25 min ago", never as stopped work.
 - A ship crewed by hand has no activity: the field stays empty and the console shows nothing for it.
 
-### 4.3 Signals and defaults (the watch)
+### 4.4 Signals and defaults (the watch)
 
 Each signal is one fact the watch reads from core on each pass, with its default N from the watch's configuration, each fleet following it or its own value there (M4; per ship later, #1407):
 
@@ -87,31 +100,31 @@ Each signal is one fact the watch reads from core on each pass, with its default
 - The unassigned alert names the assigner's reason when one is written (0029), such as `model disabled: ...` (0063).
 - The watch tells the owner of the ship at the time it raises the alert. A ship argo owns tells argo; a person ship (its own owner) is never watched for deliveries, since a person away is not stuck (0044).
 
-### 4.4 Alerts (core holds them, the watch writes them)
+### 4.5 Alerts (core holds them, the watch writes them)
 
 - An alert: `alt_` id, the ship, the signal, the occurrence key, the owner told, the facts at raise (signal, since, N, the reason or the task), raised at, cleared at. One open per ship, signal and occurrence (unique).
 - `fleet:alert` (new core scope): raise and clear alerts on the ships its ship reads. `alerts.raise` is idempotent by occurrence key (the same key answers the alert already held); `alerts.clear` clears an open one; both write `AlertRaised` and `AlertCleared` in the same transaction.
 - Read: the overview's one read carries each ship's open alert count and the fleet's open alerts, newest first, paged; the ship page carries its open ones. Cleared alerts leave the lists and stay in the ship's timeline as their events.
 - A retire clears the ship's open alerts (`AlertCleared`, reason retired). A release does not: an unacknowledged delivery waits on.
 
-### 4.5 Telling the owner (the watch)
+### 4.6 Telling the owner (the watch)
 
 - Raise first, then send: the watch raises the alert in core, then sends the owner's ship one message, `text/markdown`, with the alert id as idempotency key, headline first (instruction 6), the facts and the ship's page link. A restart between the two sends it then, once, since the same key gives the same message.
 - The watch sends nothing on clear (question N3); the lists show it gone.
 - A tell that goes unacknowledged is a delivery like any other; the watch raises no alert on a delivery it sent itself, so there is no loop.
 
-### 4.6 Expectations (core holds them, the watch compares; last)
+### 4.7 Expectations (core holds them, the watch compares; last)
 
-- On the ship, standing, at most one of each: `reportChangesWithin` (minutes, 5 to 10080) and `taskDoneBy` (a time, with the task it was set for).
+- On the ship, standing, at most one of each: `reportChangesWithin` (minutes, 5 to 10080) and `taskDoneBy` (a time, with the task it was set for, kind and fields).
 - Set and cleared by an actor with `fleet:manage` within manage reach (the owner's ship reaches the ships it owns, 0045, 0053), `ships.setExpectations`, `ExpectationsSet` naming the actor.
 - `reportChangesWithin` applies while the ship is crewed and its report is working or blocked (question N5). `taskDoneBy` applies while the report names the task it was set for; once the task changes it lapses, shown as lapsed, and the owner sets a new one.
 - Expectations stay through release and recrew; a retire removes them. The crew is not told of them: they are the owner's, not instructions.
 
-### 4.7 Shown in the console (core)
+### 4.8 Shown in the console (core)
 
-- **Fleet overview.** The Report cell shows the task (a PR or issue number, or "a message"), the step and the note; its title gives report changed and reported times. The Seen cell gains activity beside last seen. A ship with an open alert shows an alert badge after its status. Above the table, Open alerts: one line each, the ship, what parted, since when, "clears by itself", while any is open; nothing when none.
-- **Ship page.** The report cell shows the task as a link, the step, and "changed 42 min ago" apart from "seen 1 min ago"; an Activity line under it. Open alerts above the meta strip. Expectations as a row of the meta strip with "Set expectations…" (last slices).
-- **Sent message.** In the message sheet's deliveries, under each recipient whose crew's report names this message as its task: the report state, step, note and changed age (M11). No line for a recipient working on something else.
+- **Fleet overview.** The Report cell shows the task's label per kind (4.2), the step and the note; its title gives report changed and reported times. The Seen cell gains activity beside last seen. A ship with an open alert shows an alert badge after its status. Above the table, Open alerts: one line each, the ship, what parted, since when, "clears by itself", while any is open; nothing when none.
+- **Ship page.** The report cell shows the task's label per kind, a link where the viewer may open it (4.2), the step, and "changed 42 min ago" apart from "seen 1 min ago"; an Activity line under it. Open alerts above the meta strip. Expectations as a row of the meta strip with "Set expectations…" (last slices).
+- **Sent message.** In the message sheet's deliveries, under each recipient whose crew's task is `message` with this fleet and this message: the report state, step, note and changed age (M11). No line for a recipient working on something else.
 - **Inbox.** An alert is an ordinary markdown message from the watch's ship: no change.
 
 ## 5. The flow
@@ -165,7 +178,7 @@ Unhappy paths:
 | The tell itself goes unacknowledged | It is a delivery; the watch never alerts on its own messages. |
 | A fact flaps | Each occurrence has its own key: one alert each; a cleared one is never raised again. |
 | Two watch passes at once | `alerts.raise` is unique per occurrence and the send idempotent: one alert, one message. |
-| The trierarch is down | Activity reads as unknown (4.2), not as stopped; no activity alert exists, so nothing is told on it. |
+| The trierarch is down | Activity reads as unknown (4.3), not as stopped; no activity alert exists, so nothing is told on it. |
 | The ship is released or recrewed | Task, step and activity go with the lease; open delivery alerts stay; a report-unchanged alert clears (no crew to report). |
 | The ship is retired | Its open alerts clear and its expectations go. |
 | A sealed fleet | Task, step and note are metadata, readable; payloads stay sealed and the alert names no payload. |
@@ -174,7 +187,7 @@ Unhappy paths:
 ## 6. Decisions to record on approval
 
 - **0070 Monitoring** (new): the facts core keeps (report task, step, `reportChangedAt`; lease activity; expectations; alerts with `fleet:alert`), the watch plugin that compares and tells, one alert per occurrence, raise then send with the alert id as key, no message on clear, defaults in the watch's configuration with each fleet's own value, never an action.
-- **0028 Report details**, changed: the report gains checked `task` and `step`; `reportChangedAt` moves on a change of state, note, task or step, not of details.
+- **0028 Report details**, changed: the report gains checked `task` (a typed reference: a kind and its fields, 4.2) and `step`; `reportChangedAt` moves on a change of state, note, task or step, not of details.
 - **0040 Delivery protocol**, changed on this PR (M5): `DeliveryOverdue` names the ship's owner and reaches the owner through the watch's alert as well as argo.
 - **0029 Crew request**, changed: the assigned trierarch writes its ships' activity with crew:run.
 - **Blueprint**: Alert, Expectation, Breach, Cleared and Activity in the domain language; Report changed beside Last seen; the events `AlertRaised`, `AlertCleared`, `ExpectationsSet`.
@@ -232,3 +245,15 @@ Pick 1: the trierarch states its own rhythm, so Aeolus holds no threshold (0041)
 2. Applies whatever the state.
 
 Pick 1: idle is a true report of no work; the failed merge's report said working (M10).
+
+**N6. Does core look up a `message` task of its own fleet?**
+1. No: core checks the ids' shape only, for every fleet.
+2. Yes: a `message` task of the reporting ship's fleet must name a message that exists there; another fleet's is checked by shape only.
+
+Pick 1: a lookup would tell a crew whether a message it cannot read exists, a check that differs by fleet is two rules for one kind, and a wrong id costs only a label that links nowhere (the sheet answers not found, as any stale link).
+
+**N7. A kind core does not know?**
+1. Refused, as a bad field is: a new kind comes with its check and its console part in one core change.
+2. Taken as is with its fields unchecked, shown as text "a task".
+
+Pick 1: M6 says core checks the task, and the console is core's train, so it never meets a kind it cannot show; the watch only compares tasks for equality, so a new kind asks nothing of it.
