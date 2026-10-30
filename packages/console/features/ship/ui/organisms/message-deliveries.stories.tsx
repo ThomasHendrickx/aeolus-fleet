@@ -43,3 +43,23 @@ export const Error: Story = {
 };
 export const Dark: Story = { globals: { theme: 'dark' } };
 export const Phone: Story = { globals: { viewport: { value: 'mobile1' } } };
+
+/** Monitoring W2: only the recipient whose task names the message has progress. */
+export const RecipientProgress: Story = {
+  args: {
+    deliveries: LABEL_DELIVERIES.map((delivery, index) => ({
+      ...delivery,
+      progress: index === 0 ? { state: 'working', note: 'Drafting the guide', step: { at: 1, of: 4 }, reportChangedAt: '2026-10-01T09:54:00.000Z' } : null,
+    })),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getAllByTestId('message-recipient-progress')).toHaveLength(1);
+    await expect(canvas.getByTestId('message-recipient-progress')).toHaveTextContent('Working');
+    await expect(canvas.getByTestId('message-recipient-progress')).toHaveTextContent('step 1 of 4');
+    await expect(canvas.getByTestId('message-recipient-progress')).toHaveTextContent('Drafting the guide');
+    await expect(canvas.getByTestId('message-recipient-progress')).toHaveTextContent('changed');
+  },
+};
+export const RecipientProgressPhone: Story = { ...RecipientProgress, globals: { viewport: { value: 'mobile1' } } };
+export const RecipientProgressDark: Story = { ...RecipientProgress, globals: { theme: 'dark' } };
