@@ -33,6 +33,7 @@ Feature designs, one folder each; the status of each is at its top:
 | [scheduled-messages](scheduled-messages/scheduled-messages.md) | A ship's own message, sent by core at its time |
 | [selector](selector/selector.md) | One message to a set of ships |
 | [sign-in-backgrounds](sign-in-backgrounds/mockup.html) | The six sign-in backgrounds |
+| [ui-package](ui-package/README.md) | One set of UI parts for every Aeolus app |
 | [unknown-harness](unknown-harness/mockup.html) | A crewed agent ship whose session stated no harness: Harness unknown, a fault |
 | [usage](usage/usage.md) | Usage over time: tokens across the fleet and its setup |
 | [vendor-platforms](vendor-platforms/README.md) | Aeolus beside vendor agent platforms |
