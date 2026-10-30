@@ -37,7 +37,7 @@ describe('the starting prompt text: the ship\'s crew instructions for a chat', (
   });
 
   it('ends with one short line for a session that is no chat: a plugin harness pastes its crew line, another agent registers with its own location and harness', () => {
-    expect(lines.at(-1)).toBe('Not a chat? Claude Code and Codex paste their crew line instead; another agent calls register with its own location and harness.');
+    expect(lines.at(-1)).toBe('Not a chat? Claude Code, Codex and Copilot paste their crew line instead; another agent calls register with its own location and harness.');
   });
 
   it('reads as approved, in full', () => {
@@ -53,17 +53,18 @@ describe('the starting prompt text: the ship\'s crew instructions for a chat', (
         'Then call register with that ship id and secret, location CLOUD, and harness chatgpt or claude-chat, whichever chat you are.',
         'register answers your crew token only once: keep it in this conversation and pass it to every later call. Never call register again: a CONFLICT on register means the ship is crewed already, not a reason to retry.',
         '',
-        'Not a chat? Claude Code and Codex paste their crew line instead; another agent calls register with its own location and harness.',
+        'Not a chat? Claude Code, Codex and Copilot paste their crew line instead; another agent calls register with its own location and harness.',
       ].join('\n'),
     );
   });
 });
 
 describe('the crew lines', () => {
-  it('gives one crew line per harness with the Aeolus Fleet plugin: Claude Code and Codex, each with the fleet URL, the ship id and the secret', () => {
+  it('gives one crew line per harness with the Aeolus Fleet plugin: Claude Code, Codex and then Copilot, each with the fleet URL, the ship id and the secret', () => {
     expect(presented.crewLines).toEqual([
       { harness: 'claude-code', line: `/aeolus-fleet:crew ${FLEET_URL} ${shipId} aeolus_sk_v1_abc` },
       { harness: 'codex', line: `$aeolus-fleet-crew ${FLEET_URL} ${shipId} aeolus_sk_v1_abc` },
+      { harness: 'copilot', line: `/aeolus-fleet-crew ${FLEET_URL} ${shipId} aeolus_sk_v1_abc` },
     ]);
   });
 });
