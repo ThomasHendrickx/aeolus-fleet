@@ -12,6 +12,4 @@
 
 Why: A leaked token cannot publish; npm and git versions always match; a harness that installs the plugin from a tag gets the plugin of that release under its version, since both harnesses cache the plugin by its manifest's version.
 
-Rejected for the tag: the released commit itself (its plugin manifests say the version before); a second tag on main's plugin version commit (two tags per release).
-
-Rejected: `NPM_TOKEN` secret; publishing releases from a laptop; running the tests again in the release (the same gate twice).
+Rejected: `NPM_TOKEN` secret; publishing releases from a laptop; running the tests again in the release (the same gate twice); tagging the released commit itself (its plugin manifests say the version before); a second tag on main's plugin version commit (two tags per release).
