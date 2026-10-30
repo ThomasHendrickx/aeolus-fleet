@@ -226,6 +226,8 @@ describe('eventTypeSchema', () => {
       'FleetCompanyKeyChanged',
       'FleetRecoveryKeyChanged',
       'FleetKeysRecovered',
+      'FeatureFlagTurnedOn',
+      'FeatureFlagTurnedOff',
     ]);
   });
 });

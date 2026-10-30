@@ -32,6 +32,8 @@ import { FLEET_URL, secretOf } from '../src/testing/fleet.js';
 import { newKey } from '../src/testing/keys.js';
 import { refusalOf, unwrap } from '../src/testing/result.js';
 import { createUseCases, type UseCases } from '../src/wiring.js';
+import { createPrismaFeatureFlagRepository } from '../src/adapters/prisma/feature-flags.js';
+import type { FeatureFlagReads } from '../src/domain/registry/feature-flag.js';
 import { startKmsKeyPolicy, type KmsKeyPolicy } from './support/kms-key-policy.js';
 import { startLocalStack, type StartedLocalStack } from './support/localstack.js';
 import { createTestClock } from './support/postgres-core.js';
@@ -51,6 +53,10 @@ const QUESTION_ID = '0f8e2c1a-5b7d-4e3f-9a6b-2c4d8e1f0a3b';
 const clock = createTestClock('2026-10-29T12:00:00.000Z');
 const newId = createIdGenerator();
 
+/** The flags of a server without an installation token that has a KMS: sealing on in every fleet (decision 0069). */
+function sealingOffered(): FeatureFlagReads {
+  return { source: { kind: 'server', on: ['sealing'] }, flags: createPrismaFeatureFlagRepository(prisma) };
+}
 let localStack: StartedLocalStack;
 let policy: KmsKeyPolicy;
 let company: KMSClient;
@@ -96,7 +102,7 @@ interface HostedFleet {
 }
 
 async function aHostedFleet(): Promise<HostedFleet> {
-  const { fleetId, operatorShipId } = unwrap(await useCases.createFleet({ requestId: newKey(), name: 'acme', operatorEmail: `${newKey()}@example.com` }));
+  const { fleetId, operatorShipId } = unwrap(await useCases.createFleet({ requestId: newKey(), name: 'acme', operatorEmail: `${newKey()}@example.com`, featureFlags: ['sealing'] }));
   return { fleetId, argo: { shipId: operatorShipId, fleetId, kind: 'operator', scopes: [...SCOPES] } };
 }
 
@@ -910,7 +916,7 @@ describe('changing the company key on Postgres and a LocalStack KMS (decision 00
     const failingBeforeCommit: UnitOfWork<PrismaTx> = {
       run: (work) => uow.run((tx) => work({ ...tx, events: { ...tx.events, append: () => Promise.reject(new Error('the server failed before commit')) } })),
     };
-    const change = createChangeCompanyKey({ uow: failingBeforeCommit, clock, ids: newId, vault: keyVault, sealer: aesGcmPayloadSealer, sealings: createPrismaFleetSealingRepository(prisma) });
+    const change = createChangeCompanyKey({ uow: failingBeforeCommit, clock, ids: newId, vault: keyVault, sealer: aesGcmPayloadSealer, sealings: createPrismaFleetSealingRepository(prisma), featureFlags: sealingOffered() });
 
     await expect(change(fleet.argo, { companyKey: keyB })).rejects.toThrow('the server failed before commit');
 
@@ -1026,7 +1032,7 @@ describe('the recovery key on Postgres and a LocalStack KMS (decision 0068, B6, 
     };
     const sealings = createPrismaFleetSealingRepository(prisma);
     const dataKeys = createFleetDataKeys({ sealings, vault: keyVault, sealer: aesGcmPayloadSealer, recoveryKeys: ageRecoveryKeys, clock, uow, ids: newId });
-    const change = createChangeRecoveryKey({ uow: failingBeforeCommit, clock, ids: newId, recoveryKeys: ageRecoveryKeys, sealing: { sealer: aesGcmPayloadSealer, dataKeys }, sealings });
+    const change = createChangeRecoveryKey({ uow: failingBeforeCommit, clock, ids: newId, recoveryKeys: ageRecoveryKeys, sealing: { sealer: aesGcmPayloadSealer, dataKeys }, sealings, featureFlags: sealingOffered() });
 
     await expect(change(fleet.argo, { recoveryKey: (await aRecoveryKey()).recipient })).rejects.toThrow('the server failed before commit');
 
@@ -1177,7 +1183,7 @@ describe('recovery on Postgres and a LocalStack KMS (decision 0068, B15)', () =>
     const failingBeforeCommit: UnitOfWork<PrismaTx> = {
       run: (work) => uow.run((tx) => work({ ...tx, events: { ...tx.events, append: () => Promise.reject(new Error('the server failed before commit')) } })),
     };
-    const recover = createRecoverKeys({ uow: failingBeforeCommit, clock, ids: newId, vault: keyVault, sealer: aesGcmPayloadSealer, sealings: createPrismaFleetSealingRepository(prisma) });
+    const recover = createRecoverKeys({ uow: failingBeforeCommit, clock, ids: newId, vault: keyVault, sealer: aesGcmPayloadSealer, sealings: createPrismaFleetSealingRepository(prisma), featureFlags: sealingOffered() });
 
     await expect(recover(fleet.argo, { companyKey: keyB, dataKeys })).rejects.toThrow('the server failed before commit');
 

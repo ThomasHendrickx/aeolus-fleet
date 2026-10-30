@@ -71,6 +71,8 @@ import { createDiscardNetworkRulesDraft } from '../../src/domain/registry/discar
 import { createApplyNetworkRules } from '../../src/domain/registry/apply-network-rules.js';
 import { createReadNetworkRules } from '../../src/domain/registry/read-network-rules.js';
 import { createExportNetworkRules } from '../../src/domain/registry/export-network-rules.js';
+import { createReadFeatureFlags } from '../../src/domain/registry/read-feature-flags.js';
+import { createSetFeatureFlag } from '../../src/domain/registry/set-feature-flag.js';
 import { createCheckNetworkRulesFile } from '../../src/domain/registry/check-network-rules-file.js';
 import { createImportNetworkRules } from '../../src/domain/registry/import-network-rules.js';
 import { createReadNetworkRulesDraftChanges } from '../../src/domain/registry/read-network-rules-draft-changes.js';
@@ -257,6 +259,8 @@ export function registryUseCases(core: InMemoryCore) {
     secrets: { hasher: core.hasher, random: core.random },
   };
   return {
+    readFeatureFlags: createReadFeatureFlags({ featureFlags: core.featureFlagReads.flags, source: core.featureFlagReads.source }),
+    setFeatureFlag: createSetFeatureFlag({ uow: core.uow, clock: core.clock, ids: core.ids }),
     commissionShip: createCommissionShip(deps),
     getStartingPrompt: createGetStartingPrompt(deps),
     releaseShip: createReleaseShip(deps),
