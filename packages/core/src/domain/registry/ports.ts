@@ -7,6 +7,7 @@ import type { ShipSort } from './ship-order.js';
 import type { ReadReach } from './read-reach.js';
 import type { ClearRequest } from './clear-request.js';
 import type { CrewRequest } from './crew-request.js';
+import type { FeatureUse } from './feature-flag.js';
 import type { Fleet } from './fleet.js';
 import type { InstallationRequest } from './installation-request.js';
 import type { CarriedLabel, Label, LabelOwner, ListedLabel, ShipLabel } from './label.js';
@@ -464,6 +465,10 @@ export interface InstallationFleetFacts {
   limitSettings: FleetLimitSettings;
   /** Whether its deliveries reach their ships. */
   health: FleetHealth;
+  /** Its feature flags that are on (decision 0069). */
+  featureFlagsOn: FeatureFlag[];
+  /** What it uses of the features the flags turn on. */
+  featureUse: FeatureUse;
 }
 
 /**

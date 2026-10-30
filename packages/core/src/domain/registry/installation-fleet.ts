@@ -1,6 +1,7 @@
-import type { FleetId } from '@aeolus-fleet/common';
+import type { FleetFeatureFlag, FleetId } from '@aeolus-fleet/common';
 
 import type { Health } from '../shared/health.js';
+import { fleetFeatureFlags } from './feature-flag.js';
 import { fleetLimitsOf, type FleetLimit, type FleetRetention, type InstallationSettings } from './limits.js';
 import type { FleetHealth, InstallationFleetFacts, InstallationFleetWindow } from './ports.js';
 
@@ -28,6 +29,8 @@ export interface InstallationFleet {
   limits: { ships: FleetLimit; dailyMessages: FleetLimit; schedulesPerShip: FleetLimit; minimumScheduleInterval: FleetLimit; retention: FleetRetention };
   /** Its 0041 figures, and where its deliveries are stuck (decision 0042). */
   health: FleetHealth & Health;
+  /** Each feature flag common names, on or off for it, and whether it can go off now (decision 0069). */
+  featureFlags: FleetFeatureFlag[];
 }
 
 /** The UTC days a read at `now` counts messages over: the last 7, today last, as YYYY-MM-DD. */
@@ -43,7 +46,7 @@ export function messageWindow(now: Date): InstallationFleetWindow {
 }
 
 export function installationFleet(facts: InstallationFleetFacts, read: { now: Date; installation: InstallationSettings; health: Health }): InstallationFleet {
-  const { messagesSince, messagesPerUtcDay, limitSettings, health, ...rest } = facts;
+  const { messagesSince, messagesPerUtcDay, limitSettings, health, featureFlagsOn, featureUse, ...rest } = facts;
   const messagesPerDay = utcDays(read.now).map((date) => ({ date, count: messagesPerUtcDay.find((day) => day.date === date)?.count ?? 0 }));
   const { ships, dailyMessages, schedulesPerShip, minimumScheduleInterval, retention } = fleetLimitsOf({ fleetId: facts.fleetId, settings: limitSettings, installation: read.installation });
   return {
@@ -53,5 +56,6 @@ export function installationFleet(facts: InstallationFleetFacts, read: { now: Da
     messagesToday: messagesPerDay.at(-1)?.count ?? 0,
     messagesPerDay,
     limits: { ships, dailyMessages, schedulesPerShip, minimumScheduleInterval, retention },
+    featureFlags: fleetFeatureFlags(featureFlagsOn, featureUse),
   };
 }
