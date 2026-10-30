@@ -1,4 +1,4 @@
-import { idSchema, QUESTION_CONTENT_TYPE, type ConsoleSessionId, type FleetId, type MessageId } from '@aeolus-fleet/common';
+import { idSchema, QUESTION_CONTENT_TYPE, type ConsoleSessionId, type FleetId, type MessageId, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { historyScenario, type HistoryScenario } from '../../../test/support/history-scenario.js';
@@ -514,5 +514,83 @@ describe("the pruning pass, the rest of a fleet's finished history (S3)", () => 
 
     expect(scene.core.state.signInTickets).toEqual([]);
     expect(pruned().map((event) => event.details.signInTickets)).toEqual([2, 1]);
+  });
+});
+
+describe('the pruning pass, retired ships (decision 0070)', () => {
+  /** The planner, retired by argo. */
+  async function retirePlanner(): Promise<ShipId> {
+    unwrap(await scene.registry.retireShip(scene.argo, { shipId: scene.planner.shipId }));
+    return scene.planner.shipId;
+  }
+
+  function shipOf(shipId: ShipId) {
+    return scene.core.state.ships.find((ship) => ship.id === shipId);
+  }
+
+  it('scenario 5: a ship retired 31 days ago in a fleet with a 30 day retention is removed: a remnant, counted in HistoryPruned', async () => {
+    // Given
+    retainFor(30);
+    const shipId = await retirePlanner();
+    const retired = shipOf(shipId);
+    scene.core.clock.advance(31 * DAY_MS);
+
+    // When
+    await pass();
+
+    // Then
+    expect(shipOf(shipId)).toEqual({
+      ...retired,
+      scopes: [],
+      note: null,
+      owner: null,
+      commission: null,
+      removedAt: scene.core.clock.now(),
+    });
+    expect(pruned().map((event) => event.details.ships)).toEqual([1]);
+  });
+
+  it('scenario 6: a ship retired 29 days ago in that fleet is not removed', async () => {
+    // Given
+    retainFor(30);
+    const shipId = await retirePlanner();
+    const retired = shipOf(shipId);
+    scene.core.clock.advance(29 * DAY_MS);
+
+    // When
+    await pass();
+
+    // Then
+    expect(shipOf(shipId)).toEqual(retired);
+  });
+
+  it('scenario 7: a ship retired a year ago in a fleet with no retention is not removed', async () => {
+    // Given
+    retainFor(null);
+    const shipId = await retirePlanner();
+    const retired = shipOf(shipId);
+    scene.core.clock.advance(365 * DAY_MS);
+
+    // When
+    await pass();
+
+    // Then
+    expect(shipOf(shipId)).toEqual(retired);
+  });
+
+  it('scenario 12: more retired ships than a batch takes are removed in batches, oldest retire first', async () => {
+    // Given
+    retainFor(30);
+    for (const crew of [scene.scout, scene.lookout, scene.planner]) {
+      scene.core.clock.advance(1_000);
+      unwrap(await scene.registry.retireShip(scene.argo, { shipId: crew.shipId }));
+    }
+    scene.core.clock.advance(31 * DAY_MS);
+
+    // When
+    await pass({ batch: 2, budgetMs: 0 });
+
+    // Then
+    expect([scene.scout, scene.lookout, scene.planner].map((crew) => shipOf(crew.shipId)?.removedAt !== null)).toEqual([true, true, false]);
   });
 });
