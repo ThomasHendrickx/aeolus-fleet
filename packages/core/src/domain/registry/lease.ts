@@ -61,7 +61,7 @@ export interface Lease {
   fleetId: FleetId;
   shipId: ShipId;
   location: Location;
-  /** The harness the session stated; none for argo's console lease and for leases from before harnesses were stated. */
+  /** The harness the session stated; none when it stated none (aeolus-fleet#1408), for argo's console lease and for leases from before harnesses were stated. */
   harness: string | null;
   /**
    * The hash of the crew token `register` gave the session: every later ship

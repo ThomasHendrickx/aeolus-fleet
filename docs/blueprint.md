@@ -250,7 +250,7 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Session | One agent run crewing a ship; replaceable, a new one inherits the inbox. Not a human's sign-in | core, trierarch |
 | Lease | One crew's exclusive right to a ship until it is released, recrewed, retired or deregistered; argo's sign-in takes argo's over (0010) | core |
 | Last seen | When the crew last called the fleet; observation only | core |
-| Register | Claim a ship with its id and secret, stating location and harness; answers the crew token once | core |
+| Register | Claim a ship with its id and secret, stating location and, when the session can tell it, harness; answers the crew token once | core |
 | Deregister | The crew ends its lease and the secret; ship and inbox stay | core |
 | Ship secret | `aeolus_sk_v1_<random>`, shown once, stored as a hash, one valid per ship, used only to register (0002) | core |
 | Crew token | `aeolus_ct_v1_<random>` from register, stored as a hash, names one crew on every later call, ends with the lease (0015) | core |
@@ -258,7 +258,7 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Crew line | The same in one line per harness with the Aeolus Fleet plugin: `/aeolus-fleet:crew <fleetUrl> <shipId> <secret>`, `$aeolus-fleet-crew …` for Codex, `/aeolus-fleet:crew …` again for Copilot (0019) | core |
 | Ship protocol | How a crew works a ship from register to the end of its turn, sent by the fleet to every connecting session | core |
 | Location | Where the session runs: `DEVICE`, `CLOUD`, `SERVER`, or `OTHER` with a description; never interpreted | core |
-| Harness | What the session runs in: free text, known `claude-code`, `claude-chat`, `codex`, `copilot`; read with the location (0018) | core |
+| Harness | What the session runs in: free text, known `claude-code`, `claude-chat`, `codex`, `copilot`; read with the location (0018). A session that cannot tell it states none, and it stays unknown, never a default: the console shows an agent ship crewed with no harness as Harness unknown, a fault (aeolus-fleet#1408) | core |
 | Model | The exact model id stated on every agent send, or `auto` when the harness chooses the model per request, never on a ping or resend; self-reported, the last stated is the ship's (0018) | core |
 | Report | A crew's latest word: working, blocked or idle, a short note, optional details; on the lease (0028) | core |
 | Details | A report's JSON part, size-limited, versioned; its shape per ship type in common (0028) | core |
