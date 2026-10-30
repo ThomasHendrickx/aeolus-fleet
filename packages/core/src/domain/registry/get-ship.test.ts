@@ -34,6 +34,13 @@ beforeEach(async () => {
 });
 
 describe('getting one ship', () => {
+  it("gives the ship that commissioned it, so the console names the gateway's proxy ship as a reader (decision 0068, B19); none for argo", async () => {
+    const scout = unwrap(await useCases.getShip(argo, { shipId: scoutId }));
+    const operator = unwrap(await useCases.getShip(argo, { shipId: argo.shipId }));
+
+    expect(['commissionedByShipId' in scout && scout.commissionedByShipId, 'commissionedByShipId' in operator && operator.commissionedByShipId]).toEqual([argo.shipId, null]);
+  });
+
   it('gives the labels the ship carries', async () => {
     const { labelId, values } = unwrap(await useCases.defineLabel(argo, { key: 'os', values: ['macos'] }));
     const valueId = values[0]?.id ?? core.ids('labelValue');
@@ -54,6 +61,7 @@ describe('getting one ship', () => {
       inFlightDeliveries: 0,
       openDeliveries: 0,
       owner: { id: argo.shipId, name: 'argo' },
+      commissionedByShipId: argo.shipId,
       statement: null,
     });
   });
