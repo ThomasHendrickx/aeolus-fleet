@@ -353,6 +353,7 @@ describe('getting one ship on Postgres', () => {
         crewedSince: crewedAt,
         retiredAt: null,
         ownerShipId: argoId,
+        commissionedByShipId: argoId,
         inFlightDeliveries: 0,
         openDeliveries: 0,
         owner: { id: argoId, name: 'argo' },

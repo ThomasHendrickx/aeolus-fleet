@@ -603,12 +603,12 @@ describe('the kill switch on Postgres and a LocalStack KMS (decision 0068, B9, B
     unwrap(await useCases.turnOnSealing(fleet.argo, { companyKey }));
     const { messageId: sealed } = unwrap(await server.useCases.sendMessage(scout, { ...aMessageTo(fleet.argo.shipId), model: 'claude-opus-5-5' }));
     const console = installationIn(fleet.fleetId);
-    const listed = await console.fleet.shipMessages.query({ shipId: scout.shipId });
-    const inbox = await console.fleet.inbox.query({ filter: 'all' });
     await disableKey(companyKey);
     server.clock.advance(DATA_KEY_CACHE_MS);
 
     const message = await console.fleet.message.query({ messageId: sealed });
+    const listed = await console.fleet.shipMessages.query({ shipId: scout.shipId });
+    const inbox = await console.fleet.inbox.query({ filter: 'all' });
 
     expect({ sender: message.sender.name, state: message.delivery.state, payload: message.payload, isPayloadSealed: message.isPayloadSealed, isPayloadUnreadable: message.isPayloadUnreadable }).toEqual({
       sender: 'scout',
