@@ -6,7 +6,7 @@ Current state only; history is in git. To change a decision, edit its file and i
 - [0002](0002-opaque-ship-secret.md) **Ship secrets and scopes on the server.** Opaque hashed secret, one per ship, used only to register; scopes stored server-side with the ship, never carried by it (the catalogue is 0046).
 - [0003](0003-postgres-as-broker.md) **Postgres is the broker.** Commit before OK, `SKIP LOCKED` claims, `NOTIFY` after commit.
 - [0004](0004-trpc-single-api.md) **tRPC is the only API door.** REST and MCP map onto the same procedures (ship calls and the fleet actions for ships with fleet scopes), no own logic.
-- [0005](0005-prefixed-ids.md) **Prefixed ids.** `<prefix>_<lowercase ULID>`: `flt_ shp_ msg_ dlv_ evt_ lse_ crd_ opr_ ses_ lbl_ lbv_ rfs_ mtg_ sch_ dky_`.
+- [0005](0005-prefixed-ids.md) **Prefixed ids.** `<prefix>_<lowercase ULID>`: `flt_ shp_ msg_ dlv_ evt_ lse_ crd_ opr_ ses_ lbl_ lbv_ rfs_ req_ mtg_ sch_ dky_`.
 - [0006](0006-payload-limit.md) **Payloads max 64 KB.** Carry a reference plus instruction, not content.
 - [0007](0007-tenancy.md) **Every record belongs to a fleet.** `fleet_id` everywhere, scoped queries. Only unscoped: secret hash, token hash, operator email lookup, and the installation (0020).
 - [0008](0008-packages.md) **Separate packages.** core, console and common in core's train; squadrons, the trierarch plugin, the trierarch and the gateway in their own (0049), all optional but core's; infra private.
