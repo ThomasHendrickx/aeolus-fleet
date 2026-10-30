@@ -1,6 +1,6 @@
 # Retired ships: hidden now, removed after a retention period
 
-Design, stage 2. Docs only. Thomas agreed the purpose and answered Q1 to Q5 and N1 on 29 Oct (section 3, recorded as [decision 0069](../../decisions/0069-retired-ships.md)). This stage holds the decisions in detail (section 4), the flows (section 5), the acceptance scenarios (section 6), the screens that need a before and after mockup (section 7), the slices (section 8) and the question it raised, answered (section 9).
+Design, stage 2. Docs only. Thomas agreed the purpose and answered Q1 to Q5 and N1 on 29 Oct and approved both mockups with RM0 to RM2 on 30 Oct (section 3, recorded as [decision 0070](../../decisions/0070-retired-ships.md)). This stage holds the decisions in detail (section 4), the flows (section 5), the acceptance scenarios (section 6), the screens and their approved mockups (section 7), the slices (section 8) and the question it raised, answered (section 9).
 
 Thomas's choice, option 3 of his question: "Both: hide now, remove after a retention period". Retired ships are hidden everywhere by default now; after a retention period they are removed; their messages and events stay and show them as a retired ship.
 
@@ -59,7 +59,7 @@ Not the purpose:
 | L21 | A commission locks its key per commissioning actor, then looks it up; the key is unique per actor and fleet | `commission-ship.ts`; `ships_commission_key_key` |
 | L22 | Kept fleet-change events carry what the change was: `ShipCommissioned` the name, type, kind and scopes, `OwnerSet` and `OwnerChanged` the owner, `ScopesChanged` the scopes; events are append-only | `ship.ts`; blueprint, Domain events; architecture |
 
-## 3. Thomas's answers (29 Oct)
+## 3. Thomas's answers (29 and 30 Oct)
 
 | Q | Answer |
 | --- | --- |
@@ -69,12 +69,15 @@ Not the purpose:
 | Q4 | Option 1, against the pick: a repeated idempotent commission after removal creates a new ship. Thomas: "name is unique for ships within those that are known, id is unique always." |
 | Q5 | Option 1: a link to a removed ship opens its remnant page with its kept history |
 | N1 | Option 1: "known" is active; a ship's name is unique among active ships, so a retired ship's name is free at once, removed or not (today's rule) |
+| RM0 | Both mockups approved |
+| RM1 | Option 1: with Show retired on, the count line says the rows on screen: "7 ships shown" |
+| RM2 | Option 1: a removed ship whose messages are all pruned shows "No messages kept", with the line saying from when the fleet keeps its history |
 
 ## 4. Decisions
 
 | # | Decision |
 | --- | --- |
-| D1 | **No retired count** (Q1). `fleet.shipCounts` counts no retired ships; the overview's subtitle loses "n retired", the Show retired switch its "(n)", and "x of y ships" counts ships that are not retired. The switch stays, off by default, the one deliberate step: on, the list shows the retired ships not yet removed, and its count line says how many rows it shows. |
+| D1 | **No retired count** (Q1). `fleet.shipCounts` counts no retired ships; the overview's subtitle loses "n retired", the Show retired switch its "(n)", and "x of y ships" counts ships that are not retired. The switch stays, off by default, the one deliberate step: on, the list shows the retired ships not yet removed, and its count line says how many rows it shows: "n ships shown" (RM1). |
 | D2 | **A removed ship is a remnant** (Q2). The ship row keeps its id, name, type, kind, commission date (`created_at`) and retire date, and gets `removed_at`. Its scopes are emptied; its note, owner, commissioner, idempotency key and request hash are cleared. Its schedules, every one cancelled at retire (L20), go with it, so the messages they named can be pruned. |
 | D3 | **Foreign keys stay** (Q2). Every row that names a removed ship (messages, deliveries, events, meetings, participants, other ships' schedules, overdue rows) stays or goes by its own rule (0066); its ended leases and invalidated credentials go by age as R4 says. Removal deletes no event: the kept fleet changes keep naming the ship and what each change was (L22), as the fleet's history, not the ship's data. |
 | D4 | **Nothing lists a remnant.** `fleet.list` (the retired status too), `fleet.shipCounts`, `fleet.listShipTypes`, discovery, pickers, the reach graph and the network rules' owner picker leave it out. The ship limit never counted it. |
@@ -143,7 +146,7 @@ Each one becomes a test by name in the slice that builds it.
 
 Hidden by default (D1, D4)
 1. Given a fleet with 3 active agent ships and 2 retired ones, when argo opens the overview, then the subtitle says "3 active ships and argo" with no retired number, Show retired is off and says no count, and the count line says "3 of 3 ships".
-2. Given the same fleet, when argo turns Show retired on, then the list shows the 2 retired ships with the 3 active ones and its count line says 5 rows.
+2. Given the same fleet, when argo turns Show retired on, then the list shows the 2 retired ships with the 3 active ones and its count line says "5 ships shown".
 3. Given a retired ship that was removed, when argo turns Show retired on, then it is not in the list, and `fleet.list` with the retired status does not answer it.
 4. Given a removed ship, when a ship calls discover or opens a send picker, the reach graph or the network rules' owner picker, then the removed ship is not there.
 
@@ -170,13 +173,14 @@ The remnant's page (D8)
 18. Given a removed ship within read reach, when a reader calls `fleet.ship` with its id, then it answers its id, name, type, kind, status retired, its commission, retire and removed dates, no scopes, and no owner, note, statement, labels or crew.
 19. Given a timeline entry naming a removed ship, when argo opens its link, then the ship page says the ship was retired and removed, with both dates, offers no action, and shows the kept history that names it.
 20. Given a removed ship outside the reader's read reach, when the reader calls `fleet.ship`, then it is refused as today.
+21. Given a removed ship whose messages are all pruned, when argo opens its Messages tab, then it says "No messages kept" with the line saying from when the fleet keeps its history.
 
-## 7. Screens that need a before and after mockup for Thomas
+## 7. Screens and their mockups (approved by Thomas, 30 Oct)
 
-Each is built only after Thomas approves its mockup: [screen 1](mockups/fleet-overview.html), [screen 2](mockups/removed-ship-page.html).
+Each is built to its approved mockup: [screen 1](mockups/fleet-overview.html), [screen 2](mockups/removed-ship-page.html).
 
-1. **The fleet overview** (desktop and the phone's filter sheet). Before: subtitle "12 active ships and argo, 216 retired", "Show retired (216)", "12 of 228 ships". After: "12 active ships and argo", "Show retired" with no number, "12 of 12 ships"; with Show retired on, the retired ships not removed in the list and a count of the rows shown.
-2. **The ship page of a removed ship.** Before: a retired ship's header, its notice "Retired on ... Read-only.", the meta strip with owner, scopes, note and labels. After: the header with name, type and kind; the notice "Retired on ..., removed on .... Kept: its name, type and the history that names it."; a meta strip with commission, retire and removed dates only; the timeline with what the fleet still keeps, its kept-from line as today.
+1. **The fleet overview** (desktop and the phone's filter sheet). Before: subtitle "12 active ships and argo, 216 retired", "Show retired (216)", "12 of 228 ships". After: "12 active ships and argo", "Show retired" with no number, "12 of 12 ships"; with Show retired on, the retired ships not removed in the list and the count line "7 ships shown", the rows on screen (RM1).
+2. **The ship page of a removed ship.** Before: a retired ship's header, its notice "Retired on ... Read-only.", the meta strip with owner, scopes, note and labels. After: the header with name, type and kind; the notice "Retired on ..., removed on .... Kept: its name, type and the history that names it."; a meta strip with commission, retire and removed dates only; the timeline with what the fleet still keeps, its kept-from line as today; a Messages tab with every message pruned says "No messages kept" above the kept-from line (RM2).
 
 ## 8. Slices
 
@@ -185,8 +189,8 @@ Each one PR, in order, built red, green, refactor from the scenarios it names.
 | # | Slice | Done when |
 | --- | --- | --- |
 | S1 | **Removal** (D2 to D7, D9): `removed_at`, the pass removing ships, clearing the row and its schedules, `HistoryPruned`'s ship count; reads leaving remnants out of every list, count and picker; `fleet.ship` answering `removedAt`; the blueprint (Retire a ship, Ship name, Registry rules, `HistoryPruned`, the retention paragraph) and architecture (`ships`, the pass, operation 8) | Scenarios 3 to 18 and 20 pass by name |
-| S2 | **No retired count** (D1, screen 1), after Thomas approves its mockup: `fleet.shipCounts` without retired ships, the overview's subtitle, switch and count line | Scenarios 1 and 2 pass by name; walked on staging |
-| S3 | **The removed ship's page** (D8, screen 2), after Thomas approves its mockup | Scenario 19 passes by name; walked on staging |
+| S2 | **No retired count** (D1, screen 1): `fleet.shipCounts` without retired ships, the overview's subtitle, switch and count line | Scenarios 1 and 2 pass by name; walked on staging |
+| S3 | **The removed ship's page** (D8, screen 2) | Scenarios 19 and 21 pass by name; walked on staging |
 
 ## 9. Question for Thomas (answered: option 1)
 
