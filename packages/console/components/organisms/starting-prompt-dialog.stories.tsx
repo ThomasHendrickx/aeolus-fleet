@@ -29,7 +29,7 @@ const meta = {
     crewLines: [
       { harness: 'claude-code', line: `/aeolus-fleet:crew https://fleet.example.com ${SHIP_ID} ${SECRET}` },
       { harness: 'codex', line: `$aeolus-fleet-crew https://fleet.example.com ${SHIP_ID} ${SECRET}` },
-      { harness: 'copilot', line: `/aeolus-fleet-crew https://fleet.example.com ${SHIP_ID} ${SECRET}` },
+      { harness: 'copilot', line: `/aeolus-fleet:crew https://fleet.example.com ${SHIP_ID} ${SECRET}` },
     ],
     isOpen: true,
     onOpenChange: () => undefined,
@@ -50,7 +50,7 @@ type Story = StoryObj<typeof meta>;
 /** Copilot's crew line after Codex's, and beside the crew lines where to install the Aeolus Fleet plugin they need, for Claude Code, Codex and Copilot (#1235). */
 export const Shown: Story = {
   play: async () => {
-    await expect(await screen.findByTestId('starting-prompt-crew-line-copilot')).toHaveTextContent(`/aeolus-fleet-crew https://fleet.example.com ${SHIP_ID} ${SECRET}`);
+    await expect(await screen.findByTestId('starting-prompt-crew-line-copilot')).toHaveTextContent(`/aeolus-fleet:crew https://fleet.example.com ${SHIP_ID} ${SECRET}`);
     await expect(await screen.findByTestId('plugin-install-claude-code')).toHaveAttribute(
       'href',
       'https://github.com/ThomasHendrickx/aeolus-fleet/blob/main/docs/guides/claude-code.md#1-install-the-plugin-once-per-machine',

@@ -58,7 +58,7 @@ function crewLines(input: {
   return [
     { harness: "claude-code", line: `/aeolus-fleet:crew ${identity}` },
     { harness: "codex", line: `$aeolus-fleet-crew ${identity}` },
-    { harness: "copilot", line: `/aeolus-fleet-crew ${identity}` },
+    { harness: "copilot", line: `/aeolus-fleet:crew ${identity}` },
   ];
 }
 

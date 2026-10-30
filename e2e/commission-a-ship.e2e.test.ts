@@ -243,7 +243,7 @@ describe('commissioning a ship in the console', () => {
 
     await expect(block.getByTestId('starting-prompt-crew-line-claude-code').textContent()).resolves.toBe(`/aeolus-fleet:crew ${identity}`);
     await expect(block.getByTestId('starting-prompt-crew-line-codex').textContent()).resolves.toBe(`$aeolus-fleet-crew ${identity}`);
-    await expect(block.getByTestId('starting-prompt-crew-line-copilot').textContent()).resolves.toBe(`/aeolus-fleet-crew ${identity}`);
+    await expect(block.getByTestId('starting-prompt-crew-line-copilot').textContent()).resolves.toBe(`/aeolus-fleet:crew ${identity}`);
   });
 
   it('copies the starting prompt', async () => {
