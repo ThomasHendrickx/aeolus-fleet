@@ -70,6 +70,24 @@ describe("reading a page of a message's deliveries", () => {
     ]);
   });
 
+  it('shows progress only for recipients whose task is exactly this message', async () => {
+    // Given a message to three recipients, only one working on exactly that task.
+    const messageId = await sendToTeam([scene.scout, scene.lookout, scene.planner]);
+    const task = { kind: 'message', fleetId: scene.fleetId, messageId };
+    unwrap(await scene.registry.report(scene.scout, { state: 'working', note: 'Drafting the guide', task, step: { at: 1, of: 4 } }));
+    unwrap(await scene.registry.report(scene.lookout, { state: 'working', task: { ...task, fleetId: scene.core.ids('fleet') } }));
+    unwrap(await scene.registry.report(scene.planner, { state: 'working', task: { ...task, extra: true } }));
+
+    // When the sender opens the deliveries.
+    const page = unwrap(await scene.history.readMessageDeliveries(scene.argo, { messageId }));
+
+    // Then only the matching recipient shows its current report.
+    expect(page.items.find(({ ship }) => ship?.id === scene.scout.shipId)).toMatchObject({
+      progress: { state: 'working', note: 'Drafting the guide', step: { at: 1, of: 4 }, reportChangedAt: scene.core.clock.now() },
+    });
+    expect(page.items.filter(({ ship }) => ship?.id !== scene.scout.shipId).map((delivery) => delivery.progress)).toEqual([null, null]);
+  });
+
   it('knows no message of another fleet', async () => {
     const messageId = await scene.send(scene.planner, { to: { kind: 'ship', shipId: scene.scout.shipId } });
     const elsewhere = { ...scene.argo, fleetId: scene.core.ids('fleet') };
