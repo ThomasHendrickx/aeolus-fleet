@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { idSchema } from '../ids/index.js';
 import { accountIdSchema } from './account-token.js';
+import { featureFlagSchema, fleetFeatureFlagSchema } from './feature-flags.js';
 import { OPERATOR_EMAIL_MAX_LENGTH } from './console.js';
 import { healthOutputSchema } from './health.js';
 import { idempotencyKeySchema } from './idempotency-key.js';
@@ -46,6 +47,8 @@ export const installationFleetsCreateInputSchema = z.strictObject({
   operatorEmail: z.string().trim().min(1).max(OPERATOR_EMAIL_MAX_LENGTH),
   /** Whether the fleet gets a viewer ship, its read-only door into the console (decision 0022); none when left out. */
   viewer: z.boolean().optional(),
+  /** The feature flags the fleet comes with on (decision 0069); none when left out. */
+  featureFlags: z.array(featureFlagSchema).optional(),
 });
 
 export const installationFleetsCreateOutputSchema = z.object({
@@ -95,6 +98,8 @@ export const installationFleetSchema = z.object({
     overdue: z.int().min(0),
     ...healthOutputSchema.shape,
   }),
+  /** Each feature flag core names, on or off for the fleet, and whether it can go off now (decision 0069). */
+  featureFlags: z.array(fleetFeatureFlagSchema),
 });
 
 export type InstallationFleet = z.infer<typeof installationFleetSchema>;

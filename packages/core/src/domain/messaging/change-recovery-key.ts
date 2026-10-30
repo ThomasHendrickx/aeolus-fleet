@@ -1,5 +1,6 @@
 import type { DataKeyId, IdGenerator } from '@aeolus-fleet/common';
 
+import { checkFeatureFlag, type FeatureFlagReads } from '../registry/public.js';
 import { actorOf, hasScope, type Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
@@ -21,7 +22,7 @@ export interface RecoveryKeyChanged {
   recoveryKeyFingerprint: string;
 }
 
-export type ChangeRecoveryKeyRefusal = DomainError<'FORBIDDEN' | 'FLEET_NOT_SEALED' | 'INVALID_RECOVERY_KEY' | 'KEY_UNAVAILABLE'>;
+export type ChangeRecoveryKeyRefusal = DomainError<'FORBIDDEN' | 'FEATURE_FLAG_OFF' | 'FLEET_NOT_SEALED' | 'INVALID_RECOVERY_KEY' | 'KEY_UNAVAILABLE'>;
 
 export type ChangeRecoveryKey = (caller: Caller, input: { recoveryKey: string }) => Promise<Result<RecoveryKeyChanged, ChangeRecoveryKeyRefusal>>;
 
@@ -59,6 +60,8 @@ export function createChangeRecoveryKey(deps: {
   sealing: PayloadSealing;
   /** The fleets' sealing and data keys, read outside the unit of work. */
   sealings: FleetSealingRepository;
+  /** The fleets' feature flags: sealing's procedures refuse a fleet whose sealing flag is off (decision 0069). */
+  featureFlags: FeatureFlagReads;
 }): ChangeRecoveryKey {
   return async (caller, input) => {
     if (!hasScope(caller, 'fleet:keys')) {
@@ -69,6 +72,10 @@ export function createChangeRecoveryKey(deps: {
       return to;
     }
     const { fleetId } = caller;
+    const offered = await checkFeatureFlag(deps.featureFlags, { fleetId, flag: 'sealing' });
+    if (!offered.isOk) {
+      return offered;
+    }
     if ((await deps.sealings.find(fleetId)) === undefined) {
       return refuse('FLEET_NOT_SEALED', `Fleet ${fleetId} is not sealed: turn sealing on with the recovery key instead`);
     }

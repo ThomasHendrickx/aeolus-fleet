@@ -1,6 +1,6 @@
 'use client';
 
-import type { ConsoleSessionOutput, Scope } from '@aeolus-fleet/common';
+import type { ConsoleSessionOutput, FeatureFlag, Scope } from '@aeolus-fleet/common';
 import { useQuery } from '@tanstack/react-query';
 
 import { useTRPC } from './trpc';
@@ -62,4 +62,18 @@ export function accessOf(session: Pick<ConsoleSessionOutput, 'kind' | 'scopes'> 
 export function useAccess(): Access {
   const trpc = useTRPC();
   return accessOf(useQuery(trpc.console.session.queryOptions()).data);
+}
+
+/**
+ * Whether the fleet's flag for a feature is on, as console.session answers
+ * it (decision 0069): the console shows nothing of a feature whose flag is
+ * off, and nothing until the session is known, so a feature never flashes by.
+ */
+export function isFeatureOn(session: Pick<ConsoleSessionOutput, 'featureFlags'> | undefined, flag: FeatureFlag): boolean {
+  return session?.featureFlags.includes(flag) === true;
+}
+
+export function useIsFeatureOn(flag: FeatureFlag): boolean {
+  const trpc = useTRPC();
+  return isFeatureOn(useQuery(trpc.console.session.queryOptions()).data, flag);
 }

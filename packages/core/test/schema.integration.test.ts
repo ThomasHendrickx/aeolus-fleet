@@ -139,6 +139,7 @@ describe('migrations', () => {
       'defined_scopes',
       'deliveries',
       'events',
+      'fleet_feature_flags',
       'fleets',
       'guide_progress',
       'guides',

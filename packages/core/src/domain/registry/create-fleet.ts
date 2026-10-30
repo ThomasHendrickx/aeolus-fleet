@@ -1,19 +1,21 @@
-import type { FleetId, IdGenerator, ShipId } from '@aeolus-fleet/common';
+import type { FeatureFlag, FleetId, IdGenerator, ShipId } from '@aeolus-fleet/common';
 
 import { operatorEmail } from '../identity/public.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
+import { recordEvent } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { SecretHasher } from '../shared/secrets.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { fleetName } from './fleet.js';
 import { foundFleet, type FoundFleetTx } from './found-fleet.js';
 import { installationRequestText } from './installation-request.js';
-import type { InstallationRequestRepository, InstallationSettingsRepository } from './ports.js';
+import type { FeatureFlagRepository, InstallationRequestRepository, InstallationSettingsRepository } from './ports.js';
 
 export interface CreateFleetTx extends FoundFleetTx {
   installationRequests: InstallationRequestRepository;
   installationSettings: InstallationSettingsRepository;
+  featureFlags: Pick<FeatureFlagRepository, 'turnOn'>;
 }
 
 export interface FleetCreated {
@@ -29,6 +31,8 @@ export type CreateFleet = (input: {
   operatorEmail: string;
   /** Whether the fleet gets a viewer ship, its read-only door into the console (decision 0022). */
   hasViewer?: boolean;
+  /** The feature flags it comes with on (decision 0069); none when left out. */
+  featureFlags?: readonly FeatureFlag[];
 }) => Promise<Result<FleetCreated, CreateFleetRefusal>>;
 
 /**
@@ -37,7 +41,8 @@ export type CreateFleet = (input: {
  * password: a password sign-in for that operator fails like a wrong password.
  * Unlike fleet:init it creates a fleet beside others. The operator email stays
  * unique across the installation. Asked for, the viewer ship comes with it
- * (decision 0022). Under its request id it runs once: a replay
+ * (decision 0022), and so do the feature flags asked for on, each with its
+ * FeatureFlagTurnedOn (decision 0069). Under its request id it runs once: a replay
  * answers the same fleet, and a different create under that id is refused.
  */
 export function createCreateFleet(deps: { uow: UnitOfWork<CreateFleetTx>; clock: Clock; ids: IdGenerator; hasher: SecretHasher }): CreateFleet {
@@ -52,7 +57,10 @@ export function createCreateFleet(deps: { uow: UnitOfWork<CreateFleetTx>; clock:
     }
     const name = named.value;
     const hasViewer = input.hasViewer === true;
-    const requestHash = deps.hasher.hash(installationRequestText(hasViewer ? ['createFleet', name, email.value, 'viewer'] : ['createFleet', name, email.value]));
+    const featureFlags = [...new Set(input.featureFlags ?? [])].sort();
+    const requestHash = deps.hasher.hash(
+      installationRequestText([...(hasViewer ? ['createFleet', name, email.value, 'viewer'] : ['createFleet', name, email.value]), ...featureFlags.map((flag) => `featureFlag:${flag}`)]),
+    );
 
     return deps.uow.run(async (tx): Promise<Result<FleetCreated, CreateFleetRefusal>> => {
       await tx.installationRequests.lock(input.requestId);
@@ -79,6 +87,10 @@ export function createCreateFleet(deps: { uow: UnitOfWork<CreateFleetTx>; clock:
 
       const at = deps.clock.now();
       const { fleetId, operatorShipId } = await foundFleet({ tx, ids: deps.ids }, { name, email: email.value, passwordHash: null, at, hasViewer });
+      for (const flag of featureFlags) {
+        await tx.featureFlags.turnOn(fleetId, flag);
+        await recordEvent({ events: tx.events, ids: deps.ids }, { fleetId, type: 'FeatureFlagTurnedOn', occurredAt: at, actor: { kind: 'installation' }, details: { flag } });
+      }
       await tx.installationRequests.record({ requestId: input.requestId, at, requestHash, kind: 'createFleet', fleetId, operatorShipId });
       return ok({ fleetId, operatorShipId });
     });

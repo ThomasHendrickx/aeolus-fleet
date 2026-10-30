@@ -1,5 +1,6 @@
 import type { DataKeyId, IdGenerator } from '@aeolus-fleet/common';
 
+import { checkFeatureFlag, type FeatureFlagReads } from '../registry/public.js';
 import { actorOf, hasScope, type Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
@@ -21,7 +22,7 @@ export interface CompanyKeyChanged {
   companyKey: CompanyKeyReference;
 }
 
-export type ChangeCompanyKeyRefusal = DomainError<'FORBIDDEN' | 'FLEET_NOT_SEALED' | 'KEY_UNAVAILABLE' | 'KEY_NOT_BOUND_TO_FLEET'>;
+export type ChangeCompanyKeyRefusal = DomainError<'FORBIDDEN' | 'FEATURE_FLAG_OFF' | 'FLEET_NOT_SEALED' | 'KEY_UNAVAILABLE' | 'KEY_NOT_BOUND_TO_FLEET'>;
 
 export type ChangeCompanyKey = (caller: Caller, input: { companyKey: CompanyKeyReference }) => Promise<Result<CompanyKeyChanged, ChangeCompanyKeyRefusal>>;
 
@@ -60,12 +61,18 @@ export function createChangeCompanyKey(deps: {
   sealer: PayloadSealer;
   /** The fleets' sealing and data keys, read outside the unit of work. */
   sealings: FleetSealingRepository;
+  /** The fleets' feature flags: sealing's procedures refuse a fleet whose sealing flag is off (decision 0069). */
+  featureFlags: FeatureFlagReads;
 }): ChangeCompanyKey {
   return async (caller, { companyKey: to }) => {
     if (!hasScope(caller, 'fleet:keys')) {
       return refuse('FORBIDDEN', 'Changing the company key needs the fleet:keys scope');
     }
     const { fleetId } = caller;
+    const offered = await checkFeatureFlag(deps.featureFlags, { fleetId, flag: 'sealing' });
+    if (!offered.isOk) {
+      return offered;
+    }
     if ((await deps.sealings.find(fleetId)) === undefined) {
       return refuse('FLEET_NOT_SEALED', `Fleet ${fleetId} is not sealed: turn sealing on with the company key instead`);
     }

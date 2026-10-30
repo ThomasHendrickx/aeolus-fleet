@@ -71,6 +71,8 @@ import { createDiscardNetworkRulesDraft } from '../../src/domain/registry/discar
 import { createApplyNetworkRules } from '../../src/domain/registry/apply-network-rules.js';
 import { createReadNetworkRules } from '../../src/domain/registry/read-network-rules.js';
 import { createExportNetworkRules } from '../../src/domain/registry/export-network-rules.js';
+import { createReadFeatureFlags } from '../../src/domain/registry/read-feature-flags.js';
+import { createSetFeatureFlag } from '../../src/domain/registry/set-feature-flag.js';
 import { createCheckNetworkRulesFile } from '../../src/domain/registry/check-network-rules-file.js';
 import { createImportNetworkRules } from '../../src/domain/registry/import-network-rules.js';
 import { createReadNetworkRulesDraftChanges } from '../../src/domain/registry/read-network-rules-draft-changes.js';
@@ -257,6 +259,8 @@ export function registryUseCases(core: InMemoryCore) {
     secrets: { hasher: core.hasher, random: core.random },
   };
   return {
+    readFeatureFlags: createReadFeatureFlags({ featureFlags: core.featureFlagReads.flags, source: core.featureFlagReads.source }),
+    setFeatureFlag: createSetFeatureFlag({ uow: core.uow, clock: core.clock, ids: core.ids }),
     commissionShip: createCommissionShip(deps),
     getStartingPrompt: createGetStartingPrompt(deps),
     releaseShip: createReleaseShip(deps),
@@ -375,12 +379,12 @@ export function messagingUseCases(core: InMemoryCore) {
   const { sealing } = core;
   return {
     sendMessage: createSendMessage({ ...deps, hasher: core.hasher, sealing }),
-    turnOnSealing: createTurnOnSealing({ ...deps, vault: core.keyVault.vault, sealer: sealing.sealer, recoveryKeys: core.recoveryKeys, sealings: core.sealings }),
-    changeCompanyKey: createChangeCompanyKey({ ...deps, vault: core.keyVault.vault, sealer: sealing.sealer, sealings: core.sealings }),
-    changeRecoveryKey: createChangeRecoveryKey({ ...deps, recoveryKeys: core.recoveryKeys, sealing, sealings: core.sealings }),
+    turnOnSealing: createTurnOnSealing({ ...deps, vault: core.keyVault.vault, sealer: sealing.sealer, recoveryKeys: core.recoveryKeys, sealings: core.sealings, featureFlags: core.featureFlagReads }),
+    changeCompanyKey: createChangeCompanyKey({ ...deps, vault: core.keyVault.vault, sealer: sealing.sealer, sealings: core.sealings, featureFlags: core.featureFlagReads }),
+    changeRecoveryKey: createChangeRecoveryKey({ ...deps, recoveryKeys: core.recoveryKeys, sealing, sealings: core.sealings, featureFlags: core.featureFlagReads }),
     readSealing: createReadSealing({ sealings: core.sealings }),
-    readRecoverySet: createReadRecoverySet({ sealings: core.sealings }),
-    recoverKeys: createRecoverKeys({ ...deps, vault: core.keyVault.vault, sealer: sealing.sealer, sealings: core.sealings }),
+    readRecoverySet: createReadRecoverySet({ sealings: core.sealings, featureFlags: core.featureFlagReads }),
+    recoverKeys: createRecoverKeys({ ...deps, vault: core.keyVault.vault, sealer: sealing.sealer, sealings: core.sealings, featureFlags: core.featureFlagReads }),
     openMeeting: createOpenMeeting({ ...deps, hasher: core.hasher, sealing: core.sealing }),
     readMeeting: createReadMeeting({ uow: core.uow, sealing }),
     changeMic: createChangeMic({ ...deps, hasher: core.hasher, sealing: core.sealing }),
@@ -683,7 +687,9 @@ export function sealFleet(core: InMemoryCore, fleetId: FleetId): Promise<string>
 export async function sealFleetWith(core: InMemoryCore, { fleetId, ...options }: { fleetId: FleetId; recoveryKey?: string }): Promise<string> {
   const companyKey = await core.keyVault.aCompanyKey();
   await core.keyVault.bindToFleet(companyKey, fleetId);
-  const turnOn = createTurnOnSealing({ uow: core.uow, clock: core.clock, ids: core.ids, vault: core.keyVault.vault, sealer: core.sealing.sealer, recoveryKeys: core.recoveryKeys, sealings: core.sealings });
+  // Only a fleet the installation offers sealing to turns it on (decision 0069).
+  core.state.featureFlags.push({ fleetId, flag: 'sealing' });
+  const turnOn = createTurnOnSealing({ uow: core.uow, clock: core.clock, ids: core.ids, vault: core.keyVault.vault, sealer: core.sealing.sealer, recoveryKeys: core.recoveryKeys, sealings: core.sealings, featureFlags: core.featureFlagReads });
   const fleetManager: AccountCaller = { kind: 'account', accountId: accountIdSchema.parse('acc_fleetmanager'), fleetId, scopes: ['fleet:keys'], groupValues: [], personShipId: null, throughShipId: null };
   unwrap(await turnOn(fleetManager, { companyKey, ...options }));
   return companyKey;

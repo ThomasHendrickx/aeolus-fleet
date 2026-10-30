@@ -215,6 +215,7 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | --- | --- | --- |
 | Installation | One server and the fleets it hosts; a hosting service drives it with the installation token, a self-hosted server has none (0020) | core |
 | Hosting service | What runs an installation for others: pagasae for hosted Aeolus | pagasae |
+| Feature flag | Whether a fleet is offered a feature, on or off per fleet, set by the installation; off, the fleet sees nothing of it (0069) | core |
 | Fleet | core's tenant: one set of ships, messages and history; every record has `fleet_id` (0007). Not an organisation | core |
 | Ship | A durable, addressable actor with an inbox; outlives any session. Everything that sends or receives messages is a ship. Has a name, type, kind, scopes, owner and status | core |
 | Ship id | `shp_…`, with its fleet's `flt_…` the public reference `{ shipId, fleetId }` | core |
@@ -510,6 +511,8 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `FleetKeyUnavailable` | Messaging | The fleet's company key could not be had after it could (0068): details hold the key vault's reason (`accessDenied`, `disabled`, `notFound`, `unreachable`). One per change, not per call |
 | `FleetKeyAvailable` | Messaging | The fleet's company key could be had again (0068) |
 | `HistoryPruned` | Messaging | A batch of the hourly pruning pass let the fleet's finished history older than its retention go (0066): details hold the cutoff and how many messages, deliveries, events, overdue rows, leases, credentials, console sessions with their notice dismissals and guide progress, sign-in tickets and reach refusals went |
+| `FeatureFlagTurnedOn` | Registry | The installation turned one of the fleet's feature flags on, or created the fleet with it on (0069): details name the flag |
+| `FeatureFlagTurnedOff` | Registry | The installation turned one of the fleet's feature flags off (0069): details name the flag |
 | `FleetLimitsChanged` | Registry | The installation set how the fleet's ship, daily message, schedules per ship and minimum schedule interval limits and its retention are set: each following the default, or the fleet's own limit or days, or none |
 
 ## Key flows
@@ -554,7 +557,7 @@ A crash never loses a delivery: an unacknowledged delivery returns to pending un
 
 A hosting service such as pagasae drives the installation with its token (docs/architecture.md, "Installation"); a server without a token has no installation procedures. Each create and delete carries the caller's own request id: a replay under it answers what the first call answered, and a different request under a used id is refused.
 
-1. Create a fleet: a name, and whether it has a viewer. The fleet, its `argo`, the installation's scopes in it (0020) and, with a viewer, the viewer ship come in one transaction, with their events. Core knows no organisation and keeps no account: who may sign in as argo is pagasae's (0054).
+1. Create a fleet: a name, whether it has a viewer, and the feature flags it comes with on (0069). The fleet, its `argo`, the installation's scopes in it (0020), with a viewer the viewer ship, and its flags come in one transaction, with their events. Core knows no organisation and keeps no account: who may sign in as argo is pagasae's (0054).
 2. List the fleets, or get one: its id, name, operator email, when it was created, and its four measures:
    - **Ships:** its ships that are not retired, `argo` included.
    - **Messages:** every message row stored in the fleet in the last 7 days, of any kind and from any sender; the server never looks into messages for it.
@@ -586,6 +589,7 @@ A hosting service such as pagasae drives the installation with its token (docs/a
 7. Set the guide: the installation sets one guide (decision 0024) for everyone, for operators or for viewers: steps in order, each on a console page, pointing at an element there, with a title and a text. It opens by itself on the first console page of a session of its audience. Next and Back go from page to page; Skip or Finish hide it for the rest of that session; Take the tour in the account menu opens it again. A step whose element is not on the page shows centred, so its count stays. The session's place in the guide is kept on the server.
 8. End console sign-ins by an account: every console sign-in as argo by that account ends, with its event (0055).
 9. Cut off an account's tokens: core refuses that account's tokens issued before now until the longest has ended (0058).
+10. Set a feature flag: the installation turns one of a fleet's feature flags on or off (0069), with its event; list and get answer each flag on or off and whether it can go off now. A flag never goes off while the fleet uses its feature: sealed fleets keep sealing. Off, the console shows nothing of the feature and core refuses its procedures. A server without a token has each flag's own value: sealing on when it has a KMS.
 
 ### Accounts
 
@@ -644,7 +648,7 @@ The operator restarting a session is not a recovery step for messages: nothing w
 
 ### Sealed fleets
 
-1. The fleet manager, or any actor holding `fleet:keys`, turns sealing on with a company key in the company's own KMS, AWS KMS first, and optionally a recovery key. The company grants the installation use of its key for this fleet only; a key not bound to the fleet is refused (decision 0068).
+1. While the fleet's sealing flag is on (0069), the fleet manager, or any actor holding `fleet:keys`, turns sealing on with a company key in the company's own KMS, AWS KMS first, and optionally a recovery key. The company grants the installation use of its key for this fleet only; a key not bound to the fleet is refused (decision 0068).
 2. From then on core seals every payload it stores and unseals every payload it answers. Ships, the gateway, plugins and the console send and receive plain text as today. Payloads stored before are sealed by a pass.
 3. The company cuts off every read by disabling its key or removing its grant: within 5 minutes every send is refused `KEY_UNAVAILABLE` storing nothing, and every receive claims nothing, its deliveries waiting pending. A read of one payload is refused `KEY_UNAVAILABLE`; a list and a message's page mark each payload they cannot unseal unreadable and answer the rest. The fleet's sealing (`fleet.sealing`) and Health say the key is not reachable, why and since when. Restoring the grant restores everything; nothing waiting is lost.
 4. The console renders a sealed fleet's payload as today, marked sealed, and "sealed, key not reachable" in its place when cut off. In a sealed fleet a ship's page says when the gateway reads its payloads.

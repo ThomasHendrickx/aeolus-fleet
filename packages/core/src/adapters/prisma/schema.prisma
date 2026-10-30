@@ -108,6 +108,7 @@ model Fleet {
   meetingParticipants              MeetingParticipant[]
   meetingMicRequests               MeetingMicRequest[]
   schedules                        Schedule[]
+  featureFlags                     FleetFeatureFlag[]
 
   @@map("fleets")
 }
@@ -605,6 +606,20 @@ enum SelectorKind {
 /// statements, after the fleet's event numbers, so the row lock is held only
 /// until commit. Storage is the sum of the days; the daily message limit
 /// counts today's row.
+/// A feature flag that is on for a fleet (decision 0069): a row per flag that
+/// is on, none being off. The flag by its key in common's list, as text, so a
+/// new flag needs no migration.
+model FleetFeatureFlag {
+  fleetId   String   @map("fleet_id")
+  flag      String
+  createdAt DateTime @map("created_at") @db.Timestamptz(3)
+
+  fleet Fleet @relation(fields: [fleetId], references: [id])
+
+  @@id([fleetId, flag])
+  @@map("fleet_feature_flags")
+}
+
 model MessageDay {
   fleetId      String   @map("fleet_id")
   day          DateTime @db.Date

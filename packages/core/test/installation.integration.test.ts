@@ -207,6 +207,7 @@ describe('the installation procedures on a hosting server', () => {
         minimumScheduleInterval: { setting: { kind: 'default' }, applies: null },
         retention: { setting: { kind: 'default' }, applies: null },
       },
+      featureFlags: [{ flag: 'sealing', isOn: false, canTurnOff: true }],
     });
     // Its one message waits pending for scout, which awaits crew.
     expect(health).toMatchObject({

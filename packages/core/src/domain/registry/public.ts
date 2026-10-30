@@ -13,3 +13,5 @@ export { findOperatorShip, findShip, findViewerShip, type FindShipTx, type ShipT
 export { isConsoleShip, OPERATOR_SHIP_NAME, shipStatus, type Ship } from './ship.js';
 export { appliedLimits, type AppliedLimitsTx } from './applied-limits.js';
 export { readsEvent, readsMessage, readsShip, type MessageParties, type ReadReach, type ReadReachOf } from './read-reach.js';
+export { checkFeatureFlag, isFeatureFlagOnForUpdate, requireFeatureFlag, type FeatureFlagOff, type FeatureFlagReads } from './feature-flag.js';
+export type { FeatureFlagRepository } from './ports.js';

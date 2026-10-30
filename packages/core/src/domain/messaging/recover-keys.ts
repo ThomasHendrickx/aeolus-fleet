@@ -1,5 +1,6 @@
 import type { DataKeyId, IdGenerator } from '@aeolus-fleet/common';
 
+import { checkFeatureFlag, type FeatureFlagReads } from '../registry/public.js';
 import { actorOf, hasScope, type Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
@@ -27,7 +28,7 @@ export interface KeysRecovered {
   companyKey: CompanyKeyReference;
 }
 
-export type RecoverKeysRefusal = DomainError<'FORBIDDEN' | 'FLEET_NOT_SEALED' | 'NO_RECOVERY_KEY' | 'RECOVERY_KEYS_MISMATCH' | 'KEY_UNAVAILABLE' | 'KEY_NOT_BOUND_TO_FLEET'>;
+export type RecoverKeysRefusal = DomainError<'FORBIDDEN' | 'FEATURE_FLAG_OFF' | 'FLEET_NOT_SEALED' | 'NO_RECOVERY_KEY' | 'RECOVERY_KEYS_MISMATCH' | 'KEY_UNAVAILABLE' | 'KEY_NOT_BOUND_TO_FLEET'>;
 
 export type RecoverKeys = (caller: Caller, input: { companyKey: CompanyKeyReference; dataKeys: readonly RecoveredDataKey[] }) => Promise<Result<KeysRecovered, RecoverKeysRefusal>>;
 
@@ -63,12 +64,18 @@ export function createRecoverKeys(deps: {
   sealer: PayloadSealer;
   /** The fleets' sealing and data keys, read outside the unit of work. */
   sealings: FleetSealingRepository;
+  /** The fleets' feature flags: sealing's procedures refuse a fleet whose sealing flag is off (decision 0069). */
+  featureFlags: FeatureFlagReads;
 }): RecoverKeys {
   return async (caller, { companyKey: to, dataKeys: uploaded }) => {
     if (!hasScope(caller, 'fleet:keys')) {
       return refuse('FORBIDDEN', 'Recovering the data keys needs the fleet:keys scope');
     }
     const { fleetId } = caller;
+    const offered = await checkFeatureFlag(deps.featureFlags, { fleetId, flag: 'sealing' });
+    if (!offered.isOk) {
+      return offered;
+    }
     const ages = await deps.sealings.dataKeyAges(fleetId);
     const stored = await deps.sealings.wrappedDataKeys(fleetId, ages.map(({ id }) => id));
     if (stored === undefined) {

@@ -1,5 +1,6 @@
 import type { IdGenerator } from '@aeolus-fleet/common';
 
+import { checkFeatureFlag, isFeatureFlagOnForUpdate, requireFeatureFlag, type FeatureFlagReads, type FeatureFlagRepository } from '../registry/public.js';
 import { actorOf, hasScope, type Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
@@ -15,6 +16,7 @@ import type { FleetSealingRepository } from './ports.js';
 
 export interface TurnOnSealingTx {
   sealings: FleetSealingRepository;
+  featureFlags: Pick<FeatureFlagRepository, 'isOnForUpdate'>;
   events: EventLog;
 }
 
@@ -25,14 +27,16 @@ export interface SealingTurnedOn {
   recoveryKeyFingerprint?: string;
 }
 
-export type TurnOnSealingRefusal = DomainError<'FORBIDDEN' | 'FLEET_ALREADY_SEALED' | 'INVALID_RECOVERY_KEY' | 'KEY_UNAVAILABLE' | 'KEY_NOT_BOUND_TO_FLEET'>;
+export type TurnOnSealingRefusal = DomainError<'FORBIDDEN' | 'FEATURE_FLAG_OFF' | 'FLEET_ALREADY_SEALED' | 'INVALID_RECOVERY_KEY' | 'KEY_UNAVAILABLE' | 'KEY_NOT_BOUND_TO_FLEET'>;
 
 export type TurnOnSealing = (caller: Caller, input: { companyKey: CompanyKeyReference; recoveryKey?: string }) => Promise<Result<SealingTurnedOn, TurnOnSealingRefusal>>;
 
 /**
  * Use case: turning sealing on for the caller's fleet (decision 0068, B4),
  * by an actor holding `fleet:keys`, as the fleet manager does, optionally
- * with a recovery key (B6). Checked in order: the caller's scope; that a
+ * with a recovery key (B6). Checked in order: the caller's scope; that the
+ * fleet's sealing flag is on (decision 0069), read again with its row held in
+ * the unit of work; that a
  * recovery key given is an `age` X25519 recipient; that the fleet is not
  * sealed; that the
  * company's key vault makes a data key under the company key for this
@@ -56,6 +60,8 @@ export function createTurnOnSealing(deps: {
   recoveryKeys: RecoveryKeys;
   /** The fleets' sealing, read outside the unit of work. */
   sealings: FleetSealingRepository;
+  /** The fleets' feature flags: sealing's procedures refuse a fleet whose sealing flag is off (decision 0069). */
+  featureFlags: FeatureFlagReads;
 }): TurnOnSealing {
   return async (caller, input) => {
     const { companyKey } = input;
@@ -71,6 +77,10 @@ export function createTurnOnSealing(deps: {
       recoveryKey = parsed.value;
     }
     const { fleetId } = caller;
+    const offered = await checkFeatureFlag(deps.featureFlags, { fleetId, flag: 'sealing' });
+    if (!offered.isOk) {
+      return offered;
+    }
     if ((await deps.sealings.find(fleetId)) !== undefined) {
       return refuse('FLEET_ALREADY_SEALED', `Fleet ${fleetId} is sealed already`);
     }
@@ -85,6 +95,11 @@ export function createTurnOnSealing(deps: {
     const turnedOn: Pick<SealingTurnedOn, 'companyKey' | 'recoveryKeyFingerprint'> = recoveryKey === null ? { companyKey } : { companyKey, recoveryKeyFingerprint: recoveryKey.fingerprint };
 
     return deps.uow.run(async (tx): Promise<Result<SealingTurnedOn, TurnOnSealingRefusal>> => {
+      // Held until sealing is on, so the flag cannot go off while the fleet turns sealing on (decision 0069).
+      const stillOffered = requireFeatureFlag('sealing', await isFeatureFlagOnForUpdate({ source: deps.featureFlags.source, flags: tx.featureFlags }, { fleetId, flag: 'sealing' }));
+      if (!stillOffered.isOk) {
+        return stillOffered;
+      }
       if ((await tx.sealings.findForUpdate(fleetId)) !== undefined) {
         return refuse('FLEET_ALREADY_SEALED', `Fleet ${fleetId} is sealed already`);
       }

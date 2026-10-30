@@ -1,4 +1,4 @@
-import { guideStepSchema, idSchema, noticeLinkSchema, type FleetId } from '@aeolus-fleet/common';
+import { featureFlagSchema, guideStepSchema, idSchema, noticeLinkSchema, type FleetId } from '@aeolus-fleet/common';
 import { z } from 'zod';
 
 import type { Notice } from '../../domain/identity/notice.js';
@@ -85,6 +85,8 @@ const factsRow = z.object({
   noShipCanTake: z.bigint(),
   needsAttention: z.bigint(),
   overdue: z.bigint(),
+  featureFlagsOn: z.array(z.string()),
+  isSealing: z.boolean(),
 });
 
 function toFacts(row: unknown): InstallationFleetFacts {
@@ -104,6 +106,8 @@ function toFacts(row: unknown): InstallationFleetFacts {
     noShipCanTake,
     needsAttention,
     overdue,
+    featureFlagsOn,
+    isSealing,
     ...facts
   } = factsRow.parse(row);
   return {
@@ -113,6 +117,12 @@ function toFacts(row: unknown): InstallationFleetFacts {
     shipCount: Number(facts.shipCount),
     messagesSince: Number(facts.messagesSince),
     storage: Number(facts.storage),
+    // A flag a later release no longer names is left out, as no row would be.
+    featureFlagsOn: featureFlagsOn.flatMap((flag) => {
+      const parsed = featureFlagSchema.safeParse(flag);
+      return parsed.success ? [parsed.data] : [];
+    }),
+    featureUse: { isSealing },
     limitSettings: limitSettingsOf({
       shipLimitSet,
       shipLimit,
@@ -171,7 +181,10 @@ export function installationFleetsStatement(fleetId: FleetId | null, window: Ins
           f.daily_message_limit_set AS "dailyMessageLimitSet", f.daily_message_limit AS "dailyMessageLimit",
           f.schedules_per_ship_limit_set AS "schedulesPerShipLimitSet", f.schedules_per_ship_limit AS "schedulesPerShipLimit",
           f.minimum_schedule_interval_set AS "minimumScheduleIntervalSet", f.minimum_schedule_interval AS "minimumScheduleInterval",
-          f.retention_set AS "retentionSet", f.retention_days AS "retentionDays"
+          f.retention_set AS "retentionSet", f.retention_days AS "retentionDays",
+          -- Its feature flags that are on, and what it uses of their features (decision 0069).
+          (SELECT coalesce(array_agg(ff.flag ORDER BY ff.flag), '{}') FROM fleet_feature_flags ff WHERE ff.fleet_id = f.id) AS "featureFlagsOn",
+          f.sealing_state IS NOT NULL AS "isSealing"
         FROM fleets f
         LEFT JOIN operators o ON o.fleet_id = f.id
         WHERE ${fleetId}::text IS NULL OR f.id = ${fleetId}

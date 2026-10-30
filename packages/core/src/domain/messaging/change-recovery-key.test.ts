@@ -53,7 +53,12 @@ beforeEach(async () => {
 });
 
 function changeWith(recoveryKeys: RecoveryKeys): ChangeRecoveryKey {
-  return createChangeRecoveryKey({ uow: core.uow, clock: core.clock, ids: core.ids, recoveryKeys, sealing: core.sealing, sealings: core.sealings });
+  return createChangeRecoveryKey({ uow: core.uow, clock: core.clock, ids: core.ids, recoveryKeys, sealing: core.sealing, sealings: core.sealings, featureFlags: core.featureFlagReads });
+}
+
+/** A fleet sealed before its sealing flag went off: one a server without an installation token or a KMS reads (decision 0069). */
+function theSealingFlagOff(): void {
+  core.state.featureFlags.length = 0;
 }
 
 function rotation() {
@@ -147,6 +152,16 @@ describe('changing the recovery key (decision 0068, B13d)', () => {
     expect(core.state).toEqual(before);
   });
 
+  it('refuses a fleet whose sealing flag is off FEATURE_FLAG_OFF, and nothing changes (decision 0069)', async () => {
+    theSealingFlagOff();
+    const before = structuredClone(core.state);
+
+    const refusal = refusalOf(await changeWith(inMemoryRecoveryKeys)(fleetManager, { recoveryKey: RECOVERY_KEY_B }));
+
+    expect(refusal.kind).toBe('FEATURE_FLAG_OFF');
+    expect(core.state).toEqual(before);
+  });
+
   it('refuses an actor without fleet:keys, and nothing changes', async () => {
     const account: AccountCaller = { ...fleetManager, accountId: accountIdSchema.parse('acc_lena'), scopes: ['fleet:read', 'fleet:manage'] };
     const before = structuredClone(core.state);
@@ -160,6 +175,7 @@ describe('changing the recovery key (decision 0068, B13d)', () => {
   it('refuses a fleet that is not sealed, FLEET_NOT_SEALED', async () => {
     core = createInMemoryCore('2026-10-29T09:00:00.000Z');
     const fleet = await initialiseFleet(core);
+    core.state.featureFlags.push({ fleetId: fleet.fleetId, flag: 'sealing' });
     const unsealed: AccountCaller = { ...fleetManager, fleetId: fleet.fleetId };
 
     const refusal = refusalOf(await changeWith(inMemoryRecoveryKeys)(unsealed, { recoveryKey: RECOVERY_KEY_B }));

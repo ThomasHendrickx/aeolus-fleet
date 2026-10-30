@@ -6,7 +6,7 @@ import { createTRPCOptionsProxy } from '@trpc/tanstack-react-query';
 import { describe, expect, it } from 'vitest';
 
 import { uniqueById } from './paged-list';
-import { createLiveFleetHandler, createLiveReloads, isAttentionChange, isBuiltInRulesChange, isDeclaredRulesChange, isLabelChange, isNetworkRulesChange, isSealingChange, isShipChange, liveStateOf } from './live-fleet';
+import { createLiveFleetHandler, createLiveReloads, isAttentionChange, isBuiltInRulesChange, isDeclaredRulesChange, isFeatureFlagChange, isLabelChange, isNetworkRulesChange, isSealingChange, isShipChange, liveStateOf } from './live-fleet';
 
 describe('liveStateOf', () => {
   it.each([
@@ -55,6 +55,16 @@ describe('isLabelChange', () => {
 
   it.each(['ShipCommissioned', 'ShipRetired', 'MessageAccepted'] as const)('leaves the labels alone for %s', (type) => {
     expect(isLabelChange(type)).toBe(false);
+  });
+});
+
+describe('isFeatureFlagChange', () => {
+  it.each(['FeatureFlagTurnedOn', 'FeatureFlagTurnedOff'] as const)('reloads the session, which answers the flags, for %s (decision 0069)', (type) => {
+    expect(isFeatureFlagChange(type)).toBe(true);
+  });
+
+  it.each(['FleetSealingTurnedOn', 'MessageAccepted'] as const)('leaves the session alone for %s', (type) => {
+    expect(isFeatureFlagChange(type)).toBe(false);
   });
 });
 

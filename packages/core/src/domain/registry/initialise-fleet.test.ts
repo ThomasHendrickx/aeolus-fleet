@@ -184,6 +184,7 @@ describe('initialise fleet', () => {
       fleetSealings: [],
       dataKeys: [],
       sealingLocks: [],
+      featureFlags: [],
     });
   });
 });

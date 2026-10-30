@@ -65,7 +65,12 @@ async function loseKeyA(): Promise<void> {
 }
 
 function recoverKeys(): RecoverKeys {
-  return createRecoverKeys({ uow: core.uow, clock: core.clock, ids: core.ids, vault: core.keyVault.vault, sealer: core.sealing.sealer, sealings: core.sealings });
+  return createRecoverKeys({ uow: core.uow, clock: core.clock, ids: core.ids, vault: core.keyVault.vault, sealer: core.sealing.sealer, sealings: core.sealings, featureFlags: core.featureFlagReads });
+}
+
+/** A fleet sealed before its sealing flag went off: one a server without an installation token or a KMS reads (decision 0069). */
+function theSealingFlagOff(): void {
+  core.state.featureFlags.length = 0;
 }
 
 /** A company key whose policy grants the installation for this fleet's id alone. */
@@ -170,10 +175,23 @@ describe('recovering the data keys (decision 0068, B15)', () => {
   it('refuses a fleet that is not sealed, FLEET_NOT_SEALED', async () => {
     core = createInMemoryCore('2026-10-29T09:00:00.000Z');
     const fleet = await initialiseFleet(core);
+    core.state.featureFlags.push({ fleetId: fleet.fleetId, flag: 'sealing' });
 
     const refusal = refusalOf(await recoverKeys()({ ...fleetManager, fleetId: fleet.fleetId }, { companyKey: keyA, dataKeys: [] }));
 
     expect(refusal.kind).toBe('FLEET_NOT_SEALED');
+  });
+
+  it('refuses a fleet whose sealing flag is off FEATURE_FLAG_OFF, and nothing changes (decision 0069)', async () => {
+    const keyB = await aBoundCompanyKey();
+    const dataKeys = await theCompanysWraps(keyB);
+    theSealingFlagOff();
+    const before = keysState();
+
+    const refusal = refusalOf(await recoverKeys()(fleetManager, { companyKey: keyB, dataKeys }));
+
+    expect(refusal.kind).toBe('FEATURE_FLAG_OFF');
+    expect(keysState()).toEqual(before);
   });
 
   it('refuses an actor without fleet:keys, and nothing changes', async () => {

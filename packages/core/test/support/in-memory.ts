@@ -1,4 +1,4 @@
-import { createIdGenerator, idSchema, LEASE_END_REASONS, PING_CONTENT_TYPE, type DeliveryId, type FleetId, type IdGenerator, type LabelValueId, type LeaseWaker, type MessageId, type ShipId } from '@aeolus-fleet/common';
+import { createIdGenerator, idSchema, LEASE_END_REASONS, PING_CONTENT_TYPE, type DeliveryId, type FeatureFlag, type FleetId, type IdGenerator, type LabelValueId, type LeaseWaker, type MessageId, type ShipId } from '@aeolus-fleet/common';
 
 import type { ConsoleSession } from '../../src/domain/identity/console-session.js';
 import type { Credential } from '../../src/domain/identity/credential.js';
@@ -63,7 +63,9 @@ import type {
   NetworkSettingsRepository,
   ReachRefusalRepository,
   ShipRepository,
+  FeatureFlagRepository,
 } from '../../src/domain/registry/ports.js';
+import type { FeatureFlagReads } from '../../src/domain/registry/feature-flag.js';
 import { isSameOwner, type Label, type LabelOwner, type ListedLabel, type ShipLabel } from '../../src/domain/registry/label.js';
 import { matchesShipFilter } from '@aeolus-fleet/common/rules';
 import { readsShip } from '../../src/domain/registry/read-reach.js';
@@ -208,6 +210,8 @@ export interface InMemoryState {
   dataKeys: StoredDataKey[];
   /** The fleets whose sealing lock another server holds, as a test sets it (decision 0068, B5). */
   sealingLocks: FleetId[];
+  /** The feature flags on per fleet, a row per flag that is on (decision 0069). */
+  featureFlags: { fleetId: FleetId; flag: FeatureFlag }[];
 }
 
 /** A fleet's events, numbered in the order they were appended, the places of pruned events skipped. */
@@ -256,6 +260,7 @@ export interface InMemoryTx {
   healthSnapshots: HealthSnapshotWriter;
   historyPruner: HistoryPruner;
   sealings: FleetSealingRepository;
+  featureFlags: FeatureFlagRepository;
 }
 
 /**
@@ -315,6 +320,10 @@ export interface InMemoryCore {
   definedScopes: DefinedScopeRepository;
   /** The fleets' sealing and data keys, read outside a unit of work. */
   sealings: FleetSealingRepository;
+  /** The fleets' feature flags, read outside a unit of work. */
+  featureFlags: FeatureFlagRepository;
+  /** The fleets' feature flags as a feature's procedures read them: set by the installation. */
+  featureFlagReads: FeatureFlagReads;
   /** The company's key vault, as the company keeps its keys (decision 0068). */
   keyVault: KeyVaultWorld;
   recoveryKeys: RecoveryKeys;
@@ -423,6 +432,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     fleetSealings: [],
     dataKeys: [],
     sealingLocks: [],
+    featureFlags: [],
   };
 
   let now = new Date(startAt);
@@ -481,6 +491,20 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
   const healthRecords = createInMemoryHealthRecords(state);
   const healthSnapshots = createInMemoryHealthSnapshots(state, healthRecords);
   const tx: InMemoryTx = {
+    featureFlags: {
+      onFor: (fleetId) => Promise.resolve(state.featureFlags.filter((held) => held.fleetId === fleetId).map((held) => held.flag)),
+      isOnForUpdate: (fleetId, flag) => Promise.resolve(state.featureFlags.some((held) => isFlagRow(held, { fleetId, flag }))),
+      turnOn: (fleetId, flag) => {
+        if (!state.featureFlags.some((held) => isFlagRow(held, { fleetId, flag }))) {
+          state.featureFlags.push({ fleetId, flag });
+        }
+        return Promise.resolve();
+      },
+      turnOff: (fleetId, flag) => {
+        state.featureFlags.splice(0, state.featureFlags.length, ...state.featureFlags.filter((held) => !isFlagRow(held, { fleetId, flag })));
+        return Promise.resolve();
+      },
+    },
     sealings: {
       find: (fleetId) => Promise.resolve(structuredClone(state.fleetSealings.find((held) => held.fleetId === fleetId))),
       findForUpdate: (fleetId) => Promise.resolve(structuredClone(state.fleetSealings.find((held) => held.fleetId === fleetId))),
@@ -1818,6 +1842,8 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       ).map(([date, messages]) => ({ date, count: messages?.length ?? 0 })),
       limitSettings: state.fleetLimitSettings.find((held) => held.fleetId === fleet.id) ?? FOLLOWING_DEFAULTS,
       health: healthOf(fleet.id),
+      featureFlagsOn: state.featureFlags.filter((held) => held.fleetId === fleet.id).map((held) => held.flag),
+      featureUse: { isSealing: state.fleetSealings.some((held) => held.fleetId === fleet.id) },
     };
   };
   const installationFleets: InstallationFleets = {
@@ -2421,12 +2447,13 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
   };
 
-  return { state, uow, fleets: tx.fleets, scheduleAttempts, pushedCrews, ships: tx.ships, leases: tx.leases, crewRequests: tx.crewRequests, clearRequests: tx.clearRequests, labels: tx.labels, reachRefusals: tx.reachRefusals, declaredNetworkRules: tx.declaredNetworkRules, scopeNamespaces: tx.scopeNamespaces, definedScopes: tx.definedScopes, sealings: tx.sealings, keyVault, recoveryKeys: inMemoryRecoveryKeys, sealing: { sealer: inMemoryPayloadSealer, dataKeys: createFleetDataKeys({ sealings: tx.sealings, vault: keyVault.vault, sealer: inMemoryPayloadSealer, recoveryKeys: inMemoryRecoveryKeys, clock, uow, ids }) }, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, health: healthRecords, healthSnapshots, notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeups, fleetNews };
+  return { state, uow, fleets: tx.fleets, scheduleAttempts, pushedCrews, ships: tx.ships, leases: tx.leases, crewRequests: tx.crewRequests, clearRequests: tx.clearRequests, labels: tx.labels, reachRefusals: tx.reachRefusals, declaredNetworkRules: tx.declaredNetworkRules, scopeNamespaces: tx.scopeNamespaces, definedScopes: tx.definedScopes, sealings: tx.sealings, featureFlags: tx.featureFlags, featureFlagReads: { source: { kind: 'installation' }, flags: tx.featureFlags }, keyVault, recoveryKeys: inMemoryRecoveryKeys, sealing: { sealer: inMemoryPayloadSealer, dataKeys: createFleetDataKeys({ sealings: tx.sealings, vault: keyVault.vault, sealer: inMemoryPayloadSealer, recoveryKeys: inMemoryRecoveryKeys, clock, uow, ids }) }, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, health: healthRecords, healthSnapshots, notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeups, fleetNews };
 }
 
 /** The tables whose rows belong to a fleet by their fleet id: all but the fleets and the installation's requests. */
 const FLEET_TABLES = [
   'healthSnapshots',
+  'featureFlags',
   'fleetSealings',
   'dataKeys',
   'ships',
@@ -2468,6 +2495,7 @@ const FLEET_TABLES = [
 
 const TABLES = [
   'healthSnapshots',
+  'featureFlags',
   'fleets',
   'ships',
   'leases',
@@ -2512,6 +2540,11 @@ function restore(state: InMemoryState, snapshot: InMemoryState): void {
     const rows: unknown[] = state[key];
     rows.splice(0, rows.length, ...snapshot[key]);
   }
+}
+
+/** Whether the row is the fleet's row of the flag; typed over any flag key, as the table's text column is. */
+function isFlagRow(held: { fleetId: FleetId; flag: string }, key: { fleetId: FleetId; flag: string }): boolean {
+  return held.fleetId === key.fleetId && held.flag === key.flag;
 }
 
 function isClearRequestKey(held: ClearRequest, key: { trierarchShipId: ClearRequest['trierarchShipId']; shipId: ClearRequest['shipId']; repository: string }): boolean {

@@ -23,6 +23,7 @@ import type {
   NetworkSettingsRepository,
   ReachRefusalRepository,
   ShipRepository,
+  FeatureFlagRepository,
 } from '../../domain/registry/ports.js';
 import type { Notifier } from '../../domain/shared/notifier.js';
 import type { Result } from '../../domain/shared/result.js';
@@ -44,6 +45,7 @@ import {
 import { createPrismaInstallationRequestRepository, createPrismaInstallationSettings } from './installation.js';
 import { createPrismaMeetingRepository } from './meetings.js';
 import { createPrismaFleetSealingRepository } from './sealings.js';
+import { createPrismaFeatureFlagRepository } from './feature-flags.js';
 import { createPrismaDeliveryRepository, createPrismaMessageRepository, type BufferedMessageRepository } from './messaging.js';
 import { createPrismaOverdueDeliveryRepository } from './overdue.js';
 import { createPrismaScheduleNotifier, createPrismaScheduleRepository } from './schedules.js';
@@ -85,6 +87,7 @@ export interface PrismaTx {
   deliveries: DeliveryRepository;
   meetings: MeetingRepository;
   sealings: FleetSealingRepository;
+  featureFlags: FeatureFlagRepository;
   schedules: ScheduleRepository;
   overdueDeliveries: OverdueDeliveryRepository;
   events: BufferedEventLog;
@@ -120,6 +123,7 @@ export function createPrismaTx(db: Db): PrismaTx {
     deliveries: createPrismaDeliveryRepository(db),
     meetings: createPrismaMeetingRepository(db),
     sealings: createPrismaFleetSealingRepository(db),
+    featureFlags: createPrismaFeatureFlagRepository(db),
     schedules: createPrismaScheduleRepository(db),
     overdueDeliveries: createPrismaOverdueDeliveryRepository(db),
     events: createPrismaEventLog(db),

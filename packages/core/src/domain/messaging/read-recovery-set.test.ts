@@ -46,7 +46,12 @@ beforeEach(async () => {
 });
 
 function readRecoverySet(): ReadRecoverySet {
-  return createReadRecoverySet({ sealings: core.sealings });
+  return createReadRecoverySet({ sealings: core.sealings, featureFlags: core.featureFlagReads });
+}
+
+/** A fleet sealed before its sealing flag went off: one a server without an installation token or a KMS reads (decision 0069). */
+function theSealingFlagOff(): void {
+  core.state.featureFlags.length = 0;
 }
 
 describe('the recovery set (decision 0068, B15)', () => {
@@ -84,8 +89,15 @@ describe('the recovery set (decision 0068, B15)', () => {
   it('refuses a fleet that is not sealed, FLEET_NOT_SEALED', async () => {
     core = createInMemoryCore('2026-10-29T09:00:00.000Z');
     const fleet = await initialiseFleet(core);
+    core.state.featureFlags.push({ fleetId: fleet.fleetId, flag: 'sealing' });
 
     expect(refusalOf(await readRecoverySet()({ ...fleetManager, fleetId: fleet.fleetId })).kind).toBe('FLEET_NOT_SEALED');
+  });
+
+  it('refuses a fleet whose sealing flag is off FEATURE_FLAG_OFF (decision 0069)', async () => {
+    theSealingFlagOff();
+
+    expect(refusalOf(await readRecoverySet()(fleetManager)).kind).toBe('FEATURE_FLAG_OFF');
   });
 
   it('refuses an actor without fleet:keys', async () => {

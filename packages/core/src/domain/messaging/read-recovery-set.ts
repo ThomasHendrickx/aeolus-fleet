@@ -1,5 +1,6 @@
 import type { DataKeyId, FleetId } from '@aeolus-fleet/common';
 
+import { checkFeatureFlag, type FeatureFlagReads } from '../registry/public.js';
 import { hasScope, type Caller } from '../shared/caller.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import { ok, type Result } from '../shared/result.js';
@@ -20,7 +21,7 @@ export interface RecoverySet {
   readonly dataKeys: readonly RecoveryDataKey[];
 }
 
-export type ReadRecoverySetRefusal = DomainError<'FORBIDDEN' | 'FLEET_NOT_SEALED' | 'NO_RECOVERY_KEY'>;
+export type ReadRecoverySetRefusal = DomainError<'FORBIDDEN' | 'FEATURE_FLAG_OFF' | 'FLEET_NOT_SEALED' | 'NO_RECOVERY_KEY'>;
 
 export type ReadRecoverySet = (caller: Caller) => Promise<Result<RecoverySet, ReadRecoverySetRefusal>>;
 
@@ -33,12 +34,16 @@ export type ReadRecoverySet = (caller: Caller) => Promise<Result<RecoverySet, Re
  * recovery is the KMS's own then. A fleet holds a data key per 30 days, so
  * the set is read whole.
  */
-export function createReadRecoverySet(deps: { sealings: FleetSealingRepository }): ReadRecoverySet {
+export function createReadRecoverySet(deps: { sealings: FleetSealingRepository; featureFlags: FeatureFlagReads }): ReadRecoverySet {
   return async (caller) => {
     if (!hasScope(caller, 'fleet:keys')) {
       return refuse('FORBIDDEN', 'Reading the recovery set needs the fleet:keys scope');
     }
     const { fleetId } = caller;
+    const offered = await checkFeatureFlag(deps.featureFlags, { fleetId, flag: 'sealing' });
+    if (!offered.isOk) {
+      return offered;
+    }
     const ages = await deps.sealings.dataKeyAges(fleetId);
     const wrapped = await deps.sealings.wrappedDataKeys(fleetId, ages.map(({ id }) => id));
     if (wrapped === undefined) {
