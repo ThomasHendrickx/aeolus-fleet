@@ -202,6 +202,12 @@ export const MESSAGES: ListedMessage[] = [
   }),
 ];
 
+/** reviewer-01's messages in a sealed fleet: each payload stored sealed, marked (decision 0068, N1). */
+export const SEALED_MESSAGES: ListedMessage[] = MESSAGES.map((message) => ({ ...message, isPayloadSealed: true }));
+
+/** The same with the company key cut off: no preview, each marked unreadable (scenario 25). */
+export const KEY_NOT_REACHABLE_MESSAGES: ListedMessage[] = SEALED_MESSAGES.map((message) => ({ ...message, preview: '', isPayloadUnreadable: true }));
+
 /** A message reviewer-01's plugin watcher handed to its agent, and one a plain receive handed (pulled). */
 export const HANDED_MESSAGES: ListedMessage[] = [
   listed('0007', {

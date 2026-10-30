@@ -94,9 +94,14 @@ function compactJson(preview: string): string {
 /**
  * A message in one line, for the Messages tab (the message sheet keeps the
  * whole payload, formatted and raw): a squadron convention message in words,
- * other JSON as its fields in a compact mono line, anything else its preview.
+ * other JSON as its fields in a compact mono line, anything else its preview;
+ * a sealed payload whose company key is not reachable says so in its place
+ * (decision 0068, N1).
  */
-export function messageLine(message: { contentType: string; preview: string }): MessageLine {
+export function messageLine(message: { contentType: string; preview: string; isPayloadUnreadable?: boolean }): MessageLine {
+  if (message.isPayloadUnreadable === true) {
+    return { text: 'Sealed, key not reachable', isCode: false };
+  }
   const squadronLine = SQUADRON_LINES[essenceOf(message.contentType)];
   if (squadronLine !== undefined) {
     return { text: squadronLine(message.preview), isCode: false };

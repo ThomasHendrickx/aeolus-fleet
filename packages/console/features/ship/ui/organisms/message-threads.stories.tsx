@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, fn } from 'storybook/test';
 
 import { MessageThreads } from './message-threads';
-import { HANDED_MESSAGES, MESSAGES, NOW, REVIEWER, SQUADRON_MESSAGES } from '../../../../lib/fixtures/ship-page.fixtures';
+import { HANDED_MESSAGES, KEY_NOT_REACHABLE_MESSAGES, MESSAGES, NOW, REVIEWER, SEALED_MESSAGES, SQUADRON_MESSAGES } from '../../../../lib/fixtures/ship-page.fixtures';
 
 const meta = {
   title: 'Organisms/MessageThreads',
@@ -37,3 +37,25 @@ export const HandedPushedAndPulled: Story = {
     await expect(rows[1]).toHaveTextContent('Handed (pulled)');
   },
 };
+
+/** A sealed fleet: a lock by each line, the payload rendered as today (decision 0068, N1). */
+export const Sealed: Story = {
+  args: { messages: SEALED_MESSAGES },
+  play: async ({ canvas }) => {
+    await expect(canvas.getAllByRole('img', { name: 'Sealed' })).toHaveLength(SEALED_MESSAGES.length);
+    await expect(canvas.queryByText('Sealed, key not reachable')).toBeNull();
+  },
+};
+/** The company key cut off: each line says so; direction, party and state stay (scenario 25). */
+export const KeyNotReachable: Story = {
+  args: { messages: KEY_NOT_REACHABLE_MESSAGES },
+  play: async ({ canvas }) => {
+    const lines = canvas.getAllByTestId('message-line');
+    await expect(lines).toHaveLength(KEY_NOT_REACHABLE_MESSAGES.length);
+    for (const line of lines) {
+      await expect(line).toHaveTextContent('Sealed, key not reachable');
+    }
+    await expect(canvas.getAllByText('Acknowledged').length).toBeGreaterThan(0);
+  },
+};
+export const PhoneKeyNotReachable: Story = { args: { messages: KEY_NOT_REACHABLE_MESSAGES }, globals: { viewport: { value: 'mobile1' } } };
