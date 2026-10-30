@@ -14,8 +14,11 @@ import { unwrap } from '../../testing/result.js';
 import type { ShipCaller } from '../shared/caller.js';
 import { newKey } from '../../testing/keys.js';
 import { readReachScenario, type ReadReachScenario } from '../../../test/support/read-reach-scenario.js';
+import { createCloseHealthSnapshots } from '../shared/close-health-snapshots.js';
+import { createPruneHistory } from '../shared/prune-history.js';
 
 const commissionedAt = new Date('2026-09-29T12:00:00.000Z');
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 let core: InMemoryCore;
 let useCases: ReturnType<typeof registryUseCases>;
@@ -164,5 +167,68 @@ describe('getting one ship within read reach (decision 0034)', () => {
 
   it('gives a ship within read reach whole', async () => {
     expect(unwrap(await fleet.registry.getShip(fleet.reader, { shipId: fleet.near.shipId }))).toEqual(unwrap(await fleet.registry.getShip(fleet.argo, { shipId: fleet.near.shipId })));
+  });
+});
+
+/** The pruning pass removes the retired ship: the fleet keeps its history 30 days, and 31 pass. */
+async function removedByThePass(on: InMemoryCore, inFleet: FleetId): Promise<void> {
+  on.state.fleetLimitSettings.push({
+    fleetId: inFleet,
+    ships: { kind: 'default' },
+    dailyMessages: { kind: 'default' },
+    schedulesPerShip: { kind: 'default' },
+    minimumScheduleInterval: { kind: 'default' },
+    retention: { kind: 'fleet', days: 30 },
+  });
+  on.clock.advance(31 * DAY_MS);
+  await createCloseHealthSnapshots({ fleets: on.fleets, uow: on.uow, clock: on.clock })();
+  await createPruneHistory({ fleets: on.fleets, uow: on.uow, clock: on.clock, ids: on.ids })();
+}
+
+describe('getting a removed ship (decision 0070, D8)', () => {
+  it('scenario 18: a removed ship within read reach answers its id, name, type, kind, status retired, its three dates, no scopes, and no owner, statement, labels or crew', async () => {
+    // Given
+    const { values } = unwrap(await useCases.defineLabel(argo, { key: 'os', values: ['macos'] }));
+    unwrap(await useCases.assignLabel(argo, { shipId: scoutId, valueId: values[0]?.id ?? core.ids('labelValue') }));
+    const retiredAt = core.clock.now();
+    unwrap(await useCases.retireShip(argo, { shipId: scoutId }));
+    await removedByThePass(core, fleetId);
+
+    // When
+    const ship = unwrap(await useCases.getShip(argo, { shipId: scoutId }));
+
+    // Then
+    expect(ship).toMatchObject({
+      id: scoutId,
+      name: 'scout',
+      type: 'reviewer',
+      kind: 'agent',
+      status: 'retired',
+      commissionedAt,
+      retiredAt,
+      removedAt: core.clock.now(),
+      scopes: [],
+      owner: null,
+      statement: null,
+      labels: [],
+      crewedSince: null,
+      report: null,
+      crewRequest: null,
+    });
+  });
+
+  it('scenario 20: a removed ship outside the reader\'s read reach answers as today, its name, type and status only', async () => {
+    // Given
+    const fleet = await readReachScenario();
+    await fleet.readRulesApply();
+    unwrap(await fleet.registry.retireShip(fleet.argo, { shipId: fleet.far.shipId }));
+    await removedByThePass(fleet.core, fleet.fleetId);
+
+    // When
+    const ship = unwrap(await fleet.registry.getShip(fleet.reader, { shipId: fleet.far.shipId }));
+
+    // Then
+    expect(fleet.core.state.ships.find((held) => held.id === fleet.far.shipId)?.removedAt).not.toBeNull();
+    expect(ship).toEqual({ id: fleet.far.shipId, name: 'far', type: 'keeper', status: 'retired', isInReadReach: false });
   });
 });
