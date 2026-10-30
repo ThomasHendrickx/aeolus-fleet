@@ -54,6 +54,7 @@ describe('commissioning a ship', () => {
         note: 'reviews pull requests',
         createdAt: new Date('2026-09-29T12:00:00.000Z'),
         retiredAt: null,
+        removedAt: null,
         // The hash itself is the repeat tests' concern; here, that it is kept with the key.
         commission: { by: { kind: 'ship', shipId: argoId }, idempotencyKey: 'commission-scout', requestHash: shipsNamed('scout')[0]?.commission?.requestHash ?? 'none' },
         owner: argoId,
