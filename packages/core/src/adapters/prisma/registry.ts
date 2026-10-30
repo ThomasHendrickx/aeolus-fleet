@@ -343,7 +343,7 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
       // ship wait, but not the foreign key checks of rows that point at the
       // ship (a new lease, secret or event), so those never deadlock with it.
       const [row] = await db.$queryRaw<unknown[]>`
-        SELECT id, fleet_id, name, type, kind::text AS kind, scopes, note, created_at, retired_at, commissioned_by_kind::text AS commissioned_by_kind, commissioned_by, commission_key, commission_request_hash, owner_ship_id
+        SELECT id, fleet_id, name, type, kind::text AS kind, scopes, note, created_at, retired_at, removed_at, commissioned_by_kind::text AS commissioned_by_kind, commissioned_by, commission_key, commission_request_hash, owner_ship_id
         FROM ships
         WHERE fleet_id = ${fleetId} AND id = ${shipId}
         FOR NO KEY UPDATE`;
@@ -351,7 +351,7 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
     },
     listActiveOwnedByForUpdate: async (fleetId, ownerShipId) => {
       const rows = await db.$queryRaw<unknown[]>`
-        SELECT id, fleet_id, name, type, kind::text AS kind, scopes, note, created_at, retired_at, commissioned_by_kind::text AS commissioned_by_kind, commissioned_by, commission_key, commission_request_hash, owner_ship_id
+        SELECT id, fleet_id, name, type, kind::text AS kind, scopes, note, created_at, retired_at, removed_at, commissioned_by_kind::text AS commissioned_by_kind, commissioned_by, commission_key, commission_request_hash, owner_ship_id
         FROM ships
         WHERE fleet_id = ${fleetId} AND owner_ship_id = ${ownerShipId} AND retired_at IS NULL
         ORDER BY id
@@ -360,7 +360,7 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
     },
     listActiveHoldingInForUpdate: async (fleetId, namespace) => {
       const rows = await db.$queryRaw<unknown[]>`
-        SELECT id, fleet_id, name, type, kind::text AS kind, scopes, note, created_at, retired_at, commissioned_by_kind::text AS commissioned_by_kind, commissioned_by, commission_key, commission_request_hash, owner_ship_id
+        SELECT id, fleet_id, name, type, kind::text AS kind, scopes, note, created_at, retired_at, removed_at, commissioned_by_kind::text AS commissioned_by_kind, commissioned_by, commission_key, commission_request_hash, owner_ship_id
         FROM ships
         WHERE fleet_id = ${fleetId} AND retired_at IS NULL AND EXISTS (SELECT 1 FROM unnest(scopes) AS held(scope) WHERE starts_with(held.scope, ${`${namespace}:`}))
         ORDER BY id
@@ -372,7 +372,7 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
       // FOR NO KEY UPDATE to change it, such as a retire, wait for the send,
       // while other sends to the ship share the lock.
       const [row] = await db.$queryRaw<unknown[]>`
-        SELECT id, fleet_id, name, type, kind::text AS kind, scopes, note, created_at, retired_at, commissioned_by_kind::text AS commissioned_by_kind, commissioned_by, commission_key, commission_request_hash, owner_ship_id
+        SELECT id, fleet_id, name, type, kind::text AS kind, scopes, note, created_at, retired_at, removed_at, commissioned_by_kind::text AS commissioned_by_kind, commissioned_by, commission_key, commission_request_hash, owner_ship_id
         FROM ships
         WHERE fleet_id = ${fleetId} AND id = ${shipId}
         FOR SHARE`;
@@ -382,7 +382,7 @@ export function createPrismaShipRepository(db: Db): ShipRepository {
       // Read committed: a send that waited for a retire checks the ship again
       // once it is free, and no longer finds it by its name.
       const [row] = await db.$queryRaw<unknown[]>`
-        SELECT id, fleet_id, name, type, kind::text AS kind, scopes, note, created_at, retired_at, commissioned_by_kind::text AS commissioned_by_kind, commissioned_by, commission_key, commission_request_hash, owner_ship_id
+        SELECT id, fleet_id, name, type, kind::text AS kind, scopes, note, created_at, retired_at, removed_at, commissioned_by_kind::text AS commissioned_by_kind, commissioned_by, commission_key, commission_request_hash, owner_ship_id
         FROM ships
         WHERE fleet_id = ${fleetId} AND name = ${name} AND retired_at IS NULL
         FOR SHARE`;
@@ -719,7 +719,8 @@ function isInReachOfShip(reach: ReadReach): Prisma.Sql {
 /**
  * The filter (common/src/rules/ship-filter.ts) as conditions on the ship `s`
  * of the outer query, each starting with AND: one statement selects the page
- * or counts the ships, and no ship is read only to be dropped.
+ * or counts the ships, and no ship is read only to be dropped. A removed ship
+ * is never selected: nothing lists a remnant (decision 0070, D4).
  */
 export function shipFilterCondition(
   { query, name, status = [], type = [], shipKind = [], crewRequest = [], assignedTo = [], needsCrew, valueIds = [], shipIds = [], kind = [], pluginShipIds = [] }: ShipFilter,
@@ -730,6 +731,7 @@ export function shipFilterCondition(
   // A ship outside read reach shows its name, type and status only: what it does not show never selects it.
   const isHiddenFilterPicked = crewRequest.length > 0 || assignedTo.length > 0 || needsCrew !== undefined || kind.length > 0 || values.length > 0;
   const conditions = [
+    Prisma.sql`AND s.removed_at IS NULL`,
     isHiddenFilterPicked ? Prisma.sql`AND ${isInReachOfShip(reach)}` : undefined,
     needle === '' ? undefined : Prisma.sql`AND (strpos(lower(s.name), ${needle}) > 0 OR strpos(lower(s.type), ${needle}) > 0)`,
     // An active ship's name is unique: ships_fleet_id_name_active_key finds the one ship.
@@ -752,7 +754,7 @@ export function shipFilterCondition(
                                WHERE acr.fleet_id = s.fleet_id AND acr.ship_id = s.id AND acr.assigned_to_ship_id = ANY(${[...assignedTo]}::text[]))`,
     kind.length === 0 ? undefined : Prisma.sql`AND ${agentKindOfShip(pluginShipIds)} = ANY(${[...kind]}::text[])`,
   ].filter((condition) => condition !== undefined);
-  return conditions.length === 0 ? Prisma.empty : Prisma.join(conditions, ' ');
+  return Prisma.join(conditions, ' ');
 }
 
 /**
@@ -931,7 +933,7 @@ function orderOfPage(alias: string, sort: ShipSort | undefined): Prisma.Sql {
 export function fleetListingStatement(fleetId: FleetId, { after, limit, filter, sort, reach }: ShipPage): Prisma.Sql {
   const value = sortValueOfShip(sort, reach);
   return Prisma.sql`
-    SELECT s.id, s.fleet_id, s.name, s.type, s.kind::text AS kind, s.scopes, s.note, s.created_at, s.retired_at,
+    SELECT s.id, s.fleet_id, s.name, s.type, s.kind::text AS kind, s.scopes, s.note, s.created_at, s.retired_at, s.removed_at,
            s.commissioned_by_kind::text AS commissioned_by_kind, s.commissioned_by, s.commission_key, s.commission_request_hash, s.owner_ship_id,
            l.location::text AS lease_location, l.location_description AS lease_location_description,
            l.harness AS lease_harness, l.started_at AS lease_started_at, l.last_seen_at AS lease_last_seen_at,
@@ -1040,7 +1042,7 @@ export function createPrismaFleetListing(db: Db): FleetListing {
     },
     ship: async (fleetId, shipId) => {
       const [row] = await db.$queryRaw<unknown[]>`
-        SELECT s.id, s.fleet_id, s.name, s.type, s.kind::text AS kind, s.scopes, s.note, s.created_at, s.retired_at,
+        SELECT s.id, s.fleet_id, s.name, s.type, s.kind::text AS kind, s.scopes, s.note, s.created_at, s.retired_at, s.removed_at,
                s.commissioned_by_kind::text AS commissioned_by_kind, s.commissioned_by, s.commission_key, s.commission_request_hash, s.owner_ship_id,
                l.location::text AS lease_location, l.location_description AS lease_location_description,
                l.harness AS lease_harness, l.started_at AS lease_started_at, l.last_seen_at AS lease_last_seen_at,

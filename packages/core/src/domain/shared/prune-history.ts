@@ -33,7 +33,8 @@ type Batch = { kind: 'more'; after: PruneCursor | null } | { kind: 'done' } | { 
  * finished messages older than the cutoff, the mic and participant events of
  * meetings ended before it, and the rows that go by age past it (a crew's
  * session and secret events, ended leases, invalidated secrets, ended or
- * expired console sessions, used or expired sign-in tickets and reach refusals), makes that
+ * expired console sessions, used or expired sign-in tickets and reach refusals)
+ * and the ships retired before it, which it removes (decision 0070), makes that
  * one set go and writes HistoryPruned. A batch that fails rolls back whole; a fleet another server
  * is pruning is skipped. Once nothing older than the cutoff is left, the
  * fleet's kept from moves to the cutoff; a pass whose time budget is spent
@@ -70,22 +71,23 @@ export function createPruneHistory(deps: {
       if (!(await pruner.tryLock(fleetId))) {
         return ok<Batch>({ kind: 'skipped' });
       }
-      const [candidates, meetingEventIds] = await Promise.all([
+      const [candidates, meetingEventIds, shipIds] = await Promise.all([
         pruner.candidates(fleetId, { cutoff: input.cutoff, after: input.after, limit: batchSize }),
         pruner.meetingEvents(fleetId, { cutoff: input.cutoff, limit: batchSize }),
+        pruner.retiredShips(fleetId, { cutoff: input.cutoff, limit: batchSize }),
       ]);
       const messageIds = candidates.filter(isFinished).map((candidate) => candidate.id);
       const aged = await pruner.agedRows(fleetId, { cutoff: input.cutoff, messageIds, limit: batchSize });
-      const agedKinds = [aged.eventIds, aged.leaseIds, aged.credentialIds, aged.consoleSessionIds, aged.signInTicketHashes, aged.reachRefusalIds];
-      if (messageIds.length > 0 || meetingEventIds.length > 0 || agedKinds.some((rows) => rows.length > 0)) {
-        const counts = await pruner.go(fleetId, { messageIds, meetingEventIds, ...aged });
+      const kinds = [meetingEventIds, shipIds, aged.eventIds, aged.leaseIds, aged.credentialIds, aged.consoleSessionIds, aged.signInTicketHashes, aged.reachRefusalIds];
+      if (messageIds.length > 0 || kinds.some((rows) => rows.length > 0)) {
+        const counts = await pruner.go(fleetId, { messageIds, meetingEventIds, shipIds, removedAt: deps.clock.now(), ...aged });
         await recordEvent(
           { events: tx.events, ids: deps.ids },
           { fleetId, type: 'HistoryPruned', occurredAt: deps.clock.now(), actor: SYSTEM, details: { cutoff: input.cutoff.toISOString(), ...counts } },
         );
       }
       const last = candidates.at(-1);
-      const isMoreLeft = candidates.length === batchSize || meetingEventIds.length === batchSize || agedKinds.some((rows) => rows.length === batchSize);
+      const isMoreLeft = candidates.length === batchSize || kinds.some((rows) => rows.length === batchSize);
       return ok<Batch>(isMoreLeft ? { kind: 'more', after: last === undefined ? input.after : { createdAt: last.createdAt, id: last.id } } : { kind: 'done' });
     });
 

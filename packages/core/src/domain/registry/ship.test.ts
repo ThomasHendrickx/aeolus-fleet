@@ -35,6 +35,7 @@ const scout: Ship = {
   note: null,
   createdAt,
   retiredAt: null,
+  removedAt: null,
   commission: null,
   owner: null,
 };

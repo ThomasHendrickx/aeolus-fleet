@@ -45,6 +45,7 @@ export const CREWED_SHIP: ShipDetail = {
   report: null, harness: 'claude-code', model: null, awaitingCrewSince: null, crewRequest: null, labels: [],
   commissionedAt: '2026-09-20T16:02:00Z',
   crewedSince: minutesAgo(11),
+  removedAt: null,
   retiredAt: null,
   inFlightDeliveries: 1,
   openDeliveries: 2,

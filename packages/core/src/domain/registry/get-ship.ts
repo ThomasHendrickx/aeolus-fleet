@@ -19,6 +19,8 @@ export interface ShipDetail extends Omit<ListedShip, 'report' | 'crewRequest'> {
   commissionedAt: Date;
   /** Since when the session crewing it has held it; null while no session does. */
   crewedSince: Date | null;
+  /** When the pruning pass removed it: its page is its remnant (decision 0070, D8). Null until then. */
+  removedAt: Date | null;
   /** What its crew holds in flight: what a release or a re-crew returns to pending. */
   inFlightDeliveries: number;
   /** Its direct deliveries pending or in flight: what a retire abandons. */
@@ -41,7 +43,7 @@ const READ_SCOPES = ['fleet:read'] as const;
 
 /**
  * Use case: one ship of the caller's fleet, retired ships included: they keep
- * their page. The caller's scope (fleet:read or crew:run) is
+ * their page, a removed one its remnant (decision 0070). The caller's scope (fleet:read or crew:run) is
  * checked before this runs; crew:run reads only the ships whose crew requests
  * are assigned to the caller's ship, whole. Any other ship outside the
  * caller's read reach shows its name, type and status only (decision 0034).
@@ -70,6 +72,7 @@ export function createGetShip(deps: { listing: FleetListing; readReach: ReadReac
       openDeliveries: counts.open,
       commissionedAt: facts.ship.createdAt,
       crewedSince: facts.openLease?.startedAt ?? null,
+      removedAt: facts.ship.removedAt,
       owner: facts.owner,
       commissionedByShipId: facts.ship.commission?.by.kind === 'ship' ? facts.ship.commission.by.shipId : null,
       statement: discoveredStatementOf(facts.ship, stated),

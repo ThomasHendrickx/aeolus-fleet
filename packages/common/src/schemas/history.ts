@@ -56,6 +56,8 @@ export const shipDetailOutputSchema = listedShipSchema.extend({
   crewRequest: crewRequestSchema.nullable(),
   commissionedAt: isoTime,
   crewedSince: isoTime.nullable(),
+  /** When the pruning pass removed the retired ship, past the fleet's retention: what it shows is its remnant (decision 0070). Null until then. */
+  removedAt: isoTime.nullable(),
   /** What its crew holds in flight now: what a release or a re-crew returns to pending. */
   inFlightDeliveries: z.int().min(0),
   /** Its direct deliveries pending or in flight: what a retire abandons. */

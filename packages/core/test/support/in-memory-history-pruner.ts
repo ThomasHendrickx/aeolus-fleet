@@ -169,6 +169,14 @@ export function createInMemoryHistoryPruner(state: InMemoryState): HistoryPruner
         .map((refusal) => refusal.id);
       return Promise.resolve({ eventIds, leaseIds, credentialIds, consoleSessionIds, signInTicketHashes, reachRefusalIds });
     },
+    retiredShips: (fleetId, { cutoff, limit }) =>
+      Promise.resolve(
+        state.ships
+          .filter((ship) => ship.fleetId === fleetId && ship.retiredAt !== null && ship.retiredAt < cutoff && ship.removedAt === null)
+          .toSorted((first, second) => (first.retiredAt?.getTime() ?? 0) - (second.retiredAt?.getTime() ?? 0) || first.id.localeCompare(second.id))
+          .slice(0, limit)
+          .map((ship) => ship.id),
+      ),
     go: (fleetId, set) => {
       const deliveryIds = state.deliveries.filter((delivery) => delivery.fleetId === fleetId && set.messageIds.includes(delivery.messageId)).map((delivery) => delivery.id);
       const goes = <T>(rows: T[], isGoing: (row: T) => boolean): number => {
@@ -206,6 +214,16 @@ export function createInMemoryHistoryPruner(state: InMemoryState): HistoryPruner
       const credentials = goes(state.credentials, (credential) => credential.fleetId === fleetId && set.credentialIds.includes(credential.id));
       const signInTickets = goes(state.signInTickets, (ticket) => ticket.fleetId === fleetId && set.signInTicketHashes.includes(ticket.tokenHash));
       const reachRefusals = goes(state.reachRefusals, (refusal) => refusal.fleetId === fleetId && set.reachRefusalIds.includes(refusal.id));
+      const goneScheduleIds = state.schedules.filter((schedule) => schedule.fleetId === fleetId && set.shipIds.includes(schedule.shipId)).map((schedule) => schedule.id);
+      for (const message of state.messages.filter((held) => held.fleetId === fleetId && held.scheduleId !== null && goneScheduleIds.includes(held.scheduleId))) {
+        state.messages.splice(state.messages.indexOf(message), 1, { ...message, scheduleId: null });
+      }
+      goes(state.schedules, (schedule) => goneScheduleIds.includes(schedule.id));
+      const removed = state.ships.filter((ship) => ship.fleetId === fleetId && set.shipIds.includes(ship.id) && ship.removedAt === null);
+      for (const ship of removed) {
+        state.ships.splice(state.ships.indexOf(ship), 1, { ...ship, scopes: [], note: null, owner: null, commission: null, removedAt: set.removedAt });
+      }
+      const ships = removed.length;
       return Promise.resolve({
         messages,
         deliveries,
@@ -218,6 +236,7 @@ export function createInMemoryHistoryPruner(state: InMemoryState): HistoryPruner
         guideProgress,
         signInTickets,
         reachRefusals,
+        ships,
       });
     },
     keepFrom: (fleetId, at) => {

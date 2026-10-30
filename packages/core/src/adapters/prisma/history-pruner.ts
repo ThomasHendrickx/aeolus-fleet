@@ -1,11 +1,12 @@
 /**
  * The pruning pass on Postgres (docs/design/retention/retention.md, R2 to R4,
- * R6 to R8, R12, R13 and R16). A batch takes a transaction-level advisory lock on the
+ * R6 to R8, R12, R13 and R16; decision 0070 for retired ships). A batch takes a transaction-level advisory lock on the
  * fleet's pruning with try, so a second server skips the fleet, and locks the
  * messages it reads and their deliveries FOR UPDATE SKIP LOCKED before it
  * reads what decides: a row another transaction holds is skipped, and its
  * message marked locked, waiting for the next pass; the rows that go by age
- * are locked the same way, a held one left for the next pass. The one step that makes a
+ * are locked the same way, a held one left for the next pass, as are the
+ * retired ships it removes. The one step that makes a
  * set go deletes it children first, its events under the transaction-local
  * setting `aeolus.pruning_fleet`, the only way events go apart from a fleet's
  * delete.
@@ -213,6 +214,16 @@ export function createPrismaHistoryPruner(db: Db): HistoryPruner {
       );
       return { eventIds, leaseIds, credentialIds, consoleSessionIds, signInTicketHashes, reachRefusalIds };
     },
+    retiredShips: async (fleetId, { cutoff, limit }) => {
+      // Through the ships_removal_idx partial index.
+      const rows = z.array(z.object({ id: idSchema('ship') })).parse(
+        await db.$queryRaw`
+          SELECT id FROM ships
+          WHERE fleet_id = ${fleetId} AND retired_at < ${cutoff} AND removed_at IS NULL
+          ORDER BY retired_at, id LIMIT ${limit} FOR UPDATE SKIP LOCKED`,
+      );
+      return rows.map((row) => row.id);
+    },
     go: async (fleetId, set) => {
       const messageIds = [...set.messageIds];
       const meetingEventIds = [...set.meetingEventIds];
@@ -248,6 +259,18 @@ export function createPrismaHistoryPruner(db: Db): HistoryPruner {
       const credentials = await db.$executeRaw`DELETE FROM credentials WHERE fleet_id = ${fleetId} AND id = ANY(${[...set.credentialIds]}::text[])`;
       const signInTickets = await db.$executeRaw`DELETE FROM sign_in_tickets WHERE fleet_id = ${fleetId} AND token_hash = ANY(${[...set.signInTicketHashes]}::text[])`;
       const reachRefusals = await db.$executeRaw`DELETE FROM reach_refusals WHERE fleet_id = ${fleetId} AND id = ANY(${[...set.reachRefusalIds]}::text[])`;
+      // The ship's schedules go with it (decision 0070, D2), all cancelled at
+      // retire; a kept message one of them sent keeps its content and its send
+      // time, and names no schedule from then on.
+      await db.$executeRaw`
+        UPDATE messages SET schedule_id = NULL
+        WHERE fleet_id = ${fleetId} AND schedule_id IN (SELECT id FROM schedules WHERE fleet_id = ${fleetId} AND ship_id = ANY(${[...set.shipIds]}::text[]))`;
+      await db.$executeRaw`DELETE FROM schedules WHERE fleet_id = ${fleetId} AND ship_id = ANY(${[...set.shipIds]}::text[])`;
+      // The remnant (decision 0070, D2): every other row naming the ship keeps its foreign key.
+      const ships = await db.$executeRaw`
+        UPDATE ships SET removed_at = ${set.removedAt}, scopes = '{}', note = NULL, owner_ship_id = NULL,
+          commissioned_by_kind = NULL, commissioned_by = NULL, commission_key = NULL, commission_request_hash = NULL
+        WHERE fleet_id = ${fleetId} AND id = ANY(${[...set.shipIds]}::text[]) AND removed_at IS NULL`;
       return {
         messages,
         deliveries,
@@ -260,6 +283,7 @@ export function createPrismaHistoryPruner(db: Db): HistoryPruner {
         guideProgress,
         signInTickets,
         reachRefusals,
+        ships,
       };
     },
     keepFrom: async (fleetId, at) => {

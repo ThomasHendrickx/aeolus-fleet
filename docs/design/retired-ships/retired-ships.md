@@ -1,6 +1,6 @@
 # Retired ships: hidden now, removed after a retention period
 
-Design, stage 2. Docs only. Thomas agreed the purpose and answered Q1 to Q5 and N1 on 29 Oct and approved both mockups with RM0 to RM2 on 30 Oct (section 3, recorded as [decision 0070](../../decisions/0070-retired-ships.md)). This stage holds the decisions in detail (section 4), the flows (section 5), the acceptance scenarios (section 6), the screens and their approved mockups (section 7), the slices (section 8) and the question it raised, answered (section 9).
+Design, stage 2. Docs only. Thomas agreed the purpose and answered Q1 to Q5 and N1 on 29 Oct and approved both mockups with RM0 to RM2 and answered S8 on 30 Oct (section 3, recorded as [decision 0070](../../decisions/0070-retired-ships.md)). This stage holds the decisions in detail (section 4), the flows (section 5), the acceptance scenarios (section 6), the screens and their approved mockups (section 7), the slices (section 8) and the question it raised, answered (section 9).
 
 Thomas's choice, option 3 of his question: "Both: hide now, remove after a retention period". Retired ships are hidden everywhere by default now; after a retention period they are removed; their messages and events stay and show them as a retired ship.
 
@@ -72,13 +72,14 @@ Not the purpose:
 | RM0 | Both mockups approved |
 | RM1 | Option 1: with Show retired on, the count line says the rows on screen: "7 ships shown" |
 | RM2 | Option 1: a removed ship whose messages are all pruned shows "No messages kept", with the line saying from when the fleet keeps its history |
+| S8 | Option 1: a removed ship's schedules go with it; a kept message one of them sent keeps its content and its send time, and names no schedule (`scheduleId` null) |
 
 ## 4. Decisions
 
 | # | Decision |
 | --- | --- |
 | D1 | **No retired count** (Q1). `fleet.shipCounts` counts no retired ships; the overview's subtitle loses "n retired", the Show retired switch its "(n)", and "x of y ships" counts ships that are not retired. The switch stays, off by default, the one deliberate step: on, the list shows the retired ships not yet removed, and its count line says how many rows it shows: "n ships shown" (RM1). |
-| D2 | **A removed ship is a remnant** (Q2). The ship row keeps its id, name, type, kind, commission date (`created_at`) and retire date, and gets `removed_at`. Its scopes are emptied; its note, owner, commissioner, idempotency key and request hash are cleared. Its schedules, every one cancelled at retire (L20), go with it, so the messages they named can be pruned. |
+| D2 | **A removed ship is a remnant** (Q2). The ship row keeps its id, name, type, kind, commission date (`created_at`) and retire date, and gets `removed_at`. Its scopes are emptied; its note, owner, commissioner, idempotency key and request hash are cleared. Its schedules, every one cancelled at retire (L20), go with it, so the messages they named can be pruned; a kept message one of them sent keeps its content and its send time and names no schedule from then on (S8). |
 | D3 | **Foreign keys stay** (Q2). Every row that names a removed ship (messages, deliveries, events, meetings, participants, other ships' schedules, overdue rows) stays or goes by its own rule (0066); its ended leases and invalidated credentials go by age as R4 says. Removal deletes no event: the kept fleet changes keep naming the ship and what each change was (L22), as the fleet's history, not the ship's data. |
 | D4 | **Nothing lists a remnant.** `fleet.list` (the retired status too), `fleet.shipCounts`, `fleet.listShipTypes`, discovery, pickers, the reach graph and the network rules' owner picker leave it out. The ship limit never counted it. |
 | D5 | **Removed by the hourly pass** (Q3). The pruning pass (0066 R8) removes ships retired before its cutoff (R7), up to 500 per batch, each ship row locked `FOR UPDATE SKIP LOCKED`; a row another transaction holds waits for the next pass. The batch's `HistoryPruned` counts the ships removed. A fleet with no retention removes none: its retired ships are kept for good, as all its history. |
@@ -154,7 +155,7 @@ Removal (D2, D3, D5)
 5. Given a fleet with a 30 day retention and a ship retired 31 days ago, when the hourly pass runs, then the ship row keeps its id, name, type, kind, commission and retire dates, gets `removed_at`, has no scopes, note, owner, commissioner, key or request hash, and `HistoryPruned` counts 1 ship.
 6. Given a ship retired 29 days ago in that fleet, when the pass runs, then it is not removed.
 7. Given a fleet with no retention and a ship retired a year ago, when the pass runs, then it is not removed.
-8. Given a removed ship's cancelled schedule that named a finished message older than the cutoff, when the pass runs, then the schedule goes with the removal, and the message goes in a later batch or pass.
+8. Given a removed ship's cancelled schedule that named a finished message older than the cutoff, when the pass runs, then the schedule goes with the removal, and the message goes in a later batch or pass; a kept message the schedule sent keeps its content and send time and reads `scheduleId` null.
 9. Given messages, deliveries, events and an ended meeting naming a ship, when the ship is removed, then each stays as its own rule says, and a thread, timeline or meeting shows the ship by name and type as retired.
 10. Given an undeliverable delivery to a removed ship, then it stays on Health naming the ship; resend is refused and dismiss works as today.
 11. Given a batch that fails after clearing a ship row, then the ship is as it was, its schedules kept, and no `HistoryPruned` is written.
