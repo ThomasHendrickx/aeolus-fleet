@@ -1868,7 +1868,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     ships: (fleetId, { after, limit, filter, sort, reach }) =>
       Promise.resolve(
         state.ships
-          .filter((held) => held.fleetId === fleetId)
+          .filter((held) => held.fleetId === fleetId && held.removedAt === null)
           .map(factsOf)
           .filter((facts) => matchesShipFilter(listedShipOf(facts), { filter, isInReach: readsShip(reach, facts.ship.id) }))
           .map((facts) => ({ facts, position: positionOf(listedShipOf(facts), { sort, isInReach: readsShip(reach, facts.ship.id) }) }))
@@ -1884,7 +1884,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       Promise.resolve(
         shipCountsOf(
           state.ships
-            .filter((held) => held.fleetId === fleetId && readsShip(reach, held.id))
+            .filter((held) => held.fleetId === fleetId && held.removedAt === null && readsShip(reach, held.id))
             .map((held) => listedShipOf(factsOf(held)))
             .filter((listed) => matchesShipFilter(listed, { filter, isInReach: true })),
         ),
@@ -1894,7 +1894,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         [
           ...new Set(
             state.ships
-              .filter((held) => held.fleetId === fleetId && readsShip(reach, held.id))
+              .filter((held) => held.fleetId === fleetId && held.removedAt === null && readsShip(reach, held.id))
               .map((held) => listedShipOf(factsOf(held)))
               .filter((listed) => status.includes(listed.status))
               .map((listed) => listed.type),

@@ -288,6 +288,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_recovery_key$/),
       expect.stringMatching(/^\d{14}_sealing_progress$/),
       expect.stringMatching(/^\d{14}_feature_flags$/),
+      expect.stringMatching(/^\d{14}_removed_ships$/),
       expect.stringMatching(/^\d{14}_report_task_step$/),
     ]);
   });

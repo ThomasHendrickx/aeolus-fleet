@@ -1071,11 +1071,11 @@ export const fleetRouter = router({
     .output(explainReachOutputSchema)
     .query(async ({ ctx, input }) => okOrThrow(await ctx.useCases.explainReach(ctx.caller, input))),
 
-  /** One ship of the fleet, retired ones included, with when it was commissioned, crewed and retired. */
+  /** One ship of the fleet, retired ones included, with when it was commissioned, crewed, retired and removed. */
   ship: actorAnyScopeProcedure('fleet:read', 'crew:run')
     .meta({
       description: [
-        'Needs fleet:read, or crew:run for a ship whose crew request is assigned to yours. One ship of the fleet, retired ones included: as fleet_list shows it, plus when it was commissioned, crewed and retired, its open and in-flight deliveries, and its statement as discover shows it (decision 0047).',
+        'Needs fleet:read, or crew:run for a ship whose crew request is assigned to yours. One ship of the fleet, retired ones included: as fleet_list shows it, plus when it was commissioned, crewed, retired and removed (a removed ship answers its remnant, decision 0070), its open and in-flight deliveries, and its statement as discover shows it (decision 0047).',
         'A ship outside your read reach, and not assigned to yours, shows its id, name, type and status only, with isInReadReach false (decision 0034).',
       ].join(' '),
     })
@@ -1106,6 +1106,7 @@ export const fleetRouter = router({
         awaitingCrewSince: ship.awaitingCrewSince?.toISOString() ?? null,
         commissionedAt: ship.commissionedAt.toISOString(),
         crewedSince: ship.crewedSince?.toISOString() ?? null,
+        removedAt: ship.removedAt?.toISOString() ?? null,
         retiredAt: ship.retiredAt?.toISOString() ?? null,
       };
     }),

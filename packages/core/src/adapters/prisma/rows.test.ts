@@ -18,6 +18,7 @@ const shipRow = {
   note: null,
   createdAt: at,
   retiredAt: null,
+  removedAt: null,
   commissionedByKind: null,
   commissionedBy: null,
   commissionKey: null,

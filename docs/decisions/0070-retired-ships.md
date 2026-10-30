@@ -4,7 +4,7 @@ A retired ship leaves the fleet snapshot at once and, after the fleet's retentio
 
 - No count shows retired ships. The fleet list shows them only with Show retired, off by default.
 - The hourly pruning pass (0066) removes a ship retired before its cutoff; a fleet with no retention keeps its retired ships for good. Each batch's `HistoryPruned` counts the ships it removed.
-- A removed ship is a remnant: the ship row keeps its id, name, type, kind and its commission, retire and removed dates; its scopes, note, owner, commissioner, idempotency key and request hash are cleared, and its schedules go. Every row that names it keeps its foreign key and stays or goes by its own rule; no event is deleted for it.
+- A removed ship is a remnant: the ship row keeps its id, name, type, kind and its commission, retire and removed dates; its scopes, note, owner, commissioner, idempotency key and request hash are cleared, and its schedules go: a kept message one of them sent names no schedule from then on, its content and send time kept. Every row that names it keeps its foreign key and stays or goes by its own rule; no event is deleted for it.
 - Nothing lists a remnant. It stays retired: its id is never claimed or addressed again.
 - A ship's name is unique among active ships: a retired ship's name is free at once, removed or not, as today.
 - A commission repeated with the key of a removed ship commissions a new ship. Thomas: "name is unique for ships within those that are known, id is unique always."

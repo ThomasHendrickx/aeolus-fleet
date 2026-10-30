@@ -36,7 +36,11 @@ export interface Message {
   resendOfMessageId: MessageId | null;
   /** The meeting it was contributed to, or tells of as the notice that added its recipient (decision 0061). */
   meetingId: MeetingId | null;
-  /** The schedule it was sent for, and that send time; none on a live send (decision 0062). */
+  /**
+   * The schedule it was sent for, and that send time; none on a live send
+   * (decision 0062). Once the schedule went with its removed ship, the send
+   * time stays and the schedule is none (decision 0070).
+   */
   scheduleId: ScheduleId | null;
   sendTime: Date | null;
   createdAt: Date;

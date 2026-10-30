@@ -35,6 +35,7 @@ describe('initialise fleet', () => {
         note: null,
         createdAt: new Date('2026-09-29T12:00:00.000Z'),
         retiredAt: null,
+        removedAt: null,
         commission: null,
         owner: null,
       },

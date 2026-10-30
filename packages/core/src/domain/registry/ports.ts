@@ -524,6 +524,7 @@ export interface ShipPage {
   reach: ReadReach;
 }
 
+/** The fleet snapshot's reads. Its lists, counts and types leave every removed ship out; `ship` still answers one, its remnant (decision 0070, D4 and D8). */
 export interface FleetListing {
   /** A page of the fleet's ships as `page` selects and orders them, each with its position (decision 4 of the performance design). */
   ships(fleetId: FleetId, page: ShipPage): Promise<{ facts: ShipFacts; position: ShipPosition }[]>;
