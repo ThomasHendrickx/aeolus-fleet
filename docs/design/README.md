@@ -23,6 +23,7 @@ Feature designs, one folder each; the status of each is at its top:
 | [headless](headless/headless.md) | The trierarch starts and talks to a session without a terminal |
 | [meetings](meetings/meetings.md) | Ships and people in one moderated conversation |
 | [model-governance](model-governance/model-governance.md) | The models a fleet may run |
+| [monitoring](monitoring/monitoring.md) | The owner sees when distribution or progress stops |
 | [network-io](network-io/README.md) | Network rules: export and import |
 | [oauth-servers](oauth-servers/oauth-servers.md) | Outside MCP servers that take only an OAuth sign-in |
 | [on-behalf-scopes](on-behalf-scopes/on-behalf-scopes.md) | Scopes granted on behalf of the asking ship |
