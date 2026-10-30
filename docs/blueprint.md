@@ -250,6 +250,7 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Session | One agent run crewing a ship; replaceable, a new one inherits the inbox. Not a human's sign-in | core, trierarch |
 | Lease | One crew's exclusive right to a ship until it is released, recrewed, retired or deregistered; argo's sign-in takes argo's over (0010) | core |
 | Last seen | When the crew last called the fleet; observation only | core |
+| Report changed | When the crew's report last changed its state, note, task or step; details alone do not move it (0028) | core |
 | Register | Claim a ship with its id and secret, stating location and harness; answers the crew token once | core |
 | Deregister | The crew ends its lease and the secret; ship and inbox stay | core |
 | Ship secret | `aeolus_sk_v1_<random>`, shown once, stored as a hash, one valid per ship, used only to register (0002) | core |
@@ -260,7 +261,9 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Location | Where the session runs: `DEVICE`, `CLOUD`, `SERVER`, or `OTHER` with a description; never interpreted | core |
 | Harness | What the session runs in: free text, known `claude-code`, `claude-chat`, `codex`, `copilot`; read with the location (0018) | core |
 | Model | The exact model id stated on every agent send, or `auto` when the harness chooses the model per request, never on a ping or resend; self-reported, the last stated is the ship's (0018) | core |
-| Report | A crew's latest word: working, blocked or idle, a short note, optional details; on the lease (0028) | core |
+| Report | A crew's latest word: working, blocked or idle, a short note, an optional task and step, optional details; on the lease (0028) | core |
+| Task | What a crew works on, in its report: a typed reference to where the work lives (a URL, a message), never its content (0028) | core |
+| Step | Where a crew is in its task: step at of of (0028) | core |
 | Details | A report's JSON part, size-limited, versioned; its shape per ship type in common (0028) | core |
 | Statement | What a ship is and offers: a summary and capabilities, stated by its crew (0047) | core |
 | Verified fact | A fact an actor checked about a ship, stored as its writer wrote it, naming the writer (0059) | core |
@@ -440,7 +443,7 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `LeaseRevoked` | Registry | Ship awaits a new crew, its in-flight deliveries return to pending |
 | `TurnReported` | Registry | The hooks of a pushed ship reported its session's turn changed, idle or busy (decision 0040): kept with the lease, written at the time the hooks saw it; details hold the lease and the turn |
 | `StatementSet` | Registry | The crew stated what its ship is and offers, or changed it (decision 0047): details hold the lease, the statement's version and how many capabilities, never the statement. The same statement again writes none |
-| `ShipReported` | Registry | The crew's report changed: details hold its state, its note and the version of its details, never the details themselves. A report with the same state, note and details only moves when it was reported, with no event |
+| `ShipReported` | Registry | The crew's report changed: details hold its state, its note, its task (as its JSON text) and step, whether the report itself changed (false when only the details did) and the version of its details, never the details themselves. A report with the same state, note, task, step and details only moves when it was reported, with no event |
 | `OwnerSet` | Registry | A ship got its owner at commission: the owner and how (itself for a person ship, its person-ship commissioner, the commissioning account's person ship, inherited, named by a plugin, argo by default) (decisions 0045, 0057) |
 | `OwnerChanged` | Registry | An actor holding `fleet:owner` changed a ship's owner, or its owner's ship retired and it fell to argo: the old and new owner and why (decision 0045) |
 | `ScopesDeclared` | Registry | A plugin declared its namespace and scopes: the declaring ship, the namespace, how many scopes (decision 0046) |
@@ -740,7 +743,7 @@ Squadrons, the trierarch plugin, the trierarch and the gateway are trains in the
 | `handled` | The hooks or the trierarch report the turn that took an acknowledged delivery ended by itself | Only for an acknowledged delivery its crew holds; again changes nothing |
 | `notHandled` | The hooks or the trierarch report the turn a confirmed message was handed once more to died too, with the reason they judged so (one short line, optional); or a crew reports a delivery it handed and that was not confirmed as unsafe to hand again, such as an outside call that may have run, with the reason (then required) | Only after once more, or on a handed delivery with a reason; it shows on the ship's page with that reason; again changes nothing |
 | `ack` | Confirms a delivery is handled | Only the ship holding the delivery can ack it; on a pushed ship the hook acks a received or handed delivery when it comes into the agent's turn |
-| `report` | Says what the crew is doing: working, blocked or idle, a short note and optionally its details, set whole (`details`) or merge-patched (`detailsPatch`) | Kept with the lease; an event only when the state, note or details change; details over their size limit after the change are refused and nothing is stored (decision 0028) |
+| `report` | Says what the crew is doing: working, blocked or idle, a short note, optionally its task and step, and optionally its details, set whole (`details`) or merge-patched (`detailsPatch`) | Kept with the lease; task and step left out stay, null clears them; an event only when the state, note, task, step or details change; a bad task or step, or details over their size limit after the change, are refused and nothing is stored (decision 0028) |
 | `discover` | Answers the ships the caller may send to now, checked as a send (decision 0034), each with its name, type, kind, status, statement and verified facts, and per type how many of its ships it reaches; the caller, the viewer and retired ships left out | Needs `messages:send`. Answers ships, never rules, and records nothing. A ship's statement is its crew's while one is stated, else its commission note, saying which (decision 0047). Its verified facts are every writer's, oldest first, each naming its writer and when (decision 0059) |
 | `sentMessage` | For a message the caller sent: where each of its deliveries stands (its state), since when and the ship it went to, one per ship for a label (0065), with its recipient by name, type or the value ids sent to | Needs `messages:send`. The sender's own messages only: another ship's, argo's reads included, is answered as none. No payload comes back |
 | `delivery` | Reads one delivery of the crew's lease again, whole, by its id, as `receive` hands one, with its state: one it acknowledged and is not yet handled, such as a message opened in one client and read again from another | Needs `messages:receive`. Records nothing: no hand-over, attempt, ack or event, so its state, attempts and clocks stay as they were. One of its lease in another state is refused with that state; another ship's, another lease's or an unknown one is answered as none |
