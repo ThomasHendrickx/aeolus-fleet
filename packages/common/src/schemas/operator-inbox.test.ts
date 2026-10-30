@@ -64,6 +64,7 @@ describe('operatorInboxOutputSchema', () => {
       model: 'claude-opus-5-5',
       payload: 'Release 2.14 is staged on hetzner-2. Promote to production? Reply "go" to promote.',
       isPayloadUnreadable: false,
+      isPayloadSealed: false,
     },
   };
 

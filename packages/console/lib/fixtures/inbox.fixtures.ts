@@ -35,6 +35,7 @@ function aQuestion(suffix: string, changes: Partial<QuestionEntry> & Pick<Questi
     readAt: null,
     doneAt: null,
     model: 'claude-opus-5-5',
+    sealing: 'plain',
     stale: null,
     replaces: null,
     ...changes,
@@ -51,6 +52,7 @@ function aMessage(suffix: string, changes: Partial<MessageEntry> & Pick<MessageE
     readAt: null,
     doneAt: null,
     model: 'claude-opus-5-5',
+    sealing: 'plain',
     isFromPlugin: false,
     repliedWith: null,
     inReplyTo: null,
@@ -168,3 +170,35 @@ export const THREAD: ThreadMessage[] = [
 ];
 
 export const ENTRIES: InboxEntry[] = [TIDE_TABLES, MERGE_NOW, WITHDRAWN, PR_READY, ISSUE_FILED, SLICE_DONE, DISCARDED, KEPT];
+
+/** The same inbox in a sealed fleet: each payload stored sealed and rendered as today (decision 0068, N1). */
+export const SEALED_ENTRIES: InboxEntry[] = ENTRIES.map((entry) => ({ ...entry, sealing: 'sealed' }));
+
+/** One entry with its company key cut off: core answers no payload, so a question reads as a message saying so (scenario 25). */
+function keyNotReachable(entry: InboxEntry): MessageEntry {
+  const { deliveryId, messageId, state, readAt, doneAt, sender, sentAt, model } = entry;
+  const message = entry.kind === 'message' ? entry : undefined;
+  return {
+    kind: 'message',
+    deliveryId,
+    messageId,
+    state,
+    readAt,
+    doneAt,
+    sender,
+    sentAt,
+    model,
+    sealing: 'keyNotReachable',
+    isFromPlugin: message?.isFromPlugin ?? false,
+    repliedWith: message?.repliedWith ?? null,
+    inReplyTo: message?.inReplyTo ?? null,
+    text: messageTextOf({ contentType: 'text/plain', payload: '' }),
+    replies: message?.replies ?? [],
+  };
+}
+
+/** The sealed inbox with the company key cut off. */
+export const KEY_NOT_REACHABLE_ENTRIES: MessageEntry[] = ENTRIES.map(keyNotReachable);
+
+export const SEALED_PR_READY: MessageEntry = { ...PR_READY, sealing: 'sealed' };
+export const KEY_NOT_REACHABLE_PR_READY: MessageEntry = keyNotReachable(PR_READY);

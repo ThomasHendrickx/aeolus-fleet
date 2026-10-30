@@ -11,6 +11,7 @@ import { OverviewMetrics } from '../../features/fleet/state/overview-metrics';
 import { CommissionShip } from '../../features/fleet/state/commission-ship';
 import { FleetLimits } from '../../features/fleet/state/fleet-limits';
 import { FleetOverview } from '../../features/fleet/state/fleet-overview';
+import { KeyNotReachable } from '../../features/sealing/state/key-not-reachable';
 import { ShipActions } from '../../features/ship-actions/organisms/ship-actions';
 import { NewCrewLineFlow } from '../../features/squadrons/state/get-new-crew-line';
 import { LimitNotice } from '../../components/molecules/limit-notice';
@@ -90,6 +91,7 @@ export function OverviewPage({ view, isCommissionAsked }: { view: FleetView; isC
     >
       <FleetSegments active="ships" needsCrewCount={pluginNav.needsCrewCount} />
       {messageLimit === undefined ? null : <LimitNotice {...messageLimitNotice(messageLimit)} accountUrl={accountUrl} testId="overview-message-limit" />}
+      <KeyNotReachable />
       <FleetLimits />
       <OverviewMetrics />
       <FleetOverview

@@ -50,6 +50,7 @@ export const CREWED_SHIP: ShipDetail = {
   openDeliveries: 2,
   owner: ARGO,
   ownerShipId: ARGO.id,
+  commissionedByShipId: ARGO.id,
   statement: null,
 };
 
@@ -161,10 +162,10 @@ export const TIMELINE: TimelineEntry[] = [
 
 function listed(
   suffix: string,
-  message: Omit<ListedMessage, 'id' | 'delivery' | 'isPayloadUnreadable'> & { state: ListedMessage['delivery']['state']; claimedBy: Party | null; isPulled?: boolean },
+  message: Omit<ListedMessage, 'id' | 'delivery' | 'isPayloadUnreadable' | 'isPayloadSealed'> & { state: ListedMessage['delivery']['state']; claimedBy: Party | null; isPulled?: boolean },
 ): ListedMessage {
   const { state, claimedBy, isPulled = false, ...rest } = message;
-  return { id: messageId(suffix), ...rest, isPayloadUnreadable: false, delivery: { id: deliveryId(suffix), state, claimedBy, isPulled } };
+  return { id: messageId(suffix), ...rest, isPayloadUnreadable: false, isPayloadSealed: false, delivery: { id: deliveryId(suffix), state, claimedBy, isPulled } };
 }
 
 /** reviewer-01's messages: a question and its answer, and a task from builder-core to its type. */
@@ -201,6 +202,12 @@ export const MESSAGES: ListedMessage[] = [
     isPulled: true,
   }),
 ];
+
+/** reviewer-01's messages in a sealed fleet: each payload stored sealed, marked (decision 0068, N1). */
+export const SEALED_MESSAGES: ListedMessage[] = MESSAGES.map((message) => ({ ...message, isPayloadSealed: true }));
+
+/** The same with the company key cut off: no preview, each marked unreadable (scenario 25). */
+export const KEY_NOT_REACHABLE_MESSAGES: ListedMessage[] = SEALED_MESSAGES.map((message) => ({ ...message, preview: '', isPayloadUnreadable: true }));
 
 /** A message reviewer-01's plugin watcher handed to its agent, and one a plain receive handed (pulled). */
 export const HANDED_MESSAGES: ListedMessage[] = [
@@ -291,6 +298,8 @@ export const TYPE_MESSAGE: MessageDetail = {
   sentAt: '2026-09-28T14:05:51Z',
   contentType: 'application/json', model: null,
   payload: '{"task":"review","repo":"web","pr":321}',
+  isPayloadUnreadable: false,
+  isPayloadSealed: false,
   replies: [],
   delivery: { id: deliveryId('0003'), state: 'handed', attempts: 2, claimedBy: REVIEWER, way: PULLED_WAY, history: TYPE_HISTORY },
   deliveryCount: 1,
@@ -305,6 +314,8 @@ export const DIRECT_MESSAGE: MessageDetail = {
   sentAt: '2026-09-28T14:26:03Z',
   contentType: 'text/plain', model: null,
   payload: 'Start with claude/slice-12-ship-page.',
+  isPayloadUnreadable: false,
+  isPayloadSealed: false,
   replies: [],
   delivery: {
     id: deliveryId('0001'),
@@ -330,6 +341,8 @@ export const LABEL_MESSAGE: MessageDetail = {
   contentType: 'text/plain',
   model: 'claude-opus-5-5',
   payload: 'main is red',
+  isPayloadUnreadable: false,
+  isPayloadSealed: false,
   replies: [],
   delivery: {
     id: deliveryId('0051'),
@@ -389,6 +402,8 @@ function pushed(suffix: string, delivery: Pick<MessageDetail['delivery'], 'state
     contentType: 'text/plain',
     model: 'claude-opus-5-5',
     payload: 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/48',
+    isPayloadUnreadable: false,
+    isPayloadSealed: false,
     replies: [],
     delivery: { id: deliveryId(suffix), claimedBy: delivery.state === 'pending' ? null : REVIEWER, ...delivery },
     deliveryCount: 1,

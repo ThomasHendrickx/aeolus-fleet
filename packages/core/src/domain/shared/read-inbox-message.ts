@@ -3,13 +3,13 @@ import type { DeliveryId } from '@aeolus-fleet/common';
 import type { ReadReachOf, ShipRepository } from '../registry/public.js';
 import type { Caller } from './caller.js';
 import { refuse, type DomainError } from './errors.js';
-import type { InboxEntry, ShipHistory } from './history.js';
+import type { ShipHistory } from './history.js';
 import { inboxReadOf } from './read-inbox.js';
-import { listedInboxEntries } from './plain-history.js';
+import { listedInboxEntries, type ListedInboxEntry } from './plain-history.js';
 import { ok, type Result } from './result.js';
-import type { ListedPayload, PayloadSealing } from '../messaging/public.js';
+import type { PayloadSealing } from '../messaging/public.js';
 
-export type ReadInboxMessage = (caller: Caller, input: { deliveryId: DeliveryId }) => Promise<Result<InboxEntry<ListedPayload>, DomainError<'DELIVERY_NOT_FOUND'>>>;
+export type ReadInboxMessage = (caller: Caller, input: { deliveryId: DeliveryId }) => Promise<Result<ListedInboxEntry, DomainError<'DELIVERY_NOT_FOUND'>>>;
 
 /**
  * Use case: one message of the caller's own inbox, argo's for the console, by

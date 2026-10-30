@@ -25,6 +25,8 @@ export interface ShipDetail extends Omit<ListedShip, 'report' | 'crewRequest'> {
   openDeliveries: number;
   /** Its owner by id and name; null for argo and the viewer (decision 0045). */
   owner: { id: ShipId; name: string } | null;
+  /** The ship that commissioned it, such as the gateway's for its proxy ships (decision 0068, B19); null when an account or the installation did, and for argo. */
+  commissionedByShipId: ShipId | null;
   /** What it is and offers: its crew's statement while one is stated, else its commission note, else none (decision 0047). */
   statement: DiscoveredStatement;
 }
@@ -69,6 +71,7 @@ export function createGetShip(deps: { listing: FleetListing; readReach: ReadReac
       commissionedAt: facts.ship.createdAt,
       crewedSince: facts.openLease?.startedAt ?? null,
       owner: facts.owner,
+      commissionedByShipId: facts.ship.commission?.by.kind === 'ship' ? facts.ship.commission.by.shipId : null,
       statement: discoveredStatementOf(facts.ship, stated),
     });
   };

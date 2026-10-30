@@ -1,6 +1,7 @@
 import type { DeliveryId, DeliveryState, InboxQuestion, MessageId, ShipId } from '@aeolus-fleet/common';
 
 import type { MessageText } from './message-document';
+import type { PayloadSealing } from './payload-sealing';
 import type { Staleness } from './questions';
 
 /**
@@ -28,6 +29,8 @@ interface EntryBase {
   sender: InboxSender;
   sentAt: string;
   model: string | null;
+  /** Its payload sealed, or its company key not reachable (decision 0068, N1). */
+  sealing: PayloadSealing;
 }
 
 export interface QuestionEntry extends EntryBase {

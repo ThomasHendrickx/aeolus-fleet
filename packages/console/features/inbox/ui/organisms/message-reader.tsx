@@ -11,6 +11,9 @@ import { clockTime, fullDateTime, shortDateTime } from '../../../../lib/relative
 import { sendShortcutAria, submitOnSendShortcut, useShortcutPlatform } from '../../../../lib/send-shortcut';
 import { Badge } from '../../../../components/atoms/badge';
 import { Textarea } from '../../../../components/atoms/textarea';
+import { InlineError } from '../../../../components/molecules/inline-error';
+import { PayloadNotReachable } from '../../../../components/molecules/payload-not-reachable';
+import { SealedMark } from '../../../../components/molecules/sealed-mark';
 import { SendShortcutHint } from '../../../../components/molecules/send-shortcut-hint';
 import { ShipName } from '../../../../components/molecules/ship-name';
 import { MessageBody } from '../molecules/message-body';
@@ -30,6 +33,8 @@ export interface MessageReaderProps {
   isPending: boolean;
   /** A session that may not receive (a viewer's): nothing that changes the message. */
   isReadOnly?: boolean;
+  /** The last reply core refused while the company key is not reachable: said by the reply field, the draft kept. */
+  replyRefusal?: { title: string; description: string };
 }
 
 function LinkRow({ link }: { link: KnownLink }) {
@@ -199,15 +204,20 @@ function ActionBar({ message, onReply, onMarkDone, isPending, isPhone }: Pick<Me
  * An open message to argo (#849): its headline as the title, the ship, time
  * and model, the body rendered (paragraphs, lists, links), a row for each
  * GitHub pull request or issue it links to, and the thread it answers. A
- * plugin ship's message carries the plugin mark and its type. The bar at the
- * bottom holds the reply field and Done. Read-only for a viewer.
+ * plugin ship's message carries the plugin mark and its type. A sealed
+ * payload is marked Sealed; while its company key is not reachable the title
+ * names the sender and a panel stands in for the body (decision 0068, N1).
+ * The bar at the bottom holds the reply field and Done. Read-only for a
+ * viewer.
  */
-export function MessageReader({ message, thread, isPhone, onReply, onMarkDone, onMarkUnread, isPending, isReadOnly = false }: MessageReaderProps) {
+export function MessageReader({ message, thread, isPhone, onReply, onMarkDone, onMarkUnread, isPending, isReadOnly = false, replyRefusal }: MessageReaderProps) {
   const sentAt = new Date(message.sentAt);
   const { sender, text } = message;
   const isDone = message.state === 'acknowledged';
+  const isKeyNotReachable = message.sealing === 'keyNotReachable';
+  const title = isKeyNotReachable || text.headline === '' ? `Message from ${sender.name}` : text.headline;
   return (
-    <article aria-label={text.headline === '' ? `Message from ${sender.name}` : text.headline} data-testid="inbox-message" className="flex min-h-0 grow flex-col">
+    <article aria-label={title} data-testid="inbox-message" className="flex min-h-0 grow flex-col">
       {isPhone ? null : (
         <div className="flex items-center gap-2 border-b border-border px-5 py-2.5">
           <span className="text-meta text-muted-foreground">Message</span>
@@ -231,7 +241,7 @@ export function MessageReader({ message, thread, isPhone, onReply, onMarkDone, o
               {sender.type === null ? null : <Badge variant="outline">{sender.type}</Badge>}
             </span>
           ) : null}
-          <h2 className="text-heading font-semibold [overflow-wrap:anywhere] max-sm:text-title-touch">{text.headline === '' ? 'No text' : text.headline}</h2>
+          <h2 className="text-heading font-semibold [overflow-wrap:anywhere] max-sm:text-title-touch">{isKeyNotReachable ? title : text.headline === '' ? 'No text' : text.headline}</h2>
           <p className="flex flex-wrap items-center gap-1 text-meta text-muted-foreground">
             <ShipName name={sender.name} shipId={sender.id} isSuffixShown={sender.isNameShared} size="meta" className="[&>span:first-child]:text-foreground" />
             <span aria-hidden>·</span>
@@ -244,10 +254,16 @@ export function MessageReader({ message, thread, isPhone, onReply, onMarkDone, o
                 <span className="font-mono text-id">{message.model}</span>
               </>
             )}
+            {message.sealing === 'plain' ? null : (
+              <>
+                <span aria-hidden>·</span>
+                <SealedMark testId="inbox-message-sealed" />
+              </>
+            )}
           </p>
         </header>
         <DoneNotice message={message} />
-        <MessageBody blocks={text.body} lineCount={text.lineCount} />
+        {isKeyNotReachable ? <PayloadNotReachable testId="inbox-message-not-reachable" /> : <MessageBody blocks={text.body} lineCount={text.lineCount} />}
         {text.links.length === 0 ? null : (
           <div className="flex flex-col gap-2">
             {text.links.map((link) => (
@@ -263,6 +279,7 @@ export function MessageReader({ message, thread, isPhone, onReply, onMarkDone, o
         </p>
       ) : (
         <div className={isPhone ? 'sticky bottom-0 -mx-4' : undefined}>
+          {replyRefusal === undefined ? null : <InlineError title={replyRefusal.title} description={replyRefusal.description} className="mx-5 mb-2 max-sm:mx-4" />}
           <ActionBar
             // A message that becomes done starts a fresh reply; a failed reply keeps its draft.
             key={`${message.deliveryId}-${message.state}`}

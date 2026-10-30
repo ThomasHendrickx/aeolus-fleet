@@ -4,15 +4,15 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { argoAboard, crewAboard, deliveryIdOf, historyUseCases, initialiseFleet, messagingUseCases, modelOf, operatorCaller, registryUseCases, sealFleet } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { newKey } from '../../testing/keys.js';
-import { refusalOf, unwrap } from '../../testing/result.js';
+import { unwrap } from '../../testing/result.js';
 import { DATA_KEY_CACHE_MS } from '../messaging/public.js';
 import type { Crew, ShipCaller } from './caller.js';
 
 /**
  * The history reads with a sealed fleet's company key cut off (decision
  * 0068, B9): a read that lists several payloads marks each one it cannot
- * unseal unreadable and lists the rest; a read of one payload refuses
- * KEY_UNAVAILABLE. The fleet stored a payload plain before it was sealed, so
+ * unseal unreadable and lists the rest, and so does a message's page, keeping
+ * its envelope and delivery. The fleet stored a payload plain before it was sealed, so
  * one payload in a list still reads.
  */
 let core: InMemoryCore;
@@ -129,13 +129,42 @@ describe('the history lists with the company key cut off (decision 0068, B9)', (
     ]);
   });
 
-  it("a message's page, one payload, is refused KEY_UNAVAILABLE", async () => {
+  it("scenario 25: a message's page answers its envelope and its delivery, its payload marked unreadable", async () => {
     const companyKey = await sealFleet(core, fleetId);
     const sealed = await sentTo(argoId, { payload: SEALED });
     await keyCutOff(companyKey);
 
-    const refusal = refusalOf(await history.readMessage(operator, { messageId: sealed }));
+    const message = unwrap(await history.readMessage(operator, { messageId: sealed }));
 
-    expect(refusal.kind).toBe('KEY_UNAVAILABLE');
+    expect({ id: message.id, sender: message.sender.name, state: message.delivery.state, payload: message.payload, isPayloadSealed: message.isPayloadSealed }).toEqual({
+      id: sealed,
+      sender: 'tester-01',
+      state: 'pending',
+      payload: UNREADABLE,
+      isPayloadSealed: true,
+    });
+  });
+});
+
+describe('the history reads say which payloads are sealed, for the console to mark (decision 0068, N1)', () => {
+  it('the ship page, the inbox and a message read mark a payload sealed, and not one stored before sealing the pass has not sealed yet', async () => {
+    const plain = await sentTo(argoId, { payload: PLAIN });
+    await sealFleet(core, fleetId);
+    const sealed = await sentTo(argoId, { payload: SEALED });
+
+    const listed = unwrap(await history.readShipMessages(operator, { shipId: tester.shipId })).items;
+    const inbox = unwrap(await history.readInbox(argo, { filter: 'all' })).items;
+    const one = unwrap(await history.readMessage(operator, { messageId: sealed }));
+    const before = unwrap(await history.readMessage(operator, { messageId: plain }));
+
+    expect(listed.map(({ id, preview, isPayloadSealed }) => ({ id, preview, isPayloadSealed }))).toEqual([
+      { id: sealed, preview: SEALED, isPayloadSealed: true },
+      { id: plain, preview: PLAIN, isPayloadSealed: false },
+    ]);
+    expect(inbox.map(({ message }) => ({ id: message.id, payload: message.payload, isPayloadSealed: message.isPayloadSealed }))).toEqual([
+      { id: sealed, payload: SEALED, isPayloadSealed: true },
+      { id: plain, payload: PLAIN, isPayloadSealed: false },
+    ]);
+    expect([one.payload, one.isPayloadSealed, before.payload, before.isPayloadSealed]).toEqual([SEALED, true, PLAIN, false]);
   });
 });

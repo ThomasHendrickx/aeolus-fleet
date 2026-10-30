@@ -55,6 +55,7 @@ function aMessage({
       model: 'claude-opus-5-5',
       payload,
       isPayloadUnreadable: false,
+      isPayloadSealed: false,
     },
   };
 }

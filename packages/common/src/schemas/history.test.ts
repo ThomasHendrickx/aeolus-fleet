@@ -82,6 +82,7 @@ describe('shipDetailOutputSchema', () => {
     inFlightDeliveries: 1,
     openDeliveries: 3,
     owner: { id: newId('ship'), name: 'argo' },
+    commissionedByShipId: newId('ship'),
     statement: null,
   };
 
@@ -198,6 +199,7 @@ describe('shipMessagesOutputSchema', () => {
     model: 'claude-opus-5-5',
     preview: 'Review PR 48',
     isPayloadUnreadable: false,
+    isPayloadSealed: false,
     delivery: { id: newId('delivery'), state: 'acknowledged', claimedBy: planner, isPulled: false },
   };
 
@@ -234,6 +236,8 @@ describe('messageOutputSchema', () => {
     contentType: 'application/json',
     model: null,
     payload: '{"pr":48}',
+    isPayloadUnreadable: false,
+    isPayloadSealed: false,
     replies: [{ id: newId('message'), sender: planner, sentAt: AT }],
     delivery: {
       id: newId('delivery'),

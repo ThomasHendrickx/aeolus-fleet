@@ -15,6 +15,7 @@ import { Label } from '../../../../components/atoms/label';
 import { RadioGroup, RadioGroupItem } from '../../../../components/atoms/radio-group';
 import { Textarea } from '../../../../components/atoms/textarea';
 import { SendShortcutHint } from '../../../../components/molecules/send-shortcut-hint';
+import { SealedMark } from '../../../../components/molecules/sealed-mark';
 import { ShipName } from '../../../../components/molecules/ship-name';
 import { answerLabelOf, type QuestionPosition } from '../../services/inbox-moves';
 
@@ -400,6 +401,12 @@ export function QuestionReader({ question, position, isPhone, onAnswer, onSelect
               <time dateTime={question.sentAt} title={fullDateTime(sentAt)}>
                 {shortDateTime(sentAt)}
               </time>
+              {question.sealing === 'plain' ? null : (
+                <>
+                  <span aria-hidden>·</span>
+                  <SealedMark testId="inbox-question-sealed" />
+                </>
+              )}
             </p>
             {question.replaces === null ? null : (
               <p className="flex flex-wrap items-baseline gap-1 text-meta text-muted-foreground">

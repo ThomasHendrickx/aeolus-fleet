@@ -18,6 +18,8 @@ export type ListedMessage = Omit<HistoryMessage, 'payload' | 'delivery'> & {
   preview: string;
   /** Its payload is sealed under a data key that cannot be had, or does not open (decision 0068, B9). */
   isPayloadUnreadable: boolean;
+  /** Its payload is stored sealed, for the console to mark it (N1). */
+  isPayloadSealed: boolean;
   delivery: Omit<HistoryMessage['delivery'], 'attempts' | 'handOverNumber'> & {
     /** Handed by a plain receive, with no hand-over number: it reads handed (pulled). False in every other state. */
     isPulled: boolean;

@@ -159,8 +159,7 @@ import type { NetworkRule } from '../../domain/registry/network-settings.js';
 import type { RefusedActor } from '../../domain/registry/reach-refusal.js';
 import type { DeliveryWay } from '../../domain/shared/delivery-way.js';
 import type { SequencedEvent } from '../../domain/shared/events.js';
-import type { InboxEntry } from '../../domain/shared/history.js';
-import type { ListedPayload } from '../../domain/messaging/public.js';
+import type { ListedInboxEntry } from '../../domain/shared/plain-history.js';
 import { listedPayloadOutputOf } from './listed-payload.js';
 import { describedAcknowledged, describedHealth, describedPerHour, describedStuck } from './health.js';
 import { presentStartingPrompt } from './starting-prompt-text.js';
@@ -183,7 +182,7 @@ function crewRequestOutputOf<T extends { requestedAt: Date; sessionStartedAt: Da
 
 /** A ship's last ping as the API states it: its dates in ISO 8601. */
 /** A delivery's way as the API answers it: its times in ISO 8601. */
-function inboxEntryOutputOf(entry: InboxEntry<ListedPayload>) {
+function inboxEntryOutputOf(entry: ListedInboxEntry) {
   return {
     ...entry,
     readAt: entry.readAt?.toISOString() ?? null,
@@ -1159,6 +1158,7 @@ export const fleetRouter = router({
       const message = okOrThrow(await ctx.useCases.readMessage(ctx.caller, input));
       return {
         ...message,
+        ...listedPayloadOutputOf(message.payload),
         sentAt: message.sentAt.toISOString(),
         replies: message.replies.map((reply) => ({ ...reply, sentAt: reply.sentAt.toISOString() })),
         delivery: {
