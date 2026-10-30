@@ -270,3 +270,157 @@ describe('a report refused', () => {
     await expectRefused({ state: 'working' }, 'LEASE_ENDED');
   });
 });
+
+describe("a report's task and step", () => {
+  const pullRequest = { kind: 'url', url: 'https://github.com/acme/ops/pull/1391' };
+  const aMessage = { kind: 'message', fleetId: 'flt_01m66p4k2v9qz8f7x3n5c1b0td', messageId: 'msg_01m66p4k2v9qz8f7x3n5c1b0td' };
+
+  it('holds a url task and a step, listed with the ship', async () => {
+    unwrap(await useCases.report(scout, { state: 'working', note: 'Merging to main', task: pullRequest, step: { at: 2, of: 3 } }));
+
+    await expect(listedReport()).resolves.toMatchObject({ task: pullRequest, step: { at: 2, of: 3 } });
+  });
+
+  it('holds a message task by its fleet and message ids, in any fleet', async () => {
+    unwrap(await useCases.report(scout, { state: 'working', task: aMessage }));
+
+    expect(storedReport()).toMatchObject({ task: aMessage });
+  });
+
+  it('takes a task of a kind core does not know unchecked, fields as sent', async () => {
+    const deploy = { kind: 'deploy', environment: 'staging', run: 42 };
+
+    unwrap(await useCases.report(scout, { state: 'working', task: deploy }));
+
+    expect(storedReport()).toMatchObject({ task: deploy });
+  });
+
+  it('holds none of either when the crew reports without them', async () => {
+    unwrap(await useCases.report(scout, { state: 'working' }));
+
+    expect(storedReport()).toMatchObject({ task: null, step: null });
+  });
+
+  it('keeps the task and the step when a report leaves them out', async () => {
+    unwrap(await useCases.report(scout, { state: 'working', task: pullRequest, step: { at: 1, of: 3 } }));
+
+    unwrap(await useCases.report(scout, { state: 'blocked', note: 'waiting for CI' }));
+
+    expect(storedReport()).toMatchObject({ state: 'blocked', task: pullRequest, step: { at: 1, of: 3 } });
+  });
+
+  it('clears the task and the step with null', async () => {
+    unwrap(await useCases.report(scout, { state: 'working', task: pullRequest, step: { at: 1, of: 3 } }));
+
+    unwrap(await useCases.report(scout, { state: 'idle', task: null, step: null }));
+
+    expect(storedReport()).toMatchObject({ task: null, step: null });
+  });
+
+  it('writes ShipReported with the task, the step and that the report changed', async () => {
+    unwrap(await useCases.report(scout, { state: 'working', task: pullRequest, step: { at: 2, of: 3 } }));
+
+    expect(core.state.events.map((event) => event.details)).toEqual([
+      { leaseId: scout.leaseId, state: 'working', note: null, detailsVersion: 0, task: pullRequest, step: { at: 2, of: 3 }, isReportChanged: true },
+    ]);
+  });
+
+  it('belongs to the crew: a new crew of the ship starts with no task and no step', async () => {
+    unwrap(await useCases.report(scout, { state: 'working', task: pullRequest, step: { at: 1, of: 3 } }));
+    unwrap(await useCases.releaseShip(argo, { shipId: scoutId }));
+    const next = crewAboard(core, { fleetId, shipId: scoutId });
+
+    unwrap(await useCases.report(next, { state: 'working' }));
+
+    await expect(listedReport()).resolves.toMatchObject({ task: null, step: null });
+  });
+});
+
+describe('when the report last changed', () => {
+  const pullRequest = { kind: 'url', url: 'https://github.com/acme/ops/pull/1391' };
+  let firstReportedAt: Date;
+
+  beforeEach(async () => {
+    unwrap(await useCases.report(scout, { state: 'working', note: 'Merging to main', task: pullRequest, step: { at: 1, of: 3 }, details: { a: 1 } }));
+    firstReportedAt = core.clock.now();
+    core.state.events.length = 0;
+    core.clock.advance(300_000);
+  });
+
+  it('is when the crew first reported', () => {
+    expect(storedReport()).toMatchObject({ reportChangedAt: firstReportedAt });
+  });
+
+  it.each([
+    ['the state', { state: 'blocked', note: 'Merging to main', task: pullRequest, step: { at: 1, of: 3 } }],
+    ['the note', { state: 'working', note: 'Rebasing', task: pullRequest, step: { at: 1, of: 3 } }],
+    ['the task', { state: 'working', note: 'Merging to main', task: { kind: 'url', url: 'https://github.com/acme/ops/pull/1392' }, step: { at: 1, of: 3 } }],
+    ['the step', { state: 'working', note: 'Merging to main', task: pullRequest, step: { at: 2, of: 3 } }],
+  ])('moves when %s changes', async (_change, input) => {
+    unwrap(await useCases.report(scout, input));
+
+    expect(storedReport()).toMatchObject({ reportChangedAt: core.clock.now(), reportedAt: core.clock.now() });
+  });
+
+  it('stays when only the details change, while ShipReported says the report did not change', async () => {
+    unwrap(await useCases.report(scout, { state: 'working', note: 'Merging to main', detailsPatch: { a: 2 } }));
+
+    expect(storedReport()).toMatchObject({ reportChangedAt: firstReportedAt, reportedAt: core.clock.now(), detailsVersion: 2 });
+    expect(core.state.events.map((event) => event.details)).toEqual([
+      expect.objectContaining({ detailsVersion: 2, isReportChanged: false }),
+    ]);
+  });
+
+  it('stays on a check-in, while when it was reported moves', async () => {
+    unwrap(await useCases.report(scout, { state: 'working', note: 'Merging to main' }));
+
+    expect(storedReport()).toMatchObject({ reportChangedAt: firstReportedAt, reportedAt: core.clock.now() });
+    expect(core.state.events).toEqual([]);
+  });
+
+  it('is listed and read with the ship', async () => {
+    await expect(listedReport()).resolves.toMatchObject({ reportChangedAt: firstReportedAt });
+    await expect(useCases.getShip(argo, { shipId: scoutId })).resolves.toMatchObject({ value: { report: { reportChangedAt: firstReportedAt } } });
+  });
+});
+
+describe('a report refused for its task or step', () => {
+  async function expectRefused(input: Parameters<typeof useCases.report>[1], kind: string): Promise<void> {
+    unwrap(await useCases.report(scout, { state: 'working', task: { kind: 'url', url: 'https://github.com/acme/ops/pull/1' }, step: { at: 1, of: 2 } }));
+    core.clock.advance(60_000);
+    const before = structuredClone(core.state);
+
+    await expect(useCases.report(scout, input)).resolves.toMatchObject({ isOk: false, error: { kind } });
+
+    expect(core.state).toEqual(before);
+  }
+
+  it.each([
+    ['a url that is not https', { kind: 'url', url: 'http://github.com/acme/ops/pull/1391' }],
+    ['a url that is not absolute', { kind: 'url', url: '/acme/ops/pull/1391' }],
+    ['a url over 512 characters', { kind: 'url', url: `https://example.com/${'x'.repeat(493)}` }],
+    ['a url task without its url', { kind: 'url' }],
+    ['a message task whose fleet id has the wrong shape', { kind: 'message', fleetId: 'shp_01m66p4k2v9qz8f7x3n5c1b0td', messageId: 'msg_01m66p4k2v9qz8f7x3n5c1b0td' }],
+    ['a message task whose message id has the wrong shape', { kind: 'message', fleetId: 'flt_01m66p4k2v9qz8f7x3n5c1b0td', messageId: 'msg_nope' }],
+    ['a task with an empty kind', { kind: '' }],
+  ])('refuses %s and changes nothing', async (_case, task) => {
+    await expectRefused({ state: 'blocked', note: 'changed', task }, 'INVALID_REPORT_TASK');
+  });
+
+  it.each([
+    ['a step at 0', { at: 0, of: 3 }],
+    ['a step past its total', { at: 4, of: 3 }],
+    ['a step of more than 1000', { at: 1, of: 1001 }],
+    ['a step that is not a whole number', { at: 1.5, of: 3 }],
+  ])('refuses %s and changes nothing', async (_case, step) => {
+    await expectRefused({ state: 'blocked', note: 'changed', step }, 'INVALID_REPORT_STEP');
+  });
+
+  it('takes a url of exactly 512 characters and a step of 1000 of 1000', async () => {
+    const url = `https://example.com/${'x'.repeat(492)}`;
+
+    unwrap(await useCases.report(scout, { state: 'working', task: { kind: 'url', url }, step: { at: 1000, of: 1000 } }));
+
+    expect(storedReport()).toMatchObject({ task: { kind: 'url', url }, step: { at: 1000, of: 1000 } });
+  });
+});
