@@ -493,15 +493,15 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
   const tx: InMemoryTx = {
     featureFlags: {
       onFor: (fleetId) => Promise.resolve(state.featureFlags.filter((held) => held.fleetId === fleetId).map((held) => held.flag)),
-      isOnForUpdate: (fleetId, flag) => Promise.resolve(state.featureFlags.some((held) => held.fleetId === fleetId && held.flag === flag)),
+      isOnForUpdate: (fleetId, flag) => Promise.resolve(state.featureFlags.some((held) => isFlagRow(held, { fleetId, flag }))),
       turnOn: (fleetId, flag) => {
-        if (!state.featureFlags.some((held) => held.fleetId === fleetId && held.flag === flag)) {
+        if (!state.featureFlags.some((held) => isFlagRow(held, { fleetId, flag }))) {
           state.featureFlags.push({ fleetId, flag });
         }
         return Promise.resolve();
       },
       turnOff: (fleetId, flag) => {
-        state.featureFlags.splice(0, state.featureFlags.length, ...state.featureFlags.filter((held) => held.fleetId !== fleetId || held.flag !== flag));
+        state.featureFlags.splice(0, state.featureFlags.length, ...state.featureFlags.filter((held) => !isFlagRow(held, { fleetId, flag })));
         return Promise.resolve();
       },
     },
@@ -2540,6 +2540,11 @@ function restore(state: InMemoryState, snapshot: InMemoryState): void {
     const rows: unknown[] = state[key];
     rows.splice(0, rows.length, ...snapshot[key]);
   }
+}
+
+/** Whether the row is the fleet's row of the flag; typed over any flag key, as the table's text column is. */
+function isFlagRow(held: { fleetId: FleetId; flag: string }, key: { fleetId: FleetId; flag: string }): boolean {
+  return held.fleetId === key.fleetId && held.flag === key.flag;
 }
 
 function isClearRequestKey(held: ClearRequest, key: { trierarchShipId: ClearRequest['trierarchShipId']; shipId: ClearRequest['shipId']; repository: string }): boolean {

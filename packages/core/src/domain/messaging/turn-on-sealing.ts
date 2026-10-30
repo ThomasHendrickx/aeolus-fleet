@@ -96,7 +96,7 @@ export function createTurnOnSealing(deps: {
 
     return deps.uow.run(async (tx): Promise<Result<SealingTurnedOn, TurnOnSealingRefusal>> => {
       // Held until sealing is on, so the flag cannot go off while the fleet turns sealing on (decision 0069).
-      const stillOffered = requireFeatureFlag('sealing', await isFeatureFlagOnForUpdate(deps.featureFlags.source, tx.featureFlags, { fleetId, flag: 'sealing' }));
+      const stillOffered = requireFeatureFlag('sealing', await isFeatureFlagOnForUpdate({ source: deps.featureFlags.source, flags: tx.featureFlags }, { fleetId, flag: 'sealing' }));
       if (!stillOffered.isOk) {
         return stillOffered;
       }

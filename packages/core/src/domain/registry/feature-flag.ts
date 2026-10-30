@@ -27,25 +27,27 @@ export interface ServerFeatures {
  */
 export type FeatureFlagSource = { kind: 'installation' } | { kind: 'server'; on: readonly FeatureFlag[] };
 
-/** Whether the fleet uses the feature, so its flag cannot go off: sealing while the fleet is sealing or sealed. */
-export function isInUse(flag: FeatureFlag, use: FeatureUse): boolean {
-  switch (flag) {
-    case 'sealing':
-      return use.isSealing;
-  }
-}
+/** When each flag's feature is in use, so the flag cannot go off: sealing while the fleet is sealing or sealed. */
+const IN_USE: Record<FeatureFlag, (use: FeatureUse) => boolean> = {
+  sealing: (use) => use.isSealing,
+};
 
-/** A flag's value on a server without an installation token: sealing on when the server has a KMS. */
-function isOnWithoutInstallation(flag: FeatureFlag, server: ServerFeatures): boolean {
-  switch (flag) {
-    case 'sealing':
-      return server.hasKeyVault;
-  }
+/** Each flag's value on a server without an installation token: sealing on when the server has a KMS. */
+const ON_WITHOUT_INSTALLATION: Record<FeatureFlag, (server: ServerFeatures) => boolean> = {
+  sealing: (server) => server.hasKeyVault,
+};
+
+/** The line the installation shows for each flag while the fleet uses its feature: the flag list's own. */
+const IN_USE_NOTES: ReadonlyMap<FeatureFlag, string> = new Map(FEATURE_FLAGS.map(({ key, inUseNote }) => [key, inUseNote]));
+
+/** Whether the fleet uses the feature, so its flag cannot go off. */
+export function isInUse(flag: FeatureFlag, use: FeatureUse): boolean {
+  return IN_USE[flag](use);
 }
 
 /** Where the flags come from on this server: the installation when it has a token, else each flag's own value. */
 export function featureFlagSource(server: ServerFeatures & { hasInstallation: boolean }): FeatureFlagSource {
-  return server.hasInstallation ? { kind: 'installation' } : { kind: 'server', on: FEATURE_FLAGS.filter(({ key }) => isOnWithoutInstallation(key, server)).map(({ key }) => key) };
+  return server.hasInstallation ? { kind: 'installation' } : { kind: 'server', on: FEATURE_FLAGS.filter(({ key }) => ON_WITHOUT_INSTALLATION[key](server)).map(({ key }) => key) };
 }
 
 /** Each flag common names, on or off for the fleet, and whether it can go off now. */
@@ -59,7 +61,7 @@ export function fleetFeatureFlag(flag: FeatureFlag, state: { isOn: boolean; use:
 
 /** The line the installation shows while the fleet uses the feature: the flag list's own. */
 export function inUseNote(flag: FeatureFlag): string {
-  return FEATURE_FLAGS.find(({ key }) => key === flag)?.inUseNote ?? `The fleet uses ${flag}`;
+  return IN_USE_NOTES.get(flag) ?? `The fleet uses ${flag}`;
 }
 
 export type FeatureFlagOff = DomainError<'FEATURE_FLAG_OFF'>;
@@ -70,13 +72,16 @@ export function requireFeatureFlag(flag: FeatureFlag, isOn: boolean): Result<voi
 }
 
 /** The flags on for the fleet, from where this server's flags come from. */
-export async function featureFlagsOn(source: FeatureFlagSource, flags: Pick<FeatureFlagRepository, 'onFor'>, fleetId: FleetId): Promise<readonly FeatureFlag[]> {
-  return source.kind === 'server' ? source.on : flags.onFor(fleetId);
+export async function featureFlagsOn(reads: FeatureFlagReads, fleetId: FleetId): Promise<readonly FeatureFlag[]> {
+  return reads.source.kind === 'server' ? reads.source.on : reads.flags.onFor(fleetId);
 }
 
 /** Whether the flag is on for the fleet, held until the unit of work ends where the installation sets it, so it cannot go off before the feature is in use. */
-export async function isFeatureFlagOnForUpdate(source: FeatureFlagSource, flags: Pick<FeatureFlagRepository, 'isOnForUpdate'>, at: { fleetId: FleetId; flag: FeatureFlag }): Promise<boolean> {
-  return source.kind === 'server' ? source.on.includes(at.flag) : flags.isOnForUpdate(at.fleetId, at.flag);
+export async function isFeatureFlagOnForUpdate(
+  held: { source: FeatureFlagSource; flags: Pick<FeatureFlagRepository, 'isOnForUpdate'> },
+  at: { fleetId: FleetId; flag: FeatureFlag },
+): Promise<boolean> {
+  return held.source.kind === 'server' ? held.source.on.includes(at.flag) : held.flags.isOnForUpdate(at.fleetId, at.flag);
 }
 
 /** The fleets' feature flags as a feature's procedures read them: where this server's come from, and the installation's rows, read outside a unit of work. */
@@ -87,5 +92,5 @@ export interface FeatureFlagReads {
 
 /** Refuses a feature's procedure FEATURE_FLAG_OFF while the fleet's flag for it is off. */
 export async function checkFeatureFlag(reads: FeatureFlagReads, at: { fleetId: FleetId; flag: FeatureFlag }): Promise<Result<void, FeatureFlagOff>> {
-  return requireFeatureFlag(at.flag, (await featureFlagsOn(reads.source, reads.flags, at.fleetId)).includes(at.flag));
+  return requireFeatureFlag(at.flag, (await featureFlagsOn(reads, at.fleetId)).includes(at.flag));
 }

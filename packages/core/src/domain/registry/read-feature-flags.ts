@@ -12,5 +12,5 @@ export type ReadFeatureFlags = (input: { fleetId: FleetId }) => Promise<readonly
  * without an installation token, each flag's own value.
  */
 export function createReadFeatureFlags(deps: { featureFlags: Pick<FeatureFlagRepository, 'onFor'>; source: FeatureFlagSource }): ReadFeatureFlags {
-  return ({ fleetId }) => featureFlagsOn(deps.source, deps.featureFlags, fleetId);
+  return ({ fleetId }) => featureFlagsOn({ source: deps.source, flags: deps.featureFlags }, fleetId);
 }

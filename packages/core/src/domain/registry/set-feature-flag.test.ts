@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { hostedFleet } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { refusalOf, unwrap } from '../../testing/result.js';
-import type { SealingState } from '../messaging/fleet-sealing.js';
 import { createSetFeatureFlag, type SetFeatureFlag } from './set-feature-flag.js';
 
 let core: InMemoryCore;
@@ -19,7 +18,7 @@ beforeEach(async () => {
 });
 
 /** The fleet as sealing turned on left it: sealing or sealed under a company key. */
-function aFleetThatIs(state: SealingState): void {
+function aFleetThatIs(state: 'sealing' | 'sealed'): void {
   const since = new Date('2026-10-30T11:00:00.000Z');
   core.state.featureFlags.push({ fleetId, flag: 'sealing' });
   core.state.fleetSealings.push({ fleetId, state, since, progress: { toSeal: 0, sealed: 0 }, companyKey: 'arn:aws:kms:eu-west-1:111122223333:key/acme', recoveryKey: null, keyAvailability: { isAvailable: true, since } });
