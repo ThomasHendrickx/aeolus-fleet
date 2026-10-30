@@ -11,7 +11,7 @@ Rules for cases the Design system page does not show. Names = parts and tokens o
 ## Colour
 - Brand accent = `--primary`: primary Button, active nav item, open-message counts, active TabBar item. Nothing else.
 - `--accent` = neutral hover and selected surface (shadcn meaning), never brand.
-- Tone families (`--tone-{waiting|active|ok|attention|ended}-{bg|fg|border}`) only via StatusBadge, ReportLine, HealthIndicator, StationProgress, LastSeen, alerts and count badges. Never on buttons, text blocks or layout.
+- Tone families (`--tone-{waiting|active|ok|attention|ended}-{bg|fg|border}`) only via StatusBadge, ReportLine, HealthIndicator, StationProgress, LastSeen, HarnessUnknown, alerts and count badges. Never on buttons, text blocks or layout.
 - Mapping: Awaiting crew, Pending, Forming, Blocked, Late, seen long ago → waiting. Handed (pulled), Standing down, Working → active. Crewed, Acknowledged, Sailing, On time, seen fresh → ok. Undeliverable, Silent → attention. Retired, Dismissed, Abandoned, Disbanded, Idle → ended; Abandoned has a dashed border; Not on station is a dashed ring and seen a while ago is muted, no tone.
 - Status is never colour alone: icon + label always; the live dot always has its word.
 - Alert tone: error → attention; warning or rate limit → waiting; neutral fact → ended; calm notice (signed in elsewhere) → `--muted` panel.

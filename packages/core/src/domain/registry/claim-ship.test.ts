@@ -123,6 +123,13 @@ describe('the harness a session runs in', () => {
     expect(openLeasesOf(scoutId).map((lease) => lease.harness)).toEqual(['claude-code']);
   });
 
+  it('keeps no harness with its lease when the session states none, so it shows as unknown, never a default (aeolus-fleet#1408)', async () => {
+    unwrap(await useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: onDevice }));
+
+    expect(openLeasesOf(scoutId).map((lease) => lease.harness)).toEqual([null]);
+    expect(core.state.events.filter((event) => event.type === 'ShipClaimed').map((event) => event.details)).toEqual([expect.objectContaining({ harness: null })]);
+  });
+
   it('takes a harness the console does not name, as free text', async () => {
     unwrap(await useCases.claimShip({ shipId: scoutId, secret: scoutSecret, location: onDevice, harness: 'gemini cli' }));
 

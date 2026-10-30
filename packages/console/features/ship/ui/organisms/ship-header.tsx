@@ -84,7 +84,7 @@ function MetaStrip({
       <MetaCell label="Location">
         <span className="inline-flex min-w-0 flex-col gap-0.5">
           <LocationTag kind={ship.location?.kind ?? null} description={ship.location?.description} size="md" />
-          <ModelLine harness={ship.harness} model={ship.model?.id ?? null} testId="ship-model" />
+          <ModelLine harness={ship.harness} model={ship.model?.id ?? null} isHarnessUnknown={ship.kind === 'agent' && ship.status === 'crewed' && ship.harness === null} testId="ship-model" />
           {ship.lastSeenAt === null ? null : (
             <time
               dateTime={ship.lastSeenAt}

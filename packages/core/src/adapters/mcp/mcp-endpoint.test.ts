@@ -262,12 +262,12 @@ describe('the ship tools at /mcp', () => {
     }
   });
 
-  it('ask register for the ship id and secret from the starting prompt and the location, and never a crew token', async () => {
+  it('ask register for the ship id and secret from the starting prompt and the location, the harness only when the session can tell it (aeolus-fleet#1408), and never a crew token', async () => {
     await start();
 
     const { inputSchema } = await tool('register');
 
-    expect(inputSchema.required).toEqual(['shipId', 'secret', 'location', 'harness']);
+    expect(inputSchema.required).toEqual(['shipId', 'secret', 'location']);
     expect(inputSchema.properties.shipId).toMatchObject({ type: 'string', pattern: '^shp_[0-7][0-9a-hjkmnp-tv-z]{25}$' });
     expect(inputSchema.properties).not.toHaveProperty('crewToken');
   });

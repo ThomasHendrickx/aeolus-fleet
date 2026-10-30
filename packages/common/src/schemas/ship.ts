@@ -55,12 +55,16 @@ export const harnessSchema = z
   .min(1, `A harness names what the session runs in, such as ${KNOWN_HARNESSES.join(', ')}`)
   .max(HARNESS_MAX_LENGTH, `A harness is at most ${String(HARNESS_MAX_LENGTH)} characters`);
 
-/** Input of `ship.register`: the ship id and secret from the starting prompt, where the session runs and in which harness. */
+/**
+ * Input of `ship.register`: the ship id and secret from the starting prompt,
+ * where the session runs and in which harness. A session that cannot tell its
+ * harness states none: it stays unknown, never a default (aeolus-fleet#1408).
+ */
 export const registerInputSchema = z.object({
   shipId: idSchema('ship'),
   secret: z.string().min(1).max(SHIP_SECRET_MAX_LENGTH),
   location: locationSchema,
-  harness: harnessSchema,
+  harness: harnessSchema.optional(),
 });
 
 export type RegisterInput = z.infer<typeof registerInputSchema>;

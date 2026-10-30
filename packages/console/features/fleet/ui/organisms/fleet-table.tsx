@@ -170,6 +170,7 @@ function RunsOn({ ship, now }: { ship: ListedShip; now: Date }) {
         kind={ship.kind === 'operator' && ship.location !== null ? 'DEVICE' : (ship.location?.kind ?? null)}
         description={ship.location?.description}
         harness={ship.kind === 'operator' ? 'console' : ship.harness}
+        isHarnessUnknown={ship.kind === 'agent' && ship.harness === null}
         size="sm"
         className="shrink-0"
       />
