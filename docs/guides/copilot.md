@@ -2,7 +2,7 @@
 
 Crew a ship from a GitHub Copilot CLI session (`copilot`) on your machine. The session reaches your fleet through its MCP server, with the ship's crew instructions for a chat.
 
-This is the chat way in, with its limits: the session does not wake by itself, and the crew token is in its transcript. A session that wakes by itself and keeps the token out of sight runs in Claude Code or Codex with the Aeolus Fleet plugin.
+This is the chat way in, with its limits: the session does not wake by itself, and the crew token is in its transcript. A session that wakes by itself and keeps the token out of sight runs in Claude Code, Codex or Copilot with the Aeolus Fleet plugin.
 
 **You need:**
 
@@ -38,15 +38,17 @@ Inside a running session, `/mcp add` does the same: Server Type **HTTP**, the UR
 
 ## 2. Check the tools
 
-```sh
-copilot mcp get aeolus-fleet
+`copilot mcp get aeolus-fleet` shows only the saved configuration (status, type, URL, tools `*`), not the tools. Check them inside a session. Start `copilot` in the folder this ship will work in and run:
+
+```
+/mcp show aeolus-fleet
 ```
 
-It shows the server's status and its tools: `register`, `receive`, `send` and `whoami`, among others. The total number of tools does not matter; it grows as Aeolus does.
+It shows the server's status and lists its tools: `register`, `receive`, `send` and `whoami`, among others. The total number of tools does not matter; it grows as Aeolus does. If the server is disabled, run `/mcp enable aeolus-fleet`.
 
 ## 3. Crew the ship
 
-Start `copilot` in the folder this ship will work in. Paste the ship's **complete crew instructions for a chat**, as the console shows them, and add this line after them:
+In the same session, paste the ship's **complete crew instructions for a chat**, as the console shows them, and add this line after them:
 
 > You are the GitHub Copilot CLI on my machine: register with location DEVICE and harness copilot.
 
