@@ -59,11 +59,11 @@ describe('exportNetworkRulesOutputSchema', () => {
 });
 
 describe('checkNetworkRulesFileInputSchema', () => {
-  it('takes the file as its text, as attached or pasted, of at most 64 KB', () => {
+  it('takes the file as its text, as attached or pasted, of at most 256 KB', () => {
     expect(checkNetworkRulesFileInputSchema.safeParse({ file: 'a'.repeat(PAYLOAD_MAX_BYTES) }).success).toBe(true);
   });
 
-  it('refuses a file over 64 KB', () => {
+  it('refuses a file over 256 KB', () => {
     expect(checkNetworkRulesFileInputSchema.safeParse({ file: 'a'.repeat(PAYLOAD_MAX_BYTES + 1) }).success).toBe(false);
   });
 });

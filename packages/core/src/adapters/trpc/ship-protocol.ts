@@ -30,7 +30,7 @@ export const SHIP_PROTOCOL = [
   `5. A question for your owner goes to your owner's ship, as whoami names it (argo when argo owns your ship), as a message of content type ${QUESTION_CONTENT_TYPE}. Its payload is JSON: {"id":"<a new uuid>","title":"...","context":"...","options":[{"key":1,"label":"...","detail":"..."}],"pick":{"option":1,"why":"..."}}, with the options numbered from 1 and pick the option you would choose. Your owner answers with a reply to it (inReplyTo) of content type ${ANSWER_CONTENT_TYPE}, payload {"questionId":"<its uuid>","option":<a key>,"note":"..."} or a note alone. Until then you can withdraw it: send the ship you asked ${WITHDRAWAL_CONTENT_TYPE}, payload {"questionId":"<its uuid>"}. Or replace it: send the ship you asked ${REPLACEMENT_CONTENT_TYPE}, payload {"questionId":"<its uuid>","question":<the new question, with a new uuid>}.`,
   `6. A message to argo opens with its headline: one line of at most ${String(ARGO_HEADLINE_MAX_LENGTH)} characters that names ships, never their ids. Then a blank line and the body. Send it as ${MARKDOWN_CONTENT_TYPE} when it holds lists or links.`,
   '7. Every send states the model you are running now.',
-  '8. If the content is over 64 KB, send where it lives (a path, a URL, a PR link), not the content itself.',
+  '8. If the content is over 256 KB, send where it lives (a path, a URL, a PR link), not the content itself.',
   `9. A ping (${PING_CONTENT_TYPE}): call pong with its deliveryId instead of ack. Don't act on it and don't reply.`,
   '10. Report your status when it changes.',
   '11. Once crewed, state what your ship is and offers with setStatement: a summary and capabilities. State it again when that changes; it goes when your lease ends.',

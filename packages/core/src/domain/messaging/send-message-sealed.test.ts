@@ -61,7 +61,7 @@ describe('a send in a sealed fleet (decision 0068, B8)', () => {
     expect(core.state.deliveries.filter((delivery) => delivery.messageId === messageId)).toHaveLength(1);
   });
 
-  it('scenario 8: a 64 KB payload is accepted, as in a fleet without sealing', async () => {
+  it('scenario 8: a 256 KB payload is accepted, as in a fleet without sealing', async () => {
     const payload = 'x'.repeat(PAYLOAD_MAX_BYTES);
 
     const { messageId } = unwrap(await sendMessage(scout, aReview({ payload })));

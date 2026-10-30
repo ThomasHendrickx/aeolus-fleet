@@ -147,7 +147,7 @@ export const shipRouter = router({
         'or every ship carrying every value of a label selection { "kind": "label", "valueIds": ["lbv_..."] }, never you: one delivery for every ship of it,',
         'refused whole when one of them is out of your reach; learn a value\'s id with fleet_findLabelValue.',
         'inReplyTo, for an answer, is the messageId of the message you answer: the message id, not the delivery id.',
-        'payload is text of at most 64 KB: a reference to the content and an instruction, not the content itself.',
+        'payload is text of at most 256 KB: a reference to the content and an instruction, not the content itself.',
         'contentType is text/plain unless you say otherwise.',
         'model is the exact model id you run now, such as claude-opus-5-5: state it on every send, as it is now, even after a switch. A send without it is refused (BAD_REQUEST); only argo, the operator, states none.',
         'Code that runs no model, such as a script, states its package or name and the version it runs, such as nightly-report@1.4.0.',
@@ -747,7 +747,7 @@ export const shipRouter = router({
         "and A2A's inputModes and outputModes: the media types to send it and that come back, the first the one to use.",
         "For calls through the gateway each may also state waitMs (0 to 120000, how long a call may be held for the reply), deadlineMs (up to 7 days, when a call fails),",
         "repeatable (whether a call that died unconfirmed may be handed again) and MCP's tool annotations; core acts on none of them.",
-        'Set whole, at most 64 KB as JSON; the same statement again changes nothing. It is kept with your lease and goes when it ends,',
+        'Set whole, at most 256 KB as JSON; the same statement again changes nothing. It is kept with your lease and goes when it ends,',
         'so state it once crewed and again when it changes. Answers its version (decision 0047).',
       ].join(' '),
     })

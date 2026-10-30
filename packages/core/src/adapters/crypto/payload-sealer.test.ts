@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import type { DataKey, SealedRow } from '../../domain/messaging/payload-sealer.js';
 import { aesGcmPayloadSealer } from './payload-sealer.js';
 
-const PAYLOAD_LIMIT_BYTES = 64 * 1024;
+const PAYLOAD_LIMIT_BYTES = 256 * 1024;
 
 function aDataKey(id: DataKeyId, fill: number): DataKey {
   return { id, material: new Uint8Array(32).fill(fill) };
@@ -26,7 +26,7 @@ describe('aesGcmPayloadSealer (decision 0068, B7)', () => {
     expect(aesGcmPayloadSealer.unseal({ key: KEY, row: ROW }, sealed)).toEqual({ isOk: true, value: payload });
   });
 
-  it('seals and opens a 64 KB payload', () => {
+  it('seals and opens a 256 KB payload', () => {
     const payload = 'x'.repeat(PAYLOAD_LIMIT_BYTES);
 
     const sealed = aesGcmPayloadSealer.seal({ key: KEY, row: ROW }, payload);

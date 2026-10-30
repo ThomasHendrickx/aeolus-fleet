@@ -290,6 +290,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_feature_flags$/),
       expect.stringMatching(/^\d{14}_removed_ships$/),
       expect.stringMatching(/^\d{14}_report_task_step$/),
+      expect.stringMatching(/^\d{14}_payload_limit_256kb$/),
     ]);
   });
 });
@@ -753,14 +754,14 @@ describe('statements and discovery at the API (decision 0047)', () => {
     await expect(statementOf(planner.crew, reviewer.shipId)).resolves.toEqual({ by: 'commission', note: 'The statement-released of the fleet' });
   });
 
-  it('refuse a statement over 64 KB with BAD_REQUEST naming the limit, storing nothing', async () => {
+  it('refuse a statement over 256 KB with BAD_REQUEST naming the limit, storing nothing', async () => {
     const reviewer = await crewed('statement-large');
     const planner = await crewed('statement-reader');
 
-    const refused = await refusalOf(reviewer.crew.ship.setStatement.mutate({ summary: 'Large.', capabilities: [{ name: 'large', description: 'x'.repeat(64 * 1024) }] }));
+    const refused = await refusalOf(reviewer.crew.ship.setStatement.mutate({ summary: 'Large.', capabilities: [{ name: 'large', description: 'x'.repeat(256 * 1024) }] }));
 
     expect(refused?.code).toBe('BAD_REQUEST');
-    expect(refused?.message).toContain('64 KB');
+    expect(refused?.message).toContain('256 KB');
     await expect(statementOf(planner.crew, reviewer.shipId)).resolves.toEqual({ by: 'commission', note: 'The statement-large of the fleet' });
   });
 
@@ -940,10 +941,10 @@ describe('ship.send at the API', () => {
     });
   });
 
-  it('accepts a payload of exactly 64 KB, and refuses one byte more with BAD_REQUEST, storing nothing', async () => {
+  it('accepts a payload of exactly 256 KB, and refuses one byte more with BAD_REQUEST, storing nothing', async () => {
     const asShip = client({ authorization: `Bearer ${await crewedShip()}` });
-    const atTheLimit = toArgo({ payload: 'é'.repeat(32_768) });
-    const overTheLimit = toArgo({ payload: `${'é'.repeat(32_768)}a` });
+    const atTheLimit = toArgo({ payload: 'é'.repeat(131_072) });
+    const overTheLimit = toArgo({ payload: `${'é'.repeat(131_072)}a` });
 
     const { messageId } = await asShip.ship.send.mutate(atTheLimit);
 

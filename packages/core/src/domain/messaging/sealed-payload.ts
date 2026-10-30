@@ -1,7 +1,7 @@
 /**
  * A payload as the fleet stores it (decision 0068, B7): plain text, or in a
  * sealed fleet sealed under a data key, with the plain payload's UTF-8 byte
- * count, so the 64 KB limit, the daily counts and pruning count the same
+ * count, so the 256 KB limit, the daily counts and pruning count the same
  * bytes in every fleet.
  */
 import { payloadBytes } from '@aeolus-fleet/common';

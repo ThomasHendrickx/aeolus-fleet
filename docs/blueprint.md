@@ -301,7 +301,7 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 
 | Term | Meaning | Held by |
 | --- | --- | --- |
-| Message | An immutable envelope with an opaque payload of at most 64 KB and a content type, from one ship to a selector; may reply to or resend another | core |
+| Message | An immutable envelope with an opaque payload of at most 256 KB and a content type, from one ship to a selector; may reply to or resend another | core |
 | Selector | Who a message is for: `ship` (id, or name resolved at send), `type`, `meeting`, or `label`, the ships carrying every value of a label selection, one delivery each (0065). Not a rule's selection | core |
 | Delivery | One message to one recipient, with its state: pending, received, handed, acknowledged, handled, not handled, undeliverable, dismissed, abandoned (0040) | core |
 | Acknowledgement | The receiver taking a delivery on receipt; Aeolus distributes, never executes (0001) | core |

@@ -76,7 +76,7 @@ export type SendMessage = (caller: ShipCaller, input: MessageToSend) => Promise<
  * the caller, `argo` included; its scope (messages:send) is checked before
  * this runs. The message, its delivery, MessageAccepted and the notice that
  * wakes its receivers are one unit of work: the sender gets its id only once
- * all of it is committed (ADR 0003). A payload over 64 KB, a content type that
+ * all of it is committed (ADR 0003). A payload over 256 KB, a content type that
  * is no media type or a bad key is refused before the unit of work starts, so
  * nothing is stored. Without a content type the message is text/plain: the
  * same request as one that names text/plain. The ping content type is

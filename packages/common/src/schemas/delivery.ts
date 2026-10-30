@@ -17,7 +17,7 @@ export const RECEIVE_MAX_DEFAULT = 1;
 
 /**
  * The most deliveries one receive returns. The ship chooses up to this many
- * (ADR 0016); the bound keeps one answer at ten 64 KB payloads.
+ * (ADR 0016); the bound keeps one answer at ten 256 KB payloads.
  */
 export const RECEIVE_MAX_UPPER_BOUND = 10;
 

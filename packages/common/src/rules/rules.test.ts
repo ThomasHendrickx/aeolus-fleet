@@ -56,9 +56,9 @@ describe('isLabelHandle', () => {
 });
 
 describe('payloadBytes', () => {
-  it('counts UTF-8 bytes, as the 64 KB limit does', () => {
+  it('counts UTF-8 bytes, as the 256 KB limit does', () => {
     expect(payloadBytes('é')).toBe(2);
-    expect(PAYLOAD_MAX_BYTES).toBe(64 * 1024);
+    expect(PAYLOAD_MAX_BYTES).toBe(256 * 1024);
   });
 });
 

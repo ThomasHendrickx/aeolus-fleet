@@ -1207,22 +1207,22 @@ describe('console sessions', () => {
 });
 
 describe('messages', () => {
-  it('accept a payload of exactly 64 KB', async () => {
+  it('accept a payload of exactly 256 KB', async () => {
     const fleetId = await createFleet();
 
-    await expect(createMessage(fleetId, 'a'.repeat(65_536))).resolves.toMatch(/^msg_/);
+    await expect(createMessage(fleetId, 'a'.repeat(262_144))).resolves.toMatch(/^msg_/);
   });
 
-  it('refuse a payload one byte over 64 KB', async () => {
+  it('refuse a payload one byte over 256 KB', async () => {
     const fleetId = await createFleet();
 
-    await expect(createMessage(fleetId, 'a'.repeat(65_537))).rejects.toThrow(/messages_payload_max_64kb/);
+    await expect(createMessage(fleetId, 'a'.repeat(262_145))).rejects.toThrow(/messages_payload_max_256kb/);
   });
 
   it('count the payload in bytes, not characters', async () => {
     const fleetId = await createFleet();
-    // 32,769 two-byte characters: under 64 K characters, over 64 KB.
-    await expect(createMessage(fleetId, 'é'.repeat(32_769))).rejects.toThrow(/messages_payload_max_64kb/);
+    // 131,073 two-byte characters: under 256 K characters, over 256 KB.
+    await expect(createMessage(fleetId, 'é'.repeat(131_073))).rejects.toThrow(/messages_payload_max_256kb/);
   });
 
   interface SelectorColumns {

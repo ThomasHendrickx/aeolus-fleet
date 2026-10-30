@@ -256,6 +256,20 @@ describe('sealed sends and receives on Postgres and a LocalStack KMS (decision 0
     expect(day).toMatchObject({ messages: 1, payloadBytes: 84n });
   });
 
+  it('scenario 8: a sealed fleet stores a message and a schedule of exactly 256 KB sealed, each with its plain byte count', async () => {
+    const fleet = await aSealedFleet();
+    const scout = await aCrewedReviewer(fleet, 'scout');
+    const payload = 'a'.repeat(262_144);
+
+    const { messageId } = unwrap(await useCases.sendMessage(fleet.argo, { selector: { kind: 'ship', shipId: scout.shipId }, payload, contentType: 'text/plain', idempotencyKey: newKey() }));
+    const { scheduleId } = unwrap(
+      await useCases.scheduleMessage(scout, { selector: { kind: 'ship', name: 'argo' }, payload, model: 'claude-opus-5-5', idempotencyKey: newKey(), timing: { kind: 'once', at: new Date('2026-10-30T12:00:00.000Z') } }),
+    );
+
+    await expect(prisma.message.findUniqueOrThrow({ where: { id: messageId } })).resolves.toMatchObject({ payload: null, sealedPayloadBytes: 262_144 });
+    await expect(prisma.schedule.findUniqueOrThrow({ where: { id: scheduleId } })).resolves.toMatchObject({ payload: null, sealedPayloadBytes: 262_144 });
+  });
+
   it('scenario 11: a withdrawal of a sealed fleet is found by the question id it names', async () => {
     const fleet = await aSealedFleet();
     const scout = await aCrewedReviewer(fleet, 'scout');
