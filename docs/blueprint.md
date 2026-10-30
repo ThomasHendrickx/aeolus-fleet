@@ -1,6 +1,6 @@
-# Aeolus: product and domain architecture (v0)
+# Aeolus: product and domain architecture
 
-Owner: Thomas Hendrickx. Last updated 2026-10-21.
+Owner: Thomas Hendrickx. Every fixed time, size and count named here is in [timings and limits](timings-and-limits.md).
 
 ## Purpose
 
@@ -9,14 +9,14 @@ Aeolus is the dumbest possible layer between agents: it knows which ships exist 
 It makes exactly two promises:
 
 1. **Fleet snapshot.** At any moment you can see every ship in the fleet: its name, what type it is, where it runs, how long it has been sailing, whether a session crews it, when that session last called the fleet and what it last reported.
-2. **Guaranteed communication.** Any ship can reach any other ship, unless the fleet's network rules say otherwise (decision 0034). No message is ever lost. A sender never gets an OK for a message that is lost or can never be delivered automatically. If the receiver is down, the message waits until that ship, or a new session crewing it, picks it up. A delivery is handed again until a session acknowledges it; one that fails five times is kept and shown on Health, where the operator resends or dismisses it, so a poison message never loops forever. Every other delivery needs no human: a human setting flags or passing message ids by hand is a failure of this promise, and the operator is not the fail-safe. Acknowledged means received. Aeolus distributes messages and takes no part in execution, so it has no knowledge of what handling a message looks like and does not verify it: what the ship does next is its own business.
+2. **Guaranteed communication.** Any ship can reach any other ship, unless the fleet's network rules say otherwise (decision 0034). No message is ever lost. A sender never gets an OK for a message that is lost or can never be delivered automatically. If the receiver is down, the message waits until that ship, or a new session crewing it, picks it up. A delivery is handed again until a session acknowledges it; one that uses its last attempt is kept and shown on Health, where it is resent or dismissed, so a poison message never loops forever. Every other delivery needs no human: a human setting flags or passing message ids by hand is a failure of this promise, and the operator is not the fail-safe. Acknowledged means received. Aeolus distributes messages and takes no part in execution, so it has no knowledge of what handling a message looks like and does not verify it: what the ship does next is its own business.
 
 What Aeolus deliberately is not:
 
 - **Not an orchestrator.** It never decides who does what. Coordination is done by ships.
 - **No policy.** Aeolus enforces scopes exactly and adds no rules of its own. What a scope allows is allowed; weighing the risk is the operator's call, not Aeolus's (decision 0016): "else it would be us guessing and putting a security stamp on it." Organisation rules belong to the organisation.
-- **Content-blind.** Payloads are opaque. Aeolus never reads, interprets or changes them. A sealed fleet stores them sealed under the company's own key (decision 0068).
-- **Ship-agnostic.** It has no idea what a ship does. What happens on board is defined by the ship's class and the session crewing it.
+- **Content-blind.** Payloads are opaque. Aeolus never reads, interprets or changes them. A sealed fleet stores them sealed under its company key (decision 0068).
+- **Ship-agnostic.** It has no idea what a ship does. What happens on board is defined by the session crewing it.
 - **Harness-agnostic.** Claude Code, Codex or any other agent runtime can crew a ship, as long as it speaks the ship contract.
 - **Not tied to Tiphys or any other workload.** Zero dependencies on any ship type.
 
@@ -24,13 +24,13 @@ Distribution: an open-source npm package plus configuration. Anyone can run thei
 
 ## Principles
 
-Thomas's direction of 17 Oct 2026, beside the promises above, each with its decision record.
+Beside the promises above, each with its decision record.
 
 - One organisation, many actors, across its fleets: humans, apps and agents in one network. Not the solo developer space (0043, 0050).
 - Remove the human as the glue: "humans still gate and steer on the critical points" (0038, 0045).
 - Everything that sends or receives messages is a ship, people, apps and outside parties included: "One network to connect all." (0044, 0057)
 - Every call is authorised for an actor (a ship, an account or the installation) by scopes and reach, and every event names that actor. An agent ship can hold any scope any actor holds, so an AI can manage the fleet (0057).
-- Nothing is argo's alone. A message that reaches argo is a failing of the system, but it is visible through argo: argo is where a system failure becomes visible and where the way out is, never a normal path; a design that routes ordinary work to argo is wrong (0053, 0057).
+- Nothing is argo's alone: argo is where a system failure becomes visible and the way out, never a normal path; a design that routes ordinary work to argo is wrong (0053, 0057; Access).
 - Be true to what a ship is, of kind person, app or agent: "we need to be true on what it is." (0044)
 - Core is the fleet server, its API and argo's admin console, nothing more. Human interfaces and plugin pages live outside core (0043).
 - Level 3 MCP and A2A, both directions, is the end state, "soon rather than late" (0048).
@@ -41,14 +41,12 @@ Thomas's direction of 17 Oct 2026, beside the promises above, each with its deci
 - A human is always responsible: every ship has an owner who maintains it, like an application owner. "we don't introduce process due to process": it grows where needed (0045).
 - Force means act now (0040).
 
-## v1 scope
+## Baseline
 
-The v1 acceptance criterion: two ships exchange messages back and forth through the fleet. Everything else is v2 or later.
-
-| Topic | v1 decision |
+| Topic | Rule |
 | --- | --- |
-| Packages | Three npm packages: `@aeolus-fleet/core`, `@aeolus-fleet/console` and `@aeolus-fleet/common`. The server exposes one tRPC API that the web app uses directly; ships reach the same procedures through a remote MCP endpoint or generated REST, so a session connects without installing anything. Your Hetzner setup lives in a separate private infra repo. `ship-sdk` and `cli` come later |
-| Leases | A session that registers holds the lease indefinitely. Only operator release or the ship's own `deregister` ends it. No heartbeats. The one exception is `argo`: signing in takes its lease over |
+| Packages | Core's release train: `@aeolus-fleet/core`, `@aeolus-fleet/console` and `@aeolus-fleet/common`; squadrons, the trierarch plugin, the trierarch and the gateway are trains in their own repositories (0049). The server exposes one tRPC API that the web app uses directly; ships reach the same procedures through a remote MCP endpoint or generated REST, so a session connects without installing anything. Deployment is in docs/architecture.md |
+| Leases | A session that registers holds the lease until it ends: released (by an actor with manage reach, a person's own ship, or its trierarch with `crew:run`), recrewed, retired, released when its person's account is cut off (0055), or deregistered by the crew. No heartbeats. The one exception is `argo`: signing in takes its lease over |
 | Pickup | The fleet does not care when, how or whether a ship picks up a message. It guarantees only that the message is always available |
 | Signing in as argo | An account an organisation admin allows, by a sign-in ticket from pagasae that names it; or, where no pagasae runs, argo's own sign-in: a one-use link the terminal prints (`fleet:init`, `aeolus-core sign-in`), and an email and password argo may set in Settings (0054). Signing in crews `argo`; `argo` has no secret and cannot be claimed any other way |
 | Scopes | Every ship has scopes, stored on the server with the ship, never carried by it: what a ship may do. Reach says where (decision 0034). The catalogue, granting and plugin namespaces are decision 0046 |
@@ -70,11 +68,11 @@ Every fleet has exactly one operator ship, named `argo`. The web console is how 
 | Kind and scopes | `argo` is the only ship of kind `operator` and holds every scope; the other kinds are in decision 0044 |
 | Signing in | An account allowed to sign in as argo, with a sign-in ticket from pagasae, or argo's own sign-in, gets a session cookie. The console sign-in names its account, or says it is argo's own sign-in; every event argo's calls write carries it. That session holds `argo`'s lease. The console is `argo`'s crew, so `argo` shows Crewed whether or not anyone is signed in. `register` with a secret is refused for `argo` |
 | One session at a time | Signing in ends any other operator console session and takes `argo`'s lease over; viewer sessions and accounts' sign-ins run on. Its in-flight deliveries return to pending, so the new session receives them again |
-| Accounts in the console | Where pagasae runs, a human signs in to the console as their own account through pagasae's shared sign-in, with no lease: many at once, each seeing what its token's scopes allow. Compose, Done and Reply stay argo's. It reads the notices and the guide for accounts, its dismissals and progress kept by its account id, and its theme stays in the browser. An account with rights but no `fleet:read` sees Nothing to manage here; one with none is told to ask an organisation admin. An account allowed as argo signs in as argo from the avatar menu or the sign-in page, told first whom that signs out of argo; a banner says it is signed in as argo, and Sign out of argo returns it to its account. The console renews the token two minutes before it ends, with the shared sign-in, and live updates go on; a change of rights shows at that renewal. While pagasae does not answer the console says "Can’t reach the sign-in service. Retrying." and works until the token ends; a sign-in that ended says "Your sign-in ended." and signs in again back to the same page. Signing out ends the shared sign-in in every app (0054), and every console sign-in as argo the account opened; one another account holds stays. Only an account allowed as argo reads who holds argo; reaching argo is unchanged |
+| Accounts in the console | Where pagasae runs, a human signs in to the console as their own account through pagasae's shared sign-in, with no lease: many at once, each seeing what its token's scopes allow. Compose, Done and Reply stay argo's. It reads the notices and the guide for accounts, its dismissals and progress kept by its account id, and its theme stays in the browser. An account with rights but no `fleet:read` sees Nothing to manage here; one with none is told to ask an organisation admin. An account allowed as argo signs in as argo from the avatar menu or the sign-in page, told first whom that signs out of argo; a banner says it is signed in as argo, and Sign out of argo returns it to its account. The console renews the token shortly before it ends, with the shared sign-in, and live updates go on; a change of rights shows at that renewal. While pagasae does not answer the console says "Can’t reach the sign-in service. Retrying." and works until the token ends; a sign-in that ended says "Your sign-in ended." and signs in again back to the same page. Signing out ends the shared sign-in in every app (0054), and every console sign-in as argo the account opened; one another account holds stays. Only an account allowed as argo reads who holds argo; reaching argo is unchanged |
 | Setting the email and password | argo's own sign-in only, where no pagasae runs: argo, signed in to the console, sets its email and password together in Settings, after its current password while it has one. The email is the user name, unique across the installation. The old ones stop working; the session that set them stays |
-| A link from the terminal | argo's own sign-in: `fleet:init` prints a console link that signs in as argo, one use, valid 15 minutes; `aeolus-core sign-in` prints a fresh one at any time. A used or expired link says how to get a new one |
+| A link from the terminal | argo's own sign-in: `fleet:init` prints a console link that signs in as argo, one use, short-lived; `aeolus-core sign-in` prints a fresh one at any time. A used or expired link says how to get a new one |
 | Forgotten password | argo's own sign-in only: a server command resets it and ends argo's console sign-in; without a password, a link from the terminal signs in |
-| The fail-safe | A message that reaches argo is a failing of the system, but it is visible through argo. argo is where a system failure becomes visible and where the way out is, never a normal path: the owner of a ship with no other, the way out for a ship that does not know what to do, permanent, with reach that is never off (0057) |
+| The fail-safe | The owner of a ship with no other and the way out for a ship that does not know what to do, permanent, with reach that is never off (Access, 0057) |
 | Inbox | Messages to `argo` are the operator inbox. Opening one marks it read; Reply or Mark done acknowledges it |
 
 ### The viewer ship (`viewer`)
@@ -89,7 +87,7 @@ A fleet the installation creates with a viewer has one viewer ship, named `viewe
 | Always crewed | Its status is always Crewed. It is never pinged and never stuck |
 | Receives nothing | A send to it is refused, and so is a send to its type while no other ship has that type |
 | Signing in | A viewer ticket from the hosting service starts a viewer session, with a session cookie. Many run at once; none holds a lease, so none takes another over, and the operator signing in ends none |
-| Expiry | A viewer session is valid 2 hours after its last use and 24 hours after it started at most. It ends then, when the viewer signs out (that session only), or with its fleet |
+| Expiry | A viewer session is valid for a while after its last use, and for at most a fixed time after it started. It ends then, when the viewer signs out (that session only), or with its fleet |
 | Account | A viewer session's account has its device and when it started; no email and no theme |
 | Console | A viewer session's console shows every page it reads and none of its writes: each write is removed, never disabled, unless the session's scopes allow it. The account menu names the viewer, reading only, with no theme switch and no link to a hosted account, and keeps Sign out |
 | In the fleet | The viewer ship shows its viewer chip, no device and no report, and offers only Copy ship id. It was last seen when its most recent viewer session was used |
@@ -120,10 +118,13 @@ The operator runs the fleet: commissions ships, watches it sail, answers what re
 
 | Job to be done | What Aeolus gives them |
 | --- | --- |
-| Know what is sailing right now | Live fleet view: every active ship with name, type, location, uptime, last activity and inbox depth; the retired ones only when the status filter asks for them, as `fleet.list` answers them. Above it, three counts, each opening what it counts: the active ships crewed (agent ships not retired; argo and the viewer ship are the console's own), the ships awaiting crew with the one that has waited longest (since its commission, or since its last session ended: a released ship awaits crew again, with no status of its own), and the stuck deliveries with since when the oldest waits (decision 0042) |
+| Know what is sailing right now | Live fleet view: every active ship with name, type, location, uptime, last activity and inbox depth; the retired ones only when the status filter asks for them, as `fleet.list` answers them |
+| See at a glance what needs a hand | Three counts above the fleet view, each opening what it counts: crewed, the active agent ships with a crew (argo and the viewer ship are the console's own and not counted) |
+| | Awaiting crew, with the ship that has waited longest, since its commission or since its last session ended (a released ship awaits crew again, with no status of its own) |
+| | Stuck deliveries, with since when the oldest waits (decision 0042) |
 | Put a new ship to sea without setup work | Create a ship in the web app, get a ready-to-paste starting prompt with the ship's id and secret, paste it into any session anywhere |
-| Trust that nothing falls through the cracks | Per-message delivery state, an undeliverable queue for deliveries that failed five times, no manual step for any other delivery (alerts for silent ships come later, with heartbeats) |
-| Talk to any ship, type or group | Send a message from the web app, exactly as a ship would |
+| Trust that nothing falls through the cracks | Per-message delivery state, an undeliverable queue for deliveries that used every attempt, no manual step for any other delivery |
+| Talk to any ship or type | Send a message from the web app, exactly as a ship would |
 | Answer what agents escalate | Personal inbox: questions and approvals addressed to the operator, with the thread to decide from. Opening marks a message read; Reply or Mark done acknowledges it |
 | Understand what happened | Timeline per ship and per message thread: every send, delivery, acknowledgement and state change |
 | Stay in control | Release a ship (the session loses it and its secret stops working), get a fresh starting prompt whenever you are ready to crew it, re-crew a crewed ship whose session is gone (release it and get a fresh starting prompt in one step), retire a ship (confirm for a clean inbox, type the ship's name when unprocessed messages remain) |
@@ -135,10 +136,11 @@ An agent session crews exactly one ship at a time. It experiences Aeolus only th
 | Job to be done | What Aeolus gives them |
 | --- | --- |
 | Come aboard and be reachable | `register`: claim a ship with its id and secret, saying where the session runs and in which harness, get the inbox that belongs to it |
-| Prove it is still alive (later, not v1) | `heartbeat`: keeps the ship's lease and its entry in the fleet snapshot fresh |
 | Get work and messages | `receive`: pull the next deliveries, including everything that arrived while no session crewed the ship. Each is handed to the crew at once, one attempt per receive. On a pushed ship the agent never receives: its messages come into its turn by themselves (decision 0040) |
-| Know when work waits, without taking it | `inbox`: how many deliveries the next `receive` would hand the crew, and how many of them are forced and not handed over yet (0040), waiting up to 25 seconds while there are none. Given the count the crew already knows (`knownWaiting`), it waits instead while the count is still that, and answers as soon as it differs, up or down. Claims nothing, so a watcher can ask as often as it likes and wake the session only when work waits |
-| Reach any other ship or the operator | `send`: address a ship by id or name, any ship of a type, or later a group, stating the model the session runs, get an OK only once the message is durably stored |
+| Know when work waits, without taking it | `inbox`: how many deliveries the next `receive` would hand the crew, and how many of them are forced and not handed over yet (0040), waiting a while when there are none. Given the count the crew already knows (`knownWaiting`), it waits instead while the count is still that, and answers as soon as it differs, up or down. Claims nothing, so a watcher can ask as often as it likes and wake the session only when work waits |
+| Reach any other ship or the operator | `send`: address a ship by id or name, any ship of a type, a label selection or a meeting (the Selector term), stating the model the session runs, get an OK only once the message is durably stored |
+| Talk with several ships at once | Meetings: `openMeeting`, then the mic calls (`requestMic`, `withdrawMicRequest`, `releaseMic`, and for the moderator `giveMic`, `takeMic`, `setMicPattern`), and the owner's calls (`addToMeeting`, `revokeFromMeeting`, `transferMeeting`, `nameModerator`, `endMeeting`); `leaveMeeting` and `rejoinMeeting`; `meeting` reads it (decision 0061) |
+| Send later or on a rhythm | Schedules: `schedule`, `schedules`, `pauseSchedule`, `resumeSchedule`, `cancelSchedule`; core sends each send time as the ship (decision 0062) |
 | Find who it can work with | `discover`: the ships and types it can send to now, each ship with its name, type, kind, status, statement and verified facts (decisions 0047, 0059) |
 | Say what its ship is and offers | `setStatement`: a summary and capabilities, read by the ships that can send to it and by the ships holding `fleet:read` that read it (decision 0047) |
 | Say what it is doing | `report`: working, blocked or idle, with a short note, and optionally its details for structured status. The console and anyone with `fleet:read` who reads the ship (decision 0034) see it; calling it again with the same state, note and details still counts as a report |
@@ -151,29 +153,32 @@ What an agent never has to do: poll other agents, know their location, retry by 
 
 Two questions decide whether an actor (a ship, an account or the installation, 0057) may do something: may it do this at all, and may it do it to that ship? A scope answers the first, reach the second. A call needs both.
 
-**Scopes say what.** A scope such as `messages:send` or `fleet:commission` is a permission stored with the ship on the server, or carried in an account's token that pagasae signs (0058), never carried by a message. Every agent, person and app ship can send and receive. Everything else is granted: by whoever commissions the ship, or later on the live ship by a ship holding `scopes:grant`. A ship grants only scopes it holds itself, so no ship widens its own access. Plugins add scopes of their own, such as `squadrons:form`, and enforce them themselves. The fleet defines its own too, in the company's words, such as `crm:read-leads`, for whoever enforces them, such as the gateway on a tool call. The full list, with what each scope allows and where it applies, is decision 0046.
+**Scopes say what.** A scope such as `messages:send` or `fleet:commission` is a permission stored with the ship on the server, or carried in an account's token that pagasae signs (0058), never carried by a message. Every agent, person and app ship can send and receive. Everything else is granted: by whoever commissions the ship, or later on the live ship by a ship holding `scopes:grant`; a plugin declares its own namespace with `scopes:declare`. A ship grants only scopes it holds itself, so no ship widens its own access. Plugins add scopes of their own, such as `squadrons:form`, and enforce them themselves. The fleet defines its own too, in the organisation's words, such as `crm:read-leads`, for whoever enforces them, such as the gateway on a tool call. The full list, with what each scope allows and where it applies, is decision 0046.
 
 **Reach says where.** Reach is set by network rules. Each rule names one verb, send, read or manage, and says that the ships matching one selector may do it to the ships matching another. A selector picks ships by their labels or their owner, never by their type, and an account by the `group` values in its account token. Rules only allow: when no rule matches, the call is refused.
 
 - Send: sending a message, and with it a forced send and discovering who it can send to.
 - Read: what a ship sees with `fleet:read`. A ship outside its read reach shows only its name, type and status. Resending a stuck message needs read reach too.
-- Manage: renaming, releasing, recrewing, retiring and pinging a ship, and requesting its crew.
+- Manage: renaming, releasing, recrewing, retiring and pinging a ship, getting its starting prompt, requesting its crew, clearing its worktree, and listing, pausing and cancelling its schedules.
 
-**Owners.** Every ship except argo and the viewer has an owner: a person's ship, or argo. Its questions, gates and reported trouble go to its owner. The owner reaches the ships it owns by every verb. A person ship owns itself and what it commissions; a ship an account commissions is owned by the account's person ship. An actor holding `fleet:owner` changes an owner, within its manage reach (0053).
+**Owners.** Every ship except argo and the viewer has an owner: a person's ship, or argo. Its questions, gates and reported trouble go to its owner. The owner reaches the ships it owns by every verb. A person ship owns itself and what it commissions; a ship an account commissions is owned by the account's person ship; any other ship's commission gives it the commissioner's owner, argo by default. A plugin's ship holding `fleet:on-behalf` names the ship that asked, whose owner the new ship gets, or the gateway names an app ship's owner (0045). An actor holding `fleet:owner` changes an owner, within its manage reach (0053).
 
 **The built-in rules.** Every fleet starts with a few rules of its own, shown first in the rule list (decision 0034 has their exact terms):
 
 - argo reaches every ship, and every ship can send to argo.
 - An owner reaches the ships it owns.
 - A ship can always answer the message it was sent.
-- The viewer reads every ship, until argo turns that off.
+- A ship of kind plugin reads every ship.
+- The participants of a meeting reach each other (0061).
+- The viewer reads every ship, until an actor holding `fleet:network` turns that off.
+- The installation manages person ships and what they own.
 - Open: every ship reaches every ship, by every verb, while the fleet has no rules of its own applied. Once rules are applied, open is off: the fleet's rules, and the rules ships declare on their own labels, decide.
 
-**Changing the rules.** Any actor holding `fleet:network` edits the fleet's rules as a draft, sees what the draft gains and loses per verb and the reach it would give a ship, and then applies it. Nothing is checked against the draft, so someone working on the rules sees what breaks before it breaks (0035).
+Every built-in rule but the viewer reading and open is never off, so argo can never be locked out and a sender always gets its answer.
 
-The first three are never off, so argo can never be locked out and a sender always gets its answer.
+**Changing the rules.** Any actor holding `fleet:network` edits the fleet's rules as a draft, sees what the draft gains and loses per verb and the reach it would give a ship, and then applies it. Nothing is checked against the draft, so someone working on the rules sees what breaks before it breaks (0035). The applied rules and the labels they use export as one file, which a check and an import read back into this fleet or another, filling its draft (0035, docs/design/network-io).
 
-**argo is the fail-safe.** argo holds every scope and reaches every ship by a rule that is never off, so a fleet can always act; any other actor may hold every scope too. Nothing is argo's alone: commissioning a person ship (`fleet:person`), changing an owner (`fleet:owner`), explaining reach and reading refusals (`fleet:explain`), connecting a plugin (`fleet:connect`) and assigning any label (`labels:any`) are scopes, granted like any other, and a plugin's page checks the actor's scopes, not whether it is argo (0053). A grant, a change of owner and every manage call are checked against manage reach on the target. A commission grants only scopes the commissioner holds and gives only label values it defined or carries, so a new ship never reaches further than its commissioner can make it. A refused caller learns only that it was refused, so a refusal never maps the rules.
+**argo is the fail-safe.** A message that reaches argo is a failing of the system, visible through argo. argo holds every scope and reaches every ship by a rule that is never off, so a fleet can always act; any other actor may hold every scope too. Nothing is argo's alone: commissioning a person ship (`fleet:person`), changing an owner (`fleet:owner`), naming a new ship's owner (`fleet:on-behalf`), explaining reach and reading refusals (`fleet:explain`), connecting a plugin (`fleet:connect`), assigning any label (`labels:any`), resending and dismissing (`messages:resend`), the sealing keys (`fleet:keys`) and verified facts (`fleet:verify`) are scopes, granted like any other, and a plugin's page checks the actor's scopes, not whether it is argo (0053). A grant, a change of owner and every manage call are checked against manage reach on the target. A commission grants only scopes the commissioner holds and gives only label values it defined or carries, so a new ship never reaches further than its commissioner can make it. A refused caller learns only that it was refused, so a refusal never maps the rules.
 
 **A worked example.** An organisation wants Charlotte and Thomas, but not Burak, to use its CRM, and gives Charlotte an agent that writes PRDs.
 
@@ -205,7 +210,7 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Operator | The human who signs in as argo, with their own account or by argo's own sign-in; there is no operator account | core |
 | Sign-in | A human logging in: console sign-in (as argo, as the viewer, or as their account), pagasae sign-in, gateway sign-in. Not a session | core, pagasae, gateway |
 | argo's own sign-in | Core's way to sign in as argo with no organisation: a one-use link the terminal prints, and an optional email and password. The one-line self-hosted setup, and a way in that depends on nothing. Not an account | core |
-| Sign-in ticket | One use, for a console sign-in: from the hosting service, 2 minutes, as argo or as the viewer (a viewer ticket) (0020, 0022); on a self-hosted server, from `fleet:init` or `aeolus-core sign-in`, 15 minutes, as argo, inside a sign-in link (0012) | core |
+| Sign-in ticket | One use and short-lived, for a console sign-in: from the hosting service, as argo or as the viewer (a viewer ticket) (0020, 0022); on a self-hosted server, from `fleet:init` or `aeolus-core sign-in`, as argo, inside a sign-in link (0012) | core |
 | Sign-in link | A one-use link that signs a human in: pagasae mails one to sign an account in (0054); on a self-hosted server, `fleet:init` and `aeolus-core sign-in` print one carrying a sign-in ticket for argo (0012) | pagasae, core |
 | Link | Joining an account to a person ship, so the human acts as that ship, or to a trierarch's app ship, whose computer is that human's. Not connect | to build |
 
@@ -219,8 +224,8 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Fleet | core's tenant: one set of ships, messages and history; every record has `fleet_id` (0007). Not an organisation | core |
 | Ship | A durable, addressable actor with an inbox; outlives any session. Everything that sends or receives messages is a ship. Has a name, type, kind, scopes, owner and status | core |
 | Ship id | `shp_…`, with its fleet's `flt_…` the public reference `{ shipId, fleetId }` | core |
-| Ship name | A handle: lowercase letters, digits, hyphens, colons (a prefix groups, as in `hemma:planner`), at most 48; unique among active ships, reusable after retirement; a rename never redirects a sent message | core |
-| Ship type | Free text (`reviewer`) for addressing, never interpreted. Not a kind | core |
+| Ship name | A handle: lowercase letters, digits, hyphens, colons (a prefix groups, as in `hemma:planner`), of limited length; unique among active ships, reusable after retirement; a rename never redirects a sent message | core |
+| Ship type | A handle with the ship name's rule (`reviewer`), shared by any number of ships, for addressing, never interpreted. Not a kind | core |
 | Kind | What a ship is, by lifecycle, never by power: rights come only from scopes (0044) | core |
 | operator | Kind of argo alone, crewed by the operator's sign-in | core |
 | viewer | Kind of the viewer alone | core |
@@ -243,7 +248,7 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | --- | --- | --- |
 | Crew | What holds a ship's lease: an agent session, a person's app, an app's adapter, argo's or the viewer's console sign-in | core |
 | Session | One agent run crewing a ship; replaceable, a new one inherits the inbox. Not a human's sign-in | core, trierarch |
-| Lease | One crew's exclusive right to a ship until release or deregister; argo's sign-in takes argo's over (0010) | core |
+| Lease | One crew's exclusive right to a ship until it is released, recrewed, retired or deregistered; argo's sign-in takes argo's over (0010) | core |
 | Last seen | When the crew last called the fleet; observation only | core |
 | Register | Claim a ship with its id and secret, stating location and harness; answers the crew token once | core |
 | Deregister | The crew ends its lease and the secret; ship and inbox stay | core |
@@ -255,8 +260,8 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Location | Where the session runs: `DEVICE`, `CLOUD`, `SERVER`, or `OTHER` with a description; never interpreted | core |
 | Harness | What the session runs in: free text, known `claude-code`, `claude-chat`, `codex`, `copilot`; read with the location (0018) | core |
 | Model | The exact model id stated on every agent send, or `auto` when the harness chooses the model per request, never on a ping or resend; self-reported, the last stated is the ship's (0018) | core |
-| Report | A crew's latest word: working, blocked or idle, a note of at most 200 characters, optional details; on the lease (0028) | core |
-| Details | A report's JSON part, at most 16 KB, versioned; its shape per ship type in common (0028) | core |
+| Report | A crew's latest word: working, blocked or idle, a short note, optional details; on the lease (0028) | core |
+| Details | A report's JSON part, size-limited, versioned; its shape per ship type in common (0028) | core |
 | Statement | What a ship is and offers: a summary and capabilities, stated by its crew (0047) | core |
 | Verified fact | A fact an actor checked about a ship, stored as its writer wrote it, naming the writer (0059) | core |
 | Discovery | A ship asking which ships and types it can send to now (0047) | core |
@@ -283,7 +288,7 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Declared rule | A rule a ship declares on labels it defined; in force beside the fleet's own (0037) | core |
 | Network settings | A fleet's applied rules, the viewer reading's switch and a version | core |
 | Draft | The fleet's one draft of its own rules: looked at, then applied or discarded; never checked against (0035) | core |
-| Reach refusal | argo's record of a refused send; the sender learns only that it was refused | core |
+| Reach refusal | The record of a refused send, read with `fleet:explain`; the sender learns only that it was refused | core |
 | Label | A key with defined values (`os`: `macos`, `linux`) for selecting ships; never membership, status, configuration or secrets (0031) | core |
 | Definer | The ship that defined a label: it alone changes, deletes and assigns it, and the label retires with it. Not an owner | core |
 | Label selection | The ships carrying every given label value, exact and AND | core |
@@ -297,8 +302,8 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Delivery | One message to one recipient, with its state: pending, received, handed, acknowledged, handled, not handled, undeliverable, dismissed, abandoned (0040) | core |
 | Acknowledgement | The receiver taking a delivery on receipt; Aeolus distributes, never executes (0001) | core |
 | Forced | A send with `messages:force`: comes first, stopping a busy turn (0040) | core |
-| Undeliverable | A delivery that failed five attempts, kept for argo to resend or dismiss | core |
-| Overdue | A pushed delivery whose 10 or 60 minute clock ran out (0040) | core |
+| Undeliverable | A delivery that used every attempt, kept until an actor holding `messages:resend` resends or dismisses it | core |
+| Overdue | A pushed delivery whose overdue clock ran out (0040) | core |
 | Stuck | A delivery waiting on what only a ship, a crew or the operator can change, one cause each (0042) | core |
 | Inbox | A ship's deliveries; argo's is the operator's | core |
 | Question | A message of `application/vnd.aeolus.question+json` to the asker's owner's ship, open until answered (0038) | ships |
@@ -306,7 +311,7 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Event | The record of a state change, written in its transaction, naming its actor | core |
 | Sealed fleet | A fleet that turned sealing on: it stores no payload readable (0068) | core |
 | Company key | The key in the company's own KMS that wraps a sealed fleet's data keys, named by its reference; core never sees it (0068) | the company |
-| Data key | A 256-bit AES key, `dky_…`, that seals payloads; kept only wrapped, unwrapped only in memory for at most 5 minutes (0068) | core |
+| Data key | A 256-bit AES key, `dky_…`, that seals payloads; kept only wrapped, unwrapped only in memory and briefly (0068) | core |
 | Recovery key | An optional offline key pair the company keeps; core holds its public half and wraps each data key to it too (0068) | the company |
 | Seal, unseal | Encrypt, decrypt a payload with a data key (0068) | core |
 
@@ -329,7 +334,7 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Schedule | A ship's own message, `sch_…`, that core sends at its time as that ship: a whole send input with its timing; active, paused, ended or cancelled (0062) | core |
 | Send time | When a schedule sends: the message carries it on its envelope beside the schedule's id (0062) | core |
 | Refusal strategy | What a refused send time does, the creator's choice: `skip`, `retry` within a retry window, or `pause` (0062) | core |
-| Missed send time | A send time the fleet reaches later than its schedule's grace (5 minutes unless the creator says) (0062) | core |
+| Missed send time | A send time the fleet reaches later than its schedule's grace, a default unless the creator says (0062) | core |
 | Missed strategy | What missed send times do, the creator's choice: `each` sends every one, `once` the latest only, `skip` none (0062) | core |
 
 ### Plugins and the gateway
@@ -369,7 +374,7 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Trierarch plugin | The plugin that brings computers in and assigns crew requests (0030), placing only the fleet's enabled models when the fleet enables any (0063) | trierarch plugin |
 | Computer | The laptop or server a trierarch runs on, labelled from its report. Not "machine" | trierarch plugin |
 | Crew request | Declared state on a ship: keep it crewed with these settings; written by its requester, the trierarch plugin and the assigned trierarch (0029) | core |
-| Crew settings | Harness, workspace, squadron, first prompt and options, at most 16 KB (0027) | core |
+| Crew settings | Harness, workspace, squadron, first prompt and options, size-limited (0027) | core |
 | Assignment | Which trierarch crews a ship, the trierarch plugin's part of the crew request | core |
 | Clear request | A request that a trierarch clear a worktree it kept, by ship and repository (0032) | core |
 | Worktree | A ship's git worktree a trierarch crews it in | trierarch |
@@ -386,7 +391,7 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 
 ## Domain architecture
 
-Three bounded contexts sit behind one API. Each owns its own data and exposes it only through its service interface, never through shared tables.
+Three bounded contexts sit behind one API, with a shared kernel (docs/architecture.md). Each owns its own data and exposes it only through its public interface, never through shared tables.
 
 ```mermaid
 flowchart LR
@@ -401,18 +406,24 @@ flowchart LR
   idn --> db
 ```
 
-The operator and the agents use the same API. The only dependency between contexts is Messaging asking Registry who a selector resolves to, whether a ship is retired, a sender's current name and type, and holding a crew's lease during a receive. The web app owns no domain logic: it reads projections and calls the same operations an agent could.
+The operator and the agents use the same API. Messaging asks Registry who a selector resolves to, whether a ship is retired, a sender's current name and type, and holds a crew's lease during a receive. Identity checks Registry's leases to authenticate a crew and ends them to cut off an account. A retire reaches Identity to revoke the secret and Messaging to leave meetings and cancel schedules; turning a feature flag off asks Messaging whether the fleet is sealed. The web app owns no domain logic: it reads projections and calls the same operations an agent could.
 
 ### Aggregates and invariants
 
 | Context | Aggregate | Invariants |
 | --- | --- | --- |
-| Registry | Label | A key is unique among the fleet's labels. Its values are 1 to 50, each once; keys and values are lowercase letters, digits and hyphens, at most 63 characters. Only its owner changes its values, deletes it, assigns and unassigns its values, on any ship, its own included. A value keeps its id while the label has it. A value a ship carries is never removed, and a label a ship carries a value of is never deleted. A ship carries at most 20 label values; a retired ship carries none. A label retires with its owner, after every assignment of it |
-| Registry | Ship | `argo` exists once per fleet and can never be retired, released or renamed; its name is reserved. Scopes are set when a ship is created. Name is a handle, unique among active ships and reusable after retirement. Renaming is allowed: messages always store the resolved id, so a rename or reuse never redirects a sent message. At most one session holds the lease. A retired ship can never be claimed or addressed again. Status (awaiting crew, crewed, retired) is derived from the lease, never set by hand; `argo` and the viewer ship, the console's own, are always crewed |
+| Registry | Label | A key is unique among the fleet's labels. Its values are 1 to 50, each once; keys and values are lowercase letters, digits and hyphens, at most 63 characters. Only its definer changes its values, deletes it, assigns and unassigns its values, on any ship, its own included. A value keeps its id while the label has it. A value a ship carries is never removed, and a label a ship carries a value of is never deleted. A ship carries at most 20 label values; a retired ship carries none. A label retires with its definer, after every assignment of it |
+| Registry | Ship | `argo` exists once per fleet and can never be retired, released or renamed; its name is reserved. Scopes are set at commission and change only by a grant or revoke checked on manage reach, or with the namespace that declared them. Name is a handle, unique among active ships and reusable after retirement. Renaming is allowed: messages always store the resolved id, so a rename or reuse never redirects a sent message. At most one session holds the lease. A retired ship can never be claimed or addressed again. Status (awaiting crew, crewed, retired) is derived from the lease, never set by hand; `argo` and the viewer ship, the console's own, are always crewed |
 | Messaging | Message | Immutable once accepted. Accepted only if its selector resolves to at least one non-retired ship, and, with network rules set, a rule or a fixed exception lets its sender reach it (decision 0034); otherwise the sender gets a rejection, never an OK. Stored in the same transaction that returns the OK |
 | Messaging | Meeting | One owner and one moderator, both participants; a participant is a ship, never a type, once per meeting; every participant was reached by the owner by send when it joined; only the moderator and the mic's holder contribute; at most one holder, never the moderator, and one request per participant; owner, moderator and holder are present participants; an ended meeting never changes (0061) |
 | Messaging | Schedule | Belongs to the ship that made it and sends only as that ship; its send input never changes; each send time gives at most one message, or a recorded refusal or miss, in the transaction that advances it; a paused schedule sends nothing, and its resume skips the send times passed; a cancelled or ended schedule never sends again (0062) |
-| Messaging | Delivery | Created together with its message, one per resolved recipient (for a `meeting` selector: one per participant but the sender; for a `type` selector: one delivery, handed to the first ship of that type to receive it; if that ship is released before acknowledging, any ship of that type can receive it; with network rules set, only the ships of the type its sender could reach at send time). Leaves `pending` only by acknowledgement, undeliverable, or operator abandon. Handed again by every `receive` of the same crew while it holds it, one attempt each, and redelivered after a lease is lost, until acknowledged, so receivers treat the delivery id as an idempotency key |
+| Messaging | Delivery | Created together with its message, one per resolved recipient (for a `meeting` selector: one per participant but the sender; for a `type` selector: one delivery, handed to the first ship of that type to receive it; if that ship is released before acknowledging, any ship of that type can receive it; with network rules set, only the ships of the type its sender could reach at send time). A receive takes it in flight; a lost lease returns it to pending. It ends only acknowledged, undeliverable (then resent or dismissed), or abandoned by its ship's retire. Handed again by every `receive` of the same crew while it holds it, one attempt each, and redelivered after a lease is lost, until acknowledged, so receivers treat the delivery id as an idempotency key |
+| Registry | Crew request | One per ship, written by its requester; assigned to at most one trierarch, which gives it back or confirms its release; removed with its ship's retire (0029) |
+| Registry | Network settings | One per fleet: the applied rules, or none while open, the viewer reading's switch, the declared rules in force and a version every change moves. One draft, never checked against; apply refuses once the version moved past the one looked at (0034, 0035, 0037) |
+| Registry | Scope namespace | Declared once by one ship; its scopes held only by ships granted them; released, its scopes taken from their holders, when the declaring ship retires. The fleet's own defined scopes belong to the fleet (0046) |
+| Registry | Verified facts | Per ship and writer, stored as the writer wrote them, a limited number each; removed when the ship or the writer retires (0059) |
+| Registry | Feature flag | On or off per fleet, set only by the installation; never off while the fleet uses its feature (0069) |
+| Messaging | Fleet sealing | Off until turned on, then never off. One current data key, replaced by age; every data key wrapped by the company key, and to the recovery key when the fleet has one. A key change or recovery rewraps every data key or changes nothing (0068) |
 | Identity | Ship credential | Only the hash of the secret is stored. At most one valid secret per ship. Releasing the ship or deregistering invalidates it. Getting a starting prompt creates a new secret and invalidates any earlier one, and is only possible while the ship awaits crew. An invalid secret fails on the next `register`; a session already crewing keeps its crew token until the lease ends |
 
 ### Domain events
@@ -431,7 +442,7 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `StatementSet` | Registry | The crew stated what its ship is and offers, or changed it (decision 0047): details hold the lease, the statement's version and how many capabilities, never the statement. The same statement again writes none |
 | `ShipReported` | Registry | The crew's report changed: details hold its state, its note and the version of its details, never the details themselves. A report with the same state, note and details only moves when it was reported, with no event |
 | `OwnerSet` | Registry | A ship got its owner at commission: the owner and how (itself for a person ship, its person-ship commissioner, the commissioning account's person ship, inherited, named by a plugin, argo by default) (decisions 0045, 0057) |
-| `OwnerChanged` | Registry | argo changed a ship's owner, or its owner's ship retired and it fell to argo: the old and new owner and why (decision 0045) |
+| `OwnerChanged` | Registry | An actor holding `fleet:owner` changed a ship's owner, or its owner's ship retired and it fell to argo: the old and new owner and why (decision 0045) |
 | `ScopesDeclared` | Registry | A plugin declared its namespace and scopes: the declaring ship, the namespace, how many scopes (decision 0046) |
 | `ScopesChanged` | Registry | A live ship's scopes were granted or revoked: added, removed, by whom (decision 0046) |
 | `ScopeDefined` | Registry | The fleet defined a scope of its own: the scope, its description, by whom (decision 0046) |
@@ -450,14 +461,14 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `WorktreeClearRequested` | Registry | A ship asked the trierarch to clear a worktree it kept: on the trierarch's ship, details hold the worktree's ship id and repository |
 | `WorktreeCleared` | Registry | The trierarch confirmed a clear request: details hold the worktree's ship id and repository, and the outcome, `removed` or `not-kept` |
 | `WorktreeClearRemoved` | Registry | A clear request went with its retired trierarch: details hold the worktree's ship id and repository |
-| `LabelDefined` | Registry | A label was defined, owned by the ship it names: by that ship itself, or by an import of network rules for the definer it picked, the importer as its actor (decision 0031). Details hold the label id and key, and its values and their ids |
-| `LabelValuesChanged` | Registry | The owner gave its label the values it has now: details hold the label id and key, and the values and their ids |
-| `LabelRetired` | Registry | The label's owner retired, so the label is gone and its key free: details hold the label id and key. Written after a LabelUnassigned for every ship that carried it |
-| `LabelDeleted` | Registry | The owner deleted its label, which no ship carried, so its key is free: details hold the label id and key |
-| `LabelAssigned` | Registry | The owner gave the ship a value of its label, beside the values it carries: details hold the label id and key, and the value id and value |
-| `LabelUnassigned` | Registry | The ship no longer carries the label: its owner took it off, the ship retired, or the label retired. Details hold the label id and key, and the value id and value it carried |
+| `LabelDefined` | Registry | A label was defined, its definer the ship it names: by that ship itself, or by an import of network rules for the definer it picked, the importer as its actor (decision 0031). Details hold the label id and key, and its values and their ids |
+| `LabelValuesChanged` | Registry | The definer gave its label the values it has now: details hold the label id and key, and the values and their ids |
+| `LabelRetired` | Registry | The label's definer retired, so the label is gone and its key free: details hold the label id and key. Written after a LabelUnassigned for every ship that carried it |
+| `LabelDeleted` | Registry | The definer deleted its label, which no ship carried, so its key is free: details hold the label id and key |
+| `LabelAssigned` | Registry | The definer gave the ship a value of its label, beside the values it carries: details hold the label id and key, and the value id and value |
+| `LabelUnassigned` | Registry | The ship no longer carries the label: its definer took it off, the ship retired, or the label retired. Details hold the label id and key, and the value id and value it carried |
 | `ShipRenamed` | Registry | The ship goes by its new name; details hold the name it had and the name it has. Its id, history and session stay |
-| `ShipRetired` | Registry | Unprocessed direct deliveries marked abandoned by operator, id blocked forever |
+| `ShipRetired` | Registry | Unprocessed direct deliveries marked abandoned, id blocked forever |
 | `DeliveryAbandoned` | Registry | One per direct delivery a retire abandoned, written with `ShipRetired`; it stays in the timelines and its sender can see it |
 | `MessageAccepted` | Messaging | Deliveries created, receivers woken; details hold the model the sender stated, and `forced` for a forced send (0040). One per delivery of a contribution, each with its meeting (0061). A scheduled send's names its schedule and send time (0062) |
 | `MeetingOpened` | Messaging | A ship opened a meeting, owner and moderator itself (0061): details hold the meeting and how many participants |
@@ -496,15 +507,15 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `OperatorPasswordReset` | Identity | The old password stops working; every console session ends, and with it `argo`'s lease |
 | `SignInTicketIssued` | Identity | A hosting installation issued a one-time sign-in ticket for the fleet's operator or its viewer ship, or a server command one for the operator, which it prints as a sign-in link; details say which. Redeeming an operator's starts a console session as a password sign-in does |
 | `ViewerSessionStarted` | Identity | A viewer ticket was redeemed: a viewer session started, by the viewer ship; details hold its device |
-| `NetworkRulesSet` | Registry | The fleet's draft was applied, its rules in force from then on (decision 0035); older events wrote it when a networking plugin supplied rules: details hold the version and the number of rules (null for all-to-all), never the rules |
+| `NetworkRulesSet` | Registry | The fleet's draft was applied, its rules in force from then on (decision 0035): details hold the version and the number of rules (null for all-to-all), never the rules |
 | `NetworkRulesDraftSaved` | Registry | The draft of the fleet's rules was saved, in place of the one before (decision 0035): details hold the number of rules (null for all-to-all) and the settings version it was saved against, never the rules |
 | `NetworkRulesDraftDiscarded` | Registry | The draft of the fleet's rules was discarded, the applied rules staying as they were (decision 0035) |
-| `NetworkRulesDeclared` | Registry | A ship or the installation declared the network rules it needs on the labels it owns, withdrew them, or was retired with them (decision 0037): details hold the number of rules (0 when withdrawn) and, once they moved it, the settings version, never the rules |
-| `NetworkPluginRegistered`, `NetworkPluginUnregistered` | Registry | Written no more: a networking plugin registered or unregistered, when one set the rules; the event log keeps them |
-| `BuiltInRuleChanged` | Registry | The viewer reading was turned on or off (decision 0034); older events also turned open for one verb: details hold the rule, the verb for open, whether it is on and the version |
+| `NetworkRulesDeclared` | Registry | A ship or the installation declared the network rules it needs on the labels it defined, withdrew them, or was retired with them (decision 0037): details hold the number of rules (0 when withdrawn) and, once they moved it, the settings version, never the rules |
+| `NetworkPluginRegistered`, `NetworkPluginUnregistered` | Registry | Not written; a timeline still names one a fleet's log holds |
+| `BuiltInRuleChanged` | Registry | The viewer reading was turned on or off (decision 0034): details hold the rule, whether it is on and the version, and a verb when the rule is open |
 | `FleetSealingTurnedOn` | Messaging | The fleet is sealed from now on, under its company key, with its first data key (0068): details hold the key reference and the recovery key's fingerprint, never a key |
 | `FleetPayloadsSealed` | Messaging | The sealing pass left no payload of the fleet stored plain (0068) |
-| `FleetDataKeyCreated` | Messaging | The fleet's current data key was 30 days old and a new one is current (0068) |
+| `FleetDataKeyCreated` | Messaging | The fleet's current data key reached its rotation age and a new one is current (0068) |
 | `FleetCompanyKeyChanged` | Messaging | Every data key of the fleet is wrapped by its new company key (0068): details hold both references |
 | `FleetRecoveryKeyChanged` | Messaging | Every data key of the fleet is wrapped to its new recovery key (0068): details hold both fingerprints |
 | `FleetKeysRecovered` | Messaging | The company recovered the fleet's data keys under a new company key with its recovery key (0068): details hold the new reference |
@@ -513,7 +524,7 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `HistoryPruned` | Messaging | A batch of the hourly pruning pass let the fleet's finished history older than its retention go (0066): details hold the cutoff and how many messages, deliveries, events, overdue rows, leases, credentials, console sessions with their notice dismissals and guide progress, sign-in tickets and reach refusals went |
 | `FeatureFlagTurnedOn` | Registry | The installation turned one of the fleet's feature flags on, or created the fleet with it on (0069): details name the flag |
 | `FeatureFlagTurnedOff` | Registry | The installation turned one of the fleet's feature flags off (0069): details name the flag |
-| `FleetLimitsChanged` | Registry | The installation set how the fleet's ship, daily message, schedules per ship and minimum schedule interval limits and its retention are set: each following the default, or the fleet's own limit or days, or none |
+| `FleetLimitsChanged` | Registry | The installation changed a fleet's limits (ship, daily message, schedules per ship, minimum schedule interval) or its retention: each follows the default, has the fleet's own number, or is none |
 
 ## Key flows
 
@@ -557,7 +568,7 @@ A crash never loses a delivery: an unacknowledged delivery returns to pending un
 
 A hosting service such as pagasae drives the installation with its token (docs/architecture.md, "Installation"); a server without a token has no installation procedures. Each create and delete carries the caller's own request id: a replay under it answers what the first call answered, and a different request under a used id is refused.
 
-1. Create a fleet: a name, whether it has a viewer, and the feature flags it comes with on (0069). The fleet, its `argo`, the installation's scopes in it (0020), with a viewer the viewer ship, and its flags come in one transaction, with their events. Core knows no organisation and keeps no account: who may sign in as argo is pagasae's (0054).
+1. Create a fleet: a name, its operator email, whether it has a viewer, and the feature flags it comes with on (0069). The fleet, its `argo`, the installation's scopes in it (0020), with a viewer the viewer ship, and its flags come in one transaction, with their events. Core knows no organisation and keeps no account: who may sign in as argo is pagasae's (0054).
 2. List the fleets, or get one: its id, name, operator email, when it was created, and its four measures:
    - **Ships:** its ships that are not retired, `argo` included.
    - **Messages:** every message row stored in the fleet in the last 7 days, of any kind and from any sender; the server never looks into messages for it.
@@ -580,10 +591,10 @@ A hosting service such as pagasae drives the installation with its token (docs/a
    - **Minimum schedule interval:** making a repeating schedule is refused when two of its send times come closer than it, in seconds: an every by its duration, a cron by its send times over the next year read in UTC; a once is never checked (0062).
    - **Fleet cap:** creating a fleet is refused once the installation's fleets are at the cap.
 
-   Beside the limits, a default retention in days, set and read the same way: each fleet follows it, or keeps its own number of days, or none, kept for good; unset is kept for good everywhere. A retention is a whole number of days of at least 1. It says how long the fleet keeps its finished history (decision 0066); every fleet manager reads it with the fleet's limits. Once an hour, the fleet's finished messages older than its retention go with their deliveries and events, each batch writing `HistoryPruned`; what is still on its way, an open question and a message a schedule names stay whatever their age. A reply may name a message that is no longer kept; a new reply to it is refused as one to a message not in the fleet. Past the retention, a crew's session and secret events (claims, lease ends, pushes, reports, turns, statements, crew statuses, sign-in tickets issued, viewer sessions started, starting prompts and invalidated secrets) go too, as do ended leases no kept delivery or console session names, invalidated secrets, console sessions ended or expired with their notice dismissals and guide progress, used or expired sign-in tickets and reach refusals. Every other event, a change to the fleet itself, is kept for good, and so is a retired ship. Once a pass has let older history go, the fleet's limits say where its kept history begins, and the console says it under a ship's timeline and its message threads and on Health: the fleet keeps its finished history from then, and older open deliveries stay.
+   Beside the limits, a default retention in days, set and read the same way: each fleet follows it, or keeps its own number of days, or none, kept for good; unset is kept for good everywhere. A retention is a whole number of days of at least 1. It says how long the fleet keeps its finished history (decision 0066); every fleet manager reads it with the fleet's limits. Once an hour, the fleet's finished messages older than its retention go with their deliveries and events, each batch writing `HistoryPruned`; a message is finished once every delivery of it is final (handled, dismissed, abandoned, or acknowledged on a lease that is not open and pushed), it is no open question and no contribution to a meeting still open, and no schedule names it; anything else stays whatever its age. The cutoff is never later than the hour of Health's newest snapshot. A reply may name a message that is no longer kept; a new reply to it is refused as one to a message not in the fleet. Past the retention, a crew's session and secret events (claims, lease ends, pushes, reports, turns, statements, crew statuses, sign-in tickets issued, viewer sessions started, starting prompts and invalidated secrets) go too, as do ended leases no kept delivery or console session names, invalidated secrets, console sessions ended or expired with their notice dismissals and guide progress, used or expired sign-in tickets and reach refusals. Every other event, a change to the fleet itself, is kept for good, and so is a retired ship. Once a pass has let older history go, the fleet's limits say where its kept history begins, and the console says it under a ship's timeline and its message threads and on Health: the fleet keeps its finished history from then, and older open deliveries stay.
 
    Each limit refuses exactly at its boundary, however many calls race for the last place. The console shows the fleet at a limit where the operator acts: Commission says the fleet is at its ship limit, and the overview and Compose say today's message limit is reached and when it resets, each with View limits on the hosted account. While any limit applies, the overview shows the fleet's ships against the ship limit and today's messages against the daily limit, with when it resets, as meters: neutral below a limit, At limit at it, Over limit above it (a limit lowered below use), and No limit for one not set. Under them a line says how long the fleet keeps its finished history, or that it keeps it for good. With no limit and no retention at all, none show.
-4. Sign an account in as argo: the hosting service asks for a sign-in ticket naming the account (one use, valid 2 minutes, stored as its hash) and sends the operator's browser to the console with it. The console redeems it and the session starts exactly as after a password sign-in: it takes argo's lease over and ends any previous session. A used, expired or unknown ticket shows that the sign-in did not go through, with a link back to the hosting service's sign-in. A hosted console never serves a password form: its sign-in page redirects to the hosting service at once, except after a sign-in elsewhere ended the session: then it says so first, with a link to the hosting service's sign-in. A hosted fleet has no argo's own sign-in, and the password reset command refuses it. A viewer ticket, for a fleet with a viewer only, is issued and redeemed the same way and starts a viewer session instead.
+4. Sign an account in as argo: the hosting service asks for a sign-in ticket naming the account (one use, short-lived, stored as its hash) and sends the operator's browser to the console with it. The console redeems it and the session starts exactly as after a password sign-in: it takes argo's lease over and ends any previous session. A used, expired or unknown ticket shows that the sign-in did not go through, with a link back to the hosting service's sign-in. A hosted console never serves a password form: its sign-in page redirects to the hosting service at once, except after a sign-in elsewhere ended the session: then it says so first, with a link to the hosting service's sign-in. A hosted fleet has no argo's own sign-in, and the password reset command refuses it. A viewer ticket, for a fleet with a viewer only, is issued and redeemed the same way and starts a viewer session instead.
 5. Delete a fleet: it is gone for good, in one transaction, with every record in it, which ends its console session and leases. No event survives it (the event log is the fleet's own), so the server logs the delete with the fleet's id, name and operator email. Nothing of the fleet stays behind: the record that answers a replayed delete keeps only the request's hash.
 6. Set notices: the installation sets what the console says above every page (decision 0023), replacing the notices it set before. Each is plain text with optional links, for everyone, for operators, for viewers or for accounts, and dismissible or not. A console sign-in shows the notices of its audience in the installation's order; dismissing one hides it for that session only, or for an account across its sign-ins. A link may sign out first: the session ends, then the browser goes on to the link, or to sign in.
 7. Set the guide: the installation sets one guide (decision 0024) for everyone, for operators or for viewers: steps in order, each on a console page, pointing at an element there, with a title and a text. It opens by itself on the first console page of a session of its audience. Next and Back go from page to page; Skip or Finish hide it for the rest of that session; Take the tour in the account menu opens it again. A step whose element is not on the page shows centred, so its count stays. The session's place in the guide is kept on the server.
@@ -593,15 +604,15 @@ A hosting service such as pagasae drives the installation with its token (docs/a
 
 ### Accounts
 
-The flows of accounts, each with its happy and unhappy paths, are in [docs/design/accounts/phase-2/flows.md](design/accounts/phase-2/flows.md): sign-up, an account joins a group, a group's rights change, an admin acts as their account, gateway sign-in, console sign-in as argo, a trierarch joins for an account, an account is disabled, an outside MCP client waits, a person asks for an outside MCP server, an account token is checked (0051 to 0058).
+The flows of accounts, each with its happy and unhappy paths, are in [the accounts flows](design/accounts/phase-2/flows.md): sign-up, an account joins a group, a group's rights change, an admin acts as their account, gateway sign-in, console sign-in as argo, a trierarch joins for an account, an account is disabled, an outside MCP client waits, a person asks for an outside MCP server, an account token is checked (0051 to 0058).
 
 ### Launch a ship
 
-1. The operator creates a ship in the web app: name, type, optional note.
+1. The operator creates a ship in the web app: name, type, optional note; through the API also its kind (agent unless given, 0044), extra scopes, label values and an owner (0045).
 2. Aeolus generates the ship id and secret, and shows the starting prompt once: the ship's crew instructions for a chat. Beside it, a crew line per harness with the Aeolus Fleet plugin, Claude Code, Codex and Copilot, and where to install the plugin for each. A prompt lost before use costs nothing: the operator gets a new one, which invalidates the lost one. Commissioning takes the caller's own idempotency key, as `send` does, so a retry never creates a second ship: a repeat with the same key and the same request returns the original ship id and its starting prompt state (when it was issued, whether it is claimed), with no secret and no crew lines, and the same key with a different request is refused. A caller that lost the answer and still needs a crew line gets a new starting prompt.
 3. The operator pastes the crew instructions into a chat, or a crew line into Claude Code, Codex or Copilot with the plugin.
 4. The session connects to the fleet, reads the ship protocol it sends (how to crew a ship), calls `register`, gets the lease and a crew token, and the ship shows as Crewed in the snapshot.
-5. From then on the session pulls its inbox with `receive`.
+5. From then on the session pulls its inbox with `receive`; on a pushed ship its computer side takes the deliveries with `pushReceive` and hands them to the agent (0040).
 
 ### Send, receive, acknowledge
 
@@ -613,11 +624,11 @@ The flows of accounts, each with its happy and unhappy paths, are in [docs/desig
 ### Crash recovery
 
 1. A session dies.
-2. The operator releases the ship (in v1 a lease never expires on its own): the session loses the lease, the secret stops working and in-flight deliveries return to pending.
-3. Whenever the operator is ready, they get a fresh starting prompt and paste it into a new session, on the same or any other machine.
+2. A lease never expires on its own. The operator recrews the ship: a release and a fresh starting prompt in one step, never half done; or releases it now and gets a starting prompt later. Either way the session loses the lease, the secret stops working and in-flight deliveries return to pending.
+3. The operator pastes the prompt into a new session, on the same or any other computer.
 4. It registers, inherits the inbox and receives everything that was not acknowledged.
 
-The operator restarting a session is not a recovery step for messages: nothing was lost and nothing needs to be told which ids to redo. Starting sessions automatically is a later concern.
+The operator restarting a session is not a recovery step for messages: nothing was lost and nothing needs to be told which ids to redo. A ship with a crew request is crewed again by its trierarch, with no operator (0029).
 
 ### Operator inbox
 
@@ -625,7 +636,7 @@ The operator restarting a session is not a recovery step for messages: nothing w
 2. The operator opens it, which marks it read. Read is not done: the delivery stays pending, and no event is written. The operator can mark it unread again.
 3. Mark done acknowledges it: the console never receives, so the delivery is handed and acknowledged at once under the console session's lease (`DeliveryHanded`, then `DeliveryAcknowledged`). It moves to Done.
 4. Reply sends a message from `argo` to the sender, plain text unless the console gives another content type, naming the message, and marks it done in the same transaction; the acknowledgement names the reply. Replying to a message already done sends a new message and leaves it done. A reply to a retired sender is refused, and the message stays open.
-5. The inbox lists what waits on the operator first: the open questions on top, oldest first, with how long the oldest has waited (Questions to argo); then the messages, newest first; then the messages from plugin ships (senders of type `trierarch`, `squadrons`, `trierarch-plugin` or `gateway`: every machine's trierarch and the ships the plugins run as), folded into one row that unfolds on a tap and whose Done marks each of them done, as Mark done does one by one. A message's row names its ship, its time, its headline (the first line) and one line of its body, with no id suffix. One count in the navigation holds the open questions and the open messages. The phone filters Open and Done; desktop adds All.
+5. The inbox lists what waits on the operator first: the open questions on top, oldest first, with how long the oldest has waited (Questions to argo); then the messages, newest first; then the messages from plugin ships (senders of type `trierarch`, `squadrons`, `trierarch-plugin` or `gateway`: every computer's trierarch and the ships the plugins run as), folded into one row that unfolds on a tap and whose Done marks each of them done, as Mark done does one by one. A message's row names its ship, its time, its headline (the first line) and one line of its body, with no id suffix. One count in the navigation holds the open questions and the open messages. The phone filters Open and Done; desktop adds All.
 6. A message's page shows its headline as the title, its body rendered, and its thread: the messages it answers and argo's replies. Reply and Done sit in a bar at the bottom of the page; writing a reply turns Done into Send reply.
 
 ### Questions to argo
@@ -639,10 +650,10 @@ The operator restarting a session is not a recovery step for messages: nothing w
 ### Health
 
 1. Health answers whether delivery works, from the stuck deliveries (decision 0042): how many are stuck, in how many places, since when, or Delivering when none is. Beside it the stuck deliveries per hour over 7 days, with a numbered mark at the hour each place's oldest wait began, and the deliveries acknowledged in the last 24 hours with the median from send to acknowledgement.
-2. A card per cause with anything stuck, in this order: no ship can take, waiting for crew, stalled in flight, undeliverable. Each place shows its count, its waits on one log scale from 1 minute to 7 days shared by every card, and one next step on the page where it already lives: commission a ship of the type, get the ship's starting prompt, open the machine (or the ship) of a stall, or resend or dismiss. The navigation counts the stuck deliveries.
-3. Opening a cause shows each place with the facts that explain it (its ship's status and type, when its session or machine was last seen) and its deliveries one by one: the message, how long on the same scale, since when and the state it waits in. Each opens its message.
-4. With the trierarch plugin connected, the machines follow, each with whether its trierarch answers, how many ships it crews and how many deliveries are stuck on them. A harness a machine's trierarch cannot serve (its report's `notOffered`: the harness and why) shows on the machine's row, and on the Trierarchs page beside what the machine offers, as one line: the computer, the harness, the reason, and that it clears itself once the plugin is back; it leaves when the trierarch no longer reports it. With squadrons on, the silent members follow.
-5. A delivery received a fifth time without an acknowledgement becomes undeliverable: the fifth attempt is refused, so nothing is handed. The operator resends it or dismisses it from its cause. Either way the delivery becomes dismissed and stays in the timelines. Abandoned deliveries are never stuck.
+2. A card per cause with anything stuck, in this order: no ship can take, waiting for crew, stalled in flight, undeliverable. Each place shows its count, its waits on one log scale from 1 minute to 7 days shared by every card, and one next step on the page where it already lives: commission a ship of the type, get the ship's starting prompt, open the computer (or the ship) of a stall, or resend or dismiss. The navigation counts the stuck deliveries.
+3. Opening a cause shows each place with the facts that explain it (its ship's status and type, when its session or computer was last seen) and its deliveries one by one: the message, how long on the same scale, since when and the state it waits in. Each opens its message.
+4. With the trierarch plugin connected, the computers follow, each with whether its trierarch answers, how many ships it crews and how many deliveries are stuck on them. A harness a computer's trierarch cannot serve (its report's `notOffered`: the harness and why) shows on the computer's row, and on the Trierarchs page beside what the computer offers, as one line: the computer, the harness, the reason, and that it clears itself once the plugin is back; it leaves when the trierarch no longer reports it. With squadrons on, the silent members follow.
+5. A delivery that reaches its last attempt without an acknowledgement becomes undeliverable: that attempt is refused, so nothing is handed. The operator resends it or dismisses it from its cause. Either way the delivery becomes dismissed and stays in the timelines. Abandoned deliveries are never stuck.
 6. A resend is a retry of the same delivery: a new message with the original's sender, selector, payload, content type and reply, naming the message it resends, so an answer goes back to whoever asked. The event log records the operator as the one who resent it. Resending the same delivery twice gives the same new message. When the selector no longer resolves (the ship is retired, or no ship of the type is left), the resend is refused and only Dismiss remains.
 7. A not handled delivery, whose turn died twice on a pushed ship, is never stuck: it shows on the page of the ship whose crew reported it, with its reason, where the operator resends or dismisses it as an undeliverable one.
 
@@ -650,9 +661,31 @@ The operator restarting a session is not a recovery step for messages: nothing w
 
 1. While the fleet's sealing flag is on (0069), the fleet manager, or any actor holding `fleet:keys`, turns sealing on with a company key in the company's own KMS, AWS KMS first, and optionally a recovery key. The company grants the installation use of its key for this fleet only; a key not bound to the fleet is refused (decision 0068).
 2. From then on core seals every payload it stores and unseals every payload it answers. Ships, the gateway, plugins and the console send and receive plain text as today. Payloads stored before are sealed by a pass.
-3. The company cuts off every read by disabling its key or removing its grant: within 5 minutes every send is refused `KEY_UNAVAILABLE` storing nothing, and every receive claims nothing, its deliveries waiting pending. A read of one payload is refused `KEY_UNAVAILABLE`; a list and a message's page mark each payload they cannot unseal unreadable and answer the rest. The fleet's sealing (`fleet.sealing`) and Health say the key is not reachable, why and since when. Restoring the grant restores everything; nothing waiting is lost.
+3. The company cuts off every read by disabling its key or removing its grant: once the unwrapped data keys run out, every send is refused `KEY_UNAVAILABLE` storing nothing, and every receive claims nothing, its deliveries waiting pending. A read of one payload is refused `KEY_UNAVAILABLE`; a list and a message's page mark each payload they cannot unseal unreadable and answer the rest. The fleet's sealing (`fleet.sealing`) and Health say the key is not reachable, why and since when. Restoring the grant restores everything; nothing waiting is lost.
 4. The console renders a sealed fleet's payload as today, marked sealed, and "sealed, key not reachable" in its place when cut off. In a sealed fleet a ship's page says when the gateway reads its payloads.
 5. Metadata, report notes and details, statements, meeting titles, commission notes and verified facts stay readable: a crew keeps client data out of them.
+6. A new data key becomes current by age; older ones stay to unseal what they sealed.
+7. An actor holding `fleet:keys` moves every data key to a new company key (the old one must answer), or wraps them to a new recovery key (the company key must answer). Nothing is sealed again.
+8. The company key lost: the company reads the fleet's recovery set and runs `fleet:recover-keys` on its own computer with the recovery key's private half; it rewraps each data key under a new company key and uploads the wraps. Every wrap must open, or nothing changes. No private key or data key reaches the server (0068).
+
+### Meetings
+
+1. A ship holding `meetings:open` opens a meeting with its invitees, by ship or label selection, and an optional title. It must reach every invitee by send, or the open is refused and only the refusal is recorded. Each invitee is told by a message from the owner.
+2. A participant requests the mic and contributes with `send` to the meeting while it holds it; the moderator needs no mic, gives and takes it, and sets how a free mic passes. A contribution reaches every other participant, one delivery each; it is no reply and never forced.
+3. A participant leaves and rejoins; the owner adds, revokes, transfers the meeting and names the moderator; the owner or moderator ends it, and an ended meeting never changes.
+4. Refused: a contribution without the mic, to an ended meeting, as a reply or forced; an open or a rejoin outside the owner's reach. The rules are decision 0061; the flows with their unhappy paths are in [the meetings design](design/meetings/meetings.md).
+
+### Scheduled messages
+
+1. A ship makes a schedule: a whole send input and its timing (`once`, `every` or `cron` in a time zone), with a refusal strategy and a missed strategy. Making it is refused at the schedules per ship limit or under the minimum schedule interval.
+2. At each send time core sends the message as that ship, exactly once, checked as a send then: its scopes, reach and limits. A refused send time is recorded and handled by the refusal strategy (skip, retry, pause); send times reached late are handled by the missed strategy.
+3. The ship pauses, resumes and cancels its schedules; an actor holding `fleet:manage` lists, pauses and cancels any ship's, the fail-safe for one that misbehaves. A retire cancels the ship's schedules. The rules are decision 0062; the calls and states are in [the scheduled messages design](design/scheduled-messages/scheduled-messages.md).
+
+### Change the network rules
+
+1. An actor holding `fleet:network` saves the fleet's draft, the whole list, or imports a rules file into it.
+2. It reads what the draft gains and loses per verb and explains reach against the draft; nothing is checked against the draft.
+3. It applies the draft naming the settings version it looked at: in force at the next version, or refused once the settings moved past it, the draft kept. Or it discards the draft. Decision 0035.
 
 ### Ping a ship
 
@@ -669,15 +702,19 @@ The operator restarting a session is not a recovery step for messages: nothing w
 
 ### Retire a ship
 
-1. The operator chooses retire. With a clean inbox: one confirm. With unprocessed deliveries: type the ship's name to confirm.
-2. Its remaining direct deliveries become abandoned by operator. They stay in the audit trail and their senders can see it. Deliveries to its type are never abandoned: other ships of the type can still take them. One already undeliverable stays stuck on Health.
+1. The operator, or any actor holding `fleet:manage` within manage reach, chooses retire. With a clean inbox: one confirm. With unprocessed deliveries: type the ship's name to confirm.
+2. Its remaining direct deliveries become abandoned. They stay in the audit trail and their senders can see it. Deliveries to its type are never abandoned: other ships of the type can still take them. One already undeliverable stays stuck on Health.
 3. The lease and the secret are revoked, and the ship id can never be claimed or addressed again.
 4. Its crew request, if any, is removed (`CrewRequestRemoved`): no one crews a retired ship. A retired trierarch's pending clear requests go too (`WorktreeClearRemoved`, decision 0032).
-5. The labels it owns retire with it: every assignment of each goes (`LabelUnassigned`), then the label (`LabelRetired`), and its key is free. The label values it carries go too (`LabelUnassigned`). Releasing a ship keeps its labels (decision 0031).
+5. The labels it defined retire with it: every assignment of each goes (`LabelUnassigned`), then the label (`LabelRetired`), and its key is free. The label values it carries go too (`LabelUnassigned`). Releasing a ship keeps its labels (decision 0031).
+6. The ships it owns fall to argo (`OwnerChanged`). The network rules it declared are withdrawn (`NetworkRulesDeclared`), and the scope namespace it declared is released, its scopes taken from their holders (`ScopesChanged`). A plugin ship's read ends (`PluginDisconnected`).
+7. It leaves its meetings, and a meeting it owns ends (0061); its schedules are cancelled (`ScheduleCancelled`, 0062); the verified facts about it and by it go (`VerifiedFactsRemoved`).
+
+All of it is one transaction with the retire.
 
 ## Components and deployment
 
-Aeolus ships as an npm monorepo, installed with configuration. v1 runs on a single Hetzner server.
+Aeolus ships as an npm monorepo, installed with configuration. How a fleet is deployed is in docs/architecture.md.
 
 ### Packages
 
@@ -685,16 +722,15 @@ Aeolus ships as an npm monorepo, installed with configuration. v1 runs on a sing
 | --- | --- | --- |
 | `@aeolus-fleet/core` | The Aeolus API (one tRPC router, plus REST and MCP for ships) and the three contexts on Postgres, including migrations | Whoever runs a fleet |
 | `@aeolus-fleet/console` | The operator web app: fleet view, inbox, timelines, controls | The operator |
-| `@aeolus-fleet/common` | Shared schemas, prefixed ids and types | Server, web and later ship clients |
-| `ship-sdk` (later) | The ship contract as a typed client | Sessions crewing a ship |
-| `cli` (later) | Install, configure, create a ship from the terminal, inspect | The operator |
+| `@aeolus-fleet/common` | Shared schemas, prefixed ids and types | Server, web and the other trains |
+
+Squadrons, the trierarch plugin, the trierarch and the gateway are trains in their own repositories (0049).
 
 ### The ship contract
 
 | Call | Does | Guarantee |
 | --- | --- | --- |
 | `register` | Claims the ship with id and secret, reports the session's location, returns a crew token | Fails if another session holds a live lease or the ship is retired. For `argo`, signing in takes the lease over instead |
-| `heartbeat` | Not in v1. Later keeps the lease alive and carries usage numbers | v1: the lease holds until the operator revokes it |
 | `whoami` | Says which ship the caller crews: its id, fleet, name and type | Any caller may ask about itself |
 | `receive` | Returns up to `max` deliveries (the ship chooses 1 to 10, default 1), each with its message and its sender's id, name and type (the name the sender has now, so a crew answers it by name), waiting briefly when the inbox is empty | Every returned delivery stays in flight until acked or the ship is released; a later `receive` by the same crew returns it again, so a lost reply loses nothing |
 | `receiveReply` | Returns the reply to one message the crew names: the oldest delivery whose message has that message as `inReplyTo`, in flight with its lease first, then pending for its ship or its type, waiting briefly when none is there | The same states, attempts and ack as `receive`, one delivery at most; its other deliveries stay where they are; on a pushed lease it hands nothing, as `receive` |
@@ -702,50 +738,40 @@ Aeolus ships as an npm monorepo, installed with configuration. v1 runs on a sing
 | `pushReceive` | For a pushed ship's computer side, never the agent: takes up to `max` deliveries as received, each with its state and last hand-over number, waiting briefly when the inbox is empty; the first one may state what wakes the ship (`waker`) | No attempt counted; its own received and handed ones come back first, unchanged; `shouldSkipHanded: true` leaves handed ones out before the limit while received ones still return; the lease is pushed from then until it ends (decision 0040) |
 | `handed` | The computer side reports it handed a delivery to the agent, with its hand-over number and optionally the channel it used, or handed a confirmed message once more after its turn died (`isOnceMore`) | A higher number counts one attempt; the same or a lower one changes nothing; the fifth attempt answers undeliverable and nothing is handed. Once more counts no attempt, keeps it acknowledged, and comes only once |
 | `handled` | The hooks or the trierarch report the turn that took an acknowledged delivery ended by itself | Only for an acknowledged delivery its crew holds; again changes nothing |
-| `notHandled` | The hooks or the trierarch report the turn a confirmed message was handed once more to died too, with the reason they judged so (one line, at most 200 characters, optional); or a crew reports a delivery it handed and that was not confirmed as unsafe to hand again, such as an outside call that may have run, with the reason (then required) | Only after once more, or on a handed delivery with a reason; it shows on the ship's page with that reason; again changes nothing |
+| `notHandled` | The hooks or the trierarch report the turn a confirmed message was handed once more to died too, with the reason they judged so (one short line, optional); or a crew reports a delivery it handed and that was not confirmed as unsafe to hand again, such as an outside call that may have run, with the reason (then required) | Only after once more, or on a handed delivery with a reason; it shows on the ship's page with that reason; again changes nothing |
 | `ack` | Confirms a delivery is handled | Only the ship holding the delivery can ack it; on a pushed ship the hook acks a received or handed delivery when it comes into the agent's turn |
-| `report` | Says what the crew is doing: working, blocked or idle, a short note and optionally its details, set whole (`details`) or merge-patched (`detailsPatch`) | Kept with the lease; an event only when the state, note or details change; details over 16 KB after the change are refused and nothing is stored (decision 0028) |
+| `report` | Says what the crew is doing: working, blocked or idle, a short note and optionally its details, set whole (`details`) or merge-patched (`detailsPatch`) | Kept with the lease; an event only when the state, note or details change; details over their size limit after the change are refused and nothing is stored (decision 0028) |
 | `discover` | Answers the ships the caller may send to now, checked as a send (decision 0034), each with its name, type, kind, status, statement and verified facts, and per type how many of its ships it reaches; the caller, the viewer and retired ships left out | Needs `messages:send`. Answers ships, never rules, and records nothing. A ship's statement is its crew's while one is stated, else its commission note, saying which (decision 0047). Its verified facts are every writer's, oldest first, each naming its writer and when (decision 0059) |
 | `sentMessage` | For a message the caller sent: where each of its deliveries stands (its state), since when and the ship it went to, one per ship for a label (0065), with its recipient by name, type or the value ids sent to | Needs `messages:send`. The sender's own messages only: another ship's, argo's reads included, is answered as none. No payload comes back |
 | `delivery` | Reads one delivery of the crew's lease again, whole, by its id, as `receive` hands one, with its state: one it acknowledged and is not yet handled, such as a message opened in one client and read again from another | Needs `messages:receive`. Records nothing: no hand-over, attempt, ack or event, so its state, attempts and clocks stay as they were. One of its lease in another state is refused with that state; another ship's, another lease's or an unknown one is answered as none |
-| `setStatement` | States what the crew's ship is and offers: a summary and capabilities, set whole; read through `discover` and, with `fleet:read` within read reach, in the ship read | Kept with the lease, at most 64 KB, versioned with an event on a change; the same statement again changes nothing; it goes when the lease ends |
+| `setStatement` | States what the crew's ship is and offers: a summary and capabilities, set whole; read through `discover` and, with `fleet:read` within read reach, in the ship read | Kept with the lease, size-limited, versioned with an event on a change; the same statement again changes nothing; it goes when the lease ends |
 | `turn` | The hooks or the trierarch report the session's turn, idle or busy, with the time they saw it | Kept with the lease at that time; the same turn again or an older report changes nothing |
-| `inbox` | Says how many deliveries the crew's next `receive` would hand it, and how many of them are forced and not handed over yet (pending, or received and not handed), waiting up to 25 seconds while there are none | Claims nothing |
+| `inbox` | Says how many deliveries the crew's next `receive` would hand it, and how many of them are forced and not handed over yet (pending, or received and not handed), waiting a while when there are none | Claims nothing |
 | `reportLog` | Reads the crew's own report and the last report of the ship's previous crew, details included | No scope beyond being the crew; the previous crew's report is read-only |
 | `pong` | Answers a ping: acknowledges its delivery and marks the lease last seen | Only for a ping delivery the calling ship holds; answering again is OK and changes nothing |
 | `deregister` | Ends the session cleanly, releases the lease and invalidates the secret | Ship and inbox stay; the next session needs a new starting prompt |
+| Meeting calls | `openMeeting`, `meeting`, the mic calls, `addToMeeting`, `leaveMeeting`, `rejoinMeeting`, `revokeFromMeeting`, `transferMeeting`, `nameModerator`, `endMeeting` | Opening needs `meetings:open`, `meeting` `messages:receive`, the rest `messages:send`; each change holds the meeting, so changes take turns (0061) |
+| Schedule calls | `schedule`, `schedules`, `pauseSchedule`, `resumeSchedule`, `cancelSchedule` | Need `messages:send`; a ship reaches only its own schedules (0062) |
 
 Every call after `register` carries the crew token, not the secret: in a header for REST and tRPC, as a tool argument for MCP. The crew token belongs to one session and one lease, and stops working when the lease ends. This is what lets many conversations share one MCP connection while each crews its own ship (decision 0015).
 
 `ack` is part of `receive`'s lifecycle rather than a separate promise. It is listed on its own because the guarantee depends on it.
 
-### Deployment (v1)
-
-| Item | Choice |
-| --- | --- |
-| Server | Hetzner CX23: 2 vCPU, 4 GB, 40 GB, EU location |
-| Stack | Docker Compose: Postgres, `core`, `console`, Caddy for TLS |
-| Backups | Hetzner server backups plus a nightly Postgres dump to a Storage Box |
-| Estimated cost | About €10.30 a month excl. VAT, about €12.50 incl. 21% VAT |
-| Scale path | Resize to CX33 in minutes; split the database to its own server when needed |
-| Access | HTTPS only; crew tokens travel as bearer tokens, ship secrets only to `register` |
-
-Wake-ups use Postgres `LISTEN/NOTIFY`, so a waiting `receive` returns as soon as a message lands, without polling the database in a loop.
+A ship whose scopes allow it also calls the fleet actions over REST and MCP, the procedures the console uses (decision 0004); the list is `FLEET_ACTIONS` in `packages/core/src/adapters/trpc/ship-contract.ts`.
 
 ## Deferred on purpose
 
-v1 proves the fleet sails. Everything below is designed for, with a hook already in v1, and built once the basics are proven.
+Designed for, not built.
 
-| Later | Hook already in v1 |
+| Deferred | What already allows it |
 | --- | --- |
-| Stored ship classes and orders: the fleet prepares a ship from its class, the session fetches its order and sets sail | Ship type label and the generated starting prompt |
-| Commanding ships: a ship class (copied at creation) that grants `argo`-level scopes to sessions that steer the fleet, such as a Claude or ChatGPT chat. `argo` stays the one permanent ship. A ship holding `fleet:commission` can commission others, commanding ships included; that is the operator's risk to take | Scopes stored with the ship at creation; every event records the acting ship; release or retire ends its crew token at once |
+| Stored orders: the fleet prepares a ship from a stored definition, the session fetches its order and sets sail | Ship type and the generated starting prompt |
 | Per-message signing with HMAC-SHA256 | Versioned key format `aeolus_sk_v1_` |
 | Short-lived JWTs for third parties, exchanged for the ship key | Opaque key stays the root credential |
-| Usage and limit tracking for Claude and OpenAI subscriptions | Heartbeat payload can carry usage numbers |
+| Usage and limit tracking for Claude and OpenAI subscriptions | Designed in [the usage design](design/usage/usage.md), not approved |
 
 ## Open decisions
 
-- **Heartbeats and wake-ups.** How a turn-based agent proves it is alive and notices new messages. Deferred: likely a ship class concern, not fleet core.
+- **Heartbeats.** Whether and how a crew proves it is alive, so a silent lease could end on its own. Waking a crew is decision 0040.
 
-Decided since: the operator is the ship `argo`, crewed only through the operator's email and password login; scopes stored on the server; npm organisation `aeolus-fleet` with six published packages (core, console, common, squadrons, trierarch-plugin and trierarch, decision 0008); public HTTPS; payloads at most 64 KB, carrying references rather than content; prefixed ids; Apache-2.0; tenancy built in (every record belongs to a fleet). Technical decisions are recorded in the companion document, Aeolus: solution and technical architecture.
+Technical decisions: docs/architecture.md and docs/decisions/README.md.
