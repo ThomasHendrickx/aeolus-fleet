@@ -32,7 +32,7 @@ export function reportTaskLabel(task: ReportTask, viewerFleetId: FleetId | undef
     const title = `${fleetId} · ${messageId}`;
     const label = fleetId === viewerFleetId ? 'a message' : `a message in ${typeof task.fleetName === 'string' ? task.fleetName : shortenedId(fleetId)}`;
     const path = `/messages/${messageId}`;
-    const href = task.canOpen !== true ? null : fleetId === viewerFleetId ? path : `/sign-in/enter?fleet=${fleetId}&returnTo=${encodeURIComponent(path)}`;
+    const href = task.canOpen !== true || viewerFleetId === undefined ? null : fleetId === viewerFleetId ? path : `/sign-in/enter?fleet=${fleetId}&returnTo=${encodeURIComponent(path)}`;
     return { icon: 'message', label, title, href };
   }
   return { icon: 'unknown', label: 'a task of unknown type', title: `kind: ${task.kind}`, href: null };

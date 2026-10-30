@@ -84,7 +84,7 @@ function holdOneAnswer(page: Page, procedure: string): { reached: Promise<undefi
   const answered = Promise.withResolvers<undefined>();
   let isHolding = false;
   void page.route(
-    (url) => url.pathname.startsWith('/trpc/') && url.pathname.includes(procedure),
+    (url) => (url.pathname.startsWith('/trpc/') || url.pathname.startsWith('/api/reports/')) && url.pathname.includes(procedure),
     async (route) => {
       if (isHolding) {
         await route.continue();
