@@ -151,6 +151,7 @@ describe('the pruning pass', () => {
           guideProgress: 0,
           signInTickets: 0,
           reachRefusals: 0,
+          ships: 0,
         },
       }),
     ]);

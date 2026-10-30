@@ -143,6 +143,8 @@ model Ship {
   note                  String?
   createdAt             DateTime          @map("created_at") @db.Timestamptz(3)
   retiredAt             DateTime?         @map("retired_at") @db.Timestamptz(3)
+  /// When the pruning pass removed it, past the fleet's retention (decision 0070): the row stays a remnant its kept history names.
+  removedAt             DateTime?         @map("removed_at") @db.Timestamptz(3)
   /// The actor that commissioned it, its idempotency key and the request's hash; null for argo.
   /// commissioned_by names the actor: a ship's id, an account's id, or `installation`.
   commissionedByKind    CommissionerKind? @map("commissioned_by_kind")
@@ -197,6 +199,8 @@ model Ship {
   @@index([fleetId, ownerShipId])
   @@index([fleetId, type], map: "ships_type_listing_idx", where: { retiredAt: null })
   @@index([fleetId, kind], map: "ships_kind_listing_idx", where: { retiredAt: null })
+  /// The pruning pass picks the oldest retired ships not removed yet (decision 0070).
+  @@index([fleetId, retiredAt, id], map: "ships_removal_idx", where: raw("((retired_at IS NOT NULL) AND (removed_at IS NULL))"))
   @@map("ships")
 }
 

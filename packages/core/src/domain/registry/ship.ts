@@ -34,6 +34,12 @@ export interface Ship {
   createdAt: Date;
   retiredAt: Date | null;
   /**
+   * When the pruning pass removed it, past the fleet's retention (decision
+   * 0070): a remnant keeps its id, name, type, kind and dates, and stays
+   * retired; its scopes, note, owner and commission are gone. Null until then.
+   */
+  removedAt: Date | null;
+  /**
    * How a ship was commissioned: by which actor, under which of its
    * idempotency keys, and the hash of the request, so a repeat is known.
    * Null for the operator ship, which the fleet's initialisation creates.
@@ -104,6 +110,7 @@ export function operatorShip(input: { id: ShipId; fleetId: FleetId; createdAt: D
     scopes: [...SCOPES],
     note: null,
     retiredAt: null,
+    removedAt: null,
     commission: null,
     owner: null,
   };
@@ -129,6 +136,7 @@ export function viewerShip(input: { id: ShipId; fleetId: FleetId; createdAt: Dat
     scopes: ['fleet:read'],
     note: null,
     retiredAt: null,
+    removedAt: null,
     commission: null,
     owner: null,
   };
@@ -287,6 +295,7 @@ export function commissionShip(
     note: note.value,
     createdAt: at,
     retiredAt: null,
+    removedAt: null,
     commission: input.commission,
     owner: owner.ownerShipId,
   };
