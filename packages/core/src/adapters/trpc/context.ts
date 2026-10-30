@@ -125,6 +125,7 @@ import type { ReadInbox } from '../../domain/shared/read-inbox.js';
 import type { CountOpenInbox } from '../../domain/shared/count-open-inbox.js';
 import type { ReadInboxMessage } from '../../domain/shared/read-inbox-message.js';
 import type { ReadInboxWithdrawals } from '../../domain/shared/read-inbox-withdrawals.js';
+import type { ReadReportTasks } from '../../domain/shared/read-report-tasks.js';
 import type { ReadMessage } from '../../domain/shared/read-message.js';
 import type { ReadMessageDeliveries } from '../../domain/shared/read-message-deliveries.js';
 import type { ReadSentMessage } from '../../domain/shared/read-sent-message.js';
@@ -269,6 +270,7 @@ export interface UseCases {
   readShipTimeline: ReadShipTimeline;
   readShipMessages: ReadShipMessages;
   readMessage: ReadMessage;
+  readReportTasks: ReadReportTasks;
   readMessageDeliveries: ReadMessageDeliveries;
   sentMessage: ReadSentMessage;
   readShipWay: ReadShipWay;

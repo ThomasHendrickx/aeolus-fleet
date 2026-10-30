@@ -32,3 +32,5 @@ export * from './ship.js';
 export * from './statement.js';
 export * from './system.js';
 export * from './verified-fact.js';
+
+export * from './message-task-access.js';

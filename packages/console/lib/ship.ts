@@ -53,7 +53,7 @@ export function useShipMessages(shipId: ShipId) {
 /** One message with its delivery's history; idle while no message is open. */
 export function useMessage(messageId: MessageId | undefined) {
   const trpc = useTRPC();
-  return useQuery(trpc.fleet.message.queryOptions(messageId === undefined ? skipToken : { messageId }));
+  return useQuery(trpc.fleet.message.queryOptions(messageId === undefined ? skipToken : { messageId }, { refetchInterval: LAST_SEEN_REFRESH_MS }));
 }
 
 /** The deliveries of a send to a label, by id, a page at a time; idle while no message is given. */
@@ -61,7 +61,7 @@ export function useMessageDeliveries(messageId: MessageId | undefined) {
   const trpc = useTRPC();
   return pagedListOf(
     useInfiniteQuery(
-      trpc.fleet.messageDeliveries.infiniteQueryOptions(messageId === undefined ? skipToken : { messageId, limit: CONSOLE_PAGE_SIZE }, { getNextPageParam: nextCursorOf }),
+      trpc.fleet.messageDeliveries.infiniteQueryOptions(messageId === undefined ? skipToken : { messageId, limit: CONSOLE_PAGE_SIZE }, { getNextPageParam: nextCursorOf, refetchInterval: LAST_SEEN_REFRESH_MS }),
     ),
   );
 }

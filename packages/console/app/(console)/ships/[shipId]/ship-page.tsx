@@ -78,7 +78,7 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
   const messages = useShipMessages(shipId);
   const message = useMessage(messageId);
   // Only a send to a label lists its deliveries; each other message has one, on its way.
-  const deliveries = useMessageDeliveries(message.data?.recipient.kind === 'label' ? message.data.id : undefined);
+  const deliveries = useMessageDeliveries((message.data?.recipient.kind === 'label' || message.data?.recipient.kind === 'meeting') ? message.data.id : undefined);
   const way = useShipWay(shipId);
   const sealing = useFleetSealing();
   const gateway = useGatewaySettings();

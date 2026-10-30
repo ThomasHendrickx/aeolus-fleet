@@ -15,3 +15,6 @@ export { appliedLimits, type AppliedLimitsTx } from './applied-limits.js';
 export { readsEvent, readsMessage, readsShip, type MessageParties, type ReadReach, type ReadReachOf } from './read-reach.js';
 export { checkFeatureFlag, isFeatureFlagOnForUpdate, requireFeatureFlag, type FeatureFlagOff, type FeatureFlagReads } from './feature-flag.js';
 export type { FeatureFlagRepository } from './ports.js';
+
+export type { ShipReport } from './ship-report.js';
+export { isSameTask } from './report-task.js';

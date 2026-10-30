@@ -147,6 +147,7 @@ import { createReadInbox } from '../../src/domain/shared/read-inbox.js';
 import { createReadInboxMessage } from '../../src/domain/shared/read-inbox-message.js';
 import { createReadInboxWithdrawals } from '../../src/domain/shared/read-inbox-withdrawals.js';
 import { createCountOpenInbox } from '../../src/domain/shared/count-open-inbox.js';
+import { createReadReportTasks } from '../../src/domain/shared/read-report-tasks.js';
 import { createReadMessage } from '../../src/domain/shared/read-message.js';
 import { createReadMessageDeliveries } from '../../src/domain/shared/read-message-deliveries.js';
 import { createReadSentMessage } from '../../src/domain/shared/read-sent-message.js';
@@ -355,6 +356,7 @@ export function historyUseCases(core: InMemoryCore) {
   return {
     readShipTimeline: createReadShipTimeline({ history: core.history, readReach }),
     readShipMessages: createReadShipMessages({ history: core.history, readReach , sealing: core.sealing }),
+    readReportTasks: createReadReportTasks({ history: core.history, readReach }),
     readMessage: createReadMessage({ history: core.history, readReach , sealing: core.sealing }),
     readMessageDeliveries: createReadMessageDeliveries({ history: core.history, readReach }),
     sentMessage: createReadSentMessage({ history: core.history }),

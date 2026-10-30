@@ -1404,7 +1404,7 @@ describe('the ship page reads at the API', () => {
       delivery: { state: 'pending', history: [{ type: 'MessageAccepted' }] },
       deliveryCount: 1,
     });
-    expect(deliveries).toEqual({ items: [{ id: message.delivery.id, ship: { id: argoId, name: 'argo' }, state: 'pending', since: message.sentAt }], nextCursor: null });
+    expect(deliveries).toEqual({ items: [{ id: message.delivery.id, ship: { id: argoId, name: 'argo' }, state: 'pending', since: message.sentAt, progress: null }], nextCursor: null });
   });
 
   it("serve a ship with its crew's statement (decision 0047)", async () => {

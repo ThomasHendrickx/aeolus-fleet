@@ -2228,6 +2228,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
             id: held.id,
             ship: shipId === null ? null : partyOf(fleetId, shipId),
             state: held.state,
+            report: state.leaseReports.find((report) => report.fleetId === fleetId && state.leases.some((lease) => lease.id === report.leaseId && lease.shipId === shipId && lease.endedAt === null))?.report ?? null,
             steps: numbered(fleetId)
               .filter((event) => event.deliveryId === held.id)
               .reverse()
@@ -2242,6 +2243,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         new Map(
           state.deliveries
             .filter((delivery) => delivery.fleetId === fleetId && messageIds.includes(delivery.messageId))
+            .toSorted((first, second) => second.id.localeCompare(first.id))
             .flatMap((delivery) => {
               const message = messageOf(fleetId, delivery.messageId);
               return message ? [[message.id, { senderId: message.senderShipId, recipient: delivery.recipient, claimedBy: delivery.claimedByShipId }] as const] : [];

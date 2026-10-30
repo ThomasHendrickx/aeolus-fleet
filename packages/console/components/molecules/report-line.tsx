@@ -101,7 +101,7 @@ function RowReport({
   return (
     <span data-testid={testId} data-state={report.state} title={title} className="flex min-w-0 items-center gap-1.5 text-meta">
       <StateWord state={report.state} />
-      {report.task === null ? null : <TaskLabel task={report.task} viewerFleetId={viewerFleetId} testId={`${testId}-task`} />}
+      {report.task === null ? null : <TaskLabel task={{ ...report.task, canOpen: report.taskView?.canOpen === true, fleetName: report.taskView?.fleetName ?? null }} viewerFleetId={viewerFleetId} testId={`${testId}-task`} />}
       {report.step === null ? null : <StepText text={reportStepText(report.step, 'row')} testId={`${testId}-step`} />}
       {report.note === null ? null : <span className="min-w-0 truncate text-foreground">{report.note}</span>}
       {isTimeInTitle ? null : (
@@ -123,7 +123,7 @@ function FullReport({ report, now, viewerFleetId, testId }: { report: Report; no
       </span>
       {report.task === null && report.step === null ? null : (
         <span className="flex min-w-0 items-center gap-2">
-          {report.task === null ? null : <TaskLabel task={report.task} viewerFleetId={viewerFleetId} testId={`${testId}-task`} />}
+          {report.task === null ? null : <TaskLabel task={{ ...report.task, canOpen: report.taskView?.canOpen === true, fleetName: report.taskView?.fleetName ?? null }} viewerFleetId={viewerFleetId} testId={`${testId}-task`} />}
           {report.step === null ? null : <StepText text={reportStepText(report.step, 'full')} testId={`${testId}-step`} />}
         </span>
       )}
@@ -139,7 +139,7 @@ function FullReport({ report, now, viewerFleetId, testId }: { report: Report; no
   );
 }
 
-/** The task per kind: a link in a new tab where it has one, muted text otherwise; its title holds the whole URL or the ids. */
+/** The task per kind: a link where the server allows it, URL tasks in a new tab, muted text otherwise; its title holds the whole URL or the ids. */
 function TaskLabel({ task, viewerFleetId, testId }: { task: ReportTask; viewerFleetId: FleetId | undefined; testId: string }) {
   const { icon, label, title, href } = reportTaskLabel(task, viewerFleetId);
   const Icon = TASK_ICONS[icon];
@@ -159,7 +159,7 @@ function TaskLabel({ task, viewerFleetId, testId }: { task: ReportTask; viewerFl
     <a
       data-testid={testId}
       href={href}
-      target="_blank"
+      target={task.kind === 'url' ? '_blank' : undefined}
       rel="noreferrer"
       title={title}
       className={classNames(frame, 'text-foreground underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-ring')}

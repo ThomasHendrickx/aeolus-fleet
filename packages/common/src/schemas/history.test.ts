@@ -263,6 +263,7 @@ describe('messageOutputSchema', () => {
       ],
     },
     deliveryCount: 1,
+    progress: null,
   };
 
   it('accepts the envelope, the payload, its replies and the delivery with its way and its history, newest first', () => {
@@ -345,8 +346,8 @@ describe('shipOutputSchema', () => {
 describe('messageDeliveriesOutputSchema', () => {
   it('accepts a page of the deliveries of a send to a label, a ship each, and a type delivery no ship claimed yet, with the next cursor (decision 0065)', () => {
     const deliveries = [
-      { id: newId('delivery'), ship: planner, state: 'acknowledged', since: AT },
-      { id: newId('delivery'), ship: null, state: 'pending', since: AT },
+      { id: newId('delivery'), ship: planner, state: 'acknowledged', since: AT, progress: null },
+      { id: newId('delivery'), ship: null, state: 'pending', since: AT, progress: null },
     ];
     const page = { items: deliveries, nextCursor: deliveries[1]?.id };
 

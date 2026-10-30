@@ -17,7 +17,7 @@ import {
 } from '@aeolus-fleet/common';
 
 import type { OverdueClock, StoredPayload } from '../messaging/public.js';
-import type { Location, MessageParties } from '../registry/public.js';
+import type { ShipReport, Location, MessageParties } from '../registry/public.js';
 import type { DeliveryStateStep, StandingOverdue, WayCrew, WayLease } from './delivery-way.js';
 import type { EventDetails } from './events.js';
 import type { Page, PageQuery } from './page.js';
@@ -180,6 +180,7 @@ export interface MessageDelivery {
   ship: HistoryParty | null;
   state: DeliveryState;
   steps: DeliveryStateStep[];
+  report: ShipReport | null;
 }
 
 /**

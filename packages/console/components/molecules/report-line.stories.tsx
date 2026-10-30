@@ -52,3 +52,9 @@ export const MessageTaskRow: Story = { args: { report: { ...MERGING, note: 'Draf
 export const MessageInAnotherFleetShipPage: Story = { args: { variant: 'full', report: { ...MERGING, task: REPORT_TASKS.messageInAnotherFleet } } };
 export const UnknownTaskShipPage: Story = { args: { variant: 'full', report: { ...MERGING, task: REPORT_TASKS.unknown, step: null } } };
 export const StepWithoutTaskShipPage: Story = { args: { variant: 'full', report: { ...MERGING, task: null } } };
+
+/** Monitoring W2: a message link comes only from the server's permission decision. */
+export const OpenMessageTask: Story = { args: { report: { ...MERGING, task: REPORT_TASKS.message, taskView: { canOpen: true, fleetName: null } } } };
+export const MessageOutsideReadReach: Story = { args: { report: { ...MERGING, task: REPORT_TASKS.message, taskView: { canOpen: false, fleetName: null } } } };
+export const OpenOtherFleetMessage: Story = { args: { variant: 'full', report: { ...MERGING, task: REPORT_TASKS.messageInAnotherFleet, taskView: { fleetName: 'Other fleet', canOpen: true } } } };
+export const OtherFleetMessageOutsideReadReach: Story = { args: { report: { ...MERGING, task: REPORT_TASKS.messageInAnotherFleet, taskView: { fleetName: 'Other fleet', canOpen: false } } } };

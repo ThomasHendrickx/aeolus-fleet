@@ -276,7 +276,7 @@ export type MessageReply = z.infer<typeof messageReplySchema>;
  * or the ship of the type that claimed it (null while none has), its state
  * and since when.
  */
-export const messageDeliverySchema = z.object({ id: idSchema('delivery'), ship: partySchema.nullable(), state: deliveryStateSchema, since: isoTime });
+export const messageDeliverySchema = z.object({ id: idSchema('delivery'), ship: partySchema.nullable(), state: deliveryStateSchema, since: isoTime, progress: reportSchema.pick({ state: true, note: true, step: true, reportChangedAt: true }).nullable() });
 
 export type MessageDelivery = z.infer<typeof messageDeliverySchema>;
 
@@ -299,6 +299,7 @@ export const messageOutputSchema = listedMessageSchema.omit({ preview: true, del
     history: z.array(deliveryHistoryEntrySchema),
   }),
   deliveryCount: z.int().min(0),
+  progress: reportSchema.pick({ state: true, note: true, step: true, reportChangedAt: true }).nullable(),
 });
 
 export type MessageDetail = z.infer<typeof messageOutputSchema>;

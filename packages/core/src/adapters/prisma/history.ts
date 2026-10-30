@@ -38,7 +38,7 @@ import type { Addressee } from '../../domain/shared/selector.js';
 import { pageOf, type PageQuery } from '../../domain/shared/page.js';
 import type { Db } from './client.js';
 import { Prisma } from './generated/client.js';
-import { toMessage, toSequencedEvent } from './rows.js';
+import { toMessage, toSequencedEvent, toShipReport } from './rows.js';
 
 /** What argo was told is overdue, as the clocks stored it (overdue.ts). */
 const overdueRow = z.object({
@@ -389,19 +389,25 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
         { limit, cursorOf: (row) => idSchema('delivery').parse(row.id) },
       );
       const rows = page.items.map((row) => ({ id: idSchema('delivery').parse(row.id), state: deliveryStateSchema.parse(row.state), shipId: idSchema('ship').nullable().parse(row.recipientShipId ?? row.claimedByShipId) }));
-      const [events, party] = await Promise.all([
+      const [events, party, reports] = await Promise.all([
         db.event.findMany({
           where: { fleetId, deliveryId: { in: rows.map((row) => row.id) }, type: { in: [...DELIVERY_HISTORY_TYPES] } },
           orderBy: { seq: 'desc' },
         }),
         partiesOf(db, { fleetId, shipIds: rows.flatMap((row) => (row.shipId === null ? [] : [row.shipId])) }),
+        db.$queryRaw<unknown[]>`SELECT ship_id, report_state, report_note, reported_at, report_changed_at,
+          report_task, report_step_at, report_step_of, NULL::jsonb AS report_details, 0 AS report_details_version
+          FROM leases WHERE fleet_id = ${fleetId} AND ended_at IS NULL
+          AND ship_id IN (${Prisma.join(['', ...rows.flatMap((row) => row.shipId === null ? [] : [row.shipId])])})`,
       ]);
+      const reportByShip = new Map(reports.map((row) => [z.object({ ship_id: idSchema('ship') }).parse(row).ship_id, toShipReport(row)]));
       const steps = events.map(toSequencedEvent);
       return {
         items: rows.map((row) => ({
           id: row.id,
           ship: row.shipId === null ? null : party(row.shipId),
           state: row.state,
+          report: row.shipId === null ? null : reportByShip.get(row.shipId) ?? null,
           steps: steps.flatMap(({ deliveryId, type, occurredAt, details }) =>
             deliveryId === row.id && isDeliveryChangeType(type) ? [{ type, occurredAt, isAgain: details.again === true, isOnceMore: details.onceMore === true }] : [],
           ),
@@ -413,6 +419,7 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
     messageParties: async (fleetId, messageIds) => {
       const rows = await db.delivery.findMany({
         where: { fleetId, messageId: { in: [...messageIds] } },
+        orderBy: { id: 'desc' },
         select: { messageId: true, recipientShipId: true, recipientType: true, claimedByShipId: true, message: { select: { senderShipId: true } } },
       });
       return new Map(

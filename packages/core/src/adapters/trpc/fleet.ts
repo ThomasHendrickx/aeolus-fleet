@@ -1,4 +1,6 @@
 import {
+  messageTaskAccessInputSchema,
+  messageTaskAccessOutputSchema,
   turnOnSealingInputSchema,
   changeCompanyKeyInputSchema,
   changeCompanyKeyOutputSchema,
@@ -701,7 +703,8 @@ export const fleetRouter = router({
     .output(fleetListOutputSchema)
     .query(async ({ ctx, input }) => {
       const { ships, nextCursor } = await ctx.useCases.listFleet(ctx.caller, input);
-      return { items: ships.map((ship) => (isInReadReach(ship) ? listedShipOutputOf(ship) : ship)), nextCursor: nextCursor && shipCursorOf(nextCursor) };
+      const tasks = await ctx.useCases.readReportTasks(ctx.caller, ships.map((ship) => isInReadReach(ship) ? ship.report?.task ?? null : null));
+      return { items: ships.map((ship, index) => (isInReadReach(ship) ? listedShipOutputOf(ship, { canOpen: tasks[index]?.canOpen === true, fleetName: null }) : ship)), nextCursor: nextCursor && shipCursorOf(nextCursor) };
     }),
 
   /** The fleet's labels, each with its values and its owner (decision 0031). */
@@ -1086,6 +1089,7 @@ export const fleetRouter = router({
       if (!isInReadReach(ship)) {
         return ship;
       }
+      const [task] = await ctx.useCases.readReportTasks(ctx.caller, [ship.report?.task ?? null]);
       return {
         ...ship,
         startingPrompt: ship.startingPrompt && {
@@ -1098,6 +1102,7 @@ export const fleetRouter = router({
         labels: [...ship.labels],
         report: ship.report && {
           ...ship.report,
+          taskView: { canOpen: task?.canOpen === true, fleetName: null },
           reportedAt: ship.report.reportedAt.toISOString(),
           reportChangedAt: ship.report.reportChangedAt.toISOString(),
         },
@@ -1134,7 +1139,11 @@ export const fleetRouter = router({
     .output(listedShipOutputSchema)
     .query(async ({ ctx, input }) => {
       const ship = okOrThrow(await ctx.useCases.readListedShip(ctx.caller, input));
-      return isInReadReach(ship) ? listedShipOutputOf(ship) : ship;
+      if (!isInReadReach(ship)) {
+        return ship;
+      }
+      const [task] = await ctx.useCases.readReportTasks(ctx.caller, [ship.report?.task ?? null]);
+      return listedShipOutputOf(ship, { canOpen: task?.canOpen === true, fleetName: null });
     }),
 
   /** A page of every change to a ship, newest first: the events naming it and the ones it caused. */
@@ -1155,6 +1164,15 @@ export const fleetRouter = router({
       return { items: items.map((message) => ({ ...message, sentAt: message.sentAt.toISOString() })), nextCursor };
     }),
 
+  /** Whether this viewer may open each message task, without fetching its payload. */
+  messageTaskAccess: actorScopedProcedure('fleet:read')
+    .input(messageTaskAccessInputSchema)
+    .output(messageTaskAccessOutputSchema)
+    .query(async ({ ctx, input }) => {
+      const tasks = await ctx.useCases.readReportTasks(ctx.caller, input.messageIds.map((messageId) => ({ kind: 'message', fleetId: ctx.caller.fleetId, messageId })));
+      return { items: input.messageIds.map((messageId, index) => ({ messageId, canOpen: tasks[index]?.canOpen === true })) };
+    }),
+
   /** One message: envelope, payload, its replies, its delivery's way through with every step, newest first, and how many deliveries it has. */
   message: actorScopedProcedure('fleet:read')
     .input(messageInputSchema)
@@ -1164,6 +1182,7 @@ export const fleetRouter = router({
       return {
         ...message,
         ...listedPayloadOutputOf(message.payload),
+        progress: message.progress && { ...message.progress, reportChangedAt: message.progress.reportChangedAt.toISOString() },
         sentAt: message.sentAt.toISOString(),
         replies: message.replies.map((reply) => ({ ...reply, sentAt: reply.sentAt.toISOString() })),
         delivery: {
@@ -1180,7 +1199,7 @@ export const fleetRouter = router({
     .output(messageDeliveriesOutputSchema)
     .query(async ({ ctx, input }) => {
       const { items, nextCursor } = okOrThrow(await ctx.useCases.readMessageDeliveries(ctx.caller, input));
-      return { items: items.map((delivery) => ({ ...delivery, since: delivery.since.toISOString() })), nextCursor };
+      return { items: items.map((delivery) => ({ ...delivery, since: delivery.since.toISOString(), progress: delivery.progress && { ...delivery.progress, reportChangedAt: delivery.progress.reportChangedAt.toISOString() } })), nextCursor };
     }),
 
   /** A ship's side of the way: the part that serves its lease, its turn, and its oldest delivery waiting with its way. */
@@ -1394,7 +1413,7 @@ export const fleetRouter = router({
 });
 
 /** A ship as fleet_list answers it, its times in ISO 8601. */
-function listedShipOutputOf(ship: ListedShip) {
+function listedShipOutputOf(ship: ListedShip, taskView?: { canOpen: boolean; fleetName: string | null }) {
   return {
     ...ship,
     startingPrompt: ship.startingPrompt && {
@@ -1407,6 +1426,7 @@ function listedShipOutputOf(ship: ListedShip) {
     labels: [...ship.labels],
     report: ship.report && {
           ...ship.report,
+          taskView,
           reportedAt: ship.report.reportedAt.toISOString(),
           reportChangedAt: ship.report.reportChangedAt.toISOString(),
         },

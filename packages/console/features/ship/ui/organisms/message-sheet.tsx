@@ -21,6 +21,7 @@ import { ShipName } from '../../../../components/molecules/ship-name';
 import { statusLabel } from '../../../../components/molecules/status-badge';
 import { messageWay, type WayMachine } from '../../services/message-way';
 import { WayLines } from '../molecules/way-lines';
+import { RecipientProgress } from '../molecules/recipient-progress';
 import { DeliveryHistory } from './delivery-history';
 import { labelSelectionWords, recipientGroupWords } from '../../../../lib/recipient';
 
@@ -53,7 +54,7 @@ function recipientParts(message: MessageDetail): SentencePart[] {
 
 /** Where the message stands: its delivery's way, or for a label how many ships it went to, each delivery on its own. */
 function standing(message: MessageDetail, at: { now: Date; machines: readonly WayMachine[] }): string {
-  if (message.recipient.kind === 'label') {
+  if ((message.recipient.kind === 'label' || message.recipient.kind === 'meeting')) {
     const count = message.deliveryCount;
     return `${count} ${count === 1 ? 'delivery' : 'deliveries'}`;
   }
@@ -226,7 +227,7 @@ function Delivery({
   onOpenMessage?: (messageId: MessageId) => void;
   deliveries?: ReactNode;
 }) {
-  if (message.recipient.kind === 'label') {
+  if ((message.recipient.kind === 'label' || message.recipient.kind === 'meeting')) {
     return (
       <section aria-label="Deliveries" className="flex flex-col gap-2 max-sm:order-first">
         <h3 className={SECTION_TITLE}>Deliveries</h3>
@@ -243,6 +244,7 @@ function Delivery({
       <h3 className={SECTION_TITLE}>Delivery</h3>
       <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3">
         <WayLines status={way.status} lines={way.lines} />
+        <RecipientProgress progress={message.progress} now={now} />
         <div className="border-t border-border pt-3">
           <DeliveryHistory entries={message.delivery.history} recipient={message.recipient} />
         </div>

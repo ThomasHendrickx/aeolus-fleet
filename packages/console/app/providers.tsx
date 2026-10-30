@@ -61,7 +61,11 @@ function createClient(serverUrl: string) {
       splitLink({
         condition: (operation) => operation.type === 'subscription',
         true: wsLink({ client: sockets }),
-        false: httpLink({ url, fetch: sessionFetch }),
+        false: splitLink({
+          condition: (operation) => ['fleet.list', 'fleet.listedShip', 'fleet.ship'].includes(operation.path),
+          true: httpLink({ url: '/api/reports', fetch: sessionFetch }),
+          false: httpLink({ url, fetch: sessionFetch }),
+        }),
       }),
     ],
   });

@@ -65,6 +65,23 @@ async function ack(crew: Crew, deliveryId: DeliveryId | undefined): Promise<void
 }
 
 describe('the history reads on Postgres', () => {
+  it('reads current recipient progress only while its task names this message, and drops it on release', async () => {
+    // Given a recipient whose current report names the sent message.
+    const messageId = await send(planner, { to: { kind: 'ship', shipId: scout.shipId } });
+    unwrap(await core.useCases.report(scout, { state: 'working', note: 'Drafting the guide', task: { kind: 'message', fleetId: argo.fleetId, messageId }, step: { at: 1, of: 4 } }));
+
+    // When the message and its deliveries are read through the Postgres adapter.
+    const message = unwrap(await core.useCases.readMessage(argo, { messageId }));
+    const page = unwrap(await core.useCases.readMessageDeliveries(argo, { messageId }));
+
+    // Then both show current progress, and ending the lease removes it.
+    expect(message.progress).toMatchObject({ state: 'working', note: 'Drafting the guide', step: { at: 1, of: 4 } });
+    expect(page.items[0]?.progress).toEqual(message.progress);
+    unwrap(await core.useCases.releaseShip(argo, { shipId: scout.shipId }));
+    expect(unwrap(await core.useCases.readMessage(argo, { messageId })).progress).toBeNull();
+    expect(unwrap(await core.useCases.readMessageDeliveries(argo, { messageId })).items[0]?.progress).toBeNull();
+  });
+
   it("give a ship's timeline: the events naming it or caused by it, newest first, with the parties named", async () => {
     const messageId = await send(scout, { to: { kind: 'ship', shipId: planner.shipId } });
 

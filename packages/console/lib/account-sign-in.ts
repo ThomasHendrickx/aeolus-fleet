@@ -197,7 +197,7 @@ export async function enterFleet(request: Request, deps: SignInDeps & { returnTo
   if (fleets === 'unreachable') {
     return redirectTo(UNREACHABLE_PATH);
   }
-  const fleetId = fleetToEnter(fleets, cookieValueOf(cookies, FLEET_COOKIE));
+  const fleetId = fleetToEnter(fleets, new URL(request.url).searchParams.get('fleet') ?? cookieValueOf(cookies, FLEET_COOKIE));
   if (fleetId === undefined) {
     return redirectTo(NO_RIGHTS_PATH);
   }

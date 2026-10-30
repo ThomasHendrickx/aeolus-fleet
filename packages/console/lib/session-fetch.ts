@@ -11,6 +11,8 @@
 
 /** The procedure that ends the session; the console sends it on its own (app/providers.tsx). */
 const SIGN_OUT_PATH = '/console.signOut';
+/** Only the pathname is inspected; the base lets console-relative report reads participate too. */
+const PATH_BASE = 'https://console.invalid';
 
 function urlOf(input: RequestInfo | URL): string {
   if (input instanceof Request) {
@@ -20,7 +22,7 @@ function urlOf(input: RequestInfo | URL): string {
 }
 
 function isSignOut(input: RequestInfo | URL): boolean {
-  return new URL(urlOf(input)).pathname.endsWith(SIGN_OUT_PATH);
+  return new URL(urlOf(input), PATH_BASE).pathname.endsWith(SIGN_OUT_PATH);
 }
 
 /** A call that is never sent and never answered: the page that asked it is leaving. */
