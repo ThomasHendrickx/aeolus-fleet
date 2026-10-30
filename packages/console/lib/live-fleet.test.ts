@@ -6,7 +6,7 @@ import { createTRPCOptionsProxy } from '@trpc/tanstack-react-query';
 import { describe, expect, it } from 'vitest';
 
 import { uniqueById } from './paged-list';
-import { createLiveFleetHandler, createLiveReloads, isAttentionChange, isBuiltInRulesChange, isDeclaredRulesChange, isLabelChange, isNetworkRulesChange, isShipChange, liveStateOf } from './live-fleet';
+import { createLiveFleetHandler, createLiveReloads, isAttentionChange, isBuiltInRulesChange, isDeclaredRulesChange, isLabelChange, isNetworkRulesChange, isSealingChange, isShipChange, liveStateOf } from './live-fleet';
 
 describe('liveStateOf', () => {
   it.each([
@@ -55,6 +55,16 @@ describe('isLabelChange', () => {
 
   it.each(['ShipCommissioned', 'ShipRetired', 'MessageAccepted'] as const)('leaves the labels alone for %s', (type) => {
     expect(isLabelChange(type)).toBe(false);
+  });
+});
+
+describe('isSealingChange', () => {
+  it.each(['FleetSealingTurnedOn', 'FleetPayloadsSealed', 'FleetDataKeyCreated', 'FleetCompanyKeyChanged', 'FleetRecoveryKeyChanged', 'FleetKeysRecovered', 'FleetKeyUnavailable', 'FleetKeyAvailable'] as const)('reloads the sealing page for %s', (type) => {
+    expect(isSealingChange(type)).toBe(true);
+  });
+
+  it.each(['ShipCommissioned', 'MessageAccepted'] as const)('leaves the sealing alone for %s', (type) => {
+    expect(isSealingChange(type)).toBe(false);
   });
 });
 

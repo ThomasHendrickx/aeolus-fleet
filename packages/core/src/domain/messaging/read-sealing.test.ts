@@ -34,6 +34,8 @@ describe("reading a fleet's sealing (decision 0068, B5, B11)", () => {
 
     expect(sealing).toEqual({
       state: 'sealed',
+      since: new Date('2026-10-29T12:00:00.000Z'),
+      progress: null,
       companyKey,
       recoveryKeyFingerprint: null,
       keyAvailability: { isAvailable: true, since: new Date('2026-10-29T12:00:00.000Z') },

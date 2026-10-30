@@ -10,6 +10,9 @@ import { toSchedule } from './schedules.js';
 
 const sealingRow = z.object({
   sealingState: z.enum(['sealing', 'sealed']),
+  sealingStateSince: z.date(),
+  payloadsToSeal: z.number().int(),
+  payloadsSealed: z.number().int(),
   companyKey: z.string(),
   recoveryKey: z.string().nullable(),
   recoveryKeyFingerprint: z.string().nullable(),
@@ -40,7 +43,8 @@ function toDataKey(row: unknown): StoredDataKey {
 
 const DATA_KEY_SELECT = { id: true, fleetId: true, wrappedByCompanyKey: true, wrappedByRecoveryKey: true, checkValue: true, createdAt: true, isCurrent: true } as const;
 
-const SEALING_COLUMNS = Prisma.sql`sealing_state::text AS "sealingState", company_key AS "companyKey",
+const SEALING_COLUMNS = Prisma.sql`sealing_state::text AS "sealingState", sealing_state_since AS "sealingStateSince",
+  payloads_to_seal AS "payloadsToSeal", payloads_sealed AS "payloadsSealed", company_key AS "companyKey",
   recovery_key AS "recoveryKey", recovery_key_fingerprint AS "recoveryKeyFingerprint",
   key_unavailable_reason AS "keyUnavailableReason", key_availability_since AS "keyAvailabilitySince"`;
 
@@ -57,12 +61,14 @@ async function sealingOf(db: Db, { fleetId, isForUpdate }: { fleetId: FleetId; i
   if (row === undefined) {
     return undefined;
   }
-  const { sealingState, companyKey, recoveryKey, recoveryKeyFingerprint, keyUnavailableReason, keyAvailabilitySince } = sealingRow.parse(row);
+  const { sealingState, sealingStateSince, payloadsToSeal, payloadsSealed, companyKey, recoveryKey, recoveryKeyFingerprint, keyUnavailableReason, keyAvailabilitySince } = sealingRow.parse(row);
   const keyAvailability: KeyAvailability =
     keyUnavailableReason === null ? { isAvailable: true, since: keyAvailabilitySince } : { isAvailable: false, reason: keyUnavailableReason, since: keyAvailabilitySince };
   return {
     fleetId,
     state: sealingState,
+    since: sealingStateSince,
+    progress: { toSeal: payloadsToSeal, sealed: payloadsSealed },
     companyKey,
     recoveryKey: recoveryKey === null || recoveryKeyFingerprint === null ? null : { recipient: recoveryKey, fingerprint: recoveryKeyFingerprint },
     keyAvailability,
@@ -81,12 +87,22 @@ export function createPrismaFleetSealingRepository(db: Db): FleetSealingReposito
       ]);
       return message !== null || schedule !== null;
     },
+    plainPayloadCount: async (fleetId) => {
+      const [messages, schedules] = await Promise.all([
+        db.message.count({ where: { fleetId, payload: { not: null } } }),
+        db.schedule.count({ where: { fleetId, payload: { not: null } } }),
+      ]);
+      return messages + schedules;
+    },
     turnOn: async (sealing, firstKey) => {
       const { keyAvailability } = sealing;
       await db.fleet.update({
         where: { id: sealing.fleetId },
         data: {
           sealingState: sealing.state,
+          sealingStateSince: sealing.since,
+          payloadsToSeal: sealing.progress.toSeal,
+          payloadsSealed: sealing.progress.sealed,
           companyKey: sealing.companyKey,
           recoveryKey: sealing.recoveryKey?.recipient ?? null,
           recoveryKeyFingerprint: sealing.recoveryKey?.fingerprint ?? null,
@@ -177,8 +193,11 @@ export function createPrismaFleetSealingRepository(db: Db): FleetSealingReposito
         await db.schedule.updateMany({ where: { fleetId, id }, data: { ...payloadColumnsOf(payload), requestHash } });
       }
     },
-    markSealed: async (fleetId) => {
-      await db.fleet.updateMany({ where: { id: fleetId, sealingState: 'sealing' }, data: { sealingState: 'sealed' } });
+    countSealed: async (fleetId, count) => {
+      await db.fleet.updateMany({ where: { id: fleetId, sealingState: 'sealing' }, data: { payloadsSealed: { increment: count } } });
+    },
+    markSealed: async (fleetId, at) => {
+      await db.fleet.updateMany({ where: { id: fleetId, sealingState: 'sealing' }, data: { sealingState: 'sealed', sealingStateSince: at } });
     },
     fleetsDueANewDataKey: async (cutoff) => {
       const rows = await db.dataKey.findMany({ where: { isCurrent: true, createdAt: { lte: cutoff } }, select: { fleetId: true }, orderBy: { fleetId: 'asc' } });

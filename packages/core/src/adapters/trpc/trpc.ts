@@ -59,9 +59,11 @@ const t = initTRPC.context<Context>().meta<ProcedureMeta>().create({
     if (error.code === 'INTERNAL_SERVER_ERROR') {
       return { ...shape, message: INTERNAL_ERROR_MESSAGE, data: { ...shape.data, requestId: ctx?.requestId } };
     }
-    return error.cause instanceof ConsoleRefusalDetails
-      ? { ...shape, data: { ...shape.data, ...error.cause.details } }
-      : shape;
+    if (error.cause instanceof ConsoleRefusalDetails) {
+      return { ...shape, data: { ...shape.data, ...error.cause.details } };
+    }
+    // A refusal names its kind, which its tRPC code may share with others: the sealing page tells KEY_NOT_BOUND_TO_FLEET from a malformed recovery key by it.
+    return error.cause instanceof RefusalKind || error.cause instanceof ShipRefusalCode ? { ...shape, data: { ...shape.data, refusal: error.cause.code } } : shape;
   },
 });
 
@@ -282,10 +284,21 @@ export class ShipRefusalCode extends Error {
   }
 }
 
-/** A refusal as the matching tRPC error, keeping its message: the one place domain error kinds meet API errors. */
+/** A refusal's kind, which the error data carries to the console beside its tRPC code. */
+class RefusalKind extends Error {
+  override name = 'RefusalKind';
+  readonly code: DomainErrorKind;
+
+  constructor(code: DomainErrorKind) {
+    super(code);
+    this.code = code;
+  }
+}
+
+/** A refusal as the matching tRPC error, keeping its message and naming its kind: the one place domain error kinds meet API errors. */
 function apiErrorOf(error: DomainError): TRPCError {
   const { kind, message } = error;
-  const cause = isShipRefusalCode(kind) ? new ShipRefusalCode(kind) : undefined;
+  const cause = isShipRefusalCode(kind) ? new ShipRefusalCode(kind) : new RefusalKind(kind);
   return new TRPCError({ code: ERROR_CODES[kind], message, cause });
 }
 

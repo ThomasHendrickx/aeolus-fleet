@@ -7,6 +7,7 @@ import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-
 import { newKey } from '../../testing/keys.js';
 import { unwrap } from '../../testing/result.js';
 import type { Crew, ShipCaller } from '../shared/caller.js';
+import { createReadSealing } from './read-sealing.js';
 import { createSealStoredPayloads } from './seal-stored-payloads.js';
 import { isSealedPayload } from './sealed-payload.js';
 
@@ -19,6 +20,7 @@ let core: InMemoryCore;
 let messaging: ReturnType<typeof messagingUseCases>;
 let fleetId: FleetId;
 let scout: ShipCaller;
+let argo: ShipCaller;
 let chief: Crew;
 
 /** A payload with bytes past ASCII, so it comes back exactly or not at all. */
@@ -28,7 +30,7 @@ beforeEach(async () => {
   core = createInMemoryCore('2026-10-29T09:00:00.000Z');
   const fleet = await initialiseFleet(core);
   fleetId = fleet.fleetId;
-  const argo = operatorCaller(fleet);
+  argo = operatorCaller(fleet);
   const registry = registryUseCases(core);
   messaging = messagingUseCases(core);
   scout = await shipWithScopes({ registry, argo }, { name: 'scout', type: 'reviewer', scopes: [] });
@@ -165,5 +167,55 @@ describe('the sealing pass (decision 0068, B5)', () => {
 
     expect(plainPayloads()).toHaveLength(3);
     expect(sealedEvents()).toEqual([]);
+  });
+});
+
+describe("the sealing page's progress (decision 0068, B5; sealing page mockup, ES2)", () => {
+  const readSealing = () => createReadSealing({ sealings: core.sealings })(argo);
+
+  it('given a fleet with plain payloads, when it turns sealing on, then fleet.sealing reads sealing since then with none of them sealed yet', async () => {
+    await plainHistory({ messages: 4, schedules: 1 });
+
+    await sealFleet(core, fleetId);
+
+    expect(await readSealing()).toMatchObject({ state: 'sealing', since: new Date('2026-10-29T09:00:00.000Z'), progress: { sealed: 0, total: 5 } });
+  });
+
+  it('given a sealing fleet, when the sealing pass seals a batch, then fleet.sealing reads how many of them are sealed', async () => {
+    await plainHistory({ messages: 5, schedules: 0 });
+    await sealFleet(core, fleetId);
+
+    await aPass({ batch: 2, budgetMs: 0 })();
+
+    expect(await readSealing()).toMatchObject({ state: 'sealing', progress: { sealed: 2, total: 5 } });
+  });
+
+  it('given a payload a send stored plain after turning on, when the pass seals it, then the total counts it too and never reads below what is sealed', async () => {
+    await plainHistory({ messages: 2, schedules: 0 });
+    await sealFleet(core, fleetId);
+    const [first] = core.state.messages;
+    if (first !== undefined) {
+      core.state.messages.push({ ...structuredClone(first), id: core.ids('message'), payload: 'stored plain by a send that read the fleet before the switch', idempotencyKey: newKey() });
+    }
+
+    await aPass({ batch: 3, budgetMs: 0 })();
+
+    expect(await readSealing()).toMatchObject({ state: 'sealing', progress: { sealed: 3, total: 3 } });
+  });
+
+  it('given a sealing fleet, when the pass leaves no payload plain, then fleet.sealing reads sealed since then, with no progress', async () => {
+    await plainHistory({ messages: 2, schedules: 0 });
+    await sealFleet(core, fleetId);
+    core.clock.advance(6 * 60 * 1000);
+
+    await aPass()();
+
+    expect(await readSealing()).toMatchObject({ state: 'sealed', since: new Date('2026-10-29T09:06:00.000Z'), progress: null });
+  });
+
+  it('given a fleet with no payload stored, when it turns sealing on, then fleet.sealing reads sealed since then, with no progress', async () => {
+    await sealFleet(core, fleetId);
+
+    expect(await readSealing()).toMatchObject({ state: 'sealed', since: new Date('2026-10-29T09:00:00.000Z'), progress: null });
   });
 });

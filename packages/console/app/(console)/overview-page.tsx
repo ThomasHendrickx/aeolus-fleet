@@ -1,6 +1,6 @@
 'use client';
 
-import { KeyRound, Tag } from 'lucide-react';
+import { KeyRound, Lock, Tag } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { startTransition, useOptimistic, useState } from 'react';
@@ -69,6 +69,9 @@ export function OverviewPage({ view, isCommissionAsked }: { view: FleetView; isC
           </Button>
           <Button render={<Link href="/scopes" />} nativeButton={false} icon={<KeyRound />} data-testid="overview-scopes">
             {access.canDefineScopes ? 'Manage scopes' : 'View scopes'}
+          </Button>
+          <Button render={<Link href="/sealing" />} nativeButton={false} icon={<Lock />} data-testid="overview-sealing">
+            {access.canChangeKeys ? 'Manage sealing' : 'View sealing'}
           </Button>
           {access.canManage ? (
             <CommissionShip

@@ -153,6 +153,19 @@ async function refusalOfCall(call: Promise<unknown>): Promise<{ code: string | u
   throw new Error('Expected the call to be refused');
 }
 
+/** The refusal's kind as the error data carries it to the console. */
+async function refusalKindOfCall(call: Promise<unknown>): Promise<string | undefined> {
+  try {
+    await call;
+  } catch (error) {
+    if (error instanceof TRPCClientError) {
+      return z.object({ refusal: z.string() }).safeParse(error.data).data?.refusal;
+    }
+    throw error;
+  }
+  throw new Error('Expected the call to be refused');
+}
+
 async function sealingOf(fleetId: FleetId) {
   const fleet = await prisma.fleet.findUniqueOrThrow({ where: { id: fleetId }, select: { sealingState: true, companyKey: true } });
   const dataKeys = await prisma.dataKey.findMany({ where: { fleetId } });
@@ -195,6 +208,18 @@ describe('turning sealing on, on Postgres and a LocalStack KMS (decision 0068, B
 
     expect(refusal).toEqual({ code: 'SERVICE_UNAVAILABLE', message: "The fleet's company key is not reachable: access denied" });
     expect(await sealingOf(fleetId)).toEqual({ sealingState: null, companyKey: null, dataKeys: [], events: [] });
+  });
+
+  it("the sealing page reads a refusal by its kind: the key's policy names no fleet, or the key vault refused", async () => {
+    const fleet = await aHostedFleet();
+    const unbound = await aCompanyKey();
+    const denied = await aKeyBoundTo(fleet.fleetId);
+    policy.refuseGrant(denied);
+    const keyHolder = await aKeyHolder(fleet);
+
+    const refusals = await Promise.all([keyHolder.fleet.turnOnSealing.mutate({ companyKey: unbound }), keyHolder.fleet.turnOnSealing.mutate({ companyKey: denied })].map(refusalKindOfCall));
+
+    expect(refusals).toEqual(['KEY_NOT_BOUND_TO_FLEET', 'KEY_UNAVAILABLE']);
   });
 
   it('scenario 4: a ship without fleet:keys is refused and nothing changes, nor does the installation without it', async () => {
@@ -523,10 +548,14 @@ describe('the kill switch on Postgres and a LocalStack KMS (decision 0068, B9, B
     refusalOf(await server.useCases.sendMessage(fleet.argo, aMessageTo(scout.shipId)));
     const [dataKey] = await prisma.dataKey.findMany({ where: { fleetId: fleet.fleetId } });
 
+    const { sealingStateSince } = await prisma.fleet.findUniqueOrThrow({ where: { id: fleet.fleetId }, select: { sealingStateSince: true } });
+
     const sealing = await installationIn(fleet.fleetId).fleet.sealing.query();
 
     expect(sealing).toEqual({
       state: 'sealed',
+      since: sealingStateSince?.toISOString(),
+      progress: null,
       companyKey: fleet.companyKey,
       recoveryKeyFingerprint: null,
       keyAvailability: { isAvailable: false, reason: 'disabled', since: '2026-10-29T12:00:00.000Z' },
@@ -638,6 +667,23 @@ describe('the sealing pass on Postgres and a LocalStack KMS (decision 0068, B5)'
     const payloads = await everyPayloadReceived(scout);
     expect(payloads).toHaveLength(1000);
     expect(new Set(payloads)).toEqual(new Set(Array.from({ length: 1000 }, (_, index) => `${PAYLOAD} #${index}`)));
+  });
+
+  it('fleet.sealing reads how many of the payloads stored plain before turning on are sealed, then sealed since the pass left none', { timeout: 180_000 }, async () => {
+    const fleet = await aHostedFleet();
+    const scout = await aCrewedReviewer(fleet, 'scout');
+    await plainSends(fleet, { to: scout, count: 3 });
+
+    unwrap(await useCases.turnOnSealing(fleet.argo, { companyKey: await aKeyBoundTo(fleet.fleetId) }));
+    const turnedOn = await installationIn(fleet.fleetId).fleet.sealing.query();
+    await useCases.sealStoredPayloads();
+    const sealed = await installationIn(fleet.fleetId).fleet.sealing.query();
+
+    expect(turnedOn).toMatchObject({ state: 'sealing', progress: { sealed: 0, total: 3 } });
+    expect(sealed).toMatchObject({ state: 'sealed', progress: null });
+    const { payloadsToSeal, payloadsSealed, sealingStateSince } = await prisma.fleet.findUniqueOrThrow({ where: { id: fleet.fleetId } });
+    const [sealedEvent] = await prisma.event.findMany({ where: { fleetId: fleet.fleetId, type: 'FleetPayloadsSealed' } });
+    expect({ payloadsToSeal, payloadsSealed, sealingStateSince }).toEqual({ payloadsToSeal: 3, payloadsSealed: 3, sealingStateSince: sealedEvent?.occurredAt });
   });
 
   it('the pass racing a send: a send that read no data key before sealing was turned on commits its plain payload before turning on looks for one, and the pass seals it', { timeout: 180_000 }, async () => {

@@ -73,3 +73,15 @@ export const ScheduleStates: Story = {
     </div>
   ),
 };
+/** A sealed fleet's state and its company key (decision 0068). */
+export const Sealing: Story = {
+  args: { status: 'sealing' },
+  render: () => (
+    <div className="flex flex-wrap gap-2">
+      <StatusBadge status="sealing" />
+      <StatusBadge status="sealed" />
+      <StatusBadge status="reachable" />
+      <StatusBadge status="notReachable" />
+    </div>
+  ),
+};

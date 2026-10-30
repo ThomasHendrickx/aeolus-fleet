@@ -489,6 +489,11 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
           state.messages.some((held) => held.fleetId === fleetId && typeof held.payload === 'string') ||
             state.schedules.some((held) => held.fleetId === fleetId && typeof held.send.payload === 'string'),
         ),
+      plainPayloadCount: (fleetId) =>
+        Promise.resolve(
+          state.messages.filter((held) => held.fleetId === fleetId && typeof held.payload === 'string').length +
+            state.schedules.filter((held) => held.fleetId === fleetId && typeof held.send.payload === 'string').length,
+        ),
       turnOn: (sealing, firstKey) => {
         if (state.dataKeys.some((held) => held.fleetId === firstKey.fleetId && held.isCurrent)) {
           return Promise.reject(new Error('unique violation: the fleet has a current data key'));
@@ -547,10 +552,18 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         }
         return Promise.resolve();
       },
-      markSealed: (fleetId) => {
+      countSealed: (fleetId, count) => {
+        const sealing = state.fleetSealings.find((held) => held.fleetId === fleetId && held.state === 'sealing');
+        if (sealing !== undefined) {
+          sealing.progress.sealed += count;
+        }
+        return Promise.resolve();
+      },
+      markSealed: (fleetId, at) => {
         const sealing = state.fleetSealings.find((held) => held.fleetId === fleetId);
         if (sealing !== undefined) {
           sealing.state = 'sealed';
+          sealing.since = new Date(at);
         }
         return Promise.resolve();
       },

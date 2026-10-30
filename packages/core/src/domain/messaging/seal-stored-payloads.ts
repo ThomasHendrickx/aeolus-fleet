@@ -25,7 +25,7 @@ export interface SealStoredPayloadsTx {
 export type SealStoredPayloads = (onFleetError?: (fleetId: FleetId, error: unknown) => void) => Promise<void>;
 
 /** What one batch did: more may be left after its cursor, or none is; or the fleet's sealing is another server's now. */
-type Batch = { kind: 'more'; after: SealingCursor | null } | { kind: 'done' } | { kind: 'skipped' };
+type Batch = { kind: 'more'; after: SealingCursor | null; sealed: number } | { kind: 'done'; sealed: number } | { kind: 'skipped' };
 
 /**
  * Use case: the sealing pass (decision 0068, B5), run by core in the 30
@@ -42,11 +42,12 @@ type Batch = { kind: 'more'; after: SealingCursor | null } | { kind: 'done' } | 
  * seals nothing (B12). Once a batch finds none left, one unit of work holds
  * the fleet and finds none stored plain: the fleet reads sealed and
  * FleetPayloadsSealed is written; a row skipped or committed meanwhile
- * leaves it sealing for the next pass. A pass whose time budget is spent
+ * leaves it sealing for the next pass. Each batch's count is added to the
+ * fleet's progress once it committed. A pass whose time budget is spent
  * leaves the rest to the next one.
  */
 export function createSealStoredPayloads(deps: {
-  sealings: Pick<FleetSealingRepository, 'sealingFleetIds'>;
+  sealings: Pick<FleetSealingRepository, 'sealingFleetIds' | 'countSealed'>;
   uow: UnitOfWork<SealStoredPayloadsTx>;
   clock: Clock;
   ids: IdGenerator;
@@ -82,7 +83,8 @@ export function createSealStoredPayloads(deps: {
         await sealings.sealPayloads(fleetId, sealed);
         const last = plain.messages.at(-1);
         const isMoreLeft = plain.messages.length === batchSize || plain.schedules.length === batchSize;
-        return ok(isMoreLeft ? { kind: 'more', after: last === undefined ? after : { createdAt: last.createdAt, id: last.id } } : { kind: 'done' });
+        const count = sealed.messages.length + sealed.schedules.length;
+        return ok(isMoreLeft ? { kind: 'more', after: last === undefined ? after : { createdAt: last.createdAt, id: last.id }, sealed: count } : { kind: 'done', sealed: count });
       }),
     );
 
@@ -94,8 +96,9 @@ export function createSealStoredPayloads(deps: {
       if (sealing?.state !== 'sealing' || (await tx.sealings.storesPlainPayload(fleetId))) {
         return ok(undefined);
       }
-      await tx.sealings.markSealed(fleetId);
-      await recordEvent({ events: tx.events, ids: deps.ids }, { fleetId, type: 'FleetPayloadsSealed', occurredAt: deps.clock.now(), actor: SYSTEM });
+      const at = deps.clock.now();
+      await tx.sealings.markSealed(fleetId, at);
+      await recordEvent({ events: tx.events, ids: deps.ids }, { fleetId, type: 'FleetPayloadsSealed', occurredAt: at, actor: SYSTEM });
       return ok(undefined);
     });
 
@@ -108,6 +111,11 @@ export function createSealStoredPayloads(deps: {
       const batch: Batch = result.isOk ? result.value : { kind: 'skipped' };
       if (batch.kind === 'skipped') {
         return;
+      }
+      // Counted after the batch commits, on its own: the batch then holds the
+      // rows it seals and never the fleet's, which every send's events move.
+      if (batch.sealed > 0) {
+        await deps.sealings.countSealed(fleetId, batch.sealed);
       }
       if (batch.kind === 'done') {
         await markSealedIfNoneLeft(fleetId);

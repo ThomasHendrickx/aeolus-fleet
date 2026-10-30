@@ -22,9 +22,21 @@ export type CompanyKeyUnavailableReason = Exclude<KeyUnavailableReason, 'invalid
  */
 export type KeyAvailability = { isAvailable: true; since: Date } | { isAvailable: false; reason: CompanyKeyUnavailableReason; since: Date };
 
+/**
+ * How far the sealing pass is (B5): the payloads the fleet stored plain when
+ * it turned sealing on, and how many the pass sealed since.
+ */
+export interface SealingProgress {
+  toSeal: number;
+  sealed: number;
+}
+
 export interface FleetSealing {
   fleetId: FleetId;
   state: SealingState;
+  /** When the fleet turned sealing on, or, once sealed, when the sealing pass left no payload plain. */
+  since: Date;
+  progress: SealingProgress;
   companyKey: CompanyKeyReference;
   /** The offline key each data key is wrapped to as well, by its public half; none when the company set none. */
   recoveryKey: RecoveryKey | null;
@@ -59,4 +71,14 @@ export function dataKeyRotationCutoff(now: Date): Date {
 export function isDueANewDataKey(dataKeys: readonly DataKeyAge[], now: Date): boolean {
   const current = dataKeys.find((dataKey) => dataKey.isCurrent);
   return current !== undefined && current.createdAt.getTime() <= dataKeyRotationCutoff(now).getTime();
+}
+
+/**
+ * The sealing pass's progress as the sealing page shows it: how many of how
+ * many payloads are sealed. A send that read the fleet before the switch
+ * stores plain after the count, and the pass seals it too, so the total
+ * never reads below what is sealed.
+ */
+export function shownProgress(progress: SealingProgress): { sealed: number; total: number } {
+  return { sealed: progress.sealed, total: Math.max(progress.toSeal, progress.sealed) };
 }
