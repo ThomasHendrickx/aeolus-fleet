@@ -193,6 +193,7 @@ import { createReadInbox, type ReadInbox } from './domain/shared/read-inbox.js';
 import { createCountOpenInbox, type CountOpenInbox } from './domain/shared/count-open-inbox.js';
 import { createReadInboxMessage, type ReadInboxMessage } from './domain/shared/read-inbox-message.js';
 import { createReadInboxWithdrawals, type ReadInboxWithdrawals } from './domain/shared/read-inbox-withdrawals.js';
+import { createReadReportTasks, type ReadReportTasks } from './domain/shared/read-report-tasks.js';
 import { createReadMessage, type ReadMessage } from './domain/shared/read-message.js';
 import { createReadMessageDeliveries, type ReadMessageDeliveries } from './domain/shared/read-message-deliveries.js';
 import { createReadSentMessage, type ReadSentMessage } from './domain/shared/read-sent-message.js';
@@ -322,6 +323,7 @@ export interface UseCases {
   readShipTimeline: ReadShipTimeline;
   readShipMessages: ReadShipMessages;
   readMessage: ReadMessage;
+  readReportTasks: ReadReportTasks;
   readMessageDeliveries: ReadMessageDeliveries;
   sentMessage: ReadSentMessage;
   readShipWay: ReadShipWay;
@@ -597,6 +599,7 @@ export function createUseCases(options: {
     }),
     readShipTimeline: createReadShipTimeline({ history: createPrismaShipHistory(prisma), readReach }),
     readShipMessages: createReadShipMessages({ history: createPrismaShipHistory(prisma), readReach , sealing }),
+    readReportTasks: createReadReportTasks({ history: createPrismaShipHistory(prisma), readReach }),
     readMessage: createReadMessage({ history: createPrismaShipHistory(prisma), readReach , sealing }),
     readMessageDeliveries: createReadMessageDeliveries({ history: createPrismaShipHistory(prisma), readReach }),
     sentMessage: createReadSentMessage({ history: createPrismaShipHistory(prisma) }),

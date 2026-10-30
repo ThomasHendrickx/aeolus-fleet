@@ -32,6 +32,7 @@ let useCases: UseCases;
 let argo: ShipCaller;
 let reader: TRPCClient<AppRouter>;
 let plugin: { crewToken: string; on: (shipId: string) => TRPCClient<AppRouter> };
+let nearToken: string;
 let readerNamingNear: TRPCClient<AppRouter>;
 let ids: { reader: ShipId; near: ShipId; far: ShipId; trierarch: ShipId; networking: ShipId; ghost: ShipId };
 let teamB: LabelValueId;
@@ -81,6 +82,7 @@ beforeAll(async () => {
   const labeller = { caller: argo };
   const readerShip = await crewed({ name: 'reader', type: 'reader', fleetScopes: ['fleet:read'] });
   const near = await crewed({ name: 'near', type: 'reviewer' });
+  nearToken = near.crewToken;
   const far = await crewed({ name: 'far', type: 'keeper' });
   const ghost = await crewed({ name: 'ghost', type: 'ghost' });
   const trierarch = await crewed({ name: 'mac-mini', type: 'trierarch', fleetScopes: ['crew:run'] });
@@ -124,6 +126,27 @@ afterAll(async () => {
 });
 
 describe('the fleet:read procedures for a ship outside read reach (decision 0034)', () => {
+  it('message task canOpen is read per viewer from scopes and reach, in the report read', async () => {
+    // Given two tasks, only one within this viewer's read reach.
+    await reader.ship.report.mutate({ state: 'working', task: { kind: 'message', fleetId: argo.fleetId, messageId: farToNear } });
+
+    // When the same report is read through each console resource.
+    const listed = await reader.fleet.listedShip.query({ shipId: ids.reader });
+    const detailed = await reader.fleet.ship.query({ shipId: ids.reader });
+    const page = await reader.fleet.list.query({ shipIds: [ids.reader] });
+
+    // Then all carry the server's access decision, and an inaccessible task stays text.
+    for (const ship of [listed, detailed, page.items[0]]) {
+      expect(ship && 'report' in ship ? ship.report?.taskView : null).toMatchObject({ canOpen: true });
+    }
+    await reader.ship.report.mutate({ state: 'working', task: { kind: 'message', fleetId: argo.fleetId, messageId: farToArgo, canOpen: true } });
+    const outside = await reader.fleet.ship.query({ shipId: ids.reader });
+    expect('report' in outside ? outside.report?.taskView : null).toMatchObject({ canOpen: false });
+    await expect(reader.fleet.messageTaskAccess.query({ messageIds: [farToNear, farToArgo] })).resolves.toEqual({ items: [{ messageId: farToNear, canOpen: true }, { messageId: farToArgo, canOpen: false }] });
+    await expect(codeOf(client(nearToken).fleet.messageTaskAccess.query({ messageIds: [farToNear] }))).resolves.toBe('FORBIDDEN');
+    await reader.ship.report.mutate({ state: 'idle', task: null });
+  });
+
   it('fleet.list shows far by its name, type and status only, near whole', async () => {
     const listed = (await reader.fleet.list.query()).items;
 

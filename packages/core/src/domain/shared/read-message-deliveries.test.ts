@@ -32,7 +32,7 @@ describe("reading a page of a message's deliveries", () => {
     const sentAt = scene.core.clock.now();
 
     expect(unwrap(await scene.history.readMessageDeliveries(scene.argo, { messageId }))).toEqual({
-      items: [{ id: deliveryIdOf(scene.core, messageId), ship: { id: scene.scout.shipId, name: 'scout' }, state: 'pending', since: sentAt }],
+      items: [{ id: deliveryIdOf(scene.core, messageId), ship: { id: scene.scout.shipId, name: 'scout' }, state: 'pending', since: sentAt, progress: null }],
       nextCursor: null,
     });
   });
@@ -48,9 +48,9 @@ describe("reading a page of a message's deliveries", () => {
 
     expect(unwrap(await scene.history.readMessageDeliveries(scene.argo, { messageId })).items).toEqual(
       [
-        { id: deliveryTo(messageId, scene.scout), ship: { id: scene.scout.shipId, name: 'scout' }, state: 'pending', since: sentAt },
-        { id: deliveryTo(messageId, scene.lookout), ship: { id: scene.lookout.shipId, name: 'lookout' }, state: 'handed', since: handedAt },
-        { id: deliveryTo(messageId, scene.planner), ship: { id: scene.planner.shipId, name: 'planner' }, state: 'acknowledged', since: ackedAt },
+        { id: deliveryTo(messageId, scene.scout), ship: { id: scene.scout.shipId, name: 'scout' }, state: 'pending', since: sentAt, progress: null },
+        { id: deliveryTo(messageId, scene.lookout), ship: { id: scene.lookout.shipId, name: 'lookout' }, state: 'handed', since: handedAt, progress: null },
+        { id: deliveryTo(messageId, scene.planner), ship: { id: scene.planner.shipId, name: 'planner' }, state: 'acknowledged', since: ackedAt, progress: null },
       ].toSorted((first, second) => String(first.id).localeCompare(String(second.id))),
     );
   });
@@ -102,6 +102,20 @@ describe("reading a message's deliveries within read reach (decision 0034)", () 
   beforeEach(async () => {
     fleet = await readReachScenario();
     await fleet.readRulesApply();
+  });
+
+  it('keeps a recipient report outside the viewer read reach private even when the message is readable', async () => {
+    // Given a readable sender and a recipient outside the viewer's reach.
+    const messageId = await fleet.send(fleet.near, { kind: 'ship', shipId: fleet.far.shipId });
+    unwrap(await fleet.registry.report(fleet.far, { state: 'working', note: 'Private report', task: { kind: 'message', fleetId: fleet.fleetId, messageId } }));
+
+    // When the viewer reads the message and its deliveries through the sender.
+    const message = unwrap(await fleet.history.readMessage(fleet.reader, { messageId }));
+    const deliveries = unwrap(await fleet.history.readMessageDeliveries(fleet.reader, { messageId }));
+
+    // Then neither read reveals the recipient's report.
+    expect(message.progress).toBeNull();
+    expect(deliveries.items[0]?.progress).toBeNull();
   });
 
   it('reads the deliveries of a message through its sender', async () => {

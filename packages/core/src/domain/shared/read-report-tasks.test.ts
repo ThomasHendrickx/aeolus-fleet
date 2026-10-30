@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { readReachOf } from '../../../test/support/core-fixtures.js';
 import { readReachScenario } from '../../../test/support/read-reach-scenario.js';
 import { createReadReportTasks } from './read-report-tasks.js';
 
@@ -11,7 +12,7 @@ describe('message task canOpen per viewer', () => {
     await scene.readRulesApply();
     const messageId = await scene.send(scene.far, { kind: 'ship', shipId: scene.argo.shipId });
     const task = { kind: 'message', fleetId: scene.argo.fleetId, messageId, canOpen: true };
-    const read = createReadReportTasks({ history: scene.core.history, readReach: async (caller) => caller.kind === 'operator' ? { kind: 'every' } : { kind: 'some', shipIds: new Set(), types: new Set() } });
+    const read = createReadReportTasks({ history: scene.core.history, readReach: readReachOf(scene.core) });
 
     // When each viewer reads the same task.
     const allowed = await read(scene.argo, [task]);
@@ -27,7 +28,7 @@ describe('message task canOpen per viewer', () => {
   it('keeps a missing message and a message in another fleet as text', async () => {
     // Given references core accepts without looking up their existence.
     const scene = await readReachScenario();
-    const read = createReadReportTasks({ history: scene.core.history, readReach: async () => ({ kind: 'every' }) });
+    const read = createReadReportTasks({ history: scene.core.history, readReach: () => Promise.resolve({ kind: 'every' }) });
     const tasks = [
       { kind: 'message', fleetId: scene.argo.fleetId, messageId: scene.core.ids('message') },
       { kind: 'message', fleetId: scene.core.ids('fleet'), messageId: scene.core.ids('message') },

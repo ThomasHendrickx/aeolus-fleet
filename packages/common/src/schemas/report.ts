@@ -92,6 +92,8 @@ export const listedReportSchema = z.object({
   state: reportStateSchema,
   note: z.string().nullable(),
   task: reportTaskSchema.nullable(),
+  /** Viewer-specific read metadata, kept apart from the canonical task reference. */
+  taskView: z.object({ canOpen: z.boolean(), fleetName: z.string().nullable() }).optional(),
   step: reportStepSchema.nullable(),
   reportedAt: z.iso.datetime(),
   reportChangedAt: z.iso.datetime(),
