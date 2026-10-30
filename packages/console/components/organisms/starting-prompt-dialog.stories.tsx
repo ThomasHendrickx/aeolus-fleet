@@ -85,7 +85,8 @@ export const CopyFailed: Story = {
     navigator.clipboard.writeText = () => Promise.reject(new Error('The clipboard refused.'));
     try {
       await userEvent.click(await screen.findByTestId('starting-prompt-crew-line-copilot-copy'));
-      await expect(await screen.findByText('Could not copy: select the text and copy it by hand.')).toBeVisible();
+      // Visible is retried: the dialog fades in, and under load the message is there while the dialog is still transparent.
+      await waitFor(() => expect(screen.getByText('Could not copy: select the text and copy it by hand.')).toBeVisible());
     } finally {
       navigator.clipboard.writeText = writeText;
     }
