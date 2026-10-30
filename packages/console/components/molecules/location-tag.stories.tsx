@@ -32,3 +32,5 @@ export const ChatSession: Story = { args: { kind: 'CLOUD', harness: 'claude-chat
 export const Bot: Story = { args: { kind: 'SERVER', harness: 'grokbot', size: 'sm' } };
 export const ArgoConsole: Story = { args: { kind: 'OTHER', description: 'Mac · Chrome', harness: 'console', size: 'sm' } };
 export const UnknownHarness: Story = { args: { kind: 'OTHER', description: 'CI runner', harness: 'github-actions', size: 'sm' } };
+/** A session that stated no harness (aeolus-fleet#1408): Harness unknown, the description kept. */
+export const NoHarnessStated: Story = { args: { kind: 'DEVICE', description: 'thomas-linux', isHarnessUnknown: true, size: 'sm' } };
