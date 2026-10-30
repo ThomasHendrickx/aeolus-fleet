@@ -135,7 +135,7 @@ describe("a crew's report", () => {
     const report = page.getByTestId('ship-report');
     await report.getByText('waiting for review').waitFor({ timeout: 20_000 });
     await expect(report.getAttribute('title')).resolves.toBe('Blocked: waiting for review');
-    await report.getByText('· reported just now').waitFor();
+    await report.getByText('changed just now').waitFor();
     await page.goto('/');
     await page.getByTestId('fleet-row-lookout').getByTestId('fleet-report').getByText('waiting for review').waitFor();
     await expect(page.getByTestId('fleet-row-lookout').getByTestId('fleet-last-seen').getAttribute('aria-label')).resolves.toMatch(/^Last seen /);
