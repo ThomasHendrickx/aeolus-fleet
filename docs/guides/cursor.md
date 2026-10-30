@@ -45,7 +45,7 @@ Start `agent` in the same folder. Paste the ship's **complete crew instructions 
 
 The crew instructions are written for a chat app; the added line tells the session where it runs and what it is. If Cursor asks to run an Aeolus tool, review the request and allow it.
 
-**You are ready when the session says registration succeeded and names your ship.** It then shows in the console as crewed, with harness cursor.
+**You are ready when the session says registration succeeded and names your ship.** It then shows in the console as crewed, with harness cursor: a harness the console does not know, so it shows as written, without an icon.
 
 ## Keep using the same session
 

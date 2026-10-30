@@ -2,7 +2,7 @@
 
 Every fixed timing and limit of core's release train, by package, for debugging. This page holds no rules of its own: each line points to the constant that sets it and the decision, issue or doc that says why. When a value here and its source disagree, the source wins; fix this page.
 
-A default that configuration may change names its setting. Unit helpers (`SECOND_MS`, `MINUTES_PER_HOUR` and the like) and the lengths of random id suffixes are left out.
+A default that configuration may change names its setting. Unit helpers (`SECOND_MS`, `MINUTES_PER_HOUR` and the like) the lengths of random id suffixes and the fixed sizes inside a hash or a sealed payload (salt, nonce, tag) are left out.
 
 ## Common: the limits every package shares
 
@@ -15,6 +15,7 @@ Defined in `@aeolus-fleet/common`, checked by core on every call and by the clie
 | 64 KB (`64 * 1024` bytes, UTF-8) | A message payload; also a `CHECK` on `messages.payload` | [rules/payload.ts](../packages/common/src/rules/payload.ts) `PAYLOAD_MAX_BYTES`; [init migration](../packages/core/src/adapters/prisma/migrations/20260929124818_init/migration.sql) `messages_payload_max_64kb` | [0006](decisions/0006-payload-limit.md) |
 | 16 KB | A report's details, checked on the result of a merge patch | [schemas/report.ts](../packages/common/src/schemas/report.ts) `REPORT_DETAILS_MAX_BYTES` | [0028](decisions/0028-report-details.md) |
 | 16 KB | A crew request's settings | [schemas/crew-request.ts](../packages/common/src/schemas/crew-request.ts) `CREW_REQUEST_SETTINGS_MAX_BYTES` | [0029](decisions/0029-crew-request.md) |
+| 64 KB | A ship's statement, as JSON | [schemas/statement.ts](../packages/common/src/schemas/statement.ts) `STATEMENT_MAX_BYTES` | [0047](decisions/0047-discovery-and-statements.md) |
 | 8192 bytes | A crew's first prompt, after squadrons fills its parameters | [trierarch/crew-settings.ts](../packages/common/src/trierarch/crew-settings.ts) `FIRST_PROMPT_MAX_BYTES` | [0027](decisions/0027-crew-settings.md), [trierarch.md](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/docs/trierarch.md#the-crew-request), #371 |
 
 ### Lengths
@@ -24,6 +25,12 @@ Defined in `@aeolus-fleet/common`, checked by core on every call and by the clie
 | 48 characters | A ship name or type; squadron ids and template handles too | [rules/ship-handle.ts](../packages/common/src/rules/ship-handle.ts) `SHIP_HANDLE_MAX_LENGTH` | [blueprint.md](blueprint.md) |
 | 63 characters (a-z, 0-9, -) | A label key or value; machine labels too | [rules/label-handle.ts](../packages/common/src/rules/label-handle.ts) `LABEL_HANDLE_MAX_LENGTH` | [0031](decisions/0031-labels.md) |
 | 200 characters, one line | A report note | [schemas/report.ts](../packages/common/src/schemas/report.ts) `REPORT_NOTE_MAX_LENGTH` | [blueprint.md](blueprint.md) |
+| 1000 characters | A statement's summary | [schemas/statement.ts](../packages/common/src/schemas/statement.ts) `STATEMENT_SUMMARY_MAX_LENGTH` | [0047](decisions/0047-discovery-and-statements.md) |
+| 200 characters | A meeting's title | [schemas/meeting.ts](../packages/common/src/schemas/meeting.ts) `MEETING_TITLE_MAX_LENGTH` | [0061](decisions/0061-meetings.md) |
+| 200 characters | The reason a delivery was not handled | [schemas/delivery.ts](../packages/common/src/schemas/delivery.ts) `NOT_HANDLED_REASON_MAX_LENGTH` | [0040](decisions/0040-delivery-protocol.md) |
+| 280 characters | Why a trierarch does not offer a harness, in its report details | [trierarch/report-details.ts](../packages/common/src/trierarch/report-details.ts) `NOT_OFFERED_REASON_MAX_LENGTH` | [0028](decisions/0028-report-details.md) |
+| 128 characters | An account id in an account token | [schemas/account-token.ts](../packages/common/src/schemas/account-token.ts) `ACCOUNT_ID_MAX_LENGTH` | [0058](decisions/0058-pagasae-core-link.md) |
+| 255 characters; issuer 2048 | A verified fact's value and its issuer | [schemas/verified-fact.ts](../packages/common/src/schemas/verified-fact.ts) `VERIFIED_FACT_VALUE_MAX_LENGTH`, `VERIFIED_FACT_ISSUER_MAX_LENGTH` | [0059](decisions/0059-verified-facts.md) |
 | 200 characters, one line | A crew request's reason and a give-back's reason (the trierarch and the trierarch plugin cut theirs to it) | [schemas/crew-request.ts](../packages/common/src/schemas/crew-request.ts) `CREW_REQUEST_REASON_MAX_LENGTH` | [0029](decisions/0029-crew-request.md), #382 |
 | 1 to 32 characters (a-z, 0-9, -, starting with a letter) | Each part of a scope, `<namespace>:<action>` | [fleet/index.ts](../packages/common/src/fleet/index.ts) `SCOPE_NAMESPACE_PATTERN`, `SCOPE_NAME_PATTERN` | [0046](decisions/0046-scope-catalogue.md) |
 | 200 characters, one line | A declared scope's description | [fleet/index.ts](../packages/common/src/fleet/index.ts) `SCOPE_DESCRIPTION_MAX_LENGTH` | [0046](decisions/0046-scope-catalogue.md) |
@@ -56,7 +63,8 @@ Defined in `@aeolus-fleet/common`, checked by core on every call and by the clie
 | --- | --- | --- | --- |
 | 1 to 10, default 1 | Deliveries one receive hands over | [schemas/delivery.ts](../packages/common/src/schemas/delivery.ts) `RECEIVE_MAX_UPPER_BOUND`, `RECEIVE_MAX_DEFAULT` | [architecture.md](architecture.md), [blueprint.md](blueprint.md) |
 | 100, default 100 | Events one `fleet.follow` returns | [schemas/follow.ts](../packages/common/src/schemas/follow.ts) `FOLLOW_MAX_LIMIT`, `FOLLOW_MAX_DEFAULT` | none recorded |
-| 100 | Reach refusals one read returns | [schemas/network.ts](../packages/common/src/schemas/network.ts) `REACH_REFUSALS_READ_MAX` | [0034](decisions/0034-network-rules.md) |
+| default 100, at most 500 | Items one page of a paged read returns: a ship's messages and timeline, reach refusals and the other lists | [rules/page-size.ts](../packages/common/src/rules/page-size.ts) `PAGE_SIZE_DEFAULT`, `PAGE_SIZE_MAX` | [performance design](design/performance/performance.md) |
+| 10 | Verified facts about one ship | [schemas/verified-fact.ts](../packages/common/src/schemas/verified-fact.ts) `VERIFIED_FACTS_MAX` | [0059](decisions/0059-verified-facts.md) |
 | 50 | Values one label defines | [schemas/label.ts](../packages/common/src/schemas/label.ts) `LABEL_VALUES_MAX` | [0031](decisions/0031-labels.md) |
 | 20 | Label values one ship carries; also machine labels in crew settings and terms in one network rule selector | [schemas/label.ts](../packages/common/src/schemas/label.ts) `SHIP_LABELS_MAX` | [0031](decisions/0031-labels.md), [0034](decisions/0034-network-rules.md) |
 | 200 | Network rules: argo's plus the declared ones | [schemas/network.ts](../packages/common/src/schemas/network.ts) `NETWORK_RULES_MAX` | [0037](decisions/0037-declared-network-rules.md) |
@@ -73,6 +81,11 @@ Defined in `@aeolus-fleet/common`, checked by core on every call and by the clie
 | --- | --- | --- | --- |
 | 0 to 25 s | The wait an inbox check may ask for | [schemas/delivery.ts](../packages/common/src/schemas/delivery.ts) `INBOX_WAIT_MAX_SECONDS` | [blueprint.md](blueprint.md) |
 | 0 to 25 s | The wait a `fleet.follow` may ask for | [schemas/follow.ts](../packages/common/src/schemas/follow.ts) `FOLLOW_WAIT_MAX_SECONDS` | none recorded |
+| 7 days, by the hour | The stuck trend on Health | [schemas/health.ts](../packages/common/src/schemas/health.ts) `STUCK_TREND_HOURS` | [0042](decisions/0042-stuck-deliveries.md) |
+| 24 hours | The acknowledged deliveries Health counts | [schemas/health.ts](../packages/common/src/schemas/health.ts) `ACKNOWLEDGED_HOURS` | [0041](decisions/0041-fleet-health.md) |
+| 2 minutes | The longest a capability may ask the gateway to hold an outside call for its reply | [schemas/statement.ts](../packages/common/src/schemas/statement.ts) `CAPABILITY_WAIT_MAX_MS` | [0060](decisions/0060-a2a-through-the-gateway.md) |
+| 7 days | The longest deadline a capability may state for a call | [schemas/statement.ts](../packages/common/src/schemas/statement.ts) `CAPABILITY_DEADLINE_MAX_MS` | [0060](decisions/0060-a2a-through-the-gateway.md) |
+| 10 s | How long a package waits for core's version before it counts the fleet as not answering | [fleet/core-version.ts](../packages/common/src/fleet/core-version.ts) `CORE_VERSION_TIMEOUT_MS` | [compatibility.md](compatibility.md) |
 | 1, 2, 4, 8 s, each drawn between half and all of it | The waits before a fleet client calls again while the fleet answers busy: 5 calls in all. Squadrons, the trierarch and the trierarch plugin use it; the Aeolus Fleet plugin keeps a copy (below) | [fleet/index.ts](../packages/common/src/fleet/index.ts) `FLEET_BUSY_WAITS_MS`; [fleet/busy-wait.ts](../packages/common/src/fleet/busy-wait.ts) `busyWaitMs` | [architecture.md](architecture.md), #734 |
 
 ## Core
@@ -86,19 +99,34 @@ Defined in `@aeolus-fleet/common`, checked by core on every call and by the clie
 | 10 min | A delivery handed on a pushed ship and not confirmed this long is overdue: argo is told once per lease and oldest delivery, whatever the turn | [messaging/overdue.ts](../packages/core/src/domain/messaging/overdue.ts) `NOT_CONFIRMED_MINUTES` | [0040](decisions/0040-delivery-protocol.md), #586 |
 | 10 min | A delivery pending or received for a pushed ship this long while its session is idle is overdue | [messaging/overdue.ts](../packages/core/src/domain/messaging/overdue.ts) `IDLE_MINUTES` | [0040](decisions/0040-delivery-protocol.md), #586 |
 | 60 min | The same while its session is busy | [messaging/overdue.ts](../packages/core/src/domain/messaging/overdue.ts) `BUSY_MINUTES` | [0040](decisions/0040-delivery-protocol.md), #586 |
-| 30 s | How often core passes the 10 and 60 minute clocks, so argo is told within this of a clock running out | [app.ts](../packages/core/src/app.ts) `OVERDUE_PASS_MS` | [0040](decisions/0040-delivery-protocol.md), [architecture.md](architecture.md) |
+| 30 s | How often core runs its pass: the 10 and 60 minute clocks (argo is told within this of a clock running out), the stuck snapshot, pruning, sealing, data key rotation and due schedules a lost timer missed | [app.ts](../packages/core/src/app.ts) `OVERDUE_PASS_MS` | [0040](decisions/0040-delivery-protocol.md), [architecture.md](architecture.md) |
 | 00:00 UTC | When the daily message count starts again | [shared/utc-day.ts](../packages/core/src/domain/shared/utc-day.ts) `nextUtcDayStart` | [0020](decisions/0020-installation.md) |
 | 7 days | The installation's message window, counted per UTC day | [registry/installation-fleet.ts](../packages/core/src/domain/registry/installation-fleet.ts) `MESSAGE_WINDOW_DAYS` | [0020](decisions/0020-installation.md), [blueprint.md](blueprint.md) |
-| none by default | Ships per fleet, messages per day, fleets per installation | [registry/limits.ts](../packages/core/src/domain/registry/limits.ts) `NO_INSTALLATION_SETTINGS`; set by the installation | [0020](decisions/0020-installation.md) |
+| none by default | Ships per fleet, messages per day, fleets per installation, schedules per ship, the minimum schedule interval, retention | [registry/limits.ts](../packages/core/src/domain/registry/limits.ts) `NO_INSTALLATION_SETTINGS`; set by the installation | [0020](decisions/0020-installation.md) |
+
+| 30 s | How long a refused send under retry waits for its next try: one pass | [messaging/schedule.ts](../packages/core/src/domain/messaging/schedule.ts) `RETRY_EVERY_MS` | [0062](decisions/0062-scheduled-messages.md) |
+| 1 hour (default) | How long after its send time a refused send is tried again under retry | [messaging/schedule.ts](../packages/core/src/domain/messaging/schedule.ts) `RETRY_WINDOW_DEFAULT` | [0062](decisions/0062-scheduled-messages.md) |
+| 1 s | The shortest wait between two sends of the schedule timer | [schedule-timer.ts](../packages/core/src/schedule-timer.ts) `MIN_GAP_MS` | [0062](decisions/0062-scheduled-messages.md) |
+
+### Retention, sealing and Health
+
+| Value | What it guards | Set in | Behind |
+| --- | --- | --- | --- |
+| once an hour per fleet | A pruning pass of finished history | [shared/prune-history.ts](../packages/core/src/domain/shared/prune-history.ts) `claimPass` | [0066](decisions/0066-retention.md) |
+| 500 messages, and 500 rows of each other kind; 10 s | One pruning batch, and how long one fleet's pass prunes before it leaves the rest to the next hour | [shared/prune-history.ts](../packages/core/src/domain/shared/prune-history.ts) `PRUNE_BATCH`, `PRUNE_BUDGET_MS` | [0066](decisions/0066-retention.md) |
+| 168 closed hours | The stuck snapshot hours a fleet keeps | [prisma/health-snapshots.ts](../packages/core/src/adapters/prisma/health-snapshots.ts) `KEPT_HOURS` | [0042](decisions/0042-stuck-deliveries.md) |
+| 200 messages and 200 schedules; 10 s | One sealing batch of what a sealing fleet stored plain, and how long one fleet's pass seals before it leaves the rest to the next pass | [messaging/seal-stored-payloads.ts](../packages/core/src/domain/messaging/seal-stored-payloads.ts) `SEALING_BATCH`, `SEALING_BUDGET_MS` | [0068](decisions/0068-sealed-fleets.md) |
+| 5 minutes | How long a server keeps an unwrapped data key in memory: a cut grant or a disabled key bites within it | [messaging/data-keys.ts](../packages/core/src/domain/messaging/data-keys.ts) `DATA_KEY_CACHE_MS` | [0068](decisions/0068-sealed-fleets.md) |
+| 30 days | How old the current data key grows before the pass makes a new one current | [messaging/fleet-sealing.ts](../packages/core/src/domain/messaging/fleet-sealing.ts) `DATA_KEY_ROTATION_MS` | [0068](decisions/0068-sealed-fleets.md) |
+| 5 s | A call to the installation's KMS | [kms/aws-kms-key-vault.ts](../packages/core/src/adapters/kms/aws-kms-key-vault.ts) `DEFAULT_REQUEST_TIMEOUT_MS` | [0068](decisions/0068-sealed-fleets.md) |
+| 30 s | A call to a company key during recovery | [kms/company-key-vault.ts](../packages/core/src/adapters/kms/company-key-vault.ts) `RECOVERY_REQUEST_TIMEOUT_MS` | [0068](decisions/0068-sealed-fleets.md) |
 
 ### Reads
 
 | Value | What it guards | Set in | Behind |
 | --- | --- | --- | --- |
 | 1000 events | Missed events replayed to a browser before it must reload | [shared/read-fleet-events.ts](../packages/core/src/domain/shared/read-fleet-events.ts) `REPLAY_LIMIT` | [architecture.md](architecture.md) |
-| 200 | Messages on a ship's page | [shared/read-ship-messages.ts](../packages/core/src/domain/shared/read-ship-messages.ts) `MESSAGES_LIMIT` | none recorded |
 | 120 characters | A payload's preview | [shared/read-ship-messages.ts](../packages/core/src/domain/shared/read-ship-messages.ts) `PREVIEW_LENGTH` | none recorded |
-| 200 | Events on a ship's timeline | [shared/read-ship-timeline.ts](../packages/core/src/domain/shared/read-ship-timeline.ts) `TIMELINE_LIMIT` | none recorded |
 | 100 characters | A fleet name, trimmed | [registry/fleet.ts](../packages/core/src/domain/registry/fleet.ts) `FLEET_NAME_MAX_LENGTH` | none recorded |
 
 ### Sessions and sign-in
@@ -177,11 +205,11 @@ Defined in `@aeolus-fleet/common`, checked by core on every call and by the clie
 | under 1 minute, then up to 15 minutes, then long ago | Last seen: fresh, a while, long ago | [features/fleet/services/last-seen.ts](../packages/console/features/fleet/services/last-seen.ts) `MINUTE_MS`, `A_WHILE_MS` | [design/conventions.md](design/conventions.md) |
 | late after 1 interval, silent after 3 | A squadron member's check-in, as squadrons judges it (below) | [lib/squadrons-view.ts](../packages/console/lib/squadrons-view.ts) `LATE_AFTER_INTERVALS`, `SILENT_AFTER_INTERVALS` | [squadrons.md](https://github.com/ThomasHendrickx/aeolus-fleet-squadrons/blob/main/docs/squadrons.md) |
 | from 15 labels | A ship page shows "n of 20" | [lib/labels.ts](../packages/console/lib/labels.ts) `SHOWN_COUNT_FROM` | [0031](decisions/0031-labels.md) |
-| 2 label chips, then "+n" | Labels on a ship | [components/molecules/ship-labels.tsx](../packages/console/components/molecules/ship-labels.tsx) `SHOWN`; [features/ship/organisms/ship-labels-edit.tsx](../packages/console/features/ship/organisms/ship-labels-edit.tsx) `SHOWN` | [design/README.md](design/README.md) |
+| 2 label chips, then "+n" | Labels on a ship | [components/molecules/ship-labels.tsx](../packages/console/components/molecules/ship-labels.tsx) `SHOWN`; [features/ship/ui/organisms/ship-labels-edit.tsx](../packages/console/features/ship/ui/organisms/ship-labels-edit.tsx) `SHOWN` | [design/README.md](design/README.md) |
 | 22 characters | Labels beside a name in the fleet table, then "+n" | [features/fleet/ui/organisms/fleet-table.tsx](../packages/console/features/fleet/ui/organisms/fleet-table.tsx) `ROW_LABELS_WIDTH` | #102 |
 | 8 ships | Ships the command palette lists before anything is typed | [features/commands/services/command-palette.ts](../packages/console/features/commands/services/command-palette.ts) `SHIPS_BEFORE_QUERY` | none recorded |
 | 1.5 s | A copy button shows its check | [components/atoms/copy-button.tsx](../packages/console/components/atoms/copy-button.tsx) `COPIED_FOR_MS` | [design/README.md](design/README.md) |
-| 500 ms | A tooltip opens after hovering | [components/atoms/tooltip.tsx](../packages/console/components/atoms/tooltip.tsx) `HOVER_DELAY_MS` | [design/README.md](design/README.md) |
+| 500 ms | A tooltip opens after hovering | [common header/atoms/tooltip.tsx](../packages/common/src/header/atoms/tooltip.tsx) `HOVER_DELAY_MS` | [design/README.md](design/README.md) |
 | 5 s; errors until dismissed | A toast closes by itself | [components/atoms/toast.tsx](../packages/console/components/atoms/toast.tsx) `SUCCESS_DURATION_MS` | none recorded |
 
 ## Other release trains

@@ -8,6 +8,34 @@ Exported from the Claude Design canvas "Aeolus operator console v1" (Design syst
 - `source/<Part>.html`: the canvas markup for exact values; FleetTable composition and phone labels follow `conventions.md` and its console Storybook states; helper classes in `source/canvas.css`.
 - [`brand/README.md`](../../brand/README.md): the app mark and its exports. Every favicon and app icon comes from there.
 
+A canvas part's name is not always its component's. Built under another name: StartingPromptBlock and CrewLineBlock in `components/organisms/starting-prompt-dialog.tsx` and `components/molecules/crew-lines.tsx`; FleetScopes in `features/ship/ui/organisms/ship-header.tsx`; AccountMenu as `AvatarMenu` in `@aeolus-fleet/common/header`; CommissionForm in `features/fleet/ui/organisms/commission-dialog.tsx`. Not built: Checkbox, UpgradeBlueprintDialog.
+
+Feature designs, one folder each; the status of each is at its top:
+
+| Folder | What it designs |
+| --- | --- |
+| [a2a](a2a/README.md) | A2A in and out through the gateway |
+| [accounts](accounts/accounts.md) | Accounts and roles: which person acts as which ship, and may do what |
+| [e2e-encryption](e2e-encryption/e2e-encryption.md) | Who can read a fleet's messages: sealed fleets |
+| [feature-flags](feature-flags/feature-flags.md) | Feature flags per fleet |
+| [gateway-scopes](gateway-scopes/gateway-scopes.md) | The gateway's tools by scope, and ships as Slack bots |
+| [header](header/README.md) | One header for every Aeolus app |
+| [headless](headless/headless.md) | The trierarch starts and talks to a session without a terminal |
+| [meetings](meetings/meetings.md) | Ships and people in one moderated conversation |
+| [model-governance](model-governance/model-governance.md) | The models a fleet may run |
+| [network-io](network-io/README.md) | Network rules: export and import |
+| [oauth-servers](oauth-servers/oauth-servers.md) | Outside MCP servers that take only an OAuth sign-in |
+| [on-behalf-scopes](on-behalf-scopes/on-behalf-scopes.md) | Scopes granted on behalf of the asking ship |
+| [performance](performance/performance.md) | Performance at scale: paged reads and their limits |
+| [re-read-delivery](re-read-delivery/README.md) | A crew re-reads an acknowledged delivery |
+| [retention](retention/retention.md) | What a fleet keeps, and for how long |
+| [scheduled-messages](scheduled-messages/scheduled-messages.md) | A ship's own message, sent by core at its time |
+| [selector](selector/selector.md) | One message to a set of ships |
+| [sign-in-backgrounds](sign-in-backgrounds/mockup.html) | The six sign-in backgrounds |
+| [usage](usage/usage.md) | Usage over time: tokens across the fleet and its setup |
+| [vendor-platforms](vendor-platforms/README.md) | Aeolus beside vendor agent platforms |
+| [wake-a-person](wake-a-person/README.md) | Wake a person when something waits |
+
 | Level | Part | What it is | Props | Sections |
 | --- | --- | --- | --- | --- |
 | Tokens | [Colour](png/Colour.png) | Neutrals follow shadcn/ui names so the stock components theme themselves. The brand accent is --primary (a deep slate blue, light blue in dark mode); --accent keeps its shadcn meaning as the neutral hover surface. Status colour lives in five tone families; every ship status and delivery state maps to exactly one of them, and always carries an icon and a label as well. |  | Neutrals, accent and destructive, Tone families, Status mapping: ships, deliveries, squadrons, reports, health |
