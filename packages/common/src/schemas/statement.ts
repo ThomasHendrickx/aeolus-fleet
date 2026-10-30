@@ -16,8 +16,8 @@ import { discoveredVerifiedFactSchema } from './verified-fact.js';
  * the shape and acts on none of it.
  */
 
-/** The most a statement holds: 64 KB as the UTF-8 bytes of its JSON, as a payload does (decision 0006). */
-export const STATEMENT_MAX_BYTES = 64 * 1024;
+/** The most a statement holds: 256 KB as the UTF-8 bytes of its JSON, as a payload does (decision 0072). */
+export const STATEMENT_MAX_BYTES = 256 * 1024;
 
 /** The longest a statement's summary may be. */
 export const STATEMENT_SUMMARY_MAX_LENGTH = 1000;
@@ -84,9 +84,9 @@ export function statementBytes(statement: unknown): number {
   return utf8.encode(JSON.stringify(statement)).byteLength;
 }
 
-const STATEMENT_SIZE_MESSAGE = `A statement is at most ${String(STATEMENT_MAX_BYTES)} bytes (64 KB) as JSON in UTF-8`;
+const STATEMENT_SIZE_MESSAGE = `A statement is at most ${String(STATEMENT_MAX_BYTES)} bytes (256 KB) as JSON in UTF-8`;
 
-/** A statement: a summary and capabilities, each name once, at most 64 KB. */
+/** A statement: a summary and capabilities, each name once, at most 256 KB. */
 export const statementSchema = z
   .strictObject({
     summary: z

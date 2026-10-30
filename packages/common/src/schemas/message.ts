@@ -101,12 +101,12 @@ export const scheduleSelectorSchema = z.union([
   labelValuesSelectorSchema,
 ]);
 
-/** A payload: any text of at most 64 KB in UTF-8 (ADR 0006). */
+/** A payload: any text of at most 256 KB in UTF-8 (decision 0072). */
 export const payloadSchema = z
   .string()
   .refine(
     (payload) => payloadBytes(payload) <= PAYLOAD_MAX_BYTES,
-    `A payload is at most ${PAYLOAD_MAX_BYTES} bytes (64 KB) in UTF-8`,
+    `A payload is at most ${PAYLOAD_MAX_BYTES} bytes (256 KB) in UTF-8`,
   );
 
 export type SelectorInput = z.infer<typeof selectorSchema>;

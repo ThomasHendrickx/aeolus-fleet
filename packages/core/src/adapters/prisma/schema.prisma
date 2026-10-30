@@ -272,7 +272,7 @@ model Lease {
   reportDetails        Json?        @map("report_details")
   /// Moves by one each time the details change; 0 before any.
   reportDetailsVersion Int          @default(0) @map("report_details_version")
-  /// The crew's statement: what its ship is and offers, at most 64 KB, its shape common's; null until it states one (decision 0047).
+  /// The crew's statement: what its ship is and offers, at most 256 KB, its shape common's; null until it states one (decision 0047).
   statement            Json?
   /// Moves by one each time the statement changes; 0 before any.
   statementVersion     Int          @default(0) @map("statement_version")
@@ -643,7 +643,7 @@ model MessageDay {
   @@map("message_days")
 }
 
-/// An immutable envelope plus an opaque payload of at most 64 KB, sent by one ship.
+/// An immutable envelope plus an opaque payload of at most 256 KB, sent by one ship.
 /// Ids start with msg_. The selector is stored as resolved at send time: a ship's
 /// id, never its name, or a type. It can name the message it replies to, and a
 /// resend names the message it resends (nothing sets that yet).

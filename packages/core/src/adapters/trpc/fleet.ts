@@ -974,7 +974,7 @@ export const fleetRouter = router({
   /**
    * The file checked before an import: what it holds and where the fleet
    * differs (design network-io, section 5). A mutation though it reads only,
-   * as the file of up to 64 KB travels in the body, never in a query's URL.
+   * as the file of up to 256 KB travels in the body, never in a query's URL.
    */
   checkNetworkRulesFile: actorAllScopesProcedure('fleet:network', 'labels:define')
     .meta({

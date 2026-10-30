@@ -100,7 +100,7 @@ function ComposeForm({ ships, onShipQueryChange, types, typeShipCounts, onTypeCh
           data-testid="compose-payload"
         />
         {isTooLarge ? (
-          <InlineError variant="field" id={sizeErrorId} title="A message is at most 64 KB. Send a reference to where the content lives." />
+          <InlineError variant="field" id={sizeErrorId} title="A message is at most 256 KB. Send a reference to where the content lives." />
         ) : (
           <p className="text-meta text-muted-foreground">Sent as plain text from argo, stored before the fleet says OK.</p>
         )}

@@ -1,8 +1,8 @@
 /**
- * A payload is at most 64 KB (ADR 0006): a message carries a reference and an
+ * A payload is at most 256 KB (decision 0072): a message carries a reference and an
  * instruction, not the content itself.
  */
-export const PAYLOAD_MAX_BYTES = 64 * 1024;
+export const PAYLOAD_MAX_BYTES = 256 * 1024;
 
 const utf8 = new TextEncoder();
 
