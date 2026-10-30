@@ -78,7 +78,7 @@ const SLOW_SIGN_OUT_MS = 2_000;
 
 /** Whether a request is a call the console sends: a tRPC call or a console read. */
 function isConsoleCall(pathname: string): boolean {
-  return pathname.startsWith('/trpc/') || pathname.startsWith('/api/reads/');
+  return pathname.startsWith('/trpc/') || pathname.startsWith('/api/reads/') || pathname.startsWith('/api/reports/');
 }
 
 /**

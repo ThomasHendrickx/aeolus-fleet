@@ -71,6 +71,7 @@ describe('monitoring W2 message task links', () => {
     // Then only the allowed viewer has a link to the message sheet.
     expect(allowed.href).toBe(`/messages/${MESSAGE_ID}`);
     expect(outside.href).toBeNull();
+    expect(reportTaskLabel({ ...task, canOpen: true }, undefined).href).toBeNull();
   });
 
   it('names another fleet the viewer belongs to and opens the message there', () => {

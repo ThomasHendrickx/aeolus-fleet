@@ -1,3 +1,5 @@
+import { RecipientProgress } from '../molecules/recipient-progress';
+
 import type { MessageDelivery } from '@aeolus-fleet/common';
 import { RotateCw } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -61,9 +63,11 @@ export function MessageDeliveries({ deliveries, state, onRetry, more, now }: Mes
             <time dateTime={delivery.since} title={fullDateTime(new Date(delivery.since))} className="ml-auto text-meta text-muted-foreground tabular-nums max-sm:text-body-touch">
               {relativeTime(new Date(delivery.since), now)}
             </time>
+            <RecipientProgress progress={delivery.progress} now={now} />
           </li>
         ))}
       </ul>
+      <span className="mt-2 text-meta text-muted-foreground">Progress shows for a crew whose task is this message.</span>
       {more}
     </div>
   );

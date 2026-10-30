@@ -303,6 +303,7 @@ export const TYPE_MESSAGE: MessageDetail = {
   isPayloadSealed: false,
   replies: [],
   delivery: { id: deliveryId('0003'), state: 'handed', attempts: 2, claimedBy: REVIEWER, way: PULLED_WAY, history: TYPE_HISTORY },
+  progress: null,
   deliveryCount: 1,
 };
 
@@ -326,6 +327,7 @@ export const DIRECT_MESSAGE: MessageDetail = {
     way: { ...PULLED_WAY, since: '2026-09-28T14:27:40Z' },
     history: DIRECT_HISTORY,
   },
+  progress: null,
   deliveryCount: 1,
 };
 
@@ -353,14 +355,15 @@ export const LABEL_MESSAGE: MessageDetail = {
     way: { ...PULLED_WAY, since: '2026-09-28T14:27:40Z' },
     history: DIRECT_HISTORY,
   },
+  progress: null,
   deliveryCount: 3,
 };
 
 /** The deliveries of LABEL_MESSAGE, by id: one per ship carrying team=a. */
 export const LABEL_DELIVERIES: MessageDelivery[] = [
-  { id: deliveryId('0051'), ship: REVIEWER, state: 'acknowledged', since: '2026-09-28T14:27:40Z' },
-  { id: deliveryId('0052'), ship: BUILDER, state: 'handed', since: '2026-09-28T14:28:10Z' },
-  { id: deliveryId('0053'), ship: SECOND_REVIEWER, state: 'pending', since: '2026-09-28T14:26:03Z' },
+  { id: deliveryId('0051'), ship: REVIEWER, state: 'acknowledged', progress: null, since: '2026-09-28T14:27:40Z' },
+  { id: deliveryId('0052'), ship: BUILDER, state: 'handed', progress: null, since: '2026-09-28T14:28:10Z' },
+  { id: deliveryId('0053'), ship: SECOND_REVIEWER, state: 'pending', progress: null, since: '2026-09-28T14:26:03Z' },
 ];
 
 /** The trierarch on mac-mini, which crews reviewer-01 in the pushed examples. */
@@ -407,7 +410,8 @@ function pushed(suffix: string, delivery: Pick<MessageDetail['delivery'], 'state
     isPayloadSealed: false,
     replies: [],
     delivery: { id: deliveryId(suffix), claimedBy: delivery.state === 'pending' ? null : REVIEWER, ...delivery },
-    deliveryCount: 1,
+    progress: null,
+  deliveryCount: 1,
   };
 }
 

@@ -4,7 +4,8 @@ import type { FleetId, ReportStep, ReportTask } from '@aeolus-fleet/common';
  * A report's task as the overview and the ship page label it
  * (docs/design/monitoring, 4.2): a GitHub pull request as "PR #1391", an issue
  * as "#1407", any other URL as its host and path, each linked in a new tab; a
- * message as "a message", or "a message in flt_…" in another fleet, as text;
+ * message as "a message", or with the other fleet’s name when known; linked
+ * only when its server-read view allows it;
  * a kind the console does not know as "a task of unknown type". The title
  * always holds the whole URL or the ids.
  */
@@ -12,7 +13,7 @@ export interface ReportTaskLabel {
   icon: 'pullRequest' | 'issue' | 'link' | 'message' | 'unknown';
   label: string;
   title: string;
-  /** Where the label links to, in a new tab; null shows it as text. */
+  /** Where the label links to; URL tasks open in a new tab. Null shows text. */
   href: string | null;
 }
 
@@ -29,8 +30,10 @@ export function reportTaskLabel(task: ReportTask, viewerFleetId: FleetId | undef
   }
   if (task.kind === 'message' && typeof fleetId === 'string' && typeof messageId === 'string') {
     const title = `${fleetId} · ${messageId}`;
-    const label = fleetId === viewerFleetId ? 'a message' : `a message in ${shortenedId(fleetId)}`;
-    return { icon: 'message', label, title, href: null };
+    const label = fleetId === viewerFleetId ? 'a message' : `a message in ${typeof task.fleetName === 'string' ? task.fleetName : shortenedId(fleetId)}`;
+    const path = `/messages/${messageId}`;
+    const href = task.canOpen !== true ? null : fleetId === viewerFleetId ? path : `/sign-in/enter?fleet=${fleetId}&returnTo=${encodeURIComponent(path)}`;
+    return { icon: 'message', label, title, href };
   }
   return { icon: 'unknown', label: 'a task of unknown type', title: `kind: ${task.kind}`, href: null };
 }

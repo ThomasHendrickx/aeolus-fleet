@@ -63,3 +63,6 @@ export const RecipientProgress: Story = {
 };
 export const RecipientProgressPhone: Story = { ...RecipientProgress, globals: { viewport: { value: 'mobile1' } } };
 export const RecipientProgressDark: Story = { ...RecipientProgress, globals: { theme: 'dark' } };
+
+export const RecipientBlocked: Story = { args: { deliveries: LABEL_DELIVERIES.map((delivery, index) => ({ ...delivery, progress: index === 0 ? { state: 'blocked', note: 'Waiting for the owner', step: { at: 2, of: 4 }, reportChangedAt: NOW.toISOString() } : null })) } };
+export const RecipientIdle: Story = { args: { deliveries: LABEL_DELIVERIES.map((delivery, index) => ({ ...delivery, progress: index === 0 ? { state: 'idle', note: null, step: null, reportChangedAt: NOW.toISOString() } : null })) } };
