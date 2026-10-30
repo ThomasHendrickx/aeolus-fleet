@@ -14,7 +14,7 @@ interface CrewLinesProps {
   onCopyFailed?: () => void;
 }
 
-/** A starting prompt's crew lines: one labelled copy block per harness, as Claude Code or Codex. */
+/** A starting prompt's crew lines: one labelled copy block per harness, as Claude Code, Codex or Copilot. */
 export function CrewLines({ crewLines, subject, testIdPrefix, onCopied, onCopyFailed }: CrewLinesProps) {
   return crewLines.map(({ harness, line }) => (
     <CodeBlock

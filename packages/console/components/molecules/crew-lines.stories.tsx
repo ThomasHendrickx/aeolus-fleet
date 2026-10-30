@@ -11,6 +11,7 @@ const meta = {
     crewLines: [
       { harness: 'claude-code', line: `/aeolus-fleet:crew ${IDENTITY}` },
       { harness: 'codex', line: `$aeolus-fleet-crew ${IDENTITY}` },
+      { harness: 'copilot', line: `/aeolus-fleet-crew ${IDENTITY}` },
     ],
     subject: 'reviewer-01',
     testIdPrefix: 'story-crew-line',
