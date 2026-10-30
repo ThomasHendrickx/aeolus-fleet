@@ -63,7 +63,7 @@ export const exportNetworkRulesOutputSchema = z.object({
 
 export type ExportedNetworkRules = z.infer<typeof exportNetworkRulesOutputSchema>;
 
-/** The file as attached or pasted: its text, parsed by the server, of at most 256 KB (decision 0072). */
+/** The file as attached or pasted: its text, parsed by the server, of at most 256 KB (decision 0006). */
 const fileTextSchema = z.string().refine((text) => payloadBytes(text) <= PAYLOAD_MAX_BYTES, `A network rules file is at most ${String(PAYLOAD_MAX_BYTES)} bytes (256 KB) in UTF-8`);
 
 /** Input of `fleet.checkNetworkRulesFile` (fleet:network and labels:define). */

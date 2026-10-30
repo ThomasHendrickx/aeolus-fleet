@@ -1,4 +1,4 @@
--- A payload is at most 256 KB, counted in bytes (decision 0072): plain, or sealed with its plain byte count.
+-- A payload is at most 256 KB, counted in bytes (decision 0006): plain, or sealed with its plain byte count.
 ALTER TABLE "messages" DROP CONSTRAINT "messages_payload_max_64kb";
 ALTER TABLE "messages" ADD CONSTRAINT "messages_payload_max_256kb" CHECK (octet_length("payload") <= 262144);
 

@@ -5,7 +5,7 @@ import { ok, type Result } from '../shared/result.js';
 
 /**
  * A message's payload: text, opaque to the fleet, which never reads, parses or
- * changes it. At most 256 KB serialized, counted in UTF-8 bytes (decision 0072): a
+ * changes it. At most 256 KB serialized, counted in UTF-8 bytes (decision 0006): a
  * message carries a reference and an instruction, not the content itself. The
  * rule is shared with the common schema, so the door checks the same thing.
  */

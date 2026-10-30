@@ -12,10 +12,10 @@ Defined in `@aeolus-fleet/common`, checked by core on every call and by the clie
 
 | Value | What it guards | Set in | Behind |
 | --- | --- | --- | --- |
-| 64 KB (`64 * 1024` bytes, UTF-8) | A message payload; also a `CHECK` on `messages.payload` | [rules/payload.ts](../packages/common/src/rules/payload.ts) `PAYLOAD_MAX_BYTES`; [init migration](../packages/core/src/adapters/prisma/migrations/20260929124818_init/migration.sql) `messages_payload_max_64kb` | [0006](decisions/0006-payload-limit.md) |
+| 256 KB (`256 * 1024` bytes, UTF-8) | A message payload; also a `CHECK` on `messages.payload` and on the plain byte count of a sealed message or schedule | [rules/payload.ts](../packages/common/src/rules/payload.ts) `PAYLOAD_MAX_BYTES`; [migration](../packages/core/src/adapters/prisma/migrations/20261105090000_payload_limit_256kb/migration.sql) `messages_payload_max_256kb`, `messages_payload_plain_or_sealed`, `schedules_payload_plain_or_sealed` | [0006](decisions/0006-payload-limit.md) |
 | 16 KB | A report's details, checked on the result of a merge patch | [schemas/report.ts](../packages/common/src/schemas/report.ts) `REPORT_DETAILS_MAX_BYTES` | [0028](decisions/0028-report-details.md) |
 | 16 KB | A crew request's settings | [schemas/crew-request.ts](../packages/common/src/schemas/crew-request.ts) `CREW_REQUEST_SETTINGS_MAX_BYTES` | [0029](decisions/0029-crew-request.md) |
-| 64 KB | A ship's statement, as JSON | [schemas/statement.ts](../packages/common/src/schemas/statement.ts) `STATEMENT_MAX_BYTES` | [0047](decisions/0047-discovery-and-statements.md) |
+| 256 KB | A ship's statement, as JSON | [schemas/statement.ts](../packages/common/src/schemas/statement.ts) `STATEMENT_MAX_BYTES` | [0006](decisions/0006-payload-limit.md), [0047](decisions/0047-discovery-and-statements.md) |
 | 8192 bytes | A crew's first prompt, after squadrons fills its parameters | [trierarch/crew-settings.ts](../packages/common/src/trierarch/crew-settings.ts) `FIRST_PROMPT_MAX_BYTES` | [0027](decisions/0027-crew-settings.md), [trierarch.md](https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/docs/trierarch.md#the-crew-request), #371 |
 
 ### Lengths

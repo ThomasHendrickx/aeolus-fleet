@@ -16,7 +16,7 @@ import { discoveredVerifiedFactSchema } from './verified-fact.js';
  * the shape and acts on none of it.
  */
 
-/** The most a statement holds: 256 KB as the UTF-8 bytes of its JSON, as a payload does (decision 0072). */
+/** The most a statement holds: 256 KB as the UTF-8 bytes of its JSON, as a payload does (decision 0006). */
 export const STATEMENT_MAX_BYTES = 256 * 1024;
 
 /** The longest a statement's summary may be. */

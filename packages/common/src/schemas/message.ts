@@ -101,7 +101,7 @@ export const scheduleSelectorSchema = z.union([
   labelValuesSelectorSchema,
 ]);
 
-/** A payload: any text of at most 256 KB in UTF-8 (decision 0072). */
+/** A payload: any text of at most 256 KB in UTF-8 (decision 0006). */
 export const payloadSchema = z
   .string()
   .refine(
