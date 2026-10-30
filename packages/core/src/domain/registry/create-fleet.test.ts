@@ -69,6 +69,25 @@ describe('creating a fleet for the installation', () => {
     await expect(createFleet({ ...HEMMA, hasViewer: true })).resolves.toMatchObject({ isOk: false, error: { kind: 'IDEMPOTENCY_KEY_REUSED' } });
   });
 
+  it('creates the fleet with the feature flags asked for on, each with FeatureFlagTurnedOn by the installation in the same unit of work (decision 0069)', async () => {
+    const { fleetId } = unwrap(await createFleet({ ...HEMMA, featureFlags: ['sealing'] }));
+
+    expect(core.state.featureFlags).toEqual([{ fleetId, flag: 'sealing' }]);
+    expect(core.state.events.filter((event) => event.type === 'FeatureFlagTurnedOn').map(({ actor, details }) => ({ actor, details }))).toEqual([{ actor: { kind: 'installation' }, details: { flag: 'sealing' } }]);
+  });
+
+  it('creates the fleet with every feature flag off unless asked for one (decision 0069)', async () => {
+    unwrap(await createFleet(HEMMA));
+
+    expect(core.state.featureFlags).toEqual([]);
+  });
+
+  it('refuses a create with a feature flag under the request id of one without (decision 0069)', async () => {
+    unwrap(await createFleet(HEMMA));
+
+    await expect(createFleet({ ...HEMMA, featureFlags: ['sealing'] })).resolves.toMatchObject({ isOk: false, error: { kind: 'IDEMPOTENCY_KEY_REUSED' } });
+  });
+
   it('creates a fleet beside the fleets the installation already hosts', async () => {
     await initialiseFleet(core);
 
