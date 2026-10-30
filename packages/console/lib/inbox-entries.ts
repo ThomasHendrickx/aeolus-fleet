@@ -1,8 +1,9 @@
 import type { DeliveryId, InboxMessage, ShipId } from '@aeolus-fleet/common';
 
 import { GATEWAY_SHIP, SQUADRONS_SHIP, TRIERARCH_PLUGIN_SHIP } from './connect-plugin';
-import type { InboxEntry, InboxSender, PayloadSealing } from './inbox-entry';
+import type { InboxEntry, InboxSender } from './inbox-entry';
 import { messageTextOf } from './message-text';
+import { payloadSealingOf } from './payload-sealing';
 import { questionsIn } from './question-answer';
 import { questionDeliveryIdsOf } from './questions';
 
@@ -31,13 +32,6 @@ function senderOf(sender: { id: ShipId; name: string }, ships: readonly ListedSh
   const type = ships.find(({ id }) => id === sender.id)?.type ?? null;
   const isNameShared = ships.some(({ id, name }) => id !== sender.id && name === sender.name);
   return { id: sender.id, name: sender.name, type, isNameShared };
-}
-
-function payloadSealingOf(message: { isPayloadSealed: boolean; isPayloadUnreadable: boolean }): PayloadSealing {
-  if (message.isPayloadUnreadable) {
-    return 'keyNotReachable';
-  }
-  return message.isPayloadSealed ? 'sealed' : 'plain';
 }
 
 export function inboxEntriesOf(inbox: readonly InboxMessage[], ships: readonly ListedShip[]): InboxEntry[] {
