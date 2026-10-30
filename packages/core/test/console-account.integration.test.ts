@@ -167,6 +167,7 @@ describe('an account signed in by its token cookie', () => {
       accountId: 'acc-mathilde',
       scopes: ['fleet:read', 'fleet:commission'],
       expiresAt: new Date(clock.now().getTime() + 600_000).toISOString(),
+      featureFlags: [],
     });
   });
 

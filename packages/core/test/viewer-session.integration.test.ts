@@ -115,6 +115,7 @@ describe('a viewer ticket', () => {
       kind: 'viewer',
       scopes: ['fleet:read'],
       expiresAt: new Date(clock.now().getTime() + 2 * HOUR_MS).toISOString(),
+      featureFlags: [],
     });
   });
 

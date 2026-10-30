@@ -171,6 +171,13 @@ export function isSealingChange(type: EventType): boolean {
   return SEALING_EVENTS.has(type);
 }
 
+/** The events that change which features the fleet's console shows (decision 0069): console.session answers its flags. */
+const FEATURE_FLAG_EVENTS: ReadonlySet<EventType> = new Set<EventType>(['FeatureFlagTurnedOn', 'FeatureFlagTurnedOff']);
+
+export function isFeatureFlagChange(type: EventType): boolean {
+  return FEATURE_FLAG_EVENTS.has(type);
+}
+
 /** The events that change Needs attention: a delivery becomes undeliverable or not handled, or the operator lets one go. */
 const ATTENTION_EVENTS: ReadonlySet<EventType> = new Set<EventType>(['DeliveryUndeliverable', 'DeliveryNotHandled', 'DeliveryDismissed']);
 
@@ -298,6 +305,9 @@ export function createLiveFleetHandler(input: {
     }
     if (isSealingChange(event.type)) {
       reload(trpc.fleet.sealing.queryKey());
+    }
+    if (isFeatureFlagChange(event.type)) {
+      reload(trpc.console.session.queryKey());
     }
     if (isDeclaredRulesChange(event.type)) {
       reload(trpc.fleet.declaredNetworkRules.queryKey());
