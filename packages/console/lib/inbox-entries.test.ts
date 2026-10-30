@@ -46,10 +46,10 @@ describe('inboxEntriesOf', () => {
   it('marks a payload stored sealed, and not one stored before sealing (decision 0068, N1)', () => {
     const entries = inboxEntriesOf([aMessage({ isPayloadSealed: true }), aMessage({ contentType: QUESTION_CONTENT_TYPE, payload: JSON.stringify(QUESTION), isPayloadSealed: true }), aMessage()], SHIPS);
 
-    expect(entries.map(({ kind, payload }) => ({ kind, payload }))).toEqual([
-      { kind: 'message', payload: 'sealed' },
-      { kind: 'question', payload: 'sealed' },
-      { kind: 'message', payload: 'plain' },
+    expect(entries.map(({ kind, sealing }) => ({ kind, sealing }))).toEqual([
+      { kind: 'message', sealing: 'sealed' },
+      { kind: 'question', sealing: 'sealed' },
+      { kind: 'message', sealing: 'plain' },
     ]);
   });
 
@@ -59,9 +59,9 @@ describe('inboxEntriesOf', () => {
       SHIPS,
     );
 
-    expect(entries.map(({ kind, payload }) => ({ kind, payload }))).toEqual([
-      { kind: 'message', payload: 'keyNotReachable' },
-      { kind: 'message', payload: 'keyNotReachable' },
+    expect(entries.map(({ kind, sealing }) => ({ kind, sealing }))).toEqual([
+      { kind: 'message', sealing: 'keyNotReachable' },
+      { kind: 'message', sealing: 'keyNotReachable' },
     ]);
   });
 

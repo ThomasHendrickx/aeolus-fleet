@@ -3,7 +3,7 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { useState } from 'react';
 import { expect, fn, userEvent, within } from 'storybook/test';
 
-import { ANSWERED, ENTRIES, MERGE_NOW, NOW, PR_READY, DISCARDED, THREAD, TIDE_TABLES, WITHDRAWN } from '../../../../lib/fixtures/inbox.fixtures';
+import { ANSWERED, ENTRIES, KEY_NOT_REACHABLE_ENTRIES, MERGE_NOW, NOW, PR_READY, DISCARDED, SEALED_ENTRIES, THREAD, TIDE_TABLES, WITHDRAWN } from '../../../../lib/fixtures/inbox.fixtures';
 import { isOpenEntry, type InboxEntry } from '../../../../lib/inbox-entry';
 import { neighbourOf, questionPositionOf } from '../../services/inbox-moves';
 import { inboxViewOf, openQuestionsOf, waitingOf } from '../../services/inbox-view';
@@ -164,3 +164,12 @@ export const PhoneAnswered: Story = {
 export const PhoneMessage: Story = { args: { initialSelected: PR_READY.deliveryId }, globals: { viewport: { value: 'mobile1' } } };
 
 export const PhoneEmpty: Story = { args: { entries: [], initialSelected: undefined }, globals: { viewport: { value: 'mobile1' } } };
+
+/** A sealed fleet: a lock by each row's time and Sealed in the reader (decision 0068, N1). */
+export const Sealed: Story = { args: { entries: SEALED_ENTRIES, initialSelected: PR_READY.deliveryId } };
+/** The company key cut off: each row and the reader say so; Done still works (scenario 25). */
+export const KeyNotReachable: Story = { args: { entries: KEY_NOT_REACHABLE_ENTRIES, initialSelected: PR_READY.deliveryId } };
+export const PhoneKeyNotReachable: Story = {
+  args: { entries: KEY_NOT_REACHABLE_ENTRIES, initialSelected: undefined },
+  globals: { viewport: { value: 'mobile1' } },
+};

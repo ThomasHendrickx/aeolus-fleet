@@ -18,6 +18,7 @@ function aQuestion({ sentAt, answeredAt = null, isStale = false }: { sentAt: str
     sender: SENDER,
     sentAt,
     model: null,
+    sealing: 'plain',
     question: {
       id: '3f1c2a9e-7b4d-4e8a-9c1f-2d6b8e0a5c47',
       title: 'Which port?',
@@ -42,6 +43,7 @@ function aMessage({ sentAt, doneAt = null, isFromPlugin = false }: { sentAt: str
     sender: SENDER,
     sentAt,
     model: null,
+    sealing: 'plain',
     isFromPlugin,
     repliedWith: null,
     inReplyTo: null,

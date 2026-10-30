@@ -1,7 +1,7 @@
 import type { DeliveryId, InboxMessage, ShipId } from '@aeolus-fleet/common';
 
 import { GATEWAY_SHIP, SQUADRONS_SHIP, TRIERARCH_PLUGIN_SHIP } from './connect-plugin';
-import type { InboxEntry, InboxSender } from './inbox-entry';
+import type { InboxEntry, InboxSender, PayloadSealing } from './inbox-entry';
 import { messageTextOf } from './message-text';
 import { questionsIn } from './question-answer';
 import { questionDeliveryIdsOf } from './questions';
@@ -9,7 +9,9 @@ import { questionDeliveryIdsOf } from './questions';
 /**
  * argo's inbox as the web app's server lays it out (#849): each question with
  * its answer and staleness, each other message with its headline and body,
- * marked when a plugin's ship sent it. The withdrawals that made a question
+ * marked when a plugin's ship sent it, and each saying whether its payload is
+ * sealed or its company key not reachable; a question it cannot read lists as
+ * a message. The withdrawals that made a question
  * stale are left out (decision 0038).
  */
 
@@ -31,6 +33,13 @@ function senderOf(sender: { id: ShipId; name: string }, ships: readonly ListedSh
   return { id: sender.id, name: sender.name, type, isNameShared };
 }
 
+function payloadSealingOf(message: { isPayloadSealed: boolean; isPayloadUnreadable: boolean }): PayloadSealing {
+  if (message.isPayloadUnreadable) {
+    return 'keyNotReachable';
+  }
+  return message.isPayloadSealed ? 'sealed' : 'plain';
+}
+
 export function inboxEntriesOf(inbox: readonly InboxMessage[], ships: readonly ListedShip[]): InboxEntry[] {
   const questions = questionsIn(inbox);
   const shownElsewhere = questionDeliveryIdsOf(questions);
@@ -45,6 +54,7 @@ export function inboxEntriesOf(inbox: readonly InboxMessage[], ships: readonly L
       sender,
       sentAt: entry.message.sentAt,
       model: entry.message.model,
+      sealing: payloadSealingOf(entry.message),
     };
     const asked = questions.find(({ deliveryId }) => deliveryId === entry.deliveryId);
     if (asked !== undefined) {

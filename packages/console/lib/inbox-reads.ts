@@ -98,7 +98,8 @@ export async function readThread(from: MessageId): Promise<PluginAnswer<ThreadMe
   }
   const read = async (messageId: MessageId) => {
     const message = await callFleet('fleet.message', { input: { messageId }, answers: messageOutputSchema });
-    return message.kind === 'answered' ? message.data : undefined;
+    // A sealed payload whose company key is not reachable ends the thread, as a message it cannot read does (decision 0068).
+    return message.kind === 'answered' && !message.data.isPayloadUnreadable ? message.data : undefined;
   };
   return { kind: 'answered', data: await threadBefore(from, { read, argoId: argo.id }) };
 }

@@ -19,6 +19,13 @@ export interface InboxSender {
   isNameShared: boolean;
 }
 
+/**
+ * Its payload as a sealed fleet stores it (decision 0068, N1): plain, sealed
+ * and rendered as today, or sealed while the company key is not reachable,
+ * so the row and the reader say so in its place.
+ */
+export type PayloadSealing = 'plain' | 'sealed' | 'keyNotReachable';
+
 interface EntryBase {
   deliveryId: DeliveryId;
   messageId: MessageId;
@@ -28,6 +35,7 @@ interface EntryBase {
   sender: InboxSender;
   sentAt: string;
   model: string | null;
+  sealing: PayloadSealing;
 }
 
 export interface QuestionEntry extends EntryBase {

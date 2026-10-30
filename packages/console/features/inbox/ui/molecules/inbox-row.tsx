@@ -5,6 +5,7 @@ import { classNames } from '@aeolus-fleet/common/header';
 import type { InboxEntry } from '../../../../lib/inbox-entry';
 import { clockTime, duration, fullDateTime, shortDateTime } from '../../../../lib/relative-time';
 import { Badge } from '../../../../components/atoms/badge';
+import { SealedMark } from '../../../../components/molecules/sealed-mark';
 
 const DAY_MS = 24 * 60 * 60 * 1_000;
 
@@ -65,12 +66,15 @@ interface InboxRowProps {
  * One row of argo's inbox (#849): the ship by name (no id suffix), the time,
  * and the headline in two lines. A question adds the asker's pick and how
  * long it has waited, or how it ended; a message one muted line of its body.
- * The dot and the weight say unread.
+ * A lock by the time marks a sealed payload, and "Sealed, key not reachable"
+ * stands in for the headline while its company key is cut off (decision
+ * 0068, N1). The dot and the weight say unread.
  */
 export function InboxRow({ entry, isSelected, onSelect, now, isNested = false }: InboxRowProps) {
   const sentAt = new Date(entry.sentAt);
   const isUnreadRow = isUnread(entry);
   const headline = entry.kind === 'question' ? entry.question.title : entry.text.headline;
+  const isKeyNotReachable = entry.sealing === 'keyNotReachable';
   return (
     <li>
       <button
@@ -89,22 +93,25 @@ export function InboxRow({ entry, isSelected, onSelect, now, isNested = false }:
         {isUnreadRow ? <span aria-hidden className={classNames('absolute top-[1.15rem] size-2 rounded-full bg-primary', isNested ? 'left-5' : 'left-2.5')} /> : null}
         <span className="flex min-w-0 items-baseline gap-2">
           <span className={classNames('min-w-0 truncate text-meta text-foreground max-sm:text-body', isUnreadRow ? 'font-medium' : 'text-muted-foreground')}>{entry.sender.name}</span>
-          <time dateTime={entry.sentAt} title={fullDateTime(sentAt)} className="ml-auto shrink-0 text-meta text-muted-foreground tabular-nums">
-            {listTime(sentAt, now)}
-          </time>
+          <span className="ml-auto flex shrink-0 items-center gap-1">
+            {entry.sealing === 'sealed' ? <SealedMark variant="icon" testId="inbox-row-sealed" /> : null}
+            <time dateTime={entry.sentAt} title={fullDateTime(sentAt)} className="text-meta text-muted-foreground tabular-nums">
+              {listTime(sentAt, now)}
+            </time>
+          </span>
         </span>
         <span
           className={classNames(
             'line-clamp-2 text-body text-foreground [overflow-wrap:anywhere] max-sm:text-body-touch',
-            isUnreadRow ? 'font-semibold' : 'font-medium',
+            isKeyNotReachable ? 'font-medium text-muted-foreground' : isUnreadRow ? 'font-semibold' : 'font-medium',
             entry.kind === 'question' && entry.stale !== null ? 'text-muted-foreground line-through' : undefined,
           )}
         >
-          {headline === '' ? 'No text' : headline}
+          {isKeyNotReachable ? 'Sealed, key not reachable' : headline === '' ? 'No text' : headline}
         </span>
         {entry.kind === 'question' ? (
           <QuestionLine entry={entry} now={now} />
-        ) : entry.text.summary === '' ? null : (
+        ) : isKeyNotReachable || entry.text.summary === '' ? null : (
           <span className="truncate text-meta text-muted-foreground max-sm:text-body">{entry.text.summary}</span>
         )}
         {isUnreadRow ? <span className="sr-only">Unread</span> : null}
