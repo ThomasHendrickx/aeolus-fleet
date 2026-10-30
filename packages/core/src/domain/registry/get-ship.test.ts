@@ -53,7 +53,7 @@ describe('getting one ship', () => {
     await expect(useCases.getShip(argo, { shipId: builderId })).resolves.toMatchObject({ isOk: true, value: { labels: [{ labelId, key: 'os', valueId, value: 'macos' }] } });
   });
 
-  it('gives the ship as the fleet lists it, with when it was commissioned, not crewed and not retired', async () => {
+  it('gives the ship as the fleet lists it, with when it was commissioned, not crewed, not retired and not removed', async () => {
     const ship = unwrap(await useCases.getShip(argo, { shipId: scoutId }));
 
     expect(ship).toEqual({
@@ -61,6 +61,7 @@ describe('getting one ship', () => {
       commissionedAt,
       crewedSince: null,
       retiredAt: null,
+      removedAt: null,
       inFlightDeliveries: 0,
       openDeliveries: 0,
       owner: { id: argo.shipId, name: 'argo' },

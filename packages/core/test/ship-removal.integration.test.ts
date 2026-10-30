@@ -242,7 +242,7 @@ describe('a removed ship in the reads (D4)', () => {
 
 describe('a removed ship stays retired (D6)', () => {
   /** What a register with its secret, a send to it and a schedule to it answer, by refusal kind, and whether any of them stored a row. */
-  async function addressed(shipId: ShipId, secret: string, sender: Crew) {
+  async function addressed(shipId: ShipId, secret: string | null, sender: Crew) {
     const before = { messages: await core.prisma.message.count(), schedules: await core.prisma.schedule.count() };
     const claim = await core.useCases.claimShip({ shipId, secret: secretOf(secret), location: { kind: 'DEVICE' }, harness: 'claude-code' });
     const send = await core.useCases.sendMessage(sender, { model: MODEL, selector: { kind: 'ship', shipId }, payload: 'Hi', idempotencyKey: newKey() });
@@ -257,7 +257,7 @@ describe('a removed ship stays retired (D6)', () => {
     return { refusals: [claim, send, schedule].map((result) => (result.isOk ? 'ok' : result.error.kind)), isStored };
   }
 
-  async function commissionedAndRetired(name: string): Promise<{ shipId: ShipId; secret: string }> {
+  async function commissionedAndRetired(name: string): Promise<{ shipId: ShipId; secret: string | null }> {
     const { shipId, secret } = unwrap(await core.useCases.commissionShip(argo, { name, type: 'planner', idempotencyKey: newKey() }));
     unwrap(await core.useCases.retireShip(argo, { shipId }));
     return { shipId, secret };
