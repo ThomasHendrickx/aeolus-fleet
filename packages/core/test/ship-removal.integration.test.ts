@@ -423,3 +423,43 @@ describe('the history that names a removed ship (D3)', () => {
     expect(dismissed).toMatchObject({ isOk: true });
   });
 });
+
+describe("a removed ship's schedules (D2)", () => {
+  it('scenario 8: a removed ship\'s cancelled schedule goes with the removal, the message it named goes in a later pass, and a kept message it sent keeps its content and reads no schedule', async () => {
+    // Given
+    const scout = await crewed({ name: 'scout', type: 'reviewer' });
+    const planner = await crewed({ name: 'planner', type: 'planner' });
+    const { messageId: named } = unwrap(await core.useCases.sendMessage(scout, { model: MODEL, selector: { kind: 'ship', shipId: planner.shipId }, payload: 'Review pr-1080', idempotencyKey: newKey() }));
+    unwrap(await core.useCases.receiveDeliveries(planner, { max: 10 }));
+    const namedDelivery = idSchema('delivery').parse((await core.prisma.delivery.findFirstOrThrow({ where: { messageId: named } })).id);
+    unwrap(await core.useCases.acknowledgeDelivery(planner, { deliveryId: namedDelivery }));
+    const { scheduleId } = unwrap(
+      await core.useCases.scheduleMessage(planner, {
+        model: MODEL,
+        selector: { kind: 'ship', shipId: scout.shipId },
+        payload: 'Still on it',
+        inReplyTo: named,
+        idempotencyKey: newKey(),
+        timing: { kind: 'once', at: new Date(core.clock.now().getTime() + 400 * DAY_MS) },
+      }),
+    );
+    // A message the schedule sent, still pending with the scout, so kept: set as the schedule's send would set it.
+    const { messageId: sent } = unwrap(await core.useCases.sendMessage(planner, { model: MODEL, selector: { kind: 'ship', shipId: scout.shipId }, payload: 'Still on it', idempotencyKey: newKey() }));
+    const sendTime = core.clock.now();
+    await core.prisma.message.update({ where: { id: sent }, data: { scheduleId, sendTime } });
+    core.clock.advance(1_000);
+    unwrap(await core.useCases.retireShip(argo, { shipId: planner.shipId }));
+
+    // When
+    await passAfter((RETENTION_DAYS + 1) * DAY_MS);
+    const isNamedKeptByTheRemoval = (await core.prisma.message.count({ where: { id: named } })) === 1;
+    await passAfter(HOUR_MS);
+
+    // Then
+    expect((await shipRow(planner.shipId)).removedAt).not.toBeNull();
+    expect(await core.prisma.schedule.count({ where: { id: scheduleId } })).toBe(0);
+    expect(isNamedKeptByTheRemoval).toBe(true);
+    expect(await core.prisma.message.count({ where: { id: named } })).toBe(0);
+    expect(await core.prisma.message.findUniqueOrThrow({ where: { id: sent } })).toMatchObject({ payload: 'Still on it', scheduleId: null, sendTime });
+  });
+});
