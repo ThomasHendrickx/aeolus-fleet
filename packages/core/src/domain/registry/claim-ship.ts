@@ -33,7 +33,8 @@ export type ClaimShip = (input: {
   shipId: ShipId;
   secret: string;
   location: { kind: LocationKind; description?: string };
-  harness: string;
+  /** None when the session cannot tell it: the lease then keeps no harness (aeolus-fleet#1408). */
+  harness?: string;
 }) => Promise<Result<ShipCrewed, ClaimShipRefusal>>;
 
 /**
@@ -62,7 +63,7 @@ export function createClaimShip(deps: {
     if (!reported.isOk) {
       return reported;
     }
-    const stated = harness(input.harness);
+    const stated = input.harness === undefined ? ok(null) : harness(input.harness);
     if (!stated.isOk) {
       return stated;
     }
