@@ -116,8 +116,8 @@ function RowReport({
 function FullReport({ report, now, viewerFleetId, testId }: { report: Report; now: Date; viewerFleetId: FleetId | undefined; testId: string }) {
   const changedAt = new Date(report.reportChangedAt);
   return (
-    <span data-testid={testId} data-state={report.state} className="flex min-w-0 flex-col gap-0.5 text-body">
-      <span title={reportText(report)} className="flex min-w-0 items-center gap-1.5">
+    <span data-testid={testId} data-state={report.state} title={reportText(report)} className="flex min-w-0 flex-col gap-0.5 text-body">
+      <span className="flex min-w-0 items-center gap-1.5">
         <StateWord state={report.state} />
         {report.note === null ? null : <span className="min-w-0 truncate text-foreground">{report.note}</span>}
       </span>
