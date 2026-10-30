@@ -719,7 +719,8 @@ function isInReachOfShip(reach: ReadReach): Prisma.Sql {
 /**
  * The filter (common/src/rules/ship-filter.ts) as conditions on the ship `s`
  * of the outer query, each starting with AND: one statement selects the page
- * or counts the ships, and no ship is read only to be dropped.
+ * or counts the ships, and no ship is read only to be dropped. A removed ship
+ * is never selected: nothing lists a remnant (decision 0070, D4).
  */
 export function shipFilterCondition(
   { query, name, status = [], type = [], shipKind = [], crewRequest = [], assignedTo = [], needsCrew, valueIds = [], shipIds = [], kind = [], pluginShipIds = [] }: ShipFilter,
@@ -730,6 +731,7 @@ export function shipFilterCondition(
   // A ship outside read reach shows its name, type and status only: what it does not show never selects it.
   const isHiddenFilterPicked = crewRequest.length > 0 || assignedTo.length > 0 || needsCrew !== undefined || kind.length > 0 || values.length > 0;
   const conditions = [
+    Prisma.sql`AND s.removed_at IS NULL`,
     isHiddenFilterPicked ? Prisma.sql`AND ${isInReachOfShip(reach)}` : undefined,
     needle === '' ? undefined : Prisma.sql`AND (strpos(lower(s.name), ${needle}) > 0 OR strpos(lower(s.type), ${needle}) > 0)`,
     // An active ship's name is unique: ships_fleet_id_name_active_key finds the one ship.
@@ -752,7 +754,7 @@ export function shipFilterCondition(
                                WHERE acr.fleet_id = s.fleet_id AND acr.ship_id = s.id AND acr.assigned_to_ship_id = ANY(${[...assignedTo]}::text[]))`,
     kind.length === 0 ? undefined : Prisma.sql`AND ${agentKindOfShip(pluginShipIds)} = ANY(${[...kind]}::text[])`,
   ].filter((condition) => condition !== undefined);
-  return conditions.length === 0 ? Prisma.empty : Prisma.join(conditions, ' ');
+  return Prisma.join(conditions, ' ');
 }
 
 /**
