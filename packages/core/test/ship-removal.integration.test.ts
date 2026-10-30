@@ -11,7 +11,7 @@ import { newKey } from '../src/testing/keys.js';
 import { unwrap } from '../src/testing/result.js';
 import { operatorCaller, secretOf } from './support/core-fixtures.js';
 import { withOperatorLogin } from './support/operator-login.js';
-import { createPostgresCore, type PostgresCore } from './support/postgres-core.js';
+import { createPostgresCore, heldUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 
 // Removing retired ships in the pruning pass on a real Postgres (decision
 // 0070; the retired ships design, D2, D3, D5 and D9, scenarios 5 to 7, 11
@@ -23,6 +23,9 @@ const newId = createIdGenerator();
 const DAY_MS = 24 * 60 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
 const RETENTION_DAYS = 30;
+const MODEL = 'claude-opus-5-5';
+/** Longer than a commission takes, shorter than a unit of work's timeout. */
+const RACE_WAIT_MS = 2_000;
 
 let core: PostgresCore;
 let argo: ShipCaller;
@@ -234,5 +237,120 @@ describe('a removed ship in the reads (D4)', () => {
     expect(owners.ships.map((ship) => ship.id)).not.toContain(removed);
     expect(types).not.toContain('planner');
     expect(counts.find((count) => count.kind === 'agent')?.retired ?? 0).toBe(0);
+  });
+});
+
+describe('a removed ship stays retired (D6)', () => {
+  /** What a register with its secret, a send to it and a schedule to it answer, by refusal kind, and whether any of them stored a row. */
+  async function addressed(shipId: ShipId, secret: string, sender: Crew) {
+    const before = { messages: await core.prisma.message.count(), schedules: await core.prisma.schedule.count() };
+    const claim = await core.useCases.claimShip({ shipId, secret: secretOf(secret), location: { kind: 'DEVICE' }, harness: 'claude-code' });
+    const send = await core.useCases.sendMessage(sender, { model: MODEL, selector: { kind: 'ship', shipId }, payload: 'Hi', idempotencyKey: newKey() });
+    const schedule = await core.useCases.scheduleMessage(sender, {
+      selector: { kind: 'ship', shipId },
+      payload: 'Check in',
+      model: MODEL,
+      idempotencyKey: newKey(),
+      timing: { kind: 'once', at: new Date(core.clock.now().getTime() + HOUR_MS) },
+    });
+    const isStored = (await core.prisma.message.count()) !== before.messages || (await core.prisma.schedule.count()) !== before.schedules;
+    return { refusals: [claim, send, schedule].map((result) => (result.isOk ? 'ok' : result.error.kind)), isStored };
+  }
+
+  async function commissionedAndRetired(name: string): Promise<{ shipId: ShipId; secret: string }> {
+    const { shipId, secret } = unwrap(await core.useCases.commissionShip(argo, { name, type: 'planner', idempotencyKey: newKey() }));
+    unwrap(await core.useCases.retireShip(argo, { shipId }));
+    return { shipId, secret };
+  }
+
+  it('scenario 13: a register with its id, a send to it and a schedule naming it are refused as for a retired ship, storing nothing', async () => {
+    // Given
+    const sender = await crewed({ name: 'scout', type: 'reviewer' });
+    const removed = await commissionedAndRetired('planner');
+    await passAfter((RETENTION_DAYS + 1) * DAY_MS);
+    const retired = await commissionedAndRetired('lookout');
+
+    // When
+    const toRemoved = await addressed(removed.shipId, removed.secret, sender);
+    const toRetired = await addressed(retired.shipId, retired.secret, sender);
+
+    // Then
+    expect((await shipRow(removed.shipId)).removedAt).not.toBeNull();
+    expect(toRemoved.refusals).not.toContain('ok');
+    expect(toRemoved).toEqual(toRetired);
+    expect(toRemoved.isStored).toBe(false);
+  });
+
+  it('scenario 14: a ship commissioned with the name of a removed ship is commissioned with a new id', async () => {
+    // Given
+    const removed = await aRemovedShip('planner');
+
+    // When
+    const commissioned = await core.useCases.commissionShip(argo, { name: 'planner', type: 'planner', idempotencyKey: newKey() });
+
+    // Then
+    expect(commissioned).toMatchObject({ isOk: true });
+    expect(unwrap(commissioned).shipId).not.toBe(removed);
+  });
+});
+
+describe('a commission repeated with the key of a retired ship (D7)', () => {
+  const planner = { name: 'planner', type: 'planner', note: 'Plans the retention slice' };
+
+  it('scenario 15: before removal, the same commission repeated with its key answers the retired ship', async () => {
+    // Given
+    const retired = await aRetiredShip('planner', 'k');
+
+    // When
+    const repeated = await core.useCases.commissionShip(argo, { ...planner, idempotencyKey: 'k' });
+
+    // Then
+    expect(unwrap(repeated).shipId).toBe(retired);
+  });
+
+  it('scenario 16: after removal, the same commission repeated with its key commissions a new ship with a new id', async () => {
+    // Given
+    const removed = await aRemovedShip('planner', 'k');
+
+    // When
+    const repeated = await core.useCases.commissionShip(argo, { ...planner, idempotencyKey: 'k' });
+
+    // Then
+    const { shipId } = unwrap(repeated);
+    expect(shipId).not.toBe(removed);
+    expect(await shipRow(shipId)).toMatchObject({ name: 'planner', retiredAt: null, commissionKey: 'k' });
+  });
+
+  it('scenario 17: a commission repeated with its key while the pass removes its ship answers the retired ship or a new one, and no two ships hold the key', async () => {
+    // Given
+    const retired = await aRetiredShip('planner', 'k');
+    core.clock.advance((RETENTION_DAYS + 1) * DAY_MS);
+    await core.useCases.closeHealthSnapshots();
+    const commission = Promise.withResolvers<void>();
+    const { uow, reached } = heldUnitOfWork(core.prisma, (tx, hold) => ({
+      ...tx,
+      historyPruner: {
+        ...tx.historyPruner,
+        go: async (...args) => {
+          const counts = await tx.historyPruner.go(...args);
+          await hold(commission.promise);
+          return counts;
+        },
+      },
+    }));
+    const pass = passWith(uow)();
+    await reached;
+
+    // When
+    const repeated = core.useCases.commissionShip(argo, { ...planner, idempotencyKey: 'k' });
+    await Promise.race([repeated.then(() => undefined), new Promise((resolve) => setTimeout(resolve, RACE_WAIT_MS))]);
+    commission.resolve();
+    await pass;
+    const answered = unwrap(await repeated).shipId;
+
+    // Then
+    expect((await shipRow(retired)).removedAt).not.toBeNull();
+    expect(answered === retired || (await shipRow(answered)).retiredAt === null).toBe(true);
+    expect(await core.prisma.ship.count({ where: { fleetId: argo.fleetId, commissionKey: 'k' } })).toBeLessThanOrEqual(1);
   });
 });
