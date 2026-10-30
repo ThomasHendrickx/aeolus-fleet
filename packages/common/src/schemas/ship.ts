@@ -37,14 +37,14 @@ export const locationSchema = z.discriminatedUnion('kind', [
 export type LocationInput = z.infer<typeof locationSchema>;
 
 /** The harnesses the console names; any other is free text. */
-export const KNOWN_HARNESSES = ['claude-code', 'claude-chat', 'codex'] as const;
+export const KNOWN_HARNESSES = ['claude-code', 'claude-chat', 'codex', 'copilot'] as const;
 
 /** The longest harness a session may state. */
 export const HARNESS_MAX_LENGTH = 50;
 
 /**
  * The harness a session runs in (docs/blueprint.md, "Harness"), such as
- * claude-code, claude-chat or codex: free text, trimmed and in lower case.
+ * claude-code, claude-chat, codex or copilot: free text, trimmed and in lower case.
  * Stated once when the session crews the ship, read together with its
  * location; never interpreted.
  */

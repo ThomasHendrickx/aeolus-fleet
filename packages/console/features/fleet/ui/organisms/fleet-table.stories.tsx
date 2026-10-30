@@ -240,6 +240,21 @@ export const Error: Story = {
 
 export const Phone: Story = { globals: { viewport: { value: 'mobile1' } } };
 
+/** A Copilot session a trierarch crews: Runs on names Copilot with the coding agent's icon, beside Claude Code and Codex. */
+const HARNESS_FLEET = [
+  argo,
+  ship('h4aa', { name: 'reviewer-01', report: { state: 'working', note: 'Reviewing PR 1388', reportedAt: NOW.toISOString(), detailsVersion: 0 } }),
+  ship('h4ab', { name: 'builder-02', harness: 'codex', location: { kind: 'CLOUD', description: null }, model: { id: 'gpt-5.5-codex', statedAt: NOW.toISOString() } }),
+  ship('h4ac', { name: 'docs-03', harness: 'copilot', model: { id: 'gpt-5.2', statedAt: NOW.toISOString() }, report: { state: 'working', note: 'Writing the Copilot guide', reportedAt: NOW.toISOString(), detailsVersion: 0 } }),
+];
+export const CopilotRunsOn: Story = {
+  args: { ships: HARNESS_FLEET, labels: labelContext(HARNESS_FLEET) },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getAllByTitle('Copilot · Device')).not.toHaveLength(0);
+  },
+};
+export const CopilotRunsOnPhone: Story = { ...CopilotRunsOn, globals: { viewport: { value: 'mobile1' } } };
+
 /** Phone with filters in force: the chips under the search, Clear filters, and the filter button marked. */
 export const PhoneFiltered: Story = {
   globals: { viewport: { value: 'mobile1' } },

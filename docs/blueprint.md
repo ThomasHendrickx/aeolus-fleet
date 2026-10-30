@@ -249,10 +249,10 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Ship secret | `aeolus_sk_v1_<random>`, shown once, stored as a hash, one valid per ship, used only to register (0002) | core |
 | Crew token | `aeolus_ct_v1_<random>` from register, stored as a hash, names one crew on every later call, ends with the lease (0015) | core |
 | Starting prompt | Crew instructions for a chat: the fleet's MCP URL, ship id and secret, how to register and keep the crew token; a new one ends the outstanding one (0019) | core |
-| Crew line | The same in one line per harness with the Aeolus Fleet plugin: `/aeolus-fleet:crew <fleetUrl> <shipId> <secret>`, `$aeolus-fleet-crew …` for Codex (0019) | core |
+| Crew line | The same in one line per harness with the Aeolus Fleet plugin: `/aeolus-fleet:crew <fleetUrl> <shipId> <secret>`, `$aeolus-fleet-crew …` for Codex, `/aeolus-fleet:crew …` again for Copilot (0019) | core |
 | Ship protocol | How a crew works a ship from register to the end of its turn, sent by the fleet to every connecting session | core |
 | Location | Where the session runs: `DEVICE`, `CLOUD`, `SERVER`, or `OTHER` with a description; never interpreted | core |
-| Harness | What the session runs in: free text, known `claude-code`, `claude-chat`, `codex`; read with the location (0018) | core |
+| Harness | What the session runs in: free text, known `claude-code`, `claude-chat`, `codex`, `copilot`; read with the location (0018) | core |
 | Model | The exact model id stated on every agent send, or `auto` when the harness chooses the model per request, never on a ping or resend; self-reported, the last stated is the ship's (0018) | core |
 | Report | A crew's latest word: working, blocked or idle, a note of at most 200 characters, optional details; on the lease (0028) | core |
 | Details | A report's JSON part, at most 16 KB, versioned; its shape per ship type in common (0028) | core |
@@ -594,8 +594,8 @@ The flows of accounts, each with its happy and unhappy paths, are in [docs/desig
 ### Launch a ship
 
 1. The operator creates a ship in the web app: name, type, optional note.
-2. Aeolus generates the ship id and secret, and shows the starting prompt once: the ship's crew instructions for a chat. Beside it, a crew line per harness with the Aeolus Fleet plugin, Claude Code and Codex, and where to install the plugin for each. A prompt lost before use costs nothing: the operator gets a new one, which invalidates the lost one. Commissioning takes the caller's own idempotency key, as `send` does, so a retry never creates a second ship: a repeat with the same key and the same request returns the original ship id and its starting prompt state (when it was issued, whether it is claimed), with no secret and no crew lines, and the same key with a different request is refused. A caller that lost the answer and still needs a crew line gets a new starting prompt.
-3. The operator pastes the crew instructions into a chat, or a crew line into Claude Code or Codex with the plugin.
+2. Aeolus generates the ship id and secret, and shows the starting prompt once: the ship's crew instructions for a chat. Beside it, a crew line per harness with the Aeolus Fleet plugin, Claude Code, Codex and Copilot, and where to install the plugin for each. A prompt lost before use costs nothing: the operator gets a new one, which invalidates the lost one. Commissioning takes the caller's own idempotency key, as `send` does, so a retry never creates a second ship: a repeat with the same key and the same request returns the original ship id and its starting prompt state (when it was issued, whether it is claimed), with no secret and no crew lines, and the same key with a different request is refused. A caller that lost the answer and still needs a crew line gets a new starting prompt.
+3. The operator pastes the crew instructions into a chat, or a crew line into Claude Code, Codex or Copilot with the plugin.
 4. The session connects to the fleet, reads the ship protocol it sends (how to crew a ship), calls `register`, gets the lease and a crew token, and the ship shows as Crewed in the snapshot.
 5. From then on the session pulls its inbox with `receive`.
 
