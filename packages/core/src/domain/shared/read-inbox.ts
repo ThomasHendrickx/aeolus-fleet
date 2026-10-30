@@ -2,13 +2,13 @@ import { PAGE_SIZE_DEFAULT, type DeliveryId, type InboxFilter, type ShipId } fro
 
 import { readsMessage, type ReadReachOf, type ShipRepository } from '../registry/public.js';
 import { isShipCaller, type Caller } from './caller.js';
-import type { HistoryParty, InboxEntry, ShipHistory } from './history.js';
-import { listedInboxEntries } from './plain-history.js';
+import type { HistoryParty, ShipHistory } from './history.js';
+import { listedInboxEntries, type ListedInboxEntry } from './plain-history.js';
 import { ok, type Result } from './result.js';
-import type { ListedPayload, PayloadSealing } from '../messaging/public.js';
+import type { PayloadSealing } from '../messaging/public.js';
 import type { Page } from './page.js';
 
-export type ReadInbox = (caller: Caller, input: { filter: InboxFilter; cursor?: DeliveryId; limit?: number }) => Promise<Result<Page<InboxEntry<ListedPayload>, DeliveryId>, never>>;
+export type ReadInbox = (caller: Caller, input: { filter: InboxFilter; cursor?: DeliveryId; limit?: number }) => Promise<Result<Page<ListedInboxEntry, DeliveryId>, never>>;
 
 /**
  * Whose inbox the caller reads and which of its messages: a ship its own,

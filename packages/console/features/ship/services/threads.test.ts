@@ -17,6 +17,7 @@ function aMessage(sentAt: string, inReplyTo: MessageId | null = null): ListedMes
     contentType: 'text/plain', model: null,
     preview: 'hello',
     isPayloadUnreadable: false,
+    isPayloadSealed: false,
     delivery: { id: newId('delivery'), state: 'pending', claimedBy: null, isPulled: false },
   };
 }

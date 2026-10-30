@@ -20,4 +20,4 @@ export {
   type UnreadablePayload,
   UNREADABLE_PAYLOAD,
 } from './data-keys.js';
-export type { StoredPayload } from './sealed-payload.js';
+export { isSealedPayload, type StoredPayload } from './sealed-payload.js';

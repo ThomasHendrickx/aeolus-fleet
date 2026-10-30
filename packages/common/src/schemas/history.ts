@@ -122,6 +122,8 @@ export const listedMessageSchema = z.object({
   preview: z.string(),
   /** Its payload is sealed under a data key that cannot be had now, or does not open: the preview is empty (decision 0068, B9). */
   isPayloadUnreadable: z.boolean(),
+  /** Its payload is stored sealed: the console marks it (decision 0068, N1). False for one stored before sealing that the sealing pass has not sealed yet. */
+  isPayloadSealed: z.boolean(),
   delivery: z.object({
     id: idSchema('delivery'),
     state: deliveryStateSchema,
@@ -280,7 +282,8 @@ export type MessageDelivery = z.infer<typeof messageDeliverySchema>;
  * deliveries it has, one per ship for a label (decision 0065), whose first by
  * id is that delivery. `fleet.messageDeliveries` lists them a page at a time.
  */
-export const messageOutputSchema = listedMessageSchema.omit({ preview: true, isPayloadUnreadable: true, delivery: true }).extend({
+export const messageOutputSchema = listedMessageSchema.omit({ preview: true, delivery: true }).extend({
+  /** Empty when unreadable: the envelope and the delivery are answered still (decision 0068, B9). */
   payload: z.string(),
   replies: z.array(messageReplySchema),
   delivery: z.object({

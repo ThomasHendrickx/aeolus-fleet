@@ -2,14 +2,14 @@ import { PAGE_SIZE_DEFAULT, type DeliveryId } from '@aeolus-fleet/common';
 
 import type { ReadReachOf, ShipRepository } from '../registry/public.js';
 import type { Caller } from './caller.js';
-import type { InboxEntry, ShipHistory } from './history.js';
-import { listedInboxEntries } from './plain-history.js';
+import type { ShipHistory } from './history.js';
+import { listedInboxEntries, type ListedInboxEntry } from './plain-history.js';
 import { ok, type Result } from './result.js';
-import type { ListedPayload, PayloadSealing } from '../messaging/public.js';
+import type { PayloadSealing } from '../messaging/public.js';
 import type { Page } from './page.js';
 import { inboxReadOf } from './read-inbox.js';
 
-export type ReadInboxWithdrawals = (caller: Caller, input: { questionId: string; cursor?: DeliveryId; limit?: number }) => Promise<Result<Page<InboxEntry<ListedPayload>, DeliveryId>, never>>;
+export type ReadInboxWithdrawals = (caller: Caller, input: { questionId: string; cursor?: DeliveryId; limit?: number }) => Promise<Result<Page<ListedInboxEntry, DeliveryId>, never>>;
 
 /**
  * Use case: a page of the messages to the caller's own inbox, argo's for the

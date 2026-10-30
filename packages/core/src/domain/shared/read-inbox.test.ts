@@ -71,6 +71,7 @@ describe("reading argo's inbox", () => {
         contentType: 'text/plain',
         model: 'claude-opus-5-5',
         payload: 'Release 2.14 is staged. Promote to production?',
+        isPayloadSealed: false,
       },
     });
   });

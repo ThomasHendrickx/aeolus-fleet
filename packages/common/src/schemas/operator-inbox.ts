@@ -46,6 +46,8 @@ export const inboxMessageSchema = z.object({
     payload: z.string(),
     /** Its payload is sealed under a data key that cannot be had now, or does not open: the payload is empty (decision 0068, B9). */
     isPayloadUnreadable: z.boolean(),
+    /** Its payload is stored sealed: the console marks it (decision 0068, N1). */
+    isPayloadSealed: z.boolean(),
   }),
 });
 
