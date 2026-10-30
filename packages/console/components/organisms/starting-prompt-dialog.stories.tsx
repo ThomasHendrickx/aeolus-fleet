@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { expect, screen } from 'storybook/test';
+import { expect, screen, userEvent, waitFor } from 'storybook/test';
 
 import { StartingPromptDialog } from './starting-prompt-dialog';
 
@@ -24,11 +24,12 @@ const meta = {
       'Then call register with that ship id and secret, location CLOUD, and harness chatgpt or claude-chat, whichever chat you are.',
       'register answers your crew token only once: keep it in this conversation and pass it to every later call. Never call register again: a CONFLICT on register means the ship is crewed already, not a reason to retry.',
       '',
-      'Not a chat? Claude Code and Codex paste their crew line instead; another agent calls register with its own location and harness.',
+      'Not a chat? Claude Code, Codex and Copilot paste their crew line instead; another agent calls register with its own location and harness.',
     ].join('\n'),
     crewLines: [
       { harness: 'claude-code', line: `/aeolus-fleet:crew https://fleet.example.com ${SHIP_ID} ${SECRET}` },
       { harness: 'codex', line: `$aeolus-fleet-crew https://fleet.example.com ${SHIP_ID} ${SECRET}` },
+      { harness: 'copilot', line: `/aeolus-fleet:crew https://fleet.example.com ${SHIP_ID} ${SECRET}` },
     ],
     isOpen: true,
     onOpenChange: () => undefined,
@@ -46,9 +47,10 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Beside the crew lines, where to install the Aeolus Fleet plugin they need, for Claude Code and for Codex (#1235). */
+/** Copilot's crew line after Codex's, and beside the crew lines where to install the Aeolus Fleet plugin they need, for Claude Code, Codex and Copilot (#1235). */
 export const Shown: Story = {
   play: async () => {
+    await expect(await screen.findByTestId('starting-prompt-crew-line-copilot')).toHaveTextContent(`/aeolus-fleet:crew https://fleet.example.com ${SHIP_ID} ${SECRET}`);
     await expect(await screen.findByTestId('plugin-install-claude-code')).toHaveAttribute(
       'href',
       'https://github.com/ThomasHendrickx/aeolus-fleet/blob/main/docs/guides/claude-code.md#1-install-the-plugin-once-per-machine',
@@ -57,6 +59,36 @@ export const Shown: Story = {
       'href',
       'https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/plugins/aeolus-fleet/README.md#install-for-codex-desktop-or-cli',
     );
+    await expect(screen.getByTestId('plugin-install-copilot')).toHaveAttribute(
+      'href',
+      'https://github.com/ThomasHendrickx/aeolus-fleet-trierarch/blob/main/plugins/aeolus-fleet/README.md#install-for-the-github-copilot-cli',
+    );
+  },
+};
+/** The Copilot crew line copied with its own copy button. */
+export const CopilotCopied: Story = {
+  play: async () => {
+    const writeText = navigator.clipboard.writeText.bind(navigator.clipboard);
+    navigator.clipboard.writeText = () => Promise.resolve();
+    try {
+      await userEvent.click(await screen.findByTestId('starting-prompt-crew-line-copilot-copy'));
+      await waitFor(() => expect(screen.getByTestId('starting-prompt-crew-line-copilot-copy')).toHaveTextContent('Copied'));
+    } finally {
+      navigator.clipboard.writeText = writeText;
+    }
+  },
+};
+/** The clipboard refused: the same message under the install line, saying to copy by hand. */
+export const CopyFailed: Story = {
+  play: async () => {
+    const writeText = navigator.clipboard.writeText.bind(navigator.clipboard);
+    navigator.clipboard.writeText = () => Promise.reject(new Error('The clipboard refused.'));
+    try {
+      await userEvent.click(await screen.findByTestId('starting-prompt-crew-line-copilot-copy'));
+      await expect(await screen.findByText('Could not copy: select the text and copy it by hand.')).toBeVisible();
+    } finally {
+      navigator.clipboard.writeText = writeText;
+    }
   },
 };
 export const ReplacesUnclaimed: Story = {

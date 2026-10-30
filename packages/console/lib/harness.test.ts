@@ -6,6 +6,7 @@ describe('harnessWord', () => {
   it.each([
     ['claude-code', 'Claude Code'],
     ['codex', 'Codex'],
+    ['copilot', 'Copilot'],
     ['claude-chat', 'Claude chat'],
     ['chatgpt', 'ChatGPT'],
     ['grok', 'Grok'],
@@ -24,6 +25,7 @@ describe('harnessKind', () => {
   it.each([
     ['claude-code', 'coding'],
     ['codex', 'coding'],
+    ['copilot', 'coding'],
     ['claude-chat', 'chat'],
     ['chatgpt', 'chat'],
     ['grok', 'chat'],

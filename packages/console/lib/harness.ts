@@ -7,6 +7,7 @@ export type HarnessKind = 'coding' | 'chat' | 'bot' | 'console';
 const KNOWN_HARNESSES: Readonly<Record<string, { word: string; kind: HarnessKind }>> = {
   'claude-code': { word: 'Claude Code', kind: 'coding' },
   codex: { word: 'Codex', kind: 'coding' },
+  copilot: { word: 'Copilot', kind: 'coding' },
   'claude-chat': { word: 'Claude chat', kind: 'chat' },
   chatgpt: { word: 'ChatGPT', kind: 'chat' },
   grok: { word: 'Grok', kind: 'chat' },
@@ -14,7 +15,7 @@ const KNOWN_HARNESSES: Readonly<Record<string, { word: string; kind: HarnessKind
   console: { word: 'Console', kind: 'console' },
 };
 
-/** A harness as the console words it: Claude Code, Codex, ChatGPT and the other known ones, or the free text the session stated. */
+/** A harness as the console words it: Claude Code, Codex, Copilot, ChatGPT and the other known ones, or the free text the session stated. */
 export function harnessWord(harness: string): string {
   return KNOWN_HARNESSES[harness]?.word ?? harness;
 }

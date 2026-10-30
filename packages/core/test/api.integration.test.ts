@@ -1456,6 +1456,7 @@ describe('retire and re-crew at the API', () => {
     expect(issued.crewLines).toEqual([
       { harness: 'claude-code', line: `/aeolus-fleet:crew ${FLEET_URL} ${shipId} ${issued.secret}` },
       { harness: 'codex', line: `$aeolus-fleet-crew ${FLEET_URL} ${shipId} ${issued.secret}` },
+      { harness: 'copilot', line: `/aeolus-fleet:crew ${FLEET_URL} ${shipId} ${issued.secret}` },
     ]);
     expect(secretIn(issued.prompt)).toBe(issued.secret);
     await expect(codeOf(client({ authorization: `Bearer ${crewToken}` }).ship.whoami.query())).resolves.toBe('UNAUTHORIZED');
