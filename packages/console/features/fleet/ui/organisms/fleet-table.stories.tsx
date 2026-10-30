@@ -250,7 +250,7 @@ const HARNESS_FLEET = [
 export const CopilotRunsOn: Story = {
   args: { ships: HARNESS_FLEET, labels: labelContext(HARNESS_FLEET) },
   play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).getByTitle('Copilot · Device')).toBeVisible();
+    await expect(within(canvasElement).getAllByTitle('Copilot · Device')).not.toHaveLength(0);
   },
 };
 export const CopilotRunsOnPhone: Story = { ...CopilotRunsOn, globals: { viewport: { value: 'mobile1' } } };

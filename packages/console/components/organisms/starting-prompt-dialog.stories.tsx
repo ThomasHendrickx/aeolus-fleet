@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { expect, screen, userEvent } from 'storybook/test';
+import { expect, screen, userEvent, waitFor } from 'storybook/test';
 
 import { StartingPromptDialog } from './starting-prompt-dialog';
 
@@ -68,8 +68,14 @@ export const Shown: Story = {
 /** The Copilot crew line copied with its own copy button. */
 export const CopilotCopied: Story = {
   play: async () => {
-    await userEvent.click(await screen.findByTestId('starting-prompt-crew-line-copilot-copy'));
-    await expect(await screen.findByTestId('starting-prompt-crew-line-copilot-copy')).toHaveTextContent('Copied');
+    const writeText = navigator.clipboard.writeText.bind(navigator.clipboard);
+    navigator.clipboard.writeText = () => Promise.resolve();
+    try {
+      await userEvent.click(await screen.findByTestId('starting-prompt-crew-line-copilot-copy'));
+      await waitFor(() => expect(screen.getByTestId('starting-prompt-crew-line-copilot-copy')).toHaveTextContent('Copied'));
+    } finally {
+      navigator.clipboard.writeText = writeText;
+    }
   },
 };
 /** The clipboard refused: the same message under the install line, saying to copy by hand. */
