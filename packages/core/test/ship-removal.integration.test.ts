@@ -1,10 +1,11 @@
-import { createIdGenerator, type ShipId } from '@aeolus-fleet/common';
+import { createIdGenerator, idSchema, QUESTION_CONTENT_TYPE, type ShipId } from '@aeolus-fleet/common';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
 import { createPrismaFleetRepository } from '../src/adapters/prisma/registry.js';
 import { createPrismaUnitOfWork, type PrismaTx } from '../src/adapters/prisma/unit-of-work.js';
 import type { Crew, ShipCaller } from '../src/domain/shared/caller.js';
+import { UNDELIVERABLE_AT_ATTEMPT } from '../src/domain/messaging/delivery.js';
 import { createPruneHistory } from '../src/domain/shared/prune-history.js';
 import type { UnitOfWork } from '../src/domain/shared/unit-of-work.js';
 import { newKey } from '../src/testing/keys.js';
@@ -352,5 +353,72 @@ describe('a commission repeated with the key of a retired ship (D7)', () => {
     expect((await shipRow(retired)).removedAt).not.toBeNull();
     expect(answered === retired || (await shipRow(answered)).retiredAt === null).toBe(true);
     expect(await core.prisma.ship.count({ where: { fleetId: argo.fleetId, commissionKey: 'k' } })).toBeLessThanOrEqual(1);
+  });
+});
+
+describe('the history that names a removed ship (D3)', () => {
+  it('scenario 9: a kept message, its delivery, the kept events and an ended meeting naming a removed ship stay, and show it by name and type as retired', async () => {
+    // Given
+    const { shipId, secret } = unwrap(await core.useCases.commissionShip(argo, { name: 'planner', type: 'planner', scopes: ['meetings:open'], idempotencyKey: newKey() }));
+    const { crewToken } = unwrap(await core.useCases.claimShip({ shipId, secret: secretOf(secret), location: { kind: 'DEVICE' }, harness: 'claude-code' }));
+    const planner = unwrap(await core.useCases.authenticate.byCrewToken(crewToken));
+    const { messageId: question } = unwrap(
+      await core.useCases.sendMessage(planner, {
+        model: MODEL,
+        selector: { kind: 'ship', shipId: argo.shipId },
+        contentType: QUESTION_CONTENT_TYPE,
+        payload: '{"id":"q-1","title":"Ship it?"}',
+        idempotencyKey: newKey(),
+      }),
+    );
+    const { meetingId } = unwrap(await core.useCases.openMeeting(planner, { ships: [{ shipId: argo.shipId }], idempotencyKey: newKey(), model: MODEL }));
+    core.clock.advance(1_000);
+    unwrap(await core.useCases.retireShip(argo, { shipId }));
+    await passAfter((RETENTION_DAYS + 1) * DAY_MS);
+
+    // When
+    const message = unwrap(await core.useCases.readMessage(argo, { messageId: question }));
+    const timeline = unwrap(await core.useCases.readShipTimeline(argo, { shipId }));
+    const listed = unwrap(await core.useCases.readListedShip(argo, { shipId }));
+    const meeting = unwrap(await core.useCases.readMeeting(argo, { meetingId, limit: 20 }));
+
+    // Then
+    expect((await shipRow(shipId)).removedAt).not.toBeNull();
+    expect(message.sender).toEqual({ id: shipId, name: 'planner' });
+    expect(await core.prisma.delivery.count({ where: { messageId: question } })).toBe(1);
+    expect(timeline.items.map((entry) => entry.type)).toEqual(expect.arrayContaining(['ShipCommissioned', 'ShipRetired']));
+    expect(timeline.items.filter((entry) => entry.ship?.id === shipId).every((entry) => entry.ship?.name === 'planner')).toBe(true);
+    expect(listed).toMatchObject({ id: shipId, name: 'planner', type: 'planner', status: 'retired' });
+    expect(meeting).toMatchObject({ owner: { id: shipId, name: 'planner' }, endedAt: expect.any(Date) });
+  });
+
+  it('scenario 10: an undeliverable delivery to a removed ship stays on Health naming it; a resend is refused and a dismiss works', async () => {
+    // Given
+    const planner = await crewed({ name: 'planner', type: 'planner' });
+    const { shipId } = planner;
+    const { messageId } = unwrap(await core.useCases.sendMessage(argo, { selector: { kind: 'ship', shipId }, payload: 'Plan it', idempotencyKey: newKey() }));
+    const { messageId: next } = unwrap(await core.useCases.sendMessage(argo, { selector: { kind: 'ship', shipId }, payload: 'Then this', idempotencyKey: newKey() }));
+    // Received without an acknowledgement until undeliverable; the next message waits behind it, so the last receive hands that one out.
+    for (let claim = 1; claim <= UNDELIVERABLE_AT_ATTEMPT; claim += 1) {
+      core.clock.advance(1_000);
+      unwrap(await core.useCases.receiveDeliveries(planner, {}));
+    }
+    const deliveryOf = async (of: typeof messageId) => idSchema('delivery').parse((await core.prisma.delivery.findFirstOrThrow({ where: { messageId: of } })).id);
+    unwrap(await core.useCases.acknowledgeDelivery(planner, { deliveryId: await deliveryOf(next) }));
+    const deliveryId = await deliveryOf(messageId);
+    core.clock.advance(1_000);
+    unwrap(await core.useCases.retireShip(argo, { shipId }));
+    await passAfter((RETENTION_DAYS + 1) * DAY_MS);
+
+    // When
+    const onHealth = unwrap(await core.useCases.readNeedsAttention(argo, {})).items;
+    const resent = await core.useCases.resendDelivery(argo, { deliveryId });
+    const dismissed = await core.useCases.dismissDelivery(argo, { deliveryId });
+
+    // Then
+    expect((await shipRow(shipId)).removedAt).not.toBeNull();
+    expect(onHealth).toEqual([expect.objectContaining({ deliveryId, ship: { id: shipId, name: 'planner' } })]);
+    expect(resent).toMatchObject({ isOk: false });
+    expect(dismissed).toMatchObject({ isOk: true });
   });
 });
