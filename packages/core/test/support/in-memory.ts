@@ -190,7 +190,7 @@ export interface InMemoryState {
   deliveryReads: { fleetId: FleetId; deliveryId: Delivery['id']; readAt: Date }[];
   events: FleetEvent[];
   /** The deliveries argo was told are overdue, once per lease and delivery, with the state each was told in. */
-  overdueDeliveries: (Omit<Overdue, 'delivery'> & { deliveryId: Delivery['id']; state: WaitingDelivery['state']; at: Date })[];
+  overdueDeliveries: (Omit<Overdue, 'delivery' | 'ownerShipId'> & { deliveryId: Delivery['id']; state: WaitingDelivery['state']; at: Date })[];
   /** The installation's requests: a table that belongs to no fleet (decision 0020). */
   installationRequests: InstallationRequest[];
   /** The installation's settings: no row until it sets them, then one. */
@@ -2463,6 +2463,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
             leaseId: lease.id,
             pushedAt: pushed.at,
             isPerson: crewShip.kind === 'person',
+            ownerShipId: crewShip.owner,
             turn: turn && { ...turn },
             waiting: state.deliveries.filter(isWaiting).map((delivery) => ({
               deliveryId: delivery.id,

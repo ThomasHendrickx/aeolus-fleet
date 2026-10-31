@@ -103,7 +103,7 @@ describe('the clocks on Postgres', () => {
         actorShipId: null,
         deliveryId,
         occurredAt: new Date(core.clock.now().getTime() - MINUTE),
-        details: { leaseId: scout.leaseId, clock: 'notConfirmed', minutes: 10 },
+        details: { leaseId: scout.leaseId, clock: 'notConfirmed', minutes: 10, ownerShipId: argo.shipId },
       },
     ]);
     await expect(overdueRows()).resolves.toMatchObject([{ shipId: scout.shipId, leaseId: scout.leaseId, deliveryId, state: 'handed', clock: 'notConfirmed' }]);
