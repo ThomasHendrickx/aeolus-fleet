@@ -3,7 +3,6 @@ import { Archive, CircleAlert, Eye, Info, KeyRound, Plug, UserRound } from 'luci
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
-import { useConsoleConstants } from '../../../../lib/console-constants';
 import { Button, classNames } from '@aeolus-fleet/common/header';
 import { clockTime, dayDate, duration, fullDateTime, lastSeen, relativeTime, shortDateTime } from '../../../../lib/relative-time';
 import { Badge } from '../../../../components/atoms/badge';
@@ -217,7 +216,6 @@ function GatewayMark({ reader }: { reader: GatewayReader }) {
  * request card, when given, sits above the meta strip, and its open alerts below that (decision 0071). argo says it is the operator's ship; a retired ship is read-only. In a sealed fleet a ship the gateway reads says so, naming the gateway's ship.
  */
 export function ShipHeader({ ship, shipId, state, actions, crewRequest, now, viewerFleetId, backHref = '/', labels, isPluginShip = false, way, gatewayReader }: ShipHeaderProps) {
-  const { fleetScopes } = useConsoleConstants();
   if (state === 'loading' || (state === 'ready' && ship === undefined)) {
     return (
       <div aria-busy data-testid="ship-header" className="flex flex-col gap-4">
@@ -287,13 +285,11 @@ export function ShipHeader({ ship, shipId, state, actions, crewRequest, now, vie
                   </Badge>
                 ) : null}
                 <Badge variant="type">{ship.type}</Badge>
-                {ship.scopes
-                  .filter((scope) => fleetScopes.some((fleetScope) => fleetScope === scope))
-                  .map((scope) => (
-                    <Badge key={scope} variant="kind" data-testid="ship-fleet-scope">
-                      {scope}
-                    </Badge>
-                  ))}
+                {ship.scopes.map((scope) => (
+                  <Badge key={scope} variant="kind" data-testid="ship-fleet-scope">
+                    {scope}
+                  </Badge>
+                ))}
               </>
             )}
             {ship.status === 'awaitingCrew' && ship.startingPrompt === null ? (
