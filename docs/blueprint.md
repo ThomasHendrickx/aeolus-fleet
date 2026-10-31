@@ -252,6 +252,7 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Lease | One crew's exclusive right to a ship until it is released, recrewed, retired or deregistered; argo's sign-in takes argo's over (0010) | core |
 | Last seen | When the crew last called the fleet; observation only | core |
 | Report changed | When the crew's report last changed its state, note, task or step; details alone do not move it (0028) | core |
+| Activity | What the assigned trierarch last observed of the session crewing a ship: the latest event's time and kind (text, tool, result, error), never content; unknown past twice the report interval the trierarch states with it; none for a ship crewed by hand (0029, 0071) | core, trierarch |
 | Register | Claim a ship with its id and secret, stating location and, when the session can tell it, harness; answers the crew token once | core |
 | Deregister | The crew ends its lease and the secret; ship and inbox stay | core |
 | Ship secret | `aeolus_sk_v1_<random>`, shown once, stored as a hash, one valid per ship, used only to register (0002) | core |
