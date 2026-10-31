@@ -292,6 +292,8 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_report_task_step$/),
       expect.stringMatching(/^\d{14}_payload_limit_256kb$/),
       expect.stringMatching(/^\d{14}_lease_activity$/),
+      expect.stringMatching(/^\d{14}_alert_scope$/),
+      expect.stringMatching(/^\d{14}_alerts$/),
     ]);
   });
 });
@@ -471,6 +473,7 @@ describe('the fleet procedures at the API', () => {
       awaitingCrewSince: clock.now().toISOString(),
       retiredAt: null,
       ownerShipId: argoId,
+      openAlertCount: 0,
     });
   });
 
@@ -2672,7 +2675,7 @@ describe('alerts at the API (decision 0071)', () => {
     const sender = client({ authorization: `Bearer ${await crewedShip()}` });
 
     await expect(refusalOf(sender.fleet.raiseAlert.mutate(raiseAlertInputSchema.parse(pingUnanswered(deployBotId))))).resolves.toEqual({ code: 'FORBIDDEN', message: 'This call needs the fleet:alert scope' });
-    await expect(database.alert.count({ where: { fleetId } })).resolves.toBe(0);
+    await expect(database.alert.count({ where: { fleetId, shipId: deployBotId } })).resolves.toBe(0);
   });
 
   it("refuse facts that are not the signal's as a bad request, holding nothing", async () => {
@@ -2682,7 +2685,7 @@ describe('alerts at the API (decision 0071)', () => {
     const response = await restCall(crewToken, { call: 'raiseAlert', body: { ...pingUnanswered(deployBotId), signal: 'crew-request-unassigned' } });
 
     expect(response.status).toBe(400);
-    await expect(database.alert.count({ where: { fleetId } })).resolves.toBe(0);
+    await expect(database.alert.count({ where: { fleetId, shipId: deployBotId } })).resolves.toBe(0);
   });
 });
 

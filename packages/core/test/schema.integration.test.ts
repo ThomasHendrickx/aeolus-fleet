@@ -130,6 +130,7 @@ describe('migrations', () => {
       'account_cut_offs',
       'account_guide_progress',
       'account_notice_dismissals',
+      'alerts',
       'console_sessions',
       'credentials',
       'crew_request_give_backs',
