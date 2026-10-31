@@ -24,7 +24,7 @@ import { useAccess } from '../../../lib/access';
 import { useConsoleConstants } from '../../../lib/console-constants';
 import { useLabelContext } from '../../../lib/fleet';
 import { useOwnerShips } from '../../../features/network/hooks/owner-ships';
-import { useListedShips } from '../../../lib/listed-ships';
+import { useListedShipNames, useListedShips } from '../../../lib/listed-ships';
 import { useShipSearch } from '../../../lib/ship-search';
 import { networkShipIdsOf } from '../../../features/network/services/network-ships';
 import { useLiveFleet } from '../../../lib/live-fleet';
@@ -82,15 +82,15 @@ export function NetworkPageFor({ pickedShipId, against }: { pickedShipId?: ShipI
   const refusals = useReachRefusals(hasNetwork);
   const declared = useDeclaredNetworkRules(hasNetwork);
   // The ships the page names, read by id, and the ones that match what is typed to pick one (Thomas, 24 Oct).
-  const named = useListedShips(
-    networkShipIdsOf({
-      rules: [...(network.data?.applied.rules ?? []), ...(network.data?.draft?.rules ?? [])],
-      declarers: declared.data?.map((each) => each.declarer) ?? [],
-      ...(draftChanges.data === undefined ? {} : { draftChanges: draftChanges.data }),
-      ...(pickedShipId === undefined ? {} : { pickedShipId }),
-      ...(reach.data === undefined ? {} : { reachableShipIds: reach.data }),
-    }),
-  );
+  const namedShipIds = networkShipIdsOf({
+    rules: [...(network.data?.applied.rules ?? []), ...(network.data?.draft?.rules ?? [])],
+    declarers: declared.data?.map((each) => each.declarer) ?? [],
+    ...(draftChanges.data === undefined ? {} : { draftChanges: draftChanges.data }),
+    ...(pickedShipId === undefined ? {} : { pickedShipId }),
+    ...(reach.data === undefined ? {} : { reachableShipIds: reach.data }),
+  });
+  const named = useListedShips(namedShipIds);
+  const shipNames = useListedShipNames(namedShipIds);
   const namedShips = [...(named?.values() ?? [])];
   const sailingShipCount = useSailingShipCount();
   const [shipQuery, setShipQuery] = useState('');
@@ -235,7 +235,7 @@ export function NetworkPageFor({ pickedShipId, against }: { pickedShipId?: ShipI
           }}
         />
         <DeclaredNetworkRules
-          declared={declared.data === undefined ? undefined : declaredRulesOf(declared.data, namedShips)}
+          declared={declared.data === undefined ? undefined : declaredRulesOf(declared.data, [...(shipNames ?? [])].map(([id, name]) => ({ id, name })))}
           error={declared.error?.message}
           onRetry={() => {
             void declared.refetch();
