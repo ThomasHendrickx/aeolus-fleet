@@ -24,6 +24,7 @@ import type { ShipCounts } from './ship-counts.js';
 import type { ShipReport } from './ship-report.js';
 import type { StatedStatement } from './statement.js';
 import type { Turn } from './turn.js';
+import type { LeaseActivity } from './lease-activity.js';
 import type { FactWriter, WrittenFacts } from './verified-facts.js';
 
 /** The crew a report speaks for: its ship and lease, in its fleet. */
@@ -226,6 +227,12 @@ export interface LeaseRepository {
   findTurnForUpdate(fleetId: FleetId, leaseId: LeaseId): Promise<{ turn: Turn | null } | undefined>;
   saveTurn(change: { fleetId: FleetId; leaseId: LeaseId; turn: Turn }): Promise<void>;
   /**
+   * Writes the activity its trierarch observed on the ship's open lease,
+   * replacing what it held, without locking anything else of the lease
+   * (docs/design/monitoring, 4.3). False when no lease of the ship is open.
+   */
+  saveActivity(change: { fleetId: FleetId; shipId: ShipId; activity: LeaseActivity }): Promise<boolean>;
+  /**
    * The lease's report and the last report of the lease its ship held before
    * it, the one that ended last; undefined once this lease has ended.
    */
@@ -408,7 +415,7 @@ export interface ShipFacts {
    * Where the session holding the ship's open lease runs, since when, and its
    * last call (its claim until it calls again); null while no session crews it.
    */
-  openLease: { location: Location; harness: string | null; startedAt: Date; lastSeenAt: Date; report: ShipReport | null } | null;
+  openLease: { location: Location; harness: string | null; startedAt: Date; lastSeenAt: Date; report: ShipReport | null; activity: LeaseActivity | null } | null;
   /** When the ship's valid secret was issued and claimed; null when it holds none. */
   validSecret: { issuedAt: Date; claimedAt: Date | null } | null;
   /** The ship's crew request; null when it holds none. */

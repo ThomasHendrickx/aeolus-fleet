@@ -359,6 +359,14 @@ export function giveBackCrewRequest(
 }
 
 /**
+ * The trierarch that runs a ship: the one its crew request is assigned to,
+ * which alone writes the activity of its session (docs/design/monitoring, 4.3).
+ */
+export function checkRunsShip({ ship, current, trierarchShipId }: { ship: Ship; current: CrewRequest | undefined; trierarchShipId: ShipId }): Result<void, NotFound | NotTheCallers> {
+  return current ? checkAssignedTo({ ship, current, trierarchShipId }) : notFound(ship);
+}
+
+/**
  * Whether the caller reaches the ship for a fleet action it may take with one
  * of the broad scopes, or with crew:run: crew:run reaches only the ships
  * whose requests are assigned to the caller's ship (decision 0029).

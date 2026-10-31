@@ -133,6 +133,7 @@ import { createRequestCrew, type RequestCrew } from './domain/registry/request-c
 import { createRemoveCrewRequest, type RemoveCrewRequest } from './domain/registry/remove-crew-request.js';
 import { createAssignCrew, type AssignCrew } from './domain/registry/assign-crew.js';
 import { createReportCrewStatus, type ReportCrewStatus } from './domain/registry/report-crew-status.js';
+import { createReportActivity, type ReportActivity } from './domain/registry/report-activity.js';
 import { createConfirmCrewRelease, type ConfirmCrewRelease } from './domain/registry/confirm-crew-release.js';
 import { createGiveBackCrewRequest, type GiveBack } from './domain/registry/give-back-crew-request.js';
 import { createReadAssignedCrewRequests, type ReadAssignedCrewRequests } from './domain/registry/read-assigned-crew-requests.js';
@@ -239,6 +240,7 @@ export interface UseCases {
   removeCrewRequest: RemoveCrewRequest;
   assignCrew: AssignCrew;
   reportCrewStatus: ReportCrewStatus;
+  reportActivity: ReportActivity;
   confirmCrewRelease: ConfirmCrewRelease;
   giveBackCrewRequest: GiveBack;
   readAssignedCrewRequests: ReadAssignedCrewRequests;
@@ -493,6 +495,7 @@ export function createUseCases(options: {
     removeCrewRequest: createRemoveCrewRequest({ uow, clock, ids }),
     assignCrew: createAssignCrew({ uow, clock, ids }),
     reportCrewStatus: createReportCrewStatus({ uow, clock, ids }),
+    reportActivity: createReportActivity({ uow, clock }),
     confirmCrewRelease: createConfirmCrewRelease({ uow, clock, ids }),
     giveBackCrewRequest: createGiveBackCrewRequest({ uow, clock, ids }),
     readAssignedCrewRequests: createReadAssignedCrewRequests({ crewRequests: createPrismaCrewRequestRepository(prisma), ships: createPrismaShipRepository(prisma) }),

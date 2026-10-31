@@ -10,6 +10,7 @@ import { statusesAsked, type ShipFilter } from '@aeolus-fleet/common/rules';
 import type { ShipSort } from './ship-order.js';
 import type { FleetListing, ShipFacts } from './ports.js';
 import type { ShipReport } from './ship-report.js';
+import type { LeaseActivity } from './lease-activity.js';
 import { shipStatus } from './ship.js';
 
 /** A ship as the fleet snapshot shows it. */
@@ -36,6 +37,8 @@ export interface ListedShip {
   scopes: readonly ScopeName[];
   /** The crew's last report with the version of its details, never the details; null until it reports, and while no session crews the ship. */
   report: Omit<ShipReport, 'details'> | null;
+  /** What its trierarch last observed of the crewing session (docs/design/monitoring, 4.3); null for a ship crewed by hand, before any write, and while no session crews it. */
+  activity: LeaseActivity | null;
   /** The ship's crew request by its settings version and when it was requested, never its settings; null when it holds none. */
   crewRequest:
     | (Pick<CrewRequest, 'settingsVersion' | 'requestedAt' | 'status' | 'reason' | 'attempt' | 'sessionStartedAt'> & {
@@ -137,6 +140,7 @@ export function listedShipOf({
     ping: pingStatusOf(lastPing),
     scopes: ship.scopes,
     report: openLease?.report ? listedReportOf(openLease.report) : null,
+    activity: openLease?.activity ?? null,
     crewRequest: crewRequest && {
       settingsVersion: crewRequest.settingsVersion,
       requestedAt: crewRequest.requestedAt,

@@ -70,6 +70,7 @@ describe('shipDetailOutputSchema', () => {
     ping: null,
     scopes: ['messages:send', 'messages:receive'],
     report: null,
+    activity: null,
     crewRequest: null,
     labels: [],
     harness: 'claude-code',

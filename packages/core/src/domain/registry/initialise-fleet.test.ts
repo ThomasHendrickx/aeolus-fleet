@@ -155,6 +155,7 @@ describe('initialise fleet', () => {
       leaseReports: [],
       leaseStatements: [],
       leaseTurns: [],
+      leaseActivities: [],
       crewRequests: [],
       clearRequests: [],
       labels: [],

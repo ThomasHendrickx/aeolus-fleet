@@ -82,6 +82,7 @@ import { listedShipOf } from '../../src/domain/registry/list-fleet.js';
 import type { ShipReport } from '../../src/domain/registry/ship-report.js';
 import type { StatedStatement } from '../../src/domain/registry/statement.js';
 import type { Turn } from '../../src/domain/registry/turn.js';
+import type { LeaseActivity } from '../../src/domain/registry/lease-activity.js';
 import { isSameWriter, type WrittenFacts } from '../../src/domain/registry/verified-facts.js';
 import type { ClearRequest } from '../../src/domain/registry/clear-request.js';
 import type { CrewRequest } from '../../src/domain/registry/crew-request.js';
@@ -158,6 +159,8 @@ export interface InMemoryState {
   leaseReports: { fleetId: FleetId; leaseId: Lease['id']; report: ShipReport }[];
   leaseStatements: { fleetId: FleetId; leaseId: Lease['id']; stated: StatedStatement }[];
   leaseTurns: { fleetId: FleetId; leaseId: Lease['id']; turn: Turn }[];
+  /** Each lease's activity as its trierarch wrote it: the activity columns, apart from the Lease. */
+  leaseActivities: { fleetId: FleetId; leaseId: Lease['id']; activity: LeaseActivity }[];
   crewRequests: CrewRequest[];
   /** The pending clear requests (decision 0032). */
   clearRequests: ClearRequest[];
@@ -406,6 +409,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     leaseReports: [],
     leaseStatements: [],
     leaseTurns: [],
+    leaseActivities: [],
     crewRequests: [],
     clearRequests: [],
     labels: [],
@@ -1161,6 +1165,14 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         }
         return Promise.resolve();
       },
+      saveActivity: ({ fleetId, shipId, activity }) => {
+        const lease = state.leases.find((held) => held.fleetId === fleetId && held.shipId === shipId && held.endedAt === null);
+        if (!lease) {
+          return Promise.resolve(false);
+        }
+        state.leaseActivities = [...state.leaseActivities.filter((held) => held.leaseId !== lease.id), { fleetId, leaseId: lease.id, activity: { ...activity } }];
+        return Promise.resolve(true);
+      },
       findOpenByIdForShare: (fleetId, leaseId) => {
         const lease = state.leases.find(
           (held) => held.fleetId === fleetId && held.id === leaseId && held.endedAt === null,
@@ -1761,6 +1773,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
             startedAt: lease.startedAt,
             lastSeenAt: state.leaseSeen.find((seen) => seen.leaseId === lease.id)?.at ?? lease.startedAt,
             report: state.leaseReports.find((held) => held.leaseId === lease.id)?.report ?? null,
+            activity: state.leaseActivities.find((held) => held.leaseId === lease.id)?.activity ?? null,
           }
         : null,
       validSecret: secret ? { issuedAt: secret.issuedAt, claimedAt: secret.claimedAt } : null,
@@ -2475,6 +2488,7 @@ const FLEET_TABLES = [
   'leaseReports',
   'leaseStatements',
   'leaseTurns',
+  'leaseActivities',
   'crewRequests',
   'clearRequests',
   'labels',
@@ -2516,6 +2530,7 @@ const TABLES = [
   'leaseReports',
   'leaseStatements',
   'leaseTurns',
+  'leaseActivities',
   'crewRequests',
   'clearRequests',
   'labels',

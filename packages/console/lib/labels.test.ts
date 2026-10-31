@@ -8,7 +8,7 @@ const newId = createIdGenerator();
 function aShip(name: string, overrides: Partial<ListedShip> = {}): ListedShip {
   return {
     id: newId('ship'), name, type: 'implementer', kind: 'agent', status: 'crewed', startingPrompt: null, location: null, lastSeenAt: null, ping: null,
-    scopes: ['messages:send', 'messages:receive'], labels: [], report: null, harness: null, model: null, awaitingCrewSince: null, crewRequest: null, retiredAt: null, ownerShipId: null,
+    scopes: ['messages:send', 'messages:receive'], labels: [], report: null, harness: null, model: null, activity: null, awaitingCrewSince: null, crewRequest: null, retiredAt: null, ownerShipId: null,
     ...overrides,
   };
 }

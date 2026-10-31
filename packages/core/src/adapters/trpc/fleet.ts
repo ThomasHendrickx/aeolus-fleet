@@ -87,6 +87,8 @@ import {
   confirmCrewReleaseOutputSchema,
   crewRequestInputSchema,
   crewRequestOutputSchema,
+  reportActivityInputSchema,
+  reportActivityOutputSchema,
   reportCrewStatusInputSchema,
   reportCrewStatusOutputSchema,
   removeCrewRequestInputSchema,
@@ -425,6 +427,22 @@ export const fleetRouter = router({
     .mutation(async ({ ctx, input }) => {
       okOrThrow(await ctx.useCases.reportCrewStatus(ctx.caller, input));
       return {};
+    }),
+
+  /** The assigned trierarch writes the activity it observes of the crewed ships it runs (docs/design/monitoring, 4.3). */
+  reportActivity: scopedProcedure('crew:run')
+    .meta({
+      description: [
+        "Needs crew:run. Writes, for each crewed ship whose crew request is assigned to yours, its session's latest event: when, its kind (text, tool, result or error) and for a tool call the tool's name, never content.",
+        'State the interval you write at, in seconds: activity reads unknown once your write is older than twice it. Up to 100 ships per call;',
+        'an entry for a ship not assigned to yours, without a crew request or not crewed is refused for that entry, with its code, and the rest are taken.',
+      ].join(' '),
+    })
+    .input(reportActivityInputSchema)
+    .output(reportActivityOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { refused } = okOrThrow(await ctx.useCases.reportActivity(ctx.caller, input));
+      return { refused: refused.map(({ shipId, error }) => ({ shipId, code: error.kind, message: error.message })) };
     }),
 
   /** The assigned trierarch confirms it released the ship of a releasing request, which then goes (the finalizer). */
@@ -1106,6 +1124,7 @@ export const fleetRouter = router({
           reportedAt: ship.report.reportedAt.toISOString(),
           reportChangedAt: ship.report.reportChangedAt.toISOString(),
         },
+        activity: activityOutputOf(ship.activity),
         crewRequest: crewRequestOutputOf(ship.crewRequest),
         model: ship.model && { id: ship.model.id, statedAt: ship.model.statedAt.toISOString() },
         awaitingCrewSince: ship.awaitingCrewSince?.toISOString() ?? null,
@@ -1412,6 +1431,11 @@ export const fleetRouter = router({
     }),
 });
 
+/** A ship's activity as the fleet answers it, its times in ISO 8601. */
+function activityOutputOf(activity: ListedShip['activity']) {
+  return activity && { ...activity, at: activity.at.toISOString(), reportedAt: activity.reportedAt.toISOString() };
+}
+
 /** A ship as fleet_list answers it, its times in ISO 8601. */
 function listedShipOutputOf(ship: ListedShip, taskView?: { canOpen: boolean; fleetName: string | null }) {
   return {
@@ -1430,6 +1454,7 @@ function listedShipOutputOf(ship: ListedShip, taskView?: { canOpen: boolean; fle
           reportedAt: ship.report.reportedAt.toISOString(),
           reportChangedAt: ship.report.reportChangedAt.toISOString(),
         },
+    activity: activityOutputOf(ship.activity),
     crewRequest: crewRequestOutputOf(ship.crewRequest),
     model: ship.model && { id: ship.model.id, statedAt: ship.model.statedAt.toISOString() },
     awaitingCrewSince: ship.awaitingCrewSince?.toISOString() ?? null,

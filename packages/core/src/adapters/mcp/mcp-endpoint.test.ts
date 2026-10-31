@@ -85,6 +85,7 @@ const SHIP_TOOLS = [
   'fleet_assignCrew',
   'fleet_explainCrewRequest',
   'fleet_reportCrewStatus',
+  'fleet_reportActivity',
   'fleet_confirmCrewRelease',
   'fleet_giveBackCrewRequest',
   'fleet_assignedCrewRequests',

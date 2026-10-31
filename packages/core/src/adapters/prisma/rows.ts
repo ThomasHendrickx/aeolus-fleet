@@ -8,6 +8,7 @@ import {
   reportTaskSchema,
   reportStateSchema,
   turnStateSchema,
+  activityKindSchema,
   eventTypeSchema,
   idSchema,
   carriedLabelSchema,
@@ -34,6 +35,7 @@ import { isSealedPayload, type StoredPayload } from '../../domain/messaging/seal
 import type { ShipReport } from '../../domain/registry/ship-report.js';
 import type { StatedStatement } from '../../domain/registry/statement.js';
 import type { Turn } from '../../domain/registry/turn.js';
+import type { LeaseActivity } from '../../domain/registry/lease-activity.js';
 import type { ClearRequest } from '../../domain/registry/clear-request.js';
 import type { CrewRequest } from '../../domain/registry/crew-request.js';
 import type { Label, LabelOwner, ListedLabel, ShipLabel } from '../../domain/registry/label.js';
@@ -266,6 +268,22 @@ export function toStatedStatement(row: unknown): StatedStatement | null {
   return statement === null ? null : { statement, version: statement_version };
 }
 
+const activitySqlRow = z.object({
+  activity_at: z.date().nullable(),
+  activity_kind: activityKindSchema.nullable(),
+  activity_tool: z.string().nullable(),
+  activity_reported_at: z.date().nullable(),
+  activity_interval_seconds: z.int().min(1).nullable(),
+});
+
+/** A lease's activity columns as raw SQL reads them; null until its trierarch writes. */
+export function toLeaseActivity(row: unknown): LeaseActivity | null {
+  const { activity_at, activity_kind, activity_tool, activity_reported_at, activity_interval_seconds } = activitySqlRow.parse(row);
+  return activity_at && activity_kind && activity_reported_at && activity_interval_seconds !== null
+    ? { at: activity_at, kind: activity_kind, tool: activity_tool, reportedAt: activity_reported_at, intervalSeconds: activity_interval_seconds }
+    : null;
+}
+
 const turnSqlRow = z.object({ turn: turnStateSchema.nullable(), turn_at: z.date().nullable() });
 
 /** A lease's turn columns as raw SQL reads them; null until its hooks report. */
@@ -363,6 +381,7 @@ export function toShipFacts(row: unknown): ShipFacts {
             // Its claim until its crew calls again.
             lastSeenAt: lease_last_seen_at ?? lease_started_at,
             report: toShipReport(row),
+            activity: toLeaseActivity(row),
           }
         : null,
     validSecret: secret_issued_at && { issuedAt: secret_issued_at, claimedAt: secret_claimed_at },

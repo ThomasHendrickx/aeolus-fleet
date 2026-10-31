@@ -34,6 +34,7 @@ import { LabelChip } from '../../../../components/molecules/label-chip';
 import { LabelChips } from '../molecules/label-chips';
 import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
 import { LastSeen } from '../molecules/last-seen';
+import { ActivityLine } from '../../../../components/molecules/activity-line';
 import { LocationTag } from '../../../../components/molecules/location-tag';
 import { ModelHint } from '../molecules/model-hint';
 import { ReportLine } from '../../../../components/molecules/report-line';
@@ -589,8 +590,8 @@ function DesktopTable({
           <col className="w-40" />
           <col className="w-64" />
           <col className="w-56" />
-          <col className="w-80" />
-          <col className="w-12" />
+          <col className="w-64" />
+          <col className="w-28" />
           <col className="w-12" />
         </colgroup>
         <TableHeader>
@@ -643,7 +644,10 @@ function DesktopTable({
                 <RunsOn ship={ship} now={now} />
               </TableCell>
               <TableCell>
-                <LastSeen seenAt={ship.lastSeenAt} now={now} testId="fleet-last-seen" />
+                <span className="flex min-w-0 items-center gap-2">
+                  <LastSeen seenAt={ship.lastSeenAt} now={now} testId="fleet-last-seen" />
+                  <ActivityLine activity={ship.activity} now={now} variant="row" testId="fleet-activity" />
+                </span>
               </TableCell>
               <TableCell className="w-10 text-right">{renderRowActions?.(ship, 'table')}</TableCell>
             </TableRow>
@@ -685,6 +689,7 @@ function PhoneList({
             <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
               <RunsOn ship={ship} now={now} />
               <LastSeen seenAt={ship.lastSeenAt} now={now} />
+              <ActivityLine activity={ship.activity} now={now} variant="row" />
             </div>
           </div>
           {renderRowActions?.(ship, 'phone')}

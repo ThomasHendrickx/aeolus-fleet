@@ -58,6 +58,21 @@ export const WithFleetScopes: Story = {
 export const Reported: Story = {
   args: { ship: { ...CREWED_SHIP, report: { state: 'blocked', note: 'waiting for review on PR 88', task: null, step: null, reportedAt: minutesAgo(3), reportChangedAt: minutesAgo(3), detailsVersion: 0, details: null, detailsBytes: null } } },
 };
+/** The monitoring design's Activity line under the report: what the trierarch last observed of the session. */
+export const WithActivity: Story = {
+  args: { ship: { ...CREWED_SHIP, activity: { at: minutesAgo(2), kind: 'tool', tool: 'Bash', reportedAt: minutesAgo(0.2), intervalSeconds: 30 } } },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByTestId('ship-activity')).toHaveTextContent('Tool call 2 min ago');
+  },
+};
+/** The trierarch stopped writing: activity unknown, with when it last reported, never stopped work. */
+export const ActivityUnknown: Story = {
+  args: { ship: { ...CREWED_SHIP, activity: { at: minutesAgo(30), kind: 'tool', tool: 'Bash', reportedAt: minutesAgo(25), intervalSeconds: 30 } } },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByTestId('ship-activity')).toHaveTextContent('Activity unknown, trierarch last reported 25 min ago');
+  },
+};
+export const ActivityUnknownPhone: Story = { ...ActivityUnknown, globals: { viewport: { value: 'mobile1' } } };
 export const WithReportDetails: Story = {
   args: {
     ship: {

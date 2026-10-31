@@ -57,9 +57,9 @@ describe('paletteGroups', () => {
 describe('paletteItemsOf', () => {
   it('offers the actions, the active agent ships, never argo or a retired ship, and the pages', () => {
     const ships: ListedShip[] = [
-      { id: newId('ship'), name: 'argo', type: 'operator', kind: 'operator', status: 'crewed', startingPrompt: null, location: null, lastSeenAt: null, ping: null, scopes: ['messages:send', 'messages:receive'], report: null, harness: null, model: null, awaitingCrewSince: null, crewRequest: null, labels: [], retiredAt: null, ownerShipId: null },
-      { id: newId('ship'), name: 'reviewer-01', type: 'reviewer', kind: 'agent', status: 'crewed', startingPrompt: null, location: null, lastSeenAt: null, ping: null, scopes: ['messages:send', 'messages:receive'], report: null, harness: null, model: null, awaitingCrewSince: null, crewRequest: null, labels: [], retiredAt: null, ownerShipId: null },
-      { id: newId('ship'), name: 'old', type: 'reviewer', kind: 'agent', status: 'retired', startingPrompt: null, location: null, lastSeenAt: null, ping: null, scopes: ['messages:send', 'messages:receive'], report: null, harness: null, model: null, awaitingCrewSince: null, crewRequest: null, labels: [], retiredAt: null, ownerShipId: null },
+      { id: newId('ship'), name: 'argo', type: 'operator', kind: 'operator', status: 'crewed', startingPrompt: null, location: null, lastSeenAt: null, ping: null, scopes: ['messages:send', 'messages:receive'], report: null, harness: null, model: null, activity: null, awaitingCrewSince: null, crewRequest: null, labels: [], retiredAt: null, ownerShipId: null },
+      { id: newId('ship'), name: 'reviewer-01', type: 'reviewer', kind: 'agent', status: 'crewed', startingPrompt: null, location: null, lastSeenAt: null, ping: null, scopes: ['messages:send', 'messages:receive'], report: null, harness: null, model: null, activity: null, awaitingCrewSince: null, crewRequest: null, labels: [], retiredAt: null, ownerShipId: null },
+      { id: newId('ship'), name: 'old', type: 'reviewer', kind: 'agent', status: 'retired', startingPrompt: null, location: null, lastSeenAt: null, ping: null, scopes: ['messages:send', 'messages:receive'], report: null, harness: null, model: null, activity: null, awaitingCrewSince: null, crewRequest: null, labels: [], retiredAt: null, ownerShipId: null },
     ];
 
     expect(paletteItemsOf(ships).map((item) => (item.kind === 'ship' ? item.name : item.id))).toEqual([
@@ -74,7 +74,7 @@ describe('paletteItemsOf', () => {
 
   it('offers a plugin ship, which a palette entry opens like an agent ship', () => {
     const ships: ListedShip[] = [
-      { id: newId('ship'), name: 'squadrons', type: 'squadrons', kind: 'plugin', status: 'crewed', startingPrompt: null, location: null, lastSeenAt: null, ping: null, scopes: ['messages:send', 'messages:receive'], report: null, harness: null, model: null, awaitingCrewSince: null, crewRequest: null, labels: [], retiredAt: null, ownerShipId: null },
+      { id: newId('ship'), name: 'squadrons', type: 'squadrons', kind: 'plugin', status: 'crewed', startingPrompt: null, location: null, lastSeenAt: null, ping: null, scopes: ['messages:send', 'messages:receive'], report: null, harness: null, model: null, activity: null, awaitingCrewSince: null, crewRequest: null, labels: [], retiredAt: null, ownerShipId: null },
     ];
 
     expect(paletteItemsOf(ships).filter((item) => item.kind === 'ship').map((item) => item.name)).toEqual(['squadrons']);

@@ -231,6 +231,16 @@ enum TurnState {
   @@map("turn_state")
 }
 
+/// The kind of a session's latest event as its trierarch observes it (headless design, H14).
+enum ActivityKind {
+  text
+  tool
+  result
+  error
+
+  @@map("activity_kind")
+}
+
 enum LocationKind {
   DEVICE
   CLOUD
@@ -246,44 +256,51 @@ enum LocationKind {
 /// finding a ship by its crew token is a lookup not scoped by fleet (ADR 0007). A
 /// console session's lease on argo has none; the console session holds its token.
 model Lease {
-  id                   String       @id
-  fleetId              String       @map("fleet_id")
-  shipId               String       @map("ship_id")
-  location             LocationKind
-  locationDescription  String?      @map("location_description")
+  id                      String        @id
+  fleetId                 String        @map("fleet_id")
+  shipId                  String        @map("ship_id")
+  location                LocationKind
+  locationDescription     String?       @map("location_description")
   /// The harness the session stated when it claimed the ship; none for argo's console lease and for leases from before harnesses were stated.
-  harness              String?
-  crewTokenHash        String?      @unique @map("crew_token_hash")
-  startedAt            DateTime     @map("started_at") @db.Timestamptz(3)
+  harness                 String?
+  crewTokenHash           String?       @unique @map("crew_token_hash")
+  startedAt               DateTime      @map("started_at") @db.Timestamptz(3)
   /// The last call by its crew: observation only, nothing acts on it (ADR 0016).
-  lastSeenAt           DateTime?    @map("last_seen_at") @db.Timestamptz(3)
+  lastSeenAt              DateTime?     @map("last_seen_at") @db.Timestamptz(3)
   /// The crew's last report: plain data, nothing acts on it. Null until it reports.
-  reportState          ReportState? @map("report_state")
-  reportNote           String?      @map("report_note")
-  reportedAt           DateTime?    @map("reported_at") @db.Timestamptz(3)
+  reportState             ReportState?  @map("report_state")
+  reportNote              String?       @map("report_note")
+  reportedAt              DateTime?     @map("reported_at") @db.Timestamptz(3)
   /// When the state, note, task or step last changed; details alone do not move it (decision 0028). Null until it reports.
-  reportChangedAt      DateTime?    @map("report_changed_at") @db.Timestamptz(3)
+  reportChangedAt         DateTime?     @map("report_changed_at") @db.Timestamptz(3)
   /// What the crew works on: a typed reference, a kind and its fields (decision 0028). Null when it names none.
-  reportTask           Json?        @map("report_task")
+  reportTask              Json?         @map("report_task")
   /// Where the crew is in its task, step at of of; both null when it gives none.
-  reportStepAt         Int?         @map("report_step_at")
-  reportStepOf         Int?         @map("report_step_of")
+  reportStepAt            Int?          @map("report_step_at")
+  reportStepOf            Int?          @map("report_step_of")
   /// The report's details: one JSON object stored without meaning, at most 16 KB (decision 0028). Null when there are none.
-  reportDetails        Json?        @map("report_details")
+  reportDetails           Json?         @map("report_details")
   /// Moves by one each time the details change; 0 before any.
-  reportDetailsVersion Int          @default(0) @map("report_details_version")
+  reportDetailsVersion    Int           @default(0) @map("report_details_version")
   /// The crew's statement: what its ship is and offers, at most 256 KB, its shape common's; null until it states one (decision 0047).
-  statement            Json?
+  statement               Json?
   /// Moves by one each time the statement changes; 0 before any.
-  statementVersion     Int          @default(0) @map("statement_version")
+  statementVersion        Int           @default(0) @map("statement_version")
   /// From the lease's first push receive: the computer side takes its deliveries, and the agent's plain receive answers nothing (decision 0040).
-  pushedAt             DateTime?    @map("pushed_at") @db.Timestamptz(3)
+  pushedAt                DateTime?     @map("pushed_at") @db.Timestamptz(3)
   /// What wakes the ship, as its first push receive stated it; null when it stated none (interop 5.1).
-  waker                LeaseWaker?
+  waker                   LeaseWaker?
   /// The session's turn as its hooks last reported it, and when they saw it change; null until they report (decision 0040).
-  turn                 TurnState?
-  turnAt               DateTime?    @map("turn_at") @db.Timestamptz(3)
-  endedAt              DateTime?    @map("ended_at") @db.Timestamptz(3)
+  turn                    TurnState?
+  turnAt                  DateTime?     @map("turn_at") @db.Timestamptz(3)
+  /// What its assigned trierarch last observed of the session: the latest event's time, kind and tool, never content; null until it writes (docs/design/monitoring, 4.3).
+  activityAt              DateTime?     @map("activity_at") @db.Timestamptz(3)
+  activityKind            ActivityKind? @map("activity_kind")
+  activityTool            String?       @map("activity_tool")
+  /// When the trierarch wrote it, and the report interval it stated: past twice that interval it reads unknown.
+  activityReportedAt      DateTime?     @map("activity_reported_at") @db.Timestamptz(3)
+  activityIntervalSeconds Int?          @map("activity_interval_seconds")
+  endedAt                 DateTime?     @map("ended_at") @db.Timestamptz(3)
 
   fleet             Fleet             @relation(fields: [fleetId], references: [id])
   ship              Ship              @relation(fields: [fleetId, shipId], references: [fleetId, id])
