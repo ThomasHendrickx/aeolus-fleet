@@ -560,6 +560,15 @@ describe('timelineSentence', () => {
     expect(onScoutsPage(anEntry('AlertCleared', { actor: argo, details: { alertId: 'alt_x', signal: 'ping-unanswered', why: 'retired' } })).sentence).toBe('Alert cleared: ping unanswered, the ship retired');
   });
 
+  it('says who set expectations on the ship, or cleared them (decision 0071)', () => {
+    expect(onScoutsPage(anEntry('ExpectationsSet', { actor: argo, details: { reportChangesWithin: 60, taskDoneBy: '2026-10-31T18:00:00.000Z' } }))).toEqual({
+      sentence: 'Expectations set by argo',
+      tone: 'ended',
+      icon: 'reported',
+    });
+    expect(onScoutsPage(anEntry('ExpectationsSet', { actor: argo, details: { reportChangesWithin: null, taskDoneBy: null } })).sentence).toBe('Expectations cleared by argo');
+  });
+
   it('says how many verified facts a writer set about the ship, and who', () => {
     expect(onScoutsPage(anEntry('VerifiedFactsSet', { actor: argo, details: { facts: 2 } }))).toEqual({ sentence: 'Verified facts set: 2 by argo', tone: 'ended', icon: 'reported' });
   });
