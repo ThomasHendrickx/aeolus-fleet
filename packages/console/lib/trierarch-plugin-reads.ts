@@ -8,7 +8,19 @@ import { callPlugin, sessionCookieOf } from './plugin-call';
 import { readShownConnection } from './plugin-calls';
 import { serverInternalUrlFrom } from './server-url';
 import { shownConnectionOf, type ShownConnection } from './shown-connection';
-import { enabledModelsSchema, machineSchema, settingsCheckSchema, type Machine, type SettingsCheck } from './trierarch-plugin-schemas';
+import {
+  enabledModelsSchema,
+  machineSchema,
+  settingsCheckSchema,
+  tokenUsageSchema,
+  usageValuesPageSchema,
+  type Machine,
+  type SettingsCheck,
+  type TokenUsage,
+  type UsageTokensRequest,
+  type UsageValuesPage,
+  type UsageValuesRequest,
+} from './trierarch-plugin-schemas';
 import { trierarchPluginUrlFrom } from './trierarch-plugin-url';
 import { trierarchPluginVersionOf } from './version';
 
@@ -83,4 +95,14 @@ export async function listEnabledModels(): Promise<PluginAnswer<string[]>> {
 
 export async function checkCrewSettings(settings: unknown): Promise<PluginAnswer<SettingsCheck>> {
   return call('requests.check', { input: { settings }, answers: settingsCheckSchema });
+}
+
+/** The fleet's token usage in a range (`usage.tokens`), for the Usage page. */
+export async function readUsageTokens(request: UsageTokensRequest): Promise<PluginAnswer<TokenUsage>> {
+  return call('usage.tokens', { input: request, answers: tokenUsageSchema });
+}
+
+/** One page of a breakdown's values in a range (`usage.values`), for the Usage page's filters. */
+export async function readUsageValues(request: UsageValuesRequest): Promise<PluginAnswer<UsageValuesPage>> {
+  return call('usage.values', { input: request, answers: usageValuesPageSchema });
 }
