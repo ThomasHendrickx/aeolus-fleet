@@ -276,7 +276,7 @@ Unhappy paths:
 
 ## 11. Slices, in build order
 
-One PR per slice, in this order; a gateway slice starts once the core release it needs is out. Each slice has its issue in this repository, linking here and referring to #1494.
+Thomas, 31 Oct: "Answer in bridge: build it one slice at a time without pause and it will go to production when it is ready." One PR per slice, in this order, each started as the one before it is done; a gateway slice starts once the core release it needs is out. Each slice has its issue in this repository, linking here and referring to #1494.
 
 | # | Repo | Slice | Done when |
 | --- | --- | --- | --- |
