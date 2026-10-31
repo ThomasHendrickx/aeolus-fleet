@@ -543,6 +543,23 @@ describe('timelineSentence', () => {
     expect(onScoutsPage(anEntry('PluginDisconnected', { actor: argo, details: { why: 'released' } })).sentence).toBe('No longer a connected plugin: released by argo');
   });
 
+  it('says the watch raised an alert on the ship, and what parted (decision 0071)', () => {
+    expect(onScoutsPage(anEntry('AlertRaised', { actor: argo, details: { alertId: 'alt_x', signal: 'delivery-unacknowledged', occurrenceKey: 'dlv_x' } }))).toEqual({
+      sentence: 'Alert raised: delivery unacknowledged by argo',
+      tone: 'attention',
+      icon: 'undeliverable',
+    });
+  });
+
+  it('says an alert on the ship cleared, by the watch or as the ship retired (decision 0071)', () => {
+    expect(onScoutsPage(anEntry('AlertCleared', { actor: argo, details: { alertId: 'alt_x', signal: 'ping-unanswered', why: 'cleared' } }))).toEqual({
+      sentence: 'Alert cleared: ping unanswered by argo',
+      tone: 'ended',
+      icon: 'acknowledged',
+    });
+    expect(onScoutsPage(anEntry('AlertCleared', { actor: argo, details: { alertId: 'alt_x', signal: 'ping-unanswered', why: 'retired' } })).sentence).toBe('Alert cleared: ping unanswered, the ship retired');
+  });
+
   it('says how many verified facts a writer set about the ship, and who', () => {
     expect(onScoutsPage(anEntry('VerifiedFactsSet', { actor: argo, details: { facts: 2 } }))).toEqual({ sentence: 'Verified facts set: 2 by argo', tone: 'ended', icon: 'reported' });
   });

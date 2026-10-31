@@ -15,7 +15,8 @@ import { z } from 'zod';
  * (decision 0046) and `scopes:define` defines the fleet's own scopes. `fleet:person`, `fleet:owner`, `fleet:explain`,
  * `fleet:connect` and `labels:any` are the jobs that were argo's alone
  * (decision 0053). `fleet:verify` writes verified facts (decision 0059).
- * `meetings:open` opens a meeting (decision 0061).
+ * `meetings:open` opens a meeting (decision 0061). `fleet:alert` raises and
+ * clears alerts (decision 0071).
  */
 export const SCOPES = [
   'messages:send',
@@ -42,6 +43,7 @@ export const SCOPES = [
   'scopes:define',
   'meetings:open',
   'fleet:keys',
+  'fleet:alert',
 ] as const;
 export const scopeSchema = z.enum(SCOPES);
 export type Scope = z.infer<typeof scopeSchema>;
@@ -72,6 +74,7 @@ export const CORE_SCOPE_DESCRIPTIONS: Readonly<Record<Scope, string>> = {
   'scopes:define': "Define, describe and remove the fleet's own scopes",
   'meetings:open': 'Open a meeting of the ships its ship reaches, owning and moderating it',
   'fleet:keys': "Turn sealing on and change the fleet's company key and recovery key",
+  'fleet:alert': 'Raise and clear alerts on the ships its ship reads',
 };
 
 /** The namespaces core reserves and enforces; every other one is a plugin's (decision 0046). */
@@ -122,7 +125,8 @@ export type ScopeName = z.infer<typeof scopeNameSchema>;
  * 0034). `fleet:on-behalf` reads on behalf of a named ship (decision 0034).
  * The jobs that were argo's alone are scopes an agent ship can hold too
  * (decision 0053), and so is writing verified facts (decision 0059) and
- * opening meetings (decision 0061).
+ * opening meetings (decision 0061), and raising alerts, the watch's
+ * (decision 0071).
  */
 export const FLEET_SCOPES = [
   'messages:resend',
@@ -142,6 +146,7 @@ export const FLEET_SCOPES = [
   'labels:any',
   'fleet:verify',
   'meetings:open',
+  'fleet:alert',
 ] as const;
 export const fleetScopeSchema = z.enum(FLEET_SCOPES);
 export type FleetScope = z.infer<typeof fleetScopeSchema>;
@@ -303,6 +308,8 @@ export const EVENT_TYPES = [
   'FleetKeysRecovered',
   'FeatureFlagTurnedOn',
   'FeatureFlagTurnedOff',
+  'AlertRaised',
+  'AlertCleared',
 ] as const;
 export const eventTypeSchema = z.enum(EVENT_TYPES);
 export type EventType = z.infer<typeof eventTypeSchema>;

@@ -13,7 +13,7 @@ import {
 // fleet.raiseAlert takes (4.5): the watch and every reader share them.
 
 const SHIP_ID = 'shp_01m66p4k2v9qz8f7x3n5c14ftc';
-const SETTER_ID = 'shp_01m66p4k2v9qz8f7x3n5c1or1x';
+const SETTER_ID = 'shp_01m66p4k2v9qz8f7x3n5c1r1x0';
 
 // The design's example, to the owner (4.9).
 const EXAMPLE = {
@@ -29,7 +29,7 @@ const EXAMPLE = {
   facts: { reportChangedAt: '2026-10-30T12:05:00Z', state: 'working', minutes: 60, setBy: SETTER_ID },
 };
 
-const DELIVERY = { deliveryId: 'dlv_01m66p4k2v9qz8f7x3n5c1dlv1', messageId: 'msg_01m66p4k2v9qz8f7x3n5c1msg1' };
+const DELIVERY = { deliveryId: 'dlv_01m66p4k2v9qz8f7x3n5c1d1v1', messageId: 'msg_01m66p4k2v9qz8f7x3n5c1msg1' };
 
 describe('the alert signals (docs/design/monitoring, 4.4)', () => {
   it('are the four distribution signals and the two expectations, nothing else', () => {
