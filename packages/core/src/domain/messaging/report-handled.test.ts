@@ -217,3 +217,48 @@ describe('handled, refused', () => {
     expect(stored(deliveryId)).toMatchObject({ state: 'acknowledged', claimedByLeaseId: scout.leaseId });
   });
 });
+
+describe("handled across a ship's leases (Bridge, CC12)", () => {
+  /** A ship of the kind, crewed, sent a delivery its crew push received, handed and acknowledged, then released. */
+  async function acknowledgedUnderAnEndedLease(kind: 'person' | 'agent'): Promise<{ deliveryId: DeliveryId; shipId: ShipId; endedLeaseId: Crew['leaseId'] }> {
+    const { shipId } = unwrap(await registryUseCases(core).commissionShip(argo, { idempotencyKey: newKey(), name: `thomas-${kind}`, type: 'person', kind }));
+    const first: Crew = { ...crewAboard(core, { fleetId, shipId }), kind };
+    const deliveryId = await sendTo({ kind: 'ship', shipId });
+    unwrap(await useCases.pushReceiveDeliveries(first, {}));
+    unwrap(await useCases.handOverDelivery(first, { deliveryId, handOverNumber: 1 }));
+    unwrap(await useCases.acknowledgeDelivery(first, { deliveryId }));
+    const ended = await core.uow.run(async (tx) =>
+      ok(await endLease({ tx, ids: core.ids }, { fleetId, leaseId: first.leaseId, actor: shipActor(argo.shipId), at: core.clock.now(), reason: 'released' })),
+    );
+    expect(ended).toEqual(ok(true));
+    return { deliveryId, shipId, endedLeaseId: first.leaseId };
+  }
+
+  it("lets a person ship's next crew report handled a delivery acknowledged under its earlier lease", async () => {
+    // Given a person ship's delivery acknowledged under a lease that ended.
+    const { deliveryId, shipId, endedLeaseId } = await acknowledgedUnderAnEndedLease('person');
+    const next: Crew = { ...crewAboard(core, { fleetId, shipId }), kind: 'person' };
+    core.state.events.length = 0;
+
+    // When the ship's next crew reports it handled.
+    const reported = await useCases.reportHandled(next, { deliveryId });
+
+    // Then it is handled, still naming the lease that took it, and the event names the reporting lease.
+    expect(reported).toEqual(ok(undefined));
+    expect(stored(deliveryId)).toMatchObject({ state: 'handled', claimedByShipId: shipId, claimedByLeaseId: endedLeaseId });
+    expect(eventsOf('DeliveryHandled')).toMatchObject([{ shipId, deliveryId, details: { leaseId: next.leaseId } }]);
+  });
+
+  it("refuses another kind of ship's next crew a delivery acknowledged under its earlier lease: the per-lease rule", async () => {
+    // Given an agent ship's delivery acknowledged under a lease that ended.
+    const { deliveryId, shipId, endedLeaseId } = await acknowledgedUnderAnEndedLease('agent');
+    const next = crewAboard(core, { fleetId, shipId });
+
+    // When the ship's next crew reports it handled.
+    const reported = await useCases.reportHandled(next, { deliveryId });
+
+    // Then it is refused, and the delivery stays acknowledged under the lease that took it.
+    expect(reported).toMatchObject({ isOk: false, error: { kind: 'DELIVERY_HELD_BY_ANOTHER_SHIP' } });
+    expect(stored(deliveryId)).toMatchObject({ state: 'acknowledged', claimedByLeaseId: endedLeaseId });
+  });
+});
