@@ -20,13 +20,14 @@ import { refuse, type DomainError } from '../shared/errors.js';
 import { recordEvent } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
+import { clearAlert } from './alert.js';
 import { checkManage, keepingReachRefusal, type CheckManageTx, type NotReachable } from './check-reach.js';
 import { removeClearRequestsOf } from './clear-request.js';
 import { removeCrewRequest } from './crew-request.js';
 import { retireLabelsWith } from './label.js';
 import { endLease, type LeaseTx } from './leases.js';
 import { withdrawWithRetiredShip } from './declared-network-rules.js';
-import type { ClearRequestRepository, CrewRequestRepository, DeclaredNetworkRulesRepository, LabelRepository, NetworkSettingsRepository, ScopeNamespaceRepository, ShipRepository, VerifiedFactsRepository } from './ports.js';
+import type { AlertRepository, ClearRequestRepository, CrewRequestRepository, DeclaredNetworkRulesRepository, LabelRepository, NetworkSettingsRepository, ScopeNamespaceRepository, ShipRepository, VerifiedFactsRepository } from './ports.js';
 import { changeOwner, checkCanRetire, type RetireRefusal } from './ship.js';
 import { releaseWithDeclarer } from './scope-namespace.js';
 import { removeWithRetiredShip } from './verified-facts.js';
@@ -40,6 +41,7 @@ export interface RetireShipTx extends LeaseTx, CredentialTx, RetiredParticipantT
   declaredNetworkRules: Pick<DeclaredNetworkRulesRepository, 'list' | 'find' | 'save'>;
   scopeNamespaces: Pick<ScopeNamespaceRepository, 'findByDeclarer' | 'lockNamespace' | 'remove'>;
   verifiedFacts: Pick<VerifiedFactsRepository, 'listAbout' | 'listBy' | 'lockWriter' | 'remove'>;
+  alerts: Pick<AlertRepository, 'listOpenOnShipForUpdate' | 'saveCleared'>;
 }
 
 export type RetireShipRefusal = DomainError<'SHIP_NOT_FOUND' | 'KEY_UNAVAILABLE'> | NotReachable | RetireRefusal | AcceptRefusal;
@@ -77,7 +79,9 @@ export type RetireShip = (
  * ship, as a contribution locks its meeting before its recipients.
  * Its active and paused schedules are cancelled, one ScheduleCancelled each
  * (decision 0062, S11), locked before the ship too, as a send time locks its
- * schedule before the ship it sends to.
+ * schedule before the ship it sends to. Its open alerts clear, one
+ * AlertCleared each, the ship retired (decision 0071), locked after the ship
+ * as a raise and a clear lock them.
  * The caller, any actor (decision 0057), needs fleet:manage, checked before
  * this runs, and manage reach on the ship here (decision 0034), a refusal
  * storing only its record. That check reads the network
@@ -224,6 +228,13 @@ export function createRetireShip(deps: {
         return left;
       }
       await cancelSchedulesOnRetire({ tx, ids: deps.ids }, { schedules, actor, at });
+      for (const alert of await tx.alerts.listOpenOnShipForUpdate(fleetId, shipId)) {
+        const cleared = clearAlert(alert, { why: 'retired', at, actor });
+        await tx.alerts.saveCleared(cleared.alert);
+        for (const event of cleared.events) {
+          await recordEvent(recorded, event);
+        }
+      }
       await tx.verifiedFacts.lockWriter(fleetId, shipId);
       const facts = removeWithRetiredShip({ about: await tx.verifiedFacts.listAbout(fleetId, shipId), by: await tx.verifiedFacts.listBy(fleetId, shipId) }, { at, actor });
       for (const written of facts.removed) {

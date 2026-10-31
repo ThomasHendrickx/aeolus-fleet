@@ -33,38 +33,27 @@ export const ALERT_OCCURRENCE_KEY_MAX_LENGTH = 200;
 const isoTime = z.iso.datetime({ offset: true });
 const minutesSchema = z.int().min(1);
 
-/** The facts at raise, by signal (4.9). */
+/** The facts at raise of each signal (4.9). */
+const crewRequestUnassignedFactsSchema = z.strictObject({ settingsVersion: z.int().min(1), minutes: minutesSchema, reason: z.string().nullable() });
+const deliveryUnacknowledgedFactsSchema = z.strictObject({
+  deliveryId: idSchema('delivery'),
+  messageId: idSchema('message'),
+  state: z.enum(['pending', 'received', 'handed']),
+  awaitingCrew: z.boolean(),
+  minutes: minutesSchema,
+});
+const deliveryOverdueFactsSchema = z.strictObject({ deliveryId: idSchema('delivery'), messageId: idSchema('message'), overdueEventId: idSchema('event') });
+const pingUnansweredFactsSchema = z.strictObject({ deliveryId: idSchema('delivery'), messageId: idSchema('message'), minutes: minutesSchema });
+const reportUnchangedFactsSchema = z.strictObject({ reportChangedAt: isoTime, state: z.enum(['working', 'blocked']), minutes: minutesSchema, setBy: idSchema('ship') });
+const taskNotDoneFactsSchema = z.strictObject({ task: reportTaskSchema, doneBy: isoTime, setBy: idSchema('ship') });
+
 const alertFactsBySignal = [
-  z.object({
-    signal: z.literal('crew-request-unassigned'),
-    facts: z.strictObject({ settingsVersion: z.int().min(1), minutes: minutesSchema, reason: z.string().nullable() }),
-  }),
-  z.object({
-    signal: z.literal('delivery-unacknowledged'),
-    facts: z.strictObject({
-      deliveryId: idSchema('delivery'),
-      messageId: idSchema('message'),
-      state: z.enum(['pending', 'received', 'handed']),
-      awaitingCrew: z.boolean(),
-      minutes: minutesSchema,
-    }),
-  }),
-  z.object({
-    signal: z.literal('delivery-overdue'),
-    facts: z.strictObject({ deliveryId: idSchema('delivery'), messageId: idSchema('message'), overdueEventId: idSchema('event') }),
-  }),
-  z.object({
-    signal: z.literal('ping-unanswered'),
-    facts: z.strictObject({ deliveryId: idSchema('delivery'), messageId: idSchema('message'), minutes: minutesSchema }),
-  }),
-  z.object({
-    signal: z.literal('report-unchanged'),
-    facts: z.strictObject({ reportChangedAt: isoTime, state: z.enum(['working', 'blocked']), minutes: minutesSchema, setBy: idSchema('ship') }),
-  }),
-  z.object({
-    signal: z.literal('task-not-done'),
-    facts: z.strictObject({ task: reportTaskSchema, doneBy: isoTime, setBy: idSchema('ship') }),
-  }),
+  z.object({ signal: z.literal('crew-request-unassigned'), facts: crewRequestUnassignedFactsSchema }),
+  z.object({ signal: z.literal('delivery-unacknowledged'), facts: deliveryUnacknowledgedFactsSchema }),
+  z.object({ signal: z.literal('delivery-overdue'), facts: deliveryOverdueFactsSchema }),
+  z.object({ signal: z.literal('ping-unanswered'), facts: pingUnansweredFactsSchema }),
+  z.object({ signal: z.literal('report-unchanged'), facts: reportUnchangedFactsSchema }),
+  z.object({ signal: z.literal('task-not-done'), facts: taskNotDoneFactsSchema }),
 ] as const;
 
 /** A signal with its facts at raise. */
@@ -99,14 +88,30 @@ export type AlertMessage = z.infer<typeof alertMessageSchema>;
  * its facts at raise, the occurrence key the alert is unique by, and since
  * when the fact parted.
  */
-export const raiseAlertInputSchema = z.intersection(
-  z.object({
+export const raiseAlertInputSchema = z
+  .object({
     shipId: idSchema('ship'),
+    signal: alertSignalSchema,
+    facts: z.union([
+      crewRequestUnassignedFactsSchema,
+      deliveryUnacknowledgedFactsSchema,
+      deliveryOverdueFactsSchema,
+      pingUnansweredFactsSchema,
+      reportUnchangedFactsSchema,
+      taskNotDoneFactsSchema,
+    ]),
     occurrenceKey: z.string().min(1).max(ALERT_OCCURRENCE_KEY_MAX_LENGTH),
     since: isoTime,
-  }),
-  alertSignalFactsSchema,
-);
+  })
+  // One object for the doors' JSON Schema; the facts must be the signal's.
+  .transform(({ shipId, signal, facts, occurrenceKey, since }, context) => {
+    const signalFacts = alertSignalFactsSchema.safeParse({ signal, facts });
+    if (!signalFacts.success) {
+      context.addIssue({ code: 'custom', message: "The facts are not the signal's", path: ['facts'] });
+      return z.NEVER;
+    }
+    return { shipId, occurrenceKey, since, ...signalFacts.data };
+  });
 
 export type RaiseAlertInput = z.infer<typeof raiseAlertInputSchema>;
 

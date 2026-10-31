@@ -46,10 +46,10 @@ beforeEach(async () => {
 
 describe('raising an alert (decision 0071)', () => {
   it('holds an open alert on the ship: its signal and facts, the occurrence, since when, the owner told and when it was raised', async () => {
-    const raised = unwrap(await registry.raiseAlert(watch, unacknowledged()));
+    const { id, ...raised } = unwrap(await registry.raiseAlert(watch, unacknowledged()));
 
+    expect(id).toMatch(/^alt_/);
     expect(raised).toEqual({
-      id: expect.stringMatching(/^alt_/),
       ship: { id: deployBotId, name: 'deploy-bot' },
       signal: 'delivery-unacknowledged',
       facts: { deliveryId: DELIVERY_ID, messageId: MESSAGE_ID, state: 'pending', awaitingCrew: true, minutes: 15 },
@@ -59,7 +59,7 @@ describe('raising an alert (decision 0071)', () => {
       raisedAt: core.clock.now(),
       cleared: null,
     });
-    expect(core.state.alerts.map(({ id }) => id)).toEqual([raised.id]);
+    expect(core.state.alerts.map((held) => held.id)).toEqual([id]);
   });
 
   it('writes AlertRaised on the ship, caused by the watch, naming the alert, the signal and the occurrence', async () => {
@@ -105,7 +105,7 @@ describe('raising an alert (decision 0071)', () => {
   });
 
   it('names the owner of the ship at the time it is raised', async () => {
-    const { shipId: ownerId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'orchestrator-1', type: 'orchestrator' }));
+    const { shipId: ownerId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person' }));
     unwrap(await registry.setOwner(argo, { shipId: deployBotId, ownerShipId: ownerId }));
 
     await expect(registry.raiseAlert(watch, unacknowledged())).resolves.toMatchObject({ isOk: true, value: { ownerShipId: ownerId } });

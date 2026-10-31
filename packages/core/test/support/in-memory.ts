@@ -60,6 +60,7 @@ import type {
   ScopeNamespaceRepository,
   DefinedScopeRepository,
   VerifiedFactsRepository,
+  AlertRepository,
   NetworkSettingsRepository,
   ReachRefusalRepository,
   ShipRepository,
@@ -84,6 +85,7 @@ import type { StatedStatement } from '../../src/domain/registry/statement.js';
 import type { Turn } from '../../src/domain/registry/turn.js';
 import type { LeaseActivity } from '../../src/domain/registry/lease-activity.js';
 import { isSameWriter, type WrittenFacts } from '../../src/domain/registry/verified-facts.js';
+import type { Alert } from '../../src/domain/registry/alert.js';
 import type { ClearRequest } from '../../src/domain/registry/clear-request.js';
 import type { CrewRequest } from '../../src/domain/registry/crew-request.js';
 import type { Clock } from '../../src/domain/shared/clock.js';
@@ -180,6 +182,8 @@ export interface InMemoryState {
   definedScopes: DefinedScope[];
   /** The verified facts, one set per ship and writer (decision 0059). */
   verifiedFacts: WrittenFacts[];
+  /** The alerts, open and cleared, oldest first (decision 0071). */
+  alerts: Alert[];
   /** The records of the sends the network rules refused, oldest first. */
   reachRefusals: ReachRefusal[];
   /** When the recipient read each delivery it read: the read_at column, apart from the Delivery's state. */
@@ -244,6 +248,7 @@ export interface InMemoryTx {
   scopeNamespaces: ScopeNamespaceRepository;
   definedScopes: DefinedScopeRepository;
   verifiedFacts: VerifiedFactsRepository;
+  alerts: AlertRepository;
   reachRefusals: ReachRefusalRepository;
   inFlightDeliveries: InFlightDeliveries;
   credentials: CredentialRepository;
@@ -420,6 +425,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     scopeNamespaces: [],
     definedScopes: [],
     verifiedFacts: [],
+    alerts: [],
     reachRefusals: [],
     events: [],
     overdueDeliveries: [],
@@ -978,6 +984,23 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       lockWriter: () => Promise.resolve(),
       remove: (fleetId, { shipId, writer }) => {
         state.verifiedFacts.splice(0, state.verifiedFacts.length, ...state.verifiedFacts.filter((held) => held.fleetId !== fleetId || held.shipId !== shipId || !isSameWriter(held.writer, writer)));
+        return Promise.resolve();
+      },
+    },
+    alerts: {
+      findByOccurrence: (fleetId, { shipId, signal, occurrenceKey }) =>
+        Promise.resolve(structuredClone(state.alerts.find((held) => held.fleetId === fleetId && held.shipId === shipId && held.signal === signal && held.occurrenceKey === occurrenceKey))),
+      find: (fleetId, alertId) => Promise.resolve(structuredClone(state.alerts.find((held) => held.fleetId === fleetId && held.id === alertId))),
+      // One unit of work at a time: nothing to lock.
+      findForUpdate: (fleetId, alertId) => Promise.resolve(structuredClone(state.alerts.find((held) => held.fleetId === fleetId && held.id === alertId))),
+      listOpenOnShipForUpdate: (fleetId, shipId) => Promise.resolve(structuredClone(state.alerts.filter((held) => held.fleetId === fleetId && held.shipId === shipId && held.cleared === null))),
+      create: (alert) => {
+        state.alerts.push(structuredClone(alert));
+        return Promise.resolve();
+      },
+      saveCleared: (alert) => {
+        const index = state.alerts.findIndex((held) => held.fleetId === alert.fleetId && held.id === alert.id);
+        state.alerts.splice(index, 1, structuredClone(alert));
         return Promise.resolve();
       },
     },
@@ -2499,6 +2522,7 @@ const FLEET_TABLES = [
   'scopeNamespaces',
   'definedScopes',
   'verifiedFacts',
+  'alerts',
   'reachRefusals',
   'events',
   'overdueDeliveries',
@@ -2541,6 +2565,7 @@ const TABLES = [
   'scopeNamespaces',
   'definedScopes',
   'verifiedFacts',
+  'alerts',
   'reachRefusals',
   'events',
   'overdueDeliveries',

@@ -72,6 +72,8 @@ import type { ReleaseShip } from '../../domain/registry/release-ship.js';
 import type { SetOwner } from '../../domain/registry/set-owner.js';
 import type { CheckManage } from '../../domain/registry/check-manage.js';
 import type { SetVerifiedFacts } from '../../domain/registry/set-verified-facts.js';
+import type { RaiseAlert } from '../../domain/registry/raise-alert.js';
+import type { ClearAlert } from '../../domain/registry/clear-alert.js';
 import type { RenameShip } from '../../domain/registry/rename-ship.js';
 import type { RetireShip } from '../../domain/registry/retire-ship.js';
 import type { Report } from '../../domain/registry/report.js';
@@ -186,6 +188,8 @@ export interface UseCases {
   readRecoverySet: ReadRecoverySet;
   recoverKeys: RecoverKeys;
   setVerifiedFacts: SetVerifiedFacts;
+  raiseAlert: RaiseAlert;
+  clearAlert: ClearAlert;
   recrewShip: RecrewShip;
   listFleet: ListFleet;
   getShip: GetShip;

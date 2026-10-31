@@ -166,6 +166,7 @@ describe('initialise fleet', () => {
       scopeNamespaces: [],
       definedScopes: [],
       verifiedFacts: [],
+      alerts: [],
       reachRefusals: [],
       events: [],
       overdueDeliveries: [],

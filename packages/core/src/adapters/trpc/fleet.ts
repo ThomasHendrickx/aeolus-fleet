@@ -1,3 +1,4 @@
+import { alertOutputOf } from './alert-output.js';
 import {
   messageTaskAccessInputSchema,
   messageTaskAccessOutputSchema,
@@ -125,6 +126,9 @@ import {
   checkManageOutputSchema,
   setOwnerOutputSchema,
   setVerifiedFactsInputSchema,
+  raiseAlertInputSchema,
+  clearAlertInputSchema,
+  alertOutputSchema,
   setVerifiedFactsOutputSchema,
   explainReachOutputSchema,
   applyNetworkRulesInputSchema,
@@ -830,6 +834,31 @@ export const fleetRouter = router({
       okOrThrow(await ctx.useCases.setVerifiedFacts(ctx.caller, input));
       return {};
     }),
+
+  /** Raises an alert on a ship the caller reads, once per occurrence (decision 0071). */
+  raiseAlert: actorScopedProcedure('fleet:alert')
+    .meta({
+      description: [
+        'Needs fleet:alert, and read reach on the ship (decision 0071). Raises an alert on a ship that is not retired: the signal that parted with its facts at raise, the occurrence it is one of (occurrenceKey, such as the delivery id) and since when the fact parted.',
+        "The alert names the ship's owner now, the one to tell. The same ship, signal and occurrenceKey answer the alert already held, open or cleared, and raise none: an occurrence is raised once, so a second pass or a restart raises nothing twice.",
+        'The fleet compares nothing and tells no one: send the owner the alert message (application/vnd.aeolus.alert+json) with the alert id as idempotency key. A retired ship is CONFLICT.',
+      ].join(' '),
+    })
+    .input(raiseAlertInputSchema)
+    .output(alertOutputSchema)
+    .mutation(async ({ ctx, input }) => alertOutputOf(okOrThrow(await ctx.useCases.raiseAlert(ctx.caller, input)))),
+
+  /** Clears an open alert on a ship the caller reads (decision 0071). */
+  clearAlert: actorScopedProcedure('fleet:alert')
+    .meta({
+      description: [
+        'Needs fleet:alert, and read reach on its ship (decision 0071). Clears an open alert once its fact moved back; a cleared alert is answered as it is. Nothing is sent on clear: the lists show it gone.',
+        "A retire clears its ship's open alerts by itself; a release does not.",
+      ].join(' '),
+    })
+    .input(clearAlertInputSchema)
+    .output(alertOutputSchema)
+    .mutation(async ({ ctx, input }) => alertOutputOf(okOrThrow(await ctx.useCases.clearAlert(ctx.caller, input)))),
 
   /** Defines a label the caller's ship then owns (decision 0031). */
   defineLabel: actorScopedProcedure('labels:define')
