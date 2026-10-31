@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { deliveryStateSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
 import { leaseWakerSchema, partySchema } from './history.js';
+import { pageOutputOf } from './page.js';
+import { RECORD_PAGE_SIZE_MAX } from '../rules/page-size.js';
 import { isOneLine } from './report.js';
 
 /**
@@ -229,6 +231,28 @@ export const deliveryOutputSchema = receivedDeliverySchema.extend({
 });
 
 export type DeliveryOutput = z.infer<typeof deliveryOutputSchema>;
+
+/**
+ * Input of `ship.record`: the cursor the last page answered, none for the
+ * newest, and the page size, at most RECORD_PAGE_SIZE_MAX (Bridge, CC12).
+ */
+export const recordInputSchema = z
+  .object({ cursor: idSchema('delivery').optional(), limit: z.int().min(1).max(RECORD_PAGE_SIZE_MAX).optional() })
+  .optional();
+
+export type RecordInput = z.infer<typeof recordInputSchema>;
+
+/**
+ * One delivery of `ship.record`: as a receive hands one, with its state; in a
+ * sealed fleet a payload whose data key cannot be had is empty and marked
+ * unreadable (decision 0068, B9).
+ */
+export const recordEntrySchema = deliveryOutputSchema.extend({ isPayloadUnreadable: z.boolean() });
+
+/** Output of `ship.record`: a page of the crew's ship's deliveries, newest first, and the cursor of the next; null on the last. */
+export const recordOutputSchema = pageOutputOf(recordEntrySchema, idSchema('delivery'));
+
+export type RecordOutput = z.infer<typeof recordOutputSchema>;
 
 /** Input of `ship.sentMessage`: a message the caller sent. */
 export const sentMessageInputSchema = z.object({ messageId: idSchema('message') });

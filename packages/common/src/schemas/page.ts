@@ -8,7 +8,7 @@ import { PAGE_SIZE_MAX } from '../rules/page-size.js';
  * the same however long the list grows.
  */
 
-export { PAGE_SIZE_DEFAULT, PAGE_SIZE_MAX } from '../rules/page-size.js';
+export { PAGE_SIZE_DEFAULT, PAGE_SIZE_MAX, RECORD_PAGE_SIZE_DEFAULT, RECORD_PAGE_SIZE_MAX } from '../rules/page-size.js';
 
 /**
  * Input of a paged list: the cursor the last page answered, none for the

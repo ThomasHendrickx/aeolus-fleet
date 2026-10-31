@@ -42,6 +42,7 @@ import { createMarkDone } from '../../src/domain/messaging/mark-done.js';
 import { createMarkRead } from '../../src/domain/messaging/mark-read.js';
 import { createHandOverDelivery } from '../../src/domain/messaging/hand-over-delivery.js';
 import { createReadDelivery } from '../../src/domain/messaging/read-delivery.js';
+import { createReadRecord } from '../../src/domain/messaging/read-record.js';
 import { createReportHandled } from '../../src/domain/messaging/report-handled.js';
 import { createReportNotHandled } from '../../src/domain/messaging/report-not-handled.js';
 import { createPingShip } from '../../src/domain/messaging/ping-ship.js';
@@ -408,6 +409,7 @@ export function messagingUseCases(core: InMemoryCore) {
     handOverDelivery: createHandOverDelivery(deps),
     reportHandled: createReportHandled(deps),
     readDelivery: createReadDelivery({ uow: core.uow, sealing }),
+    readRecord: createReadRecord({ uow: core.uow, sealing }),
     reportNotHandled: createReportNotHandled(deps),
     acknowledgeDelivery: createAcknowledgeDelivery(deps),
     checkInbox: createCheckInbox({ ...deps, wakeups: core.wakeups, fleetNews: core.fleetNews }),
