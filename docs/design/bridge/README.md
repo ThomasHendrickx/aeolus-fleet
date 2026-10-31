@@ -1,6 +1,6 @@
 # Bridge: a person's one place to work with their fleet
 
-Design for [#1494](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1494). Stage 0 (purpose, jobs, lessons, how others do it) is answered (section 5). Stage 1, the structure (sections 6 to 9), is for Thomas to approve, with its questions in section 10. No screens yet; mockups follow the approved structure. The questions design ([#1495](https://github.com/ThomasHendrickx/aeolus-fleet/pull/1495)) resumes as the first slice of decide (CC11).
+Design for [#1494](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1494). Stage 0 (purpose, jobs, lessons, how others do it) is answered (section 5). Stage 1, the structure (sections 6 to 9), is for Thomas to approve, with its questions in section 10. Mockups of the structure with the picks drawn: [mockups/README.md](mockups/README.md). The questions design ([#1495](https://github.com/ThomasHendrickx/aeolus-fleet/pull/1495)) resumes as the first slice of decide (CC11).
 
 Thomas, 31 Oct:
 1. "in essence that is a bit the command center for a user in aeolus.. like outlook is for emails or Gmail for Google ... But with different use cases and capabilities.. I don't want to make a choice now on this that I might regret so want to take a step back on what that interaction surface needs to be."
