@@ -220,3 +220,35 @@ export const ArgoNoHarnessFault: Story = {
     await expect(within(canvasElement).queryByTestId('harness-unknown')).toBeNull();
   },
 };
+
+/** The monitoring design's open alert above the meta strip, with activity unknown: what parted and for how long, the expectation, since when, the owner told. */
+export const OpenAlert: Story = {
+  args: {
+    ship: {
+      ...CREWED_SHIP,
+      activity: { at: minutesAgo(30), kind: 'tool', tool: 'Bash', reportedAt: minutesAgo(25), intervalSeconds: 30 },
+      openAlertCount: 1,
+      openAlerts: [
+        {
+          id: 'alt_01m66p4k2v9qz8f7x3n5c1b0td',
+          ship: { id: CREWED_SHIP.id, name: CREWED_SHIP.name },
+          signal: 'report-unchanged',
+          facts: { reportChangedAt: minutesAgo(190), state: 'working', minutes: 60, setBy: 'shp_01m66p4k2v9qz8f7x3n5c1r1x0' },
+          occurrenceKey: CREWED_SHIP.id,
+          ownerShipId: 'shp_01m66p4k2v9qz8f7x3n5c1r1x0',
+          since: minutesAgo(190),
+          raisedAt: minutesAgo(130),
+          cleared: null,
+        },
+      ],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const alert = within(canvasElement).getByTestId('ship-open-alert');
+    await expect(alert).toHaveTextContent('Report unchanged 3 h 10 min');
+    await expect(alert).toHaveTextContent('Expected within 60 min');
+    await expect(alert).toHaveTextContent('owner told · clears by itself');
+  },
+};
+export const OpenAlertPhone: Story = { ...OpenAlert, globals: { viewport: { value: 'mobile1' } } };
+export const OpenAlertDark: Story = { ...OpenAlert, globals: { theme: 'dark' } };

@@ -22,6 +22,7 @@ import { nextSort, type FleetSort, type SortColumn } from '../../services/fleet-
 import { chipsOf, filterGroupsOf, pickedChips, type LabelContext } from '../../../../lib/labels';
 import type { ShipInSquadron } from '../../../../lib/squadrons-view';
 import { crewRequestKeyWord, crewRequestKeysOf, type CrewRequestKey } from '../../../../lib/needs-crew';
+import { counted } from '../../../../lib/sentence';
 import { Badge } from '../../../../components/atoms/badge';
 import { Input } from '../../../../components/atoms/input';
 import { Label } from '../../../../components/atoms/label';
@@ -632,7 +633,10 @@ function DesktopTable({
                 </span>
               </TableCell>
               <TableCell>
-                <StatusBadge status={ship.status} />
+                <span className="flex items-center gap-1.5">
+                  <StatusBadge status={ship.status} />
+                  <AlertBadge ship={ship} />
+                </span>
               </TableCell>
               <TableCell>
                 <ReportCell ship={ship} now={now} viewerFleetId={viewerFleetId} next={renderRowActions?.(ship, 'next')} />
@@ -655,6 +659,18 @@ function DesktopTable({
         </TableBody>
       </Table>
     </div>
+  );
+}
+
+/** The Alert badge after a ship's status while it has an open alert (docs/design/monitoring, 4.8); its title says how many. */
+function AlertBadge({ ship }: { ship: ListedShip }) {
+  if (ship.openAlertCount === 0) {
+    return null;
+  }
+  return (
+    <span title={counted(ship.openAlertCount, { one: 'open alert', many: 'open alerts' })} data-testid="fleet-alert">
+      <StatusBadge status="alert" />
+    </span>
   );
 }
 
@@ -682,6 +698,7 @@ function PhoneList({
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <StatusBadge status={ship.status} />
+              <AlertBadge ship={ship} />
               <NameChip ship={ship} squadron={squadronsOf?.get(ship.id)} isPluginShip={pluginShipIds?.has(ship.id) ?? false} />
             </div>
             <ShipMetadata ship={ship} squadron={squadronsOf?.get(ship.id)} />

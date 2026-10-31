@@ -760,3 +760,21 @@ export const HarnessUnknown: Story = {
     await expect(within(canvas.getByTestId('fleet-row-argo')).queryByTestId('harness-unknown')).toBeNull();
   },
 };
+
+/** The monitoring design's alert badge: after the status of a ship with an open alert, its title saying how many; none without. */
+const ALERT_FLEET = [
+  argo,
+  ship('h7aa', { name: 'reviewer-3' }),
+  ship('h7ab', { name: 'deploy-bot', status: 'awaitingCrew', openAlertCount: 1 }),
+  ship('h7ac', { name: 'merger-1', openAlertCount: 2 }),
+];
+export const Alert: Story = {
+  args: { ships: ALERT_FLEET, labels: labelContext(ALERT_FLEET) },
+  play: async ({ canvasElement }) => {
+    const badges = within(canvasElement).getAllByTestId('fleet-alert');
+    // The table and the phone list both render; each shows the badges in its own layout.
+    await expect(badges.map((badge) => badge.title)).toEqual(['1 open alert', '2 open alerts', '1 open alert', '2 open alerts']);
+  },
+};
+export const AlertPhone: Story = { ...Alert, globals: { viewport: { value: 'mobile1' } } };
+export const AlertDark: Story = { ...Alert, globals: { theme: 'dark' } };
