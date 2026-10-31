@@ -5,7 +5,7 @@ import type { Recipient } from '../shared/selector.js';
 import type { ShipFilter } from '@aeolus-fleet/common/rules';
 import type { ShipSort } from './ship-order.js';
 import type { ReadReach } from './read-reach.js';
-import type { Alert } from './alert.js';
+import type { Alert, ShownAlert } from './alert.js';
 import type { ClearRequest } from './clear-request.js';
 import type { CrewRequest } from './crew-request.js';
 import type { FeatureUse } from './feature-flag.js';
@@ -464,6 +464,8 @@ export interface ShipFacts {
   lastViewedAt: Date | null;
   /** When the ship's last ended lease ended (a release, deregister or takeover); null before any. */
   lastLeaseEndedAt: Date | null;
+  /** How many open alerts the ship has (decision 0071). */
+  openAlertCount: number;
 }
 
 /**
@@ -572,4 +574,8 @@ export interface FleetListing {
   deliveryCounts(fleetId: FleetId, shipId: ShipId): Promise<{ inFlight: number; open: number }>;
   /** The statement the ship's open lease holds; null while no session crews it or its crew stated none (decision 0047). */
   statement(fleetId: FleetId, shipId: ShipId): Promise<StatedStatement | null>;
+  /** The fleet's open alerts on the ships in `reach`, newest first, after the cursor's, at most `limit` (decision 0071). */
+  openAlerts(fleetId: FleetId, read: { reach: ReadReach; cursor?: AlertId; limit: number }): Promise<ShownAlert[]>;
+  /** The ship's open alerts, newest first (decision 0071). */
+  openAlertsOn(fleetId: FleetId, shipId: ShipId): Promise<ShownAlert[]>;
 }

@@ -129,6 +129,8 @@ import {
   raiseAlertInputSchema,
   clearAlertInputSchema,
   alertOutputSchema,
+  openAlertsInputSchema,
+  openAlertsOutputSchema,
   setVerifiedFactsOutputSchema,
   explainReachOutputSchema,
   applyNetworkRulesInputSchema,
@@ -1161,7 +1163,23 @@ export const fleetRouter = router({
         crewedSince: ship.crewedSince?.toISOString() ?? null,
         removedAt: ship.removedAt?.toISOString() ?? null,
         retiredAt: ship.retiredAt?.toISOString() ?? null,
+        openAlerts: ship.openAlerts.map(alertOutputOf),
       };
+    }),
+
+  /** A page of the fleet's open alerts on the ships the caller reads, newest first (decision 0071). */
+  openAlerts: actorScopedProcedure('fleet:read')
+    .meta({
+      description: [
+        "Needs fleet:read. A page of the fleet's open alerts on the ships you read (decision 0071, 0034), newest first: each with its ship by id and name, the signal that parted with its facts at raise, the occurrence, since when, the owner told and when it was raised.",
+        `A page holds limit alerts (${String(PAGE_SIZE_DEFAULT)} unless you ask, at most ${String(PAGE_SIZE_MAX)}); pass nextCursor as cursor to read on, until it is null. A cleared alert leaves the list; fleet_ship shows a ship's own, and fleet_list how many each ship has.`,
+      ].join(' '),
+    })
+    .input(openAlertsInputSchema)
+    .output(openAlertsOutputSchema)
+    .query(async ({ ctx, input }) => {
+      const { items, nextCursor } = await ctx.useCases.readOpenAlerts(ctx.caller, input);
+      return { items: items.map(alertOutputOf), nextCursor };
     }),
 
   /** The ships counted per kind: the overview's cards and subtitle, and the navigation's needs-crew count. */

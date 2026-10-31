@@ -8,7 +8,7 @@ const newId = createIdGenerator();
 function aListedShip(overrides: Partial<ListedShip>): ListedShip {
   return {
     id: newId('ship'), name: 'scout', type: 'reviewer', kind: 'agent', status: 'crewed', startingPrompt: null, location: null, lastSeenAt: null, ping: null,
-    scopes: [], labels: [], report: null, harness: null, model: null, activity: null, awaitingCrewSince: null, crewRequest: null, retiredAt: null, ownerShipId: null, ...overrides,
+    scopes: [], labels: [], report: null, harness: null, model: null, activity: null, openAlertCount: 0, awaitingCrewSince: null, crewRequest: null, retiredAt: null, ownerShipId: null, ...overrides,
   };
 }
 

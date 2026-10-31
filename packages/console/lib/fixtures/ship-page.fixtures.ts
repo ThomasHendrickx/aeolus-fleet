@@ -42,7 +42,7 @@ export const CREWED_SHIP: ShipDetail = {
   lastSeenAt: new Date(NOW.getTime() - 20_000).toISOString(),
   ping: null,
   scopes: ['messages:send', 'messages:receive'],
-  report: null, harness: 'claude-code', model: null, activity: null, awaitingCrewSince: null, crewRequest: null, labels: [],
+  report: null, harness: 'claude-code', model: null, activity: null, openAlertCount: 0, awaitingCrewSince: null, crewRequest: null, labels: [],
   commissionedAt: '2026-09-20T16:02:00Z',
   crewedSince: minutesAgo(11),
   removedAt: null,
@@ -53,6 +53,7 @@ export const CREWED_SHIP: ShipDetail = {
   ownerShipId: ARGO.id,
   commissionedByShipId: ARGO.id,
   statement: null,
+  openAlerts: [],
 };
 
 export const AWAITING_SHIP: ShipDetail = {

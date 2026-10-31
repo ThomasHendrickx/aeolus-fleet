@@ -160,6 +160,7 @@ const FLEET_ACTIONS = [
   'setVerifiedFacts',
   'raiseAlert',
   'clearAlert',
+  'openAlerts',
   'checkManage',
   'limits',
 ] as const;

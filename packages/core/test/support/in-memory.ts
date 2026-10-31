@@ -85,7 +85,7 @@ import type { StatedStatement } from '../../src/domain/registry/statement.js';
 import type { Turn } from '../../src/domain/registry/turn.js';
 import type { LeaseActivity } from '../../src/domain/registry/lease-activity.js';
 import { isSameWriter, type WrittenFacts } from '../../src/domain/registry/verified-facts.js';
-import type { Alert } from '../../src/domain/registry/alert.js';
+import { shownAlertOf, type Alert, type ShownAlert } from '../../src/domain/registry/alert.js';
 import type { ClearRequest } from '../../src/domain/registry/clear-request.js';
 import type { CrewRequest } from '../../src/domain/registry/crew-request.js';
 import type { Clock } from '../../src/domain/shared/clock.js';
@@ -1827,6 +1827,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
           .map((ended) => ended.endedAt)
           .filter((endedAt) => endedAt !== null)
           .sort((first, second) => second.getTime() - first.getTime())[0] ?? null,
+      openAlertCount: state.alerts.filter((alert) => alert.fleetId === held.fleetId && alert.shipId === held.id && alert.cleared === null).length,
     };
   };
   /** The oldest time of the given ones; null for none. */
@@ -1981,7 +1982,24 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       const held = lease && state.leaseStatements.find((each) => each.leaseId === lease.id);
       return Promise.resolve(held ? structuredClone(held.stated) : null);
     },
+    openAlerts: (fleetId, { reach, cursor, limit }) =>
+      Promise.resolve(
+        openAlertsNewestFirst(fleetId)
+          .filter((alert) => readsShip(reach, alert.shipId) && (cursor === undefined || alert.id < cursor))
+          .slice(0, limit)
+          .map(shownOnItsShip),
+      ),
+    openAlertsOn: (fleetId, shipId) => Promise.resolve(openAlertsNewestFirst(fleetId).filter((alert) => alert.shipId === shipId).map(shownOnItsShip)),
   };
+
+  function openAlertsNewestFirst(fleetId: FleetId): Alert[] {
+    return state.alerts.filter((alert) => alert.fleetId === fleetId && alert.cleared === null).toSorted((first, second) => (first.id < second.id ? 1 : -1));
+  }
+
+  function shownOnItsShip(alert: Alert): ShownAlert {
+    const ship = state.ships.find((held) => held.fleetId === alert.fleetId && held.id === alert.shipId);
+    return structuredClone(shownAlertOf(alert, { id: alert.shipId, name: ship?.name ?? '' }));
+  }
 
 
   /**

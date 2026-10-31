@@ -1,3 +1,4 @@
+import { alertSchema } from './alert.js';
 import { z } from 'zod';
 
 import { deliveryStateSchema, eventTypeSchema, locationKindSchema } from '../fleet/index.js';
@@ -68,6 +69,8 @@ export const shipDetailOutputSchema = listedShipSchema.extend({
   commissionedByShipId: idSchema('ship').nullable(),
   /** What it is and offers, as discovery shows it: its crew's statement, else its commission note, else none (decision 0047). */
   statement: discoveredStatementSchema,
+  /** Its open alerts, newest first (decision 0071): shown above the meta strip until they clear. */
+  openAlerts: z.array(alertSchema),
 });
 
 export type ShipDetail = z.infer<typeof shipDetailOutputSchema>;

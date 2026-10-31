@@ -119,6 +119,7 @@ const SHIP_TOOLS = [
   'fleet_setVerifiedFacts',
   'fleet_raiseAlert',
   'fleet_clearAlert',
+  'fleet_openAlerts',
   'fleet_checkManage',
   'fleet_limits',
 ];
@@ -336,6 +337,7 @@ describe('the ship tools at /mcp', () => {
     ['fleet_limits', [/fleet:read/, /retention/i, /null when no retention applies/, /keptFrom/]],
     ['fleet_setVerifiedFacts', [/fleet:verify/, /decision 0059/, /manage/, /whole/, /withdraw/, /oauthSubject/, /issuer/, /at most 10/]],
     ['fleet_raiseAlert', [/fleet:alert/, /decision 0071/, /read reach/, /occurrenceKey/, /raised once/, /application\/vnd\.aeolus\.alert\+json/, /idempotency key/]],
+    ['fleet_openAlerts', [/fleet:read/, /decision 0071/, /newest first/, /nextCursor/, /cleared alert leaves/]],
     ['fleet_clearAlert', [/fleet:alert/, /decision 0071/, /read reach/, /Nothing is sent on clear/, /retire clears/]],
     ['send', [/"kind": "label"/, /"valueIds": \["lbv_\.\.\."\]/, /every value/, /never you/, /fleet_findLabelValue/, /every ship of it/]],
   ])('state the scope and rules of %s in its description', async (name, rules) => {

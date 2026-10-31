@@ -2,6 +2,7 @@ import type { DiscoveredStatement, ShipId } from '@aeolus-fleet/common';
 
 import { isShipCaller, type Caller } from '../shared/caller.js';
 import { refuse, type DomainError } from '../shared/errors.js';
+import type { ShownAlert } from './alert.js';
 import { ok, type Result } from '../shared/result.js';
 import { listedShipOf, outsideReadReach, type ListedShip, type ShipOutsideReadReach } from './list-fleet.js';
 import { readsShip, type ReadReachOf } from './read-reach.js';
@@ -31,6 +32,8 @@ export interface ShipDetail extends Omit<ListedShip, 'report' | 'crewRequest'> {
   commissionedByShipId: ShipId | null;
   /** What it is and offers: its crew's statement while one is stated, else its commission note, else none (decision 0047). */
   statement: DiscoveredStatement;
+  /** Its open alerts, newest first (decision 0071): shown above the meta strip until they clear. */
+  openAlerts: ShownAlert[];
 }
 
 export type GetShip = (
@@ -63,7 +66,11 @@ export function createGetShip(deps: { listing: FleetListing; readReach: ReadReac
     if (!isAssignedToCaller && !readsShip(await deps.readReach(caller), shipId)) {
       return ok(outsideReadReach(listed));
     }
-    const [counts, stated] = await Promise.all([deps.listing.deliveryCounts(caller.fleetId, shipId), deps.listing.statement(caller.fleetId, shipId)]);
+    const [counts, stated, openAlerts] = await Promise.all([
+      deps.listing.deliveryCounts(caller.fleetId, shipId),
+      deps.listing.statement(caller.fleetId, shipId),
+      deps.listing.openAlertsOn(caller.fleetId, shipId),
+    ]);
     return ok({
       ...listed,
       report: facts.openLease?.report ? shownReportOf(facts.openLease.report) : null,
@@ -76,6 +83,7 @@ export function createGetShip(deps: { listing: FleetListing; readReach: ReadReac
       owner: facts.owner,
       commissionedByShipId: facts.ship.commission?.by.kind === 'ship' ? facts.ship.commission.by.shipId : null,
       statement: discoveredStatementOf(facts.ship, stated),
+      openAlerts,
     });
   };
 }

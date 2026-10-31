@@ -62,6 +62,8 @@ export interface ListedShip {
   retiredAt: Date | null;
   /** The ship that owns it (decision 0045); null for argo and the viewer, which no ship owns. */
   ownerShipId: ShipId | null;
+  /** How many open alerts the ship has (decision 0071): the overview's alert badge. */
+  openAlertCount: number;
 }
 
 /** A ship outside the caller's read reach: its name, type and status only (decision 0034). */
@@ -125,6 +127,7 @@ export function listedShipOf({
   lastModel,
   lastViewedAt,
   lastLeaseEndedAt,
+  openAlertCount,
 }: ShipFacts): ListedShip {
   const status = shipStatus(ship, { isCrewed: openLease !== null });
   return {
@@ -158,6 +161,7 @@ export function listedShipOf({
     awaitingCrewSince: status === 'awaitingCrew' ? latestOf(ship.createdAt, lastLeaseEndedAt) : null,
     retiredAt: ship.retiredAt,
     ownerShipId: ship.owner,
+    openAlertCount,
   };
 }
 

@@ -96,6 +96,7 @@ import { createSetInstallationSettings } from '../../src/domain/registry/set-ins
 import { createReadFleetLimits } from '../../src/domain/shared/read-fleet-limits.js';
 import { createDeregister } from '../../src/domain/registry/deregister.js';
 import { createGetShip } from '../../src/domain/registry/get-ship.js';
+import { createReadOpenAlerts } from '../../src/domain/registry/read-open-alerts.js';
 import { createReadListedShip } from '../../src/domain/registry/read-listed-ship.js';
 import { createCountShips } from '../../src/domain/registry/count-ships.js';
 import { createListShipTypes } from '../../src/domain/registry/list-ship-types.js';
@@ -329,6 +330,7 @@ export function registryUseCases(core: InMemoryCore) {
     getInstallationFleet: createGetInstallationFleet({ fleets: core.installationFleets, settings: core.installationSettings, health: core.health, snapshots: core.healthSnapshots, clock: core.clock }),
     listFleet: createListFleet({ listing: core.listing, readReach: readReachOf(core) }),
     getShip: createGetShip({ listing: core.listing, readReach: readReachOf(core) }),
+    readOpenAlerts: createReadOpenAlerts({ listing: core.listing, readReach: readReachOf(core) }),
     readListedShip: createReadListedShip({ listing: core.listing, readReach: readReachOf(core) }),
     countShips: createCountShips({ listing: core.listing, readReach: readReachOf(core) }),
     listShipTypes: createListShipTypes({ listing: core.listing, readReach: readReachOf(core) }),

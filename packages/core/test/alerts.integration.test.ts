@@ -137,4 +137,23 @@ describe('alerts on Postgres', () => {
       { type: 'AlertCleared', shipId: deployBotId, actorShipId: argo.shipId, details: { alertId: left.id, signal: 'delivery-unacknowledged', why: 'retired' } },
     ]);
   });
+
+  it("reads the fleet's open alerts newest first a page at a time, a ship's on its page, and the count on each listed ship", async () => {
+    const oldest = unwrap(await core.useCases.raiseAlert(watch, unacknowledged()));
+    core.clock.advance(1_000);
+    const cleared = unwrap(await core.useCases.raiseAlert(watch, { ...unacknowledged(), occurrenceKey: 'b' }));
+    core.clock.advance(1_000);
+    const newest = unwrap(await core.useCases.raiseAlert(watch, { ...unacknowledged(), occurrenceKey: 'c' }));
+    unwrap(await core.useCases.clearAlert(watch, { alertId: cleared.id }));
+
+    const first = await core.useCases.readOpenAlerts(argo, { limit: 1 });
+    const second = await core.useCases.readOpenAlerts(argo, { limit: 1, cursor: first.nextCursor ?? undefined });
+    const deployBot = unwrap(await core.useCases.getShip(argo, { shipId: deployBotId }));
+    const listed = (await core.useCases.listFleet(argo)).ships.find((ship) => ship.id === deployBotId);
+
+    expect([first.items, first.nextCursor]).toEqual([[newest], newest.id]);
+    expect([second.items, second.nextCursor]).toEqual([[oldest], null]);
+    expect('openAlerts' in deployBot ? deployBot.openAlerts.map(({ id }) => id) : undefined).toEqual([newest.id, oldest.id]);
+    expect(listed && 'openAlertCount' in listed ? listed.openAlertCount : undefined).toBe(2);
+  });
 });

@@ -71,6 +71,8 @@ describe('shipDetailOutputSchema', () => {
     scopes: ['messages:send', 'messages:receive'],
     report: null,
     activity: null,
+    openAlertCount: 0,
+    openAlerts: [],
     crewRequest: null,
     labels: [],
     harness: 'claude-code',

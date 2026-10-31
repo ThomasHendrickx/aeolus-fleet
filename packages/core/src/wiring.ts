@@ -110,6 +110,7 @@ import { createCommissionShip, type CommissionShip } from './domain/registry/com
 import { createDeregister, type Deregister } from './domain/registry/deregister.js';
 import { createGetStartingPrompt, type GetStartingPrompt } from './domain/registry/get-starting-prompt.js';
 import { createGetShip, type GetShip } from './domain/registry/get-ship.js';
+import { createReadOpenAlerts, type ReadOpenAlerts } from './domain/registry/read-open-alerts.js';
 import { createReadListedShip, type ReadListedShip } from './domain/registry/read-listed-ship.js';
 import { createCountShips, type CountShips } from './domain/registry/count-ships.js';
 import { createListShipTypes, type ListShipTypes } from './domain/registry/list-ship-types.js';
@@ -226,6 +227,7 @@ export interface UseCases {
   checkManage: CheckManage;
   setVerifiedFacts: SetVerifiedFacts;
   raiseAlert: RaiseAlert;
+  readOpenAlerts: ReadOpenAlerts;
   clearAlert: ClearAlert;
   recrewShip: RecrewShip;
   listFleet: ListFleet;
@@ -487,6 +489,7 @@ export function createUseCases(options: {
     recrewShip: createRecrewShip({ uow, clock, ids, secrets }),
     listFleet: createListFleet({ listing: createPrismaFleetListing(prisma), readReach }),
     getShip: createGetShip({ listing: createPrismaFleetListing(prisma), readReach }),
+    readOpenAlerts: createReadOpenAlerts({ listing: createPrismaFleetListing(prisma), readReach }),
     readListedShip: createReadListedShip({ listing: createPrismaFleetListing(prisma), readReach }),
     countShips: createCountShips({ listing: createPrismaFleetListing(prisma), readReach }),
     listShipTypes: createListShipTypes({ listing: createPrismaFleetListing(prisma), readReach }),
