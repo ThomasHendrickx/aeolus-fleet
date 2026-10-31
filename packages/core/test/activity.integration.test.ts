@@ -19,9 +19,11 @@ let trierarch: ShipCaller;
 let scoutId: ShipCaller['shipId'];
 let strayId: ShipCaller['shipId'];
 
-async function commissionedAndCrewed(name: string): Promise<ShipCaller['shipId']> {
+/** Commissions a ship with a crew request, assigned to the trierarch when given, then crews it. */
+async function commissionedAndCrewed(name: string, assign?: (shipId: ShipCaller['shipId']) => Promise<void>): Promise<ShipCaller['shipId']> {
   const { shipId, secret } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name, type: 'reviewer' }));
   unwrap(await core.useCases.requestCrew(argo, { shipId, settings: aCrewSettings({ harness: 'claude-code' }) }));
+  await assign?.(shipId);
   unwrap(await core.useCases.claimShip({ shipId, secret: secretOf(secret), location: { kind: 'DEVICE' }, harness: 'claude-code' }));
   return shipId;
 }
@@ -33,9 +35,10 @@ beforeEach(async () => {
   const { shipId: trierarchId } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'mac-mini', type: 'trierarch', scopes: ['crew:run'] }));
   const plugin: ShipCaller = { fleetId: argo.fleetId, shipId: pluginId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:assign'] };
   trierarch = { fleetId: argo.fleetId, shipId: trierarchId, kind: 'agent', scopes: ['messages:send', 'messages:receive', 'crew:run'] };
-  scoutId = await commissionedAndCrewed('scout');
+  scoutId = await commissionedAndCrewed('scout', async (shipId) => {
+    unwrap(await core.useCases.assignCrew(plugin, { shipId, trierarchShipId: trierarchId }));
+  });
   strayId = await commissionedAndCrewed('stray');
-  unwrap(await core.useCases.assignCrew(plugin, { shipId: scoutId, trierarchShipId: trierarchId }));
   core.clock.advance(60_000);
 });
 

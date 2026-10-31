@@ -463,6 +463,7 @@ describe('the fleet procedures at the API', () => {
       ping: null,
       scopes: ['messages:send', 'messages:receive'],
       report: null,
+      activity: null,
       crewRequest: null,
       labels: [],
       harness: null,
