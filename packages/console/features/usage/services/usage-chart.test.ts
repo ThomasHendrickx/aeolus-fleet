@@ -131,24 +131,26 @@ describe('the totals of a range', () => {
 
 describe('the time axis', () => {
   const FORMAT = { locale: 'en-GB', timeZone: 'Europe/Brussels' };
+  const hours = { ...FORMAT, grain: 'hour' } as const;
+  const days = { ...FORMAT, grain: 'day' } as const;
 
   it('names an hour in the viewer time zone', () => {
-    expect(columnLabelOf('2026-10-28T09:00:00.000Z', 'hour', FORMAT)).toBe('Wed 28 Oct, 10:00');
+    expect(columnLabelOf('2026-10-28T09:00:00.000Z', hours)).toBe('Wed 28 Oct, 10:00');
   });
 
   it('names a day in UTC, whatever the viewer time zone', () => {
-    expect(columnLabelOf('2026-10-28T23:00:00.000Z', 'day', FORMAT)).toBe('Wed 28 Oct');
+    expect(columnLabelOf('2026-10-28T23:00:00.000Z', days)).toBe('Wed 28 Oct');
   });
 
   it('marks every sixth hour of a day of hours', () => {
     const chart = chartOf({ usage: usageOf({}), measure: 'tokens', window: usageWindowOf('24h', NOW) });
 
-    expect(axisTicksOf(chart.columns, 'hour', FORMAT).map((tick) => tick.label).slice(0, 3)).toEqual(['10:00', '16:00', '22:00']);
+    expect(axisTicksOf(chart.columns, hours).map((tick) => tick.label).slice(0, 3)).toEqual(['10:00', '16:00', '22:00']);
   });
 
   it('marks every day of 7 days of hours, by weekday and date', () => {
     const chart = chartOf({ usage: usageOf({}), measure: 'tokens', window: usageWindowOf('7d', NOW) });
-    const ticks = axisTicksOf(chart.columns, 'hour', FORMAT);
+    const ticks = axisTicksOf(chart.columns, hours);
 
     expect(ticks).toHaveLength(7);
     expect(ticks[0]?.label).toBe('Wed 21');
@@ -158,7 +160,7 @@ describe('the time axis', () => {
     const thirty = chartOf({ usage: usageOf({ grain: 'day' }), measure: 'tokens', window: usageWindowOf('30d', NOW) });
     const ninety = chartOf({ usage: usageOf({ grain: 'day' }), measure: 'tokens', window: usageWindowOf('90d', NOW) });
 
-    expect(axisTicksOf(thirty.columns, 'day', FORMAT).map((tick) => tick.label).slice(0, 2)).toEqual(['29 Sept', '6 Oct']);
-    expect(axisTicksOf(ninety.columns, 'day', FORMAT).map((tick) => tick.label).slice(0, 2)).toEqual(['31 Jul', '14 Aug']);
+    expect(axisTicksOf(thirty.columns, days).map((tick) => tick.label).slice(0, 2)).toEqual(['29 Sept', '6 Oct']);
+    expect(axisTicksOf(ninety.columns, days).map((tick) => tick.label).slice(0, 2)).toEqual(['31 Jul', '14 Aug']);
   });
 });
