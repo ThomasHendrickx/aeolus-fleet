@@ -118,3 +118,28 @@ export const usageValuesPageSchema = z.object({
 });
 
 export type UsageValuesPage = z.infer<typeof usageValuesPageSchema>;
+
+/** What the Usage page asks `usage.windows`: a range, the machine and harness filters and a page's cursor. */
+export const usageWindowsRequestSchema = z.object({
+  from: z.iso.datetime(),
+  to: z.iso.datetime(),
+  filters: z.object({ machineShipIds: z.array(idSchema('ship')).optional(), harnesses: z.array(z.string()).optional() }),
+  cursor: z.string().nullable(),
+});
+
+export type UsageWindowsRequest = z.infer<typeof usageWindowsRequestSchema>;
+
+/** A page of machine and harness charts, as `usage.windows` answers it: each window's readings oldest first, the machine named (null when the fleet does not know it). */
+export const windowsPageSchema = z.object({
+  charts: z.array(
+    z.object({
+      machineShipId: idSchema('ship'),
+      machineName: z.string().nullable(),
+      harness: z.string(),
+      windows: z.array(z.object({ windowMinutes: z.int().positive(), readings: z.array(z.object({ readAt: z.iso.datetime(), usedPercent: z.number(), resetsAt: z.iso.datetime() })) })),
+    }),
+  ),
+  nextCursor: z.string().nullable(),
+});
+
+export type WindowsPage = z.infer<typeof windowsPageSchema>;

@@ -6,7 +6,7 @@ import { fetchConsoleRead } from '../../../lib/fetch-console-read';
 import { nextCursorOf } from '../../../lib/paged-list';
 import { useSignInWhenSessionEnds } from '../../../lib/session';
 import { useTrierarchPluginConnection } from '../../../lib/trierarch-plugin';
-import type { UsageTokensRequest, UsageValuesPage, UsageValuesRequest } from '../../../lib/trierarch-plugin-schemas';
+import type { UsageTokensRequest, UsageValuesPage, UsageValuesRequest, UsageWindowsRequest } from '../../../lib/trierarch-plugin-schemas';
 import { useConsoleRead } from '../../../lib/console-read-query';
 
 /**
@@ -55,6 +55,38 @@ export function useUsageValues(request: Pick<UsageValuesRequest, 'from' | 'to' |
     isLoadingMore: query.isFetchingNextPage,
     loadMore: () => {
       void query.fetchNextPage();
+    },
+  };
+}
+
+/**
+ * The subscription windows' charts in a range (`usage.windows`), a machine and
+ * harness per chart, 20 a page and more when asked. Asked beside `usage.tokens`,
+ * not after it.
+ */
+export function useUsageWindows(request: Pick<UsageWindowsRequest, 'from' | 'to' | 'filters'>) {
+  const isConnected = useTrierarchPluginConnection() === 'connected';
+  const query = useInfiniteQuery({
+    queryKey: ['trierarch-plugin', 'usage-windows', request],
+    queryFn: ({ pageParam }) => fetchConsoleRead({ read: 'usage-windows', input: { ...request, cursor: pageParam } }),
+    initialPageParam: FIRST_PAGE,
+    getNextPageParam: nextCursorOf,
+    enabled: isConnected,
+    staleTime: USAGE_STALE_MS,
+    retry: false,
+  });
+  useSignInWhenSessionEnds([query.error]);
+  return {
+    charts: query.data?.pages.flatMap((page) => page.charts),
+    isFailed: query.isError && query.data === undefined,
+    hasMore: query.hasNextPage,
+    isLoadingMore: query.isFetchingNextPage,
+    isLoadMoreFailed: query.isFetchNextPageError,
+    loadMore: () => {
+      void query.fetchNextPage();
+    },
+    retry: () => {
+      void query.refetch();
     },
   };
 }

@@ -1,4 +1,7 @@
-import type { TokenUsage, UsageValuesPage } from '../../../lib/trierarch-plugin-schemas';
+import { idSchema } from '@aeolus-fleet/common';
+
+import type { TokenUsage, UsageValuesPage, WindowsPage } from '../../../lib/trierarch-plugin-schemas';
+import { windowChartsOf } from './subscription-windows';
 import { chartOf, totalsOf } from './usage-chart';
 import { usageWindowOf, type UsageRange } from './usage-window';
 import type { UsageMeasure } from './usage-state';
@@ -12,7 +15,7 @@ type Amounts = Series['amounts'];
 
 const FAMILIES = [
   { value: 'shp_01j9k2t4qzr3a9w6m2v5n7ma01', name: 'trierarch-mac', weight: 1.5 },
-  { value: 'shp_01j9k2t4qzr3a9w6m2v5n7li01', name: 'trierarch-linux-1', weight: 1 },
+  { value: 'shp_01j9k2t4qzr3a9w6m2v5n7nx01', name: 'trierarch-linux-1', weight: 1 },
   { value: 'shp_01j9k2t4qzr3a9w6m2v5n7ma02', name: 'trierarch-macbook', weight: 0.4 },
 ];
 
@@ -71,3 +74,31 @@ export const MACHINE_VALUES: UsageValuesPage = {
   values: FAMILIES.map((family, index) => ({ value: family.value, name: family.name, tokens: 4_000_000 / (index + 1) })),
   nextCursor: null,
 };
+
+const WEEK_MS = 7 * 24 * HOUR_MS;
+
+/** Two machines' subscription windows over the 7 days: Claude Code with a 5 hour and a 7 day window, and Codex with one. */
+export function windowsOf(range: UsageRange): WindowsPage {
+  const window = usageWindowOf(range, USAGE_NOW);
+  const start = Date.parse(window.from);
+  const length = Date.parse(window.to) - start;
+  const readings = (percentAt: (fraction: number) => number) =>
+    Array.from({ length: 60 }, (_, index) => {
+      const fraction = index / 59;
+      return { readAt: new Date(start + fraction * length).toISOString(), usedPercent: percentAt(fraction), resetsAt: new Date(start + fraction * length + WEEK_MS).toISOString() };
+    });
+  const fiveHours = (scale: number) => readings((fraction) => Math.min(100, ((fraction * 168) % 5) * 18 * scale));
+  const sevenDays = (scale: number) => readings((fraction) => Math.min(100, fraction * 70 * scale));
+  return {
+    charts: [
+      { machineShipId: FAMILIES[0]?.value ?? '', machineName: 'trierarch-mac', harness: 'claude-code', windows: [{ windowMinutes: 300, readings: fiveHours(1) }, { windowMinutes: 10_080, readings: sevenDays(1) }] },
+      { machineShipId: FAMILIES[1]?.value ?? '', machineName: 'trierarch-linux-1', harness: 'claude-code', windows: [{ windowMinutes: 300, readings: fiveHours(0.6) }, { windowMinutes: 10_080, readings: sevenDays(0.5) }] },
+      { machineShipId: FAMILIES[0]?.value ?? '', machineName: 'trierarch-mac', harness: 'codex', windows: [{ windowMinutes: 300, readings: fiveHours(0.4) }] },
+    ].map((chart) => ({ ...chart, machineShipId: idSchema('ship').parse(chart.machineShipId) })),
+    nextCursor: null,
+  };
+}
+
+export function windowChartsFixtureOf(range: UsageRange) {
+  return windowChartsOf({ charts: windowsOf(range).charts, window: usageWindowOf(range, USAGE_NOW) });
+}
