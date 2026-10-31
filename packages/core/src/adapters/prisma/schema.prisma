@@ -88,6 +88,7 @@ model Fleet {
   definedScopes                    DefinedScope[]
   verifiedFacts                    VerifiedFacts[]
   alerts                           Alert[]
+  shipExpectations                 ShipExpectations[]
   reachRefusals                    ReachRefusal[]
   credentials                      Credential[]
   messages                         Message[]
@@ -181,6 +182,7 @@ model Ship {
   declaredNamespace    ScopeNamespace?
   verifiedFacts        VerifiedFacts[]
   alerts               Alert[]
+  shipExpectations     ShipExpectations[]
   ownedMeetings        Meeting[]              @relation("MeetingOwner")
   moderatedMeetings    Meeting[]              @relation("MeetingModerator")
   openedMeetings       Meeting[]              @relation("MeetingOpener")
@@ -602,6 +604,28 @@ model Alert {
   /// A ship's open alerts, and how many it has.
   @@index([fleetId, shipId], map: "alerts_open_on_ship_idx", where: { clearedAt: null })
   @@map("alerts")
+}
+
+/// The expectations on a ship (decision 0071): what its owner, or a ship
+/// that manages it, expects of it, standing, at most one of each. Each keeps
+/// who set it (JSON, as common's expectation setter) and when; its columns
+/// are null while it is not set. No row while none holds; a retire removes it.
+model ShipExpectations {
+  fleetId                    String    @map("fleet_id")
+  shipId                     String    @map("ship_id")
+  reportChangesWithinMinutes Int?      @map("report_changes_within_minutes")
+  reportChangesWithinSetBy   Json?     @map("report_changes_within_set_by")
+  reportChangesWithinSetAt   DateTime? @map("report_changes_within_set_at") @db.Timestamptz(3)
+  taskDoneByTask             Json?     @map("task_done_by_task")
+  taskDoneBy                 DateTime? @map("task_done_by") @db.Timestamptz(3)
+  taskDoneBySetBy            Json?     @map("task_done_by_set_by")
+  taskDoneBySetAt            DateTime? @map("task_done_by_set_at") @db.Timestamptz(3)
+
+  fleet Fleet @relation(fields: [fleetId], references: [id])
+  ship  Ship  @relation(fields: [fleetId, shipId], references: [fleetId, id])
+
+  @@id([fleetId, shipId])
+  @@map("ship_expectations")
 }
 
 /// A send the network rules refused (decision 0034), recorded in the

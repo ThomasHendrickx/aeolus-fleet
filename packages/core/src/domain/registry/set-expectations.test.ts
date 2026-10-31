@@ -19,7 +19,8 @@ import type { ShipDetail } from './get-ship.js';
 let fleet: ReadReachScenario;
 let orchestrator: Crew;
 
-const PULL_REQUEST: ReportTask = { kind: 'url', url: 'https://github.com/ThomasHendrickx/aeolus-fleet/pull/1391' };
+const PULL_REQUEST_URL = 'https://github.com/ThomasHendrickx/aeolus-fleet/pull/1391';
+const PULL_REQUEST: ReportTask = { kind: 'url', url: PULL_REQUEST_URL };
 const ISSUE: ReportTask = { kind: 'url', url: 'https://github.com/ThomasHendrickx/aeolus-fleet/issues/1407' };
 const SIX_PM = new Date('2026-10-18T18:00:00.000Z');
 
@@ -90,7 +91,7 @@ describe('setting expectations on a ship (decision 0071)', () => {
     fleet.core.clock.advance(60_000);
     fleet.core.state.events.length = 0;
 
-    unwrap(await fleet.registry.setExpectations(orchestrator, { shipId: fleet.near.shipId, reportChangesWithin: 60, taskDoneBy: { task: { url: PULL_REQUEST.url, kind: 'url' }, doneBy: SIX_PM } }));
+    unwrap(await fleet.registry.setExpectations(orchestrator, { shipId: fleet.near.shipId, reportChangesWithin: 60, taskDoneBy: { task: { url: PULL_REQUEST_URL, kind: 'url' }, doneBy: SIX_PM } }));
 
     await expect(expectationsOn(fleet.near.shipId)).resolves.toEqual(before);
     expect(fleet.core.state.events).toEqual([]);
@@ -130,7 +131,8 @@ describe('setting expectations on a ship (decision 0071)', () => {
     unwrap(await fleet.registry.retireShip(fleet.argo, { shipId: fleet.near.shipId }));
     fleet.core.state.events.length = 0;
 
-    await expect(fleet.registry.setExpectations(orchestrator, { shipId: fleet.near.shipId, reportChangesWithin: 60 })).resolves.toMatchObject({
+    // argo, which manages every ship: a retire takes the ship's labels, and with them the manage rule's reach.
+    await expect(fleet.registry.setExpectations(fleet.argo, { shipId: fleet.near.shipId, reportChangesWithin: 60 })).resolves.toMatchObject({
       isOk: false,
       error: { kind: 'SHIP_ALREADY_RETIRED' },
     });

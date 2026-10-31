@@ -72,6 +72,7 @@ import type { ReleaseShip } from '../../domain/registry/release-ship.js';
 import type { SetOwner } from '../../domain/registry/set-owner.js';
 import type { CheckManage } from '../../domain/registry/check-manage.js';
 import type { SetVerifiedFacts } from '../../domain/registry/set-verified-facts.js';
+import type { SetExpectations } from '../../domain/registry/set-expectations.js';
 import type { ReadOpenAlerts } from '../../domain/registry/read-open-alerts.js';
 import type { RaiseAlert } from '../../domain/registry/raise-alert.js';
 import type { ClearAlert } from '../../domain/registry/clear-alert.js';
@@ -189,6 +190,7 @@ export interface UseCases {
   readRecoverySet: ReadRecoverySet;
   recoverKeys: RecoverKeys;
   setVerifiedFacts: SetVerifiedFacts;
+  setExpectations: SetExpectations;
   raiseAlert: RaiseAlert;
   readOpenAlerts: ReadOpenAlerts;
   clearAlert: ClearAlert;

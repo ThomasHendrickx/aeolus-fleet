@@ -61,6 +61,7 @@ import type {
   DefinedScopeRepository,
   VerifiedFactsRepository,
   AlertRepository,
+  ExpectationsRepository,
   NetworkSettingsRepository,
   ReachRefusalRepository,
   ShipRepository,
@@ -86,6 +87,7 @@ import type { Turn } from '../../src/domain/registry/turn.js';
 import type { LeaseActivity } from '../../src/domain/registry/lease-activity.js';
 import { isSameWriter, type WrittenFacts } from '../../src/domain/registry/verified-facts.js';
 import { shownAlertOf, type Alert, type ShownAlert } from '../../src/domain/registry/alert.js';
+import { NO_EXPECTATIONS, type Expectations } from '../../src/domain/registry/expectations.js';
 import type { ClearRequest } from '../../src/domain/registry/clear-request.js';
 import type { CrewRequest } from '../../src/domain/registry/crew-request.js';
 import type { Clock } from '../../src/domain/shared/clock.js';
@@ -184,6 +186,8 @@ export interface InMemoryState {
   verifiedFacts: WrittenFacts[];
   /** The alerts, open and cleared, oldest first (decision 0071). */
   alerts: Alert[];
+  /** The expectations, one set per ship (decision 0071). */
+  expectations: Expectations[];
   /** The records of the sends the network rules refused, oldest first. */
   reachRefusals: ReachRefusal[];
   /** When the recipient read each delivery it read: the read_at column, apart from the Delivery's state. */
@@ -249,6 +253,7 @@ export interface InMemoryTx {
   definedScopes: DefinedScopeRepository;
   verifiedFacts: VerifiedFactsRepository;
   alerts: AlertRepository;
+  expectations: ExpectationsRepository;
   reachRefusals: ReachRefusalRepository;
   inFlightDeliveries: InFlightDeliveries;
   credentials: CredentialRepository;
@@ -426,6 +431,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     definedScopes: [],
     verifiedFacts: [],
     alerts: [],
+    expectations: [],
     reachRefusals: [],
     events: [],
     overdueDeliveries: [],
@@ -1001,6 +1007,18 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       saveCleared: (alert) => {
         const index = state.alerts.findIndex((held) => held.fleetId === alert.fleetId && held.id === alert.id);
         state.alerts.splice(index, 1, structuredClone(alert));
+        return Promise.resolve();
+      },
+    },
+    expectations: {
+      find: (fleetId, shipId) => Promise.resolve(structuredClone(state.expectations.find((held) => held.fleetId === fleetId && held.shipId === shipId))),
+      save: (expectations) => {
+        const others = state.expectations.filter((held) => held.fleetId !== expectations.fleetId || held.shipId !== expectations.shipId);
+        state.expectations.splice(0, state.expectations.length, ...others, structuredClone(expectations));
+        return Promise.resolve();
+      },
+      remove: (fleetId, shipId) => {
+        state.expectations.splice(0, state.expectations.length, ...state.expectations.filter((held) => held.fleetId !== fleetId || held.shipId !== shipId));
         return Promise.resolve();
       },
     },
@@ -1990,6 +2008,10 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
           .map(shownOnItsShip),
       ),
     openAlertsOn: (fleetId, shipId) => Promise.resolve(openAlertsNewestFirst(fleetId).filter((alert) => alert.shipId === shipId).map(shownOnItsShip)),
+    expectationsOn: (fleetId, shipId) => {
+      const held = state.expectations.find((each) => each.fleetId === fleetId && each.shipId === shipId);
+      return Promise.resolve(held ? structuredClone({ reportChangesWithin: held.reportChangesWithin, taskDoneBy: held.taskDoneBy }) : NO_EXPECTATIONS);
+    },
   };
 
   function openAlertsNewestFirst(fleetId: FleetId): Alert[] {
@@ -2542,6 +2564,7 @@ const FLEET_TABLES = [
   'definedScopes',
   'verifiedFacts',
   'alerts',
+  'expectations',
   'reachRefusals',
   'events',
   'overdueDeliveries',
@@ -2585,6 +2608,7 @@ const TABLES = [
   'definedScopes',
   'verifiedFacts',
   'alerts',
+  'expectations',
   'reachRefusals',
   'events',
   'overdueDeliveries',

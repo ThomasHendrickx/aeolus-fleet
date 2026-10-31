@@ -111,6 +111,7 @@ import { createSetOwner } from '../../src/domain/registry/set-owner.js';
 import { createCheckManage } from '../../src/domain/registry/check-manage.js';
 import { createRenameShip } from '../../src/domain/registry/rename-ship.js';
 import { createSetVerifiedFacts } from '../../src/domain/registry/set-verified-facts.js';
+import { createSetExpectations } from '../../src/domain/registry/set-expectations.js';
 import { createRaiseAlert } from '../../src/domain/registry/raise-alert.js';
 import { createClearAlert } from '../../src/domain/registry/clear-alert.js';
 import { createRetireShip } from '../../src/domain/registry/retire-ship.js';
@@ -313,6 +314,7 @@ export function registryUseCases(core: InMemoryCore) {
     setOwner: createSetOwner(deps),
     checkManage: createCheckManage(deps),
     setVerifiedFacts: createSetVerifiedFacts(deps),
+    setExpectations: createSetExpectations(deps),
     raiseAlert: createRaiseAlert(deps),
     clearAlert: createClearAlert(deps),
     recrewShip: createRecrewShip(deps),

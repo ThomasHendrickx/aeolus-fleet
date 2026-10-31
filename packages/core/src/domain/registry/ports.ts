@@ -6,6 +6,7 @@ import type { ShipFilter } from '@aeolus-fleet/common/rules';
 import type { ShipSort } from './ship-order.js';
 import type { ReadReach } from './read-reach.js';
 import type { Alert, ShownAlert } from './alert.js';
+import type { Expectations, ShipExpectations } from './expectations.js';
 import type { ClearRequest } from './clear-request.js';
 import type { CrewRequest } from './crew-request.js';
 import type { FeatureUse } from './feature-flag.js';
@@ -314,6 +315,19 @@ export interface DeclaredNetworkRulesRepository {
   save(declared: DeclaredNetworkRules): Promise<void>;
 }
 
+/**
+ * Outbound port: the expectations on each ship (decision 0071), one set per
+ * ship. Written after the ship is locked, as a retire locks it.
+ */
+export interface ExpectationsRepository {
+  /** The ship's expectations; none while none holds. */
+  find(fleetId: FleetId, shipId: ShipId): Promise<Expectations | undefined>;
+  /** Keeps the ship's expectations whole, in place of what it held. */
+  save(expectations: Expectations): Promise<void>;
+  /** Removes the ship's expectations, if it held any. */
+  remove(fleetId: FleetId, shipId: ShipId): Promise<void>;
+}
+
 /** Outbound port: the verified facts each writer holds about a ship, always within one fleet (decision 0059). */
 export interface VerifiedFactsRepository {
   /** The writer's facts about the ship; none while it holds none. */
@@ -574,6 +588,8 @@ export interface FleetListing {
   deliveryCounts(fleetId: FleetId, shipId: ShipId): Promise<{ inFlight: number; open: number }>;
   /** The statement the ship's open lease holds; null while no session crews it or its crew stated none (decision 0047). */
   statement(fleetId: FleetId, shipId: ShipId): Promise<StatedStatement | null>;
+  /** The expectations on the ship (decision 0071); none while none holds. */
+  expectationsOn(fleetId: FleetId, shipId: ShipId): Promise<ShipExpectations>;
   /** The fleet's open alerts on the ships in `reach`, newest first, after the cursor's, at most `limit` (decision 0071). */
   openAlerts(fleetId: FleetId, read: { reach: ReadReach; cursor?: AlertId; limit: number }): Promise<ShownAlert[]>;
   /** The ship's open alerts, newest first (decision 0071). */

@@ -158,6 +158,7 @@ const FLEET_ACTIONS = [
   'describeScope',
   'removeScope',
   'setVerifiedFacts',
+  'setExpectations',
   'raiseAlert',
   'clearAlert',
   'openAlerts',

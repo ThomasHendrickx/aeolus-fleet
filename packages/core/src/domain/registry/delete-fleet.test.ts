@@ -50,6 +50,7 @@ function rowsOf(fleetId: FleetId): Record<keyof InMemoryState, number> {
     definedScopes: of(state.definedScopes),
     verifiedFacts: of(state.verifiedFacts),
     alerts: of(state.alerts),
+    expectations: of(state.expectations),
     reachRefusals: of(state.reachRefusals),
     deliveryReads: of(state.deliveryReads),
     events: of(state.events),

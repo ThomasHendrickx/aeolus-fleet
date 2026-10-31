@@ -126,6 +126,8 @@ import {
   checkManageOutputSchema,
   setOwnerOutputSchema,
   setVerifiedFactsInputSchema,
+  setExpectationsInputSchema,
+  setExpectationsOutputSchema,
   raiseAlertInputSchema,
   clearAlertInputSchema,
   alertOutputSchema,
@@ -162,6 +164,7 @@ import { tracked, type TrackedEnvelope } from '@trpc/server';
 // here; the declarations the build emits need a path to reach it by.
 import type {} from '@trpc/server/unstable-core-do-not-import';
 
+import type { ShipExpectations } from '../../domain/registry/expectations.js';
 import type { ListedShip } from '../../domain/registry/list-fleet.js';
 import type { PingStatus } from '../../domain/registry/ping-status.js';
 import type { ShipFacts } from '../../domain/registry/ports.js';
@@ -837,6 +840,28 @@ export const fleetRouter = router({
       return {};
     }),
 
+  /** Sets the expectations on a ship within the caller's manage reach (decision 0071). */
+  setExpectations: actorScopedProcedure('fleet:manage')
+    .meta({
+      description: [
+        "Needs fleet:manage, and manage reach on the ship (decision 0071): the owner's ship for the ships it owns, any other ship by a manage rule that reaches the ship.",
+        'Sets what you expect of the ship, standing: reportChangesWithin, minutes (5 to 10080) within which its report changes while it says working or blocked; taskDoneBy, the task (as a report names it, a kind and its fields) and the time it is expected done by, lapsing once the report names another task.',
+        "Left out, one stays as it is; null clears it. Each names who set it. The fleet compares nothing and the crew is not told: once one breaks, the watch tells the ship's owner, and the ship that set it.",
+        'Read them back with fleet_ship. They stay through a release and a recrew; a retire removes them. A retired ship is CONFLICT.',
+      ].join(' '),
+    })
+    .input(setExpectationsInputSchema)
+    .output(setExpectationsOutputSchema)
+    .mutation(async ({ ctx, input: { taskDoneBy, ...input } }) => {
+      okOrThrow(
+        await ctx.useCases.setExpectations(ctx.caller, {
+          ...input,
+          ...(taskDoneBy !== undefined && { taskDoneBy: taskDoneBy && { task: taskDoneBy.task, doneBy: new Date(taskDoneBy.doneBy) } }),
+        }),
+      );
+      return {};
+    }),
+
   /** Raises an alert on a ship the caller reads, once per occurrence (decision 0071). */
   raiseAlert: actorScopedProcedure('fleet:alert')
     .meta({
@@ -1164,6 +1189,7 @@ export const fleetRouter = router({
         removedAt: ship.removedAt?.toISOString() ?? null,
         retiredAt: ship.retiredAt?.toISOString() ?? null,
         openAlerts: ship.openAlerts.map(alertOutputOf),
+        expectations: expectationsOutputOf(ship.expectations),
       };
     }),
 
@@ -1479,6 +1505,14 @@ export const fleetRouter = router({
 });
 
 /** A ship's activity as the fleet answers it, its times in ISO 8601. */
+/** A ship's expectations as `fleet.ship` reads them back (decision 0071): times in ISO 8601. */
+function expectationsOutputOf({ reportChangesWithin, taskDoneBy }: ShipExpectations) {
+  return {
+    reportChangesWithin: reportChangesWithin && { ...reportChangesWithin, setAt: reportChangesWithin.setAt.toISOString() },
+    taskDoneBy: taskDoneBy && { ...taskDoneBy, doneBy: taskDoneBy.doneBy.toISOString(), setAt: taskDoneBy.setAt.toISOString() },
+  };
+}
+
 function activityOutputOf(activity: ListedShip['activity']) {
   return activity && { ...activity, at: activity.at.toISOString(), reportedAt: activity.reportedAt.toISOString() };
 }

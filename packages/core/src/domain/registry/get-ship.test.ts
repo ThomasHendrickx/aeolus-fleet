@@ -68,6 +68,7 @@ describe('getting one ship', () => {
       commissionedByShipId: argo.shipId,
       statement: null,
       openAlerts: [],
+      expectations: { reportChangesWithin: null, taskDoneBy: null },
     });
   });
 
