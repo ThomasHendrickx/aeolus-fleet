@@ -1,6 +1,6 @@
 # Bridge: a person's one place to work with their fleet
 
-Design for [#1494](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1494). Stage 0 (purpose, jobs, lessons, how others do it) is answered (section 5). Stage 1, the structure (sections 6 to 9), is approved with CC12 to CC20 as picked (section 10), with two changes: answers to questions go through the basket (section 9), and a step's note shows on the step, for Done and Cannot alike (CC14). The basket's own questions, CC21 to CC24, are for Thomas to approve. Mockups of the structure with the picks drawn: [mockups/README.md](mockups/README.md). The questions design ([#1495](https://github.com/ThomasHendrickx/aeolus-fleet/pull/1495)) resumes as the first slice of decide (CC11).
+Design for [#1494](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1494). Stage 0 (purpose, jobs, lessons, how others do it) is answered (section 5). Stage 1, the structure (sections 6 to 9), is approved with CC12 to CC24 as picked (section 10), with two changes: answers to questions go through the basket (section 9), and a step's note shows on the step, for Done and Cannot alike (CC14). The whole design is approved; the build is cut into slices in section 11. Mockups of the structure with the picks drawn: [mockups/README.md](mockups/README.md). The questions design ([#1495](https://github.com/ThomasHendrickx/aeolus-fleet/pull/1495)) resumes as the first slice of decide (CC11).
 
 Thomas, 31 Oct:
 1. "in essence that is a bit the command center for a user in aeolus.. like outlook is for emails or Gmail for Google ... But with different use cases and capabilities.. I don't want to make a choice now on this that I might regret so want to take a step back on what that interaction surface needs to be."
@@ -11,6 +11,7 @@ Thomas, 31 Oct:
    2. The action to do needs an optional note. Saying cannot with a reason has more value, so a note is highly valuable. Ok I see the following screen has that, just make it visible before clicking done or cannot and both done and cannot have it.
 
    If that is adjusted just give me the screen and mechanic of the basket, all the rest is approved"
+5. On the basket: "Basket approved".
 
 ## 1. Purpose (agreed, CC1)
 
@@ -264,9 +265,9 @@ Unhappy paths:
 | CC19 | The defaults per job | (a) A chat on; Slack, web push and email off until turned on. (b) Everything off but Bridge, a chat included | (a): a chat lists what waits today, and it only pulls; consent first for what pushes (W8) |
 | CC20 | When a place is turned on for a job, what does it show of what is already there? | (a) A pull place (a chat) every item of that job not done; a push place (Slack, wakes) only what arrives after. (b) Only what arrives after, everywhere. (c) Every item not done, everywhere | (a): a pull place is a view and costs nothing; posting a backlog into Slack is noise, and Bridge already holds it |
 
-### The basket's questions, each with my pick
+### The basket's questions, approved as picked
 
-| # | Question | Options | My pick |
+| # | Question | Options | Pick |
 | --- | --- | --- | --- |
 | CC21 | Where does the basket live? | (a) The gateway's database, per fleet and person ship. (b) The browser, per device | (a): nothing picked is lost with a tab or a device, the phone and the desktop show one basket, and sending survives a restart |
 | CC22 | Do Slack and a chat answer into the basket? | (a) No: they answer at once, as today; the basket is Bridge's. (b) Yes: Slack's buttons and `aeolus_answer` put into the same basket, sent from Bridge | (a): a Slack press that sends nothing reads as broken, and a chat has no basket to show; Bridge shows their answers on the entry (rule 6) |

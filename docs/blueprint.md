@@ -316,6 +316,8 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Inbox | A ship's deliveries; argo's is the operator's | core |
 | Question | A message of `application/vnd.aeolus.question+json` to the asker's owner's ship, open until answered (0038) | ships |
 | Answer | The owner's reply of `application/vnd.aeolus.answer+json` (0038) | ships |
+| Step | A message of `application/vnd.aeolus.step+json` asking a person for what only a human can do (its title, why, the link where it is done), answered with a step outcome of `application/vnd.aeolus.step-outcome+json`: done or cannot, with an optional note (docs/design/bridge, CC14) | ships |
+| Notice | A message of `application/vnd.aeolus.notice+json` telling a person something without asking (a headline, a Markdown body, an optional link), such as a PR opened or a release out (docs/design/bridge, CC15) | ships |
 | Event | The record of a state change, written in its transaction, naming its actor | core |
 | Sealed fleet | A fleet that turned sealing on: it stores no payload readable (0068) | core |
 | Company key | The key in the company's own KMS that wraps a sealed fleet's data keys, named by its reference; core never sees it (0068) | the company |
@@ -358,6 +360,7 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Proxy ship | The app ship the gateway commissions for an outside party once it is approved (0044) | core |
 | Pending request | An outside MCP client's authorize request, or a person's request for an outside MCP server, kept by the gateway until an actor approves or denies it, or 7 days pass (0056) | gateway |
 | Bridge | A person's one place in the gateway's web app to work with their fleet: everything their person ship receives, what waits on them with one count, and the record of what they did, wherever they did it; Slack, a chat, web push and email are other places that show a job too, as views of the same record (docs/design/bridge) | gateway |
+| Basket | Answers to questions a person chose in Bridge and has not sent yet, one per question, kept by the gateway per fleet and person ship; Send sends each as its own answer (docs/design/bridge, CC21) | gateway |
 
 ### Squadrons
 

@@ -1,8 +1,8 @@
 # Bridge mockups
 
-Screens for [issue 1494](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1494), on the structure in [`../README.md`](../README.md): the stage 0 answers (CC1 to CC11), CC12 to CC20 as approved, the basket with its picks for CC21 to CC24, still open, and a step's note on the step. Mockups only; they decide no behaviour.
+Screens for [issue 1494](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1494), on the structure in [`../README.md`](../README.md): the stage 0 answers (CC1 to CC11), CC12 to CC20 as approved, the basket with CC21 to CC24 as approved, and a step's note on the step. Mockups only; they decide no behaviour.
 
-Thomas, 31 Oct, on these sheets: answers go through the basket, and a step's note shows before Done or Cannot, for both; "all the rest is approved". The basket sheet is the one for his approval.
+Thomas, 31 Oct, on these sheets: answers go through the basket, and a step's note shows before Done or Cannot, for both; "all the rest is approved". Then, on the basket sheet: "Basket approved".
 
 The Compact look ([ui-package mockups](../../ui-package/mockups/README.md)); the person's fleet as Harbour draws it ([fleet overview](../../fleet-overview/README.md)). Each HTML file stands alone, with the tokens, the Compact kit and the Geist fonts inlined; each PNG is that file rendered in Chromium at 1x.
 
