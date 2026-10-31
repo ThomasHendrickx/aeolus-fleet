@@ -1,6 +1,6 @@
 # Onboarding: the user journeys
 
-Part of [#1228](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1228), docs only. Thomas (27 Oct): the screen mockups wait for the design system and the redesign pass; the user journeys can be designed in parallel, as they should work conceptually, loose from the design system. This file is that. It names no screen, layout or component. [onboarding.md](onboarding.md) keeps the purpose, the lessons, the decisions Q1 to Q10 and the parked mockups; its sections 6 and 8 wait for the redesign pass and this file's scenarios (section 7) are the behaviour they must meet.
+Part of [#1228](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1228), docs only. The user journeys, conceptually, loose from the design system: this file names no screen, layout or component. [onboarding.md](onboarding.md) holds the purpose, the lessons (L1 to L16) and the questions; the screens come in its stage 2 and must meet this file's scenarios (section 7).
 
 Terms are the blueprint's: organisation, organisation admin, account, fleet, fleet manager, person ship, gateway, trierarch, computer, join, commission, crew, crew line, starting prompt, lease, scope, group. Where the docs do not say how something works, it is a question for Thomas, not a guess. Section 8 holds what he decided.
 
@@ -247,7 +247,7 @@ Bea is on the receiving end of H3 (section 4.3). What she has when she arrives i
 
 ## 7. Acceptance criteria
 
-Scenarios state behaviour. Numbers marked (proposed) are mine; Thomas signs them. A scenario carries over from [onboarding.md](onboarding.md) section 8 only where the behaviour is unchanged; the screen wording is dropped.
+Scenarios state behaviour. Numbers marked (proposed) are mine; Thomas signs them. Scenarios name no screen wording.
 
 ### 7.1 Sign-in and sign-up (Founder F1 to F2, Ada entry A, Bea B1 to B2)
 
@@ -704,7 +704,7 @@ Scenario: a walk of the hand-over on staging
 
 ## 8. Decisions on the questions
 
-Thomas decided these on 28 Oct. N1 to N5 are the same decisions as in [onboarding.md](onboarding.md) section 9.
+Thomas decided these on 28 Oct. Q1 to Q10 are in [onboarding.md](onboarding.md) section 2.4.
 
 | # | Decision | Where it shows |
 | --- | --- | --- |
