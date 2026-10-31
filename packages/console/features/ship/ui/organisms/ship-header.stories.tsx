@@ -54,6 +54,14 @@ export const PingReceived: Story = {
 export const WithFleetScopes: Story = {
   args: { ship: { ...CREWED_SHIP, scopes: ['messages:send', 'messages:receive', 'fleet:read', 'fleet:manage'] } },
 };
+/** A scope outside the fleet scopes, such as scopes:declare, shows beside the others (#1297). */
+export const WithEveryScope: Story = {
+  args: { ship: { ...CREWED_SHIP, scopes: ['messages:send', 'messages:receive', 'scopes:declare', 'fleet:read'] } },
+  play: async ({ canvasElement }) => {
+    const shown = within(canvasElement).getAllByTestId('ship-fleet-scope').map((badge) => badge.textContent);
+    await expect(shown).toEqual(['messages:send', 'messages:receive', 'scopes:declare', 'fleet:read']);
+  },
+};
 /** A crew that reported it is blocked, with a note. */
 export const Reported: Story = {
   args: { ship: { ...CREWED_SHIP, report: { state: 'blocked', note: 'waiting for review on PR 88', task: null, step: null, reportedAt: minutesAgo(3), reportChangedAt: minutesAgo(3), detailsVersion: 0, details: null, detailsBytes: null } } },
