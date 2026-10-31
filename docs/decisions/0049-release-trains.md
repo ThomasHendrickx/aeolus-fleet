@@ -1,11 +1,11 @@
 # 0049 Release trains, one repository each
 
 - The packages ship in release trains, each with its own version, release workflow and repository:
-  - core: common, core and console;
+  - core: common, ui, core and console;
   - the trierarch: the trierarch, the Aeolus Fleet plugin and the session image;
   - squadrons; the trierarch plugin: one train each;
   - the A2A gateway (0048): its own train and repository from its first commit.
-- Every train other than core consumes `@aeolus-fleet/common` from npm at a stated version.
+- Every train other than core consumes `@aeolus-fleet/common`, and `@aeolus-fleet/ui` for its pages, from npm at a stated version; ui's peer on common is pinned to the same version.
 - What a package of another train needs from core is stated in docs/compatibility.md. Each of squadrons, the trierarch plugin, the trierarch and the gateway states the minimum core version it needs, and refuses to start against an older core, saying both versions. This is a minimum version check, not a compatibility layer (0013).
 - Every train stays Apache-2.0 until the licence of a part is decided.
 

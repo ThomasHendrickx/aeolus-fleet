@@ -7,6 +7,8 @@ The technical design for [issue 1036](https://github.com/ThomasHendrickx/aeolus-
 
 Then he answered every question below. The design stands on [Accounts in the console](../accounts/console.md): every human signs in as their account, in every app. No code.
 
+The header, its atoms and the tokens live in `@aeolus-fleet/ui` ([UI package design](../ui-package/README.md)): where this design names `@aeolus-fleet/common/header` or `packages/common/src/header`, read `@aeolus-fleet/ui` and `packages/ui/src`; `appSwitcherOf` is in `@aeolus-fleet/common/rules`.
+
 ## 1. Purpose (decided)
 
 - **One way around.** From any page of any Aeolus app, a human reaches every other app and fleet they may open, in one or two presses, and sees which app and fleet they are in.

@@ -2,7 +2,7 @@
 
 Screens for [issue 1206](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1206), on the structure in [`../README.md`](../README.md).
 
-Each HTML file stands alone: the tokens from `packages/common/src/header/tokens.css` and the Geist fonts are inlined. Each PNG is that file rendered in Chromium at 1x.
+Each HTML file stands alone: the tokens from `packages/ui/src/tokens.css` and the Geist fonts are inlined. Each PNG is that file rendered in Chromium at 1x.
 
 | File | What it shows |
 | --- | --- |
@@ -18,7 +18,7 @@ Thomas, 31 Oct: "Scope picker of gateway, the rest can be console".
 
 ## The look: Compact
 
-Thomas, 31 Oct: "ui -> compact (option 1)". Not built yet: `tokens.css` and the parts still draw today's look.
+Thomas, 31 Oct: "ui -> compact (option 1)". Built in its own slice, U4 ([README](../README.md), section 7): until then `tokens.css` and the parts draw today's look.
 
 | | Today | Compact |
 | --- | --- | --- |
