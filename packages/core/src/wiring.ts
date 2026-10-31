@@ -125,6 +125,7 @@ import { createRenameShip, type RenameShip } from './domain/registry/rename-ship
 import { createSetOwner, type SetOwner } from './domain/registry/set-owner.js';
 import { createCheckManage, type CheckManage } from './domain/registry/check-manage.js';
 import { createSetVerifiedFacts, type SetVerifiedFacts } from './domain/registry/set-verified-facts.js';
+import { createSetExpectations, type SetExpectations } from './domain/registry/set-expectations.js';
 import { createRaiseAlert, type RaiseAlert } from './domain/registry/raise-alert.js';
 import { createClearAlert, type ClearAlert } from './domain/registry/clear-alert.js';
 import { createRetireShip, type RetireShip } from './domain/registry/retire-ship.js';
@@ -226,6 +227,7 @@ export interface UseCases {
   setOwner: SetOwner;
   checkManage: CheckManage;
   setVerifiedFacts: SetVerifiedFacts;
+  setExpectations: SetExpectations;
   raiseAlert: RaiseAlert;
   readOpenAlerts: ReadOpenAlerts;
   clearAlert: ClearAlert;
@@ -484,6 +486,7 @@ export function createUseCases(options: {
     setOwner: createSetOwner({ uow, clock, ids }),
     checkManage: createCheckManage({ uow, clock, ids }),
     setVerifiedFacts: createSetVerifiedFacts({ uow, clock, ids }),
+    setExpectations: createSetExpectations({ uow, clock, ids }),
     raiseAlert: createRaiseAlert({ uow, clock, ids }),
     clearAlert: createClearAlert({ uow, clock, ids }),
     recrewShip: createRecrewShip({ uow, clock, ids, secrets }),

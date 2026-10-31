@@ -254,6 +254,7 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Report changed | When the crew's report last changed its state, note, task or step; details alone do not move it (0028) | core |
 | Alert | What the watch raised on a ship when a fact and its signal parted (crew request unassigned, delivery unacknowledged or overdue, ping unanswered, report unchanged, task not done): one per ship, signal and occurrence, naming the ship's owner at raise; open until cleared (0071) | core, watch |
 | Cleared | An alert's end: the watch saw its fact move back, or its ship retired; a cleared alert leaves the lists and its occurrence is never raised again (0071) | core, watch |
+| Expectation | What a ship's owner, or a ship that manages it, expects of the ship, standing on it, at most one of each: its report changes within some minutes while it says working or blocked, and a task done by a time while its report names that task; each keeps who set it. Set through the ship API; a retire removes them; the crew is not told (0071) | core, watch |
 | Activity | What the assigned trierarch last observed of the session crewing a ship: the latest event's time and kind (text, tool, result, error), never content; unknown past twice the report interval the trierarch states with it; none for a ship crewed by hand (0029, 0071) | core, trierarch |
 | Register | Claim a ship with its id and secret, stating location and, when the session can tell it, harness; answers the crew token once | core |
 | Deregister | The crew ends its lease and the secret; ship and inbox stay | core |
@@ -460,6 +461,7 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `VerifiedFactsSet` | Registry | A writer set its verified facts about the ship, or withdrew them: details hold how many, never their values; the actor is the writer (decision 0059) |
 | `AlertRaised` | Registry | An actor holding `fleet:alert`, the watch, raised an alert on the ship: details hold the alert, its signal and its occurrence key, never a payload; the actor is the raiser (decision 0071) |
 | `AlertCleared` | Registry | An open alert on the ship cleared: details hold the alert, its signal and why, `cleared` by its raiser's kind of actor or `retired` with its ship (decision 0071) |
+| `ExpectationsSet` | Registry | An actor with `fleet:manage` within manage reach set or cleared expectations on the ship: details hold what holds after, the minutes report changes within, the time the task is done by and its task's kind; the actor is the setter (decision 0071) |
 | `VerifiedFactsRemoved` | Registry | A writer's verified facts about the ship went with a retire: the writer, how many, and why, the ship or the writer retired (decision 0059) |
 | `CrewRequested` | Registry | A requester asked that the ship be kept crewed, or replaced the settings of its request: details hold the settings version, never the settings |
 | `CrewRequestExplained` | Registry | The trierarch plugin wrote why no trierarch can take the ship's unassigned crew request, or cleared it: details hold the reason |

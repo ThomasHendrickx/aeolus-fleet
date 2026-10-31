@@ -244,6 +244,7 @@ describe('the OpenAPI spec at /api/v1/openapi.json', () => {
       ['/fleet/describeScope', ['post']],
       ['/fleet/removeScope', ['post']],
       ['/fleet/setVerifiedFacts', ['post']],
+      ['/fleet/setExpectations', ['post']],
       ['/fleet/raiseAlert', ['post']],
       ['/fleet/clearAlert', ['post']],
       ['/fleet/openAlerts', ['post']],

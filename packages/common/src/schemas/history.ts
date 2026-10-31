@@ -1,4 +1,5 @@
 import { alertSchema } from './alert.js';
+import { expectationsSchema } from './expectations.js';
 import { z } from 'zod';
 
 import { deliveryStateSchema, eventTypeSchema, locationKindSchema } from '../fleet/index.js';
@@ -71,6 +72,8 @@ export const shipDetailOutputSchema = listedShipSchema.extend({
   statement: discoveredStatementSchema,
   /** Its open alerts, newest first (decision 0071): shown above the meta strip until they clear. */
   openAlerts: z.array(alertSchema),
+  /** What its owner, or a ship that manages it, expects of it, each with who set it and when (decision 0071); null while not set. */
+  expectations: expectationsSchema,
 });
 
 export type ShipDetail = z.infer<typeof shipDetailOutputSchema>;

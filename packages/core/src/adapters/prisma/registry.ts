@@ -41,6 +41,8 @@ import {
 import { limitSettingsOf } from './fleet-limit-settings.js';
 import { readShipCounts } from './ship-counts.js';
 import { alertOf } from './alerts.js';
+import { shipExpectationsOf } from './expectations.js';
+import { NO_EXPECTATIONS } from '../../domain/registry/expectations.js';
 import { shownAlertOf, type ShownAlert } from '../../domain/registry/alert.js';
 
 export function createPrismaFleetRepository(db: Db): FleetRepository {
@@ -138,6 +140,7 @@ export function createPrismaFleetRepository(db: Db): FleetRepository {
       await db.$executeRaw`DELETE FROM defined_scopes WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM verified_facts WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM alerts WHERE fleet_id = ${fleetId}`;
+      await db.$executeRaw`DELETE FROM ship_expectations WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM ship_labels WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM label_values WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM labels WHERE fleet_id = ${fleetId}`;
@@ -1078,6 +1081,10 @@ export function createPrismaFleetListing(db: Db): FleetListing {
       ).map(shownAlertOfRow),
     openAlertsOn: async (fleetId, shipId) =>
       (await db.alert.findMany({ where: { fleetId, shipId, clearedAt: null }, orderBy: { id: 'desc' }, include: { ship: { select: { name: true } } } })).map(shownAlertOfRow),
+    expectationsOn: async (fleetId, shipId) => {
+      const row = await db.shipExpectations.findUnique({ where: { fleetId_shipId: { fleetId, shipId } } });
+      return row === null ? NO_EXPECTATIONS : shipExpectationsOf(row);
+    },
     statement: async (fleetId, shipId) => {
       const [row] = await db.$queryRaw<unknown[]>`
         SELECT statement, statement_version

@@ -1,4 +1,4 @@
-import { idSchema, SHIP_LABELS_MAX } from '@aeolus-fleet/common';
+import { idSchema, SHIP_LABELS_MAX, type ShipDetail } from '@aeolus-fleet/common';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { KeyRound } from 'lucide-react';
 import { expect, fn, within } from 'storybook/test';
@@ -252,3 +252,50 @@ export const OpenAlert: Story = {
 };
 export const OpenAlertPhone: Story = { ...OpenAlert, globals: { viewport: { value: 'mobile1' } } };
 export const OpenAlertDark: Story = { ...OpenAlert, globals: { theme: 'dark' } };
+
+const MERGE_PULL_REQUEST = { kind: 'url', url: 'https://github.com/acme/ops/pull/1391' };
+const MERGER_SETTER = { kind: 'ship' as const, shipId: 'shp_01m66p4k2v9qz8f7x3n5c1r1x0' as const };
+
+const WITH_EXPECTATIONS: ShipDetail = {
+  ...CREWED_SHIP,
+  report: { state: 'working', note: 'Merging to main', task: MERGE_PULL_REQUEST, step: { at: 2, of: 3 }, reportedAt: minutesAgo(1), reportChangedAt: minutesAgo(42), detailsVersion: 0, details: null, detailsBytes: null },
+  expectations: {
+    reportChangesWithin: { minutes: 60, setBy: MERGER_SETTER, setAt: minutesAgo(120) },
+    taskDoneBy: { task: MERGE_PULL_REQUEST, doneBy: new Date(NOW.getTime() + 3 * 60 * 60 * 1000).toISOString(), setBy: MERGER_SETTER, setAt: minutesAgo(120) },
+  },
+};
+
+/** The monitoring design's Expectations row, read only (docs/design/monitoring, 4.7): set through the ship API, read back with the ship; no "Set expectations…" without the optional console slice. */
+export const Expectations: Story = {
+  args: { ship: WITH_EXPECTATIONS },
+  play: async ({ canvasElement }) => {
+    const row = within(canvasElement).getByTestId('ship-expectations');
+    await expect(row).toHaveTextContent('Report changes within 60 min');
+    await expect(row).toHaveTextContent(/Task PR #1391 done by/);
+    await expect(row).not.toHaveTextContent('lapsed');
+    await expect(within(canvasElement).queryByText('Set expectations…')).toBeNull();
+  },
+};
+export const ExpectationsPhone: Story = { ...Expectations, globals: { viewport: { value: 'mobile1' } } };
+export const ExpectationsDark: Story = { ...Expectations, globals: { theme: 'dark' } };
+
+/** A task done by lapses once the report names another task (docs/design/monitoring, 4.7). */
+export const ExpectationsTaskLapsed: Story = {
+  args: {
+    ship: {
+      ...WITH_EXPECTATIONS,
+      report: { state: 'working', note: 'Next issue', task: { kind: 'url', url: 'https://github.com/acme/ops/issues/1407' }, step: null, reportedAt: minutesAgo(1), reportChangedAt: minutesAgo(1), detailsVersion: 0, details: null, detailsBytes: null },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByTestId('ship-expectations')).toHaveTextContent(/Task PR #1391 done by .* · lapsed/);
+  },
+};
+
+/** No expectation set: no Expectations row. */
+export const NoExpectations: Story = {
+  args: { ship: CREWED_SHIP },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).queryByTestId('ship-expectations')).toBeNull();
+  },
+};

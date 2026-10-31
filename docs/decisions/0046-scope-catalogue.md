@@ -19,7 +19,7 @@
 | `fleet:verify` | write and withdraw its verified facts about a ship (0059) | manage reach |
 | `fleet:alert` | raise and clear alerts on a ship (0071) | read reach |
 | `fleet:commission` | commission an agent, and with `fleet:on-behalf` an app ship (0044), granting only what it may grant | the new ship's owner (0045) |
-| `fleet:manage` | rename, release, recrew, retire, starting prompt, ping, crew request, clear a worktree | manage reach |
+| `fleet:manage` | rename, release, recrew, retire, starting prompt, ping, crew request, clear a worktree, set expectations | manage reach |
 | `crew:assign`, `crew:run` | as 0029 | any request; assignment |
 | `labels:define` | its labels and rules on them (0037) | labels it defined |
 | `labels:assign` | values of labels it defined | its own ship and ships it commissioned |

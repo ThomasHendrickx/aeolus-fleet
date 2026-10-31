@@ -20,6 +20,7 @@ import { ReportLine } from '../../../../components/molecules/report-line';
 import { ActivityLine } from '../../../../components/molecules/activity-line';
 import { AlertPanel } from '../../../../components/molecules/alert-panel';
 import { alertShipPanel } from '../../../../lib/alert';
+import { expectationLines } from '../../../../lib/expectations';
 import { ShipName } from '../../../../components/molecules/ship-name';
 import { StatusBadge } from '../../../../components/molecules/status-badge';
 
@@ -86,6 +87,7 @@ function MetaStrip({
   way: ReactNode;
 }) {
   const isOperator = ship.kind === 'operator';
+  const expectations = expectationLines(ship.expectations, { reportTask: ship.report?.task ?? null, now, viewerFleetId });
   const since = ship.crewedSince === null ? null : new Date(ship.crewedSince);
   const commissionedAt = new Date(ship.commissionedAt);
   return (
@@ -131,6 +133,24 @@ function MetaStrip({
         <div className="col-span-4 flex min-w-0 items-start gap-4 bg-card px-3.5 py-2.5 max-sm:col-span-2 max-sm:flex-col max-sm:gap-1.5" data-testid="ship-delivery">
           <dt className="shrink-0 text-meta text-muted-foreground">Delivery</dt>
           <dd className="min-w-0 flex-1">{way}</dd>
+        </div>
+      )}
+      {expectations.length === 0 ? null : (
+        <div className="col-span-4 flex min-w-0 items-start gap-4 bg-card px-3.5 py-2.5 max-sm:col-span-2 max-sm:flex-col max-sm:gap-1.5" data-testid="ship-expectations">
+          <dt className="shrink-0 text-meta text-muted-foreground">Expectations</dt>
+          <dd className="flex min-w-0 flex-1 flex-col gap-0.5">
+            {expectations.map((line) =>
+              line.key === 'reportChangesWithin' ? (
+                <span key={line.key} className="text-body text-foreground">
+                  {line.text}
+                </span>
+              ) : (
+                <span key={line.key} title={line.title} className="text-meta text-muted-foreground tabular-nums">
+                  {line.text}
+                </span>
+              ),
+            )}
+          </dd>
         </div>
       )}
       {isOperator ? null : (

@@ -232,6 +232,7 @@ describe('eventTypeSchema', () => {
       'FeatureFlagTurnedOff',
       'AlertRaised',
       'AlertCleared',
+      'ExpectationsSet',
     ]);
   });
 });

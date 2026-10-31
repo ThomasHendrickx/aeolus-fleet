@@ -3,6 +3,7 @@ import type { DiscoveredStatement, ShipId } from '@aeolus-fleet/common';
 import { isShipCaller, type Caller } from '../shared/caller.js';
 import { refuse, type DomainError } from '../shared/errors.js';
 import type { ShownAlert } from './alert.js';
+import type { ShipExpectations } from './expectations.js';
 import { ok, type Result } from '../shared/result.js';
 import { listedShipOf, outsideReadReach, type ListedShip, type ShipOutsideReadReach } from './list-fleet.js';
 import { readsShip, type ReadReachOf } from './read-reach.js';
@@ -34,6 +35,8 @@ export interface ShipDetail extends Omit<ListedShip, 'report' | 'crewRequest'> {
   statement: DiscoveredStatement;
   /** Its open alerts, newest first (decision 0071): shown above the meta strip until they clear. */
   openAlerts: ShownAlert[];
+  /** What its owner, or a ship that manages it, expects of it (decision 0071); each null while not set. */
+  expectations: ShipExpectations;
 }
 
 export type GetShip = (
@@ -66,10 +69,11 @@ export function createGetShip(deps: { listing: FleetListing; readReach: ReadReac
     if (!isAssignedToCaller && !readsShip(await deps.readReach(caller), shipId)) {
       return ok(outsideReadReach(listed));
     }
-    const [counts, stated, openAlerts] = await Promise.all([
+    const [counts, stated, openAlerts, expectations] = await Promise.all([
       deps.listing.deliveryCounts(caller.fleetId, shipId),
       deps.listing.statement(caller.fleetId, shipId),
       deps.listing.openAlertsOn(caller.fleetId, shipId),
+      deps.listing.expectationsOn(caller.fleetId, shipId),
     ]);
     return ok({
       ...listed,
@@ -84,6 +88,7 @@ export function createGetShip(deps: { listing: FleetListing; readReach: ReadReac
       commissionedByShipId: facts.ship.commission?.by.kind === 'ship' ? facts.ship.commission.by.shipId : null,
       statement: discoveredStatementOf(facts.ship, stated),
       openAlerts,
+      expectations,
     });
   };
 }

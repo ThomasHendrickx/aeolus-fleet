@@ -363,6 +363,7 @@ describe('getting one ship on Postgres', () => {
         statement: null,
         openAlertCount: 0,
         openAlerts: [],
+        expectations: { reportChangesWithin: null, taskDoneBy: null },
       },
     });
   });

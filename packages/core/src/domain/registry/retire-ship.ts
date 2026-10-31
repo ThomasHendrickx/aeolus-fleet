@@ -27,7 +27,7 @@ import { removeCrewRequest } from './crew-request.js';
 import { retireLabelsWith } from './label.js';
 import { endLease, type LeaseTx } from './leases.js';
 import { withdrawWithRetiredShip } from './declared-network-rules.js';
-import type { AlertRepository, ClearRequestRepository, CrewRequestRepository, DeclaredNetworkRulesRepository, LabelRepository, NetworkSettingsRepository, ScopeNamespaceRepository, ShipRepository, VerifiedFactsRepository } from './ports.js';
+import type { AlertRepository, ClearRequestRepository, ExpectationsRepository, CrewRequestRepository, DeclaredNetworkRulesRepository, LabelRepository, NetworkSettingsRepository, ScopeNamespaceRepository, ShipRepository, VerifiedFactsRepository } from './ports.js';
 import { changeOwner, checkCanRetire, type RetireRefusal } from './ship.js';
 import { releaseWithDeclarer } from './scope-namespace.js';
 import { removeWithRetiredShip } from './verified-facts.js';
@@ -42,6 +42,7 @@ export interface RetireShipTx extends LeaseTx, CredentialTx, RetiredParticipantT
   scopeNamespaces: Pick<ScopeNamespaceRepository, 'findByDeclarer' | 'lockNamespace' | 'remove'>;
   verifiedFacts: Pick<VerifiedFactsRepository, 'listAbout' | 'listBy' | 'lockWriter' | 'remove'>;
   alerts: Pick<AlertRepository, 'listOpenOnShipForUpdate' | 'saveCleared'>;
+  expectations: Pick<ExpectationsRepository, 'remove'>;
 }
 
 export type RetireShipRefusal = DomainError<'SHIP_NOT_FOUND' | 'KEY_UNAVAILABLE'> | NotReachable | RetireRefusal | AcceptRefusal;
@@ -81,7 +82,7 @@ export type RetireShip = (
  * (decision 0062, S11), locked before the ship too, as a send time locks its
  * schedule before the ship it sends to. Its open alerts clear, one
  * AlertCleared each, the ship retired (decision 0071), locked after the ship
- * as a raise and a clear lock them.
+ * as a raise and a clear lock them. Its expectations go (decision 0071).
  * The caller, any actor (decision 0057), needs fleet:manage, checked before
  * this runs, and manage reach on the ship here (decision 0034), a refusal
  * storing only its record. That check reads the network
@@ -235,6 +236,7 @@ export function createRetireShip(deps: {
           await recordEvent(recorded, event);
         }
       }
+      await tx.expectations.remove(fleetId, shipId);
       await tx.verifiedFacts.lockWriter(fleetId, shipId);
       const facts = removeWithRetiredShip({ about: await tx.verifiedFacts.listAbout(fleetId, shipId), by: await tx.verifiedFacts.listBy(fleetId, shipId) }, { at, actor });
       for (const written of facts.removed) {

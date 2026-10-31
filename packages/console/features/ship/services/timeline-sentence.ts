@@ -399,6 +399,12 @@ export function timelineSentence(entry: TimelineEntry, shipId: string): Timeline
         tone: 'ended',
         icon: 'reported',
       };
+    case 'ExpectationsSet':
+      return {
+        parts: [text(entry.details.reportChangesWithin === null && entry.details.taskDoneBy === null ? 'Expectations cleared' : 'Expectations set'), ...by(entry.actor)],
+        tone: 'ended',
+        icon: 'reported',
+      };
     case 'VerifiedFactsSet': {
       const facts = entry.details.facts;
       return {
