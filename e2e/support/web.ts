@@ -39,8 +39,8 @@ export async function reserveWebUrl(): Promise<string> {
  * Starts the web app with `next dev` at the reserved URL, with the given
  * server as its AEOLUS_SERVER_URL (and a fake squadrons as its AEOLUS_SQUADRONS_URL, a fake trierarch plugin as its AEOLUS_TRIERARCH_PLUGIN_URL, the hosting service's sign-in as its
  * AEOLUS_HOSTED_SIGN_IN_URL, and pagasae as AEOLUS_PAGASAE_URL with the console's client credentials, when given), and waits until the sign-in page answers
- * (the first request compiles it). The console bundles common's built
- * package, as `npm run dev` does, so common is built first.
+ * (the first request compiles it). The console bundles common's and ui's
+ * built packages, as `npm run dev` does, so both are built first.
  *
  * The browser calls the server itself, so the server goes by `localhost`
  * like the console: one site, or the SameSite=Strict session cookie would
@@ -48,7 +48,7 @@ export async function reserveWebUrl(): Promise<string> {
  */
 export async function startWeb(web: { url: string; serverUrl: string; squadronsUrl?: string; trierarchPluginUrl?: string; hostedSignInUrl?: string; hostedAccountUrl?: string; hostedAnalytics?: Readonly<Record<string, string>>; pagasae?: { url: string; clientId: string; clientSecret: string } }): Promise<RunningWeb> {
   const { url, serverUrl } = web;
-  await promisify(execFile)('npm', ['run', 'build', '--workspace', '@aeolus-fleet/common'], { cwd: repositoryRoot });
+  await promisify(execFile)('npm', ['run', 'build', '--workspace', '@aeolus-fleet/common', '--workspace', '@aeolus-fleet/ui'], { cwd: repositoryRoot });
   const port = new URL(url).port;
   const sameSiteServer = new URL(serverUrl);
   sameSiteServer.hostname = 'localhost';
