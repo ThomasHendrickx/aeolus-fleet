@@ -1,0 +1,500 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Aeolus Usage page</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a review sheet. Today as real screenshots, then the console frame drawn with only the new parts marked "new". Tokens are the console's own (packages/common/src/header/tokens.css). */
+:root {
+  --background: oklch(0.99 0.002 247);
+  --card: oklch(1 0 0);
+  --muted: oklch(0.967 0.005 247);
+  --secondary: oklch(0.955 0.007 247);
+  --accent: oklch(0.95 0.009 247);
+  --sidebar: oklch(0.976 0.004 247);
+  --foreground: oklch(0.22 0.02 257);
+  --muted-foreground: oklch(0.5 0.02 257);
+  --border: oklch(0.912 0.008 247);
+  --input: oklch(0.885 0.01 247);
+  --ring: oklch(0.56 0.12 257);
+  --primary: oklch(0.34 0.08 257);
+  --primary-foreground: oklch(0.985 0.003 247);
+  --waiting-bg: oklch(0.965 0.045 85);
+  --waiting-fg: oklch(0.47 0.1 62);
+  --waiting-border: oklch(0.87 0.08 80);
+  --attention-bg: oklch(0.957 0.028 25);
+  --attention-fg: oklch(0.5 0.19 27);
+  --new-bg: oklch(0.95 0.035 250);
+  --new-fg: oklch(0.45 0.14 257);
+  --new-ring: oklch(0.62 0.15 257);
+  --grid: oklch(0.93 0.006 247);
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300; --s7: #6250d6; --other: oklch(0.78 0.01 257);
+  --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --radius: 8px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --background: oklch(0.172 0.012 257); --card: oklch(0.2 0.013 257); --muted: oklch(0.228 0.012 257); --secondary: oklch(0.255 0.013 257); --accent: oklch(0.26 0.014 257); --sidebar: oklch(0.19 0.012 257);
+    --foreground: oklch(0.955 0.005 247); --muted-foreground: oklch(0.72 0.016 257); --border: oklch(0.29 0.014 257); --input: oklch(0.34 0.015 257); --ring: oklch(0.7 0.1 252);
+    --primary: oklch(0.86 0.055 250); --primary-foreground: oklch(0.21 0.035 257);
+    --waiting-bg: oklch(0.29 0.055 72); --waiting-fg: oklch(0.87 0.11 82); --waiting-border: oklch(0.41 0.075 72);
+    --attention-bg: oklch(0.3 0.06 25); --attention-fg: oklch(0.78 0.12 25);
+    --new-bg: oklch(0.29 0.06 257); --new-fg: oklch(0.85 0.08 252); --new-ring: oklch(0.7 0.1 252);
+    --grid: oklch(0.26 0.012 257);
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9; --other: oklch(0.45 0.012 257);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: oklch(0.172 0.012 257); --card: oklch(0.2 0.013 257); --muted: oklch(0.228 0.012 257); --secondary: oklch(0.255 0.013 257); --accent: oklch(0.26 0.014 257); --sidebar: oklch(0.19 0.012 257);
+  --foreground: oklch(0.955 0.005 247); --muted-foreground: oklch(0.72 0.016 257); --border: oklch(0.29 0.014 257); --input: oklch(0.34 0.015 257); --ring: oklch(0.7 0.1 252);
+  --primary: oklch(0.86 0.055 250); --primary-foreground: oklch(0.21 0.035 257);
+  --waiting-bg: oklch(0.29 0.055 72); --waiting-fg: oklch(0.87 0.11 82); --waiting-border: oklch(0.41 0.075 72);
+  --attention-bg: oklch(0.3 0.06 25); --attention-fg: oklch(0.78 0.12 25);
+  --new-bg: oklch(0.29 0.06 257); --new-fg: oklch(0.85 0.08 252); --new-ring: oklch(0.7 0.1 252);
+  --grid: oklch(0.26 0.012 257);
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9; --other: oklch(0.45 0.012 257);
+}
+* { box-sizing: border-box; }
+body { background: var(--background); color: var(--foreground); font: 14px/20px var(--font-sans); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 24px 48px; }
+.sheet { max-width: 1280px; margin: 0 auto; display: grid; gap: 40px; }
+h1 { font-size: 22px; line-height: 28px; font-weight: 600; margin: 0; text-wrap: balance; }
+h2 { font-size: 18px; line-height: 24px; font-weight: 600; margin: 0; text-wrap: balance; }
+h3 { font-size: 15px; line-height: 20px; font-weight: 600; margin: 0; }
+p { margin: 0; max-width: 75ch; }
+.lede { color: var(--muted-foreground); }
+.sec { display: grid; gap: 12px; min-width: 0; }
+.shot { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: var(--card); }
+.shot img { display: block; width: 100%; height: auto; }
+.shots { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 800px) { .shots { grid-template-columns: 1fr; } }
+.cap { font-size: 12px; color: var(--muted-foreground); }
+.mono { font-family: var(--font-mono); font-size: 12px; }
+.newtag { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; line-height: 14px; font-weight: 500; letter-spacing: .04em; text-transform: uppercase; color: var(--new-fg); background: var(--new-bg); border-radius: 9999px; padding: 2px 8px; }
+.isnew { outline: 2px dashed var(--new-ring); outline-offset: 3px; border-radius: 6px; }
+
+/* console frame */
+.frame { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; display: grid; grid-template-columns: 236px minmax(0, 1fr); background: var(--background); }
+@media (max-width: 900px) { .frame { grid-template-columns: 1fr; } .side { display: none; } }
+.side { background: var(--sidebar); border-right: 1px solid var(--border); padding: 16px 10px; display: flex; flex-direction: column; gap: 2px; min-height: 100%; }
+.brand { display: flex; gap: 10px; align-items: center; padding: 4px 6px 18px; }
+.mark { width: 32px; height: 32px; border-radius: 8px; background: var(--primary); display: grid; place-items: center; color: var(--primary-foreground); }
+.brand b { display: block; font-weight: 600; } .brand span { font-size: 12px; color: var(--muted-foreground); }
+.nav { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; color: var(--foreground); }
+.nav svg { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.6; }
+.nav .count { margin-left: auto; font-size: 11px; min-width: 20px; height: 20px; border-radius: 9999px; display: grid; place-items: center; }
+.count.att { background: var(--attention-bg); color: var(--attention-fg); }
+.count.inb { background: var(--primary); color: var(--primary-foreground); }
+.nav.cur { background: var(--accent); font-weight: 500; }
+.side .spacer { flex: 1; }
+.main { min-width: 0; display: flex; flex-direction: column; }
+.top { height: 56px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; padding: 0 20px; background: var(--card); }
+.crumb { font-weight: 500; } .crumb .sep { color: var(--muted-foreground); margin: 0 6px; }
+.top .live { margin-left: auto; font-size: 13px; color: var(--muted-foreground); display: flex; align-items: center; gap: 6px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: oklch(0.6 0.13 155); }
+.content { padding: 24px 20px 32px; display: grid; gap: 20px; min-width: 0; }
+.head { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; justify-content: space-between; }
+.head .t { display: grid; gap: 4px; }
+.seg { display: inline-flex; border: 1px solid var(--input); border-radius: 8px; padding: 2px; background: var(--card); flex-wrap: wrap; }
+.seg button { font: 500 13px/18px var(--font-sans); border: 0; background: none; color: var(--muted-foreground); padding: 5px 10px; border-radius: 6px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--foreground); }
+.seg button:focus-visible, .chip:focus-visible, .linkish:focus-visible { outline: 2px solid var(--ring); outline-offset: 1px; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+.controls .lab { font-size: 12px; color: var(--muted-foreground); }
+.chip { font: 13px/18px var(--font-sans); border: 1px solid var(--input); background: var(--card); color: var(--foreground); border-radius: 8px; padding: 6px 10px; display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+.chip.on { border-color: var(--ring); background: var(--new-bg); }
+.chip .x { color: var(--muted-foreground); }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; display: grid; gap: 14px; min-width: 0; }
+.totals { display: flex; flex-wrap: wrap; gap: 28px; }
+.metric { display: grid; gap: 2px; } .metric .k { font-size: 12px; color: var(--muted-foreground); } .metric .v { font-size: 28px; line-height: 32px; font-weight: 600; font-variant-numeric: tabular-nums; } .metric .s { font-size: 12px; color: var(--muted-foreground); }
+.chartwrap { position: relative; min-width: 0; }
+svg.chart { width: 100%; height: auto; display: block; overflow: visible; }
+svg.chart text { fill: var(--muted-foreground); font: 11px var(--font-sans); font-variant-numeric: tabular-nums; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; }
+.legend span.sw { width: 10px; height: 10px; border-radius: 3px; display: inline-block; margin-right: 6px; vertical-align: -1px; }
+.legend .tot { color: var(--muted-foreground); font-variant-numeric: tabular-nums; margin-left: 4px; }
+.tip { position: absolute; pointer-events: none; background: var(--card); border: 1px solid var(--border); box-shadow: 0 16px 40px oklch(0.2 0.02 257 / 0.16); border-radius: 8px; padding: 8px 10px; font-size: 12px; line-height: 16px; min-width: 200px; z-index: 5; }
+.tip b { display: block; margin-bottom: 4px; font-size: 13px; }
+.tip .r { display: flex; gap: 8px; justify-content: space-between; } .tip .r span:last-child { font-variant-numeric: tabular-nums; }
+.note { font-size: 12px; color: var(--muted-foreground); display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.partial { display: flex; gap: 8px; align-items: center; font-size: 13px; background: var(--waiting-bg); color: var(--waiting-fg); border: 1px solid var(--waiting-border); border-radius: 8px; padding: 8px 12px; }
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
+th, td { text-align: right; padding: 6px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--muted-foreground); font-weight: 500; font-size: 12px; }
+.wins { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+.win { border: 1px solid var(--border); border-radius: 10px; padding: 12px; display: grid; gap: 8px; min-width: 0; }
+.win .h { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 13px; }
+.win .h .m { color: var(--muted-foreground); }
+.linkish { color: var(--primary); text-decoration: underline; text-underline-offset: 3px; font-weight: 500; background: none; border: 0; font: inherit; cursor: pointer; padding: 0; }
+.snip { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; }
+.snip .muted { color: var(--muted-foreground); }
+.pill-ok { font-size: 13px; color: oklch(0.44 0.1 155); background: oklch(0.96 0.04 155); border: 1px solid oklch(0.86 0.07 155); border-radius: 6px; padding: 1px 8px; }
+.btn { font: 500 13px/18px var(--font-sans); border: 1px solid var(--input); background: var(--card); color: var(--foreground); border-radius: 8px; padding: 6px 12px; }
+.qs { display: grid; gap: 8px; }
+.qs li { max-width: 90ch; }
+@media (prefers-reduced-motion: no-preference) { .seg button, .chip { transition: background 150ms; } }
+</style>
+
+<div class="sheet">
+  <header class="sec">
+    <h1>Usage page</h1>
+    <p class="lede">Mockup for approval, from <a href="https://github.com/ThomasHendrickx/aeolus-fleet/pull/1330">#1330</a> (<span class="mono">docs/design/usage/usage.md</span>). Today first, as real screenshots; then the console with only the new parts, marked <span class="newtag">new</span>. Every name and number below is example data in the fleet's shapes, not a reading.</p>
+  </header>
+
+  <section class="sec" aria-labelledby="today">
+    <h2 id="today">Today</h2>
+    <p class="lede">The console's navigation and the Trierarchs page as they are. Usage shows nowhere outside report details, and only the latest reading.</p>
+    <div class="shot"><img src="page-before.png" alt="Today's console: navigation with Fleet overview, Health, Needs crew, Squadrons, Trierarchs and Inbox, and the Trierarchs page with the machine cards trierarch-mac and trierarch-macbook"></div>
+    <div class="shots">
+      <figure class="sec" style="margin:0"><div class="shot"><img src="card-before.png" alt="Today's machine card"></div><figcaption class="cap">Machine card today</figcaption></figure>
+      <figure class="sec" style="margin:0"><div class="shot"><img src="ship-before.png" alt="Today's ship page with its Crew request card"></div><figcaption class="cap">Ship page today, its Crew request card</figcaption></figure>
+    </div>
+  </section>
+
+  <section class="sec" aria-labelledby="new">
+    <h2 id="new">New: the Usage page</h2>
+    <p class="lede">Navigation as today, with Usage below Trierarchs, shown only with the trierarch plugin. Try the range, split by, filters and the tokens or cost switch; hover a column.</p>
+
+    <div class="frame">
+      <nav class="side" aria-label="Console navigation (drawn)">
+        <div class="brand"><div class="mark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 18h16M6 18l2-8h8l2 8M12 10V4m0 0l4 3"/></svg></div><div><b>Aeolus</b><span>Operator console</span></div></div>
+        <a class="nav"><svg viewBox="0 0 24 24"><path d="M4 18h16M6 18l2-8h8l2 8"/></svg>Fleet overview</a>
+        <a class="nav"><svg viewBox="0 0 24 24"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg>Health<span class="count att">2</span></a>
+        <a class="nav"><svg viewBox="0 0 24 24"><path d="M4 6h2M4 12h2M4 18h2M10 6h10M10 12h10M10 18h10"/></svg>Needs crew</a>
+        <a class="nav"><svg viewBox="0 0 24 24"><path d="M12 4l3 5H9zM6 13l3 5H3zM18 13l3 5h-6z"/></svg>Squadrons</a>
+        <a class="nav"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><path d="M12 5v14M5 12h14M7 7l10 10M17 7L7 17"/></svg>Trierarchs<span class="count att">2</span></a>
+        <a class="nav cur isnew"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Usage<span class="newtag" style="margin-left:auto">new</span></a>
+        <a class="nav"><svg viewBox="0 0 24 24"><path d="M3 13l3-8h12l3 8v6H3zM3 13h5l1 3h6l1-3h5"/></svg>Inbox<span class="count inb">3</span></a>
+        <div class="spacer"></div>
+        <a class="nav"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><path d="M12 7v5M12 12l-6 5M12 12l6 5"/></svg>Network</a>
+        <a class="nav"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"/></svg>Settings</a>
+        <a class="nav"><svg viewBox="0 0 24 24"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/></svg>Source on GitHub</a>
+      </nav>
+
+      <div class="main">
+        <div class="top"><span class="crumb">Acme / Console<span class="sep">›</span>Usage</span><span class="live"><span class="dot"></span>Live</span></div>
+        <div class="content isnew" style="outline-offset:-6px">
+          <div class="head">
+            <div class="t">
+              <h1>Usage</h1>
+              <p class="lede">Tokens the fleet's sessions used per hour, as each trierarch read them from its harness's transcripts.</p>
+            </div>
+            <div class="seg" role="group" aria-label="Time range" id="range">
+              <button aria-pressed="false" data-r="1">24 hours</button>
+              <button aria-pressed="true" data-r="7">7 days</button>
+              <button aria-pressed="false" data-r="30">30 days</button>
+              <button aria-pressed="false" data-r="90">90 days</button>
+            </div>
+          </div>
+
+          <div class="controls">
+            <span class="lab">Split by</span>
+            <div class="seg" role="group" aria-label="Split by" id="split">
+              <button aria-pressed="true" data-s="machine">Machine</button>
+              <button aria-pressed="false" data-s="harness">Harness</button>
+              <button aria-pressed="false" data-s="model">Model</button>
+              <button aria-pressed="false" data-s="ship">Ship</button>
+              <button aria-pressed="false" data-s="login">Login</button>
+              <button aria-pressed="false" data-s="kind">Token kind</button>
+            </div>
+            <span class="lab" style="margin-left:8px">Show</span>
+            <div class="seg" role="group" aria-label="Measure" id="measure">
+              <button aria-pressed="true" data-m="tokens">Tokens</button>
+              <button aria-pressed="false" data-m="cost">Estimated cost</button>
+            </div>
+          </div>
+          <div class="controls" id="filters" aria-label="Filters"></div>
+
+          <div class="card">
+            <div class="totals" id="totals"></div>
+            <div class="chartwrap" id="chartwrap"><svg class="chart" id="chart" role="img" aria-label="Stacked columns of usage over time"></svg><div class="tip" id="tip" hidden></div></div>
+            <div class="legend" id="legend"></div>
+            <div class="note" id="note"></div>
+            <div class="partial" role="status"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l10 18H2zM12 10v5M12 18v.5"/></svg><span><b>trierarch-macbook</b> sends no usage: its trierarch 0.19.0 does not send it yet.</span></div>
+            <div><button class="linkish" id="tabletoggle" aria-expanded="false">Show as table</button></div>
+            <div class="tablewrap" id="tablewrap" hidden></div>
+          </div>
+
+          <div class="card">
+            <div class="head" style="align-items:center">
+              <div class="t"><h2>Subscription windows</h2><p class="lede">How full each harness's subscription was, per machine, as its trierarch read it. Two machines on one login show the same windows.</p></div>
+            </div>
+            <div class="wins" id="wins"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" aria-labelledby="links">
+    <h2 id="links">New: links to the page</h2>
+    <p class="lede">The machine card and a ship's Crew request card each get a Usage link, opening the page filtered to that machine or ship. Nothing else on them changes.</p>
+    <div class="snip">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="7"/><path d="M12 5v14M5 12h14"/></svg>
+      <b>trierarch-mac</b><span class="pill-ok">Alive</span><span class="muted">· seen 8 s ago</span>
+      <span class="isnew" style="margin-left:auto;padding:2px 6px"><button class="linkish" data-goto="machine:trierarch-mac">Usage</button> <span class="newtag">new</span></span>
+      <span class="cap" style="flex-basis:100%">Machine card, its title line: the link sits at its right edge, opening Usage with the machine filter set to trierarch-mac.</span>
+    </div>
+    <div class="snip">
+      <b>Crew request</b><span class="pill-ok">Running</span><span class="muted">since 15:11 on trierarch-mac</span>
+      <span class="isnew" style="margin-left:auto;padding:2px 6px"><button class="linkish" data-goto="ship:reviewer-01">Usage</button> <span class="newtag">new</span></span>
+      <span class="btn">Edit…</span><span class="btn">Release…</span>
+      <span class="cap" style="flex-basis:100%">Ship page of reviewer-01, its Crew request card: the link before Edit, opening Usage with the ship filter set to reviewer-01.</span>
+    </div>
+  </section>
+
+  <section class="sec" aria-labelledby="qs">
+    <h2 id="qs">What the mockup assumes from the open questions</h2>
+    <ol class="qs">
+      <li>N2: an hour shows once it ends, so the last column is the hour before now.</li>
+      <li>N3: tokens add up all four kinds; Token kind is a sixth split.</li>
+      <li>N4: up to 7 days, hours in your time zone; 30 and 90 days, days in UTC.</li>
+    </ol>
+  </section>
+</div>
+
+<script>
+(function () {
+  const machines = ['trierarch-mac', 'trierarch-linux-1'];
+  const ships = [
+    { name: 'orchestrator-1', harness: 'Claude Code', model: 'claude-opus-5-5', machine: 'trierarch-mac', login: 'Claude subscription', w: 1.5 },
+    { name: 'builder-retention', harness: 'Claude Code', model: 'claude-opus-5-5', machine: 'trierarch-linux-1', login: 'Claude subscription', w: 1.3 },
+    { name: 'reviewer-01', harness: 'Claude Code', model: 'claude-sonnet-5-5', machine: 'trierarch-mac', login: 'Claude subscription', w: 1.0 },
+    { name: 'designer-usage', harness: 'Claude Code', model: 'claude-opus-5-5', machine: 'trierarch-mac', login: 'Claude subscription', w: 0.9 },
+    { name: 'fixer-1239', harness: 'Codex', model: 'gpt-6-sol', machine: 'trierarch-linux-1', login: 'ChatGPT subscription', w: 0.8 },
+    { name: 'tester-02', harness: 'Claude Code', model: 'claude-sonnet-5-5', machine: 'trierarch-linux-1', login: 'API key ci', w: 0.7 },
+    { name: 'docs-03', harness: 'Claude Code', model: 'claude-haiku-5-5', machine: 'trierarch-mac', login: 'API key ci', w: 0.5 },
+    { name: 'scout-04', harness: 'Codex', model: 'gpt-6', machine: 'trierarch-mac', login: 'ChatGPT subscription', w: 0.45 },
+    { name: 'builder-1301', harness: 'Claude Code', model: 'claude-opus-5-5', machine: 'trierarch-linux-1', login: 'Not reported', w: 0.6, until: 26 },
+    { name: 'squadron-flag', harness: 'Claude Code', model: 'claude-haiku-5-5', machine: 'trierarch-linux-1', login: 'Claude subscription', w: 0.3 },
+  ];
+  const prices = { 'claude-opus-5-5': [5, 25, 0.5, 6.25], 'claude-sonnet-5-5': [3, 15, 0.3, 3.75], 'claude-haiku-5-5': [1, 5, 0.1, 1.25], 'gpt-6': [1.25, 10, 0.125, 0], 'gpt-6-sol': null };
+  const kinds = ['input', 'output', 'cacheRead', 'cacheWrite'];
+  const kindNames = { input: 'Input', output: 'Output', cacheRead: 'Cache read', cacheWrite: 'Cache write' };
+
+  let seed = 7;
+  const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  const HOURS = 90 * 24;
+  const now = new Date(); now.setMinutes(0, 0, 0);
+  const startMs = now.getTime() - HOURS * 3600e3;
+  const rows = [];
+  for (let h = 0; h < HOURS; h++) {
+    const at = new Date(startMs + h * 3600e3);
+    const hr = at.getHours(), dow = at.getDay(), daysAgo = (HOURS - h) / 24;
+    const day = hr >= 8 && hr <= 19 ? 1 : hr >= 6 && hr <= 22 ? 0.55 : 0.18;
+    const weekend = dow === 0 || dow === 6 ? 0.45 : 1;
+    const growth = 0.55 + 0.45 * (1 - daysAgo / 90);
+    for (const s of ships) {
+      if (s.until && daysAgo < s.until) continue;
+      if (rnd() < 0.22) continue;
+      const k = s.w * day * weekend * growth * (0.5 + rnd());
+      const t = { input: Math.round(18000 * k), output: Math.round(60000 * k), cacheRead: Math.round(2600000 * k), cacheWrite: Math.round(190000 * k) };
+      const p = prices[s.model];
+      const cost = p ? (t.input * p[0] + t.output * p[1] + t.cacheRead * p[2] + t.cacheWrite * p[3]) / 1e6 : null;
+      rows.push({ h, ship: s.name, machine: s.machine, harness: s.harness, model: s.model, login: s.login, t, cost });
+    }
+  }
+
+  const state = { range: 7, split: 'machine', measure: 'tokens', filters: {} };
+  const dims = { machine: 'Machine', harness: 'Harness', model: 'Model', ship: 'Ship', login: 'Login' };
+  const $ = (id) => document.getElementById(id);
+  const fmtTok = (n) => n >= 1e9 ? (n / 1e9).toFixed(1) + ' B' : n >= 1e6 ? (n / 1e6).toFixed(1) + ' M' : n >= 1e3 ? (n / 1e3).toFixed(0) + ' k' : String(Math.round(n));
+  const fmtUsd = (n) => '$' + (n >= 1000 ? (n / 1000).toFixed(1) + 'k' : n >= 100 ? n.toFixed(0) : n.toFixed(2));
+  const fmt = (n) => state.measure === 'tokens' ? fmtTok(n) : fmtUsd(n);
+  const sum = (t) => t.input + t.output + t.cacheRead + t.cacheWrite;
+  const colors = ['--s1', '--s2', '--s3', '--s4', '--s5', '--s6', '--s7'];
+  const colorOf = {}; // color follows the entity, never its rank
+  function colorFor(key) {
+    if (key === 'Other') return 'var(--other)';
+    const d = state.split;
+    colorOf[d] = colorOf[d] || {};
+    if (!(key in colorOf[d])) colorOf[d][key] = colors[Object.keys(colorOf[d]).length % 7];
+    return 'var(' + colorOf[d][key] + ')';
+  }
+
+  function inRange() {
+    const from = HOURS - state.range * 24;
+    return rows.filter((r) => r.h >= from && Object.entries(state.filters).every(([d, v]) => r[d] === v));
+  }
+
+  function build() {
+    const daily = state.range > 7;
+    const nb = daily ? state.range : state.range * 24;
+    const from = HOURS - state.range * 24;
+    const sel = inRange();
+    // buckets[i][series] = value; series totals
+    const series = {}; const buckets = Array.from({ length: nb }, () => ({}));
+    const kindBuckets = Array.from({ length: nb }, () => ({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }));
+    let totTok = 0, totCost = 0, unpriced = 0;
+    for (const r of sel) {
+      const i = daily ? Math.floor((r.h - from) / 24) : r.h - from;
+      totTok += sum(r.t); if (r.cost === null) unpriced += sum(r.t); else totCost += r.cost;
+      for (const k of kinds) kindBuckets[i][k] += r.t[k];
+      if (state.split === 'kind') {
+        for (const k of kinds) { const v = state.measure === 'tokens' ? r.t[k] : (r.cost === null ? 0 : r.cost * share(r, k)); buckets[i][kindNames[k]] = (buckets[i][kindNames[k]] || 0) + v; series[kindNames[k]] = (series[kindNames[k]] || 0) + v; }
+      } else {
+        const v = state.measure === 'tokens' ? sum(r.t) : (r.cost || 0);
+        const key = r[state.split];
+        buckets[i][key] = (buckets[i][key] || 0) + v; series[key] = (series[key] || 0) + v;
+      }
+    }
+    let order = Object.keys(series).sort((a, b) => series[b] - series[a]);
+    if (order.length > 8) {
+      const keep = order.slice(0, 7), rest = order.slice(7);
+      for (const b of buckets) { let o = 0; for (const k of rest) { o += b[k] || 0; delete b[k]; } b.Other = o; }
+      series.Other = rest.reduce((a, k) => a + series[k], 0);
+      order = keep.concat('Other');
+    }
+    return { daily, nb, from, buckets, series, order, totTok, totCost, unpriced, kindBuckets };
+  }
+  function share(r, k) { const p = prices[r.model]; const parts = [r.t.input * p[0], r.t.output * p[1], r.t.cacheRead * p[2], r.t.cacheWrite * p[3]]; const tot = parts.reduce((a, b) => a + b, 0) || 1; return parts[kinds.indexOf(k)] / tot; }
+
+  function labelAt(i, m) {
+    if (m.daily) { const d = new Date(startMs + (m.from + i * 24) * 3600e3); return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', timeZone: 'UTC' }) + ' (UTC)'; }
+    const d = new Date(startMs + (m.from + i) * 3600e3);
+    return d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' }) + ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function niceMax(v) { if (v <= 0) return 1; const p = Math.pow(10, Math.floor(Math.log10(v))); const f = v / p; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p; }
+
+  function render() {
+    const m = build();
+    // totals
+    const unpricedNote = m.unpriced > 0 ? fmtTok(m.unpriced) + ' tokens not priced (gpt-6-sol)' : 'Every model priced';
+    $('totals').innerHTML =
+      '<div class="metric"><span class="k">Tokens</span><span class="v">' + fmtTok(m.totTok) + '</span><span class="s">' + (state.range === 1 ? 'last 24 hours' : 'last ' + state.range + ' days') + '</span></div>' +
+      '<div class="metric"><span class="k">Estimated cost</span><span class="v">' + fmtUsd(m.totCost) + '</span><span class="s">' + unpricedNote + '</span></div>';
+    // chart
+    const W = 1000, H = 300, L = 52, R = 8, T = 10, B = 26;
+    const stackTot = m.buckets.map((b) => Object.values(b).reduce((a, v) => a + v, 0));
+    const max = niceMax(Math.max(...stackTot));
+    const pw = (W - L - R) / m.nb, gap = m.nb > 100 ? 0.5 : 2, bw = Math.max(1, pw - gap);
+    const y = (v) => T + (H - T - B) * (1 - v / max);
+    let s = '';
+    for (let g = 0; g <= 4; g++) { const v = max * g / 4, yy = y(v); s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + yy + '" y2="' + yy + '" stroke="var(--grid)" stroke-width="1"/>' + '<text x="' + (L - 8) + '" y="' + (yy + 4) + '" text-anchor="end">' + fmt(v) + '</text>'; }
+    const stackOrder = m.order.slice().reverse().filter((k) => k !== 'Other'); if (m.order.includes('Other')) stackOrder.unshift('Other');
+    m.buckets.forEach((b, i) => {
+      let acc = 0; const x = L + i * pw + gap / 2;
+      const keys = m.order.filter((k) => b[k]);
+      keys.forEach((k, j) => {
+        const v = b[k]; const y0 = y(acc), y1 = y(acc + v); acc += v;
+        const h = Math.max(0, y0 - y1 - (j < keys.length - 1 && m.nb <= 100 ? 1 : 0));
+        s += '<rect x="' + x.toFixed(2) + '" y="' + y1.toFixed(2) + '" width="' + bw.toFixed(2) + '" height="' + h.toFixed(2) + '" fill="' + colorFor(k) + '"' + (j === keys.length - 1 && m.nb <= 100 ? ' rx="2"' : '') + '/>';
+      });
+      s += '<rect class="hit" data-i="' + i + '" x="' + (L + i * pw) + '" y="' + T + '" width="' + pw + '" height="' + (H - T - B) + '" fill="transparent"/>';
+    });
+    // x labels
+    const step = m.daily ? (m.nb > 40 ? 14 : 7) : (m.nb > 30 ? 24 : 6);
+    for (let i = 0; i < m.nb; i += step) {
+      const d = new Date(startMs + (m.from + (m.daily ? i * 24 : i)) * 3600e3);
+      const t = m.daily ? d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', timeZone: 'UTC' }) : m.nb > 30 ? d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' }) : d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+      s += '<text x="' + (L + i * pw) + '" y="' + (H - 6) + '">' + t + '</text>';
+    }
+    s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(0) + '" y2="' + y(0) + '" stroke="var(--border)" stroke-width="1"/>';
+    const svg = $('chart'); svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H); svg.innerHTML = s;
+    // legend
+    $('legend').innerHTML = m.order.map((k) => '<span><span class="sw" style="background:' + colorFor(k) + '"></span>' + k + '<span class="tot">' + fmt(m.series[k]) + '</span></span>').join('') || '<span class="lede">No usage in this range.</span>';
+    // notes
+    $('note').innerHTML = '<span>' + (m.daily ? 'One column per day, days in UTC.' : 'One column per hour, in your time zone.') + ' An hour shows once it ends.</span>' +
+      (state.measure === 'cost' ? '<span>Estimated cost is each trierarch\'s list-price estimate at the time; on a subscription it is not what is paid. Models it does not price count nothing here.</span>' : '<span>Tokens add up input, output, cache read and cache write; split by token kind to see each.</span>') +
+      (state.split === 'login' ? '<span>"Not reported": hours from before the trierarch reported a login.</span>' : '') +
+      (m.order.includes('Other') ? '<span>The 7 largest in the range, the rest as Other.</span>' : '');
+    // tooltip
+    const wrap = $('chartwrap'), tip = $('tip');
+    svg.querySelectorAll('.hit').forEach((el) => {
+      el.addEventListener('mouseenter', () => {
+        const i = +el.dataset.i, b = m.buckets[i];
+        const keys = m.order.filter((k) => b[k]);
+        const tot = keys.reduce((a, k) => a + b[k], 0);
+        const kb = m.kindBuckets[i];
+        tip.innerHTML = '<b>' + labelAt(i, m) + '</b>' + keys.map((k) => '<div class="r"><span><span class="sw" style="display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;background:' + colorFor(k) + '"></span>' + k + '</span><span>' + fmt(b[k]) + '</span></div>').join('') +
+          '<div class="r" style="border-top:1px solid var(--border);margin-top:4px;padding-top:4px"><span>Total</span><span>' + fmt(tot) + '</span></div>' +
+          (state.split !== 'kind' ? '<div class="r" style="color:var(--muted-foreground)"><span>input · output</span><span>' + fmtTok(kb.input) + ' · ' + fmtTok(kb.output) + '</span></div><div class="r" style="color:var(--muted-foreground)"><span>cache read · write</span><span>' + fmtTok(kb.cacheRead) + ' · ' + fmtTok(kb.cacheWrite) + '</span></div>' : '');
+        tip.hidden = false;
+        const box = svg.getBoundingClientRect(), wb = wrap.getBoundingClientRect(), r = el.getBoundingClientRect();
+        let left = r.left - wb.left + r.width + 8; if (left + 220 > wb.width) left = r.left - wb.left - 228;
+        tip.style.left = Math.max(0, left) + 'px'; tip.style.top = '8px';
+        el.setAttribute('fill', 'oklch(0.5 0.02 257 / 0.08)');
+      });
+      el.addEventListener('mouseleave', () => { tip.hidden = true; el.setAttribute('fill', 'transparent'); });
+    });
+    // table
+    const rowsHtml = m.buckets.map((b, i) => ({ i, b })).filter((x) => Object.keys(x.b).length).slice(-24).reverse()
+      .map(({ i, b }) => '<tr><td>' + labelAt(i, m) + '</td>' + m.order.map((k) => '<td>' + (b[k] ? fmt(b[k]) : '') + '</td>').join('') + '</tr>').join('');
+    $('tablewrap').innerHTML = '<table><thead><tr><th>' + (m.daily ? 'Day' : 'Hour') + '</th>' + m.order.map((k) => '<th>' + k + '</th>').join('') + '</tr></thead><tbody>' + rowsHtml + '</tbody></table><p class="cap" style="margin-top:6px">Newest first, 24 rows a page.</p>';
+    renderFilters();
+  }
+
+  function renderFilters() {
+    const f = $('filters');
+    f.innerHTML = '<span class="lab">Filter</span>' + Object.keys(dims).map((d) => {
+      const v = state.filters[d];
+      return v ? '<button class="chip on" data-clear="' + d + '">' + dims[d] + ': ' + v + ' <span class="x" aria-label="Clear">×</span></button>'
+        : '<button class="chip" data-pick="' + d + '">All ' + dims[d].toLowerCase() + (d === 'harness' ? 'es' : 's') + ' <span class="x">▾</span></button>';
+    }).join('');
+    f.querySelectorAll('[data-clear]').forEach((b) => b.onclick = () => { delete state.filters[b.dataset.clear]; render(); });
+    f.querySelectorAll('[data-pick]').forEach((b) => b.onclick = () => {
+      // the filter menu, drawn as picking the largest value in the range (usage.values)
+      const d = b.dataset.pick, tot = {};
+      for (const r of inRange()) tot[r[d]] = (tot[r[d]] || 0) + sum(r.t);
+      const top = Object.keys(tot).sort((a, c) => tot[c] - tot[a])[0];
+      if (top) { state.filters[d] = top; render(); }
+    });
+  }
+
+  function seg(id, key, attr, cast) {
+    $(id).querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
+      $(id).querySelectorAll('button').forEach((o) => o.setAttribute('aria-pressed', String(o === b)));
+      state[key] = cast ? cast(b.dataset[attr]) : b.dataset[attr]; render();
+    }));
+  }
+  seg('range', 'range', 'r', Number); seg('split', 'split', 's'); seg('measure', 'measure', 'm');
+  $('tabletoggle').addEventListener('click', (e) => { const open = $('tablewrap').hidden; $('tablewrap').hidden = !open; e.target.textContent = open ? 'Hide table' : 'Show as table'; e.target.setAttribute('aria-expanded', String(open)); });
+  document.querySelectorAll('[data-goto]').forEach((b) => b.addEventListener('click', () => {
+    const [d, v] = b.dataset.goto.split(':'); state.filters = { [d]: v }; render(); document.getElementById('new').scrollIntoView({ behavior: 'smooth' });
+  }));
+
+  // subscription windows: small multiples, percent used per window
+  const winSets = [
+    { machine: 'trierarch-mac', harness: 'Claude Code', windows: [{ name: '5 hours', min: 300 }, { name: '7 days', min: 10080 }] },
+    { machine: 'trierarch-linux-1', harness: 'Claude Code', windows: [{ name: '5 hours', min: 300 }, { name: '7 days', min: 10080 }] },
+    { machine: 'trierarch-mac', harness: 'Codex', windows: [{ name: '5 hours', min: 300 }, { name: '7 days', min: 10080 }] },
+  ];
+  function winSeries(min, phase, scale) {
+    const pts = []; const n = 7 * 48; let wk = 0, five = 0;
+    for (let i = 0; i < n; i++) {
+      const t = startMs + HOURS * 3600e3 - (n - i) * 1800e3; const d = new Date(t); const hr = d.getHours();
+      const busy = hr >= 8 && hr <= 20 ? 1 : 0.2;
+      if ((i + phase) % 10 === 0) five = 0;
+      five = Math.min(100, five + busy * scale * (2 + 6 * rnd()));
+      if ((i + phase * 7) % n === 0 && i > 0) wk = 0;
+      wk = Math.min(100, wk + busy * scale * 0.35 * rnd());
+      if (rnd() < 0.15) continue; // read only after work since
+      pts.push([i / (n - 1), min === 300 ? five : wk]);
+    }
+    return pts;
+  }
+  $('wins').innerHTML = winSets.map((w, wi) => {
+    const W = 320, H = 120, L = 30, T = 6, B = 18;
+    const y = (v) => T + (H - T - B) * (1 - v / 100), x = (f) => L + f * (W - L - 6);
+    let s = [0, 50, 100].map((v) => '<line x1="' + L + '" x2="' + (W - 6) + '" y1="' + y(v) + '" y2="' + y(v) + '" stroke="var(--grid)"/><text x="' + (L - 6) + '" y="' + (y(v) + 4) + '" text-anchor="end">' + v + '%</text>').join('');
+    const lines = w.windows.map((win, k) => {
+      const pts = winSeries(win.min, wi * 3 + k, wi === 2 ? 0.6 : 1);
+      const last = pts[pts.length - 1];
+      return { win, k, d: pts.map((p, j) => (j ? 'L' : 'M') + x(p[0]).toFixed(1) + ' ' + y(p[1]).toFixed(1)).join(''), last };
+    });
+    s += lines.map((l) => '<path d="' + l.d + '" fill="none" stroke="var(' + (l.k ? '--s2' : '--s1') + ')" stroke-width="2" stroke-linejoin="round"/><circle cx="' + x(l.last[0]) + '" cy="' + y(l.last[1]) + '" r="4" fill="var(' + (l.k ? '--s2' : '--s1') + ')" stroke="var(--card)" stroke-width="2"/>').join('');
+    s += '<text x="' + L + '" y="' + (H - 3) + '">7 days ago</text><text x="' + (W - 6) + '" y="' + (H - 3) + '" text-anchor="end">now</text>';
+    const leg = lines.map((l) => '<span><span class="sw" style="background:var(' + (l.k ? '--s2' : '--s1') + ')"></span>' + l.win.name + '<span class="tot">' + Math.round(l.last[1]) + '%</span></span>').join('');
+    return '<div class="win"><div class="h"><b>' + w.machine + '</b><span class="m">' + w.harness + '</span></div><svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Subscription windows of ' + w.harness + ' on ' + w.machine + '">' + s + '</svg><div class="legend" style="font-size:12px">' + leg + '</div></div>';
+  }).join('') + '<p class="cap" style="grid-column:1/-1">Each reading as the trierarch took it: at its start, then at most every 30 minutes with work since. The ranges above apply here too.</p>';
+
+  render();
+})();
+</script>
+
+</body></html>
