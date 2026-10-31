@@ -13,7 +13,11 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Alive: Story = {};
+export const Alive: Story = {
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByTestId('machine-card-usage')).toHaveAttribute('href', `/usage?machine=${ALIVE_MACHINE.shipId}`);
+  },
+};
 
 /** A flag its trierarch reports as risky is marked; the others show plainly. */
 export const RiskyFlag: Story = {

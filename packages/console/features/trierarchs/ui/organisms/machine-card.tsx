@@ -3,6 +3,7 @@ import { Bot, CircleDashed, FolderOpen, GitBranch, ShipWheel, TriangleAlert } fr
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
+import { usageLinkOf } from '../../../../lib/usage-link';
 import { harnessLoginOf } from '../../../../lib/api-key-logins';
 import { harnessDetection, harnessWord } from '../../../../lib/harness';
 import { harnessOptions, machineLiveness, type Spot } from '../../../../lib/machines';
@@ -178,6 +179,9 @@ export function MachineCard({ machine, spots, location, ships, onNewSetupLine, n
         >
           <ShipWheel aria-hidden />
           {machine.name}
+        </Link>
+        <Link href={usageLinkOf({ machine: machine.shipId })} data-testid="machine-card-usage" className="self-start text-meta font-medium text-primary underline underline-offset-3">
+          Usage
         </Link>
         <MachineLiveness machine={machine} now={now} />
         {onNewSetupLine === undefined ? null : (
