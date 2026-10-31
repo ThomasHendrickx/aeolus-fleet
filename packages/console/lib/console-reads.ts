@@ -8,7 +8,8 @@ import { parseCrewSettings } from './crew-settings-read';
 import { readGatewayConnection } from './gateway-reads';
 import { readInbox, readInboxEntry, readThread } from './inbox-reads';
 import { listRepositories, listSquadrons, readBlueprintCrew, readCatalogue, readKeptMessages, readSquadronsConnection } from './squadrons-reads';
-import { checkCrewSettings, listEnabledModels, listMachines, readTrierarchPluginConnection, readTrierarchPluginVersion } from './trierarch-plugin-reads';
+import { checkCrewSettings, listEnabledModels, listMachines, readTrierarchPluginConnection, readTrierarchPluginVersion, readUsageTokens, readUsageValues } from './trierarch-plugin-reads';
+import { usageTokensRequestSchema, usageValuesRequestSchema } from './trierarch-plugin-schemas';
 
 /**
  * Every console read by name, as /api/reads/<name> answers it
@@ -33,6 +34,8 @@ export const CONSOLE_READS = {
   'trierarch-plugin-version': consoleRead(z.undefined(), async () => ({ kind: 'answered', data: (await readTrierarchPluginVersion()) ?? null })),
   machines: consoleRead(z.undefined(), listMachines),
   'enabled-models': consoleRead(z.undefined(), listEnabledModels),
+  'usage-tokens': consoleRead(usageTokensRequestSchema, readUsageTokens),
+  'usage-values': consoleRead(usageValuesRequestSchema, readUsageValues),
   inbox: consoleRead(z.object({ filter: inboxFilterSchema, size: z.int().positive() }), readInbox),
   'inbox-entry': consoleRead(z.object({ deliveryId: idSchema('delivery') }), ({ deliveryId }) => readInboxEntry(deliveryId)),
   'inbox-thread': consoleRead(z.object({ messageId: idSchema('message') }), ({ messageId }) => readThread(messageId)),
