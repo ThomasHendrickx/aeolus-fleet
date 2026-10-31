@@ -4,7 +4,7 @@ import { UserPlus } from 'lucide-react';
 import { useState } from 'react';
 
 import { checkInText, type RoleOption } from '../../../../lib/squadrons-view';
-import { Button, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle } from '@aeolus-fleet/common/header';
+import { Button, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle } from '@aeolus-fleet/ui';
 import { InlineError } from '../../../../components/molecules/inline-error';
 
 interface AddMemberDialogProps {

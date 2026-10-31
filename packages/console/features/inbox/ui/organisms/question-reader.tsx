@@ -4,7 +4,7 @@ import type { AnswerChoice, DeliveryId } from '@aeolus-fleet/common';
 import { ChevronRight, CircleAlert, CircleCheck, CircleHelp, CircleSlash, Pencil, Replace, Send } from 'lucide-react';
 import { useId, useState } from 'react';
 
-import { Button, classNames } from '@aeolus-fleet/common/header';
+import { Button, classNames } from '@aeolus-fleet/ui';
 import type { QuestionEntry } from '../../../../lib/inbox-entry';
 import { clockTime, duration, fullDateTime, shortDateTime } from '../../../../lib/relative-time';
 import { counted } from '../../../../lib/sentence';

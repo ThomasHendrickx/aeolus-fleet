@@ -9,7 +9,7 @@ function aRun(run: Partial<CandidateRun> = {}): CandidateRun {
   return { workflowName: 'Candidate', conclusion: 'success', headSha: SHA, ...run };
 }
 
-function aTarball(name: 'common' | 'core' | 'console', tarball: Partial<PackedTarball> = {}): PackedTarball {
+function aTarball(name: 'common' | 'ui' | 'core' | 'console', tarball: Partial<PackedTarball> = {}): PackedTarball {
   return {
     name: `@aeolus-fleet/${name}`,
     version: VERSION,
@@ -19,9 +19,14 @@ function aTarball(name: 'common' | 'core' | 'console', tarball: Partial<PackedTa
   };
 }
 
-const MANIFEST = [aTarball('common'), aTarball('core'), aTarball('console')];
+const MANIFEST = [aTarball('common'), aTarball('ui'), aTarball('core'), aTarball('console')];
 /** What the release computed from the downloaded files, by file name. */
-const DOWNLOADED = { 'aeolus-fleet-common-0.29.0.tgz': 'sha512-common', 'aeolus-fleet-core-0.29.0.tgz': 'sha512-core', 'aeolus-fleet-console-0.29.0.tgz': 'sha512-console' };
+const DOWNLOADED = {
+  'aeolus-fleet-common-0.29.0.tgz': 'sha512-common',
+  'aeolus-fleet-ui-0.29.0.tgz': 'sha512-ui',
+  'aeolus-fleet-core-0.29.0.tgz': 'sha512-core',
+  'aeolus-fleet-console-0.29.0.tgz': 'sha512-console',
+};
 
 function refusal(check: { run?: CandidateRun; manifest?: PackedTarball[]; downloaded?: Record<string, string> } = {}) {
   return candidateRefusal({ version: VERSION, sha: SHA, run: aRun(), manifest: MANIFEST, downloaded: DOWNLOADED, ...check });
@@ -45,13 +50,13 @@ describe('the candidate a release publishes', () => {
   });
 
   it('refuses a candidate at another version', () => {
-    expect(refusal({ manifest: [aTarball('common'), aTarball('core', { version: '0.28.4' }), aTarball('console')] })).toBe(
+    expect(refusal({ manifest: [aTarball('common'), aTarball('ui'), aTarball('core', { version: '0.28.4' }), aTarball('console')] })).toBe(
       'The candidate holds @aeolus-fleet/core 0.28.4, not 0.29.0',
     );
   });
 
   it('refuses a candidate missing one of the train\'s packages', () => {
-    expect(refusal({ manifest: [aTarball('common'), aTarball('core')] })).toBe('The candidate has no @aeolus-fleet/console');
+    expect(refusal({ manifest: [aTarball('common'), aTarball('ui'), aTarball('core')] })).toBe('The candidate has no @aeolus-fleet/console');
   });
 
   it('refuses a tarball whose bytes differ from the candidate\'s record', () => {

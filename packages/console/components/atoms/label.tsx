@@ -1,6 +1,6 @@
 import type { ComponentProps } from 'react';
 
-import { classNames } from '@aeolus-fleet/common/header';
+import { classNames } from '@aeolus-fleet/ui';
 
 /**
  * shadcn Label: the visible name above a field (docs/design/png/Input.png),

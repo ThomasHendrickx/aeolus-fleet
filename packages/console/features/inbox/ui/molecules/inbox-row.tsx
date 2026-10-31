@@ -1,7 +1,7 @@
 import type { DeliveryId } from '@aeolus-fleet/common';
 import { CircleCheck, CircleDashed, CircleSlash, Replace } from 'lucide-react';
 
-import { classNames } from '@aeolus-fleet/common/header';
+import { classNames } from '@aeolus-fleet/ui';
 import type { InboxEntry } from '../../../../lib/inbox-entry';
 import { clockTime, duration, fullDateTime, shortDateTime } from '../../../../lib/relative-time';
 import { Badge } from '../../../../components/atoms/badge';

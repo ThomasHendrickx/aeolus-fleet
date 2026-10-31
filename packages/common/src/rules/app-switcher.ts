@@ -1,4 +1,5 @@
-import type { AppsList, FleetId, HeaderApp } from '../index.js';
+import type { FleetId } from '../ids/index.js';
+import type { AppsList, HeaderApp } from '../schemas/apps-list.js';
 
 /*
  * What the switcher in the title offers (header design H1, H8, H9): the fleets
@@ -65,14 +66,4 @@ export function appSwitcherOf(input: { list: AppsList | undefined; fleet: { id: 
   const inView = (list.fleets.find((listed) => listed.id === fleet.id)?.apps ?? []).map((link) => ({ ...link, url: inFleet(link.url, fleet.id) }));
   const apps = [...inView, ...list.apps].map((link) => ({ app: link.app, label: APP_LABELS[link.app], url: link.url, isCurrent: link.app === app }));
   return { fleet, appLabel, fleets, apps, canSwitch: fleets.length > 1 || apps.length > 1 };
-}
-
-/** How someone is signed in here (H10). */
-export type SignedInAs = 'argo' | 'account' | 'viewer';
-
-const SIGNED_IN_AS_LABELS: Record<SignedInAs, string> = { argo: 'Signed in as argo', account: 'Signed in as your account', viewer: 'Viewer' };
-
-/** The avatar menu's line for how someone is signed in here. */
-export function signedInAsOf(signedInAs: SignedInAs): string {
-  return SIGNED_IN_AS_LABELS[signedInAs];
 }

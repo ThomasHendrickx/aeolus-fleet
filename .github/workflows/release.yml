@@ -1,5 +1,5 @@
-# Publishes core's release train (decision 0049), @aeolus-fleet/common, core and
-# console, to npm with one version and tags v<version> the released commit, so a
+# Publishes core's release train (decision 0049), @aeolus-fleet/common, ui, core
+# and console, to npm with one version and tags v<version> the released commit, so a
 # version on npm always matches a tag in git. It publishes the tarballs a run of
 # candidate.yml packed, the ones staging walked, and builds nothing itself. Then
 # creates the GitHub Release for the tag, with notes from the merged pull
@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Version for common, core and console, MAJOR.MINOR.PATCH
+        description: Version for common, ui, core and console, MAJOR.MINOR.PATCH
         required: true
         type: string
       candidate_run_id:
@@ -134,11 +134,11 @@ jobs:
       # Catch a problem in any tarball before the first one is published. A dry
       # run refuses a version on npm already too, so it skips those, as the
       # publish steps below do.
-      - name: Dry run all three
+      - name: Dry run all four
         env:
           VERSION: ${{ inputs.version }}
         run: |
-          for NAME in common core console; do
+          for NAME in common ui core console; do
             if [[ "$(npm view "@aeolus-fleet/$NAME@$VERSION" version 2>/dev/null)" == "$VERSION" ]]; then
               echo "@aeolus-fleet/$NAME@$VERSION is on npm already: skipped"
             else
@@ -160,6 +160,16 @@ jobs:
           else
             npm publish --access public "$RUNNER_TEMP/candidate/aeolus-fleet-common-$VERSION.tgz"
           fi
+      - name: Publish @aeolus-fleet/ui
+        env:
+          PACKAGE: '@aeolus-fleet/ui'
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [[ "$(npm view "$PACKAGE@$VERSION" version 2>/dev/null)" == "$VERSION" ]]; then
+            echo "$PACKAGE@$VERSION is on npm already: skipped"
+          else
+            npm publish --access public "$RUNNER_TEMP/candidate/aeolus-fleet-ui-$VERSION.tgz"
+          fi
       - name: Publish @aeolus-fleet/core
         env:
           PACKAGE: '@aeolus-fleet/core'
@@ -180,7 +190,7 @@ jobs:
           else
             npm publish --access public "$RUNNER_TEMP/candidate/aeolus-fleet-console-$VERSION.tgz"
           fi
-      # After all three are on npm. If this step fails, push the tag by hand: the
+      # After all four are on npm. If this step fails, push the tag by hand: the
       # version is already published and cannot be released again.
       - name: Tag v${{ inputs.version }}, the released commit
         env:

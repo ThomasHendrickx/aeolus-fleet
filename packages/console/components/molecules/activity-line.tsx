@@ -1,5 +1,5 @@
 import type { ListedActivity } from '@aeolus-fleet/common';
-import { classNames } from '@aeolus-fleet/common/header';
+import { classNames } from '@aeolus-fleet/ui';
 import { Terminal } from 'lucide-react';
 
 import { activityLine, activityRow } from '../../lib/activity';

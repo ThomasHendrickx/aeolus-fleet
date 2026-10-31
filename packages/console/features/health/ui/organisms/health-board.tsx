@@ -1,7 +1,7 @@
 import type { Health, StuckCause, StuckSummary } from '@aeolus-fleet/common';
 import type { ReactNode } from 'react';
 
-import { classNames } from '@aeolus-fleet/common/header';
+import { classNames } from '@aeolus-fleet/ui';
 import { Skeleton } from '../../../../components/atoms/skeleton';
 import { InlineError } from '../../../../components/molecules/inline-error';
 import { causeTotalsOf, stuckByMachine, type StuckPlace } from '../../services/health-view';

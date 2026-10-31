@@ -4,7 +4,7 @@ import type { MessageDelivery } from '@aeolus-fleet/common';
 import { RotateCw } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-import { Button } from '@aeolus-fleet/common/header';
+import { Button } from '@aeolus-fleet/ui';
 
 import { fullDateTime, relativeTime } from '../../../../lib/relative-time';
 import { OPERATOR_NAME } from '../../../../lib/sentence';

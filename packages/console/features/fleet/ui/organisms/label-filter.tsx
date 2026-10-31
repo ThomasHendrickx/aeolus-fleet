@@ -7,7 +7,7 @@ import { useState, type ReactElement } from 'react';
 import dynamic from 'next/dynamic';
 
 import type { FilterGroup, LabelChip as LabelChipData } from '../../../../lib/labels';
-import { Button } from '@aeolus-fleet/common/header';
+import { Button } from '@aeolus-fleet/ui';
 import { Popover, PopoverContent, PopoverTrigger } from '../../../../components/atoms/popover';
 import { LabelChip } from '../../../../components/molecules/label-chip';
 

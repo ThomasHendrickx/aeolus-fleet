@@ -1,4 +1,4 @@
-import { Button } from '@aeolus-fleet/common/header';
+import { Button } from '@aeolus-fleet/ui';
 
 export interface FilterTogglesProps {
   /** The filter's name, over its chips and as the group's name: "Kind". */

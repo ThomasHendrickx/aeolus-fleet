@@ -37,7 +37,7 @@ jobs:
       - run: npm run test:unit
 
   storybook:
-    # The console's parts must keep building in Storybook.
+    # The console's parts and ui's must keep building in Storybook.
     name: Storybook build
     runs-on: ubuntu-latest
     steps:
@@ -47,10 +47,11 @@ jobs:
           node-version: 26
           cache: npm
       - run: npm ci
+      - run: npm run build-storybook --workspace @aeolus-fleet/ui
       - run: npm run build-storybook --workspace @aeolus-fleet/console
 
   storybook-tests:
-    # Every story of the console as a test, in Chromium: each renders without
+    # Every story of the console and of ui as a test, in Chromium: each renders without
     # errors, and each play function runs (#303).
     name: Storybook tests
     runs-on: ubuntu-latest
@@ -163,5 +164,6 @@ jobs:
       # The console ships bundled third-party code: its tarball must carry their licence notices.
       - run: node packages/console/scripts/check-third-party-notices.ts
       - run: npm publish --dry-run --access public --tag dry-run --workspace @aeolus-fleet/common
+      - run: npm publish --dry-run --access public --tag dry-run --workspace @aeolus-fleet/ui
       - run: npm publish --dry-run --access public --tag dry-run --workspace @aeolus-fleet/core
       - run: npm publish --dry-run --access public --tag dry-run --workspace @aeolus-fleet/console

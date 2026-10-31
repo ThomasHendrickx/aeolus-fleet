@@ -274,3 +274,23 @@ describe('lists and accessibility', () => {
     expect(reportsOf(await lint(code, probes.atom), rule)).toHaveLength(1);
   });
 });
+
+describe('the console takes @aeolus-fleet/ui by its entry only', () => {
+  const everyPlace = [probes.atom, probes.uiOrganism, probes.oldFeatureOrganism, probes.state, probes.page, probes.lib];
+
+  it.each([
+    ['a path into the package', "import { Button } from '@aeolus-fleet/ui/src/atoms/button';"],
+    ['a built file', "import { Button } from '@aeolus-fleet/ui/dist/atoms/button.js';"],
+    ['a relative path into packages/ui', "import { Button } from '../../../../ui/src/atoms/button';"],
+  ])('refuses %s', async (_label, code) => {
+    for (const path of everyPlace) {
+      await expect(importViolations(code, path)).resolves.toEqual([expect.stringContaining('by its entry only')]);
+    }
+  });
+
+  it('passes the entry', async () => {
+    for (const path of everyPlace) {
+      await expect(importViolations("import { Button } from '@aeolus-fleet/ui';", path)).resolves.toEqual([]);
+    }
+  });
+});

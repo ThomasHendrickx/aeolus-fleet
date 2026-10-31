@@ -3,11 +3,11 @@
 import { Check, ChevronDown, LoaderCircle } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 
-import type { AppSwitcherModel } from './apps.js';
-import { Button } from './atoms/button.js';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from './atoms/dropdown-menu.js';
-import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from './atoms/sheet.js';
-import { classNames } from './class-names.js';
+import type { AppSwitcherModel } from '@aeolus-fleet/common/rules';
+import { Button } from '../atoms/button.js';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '../atoms/dropdown-menu.js';
+import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from '../atoms/sheet.js';
+import { classNames } from '../class-names.js';
 
 interface AppSwitcherProps {
   switcher: AppSwitcherModel;

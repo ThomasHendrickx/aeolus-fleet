@@ -3,7 +3,7 @@ import { Archive, CircleAlert, Eye, Info, KeyRound, Plug, UserRound } from 'luci
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
-import { Button, classNames } from '@aeolus-fleet/common/header';
+import { Button, classNames } from '@aeolus-fleet/ui';
 import { clockTime, dayDate, duration, fullDateTime, lastSeen, relativeTime, shortDateTime } from '../../../../lib/relative-time';
 import { Badge } from '../../../../components/atoms/badge';
 import { CopyButton } from '../../../../components/atoms/copy-button';

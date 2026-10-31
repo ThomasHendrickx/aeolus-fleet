@@ -4,7 +4,7 @@
 import type { MessageId } from '@aeolus-fleet/common';
 import { useRouter } from 'next/navigation';
 
-import { Button } from '@aeolus-fleet/common/header';
+import { Button } from '@aeolus-fleet/ui';
 import { InlineError } from '../../../components/molecules/inline-error';
 import { LoadMore } from '../../../components/molecules/load-more';
 import { trpcErrorCode } from '../../../lib/errors';

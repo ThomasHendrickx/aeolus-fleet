@@ -1,7 +1,7 @@
 import type { LocationKind } from '@aeolus-fleet/common';
 import { AppWindow, Bot, Cloud, Laptop, MapPin, MessageCircle, Server, SquareTerminal, Unplug, type LucideIcon } from 'lucide-react';
 
-import { classNames } from '@aeolus-fleet/common/header';
+import { classNames } from '@aeolus-fleet/ui';
 import { harnessKind, harnessWord, type HarnessKind } from '../../lib/harness';
 import { locationKindWord } from '../../lib/location';
 import { HarnessUnknown } from './harness-unknown';

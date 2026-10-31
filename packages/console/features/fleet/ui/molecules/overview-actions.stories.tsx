@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { Plus } from 'lucide-react';
 import { expect, within } from 'storybook/test';
 
-import { Button } from '@aeolus-fleet/common/header';
+import { Button } from '@aeolus-fleet/ui';
 import { OverviewActions } from './overview-actions';
 
 const PHONE = { viewport: { value: 'mobile1' } };

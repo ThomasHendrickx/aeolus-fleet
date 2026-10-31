@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../../../../components/atoms/alert-dialog';
-import { Button, dialogSurface } from '@aeolus-fleet/common/header';
+import { Button, dialogSurface } from '@aeolus-fleet/ui';
 import { Input } from '../../../../components/atoms/input';
 import { Label } from '../../../../components/atoms/label';
 import { EmptyState } from '../../../../components/molecules/empty-state';

@@ -1,6 +1,6 @@
 import { Package, Sparkles } from 'lucide-react';
 
-import { classNames, Tooltip, TooltipContent, TooltipTrigger } from '@aeolus-fleet/common/header';
+import { classNames, Tooltip, TooltipContent, TooltipTrigger } from '@aeolus-fleet/ui';
 import { isSoftwareModel, modelStatedWords } from '../../lib/model-tag';
 
 /**

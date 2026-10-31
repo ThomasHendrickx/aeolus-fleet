@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-import { Button, classNames } from '@aeolus-fleet/common/header';
+import { Button, classNames } from '@aeolus-fleet/ui';
 import type { Block, Inline } from '../../../../lib/message-document';
 
 /*

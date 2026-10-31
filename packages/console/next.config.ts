@@ -10,7 +10,7 @@ const nextConfig: NextConfig = {
   // The package ships .next/standalone: the server and only the files it
   // needs, so installing it pulls no Next.js, React or build tooling.
   output: 'standalone',
-  // Trace from the repository root: the console bundles @aeolus-fleet/common from its workspace.
+  // Trace from the repository root: the console bundles @aeolus-fleet/common and @aeolus-fleet/ui from its workspace.
   outputFileTracingRoot: fileURLToPath(new URL('../..', import.meta.url)),
   // The console shows no next/image, so it optimizes no image and never
   // loads sharp (scripts/standalone.js leaves it out of the package).

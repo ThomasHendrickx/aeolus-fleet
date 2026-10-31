@@ -12,8 +12,25 @@ const conditions = ['@aeolus-fleet/source', 'module', 'node', 'development|produ
 // OpenTelemetry's, whose imports name no file extension.
 const nodeConditions = conditions.filter((condition) => condition !== 'module');
 
-/** The console's Storybook, whose every story runs as a test (#303). */
-const storybookConfigDir = fileURLToPath(new URL('packages/console/.storybook', import.meta.url));
+/** Each package's Storybook, whose every story runs as a test (#303). */
+const consoleStorybook = fileURLToPath(new URL('packages/console/.storybook', import.meta.url));
+const uiStorybook = fileURLToPath(new URL('packages/ui/.storybook', import.meta.url));
+
+/** One Storybook's stories as one Vitest project. */
+function storiesProject(name: string, configDir: string): TestProjectInlineConfiguration {
+  return {
+    plugins: [storybookTest({ configDir })],
+    test: {
+      name,
+      browser: {
+        enabled: true,
+        headless: true,
+        provider: playwright(process.env.CHROMIUM_EXECUTABLE_PATH === undefined ? {} : { launchOptions: { executablePath: process.env.CHROMIUM_EXECUTABLE_PATH } }),
+        instances: [{ browser: 'chromium' }],
+      },
+    },
+  };
+}
 
 /**
  * The layers in the order a full run takes them, as each project's name ends
@@ -76,6 +93,14 @@ export default defineConfig({
       {
         extends: true,
         test: {
+          name: 'ui:unit',
+          root: 'packages/ui',
+          include: ['src/**/*.test.ts'],
+        },
+      },
+      {
+        extends: true,
+        test: {
           name: 'core:unit',
           root: 'packages/core',
           include: ['src/**/*.test.ts', 'test/**/*.test.ts'],
@@ -102,23 +127,13 @@ export default defineConfig({
           hookTimeout: 180_000,
         },
       },
-      {
-        // Every Storybook story of the console as a test, in Chromium: each
-        // renders without errors, and each play function runs (#303). Its own
-        // Vite config comes from Storybook's, for the browser, so it does not
-        // extend the Node one above. CHROMIUM_EXECUTABLE_PATH points at a
-        // Chromium a machine has already, as for the end-to-end tests.
-        plugins: [storybookTest({ configDir: storybookConfigDir })],
-        test: {
-          name: 'console:stories',
-          browser: {
-            enabled: true,
-            headless: true,
-            provider: playwright(process.env.CHROMIUM_EXECUTABLE_PATH === undefined ? {} : { launchOptions: { executablePath: process.env.CHROMIUM_EXECUTABLE_PATH } }),
-            instances: [{ browser: 'chromium' }],
-          },
-        },
-      },
+      // Every Storybook story of the console and of ui as a test, in Chromium:
+      // each renders without errors, and each play function runs (#303). Its
+      // own Vite config comes from Storybook's, for the browser, so it does not
+      // extend the Node one above. CHROMIUM_EXECUTABLE_PATH points at a
+      // Chromium a machine has already, as for the end-to-end tests.
+      storiesProject('ui:stories', uiStorybook),
+      storiesProject('console:stories', consoleStorybook),
       {
         extends: true,
         test: {

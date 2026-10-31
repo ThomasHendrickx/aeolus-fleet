@@ -1,7 +1,7 @@
 'use client';
 
 import type { AppsList, ConsoleSessionOutput } from '@aeolus-fleet/common';
-import { appSwitcherOf, type AppSwitcherModel } from '@aeolus-fleet/common/header';
+import { appSwitcherOf, type AppSwitcherModel } from '@aeolus-fleet/common/rules';
 import { useQuery } from '@tanstack/react-query';
 
 import { fetchConsoleRead } from './fetch-console-read';

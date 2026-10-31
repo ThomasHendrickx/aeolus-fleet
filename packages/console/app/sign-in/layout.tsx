@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-import { Avatar, SignInBackground } from '@aeolus-fleet/common/header';
+import { Avatar, SignInBackground } from '@aeolus-fleet/ui';
 
 /**
  * Signed-out pages (docs/design/png/SignInLayout.png): the brand above the

@@ -8,7 +8,7 @@ import { Fragment, useState } from 'react';
 
 import type { FilterGroup } from '../../../../lib/labels';
 import { OWNER_TERM_MEANINGS, TERM_MEANINGS, termKeyOf, type OwnerChip, type OwnerChoice, type TermChip } from '../../../../lib/network-rules';
-import { Button } from '@aeolus-fleet/common/header';
+import { Button } from '@aeolus-fleet/ui';
 import { Popover, PopoverContent, PopoverTrigger } from '../../../../components/atoms/popover';
 import { LabelChip } from '../../../../components/molecules/label-chip';
 

@@ -2,7 +2,7 @@ import { Server } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
-import { Button } from '@aeolus-fleet/common/header';
+import { Button } from '@aeolus-fleet/ui';
 
 import { NotOfferedLine } from '../../../../components/molecules/not-offered-line';
 

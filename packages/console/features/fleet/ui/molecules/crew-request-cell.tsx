@@ -1,4 +1,4 @@
-import { classNames } from '@aeolus-fleet/common/header';
+import { classNames } from '@aeolus-fleet/ui';
 import type { CrewRequestCell as Cell } from '../../../../lib/needs-crew';
 
 const DOT_TONES = {

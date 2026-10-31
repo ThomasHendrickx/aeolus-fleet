@@ -8,7 +8,7 @@ import { Combobox } from '../../../../components/atoms/combobox';
 import { Label } from '../../../../components/atoms/label';
 import { Textarea } from '../../../../components/atoms/textarea';
 import { InlineError } from '../../../../components/molecules/inline-error';
-import { Button, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle } from '@aeolus-fleet/common/header';
+import { Button, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle } from '@aeolus-fleet/ui';
 import { checkLineOf, differenceKeyOf, isEveryDifferenceResolved, resolutionOf, ruleLinesOf, type ResolutionChoice } from '../../services/rules-file';
 import { NetworkRulesDifferenceField } from '../molecules/network-rules-difference-field';
 

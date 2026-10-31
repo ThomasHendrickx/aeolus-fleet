@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { fn } from 'storybook/test';
 import { Plus } from 'lucide-react';
 
-import { Button } from '@aeolus-fleet/common/header';
+import { Button } from '@aeolus-fleet/ui';
 import { TopBar } from './top-bar';
 import { AVATAR_MENU, SWITCHER } from '../../lib/fixtures/header.fixtures';
 

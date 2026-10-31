@@ -1,6 +1,6 @@
 'use client';
 
-import { Avatar, CommandPalette as SharedCommandPalette, type CommandGroup } from '@aeolus-fleet/common/header';
+import { Avatar, CommandPalette as SharedCommandPalette, type CommandGroup } from '@aeolus-fleet/ui';
 import { Activity, AppWindow, DraftingCompass, Inbox, Plus, Shapes, Ship, SquarePen, UserPlus, Waves, type LucideIcon } from 'lucide-react';
 
 import { paletteGroups, paletteKeyOf, type PaletteItem } from '../../services/command-palette';
@@ -122,7 +122,7 @@ function groupsOf({ items, apps, query }: { items: readonly PaletteItem[]; apps:
 
 /**
  * The CommandPalette (docs/design/png/CommandPalette.png), on the palette
- * every Aeolus app shows (@aeolus-fleet/common/header): search ships or jump
+ * every Aeolus app shows (@aeolus-fleet/ui): search ships or jump
  * to an action, a page or another app. Actions, Ships (with their
  * StatusBadge, never argo), Go to and Apps, filtered as the operator types.
  * While the ships load, rows in their shape stand in. Desktop: a dialog near

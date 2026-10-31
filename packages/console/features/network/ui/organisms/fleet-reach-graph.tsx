@@ -1,7 +1,7 @@
 import type { ShipId } from '@aeolus-fleet/common';
 import { Ban, Check, Crosshair, Search } from 'lucide-react';
 
-import { Button, classNames } from '@aeolus-fleet/common/header';
+import { Button, classNames } from '@aeolus-fleet/ui';
 import { graphNodesOf, reachSummaryOf, type GraphNode, type GraphShip, type ReachAgainst, type ReachMark } from '../../services/reach-graph';
 import { Combobox } from '../../../../components/atoms/combobox';
 import { Tabs, TabsList, TabsTrigger } from '../../../../components/atoms/tabs';

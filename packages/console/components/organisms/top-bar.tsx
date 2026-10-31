@@ -1,4 +1,5 @@
-import { AppSwitcher, AvatarMenuSheet, Button, type AppSwitcherModel, type AvatarMenuProps } from '@aeolus-fleet/common/header';
+import { AppSwitcher, AvatarMenuSheet, Button, type AvatarMenuProps } from '@aeolus-fleet/ui';
+import type { AppSwitcherModel } from '@aeolus-fleet/common/rules';
 import { ChevronLeft, Search } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';

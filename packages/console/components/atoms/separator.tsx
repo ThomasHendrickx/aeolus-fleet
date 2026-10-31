@@ -2,7 +2,7 @@
 
 import { Separator as SeparatorPrimitive } from '@base-ui/react/separator';
 
-import { classNames } from '@aeolus-fleet/common/header';
+import { classNames } from '@aeolus-fleet/ui';
 
 /**
  * shadcn Separator on Base UI: 1 px --border. Groups menu items and toolbar

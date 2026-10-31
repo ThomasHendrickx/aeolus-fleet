@@ -16,7 +16,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-import { classNames } from '@aeolus-fleet/common/header';
+import { classNames } from '@aeolus-fleet/ui';
 import type { DeliveryStepState } from '../../services/delivery-history';
 import type { WayIcon, WayLine, WayTone } from '../../services/message-way';
 import { StatusBadge } from '../../../../components/molecules/status-badge';

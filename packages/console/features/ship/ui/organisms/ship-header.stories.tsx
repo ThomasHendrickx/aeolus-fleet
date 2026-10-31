@@ -5,7 +5,7 @@ import { expect, fn, within } from 'storybook/test';
 
 import { SQUADRONS_SHIP } from '../../../../lib/connect-plugin';
 import { assignKeysOf, chipsOf, labelLimitOf } from '../../../../lib/labels';
-import { Button } from '@aeolus-fleet/common/header';
+import { Button } from '@aeolus-fleet/ui';
 import { ShipLabels } from '../../../../components/molecules/ship-labels';
 import { ShipHeader } from './ship-header';
 import { AREA, carried, labelContext, labelledFleet, PROJECT } from '../../../../lib/fixtures/labels.fixtures';

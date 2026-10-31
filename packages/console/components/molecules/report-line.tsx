@@ -1,7 +1,7 @@
 import type { FleetId, ListedShip, ReportState, ReportTask } from '@aeolus-fleet/common';
 import { Activity, CircleDot, CircleHelp, CirclePause, GitPullRequest, Link, Mail, OctagonPause, type LucideIcon } from 'lucide-react';
 
-import { classNames } from '@aeolus-fleet/common/header';
+import { classNames } from '@aeolus-fleet/ui';
 import { fullDateTime } from '../../lib/relative-time';
 import { REPORT_STATE_WORDS, REPORT_TONES, reportAge, reportChangedWhen, reportedWhen, reportText } from '../../lib/report';
 import { reportStepText, reportTaskLabel, type ReportTaskLabel } from '../../lib/report-task';

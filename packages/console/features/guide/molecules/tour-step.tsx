@@ -1,6 +1,6 @@
 'use client';
 
-import { Button } from '@aeolus-fleet/common/header';
+import { Button } from '@aeolus-fleet/ui';
 import { Popover, PopoverContent, PopoverDescription, PopoverTitle } from '../../../components/atoms/popover';
 
 export interface TourStepProps {

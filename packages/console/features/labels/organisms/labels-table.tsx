@@ -4,7 +4,7 @@ import { Boxes, Ellipsis, Pencil, Plus, Search, Ship, ShipWheel, Tags, Trash2 } 
 import Link from 'next/link';
 import { useState } from 'react';
 
-import { Button, classNames, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@aeolus-fleet/common/header';
+import { Button, classNames, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@aeolus-fleet/ui';
 import { useConsoleConstants } from '../../../lib/console-constants';
 import { matchesLabelQuery, type LabelRow, type OwnerMark } from '../../../lib/labels';
 import { Input } from '../../../components/atoms/input';

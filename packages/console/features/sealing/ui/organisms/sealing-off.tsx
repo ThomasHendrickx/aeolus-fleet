@@ -1,6 +1,6 @@
 import { Lock, LockOpen } from 'lucide-react';
 
-import { Button } from '@aeolus-fleet/common/header';
+import { Button } from '@aeolus-fleet/ui';
 import { EmptyState } from '../../../../components/molecules/empty-state';
 
 const WHAT_SEALING_DOES = 'Payloads are stored readable. Sealing keeps them under your company’s own key in AWS KMS, so a copy of the database or the host reads none once you cut the key off.';
