@@ -98,9 +98,21 @@ describe('the 10 minute clock of a delivery handed and not confirmed', () => {
         actor: SYSTEM,
         shipId: scoutId,
         deliveryId,
-        details: { leaseId: scout.leaseId, clock: 'notConfirmed', minutes: 10 },
+        details: { leaseId: scout.leaseId, clock: 'notConfirmed', minutes: 10, ownerShipId: argo.shipId },
       }),
     ]);
+  });
+
+  it('names the owner of the ship at that time, whom the watch tells as well as argo (decision 0040)', async () => {
+    const { commissionShip, setOwner } = registryUseCases(core);
+    const { shipId: thomasId } = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person' }));
+    unwrap(await setOwner(argo, { shipId: scoutId, ownerShipId: thomasId }));
+    core.state.events.length = 0;
+    await handed();
+
+    await after(10 * MINUTE);
+
+    expect(overdueEvents().map(({ details }) => details.ownerShipId)).toEqual([thomasId]);
   });
 
   it('tells nothing a moment before 10 minutes', async () => {
