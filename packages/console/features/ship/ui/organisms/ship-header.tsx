@@ -17,6 +17,7 @@ import { PingStatus } from '../molecules/ping-status';
 import { ReportDetails } from '../molecules/report-details';
 import { ShipStatement } from '../molecules/ship-statement';
 import { ReportLine } from '../../../../components/molecules/report-line';
+import { ActivityLine } from '../../../../components/molecules/activity-line';
 import { ShipName } from '../../../../components/molecules/ship-name';
 import { StatusBadge } from '../../../../components/molecules/status-badge';
 
@@ -97,6 +98,7 @@ function MetaStrip({
           )}
           <PingStatus ping={ship.ping} now={now} testId="ship-ping-status" />
           {ship.kind !== 'agent' && ship.kind !== 'plugin' ? null : <ReportLine report={ship.report} now={now} variant="full" viewerFleetId={viewerFleetId} testId="ship-report" />}
+          <ActivityLine activity={ship.activity} now={now} variant="full" testId="ship-activity" />
         </span>
       </MetaCell>
       <MetaCell label="Crewed since">

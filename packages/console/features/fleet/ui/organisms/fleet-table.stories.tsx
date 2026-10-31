@@ -274,6 +274,24 @@ export const TaskAndStep: Story = {
 };
 export const TaskAndStepPhone: Story = { ...TaskAndStep, globals: { viewport: { value: 'mobile1' } } };
 
+/** The monitoring design's Seen cell: activity beside last seen, unknown once the trierarch's write is older than twice its interval, nothing for a ship crewed by hand. */
+const ACTIVITY_FLEET = [
+  argo,
+  ship('h6aa', { name: 'reviewer-3', activity: { at: minutesBefore(2), kind: 'tool', tool: 'Bash', reportedAt: minutesBefore(0.2), intervalSeconds: 30 } }),
+  ship('h6ab', { name: 'merger-1', activity: { at: minutesBefore(30), kind: 'tool', tool: 'Bash', reportedAt: minutesBefore(25), intervalSeconds: 30 } }),
+  ship('h6ac', { name: 'writer-2', activity: { at: minutesBefore(1), kind: 'text', tool: null, reportedAt: minutesBefore(0.2), intervalSeconds: 30 } }),
+  ship('h6ad', { name: 'triage' }),
+];
+export const Activity: Story = {
+  args: { ships: ACTIVITY_FLEET, labels: labelContext(ACTIVITY_FLEET) },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getAllByText('tool 2 min')).not.toHaveLength(0);
+    await expect(within(canvasElement).getAllByText('unknown')).not.toHaveLength(0);
+  },
+};
+export const ActivityPhone: Story = { ...Activity, globals: { viewport: { value: 'mobile1' } } };
+export const ActivityDark: Story = { ...Activity, globals: { theme: 'dark' } };
+
 /** Phone with filters in force: the chips under the search, Clear filters, and the filter button marked. */
 export const PhoneFiltered: Story = {
   globals: { viewport: { value: 'mobile1' } },
