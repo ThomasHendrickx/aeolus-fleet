@@ -1,5 +1,5 @@
-# Builds a candidate of core's release train (decision 0049): common, core and
-# console at the version they will be released as, packed with npm pack and
+# Builds a candidate of core's release train (decision 0049): common, ui, core
+# and console at the version they will be released as, packed with npm pack and
 # uploaded with their integrity.json as the Actions artifact <version>-<short
 # sha>. It publishes and tags nothing (ADR 0011): staging tries the candidate
 # before the release.
@@ -68,7 +68,7 @@ jobs:
           gh run list --workflow ci.yml --commit "$GITHUB_SHA" --branch "$GITHUB_REF_NAME" --event push --json status,conclusion,url \
             | node scripts/release-gate.ts "$GITHUB_REF" "$GITHUB_SHA"
 
-      - name: Set the version on common, core and console
+      - name: Set the version on common, ui, core and console
         env:
           VERSION: ${{ inputs.version }}
         run: npm run set-version -- "$VERSION"
@@ -76,10 +76,10 @@ jobs:
       - run: npm run build
 
       # integrity.json: each tarball's name, version, file and sha512 integrity, which npm's dist.integrity equals once published.
-      - name: Pack common, core and console
+      - name: Pack common, ui, core and console
         run: |
           mkdir "$RUNNER_TEMP/candidate"
-          npm pack --json --workspace @aeolus-fleet/common --workspace @aeolus-fleet/core --workspace @aeolus-fleet/console \
+          npm pack --json --workspace @aeolus-fleet/common --workspace @aeolus-fleet/ui --workspace @aeolus-fleet/core --workspace @aeolus-fleet/console \
             --pack-destination "$RUNNER_TEMP/candidate" \
             | node -e '
               const packed = JSON.parse(require("node:fs").readFileSync(0, "utf8"));
