@@ -2,7 +2,7 @@
 
 [Issue 1206](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1206). Stage 1 (purpose, what exists, lessons, questions) is answered (section 4). Stage 2, below, is the structure only: proposed, not decided. Nothing is built until Thomas approves it; then one part at a time (section 7).
 
-Screens and the chosen look (Compact): [mockups/README.md](mockups/README.md).
+Screens, which app's part the package takes, and the chosen look (Compact): [mockups/README.md](mockups/README.md).
 
 Thomas, 24 Oct: "In the end we are making the same components. So doing it once is better." 30 Oct: "Ok I also want to start the work on the UI elements package for aeolus the product."
 
@@ -208,7 +208,7 @@ In UP6's order. Each atom and molecule slice is done only when the gateway's and
 | U6 to U14 | aeolus-fleet, then gateway and pagasae | The repeating atoms, one slice each: Input, Label, Switch, Checkbox, Tabs, Skeleton, Separator, AlertDialog, Toast (Q12). The console's atom moves to ui with its stories; the console imports it; the other two drop theirs | The atom in ui with a story per state; no copy in any of the three |
 | U15 to U18 | aeolus-fleet, then pagasae | EmptyState, InlineError, LoadingSkeleton, TypedConfirm (console and pagasae show them), one each, as above | The molecule in ui; no copy in the console or pagasae; the gateway uses it where it builds one inline |
 | U19 | aeolus-fleet, then gateway and pagasae | StatusBadge (tone, icon, label), from the console's | The gateway's two StatusBadges and pagasae's ToneBadge are gone |
-| U20 | aeolus-fleet, then gateway and pagasae | The scope picker, each scope with its description as props (UP3); each app's server reads the descriptions | The gateway's `scope-words.ts` is gone; the A2A form shows descriptions; #1205 closed; walked on staging |
+| U20 | aeolus-fleet, then gateway and pagasae | The scope picker, from the gateway's, each scope with its description as props (UP3); each app's server reads the descriptions | The gateway's `scope-words.ts` is gone; the A2A form shows descriptions; #1205 closed; walked on staging |
 
 Not moving now: relative time (a formatter, not a part; each app keeps its own until a part shows it), the console's other atoms (Select, Combobox, Table, CopyButton, CodeBlock and more) until a second app shows them (UP2).
 

@@ -291,6 +291,18 @@ svg.i { width: var(--size-icon); height: var(--size-icon); flex-shrink: 0; fill:
 .scopes .search { padding: 10px 14px; border-bottom: 1px solid var(--border); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 
+.combo { min-height: var(--k-control); display: flex; flex-wrap: wrap; gap: 4px; align-items: center; padding: 4px 8px; border-radius: var(--k-r-control); border: 1px solid var(--input); background: var(--card); box-shadow: var(--shadow-sm); }
+.combo.focus { border-color: var(--ring); box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 22%, transparent); }
+.combo .ph { color: var(--muted-foreground); padding: 0 4px; }
+.cchip { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 6px; border-radius: var(--k-r-badge); border: 1px solid var(--border); background: var(--muted); font: var(--text-id)/1 var(--font-mono); }
+.cchip svg { width: 12px; height: 12px; color: var(--muted-foreground); }
+.cpop { border: 1px solid var(--border); background: var(--popover); border-radius: var(--k-r-control); padding: 4px; box-shadow: var(--shadow-md); }
+.citem { display: grid; grid-template-columns: 16px 1fr; column-gap: 8px; padding: 6px 8px; border-radius: calc(var(--k-r-control) - 2px); }
+.citem.hl { background: var(--accent); }
+.citem .ck svg { width: 14px; height: 14px; }
+.citem .mono { font-size: var(--text-code); }
+.citem .cd { font-size: var(--text-caption); color: var(--muted-foreground); }
+
 /* Card, table, chrome */
 .card { background: var(--card); border: 1px solid var(--k-card-border); border-radius: var(--k-r-card); padding: var(--k-pad-card); box-shadow: var(--k-card-shadow); display: flex; flex-direction: column; gap: 10px; }
 .card h3 { margin: 0; font: 600 var(--text-section)/var(--text-section--line-height) var(--font-sans); display: flex; gap: 8px; align-items: center; }

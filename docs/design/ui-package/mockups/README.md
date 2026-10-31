@@ -10,11 +10,11 @@ Each HTML file stands alone: the tokens from `packages/common/src/header/tokens.
 | [after.html](after.html), [after.png](after.png) | Those parts once, as `@aeolus-fleet/ui` would draw them on today's tokens, light and dark; then a screen of each app built only from them (console fleet overview, gateway outside parties, pagasae account rights), desktop and phone, light and dark |
 | [compact.html](compact.html), [compact.png](compact.png) | The same parts and screens in the chosen look, Compact |
 
-## After the package
+## Which app's part the package takes
 
-Where the apps differ today, the console's part wins: it is the one drawn from the design system. Two parts change in substance:
-- **StatusBadge** carries every app's states (Approved, Sign-in failed, On, At limit) with tone, icon and word; the gateway's two icon-less pills and pagasae's ToneBadge go.
-- **ScopePicker** shows each scope's meaning first and its code beside it, grouped by who declares it, with a search field when the list is long; picked scopes stay chips that keep their meaning. It replaces the commission dialog's scope switches, the gateway's code-only chips (#1205) and pagasae's right rows. The descriptions come as props from each app's server (UP3).
+Thomas, 31 Oct: "Scope picker of gateway, the rest can be console".
+- **ScopePicker:** the gateway's (`features/outside-party/tools-table/ui/scope-picker.tsx`), a multi-select Combobox: picked scopes are chips with their code, the list searches by code or description and shows both. Each scope's description comes as props from the app's server (UP3). It replaces the commission dialog's scope switches and pagasae's right rows.
+- **Every other part:** the console's. StatusBadge also carries the gateway's and pagasae's states (Approved, Sign-in failed, On, At limit) with tone, icon and word; the gateway's two icon-less pills and pagasae's ToneBadge go.
 
 ## The look: Compact
 
