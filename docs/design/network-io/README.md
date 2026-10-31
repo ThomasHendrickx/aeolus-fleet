@@ -56,7 +56,7 @@ Reads only, `fleet:network`. Always the applied rules, never the draft. Every id
   "labels": [{ "key": "crm", "values": ["app", "user"], "definer": "argo" }],
   "rules": [
     { "verb": "send", "from": [{ "label": "crm", "value": "user" }], "to": [{ "label": "crm", "value": "app" }] },
-    { "verb": "manage", "from": [{ "owner": "thomas" }], "to": [{ "owner": "#" }] }
+    { "verb": "manage", "from": [{ "owner": "thomas" }], "to": [{ "owner": "*" }] }
   ]
 }
 ```
