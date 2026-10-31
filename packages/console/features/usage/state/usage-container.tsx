@@ -9,13 +9,15 @@ import { useConsoleFrame } from '../../../lib/console-frame';
 import { useLiveFleet } from '../../../lib/live-fleet';
 import { useNow } from '../../../lib/now';
 import { useMachines, useTrierarchPluginConnection } from '../../../lib/trierarch-plugin';
-import { useUsageTokens, useUsageValues } from '../hooks/usage';
+import { useUsageTokens, useUsageValues, useUsageWindows } from '../hooks/usage';
 import { machinesSendingNoUsage } from '../services/silent-machines';
+import { windowChartsOf } from '../services/subscription-windows';
 import { chartOf, totalsOf } from '../services/usage-chart';
 import { filtersAfterPick, hasFilters, requestFiltersOf } from '../services/usage-filters';
 import { DEFAULT_USAGE_STATE, USAGE_MEASURES, USAGE_SPLITS, usageSearchOf, type UsageBreakdownName, type UsageMeasure, type UsageSplit, type UsageState } from '../services/usage-state';
 import { usageWindowOf, type UsageRange } from '../services/usage-window';
 import { SegmentedControl } from '../ui/molecules/segmented-control';
+import { SubscriptionWindowsCard, type WindowsView } from '../ui/organisms/subscription-windows-card';
 import { UsagePanel, type UsageView } from '../ui/organisms/usage-panel';
 import { UsageFilterContainer } from './usage-filter-container';
 
@@ -57,7 +59,10 @@ export function UsageContainer({ view }: { view: UsageState }) {
   const connection = useTrierarchPluginConnection();
   const [shown, setShown] = useOptimistic(view);
   const period = usageWindowOf(shown.range, now);
-  const tokens = useUsageTokens({ from: period.from, to: period.to, splitBy: shown.splitBy, measure: shown.measure, filters: requestFiltersOf(shown.filters) });
+  const filters = requestFiltersOf(shown.filters);
+  const tokens = useUsageTokens({ from: period.from, to: period.to, splitBy: shown.splitBy, measure: shown.measure, filters });
+  // The windows follow the range and the machine and harness filters only, and are asked beside the tokens.
+  const windows = useUsageWindows({ from: period.from, to: period.to, filters: { ...(filters.machineShipIds === undefined ? {} : { machineShipIds: filters.machineShipIds }), ...(filters.harnesses === undefined ? {} : { harnesses: filters.harnesses }) } });
   const machines = useMachines();
   const machineValues = useUsageValues({ from: period.from, to: period.to, breakdown: 'machine' });
 
@@ -73,6 +78,14 @@ export function UsageContainer({ view }: { view: UsageState }) {
       return tokens.data.buckets.length === 0 ? { kind: 'empty', hasFilters: hasFilters(shown.filters) } : { kind: 'ready', chart: chartOf({ usage: tokens.data, measure: shown.measure, window: period }), totals: totalsOf(tokens.data) };
     }
     return tokens.isError || connection === 'not-connected' ? { kind: 'cannot-read' } : { kind: 'loading' };
+  })();
+
+  const windowCharts = windows.charts === undefined ? undefined : windowChartsOf({ charts: windows.charts, window: period });
+  const windowsView: WindowsView = (() => {
+    if (windowCharts !== undefined) {
+      return windowCharts.length === 0 ? { kind: 'empty' } : { kind: 'ready', charts: windowCharts };
+    }
+    return windows.isFailed || connection === 'not-connected' ? { kind: 'cannot-read' } : { kind: 'loading' };
   })();
 
   return (
@@ -122,6 +135,17 @@ export function UsageContainer({ view }: { view: UsageState }) {
           silentMachines={machinesSendingNoUsage(machines.data, machineValues.page)}
           onRetry={() => { void tokens.refetch(); }}
           onClearFilters={() => { change({ ...shown, filters: DEFAULT_USAGE_STATE.filters }); }}
+        />
+      )}
+      {connection === 'none' ? null : (
+        <SubscriptionWindowsCard
+          view={windowsView}
+          hasMore={windows.hasMore}
+          isLoadingMore={windows.isLoadingMore}
+          isLoadMoreFailed={windows.isLoadMoreFailed}
+          onLoadMore={windows.loadMore}
+          onRetry={windows.retry}
+          rangeStartWords={new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', ...(period.grain === 'day' ? { timeZone: 'UTC' } : {}) }).format(new Date(period.from))}
         />
       )}
     </ListPage>

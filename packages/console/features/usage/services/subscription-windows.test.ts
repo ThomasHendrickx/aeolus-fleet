@@ -1,11 +1,13 @@
+import { idSchema } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
 import { windowChartsOf, windowNameOf } from './subscription-windows';
 import { usageWindowOf } from './usage-window';
 
 const RANGE = usageWindowOf('24h', new Date('2026-10-28T09:41:12Z'));
+const MAC = idSchema('ship').parse('shp_01j9k2t4qzr3a9w6m2v5n7ma01');
 const reading = (readAt: string, usedPercent: number) => ({ readAt, usedPercent, resetsAt: '2026-10-28T12:00:00.000Z' });
-const chart = (harness: string, windows: { windowMinutes: number; readings: ReturnType<typeof reading>[] }[]) => ({ machineShipId: 'shp_mac', machineName: 'trierarch-mac', harness, windows });
+const chart = (harness: string, windows: { windowMinutes: number; readings: ReturnType<typeof reading>[] }[]) => ({ machineShipId: MAC, machineName: 'trierarch-mac', harness, windows });
 
 describe('the subscription windows card', () => {
   it.each([
@@ -44,6 +46,6 @@ describe('the subscription windows card', () => {
   it('names the machine, and shows its id for one the fleet does not know', () => {
     const unknown = { ...chart('codex', [{ windowMinutes: 300, readings: [reading('2026-10-28T08:00:00.000Z', 5)] }]), machineName: null };
 
-    expect(windowChartsOf({ charts: [unknown], window: RANGE })[0]?.machineName).toBe('shp_mac');
+    expect(windowChartsOf({ charts: [unknown], window: RANGE })[0]?.machineName).toBe(MAC);
   });
 });

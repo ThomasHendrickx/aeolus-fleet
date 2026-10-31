@@ -14,12 +14,15 @@ import {
   settingsCheckSchema,
   tokenUsageSchema,
   usageValuesPageSchema,
+  windowsPageSchema,
   type Machine,
   type SettingsCheck,
   type TokenUsage,
   type UsageTokensRequest,
   type UsageValuesPage,
   type UsageValuesRequest,
+  type UsageWindowsRequest,
+  type WindowsPage,
 } from './trierarch-plugin-schemas';
 import { trierarchPluginUrlFrom } from './trierarch-plugin-url';
 import { trierarchPluginVersionOf } from './version';
@@ -105,4 +108,9 @@ export async function readUsageTokens(request: UsageTokensRequest): Promise<Plug
 /** One page of a breakdown's values in a range (`usage.values`), for the Usage page's filters. */
 export async function readUsageValues(request: UsageValuesRequest): Promise<PluginAnswer<UsageValuesPage>> {
   return call('usage.values', { input: request, answers: usageValuesPageSchema });
+}
+
+/** One page of machine and harness subscription windows in a range (`usage.windows`), for the Usage page's Subscription windows card. */
+export async function readUsageWindows(request: UsageWindowsRequest): Promise<PluginAnswer<WindowsPage>> {
+  return call('usage.windows', { input: request, answers: windowsPageSchema });
 }
