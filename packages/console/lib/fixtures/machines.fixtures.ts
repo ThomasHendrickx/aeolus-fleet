@@ -83,17 +83,85 @@ export const FLEET: ListedShip[] = [
       id: machine.shipId, name: machine.name, type: 'trierarch', kind: 'agent', status: machine.status, startingPrompt: null,
       location: machine === NEW_MACHINE ? null : { kind: 'DEVICE', description: machine === ALIVE_MACHINE ? 'Mac mini' : 'MacBook' },
       lastSeenAt: machine.lastSeenAt, ping: null, scopes: ['messages:send', 'messages:receive', 'crew:run'], labels: [], report: null, harness: null, model: null,
-      awaitingCrewSince: null, crewRequest: null, retiredAt: null, ownerShipId: null,
+      activity: null, openAlertCount: 0, awaitingCrewSince: null, crewRequest: null, retiredAt: null, ownerShipId: null,
     }),
   ),
   ...SPOTS.map(
     (spot): ListedShip => ({
       id: spot.shipId, name: spot.name, type: 'implementer', kind: 'agent', status: 'crewed', startingPrompt: null, location: null, lastSeenAt: null, ping: null,
-      scopes: ['messages:send', 'messages:receive'], labels: [], report: null, harness: null, model: null, awaitingCrewSince: null, retiredAt: null, ownerShipId: null,
+      scopes: ['messages:send', 'messages:receive'], labels: [], report: null, harness: null, model: null, activity: null, openAlertCount: 0, awaitingCrewSince: null, retiredAt: null, ownerShipId: null,
       crewRequest: { settingsVersion: 1, requestedAt: minutesAgo(90), assignedTo: { id: ALIVE_MACHINE.shipId, name: ALIVE_MACHINE.name }, status: spot.status, reason: null, crewedBy: null, attempt: spot.attempt, startedAt: spot.startedAt, givenBack: [] },
     }),
   ),
 ];
+
+/** The harness each spot's crewing session stated: three on Claude Code, one on Codex (aeolus-fleet-trierarch's api keys design, K12). */
+export const SPOT_HARNESSES: readonly { id: string; harness: string | null }[] = SPOTS.map((spot, index) => ({ id: spot.shipId, harness: index === 3 ? 'codex' : 'claude-code' }));
+
+const tokens = { input: 1200, output: 45000, cacheRead: 980000, cacheWrite: 41000 };
+const [onKeyShip, secondShip, thirdShip, codexShip] = [shipId('sp01'), shipId('sp02'), shipId('sp03'), shipId('sp04')];
+
+/** The machine's harnesses, each with its login. */
+const withLogins = (logins: Readonly<Record<string, NonNullable<NonNullable<Machine['details']>['harnesses'][number]['login']>>>) => DETAILS.harnesses.map((harness) => ({ ...harness, login: logins[harness.harness] }));
+
+/** Claude Code on its API key with two ships on the subscription, Codex on its subscription with one ship on the key (mockup, Key ready). */
+export const KEY_MACHINE: Machine = {
+  ...ALIVE_MACHINE,
+  details: {
+    ...DETAILS,
+    harnesses: withLogins({ 'claude-code': { default: 'apiKey', key: 'ready' }, codex: { default: 'subscription', key: 'ready' } }),
+    logins: [
+      { shipId: onKeyShip, login: 'apiKey' },
+      { shipId: secondShip, login: 'subscription' },
+      { shipId: thirdShip, login: 'subscription' },
+      { shipId: codexShip, login: 'apiKey' },
+    ],
+    usage: {
+      subscriptions: [],
+      ships: [
+        { shipId: onKeyShip, models: [{ model: 'claude-opus-5-5', login: 'apiKey', tokens, estimatedCostUsd: 41.2 }] },
+        { shipId: secondShip, models: [{ model: 'claude-opus-5-5', login: 'subscription', tokens, estimatedCostUsd: 18.4 }] },
+        { shipId: codexShip, models: [{ model: 'gpt-6-sol', login: 'apiKey', tokens, estimatedCostUsd: 3.1 }] },
+      ],
+    },
+  },
+};
+
+/** When Claude Code's API key went out of credit: 14:02 today. */
+export const OUT_OF_CREDIT_AT = new Date(new Date(NOW).setHours(14, 2, 0, 0)).toISOString();
+
+/** Claude Code's key out of credit, three of its ships waiting on it: one on the key, two moved to it from their next start (mockup, Anthropic key out of credit). */
+export const OUT_OF_CREDIT_MACHINE: Machine = {
+  ...KEY_MACHINE,
+  details: {
+    ...(KEY_MACHINE.details ?? DETAILS),
+    harnesses: withLogins({ 'claude-code': { default: 'apiKey', key: 'outOfCredit', keyStateAt: OUT_OF_CREDIT_AT }, codex: { default: 'subscription', key: 'ready' } }),
+    logins: [
+      { shipId: onKeyShip, login: 'apiKey' },
+      { shipId: secondShip, login: 'subscription', next: 'apiKey' },
+      { shipId: thirdShip, login: 'subscription', next: 'apiKey' },
+      { shipId: codexShip, login: 'apiKey' },
+    ],
+  },
+};
+
+/** Claude Code's key refused by its vendor, its ships waiting on a new one (K10). */
+export const REFUSED_MACHINE: Machine = {
+  ...OUT_OF_CREDIT_MACHINE,
+  details: {
+    ...(OUT_OF_CREDIT_MACHINE.details ?? DETAILS),
+    harnesses: withLogins({ 'claude-code': { default: 'apiKey', key: 'refused', keyStateAt: OUT_OF_CREDIT_AT }, codex: { default: 'subscription', key: 'ready' } }),
+  },
+};
+
+/** Claude Code with no API key on the computer, its ships waiting on one. */
+export const NO_KEY_MACHINE: Machine = {
+  ...OUT_OF_CREDIT_MACHINE,
+  details: {
+    ...(OUT_OF_CREDIT_MACHINE.details ?? DETAILS),
+    harnesses: withLogins({ 'claude-code': { default: 'apiKey', key: 'none' }, codex: { default: 'subscription', key: 'ready' } }),
+  },
+};
 
 export const JOINED: JoinedMachine = {
   shipId: NEW_MACHINE.shipId,
@@ -112,7 +180,7 @@ export const SETTINGS = { harness: 'claude-code', workspace: { kind: 'worktree' 
 /** A plain agent ship awaiting crew, for the Needs crew stories. */
 const AWAITING: ListedShip = {
   id: shipId('nc00'), name: 'awaiting', type: 'implementer', kind: 'agent', status: 'awaitingCrew', startingPrompt: null, location: null, lastSeenAt: null, ping: null,
-  scopes: ['messages:send', 'messages:receive'], report: null, harness: null, model: null, awaitingCrewSince: null, crewRequest: null, labels: [], retiredAt: null, ownerShipId: null,
+  scopes: ['messages:send', 'messages:receive'], report: null, harness: null, model: null, activity: null, openAlertCount: 0, awaitingCrewSince: null, crewRequest: null, labels: [], retiredAt: null, ownerShipId: null,
 };
 
 const TRIAGE: ListedShip = {

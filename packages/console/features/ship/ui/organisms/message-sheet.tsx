@@ -5,6 +5,7 @@ import { CornerDownRight, MailQuestion, Reply } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { formattedPayload, payloadLabel } from '../../../../lib/payload';
+import { payloadSealingOf } from '../../../../lib/payload-sealing';
 import { fullDateTime, relativeTime } from '../../../../lib/relative-time';
 import { OPERATOR_NAME, ship, text, type SentencePart } from '../../../../lib/sentence';
 import { CodeBlock } from '../../../../components/atoms/code-block';
@@ -13,11 +14,14 @@ import { CopyButton } from '../../../../components/atoms/copy-button';
 import { Skeleton } from '../../../../components/atoms/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../../components/atoms/tabs';
 import { EmptyState } from '../../../../components/molecules/empty-state';
+import { PayloadNotReachable } from '../../../../components/molecules/payload-not-reachable';
+import { SealedMark } from '../../../../components/molecules/sealed-mark';
 import { Sentence } from '../molecules/sentence';
 import { ShipName } from '../../../../components/molecules/ship-name';
 import { statusLabel } from '../../../../components/molecules/status-badge';
 import { messageWay, type WayMachine } from '../../services/message-way';
 import { WayLines } from '../molecules/way-lines';
+import { RecipientProgress } from '../molecules/recipient-progress';
 import { DeliveryHistory } from './delivery-history';
 import { labelSelectionWords, recipientGroupWords } from '../../../../lib/recipient';
 
@@ -50,7 +54,7 @@ function recipientParts(message: MessageDetail): SentencePart[] {
 
 /** Where the message stands: its delivery's way, or for a label how many ships it went to, each delivery on its own. */
 function standing(message: MessageDetail, at: { now: Date; machines: readonly WayMachine[] }): string {
-  if (message.recipient.kind === 'label') {
+  if ((message.recipient.kind === 'label' || message.recipient.kind === 'meeting')) {
     const count = message.deliveryCount;
     return `${count} ${count === 1 ? 'delivery' : 'deliveries'}`;
   }
@@ -123,14 +127,35 @@ function Envelope({ message }: { message: MessageDetail }) {
   );
 }
 
+/**
+ * The payload, Formatted for JSON or Raw; in a sealed fleet marked Sealed,
+ * and while its company key is not reachable a panel in its place (decision
+ * 0068, N1, scenario 25).
+ */
 function Payload({ message }: { message: MessageDetail }) {
+  const sealing = payloadSealingOf(message);
+  const mark = sealing === 'plain' ? null : <SealedMark testId="message-sealed" />;
+  if (sealing === 'keyNotReachable') {
+    return (
+      <section aria-label="Payload" className="flex flex-col gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className={SECTION_TITLE}>Payload</h3>
+          {mark}
+        </div>
+        <PayloadNotReachable testId="message-payload-not-reachable" />
+      </section>
+    );
+  }
   const label = payloadLabel(message.payload, message.contentType);
   const formatted = formattedPayload(message.payload, message.contentType);
   const raw = <CodeBlock label={label} code={message.payload} isWrapped copyLabel="Copy payload" codeTestId="message-payload" />;
   if (formatted === undefined) {
     return (
       <section aria-label="Payload" className="flex flex-col gap-2">
-        <h3 className={SECTION_TITLE}>Payload</h3>
+        <div className="flex items-center justify-between gap-2">
+          <h3 className={SECTION_TITLE}>Payload</h3>
+          {mark}
+        </div>
         {raw}
       </section>
     );
@@ -140,10 +165,13 @@ function Payload({ message }: { message: MessageDetail }) {
       <Tabs defaultValue="formatted" className="gap-2">
         <div className="flex items-center justify-between gap-2">
           <h3 className={SECTION_TITLE}>Payload</h3>
-          <TabsList className="max-sm:w-auto">
-            <TabsTrigger value="formatted">Formatted</TabsTrigger>
-            <TabsTrigger value="raw">Raw</TabsTrigger>
-          </TabsList>
+          <span className="flex items-center gap-3">
+            {mark}
+            <TabsList className="max-sm:w-auto">
+              <TabsTrigger value="formatted">Formatted</TabsTrigger>
+              <TabsTrigger value="raw">Raw</TabsTrigger>
+            </TabsList>
+          </span>
         </div>
         <TabsContent value="formatted">
           <CodeBlock label={label} code={formatted} copyValue={message.payload} copyLabel="Copy payload" codeTestId="message-payload" />
@@ -199,7 +227,7 @@ function Delivery({
   onOpenMessage?: (messageId: MessageId) => void;
   deliveries?: ReactNode;
 }) {
-  if (message.recipient.kind === 'label') {
+  if ((message.recipient.kind === 'label' || message.recipient.kind === 'meeting')) {
     return (
       <section aria-label="Deliveries" className="flex flex-col gap-2 max-sm:order-first">
         <h3 className={SECTION_TITLE}>Deliveries</h3>
@@ -216,6 +244,7 @@ function Delivery({
       <h3 className={SECTION_TITLE}>Delivery</h3>
       <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3">
         <WayLines status={way.status} lines={way.lines} />
+        <RecipientProgress progress={message.progress} now={now} />
         <div className="border-t border-border pt-3">
           <DeliveryHistory entries={message.delivery.history} recipient={message.recipient} />
         </div>

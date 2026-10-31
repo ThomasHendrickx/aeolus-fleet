@@ -28,33 +28,49 @@ datasource db {
 
 /// The tenant: one operator's ships, messages and history. Ids start with flt_.
 model Fleet {
-  id                         String    @id
+  id                         String        @id
   name                       String
-  createdAt                  DateTime  @map("created_at") @db.Timestamptz(3)
+  createdAt                  DateTime      @map("created_at") @db.Timestamptz(3)
   /// The sequence number of the fleet's last committed event. A unit of work
   /// takes its numbers from it as its last statements, so the row lock orders
   /// the numbers as the transactions commit.
-  lastEventSeq               BigInt    @default(0) @map("last_event_seq")
+  lastEventSeq               BigInt        @default(0) @map("last_event_seq")
   /// Whether the fleet sets its own ship limit (else it follows the installation
   /// default), and that limit: null for no limit.
-  shipLimitSet               Boolean   @default(false) @map("ship_limit_set")
-  shipLimit                  Int?      @map("ship_limit")
+  shipLimitSet               Boolean       @default(false) @map("ship_limit_set")
+  shipLimit                  Int?          @map("ship_limit")
   /// The same for its daily message limit.
-  dailyMessageLimitSet       Boolean   @default(false) @map("daily_message_limit_set")
-  dailyMessageLimit          Int?      @map("daily_message_limit")
+  dailyMessageLimitSet       Boolean       @default(false) @map("daily_message_limit_set")
+  dailyMessageLimit          Int?          @map("daily_message_limit")
   /// The same for the schedules each of its ships may hold, and for the
   /// minimum interval of a repeating schedule, in seconds (decision 0062).
-  schedulesPerShipLimitSet   Boolean   @default(false) @map("schedules_per_ship_limit_set")
-  schedulesPerShipLimit      Int?      @map("schedules_per_ship_limit")
-  minimumScheduleIntervalSet Boolean   @default(false) @map("minimum_schedule_interval_set")
-  minimumScheduleInterval    Int?      @map("minimum_schedule_interval")
+  schedulesPerShipLimitSet   Boolean       @default(false) @map("schedules_per_ship_limit_set")
+  schedulesPerShipLimit      Int?          @map("schedules_per_ship_limit")
+  minimumScheduleIntervalSet Boolean       @default(false) @map("minimum_schedule_interval_set")
+  minimumScheduleInterval    Int?          @map("minimum_schedule_interval")
   /// The same for its retention in days (decision 0066): null for kept for good.
-  retentionSet               Boolean   @default(false) @map("retention_set")
-  retentionDays              Int?      @map("retention_days")
+  retentionSet               Boolean       @default(false) @map("retention_set")
+  retentionDays              Int?          @map("retention_days")
   /// When its last pruning pass ran, and from when it keeps its finished
   /// history, as its last finished pass left it (decision 0066); null before any.
-  prunedAt                   DateTime? @map("pruned_at") @db.Timestamptz(3)
-  keptFrom                   DateTime? @map("kept_from") @db.Timestamptz(3)
+  prunedAt                   DateTime?     @map("pruned_at") @db.Timestamptz(3)
+  keptFrom                   DateTime?     @map("kept_from") @db.Timestamptz(3)
+  /// Its sealing (decision 0068): null while it is not sealed; then sealing until no payload is stored plain, and sealed. The company key that wraps its data keys, by its reference.
+  sealingState               SealingState? @map("sealing_state")
+  /// Since when it reads its sealing state: turned on, or the sealing pass left no payload plain.
+  sealingStateSince          DateTime?     @map("sealing_state_since") @db.Timestamptz(3)
+  /// The sealing pass's progress (decision 0068, B5): the payloads stored plain when it turned sealing on, and how many the pass sealed since.
+  payloadsToSeal             Int           @default(0) @map("payloads_to_seal")
+  payloadsSealed             Int           @default(0) @map("payloads_sealed")
+  companyKey                 String?       @map("company_key")
+  /// Its recovery key (decision 0068, B6), when the company set one: the public half, an age X25519 recipient, and
+  /// its fingerprint (SHA256: and the unpadded base64 SHA-256 of the recipient). Each data key is wrapped to it too.
+  recoveryKey                String?       @map("recovery_key")
+  recoveryKeyFingerprint     String?       @map("recovery_key_fingerprint")
+  /// Whether its company key answered its last unwrap, and since when (decision 0068, B11): the key vault's reason
+  /// while it refuses (accessDenied, disabled, notFound, unreachable), null while it answers. Since when set with the sealing.
+  keyUnavailableReason       String?       @map("key_unavailable_reason")
+  keyAvailabilitySince       DateTime?     @map("key_availability_since") @db.Timestamptz(3)
 
   ships                            Ship[]
   leases                           Lease[]
@@ -71,6 +87,8 @@ model Fleet {
   scopeNamespaces                  ScopeNamespace[]
   definedScopes                    DefinedScope[]
   verifiedFacts                    VerifiedFacts[]
+  alerts                           Alert[]
+  shipExpectations                 ShipExpectations[]
   reachRefusals                    ReachRefusal[]
   credentials                      Credential[]
   messages                         Message[]
@@ -88,11 +106,19 @@ model Fleet {
   healthSnapshots                  HealthSnapshot[]
   healthSnapshotDeliveries         HealthSnapshotDelivery[]
   meetings                         Meeting[]
+  dataKeys                         DataKey[]
   meetingParticipants              MeetingParticipant[]
   meetingMicRequests               MeetingMicRequest[]
   schedules                        Schedule[]
+  featureFlags                     FleetFeatureFlag[]
 
   @@map("fleets")
+}
+
+/// A sealed fleet's sealing (decision 0068): payloads stored plain before still wait for the sealing pass, or none do.
+enum SealingState {
+  sealing
+  sealed
 }
 
 /// What a ship is (decision 0044): argo the one operator, the viewer, an agent session, a person's ship or an app's.
@@ -119,6 +145,8 @@ model Ship {
   note                  String?
   createdAt             DateTime          @map("created_at") @db.Timestamptz(3)
   retiredAt             DateTime?         @map("retired_at") @db.Timestamptz(3)
+  /// When the pruning pass removed it, past the fleet's retention (decision 0070): the row stays a remnant its kept history names.
+  removedAt             DateTime?         @map("removed_at") @db.Timestamptz(3)
   /// The actor that commissioned it, its idempotency key and the request's hash; null for argo.
   /// commissioned_by names the actor: a ship's id, an account's id, or `installation`.
   commissionedByKind    CommissionerKind? @map("commissioned_by_kind")
@@ -153,6 +181,8 @@ model Ship {
   declaredNetworkRules DeclaredNetworkRules[]
   declaredNamespace    ScopeNamespace?
   verifiedFacts        VerifiedFacts[]
+  alerts               Alert[]
+  shipExpectations     ShipExpectations[]
   ownedMeetings        Meeting[]              @relation("MeetingOwner")
   moderatedMeetings    Meeting[]              @relation("MeetingModerator")
   openedMeetings       Meeting[]              @relation("MeetingOpener")
@@ -173,6 +203,8 @@ model Ship {
   @@index([fleetId, ownerShipId])
   @@index([fleetId, type], map: "ships_type_listing_idx", where: { retiredAt: null })
   @@index([fleetId, kind], map: "ships_kind_listing_idx", where: { retiredAt: null })
+  /// The pruning pass picks the oldest retired ships not removed yet (decision 0070).
+  @@index([fleetId, retiredAt, id], map: "ships_removal_idx", where: raw("((retired_at IS NOT NULL) AND (removed_at IS NULL))"))
   @@map("ships")
 }
 
@@ -203,6 +235,16 @@ enum TurnState {
   @@map("turn_state")
 }
 
+/// The kind of a session's latest event as its trierarch observes it (headless design, H14).
+enum ActivityKind {
+  text
+  tool
+  result
+  error
+
+  @@map("activity_kind")
+}
+
 enum LocationKind {
   DEVICE
   CLOUD
@@ -218,37 +260,51 @@ enum LocationKind {
 /// finding a ship by its crew token is a lookup not scoped by fleet (ADR 0007). A
 /// console session's lease on argo has none; the console session holds its token.
 model Lease {
-  id                   String       @id
-  fleetId              String       @map("fleet_id")
-  shipId               String       @map("ship_id")
-  location             LocationKind
-  locationDescription  String?      @map("location_description")
+  id                      String        @id
+  fleetId                 String        @map("fleet_id")
+  shipId                  String        @map("ship_id")
+  location                LocationKind
+  locationDescription     String?       @map("location_description")
   /// The harness the session stated when it claimed the ship; none for argo's console lease and for leases from before harnesses were stated.
-  harness              String?
-  crewTokenHash        String?      @unique @map("crew_token_hash")
-  startedAt            DateTime     @map("started_at") @db.Timestamptz(3)
+  harness                 String?
+  crewTokenHash           String?       @unique @map("crew_token_hash")
+  startedAt               DateTime      @map("started_at") @db.Timestamptz(3)
   /// The last call by its crew: observation only, nothing acts on it (ADR 0016).
-  lastSeenAt           DateTime?    @map("last_seen_at") @db.Timestamptz(3)
+  lastSeenAt              DateTime?     @map("last_seen_at") @db.Timestamptz(3)
   /// The crew's last report: plain data, nothing acts on it. Null until it reports.
-  reportState          ReportState? @map("report_state")
-  reportNote           String?      @map("report_note")
-  reportedAt           DateTime?    @map("reported_at") @db.Timestamptz(3)
+  reportState             ReportState?  @map("report_state")
+  reportNote              String?       @map("report_note")
+  reportedAt              DateTime?     @map("reported_at") @db.Timestamptz(3)
+  /// When the state, note, task or step last changed; details alone do not move it (decision 0028). Null until it reports.
+  reportChangedAt         DateTime?     @map("report_changed_at") @db.Timestamptz(3)
+  /// What the crew works on: a typed reference, a kind and its fields (decision 0028). Null when it names none.
+  reportTask              Json?         @map("report_task")
+  /// Where the crew is in its task, step at of of; both null when it gives none.
+  reportStepAt            Int?          @map("report_step_at")
+  reportStepOf            Int?          @map("report_step_of")
   /// The report's details: one JSON object stored without meaning, at most 16 KB (decision 0028). Null when there are none.
-  reportDetails        Json?        @map("report_details")
+  reportDetails           Json?         @map("report_details")
   /// Moves by one each time the details change; 0 before any.
-  reportDetailsVersion Int          @default(0) @map("report_details_version")
-  /// The crew's statement: what its ship is and offers, at most 64 KB, its shape common's; null until it states one (decision 0047).
-  statement            Json?
+  reportDetailsVersion    Int           @default(0) @map("report_details_version")
+  /// The crew's statement: what its ship is and offers, at most 256 KB, its shape common's; null until it states one (decision 0047).
+  statement               Json?
   /// Moves by one each time the statement changes; 0 before any.
-  statementVersion     Int          @default(0) @map("statement_version")
+  statementVersion        Int           @default(0) @map("statement_version")
   /// From the lease's first push receive: the computer side takes its deliveries, and the agent's plain receive answers nothing (decision 0040).
-  pushedAt             DateTime?    @map("pushed_at") @db.Timestamptz(3)
+  pushedAt                DateTime?     @map("pushed_at") @db.Timestamptz(3)
   /// What wakes the ship, as its first push receive stated it; null when it stated none (interop 5.1).
-  waker                LeaseWaker?
+  waker                   LeaseWaker?
   /// The session's turn as its hooks last reported it, and when they saw it change; null until they report (decision 0040).
-  turn                 TurnState?
-  turnAt               DateTime?    @map("turn_at") @db.Timestamptz(3)
-  endedAt              DateTime?    @map("ended_at") @db.Timestamptz(3)
+  turn                    TurnState?
+  turnAt                  DateTime?     @map("turn_at") @db.Timestamptz(3)
+  /// What its assigned trierarch last observed of the session: the latest event's time, kind and tool, never content; null until it writes (docs/design/monitoring, 4.3).
+  activityAt              DateTime?     @map("activity_at") @db.Timestamptz(3)
+  activityKind            ActivityKind? @map("activity_kind")
+  activityTool            String?       @map("activity_tool")
+  /// When the trierarch wrote it, and the report interval it stated: past twice that interval it reads unknown.
+  activityReportedAt      DateTime?     @map("activity_reported_at") @db.Timestamptz(3)
+  activityIntervalSeconds Int?          @map("activity_interval_seconds")
+  endedAt                 DateTime?     @map("ended_at") @db.Timestamptz(3)
 
   fleet             Fleet             @relation(fields: [fleetId], references: [id])
   ship              Ship              @relation(fields: [fleetId, shipId], references: [fleetId, id])
@@ -521,6 +577,57 @@ model VerifiedFacts {
   @@map("verified_facts")
 }
 
+/// An alert on a ship (decision 0071): what the watch raised when a fact and
+/// its signal parted, open until the watch clears it or the ship retires.
+/// Ids start with alt_. One per ship, signal and occurrence, open or cleared,
+/// so an occurrence is raised once. facts holds the signal's facts at raise,
+/// as common's schema gives them.
+model Alert {
+  id            String    @id
+  fleetId       String    @map("fleet_id")
+  shipId        String    @map("ship_id")
+  signal        String
+  occurrenceKey String    @map("occurrence_key")
+  facts         Json
+  ownerShipId   String?   @map("owner_ship_id")
+  since         DateTime  @db.Timestamptz(3)
+  raisedAt      DateTime  @map("raised_at") @db.Timestamptz(3)
+  clearedAt     DateTime? @map("cleared_at") @db.Timestamptz(3)
+  clearedWhy    String?   @map("cleared_why")
+
+  fleet Fleet @relation(fields: [fleetId], references: [id])
+  ship  Ship  @relation(fields: [fleetId, shipId], references: [fleetId, id])
+
+  @@unique([fleetId, shipId, signal, occurrenceKey])
+  /// The fleet's open alerts, newest first, a page at a time.
+  @@index([fleetId, id(sort: Desc)], map: "alerts_open_idx", where: { clearedAt: null })
+  /// A ship's open alerts, and how many it has.
+  @@index([fleetId, shipId], map: "alerts_open_on_ship_idx", where: { clearedAt: null })
+  @@map("alerts")
+}
+
+/// The expectations on a ship (decision 0071): what its owner, or a ship
+/// that manages it, expects of it, standing, at most one of each. Each keeps
+/// who set it (JSON, as common's expectation setter) and when; its columns
+/// are null while it is not set. No row while none holds; a retire removes it.
+model ShipExpectations {
+  fleetId                    String    @map("fleet_id")
+  shipId                     String    @map("ship_id")
+  reportChangesWithinMinutes Int?      @map("report_changes_within_minutes")
+  reportChangesWithinSetBy   Json?     @map("report_changes_within_set_by")
+  reportChangesWithinSetAt   DateTime? @map("report_changes_within_set_at") @db.Timestamptz(3)
+  taskDoneByTask             Json?     @map("task_done_by_task")
+  taskDoneBy                 DateTime? @map("task_done_by") @db.Timestamptz(3)
+  taskDoneBySetBy            Json?     @map("task_done_by_set_by")
+  taskDoneBySetAt            DateTime? @map("task_done_by_set_at") @db.Timestamptz(3)
+
+  fleet Fleet @relation(fields: [fleetId], references: [id])
+  ship  Ship  @relation(fields: [fleetId, shipId], references: [fleetId, id])
+
+  @@id([fleetId, shipId])
+  @@map("ship_expectations")
+}
+
 /// A send the network rules refused (decision 0034), recorded in the
 /// transaction that refused it. Ids start with rfs_. Sender and recipient are
 /// as they were then: ids, names and the label values they carried, as JSON,
@@ -582,6 +689,20 @@ enum SelectorKind {
 /// statements, after the fleet's event numbers, so the row lock is held only
 /// until commit. Storage is the sum of the days; the daily message limit
 /// counts today's row.
+/// A feature flag that is on for a fleet (decision 0069): a row per flag that
+/// is on, none being off. The flag by its key in common's list, as text, so a
+/// new flag needs no migration.
+model FleetFeatureFlag {
+  fleetId   String   @map("fleet_id")
+  flag      String
+  createdAt DateTime @map("created_at") @db.Timestamptz(3)
+
+  fleet Fleet @relation(fields: [fleetId], references: [id])
+
+  @@id([fleetId, flag])
+  @@map("fleet_feature_flags")
+}
+
 model MessageDay {
   fleetId      String   @map("fleet_id")
   day          DateTime @db.Date
@@ -594,7 +715,7 @@ model MessageDay {
   @@map("message_days")
 }
 
-/// An immutable envelope plus an opaque payload of at most 64 KB, sent by one ship.
+/// An immutable envelope plus an opaque payload of at most 256 KB, sent by one ship.
 /// Ids start with msg_. The selector is stored as resolved at send time: a ship's
 /// id, never its name, or a type. It can name the message it replies to, and a
 /// resend names the message it resends (nothing sets that yet).
@@ -607,7 +728,15 @@ model Message {
   selectorType       String?      @map("selector_type")
   /// The label selection a send to a label was sent to, its value ids as sent (decision 0065); none for any other selector.
   selectorValueIds   String[]     @default([]) @map("selector_value_ids")
-  payload            String
+  /// Null in a sealed fleet (decision 0068): the sealed payload is the data key, nonce and ciphertext with its tag,
+  /// beside the plain payload's UTF-8 byte count.
+  payload            String?
+  sealedDataKeyId    String?      @map("sealed_data_key_id")
+  sealedNonce        Bytes?       @map("sealed_nonce")
+  sealedCiphertext   Bytes?       @map("sealed_ciphertext")
+  sealedPayloadBytes Int?         @map("sealed_payload_bytes")
+  /// The question uuid a withdrawal or a replacement names, read at send (decision 0068, B18).
+  questionId         String?      @map("question_id")
   contentType        String       @map("content_type")
   /// The model the sender's session stated; none from argo and on messages from before models were stated.
   model              String?
@@ -629,6 +758,7 @@ model Message {
   selectorShip         Ship?      @relation("MessageSelectorShip", fields: [fleetId, selectorShipId], references: [fleetId, id], onDelete: Restrict)
   meeting              Meeting?   @relation(fields: [fleetId, meetingId], references: [fleetId, id], onDelete: Restrict)
   schedule             Schedule?  @relation("MessageSchedule", fields: [fleetId, scheduleId], references: [fleetId, id], onDelete: Restrict)
+  sealedDataKey        DataKey?   @relation(fields: [fleetId, sealedDataKeyId], references: [fleetId, id], onDelete: Restrict)
   repliedToBySchedules Schedule[] @relation("ScheduleInReplyTo")
   lastSentBySchedules  Schedule[] @relation("ScheduleLastMessage")
   deliveries           Delivery[]
@@ -644,6 +774,10 @@ model Message {
   @@index([fleetId, senderShipId, id])
   /// The installation counts a fleet's messages of the last 7 days (#1126).
   @@index([fleetId, createdAt])
+  /// A question's withdrawals and replacements, found by the question uuid they name (decisions 0038, 0068).
+  @@index([fleetId, questionId], map: "messages_fleet_id_question_id_idx", where: { questionId: { not: null } })
+  /// A data key's sealed messages, for its foreign key.
+  @@index([fleetId, sealedDataKeyId])
   /// Every foreign key has an index leading with its columns, so deleting a
   /// referenced row checks it with an index, not a scan (#331).
   @@index([fleetId, selectorShipId, id])
@@ -730,7 +864,13 @@ model Schedule {
   selectorShipName   String?              @map("selector_ship_name")
   selectorType       String?              @map("selector_type")
   selectorValueIds   String[]             @default([]) @map("selector_value_ids")
-  payload            String
+  /// Null in a sealed fleet (decision 0068): the sealed payload is the data key, nonce and ciphertext with its tag,
+  /// beside the plain payload's UTF-8 byte count, as a message's.
+  payload            String?
+  sealedDataKeyId    String?              @map("sealed_data_key_id")
+  sealedNonce        Bytes?               @map("sealed_nonce")
+  sealedCiphertext   Bytes?               @map("sealed_ciphertext")
+  sealedPayloadBytes Int?                 @map("sealed_payload_bytes")
   contentType        String               @map("content_type")
   model              String?
   inReplyToMessageId String?              @map("in_reply_to_message_id")
@@ -762,12 +902,13 @@ model Schedule {
   endedAt            DateTime?            @map("ended_at") @db.Timestamptz(3)
   cancelledAt        DateTime?            @map("cancelled_at") @db.Timestamptz(3)
 
-  fleet        Fleet     @relation(fields: [fleetId], references: [id])
-  ship         Ship      @relation("ScheduleShip", fields: [fleetId, shipId], references: [fleetId, id], onDelete: Restrict)
-  selectorShip Ship?     @relation("ScheduleSelectorShip", fields: [fleetId, selectorShipId], references: [fleetId, id], onDelete: Restrict)
-  inReplyTo    Message?  @relation("ScheduleInReplyTo", fields: [fleetId, inReplyToMessageId], references: [fleetId, id], onDelete: Restrict)
-  lastMessage  Message?  @relation("ScheduleLastMessage", fields: [fleetId, lastMessageId], references: [fleetId, id], onDelete: Restrict)
-  messages     Message[] @relation("MessageSchedule")
+  fleet         Fleet     @relation(fields: [fleetId], references: [id])
+  ship          Ship      @relation("ScheduleShip", fields: [fleetId, shipId], references: [fleetId, id], onDelete: Restrict)
+  selectorShip  Ship?     @relation("ScheduleSelectorShip", fields: [fleetId, selectorShipId], references: [fleetId, id], onDelete: Restrict)
+  inReplyTo     Message?  @relation("ScheduleInReplyTo", fields: [fleetId, inReplyToMessageId], references: [fleetId, id], onDelete: Restrict)
+  sealedDataKey DataKey?  @relation(fields: [fleetId, sealedDataKeyId], references: [fleetId, id], onDelete: Restrict)
+  lastMessage   Message?  @relation("ScheduleLastMessage", fields: [fleetId, lastMessageId], references: [fleetId, id], onDelete: Restrict)
+  messages      Message[] @relation("MessageSchedule")
 
   @@unique([fleetId, id])
   /// A ship uses an idempotency key once for its schedules.
@@ -780,6 +921,7 @@ model Schedule {
   @@index([fleetId, selectorShipId])
   @@index([fleetId, inReplyToMessageId])
   @@index([fleetId, lastMessageId])
+  @@index([fleetId, sealedDataKeyId])
   @@map("schedules")
 }
 
@@ -1363,4 +1505,26 @@ enum LabelOwnerKind {
   installation
 
   @@map("label_owner_kind")
+}
+
+/// A sealed fleet's data key (decision 0068): kept only wrapped, by the company key and by the recovery key
+/// when set, with a check value (HMAC-SHA-256 of a fixed text under the key) that proves an unwrap gave
+/// the right key. Never unwrapped in the database. Old keys stay to unseal old payloads.
+model DataKey {
+  id                   String   @id
+  fleetId              String   @map("fleet_id")
+  wrappedByCompanyKey  Bytes    @map("wrapped_by_company_key")
+  wrappedByRecoveryKey Bytes?   @map("wrapped_by_recovery_key")
+  checkValue           Bytes    @map("check_value")
+  createdAt            DateTime @map("created_at") @db.Timestamptz(3)
+  isCurrent            Boolean  @map("is_current")
+
+  fleet     Fleet      @relation(fields: [fleetId], references: [id])
+  messages  Message[]
+  schedules Schedule[]
+
+  @@unique([fleetId, id])
+  /// One current data key per fleet.
+  @@unique([fleetId], map: "data_keys_fleet_id_current_key", where: { isCurrent: true })
+  @@map("data_keys")
 }

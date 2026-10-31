@@ -5,7 +5,7 @@ import type {
   OperatorAccountRepository,
   SignInTicketRepository,
 } from '../../domain/identity/ports.js';
-import type { DeliveryRepository, MeetingRepository, OverdueDeliveryRepository, ScheduleNotifier, ScheduleRepository } from '../../domain/messaging/ports.js';
+import type { DeliveryRepository, FleetSealingRepository, MeetingRepository, OverdueDeliveryRepository, ScheduleNotifier, ScheduleRepository } from '../../domain/messaging/ports.js';
 import type {
   ClearRequestRepository,
   CrewRequestRepository,
@@ -18,11 +18,14 @@ import type {
   DeclaredNetworkRulesRepository,
   NetworkRulesDraftRepository,
   VerifiedFactsRepository,
+  AlertRepository,
+  ExpectationsRepository,
   ScopeNamespaceRepository,
   DefinedScopeRepository,
   NetworkSettingsRepository,
   ReachRefusalRepository,
   ShipRepository,
+  FeatureFlagRepository,
 } from '../../domain/registry/ports.js';
 import type { Notifier } from '../../domain/shared/notifier.js';
 import type { Result } from '../../domain/shared/result.js';
@@ -43,11 +46,15 @@ import {
 } from './identity.js';
 import { createPrismaInstallationRequestRepository, createPrismaInstallationSettings } from './installation.js';
 import { createPrismaMeetingRepository } from './meetings.js';
+import { createPrismaFleetSealingRepository } from './sealings.js';
+import { createPrismaFeatureFlagRepository } from './feature-flags.js';
 import { createPrismaDeliveryRepository, createPrismaMessageRepository, type BufferedMessageRepository } from './messaging.js';
 import { createPrismaOverdueDeliveryRepository } from './overdue.js';
 import { createPrismaScheduleNotifier, createPrismaScheduleRepository } from './schedules.js';
 import { createPrismaDeclaredNetworkRulesRepository, createPrismaNetworkRulesDraftRepository, createPrismaNetworkSettingsRepository, createPrismaReachRefusalRepository } from './network.js';
 import { createPrismaVerifiedFactsRepository } from './verified-facts.js';
+import { createPrismaAlertRepository } from './alerts.js';
+import { createPrismaExpectationsRepository } from './expectations.js';
 import { createPrismaScopeNamespaceRepository } from './scope-namespaces.js';
 import { createPrismaDefinedScopeRepository } from './defined-scopes.js';
 import {
@@ -74,6 +81,8 @@ export interface PrismaTx {
   scopeNamespaces: ScopeNamespaceRepository;
   definedScopes: DefinedScopeRepository;
   verifiedFacts: VerifiedFactsRepository;
+  alerts: AlertRepository;
+  expectations: ExpectationsRepository;
   reachRefusals: ReachRefusalRepository;
   inFlightDeliveries: InFlightDeliveries;
   credentials: CredentialRepository;
@@ -83,6 +92,8 @@ export interface PrismaTx {
   messages: BufferedMessageRepository;
   deliveries: DeliveryRepository;
   meetings: MeetingRepository;
+  sealings: FleetSealingRepository;
+  featureFlags: FeatureFlagRepository;
   schedules: ScheduleRepository;
   overdueDeliveries: OverdueDeliveryRepository;
   events: BufferedEventLog;
@@ -108,6 +119,8 @@ export function createPrismaTx(db: Db): PrismaTx {
     scopeNamespaces: createPrismaScopeNamespaceRepository(db),
     definedScopes: createPrismaDefinedScopeRepository(db),
     verifiedFacts: createPrismaVerifiedFactsRepository(db),
+    alerts: createPrismaAlertRepository(db),
+    expectations: createPrismaExpectationsRepository(db),
     reachRefusals: createPrismaReachRefusalRepository(db),
     inFlightDeliveries: createPrismaInFlightDeliveries(db),
     credentials: createPrismaCredentialRepository(db),
@@ -117,6 +130,8 @@ export function createPrismaTx(db: Db): PrismaTx {
     messages: createPrismaMessageRepository(db),
     deliveries: createPrismaDeliveryRepository(db),
     meetings: createPrismaMeetingRepository(db),
+    sealings: createPrismaFleetSealingRepository(db),
+    featureFlags: createPrismaFeatureFlagRepository(db),
     schedules: createPrismaScheduleRepository(db),
     overdueDeliveries: createPrismaOverdueDeliveryRepository(db),
     events: createPrismaEventLog(db),

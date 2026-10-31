@@ -1,15 +1,15 @@
 import { SCOPES } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
-import { accessOf, NO_ACCESS } from './access';
+import { accessOf, isFeatureOn, NO_ACCESS } from './access';
 
 describe('what a console session may do', () => {
   it('is everything for the operator, whose argo holds every scope', () => {
-    expect(accessOf({ kind: 'operator', scopes: [...SCOPES] })).toEqual({ canManage: true, canResend: true, canSend: true, canReceive: true, canDefineLabels: true, canAssignLabels: true, canEditNetwork: true, canDefineScopes: true, isViewer: false });
+    expect(accessOf({ kind: 'operator', scopes: [...SCOPES] })).toEqual({ canManage: true, canResend: true, canSend: true, canReceive: true, canDefineLabels: true, canAssignLabels: true, canEditNetwork: true, canDefineScopes: true, canChangeKeys: true, isViewer: false });
   });
 
   it('is reading only for a viewer, whose ship holds fleet:read alone', () => {
-    expect(accessOf({ kind: 'viewer', scopes: ['fleet:read'] })).toEqual({ canManage: false, canResend: false, canSend: false, canReceive: false, canDefineLabels: false, canAssignLabels: false, canEditNetwork: false, canDefineScopes: false, isViewer: true });
+    expect(accessOf({ kind: 'viewer', scopes: ['fleet:read'] })).toEqual({ canManage: false, canResend: false, canSend: false, canReceive: false, canDefineLabels: false, canAssignLabels: false, canEditNetwork: false, canDefineScopes: false, canChangeKeys: false, isViewer: true });
   });
 
   it("gives an account what its scopes allow, but never Compose, Done or Reply: only a ship sends, and argo's inbox actions stay argo's (header design, C3, C4)", () => {
@@ -22,8 +22,13 @@ describe('what a console session may do', () => {
       canAssignLabels: false,
       canEditNetwork: false,
       canDefineScopes: false,
+      canChangeKeys: false,
       isViewer: false,
     });
+  });
+
+  it('offers Turn on sealing and the key changes only with fleet:keys, as the fleet checks them (decision 0068, N5)', () => {
+    expect([accessOf({ kind: 'account', scopes: ['fleet:read', 'fleet:keys'] }).canChangeKeys, accessOf({ kind: 'account', scopes: ['fleet:manage'] }).canChangeKeys]).toEqual([true, false]);
   });
 
   it('follows each scope on its own', () => {
@@ -52,5 +57,15 @@ describe('what a console session may do', () => {
 
   it('offers nothing until the session is known', () => {
     expect(accessOf(undefined)).toEqual(NO_ACCESS);
+  });
+});
+
+describe('which features this console session shows (decision 0069)', () => {
+  it('shows a feature only when console.session answers its flag on', () => {
+    expect([isFeatureOn({ featureFlags: ['sealing'] }, 'sealing'), isFeatureOn({ featureFlags: [] }, 'sealing')]).toEqual([true, false]);
+  });
+
+  it('shows none until the session is known, so a feature never flashes by', () => {
+    expect(isFeatureOn(undefined, 'sealing')).toBe(false);
   });
 });

@@ -7,6 +7,7 @@ import { newKey } from '../../testing/keys.js';
 import { unwrap } from '../../testing/result.js';
 import type { ShipCaller, Crew } from '../shared/caller.js';
 import { createReceiveReply } from './receive-reply.js';
+import { unsealedFleetsOnly } from '../../../test/support/sealing.js';
 
 let core: InMemoryCore;
 let useCases: ReturnType<typeof messagingUseCases>;
@@ -24,7 +25,7 @@ beforeEach(async () => {
   ({ shipId: scoutId } = unwrap(await registryUseCases(core).commissionShip(argo, { idempotencyKey: newKey(), name: 'scout', type: 'reviewer' })));
   scout = crewAboard(core, { fleetId, shipId: scoutId });
   useCases = messagingUseCases(core);
-  receiveReply = createReceiveReply({ uow: core.uow, clock: core.clock, ids: core.ids, wakeups: core.wakeups });
+  receiveReply = createReceiveReply({ sealing: unsealedFleetsOnly, uow: core.uow, clock: core.clock, ids: core.ids, wakeups: core.wakeups });
   core.clock.advance(60_000);
 });
 

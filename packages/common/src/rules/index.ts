@@ -4,6 +4,8 @@
  * no schema. Common's schemas are built on the same rules, and the server
  * stays the authority on submit.
  */
+export * from './activity.js';
+export * from './alert.js';
 export * from './duration.js';
 export * from './label-handle.js';
 export * from './page-size.js';

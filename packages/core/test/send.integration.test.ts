@@ -13,11 +13,12 @@ import { createPostgresCore, racingUnitOfWork, type PostgresCore } from './suppo
 import { unwrap } from '../src/testing/result.js';
 import { newKey } from '../src/testing/keys.js';
 import { withOperatorLogin } from './support/operator-login.js';
+import { unsealedFleetsOnly } from './support/sealing.js';
 
 // Sending a message on a real Postgres through the Prisma adapters: what a
 // send stores, that nothing stays and nobody is woken when it fails, that a
 // listener hears of it only once it commits, one message for concurrent sends
-// with one key, the 64 KB limit in bytes, and that a send and a retire of the
+// with one key, the 256 KB limit in bytes, and that a send and a retire of the
 // ship it addresses never pass each other.
 
 const newId = createIdGenerator();
@@ -67,7 +68,7 @@ function aReview(overrides: Partial<MessageToSend> = {}): MessageToSend {
 }
 
 function sendMessageWith(uow: UnitOfWork<PrismaTx>) {
-  return createSendMessage({ uow, clock: core.clock, ids: newId, hasher: sha256Hasher });
+  return createSendMessage({ sealing: unsealedFleetsOnly, uow, clock: core.clock, ids: newId, hasher: sha256Hasher });
 }
 
 /**
@@ -126,6 +127,11 @@ describe('sending a message on Postgres', () => {
         selectorType: null,
         selectorValueIds: [],
         payload: input.payload,
+        sealedDataKeyId: null,
+        sealedNonce: null,
+        sealedCiphertext: null,
+        sealedPayloadBytes: null,
+        questionId: null,
         contentType: 'application/json',
         model: null,
         idempotencyKey: input.idempotencyKey,
@@ -397,20 +403,20 @@ describe('concurrent sends of two requests with one idempotency key', () => {
 
 describe('the payload limit on Postgres', () => {
   it.each([
-    { label: 'one-byte characters', payload: 'a'.repeat(65_536) },
-    { label: 'two-byte characters', payload: 'é'.repeat(32_768) },
-  ])('accepts exactly 64 KB of $label and stores every byte', async ({ payload }) => {
+    { label: 'one-byte characters', payload: 'a'.repeat(262_144) },
+    { label: 'two-byte characters', payload: 'é'.repeat(131_072) },
+  ])('accepts exactly 256 KB of $label and stores every byte', async ({ payload }) => {
     const { messageId } = unwrap(await core.useCases.sendMessage(argo, aReview({ payload })));
 
     const [stored] = await core.prisma.$queryRaw<{ bytes: number; payload: string }[]>`
       SELECT octet_length(payload) AS bytes, payload FROM messages WHERE id = ${messageId}`;
-    expect(stored).toEqual({ bytes: 65_536, payload });
+    expect(stored).toEqual({ bytes: 262_144, payload });
   });
 
   it.each([
-    { label: 'one-byte characters', payload: 'a'.repeat(65_537) },
-    { label: 'two-byte characters and one more byte', payload: `${'é'.repeat(32_768)}a` },
-  ])('refuses one byte over 64 KB in $label, and stores nothing', async ({ payload }) => {
+    { label: 'one-byte characters', payload: 'a'.repeat(262_145) },
+    { label: 'two-byte characters and one more byte', payload: `${'é'.repeat(131_072)}a` },
+  ])('refuses one byte over 256 KB in $label, and stores nothing', async ({ payload }) => {
     await expect(core.useCases.sendMessage(argo, aReview({ payload }))).resolves.toMatchObject({
       isOk: false,
       error: { kind: 'PAYLOAD_TOO_LARGE' },

@@ -6,6 +6,7 @@ import type { Clock } from '../shared/clock.js';
 import { recordEvent, type EventLog } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
+import { withDataKeys, type DataKeysNeeded, type HeldDataKeys, type PayloadSealing } from './data-keys.js';
 import { pushReceiveDelivery } from './delivery.js';
 import type { DeliveryRepository, ReceiverWakeups } from './ports.js';
 import {
@@ -45,6 +46,7 @@ interface PushReceiptDeps {
   tx: PushReceiveDeliveriesTx;
   ids: IdGenerator;
   at: Date;
+  keys: HeldDataKeys;
 }
 
 /**
@@ -56,7 +58,7 @@ interface PushReceiptDeps {
 async function pushReceiptForCrew(
   deps: PushReceiptDeps,
   receipt: { crew: Crew; max: number; waker?: LeaseWaker; shouldSkipHanded?: boolean },
-): Promise<Result<{ ship: Ship; deliveries: PushReceivedDelivery[] }, ReceiveRefusal>> {
+): Promise<Result<{ ship: Ship; deliveries: PushReceivedDelivery[] }, ReceiveRefusal | DataKeysNeeded>> {
   const { tx, ids, at } = deps;
   const { crew, max, waker } = receipt;
   await markLeasePushed({ tx, ids }, { fleetId: crew.fleetId, shipId: crew.shipId, leaseId: crew.leaseId, at, ...(waker === undefined ? {} : { waker }) });
@@ -81,7 +83,7 @@ async function pushReceiptForCrew(
     for (const event of events) {
       await recordEvent({ events: tx.events, ids }, event);
     }
-    const handedOut = await receivedDeliveryOf(tx, { delivery: changed, message });
+    const handedOut = await receivedDeliveryOf(deps, { delivery: changed, message });
     if (!handedOut.isOk) {
       return handedOut;
     }
@@ -109,11 +111,14 @@ async function pushReceiptForCrew(
  * Its first push receive may state what wakes the ship, kept with the lease
  * (interop 5.1).
  * When nothing is there it waits as a receive does, about 25 seconds.
+ * In a sealed fleet it unseals as a receive does (decision 0068, B9): a key
+ * it cannot get refuses KEY_UNAVAILABLE and takes nothing.
  */
 export function createPushReceiveDeliveries(deps: {
   uow: UnitOfWork<PushReceiveDeliveriesTx>;
   clock: Clock;
   ids: IdGenerator;
+  sealing: PayloadSealing;
   wakeups: ReceiverWakeups;
   /** How long a push receive waits on an empty inbox; about 25 seconds unless a test says otherwise. */
   waitMs?: number;
@@ -126,7 +131,18 @@ export function createPushReceiveDeliveries(deps: {
     }
     return waitForDeliveries(
       { clock: deps.clock, wakeups: deps.wakeups, waitMs },
-      { crew, look: () => deps.uow.run((tx) => pushReceiptForCrew({ tx, ids: deps.ids, at: deps.clock.now() }, { crew, max: max.value, shouldSkipHanded: input.shouldSkipHanded ?? false, ...(input.waker === undefined ? {} : { waker: input.waker }) })) },
+      {
+        crew,
+        look: () =>
+          withDataKeys({ sealing: deps.sealing, fleetId: crew.fleetId }, (keys) =>
+            deps.uow.run((tx) =>
+              pushReceiptForCrew(
+                { tx, ids: deps.ids, at: deps.clock.now(), keys },
+                { crew, max: max.value, shouldSkipHanded: input.shouldSkipHanded ?? false, ...(input.waker === undefined ? {} : { waker: input.waker }) },
+              ),
+            ),
+          ),
+      },
     );
   };
 }

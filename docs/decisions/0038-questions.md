@@ -6,7 +6,7 @@
 - Content types compare without case and parameters. Schemas in `common/src/schemas/question.ts`.
 - Core stays unaware of them: it stores and carries both like any message and never reads a payload. Its only help is content-agnostic: Reply takes a content type, and `fleet.inbox` lists argo's replies to each message. The console's server (decision 0033) reads argo's inbox for questions and their answers, checks an answer against its question, and sends it through Reply.
 - A question is open until the asked ship has sent an answer naming it, whatever its delivery's state. The first such answer is the one shown. A message of the question type whose payload is not a question is a plain message.
-- The content types are a fleet convention in the ship protocol, any app may answer them. For argo's questions, the console's questions UI is frozen (0043): it shows open questions in the operator inbox, on top, oldest first, in its one count; answered and stale ones under Done. The asker's pick is preselected, and one tap on a button naming what it sends answers it, with no confirm. After an answer, a Next question button; never a jump.
+- The content types are a fleet convention in the ship protocol, any app may answer them. For argo's questions, the console's questions UI is frozen (0043) as the blueprint's [Questions to argo](../blueprint.md#questions-to-argo) states it.
 
 Why: questions that need the operator land in one place with what it takes to answer, and the answer reaches the asking ship as a reply it already knows how to receive. Payloads are data only; how a question looks is the console's job. One place and one count tell the operator at a glance whether anything waits, and the usual answer, the asker's pick, is one tap away.
 

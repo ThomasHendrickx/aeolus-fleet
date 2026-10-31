@@ -147,7 +147,7 @@ describe('making a schedule', () => {
     expect(core.state.schedules).toHaveLength(2);
   });
 
-  it('takes a payload of exactly 64 KB and refuses one byte more, storing nothing', async () => {
+  it('takes a payload of exactly 256 KB and refuses one byte more, storing nothing', async () => {
     await scheduled(aSchedule({ payload: 'a'.repeat(PAYLOAD_MAX_BYTES) }));
 
     expect(refusalOf(await messaging.scheduleMessage(scout, aSchedule({ payload: 'a'.repeat(PAYLOAD_MAX_BYTES + 1) }))).kind).toBe('PAYLOAD_TOO_LARGE');

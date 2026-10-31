@@ -9,6 +9,7 @@ import { DEFAULT_FLEET_VIEW, type FleetView } from '../../services/fleet-filter'
 import { Button } from '@aeolus-fleet/common/header';
 import { FleetTable, type RowActionsLayout } from './fleet-table';
 import { AREA, BLUEPRINT, carried, COST, labelContext, OS, OWNERS, ownerShips, PROJECT } from '../../../../lib/fixtures/labels.fixtures';
+import { REPORT_TASKS, VIEWER_FLEET_ID } from '../../../../lib/fixtures/report.fixtures';
 
 const NOW = new Date('2026-09-28T14:30:00Z');
 const HOUR_MS = 3_600_000;
@@ -30,7 +31,7 @@ function ship(suffix: string, changes: Partial<ListedShip> & Pick<ListedShip, 'n
     harness: 'claude-code',
     model: { id: 'claude-opus-5-5', statedAt: new Date(NOW.getTime() - 2 * 60_000).toISOString() },
     lastSeenAt: new Date(NOW.getTime() - 20_000).toISOString(),
-    awaitingCrewSince: null,
+    activity: null, openAlertCount: 0, awaitingCrewSince: null,
     crewRequest: null,
     labels: [],
     retiredAt: null, ownerShipId: null,
@@ -149,6 +150,7 @@ const meta = {
   title: 'Organisms/FleetTable',
   component: StatefulFleetTable,
   args: {
+    viewerFleetId: VIEWER_FLEET_ID,
     ships: ACTIVE_FLEET,
     counts: countsOf(ACTIVE_FLEET),
     isOnlyArgo: false,
@@ -240,6 +242,56 @@ export const Error: Story = {
 
 export const Phone: Story = { globals: { viewport: { value: 'mobile1' } } };
 
+/** A Copilot session a trierarch crews: Runs on names Copilot with the coding agent's icon, beside Claude Code and Codex. */
+const HARNESS_FLEET = [
+  argo,
+  ship('h4aa', { name: 'reviewer-01', report: { state: 'working', note: 'Reviewing PR 1388', task: null, step: null, reportedAt: NOW.toISOString(), reportChangedAt: NOW.toISOString(), detailsVersion: 0 } }),
+  ship('h4ab', { name: 'builder-02', harness: 'codex', location: { kind: 'CLOUD', description: null }, model: { id: 'gpt-5.5-codex', statedAt: NOW.toISOString() } }),
+  ship('h4ac', { name: 'docs-03', harness: 'copilot', model: { id: 'gpt-5.2', statedAt: NOW.toISOString() }, report: { state: 'working', note: 'Writing the Copilot guide', task: null, step: null, reportedAt: NOW.toISOString(), reportChangedAt: NOW.toISOString(), detailsVersion: 0 } }),
+];
+export const CopilotRunsOn: Story = {
+  args: { ships: HARNESS_FLEET, labels: labelContext(HARNESS_FLEET) },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getAllByTitle('Copilot · Device')).not.toHaveLength(0);
+  },
+};
+export const CopilotRunsOnPhone: Story = { ...CopilotRunsOn, globals: { viewport: { value: 'mobile1' } } };
+
+/** The monitoring design's overview: each crewed ship's task per kind and step beside its note, the report's changed and reported times in its title. */
+const minutesBefore = (minutes: number) => new Date(NOW.getTime() - minutes * 60_000).toISOString();
+const PROGRESS_FLEET = [
+  argo,
+  ship('h5aa', { name: 'reviewer-3', report: { state: 'working', note: 'Reviewing the merge', task: REPORT_TASKS.pullRequest, step: { at: 3, of: 5 }, reportedAt: minutesBefore(1), reportChangedAt: minutesBefore(2), detailsVersion: 0 } }),
+  ship('h5ab', { name: 'writer-2', report: { state: 'working', note: 'Drafting the guide', task: REPORT_TASKS.message, step: { at: 1, of: 4 }, reportedAt: minutesBefore(1), reportChangedAt: minutesBefore(6), detailsVersion: 0 } }),
+  ship('h5ac', { name: 'triage', report: { state: 'idle', note: 'Nothing waiting', task: null, step: null, reportedAt: minutesBefore(4), reportChangedAt: minutesBefore(4), detailsVersion: 0 } }),
+];
+export const TaskAndStep: Story = {
+  args: { ships: PROGRESS_FLEET, labels: labelContext(PROGRESS_FLEET) },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getAllByRole('link', { name: 'PR #1391' })[0]).toHaveAttribute('href', REPORT_TASKS.pullRequest.url);
+    await expect(within(canvasElement).getAllByText('a message')).not.toHaveLength(0);
+  },
+};
+export const TaskAndStepPhone: Story = { ...TaskAndStep, globals: { viewport: { value: 'mobile1' } } };
+
+/** The monitoring design's Seen cell: activity beside last seen, unknown once the trierarch's write is older than twice its interval, nothing for a ship crewed by hand. */
+const ACTIVITY_FLEET = [
+  argo,
+  ship('h6aa', { name: 'reviewer-3', activity: { at: minutesBefore(2), kind: 'tool', tool: 'Bash', reportedAt: minutesBefore(0.2), intervalSeconds: 30 } }),
+  ship('h6ab', { name: 'merger-1', activity: { at: minutesBefore(30), kind: 'tool', tool: 'Bash', reportedAt: minutesBefore(25), intervalSeconds: 30 } }),
+  ship('h6ac', { name: 'writer-2', activity: { at: minutesBefore(1), kind: 'text', tool: null, reportedAt: minutesBefore(0.2), intervalSeconds: 30 } }),
+  ship('h6ad', { name: 'triage' }),
+];
+export const Activity: Story = {
+  args: { ships: ACTIVITY_FLEET, labels: labelContext(ACTIVITY_FLEET) },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getAllByText('tool 2 min')).not.toHaveLength(0);
+    await expect(within(canvasElement).getAllByText('unknown')).not.toHaveLength(0);
+  },
+};
+export const ActivityPhone: Story = { ...Activity, globals: { viewport: { value: 'mobile1' } } };
+export const ActivityDark: Story = { ...Activity, globals: { theme: 'dark' } };
+
 /** Phone with filters in force: the chips under the search, Clear filters, and the filter button marked. */
 export const PhoneFiltered: Story = {
   globals: { viewport: { value: 'mobile1' } },
@@ -298,17 +350,17 @@ export const Reported: Story = {
       ship('h1bf', {
         name: 'implementer-01',
         lastSeenAt: new Date(NOW.getTime() - 20_000).toISOString(),
-        report: { state: 'working', note: 'on PR 89', reportedAt: new Date(NOW.getTime() - 2 * 60_000).toISOString(), detailsVersion: 0 },
+        report: { state: 'working', note: 'on PR 89', task: null, step: null, reportedAt: new Date(NOW.getTime() - 2 * 60_000).toISOString(), reportChangedAt: new Date(NOW.getTime() - 2 * 60_000).toISOString(), detailsVersion: 0 },
       }),
       ship('h1bg', {
         name: 'tester-01',
         lastSeenAt: new Date(NOW.getTime() - 60_000).toISOString(),
-        report: { state: 'blocked', note: 'waiting for implementer-01', reportedAt: new Date(NOW.getTime() - 9 * 60_000).toISOString(), detailsVersion: 0 },
+        report: { state: 'blocked', note: 'waiting for implementer-01', task: null, step: null, reportedAt: new Date(NOW.getTime() - 9 * 60_000).toISOString(), reportChangedAt: new Date(NOW.getTime() - 9 * 60_000).toISOString(), detailsVersion: 0 },
       }),
       ship('h1bh', {
         name: 'planner-01',
         lastSeenAt: new Date(NOW.getTime() - 5 * 60_000).toISOString(),
-        report: { state: 'idle', note: null, reportedAt: new Date(NOW.getTime() - 5 * 60_000).toISOString(), detailsVersion: 0 },
+        report: { state: 'idle', note: null, task: null, step: null, reportedAt: new Date(NOW.getTime() - 5 * 60_000).toISOString(), reportChangedAt: new Date(NOW.getTime() - 5 * 60_000).toISOString(), detailsVersion: 0 },
       }),
     ],
   },
@@ -384,7 +436,7 @@ const IMPLEMENTER = ship('h2aa', {
   harness: 'codex',
   model: { id: 'gpt-6.1-sol', statedAt: NOW.toISOString() },
   labels: [carried(SQUADRON_LABEL, SQUADRON_ID), carried(ROLE_LABEL, 'implementer'), carried(PROJECT, 'aeolus'), carried(OS, 'linux')],
-  report: { state: 'working', note: 'Building the registry adapter', reportedAt: NOW.toISOString(), detailsVersion: 0 },
+  report: { state: 'working', note: 'Building the registry adapter', task: null, step: null, reportedAt: NOW.toISOString(), reportChangedAt: NOW.toISOString(), detailsVersion: 0 },
 });
 const CLEAN_FLEET = [argo, IMPLEMENTER, ship('h2ab', { name: 'harbour-ios', model: null }), ship('h2ac', { name: 'trierarch-plugin', harness: 'node', location: { kind: 'SERVER', description: 'fleet server' }, model: { id: '@aeolus-fleet/trierarch-plugin@0.24.0', statedAt: NOW.toISOString() } }), FLEET[2] ?? argo, FLEET[7] ?? argo];
 const CLEAN_ARGS = {
@@ -499,13 +551,13 @@ export const ReportWithEmptyNextStep: Story = {
 };
 
 /** One ship of every kind (#401): the console's two, a plugin's, a machine's trierarch, Claude Code, Codex, and a ship no session crews. */
-const PLUGIN_SHIP = ship('h3aa', { name: 'trierarch-plugin', type: 'trierarch-plugin', kind: 'plugin', harness: 'node', location: { kind: 'SERVER', description: 'fleet server' }, model: null, report: { state: 'idle', note: 'All crew requests assigned', reportedAt: NOW.toISOString(), detailsVersion: 0 } });
+const PLUGIN_SHIP = ship('h3aa', { name: 'trierarch-plugin', type: 'trierarch-plugin', kind: 'plugin', harness: 'node', location: { kind: 'SERVER', description: 'fleet server' }, model: null, report: { state: 'idle', note: 'All crew requests assigned', task: null, step: null, reportedAt: NOW.toISOString(), reportChangedAt: NOW.toISOString(), detailsVersion: 0 } });
 const KIND_FLEET = [
   argo,
   ship('h3ab', { name: 'viewer', type: 'viewer', kind: 'viewer', harness: null, model: null }),
   PLUGIN_SHIP,
   ship('h3ac', { name: 'trierarch-mac', type: 'trierarch', harness: 'aeolus-trierarch', model: null }),
-  ship('h3ad', { name: 'harbour-ios', report: { state: 'working', note: 'Writing the login screen', reportedAt: NOW.toISOString(), detailsVersion: 0 } }),
+  ship('h3ad', { name: 'harbour-ios', report: { state: 'working', note: 'Writing the login screen', task: null, step: null, reportedAt: NOW.toISOString(), reportChangedAt: NOW.toISOString(), detailsVersion: 0 } }),
   IMPLEMENTER,
   FLEET[2] ?? argo,
 ];
@@ -693,3 +745,36 @@ export const PluginShipReport: Story = {
     await expect(within(canvas.getByTestId('fleet-row-trierarch-plugin')).getByTestId('fleet-report')).toHaveTextContent('All crew requests assigned');
   },
 };
+
+const NO_HARNESS = ship('h6aa', { name: 'lookout', harness: null, location: { kind: 'DEVICE', description: 'thomas-linux' } });
+
+/** A crewed agent ship whose session stated no harness (aeolus-fleet#1408): Harness unknown, a fault, beside its location with the machine name; argo stays the console. */
+export const HarnessUnknown: Story = {
+  args: { ships: [argo, NO_HARNESS], counts: countsOf([argo, NO_HARNESS]) },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const runsOn = within(canvas.getByTestId('fleet-row-lookout')).getByTestId('fleet-runs-on');
+    await expect(within(runsOn).getByTestId('harness-unknown')).toHaveTextContent('Harness unknown');
+    await expect(within(runsOn).getByTestId('harness-unknown')).toHaveAttribute('title', 'The session stated no harness: a fault in Aeolus');
+    await expect(runsOn).toHaveTextContent('thomas-linux');
+    await expect(within(canvas.getByTestId('fleet-row-argo')).queryByTestId('harness-unknown')).toBeNull();
+  },
+};
+
+/** The monitoring design's alert badge: after the status of a ship with an open alert, its title saying how many; none without. */
+const ALERT_FLEET = [
+  argo,
+  ship('h7aa', { name: 'reviewer-3' }),
+  ship('h7ab', { name: 'deploy-bot', status: 'awaitingCrew', openAlertCount: 1 }),
+  ship('h7ac', { name: 'merger-1', openAlertCount: 2 }),
+];
+export const Alert: Story = {
+  args: { ships: ALERT_FLEET, labels: labelContext(ALERT_FLEET) },
+  play: async ({ canvasElement }) => {
+    const badges = within(canvasElement).getAllByTestId('fleet-alert');
+    // The table and the phone list both render; each shows the badges in its own layout.
+    await expect(badges.map((badge) => badge.title)).toEqual(['1 open alert', '2 open alerts', '1 open alert', '2 open alerts']);
+  },
+};
+export const AlertPhone: Story = { ...Alert, globals: { viewport: { value: 'mobile1' } } };
+export const AlertDark: Story = { ...Alert, globals: { theme: 'dark' } };

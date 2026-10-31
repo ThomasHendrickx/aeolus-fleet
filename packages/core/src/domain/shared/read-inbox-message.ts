@@ -3,11 +3,13 @@ import type { DeliveryId } from '@aeolus-fleet/common';
 import type { ReadReachOf, ShipRepository } from '../registry/public.js';
 import type { Caller } from './caller.js';
 import { refuse, type DomainError } from './errors.js';
-import type { InboxEntry, ShipHistory } from './history.js';
+import type { ShipHistory } from './history.js';
 import { inboxReadOf } from './read-inbox.js';
+import { listedInboxEntries, type ListedInboxEntry } from './plain-history.js';
 import { ok, type Result } from './result.js';
+import type { PayloadSealing } from '../messaging/public.js';
 
-export type ReadInboxMessage = (caller: Caller, input: { deliveryId: DeliveryId }) => Promise<Result<InboxEntry, DomainError<'DELIVERY_NOT_FOUND'>>>;
+export type ReadInboxMessage = (caller: Caller, input: { deliveryId: DeliveryId }) => Promise<Result<ListedInboxEntry, DomainError<'DELIVERY_NOT_FOUND'>>>;
 
 /**
  * Use case: one message of the caller's own inbox, argo's for the console, by
@@ -15,14 +17,17 @@ export type ReadInboxMessage = (caller: Caller, input: { deliveryId: DeliveryId 
  * operator answers or opens (docs/blueprint.md, "Inbox"). A delivery not in
  * that inbox, or outside the caller's read reach, is answered as none
  * (decision 0034). The caller's scope (fleet:read) is checked before this runs.
+ * In a sealed fleet its payloads are unsealed, or marked unreadable when
+ * their key cannot be had, as the inbox lists them (decision 0068, B9).
  */
-export function createReadInboxMessage(deps: { history: ShipHistory; ships: Pick<ShipRepository, 'findOperatorShip'>; readReach: ReadReachOf }): ReadInboxMessage {
+export function createReadInboxMessage(deps: { history: ShipHistory; ships: Pick<ShipRepository, 'findOperatorShip'>; readReach: ReadReachOf; sealing: PayloadSealing }): ReadInboxMessage {
   return async (caller, { deliveryId }) => {
     const inbox = await inboxReadOf(deps, caller);
     const found = inbox ? await deps.history.inboxMessage(caller.fleetId, { shipId: inbox.shipId, deliveryId }) : undefined;
     if (!inbox || !found || !inbox.reads(found)) {
       return refuse('DELIVERY_NOT_FOUND', `No delivery ${deliveryId} in this inbox`);
     }
-    return ok(found);
+    const [entry] = await listedInboxEntries({ sealing: deps.sealing, fleetId: caller.fleetId }, [found]);
+    return entry === undefined ? refuse('DELIVERY_NOT_FOUND', `No delivery ${deliveryId} in this inbox`) : ok(entry);
   };
 }

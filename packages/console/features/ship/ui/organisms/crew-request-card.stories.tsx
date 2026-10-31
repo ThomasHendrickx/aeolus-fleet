@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import { expect, within } from 'storybook/test';
 
-import { MACHINE_LABELS, MACHINE_VALUES } from '../../../../lib/fixtures/machines.fixtures';
+import { MACHINE_LABELS, MACHINE_VALUES, OUT_OF_CREDIT_AT } from '../../../../lib/fixtures/machines.fixtures';
 import { ARGO, minutesAgo, NOW, PLANNER } from '../../../../lib/fixtures/ship-page.fixtures';
 import { CrewRequestCard } from './crew-request-card';
 
@@ -76,3 +77,41 @@ export const NoMachineMatches: Story = {
 };
 /** A running request on a machine carrying the labels it asked for. */
 export const RunningWithMachineLabels: Story = { args: { ...RunningWithPlugin.args, machineLabels: MACHINE_LABELS.chipsOf([MACHINE_VALUES.macos, MACHINE_VALUES.arm64]) } };
+
+/** On the API key: the login after the computer, and what it spent on the key (aeolus-fleet-trierarch's api keys design, K12). */
+export const OnTheApiKey: Story = {
+  args: { ...RunningWithPlugin.args, login: { login: 'apiKey', spentOnKeyUsd: 12.5 } },
+  play: async ({ canvasElement }) => {
+    const card = within(canvasElement);
+    await expect(card.getByTestId('crew-request-login')).toHaveTextContent('· API key');
+    await expect(card.getByTestId('crew-request-spent-on-key')).toHaveTextContent('Spent on key $12.50');
+  },
+};
+/** Moved to the key while it runs: its session keeps the subscription, its next start uses the key (K3). */
+export const NextOnTheApiKey: Story = {
+  args: { ...RunningWithPlugin.args, login: { login: 'subscription', next: 'apiKey' } },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByTestId('crew-request-login')).toHaveTextContent('· Subscription, next: API key');
+  },
+};
+/** Its key out of credit: one note in the attention tone, since when, and that deliveries wait (K9). */
+export const KeyOutOfCredit: Story = {
+  args: { ...RunningWithPlugin.args, login: { login: 'apiKey', spentOnKeyUsd: 12.5, keyNotReady: { key: 'outOfCredit', at: OUT_OF_CREDIT_AT } } },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByRole('alert')).toHaveTextContent('API key out of credit since 14:02. Deliveries wait.');
+  },
+};
+/** Its key refused by its vendor (K10). */
+export const KeyRefused: Story = {
+  args: { ...RunningWithPlugin.args, login: { login: 'apiKey', keyNotReady: { key: 'refused', at: OUT_OF_CREDIT_AT } } },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByRole('alert')).toHaveTextContent('API key refused since 14:02. Deliveries wait.');
+  },
+};
+/** No API key on the computer. */
+export const NoKey: Story = {
+  args: { ...RunningWithPlugin.args, login: { login: 'apiKey', keyNotReady: { key: 'none' } } },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByRole('alert')).toHaveTextContent('No API key. Deliveries wait.');
+  },
+};

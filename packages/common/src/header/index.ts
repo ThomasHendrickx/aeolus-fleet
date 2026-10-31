@@ -19,3 +19,5 @@ export * from './apps.js';
 export * from './avatar-entry.js';
 export * from './avatar-menu.js';
 export * from './command-palette.js';
+export * from './sign-in-background.js';
+export * from './sign-in-backgrounds.js';

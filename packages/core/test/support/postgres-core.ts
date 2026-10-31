@@ -1,5 +1,6 @@
 import { createPrismaClient, type PrismaClient } from '../../src/adapters/prisma/client.js';
 import { createPrismaUnitOfWork, type PrismaTx } from '../../src/adapters/prisma/unit-of-work.js';
+import type { KeyVault } from '../../src/domain/messaging/key-vault.js';
 import type { Clock } from '../../src/domain/shared/clock.js';
 import type { UnitOfWork } from '../../src/domain/shared/unit-of-work.js';
 import { createUseCases, type UseCases } from '../../src/wiring.js';
@@ -31,8 +32,11 @@ export interface PostgresCore {
   close(): Promise<void>;
 }
 
-/** A fresh migrated database with every use case wired to it through Prisma, on a test clock. */
-export async function createPostgresCore(): Promise<PostgresCore> {
+/**
+ * A fresh migrated database with every use case wired to it through Prisma,
+ * on a test clock; with a key vault, its fleets can be sealed (decision 0068).
+ */
+export async function createPostgresCore(options: { keyVault?: KeyVault } = {}): Promise<PostgresCore> {
   const databaseUrl = await createMigratedDatabase();
   const prisma = createPrismaClient(databaseUrl);
   const clock = createTestClock();
@@ -40,7 +44,7 @@ export async function createPostgresCore(): Promise<PostgresCore> {
     databaseUrl,
     prisma,
     clock,
-    useCases: createUseCases({ prisma, clock }),
+    useCases: createUseCases({ prisma, clock, ...options }),
     close: () => prisma.$disconnect(),
   };
 }

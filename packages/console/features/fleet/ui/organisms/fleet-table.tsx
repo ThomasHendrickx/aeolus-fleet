@@ -1,6 +1,6 @@
 'use client';
 
-import type { CrewStatus, LabelValueId, ListedShip, ShipId } from '@aeolus-fleet/common';
+import type { CrewStatus, FleetId, LabelValueId, ListedShip, ShipId } from '@aeolus-fleet/common';
 import { Eye, Flag, Plug, Search, Ship, SlidersHorizontal, UserRound } from 'lucide-react';
 import type { ReactNode } from 'react';
 
@@ -22,6 +22,7 @@ import { nextSort, type FleetSort, type SortColumn } from '../../services/fleet-
 import { chipsOf, filterGroupsOf, pickedChips, type LabelContext } from '../../../../lib/labels';
 import type { ShipInSquadron } from '../../../../lib/squadrons-view';
 import { crewRequestKeyWord, crewRequestKeysOf, type CrewRequestKey } from '../../../../lib/needs-crew';
+import { counted } from '../../../../lib/sentence';
 import { Badge } from '../../../../components/atoms/badge';
 import { Input } from '../../../../components/atoms/input';
 import { Label } from '../../../../components/atoms/label';
@@ -34,6 +35,7 @@ import { LabelChip } from '../../../../components/molecules/label-chip';
 import { LabelChips } from '../molecules/label-chips';
 import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
 import { LastSeen } from '../molecules/last-seen';
+import { ActivityLine } from '../../../../components/molecules/activity-line';
 import { LocationTag } from '../../../../components/molecules/location-tag';
 import { ModelHint } from '../molecules/model-hint';
 import { ReportLine } from '../../../../components/molecules/report-line';
@@ -69,6 +71,8 @@ export interface FleetTableProps {
   highlightedShipIds?: ReadonlySet<ShipId>;
   /** The time relative times are measured from. */
   now: Date;
+  /** The viewer's fleet, for a report's message task; undefined until the session is known. */
+  viewerFleetId: FleetId | undefined;
   renderRowActions?: (ship: ListedShip, layout: RowActionsLayout) => ReactNode;
   /** The empty state's one action: Commission your first ship. */
   emptyAction?: ReactNode;
@@ -168,6 +172,7 @@ function RunsOn({ ship, now }: { ship: ListedShip; now: Date }) {
         kind={ship.kind === 'operator' && ship.location !== null ? 'DEVICE' : (ship.location?.kind ?? null)}
         description={ship.location?.description}
         harness={ship.kind === 'operator' ? 'console' : ship.harness}
+        isHarnessUnknown={ship.kind === 'agent' && ship.harness === null}
         size="sm"
         className="shrink-0"
       />
@@ -206,11 +211,11 @@ function ShipMetadata({ ship, squadron, labels }: { ship: ListedShip; squadron: 
  * a crewed ship's report with its time in the title. Only an agent or plugin
  * ship reports: argo and the viewer ship never do.
  */
-function ReportCell({ ship, now, next }: { ship: ListedShip; now: Date; next: ReactNode }) {
+function ReportCell({ ship, now, viewerFleetId, next }: { ship: ListedShip; now: Date; viewerFleetId: FleetId | undefined; next: ReactNode }) {
   const isReporting = (ship.kind === 'agent' || ship.kind === 'plugin') && ship.status === 'crewed';
   return (
     <span className="flex min-w-0 items-center gap-2 max-sm:flex-col max-sm:items-stretch [&:has(button)>[data-testid=fleet-report]]:hidden">
-      {isReporting ? <ReportLine report={ship.report} now={now} variant="row" isTimeInTitle testId="fleet-report" /> : null}
+      {isReporting ? <ReportLine report={ship.report} now={now} variant="row" viewerFleetId={viewerFleetId} isTimeInTitle testId="fleet-report" /> : null}
       {next}
     </span>
   );
@@ -565,13 +570,14 @@ function DesktopTable({
   ships,
   highlightedShipIds,
   now,
+  viewerFleetId,
   renderRowActions,
   squadronsOf,
   labels,
   pluginShipIds,
   sort,
   onSort,
-}: Pick<FleetTableProps, 'highlightedShipIds' | 'now' | 'renderRowActions' | 'squadronsOf' | 'labels' | 'pluginShipIds'> & {
+}: Pick<FleetTableProps, 'highlightedShipIds' | 'now' | 'viewerFleetId' | 'renderRowActions' | 'squadronsOf' | 'labels' | 'pluginShipIds'> & {
   ships: readonly ListedShip[];
   /** The column the rows are sorted by; with no `onSort`, the headers are plain. */
   sort?: FleetSort | null;
@@ -585,8 +591,8 @@ function DesktopTable({
           <col className="w-40" />
           <col className="w-64" />
           <col className="w-56" />
-          <col className="w-80" />
-          <col className="w-12" />
+          <col className="w-64" />
+          <col className="w-28" />
           <col className="w-12" />
         </colgroup>
         <TableHeader>
@@ -627,10 +633,13 @@ function DesktopTable({
                 </span>
               </TableCell>
               <TableCell>
-                <StatusBadge status={ship.status} />
+                <span className="flex items-center gap-1.5">
+                  <StatusBadge status={ship.status} />
+                  <AlertBadge ship={ship} />
+                </span>
               </TableCell>
               <TableCell>
-                <ReportCell ship={ship} now={now} next={renderRowActions?.(ship, 'next')} />
+                <ReportCell ship={ship} now={now} viewerFleetId={viewerFleetId} next={renderRowActions?.(ship, 'next')} />
               </TableCell>
               <TableCell>
                 <ShipMetadata ship={ship} squadron={squadronsOf?.get(ship.id)} labels={labels} />
@@ -639,7 +648,10 @@ function DesktopTable({
                 <RunsOn ship={ship} now={now} />
               </TableCell>
               <TableCell>
-                <LastSeen seenAt={ship.lastSeenAt} now={now} testId="fleet-last-seen" />
+                <span className="flex min-w-0 items-center gap-2">
+                  <LastSeen seenAt={ship.lastSeenAt} now={now} testId="fleet-last-seen" />
+                  <ActivityLine activity={ship.activity} now={now} variant="row" testId="fleet-activity" />
+                </span>
               </TableCell>
               <TableCell className="w-10 text-right">{renderRowActions?.(ship, 'table')}</TableCell>
             </TableRow>
@@ -650,14 +662,27 @@ function DesktopTable({
   );
 }
 
+/** The Alert badge after a ship's status while it has an open alert (docs/design/monitoring, 4.8); its title says how many. */
+function AlertBadge({ ship }: { ship: ListedShip }) {
+  if (ship.openAlertCount === 0) {
+    return null;
+  }
+  return (
+    <span title={counted(ship.openAlertCount, { one: 'open alert', many: 'open alerts' })} data-testid="fleet-alert">
+      <StatusBadge status="alert" />
+    </span>
+  );
+}
+
 function PhoneList({
   ships,
   highlightedShipIds,
   now,
+  viewerFleetId,
   renderRowActions,
   squadronsOf,
   pluginShipIds,
-}: Pick<FleetTableProps, 'highlightedShipIds' | 'now' | 'renderRowActions' | 'squadronsOf' | 'pluginShipIds'> & { ships: readonly ListedShip[] }) {
+}: Pick<FleetTableProps, 'highlightedShipIds' | 'now' | 'viewerFleetId' | 'renderRowActions' | 'squadronsOf' | 'pluginShipIds'> & { ships: readonly ListedShip[] }) {
   return (
     <ul aria-label="Ships" className="overflow-hidden rounded-lg border border-border bg-card sm:hidden">
       {ships.map((ship) => (
@@ -673,13 +698,15 @@ function PhoneList({
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <StatusBadge status={ship.status} />
+              <AlertBadge ship={ship} />
               <NameChip ship={ship} squadron={squadronsOf?.get(ship.id)} isPluginShip={pluginShipIds?.has(ship.id) ?? false} />
             </div>
             <ShipMetadata ship={ship} squadron={squadronsOf?.get(ship.id)} />
-            <ReportCell ship={ship} now={now} next={renderRowActions?.(ship, 'next')} />
+            <ReportCell ship={ship} now={now} viewerFleetId={viewerFleetId} next={renderRowActions?.(ship, 'next')} />
             <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
               <RunsOn ship={ship} now={now} />
               <LastSeen seenAt={ship.lastSeenAt} now={now} />
+              <ActivityLine activity={ship.activity} now={now} variant="row" />
             </div>
           </div>
           {renderRowActions?.(ship, 'phone')}
@@ -710,6 +737,7 @@ export function FleetTable({
   error,
   highlightedShipIds,
   now,
+  viewerFleetId,
   renderRowActions,
   emptyAction,
   squadronsOf,
@@ -736,7 +764,7 @@ export function FleetTable({
     );
   }
 
-  const rows = { highlightedShipIds, now, renderRowActions, squadronsOf, pluginShipIds };
+  const rows = { highlightedShipIds, now, viewerFleetId, renderRowActions, squadronsOf, pluginShipIds };
   if (isOnlyArgo) {
     const argo = ships.filter((ship) => ship.kind === 'operator');
     return (

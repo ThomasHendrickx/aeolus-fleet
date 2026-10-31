@@ -5,8 +5,10 @@ import {
   crewRequestSettingsSchema,
   crewStatusSchema,
   reportDetailsSchema,
+  reportTaskSchema,
   reportStateSchema,
   turnStateSchema,
+  activityKindSchema,
   eventTypeSchema,
   idSchema,
   carriedLabelSchema,
@@ -29,9 +31,11 @@ import type { Credential } from '../../domain/identity/credential.js';
 import type { OperatorAccount } from '../../domain/identity/operator-account.js';
 import type { Delivery, Message } from '../../domain/messaging/message.js';
 import type { PushedCrew, WaitingDelivery } from '../../domain/messaging/overdue.js';
+import { isSealedPayload, type StoredPayload } from '../../domain/messaging/sealed-payload.js';
 import type { ShipReport } from '../../domain/registry/ship-report.js';
 import type { StatedStatement } from '../../domain/registry/statement.js';
 import type { Turn } from '../../domain/registry/turn.js';
+import type { LeaseActivity } from '../../domain/registry/lease-activity.js';
 import type { ClearRequest } from '../../domain/registry/clear-request.js';
 import type { CrewRequest } from '../../domain/registry/crew-request.js';
 import type { Label, LabelOwner, ListedLabel, ShipLabel } from '../../domain/registry/label.js';
@@ -65,6 +69,7 @@ const shipRow = z.object({
   note: z.string().nullable(),
   createdAt: z.date(),
   retiredAt: z.date().nullable(),
+  removedAt: z.date().nullable(),
   commissionedByKind: z.enum(['ship', 'account', 'installation']).nullable(),
   commissionedBy: z.string().nullable(),
   commissionKey: z.string().nullable(),
@@ -124,6 +129,7 @@ const shipSqlRow = z
     note: z.string().nullable(),
     created_at: z.date(),
     retired_at: z.date().nullable(),
+    removed_at: z.date().nullable(),
     commissioned_by_kind: z.enum(['ship', 'account', 'installation']).nullable(),
     commissioned_by: z.string().nullable(),
     commission_key: z.string().nullable(),
@@ -141,6 +147,7 @@ const shipSqlRow = z
       note: row.note,
       createdAt: row.created_at,
       retiredAt: row.retired_at,
+      removedAt: row.removed_at,
       commission: commissionOf({ kind: row.commissioned_by_kind, by: row.commissioned_by, idempotencyKey: row.commission_key, requestHash: row.commission_request_hash }),
       owner: row.owner_ship_id,
     }),
@@ -226,6 +233,10 @@ const shipReportSqlRow = z.object({
   report_state: reportStateSchema.nullable(),
   report_note: z.string().nullable(),
   reported_at: z.date().nullable(),
+  report_changed_at: z.date().nullable(),
+  report_task: reportTaskSchema.nullable(),
+  report_step_at: z.int().nullable(),
+  report_step_of: z.int().nullable(),
   report_details: reportDetailsSchema.nullable(),
   // Null where no lease joins: the column itself is never null.
   report_details_version: z.int().min(0).nullable(),
@@ -233,9 +244,19 @@ const shipReportSqlRow = z.object({
 
 /** A lease's report columns as raw SQL reads them; null until its crew reports. */
 export function toShipReport(row: unknown): ShipReport | null {
-  const { report_state, report_note, reported_at, report_details, report_details_version } = shipReportSqlRow.parse(row);
+  const parsed = shipReportSqlRow.parse(row);
+  const { report_state, report_note, reported_at, report_changed_at, report_task, report_step_at, report_step_of } = parsed;
   return report_state && reported_at
-    ? { state: report_state, note: report_note, reportedAt: reported_at, details: report_details, detailsVersion: report_details_version ?? 0 }
+    ? {
+        state: report_state,
+        note: report_note,
+        task: report_task,
+        step: report_step_at === null || report_step_of === null ? null : { at: report_step_at, of: report_step_of },
+        reportedAt: reported_at,
+        reportChangedAt: report_changed_at ?? reported_at,
+        details: parsed.report_details,
+        detailsVersion: parsed.report_details_version ?? 0,
+      }
     : null;
 }
 
@@ -245,6 +266,22 @@ const statementSqlRow = z.object({ statement: statementSchema.nullable(), statem
 export function toStatedStatement(row: unknown): StatedStatement | null {
   const { statement, statement_version } = statementSqlRow.parse(row);
   return statement === null ? null : { statement, version: statement_version };
+}
+
+const activitySqlRow = z.object({
+  activity_at: z.date().nullable(),
+  activity_kind: activityKindSchema.nullable(),
+  activity_tool: z.string().nullable(),
+  activity_reported_at: z.date().nullable(),
+  activity_interval_seconds: z.int().min(1).nullable(),
+});
+
+/** A lease's activity columns as raw SQL reads them; null until its trierarch writes. */
+export function toLeaseActivity(row: unknown): LeaseActivity | null {
+  const { activity_at, activity_kind, activity_tool, activity_reported_at, activity_interval_seconds } = activitySqlRow.parse(row);
+  return activity_at && activity_kind && activity_reported_at && activity_interval_seconds !== null
+    ? { at: activity_at, kind: activity_kind, tool: activity_tool, reportedAt: activity_reported_at, intervalSeconds: activity_interval_seconds }
+    : null;
 }
 
 const turnSqlRow = z.object({ turn: turnStateSchema.nullable(), turn_at: z.date().nullable() });
@@ -280,6 +317,7 @@ const shipFactsSqlRow = z.object({
   last_model_stated_at: z.date().nullable(),
   last_viewed_at: z.date().nullable(),
   last_lease_ended_at: z.date().nullable(),
+  open_alert_count: z.number().int().min(0),
   crew_request_settings: crewRequestSettingsSchema.nullable(),
   crew_request_settings_version: z.int().min(1).nullable(),
   crew_request_requested_at: z.date().nullable(),
@@ -316,6 +354,7 @@ export function toShipFacts(row: unknown): ShipFacts {
     last_model_stated_at,
     last_viewed_at,
     last_lease_ended_at,
+    open_alert_count,
     crew_request_settings,
     crew_request_settings_version,
     crew_request_requested_at,
@@ -344,6 +383,7 @@ export function toShipFacts(row: unknown): ShipFacts {
             // Its claim until its crew calls again.
             lastSeenAt: lease_last_seen_at ?? lease_started_at,
             report: toShipReport(row),
+            activity: toLeaseActivity(row),
           }
         : null,
     validSecret: secret_issued_at && { issuedAt: secret_issued_at, claimedAt: secret_claimed_at },
@@ -382,6 +422,7 @@ export function toShipFacts(row: unknown): ShipFacts {
     lastModel: last_model && last_model_stated_at ? { id: last_model, statedAt: last_model_stated_at } : null,
     lastViewedAt: last_viewed_at,
     lastLeaseEndedAt: last_lease_ended_at,
+    openAlertCount: open_alert_count,
   };
 }
 
@@ -546,11 +587,36 @@ export function toConsoleSessionCaller(row: unknown): { caller: ShipCaller | Cre
   return { caller: lease_id === null ? caller : { ...caller, leaseId: lease_id }, expiresAt: expires_at };
 }
 
+/** A message's or a schedule's payload columns: plain, or sealed whole with its plain byte count (decision 0068). */
+const payloadColumns = z.union([
+  z
+    .object({ payload: z.string(), sealedDataKeyId: z.null(), sealedNonce: z.null(), sealedCiphertext: z.null(), sealedPayloadBytes: z.null() })
+    .transform((row): StoredPayload => row.payload),
+  z
+    .object({ payload: z.null(), sealedDataKeyId: idSchema('dataKey'), sealedNonce: z.instanceof(Uint8Array), sealedCiphertext: z.instanceof(Uint8Array), sealedPayloadBytes: z.int().min(0) })
+    .transform((row): StoredPayload => ({
+      sealed: { dataKeyId: row.sealedDataKeyId, nonce: new Uint8Array(row.sealedNonce), ciphertext: new Uint8Array(row.sealedCiphertext) },
+      plainBytes: row.sealedPayloadBytes,
+    })),
+]);
+
+/** A message's or a schedule's payload from its columns (decision 0068). */
+export function storedPayloadOf(row: unknown): StoredPayload {
+  return payloadColumns.parse(row);
+}
+
+/** A payload as a message's or a schedule's columns hold it: plain in `payload`, or sealed in the sealed columns. */
+export function payloadColumnsOf(payload: StoredPayload): { payload: string | null; sealedDataKeyId: string | null; sealedNonce: Uint8Array<ArrayBuffer> | null; sealedCiphertext: Uint8Array<ArrayBuffer> | null; sealedPayloadBytes: number | null } {
+  return isSealedPayload(payload)
+    ? { payload: null, sealedDataKeyId: payload.sealed.dataKeyId, sealedNonce: payload.sealed.nonce, sealedCiphertext: payload.sealed.ciphertext, sealedPayloadBytes: payload.plainBytes }
+    : { payload, sealedDataKeyId: null, sealedNonce: null, sealedCiphertext: null, sealedPayloadBytes: null };
+}
+
 const messageRow = z.object({
   id: idSchema('message'),
   fleetId: idSchema('fleet'),
   senderShipId: idSchema('ship'),
-  payload: z.string(),
+  questionId: z.string().nullable(),
   contentType: z.string(),
   model: z.string().nullable(),
   idempotencyKey: z.string(),
@@ -584,7 +650,7 @@ const selectorColumns = z.union([
 ]);
 
 export function toMessage(row: unknown): Message {
-  return { ...messageRow.parse(row), selector: selectorColumns.parse(row) };
+  return { ...messageRow.parse(row), payload: storedPayloadOf(row), selector: selectorColumns.parse(row) };
 }
 
 const recipientSchema = z.discriminatedUnion('kind', [
@@ -713,6 +779,7 @@ const pushedCrewSqlRow = z.object({
   ship_id: idSchema('ship'),
   pushed_at: z.date(),
   is_person: z.boolean(),
+  owner_ship_id: idSchema('ship').nullable(),
   turn: turnStateSchema.nullable(),
   turn_at: z.date().nullable(),
 });
@@ -726,6 +793,7 @@ export function toPushedCrewFromSql(fleetId: FleetId, row: unknown): PushedCrew 
     leaseId: lease.lease_id,
     pushedAt: lease.pushed_at,
     isPerson: lease.is_person,
+    ownerShipId: lease.owner_ship_id,
     turn: lease.turn === null || lease.turn_at === null ? null : { state: lease.turn, at: lease.turn_at },
     waiting: [],
   };

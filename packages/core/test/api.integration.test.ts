@@ -1,6 +1,6 @@
 import { readdirSync } from 'node:fs';
 
-import { ANY_LABEL_VALUE, createIdGenerator, idSchema, MEETING_ADDED_CONTENT_TYPE, MEETING_MIC_CONTENT_TYPE, SAME_LABEL_VALUE, SCOPES, type FleetId, type NetworkRule, type Scope, type SendInput, type ShipId } from '@aeolus-fleet/common';
+import { alertOutputSchema, ANY_LABEL_VALUE, createIdGenerator, raiseAlertInputSchema, idSchema, MEETING_ADDED_CONTENT_TYPE, MEETING_MIC_CONTENT_TYPE, SAME_LABEL_VALUE, SCOPES, type FleetId, type NetworkRule, type Scope, type SendInput, type ShipId } from '@aeolus-fleet/common';
 import { createTRPCClient, httpBatchLink, TRPCClientError, type TRPCClient } from '@trpc/client';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
@@ -280,6 +280,21 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_history_pruning$/),
       expect.stringMatching(/^\d{14}_history_pruning_crew_events$/),
       expect.stringMatching(/^\d{14}_schedule_to_a_label$/),
+      expect.stringMatching(/^\d{14}_data_keys$/),
+      expect.stringMatching(/^\d{14}_sealed_messages$/),
+      expect.stringMatching(/^\d{14}_sealed_schedules$/),
+      expect.stringMatching(/^\d{14}_key_availability$/),
+      expect.stringMatching(/^\d{14}_keys_scope$/),
+      expect.stringMatching(/^\d{14}_recovery_key$/),
+      expect.stringMatching(/^\d{14}_sealing_progress$/),
+      expect.stringMatching(/^\d{14}_feature_flags$/),
+      expect.stringMatching(/^\d{14}_removed_ships$/),
+      expect.stringMatching(/^\d{14}_report_task_step$/),
+      expect.stringMatching(/^\d{14}_payload_limit_256kb$/),
+      expect.stringMatching(/^\d{14}_lease_activity$/),
+      expect.stringMatching(/^\d{14}_alert_scope$/),
+      expect.stringMatching(/^\d{14}_alerts$/),
+      expect.stringMatching(/^\d{14}_ship_expectations$/),
     ]);
   });
 });
@@ -403,7 +418,7 @@ describe('the fleet procedures at the API', () => {
 
   it('refuse every fleet procedure but its own to a ship with only crew:run', async () => {
     const crewToken = await crewedShip(['messages:send', 'messages:receive', 'crew:run']);
-    const others = Object.entries(appRouter.fleet).filter(([name]) => !['ship', 'getStartingPrompt', 'release', 'reportCrewStatus', 'confirmCrewRelease', 'giveBackCrewRequest', 'assignedCrewRequests', 'clearRequests', 'confirmWorktreeCleared', 'checkManage'].includes(name));
+    const others = Object.entries(appRouter.fleet).filter(([name]) => !['ship', 'getStartingPrompt', 'release', 'reportCrewStatus', 'reportActivity', 'confirmCrewRelease', 'giveBackCrewRequest', 'assignedCrewRequests', 'clearRequests', 'confirmWorktreeCleared', 'checkManage'].includes(name));
     // argo's inbox takes the message scopes every agent ship holds: each refuses any ship but argo once its input parses.
     const deliveryId = newId('delivery');
     const inputs: Record<string, unknown> = {
@@ -451,6 +466,7 @@ describe('the fleet procedures at the API', () => {
       ping: null,
       scopes: ['messages:send', 'messages:receive'],
       report: null,
+      activity: null,
       crewRequest: null,
       labels: [],
       harness: null,
@@ -458,6 +474,7 @@ describe('the fleet procedures at the API', () => {
       awaitingCrewSince: clock.now().toISOString(),
       retiredAt: null,
       ownerShipId: argoId,
+      openAlertCount: 0,
     });
   });
 
@@ -743,14 +760,14 @@ describe('statements and discovery at the API (decision 0047)', () => {
     await expect(statementOf(planner.crew, reviewer.shipId)).resolves.toEqual({ by: 'commission', note: 'The statement-released of the fleet' });
   });
 
-  it('refuse a statement over 64 KB with BAD_REQUEST naming the limit, storing nothing', async () => {
+  it('refuse a statement over 256 KB with BAD_REQUEST naming the limit, storing nothing', async () => {
     const reviewer = await crewed('statement-large');
     const planner = await crewed('statement-reader');
 
-    const refused = await refusalOf(reviewer.crew.ship.setStatement.mutate({ summary: 'Large.', capabilities: [{ name: 'large', description: 'x'.repeat(64 * 1024) }] }));
+    const refused = await refusalOf(reviewer.crew.ship.setStatement.mutate({ summary: 'Large.', capabilities: [{ name: 'large', description: 'x'.repeat(256 * 1024) }] }));
 
     expect(refused?.code).toBe('BAD_REQUEST');
-    expect(refused?.message).toContain('64 KB');
+    expect(refused?.message).toContain('256 KB');
     await expect(statementOf(planner.crew, reviewer.shipId)).resolves.toEqual({ by: 'commission', note: 'The statement-large of the fleet' });
   });
 
@@ -930,10 +947,10 @@ describe('ship.send at the API', () => {
     });
   });
 
-  it('accepts a payload of exactly 64 KB, and refuses one byte more with BAD_REQUEST, storing nothing', async () => {
+  it('accepts a payload of exactly 256 KB, and refuses one byte more with BAD_REQUEST, storing nothing', async () => {
     const asShip = client({ authorization: `Bearer ${await crewedShip()}` });
-    const atTheLimit = toArgo({ payload: 'é'.repeat(32_768) });
-    const overTheLimit = toArgo({ payload: `${'é'.repeat(32_768)}a` });
+    const atTheLimit = toArgo({ payload: 'é'.repeat(131_072) });
+    const overTheLimit = toArgo({ payload: `${'é'.repeat(131_072)}a` });
 
     const { messageId } = await asShip.ship.send.mutate(atTheLimit);
 
@@ -1393,7 +1410,7 @@ describe('the ship page reads at the API', () => {
       delivery: { state: 'pending', history: [{ type: 'MessageAccepted' }] },
       deliveryCount: 1,
     });
-    expect(deliveries).toEqual({ items: [{ id: message.delivery.id, ship: { id: argoId, name: 'argo' }, state: 'pending', since: message.sentAt }], nextCursor: null });
+    expect(deliveries).toEqual({ items: [{ id: message.delivery.id, ship: { id: argoId, name: 'argo' }, state: 'pending', since: message.sentAt, progress: null }], nextCursor: null });
   });
 
   it("serve a ship with its crew's statement (decision 0047)", async () => {
@@ -1449,6 +1466,7 @@ describe('retire and re-crew at the API', () => {
     expect(issued.crewLines).toEqual([
       { harness: 'claude-code', line: `/aeolus-fleet:crew ${FLEET_URL} ${shipId} ${issued.secret}` },
       { harness: 'codex', line: `$aeolus-fleet-crew ${FLEET_URL} ${shipId} ${issued.secret}` },
+      { harness: 'copilot', line: `/aeolus-fleet:crew ${FLEET_URL} ${shipId} ${issued.secret}` },
     ]);
     expect(secretIn(issued.prompt)).toBe(issued.secret);
     await expect(codeOf(client({ authorization: `Bearer ${crewToken}` }).ship.whoami.query())).resolves.toBe('UNAUTHORIZED');
@@ -1636,7 +1654,7 @@ describe("argo's inbox at the API", () => {
       expect.objectContaining({ messageId: reply.messageId, contentType: 'application/vnd.example.answer+json', inReplyTo: messageId }),
     ]);
     expect((await asArgo.fleet.inbox.query({ filter: 'all' }).then(({ items }) => items)).find((entry) => entry.deliveryId === deliveryId)?.replies).toEqual([
-      { id: reply.messageId, contentType: 'application/vnd.example.answer+json', payload: '{"go":true}', sentAt: clock.now().toISOString() },
+      { id: reply.messageId, contentType: 'application/vnd.example.answer+json', payload: '{"go":true}', isPayloadUnreadable: false, sentAt: clock.now().toISOString() },
     ]);
   });
 
@@ -2442,6 +2460,31 @@ describe('network rules at the API', () => {
     await expect(codeOf(chief.ship.openMeeting.mutate({ ships: [{ shipId: outsiderId }], idempotencyKey: newKey(), model: SESSION_MODEL }))).resolves.toBe('FORBIDDEN');
   });
 
+  it('answers a mic request with the holder, ordered queue and caller place', async () => {
+    const chief = client({ authorization: `Bearer ${await crewedShip(['messages:send', 'messages:receive', 'meetings:open'])}` });
+    const first = client({ authorization: `Bearer ${await crewedShip()}` });
+    const second = client({ authorization: `Bearer ${await crewedShip()}` });
+    const [, firstShip, secondShip] = await Promise.all([chief.ship.whoami.query(), first.ship.whoami.query(), second.ship.whoami.query()]);
+    const { meetingId } = await chief.ship.openMeeting.mutate({ ships: [{ shipId: firstShip.shipId }, { shipId: secondShip.shipId }], idempotencyKey: newKey(), model: SESSION_MODEL });
+    await chief.ship.setMicPattern.mutate({ meetingId, pattern: 'fifo' });
+
+    const holding = await first.ship.requestMic.mutate({ meetingId });
+    const waiting = await second.ship.requestMic.mutate({ meetingId });
+
+    expect(holding).toEqual({
+      mic: { holder: { id: firstShip.shipId, name: firstShip.name }, pattern: 'fifo', requests: [] },
+      caller: { kind: 'holding' },
+    });
+    expect(waiting).toEqual({
+      mic: {
+        holder: { id: firstShip.shipId, name: firstShip.name },
+        pattern: 'fifo',
+        requests: [{ ship: { id: secondShip.shipId, name: secondShip.name }, requestedAt: clock.now().toISOString() }],
+      },
+      caller: { kind: 'waiting', place: 1 },
+    });
+  });
+
   it('take a term of any value, and answer a term of the same value on one side only with BAD_REQUEST naming decision 0034', async () => {
     const editor = await networker();
     const labelId = newId('label');
@@ -2600,6 +2643,88 @@ describe('verified facts at the API (decision 0059)', () => {
 
     expect(response.status).toBe(400);
     await expect(database.verifiedFacts.count({ where: { fleetId, shipId: crmId } })).resolves.toBe(0);
+  });
+});
+
+describe('alerts at the API (decision 0071)', () => {
+  const pingUnanswered = (shipId: ShipId) => ({
+    shipId,
+    signal: 'ping-unanswered',
+    occurrenceKey: 'dlv_01m66p4k2v9qz8f7x3n5c1d1v1',
+    since: '2026-10-31T14:31:00.000Z',
+    facts: { deliveryId: 'dlv_01m66p4k2v9qz8f7x3n5c1d1v1', messageId: 'msg_01m66p4k2v9qz8f7x3n5c1msg1', minutes: 10 },
+  });
+  const restCall = (crewToken: string, { call, body }: { call: 'raiseAlert' | 'clearAlert'; body: unknown }) =>
+    fetch(`${address}/api/v1/fleet/${call}`, { method: 'POST', headers: { authorization: `Bearer ${crewToken}`, 'content-type': 'application/json' }, body: JSON.stringify(body) });
+
+  it('let a ship with fleet:alert raise an alert through REST and clear it, answering the alert as core holds it', async () => {
+    const { shipId: deployBotId } = await agentShip();
+    const crewToken = await crewedShip(['messages:send', 'messages:receive', 'fleet:alert']);
+
+    const raised = await restCall(crewToken, { call: 'raiseAlert', body: pingUnanswered(deployBotId) });
+
+    expect(raised.status).toBe(200);
+    const alert = alertOutputSchema.parse(await raised.json());
+    expect(alert).toMatchObject({ ship: { id: deployBotId }, signal: 'ping-unanswered', occurrenceKey: 'dlv_01m66p4k2v9qz8f7x3n5c1d1v1', since: '2026-10-31T14:31:00.000Z', cleared: null });
+    const cleared = await restCall(crewToken, { call: 'clearAlert', body: { alertId: alert.id } });
+    expect(cleared.status).toBe(200);
+    expect(alertOutputSchema.parse(await cleared.json()).cleared).toMatchObject({ why: 'cleared' });
+  });
+
+  it('refuse a ship without fleet:alert, naming the scope, holding no alert', async () => {
+    const { shipId: deployBotId } = await agentShip();
+    const sender = client({ authorization: `Bearer ${await crewedShip()}` });
+
+    await expect(refusalOf(sender.fleet.raiseAlert.mutate(raiseAlertInputSchema.parse(pingUnanswered(deployBotId))))).resolves.toEqual({ code: 'FORBIDDEN', message: 'This call needs the fleet:alert scope' });
+    await expect(database.alert.count({ where: { fleetId, shipId: deployBotId } })).resolves.toBe(0);
+  });
+
+  it("refuse facts that are not the signal's as a bad request, holding nothing", async () => {
+    const { shipId: deployBotId } = await agentShip();
+    const crewToken = await crewedShip(['messages:send', 'messages:receive', 'fleet:alert']);
+
+    const response = await restCall(crewToken, { call: 'raiseAlert', body: { ...pingUnanswered(deployBotId), signal: 'crew-request-unassigned' } });
+
+    expect(response.status).toBe(400);
+    await expect(database.alert.count({ where: { fleetId, shipId: deployBotId } })).resolves.toBe(0);
+  });
+});
+
+describe('expectations at the API (decision 0071)', () => {
+  const restCall = (crewToken: string, body: unknown) =>
+    fetch(`${address}/api/v1/fleet/setExpectations`, { method: 'POST', headers: { authorization: `Bearer ${crewToken}`, 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  const pullRequest = { kind: 'url', url: 'https://github.com/ThomasHendrickx/aeolus-fleet/pull/1391' };
+
+  it('let a ship with fleet:manage set expectations on a ship through REST, kept on the ship as set', async () => {
+    const { shipId: mergerId } = await agentShip();
+    const crewToken = await crewedShip(['messages:send', 'messages:receive', 'fleet:manage']);
+
+    const response = await restCall(crewToken, { shipId: mergerId, reportChangesWithin: 60, taskDoneBy: { task: pullRequest, doneBy: '2026-10-31T18:00:00Z' } });
+
+    expect(response.status).toBe(200);
+    await expect(database.shipExpectations.findFirst({ where: { fleetId, shipId: mergerId }, select: { reportChangesWithinMinutes: true, taskDoneByTask: true, taskDoneBy: true } })).resolves.toEqual({
+      reportChangesWithinMinutes: 60,
+      taskDoneByTask: pullRequest,
+      taskDoneBy: new Date('2026-10-31T18:00:00Z'),
+    });
+  });
+
+  it('refuse a ship without fleet:manage, naming the scope, holding no expectations', async () => {
+    const { shipId: mergerId } = await agentShip();
+    const sender = client({ authorization: `Bearer ${await crewedShip()}` });
+
+    await expect(refusalOf(sender.fleet.setExpectations.mutate({ shipId: mergerId, reportChangesWithin: 60 }))).resolves.toEqual({ code: 'FORBIDDEN', message: 'This call needs the fleet:manage scope' });
+    await expect(database.shipExpectations.count({ where: { fleetId, shipId: mergerId } })).resolves.toBe(0);
+  });
+
+  it('refuse report changes within outside 5 to 10080 minutes as a bad request, holding nothing', async () => {
+    const { shipId: mergerId } = await agentShip();
+    const crewToken = await crewedShip(['messages:send', 'messages:receive', 'fleet:manage']);
+
+    const response = await restCall(crewToken, { shipId: mergerId, reportChangesWithin: 4 });
+
+    expect(response.status).toBe(400);
+    await expect(database.shipExpectations.count({ where: { fleetId, shipId: mergerId } })).resolves.toBe(0);
   });
 });
 

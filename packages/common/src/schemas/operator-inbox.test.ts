@@ -63,6 +63,8 @@ describe('operatorInboxOutputSchema', () => {
       contentType: 'text/plain',
       model: 'claude-opus-5-5',
       payload: 'Release 2.14 is staged on hetzner-2. Promote to production? Reply "go" to promote.',
+      isPayloadUnreadable: false,
+      isPayloadSealed: false,
     },
   };
 
@@ -71,7 +73,7 @@ describe('operatorInboxOutputSchema', () => {
   });
 
   it("takes argo's replies to it, each with its content type and payload", () => {
-    const replied = { ...open, replies: [{ id: newId('message'), contentType: 'application/json', payload: '{"go":true}', sentAt: AT }] };
+    const replied = { ...open, replies: [{ id: newId('message'), contentType: 'application/json', payload: '{"go":true}', isPayloadUnreadable: false, sentAt: AT }] };
 
     expect(operatorInboxOutputSchema.parse(lastPage(replied))).toEqual(lastPage(replied));
   });
@@ -120,7 +122,7 @@ describe('replyInputSchema', () => {
     expect(replyInputSchema.parse(reply)).toEqual(reply);
   });
 
-  it('takes a payload of 64 KB exactly, and refuses one byte more', () => {
+  it('takes a payload of 256 KB exactly, and refuses one byte more', () => {
     expect(replyInputSchema.safeParse({ ...reply, payload: 'a'.repeat(PAYLOAD_MAX_BYTES) }).success).toBe(true);
     expect(replyInputSchema.safeParse({ ...reply, payload: 'a'.repeat(PAYLOAD_MAX_BYTES + 1) }).success).toBe(false);
   });

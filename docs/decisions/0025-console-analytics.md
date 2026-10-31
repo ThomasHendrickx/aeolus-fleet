@@ -15,5 +15,5 @@ Why: the hosted service needs to see how the console and its tour are used, with
 
 Rejected:
 - The provider's browser SDK: a dependency for every install, and the browser talking to a third party.
-- A separate analytics package: a fourth published package for one small adapter.
+- A separate analytics package: one more published package for one small adapter.
 - A script injected by the hosted install: outside code in the console (decision 0023, 0024).

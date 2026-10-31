@@ -97,3 +97,45 @@ export const Label: Story = {
 };
 export const LabelDark: Story = { args: { message: LABEL_MESSAGE, deliveries: labelDeliveries }, globals: { theme: 'dark' } };
 export const LabelPhone: Story = { args: { message: LABEL_MESSAGE, deliveries: labelDeliveries }, globals: { viewport: { value: 'mobile1' } } };
+
+/** A sealed fleet: the payload rendered as today, marked Sealed beside Formatted and Raw (decision 0068, N1). */
+export const Sealed: Story = {
+  args: { message: { ...TYPE_MESSAGE, isPayloadSealed: true } },
+  play: async ({ canvasElement }) => {
+    const sheet = within(canvasElement.ownerDocument.body);
+    await expect(await sheet.findByTestId('message-sealed')).toHaveTextContent('Sealed');
+    await expect(sheet.getByTestId('message-payload')).toBeInTheDocument();
+  },
+};
+/** A sealed text payload, with no Formatted view. */
+export const SealedText: Story = { args: { message: { ...DIRECT_MESSAGE, isPayloadSealed: true } } };
+/** The company key cut off: the envelope and the delivery stay, a panel in the payload's place (scenario 25). */
+export const KeyNotReachable: Story = {
+  args: { message: { ...TYPE_MESSAGE, payload: '', isPayloadSealed: true, isPayloadUnreadable: true } },
+  play: async ({ canvasElement }) => {
+    const sheet = within(canvasElement.ownerDocument.body);
+    await expect(await sheet.findByTestId('message-payload-not-reachable')).toHaveTextContent('Sealed, key not reachable');
+    await expect(sheet.queryByTestId('message-payload')).toBeNull();
+    await expect(sheet.getByRole('region', { name: 'Delivery' })).toBeInTheDocument();
+    await expect(sheet.getByLabelText('Envelope')).toHaveTextContent('builder-core');
+  },
+};
+export const KeyNotReachableDark: Story = { args: { message: { ...TYPE_MESSAGE, payload: '', isPayloadSealed: true, isPayloadUnreadable: true } }, globals: { theme: 'dark' } };
+export const KeyNotReachablePhone: Story = { args: { message: { ...TYPE_MESSAGE, payload: '', isPayloadSealed: true, isPayloadUnreadable: true } }, globals: { viewport: { value: 'mobile1' } } };
+
+/** Monitoring W2, the approved sent-message screen: delivery state and declared progress stay separate. */
+const recipientProgress = { state: 'working', note: 'Drafting the guide', step: { at: 1, of: 4 }, reportChangedAt: minutesAgo(6) } as const;
+const progressDeliveries = <MessageDeliveries deliveries={LABEL_DELIVERIES.map((delivery, index) => ({ ...delivery, progress: index === 0 ? recipientProgress : null }))} state="ready" now={NOW} />;
+export const RecipientProgress: Story = {
+  args: { message: LABEL_MESSAGE, deliveries: progressDeliveries },
+  play: async ({ canvasElement }) => {
+    const sheet = within(canvasElement.ownerDocument.body).getByTestId('message-sheet');
+    await expect(within(sheet).getAllByTestId('message-recipient-progress')).toHaveLength(1);
+    await expect(sheet).toHaveTextContent('step 1 of 4');
+    await expect(sheet).toHaveTextContent('Drafting the guide');
+    await expect(sheet).toHaveTextContent('changed 6 min ago');
+  },
+};
+export const RecipientProgressPhone: Story = { ...RecipientProgress, globals: { viewport: { value: 'mobile1' } } };
+export const RecipientProgressDark: Story = { ...RecipientProgress, globals: { theme: 'dark' } };
+export const DirectRecipientProgress: Story = { args: { message: { ...DIRECT_MESSAGE, progress: recipientProgress } } };

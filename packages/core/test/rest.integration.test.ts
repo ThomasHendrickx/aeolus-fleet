@@ -1,5 +1,5 @@
 import type { FleetScope, ShipId } from '@aeolus-fleet/common';
-import { createIdGenerator, reportLogOutputSchema } from '@aeolus-fleet/common';
+import { createIdGenerator, fleetLimitsOutputSchema, reportLogOutputSchema, requestMicOutputSchema } from '@aeolus-fleet/common';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -126,6 +126,14 @@ const deliveriesSchema = z.object({
 });
 
 describe('the ship calls at /api/v1', () => {
+  it('register a session that states no harness, and its lease keeps none: unknown, never a default (aeolus-fleet#1408)', async () => {
+    const { shipId, secret } = await commissioned();
+
+    await ok(request('register', { body: { shipId, secret, location: { kind: 'DEVICE' } } }), z.object({ crewToken: z.string() }));
+
+    await expect(database.lease.findMany({ where: { shipId, endedAt: null }, select: { harness: true } })).resolves.toEqual([{ harness: null }]);
+  });
+
   it('serve an OpenAPI spec that lists every ship procedure, then the fleet actions', async () => {
     const response = await fetch(`${address}/api/v1/openapi.json`);
 
@@ -189,6 +197,7 @@ describe('the ship calls at /api/v1', () => {
       '/fleet/assignCrew',
       '/fleet/explainCrewRequest',
       '/fleet/reportCrewStatus',
+      '/fleet/reportActivity',
       '/fleet/confirmCrewRelease',
       '/fleet/giveBackCrewRequest',
       '/fleet/assignedCrewRequests',
@@ -220,7 +229,12 @@ describe('the ship calls at /api/v1', () => {
       '/fleet/describeScope',
       '/fleet/removeScope',
       '/fleet/setVerifiedFacts',
+      '/fleet/setExpectations',
+      '/fleet/raiseAlert',
+      '/fleet/clearAlert',
+      '/fleet/openAlerts',
       '/fleet/checkManage',
+      '/fleet/limits',
     ]);
   });
 
@@ -434,7 +448,7 @@ describe('the ship calls at /api/v1', () => {
       request('openMeeting', { crewToken: chief.crewToken, body: { ships: [{ name: head.name }], idempotencyKey: freshKey(), model: 'claude-opus-5-5' } }),
       z.object({ meetingId: z.string() }),
     );
-    await ok(request('requestMic', { crewToken: headToken, body: { meetingId } }), changed);
+    await ok(request('requestMic', { crewToken: headToken, body: { meetingId } }), requestMicOutputSchema);
     await ok(request('giveMic', { crewToken: chief.crewToken, body: { meetingId, shipId: head.shipId } }), changed);
     const { messageId } = await ok(
       request('send', { crewToken: headToken, body: { selector: { kind: 'meeting', meetingId }, payload: 'Copy is ready', model: 'claude-opus-5-5', idempotencyKey: freshKey() } }),
@@ -559,6 +573,18 @@ describe('the fleet actions at /api/v1/fleet', () => {
     expect(pinged.isNew).toBe(true);
   });
 
+  it("let a ship with fleet:read read its fleet's limits and retention, as the trierarch plugin prunes by it", async () => {
+    // Given a fleet that keeps its finished history for 30 days, and a ship with fleet:read
+    await database.fleet.update({ where: { id: argo.fleetId }, data: { retentionSet: true, retentionDays: 30 } });
+    const reader = await crewedWithFleetScopes(['fleet:read']);
+
+    // When it reads the fleet's limits
+    const limits = await ok(request('fleet/limits', { crewToken: reader.crewToken, method: 'GET' }), fleetLimitsOutputSchema);
+
+    // Then it reads the fleet's retention
+    expect(limits.retention).toEqual({ days: 30, keptFrom: null });
+  });
+
   it('follow the fleet: the current number without a position, then the events after it', async () => {
     const reader = await crewedWithFleetScopes(['fleet:read']);
     const followed = z.object({ events: z.array(z.object({ seq: z.number(), type: z.string() })), lastSeq: z.number() });
@@ -626,7 +652,7 @@ describe('the fleet actions at /api/v1/fleet', () => {
   it('refuse every fleet route but its own with 403 to a ship with only crew:run', async () => {
     const trierarch = await crewedWithFleetScopes(['crew:run']);
     const others = SHIP_CALLS.filter(
-      (each) => each.route.startsWith('/fleet/') && !['/fleet/ship', '/fleet/getStartingPrompt', '/fleet/release', '/fleet/reportCrewStatus', '/fleet/confirmCrewRelease', '/fleet/giveBackCrewRequest', '/fleet/assignedCrewRequests', '/fleet/clearRequests', '/fleet/confirmWorktreeCleared', '/fleet/checkManage'].includes(each.route),
+      (each) => each.route.startsWith('/fleet/') && !['/fleet/ship', '/fleet/getStartingPrompt', '/fleet/release', '/fleet/reportCrewStatus', '/fleet/reportActivity', '/fleet/confirmCrewRelease', '/fleet/giveBackCrewRequest', '/fleet/assignedCrewRequests', '/fleet/clearRequests', '/fleet/confirmWorktreeCleared', '/fleet/checkManage'].includes(each.route),
     );
 
     const answers = await Promise.all(

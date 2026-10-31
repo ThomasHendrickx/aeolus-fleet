@@ -12,6 +12,7 @@ import { EmptyState } from '../../../../components/molecules/empty-state';
 import { InlineError } from '../../../../components/molecules/inline-error';
 import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
 import { Sentence } from '../molecules/sentence';
+import { SealedMark } from '../../../../components/molecules/sealed-mark';
 import { StatusBadge } from '../../../../components/molecules/status-badge';
 import { recipientGroupWords } from '../../../../lib/recipient';
 
@@ -72,8 +73,11 @@ function MessageRow({
             <Sentence parts={counterparty(message, isSent)} className="text-body text-foreground max-sm:text-body-touch" />
             <StatusBadge status={deliveryStatus(message.delivery)} />
           </span>
-          <span data-testid="message-line" className={classNames('truncate text-muted-foreground', line.isCode ? 'font-mono text-id' : 'text-meta')}>
-            {line.text}
+          <span className="flex min-w-0 items-center gap-1.5">
+            {message.isPayloadSealed ? <SealedMark variant="icon" testId="message-sealed" /> : null}
+            <span data-testid="message-line" className={classNames('truncate text-muted-foreground', line.isCode ? 'font-mono text-id' : 'text-meta')}>
+              {line.text}
+            </span>
           </span>
           <time dateTime={message.sentAt} title={fullDateTime(at)} className="text-meta text-muted-foreground tabular-nums">
             {relativeTime(at, now)}
@@ -88,8 +92,10 @@ function MessageRow({
  * The ship's messages as threads: a reply sits under the message it answers,
  * oldest first, and the thread with the latest message comes first. Each
  * message shows its direction, the other party, its delivery state and one
- * line (a squadron message in words, other JSON compact), and opens in the
- * MessageSheet with its whole payload.
+ * line (a squadron message in words, other JSON compact), a lock when its
+ * payload is sealed and "Sealed, key not reachable" in its place when the
+ * company key is cut off (decision 0068, N1), and opens in the MessageSheet
+ * with its whole payload.
  */
 export function MessageThreads({ shipId, messages, state, onRetry, more, now, onOpenMessage }: MessageThreadsProps) {
   if (state === 'loading') {

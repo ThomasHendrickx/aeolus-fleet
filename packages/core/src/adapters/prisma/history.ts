@@ -14,7 +14,6 @@ import {
   locationKindSchema,
   turnStateSchema,
   leaseWakerSchema,
-  withdrawalOf,
   type DeliveryId,
   type FleetId,
   type LabelValueId,
@@ -24,6 +23,7 @@ import {
 import { z } from 'zod';
 
 import { deliveryStepOf, type StandingOverdue, type WayCrew, type WayLease } from '../../domain/shared/delivery-way.js';
+import type { StoredPayload } from '../../domain/messaging/sealed-payload.js';
 import {
   isDeliveryChangeType,
   isKeptBy,
@@ -38,7 +38,7 @@ import type { Addressee } from '../../domain/shared/selector.js';
 import { pageOf, type PageQuery } from '../../domain/shared/page.js';
 import type { Db } from './client.js';
 import { Prisma } from './generated/client.js';
-import { toMessage, toSequencedEvent } from './rows.js';
+import { toMessage, toSequencedEvent, toShipReport } from './rows.js';
 
 /** What argo was told is overdue, as the clocks stored it (overdue.ts). */
 const overdueRow = z.object({
@@ -108,7 +108,7 @@ function recipientOf(selector: Addressee, names: { party: (id: ShipId) => Histor
 function historyMessageOf(
   found: { message: Message; delivery: DeliveryNow },
   names: { party: (id: ShipId) => HistoryParty; labelTexts: LabelTexts },
-): HistoryMessage {
+): HistoryMessage<StoredPayload> {
   const { message, delivery } = found;
   const { party } = names;
   return {
@@ -144,16 +144,15 @@ const DELIVERY_SELECT = { id: true, state: true, attempts: true, claimedByShipId
 /**
  * The deliveries to the ship of the messages that withdraw or replace the
  * question, oldest first: one more than the page. Read through
- * messages_question_id_idx, whose expression reads the question id from the
- * payload and never fails on one that is not JSON.
+ * messages_fleet_id_question_id_idx, by the question id each stored at send
+ * (decision 0068, B18), so a sealed fleet's are found too.
  */
 export function inboxWithdrawalsStatement(fleetId: FleetId, { shipId, questionId, cursor, limit }: { shipId: ShipId; questionId: string } & PageQuery<DeliveryId>): Prisma.Sql {
   return Prisma.sql`
     SELECT d.id FROM messages m
     JOIN deliveries d ON d.fleet_id = m.fleet_id AND d.message_id = m.id
     WHERE m.fleet_id = ${fleetId}
-      AND lower(m.content_type) LIKE 'application/vnd.aeolus.question-%'
-      AND substring(m.payload from '"questionId"\\s*:\\s*"([^"]*)"') = ${questionId}
+      AND m.question_id = ${questionId}
       AND d.recipient_ship_id = ${shipId}
       ${cursor === undefined ? Prisma.empty : Prisma.sql`AND d.id > ${cursor}`}
     ORDER BY d.id ASC
@@ -171,7 +170,7 @@ const INBOX_ROW = { id: true, state: true, readAt: true, message: true } as cons
 async function inboxEntriesOf(
   db: Db,
   { fleetId, shipId, rows }: { fleetId: FleetId; shipId: ShipId; rows: Prisma.DeliveryGetPayload<{ select: typeof INBOX_ROW }>[] },
-): Promise<InboxEntry[]> {
+): Promise<InboxEntry<StoredPayload>[]> {
   const acknowledged = new Map(
     (
       await db.event.findMany({
@@ -390,19 +389,25 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
         { limit, cursorOf: (row) => idSchema('delivery').parse(row.id) },
       );
       const rows = page.items.map((row) => ({ id: idSchema('delivery').parse(row.id), state: deliveryStateSchema.parse(row.state), shipId: idSchema('ship').nullable().parse(row.recipientShipId ?? row.claimedByShipId) }));
-      const [events, party] = await Promise.all([
+      const [events, party, reports] = await Promise.all([
         db.event.findMany({
           where: { fleetId, deliveryId: { in: rows.map((row) => row.id) }, type: { in: [...DELIVERY_HISTORY_TYPES] } },
           orderBy: { seq: 'desc' },
         }),
         partiesOf(db, { fleetId, shipIds: rows.flatMap((row) => (row.shipId === null ? [] : [row.shipId])) }),
+        db.$queryRaw<unknown[]>`SELECT ship_id, report_state, report_note, reported_at, report_changed_at,
+          report_task, report_step_at, report_step_of, NULL::jsonb AS report_details, 0 AS report_details_version
+          FROM leases WHERE fleet_id = ${fleetId} AND ended_at IS NULL
+          AND ship_id IN (${Prisma.join(['', ...rows.flatMap((row) => row.shipId === null ? [] : [row.shipId])])})`,
       ]);
+      const reportByShip = new Map(reports.map((row) => [z.object({ ship_id: idSchema('ship') }).parse(row).ship_id, toShipReport(row)]));
       const steps = events.map(toSequencedEvent);
       return {
         items: rows.map((row) => ({
           id: row.id,
           ship: row.shipId === null ? null : party(row.shipId),
           state: row.state,
+          report: row.shipId === null ? null : reportByShip.get(row.shipId) ?? null,
           steps: steps.flatMap(({ deliveryId, type, occurredAt, details }) =>
             deliveryId === row.id && isDeliveryChangeType(type) ? [{ type, occurredAt, isAgain: details.again === true, isOnceMore: details.onceMore === true }] : [],
           ),
@@ -414,6 +419,7 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
     messageParties: async (fleetId, messageIds) => {
       const rows = await db.delivery.findMany({
         where: { fleetId, messageId: { in: [...messageIds] } },
+        orderBy: { id: 'desc' },
         select: { messageId: true, recipientShipId: true, recipientType: true, claimedByShipId: true, message: { select: { senderShipId: true } } },
       });
       return new Map(
@@ -465,8 +471,7 @@ export function createPrismaShipHistory(db: Db): ShipHistory {
       const ids = z.array(z.object({ id: idSchema('delivery') })).parse(await db.$queryRaw(inboxWithdrawalsStatement(fleetId, { shipId, questionId, cursor, limit })));
       const page = pageOf(ids, { limit, cursorOf: (row) => row.id });
       const rows = await db.delivery.findMany({ where: { fleetId, id: { in: page.items.map((row) => row.id) } }, select: INBOX_ROW, orderBy: { id: 'asc' } });
-      // The index finds candidates; the payload parsed decides.
-      const entries = await inboxEntriesOf(db, { fleetId, shipId, rows: rows.filter((row) => withdrawalOf(row.message)?.questionId === questionId) });
+      const entries = await inboxEntriesOf(db, { fleetId, shipId, rows });
       return { items: entries, nextCursor: page.nextCursor };
     },
 

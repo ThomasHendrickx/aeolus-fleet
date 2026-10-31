@@ -1,4 +1,17 @@
+import { alertOutputOf } from './alert-output.js';
 import {
+  messageTaskAccessInputSchema,
+  messageTaskAccessOutputSchema,
+  turnOnSealingInputSchema,
+  changeCompanyKeyInputSchema,
+  changeCompanyKeyOutputSchema,
+  changeRecoveryKeyInputSchema,
+  changeRecoveryKeyOutputSchema,
+  recoverySetOutputSchema,
+  recoverKeysInputSchema,
+  recoverKeysOutputSchema,
+  turnOnSealingOutputSchema,
+  sealingOutputSchema,
   cancelScheduleInputSchema,
   cancelScheduleOutputSchema,
   pauseScheduleInputSchema,
@@ -26,7 +39,7 @@ import {
   messageOutputSchema,
   needsAttentionInputSchema,
   needsAttentionOutputSchema,
-  healthOutputSchema,
+  fleetHealthOutputSchema,
   acknowledgedSchema,
   listedShipOutputSchema,
   shipCountsInputSchema,
@@ -75,6 +88,8 @@ import {
   confirmCrewReleaseOutputSchema,
   crewRequestInputSchema,
   crewRequestOutputSchema,
+  reportActivityInputSchema,
+  reportActivityOutputSchema,
   reportCrewStatusInputSchema,
   reportCrewStatusOutputSchema,
   removeCrewRequestInputSchema,
@@ -111,6 +126,13 @@ import {
   checkManageOutputSchema,
   setOwnerOutputSchema,
   setVerifiedFactsInputSchema,
+  setExpectationsInputSchema,
+  setExpectationsOutputSchema,
+  raiseAlertInputSchema,
+  clearAlertInputSchema,
+  alertOutputSchema,
+  openAlertsInputSchema,
+  openAlertsOutputSchema,
   setVerifiedFactsOutputSchema,
   explainReachOutputSchema,
   applyNetworkRulesInputSchema,
@@ -142,6 +164,7 @@ import { tracked, type TrackedEnvelope } from '@trpc/server';
 // here; the declarations the build emits need a path to reach it by.
 import type {} from '@trpc/server/unstable-core-do-not-import';
 
+import type { ShipExpectations } from '../../domain/registry/expectations.js';
 import type { ListedShip } from '../../domain/registry/list-fleet.js';
 import type { PingStatus } from '../../domain/registry/ping-status.js';
 import type { ShipFacts } from '../../domain/registry/ports.js';
@@ -149,7 +172,8 @@ import type { NetworkRule } from '../../domain/registry/network-settings.js';
 import type { RefusedActor } from '../../domain/registry/reach-refusal.js';
 import type { DeliveryWay } from '../../domain/shared/delivery-way.js';
 import type { SequencedEvent } from '../../domain/shared/events.js';
-import type { InboxEntry } from '../../domain/shared/history.js';
+import type { ListedInboxEntry } from '../../domain/shared/plain-history.js';
+import { listedPayloadOutputOf } from './listed-payload.js';
 import { describedAcknowledged, describedHealth, describedPerHour, describedStuck } from './health.js';
 import { presentStartingPrompt } from './starting-prompt-text.js';
 import { schedulesPageOf } from './schedule-output.js';
@@ -171,13 +195,13 @@ function crewRequestOutputOf<T extends { requestedAt: Date; sessionStartedAt: Da
 
 /** A ship's last ping as the API states it: its dates in ISO 8601. */
 /** A delivery's way as the API answers it: its times in ISO 8601. */
-function inboxEntryOutputOf(entry: InboxEntry) {
+function inboxEntryOutputOf(entry: ListedInboxEntry) {
   return {
     ...entry,
     readAt: entry.readAt?.toISOString() ?? null,
     doneAt: entry.doneAt?.toISOString() ?? null,
-    replies: entry.replies.map((reply) => ({ ...reply, sentAt: reply.sentAt.toISOString() })),
-    message: { ...entry.message, sentAt: entry.message.sentAt.toISOString() },
+    replies: entry.replies.map((reply) => ({ ...reply, ...listedPayloadOutputOf(reply.payload), sentAt: reply.sentAt.toISOString() })),
+    message: { ...entry.message, ...listedPayloadOutputOf(entry.message.payload), sentAt: entry.message.sentAt.toISOString() },
   };
 }
 
@@ -218,7 +242,7 @@ export const fleetRouter = router({
         "ownerOf, which needs fleet:on-behalf, names the ship that asked it for this one: the new ship gets that ship's owner instead of yours.",
         'kind is agent unless you state person, app or plugin: a person ship needs fleet:person instead and owns itself, an app ship needs fleet:on-behalf as well, and a plugin ship needs fleet:connect instead, which connects it (decision 0050).',
         "owner, which needs fleet:on-behalf and only for an app ship, names the owner argo picked for it: a person's ship or argo, never beside ownerOf.",
-        'Answers its shipId, its first starting prompt, one crew line per harness (claude-code, codex) and its secret, shown only this once.',
+        'Answers its shipId, its first starting prompt, one crew line per harness (claude-code, codex, copilot) and its secret, shown only this once.',
         'idempotencyKey is a new unique string for every commission. Reuse one only to retry the same commission after an error or a lost answer:',
         'the retry answers the same shipId with prompt, crewLines and secret null and how its starting prompt stands (fleet_getStartingPrompt gives a new one), and a different commission with a used key is refused (CONFLICT).',
       ].join(' '),
@@ -414,6 +438,22 @@ export const fleetRouter = router({
       return {};
     }),
 
+  /** The assigned trierarch writes the activity it observes of the crewed ships it runs (docs/design/monitoring, 4.3). */
+  reportActivity: scopedProcedure('crew:run')
+    .meta({
+      description: [
+        "Needs crew:run. Writes, for each crewed ship whose crew request is assigned to yours, its session's latest event: when, its kind (text, tool, result or error) and for a tool call the tool's name, never content.",
+        'State the interval you write at, in seconds: activity reads unknown once your write is older than twice it. Up to 100 ships per call;',
+        'an entry for a ship not assigned to yours, without a crew request or not crewed is refused for that entry, with its code, and the rest are taken.',
+      ].join(' '),
+    })
+    .input(reportActivityInputSchema)
+    .output(reportActivityOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { refused } = okOrThrow(await ctx.useCases.reportActivity(ctx.caller, input));
+      return { refused: refused.map(({ shipId, error }) => ({ shipId, code: error.kind, message: error.message })) };
+    }),
+
   /** The assigned trierarch confirms it released the ship of a releasing request, which then goes (the finalizer). */
   confirmCrewRelease: scopedProcedure('crew:run')
     .meta({
@@ -523,6 +563,102 @@ export const fleetRouter = router({
     }),
 
   /**
+   * Turns sealing on for the fleet (decision 0068, B4): every payload it
+   * stores from then on is sealed under a data key its company key wraps,
+   * and the sealing pass seals what it stored plain before.
+   */
+  turnOnSealing: actorScopedProcedure('fleet:keys')
+    .input(turnOnSealingInputSchema)
+    .output(turnOnSealingOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const turnedOn = okOrThrow(await ctx.useCases.turnOnSealing(ctx.caller, input));
+      ctx.log.info({ fleetId: ctx.caller.fleetId, companyKey: turnedOn.companyKey, recoveryKeyFingerprint: turnedOn.recoveryKeyFingerprint, state: turnedOn.state }, 'sealing turned on');
+      return turnedOn;
+    }),
+
+  /**
+   * Moves every data key of the sealed fleet to a new company key (decision
+   * 0068, B13c), rewrapped inside the company's KMS; the old key must be
+   * reachable. No payload is sealed again.
+   */
+  changeCompanyKey: actorScopedProcedure('fleet:keys')
+    .input(changeCompanyKeyInputSchema)
+    .output(changeCompanyKeyOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const changed = okOrThrow(await ctx.useCases.changeCompanyKey(ctx.caller, input));
+      ctx.log.info({ fleetId: ctx.caller.fleetId, companyKey: changed.companyKey }, 'company key changed');
+      return changed;
+    }),
+
+  /**
+   * Wraps every data key of the sealed fleet to a new recovery key, or sets
+   * one on a fleet sealed without (decision 0068, B13d): an age X25519
+   * recipient, the public half of the company's offline key pair. The
+   * company key must be reachable. No payload is sealed again.
+   */
+  changeRecoveryKey: actorScopedProcedure('fleet:keys')
+    .input(changeRecoveryKeyInputSchema)
+    .output(changeRecoveryKeyOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const changed = okOrThrow(await ctx.useCases.changeRecoveryKey(ctx.caller, input));
+      ctx.log.info({ fleetId: ctx.caller.fleetId, recoveryKeyFingerprint: changed.recoveryKeyFingerprint }, 'recovery key changed');
+      return changed;
+    }),
+
+  /**
+   * The sealed fleet's recovery set (decision 0068, B15): each data key
+   * wrapped to the recovery key alone, with its check value, for the recovery
+   * command on the company's computer. Nothing in it opens with any key
+   * Aeolus can use.
+   */
+  recoverySet: actorScopedProcedure('fleet:keys')
+    .output(recoverySetOutputSchema)
+    .query(async ({ ctx }) => {
+      const set = okOrThrow(await ctx.useCases.readRecoverySet(ctx.caller));
+      return {
+        ...set,
+        dataKeys: set.dataKeys.map(({ id, wrappedByRecoveryKey, checkValue }) => ({ id, wrappedByRecoveryKey: base64Of(wrappedByRecoveryKey), checkValue: base64Of(checkValue) })),
+      };
+    }),
+
+  /**
+   * Recovers the sealed fleet's data keys under a new company key (decision
+   * 0068, B15), as the recovery command wrapped them in the company's KMS:
+   * every wrap must open to its data key, or nothing changes. No payload is
+   * sealed again.
+   */
+  recoverKeys: actorScopedProcedure('fleet:keys')
+    .input(recoverKeysInputSchema)
+    .output(recoverKeysOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const dataKeys = input.dataKeys.map(({ id, wrappedByCompanyKey }) => ({ id, wrappedByCompanyKey: new Uint8Array(Buffer.from(wrappedByCompanyKey, 'base64')) }));
+      const recovered = okOrThrow(await ctx.useCases.recoverKeys(ctx.caller, { companyKey: input.companyKey, dataKeys }));
+      ctx.log.info({ fleetId: ctx.caller.fleetId, companyKey: recovered.companyKey, dataKeys: dataKeys.length }, 'data keys recovered');
+      return recovered;
+    }),
+
+  /**
+   * The fleet's sealing (decision 0068, B5, B11): none, or its state and
+   * since when, the sealing pass's progress, its company key by reference, whether that key answered its last unwrap and
+   * since when, and its data keys' ages. Never a key.
+   */
+  sealing: actorScopedProcedure('fleet:read')
+    .output(sealingOutputSchema)
+    .query(async ({ ctx }) => {
+      const sealing = await ctx.useCases.readSealing(ctx.caller);
+      if (sealing.state === 'none') {
+        return sealing;
+      }
+      const { since, keyAvailability, dataKeys } = sealing;
+      return {
+        ...sealing,
+        since: since.toISOString(),
+        keyAvailability: { ...keyAvailability, since: keyAvailability.since.toISOString() },
+        dataKeys: dataKeys.map((dataKey) => ({ ...dataKey, createdAt: dataKey.createdAt.toISOString() })),
+      };
+    }),
+
+  /**
    * Whether the caller manages a ship now, by the rule every fleet:manage
    * call checks (decision 0034): the gateway asks it as an approver before it
    * changes what a proxy ship's tools need (design gateway-scopes 4.2).
@@ -565,7 +701,7 @@ export const fleetRouter = router({
   limits: actorScopedProcedure('fleet:read')
     .meta({
       description: [
-        "Needs fleet:read. The fleet's ship limit with its ships that are not retired (argo included), and its daily message limit with the messages it stored since 00:00 UTC and when that count starts again. A limit of null is none. Its retention: the days it keeps its finished history, null for kept for good, and keptFrom, where its kept history begins: older finished history is no longer kept, older open deliveries are; null while nothing was pruned.",
+        "Needs fleet:read. The fleet's ship limit with its ships that are not retired (argo included), and its daily message limit with the messages it stored since 00:00 UTC and when that count starts again. A limit of null is none. Its retention: the days it keeps its finished history, null when no retention applies, and keptFrom, where its kept history begins: older finished history is no longer kept, older open deliveries are; null while nothing was pruned.",
       ].join(' '),
     })
     .output(fleetLimitsOutputSchema)
@@ -594,7 +730,8 @@ export const fleetRouter = router({
     .output(fleetListOutputSchema)
     .query(async ({ ctx, input }) => {
       const { ships, nextCursor } = await ctx.useCases.listFleet(ctx.caller, input);
-      return { items: ships.map((ship) => (isInReadReach(ship) ? listedShipOutputOf(ship) : ship)), nextCursor: nextCursor && shipCursorOf(nextCursor) };
+      const tasks = await ctx.useCases.readReportTasks(ctx.caller, ships.map((ship) => isInReadReach(ship) ? ship.report?.task ?? null : null));
+      return { items: ships.map((ship, index) => (isInReadReach(ship) ? listedShipOutputOf(ship, { canOpen: tasks[index]?.canOpen === true, fleetName: null }) : ship)), nextCursor: nextCursor && shipCursorOf(nextCursor) };
     }),
 
   /** The fleet's labels, each with its values and its owner (decision 0031). */
@@ -702,6 +839,53 @@ export const fleetRouter = router({
       okOrThrow(await ctx.useCases.setVerifiedFacts(ctx.caller, input));
       return {};
     }),
+
+  /** Sets the expectations on a ship within the caller's manage reach (decision 0071). */
+  setExpectations: actorScopedProcedure('fleet:manage')
+    .meta({
+      description: [
+        "Needs fleet:manage, and manage reach on the ship (decision 0071): the owner's ship for the ships it owns, any other ship by a manage rule that reaches the ship.",
+        'Sets what you expect of the ship, standing: reportChangesWithin, minutes (5 to 10080) within which its report changes while it says working or blocked; taskDoneBy, the task (as a report names it, a kind and its fields) and the time it is expected done by, lapsing once the report names another task.',
+        "Left out, one stays as it is; null clears it. Each names who set it. The fleet compares nothing and the crew is not told: once one breaks, the watch tells the ship's owner, and the ship that set it.",
+        'Read them back with fleet_ship. They stay through a release and a recrew; a retire removes them. A retired ship is CONFLICT.',
+      ].join(' '),
+    })
+    .input(setExpectationsInputSchema)
+    .output(setExpectationsOutputSchema)
+    .mutation(async ({ ctx, input: { taskDoneBy, ...input } }) => {
+      okOrThrow(
+        await ctx.useCases.setExpectations(ctx.caller, {
+          ...input,
+          ...(taskDoneBy !== undefined && { taskDoneBy: taskDoneBy && { task: taskDoneBy.task, doneBy: new Date(taskDoneBy.doneBy) } }),
+        }),
+      );
+      return {};
+    }),
+
+  /** Raises an alert on a ship the caller reads, once per occurrence (decision 0071). */
+  raiseAlert: actorScopedProcedure('fleet:alert')
+    .meta({
+      description: [
+        'Needs fleet:alert, and read reach on the ship (decision 0071). Raises an alert on a ship that is not retired: the signal that parted with its facts at raise, the occurrence it is one of (occurrenceKey, such as the delivery id) and since when the fact parted.',
+        "The alert names the ship's owner now, the one to tell. The same ship, signal and occurrenceKey answer the alert already held, open or cleared, and raise none: an occurrence is raised once, so a second pass or a restart raises nothing twice.",
+        'The fleet compares nothing and tells no one: send the owner the alert message (application/vnd.aeolus.alert+json) with the alert id as idempotency key. A retired ship is CONFLICT.',
+      ].join(' '),
+    })
+    .input(raiseAlertInputSchema)
+    .output(alertOutputSchema)
+    .mutation(async ({ ctx, input }) => alertOutputOf(okOrThrow(await ctx.useCases.raiseAlert(ctx.caller, input)))),
+
+  /** Clears an open alert on a ship the caller reads (decision 0071). */
+  clearAlert: actorScopedProcedure('fleet:alert')
+    .meta({
+      description: [
+        'Needs fleet:alert, and read reach on its ship (decision 0071). Clears an open alert once its fact moved back; a cleared alert is answered as it is. Nothing is sent on clear: the lists show it gone.',
+        "A retire clears its ship's open alerts by itself; a release does not.",
+      ].join(' '),
+    })
+    .input(clearAlertInputSchema)
+    .output(alertOutputSchema)
+    .mutation(async ({ ctx, input }) => alertOutputOf(okOrThrow(await ctx.useCases.clearAlert(ctx.caller, input)))),
 
   /** Defines a label the caller's ship then owns (decision 0031). */
   defineLabel: actorScopedProcedure('labels:define')
@@ -867,7 +1051,7 @@ export const fleetRouter = router({
   /**
    * The file checked before an import: what it holds and where the fleet
    * differs (design network-io, section 5). A mutation though it reads only,
-   * as the file of up to 64 KB travels in the body, never in a query's URL.
+   * as the file of up to 256 KB travels in the body, never in a query's URL.
    */
   checkNetworkRulesFile: actorAllScopesProcedure('fleet:network', 'labels:define')
     .meta({
@@ -964,11 +1148,11 @@ export const fleetRouter = router({
     .output(explainReachOutputSchema)
     .query(async ({ ctx, input }) => okOrThrow(await ctx.useCases.explainReach(ctx.caller, input))),
 
-  /** One ship of the fleet, retired ones included, with when it was commissioned, crewed and retired. */
+  /** One ship of the fleet, retired ones included, with when it was commissioned, crewed, retired and removed. */
   ship: actorAnyScopeProcedure('fleet:read', 'crew:run')
     .meta({
       description: [
-        'Needs fleet:read, or crew:run for a ship whose crew request is assigned to yours. One ship of the fleet, retired ones included: as fleet_list shows it, plus when it was commissioned, crewed and retired, its open and in-flight deliveries, and its statement as discover shows it (decision 0047).',
+        'Needs fleet:read, or crew:run for a ship whose crew request is assigned to yours. One ship of the fleet, retired ones included: as fleet_list shows it, plus when it was commissioned, crewed, retired and removed (a removed ship answers its remnant, decision 0070), its open and in-flight deliveries, and its statement as discover shows it (decision 0047).',
         'A ship outside your read reach, and not assigned to yours, shows its id, name, type and status only, with isInReadReach false (decision 0034).',
       ].join(' '),
     })
@@ -979,6 +1163,7 @@ export const fleetRouter = router({
       if (!isInReadReach(ship)) {
         return ship;
       }
+      const [task] = await ctx.useCases.readReportTasks(ctx.caller, [ship.report?.task ?? null]);
       return {
         ...ship,
         startingPrompt: ship.startingPrompt && {
@@ -989,14 +1174,38 @@ export const fleetRouter = router({
         ping: pingOutputOf(ship.ping),
         scopes: [...ship.scopes],
         labels: [...ship.labels],
-        report: ship.report && { ...ship.report, reportedAt: ship.report.reportedAt.toISOString() },
+        report: ship.report && {
+          ...ship.report,
+          taskView: { canOpen: task?.canOpen === true, fleetName: null },
+          reportedAt: ship.report.reportedAt.toISOString(),
+          reportChangedAt: ship.report.reportChangedAt.toISOString(),
+        },
+        activity: activityOutputOf(ship.activity),
         crewRequest: crewRequestOutputOf(ship.crewRequest),
         model: ship.model && { id: ship.model.id, statedAt: ship.model.statedAt.toISOString() },
         awaitingCrewSince: ship.awaitingCrewSince?.toISOString() ?? null,
         commissionedAt: ship.commissionedAt.toISOString(),
         crewedSince: ship.crewedSince?.toISOString() ?? null,
+        removedAt: ship.removedAt?.toISOString() ?? null,
         retiredAt: ship.retiredAt?.toISOString() ?? null,
+        openAlerts: ship.openAlerts.map(alertOutputOf),
+        expectations: expectationsOutputOf(ship.expectations),
       };
+    }),
+
+  /** A page of the fleet's open alerts on the ships the caller reads, newest first (decision 0071). */
+  openAlerts: actorScopedProcedure('fleet:read')
+    .meta({
+      description: [
+        "Needs fleet:read. A page of the fleet's open alerts on the ships you read (decision 0071, 0034), newest first: each with its ship by id and name, the signal that parted with its facts at raise, the occurrence, since when, the owner told and when it was raised.",
+        `A page holds limit alerts (${String(PAGE_SIZE_DEFAULT)} unless you ask, at most ${String(PAGE_SIZE_MAX)}); pass nextCursor as cursor to read on, until it is null. A cleared alert leaves the list; fleet_ship shows a ship's own, and fleet_list how many each ship has.`,
+      ].join(' '),
+    })
+    .input(openAlertsInputSchema)
+    .output(openAlertsOutputSchema)
+    .query(async ({ ctx, input }) => {
+      const { items, nextCursor } = await ctx.useCases.readOpenAlerts(ctx.caller, input);
+      return { items: items.map(alertOutputOf), nextCursor };
     }),
 
   /** The ships counted per kind: the overview's cards and subtitle, and the navigation's needs-crew count. */
@@ -1022,7 +1231,11 @@ export const fleetRouter = router({
     .output(listedShipOutputSchema)
     .query(async ({ ctx, input }) => {
       const ship = okOrThrow(await ctx.useCases.readListedShip(ctx.caller, input));
-      return isInReadReach(ship) ? listedShipOutputOf(ship) : ship;
+      if (!isInReadReach(ship)) {
+        return ship;
+      }
+      const [task] = await ctx.useCases.readReportTasks(ctx.caller, [ship.report?.task ?? null]);
+      return listedShipOutputOf(ship, { canOpen: task?.canOpen === true, fleetName: null });
     }),
 
   /** A page of every change to a ship, newest first: the events naming it and the ones it caused. */
@@ -1043,6 +1256,15 @@ export const fleetRouter = router({
       return { items: items.map((message) => ({ ...message, sentAt: message.sentAt.toISOString() })), nextCursor };
     }),
 
+  /** Whether this viewer may open each message task, without fetching its payload. */
+  messageTaskAccess: actorScopedProcedure('fleet:read')
+    .input(messageTaskAccessInputSchema)
+    .output(messageTaskAccessOutputSchema)
+    .query(async ({ ctx, input }) => {
+      const tasks = await ctx.useCases.readReportTasks(ctx.caller, input.messageIds.map((messageId) => ({ kind: 'message', fleetId: ctx.caller.fleetId, messageId })));
+      return { items: input.messageIds.map((messageId, index) => ({ messageId, canOpen: tasks[index]?.canOpen === true })) };
+    }),
+
   /** One message: envelope, payload, its replies, its delivery's way through with every step, newest first, and how many deliveries it has. */
   message: actorScopedProcedure('fleet:read')
     .input(messageInputSchema)
@@ -1051,6 +1273,8 @@ export const fleetRouter = router({
       const message = okOrThrow(await ctx.useCases.readMessage(ctx.caller, input));
       return {
         ...message,
+        ...listedPayloadOutputOf(message.payload),
+        progress: message.progress && { ...message.progress, reportChangedAt: message.progress.reportChangedAt.toISOString() },
         sentAt: message.sentAt.toISOString(),
         replies: message.replies.map((reply) => ({ ...reply, sentAt: reply.sentAt.toISOString() })),
         delivery: {
@@ -1067,7 +1291,7 @@ export const fleetRouter = router({
     .output(messageDeliveriesOutputSchema)
     .query(async ({ ctx, input }) => {
       const { items, nextCursor } = okOrThrow(await ctx.useCases.readMessageDeliveries(ctx.caller, input));
-      return { items: items.map((delivery) => ({ ...delivery, since: delivery.since.toISOString() })), nextCursor };
+      return { items: items.map((delivery) => ({ ...delivery, since: delivery.since.toISOString(), progress: delivery.progress && { ...delivery.progress, reportChangedAt: delivery.progress.reportChangedAt.toISOString() } })), nextCursor };
     }),
 
   /** A ship's side of the way: the part that serves its lease, its turn, and its oldest delivery waiting with its way. */
@@ -1092,17 +1316,24 @@ export const fleetRouter = router({
     .input(needsAttentionInputSchema)
     .output(needsAttentionOutputSchema)
     .query(async ({ ctx, input }) => {
-      const { items, nextCursor } = await ctx.useCases.readNeedsAttention(ctx.caller, input);
+      const { items, nextCursor } = okOrThrow(await ctx.useCases.readNeedsAttention(ctx.caller, input));
       return {
-        items: items.map((entry) => ({ ...entry, since: entry.since.toISOString(), message: { ...entry.message, sentAt: entry.message.sentAt.toISOString() } })),
+        items: items.map((entry) => ({
+          ...entry,
+          since: entry.since.toISOString(),
+          message: { ...entry.message, ...listedPayloadOutputOf(entry.message.payload), sentAt: entry.message.sentAt.toISOString() },
+        })),
         nextCursor,
       };
     }),
 
   /** The fleet's health (decision 0042): its stuck deliveries by cause and place, the 7-day trend and the acknowledged in 24 hours. */
   health: actorScopedProcedure('fleet:read')
-    .output(healthOutputSchema)
-    .query(async ({ ctx }) => describedHealth(await ctx.useCases.readHealth(ctx.caller))),
+    .output(fleetHealthOutputSchema)
+    .query(async ({ ctx }) => {
+      const { keyUnavailable, ...health } = await ctx.useCases.readHealth(ctx.caller);
+      return { ...describedHealth(health), keyUnavailable: keyUnavailable && { ...keyUnavailable, since: keyUnavailable.since.toISOString() } };
+    }),
 
   /** How many deliveries are stuck now and since when the oldest waits: the navigation's count and the overview's card. */
   stuckCount: actorScopedProcedure('fleet:read')
@@ -1164,7 +1395,7 @@ export const fleetRouter = router({
     .input(operatorInboxInputSchema)
     .output(operatorInboxOutputSchema)
     .query(async ({ ctx, input }) => {
-      const { items, nextCursor } = await ctx.useCases.readInbox(ctx.caller, input);
+      const { items, nextCursor } = okOrThrow(await ctx.useCases.readInbox(ctx.caller, input));
       return { items: items.map(inboxEntryOutputOf), nextCursor };
     }),
 
@@ -1179,7 +1410,7 @@ export const fleetRouter = router({
     .input(inboxWithdrawalsInputSchema)
     .output(operatorInboxOutputSchema)
     .query(async ({ ctx, input }) => {
-      const { items, nextCursor } = await ctx.useCases.readInboxWithdrawals(ctx.caller, input);
+      const { items, nextCursor } = okOrThrow(await ctx.useCases.readInboxWithdrawals(ctx.caller, input));
       return { items: items.map(inboxEntryOutputOf), nextCursor };
     }),
 
@@ -1273,8 +1504,21 @@ export const fleetRouter = router({
     }),
 });
 
+/** A ship's activity as the fleet answers it, its times in ISO 8601. */
+/** A ship's expectations as `fleet.ship` reads them back (decision 0071): times in ISO 8601. */
+function expectationsOutputOf({ reportChangesWithin, taskDoneBy }: ShipExpectations) {
+  return {
+    reportChangesWithin: reportChangesWithin && { ...reportChangesWithin, setAt: reportChangesWithin.setAt.toISOString() },
+    taskDoneBy: taskDoneBy && { ...taskDoneBy, doneBy: taskDoneBy.doneBy.toISOString(), setAt: taskDoneBy.setAt.toISOString() },
+  };
+}
+
+function activityOutputOf(activity: ListedShip['activity']) {
+  return activity && { ...activity, at: activity.at.toISOString(), reportedAt: activity.reportedAt.toISOString() };
+}
+
 /** A ship as fleet_list answers it, its times in ISO 8601. */
-function listedShipOutputOf(ship: ListedShip) {
+function listedShipOutputOf(ship: ListedShip, taskView?: { canOpen: boolean; fleetName: string | null }) {
   return {
     ...ship,
     startingPrompt: ship.startingPrompt && {
@@ -1285,7 +1529,13 @@ function listedShipOutputOf(ship: ListedShip) {
     ping: pingOutputOf(ship.ping),
     scopes: [...ship.scopes],
     labels: [...ship.labels],
-    report: ship.report && { ...ship.report, reportedAt: ship.report.reportedAt.toISOString() },
+    report: ship.report && {
+          ...ship.report,
+          taskView,
+          reportedAt: ship.report.reportedAt.toISOString(),
+          reportChangedAt: ship.report.reportChangedAt.toISOString(),
+        },
+    activity: activityOutputOf(ship.activity),
     crewRequest: crewRequestOutputOf(ship.crewRequest),
     model: ship.model && { id: ship.model.id, statedAt: ship.model.statedAt.toISOString() },
     awaitingCrewSince: ship.awaitingCrewSince?.toISOString() ?? null,
@@ -1318,4 +1568,8 @@ function liveEventOf(event: SequencedEvent) {
     messageId: event.messageId ?? null,
     deliveryId: event.deliveryId ?? null,
   };
+}
+
+function base64Of(bytes: Uint8Array): string {
+  return Buffer.from(bytes).toString('base64');
 }

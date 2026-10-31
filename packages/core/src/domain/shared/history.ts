@@ -16,8 +16,8 @@ import {
   type ShipId,
 } from '@aeolus-fleet/common';
 
-import type { OverdueClock } from '../messaging/public.js';
-import type { Location, MessageParties } from '../registry/public.js';
+import type { OverdueClock, StoredPayload } from '../messaging/public.js';
+import type { ShipReport, Location, MessageParties } from '../registry/public.js';
 import type { DeliveryStateStep, StandingOverdue, WayCrew, WayLease } from './delivery-way.js';
 import type { EventDetails } from './events.js';
 import type { Page, PageQuery } from './page.js';
@@ -104,10 +104,10 @@ export function withPing<T extends { contentType: string }>(message: T): WithPin
 export type ShownTimelineEntry = Omit<TimelineEntry, 'message'> & { message: WithPing<NonNullable<TimelineEntry['message']>> | null };
 
 /** A delivery in Needs attention as it is answered, its message telling whether it is a ping. */
-export type ShownNeedsAttentionEntry = Omit<NeedsAttentionEntry, 'message'> & { message: WithPing<NeedsAttentionEntry['message']> };
+export type ShownNeedsAttentionEntry<Payload = string> = Omit<NeedsAttentionEntry<Payload>, 'message'> & { message: WithPing<NeedsAttentionEntry<Payload>['message']> };
 
-/** One message with its delivery as it stands. */
-export interface HistoryMessage {
+/** One message with its delivery as it stands; its payload plain, or as stored when the port reads it (decision 0068). */
+export interface HistoryMessage<Payload = string> {
   id: MessageId;
   sender: HistoryParty;
   recipient: HistoryRecipient;
@@ -116,7 +116,7 @@ export interface HistoryMessage {
   contentType: string;
   /** The model the sender's session stated; none from argo and on messages from before models were stated. */
   model: string | null;
-  payload: string;
+  payload: Payload;
   delivery: {
     id: DeliveryId;
     state: DeliveryState;
@@ -180,6 +180,7 @@ export interface MessageDelivery {
   ship: HistoryParty | null;
   state: DeliveryState;
   steps: DeliveryStateStep[];
+  report: ShipReport | null;
 }
 
 /**
@@ -190,7 +191,7 @@ export interface MessageDelivery {
  * deliveries it has comes too: one per ship of a send to a label (decision
  * 0065), whose first by id is the delivery above.
  */
-export type MessageRead = HistoryMessage & {
+export type MessageRead<Payload = string> = HistoryMessage<Payload> & {
   history: DeliveryChange[];
   deliveryCount: number;
   replies: HistoryReply[];
@@ -215,7 +216,7 @@ export interface ShipWayRead {
  * A delivery in Needs attention: undeliverable, or not handled after its turn
  * died twice (decision 0040). Its claims, since when, and its whole message.
  */
-export interface NeedsAttentionEntry {
+export interface NeedsAttentionEntry<Payload = string> {
   deliveryId: DeliveryId;
   state: NeedsAttentionState;
   attempts: number;
@@ -227,17 +228,17 @@ export interface NeedsAttentionEntry {
   reason: string | null;
   /** The ship whose attempt made it undeliverable, or whose turn did not handle it. */
   ship: HistoryParty;
-  message: Omit<HistoryMessage, 'delivery'>;
+  message: Omit<HistoryMessage<Payload>, 'delivery'>;
 }
 
 /** The delivery states Needs attention lists, each waiting for the operator to resend or dismiss it. */
 export type NeedsAttentionState = Extract<DeliveryState, 'undeliverable' | 'notHandled'>;
 
 /** A reply the inbox's ship sent to a message in its inbox. */
-export interface InboxReply {
+export interface InboxReply<Payload = string> {
   id: MessageId;
   contentType: string;
-  payload: string;
+  payload: Payload;
   sentAt: Date;
 }
 
@@ -246,14 +247,14 @@ export interface InboxReply {
  * was read and done, the reply that made it done, and every reply the ship
  * sent to it, oldest first.
  */
-export interface InboxEntry {
+export interface InboxEntry<Payload = string> {
   deliveryId: DeliveryId;
   state: DeliveryState;
   readAt: Date | null;
   doneAt: Date | null;
   repliedWith: MessageId | null;
-  replies: InboxReply[];
-  message: Omit<HistoryMessage, 'delivery' | 'recipient'>;
+  replies: InboxReply<Payload>[];
+  message: Omit<HistoryMessage<Payload>, 'delivery' | 'recipient'>;
 }
 
 /** The delivery states each inbox filter keeps: open is not done yet, done is acknowledged. */
@@ -272,15 +273,16 @@ export function isKeptBy(filter: InboxFilter, state: DeliveryState): boolean {
  * Outbound port: the history reads, scoped to one fleet. A ship's timeline is
  * the events naming it or caused by it; its messages are those it sent, was
  * sent, or claimed as a ship of their type. Undefined when the fleet has no
- * such ship or message.
+ * such ship or message. Payloads come as stored, sealed in a sealed fleet:
+ * the reads unseal them (decision 0068, B9).
  */
 export interface ShipHistory {
   /** A page newest first, by the stream's order, after the event the cursor names. */
   timeline(fleetId: FleetId, query: { shipId: ShipId } & PageQuery<EventId>): Promise<Page<TimelineEntry, EventId> | undefined>;
   /** A page newest first, by id, after the message the cursor names. */
-  messages(fleetId: FleetId, query: { shipId: ShipId } & PageQuery<MessageId>): Promise<Page<HistoryMessage, MessageId> | undefined>;
+  messages(fleetId: FleetId, query: { shipId: ShipId } & PageQuery<MessageId>): Promise<Page<HistoryMessage<StoredPayload>, MessageId> | undefined>;
   /** The message, with its delivery's steps newest first and what its way is read from. */
-  message(fleetId: FleetId, messageId: MessageId): Promise<MessageRead | undefined>;
+  message(fleetId: FleetId, messageId: MessageId): Promise<MessageRead<StoredPayload> | undefined>;
   /** A page of the message's deliveries by id, after the delivery the cursor names; empty when the fleet has no such message. */
   messageDeliveries(fleetId: FleetId, query: { messageId: MessageId } & PageQuery<DeliveryId>): Promise<Page<MessageDelivery, DeliveryId>>;
   /**
@@ -288,19 +290,19 @@ export interface ShipHistory {
    * of the two states, the fleet's or those naming one ship, oldest first by since when, after the delivery the
    * cursor names: by its since, so a cursor dismissed meanwhile still holds.
    */
-  needsAttention(fleetId: FleetId, query: { shipId?: ShipId; state?: NeedsAttentionState } & PageQuery<DeliveryId>): Promise<Page<NeedsAttentionEntry, DeliveryId>>;
+  needsAttention(fleetId: FleetId, query: { shipId?: ShipId; state?: NeedsAttentionState } & PageQuery<DeliveryId>): Promise<Page<NeedsAttentionEntry<StoredPayload>, DeliveryId>>;
   /** What the ship's side of the way is read from: the open lease of the session crewing it and what waits for it. */
   shipWay(fleetId: FleetId, shipId: ShipId): Promise<ShipWayRead | undefined>;
   /** A page of the messages addressed to the ship itself that the filter keeps, newest first by delivery, after the delivery the cursor names. */
-  inbox(fleetId: FleetId, query: { shipId: ShipId; filter: InboxFilter } & PageQuery<DeliveryId>): Promise<Page<InboxEntry, DeliveryId>>;
+  inbox(fleetId: FleetId, query: { shipId: ShipId; filter: InboxFilter } & PageQuery<DeliveryId>): Promise<Page<InboxEntry<StoredPayload>, DeliveryId>>;
   /** The message to the ship itself with this delivery, as its inbox lists it; undefined when its inbox has none. */
-  inboxMessage(fleetId: FleetId, query: { shipId: ShipId; deliveryId: DeliveryId }): Promise<InboxEntry | undefined>;
+  inboxMessage(fleetId: FleetId, query: { shipId: ShipId; deliveryId: DeliveryId }): Promise<InboxEntry<StoredPayload> | undefined>;
   /**
    * A page of the messages to the ship itself that withdraw or replace the
    * question with this uuid (decision 0038), oldest first by delivery, after
    * the delivery the cursor names, found by the question's uuid alone.
    */
-  inboxWithdrawals(fleetId: FleetId, query: { shipId: ShipId; questionId: string } & PageQuery<DeliveryId>): Promise<Page<InboxEntry, DeliveryId>>;
+  inboxWithdrawals(fleetId: FleetId, query: { shipId: ShipId; questionId: string } & PageQuery<DeliveryId>): Promise<Page<InboxEntry<StoredPayload>, DeliveryId>>;
   /** How many messages to the ship itself are open; with senders, only those they sent. */
   openInboxCount(fleetId: FleetId, query: { shipId: ShipId; senderIds?: ReadonlySet<ShipId> }): Promise<number>;
   /** Each message's parties as read reach sees them, by id; a message the fleet does not have is left out. */

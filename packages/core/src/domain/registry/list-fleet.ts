@@ -10,6 +10,7 @@ import { statusesAsked, type ShipFilter } from '@aeolus-fleet/common/rules';
 import type { ShipSort } from './ship-order.js';
 import type { FleetListing, ShipFacts } from './ports.js';
 import type { ShipReport } from './ship-report.js';
+import type { LeaseActivity } from './lease-activity.js';
 import { shipStatus } from './ship.js';
 
 /** A ship as the fleet snapshot shows it. */
@@ -36,6 +37,8 @@ export interface ListedShip {
   scopes: readonly ScopeName[];
   /** The crew's last report with the version of its details, never the details; null until it reports, and while no session crews the ship. */
   report: Omit<ShipReport, 'details'> | null;
+  /** What its trierarch last observed of the crewing session (docs/design/monitoring, 4.3); null for a ship crewed by hand, before any write, and while no session crews it. */
+  activity: LeaseActivity | null;
   /** The ship's crew request by its settings version and when it was requested, never its settings; null when it holds none. */
   crewRequest:
     | (Pick<CrewRequest, 'settingsVersion' | 'requestedAt' | 'status' | 'reason' | 'attempt' | 'sessionStartedAt'> & {
@@ -59,6 +62,8 @@ export interface ListedShip {
   retiredAt: Date | null;
   /** The ship that owns it (decision 0045); null for argo and the viewer, which no ship owns. */
   ownerShipId: ShipId | null;
+  /** How many open alerts the ship has (decision 0071): the overview's alert badge. */
+  openAlertCount: number;
 }
 
 /** A ship outside the caller's read reach: its name, type and status only (decision 0034). */
@@ -122,6 +127,7 @@ export function listedShipOf({
   lastModel,
   lastViewedAt,
   lastLeaseEndedAt,
+  openAlertCount,
 }: ShipFacts): ListedShip {
   const status = shipStatus(ship, { isCrewed: openLease !== null });
   return {
@@ -137,6 +143,7 @@ export function listedShipOf({
     ping: pingStatusOf(lastPing),
     scopes: ship.scopes,
     report: openLease?.report ? listedReportOf(openLease.report) : null,
+    activity: openLease?.activity ?? null,
     crewRequest: crewRequest && {
       settingsVersion: crewRequest.settingsVersion,
       requestedAt: crewRequest.requestedAt,
@@ -154,11 +161,12 @@ export function listedShipOf({
     awaitingCrewSince: status === 'awaitingCrew' ? latestOf(ship.createdAt, lastLeaseEndedAt) : null,
     retiredAt: ship.retiredAt,
     ownerShipId: ship.owner,
+    openAlertCount,
   };
 }
 
-function listedReportOf({ state, note, reportedAt, detailsVersion }: ShipReport): ListedShip['report'] {
-  return { state, note, reportedAt, detailsVersion };
+function listedReportOf({ state, note, task, step, reportedAt, reportChangedAt, detailsVersion }: ShipReport): ListedShip['report'] {
+  return { state, note, task, step, reportedAt, reportChangedAt, detailsVersion };
 }
 
 function latestOf(first: Date, second: Date | null): Date {

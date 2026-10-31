@@ -38,6 +38,7 @@ function rowsOf(fleetId: FleetId): Record<keyof InMemoryState, number> {
     leaseReports: of(state.leaseReports),
     leaseStatements: of(state.leaseStatements),
     leaseTurns: of(state.leaseTurns),
+    leaseActivities: of(state.leaseActivities),
     crewRequests: of(state.crewRequests),
     clearRequests: of(state.clearRequests),
     labels: of(state.labels),
@@ -48,6 +49,8 @@ function rowsOf(fleetId: FleetId): Record<keyof InMemoryState, number> {
     scopeNamespaces: of(state.scopeNamespaces),
     definedScopes: of(state.definedScopes),
     verifiedFacts: of(state.verifiedFacts),
+    alerts: of(state.alerts),
+    expectations: of(state.expectations),
     reachRefusals: of(state.reachRefusals),
     deliveryReads: of(state.deliveryReads),
     events: of(state.events),
@@ -66,6 +69,10 @@ function rowsOf(fleetId: FleetId): Record<keyof InMemoryState, number> {
     lockedMessages: 0,
     // The places of pruned events in the fleet's stream: the seq column of the events left, no row.
     prunedEventSeqs: 0,
+    fleetSealings: of(state.fleetSealings),
+    dataKeys: of(state.dataKeys),
+    sealingLocks: 0,
+    featureFlags: of(state.featureFlags),
     // The installation's settings belong to no fleet.
     installationSettings: 0,
     // Neither do its console notices (decision 0023).

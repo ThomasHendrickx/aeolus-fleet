@@ -85,6 +85,7 @@ const SHIP_TOOLS = [
   'fleet_assignCrew',
   'fleet_explainCrewRequest',
   'fleet_reportCrewStatus',
+  'fleet_reportActivity',
   'fleet_confirmCrewRelease',
   'fleet_giveBackCrewRequest',
   'fleet_assignedCrewRequests',
@@ -116,7 +117,12 @@ const SHIP_TOOLS = [
   'fleet_describeScope',
   'fleet_removeScope',
   'fleet_setVerifiedFacts',
+  'fleet_setExpectations',
+  'fleet_raiseAlert',
+  'fleet_clearAlert',
+  'fleet_openAlerts',
   'fleet_checkManage',
+  'fleet_limits',
 ];
 
 let core: InMemoryCore;
@@ -261,12 +267,12 @@ describe('the ship tools at /mcp', () => {
     }
   });
 
-  it('ask register for the ship id and secret from the starting prompt and the location, and never a crew token', async () => {
+  it('ask register for the ship id and secret from the starting prompt and the location, the harness only when the session can tell it (aeolus-fleet#1408), and never a crew token', async () => {
     await start();
 
     const { inputSchema } = await tool('register');
 
-    expect(inputSchema.required).toEqual(['shipId', 'secret', 'location', 'harness']);
+    expect(inputSchema.required).toEqual(['shipId', 'secret', 'location']);
     expect(inputSchema.properties.shipId).toMatchObject({ type: 'string', pattern: '^shp_[0-7][0-9a-hjkmnp-tv-z]{25}$' });
     expect(inputSchema.properties).not.toHaveProperty('crewToken');
   });
@@ -329,7 +335,12 @@ describe('the ship tools at /mcp', () => {
     ['fleet_describeScope', [/scopes:define/, /never renamed/]],
     ['fleet_removeScope', [/scopes:define/, /holds it/, /CONFLICT/, /frees/]],
     ['fleet_checkManage', [/no scope/, /manage reach/, /NOT_REACHABLE/, /recorded/]],
+    ['fleet_limits', [/fleet:read/, /retention/i, /null when no retention applies/, /keptFrom/]],
     ['fleet_setVerifiedFacts', [/fleet:verify/, /decision 0059/, /manage/, /whole/, /withdraw/, /oauthSubject/, /issuer/, /at most 10/]],
+    ['fleet_setExpectations', [/fleet:manage/, /decision 0071/, /manage reach/, /owner/, /reportChangesWithin/, /5 to 10080/, /taskDoneBy/, /null clears/, /fleet_ship/, /retire removes/]],
+    ['fleet_raiseAlert', [/fleet:alert/, /decision 0071/, /read reach/, /occurrenceKey/, /raised once/, /application\/vnd\.aeolus\.alert\+json/, /idempotency key/]],
+    ['fleet_openAlerts', [/fleet:read/, /decision 0071/, /newest first/, /nextCursor/, /cleared alert leaves/]],
+    ['fleet_clearAlert', [/fleet:alert/, /decision 0071/, /read reach/, /Nothing is sent on clear/, /retire clears/]],
     ['send', [/"kind": "label"/, /"valueIds": \["lbv_\.\.\."\]/, /every value/, /never you/, /fleet_findLabelValue/, /every ship of it/]],
   ])('state the scope and rules of %s in its description', async (name, rules) => {
     await start();

@@ -3,10 +3,12 @@ import type { IdGenerator, MeetingId } from '@aeolus-fleet/common';
 import { checkReach, keepingReachRefusal, type CheckReachTx, type NotReachable } from '../registry/public.js';
 import type { ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
+import type { DomainError } from '../shared/errors.js';
 import { recordEvent } from '../shared/events.js';
 import type { Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { changeMeeting, type MeetingChange, type MeetingChangeRefusal } from './meeting-life.js';
+import { withDataKeys, type DataKeysNeeded, type PayloadSealing } from './data-keys.js';
 import { tellOfChange, type MeetingNoticeTx } from './meeting-notice.js';
 import type { AcceptRefusal } from './message.js';
 import type { MeetingRepository, RequestHasher } from './ports.js';
@@ -15,7 +17,7 @@ export interface ChangeMeetingTx extends MeetingNoticeTx, CheckReachTx {
   meetings: Pick<MeetingRepository, 'findForUpdate' | 'save'>;
 }
 
-export type ChangeMeetingFailure = MeetingChangeRefusal | NotReachable | AcceptRefusal;
+export type ChangeMeetingFailure = MeetingChangeRefusal | NotReachable | AcceptRefusal | DomainError<'KEY_UNAVAILABLE'>;
 
 export type ChangeMeeting = (caller: ShipCaller, input: { meetingId: MeetingId; change: MeetingChange }) => Promise<Result<undefined, ChangeMeetingFailure>>;
 
@@ -25,11 +27,12 @@ export type ChangeMeeting = (caller: ShipCaller, input: { meetingId: MeetingId; 
  * its moderator, or, as its owner or moderator, ends it. A rejoin is checked
  * on the owner's reach of the ship, as when it was added (M5), a refusal
  * recorded. One unit of work with its events and notices, the meeting held
- * for update.
+ * for update. In a sealed fleet its notices are sealed with data keys
+ * unwrapped before the unit of work (decision 0068, B17).
  */
-export function createChangeMeeting(deps: { uow: UnitOfWork<ChangeMeetingTx>; clock: Clock; ids: IdGenerator; hasher: RequestHasher }): ChangeMeeting {
+export function createChangeMeeting(deps: { uow: UnitOfWork<ChangeMeetingTx>; clock: Clock; ids: IdGenerator; hasher: RequestHasher; sealing: PayloadSealing }): ChangeMeeting {
   return (caller, input) =>
-    keepingReachRefusal(deps.uow, async (tx): Promise<Result<undefined, ChangeMeetingFailure>> => {
+    withDataKeys({ sealing: deps.sealing, fleetId: caller.fleetId }, (held) => keepingReachRefusal(deps.uow, async (tx): Promise<Result<undefined, ChangeMeetingFailure | DataKeysNeeded>> => {
       const { fleetId } = caller;
       const at = deps.clock.now();
       const changed = changeMeeting(await tx.meetings.findForUpdate(fleetId, input.meetingId), { meetingId: input.meetingId, by: caller.shipId, change: input.change, at });
@@ -47,6 +50,6 @@ export function createChangeMeeting(deps: { uow: UnitOfWork<ChangeMeetingTx>; cl
       for (const event of events) {
         await recordEvent({ events: tx.events, ids: deps.ids }, event);
       }
-      return tellOfChange({ tx, ids: deps.ids, hasher: deps.hasher }, { meeting, micGivenTo, endedBy: hasEnded ? caller.shipId : null, at });
-    });
+      return tellOfChange({ tx, ids: deps.ids, hasher: deps.hasher, held }, { meeting, micGivenTo, endedBy: hasEnded ? caller.shipId : null, at });
+    }));
 }

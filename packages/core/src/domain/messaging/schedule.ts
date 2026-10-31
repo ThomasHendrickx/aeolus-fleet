@@ -5,6 +5,7 @@ import type { Actor, NewEvent } from '../shared/events.js';
 import { ok, type Err, type Result } from '../shared/result.js';
 import type { ScheduleSelector } from '../shared/selector.js';
 import { cronSendTimeAfter, isKnownTimeZone, parseCron } from './cron.js';
+import { isSealedPayload, type StoredPayload } from './sealed-payload.js';
 
 /**
  * A ship's scheduled message (decision 0062): a whole send input that core
@@ -31,7 +32,8 @@ export const TIME_ZONE_DEFAULT = 'UTC';
 /** The send input, stored as the creator gave it: the selector as addressed, a name resolved only at each send time. */
 export interface ScheduledSend {
   selector: ScheduleSelector;
-  payload: string;
+  /** Plain, or sealed in a sealed fleet, bound to the schedule (decision 0068, B7). */
+  payload: StoredPayload;
   contentType: string;
   /** The model the creator stated: every send states it (S13). */
   model: string | null;
@@ -225,6 +227,24 @@ function timingOf(input: ScheduleTimingInput): Result<ScheduleTiming, ScheduleRe
     return refuse('INVALID_TIMING', `A cron's zone is an IANA time zone, such as Europe/Brussels: "${timeZone}" is not one this server knows`);
   }
   return ok({ kind: 'cron', cron: input.cron, timeZone, ...bounds });
+}
+
+/**
+ * A schedule with a key its creator used before. The same request is a
+ * retry and answers the original schedule; another request with that key is
+ * refused. A sealed original's hash leaves its payload out, so a copy
+ * confirms no guessed payload; its payload, unsealed, is compared instead
+ * (decision 0068, B10).
+ */
+export function repeatOfSchedule(
+  original: { schedule: Schedule; plainPayload: string },
+  repeat: { requestHash: string; sealedRequestHash: string; payload: string },
+): Result<ScheduleId, DomainError<'IDEMPOTENCY_KEY_REUSED'>> {
+  const { schedule, plainPayload } = original;
+  const isSame = isSealedPayload(schedule.send.payload)
+    ? schedule.requestHash === repeat.sealedRequestHash && plainPayload === repeat.payload
+    : schedule.requestHash === repeat.requestHash;
+  return isSame ? ok(schedule.id) : refuse('IDEMPOTENCY_KEY_REUSED', 'This idempotency key was already used for another schedule: make a new schedule with a new key');
 }
 
 /**

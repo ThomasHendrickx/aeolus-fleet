@@ -212,6 +212,7 @@ describe('the OpenAPI spec at /api/v1/openapi.json', () => {
       ['/fleet/assignCrew', ['post']],
       ['/fleet/explainCrewRequest', ['post']],
       ['/fleet/reportCrewStatus', ['post']],
+      ['/fleet/reportActivity', ['post']],
       ['/fleet/confirmCrewRelease', ['post']],
       ['/fleet/giveBackCrewRequest', ['post']],
       ['/fleet/assignedCrewRequests', ['get']],
@@ -243,7 +244,12 @@ describe('the OpenAPI spec at /api/v1/openapi.json', () => {
       ['/fleet/describeScope', ['post']],
       ['/fleet/removeScope', ['post']],
       ['/fleet/setVerifiedFacts', ['post']],
+      ['/fleet/setExpectations', ['post']],
+      ['/fleet/raiseAlert', ['post']],
+      ['/fleet/clearAlert', ['post']],
+      ['/fleet/openAlerts', ['post']],
       ['/fleet/checkManage', ['post']],
+      ['/fleet/limits', ['get']],
     ]);
   });
 

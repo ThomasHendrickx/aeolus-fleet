@@ -54,8 +54,20 @@ describe('getting one fleet of the installation', () => {
             perHour: [...Array.from({ length: 23 }, (_unused, index) => ({ at: new Date(Date.parse('2026-10-04T12:00:00.000Z') - (22 - index) * 3_600_000), count: 0 })), { at: new Date('2026-10-04T12:00:00.000Z'), count: 0 }],
           },
         },
+        featureFlags: [{ flag: 'sealing', isOn: false, canTurnOff: true }],
       },
     });
+  });
+
+  it('answers each feature flag on or off for the fleet, and a flag its fleet uses as unable to go off (decision 0069)', async () => {
+    const createFleet = createCreateFleet({ uow: core.uow, clock: core.clock, ids: core.ids, hasher: core.hasher });
+    const { fleetId: sealedFleetId } = unwrap(await createFleet({ requestId: 'signup-1', name: 'hemma', operatorEmail: 'lena@example.com', featureFlags: ['sealing'] }));
+    const { fleetId: offeredFleetId } = unwrap(await createFleet({ requestId: 'signup-2', name: 'northwind', operatorEmail: 'ines@example.com', featureFlags: ['sealing'] }));
+    const since = new Date('2026-10-04T12:00:00.000Z');
+    core.state.fleetSealings.push({ fleetId: sealedFleetId, state: 'sealed', since, progress: { toSeal: 0, sealed: 0 }, companyKey: 'arn:aws:kms:eu-west-1:111122223333:key/hemma', recoveryKey: null, keyAvailability: { isAvailable: true, since } });
+
+    expect(unwrap(await getFleet({ fleetId: sealedFleetId })).featureFlags).toEqual([{ flag: 'sealing', isOn: true, canTurnOff: false }]);
+    expect(unwrap(await getFleet({ fleetId: offeredFleetId })).featureFlags).toEqual([{ flag: 'sealing', isOn: true, canTurnOff: true }]);
   });
 
   it('refuses a fleet the installation does not host', async () => {

@@ -17,6 +17,7 @@ import type { Clock } from '../shared/clock.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import type { RequestHasher } from './ports.js';
+import { withDataKeys, type DataKeysNeeded, type PayloadSealing } from './data-keys.js';
 import { checkedSend, sendWithin, type SendMessageRefusal, type SendMessageTx } from './send-message.js';
 
 /** What every ping says: the session answers it with pong, and does nothing else with it. */
@@ -45,16 +46,18 @@ export type PingShip = (caller: Caller, input: { shipId: ShipId }) => Promise<Re
  * waits unanswered, pending or in flight, this answers with that one and
  * stores nothing. The ship stays locked meanwhile, so two pings take turns.
  * Each new ping carries a fresh idempotency key: a repeat is answered by the
- * open ping, never by the key.
+ * open ping, never by the key. In a sealed fleet the ping is stored sealed,
+ * as every payload is (decision 0068, B17).
  */
 export function createPingShip(deps: {
   uow: UnitOfWork<PingShipTx>;
   clock: Clock;
   ids: IdGenerator;
   hasher: RequestHasher;
+  sealing: PayloadSealing;
 }): PingShip {
   return (caller, input) =>
-    keepingReachRefusal(deps.uow, async (tx): Promise<Result<PingSent, PingShipRefusal>> => {
+    withDataKeys({ sealing: deps.sealing, fleetId: caller.fleetId }, (held) => keepingReachRefusal(deps.uow, async (tx): Promise<Result<PingSent, PingShipRefusal | DataKeysNeeded>> => {
       const { fleetId } = caller;
       const ship = await findPingableShip(tx, { fleetId, shipId: input.shipId });
       if (!ship.isOk) {
@@ -86,9 +89,9 @@ export function createPingShip(deps: {
         return sender;
       }
       const sentAt = deps.clock.now();
-      const sent = await sendWithin({ tx, clock: { now: () => sentAt }, ids: deps.ids }, { caller: sender.value, request: request.value, actor: actorOf(caller) });
+      const sent = await sendWithin({ tx, clock: { now: () => sentAt }, ids: deps.ids, held }, { caller: sender.value, request: request.value, actor: actorOf(caller) });
       return sent.isOk ? ok({ messageId: sent.value.messageId, sentAt, isNew: true }) : sent;
-    });
+    }));
 }
 
 /** The ship a ping is sent from: the calling ship, or argo for any other actor. */

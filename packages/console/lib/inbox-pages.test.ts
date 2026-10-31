@@ -15,7 +15,7 @@ function aMessage(at: string): InboxMessage {
     doneAt: null,
     repliedWith: null,
     replies: [],
-    message: { id: newId('message'), sender: SENDER, inReplyTo: null, sentAt: at, contentType: 'text/plain', model: null, payload: 'Slice 7 done' },
+    message: { id: newId('message'), sender: SENDER, inReplyTo: null, sentAt: at, contentType: 'text/plain', model: null, payload: 'Slice 7 done', isPayloadUnreadable: false, isPayloadSealed: false },
   };
 }
 

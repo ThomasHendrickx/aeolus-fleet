@@ -140,11 +140,11 @@ describe('replying to a message to argo', () => {
     expect(core.state.events).toEqual([]);
   });
 
-  it('refuses a payload over 64 KB, and leaves the message open', async () => {
+  it('refuses a payload over 256 KB, and leaves the message open', async () => {
     const asked = await toArgo();
 
     await expect(
-      useCases.replyToMessage(argo, { deliveryId: asked.deliveryId, payload: 'a'.repeat(64 * 1024 + 1), idempotencyKey: 'big' }),
+      useCases.replyToMessage(argo, { deliveryId: asked.deliveryId, payload: 'a'.repeat(256 * 1024 + 1), idempotencyKey: 'big' }),
     ).resolves.toMatchObject({ isOk: false, error: { kind: 'PAYLOAD_TOO_LARGE' } });
     expect(stored(asked.deliveryId)?.state).toBe('pending');
   });

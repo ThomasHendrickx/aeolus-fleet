@@ -35,6 +35,8 @@ export interface OperatorInboxProps extends Omit<InboxListProps, 'onSelect' | 's
   onMove: (direction: 'next' | 'previous') => void;
   /** Deliveries whose mark done, reply or answer is in flight. */
   pendingIds: ReadonlySet<DeliveryId>;
+  /** The replies core refused while the company key is not reachable, by message, said by its reply field (decision 0068). */
+  replyRefusals?: ReadonlyMap<DeliveryId, { title: string; description: string }>;
   /** The answers that were not sent, by question, with why (#870). */
   answerFailures?: ReadonlyMap<DeliveryId, { answer: AnswerChoice; message: string }>;
   /** The choices and notes left unsent, by question, held again when it opens (#870). */
@@ -134,6 +136,7 @@ function Reader({ selected, isPhone, ...props }: OperatorInboxProps & { selected
       }}
       isPending={isPending}
       isReadOnly={props.isReadOnly}
+      replyRefusal={props.replyRefusals?.get(selected.deliveryId)}
     />
   );
 }

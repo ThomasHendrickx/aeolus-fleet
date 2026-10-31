@@ -67,7 +67,7 @@ afterAll(async () => {
 /** A ship's session on the REST API, as its starting prompt tells it to connect. */
 interface Session {
   shipId: string;
-  call(operation: 'send' | 'receive' | 'ack', body: Record<string, unknown>): Promise<unknown>;
+  call(operation: 'send' | 'receive' | 'ack' | 'report', body: Record<string, unknown>): Promise<unknown>;
 }
 
 async function crewedOverRest(ship: { name: string; type: string }): Promise<Session> {
@@ -109,6 +109,31 @@ function messageRow(page: Page, messageId: string) {
 }
 
 describe('the ship page', () => {
+  it('opens a message task from its report and shows the matching recipient progress', async () => {
+    // Given a recipient reporting progress on a sent message.
+    const sender = await crewedOverRest({ name: 'w2-sender', type: 'planner' });
+    const recipient = await crewedOverRest({ name: 'w2-recipient', type: 'writer' });
+    const { messageId } = sentSchema.parse(await sender.call('send', { selector: { kind: 'ship', shipId: recipient.shipId }, payload: 'Write the monitoring guide', idempotencyKey: newKey() }));
+    await recipient.call('report', { state: 'working', note: 'Drafting the guide', task: { kind: 'message', fleetId: argo.fleetId, messageId }, step: { at: 1, of: 4 } });
+    const page = await signedInPage();
+    await page.goto(`/ships/${recipient.shipId}`);
+
+    // When the viewer follows the server-authorized task link.
+    await page.getByTestId('ship-report-task').click();
+    const progress = page.getByTestId('message-recipient-progress');
+    await progress.waitFor();
+
+    // Then the message sheet opens, with progress separate from its delivery state.
+    expect(page.url()).toContain(`/messages/${messageId}`);
+    await expect(progress.textContent()).resolves.toContain('Working');
+    await expect(progress.textContent()).resolves.toContain('step 1 of 4');
+    await expect(progress.textContent()).resolves.toContain('Drafting the guide');
+    await recipient.call('report', { state: 'working', task: null });
+    await page.reload();
+    await page.getByTestId('message-sheet').getByTestId('message-payload').waitFor();
+    await expect(page.getByTestId('message-recipient-progress').count()).resolves.toBe(0);
+  });
+
   it('shows two ships exchanging messages over the API: the thread and each delivery state, live, the delivery history, and the models they state', async () => {
     const planner = await crewedOverRest({ name: 'planner', type: 'planner' });
     const scout = await crewedOverRest({ name: 'scout', type: 'reviewer' });

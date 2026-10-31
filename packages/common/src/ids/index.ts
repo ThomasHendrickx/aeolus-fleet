@@ -29,6 +29,10 @@ export const ID_PREFIXES = {
   meeting: 'mtg',
   /** A ship's scheduled message (decision 0062). */
   schedule: 'sch',
+  /** A sealed fleet's data key (decision 0068). */
+  dataKey: 'dky',
+  /** An alert on a ship, open until it clears (decision 0071). */
+  alert: 'alt',
 } as const;
 
 export type IdKind = keyof typeof ID_PREFIXES;
@@ -57,6 +61,8 @@ export type ReachRefusalId = Id<'reachRefusal'>;
 export type RequestId = Id<'request'>;
 export type MeetingId = Id<'meeting'>;
 export type ScheduleId = Id<'schedule'>;
+export type DataKeyId = Id<'dataKey'>;
+export type AlertId = Id<'alert'>;
 
 /** Crockford base32, lowercase. Leaves out i, l, o and u. */
 const ALPHABET = '0123456789abcdefghjkmnpqrstvwxyz';

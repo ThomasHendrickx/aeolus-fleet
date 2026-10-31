@@ -79,7 +79,7 @@ function fleetListAsked(page: Page): Record<string, unknown>[] {
   const asked: Record<string, unknown>[] = [];
   page.on('request', (request) => {
     const url = new URL(request.url());
-    if (url.pathname !== '/trpc/fleet.list') {
+    if (!['/trpc/fleet.list', '/api/reports/fleet.list'].includes(url.pathname)) {
       return;
     }
     asked.push(inputSchema.parse(JSON.parse(url.searchParams.get('input') ?? '{}')));

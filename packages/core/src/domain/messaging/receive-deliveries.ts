@@ -8,6 +8,7 @@ import { recordEvent, type EventLog } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { Recipient } from '../shared/selector.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
+import { unsealed, withDataKeys, type DataKeysNeeded, type HeldDataKeys, type PayloadSealing } from './data-keys.js';
 import { handDelivery } from './delivery.js';
 import type { Delivery, Message } from './message.js';
 import type { DeliveryRepository, ReceiverWakeups, ReceiverWatch } from './ports.js';
@@ -51,7 +52,7 @@ export interface DeliveriesReceived {
   deliveries: ReceivedDelivery[];
 }
 
-export type ReceiveRefusal = DomainError<'INVALID_RECEIVE_MAX' | 'SHIP_NOT_FOUND'> | LeaseEnded;
+export type ReceiveRefusal = DomainError<'INVALID_RECEIVE_MAX' | 'SHIP_NOT_FOUND' | 'KEY_UNAVAILABLE'> | LeaseEnded;
 
 export type ReceiveDeliveries = (
   crew: Crew,
@@ -62,14 +63,21 @@ export type ReceiveDeliveries = (
 export const RECEIVE_WAIT_MS = 25_000;
 
 /**
- * The delivery as its crew gets it: with its message, and its sender by id
- * and by the name and type it has in Registry now.
+ * The delivery as its crew gets it: with its message, its payload unsealed
+ * in a sealed fleet (decision 0068, B9), and its sender by id and by the name
+ * and type it has in Registry now. A data key it does not hold rolls its
+ * unit of work back, so nothing is claimed until it holds it.
  */
 export async function receivedDeliveryOf(
-  tx: FindShipTx,
+  deps: { tx: FindShipTx; keys: HeldDataKeys },
   held: { delivery: Delivery; message: Message },
-): Promise<Result<ReceivedDelivery, DomainError<'SHIP_NOT_FOUND'>>> {
+): Promise<Result<ReceivedDelivery, DomainError<'SHIP_NOT_FOUND' | 'KEY_UNAVAILABLE'> | DataKeysNeeded>> {
+  const { tx, keys } = deps;
   const { delivery, message } = held;
+  const payload = unsealed(keys, { row: { fleetId: message.fleetId, rowId: message.id }, payload: message.payload });
+  if (!payload.isOk) {
+    return payload;
+  }
   const sender = await findShip(tx, { fleetId: delivery.fleetId, shipId: message.senderShipId });
   if (!sender.isOk) {
     // A message's sender always exists: ships are never deleted, and the foreign key keeps the sender in its fleet.
@@ -82,7 +90,7 @@ export async function receivedDeliveryOf(
     senderName: sender.value.name,
     senderType: sender.value.type,
     recipient: delivery.recipient,
-    payload: message.payload,
+    payload: payload.value,
     contentType: message.contentType,
     model: message.model,
     inReplyTo: message.inReplyToMessageId,
@@ -99,6 +107,7 @@ export interface ClaimDeps {
   tx: ReceiveDeliveriesTx;
   ids: IdGenerator;
   at: Date;
+  keys: HeldDataKeys;
 }
 
 /**
@@ -112,7 +121,7 @@ export interface ClaimDeps {
 export async function claimForCrew(
   deps: ClaimDeps,
   claim: { crew: Crew; max: number; inReplyTo?: MessageId },
-): Promise<Result<{ ship: Ship; deliveries: ReceivedDelivery[] }, ReceiveRefusal>> {
+): Promise<Result<{ ship: Ship; deliveries: ReceivedDelivery[] }, ReceiveRefusal | DataKeysNeeded>> {
   const { tx, ids, at } = deps;
   const { crew, max, inReplyTo } = claim;
   const ship = await holdLease(tx, crew);
@@ -147,7 +156,7 @@ export async function claimForCrew(
         await recordEvent({ events: tx.events, ids }, event);
       }
       if (outcome === 'handed') {
-        const received = await receivedDeliveryOf(tx, { delivery: changed, message });
+        const received = await receivedDeliveryOf(deps, { delivery: changed, message });
         if (!received.isOk) {
           return received;
         }
@@ -169,6 +178,10 @@ export async function claimForCrew(
  * and by the name and type the sender has now, so the crew can answer by name.
  * On a pushed lease it hands nothing, its pending deliveries included: the
  * computer side takes them with a push receive (decision 0040).
+ * In a sealed fleet a look unseals what it claims, with data keys unwrapped
+ * before its unit of work (decision 0068, B9): a key the company's key vault
+ * does not give refuses KEY_UNAVAILABLE, nothing claimed and no attempt
+ * counted, and the deliveries wait pending.
  *
  * When nothing is there it waits, about 25 seconds, for a wake-up for its ship
  * or its type (ADR 0003: LISTEN/NOTIFY after commit), then returns empty. It
@@ -181,6 +194,7 @@ export function createReceiveDeliveries(deps: {
   uow: UnitOfWork<ReceiveDeliveriesTx>;
   clock: Clock;
   ids: IdGenerator;
+  sealing: PayloadSealing;
   wakeups: ReceiverWakeups;
   /** How long a receive waits on an empty inbox; about 25 seconds unless a test says otherwise. */
   waitMs?: number;
@@ -194,7 +208,7 @@ export function createReceiveDeliveries(deps: {
 
     return waitForDeliveries(
       { clock: deps.clock, wakeups: deps.wakeups, waitMs },
-      { crew, look: () => deps.uow.run((tx) => claimForCrew({ tx, ids: deps.ids, at: deps.clock.now() }, { crew, max: max.value })) },
+      { crew, look: () => withDataKeys({ sealing: deps.sealing, fleetId: crew.fleetId }, (keys) => deps.uow.run((tx) => claimForCrew({ tx, ids: deps.ids, at: deps.clock.now(), keys }, { crew, max: max.value }))) },
     );
   };
 }

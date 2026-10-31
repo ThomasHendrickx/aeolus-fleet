@@ -7,6 +7,7 @@ import { useQueries } from '@tanstack/react-query';
 import { EVERY_SHIP_STATUS } from './every-ship-status';
 import { LAST_SEEN_REFRESH_MS } from './fleet';
 import { shipIdBatchesOf } from './ship-id-batches';
+import { shipNamesOf } from './ship-names';
 import { useTRPC } from './trpc';
 
 /**
@@ -16,6 +17,21 @@ import { useTRPC } from './trpc';
  * 0034); undefined until every read answered.
  */
 export function useListedShips(shipIds: readonly ShipId[]): ReadonlyMap<string, ListedShip> | undefined {
+  const items = useListedItems(shipIds);
+  return items && new Map(items.filter(isInReadReach).map((ship) => [ship.id, ship] as const));
+}
+
+/**
+ * The names of the ships asked, by id: a ship outside the read reach shows its
+ * name (decision 0034), so it is named here though `useListedShips` leaves it
+ * out. Undefined until every read answered.
+ */
+export function useListedShipNames(shipIds: readonly ShipId[]): ReadonlyMap<ShipId, string> | undefined {
+  const items = useListedItems(shipIds);
+  return items && shipNamesOf(items);
+}
+
+function useListedItems(shipIds: readonly ShipId[]) {
   const trpc = useTRPC();
   const reads = useQueries({
     queries: shipIdBatchesOf(shipIds).map((batch) =>
@@ -25,5 +41,5 @@ export function useListedShips(shipIds: readonly ShipId[]): ReadonlyMap<string, 
   if (reads.some((read) => read.data === undefined)) {
     return undefined;
   }
-  return new Map(reads.flatMap((read) => (read.data?.items ?? []).filter(isInReadReach).map((ship) => [ship.id, ship] as const)));
+  return reads.flatMap((read) => read.data?.items ?? []);
 }

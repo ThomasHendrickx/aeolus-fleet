@@ -41,7 +41,7 @@ export function location(kind: LocationKind, description?: string): Result<Locat
 /**
  * The harness the session crewing a ship runs in (docs/blueprint.md,
  * "Harness"), stated when it claims the ship: free text such as claude-code,
- * claude-chat or codex, trimmed and in lower case. Read together with the
+ * claude-chat, codex or copilot, trimmed and in lower case. Read together with the
  * location; never interpreted.
  */
 export function harness(value: string): Result<string, DomainError<'INVALID_HARNESS'>> {
@@ -61,7 +61,7 @@ export interface Lease {
   fleetId: FleetId;
   shipId: ShipId;
   location: Location;
-  /** The harness the session stated; none for argo's console lease and for leases from before harnesses were stated. */
+  /** The harness the session stated; none when it stated none (aeolus-fleet#1408), for argo's console lease and for leases from before harnesses were stated. */
   harness: string | null;
   /**
    * The hash of the crew token `register` gave the session: every later ship

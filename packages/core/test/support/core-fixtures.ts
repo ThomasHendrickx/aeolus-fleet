@@ -1,5 +1,6 @@
 import { FLEET_URL, OPERATOR } from '../../src/testing/fleet.js';
 import {
+  accountIdSchema,
   idSchema,
   type DeliveryId,
   type FleetId,
@@ -70,6 +71,8 @@ import { createDiscardNetworkRulesDraft } from '../../src/domain/registry/discar
 import { createApplyNetworkRules } from '../../src/domain/registry/apply-network-rules.js';
 import { createReadNetworkRules } from '../../src/domain/registry/read-network-rules.js';
 import { createExportNetworkRules } from '../../src/domain/registry/export-network-rules.js';
+import { createReadFeatureFlags } from '../../src/domain/registry/read-feature-flags.js';
+import { createSetFeatureFlag } from '../../src/domain/registry/set-feature-flag.js';
 import { createCheckNetworkRulesFile } from '../../src/domain/registry/check-network-rules-file.js';
 import { createImportNetworkRules } from '../../src/domain/registry/import-network-rules.js';
 import { createReadNetworkRulesDraftChanges } from '../../src/domain/registry/read-network-rules-draft-changes.js';
@@ -93,6 +96,7 @@ import { createSetInstallationSettings } from '../../src/domain/registry/set-ins
 import { createReadFleetLimits } from '../../src/domain/shared/read-fleet-limits.js';
 import { createDeregister } from '../../src/domain/registry/deregister.js';
 import { createGetShip } from '../../src/domain/registry/get-ship.js';
+import { createReadOpenAlerts } from '../../src/domain/registry/read-open-alerts.js';
 import { createReadListedShip } from '../../src/domain/registry/read-listed-ship.js';
 import { createCountShips } from '../../src/domain/registry/count-ships.js';
 import { createListShipTypes } from '../../src/domain/registry/list-ship-types.js';
@@ -107,6 +111,9 @@ import { createSetOwner } from '../../src/domain/registry/set-owner.js';
 import { createCheckManage } from '../../src/domain/registry/check-manage.js';
 import { createRenameShip } from '../../src/domain/registry/rename-ship.js';
 import { createSetVerifiedFacts } from '../../src/domain/registry/set-verified-facts.js';
+import { createSetExpectations } from '../../src/domain/registry/set-expectations.js';
+import { createRaiseAlert } from '../../src/domain/registry/raise-alert.js';
+import { createClearAlert } from '../../src/domain/registry/clear-alert.js';
 import { createRetireShip } from '../../src/domain/registry/retire-ship.js';
 import { createReport } from '../../src/domain/registry/report.js';
 import { createReportTurn } from '../../src/domain/registry/report-turn.js';
@@ -128,6 +135,7 @@ import { createListLabels } from '../../src/domain/registry/list-labels.js';
 import { createRemoveCrewRequest } from '../../src/domain/registry/remove-crew-request.js';
 import { createAssignCrew } from '../../src/domain/registry/assign-crew.js';
 import { createReportCrewStatus } from '../../src/domain/registry/report-crew-status.js';
+import { createReportActivity } from '../../src/domain/registry/report-activity.js';
 import { createConfirmWorktreeCleared } from '../../src/domain/registry/confirm-worktree-cleared.js';
 import { createReadClearRequests } from '../../src/domain/registry/read-clear-requests.js';
 import { createRequestWorktreeClear } from '../../src/domain/registry/request-worktree-clear.js';
@@ -137,13 +145,14 @@ import { createExplainCrewRequest } from '../../src/domain/registry/explain-crew
 import { createReadReportLog } from '../../src/domain/registry/report-log.js';
 import { createWhoami } from '../../src/domain/registry/whoami.js';
 import type { NetworkRule } from '../../src/domain/registry/network-settings.js';
-import { isCrew, type Caller, type ShipCaller, type Crew } from '../../src/domain/shared/caller.js';
+import { isCrew, type AccountCaller, type Caller, type ShipCaller, type Crew } from '../../src/domain/shared/caller.js';
 import { createReadFleetEvents } from '../../src/domain/shared/read-fleet-events.js';
 import { createFollowFleet } from '../../src/domain/shared/follow-fleet.js';
 import { createReadInbox } from '../../src/domain/shared/read-inbox.js';
 import { createReadInboxMessage } from '../../src/domain/shared/read-inbox-message.js';
 import { createReadInboxWithdrawals } from '../../src/domain/shared/read-inbox-withdrawals.js';
 import { createCountOpenInbox } from '../../src/domain/shared/count-open-inbox.js';
+import { createReadReportTasks } from '../../src/domain/shared/read-report-tasks.js';
 import { createReadMessage } from '../../src/domain/shared/read-message.js';
 import { createReadMessageDeliveries } from '../../src/domain/shared/read-message-deliveries.js';
 import { createReadSentMessage } from '../../src/domain/shared/read-sent-message.js';
@@ -161,6 +170,13 @@ import type { Recipient } from '../../src/domain/shared/selector.js';
 import type { InMemoryCore } from './in-memory.js';
 import { unwrap } from '../../src/testing/result.js';
 import { NO_INSTALLATION_SETTINGS, type InstallationSettings } from '../../src/domain/registry/limits.js';
+import { isSealedPayload, type StoredPayload } from '../../src/domain/messaging/sealed-payload.js';
+import { createChangeCompanyKey } from '../../src/domain/messaging/change-company-key.js';
+import { createTurnOnSealing } from '../../src/domain/messaging/turn-on-sealing.js';
+import { createChangeRecoveryKey } from '../../src/domain/messaging/change-recovery-key.js';
+import { createReadSealing } from '../../src/domain/messaging/read-sealing.js';
+import { createReadRecoverySet } from '../../src/domain/messaging/read-recovery-set.js';
+import { createRecoverKeys } from '../../src/domain/messaging/recover-keys.js';
 
 /** The identity use cases, wired to the in-memory core. */
 export function identityUseCases(core: InMemoryCore) {
@@ -249,14 +265,17 @@ export function registryUseCases(core: InMemoryCore) {
     secrets: { hasher: core.hasher, random: core.random },
   };
   return {
+    readFeatureFlags: createReadFeatureFlags({ featureFlags: core.featureFlagReads.flags, source: core.featureFlagReads.source }),
+    setFeatureFlag: createSetFeatureFlag({ uow: core.uow, clock: core.clock, ids: core.ids }),
     commissionShip: createCommissionShip(deps),
     getStartingPrompt: createGetStartingPrompt(deps),
     releaseShip: createReleaseShip(deps),
-    retireShip: createRetireShip({ ...deps, hasher: core.hasher }),
+    retireShip: createRetireShip({ ...deps, hasher: core.hasher, sealing: core.sealing }),
     requestCrew: createRequestCrew(deps),
     removeCrewRequest: createRemoveCrewRequest(deps),
     assignCrew: createAssignCrew(deps),
     reportCrewStatus: createReportCrewStatus(deps),
+    reportActivity: createReportActivity(deps),
     confirmCrewRelease: createConfirmCrewRelease(deps),
     giveBackCrewRequest: createGiveBackCrewRequest(deps),
     readAssignedCrewRequests: createReadAssignedCrewRequests({ crewRequests: core.crewRequests, ships: core.ships }),
@@ -295,6 +314,9 @@ export function registryUseCases(core: InMemoryCore) {
     setOwner: createSetOwner(deps),
     checkManage: createCheckManage(deps),
     setVerifiedFacts: createSetVerifiedFacts(deps),
+    setExpectations: createSetExpectations(deps),
+    raiseAlert: createRaiseAlert(deps),
+    clearAlert: createClearAlert(deps),
     recrewShip: createRecrewShip(deps),
     claimShip: createClaimShip(deps),
     deregister: createDeregister(deps),
@@ -310,6 +332,7 @@ export function registryUseCases(core: InMemoryCore) {
     getInstallationFleet: createGetInstallationFleet({ fleets: core.installationFleets, settings: core.installationSettings, health: core.health, snapshots: core.healthSnapshots, clock: core.clock }),
     listFleet: createListFleet({ listing: core.listing, readReach: readReachOf(core) }),
     getShip: createGetShip({ listing: core.listing, readReach: readReachOf(core) }),
+    readOpenAlerts: createReadOpenAlerts({ listing: core.listing, readReach: readReachOf(core) }),
     readListedShip: createReadListedShip({ listing: core.listing, readReach: readReachOf(core) }),
     countShips: createCountShips({ listing: core.listing, readReach: readReachOf(core) }),
     listShipTypes: createListShipTypes({ listing: core.listing, readReach: readReachOf(core) }),
@@ -342,21 +365,22 @@ export function historyUseCases(core: InMemoryCore) {
   const readReach = readReachOf(core);
   return {
     readShipTimeline: createReadShipTimeline({ history: core.history, readReach }),
-    readShipMessages: createReadShipMessages({ history: core.history, readReach }),
-    readMessage: createReadMessage({ history: core.history, readReach }),
+    readShipMessages: createReadShipMessages({ history: core.history, readReach , sealing: core.sealing }),
+    readReportTasks: createReadReportTasks({ history: core.history, readReach }),
+    readMessage: createReadMessage({ history: core.history, readReach , sealing: core.sealing }),
     readMessageDeliveries: createReadMessageDeliveries({ history: core.history, readReach }),
     sentMessage: createReadSentMessage({ history: core.history }),
     readShipWay: createReadShipWay({ history: core.history, uow: core.uow, clock: core.clock, ids: core.ids }),
-    readNeedsAttention: createReadNeedsAttention({ history: core.history, readReach }),
-    readHealth: createReadHealth({ health: core.health, snapshots: core.healthSnapshots, clock: core.clock, readReach }),
+    readNeedsAttention: createReadNeedsAttention({ history: core.history, readReach , sealing: core.sealing }),
+    readHealth: createReadHealth({ health: core.health, snapshots: core.healthSnapshots, clock: core.clock, readReach, sealings: core.sealings }),
     readStuckCount: createReadStuckCount({ health: core.health, snapshots: core.healthSnapshots, clock: core.clock, readReach }),
     readStuck: createReadStuck({ health: core.health, snapshots: core.healthSnapshots, clock: core.clock, readReach }),
     readStuckSummary: createReadStuckSummary({ health: core.health, snapshots: core.healthSnapshots, clock: core.clock, readReach }),
     readStuckHistory: createReadStuckHistory({ health: core.health, snapshots: core.healthSnapshots, clock: core.clock, readReach }),
     readAcknowledged: createReadAcknowledged({ health: core.health, snapshots: core.healthSnapshots, clock: core.clock, readReach }),
-    readInbox: createReadInbox({ history: core.history, ships: core.ships, readReach }),
-    readInboxMessage: createReadInboxMessage({ history: core.history, ships: core.ships, readReach }),
-    readInboxWithdrawals: createReadInboxWithdrawals({ history: core.history, ships: core.ships, readReach }),
+    readInbox: createReadInbox({ history: core.history, ships: core.ships, readReach , sealing: core.sealing }),
+    readInboxMessage: createReadInboxMessage({ history: core.history, ships: core.ships, readReach , sealing: core.sealing }),
+    readInboxWithdrawals: createReadInboxWithdrawals({ history: core.history, ships: core.ships, readReach , sealing: core.sealing }),
     countOpenInbox: createCountOpenInbox({ history: core.history, ships: core.ships, readReach }),
   };
 }
@@ -364,36 +388,43 @@ export function historyUseCases(core: InMemoryCore) {
 /** The messaging use cases, wired to the in-memory core; a receive waits on its scripted wake-ups. */
 export function messagingUseCases(core: InMemoryCore) {
   const deps = { uow: core.uow, clock: core.clock, ids: core.ids };
+  const { sealing } = core;
   return {
-    sendMessage: createSendMessage({ ...deps, hasher: core.hasher }),
-    openMeeting: createOpenMeeting({ ...deps, hasher: core.hasher }),
-    readMeeting: createReadMeeting({ uow: core.uow }),
-    changeMic: createChangeMic({ ...deps, hasher: core.hasher }),
-    changeMeeting: createChangeMeeting({ ...deps, hasher: core.hasher }),
-    addToMeeting: createAddToMeeting({ ...deps, hasher: core.hasher }),
-    receiveDeliveries: createReceiveDeliveries({ ...deps, wakeups: core.wakeups }),
-    receiveReply: createReceiveReply({ ...deps, wakeups: core.wakeups }),
-    pushReceiveDeliveries: createPushReceiveDeliveries({ ...deps, wakeups: core.wakeups }),
+    sendMessage: createSendMessage({ ...deps, hasher: core.hasher, sealing }),
+    turnOnSealing: createTurnOnSealing({ ...deps, vault: core.keyVault.vault, sealer: sealing.sealer, recoveryKeys: core.recoveryKeys, sealings: core.sealings, featureFlags: core.featureFlagReads }),
+    changeCompanyKey: createChangeCompanyKey({ ...deps, vault: core.keyVault.vault, sealer: sealing.sealer, sealings: core.sealings, featureFlags: core.featureFlagReads }),
+    changeRecoveryKey: createChangeRecoveryKey({ ...deps, recoveryKeys: core.recoveryKeys, sealing, sealings: core.sealings, featureFlags: core.featureFlagReads }),
+    readSealing: createReadSealing({ sealings: core.sealings }),
+    readRecoverySet: createReadRecoverySet({ sealings: core.sealings, featureFlags: core.featureFlagReads }),
+    recoverKeys: createRecoverKeys({ ...deps, vault: core.keyVault.vault, sealer: sealing.sealer, sealings: core.sealings, featureFlags: core.featureFlagReads }),
+    openMeeting: createOpenMeeting({ ...deps, hasher: core.hasher, sealing: core.sealing }),
+    readMeeting: createReadMeeting({ uow: core.uow, sealing }),
+    changeMic: createChangeMic({ ...deps, hasher: core.hasher, sealing: core.sealing }),
+    changeMeeting: createChangeMeeting({ ...deps, hasher: core.hasher, sealing: core.sealing }),
+    addToMeeting: createAddToMeeting({ ...deps, hasher: core.hasher, sealing: core.sealing }),
+    receiveDeliveries: createReceiveDeliveries({ ...deps, sealing, wakeups: core.wakeups }),
+    receiveReply: createReceiveReply({ ...deps, sealing, wakeups: core.wakeups }),
+    pushReceiveDeliveries: createPushReceiveDeliveries({ ...deps, sealing, wakeups: core.wakeups }),
     handOverDelivery: createHandOverDelivery(deps),
     reportHandled: createReportHandled(deps),
-    readDelivery: createReadDelivery(deps),
+    readDelivery: createReadDelivery({ uow: core.uow, sealing }),
     reportNotHandled: createReportNotHandled(deps),
     acknowledgeDelivery: createAcknowledgeDelivery(deps),
     checkInbox: createCheckInbox({ ...deps, wakeups: core.wakeups, fleetNews: core.fleetNews }),
     dismissDelivery: createDismissDelivery({ ...deps, readReach: readReachOf(core) }),
     markDone: createMarkDone(deps),
     markRead: createMarkRead(deps),
-    replyToMessage: createReplyToMessage({ ...deps, hasher: core.hasher }),
-    resendDelivery: createResendDelivery({ ...deps, hasher: core.hasher, readReach: readReachOf(core) }),
-    pingShip: createPingShip({ ...deps, hasher: core.hasher }),
+    replyToMessage: createReplyToMessage({ ...deps, hasher: core.hasher, sealing }),
+    resendDelivery: createResendDelivery({ ...deps, hasher: core.hasher, readReach: readReachOf(core), sealing }),
+    pingShip: createPingShip({ ...deps, hasher: core.hasher, sealing }),
     answerPing: createAnswerPing(deps),
     tellOverdueDeliveries: createTellOverdueDeliveries({ ...deps, fleets: core.fleets, pushedCrews: core.pushedCrews }),
-    scheduleMessage: createScheduleMessage({ ...deps, hasher: core.hasher }),
+    scheduleMessage: createScheduleMessage({ ...deps, hasher: core.hasher, sealing }),
     listSchedules: createListSchedules(deps),
     cancelSchedule: createCancelSchedule(deps),
     pauseSchedule: createPauseSchedule(deps),
     resumeSchedule: createResumeSchedule(deps),
-    sendDueSchedules: createSendDueSchedules({ ...deps, hasher: core.hasher, fleets: core.fleets, scheduleAttempts: core.scheduleAttempts }),
+    sendDueSchedules: createSendDueSchedules({ ...deps, hasher: core.hasher, fleets: core.fleets, scheduleAttempts: core.scheduleAttempts, sealing }),
   };
 }
 
@@ -510,7 +541,7 @@ export async function hostedFleetWithViewer(core: InMemoryCore): Promise<{ fleet
 /** Adds the fleet's viewer ship straight to the in-memory state, as an installation's create with a viewer would. */
 export function addViewerShip(core: InMemoryCore, ship: { fleetId: FleetId }): { shipId: ShipId } {
   const shipId = core.ids('ship');
-  core.state.ships.push({ id: shipId, fleetId: ship.fleetId, name: 'viewer', type: 'viewer', kind: 'viewer', scopes: ['fleet:read'], note: null, createdAt: core.clock.now(), retiredAt: null, commission: null, owner: null });
+  core.state.ships.push({ id: shipId, fleetId: ship.fleetId, name: 'viewer', type: 'viewer', kind: 'viewer', scopes: ['fleet:read'], note: null, createdAt: core.clock.now(), retiredAt: null, removedAt: null, commission: null, owner: null });
   return { shipId };
 }
 
@@ -532,6 +563,7 @@ export function addAgentShip(
     note: null,
     createdAt: at,
     retiredAt,
+    removedAt: null,
     commission: null,
     // argo's, as the owners migration made every ship from before owners (decision 0045).
     owner: core.state.ships.find((held) => held.fleetId === fleetId && held.kind === 'operator')?.id ?? null,
@@ -627,6 +659,7 @@ export function deliveryInFlight(
     model: null,
     idempotencyKey: `in-flight-${messageId}`,
     requestHash: `sha256(in-flight-${messageId})`,
+    questionId: null,
     inReplyToMessageId: null,
     resendOfMessageId: null,
     meetingId: null,
@@ -653,6 +686,35 @@ export function deliveryInFlight(
 
 /** The model a test session states on its sends: every ship but argo states one. */
 export const SESSION_MODEL = 'claude-opus-5-5';
+
+/**
+ * Seals the fleet as its fleet manager, holding `fleet:keys`, turns sealing on (decision 0068),
+ * under a company key of the in-memory key vault granted for this fleet
+ * alone. Answers the company key.
+ */
+export function sealFleet(core: InMemoryCore, fleetId: FleetId): Promise<string> {
+  return sealFleetWith(core, { fleetId });
+}
+
+/** Seals the fleet as {@link sealFleet} does, with a recovery key when one is given (decision 0068, B6). */
+export async function sealFleetWith(core: InMemoryCore, { fleetId, ...options }: { fleetId: FleetId; recoveryKey?: string }): Promise<string> {
+  const companyKey = await core.keyVault.aCompanyKey();
+  await core.keyVault.bindToFleet(companyKey, fleetId);
+  // Only a fleet the installation offers sealing to turns it on (decision 0069).
+  core.state.featureFlags.push({ fleetId, flag: 'sealing' });
+  const turnOn = createTurnOnSealing({ uow: core.uow, clock: core.clock, ids: core.ids, vault: core.keyVault.vault, sealer: core.sealing.sealer, recoveryKeys: core.recoveryKeys, sealings: core.sealings, featureFlags: core.featureFlagReads });
+  const fleetManager: AccountCaller = { kind: 'account', accountId: accountIdSchema.parse('acc_fleetmanager'), fleetId, scopes: ['fleet:keys'], groupValues: [], personShipId: null, throughShipId: null };
+  unwrap(await turnOn(fleetManager, { companyKey, ...options }));
+  return companyKey;
+}
+
+/** A stored message's payload in a fleet that is not sealed: plain text, or the test fails. */
+export function plainPayloadOf(message: { payload: StoredPayload } | undefined): string {
+  if (message === undefined || isSealedPayload(message.payload)) {
+    throw new Error('Expected a message stored plain');
+  }
+  return message.payload;
+}
 
 /** The model field a send from the caller carries: none from argo, the session's model from any other ship. */
 export function modelOf(caller: { kind: string }): { model?: string } {

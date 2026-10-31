@@ -9,11 +9,12 @@ import {
   type LeaseId,
   type MessageId,
   type ReachRefusalId,
+  type ShipId,
 } from '@aeolus-fleet/common';
 
 /**
  * What a fleet's pruning pass may let go (docs/design/retention/retention.md,
- * R2 to R4, R7, R12 and R13): the rules, as plain functions, and the port the pass reads
+ * R2 to R4, R7, R12 and R13; decision 0070 for retired ships): the rules, as plain functions, and the port the pass reads
  * and prunes through. The port's query only offers messages its own filter
  * finds finished; these rules decide again on the rows it locked, so a row
  * that changed or was skipped as locked stays.
@@ -129,6 +130,8 @@ export interface PrunedCounts {
   guideProgress: number;
   signInTickets: number;
   reachRefusals: number;
+  /** Retired ships removed: each a remnant now (decision 0070). */
+  ships: number;
 }
 
 /** Where the next batch picks up: after the last candidate the last batch read, oldest first. */
@@ -156,6 +159,9 @@ export interface PruneSet extends AgedRows {
   messageIds: readonly MessageId[];
   /** The mic and participant events of meetings ended before the cutoff (R12). */
   meetingEventIds: readonly EventId[];
+  /** Ships retired before the cutoff, removed at `removedAt` (decision 0070). */
+  shipIds: readonly ShipId[];
+  removedAt: Date;
 }
 
 /** Outbound port: the pruning pass's reads and its one step that makes a set go, in the batch's unit of work. */
@@ -176,7 +182,16 @@ export interface HistoryPruner {
    * outside the set, with `messageIds` going, names it.
    */
   agedRows(fleetId: FleetId, input: { cutoff: Date; messageIds: readonly MessageId[]; limit: number }): Promise<AgedRows>;
-  /** Makes the set go, children first, taking each message's payload bytes off its day (R6, R16). */
+  /** Up to `limit` ships retired before the cutoff and not removed, oldest retire first, each row locked: one another transaction holds waits for the next pass (decision 0070, D5). */
+  retiredShips(fleetId: FleetId, input: { cutoff: Date; limit: number }): Promise<ShipId[]>;
+  /**
+   * Makes the set go, children first, taking each message's payload bytes
+   * off its day (R6, R16), and makes each of its ships a remnant: its id,
+   * name, type, kind and dates kept, `removedAt` set, its scopes emptied,
+   * its note, owner and commission cleared, and its schedules gone, a kept
+   * message one of them sent naming no schedule; every other row naming it
+   * stays (decision 0070, D2 and D3).
+   */
   go(fleetId: FleetId, set: PruneSet): Promise<PrunedCounts>;
   /** Records where the fleet's finished history begins (R9). */
   keepFrom(fleetId: FleetId, at: Date): Promise<void>;

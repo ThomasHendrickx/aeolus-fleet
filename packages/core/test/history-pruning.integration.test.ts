@@ -11,6 +11,7 @@ import { unwrap } from '../src/testing/result.js';
 import { agentCaller, modelOf, operatorCaller, secretOf } from './support/core-fixtures.js';
 import { withOperatorLogin } from './support/operator-login.js';
 import { OPERATOR } from '../src/testing/fleet.js';
+import { createInMemoryKeyVault } from './support/in-memory-key-vault.js';
 import { createPostgresCore, heldUnitOfWork, type PostgresCore } from './support/postgres-core.js';
 
 // Pruning finished history on a real Postgres (decision 0066; the retention
@@ -239,6 +240,28 @@ describe('a pruning pass on Postgres', () => {
 });
 
 /** A pruning pass with its own unit of work. */
+describe('a pruning pass on Postgres, in a sealed fleet (decision 0068)', () => {
+  it("takes a sealed message's plain payload bytes off storage, as the send counted them", async () => {
+    await core.close();
+    const world = createInMemoryKeyVault();
+    core = await createPostgresCore({ keyVault: world.vault });
+    argo = operatorCaller(unwrap(await withOperatorLogin(core.prisma, core.useCases.initialiseFleet({ name: 'home fleet' }))));
+    scout = await crewed({ name: 'scout', type: 'reviewer' });
+    planner = await crewed({ name: 'planner', type: 'planner' });
+    await core.prisma.$executeRaw`UPDATE fleets SET retention_set = true, retention_days = ${RETENTION_DAYS} WHERE id = ${argo.fleetId}`;
+    const companyKey = await world.aCompanyKey();
+    await world.bindToFleet(companyKey, argo.fleetId);
+    unwrap(await core.useCases.turnOnSealing(argo, { companyKey }));
+    const before = await storage();
+    const messageId = await aFinishedMessage('é'.repeat(500));
+    const sent = await storage();
+
+    await passAfter((RETENTION_DAYS + 1) * DAY_MS);
+
+    expect([sent - before, await storage(), await isKept(messageId)]).toEqual([1_000n, before, false]);
+  });
+});
+
 function passWith(uow: UnitOfWork<PrismaTx>) {
   return createPruneHistory({ fleets: createPrismaFleetRepository(core.prisma), uow, clock: core.clock, ids: newId });
 }

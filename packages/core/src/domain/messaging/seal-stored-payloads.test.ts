@@ -1,0 +1,221 @@
+import type { FleetId } from '@aeolus-fleet/common';
+import { beforeEach, describe, expect, it } from 'vitest';
+
+import { crewAboard, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, sealFleet, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
+import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
+import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
+import { newKey } from '../../testing/keys.js';
+import { unwrap } from '../../testing/result.js';
+import type { Crew, ShipCaller } from '../shared/caller.js';
+import { createReadSealing } from './read-sealing.js';
+import { createSealStoredPayloads } from './seal-stored-payloads.js';
+import { isSealedPayload } from './sealed-payload.js';
+
+/**
+ * The sealing pass (decision 0068, B5): scout sent chief messages and
+ * scheduled check-ins while the fleet was not sealed; then the fleet manager
+ * turned sealing on. The 30 second pass seals what the fleet stored plain.
+ */
+let core: InMemoryCore;
+let messaging: ReturnType<typeof messagingUseCases>;
+let fleetId: FleetId;
+let scout: ShipCaller;
+let argo: ShipCaller;
+let chief: Crew;
+
+/** A payload with bytes past ASCII, so it comes back exactly or not at all. */
+const PAYLOAD = 'Review the café figures before 5 €';
+
+beforeEach(async () => {
+  core = createInMemoryCore('2026-10-29T09:00:00.000Z');
+  const fleet = await initialiseFleet(core);
+  fleetId = fleet.fleetId;
+  argo = operatorCaller(fleet);
+  const registry = registryUseCases(core);
+  messaging = messagingUseCases(core);
+  scout = await shipWithScopes({ registry, argo }, { name: 'scout', type: 'reviewer', scopes: [] });
+  chief = crewAboard(core, await shipWithScopes({ registry, argo }, { name: 'chief', type: 'chief-of-staff', scopes: [] }));
+});
+
+/**
+ * What scout sent and scheduled before sealing. The first message is sent
+ * through the use case; the others are its copies straight into the state,
+ * each with its own id, payload and request hash, as a thousand sends would
+ * store them, without a thousand units of work.
+ */
+async function plainHistory(counts: { messages: number; schedules: number }): Promise<void> {
+  if (counts.messages > 0) {
+    unwrap(await messaging.sendMessage(scout, { selector: { kind: 'ship', name: 'chief' }, payload: `${PAYLOAD} #0`, contentType: 'text/plain', model: SESSION_MODEL, idempotencyKey: newKey() }));
+  }
+  const [first] = core.state.messages;
+  for (let index = 1; first !== undefined && index < counts.messages; index += 1) {
+    const payload = `${PAYLOAD} #${index}`;
+    core.state.messages.push({ ...structuredClone(first), id: core.ids('message'), payload, idempotencyKey: newKey(), requestHash: core.hasher.hash(payload) });
+  }
+  for (let index = 0; index < counts.schedules; index += 1) {
+    unwrap(
+      await messaging.scheduleMessage(scout, {
+        selector: { kind: 'ship', name: 'chief' },
+        payload: `${PAYLOAD} at ${index}`,
+        model: SESSION_MODEL,
+        idempotencyKey: newKey(),
+        timing: { kind: 'once', at: new Date(`2026-11-0${1 + (index % 9)}T10:00:00.000Z`) },
+      }),
+    );
+  }
+}
+
+function aPass(options: { batch?: number; budgetMs?: number } = {}) {
+  return createSealStoredPayloads({ sealings: core.sealings, uow: core.uow, clock: core.clock, ids: core.ids, hasher: core.hasher, sealing: core.sealing, ...options });
+}
+
+function plainPayloads() {
+  return [
+    ...core.state.messages.filter((message) => message.fleetId === fleetId && !isSealedPayload(message.payload)),
+    ...core.state.schedules.filter((schedule) => schedule.fleetId === fleetId && !isSealedPayload(schedule.send.payload)),
+  ];
+}
+
+function sealedEvents() {
+  return core.state.events.filter((event) => event.fleetId === fleetId && event.type === 'FleetPayloadsSealed');
+}
+
+function stateOf() {
+  return core.state.fleetSealings.find((sealing) => sealing.fleetId === fleetId)?.state;
+}
+
+describe('the sealing pass (decision 0068, B5)', () => {
+  it('scenario 5: given a fleet with a thousand plain messages and ten schedules, when it turns sealing on, then the sealing pass seals every one in batches, FleetPayloadsSealed is written once, and the database holds no plain payload of the fleet', async () => {
+    await plainHistory({ messages: 1000, schedules: 10 });
+    await sealFleet(core, fleetId);
+    const sealing = stateOf();
+
+    await aPass({ batch: 100 })();
+    await aPass({ batch: 100 })();
+
+    expect(sealing).toBe('sealing');
+    expect(plainPayloads()).toEqual([]);
+    expect(JSON.stringify(core.state.messages)).not.toContain('café');
+    expect(JSON.stringify(core.state.schedules)).not.toContain('café');
+    expect(stateOf()).toBe('sealed');
+    expect(sealedEvents().map(({ actor }) => actor)).toEqual([{ kind: 'system' }]);
+    const { deliveries } = unwrap(await messaging.receiveDeliveries(chief, { max: 1 }));
+    expect(deliveries.map(({ payload }) => payload)).toEqual([`${PAYLOAD} #0`]);
+  });
+
+  it('keeps each plain byte count as it was', async () => {
+    await plainHistory({ messages: 1, schedules: 1 });
+    await sealFleet(core, fleetId);
+
+    await aPass()();
+
+    expect(core.state.messages.map((message) => message.payload)).toEqual([expect.objectContaining({ plainBytes: 40 })]);
+    expect(core.state.schedules.map((schedule) => schedule.send.payload)).toEqual([expect.objectContaining({ plainBytes: 42 })]);
+  });
+
+  it('seals one batch a pass once its time budget is spent, and the fleet reads sealing until none is left', async () => {
+    await plainHistory({ messages: 5, schedules: 0 });
+    await sealFleet(core, fleetId);
+
+    await aPass({ batch: 2, budgetMs: 0 })();
+    const afterOne = { plain: plainPayloads().length, state: stateOf(), events: sealedEvents().length };
+    await aPass({ batch: 2, budgetMs: 0 })();
+    await aPass({ batch: 2, budgetMs: 0 })();
+
+    expect(afterOne).toEqual({ plain: 3, state: 'sealing', events: 0 });
+    expect({ plain: plainPayloads().length, state: stateOf(), events: sealedEvents().length }).toEqual({ plain: 0, state: 'sealed', events: 1 });
+  });
+
+  it('waits while the company key is cut off, sealing nothing, and seals on the first pass after it is restored', async () => {
+    await plainHistory({ messages: 3, schedules: 1 });
+    const companyKey = await sealFleet(core, fleetId);
+    await core.keyVault.disable(companyKey);
+
+    await aPass()();
+    const whileCutOff = { plain: plainPayloads().length, state: stateOf(), events: sealedEvents().length };
+    await core.keyVault.enable(companyKey);
+    await aPass()();
+
+    expect(whileCutOff).toEqual({ plain: 4, state: 'sealing', events: 0 });
+    expect({ plain: plainPayloads().length, state: stateOf(), events: sealedEvents().length }).toEqual({ plain: 0, state: 'sealed', events: 1 });
+  });
+
+  it('skips a fleet whose sealing another server holds, and a message another transaction holds, until a later pass', async () => {
+    await plainHistory({ messages: 3, schedules: 0 });
+    await sealFleet(core, fleetId);
+    const [held] = core.state.messages;
+    core.state.sealingLocks.push(fleetId);
+
+    await aPass()();
+    const whileFleetHeld = plainPayloads().length;
+    core.state.sealingLocks.length = 0;
+    core.state.lockedMessages.push(held?.id ?? core.ids('message'));
+    await aPass()();
+    const whileMessageHeld = { plain: plainPayloads().map(({ id }) => id), state: stateOf(), events: sealedEvents().length };
+    core.state.lockedMessages.length = 0;
+    await aPass()();
+
+    expect(whileFleetHeld).toBe(3);
+    expect(whileMessageHeld).toEqual({ plain: [held?.id], state: 'sealing', events: 0 });
+    expect({ plain: plainPayloads().length, state: stateOf(), events: sealedEvents().length }).toEqual({ plain: 0, state: 'sealed', events: 1 });
+  });
+
+  it('leaves a fleet that is not sealed as it is, its payloads plain', async () => {
+    await plainHistory({ messages: 2, schedules: 1 });
+
+    await aPass()();
+
+    expect(plainPayloads()).toHaveLength(3);
+    expect(sealedEvents()).toEqual([]);
+  });
+});
+
+describe("the sealing page's progress (decision 0068, B5; sealing page mockup, ES2)", () => {
+  const readSealing = () => createReadSealing({ sealings: core.sealings })(argo);
+
+  it('given a fleet with plain payloads, when it turns sealing on, then fleet.sealing reads sealing since then with none of them sealed yet', async () => {
+    await plainHistory({ messages: 4, schedules: 1 });
+
+    await sealFleet(core, fleetId);
+
+    expect(await readSealing()).toMatchObject({ state: 'sealing', since: new Date('2026-10-29T09:00:00.000Z'), progress: { sealed: 0, total: 5 } });
+  });
+
+  it('given a sealing fleet, when the sealing pass seals a batch, then fleet.sealing reads how many of them are sealed', async () => {
+    await plainHistory({ messages: 5, schedules: 0 });
+    await sealFleet(core, fleetId);
+
+    await aPass({ batch: 2, budgetMs: 0 })();
+
+    expect(await readSealing()).toMatchObject({ state: 'sealing', progress: { sealed: 2, total: 5 } });
+  });
+
+  it('given a payload a send stored plain after turning on, when the pass seals it, then the total counts it too and never reads below what is sealed', async () => {
+    await plainHistory({ messages: 2, schedules: 0 });
+    await sealFleet(core, fleetId);
+    const [first] = core.state.messages;
+    if (first !== undefined) {
+      core.state.messages.push({ ...structuredClone(first), id: core.ids('message'), payload: 'stored plain by a send that read the fleet before the switch', idempotencyKey: newKey() });
+    }
+
+    await aPass({ batch: 3, budgetMs: 0 })();
+
+    expect(await readSealing()).toMatchObject({ state: 'sealing', progress: { sealed: 3, total: 3 } });
+  });
+
+  it('given a sealing fleet, when the pass leaves no payload plain, then fleet.sealing reads sealed since then, with no progress', async () => {
+    await plainHistory({ messages: 2, schedules: 0 });
+    await sealFleet(core, fleetId);
+    core.clock.advance(6 * 60 * 1000);
+
+    await aPass()();
+
+    expect(await readSealing()).toMatchObject({ state: 'sealed', since: new Date('2026-10-29T09:06:00.000Z'), progress: null });
+  });
+
+  it('given a fleet with no payload stored, when it turns sealing on, then fleet.sealing reads sealed since then, with no progress', async () => {
+    await sealFleet(core, fleetId);
+
+    expect(await readSealing()).toMatchObject({ state: 'sealed', since: new Date('2026-10-29T09:00:00.000Z'), progress: null });
+  });
+});

@@ -4,6 +4,7 @@ import { AppWindow, Bot, Cloud, Laptop, MapPin, MessageCircle, Server, SquareTer
 import { classNames } from '@aeolus-fleet/common/header';
 import { harnessKind, harnessWord, type HarnessKind } from '../../lib/harness';
 import { locationKindWord } from '../../lib/location';
+import { HarnessUnknown } from './harness-unknown';
 
 const KIND_ICONS: Record<LocationKind, LucideIcon> = {
   DEVICE: Laptop,
@@ -31,6 +32,8 @@ interface LocationTagProps {
   description?: string | null;
   /** The harness the session runs in (FleetTable, Runs on): shown first, the description moves to the title. */
   harness?: string | null;
+  /** An agent ship crewed by a session that stated no harness (aeolus-fleet#1408): Harness unknown first, the description kept. */
+  isHarnessUnknown?: boolean;
   /** Tables under 1280 px: the description alone, the full text in title. */
   isCompact?: boolean;
   size?: keyof typeof SIZES;
@@ -46,7 +49,7 @@ interface LocationTagProps {
  * awaiting ship shows its prompt status instead, so "No session" is the rare
  * case of a crewed status without a location.
  */
-export function LocationTag({ kind, description = null, harness = null, isCompact = false, size = 'md', className }: LocationTagProps) {
+export function LocationTag({ kind, description = null, harness = null, isHarnessUnknown = false, isCompact = false, size = 'md', className }: LocationTagProps) {
   const frame = classNames(
     'inline-flex min-w-0 items-center gap-1.5 text-muted-foreground [&_svg]:size-(--size-icon-sm) [&_svg]:shrink-0',
     SIZES[size],
@@ -63,6 +66,25 @@ export function LocationTag({ kind, description = null, harness = null, isCompac
   const Icon = KIND_ICONS[kind];
   const word = locationKindWord(kind);
   const fullText = description === null ? word : `${word} · ${description}`;
+  if (isHarnessUnknown) {
+    return (
+      <span data-slot="location-tag" className={classNames(frame, 'flex-wrap')} title={fullText}>
+        <HarnessUnknown />
+        <span aria-hidden>·</span>
+        <Icon aria-hidden />
+        <span className="truncate">
+          {word}
+          {description === null ? null : (
+            <>
+              <span aria-hidden> · </span>
+              <span className="sr-only">, </span>
+              <span className="text-foreground">{description}</span>
+            </>
+          )}
+        </span>
+      </span>
+    );
+  }
   if (harness !== null) {
     const harnessIcon = harnessKind(harness);
     const HarnessIcon = harnessIcon === undefined ? undefined : HARNESS_ICONS[harnessIcon];

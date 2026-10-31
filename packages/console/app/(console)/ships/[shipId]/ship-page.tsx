@@ -14,6 +14,7 @@ import { NewCrewLineFlow } from '../../../../features/squadrons/state/get-new-cr
 import { ShipHeader } from '../../../../features/ship/ui/organisms/ship-header';
 import { ShipWayLines } from '../../../../features/ship/ui/molecules/ship-way-lines';
 import { shipWayView } from '../../../../features/ship/services/ship-way';
+import { gatewayReaderOf, gatewayShipOf } from '../../../../features/ship/services/gateway-reader';
 import { ShipPageLabels } from '../../../../features/ship/state/ship-page-labels';
 import { ShipTimeline } from '../../../../features/ship/ui/organisms/ship-timeline';
 import { MessageDeliveries } from '../../../../features/ship/ui/organisms/message-deliveries';
@@ -28,7 +29,10 @@ import { useAccess } from '../../../../lib/access';
 import { trpcErrorCode } from '../../../../lib/errors';
 import { useLiveFleet } from '../../../../lib/live-fleet';
 import { useNow } from '../../../../lib/now';
+import { useSessionFleetId } from '../../../../lib/session-fleet-id';
 import { usePluginShipIds } from '../../../../lib/plugin-ships';
+import { useGatewaySettings } from '../../../../lib/gateway';
+import { useFleetSealing } from '../../../../lib/sealing';
 import { useSignInWhenSessionEnds } from '../../../../lib/session';
 import { useMessage, useMessageDeliveries, useShip, useShipMessages, useShipTimeline, useShipWay } from '../../../../lib/ship';
 import { useSquadrons } from '../../../../lib/squadrons-api';
@@ -65,6 +69,7 @@ function pathOf(shipId: ShipId, view: { tab: ShipTab; messageId?: MessageId }): 
 export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: ShipTab; messageId?: MessageId }) {
   const router = useRouter();
   const now = useNow();
+  const viewerFleetId = useSessionFleetId();
   const pluginShipIds = usePluginShipIds();
 
   const ship = useShip(shipId);
@@ -73,8 +78,10 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
   const messages = useShipMessages(shipId);
   const message = useMessage(messageId);
   // Only a send to a label lists its deliveries; each other message has one, on its way.
-  const deliveries = useMessageDeliveries(message.data?.recipient.kind === 'label' ? message.data.id : undefined);
+  const deliveries = useMessageDeliveries((message.data?.recipient.kind === 'label' || message.data?.recipient.kind === 'meeting') ? message.data.id : undefined);
   const way = useShipWay(shipId);
+  const sealing = useFleetSealing();
+  const gateway = useGatewaySettings();
   const keptFrom = useFleetLimits().data?.retention.keptFrom ?? null;
   const machines = useMachines();
   const liveFleet = useLiveFleet();
@@ -95,6 +102,15 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
   const isNotFound = trpcErrorCode(ship.error) === 'NOT_FOUND' || ship.data === null;
   // argo's own side is this console; a ship no session crews has none.
   const wayView = way.data && ship.data?.kind === 'agent' ? shipWayView(way.data, { now, machines: machines.data ?? [] }) : undefined;
+  // In a sealed fleet, a ship the gateway reads says so (decision 0068, B19); nothing until the sealing is read.
+  const gatewayReader = ship.data
+    ? gatewayReaderOf({
+        isSealed: sealing.data !== undefined && sealing.data.state !== 'none',
+        ship: ship.data,
+        leaseBy: way.data?.lease?.by ?? null,
+        gateway: gatewayShipOf(gateway.data),
+      })
+    : undefined;
   // A ship in a squadron sits below it: Squadrons, then its squadron.
   const inSquadron = shipsInSquadrons(squadrons.data ?? []).get(shipId);
   // Listing a ship's schedules needs fleet:manage (decision 0062): a viewer has no Schedules tab.
@@ -124,11 +140,13 @@ export function ShipPageFor({ shipId, tab, messageId }: { shipId: ShipId; tab: S
           shipId={shipId}
           state={isNotFound ? 'not-found' : ship.data ? 'ready' : 'loading'}
           now={now}
+          viewerFleetId={viewerFleetId}
           actions={ship.data ? <ShipActions ship={ship.data} compose={ComposeMessage} crewLineFlow={NewCrewLineFlow} /> : undefined}
           crewRequest={ship.data ? <ShipCrewRequest ship={ship.data} timeline={timeline.items ?? []} now={now} /> : undefined}
           labels={ship.data ? <ShipPageLabels ship={ship.data} /> : undefined}
           isPluginShip={pluginShipIds.has(shipId)}
           way={wayView && way.data?.lease ? <ShipWayLines view={wayView} onOpenMessage={openMessageAt} /> : undefined}
+          gatewayReader={gatewayReader}
         />
         {isNotFound ? null : <ShipSquadron shipId={shipId} now={now} />}
         {isNotFound ? null : <NotHandled shipId={shipId} />}

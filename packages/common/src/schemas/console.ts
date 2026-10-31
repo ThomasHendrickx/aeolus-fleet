@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { scopeNameSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
 import { accountIdSchema } from './account-token.js';
+import { featureFlagSchema } from './feature-flags.js';
 import {
   EMAIL_REQUIRED,
   EMAIL_TOO_LONG,
@@ -73,6 +74,8 @@ export const consoleSessionOutputSchema = z.object({
   kind: consoleSessionKindSchema,
   accountId: accountIdSchema.optional(),
   scopes: z.array(scopeNameSchema),
+  /** The fleet's feature flags that are on (decision 0069): the console shows nothing of a feature whose flag is off. */
+  featureFlags: z.array(featureFlagSchema),
 });
 
 /** Input of `console.presentAccountToken`: the account token pagasae gave the console's server for this fleet (decision 0058). */

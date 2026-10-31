@@ -6,14 +6,24 @@ import { ok, type Result } from '../shared/result.js';
 import type { ShipRepository } from '../registry/public.js';
 import { participantsBut, type Meeting } from './meeting.js';
 import { acceptMessage, type AcceptRefusal } from './message.js';
-import type { DeliveryRepository, MessageRepository, RequestHasher } from './ports.js';
+import type { DeliveryRepository, FleetSealingRepository, MessageRepository, RequestHasher } from './ports.js';
+import { sealedMessage, type DataKeysNeeded, type HeldDataKeys } from './data-keys.js';
 import { sendRequestText } from './send-request.js';
 
 export interface MeetingNoticeTx {
   messages: Pick<MessageRepository, 'create'>;
   deliveries: Pick<DeliveryRepository, 'create'>;
+  sealings: Pick<FleetSealingRepository, 'currentDataKeyId'>;
   events: EventLog;
   notifier: Notifier;
+}
+
+/** What a notice is written with: in a sealed fleet its payload is sealed with the data keys held (decision 0068, B17). */
+export interface MeetingNoticeDeps {
+  tx: MeetingNoticeTx;
+  ids: IdGenerator;
+  hasher: RequestHasher;
+  held: HeldDataKeys;
 }
 
 /** A notice to one participant: from which ship, of which content type, with what payload. */
@@ -34,9 +44,10 @@ export interface MeetingNotice {
  * 0061, M11): a message from the ship that caused it to that ship, the
  * meeting on its envelope, with its pending delivery, MessageAccepted and the
  * notice that wakes it. No reach check: inside the meeting every participant
- * reaches every other.
+ * reaches every other. In a sealed fleet its payload is stored sealed, as
+ * every payload is (decision 0068, B17).
  */
-export async function tellParticipant(deps: { tx: MeetingNoticeTx; ids: IdGenerator; hasher: RequestHasher }, notice: MeetingNotice): Promise<Result<undefined, AcceptRefusal>> {
+export async function tellParticipant(deps: MeetingNoticeDeps, notice: MeetingNotice): Promise<Result<undefined, AcceptRefusal | DataKeysNeeded>> {
   const { tx, ids, hasher } = deps;
   const { meeting, shipId, payload, contentType, at } = notice;
   const recipient = { kind: 'ship' as const, shipId };
@@ -65,8 +76,15 @@ export async function tellParticipant(deps: { tx: MeetingNoticeTx; ids: IdGenera
   if (!accepted.isOk) {
     return accepted;
   }
-  const { message, delivery, events } = accepted.value;
-  await tx.messages.create(message);
+  const { delivery, events } = accepted.value;
+  const message = await sealedMessage(deps, {
+    message: accepted.value.message,
+    sealedRequestHash: hasher.hash(sendRequestText({ selector: recipient, payload: undefined, contentType, inReplyTo: undefined, isForced: false })),
+  });
+  if (!message.isOk) {
+    return message;
+  }
+  await tx.messages.create(message.value);
   await tx.deliveries.create(delivery);
   for (const event of events) {
     await recordEvent({ events: tx.events, ids }, event);
@@ -94,9 +112,9 @@ export async function addedNoticeOf(tx: { ships: Pick<ShipRepository, 'find'> },
  * may be another ship's, as a release under first in line or a retire.
  */
 export async function tellOfChange(
-  deps: { tx: MeetingNoticeTx; ids: IdGenerator; hasher: RequestHasher },
+  deps: MeetingNoticeDeps,
   change: { meeting: Meeting; micGivenTo: ShipId | null; endedBy: ShipId | null; at: Date },
-): Promise<Result<undefined, AcceptRefusal>> {
+): Promise<Result<undefined, AcceptRefusal | DataKeysNeeded>> {
   const { meeting, at } = change;
   const notices: MeetingNotice[] = [];
   if (change.micGivenTo !== null) {

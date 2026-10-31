@@ -44,6 +44,8 @@ export interface PushedCrew {
   pushedAt: Date;
   /** Whether its ship is a person's: a person away is not stuck, so its clocks never run (interop 5.1). */
   isPerson: boolean;
+  /** The ship's owner now (decision 0045): DeliveryOverdue names it, so the watch tells it as well as argo (decision 0040). Null for a ship no ship owns. */
+  ownerShipId: ShipId | null;
   /** The turn its hooks last reported, since when; null before the first report. */
   turn: { state: TurnState; at: Date } | null;
   waiting: WaitingDelivery[];
@@ -53,6 +55,7 @@ export interface PushedCrew {
 export interface Overdue {
   fleetId: FleetId;
   shipId: ShipId;
+  ownerShipId: ShipId | null;
   leaseId: LeaseId;
   delivery: WaitingDelivery;
   clock: OverdueClock;
@@ -74,7 +77,7 @@ export function overdueDelivery(crew: PushedCrew, now: Date): Overdue | undefine
   for (const delivery of oldestFirst) {
     const { clock, minutes, from } = clockOf(delivery, crew);
     if (now.getTime() - from.getTime() >= minutes * MINUTE_MS) {
-      return { fleetId: crew.fleetId, shipId: crew.shipId, leaseId: crew.leaseId, delivery, clock, minutes };
+      return { fleetId: crew.fleetId, shipId: crew.shipId, ownerShipId: crew.ownerShipId, leaseId: crew.leaseId, delivery, clock, minutes };
     }
   }
   return undefined;
@@ -103,7 +106,7 @@ function clockOf(delivery: Pick<WaitingDelivery, 'state' | 'since'>, crew: Clock
   }
 }
 
-/** DeliveryOverdue: the fleet told argo, as the system, that the delivery's clock ran out. */
+/** DeliveryOverdue: the fleet told argo, as the system, that the delivery's clock ran out, naming the ship's owner now. */
 export function overdueEvent(overdue: Overdue, at: Date): NewEvent {
   return {
     fleetId: overdue.fleetId,
@@ -113,6 +116,6 @@ export function overdueEvent(overdue: Overdue, at: Date): NewEvent {
     shipId: overdue.shipId,
     messageId: overdue.delivery.messageId,
     deliveryId: overdue.delivery.deliveryId,
-    details: { leaseId: overdue.leaseId, clock: overdue.clock, minutes: overdue.minutes },
+    details: { leaseId: overdue.leaseId, clock: overdue.clock, minutes: overdue.minutes, ownerShipId: overdue.ownerShipId },
   };
 }

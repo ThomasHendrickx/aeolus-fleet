@@ -8,6 +8,7 @@ import { idempotencyKeySchema } from './idempotency-key.js';
 import { listedCrewRequestSchema } from './crew-request.js';
 import { carriedLabelSchema, SHIP_LABELS_MAX } from './label.js';
 import { pageOutputOf } from './page.js';
+import { listedActivitySchema } from './activity.js';
 import { listedReportSchema } from './report.js';
 
 /**
@@ -60,7 +61,8 @@ export const getStartingPromptInputSchema = z.object({ shipId: idSchema('ship') 
 /**
  * One crew line: the starting prompt's identity in one line for a harness
  * with the Aeolus Fleet plugin, `/aeolus-fleet:crew <fleetUrl> <shipId> <secret>` for
- * Claude Code, `$aeolus-fleet-crew <fleetUrl> <shipId> <secret>` for Codex.
+ * Claude Code, `$aeolus-fleet-crew <fleetUrl> <shipId> <secret>` for Codex,
+ * and the same `/aeolus-fleet:crew <fleetUrl> <shipId> <secret>` for Copilot.
  */
 export const crewLineSchema = z.object({ harness: z.string(), line: z.string() });
 
@@ -207,6 +209,11 @@ export const listedShipSchema = z.object({
    * themselves. Null until the crew reports, and for a ship no session crews.
    */
   report: listedReportSchema.nullable(),
+  /**
+   * What its trierarch last observed of the crewing session (docs/design/monitoring, 4.3):
+   * null for a ship crewed by hand, before its trierarch writes any, and for a ship no session crews.
+   */
+  activity: listedActivitySchema.nullable(),
   /** The ship's crew request (decision 0029); null when it holds none. */
   crewRequest: listedCrewRequestSchema.nullable(),
   /** The label values the ship carries, with their labels, by key then value (decision 0031). */
@@ -217,6 +224,8 @@ export const listedShipSchema = z.object({
   retiredAt: z.iso.datetime().nullable(),
   /** The ship that owns it (decision 0045); null for argo and the viewer, which no ship owns. */
   ownerShipId: idSchema('ship').nullable(),
+  /** How many open alerts the ship has (decision 0071); `fleet.openAlerts` lists them. */
+  openAlertCount: z.int().min(0),
 });
 
 export type ListedShip = z.infer<typeof listedShipSchema>;

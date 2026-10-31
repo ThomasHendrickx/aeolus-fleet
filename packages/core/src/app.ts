@@ -12,6 +12,7 @@ import type { Clock } from './domain/shared/clock.js';
 import { repeatPass } from './repeating-pass.js';
 import { startScheduleTimer } from './schedule-timer.js';
 import { createUseCases, systemClock } from './wiring.js';
+import type { KeyVault } from './domain/messaging/key-vault.js';
 
 export interface AppOptions {
   databaseUrl: string;
@@ -37,6 +38,8 @@ export interface AppOptions {
   overduePassMs?: number;
   /** pagasae's URL, the issuer whose account tokens core trusts (decision 0058); unset, it trusts none. */
   accountTokenIssuer?: string;
+  /** The installation's KMS for sealed fleets (decision 0068); unset, no fleet can be sealed. */
+  keyVault?: KeyVault;
 }
 
 /** How often core runs the 10 and 60 minute clocks: argo hears of an overdue delivery within this of its clock running out. */
@@ -86,6 +89,8 @@ export function createApp(options: AppOptions): FastifyInstance {
     fleetEventWakeups: fleetEventWakeupsOf(fleetEvents),
     receiveWaitMs: options.receiveWaitMs,
     accountTokenSignatures: accountTokenSignaturesOf(options.accountTokenIssuer, clock),
+    ...(options.keyVault === undefined ? {} : { keyVault: options.keyVault }),
+    hasInstallation: options.installationToken !== undefined,
   });
   const server = buildHttpServer({
     useCases,
@@ -135,7 +140,9 @@ export function createApp(options: AppOptions): FastifyInstance {
   });
 
   // One pass, every 30 seconds: the clocks, then the stuck snapshot's close,
-  // then the pruning of finished history (decision 0066), then whatever
+  // then the pruning of finished history (decision 0066), then the sealing of
+  // what a sealing fleet stored plain and the data keys by age (decision
+  // 0068), then whatever
   // schedule is due that a lost timer missed (decision 0062, S14).
   // Each failure is logged on its own, so one never keeps another from running.
   const overduePasses = repeatPass({
@@ -148,6 +155,12 @@ export function createApp(options: AppOptions): FastifyInstance {
       });
       await useCases.pruneHistory((fleetId, error) => {
         server.log.warn({ ...failureForLog(error), fleetId }, 'the pruning pass failed for a fleet: pruning it again next hour');
+      });
+      await useCases.sealStoredPayloads((fleetId, error) => {
+        server.log.warn({ ...failureForLog(error), fleetId }, 'the sealing pass failed for a fleet: sealing it again next pass');
+      });
+      await useCases.rotateDataKeys((fleetId, error) => {
+        server.log.warn({ ...failureForLog(error), fleetId }, 'the data key rotation failed for a fleet: rotating it again next pass');
       });
       const { nextAttemptAt } = await useCases.sendDueSchedules(scheduleSendFailed);
       if (nextAttemptAt) {

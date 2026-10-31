@@ -1,3 +1,4 @@
+import { createAwsKmsKeyVault } from './adapters/kms/aws-kms-key-vault.js';
 import { migrateDatabase } from './adapters/prisma/migrate.js';
 import { startTelemetry } from './adapters/telemetry/telemetry.js';
 import { createApp } from './app.js';
@@ -22,6 +23,7 @@ export async function start(): Promise<void> {
     consoleOrigin: config.consoleOrigin,
     installationToken: config.installationToken,
     accountTokenIssuer: config.accountTokenIssuer,
+    ...(config.kms === undefined ? {} : { keyVault: createAwsKmsKeyVault(config.kms) }),
   });
   for (const warning of startupWarnings(config)) {
     server.log.warn(warning);

@@ -4,10 +4,11 @@ import { findShip, type FleetRepository } from '../registry/public.js';
 import { hasScope, type ShipCaller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { recordEvent, SYSTEM, type NewEvent } from '../shared/events.js';
-import { ok, type Result } from '../shared/result.js';
+import { err, ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import type { RequestHasher, ScheduleAttempts, ScheduleNotifier, ScheduleRepository } from './ports.js';
 import { cancelSchedule, isSendTimeToSend, scheduledMessageKey, scheduleMissed, scheduleRefused, scheduleSent, type Schedule } from './schedule.js';
+import { isDataKeysNeeded, unsealed, withDataKeys, type DataKeysNeeded, type HeldDataKeys, type PayloadSealing } from './data-keys.js';
 import { sendWithin, type CheckedSend, type SendMessageTx } from './send-message.js';
 import { sendRequestText } from './send-request.js';
 
@@ -35,6 +36,10 @@ export type SendDueSchedules = (onError?: ScheduleSendFailed) => Promise<{ nextA
  * advanced it, so nothing is sent again, and the derived key would find the
  * stored message even under a second claim. A pass tries each schedule
  * once. Answers when the earliest attempt still ahead is due, for the timer.
+ *
+ * In a sealed fleet (decision 0068, B17) the schedule's payload is unsealed
+ * and each message sealed for its own id, with data keys unwrapped before
+ * the schedule's unit of work, never in it.
  */
 export function createSendDueSchedules(deps: {
   fleets: Pick<FleetRepository, 'list'>;
@@ -43,6 +48,7 @@ export function createSendDueSchedules(deps: {
   clock: Clock;
   ids: IdGenerator;
   hasher: RequestHasher;
+  sealing: PayloadSealing;
 }): SendDueSchedules {
   return async (onError) => {
     let nextAttemptAt: Date | undefined;
@@ -51,16 +57,27 @@ export function createSendDueSchedules(deps: {
       for (;;) {
         const claimed: { scheduleId?: ScheduleId } = {};
         try {
-          const sent = await deps.uow.run(async (tx): Promise<Result<ScheduleId | undefined, never>> => {
-            const schedule = await tx.schedules.claimDue(fleet.id, tried);
-            if (!schedule) {
-              return ok(undefined);
+          const sent = await withDataKeys({ sealing: deps.sealing, fleetId: fleet.id }, (held) =>
+            deps.uow.run(async (tx): Promise<Result<ScheduleId | undefined, DataKeysNeeded>> => {
+              const schedule = await tx.schedules.claimDue(fleet.id, tried);
+              if (!schedule) {
+                return ok(undefined);
+              }
+              claimed.scheduleId = schedule.id;
+              const handled = await sendScheduleWithin({ tx, clock: deps.clock, ids: deps.ids, hasher: deps.hasher, held }, schedule);
+              return handled.isOk ? ok(schedule.id) : handled;
+            }),
+          );
+          if (!sent.isOk) {
+            // The fleet's company key gave no data key: the send time claimed is refused KEY_UNAVAILABLE, recorded by its refusal strategy (B12).
+            const refused = claimed.scheduleId === undefined ? undefined : await keyUnavailableRecorded(deps, { fleetId: fleet.id, scheduleId: claimed.scheduleId, tried });
+            if (refused === undefined) {
+              break;
             }
-            claimed.scheduleId = schedule.id;
-            await sendScheduleWithin({ tx, clock: deps.clock, ids: deps.ids, hasher: deps.hasher }, schedule);
-            return ok(schedule.id);
-          });
-          if (!sent.isOk || sent.value === undefined) {
+            tried.push(refused);
+            continue;
+          }
+          if (sent.value === undefined) {
             break;
           }
           tried.push(sent.value);
@@ -81,6 +98,28 @@ export function createSendDueSchedules(deps: {
   };
 }
 
+/**
+ * A due send time refused KEY_UNAVAILABLE (decision 0068, B12): the claimed
+ * schedule claimed again in a unit of work of its own, which needs no data
+ * key, and its refusal recorded as any refusal. Answers the schedule, or none
+ * when the claim takes another one or none, so the pass stops for this fleet.
+ */
+async function keyUnavailableRecorded(
+  deps: { uow: UnitOfWork<SendDueSchedulesTx>; clock: Clock; ids: IdGenerator },
+  claimed: { fleetId: FleetId; scheduleId: ScheduleId; tried: readonly ScheduleId[] },
+): Promise<ScheduleId | undefined> {
+  const recorded = await deps.uow.run(async (tx): Promise<Result<ScheduleId | undefined, never>> => {
+    const schedule = await tx.schedules.claimDue(claimed.fleetId, claimed.tried);
+    if (schedule?.id !== claimed.scheduleId || schedule.state !== 'active' || schedule.nextSendTime === null) {
+      return ok(undefined);
+    }
+    const sentCount = await tx.schedules.sentCount(schedule.fleetId, schedule.id);
+    await stored({ tx, ids: deps.ids }, scheduleRefused(schedule, { code: 'KEY_UNAVAILABLE', sendTime: schedule.nextSendTime, at: deps.clock.now(), sentCount }));
+    return ok(schedule.id);
+  });
+  return recorded.isOk ? recorded.value : undefined;
+}
+
 /** At most this many send times of one schedule in one unit of work, oldest first; the rest on the next pass (S6). */
 export const SEND_TIMES_PER_PASS = 100;
 
@@ -91,7 +130,7 @@ export const SEND_TIMES_PER_PASS = 100;
  * retire would have done (S11). A send time kept for a retry, or a pause,
  * stops the rest.
  */
-async function sendScheduleWithin(deps: { tx: SendDueSchedulesTx; clock: Clock; ids: IdGenerator; hasher: RequestHasher }, schedule: Schedule): Promise<void> {
+async function sendScheduleWithin(deps: ScheduleSendDeps, schedule: Schedule): Promise<Result<undefined, DataKeysNeeded>> {
   const { tx, clock } = deps;
   const at = clock.now();
   const ship = await findShip(tx, { fleetId: schedule.fleetId, shipId: schedule.shipId });
@@ -100,7 +139,7 @@ async function sendScheduleWithin(deps: { tx: SendDueSchedulesTx; clock: Clock; 
     if (cancelled.isOk) {
       await stored(deps, cancelled.value);
     }
-    return;
+    return ok(undefined);
   }
   const caller: ShipCaller = { shipId: ship.value.id, fleetId: ship.value.fleetId, kind: ship.value.kind, scopes: ship.value.scopes };
   let current = schedule;
@@ -111,45 +150,76 @@ async function sendScheduleWithin(deps: { tx: SendDueSchedulesTx; clock: Clock; 
     if (current.state !== 'active' || sendTime === null || (handled > 0 && (current.nextAttemptAt === null || current.nextAttemptAt > at))) {
       break;
     }
-    const changed = isSendTimeToSend(current, { sendTime, at })
+    const sentOrMissed = isSendTimeToSend(current, { sendTime, at })
       ? await sendTimeWithin(deps, { schedule: current, caller, sendTime, at, sentCount })
-      : { ...scheduleMissed(current, { sendTime, at, sentCount }), sentCount };
+      : ok({ ...scheduleMissed(current, { sendTime, at, sentCount }), sentCount });
+    if (!sentOrMissed.isOk) {
+      return sentOrMissed;
+    }
+    const changed = sentOrMissed.value;
     sentCount = changed.sentCount;
     current = changed.schedule;
     await recorded(deps, changed.events);
   }
   await stored(deps, { schedule: current, events: [] });
+  return ok(undefined);
 }
 
-/** One send time: sent as the ship, checked as a send by it now, or refused with its code. */
+/** What a schedule's send times are sent with, inside its unit of work: the data keys held among them. */
+interface ScheduleSendDeps {
+  tx: SendDueSchedulesTx;
+  clock: Clock;
+  ids: IdGenerator;
+  hasher: RequestHasher;
+  held: HeldDataKeys;
+}
+
+/** A send time's outcome: the schedule as it changed, its events and how many it sent. */
+interface SendTimeChanged {
+  schedule: Schedule;
+  events: NewEvent[];
+  sentCount: number;
+}
+
+/**
+ * One send time: sent as the ship, checked as a send by it now, or refused
+ * with its code; a data key it needs and does not hold rolls its unit of work
+ * back (decision 0068).
+ */
 async function sendTimeWithin(
-  deps: { tx: SendDueSchedulesTx; clock: Clock; ids: IdGenerator; hasher: RequestHasher },
+  deps: ScheduleSendDeps,
   sending: { schedule: Schedule; caller: ShipCaller; sendTime: Date; at: Date; sentCount: number },
-): Promise<{ schedule: Schedule; events: NewEvent[]; sentCount: number }> {
+): Promise<Result<SendTimeChanged, DataKeysNeeded>> {
   const { tx, clock, ids } = deps;
   const { schedule, caller, sendTime, at, sentCount } = sending;
   const { send } = schedule;
   const missingScope = !hasScope(caller, 'messages:send') ? 'messages:send' : send.isForced && !hasScope(caller, 'messages:force') ? 'messages:force' : undefined;
   if (missingScope !== undefined) {
-    return { ...scheduleRefused(schedule, { code: 'FORBIDDEN', sendTime, at, sentCount }), sentCount };
+    return ok({ ...scheduleRefused(schedule, { code: 'FORBIDDEN', sendTime, at, sentCount }), sentCount });
+  }
+  const payload = unsealed(deps.held, { row: { fleetId: schedule.fleetId, rowId: schedule.id }, payload: send.payload });
+  if (!payload.isOk) {
+    return isDataKeysNeeded(payload.error) ? err(payload.error) : ok({ ...scheduleRefused(schedule, { code: payload.error.kind, sendTime, at, sentCount }), sentCount });
   }
   const inReplyTo = send.inReplyTo ?? undefined;
   const request: CheckedSend = {
     selector: send.selector,
-    payload: send.payload,
+    payload: payload.value,
     contentType: send.contentType,
     model: send.model ?? undefined,
     idempotencyKey: scheduledMessageKey(schedule.id, sendTime),
     inReplyTo,
     isForced: send.isForced,
-    requestHash: deps.hasher.hash(sendRequestText({ selector: send.selector, payload: send.payload, contentType: send.contentType, inReplyTo, isForced: send.isForced })),
+    requestHash: deps.hasher.hash(sendRequestText({ selector: send.selector, payload: payload.value, contentType: send.contentType, inReplyTo, isForced: send.isForced })),
+    sealedRequestHash: deps.hasher.hash(sendRequestText({ selector: send.selector, payload: undefined, contentType: send.contentType, inReplyTo, isForced: send.isForced })),
     scheduledFor: { scheduleId: schedule.id, sendTime },
   };
-  const sent = await sendWithin({ tx, clock, ids }, { caller, request });
+  const sent = await sendWithin({ tx, clock, ids, held: deps.held }, { caller, request });
   if (!sent.isOk) {
-    return { ...scheduleRefused(schedule, { code: sent.error.kind, sendTime, at, sentCount }), sentCount };
+    const { error } = sent;
+    return isDataKeysNeeded(error) ? err(error) : ok({ ...scheduleRefused(schedule, { code: error.kind, sendTime, at, sentCount }), sentCount });
   }
-  return { ...scheduleSent(schedule, { messageId: sent.value.messageId, sendTime, at, sentCount: sentCount + 1 }), sentCount: sentCount + 1 };
+  return ok({ ...scheduleSent(schedule, { messageId: sent.value.messageId, sendTime, at, sentCount: sentCount + 1 }), sentCount: sentCount + 1 });
 }
 
 async function recorded(deps: { tx: SendDueSchedulesTx; ids: IdGenerator }, events: readonly NewEvent[]): Promise<void> {

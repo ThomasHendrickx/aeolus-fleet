@@ -123,3 +123,28 @@ describe('messageTextOf', () => {
     expect(messageTextOf({ contentType: 'application/x-report', payload: 'Line one\n\n**not bold**' }).summary).toBe('**not bold**');
   });
 });
+
+describe('an alert message in the inbox (docs/design/monitoring, 4.8, N10)', () => {
+  const ALERT = 'application/vnd.aeolus.alert+json';
+
+  it('shows by its headline and its body as markdown, as a text/markdown message does', () => {
+    const payload = JSON.stringify({
+      alertId: 'alt_01m66p4k2v9qz8f7x3n5c1b0td',
+      headline: 'merger-1: report unchanged 3 h 10 min, expected within 60 min',
+      body: 'merger-1 reports **working**, unchanged since 12:05.',
+      signal: 'report-unchanged',
+    });
+
+    const text = messageTextOf({ contentType: ALERT, payload });
+
+    expect(text.headline).toBe('merger-1: report unchanged 3 h 10 min, expected within 60 min');
+    expect(text.summary).toBe('merger-1 reports working, unchanged since 12:05.');
+    expect(text.body).toEqual([
+      { kind: 'paragraph', children: [{ kind: 'text', text: 'merger-1 reports ' }, { kind: 'strong', children: [{ kind: 'text', text: 'working' }] }, { kind: 'text', text: ', unchanged since 12:05.' }] },
+    ]);
+  });
+
+  it('shows a payload that is no alert as a plain message', () => {
+    expect(messageTextOf({ contentType: ALERT, payload: 'deploy-bot is stuck' }).headline).toBe('deploy-bot is stuck');
+  });
+});

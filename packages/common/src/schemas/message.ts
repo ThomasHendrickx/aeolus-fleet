@@ -50,8 +50,9 @@ export const MODEL_MAX_LENGTH = 100;
 
 /**
  * The model a session runs, as it states it on each send (docs/blueprint.md,
- * "Model"): its exact id, such as claude-opus-5-5, trimmed, without spaces.
- * Self-reported: the fleet stores it and never verifies it.
+ * "Model"): its exact id, such as claude-opus-5-5, or auto when the harness
+ * chooses the model per request, trimmed, without spaces. Self-reported: the
+ * fleet stores it and never verifies it, not even auto against the harness.
  */
 export const modelSchema = z
   .string()
@@ -100,12 +101,12 @@ export const scheduleSelectorSchema = z.union([
   labelValuesSelectorSchema,
 ]);
 
-/** A payload: any text of at most 64 KB in UTF-8 (ADR 0006). */
+/** A payload: any text of at most 256 KB in UTF-8 (decision 0006). */
 export const payloadSchema = z
   .string()
   .refine(
     (payload) => payloadBytes(payload) <= PAYLOAD_MAX_BYTES,
-    `A payload is at most ${PAYLOAD_MAX_BYTES} bytes (64 KB) in UTF-8`,
+    `A payload is at most ${PAYLOAD_MAX_BYTES} bytes (256 KB) in UTF-8`,
   );
 
 export type SelectorInput = z.infer<typeof selectorSchema>;

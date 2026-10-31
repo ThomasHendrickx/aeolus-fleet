@@ -16,7 +16,7 @@ import {
 } from './index.js';
 
 describe('the scopes', () => {
-  it('are the message scopes, then the fleet scopes, then the scopes for what was argo\'s alone, then declaring, granting and defining scopes, then opening meetings, and nothing else (decisions 0046, 0053, 0061)', () => {
+  it('are the message scopes, then the fleet scopes, then the scopes for what was argo\'s alone, then declaring, granting and defining scopes, then opening meetings, then the fleet\'s keys, then alerts, and nothing else (decisions 0046, 0053, 0061, 0068, 0071)', () => {
     expect(SCOPES).toEqual([
       'messages:send',
       'messages:receive',
@@ -41,6 +41,8 @@ describe('the scopes', () => {
       'scopes:grant',
       'scopes:define',
       'meetings:open',
+      'fleet:keys',
+      'fleet:alert',
     ]);
   });
 
@@ -63,6 +65,7 @@ describe('the scopes', () => {
       'labels:any',
       'fleet:verify',
       'meetings:open',
+      'fleet:alert',
     ]);
   });
 });
@@ -217,6 +220,19 @@ describe('eventTypeSchema', () => {
       'ScheduleResumed',
       'ScheduleEnded',
       'HistoryPruned',
+      'FleetSealingTurnedOn',
+      'FleetPayloadsSealed',
+      'FleetKeyUnavailable',
+      'FleetKeyAvailable',
+      'FleetDataKeyCreated',
+      'FleetCompanyKeyChanged',
+      'FleetRecoveryKeyChanged',
+      'FleetKeysRecovered',
+      'FeatureFlagTurnedOn',
+      'FeatureFlagTurnedOff',
+      'AlertRaised',
+      'AlertCleared',
+      'ExpectationsSet',
     ]);
   });
 });

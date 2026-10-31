@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LocationTag: Copilot and Cursor by name and icon (S6, S11)</title>
+<style>:root {
+  --background:oklch(0.99 0.002 247);
+  --card:oklch(1 0 0);
+  --popover:oklch(1 0 0);
+  --muted:oklch(0.967 0.005 247);
+  --secondary:oklch(0.955 0.007 247);
+  --accent:oklch(0.95 0.009 247);
+  --sidebar:oklch(0.976 0.004 247);
+  --highlight:oklch(0.95 0.035 250);
+  --overlay:oklch(0.2 0.02 257 / 0.42);
+  --foreground:oklch(0.22 0.02 257);
+  --muted-foreground:oklch(0.5 0.02 257);
+  --destructive-text:oklch(0.53 0.2 27);
+  --border:oklch(0.912 0.008 247);
+  --input:oklch(0.885 0.01 247);
+  --ring:oklch(0.56 0.12 257);
+  --primary:oklch(0.34 0.08 257);
+  --primary-hover:oklch(0.29 0.075 257);
+  --primary-foreground:oklch(0.985 0.003 247);
+  --destructive:oklch(0.53 0.2 27);
+  --destructive-foreground:oklch(0.99 0 0);
+  --tone-waiting-bg:oklch(0.965 0.045 85);
+  --tone-waiting-fg:oklch(0.47 0.1 62);
+  --tone-waiting-border:oklch(0.87 0.08 80);
+  --tone-active-bg:oklch(0.955 0.03 250);
+  --tone-active-fg:oklch(0.45 0.14 257);
+  --tone-active-border:oklch(0.86 0.06 252);
+  --tone-ok-bg:oklch(0.96 0.04 155);
+  --tone-ok-fg:oklch(0.44 0.1 155);
+  --tone-ok-border:oklch(0.86 0.07 155);
+  --tone-attention-bg:oklch(0.957 0.028 25);
+  --tone-attention-fg:oklch(0.5 0.19 27);
+  --tone-attention-border:oklch(0.86 0.07 25);
+  --tone-ended-bg:oklch(0.957 0.005 247);
+  --tone-ended-fg:oklch(0.47 0.015 257);
+  --tone-ended-border:oklch(0.87 0.01 247);
+  --card-foreground:var(--foreground);
+  --popover-foreground:var(--foreground);
+  --secondary-foreground:var(--foreground);
+  --accent-foreground:var(--foreground);
+  --sidebar-foreground:var(--foreground);
+  --font-sans:var(--font-geist-sans, "Geist"), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono:var(--font-geist-mono, "Geist Mono"), ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --shadow-sm:0 1px 2px oklch(0.2 0.02 257 / 0.06);
+  --shadow-md:0 2px 6px oklch(0.2 0.02 257 / 0.08);
+  --shadow-lg:0 16px 40px oklch(0.2 0.02 257 / 0.16), 0 2px 8px oklch(0.2 0.02 257 / 0.08);
+  --radius:8px;
+  --radius-xs:4px;
+  --radius-sm:6px;
+  --radius-md:8px;
+  --radius-lg:10px;
+  --radius-xl:12px;
+  --radius-2xl:18px;
+  --radius-full:9999px;
+  --spacing:4px;
+  --text-micro:11px;
+  --text-micro--line-height:14px;
+  --text-caption:12px;
+  --text-caption--line-height:16px;
+  --text-meta:13px;
+  --text-meta--line-height:18px;
+  --text-body:14px;
+  --text-body--line-height:20px;
+  --text-section:15px;
+  --text-section--line-height:20px;
+  --text-body-touch:15px;
+  --text-body-touch--line-height:22px;
+  --text-input-touch:16px;
+  --text-input-touch--line-height:24px;
+  --text-heading:18px;
+  --text-heading--line-height:24px;
+  --text-heading-touch:20px;
+  --text-heading-touch--line-height:26px;
+  --text-title:22px;
+  --text-title--line-height:28px;
+  --text-title-touch:24px;
+  --text-title-touch--line-height:30px;
+  --text-metric:28px;
+  --text-metric--line-height:32px;
+  --text-id:12px;
+  --text-id--line-height:16px;
+  --text-code:13px;
+  --text-code--line-height:20px;
+  --size-control-xs:28px;
+  --size-control-sm:32px;
+  --size-control:36px;
+  --size-control-touch:44px;
+  --size-row-header:40px;
+  --size-row:48px;
+  --size-sidebar:256px;
+  --size-rail:64px;
+  --size-header:56px;
+  --size-tabbar:68px;
+  --size-dialog-sm:512px;
+  --size-dialog-md:560px;
+  --size-palette:600px;
+  --size-sheet:560px;
+  --size-toast:380px;
+  --size-icon-sm:14px;
+  --size-icon:16px;
+  --size-icon-lg:20px;
+  --size-icon-tab:22px;
+  --size-icon-xl:24px;
+  --duration-fast:150ms;
+  --duration-base:200ms;
+  --duration-slow:300ms;
+  --duration-highlight:600ms;
+  --duration-pulse:1800ms;
+  --ease-standard:cubic-bezier(0.2, 0, 0, 1);
+  --ease-exit:cubic-bezier(0.4, 0, 1, 1);
+}
+
+.dark {
+  color-scheme:dark;
+  --background:oklch(0.172 0.012 257);
+  --card:oklch(0.2 0.013 257);
+  --popover:oklch(0.215 0.013 257);
+  --muted:oklch(0.228 0.012 257);
+  --secondary:oklch(0.255 0.013 257);
+  --accent:oklch(0.26 0.014 257);
+  --sidebar:oklch(0.19 0.012 257);
+  --highlight:oklch(0.27 0.045 255);
+  --overlay:oklch(0.08 0.01 257 / 0.62);
+  --foreground:oklch(0.955 0.005 247);
+  --muted-foreground:oklch(0.72 0.016 257);
+  --destructive-text:oklch(0.7 0.16 25);
+  --border:oklch(0.29 0.014 257);
+  --input:oklch(0.34 0.015 257);
+  --ring:oklch(0.7 0.1 252);
+  --primary:oklch(0.86 0.055 250);
+  --primary-hover:oklch(0.92 0.035 250);
+  --primary-foreground:oklch(0.21 0.035 257);
+  --destructive:oklch(0.56 0.19 25);
+  --destructive-foreground:oklch(0.99 0 0);
+  --tone-waiting-bg:oklch(0.29 0.055 72);
+  --tone-waiting-fg:oklch(0.87 0.11 82);
+  --tone-waiting-border:oklch(0.41 0.075 72);
+  --tone-active-bg:oklch(0.29 0.06 257);
+  --tone-active-fg:oklch(0.85 0.08 252);
+  --tone-active-border:oklch(0.42 0.09 257);
+  --tone-ok-bg:oklch(0.29 0.05 155);
+  --tone-ok-fg:oklch(0.86 0.1 155);
+  --tone-ok-border:oklch(0.41 0.07 155);
+  --tone-attention-bg:oklch(0.3 0.07 25);
+  --tone-attention-fg:oklch(0.84 0.09 25);
+  --tone-attention-border:oklch(0.45 0.11 25);
+  --tone-ended-bg:oklch(0.255 0.01 257);
+  --tone-ended-fg:oklch(0.78 0.015 257);
+  --tone-ended-border:oklch(0.36 0.012 257);
+  --shadow-sm:0 1px 2px oklch(0 0 0 / 0.3);
+  --shadow-md:0 2px 6px oklch(0 0 0 / 0.35);
+  --shadow-lg:0 16px 40px oklch(0 0 0 / 0.55), 0 2px 8px oklch(0 0 0 / 0.3);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:#e9e7ef}html.dark{background:#0b0d12}
+body{font-family:var(--font-sans);color:var(--foreground);font-size:14px;line-height:20px;-webkit-font-smoothing:antialiased}
+.i{width:var(--size-icon);height:var(--size-icon);fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.i.sm{width:var(--size-icon-sm);height:var(--size-icon-sm)}.i.lg{width:var(--size-icon-lg);height:var(--size-icon-lg)}.i.xl{width:var(--size-icon-xl);height:var(--size-icon-xl)}
+.mono{font-family:var(--font-mono);font-size:var(--text-id);line-height:var(--text-id--line-height)}
+.code{font-family:var(--font-mono);font-size:var(--text-code);line-height:var(--text-code--line-height)}
+.meta{font-size:var(--text-meta);line-height:var(--text-meta--line-height);color:var(--muted-foreground)}
+.cap{font-size:var(--text-caption);line-height:var(--text-caption--line-height)}
+.fg{color:var(--foreground)}.mute{color:var(--muted-foreground)}.w5{font-weight:500}.w6{font-weight:600}
+.row{display:flex;align-items:center;gap:8px;min-width:0}.g15{gap:6px}.g3{gap:12px}.wrap{flex-wrap:wrap}.end{margin-left:auto}
+.col{display:flex;flex-direction:column;min-width:0}.col.g2{gap:8px}.col.g3{gap:12px}.col.g4{gap:16px}
+.trunc{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* mockup sheet */
+.doc{padding:28px 32px 64px;display:flex;flex-direction:column;gap:36px;max-width:1720px;margin:0 auto}
+.doc>header{display:flex;flex-direction:column;gap:6px}
+.doc h1{font-size:24px;line-height:30px;font-weight:600}
+.doc .lede{color:var(--muted-foreground);max-width:900px}
+.theme{display:flex;gap:4px;margin-top:6px;align-items:center;flex-wrap:wrap}
+.theme button{font:inherit;font-size:13px;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--foreground);cursor:pointer}
+.theme button[aria-pressed=true]{background:var(--primary);color:var(--primary-foreground);border-color:var(--primary)}
+.key{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted-foreground);margin-left:12px}
+.key i{display:inline-block;width:22px;height:14px;border:2px dashed #e0287d;border-radius:3px}
+.scene{display:flex;flex-direction:column;gap:14px}
+.scene>h2{font-size:18px;line-height:24px;font-weight:600}
+.scene>p{font-size:13px;color:var(--muted-foreground)}
+.state{display:flex;flex-direction:column;gap:8px}
+.state>.label{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.state>.label b{font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--foreground);color:var(--background)}
+.state>.label b.after{background:#e0287d;color:#fff}
+.state>.label span{font-size:13px;color:var(--muted-foreground)}
+.frames{display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap}
+.chg{outline:2px dashed #e0287d;outline-offset:3px;border-radius:4px;position:relative}
+.chg::after{content:attr(data-chg);position:absolute;top:-11px;right:-4px;background:#e0287d;color:#fff;font:600 10px/14px var(--font-sans);padding:1px 6px;border-radius:999px;white-space:nowrap;pointer-events:none;z-index:2}
+/* parts */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:var(--size-control);padding:0 14px;border-radius:var(--radius-md);border:1px solid var(--input);background:var(--card);color:var(--foreground);font:500 14px/20px var(--font-sans)}
+.btn.primary{background:var(--primary);color:var(--primary-foreground);border-color:var(--primary)}
+.btn.primary[disabled]{opacity:.5}
+.btn.xs{height:var(--size-control-xs);padding:0 8px;font-size:12px;border-color:transparent;background:transparent;color:var(--muted-foreground)}
+.codeblock{overflow:hidden;border-radius:var(--radius-lg);border:1px solid var(--border);background:var(--muted)}
+.codeblock .hd{height:36px;display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:1px solid var(--border);padding:0 6px 0 12px}
+.codeblock .hd>span{display:flex;align-items:center;gap:6px;min-width:0;font-size:var(--text-caption);line-height:var(--text-caption--line-height);color:var(--muted-foreground)}
+.codeblock pre{padding:12px;font-family:var(--font-mono);font-size:var(--text-code);line-height:var(--text-code--line-height);white-space:pre-wrap;word-break:break-all;color:var(--foreground)}
+.note{display:flex;gap:8px;border-radius:var(--radius-lg);border:1px solid var(--border);background:var(--muted);padding:8px 12px;font-size:var(--text-meta);line-height:var(--text-meta--line-height)}
+.waiting{border-radius:var(--radius-lg);border:1px solid var(--tone-waiting-border);background:var(--tone-waiting-bg);color:var(--tone-waiting-fg);padding:8px 12px;font-size:var(--text-meta);line-height:var(--text-meta--line-height)}
+.err{display:flex;gap:10px;border-radius:var(--radius-lg);border:1px solid var(--tone-attention-border);background:var(--tone-attention-bg);color:var(--tone-attention-fg);padding:12px}
+.err b{display:block;font-weight:600}
+.err p{font-size:var(--text-meta);line-height:var(--text-meta--line-height)}
+.sk{border-radius:var(--radius-lg);background:var(--secondary);animation:pulse var(--duration-pulse) ease-in-out infinite}
+@keyframes pulse{50%{opacity:.55}}
+@media (prefers-reduced-motion:reduce){.sk{animation:none}}
+.link{text-decoration:underline;text-underline-offset:2px;color:inherit}
+.badge{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;border:1px solid}
+.badge.ok{background:var(--tone-ok-bg);color:var(--tone-ok-fg);border-color:var(--tone-ok-border)}
+.badge.waiting{background:var(--tone-waiting-bg);color:var(--tone-waiting-fg);border-color:var(--tone-waiting-border);padding:0 8px}
+.loc{display:inline-flex;min-width:0;align-items:center;gap:6px;color:var(--muted-foreground)}
+.loc.md{font-size:var(--text-body)}.loc.sm{font-size:var(--text-meta)}
+.loc .i{width:var(--size-icon-sm);height:var(--size-icon-sm)}
+.loc .n{color:var(--foreground)}
+span.chg{outline:none;border:1.5px dashed #e0287d;border-radius:3px;background:color-mix(in oklch,#e0287d 10%,transparent);-webkit-box-decoration-break:clone;box-decoration-break:clone;padding:0 2px}
+span.chg::after{display:none}
+.desk{width:1080px;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--background);box-shadow:var(--shadow-md)}
+.dhdr{height:var(--size-header);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;padding:0 24px}
+.dpage{padding:20px 24px}
+.tbl{width:100%;border-collapse:collapse;font-size:var(--text-body)}
+.tbl th{height:var(--size-row-header);text-align:left;font-size:var(--text-caption);font-weight:500;color:var(--muted-foreground);border-bottom:1px solid var(--border);padding:0 10px}
+.tbl td{height:var(--size-row);border-bottom:1px solid var(--border);padding:0 10px;white-space:nowrap}
+.phone{width:390px;min-height:0;border:1px solid var(--border);border-radius:28px;overflow:hidden;background:var(--background);display:flex;flex-direction:column;box-shadow:var(--shadow-md)}
+.phdr{height:var(--size-header);display:flex;align-items:center;padding:0 16px;border-bottom:1px solid var(--border);font-size:var(--text-heading-touch)}
+.prow{display:flex;flex-direction:column;gap:6px;padding:12px 16px;border-bottom:1px solid var(--border)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-xl);padding:16px;box-shadow:var(--shadow-sm)}
+.vgrid{display:grid;grid-template-columns:1fr 1fr;gap:32px}.vgrid .loc .trunc{overflow:visible}
+.empty{display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;padding:32px 16px}
+.empty p{max-width:420px}
+</style></head><body>
+<div class="doc"><header><h1>LocationTag: Copilot and Cursor by name and icon (S6, S11)</h1><p class="lede">Today any harness the console does not know shows as plain text. S6 names Copilot, S11 Cursor, each with the terminal icon of a coding agent.</p>
+<div class="theme"><button data-theme="light" aria-pressed="true" onclick="setTheme('light')">Light</button><button data-theme="dark" aria-pressed="false" onclick="setTheme('dark')">Dark</button><span class="key"><i></i>what changed</span></div></header>
+<div id="scenes" class="col" style="gap:40px"></div></div>
+<script>const PATHS = {
+  terminal: '<path d="m7 11 2-2-2-2"/><path d="M11 13h4"/><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>',
+  copy: '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+  alert: '<circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>',
+  retry: '<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>',
+  x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  laptop: '<path d="M18 5a2 2 0 0 1 2 2v8.526a2 2 0 0 0 .212.897l1.068 2.127a1 1 0 0 1-.9 1.45H3.62a1 1 0 0 1-.9-1.45l1.068-2.127A2 2 0 0 0 4 15.526V7a2 2 0 0 1 2-2z"/><path d="M20.054 15.987H3.946"/>',
+  cloud: '<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>',
+  server: '<rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/>',
+  pin: '<path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>',
+  chat: '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>',
+  window: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="M10 4v4"/><path d="M2 8h20"/><path d="M6 4v4"/>',
+  bot: '<path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/>',
+  usercheck: '<path d="m16 11 2 2 4-4"/><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>',
+  ship: '<path d="M12 10.189V14"/><path d="M12 2v3"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-8.188-3.639a2 2 0 0 0-1.624 0L3 14a11.6 11.6 0 0 0 2.81 7.76"/><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1s1.2 1 2.5 1c2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>',
+  chevron: '<path d="m9 18 6-6-6-6"/>',
+};
+const ic = (name, cls = '') => `<svg class="i ${cls}" viewBox="0 0 24 24" aria-hidden="true">${PATHS[name]}</svg>`;
+/** Wraps html in the change box when a label is given. */
+const chg = (html, label) => (label ? `<div class="chg" data-chg="${label}">${html}</div>` : html);
+const chgIn = (html, label) => (label ? `<span class="chg" data-chg="${label}">${html}</span>` : html);
+function setTheme(theme) {
+  document.documentElement.classList.toggle('dark', theme === 'dark');
+  document.querySelectorAll('.theme button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.theme === theme)));
+}
+function state(tag, isAfter, text, frames) {
+  return `<div class="state"><div class="label"><b class="${isAfter ? 'after' : ''}">${tag}</b><span>${text}</span></div><div class="frames">${frames}</div></div>`;
+}
+const KIND = { DEVICE: ['laptop', 'Device'], CLOUD: ['cloud', 'Cloud'], SERVER: ['server', 'Server'], OTHER: ['pin', 'Other'] };
+/** The harnesses the console names in each phase; any other shows as stated, with no icon. */
+const KNOWN = {
+  before: { 'claude-code': ['Claude Code', 'terminal'], codex: ['Codex', 'terminal'], console: ['Console', 'window'] },
+};
+KNOWN.s6 = { ...KNOWN.before, copilot: ['Copilot', 'terminal'] };
+KNOWN.s11 = { ...KNOWN.s6, cursor: ['Cursor', 'terminal'] };
+const markFor = (phase, harness) =>
+  (phase === 's6' && harness === 'copilot') || (phase === 's11' && harness === 'cursor') ? (phase === 's6' ? 'S6' : 'S11') : null;
+
+function tag(phase, harness, kind, size = 'sm', mark = true) {
+  const known = KNOWN[phase][harness];
+  const [kIcon, kWord] = KIND[kind];
+  const html = `<span class="loc ${size}" title="${known ? known[0] : harness} · ${kWord}">${known ? ic(known[1]) : ''}<span class="n trunc">${known ? known[0] : harness}</span><span aria-hidden="true">·</span>${ic(kIcon)}<span class="trunc">${kWord}</span></span>`;
+  return mark ? chgIn(html, markFor(phase, harness)) : html;
+}
+
+const SHIPS = [
+  { name: 'argo', harness: 'console', kind: 'DEVICE', report: 'Reviewing the harness mockups', seen: 'Just now' },
+  { name: 'reviewer-01', harness: 'claude-code', kind: 'DEVICE', model: 'claude-opus-5-5', report: 'Reviewing PR 1388', seen: '2 min ago' },
+  { name: 'builder-02', harness: 'codex', kind: 'CLOUD', model: 'gpt-5.5-codex', report: 'Running the slice tests', seen: '5 min ago' },
+  { name: 'docs-03', harness: 'copilot', kind: 'DEVICE', model: 'gpt-5.2', report: 'Writing the Copilot guide', seen: '1 min ago' },
+  { name: 'ui-04', harness: 'cursor', kind: 'DEVICE', model: 'auto', report: 'Idle', seen: '8 min ago' },
+];
+const badge = `<span class="badge ok">${ic('usercheck', 'sm')}Crewed</span>`;
+const runsOn = (phase, s) => `<span class="row g3">${tag(phase, s.harness, s.kind)}${s.model ? `<span class="mono mute trunc">${s.model}</span>` : ''}</span>`;
+
+function table(phase) {
+  const rows = SHIPS.map((s) => `<tr><td class="w5">${s.name}</td><td>${badge}</td><td class="trunc" style="max-width:220px">${s.report}</td><td></td><td>${runsOn(phase, s)}</td><td class="mute meta">${s.seen}</td></tr>`).join('');
+  return `<table class="tbl"><thead><tr><th>Ship</th><th>Status</th><th>Report</th><th>Squadron and labels</th><th>Runs on</th><th>Seen</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+function list(phase) {
+  return SHIPS.map((s) => `<div class="prow"><div class="row"><span class="w5" style="font-size:var(--text-body-touch)">${s.name}</span><span class="end">${badge}</span></div><div class="row wrap g3">${runsOn(phase, s)}</div><div class="meta trunc">${s.report} · ${s.seen}</div></div>`).join('');
+}
+const chrome = (inner) => `<div class="desk"><div class="dhdr"><span class="w6">Fleet</span><span class="meta">5 ships</span></div><div class="dpage">${inner}</div></div>`;
+const phoneChrome = (inner) => `<div class="phone"><div class="phdr w6">Fleet</div><div class="col">${inner}</div></div>`;
+const pair = (phase) => chrome(table(phase)) + phoneChrome(list(phase));
+
+function variants(phase) {
+  const cells = ['copilot', 'cursor']
+    .map((h) => chg(`<div class="col g2"><span class="cap mute">harness: ${h}</span>${Object.keys(KIND).map((k) => `<div class="row g3">${tag(phase, h, k, 'md', false)}<span class="end">${tag(phase, h, k, 'sm', false)}</span></div>`).join('')}</div>`, markFor(phase, h)))
+    .join('');
+  return `<div class="card" style="width:760px"><div class="vgrid">${cells}</div><p class="cap mute" style="margin-top:12px">Left md (ship page), right sm (Runs on). No vendor logos: the terminal icon of a coding agent.</p></div>`;
+}
+
+function elsewhere(phase) {
+  const word = (h) => (KNOWN[phase][h] ? KNOWN[phase][h][0] : h);
+  const markFor = (p) => (p === 'before' ? null : 'S6, S11');
+  const header = `<div class="card col g2" style="width:420px"><span class="cap mute">Ship page header, docs-03</span><span style="font-size:var(--text-title);line-height:var(--text-title--line-height)" class="w6">docs-03</span>
+    <span class="row wrap g3"><span class="loc md">${ic('laptop')}<span>Device · <span class="n">thomas-mbp</span></span></span>
+    ${chgIn(`<span class="meta">${word('copilot')} · <span class="mono">gpt-5.2</span></span>`, markFor(phase))}</span></div>`;
+  const card = `<div class="card col g2" style="width:420px"><span class="cap mute">Machine card, harnesses its trierarch offers</span>
+    <span class="row g15 w5">${ic('bot', 'sm mute')}Claude Code <span class="meta" style="font-weight:400">2.1.293 · models confirmed 3 h ago</span></span>
+    <span class="row g15 w5">${ic('bot', 'sm mute')}${chgIn(word('copilot'), markFor(phase))} <span class="meta" style="font-weight:400">1.0.105 · models confirmed 3 h ago</span></span>
+    <span class="row g15 w5">${ic('bot', 'sm mute')}${chgIn(word('cursor'), markFor(phase))} <span class="meta" style="font-weight:400">2026.10.22 · models confirmed 1 h ago</span></span></div>`;
+  return header + card;
+}
+
+function tableState(st) {
+  if (st === 'loading') {
+    const sk = (n) => Array.from({ length: n }, () => `<div class="sk" style="height:40px"></div>`).join('');
+    return chrome(`<div class="col g2">${sk(6)}</div>`) + phoneChrome(`<div class="col g2" style="padding:12px">${sk(5)}</div>`);
+  }
+  if (st === 'error') {
+    const e = `<div class="err">${ic('alert')}<div><b>Couldn’t load the fleet</b><p>This page couldn’t reach the fleet server. Check that the server is running and reachable from this browser, then try again.</p><button class="btn" style="margin-top:10px">${ic('retry', 'sm')}Try again</button></div></div>`;
+    return chrome(e) + phoneChrome(`<div style="padding:12px">${e}</div>`);
+  }
+  const argo = SHIPS.slice(0, 1);
+  const empty = `<div class="empty">${ic('ship', 'xl mute')}<b>No ships besides argo yet</b><p class="meta">argo is your own ship: messages to the operator land in its inbox. Commission a ship to add an agent to the fleet.</p><button class="btn primary">Commission your first ship</button></div>`;
+  const t = `<table class="tbl"><thead><tr><th>Ship</th><th>Status</th><th>Report</th><th>Squadron and labels</th><th>Runs on</th><th>Seen</th></tr></thead><tbody>${argo.map((s) => `<tr><td class="w5">${s.name}</td><td>${badge}</td><td>${s.report}</td><td></td><td>${runsOn('before', s)}</td><td class="mute meta">${s.seen}</td></tr>`).join('')}</tbody></table>`;
+  return chrome(t + empty) + phoneChrome(`<div class="prow"><div class="row"><span class="w5">argo</span><span class="end">${badge}</span></div><div>${runsOn('before', argo[0])}</div></div>${empty}`);
+}
+
+document.getElementById('scenes').innerHTML = [
+  `<section class="scene"><h2>Fleet overview, Runs on</h2><p>A trierarch already crews Copilot and Cursor sessions; the console shows their harness as stated.</p>
+    ${state('Before', false, 'copilot and cursor as plain text, no icon.', pair('before'))}
+    ${state('After S6', true, 'Copilot by name, with the terminal icon.', pair('s6'))}
+    ${state('After S11', true, 'Cursor too.', pair('s11'))}</section>`,
+  `<section class="scene"><h2>Kinds and sizes</h2>
+    ${state('Before', false, '', variants('before'))}
+    ${state('After S6', true, '', variants('s6'))}
+    ${state('After S11', true, '', variants('s11'))}</section>`,
+  `<section class="scene"><h2>The same name elsewhere</h2><p>The harness name comes from one list, so these follow.</p>
+    ${state('Before', false, '', elsewhere('before'))}
+    ${state('After S11', true, '', elsewhere('s11'))}</section>`,
+  `<section class="scene"><h2>Fleet overview states</h2><p>Unchanged in S6 and S11: a LocationTag shows only on a crewed ship's row.</p>
+    ${state('Loading', false, '', tableState('loading'))}
+    ${state('Error', false, '', tableState('error'))}
+    ${state('Empty', false, 'Only argo.', tableState('empty'))}</section>`,
+].join('');
+</script></body></html>

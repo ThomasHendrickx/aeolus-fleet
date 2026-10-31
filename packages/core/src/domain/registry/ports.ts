@@ -1,12 +1,15 @@
-import type { DeliveryId, DeliveryState, FleetId, LabelId, LabelValueId, LeaseId, LeaseWaker, MessageId, ReachRefusalId, ScopeName, ShipId, ShipPosition, ShipStatus } from '@aeolus-fleet/common';
+import type { AlertId, AlertSignal, DeliveryId, DeliveryState, FeatureFlag, FleetId, LabelId, LabelValueId, LeaseId, LeaseWaker, MessageId, ReachRefusalId, ScopeName, ShipId, ShipPosition, ShipStatus } from '@aeolus-fleet/common';
 
 import type { Page, PageQuery } from '../shared/page.js';
 import type { Recipient } from '../shared/selector.js';
 import type { ShipFilter } from '@aeolus-fleet/common/rules';
 import type { ShipSort } from './ship-order.js';
 import type { ReadReach } from './read-reach.js';
+import type { Alert, ShownAlert } from './alert.js';
+import type { Expectations, ShipExpectations } from './expectations.js';
 import type { ClearRequest } from './clear-request.js';
 import type { CrewRequest } from './crew-request.js';
+import type { FeatureUse } from './feature-flag.js';
 import type { Fleet } from './fleet.js';
 import type { InstallationRequest } from './installation-request.js';
 import type { CarriedLabel, Label, LabelOwner, ListedLabel, ShipLabel } from './label.js';
@@ -23,6 +26,7 @@ import type { ShipCounts } from './ship-counts.js';
 import type { ShipReport } from './ship-report.js';
 import type { StatedStatement } from './statement.js';
 import type { Turn } from './turn.js';
+import type { LeaseActivity } from './lease-activity.js';
 import type { FactWriter, WrittenFacts } from './verified-facts.js';
 
 /** The crew a report speaks for: its ship and lease, in its fleet. */
@@ -85,6 +89,8 @@ export interface ShipRepository {
   lockName(fleetId: FleetId, name: string): Promise<void>;
   /** The ship, read without a lock. */
   find(fleetId: FleetId, shipId: ShipId): Promise<Ship | undefined>;
+  /** The ships of the fleet with these ids, in one read and without a lock; an id that names no ship is left out. By id. */
+  findMany(fleetId: FleetId, shipIds: readonly ShipId[]): Promise<Ship[]>;
   /** The ship of the fleet that is not retired and has this name. */
   findActiveByName(fleetId: FleetId, name: string): Promise<Ship | undefined>;
   /**
@@ -223,6 +229,12 @@ export interface LeaseRepository {
   findTurnForUpdate(fleetId: FleetId, leaseId: LeaseId): Promise<{ turn: Turn | null } | undefined>;
   saveTurn(change: { fleetId: FleetId; leaseId: LeaseId; turn: Turn }): Promise<void>;
   /**
+   * Writes the activity its trierarch observed on the ship's open lease,
+   * replacing what it held, without locking anything else of the lease
+   * (docs/design/monitoring, 4.3). False when no lease of the ship is open.
+   */
+  saveActivity(change: { fleetId: FleetId; shipId: ShipId; activity: LeaseActivity }): Promise<boolean>;
+  /**
    * The lease's report and the last report of the lease its ship held before
    * it, the one that ended last; undefined once this lease has ended.
    */
@@ -303,6 +315,19 @@ export interface DeclaredNetworkRulesRepository {
   save(declared: DeclaredNetworkRules): Promise<void>;
 }
 
+/**
+ * Outbound port: the expectations on each ship (decision 0071), one set per
+ * ship. Written after the ship is locked, as a retire locks it.
+ */
+export interface ExpectationsRepository {
+  /** The ship's expectations; none while none holds. */
+  find(fleetId: FleetId, shipId: ShipId): Promise<Expectations | undefined>;
+  /** Keeps the ship's expectations whole, in place of what it held. */
+  save(expectations: Expectations): Promise<void>;
+  /** Removes the ship's expectations, if it held any. */
+  remove(fleetId: FleetId, shipId: ShipId): Promise<void>;
+}
+
 /** Outbound port: the verified facts each writer holds about a ship, always within one fleet (decision 0059). */
 export interface VerifiedFactsRepository {
   /** The writer's facts about the ship; none while it holds none. */
@@ -321,6 +346,24 @@ export interface VerifiedFactsRepository {
   holdWriter(fleetId: FleetId, shipId: ShipId): Promise<void>;
   /** Locks a writer ship against every set by it until commit: its retire takes this. */
   lockWriter(fleetId: FleetId, shipId: ShipId): Promise<void>;
+}
+
+/**
+ * Outbound port: the fleet's alerts (decision 0071), one per ship, signal and
+ * occurrence. Lock order: the ship, then its alerts.
+ */
+export interface AlertRepository {
+  /** The alert held for the occurrence of the signal on the ship, open or cleared; none while none was raised. */
+  findByOccurrence(fleetId: FleetId, occurrence: { shipId: ShipId; signal: AlertSignal; occurrenceKey: string }): Promise<Alert | undefined>;
+  /** The alert, whatever its state; none when the fleet holds no such alert. */
+  find(fleetId: FleetId, alertId: AlertId): Promise<Alert | undefined>;
+  /** The alert, locked until the unit of work ends, after its ship. */
+  findForUpdate(fleetId: FleetId, alertId: AlertId): Promise<Alert | undefined>;
+  /** The ship's open alerts, locked until the unit of work ends, after the ship; oldest first. */
+  listOpenOnShipForUpdate(fleetId: FleetId, shipId: ShipId): Promise<Alert[]>;
+  create(alert: Alert): Promise<void>;
+  /** Keeps the alert's clear. */
+  saveCleared(alert: Alert): Promise<void>;
 }
 
 /** Outbound port: the records of the sends the fleet's network rules refused (decision 0034). */
@@ -405,7 +448,7 @@ export interface ShipFacts {
    * Where the session holding the ship's open lease runs, since when, and its
    * last call (its claim until it calls again); null while no session crews it.
    */
-  openLease: { location: Location; harness: string | null; startedAt: Date; lastSeenAt: Date; report: ShipReport | null } | null;
+  openLease: { location: Location; harness: string | null; startedAt: Date; lastSeenAt: Date; report: ShipReport | null; activity: LeaseActivity | null } | null;
   /** When the ship's valid secret was issued and claimed; null when it holds none. */
   validSecret: { issuedAt: Date; claimedAt: Date | null } | null;
   /** The ship's crew request; null when it holds none. */
@@ -435,6 +478,8 @@ export interface ShipFacts {
   lastViewedAt: Date | null;
   /** When the ship's last ended lease ended (a release, deregister or takeover); null before any. */
   lastLeaseEndedAt: Date | null;
+  /** How many open alerts the ship has (decision 0071). */
+  openAlertCount: number;
 }
 
 /**
@@ -462,6 +507,10 @@ export interface InstallationFleetFacts {
   limitSettings: FleetLimitSettings;
   /** Whether its deliveries reach their ships. */
   health: FleetHealth;
+  /** Its feature flags that are on (decision 0069). */
+  featureFlagsOn: FeatureFlag[];
+  /** What it uses of the features the flags turn on. */
+  featureUse: FeatureUse;
 }
 
 /**
@@ -488,6 +537,16 @@ export interface InstallationFleetWindow {
 }
 
 /** Outbound port: the fleets read across the installation; reachable only with the installation token. */
+/** A fleet's feature flags as the installation sets them (decision 0069): a row per flag that is on, none being off. */
+export interface FeatureFlagRepository {
+  /** The flags on for the fleet, read without a lock. */
+  onFor(fleetId: FleetId): Promise<FeatureFlag[]>;
+  /** Whether the flag is on for the fleet, its row held until the unit of work ends, so it cannot go off meanwhile. */
+  isOnForUpdate(fleetId: FleetId, flag: FeatureFlag): Promise<boolean>;
+  turnOn(fleetId: FleetId, flag: FeatureFlag): Promise<void>;
+  turnOff(fleetId: FleetId, flag: FeatureFlag): Promise<void>;
+}
+
 export interface InstallationFleets {
   /** Every fleet, oldest first, counting its messages over the window. */
   list(window: InstallationFleetWindow): Promise<InstallationFleetFacts[]>;
@@ -507,6 +566,7 @@ export interface ShipPage {
   reach: ReadReach;
 }
 
+/** The fleet snapshot's reads. Its lists, counts and types leave every removed ship out; `ship` still answers one, its remnant (decision 0070, D4 and D8). */
 export interface FleetListing {
   /** A page of the fleet's ships as `page` selects and orders them, each with its position (decision 4 of the performance design). */
   ships(fleetId: FleetId, page: ShipPage): Promise<{ facts: ShipFacts; position: ShipPosition }[]>;
@@ -528,4 +588,10 @@ export interface FleetListing {
   deliveryCounts(fleetId: FleetId, shipId: ShipId): Promise<{ inFlight: number; open: number }>;
   /** The statement the ship's open lease holds; null while no session crews it or its crew stated none (decision 0047). */
   statement(fleetId: FleetId, shipId: ShipId): Promise<StatedStatement | null>;
+  /** The expectations on the ship (decision 0071); none while none holds. */
+  expectationsOn(fleetId: FleetId, shipId: ShipId): Promise<ShipExpectations>;
+  /** The fleet's open alerts on the ships in `reach`, newest first, after the cursor's, at most `limit` (decision 0071). */
+  openAlerts(fleetId: FleetId, read: { reach: ReadReach; cursor?: AlertId; limit: number }): Promise<ShownAlert[]>;
+  /** The ship's open alerts, newest first (decision 0071). */
+  openAlertsOn(fleetId: FleetId, shipId: ShipId): Promise<ShownAlert[]>;
 }

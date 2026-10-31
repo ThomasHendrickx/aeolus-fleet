@@ -5,6 +5,7 @@ import type { Clock } from '../shared/clock.js';
 import type { Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import type { ReceiverWakeups } from './ports.js';
+import { withDataKeys, type PayloadSealing } from './data-keys.js';
 import { claimForCrew, RECEIVE_WAIT_MS, waitForDeliveries, type DeliveriesReceived, type ReceiveDeliveriesTx, type ReceiveRefusal } from './receive-deliveries.js';
 
 export type ReceiveReply = (crew: Crew, input: { messageId: MessageId }) => Promise<Result<DeliveriesReceived, ReceiveRefusal>>;
@@ -30,6 +31,7 @@ export function createReceiveReply(deps: {
   uow: UnitOfWork<ReceiveDeliveriesTx>;
   clock: Clock;
   ids: IdGenerator;
+  sealing: PayloadSealing;
   wakeups: ReceiverWakeups;
   /** How long it waits for the reply; about 25 seconds unless a test says otherwise. */
   waitMs?: number;
@@ -41,7 +43,9 @@ export function createReceiveReply(deps: {
       {
         crew,
         look: () =>
-          deps.uow.run((tx) => claimForCrew({ tx, ids: deps.ids, at: deps.clock.now() }, { crew, max: REPLY_MAX, inReplyTo: input.messageId })),
+          withDataKeys({ sealing: deps.sealing, fleetId: crew.fleetId }, (keys) =>
+            deps.uow.run((tx) => claimForCrew({ tx, ids: deps.ids, at: deps.clock.now(), keys }, { crew, max: REPLY_MAX, inReplyTo: input.messageId })),
+          ),
       },
     );
 }

@@ -117,3 +117,11 @@ export const Failed: Story = {
 };
 
 export const ReadOnly: Story = { args: { isReadOnly: true } };
+
+/** A sealed question: rendered as today, Sealed in the line under the title (decision 0068, N1). */
+export const Sealed: Story = {
+  args: { question: { ...TIDE_TABLES, sealing: 'sealed' } },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByTestId('inbox-question-sealed')).toHaveTextContent('Sealed');
+  },
+};

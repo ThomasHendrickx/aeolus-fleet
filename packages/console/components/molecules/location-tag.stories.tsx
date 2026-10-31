@@ -19,7 +19,18 @@ export const Compact: Story = { args: { kind: 'OTHER', description: 'CI runner',
 export const Phone: Story = { args: { kind: 'OTHER', description: 'CI runner', size: 'sm' } };
 export const ClaudeCodeOnDevice: Story = { args: { kind: 'DEVICE', description: 'Mac mini', harness: 'claude-code', size: 'sm' } };
 export const CodexInCloud: Story = { args: { kind: 'CLOUD', harness: 'codex', size: 'sm' } };
+/** Copilot by name with the coding agent's icon, on every location kind, md on the ship page and sm in Runs on. */
+export const CopilotOnDevice: Story = { args: { kind: 'DEVICE', harness: 'copilot' } };
+export const CopilotOnDeviceSmall: Story = { args: { kind: 'DEVICE', harness: 'copilot', size: 'sm' } };
+export const CopilotInCloud: Story = { args: { kind: 'CLOUD', harness: 'copilot' } };
+export const CopilotInCloudSmall: Story = { args: { kind: 'CLOUD', harness: 'copilot', size: 'sm' } };
+export const CopilotOnServer: Story = { args: { kind: 'SERVER', harness: 'copilot' } };
+export const CopilotOnServerSmall: Story = { args: { kind: 'SERVER', harness: 'copilot', size: 'sm' } };
+export const CopilotOther: Story = { args: { kind: 'OTHER', description: 'CI runner', harness: 'copilot' } };
+export const CopilotOtherSmall: Story = { args: { kind: 'OTHER', description: 'CI runner', harness: 'copilot', size: 'sm' } };
 export const ChatSession: Story = { args: { kind: 'CLOUD', harness: 'claude-chat', size: 'sm' } };
 export const Bot: Story = { args: { kind: 'SERVER', harness: 'grokbot', size: 'sm' } };
 export const ArgoConsole: Story = { args: { kind: 'OTHER', description: 'Mac · Chrome', harness: 'console', size: 'sm' } };
 export const UnknownHarness: Story = { args: { kind: 'OTHER', description: 'CI runner', harness: 'github-actions', size: 'sm' } };
+/** A session that stated no harness (aeolus-fleet#1408): Harness unknown, the description kept. */
+export const NoHarnessStated: Story = { args: { kind: 'DEVICE', description: 'thomas-linux', isHarnessUnknown: true, size: 'sm' } };

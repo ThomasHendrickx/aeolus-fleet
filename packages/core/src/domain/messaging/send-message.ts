@@ -25,7 +25,9 @@ import { withinDailyMessageLimit, type DailyMessageLimitTx } from './daily-messa
 import { idempotencyKey } from '../shared/idempotency-key.js';
 import { acceptContribution, acceptLabelMessage, acceptMessage, repeatOf, type AcceptRefusal, type RepeatRefusal, type ScheduledFor } from './message.js';
 import { payload } from './payload.js';
-import type { DeliveryRepository, MeetingRepository, MessageRepository, RequestHasher } from './ports.js';
+import type { DeliveryRepository, FleetSealingRepository, MeetingRepository, MessageRepository, RequestHasher } from './ports.js';
+import { sealedMessage, unsealed, withDataKeys, type DataKeysNeeded, type HeldDataKeys, type PayloadSealing } from './data-keys.js';
+import type { Message } from './message.js';
 import { checkContribution, type ContributionRefusal } from './meeting.js';
 import { sendRequestText } from './send-request.js';
 
@@ -34,6 +36,7 @@ export interface SendMessageTx extends Omit<ResolveSelectorTx, 'ships'>, Omit<Ch
   messages: MessageRepository;
   deliveries: DeliveryRepository;
   meetings: Pick<MeetingRepository, 'findForShare'>;
+  sealings: Pick<FleetSealingRepository, 'currentDataKeyId'>;
   events: EventLog;
   notifier: Notifier;
 }
@@ -64,7 +67,7 @@ export type SendMessageRefusal =
   | AcceptRefusal
   | NotReachable
   | ContributionRefusal
-  | DomainError<'MESSAGE_LIMIT_REACHED'>;
+  | DomainError<'MESSAGE_LIMIT_REACHED' | 'KEY_UNAVAILABLE'>;
 
 export type SendMessage = (caller: ShipCaller, input: MessageToSend) => Promise<Result<MessageSent, SendMessageRefusal>>;
 
@@ -73,7 +76,7 @@ export type SendMessage = (caller: ShipCaller, input: MessageToSend) => Promise<
  * the caller, `argo` included; its scope (messages:send) is checked before
  * this runs. The message, its delivery, MessageAccepted and the notice that
  * wakes its receivers are one unit of work: the sender gets its id only once
- * all of it is committed (ADR 0003). A payload over 64 KB, a content type that
+ * all of it is committed (ADR 0003). A payload over 256 KB, a content type that
  * is no media type or a bad key is refused before the unit of work starts, so
  * nothing is stored. Without a content type the message is text/plain: the
  * same request as one that names text/plain. The ping content type is
@@ -107,12 +110,19 @@ export type SendMessage = (caller: ShipCaller, input: MessageToSend) => Promise<
  * never the sender, each held in id order after the key; the sender must
  * reach every one, or the send is refused whole. One message, one delivery
  * per ship, in the same unit of work.
+ *
+ * In a sealed fleet (decision 0068, B8) the payload is stored sealed under
+ * the fleet's current data key, bound to the new message's id, with its
+ * plain byte count. The key is unwrapped before the unit of work, never in
+ * it; a key the company's key vault does not give refuses KEY_UNAVAILABLE
+ * and nothing is stored.
  */
 export function createSendMessage(deps: {
   uow: UnitOfWork<SendMessageTx>;
   clock: Clock;
   ids: IdGenerator;
   hasher: RequestHasher;
+  sealing: PayloadSealing;
 }): SendMessage {
   return async (caller, input) => {
     if (input.contentType !== undefined && isPingContentType(input.contentType)) {
@@ -125,11 +135,13 @@ export function createSendMessage(deps: {
     if (!request.isOk) {
       return request;
     }
-    const outcome = await deps.uow.run(async (tx): Promise<Result<MessageSent | { prevented: NotReachable }, SendMessageRefusal>> => {
-      const sent = await sendWithin({ tx, clock: deps.clock, ids: deps.ids }, { caller, request: request.value });
-      // A send the network rules refused stored only its refusal's record: committed, then refused.
-      return !sent.isOk && sent.error.kind === 'NOT_REACHABLE' ? ok({ prevented: sent.error }) : sent;
-    });
+    const outcome = await withDataKeys({ sealing: deps.sealing, fleetId: caller.fleetId }, (held) =>
+      deps.uow.run(async (tx): Promise<Result<MessageSent | { prevented: NotReachable }, SendMessageRefusal | DataKeysNeeded>> => {
+        const sent = await sendWithin({ tx, clock: deps.clock, ids: deps.ids, held }, { caller, request: request.value });
+        // A send the network rules refused stored only its refusal's record: committed, then refused.
+        return !sent.isOk && sent.error.kind === 'NOT_REACHABLE' ? ok({ prevented: sent.error }) : sent;
+      }),
+    );
     if (!outcome.isOk) {
       return outcome;
     }
@@ -147,6 +159,8 @@ export interface CheckedSend {
   inReplyTo: MessageId | undefined;
   isForced: boolean;
   requestHash: string;
+  /** The hash of the request with its payload left out: a sealed message's (decision 0068, B10). */
+  sealedRequestHash: string;
   /** For a schedule's send: the schedule and its send time, carried on the envelope (decision 0062). */
   scheduledFor?: ScheduledFor;
 }
@@ -174,26 +188,33 @@ export function checkedSend(input: MessageToSend, hasher: RequestHasher): Result
   }
   const { selector, inReplyTo } = input;
   const isForced = input.isForced === true;
-  const requestHash = hasher.hash(
-    sendRequestText({ selector, payload: text.value, contentType: mediaType.value, inReplyTo, isForced }),
-  );
-  return ok({ selector, payload: text.value, contentType: mediaType.value, model: input.model, idempotencyKey: key.value, inReplyTo, isForced, requestHash });
+  const request = { selector, contentType: mediaType.value, inReplyTo, isForced };
+  const requestHash = hasher.hash(sendRequestText({ ...request, payload: text.value }));
+  const sealedRequestHash = hasher.hash(sendRequestText({ ...request, payload: undefined }));
+  return ok({ selector, payload: text.value, contentType: mediaType.value, model: input.model, idempotencyKey: key.value, inReplyTo, isForced, requestHash, sealedRequestHash });
+}
+
+/** What a send runs with inside its unit of work: the data keys it seals and unseals with among them (decision 0068). */
+export interface SendDeps {
+  tx: SendMessageTx;
+  clock: Clock;
+  ids: IdGenerator;
+  held: HeldDataKeys;
 }
 
 /** Sends a checked request inside the caller's unit of work, as {@link createSendMessage} describes. */
 export async function sendWithin(
-  deps: { tx: SendMessageTx; clock: Clock; ids: IdGenerator },
+  deps: SendDeps,
   send: { caller: ShipCaller; request: CheckedSend; actor?: Actor },
-): Promise<Result<MessageSent, SendMessageRefusal>> {
+): Promise<Result<MessageSent, SendMessageRefusal | DataKeysNeeded>> {
   const { tx, clock, ids } = deps;
   const { fleetId, shipId: senderShipId } = send.caller;
-  const { selector, inReplyTo, requestHash } = send.request;
+  const { selector, inReplyTo } = send.request;
   const senderKey = { fleetId, senderShipId, idempotencyKey: send.request.idempotencyKey };
   await tx.messages.lockIdempotencyKey(senderKey);
   const original = await tx.messages.findByIdempotencyKey(senderKey);
   if (original) {
-    const repeat = repeatOf(original, requestHash);
-    return repeat.isOk ? ok({ messageId: repeat.value }) : repeat;
+    return repeatWithin(deps, { original, request: send.request });
   }
 
   if (selector.kind === 'meeting') {
@@ -238,7 +259,7 @@ export async function sendWithin(
       model: send.request.model,
       senderKind: send.caller.kind,
       idempotencyKey: send.request.idempotencyKey,
-      requestHash,
+      requestHash: send.request.requestHash,
       inReplyTo,
       isForced: send.request.isForced,
       ...(send.caller.signedInAccountId === undefined ? {} : { signedInAccountId: send.caller.signedInAccountId }),
@@ -251,14 +272,32 @@ export async function sendWithin(
     return accepted;
   }
 
-  const { message, delivery, events } = accepted.value;
-  await tx.messages.create(message);
+  const { delivery, events } = accepted.value;
+  const message = await sealedMessage(deps, { message: accepted.value.message, sealedRequestHash: send.request.sealedRequestHash });
+  if (!message.isOk) {
+    return message;
+  }
+  await tx.messages.create(message.value);
   await tx.deliveries.create(delivery);
   for (const event of events) {
     await recordEvent({ events: tx.events, ids }, event);
   }
   await tx.notifier.deliveryPending({ fleetId, deliveryId: delivery.id, recipient: delivery.recipient });
-  return ok({ messageId: message.id });
+  return ok({ messageId: message.value.id });
+}
+
+/**
+ * A repeat of the sender's key: the original's id when it is the same request,
+ * its payload unsealed when sealed, so a sealed original needs its data key.
+ */
+function repeatWithin(deps: SendDeps, repeat: { original: Message; request: CheckedSend }): Result<MessageSent, SendMessageRefusal | DataKeysNeeded> {
+  const { original, request } = repeat;
+  const plainPayload = unsealed(deps.held, { row: { fleetId: original.fleetId, rowId: original.id }, payload: original.payload });
+  if (!plainPayload.isOk) {
+    return plainPayload;
+  }
+  const same = repeatOf({ message: original, plainPayload: plainPayload.value }, request);
+  return same.isOk ? ok({ messageId: same.value }) : same;
 }
 
 /**
@@ -270,9 +309,9 @@ export async function sendWithin(
  * and one notice each.
  */
 async function contributeWithin(
-  deps: { tx: SendMessageTx; clock: Clock; ids: IdGenerator },
+  deps: SendDeps,
   send: { caller: ShipCaller; request: CheckedSend; actor?: Actor; meeting: MeetingSelector },
-): Promise<Result<MessageSent, SendMessageRefusal>> {
+): Promise<Result<MessageSent, SendMessageRefusal | DataKeysNeeded>> {
   const { tx, clock, ids } = deps;
   const { fleetId, shipId: senderShipId } = send.caller;
   const { meetingId } = send.meeting;
@@ -314,8 +353,12 @@ async function contributeWithin(
   if (!accepted.isOk) {
     return accepted;
   }
-  const { message, deliveries, events } = accepted.value;
-  await tx.messages.create(message);
+  const { deliveries, events } = accepted.value;
+  const message = await sealedMessage(deps, { message: accepted.value.message, sealedRequestHash: send.request.sealedRequestHash });
+  if (!message.isOk) {
+    return message;
+  }
+  await tx.messages.create(message.value);
   for (const delivery of deliveries) {
     await tx.deliveries.create(delivery);
   }
@@ -325,7 +368,7 @@ async function contributeWithin(
   for (const delivery of deliveries) {
     await tx.notifier.deliveryPending({ fleetId, deliveryId: delivery.id, recipient: delivery.recipient });
   }
-  return ok({ messageId: message.id });
+  return ok({ messageId: message.value.id });
 }
 
 /**
@@ -336,9 +379,9 @@ async function contributeWithin(
  * message, one delivery per ship, one MessageAccepted and one notice each.
  */
 async function sendToLabelWithin(
-  deps: { tx: SendMessageTx; clock: Clock; ids: IdGenerator },
+  deps: SendDeps,
   send: { caller: ShipCaller; request: CheckedSend; actor?: Actor; label: LabelSelector },
-): Promise<Result<MessageSent, SendMessageRefusal>> {
+): Promise<Result<MessageSent, SendMessageRefusal | DataKeysNeeded>> {
   const { tx, clock, ids } = deps;
   const { fleetId, shipId: senderShipId } = send.caller;
   const { inReplyTo } = send.request;
@@ -382,8 +425,12 @@ async function sendToLabelWithin(
   if (!accepted.isOk) {
     return accepted;
   }
-  const { message, deliveries, events } = accepted.value;
-  await tx.messages.create(message);
+  const { deliveries, events } = accepted.value;
+  const message = await sealedMessage(deps, { message: accepted.value.message, sealedRequestHash: send.request.sealedRequestHash });
+  if (!message.isOk) {
+    return message;
+  }
+  await tx.messages.create(message.value);
   for (const delivery of deliveries) {
     await tx.deliveries.create(delivery);
   }
@@ -393,5 +440,5 @@ async function sendToLabelWithin(
   for (const delivery of deliveries) {
     await tx.notifier.deliveryPending({ fleetId, deliveryId: delivery.id, recipient: delivery.recipient });
   }
-  return ok({ messageId: message.id });
+  return ok({ messageId: message.value.id });
 }

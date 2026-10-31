@@ -1,4 +1,4 @@
-import type { ListedShip } from '@aeolus-fleet/common';
+import type { FleetId, ListedShip } from '@aeolus-fleet/common';
 import { ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
@@ -15,6 +15,8 @@ interface SilentMembersProps {
   /** Each member's ship as the fleet lists it, by ship id: its last report. */
   ships: ReadonlyMap<string, ListedShip>;
   now: Date;
+  /** The viewer's fleet, for a report's message task; undefined until the session is known. */
+  viewerFleetId: FleetId | undefined;
   /** A member's action before Open: Get new crew line, the primary action for a silent member. */
   renderAction?: (silent: { squadronId: string; member: Squadron['members'][number] }) => ReactNode;
 }
@@ -25,7 +27,7 @@ interface SilentMembersProps {
  * seen against its check-in interval, its last report, the action the page
  * gives it (Get new crew line), and Open to its squadron. Late members and blocked reports stay on the squadron page.
  */
-export function SilentMembers({ members, ships, now, renderAction }: SilentMembersProps) {
+export function SilentMembers({ members, ships, now, viewerFleetId, renderAction }: SilentMembersProps) {
   return (
     <ul data-testid="silent-members" className="divide-y divide-border overflow-hidden rounded-lg border border-border">
       {members.map(({ squadronId, member }) => {
@@ -44,7 +46,7 @@ export function SilentMembers({ members, ships, now, renderAction }: SilentMembe
               <span className="text-muted-foreground">checks in {checkInText(member.checkInMinutes)}</span>
             </span>
             <span className="grow">
-              <ReportLine report={ships.get(member.shipId)?.report ?? null} now={now} variant="row" testId="silent-member-report" />
+              <ReportLine report={ships.get(member.shipId)?.report ?? null} now={now} variant="row" viewerFleetId={viewerFleetId} testId="silent-member-report" />
             </span>
             {renderAction?.({ squadronId, member })}
             <Link href={`/squadrons/${squadronId}`} className="inline-flex items-center gap-1 text-meta font-medium hover:underline">

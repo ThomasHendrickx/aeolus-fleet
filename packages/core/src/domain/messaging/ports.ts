@@ -1,10 +1,14 @@
-import type { DeliveryId, FleetId, LeaseId, MeetingId, MessageId, ScheduleId, ScheduleState, ShipId } from '@aeolus-fleet/common';
+import type { DataKeyId, DeliveryId, FleetId, LeaseId, MeetingId, MessageId, ScheduleId, ScheduleState, ShipId } from '@aeolus-fleet/common';
 
 import type { Page, PageQuery } from '../shared/page.js';
+import type { DataKeyAge, FleetSealing, KeyAvailability, StoredDataKey } from './fleet-sealing.js';
+import type { CompanyKeyReference, WrappedDataKey } from './key-vault.js';
+import type { RecoveryKey } from './recovery-key.js';
 import type { Meeting } from './meeting.js';
 import type { Delivery, Message } from './message.js';
 import type { Overdue, PushedCrew } from './overdue.js';
 import type { Schedule } from './schedule.js';
+import type { SealedMessagePayload } from './sealed-payload.js';
 
 /** One sender's idempotency key, in its fleet. */
 export interface SenderKey {
@@ -268,4 +272,88 @@ export interface OverdueDeliveryRepository {
    * at once store it once.
    */
   tell(overdue: Overdue, at: Date): Promise<boolean>;
+}
+
+/** A sealed fleet's company key and the wraps of some of its data keys: what unwraps them. */
+export interface WrappedDataKeys {
+  companyKey: CompanyKeyReference;
+  recoveryKey: RecoveryKey | null;
+  dataKeys: StoredDataKey[];
+}
+
+/** Where the sealing pass goes on from in a fleet's messages: the last one it read, by when it was made and its id. */
+export interface SealingCursor {
+  createdAt: Date;
+  id: MessageId;
+}
+
+/** What one batch of the sealing pass reads, each row held until its unit of work ends: plain messages after its cursor, oldest first, and plain schedules. */
+export interface PlainPayloads {
+  messages: Message[];
+  schedules: Schedule[];
+}
+
+/** A row's payload sealed for that row, and its request hash that leaves the payload out (B10). */
+export interface SealedRowPayload<Id extends MessageId | ScheduleId> {
+  id: Id;
+  payload: SealedMessagePayload;
+  requestHash: string;
+}
+
+/** What one batch of the sealing pass stores in place of what it read. */
+export interface SealedPayloads {
+  messages: SealedRowPayload<MessageId>[];
+  schedules: SealedRowPayload<ScheduleId>[];
+}
+
+/** Outbound port: the fleets' sealing and their data keys (decision 0068), always within one fleet. */
+export interface FleetSealingRepository {
+  /** The fleet's sealing, none while it is not sealed, read without a lock. */
+  find(fleetId: FleetId): Promise<FleetSealing | undefined>;
+  /** The fleet's sealing, none while it is not sealed, held for update until the unit of work ends. */
+  findForUpdate(fleetId: FleetId): Promise<FleetSealing | undefined>;
+  /** Whether the fleet stores a payload plain: a message's or a schedule's. */
+  storesPlainPayload(fleetId: FleetId): Promise<boolean>;
+  /** How many payloads the fleet stores plain: its messages' and its schedules'. */
+  plainPayloadCount(fleetId: FleetId): Promise<number>;
+  /** Marks the fleet sealing or sealed under its company key, with its first data key, current. */
+  turnOn(sealing: FleetSealing, firstKey: StoredDataKey): Promise<void>;
+  /** The fleet's data keys, oldest first, each with when it was made and whether it is current: never a wrap. */
+  dataKeyAges(fleetId: FleetId): Promise<DataKeyAge[]>;
+  /** The id of the fleet's current data key: the one that seals; none while it is not sealed. */
+  currentDataKeyId(fleetId: FleetId): Promise<DataKeyId | undefined>;
+  /**
+   * Sets the company key's availability when it changes from available to
+   * unavailable or back, and answers whether it changed: of two calls racing
+   * the same change, one changes it. A sealed fleet only.
+   */
+  changeKeyAvailability(fleetId: FleetId, availability: KeyAvailability): Promise<boolean>;
+  /** The company key and the named data keys of a sealed fleet, wrapped, read without a lock; none while it is not sealed. */
+  wrappedDataKeys(fleetId: FleetId, dataKeyIds: readonly DataKeyId[]): Promise<WrappedDataKeys | undefined>;
+  /** The fleets whose sealing reads sealing, across the installation: the ones the sealing pass has work in (B5). */
+  sealingFleetIds(): Promise<FleetId[]>;
+  /** Takes the fleet's sealing lock if no other unit of work holds it, until this one ends: answers whether it did. */
+  tryLockSealing(fleetId: FleetId): Promise<boolean>;
+  /**
+   * Up to `limit` plain messages after the cursor, oldest first, and up to
+   * `limit` plain schedules, each held until the unit of work ends; a row
+   * another unit of work holds is skipped, not waited for.
+   */
+  plainPayloads(fleetId: FleetId, input: { after: SealingCursor | null; limit: number }): Promise<PlainPayloads>;
+  /** Stores each payload sealed in place of its plain one, with its request hash that leaves the payload out. */
+  sealPayloads(fleetId: FleetId, sealed: SealedPayloads): Promise<void>;
+  /** Adds the payloads a batch of the sealing pass sealed to a sealing fleet's progress. */
+  countSealed(fleetId: FleetId, count: number): Promise<void>;
+  /** Marks a sealing fleet sealed since the given time: it stores no payload plain. */
+  markSealed(fleetId: FleetId, at: Date): Promise<void>;
+  /** The sealed fleets whose current data key was made at or before the cutoff, across the installation: the ones a new data key is due in (B13a). */
+  fleetsDueANewDataKey(cutoff: Date): Promise<FleetId[]>;
+  /** Makes the given data key the fleet's current one; the one current before stays, to unseal what it sealed. */
+  addCurrentDataKey(dataKey: StoredDataKey): Promise<void>;
+  /** Takes the fleet's sealing lock, waiting for the unit of work that holds it, until this one ends. */
+  lockSealing(fleetId: FleetId): Promise<void>;
+  /** Names the fleet's new company key and stores each data key's wrap by it. */
+  changeCompanyKey(fleetId: FleetId, change: { companyKey: CompanyKeyReference; dataKeys: readonly { id: DataKeyId; wrappedByCompanyKey: WrappedDataKey }[] }): Promise<void>;
+  /** Names the fleet's new recovery key and stores each data key's wrap to it. */
+  changeRecoveryKey(fleetId: FleetId, change: { recoveryKey: RecoveryKey; dataKeys: readonly { id: DataKeyId; wrappedByRecoveryKey: WrappedDataKey }[] }): Promise<void>;
 }

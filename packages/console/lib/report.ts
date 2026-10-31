@@ -31,10 +31,16 @@ export function reportAge(reportedAt: Date, now: Date): string {
   return relativeTime(reportedAt, now);
 }
 
-/** When a crew reported, for the ship page: "reported 2 min ago", "reported just now". */
+/** When a crew reported, for a title beside when the report changed: "reported 2 min ago", "reported just now". */
 export function reportedWhen(reportedAt: Date, now: Date): string {
   const when = relativeTime(reportedAt, now);
   return `reported ${when === 'Just now' ? 'just now' : when}`;
+}
+
+/** When the report last changed, for the ship page: "changed 4 min ago", "changed just now". */
+export function reportChangedWhen(changedAt: Date, now: Date): string {
+  const when = relativeTime(changedAt, now);
+  return `changed ${when === 'Just now' ? 'just now' : when}`;
 }
 
 /** The whole report in one line, for a title or a copy: "Blocked: waiting for review". */

@@ -3,12 +3,15 @@ import { Bot, CircleDashed, FolderOpen, GitBranch, ShipWheel, TriangleAlert } fr
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
+import { harnessLoginOf } from '../../../../lib/api-key-logins';
 import { harnessDetection, harnessWord } from '../../../../lib/harness';
 import { harnessOptions, machineLiveness, type Spot } from '../../../../lib/machines';
 import { clockTime, fullDateTime, lastSeen, relativeTime } from '../../../../lib/relative-time';
 import type { Machine } from '../../../../lib/trierarch-plugin-schemas';
 import { Badge } from '../../../../components/atoms/badge';
+import { Button } from '@aeolus-fleet/common/header';
 import { CapacityBar } from '../molecules/capacity-bar';
+import { HarnessLoginLine } from '../molecules/harness-login-line';
 import { NotOfferedLine } from '../../../../components/molecules/not-offered-line';
 import { LocationTag } from '../../../../components/molecules/location-tag';
 
@@ -18,6 +21,10 @@ interface MachineCardProps {
   spots: readonly Spot[];
   /** Where its trierarch's session runs, from the fleet. */
   location: { kind: LocationKind; description: string | null } | null;
+  /** The fleet's ships with the harness each one's crewing session stated, so each harness counts its own ships on its login line (K12). */
+  ships?: readonly { id: string; harness: string | null }[];
+  /** Get a new setup line, for a session that may join a machine (#1239). */
+  onNewSetupLine?: () => void;
   now: Date;
 }
 
@@ -69,9 +76,10 @@ function Column({ title, children, className }: { title: string; children: React
  * A harness the machine offers: its version and when its models were last
  * confirmed (#365), its options' values, its default marked, and
  * the flags every launch gets, each flag its trierarch reports as risky marked
- * in the waiting tone (#326).
+ * in the waiting tone (#326). With its ships, its login line (aeolus-fleet-trierarch's
+ * api keys design, K12).
  */
-export function HarnessOffer({ harness, now }: { harness: NonNullable<Machine['details']>['harnesses'][number]; now: Date }) {
+export function HarnessOffer({ harness, now, login }: { harness: NonNullable<Machine['details']>['harnesses'][number]; now: Date; login?: ReturnType<typeof harnessLoginOf> }) {
   const detection = harnessDetection(harness, now);
   return (
     <div className="flex flex-col gap-1.5 border-t border-border py-2.5 first-of-type:border-t-0 first-of-type:pt-0">
@@ -113,6 +121,7 @@ export function HarnessOffer({ harness, now }: { harness: NonNullable<Machine['d
           )}
         </span>
       )}
+      {login === undefined ? null : <HarnessLoginLine login={login} />}
     </div>
   );
 }
@@ -150,9 +159,9 @@ export function WorkspaceOffer({ workspaces }: { workspaces: NonNullable<Machine
  * its trierarch as a link to the machine's page, whether it answers, where it
  * runs and its version, its capacity, the harnesses it offers with their
  * options and flags, and its workspaces. Until it reported, what it offers is
- * unknown.
+ * unknown. Under whether it answers, a new setup line for a lost one (#1239).
  */
-export function MachineCard({ machine, spots, location, now }: MachineCardProps) {
+export function MachineCard({ machine, spots, location, ships, onNewSetupLine, now }: MachineCardProps) {
   const { details, report } = machine;
   const reportedAt = report === null ? null : new Date(report.reportedAt);
   return (
@@ -171,6 +180,11 @@ export function MachineCard({ machine, spots, location, now }: MachineCardProps)
           {machine.name}
         </Link>
         <MachineLiveness machine={machine} now={now} />
+        {onNewSetupLine === undefined ? null : (
+          <Button size="sm" className="self-start" onClick={onNewSetupLine} data-testid="machine-card-new-setup-line">
+            New setup line
+          </Button>
+        )}
         <span className="flex flex-wrap items-center gap-1.5 text-meta text-muted-foreground">
           <LocationTag kind={location?.kind ?? null} description={location?.description} />
           {details === null ? null : <span className="font-mono text-id">· trierarch {details.version}</span>}
@@ -186,7 +200,9 @@ export function MachineCard({ machine, spots, location, now }: MachineCardProps)
       </div>
       <Column title="Harnesses, options and flags">
         {details?.notOffered?.map(({ harness, reason }) => <NotOfferedLine key={harness} harness={harness} reason={reason} />)}
-        {details === null ? <span className="text-meta text-muted-foreground">Unknown until it answers</span> : details.harnesses.map((harness) => <HarnessOffer key={harness.harness} harness={harness} now={now} />)}
+        {details === null ? <span className="text-meta text-muted-foreground">Unknown until it answers</span> : details.harnesses.map((harness) => (
+            <HarnessOffer key={harness.harness} harness={harness} now={now} {...(ships === undefined ? {} : { login: harnessLoginOf(details, { harness: harness.harness, ships }) })} />
+          ))}
       </Column>
       <Column title="Workspaces">
         {details === null ? <span className="text-meta text-muted-foreground">Unknown until it answers</span> : <WorkspaceOffer workspaces={details.workspaces} />}

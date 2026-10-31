@@ -2,6 +2,8 @@ import type { DiscoveredStatement, ShipId } from '@aeolus-fleet/common';
 
 import { isShipCaller, type Caller } from '../shared/caller.js';
 import { refuse, type DomainError } from '../shared/errors.js';
+import type { ShownAlert } from './alert.js';
+import type { ShipExpectations } from './expectations.js';
 import { ok, type Result } from '../shared/result.js';
 import { listedShipOf, outsideReadReach, type ListedShip, type ShipOutsideReadReach } from './list-fleet.js';
 import { readsShip, type ReadReachOf } from './read-reach.js';
@@ -19,14 +21,22 @@ export interface ShipDetail extends Omit<ListedShip, 'report' | 'crewRequest'> {
   commissionedAt: Date;
   /** Since when the session crewing it has held it; null while no session does. */
   crewedSince: Date | null;
+  /** When the pruning pass removed it: its page is its remnant (decision 0070, D8). Null until then. */
+  removedAt: Date | null;
   /** What its crew holds in flight: what a release or a re-crew returns to pending. */
   inFlightDeliveries: number;
   /** Its direct deliveries pending or in flight: what a retire abandons. */
   openDeliveries: number;
   /** Its owner by id and name; null for argo and the viewer (decision 0045). */
   owner: { id: ShipId; name: string } | null;
+  /** The ship that commissioned it, such as the gateway's for its proxy ships (decision 0068, B19); null when an account or the installation did, and for argo. */
+  commissionedByShipId: ShipId | null;
   /** What it is and offers: its crew's statement while one is stated, else its commission note, else none (decision 0047). */
   statement: DiscoveredStatement;
+  /** Its open alerts, newest first (decision 0071): shown above the meta strip until they clear. */
+  openAlerts: ShownAlert[];
+  /** What its owner, or a ship that manages it, expects of it (decision 0071); each null while not set. */
+  expectations: ShipExpectations;
 }
 
 export type GetShip = (
@@ -39,7 +49,7 @@ const READ_SCOPES = ['fleet:read'] as const;
 
 /**
  * Use case: one ship of the caller's fleet, retired ships included: they keep
- * their page. The caller's scope (fleet:read or crew:run) is
+ * their page, a removed one its remnant (decision 0070). The caller's scope (fleet:read or crew:run) is
  * checked before this runs; crew:run reads only the ships whose crew requests
  * are assigned to the caller's ship, whole. Any other ship outside the
  * caller's read reach shows its name, type and status only (decision 0034).
@@ -59,7 +69,12 @@ export function createGetShip(deps: { listing: FleetListing; readReach: ReadReac
     if (!isAssignedToCaller && !readsShip(await deps.readReach(caller), shipId)) {
       return ok(outsideReadReach(listed));
     }
-    const [counts, stated] = await Promise.all([deps.listing.deliveryCounts(caller.fleetId, shipId), deps.listing.statement(caller.fleetId, shipId)]);
+    const [counts, stated, openAlerts, expectations] = await Promise.all([
+      deps.listing.deliveryCounts(caller.fleetId, shipId),
+      deps.listing.statement(caller.fleetId, shipId),
+      deps.listing.openAlertsOn(caller.fleetId, shipId),
+      deps.listing.expectationsOn(caller.fleetId, shipId),
+    ]);
     return ok({
       ...listed,
       report: facts.openLease?.report ? shownReportOf(facts.openLease.report) : null,
@@ -68,8 +83,12 @@ export function createGetShip(deps: { listing: FleetListing; readReach: ReadReac
       openDeliveries: counts.open,
       commissionedAt: facts.ship.createdAt,
       crewedSince: facts.openLease?.startedAt ?? null,
+      removedAt: facts.ship.removedAt,
       owner: facts.owner,
+      commissionedByShipId: facts.ship.commission?.by.kind === 'ship' ? facts.ship.commission.by.shipId : null,
       statement: discoveredStatementOf(facts.ship, stated),
+      openAlerts,
+      expectations,
     });
   };
 }

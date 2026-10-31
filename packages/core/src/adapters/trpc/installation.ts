@@ -3,7 +3,11 @@ import {
   installationAccountsCutOffOutputSchema,
   installationAccountsSignOutInputSchema,
   installationAccountsSignOutOutputSchema,
+  FEATURE_FLAGS,
+  installationFeatureFlagsListOutputSchema,
   installationFleetSchema,
+  installationFleetsSetFeatureFlagInputSchema,
+  installationFleetsSetFeatureFlagOutputSchema,
   installationFleetsCreateInputSchema,
   installationFleetsCreateOutputSchema,
   installationFleetsDeleteInputSchema,
@@ -141,7 +145,24 @@ export const installationRouter = router({
         return { notices: notices.map(noticeOutputOf) };
       }),
   }),
+  featureFlags: router({
+    /** The feature flags core names (decision 0069), each with what it turns on and the line shown while a fleet uses it. */
+    list: installationProcedure.output(installationFeatureFlagsListOutputSchema).query(() => FEATURE_FLAGS.map((flag) => ({ ...flag }))),
+  }),
   fleets: router({
+    /**
+     * Turns one feature flag on or off for one fleet (decision 0069); refused
+     * FEATURE_FLAG_IN_USE, changing nothing, while the fleet uses its feature.
+     */
+    setFeatureFlag: installationProcedure
+      .input(installationFleetsSetFeatureFlagInputSchema)
+      .output(installationFleetsSetFeatureFlagOutputSchema)
+      .mutation(async ({ ctx, input }) => {
+        const flag = okOrThrow(await ctx.useCases.setFeatureFlag(input));
+        ctx.log.info({ fleetId: input.fleetId, flag: flag.flag, isOn: flag.isOn }, 'installation set a feature flag');
+        return flag;
+      }),
+
     /** A fleet's limits and retention: how each is set and the limit or days that apply. */
     limits: installationProcedure
       .input(installationFleetsGetInputSchema)
@@ -154,7 +175,7 @@ export const installationRouter = router({
       .output(installationFleetLimitsSchema)
       .mutation(async ({ ctx, input }) => okOrThrow(await ctx.useCases.setFleetLimits(input))),
 
-    /** Creates a fleet, its argo and its operator without a password; once per request id. */
+    /** Creates a fleet, its argo and its operator without a password, with the feature flags asked for on; once per request id. */
     create: installationProcedure
       .input(installationFleetsCreateInputSchema)
       .output(installationFleetsCreateOutputSchema)
@@ -163,7 +184,7 @@ export const installationRouter = router({
         return okOrThrow(await ctx.useCases.createFleet({ ...fleet, hasViewer: viewer === true }));
       }),
 
-    /** Every fleet, oldest first, with its operator, ships, messages of the last 7 days and last activity. */
+    /** Every fleet, oldest first, with its operator, ships, messages of the last 7 days, last activity and feature flags. */
     list: installationProcedure
       .output(installationFleetsListOutputSchema)
       .query(async ({ ctx }) => (await ctx.useCases.listInstallationFleets()).map(described)),

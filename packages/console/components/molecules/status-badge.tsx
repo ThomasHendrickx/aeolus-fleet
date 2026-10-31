@@ -24,6 +24,7 @@ import {
   Hourglass,
   Inbox,
   LoaderCircle,
+  Lock,
   MailCheck,
   OctagonAlert,
   Power,
@@ -46,7 +47,11 @@ export type UnassignedCrewState = 'needsCrew' | 'crewedByHand';
 export type PushedStepState = 'handedPushed' | 'overdue';
 /** The fleet's health (decision 0042): its verdict, stuck or delivering, and why a delivery is stuck. */
 export type HealthState = 'stuck' | 'delivering' | StuckCause;
-type Status = ShipStatus | DeliveryState | SquadronState | LimitState | CrewStatus | UnassignedCrewState | PushedStepState | HealthState | ScheduleState;
+/** A sealed fleet's state and whether its company key is reachable (decision 0068). */
+export type SealingBadgeState = 'sealing' | 'sealed' | 'reachable' | 'notReachable';
+/** A ship with an open alert (decision 0071): the badge after its status on the overview. */
+export type AlertBadgeState = 'alert';
+type Status = AlertBadgeState | SealingBadgeState | ShipStatus | DeliveryState | SquadronState | LimitState | CrewStatus | UnassignedCrewState | PushedStepState | HealthState | ScheduleState;
 import { Badge } from '../atoms/badge';
 
 type Tone = 'waiting' | 'active' | 'ok' | 'attention' | 'ended';
@@ -107,6 +112,11 @@ const STATUSES: Record<Status, { tone: Tone; Icon: LucideIcon; label: string }> 
   paused: { tone: 'waiting', Icon: CirclePause, label: 'Paused' },
   ended: { tone: 'ended', Icon: CalendarCheck, label: 'Ended' },
   cancelled: { tone: 'ended', Icon: CalendarX, label: 'Cancelled' },
+  sealing: { tone: 'active', Icon: Lock, label: 'Sealing' },
+  sealed: { tone: 'ok', Icon: Lock, label: 'Sealed' },
+  reachable: { tone: 'ok', Icon: CircleCheck, label: 'Reachable' },
+  notReachable: { tone: 'attention', Icon: CircleAlert, label: 'Not reachable' },
+  alert: { tone: 'attention', Icon: TriangleAlert, label: 'Alert' },
 };
 
 /**

@@ -22,7 +22,7 @@ describe('initialising the fleet on Postgres', () => {
     );
 
     await expect(core.prisma.fleet.findMany()).resolves.toEqual([
-      { id: fleetId, name: 'home fleet', createdAt: core.clock.now(), lastEventSeq: 2n, shipLimitSet: false, shipLimit: null, dailyMessageLimitSet: false, dailyMessageLimit: null, schedulesPerShipLimitSet: false, schedulesPerShipLimit: null, minimumScheduleIntervalSet: false, minimumScheduleInterval: null, retentionSet: false, retentionDays: null, prunedAt: null, keptFrom: null },
+      { id: fleetId, name: 'home fleet', createdAt: core.clock.now(), lastEventSeq: 2n, shipLimitSet: false, shipLimit: null, dailyMessageLimitSet: false, dailyMessageLimit: null, schedulesPerShipLimitSet: false, schedulesPerShipLimit: null, minimumScheduleIntervalSet: false, minimumScheduleInterval: null, retentionSet: false, retentionDays: null, prunedAt: null, keptFrom: null, sealingState: null, sealingStateSince: null, payloadsToSeal: 0, payloadsSealed: 0, companyKey: null, recoveryKey: null, recoveryKeyFingerprint: null, keyUnavailableReason: null, keyAvailabilitySince: null },
     ]);
     await expect(core.prisma.ship.findMany()).resolves.toEqual([
       expect.objectContaining({
@@ -31,7 +31,7 @@ describe('initialising the fleet on Postgres', () => {
         name: 'argo',
         type: 'operator',
         kind: 'operator',
-        scopes: ['messages:send', 'messages:receive', 'messages:force', 'messages:resend', 'fleet:read', 'fleet:commission', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'fleet:on-behalf', 'fleet:person', 'fleet:owner', 'fleet:explain', 'fleet:connect', 'labels:any', 'fleet:verify', 'scopes:declare', 'scopes:grant', 'scopes:define', 'meetings:open'],
+        scopes: ['messages:send', 'messages:receive', 'messages:force', 'messages:resend', 'fleet:read', 'fleet:commission', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'fleet:on-behalf', 'fleet:person', 'fleet:owner', 'fleet:explain', 'fleet:connect', 'labels:any', 'fleet:verify', 'scopes:declare', 'scopes:grant', 'scopes:define', 'meetings:open', 'fleet:keys', 'fleet:alert'],
         retiredAt: null,
       }),
     ]);

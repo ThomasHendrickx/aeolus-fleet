@@ -14,6 +14,8 @@ type Story = StoryObj<typeof meta>;
 export const AwaitingCrew: Story = { args: { status: 'awaitingCrew' } };
 export const Crewed: Story = { args: { status: 'crewed' } };
 export const Retired: Story = { args: { status: 'retired' } };
+/** A ship with an open alert, after its status on the overview (decision 0071). */
+export const Alert: Story = { args: { status: 'alert' } };
 export const Pending: Story = { args: { status: 'pending' } };
 export const Handed: Story = { args: { status: 'handed' } };
 export const Acknowledged: Story = { args: { status: 'acknowledged' } };
@@ -70,6 +72,18 @@ export const ScheduleStates: Story = {
       {SCHEDULE_STATES.map((status) => (
         <StatusBadge key={status} status={status} />
       ))}
+    </div>
+  ),
+};
+/** A sealed fleet's state and its company key (decision 0068). */
+export const Sealing: Story = {
+  args: { status: 'sealing' },
+  render: () => (
+    <div className="flex flex-wrap gap-2">
+      <StatusBadge status="sealing" />
+      <StatusBadge status="sealed" />
+      <StatusBadge status="reachable" />
+      <StatusBadge status="notReachable" />
     </div>
   ),
 };

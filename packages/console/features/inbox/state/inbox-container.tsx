@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { useAccess } from '../../../lib/access';
 import { useConsoleFrame } from '../../../lib/console-frame';
+import { refusalOf } from '../../../lib/errors';
 import { inboxPathOf, readInboxFilter, useAnswer, useInboxEntries, useInboxEntry, useMarkDone, useMarkRead, useOpenInboxCount, useReply } from '../../../lib/inbox';
 import { isOpenEntry, type InboxEntry } from '../../../lib/inbox-entry';
 import { useLiveFleet } from '../../../lib/live-fleet';
@@ -20,6 +21,7 @@ import { TopBar } from '../../../components/organisms/top-bar';
 import { useThread } from '../hooks/use-thread';
 import { answerAttemptOf, type AnswerAttempt } from '../services/answer-attempt';
 import { neighbourOf, questionPositionOf } from '../services/inbox-moves';
+import { replyRefusalOf } from '../services/reply-refusal';
 import { inboxViewOf, openQuestionsOf, waitingOf, type InboxView } from '../services/inbox-view';
 import { MessageMenu } from '../ui/molecules/message-menu';
 import { OperatorInbox } from '../ui/organisms/operator-inbox';
@@ -75,6 +77,8 @@ export function InboxContainer({ filterParameter, selectedId }: { filterParamete
   const [answerAttempts, setAnswerAttempts] = useState<ReadonlyMap<DeliveryId, AnswerAttempt>>(new Map());
   // The choices and notes left unsent on each question, held again when it opens (#870).
   const [answerDrafts, setAnswerDrafts] = useState<ReadonlyMap<DeliveryId, AnswerDraft>>(new Map());
+  // The replies refused while the company key is not reachable, by message, said by its reply field until the next reply (decision 0068).
+  const [replyRefusals, setReplyRefusals] = useState<ReadonlyMap<DeliveryId, { title: string; description: string }>>(new Map());
   // The one open now: leaving a question with a draft, or a send that fails after the operator moved on, needs a toast to be seen.
   const openIdRef = useRef(selectedId);
 
@@ -239,9 +243,28 @@ export function InboxContainer({ filterParameter, selectedId }: { filterParamete
         }}
         onMarkUnread={markUnread}
         onReply={({ deliveryId, payload }) => {
+          const keepRefusal = (refusal: { title: string; description: string } | undefined) => {
+            setReplyRefusals((refusals) => {
+              const next = new Map(refusals);
+              if (refusal === undefined) {
+                next.delete(deliveryId);
+              } else {
+                next.set(deliveryId, refusal);
+              }
+              return next;
+            });
+          };
+          keepRefusal(undefined);
           act({
             deliveryId,
-            run: () => reply.mutateAsync({ deliveryId, payload, idempotencyKey: `reply-${deliveryId}-${crypto.randomUUID()}` }),
+            run: () =>
+              reply.mutateAsync({ deliveryId, payload, idempotencyKey: `reply-${deliveryId}-${crypto.randomUUID()}` }).catch((error: unknown) => {
+                const refusal = replyRefusalOf(refusalOf(error));
+                if (refusal === undefined) {
+                  throw error;
+                }
+                keepRefusal(refusal);
+              }),
             failure: 'Couldn’t send the reply',
           });
         }}
@@ -283,6 +306,7 @@ export function InboxContainer({ filterParameter, selectedId }: { filterParamete
         }}
         pendingIds={pendingIds}
         answerFailures={failuresOf(answerAttempts)}
+        replyRefusals={replyRefusals}
         answerDrafts={answerDrafts}
         onAnswerDraftChange={({ deliveryId, draft }) => {
           keepDraft(deliveryId, draft);

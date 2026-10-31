@@ -1,6 +1,6 @@
 'use client';
 
-import type { ConsoleSessionOutput, Scope } from '@aeolus-fleet/common';
+import type { ConsoleSessionOutput, FeatureFlag, Scope } from '@aeolus-fleet/common';
 import { useQuery } from '@tanstack/react-query';
 
 import { useTRPC } from './trpc';
@@ -29,12 +29,14 @@ export interface Access {
   canEditNetwork: boolean;
   /** scopes:define: Define scope, and the fleet's own scopes described anew or removed (design gateway-scopes, 4.1). */
   canDefineScopes: boolean;
+  /** fleet:keys: Turn on sealing, Change company key and the recovery key (decision 0068, N5). */
+  canChangeKeys: boolean;
   /** A viewer session: the read-only console's own copy (the sidebar foot, the account menu). */
   isViewer: boolean;
 }
 
 /** Until the session is known nothing is offered, so a viewer never sees a write flash by. */
-export const NO_ACCESS: Access = { canManage: false, canResend: false, canSend: false, canReceive: false, canDefineLabels: false, canAssignLabels: false, canEditNetwork: false, canDefineScopes: false, isViewer: false };
+export const NO_ACCESS: Access = { canManage: false, canResend: false, canSend: false, canReceive: false, canDefineLabels: false, canAssignLabels: false, canEditNetwork: false, canDefineScopes: false, canChangeKeys: false, isViewer: false };
 
 export function accessOf(session: Pick<ConsoleSessionOutput, 'kind' | 'scopes'> | undefined): Access {
   if (session === undefined) {
@@ -52,6 +54,7 @@ export function accessOf(session: Pick<ConsoleSessionOutput, 'kind' | 'scopes'> 
     canAssignLabels: holds('labels:assign'),
     canEditNetwork: holds('fleet:network'),
     canDefineScopes: holds('scopes:define'),
+    canChangeKeys: holds('fleet:keys'),
     isViewer: session.kind === 'viewer',
   };
 }
@@ -59,4 +62,18 @@ export function accessOf(session: Pick<ConsoleSessionOutput, 'kind' | 'scopes'> 
 export function useAccess(): Access {
   const trpc = useTRPC();
   return accessOf(useQuery(trpc.console.session.queryOptions()).data);
+}
+
+/**
+ * Whether the fleet's flag for a feature is on, as console.session answers
+ * it (decision 0069): the console shows nothing of a feature whose flag is
+ * off, and nothing until the session is known, so a feature never flashes by.
+ */
+export function isFeatureOn(session: Pick<ConsoleSessionOutput, 'featureFlags'> | undefined, flag: FeatureFlag): boolean {
+  return session?.featureFlags.includes(flag) === true;
+}
+
+export function useIsFeatureOn(flag: FeatureFlag): boolean {
+  const trpc = useTRPC();
+  return isFeatureOn(useQuery(trpc.console.session.queryOptions()).data, flag);
 }

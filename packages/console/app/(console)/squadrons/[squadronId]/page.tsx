@@ -20,6 +20,7 @@ import { useAccess } from '../../../../lib/access';
 import { useLiveFleet } from '../../../../lib/live-fleet';
 import { useNeedsAttention } from '../../../../lib/needs-attention';
 import { useNow } from '../../../../lib/now';
+import { useSessionFleetId } from '../../../../lib/session-fleet-id';
 import { useSignInWhenSessionEnds } from '../../../../lib/session';
 import { useShips } from '../../../../lib/ship';
 import { useSquadronsConnection } from '../../../../lib/squadrons';
@@ -60,6 +61,7 @@ export default function SquadronPage({
   const asked = use(searchParams).action;
   const router = useRouter();
   const now = useNow();
+  const viewerFleetId = useSessionFleetId();
   const frame = useConsoleFrame();
   const attention = useNeedsAttention();
   const liveFleet = useLiveFleet();
@@ -162,6 +164,7 @@ export default function SquadronPage({
         <MemberList squadron={squadron} blueprint={blueprint} templates={catalogue.data?.templates ?? []} crewLines={crewLines}
           ships={ships}
           now={now}
+          viewerFleetId={viewerFleetId}
           renderActions={(member) => (
             <MemberActions
               squadronId={squadron.id}

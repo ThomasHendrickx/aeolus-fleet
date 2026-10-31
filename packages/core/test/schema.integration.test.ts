@@ -130,14 +130,17 @@ describe('migrations', () => {
       'account_cut_offs',
       'account_guide_progress',
       'account_notice_dismissals',
+      'alerts',
       'console_sessions',
       'credentials',
       'crew_request_give_backs',
       'crew_requests',
+      'data_keys',
       'declared_network_rules',
       'defined_scopes',
       'deliveries',
       'events',
+      'fleet_feature_flags',
       'fleets',
       'guide_progress',
       'guides',
@@ -163,6 +166,7 @@ describe('migrations', () => {
       'reach_refusals',
       'schedules',
       'scope_namespaces',
+      'ship_expectations',
       'ship_labels',
       'ships',
       'sign_in_tickets',
@@ -193,6 +197,32 @@ describe('migrations', () => {
       ORDER BY 1, 2`;
 
     expect(unindexed.map((key) => `${key.table_name} (${key.columns})`)).toEqual([]);
+  });
+});
+
+describe('data keys (decision 0068, B6)', () => {
+  /** A data key row as the vault and the sealer leave it: only wrapped, with its check value. */
+  function insertDataKey(fleetId: FleetId, isCurrent: boolean) {
+    const wrapped = Buffer.from('wrapped by the company key');
+    const checkValue = Buffer.alloc(32, 1);
+    return database.$executeRaw`
+      INSERT INTO data_keys (id, fleet_id, wrapped_by_company_key, check_value, created_at, is_current)
+      VALUES (${newId('dataKey')}, ${fleetId}, ${wrapped}, ${checkValue}, ${now}, ${isCurrent})`;
+  }
+
+  it('keep one current data key per fleet, beside the old ones that still unseal old payloads', async () => {
+    const fleetId = await createFleet();
+    await insertDataKey(fleetId, false);
+    await insertDataKey(fleetId, false);
+    await insertDataKey(fleetId, true);
+
+    await expect(insertDataKey(fleetId, true)).rejects.toThrow(/data_keys_fleet_id_current_key/);
+  });
+
+  it("let each fleet have its own current data key", async () => {
+    await insertDataKey(await createFleet(), true);
+
+    await expect(insertDataKey(await createFleet(), true)).resolves.toBe(1);
   });
 });
 
@@ -1179,22 +1209,22 @@ describe('console sessions', () => {
 });
 
 describe('messages', () => {
-  it('accept a payload of exactly 64 KB', async () => {
+  it('accept a payload of exactly 256 KB', async () => {
     const fleetId = await createFleet();
 
-    await expect(createMessage(fleetId, 'a'.repeat(65_536))).resolves.toMatch(/^msg_/);
+    await expect(createMessage(fleetId, 'a'.repeat(262_144))).resolves.toMatch(/^msg_/);
   });
 
-  it('refuse a payload one byte over 64 KB', async () => {
+  it('refuse a payload one byte over 256 KB', async () => {
     const fleetId = await createFleet();
 
-    await expect(createMessage(fleetId, 'a'.repeat(65_537))).rejects.toThrow(/messages_payload_max_64kb/);
+    await expect(createMessage(fleetId, 'a'.repeat(262_145))).rejects.toThrow(/messages_payload_max_256kb/);
   });
 
   it('count the payload in bytes, not characters', async () => {
     const fleetId = await createFleet();
-    // 32,769 two-byte characters: under 64 K characters, over 64 KB.
-    await expect(createMessage(fleetId, 'é'.repeat(32_769))).rejects.toThrow(/messages_payload_max_64kb/);
+    // 131,073 two-byte characters: under 256 K characters, over 256 KB.
+    await expect(createMessage(fleetId, 'é'.repeat(131_073))).rejects.toThrow(/messages_payload_max_256kb/);
   });
 
   interface SelectorColumns {

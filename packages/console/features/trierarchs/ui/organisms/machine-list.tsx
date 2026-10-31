@@ -24,6 +24,8 @@ interface MachineListProps {
   onRetry: () => void;
   /** Join a machine, for a session that manages the fleet. */
   onJoin?: () => void;
+  /** Get a machine's new setup line, for a session that may join a machine (#1239). */
+  onNewSetupLine?: (machine: Machine) => void;
   now: Date;
 }
 
@@ -32,7 +34,7 @@ interface MachineListProps {
  * machine, or why there is none. Not set up is a normal state: crew requests
  * then wait on Needs crew to be crewed by hand.
  */
-export function MachineList({ connection, machines, ships, error, onRetry, onJoin, now }: MachineListProps) {
+export function MachineList({ connection, machines, ships, error, onRetry, onJoin, onNewSetupLine, now }: MachineListProps) {
   if (connection === 'none') {
     return (
       <EmptyState
@@ -94,7 +96,17 @@ export function MachineList({ connection, machines, ships, error, onRetry, onJoi
   return (
     <div className="flex flex-col gap-4" data-testid="machine-list">
       {machines.map((machine) => (
-        <MachineCard key={machine.shipId} machine={machine} spots={spotsOf(machine, ships)} location={ships.find((ship) => ship.id === machine.shipId)?.location ?? null} now={now} />
+        <MachineCard
+          key={machine.shipId}
+          machine={machine}
+          spots={spotsOf(machine, ships)}
+          ships={ships}
+          location={ships.find((ship) => ship.id === machine.shipId)?.location ?? null}
+          onNewSetupLine={onNewSetupLine === undefined ? undefined : () => {
+            onNewSetupLine(machine);
+          }}
+          now={now}
+        />
       ))}
     </div>
   );

@@ -93,6 +93,27 @@ async function findWithOwnerHeld(tx: CommissionShipTx, ref: { fleetId: FleetId; 
 }
 
 /**
+ * The ship that asked, held FOR SHARE after its owner, the order a retire of
+ * the owner takes, and read again once held. A revoke of one of its scopes
+ * waits for this commission: it lands before (the commission is refused) or
+ * after (the new ship was commissioned while the asking ship held the scope),
+ * never between the read and the new ship's store (decision 0046).
+ */
+async function findAskingShipHeld(tx: CommissionShipTx, ref: { fleetId: FleetId; shipId: ShipId }): Promise<Ship | undefined> {
+  for (;;) {
+    const read = await findWithOwnerHeld(tx, ref);
+    if (!read) {
+      return undefined;
+    }
+    await tx.ships.findForShare(ref.fleetId, ref.shipId);
+    const held = await tx.ships.find(ref.fleetId, ref.shipId);
+    if (held?.owner === read.owner) {
+      return held;
+    }
+  }
+}
+
+/**
  * The values given, each with its label read FOR SHARE, so a change of its
  * values waits; undefined names a value the fleet does not have.
  */
@@ -312,7 +333,7 @@ export function createCommissionShip(deps: {
         }
         commissioner = { kind: 'account', scopes: account.scopes, personShip: personShip.value };
       }
-      const askingShip = input.ownerOf === undefined ? undefined : await findWithOwnerHeld(tx, { fleetId, shipId: input.ownerOf });
+      const askingShip = input.ownerOf === undefined ? undefined : await findAskingShipHeld(tx, { fleetId, shipId: input.ownerOf });
       if (input.ownerOf !== undefined && askingShip === undefined) {
         return refuse('SHIP_NOT_FOUND', `Ship ${input.ownerOf}, named as the ship that asked, does not exist`);
       }

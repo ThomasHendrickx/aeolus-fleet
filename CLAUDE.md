@@ -34,12 +34,12 @@ If the docs do not answer a behaviour question, stop and ask. Never decide produ
 - Contexts in core: registry, messaging, identity, shared. A context does not reach into another's internals.
 - Prisma lives in src/adapters/prisma only. Locking and notify queries use typed raw SQL there.
 - tRPC is the single API door. REST and MCP map onto the same ship procedures; they never hold logic of their own.
-- Every table has fleet_id. Every query is scoped by it.
-- Ids are prefixed and time-ordered (flt_, shp_, msg_, dlv_, evt_, lse_, crd_, opr_, ses_, lbl_, lbv_, rfs_, req_, mtg_, sch_), from common/src/ids.
+- Every fleet table has fleet_id (the installation's own tables: decision 0007). Every query is scoped by it.
+- Ids are prefixed and time-ordered (flt_, shp_, msg_, dlv_, evt_, lse_, crd_, opr_, ses_, lbl_, lbv_, rfs_, req_, mtg_, sch_, dky_), from common/src/ids.
 - Every call is authorised for an actor (a ship, an account or the installation) by scopes and reach, read from the server, never from the request (0057); everything that sends or receives messages is a ship. The operator is the ship `argo` (decision 0012).
 - Before 1.0.0 breaking changes are allowed (decision 0013). Keep designs minimal: no compatibility layers, no backward-compatibility work and no paid-product polish for zero customers. Flag such a request as overengineering.
 - Every state change writes its event in the same transaction.
-- Payloads are at most 64 KB. A message is the travelling ticket; the reference is where the content lives.
+- Payloads are at most 256 KB. A message is the travelling ticket; the reference is where the content lives.
 - Web follows the web-frontend skill: vertical by feature in its layout (features/<feature>/ with ui/, state/, hooks/, services/), shared props-only parts in components/, route layouts in app/. A feature still in the old layout (atoms/, molecules/, organisms/, lib/) moves when a change touches it; no migration PR. shadcn/ui on Base UI for atoms.
 
 ## Skills

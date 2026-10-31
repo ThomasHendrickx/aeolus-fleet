@@ -27,3 +27,9 @@ export function retryAtOf(error: unknown): Date | undefined {
   const at = new Date(retryAt);
   return Number.isNaN(at.getTime()) ? undefined : at;
 }
+
+/** The kind of a refusal, such as KEY_NOT_BOUND_TO_FLEET, as the server names it beside its tRPC code. */
+export function refusalOf(error: unknown): string | undefined {
+  const refusal = errorData(error)?.refusal;
+  return typeof refusal === 'string' ? refusal : undefined;
+}

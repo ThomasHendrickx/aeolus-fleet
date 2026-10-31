@@ -7,7 +7,7 @@ import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { refuseEndedLease, type LeaseEnded } from './lease.js';
 import type { LeaseRepository } from './ports.js';
-import { reportWork, type DetailsInput, type ReportRefusal } from './ship-report.js';
+import { reportWork, type DetailsInput, type ProgressInput, type ReportRefusal } from './ship-report.js';
 
 export interface ReportTx {
   leases: Pick<LeaseRepository, 'findReportForUpdate' | 'saveReport'>;
@@ -16,7 +16,7 @@ export interface ReportTx {
 
 export type Report = (
   crew: Crew,
-  input: { state: string; note?: string } & DetailsInput,
+  input: { state: string; note?: string } & DetailsInput & ProgressInput,
 ) => Promise<Result<undefined, ReportRefusal | LeaseEnded>>;
 
 /**

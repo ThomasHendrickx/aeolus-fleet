@@ -1,4 +1,4 @@
-import { createIdGenerator, idSchema, LEASE_END_REASONS, PING_CONTENT_TYPE, withdrawalOf, type DeliveryId, type FleetId, type IdGenerator, type LabelValueId, type LeaseWaker, type MessageId, type ShipId } from '@aeolus-fleet/common';
+import { createIdGenerator, idSchema, LEASE_END_REASONS, PING_CONTENT_TYPE, type DeliveryId, type FeatureFlag, type FleetId, type IdGenerator, type LabelValueId, type LeaseWaker, type MessageId, type ShipId } from '@aeolus-fleet/common';
 
 import type { ConsoleSession } from '../../src/domain/identity/console-session.js';
 import type { Credential } from '../../src/domain/identity/credential.js';
@@ -60,10 +60,14 @@ import type {
   ScopeNamespaceRepository,
   DefinedScopeRepository,
   VerifiedFactsRepository,
+  AlertRepository,
+  ExpectationsRepository,
   NetworkSettingsRepository,
   ReachRefusalRepository,
   ShipRepository,
+  FeatureFlagRepository,
 } from '../../src/domain/registry/ports.js';
+import type { FeatureFlagReads } from '../../src/domain/registry/feature-flag.js';
 import { isSameOwner, type Label, type LabelOwner, type ListedLabel, type ShipLabel } from '../../src/domain/registry/label.js';
 import { matchesShipFilter } from '@aeolus-fleet/common/rules';
 import { readsShip } from '../../src/domain/registry/read-reach.js';
@@ -80,7 +84,10 @@ import { listedShipOf } from '../../src/domain/registry/list-fleet.js';
 import type { ShipReport } from '../../src/domain/registry/ship-report.js';
 import type { StatedStatement } from '../../src/domain/registry/statement.js';
 import type { Turn } from '../../src/domain/registry/turn.js';
+import type { LeaseActivity } from '../../src/domain/registry/lease-activity.js';
 import { isSameWriter, type WrittenFacts } from '../../src/domain/registry/verified-facts.js';
+import { shownAlertOf, type Alert, type ShownAlert } from '../../src/domain/registry/alert.js';
+import { NO_EXPECTATIONS, type Expectations } from '../../src/domain/registry/expectations.js';
 import type { ClearRequest } from '../../src/domain/registry/clear-request.js';
 import type { CrewRequest } from '../../src/domain/registry/crew-request.js';
 import type { Clock } from '../../src/domain/shared/clock.js';
@@ -110,6 +117,15 @@ import type { HealthSnapshotWriter } from '../../src/domain/shared/health-snapsh
 import type { HistoryPruner } from '../../src/domain/shared/history-pruning.js';
 import { createInMemoryHealthSnapshots, type HeldHourSnapshot } from './in-memory-health-snapshots.js';
 import { createInMemoryHistoryPruner } from './in-memory-history-pruner.js';
+import type { FleetSealing, StoredDataKey } from '../../src/domain/messaging/fleet-sealing.js';
+import type { RecoveryKeys } from '../../src/domain/messaging/recovery-key.js';
+import { inMemoryRecoveryKeys } from './in-memory-recovery-keys.js';
+import { createFleetDataKeys, type FleetDataKeyMaker, type FleetDataKeys, type PayloadSealing } from '../../src/domain/messaging/data-keys.js';
+import { plainBytesOf, type StoredPayload } from '../../src/domain/messaging/sealed-payload.js';
+import { createInMemoryKeyVault } from './in-memory-key-vault.js';
+import type { KeyVaultWorld } from './key-vault-contract.js';
+import { inMemoryPayloadSealer } from './in-memory-payload-sealer.js';
+import type { FleetSealingRepository } from '../../src/domain/messaging/ports.js';
 
 /**
  * In-memory ports for unit tests of the core. Every repository reads and writes
@@ -147,6 +163,8 @@ export interface InMemoryState {
   leaseReports: { fleetId: FleetId; leaseId: Lease['id']; report: ShipReport }[];
   leaseStatements: { fleetId: FleetId; leaseId: Lease['id']; stated: StatedStatement }[];
   leaseTurns: { fleetId: FleetId; leaseId: Lease['id']; turn: Turn }[];
+  /** Each lease's activity as its trierarch wrote it: the activity columns, apart from the Lease. */
+  leaseActivities: { fleetId: FleetId; leaseId: Lease['id']; activity: LeaseActivity }[];
   crewRequests: CrewRequest[];
   /** The pending clear requests (decision 0032). */
   clearRequests: ClearRequest[];
@@ -166,13 +184,17 @@ export interface InMemoryState {
   definedScopes: DefinedScope[];
   /** The verified facts, one set per ship and writer (decision 0059). */
   verifiedFacts: WrittenFacts[];
+  /** The alerts, open and cleared, oldest first (decision 0071). */
+  alerts: Alert[];
+  /** The expectations, one set per ship (decision 0071). */
+  expectations: Expectations[];
   /** The records of the sends the network rules refused, oldest first. */
   reachRefusals: ReachRefusal[];
   /** When the recipient read each delivery it read: the read_at column, apart from the Delivery's state. */
   deliveryReads: { fleetId: FleetId; deliveryId: Delivery['id']; readAt: Date }[];
   events: FleetEvent[];
   /** The deliveries argo was told are overdue, once per lease and delivery, with the state each was told in. */
-  overdueDeliveries: (Omit<Overdue, 'delivery'> & { deliveryId: Delivery['id']; state: WaitingDelivery['state']; at: Date })[];
+  overdueDeliveries: (Omit<Overdue, 'delivery' | 'ownerShipId'> & { deliveryId: Delivery['id']; state: WaitingDelivery['state']; at: Date })[];
   /** The installation's requests: a table that belongs to no fleet (decision 0020). */
   installationRequests: InstallationRequest[];
   /** The installation's settings: no row until it sets them, then one. */
@@ -193,6 +215,14 @@ export interface InMemoryState {
   lockedMessages: MessageId[];
   /** The places in each fleet's stream of the events a pruning pass let go: the events left keep theirs, as Postgres's seq column does. */
   prunedEventSeqs: { fleetId: FleetId; seq: number }[];
+  /** Each sealed fleet's sealing: the sealing columns of its fleets row, apart from the Fleet (decision 0068). */
+  fleetSealings: FleetSealing[];
+  /** The sealed fleets' data keys, kept only wrapped (decision 0068). */
+  dataKeys: StoredDataKey[];
+  /** The fleets whose sealing lock another server holds, as a test sets it (decision 0068, B5). */
+  sealingLocks: FleetId[];
+  /** The feature flags on per fleet, a row per flag that is on (decision 0069). */
+  featureFlags: { fleetId: FleetId; flag: FeatureFlag }[];
 }
 
 /** A fleet's events, numbered in the order they were appended, the places of pruned events skipped. */
@@ -222,6 +252,8 @@ export interface InMemoryTx {
   scopeNamespaces: ScopeNamespaceRepository;
   definedScopes: DefinedScopeRepository;
   verifiedFacts: VerifiedFactsRepository;
+  alerts: AlertRepository;
+  expectations: ExpectationsRepository;
   reachRefusals: ReachRefusalRepository;
   inFlightDeliveries: InFlightDeliveries;
   credentials: CredentialRepository;
@@ -240,6 +272,8 @@ export interface InMemoryTx {
   installationSettings: InstallationSettingsRepository;
   healthSnapshots: HealthSnapshotWriter;
   historyPruner: HistoryPruner;
+  sealings: FleetSealingRepository;
+  featureFlags: FeatureFlagRepository;
 }
 
 /**
@@ -297,6 +331,17 @@ export interface InMemoryCore {
   scopeNamespaces: ScopeNamespaceRepository;
   /** The fleet's own scopes, read outside a unit of work. */
   definedScopes: DefinedScopeRepository;
+  /** The fleets' sealing and data keys, read outside a unit of work. */
+  sealings: FleetSealingRepository;
+  /** The fleets' feature flags, read outside a unit of work. */
+  featureFlags: FeatureFlagRepository;
+  /** The fleets' feature flags as a feature's procedures read them: set by the installation. */
+  featureFlagReads: FeatureFlagReads;
+  /** The company's key vault, as the company keeps its keys (decision 0068). */
+  keyVault: KeyVaultWorld;
+  recoveryKeys: RecoveryKeys;
+  /** What the use cases seal and unseal payloads with, and the data key rotation makes keys with: the in-memory sealer and key vault. */
+  sealing: PayloadSealing & { dataKeys: FleetDataKeys & FleetDataKeyMaker };
   callers: CallerLookup;
   accounts: OperatorAccountLookup;
   listing: FleetListing;
@@ -374,6 +419,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     leaseReports: [],
     leaseStatements: [],
     leaseTurns: [],
+    leaseActivities: [],
     crewRequests: [],
     clearRequests: [],
     labels: [],
@@ -384,6 +430,8 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     scopeNamespaces: [],
     definedScopes: [],
     verifiedFacts: [],
+    alerts: [],
+    expectations: [],
     reachRefusals: [],
     events: [],
     overdueDeliveries: [],
@@ -397,6 +445,10 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     historyPruneLocks: [],
     lockedMessages: [],
     prunedEventSeqs: [],
+    fleetSealings: [],
+    dataKeys: [],
+    sealingLocks: [],
+    featureFlags: [],
   };
 
   let now = new Date(startAt);
@@ -455,6 +507,145 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
   const healthRecords = createInMemoryHealthRecords(state);
   const healthSnapshots = createInMemoryHealthSnapshots(state, healthRecords);
   const tx: InMemoryTx = {
+    featureFlags: {
+      onFor: (fleetId) => Promise.resolve(state.featureFlags.filter((held) => held.fleetId === fleetId).map((held) => held.flag)),
+      isOnForUpdate: (fleetId, flag) => Promise.resolve(state.featureFlags.some((held) => isFlagRow(held, { fleetId, flag }))),
+      turnOn: (fleetId, flag) => {
+        if (!state.featureFlags.some((held) => isFlagRow(held, { fleetId, flag }))) {
+          state.featureFlags.push({ fleetId, flag });
+        }
+        return Promise.resolve();
+      },
+      turnOff: (fleetId, flag) => {
+        state.featureFlags.splice(0, state.featureFlags.length, ...state.featureFlags.filter((held) => !isFlagRow(held, { fleetId, flag })));
+        return Promise.resolve();
+      },
+    },
+    sealings: {
+      find: (fleetId) => Promise.resolve(structuredClone(state.fleetSealings.find((held) => held.fleetId === fleetId))),
+      findForUpdate: (fleetId) => Promise.resolve(structuredClone(state.fleetSealings.find((held) => held.fleetId === fleetId))),
+      storesPlainPayload: (fleetId) =>
+        Promise.resolve(
+          state.messages.some((held) => held.fleetId === fleetId && typeof held.payload === 'string') ||
+            state.schedules.some((held) => held.fleetId === fleetId && typeof held.send.payload === 'string'),
+        ),
+      plainPayloadCount: (fleetId) =>
+        Promise.resolve(
+          state.messages.filter((held) => held.fleetId === fleetId && typeof held.payload === 'string').length +
+            state.schedules.filter((held) => held.fleetId === fleetId && typeof held.send.payload === 'string').length,
+        ),
+      turnOn: (sealing, firstKey) => {
+        if (state.dataKeys.some((held) => held.fleetId === firstKey.fleetId && held.isCurrent)) {
+          return Promise.reject(new Error('unique violation: the fleet has a current data key'));
+        }
+        state.fleetSealings.push(structuredClone(sealing));
+        state.dataKeys.push(structuredClone(firstKey));
+        return Promise.resolve();
+      },
+      dataKeyAges: (fleetId) =>
+        Promise.resolve(state.dataKeys.filter((held) => held.fleetId === fleetId).map(({ id, createdAt, isCurrent }) => ({ id, createdAt: new Date(createdAt), isCurrent }))),
+      currentDataKeyId: (fleetId) => Promise.resolve(state.dataKeys.find((held) => held.fleetId === fleetId && held.isCurrent)?.id),
+      changeKeyAvailability: (fleetId, availability) => {
+        const sealing = state.fleetSealings.find((held) => held.fleetId === fleetId);
+        if (sealing === undefined || sealing.keyAvailability.isAvailable === availability.isAvailable) {
+          return Promise.resolve(false);
+        }
+        sealing.keyAvailability = structuredClone(availability);
+        return Promise.resolve(true);
+      },
+      wrappedDataKeys: (fleetId, dataKeyIds) => {
+        const sealing = state.fleetSealings.find((held) => held.fleetId === fleetId);
+        return Promise.resolve(
+          sealing && {
+            companyKey: sealing.companyKey,
+            recoveryKey: structuredClone(sealing.recoveryKey),
+            dataKeys: structuredClone(state.dataKeys.filter((held) => held.fleetId === fleetId && dataKeyIds.includes(held.id))),
+          },
+        );
+      },
+      sealingFleetIds: () => Promise.resolve(state.fleetSealings.filter((held) => held.state === 'sealing').map((held) => held.fleetId)),
+      tryLockSealing: (fleetId) => Promise.resolve(!state.sealingLocks.includes(fleetId)),
+      plainPayloads: (fleetId, { after, limit }) => {
+        const isAfter = (message: Message) =>
+          after === null || message.createdAt.getTime() > after.createdAt.getTime() || (message.createdAt.getTime() === after.createdAt.getTime() && message.id > after.id);
+        const messages = state.messages
+          .filter((held) => held.fleetId === fleetId && typeof held.payload === 'string' && !state.lockedMessages.includes(held.id) && isAfter(held))
+          .toSorted((one, other) => one.createdAt.getTime() - other.createdAt.getTime() || (one.id < other.id ? -1 : 1))
+          .slice(0, limit);
+        const schedules = state.schedules.filter((held) => held.fleetId === fleetId && typeof held.send.payload === 'string').slice(0, limit);
+        return Promise.resolve(structuredClone({ messages, schedules }));
+      },
+      sealPayloads: (fleetId, sealed) => {
+        for (const { id, payload, requestHash } of sealed.messages) {
+          const message = state.messages.find((held) => held.fleetId === fleetId && held.id === id);
+          if (message !== undefined) {
+            message.payload = structuredClone(payload);
+            message.requestHash = requestHash;
+          }
+        }
+        for (const { id, payload, requestHash } of sealed.schedules) {
+          const schedule = state.schedules.find((held) => held.fleetId === fleetId && held.id === id);
+          if (schedule !== undefined) {
+            schedule.send.payload = structuredClone(payload);
+            schedule.requestHash = requestHash;
+          }
+        }
+        return Promise.resolve();
+      },
+      countSealed: (fleetId, count) => {
+        const sealing = state.fleetSealings.find((held) => held.fleetId === fleetId && held.state === 'sealing');
+        if (sealing !== undefined) {
+          sealing.progress.sealed += count;
+        }
+        return Promise.resolve();
+      },
+      markSealed: (fleetId, at) => {
+        const sealing = state.fleetSealings.find((held) => held.fleetId === fleetId);
+        if (sealing !== undefined) {
+          sealing.state = 'sealed';
+          sealing.since = new Date(at);
+        }
+        return Promise.resolve();
+      },
+      fleetsDueANewDataKey: (cutoff) =>
+        Promise.resolve(state.dataKeys.filter((held) => held.isCurrent && held.createdAt.getTime() <= cutoff.getTime()).map((held) => held.fleetId)),
+      lockSealing: () => Promise.resolve(),
+      changeCompanyKey: (fleetId, { companyKey, dataKeys }) => {
+        const sealing = state.fleetSealings.find((held) => held.fleetId === fleetId);
+        if (sealing !== undefined) {
+          sealing.companyKey = companyKey;
+        }
+        for (const { id, wrappedByCompanyKey } of dataKeys) {
+          const held = state.dataKeys.find((dataKey) => dataKey.fleetId === fleetId && dataKey.id === id);
+          if (held !== undefined) {
+            held.wrappedByCompanyKey = new Uint8Array(wrappedByCompanyKey);
+          }
+        }
+        return Promise.resolve();
+      },
+      changeRecoveryKey: (fleetId, { recoveryKey, dataKeys }) => {
+        const sealing = state.fleetSealings.find((held) => held.fleetId === fleetId);
+        if (sealing !== undefined) {
+          sealing.recoveryKey = structuredClone(recoveryKey);
+        }
+        for (const { id, wrappedByRecoveryKey } of dataKeys) {
+          const held = state.dataKeys.find((dataKey) => dataKey.fleetId === fleetId && dataKey.id === id);
+          if (held !== undefined) {
+            held.wrappedByRecoveryKey = new Uint8Array(wrappedByRecoveryKey);
+          }
+        }
+        return Promise.resolve();
+      },
+      addCurrentDataKey: (dataKey) => {
+        for (const held of state.dataKeys) {
+          if (held.fleetId === dataKey.fleetId) {
+            held.isCurrent = false;
+          }
+        }
+        state.dataKeys.push(structuredClone(dataKey));
+        return Promise.resolve();
+      },
+    },
     healthSnapshots,
     historyPruner: createInMemoryHistoryPruner(state),
     fleets: {
@@ -538,6 +729,13 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         const found = ship(fleetId, shipId);
         return Promise.resolve(found && { ...found });
       },
+      findMany: (fleetId, shipIds) =>
+        Promise.resolve(
+          state.ships
+            .filter((held) => held.fleetId === fleetId && shipIds.includes(held.id))
+            .toSorted((first, second) => first.id.localeCompare(second.id))
+            .map((held) => ({ ...held })),
+        ),
       rename: ({ fleetId, shipId, name }) => {
         const found = ship(fleetId, shipId);
         if (found) {
@@ -795,6 +993,35 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         return Promise.resolve();
       },
     },
+    alerts: {
+      findByOccurrence: (fleetId, { shipId, signal, occurrenceKey }) =>
+        Promise.resolve(structuredClone(state.alerts.find((held) => held.fleetId === fleetId && held.shipId === shipId && held.signal === signal && held.occurrenceKey === occurrenceKey))),
+      find: (fleetId, alertId) => Promise.resolve(structuredClone(state.alerts.find((held) => held.fleetId === fleetId && held.id === alertId))),
+      // One unit of work at a time: nothing to lock.
+      findForUpdate: (fleetId, alertId) => Promise.resolve(structuredClone(state.alerts.find((held) => held.fleetId === fleetId && held.id === alertId))),
+      listOpenOnShipForUpdate: (fleetId, shipId) => Promise.resolve(structuredClone(state.alerts.filter((held) => held.fleetId === fleetId && held.shipId === shipId && held.cleared === null))),
+      create: (alert) => {
+        state.alerts.push(structuredClone(alert));
+        return Promise.resolve();
+      },
+      saveCleared: (alert) => {
+        const index = state.alerts.findIndex((held) => held.fleetId === alert.fleetId && held.id === alert.id);
+        state.alerts.splice(index, 1, structuredClone(alert));
+        return Promise.resolve();
+      },
+    },
+    expectations: {
+      find: (fleetId, shipId) => Promise.resolve(structuredClone(state.expectations.find((held) => held.fleetId === fleetId && held.shipId === shipId))),
+      save: (expectations) => {
+        const others = state.expectations.filter((held) => held.fleetId !== expectations.fleetId || held.shipId !== expectations.shipId);
+        state.expectations.splice(0, state.expectations.length, ...others, structuredClone(expectations));
+        return Promise.resolve();
+      },
+      remove: (fleetId, shipId) => {
+        state.expectations.splice(0, state.expectations.length, ...state.expectations.filter((held) => held.fleetId !== fleetId || held.shipId !== shipId));
+        return Promise.resolve();
+      },
+    },
     reachRefusals: {
       record: (refusal) => {
         state.reachRefusals.push(structuredClone(refusal));
@@ -978,6 +1205,14 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
           state.leaseTurns.push({ fleetId, leaseId, turn: { ...turn } });
         }
         return Promise.resolve();
+      },
+      saveActivity: ({ fleetId, shipId, activity }) => {
+        const lease = state.leases.find((held) => held.fleetId === fleetId && held.shipId === shipId && held.endedAt === null);
+        if (!lease) {
+          return Promise.resolve(false);
+        }
+        state.leaseActivities = [...state.leaseActivities.filter((held) => held.leaseId !== lease.id), { fleetId, leaseId: lease.id, activity: { ...activity } }];
+        return Promise.resolve(true);
       },
       findOpenByIdForShare: (fleetId, leaseId) => {
         const lease = state.leases.find(
@@ -1436,6 +1671,8 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
   };
 
+  const keyVault = createInMemoryKeyVault();
+
   // One unit of work at a time, like serialised transactions.
   let queue: Promise<unknown> = Promise.resolve();
   const uow: UnitOfWork<InMemoryTx> = {
@@ -1577,6 +1814,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
             startedAt: lease.startedAt,
             lastSeenAt: state.leaseSeen.find((seen) => seen.leaseId === lease.id)?.at ?? lease.startedAt,
             report: state.leaseReports.find((held) => held.leaseId === lease.id)?.report ?? null,
+            activity: state.leaseActivities.find((held) => held.leaseId === lease.id)?.activity ?? null,
           }
         : null,
       validSecret: secret ? { issuedAt: secret.issuedAt, claimedAt: secret.claimedAt } : null,
@@ -1607,6 +1845,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
           .map((ended) => ended.endedAt)
           .filter((endedAt) => endedAt !== null)
           .sort((first, second) => second.getTime() - first.getTime())[0] ?? null,
+      openAlertCount: state.alerts.filter((alert) => alert.fleetId === held.fleetId && alert.shipId === held.id && alert.cleared === null).length,
     };
   };
   /** The oldest time of the given ones; null for none. */
@@ -1649,7 +1888,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       shipCount: state.ships.filter((held) => held.fleetId === fleet.id && held.retiredAt === null).length,
       messagesSince: state.messages.filter((message) => message.fleetId === fleet.id && message.createdAt >= window.since).length,
       lastActivityAt: times.length === 0 ? null : new Date(Math.max(...times)),
-      storage: state.messages.filter((message) => message.fleetId === fleet.id).reduce((bytes, message) => bytes + Buffer.byteLength(message.payload, 'utf8'), 0),
+      storage: state.messages.filter((message) => message.fleetId === fleet.id).reduce((bytes, message) => bytes + plainBytesOf(message.payload), 0),
       messagesPerUtcDay: Object.entries(
         Object.groupBy(
           state.messages.filter((message) => message.fleetId === fleet.id && message.createdAt >= window.firstDay),
@@ -1658,6 +1897,8 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       ).map(([date, messages]) => ({ date, count: messages?.length ?? 0 })),
       limitSettings: state.fleetLimitSettings.find((held) => held.fleetId === fleet.id) ?? FOLLOWING_DEFAULTS,
       health: healthOf(fleet.id),
+      featureFlagsOn: state.featureFlags.filter((held) => held.fleetId === fleet.id).map((held) => held.flag),
+      featureUse: { isSealing: state.fleetSealings.some((held) => held.fleetId === fleet.id) },
     };
   };
   const installationFleets: InstallationFleets = {
@@ -1682,7 +1923,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     ships: (fleetId, { after, limit, filter, sort, reach }) =>
       Promise.resolve(
         state.ships
-          .filter((held) => held.fleetId === fleetId)
+          .filter((held) => held.fleetId === fleetId && held.removedAt === null)
           .map(factsOf)
           .filter((facts) => matchesShipFilter(listedShipOf(facts), { filter, isInReach: readsShip(reach, facts.ship.id) }))
           .map((facts) => ({ facts, position: positionOf(listedShipOf(facts), { sort, isInReach: readsShip(reach, facts.ship.id) }) }))
@@ -1698,7 +1939,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       Promise.resolve(
         shipCountsOf(
           state.ships
-            .filter((held) => held.fleetId === fleetId && readsShip(reach, held.id))
+            .filter((held) => held.fleetId === fleetId && held.removedAt === null && readsShip(reach, held.id))
             .map((held) => listedShipOf(factsOf(held)))
             .filter((listed) => matchesShipFilter(listed, { filter, isInReach: true })),
         ),
@@ -1708,7 +1949,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         [
           ...new Set(
             state.ships
-              .filter((held) => held.fleetId === fleetId && readsShip(reach, held.id))
+              .filter((held) => held.fleetId === fleetId && held.removedAt === null && readsShip(reach, held.id))
               .map((held) => listedShipOf(factsOf(held)))
               .filter((listed) => status.includes(listed.status))
               .map((listed) => listed.type),
@@ -1759,7 +2000,28 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       const held = lease && state.leaseStatements.find((each) => each.leaseId === lease.id);
       return Promise.resolve(held ? structuredClone(held.stated) : null);
     },
+    openAlerts: (fleetId, { reach, cursor, limit }) =>
+      Promise.resolve(
+        openAlertsNewestFirst(fleetId)
+          .filter((alert) => readsShip(reach, alert.shipId) && (cursor === undefined || alert.id < cursor))
+          .slice(0, limit)
+          .map(shownOnItsShip),
+      ),
+    openAlertsOn: (fleetId, shipId) => Promise.resolve(openAlertsNewestFirst(fleetId).filter((alert) => alert.shipId === shipId).map(shownOnItsShip)),
+    expectationsOn: (fleetId, shipId) => {
+      const held = state.expectations.find((each) => each.fleetId === fleetId && each.shipId === shipId);
+      return Promise.resolve(held ? structuredClone({ reportChangesWithin: held.reportChangesWithin, taskDoneBy: held.taskDoneBy }) : NO_EXPECTATIONS);
+    },
   };
+
+  function openAlertsNewestFirst(fleetId: FleetId): Alert[] {
+    return state.alerts.filter((alert) => alert.fleetId === fleetId && alert.cleared === null).toSorted((first, second) => (first.id < second.id ? 1 : -1));
+  }
+
+  function shownOnItsShip(alert: Alert): ShownAlert {
+    const ship = state.ships.find((held) => held.fleetId === alert.fleetId && held.id === alert.shipId);
+    return structuredClone(shownAlertOf(alert, { id: alert.shipId, name: ship?.name ?? '' }));
+  }
 
 
   /**
@@ -1865,7 +2127,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
       details: event.details,
     };
   };
-  const historyMessageOf = (message: Message): HistoryMessage => {
+  const historyMessageOf = (message: Message): HistoryMessage<StoredPayload> => {
     const delivery = deliveryOfMessage(message);
     return {
       id: message.id,
@@ -1894,7 +2156,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         return message ? [{ delivery, message }] : [];
       });
   /** A message to the ship itself as its inbox lists it. */
-  const inboxEntryOf = (fleetId: FleetId, { shipId, delivery, message }: { shipId: ShipId; delivery: Delivery; message: Message }): InboxEntry => {
+  const inboxEntryOf = (fleetId: FleetId, { shipId, delivery, message }: { shipId: ShipId; delivery: Delivery; message: Message }): InboxEntry<StoredPayload> => {
     const acknowledged = numbered(fleetId).findLast((event) => event.deliveryId === delivery.id && event.type === 'DeliveryAcknowledged');
     const reply = acknowledged?.details.reply;
     const { id, sender, inReplyTo, sentAt, contentType, model, payload } = historyMessageOf(message);
@@ -2042,6 +2304,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
             id: held.id,
             ship: shipId === null ? null : partyOf(fleetId, shipId),
             state: held.state,
+            report: state.leaseReports.find((report) => report.fleetId === fleetId && state.leases.some((lease) => lease.id === report.leaseId && lease.shipId === shipId && lease.endedAt === null))?.report ?? null,
             steps: numbered(fleetId)
               .filter((event) => event.deliveryId === held.id)
               .reverse()
@@ -2056,6 +2319,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         new Map(
           state.deliveries
             .filter((delivery) => delivery.fleetId === fleetId && messageIds.includes(delivery.messageId))
+            .toSorted((first, second) => second.id.localeCompare(first.id))
             .flatMap((delivery) => {
               const message = messageOf(fleetId, delivery.messageId);
               return message ? [[message.id, { senderId: message.senderShipId, recipient: delivery.recipient, claimedBy: delivery.claimedByShipId }] as const] : [];
@@ -2090,7 +2354,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     inboxWithdrawals: (fleetId, { shipId, questionId, cursor, limit }) =>
       Promise.resolve(
         inboxOf(fleetId, shipId)
-          .filter(({ delivery, message }) => withdrawalOf(message)?.questionId === questionId && (cursor === undefined || delivery.id > cursor))
+          .filter(({ delivery, message }) => message.questionId === questionId && (cursor === undefined || delivery.id > cursor))
           .sort((first, second) => first.delivery.id.localeCompare(second.delivery.id))
           .slice(0, limit + 1)
           .map(({ delivery, message }) => inboxEntryOf(fleetId, { shipId, delivery, message })),
@@ -2239,6 +2503,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
             leaseId: lease.id,
             pushedAt: pushed.at,
             isPerson: crewShip.kind === 'person',
+            ownerShipId: crewShip.owner,
             turn: turn && { ...turn },
             waiting: state.deliveries.filter(isWaiting).map((delivery) => ({
               deliveryId: delivery.id,
@@ -2261,12 +2526,15 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
   };
 
-  return { state, uow, fleets: tx.fleets, scheduleAttempts, pushedCrews, ships: tx.ships, leases: tx.leases, crewRequests: tx.crewRequests, clearRequests: tx.clearRequests, labels: tx.labels, reachRefusals: tx.reachRefusals, declaredNetworkRules: tx.declaredNetworkRules, scopeNamespaces: tx.scopeNamespaces, definedScopes: tx.definedScopes, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, health: healthRecords, healthSnapshots, notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeups, fleetNews };
+  return { state, uow, fleets: tx.fleets, scheduleAttempts, pushedCrews, ships: tx.ships, leases: tx.leases, crewRequests: tx.crewRequests, clearRequests: tx.clearRequests, labels: tx.labels, reachRefusals: tx.reachRefusals, declaredNetworkRules: tx.declaredNetworkRules, scopeNamespaces: tx.scopeNamespaces, definedScopes: tx.definedScopes, sealings: tx.sealings, featureFlags: tx.featureFlags, featureFlagReads: { source: { kind: 'installation' }, flags: tx.featureFlags }, keyVault, recoveryKeys: inMemoryRecoveryKeys, sealing: { sealer: inMemoryPayloadSealer, dataKeys: createFleetDataKeys({ sealings: tx.sealings, vault: keyVault.vault, sealer: inMemoryPayloadSealer, recoveryKeys: inMemoryRecoveryKeys, clock, uow, ids }) }, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, health: healthRecords, healthSnapshots, notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeups, fleetNews };
 }
 
 /** The tables whose rows belong to a fleet by their fleet id: all but the fleets and the installation's requests. */
 const FLEET_TABLES = [
   'healthSnapshots',
+  'featureFlags',
+  'fleetSealings',
+  'dataKeys',
   'ships',
   'leases',
   'credentials',
@@ -2284,6 +2552,7 @@ const FLEET_TABLES = [
   'leaseReports',
   'leaseStatements',
   'leaseTurns',
+  'leaseActivities',
   'crewRequests',
   'clearRequests',
   'labels',
@@ -2294,6 +2563,8 @@ const FLEET_TABLES = [
   'scopeNamespaces',
   'definedScopes',
   'verifiedFacts',
+  'alerts',
+  'expectations',
   'reachRefusals',
   'events',
   'overdueDeliveries',
@@ -2306,6 +2577,7 @@ const FLEET_TABLES = [
 
 const TABLES = [
   'healthSnapshots',
+  'featureFlags',
   'fleets',
   'ships',
   'leases',
@@ -2324,6 +2596,7 @@ const TABLES = [
   'leaseReports',
   'leaseStatements',
   'leaseTurns',
+  'leaseActivities',
   'crewRequests',
   'clearRequests',
   'labels',
@@ -2334,6 +2607,8 @@ const TABLES = [
   'scopeNamespaces',
   'definedScopes',
   'verifiedFacts',
+  'alerts',
+  'expectations',
   'reachRefusals',
   'events',
   'overdueDeliveries',
@@ -2350,6 +2625,11 @@ function restore(state: InMemoryState, snapshot: InMemoryState): void {
     const rows: unknown[] = state[key];
     rows.splice(0, rows.length, ...snapshot[key]);
   }
+}
+
+/** Whether the row is the fleet's row of the flag; typed over any flag key, as the table's text column is. */
+function isFlagRow(held: { fleetId: FleetId; flag: string }, key: { fleetId: FleetId; flag: string }): boolean {
+  return held.fleetId === key.fleetId && held.flag === key.flag;
 }
 
 function isClearRequestKey(held: ClearRequest, key: { trierarchShipId: ClearRequest['trierarchShipId']; shipId: ClearRequest['shipId']; repository: string }): boolean {

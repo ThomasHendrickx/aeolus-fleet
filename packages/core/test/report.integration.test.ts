@@ -47,7 +47,7 @@ describe("a crew's report on Postgres", () => {
 
     unwrap(await core.useCases.report(scout, { state: 'working', note: 'on PR 89' }));
 
-    await expect(listedReport()).resolves.toEqual({ state: 'working', note: 'on PR 89', reportedAt: core.clock.now(), detailsVersion: 0 });
+    await expect(listedReport()).resolves.toMatchObject({ state: 'working', note: 'on PR 89', reportedAt: core.clock.now(), detailsVersion: 0 });
     await expect(reportEvents()).resolves.toBe(1);
     await expect(core.useCases.getShip(argo, { shipId: scout.shipId })).resolves.toMatchObject({
       isOk: true,
@@ -69,7 +69,7 @@ describe("a crew's report on Postgres", () => {
     await expect(core.useCases.getShip(argo, { shipId: scout.shipId })).resolves.toMatchObject({
       value: { report: { detailsVersion: 2, details: { 'shp_01': { state: 'running' }, 'shp_02': { state: 'crashed' } } } },
     });
-    await expect(listedReport()).resolves.toEqual({ state: 'working', note: null, reportedAt: core.clock.now(), detailsVersion: 2 });
+    await expect(listedReport()).resolves.toMatchObject({ state: 'working', note: null, reportedAt: core.clock.now(), detailsVersion: 2 });
   });
 
   it('clears its details to none with null', async () => {
@@ -106,5 +106,48 @@ describe("a crew's report on Postgres", () => {
     await crewed(scout.shipId, secret);
 
     await expect(listedReport()).resolves.toBeNull();
+  });
+});
+
+describe("a report's task, step and when it changed, on Postgres", () => {
+  const pullRequest = { kind: 'url', url: 'https://github.com/acme/ops/pull/1391' };
+
+  it('stores the task and the step with the lease and shows them with the ship', async () => {
+    unwrap(await core.useCases.report(scout, { state: 'working', note: 'Merging to main', task: pullRequest, step: { at: 2, of: 3 } }));
+
+    await expect(listedReport()).resolves.toEqual({
+      state: 'working',
+      note: 'Merging to main',
+      task: pullRequest,
+      step: { at: 2, of: 3 },
+      reportedAt: core.clock.now(),
+      reportChangedAt: core.clock.now(),
+      detailsVersion: 0,
+    });
+    await expect(core.useCases.reportLog(scout)).resolves.toMatchObject({ value: { report: { task: pullRequest, step: { at: 2, of: 3 } } } });
+  });
+
+  it('keeps when the report changed while only the details change', async () => {
+    unwrap(await core.useCases.report(scout, { state: 'working', task: pullRequest, details: { a: 1 } }));
+    const changedAt = core.clock.now();
+    core.clock.advance(300_000);
+
+    unwrap(await core.useCases.report(scout, { state: 'working', detailsPatch: { a: 2 } }));
+
+    await expect(listedReport()).resolves.toMatchObject({ reportChangedAt: changedAt, reportedAt: core.clock.now(), detailsVersion: 2 });
+  });
+
+  it('refuses a bad task or step and leaves the lease as it was', async () => {
+    unwrap(await core.useCases.report(scout, { state: 'working', task: pullRequest, step: { at: 1, of: 3 } }));
+    const before = await core.prisma.lease.findFirstOrThrow({ where: { id: scout.leaseId } });
+    core.clock.advance(60_000);
+
+    await expect(core.useCases.report(scout, { state: 'blocked', task: { kind: 'url', url: 'http://example.com' } })).resolves.toMatchObject({
+      error: { kind: 'INVALID_REPORT_TASK' },
+    });
+    await expect(core.useCases.report(scout, { state: 'blocked', step: { at: 4, of: 3 } })).resolves.toMatchObject({ error: { kind: 'INVALID_REPORT_STEP' } });
+
+    await expect(core.prisma.lease.findFirstOrThrow({ where: { id: scout.leaseId } })).resolves.toEqual(before);
+    await expect(reportEvents()).resolves.toBe(1);
   });
 });

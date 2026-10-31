@@ -59,9 +59,11 @@ const t = initTRPC.context<Context>().meta<ProcedureMeta>().create({
     if (error.code === 'INTERNAL_SERVER_ERROR') {
       return { ...shape, message: INTERNAL_ERROR_MESSAGE, data: { ...shape.data, requestId: ctx?.requestId } };
     }
-    return error.cause instanceof ConsoleRefusalDetails
-      ? { ...shape, data: { ...shape.data, ...error.cause.details } }
-      : shape;
+    if (error.cause instanceof ConsoleRefusalDetails) {
+      return { ...shape, data: { ...shape.data, ...error.cause.details } };
+    }
+    // A refusal names its kind, which its tRPC code may share with others: the sealing page tells KEY_NOT_BOUND_TO_FLEET from a malformed recovery key by it.
+    return error.cause instanceof RefusalKind || error.cause instanceof ShipRefusalCode ? { ...shape, data: { ...shape.data, refusal: error.cause.code } } : shape;
   },
 });
 
@@ -96,9 +98,14 @@ const ERROR_CODES: Record<DomainErrorKind, TRPCError['code']> = {
   DELIVERY_NOT_OPEN: 'CONFLICT',
   DELIVERY_NOT_UNDELIVERABLE: 'CONFLICT',
   FLEET_ALREADY_EXISTS: 'CONFLICT',
+  FLEET_ALREADY_SEALED: 'CONFLICT',
+  FLEET_NOT_SEALED: 'CONFLICT',
   FLEET_LIMIT_REACHED: 'FORBIDDEN',
   FLEET_NOT_FOUND: 'NOT_FOUND',
   FLEET_HAS_NO_VIEWER: 'NOT_FOUND',
+  // The fleet's flag for the feature is off: nothing changed (decision 0069).
+  FEATURE_FLAG_OFF: 'FORBIDDEN',
+  FEATURE_FLAG_IN_USE: 'CONFLICT',
   VIEWER_TICKET_NAMES_NO_ACCOUNT: 'BAD_REQUEST',
   FORCE_NOT_ALLOWED: 'FORBIDDEN',
   NOTICE_NOT_FOUND: 'NOT_FOUND',
@@ -106,11 +113,15 @@ const ERROR_CODES: Record<DomainErrorKind, TRPCError['code']> = {
   GUIDE_NOT_FOUND: 'NOT_FOUND',
   GUIDE_STEP_NOT_FOUND: 'BAD_REQUEST',
   IDEMPOTENCY_KEY_REUSED: 'CONFLICT',
+  KEY_NOT_BOUND_TO_FLEET: 'BAD_REQUEST',
+  // The company's key vault refused or did not answer: nothing was stored or claimed, and a later call may pass (decision 0068).
+  KEY_UNAVAILABLE: 'SERVICE_UNAVAILABLE',
   IN_REPLY_TO_NOT_FOUND: 'NOT_FOUND',
   MESSAGE_LIMIT_REACHED: 'FORBIDDEN',
   MEETING_WITHOUT_INVITEES: 'BAD_REQUEST',
   MEETING_NOT_FOUND: 'NOT_FOUND',
   SCHEDULE_NOT_FOUND: 'NOT_FOUND',
+  ALERT_NOT_FOUND: 'NOT_FOUND',
   SCHEDULE_ENDED: 'CONFLICT',
   SCHEDULE_CANCELLED: 'CONFLICT',
   INVALID_TIMING: 'BAD_REQUEST',
@@ -141,6 +152,9 @@ const ERROR_CODES: Record<DomainErrorKind, TRPCError['code']> = {
   INVALID_CONTENT_TYPE: 'BAD_REQUEST',
   INVALID_EMAIL: 'BAD_REQUEST',
   INVALID_FLEET_NAME: 'BAD_REQUEST',
+  INVALID_RECOVERY_KEY: 'BAD_REQUEST',
+  NO_RECOVERY_KEY: 'CONFLICT',
+  RECOVERY_KEYS_MISMATCH: 'BAD_REQUEST',
   INVALID_FOLLOW_MAX: 'BAD_REQUEST',
   INVALID_FOLLOW_WAIT: 'BAD_REQUEST',
   INVALID_IDEMPOTENCY_KEY: 'BAD_REQUEST',
@@ -156,9 +170,12 @@ const ERROR_CODES: Record<DomainErrorKind, TRPCError['code']> = {
   INVALID_RECEIVE_MAX: 'BAD_REQUEST',
   INVALID_RETENTION: 'BAD_REQUEST',
   INVALID_CREW_REQUEST_REASON: 'BAD_REQUEST',
+  INVALID_EXPECTATIONS: 'BAD_REQUEST',
   INVALID_REPORT_DETAILS: 'BAD_REQUEST',
   INVALID_REPORT_NOTE: 'BAD_REQUEST',
   INVALID_REPORT_STATE: 'BAD_REQUEST',
+  INVALID_REPORT_STEP: 'BAD_REQUEST',
+  INVALID_REPORT_TASK: 'BAD_REQUEST',
   INVALID_SHIP_NAME: 'BAD_REQUEST',
   INVALID_SHIP_NOTE: 'BAD_REQUEST',
   INVALID_SHIP_TYPE: 'BAD_REQUEST',
@@ -235,7 +252,9 @@ const ERROR_CODES: Record<DomainErrorKind, TRPCError['code']> = {
  * hide: a crew whose lease has ended reads LEASE_ENDED, not UNAUTHORIZED, so
  * it can tell a released ship from a wrong crew token; a refusal about a
  * delivery reads its delivery code, not CONFLICT or FORBIDDEN, so a crew can
- * tell what became of that delivery, and that its crew token still holds (#832).
+ * tell what became of that delivery, and that its crew token still holds (#832);
+ * KEY_UNAVAILABLE, not SERVICE_UNAVAILABLE, so a crew can tell its fleet's
+ * key is cut off from a server that is down, and wait (decision 0068).
  */
 const SHIP_REFUSAL_CODES = [
   'LEASE_ENDED',
@@ -248,6 +267,7 @@ const SHIP_REFUSAL_CODES = [
   'DELIVERY_NOT_IN_FLIGHT',
   'DELIVERY_NOT_OPEN',
   'DELIVERY_NOT_UNDELIVERABLE',
+  'KEY_UNAVAILABLE',
 ] as const satisfies readonly DomainErrorKind[];
 
 type ShipRefusalCodeKind = (typeof SHIP_REFUSAL_CODES)[number];
@@ -271,10 +291,21 @@ export class ShipRefusalCode extends Error {
   }
 }
 
-/** A refusal as the matching tRPC error, keeping its message: the one place domain error kinds meet API errors. */
+/** A refusal's kind, which the error data carries to the console beside its tRPC code. */
+class RefusalKind extends Error {
+  override name = 'RefusalKind';
+  readonly code: DomainErrorKind;
+
+  constructor(code: DomainErrorKind) {
+    super(code);
+    this.code = code;
+  }
+}
+
+/** A refusal as the matching tRPC error, keeping its message and naming its kind: the one place domain error kinds meet API errors. */
 function apiErrorOf(error: DomainError): TRPCError {
   const { kind, message } = error;
-  const cause = isShipRefusalCode(kind) ? new ShipRefusalCode(kind) : undefined;
+  const cause = isShipRefusalCode(kind) ? new ShipRefusalCode(kind) : new RefusalKind(kind);
   return new TRPCError({ code: ERROR_CODES[kind], message, cause });
 }
 
@@ -556,6 +587,7 @@ export const signedInProcedure = callerProcedure({ isOnBehalfRead: false, resolv
  * actor makes with no scope: checking its own manage reach.
  */
 export const actorProcedure = callerProcedure({ isOnBehalfRead: false, resolve: resolveCaller });
+
 const readingProcedure = callerProcedure({ isOnBehalfRead: true, resolve: resolveCaller });
 
 /**

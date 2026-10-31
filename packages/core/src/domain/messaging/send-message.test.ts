@@ -75,6 +75,7 @@ describe('sending a message to a ship', () => {
         contentType: 'application/json',
         idempotencyKey: input.idempotencyKey,
         requestHash: message?.requestHash,
+        questionId: null,
         model: null,
         inReplyToMessageId: null,
         resendOfMessageId: null,
@@ -162,9 +163,9 @@ describe('sending a message to a ship', () => {
   });
 
   it.each([
-    { label: 'one-byte characters', payload: 'a'.repeat(65_536) },
-    { label: 'two-byte characters', payload: 'é'.repeat(32_768) },
-  ])('accepts a payload of exactly 64 KB in $label', async ({ payload }) => {
+    { label: 'one-byte characters', payload: 'a'.repeat(262_144) },
+    { label: 'two-byte characters', payload: 'é'.repeat(131_072) },
+  ])('accepts a payload of exactly 256 KB in $label', async ({ payload }) => {
     await sent(argo, aReview({ payload }));
 
     expect(core.state.messages.map((message) => message.payload)).toEqual([payload]);
@@ -500,13 +501,13 @@ describe('a send refused', () => {
   });
 
   it.each([
-    { label: 'one-byte characters', payload: 'a'.repeat(65_537), bytes: 65_537 },
-    { label: 'two-byte characters and one more byte', payload: `${'é'.repeat(32_768)}a`, bytes: 65_537 },
-    { label: 'four-byte characters', payload: '😀'.repeat(16_385), bytes: 65_540 },
-  ])('refuses a payload over 64 KB, counted in UTF-8 bytes: $label', async ({ payload, bytes }) => {
+    { label: 'one-byte characters', payload: 'a'.repeat(262_145), bytes: 262_145 },
+    { label: 'two-byte characters and one more byte', payload: `${'é'.repeat(131_072)}a`, bytes: 262_145 },
+    { label: 'four-byte characters', payload: '😀'.repeat(65_537), bytes: 262_148 },
+  ])('refuses a payload over 256 KB, counted in UTF-8 bytes: $label', async ({ payload, bytes }) => {
     await expectRefused(aReview({ payload }), {
       kind: 'PAYLOAD_TOO_LARGE',
-      message: `A payload is at most 65536 bytes (64 KB) in UTF-8, not ${bytes}`,
+      message: `A payload is at most 262144 bytes (256 KB) in UTF-8, not ${bytes}`,
     });
   });
 
@@ -532,6 +533,7 @@ describe('a send refused', () => {
       model: null,
       idempotencyKey: 'elsewhere',
       requestHash: 'elsewhere',
+      questionId: null,
       inReplyToMessageId: null,
       resendOfMessageId: null,
       meetingId: null,

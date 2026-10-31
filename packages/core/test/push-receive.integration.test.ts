@@ -15,6 +15,7 @@ import { newKey } from '../src/testing/keys.js';
 import { racingUnitOfWork } from './support/postgres-core.js';
 import { unwrap } from '../src/testing/result.js';
 import { withOperatorLogin } from './support/operator-login.js';
+import { unsealedFleetsOnly } from './support/sealing.js';
 
 // Push receive and hand-over on a real Postgres (decision 0040): what a push
 // receive stores and how it marks the lease pushed, that concurrent push
@@ -192,7 +193,7 @@ describe('handed on Postgres', () => {
 describe('concurrent push receivers of one type', () => {
   it('never get the same delivery, even while both hold their receipts open', async () => {
     const sent = [await sendTo(toReviewers), await sendTo(toReviewers), await sendTo(toReviewers), await sendTo(toReviewers)];
-    const racing = createPushReceiveDeliveries({
+    const racing = createPushReceiveDeliveries({ sealing: unsealedFleetsOnly,
       uow: racingUnitOfWork({ prisma, transactions: 2 }, (tx, allArrived) => ({
         ...tx,
         deliveries: {
@@ -261,7 +262,7 @@ describe('concurrent hand-overs of one delivery', () => {
 describe('a push receive that fails midway', () => {
   it('stores nothing: the delivery stays pending, no event, and the lease is not pushed', async () => {
     const deliveryId = await sendTo(toShip(scout));
-    const failing = createPushReceiveDeliveries({
+    const failing = createPushReceiveDeliveries({ sealing: unsealedFleetsOnly,
       uow: {
         run: (work) =>
           createPrismaUnitOfWork(prisma).run((tx) =>
@@ -358,7 +359,7 @@ describe('forced deliveries on Postgres (decision 0040)', () => {
   it('go to concurrent receivers of one type before any older plain delivery, each exactly once, while both hold their claims open', async () => {
     const plain = [await sendTo(toReviewers), await sendTo(toReviewers)];
     const forced = [await sendTo(toReviewers, { isForced: true }), await sendTo(toReviewers, { isForced: true })];
-    const racing = createPushReceiveDeliveries({
+    const racing = createPushReceiveDeliveries({ sealing: unsealedFleetsOnly,
       uow: racingUnitOfWork({ prisma, transactions: 2 }, (tx, allArrived) => ({
         ...tx,
         deliveries: {

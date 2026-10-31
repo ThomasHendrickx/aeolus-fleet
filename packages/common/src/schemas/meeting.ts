@@ -100,6 +100,12 @@ export const meetingMicReadSchema = z.object({
   requests: z.array(z.object({ ship: partySchema, requestedAt: isoTime })),
 });
 
+/** Output of `ship.requestMic`: the mic as it stands after the request, and where the caller is in it. */
+export const requestMicOutputSchema = z.object({
+  mic: meetingMicReadSchema,
+  caller: z.discriminatedUnion('kind', [z.object({ kind: z.literal('holding') }), z.object({ kind: z.literal('waiting'), place: z.int().min(1) })]),
+});
+
 /** Whether a participant is in the meeting now, left it keeping its right to rejoin, or was revoked by the owner (decision 0061, M13). */
 export const PARTICIPANT_STATES = ['present', 'left', 'revoked'] as const;
 
@@ -118,6 +124,8 @@ export const contributionSchema = z.object({
   messageId: idSchema('message'),
   sender: partySchema,
   payload: z.string(),
+  /** Its payload is sealed under a data key that cannot be had now, or does not open: the payload is empty (decision 0068, B9). */
+  isPayloadUnreadable: z.boolean(),
   contentType: z.string(),
   model: z.string().nullable(),
   sentAt: isoTime,

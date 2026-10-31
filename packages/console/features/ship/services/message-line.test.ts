@@ -15,6 +15,10 @@ describe('messageLine', () => {
     expect(messageLine({ contentType, preview })).toEqual({ text: line, isCode: false });
   });
 
+  it('scenario 25: given a sealed payload whose company key is not reachable, its line says so in place of the payload', () => {
+    expect(messageLine({ contentType: 'application/json', preview: '', isPayloadUnreadable: true })).toEqual({ text: 'Sealed, key not reachable', isCode: false });
+  });
+
   it('reads the content type without its parameters and in any case', () => {
     expect(messageLine({ contentType: 'Application/Vnd.Aeolus.Squadron.Check-In+JSON; charset=utf-8', preview: '{}' }).text).toBe('Checked in at its flagship');
   });

@@ -9,7 +9,7 @@ const AT = '2026-10-24T09:00:00.000Z';
 function aShip(name: string, overrides: Partial<ListedShip> = {}): ListedShip {
   return {
     id: newId('ship'), name, type: 'orchestrator', kind: 'agent', status: 'crewed', startingPrompt: null, location: null, lastSeenAt: null, ping: null,
-    scopes: ['messages:send', 'messages:receive'], labels: [], report: null, harness: null, model: null, awaitingCrewSince: null, crewRequest: null, retiredAt: null, ownerShipId: null,
+    scopes: ['messages:send', 'messages:receive'], labels: [], report: null, harness: null, model: null, activity: null, openAlertCount: 0, awaitingCrewSince: null, crewRequest: null, retiredAt: null, ownerShipId: null,
     ...overrides,
   };
 }
@@ -22,7 +22,7 @@ function aMessage(sender: { id: ShipId; name: string }): InboxMessage {
     doneAt: null,
     repliedWith: null,
     replies: [],
-    message: { id: newId('message'), sender: { id: sender.id, name: sender.name }, inReplyTo: null, sentAt: AT, contentType: 'text/plain', model: 'claude-opus-5-5', payload: 'Slice 7 done' },
+    message: { id: newId('message'), sender: { id: sender.id, name: sender.name }, inReplyTo: null, sentAt: AT, contentType: 'text/plain', model: 'claude-opus-5-5', payload: 'Slice 7 done', isPayloadUnreadable: false, isPayloadSealed: false },
   };
 }
 

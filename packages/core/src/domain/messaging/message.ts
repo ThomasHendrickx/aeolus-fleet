@@ -1,9 +1,10 @@
-import { isPingContentType, type AccountId, type DeliveryId, type DeliveryState, type FleetId, type LabelValueId, type LeaseId, type MeetingId, type MessageId, type ScheduleId, type ShipId, type ShipKind } from '@aeolus-fleet/common';
+import { isPingContentType, withdrawalOf, type AccountId, type DeliveryId, type DeliveryState, type FleetId, type LabelValueId, type LeaseId, type MeetingId, type MessageId, type ScheduleId, type ShipId, type ShipKind } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
 import { shipActor, type Actor, type NewEvent } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { Addressee, LabelSelector, Recipient } from '../shared/selector.js';
+import { isSealedPayload, type StoredPayload } from './sealed-payload.js';
 
 /**
  * An immutable envelope plus an opaque payload, sent by one ship to a
@@ -17,22 +18,29 @@ export interface Message {
   senderShipId: ShipId;
   /** The selector as resolved at send time: a ship's id, never its name, a type, a meeting (decision 0061), or a label selection as sent (decision 0065). */
   selector: Addressee;
-  payload: string;
+  /** Plain, or sealed in a sealed fleet (decision 0068). */
+  payload: StoredPayload;
   /** A media type, exactly as the sender gave it. */
   contentType: string;
   /** The model the sender's session stated it runs; none from argo, and none on messages from before models were stated. */
   model: string | null;
   /** Unique per sender: a repeat of the same request returns this message instead of storing a new one. */
   idempotencyKey: string;
-  /** The hash of the request the message was sent with: what a repeat of its key must match. */
+  /** The hash of the request the message was sent with: what a repeat of its key must match. Sealed, its payload is no part of it (decision 0068, B10). */
   requestHash: string;
+  /** The uuid of the question a withdrawal or a replacement names, read at send (decision 0068, B18): metadata, so it is found in a sealed fleet too. */
+  questionId: string | null;
   /** The message of the same fleet this one replies to. */
   inReplyToMessageId: MessageId | null;
   /** The message this one resends: an undeliverable one the operator sent again. */
   resendOfMessageId: MessageId | null;
   /** The meeting it was contributed to, or tells of as the notice that added its recipient (decision 0061). */
   meetingId: MeetingId | null;
-  /** The schedule it was sent for, and that send time; none on a live send (decision 0062). */
+  /**
+   * The schedule it was sent for, and that send time; none on a live send
+   * (decision 0062). Once the schedule went with its removed ship, the send
+   * time stays and the schedule is none (decision 0070).
+   */
   scheduleId: ScheduleId | null;
   sendTime: Date | null;
   createdAt: Date;
@@ -130,14 +138,28 @@ export function deliveredTo(message: Pick<Message, 'selector'>, delivery: Pick<D
 
 export type RepeatRefusal = DomainError<'IDEMPOTENCY_KEY_REUSED'>;
 
+/** The question uuid a withdrawal or a replacement names (decision 0068, B18); none for any other message. */
+function questionIdOf(send: { contentType: string; payload: string }): string | null {
+  return withdrawalOf(send)?.questionId ?? null;
+}
+
 /**
  * A send with a key its sender used before. The same request is a repeat, a
  * retry, and gets the original message's id; another request with that key is
- * refused, so one key never stands for two messages.
+ * refused, so one key never stands for two messages. A sealed original's hash
+ * leaves its payload out, so a copy confirms no guessed payload; its payload,
+ * unsealed, is compared instead (decision 0068, B10).
  */
-export function repeatOf(original: Message, requestHash: string): Result<MessageId, RepeatRefusal> {
-  return original.requestHash === requestHash
-    ? ok(original.id)
+export function repeatOf(
+  original: { message: Message; plainPayload: string },
+  repeat: { requestHash: string; sealedRequestHash: string; payload: string },
+): Result<MessageId, RepeatRefusal> {
+  const { message, plainPayload } = original;
+  const isSame = isSealedPayload(message.payload)
+    ? message.requestHash === repeat.sealedRequestHash && plainPayload === repeat.payload
+    : message.requestHash === repeat.requestHash;
+  return isSame
+    ? ok(message.id)
     : refuse(
         'IDEMPOTENCY_KEY_REUSED',
         'This idempotency key was already used for another message: send a new message with a new key',
@@ -178,6 +200,7 @@ export function acceptMessage(
     senderShipId,
     selector: recipient,
     payload: send.payload,
+    questionId: questionIdOf(send),
     contentType: send.contentType,
     model: send.model ?? null,
     idempotencyKey: send.idempotencyKey,
@@ -273,6 +296,7 @@ export function acceptContribution(send: ContributionToAccept): Result<{ message
     senderShipId,
     selector: { kind: 'meeting', meetingId },
     payload: send.payload,
+    questionId: questionIdOf(send),
     contentType: send.contentType,
     model: send.model ?? null,
     idempotencyKey: send.idempotencyKey,
@@ -348,6 +372,7 @@ export function acceptLabelMessage(
     senderShipId,
     selector,
     payload: send.payload,
+    questionId: questionIdOf(send),
     contentType: send.contentType,
     model: send.model ?? null,
     idempotencyKey: send.idempotencyKey,

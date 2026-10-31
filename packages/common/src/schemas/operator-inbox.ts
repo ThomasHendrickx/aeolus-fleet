@@ -34,7 +34,7 @@ export const inboxMessageSchema = z.object({
   /** The reply that acknowledged it, when a reply did. */
   repliedWith: idSchema('message').nullable(),
   /** Every reply argo sent to it, oldest first: what a console reads an answer from (decision 0038). */
-  replies: z.array(z.object({ id: idSchema('message'), contentType: z.string(), payload: z.string(), sentAt: isoTime })),
+  replies: z.array(z.object({ id: idSchema('message'), contentType: z.string(), payload: z.string(), isPayloadUnreadable: z.boolean(), sentAt: isoTime })),
   message: z.object({
     id: idSchema('message'),
     sender: partySchema,
@@ -44,6 +44,10 @@ export const inboxMessageSchema = z.object({
     /** The model the sender's session stated it runs. */
     model: z.string().nullable(),
     payload: z.string(),
+    /** Its payload is sealed under a data key that cannot be had now, or does not open: the payload is empty (decision 0068, B9). */
+    isPayloadUnreadable: z.boolean(),
+    /** Its payload is stored sealed: the console marks it (decision 0068, N1). */
+    isPayloadSealed: z.boolean(),
   }),
 });
 

@@ -14,3 +14,5 @@ type Story = StoryObj<typeof meta>;
 export const HarnessAndModel: Story = {};
 export const OtherHarness: Story = { args: { harness: 'gemini cli' } };
 export const ModelOnly: Story = { args: { harness: null } };
+/** A session that stated no harness (aeolus-fleet#1408). */
+export const HarnessUnknown: Story = { args: { harness: null, model: 'gpt-5.6-terra', isHarnessUnknown: true } };

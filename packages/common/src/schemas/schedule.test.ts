@@ -69,12 +69,12 @@ describe('scheduleInputSchema', () => {
     expect(scheduleInputSchema.parse({ ...input, onRefused }).onRefused).toBe(onRefused);
   });
 
-  it('accepts a payload of exactly 64 KB', () => {
+  it('accepts a payload of exactly 256 KB', () => {
     expect(scheduleInputSchema.safeParse({ ...input, payload: 'a'.repeat(PAYLOAD_MAX_BYTES) }).success).toBe(true);
   });
 
   it.each([
-    ['a payload one byte over 64 KB', { ...input, payload: 'a'.repeat(PAYLOAD_MAX_BYTES + 1) }],
+    ['a payload one byte over 256 KB', { ...input, payload: 'a'.repeat(PAYLOAD_MAX_BYTES + 1) }],
     ['a meeting selector', { ...input, selector: { kind: 'meeting', meetingId: newId('meeting') } }],
     ['an empty label selection', { ...input, selector: { kind: 'label', valueIds: [] } }],
     ['an instant without its offset', { ...input, timing: { kind: 'once', at: '2026-10-26T09:00:00' } }],

@@ -126,6 +126,7 @@ const FLEET_ACTIONS = [
   'assignCrew',
   'explainCrewRequest',
   'reportCrewStatus',
+  'reportActivity',
   'confirmCrewRelease',
   'giveBackCrewRequest',
   'assignedCrewRequests',
@@ -157,7 +158,12 @@ const FLEET_ACTIONS = [
   'describeScope',
   'removeScope',
   'setVerifiedFacts',
+  'setExpectations',
+  'raiseAlert',
+  'clearAlert',
+  'openAlerts',
   'checkManage',
+  'limits',
 ] as const;
 
 type Procedure = (typeof appRouter.ship)[keyof typeof appRouter.ship] | (typeof appRouter.fleet)[(typeof FLEET_ACTIONS)[number]];

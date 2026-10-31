@@ -15,14 +15,16 @@ The ship contract is `/api/v1`, REST over the same procedures as `/trpc` and `/m
 
 | Package | Scopes | Calls under `/api/v1` |
 | --- | --- | --- |
-| squadrons | 0017 | `ship/register`, `whoami`, `receive`, `ack`, `pong`, `send`, `deregister`; `fleet/commission`, `ship`, `list`, `getStartingPrompt`, `crewRequest`, `removeCrewRequest`, `findLabelValue`, `release`, `retire`, `defineLabel`, `labels`, `assignLabel`, `unassignLabel`, `changeLabelValues`, `declareNetworkRules`, `declareScopes`, `scopes` |
-| trierarch plugin | 0030 | `ship/register`, `whoami`, `receive`, `ack`, `pong`, `send`, `deregister`; `fleet/commission`, `ship`, `list`, `assignCrew`, `explainCrewRequest`, `defineLabel`, `labels`, `assignLabel`, `unassignLabel`, `declareNetworkRules`, `declareScopes`, `scopes` |
-| Aeolus Fleet plugin | those of the ship it crews | every `ship/` call, by name, and `openapi.json` |
+| squadrons | 0017 | `ship/register`, `whoami`, `receive`, `ack`, `pong`, `send`, `deregister`; `fleet/commission`, `ship`, `list`, `getStartingPrompt`, `crewRequest`, `removeCrewRequest`, `findLabelValue`, `release`, `retire`, `defineLabel`, `labels`, `assignLabel`, `unassignLabel`, `changeLabelValues`, `declareNetworkRules`, `declareScopes`, `scopes`. `fleet/commission` with `ownerOf` checks the scopes to grant against the asking ship, refuses a retired one and records `scopesFrom` (core 0.32.4, design on-behalf-scopes) |
+| trierarch plugin | 0030 | `ship/register`, `whoami`, `receive`, `ack`, `pong`, `send`, `deregister`; `fleet/commission`, `ship`, `list`, `assignCrew`, `explainCrewRequest`, `defineLabel`, `labels`, `assignLabel`, `unassignLabel`, `declareNetworkRules`, `declareScopes`, `scopes`, `limits` (core 0.33.1, the retention it prunes usage by). With the operator's console cookie and the Origin the console forwarded, `/trpc` `console.session`, `fleet.release` and `fleet.getStartingPrompt`, so the operator's own scopes and reach decide (decision 0057) |
+| Aeolus Fleet plugin | those of the ship it crews | every `ship/` call, by name, and `openapi.json`; `ship/register` without a harness when it cannot tell it (core 0.34.1, aeolus-fleet#1408) |
 | trierarch | 0026 | `ship/register`, `whoami`, `receive`, `ack`, `pong`, `send`, `report`, `inbox`; `fleet/ship`, `getStartingPrompt`, `assignedCrewRequests`, `giveBackCrewRequest`, `reportCrewStatus`, `confirmCrewRelease`, `clearRequests`, `confirmWorktreeCleared`, `release` |
 | gateway | 0044, 0056 | `ship/register`, `whoami`, `pushReceive`, `receiveReply`, `sentMessage`, `ack`, `delivery`, `handed`, `handled`, `notHandled`, `inbox`, `send`, `discover`, `setStatement`, `deregister`, `meeting`, `requestMic`, `withdrawMicRequest`, `releaseMic`; `fleet/commission`, `ship`, `getStartingPrompt`, `release`, `declareScopes`, `scopes`, `networkRules`, `checkManage` (core 0.32.0). With argo's console cookie, `/trpc` `console.session` and `fleet.networkRules` |
+
+A payload or a statement over 64 KB, up to 256 KB (decision 0006), needs the core release carrying aeolus-fleet#1418; an older core refuses it.
 
 Every package also builds against `@aeolus-fleet/common`: its schemas are the shapes of these calls, of plugin details per ship type (decision 0028) and of crew settings (decision 0027).
 
 ## What the console needs from the trierarch plugin
 
-The console calls the trierarch plugin's tRPC procedures from the web app's server with the operator's console session (decision 0033). It needs trierarch plugin 0.32.0 or later, which serves the fleet's enabled models: `models.list`, `models.enable` and `models.disable` (decision 0063).
+The console calls the trierarch plugin's tRPC procedures from the web app's server with the operator's console session (decision 0033). It needs trierarch plugin 0.33.0 or later, which serves the fleet's enabled models (`models.list`, `models.enable` and `models.disable`, decision 0063) and a machine's new setup line (`machines.newSetupLine`, #1239), to which it forwards the request's Origin.

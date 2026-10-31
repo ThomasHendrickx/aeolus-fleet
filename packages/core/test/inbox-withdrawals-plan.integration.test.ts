@@ -8,7 +8,7 @@ import { unwrap } from '../src/testing/result.js';
 import { withOperatorLogin } from './support/operator-login.js';
 
 // A question's withdrawals are found by the question id they name, through
-// messages_question_id_idx, not by reading argo's inbox: answering or opening
+// messages_fleet_id_question_id_idx, not by reading argo's inbox: answering or opening
 // an old question costs the same as a new one. The plan is asserted, not a
 // time, which would flake under load.
 
@@ -24,9 +24,10 @@ beforeAll(async () => {
   core = await createPostgresCore();
   ({ fleetId, operatorShipId: argoId } = unwrap(await withOperatorLogin(core.prisma, core.useCases.initialiseFleet({ name: 'home fleet' }))));
   await core.prisma.$executeRaw`
-    INSERT INTO messages (id, fleet_id, payload, content_type, idempotency_key, created_at, request_hash, selector_kind, selector_ship_id, sender_ship_id)
+    INSERT INTO messages (id, fleet_id, payload, question_id, content_type, idempotency_key, created_at, request_hash, selector_kind, selector_ship_id, sender_ship_id)
     SELECT 'msg_seed' || i, ${fleetId},
            CASE WHEN i % ${WITHDRAWAL_EVERY}::int = 0 THEN '{"questionId":"' || md5(i::text)::uuid || '"}' ELSE 'Slice ' || i || ' done' END,
+           CASE WHEN i % ${WITHDRAWAL_EVERY}::int = 0 THEN md5(i::text)::uuid::text END,
            CASE WHEN i % ${WITHDRAWAL_EVERY}::int = 0 THEN ${WITHDRAWAL_CONTENT_TYPE} ELSE 'text/plain' END,
            'seed-' || i, now() - interval '30 days' + i * interval '1 minute', 'h', 'ship', ${argoId}, ${argoId}
     FROM generate_series(1, ${MESSAGES}::int) i`;
@@ -46,6 +47,6 @@ describe("a question's withdrawals on an inbox with a history", () => {
     const statement = inboxWithdrawalsStatement(fleetId, { shipId: argoId, questionId: '3f1c2a9e-7b4d-4e8a-9c1f-2d6b8e0a5c47', limit: 100 });
     const rows = await core.prisma.$queryRaw<{ 'QUERY PLAN': string }[]>(Prisma.sql`EXPLAIN ${statement}`);
 
-    expect(rows.map((row) => row['QUERY PLAN']).join('\n')).toContain('messages_question_id_idx');
+    expect(rows.map((row) => row['QUERY PLAN']).join('\n')).toContain('messages_fleet_id_question_id_idx');
   });
 });

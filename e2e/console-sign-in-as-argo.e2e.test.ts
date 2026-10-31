@@ -67,10 +67,14 @@ async function signedInAs(who: FakeAccount): Promise<Page> {
   contexts.push(context);
   const page = await context.newPage();
   await page.goto('/');
-  await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
-  // Live shows once the page is hydrated: a menu click before that does nothing.
-  await page.getByRole('banner').getByText('Live', { exact: true }).waitFor({ timeout: 20_000 });
+  await isHydrated(page);
   return page;
+}
+
+/** The overview shows live once the page is hydrated: a menu click before that does nothing. */
+async function isHydrated(page: Page): Promise<void> {
+  await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+  await page.locator('[data-slot="live-status"][data-state="live"]:visible').waitFor({ timeout: 20_000 });
 }
 
 async function openAccountMenu(page: Page): Promise<void> {
@@ -144,7 +148,7 @@ describe('signing in as argo from the console', () => {
     pagasae.signInAs(account('mathilde', { isArgoAllowed: true }));
     await mathildePage.getByTestId('sign-in-account-start').click();
 
-    await mathildePage.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+    await isHydrated(mathildePage);
     await isSignedInAsAccount(mathildePage);
   });
 
@@ -153,6 +157,7 @@ describe('signing in as argo from the console', () => {
 
     await thomasPage.getByTestId('argo-banner').getByRole('button', { name: 'Sign out of argo' }).click();
 
+    await isHydrated(thomasPage);
     await thomasPage.getByTestId('argo-banner').waitFor({ state: 'detached' });
     await isSignedInAsAccount(thomasPage);
     expect(pagasae.signInsAsked()).toBe(signInsBefore);

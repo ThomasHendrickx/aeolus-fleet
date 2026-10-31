@@ -1,5 +1,5 @@
 import type { FleetScope, ShipId } from '@aeolus-fleet/common';
-import { createIdGenerator, reportLogOutputSchema } from '@aeolus-fleet/common';
+import { createIdGenerator, reportLogOutputSchema, requestMicOutputSchema } from '@aeolus-fleet/common';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
@@ -217,7 +217,7 @@ describe('the ship tools at /mcp', () => {
       tool: { name: 'openMeeting', answers: z.object({ meetingId: z.string() }) },
       arguments: { crewToken: chiefToken, ships: [{ name: head.name }], idempotencyKey: freshKey(), model: 'claude-opus-5-5', title: 'Launch' },
     });
-    await call(headSession, { tool: { name: 'requestMic', answers: changed }, arguments: { crewToken: headToken, meetingId } });
+    await call(headSession, { tool: { name: 'requestMic', answers: requestMicOutputSchema }, arguments: { crewToken: headToken, meetingId } });
     await call(chiefSession, { tool: { name: 'giveMic', answers: changed }, arguments: { crewToken: chiefToken, meetingId, shipId: head.shipId } });
     const { messageId } = await call(headSession, {
       tool: tools.send,
@@ -331,7 +331,7 @@ describe('the ship tools at /mcp', () => {
     const session = await connect();
     const crewToken = await register(session, trierarch);
     const others = SHIP_CALLS.map((each) => each.name).filter(
-      (name) => name.startsWith('fleet_') && !['fleet_ship', 'fleet_getStartingPrompt', 'fleet_release', 'fleet_reportCrewStatus', 'fleet_confirmCrewRelease', 'fleet_giveBackCrewRequest', 'fleet_assignedCrewRequests', 'fleet_clearRequests', 'fleet_confirmWorktreeCleared', 'fleet_checkManage'].includes(name),
+      (name) => name.startsWith('fleet_') && !['fleet_ship', 'fleet_getStartingPrompt', 'fleet_release', 'fleet_reportCrewStatus', 'fleet_reportActivity', 'fleet_confirmCrewRelease', 'fleet_giveBackCrewRequest', 'fleet_assignedCrewRequests', 'fleet_clearRequests', 'fleet_confirmWorktreeCleared', 'fleet_checkManage'].includes(name),
     );
 
     const refusals = await Promise.all(others.map(async (name) => [name, await refusalOf(session, { name, arguments: { crewToken } })]));
@@ -361,6 +361,20 @@ describe('the ship tools at /mcp', () => {
 
     const listed = wholeShips((await createUseCases({ prisma: database }).listFleet(argo)).ships);
     expect(listed.find((ship) => ship.id === skiff.shipId)?.report).toMatchObject({ state: 'blocked', note: 'waiting for review' });
+  });
+
+  it('report: a crew names its task and step over MCP, and a bad step is refused', async () => {
+    const skiff = await commissioned();
+    const session = await connect();
+    const crewToken = await register(session, skiff);
+    const task = { kind: 'url', url: 'https://github.com/acme/ops/pull/1391' };
+
+    await call(session, { tool: { name: 'report', answers: z.strictObject({}) }, arguments: { crewToken, state: 'working', task, step: { at: 2, of: 3 } } });
+    const refusal = await refusalOf(session, { name: 'report', arguments: { crewToken, state: 'working', step: { at: 0, of: 3 } } });
+
+    expect(refusal).toMatch(/^BAD_REQUEST: /);
+    const log = await call(session, { tool: { name: 'reportLog', answers: reportLogOutputSchema }, arguments: { crewToken } });
+    expect(log).toMatchObject({ report: { state: 'working', task, step: { at: 2, of: 3 } } });
   });
 
   it("reportLog: a crew patches its report's details and reads them back", async () => {

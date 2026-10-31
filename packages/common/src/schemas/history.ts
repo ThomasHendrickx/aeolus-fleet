@@ -1,3 +1,5 @@
+import { alertSchema } from './alert.js';
+import { expectationsSchema } from './expectations.js';
 import { z } from 'zod';
 
 import { deliveryStateSchema, eventTypeSchema, locationKindSchema } from '../fleet/index.js';
@@ -56,14 +58,22 @@ export const shipDetailOutputSchema = listedShipSchema.extend({
   crewRequest: crewRequestSchema.nullable(),
   commissionedAt: isoTime,
   crewedSince: isoTime.nullable(),
+  /** When the pruning pass removed the retired ship, past the fleet's retention: what it shows is its remnant (decision 0070). Null until then. */
+  removedAt: isoTime.nullable(),
   /** What its crew holds in flight now: what a release or a re-crew returns to pending. */
   inFlightDeliveries: z.int().min(0),
   /** Its direct deliveries pending or in flight: what a retire abandons. */
   openDeliveries: z.int().min(0),
   /** Its owner by id and name; null for argo and the viewer (decision 0045). */
   owner: partySchema.nullable(),
+  /** The ship that commissioned it, such as the gateway's for its proxy ships (decision 0068, B19); null when an account or the installation did, and for argo. */
+  commissionedByShipId: idSchema('ship').nullable(),
   /** What it is and offers, as discovery shows it: its crew's statement, else its commission note, else none (decision 0047). */
   statement: discoveredStatementSchema,
+  /** Its open alerts, newest first (decision 0071): shown above the meta strip until they clear. */
+  openAlerts: z.array(alertSchema),
+  /** What its owner, or a ship that manages it, expects of it, each with who set it and when (decision 0071); null while not set. */
+  expectations: expectationsSchema,
 });
 
 export type ShipDetail = z.infer<typeof shipDetailOutputSchema>;
@@ -118,8 +128,12 @@ export const listedMessageSchema = z.object({
   contentType: z.string(),
   /** The model the sender's session stated it runs; null from argo and on messages from before models were stated. */
   model: z.string().nullable(),
-  /** The start of the payload, for the list; the whole payload comes with `fleet.message`. */
+  /** The start of the payload, for the list; the whole payload comes with `fleet.message`. Empty when unreadable. */
   preview: z.string(),
+  /** Its payload is sealed under a data key that cannot be had now, or does not open: the preview is empty (decision 0068, B9). */
+  isPayloadUnreadable: z.boolean(),
+  /** Its payload is stored sealed: the console marks it (decision 0068, N1). False for one stored before sealing that the sealing pass has not sealed yet. */
+  isPayloadSealed: z.boolean(),
   delivery: z.object({
     id: idSchema('delivery'),
     state: deliveryStateSchema,
@@ -268,7 +282,7 @@ export type MessageReply = z.infer<typeof messageReplySchema>;
  * or the ship of the type that claimed it (null while none has), its state
  * and since when.
  */
-export const messageDeliverySchema = z.object({ id: idSchema('delivery'), ship: partySchema.nullable(), state: deliveryStateSchema, since: isoTime });
+export const messageDeliverySchema = z.object({ id: idSchema('delivery'), ship: partySchema.nullable(), state: deliveryStateSchema, since: isoTime, progress: reportSchema.pick({ state: true, note: true, step: true, reportChangedAt: true }).nullable() });
 
 export type MessageDelivery = z.infer<typeof messageDeliverySchema>;
 
@@ -279,6 +293,7 @@ export type MessageDelivery = z.infer<typeof messageDeliverySchema>;
  * id is that delivery. `fleet.messageDeliveries` lists them a page at a time.
  */
 export const messageOutputSchema = listedMessageSchema.omit({ preview: true, delivery: true }).extend({
+  /** Empty when unreadable: the envelope and the delivery are answered still (decision 0068, B9). */
   payload: z.string(),
   replies: z.array(messageReplySchema),
   delivery: z.object({
@@ -290,6 +305,7 @@ export const messageOutputSchema = listedMessageSchema.omit({ preview: true, del
     history: z.array(deliveryHistoryEntrySchema),
   }),
   deliveryCount: z.int().min(0),
+  progress: reportSchema.pick({ state: true, note: true, step: true, reportChangedAt: true }).nullable(),
 });
 
 export type MessageDetail = z.infer<typeof messageOutputSchema>;

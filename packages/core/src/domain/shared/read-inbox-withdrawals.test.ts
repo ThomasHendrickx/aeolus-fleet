@@ -49,9 +49,9 @@ describe("reading a question's withdrawals in argo's inbox", () => {
     await send({ contentType: 'text/plain', payload: { questionId: QUESTION_ID } });
     await send({ to: captain.shipId, contentType: WITHDRAWAL_CONTENT_TYPE, payload: { questionId: QUESTION_ID } });
     const replacement = await send({ contentType: `${REPLACEMENT_CONTENT_TYPE}; charset=utf-8`, payload: { questionId: QUESTION_ID, question: REPLACEMENT } });
-    const listed = (await history.readInbox(argo, { filter: 'all' })).items;
+    const listed = (await history.readInbox(argo, { filter: 'all' }).then(unwrap)).items;
 
-    const withdrawals = await history.readInboxWithdrawals(argo, { questionId: QUESTION_ID });
+    const withdrawals = await history.readInboxWithdrawals(argo, { questionId: QUESTION_ID }).then(unwrap);
 
     expect(ids(withdrawals)).toEqual([withdrawal, replacement]);
     expect(withdrawals.items[0]).toEqual(listed.find((entry) => entry.deliveryId === withdrawal));
@@ -62,8 +62,8 @@ describe("reading a question's withdrawals in argo's inbox", () => {
     const second = await send({ contentType: WITHDRAWAL_CONTENT_TYPE, payload: { questionId: QUESTION_ID } });
     const third = await send({ contentType: WITHDRAWAL_CONTENT_TYPE, payload: { questionId: QUESTION_ID } });
 
-    const page = await history.readInboxWithdrawals(argo, { questionId: QUESTION_ID, limit: 2 });
-    const next = await history.readInboxWithdrawals(argo, { questionId: QUESTION_ID, limit: 2, cursor: page.nextCursor ?? undefined });
+    const page = await history.readInboxWithdrawals(argo, { questionId: QUESTION_ID, limit: 2 }).then(unwrap);
+    const next = await history.readInboxWithdrawals(argo, { questionId: QUESTION_ID, limit: 2, cursor: page.nextCursor ?? undefined }).then(unwrap);
 
     expect([ids(page), page.nextCursor]).toEqual([[first, second], second]);
     expect([ids(next), next.nextCursor]).toEqual([[third], null]);
@@ -72,7 +72,7 @@ describe("reading a question's withdrawals in argo's inbox", () => {
   it('lists none for a question nobody withdrew', async () => {
     await send({ contentType: QUESTION_CONTENT_TYPE, payload: { id: QUESTION_ID } });
 
-    await expect(history.readInboxWithdrawals(argo, { questionId: QUESTION_ID })).resolves.toEqual({ items: [], nextCursor: null });
+    await expect(history.readInboxWithdrawals(argo, { questionId: QUESTION_ID }).then(unwrap)).resolves.toEqual({ items: [], nextCursor: null });
   });
 });
 
@@ -90,8 +90,8 @@ describe("a viewer reading a question's withdrawals", () => {
       }),
     );
 
-    await expect(fleet.history.readInboxWithdrawals(fleet.viewer, { questionId: QUESTION_ID }).then(({ items }) => items.length)).resolves.toBe(1);
+    await expect(fleet.history.readInboxWithdrawals(fleet.viewer, { questionId: QUESTION_ID }).then(unwrap).then(({ items }) => items.length)).resolves.toBe(1);
     unwrap(await fleet.registry.setBuiltInRule(fleet.argo, { rule: 'viewerRead', isOn: false }));
-    await expect(fleet.history.readInboxWithdrawals(fleet.viewer, { questionId: QUESTION_ID })).resolves.toEqual({ items: [], nextCursor: null });
+    await expect(fleet.history.readInboxWithdrawals(fleet.viewer, { questionId: QUESTION_ID }).then(unwrap)).resolves.toEqual({ items: [], nextCursor: null });
   });
 });

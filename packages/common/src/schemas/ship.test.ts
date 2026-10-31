@@ -71,12 +71,17 @@ describe('registerInputSchema', () => {
     expect(registerInputSchema.parse(input)).toEqual(input);
   });
 
+  it('accepts a register that states no harness: the harness stays unknown, never a default (aeolus-fleet#1408)', () => {
+    const unstated = { shipId: input.shipId, secret: input.secret, location: input.location };
+
+    expect(registerInputSchema.parse(unstated)).toEqual(unstated);
+  });
+
   it.each([
     ['an id of another kind', { ...input, shipId: newId('fleet') }],
     ['an empty secret', { ...input, secret: '' }],
     ['a secret over 256 characters', { ...input, secret: 'a'.repeat(257) }],
     ['a missing location', { shipId: input.shipId, secret: input.secret, harness: input.harness }],
-    ['a missing harness', { shipId: input.shipId, secret: input.secret, location: input.location }],
   ])('rejects %s', (_label, candidate) => {
     expect(registerInputSchema.safeParse(candidate).success).toBe(false);
   });

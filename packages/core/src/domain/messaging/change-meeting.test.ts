@@ -1,7 +1,7 @@
 import { MEETING_ENDED_CONTENT_TYPE, meetingEndedSchema, type LabelValueId, type MeetingId, type MessageId, type ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { applyNetworkRules, crewAboard, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
+import { plainPayloadOf, applyNetworkRules, crewAboard, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases, SESSION_MODEL } from '../../../test/support/core-fixtures.js';
 import { shipWithScopes } from '../../../test/support/crew-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { valueIdOf } from '../../../test/support/label-fixtures.js';
@@ -270,7 +270,7 @@ describe('ending a meeting (M15)', () => {
   function endedNotices() {
     return core.state.messages
       .filter(({ contentType }) => contentType === MEETING_ENDED_CONTENT_TYPE)
-      .map(({ senderShipId, selector, meetingId: of, model, payload }) => ({ senderShipId, selector, meetingId: of, model, payload: meetingEndedSchema.parse(JSON.parse(payload)) }));
+      .map(({ senderShipId, selector, meetingId: of, model, payload }) => ({ senderShipId, selector, meetingId: of, model, payload: meetingEndedSchema.parse(JSON.parse(plainPayloadOf({ payload }))) }));
   }
 
   it('by the owner tells every other present participant, by a message from the owner stating no model, and wakes each', async () => {

@@ -42,15 +42,19 @@ export const CREWED_SHIP: ShipDetail = {
   lastSeenAt: new Date(NOW.getTime() - 20_000).toISOString(),
   ping: null,
   scopes: ['messages:send', 'messages:receive'],
-  report: null, harness: null, model: null, awaitingCrewSince: null, crewRequest: null, labels: [],
+  report: null, harness: 'claude-code', model: null, activity: null, openAlertCount: 0, awaitingCrewSince: null, crewRequest: null, labels: [],
   commissionedAt: '2026-09-20T16:02:00Z',
   crewedSince: minutesAgo(11),
+  removedAt: null,
   retiredAt: null,
   inFlightDeliveries: 1,
   openDeliveries: 2,
   owner: ARGO,
   ownerShipId: ARGO.id,
+  commissionedByShipId: ARGO.id,
   statement: null,
+  openAlerts: [],
+  expectations: { reportChangesWithin: null, taskDoneBy: null },
 };
 
 export const AWAITING_SHIP: ShipDetail = {
@@ -161,10 +165,10 @@ export const TIMELINE: TimelineEntry[] = [
 
 function listed(
   suffix: string,
-  message: Omit<ListedMessage, 'id' | 'delivery'> & { state: ListedMessage['delivery']['state']; claimedBy: Party | null; isPulled?: boolean },
+  message: Omit<ListedMessage, 'id' | 'delivery' | 'isPayloadUnreadable' | 'isPayloadSealed'> & { state: ListedMessage['delivery']['state']; claimedBy: Party | null; isPulled?: boolean },
 ): ListedMessage {
   const { state, claimedBy, isPulled = false, ...rest } = message;
-  return { id: messageId(suffix), ...rest, delivery: { id: deliveryId(suffix), state, claimedBy, isPulled } };
+  return { id: messageId(suffix), ...rest, isPayloadUnreadable: false, isPayloadSealed: false, delivery: { id: deliveryId(suffix), state, claimedBy, isPulled } };
 }
 
 /** reviewer-01's messages: a question and its answer, and a task from builder-core to its type. */
@@ -201,6 +205,12 @@ export const MESSAGES: ListedMessage[] = [
     isPulled: true,
   }),
 ];
+
+/** reviewer-01's messages in a sealed fleet: each payload stored sealed, marked (decision 0068, N1). */
+export const SEALED_MESSAGES: ListedMessage[] = MESSAGES.map((message) => ({ ...message, isPayloadSealed: true }));
+
+/** The same with the company key cut off: no preview, each marked unreadable (scenario 25). */
+export const KEY_NOT_REACHABLE_MESSAGES: ListedMessage[] = SEALED_MESSAGES.map((message) => ({ ...message, preview: '', isPayloadUnreadable: true }));
 
 /** A message reviewer-01's plugin watcher handed to its agent, and one a plain receive handed (pulled). */
 export const HANDED_MESSAGES: ListedMessage[] = [
@@ -291,8 +301,11 @@ export const TYPE_MESSAGE: MessageDetail = {
   sentAt: '2026-09-28T14:05:51Z',
   contentType: 'application/json', model: null,
   payload: '{"task":"review","repo":"web","pr":321}',
+  isPayloadUnreadable: false,
+  isPayloadSealed: false,
   replies: [],
   delivery: { id: deliveryId('0003'), state: 'handed', attempts: 2, claimedBy: REVIEWER, way: PULLED_WAY, history: TYPE_HISTORY },
+  progress: null,
   deliveryCount: 1,
 };
 
@@ -305,6 +318,8 @@ export const DIRECT_MESSAGE: MessageDetail = {
   sentAt: '2026-09-28T14:26:03Z',
   contentType: 'text/plain', model: null,
   payload: 'Start with claude/slice-12-ship-page.',
+  isPayloadUnreadable: false,
+  isPayloadSealed: false,
   replies: [],
   delivery: {
     id: deliveryId('0001'),
@@ -314,6 +329,7 @@ export const DIRECT_MESSAGE: MessageDetail = {
     way: { ...PULLED_WAY, since: '2026-09-28T14:27:40Z' },
     history: DIRECT_HISTORY,
   },
+  progress: null,
   deliveryCount: 1,
 };
 
@@ -330,6 +346,8 @@ export const LABEL_MESSAGE: MessageDetail = {
   contentType: 'text/plain',
   model: 'claude-opus-5-5',
   payload: 'main is red',
+  isPayloadUnreadable: false,
+  isPayloadSealed: false,
   replies: [],
   delivery: {
     id: deliveryId('0051'),
@@ -339,14 +357,15 @@ export const LABEL_MESSAGE: MessageDetail = {
     way: { ...PULLED_WAY, since: '2026-09-28T14:27:40Z' },
     history: DIRECT_HISTORY,
   },
+  progress: null,
   deliveryCount: 3,
 };
 
 /** The deliveries of LABEL_MESSAGE, by id: one per ship carrying team=a. */
 export const LABEL_DELIVERIES: MessageDelivery[] = [
-  { id: deliveryId('0051'), ship: REVIEWER, state: 'acknowledged', since: '2026-09-28T14:27:40Z' },
-  { id: deliveryId('0052'), ship: BUILDER, state: 'handed', since: '2026-09-28T14:28:10Z' },
-  { id: deliveryId('0053'), ship: SECOND_REVIEWER, state: 'pending', since: '2026-09-28T14:26:03Z' },
+  { id: deliveryId('0051'), ship: REVIEWER, state: 'acknowledged', progress: null, since: '2026-09-28T14:27:40Z' },
+  { id: deliveryId('0052'), ship: BUILDER, state: 'handed', progress: null, since: '2026-09-28T14:28:10Z' },
+  { id: deliveryId('0053'), ship: SECOND_REVIEWER, state: 'pending', progress: null, since: '2026-09-28T14:26:03Z' },
 ];
 
 /** The trierarch on mac-mini, which crews reviewer-01 in the pushed examples. */
@@ -389,9 +408,12 @@ function pushed(suffix: string, delivery: Pick<MessageDetail['delivery'], 'state
     contentType: 'text/plain',
     model: 'claude-opus-5-5',
     payload: 'Review https://github.com/ThomasHendrickx/aeolus-fleet/pull/48',
+    isPayloadUnreadable: false,
+    isPayloadSealed: false,
     replies: [],
     delivery: { id: deliveryId(suffix), claimedBy: delivery.state === 'pending' ? null : REVIEWER, ...delivery },
-    deliveryCount: 1,
+    progress: null,
+  deliveryCount: 1,
   };
 }
 

@@ -17,7 +17,7 @@ function aShip(ship: Partial<ListedShip>): ListedShip {
     lastSeenAt: null,
     ping: null,
     scopes: ['messages:send', 'messages:receive'],
-    report: null, harness: null, model: null, awaitingCrewSince: null, crewRequest: null, labels: [], retiredAt: null, ownerShipId: null,
+    report: null, harness: null, model: null, activity: null, openAlertCount: 0, awaitingCrewSince: null, crewRequest: null, labels: [], retiredAt: null, ownerShipId: null,
     ...ship,
   };
 }

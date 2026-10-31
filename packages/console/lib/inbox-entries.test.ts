@@ -22,7 +22,13 @@ const QUESTION = {
   pick: { option: 1, why: 'Nothing else needs it.' },
 };
 
-function aMessage({ sender = ORCHESTRATOR, contentType = 'text/plain', payload = 'Slice 7 done' }: { sender?: { id: ShipId; name: string }; contentType?: string; payload?: string } = {}): InboxMessage {
+function aMessage({
+  sender = ORCHESTRATOR,
+  contentType = 'text/plain',
+  payload = 'Slice 7 done',
+  isPayloadSealed = false,
+  isPayloadUnreadable = false,
+}: { sender?: { id: ShipId; name: string }; contentType?: string; payload?: string; isPayloadSealed?: boolean; isPayloadUnreadable?: boolean } = {}): InboxMessage {
   return {
     deliveryId: newId('delivery'),
     state: 'pending',
@@ -30,13 +36,35 @@ function aMessage({ sender = ORCHESTRATOR, contentType = 'text/plain', payload =
     doneAt: null,
     repliedWith: null,
     replies: [],
-    message: { id: newId('message'), sender: { id: sender.id, name: sender.name }, inReplyTo: null, sentAt: AT, contentType, model: 'claude-opus-5-5', payload },
+    message: { id: newId('message'), sender: { id: sender.id, name: sender.name }, inReplyTo: null, sentAt: AT, contentType, model: 'claude-opus-5-5', payload, isPayloadUnreadable, isPayloadSealed },
   };
 }
 
 const SHIPS = [ORCHESTRATOR, TRIERARCH, SQUADRONS];
 
 describe('inboxEntriesOf', () => {
+  it('marks a payload stored sealed, and not one stored before sealing (decision 0068, N1)', () => {
+    const entries = inboxEntriesOf([aMessage({ isPayloadSealed: true }), aMessage({ contentType: QUESTION_CONTENT_TYPE, payload: JSON.stringify(QUESTION), isPayloadSealed: true }), aMessage()], SHIPS);
+
+    expect(entries.map(({ kind, sealing }) => ({ kind, sealing }))).toEqual([
+      { kind: 'message', sealing: 'sealed' },
+      { kind: 'question', sealing: 'sealed' },
+      { kind: 'message', sealing: 'plain' },
+    ]);
+  });
+
+  it('scenario 25: given a sealed message and a sealed question whose company key is not reachable, each lists as a message saying so', () => {
+    const entries = inboxEntriesOf(
+      [aMessage({ payload: '', isPayloadSealed: true, isPayloadUnreadable: true }), aMessage({ contentType: QUESTION_CONTENT_TYPE, payload: '', isPayloadSealed: true, isPayloadUnreadable: true })],
+      SHIPS,
+    );
+
+    expect(entries.map(({ kind, sealing }) => ({ kind, sealing }))).toEqual([
+      { kind: 'message', sealing: 'keyNotReachable' },
+      { kind: 'message', sealing: 'keyNotReachable' },
+    ]);
+  });
+
   it('reads a message with its headline and the sender type', () => {
     const message = aMessage({ payload: 'PR #412 is ready\n\nCI green.' });
 
@@ -106,7 +134,7 @@ describe('inboxEntriesOf', () => {
   });
 
   it("lays out argo's replies to a message", () => {
-    const message = { ...aMessage(), replies: [{ id: newId('message'), contentType: 'text/plain', payload: 'Go.', sentAt: AT }] };
+    const message = { ...aMessage(), replies: [{ id: newId('message'), contentType: 'text/plain', payload: 'Go.', isPayloadUnreadable: false, sentAt: AT }] };
 
     const [entry] = inboxEntriesOf([message], SHIPS);
 

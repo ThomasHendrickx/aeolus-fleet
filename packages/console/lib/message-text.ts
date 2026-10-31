@@ -2,6 +2,7 @@ import type { BlockContent, DefinitionContent, PhrasingContent, RootContent } fr
 import { fromMarkdown } from 'mdast-util-from-markdown';
 import { gfmFromMarkdown } from 'mdast-util-gfm';
 import { gfm } from 'micromark-extension-gfm';
+import { alertTextOf } from '@aeolus-fleet/common/rules';
 
 import type { Block, Inline, KnownLink, MessageText } from './message-document';
 import { formattedPayload, isJson } from './payload';
@@ -196,6 +197,11 @@ function lineCountOf(body: string): number {
 }
 
 export function messageTextOf({ contentType, payload }: { contentType: string; payload: string }): MessageText {
+  // An alert message shows by its headline and its markdown body (docs/design/monitoring, 4.8, N10).
+  const alert = alertTextOf({ contentType, payload });
+  if (alert !== null) {
+    return messageTextOf({ contentType: 'text/markdown', payload: `${alert.headline.replace(/\n/g, ' ')}\n\n${alert.body}` });
+  }
   const [firstLine = '', ...rest] = payload.split('\n');
   if (isJson(contentType)) {
     const formatted = formattedPayload(payload, contentType) ?? payload;

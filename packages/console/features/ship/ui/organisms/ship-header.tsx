@@ -1,9 +1,8 @@
-import type { ShipDetail, ShipId } from '@aeolus-fleet/common';
-import { Archive, CircleAlert, Info, KeyRound, Plug, UserRound } from 'lucide-react';
+import type { AlertOutput, FleetId, ShipDetail, ShipId } from '@aeolus-fleet/common';
+import { Archive, CircleAlert, Eye, Info, KeyRound, Plug, UserRound } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
-import { useConsoleConstants } from '../../../../lib/console-constants';
 import { Button, classNames } from '@aeolus-fleet/common/header';
 import { clockTime, dayDate, duration, fullDateTime, lastSeen, relativeTime, shortDateTime } from '../../../../lib/relative-time';
 import { Badge } from '../../../../components/atoms/badge';
@@ -11,11 +10,16 @@ import { CopyButton } from '../../../../components/atoms/copy-button';
 import { Skeleton } from '../../../../components/atoms/skeleton';
 import { EmptyState } from '../../../../components/molecules/empty-state';
 import { LocationTag } from '../../../../components/molecules/location-tag';
+import type { GatewayReader } from '../../services/gateway-reader';
 import { ModelLine } from '../molecules/model-line';
 import { PingStatus } from '../molecules/ping-status';
 import { ReportDetails } from '../molecules/report-details';
 import { ShipStatement } from '../molecules/ship-statement';
 import { ReportLine } from '../../../../components/molecules/report-line';
+import { ActivityLine } from '../../../../components/molecules/activity-line';
+import { AlertPanel } from '../../../../components/molecules/alert-panel';
+import { alertShipPanel } from '../../../../lib/alert';
+import { expectationLines } from '../../../../lib/expectations';
 import { ShipName } from '../../../../components/molecules/ship-name';
 import { StatusBadge } from '../../../../components/molecules/status-badge';
 
@@ -33,6 +37,8 @@ interface ShipHeaderProps {
   crewRequest?: ReactNode;
   /** The time "Crewed since" is measured to. */
   now: Date;
+  /** The viewer's fleet, for a report's message task; undefined until the session is known. */
+  viewerFleetId: FleetId | undefined;
   /** Where "Back to fleet overview" goes. */
   backHref?: string;
   /** The ship's labels, read-only or with yours to change, once the fleet's labels are read (#102); no Labels row until then. */
@@ -41,6 +47,14 @@ interface ShipHeaderProps {
   isPluginShip?: boolean;
   /** Its side of the way (#756): the part that serves it, its turn and its oldest delivery waiting; no Delivery row without it. */
   way?: ReactNode;
+  /** In a sealed fleet, why the gateway reads its payloads (decision 0068, B19); no mark without it. */
+  gatewayReader?: GatewayReader;
+}
+
+/** An open alert above the meta strip (docs/design/monitoring, 4.8): what parted and for how long, the expectation, since when, the owner told, "clears by itself". */
+function ShipOpenAlert({ alert, now }: { alert: AlertOutput; now: Date }) {
+  const { headline, detail, caption } = alertShipPanel(alert, now);
+  return <AlertPanel heading={headline} lines={[{ key: alert.id, text: detail ?? '', caption }]} testId="ship-open-alert" />;
 }
 
 function MetaCell({ label, children }: { label: string; children: ReactNode }) {
@@ -58,8 +72,21 @@ function crewedSince(since: Date, now: Date): string {
   return `${when} · ${duration(since, now)}`;
 }
 
-function MetaStrip({ ship, now, labels, way }: { ship: ShipDetail; now: Date; labels: ReactNode; way: ReactNode }) {
+function MetaStrip({
+  ship,
+  now,
+  viewerFleetId,
+  labels,
+  way,
+}: {
+  ship: ShipDetail;
+  now: Date;
+  viewerFleetId: FleetId | undefined;
+  labels: ReactNode;
+  way: ReactNode;
+}) {
   const isOperator = ship.kind === 'operator';
+  const expectations = expectationLines(ship.expectations, { reportTask: ship.report?.task ?? null, now, viewerFleetId });
   const since = ship.crewedSince === null ? null : new Date(ship.crewedSince);
   const commissionedAt = new Date(ship.commissionedAt);
   return (
@@ -67,7 +94,7 @@ function MetaStrip({ ship, now, labels, way }: { ship: ShipDetail; now: Date; la
       <MetaCell label="Location">
         <span className="inline-flex min-w-0 flex-col gap-0.5">
           <LocationTag kind={ship.location?.kind ?? null} description={ship.location?.description} size="md" />
-          <ModelLine harness={ship.harness} model={ship.model?.id ?? null} testId="ship-model" />
+          <ModelLine harness={ship.harness} model={ship.model?.id ?? null} isHarnessUnknown={ship.kind === 'agent' && ship.status === 'crewed' && ship.harness === null} testId="ship-model" />
           {ship.lastSeenAt === null ? null : (
             <time
               dateTime={ship.lastSeenAt}
@@ -79,7 +106,8 @@ function MetaStrip({ ship, now, labels, way }: { ship: ShipDetail; now: Date; la
             </time>
           )}
           <PingStatus ping={ship.ping} now={now} testId="ship-ping-status" />
-          {ship.kind !== 'agent' && ship.kind !== 'plugin' ? null : <ReportLine report={ship.report} now={now} variant="full" testId="ship-report" />}
+          {ship.kind !== 'agent' && ship.kind !== 'plugin' ? null : <ReportLine report={ship.report} now={now} variant="full" viewerFleetId={viewerFleetId} testId="ship-report" />}
+          <ActivityLine activity={ship.activity} now={now} variant="full" testId="ship-activity" />
         </span>
       </MetaCell>
       <MetaCell label="Crewed since">
@@ -106,6 +134,24 @@ function MetaStrip({ ship, now, labels, way }: { ship: ShipDetail; now: Date; la
           <dd className="min-w-0 flex-1">{way}</dd>
         </div>
       )}
+      {expectations.length === 0 ? null : (
+        <div className="col-span-4 flex min-w-0 items-start gap-4 bg-card px-3.5 py-2.5 max-sm:col-span-2 max-sm:flex-col max-sm:gap-1.5" data-testid="ship-expectations">
+          <dt className="shrink-0 text-meta text-muted-foreground">Expectations</dt>
+          <dd className="flex min-w-0 flex-1 flex-col gap-0.5">
+            {expectations.map((line) =>
+              line.key === 'reportChangesWithin' ? (
+                <span key={line.key} className="text-body text-foreground">
+                  {line.text}
+                </span>
+              ) : (
+                <span key={line.key} title={line.title} className="text-meta text-muted-foreground tabular-nums">
+                  {line.text}
+                </span>
+              ),
+            )}
+          </dd>
+        </div>
+      )}
       {isOperator ? null : (
         <div className="col-span-4 flex min-w-0 items-start gap-4 bg-card px-3.5 py-2.5 max-sm:col-span-2 max-sm:flex-col max-sm:gap-1.5">
           <dt className="shrink-0 text-meta text-muted-foreground">Statement</dt>
@@ -124,12 +170,41 @@ function MetaStrip({ ship, now, labels, way }: { ship: ShipDetail; now: Date; la
   );
 }
 
-function Notice({ icon, children }: { icon: ReactNode; children: ReactNode }) {
+function Notice({ icon, children, testId }: { icon: ReactNode; children: ReactNode; testId?: string }) {
   return (
-    <p className="flex items-center gap-2 rounded-lg border border-border bg-muted px-3.5 py-2.5 text-meta text-muted-foreground [&_svg]:size-(--size-icon-sm) [&_svg]:shrink-0">
+    <p data-testid={testId} className="flex items-center gap-2 rounded-lg border border-border bg-muted px-3.5 py-2.5 text-meta text-muted-foreground [&_svg]:size-(--size-icon-sm) [&_svg]:shrink-0">
       {icon}
       <span>{children}</span>
     </p>
+  );
+}
+
+/** The gateway's ship, linked to its page when the console knows its id. */
+function GatewayName({ gateway }: { gateway: GatewayReader['gateway'] }) {
+  return gateway.shipId === undefined ? (
+    <span className="font-medium text-foreground">{gateway.name}</span>
+  ) : (
+    <Link href={`/ships/${gateway.shipId}`} className="font-medium text-foreground underline underline-offset-2">
+      {gateway.name}
+    </Link>
+  );
+}
+
+/** That the gateway reads the ship's payloads, and why, naming the gateway's ship (decision 0068, D4, B19). */
+function GatewayMark({ reader }: { reader: GatewayReader }) {
+  return (
+    <Notice icon={<Eye aria-hidden />} testId="ship-gateway-mark">
+      The gateway reads this ship’s payloads:{' '}
+      {reader.as === 'crew' ? (
+        <>
+          <GatewayName gateway={reader.gateway} /> crews it.
+        </>
+      ) : (
+        <>
+          it is <GatewayName gateway={reader.gateway} />’s proxy ship for an outside party.
+        </>
+      )}
+    </Notice>
   );
 }
 
@@ -138,10 +213,9 @@ function Notice({ icon, children }: { icon: ReactNode; children: ReactNode }) {
  * type or the operator chip, the actions its state allows, and a meta strip
  * of where it runs, since when it is crewed, when it was commissioned and its
  * id, with its side of the way (#756), its statement (decision 0047) and its labels at its foot (#102), then its crew's report details, folded, when it has any. Its crew
- * request card, when given, sits above the meta strip. argo says it is the operator's ship; a retired ship is read-only.
+ * request card, when given, sits above the meta strip, and its open alerts below that (decision 0071). argo says it is the operator's ship; a retired ship is read-only. In a sealed fleet a ship the gateway reads says so, naming the gateway's ship.
  */
-export function ShipHeader({ ship, shipId, state, actions, crewRequest, now, backHref = '/', labels, isPluginShip = false, way }: ShipHeaderProps) {
-  const { fleetScopes } = useConsoleConstants();
+export function ShipHeader({ ship, shipId, state, actions, crewRequest, now, viewerFleetId, backHref = '/', labels, isPluginShip = false, way, gatewayReader }: ShipHeaderProps) {
   if (state === 'loading' || (state === 'ready' && ship === undefined)) {
     return (
       <div aria-busy data-testid="ship-header" className="flex flex-col gap-4">
@@ -211,13 +285,11 @@ export function ShipHeader({ ship, shipId, state, actions, crewRequest, now, bac
                   </Badge>
                 ) : null}
                 <Badge variant="type">{ship.type}</Badge>
-                {ship.scopes
-                  .filter((scope) => fleetScopes.some((fleetScope) => fleetScope === scope))
-                  .map((scope) => (
-                    <Badge key={scope} variant="kind" data-testid="ship-fleet-scope">
-                      {scope}
-                    </Badge>
-                  ))}
+                {ship.scopes.map((scope) => (
+                  <Badge key={scope} variant="kind" data-testid="ship-fleet-scope">
+                    {scope}
+                  </Badge>
+                ))}
               </>
             )}
             {ship.status === 'awaitingCrew' && ship.startingPrompt === null ? (
@@ -256,8 +328,12 @@ export function ShipHeader({ ship, shipId, state, actions, crewRequest, now, bac
           Retired on {fullDateTime(new Date(ship.retiredAt))}. Read-only.
         </Notice>
       ) : null}
+      {gatewayReader === undefined ? null : <GatewayMark reader={gatewayReader} />}
       {crewRequest}
-      <MetaStrip ship={ship} now={now} labels={labels} way={way} />
+      {ship.openAlerts.map((alert) => (
+        <ShipOpenAlert key={alert.id} alert={alert} now={now} />
+      ))}
+      <MetaStrip ship={ship} now={now} viewerFleetId={viewerFleetId} labels={labels} way={way} />
       {(ship.kind === 'agent' || ship.kind === 'plugin') && ship.report?.details && ship.report.detailsBytes !== null ? (
         <ReportDetails details={ship.report.details} bytes={ship.report.detailsBytes} version={ship.report.detailsVersion} testId="ship-report-details" />
       ) : null}

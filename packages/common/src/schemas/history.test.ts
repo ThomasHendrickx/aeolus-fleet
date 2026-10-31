@@ -70,6 +70,10 @@ describe('shipDetailOutputSchema', () => {
     ping: null,
     scopes: ['messages:send', 'messages:receive'],
     report: null,
+    activity: null,
+    openAlertCount: 0,
+    openAlerts: [],
+    expectations: { reportChangesWithin: null, taskDoneBy: null },
     crewRequest: null,
     labels: [],
     harness: 'claude-code',
@@ -78,10 +82,12 @@ describe('shipDetailOutputSchema', () => {
     commissionedAt: AT,
     crewedSince: AT,
     retiredAt: null,
+    removedAt: null,
     ownerShipId: null,
     inFlightDeliveries: 1,
     openDeliveries: 3,
     owner: { id: newId('ship'), name: 'argo' },
+    commissionedByShipId: newId('ship'),
     statement: null,
   };
 
@@ -90,7 +96,7 @@ describe('shipDetailOutputSchema', () => {
   });
 
   it("accepts the crew's report with its details, their version and their size", () => {
-    const reported = { ...ship, report: { state: 'working', note: null, reportedAt: AT, detailsVersion: 2, details: { running: 4 }, detailsBytes: 13 } };
+    const reported = { ...ship, report: { state: 'working', note: null, task: null, step: null, reportedAt: AT, reportChangedAt: AT, detailsVersion: 2, details: { running: 4 }, detailsBytes: 13 } };
 
     expect(shipDetailOutputSchema.parse(reported)).toEqual(reported);
   });
@@ -197,6 +203,8 @@ describe('shipMessagesOutputSchema', () => {
     contentType: 'text/plain',
     model: 'claude-opus-5-5',
     preview: 'Review PR 48',
+    isPayloadUnreadable: false,
+    isPayloadSealed: false,
     delivery: { id: newId('delivery'), state: 'acknowledged', claimedBy: planner, isPulled: false },
   };
 
@@ -233,6 +241,8 @@ describe('messageOutputSchema', () => {
     contentType: 'application/json',
     model: null,
     payload: '{"pr":48}',
+    isPayloadUnreadable: false,
+    isPayloadSealed: false,
     replies: [{ id: newId('message'), sender: planner, sentAt: AT }],
     delivery: {
       id: newId('delivery'),
@@ -257,6 +267,7 @@ describe('messageOutputSchema', () => {
       ],
     },
     deliveryCount: 1,
+    progress: null,
   };
 
   it('accepts the envelope, the payload, its replies and the delivery with its way and its history, newest first', () => {
@@ -339,8 +350,8 @@ describe('shipOutputSchema', () => {
 describe('messageDeliveriesOutputSchema', () => {
   it('accepts a page of the deliveries of a send to a label, a ship each, and a type delivery no ship claimed yet, with the next cursor (decision 0065)', () => {
     const deliveries = [
-      { id: newId('delivery'), ship: planner, state: 'acknowledged', since: AT },
-      { id: newId('delivery'), ship: null, state: 'pending', since: AT },
+      { id: newId('delivery'), ship: planner, state: 'acknowledged', since: AT, progress: null },
+      { id: newId('delivery'), ship: null, state: 'pending', since: AT, progress: null },
     ];
     const page = { items: deliveries, nextCursor: deliveries[1]?.id };
 

@@ -9,7 +9,7 @@ import { Label } from '../../../../components/atoms/label';
 import { Textarea } from '../../../../components/atoms/textarea';
 import { InlineError } from '../../../../components/molecules/inline-error';
 import { Button, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle } from '@aeolus-fleet/common/header';
-import { differenceKeyOf, isEveryDifferenceResolved, resolutionOf, ruleLinesOf, type ResolutionChoice } from '../../services/rules-file';
+import { checkLineOf, differenceKeyOf, isEveryDifferenceResolved, resolutionOf, ruleLinesOf, type ResolutionChoice } from '../../services/rules-file';
 import { NetworkRulesDifferenceField } from '../molecules/network-rules-difference-field';
 
 export interface ImportNetworkRulesDialogProps {
@@ -179,8 +179,7 @@ function ImportSteps(props: Omit<ImportNetworkRulesDialogProps, 'isOpen' | 'onOp
       <p className="flex items-start gap-2 text-body" role="status" data-testid="network-import-checked">
         <CircleCheck aria-hidden className="mt-0.5 size-(--size-icon-sm) shrink-0 text-tone-ok-fg" />
         <span>
-          The file checks: {read.rules === null ? 'all-to-all, no rules' : `${String(rules.length)} rules`} and {read.labels.length} labels, from {read.fleet.name} at rules version {read.rulesVersion}, exported{' '}
-          {new Date(read.exportedAt).toLocaleString()}.
+          {checkLineOf(read)}
         </span>
       </p>
       {differences.length === 0 ? null : (

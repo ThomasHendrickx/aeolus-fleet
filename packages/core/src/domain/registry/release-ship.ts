@@ -4,6 +4,7 @@ import { revokeShipSecret, type CredentialTx } from '../identity/public.js';
 import { actorOf, type Caller } from '../shared/caller.js';
 import type { Clock } from '../shared/clock.js';
 import { refuse, type DomainError } from '../shared/errors.js';
+import { recordEvent, type EventLog } from '../shared/events.js';
 import { ok, type Result } from '../shared/result.js';
 import type { UnitOfWork } from '../shared/unit-of-work.js';
 import { endLease, type LeaseTx } from './leases.js';
@@ -14,7 +15,8 @@ import { checkCanRelease, type ReleaseRefusal } from './ship.js';
 
 export interface ReleaseShipTx extends LeaseTx, CredentialTx, Omit<ManagedOrAssignedTx, 'ships' | 'leases' | 'crewRequests'> {
   ships: ShipRepository;
-  crewRequests: Pick<CrewRequestRepository, 'find'>;
+  crewRequests: Pick<CrewRequestRepository, 'find' | 'remove'>;
+  events: EventLog;
 }
 
 export type ReleaseShipRefusal = DomainError<'SHIP_NOT_FOUND' | 'CREW_REQUEST_NOT_ASSIGNED_TO_CALLER'> | NotReachable | ReleaseRefusal;
@@ -67,6 +69,14 @@ export function createReleaseShip(deps: {
         return lease;
       }
       await endLease({ tx, ids: deps.ids }, { fleetId, leaseId: lease.value.id, actor, at, reason: 'released' });
+      const crewRequest = await tx.crewRequests.find(fleetId, shipId);
+      if (crewRequest) {
+        await tx.crewRequests.remove(fleetId, shipId);
+        await recordEvent(
+          { events: tx.events, ids: deps.ids },
+          { fleetId, type: 'CrewRequestRemoved', occurredAt: at, actor, shipId },
+        );
+      }
       return ok(undefined);
     });
 }

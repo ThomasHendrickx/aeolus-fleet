@@ -207,6 +207,7 @@ describe('the installation procedures on a hosting server', () => {
         minimumScheduleInterval: { setting: { kind: 'default' }, applies: null },
         retention: { setting: { kind: 'default' }, applies: null },
       },
+      featureFlags: [{ flag: 'sealing', isOn: false, canTurnOff: true }],
     });
     // Its one message waits pending for scout, which awaits crew.
     expect(health).toMatchObject({
@@ -297,7 +298,11 @@ describe('the installation procedures on a hosting server', () => {
     // An account signed in to its console dismissed a notice and moved on in the guide, kept by its id.
     await database.accountNoticeDismissal.create({ data: { fleetId: created.fleetId, accountId: 'acc-mathilde', noticeId: 'teams', dismissedAt: clock.now() } });
     await database.accountGuideProgress.create({ data: { fleetId: created.fleetId, accountId: 'acc-mathilde', step: 1, state: 'open', recordedAt: clock.now() } });
-    await expect(rowsOf(created.fleetId)).resolves.toMatchObject({ account_notice_dismissals: 1, account_guide_progress: 1 });
+    // It was sealed, so it keeps a data key, only wrapped (decision 0068).
+    await database.$executeRaw`
+      INSERT INTO data_keys (id, fleet_id, wrapped_by_company_key, check_value, created_at, is_current)
+      VALUES (${createIdGenerator()('dataKey')}, ${created.fleetId}, ${Buffer.from('wrapped')}, ${Buffer.alloc(32)}, now(), true)`;
+    await expect(rowsOf(created.fleetId)).resolves.toMatchObject({ account_notice_dismissals: 1, account_guide_progress: 1, data_keys: 1 });
     const homeBefore = await rowsOf(homeFleet);
 
     await expect(installation().delete.mutate({ requestId: 'delete-doomed', fleetId: created.fleetId })).resolves.toEqual({});

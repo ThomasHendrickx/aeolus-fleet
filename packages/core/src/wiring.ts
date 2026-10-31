@@ -86,6 +86,20 @@ import { createReplyToMessage, type ReplyToMessage } from './domain/messaging/re
 import { createResendDelivery, type ResendDelivery } from './domain/messaging/resend-delivery.js';
 import { createPingShip, type PingShip } from './domain/messaging/ping-ship.js';
 import { createSendMessage, type SendMessage } from './domain/messaging/send-message.js';
+import { createTurnOnSealing, type TurnOnSealing } from './domain/messaging/turn-on-sealing.js';
+import { createChangeCompanyKey, type ChangeCompanyKey } from './domain/messaging/change-company-key.js';
+import { createChangeRecoveryKey, type ChangeRecoveryKey } from './domain/messaging/change-recovery-key.js';
+import { createReadSealing, type ReadSealing } from './domain/messaging/read-sealing.js';
+import { createReadRecoverySet, type ReadRecoverySet } from './domain/messaging/read-recovery-set.js';
+import { createRecoverKeys, type RecoverKeys } from './domain/messaging/recover-keys.js';
+import { createSealStoredPayloads, type SealStoredPayloads } from './domain/messaging/seal-stored-payloads.js';
+import { createRotateDataKeys, type RotateDataKeys } from './domain/messaging/rotate-data-keys.js';
+import { createFleetDataKeys } from './domain/messaging/data-keys.js';
+import type { KeyVault } from './domain/messaging/key-vault.js';
+import { aesGcmPayloadSealer } from './adapters/crypto/payload-sealer.js';
+import { ageRecoveryKeys } from './adapters/crypto/age-recovery-keys.js';
+import { noKeyVault } from './adapters/kms/no-key-vault.js';
+import { createPrismaFleetSealingRepository } from './adapters/prisma/sealings.js';
 import { createOpenMeeting, type OpenMeeting } from './domain/messaging/open-meeting.js';
 import { createReadMeeting, type ReadMeeting } from './domain/messaging/read-meeting.js';
 import { createChangeMic, type ChangeMic } from './domain/messaging/change-mic.js';
@@ -96,6 +110,7 @@ import { createCommissionShip, type CommissionShip } from './domain/registry/com
 import { createDeregister, type Deregister } from './domain/registry/deregister.js';
 import { createGetStartingPrompt, type GetStartingPrompt } from './domain/registry/get-starting-prompt.js';
 import { createGetShip, type GetShip } from './domain/registry/get-ship.js';
+import { createReadOpenAlerts, type ReadOpenAlerts } from './domain/registry/read-open-alerts.js';
 import { createReadListedShip, type ReadListedShip } from './domain/registry/read-listed-ship.js';
 import { createCountShips, type CountShips } from './domain/registry/count-ships.js';
 import { createListShipTypes, type ListShipTypes } from './domain/registry/list-ship-types.js';
@@ -110,6 +125,9 @@ import { createRenameShip, type RenameShip } from './domain/registry/rename-ship
 import { createSetOwner, type SetOwner } from './domain/registry/set-owner.js';
 import { createCheckManage, type CheckManage } from './domain/registry/check-manage.js';
 import { createSetVerifiedFacts, type SetVerifiedFacts } from './domain/registry/set-verified-facts.js';
+import { createSetExpectations, type SetExpectations } from './domain/registry/set-expectations.js';
+import { createRaiseAlert, type RaiseAlert } from './domain/registry/raise-alert.js';
+import { createClearAlert, type ClearAlert } from './domain/registry/clear-alert.js';
 import { createRetireShip, type RetireShip } from './domain/registry/retire-ship.js';
 import { createReport, type Report } from './domain/registry/report.js';
 import { createSetStatement, type SetStatement } from './domain/registry/set-statement.js';
@@ -119,6 +137,7 @@ import { createRequestCrew, type RequestCrew } from './domain/registry/request-c
 import { createRemoveCrewRequest, type RemoveCrewRequest } from './domain/registry/remove-crew-request.js';
 import { createAssignCrew, type AssignCrew } from './domain/registry/assign-crew.js';
 import { createReportCrewStatus, type ReportCrewStatus } from './domain/registry/report-crew-status.js';
+import { createReportActivity, type ReportActivity } from './domain/registry/report-activity.js';
 import { createConfirmCrewRelease, type ConfirmCrewRelease } from './domain/registry/confirm-crew-release.js';
 import { createGiveBackCrewRequest, type GiveBack } from './domain/registry/give-back-crew-request.js';
 import { createReadAssignedCrewRequests, type ReadAssignedCrewRequests } from './domain/registry/read-assigned-crew-requests.js';
@@ -164,6 +183,10 @@ import { createFleetEventWakeups, fleetEventWakeupsOf } from './adapters/prisma/
 import { createCreateFleet, type CreateFleet } from './domain/registry/create-fleet.js';
 import { createGetFleetLimits, type GetFleetLimits } from './domain/registry/get-fleet-limits.js';
 import { createReadFleetName, type ReadFleetName } from './domain/registry/read-fleet-name.js';
+import { createReadFeatureFlags, type ReadFeatureFlags } from './domain/registry/read-feature-flags.js';
+import { createSetFeatureFlag, type SetFeatureFlag } from './domain/registry/set-feature-flag.js';
+import { featureFlagSource, type FeatureFlagReads } from './domain/registry/feature-flag.js';
+import { createPrismaFeatureFlagRepository } from './adapters/prisma/feature-flags.js';
 import { createGetInstallationSettings, type GetInstallationSettings } from './domain/registry/get-installation-settings.js';
 import { createSetFleetLimits, type SetFleetLimits } from './domain/registry/set-fleet-limits.js';
 import { createSetInstallationSettings, type SetInstallationSettings } from './domain/registry/set-installation-settings.js';
@@ -175,6 +198,7 @@ import { createReadInbox, type ReadInbox } from './domain/shared/read-inbox.js';
 import { createCountOpenInbox, type CountOpenInbox } from './domain/shared/count-open-inbox.js';
 import { createReadInboxMessage, type ReadInboxMessage } from './domain/shared/read-inbox-message.js';
 import { createReadInboxWithdrawals, type ReadInboxWithdrawals } from './domain/shared/read-inbox-withdrawals.js';
+import { createReadReportTasks, type ReadReportTasks } from './domain/shared/read-report-tasks.js';
 import { createReadMessage, type ReadMessage } from './domain/shared/read-message.js';
 import { createReadMessageDeliveries, type ReadMessageDeliveries } from './domain/shared/read-message-deliveries.js';
 import { createReadSentMessage, type ReadSentMessage } from './domain/shared/read-sent-message.js';
@@ -203,6 +227,10 @@ export interface UseCases {
   setOwner: SetOwner;
   checkManage: CheckManage;
   setVerifiedFacts: SetVerifiedFacts;
+  setExpectations: SetExpectations;
+  raiseAlert: RaiseAlert;
+  readOpenAlerts: ReadOpenAlerts;
+  clearAlert: ClearAlert;
   recrewShip: RecrewShip;
   listFleet: ListFleet;
   getShip: GetShip;
@@ -220,6 +248,7 @@ export interface UseCases {
   removeCrewRequest: RemoveCrewRequest;
   assignCrew: AssignCrew;
   reportCrewStatus: ReportCrewStatus;
+  reportActivity: ReportActivity;
   confirmCrewRelease: ConfirmCrewRelease;
   giveBackCrewRequest: GiveBack;
   readAssignedCrewRequests: ReadAssignedCrewRequests;
@@ -257,6 +286,12 @@ export interface UseCases {
   reportLog: ReadReportLog;
   deregister: Deregister;
   sendMessage: SendMessage;
+  turnOnSealing: TurnOnSealing;
+  changeCompanyKey: ChangeCompanyKey;
+  changeRecoveryKey: ChangeRecoveryKey;
+  readSealing: ReadSealing;
+  readRecoverySet: ReadRecoverySet;
+  recoverKeys: RecoverKeys;
   openMeeting: OpenMeeting;
   readMeeting: ReadMeeting;
   changeMic: ChangeMic;
@@ -281,6 +316,9 @@ export interface UseCases {
   closeHealthSnapshots: CloseHealthSnapshots;
   /** One pruning pass of every fleet with a retention (decision 0066); core runs it, never the API. */
   pruneHistory: PruneHistory;
+  sealStoredPayloads: SealStoredPayloads;
+  /** Makes a new data key current in every sealed fleet whose current one is 30 days old (decision 0068); core runs it, never the API. */
+  rotateDataKeys: RotateDataKeys;
   acknowledgeDelivery: AcknowledgeDelivery;
   answerPing: AnswerPing;
   pingShip: PingShip;
@@ -295,6 +333,7 @@ export interface UseCases {
   readShipTimeline: ReadShipTimeline;
   readShipMessages: ReadShipMessages;
   readMessage: ReadMessage;
+  readReportTasks: ReadReportTasks;
   readMessageDeliveries: ReadMessageDeliveries;
   sentMessage: ReadSentMessage;
   readShipWay: ReadShipWay;
@@ -333,6 +372,8 @@ export interface UseCases {
   deleteFleet: DeleteFleet;
   listInstallationFleets: ListInstallationFleets;
   getInstallationFleet: GetInstallationFleet;
+  readFeatureFlags: ReadFeatureFlags;
+  setFeatureFlag: SetFeatureFlag;
   issueSignInTicket: IssueSignInTicket;
   issueSignInLink: IssueSignInLink;
   redeemSignInTicket: RedeemSignInTicket;
@@ -368,6 +409,10 @@ export function createUseCases(options: {
   receiveWaitMs?: number;
   /** pagasae's signatures on account tokens (decision 0058); without them, no account token is trusted. */
   accountTokenSignatures?: AccountTokenSignatures;
+  /** The installation's KMS for sealed fleets (decision 0068); without it, no fleet can be sealed. */
+  keyVault?: KeyVault;
+  /** Whether the server has an installation token, so the installation sets each fleet's feature flags; without one each flag has its own value (decision 0069). */
+  hasInstallation?: boolean;
 }): UseCases {
   const { prisma } = options;
   const clock = options.clock ?? systemClock;
@@ -386,6 +431,13 @@ export function createUseCases(options: {
   const accountCutOffs = createPrismaAccountCutOffs(prisma);
   const hostedFleets = createPrismaHostedFleets(prisma);
   const healthReads = { health: createPrismaHealthRecords(prisma), snapshots: createPrismaHealthSnapshots(prisma) };
+  const keyVault = options.keyVault ?? noKeyVault;
+  const sealings = createPrismaFleetSealingRepository(prisma);
+  const featureFlags: FeatureFlagReads = {
+    source: featureFlagSource({ hasInstallation: options.hasInstallation === true, hasKeyVault: options.keyVault !== undefined }),
+    flags: createPrismaFeatureFlagRepository(prisma),
+  };
+  const sealing = { sealer: aesGcmPayloadSealer, dataKeys: createFleetDataKeys({ sealings, vault: keyVault, sealer: aesGcmPayloadSealer, recoveryKeys: ageRecoveryKeys, clock, uow, ids }) };
 
   return {
     ping: createPing({ clock, fleets: createPrismaFleetCounter(prisma) }),
@@ -399,6 +451,8 @@ export function createUseCases(options: {
     setInstallationSettings: createSetInstallationSettings({ uow }),
     getFleetLimits: createGetFleetLimits({ uow }),
     readFleetName: createReadFleetName({ uow }),
+    readFeatureFlags: createReadFeatureFlags({ featureFlags: featureFlags.flags, source: featureFlags.source }),
+    setFeatureFlag: createSetFeatureFlag({ uow, clock, ids }),
     setFleetLimits: createSetFleetLimits({ uow, clock, ids }),
     setNotices: createSetNotices({ notices }),
     getNotices: createGetNotices({ notices }),
@@ -427,14 +481,18 @@ export function createUseCases(options: {
     commissionShip: createCommissionShip({ uow, clock, ids, secrets }),
     getStartingPrompt: createGetStartingPrompt({ uow, clock, ids, secrets }),
     releaseShip: createReleaseShip({ uow, clock, ids }),
-    retireShip: createRetireShip({ uow: bulkUow, clock, ids, hasher: sha256Hasher }),
+    retireShip: createRetireShip({ uow: bulkUow, clock, ids, hasher: sha256Hasher, sealing }),
     renameShip: createRenameShip({ uow, clock, ids }),
     setOwner: createSetOwner({ uow, clock, ids }),
     checkManage: createCheckManage({ uow, clock, ids }),
     setVerifiedFacts: createSetVerifiedFacts({ uow, clock, ids }),
+    setExpectations: createSetExpectations({ uow, clock, ids }),
+    raiseAlert: createRaiseAlert({ uow, clock, ids }),
+    clearAlert: createClearAlert({ uow, clock, ids }),
     recrewShip: createRecrewShip({ uow, clock, ids, secrets }),
     listFleet: createListFleet({ listing: createPrismaFleetListing(prisma), readReach }),
     getShip: createGetShip({ listing: createPrismaFleetListing(prisma), readReach }),
+    readOpenAlerts: createReadOpenAlerts({ listing: createPrismaFleetListing(prisma), readReach }),
     readListedShip: createReadListedShip({ listing: createPrismaFleetListing(prisma), readReach }),
     countShips: createCountShips({ listing: createPrismaFleetListing(prisma), readReach }),
     listShipTypes: createListShipTypes({ listing: createPrismaFleetListing(prisma), readReach }),
@@ -449,6 +507,7 @@ export function createUseCases(options: {
     removeCrewRequest: createRemoveCrewRequest({ uow, clock, ids }),
     assignCrew: createAssignCrew({ uow, clock, ids }),
     reportCrewStatus: createReportCrewStatus({ uow, clock, ids }),
+    reportActivity: createReportActivity({ uow, clock }),
     confirmCrewRelease: createConfirmCrewRelease({ uow, clock, ids }),
     giveBackCrewRequest: createGiveBackCrewRequest({ uow, clock, ids }),
     readAssignedCrewRequests: createReadAssignedCrewRequests({ crewRequests: createPrismaCrewRequestRepository(prisma), ships: createPrismaShipRepository(prisma) }),
@@ -485,16 +544,23 @@ export function createUseCases(options: {
     findLabelValue: createFindLabelValue({ listing: createPrismaFleetListing(prisma) }),
     reportLog: createReadReportLog({ leases: createPrismaLeaseRepository(prisma) }),
     deregister: createDeregister({ uow, clock, ids }),
-    sendMessage: createSendMessage({ uow, clock, ids, hasher: sha256Hasher }),
-    openMeeting: createOpenMeeting({ uow, clock, ids, hasher: sha256Hasher }),
-    readMeeting: createReadMeeting({ uow }),
-    changeMic: createChangeMic({ uow, clock, ids, hasher: sha256Hasher }),
-    changeMeeting: createChangeMeeting({ uow, clock, ids, hasher: sha256Hasher }),
-    addToMeeting: createAddToMeeting({ uow, clock, ids, hasher: sha256Hasher }),
+    sendMessage: createSendMessage({ uow, clock, ids, hasher: sha256Hasher, sealing }),
+    turnOnSealing: createTurnOnSealing({ uow, clock, ids, vault: keyVault, sealer: aesGcmPayloadSealer, recoveryKeys: ageRecoveryKeys, sealings, featureFlags }),
+    changeCompanyKey: createChangeCompanyKey({ uow, clock, ids, vault: keyVault, sealer: aesGcmPayloadSealer, sealings, featureFlags }),
+    changeRecoveryKey: createChangeRecoveryKey({ uow, clock, ids, recoveryKeys: ageRecoveryKeys, sealing, sealings, featureFlags }),
+    readSealing: createReadSealing({ sealings }),
+    readRecoverySet: createReadRecoverySet({ sealings, featureFlags }),
+    recoverKeys: createRecoverKeys({ uow, clock, ids, vault: keyVault, sealer: aesGcmPayloadSealer, sealings, featureFlags }),
+    openMeeting: createOpenMeeting({ uow, clock, ids, hasher: sha256Hasher, sealing }),
+    readMeeting: createReadMeeting({ uow, sealing }),
+    changeMic: createChangeMic({ uow, clock, ids, hasher: sha256Hasher, sealing }),
+    changeMeeting: createChangeMeeting({ uow, clock, ids, hasher: sha256Hasher, sealing }),
+    addToMeeting: createAddToMeeting({ uow, clock, ids, hasher: sha256Hasher, sealing }),
     receiveDeliveries: createReceiveDeliveries({
       uow,
       clock,
       ids,
+      sealing,
       wakeups,
       waitMs: options.receiveWaitMs,
     }),
@@ -502,6 +568,7 @@ export function createUseCases(options: {
       uow,
       clock,
       ids,
+      sealing,
       wakeups,
       waitMs: options.receiveWaitMs,
     }),
@@ -509,31 +576,34 @@ export function createUseCases(options: {
       uow,
       clock,
       ids,
+      sealing,
       wakeups,
       waitMs: options.receiveWaitMs,
     }),
     handOverDelivery: createHandOverDelivery({ uow, clock, ids }),
     reportHandled: createReportHandled({ uow, clock, ids }),
-    readDelivery: createReadDelivery({ uow }),
+    readDelivery: createReadDelivery({ uow, sealing }),
     reportNotHandled: createReportNotHandled({ uow, clock, ids }),
     tellOverdueDeliveries: createTellOverdueDeliveries({ fleets: createPrismaFleetRepository(prisma), pushedCrews: createPrismaPushedCrews(prisma), uow, clock, ids }),
-    scheduleMessage: createScheduleMessage({ uow, clock, ids, hasher: sha256Hasher }),
+    scheduleMessage: createScheduleMessage({ uow, clock, ids, hasher: sha256Hasher, sealing }),
     listSchedules: createListSchedules({ uow, clock, ids }),
     cancelSchedule: createCancelSchedule({ uow, clock, ids }),
     pauseSchedule: createPauseSchedule({ uow, clock, ids }),
     resumeSchedule: createResumeSchedule({ uow, clock, ids }),
-    sendDueSchedules: createSendDueSchedules({ fleets: createPrismaFleetRepository(prisma), scheduleAttempts: createPrismaScheduleAttempts(prisma), uow, clock, ids, hasher: sha256Hasher }),
+    sendDueSchedules: createSendDueSchedules({ fleets: createPrismaFleetRepository(prisma), scheduleAttempts: createPrismaScheduleAttempts(prisma), uow, clock, ids, hasher: sha256Hasher, sealing }),
     closeHealthSnapshots: createCloseHealthSnapshots({ fleets: createPrismaFleetRepository(prisma), uow: createPrismaSnapshotUnitOfWork(prisma), clock }),
     pruneHistory: createPruneHistory({ fleets: createPrismaFleetRepository(prisma), uow: bulkUow, clock, ids }),
+    sealStoredPayloads: createSealStoredPayloads({ sealings, uow, clock, ids, hasher: sha256Hasher, sealing }),
+    rotateDataKeys: createRotateDataKeys({ sealings, uow, clock, ids, dataKeys: sealing.dataKeys }),
     acknowledgeDelivery: createAcknowledgeDelivery({ uow, clock, ids }),
     answerPing: createAnswerPing({ uow, clock, ids }),
-    pingShip: createPingShip({ uow, clock, ids, hasher: sha256Hasher }),
+    pingShip: createPingShip({ uow, clock, ids, hasher: sha256Hasher, sealing }),
     checkInbox: createCheckInbox({ uow, clock, wakeups, fleetNews }),
     dismissDelivery: createDismissDelivery({ uow, clock, ids, readReach }),
-    resendDelivery: createResendDelivery({ uow, clock, ids, hasher: sha256Hasher, readReach }),
+    resendDelivery: createResendDelivery({ uow, clock, ids, hasher: sha256Hasher, readReach, sealing }),
     markRead: createMarkRead({ uow, clock }),
     markDone: createMarkDone({ uow, clock, ids }),
-    replyToMessage: createReplyToMessage({ uow, clock, ids, hasher: sha256Hasher }),
+    replyToMessage: createReplyToMessage({ uow, clock, ids, hasher: sha256Hasher, sealing }),
     readFleetEvents: createReadFleetEvents({ feed: createPrismaFleetEventFeed(prisma), history: createPrismaShipHistory(prisma), readReach }),
     followFleet: createFollowFleet({
       feed: createPrismaFleetEventFeed(prisma),
@@ -543,21 +613,22 @@ export function createUseCases(options: {
       wakeups: fleetNews,
     }),
     readShipTimeline: createReadShipTimeline({ history: createPrismaShipHistory(prisma), readReach }),
-    readShipMessages: createReadShipMessages({ history: createPrismaShipHistory(prisma), readReach }),
-    readMessage: createReadMessage({ history: createPrismaShipHistory(prisma), readReach }),
+    readShipMessages: createReadShipMessages({ history: createPrismaShipHistory(prisma), readReach , sealing }),
+    readReportTasks: createReadReportTasks({ history: createPrismaShipHistory(prisma), readReach }),
+    readMessage: createReadMessage({ history: createPrismaShipHistory(prisma), readReach , sealing }),
     readMessageDeliveries: createReadMessageDeliveries({ history: createPrismaShipHistory(prisma), readReach }),
     sentMessage: createReadSentMessage({ history: createPrismaShipHistory(prisma) }),
     readShipWay: createReadShipWay({ history: createPrismaShipHistory(prisma), uow, clock, ids }),
-    readNeedsAttention: createReadNeedsAttention({ history: createPrismaShipHistory(prisma), readReach }),
-    readHealth: createReadHealth({ ...healthReads, clock, readReach }),
+    readNeedsAttention: createReadNeedsAttention({ history: createPrismaShipHistory(prisma), readReach , sealing }),
+    readHealth: createReadHealth({ ...healthReads, clock, readReach, sealings }),
     readStuckCount: createReadStuckCount({ ...healthReads, clock, readReach }),
     readStuck: createReadStuck({ ...healthReads, clock, readReach }),
     readStuckSummary: createReadStuckSummary({ ...healthReads, clock, readReach }),
     readStuckHistory: createReadStuckHistory({ ...healthReads, clock, readReach }),
     readAcknowledged: createReadAcknowledged({ ...healthReads, clock, readReach }),
-    readInbox: createReadInbox({ history: createPrismaShipHistory(prisma), ships: createPrismaShipRepository(prisma), readReach }),
-    readInboxMessage: createReadInboxMessage({ history: createPrismaShipHistory(prisma), ships: createPrismaShipRepository(prisma), readReach }),
-    readInboxWithdrawals: createReadInboxWithdrawals({ history: createPrismaShipHistory(prisma), ships: createPrismaShipRepository(prisma), readReach }),
+    readInbox: createReadInbox({ history: createPrismaShipHistory(prisma), ships: createPrismaShipRepository(prisma), readReach , sealing }),
+    readInboxMessage: createReadInboxMessage({ history: createPrismaShipHistory(prisma), ships: createPrismaShipRepository(prisma), readReach , sealing }),
+    readInboxWithdrawals: createReadInboxWithdrawals({ history: createPrismaShipHistory(prisma), ships: createPrismaShipRepository(prisma), readReach , sealing }),
     countOpenInbox: createCountOpenInbox({ history: createPrismaShipHistory(prisma), ships: createPrismaShipRepository(prisma), readReach }),
     signIn: createSignIn({
       uow,

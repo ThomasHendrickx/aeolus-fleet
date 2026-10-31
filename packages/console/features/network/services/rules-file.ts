@@ -1,5 +1,8 @@
 import type { DifferenceWay, FileRule, FileTerm, NetworkRulesDifference, NetworkRulesFile, NetworkRulesResolution, NetworkVerb, ShipId } from '@aeolus-fleet/common';
 
+import { shortDateTime } from '../../../lib/relative-time';
+import { counted } from '../../../lib/sentence';
+
 /**
  * What Network shows of a network rules file (design network-io): the name
  * an export downloads as, a rule by name in the import overview, the ways
@@ -83,4 +86,11 @@ export function resolutionOf(choice: ResolutionChoice): NetworkRulesResolution |
     return { kind: 'ship', name: difference.name, way: 'dropRules' };
   }
   return { kind: difference.kind, key: difference.key, way: way === 'useExisting' ? 'useExisting' : 'dropRules' };
+}
+
+/** The import's Check line: what the file holds and where it comes from, counts in the singular for one, the export time in the console's date format. */
+export function checkLineOf(file: NetworkRulesFile): string {
+  const rules = file.rules === null ? 'all-to-all, no rules' : counted(file.rules.length, { one: 'rule', many: 'rules' });
+  const labels = counted(file.labels.length, { one: 'label', many: 'labels' });
+  return `The file checks: ${rules} and ${labels}, from ${file.fleet.name} at rules version ${String(file.rulesVersion)}, exported ${shortDateTime(new Date(file.exportedAt))}.`;
 }

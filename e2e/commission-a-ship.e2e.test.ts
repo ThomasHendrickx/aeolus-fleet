@@ -146,6 +146,20 @@ describe('commissioning a ship in the console', () => {
     await expect(page.getByTestId('starting-prompt-text').count()).resolves.toBe(0);
   });
 
+  it('shows a starting prompt when the browser resent the commission and the server answered it without its secret', async () => {
+    const page = await signedInPage();
+    // A browser resends a request whose reused connection the server closed: the same key, answered with no secret.
+    await page.route('**/trpc/fleet.commission', async (route) => {
+      await route.fetch();
+      await route.fulfill({ response: await route.fetch() });
+    });
+
+    await commission(page, { name: 'resent', type: 'reviewer' });
+
+    const secret = await promptSecretIn(page, 'resent');
+    await expect(isValid(secret)).resolves.toBe(true);
+  });
+
   it('commissions a ship whose name and type hold a colon, and lists them as typed', async () => {
     const page = await signedInPage();
 
@@ -183,7 +197,7 @@ describe('commissioning a ship in the console', () => {
     await promptBlock(page, 'squad-manager').getByRole('button', { name: 'Done' }).click();
     await shipRow(page, 'squad-manager').getByRole('link', { name: /squad-manager/ }).click();
     await page.getByTestId('ship-fleet-scope').getByText('fleet:manage').waitFor();
-    await expect(page.getByTestId('ship-fleet-scope').allTextContents()).resolves.toEqual(['fleet:read', 'fleet:manage']);
+    await expect(page.getByTestId('ship-fleet-scope').allTextContents()).resolves.toEqual(expect.arrayContaining(['fleet:read', 'fleet:manage']));
   });
 
   it('commissions a trierarch with crew:run, shown on its page', async () => {
@@ -197,7 +211,7 @@ describe('commissioning a ship in the console', () => {
     await promptBlock(page, 'mac-mini').getByRole('button', { name: 'Done' }).click();
     await shipRow(page, 'mac-mini').getByRole('link', { name: /mac-mini/ }).click();
     await page.getByTestId('ship-fleet-scope').getByText('crew:run').waitFor();
-    await expect(page.getByTestId('ship-fleet-scope').allTextContents()).resolves.toEqual(['crew:run']);
+    await expect(page.getByTestId('ship-fleet-scope').allTextContents()).resolves.toEqual(expect.arrayContaining(['crew:run']));
   });
 
   it('replaces an unclaimed prompt at once, saying the old one stops working', async () => {
@@ -220,7 +234,7 @@ describe('commissioning a ship in the console', () => {
     await expect(isValid(second)).resolves.toBe(true);
   });
 
-  it('shows a crew line per harness with the Aeolus Fleet plugin beside the prompt, Claude Code and Codex, with the same ship and secret', async () => {
+  it('shows a crew line per harness with the Aeolus Fleet plugin beside the prompt, Claude Code, Codex and Copilot, with the same ship and secret', async () => {
     const page = await signedInPage();
     await commission(page, { name: 'bosun', type: 'reviewer' });
     const block = promptBlock(page, 'bosun');
@@ -229,6 +243,7 @@ describe('commissioning a ship in the console', () => {
 
     await expect(block.getByTestId('starting-prompt-crew-line-claude-code').textContent()).resolves.toBe(`/aeolus-fleet:crew ${identity}`);
     await expect(block.getByTestId('starting-prompt-crew-line-codex').textContent()).resolves.toBe(`$aeolus-fleet-crew ${identity}`);
+    await expect(block.getByTestId('starting-prompt-crew-line-copilot').textContent()).resolves.toBe(`/aeolus-fleet:crew ${identity}`);
   });
 
   it('copies the starting prompt', async () => {

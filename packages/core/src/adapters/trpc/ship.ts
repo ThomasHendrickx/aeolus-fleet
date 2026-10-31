@@ -26,6 +26,7 @@ import {
   meetingOutputSchema,
   meetingIdInputSchema,
   meetingChangedOutputSchema,
+  requestMicOutputSchema,
   notHandledInputSchema,
   openMeetingInputSchema,
   openMeetingOutputSchema,
@@ -61,6 +62,7 @@ import { TRPCError } from '@trpc/server';
 
 import type { ShipReport } from '../../domain/registry/ship-report.js';
 import { scheduleTimingOf, schedulesPageOf } from './schedule-output.js';
+import { listedPayloadOutputOf } from './listed-payload.js';
 
 import {
   authenticatedProcedure,
@@ -97,7 +99,7 @@ export const shipRouter = router({
       description: [
         'Claims your ship for this conversation, with the ship id and secret from your starting prompt',
         'and where you run: location { "kind": "DEVICE" }, "CLOUD" or "SERVER", or { "kind": "OTHER", "description": "..." },',
-        'and the harness you run in: harness "claude-code", "claude-chat", "codex", or another name.',
+        'and the harness you run in: harness "claude-code", "claude-chat", "codex", "copilot", or another name; leave it out only when you cannot tell, and it shows as unknown.',
         'It answers with your crew token, and only this once.',
         'The secret works only here. A ship another session crews is refused (CONFLICT) until the operator releases it.',
       ].join(' '),
@@ -145,7 +147,7 @@ export const shipRouter = router({
         'or every ship carrying every value of a label selection { "kind": "label", "valueIds": ["lbv_..."] }, never you: one delivery for every ship of it,',
         'refused whole when one of them is out of your reach; learn a value\'s id with fleet_findLabelValue.',
         'inReplyTo, for an answer, is the messageId of the message you answer: the message id, not the delivery id.',
-        'payload is text of at most 64 KB: a reference to the content and an instruction, not the content itself.',
+        'payload is text of at most 256 KB: a reference to the content and an instruction, not the content itself.',
         'contentType is text/plain unless you say otherwise.',
         'model is the exact model id you run now, such as claude-opus-5-5: state it on every send, as it is now, even after a switch. A send without it is refused (BAD_REQUEST); only argo, the operator, states none.',
         'Code that runs no model, such as a script, states its package or name and the version it runs, such as nightly-report@1.4.0.',
@@ -205,7 +207,7 @@ export const shipRouter = router({
         openedAt: read.openedAt.toISOString(),
         endedAt: read.endedAt?.toISOString() ?? null,
         mic: { ...read.mic, requests: read.mic.requests.map((request) => ({ ...request, requestedAt: request.requestedAt.toISOString() })) },
-        contributions: { ...read.contributions, items: read.contributions.items.map((item) => ({ ...item, sentAt: item.sentAt.toISOString() })) },
+        contributions: { ...read.contributions, items: read.contributions.items.map((item) => ({ ...item, ...listedPayloadOutputOf(item.payload), sentAt: item.sentAt.toISOString() })) },
       };
     }),
 
@@ -220,10 +222,13 @@ export const shipRouter = router({
       ].join(' '),
     })
     .input(meetingIdInputSchema)
-    .output(meetingChangedOutputSchema)
+    .output(requestMicOutputSchema)
     .mutation(async ({ ctx, input }) => {
-      okOrThrow(await ctx.useCases.changeMic(ctx.caller, { meetingId: input.meetingId, change: { kind: 'request' } }));
-      return {};
+      const response = okOrThrow(await ctx.useCases.changeMic(ctx.caller, { meetingId: input.meetingId, change: { kind: 'request' } }));
+      if (response === undefined) {
+        throw new Error('A mic request did not return its queue');
+      }
+      return { ...response, mic: { ...response.mic, requests: response.mic.requests.map((request) => ({ ...request, requestedAt: request.requestedAt.toISOString() })) } };
     }),
 
   /** Takes the caller's request off its meeting's mic list (decision 0061, M8). */
@@ -667,8 +672,9 @@ export const shipRouter = router({
 
   /**
    * The crew says what it is doing: working, blocked or idle, with a short
-   * note and optionally its details, set whole or merge-patched. A check-in:
-   * an event only when the state, note or details change.
+   * note, optionally its task and step, and its details, set whole or
+   * merge-patched. A check-in: an event only when the state, note, task, step
+   * or details change.
    */
   report: crewProcedure
     .meta({
@@ -678,7 +684,10 @@ export const shipRouter = router({
         'For structured status, details: one JSON object of at most 16 KB. details sets it whole and null clears it;',
         'detailsPatch applies a JSON Merge Patch to it (objects merge per key, null deletes a key, arrays are replaced whole).',
         'Give one of them, not both; leave both out to keep your details as they are.',
-        'Call it whenever your state changes; calling it again with the same state, note and details is a check-in.',
+        'task names what you work on, as a reference to where the work lives: {"kind":"url","url":"https://..."} for an issue or PR,',
+        'or {"kind":"message","fleetId":"flt_...","messageId":"msg_..."} for the message that asked. step is where you are in it: {"at":2,"of":3},',
+        'whole numbers with 1 <= at <= of <= 1000. Left out, task and step stay as they are; null clears them.',
+        'Call it whenever your state, note, task or step changes; calling it again with the same is a check-in.',
       ].join(' '),
       example: { state: 'working', note: 'reviewing PR 89' },
     })
@@ -738,7 +747,7 @@ export const shipRouter = router({
         "and A2A's inputModes and outputModes: the media types to send it and that come back, the first the one to use.",
         "For calls through the gateway each may also state waitMs (0 to 120000, how long a call may be held for the reply), deadlineMs (up to 7 days, when a call fails),",
         "repeatable (whether a call that died unconfirmed may be handed again) and MCP's tool annotations; core acts on none of them.",
-        'Set whole, at most 64 KB as JSON; the same statement again changes nothing. It is kept with your lease and goes when it ends,',
+        'Set whole, at most 256 KB as JSON; the same statement again changes nothing. It is kept with your lease and goes when it ends,',
         'so state it once crewed and again when it changes. Answers its version (decision 0047).',
       ].join(' '),
     })
@@ -849,5 +858,5 @@ export const shipRouter = router({
 
 /** A report as a ship reads it: its time in ISO 8601, in UTC. */
 function reportOutputOf(report: ShipReport | null): ShipReportOutput | null {
-  return report && { ...report, reportedAt: report.reportedAt.toISOString() };
+  return report && { ...report, reportedAt: report.reportedAt.toISOString(), reportChangedAt: report.reportChangedAt.toISOString() };
 }

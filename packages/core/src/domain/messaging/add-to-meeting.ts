@@ -13,6 +13,7 @@ import { addToMeeting } from './meeting-life.js';
 import { addedNoticeOf, tellParticipant, type MeetingNoticeTx } from './meeting-notice.js';
 import type { AcceptRefusal } from './message.js';
 import type { MeetingRepository, RequestHasher } from './ports.js';
+import { withDataKeys, type DataKeysNeeded, type PayloadSealing } from './data-keys.js';
 
 export interface AddToMeetingTx extends Omit<ResolveInviteesTx, 'ships'>, Omit<CheckReachTx, 'ships'>, Omit<DailyMessageLimitTx, 'messages'>, Omit<MeetingNoticeTx, 'messages'> {
   ships: ResolveInviteesTx['ships'] & CheckReachTx['ships'];
@@ -32,7 +33,7 @@ export interface ShipsToAdd {
 
 export type AddToMeetingFailure =
   | PresenceRefusal
-  | DomainError<'NOT_OWNER' | 'MEETING_WITHOUT_INVITEES' | 'MESSAGE_LIMIT_REACHED'>
+  | DomainError<'NOT_OWNER' | 'MEETING_WITHOUT_INVITEES' | 'MESSAGE_LIMIT_REACHED' | 'KEY_UNAVAILABLE'>
   | UnresolvableSelector
   | NotReachable
   | AcceptRefusal;
@@ -44,11 +45,13 @@ export type AddToMeeting = (caller: ShipCaller, input: ShipsToAdd) => Promise<Re
  * M5, M6, M13), named as an open names them. It must reach each ship it adds
  * by send, or nothing is added and the refusal is recorded. Each added ship
  * gets the added notice from the owner, from joining on its deliveries, and
- * the meeting so far to read. A ship present already stays as it is.
+ * the meeting so far to read. A ship present already stays as it is. In a
+ * sealed fleet the added notices are sealed with data keys unwrapped before
+ * the unit of work (decision 0068, B17).
  */
-export function createAddToMeeting(deps: { uow: UnitOfWork<AddToMeetingTx>; clock: Clock; ids: IdGenerator; hasher: RequestHasher }): AddToMeeting {
+export function createAddToMeeting(deps: { uow: UnitOfWork<AddToMeetingTx>; clock: Clock; ids: IdGenerator; hasher: RequestHasher; sealing: PayloadSealing }): AddToMeeting {
   return (caller, input) =>
-    keepingReachRefusal(deps.uow, async (tx): Promise<Result<undefined, AddToMeetingFailure>> => {
+    withDataKeys({ sealing: deps.sealing, fleetId: caller.fleetId }, (held) => keepingReachRefusal(deps.uow, async (tx): Promise<Result<undefined, AddToMeetingFailure | DataKeysNeeded>> => {
       const { fleetId } = caller;
       const at = deps.clock.now();
       const meeting = await tx.meetings.findForUpdate(fleetId, input.meetingId);
@@ -90,7 +93,7 @@ export function createAddToMeeting(deps: { uow: UnitOfWork<AddToMeetingTx>; cloc
       for (const shipId of added.value.added) {
         // The added notice (M11): from the owner, who reached the ship just now.
         const told = await tellParticipant(
-          { tx, ids: deps.ids, hasher: deps.hasher },
+          { tx, ids: deps.ids, hasher: deps.hasher, held },
           {
             meeting: added.value.meeting,
             senderShipId: caller.shipId,
@@ -108,5 +111,5 @@ export function createAddToMeeting(deps: { uow: UnitOfWork<AddToMeetingTx>; cloc
         }
       }
       return ok(undefined);
-    });
+    }));
 }

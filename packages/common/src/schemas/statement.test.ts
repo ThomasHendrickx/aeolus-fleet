@@ -60,13 +60,13 @@ describe('setStatementInputSchema (decision 0047)', () => {
     expect(setStatementInputSchema.safeParse(input).success).toBe(false);
   });
 
-  it('refuses a statement over 64 KB as the UTF-8 bytes of its JSON, and takes one at exactly that', () => {
+  it('refuses a statement over 256 KB as the UTF-8 bytes of its JSON, and takes one at exactly that', () => {
     const fill = (bytes: number) => {
       const base = { summary: 'A planner.', capabilities: [{ name: 'plan', description: '' }] };
       return { ...base, capabilities: [{ name: 'plan', description: 'x'.repeat(bytes - statementBytes(base)) }] };
     };
 
-    expect(statementBytes(fill(STATEMENT_MAX_BYTES))).toBe(64 * 1024);
+    expect(statementBytes(fill(STATEMENT_MAX_BYTES))).toBe(256 * 1024);
     expect(setStatementInputSchema.safeParse(fill(STATEMENT_MAX_BYTES)).success).toBe(true);
     expect(setStatementInputSchema.safeParse(fill(STATEMENT_MAX_BYTES + 1)).success).toBe(false);
   });
