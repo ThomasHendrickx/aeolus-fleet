@@ -1,5 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 
+import { expect, within } from 'storybook/test';
+
 import { Sidebar } from './sidebar';
 
 const meta = {
@@ -33,6 +35,28 @@ export const HealthActive: Story = { args: { active: 'health' } };
 export const NoCounts: Story = { args: { inboxCount: undefined, stuckCount: undefined } };
 
 /** With the trierarch plugin on: Trierarchs after Squadrons, counting its silent machines. */
-export const WithTrierarchs: Story = { args: { hasSquadrons: true, hasTrierarchs: true, trierarchsCount: 1, hasSettings: true, active: 'trierarchs' } };
+export const WithTrierarchs: Story = {
+  args: { hasSquadrons: true, hasTrierarchs: true, trierarchsCount: 1, hasSettings: true, active: 'trierarchs' },
+  play: async ({ canvasElement }) => {
+    const navigation = within(canvasElement).getByRole('navigation', { name: 'Console' });
+    const labels = within(navigation).getAllByRole('link').map((link) => link.textContent);
+    await expect(labels.indexOf('Usage')).toBe(labels.findIndex((label) => label.startsWith('Trierarchs')) + 1);
+  },
+};
+
+/** Usage is the current page. */
+export const UsageActive: Story = {
+  args: { hasTrierarchs: true, active: 'usage' },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByTestId('nav-usage')).toHaveAttribute('aria-current', 'page');
+  },
+};
+
+/** Without the trierarch plugin there is no Usage. */
+export const WithoutTrierarchsNoUsage: Story = {
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).queryByTestId('nav-usage')).toBeNull();
+  },
+};
 /** Argo with the networking plugin connected: Network sits above Settings (decision 0036). */
 export const WithNetwork: Story = { args: { hasNetwork: true, hasSettings: true, active: 'network' } };
