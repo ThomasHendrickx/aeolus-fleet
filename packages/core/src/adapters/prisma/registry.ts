@@ -535,6 +535,19 @@ export function createPrismaLeaseRepository(db: Db): LeaseRepository {
     saveTurn: async ({ fleetId, leaseId, turn }) => {
       await db.lease.updateMany({ where: { fleetId, id: leaseId }, data: { turn: turn.state, turnAt: turn.at } });
     },
+    saveActivity: async ({ fleetId, shipId, activity }) => {
+      const written = await db.lease.updateMany({
+        where: { fleetId, shipId, endedAt: null },
+        data: {
+          activityAt: activity.at,
+          activityKind: activity.kind,
+          activityTool: activity.tool,
+          activityReportedAt: activity.reportedAt,
+          activityIntervalSeconds: activity.intervalSeconds,
+        },
+      });
+      return written.count > 0;
+    },
     findOpenByIdForShare: async (fleetId, leaseId) => {
       // FOR SHARE, not FOR KEY SHARE: ending the lease updates it, so a release
       // or a takeover waits for the holder, while many receives share the lock.
@@ -943,6 +956,7 @@ export function fleetListingStatement(fleetId: FleetId, { after, limit, filter, 
            l.harness AS lease_harness, l.started_at AS lease_started_at, l.last_seen_at AS lease_last_seen_at,
            l.report_state::text AS report_state, l.report_note, l.reported_at, l.report_changed_at, l.report_task, l.report_step_at, l.report_step_of,
            l.report_details, l.report_details_version,
+           l.activity_at, l.activity_kind::text AS activity_kind, l.activity_tool, l.activity_reported_at, l.activity_interval_seconds,
            c.issued_at AS secret_issued_at, c.claimed_at AS secret_claimed_at,
            cr.settings AS crew_request_settings, cr.settings_version AS crew_request_settings_version,
            cr.requested_at AS crew_request_requested_at, cr.assigned_to_ship_id AS crew_request_assigned_to,
@@ -1053,6 +1067,7 @@ export function createPrismaFleetListing(db: Db): FleetListing {
                l.harness AS lease_harness, l.started_at AS lease_started_at, l.last_seen_at AS lease_last_seen_at,
                l.report_state::text AS report_state, l.report_note, l.reported_at, l.report_changed_at, l.report_task, l.report_step_at, l.report_step_of,
            l.report_details, l.report_details_version,
+           l.activity_at, l.activity_kind::text AS activity_kind, l.activity_tool, l.activity_reported_at, l.activity_interval_seconds,
                c.issued_at AS secret_issued_at, c.claimed_at AS secret_claimed_at,
                cr.settings AS crew_request_settings, cr.settings_version AS crew_request_settings_version,
                cr.requested_at AS crew_request_requested_at, cr.assigned_to_ship_id AS crew_request_assigned_to,

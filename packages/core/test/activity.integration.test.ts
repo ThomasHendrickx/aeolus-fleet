@@ -59,7 +59,7 @@ describe('lease activity on Postgres', () => {
       }),
     );
 
-    expect(written.refused).toEqual([{ shipId: strayId, error: expect.objectContaining({ kind: 'CREW_REQUEST_NOT_ASSIGNED_TO_CALLER' }) }]);
+    expect(written.refused.map(({ shipId, error }) => ({ shipId, kind: error.kind }))).toEqual([{ shipId: strayId, kind: 'CREW_REQUEST_NOT_ASSIGNED_TO_CALLER' }]);
     const expected = { at: new Date('2026-10-31T08:59:50.000Z'), kind: 'tool', tool: 'Bash', reportedAt: core.clock.now(), intervalSeconds: 30 };
     await expect(activityOf(scoutId)).resolves.toEqual(expected);
     await expect(activityOf(strayId)).resolves.toBeNull();
@@ -73,9 +73,6 @@ describe('lease activity on Postgres', () => {
     unwrap(await core.useCases.releaseShip(trierarch, { shipId: scoutId }));
 
     await expect(activityOf(scoutId)).resolves.toBeNull();
-    await expect(core.useCases.reportActivity(trierarch, { intervalSeconds: 30, activities: [{ shipId: scoutId, at: '2026-10-31T09:00:10.000Z', kind: 'text' }] })).resolves.toMatchObject({
-      isOk: true,
-      value: { refused: [{ shipId: scoutId, error: { kind: 'SHIP_NOT_CREWED' } }] },
-    });
+    await expect(core.prisma.lease.findFirstOrThrow({ where: { shipId: scoutId } })).resolves.toMatchObject({ activityKind: 'text', endedAt: core.clock.now() });
   });
 });

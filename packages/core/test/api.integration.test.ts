@@ -291,6 +291,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_removed_ships$/),
       expect.stringMatching(/^\d{14}_report_task_step$/),
       expect.stringMatching(/^\d{14}_payload_limit_256kb$/),
+      expect.stringMatching(/^\d{14}_lease_activity$/),
     ]);
   });
 });

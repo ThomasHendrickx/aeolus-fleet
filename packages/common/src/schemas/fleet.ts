@@ -8,6 +8,7 @@ import { idempotencyKeySchema } from './idempotency-key.js';
 import { listedCrewRequestSchema } from './crew-request.js';
 import { carriedLabelSchema, SHIP_LABELS_MAX } from './label.js';
 import { pageOutputOf } from './page.js';
+import { listedActivitySchema } from './activity.js';
 import { listedReportSchema } from './report.js';
 
 /**
@@ -208,6 +209,11 @@ export const listedShipSchema = z.object({
    * themselves. Null until the crew reports, and for a ship no session crews.
    */
   report: listedReportSchema.nullable(),
+  /**
+   * What its trierarch last observed of the crewing session (docs/design/monitoring, 4.3):
+   * null for a ship crewed by hand, before its trierarch writes any, and for a ship no session crews.
+   */
+  activity: listedActivitySchema.nullable(),
   /** The ship's crew request (decision 0029); null when it holds none. */
   crewRequest: listedCrewRequestSchema.nullable(),
   /** The label values the ship carries, with their labels, by key then value (decision 0031). */

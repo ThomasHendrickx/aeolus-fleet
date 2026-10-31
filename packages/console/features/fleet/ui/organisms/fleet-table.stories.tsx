@@ -31,7 +31,7 @@ function ship(suffix: string, changes: Partial<ListedShip> & Pick<ListedShip, 'n
     harness: 'claude-code',
     model: { id: 'claude-opus-5-5', statedAt: new Date(NOW.getTime() - 2 * 60_000).toISOString() },
     lastSeenAt: new Date(NOW.getTime() - 20_000).toISOString(),
-    awaitingCrewSince: null,
+    activity: null, awaitingCrewSince: null,
     crewRequest: null,
     labels: [],
     retiredAt: null, ownerShipId: null,

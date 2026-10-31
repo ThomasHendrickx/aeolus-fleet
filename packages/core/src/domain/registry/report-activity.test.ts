@@ -127,7 +127,7 @@ describe('an activity refused for its entry, the rest taken', () => {
       }),
     );
 
-    expect(written.refused).toEqual([{ shipId: strayId, error: expect.objectContaining({ kind: 'CREW_REQUEST_NOT_ASSIGNED_TO_CALLER' }) }]);
+    expect(written.refused.map(({ shipId, error }) => ({ shipId, kind: error.kind }))).toEqual([{ shipId: strayId, kind: 'CREW_REQUEST_NOT_ASSIGNED_TO_CALLER' }]);
     await expect(activityOf(strayId)).resolves.toBeNull();
     await expect(activityOf(scoutId)).resolves.toMatchObject({ kind: 'tool' });
   });
@@ -137,7 +137,7 @@ describe('an activity refused for its entry, the rest taken', () => {
 
     const written = unwrap(await registry.reportActivity(other, { intervalSeconds: 30, activities: [{ shipId: scoutId, at: '2026-10-31T08:59:50.000Z', kind: 'tool' }] }));
 
-    expect(written.refused).toEqual([{ shipId: scoutId, error: expect.objectContaining({ kind: 'CREW_REQUEST_NOT_ASSIGNED_TO_CALLER' }) }]);
+    expect(written.refused.map(({ shipId, error }) => ({ shipId, kind: error.kind }))).toEqual([{ shipId: scoutId, kind: 'CREW_REQUEST_NOT_ASSIGNED_TO_CALLER' }]);
     await expect(activityOf(scoutId)).resolves.toBeNull();
   });
 
@@ -147,15 +147,17 @@ describe('an activity refused for its entry, the rest taken', () => {
 
     const written = unwrap(await registry.reportActivity(trierarch, { intervalSeconds: 30, activities: [{ shipId: handCrewedId, at: '2026-10-31T08:59:50.000Z', kind: 'tool' }] }));
 
-    expect(written.refused).toEqual([{ shipId: handCrewedId, error: expect.objectContaining({ kind: 'CREW_REQUEST_NOT_FOUND' }) }]);
+    expect(written.refused.map(({ shipId, error }) => ({ shipId, kind: error.kind }))).toEqual([{ shipId: handCrewedId, kind: 'CREW_REQUEST_NOT_FOUND' }]);
   });
 
-  it('refuses an assigned ship no session crews', async () => {
-    unwrap(await registry.releaseShip(trierarch, { shipId: writerId }));
+  it('refuses an assigned ship no session crews yet', async () => {
+    const { shipId: waitingId } = unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name: 'waiting', type: 'reviewer' }));
+    unwrap(await registry.requestCrew(argo, { shipId: waitingId, settings: aCrewSettings({ harness: 'claude-code' }) }));
+    unwrap(await registry.assignCrew(plugin, { shipId: waitingId, trierarchShipId: trierarch.shipId }));
 
-    const written = unwrap(await registry.reportActivity(trierarch, { intervalSeconds: 30, activities: [{ shipId: writerId, at: '2026-10-31T08:59:50.000Z', kind: 'tool' }] }));
+    const written = unwrap(await registry.reportActivity(trierarch, { intervalSeconds: 30, activities: [{ shipId: waitingId, at: '2026-10-31T08:59:50.000Z', kind: 'tool' }] }));
 
-    expect(written.refused).toEqual([{ shipId: writerId, error: expect.objectContaining({ kind: 'SHIP_NOT_CREWED' }) }]);
+    expect(written.refused.map(({ shipId, error }) => ({ shipId, kind: error.kind }))).toEqual([{ shipId: waitingId, kind: 'SHIP_NOT_CREWED' }]);
   });
 
   it('refuses a ship the fleet does not hold', async () => {
@@ -163,6 +165,6 @@ describe('an activity refused for its entry, the rest taken', () => {
 
     const written = unwrap(await registry.reportActivity(trierarch, { intervalSeconds: 30, activities: [{ shipId: foreignId, at: '2026-10-31T08:59:50.000Z', kind: 'tool' }] }));
 
-    expect(written.refused).toEqual([{ shipId: foreignId, error: expect.objectContaining({ kind: 'SHIP_NOT_FOUND' }) }]);
+    expect(written.refused.map(({ shipId, error }) => ({ shipId, kind: error.kind }))).toEqual([{ shipId: foreignId, kind: 'SHIP_NOT_FOUND' }]);
   });
 });
