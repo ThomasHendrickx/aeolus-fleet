@@ -1,6 +1,6 @@
 'use client';
 
-import { Activity, CodeXml, Inbox, ListChecks, Network, Settings, Shapes, Ship, ShipWheel } from 'lucide-react';
+import { Activity, ChartColumn, CodeXml, Inbox, ListChecks, Network, Settings, Shapes, Ship, ShipWheel } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
@@ -10,7 +10,7 @@ import { SOURCE_URL } from '../../lib/source';
 import { NavLinkIcon } from '../molecules/nav-link-icon';
 
 /** The console's destinations so far. */
-export type SidebarDestination = 'overview' | 'needs-crew' | 'squadrons' | 'trierarchs' | 'inbox' | 'health' | 'network' | 'settings';
+export type SidebarDestination = 'overview' | 'needs-crew' | 'squadrons' | 'trierarchs' | 'usage' | 'inbox' | 'health' | 'network' | 'settings';
 
 interface SidebarProps {
   /** The page the operator is on: its item is marked current. */
@@ -23,7 +23,7 @@ interface SidebarProps {
   needsCrewCount?: number;
   /** Whether the console has squadrons: Squadrons then comes second. */
   hasSquadrons?: boolean;
-  /** Whether the console has the trierarch plugin: Trierarchs then comes after Squadrons. */
+  /** Whether the console has the trierarch plugin: Trierarchs then comes after Squadrons, and Usage after Trierarchs. */
   hasTrierarchs?: boolean;
   /** Silent machines; hidden until known, and when there are none. */
   trierarchsCount?: number;
@@ -124,7 +124,7 @@ function AttentionCount({ count, testId, words }: { count: number | undefined; t
  * Inbox, which counts its open questions and open messages in --primary. A
  * count simply hides until it is known. With squadrons on, Squadrons
  * comes second; with the trierarch plugin on, Trierarchs follows, counting its
- * silent machines in the attention tone (#245). Settings, which holds the
+ * silent machines in the attention tone (#245), and Usage after it. Settings, which holds the
  * plugins, sits with the link to the source on GitHub at the foot,
  * after Network, the networking plugin's rules, for argo while it is connected.
  */
@@ -178,6 +178,7 @@ export function Sidebar({ active, inboxCount, stuckCount, needsCrewCount, hasSqu
             count={<AttentionCount count={trierarchsCount} testId="nav-trierarchs-count" words="silent" />}
           />
         )}
+        {hasTrierarchs && <NavItem href="/usage" label="Usage" icon={<ChartColumn aria-hidden />} isActive={active === 'usage'} testId="nav-usage" />}
         <NavItem
           href="/inbox"
           label="Inbox"

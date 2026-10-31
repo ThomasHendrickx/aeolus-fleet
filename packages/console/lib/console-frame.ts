@@ -39,6 +39,7 @@ export function destinationOf(pathname: string): SidebarDestination {
     case 'needs-crew':
     case 'squadrons':
     case 'trierarchs':
+    case 'usage':
     case 'inbox':
     case 'network':
     case 'settings':

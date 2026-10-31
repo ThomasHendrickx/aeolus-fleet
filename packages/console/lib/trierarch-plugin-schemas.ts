@@ -48,3 +48,73 @@ export type SettingsCheck = z.infer<typeof settingsCheckSchema>;
 
 /** The fleet's enabled models by exact id, as `models.list`, `models.enable` and `models.disable` answer them (decision 0063). */
 export const enabledModelsSchema = z.array(z.string());
+
+/** What usage splits by, besides token kind. */
+export const usageBreakdownSchema = z.enum(['machine', 'harness', 'model', 'ship', 'login']);
+
+/** The values token usage is narrowed to, per breakdown; a null login is "not reported". */
+const usageFiltersSchema = z.object({
+  machineShipIds: z.array(idSchema('ship')).optional(),
+  harnesses: z.array(z.string()).optional(),
+  models: z.array(z.string()).optional(),
+  shipIds: z.array(idSchema('ship')).optional(),
+  logins: z.array(z.string().nullable()).optional(),
+});
+
+/** What the Usage page asks `usage.tokens`: a range on its grain, how to split it, what ranks the series and the filters. */
+export const usageTokensRequestSchema = z.object({
+  from: z.iso.datetime(),
+  to: z.iso.datetime(),
+  splitBy: z.enum([...usageBreakdownSchema.options, 'kind']).nullable(),
+  measure: z.enum(['tokens', 'cost']),
+  filters: usageFiltersSchema,
+});
+
+export type UsageTokensRequest = z.infer<typeof usageTokensRequestSchema>;
+
+/** What the Usage page asks `usage.values`: one breakdown's values in a range, a page at a time. */
+export const usageValuesRequestSchema = z.object({
+  from: z.iso.datetime(),
+  to: z.iso.datetime(),
+  breakdown: usageBreakdownSchema,
+  cursor: z.string().nullable(),
+});
+
+export type UsageValuesRequest = z.infer<typeof usageValuesRequestSchema>;
+
+const tokenCountsSchema = z.object({ input: z.number(), output: z.number(), cacheRead: z.number(), cacheWrite: z.number() });
+
+/** A series' tokens per kind, its estimated cost and its tokens not priced. */
+const seriesAmountsSchema = z.object({ tokens: tokenCountsSchema, estimatedCostUsd: z.number(), unpricedTokens: z.number() });
+
+export const TOKEN_KINDS = ['input', 'output', 'cacheRead', 'cacheWrite'] as const;
+
+/** Token usage as `usage.tokens` answers it: its series named and largest first, each bucket holding usage, and the range's totals. */
+export const tokenUsageSchema = z.object({
+  grain: z.enum(['hour', 'day']),
+  series: z.array(
+    z.object({
+      key: z.discriminatedUnion('kind', [
+        z.object({ kind: z.literal('value'), value: z.string().nullable() }),
+        z.object({ kind: z.literal('other') }),
+        z.object({ kind: z.literal('all') }),
+        z.object({ kind: z.literal('tokenKind'), tokenKind: z.enum(TOKEN_KINDS) }),
+      ]),
+      name: z.string().nullable(),
+      amounts: seriesAmountsSchema,
+    }),
+  ),
+  buckets: z.array(z.object({ at: z.iso.datetime(), amounts: z.array(seriesAmountsSchema.extend({ series: z.int().nonnegative() })) })),
+  totals: seriesAmountsSchema,
+  unpricedModels: z.array(z.string()),
+});
+
+export type TokenUsage = z.infer<typeof tokenUsageSchema>;
+
+/** One page of a breakdown's values, as `usage.values` answers it: largest first, a null value for a login not reported. */
+export const usageValuesPageSchema = z.object({
+  values: z.array(z.object({ value: z.string().nullable(), name: z.string().nullable(), tokens: z.number() })),
+  nextCursor: z.string().nullable(),
+});
+
+export type UsageValuesPage = z.infer<typeof usageValuesPageSchema>;
