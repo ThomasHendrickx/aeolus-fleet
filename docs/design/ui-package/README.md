@@ -2,6 +2,8 @@
 
 [Issue 1206](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1206). Stage 1 (purpose, what exists, lessons, questions) is answered (section 4). Stage 2, below, is the structure only: proposed, not decided. Nothing is built until Thomas approves it; then one part at a time (section 7).
 
+Screens and the chosen look (Compact): [mockups/README.md](mockups/README.md).
+
 Thomas, 24 Oct: "In the end we are making the same components. So doing it once is better." 30 Oct: "Ok I also want to start the work on the UI elements package for aeolus the product."
 
 ## 1. Purpose (agreed)

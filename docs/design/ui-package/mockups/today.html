@@ -355,7 +355,7 @@ svg.i { width: var(--size-icon); height: var(--size-icon); flex-shrink: 0; fill:
 .drift .same { font-size: 12px; color: var(--tone-ok-fg); }
 .x { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 
-/* Where the look could go later. Each option changes only knobs and tokens; the parts stay the same. */
+/* The chosen look, Compact: only knobs and tokens change; the parts stay the same. */
 
 /* Option 1, Compact: denser desktop, smaller corners, quiet badges (icon and word, no fill), attention keeps its fill. */
 .frame.opt-1 {
@@ -370,33 +370,6 @@ svg.i { width: var(--size-icon); height: var(--size-icon); flex-shrink: 0; fill:
 .frame.opt-1 .side .nav { height: 30px; }
 .frame.opt-1 .btn { padding: 0 12px; }
 
-/* Option 2, Soft: roomier, round corners, pill badges without a border, borderless cards on a shadow, a brighter blue. */
-.frame.opt-2 {
-  --k-control: 40px; --k-control-sm: 34px; --k-control-xs: 28px;
-  --k-row: 56px; --k-row-header: 44px;
-  --k-body: 15px; --k-body-lh: 22px;
-  --k-r-control: 12px; --k-r-card: 16px; --k-r-badge: 999px;
-  --k-pad-card: 20px; --k-gap: 24px; --k-page-x: 40px; --k-page-y: 32px;
-  --k-title: 26px; --k-title-lh: 32px; --k-card-border: transparent; --k-card-shadow: var(--shadow-md);
-}
-.frame.opt-2:not(.dark) { --background: oklch(0.975 0.006 255); --sidebar: oklch(0.96 0.008 255); --primary: oklch(0.5 0.15 262); --primary-hover: oklch(0.45 0.15 262); --ring: oklch(0.6 0.15 262); --highlight: oklch(0.94 0.04 262); }
-.frame.opt-2.dark { --primary: oklch(0.78 0.11 258); --primary-hover: oklch(0.84 0.09 258); --primary-foreground: oklch(0.2 0.04 262); --card: oklch(0.215 0.014 257); }
-.frame.opt-2 .st { border-color: transparent; padding: 0 9px; }
-.frame.opt-2 .btn { padding: 0 18px; }
-.frame.opt-2 .tbl { border: 0; box-shadow: var(--shadow-md); }
-
-/* Option 3, Crisp: square corners, ink primary, firmer borders, tag badges with a tone bar and the word in the text colour. */
-.frame.opt-3 {
-  --k-r-control: 3px; --k-r-card: 4px; --k-r-badge: 2px; --k-r-dialog: 6px;
-  --k-card-shadow: none; --k-title: 24px; --k-title-lh: 30px; --k-title-track: -0.02em;
-}
-.frame.opt-3:not(.dark) { --primary: oklch(0.22 0.02 257); --primary-hover: oklch(0.3 0.02 257); --border: oklch(0.87 0.01 247); --input: oklch(0.8 0.012 247); --highlight: oklch(0.94 0.01 247); }
-.frame.opt-3.dark { --primary: oklch(0.95 0.005 247); --primary-hover: oklch(0.88 0.005 247); --primary-foreground: oklch(0.18 0.01 257); --border: oklch(0.34 0.014 257); --input: oklch(0.42 0.015 257); --highlight: oklch(0.3 0.01 257); }
-.frame.opt-3 .st { background: transparent; border-color: var(--border); border-left: 3px solid var(--tfg); color: var(--foreground); }
-.frame.opt-3 .st svg { color: var(--tfg); }
-.frame.opt-3 .bdg.kind { color: var(--foreground); }
-.frame.opt-3 .line span.on, .frame.opt-3 .tabbar span.on { color: var(--foreground); }
-.frame.opt-3 .mark { border-radius: 4px; }
 
 </style>
 </head>
