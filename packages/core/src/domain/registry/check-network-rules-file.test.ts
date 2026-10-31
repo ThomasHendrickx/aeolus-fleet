@@ -58,7 +58,7 @@ describe('checking a network rules file (design network-io, section 5)', () => {
 
   it('checks the example file of the design', async () => {
     const design = readFileSync(new URL('../../../../../docs/design/network-io/README.md', import.meta.url), 'utf8');
-    const example = /## 4\. Export[\s\S]*?```json\n([\s\S]*?)\n```/.exec(design)?.[1].replace('flt_...', file.fleet.id) ?? '';
+    const example = /## 4\. Export[\s\S]*?```json\n([\s\S]*?)\n```/.exec(design)?.[1]?.replace('flt_...', file.fleet.id) ?? '';
 
     expect(unwrap(await registry.checkNetworkRulesFile(importer, { file: example })).file.rules).toHaveLength(2);
   });
