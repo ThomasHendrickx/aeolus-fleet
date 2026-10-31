@@ -620,9 +620,41 @@ svg.i { width: var(--size-icon); height: var(--size-icon); flex-shrink: 0; fill:
 .dark .cl .cin { background: #30302e; }
 .phone .cl .cbody { padding: 14px; }
 .phone .cl { font-size: 15px; }
-</style><h1>Bridge: stay aware</h1><p class="lead">Alerts (0071) and notices (CC15, pick a) reach the person unasked, outside the count. Seeing one acks and handles it at once (CC16, pick a): the unseen mark goes, nothing else is asked.</p><p class="lead">Compact look (<code>docs/design/ui-package/mockups/README.md</code>); the fleet as Harbour draws it (<code>docs/design/fleet-overview/README.md</code>). Thomas's fleet, 31 Oct, 20:00.</p><p class="lead">If CC15 goes (b), the feed holds alerts only; "PR #1497 opened" and the releases are plain messages under Everything else. If CC16 goes (b), each row gets a Dismiss button and stays unseen until pressed.</p><span class="cap">Desktop light, desktop dark</span><div class="row"><div class="frame desk  opt-1"><div class="shell"><aside class="side">
+/* basket */
+.outc.bsk { border-color: var(--ring); background: var(--highlight); }
+.outc.bsk > svg { color: var(--primary); }
+.outc .oa { display: flex; gap: 6px; margin-top: 8px; }
+.ta .ph { color: var(--muted-foreground); }
+.be { display: grid; grid-template-columns: 18px 1fr auto; column-gap: 10px; row-gap: 6px; padding: 12px 14px; border-top: 1px solid var(--border); align-items: start; }
+.be:first-child { border-top: 0; }
+.be.off .t, .be.off .ch { text-decoration: line-through; text-decoration-color: var(--muted-foreground); }
+.be.off { background: var(--muted); }
+.be .tx { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.be .t { font-weight: 500; }
+.be .m { font-size: var(--text-caption); color: var(--muted-foreground); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.be .ch { font-size: var(--text-meta); display: flex; gap: 6px; align-items: center; }
+.be .ch svg { width: 14px; height: 14px; color: var(--primary); }
+.be .nt { font-size: var(--text-meta); color: var(--muted-foreground); font-style: italic; }
+.be .st2 { font-size: var(--text-meta); display: flex; gap: 6px; align-items: center; grid-column: 2 / 4; }
+.be .st2 svg { width: 14px; height: 14px; }
+.be .st2.ok svg { color: var(--tone-ok-fg); } .be .st2.wt svg { color: var(--tone-waiting-fg); } .be .st2.er svg { color: var(--tone-attention-fg); } .be .st2.off svg { color: var(--muted-foreground); }
+.be .acts { display: flex; gap: 6px; }
+.be .acts2 { grid-column: 2 / 4; display: flex; gap: 6px; }
+.sendbar { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-top: 1px solid var(--border); background: var(--card); }
+.sendbar .sub { flex: 1; }
+.bbar { display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-top: 1px solid var(--border); background: var(--highlight); flex-shrink: 0; font-size: 14px; }
+.bbar svg { width: 16px; height: 16px; color: var(--primary); }
+.bbar .btn { margin-left: auto; }
+.phone .be { padding: 12px; }
+.phone .be .t { font-size: 15px; }
+.phone .sendbar { flex-direction: column; align-items: stretch; gap: 8px; flex-shrink: 0; }
+.phone .be .nt { font-size: 12px; line-height: 17px; }
+.phone .be.off .ch { display: none; }
+.phone .be .st2 { font-size: 13px; }
+</style><h1>Bridge: stay aware</h1><p class="lead">Alerts (0071) and notices (CC15) reach the person unasked, outside the count. Seeing one acks and handles it at once (CC16): the unseen mark goes, nothing else is asked.</p><p class="lead">Compact look (<code>docs/design/ui-package/mockups/README.md</code>); the fleet as Harbour draws it (<code>docs/design/fleet-overview/README.md</code>). Thomas's fleet, 31 Oct, 20:00.</p><span class="cap">Desktop light, desktop dark</span><div class="row"><div class="frame desk  opt-1"><div class="shell"><aside class="side">
   <div class="brand"><span class="mark"><svg class="i " viewBox="0 0 24 24"><path d="M12 2v2"/><path d="M12 9.189V13"/><path d="M19 12V6a2 2 0 00-2-2H7a2 2 0 00-2 2v6"/><path d="M19.38 19A11.6 11.6 0 0021 13l-8.188-3.639a2 2 0 00-1.624 0L3 13.001a11.6 11.6 0 002.81 7.76"/><path d="M2 20c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1s1.2 1 2.5 1c2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg></span>Bridge</div>
   <a class="nav"><svg class="i " viewBox="0 0 24 24"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>Waiting on you<span class="ct wt">4</span></a>
+  
   <a class="nav on"><svg class="i " viewBox="0 0 24 24"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg>Stay aware<span class="ct">1</span></a>
   <a class="nav"><svg class="i " viewBox="0 0 24 24"><path d="M18 6 7 17l-5-5"/><path d="m22 10-7.5 7.5L13 16"/></svg>Done</a>
   <a class="nav"><svg class="i " viewBox="0 0 24 24"><path d="M12 2v2"/><path d="M12 9.189V13"/><path d="M19 12V6a2 2 0 00-2-2H7a2 2 0 00-2 2v6"/><path d="M19.38 19A11.6 11.6 0 0021 13l-8.188-3.639a2 2 0 00-1.624 0L3 13.001a11.6 11.6 0 002.81 7.76"/><path d="M2 20c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1s1.2 1 2.5 1c2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg>Your fleet<span class="ct at">1</span></a>
@@ -639,6 +671,7 @@ svg.i { width: var(--size-icon); height: var(--size-icon); flex-shrink: 0; fill:
   <div class="pickwhy"><svg class="i " viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg><span>Aeolus only tells you. The alert clears when builder-gateway reports again; nothing is sent on clear, so this stays here as it was.</span></div></div></div></div></div></div><div class="frame desk dark opt-1"><div class="shell"><aside class="side">
   <div class="brand"><span class="mark"><svg class="i " viewBox="0 0 24 24"><path d="M12 2v2"/><path d="M12 9.189V13"/><path d="M19 12V6a2 2 0 00-2-2H7a2 2 0 00-2 2v6"/><path d="M19.38 19A11.6 11.6 0 0021 13l-8.188-3.639a2 2 0 00-1.624 0L3 13.001a11.6 11.6 0 002.81 7.76"/><path d="M2 20c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1s1.2 1 2.5 1c2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg></span>Bridge</div>
   <a class="nav"><svg class="i " viewBox="0 0 24 24"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>Waiting on you<span class="ct wt">4</span></a>
+  
   <a class="nav on"><svg class="i " viewBox="0 0 24 24"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg>Stay aware<span class="ct">1</span></a>
   <a class="nav"><svg class="i " viewBox="0 0 24 24"><path d="M18 6 7 17l-5-5"/><path d="m22 10-7.5 7.5L13 16"/></svg>Done</a>
   <a class="nav"><svg class="i " viewBox="0 0 24 24"><path d="M12 2v2"/><path d="M12 9.189V13"/><path d="M19 12V6a2 2 0 00-2-2H7a2 2 0 00-2 2v6"/><path d="M19.38 19A11.6 11.6 0 0021 13l-8.188-3.639a2 2 0 00-1.624 0L3 13.001a11.6 11.6 0 002.81 7.76"/><path d="M2 20c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1s1.2 1 2.5 1c2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg>Your fleet<span class="ct at">1</span></a>
