@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { idSchema, type MessageId } from '../ids/index.js';
+import { essenceOf } from './content-type.js';
 
 /**
  * Questions to argo (decision 0038): a ship asks the operator by sending a
@@ -16,12 +17,6 @@ export const QUESTION_CONTENT_TYPE = 'application/vnd.aeolus.question+json';
 export const ANSWER_CONTENT_TYPE = 'application/vnd.aeolus.answer+json';
 export const WITHDRAWAL_CONTENT_TYPE = 'application/vnd.aeolus.question-withdrawal+json';
 export const REPLACEMENT_CONTENT_TYPE = 'application/vnd.aeolus.question-replacement+json';
-
-/** A content type's essence: media types compare without case and without their parameters (RFC 9110). */
-function essenceOf(contentType: string): string {
-  const [essence = ''] = contentType.split(';');
-  return essence.trim().toLowerCase();
-}
 
 export function isQuestionContentType(contentType: string): boolean {
   return essenceOf(contentType) === QUESTION_CONTENT_TYPE;

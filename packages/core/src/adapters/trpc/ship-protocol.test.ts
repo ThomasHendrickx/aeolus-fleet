@@ -6,8 +6,13 @@ import {
   MEETING_ENDED_CONTENT_TYPE,
   MEETING_MIC_CONTENT_TYPE,
   NO_TERMINAL_QUESTIONS,
+  NOTICE_CONTENT_TYPE,
   QUESTION_CONTENT_TYPE,
   REPLACEMENT_CONTENT_TYPE,
+  STEP_CONTENT_TYPE,
+  STEP_OUTCOME_CONTENT_TYPE,
+  STEP_REPLACEMENT_CONTENT_TYPE,
+  STEP_WITHDRAWAL_CONTENT_TYPE,
   WITHDRAWAL_CONTENT_TYPE,
 } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
@@ -38,6 +43,8 @@ describe('the ship protocol', () => {
         '16. LEASE_ENDED while passing your crew token: your ship was released. Stop calling the fleet and say so.',
         '17. To read a delivery you acknowledged again, whole, until it is handled, call delivery with its deliveryId. It changes nothing.',
         '18. A delivery naming a meetingId comes from a meeting you take part in; application/vnd.aeolus.meeting.added+json tells you that you were added. Contribute by send to {"kind":"meeting","meetingId":"<its id>"}, never with inReplyTo, and only while you hold the mic: call requestMic, contribute once application/vnd.aeolus.meeting.mic+json arrives, then releaseMic, and request again to speak again. The moderator needs no mic. Call meeting to read what was said and who takes part. application/vnd.aeolus.meeting.ended+json means the meeting ended: contribute no more.',
+        '19. For what only a human can do (create a repository, sign in to an outside server), send your owner\'s ship, as whoami names it, a step: a message of content type application/vnd.aeolus.step+json. Its payload is JSON: {"id":"<a new uuid>","title":"...","why":"...","link":"<the http(s) URL where it is done, optional>"}. Your owner answers with a reply to it (inReplyTo) of content type application/vnd.aeolus.step-outcome+json, payload {"stepId":"<its uuid>","outcome":"done"|"cannot","note":"..."}, the note optional for either. Until then you can withdraw it: send the ship you asked application/vnd.aeolus.step-withdrawal+json, payload {"stepId":"<its uuid>"}. Or replace it: send the ship you asked application/vnd.aeolus.step-replacement+json, payload {"stepId":"<its uuid>","step":<the new step, with a new uuid>}.',
+        '20. To tell a person something without asking (a PR opened, a release out), send your owner\'s ship, as whoami names it, a notice: a message of content type application/vnd.aeolus.notice+json. Its payload is JSON: {"headline":"<one line of at most 80 characters>","body":"<Markdown>","link":{"label":"...","url":"<http(s) URL>"}}, the link optional. A notice is not answered.',
       ].join('\n'),
     );
   });
@@ -75,6 +82,18 @@ describe('the ship protocol', () => {
     for (const contentType of [QUESTION_CONTENT_TYPE, ANSWER_CONTENT_TYPE, WITHDRAWAL_CONTENT_TYPE, REPLACEMENT_CONTENT_TYPE]) {
       expect(rule).toContain(contentType);
     }
+  });
+
+  it("tells every ship how to ask its owner's ship for what only a human can do with a step, how the outcome arrives, and how to withdraw or replace the step (docs/design/bridge, CC14)", () => {
+    const rule = SHIP_PROTOCOL.split('\n').find((line) => line.startsWith('19. '));
+
+    for (const contentType of [STEP_CONTENT_TYPE, STEP_OUTCOME_CONTENT_TYPE, STEP_WITHDRAWAL_CONTENT_TYPE, STEP_REPLACEMENT_CONTENT_TYPE]) {
+      expect(rule).toContain(contentType);
+    }
+  });
+
+  it("tells every ship how to tell its owner's ship something without asking, with a notice (docs/design/bridge, CC15)", () => {
+    expect(SHIP_PROTOCOL.split('\n').find((line) => line.startsWith('20. '))).toContain(NOTICE_CONTENT_TYPE);
   });
 
   it('tells every ship that a message to argo opens with a headline of at most 80 characters, then a blank line and the body, in markdown for lists and links (#849)', () => {
