@@ -77,8 +77,11 @@ async function isHydrated(page: Page): Promise<void> {
   await page.locator('[data-slot="live-status"][data-state="live"]:visible').waitFor({ timeout: 20_000 });
 }
 
+/** The avatar's label says how the page is signed in only once the console has read its account: a menu opened before that shows a blank line. */
 async function openAccountMenu(page: Page): Promise<void> {
-  await page.locator('[data-testid="avatar-menu"]:visible').click();
+  const trigger = page.locator('[data-testid="avatar-menu"][aria-label*="Signed in as"]:visible');
+  await trigger.waitFor();
+  await trigger.click();
 }
 
 /** The avatar menu says the page is signed in as the account itself, not as argo. */
@@ -126,6 +129,7 @@ describe('signing in as argo from the console', () => {
 
     await thomasPage.getByText('This signs mathilde@acme.example out of argo.').waitFor();
     await thomasPage.getByTestId('sign-in-argo-cancel').click();
+    await thomasPage.getByTestId('sign-in-argo-cancel').waitFor({ state: 'detached' });
     await isSignedInAsAccount(thomasPage);
     await expect(argoSessionsOf('acc-mathilde')).resolves.toEqual([{ endedAt: null, endReason: null }]);
   });
