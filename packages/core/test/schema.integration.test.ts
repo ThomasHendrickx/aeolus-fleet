@@ -166,6 +166,7 @@ describe('migrations', () => {
       'reach_refusals',
       'schedules',
       'scope_namespaces',
+      'ship_expectations',
       'ship_labels',
       'ships',
       'sign_in_tickets',

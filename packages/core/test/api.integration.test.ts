@@ -294,6 +294,7 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_lease_activity$/),
       expect.stringMatching(/^\d{14}_alert_scope$/),
       expect.stringMatching(/^\d{14}_alerts$/),
+      expect.stringMatching(/^\d{14}_ship_expectations$/),
     ]);
   });
 });
@@ -2686,6 +2687,44 @@ describe('alerts at the API (decision 0071)', () => {
 
     expect(response.status).toBe(400);
     await expect(database.alert.count({ where: { fleetId, shipId: deployBotId } })).resolves.toBe(0);
+  });
+});
+
+describe('expectations at the API (decision 0071)', () => {
+  const restCall = (crewToken: string, body: unknown) =>
+    fetch(`${address}/api/v1/fleet/setExpectations`, { method: 'POST', headers: { authorization: `Bearer ${crewToken}`, 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  const pullRequest = { kind: 'url', url: 'https://github.com/ThomasHendrickx/aeolus-fleet/pull/1391' };
+
+  it('let a ship with fleet:manage set expectations on a ship through REST, kept on the ship as set', async () => {
+    const { shipId: mergerId } = await agentShip();
+    const crewToken = await crewedShip(['messages:send', 'messages:receive', 'fleet:manage']);
+
+    const response = await restCall(crewToken, { shipId: mergerId, reportChangesWithin: 60, taskDoneBy: { task: pullRequest, doneBy: '2026-10-31T18:00:00Z' } });
+
+    expect(response.status).toBe(200);
+    await expect(database.shipExpectations.findFirst({ where: { fleetId, shipId: mergerId }, select: { reportChangesWithinMinutes: true, taskDoneByTask: true, taskDoneBy: true } })).resolves.toEqual({
+      reportChangesWithinMinutes: 60,
+      taskDoneByTask: pullRequest,
+      taskDoneBy: new Date('2026-10-31T18:00:00Z'),
+    });
+  });
+
+  it('refuse a ship without fleet:manage, naming the scope, holding no expectations', async () => {
+    const { shipId: mergerId } = await agentShip();
+    const sender = client({ authorization: `Bearer ${await crewedShip()}` });
+
+    await expect(refusalOf(sender.fleet.setExpectations.mutate({ shipId: mergerId, reportChangesWithin: 60 }))).resolves.toEqual({ code: 'FORBIDDEN', message: 'This call needs the fleet:manage scope' });
+    await expect(database.shipExpectations.count({ where: { fleetId, shipId: mergerId } })).resolves.toBe(0);
+  });
+
+  it('refuse report changes within outside 5 to 10080 minutes as a bad request, holding nothing', async () => {
+    const { shipId: mergerId } = await agentShip();
+    const crewToken = await crewedShip(['messages:send', 'messages:receive', 'fleet:manage']);
+
+    const response = await restCall(crewToken, { shipId: mergerId, reportChangesWithin: 4 });
+
+    expect(response.status).toBe(400);
+    await expect(database.shipExpectations.count({ where: { fleetId, shipId: mergerId } })).resolves.toBe(0);
   });
 });
 
