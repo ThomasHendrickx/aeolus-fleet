@@ -48,7 +48,7 @@ Environment variables, read when the app runs, never when it is built:
 | `HOST` | `127.0.0.1` | Interface to listen on |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` and the other `OTEL_*` settings | unset | Traces and metrics over OpenTelemetry, as for the server: see the server README's Telemetry. Unset, the console sends nothing |
 
-`npm run dev` builds `@aeolus-fleet/common` first: the console bundles the built package, its schemas on the web app's server and only `@aeolus-fleet/common/rules` (no zod) in the browser, for live form hints (decision 0033).
+`npm run dev` builds `@aeolus-fleet/common` and `@aeolus-fleet/ui` first: the console bundles both built packages, with common's schemas on the web app's server and only `@aeolus-fleet/common/rules` (no zod) in the browser, for live form hints (decision 0033).
 
 ## Beyond localhost
 
@@ -56,7 +56,7 @@ On localhost, plain http works. On any other host, serve the console over https:
 
 ## Design system
 
-The console is themed from `tokens.css` in `@aeolus-fleet/common/header` (`packages/common/src/header`), the single copy of the design tokens, which also holds the header and the atoms it stands on (light on `:root`, dark on `.dark`, which follows the system setting). `app/globals.css` maps them onto Tailwind v4. Each feature's parts live in `features/<feature>/` (layout: CLAUDE.md, Web), the shared ones in `components/`; atoms are shadcn/ui on Base UI (`components.json`). Geist and Geist Mono are self-hosted from `app/fonts/` under the SIL Open Font License.
+The console is themed from `tokens.css` in `@aeolus-fleet/ui` (`packages/ui/src`), the single copy of the design tokens, beside the header and the atoms it stands on (light on `:root`, dark on `.dark`, which follows the system setting). `app/globals.css` maps them onto Tailwind v4. Each feature's parts live in `features/<feature>/` (layout: CLAUDE.md, Web), the shared ones in `components/`; atoms are shadcn/ui on Base UI (`components.json`). Geist and Geist Mono are self-hosted from `app/fonts/` under the SIL Open Font License.
 
 `npm run storybook -w @aeolus-fleet/console` shows every part, with a story per meaningful state and a toolbar for light and dark. `npm run build-storybook -w @aeolus-fleet/console` builds it; CI does on every pull request.
 

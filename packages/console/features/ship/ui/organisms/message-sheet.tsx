@@ -9,7 +9,7 @@ import { payloadSealingOf } from '../../../../lib/payload-sealing';
 import { fullDateTime, relativeTime } from '../../../../lib/relative-time';
 import { OPERATOR_NAME, ship, text, type SentencePart } from '../../../../lib/sentence';
 import { CodeBlock } from '../../../../components/atoms/code-block';
-import { Button, Sheet, SheetBody, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@aeolus-fleet/common/header';
+import { Button, Sheet, SheetBody, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@aeolus-fleet/ui';
 import { CopyButton } from '../../../../components/atoms/copy-button';
 import { Skeleton } from '../../../../components/atoms/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../../components/atoms/tabs';

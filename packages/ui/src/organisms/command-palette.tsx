@@ -3,11 +3,11 @@
 import { CornerDownLeft, LoaderCircle, Search } from 'lucide-react';
 import { useId, useState, type KeyboardEvent, type ReactNode } from 'react';
 
-import { Button } from './atoms/button.js';
-import { Dialog, DialogClose, DialogContent, DialogTitle } from './atoms/dialog.js';
-import { dialogSurface } from './atoms/dialog-surface.js';
-import { Kbd } from './atoms/kbd.js';
-import { classNames } from './class-names.js';
+import { Button } from '../atoms/button.js';
+import { Dialog, DialogClose, DialogContent, DialogTitle } from '../atoms/dialog.js';
+import { dialogSurface } from '../atoms/dialog-surface.js';
+import { Kbd } from '../atoms/kbd.js';
+import { classNames } from '../class-names.js';
 
 /**
  * One entry of the palette: what it shows, and where it goes. An entry with

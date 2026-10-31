@@ -1,6 +1,6 @@
 import { ChevronsDown } from 'lucide-react';
 
-import { Button } from '@aeolus-fleet/common/header';
+import { Button } from '@aeolus-fleet/ui';
 
 import { InlineError } from './inline-error';
 

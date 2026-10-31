@@ -2,7 +2,7 @@ import type { ShipId } from '@aeolus-fleet/common';
 import { cva, type VariantProps } from 'class-variance-authority';
 import Link from 'next/link';
 
-import { classNames } from '@aeolus-fleet/common/header';
+import { classNames } from '@aeolus-fleet/ui';
 
 /** The id suffix shows this many of the id's last characters. */
 const SUFFIX_LENGTH = 4;

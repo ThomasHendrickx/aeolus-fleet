@@ -9,7 +9,7 @@ import { harnessOptions, machineLiveness, type Spot } from '../../../../lib/mach
 import { clockTime, fullDateTime, lastSeen, relativeTime } from '../../../../lib/relative-time';
 import type { Machine } from '../../../../lib/trierarch-plugin-schemas';
 import { Badge } from '../../../../components/atoms/badge';
-import { Button } from '@aeolus-fleet/common/header';
+import { Button } from '@aeolus-fleet/ui';
 import { CapacityBar } from '../molecules/capacity-bar';
 import { HarnessLoginLine } from '../molecules/harness-login-line';
 import { NotOfferedLine } from '../../../../components/molecules/not-offered-line';

@@ -1,4 +1,4 @@
-import { Button } from '@aeolus-fleet/common/header';
+import { Button } from '@aeolus-fleet/ui';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { CircleAlert } from 'lucide-react';
 

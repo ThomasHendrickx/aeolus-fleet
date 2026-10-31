@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { shortDateTime } from '../../../../lib/relative-time';
 import type { Squadron } from '../../../../lib/squadrons-schemas';
 import { blueprintPath, stationCount } from '../../../../lib/squadrons-view';
-import { Button } from '@aeolus-fleet/common/header';
+import { Button } from '@aeolus-fleet/ui';
 import { EmptyState } from '../../../../components/molecules/empty-state';
 import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
 import { StationProgress } from '../molecules/station-progress';

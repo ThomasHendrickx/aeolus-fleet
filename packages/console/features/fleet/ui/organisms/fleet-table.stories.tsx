@@ -6,7 +6,7 @@ import { expect, fn, userEvent, within } from 'storybook/test';
 
 import { agentKindOf } from '../../services/agent-kind';
 import { DEFAULT_FLEET_VIEW, type FleetView } from '../../services/fleet-filter';
-import { Button } from '@aeolus-fleet/common/header';
+import { Button } from '@aeolus-fleet/ui';
 import { FleetTable, type RowActionsLayout } from './fleet-table';
 import { AREA, BLUEPRINT, carried, COST, labelContext, OS, OWNERS, ownerShips, PROJECT } from '../../../../lib/fixtures/labels.fixtures';
 import { REPORT_TASKS, VIEWER_FLEET_ID } from '../../../../lib/fixtures/report.fixtures';

@@ -22,7 +22,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-import { Button, classNames } from '@aeolus-fleet/common/header';
+import { Button, classNames } from '@aeolus-fleet/ui';
 import { fullDateTime, relativeTime } from '../../../../lib/relative-time';
 import { timelineSentence, type TimelineIcon, type TimelineTone } from '../../services/timeline-sentence';
 import { InlineError } from '../../../../components/molecules/inline-error';

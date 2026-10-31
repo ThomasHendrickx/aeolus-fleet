@@ -2,7 +2,7 @@ import { Activity, Inbox, Shapes, Ship, ShipWheel } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
-import { classNames } from '@aeolus-fleet/common/header';
+import { classNames } from '@aeolus-fleet/ui';
 import { NavLinkIcon } from '../molecules/nav-link-icon';
 
 /** The console's destinations on phone so far. */

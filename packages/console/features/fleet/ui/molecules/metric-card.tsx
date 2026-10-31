@@ -1,7 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 
-import { classNames } from '@aeolus-fleet/common/header';
+import { classNames } from '@aeolus-fleet/ui';
 import { Skeleton } from '../../../../components/atoms/skeleton';
 
 export type MetricTone = 'ok' | 'waiting' | 'attention';

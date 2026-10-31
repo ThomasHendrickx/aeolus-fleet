@@ -3,7 +3,7 @@
 import type { CrewLine } from '@aeolus-fleet/common';
 import { Info, RotateCw } from 'lucide-react';
 
-import { Button, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle } from '@aeolus-fleet/common/header';
+import { Button, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle } from '@aeolus-fleet/ui';
 import { Skeleton } from '../atoms/skeleton';
 import { CompactCrewLine } from '../molecules/compact-crew-line';
 import { InlineError } from '../molecules/inline-error';

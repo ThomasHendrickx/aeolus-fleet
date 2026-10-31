@@ -1,0 +1,6 @@
+/* The theme as an app takes it (src/theme.css), scanning ui's own parts. */
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import '../src/theme.css';
+
+@source '../src';

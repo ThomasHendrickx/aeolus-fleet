@@ -3,7 +3,7 @@ import { Plus } from 'lucide-react';
 import { fn } from 'storybook/test';
 
 import { Badge } from '../atoms/badge';
-import { Button } from '@aeolus-fleet/common/header';
+import { Button } from '@aeolus-fleet/ui';
 import { ConsoleFrame } from './console-frame';
 import { ListPage } from './list-page';
 import { AVATAR_MENU, SWITCHER } from '../../lib/fixtures/header.fixtures';

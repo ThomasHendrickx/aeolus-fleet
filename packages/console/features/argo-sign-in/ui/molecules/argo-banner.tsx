@@ -1,6 +1,6 @@
 import { KeyRound, LoaderCircle } from 'lucide-react';
 
-import { Button } from '@aeolus-fleet/common/header';
+import { Button } from '@aeolus-fleet/ui';
 
 interface ArgoBannerProps {
   /** Ends this sign-in as argo and goes back to the account. */

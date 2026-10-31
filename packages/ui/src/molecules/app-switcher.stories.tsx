@@ -1,9 +1,9 @@
-import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, screen, userEvent, within } from 'storybook/test';
 
-import { accountIdSchema, createIdGenerator, type AppsList } from '../index.js';
+import { accountIdSchema, createIdGenerator, type AppsList } from '@aeolus-fleet/common';
+import { appSwitcherOf } from '@aeolus-fleet/common/rules';
 import { AppSwitcher } from './app-switcher.js';
-import { appSwitcherOf } from './apps.js';
 
 const newId = createIdGenerator();
 const ACME = newId('fleet');

@@ -56,8 +56,6 @@ describe('setVersion', () => {
     expect(rawManifest('common').exports).toEqual({
       '.': { types: './dist/index.d.ts', default: './dist/index.js' },
       './rules': { types: './dist/rules/index.d.ts', default: './dist/rules/index.js' },
-      './header': { types: './dist/header/index.d.ts', default: './dist/header/index.js' },
-      './header/tokens.css': './dist/header/tokens.css',
     });
     expect(rawManifest('core').exports).toEqual({
       '.': { types: './dist/index.d.ts', default: './dist/index.js' },

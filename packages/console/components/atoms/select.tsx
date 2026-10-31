@@ -4,7 +4,7 @@ import { Select as SelectPrimitive } from '@base-ui/react/select';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { Check, ChevronDown } from 'lucide-react';
 
-import { classNames } from '@aeolus-fleet/common/header';
+import { classNames } from '@aeolus-fleet/ui';
 
 /**
  * shadcn Select on Base UI, themed to docs/design/png/Select.png: closed lists

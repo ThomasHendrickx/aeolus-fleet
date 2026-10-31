@@ -1,0 +1,59 @@
+{
+  "name": "@aeolus-fleet/ui",
+  "version": "0.0.0",
+  "description": "The UI parts every Aeolus web app shows: atoms, molecules and organisms, props only, and the design tokens.",
+  "keywords": [
+    "aeolus"
+  ],
+  "license": "Apache-2.0",
+  "type": "module",
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ThomasHendrickx/aeolus-fleet.git",
+    "directory": "packages/ui"
+  },
+  "engines": {
+    "node": ">=26"
+  },
+  "exports": {
+    ".": {
+      "@aeolus-fleet/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./tokens.css": "./dist/tokens.css",
+    "./theme.css": "./dist/theme.css"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc --project tsconfig.build.json && cp src/tokens.css src/theme.css dist/",
+    "typecheck": "tsc --project tsconfig.json",
+    "storybook": "storybook dev --port 6007",
+    "build-storybook": "storybook build --output-dir storybook-static",
+    "prepack": "cp ../../LICENSE LICENSE",
+    "postpack": "rm LICENSE"
+  },
+  "peerDependencies": {
+    "@aeolus-fleet/common": "0.0.0",
+    "@base-ui/react": "^1.8.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.51.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "tailwind-merge": "^3.7.0"
+  },
+  "devDependencies": {
+    "@storybook/addon-vitest": "^10.6.1",
+    "@storybook/react-vite": "^10.6.1",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "storybook": "^10.6.1",
+    "tailwindcss": "^4.3.3",
+    "tw-animate-css": "^1.4.0"
+  }
+}

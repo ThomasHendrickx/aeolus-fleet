@@ -3,7 +3,7 @@
 import { ChevronDown, ChevronRight, CircleCheck, CircleDashed } from 'lucide-react';
 import { useId, type ReactNode } from 'react';
 
-import { classNames } from '@aeolus-fleet/common/header';
+import { classNames } from '@aeolus-fleet/ui';
 import type { HarnessOffer } from '../../../../lib/crew-settings-form';
 import { missingOf, workspaceFromItem, workspaceItemOf, type MemberValues } from '../../../../lib/forming-members';
 import { harnessWord } from '../../../../lib/harness';

@@ -3,7 +3,7 @@
 import { CircleAlert, TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
 
-import { Button, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle } from '@aeolus-fleet/common/header';
+import { Button, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle } from '@aeolus-fleet/ui';
 import { InlineError } from '../../../../components/molecules/inline-error';
 import { SetupLineBlock } from '../molecules/setup-line-block';
 

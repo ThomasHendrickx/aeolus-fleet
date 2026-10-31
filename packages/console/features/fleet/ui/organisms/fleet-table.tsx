@@ -5,7 +5,7 @@ import { Eye, Flag, Plug, Search, Ship, SlidersHorizontal, UserRound } from 'luc
 import type { ReactNode } from 'react';
 
 import { useConsoleConstants } from '../../../../lib/console-constants';
-import { Button, Sheet, SheetBody, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@aeolus-fleet/common/header';
+import { Button, Sheet, SheetBody, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@aeolus-fleet/ui';
 import {
   activeFilterCount,
   activeFilterLabels,

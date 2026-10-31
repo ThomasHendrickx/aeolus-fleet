@@ -1,7 +1,7 @@
 import type { DeliveryId } from '@aeolus-fleet/common';
 import { Check, ChevronDown, Server } from 'lucide-react';
 
-import { Button, classNames } from '@aeolus-fleet/common/header';
+import { Button, classNames } from '@aeolus-fleet/ui';
 import type { MessageEntry } from '../../../../lib/inbox-entry';
 import { clockTime, fullDateTime } from '../../../../lib/relative-time';
 import { counted } from '../../../../lib/sentence';

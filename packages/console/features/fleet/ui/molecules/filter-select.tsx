@@ -1,7 +1,7 @@
 'use client';
 
 import { Select, SelectContent, SelectItem, SelectTrigger } from '../../../../components/atoms/select';
-import { classNames } from '@aeolus-fleet/common/header';
+import { classNames } from '@aeolus-fleet/ui';
 import { ALL, pickedAfter, pickedSummary, shownPicks } from '../../services/filter-pick';
 
 export interface FilterSelectProps {

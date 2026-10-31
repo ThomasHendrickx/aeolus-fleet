@@ -1,4 +1,4 @@
-import { Tooltip, TooltipContent, TooltipTrigger } from '@aeolus-fleet/common/header';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@aeolus-fleet/ui';
 
 import { KEY_CHIP_WORDS, keyTooltip, LOGIN_WORDS, SPEND_TOOLTIP, usd, type HarnessLogin } from '../../../../lib/api-key-logins';
 import { clockTime, fullDateTime } from '../../../../lib/relative-time';

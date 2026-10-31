@@ -1,6 +1,6 @@
 import { SquareTerminal } from 'lucide-react';
 
-import { classNames } from '@aeolus-fleet/common/header';
+import { classNames } from '@aeolus-fleet/ui';
 import { CopyButton } from './copy-button';
 
 interface CodeBlockProps {

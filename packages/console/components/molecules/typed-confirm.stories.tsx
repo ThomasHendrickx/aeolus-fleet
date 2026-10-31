@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { useState } from 'react';
 
 import { isTypedMatch } from '../../lib/ship-dialogs';
-import { Button } from '@aeolus-fleet/common/header';
+import { Button } from '@aeolus-fleet/ui';
 import { TypedConfirm } from './typed-confirm';
 
 const meta = {

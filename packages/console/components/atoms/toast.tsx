@@ -4,7 +4,7 @@ import { CircleAlert, CircleCheck, Info, XIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { toast as sonner, Toaster as SonnerToaster } from 'sonner';
 
-import { Button, classNames } from '@aeolus-fleet/common/header';
+import { Button, classNames } from '@aeolus-fleet/ui';
 
 /** Success and info close on their own after this long; errors stay until dismissed. */
 const SUCCESS_DURATION_MS = 5_000;

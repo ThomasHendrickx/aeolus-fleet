@@ -1,6 +1,6 @@
 import { CircleCheck, KeyRound, TriangleAlert } from 'lucide-react';
 
-import { Button } from '@aeolus-fleet/common/header';
+import { Button } from '@aeolus-fleet/ui';
 import { InlineError } from '../../../../components/molecules/inline-error';
 
 interface MissingScopesProps {

@@ -1,7 +1,7 @@
 import { Unplug } from 'lucide-react';
 import Link from 'next/link';
 
-import { Button } from '@aeolus-fleet/common/header';
+import { Button } from '@aeolus-fleet/ui';
 import { EmptyState } from '../../../../components/molecules/empty-state';
 
 /**

@@ -3,16 +3,16 @@
 import { BellRing, CircleHelp, CircleUserRound, Keyboard, LaptopMinimal, LoaderCircle, LogOut, Monitor, Moon, ShieldCheck, Sun, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 
-import type { Theme } from '../index.js';
-import { signedInAsOf, type SignedInAs } from './apps.js';
+import type { Theme } from '@aeolus-fleet/common';
+import { signedInAsOf, type SignedInAs } from './signed-in-as.js';
 import { shownEntryOf, type AvatarMenuEntry } from './avatar-entry.js';
-import { Avatar } from './atoms/avatar.js';
-import { Button } from './atoms/button.js';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './atoms/dialog.js';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from './atoms/dropdown-menu.js';
-import { Kbd } from './atoms/kbd.js';
-import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from './atoms/sheet.js';
-import { classNames } from './class-names.js';
+import { Avatar } from '../atoms/avatar.js';
+import { Button } from '../atoms/button.js';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../atoms/dialog.js';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../atoms/dropdown-menu.js';
+import { Kbd } from '../atoms/kbd.js';
+import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from '../atoms/sheet.js';
+import { classNames } from '../class-names.js';
 
 /** A keyboard shortcut the app offers, for the Keyboard shortcuts dialog: its keys in order and what it does. */
 export interface Shortcut {

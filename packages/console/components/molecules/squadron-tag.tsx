@@ -1,7 +1,7 @@
 import { Shapes } from 'lucide-react';
 import Link from 'next/link';
 
-import { classNames } from '@aeolus-fleet/common/header';
+import { classNames } from '@aeolus-fleet/ui';
 
 interface SquadronTagProps {
   squadronId: string;

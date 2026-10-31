@@ -4,7 +4,7 @@ import { Tabs as TabsPrimitive } from '@base-ui/react/tabs';
 import { cva, type VariantProps } from 'class-variance-authority';
 import type { ComponentProps } from 'react';
 
-import { classNames } from '@aeolus-fleet/common/header';
+import { classNames } from '@aeolus-fleet/ui';
 
 /**
  * shadcn Tabs on Base UI (docs/design/png/Tabs.png). Segmented (the shadcn

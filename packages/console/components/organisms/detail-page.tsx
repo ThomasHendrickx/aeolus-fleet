@@ -1,4 +1,5 @@
-import type { AppSwitcherModel, AvatarMenuProps } from '@aeolus-fleet/common/header';
+import type { AvatarMenuProps } from '@aeolus-fleet/ui';
+import type { AppSwitcherModel } from '@aeolus-fleet/common/rules';
 import type { ReactNode } from 'react';
 
 import type { LiveState } from '../molecules/live-status';
