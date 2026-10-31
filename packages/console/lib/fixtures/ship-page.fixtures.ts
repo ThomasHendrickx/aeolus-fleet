@@ -54,6 +54,7 @@ export const CREWED_SHIP: ShipDetail = {
   commissionedByShipId: ARGO.id,
   statement: null,
   openAlerts: [],
+  expectations: { reportChangesWithin: null, taskDoneBy: null },
 };
 
 export const AWAITING_SHIP: ShipDetail = {

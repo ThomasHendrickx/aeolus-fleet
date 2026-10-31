@@ -73,6 +73,7 @@ describe('shipDetailOutputSchema', () => {
     activity: null,
     openAlertCount: 0,
     openAlerts: [],
+    expectations: { reportChangesWithin: null, taskDoneBy: null },
     crewRequest: null,
     labels: [],
     harness: 'claude-code',
