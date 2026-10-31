@@ -1,7 +1,7 @@
-import type { NetworkRulesDifference, NetworkRulesFile } from '@aeolus-fleet/common';
+import type { FileRule, NetworkRulesDifference, NetworkRulesFile } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
-import { exportFileNameOf, isEveryDifferenceResolved, resolutionOf, ruleLinesOf, ruleTextOf, waysOf, type ResolutionChoice } from './rules-file';
+import { checkLineOf, exportFileNameOf, isEveryDifferenceResolved, resolutionOf, ruleLinesOf, ruleTextOf, waysOf, type ResolutionChoice } from './rules-file';
 
 const aFile: NetworkRulesFile = {
   format: 'aeolus.network-rules',
@@ -82,5 +82,27 @@ describe('resolving the differences', () => {
       { kind: 'ship', name: 'thomas', way: 'pickShip', shipId: 'shp_01m5m1s80kqtcvby5jgb4ab4d6' },
       { kind: 'ship', name: 'thomas', way: 'dropRules' },
     ]);
+  });
+});
+
+describe('the import Check line', () => {
+  const fileOf = (rules: NetworkRulesFile['rules'], labelCount: number): NetworkRulesFile => ({
+    ...aFile,
+    exportedAt: new Date(2026, 9, 23, 14, 2).toISOString(),
+    rules,
+    labels: Array.from({ length: labelCount }, (_, index) => ({ key: `k${String(index)}`, values: ['v'], definer: 'argo' })),
+  });
+  const rule: FileRule = { verb: 'send', from: [], to: [] };
+
+  it('uses the singular for one rule and one label', () => {
+    expect(checkLineOf(fileOf([rule], 1))).toBe('The file checks: 1 rule and 1 label, from Home Fleet at rules version 42, exported 23 Oct, 14:02.');
+  });
+
+  it('uses the plural for several, and words the export time in the console’s date format', () => {
+    expect(checkLineOf(fileOf([rule, rule], 2))).toContain('2 rules and 2 labels');
+  });
+
+  it('says all-to-all when the file holds no rule list', () => {
+    expect(checkLineOf({ ...fileOf([], 0), rules: null })).toContain('all-to-all, no rules and 0 labels');
   });
 });
