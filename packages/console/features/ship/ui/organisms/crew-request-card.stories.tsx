@@ -115,3 +115,19 @@ export const NoKey: Story = {
     await expect(within(canvasElement).getByRole('alert')).toHaveTextContent('No API key. Deliveries wait.');
   },
 };
+
+/** With the plugin the card links to the Usage page filtered to this ship. */
+export const RunningWithUsageLink: Story = {
+  args: { ...RunningWithPlugin.args, usageHref: '/usage?ship=shp_01j9k2t4qzr3a9w6m2v5n7sa01' },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByTestId('crew-request-usage')).toHaveAttribute('href', '/usage?ship=shp_01j9k2t4qzr3a9w6m2v5n7sa01');
+  },
+};
+
+/** Without the plugin there is no Usage link. */
+export const RunningWithoutUsageLink: Story = {
+  args: { ...Running.args },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).queryByTestId('crew-request-usage')).toBeNull();
+  },
+};

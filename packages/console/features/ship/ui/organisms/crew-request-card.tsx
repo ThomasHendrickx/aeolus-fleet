@@ -43,6 +43,8 @@ interface CrewRequestCardProps {
   machineLabels?: readonly LabelChipData[];
   /** The login its trierarch reports for it, what it spent on the key, and its key while not ready (aeolus-fleet-trierarch's api keys design, K12). */
   login?: ShipLogin;
+  /** The Usage page filtered to this ship; none without the trierarch plugin. */
+  usageHref?: string;
   /** Edit the request's settings (decision 3); none without the plugin. */
   onEdit?: () => void;
   busy?: CrewRequestBusy;
@@ -341,6 +343,11 @@ export function CrewRequestCard(props: CrewRequestCardProps) {
           </span>
         ) : null}
         <span className="flex-1" />
+        {props.usageHref === undefined ? null : (
+          <Link href={props.usageHref} data-testid="crew-request-usage" className="text-meta font-medium text-primary underline underline-offset-3">
+            Usage
+          </Link>
+        )}
         {stage.kind === 'assigned' && stage.status === 'releasing' ? (
           <span className="text-meta text-muted-foreground">Waiting for {stage.trierarch.name}</span>
         ) : null}

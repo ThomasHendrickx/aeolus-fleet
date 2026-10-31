@@ -4,6 +4,7 @@ import type { ShipDetail, TimelineEntry } from '@aeolus-fleet/common';
 import { useState } from 'react';
 
 import { shipLoginOf } from '../../../lib/api-key-logins';
+import { usageLinkOf } from '../../../lib/usage-link';
 import { lazyDialog } from '../../../lib/lazy-dialog';
 import { useAccess } from '../../../lib/access';
 import { crewRequestStage, releaseSteps, requestedBy, statusChangedAt, type CrewRequestStage } from '../../../lib/crew-request';
@@ -139,6 +140,7 @@ export function ShipCrewRequest({ ship, timeline, now }: { ship: ShipDetail; tim
         canManage={access.canManage}
         isAwaitingCrew={ship.status === 'awaitingCrew'}
         hasTrierarchs={hasTrierarchs}
+        {...(hasTrierarchs ? { usageHref: usageLinkOf({ ship: ship.id }) } : {})}
         busy={busy}
         error={error}
         settingsRows={request === null ? undefined : settingsRows(settings)}
