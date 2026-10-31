@@ -98,9 +98,21 @@ describe('the 10 minute clock of a delivery handed and not confirmed', () => {
         actor: SYSTEM,
         shipId: scoutId,
         deliveryId,
-        details: { leaseId: scout.leaseId, clock: 'notConfirmed', minutes: 10 },
+        details: { leaseId: scout.leaseId, clock: 'notConfirmed', minutes: 10, ownerShipId: argo.shipId },
       }),
     ]);
+  });
+
+  it('names the owner of the ship at that time, whom the watch tells as well as argo (decision 0040)', async () => {
+    const { commissionShip, setOwner } = registryUseCases(core);
+    const { shipId: thomasId } = unwrap(await commissionShip(argo, { idempotencyKey: newKey(), name: 'thomas', type: 'person', kind: 'person' }));
+    unwrap(await setOwner(argo, { shipId: scoutId, ownerShipId: thomasId }));
+    core.state.events.length = 0;
+    await handed();
+
+    await after(10 * MINUTE);
+
+    expect(overdueEvents().map(({ details }) => details.ownerShipId)).toEqual([thomasId]);
   });
 
   it('tells nothing a moment before 10 minutes', async () => {
@@ -138,7 +150,7 @@ describe('the 10 minute clock of a delivery handed and not confirmed', () => {
 
     await after(10 * MINUTE);
 
-    expect(overdueEvents().map((event) => event.details)).toEqual([{ leaseId: scout.leaseId, clock: 'notConfirmed', minutes: 10 }]);
+    expect(overdueEvents().map((event) => event.details)).toEqual([{ leaseId: scout.leaseId, clock: 'notConfirmed', minutes: 10, ownerShipId: argo.shipId }]);
   });
 
   it('starts again with a new hand-over number', async () => {
@@ -173,7 +185,7 @@ describe('the 10 minute clock of a delivery waiting while the session is idle', 
     await after(10 * MINUTE);
 
     expect(overdueEvents()).toEqual([
-      expect.objectContaining({ shipId: scoutId, deliveryId, details: { leaseId: scout.leaseId, clock: 'idle', minutes: 10 } }),
+      expect.objectContaining({ shipId: scoutId, deliveryId, details: { leaseId: scout.leaseId, clock: 'idle', minutes: 10, ownerShipId: argo.shipId } }),
     ]);
   });
 
@@ -194,7 +206,7 @@ describe('the 10 minute clock of a delivery waiting while the session is idle', 
 
     await after(10 * MINUTE);
 
-    expect(overdueEvents()).toEqual([expect.objectContaining({ deliveryId, details: { leaseId: scout.leaseId, clock: 'idle', minutes: 10 } })]);
+    expect(overdueEvents()).toEqual([expect.objectContaining({ deliveryId, details: { leaseId: scout.leaseId, clock: 'idle', minutes: 10, ownerShipId: argo.shipId } })]);
   });
 
   it('counts from the turn turning idle, not from the send', async () => {
@@ -208,7 +220,7 @@ describe('the 10 minute clock of a delivery waiting while the session is idle', 
     expect(overdueEvents()).toEqual([]);
 
     await after(1);
-    expect(overdueEvents().map((event) => event.details)).toEqual([{ leaseId: scout.leaseId, clock: 'idle', minutes: 10 }]);
+    expect(overdueEvents().map((event) => event.details)).toEqual([{ leaseId: scout.leaseId, clock: 'idle', minutes: 10, ownerShipId: argo.shipId }]);
   });
 
   it('counts a pushed lease without a reported turn as idle since it was pushed', async () => {
@@ -220,7 +232,7 @@ describe('the 10 minute clock of a delivery waiting while the session is idle', 
     expect(overdueEvents()).toEqual([]);
 
     await after(1);
-    expect(overdueEvents()).toEqual([expect.objectContaining({ deliveryId, details: { leaseId: scout.leaseId, clock: 'idle', minutes: 10 } })]);
+    expect(overdueEvents()).toEqual([expect.objectContaining({ deliveryId, details: { leaseId: scout.leaseId, clock: 'idle', minutes: 10, ownerShipId: argo.shipId } })]);
   });
 
   it('runs for a delivery to the ship type', async () => {
@@ -245,7 +257,7 @@ describe('the 60 minute clock of a delivery waiting while the session is busy', 
 
     await after(1);
     expect(overdueEvents()).toEqual([
-      expect.objectContaining({ shipId: scoutId, deliveryId, details: { leaseId: scout.leaseId, clock: 'busy', minutes: 60 } }),
+      expect.objectContaining({ shipId: scoutId, deliveryId, details: { leaseId: scout.leaseId, clock: 'busy', minutes: 60, ownerShipId: argo.shipId } }),
     ]);
   });
 
@@ -256,7 +268,7 @@ describe('the 60 minute clock of a delivery waiting while the session is busy', 
 
     await after(60 * MINUTE);
 
-    expect(overdueEvents()).toEqual([expect.objectContaining({ deliveryId, details: { leaseId: scout.leaseId, clock: 'busy', minutes: 60 } })]);
+    expect(overdueEvents()).toEqual([expect.objectContaining({ deliveryId, details: { leaseId: scout.leaseId, clock: 'busy', minutes: 60, ownerShipId: argo.shipId } })]);
   });
 });
 

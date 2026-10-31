@@ -5,6 +5,7 @@
  * stays the authority on submit.
  */
 export * from './activity.js';
+export * from './alert.js';
 export * from './duration.js';
 export * from './label-handle.js';
 export * from './page-size.js';

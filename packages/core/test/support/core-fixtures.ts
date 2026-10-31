@@ -96,6 +96,7 @@ import { createSetInstallationSettings } from '../../src/domain/registry/set-ins
 import { createReadFleetLimits } from '../../src/domain/shared/read-fleet-limits.js';
 import { createDeregister } from '../../src/domain/registry/deregister.js';
 import { createGetShip } from '../../src/domain/registry/get-ship.js';
+import { createReadOpenAlerts } from '../../src/domain/registry/read-open-alerts.js';
 import { createReadListedShip } from '../../src/domain/registry/read-listed-ship.js';
 import { createCountShips } from '../../src/domain/registry/count-ships.js';
 import { createListShipTypes } from '../../src/domain/registry/list-ship-types.js';
@@ -110,6 +111,8 @@ import { createSetOwner } from '../../src/domain/registry/set-owner.js';
 import { createCheckManage } from '../../src/domain/registry/check-manage.js';
 import { createRenameShip } from '../../src/domain/registry/rename-ship.js';
 import { createSetVerifiedFacts } from '../../src/domain/registry/set-verified-facts.js';
+import { createRaiseAlert } from '../../src/domain/registry/raise-alert.js';
+import { createClearAlert } from '../../src/domain/registry/clear-alert.js';
 import { createRetireShip } from '../../src/domain/registry/retire-ship.js';
 import { createReport } from '../../src/domain/registry/report.js';
 import { createReportTurn } from '../../src/domain/registry/report-turn.js';
@@ -310,6 +313,8 @@ export function registryUseCases(core: InMemoryCore) {
     setOwner: createSetOwner(deps),
     checkManage: createCheckManage(deps),
     setVerifiedFacts: createSetVerifiedFacts(deps),
+    raiseAlert: createRaiseAlert(deps),
+    clearAlert: createClearAlert(deps),
     recrewShip: createRecrewShip(deps),
     claimShip: createClaimShip(deps),
     deregister: createDeregister(deps),
@@ -325,6 +330,7 @@ export function registryUseCases(core: InMemoryCore) {
     getInstallationFleet: createGetInstallationFleet({ fleets: core.installationFleets, settings: core.installationSettings, health: core.health, snapshots: core.healthSnapshots, clock: core.clock }),
     listFleet: createListFleet({ listing: core.listing, readReach: readReachOf(core) }),
     getShip: createGetShip({ listing: core.listing, readReach: readReachOf(core) }),
+    readOpenAlerts: createReadOpenAlerts({ listing: core.listing, readReach: readReachOf(core) }),
     readListedShip: createReadListedShip({ listing: core.listing, readReach: readReachOf(core) }),
     countShips: createCountShips({ listing: core.listing, readReach: readReachOf(core) }),
     listShipTypes: createListShipTypes({ listing: core.listing, readReach: readReachOf(core) }),

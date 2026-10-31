@@ -1,4 +1,4 @@
-import type { FleetId, ShipDetail, ShipId } from '@aeolus-fleet/common';
+import type { AlertOutput, FleetId, ShipDetail, ShipId } from '@aeolus-fleet/common';
 import { Archive, CircleAlert, Eye, Info, KeyRound, Plug, UserRound } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
@@ -18,6 +18,8 @@ import { ReportDetails } from '../molecules/report-details';
 import { ShipStatement } from '../molecules/ship-statement';
 import { ReportLine } from '../../../../components/molecules/report-line';
 import { ActivityLine } from '../../../../components/molecules/activity-line';
+import { AlertPanel } from '../../../../components/molecules/alert-panel';
+import { alertShipPanel } from '../../../../lib/alert';
 import { ShipName } from '../../../../components/molecules/ship-name';
 import { StatusBadge } from '../../../../components/molecules/status-badge';
 
@@ -47,6 +49,12 @@ interface ShipHeaderProps {
   way?: ReactNode;
   /** In a sealed fleet, why the gateway reads its payloads (decision 0068, B19); no mark without it. */
   gatewayReader?: GatewayReader;
+}
+
+/** An open alert above the meta strip (docs/design/monitoring, 4.8): what parted and for how long, the expectation, since when, the owner told, "clears by itself". */
+function ShipOpenAlert({ alert, now }: { alert: AlertOutput; now: Date }) {
+  const { headline, detail, caption } = alertShipPanel(alert, now);
+  return <AlertPanel heading={headline} lines={[{ key: alert.id, text: detail ?? '', caption }]} testId="ship-open-alert" />;
 }
 
 function MetaCell({ label, children }: { label: string; children: ReactNode }) {
@@ -186,7 +194,7 @@ function GatewayMark({ reader }: { reader: GatewayReader }) {
  * type or the operator chip, the actions its state allows, and a meta strip
  * of where it runs, since when it is crewed, when it was commissioned and its
  * id, with its side of the way (#756), its statement (decision 0047) and its labels at its foot (#102), then its crew's report details, folded, when it has any. Its crew
- * request card, when given, sits above the meta strip. argo says it is the operator's ship; a retired ship is read-only. In a sealed fleet a ship the gateway reads says so, naming the gateway's ship.
+ * request card, when given, sits above the meta strip, and its open alerts below that (decision 0071). argo says it is the operator's ship; a retired ship is read-only. In a sealed fleet a ship the gateway reads says so, naming the gateway's ship.
  */
 export function ShipHeader({ ship, shipId, state, actions, crewRequest, now, viewerFleetId, backHref = '/', labels, isPluginShip = false, way, gatewayReader }: ShipHeaderProps) {
   const { fleetScopes } = useConsoleConstants();
@@ -306,6 +314,9 @@ export function ShipHeader({ ship, shipId, state, actions, crewRequest, now, vie
       ) : null}
       {gatewayReader === undefined ? null : <GatewayMark reader={gatewayReader} />}
       {crewRequest}
+      {ship.openAlerts.map((alert) => (
+        <ShipOpenAlert key={alert.id} alert={alert} now={now} />
+      ))}
       <MetaStrip ship={ship} now={now} viewerFleetId={viewerFleetId} labels={labels} way={way} />
       {(ship.kind === 'agent' || ship.kind === 'plugin') && ship.report?.details && ship.report.detailsBytes !== null ? (
         <ReportDetails details={ship.report.details} bytes={ship.report.detailsBytes} version={ship.report.detailsVersion} testId="ship-report-details" />

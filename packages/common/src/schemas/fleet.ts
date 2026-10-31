@@ -224,6 +224,8 @@ export const listedShipSchema = z.object({
   retiredAt: z.iso.datetime().nullable(),
   /** The ship that owns it (decision 0045); null for argo and the viewer, which no ship owns. */
   ownerShipId: idSchema('ship').nullable(),
+  /** How many open alerts the ship has (decision 0071); `fleet.openAlerts` lists them. */
+  openAlertCount: z.int().min(0),
 });
 
 export type ListedShip = z.infer<typeof listedShipSchema>;

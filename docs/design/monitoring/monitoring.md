@@ -119,7 +119,7 @@ Each signal is one fact the watch reads from core on each pass, with its default
 
 - An alert: `alt_` id, the ship, the signal, the occurrence key, the owner told, the facts at raise (signal, since, N, the reason or the task), raised at, cleared at. One open per ship, signal and occurrence (unique).
 - `fleet:alert` (new core scope): raise and clear alerts on the ships its ship reads. `fleet.raiseAlert` is idempotent by occurrence key (the same key answers the alert already held); `fleet.clearAlert` clears an open one; both write `AlertRaised` and `AlertCleared` in the same transaction.
-- Read: the overview's one read carries each ship's open alert count and the fleet's open alerts, newest first, paged; the ship page carries its open ones. Cleared alerts leave the lists and stay in the ship's timeline as their events.
+- Read: each ship in the overview's one read (`fleet.list`) carries its open alert count; the fleet's open alerts, newest first, paged, are `fleet.openAlerts` (fleet:read, read reach), which the overview reads beside `fleet.list` and the watch each pass; the ship page (`fleet.ship`) carries its open ones. Cleared alerts leave the lists and stay in the ship's timeline as their events.
 - A retire clears the ship's open alerts (`AlertCleared`, reason retired). A release does not: an unacknowledged delivery waits on.
 
 ### 4.6 Telling the owner (the watch)

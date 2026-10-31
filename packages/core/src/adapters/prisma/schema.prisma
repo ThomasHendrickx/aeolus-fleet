@@ -87,6 +87,7 @@ model Fleet {
   scopeNamespaces                  ScopeNamespace[]
   definedScopes                    DefinedScope[]
   verifiedFacts                    VerifiedFacts[]
+  alerts                           Alert[]
   reachRefusals                    ReachRefusal[]
   credentials                      Credential[]
   messages                         Message[]
@@ -179,6 +180,7 @@ model Ship {
   declaredNetworkRules DeclaredNetworkRules[]
   declaredNamespace    ScopeNamespace?
   verifiedFacts        VerifiedFacts[]
+  alerts               Alert[]
   ownedMeetings        Meeting[]              @relation("MeetingOwner")
   moderatedMeetings    Meeting[]              @relation("MeetingModerator")
   openedMeetings       Meeting[]              @relation("MeetingOpener")
@@ -571,6 +573,35 @@ model VerifiedFacts {
   /// A retiring writer finds its facts about every ship.
   @@index([fleetId, writerKind, writer])
   @@map("verified_facts")
+}
+
+/// An alert on a ship (decision 0071): what the watch raised when a fact and
+/// its signal parted, open until the watch clears it or the ship retires.
+/// Ids start with alt_. One per ship, signal and occurrence, open or cleared,
+/// so an occurrence is raised once. facts holds the signal's facts at raise,
+/// as common's schema gives them.
+model Alert {
+  id            String    @id
+  fleetId       String    @map("fleet_id")
+  shipId        String    @map("ship_id")
+  signal        String
+  occurrenceKey String    @map("occurrence_key")
+  facts         Json
+  ownerShipId   String?   @map("owner_ship_id")
+  since         DateTime  @db.Timestamptz(3)
+  raisedAt      DateTime  @map("raised_at") @db.Timestamptz(3)
+  clearedAt     DateTime? @map("cleared_at") @db.Timestamptz(3)
+  clearedWhy    String?   @map("cleared_why")
+
+  fleet Fleet @relation(fields: [fleetId], references: [id])
+  ship  Ship  @relation(fields: [fleetId, shipId], references: [fleetId, id])
+
+  @@unique([fleetId, shipId, signal, occurrenceKey])
+  /// The fleet's open alerts, newest first, a page at a time.
+  @@index([fleetId, id(sort: Desc)], map: "alerts_open_idx", where: { clearedAt: null })
+  /// A ship's open alerts, and how many it has.
+  @@index([fleetId, shipId], map: "alerts_open_on_ship_idx", where: { clearedAt: null })
+  @@map("alerts")
 }
 
 /// A send the network rules refused (decision 0034), recorded in the

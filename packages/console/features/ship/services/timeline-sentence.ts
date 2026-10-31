@@ -1,5 +1,6 @@
 import type { Party, ReportState, TimelineEntry } from '@aeolus-fleet/common';
 
+import { signalWords } from '../../../lib/alert';
 import { locationKindWord } from '../../../lib/location';
 import { REPORT_TONES } from '../../../lib/report';
 import { capitalised, counted, ship, text, type SentencePart } from '../../../lib/sentence';
@@ -239,6 +240,12 @@ export function timelineSentence(entry: TimelineEntry, shipId: string): Timeline
       return { parts: [text('Recovery key changed'), ...by(entry.actor)], tone: 'ended', icon: 'fleet' };
     case 'FleetKeysRecovered':
       return { parts: [text('Data keys recovered'), ...by(entry.actor)], tone: 'ended', icon: 'fleet' };
+    case 'AlertRaised':
+      return { parts: [text(`Alert raised: ${signalWords(stringDetail(entry, 'signal') ?? '')}`), ...by(entry.actor)], tone: 'attention', icon: 'undeliverable' };
+    case 'AlertCleared':
+      return stringDetail(entry, 'why') === 'retired'
+        ? { parts: [text(`Alert cleared: ${signalWords(stringDetail(entry, 'signal') ?? '')}, the ship retired`)], tone: 'ended', icon: 'acknowledged' }
+        : { parts: [text(`Alert cleared: ${signalWords(stringDetail(entry, 'signal') ?? '')}`), ...by(entry.actor)], tone: 'ended', icon: 'acknowledged' };
     case 'FeatureFlagTurnedOn':
       return { parts: [text(`Feature flag ${stringDetail(entry, 'flag') ?? ''} turned on`)], tone: 'ended', icon: 'fleet' };
     case 'FeatureFlagTurnedOff':

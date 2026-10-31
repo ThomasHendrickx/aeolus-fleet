@@ -317,6 +317,7 @@ const shipFactsSqlRow = z.object({
   last_model_stated_at: z.date().nullable(),
   last_viewed_at: z.date().nullable(),
   last_lease_ended_at: z.date().nullable(),
+  open_alert_count: z.number().int().min(0),
   crew_request_settings: crewRequestSettingsSchema.nullable(),
   crew_request_settings_version: z.int().min(1).nullable(),
   crew_request_requested_at: z.date().nullable(),
@@ -353,6 +354,7 @@ export function toShipFacts(row: unknown): ShipFacts {
     last_model_stated_at,
     last_viewed_at,
     last_lease_ended_at,
+    open_alert_count,
     crew_request_settings,
     crew_request_settings_version,
     crew_request_requested_at,
@@ -420,6 +422,7 @@ export function toShipFacts(row: unknown): ShipFacts {
     lastModel: last_model && last_model_stated_at ? { id: last_model, statedAt: last_model_stated_at } : null,
     lastViewedAt: last_viewed_at,
     lastLeaseEndedAt: last_lease_ended_at,
+    openAlertCount: open_alert_count,
   };
 }
 
@@ -776,6 +779,7 @@ const pushedCrewSqlRow = z.object({
   ship_id: idSchema('ship'),
   pushed_at: z.date(),
   is_person: z.boolean(),
+  owner_ship_id: idSchema('ship').nullable(),
   turn: turnStateSchema.nullable(),
   turn_at: z.date().nullable(),
 });
@@ -789,6 +793,7 @@ export function toPushedCrewFromSql(fleetId: FleetId, row: unknown): PushedCrew 
     leaseId: lease.lease_id,
     pushedAt: lease.pushed_at,
     isPerson: lease.is_person,
+    ownerShipId: lease.owner_ship_id,
     turn: lease.turn === null || lease.turn_at === null ? null : { state: lease.turn, at: lease.turn_at },
     waiting: [],
   };

@@ -361,6 +361,8 @@ describe('getting one ship on Postgres', () => {
         openDeliveries: 0,
         owner: { id: argoId, name: 'argo' },
         statement: null,
+        openAlertCount: 0,
+        openAlerts: [],
       },
     });
   });
@@ -427,7 +429,7 @@ describe('listing the fleet on Postgres', () => {
         location: { kind: 'OTHER', description: 'Unknown device' },
         lastSeenAt: signedInAt,
         ping: null,
-        scopes: ['messages:send', 'messages:receive', 'messages:force', 'messages:resend', 'fleet:read', 'fleet:commission', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'fleet:on-behalf', 'fleet:person', 'fleet:owner', 'fleet:explain', 'fleet:connect', 'labels:any', 'fleet:verify', 'scopes:declare', 'scopes:grant', 'scopes:define', 'meetings:open', 'fleet:keys'],
+        scopes: ['messages:send', 'messages:receive', 'messages:force', 'messages:resend', 'fleet:read', 'fleet:commission', 'fleet:manage', 'crew:assign', 'crew:run', 'labels:define', 'labels:assign', 'fleet:network', 'fleet:on-behalf', 'fleet:person', 'fleet:owner', 'fleet:explain', 'fleet:connect', 'labels:any', 'fleet:verify', 'scopes:declare', 'scopes:grant', 'scopes:define', 'meetings:open', 'fleet:keys', 'fleet:alert'],
         report: null,
         activity: null,
         crewRequest: null,
@@ -437,6 +439,7 @@ describe('listing the fleet on Postgres', () => {
         awaitingCrewSince: null,
         retiredAt: null,
         ownerShipId: null,
+        openAlertCount: 0,
       },
       {
         id: shipId,
@@ -458,6 +461,7 @@ describe('listing the fleet on Postgres', () => {
         awaitingCrewSince: commissionedAt,
         retiredAt: null,
         ownerShipId: argoId,
+        openAlertCount: 0,
       },
     ]);
   });

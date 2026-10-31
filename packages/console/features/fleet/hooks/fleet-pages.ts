@@ -1,6 +1,6 @@
 'use client';
 
-import type { FleetListFilter, FleetListSort, ListedShip } from '@aeolus-fleet/common';
+import type { AlertOutput, FleetListFilter, FleetListSort, ListedShip } from '@aeolus-fleet/common';
 import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 
 import { LAST_SEEN_REFRESH_MS } from '../../../lib/fleet';
@@ -48,4 +48,16 @@ export function useFleetCounts(filter: FleetListFilter | null): { counts: FleetC
     return { counts: fleetCountsOf({ view: [], fleet: fleet.data }, {}), isOnlyArgo };
   }
   return { counts: view.data === undefined ? undefined : fleetCountsOf({ view: view.data, fleet: fleet.data }, filter), isOnlyArgo };
+}
+
+/**
+ * The fleet's open alerts for the overview's Open alerts (`fleet.openAlerts`,
+ * decision 0071): the newest page, read beside the ship list and refreshed
+ * with it; undefined until read. Only the alerts on the ships the session
+ * reads (decision 0034).
+ */
+export function useOpenAlerts(): { alerts: AlertOutput[]; hasMore: boolean } | undefined {
+  const trpc = useTRPC();
+  const { data } = useQuery(trpc.fleet.openAlerts.queryOptions({ limit: CONSOLE_PAGE_SIZE }, { refetchInterval: LAST_SEEN_REFRESH_MS }));
+  return data && { alerts: data.items, hasMore: data.nextCursor !== null };
 }

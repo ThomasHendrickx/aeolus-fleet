@@ -1,6 +1,6 @@
 import { readdirSync } from 'node:fs';
 
-import { ANY_LABEL_VALUE, createIdGenerator, idSchema, MEETING_ADDED_CONTENT_TYPE, MEETING_MIC_CONTENT_TYPE, SAME_LABEL_VALUE, SCOPES, type FleetId, type NetworkRule, type Scope, type SendInput, type ShipId } from '@aeolus-fleet/common';
+import { alertOutputSchema, ANY_LABEL_VALUE, createIdGenerator, raiseAlertInputSchema, idSchema, MEETING_ADDED_CONTENT_TYPE, MEETING_MIC_CONTENT_TYPE, SAME_LABEL_VALUE, SCOPES, type FleetId, type NetworkRule, type Scope, type SendInput, type ShipId } from '@aeolus-fleet/common';
 import { createTRPCClient, httpBatchLink, TRPCClientError, type TRPCClient } from '@trpc/client';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
@@ -292,6 +292,8 @@ describe('the migrations', () => {
       expect.stringMatching(/^\d{14}_report_task_step$/),
       expect.stringMatching(/^\d{14}_payload_limit_256kb$/),
       expect.stringMatching(/^\d{14}_lease_activity$/),
+      expect.stringMatching(/^\d{14}_alert_scope$/),
+      expect.stringMatching(/^\d{14}_alerts$/),
     ]);
   });
 });
@@ -471,6 +473,7 @@ describe('the fleet procedures at the API', () => {
       awaitingCrewSince: clock.now().toISOString(),
       retiredAt: null,
       ownerShipId: argoId,
+      openAlertCount: 0,
     });
   });
 
@@ -2639,6 +2642,50 @@ describe('verified facts at the API (decision 0059)', () => {
 
     expect(response.status).toBe(400);
     await expect(database.verifiedFacts.count({ where: { fleetId, shipId: crmId } })).resolves.toBe(0);
+  });
+});
+
+describe('alerts at the API (decision 0071)', () => {
+  const pingUnanswered = (shipId: ShipId) => ({
+    shipId,
+    signal: 'ping-unanswered',
+    occurrenceKey: 'dlv_01m66p4k2v9qz8f7x3n5c1d1v1',
+    since: '2026-10-31T14:31:00.000Z',
+    facts: { deliveryId: 'dlv_01m66p4k2v9qz8f7x3n5c1d1v1', messageId: 'msg_01m66p4k2v9qz8f7x3n5c1msg1', minutes: 10 },
+  });
+  const restCall = (crewToken: string, { call, body }: { call: 'raiseAlert' | 'clearAlert'; body: unknown }) =>
+    fetch(`${address}/api/v1/fleet/${call}`, { method: 'POST', headers: { authorization: `Bearer ${crewToken}`, 'content-type': 'application/json' }, body: JSON.stringify(body) });
+
+  it('let a ship with fleet:alert raise an alert through REST and clear it, answering the alert as core holds it', async () => {
+    const { shipId: deployBotId } = await agentShip();
+    const crewToken = await crewedShip(['messages:send', 'messages:receive', 'fleet:alert']);
+
+    const raised = await restCall(crewToken, { call: 'raiseAlert', body: pingUnanswered(deployBotId) });
+
+    expect(raised.status).toBe(200);
+    const alert = alertOutputSchema.parse(await raised.json());
+    expect(alert).toMatchObject({ ship: { id: deployBotId }, signal: 'ping-unanswered', occurrenceKey: 'dlv_01m66p4k2v9qz8f7x3n5c1d1v1', since: '2026-10-31T14:31:00.000Z', cleared: null });
+    const cleared = await restCall(crewToken, { call: 'clearAlert', body: { alertId: alert.id } });
+    expect(cleared.status).toBe(200);
+    expect(alertOutputSchema.parse(await cleared.json()).cleared).toMatchObject({ why: 'cleared' });
+  });
+
+  it('refuse a ship without fleet:alert, naming the scope, holding no alert', async () => {
+    const { shipId: deployBotId } = await agentShip();
+    const sender = client({ authorization: `Bearer ${await crewedShip()}` });
+
+    await expect(refusalOf(sender.fleet.raiseAlert.mutate(raiseAlertInputSchema.parse(pingUnanswered(deployBotId))))).resolves.toEqual({ code: 'FORBIDDEN', message: 'This call needs the fleet:alert scope' });
+    await expect(database.alert.count({ where: { fleetId, shipId: deployBotId } })).resolves.toBe(0);
+  });
+
+  it("refuse facts that are not the signal's as a bad request, holding nothing", async () => {
+    const { shipId: deployBotId } = await agentShip();
+    const crewToken = await crewedShip(['messages:send', 'messages:receive', 'fleet:alert']);
+
+    const response = await restCall(crewToken, { call: 'raiseAlert', body: { ...pingUnanswered(deployBotId), signal: 'crew-request-unassigned' } });
+
+    expect(response.status).toBe(400);
+    await expect(database.alert.count({ where: { fleetId, shipId: deployBotId } })).resolves.toBe(0);
   });
 });
 

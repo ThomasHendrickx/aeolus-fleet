@@ -67,6 +67,7 @@ describe('getting one ship', () => {
       owner: { id: argo.shipId, name: 'argo' },
       commissionedByShipId: argo.shipId,
       statement: null,
+      openAlerts: [],
     });
   });
 

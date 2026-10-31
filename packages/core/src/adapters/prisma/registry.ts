@@ -40,6 +40,8 @@ import {
 } from './rows.js';
 import { limitSettingsOf } from './fleet-limit-settings.js';
 import { readShipCounts } from './ship-counts.js';
+import { alertOf } from './alerts.js';
+import { shownAlertOf, type ShownAlert } from '../../domain/registry/alert.js';
 
 export function createPrismaFleetRepository(db: Db): FleetRepository {
   return {
@@ -135,6 +137,7 @@ export function createPrismaFleetRepository(db: Db): FleetRepository {
       await db.$executeRaw`DELETE FROM scope_namespaces WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM defined_scopes WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM verified_facts WHERE fleet_id = ${fleetId}`;
+      await db.$executeRaw`DELETE FROM alerts WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM ship_labels WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM label_values WHERE fleet_id = ${fleetId}`;
       await db.$executeRaw`DELETE FROM labels WHERE fleet_id = ${fleetId}`;
@@ -677,6 +680,16 @@ const labelsOfShip = Prisma.sql`
             JOIN label_values v ON v.fleet_id = sl.fleet_id AND v.id = sl.value_id
             WHERE sl.fleet_id = s.fleet_id AND sl.ship_id = s.id), '[]'::json)`;
 
+/** An alert row with its ship's name, as a reader sees it. */
+function shownAlertOfRow({ ship, ...row }: Parameters<typeof alertOf>[0] & { ship: { name: string } }): ShownAlert {
+  const alert = alertOf(row);
+  return shownAlertOf(alert, { id: alert.shipId, name: ship.name });
+}
+
+/** How many open alerts the ship `s` of the outer query has (decision 0071), through alerts_open_on_ship_idx. */
+const openAlertCountOfShip = Prisma.sql`
+  (SELECT count(*)::int FROM alerts a WHERE a.fleet_id = s.fleet_id AND a.ship_id = s.id AND a.cleared_at IS NULL)`;
+
 const givenBackOfShip = Prisma.sql`
   COALESCE((SELECT json_agg(json_build_object('trierarchShipId', g.trierarch_ship_id, 'trierarchName', t.name, 'settingsVersion', g.settings_version,
                                               'reason', g.reason, 'givenBackAt', g.given_back_at) ORDER BY g.given_back_at, g.trierarch_ship_id)
@@ -968,6 +981,7 @@ export function fleetListingStatement(fleetId: FleetId, { after, limit, filter, 
              WHERE cs.fleet_id = s.fleet_id AND cs.ship_id = s.id AND cs.lease_id IS NULL) AS last_viewed_at,
            (SELECT max(el.ended_at) FROM leases el
              WHERE el.fleet_id = s.fleet_id AND el.ship_id = s.id AND el.ended_at IS NOT NULL) AS last_lease_ended_at,
+           ${openAlertCountOfShip} AS open_alert_count,
            ${labelsOfShip} AS labels, ${givenBackOfShip} AS crew_request_given_back,
            pg.sort_is_empty, pg.sort_value, pg.sort_name
     FROM (
@@ -1052,6 +1066,18 @@ export function createPrismaFleetListing(db: Db): FleetListing {
     types: async (fleetId, read) => z.array(z.object({ type: z.string() })).parse(await db.$queryRaw(shipTypesStatement(fleetId, read)))
         .map(({ type }) => type)
         .toSorted(),
+    openAlerts: async (fleetId, { reach, cursor, limit }) =>
+      // Newest first through alerts_open_idx; only the ships the reader reads (decision 0034).
+      (
+        await db.alert.findMany({
+          where: { fleetId, clearedAt: null, ...(cursor === undefined ? {} : { id: { lt: cursor } }), ...(reach.kind === 'every' ? {} : { shipId: { in: [...reach.shipIds] } }) },
+          orderBy: { id: 'desc' },
+          take: limit,
+          include: { ship: { select: { name: true } } },
+        })
+      ).map(shownAlertOfRow),
+    openAlertsOn: async (fleetId, shipId) =>
+      (await db.alert.findMany({ where: { fleetId, shipId, clearedAt: null }, orderBy: { id: 'desc' }, include: { ship: { select: { name: true } } } })).map(shownAlertOfRow),
     statement: async (fleetId, shipId) => {
       const [row] = await db.$queryRaw<unknown[]>`
         SELECT statement, statement_version
@@ -1079,6 +1105,7 @@ export function createPrismaFleetListing(db: Db): FleetListing {
                  WHERE cs.fleet_id = s.fleet_id AND cs.ship_id = s.id AND cs.lease_id IS NULL) AS last_viewed_at,
                (SELECT max(el.ended_at) FROM leases el
                  WHERE el.fleet_id = s.fleet_id AND el.ship_id = s.id AND el.ended_at IS NOT NULL) AS last_lease_ended_at,
+           ${openAlertCountOfShip} AS open_alert_count,
                ${labelsOfShip} AS labels, ${givenBackOfShip} AS crew_request_given_back
         FROM ships s
         LEFT JOIN leases l ON l.fleet_id = s.fleet_id AND l.ship_id = s.id AND l.ended_at IS NULL

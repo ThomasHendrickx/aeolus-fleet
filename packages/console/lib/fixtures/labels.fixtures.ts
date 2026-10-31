@@ -75,7 +75,7 @@ export function labelContext(ships: readonly ListedShip[], isOperator = true): L
 function labelledShip(suffix: string, ship: { name: string; labels: ListedShip['labels'] }): ListedShip {
   return {
     id: ownerId(suffix), name: ship.name, type: 'implementer', kind: 'agent', status: 'crewed', startingPrompt: null, location: null, lastSeenAt: null, ping: null,
-    scopes: ['messages:send', 'messages:receive'], labels: ship.labels, report: null, harness: null, model: null, activity: null, awaitingCrewSince: null, crewRequest: null, retiredAt: null, ownerShipId: null,
+    scopes: ['messages:send', 'messages:receive'], labels: ship.labels, report: null, harness: null, model: null, activity: null, openAlertCount: 0, awaitingCrewSince: null, crewRequest: null, retiredAt: null, ownerShipId: null,
   };
 }
 

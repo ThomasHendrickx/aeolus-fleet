@@ -1,10 +1,11 @@
-import type { DeliveryId, DeliveryState, FeatureFlag, FleetId, LabelId, LabelValueId, LeaseId, LeaseWaker, MessageId, ReachRefusalId, ScopeName, ShipId, ShipPosition, ShipStatus } from '@aeolus-fleet/common';
+import type { AlertId, AlertSignal, DeliveryId, DeliveryState, FeatureFlag, FleetId, LabelId, LabelValueId, LeaseId, LeaseWaker, MessageId, ReachRefusalId, ScopeName, ShipId, ShipPosition, ShipStatus } from '@aeolus-fleet/common';
 
 import type { Page, PageQuery } from '../shared/page.js';
 import type { Recipient } from '../shared/selector.js';
 import type { ShipFilter } from '@aeolus-fleet/common/rules';
 import type { ShipSort } from './ship-order.js';
 import type { ReadReach } from './read-reach.js';
+import type { Alert, ShownAlert } from './alert.js';
 import type { ClearRequest } from './clear-request.js';
 import type { CrewRequest } from './crew-request.js';
 import type { FeatureUse } from './feature-flag.js';
@@ -333,6 +334,24 @@ export interface VerifiedFactsRepository {
   lockWriter(fleetId: FleetId, shipId: ShipId): Promise<void>;
 }
 
+/**
+ * Outbound port: the fleet's alerts (decision 0071), one per ship, signal and
+ * occurrence. Lock order: the ship, then its alerts.
+ */
+export interface AlertRepository {
+  /** The alert held for the occurrence of the signal on the ship, open or cleared; none while none was raised. */
+  findByOccurrence(fleetId: FleetId, occurrence: { shipId: ShipId; signal: AlertSignal; occurrenceKey: string }): Promise<Alert | undefined>;
+  /** The alert, whatever its state; none when the fleet holds no such alert. */
+  find(fleetId: FleetId, alertId: AlertId): Promise<Alert | undefined>;
+  /** The alert, locked until the unit of work ends, after its ship. */
+  findForUpdate(fleetId: FleetId, alertId: AlertId): Promise<Alert | undefined>;
+  /** The ship's open alerts, locked until the unit of work ends, after the ship; oldest first. */
+  listOpenOnShipForUpdate(fleetId: FleetId, shipId: ShipId): Promise<Alert[]>;
+  create(alert: Alert): Promise<void>;
+  /** Keeps the alert's clear. */
+  saveCleared(alert: Alert): Promise<void>;
+}
+
 /** Outbound port: the records of the sends the fleet's network rules refused (decision 0034). */
 export interface ReachRefusalRepository {
   record(refusal: ReachRefusal): Promise<void>;
@@ -445,6 +464,8 @@ export interface ShipFacts {
   lastViewedAt: Date | null;
   /** When the ship's last ended lease ended (a release, deregister or takeover); null before any. */
   lastLeaseEndedAt: Date | null;
+  /** How many open alerts the ship has (decision 0071). */
+  openAlertCount: number;
 }
 
 /**
@@ -553,4 +574,8 @@ export interface FleetListing {
   deliveryCounts(fleetId: FleetId, shipId: ShipId): Promise<{ inFlight: number; open: number }>;
   /** The statement the ship's open lease holds; null while no session crews it or its crew stated none (decision 0047). */
   statement(fleetId: FleetId, shipId: ShipId): Promise<StatedStatement | null>;
+  /** The fleet's open alerts on the ships in `reach`, newest first, after the cursor's, at most `limit` (decision 0071). */
+  openAlerts(fleetId: FleetId, read: { reach: ReadReach; cursor?: AlertId; limit: number }): Promise<ShownAlert[]>;
+  /** The ship's open alerts, newest first (decision 0071). */
+  openAlertsOn(fleetId: FleetId, shipId: ShipId): Promise<ShownAlert[]>;
 }

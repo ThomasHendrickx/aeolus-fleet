@@ -271,6 +271,7 @@ describe('fleetListOutputSchema', () => {
     scopes: ['messages:send', 'messages:receive'],
     report: null,
     activity: null,
+    openAlertCount: 0,
     crewRequest: null,
     labels: [],
     model: null,

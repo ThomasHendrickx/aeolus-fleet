@@ -252,6 +252,8 @@ One meaning per term in code, database, API, UI and talk (decision 0050). Other 
 | Lease | One crew's exclusive right to a ship until it is released, recrewed, retired or deregistered; argo's sign-in takes argo's over (0010) | core |
 | Last seen | When the crew last called the fleet; observation only | core |
 | Report changed | When the crew's report last changed its state, note, task or step; details alone do not move it (0028) | core |
+| Alert | What the watch raised on a ship when a fact and its signal parted (crew request unassigned, delivery unacknowledged or overdue, ping unanswered, report unchanged, task not done): one per ship, signal and occurrence, naming the ship's owner at raise; open until cleared (0071) | core, watch |
+| Cleared | An alert's end: the watch saw its fact move back, or its ship retired; a cleared alert leaves the lists and its occurrence is never raised again (0071) | core, watch |
 | Activity | What the assigned trierarch last observed of the session crewing a ship: the latest event's time and kind (text, tool, result, error), never content; unknown past twice the report interval the trierarch states with it; none for a ship crewed by hand (0029, 0071) | core, trierarch |
 | Register | Claim a ship with its id and secret, stating location and, when the session can tell it, harness; answers the crew token once | core |
 | Deregister | The crew ends its lease and the secret; ship and inbox stay | core |
@@ -456,6 +458,8 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `PluginConnected` | Registry | The ship was commissioned as kind plugin, its connect: it reads every ship, whatever the rules (decisions 0034, 0050) |
 | `PluginDisconnected` | Registry | A plugin ship's read ended: why, its ship retired (decisions 0034, 0050) |
 | `VerifiedFactsSet` | Registry | A writer set its verified facts about the ship, or withdrew them: details hold how many, never their values; the actor is the writer (decision 0059) |
+| `AlertRaised` | Registry | An actor holding `fleet:alert`, the watch, raised an alert on the ship: details hold the alert, its signal and its occurrence key, never a payload; the actor is the raiser (decision 0071) |
+| `AlertCleared` | Registry | An open alert on the ship cleared: details hold the alert, its signal and why, `cleared` by its raiser's kind of actor or `retired` with its ship (decision 0071) |
 | `VerifiedFactsRemoved` | Registry | A writer's verified facts about the ship went with a retire: the writer, how many, and why, the ship or the writer retired (decision 0059) |
 | `CrewRequested` | Registry | A requester asked that the ship be kept crewed, or replaced the settings of its request: details hold the settings version, never the settings |
 | `CrewRequestExplained` | Registry | The trierarch plugin wrote why no trierarch can take the ship's unassigned crew request, or cleared it: details hold the reason |
@@ -503,7 +507,7 @@ Each event records its type and time, who caused it (a ship, `argo` included, or
 | `DeliveryAcknowledged` | Messaging | Delivery done, sender can see it. Its details say `answer: pong` when a pong answered a ping |
 | `DeliveryHandled` | Messaging | A pushed crew reported the turn that took the acknowledged delivery ended by itself (decision 0040) |
 | `DeliveryNotHandled` | Messaging | A pushed crew reported the turn the delivery was handed once more to died too (decision 0040): shown on that ship's page, where the operator resends or dismisses it as an undeliverable one. Details hold the lease and the reason the crew gave, when it gave one, which the ship's page shows with the entry |
-| `DeliveryOverdue` | Messaging | The fleet told argo, as the system, that a delivery to a pushed ship is overdue (decision 0040): once per lease and delivery, the ship's oldest whose clock ran out. Details hold the lease, the clock (`notConfirmed`, `idle`, `busy`) and its minutes. Stalled in flight on Health until it clears |
+| `DeliveryOverdue` | Messaging | The fleet told argo, as the system, that a delivery to a pushed ship is overdue (decision 0040): once per lease and delivery, the ship's oldest whose clock ran out. Details hold the lease, the clock (`notConfirmed`, `idle`, `busy`), its minutes and the ship's owner then, whom the watch tells as well. Stalled in flight on Health until it clears |
 | `DeliveryUndeliverable` | Messaging | Stuck on Health, where the operator resends or dismisses it. A resend is a new message that names the original; a dismiss sets the delivery to dismissed. Abandoned deliveries stay in the timelines only |
 | `DeliveryDismissed` | Messaging | The operator let an undeliverable or not handled delivery go, by Dismiss or by a resend: it is no longer stuck or on its ship's page, and stays in the timelines as dismissed |
 | `DeliveryReturned` | Registry | A lease ended before the ship acknowledged: the delivery is pending again for its ship or its type, its attempts kept, receivers woken. One per returned delivery, written with `LeaseRevoked` |

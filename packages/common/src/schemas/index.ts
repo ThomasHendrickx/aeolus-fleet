@@ -1,4 +1,5 @@
 export * from './activity.js';
+export * from './alert.js';
 export * from './account-token.js';
 export * from './apps-list.js';
 export * from './clear-request.js';

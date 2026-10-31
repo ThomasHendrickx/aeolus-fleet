@@ -49,7 +49,9 @@ export type PushedStepState = 'handedPushed' | 'overdue';
 export type HealthState = 'stuck' | 'delivering' | StuckCause;
 /** A sealed fleet's state and whether its company key is reachable (decision 0068). */
 export type SealingBadgeState = 'sealing' | 'sealed' | 'reachable' | 'notReachable';
-type Status = SealingBadgeState | ShipStatus | DeliveryState | SquadronState | LimitState | CrewStatus | UnassignedCrewState | PushedStepState | HealthState | ScheduleState;
+/** A ship with an open alert (decision 0071): the badge after its status on the overview. */
+export type AlertBadgeState = 'alert';
+type Status = AlertBadgeState | SealingBadgeState | ShipStatus | DeliveryState | SquadronState | LimitState | CrewStatus | UnassignedCrewState | PushedStepState | HealthState | ScheduleState;
 import { Badge } from '../atoms/badge';
 
 type Tone = 'waiting' | 'active' | 'ok' | 'attention' | 'ended';
@@ -114,6 +116,7 @@ const STATUSES: Record<Status, { tone: Tone; Icon: LucideIcon; label: string }> 
   sealed: { tone: 'ok', Icon: Lock, label: 'Sealed' },
   reachable: { tone: 'ok', Icon: CircleCheck, label: 'Reachable' },
   notReachable: { tone: 'attention', Icon: CircleAlert, label: 'Not reachable' },
+  alert: { tone: 'attention', Icon: TriangleAlert, label: 'Alert' },
 };
 
 /**
