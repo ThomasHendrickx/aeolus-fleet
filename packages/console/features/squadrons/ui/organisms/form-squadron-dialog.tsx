@@ -9,7 +9,7 @@ import type { LabelContext } from '../../../../lib/labels';
 import type { MachineLabelsInput } from '../../../../lib/machine-labels';
 import type { TemplateVersion } from '../../../../lib/squadrons-schemas';
 import { checkInText, memberCount, rolePreviews, type BlueprintChoice } from '../../../../lib/squadrons-view';
-import { Button, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle } from '@aeolus-fleet/common/header';
+import { Button, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, dialogSurface, DialogTitle } from '@aeolus-fleet/ui';
 import { Label } from '../../../../components/atoms/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/atoms/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../../components/atoms/table';

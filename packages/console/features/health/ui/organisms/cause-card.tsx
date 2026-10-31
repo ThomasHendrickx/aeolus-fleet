@@ -3,7 +3,7 @@ import Link from 'next/link';
 
 import { Badge } from '../../../../components/atoms/badge';
 import { Skeleton } from '../../../../components/atoms/skeleton';
-import { Button } from '@aeolus-fleet/common/header';
+import { Button } from '@aeolus-fleet/ui';
 import { InlineError } from '../../../../components/molecules/inline-error';
 import { LoadMore } from '../../../../components/molecules/load-more';
 import { StatusBadge, statusLabel } from '../../../../components/molecules/status-badge';

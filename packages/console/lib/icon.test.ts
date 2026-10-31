@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 // the dark theme, so the tab matches the console the operator sees.
 
 const icon = readFileSync(new URL('../app/icon.svg', import.meta.url), 'utf8');
-const tokens = readFileSync(new URL('../../common/src/header/tokens.css', import.meta.url), 'utf8');
+const tokens = readFileSync(new URL('../../ui/src/tokens.css', import.meta.url), 'utf8');
 
 describe('the favicon', () => {
   it('is an SVG with a dark variant for a dark system theme', () => {

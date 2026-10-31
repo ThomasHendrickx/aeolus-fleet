@@ -2,7 +2,7 @@
 
 import { useId, useSyncExternalStore } from 'react';
 
-import { classNames } from './class-names.js';
+import { classNames } from '../class-names.js';
 import {
   SIGN_IN_CANVAS,
   SIGN_IN_HORIZON,

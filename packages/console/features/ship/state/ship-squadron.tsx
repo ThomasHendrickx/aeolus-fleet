@@ -7,7 +7,7 @@ import type { ReactNode } from 'react';
 import { duration } from '../../../lib/relative-time';
 import { useCatalogue, useSquadrons } from '../../../lib/squadrons-api';
 import { blueprintPath, checkInText, handoffsOf, handoffsText, templatePath } from '../../../lib/squadrons-view';
-import { Button } from '@aeolus-fleet/common/header';
+import { Button } from '@aeolus-fleet/ui';
 import { HealthIndicator } from '../../../components/molecules/health-indicator';
 import { StatusBadge } from '../../../components/molecules/status-badge';
 

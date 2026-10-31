@@ -1,4 +1,4 @@
-import { classNames } from '@aeolus-fleet/common/header';
+import { classNames } from '@aeolus-fleet/ui';
 import { Skeleton } from '../atoms/skeleton';
 
 const DEFAULT_ROWS = 4;

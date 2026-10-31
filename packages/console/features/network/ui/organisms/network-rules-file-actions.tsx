@@ -3,7 +3,7 @@
 import { FileDown, FileUp } from 'lucide-react';
 
 import { InlineError } from '../../../../components/molecules/inline-error';
-import { Button } from '@aeolus-fleet/common/header';
+import { Button } from '@aeolus-fleet/ui';
 
 export interface NetworkRulesFileActionsProps {
   isExporting: boolean;

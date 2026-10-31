@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 
 /** Core's release train: the packages this repository publishes. */
-export const PUBLISHED_PACKAGES = ['common', 'core', 'console'] as const;
+export const PUBLISHED_PACKAGES = ['common', 'ui', 'core', 'console'] as const;
 
 const SCOPE = '@aeolus-fleet/';
 const SOURCE_CONDITION = '@aeolus-fleet/source';
@@ -30,6 +30,7 @@ const manifestSchema = z.object({
   version: z.string(),
   dependencies: dependenciesSchema,
   devDependencies: dependenciesSchema,
+  peerDependencies: dependenciesSchema,
 });
 
 /** The dependencies, with the published packages pinned to the version. */
@@ -64,12 +65,14 @@ export function setVersion(repositoryRoot: string, version: string): void {
     const path = join(repositoryRoot, 'packages', name, 'package.json');
     // Every field stays where it is; only the version, the pinned dependencies and the exports change.
     const manifest = z.record(z.string(), z.unknown()).parse(JSON.parse(readFileSync(path, 'utf8')));
-    const { dependencies, devDependencies } = manifestSchema.parse(manifest);
+    const { dependencies, devDependencies, peerDependencies } = manifestSchema.parse(manifest);
     const updated = {
       ...manifest,
       version,
       dependencies: pinned(dependencies, version),
       devDependencies: pinned(devDependencies, version),
+      // ui's peer on common: an app that takes ui at a version takes common at the same one.
+      peerDependencies: pinned(peerDependencies, version),
       exports: withoutSourceCondition(manifest.exports),
     };
 

@@ -205,25 +205,47 @@ const webImpure = {
   ],
 };
 
-const headerMessage =
-  '@aeolus-fleet/common/header is React for the browser and client-safe (header design H2, decision 0033): no zod, schema, Node built-in or server code, and the rest of common by import type only.';
+const uiMessage =
+  '@aeolus-fleet/ui is pure UI for the browser (UI package design UP4, decision 0033): it imports no app and no @aeolus-fleet package but common, common by import type only, and no zod, Node built-in, tRPC, TanStack or Next.js.';
 
 /**
- * What src/header never imports, not even as a type.
+ * What ui's production files never import, not even as a type.
  * @type {ImportRestriction[]}
  */
-const headerForbiddenImports = [
-  { regex: '^zod(/.*)?$', message: headerMessage },
-  { regex: '^node:', message: headerMessage },
-  { regex: '^@trpc/', message: headerMessage },
+const uiForbiddenImports = [
+  { regex: '^zod(/.*)?$', message: uiMessage },
+  { regex: '^node:', message: uiMessage },
+  { regex: '^@trpc/', message: uiMessage },
+  { regex: '^@tanstack/', message: uiMessage },
+  { regex: '^next(/.*)?$', message: uiMessage },
+  { regex: '^@aeolus-fleet/(?!common(/|$))', message: uiMessage },
 ];
 
 /**
- * The rest of common, which src/header takes as types only: its schemas, ids,
- * fleet and trierarch modules, and its root, which re-exports the schemas.
+ * Common, which ui takes as types only.
  * @type {ImportRestriction[]}
  */
-const commonOutsideTheHeader = [{ regex: '^\\.\\./(schemas|ids|fleet|trierarch)(/|$)|^\\.\\./index(\\.js)?$|^\\.\\.$|^@aeolus-fleet/common$', message: headerMessage }];
+const commonInUi = [{ regex: '^@aeolus-fleet/common(/.*)?$', message: uiMessage }];
+
+const uiFetchMessage = '@aeolus-fleet/ui takes props only: each app reads its data behind its own hooks and hands the part what to show.';
+
+/** ui reads no data: no fetch, and no browser storage (webImpure). */
+const uiImpure = {
+  /** @type {PropertyRestriction[]} */
+  properties: [...webImpure.properties, ...['window', 'globalThis', 'self'].map((object) => ({ object, property: 'fetch', message: uiFetchMessage }))],
+  globals: [...webImpure.globals, { name: 'fetch', message: uiFetchMessage }],
+};
+
+const uiByItsEntryMessage = 'An app takes @aeolus-fleet/ui by its entry only, never by a path into the package.';
+
+/**
+ * How an app may not reach into ui: a subpath other than its stylesheets, or a relative path into packages/ui.
+ * @type {ImportRestriction[]}
+ */
+const uiByItsEntry = [
+  { regex: '^@aeolus-fleet/ui/(?!(tokens|theme)\\.css$)', message: uiByItsEntryMessage },
+  { regex: '^(\\.\\./)+ui/src(/|$)', message: uiByItsEntryMessage },
+];
 
 /**
  * A value import, re-export or import() of these: an import type is erased,
@@ -240,13 +262,26 @@ function valueImports(restrictions) {
   ]);
 }
 
+/**
+ * Every import restriction for ui's production files in a layer, or outside
+ * the layers when none is given.
+ * @param {string} [layer]
+ */
+function uiRules(layer) {
+  return importRules({
+    patterns: [...prismaOutsideItsAdapter, ...uiForbiddenImports, ...(layer === undefined ? [] : upwardImports(layer))],
+    paths: reactManualMemo,
+    syntax: valueImports(commonInUi),
+  });
+}
+
 const commonWithoutReactMessage =
-  'Only @aeolus-fleet/common/header (src/header) imports React: the rest of common stays zod alone, so server-only users never install or load React (header design H2).';
+  'common holds no React: the UI parts live in @aeolus-fleet/ui, so common stays zod alone and server-only users never install or load React (UI package design UP1).';
 
 /** @type {ImportRestriction[]} */
 const reactInCommon = [
   { regex: '^(react|react-dom)(/.*)?$|^@base-ui/react(/.*)?$|^lucide-react$', message: commonWithoutReactMessage },
-  { regex: '^(\\.\\.?/)+header(/|$)', message: commonWithoutReactMessage },
+  { regex: '^@aeolus-fleet/ui(/.*)?$', message: commonWithoutReactMessage },
 ];
 
 /** @type {PropertyRestriction[]} */
@@ -377,8 +412,8 @@ export default defineConfig(
       '**/*.config.{js,ts}',
       // Storybook reads a story file's default export (its meta) and its configuration's.
       'packages/console/{components,features}/**/*.stories.tsx',
-      'packages/common/src/header/**/*.stories.tsx',
-      'packages/console/.storybook/{main,preview}.{ts,tsx}',
+      'packages/ui/src/**/*.stories.tsx',
+      'packages/{console,ui}/.storybook/{main,preview}.{ts,tsx}',
     ],
     rules: { 'no-restricted-exports': 'off' },
   },
@@ -389,16 +424,16 @@ export default defineConfig(
     rules: { 'no-restricted-properties': ['error', ...noModuleMocks, ...noTestDoubles] },
   },
   {
-    // The header and its atoms moved from the console (header design H2) and keep the console's React guardrails.
-    name: 'aeolus/common-header-web',
-    files: ['packages/common/src/header/**/*.{ts,tsx}'],
+    // ui's parts keep the console's React guardrails (UI package design 5.4).
+    name: 'aeolus/ui-web',
+    files: ['packages/ui/**/*.{ts,tsx}'],
     extends: [reactHooks.configs.flat['recommended-latest'], jsxA11y.configs.recommended],
     plugins: { 'react-x': reactX },
     rules: {
       'react-x/no-array-index-key': 'error',
       ...importRules({ patterns: [], paths: reactManualMemo }),
-      'no-restricted-properties': ['error', ...noModuleMocks, ...noTestDoubles, ...webImpure.properties],
-      'no-restricted-globals': ['error', ...webImpure.globals],
+      'no-restricted-properties': ['error', ...noModuleMocks, ...uiImpure.properties],
+      'no-restricted-globals': ['error', ...uiImpure.globals],
     },
   },
 
@@ -408,20 +443,22 @@ export default defineConfig(
     rules: importRules({ patterns: prismaOutsideItsAdapter }),
   },
   {
-    // The header's production files; its tests and stories never ship (tsconfig.build.json).
-    name: 'aeolus/common-header',
-    files: ['packages/common/src/header/**/*.{ts,tsx}'],
+    // ui's production files; its tests and stories never ship (tsconfig.build.json).
+    name: 'aeolus/ui',
+    files: ['packages/ui/src/**/*.{ts,tsx}'],
     ignores: ['**/*.test.ts', '**/*.stories.tsx'],
-    rules: importRules({
-      patterns: [...prismaOutsideItsAdapter, ...headerForbiddenImports],
-      paths: reactManualMemo,
-      syntax: valueImports(commonOutsideTheHeader),
-    }),
+    rules: uiRules(),
   },
+  // A layer imports only below itself, as the console's (UI package design 5.2).
+  ...webLayers.map((layer) => ({
+    name: `aeolus/ui-${layer}`,
+    files: [`packages/ui/src/${layer}/**/*.{ts,tsx}`],
+    ignores: ['**/*.test.ts', '**/*.stories.tsx'],
+    rules: uiRules(layer),
+  })),
   {
     name: 'aeolus/common-without-react',
     files: ['packages/common/src/**/*.{ts,tsx}'],
-    ignores: ['packages/common/src/header/**'],
     rules: importRules({ patterns: [...prismaOutsideItsAdapter, ...reactInCommon] }),
   },
 
@@ -458,7 +495,7 @@ export default defineConfig(
     },
     rules: {
       'react-x/no-array-index-key': 'error',
-      ...importRules({ patterns: prismaOutsideItsAdapter, paths: reactManualMemo }),
+      ...importRules({ patterns: [...prismaOutsideItsAdapter, ...uiByItsEntry], paths: reactManualMemo }),
       'no-restricted-properties': ['error', ...noModuleMocks, ...webImpure.properties],
       'no-restricted-globals': ['error', ...webImpure.globals],
     },
@@ -466,20 +503,20 @@ export default defineConfig(
   {
     name: 'aeolus/web-lib',
     files: ['packages/console/lib/**/*.{ts,tsx}'],
-    rules: importRules({ patterns: [...prismaOutsideItsAdapter, sharedImportsAFeature], paths: reactManualMemo }),
+    rules: importRules({ patterns: [...prismaOutsideItsAdapter, ...uiByItsEntry, sharedImportsAFeature], paths: reactManualMemo }),
   },
   ...webLayers.map((layer) => ({
     name: `aeolus/web-shared-${layer}`,
     files: [`packages/console/components/${layer}/**/*.{ts,tsx}`],
     rules: importRules({
-      patterns: [...prismaOutsideItsAdapter, ...upwardImports(layer), sharedImportsAFeature, ...trpcInPresentationalLayers],
+      patterns: [...prismaOutsideItsAdapter, ...uiByItsEntry, ...upwardImports(layer), sharedImportsAFeature, ...trpcInPresentationalLayers],
       paths: reactManualMemo,
     }),
   })),
   {
     name: 'aeolus/web-features',
     files: ['packages/console/features/**/*.{ts,tsx}'],
-    rules: importRules({ patterns: [...prismaOutsideItsAdapter, featureImportsAnother], paths: reactManualMemo }),
+    rules: importRules({ patterns: [...prismaOutsideItsAdapter, ...uiByItsEntry, featureImportsAnother], paths: reactManualMemo }),
   },
   ...webLayers.map((layer) => ({
     name: `aeolus/web-feature-${layer}`,
@@ -487,6 +524,7 @@ export default defineConfig(
     rules: importRules({
       patterns: [
         ...prismaOutsideItsAdapter,
+        ...uiByItsEntry,
         ...upwardImports(layer),
         featureImportsAnother,
         ...(layer === 'atoms' || layer === 'molecules' ? [...trpcInPresentationalLayers, featureHooks] : []),
@@ -500,6 +538,7 @@ export default defineConfig(
     rules: importRules({
       patterns: [
         ...prismaOutsideItsAdapter,
+        ...uiByItsEntry,
         ...upwardImports(layer),
         uiImportsAnotherFeature,
         ...trpcInPresentationalLayers,

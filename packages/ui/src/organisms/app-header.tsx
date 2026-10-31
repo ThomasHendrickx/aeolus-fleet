@@ -1,12 +1,12 @@
 import { Search } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-import { AppSwitcher } from './app-switcher.js';
-import type { AppSwitcherModel } from './apps.js';
-import { Button } from './atoms/button.js';
-import { Kbd } from './atoms/kbd.js';
-import { AvatarMenu, type AvatarMenuProps } from './avatar-menu.js';
-import { classNames } from './class-names.js';
+import { AppSwitcher } from '../molecules/app-switcher.js';
+import type { AppSwitcherModel } from '@aeolus-fleet/common/rules';
+import { Button } from '../atoms/button.js';
+import { Kbd } from '../atoms/kbd.js';
+import { AvatarMenu, type AvatarMenuProps } from '../molecules/avatar-menu.js';
+import { classNames } from '../class-names.js';
 
 interface AppHeaderProps {
   /** Undefined while the fleet in view is not known yet: the title's shape stands in. */

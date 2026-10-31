@@ -15,12 +15,12 @@ function packagePath(name: string): string {
 // The console's parts, each with a story per meaningful state (web-frontend skill).
 const config: StorybookConfig = {
   framework: packagePath('@storybook/nextjs-vite'),
-  stories: ['../components/**/*.stories.tsx', '../features/**/*.stories.tsx', '../../common/src/header/**/*.stories.tsx'],
+  stories: ['../components/**/*.stories.tsx', '../features/**/*.stories.tsx'],
   // Every story also runs as a test, in Vitest's browser mode (#303).
   addons: [packagePath('@storybook/addon-vitest')],
   core: { disableTelemetry: true },
   // Workspace packages resolve to their TypeScript source, as in Vitest and
-  // typecheck (tsconfig.base.json), so Storybook needs no built common.
+  // typecheck (tsconfig.base.json), so Storybook needs no built common or ui.
   viteFinal: (viteConfig) => ({
     ...viteConfig,
     resolve: {

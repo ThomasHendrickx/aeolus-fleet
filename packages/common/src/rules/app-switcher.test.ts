@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { createIdGenerator } from '../ids/index.js';
 import { accountIdSchema, type AppsList } from '../index.js';
-import { appSwitcherOf, signedInAsOf } from './apps.js';
+import { appSwitcherOf } from './app-switcher.js';
 
 const newId = createIdGenerator();
 const ACME = newId('fleet');
@@ -97,11 +97,5 @@ describe('the switcher in the title (header design H1, H8, H9)', () => {
 
   it('switches when the list offers a second fleet or a second app', () => {
     expect(appSwitcherOf({ list: charlottesList(), fleet: { id: ACME, name: 'Acme' }, app: 'console' }).canSwitch).toBe(true);
-  });
-});
-
-describe('how you are signed in here (header design H10)', () => {
-  it('says each way of signing in', () => {
-    expect([signedInAsOf('argo'), signedInAsOf('account'), signedInAsOf('viewer')]).toEqual(['Signed in as argo', 'Signed in as your account', 'Viewer']);
   });
 });

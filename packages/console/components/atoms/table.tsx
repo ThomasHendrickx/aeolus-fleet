@@ -1,7 +1,7 @@
 import { ArrowDown, ArrowUp, ChevronsUpDown } from 'lucide-react';
 import type { ComponentProps, ReactNode } from 'react';
 
-import { classNames } from '@aeolus-fleet/common/header';
+import { classNames } from '@aeolus-fleet/ui';
 
 /**
  * shadcn Table, themed to docs/design/png/Table.png: a card, header 40 px on

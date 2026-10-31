@@ -1,6 +1,6 @@
 # One set of UI parts for every Aeolus app
 
-[Issue 1206](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1206). Stage 1 (purpose, what exists, lessons, questions) is answered (section 4). Stage 2, below, is the structure only: proposed, not decided. Nothing is built until Thomas approves it; then one part at a time (section 7).
+[Issue 1206](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1206). Stage 1 (purpose, what exists, lessons, questions) is answered (section 4). Stage 2, the structure (section 5), is approved and its questions answered (section 8); the slices follow in section 7.
 
 Screens, which app's part the package takes, and the chosen look (Compact): [mockups/README.md](mockups/README.md).
 
@@ -103,7 +103,7 @@ So: 3 copies of the tokens (one shared, two byte-identical copies), 2 sets of th
 | UP6 | 1: the copies go first, then the move, then the repeating atoms one at a time, then StatusBadge and the scope picker. |
 | UP7 | 1: plugin pages in the purpose, no work now. |
 
-## 5. Structure (stage 2, proposed)
+## 5. Structure (stage 2, approved)
 
 ### 5.1 The package
 
@@ -123,9 +123,10 @@ packages/ui/
   src/
     index.ts           the one entry (5.3)
     tokens.css         the single copy of the design tokens
+    theme.css          the tokens mapped onto Tailwind, which each app imports
     class-names.ts     the class merge helper every part uses
     atoms/             Avatar, Button, Dialog (with dialog-surface.ts), DropdownMenu, Kbd, Sheet, Tooltip; later the repeats
-    molecules/         AppSwitcher, AvatarMenu (with avatar-entry.ts); later EmptyState, InlineError, LoadingSkeleton, TypedConfirm, StatusBadge
+    molecules/         AppSwitcher, AvatarMenu (with avatar-entry.ts and signed-in-as.ts); later EmptyState, InlineError, LoadingSkeleton, TypedConfirm, StatusBadge
     organisms/         AppHeader, CommandPalette, SignInBackground (with sign-in-backgrounds.ts); later the scope picker
 ```
 
@@ -140,14 +141,15 @@ packages/ui/
 ```json
 "exports": {
   ".": { "@aeolus-fleet/source": "./src/index.ts", "types": "./dist/index.d.ts", "default": "./dist/index.js" },
-  "./tokens.css": "./dist/tokens.css"
+  "./tokens.css": "./dist/tokens.css",
+  "./theme.css": "./dist/theme.css"
 }
 ```
 
 - One entry, `@aeolus-fleet/ui`, re-exporting every part; `sideEffects: false`, so an app's bundle takes only what it imports.
-- `./tokens.css` for each app's `globals.css`.
+- `./theme.css` for each app's `globals.css`: the tokens mapped onto Tailwind (the `@theme` blocks, the dark variant and the base layer), importing `./tokens.css`, so no app keeps its own mapping.
 - The `@aeolus-fleet/source` condition as common has it, so the workspace resolves to source; `set-version` drops it for the tarball (#968).
-- Build: `tsc --project tsconfig.build.json`, then copy `tokens.css` into `dist`, as common's header does now.
+- Build: `tsc --project tsconfig.build.json`, then copy `tokens.css` and `theme.css` into `dist`.
 - Peers, not optional: `react`, `react-dom`, `@base-ui/react`, `class-variance-authority`, `clsx`, `lucide-react`, `tailwind-merge`, and `@aeolus-fleet/common` for types (Q9). Toast's library joins with Toast (Q12).
 
 ### 5.4 The dependency rule and how lint enforces it
@@ -176,8 +178,8 @@ Like the console:
 
 ### 5.6 How apps consume it
 
-- **Console:** a workspace dependency, `"@aeolus-fleet/ui": "0.0.0"`, pinned to the train's version by `set-version` like common. Its `globals.css` imports `../../ui/src/tokens.css` and scans `../../ui/src` with `@source`, as it does common's header now.
-- **Gateway, pagasae, a plugin's pages:** `@aeolus-fleet/ui` from npm at a stated version in their own `package.json`, moved at their own pace, as common today (0049). Their `globals.css` imports `@aeolus-fleet/ui/tokens.css` and scans `node_modules/@aeolus-fleet/ui/dist` with `@source`.
+- **Console:** a workspace dependency, `"@aeolus-fleet/ui": "0.0.0"`, pinned to the train's version by `set-version` like common. Its `globals.css` imports `../../ui/src/theme.css` and scans `../../ui/src` with `@source`.
+- **Gateway, pagasae, a plugin's pages:** `@aeolus-fleet/ui` from npm at a stated version in their own `package.json`, moved at their own pace, as common today (0049). Their `globals.css` imports `@aeolus-fleet/ui/theme.css` and scans `node_modules/@aeolus-fleet/ui/dist` with `@source`.
 - **Same version for ui and common:** ui's peer on common is pinned to the same train version, so an app that takes ui `0.40.0` takes common `0.40.0`.
 - **Release:** `set-version`'s `PUBLISHED_PACKAGES`, `release.yml` and the candidate workflow gain ui, published before core and console.
 
@@ -203,26 +205,29 @@ In UP6's order. Each atom and molecule slice is done only when the gateway's and
 | U1 | pagasae | Drop the seven atom copies and `app/tokens.css`; take them from `@aeolus-fleet/common/header` (pagasae #120) | The files are gone; its tests green by name; walked on staging |
 | U2 | aeolus-fleet-gateway | Drop `web/app/tokens.css`; import common's | The file is gone; the pages look the same on staging |
 | U3 | aeolus-fleet | The package: `packages/ui` (5.1 to 5.3); the header, its atoms, `tokens.css` and `class-names.ts` move from common by layer (5.2); `ui:unit` and `ui:stories` (5.5); the lint rules and their tests (5.4); the train (5.6); common drops `./header` and its React peers; the console imports ui; 0008, 0049, architecture.md, CLAUDE.md and the skill (5.7) | typecheck, lint and test green, `ui:unit`, `ui:stories` and each `lint/ui.test.ts` rule seen by name; a candidate publishes `@aeolus-fleet/ui`; nothing under `packages/common` imports React |
-| U4 | aeolus-fleet-gateway, pagasae | Take `@aeolus-fleet/ui` at the release that carries U3; no import of `@aeolus-fleet/common/header` | Neither repository imports `common/header`; both walked on staging |
-| U5 | aeolus-fleet | Split `conventions.md` (5.7) | The every-app file holds no console-only rule; ui's README and `docs/design/README.md` point to it |
-| U6 to U14 | aeolus-fleet, then gateway and pagasae | The repeating atoms, one slice each: Input, Label, Switch, Checkbox, Tabs, Skeleton, Separator, AlertDialog, Toast (Q12). The console's atom moves to ui with its stories; the console imports it; the other two drop theirs | The atom in ui with a story per state; no copy in any of the three |
-| U15 to U18 | aeolus-fleet, then pagasae | EmptyState, InlineError, LoadingSkeleton, TypedConfirm (console and pagasae show them), one each, as above | The molecule in ui; no copy in the console or pagasae; the gateway uses it where it builds one inline |
-| U19 | aeolus-fleet, then gateway and pagasae | StatusBadge (tone, icon, label), from the console's | The gateway's two StatusBadges and pagasae's ToneBadge are gone |
-| U20 | aeolus-fleet, then gateway and pagasae | The scope picker, from the gateway's, each scope with its description as props (UP3); each app's server reads the descriptions | The gateway's `scope-words.ts` is gone; the A2A form shows descriptions; #1205 closed; walked on staging |
+| U4 | aeolus-fleet | The Compact look ([mockups](mockups/README.md#the-look-compact)): `tokens.css` and the parts' sizes in ui change as its table says; the console takes it with the release that carries it. Thomas, 31 Oct: "When to build compact ->seperate slice" | ui's and the console's stories draw the Compact look, light and dark; walked on staging |
+| U5 | aeolus-fleet-gateway, pagasae | Take `@aeolus-fleet/ui` at the release that carries U3; no import of `@aeolus-fleet/common/header` | Neither repository imports `common/header`; both walked on staging |
+| U6 | aeolus-fleet | Split `conventions.md` (5.7) | The every-app file holds no console-only rule; ui's README and `docs/design/README.md` point to it |
+| U7 to U15 | aeolus-fleet, then gateway and pagasae | The repeating atoms, one slice each: Input, Label, Switch, Checkbox, Tabs, Skeleton, Separator, AlertDialog, Toast (Q12). The console's atom moves to ui with its stories; the console imports it; the other two drop theirs | The atom in ui with a story per state; no copy in any of the three |
+| U16 to U19 | aeolus-fleet, then pagasae | EmptyState, InlineError, LoadingSkeleton, TypedConfirm (console and pagasae show them), one each, as above | The molecule in ui; no copy in the console or pagasae; the gateway uses it where it builds one inline |
+| U20 | aeolus-fleet, then gateway and pagasae | StatusBadge (tone, icon, label), from the console's | The gateway's two StatusBadges and pagasae's ToneBadge are gone |
+| U21 | aeolus-fleet, then gateway and pagasae | The scope picker, from the gateway's, each scope with its description as props (UP3); each app's server reads the descriptions | The gateway's `scope-words.ts` is gone; the A2A form shows descriptions; #1205 closed; walked on staging |
 
 Not moving now: relative time (a formatter, not a part; each app keeps its own until a part shows it), the console's other atoms (Select, Combobox, Table, CopyButton, CodeBlock and more) until a second app shows them (UP2).
 
-## 8. Questions (stage 2)
+## 8. Thomas's answers (stage 2)
+
+Thomas, 31 Oct, on the Open questions page: the structure (section 5) approved, and Q8 to Q13 each option 1, the pick below, with no notes. Beside the questions, `theme.css` (5.3) holds the Tailwind mapping, so ui's own Storybook and every app read one copy.
 
 ### Q8. The app switcher's list of apps
 
 Context: `apps.ts` works out which fleets and apps the switcher offers from pagasae's apps list and builds each `?fleet=` link. That is product knowledge (which apps exist, where each opens), not a UI interaction (UP0).
 
 Options:
-1. **The switcher takes ready entries** (label, link, current) as props; `apps.ts` stays in common as a React-free helper each app calls on its server, with its tests.
+1. **The switcher takes ready entries** (label, link, current) as props; `appSwitcherOf` stays in common as a React-free helper, in `@aeolus-fleet/common/rules` (`rules/app-switcher.ts`), with its tests.
 2. **`apps.ts` moves into ui** beside the switcher, as it sits beside it today.
 
-Pick: 1. ui stays pure UI and knows no app (UP4); the helper is plain TypeScript on types common already holds.
+Answer: 1. ui stays pure UI and knows no app (UP4); the helper is plain TypeScript on types common already holds.
 
 ### Q9. Common as ui's peer, for types
 
@@ -232,7 +237,7 @@ Options:
 1. **Peer dependency on common, type-only imports,** lint-enforced (5.4).
 2. **No dependency:** ui declares its own prop types, and `Theme` exists twice.
 
-Pick: 1. One source for `Theme`; type-only imports put no common code in a browser chunk.
+Answer: 1. One source for `Theme`; type-only imports put no common code in a browser chunk.
 
 ### Q10. Storybook framework
 
@@ -242,7 +247,7 @@ Options:
 1. **`@storybook/react-vite`,** and lint bans `next/` in ui: a part that needs a link takes it through Base UI's `render` prop from the app.
 2. **`@storybook/nextjs-vite`, like the console,** with `next/` allowed in parts.
 
-Pick: 1. The rest of the setup matches the console (5.5); a part that knows no framework cannot reach into an app's routing.
+Answer: 1. The rest of the setup matches the console (5.5); a part that knows no framework cannot reach into an app's routing.
 
 ### Q11. The skill for packages/ui
 
@@ -252,7 +257,7 @@ Options:
 1. **A new `aeolus-fleet-ui` skill** with `web-frontend` for `packages/ui`: the layout, the dependency rule, the stories, and where the look comes from (`docs/design/conventions.md`).
 2. **Widen `aeolus-fleet-console`** to cover `packages/ui` too.
 
-Pick: 1. The console's skill names console-only rules; one skill per package keeps each short and true for what it covers.
+Answer: 1. The console's skill names console-only rules; one skill per package keeps each short and true for what it covers.
 
 ### Q12. Toast's library
 
@@ -262,7 +267,7 @@ Options:
 1. **Sonner,** the console's atom; the gateway moves to it.
 2. **Base UI's Toast,** with no extra library; the console and pagasae move to it.
 
-Pick: 1. Two of the three apps and shadcn's own atom use it (shadcn/ui first).
+Answer: 1. Two of the three apps and shadcn's own atom use it (shadcn/ui first).
 
 ### Q13. The move as one slice or two
 
@@ -270,4 +275,4 @@ Options:
 1. **One slice (U3):** the package, the move, lint, the train and the docs in one PR.
 2. **Two:** an empty package with its lint and train first, then the move.
 
-Pick: 1. An empty package proves no rule; most of U3 is files moving unchanged.
+Answer: 1. An empty package proves no rule; most of U3 is files moving unchanged.

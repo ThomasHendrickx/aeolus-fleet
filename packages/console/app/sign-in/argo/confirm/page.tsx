@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
-import { Button } from '@aeolus-fleet/common/header';
+import { Button } from '@aeolus-fleet/ui';
 import { AuthCard } from '../../../../features/sign-in/ui/organisms/auth-card';
 import { argoHolderOf, CONFIRMED_FIELD, type ArgoHolder } from '../../../../lib/argo-sign-in';
 import { pagasaeFrom } from '../../../../lib/pagasae';

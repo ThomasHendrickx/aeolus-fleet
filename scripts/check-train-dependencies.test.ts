@@ -18,10 +18,11 @@ function manifest(fields: Record<string, unknown>): string {
 }
 
 describe("the check that aeolus-fleet depends on no other train's package (decision 0049)", () => {
-  it('passes common, core and console, and packages of no train', () => {
+  it('passes common, ui, core and console, and packages of no train', () => {
     repository.write('package.json', manifest({ devDependencies: { '@aeolus-fleet/core': '0.0.0', typescript: '~6.0.3' } }));
-    repository.write('packages/console/package.json', manifest({ name: '@aeolus-fleet/console', dependencies: { '@aeolus-fleet/common': '0.0.0' } }));
-    repository.commit('chore: core and console');
+    repository.write('packages/console/package.json', manifest({ name: '@aeolus-fleet/console', dependencies: { '@aeolus-fleet/common': '0.0.0', '@aeolus-fleet/ui': '0.0.0' } }));
+    repository.write('packages/ui/package.json', manifest({ name: '@aeolus-fleet/ui', peerDependencies: { '@aeolus-fleet/common': '0.0.0' } }));
+    repository.commit('chore: core, ui and console');
 
     expect(trainDependencyProblems(repository.path)).toEqual([]);
   });
@@ -31,7 +32,7 @@ describe("the check that aeolus-fleet depends on no other train's package (decis
     repository.commit('chore: squadrons');
 
     expect(trainDependencyProblems(repository.path)).toEqual([
-      "package.json depends on @aeolus-fleet/squadrons, another train's package: aeolus-fleet depends only on @aeolus-fleet/common, @aeolus-fleet/core and @aeolus-fleet/console",
+      "package.json depends on @aeolus-fleet/squadrons, another train's package: aeolus-fleet depends only on @aeolus-fleet/common, @aeolus-fleet/ui, @aeolus-fleet/core and @aeolus-fleet/console",
     ]);
   });
 
@@ -49,5 +50,14 @@ describe("the check that aeolus-fleet depends on no other train's package (decis
     repository.write('node_modules/@aeolus-fleet/squadrons/package.json', manifest({ dependencies: { '@aeolus-fleet/gateway': '0.1.0' } }));
 
     expect(trainDependencyProblems(repository.path)).toEqual([]);
+  });
+});
+
+describe('the check that ui depends on no @aeolus-fleet package but common (UI package design UP4)', () => {
+  it.each(['@aeolus-fleet/core', '@aeolus-fleet/console'])('refuses %s in ui, naming the file and the package', (name) => {
+    repository.write('packages/ui/package.json', manifest({ name: '@aeolus-fleet/ui', devDependencies: { [name]: '0.0.0' } }));
+    repository.commit('chore: ui on another package');
+
+    expect(trainDependencyProblems(repository.path)).toEqual([`packages/ui/package.json depends on ${name}: ui depends on no @aeolus-fleet package but common`]);
   });
 });

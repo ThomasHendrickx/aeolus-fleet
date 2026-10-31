@@ -1,7 +1,7 @@
 'use client';
 
 import type { LabelRow } from '../../../lib/labels';
-import { Button, dialogSurface } from '@aeolus-fleet/common/header';
+import { Button, dialogSurface } from '@aeolus-fleet/ui';
 import { AlertDialog, AlertDialogClose, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../../components/atoms/alert-dialog';
 import { InlineError } from '../../../components/molecules/inline-error';
 

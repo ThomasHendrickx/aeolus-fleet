@@ -31,6 +31,7 @@ const manifestSchema = z.object({
   repository: z.unknown(),
   dependencies,
   devDependencies: dependencies,
+  peerDependencies: dependencies,
 });
 
 function manifest(name: string): z.infer<typeof manifestSchema> {
@@ -42,11 +43,11 @@ function rawManifest(name: string): Record<string, unknown> {
 }
 
 describe('setVersion', () => {
-  it("sets the same version on core's train: common, core and the console", () => {
+  it("sets the same version on core's train: common, ui, core and the console", () => {
     setVersion(copy, '0.1.0');
 
-    expect(PUBLISHED_PACKAGES).toEqual(['common', 'core', 'console']);
-    expect(PUBLISHED_PACKAGES.map((name) => manifest(name).version)).toEqual(['0.1.0', '0.1.0', '0.1.0']);
+    expect(PUBLISHED_PACKAGES).toEqual(['common', 'ui', 'core', 'console']);
+    expect(PUBLISHED_PACKAGES.map((name) => manifest(name).version)).toEqual(['0.1.0', '0.1.0', '0.1.0', '0.1.0']);
   });
 
   // The source condition points into src, which the tarball does not ship (#968).
@@ -56,8 +57,6 @@ describe('setVersion', () => {
     expect(rawManifest('common').exports).toEqual({
       '.': { types: './dist/index.d.ts', default: './dist/index.js' },
       './rules': { types: './dist/rules/index.d.ts', default: './dist/rules/index.js' },
-      './header': { types: './dist/header/index.d.ts', default: './dist/header/index.js' },
-      './header/tokens.css': './dist/header/tokens.css',
     });
     expect(rawManifest('core').exports).toEqual({
       '.': { types: './dist/index.d.ts', default: './dist/index.js' },
@@ -77,6 +76,16 @@ describe('setVersion', () => {
 
     expect(manifest('core').dependencies?.['@aeolus-fleet/common']).toBe('0.1.0');
     expect(manifest('console').devDependencies?.['@aeolus-fleet/core']).toBe('0.1.0');
+  });
+
+  // An app that takes ui at a version takes common at the same one (UI package design 5.6).
+  it("pins ui's peer on common to that version, and leaves its other peers alone", () => {
+    const before = manifest('ui');
+
+    setVersion(copy, '0.1.0');
+
+    expect(manifest('ui').peerDependencies?.['@aeolus-fleet/common']).toBe('0.1.0');
+    expect(manifest('ui').peerDependencies?.react).toBe(before.peerDependencies?.react);
   });
 
   it('leaves other dependencies and the repository field alone', () => {

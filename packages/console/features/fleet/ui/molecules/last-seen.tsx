@@ -1,6 +1,6 @@
 import { Signal, SignalLow, SignalMedium } from 'lucide-react';
 
-import { classNames, Tooltip, TooltipContent, TooltipTrigger } from '@aeolus-fleet/common/header';
+import { classNames, Tooltip, TooltipContent, TooltipTrigger } from '@aeolus-fleet/ui';
 import { seenSignal, type SeenSignal } from '../../services/last-seen';
 import { lastSeen } from '../../../../lib/relative-time';
 

@@ -1,7 +1,7 @@
 import type { Decorator, Preview } from '@storybook/nextjs-vite';
 import { useLayoutEffect, type ReactNode } from 'react';
 
-import { TooltipProvider } from '@aeolus-fleet/common/header';
+import { TooltipProvider } from '@aeolus-fleet/ui';
 import { ConsoleConstantsContext } from '../lib/console-constants';
 import { consoleConstantsOf } from '../lib/console-constants-of';
 import { geistMono, geistSans } from '../app/fonts';

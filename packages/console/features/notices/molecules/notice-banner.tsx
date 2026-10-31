@@ -2,7 +2,7 @@ import type { NoticeLink, noticeSchema } from '@aeolus-fleet/common';
 import { Info, X } from 'lucide-react';
 import type { z } from 'zod';
 
-import { Button } from '@aeolus-fleet/common/header';
+import { Button } from '@aeolus-fleet/ui';
 
 /** A notice as `console.notices` answers it. */
 export type Notice = z.output<typeof noticeSchema>;

@@ -23,7 +23,7 @@ import {
   type NetworkLimits,
   type RuleSide,
 } from '../../../../lib/network-rules';
-import { Button } from '@aeolus-fleet/common/header';
+import { Button } from '@aeolus-fleet/ui';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/atoms/select';
 import { InlineError } from '../../../../components/molecules/inline-error';
 import { LabelSelectorField } from '../molecules/label-selector-field';

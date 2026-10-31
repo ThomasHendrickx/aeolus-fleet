@@ -1,5 +1,6 @@
 import { idSchema, THEMES } from '@aeolus-fleet/common';
-import { appSwitcherOf, type AvatarMenuProps } from '@aeolus-fleet/common/header';
+import type { AvatarMenuProps } from '@aeolus-fleet/ui';
+import { appSwitcherOf } from '@aeolus-fleet/common/rules';
 
 /** The console's switcher in stories: the fleet Acme, with no apps list (argo's sign-in), so "Acme / Console" with no ▾. */
 export const SWITCHER = appSwitcherOf({ list: undefined, fleet: { id: idSchema('fleet').parse('flt_01m5fcd917vwf30mx663fgc3z8'), name: 'Acme' }, app: 'console' });

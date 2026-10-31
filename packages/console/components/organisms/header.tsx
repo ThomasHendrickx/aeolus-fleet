@@ -1,4 +1,5 @@
-import { AppHeader, Button, type AppSwitcherModel, type AvatarMenuProps } from '@aeolus-fleet/common/header';
+import { AppHeader, Button, type AvatarMenuProps } from '@aeolus-fleet/ui';
+import type { AppSwitcherModel } from '@aeolus-fleet/common/rules';
 import { ChevronRight, SquarePen } from 'lucide-react';
 import Link from 'next/link';
 
@@ -27,7 +28,7 @@ interface HeaderProps {
 
 /**
  * Desktop top bar (docs/design/png/Header.png): the header every Aeolus app
- * shows (@aeolus-fleet/common/header), with the switcher in the title, then
+ * shows (@aeolus-fleet/ui), with the switcher in the title, then
  * the breadcrumb, whose every level above the page links up to it; the live
  * connection status, whose dot always has its word, Compose, the
  * CommandPalette's search trigger with its ⌘K hint, and the avatar menu.

@@ -29,7 +29,7 @@
     "!.next/standalone/**/*.map"
   ],
   "scripts": {
-    "predev": "npm run build --workspace @aeolus-fleet/common",
+    "predev": "npm run build --workspace @aeolus-fleet/common --workspace @aeolus-fleet/ui",
     "dev": "next dev --port 3000",
     "build": "next build && node scripts/standalone.ts",
     "start": "node bin/aeolus-console.js start",
@@ -42,6 +42,7 @@
   "devDependencies": {
     "@aeolus-fleet/common": "0.0.0",
     "@aeolus-fleet/core": "0.0.0",
+    "@aeolus-fleet/ui": "0.0.0",
     "@base-ui/react": "^1.8.0",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/exporter-trace-otlp-grpc": "^0.223.0",

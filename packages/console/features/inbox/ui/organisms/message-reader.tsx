@@ -3,7 +3,7 @@
 import { Check, CircleCheck, ExternalLink, GitPullRequest, Send, Server, CircleDot } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 
-import { Button, classNames, Kbd } from '@aeolus-fleet/common/header';
+import { Button, classNames, Kbd } from '@aeolus-fleet/ui';
 import type { MessageEntry } from '../../../../lib/inbox-entry';
 import type { ThreadMessage } from '../../../../lib/inbox-thread';
 import type { KnownLink } from '../../../../lib/message-document';

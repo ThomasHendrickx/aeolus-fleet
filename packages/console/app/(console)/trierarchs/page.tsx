@@ -4,7 +4,7 @@ import { Plus } from 'lucide-react';
 import { useState } from 'react';
 
 import { Badge } from '../../../components/atoms/badge';
-import { Button } from '@aeolus-fleet/common/header';
+import { Button } from '@aeolus-fleet/ui';
 import { useAssignedShips } from '../../../features/trierarchs/hooks/assigned-ships';
 import { ModelsContainer } from '../../../features/trierarchs/state/models-container';
 import { MachineList } from '../../../features/trierarchs/ui/organisms/machine-list';

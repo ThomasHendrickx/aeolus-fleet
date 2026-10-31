@@ -1,4 +1,4 @@
-import { Button } from '@aeolus-fleet/common/header';
+import { Button } from '@aeolus-fleet/ui';
 import { AuthCard } from '../../../features/sign-in/ui/organisms/auth-card';
 
 export const dynamic = 'force-dynamic';

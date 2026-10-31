@@ -8,7 +8,7 @@ import dynamic from 'next/dynamic';
 
 import type { FilterGroup, LabelChip as LabelChipData } from '../../lib/labels';
 import { noMatchWords, type MachineMatch } from '../../lib/machine-labels';
-import { Button } from '@aeolus-fleet/common/header';
+import { Button } from '@aeolus-fleet/ui';
 import { Popover, PopoverContent, PopoverTrigger } from '../atoms/popover';
 import { LabelChip } from './label-chip';
 

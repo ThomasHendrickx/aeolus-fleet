@@ -1,4 +1,4 @@
-import { classNames } from '@aeolus-fleet/common/header';
+import { classNames } from '@aeolus-fleet/ui';
 
 export type LiveState = 'live' | 'reconnecting' | 'offline';
 

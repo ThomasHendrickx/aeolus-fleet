@@ -1,6 +1,6 @@
 'use client';
 
-import type { AppSwitcherModel } from '@aeolus-fleet/common/header';
+import type { AppSwitcherModel } from '@aeolus-fleet/common/rules';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 

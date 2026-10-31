@@ -1,4 +1,4 @@
-import { classNames } from '@aeolus-fleet/common/header';
+import { classNames } from '@aeolus-fleet/ui';
 import type { MemberHealth } from '../../lib/squadron-states';
 
 const HEALTHS: Record<MemberHealth, { label: string; dot: string; text: string }> = {

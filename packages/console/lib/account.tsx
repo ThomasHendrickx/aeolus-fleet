@@ -2,7 +2,7 @@ import type { Account, Theme } from '@aeolus-fleet/common';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import type { AvatarMenuProps } from '@aeolus-fleet/common/header';
+import type { AvatarMenuProps } from '@aeolus-fleet/ui';
 import { Compass, KeyRound, Network, Settings } from 'lucide-react';
 
 import { showToast } from '../components/atoms/toast';

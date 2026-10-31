@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
-import { Button } from '@aeolus-fleet/common/header';
+import { Button } from '@aeolus-fleet/ui';
 import { SignedInElsewhereNotice } from '../../features/sign-in/ui/molecules/signed-in-elsewhere-notice';
 import { SignInForm } from '../../features/sign-in/state/sign-in-form';
 import { AuthCard } from '../../features/sign-in/ui/organisms/auth-card';
