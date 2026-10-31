@@ -173,6 +173,7 @@ describe('ID_KINDS', () => {
       'meeting',
       'schedule',
       'dataKey',
+      'alert',
     ]);
   });
 
@@ -190,6 +191,10 @@ describe('ID_KINDS', () => {
 
   it('gives a data key the dky_ prefix (decision 0068)', () => {
     expect(ID_PREFIXES.dataKey).toBe('dky');
+  });
+
+  it('gives an alert the alt_ prefix (decision 0071)', () => {
+    expect(ID_PREFIXES.alert).toBe('alt');
   });
 
   it('gives a reach refusal the rfs_ prefix', () => {
