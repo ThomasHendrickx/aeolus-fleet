@@ -1,4 +1,4 @@
-import { isPingContentType, type AccountId, type DeliveryId, type LeaseId, type MessageId, type ShipId } from '@aeolus-fleet/common';
+import { isPingContentType, type AccountId, type DeliveryId, type LeaseId, type MessageId, type ShipId, type ShipKind } from '@aeolus-fleet/common';
 
 import { refuse, type DomainError } from '../shared/errors.js';
 import { shipActor, type Actor, type NewEvent } from '../shared/events.js';
@@ -235,6 +235,24 @@ export type TurnEndRefusal = DomainError<
 /** How the turn that took a confirmed message ended: by itself (handled), or died a second time (not handled). */
 export type TurnEnd = 'handled' | 'notHandled';
 
+/** A crew that reports how a turn ended, with its ship's kind: a person ship's crew finishes what any of its leases took. */
+export interface ReportingCrew extends CrewOfShip {
+  kind: ShipKind;
+}
+
+/**
+ * Whether the crew holds the delivery for the report: the lease that took it,
+ * or, for handled on a person ship, any lease of that ship, since a person
+ * ship's lease can end with items seen and not done (Bridge, CC12).
+ */
+function isTurnOf(delivery: Delivery, report: { crew: ReportingCrew; end: TurnEnd }): boolean {
+  const { crew, end } = report;
+  if (end === 'handled' && crew.kind === 'person') {
+    return delivery.claimedByShipId === crew.shipId;
+  }
+  return delivery.claimedByLeaseId === crew.leaseId;
+}
+
 /**
  * A pushed crew reports how the turn that took an acknowledged delivery
  * ended (decision 0040): handled when it ended by itself, not handled when
@@ -248,11 +266,12 @@ export type TurnEnd = 'handled' | 'notHandled';
  * it judged it unsafe to hand again, such as an outside call that may have
  * run (interop 5.2): handing it again would repeat it, and handing it
  * until the fifth attempt is a blind retry. Only the crew holding the
- * delivery reports it.
+ * delivery reports it; a person ship's next crew reports handled one an
+ * earlier lease took.
  */
 export function endTurn(
   delivery: Delivery,
-  report: { crew: CrewOfShip; end: TurnEnd; at: Date; reason?: string },
+  report: { crew: ReportingCrew; end: TurnEnd; at: Date; reason?: string },
 ): Result<{ delivery: Delivery; events: NewEvent[] }, TurnEndRefusal> {
   const { crew, end, at, reason } = report;
   switch (delivery.state) {
@@ -261,7 +280,7 @@ export function endTurn(
     case 'acknowledged':
     case 'handled':
     case 'notHandled': {
-      if (delivery.claimedByLeaseId !== crew.leaseId) {
+      if (!isTurnOf(delivery, { crew, end })) {
         return refuse(
           'DELIVERY_HELD_BY_ANOTHER_SHIP',
           `Delivery ${delivery.id} is held by another ship: only the crew it was handed to reports its turn`,

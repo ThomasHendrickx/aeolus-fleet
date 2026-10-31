@@ -63,6 +63,7 @@ import { createSignOut, type SignOut } from './domain/identity/sign-out.js';
 import { createAcknowledgeDelivery, type AcknowledgeDelivery } from './domain/messaging/acknowledge-delivery.js';
 import { createHandOverDelivery, type HandOverDelivery } from './domain/messaging/hand-over-delivery.js';
 import { createReadDelivery, type ReadDelivery } from './domain/messaging/read-delivery.js';
+import { createReadRecord, type ReadRecord } from './domain/messaging/read-record.js';
 import { createReportHandled, type ReportHandled } from './domain/messaging/report-handled.js';
 import { createReportNotHandled, type ReportNotHandled } from './domain/messaging/report-not-handled.js';
 import { createTellOverdueDeliveries, type TellOverdueDeliveries } from './domain/messaging/tell-overdue-deliveries.js';
@@ -303,6 +304,7 @@ export interface UseCases {
   handOverDelivery: HandOverDelivery;
   reportHandled: ReportHandled;
   readDelivery: ReadDelivery;
+  readRecord: ReadRecord;
   reportNotHandled: ReportNotHandled;
   /** One pass of the 10 and 60 minute clocks; core runs it, never the API. */
   tellOverdueDeliveries: TellOverdueDeliveries;
@@ -583,6 +585,7 @@ export function createUseCases(options: {
     handOverDelivery: createHandOverDelivery({ uow, clock, ids }),
     reportHandled: createReportHandled({ uow, clock, ids }),
     readDelivery: createReadDelivery({ uow, sealing }),
+    readRecord: createReadRecord({ uow, sealing }),
     reportNotHandled: createReportNotHandled({ uow, clock, ids }),
     tellOverdueDeliveries: createTellOverdueDeliveries({ fleets: createPrismaFleetRepository(prisma), pushedCrews: createPrismaPushedCrews(prisma), uow, clock, ids }),
     scheduleMessage: createScheduleMessage({ uow, clock, ids, hasher: sha256Hasher, sealing }),

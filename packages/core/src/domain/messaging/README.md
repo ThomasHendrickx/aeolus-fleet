@@ -8,4 +8,6 @@ A receive claims up to `max` deliveries for a crew in one unit of work under its
 
 The operator dismisses an undeliverable delivery (`DeliveryDismissed`), or resends it: a new message from the original sender to the same selector that names the original (`resendOfMessageId`), stored with the original's dismissal in one unit of work; the operator is the actor of both events. The resend's idempotency key is the original sender's `resend-<delivery id>`, so a second resend answers the first one's message.
 
+A ship's record (`readRecord`, Bridge, CC12) is a page of its deliveries with their messages, those to it and those of its type it claimed, in every state and across its leases, newest first; it holds the crew's lease and records nothing. A person ship's crew reports handled a delivery its ship holds whichever lease took it, since a person ship's lease can end with items seen and not done; any other ship's crew only one its own lease holds.
+
 argo's inbox: argo marks a message to it read or unread (the delivery's read date, no event), marks it done (handed and acknowledged at once under its console session's lease, since the console never receives) or replies to it (a send to the sender and the message done, in one unit of work). Any other ship is refused: it receives and acknowledges.

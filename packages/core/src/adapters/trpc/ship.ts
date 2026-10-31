@@ -16,6 +16,8 @@ import {
   handedOutputSchema,
   deliveryInputSchema,
   deliveryOutputSchema,
+  recordInputSchema,
+  recordOutputSchema,
   handledInputSchema,
   handledOutputSchema,
   inboxInputSchema,
@@ -32,6 +34,8 @@ import {
   openMeetingOutputSchema,
   setMicPatternInputSchema,
   PAGE_SIZE_DEFAULT,
+  RECORD_PAGE_SIZE_DEFAULT,
+  RECORD_PAGE_SIZE_MAX,
   notHandledOutputSchema,
   PING_CONTENT_TYPE,
   pongInputSchema,
@@ -606,6 +610,7 @@ export const shipRouter = router({
       description: [
         'For the plugin hooks or the trierarch, not the agent: says the turn that took an acknowledged delivery ended by itself, so it is handled.',
         'Pass its deliveryId (dlv_...). Again is fine. A delivery not acknowledged yet is refused: so a ping not answered with pong stays handed.',
+        "Only the crew it was handed to reports it; a person ship's crew reports handled any delivery its ship acknowledged, whichever lease took it.",
       ].join(' '),
     })
     .input(handledInputSchema)
@@ -812,6 +817,36 @@ export const shipRouter = router({
     .query(async ({ ctx, input }) => {
       const reread = okOrThrow(await ctx.useCases.readDelivery(ctx.crew, input));
       return { ...reread, sentAt: reread.sentAt.toISOString(), sendTime: reread.sendTime?.toISOString() ?? null };
+    }),
+
+  /**
+   * A page of the crew's own ship's record (Bridge, CC12): its deliveries
+   * with their messages, in every state and across its leases, newest first.
+   * Records nothing.
+   * A mutation only so that REST takes its body; it changes nothing.
+   */
+  record: scopedCrewProcedure('messages:receive')
+    .meta({
+      description: [
+        "Needs messages:receive. Reads your ship's record: every delivery to your ship, and those of its type it claimed, each whole as receive hands one, with its state,",
+        'in every state and across its leases, newest first, as far back as the fleet\'s retention keeps them.',
+        `At most ${RECORD_PAGE_SIZE_MAX} per page, ${RECORD_PAGE_SIZE_DEFAULT} unless you pass limit; pass the nextCursor it answers as cursor for the next page, null on the last.`,
+        'It changes nothing: no hand-over, attempt, ack or event.',
+      ].join(' '),
+    })
+    .input(recordInputSchema)
+    .output(recordOutputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const page = okOrThrow(await ctx.useCases.readRecord(ctx.crew, input ?? {}));
+      return {
+        items: page.items.map((entry) => ({
+          ...entry,
+          ...listedPayloadOutputOf(entry.payload),
+          sentAt: entry.sentAt.toISOString(),
+          sendTime: entry.sendTime?.toISOString() ?? null,
+        })),
+        nextCursor: page.nextCursor,
+      };
     }),
 
   /**

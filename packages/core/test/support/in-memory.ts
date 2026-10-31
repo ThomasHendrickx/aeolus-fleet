@@ -1569,6 +1569,22 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
         const found = state.deliveries.find((held) => held.fleetId === fleetId && held.id === deliveryId);
         return Promise.resolve(found && structuredClone(found));
       },
+      findRecordPage: ({ fleetId, shipId, cursor, limit }) => {
+        const rows = state.deliveries
+          .filter(
+            (held) =>
+              held.fleetId === fleetId &&
+              ((held.recipient.kind === 'ship' && held.recipient.shipId === shipId) || (held.recipient.kind === 'type' && held.claimedByShipId === shipId)) &&
+              (cursor === undefined || held.id < cursor),
+          )
+          .toSorted((first, second) => second.id.localeCompare(first.id))
+          .slice(0, limit + 1)
+          .flatMap((delivery) => {
+            const message = state.messages.find((held) => held.fleetId === fleetId && held.id === delivery.messageId);
+            return message ? [{ delivery: structuredClone(delivery), message: structuredClone(message) }] : [];
+          });
+        return Promise.resolve(pageOf(rows, { limit, cursorOf: (row) => row.delivery.id }));
+      },
       findOfMessageReaching: (fleetId, { messageId, shipId }) => {
         const found = state.deliveries.find(
           (held) =>

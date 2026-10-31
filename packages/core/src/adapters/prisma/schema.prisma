@@ -1053,6 +1053,8 @@ model Delivery {
   @@index([fleetId, state, createdAt], map: "deliveries_open_fleet_id_state_created_at_idx", where: raw("(state = ANY (ARRAY['pending'::delivery_state, 'received'::delivery_state, 'handed'::delivery_state, 'undeliverable'::delivery_state, 'notHandled'::delivery_state]))"))
   /// A crew's own deliveries in flight, which its next receive returns first.
   @@index([fleetId, claimedByLeaseId, state])
+  /// A ship's record pages the deliveries of its type it claimed newest first by id (Bridge, CC12). Partial, so a foreign key check never picks it.
+  @@index([fleetId, claimedByShipId, id], map: "deliveries_record_fleet_id_claimed_by_ship_id_id_idx", where: raw("(recipient_type IS NOT NULL)"))
   /// Every foreign key has an index leading with its columns, so deleting a
   /// referenced row checks it with an index, not a scan (#331).
   @@index([fleetId, messageId, id])

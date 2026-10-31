@@ -2,8 +2,10 @@ import { PING_CONTENT_TYPE, type FleetId } from '@aeolus-fleet/common';
 
 import type { DeliveryRepository, MessageRepository } from '../../domain/messaging/ports.js';
 import type { Db } from './client.js';
+import { Prisma } from './generated/client.js';
 import { payloadColumnsOf, toDeliveryFromSql, toMessage } from './rows.js';
 import { plainBytesOf } from '../../domain/messaging/sealed-payload.js';
+import { pageOf } from '../../domain/shared/page.js';
 
 export interface BufferedMessageRepository extends MessageRepository {
   /** Adds the stored messages to their fleets' days. The unit of work's last step before commit, after the events are numbered. */
@@ -176,6 +178,43 @@ export function createPrismaDeliveryRepository(db: Db): DeliveryRepository {
         }
         return { delivery, message };
       });
+    },
+    findRecordPage: async ({ fleetId, shipId, cursor, limit }) => {
+      // Two halves, each read newest first along its own index and cut at one
+      // past the page: the deliveries to the ship (fleet_id, recipient_ship_id,
+      // id), and those of its type it claimed (the partial record index). A
+      // delivery is in one half only, so the merged page holds no repeat.
+      const after = cursor === undefined ? Prisma.empty : Prisma.sql`AND id < ${cursor}`;
+      const rows = await db.$queryRaw<unknown[]>`
+        SELECT * FROM (
+          (SELECT id, fleet_id, message_id, recipient_ship_id, recipient_type, state::text AS state,
+                  claimed_by_ship_id, claimed_by_lease_id, attempts, hand_over_number, handed_once_more_at, is_forced, created_at
+           FROM deliveries
+           WHERE fleet_id = ${fleetId} AND recipient_ship_id = ${shipId} ${after}
+           ORDER BY id DESC
+           LIMIT ${limit + 1})
+          UNION ALL
+          (SELECT id, fleet_id, message_id, recipient_ship_id, recipient_type, state::text AS state,
+                  claimed_by_ship_id, claimed_by_lease_id, attempts, hand_over_number, handed_once_more_at, is_forced, created_at
+           FROM deliveries
+           WHERE fleet_id = ${fleetId} AND claimed_by_ship_id = ${shipId} AND recipient_type IS NOT NULL ${after}
+           ORDER BY id DESC
+           LIMIT ${limit + 1})
+        ) AS record
+        ORDER BY id DESC
+        LIMIT ${limit + 1}`;
+      const deliveries = rows.map(toDeliveryFromSql);
+      const messages = await db.message.findMany({ where: { fleetId, id: { in: deliveries.map((delivery) => delivery.messageId) } } });
+      const byId = new Map(messages.map((row) => [row.id, toMessage(row)]));
+      const recorded = deliveries.map((delivery) => {
+        const message = byId.get(delivery.messageId);
+        if (!message) {
+          // The foreign key keeps every delivery's message in its fleet.
+          throw new Error(`Delivery ${delivery.id} has no message ${delivery.messageId}`);
+        }
+        return { delivery, message };
+      });
+      return pageOf(recorded, { limit, cursorOf: (row) => row.delivery.id });
     },
     findForUpdate: async (fleetId, deliveryId) => {
       const [row] = await db.$queryRaw<unknown[]>`

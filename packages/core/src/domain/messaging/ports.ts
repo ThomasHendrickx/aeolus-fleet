@@ -185,9 +185,22 @@ export interface ClaimableDelivery {
   message: Message;
 }
 
+/** A delivery in its ship's record, with the message it carries (Bridge, CC12). */
+export interface RecordedDelivery {
+  delivery: Delivery;
+  message: Message;
+}
+
 /** Outbound port: deliveries, always within one fleet. */
 export interface DeliveryRepository {
   create(delivery: Delivery): Promise<void>;
+  /**
+   * A page of the ship's record: the deliveries to it and those of its type
+   * it claimed, in any state and whichever lease took them, each with its
+   * message, newest first by id, after the delivery the cursor names. Only
+   * what the fleet still keeps: what its retention let go is gone. Locks nothing.
+   */
+  findRecordPage(query: { fleetId: FleetId; shipId: ShipId } & PageQuery<DeliveryId>): Promise<Page<RecordedDelivery, DeliveryId>>;
   /**
    * Up to `limit` deliveries the crew may claim, each with its message: first
    * those in flight with the crew's lease, then those pending for its ship or
