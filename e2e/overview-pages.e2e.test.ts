@@ -152,18 +152,16 @@ describe('the overview of a fleet larger than a page', () => {
     ]);
   });
 
-  it('reads every ship on the overview only for Harbour, and opens Labels and Needs crew without reading every ship of the fleet', async () => {
+  it('opens the overview, Labels and Needs crew without reading every ship of the fleet', async () => {
     const { page, asked } = await signedIn();
     await page.waitForLoadState('networkidle');
-    // Harbour shows one tile per active ship (docs/design/fleet-overview): its read, and only its, pages the whole fleet.
-    const onOverview = asked.filter((input) => input.limit === PAGE_SIZE_MAX);
     for (const path of ['/labels', '/needs-crew']) {
       await page.goto(path);
       await page.waitForLoadState('networkidle');
     }
 
     // The whole-fleet snapshot asked every status at the largest page size, page after page.
-    expect([onOverview.every((input) => Object.keys(input).every((key) => ['limit', 'cursor', 'direction'].includes(key))), asked.filter((input) => input.limit === PAGE_SIZE_MAX).length - onOverview.length]).toEqual([true, 0]);
+    expect(asked.filter((input) => input.limit === PAGE_SIZE_MAX)).toEqual([]);
   });
 
   it('sorts by ship Z to A on the server, the last ships first', async () => {
