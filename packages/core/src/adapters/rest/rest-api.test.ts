@@ -1,6 +1,6 @@
 import { fleetStreamItemSchema, type FleetId } from '@aeolus-fleet/common';
 import Fastify, { type FastifyInstance } from 'fastify';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
 import {
@@ -327,8 +327,8 @@ describe('the fleet events as server-sent events at GET /api/v1/fleet/events', (
   /** The most missed events a follower is sent one by one (architecture, live updates). */
   const REPLAY_LIMIT = 1000;
 
-  /** The first messages the stream sends, read as a client reads it, then the client hangs up. */
-  async function firstMessages(options: { crewToken: string; lastEventId?: string; count: number }): Promise<{ contentType: string | null; messages: Map<string, string>[] }> {
+  /** The stream as a client reads it: each next message, until the client hangs up. */
+  async function openStream(options: { crewToken: string; lastEventId?: string }): Promise<{ contentType: string | null; next: () => Promise<Map<string, string> | undefined>; hangUp: () => void }> {
     const address = await server.listen({ host: '127.0.0.1', port: 0 });
     const headers: Record<string, string> = { authorization: `Bearer ${options.crewToken}`, accept: 'text/event-stream' };
     if (options.lastEventId !== undefined) {
@@ -337,20 +337,34 @@ describe('the fleet events as server-sent events at GET /api/v1/fleet/events', (
     const stopped = new AbortController();
     const response = await fetch(`${address}/api/v1/fleet/events`, { headers, signal: stopped.signal });
     const reader = response.body?.pipeThrough(new TextDecoderStream()).getReader();
-    const messages: Map<string, string>[] = [];
+    const complete: string[] = [];
     let buffered = '';
-    while (messages.length < options.count) {
-      const read = await reader?.read();
-      if (!read || read.done) {
-        break;
+    const next = async (): Promise<Map<string, string> | undefined> => {
+      while (complete.length === 0) {
+        const read = await reader?.read();
+        if (!read || read.done) {
+          return undefined;
+        }
+        buffered += read.value;
+        const messages = buffered.split('\n\n');
+        buffered = messages.pop() ?? '';
+        complete.push(...messages);
       }
-      buffered += read.value;
-      const complete = buffered.split('\n\n');
-      buffered = complete.pop() ?? '';
-      messages.push(...complete.map((message) => new Map(message.split('\n').map((line) => [line.slice(0, line.indexOf(':')), line.slice(line.indexOf(':') + 1).trim()]))));
+      const message = complete.shift() ?? '';
+      return new Map(message.split('\n').map((line) => [line.slice(0, line.indexOf(':')), line.slice(line.indexOf(':') + 1).trim()]));
+    };
+    return { contentType: response.headers.get('content-type'), next, hangUp: () => { stopped.abort(); } };
+  }
+
+  /** The first messages the stream sends, then the client hangs up. */
+  async function firstMessages(options: { crewToken: string; lastEventId?: string; count: number }): Promise<{ contentType: string | null; messages: Map<string, string>[] }> {
+    const stream = await openStream(options);
+    const messages: Map<string, string>[] = [];
+    for (let message = await stream.next(); message && messages.push(message) < options.count; message = await stream.next()) {
+      // Read on until count messages came.
     }
-    stopped.abort();
-    return { contentType: response.headers.get('content-type'), messages: messages.slice(0, options.count) };
+    stream.hangUp();
+    return { contentType: stream.contentType, messages };
   }
 
   async function appendEvents(count: number): Promise<void> {
@@ -413,6 +427,22 @@ describe('the fleet events as server-sent events at GET /api/v1/fleet/events', (
     const { messages } = await firstMessages({ crewToken, lastEventId: String(reached), count: 1 });
 
     expect(messages.map((message) => Object.fromEntries(message))).toEqual([{ id: String(eventCount()), data: '{"kind":"resync"}' }]);
+  });
+
+  it('keeps a quiet stream open with a comment every 25 seconds', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval'] });
+    try {
+      start();
+      const stream = await openStream({ crewToken: follower() });
+      await stream.next();
+
+      vi.advanceTimersByTime(25_000);
+
+      expect(Object.fromEntries((await stream.next()) ?? [])).toEqual({ '': 'keep-alive' });
+      stream.hangUp();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('refuses a crew without fleet:read with 403 and FORBIDDEN, and opens no stream', async () => {
