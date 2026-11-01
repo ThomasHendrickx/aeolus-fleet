@@ -172,6 +172,7 @@ import type { NetworkRule } from '../../domain/registry/network-settings.js';
 import type { RefusedActor } from '../../domain/registry/reach-refusal.js';
 import type { DeliveryWay } from '../../domain/shared/delivery-way.js';
 import type { SequencedEvent } from '../../domain/shared/events.js';
+import { REPLAY_LIMIT } from '../../domain/shared/read-fleet-events.js';
 import type { ListedInboxEntry } from '../../domain/shared/plain-history.js';
 import { listedPayloadOutputOf } from './listed-payload.js';
 import { describedAcknowledged, describedHealth, describedPerHour, describedStuck } from './health.js';
@@ -1475,6 +1476,15 @@ export const fleetRouter = router({
    * no more.
    */
   events: actorScopedProcedure('fleet:read')
+    .meta({
+      description: [
+        "Needs fleet:read. The fleet's committed events, live, as server-sent events, oldest first:",
+        'each as its seq for the id and the item as data, {"kind":"event","event":{...}} in the shape fleet_follow answers, only the events in your read reach (decision 0034).',
+        'Open again with the last id you read as Last-Event-ID, so you miss none across a reopen.',
+        `Without Last-Event-ID, or more than ${String(REPLAY_LIMIT)} events behind, the first item is {"kind":"resync"} with the seq to follow from: read the fleet again, then follow.`,
+        'Once your lease ends or your fleet:read is revoked, the stream sends event: end with the code and message of the refusal, and closes.',
+      ].join(' '),
+    })
     .input(fleetEventsInputSchema)
     .subscription(async function* ({ ctx, input, signal }): AsyncGenerator<TrackedEnvelope<FleetStreamItem>> {
       const watch = ctx.fleetEvents.watch(ctx.caller.fleetId);

@@ -6,9 +6,11 @@
  * and output, generated from the procedure's own Zod parsers. A call goes
  * through the router with the raw input, so its middlewares and its input
  * parsing run exactly as they do for `/trpc`; the doors hold no logic of
- * their own.
+ * their own. Beside the calls, the streams REST serves as server-sent
+ * events: the fleet's events (`fleet.events`).
  */
-import { callTRPCProcedure, getTRPCErrorFromUnknown, type TRPC_ERROR_CODE_KEY, type TRPCError } from '@trpc/server';
+import { fleetStreamItemSchema } from '@aeolus-fleet/common';
+import { callTRPCProcedure, getTRPCErrorFromUnknown, isTrackedEnvelope, type TRPC_ERROR_CODE_KEY, type TRPCError } from '@trpc/server';
 import { getHTTPStatusCodeFromError } from '@trpc/server/http';
 import { z } from 'zod';
 
@@ -200,6 +202,39 @@ export const SHIP_CALLS: readonly ShipCall[] = [
   ),
 ];
 
+/** A subscription REST serves as server-sent events, each item with its id. */
+export interface ShipStream {
+  /** The name the spec gives it: `fleet_events`. */
+  name: string;
+  /** Where REST serves it, under `/api/v1`, as GET: `/fleet/events`. */
+  route: string;
+  /** The subscription's path in the router, such as `fleet.events`. */
+  path: string;
+  /** What it sends and its rules, from the subscription's meta. */
+  description: string;
+  /** What each item's data is. */
+  item: JsonSchema;
+}
+
+/**
+ * The fleet's committed events (`fleet.events`), as the console follows
+ * them: REST takes the position from `Last-Event-ID`, the header a reopening
+ * client sends, as the console's `lastEventId`.
+ */
+export const FLEET_EVENTS_STREAM: ShipStream = {
+  name: 'fleet_events',
+  route: '/fleet/events',
+  path: 'fleet.events',
+  description: metaSchema.parse(appRouter.fleet.events._def.meta).description,
+  item: outputSchemaOf(fleetStreamItemSchema),
+};
+
+/** What a stream sends: an item with its id, or the refusal it ends with once its caller no longer holds. */
+export type ShipStreamMessage = { kind: 'item'; id: string; data: unknown } | { kind: 'end'; refusal: ShipCallRefusal };
+
+/** A stream opened, or the refusal that opens none. */
+export type ShipStreamOpening = { isOk: true; messages: AsyncIterable<ShipStreamMessage> } | { isOk: false; refusal: ShipCallRefusal };
+
 /**
  * What a caller learns of a call that did not succeed: the code, its HTTP
  * status and a message it may read. The code is tRPC's, or LEASE_ENDED for a
@@ -245,7 +280,7 @@ export function unexpectedFailure(thrown: unknown, request: { log: FailureLog; r
  * failed, with the request's id, as the router's error formatter does for
  * `/trpc`.
  */
-function refusalOf(error: TRPCError, at: { call: ShipCall; requestId: string }): ShipCallRefusal {
+function refusalOf(error: TRPCError, at: { call: Pick<ShipCall, 'name' | 'example'>; requestId: string }): ShipCallRefusal {
   const { call, requestId } = at;
   const httpStatus = getHTTPStatusCodeFromError(error);
   if (error.code === 'INTERNAL_SERVER_ERROR') {
@@ -257,7 +292,7 @@ function refusalOf(error: TRPCError, at: { call: ShipCall; requestId: string }):
 }
 
 /** Input that does not parse: one line per problem and field, then how the call takes it when it has an example. */
-function inputRefusalOf(error: z.ZodError, call: ShipCall): string {
+function inputRefusalOf(error: z.ZodError, call: Pick<ShipCall, 'name' | 'example'>): string {
   const problems = z.prettifyError(error);
   return call.example === undefined ? problems : `${problems}\nCall ${call.name} like this: ${call.example}`;
 }
@@ -290,5 +325,63 @@ export async function callShip(
       log.error({ path: call.path, ...failureForLog(error) }, 'procedure failed');
     }
     return { isOk: false, refusal: refusalOf(error, { call, requestId: ctx.requestId }) };
+  }
+}
+
+/**
+ * Opens the subscription with the raw input, as the context's caller, so its
+ * middlewares refuse before anything is sent. Once open, each item it yields
+ * is a message with its tracked id; a refusal while it runs, such as a lease
+ * that ended or a scope revoked, is its last message. The stream ends when
+ * the subscription does, or once `signal` aborts.
+ */
+export async function openShipStream(
+  stream: ShipStream,
+  request: { ctx: Context; input: unknown; log: FailureLog; signal: AbortSignal },
+): Promise<ShipStreamOpening> {
+  const { ctx, input, log, signal } = request;
+  const refusalFor = (thrown: unknown): ShipCallRefusal => {
+    const error = getTRPCErrorFromUnknown(thrown);
+    if (error.code === 'INTERNAL_SERVER_ERROR') {
+      log.error({ path: stream.path, ...failureForLog(error) }, 'subscription failed');
+    }
+    return refusalOf(error, { call: stream, requestId: ctx.requestId });
+  };
+  let items: unknown;
+  try {
+    items = await callTRPCProcedure({
+      router: appRouter,
+      path: stream.path,
+      type: 'subscription',
+      ctx,
+      getRawInput: () => Promise.resolve(input),
+      signal,
+      batchIndex: 0,
+    });
+  } catch (thrown) {
+    return { isOk: false, refusal: refusalFor(thrown) };
+  }
+  if (!isAsyncIterable(items)) {
+    throw new TypeError(`${stream.path} is a subscription that yields its items`);
+  }
+  return { isOk: true, messages: messagesOf(items, refusalFor) };
+}
+
+function isAsyncIterable(value: unknown): value is AsyncIterable<unknown> {
+  return typeof value === 'object' && value !== null && Symbol.asyncIterator in value;
+}
+
+/** A subscription's tracked items as messages, then the refusal it ended with, if it did. */
+async function* messagesOf(items: AsyncIterable<unknown>, refusalFor: (thrown: unknown) => ShipCallRefusal): AsyncGenerator<ShipStreamMessage> {
+  try {
+    for await (const item of items) {
+      if (!isTrackedEnvelope(item)) {
+        throw new TypeError('A ship stream tracks each item by its id');
+      }
+      const [id, data] = item;
+      yield { kind: 'item', id, data };
+    }
+  } catch (thrown) {
+    yield { kind: 'end', refusal: refusalFor(thrown) };
   }
 }

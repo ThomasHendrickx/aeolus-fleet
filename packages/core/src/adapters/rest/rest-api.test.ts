@@ -1,4 +1,4 @@
-import type { FleetId } from '@aeolus-fleet/common';
+import { fleetStreamItemSchema, type FleetId } from '@aeolus-fleet/common';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -6,6 +6,7 @@ import { z } from 'zod';
 import {
   argoIdOf,
   addAgentShip,
+  appendFleetEvents,
   crewShip,
   deliveryInFlight,
   FLEET_URL,
@@ -23,9 +24,6 @@ import { buildHttpServer } from '../http/server.js';
 import type { UseCases } from '../trpc/context.js';
 import { SHIP_CALLS } from '../trpc/ship-contract.js';
 import { SHIP_PROTOCOL } from '../trpc/ship-protocol.js';
-import { SYSTEM, recordEvent } from '../../domain/shared/events.js';
-import { REPLAY_LIMIT } from '../../domain/shared/read-fleet-events.js';
-import { ok } from '../../domain/shared/result.js';
 import { registerRestApi } from './rest-api.js';
 
 // The ship contract as REST at /api/v1, through the HTTP host on the
@@ -296,7 +294,7 @@ describe('the OpenAPI spec at /api/v1/openapi.json', () => {
       required: ['selector', 'payload', 'model', 'idempotencyKey'],
       properties: { inReplyTo: { type: 'string', pattern: `^msg_${ID_BODY}$` } },
     });
-    expect(send.responses['200']?.content['application/json'].schema).toMatchObject({
+    expect(send.responses['200']?.content['application/json']?.schema).toMatchObject({
       type: 'object',
       properties: { messageId: { pattern: `^msg_${ID_BODY}$` } },
     });
@@ -316,7 +314,7 @@ describe('the OpenAPI spec at /api/v1/openapi.json', () => {
     const document = await spec();
     const ack = await operation('/ship/ack', 'post');
 
-    expect(ack.responses.default?.content['application/json'].schema).toEqual({ $ref: '#/components/schemas/Error' });
+    expect(ack.responses.default?.content['application/json']?.schema).toEqual({ $ref: '#/components/schemas/Error' });
     expect(document.components.schemas.Error).toMatchObject({
       type: 'object',
       required: ['code', 'message'],
@@ -326,6 +324,9 @@ describe('the OpenAPI spec at /api/v1/openapi.json', () => {
 });
 
 describe('the fleet events as server-sent events at GET /api/v1/fleet/events', () => {
+  /** The most missed events a follower is sent one by one (architecture, live updates). */
+  const REPLAY_LIMIT = 1000;
+
   /** The first messages the stream sends, read as a client reads it, then the client hangs up. */
   async function firstMessages(options: { crewToken: string; lastEventId?: string; count: number }): Promise<{ contentType: string | null; messages: Map<string, string>[] }> {
     const address = await server.listen({ host: '127.0.0.1', port: 0 });
@@ -352,14 +353,8 @@ describe('the fleet events as server-sent events at GET /api/v1/fleet/events', (
     return { contentType: response.headers.get('content-type'), messages: messages.slice(0, options.count) };
   }
 
-  /** Appends this many events to the fleet, each in its own unit of work. */
   async function appendEvents(count: number): Promise<void> {
-    for (let index = 0; index < count; index += 1) {
-      await core.uow.run(async (tx) => {
-        await recordEvent({ events: tx.events, ids: core.ids }, { fleetId, type: 'StartingPromptIssued', occurredAt: core.clock.now(), actor: SYSTEM });
-        return ok(undefined);
-      });
-    }
+    await appendFleetEvents(core, { fleetId, count });
   }
 
   function eventCount(): number {
@@ -403,9 +398,9 @@ describe('the fleet events as server-sent events at GET /api/v1/fleet/events', (
     const { messages } = await firstMessages({ crewToken, lastEventId: String(reached), count: 2 });
 
     expect(messages.map((message) => message.get('id'))).toEqual([String(reached + 1), String(reached + 2)]);
-    expect(messages.map((message) => JSON.parse(message.get('data') ?? 'null'))).toEqual([
-      { kind: 'event', event: expect.objectContaining({ seq: reached + 1, type: 'StartingPromptIssued' }) },
-      { kind: 'event', event: expect.objectContaining({ seq: reached + 2, type: 'StartingPromptIssued' }) },
+    expect(messages.map((message) => fleetStreamItemSchema.parse(JSON.parse(message.get('data') ?? 'null')))).toMatchObject([
+      { kind: 'event', event: { seq: reached + 1, type: 'StartingPromptIssued' } },
+      { kind: 'event', event: { seq: reached + 2, type: 'StartingPromptIssued' } },
     ]);
   });
 

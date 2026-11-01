@@ -5,7 +5,7 @@
  * Schema of what it takes and answers. JSON Schema 2020-12 is OpenAPI 3.1's
  * own dialect, so the schemas go in as the router's parsers produce them.
  */
-import type { ShipCall } from '../trpc/ship-contract.js';
+import type { ShipCall, ShipStream } from '../trpc/ship-contract.js';
 import { SHIP_PROTOCOL } from '../trpc/ship-protocol.js';
 
 /** The API's title, in the spec and on its page at `/api/v1/docs`. */
@@ -54,15 +54,41 @@ function operationOf(call: ShipCall): Record<string, unknown> {
   };
 }
 
-/** The document for the given ship calls: a query without input as GET, the others as POST with a JSON body. */
-export function openApiDocument(calls: readonly ShipCall[]): Record<string, unknown> {
+/** A ship stream as an OpenAPI operation: GET, answered with server-sent events, its position in `Last-Event-ID`. */
+function streamOperationOf(stream: ShipStream): Record<string, unknown> {
+  return {
+    operationId: stream.name,
+    description: stream.description,
+    security: [{ crewToken: [] }],
+    parameters: [
+      {
+        name: 'Last-Event-ID',
+        in: 'header',
+        required: false,
+        description: 'The id of the last event you read, to follow from after it.',
+        schema: { type: 'string' },
+      },
+    ],
+    responses: {
+      '200': {
+        description: 'Server-sent events: each with the id to send back as Last-Event-ID and the item as data; event: end with a refusal last.',
+        content: { 'text/event-stream': { schema: stream.item } },
+      },
+      default: { description: 'Refused or failed.', content: { [JSON_MEDIA_TYPE]: { schema: { $ref: '#/components/schemas/Error' } } } },
+    },
+  };
+}
+
+/** The document for the given ship calls, a query without input as GET and the others as POST with a JSON body, then the streams as GET. */
+export function openApiDocument(calls: readonly ShipCall[], streams: readonly ShipStream[]): Record<string, unknown> {
   return {
     openapi: '3.1.1',
     info: { title: API_TITLE, version: '1', description: API_DESCRIPTION },
     servers: [{ url: '/api/v1' }],
-    paths: Object.fromEntries(
-      calls.map((call) => [call.route, { [call.method.toLowerCase()]: operationOf(call) }]),
-    ),
+    paths: Object.fromEntries([
+      ...calls.map((call) => [call.route, { [call.method.toLowerCase()]: operationOf(call) }]),
+      ...streams.map((stream) => [stream.route, { get: streamOperationOf(stream) }]),
+    ]),
     components: {
       securitySchemes: {
         crewToken: {
