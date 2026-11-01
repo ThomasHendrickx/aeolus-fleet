@@ -26,6 +26,7 @@ Thomas, 31 Oct: "ui -> compact (option 1)". Built in slice U4 ([README](../READM
 | Corners | Controls 8 px, cards 10, badges 6 | Controls 6 px, cards 8, badges 4 |
 | Cards | Border and a small shadow | Border, no shadow |
 | StatusBadge | Filled in its tone, with border | Icon and word in the tone, no fill or border; Attention keeps its fill |
+| Abandoned (StatusBadge) | Filled in the ended tone, dashed border | The exception: a dashed border in `--tone-ended-border`, no fill (Thomas, 1 Nov: conventions.md wins) |
 | Colour, type family | Slate blue, Geist | Unchanged |
 | Phone | Touch sizes 44 px | Unchanged; corners and badges as on desktop |
 
