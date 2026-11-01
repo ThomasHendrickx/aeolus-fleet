@@ -13,6 +13,7 @@ The Compact look ([ui-package mockups](../../ui-package/mockups/README.md)); the
 | [decide.html](decide.html), [decide.png](decide.png) | A question from orchestrator-1 opened in Bridge, then answered in Slack and read back in Bridge |
 | [do.html](do.html), [do.png](do.png) | A step (create a GitHub repository): opened with its note field, done with a note and sent, cannot with a note and sent |
 | [stay-aware.html](stay-aware.html), [stay-aware.png](stay-aware.png) | The feed: an alert from the watch and notices (a PR opened, releases out); the alert opened |
+| [send-message.html](send-message.html), [send-message.png](send-message.png) | Send a ship a message ([#1547](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1547), not approved yet): the button on home and on an opened alert, the form open (pick a ship; the alert's ship filled in), sending, sent, a failure (no answer; refused) |
 | [done.html](done.html), [done.png](done.png) | Done: every item with its outcome and where it was done |
 | [routing.html](routing.html), [routing.png](routing.png) | Where things show: routing per job, the places and their state |
 | [views.html](views.html), [views.png](views.png) | The same question in Slack and in a chat (claude.ai), before and after the answer |
