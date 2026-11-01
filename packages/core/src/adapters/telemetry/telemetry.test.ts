@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { addAgentShip, crewShip, FLEET_URL, historyUseCases, identityUseCases, initialiseFleet, messagingUseCases, registryUseCases } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { buildHttpServer } from '../http/server.js';
-import { createFleetEventWakeups, fleetEventWakeupsOf } from '../prisma/fleet-event-wakeups.js';
+import { createFleetEventWakeups, fleetEventWakeupsOf, type FleetEventWakeupHub } from '../prisma/fleet-event-wakeups.js';
 import { createReceiverWakeups } from '../prisma/receiver-wakeups.js';
 import { measureCall } from './calls.js';
 import { startTelemetry, type Telemetry } from './telemetry.js';
@@ -25,6 +25,7 @@ let telemetry: Telemetry | undefined;
 let spans: InMemorySpanExporter;
 let points: InMemoryMetricExporter;
 let metricReader: PeriodicExportingMetricReader;
+let fleetEvents: FleetEventWakeupHub;
 
 function start(ping: () => Promise<{ serverTime: Date; fleetCount: number }> = () => Promise.resolve({ serverTime: core.clock.now(), fleetCount: 1 })) {
   server = buildHttpServer({
@@ -35,11 +36,13 @@ function start(ping: () => Promise<{ serverTime: Date; fleetCount: number }> = (
     clock: core.clock,
     logger: false,
     consoleOrigin: new URL(FLEET_URL).origin,
+    fleetEvents,
   });
 }
 
 beforeEach(async () => {
   core = createInMemoryCore('2026-10-22T12:00:00.000Z');
+  fleetEvents = createFleetEventWakeups();
   await initialiseFleet(core);
   spans = new InMemorySpanExporter();
   points = new InMemoryMetricExporter(AggregationTemporality.CUMULATIVE);
@@ -294,31 +297,75 @@ describe('with an OTLP endpoint set', () => {
       const requests = await durationsOf('http.server.request.duration');
       expect(requests.filter((point) => point.attributes['http.route'] === '/api/v1/ship/wakeups')).toEqual([]);
     });
-  });
 
-  describe('a fleet events stream', () => {
-    it('stays out of every duration histogram', async () => {
+    it('stays out of the request duration histogram when the server ends it', async () => {
       telemetry = await startTelemetry(ENDPOINT, { spanExporter: spans, metricReader });
       start();
       const address = await server.listen({ host: '127.0.0.1', port: 0 });
+      await openStream(address, new AbortController());
+
+      core.wakeStreams.stop();
+
+      await expect.poll(openConnections).toBe(0);
+      expect(await requestDurationsOf('/api/v1/ship/wakeups')).toEqual([]);
+    });
+  });
+
+  describe('a fleet events stream', () => {
+    /** Opens the stream at the REST door and reads its first message: the word to load the fleet. */
+    async function openFleetEvents(address: string, closing: AbortController) {
       const fleetId = core.state.fleets[0]?.id ?? expect.unreachable();
       const { shipId } = addAgentShip(core, { fleetId, scopes: ['fleet:read'] });
       const crewToken = crewShip(core, { fleetId, shipId });
-      const closing = new AbortController();
       const response = await fetch(`${address}/api/v1/fleet/events`, { headers: { authorization: `Bearer ${crewToken}` }, signal: closing.signal });
       const reader = (response.body ?? expect.unreachable()).pipeThrough(new TextDecoderStream()).getReader();
       let read = '';
       while (!read.includes('\n\n')) {
         read += (await reader.read()).value ?? '';
       }
+      return { closed: async () => { while (!(await reader.read()).done) { /* read to its end */ } } };
+    }
+
+    it('stays out of every duration histogram when its follower closes it', async () => {
+      telemetry = await startTelemetry(ENDPOINT, { spanExporter: spans, metricReader });
+      start();
+      const address = await server.listen({ host: '127.0.0.1', port: 0 });
+      const closing = new AbortController();
+      await openFleetEvents(address, closing);
 
       closing.abort();
 
-      // The stream's request is over once the server holds no connection for it.
-      await expect.poll(async () => new Promise<number>((resolve) => server.server.getConnections((_error, count) => { resolve(count); }))).toBe(0);
-      const requests = await durationsOf('http.server.request.duration');
-      expect(requests.filter((point) => point.attributes['http.route'] === '/api/v1/fleet/events')).toEqual([]);
+      await expect.poll(openConnections).toBe(0);
+      expect(await requestDurationsOf('/api/v1/fleet/events')).toEqual([]);
+      expect(await callDurations('fleet.events')).toEqual([]);
+    });
+
+    it('stays out of every duration histogram when the server ends it', async () => {
+      telemetry = await startTelemetry(ENDPOINT, { spanExporter: spans, metricReader });
+      start();
+      const address = await server.listen({ host: '127.0.0.1', port: 0 });
+      const stream = await openFleetEvents(address, new AbortController());
+
+      fleetEvents.endAll();
+
+      await stream.closed();
+      await expect.poll(openConnections).toBe(0);
+      expect(await requestDurationsOf('/api/v1/fleet/events')).toEqual([]);
       expect(await callDurations('fleet.events')).toEqual([]);
     });
   });
 });
+
+/** The connections the server still holds: none once every stream's request is over. */
+async function openConnections(): Promise<number> {
+  return new Promise((resolve) => {
+    server.server.getConnections((_error, count) => {
+      resolve(count);
+    });
+  });
+}
+
+/** The request duration points of one route. */
+async function requestDurationsOf(route: string) {
+  return (await durationsOf('http.server.request.duration')).filter((point) => point.attributes['http.route'] === route);
+}
