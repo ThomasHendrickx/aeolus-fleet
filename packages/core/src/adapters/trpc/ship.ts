@@ -569,6 +569,7 @@ export const shipRouter = router({
         'From your first pushReceive until your lease ends, the agent\'s plain receive answers nothing.',
         'Your first pushReceive may state waker, what wakes the ship: trierarch, pluginWatcher, personApp, gateway or adapter; the lease keeps the first one, and the ship\'s page shows it.',
         'With shouldSkipHanded true, handed deliveries are left out before max; received deliveries still return after a lost answer.',
+        'With excluding, up to 1000 delivery ids, those of your own received or handed ones are left out before max, so past 10 held you reach the next.',
         'Report each hand-over to the agent with handed.',
       ].join(' '),
     })
@@ -576,7 +577,7 @@ export const shipRouter = router({
     .output(pushReceiveOutputSchema)
     .mutation(async ({ ctx, input }) => {
       const { deliveries } = okOrThrow(
-        await ctx.useCases.pushReceiveDeliveries(ctx.crew, { max: input?.max, shouldSkipHanded: input?.shouldSkipHanded ?? false, ...(input?.waker === undefined ? {} : { waker: input.waker }) }),
+        await ctx.useCases.pushReceiveDeliveries(ctx.crew, { max: input?.max, shouldSkipHanded: input?.shouldSkipHanded ?? false, excluding: input?.excluding ?? [], ...(input?.waker === undefined ? {} : { waker: input.waker }) }),
       );
       return { deliveries: deliveries.map((delivery) => ({ ...delivery, sentAt: delivery.sentAt.toISOString(), sendTime: delivery.sendTime?.toISOString() ?? null })) };
     }),

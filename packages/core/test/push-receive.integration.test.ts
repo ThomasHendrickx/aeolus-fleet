@@ -111,6 +111,18 @@ describe('a push receive on Postgres', () => {
     expect(again.deliveries.map((delivery) => delivery.deliveryId)).toEqual([eleventh]);
   });
 
+  it('takes the 11th delivery behind ten received ones when those ten are excluded', async () => {
+    const sent: DeliveryId[] = [];
+    for (let index = 0; index < 11; index += 1) {
+      sent.push(await sendTo(toShip(scout)));
+    }
+    const firstTen = await pushReceive(scout, 10);
+
+    const { deliveries } = unwrap(await useCases.pushReceiveDeliveries(scout, { max: 10, excluding: firstTen }));
+
+    expect(deliveries.map((delivery) => delivery.deliveryId)).toEqual([sent[10]]);
+  });
+
   it("stores the delivery received, in flight with the ship and its crew's lease, no attempt, and DeliveryReceived", async () => {
     const deliveryId = await sendTo(toShip(scout));
 

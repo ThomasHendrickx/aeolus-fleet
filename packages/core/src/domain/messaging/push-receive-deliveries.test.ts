@@ -106,6 +106,18 @@ describe('a push receive', () => {
     expect(again.deliveries.map((delivery) => delivery.deliveryId)).toEqual([eleventh]);
   });
 
+  it('takes the 11th delivery behind ten received ones when those ten are excluded', async () => {
+    const sent: DeliveryId[] = [];
+    for (let index = 0; index < 11; index += 1) {
+      sent.push(await sendTo(toScout()));
+    }
+    const firstTen = await pushReceive(scout, 10);
+
+    const { deliveries } = unwrap(await useCases.pushReceiveDeliveries(scout, { max: 10, excluding: firstTen }));
+
+    expect(deliveries.map((delivery) => delivery.deliveryId)).toEqual([sent[10]]);
+  });
+
   it("marks a pending delivery received, in flight with the ship and its crew's lease, and counts no attempt", async () => {
     const deliveryId = await sendTo(toScout());
 
