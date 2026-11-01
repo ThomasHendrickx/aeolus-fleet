@@ -624,7 +624,6 @@ function DesktopTable({
               key={ship.id}
               data-testid={`fleet-row-${ship.name}`}
               data-new={highlightedShipIds?.has(ship.id) ? '' : undefined}
-              className="h-12"
             >
               <TableCell>
                 <span className="flex min-w-0 items-center gap-2 whitespace-nowrap">

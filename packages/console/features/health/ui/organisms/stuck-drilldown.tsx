@@ -128,7 +128,7 @@ export function StuckDrilldown({ cause, state, places, ships, messages, onRetry,
             key={place.place.kind === 'ship' ? place.place.ship.id : place.place.type}
             aria-label={placeName(place.place)}
             data-testid="drilldown-place"
-            className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 shadow-sm max-sm:rounded-xl"
+            className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3"
           >
             <PlaceHeader place={place} ship={ship} now={now} />
             <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto_auto] gap-x-4 max-sm:grid-cols-1">

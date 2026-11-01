@@ -7,6 +7,8 @@ import type { NextConfig } from 'next';
 const nextConfig: NextConfig = {
   // next dev would write AGENTS.md and CLAUDE.md here; the advice lives in the web-frontend skill instead.
   agentRules: false,
+  // next dev's indicator sits bottom left over the Sidebar's last items, where the end-to-end tests click them.
+  devIndicators: false,
   // The package ships .next/standalone: the server and only the files it
   // needs, so installing it pulls no Next.js, React or build tooling.
   output: 'standalone',

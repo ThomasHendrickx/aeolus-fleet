@@ -21,7 +21,7 @@ Rules for cases the Design system page does not show. Names = parts and tokens o
 ## Spacing and density
 - `--spacing: 4px`; use only steps on the page: spacing-0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6, 8, 10, 12.
 - Icon to text: spacing-1.5 in badges and meta, spacing-2 in buttons. Between buttons: spacing-2.
-- Desktop page: padding spacing-6 vertical, spacing-8 horizontal; section gap spacing-5; card padding spacing-4.
+- Desktop page: padding spacing-5 vertical, spacing-6 horizontal; section gap spacing-4; card padding spacing-3. Cards have a border and no shadow.
 - Phone page: gutter spacing-4; section gap spacing-3.5; list row padding spacing-3 by spacing-3.5.
 - Dialog padding spacing-6; field gap spacing-4.
 - Table: header `--size-row-header`, row `--size-row`, cell padding x spacing-4, one row action (ghost icon Button, xs) in the last column.
@@ -32,7 +32,7 @@ Rules for cases the Design system page does not show. Names = parts and tokens o
 - Ship name on its page: `--text-title` desktop, `--text-title-touch` phone.
 - Dialog, Sheet and EmptyState titles: `--text-heading` desktop, `--text-heading-touch` phone.
 - Section title `--text-section`.
-- Body `--text-body` desktop, `--text-body-touch` phone; phone inputs `--text-input-touch`.
+- Body `--text-body` desktop, `--text-body-touch` phone; phone inputs `--text-input-touch`. Long prose (a message's text body) `--text-prose` desktop.
 - Metadata, help, timestamps: `--text-meta` in `--muted-foreground`.
 - Badges, column headers, counters: `--text-caption`. Counts, Kbd, TabBar labels: `--text-micro`.
 - Ids, id suffixes, types, roles, scopes, template refs (`tester@4`), model ids and packages (ModelTag), commands: `--text-id` (mono). Payloads, prompts, crew lines, charters: `--text-code`.
@@ -56,7 +56,7 @@ Rules for cases the Design system page does not show. Names = parts and tokens o
 - Theme switch lives only in AccountMenu: Light, Dark, System (default System).
 - argo: first in FleetTable; operator kind chip; row opens OperatorInbox; menu only Open inbox and Copy ship id; never Release, Rename, Retire, starting prompt, report or model; runs on "Console · Device"; excluded from SelectorPicker, CommandPalette ships and overview metrics; as a party "argo (you)".
 - ReportLine on every other ship: FleetTable Report column, ShipHeader under the title. No report: "No report yet". Retired ships: none.
-- FleetTable row: one 48 px line. Columns: Ship (ShipName plus operator, viewer, flagship or plugin kind chip), Status, Report (ReportLine or the one existing next step, time in title), Squadron and labels, Runs on, Seen (LastSeen), row menu. Reserve the name column and scroll the table horizontally on narrower desktop widths; metadata never stacks under the name. A member's SquadronTag appears once in its own cell, role in its title and on the ship/squadron page. Omit matching squadron and squadron-role label chips only when membership is available; the assigned labels and exact-match filters stay unchanged. Other labels occupy one line with +n linking to the ship page, full folded values and owners in its title. Awaiting ships show prompt status on the ship page. Crew request remains a filter and ship-page detail, with no overview column. Type is a filter; open deliveries and last ping live on the ship page.
+- FleetTable row: one `--size-row` line. Columns: Ship (ShipName plus operator, viewer, flagship or plugin kind chip), Status, Report (ReportLine or the one existing next step, time in title), Squadron and labels, Runs on, Seen (LastSeen), row menu. Reserve the name column and scroll the table horizontally on narrower desktop widths; metadata never stacks under the name. A member's SquadronTag appears once in its own cell, role in its title and on the ship/squadron page. Omit matching squadron and squadron-role label chips only when membership is available; the assigned labels and exact-match filters stay unchanged. Other labels occupy one line with +n linking to the ship page, full folded values and owners in its title. Awaiting ships show prompt status on the ship page. Crew request remains a filter and ship-page detail, with no overview column. Type is a filter; open deliveries and last ping live on the ship page.
 - A plugin ship shows where it does something: Ping, its report (ship page, the FleetTable Report column and its sort) and a command palette entry, as an agent ship; never in Compose, the crew request or the overview counts.
 - FleetTable actions: all in the row menu. At most one next-step Button (secondary, xs; phone full width) in the Report cell, only: Awaiting crew → Get starting prompt, silent member → Get new crew line.
 - Row menu: crewed: Message this ship…, Copy ship id, Ping, Re-crew…, Release ship…, Rename…, Retire ship…. Awaiting crew: Get starting prompt… in place of Ping, Re-crew, Release. Member: Ping, Get new crew line…, Release ship…, Remove from squadron…, no Rename or Retire. Flagship: Open squadron only. Retired: Copy ship id.

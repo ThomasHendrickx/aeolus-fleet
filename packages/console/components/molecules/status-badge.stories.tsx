@@ -1,5 +1,6 @@
 import { DELIVERY_STATES, SCHEDULE_STATES, SHIP_STATUSES } from '@aeolus-fleet/common';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import { expect, within } from 'storybook/test';
 
 import { StatusBadge } from './status-badge';
 
@@ -86,4 +87,24 @@ export const Sealing: Story = {
       <StatusBadge status="notReachable" />
     </div>
   ),
+};
+
+/** The Compact look (docs/design/ui-package/mockups, "The look: Compact"): icon and word in the tone, no fill or border; Attention keeps its fill. */
+export const QuietBadges: Story = {
+  args: { status: 'crewed' },
+  render: () => (
+    <div className="flex flex-wrap gap-3">
+      <StatusBadge status="crewed" />
+      <StatusBadge status="undeliverable" />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const crewed = getComputedStyle(canvas.getByText('Crewed'));
+    await expect(crewed.backgroundColor).toBe('rgba(0, 0, 0, 0)');
+    await expect(crewed.borderTopColor).toBe('rgba(0, 0, 0, 0)');
+    const undeliverable = getComputedStyle(canvas.getByText('Undeliverable'));
+    await expect(undeliverable.backgroundColor).not.toBe('rgba(0, 0, 0, 0)');
+    await expect(undeliverable.borderTopColor).not.toBe('rgba(0, 0, 0, 0)');
+  },
 };

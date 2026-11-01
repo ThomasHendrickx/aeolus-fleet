@@ -49,7 +49,7 @@ export function NetworkRulesApply({ draft, appliedVersion, isApplying, applyErro
   const isBusy = isApplying || isDiscarding;
 
   return (
-    <section aria-labelledby="network-rules-apply" data-testid="network-rules-apply" className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
+    <section aria-labelledby="network-rules-apply" data-testid="network-rules-apply" className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3">
       <h2 id="network-rules-apply" className="text-body font-semibold">
         Apply
       </h2>

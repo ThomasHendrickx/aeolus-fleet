@@ -23,7 +23,7 @@ interface NoticeBannerProps {
  */
 export function NoticeBanner({ notice, onDismiss, onSignOut }: NoticeBannerProps) {
   return (
-    <div role="status" data-testid="notice" data-notice-id={notice.id} className="flex items-start gap-2 border-b border-border bg-muted px-8 py-2.5 max-sm:px-4">
+    <div role="status" data-testid="notice" data-notice-id={notice.id} className="flex items-start gap-2 border-b border-border bg-muted px-6 py-2.5 max-sm:px-4">
       <Info aria-hidden className="mt-0.5 size-(--size-icon) shrink-0 text-muted-foreground" />
       <div className="flex min-w-0 grow flex-wrap items-baseline gap-x-3 gap-y-1">
         <p className="text-meta text-foreground">{notice.text}</p>

@@ -25,7 +25,7 @@ export interface NetworkRulesFileActionsProps {
  */
 export function NetworkRulesFileActions({ isExporting, exportError, onExport, exported, canImport, onImport }: NetworkRulesFileActionsProps) {
   return (
-    <section aria-labelledby="network-rules-file" data-testid="network-rules-file" className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
+    <section aria-labelledby="network-rules-file" data-testid="network-rules-file" className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3">
       <h2 id="network-rules-file" className="text-body font-semibold">
         Export and import
       </h2>

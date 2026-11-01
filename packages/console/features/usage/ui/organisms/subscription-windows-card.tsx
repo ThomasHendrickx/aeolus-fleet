@@ -86,7 +86,7 @@ function WindowsChartFigure({ chart, rangeStartWords }: { chart: WindowChart; ra
  */
 export function SubscriptionWindowsCard({ view, hasMore, isLoadingMore, isLoadMoreFailed, onLoadMore, onRetry, rangeStartWords }: SubscriptionWindowsCardProps) {
   return (
-    <section aria-label="Subscription windows" data-testid="usage-windows" className="flex min-w-0 flex-col gap-3.5 rounded-lg border border-border bg-card p-4 shadow-sm">
+    <section aria-label="Subscription windows" data-testid="usage-windows" className="flex min-w-0 flex-col gap-3.5 rounded-lg border border-border bg-card p-3">
       <div className="flex flex-col gap-1">
         <h2 className="text-section font-semibold">Subscription windows</h2>
         <p className="text-meta text-muted-foreground">How full each harness’s subscription was, per machine, as its trierarch read it. Two machines on one login show the same windows.</p>

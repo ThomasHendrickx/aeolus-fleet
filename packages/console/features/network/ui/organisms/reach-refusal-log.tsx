@@ -55,7 +55,7 @@ export function ReachRefusalLog({ refusals, error, onRetry, more, context, now }
   }
 
   return (
-    <section aria-labelledby="network-refusals" data-testid="network-refusals" className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
+    <section aria-labelledby="network-refusals" data-testid="network-refusals" className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3">
       <h2 id="network-refusals" className="text-body font-semibold">
         Refusals
       </h2>

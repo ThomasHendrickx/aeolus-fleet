@@ -108,7 +108,7 @@ export function ModelsSection({ rows, error, onRetry, canManage, pending, failed
   }
 
   return (
-    <section aria-labelledby="trierarchs-models" data-testid="trierarchs-models" className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
+    <section aria-labelledby="trierarchs-models" data-testid="trierarchs-models" className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3">
       <h2 id="trierarchs-models" className="text-section font-semibold">
         Models
       </h2>

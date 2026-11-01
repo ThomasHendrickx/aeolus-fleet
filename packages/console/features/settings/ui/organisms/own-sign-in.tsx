@@ -55,7 +55,7 @@ export function OwnSignIn({ email, hasPassword, isSaving, isSaved, saveError, on
   });
 
   return (
-    <section aria-labelledby="settings-sign-in" data-testid="settings-sign-in" className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
+    <section aria-labelledby="settings-sign-in" data-testid="settings-sign-in" className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3">
       <h2 id="settings-sign-in" className="flex items-center gap-2 text-body font-semibold [&_svg]:size-(--size-icon) [&_svg]:text-muted-foreground">
         <KeyRound aria-hidden />
         Sign-in

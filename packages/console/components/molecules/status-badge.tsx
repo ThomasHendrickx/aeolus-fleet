@@ -56,12 +56,13 @@ import { Badge } from '../atoms/badge';
 
 type Tone = 'waiting' | 'active' | 'ok' | 'attention' | 'ended';
 
+/** Icon and word in the tone, no fill or border; only Attention keeps its fill (the Compact look). */
 const TONE_CLASSES: Record<Tone, string> = {
-  waiting: 'border-tone-waiting-border bg-tone-waiting-bg text-tone-waiting-fg',
-  active: 'border-tone-active-border bg-tone-active-bg text-tone-active-fg',
-  ok: 'border-tone-ok-border bg-tone-ok-bg text-tone-ok-fg',
+  waiting: 'border-transparent bg-transparent px-0.5 text-tone-waiting-fg',
+  active: 'border-transparent bg-transparent px-0.5 text-tone-active-fg',
+  ok: 'border-transparent bg-transparent px-0.5 text-tone-ok-fg',
   attention: 'border-tone-attention-border bg-tone-attention-bg text-tone-attention-fg',
-  ended: 'border-tone-ended-border bg-tone-ended-bg text-tone-ended-fg',
+  ended: 'border-transparent bg-transparent px-0.5 text-tone-ended-fg',
 };
 
 /**
@@ -123,7 +124,7 @@ const STATUSES: Record<Status, { tone: Tone; Icon: LucideIcon; label: string }> 
  * One component for every ship status and delivery state
  * (docs/design/png/StatusBadge.png). Colour comes from the tone family, and
  * each state has its own icon and label, so it reads without colour.
- * Abandoned has a dashed border to set it apart from Dismissed.
+ * Abandoned keeps a dashed border to set it apart from Dismissed.
  */
 export function StatusBadge({ status, className }: { status: Status; className?: string }) {
   const { tone, Icon, label } = STATUSES[status];
@@ -132,7 +133,7 @@ export function StatusBadge({ status, className }: { status: Status; className?:
       variant="outline"
       data-slot="status-badge"
       data-status={status}
-      className={classNames(TONE_CLASSES[tone], status === 'abandoned' ? 'border-dashed' : undefined, className)}
+      className={classNames(TONE_CLASSES[tone], status === 'abandoned' ? 'border-dashed border-tone-ended-border px-1.5' : undefined, className)}
     >
       <Icon aria-hidden />
       {label}

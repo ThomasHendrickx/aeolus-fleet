@@ -121,7 +121,7 @@ export function MessageBody({ blocks, lineCount, className }: { blocks: readonly
         data-testid="inbox-message-body"
         data-folded={isFolded ? 'true' : undefined}
         className={classNames(
-          'flex flex-col gap-3 text-body text-foreground [overflow-wrap:anywhere] max-sm:text-body-touch',
+          'flex flex-col gap-3 text-prose text-foreground [overflow-wrap:anywhere] max-sm:text-body-touch',
           isFolded ? 'max-h-72 overflow-hidden [mask-image:linear-gradient(to_bottom,black_70%,transparent)]' : undefined,
         )}
       >

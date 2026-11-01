@@ -72,7 +72,7 @@ export function NetworkRulesEditor({ rules, context, limits, isSaving, saveError
   const hasChanges = isChanged(draft, rules);
 
   return (
-    <section aria-labelledby="network-rules" data-testid="network-rules" className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
+    <section aria-labelledby="network-rules" data-testid="network-rules" className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3">
       <h2 id="network-rules" className="text-body font-semibold">
         Rules
       </h2>

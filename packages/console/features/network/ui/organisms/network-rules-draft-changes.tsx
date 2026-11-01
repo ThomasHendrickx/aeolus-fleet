@@ -44,7 +44,7 @@ export function NetworkRulesDraftChanges({ changes, error, onRetry }: NetworkRul
   }
 
   return (
-    <section aria-labelledby="network-draft-changes" data-testid="network-draft-changes" className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
+    <section aria-labelledby="network-draft-changes" data-testid="network-draft-changes" className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3">
       <h2 id="network-draft-changes" className="text-body font-semibold">
         What the draft changes
       </h2>

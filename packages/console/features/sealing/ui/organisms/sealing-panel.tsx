@@ -24,7 +24,7 @@ function SealingSkeleton() {
     <div role="status" aria-label="Loading sealing" className="flex flex-col gap-6" data-testid="sealing-loading">
       <div className="flex flex-col gap-2">
         <Skeleton className="h-4 w-16 max-sm:hidden" />
-        <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 max-sm:h-36">
+        <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3 max-sm:h-36">
           <Skeleton className="h-4 w-48 max-sm:hidden" />
           <Skeleton className="h-4 w-96 max-w-full max-sm:hidden" />
           <Skeleton className="h-4 w-36 max-sm:hidden" />

@@ -66,7 +66,7 @@ function LoadingShape() {
 export function UsagePanel({ view, rangeWords, measure, splitBy, format, isTable, onTableChange, silentMachines, onRetry, onClearFilters }: UsagePanelProps) {
   const formatValue = measure === 'tokens' ? tokensWords : usdWords;
   return (
-    <section aria-label="Usage" data-testid="usage-panel" className="flex min-w-0 flex-col gap-3.5 rounded-lg border border-border bg-card p-4 shadow-sm">
+    <section aria-label="Usage" data-testid="usage-panel" className="flex min-w-0 flex-col gap-3.5 rounded-lg border border-border bg-card p-3">
       {view.kind === 'loading' ? <LoadingShape /> : null}
       {view.kind === 'cannot-read' ? (
         <div data-testid="usage-cannot-read">

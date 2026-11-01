@@ -84,7 +84,7 @@ export function BuiltInNetworkRules({ rows, error, onRetry, isTurning, turnError
   }
 
   return (
-    <section aria-labelledby="network-built-in" data-testid="network-built-in" className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
+    <section aria-labelledby="network-built-in" data-testid="network-built-in" className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3">
       <h2 id="network-built-in" className="text-body font-semibold">
         Built-in rules
       </h2>
