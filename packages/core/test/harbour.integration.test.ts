@@ -1,4 +1,4 @@
-import type { FleetId, ReportState, ShipId } from '@aeolus-fleet/common';
+import { idSchema, type FleetId, type ReportState, type ShipId } from '@aeolus-fleet/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createPrismaFleetListing } from '../src/adapters/prisma/registry.js';
@@ -21,7 +21,7 @@ let fleetId: FleetId;
 let argo: ShipCaller;
 const REPORTS = [null, 'working', 'blocked', 'idle'] as const;
 
-async function raiseAlertOn(shipId: ShipId, occurrenceKey: string): Promise<void> {
+async function raiseAlertOn(shipId: ShipId, occurrenceKey: `dlv_${string}`): Promise<void> {
   unwrap(
     await core.useCases.raiseAlert(argo, {
       shipId,
@@ -121,7 +121,7 @@ describe("Harbour's read on Postgres", () => {
     const [first, second] = (await expectedTiles()).slice(1);
     const old = await core.prisma.ship.findFirstOrThrow({ where: { fleetId, name: 'old' } });
 
-    const harbour = await core.useCases.readHarbour(argo, { shipIds: [second?.id, first?.id, old.id].filter((id) => id !== undefined) });
+    const harbour = await core.useCases.readHarbour(argo, { shipIds: [second?.id, first?.id, idSchema('ship').parse(old.id)].filter((id) => id !== undefined) });
 
     expect(harbour.ships).toEqual([first, second]);
   });

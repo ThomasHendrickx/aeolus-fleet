@@ -81,6 +81,7 @@ import type { ScopeNamespace } from '../../src/domain/registry/scope-namespace.j
 import { noNetworkSettings, type NetworkSettings } from '../../src/domain/registry/network-settings.js';
 import type { ReachRefusal } from '../../src/domain/registry/reach-refusal.js';
 import { shipCountsOf } from '../../src/domain/registry/ship-counts.js';
+import { harbourCountsOf, harbourStateOf } from '../../src/domain/registry/harbour.js';
 import { isSameCommissioner, type Ship } from '../../src/domain/registry/ship.js';
 import { listedShipOf } from '../../src/domain/registry/list-fleet.js';
 import type { ShipReport } from '../../src/domain/registry/ship-report.js';
@@ -1970,6 +1971,28 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     ship: (fleetId, shipId) => {
       const held = state.ships.find((candidate) => candidate.fleetId === fleetId && candidate.id === shipId);
       return Promise.resolve(held && factsOf(held));
+    },
+    harbour: (fleetId, read) => {
+      const ships = state.ships
+        .filter((held) => held.fleetId === fleetId && held.removedAt === null && held.retiredAt === null && held.kind !== 'viewer' && readsShip(read.reach, held.id))
+        .map((held) => listedShipOf(factsOf(held)))
+        .flatMap((listed) =>
+          listed.status === 'retired'
+            ? []
+            : [
+                {
+                  ship: { id: listed.id, name: listed.name, kind: listed.kind, state: harbourStateOf({ status: listed.status, reportState: listed.report?.state ?? null, hasOpenAlert: listed.openAlertCount > 0 }), note: listed.report?.note ?? null },
+                  position: positionOf(listed, { sort: undefined, isInReach: true }),
+                },
+              ],
+        )
+        .sort((first, second) => comparePositions(undefined)(first.position, second.position));
+      if ('shipIds' in read) {
+        return Promise.resolve({ ships: ships.filter(({ ship }) => read.shipIds.includes(ship.id)), counts: null });
+      }
+      const { after, limit } = read;
+      const page = ships.filter(({ position }) => after === undefined || comparePositions(undefined)(position, after) > 0).slice(0, limit);
+      return Promise.resolve({ ships: page, counts: after === undefined ? harbourCountsOf(ships.map(({ ship }) => ship)) : null });
     },
     counts: (fleetId, { reach, filter }) =>
       Promise.resolve(

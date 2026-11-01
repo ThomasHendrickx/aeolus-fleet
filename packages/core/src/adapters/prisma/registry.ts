@@ -17,6 +17,7 @@ import type { ShipFilter } from '@aeolus-fleet/common/rules';
 import { COLUMNS_SHOWN_OUTSIDE_READ_REACH, isValueDescending, type ShipSort } from '../../domain/registry/ship-order.js';
 import type { ReadReach } from '../../domain/registry/read-reach.js';
 import type { Db } from './client.js';
+import { readHarbourOf } from './harbour.js';
 import { Prisma } from './generated/client.js';
 import {
   commissionerColumns,
@@ -745,7 +746,7 @@ const statusOfShip = Prisma.sql`
   END`;
 
 /** Whether the caller reads the ship `s` of the outer query (decision 0034). */
-function isInReachOfShip(reach: ReadReach): Prisma.Sql {
+export function isInReachOfShip(reach: ReadReach): Prisma.Sql {
   return reach.kind === 'every' ? Prisma.sql`true` : Prisma.sql`s.id = ANY(${[...reach.shipIds]}::text[])`;
 }
 
@@ -922,7 +923,7 @@ function positionValueOf(position: ShipPosition, { column }: OrderTerm): Prisma.
  * ascending compare as one row, which a listing index seeks to; with a
  * descending first term, its bound comes first, so the index seeks to it.
  */
-function afterPosition(position: ShipPosition | undefined, sort: ShipSort | undefined): Prisma.Sql {
+export function afterPosition(position: ShipPosition | undefined, sort: ShipSort | undefined): Prisma.Sql {
   if (position === undefined) {
     return Prisma.empty;
   }
@@ -949,7 +950,7 @@ function beyond(terms: readonly OrderTerm[], position: ShipPosition): Prisma.Sql
   return rest.length === 0 ? after : Prisma.sql`${after} OR (${ranked} = ${value} AND (${beyond(rest, position)}))`;
 }
 
-function orderOfPage(alias: string, sort: ShipSort | undefined): Prisma.Sql {
+export function orderOfPage(alias: string, sort: ShipSort | undefined): Prisma.Sql {
   const terms = orderTermsOf(sort).map((term) => Prisma.sql`${termOf(alias, term)} ${term.isDescending ? Prisma.sql`DESC` : Prisma.sql`ASC`}`);
   return Prisma.sql`ORDER BY ${Prisma.join(terms)}`;
 }
@@ -1013,7 +1014,7 @@ export function fleetListingStatement(fleetId: FleetId, { after, limit, filter, 
 const shipPositionRowSchema = z.object({ id: idSchema('ship'), sort_is_empty: z.boolean(), sort_value: z.string(), sort_name: z.string() });
 
 /** The ship's place in the page's order, as the listing statement read it. */
-function shipPositionOfRow(row: unknown): ShipPosition {
+export function shipPositionOfRow(row: unknown): ShipPosition {
   const { id, sort_is_empty, sort_value, sort_name } = shipPositionRowSchema.parse(row);
   return { isEmpty: sort_is_empty, value: sort_value, name: sort_name, id };
 }
@@ -1030,6 +1031,7 @@ export function shipTypesStatement(fleetId: FleetId, { reach, status }: { reach:
 
 export function createPrismaFleetListing(db: Db): FleetListing {
   return {
+    harbour: (fleetId, read) => readHarbourOf(db, { fleetId, read }),
     ships: async (fleetId, page) => {
       const rows = await db.$queryRaw<unknown[]>(fleetListingStatement(fleetId, page));
       return rows.map((row) => ({ facts: toShipFacts(row), position: shipPositionOfRow(row) }));
