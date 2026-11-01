@@ -362,6 +362,39 @@ describe('the ship calls at /api/v1', () => {
     await expect(ok(request('receive', { crewToken: mooringToken }), deliveriesSchema)).resolves.toEqual({ deliveries: [] });
   });
 
+  it('pushReceive with excluding: the computer side takes the next delivery past the ones it holds', async () => {
+    const harbour = await commissioned();
+    const mooring = await commissioned();
+    const harbourToken = await register(harbour);
+    const mooringToken = await register(mooring);
+    for (const payload of ['Moor at berth 4', 'Then at berth 5']) {
+      await ok(
+        request('send', {
+          crewToken: harbourToken,
+          body: { selector: { kind: 'ship', name: mooring.name }, payload, model: 'claude-opus-5-5', idempotencyKey: freshKey() },
+        }),
+        z.object({ messageId: z.string() }),
+      );
+    }
+    const pushedSchema = z.object({ deliveries: z.array(z.object({ deliveryId: z.string(), payload: z.string() })) });
+    const first = await ok(request('pushReceive', { crewToken: mooringToken }), pushedSchema);
+
+    const next = await ok(
+      request('pushReceive', { crewToken: mooringToken, body: { excluding: first.deliveries.map((delivery) => delivery.deliveryId) } }),
+      pushedSchema,
+    );
+
+    expect(next.deliveries.map((delivery) => delivery.payload)).toEqual(['Then at berth 5']);
+  });
+
+  it('refuse a pushReceive excluding more than 1000 delivery ids with 400', async () => {
+    const skiff = await commissioned();
+    const crewToken = await register(skiff);
+    const excluding = Array.from({ length: 1001 }, () => newId('delivery'));
+
+    await expect(request('pushReceive', { crewToken, body: { excluding } })).resolves.toMatchObject({ status: 400, body: { code: 'BAD_REQUEST' } });
+  });
+
   it('turn, handed once more, handled and notHandled: the hooks report the turn and how it ended', async () => {
     const harbour = await commissioned();
     const mooring = await commissioned();
