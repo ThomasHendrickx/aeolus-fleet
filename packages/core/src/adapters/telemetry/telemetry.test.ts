@@ -295,4 +295,30 @@ describe('with an OTLP endpoint set', () => {
       expect(requests.filter((point) => point.attributes['http.route'] === '/api/v1/ship/wakeups')).toEqual([]);
     });
   });
+
+  describe('a fleet events stream', () => {
+    it('stays out of every duration histogram', async () => {
+      telemetry = await startTelemetry(ENDPOINT, { spanExporter: spans, metricReader });
+      start();
+      const address = await server.listen({ host: '127.0.0.1', port: 0 });
+      const fleetId = core.state.fleets[0]?.id ?? expect.unreachable();
+      const { shipId } = addAgentShip(core, { fleetId, scopes: ['fleet:read'] });
+      const crewToken = crewShip(core, { fleetId, shipId });
+      const closing = new AbortController();
+      const response = await fetch(`${address}/api/v1/fleet/events`, { headers: { authorization: `Bearer ${crewToken}` }, signal: closing.signal });
+      const reader = (response.body ?? expect.unreachable()).pipeThrough(new TextDecoderStream()).getReader();
+      let read = '';
+      while (!read.includes('\n\n')) {
+        read += (await reader.read()).value ?? '';
+      }
+
+      closing.abort();
+
+      // The stream's request is over once the server holds no connection for it.
+      await expect.poll(async () => new Promise<number>((resolve) => server.server.getConnections((_error, count) => { resolve(count); }))).toBe(0);
+      const requests = await durationsOf('http.server.request.duration');
+      expect(requests.filter((point) => point.attributes['http.route'] === '/api/v1/fleet/events')).toEqual([]);
+      expect(await callDurations('fleet.events')).toEqual([]);
+    });
+  });
 });
