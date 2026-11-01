@@ -357,9 +357,10 @@ export interface InstallationCredential {
   presented: string | undefined;
 }
 
-/** Where a procedure writes what the server must keep a record of, such as a deleted fleet. */
+/** Where a procedure writes what the server must keep a record of, such as a deleted fleet, and at debug what finds a fault, such as the step a read waits on. */
 export interface ProcedureLog {
   info(details: Record<string, unknown>, message: string): void;
+  debug(details: Record<string, unknown>, message: string): void;
 }
 
 export interface Context {

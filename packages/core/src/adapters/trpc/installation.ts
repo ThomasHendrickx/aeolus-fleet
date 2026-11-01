@@ -29,6 +29,7 @@ import { TRPCError } from '@trpc/server';
 import type { Guide, GuideStep } from '../../domain/identity/guide.js';
 import type { Notice } from '../../domain/identity/notice.js';
 import type { InstallationFleet } from '../../domain/registry/installation-fleet.js';
+import type { InstallationFleetStep } from '../../domain/registry/get-installation-fleet.js';
 import { INSTALLATION_TOKEN_HEADER, isInstallationToken } from './installation-token.js';
 import { okOrThrow, publicProcedure, router } from './trpc.js';
 import { describedHealth } from './health.js';
@@ -193,7 +194,13 @@ export const installationRouter = router({
     get: installationProcedure
       .input(installationFleetsGetInputSchema)
       .output(installationFleetSchema)
-      .query(async ({ ctx, input }) => described(okOrThrow(await ctx.useCases.getInstallationFleet(input)))),
+      .query(async ({ ctx, input }) => {
+        // At debug, each step once it answered: a fleets.get that never answers names its step (#1523).
+        const stepTaken = (step: InstallationFleetStep, ms: number) => {
+          ctx.log.debug({ fleetId: input.fleetId, step, ms }, 'installation read a step of a fleet');
+        };
+        return described(okOrThrow(await ctx.useCases.getInstallationFleet(input, stepTaken)));
+      }),
 
     /**
      * Deletes a fleet and every record in it, for good; once per request id.
