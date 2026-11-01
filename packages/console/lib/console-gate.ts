@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 import { isSignedInElsewhere } from './errors';
 import { hostedSignInUrlFrom } from './hosted-sign-in';
 import { pagasaeFrom } from './pagasae';
@@ -42,23 +44,23 @@ export function signInUrlFor(
 /**
  * Where the request's console session stands: live, ended (no session cookie,
  * or the server refuses it), ended because the operator signed in somewhere
- * else, unknown when the server does not answer, or live for an account
- * that holds no fleet:read, which the console has nothing for (accounts
- * design, A8).
+ * else, unknown when the server does not answer, live as argo, live as an
+ * account (not argo), or live for an account that holds no fleet:read, which
+ * the console has nothing for (accounts design, A8).
  */
-export type SessionState = 'live' | 'ended' | 'signedInElsewhere' | 'unknown' | 'nothingToManage';
+export type SessionState = 'live' | 'liveAsAccount' | 'ended' | 'signedInElsewhere' | 'unknown' | 'nothingToManage';
 
-/** Whether the server's answer is an account's sign-in without fleet:read. */
-async function hasNothingToManage(response: Response): Promise<boolean> {
+/** The scopes of the account the server's answer is a sign-in of; none when it is not an account's. */
+async function accountScopesOf(response: Response): Promise<readonly unknown[] | undefined> {
   try {
     const body: unknown = await response.json();
     const data = typeof body === 'object' && body !== null && 'result' in body && typeof body.result === 'object' && body.result !== null && 'data' in body.result ? body.result.data : undefined;
     if (typeof data !== 'object' || data === null || !('kind' in data) || data.kind !== 'account' || !('scopes' in data) || !Array.isArray(data.scopes)) {
-      return false;
+      return undefined;
     }
-    return !data.scopes.includes('fleet:read');
+    return z.array(z.unknown()).parse(data.scopes);
   } catch {
-    return false;
+    return undefined;
   }
 }
 
@@ -82,7 +84,11 @@ async function askedSessionOf(request: { serverUrl: string; cookie: string }, fe
       signal: AbortSignal.timeout(SESSION_CHECK_TIMEOUT_MS),
     });
     if (response.ok) {
-      return (await hasNothingToManage(response)) ? 'nothingToManage' : 'live';
+      const scopes = await accountScopesOf(response);
+      if (scopes === undefined) {
+        return 'live';
+      }
+      return scopes.includes('fleet:read') ? 'liveAsAccount' : 'nothingToManage';
     }
     return response.status === UNAUTHORIZED ? await refusedSessionOf(response) : 'unknown';
   } catch {

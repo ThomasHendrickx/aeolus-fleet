@@ -58,7 +58,7 @@ describe('sessionOf', () => {
   it("asks the server with an account's token cookie alone", async () => {
     const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ result: { data: { kind: 'account', scopes: ['fleet:read'] } } }));
 
-    await expect(sessionOf(aRequest('aeolus_account_token=eyJ.a.b'), { serverUrl, fetchImplementation })).resolves.toBe('live');
+    await expect(sessionOf(aRequest('aeolus_account_token=eyJ.a.b'), { serverUrl, fetchImplementation })).resolves.toBe('liveAsAccount');
   });
 
   it('has nothing to manage for an account without fleet:read (accounts design, A8)', async () => {

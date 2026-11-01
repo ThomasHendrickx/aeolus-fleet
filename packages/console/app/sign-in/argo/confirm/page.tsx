@@ -4,8 +4,9 @@ import { redirect } from 'next/navigation';
 
 import { Button } from '@aeolus-fleet/ui';
 import { AuthCard } from '../../../../features/sign-in/ui/organisms/auth-card';
-import { argoHolderOf, CONFIRMED_FIELD, type ArgoHolder } from '../../../../lib/argo-sign-in';
+import { argoHolderOf, CONFIRMED_FIELD, RETURN_TO_FIELD, type ArgoHolder } from '../../../../lib/argo-sign-in';
 import { pagasaeFrom } from '../../../../lib/pagasae';
+import { returnPathOf } from '../../../../lib/return-path';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +19,8 @@ function warningOf(holder: Exclude<ArgoHolder, { kind: 'none' }>): string {
  * Before an account takes argo over from someone signed in as argo (accounts
  * design, F4, A7): it says whom that signs out, with Continue and Cancel.
  */
-export default async function ArgoConfirmPage() {
+export default async function ArgoConfirmPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const { returnTo } = await searchParams;
   const pagasae = pagasaeFrom(process.env);
   if (pagasae === undefined) {
     redirect('/sign-in');
@@ -32,6 +34,7 @@ export default async function ArgoConfirmPage() {
           {holder.kind === 'none' ? null : <p className="text-body text-muted-foreground">{warningOf(holder)}</p>}
         </div>
         <input type="hidden" name={CONFIRMED_FIELD} value="yes" />
+        <input type="hidden" name={RETURN_TO_FIELD} value={returnPathOf(typeof returnTo === 'string' ? returnTo : null)} />
         <div className="flex gap-2">
           <Button type="submit" variant="primary" data-testid="sign-in-argo-continue">
             Continue

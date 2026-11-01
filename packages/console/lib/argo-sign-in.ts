@@ -7,6 +7,7 @@ import { ACCOUNT_TOKEN_COOKIE, SESSION_COOKIE } from './console-gate';
 import { cookieValueOf, exchangeArgoTicket, exchangeSignIn, fleetsOf, SHARED_SIGN_IN_COOKIE, type Pagasae } from './pagasae';
 import { consoleOriginOf } from './console-origin';
 import { serverInternalUrlFrom } from './server-url';
+import { returnPathOf } from './return-path';
 import { UNREACHABLE_PATH } from './sign-in-paths';
 
 /**
@@ -27,6 +28,14 @@ export const ARGO_REFUSED_PATH = '/sign-in/argo/refused';
 export const ARGO_CONFIRM_PATH = '/sign-in/argo/confirm';
 /** The form field that says the account saw the warning and goes on. */
 export const CONFIRMED_FIELD = 'confirmed';
+/** The form field that names the console page to land on once signed in as argo. */
+export const RETURN_TO_FIELD = 'returnTo';
+
+/** The warning page, carrying the console page to land on once signed in as argo; the overview when none. */
+export function argoConfirmPathFor(returnTo: string | null): string {
+  const page = returnPathOf(returnTo);
+  return page === '/' ? ARGO_CONFIRM_PATH : `${ARGO_CONFIRM_PATH}?${new URLSearchParams({ [RETURN_TO_FIELD]: page }).toString()}`;
+}
 
 const CORE_TIMEOUT_MS = 10_000;
 
@@ -129,7 +138,9 @@ async function redeemAtCore(redeem: { ticket: string; userAgent: string | null }
 /**
  * Signs the account in as argo of the fleet the console enters: refused when
  * it may not, warned first when someone holds argo and it has not confirmed,
- * then pagasae's ticket redeemed at core and on into argo's console.
+ * then pagasae's ticket redeemed at core and on into argo's console, at the
+ * console page the form names when it is one of the console's own, else the
+ * overview.
  */
 export async function signInAsArgo(request: Request, deps: SignInDeps): Promise<Response> {
   if (!isFromConsole(request, deps.environment)) {
@@ -148,8 +159,10 @@ export async function signInAsArgo(request: Request, deps: SignInDeps): Promise<
     return redirectTo(ARGO_REFUSED_PATH);
   }
   const form = await request.formData().catch(() => new FormData());
+  const field = form.get(RETURN_TO_FIELD);
+  const returnTo = typeof field === 'string' ? field : null;
   if (form.get(CONFIRMED_FIELD) !== 'yes' && (await argoSignInOf(cookies, deps))?.isSignedIn === true) {
-    return redirectTo(ARGO_CONFIRM_PATH);
+    return redirectTo(argoConfirmPathFor(returnTo));
   }
   const signIn = cookieValueOf(cookies, SHARED_SIGN_IN_COOKIE) ?? '';
   const ticket = await exchangeArgoTicket({ pagasae: deps.pagasae }, { signIn, fleetId: fleet.fleetId });
@@ -162,7 +175,7 @@ export async function signInAsArgo(request: Request, deps: SignInDeps): Promise<
       return redirectTo(UNREACHABLE_PATH);
     case 'ticket': {
       const sessionCookie = await redeemAtCore({ ticket: ticket.ticket, userAgent: request.headers.get('user-agent') }, deps.environment);
-      return sessionCookie === undefined ? redirectTo('/sign-in/failed') : redirectTo('/', [sessionCookie]);
+      return sessionCookie === undefined ? redirectTo('/sign-in/failed') : redirectTo(returnPathOf(returnTo), [sessionCookie]);
     }
   }
 }
