@@ -1,4 +1,4 @@
-import type { IdGenerator, LeaseWaker } from '@aeolus-fleet/common';
+import type { DeliveryId, IdGenerator, LeaseWaker } from '@aeolus-fleet/common';
 
 import { holdLease, markLeasePushed, type HoldLeaseTx, type LeaseRepository, type Ship } from '../registry/public.js';
 import type { Crew } from '../shared/caller.js';
@@ -39,7 +39,7 @@ export interface DeliveriesPushReceived {
 
 export type PushReceiveDeliveries = (
   crew: Crew,
-  input: { max?: number; waker?: LeaseWaker; shouldSkipHanded?: boolean },
+  input: { max?: number; waker?: LeaseWaker; shouldSkipHanded?: boolean; excluding?: readonly DeliveryId[] },
 ) => Promise<Result<DeliveriesPushReceived, ReceiveRefusal>>;
 
 interface PushReceiptDeps {
@@ -57,7 +57,7 @@ interface PushReceiptDeps {
  */
 async function pushReceiptForCrew(
   deps: PushReceiptDeps,
-  receipt: { crew: Crew; max: number; waker?: LeaseWaker; shouldSkipHanded?: boolean },
+  receipt: { crew: Crew; max: number; waker?: LeaseWaker; shouldSkipHanded?: boolean; excluding: readonly DeliveryId[] },
 ): Promise<Result<{ ship: Ship; deliveries: PushReceivedDelivery[] }, ReceiveRefusal | DataKeysNeeded>> {
   const { tx, ids, at } = deps;
   const { crew, max, waker } = receipt;
@@ -73,7 +73,7 @@ async function pushReceiptForCrew(
     type: ship.value.type,
     leaseId: crew.leaseId,
     limit: max,
-    excluding: [],
+    excluding: receipt.excluding,
     shouldSkipHanded: receipt.shouldSkipHanded ?? false,
   });
   const received: PushReceivedDelivery[] = [];
@@ -106,6 +106,8 @@ async function pushReceiptForCrew(
  * the agent. Its own in flight comes again first, changing nothing, so a
  * restart or a lost answer loses nothing. With shouldSkipHanded, handed
  * deliveries are left out before the limit, while received ones still return.
+ * Its own in flight named in excluding is left out too, so a crew holding
+ * 10 or more reaches the next one.
  * From its first push receive until
  * it ends, the lease is pushed: the agent's plain receive answers nothing.
  * Its first push receive may state what wakes the ship, kept with the lease
@@ -138,7 +140,7 @@ export function createPushReceiveDeliveries(deps: {
             deps.uow.run((tx) =>
               pushReceiptForCrew(
                 { tx, ids: deps.ids, at: deps.clock.now(), keys },
-                { crew, max: max.value, shouldSkipHanded: input.shouldSkipHanded ?? false, ...(input.waker === undefined ? {} : { waker: input.waker }) },
+                { crew, max: max.value, shouldSkipHanded: input.shouldSkipHanded ?? false, excluding: input.excluding ?? [], ...(input.waker === undefined ? {} : { waker: input.waker }) },
               ),
             ),
           ),

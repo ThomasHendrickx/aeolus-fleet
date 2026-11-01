@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
 import { isTimeToRenew } from './lib/account-renewal-schedule';
+import { argoConfirmPathFor } from './lib/argo-sign-in';
 import { renewAccountToken, type Renewal } from './lib/account-sign-in';
 import { ACCOUNT_TOKEN_COOKIE, sessionOf, signInUrlFor } from './lib/console-gate';
 import { consoleOriginOf } from './lib/console-origin';
@@ -29,14 +30,26 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   }
   const headers = renewal?.kind === 'renewed' ? withCookies(request.headers, renewal.cookies) : request.headers;
   const session = await sessionOf(new Request(request.url, { headers }), { serverUrl: serverInternalUrlFrom(process.env) });
-  const answer = answerFor(pageUrl, { session, hasSharedSignIn: cookieValueOf(headers.get('cookie'), SHARED_SIGN_IN_COOKIE) !== undefined, headers });
+  const answer = answerFor(pageUrl, { session, returnTo, hasSharedSignIn: cookieValueOf(headers.get('cookie'), SHARED_SIGN_IN_COOKIE) !== undefined, headers });
   for (const cookie of renewal?.kind === 'renewed' ? renewal.cookies : []) {
     answer.headers.append('set-cookie', cookie);
   }
   return answer;
 }
 
-function answerFor(pageUrl: string, { session, hasSharedSignIn, headers }: { session: Awaited<ReturnType<typeof sessionOf>>; hasSharedSignIn: boolean; headers: Headers }): NextResponse {
+/** Whether the page asked for is a message in argo's inbox, which only a sign-in as argo opens. */
+function isArgoMessage(pageUrl: string): boolean {
+  const page = new URL(pageUrl);
+  return page.pathname === '/inbox' && page.searchParams.has('message');
+}
+
+function answerFor(
+  pageUrl: string,
+  { session, returnTo, hasSharedSignIn, headers }: { session: Awaited<ReturnType<typeof sessionOf>>; returnTo: string; hasSharedSignIn: boolean; headers: Headers },
+): NextResponse {
+  if (session === 'liveAsAccount' && isArgoMessage(pageUrl)) {
+    return NextResponse.redirect(new URL(argoConfirmPathFor(returnTo), pageUrl));
+  }
   if (session === 'nothingToManage') {
     return NextResponse.redirect(new URL(NOTHING_TO_MANAGE_PATH, pageUrl));
   }
