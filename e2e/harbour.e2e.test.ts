@@ -18,7 +18,7 @@ import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './supp
 
 // Harbour on the fleet overview, end to end (docs/design/fleet-overview): a
 // fleet of argo, builder crewed and working, reviewer-1 awaiting crew,
-// deploy-bot with an open alert, and old retired. The numbers count the
+// builder-gateway with an open alert, and old retired. The numbers count the
 // four active ships by state, the tiles group them by kind, a tap shows
 // what a ship is doing, and a tile follows its ship live.
 
@@ -57,7 +57,7 @@ beforeAll(async () => {
   builderCrew = await core.authenticate.byCrewToken(crewToken);
   unwrap(await core.report(unwrap(builderCrew), { state: 'working', note: 'Building the harbour' }));
   unwrap(await core.commissionShip(argo, { idempotencyKey: newKey(), name: 'reviewer-1', type: 'reviewer' }));
-  deployBotId = unwrap(await core.commissionShip(argo, { idempotencyKey: newKey(), name: 'deploy-bot', type: 'deployer' })).shipId;
+  deployBotId = unwrap(await core.commissionShip(argo, { idempotencyKey: newKey(), name: 'builder-gateway', type: 'deployer' })).shipId;
   unwrap(
     await core.raiseAlert(argo, {
       shipId: deployBotId,
@@ -91,6 +91,11 @@ async function signedIn(device: Record<string, unknown> = {}): Promise<Page> {
   return page;
 }
 
+/** A ship's tile on Harbour, by the name it shows. */
+function tileOf(page: Page, name: string) {
+  return page.getByTestId('harbour').getByTestId('harbour-tile').filter({ has: page.getByText(name, { exact: true }) });
+}
+
 /** The numbers as Harbour shows them, by their test ids. */
 async function numbersOf(page: Page): Promise<Record<string, string>> {
   const words = ['ships', 'alert', 'waiting', 'working', 'idle'] as const;
@@ -102,32 +107,39 @@ describe('Harbour on the fleet overview', () => {
   it('counts the active ships by state and shows one tile per ship, grouped by kind, alerts first', async () => {
     const page = await signedIn();
     const harbour = page.getByTestId('harbour');
-    await harbour.getByRole('button', { name: 'builder: Working' }).waitFor();
+    await tileOf(page, 'builder').getByText('Working').waitFor();
 
     await expect(numbersOf(page)).resolves.toEqual({ ships: '4\nShips', alert: '1\nAlert', waiting: '1\nWaiting', working: '1\nWorking', idle: '1\nIdle' });
     await expect(page.getByTestId('harbour-group-people').getByTestId('harbour-tile').allInnerTexts()).resolves.toEqual(['argo\nIdle']);
-    await expect(page.getByTestId('harbour-group-agents').getByTestId('harbour-tile').allInnerTexts()).resolves.toEqual(['deploy-bot\nAlert', 'reviewer-1\nWaiting', 'builder\nWorking']);
+    await expect(page.getByTestId('harbour-group-agents').getByTestId('harbour-tile').allInnerTexts()).resolves.toEqual(['builder-gateway\nAlert', 'reviewer-1\nWaiting', 'builder\nWorking']);
     await expect(harbour.getByText('old').count()).resolves.toBe(0);
   });
 
-  it('shows what a ship is doing on a tap, with the way to the ship, on phone', async () => {
+  it("shows what a ship is doing in its tile's title, and the state where the ship has not reported", async () => {
+    const page = await signedIn();
+    const harbour = page.getByTestId('harbour');
+
+    await tileOf(page, 'builder').getByText('Working').waitFor();
+
+    await expect(Promise.all([harbour.getByTitle('builder: Building the harbour').count(), harbour.getByTitle('reviewer-1: Waiting').count()])).resolves.toEqual([1, 1]);
+  });
+
+  it('shows a long name whole in its tile on phone, three tiles across', async () => {
     const page = await signedIn(PHONE);
+    const name = page.getByTestId('harbour').getByText('builder-gateway', { exact: true });
+    await name.waitFor();
 
-    await page.getByTestId('harbour').getByRole('button', { name: 'builder: Working' }).tap();
-
-    const doing = page.getByTestId('harbour-tile-doing');
-    await doing.getByText('Building the harbour').waitFor();
-    await doing.getByRole('link', { name: 'Open ship' }).tap();
-    await page.waitForURL(/\/ships\/shp_/);
+    // Not cut short: the text takes no more room than its tile gives it.
+    await expect(name.evaluate('(element) => element.scrollWidth <= element.clientWidth')).resolves.toBe(true);
   });
 
   it("moves a ship's tile live when its crew reports blocked, without a reload", async () => {
     const page = await signedIn();
-    await page.getByTestId('harbour').getByRole('button', { name: 'builder: Working' }).waitFor();
+    await tileOf(page, 'builder').getByText('Working').waitFor();
 
     unwrap(await core.report(unwrap(builderCrew), { state: 'blocked', note: 'Waiting for a review' }));
 
-    await page.getByTestId('harbour').getByRole('button', { name: 'builder: Waiting' }).waitFor();
+    await tileOf(page, 'builder').getByText('Waiting').waitFor();
     await expect(numbersOf(page)).resolves.toMatchObject({ waiting: '2\nWaiting', working: '0\nWorking' });
   });
 });
