@@ -116,6 +116,8 @@ const ERROR_CODES: Record<DomainErrorKind, TRPCError['code']> = {
   KEY_NOT_BOUND_TO_FLEET: 'BAD_REQUEST',
   // The company's key vault refused or did not answer: nothing was stored or claimed, and a later call may pass (decision 0068).
   KEY_UNAVAILABLE: 'SERVICE_UNAVAILABLE',
+  // The server stops: a wake stream opened again after its backoff finds one that runs (long-poll design, L9).
+  SERVER_STOPPING: 'SERVICE_UNAVAILABLE',
   IN_REPLY_TO_NOT_FOUND: 'NOT_FOUND',
   MESSAGE_LIMIT_REACHED: 'FORBIDDEN',
   MEETING_WITHOUT_INVITEES: 'BAD_REQUEST',

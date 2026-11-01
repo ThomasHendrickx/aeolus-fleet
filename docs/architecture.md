@@ -8,7 +8,7 @@ Aeolus core is four npm packages and one Postgres database; the other release tr
 
 Inside the server, the domain contexts (Registry, Messaging, Identity, and Shared for the read models) are built as ports and adapters, so the domain never imports a framework or the database. Every fleet record belongs to a fleet (the tenant), so one installation hosts several fleets.
 
-The delivery guarantee lives in Postgres, not in application memory: a message is stored with its deliveries in one transaction before the sender gets an OK, and a delivery is claimed with row locks so two sessions can never take the same one. Postgres `LISTEN/NOTIFY` wakes waiting receivers and feeds live updates over WebSockets.
+The delivery guarantee lives in Postgres, not in application memory: a message is stored with its deliveries in one transaction before the sender gets an OK, and a delivery is claimed with row locks so two sessions can never take the same one. Postgres `LISTEN/NOTIFY` wakes waiting receivers and wake streams (decision 0072) and feeds live updates over WebSockets.
 
 How it runs is not part of the product. Your own setup (Hetzner, Docker Compose, Caddy) lives in a separate private infra repository; anyone else can run the packages wherever they like, within the hosting constraints described under Deployment.
 
@@ -32,6 +32,7 @@ The server has exactly one API door: a tRPC router. The web app calls it like an
 | Console procedures | A sign-in ticket, an account token, or argo's email and password once set; then the console session cookie | tRPC | Sign in (starts a console session crewing `argo`), sign out, and `console.session`: another service's server forwards the browser's cookie and learns whether the operator or a viewer is signed in (fleet, the fleet's name for the header's title, expiry, kind and scopes, or `UNAUTHORIZED`, with the `SIGNED_IN_ELSEWHERE` refusal when a sign-in elsewhere ended the session), so it serves its pages beside the console without a login of its own; `console.presentAccountToken` takes the account token pagasae gave the console's server and sets the `aeolus_account_token` cookie (httpOnly, Secure, SameSite=Strict, the session cookie's domain, for as long as the token lasts), from then on an account's sign-in, which `console.session` answers as kind `account` with its id; sign out clears it too; a browser on another site cannot present one (the console's server sends no Origin, a browser always does). `console.argoSignIn` answers an account its token allows as argo (`argo` claim, decision 0058), and no other caller, whether someone is signed in as argo and by which account, by its id, or none for argo's own sign-in, so the console warns before the account signs in as argo |
 | Installation procedures | The installation token, in the `x-aeolus-installation-token` header; never a crew token or console session | tRPC only | `installation.fleets.create`, `list`, `get`, `delete`: see Installation below |
 | Live subscriptions | Console session | tRPC over WebSocket | Fleet snapshot changes, inbox changes, delivery state changes |
+| The wake stream | The crew token, plus `messages:receive` | REST (`GET /api/v1/ship/wakeups`, server-sent events); tRPC subscription `ship.wakeups` | Tells a crew to look now, never carrying a delivery (decision 0072) |
 | Following the fleet | Any actor, plus `fleet:read` | tRPC, REST (`/api/v1/fleet/follow`, and `/api/v1/fleet/events` for the live stream), MCP (`fleet_follow`) | `fleet.follow`: the events after an event number, the same numbers the live subscription sends, waiting up to 25 seconds while none has come, woken by the same `NOTIFY` |
 
 The only procedures that exist purely for the web app are sign-in and live updates.
@@ -82,7 +83,7 @@ One server may host many fleets for a hosting service such as pagasae (decision 
 | Repositories per aggregate (the `*Repository` ports under `core/src/domain`) | Load and store aggregates, always scoped to one fleet | Prisma on Postgres |
 | `UnitOfWork` | Run a use case in one database transaction | Prisma interactive transaction |
 | `EventLog` | Append domain events: timeline, audit, live updates | Postgres table, written in the same transaction |
-| `Notifier` | Wake receivers and live subscriptions after commit | Postgres `LISTEN/NOTIFY` |
+| `Notifier` | Wake receivers, wake streams and live subscriptions after commit | Postgres `LISTEN/NOTIFY` |
 | `SecretHasher`, `PasswordHasher` | Hash ship secrets, crew tokens and session tokens (SHA-256); hash the operator password (Argon2id) | Node crypto for both (`crypto.argon2` for Argon2id) |
 | `KeyVault` | Make a data key under a company key, unwrap one, wrap a given one, rewrap from one company key to another; every call carries the encryption context `aeolus:fleet = <fleet id>` (decision 0068). Called outside every transaction | AWS KMS (`GenerateDataKey`, `Decrypt`, `Encrypt`, `ReEncrypt`), LocalStack in Testcontainers; in memory for unit tests |
 | `PayloadSealer` | Seal and unseal a payload with an unwrapped data key, bound to its fleet and row; the check value of a data key (decision 0068) | Node crypto (AES-256-GCM, HMAC-SHA-256) |
@@ -114,7 +115,7 @@ flowchart LR
 | --- | --- | --- | --- |
 | `/` | web | Operator | The Next.js console |
 | `/trpc` | server | Web app, TypeScript clients | The tRPC router, including WebSocket subscriptions |
-| `/api/v1` | server | Ships | REST generated from the ship procedures, with an OpenAPI spec whose description opens with the ship protocol |
+| `/api/v1` | server | Ships | REST generated from the ship procedures, with an OpenAPI spec whose description opens with the ship protocol, and the wake stream at `/api/v1/ship/wakeups` as server-sent events |
 | `/api/v1/docs` | server | Operator, ship builders | The ship REST API as a readable page (Scalar), rendered from the OpenAPI spec at `/api/v1/openapi.json`. Its assets are served by the server, not a CDN, and the page talks only to the fleet's own server |
 | `/mcp` | server | Ships | The ship procedures as a remote MCP server (streamable HTTP), with the ship protocol as its instructions. The connection carries no ship identity; each conversation registers and passes its crew token in the tool arguments (decision 0015) |
 | `/health` | server | Monitoring | Server up and database reachable. Nothing about fleets |
@@ -132,7 +133,7 @@ Anyone can run the packages on other hosting, within two constraints that come f
 | Package | Hosting requirement | Works on |
 | --- | --- | --- |
 | `console` | Any Next.js host | Vercel, any Node host, a container |
-| `core` | A long-running Node process: it holds WebSockets, long-poll receives and a `LISTEN` connection. Serverless functions cannot do this | Any VM or container host (Fly.io, Railway, Render, a VPS); not Vercel functions |
+| `core` | A long-running Node process: it holds WebSockets, wake streams, long-poll receives and a `LISTEN` connection. Serverless functions cannot do this | Any VM or container host (Fly.io, Railway, Render, a VPS); not Vercel functions |
 | `squadrons` (optional) | A long-running Node process with its own Postgres database (it may share the fleet's Postgres server), serving every fleet of the server with one connection each, switched per fleet by a hosting service with squadrons' own installation token (decision 0021), and no files of its own: it reads template repositories from `api.github.com`. It needs no public address: only the web app's server and the fleet's API talk to it or it to them, and it calls out to GitHub | Any VM or container host, next to the server |
 | `trierarch-plugin` (optional) | A long-running Node process beside squadrons, with a small Postgres database of its own holding only each fleet's connection and switch (it may share squadrons' Postgres server, in its own schema), serving every fleet of the server with one connection each, switched per fleet as squadrons is (decisions 0021, 0030). It needs no public address: only the web app's server and the fleet's API talk to it or it to them | Any VM or container host, next to the server |
 | `trierarch` (optional) | A long-running Node process on the machine where the sessions it crews run, kept alive by launchd or a systemd user unit, with its files under the operator's home folder. It needs no public address: it calls the fleet's API | The operator's own machine (a Mac, a Linux host) |
@@ -153,7 +154,7 @@ The stack mirrors your other projects (Next.js, tRPC, Prisma), with the few addi
 | Database access | Prisma with Prisma Migrate | The row-locking claim query and `LISTEN/NOTIFY` are written as typed raw SQL inside the Postgres adapter; the core never sees them |
 | Queue | Own tables with row locks | Deliveries are domain objects with their own states and history; no job library |
 | Validation | Zod schemas in `common` | One schema per message shape for tRPC, REST, MCP and web forms |
-| Live updates | tRPC subscriptions over WebSocket, fed by `LISTEN/NOTIFY` | Possible because the server is a dedicated long-running process |
+| Live updates | tRPC subscriptions over WebSocket, and the wake stream as server-sent events on REST, fed by `LISTEN/NOTIFY` | Possible because the server is a dedicated long-running process |
 | Operator auth | A one-use sign-in ticket or link, or argo's email and password (Argon2id) once set in Settings. Sign-in gives a random session token, stored as SHA-256, sent as an httpOnly secure cookie, valid 30 days after last use. The session crews `argo`; `argo` has no secret. No auth library | Decision 0012 |
 | Ship auth | Opaque secret `aeolus_sk_v1_…`, stored as SHA-256, used only to `register`; `register` returns a crew token `aeolus_ct_v1_…`, stored as SHA-256 with the lease, which every later call carries as a bearer token | Decisions 0002, 0015 |
 | Ids | Prefixed, time-ordered ids (decision 0005: `flt_`, `shp_`, `msg_`, `dlv_`, `evt_`, `lse_`, `crd_`, `opr_`, `ses_`, `lbl_`, `lbv_`, `rfs_`, `req_` for the gateway's pending requests, `mtg_` for meetings, `sch_` for schedules, `dky_` for data keys) with a lowercase ULID body | Every id shows what it refers to and sorts by creation time |

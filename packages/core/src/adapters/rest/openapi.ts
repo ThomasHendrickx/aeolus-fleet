@@ -13,6 +13,8 @@ export const API_TITLE = 'Aeolus ship API';
 
 const JSON_MEDIA_TYPE = 'application/json';
 
+const EVENT_STREAM_MEDIA_TYPE = 'text/event-stream';
+
 const ERROR_SCHEMA = {
   type: 'object',
   properties: {
@@ -54,32 +56,31 @@ function operationOf(call: ShipCall): Record<string, unknown> {
   };
 }
 
-/** A ship stream as an OpenAPI operation: GET, answered with server-sent events, its position in `Last-Event-ID`. */
+/** A ship stream as an OpenAPI operation: a GET for the crew token, answering server-sent events. */
 function streamOperationOf(stream: ShipStream): Record<string, unknown> {
   return {
-    operationId: stream.name,
+    operationId: stream.path.slice(stream.path.lastIndexOf('.') + 1),
     description: stream.description,
     security: [{ crewToken: [] }],
-    parameters: [
-      {
-        name: 'Last-Event-ID',
-        in: 'header',
-        required: false,
-        description: 'The id of the last event you read, to follow from after it.',
-        schema: { type: 'string' },
-      },
-    ],
+    ...(stream.position && {
+      parameters: [
+        {
+          name: stream.position.header,
+          in: 'header',
+          required: false,
+          description: 'The id of the last event you read, to follow on from after it.',
+          schema: { type: 'string' },
+        },
+      ],
+    }),
     responses: {
-      '200': {
-        description: 'Server-sent events: each with the id to send back as Last-Event-ID and the item as data; event: end with a refusal last; a comment every 25 s keeps a quiet stream open.',
-        content: { 'text/event-stream': { schema: stream.item } },
-      },
-      default: { description: 'Refused or failed.', content: { [JSON_MEDIA_TYPE]: { schema: { $ref: '#/components/schemas/Error' } } } },
+      '200': { description: 'The stream, as server-sent events.', content: { [EVENT_STREAM_MEDIA_TYPE]: { schema: { type: 'string' } } } },
+      default: { description: 'Refused or failed, before the stream opens.', content: { [JSON_MEDIA_TYPE]: { schema: { $ref: '#/components/schemas/Error' } } } },
     },
   };
 }
 
-/** The document for the given ship calls, a query without input as GET and the others as POST with a JSON body, then the streams as GET. */
+/** The document for the given ship calls, a query without input as GET and the others as POST with a JSON body, then the streams, each a GET. */
 export function openApiDocument(calls: readonly ShipCall[], streams: readonly ShipStream[]): Record<string, unknown> {
   return {
     openapi: '3.1.1',

@@ -86,6 +86,7 @@ export function createApp(options: AppOptions): FastifyInstance {
     prisma,
     clock,
     wakeups,
+    wakeStreams: wakeups,
     fleetEventWakeups: fleetEventWakeupsOf(fleetEvents),
     receiveWaitMs: options.receiveWaitMs,
     accountTokenSignatures: accountTokenSignaturesOf(options.accountTokenIssuer, clock),
@@ -175,7 +176,7 @@ export function createApp(options: AppOptions): FastifyInstance {
 
   // Before the server stops taking requests and waits for the ones it holds:
   // a waiting receive answers no deliveries at once instead of holding it up,
-  // and a live subscription ends.
+  // and a live subscription and every wake stream end.
   // Connections idle at that moment close at once (Fastify's default); one
   // whose request ends later is told to close with its answer, or it would
   // stay open, idle, until its keep-alive timeout.

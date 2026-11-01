@@ -242,4 +242,57 @@ describe('with an OTLP endpoint set', () => {
       expect(await sumOf('rpc.server.call.wait.duration', 'system.ping')).toEqual({ count: 0, seconds: 0 });
     });
   });
+
+  describe('a wake stream', () => {
+    /** The points of a counter, after a collect of its own, by their attributes. */
+    async function countsOf(counter: string) {
+      points.reset();
+      await metricReader.forceFlush();
+      return points
+        .getMetrics()
+        .flatMap((resource) => resource.scopeMetrics.flatMap((scope) => scope.metrics))
+        .filter((metric) => metric.descriptor.name === counter && metric.dataPointType === DataPointType.SUM)
+        .flatMap((metric) => metric.dataPoints.map((point) => ({ attributes: point.attributes, value: point.value })));
+    }
+
+    /** Opens a stream at the REST door and reads up to its first blank line: the open wake. */
+    async function openStream(address: string, closing: AbortController) {
+      const fleetId = core.state.fleets[0]?.id ?? expect.unreachable();
+      const { shipId } = addAgentShip(core, { fleetId });
+      const crewToken = crewShip(core, { fleetId, shipId });
+      const response = await fetch(`${address}/api/v1/ship/wakeups`, { headers: { authorization: `Bearer ${crewToken}` }, signal: closing.signal });
+      const reader = (response.body ?? expect.unreachable()).pipeThrough(new TextDecoderStream()).getReader();
+      let read = '';
+      const nextWake = async () => {
+        while (!read.includes('\n\n')) {
+          read += (await reader.read()).value ?? '';
+        }
+        read = read.slice(read.indexOf('\n\n') + 2);
+      };
+      await nextWake();
+      return { nextWake };
+    }
+
+    it('counts the streams open and the wakes sent by reason, apart from every duration histogram', async () => {
+      telemetry = await startTelemetry(ENDPOINT, { spanExporter: spans, metricReader });
+      start();
+      const address = await server.listen({ host: '127.0.0.1', port: 0 });
+      const closing = new AbortController();
+      const stream = await openStream(address, closing);
+
+      core.wakeStreams.wake('notice');
+      await stream.nextWake();
+
+      await expect(countsOf('aeolus.wake_stream.open')).resolves.toEqual([{ attributes: {}, value: 1 }]);
+      await expect(countsOf('aeolus.wake_stream.wakes')).resolves.toEqual([
+        { attributes: { reason: 'open' }, value: 1 },
+        { attributes: { reason: 'notice' }, value: 1 },
+      ]);
+      closing.abort();
+      await expect.poll(async () => countsOf('aeolus.wake_stream.open')).toEqual([{ attributes: {}, value: 0 }]);
+      expect(await callDurations('ship.wakeups')).toEqual([]);
+      const requests = await durationsOf('http.server.request.duration');
+      expect(requests.filter((point) => point.attributes['http.route'] === '/api/v1/ship/wakeups')).toEqual([]);
+    });
+  });
 });

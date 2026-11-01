@@ -63,8 +63,11 @@ import {
   type ShipReportOutput,
 } from '@aeolus-fleet/common';
 import { TRPCError } from '@trpc/server';
+import { z } from 'zod';
 
+import type { WakeReason, WakeStreamItem } from '../../domain/messaging/watch-wakeups.js';
 import type { ShipReport } from '../../domain/registry/ship-report.js';
+import { streamClosed, streamOpened, wakeSent } from '../telemetry/wake-streams.js';
 import { scheduleTimingOf, schedulesPageOf } from './schedule-output.js';
 import { listedPayloadOutputOf } from './listed-payload.js';
 
@@ -872,6 +875,39 @@ export const shipRouter = router({
     ),
 
   /**
+   * The crew's wake stream (long-poll design, W1): tells it to look now,
+   * never carrying a delivery. REST maps it to `GET /api/v1/ship/wakeups` as
+   * server-sent events (ship-contract.ts); MCP does not offer it. Measured
+   * apart from the calls (telemetry/wake-streams.ts).
+   */
+  wakeups: scopedCrewProcedure('messages:receive')
+    .meta({
+      description: [
+        'Needs messages:receive. Keeps a stream open that tells you to look now, as server-sent events; it never carries a delivery.',
+        'event: wake, with data {"reason":"open"} first, then {"reason":"notice"} once for each delivery made pending for your ship or its type, and {"reason":"reconnect"} when the server listens again:',
+        'on each, look with receive, pushReceive or inbox.',
+        'A comment line ": keep-alive" every 25 seconds without a wake; read nothing for 60 seconds and open it again.',
+        'event: end, with data {"code":"LEASE_ENDED","message":"..."}, once your lease ended: the stream closes, stop as on LEASE_ENDED.',
+        'Opening it without a held lease answers 401 LEASE_ENDED; while the server stops, 503.',
+      ].join(' '),
+    })
+    .subscription(async function* ({ ctx, signal }): AsyncGenerator<WakeStreamOutput> {
+      const closing = signal ?? new AbortController().signal;
+      const stream = okOrThrow(await ctx.useCases.watchWakeups(ctx.crew, closing));
+      streamOpened();
+      try {
+        for await (const item of stream) {
+          if (item.kind === 'wake') {
+            wakeSent(item.reason);
+          }
+          yield wakeStreamOutputOf(item);
+        }
+      } finally {
+        streamClosed();
+      }
+    }),
+
+  /**
    * Ends the calling crew's own lease, and with it its crew token: the ship
    * awaits a new crew, its secret stops working, and what it held in flight
    * returns to pending for the next crew. Needs only the crew token.
@@ -890,6 +926,25 @@ export const shipRouter = router({
       return {};
     }),
 });
+
+/** What a wake stream sends, as JSON: a wake by its reason, a keep-alive, or its end with the refusal's code and message. */
+export const wakeStreamOutputSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('wake'), reason: z.enum(['open', 'notice', 'reconnect'] satisfies WakeReason[]) }),
+  z.object({ kind: z.literal('keepAlive') }),
+  z.object({ kind: z.literal('end'), code: z.string(), message: z.string() }),
+]);
+
+export type WakeStreamOutput = z.infer<typeof wakeStreamOutputSchema>;
+
+function wakeStreamOutputOf(item: WakeStreamItem): WakeStreamOutput {
+  switch (item.kind) {
+    case 'wake':
+    case 'keepAlive':
+      return item;
+    case 'end':
+      return { kind: 'end', code: item.refusal.kind, message: item.refusal.message };
+  }
+}
 
 /** A report as a ship reads it: its time in ISO 8601, in UTC. */
 function reportOutputOf(report: ShipReport | null): ShipReportOutput | null {

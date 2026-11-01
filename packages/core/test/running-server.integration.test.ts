@@ -96,7 +96,55 @@ function pause(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** The next server-sent event of a stream read as a Node caller reads it, up to its blank line; undefined once it closed. */
+async function nextEvent(reader: ReadableStreamDefaultReader<string>, held: { read: string }): Promise<string | undefined> {
+  while (!held.read.includes('\n\n')) {
+    const { done, value } = await reader.read();
+    if (done) {
+      return undefined;
+    }
+    held.read += value;
+  }
+  const end = held.read.indexOf('\n\n');
+  const event = held.read.slice(0, end);
+  held.read = held.read.slice(end + 2);
+  return event;
+}
+
+async function openWakeStream(address: string, crewToken: string): Promise<{ next: () => Promise<string | undefined> }> {
+  const response = await fetch(`${address}/api/v1/ship/wakeups`, { headers: { authorization: `Bearer ${crewToken}` } });
+  expect(response.status).toBe(200);
+  const reader = (response.body ?? expect.unreachable('a stream has a body')).pipeThrough(new TextDecoderStream()).getReader();
+  const held = { read: '' };
+  return { next: () => nextEvent(reader, held) };
+}
+
 describe('the running server', () => {
+  it('wakes an open wake stream at /api/v1/ship/wakeups as soon as a send commits', async () => {
+    const { address } = await start();
+    const sender = await crewed(address, 'harbour');
+    const receiver = await crewed(address, 'mooring');
+    const stream = await openWakeStream(address, receiver.crewToken);
+    await expect(stream.next()).resolves.toBe('event: wake\ndata: {"reason":"open"}');
+
+    await client(address, sender.crewToken).ship.send.mutate(toShipNamed('mooring'));
+
+    await expect(stream.next()).resolves.toBe('event: wake\ndata: {"reason":"notice"}');
+  });
+
+  it('closes an open wake stream at once when it stops', async () => {
+    const { server, address } = await start();
+    const receiver = await crewed(address, 'mooring');
+    const stream = await openWakeStream(address, receiver.crewToken);
+    await stream.next();
+    const stoppingAt = performance.now();
+
+    await stop(server);
+
+    await expect(stream.next()).resolves.toBeUndefined();
+    expect(performance.now() - stoppingAt).toBeLessThan(STOPS_AT_ONCE_MS);
+  });
+
   it('wakes a waiting receive as soon as a send commits', async () => {
     const { address } = await start();
     const sender = await crewed(address, 'harbour');

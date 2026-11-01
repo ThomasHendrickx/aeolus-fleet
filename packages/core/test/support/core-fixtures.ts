@@ -38,6 +38,7 @@ import { createSignOut } from '../../src/domain/identity/sign-out.js';
 import { createAcknowledgeDelivery } from '../../src/domain/messaging/acknowledge-delivery.js';
 import { createAnswerPing } from '../../src/domain/messaging/answer-ping.js';
 import { createCheckInbox } from '../../src/domain/messaging/check-inbox.js';
+import { createWatchWakeups } from '../../src/domain/messaging/watch-wakeups.js';
 import { createMarkDone } from '../../src/domain/messaging/mark-done.js';
 import { createMarkRead } from '../../src/domain/messaging/mark-read.js';
 import { createHandOverDelivery } from '../../src/domain/messaging/hand-over-delivery.js';
@@ -415,6 +416,7 @@ export function messagingUseCases(core: InMemoryCore) {
     reportNotHandled: createReportNotHandled(deps),
     acknowledgeDelivery: createAcknowledgeDelivery(deps),
     checkInbox: createCheckInbox({ ...deps, wakeups: core.wakeups, fleetNews: core.fleetNews }),
+    watchWakeups: createWatchWakeups({ uow: core.uow, wakeStreams: core.wakeStreams }),
     dismissDelivery: createDismissDelivery({ ...deps, readReach: readReachOf(core) }),
     markDone: createMarkDone(deps),
     markRead: createMarkRead(deps),
