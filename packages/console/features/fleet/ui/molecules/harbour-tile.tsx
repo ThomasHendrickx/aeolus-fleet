@@ -9,9 +9,9 @@ import { HARBOUR_STATE_LOOK } from './harbour-state';
  * icon and word in the tone, the tile filled in the tone; an idle tile stays
  * plain. What the ship is doing (its report's note) is the tile's title,
  * "name: note", or "name: state" before it reports, as the mockup's markup
- * has it. A tap or click opens the ship's page (Thomas). On phone the
- * tile's sides are narrower, so a name such as builder-gateway shows whole
- * three tiles across.
+ * has it. A tap or click opens the ship's page (Thomas). On phone a long
+ * name wraps to a second line rather than being cut: three tiles across
+ * at 375 px leave too little room for builder-gateway on one line at 13 px.
  */
 export function HarbourTile({ tile }: { tile: Tile }) {
   const { word, Icon, text, fill } = HARBOUR_STATE_LOOK[tile.state];
@@ -21,11 +21,11 @@ export function HarbourTile({ tile }: { tile: Tile }) {
       data-testid="harbour-tile"
       title={`${tile.name}: ${tile.note ?? word}`}
       className={classNames(
-        'flex h-18 min-w-0 flex-col justify-between rounded-lg border px-2.5 py-2 outline-none focus-visible:ring-2 focus-visible:ring-ring max-sm:h-15.5 max-sm:px-1 max-sm:py-1.5',
+        'flex h-18 min-w-0 flex-col justify-between gap-1 rounded-lg border px-2.5 py-2 outline-none focus-visible:ring-2 focus-visible:ring-ring max-sm:h-auto max-sm:min-h-15.5 max-sm:px-2 max-sm:py-1.5',
         fill,
       )}
     >
-      <span className="truncate text-meta font-semibold text-foreground">{tile.name}</span>
+      <span className="truncate text-meta font-semibold text-foreground max-sm:line-clamp-2 max-sm:whitespace-normal max-sm:break-words">{tile.name}</span>
       <span className={classNames('inline-flex items-center gap-1 text-caption font-medium', text)}>
         <Icon aria-hidden className="size-3" />
         {word}

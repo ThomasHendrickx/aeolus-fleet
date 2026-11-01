@@ -13,7 +13,7 @@ const GROUP_LOOK: Record<HarbourGroupKind, { word: string; Icon: LucideIcon }> =
   gateway: { word: 'Through the gateway', Icon: Network },
 };
 
-const TILES = 'grid grid-cols-[repeat(auto-fill,132px)] gap-2 max-sm:grid-cols-3 max-sm:gap-1';
+const TILES = 'grid grid-cols-[repeat(auto-fill,132px)] gap-2 max-sm:grid-cols-3 max-sm:gap-1.5';
 
 /** The shape of a group that is coming, while the fleet is read. */
 const LOADING_TILES = ['first', 'second', 'third', 'fourth'] as const;
