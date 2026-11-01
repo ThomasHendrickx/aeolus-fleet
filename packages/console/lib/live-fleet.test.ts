@@ -33,6 +33,8 @@ describe('isShipChange', () => {
     'LabelAssigned',
     'LabelUnassigned',
     'LabelRetired',
+    'AlertRaised',
+    'AlertCleared',
   ] as const)(
     "changes a ship's row for %s",
     (type) => {
