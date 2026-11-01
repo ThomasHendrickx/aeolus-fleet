@@ -1,9 +1,10 @@
+import { HARBOUR_STATES } from '@aeolus-fleet/common/rules';
 import { Ship } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { classNames } from '@aeolus-fleet/ui';
 import { Skeleton } from '../../../../components/atoms/skeleton';
-import { HARBOUR_STATES, type Harbour } from '../../services/harbour';
+import type { Harbour } from '../../services/harbour';
 import { HARBOUR_STATE_LOOK } from './harbour-state';
 
 function NumberCard({ value, word, icon, testId, className, valueClassName }: { value: number | undefined; word: string; icon: ReactNode; testId: string; className?: string; valueClassName?: string }) {

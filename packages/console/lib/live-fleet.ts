@@ -1,4 +1,4 @@
-import type { EventType, FleetStreamItem, ListedShip, ShipId, ShipOutsideReadReach } from '@aeolus-fleet/common';
+import type { EventType, FleetStreamItem, HarbourOutput, ListedShip, ShipId, ShipOutsideReadReach } from '@aeolus-fleet/common';
 import type { AppRouter } from '@aeolus-fleet/core';
 import { useQueryClient, type InfiniteData, type QueryClient } from '@tanstack/react-query';
 import { useSubscription, type TRPCOptionsProxy } from '@trpc/tanstack-react-query';
@@ -89,7 +89,7 @@ type ShipRow = ListedShip | ShipOutsideReadReach;
  * for one more read once it ends. A row that cannot be read is left as it
  * is; the pages read again by themselves (LAST_SEEN_REFRESH_MS).
  */
-export function createShipRowReloads(input: { readRow: (shipId: ShipId) => Promise<ShipRow>; writeRow: (row: ShipRow) => void }): (shipId: ShipId) => void {
+export function createShipRowReloads<Row = ShipRow>(input: { readRow: (shipId: ShipId) => Promise<Row>; writeRow: (row: Row) => void }): (shipId: ShipId) => void {
   const reading = new Set<ShipId>();
   const readAgain = new Set<ShipId>();
 
@@ -144,6 +144,61 @@ export function withListedShipOnPages(pages: InfiniteData<ShipPage>, row: ShipRo
   }
   const [first, ...rest] = pages.pages;
   return first === undefined ? pages : { ...pages, pages: [{ ...first, items: [row, ...first.items] }, ...rest] };
+}
+
+/** A page of Harbour's tiles as `fleet.harbour` answers it. */
+type HarbourPage = HarbourOutput;
+type HarbourTile = HarbourOutput['items'][number];
+
+/**
+ * Harbour's loaded pages with a ship's tile as read alone: in its place, or
+ * first on the first page when no page shows it; taken off every page when
+ * Harbour no longer shows the ship (retired, or out of read reach).
+ */
+export function withHarbourTile(pages: InfiniteData<HarbourPage>, read: { shipId: ShipId; tile: HarbourTile | undefined }): InfiniteData<HarbourPage> {
+  const { shipId, tile } = read;
+  if (tile === undefined) {
+    return { ...pages, pages: pages.pages.map((page) => ({ ...page, items: page.items.filter((each) => each.id !== shipId) })) };
+  }
+  if (pages.pages.some((page) => page.items.some((each) => each.id === shipId))) {
+    return { ...pages, pages: pages.pages.map((page) => ({ ...page, items: page.items.map((each) => (each.id === shipId ? tile : each)) })) };
+  }
+  const [first, ...rest] = pages.pages;
+  return first === undefined ? pages : { ...pages, pages: [{ ...first, items: [tile, ...first.items] }, ...rest] };
+}
+
+/** Harbour's loaded pages with the numbers read again on the first page. */
+function withHarbourCounts(pages: InfiniteData<HarbourPage>, counts: HarbourPage['counts']): InfiniteData<HarbourPage> {
+  const [first, ...rest] = pages.pages;
+  return first === undefined ? pages : { ...pages, pages: [{ ...first, counts }, ...rest] };
+}
+
+/** Reads something again after live events, at most one read at a time, and once more after it for the events that came meanwhile. */
+function createSingleReload(readAndWrite: () => Promise<void>): () => void {
+  // As createShipRowReloads keeps them, for the one thing it reads.
+  const reading = new Set<'read'>();
+  const readAgain = new Set<'read'>();
+  const readUntilCurrent = async () => {
+    reading.add('read');
+    try {
+      do {
+        readAgain.delete('read');
+        await readAndWrite();
+      } while (readAgain.has('read'));
+    } catch {
+      // Left as they are: a resync reads them again.
+    } finally {
+      reading.delete('read');
+      readAgain.delete('read');
+    }
+  };
+  return () => {
+    if (reading.has('read')) {
+      readAgain.add('read');
+    } else {
+      void readUntilCurrent();
+    }
+  };
 }
 
 export function isShipChange(type: EventType): boolean {
@@ -263,6 +318,22 @@ export function createLiveFleetHandler(input: {
       }
     },
   });
+  // Harbour's pages (features/fleet/hooks/harbour.ts): a ship's tile read alone, and the numbers, never the fleet again.
+  const harbourKey: readonly unknown[] = [...trpc.fleet.harbour.infiniteQueryKey()];
+  const isHarbourLoaded = () => queryClient.getQueriesData<InfiniteData<HarbourPage>>({ queryKey: harbourKey }).some(([, pages]) => pages !== undefined);
+  const reloadTile = createShipRowReloads<{ shipId: ShipId; tile: HarbourTile | undefined }>({
+    readRow: async (shipId) => {
+      const read = await queryClient.query({ ...trpc.fleet.harbour.queryOptions({ shipIds: [shipId] }), staleTime: 0 });
+      return { shipId, tile: read.items[0] };
+    },
+    writeRow: (read) => {
+      queryClient.setQueriesData<InfiniteData<HarbourPage>>({ queryKey: harbourKey }, (pages) => pages && withHarbourTile(pages, read));
+    },
+  });
+  const reloadHarbourCounts = createSingleReload(async () => {
+    const { counts } = await queryClient.query({ ...trpc.fleet.harbour.queryOptions({ limit: 1 }), staleTime: 0 });
+    queryClient.setQueriesData<InfiniteData<HarbourPage>>({ queryKey: harbourKey }, (pages) => pages && withHarbourCounts(pages, counts));
+  });
   const reloadStuck = () => {
     reload(trpc.fleet.stuckCount.queryKey());
     reload(trpc.fleet.stuckSummary.queryKey());
@@ -332,6 +403,14 @@ export function createLiveFleetHandler(input: {
           reloadRow(concerned);
         }
       }
+    }
+    if (isHarbourLoaded()) {
+      for (const concerned of new Set([event.shipId, event.actorShipId])) {
+        if (concerned !== null) {
+          reloadTile(concerned);
+        }
+      }
+      reloadHarbourCounts();
     }
     // A commission, a crew, a release or a crew request moves the ship counts: the fleet's and each view's.
     reload(trpc.fleet.shipCounts.pathKey());

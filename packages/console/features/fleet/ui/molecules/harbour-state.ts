@@ -1,6 +1,6 @@
 import { CircleAlert, CirclePause, CirclePlay, Hourglass, type LucideIcon } from 'lucide-react';
 
-import type { HarbourState } from '../../services/harbour';
+import type { HarbourState } from '@aeolus-fleet/common/rules';
 
 /**
  * Each Harbour state with its word, icon and tone classes
