@@ -2,7 +2,9 @@
 
 Design for [#1571](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1571), from the investigation on [#1569](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1569#issuecomment-6561940831). The purpose (section 1) waits for Thomas's agreement; the lessons, the questions, the flow diagram and the mockups follow once it is agreed.
 
-Thomas, 1 Nov: "now argo is just a hidden box of problems and the biggest issues are being send to argo. So this is a big incident waiting to happen that could have been prevented having read the messages of argo."
+Thomas, 1 Nov:
+1. "now argo is just a hidden box of problems and the biggest issues are being send to argo. So this is a big incident waiting to happen that could have been prevented having read the messages of argo."
+2. "But make sure that it is clear if it is for argo or just the person."
 
 ## 1. Purpose
 
@@ -15,7 +17,8 @@ Who must learn, and how fast: every account allowed to sign in as argo, through 
 The outcomes:
 1. A person who may act as argo learns that something waits at argo, and what it is from its headline, without the console open.
 2. From there, acting on it as argo is one step away.
-3. What one of them handled is handled for all of them, and nobody is told again of it.
+3. Wherever a person sees what waits at argo (Bridge, Slack, a chat), it is plainly marked as argo's, apart from what is for that person alone.
+4. What one of them handled is handled for all of them, and nobody is told again of it.
 
 Not the purpose:
 - **No change to the delivery guarantee.** Core stores and delivers as it does; a message to argo stays argo's, in argo's inbox.
