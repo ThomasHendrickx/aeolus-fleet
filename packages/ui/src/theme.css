@@ -81,6 +81,8 @@
   --text-meta--line-height: var(--text-meta--line-height);
   --text-body: var(--text-body);
   --text-body--line-height: var(--text-body--line-height);
+  --text-prose: var(--text-prose);
+  --text-prose--line-height: var(--text-prose--line-height);
   --text-section: var(--text-section);
   --text-section--line-height: var(--text-section--line-height);
   --text-body-touch: var(--text-body-touch);
