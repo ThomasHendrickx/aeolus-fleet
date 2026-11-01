@@ -51,7 +51,7 @@ export function LoadingSkeleton({ variant, rows = DEFAULT_ROWS, label = 'Loading
       {variant === 'cards' ? (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {rowKeys(METRIC_CARDS).map((key) => (
-            <div key={key} className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
+            <div key={key} className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3">
               <Skeleton className="h-2.5 w-20" />
               <Skeleton className="h-6 w-10" />
               <Skeleton className="h-2.5 w-28" />

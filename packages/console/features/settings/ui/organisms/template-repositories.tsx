@@ -220,7 +220,7 @@ export function TemplateRepositories(props: TemplateRepositoriesProps) {
   const { repositories, catalogue, state, error, onRetry, isRemoving, removeError, onRemove, onRemoveClosed, isRefreshing, refreshError, onRefresh, now } = props;
   const [removing, setRemoving] = useState<string | undefined>(undefined);
   return (
-    <section aria-labelledby="settings-repositories" data-testid="settings-repositories" className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
+    <section aria-labelledby="settings-repositories" data-testid="settings-repositories" className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3">
       <div className="flex items-center justify-between gap-3">
         <h2 id="settings-repositories" className="text-body font-semibold">
           Repositories

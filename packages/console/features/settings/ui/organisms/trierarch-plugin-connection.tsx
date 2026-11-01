@@ -39,7 +39,7 @@ export function TrierarchPluginConnection({ settings, loadError, onRetry, isConn
     return <LoadingSkeleton variant="detail" rows={2} label="Loading the trierarch plugin" />;
   }
   return (
-    <section aria-labelledby="settings-trierarchs" data-testid="settings-trierarchs" className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
+    <section aria-labelledby="settings-trierarchs" data-testid="settings-trierarchs" className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3">
       <h2 id="settings-trierarchs" className="flex items-center gap-2 text-body font-semibold [&_svg]:size-(--size-icon) [&_svg]:text-muted-foreground">
         <ShipWheel aria-hidden />
         Trierarchs

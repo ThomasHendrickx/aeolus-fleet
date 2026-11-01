@@ -41,7 +41,7 @@ export function LimitMeter({ kind, count, limit, resetsAt }: LimitMeterProps) {
   // A limit of 0 is reached at once: the bar is full, not divided by zero.
   const filled = limit === null ? 0 : limit === 0 ? 1 : Math.min(count / limit, 1);
   return (
-    <div data-testid={`limit-meter-${kind}`} data-state={state} className="flex flex-col gap-2 rounded-lg border border-border bg-card p-4">
+    <div data-testid={`limit-meter-${kind}`} data-state={state} className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3">
       <div className="flex items-center justify-between gap-2">
         <span className="inline-flex items-center gap-1.5 text-meta font-medium text-muted-foreground">
           <Icon aria-hidden className="size-(--size-icon-sm)" />

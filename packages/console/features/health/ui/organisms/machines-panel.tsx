@@ -31,7 +31,7 @@ interface MachinesPanelProps {
  */
 export function MachinesPanel({ machines, stuckByMachine, renderLiveness }: MachinesPanelProps) {
   return (
-    <section aria-labelledby="health-machines" data-testid="health-machines" className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3 max-sm:rounded-xl">
+    <section aria-labelledby="health-machines" data-testid="health-machines" className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3">
       <header className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 id="health-machines" className="text-section font-semibold text-foreground">
           Machines

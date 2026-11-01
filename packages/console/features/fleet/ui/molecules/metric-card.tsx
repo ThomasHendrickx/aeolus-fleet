@@ -40,7 +40,7 @@ export function MetricCard({ label, shortLabel, value, detail, href, icon: Icon,
     <Link
       href={href}
       data-testid={testId}
-      className="flex min-w-0 flex-col gap-2 rounded-lg border border-border bg-card px-3.5 py-3 transition-colors duration-(--duration-fast) hover:bg-accent max-sm:gap-1.5 max-sm:rounded-xl max-sm:px-3.5 max-sm:py-3"
+      className="flex min-w-0 flex-col gap-2 rounded-lg border border-border bg-card p-3 transition-colors duration-(--duration-fast) hover:bg-accent max-sm:gap-1.5 max-sm:px-3.5 max-sm:py-3"
     >
       <span className="flex items-center justify-between gap-2 text-meta font-medium text-muted-foreground">
         <span className="max-sm:hidden">{label}</span>

@@ -49,7 +49,7 @@ export function FleetReachGraph({ ships, search, sailingShipCount, pickedShipId,
   const reached = nodes.filter((node) => node.mark === 'reached');
 
   return (
-    <section aria-labelledby="network-reach" data-testid="network-reach" className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
+    <section aria-labelledby="network-reach" data-testid="network-reach" className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3">
       <h2 id="network-reach" className="text-body font-semibold">
         Reach
       </h2>

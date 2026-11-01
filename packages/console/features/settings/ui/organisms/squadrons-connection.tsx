@@ -37,7 +37,7 @@ export function SquadronsConnection({ settings, loadError, onRetry, isConnecting
     return null;
   }
   return (
-    <section aria-labelledby="settings-squadrons" data-testid="settings-squadrons" className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
+    <section aria-labelledby="settings-squadrons" data-testid="settings-squadrons" className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3">
       <h2 id="settings-squadrons" className="text-body font-semibold">
         Squadrons
       </h2>

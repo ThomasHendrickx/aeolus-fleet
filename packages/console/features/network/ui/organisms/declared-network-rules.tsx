@@ -75,7 +75,7 @@ export function DeclaredNetworkRules({ declared, error, onRetry, context }: Decl
   }
 
   return (
-    <section aria-labelledby="network-declared" data-testid="network-declared" className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
+    <section aria-labelledby="network-declared" data-testid="network-declared" className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3">
       <h2 id="network-declared" className="text-body font-semibold">
         Declared by plugins and the installation
       </h2>
