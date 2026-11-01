@@ -71,7 +71,7 @@ function streamOperationOf(stream: ShipStream): Record<string, unknown> {
     ],
     responses: {
       '200': {
-        description: 'Server-sent events: each with the id to send back as Last-Event-ID and the item as data; event: end with a refusal last.',
+        description: 'Server-sent events: each with the id to send back as Last-Event-ID and the item as data; event: end with a refusal last; a comment every 25 s keeps a quiet stream open.',
         content: { 'text/event-stream': { schema: stream.item } },
       },
       default: { description: 'Refused or failed.', content: { [JSON_MEDIA_TYPE]: { schema: { $ref: '#/components/schemas/Error' } } } },

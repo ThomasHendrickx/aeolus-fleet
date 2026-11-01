@@ -10,7 +10,7 @@
  * (ADR 0015); `register` takes the ship secret in its body instead. The
  * console session cookie is never read here: REST is a door for ships.
  */
-import { Readable } from 'node:stream';
+import { PassThrough, type Readable } from 'node:stream';
 
 import fastifyApiReference from '@scalar/fastify-api-reference';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
@@ -32,21 +32,44 @@ export interface RestApiOptions {
 }
 
 /**
+ * How often a stream sends a comment, so a quiet fleet's stream is not
+ * dropped as idle by a proxy or the client's own timeout.
+ */
+const KEEP_ALIVE_MS = 25_000;
+
+/** One stream message as server-sent event text. */
+function serverSentEventOf(message: ShipStreamMessage): string {
+  switch (message.kind) {
+    case 'item':
+      return `id: ${message.id}\ndata: ${JSON.stringify(message.data)}\n\n`;
+    case 'end':
+      return `event: end\ndata: ${JSON.stringify(refusalBody(message.refusal))}\n\n`;
+  }
+}
+
+/**
  * A stream's messages as server-sent events: each item with its id, so a
  * client that opens again sends the last as `Last-Event-ID`, and a refusal as
- * `event: end` before the stream closes.
+ * `event: end` before the stream closes; a keep-alive comment between them.
  */
-async function* serverSentEventsOf(messages: AsyncIterable<ShipStreamMessage>): AsyncGenerator<string> {
-  for await (const message of messages) {
-    switch (message.kind) {
-      case 'item':
-        yield `id: ${message.id}\ndata: ${JSON.stringify(message.data)}\n\n`;
-        break;
-      case 'end':
-        yield `event: end\ndata: ${JSON.stringify(refusalBody(message.refusal))}\n\n`;
-        break;
+function serverSentEventsOf(messages: AsyncIterable<ShipStreamMessage>): Readable {
+  const events = new PassThrough();
+  const keepAlive = setInterval(() => {
+    events.write(': keep-alive\n\n');
+  }, KEEP_ALIVE_MS);
+  void (async () => {
+    for await (const message of messages) {
+      events.write(serverSentEventOf(message));
     }
-  }
+  })()
+    .catch((thrown: unknown) => {
+      events.destroy(thrown instanceof Error ? thrown : new Error(String(thrown)));
+    })
+    .finally(() => {
+      clearInterval(keepAlive);
+      events.end();
+    });
+  return events;
 }
 
 /** Mounts `/api/v1` on the HTTP server: a query without input as GET, the others as POST with a JSON body, and the fleet's events as GET. */
@@ -112,7 +135,7 @@ export function registerRestApi(server: FastifyInstance, options: RestApiOptions
       return await reply
         .header('content-type', 'text/event-stream')
         .header('cache-control', 'no-cache')
-        .send(Readable.from(serverSentEventsOf(opened.messages)));
+        .send(serverSentEventsOf(opened.messages));
     } catch (thrown) {
       const refusal = unexpectedFailure(thrown, { log: request.log, requestId: request.id });
       return await reply.code(refusal.httpStatus).send(refusalBody(refusal));
