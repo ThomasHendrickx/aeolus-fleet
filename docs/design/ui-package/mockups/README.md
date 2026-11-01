@@ -18,7 +18,7 @@ Thomas, 31 Oct: "Scope picker of gateway, the rest can be console".
 
 ## The look: Compact
 
-Thomas, 31 Oct: "ui -> compact (option 1)". Built in its own slice, U4 ([README](../README.md), section 7): until then `tokens.css` and the parts draw today's look.
+Thomas, 31 Oct: "ui -> compact (option 1)". Built in slice U4 ([README](../README.md), section 7): `tokens.css` and the parts draw it.
 
 | | Today | Compact |
 | --- | --- | --- |
