@@ -1,4 +1,4 @@
-import type { FleetId } from '@aeolus-fleet/common';
+import type { FleetId, ShipId } from '@aeolus-fleet/common';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -100,7 +100,8 @@ const operationSchema = z.object({
     z.string(),
     z.object({
       description: z.string(),
-      content: z.object({ 'application/json': z.object({ schema: z.record(z.string(), z.unknown()) }) }),
+      // JSON for a call; server-sent events for the wake stream.
+      content: z.record(z.string(), z.object({ schema: z.record(z.string(), z.unknown()) })),
     }),
   ),
 });
@@ -149,7 +150,7 @@ describe('the OpenAPI spec at /api/v1/openapi.json', () => {
     expect(document.info.description.startsWith(`${SHIP_PROTOCOL}\n\n`)).toBe(true);
   });
 
-  it('lists every ship procedure, then the fleet actions: a query without input to GET, the others to POST', async () => {
+  it('lists every ship procedure, then the fleet actions, then the wake stream: a query without input to GET, the others to POST', async () => {
     start();
 
     const { paths } = await spec();
@@ -251,6 +252,7 @@ describe('the OpenAPI spec at /api/v1/openapi.json', () => {
       ['/fleet/openAlerts', ['post']],
       ['/fleet/checkManage', ['post']],
       ['/fleet/limits', ['get']],
+      ['/ship/wakeups', ['get']],
     ]);
   });
 
@@ -291,7 +293,7 @@ describe('the OpenAPI spec at /api/v1/openapi.json', () => {
       required: ['selector', 'payload', 'model', 'idempotencyKey'],
       properties: { inReplyTo: { type: 'string', pattern: `^msg_${ID_BODY}$` } },
     });
-    expect(send.responses['200']?.content['application/json'].schema).toMatchObject({
+    expect(send.responses['200']?.content['application/json']?.schema).toMatchObject({
       type: 'object',
       properties: { messageId: { pattern: `^msg_${ID_BODY}$` } },
     });
@@ -311,7 +313,7 @@ describe('the OpenAPI spec at /api/v1/openapi.json', () => {
     const document = await spec();
     const ack = await operation('/ship/ack', 'post');
 
-    expect(ack.responses.default?.content['application/json'].schema).toEqual({ $ref: '#/components/schemas/Error' });
+    expect(ack.responses.default?.content['application/json']?.schema).toEqual({ $ref: '#/components/schemas/Error' });
     expect(document.components.schemas.Error).toMatchObject({
       type: 'object',
       required: ['code', 'message'],
@@ -729,5 +731,144 @@ describe('a failure inside the REST adapter, outside any procedure', () => {
 
     expect(response.statusCode).toBe(400);
     expect(response.body).not.toContain('Internal error');
+  });
+});
+
+/** One server-sent event as a client reads it: its event name and data, or a comment line alone. */
+interface ReadEvent {
+  event?: string;
+  data?: unknown;
+  comment?: string;
+}
+
+/**
+ * The events of a server-sent event stream, read as a Node caller reads it:
+ * fetch, then the body line by line, an event ending at a blank line.
+ */
+async function* eventsOf(response: Response): AsyncGenerator<ReadEvent> {
+  const reader = (response.body ?? expect.unreachable('a stream has a body')).pipeThrough(new TextDecoderStream()).getReader();
+  let buffered = '';
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) {
+      return;
+    }
+    buffered += value;
+    let end = buffered.indexOf('\n\n');
+    while (end !== -1) {
+      const read: ReadEvent = {};
+      for (const line of buffered.slice(0, end).split('\n')) {
+        if (line.startsWith(':')) {
+          read.comment = line.slice(1).trim();
+        } else if (line.startsWith('event: ')) {
+          read.event = line.slice('event: '.length);
+        } else if (line.startsWith('data: ')) {
+          read.data = JSON.parse(line.slice('data: '.length));
+        }
+      }
+      yield read;
+      buffered = buffered.slice(end + 2);
+      end = buffered.indexOf('\n\n');
+    }
+  }
+}
+
+describe('the wake stream at GET /api/v1/ship/wakeups', () => {
+  let address: string;
+  const opened: AbortController[] = [];
+
+  beforeEach(async () => {
+    start();
+    address = await server.listen({ host: '127.0.0.1', port: 0 });
+  });
+
+  afterEach(() => {
+    for (const stream of opened.splice(0)) {
+      stream.abort();
+    }
+  });
+
+  function openStream(crewToken: string): Promise<Response> {
+    const stream = new AbortController();
+    opened.push(stream);
+    return fetch(`${address}/api/v1/ship/wakeups`, { headers: { authorization: `Bearer ${crewToken}` }, signal: stream.signal });
+  }
+
+  /** Ends the ship's open lease in the state, as a release ends it. */
+  function endLeaseOf(shipId: ShipId): void {
+    const leaseId = openLeaseOf(core, shipId);
+    core.state.leases = core.state.leases.map((lease) => (lease.id === leaseId ? { ...lease, endedAt: core.clock.now() } : lease));
+  }
+
+  async function nextEvent(events: AsyncGenerator<ReadEvent>): Promise<ReadEvent | 'closed'> {
+    const next = await events.next();
+    return next.done === true ? 'closed' : next.value;
+  }
+
+  it('answers server-sent events, the first a wake with reason open', async () => {
+    const response = await openStream(crewedShip());
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toMatch(/^text\/event-stream/);
+    await expect(nextEvent(eventsOf(response))).resolves.toEqual({ event: 'wake', data: { reason: 'open' } });
+  });
+
+  it('sends a wake for each notice and a keep-alive comment when 25 s pass without one', async () => {
+    const events = eventsOf(await openStream(crewedShip()));
+    await nextEvent(events);
+
+    core.wakeStreams.wake('notice');
+    await expect(nextEvent(events)).resolves.toEqual({ event: 'wake', data: { reason: 'notice' } });
+    core.wakeStreams.passKeepAlive();
+    await expect(nextEvent(events)).resolves.toEqual({ comment: 'keep-alive' });
+  });
+
+  it('sends event end with LEASE_ENDED once the lease ended, and closes', async () => {
+    const { shipId } = addAgentShip(core, { fleetId });
+    const events = eventsOf(await openStream(crewShip(core, { fleetId, shipId })));
+    await nextEvent(events);
+    endLeaseOf(shipId);
+
+    core.wakeStreams.passKeepAlive();
+
+    await expect(nextEvent(events)).resolves.toEqual({ event: 'end', data: { code: 'LEASE_ENDED', message: 'This ship was released; this session no longer crews it.' } });
+    await expect(nextEvent(events)).resolves.toBe('closed');
+  });
+
+  it('refuses a crew token whose lease ended with 401 LEASE_ENDED, as any ship call', async () => {
+    const { shipId } = addAgentShip(core, { fleetId });
+    const crewToken = crewShip(core, { fleetId, shipId });
+    endLeaseOf(shipId);
+
+    const response = await openStream(crewToken);
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toMatchObject({ code: 'LEASE_ENDED' });
+  });
+
+  it('refuses a stream while the server stops with 503', async () => {
+    core.wakeStreams.stop();
+
+    const response = await openStream(crewedShip());
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({ code: 'SERVICE_UNAVAILABLE' });
+  });
+
+  it('closes the stream when the server stops', async () => {
+    const events = eventsOf(await openStream(crewedShip()));
+    await nextEvent(events);
+
+    core.wakeStreams.stop();
+
+    await expect(nextEvent(events)).resolves.toBe('closed');
+  });
+
+  it('is listed in the spec as server-sent events, for the crew token', async () => {
+    const wakeups = await operation('/ship/wakeups', 'get');
+
+    expect(wakeups.security).toEqual([{ crewToken: [] }]);
+    expect(Object.keys(wakeups.responses['200']?.content ?? {})).toEqual(['text/event-stream']);
+    expect(wakeups.description).toContain('event: wake');
   });
 });

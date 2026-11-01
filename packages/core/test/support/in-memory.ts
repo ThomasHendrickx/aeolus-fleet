@@ -31,6 +31,8 @@ import type {
   PushedCrews,
   ReceiverAddress,
   ReceiverWakeups,
+  WakeStreamOutcome,
+  WakeStreams,
   ScheduleAttempts,
   ScheduleNotice,
   ScheduleNotifier,
@@ -293,6 +295,23 @@ export interface InMemoryWakeups extends ReceiverWakeups {
   watching(): number;
 }
 
+/**
+ * The wake streams' hub, played by the test: `wake` wakes every open stream
+ * once, `passKeepAlive` lets each stream's wait run out, and `stop` ends every
+ * stream and refuses new ones, as a stopping server does.
+ */
+export interface InMemoryWakeStreams extends WakeStreams {
+  /** Every ship and type a stream watched, in order. */
+  opened: ReceiverAddress[];
+  /** Every wait a stream began, in milliseconds. */
+  waits: number[];
+  /** How many streams watch and have not stopped. */
+  watching(): number;
+  wake(reason: 'notice' | 'reconnect'): void;
+  passKeepAlive(): void;
+  stop(): void;
+}
+
 export interface InMemoryFleetNews extends FleetEventWakeups {
   /** Every fleet a wait watched for news, in order. */
   watched: FleetId[];
@@ -371,6 +390,7 @@ export interface InMemoryCore {
   passwords: PasswordHasher;
   random: RandomTokens;
   wakeups: InMemoryWakeups;
+  wakeStreams: InMemoryWakeStreams;
   /** Wakes a wait on news of its fleet: any committed event. */
   fleetNews: InMemoryFleetNews;
 }
@@ -2080,6 +2100,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
   const receiverWatches = recordedWatches<ReceiverAddress>([]);
   const wakeups: InMemoryWakeups = { ...receiverWatches, watch: (address) => receiverWatches.watch({ ...address }) };
   const fleetNews: InMemoryFleetNews = recordedWatches<FleetId>([]);
+  const wakeStreams = inMemoryWakeStreams();
 
   const numbered = (fleetId: FleetId) => numberedEvents(state, fleetId);
   const feed: FleetEventFeed = {
@@ -2542,7 +2563,7 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     },
   };
 
-  return { state, uow, fleets: tx.fleets, scheduleAttempts, pushedCrews, ships: tx.ships, leases: tx.leases, crewRequests: tx.crewRequests, clearRequests: tx.clearRequests, labels: tx.labels, reachRefusals: tx.reachRefusals, declaredNetworkRules: tx.declaredNetworkRules, scopeNamespaces: tx.scopeNamespaces, definedScopes: tx.definedScopes, sealings: tx.sealings, featureFlags: tx.featureFlags, featureFlagReads: { source: { kind: 'installation' }, flags: tx.featureFlags }, keyVault, recoveryKeys: inMemoryRecoveryKeys, sealing: { sealer: inMemoryPayloadSealer, dataKeys: createFleetDataKeys({ sealings: tx.sealings, vault: keyVault.vault, sealer: inMemoryPayloadSealer, recoveryKeys: inMemoryRecoveryKeys, clock, uow, ids }) }, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, health: healthRecords, healthSnapshots, notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeups, fleetNews };
+  return { state, uow, fleets: tx.fleets, scheduleAttempts, pushedCrews, ships: tx.ships, leases: tx.leases, crewRequests: tx.crewRequests, clearRequests: tx.clearRequests, labels: tx.labels, reachRefusals: tx.reachRefusals, declaredNetworkRules: tx.declaredNetworkRules, scopeNamespaces: tx.scopeNamespaces, definedScopes: tx.definedScopes, sealings: tx.sealings, featureFlags: tx.featureFlags, featureFlagReads: { source: { kind: 'installation' }, flags: tx.featureFlags }, keyVault, recoveryKeys: inMemoryRecoveryKeys, sealing: { sealer: inMemoryPayloadSealer, dataKeys: createFleetDataKeys({ sealings: tx.sealings, vault: keyVault.vault, sealer: inMemoryPayloadSealer, recoveryKeys: inMemoryRecoveryKeys, clock, uow, ids }) }, callers, accounts, listing, installationFleets, installationSettings: installationSettingsRepository, fleetLimitReads, feed, history, health: healthRecords, healthSnapshots, notices, noticeDismissals, guide, guideProgress, clock, ids, hasher, passwords, random, wakeups, wakeStreams, fleetNews };
 }
 
 /** The tables whose rows belong to a fleet by their fleet id: all but the fleets and the installation's requests. */
@@ -2650,4 +2671,73 @@ function isFlagRow(held: { fleetId: FleetId; flag: string }, key: { fleetId: Fle
 
 function isClearRequestKey(held: ClearRequest, key: { trierarchShipId: ClearRequest['trierarchShipId']; shipId: ClearRequest['shipId']; repository: string }): boolean {
   return held.trierarchShipId === key.trierarchShipId && held.shipId === key.shipId && held.repository === key.repository;
+}
+
+/** The wake streams' hub as InMemoryWakeStreams says: what comes to a stream that is not waiting is kept for its next wait. */
+function inMemoryWakeStreams(): InMemoryWakeStreams {
+  interface Stream {
+    kept: WakeStreamOutcome[];
+    settle?: (outcome: WakeStreamOutcome) => void;
+  }
+  const opened: ReceiverAddress[] = [];
+  const waits: number[] = [];
+  const streams = new Set<Stream>();
+  let isStopped = false;
+  const tell = (outcome: WakeStreamOutcome) => {
+    for (const stream of streams) {
+      if (stream.settle) {
+        stream.settle(outcome);
+      } else {
+        stream.kept.push(outcome);
+      }
+    }
+  };
+  return {
+    opened,
+    waits,
+    watching: () => streams.size,
+    wake: tell,
+    passKeepAlive: () => {
+      tell('timedOut');
+    },
+    stop: () => {
+      isStopped = true;
+      tell('ended');
+    },
+    open: (address) => {
+      if (isStopped) {
+        return undefined;
+      }
+      opened.push({ ...address });
+      const stream: Stream = { kept: [] };
+      streams.add(stream);
+      return {
+        next: (waitMs, signal) => {
+          waits.push(waitMs);
+          const kept = stream.kept.shift();
+          if (kept !== undefined) {
+            return Promise.resolve(kept);
+          }
+          if (isStopped || signal.aborted) {
+            return Promise.resolve('ended');
+          }
+          return new Promise<WakeStreamOutcome>((resolve) => {
+            const onAbort = () => {
+              stream.settle?.('ended');
+            };
+            signal.addEventListener('abort', onAbort, { once: true });
+            stream.settle = (outcome) => {
+              signal.removeEventListener('abort', onAbort);
+              stream.settle = undefined;
+              resolve(outcome);
+            };
+          });
+        },
+        stop: () => {
+          stream.settle?.('ended');
+          streams.delete(stream);
+        },
+      };
+    },
+  };
 }
