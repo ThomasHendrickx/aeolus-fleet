@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Copy, Ellipsis, PanelLeft, Plus, Search, Send, SquarePen } from 'lucide-react';
+import { expect, within } from 'storybook/test';
 
 import { Button } from './button.js';
 
@@ -43,6 +44,16 @@ export const Sizes: Story = {
       </Button>
     </div>
   ),
+  /** The Compact look (docs/design/ui-package/mockups, "The look: Compact"): desktop controls 32, 28 and 24 px with 6 px corners; touch stays 44 px. */
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const drawn = (name: string) => getComputedStyle(canvas.getByRole('button', { name }));
+    await expect(drawn('Resend').height).toBe('24px');
+    await expect(drawn('Compose').height).toBe('28px');
+    await expect(drawn('Commission ship').height).toBe('32px');
+    await expect(drawn('Commission ship').borderRadius).toBe('6px');
+    await expect(drawn('Send message').height).toBe('44px');
+  },
 };
 
 export const IconOnly: Story = {
