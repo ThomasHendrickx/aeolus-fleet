@@ -284,7 +284,7 @@ export function CrewRequestCard(props: CrewRequestCardProps) {
 
   if (stage.kind === 'none') {
     return (
-      <section aria-label="Crew request" data-testid="crew-request" className="flex flex-col gap-2.5 rounded-lg border border-border bg-card px-4 py-3.5 shadow-sm">
+      <section aria-label="Crew request" data-testid="crew-request" className="flex flex-col gap-2.5 rounded-lg border border-border bg-card px-3 py-3">
         <div className="flex flex-wrap items-center gap-3.5">
           <Heading />
           <p className="min-w-0 flex-1 text-meta text-muted-foreground">
@@ -306,7 +306,7 @@ export function CrewRequestCard(props: CrewRequestCardProps) {
   const action = crewRequestAction(stage);
   const isBusy = busy !== undefined;
   return (
-    <section aria-label="Crew request" data-testid="crew-request" className="flex flex-col gap-2.5 rounded-lg border border-border bg-card px-4 py-3.5 shadow-sm">
+    <section aria-label="Crew request" data-testid="crew-request" className="flex flex-col gap-2.5 rounded-lg border border-border bg-card px-3 py-3">
       <div className="flex flex-wrap items-center gap-3">
         <Heading />
         <span className="inline-flex min-w-0 items-center gap-2" data-testid="crew-request-state">

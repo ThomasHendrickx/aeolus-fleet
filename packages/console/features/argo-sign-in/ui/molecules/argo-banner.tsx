@@ -17,7 +17,7 @@ interface ArgoBannerProps {
  */
 export function ArgoBanner({ onSignOutOfArgo, isSigningOut, error }: ArgoBannerProps) {
   return (
-    <div data-testid="argo-banner" className="flex flex-col gap-1 border-b border-border bg-muted px-8 py-2.5 max-sm:px-4">
+    <div data-testid="argo-banner" className="flex flex-col gap-1 border-b border-border bg-muted px-6 py-2.5 max-sm:px-4">
       <div role="status" className="flex items-center gap-2">
         <KeyRound aria-hidden className="size-(--size-icon) shrink-0 text-muted-foreground" />
         <p className="grow text-meta font-medium text-foreground">You are signed in as argo</p>

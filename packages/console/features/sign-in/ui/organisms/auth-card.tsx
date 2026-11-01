@@ -8,7 +8,7 @@ import type { ReactNode } from 'react';
 export function AuthCard({ children, recovery }: { children: ReactNode; recovery: ReactNode }) {
   return (
     <>
-      <div className="sm:rounded-xl sm:border sm:border-border sm:bg-card sm:p-7 sm:shadow-sm">{children}</div>
+      <div className="sm:rounded-xl sm:border sm:border-border sm:bg-card sm:p-7">{children}</div>
       <p className="mt-auto pb-6 text-center text-caption text-muted-foreground sm:mt-0 sm:pb-0">{recovery}</p>
     </>
   );

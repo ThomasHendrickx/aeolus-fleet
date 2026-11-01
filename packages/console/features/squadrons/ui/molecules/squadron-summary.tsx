@@ -34,7 +34,7 @@ export function SquadronSummary({ health, work, openDeliveries, keptCount }: Squ
     <div
       aria-label="Squadron summary"
       data-testid="squadron-summary"
-      className="grid grid-cols-4 gap-4 rounded-lg border border-border bg-card px-4 py-3 shadow-sm max-sm:grid-cols-2 max-sm:gap-3"
+      className="grid grid-cols-4 gap-4 rounded-lg border border-border bg-card px-4 py-3 max-sm:grid-cols-2 max-sm:gap-3"
     >
       <Fact label="Health">{health.length === 0 ? 'None' : <HealthSummary counts={health} />}</Fact>
       <Fact label="Work">

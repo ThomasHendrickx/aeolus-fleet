@@ -18,7 +18,7 @@ export function HealthVerdict({ summary, stuckPerHour, places }: { summary: Stuc
       aria-label="Verdict"
       data-testid="health-verdict"
       data-verdict={verdict.kind}
-      className="grid gap-6 rounded-lg border border-border bg-card p-4 shadow-sm lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] max-sm:gap-4 max-sm:rounded-xl"
+      className="grid gap-6 rounded-lg border border-border bg-card p-3 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] max-sm:gap-4 max-sm:rounded-xl"
     >
       <div className="flex flex-col items-start gap-3">
         <StatusBadge status={verdict.kind} />

@@ -463,7 +463,7 @@ export const CleanOverview: Story = {
     await expect(within(cells[3] ?? row).getByRole('link', { name: SQUADRON_ID }).parentElement).toHaveAttribute('title', `${SQUADRON_ID} · implementer`);
     await expect(cells[4]).toHaveTextContent('Codex');
     await expect(cells[4]).toHaveTextContent('gpt-6.1-sol');
-    await expect(row.getBoundingClientRect().height).toBe(48);
+    await expect(row.getBoundingClientRect().height).toBe(40);
     const software = canvas.getByTestId('fleet-row-trierarch-plugin');
     await expect(within(software).getAllByRole('cell')[4]).toHaveTextContent('@aeolus-fleet/trierarch-plugin@0.24.0');
     await expect(within(row).getByRole('link', { name: 'View 2 more labels' })).toHaveAttribute('href', `/ships/${IMPLEMENTER.id}`);
@@ -504,7 +504,7 @@ export const ReportStates: Story = {
       const row = canvas.getByTestId(`fleet-row-${name}`);
       await expect(within(row).getByTestId('fleet-report')).toHaveAttribute('data-state', state);
       await expect(within(row).getByText('Crewed')).toBeVisible();
-      await expect(row.getBoundingClientRect().height).toBe(48);
+      await expect(row.getBoundingClientRect().height).toBe(40);
     }
   },
 };

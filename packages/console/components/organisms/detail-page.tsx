@@ -44,7 +44,7 @@ export function DetailPage({ title, parents, header, children, sheet, live, swit
       <Header breadcrumb={title} parents={parents} live={live} switcher={switcher} account={account} onCompose={onCompose} onSearch={onSearch} />
       {banner}
       <TopBar title={title} live={live} back={parents[parents.length - 1] ?? parents[0]} />
-      <main className="flex grow flex-col gap-5 px-8 py-6 max-sm:gap-3.5 max-sm:px-4 max-sm:pt-3.5 max-sm:pb-[calc(var(--size-tabbar)+var(--spacing)*4)]">
+      <main className="flex grow flex-col gap-4 px-6 py-5 max-sm:gap-3.5 max-sm:px-4 max-sm:pt-3.5 max-sm:pb-[calc(var(--size-tabbar)+var(--spacing)*4)]">
         {header}
         {children}
       </main>

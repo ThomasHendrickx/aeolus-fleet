@@ -33,7 +33,7 @@ export function LoadingSkeleton({ variant, rows = DEFAULT_ROWS, label = 'Loading
     >
       <span className="sr-only">{label}</span>
       {variant === 'table' ? (
-        <div className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+        <div className="overflow-hidden rounded-lg border border-border bg-card">
           <div className="h-(--size-row-header) border-b border-border bg-muted" />
           {rowKeys(rows).map((key) => (
             <div

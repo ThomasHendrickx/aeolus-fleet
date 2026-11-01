@@ -52,7 +52,7 @@ export function CauseCard({ total, read, notes, now }: CauseCardProps) {
       aria-label={statusLabel(cause)}
       data-testid="health-cause"
       data-cause={cause}
-      className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 shadow-sm max-sm:rounded-xl"
+      className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3 max-sm:rounded-xl"
     >
       <header className="flex items-start justify-between gap-3">
         <Link href={causePathOf(cause)} className="group inline-flex items-center gap-1.5 rounded-md" data-testid="health-cause-open">

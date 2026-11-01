@@ -169,7 +169,7 @@ export function MachineCard({ machine, spots, location, ships, onNewSetupLine, n
     <section
       aria-label={machine.name}
       data-testid="machine-card"
-      className="grid grid-cols-[minmax(0,18.75rem)_minmax(0,1.25fr)_minmax(0,1fr)] divide-x divide-border rounded-lg border border-border bg-card shadow-sm max-lg:grid-cols-1 max-lg:divide-x-0 max-lg:divide-y"
+      className="grid grid-cols-[minmax(0,18.75rem)_minmax(0,1.25fr)_minmax(0,1fr)] divide-x divide-border rounded-lg border border-border bg-card max-lg:grid-cols-1 max-lg:divide-x-0 max-lg:divide-y"
     >
       <div className="flex min-w-0 flex-col gap-2.5 px-4.5 py-4">
         <Link

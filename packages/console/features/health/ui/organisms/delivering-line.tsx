@@ -16,7 +16,7 @@ export function DeliveringLine({ acknowledged }: { acknowledged: Health['acknowl
     <section
       aria-label="Delivering"
       data-testid="health-delivering"
-      className="flex items-center gap-4 rounded-lg border border-border bg-card p-4 shadow-sm max-sm:flex-col max-sm:items-start max-sm:gap-3 max-sm:rounded-xl"
+      className="flex items-center gap-4 rounded-lg border border-border bg-card p-3 max-sm:flex-col max-sm:items-start max-sm:gap-3 max-sm:rounded-xl"
     >
       <StatusBadge status="delivering" />
       <p className="flex-1 text-body text-foreground max-sm:text-body-touch">
