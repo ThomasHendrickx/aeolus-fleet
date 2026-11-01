@@ -8,6 +8,7 @@
  */
 import type { ReceiverAddress, ReceiverWakeups, ReceiverWatch } from '../../domain/messaging/ports.js';
 import type { DeliveryNotice } from '../../domain/shared/notifier.js';
+import { measureWait } from '../telemetry/calls.js';
 
 export interface ReceiverWakeupHub extends ReceiverWakeups {
   /** Wakes the receives watching the ship or the type the delivery is pending for. */
@@ -75,16 +76,19 @@ export function createReceiverWakeups(): ReceiverWakeupHub {
             watcher.isWoken = false;
             return Promise.resolve('woken');
           }
-          return new Promise<Outcome>((resolve) => {
-            const timer = setTimeout(() => {
-              watcher.settle?.('timedOut');
-            }, waitMs);
-            watcher.settle = (outcome) => {
-              clearTimeout(timer);
-              watcher.settle = undefined;
-              resolve(outcome);
-            };
-          });
+          return measureWait(
+            () =>
+              new Promise<Outcome>((resolve) => {
+                const timer = setTimeout(() => {
+                  watcher.settle?.('timedOut');
+                }, waitMs);
+                watcher.settle = (outcome) => {
+                  clearTimeout(timer);
+                  watcher.settle = undefined;
+                  resolve(outcome);
+                };
+              }),
+          );
         },
         stop: () => {
           watcher.settle?.('timedOut');

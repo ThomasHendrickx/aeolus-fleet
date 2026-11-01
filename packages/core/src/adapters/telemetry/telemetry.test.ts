@@ -7,6 +7,9 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { addAgentShip, crewShip, FLEET_URL, historyUseCases, identityUseCases, initialiseFleet, messagingUseCases, registryUseCases } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { buildHttpServer } from '../http/server.js';
+import { createFleetEventWakeups, fleetEventWakeupsOf } from '../prisma/fleet-event-wakeups.js';
+import { createReceiverWakeups } from '../prisma/receiver-wakeups.js';
+import { measureCall } from './calls.js';
 import { startTelemetry, type Telemetry } from './telemetry.js';
 
 // Every call through the doors becomes a span and a point in its procedure's
@@ -67,8 +70,9 @@ async function finishedSpans() {
   return spans.getFinishedSpans();
 }
 
-/** The points of one duration histogram, after a collect. */
+/** The points of one duration histogram, after a collect of its own: the exporter keeps every earlier collect, which are cumulative. */
 async function durationsOf(histogram: string) {
+  points.reset();
   await metricReader.forceFlush();
   return points
     .getMetrics()
@@ -188,5 +192,54 @@ describe('with an OTLP endpoint set', () => {
 
     const requests = await durationsOf('http.server.request.duration');
     expect(requests.map((point) => point.attributes)).toEqual([{ 'http.request.method': 'GET', 'http.response.status_code': 404 }]);
+  });
+
+  describe('a call that waits for a message', () => {
+    const WAIT_MS = 120;
+    const OK = { code: 'OK', isServerFailure: false };
+    const address = { fleetId: 'flt_1', shipId: 'shp_1', type: 'agent' } as const;
+
+    /** The sum, in seconds, of the points of a histogram recorded for one procedure. */
+    async function sumOf(histogram: string, procedure: string) {
+      const points = (await durationsOf(histogram)).filter((point) => point.attributes['rpc.method'] === procedure);
+      return { count: points.reduce((total, point) => total + point.value.count, 0), seconds: points.reduce((total, point) => total + (point.value.sum ?? 0), 0) };
+    }
+
+    it('leaves the wait for a receiver out of the call duration and records it apart', async () => {
+      telemetry = await startTelemetry(ENDPOINT, { spanExporter: spans, metricReader });
+      const watch = createReceiverWakeups().watch(address);
+
+      await measureCall('ship.receive', async () => ({ value: await watch.next(WAIT_MS), outcome: OK }));
+      watch.stop();
+
+      const call = await sumOf('rpc.server.call.duration', 'ship.receive');
+      const wait = await sumOf('rpc.server.call.wait.duration', 'ship.receive');
+      expect(call.count).toBe(1);
+      expect(call.seconds).toBeLessThan(WAIT_MS / 2 / 1000);
+      expect(wait.count).toBe(1);
+      expect(wait.seconds).toBeGreaterThanOrEqual((WAIT_MS - 20) / 1000);
+    });
+
+    it('leaves the wait for the fleet news out of the call duration too', async () => {
+      telemetry = await startTelemetry(ENDPOINT, { spanExporter: spans, metricReader });
+      const watch = fleetEventWakeupsOf(createFleetEventWakeups()).watch('flt_1');
+
+      await measureCall('fleet.follow', async () => ({ value: await watch.next(WAIT_MS), outcome: OK }));
+      watch.stop();
+
+      const call = await sumOf('rpc.server.call.duration', 'fleet.follow');
+      const wait = await sumOf('rpc.server.call.wait.duration', 'fleet.follow');
+      expect(call.seconds).toBeLessThan(WAIT_MS / 2 / 1000);
+      expect(wait.seconds).toBeGreaterThanOrEqual((WAIT_MS - 20) / 1000);
+    });
+
+    it('records no wait for a call that did not wait', async () => {
+      telemetry = await startTelemetry(ENDPOINT, { spanExporter: spans, metricReader });
+      start();
+
+      await ping();
+
+      expect(await sumOf('rpc.server.call.wait.duration', 'system.ping')).toEqual({ count: 0, seconds: 0 });
+    });
   });
 });

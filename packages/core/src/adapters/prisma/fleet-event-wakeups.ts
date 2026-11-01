@@ -8,6 +8,7 @@
 import type { FleetId } from '@aeolus-fleet/common';
 
 import type { FleetEventNotice, FleetEventWakeups } from '../../domain/shared/events.js';
+import { measureWait } from '../telemetry/calls.js';
 
 export interface FleetEventWatch {
   /**
@@ -115,7 +116,7 @@ export function fleetEventWakeupsOf(hub: Pick<FleetEventWakeupHub, 'watch'>): Fl
     watch: (fleetId) => {
       const watch = hub.watch(fleetId);
       return {
-        next: async (waitMs) => ((await watch.next(AbortSignal.timeout(waitMs))) ? 'woken' : 'timedOut'),
+        next: async (waitMs) => ((await measureWait(() => watch.next(AbortSignal.timeout(waitMs)))) ? 'woken' : 'timedOut'),
         stop: () => {
           watch.stop();
         },
