@@ -12,9 +12,13 @@ export const HARBOUR_SHIP_IDS_MAX = 100;
 /**
  * Input of `fleet.harbour` (docs/design/fleet-overview, "The read Harbour
  * needs"): a page, its cursor and size; or the ships whose tiles a live
- * event reloads.
+ * event reloads, never both. One object, so a client reads its pages as any
+ * paged list.
  */
-export const harbourInputSchema = z.union([z.object({ shipIds: z.array(idSchema('ship')).min(1).max(HARBOUR_SHIP_IDS_MAX) }), pageInputOf(shipCursorSchema)]).optional();
+export const harbourInputSchema = pageInputOf(shipCursorSchema)
+  .extend({ shipIds: z.array(idSchema('ship')).min(1).max(HARBOUR_SHIP_IDS_MAX).optional() })
+  .refine((input) => input.shipIds === undefined || (input.cursor === undefined && input.limit === undefined), { message: 'Ask for shipIds or for a page, not both' })
+  .optional();
 
 export type HarbourInput = z.input<typeof harbourInputSchema>;
 
