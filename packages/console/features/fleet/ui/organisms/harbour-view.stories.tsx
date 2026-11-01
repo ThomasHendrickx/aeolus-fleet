@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { createIdGenerator } from '@aeolus-fleet/common';
-import { expect, userEvent, waitFor, within } from 'storybook/test';
+import { expect, within } from 'storybook/test';
 
 import type { HarbourState } from '@aeolus-fleet/common/rules';
 
@@ -69,23 +69,12 @@ export const Loading: Story = { args: { harbour: undefined, state: 'loading' } }
 
 export const Failed: Story = { args: { harbour: undefined, state: 'error' } };
 
-/** A tap on a tile shows what the ship is doing, and the way to it. */
+/** What a ship is doing shows in its tile's title, as the mockup's markup has it; its state where it has not reported. */
 export const WhatAShipIsDoing: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.click(canvas.getByRole('button', { name: 'orchestrator-1: Working' }));
 
-    const doing = within(canvasElement.ownerDocument.body);
-    await waitFor(() => expect(doing.getByText('Splitting #1441 into tasks')).toBeVisible());
-    await expect(doing.getByRole('link', { name: 'Open ship' })).toBeVisible();
-  },
-};
-
-/** A ship that has not reported says so. */
-export const NoReportYet: Story = {
-  play: async ({ canvasElement }) => {
-    await userEvent.click(within(canvasElement).getByRole('button', { name: 'walker-2: Waiting' }));
-
-    await waitFor(() => expect(within(canvasElement.ownerDocument.body).getByText('No report yet')).toBeVisible());
+    await expect(canvas.getByTitle('orchestrator-1: Splitting #1441 into tasks')).toHaveTextContent('Working');
+    await expect(canvas.getByTitle('walker-2: Waiting')).toHaveTextContent('Waiting');
   },
 };

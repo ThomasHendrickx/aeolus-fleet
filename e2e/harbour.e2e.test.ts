@@ -130,7 +130,9 @@ describe('Harbour on the fleet overview', () => {
     await name.waitFor();
 
     // Not cut short: the text takes no more room than its tile gives it.
-    await expect(name.evaluate('(element) => element.scrollWidth <= element.clientWidth')).resolves.toBe(true);
+    await expect(
+      page.evaluate("(() => { const name = [...document.querySelectorAll('[data-testid=harbour-tile] span')].find((span) => span.textContent === 'builder-gateway'); return name.scrollWidth <= name.clientWidth; })()"),
+    ).resolves.toBe(true);
   });
 
   it("moves a ship's tile live when its crew reports blocked, without a reload", async () => {
