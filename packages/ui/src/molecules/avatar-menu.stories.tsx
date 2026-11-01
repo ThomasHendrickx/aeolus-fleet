@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Compass } from 'lucide-react';
-import { expect, fn, screen, userEvent, within } from 'storybook/test';
+import { expect, fn, screen, userEvent, waitFor, within } from 'storybook/test';
 
 import { AvatarMenu, AvatarMenuSheet } from './avatar-menu.js';
 
@@ -143,5 +143,24 @@ export const PhoneSigningOut: Story = {
     const signOut = within(await screen.findByTestId('avatar-menu-sheet')).getByTestId('avatar-menu-sign-out');
     await expect(signOut).toHaveTextContent('Signing out');
     await expect(signOut).toBeDisabled();
+  },
+};
+
+const appLinks = ['Console', 'Squadrons', 'Account', 'Gateway'].map((label) => ({ key: `app-${label.toLowerCase()}`, label, href: `https://${label.toLowerCase()}.example`, icon: <Compass aria-hidden /> }));
+
+/** Phone with four extra entries on a 375x780 screen: the sheet scrolls inside its height, so Sign out and Cancel can be reached. */
+export const PhoneManyEntries: Story = {
+  args: { entries: appLinks },
+  globals: { viewport: { value: 'mobile1' } },
+  render: (args) => <AvatarMenuSheet {...args} />,
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByTestId('avatar-menu'));
+    const sheet = await screen.findByTestId('avatar-menu-sheet');
+    await expect(getComputedStyle(sheet).overflowY).toBe('auto');
+    await expect(sheet.clientHeight).toBeLessThanOrEqual(window.innerHeight * 0.9 + 1);
+    const cancel = within(sheet).getByRole('button', { name: 'Cancel' });
+    cancel.scrollIntoView();
+    await expect(sheet.scrollHeight).toBeGreaterThan(sheet.clientHeight);
+    await waitFor(() => expect(cancel.getBoundingClientRect().bottom).toBeLessThanOrEqual(sheet.getBoundingClientRect().bottom));
   },
 };
