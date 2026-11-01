@@ -1,6 +1,6 @@
 # argo's inbox mockups
 
-Screens for [#1571](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1571), on the design in [`../README.md`](../README.md): AI1 to AI7 as answered, AI9 on its pick. Mockups only; they decide no behaviour.
+Screens for [#1571](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1571), on the design in [`../README.md`](../README.md): AI1 to AI9 as answered. Mockups only; they decide no behaviour.
 
 The Compact look ([ui-package mockups](../../ui-package/mockups/README.md)), on Bridge as approved ([Bridge mockups](../../bridge/mockups/README.md)). Each HTML file stands alone, with the tokens, the Compact kit and the Geist fonts inlined; each PNG is that file rendered in Chromium at 1x.
 

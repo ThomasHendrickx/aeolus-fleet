@@ -1,6 +1,6 @@
 # argo's inbox: reaching the people who may act as argo
 
-Design for [#1571](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1571), from the investigation on [#1569](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1569#issuecomment-6561940831). The purpose (section 1) is agreed and AI1 to AI7 are answered as picked (section 3). AI9 waits for Thomas; the flow (section 4) and the mockups ([mockups/README.md](mockups/README.md)) are drawn on its pick.
+Design for [#1571](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1571), from the investigation on [#1569](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1569#issuecomment-6561940831). The purpose (section 1) is agreed and AI1 to AI9 are answered as picked (section 3); the flow is section 4 and the mockups are in [mockups/README.md](mockups/README.md).
 
 Thomas, 1 Nov:
 1. "now argo is just a hidden box of problems and the biggest issues are being send to argo. So this is a big incident waiting to happen that could have been prevented having read the messages of argo."
@@ -54,15 +54,9 @@ From what is decided:
 | AI5 | **Wakes for argo's follow the person's own rules** (W1 to W10): each message woken once per person, gathered per window, only on channels the person turned on (W8). | Consent stays first |
 | AI6 | **Nothing more if nobody handles it:** it waits, shown and counted. | Reminders and escalation are a design of their own |
 | AI7 | **A fleet with no account allowed as argo changes nothing:** the console's count stays the way to learn. | Core has no email (0058) and there is no person ship to reach |
+| AI9 | **The gateway's own ship reads argo's inbox by a read rule argo adds** (0034), and shows it to the person ships of accounts whose latest account token says allowed as argo. Wakes carry no content and Slack posts only the headline, so an account no longer allowed sees no more than that until its next sign-in; disabling it releases its person ship (0055). | An account token lasts 10 minutes and the gateway holds one only while the person is signed in (0054, 0058); being allowed as argo already reads the whole inbox through the sign-in as argo, so nothing closed is opened, and core and pagasae stay as they are |
 
 A message to argo without a headline line shows its first line, as the console does; the trierarch plugin's are [#1570](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1570).
-
-**AI9, open: how the gateway reads argo's inbox while the person is away.** An account token lasts 10 minutes and the gateway holds one only while the person is signed in (0054, 0058); the argo flag alone reads nothing of what reaches argo (0058).
-1. The gateway's own ship reads argo's inbox by a read rule argo adds (0034), and shows it to the person ships of accounts whose latest account token says allowed as argo. Wakes carry no content and Slack posts only the headline, so an account no longer allowed sees no more than that until its next sign-in; disabling it releases its person ship (0055).
-2. pagasae issues the gateway an account token per allowed account on request; each read is the account's own, by its read reach, which then needs `fleet:read` over every sender.
-3. Read only while the person is signed in. Nothing reaches them while away: fails outcome 1.
-
-Pick 1: being allowed as argo already lets the account sign in as argo and read the whole inbox, so nothing is opened that was closed; core and pagasae stay as they are. The flow and the mockups are drawn on it.
 
 ## 4. Flow
 
