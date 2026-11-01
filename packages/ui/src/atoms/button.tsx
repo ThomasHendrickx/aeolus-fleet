@@ -21,7 +21,7 @@ const buttonVariants = cva(
         destructive: 'bg-destructive text-destructive-foreground hover:opacity-90',
       },
       size: {
-        xs: 'h-(--size-control-xs) gap-1.5 px-2.5 text-meta',
+        xs: 'h-(--size-control-xs) gap-1.5 px-3 text-meta',
         sm: 'h-(--size-control-sm) px-3 text-meta',
         md: 'h-(--size-control) px-3 text-body',
         touch: 'h-(--size-control-touch) rounded-lg px-4 text-body-touch',
