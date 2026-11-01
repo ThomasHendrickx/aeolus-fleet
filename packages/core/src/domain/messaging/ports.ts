@@ -266,6 +266,34 @@ export interface ReceiverWatch {
   stop(): void;
 }
 
+/**
+ * How a wake stream's wait ended: a notice of a delivery pending for its ship
+ * or its type, the listener listening again, its time passed (a keep-alive is
+ * due), or the stream ended, because its crew closed it or the server stops.
+ */
+export type WakeStreamOutcome = 'notice' | 'reconnect' | 'timedOut' | 'ended';
+
+/**
+ * Outbound port: the wake streams a crew keeps open to be told to look
+ * (long-poll design, W1). A wake is a hint, never a delivery: the crew's look
+ * finds out in the database what waits for it.
+ */
+export interface WakeStreams {
+  /** Starts watching the ship and its type for one stream; none while the server stops. */
+  open(address: ReceiverAddress): WakeStreamWatch | undefined;
+}
+
+export interface WakeStreamWatch {
+  /**
+   * Settles on the next wake, once `waitMs` has passed, or when `signal`
+   * aborts or the server stops. Each notice wakes once: one that comes while
+   * the stream is not waiting is kept for its next wait.
+   */
+  next(waitMs: number, signal: AbortSignal): Promise<WakeStreamOutcome>;
+  /** Stops watching. */
+  stop(): void;
+}
+
 /** Outbound port: the fleet's open pushed leases, for the 10 and 60 minute clocks. Read without a lock. */
 export interface PushedCrews {
   /**

@@ -134,7 +134,7 @@ describe('the ship calls at /api/v1', () => {
     await expect(database.lease.findMany({ where: { shipId, endedAt: null }, select: { harness: true } })).resolves.toEqual([{ harness: null }]);
   });
 
-  it('serve an OpenAPI spec that lists every ship procedure, then the fleet actions', async () => {
+  it('serve an OpenAPI spec that lists every ship procedure, then the fleet actions, then the wake stream', async () => {
     const response = await fetch(`${address}/api/v1/openapi.json`);
 
     const { paths } = z.object({ paths: z.record(z.string(), z.unknown()) }).parse(await response.json());
@@ -236,6 +236,7 @@ describe('the ship calls at /api/v1', () => {
       '/fleet/openAlerts',
       '/fleet/checkManage',
       '/fleet/limits',
+      '/ship/wakeups',
     ]);
   });
 

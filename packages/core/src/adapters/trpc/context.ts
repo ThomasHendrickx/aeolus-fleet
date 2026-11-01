@@ -14,6 +14,7 @@ import type { SignOut } from '../../domain/identity/sign-out.js';
 import type { AcknowledgeDelivery } from '../../domain/messaging/acknowledge-delivery.js';
 import type { AnswerPing } from '../../domain/messaging/answer-ping.js';
 import type { CheckInbox } from '../../domain/messaging/check-inbox.js';
+import type { WatchWakeups } from '../../domain/messaging/watch-wakeups.js';
 import type { DismissDelivery } from '../../domain/messaging/dismiss-delivery.js';
 import type { MarkDone } from '../../domain/messaging/mark-done.js';
 import type { MarkRead } from '../../domain/messaging/mark-read.js';
@@ -272,6 +273,7 @@ export interface UseCases {
   answerPing: AnswerPing;
   pingShip: PingShip;
   checkInbox: CheckInbox;
+  watchWakeups: WatchWakeups;
   dismissDelivery: DismissDelivery;
   resendDelivery: ResendDelivery;
   markRead: MarkRead;

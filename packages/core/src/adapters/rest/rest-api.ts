@@ -14,14 +14,18 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 
 import { readAccountToken, readBearer, readOnBehalfOf } from '../http/request-credentials.js';
 import type { Context, RequestCredentials } from '../trpc/context.js';
-import { callShip, refusalBody, SHIP_CALLS, unexpectedFailure } from '../trpc/ship-contract.js';
+import { callShip, openShipStream, refusalBody, SHIP_CALLS, unexpectedFailure, WAKE_STREAM } from '../trpc/ship-contract.js';
+import { wakeStreamOutputSchema, type WakeStreamOutput } from '../trpc/ship.js';
 import { API_TITLE, openApiDocument } from './openapi.js';
 
 const PREFIX = '/api/v1';
 
 const OPENAPI_PATH = `${PREFIX}/openapi.json`;
 
-const OPENAPI_DOCUMENT = openApiDocument(SHIP_CALLS);
+const OPENAPI_DOCUMENT = openApiDocument(SHIP_CALLS, [WAKE_STREAM]);
+
+/** The route of the wake stream, which the request duration histogram leaves out: a stream lasts as long as its crew keeps it. */
+export const WAKE_STREAM_ROUTE = `${PREFIX}${WAKE_STREAM.route}`;
 
 export interface RestApiOptions {
   /** The context of one call, for this request, with the credentials it carries. */
@@ -48,6 +52,47 @@ export function registerRestApi(server: FastifyInstance, options: RestApiOptions
     },
   });
 
+  server.get(WAKE_STREAM_ROUTE, async (request, reply) => {
+    const closing = new AbortController();
+    request.raw.on('close', () => {
+      closing.abort();
+    });
+    const opened = await openShipStream(WAKE_STREAM, {
+      ctx: options.contextFor(request, { bearer: readBearer(request.headers.authorization), onBehalfOf: readOnBehalfOf(request.headers), accountToken: readAccountToken(request.headers) }),
+      closing: closing.signal,
+      log: request.log,
+    });
+    if (!opened.isOk) {
+      return reply.code(opened.refusal.httpStatus).send(refusalBody(opened.refusal));
+    }
+    // The stream is written straight to the socket from here on; Fastify sends nothing more.
+    reply.hijack();
+    reply.raw.writeHead(200, {
+      'content-type': 'text/event-stream; charset=utf-8',
+      'cache-control': 'no-cache',
+      // A proxy that buffers would hold each wake back.
+      'x-accel-buffering': 'no',
+      // The connection ends with the stream, so a stopping server has no idle connection left to wait on.
+      connection: 'close',
+    });
+    try {
+      let item: unknown = opened.first;
+      while (item !== undefined && !closing.signal.aborted) {
+        reply.raw.write(serverSentEventOf(wakeStreamOutputSchema.parse(item)));
+        const next = await opened.rest.next();
+        item = next.done === true ? undefined : next.value;
+      }
+    } catch (thrown) {
+      // The stream is open, so the crew learns only that it closed; the log holds the failure.
+      unexpectedFailure(thrown, { log: request.log, requestId: request.id });
+    } finally {
+      // Ends the stream if the crew closed it between two items, so it stops watching.
+      await opened.rest.return?.();
+      reply.raw.end();
+    }
+    return reply;
+  });
+
   for (const call of SHIP_CALLS) {
     server.route({
       method: call.method,
@@ -69,5 +114,17 @@ export function registerRestApi(server: FastifyInstance, options: RestApiOptions
         }
       },
     });
+  }
+}
+
+/** One item of the wake stream as a server-sent event: a wake or the end as an event with JSON data, a keep-alive as a comment. */
+function serverSentEventOf(item: WakeStreamOutput): string {
+  switch (item.kind) {
+    case 'wake':
+      return `event: wake\ndata: ${JSON.stringify({ reason: item.reason })}\n\n`;
+    case 'keepAlive':
+      return ': keep-alive\n\n';
+    case 'end':
+      return `event: end\ndata: ${JSON.stringify({ code: item.code, message: item.message })}\n\n`;
   }
 }

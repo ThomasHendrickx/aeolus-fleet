@@ -9,7 +9,7 @@ import type { Clock } from '../../domain/shared/clock.js';
 import { registerMcpEndpoint } from '../mcp/mcp-endpoint.js';
 import { createFleetEventWakeups } from '../prisma/fleet-event-wakeups.js';
 import { failureForLog } from '../prisma/failure-log.js';
-import { registerRestApi } from '../rest/rest-api.js';
+import { registerRestApi, WAKE_STREAM_ROUTE } from '../rest/rest-api.js';
 import type { Context, FleetEventWatches, RequestCredentials, SessionCookie, UseCases } from '../trpc/context.js';
 import { appRouter, type AppRouter } from '../trpc/router.js';
 import { refusalBody, unexpectedFailure } from '../trpc/ship-contract.js';
@@ -152,6 +152,10 @@ export function buildHttpServer(options: HttpServerOptions): FastifyInstance {
 
   // Every answered request, measured (telemetry/requests.ts): a no-op until telemetry starts.
   server.addHook('onResponse', async (request, reply) => {
+    if (request.routeOptions.url === WAKE_STREAM_ROUTE) {
+      // A wake stream lasts as long as its crew keeps it: measured apart (telemetry/wake-streams.ts).
+      return;
+    }
     measureRequest({ method: request.method, route: request.routeOptions.url, statusCode: reply.statusCode, durationMs: reply.elapsedTime });
   });
 
