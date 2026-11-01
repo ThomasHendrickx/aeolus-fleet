@@ -70,6 +70,17 @@ describe('getting one fleet of the installation', () => {
     expect(unwrap(await getFleet({ fleetId: offeredFleetId })).featureFlags).toEqual([{ flag: 'sealing', isOn: true, canTurnOff: true }]);
   });
 
+  it('tells each step it awaited, in order, with the milliseconds it took, so a read that never answers names its step (#1523)', async () => {
+    const { fleetId } = unwrap(
+      await createCreateFleet({ uow: core.uow, clock: core.clock, ids: core.ids, hasher: core.hasher })({ requestId: 'signup-1', name: 'hemma', operatorEmail: 'lena@example.com' }),
+    );
+    const steps: { step: string; ms: number }[] = [];
+
+    unwrap(await getFleet({ fleetId }, (step, ms) => steps.push({ step, ms })));
+
+    expect(steps).toEqual(['find', 'settings', 'latest', 'health'].map((step) => ({ step, ms: 0 })));
+  });
+
   it('refuses a fleet the installation does not host', async () => {
     await expect(getFleet({ fleetId: core.ids('fleet') })).resolves.toMatchObject({ isOk: false, error: { kind: 'FLEET_NOT_FOUND' } });
   });
