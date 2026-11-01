@@ -171,6 +171,9 @@ type Procedure = (typeof appRouter.ship)[keyof typeof appRouter.ship] | (typeof 
 /** One procedure as a door offers it, under its tool name and REST route. */
 function callOf(procedure: Procedure, at: { name: string; route: string; path: string; credential: ShipCall['credential'] }): ShipCall {
   const { type, inputs, meta } = procedure._def;
+  if (type === 'subscription') {
+    throw new TypeError(`${at.path} is a stream, which no door offers as a call`);
+  }
   // The output parser is on the procedure at runtime, though tRPC's types leave it out.
   const output = 'output' in procedure._def ? procedure._def.output : undefined;
   const { description, example, requiredOfCrews = [] } = metaSchema.parse(meta);
@@ -192,13 +195,89 @@ function callOf(procedure: Procedure, at: { name: string; route: string; path: s
  * Built once: the router never changes while the server runs.
  */
 export const SHIP_CALLS: readonly ShipCall[] = [
-  ...Object.entries(appRouter.ship).map(([name, procedure]) =>
+  ...Object.entries(appRouter.ship).filter(([, procedure]) => procedure._def.type !== 'subscription').map(([name, procedure]) =>
     callOf(procedure, { name, route: `/ship/${name}`, path: `ship.${name}`, credential: name === 'register' ? 'secret' : 'crewToken' }),
   ),
   ...FLEET_ACTIONS.map((name) =>
     callOf(appRouter.fleet[name], { name: `fleet_${name}`, route: `/fleet/${name}`, path: `fleet.${name}`, credential: 'crewToken' }),
   ),
 ];
+
+/** A stream of the ship contract as REST offers it: server-sent events at a GET route, for the crew token. */
+export interface ShipStream {
+  /** Where REST serves it, under `/api/v1`. */
+  route: string;
+  /** The subscription's path in the router. */
+  path: string;
+  /** What it sends and its rules, from the subscription's meta. */
+  description: string;
+}
+
+/**
+ * The wake stream (long-poll design, W1): `ship.wakeups` at
+ * `GET /api/v1/ship/wakeups`. REST alone offers it: an MCP agent is woken by
+ * nothing (L3).
+ */
+export const WAKE_STREAM: ShipStream = {
+  route: '/ship/wakeups',
+  path: 'ship.wakeups',
+  description: metaSchema.parse(appRouter.ship.wakeups._def.meta).description,
+};
+
+/**
+ * A stream opened: its first item, then the rest, until the stream ends. A
+ * refusal comes before the first item, so a door answers it as a call's.
+ */
+export type ShipStreamResult = { isOk: true; first: unknown; rest: AsyncIterator<unknown> } | { isOk: false; refusal: ShipCallRefusal };
+
+/**
+ * Opens the subscription as the context's caller, through the router, as
+ * callShip calls a procedure, and reads its first item: the middlewares and
+ * the use case refuse before it. `closing` ends the stream.
+ */
+export async function openShipStream(
+  stream: ShipStream,
+  request: { ctx: Context; closing: AbortSignal; log: FailureLog },
+): Promise<ShipStreamResult> {
+  const { ctx, closing, log } = request;
+  try {
+    const items: unknown = await callTRPCProcedure({
+      router: appRouter,
+      path: stream.path,
+      type: 'subscription',
+      ctx,
+      getRawInput: () => Promise.resolve(undefined),
+      signal: closing,
+      batchIndex: 0,
+    });
+    if (!isAsyncIterable(items)) {
+      throw new TypeError(`${stream.path} answered no stream`);
+    }
+    const rest = items[Symbol.asyncIterator]();
+    const first = await rest.next();
+    return { isOk: true, first: first.done === true ? undefined : first.value, rest };
+  } catch (thrown) {
+    const error = getTRPCErrorFromUnknown(thrown);
+    if (error.code === 'INTERNAL_SERVER_ERROR') {
+      log.error({ path: stream.path, ...failureForLog(error) }, 'procedure failed');
+    }
+    return { isOk: false, refusal: streamRefusalOf(error, ctx.requestId) };
+  }
+}
+
+function isAsyncIterable(value: unknown): value is AsyncIterable<unknown> {
+  return typeof value === 'object' && value !== null && Symbol.asyncIterator in value;
+}
+
+/** A refusal of a stream: as a call's, with no input to parse. */
+function streamRefusalOf(error: TRPCError, requestId: string): ShipCallRefusal {
+  const httpStatus = getHTTPStatusCodeFromError(error);
+  if (error.code === 'INTERNAL_SERVER_ERROR') {
+    return { code: error.code, httpStatus, message: INTERNAL_ERROR_MESSAGE, requestId };
+  }
+  const code = error.cause instanceof ShipRefusalCode ? error.cause.code : error.code;
+  return { code, httpStatus, message: error.message };
+}
 
 /**
  * What a caller learns of a call that did not succeed: the code, its HTTP

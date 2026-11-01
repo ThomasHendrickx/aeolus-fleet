@@ -5,13 +5,15 @@
  * Schema of what it takes and answers. JSON Schema 2020-12 is OpenAPI 3.1's
  * own dialect, so the schemas go in as the router's parsers produce them.
  */
-import type { ShipCall } from '../trpc/ship-contract.js';
+import type { ShipCall, ShipStream } from '../trpc/ship-contract.js';
 import { SHIP_PROTOCOL } from '../trpc/ship-protocol.js';
 
 /** The API's title, in the spec and on its page at `/api/v1/docs`. */
 export const API_TITLE = 'Aeolus ship API';
 
 const JSON_MEDIA_TYPE = 'application/json';
+
+const EVENT_STREAM_MEDIA_TYPE = 'text/event-stream';
 
 const ERROR_SCHEMA = {
   type: 'object',
@@ -54,15 +56,29 @@ function operationOf(call: ShipCall): Record<string, unknown> {
   };
 }
 
-/** The document for the given ship calls: a query without input as GET, the others as POST with a JSON body. */
-export function openApiDocument(calls: readonly ShipCall[]): Record<string, unknown> {
+/** A ship stream as an OpenAPI operation: a GET for the crew token, answering server-sent events. */
+function streamOperationOf(stream: ShipStream): Record<string, unknown> {
+  return {
+    operationId: stream.path.slice(stream.path.lastIndexOf('.') + 1),
+    description: stream.description,
+    security: [{ crewToken: [] }],
+    responses: {
+      '200': { description: 'The stream, as server-sent events.', content: { [EVENT_STREAM_MEDIA_TYPE]: { schema: { type: 'string' } } } },
+      default: { description: 'Refused or failed, before the stream opens.', content: { [JSON_MEDIA_TYPE]: { schema: { $ref: '#/components/schemas/Error' } } } },
+    },
+  };
+}
+
+/** The document for the given ship calls, a query without input as GET and the others as POST with a JSON body, then the streams, each a GET. */
+export function openApiDocument(calls: readonly ShipCall[], streams: readonly ShipStream[]): Record<string, unknown> {
   return {
     openapi: '3.1.1',
     info: { title: API_TITLE, version: '1', description: API_DESCRIPTION },
     servers: [{ url: '/api/v1' }],
-    paths: Object.fromEntries(
-      calls.map((call) => [call.route, { [call.method.toLowerCase()]: operationOf(call) }]),
-    ),
+    paths: Object.fromEntries([
+      ...calls.map((call) => [call.route, { [call.method.toLowerCase()]: operationOf(call) }]),
+      ...streams.map((stream) => [stream.route, { get: streamOperationOf(stream) }]),
+    ]),
     components: {
       securitySchemes: {
         crewToken: {

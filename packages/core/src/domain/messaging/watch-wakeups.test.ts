@@ -102,8 +102,12 @@ describe('an open wake stream', () => {
   });
 
   it.each([
-    ['wake', () => core.wakeStreams.wake('notice')],
-    ['keep-alive', () => core.wakeStreams.passKeepAlive()],
+    ['wake', () => {
+      core.wakeStreams.wake('notice');
+    }],
+    ['keep-alive', () => {
+      core.wakeStreams.passKeepAlive();
+    }],
   ])('ends with LEASE_ENDED at the next %s once the lease ended, and closes', async (_moment, next) => {
     unwrap(await registryUseCases(core).releaseShip(argo, { shipId: scoutId }));
 

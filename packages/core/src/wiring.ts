@@ -76,10 +76,11 @@ import { createSendDueSchedules, type SendDueSchedules } from './domain/messagin
 import { createPrismaScheduleAttempts } from './adapters/prisma/schedules.js';
 import { createAnswerPing, type AnswerPing } from './domain/messaging/answer-ping.js';
 import { createCheckInbox, type CheckInbox } from './domain/messaging/check-inbox.js';
+import { createWatchWakeups, type WatchWakeups } from './domain/messaging/watch-wakeups.js';
 import { createDismissDelivery, type DismissDelivery } from './domain/messaging/dismiss-delivery.js';
 import { createMarkDone, type MarkDone } from './domain/messaging/mark-done.js';
 import { createMarkRead, type MarkRead } from './domain/messaging/mark-read.js';
-import type { ReceiverWakeups } from './domain/messaging/ports.js';
+import type { ReceiverWakeups, WakeStreams } from './domain/messaging/ports.js';
 import { createPushReceiveDeliveries, type PushReceiveDeliveries } from './domain/messaging/push-receive-deliveries.js';
 import { createReceiveDeliveries, type ReceiveDeliveries } from './domain/messaging/receive-deliveries.js';
 import { createReceiveReply, type ReceiveReply } from './domain/messaging/receive-reply.js';
@@ -325,6 +326,7 @@ export interface UseCases {
   answerPing: AnswerPing;
   pingShip: PingShip;
   checkInbox: CheckInbox;
+  watchWakeups: WatchWakeups;
   dismissDelivery: DismissDelivery;
   resendDelivery: ResendDelivery;
   markRead: MarkRead;
@@ -405,6 +407,8 @@ export function createUseCases(options: {
   clock?: Clock;
   ids?: IdGenerator;
   wakeups?: ReceiverWakeups;
+  /** Feed the wake streams (long-poll design, W1); without them a stream wakes only at open and sends keep-alives. */
+  wakeStreams?: WakeStreams;
   /** Wake a waiting follow and an inbox check with a known count; without them both end only at their wait. */
   fleetEventWakeups?: FleetEventWakeups;
   /** How long a receive waits on an empty inbox; about 25 seconds unless a test says otherwise. */
@@ -425,6 +429,7 @@ export function createUseCases(options: {
   const bulkUow = createPrismaBulkUnitOfWork(prisma);
   const secrets = { hasher: sha256Hasher, random: cryptoRandomTokens };
   const wakeups = options.wakeups ?? createReceiverWakeups();
+  const wakeStreams = options.wakeStreams ?? createReceiverWakeups();
   const fleetNews = options.fleetEventWakeups ?? fleetEventWakeupsOf(createFleetEventWakeups());
   const notices = createPrismaNoticeRepository(prisma);
   const dismissals = createPrismaNoticeDismissals(prisma);
@@ -602,6 +607,7 @@ export function createUseCases(options: {
     answerPing: createAnswerPing({ uow, clock, ids }),
     pingShip: createPingShip({ uow, clock, ids, hasher: sha256Hasher, sealing }),
     checkInbox: createCheckInbox({ uow, clock, wakeups, fleetNews }),
+    watchWakeups: createWatchWakeups({ uow, wakeStreams }),
     dismissDelivery: createDismissDelivery({ uow, clock, ids, readReach }),
     resendDelivery: createResendDelivery({ uow, clock, ids, hasher: sha256Hasher, readReach, sealing }),
     markRead: createMarkRead({ uow, clock }),

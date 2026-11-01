@@ -23,7 +23,6 @@ import { unsealedFleetsOnly } from './support/sealing.js';
 // A send that rolls back sends no NOTIFY, so it wakes nothing.
 
 const newId = createIdGenerator();
-const MODEL = 'claude-opus-5-5';
 /** Long enough for a notice that was sent to have come through the listener. */
 const HEARD_MS = 500;
 
@@ -77,7 +76,7 @@ afterEach(async () => {
 });
 
 function aSend(selector: MessageToSend['selector']): MessageToSend {
-  return { selector, payload: 'Review PR 1551', idempotencyKey: newKey(), model: MODEL };
+  return { selector, payload: 'Review PR 1551', idempotencyKey: newKey() };
 }
 
 /** The scout's stream, its open wake read. */
