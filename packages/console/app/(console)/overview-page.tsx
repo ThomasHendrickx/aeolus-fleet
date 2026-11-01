@@ -8,6 +8,7 @@ import { OverviewMetrics } from '../../features/fleet/state/overview-metrics';
 import { CommissionShip } from '../../features/fleet/state/commission-ship';
 import { FleetLimits } from '../../features/fleet/state/fleet-limits';
 import { FleetOverview } from '../../features/fleet/state/fleet-overview';
+import { Harbour } from '../../features/fleet/state/harbour';
 import { KeyNotReachable } from '../../features/sealing/state/key-not-reachable';
 import { ShipActions } from '../../features/ship-actions/organisms/ship-actions';
 import { NewCrewLineFlow } from '../../features/squadrons/state/get-new-crew-line';
@@ -29,8 +30,8 @@ import { useSignInWhenSessionEnds } from '../../lib/session';
 import { usePluginNav } from '../../lib/plugin-nav';
 
 /**
- * The fleet overview, live: every ship with its status, where it runs and its
- * actions, updated as the fleet changes, without a reload. Search and filters
+ * The fleet overview, live: Harbour on top (docs/design/fleet-overview), then
+ * every ship with its status, where it runs and its actions, updated as the fleet changes, without a reload. Search and filters
  * live in the URL, read on the web app's server (page.tsx); while the URL
  * changes, the view shows what was picked already, so a second pick right
  * after the first adds to it (#815). Without a session it sends the operator
@@ -89,6 +90,7 @@ export function OverviewPage({ view, isCommissionAsked }: { view: FleetView; isC
       {messageLimit === undefined ? null : <LimitNotice {...messageLimitNotice(messageLimit)} accountUrl={accountUrl} testId="overview-message-limit" />}
       <KeyNotReachable />
       <FleetLimits />
+      <Harbour />
       <OverviewMetrics />
       <FleetOverview
         view={shownView}
