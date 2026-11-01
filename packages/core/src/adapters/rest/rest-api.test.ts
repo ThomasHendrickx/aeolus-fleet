@@ -23,6 +23,9 @@ import { buildHttpServer } from '../http/server.js';
 import type { UseCases } from '../trpc/context.js';
 import { SHIP_CALLS } from '../trpc/ship-contract.js';
 import { SHIP_PROTOCOL } from '../trpc/ship-protocol.js';
+import { SYSTEM, recordEvent } from '../../domain/shared/events.js';
+import { REPLAY_LIMIT } from '../../domain/shared/read-fleet-events.js';
+import { ok } from '../../domain/shared/result.js';
 import { registerRestApi } from './rest-api.js';
 
 // The ship contract as REST at /api/v1, through the HTTP host on the
@@ -96,11 +99,12 @@ const operationSchema = z.object({
       content: z.object({ 'application/json': z.object({ schema: z.record(z.string(), z.unknown()) }) }),
     })
     .optional(),
+  parameters: z.array(z.object({ name: z.string(), in: z.string(), required: z.boolean(), description: z.string() })).optional(),
   responses: z.record(
     z.string(),
     z.object({
       description: z.string(),
-      content: z.object({ 'application/json': z.object({ schema: z.record(z.string(), z.unknown()) }) }),
+      content: z.record(z.string(), z.object({ schema: z.record(z.string(), z.unknown()) })),
     }),
   ),
 });
@@ -251,6 +255,7 @@ describe('the OpenAPI spec at /api/v1/openapi.json', () => {
       ['/fleet/openAlerts', ['post']],
       ['/fleet/checkManage', ['post']],
       ['/fleet/limits', ['get']],
+      ['/fleet/events', ['get']],
     ]);
   });
 
@@ -317,6 +322,124 @@ describe('the OpenAPI spec at /api/v1/openapi.json', () => {
       required: ['code', 'message'],
       properties: { code: { type: 'string' }, message: { type: 'string' }, requestId: { type: 'string' } },
     });
+  });
+});
+
+describe('the fleet events as server-sent events at GET /api/v1/fleet/events', () => {
+  /** The first messages the stream sends, read as a client reads it, then the client hangs up. */
+  async function firstMessages(options: { crewToken: string; lastEventId?: string; count: number }): Promise<{ contentType: string | null; messages: Map<string, string>[] }> {
+    const address = await server.listen({ host: '127.0.0.1', port: 0 });
+    const headers: Record<string, string> = { authorization: `Bearer ${options.crewToken}`, accept: 'text/event-stream' };
+    if (options.lastEventId !== undefined) {
+      headers['last-event-id'] = options.lastEventId;
+    }
+    const stopped = new AbortController();
+    const response = await fetch(`${address}/api/v1/fleet/events`, { headers, signal: stopped.signal });
+    const reader = response.body?.pipeThrough(new TextDecoderStream()).getReader();
+    const messages: Map<string, string>[] = [];
+    let buffered = '';
+    while (messages.length < options.count) {
+      const read = await reader?.read();
+      if (!read || read.done) {
+        break;
+      }
+      buffered += read.value;
+      const complete = buffered.split('\n\n');
+      buffered = complete.pop() ?? '';
+      messages.push(...complete.map((message) => new Map(message.split('\n').map((line) => [line.slice(0, line.indexOf(':')), line.slice(line.indexOf(':') + 1).trim()]))));
+    }
+    stopped.abort();
+    return { contentType: response.headers.get('content-type'), messages: messages.slice(0, options.count) };
+  }
+
+  /** Appends this many events to the fleet, each in its own unit of work. */
+  async function appendEvents(count: number): Promise<void> {
+    for (let index = 0; index < count; index += 1) {
+      await core.uow.run(async (tx) => {
+        await recordEvent({ events: tx.events, ids: core.ids }, { fleetId, type: 'StartingPromptIssued', occurredAt: core.clock.now(), actor: SYSTEM });
+        return ok(undefined);
+      });
+    }
+  }
+
+  function eventCount(): number {
+    return core.state.events.filter((event) => event.fleetId === fleetId).length;
+  }
+
+  function follower(): string {
+    const { shipId } = addAgentShip(core, { fleetId, name: 'follower', scopes: ['fleet:read'] });
+    return crewShip(core, { fleetId, shipId });
+  }
+
+  it('is listed in the spec as server-sent events, for a crew token with fleet:read, taking Last-Event-ID', async () => {
+    start();
+
+    const events = await operation('/fleet/events', 'get');
+
+    expect(events.operationId).toBe('fleet_events');
+    expect(events.description).toMatch(/fleet:read/);
+    expect(events.description).toMatch(/Last-Event-ID/);
+    expect(events.parameters).toEqual([expect.objectContaining({ name: 'Last-Event-ID', in: 'header', required: false })]);
+    expect(Object.keys(events.responses['200']?.content ?? {})).toEqual(['text/event-stream']);
+    expect(events.security).toEqual([{ crewToken: [] }]);
+  });
+
+  it('tells a follower without Last-Event-ID to load the fleet again, at the last number', async () => {
+    start();
+    const crewToken = follower();
+
+    const { contentType, messages } = await firstMessages({ crewToken, count: 1 });
+
+    expect(contentType).toMatch(/^text\/event-stream/);
+    expect(messages.map((message) => Object.fromEntries(message))).toEqual([{ id: String(eventCount()), data: '{"kind":"resync"}' }]);
+  });
+
+  it('sends a follower coming back with Last-Event-ID every event after it, each with its number as the id', async () => {
+    start();
+    const crewToken = follower();
+    const reached = eventCount();
+    await appendEvents(2);
+
+    const { messages } = await firstMessages({ crewToken, lastEventId: String(reached), count: 2 });
+
+    expect(messages.map((message) => message.get('id'))).toEqual([String(reached + 1), String(reached + 2)]);
+    expect(messages.map((message) => JSON.parse(message.get('data') ?? 'null'))).toEqual([
+      { kind: 'event', event: expect.objectContaining({ seq: reached + 1, type: 'StartingPromptIssued' }) },
+      { kind: 'event', event: expect.objectContaining({ seq: reached + 2, type: 'StartingPromptIssued' }) },
+    ]);
+  });
+
+  it(`tells a follower more than ${String(REPLAY_LIMIT)} events behind to load the fleet again (resync)`, async () => {
+    start();
+    const crewToken = follower();
+    const reached = eventCount();
+    await appendEvents(REPLAY_LIMIT + 1);
+
+    const { messages } = await firstMessages({ crewToken, lastEventId: String(reached), count: 1 });
+
+    expect(messages.map((message) => Object.fromEntries(message))).toEqual([{ id: String(eventCount()), data: '{"kind":"resync"}' }]);
+  });
+
+  it('refuses a crew without fleet:read with 403 and FORBIDDEN, and opens no stream', async () => {
+    start();
+    const crewToken = crewedShip('scout');
+
+    const response = await server.inject({ method: 'GET', url: '/api/v1/fleet/events', headers: { authorization: `Bearer ${crewToken}` } });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json()).toEqual({ code: 'FORBIDDEN', message: 'This call needs the fleet:read scope' });
+  });
+
+  it('refuses a crew whose lease has ended with 401 and LEASE_ENDED, and opens no stream', async () => {
+    start();
+    const crewToken = follower();
+    const authorization = `Bearer ${crewToken}`;
+    await server.inject({ method: 'POST', url: '/api/v1/ship/deregister', headers: { authorization } });
+
+    const response = await server.inject({ method: 'GET', url: '/api/v1/fleet/events', headers: { authorization } });
+
+    expect(response.statusCode).toBe(401);
+    expect(response.json()).toEqual({ code: 'LEASE_ENDED', message: 'This ship was released; this session no longer crews it.' });
   });
 });
 

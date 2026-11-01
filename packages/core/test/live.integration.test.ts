@@ -164,6 +164,43 @@ function followAsCrew(options: { crewToken: string; onBehalfOf?: ShipId }): Foll
   return following;
 }
 
+const endSchema = z.object({ code: z.string(), message: z.string() });
+
+/**
+ * A REST follower as a ship's client reads it: GET /api/v1/fleet/events as
+ * server-sent events, with its crew token and the Last-Event-ID it reached.
+ * The code of `event: end` is the refusal it ended with.
+ */
+function followOverRest(options: { crewToken: string; lastEventId?: string }): Following {
+  const following: Following = { items: [] };
+  const headers: Record<string, string> = { authorization: `Bearer ${options.crewToken}`, accept: 'text/event-stream' };
+  if (options.lastEventId !== undefined) {
+    headers['last-event-id'] = options.lastEventId;
+  }
+  const stopped = new AbortController();
+  streams.push(stopped);
+  void (async () => {
+    const response = await fetch(`${address}/api/v1/fleet/events`, { headers, signal: stopped.signal });
+    const reader = response.body?.pipeThrough(new TextDecoderStream()).getReader();
+    let buffered = '';
+    for (let read = await reader?.read(); read && !read.done; read = await reader?.read()) {
+      buffered += read.value;
+      const messages = buffered.split('\n\n');
+      buffered = messages.pop() ?? '';
+      for (const message of messages) {
+        const fields = new Map(message.split('\n').map((line) => [line.slice(0, line.indexOf(':')), line.slice(line.indexOf(':') + 1).trim()]));
+        const data = fields.get('data') ?? 'null';
+        if (fields.get('event') === 'end') {
+          following.refusal = endSchema.parse(JSON.parse(data)).code;
+        } else if (fields.has('id')) {
+          following.items.push({ trackedId: fields.get('id') ?? '', item: fleetStreamItemSchema.parse(JSON.parse(data)) });
+        }
+      }
+    }
+  })().catch(() => undefined);
+  return following;
+}
+
 const sseErrorSchema = z.object({ data: z.object({ code: z.string() }) });
 
 /** One server-sent message: an item tracked by its event id, or the error the subscription ended with. */
@@ -317,6 +354,63 @@ describe('a crew following the fleet live', () => {
     unwrap(await useCases.grantScopes(argo, { shipId: plugin.shipId, grant: [], revoke: ['fleet:on-behalf'] }));
 
     await expect.poll(() => following.refusal).toBe('FORBIDDEN');
+    expect(heard(following)).toEqual(['resync']);
+  });
+});
+
+describe('a REST follower of the fleet at /api/v1/fleet/events', () => {
+  it("reads the fleet's committed events live, each with its number as the event id", async () => {
+    const watcher = await crewed('rest-watcher', ['fleet:read']);
+    const following = followOverRest({ crewToken: watcher.crewToken });
+    await expect.poll(() => heard(following)).toEqual(['resync']);
+    const start = lastSeq(following);
+
+    const { shipId } = await commissionScout('rest-scout');
+
+    await expect.poll(() => heard(following)).toEqual(['resync', 'ShipCommissioned', 'OwnerSet', 'StartingPromptIssued']);
+    expect(following.items.slice(1).map(({ trackedId }) => Number(trackedId))).toEqual([start + 1, start + 2, start + 3]);
+    expect(following.items[1]?.item).toMatchObject({ kind: 'event', event: { seq: start + 1, type: 'ShipCommissioned', shipId } });
+  });
+
+  it('misses none across a reopen with Last-Event-ID: every event committed while it was away, then live', async () => {
+    const watcher = await crewed('rest-returner', ['fleet:read']);
+    const away = followOverRest({ crewToken: watcher.crewToken });
+    await expect.poll(() => heard(away)).toEqual(['resync']);
+    const reached = lastSeq(away);
+    streams.splice(0).forEach((stream) => {
+      stream.abort();
+    });
+
+    await commissionScout('rest-lookout');
+    const back = followOverRest({ crewToken: watcher.crewToken, lastEventId: String(reached) });
+    await expect.poll(() => heard(back)).toEqual(['ShipCommissioned', 'OwnerSet', 'StartingPromptIssued']);
+    await commissionScout('rest-pilot');
+
+    await expect.poll(() => heard(back)).toEqual(['ShipCommissioned', 'OwnerSet', 'StartingPromptIssued', 'ShipCommissioned', 'OwnerSet', 'StartingPromptIssued']);
+    expect(Number(back.items[0]?.trackedId)).toBe(reached + 1);
+  });
+
+  it('hears no more once argo revokes its fleet:read: the stream ends with FORBIDDEN', async () => {
+    const watcher = await crewed('rest-revoked', ['fleet:read']);
+    const following = followOverRest({ crewToken: watcher.crewToken });
+    await expect.poll(() => heard(following)).toEqual(['resync']);
+
+    unwrap(await useCases.grantScopes(argo, { shipId: watcher.shipId, grant: [], revoke: ['fleet:read'] }));
+    await commissionScout('rest-unheard');
+
+    await expect.poll(() => following.refusal).toBe('FORBIDDEN');
+    expect(heard(following)).toEqual(['resync']);
+  });
+
+  it('hears no more once its ship is released: the stream ends with LEASE_ENDED', async () => {
+    const watcher = await crewed('rest-released', ['fleet:read']);
+    const following = followOverRest({ crewToken: watcher.crewToken });
+    await expect.poll(() => heard(following)).toEqual(['resync']);
+
+    unwrap(await useCases.releaseShip(argo, { shipId: watcher.shipId }));
+    await commissionScout('rest-after-release');
+
+    await expect.poll(() => following.refusal).toBe('LEASE_ENDED');
     expect(heard(following)).toEqual(['resync']);
   });
 });
