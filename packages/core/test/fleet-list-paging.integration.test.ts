@@ -216,6 +216,17 @@ describe('the fleet snapshot at 3,000 ships (decision 4 of the performance desig
     expect(pages.map((page) => page.length)).toEqual([100, 100, 100, 100, 28]);
   });
 
+  it("reads a page of 500, Harbour's, through the keyset index and each ship's crew, ping and model for its own ships only, however far on it starts", async () => {
+    const { id, name } = seeded(2_400);
+    const plan = await planOfPage({ after: { isEmpty: true, value: '', name, id }, limit: PAGE_SIZE_MAX + 1, filter: ACTIVE, reach: { kind: 'every' } });
+
+    expect([
+      rowsOfIndex(plan, 'ships_listing_idx'),
+      loopsOfIndex(plan, 'events_starting_prompt_issued_idx') <= PAGE_SIZE_MAX + 1,
+      loopsOfIndex(plan, 'messages_pings_idx') <= PAGE_SIZE_MAX + 1,
+    ]).toEqual([expect.toBeOneOf([501, 502]), true, true]);
+  });
+
   it('reads who crewed a ship, its last ping and model for the ships of the page only, not every ship it orders', async () => {
     const plan = await planOfPage({ limit: 21, filter: {}, sort: { column: 'seen', direction: 'ascending' }, reach: { kind: 'every' } });
 
