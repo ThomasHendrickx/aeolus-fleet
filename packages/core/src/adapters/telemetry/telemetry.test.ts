@@ -70,8 +70,9 @@ async function finishedSpans() {
   return spans.getFinishedSpans();
 }
 
-/** The points of one duration histogram, after a collect. */
+/** The points of one duration histogram, after a collect of its own: the exporter keeps every earlier collect, which are cumulative. */
 async function durationsOf(histogram: string) {
+  points.reset();
   await metricReader.forceFlush();
   return points
     .getMetrics()
@@ -196,7 +197,7 @@ describe('with an OTLP endpoint set', () => {
   describe('a call that waits for a message', () => {
     const WAIT_MS = 120;
     const OK = { code: 'OK', isServerFailure: false };
-    const address = { fleetId: 'flt_1', shipId: 'shp_1', type: 'agent' };
+    const address = { fleetId: 'flt_1', shipId: 'shp_1', type: 'agent' } as const;
 
     /** The sum, in seconds, of the points of a histogram recorded for one procedure. */
     async function sumOf(histogram: string, procedure: string) {
