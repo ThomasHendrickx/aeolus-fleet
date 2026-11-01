@@ -124,6 +124,24 @@ describe('Harbour on the fleet overview', () => {
     await expect(Promise.all([harbour.getByTitle('builder: Building the harbour').count(), harbour.getByTitle('reviewer-1: Waiting').count()])).resolves.toEqual([1, 1]);
   });
 
+  it("opens the ship's page when its tile is tapped on phone", async () => {
+    const page = await signedIn(PHONE);
+
+    await tileOf(page, 'builder').tap();
+
+    await page.waitForURL(/\/ships\/shp_/);
+    await page.getByTestId('ship-header').getByText('builder', { exact: true }).first().waitFor();
+  });
+
+  it("opens the ship's page when its tile is clicked on desktop", async () => {
+    const page = await signedIn();
+
+    await tileOf(page, 'reviewer-1').click();
+
+    await page.waitForURL(/\/ships\/shp_/);
+    await page.getByTestId('ship-header').getByText('reviewer-1', { exact: true }).first().waitFor();
+  });
+
   it('shows a long name whole in its tile on phone, three tiles across', async () => {
     const page = await signedIn(PHONE);
     const name = page.getByTestId('harbour').getByText('builder-gateway', { exact: true });
