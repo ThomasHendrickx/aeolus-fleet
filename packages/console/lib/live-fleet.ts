@@ -11,7 +11,7 @@ import { useTRPC } from './trpc';
 
 /**
  * The events that change what a ship's row shows: a ship, its crew,
- * its secret, its starting prompt, its crew's report, its crew request, the labels it carries, or how its last ping stands. An ack can
+ * its secret, its starting prompt, its crew's report, its crew request, the labels it carries, its open alerts, or how its last ping stands. An ack can
  * answer a ping and an undeliverable ping shows none, so those two reload it;
  * other message events leave the rows as they are.
  */
@@ -35,6 +35,8 @@ const SHIP_EVENTS: ReadonlySet<EventType> = new Set<EventType>([
   'LabelAssigned',
   'LabelUnassigned',
   'LabelRetired',
+  'AlertRaised',
+  'AlertCleared',
 ]);
 
 /**
