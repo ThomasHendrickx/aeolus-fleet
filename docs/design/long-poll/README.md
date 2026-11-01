@@ -93,9 +93,30 @@ A new subscription, `ship.wakeups` (`messages:receive`), streams "look now" to t
 - Measures: only `inbox` waits, so only it needs A's split.
 - Still a long poll, so the setup Thomas dislikes stays in one place; MCP agents would need two calls where one did.
 
+### E. A database trigger raises the notice (Thomas, 1 Nov: "Db trigger might be better here")
+
+A Postgres trigger on `deliveries` runs `pg_notify` whenever a row becomes pending (inserted pending, or updated back to pending), in the transaction that made it so. Postgres holds the notice until that transaction commits and drops it on rollback, as today.
+
+**What exists.** Core already uses `LISTEN/NOTIFY` for deliveries (0003), raised by core's code, not by the database: the domain calls the `Notifier` port (`deliveryPending`) inside the transaction, and the adapter runs `SELECT pg_notify('aeolus_delivery_pending', ...)` (`adapters/prisma/delivery-notices.ts`). It is raised by send, a meeting's notices, resend, and a lease's end returning deliveries. One connection of core's (`aeolus-delivery-listener`) listens and feeds the wake-up hub that the waiting calls sit on. The only triggers today keep `events` append-only.
+
+**What a trigger changes.** Who raises the notice: the database, for every path that makes a delivery pending, including any later one, so no path can forget to. The payload stays the same (delivery id, fleet, ship or type), so the listener and the hub do not change.
+
+**What it does not change.** Where the notice ends: a `NOTIFY` reaches only a client holding a `LISTEN` on a Postgres connection, and that is core alone. The plugin, the gateway, squadrons, the watch plugin and the trierarch have no database connection and must not get one (0004: tRPC is the one door; 0007: every read scoped by fleet, which a raw channel shared by every fleet is not). So a trigger on its own still leaves each caller holding a request open to hear of it. For the call to return without being held, the notice still needs a way from core to the caller: C's stream (or D's one waiting call). Per caller:
+
+| Caller | With E alone | With E and C |
+| --- | --- | --- |
+| Plugin watcher and push hook | still waits on `inbox` or `pushReceive` | SSE stream wakes it; `pushReceive` answers at once |
+| Gateway waiter, MCP-out party, A2A | still waits on `pushReceive`, `inbox`, `receiveReply` | WebSocket stream wakes it |
+| Squadrons, watch plugin, trierarch | still wait on `receive` | stream wakes them |
+| MCP or REST agent crewed by hand | still waits on `receive` | as question L3 |
+
+- Keeps the guarantee: it raises the same hint, after commit only.
+- Costs: behaviour in the database, outside the domain and its unit tests with in-memory ports (CLAUDE.md: the domain decides; Prisma and raw SQL stay in the adapter), proven only by Testcontainers tests; a trigger per row fires once per delivery of a meeting or label send (as the port does now, so no worse), and every migration that touches `deliveries` has to keep it.
+- **Not picked as the answer to the waits.** It moves where the notice is raised and leaves untouched how a caller hears of it, which is what holds the requests open and what the metrics measure. It is a fair choice as the source of the wake under C if Thomas prefers the database to guarantee no path forgets the notice (question L7); the port covers every path I found that makes a delivery pending, so I would keep it.
+
 ### Pick
 
-**A now, then C.** A is one core slice, answers the metrics at once and stays useful afterwards (whatever still waits is measured apart). C answers the setup: no request call waits, the waiters are streams fed by the `NOTIFY` core already has, and the guarantee stays in the transactions. D is the fallback if Thomas wants no new transport.
+**A now, then C.** A is one core slice, answers the metrics at once and stays useful afterwards (whatever still waits is measured apart). C answers the setup: no request call waits, the waiters are streams fed by the `NOTIFY` core already has, and the guarantee stays in the transactions. D is the fallback if Thomas wants no new transport. E combines with C rather than replacing it (question L7).
 
 ## 6. The flow under C (for the purpose; the details follow once it is agreed)
 
@@ -179,3 +200,10 @@ Unhappy paths, each found again by a look, never by the stream:
 2. Out of scope for now: only the three calls the issue names.
 
 **Pick 1.** They wait the same way and pollute the same histogram.
+
+### L7 Who raises the delivery notice under C?
+
+1. **Core's code, as today**: the `Notifier` port in each path that makes a delivery pending, tested with in-memory ports.
+2. A trigger on `deliveries` (option E), so the database raises it for every path; the port goes.
+
+**Pick 1.** Every path raises it today, and it keeps the rule in the domain where its unit tests prove it. Pick 2 if you want the database to guarantee no future path forgets it.
