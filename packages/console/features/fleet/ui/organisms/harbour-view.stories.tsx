@@ -78,3 +78,30 @@ export const WhatAShipIsDoing: Story = {
     await expect(canvas.getByTitle('walker-2: Waiting')).toHaveTextContent('Waiting');
   },
 };
+
+/** A number at 0 carries no tone, on the card, the number or the icon: zero does not ask for attention (#1590). */
+export const NothingToReport: Story = {
+  args: { harbour: { counts: { ships: 1, alert: 0, waiting: 0, working: 0, idle: 1 }, groups: [group('agents', [tile('builder-core', { state: 'idle' })])] } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    for (const state of ['alert', 'waiting', 'working']) {
+      const card = canvas.getByTestId(`harbour-number-${state}`);
+      await expect(card).toHaveTextContent('0');
+      await expect(card.outerHTML).not.toContain('tone-');
+    }
+  },
+};
+
+/** Above 0 the tones stay: Alert filled, Waiting and Working in their text tone. */
+export const OneToReport: Story = {
+  args: { harbour: { counts: { ships: 3, alert: 1, waiting: 1, working: 1, idle: 0 }, groups: [group('agents', [tile('a', { state: 'alert' }), tile('b', { state: 'waiting' }), tile('c', { state: 'working' })])] } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(canvas.getByTestId('harbour-number-alert').className).toContain('bg-tone-attention-bg');
+    await expect(canvas.getByTestId('harbour-number-alert').outerHTML).toContain('text-tone-attention-fg');
+    await expect(canvas.getByTestId('harbour-number-waiting').outerHTML).toContain('text-tone-waiting-fg');
+    await expect(canvas.getByTestId('harbour-number-working').outerHTML).toContain('text-tone-ok-fg');
+  },
+};
