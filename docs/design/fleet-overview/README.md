@@ -1,6 +1,6 @@
 # Fleet overview: Harbour
 
-[Issue 1441](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1441). Thomas, 31 Oct, asked for "5 alternatives to get an overview of the fleet ... more marketing friendly showing the ships and their status", then picked: "Fleet overview 5 is the most usefull. 4 is a gimmick". Mockup only; nothing is built yet.
+[Issue 1441](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1441). Thomas, 31 Oct, asked for "5 alternatives to get an overview of the fleet ... more marketing friendly showing the ships and their status", then picked: "Fleet overview 5 is the most usefull. 4 is a gimmick". Built in [#1475](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1475): Harbour sits on top of the fleet overview, the three counts and the fleet table below it.
 
 [harbour.html](harbour.html), [harbour.png](harbour.png): desktop light and dark, phone light and dark, in the Compact look ([ui-package mockups](../ui-package/mockups/README.md)). The HTML stands alone, with the tokens and Geist fonts inlined; the PNG is that file rendered in Chromium at 1x.
 
@@ -14,9 +14,9 @@
 
 The mockup groups ship states into four for its numbers and tiles: Alert (an open alert), Waiting (awaiting crew or blocked), Working, Idle. Which state lands in which group is for the build to settle against the blueprint; the mockup decides no behaviour.
 
-## The read Harbour needs (design, for Thomas's approval)
+## The read Harbour needs
 
-Thomas picked a tailored read over paging `fleet.list` whole ([#1475](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1475)). Nothing below is built yet.
+Thomas picked a tailored read over paging `fleet.list` whole ([#1475](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1475)) and approved this design with option 1 for both questions (section 4).
 
 ### 1. Purpose
 
@@ -38,7 +38,7 @@ The state, as Thomas confirmed, first match wins: an open alert is Alert; awaiti
 - **Input:** `{ cursor?, limit? }`, limit at most 500, default 500; or `{ shipIds }`, at most 100, for the live reload of single tiles.
 - **Output:** `{ items: [{ id, name, kind, state, note }], nextCursor, counts }`, `counts` = `{ ships, alert, waiting, working, idle }` on the first page only (null on later pages and for `shipIds`).
 - **Order:** the listing order (argo first, then by name), so a page reads through `ships_listing_idx` by keyset; the browser groups the tiles and orders each group by state, then name.
-- **The statement:** active ships (`retired_at IS NULL`, kind not viewer) in reach, `LEFT JOIN leases` on the open lease (`leases_ship_id_open_key`) for status, report state and note, and `EXISTS` an open alert (`alerts_open_on_ship_idx`); the state is one `CASE` in that order. The counts are one aggregate of the same `CASE` over the same ships, read through `ships_kind_listing_idx`. No new index.
+- **The statement:** active ships (`retired_at IS NULL`, every kind but viewer) in reach, `LEFT JOIN leases` on the open lease (`leases_ship_id_open_key`) for status, report state and note, and `EXISTS` an open alert (`alerts_open_on_ship_idx`); the state is one `CASE` in that order. The counts are one aggregate of the same `CASE` over the same ships, read through a partial index of the active ships, with the fleet's open alerts joined once rather than looked up per ship and per count. No new index.
 - **The rule:** `harbourStateOf` in `core/src/domain/registry`, pure; the integration test holds the `CASE` to it for every combination of status, report state and alert.
 - **Live:** a ship event (with `AlertRaised` and `AlertCleared` added, as in the Harbour PR) reads `fleet.harbour({ shipIds: [that ship] })` and replaces the tile in place, placing a new ship in its group; the counts query reloads, once at a time as `createLiveReloads` does. A resync reads it whole again. No interval refresh.
 - **Size:** about 100 bytes a ship: about 300 KB at 3,000 ships, against about 3 MB through `fleet.list`.

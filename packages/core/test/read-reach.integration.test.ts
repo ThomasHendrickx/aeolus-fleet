@@ -278,6 +278,21 @@ describe('the fleet:read procedures for a ship outside read reach (decision 0034
     expect(counts.reduce((sum, kind) => sum + kind.active + kind.retired, 0)).toBe(listed.items.filter((ship) => !('isInReadReach' in ship)).length);
   });
 
+  it("fleet.harbour shows only the ships it reads, each with its state, and counts only those (Harbour's read)", async () => {
+    const [harbour, listed] = [await reader.fleet.harbour.query({}), await reader.fleet.list.query()];
+    const read = listed.items.filter((ship) => !('isInReadReach' in ship) && ship.kind !== 'viewer');
+
+    expect([harbour.items.map((ship) => ship.id), harbour.counts?.ships, harbour.items.find((ship) => ship.id === ids.near)?.state]).toEqual([
+      read.map((ship) => ship.id),
+      read.length,
+      'idle',
+    ]);
+  });
+
+  it('fleet.harbour is refused to a ship without fleet:read', async () => {
+    await expect(codeOf(client(nearToken).fleet.harbour.query({}))).resolves.toBe('FORBIDDEN');
+  });
+
   it('fleet.needsAttention answers nothing it does not read', async () => {
     await expect(reader.fleet.needsAttention.query({})).resolves.toEqual({ items: [], nextCursor: null });
   });

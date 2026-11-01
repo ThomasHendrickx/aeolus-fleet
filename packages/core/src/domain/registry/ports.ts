@@ -22,6 +22,7 @@ import type { ReachRefusal } from './reach-refusal.js';
 import type { DefinedScope } from './defined-scope.js';
 import type { ScopeNamespace } from './scope-namespace.js';
 import type { Commissioner, Ship } from './ship.js';
+import type { HarbourCounts, HarbourShip } from './harbour.js';
 import type { ShipCounts } from './ship-counts.js';
 import type { ShipReport } from './ship-report.js';
 import type { StatedStatement } from './statement.js';
@@ -566,6 +567,9 @@ export interface ShipPage {
   reach: ReadReach;
 }
 
+/** Which of Harbour's ships a read answers: a page after a position, or the ships asked. */
+export type HarbourRead = { reach: ReadReach } & ({ after?: ShipPosition; limit: number } | { shipIds: readonly ShipId[] });
+
 /** The fleet snapshot's reads. Its lists, counts and types leave every removed ship out; `ship` still answers one, its remnant (decision 0070, D4 and D8). */
 export interface FleetListing {
   /** A page of the fleet's ships as `page` selects and orders them, each with its position (decision 4 of the performance design). */
@@ -574,6 +578,15 @@ export interface FleetListing {
   labels(fleetId: FleetId): Promise<ListedLabel[]>;
   /** One ship of the fleet, read the same way; undefined when the fleet has no such ship. */
   ship(fleetId: FleetId, shipId: ShipId): Promise<ShipFacts | undefined>;
+  /**
+   * Harbour's ships (docs/design/fleet-overview): the active ships in `reach`,
+   * the viewer ship left out, each with its state as `harbourStateOf` decides
+   * it, in the listing's default order after the position, at most `limit`;
+   * or, with `shipIds`, only those of them. A page read from the start holds
+   * the numbers over the same ships, as `harbourCountsOf` counts them, read
+   * in the same transaction; any other read holds none.
+   */
+  harbour(fleetId: FleetId, read: HarbourRead): Promise<{ ships: { ship: HarbourShip; position: ShipPosition }[]; counts: HarbourCounts | null }>;
   /** The ships in `reach` that `filter` selects, counted per kind as `shipCountsOf` counts them, without reading each ship. */
   counts(fleetId: FleetId, read: { reach: ReadReach; filter: ShipFilter }): Promise<ShipCounts[]>;
   /** How many active ships in `reach` carry each label value, and any value of each label, by id; one no such ship carries is left out. */

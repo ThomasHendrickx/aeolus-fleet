@@ -10,6 +10,7 @@ export * from './activity.js';
 export * from './alert.js';
 export * from './app-switcher.js';
 export * from './duration.js';
+export * from './harbour.js';
 export * from './label-handle.js';
 export * from './page-size.js';
 export * from './payload.js';

@@ -101,6 +101,7 @@ import { createGetShip } from '../../src/domain/registry/get-ship.js';
 import { createReadOpenAlerts } from '../../src/domain/registry/read-open-alerts.js';
 import { createReadListedShip } from '../../src/domain/registry/read-listed-ship.js';
 import { createCountShips } from '../../src/domain/registry/count-ships.js';
+import { createReadHarbour } from '../../src/domain/registry/read-harbour.js';
 import { createListShipTypes } from '../../src/domain/registry/list-ship-types.js';
 import { createReadOnBehalf } from '../../src/domain/registry/read-on-behalf.js';
 import { createGetStartingPrompt } from '../../src/domain/registry/get-starting-prompt.js';
@@ -339,6 +340,7 @@ export function registryUseCases(core: InMemoryCore) {
     readOpenAlerts: createReadOpenAlerts({ listing: core.listing, readReach: readReachOf(core) }),
     readListedShip: createReadListedShip({ listing: core.listing, readReach: readReachOf(core) }),
     countShips: createCountShips({ listing: core.listing, readReach: readReachOf(core) }),
+    readHarbour: createReadHarbour({ listing: core.listing, readReach: readReachOf(core) }),
     listShipTypes: createListShipTypes({ listing: core.listing, readReach: readReachOf(core) }),
     readOnBehalf: createReadOnBehalf({ ships: core.ships }),
     whoami: createWhoami({ ships: core.ships }),

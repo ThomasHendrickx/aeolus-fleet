@@ -42,6 +42,8 @@ import {
   fleetHealthOutputSchema,
   acknowledgedSchema,
   listedShipOutputSchema,
+  harbourInputSchema,
+  harbourOutputSchema,
   shipCountsInputSchema,
   shipTypesInputSchema,
   shipTypesOutputSchema,
@@ -1219,6 +1221,19 @@ export const fleetRouter = router({
         longestWait: longestWait && { ...longestWait, awaitingCrewSince: longestWait.awaitingCrewSince.toISOString() },
       })),
     ),
+
+  /**
+   * Harbour's ships (docs/design/fleet-overview): each active ship in read
+   * reach by id, name, kind, its state and note, a page at a time, the
+   * numbers on the first page; or only the ships named, for a live reload.
+   */
+  harbour: actorScopedProcedure('fleet:read')
+    .input(harbourInputSchema)
+    .output(harbourOutputSchema)
+    .query(async ({ ctx, input }) => {
+      const { ships, nextCursor, counts } = await ctx.useCases.readHarbour(ctx.caller, input?.shipIds === undefined ? { cursor: input?.cursor, limit: input?.limit } : { shipIds: input.shipIds });
+      return { items: ships, nextCursor: nextCursor && shipCursorOf(nextCursor), counts };
+    }),
 
   /** The types of the ships in read reach, each once, sorted: active ones unless status asks for retired. */
   shipTypes: actorScopedProcedure('fleet:read')

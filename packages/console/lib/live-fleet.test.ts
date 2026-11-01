@@ -1,4 +1,4 @@
-import { createIdGenerator, EVENT_TYPES, type EventType, type ListedShip, type LiveFleetEvent, type ShipId } from '@aeolus-fleet/common';
+import { createIdGenerator, EVENT_TYPES, type EventType, type HarbourOutput, type ListedShip, type LiveFleetEvent, type ShipId } from '@aeolus-fleet/common';
 import type { AppRouter } from '@aeolus-fleet/core';
 import { InfiniteQueryObserver, QueryClient, QueryObserver } from '@tanstack/react-query';
 import { createTRPCClient, httpLink } from '@trpc/client';
@@ -33,6 +33,8 @@ describe('isShipChange', () => {
     'LabelAssigned',
     'LabelUnassigned',
     'LabelRetired',
+    'AlertRaised',
+    'AlertCleared',
   ] as const)(
     "changes a ship's row for %s",
     (type) => {
@@ -451,6 +453,61 @@ describe('the live fleet (performance design, decision 3)', () => {
     live.onItem({ kind: 'event', event: anEvent(type, { shipId: builder.id, hasMessage }) });
 
     await expect.poll(() => [live.askedOf('fleet.stuckSummary'), live.askedOf('fleet.stuck')]).toEqual([2, 4]);
+    live.close();
+  });
+});
+
+describe("Harbour live (docs/design/fleet-overview, \"The read Harbour needs\")", () => {
+  type HarbourTile = HarbourOutput['items'][number];
+  const counts = (working: number, waiting: number) => ({ ships: 2, alert: 0, waiting, working, idle: 2 - working - waiting });
+
+  /** Harbour's pages over a fake fleet.harbour: the whole fleet from `tiles`, a ship asked alone from `alone`, the numbers from `numbers`. */
+  function aHarbour(input: { tiles: HarbourTile[]; alone: (shipId: unknown) => HarbourTile[]; numbers: () => ReturnType<typeof counts> }) {
+    const live = aLiveFleet({
+      'fleet.harbour': (asked) => {
+        const shipIds = typeof asked === 'object' && asked !== null && 'shipIds' in asked && Array.isArray(asked.shipIds) ? asked.shipIds : undefined;
+        return shipIds === undefined ? { items: input.tiles, nextCursor: null, counts: input.numbers() } : { items: shipIds.flatMap(input.alone), nextCursor: null, counts: null };
+      },
+      'fleet.listedShip': () => aShip({}),
+    });
+    const pages = new InfiniteQueryObserver(live.queryClient, live.trpc.fleet.harbour.infiniteQueryOptions({ limit: 500 }, { getNextPageParam: () => undefined }));
+    live.show(pages);
+    const shown = () => {
+      const data = pages.getCurrentResult().data;
+      return data && { tiles: data.pages.flatMap((page) => page.items), counts: data.pages[0]?.counts };
+    };
+    return { live, shown };
+  }
+
+  it("replaces a ship's tile in place with the ship read alone, and reads Harbour's numbers again", async () => {
+    const argo: HarbourTile = { id: newId('ship'), name: 'argo', kind: 'operator', state: 'idle', note: null };
+    const builder: HarbourTile = { id: newId('ship'), name: 'builder', kind: 'agent', state: 'working', note: 'Building' };
+    const blocked: HarbourTile = { ...builder, state: 'waiting', note: 'Waiting for a review' };
+    let numbers = counts(1, 0);
+    const { live, shown } = aHarbour({ tiles: [argo, builder], alone: () => [blocked], numbers: () => numbers });
+    await expect.poll(shown).toBeDefined();
+
+    numbers = counts(0, 1);
+    live.onItem({ kind: 'event', event: anEvent('ShipReported', { shipId: builder.id, hasMessage: false }) });
+
+    await expect.poll(shown).toEqual({ tiles: [argo, blocked], counts: counts(0, 1) });
+    live.close();
+  });
+
+  it('adds a ship Harbour did not show, and takes off one it no longer shows, without reading the fleet again', async () => {
+    const argo: HarbourTile = { id: newId('ship'), name: 'argo', kind: 'operator', state: 'idle', note: null };
+    const old: HarbourTile = { id: newId('ship'), name: 'old', kind: 'agent', state: 'idle', note: null };
+    const scout: HarbourTile = { id: newId('ship'), name: 'scout', kind: 'agent', state: 'waiting', note: null };
+    const { live, shown } = aHarbour({ tiles: [argo, old], alone: (shipId) => (shipId === scout.id ? [scout] : []), numbers: () => counts(0, 1) });
+    await expect.poll(shown).toBeDefined();
+    const wholeReads = live.askedOf('fleet.harbour');
+
+    live.onItem({ kind: 'event', event: anEvent('ShipCommissioned', { shipId: scout.id, hasMessage: false }) });
+    live.onItem({ kind: 'event', event: anEvent('ShipRetired', { shipId: old.id, hasMessage: false }) });
+
+    await expect.poll(() => shown()?.tiles).toEqual([scout, argo]);
+    // Each ship read alone, and the numbers once or twice: never the whole fleet page after page.
+    expect(live.askedOf('fleet.harbour') - wholeReads).toBeLessThanOrEqual(4);
     live.close();
   });
 });
