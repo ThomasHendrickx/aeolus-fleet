@@ -18,6 +18,7 @@ Feature designs, one folder each; the status of each is at its top:
 | --- | --- |
 | [a2a](a2a/README.md) | A2A in and out through the gateway |
 | [accounts](accounts/accounts.md) | Accounts and roles: which person acts as which ship, and may do what |
+| [argo-inbox](argo-inbox/README.md) | argo's inbox reaches the people who may act as argo |
 | [bridge](bridge/README.md) | Bridge: a person's one place to work with their fleet, and where else each job shows |
 | [e2e-encryption](e2e-encryption/e2e-encryption.md) | Who can read a fleet's messages: sealed fleets |
 | [feature-flags](feature-flags/feature-flags.md) | Feature flags per fleet |
