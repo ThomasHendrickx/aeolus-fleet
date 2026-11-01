@@ -211,6 +211,15 @@ export interface ShipStream {
   path: string;
   /** What it sends and its rules, from the subscription's meta. */
   description: string;
+  /**
+   * Where it refuses: in its middlewares as it opens (`opening`), or in its
+   * use case too, up to its first item (`firstItem`), which is then read
+   * before the door answers. A stream that may send nothing for a while
+   * refuses on opening, so its door answers at once.
+   */
+  refusesUpTo: 'opening' | 'firstItem';
+  /** The header a client opening again sends its position in, and the subscription's input field it goes to. */
+  position?: { header: string; field: string };
 }
 
 /**
@@ -222,31 +231,49 @@ export const WAKE_STREAM: ShipStream = {
   route: '/ship/wakeups',
   path: 'ship.wakeups',
   description: metaSchema.parse(appRouter.ship.wakeups._def.meta).description,
+  refusesUpTo: 'firstItem',
 };
 
 /**
- * A stream opened: its first item, then the rest, until the stream ends. A
- * refusal comes before the first item, so a door answers it as a call's.
+ * The fleet's committed events (long-poll design, W2): `fleet.events`, as the
+ * console follows them, at `GET /api/v1/fleet/events`. A client opening again
+ * sends the last event id as `Last-Event-ID`, the console's `lastEventId`. A
+ * follower already at the last event hears nothing until the next commits,
+ * so it refuses on opening.
  */
-export type ShipStreamResult = { isOk: true; first: unknown; rest: AsyncIterator<unknown> } | { isOk: false; refusal: ShipCallRefusal };
+export const FLEET_EVENTS_STREAM: ShipStream = {
+  route: '/fleet/events',
+  path: 'fleet.events',
+  description: metaSchema.parse(appRouter.fleet.events._def.meta).description,
+  refusesUpTo: 'opening',
+  position: { header: 'Last-Event-ID', field: 'lastEventId' },
+};
+
+/**
+ * A stream opened: its items, until the stream ends. A refusal comes before
+ * them, as the stream's `refusesUpTo` says, so a door answers it as a call's.
+ */
+export type ShipStreamResult = { isOk: true; items: AsyncIterator<unknown> } | { isOk: false; refusal: ShipCallRefusal };
 
 /**
  * Opens the subscription as the context's caller, through the router, as
- * callShip calls a procedure, and reads its first item: the middlewares and
- * the use case refuse before it. `closing` ends the stream.
+ * callShip calls a procedure, with the position the client sent as its
+ * input; for a stream that refuses up to its first item, reads that item.
+ * `closing` ends the stream.
  */
 export async function openShipStream(
   stream: ShipStream,
-  request: { ctx: Context; closing: AbortSignal; log: FailureLog },
+  request: { ctx: Context; closing: AbortSignal; log: FailureLog; position?: string },
 ): Promise<ShipStreamResult> {
-  const { ctx, closing, log } = request;
+  const { ctx, closing, log, position } = request;
+  const input = stream.position && { [stream.position.field]: position };
   try {
     const items: unknown = await callTRPCProcedure({
       router: appRouter,
       path: stream.path,
       type: 'subscription',
       ctx,
-      getRawInput: () => Promise.resolve(undefined),
+      getRawInput: () => Promise.resolve(input),
       signal: closing,
       batchIndex: 0,
     });
@@ -254,15 +281,41 @@ export async function openShipStream(
       throw new TypeError(`${stream.path} answered no stream`);
     }
     const rest = items[Symbol.asyncIterator]();
-    const first = await rest.next();
-    return { isOk: true, first: first.done === true ? undefined : first.value, rest };
-  } catch (thrown) {
-    const error = getTRPCErrorFromUnknown(thrown);
-    if (error.code === 'INTERNAL_SERVER_ERROR') {
-      log.error({ path: stream.path, ...failureForLog(error) }, 'procedure failed');
+    switch (stream.refusesUpTo) {
+      case 'opening':
+        return { isOk: true, items: rest };
+      case 'firstItem':
+        return { isOk: true, items: startingWith(await rest.next(), rest) };
     }
-    return { isOk: false, refusal: streamRefusalOf(error, ctx.requestId) };
+  } catch (thrown) {
+    return { isOk: false, refusal: streamRefusal(thrown, { stream, log, requestId: ctx.requestId }) };
   }
+}
+
+/**
+ * What a stream's caller learns of an error, on opening or once it no longer
+ * holds while the stream runs: as a call's, with no input to parse. A server
+ * failure goes to the log whole.
+ */
+export function streamRefusal(thrown: unknown, at: { stream: ShipStream; log: FailureLog; requestId: string }): ShipCallRefusal {
+  const error = getTRPCErrorFromUnknown(thrown);
+  if (error.code === 'INTERNAL_SERVER_ERROR') {
+    at.log.error({ path: at.stream.path, ...failureForLog(error) }, 'procedure failed');
+  }
+  return streamRefusalOf(error, at.requestId);
+}
+
+/** The rest of a stream, with the item already read first; ending it ends the stream. */
+function startingWith(first: IteratorResult<unknown>, rest: AsyncIterator<unknown>): AsyncIterator<unknown> {
+  let unread: IteratorResult<unknown> | undefined = first;
+  return {
+    next: async () => {
+      const read = unread;
+      unread = undefined;
+      return read ?? rest.next();
+    },
+    return: async (value?: unknown) => (await rest.return?.(value)) ?? { done: true, value },
+  };
 }
 
 function isAsyncIterable(value: unknown): value is AsyncIterable<unknown> {

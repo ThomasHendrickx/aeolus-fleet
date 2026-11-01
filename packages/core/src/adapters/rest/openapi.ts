@@ -62,6 +62,17 @@ function streamOperationOf(stream: ShipStream): Record<string, unknown> {
     operationId: stream.path.slice(stream.path.lastIndexOf('.') + 1),
     description: stream.description,
     security: [{ crewToken: [] }],
+    ...(stream.position && {
+      parameters: [
+        {
+          name: stream.position.header,
+          in: 'header',
+          required: false,
+          description: 'The id of the last event you read, to follow on from after it.',
+          schema: { type: 'string' },
+        },
+      ],
+    }),
     responses: {
       '200': { description: 'The stream, as server-sent events.', content: { [EVENT_STREAM_MEDIA_TYPE]: { schema: { type: 'string' } } } },
       default: { description: 'Refused or failed, before the stream opens.', content: { [JSON_MEDIA_TYPE]: { schema: { $ref: '#/components/schemas/Error' } } } },

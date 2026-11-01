@@ -148,7 +148,9 @@ import { createReadReportLog } from '../../src/domain/registry/report-log.js';
 import { createWhoami } from '../../src/domain/registry/whoami.js';
 import type { NetworkRule } from '../../src/domain/registry/network-settings.js';
 import { isCrew, type AccountCaller, type Caller, type ShipCaller, type Crew } from '../../src/domain/shared/caller.js';
+import { recordEvent, SYSTEM } from '../../src/domain/shared/events.js';
 import { createReadFleetEvents } from '../../src/domain/shared/read-fleet-events.js';
+import { ok } from '../../src/domain/shared/result.js';
 import { createFollowFleet } from '../../src/domain/shared/follow-fleet.js';
 import { createReadInbox } from '../../src/domain/shared/read-inbox.js';
 import { createReadInboxMessage } from '../../src/domain/shared/read-inbox-message.js';
@@ -619,6 +621,16 @@ export function crewShip(core: InMemoryCore, { harness = 'claude-code', ...ship 
     endedAt: null,
   });
   return crewToken;
+}
+
+/** Appends this many events to the fleet, each in its own unit of work. */
+export async function appendFleetEvents(core: InMemoryCore, { fleetId, count }: { fleetId: FleetId; count: number }): Promise<void> {
+  for (let index = 0; index < count; index += 1) {
+    await core.uow.run(async (tx) => {
+      await recordEvent({ events: tx.events, ids: core.ids }, { fleetId, type: 'StartingPromptIssued', occurredAt: core.clock.now(), actor: SYSTEM });
+      return ok(undefined);
+    });
+  }
 }
 
 /** The crew a crew token makes the caller, as the API resolves it. */

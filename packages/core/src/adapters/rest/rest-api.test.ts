@@ -1,11 +1,12 @@
-import type { FleetId, ShipId } from '@aeolus-fleet/common';
+import { fleetStreamItemSchema, type FleetId, type ShipId } from '@aeolus-fleet/common';
 import Fastify, { type FastifyInstance } from 'fastify';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
 import {
   argoIdOf,
   addAgentShip,
+  appendFleetEvents,
   crewShip,
   deliveryInFlight,
   FLEET_URL,
@@ -96,11 +97,12 @@ const operationSchema = z.object({
       content: z.object({ 'application/json': z.object({ schema: z.record(z.string(), z.unknown()) }) }),
     })
     .optional(),
+  parameters: z.array(z.object({ name: z.string(), in: z.string(), required: z.boolean(), description: z.string() })).optional(),
   responses: z.record(
     z.string(),
     z.object({
       description: z.string(),
-      // JSON for a call; server-sent events for the wake stream.
+      // JSON for a call; server-sent events for a stream.
       content: z.record(z.string(), z.object({ schema: z.record(z.string(), z.unknown()) })),
     }),
   ),
@@ -253,6 +255,7 @@ describe('the OpenAPI spec at /api/v1/openapi.json', () => {
       ['/fleet/checkManage', ['post']],
       ['/fleet/limits', ['get']],
       ['/ship/wakeups', ['get']],
+      ['/fleet/events', ['get']],
     ]);
   });
 
@@ -319,6 +322,151 @@ describe('the OpenAPI spec at /api/v1/openapi.json', () => {
       required: ['code', 'message'],
       properties: { code: { type: 'string' }, message: { type: 'string' }, requestId: { type: 'string' } },
     });
+  });
+});
+
+describe('the fleet events as server-sent events at GET /api/v1/fleet/events', () => {
+  /** The most missed events a follower is sent one by one (architecture, live updates). */
+  const REPLAY_LIMIT = 1000;
+
+  /** The stream as a client reads it: each next message, until the client hangs up. */
+  async function openStream(options: { crewToken: string; lastEventId?: string }): Promise<{ contentType: string | null; next: () => Promise<Map<string, string> | undefined>; hangUp: () => void }> {
+    const address = await server.listen({ host: '127.0.0.1', port: 0 });
+    const headers: Record<string, string> = { authorization: `Bearer ${options.crewToken}`, accept: 'text/event-stream' };
+    if (options.lastEventId !== undefined) {
+      headers['last-event-id'] = options.lastEventId;
+    }
+    const stopped = new AbortController();
+    const response = await fetch(`${address}/api/v1/fleet/events`, { headers, signal: stopped.signal });
+    const reader = response.body?.pipeThrough(new TextDecoderStream()).getReader();
+    const complete: string[] = [];
+    let buffered = '';
+    const next = async (): Promise<Map<string, string> | undefined> => {
+      while (complete.length === 0) {
+        const read = await reader?.read();
+        if (!read || read.done) {
+          return undefined;
+        }
+        buffered += read.value;
+        const messages = buffered.split('\n\n');
+        buffered = messages.pop() ?? '';
+        complete.push(...messages);
+      }
+      const message = complete.shift() ?? '';
+      return new Map(message.split('\n').map((line) => [line.slice(0, line.indexOf(':')), line.slice(line.indexOf(':') + 1).trim()]));
+    };
+    return { contentType: response.headers.get('content-type'), next, hangUp: () => { stopped.abort(); } };
+  }
+
+  /** The first messages the stream sends, then the client hangs up. */
+  async function firstMessages(options: { crewToken: string; lastEventId?: string; count: number }): Promise<{ contentType: string | null; messages: Map<string, string>[] }> {
+    const stream = await openStream(options);
+    const messages: Map<string, string>[] = [];
+    for (let message = await stream.next(); message && messages.push(message) < options.count; message = await stream.next()) {
+      // Read on until count messages came.
+    }
+    stream.hangUp();
+    return { contentType: stream.contentType, messages };
+  }
+
+  async function appendEvents(count: number): Promise<void> {
+    await appendFleetEvents(core, { fleetId, count });
+  }
+
+  function eventCount(): number {
+    return core.state.events.filter((event) => event.fleetId === fleetId).length;
+  }
+
+  function follower(): string {
+    const { shipId } = addAgentShip(core, { fleetId, name: 'follower', scopes: ['fleet:read'] });
+    return crewShip(core, { fleetId, shipId });
+  }
+
+  it('is listed in the spec as server-sent events, for a crew token with fleet:read, taking Last-Event-ID', async () => {
+    start();
+
+    const events = await operation('/fleet/events', 'get');
+
+    expect(events.operationId).toBe('events');
+    expect(events.description).toMatch(/fleet:read/);
+    expect(events.description).toMatch(/Last-Event-ID/);
+    expect(events.parameters).toEqual([expect.objectContaining({ name: 'Last-Event-ID', in: 'header', required: false })]);
+    expect(Object.keys(events.responses['200']?.content ?? {})).toEqual(['text/event-stream']);
+    expect(events.security).toEqual([{ crewToken: [] }]);
+  });
+
+  it('tells a follower without Last-Event-ID to load the fleet again, at the last number', async () => {
+    start();
+    const crewToken = follower();
+
+    const { contentType, messages } = await firstMessages({ crewToken, count: 1 });
+
+    expect(contentType).toMatch(/^text\/event-stream/);
+    expect(messages.map((message) => Object.fromEntries(message))).toEqual([{ id: String(eventCount()), data: '{"kind":"resync"}' }]);
+  });
+
+  it('sends a follower coming back with Last-Event-ID every event after it, each with its number as the id', async () => {
+    start();
+    const crewToken = follower();
+    const reached = eventCount();
+    await appendEvents(2);
+
+    const { messages } = await firstMessages({ crewToken, lastEventId: String(reached), count: 2 });
+
+    expect(messages.map((message) => message.get('id'))).toEqual([String(reached + 1), String(reached + 2)]);
+    expect(messages.map((message) => fleetStreamItemSchema.parse(JSON.parse(message.get('data') ?? 'null')))).toMatchObject([
+      { kind: 'event', event: { seq: reached + 1, type: 'StartingPromptIssued' } },
+      { kind: 'event', event: { seq: reached + 2, type: 'StartingPromptIssued' } },
+    ]);
+  });
+
+  it(`tells a follower more than ${String(REPLAY_LIMIT)} events behind to load the fleet again (resync)`, async () => {
+    start();
+    const crewToken = follower();
+    const reached = eventCount();
+    await appendEvents(REPLAY_LIMIT + 1);
+
+    const { messages } = await firstMessages({ crewToken, lastEventId: String(reached), count: 1 });
+
+    expect(messages.map((message) => Object.fromEntries(message))).toEqual([{ id: String(eventCount()), data: '{"kind":"resync"}' }]);
+  });
+
+  it('keeps a quiet stream open with a comment every 25 seconds', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval'] });
+    try {
+      start();
+      const stream = await openStream({ crewToken: follower() });
+      await stream.next();
+
+      vi.advanceTimersByTime(25_000);
+
+      expect(Object.fromEntries((await stream.next()) ?? [])).toEqual({ '': 'keep-alive' });
+      stream.hangUp();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('refuses a crew without fleet:read with 403 and FORBIDDEN, and opens no stream', async () => {
+    start();
+    const crewToken = crewedShip('scout');
+
+    const response = await server.inject({ method: 'GET', url: '/api/v1/fleet/events', headers: { authorization: `Bearer ${crewToken}` } });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json()).toEqual({ code: 'FORBIDDEN', message: 'This call needs the fleet:read scope' });
+  });
+
+  it('refuses a crew whose lease has ended with 401 and LEASE_ENDED, and opens no stream', async () => {
+    start();
+    const crewToken = follower();
+    const authorization = `Bearer ${crewToken}`;
+    await server.inject({ method: 'POST', url: '/api/v1/ship/deregister', headers: { authorization } });
+
+    const response = await server.inject({ method: 'GET', url: '/api/v1/fleet/events', headers: { authorization } });
+
+    expect(response.statusCode).toBe(401);
+    expect(response.json()).toEqual({ code: 'LEASE_ENDED', message: 'This ship was released; this session no longer crews it.' });
   });
 });
 
