@@ -142,15 +142,16 @@ describe('Harbour on the fleet overview', () => {
     await page.getByTestId('ship-header').getByText('reviewer-1', { exact: true }).first().waitFor();
   });
 
-  it('shows a long name whole in its tile on phone, three tiles across', async () => {
-    const page = await signedIn(PHONE);
-    const name = page.getByTestId('harbour').getByText('builder-gateway', { exact: true });
-    await name.waitFor();
+  it("shows a long name whole in its tile on the mockup's 375 px phone, three tiles across, on two lines where one is too narrow", async () => {
+    const page = await signedIn({ ...PHONE, viewport: { width: 375, height: 812 } });
+    await tileOf(page, 'builder-gateway').waitFor();
 
-    // Not cut short: the text takes no more room than its tile gives it.
+    // Not cut short: the name takes no more room than its tile gives it, across or down.
     await expect(
-      page.evaluate("(() => { const name = [...document.querySelectorAll('[data-testid=harbour-tile] span')].find((span) => span.textContent === 'builder-gateway'); return name.scrollWidth <= name.clientWidth; })()"),
-    ).resolves.toBe(true);
+      page.evaluate(
+        "(() => { const name = [...document.querySelectorAll('[data-testid=harbour-tile] span')].find((span) => span.textContent === 'builder-gateway'); const tiles = [...document.querySelectorAll('[data-testid=harbour-group-agents] [data-testid=harbour-tile]')]; return [name.scrollWidth <= name.clientWidth && name.scrollHeight <= name.clientHeight, new Set(tiles.slice(0, 3).map((tile) => tile.getBoundingClientRect().top)).size]; })()",
+      ),
+    ).resolves.toEqual([true, 1]);
   });
 
   it("moves a ship's tile live when its crew reports blocked, without a reload", async () => {
