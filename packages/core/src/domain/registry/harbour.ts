@@ -4,10 +4,7 @@
  * state in its statement; this is the rule it is held to.
  */
 import type { ReportState, ShipId, ShipKind, ShipStatus } from '@aeolus-fleet/common';
-
-export const HARBOUR_STATES = ['alert', 'waiting', 'working', 'idle'] as const;
-
-export type HarbourState = (typeof HARBOUR_STATES)[number];
+import type { HarbourState } from '@aeolus-fleet/common/rules';
 
 /** A ship as Harbour shows it: its tile. */
 export interface HarbourShip {

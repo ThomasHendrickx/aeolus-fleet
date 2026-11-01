@@ -6,9 +6,10 @@
  * state is one CASE, held to `harbourStateOf` by harbour.integration.test.ts.
  */
 import { idSchema, SHIP_KINDS, shipKindSchema, type FleetId, type ShipPosition } from '@aeolus-fleet/common';
+import { HARBOUR_STATES } from '@aeolus-fleet/common/rules';
 import { z } from 'zod';
 
-import { HARBOUR_STATES, type HarbourCounts, type HarbourShip } from '../../domain/registry/harbour.js';
+import type { HarbourCounts, HarbourShip } from '../../domain/registry/harbour.js';
 import type { HarbourRead } from '../../domain/registry/ports.js';
 import type { ReadReach } from '../../domain/registry/read-reach.js';
 import type { Db } from './client.js';

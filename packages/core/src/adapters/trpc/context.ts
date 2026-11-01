@@ -65,6 +65,7 @@ import type { Deregister } from '../../domain/registry/deregister.js';
 import type { GetShip } from '../../domain/registry/get-ship.js';
 import type { ReadListedShip } from '../../domain/registry/read-listed-ship.js';
 import type { CountShips } from '../../domain/registry/count-ships.js';
+import type { ReadHarbour } from '../../domain/registry/read-harbour.js';
 import type { ListShipTypes } from '../../domain/registry/list-ship-types.js';
 import type { ReadOnBehalf } from '../../domain/registry/read-on-behalf.js';
 import type { GetStartingPrompt } from '../../domain/registry/get-starting-prompt.js';
@@ -201,6 +202,7 @@ export interface UseCases {
   getShip: GetShip;
   readListedShip: ReadListedShip;
   countShips: CountShips;
+  readHarbour: ReadHarbour;
   listShipTypes: ListShipTypes;
   readOnBehalf: ReadOnBehalf;
   claimShip: ClaimShip;

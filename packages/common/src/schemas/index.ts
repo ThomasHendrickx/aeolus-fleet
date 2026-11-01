@@ -3,6 +3,7 @@ export * from './alert.js';
 export * from './account-token.js';
 export * from './apps-list.js';
 export * from './clear-request.js';
+export * from './harbour.js';
 export * from './console.js';
 export * from './crew-request.js';
 export * from './delivery.js';
