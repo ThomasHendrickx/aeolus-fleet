@@ -70,7 +70,7 @@ function themeOf(value: unknown, themes: readonly Theme[]): Theme | undefined {
 function WhoHeader({ name, signedInAs, session }: Pick<AvatarMenuProps, 'name' | 'signedInAs' | 'session'>) {
   const shown = displayNameOf(name, signedInAs);
   return (
-    <div className="flex flex-col gap-2 px-2.5 pt-2 pb-2.5">
+    <div className="flex shrink-0 flex-col gap-2 px-2.5 pt-2 pb-2.5">
       <div className="flex items-center gap-2.5">
         <Avatar kind={signedInAs === 'argo' ? 'argo' : 'account'} size={28} name={shown} />
         <span className="flex min-w-0 flex-col">
@@ -264,7 +264,7 @@ export function AvatarMenu(props: AvatarMenuProps) {
 }
 
 const rowClass =
-  'flex h-(--size-control-touch) w-full items-center gap-2.5 border-t border-border pt-3 text-body-touch text-foreground outline-none focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-60 [&_svg]:size-(--size-icon) [&_svg]:text-muted-foreground';
+  'flex shrink-0 h-(--size-control-touch) w-full items-center gap-2.5 border-t border-border pt-3 text-body-touch text-foreground outline-none focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-60 [&_svg]:size-(--size-icon) [&_svg]:text-muted-foreground';
 
 /**
  * The avatar menu on phone (H6): the avatar opens the same content as a
@@ -285,7 +285,7 @@ export function AvatarMenuSheet(props: AvatarMenuProps) {
       >
         <Avatar kind={signedInAs === 'argo' ? 'argo' : 'account'} size={28} name={shown} />
       </SheetTrigger>
-      <SheetContent side="bottom" data-testid="avatar-menu-sheet" className="gap-3">
+      <SheetContent side="bottom" data-testid="avatar-menu-sheet" className="gap-3 overflow-y-auto">
         <SheetTitle className="sr-only">Account</SheetTitle>
         <WhoHeader name={name} signedInAs={signedInAs} session={props.session} />
         {accountUrl === undefined
@@ -330,7 +330,7 @@ export function AvatarMenuSheet(props: AvatarMenuProps) {
           ),
         )}
         {hasTheme ? (
-          <div role="group" aria-label="Theme" className="flex flex-col gap-1.5 border-t border-border pt-3">
+          <div role="group" aria-label="Theme" className="flex shrink-0 flex-col gap-1.5 border-t border-border pt-3">
             <p className="text-caption text-muted-foreground">Theme</p>
             <div className="grid grid-cols-3 gap-1 rounded-lg bg-muted p-1">
               {themes.map((option) => {
@@ -367,7 +367,7 @@ export function AvatarMenuSheet(props: AvatarMenuProps) {
         <button type="button" data-testid="avatar-menu-sign-out" disabled={isSigningOut} onClick={onSignOut} className={rowClass}>
           <SignOutLabel isSigningOut={isSigningOut} />
         </button>
-        <SheetClose render={<Button size="touch" className="w-full" />}>Cancel</SheetClose>
+        <SheetClose render={<Button size="touch" className="w-full shrink-0" />}>Cancel</SheetClose>
       </SheetContent>
     </Sheet>
   );
