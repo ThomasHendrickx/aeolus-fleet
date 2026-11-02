@@ -32,6 +32,8 @@ export const harbourOutputSchema = z.object({
       state: z.enum(HARBOUR_STATES),
       /** What the ship is doing: its crew's report note; null before it reports or without a note. */
       note: z.string().nullable(),
+      /** When the ship last did something: the latest of its sends, acknowledgements and reported activity; null before any. */
+      lastActivityAt: z.iso.datetime().nullable(),
     }),
   ),
   nextCursor: z.string().nullable(),

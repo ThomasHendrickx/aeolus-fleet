@@ -1,7 +1,7 @@
 import type { FleetId, ShipId } from '@aeolus-fleet/common';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { addViewerShip, crewAboard, initialiseFleet, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
+import { addViewerShip, crewAboard, initialiseFleet, messagingUseCases, operatorCaller, registryUseCases } from '../../../test/support/core-fixtures.js';
 import { createInMemoryCore, type InMemoryCore } from '../../../test/support/in-memory.js';
 import { readReachScenario } from '../../../test/support/read-reach-scenario.js';
 import { newKey } from '../../testing/keys.js';
@@ -112,5 +112,61 @@ describe("reading Harbour's ships", () => {
 
     expect(reader.ships.map((ship) => ship.id)).toEqual(whole.map((ship) => ship.id));
     expect(reader.counts?.ships).toBe(whole.length);
+  });
+
+  describe("a ship's last activity", () => {
+    async function lastActivityOf(name: string): Promise<Date | null | undefined> {
+      return (await registry.readHarbour(argo)).ships.find((ship) => ship.name === name)?.lastActivityAt;
+    }
+
+    it('is none for a ship that has done nothing yet', async () => {
+      await crewed('scout');
+
+      await expect(lastActivityOf('scout')).resolves.toBeNull();
+    });
+
+    it('is the time of its latest send', async () => {
+      const scout = await crewed('scout');
+      core.clock.advance(60_000);
+      unwrap(await messagingUseCases(core).sendMessage(scout, { selector: { kind: 'ship', name: 'argo' }, payload: 'Done', contentType: 'text/plain', idempotencyKey: newKey(), model: 'claude-opus-5-5' }));
+      const sentAt = core.clock.now();
+      core.clock.advance(60_000);
+
+      await expect(lastActivityOf('scout')).resolves.toEqual(sentAt);
+    });
+
+    it('is the time of its latest acknowledgement, when that is later than its sends', async () => {
+      const scout = await crewed('scout');
+      const messaging = messagingUseCases(core);
+      unwrap(await messaging.sendMessage(argo, { selector: { kind: 'ship', shipId: scout.shipId }, payload: 'Review', contentType: 'text/plain', idempotencyKey: newKey() }));
+      const { deliveries } = unwrap(await messaging.receiveDeliveries(scout, {}));
+      core.clock.advance(60_000);
+      const [delivery] = deliveries;
+      expect(delivery).toBeDefined();
+      if (delivery !== undefined) {
+        unwrap(await messaging.acknowledgeDelivery(scout, { deliveryId: delivery.deliveryId }));
+      }
+
+      await expect(lastActivityOf('scout')).resolves.toEqual(core.clock.now());
+    });
+
+    it('is the activity its trierarch reported, when that is the latest', async () => {
+      const scout = await crewed('scout');
+      core.clock.advance(60_000);
+      unwrap(await messagingUseCases(core).sendMessage(scout, { selector: { kind: 'ship', name: 'argo' }, payload: 'Done', contentType: 'text/plain', idempotencyKey: newKey(), model: 'claude-opus-5-5' }));
+      core.clock.advance(60_000);
+      const observedAt = core.clock.now();
+      core.state.leaseActivities.push({ fleetId, leaseId: scout.leaseId, activity: { at: observedAt, kind: 'tool', tool: 'Bash', reportedAt: observedAt, intervalSeconds: 60 } });
+
+      await expect(lastActivityOf('scout')).resolves.toEqual(observedAt);
+    });
+
+    it("is not moved by another ship's send to it", async () => {
+      const scout = await crewed('scout');
+      core.clock.advance(60_000);
+      unwrap(await messagingUseCases(core).sendMessage(argo, { selector: { kind: 'ship', shipId: scout.shipId }, payload: 'Review', contentType: 'text/plain', idempotencyKey: newKey() }));
+
+      await expect(lastActivityOf('scout')).resolves.toBeNull();
+    });
   });
 });

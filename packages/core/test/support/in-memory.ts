@@ -81,7 +81,7 @@ import type { ScopeNamespace } from '../../src/domain/registry/scope-namespace.j
 import { noNetworkSettings, type NetworkSettings } from '../../src/domain/registry/network-settings.js';
 import type { ReachRefusal } from '../../src/domain/registry/reach-refusal.js';
 import { shipCountsOf } from '../../src/domain/registry/ship-counts.js';
-import { harbourCountsOf, harbourStateOf } from '../../src/domain/registry/harbour.js';
+import { harbourCountsOf, harbourStateOf, latestOf } from '../../src/domain/registry/harbour.js';
 import { isSameCommissioner, type Ship } from '../../src/domain/registry/ship.js';
 import { listedShipOf } from '../../src/domain/registry/list-fleet.js';
 import type { ShipReport } from '../../src/domain/registry/ship-report.js';
@@ -1981,7 +1981,17 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
             ? []
             : [
                 {
-                  ship: { id: listed.id, name: listed.name, kind: listed.kind, state: harbourStateOf({ status: listed.status, reportState: listed.report?.state ?? null, hasOpenAlert: listed.openAlertCount > 0 }), note: listed.report?.note ?? null },
+                  ship: {
+                    id: listed.id,
+                    name: listed.name,
+                    kind: listed.kind,
+                    state: harbourStateOf({ status: listed.status, reportState: listed.report?.state ?? null, hasOpenAlert: listed.openAlertCount > 0 }),
+                    note: listed.report?.note ?? null,
+                    lastActivityAt: latestOf([
+                      ...state.events.filter((event) => event.fleetId === fleetId && event.actor.kind === 'ship' && event.actor.shipId === listed.id && ['MessageAccepted', 'DeliveryAcknowledged'].includes(event.type)).map((event) => event.occurredAt),
+                      ...state.leaseActivities.filter((held) => state.leases.some((lease) => lease.id === held.leaseId && lease.shipId === listed.id && lease.endedAt === null)).map((held) => held.activity.at),
+                    ]),
+                  },
                   position: positionOf(listed, { sort: undefined, isInReach: true }),
                 },
               ],
