@@ -6,6 +6,7 @@ Exported from the Claude Design canvas "Aeolus operator console v1" (Design syst
 - [`packages/ui/src/tokens.css`](../../packages/ui/src/tokens.css): every token, light (`:root`) and dark (`.dark`). The single copy, in `@aeolus-fleet/ui`: every Aeolus app's theme imports it through `theme.css`, and the parts here refer to it.
 - `png/<Part>.png`: the part in all its states, light and dark. Open only the parts you build.
 - `source/<Part>.html`: the canvas markup for exact values; FleetTable composition and phone labels follow `conventions.md` and its console Storybook states; helper classes in `source/canvas.css`.
+- [`packages/ui/src/brand.css`](../../packages/ui/src/brand.css): the brand tokens (colour, type, motion) from the brandbook, light and dark. The single copy, for every Aeolus surface; the apps' look is still `tokens.css`.
 - [`brand/README.md`](../../brand/README.md): the app mark and its exports. Every favicon and app icon comes from there.
 
 A canvas part's name is not always its component's. Built under another name: StartingPromptBlock and CrewLineBlock in `components/organisms/starting-prompt-dialog.tsx` and `components/molecules/crew-lines.tsx`; FleetScopes in `features/ship/ui/organisms/ship-header.tsx`; AccountMenu as `AvatarMenu` in `@aeolus-fleet/ui`; CommissionForm in `features/fleet/ui/organisms/commission-dialog.tsx`. Not built: Checkbox, UpgradeBlueprintDialog.
