@@ -26,7 +26,8 @@ function NumberCard({ value, word, icon, testId, className, valueClassName }: { 
 /**
  * Harbour's numbers (docs/design/fleet-overview): the ships, then Alert,
  * Waiting, Working and Idle, each with its status icon and word; only Alert
- * is filled in its tone. One row of five on desktop and on phone. While the
+ * is filled in its tone. A number at 0 carries no tone at all: zero does not
+ * ask for attention. One row of five on desktop and on phone. While the
  * fleet is read, each number shows as the shape that is coming.
  */
 export function HarbourNumbers({ counts }: { counts: Harbour['counts'] | undefined }) {
@@ -35,15 +36,16 @@ export function HarbourNumbers({ counts }: { counts: Harbour['counts'] | undefin
       <NumberCard value={counts?.ships} word="Ships" icon={<Ship aria-hidden />} testId="harbour-number-ships" />
       {HARBOUR_STATES.map((state) => {
         const { word, Icon, text, fill } = HARBOUR_STATE_LOOK[state];
+        const isToned = (counts?.[state] ?? 0) > 0;
         return (
           <NumberCard
             key={state}
             value={counts?.[state]}
             word={word}
-            icon={<Icon aria-hidden className={text} />}
+            icon={<Icon aria-hidden className={isToned ? text : undefined} />}
             testId={`harbour-number-${state}`}
-            className={state === 'alert' ? fill : undefined}
-            valueClassName={text}
+            className={state === 'alert' && isToned ? fill : undefined}
+            valueClassName={isToned ? text : undefined}
           />
         );
       })}
