@@ -141,7 +141,11 @@ describe("reading Harbour's ships", () => {
       unwrap(await messaging.sendMessage(argo, { selector: { kind: 'ship', shipId: scout.shipId }, payload: 'Review', contentType: 'text/plain', idempotencyKey: newKey() }));
       const { deliveries } = unwrap(await messaging.receiveDeliveries(scout, {}));
       core.clock.advance(60_000);
-      unwrap(await messaging.acknowledgeDelivery(scout, { deliveryId: deliveries[0]?.deliveryId ?? ('' as never) }));
+      const [delivery] = deliveries;
+      expect(delivery).toBeDefined();
+      if (delivery !== undefined) {
+        unwrap(await messaging.acknowledgeDelivery(scout, { deliveryId: delivery.deliveryId }));
+      }
 
       await expect(lastActivityOf('scout')).resolves.toEqual(core.clock.now());
     });
