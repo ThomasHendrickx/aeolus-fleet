@@ -1,4 +1,4 @@
-<img src="brand/aeolus-mark.svg" width="56" height="56" alt="">
+<img src="brand/aeolus-mark-slate.svg" width="56" height="56" alt="">
 
 # Aeolus
 
