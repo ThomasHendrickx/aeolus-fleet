@@ -11,7 +11,11 @@ const brand = readFileSync(new URL('./brand.css', import.meta.url), 'utf8');
 function declarations(selector: string): Map<string, string> {
   const start = brand.indexOf(`${selector} {`);
   const block = brand.slice(start, brand.indexOf('}', start));
-  return new Map([...block.matchAll(/(--brand-[a-z-]+):\s*([^;]+);/g)].map(([, name, value]) => [name!, value!]));
+  return new Map(
+    [...block.matchAll(/(--brand-[a-z-]+):\s*([^;]+);/g)].flatMap(([, name, value]) =>
+      name && value ? [[name, value] as const] : [],
+    ),
+  );
 }
 
 const light = declarations(':root');

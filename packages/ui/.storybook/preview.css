@@ -1,6 +1,16 @@
 /* The theme as an app takes it (src/theme.css), scanning ui's own parts. */
-@import 'tailwindcss';
-@import 'tw-animate-css';
-@import '../src/theme.css';
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "../src/theme.css";
+/* The brand fonts, self-hosted for Storybook under their own names. */
+@import "@fontsource-variable/bricolage-grotesque";
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
 
 @source '../src';
+
+:root {
+  --font-bricolage-grotesque: "Bricolage Grotesque Variable";
+  --font-geist-sans: "Geist Variable";
+  --font-geist-mono: "Geist Mono Variable";
+}

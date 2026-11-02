@@ -1,0 +1,62 @@
+/* The brand story's demos: each moves by the brand's own timings and easings. */
+@keyframes brand-across {
+  0% {
+    left: 4px;
+  }
+  50%,
+  100% {
+    left: calc(100% - 18px);
+  }
+}
+
+@keyframes brand-back-and-forth {
+  0%,
+  100% {
+    left: 4px;
+  }
+  50% {
+    left: calc(100% - 18px);
+  }
+}
+
+@keyframes brand-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@keyframes brand-pulse {
+  0% {
+    opacity: 1;
+  }
+  40% {
+    opacity: 0.25;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.brand-demo {
+  position: relative;
+  height: 22px;
+  border-radius: 11px;
+  border: 1px solid var(--brand-line);
+  background: var(--brand-ground);
+  overflow: hidden;
+}
+
+.brand-demo > i {
+  position: absolute;
+  top: 3px;
+  left: 4px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--brand-slate);
+  animation-fill-mode: both;
+}
