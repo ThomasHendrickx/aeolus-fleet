@@ -101,7 +101,7 @@ const timings: readonly Timing[] = [
     tokens: ['--brand-event-min', '--brand-event-max'],
     use: 'A message travelling, a name lighting up. Once, then rests.',
     demo: {
-      animation: 'brand-across calc(2 * var(--brand-event-max)) var(--brand-glide) var(--brand-loop)',
+      animation: 'brand-across calc(2 * var(--brand-event-max)) var(--brand-glide) var(--brand-loop) both',
     },
   },
   {
@@ -109,7 +109,7 @@ const timings: readonly Timing[] = [
     tokens: ['--brand-breath-min', '--brand-breath-max'],
     use: 'The bob, an amber ring waiting.',
     demo: {
-      animation: 'brand-breathe var(--brand-breath-min) var(--brand-sway) var(--brand-loop)',
+      animation: 'brand-breathe var(--brand-breath-min) var(--brand-sway) var(--brand-loop) both',
     },
   },
   {
@@ -117,7 +117,7 @@ const timings: readonly Timing[] = [
     tokens: ['--brand-story-min', '--brand-story-max'],
     use: 'A flow like the story demo. Plays when seen, tap to replay.',
     demo: {
-      animation: 'brand-across calc(2 * var(--brand-story-min)) var(--brand-glide) var(--brand-loop)',
+      animation: 'brand-across calc(2 * var(--brand-story-min)) var(--brand-glide) var(--brand-loop) both',
     },
   },
   {
@@ -125,7 +125,7 @@ const timings: readonly Timing[] = [
     tokens: ['--brand-drift-min', '--brand-drift-max'],
     use: 'Glints on the water. Felt more than seen.',
     demo: {
-      animation: 'brand-back-and-forth var(--brand-drift-min) var(--brand-steady) var(--brand-loop)',
+      animation: 'brand-back-and-forth var(--brand-drift-min) var(--brand-steady) var(--brand-loop) both',
     },
   },
   {
@@ -134,7 +134,7 @@ const timings: readonly Timing[] = [
     use: 'Only for alerts. Coral never keeps blinking.',
     demo: {
       background: 'var(--brand-coral)',
-      animation: 'brand-pulse var(--brand-urgent) var(--brand-sway) 1',
+      animation: 'brand-pulse var(--brand-urgent) var(--brand-sway) 1 both',
     },
   },
 ];
@@ -145,7 +145,7 @@ const easings: readonly Timing[] = [
     tokens: ['--brand-settle'],
     use: 'A name lighting up, a ring settling.',
     demo: {
-      animation: 'brand-across calc(2 * var(--brand-event-max)) var(--brand-settle) var(--brand-loop)',
+      animation: 'brand-across calc(2 * var(--brand-event-max)) var(--brand-settle) var(--brand-loop) both',
     },
   },
   {
@@ -153,7 +153,7 @@ const easings: readonly Timing[] = [
     tokens: ['--brand-glide'],
     use: 'A message travelling between ships.',
     demo: {
-      animation: 'brand-across calc(2 * var(--brand-event-max)) var(--brand-glide) var(--brand-loop)',
+      animation: 'brand-across calc(2 * var(--brand-event-max)) var(--brand-glide) var(--brand-loop) both',
     },
   },
   {
@@ -161,7 +161,7 @@ const easings: readonly Timing[] = [
     tokens: ['--brand-sway'],
     use: 'The bob, an amber ring breathing.',
     demo: {
-      animation: 'brand-back-and-forth var(--brand-breath-min) var(--brand-sway) var(--brand-loop)',
+      animation: 'brand-back-and-forth var(--brand-breath-min) var(--brand-sway) var(--brand-loop) both',
     },
   },
   {
@@ -169,7 +169,7 @@ const easings: readonly Timing[] = [
     tokens: ['--brand-steady'],
     use: 'Glints drifting, a line that keeps time.',
     demo: {
-      animation: 'brand-across calc(2 * var(--brand-event-max)) var(--brand-steady) var(--brand-loop)',
+      animation: 'brand-across calc(2 * var(--brand-event-max)) var(--brand-steady) var(--brand-loop) both',
     },
   },
 ];
@@ -181,7 +181,32 @@ function TokenValue({ token }: { token: string }) {
       data-token={token}
       className="font-(family-name:--brand-font-mono) text-xs"
       ref={(element) => {
-        if (element) element.textContent = getComputedStyle(element).getPropertyValue(token).trim();
+        if (element)
+          element.textContent = getComputedStyle(element).getPropertyValue(token).trim().replace(/^\./, '0.');
+      }}
+    />
+  );
+}
+
+/**
+ * A colour token's value as the brandbook writes it (#1A3860), from the colour
+ * the browser paints, whatever form the stylesheet build gave the value.
+ */
+function ColourValue({ token }: { token: string }) {
+  return (
+    <code
+      data-token={token}
+      className="font-(family-name:--brand-font-mono) text-xs"
+      ref={(element) => {
+        if (!element) return;
+        element.style.color = `var(${token})`;
+        const channels = getComputedStyle(element).color.match(/\d+/g) ?? [];
+        element.style.color = '';
+        element.textContent = `#${channels
+          .slice(0, 3)
+          .map((channel) => Number(channel).toString(16).padStart(2, '0'))
+          .join('')
+          .toUpperCase()}`;
       }}
     />
   );
@@ -227,7 +252,7 @@ function Swatches({ swatches, mode }: { swatches: readonly Swatch[]; mode: Mode 
         <div
           key={swatch.token}
           data-testid={`brand-swatch-${swatch.token.slice('--brand-'.length)}`}
-          className="flex min-h-26 flex-col justify-end rounded-2xl border border-[rgb(20_32_51/.08)] p-3.5"
+          className="flex min-h-26 flex-col justify-end rounded-2xl border border-(--brand-line) p-3.5"
           style={{
             background: `var(${swatch.token})`,
             color: `var(${swatch.label[mode]})`,
@@ -235,7 +260,7 @@ function Swatches({ swatches, mode }: { swatches: readonly Swatch[]; mode: Mode 
         >
           <b className="block font-(family-name:--brand-font-display) text-[17px] font-bold">{swatch.name[mode]}</b>
           <span className="opacity-85">
-            <TokenValue token={swatch.token} />
+            <ColourValue token={swatch.token} />
           </span>
           <small className="text-xs opacity-85">{swatch.use[mode]}</small>
           <small className="font-(family-name:--brand-font-mono) text-[11px] opacity-70">{swatch.token}</small>
@@ -276,7 +301,7 @@ function Type() {
   return (
     <section>
       <SectionHead number={4} title="Type" />
-      <div className="grid gap-3.5 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+      <div className="grid items-start gap-3.5 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
         <div className="flex min-w-0 flex-col gap-2 rounded-[18px] border border-(--brand-line) bg-(--brand-surface) p-5">
           <p className="m-0 font-(family-name:--brand-font-display) text-(length:--brand-heading-size-max) leading-[1.05] font-bold tracking-[-.01em] text-balance">
             All quiet in the harbour.
