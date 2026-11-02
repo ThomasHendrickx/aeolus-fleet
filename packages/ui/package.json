@@ -23,13 +23,14 @@
       "default": "./dist/index.js"
     },
     "./tokens.css": "./dist/tokens.css",
-    "./theme.css": "./dist/theme.css"
+    "./theme.css": "./dist/theme.css",
+    "./brand.css": "./dist/brand.css"
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "tsc --project tsconfig.build.json && cp src/tokens.css src/theme.css dist/",
+    "build": "tsc --project tsconfig.build.json && cp src/tokens.css src/theme.css src/brand.css dist/",
     "typecheck": "tsc --project tsconfig.json",
     "storybook": "storybook dev --port 6007",
     "build-storybook": "storybook build --output-dir storybook-static",

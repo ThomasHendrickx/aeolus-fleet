@@ -293,4 +293,10 @@ describe('the console takes @aeolus-fleet/ui by its entry only', () => {
       await expect(importViolations("import { Button } from '@aeolus-fleet/ui';", path)).resolves.toEqual([]);
     }
   });
+
+  it.each(['tokens', 'theme', 'brand'])('passes its stylesheet %s.css', async (sheet) => {
+    for (const path of everyPlace) {
+      await expect(importViolations(`import '@aeolus-fleet/ui/${sheet}.css';`, path)).resolves.toEqual([]);
+    }
+  });
 });

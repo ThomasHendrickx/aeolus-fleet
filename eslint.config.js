@@ -243,7 +243,7 @@ const uiByItsEntryMessage = 'An app takes @aeolus-fleet/ui by its entry only, ne
  * @type {ImportRestriction[]}
  */
 const uiByItsEntry = [
-  { regex: '^@aeolus-fleet/ui/(?!(tokens|theme)\\.css$)', message: uiByItsEntryMessage },
+  { regex: '^@aeolus-fleet/ui/(?!(tokens|theme|brand)\\.css$)', message: uiByItsEntryMessage },
   { regex: '^(\\.\\./)+ui/src(/|$)', message: uiByItsEntryMessage },
 ];
 

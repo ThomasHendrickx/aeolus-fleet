@@ -1,0 +1,89 @@
+/*
+ * The Aeolus brand tokens: colour, type and motion from the brandbook
+ * (sections Colour, Type and Motion). The single copy, light on :root and
+ * dark on .dark, as tokens.css. The apps' own look stays in tokens.css.
+ */
+:root {
+  /* Light. Slate is the only brand colour; the rest are neutrals. */
+  --brand-slate: #1A3860;
+  --brand-text: #142033;
+  --brand-text-secondary: #56667C;
+  --brand-line: #DAE2EC;
+  --brand-ground: #F3F6F9;
+  --brand-surface: #FFFFFF;
+
+  /* Meaning, both modes. Never as decoration. */
+  --brand-sea: #2BA3C9;
+  --brand-coral: #FF6F4E;
+  --brand-coral-text: #AE3820;
+  --brand-amber: #E8A93A;
+
+  /*
+   * Type. Bricolage for headlines, big numbers and moments; Geist for
+   * everything you read and do; Geist Mono for ship names, ids and times.
+   * An app that loads a font under its own name sets the variable.
+   */
+  --brand-font-display: var(--font-bricolage-grotesque, "Bricolage Grotesque"), "Trebuchet MS", system-ui, sans-serif;
+  --brand-font-text: var(--font-geist-sans, "Geist"), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --brand-font-mono: var(--font-geist-mono, "Geist Mono"), ui-monospace, Menlo, monospace;
+  --brand-display-weight: 800;
+  --brand-display-size-min: 44px;
+  --brand-display-size-max: 72px;
+  --brand-heading-weight: 700;
+  --brand-heading-size-min: 24px;
+  --brand-heading-size-max: 38px;
+  --brand-number-weight: 700;
+  --brand-text-weight-min: 400;
+  --brand-text-weight-max: 600;
+  --brand-text-size-min: 14px;
+  --brand-text-size-max: 16px;
+
+  /*
+   * Motion. Events happen once and rest; only states loop, --brand-loop times.
+   * A loop starts and ends on its rest frame.
+   */
+  --brand-event-min: 600ms;
+  --brand-event-max: 1400ms;
+  --brand-breath-min: 3s;
+  --brand-breath-max: 6s;
+  --brand-story-min: 4s;
+  --brand-story-max: 5s;
+  --brand-drift-min: 7s;
+  --brand-drift-max: 18s;
+  --brand-urgent: 600ms;
+  --brand-loop: infinite;
+  --brand-settle: cubic-bezier(.3, 1.6, .5, 1);
+  --brand-glide: cubic-bezier(.35, 0, .25, 1);
+  --brand-sway: ease-in-out;
+  --brand-steady: linear;
+}
+
+/* Dark is navy, its own palette, never an inverted light mode. */
+.dark {
+  --brand-slate: #B6D5F4;
+  --brand-text: #E9EEF6;
+  --brand-text-secondary: #9DABC2;
+  --brand-line: #26335C;
+  --brand-ground: #0D1428;
+  --brand-surface: #141D38;
+}
+
+/*
+ * With reduced motion on, everything stands still at its rest frame: every
+ * timing takes no time and a loop runs once, so an animation with fill-mode
+ * both shows its last frame.
+ */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --brand-event-min: 0s;
+    --brand-event-max: 0s;
+    --brand-breath-min: 0s;
+    --brand-breath-max: 0s;
+    --brand-story-min: 0s;
+    --brand-story-max: 0s;
+    --brand-drift-min: 0s;
+    --brand-drift-max: 0s;
+    --brand-urgent: 0s;
+    --brand-loop: 1;
+  }
+}
