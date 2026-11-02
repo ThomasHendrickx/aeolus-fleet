@@ -1,7 +1,7 @@
 /**
  * Harbour's read (docs/design/fleet-overview, "The read Harbour needs"): the
  * active ships in read reach, the viewer ship left out, each by id, name,
- * kind, its state and note, a page at a time in the listing's default order
+ * kind, its state, note and last activity, a page at a time in the listing's default order
  * through `ships_listing_idx`; and the numbers over the same ships. The
  * state is one CASE, held to `harbourStateOf` by harbour.integration.test.ts.
  */
@@ -55,6 +55,7 @@ export function harbourPageStatement(fleetId: FleetId, read: HarbourRead): Prism
   const limit = 'shipIds' in read ? Prisma.empty : Prisma.sql`LIMIT ${read.limit}`;
   return Prisma.sql`
     SELECT s.id, s.name, s.kind::text AS kind, l.report_note, ${harbourStateOfShip(hasOpenAlertOfShip)} AS state,
+           GREATEST(sent_or_acked.occurred_at, l.activity_at) AS last_activity_at,
            pg.sort_is_empty, pg.sort_value, pg.sort_name
     FROM (
       SELECT ranked.* FROM (
@@ -68,6 +69,13 @@ export function harbourPageStatement(fleetId: FleetId, read: HarbourRead): Prism
     ) pg
     JOIN ships s ON s.fleet_id = ${fleetId} AND s.id = pg.id
     LEFT JOIN leases l ON l.fleet_id = s.fleet_id AND l.ship_id = s.id AND l.ended_at IS NULL
+    -- The ship's newest send or acknowledgement, one step back along its own events (events_fleet_id_actor_ship_id_seq_idx), for the page's ships only.
+    LEFT JOIN LATERAL (
+      SELECT e.occurred_at FROM events e
+      WHERE e.fleet_id = s.fleet_id AND e.actor_ship_id = s.id AND e.type IN ('MessageAccepted', 'DeliveryAcknowledged')
+      ORDER BY e.seq DESC
+      LIMIT 1
+    ) sent_or_acked ON true
     ${orderOfPage('pg', undefined)}`;
 }
 
@@ -95,13 +103,14 @@ const harbourRowSchema = z.object({
   kind: shipKindSchema,
   report_note: z.string().nullable(),
   state: z.enum(HARBOUR_STATES),
+  last_activity_at: z.date().nullable(),
 });
 
 const countsRowSchema = z.object({ ships: z.int(), alert: z.int(), waiting: z.int(), working: z.int(), idle: z.int() });
 
 function harbourShipOfRow(row: unknown): { ship: HarbourShip; position: ShipPosition } {
-  const { id, name, kind, report_note, state } = harbourRowSchema.parse(row);
-  return { ship: { id, name, kind, state, note: report_note }, position: shipPositionOfRow(row) };
+  const { id, name, kind, report_note, state, last_activity_at } = harbourRowSchema.parse(row);
+  return { ship: { id, name, kind, state, note: report_note, lastActivityAt: last_activity_at }, position: shipPositionOfRow(row) };
 }
 
 /**

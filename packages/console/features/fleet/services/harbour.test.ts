@@ -8,7 +8,7 @@ const newId = createIdGenerator();
 type Tile = HarbourOutput['items'][number];
 
 function aTile(name: string, { kind = 'agent', state = 'idle', note = null }: Partial<Omit<Tile, 'id' | 'name'>> = {}): Tile {
-  return { id: newId('ship'), name, kind, state, note };
+  return { id: newId('ship'), name, kind, state, note, lastActivityAt: null };
 }
 
 describe("harbourGroupsOf: Harbour's groups from the tiles fleet.harbour answers", () => {

@@ -82,6 +82,7 @@ async function expectedTiles() {
     kind: ship.kind,
     state: harbourStateOf({ status: ship.status === 'awaitingCrew' ? 'awaitingCrew' : 'crewed', reportState: ship.report?.state ?? null, hasOpenAlert: ship.openAlertCount > 0 }),
     note: ship.report?.note ?? null,
+    lastActivityAt: null,
   }));
 }
 
@@ -133,5 +134,23 @@ describe("Harbour's read on Postgres", () => {
     const read = await createPrismaFleetListing(core.prisma).harbour(fleetId, { reach, limit: 100 });
 
     expect([read.ships.map(({ ship }) => ship), read.counts?.ships]).toEqual([[first, second], 2]);
+  });
+
+  it("answers each ship's last activity: the latest of its sends, acknowledgements and the activity its trierarch reported", async () => {
+    const { shipId, secret } = unwrap(await core.useCases.commissionShip(argo, { idempotencyKey: newKey(), name: 'sender', type: 'builder' }));
+    const { crewToken } = unwrap(await core.useCases.claimShip({ shipId, secret: secretOf(secret), location: { kind: 'DEVICE' }, harness: 'claude-code' }));
+    const crew = unwrap(await core.useCases.authenticate.byCrewToken(crewToken));
+    const read = async () => (await core.useCases.readHarbour(argo, { shipIds: [shipId] })).ships[0]?.lastActivityAt;
+    await expect(read()).resolves.toBeNull();
+
+    unwrap(await core.useCases.sendMessage(crew, { selector: { kind: 'ship', name: 'argo' }, payload: 'Done', contentType: 'text/plain', idempotencyKey: newKey(), model: 'claude-opus-5-5' }));
+    const [row] = await core.prisma.$queryRaw<{ sent: Date }[]>`
+      SELECT max(occurred_at) AS sent FROM events WHERE fleet_id = ${fleetId} AND actor_ship_id = ${shipId} AND type = 'MessageAccepted'`;
+    const sent = row?.sent ?? new Date(0);
+    await expect(read()).resolves.toEqual(sent);
+
+    const observedAt = new Date(sent.getTime() + 60_000);
+    await core.prisma.$executeRaw`UPDATE leases SET activity_at = ${observedAt} WHERE fleet_id = ${fleetId} AND ship_id = ${shipId} AND ended_at IS NULL`;
+    await expect(read()).resolves.toEqual(observedAt);
   });
 });

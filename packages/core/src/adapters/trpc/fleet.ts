@@ -1232,7 +1232,7 @@ export const fleetRouter = router({
     .output(harbourOutputSchema)
     .query(async ({ ctx, input }) => {
       const { ships, nextCursor, counts } = await ctx.useCases.readHarbour(ctx.caller, input?.shipIds === undefined ? { cursor: input?.cursor, limit: input?.limit } : { shipIds: input.shipIds });
-      return { items: ships, nextCursor: nextCursor && shipCursorOf(nextCursor), counts };
+      return { items: ships.map((ship) => ({ ...ship, lastActivityAt: ship.lastActivityAt?.toISOString() ?? null })), nextCursor: nextCursor && shipCursorOf(nextCursor), counts };
     }),
 
   /** The types of the ships in read reach, each once, sorted: active ones unless status asks for retired. */

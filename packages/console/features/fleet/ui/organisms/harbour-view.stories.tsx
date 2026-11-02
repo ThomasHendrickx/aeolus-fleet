@@ -10,7 +10,7 @@ import { HarbourView } from './harbour-view';
 const newId = createIdGenerator();
 
 function tile(name: string, { state, note = null, kind = 'agent' }: { state: HarbourState; note?: string | null; kind?: HarbourTile['kind'] }): HarbourTile {
-  return { id: newId('ship'), name, kind, state, note };
+  return { id: newId('ship'), name, kind, state, note, lastActivityAt: null };
 }
 
 function group(kind: HarbourGroupKind, tiles: HarbourTile[]): Harbour['groups'][number] {
