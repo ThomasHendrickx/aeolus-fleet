@@ -17,5 +17,7 @@ How the mark is built, its colours, clear space and don'ts: the Mark section of 
 | `favicon-16.png`, `favicon-24.png`, `favicon-32.png`, `favicon-48.png` | PNG favicons: the Slate mark filling its square, transparent. Never below 16. |
 | `apple-touch-icon.png` | 180 px: the white mark on a Slate tile, square, since iOS rounds it. |
 | `icon-192.png`, `icon-512.png` | Web app manifest icons: the white mark on a rounded Slate tile, as the brandbook's app tiles draw it. `icon-512.png` is also the social image until a dedicated one exists. |
+| `apple-touch-icon-mist.png`, `icon-192-mist.png`, `icon-512-mist.png` | The same icons as the mist tile: the Slate mark on mist, the rounded ones with the tile's hairline edge. |
+| `apple-touch-icon-navy.png`, `icon-192-navy.png`, `icon-512-navy.png` | The same icons as the navy tile: the light slate mark on navy, for dark surfaces. |
 
 Each SVG holds one colour. The wind is a mask that cuts the mast and sail, so the files never carry a drawn line for it.
