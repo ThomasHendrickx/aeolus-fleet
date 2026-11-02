@@ -34,6 +34,12 @@ Interaction feedback (a must: a control that gives none is a bug, whatever else 
 - Data that loads shows the shape that is coming (a skeleton), never a blank area or a bare spinner for the page.
 - Tests: each interactive part has stories for idle, pending, success and failure, and an interaction test that a press shows pending before the answer arrives.
 
+Responsive layout (a must: a page that breaks, cuts off or wastes the screen at any width is a bug):
+- Every page works from 360 px to 2560 px: content reflows, nothing scrolls sideways, nothing is cut off, no truncation where there is room.
+- The layout follows the window, not a fixed width: columns and grids grow or add columns as the window grows. A max width only for long reading text.
+- Build and check at every width the approved mockups draw, plus 375, 1440 and 1920.
+- Tests: each page has a story or visual check at 375, 1440 and 1920.
+
 Quality:
 - Keyboard reachable, accessible names, status never by colour alone. `data-testid="{area}-{element}"` on elements tests touch.
 - Storybook: a story per meaningful state of each `ui/` part.
