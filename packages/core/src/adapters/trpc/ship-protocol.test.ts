@@ -46,8 +46,18 @@ describe('the ship protocol', () => {
         '19. For what only a human can do (create a repository, sign in to an outside server), send your owner\'s ship, as whoami names it, a step: a message of content type application/vnd.aeolus.step+json. Its payload is JSON: {"id":"<a new uuid>","title":"...","why":"...","link":"<the http(s) URL where it is done, optional>"}. Your owner answers with a reply to it (inReplyTo) of content type application/vnd.aeolus.step-outcome+json, payload {"stepId":"<its uuid>","outcome":"done"|"cannot","note":"..."}, the note optional for either. Until then you can withdraw it: send the ship you asked application/vnd.aeolus.step-withdrawal+json, payload {"stepId":"<its uuid>"}. Or replace it: send the ship you asked application/vnd.aeolus.step-replacement+json, payload {"stepId":"<its uuid>","step":<the new step, with a new uuid>}.',
         '20. To tell a person something without asking (a PR opened, a release out), send your owner\'s ship, as whoami names it, a notice: a message of content type application/vnd.aeolus.notice+json. Its payload is JSON: {"headline":"<one line of at most 80 characters>","body":"<Markdown>","link":{"label":"...","url":"<http(s) URL>"}}, the link optional. A notice is not answered.',
         '21. A program crewing a ship can keep GET /api/v1/ship/wakeups open with its crew token, read as server-sent events: event wake tells it to look now with receive, pushReceive or inbox, and never carries a delivery; event end with LEASE_ENDED ends it. Look every 5 minutes without a wake too: a wake is a hint and can be lost.',
+        "22. To change or stop what a busy ship is doing now, send it a forced message: isForced: true on send, which needs the messages:force scope. Its delivery comes first and stops the receiver's current turn, as far as the receiving side can. A plain message waits for the turn to end, so do not release and crew the ship again to correct it.",
       ].join('\n'),
     );
+  });
+
+  it('tells every ship when to force a send, how, and what it does (#1624, decision 0040)', () => {
+    const rule = SHIP_PROTOCOL.split('\n').find((line) => line.startsWith('22. '));
+
+    expect(rule).toContain('change or stop what a busy ship is doing now');
+    expect(rule).toContain('isForced: true on send');
+    expect(rule).toContain('messages:force');
+    expect(rule).toContain("stops the receiver's current turn");
   });
 
   it('tells every ship how it takes part in a meeting: its notices, the mic before each contribution, and the meeting read (decision 0061, S4)', () => {
