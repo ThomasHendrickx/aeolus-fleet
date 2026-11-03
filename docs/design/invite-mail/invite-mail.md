@@ -91,5 +91,7 @@ Either way the welcome page needs who added the account, so pagasae keeps it wit
 
 ### Q4. What does "what they will do there" (the issue) become?
 
+Thomas answered 1 (3 Nov).
+
 1. **The mail says the person signs in to see what they may do; the account's Home and Your rights show it once rights are given.** An added account has none at that moment (L3). (Picked.)
 2. Send the mail only once the admin gave the account rights. A change to adding an account, and a mail that may never go.
