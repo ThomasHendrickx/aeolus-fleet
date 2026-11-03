@@ -69,11 +69,12 @@ async function twoBrowsers(): Promise<{ first: Page; second: Page }> {
   const first = await firstContext.newPage();
   await signIn(first, OPERATOR);
   await first.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+  await first.goto('/?view=list');
 
   const secondContext = await newContext();
   await secondContext.addCookies(await firstContext.cookies());
   const second = await secondContext.newPage();
-  await second.goto('/');
+  await second.goto('/?view=list');
   await second.getByRole('heading', { name: 'Fleet overview' }).waitFor();
   await isLive(first);
   await isLive(second);
@@ -122,7 +123,7 @@ describe('the live fleet overview', () => {
 
     await watched.getByText('Awaiting crew').waitFor({ timeout: LIVE_TIMEOUT_MS });
     await expect.poll(() => watched.getByTestId('fleet-runs-on').count(), { timeout: LIVE_TIMEOUT_MS }).toBe(0);
-    await watched.getByRole('button', { name: 'Get starting prompt' }).waitFor();
+    await watched.getByRole('button', { name: 'Get the starting prompt' }).waitFor();
     await watched.getByRole('link', { name: 'scout' }).click();
     await second.getByTestId('ship-header').getByText('No starting prompt issued').waitFor();
   });
@@ -139,6 +140,7 @@ describe('the live fleet overview', () => {
     });
     await signIn(page, OPERATOR);
     await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+    await page.goto('/?view=list');
     await isLive(page);
 
     await context.setOffline(true);

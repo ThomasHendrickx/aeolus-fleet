@@ -60,6 +60,7 @@ async function signedInOnScopes(): Promise<Page> {
   await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
   // Live shows once the page is hydrated: a click before that does nothing.
   await page.getByRole('banner').getByText('Live', { exact: true }).waitFor(WITHIN);
+  await page.getByTestId('overview-more').click();
   await page.getByTestId('overview-scopes').click();
   await page.getByRole('heading', { name: 'Scopes', level: 1 }).waitFor(WITHIN);
   return page;

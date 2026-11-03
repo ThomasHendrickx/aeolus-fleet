@@ -1,4 +1,5 @@
-import type { EventType, FleetStreamItem, HarbourOutput, ListedShip, ShipId, ShipOutsideReadReach } from '@aeolus-fleet/common';
+import type { EventType, FleetStreamItem, HarbourInput, HarbourOutput, LabelValueId, ListedShip, ShipId, ShipOutsideReadReach } from '@aeolus-fleet/common';
+import { HARBOUR_STATES } from '@aeolus-fleet/common/rules';
 import type { AppRouter } from '@aeolus-fleet/core';
 import { useQueryClient, type InfiniteData, type QueryClient } from '@tanstack/react-query';
 import { useSubscription, type TRPCOptionsProxy } from '@trpc/tanstack-react-query';
@@ -167,6 +168,41 @@ export function withHarbourTile(pages: InfiniteData<HarbourPage>, read: { shipId
   return first === undefined ? pages : { ...pages, pages: [{ ...first, items: [tile, ...first.items] }, ...rest] };
 }
 
+/** The overview bar's filter on a Harbour read. */
+type HarbourFilter = NonNullable<NonNullable<HarbourInput>['filter']>;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function valuesOf(value: unknown): readonly unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function isLabelValueId(value: unknown): value is LabelValueId {
+  return typeof value === 'string' && value.startsWith('lbv_');
+}
+
+/**
+ * The bar's filter a loaded Harbour read was asked with, read back from its
+ * query key (tRPC's `[path, { input }]`), so a ship's tile reloads under
+ * that read's own filter; none for a read of the whole fleet.
+ */
+export function harbourFilterOfKey(queryKey: readonly unknown[]): HarbourFilter | undefined {
+  const [, asked] = queryKey;
+  const input = isRecord(asked) ? asked.input : undefined;
+  const filter = isRecord(input) ? input.filter : undefined;
+  if (!isRecord(filter)) {
+    return undefined;
+  }
+  return {
+    ...(typeof filter.nameQuery === 'string' ? { nameQuery: filter.nameQuery } : {}),
+    ...(filter.state === undefined ? {} : { state: valuesOf(filter.state).flatMap((value) => HARBOUR_STATES.find((state) => state === value) ?? []) }),
+    ...(filter.type === undefined ? {} : { type: valuesOf(filter.type).filter((value) => typeof value === 'string') }),
+    ...(filter.valueIds === undefined ? {} : { valueIds: valuesOf(filter.valueIds).filter(isLabelValueId) }),
+  };
+}
+
 /** Harbour's loaded pages with the numbers read again on the first page. */
 function withHarbourCounts(pages: InfiniteData<HarbourPage>, counts: HarbourPage['counts']): InfiniteData<HarbourPage> {
   const [first, ...rest] = pages.pages;
@@ -318,16 +354,27 @@ export function createLiveFleetHandler(input: {
       }
     },
   });
-  // Harbour's pages (features/fleet/hooks/harbour.ts): a ship's tile read alone, and the numbers, never the fleet again.
+  // Harbour's pages (features/fleet/hooks/harbour.ts): a ship's tile read alone under each loaded read's own filter, and the numbers, never the fleet again.
   const harbourKey: readonly unknown[] = [...trpc.fleet.harbour.infiniteQueryKey()];
-  const isHarbourLoaded = () => queryClient.getQueriesData<InfiniteData<HarbourPage>>({ queryKey: harbourKey }).some(([, pages]) => pages !== undefined);
-  const reloadTile = createShipRowReloads<{ shipId: ShipId; tile: HarbourTile | undefined }>({
+  const loadedHarbourKeys = () => queryClient.getQueriesData<InfiniteData<HarbourPage>>({ queryKey: harbourKey }).flatMap(([queryKey, pages]) => (pages === undefined ? [] : [queryKey]));
+  const isHarbourLoaded = () => loadedHarbourKeys().length > 0;
+  // Harbour's numbers alone, read over the list too (features/fleet/hooks/harbour.ts); reading them again refreshes that read.
+  const areHarbourNumbersLoaded = () => queryClient.getQueryData(trpc.fleet.harbour.queryKey({ limit: 1 })) !== undefined;
+  const reloadTile = createShipRowReloads<{ shipId: ShipId; reads: { queryKey: readonly unknown[]; tile: HarbourTile | undefined }[] }>({
     readRow: async (shipId) => {
-      const read = await queryClient.query({ ...trpc.fleet.harbour.queryOptions({ shipIds: [shipId] }), staleTime: 0 });
-      return { shipId, tile: read.items[0] };
+      const reads = await Promise.all(
+        loadedHarbourKeys().map(async (queryKey) => {
+          const filter = harbourFilterOfKey(queryKey);
+          const read = await queryClient.query({ ...trpc.fleet.harbour.queryOptions(filter === undefined ? { shipIds: [shipId] } : { shipIds: [shipId], filter }), staleTime: 0 });
+          return { queryKey, tile: read.items[0] };
+        }),
+      );
+      return { shipId, reads };
     },
-    writeRow: (read) => {
-      queryClient.setQueriesData<InfiniteData<HarbourPage>>({ queryKey: harbourKey }, (pages) => pages && withHarbourTile(pages, read));
+    writeRow: ({ shipId, reads }) => {
+      for (const { queryKey, tile } of reads) {
+        queryClient.setQueryData<InfiniteData<HarbourPage>>(queryKey, (pages) => pages && withHarbourTile(pages, { shipId, tile }));
+      }
     },
   });
   const reloadHarbourCounts = createSingleReload(async () => {
@@ -410,6 +457,8 @@ export function createLiveFleetHandler(input: {
           reloadTile(concerned);
         }
       }
+    }
+    if (isHarbourLoaded() || areHarbourNumbersLoaded()) {
       reloadHarbourCounts();
     }
     // A commission, a crew, a release or a crew request moves the ship counts: the fleet's and each view's.

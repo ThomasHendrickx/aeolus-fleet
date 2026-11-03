@@ -726,7 +726,7 @@ export const fleetRouter = router({
         'Ordered argo first, then by name; or by sort: a column (ship, status, report, runsOn, seen, requested: when crew was requested, the oldest first) A to Z or Z to A, ships with nothing in it last, ties by name.',
         'A ship outside your read reach shows its id, name, type and status only, with isInReadReach false (decision 0034).',
         'With valueIds (label value ids, from fleet_labels or fleet_findLabelValue), only the ships in your read reach that carry every one of them: exact matches, combined with AND.',
-        'Filters, each combined with AND: query (text the name or type holds, in any case); name (the exact name of a ship); shipKind (operator, person, agent, ...: argo and the person ships for an owner picker); status, type, shipIds, assignedTo (the trierarch ships a crew request is assigned to), needsCrew (withTrierarchs or withoutTrierarchs: the ships on Needs crew as the trierarch plugin being connected decides), crewRequest (none, needsCrew, crewedByHand, or the status the trierarch wrote) and kind (console, claudeCode, codex, trierarch, plugin as pluginShipIds names them, other) take any of the values given.',
+        'Filters, each combined with AND: query (text the name or type holds, in any case); nameQuery (text the name holds, in any case); name (the exact name of a ship); shipKind (operator, person, agent, ...: argo and the person ships for an owner picker); status, type, shipIds, assignedTo (the trierarch ships a crew request is assigned to), needsCrew (withTrierarchs or withoutTrierarchs: the ships on Needs crew as the trierarch plugin being connected decides), crewRequest (none, needsCrew, crewedByHand, or the status the trierarch wrote), kind (console, claudeCode, codex, trierarch, plugin as pluginShipIds names them, other) and state (alert, waiting, working, idle: the active ships in your read reach in that Harbour state) take any of the values given.',
       ].join(' '),
     })
     .input(fleetListInputSchema)
@@ -1226,12 +1226,18 @@ export const fleetRouter = router({
    * Harbour's ships (docs/design/fleet-overview): each active ship in read
    * reach by id, name, kind, its state and note, a page at a time, the
    * numbers on the first page; or only the ships named, for a live reload.
+   * With the overview bar's filter, only the ships it selects; the numbers
+   * still count the whole fleet.
    */
   harbour: actorScopedProcedure('fleet:read')
     .input(harbourInputSchema)
     .output(harbourOutputSchema)
     .query(async ({ ctx, input }) => {
-      const { ships, nextCursor, counts } = await ctx.useCases.readHarbour(ctx.caller, input?.shipIds === undefined ? { cursor: input?.cursor, limit: input?.limit } : { shipIds: input.shipIds });
+      const filter = input?.filter;
+      const { ships, nextCursor, counts } = await ctx.useCases.readHarbour(
+        ctx.caller,
+        input?.shipIds === undefined ? { cursor: input?.cursor, limit: input?.limit, filter } : { shipIds: input.shipIds, filter },
+      );
       return { items: ships.map((ship) => ({ ...ship, lastActivityAt: ship.lastActivityAt?.toISOString() ?? null })), nextCursor: nextCursor && shipCursorOf(nextCursor), counts };
     }),
 

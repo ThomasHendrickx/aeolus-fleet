@@ -103,7 +103,7 @@ function shipRowsRead(plan: unknown): number {
 describe("Harbour's read at 3,000 ships", () => {
   it('reads a page of 500 through the keyset index however far on it starts, and each ship of the page its lease and alerts once', async () => {
     const { id, name } = seeded(2_400);
-    const plan = await planOf(harbourPageStatement(fleetId, { reach: { kind: 'every' }, after: { isEmpty: true, value: '', name, id }, limit: PAGE + 1 }));
+    const plan = await planOf(harbourPageStatement(fleetId, { reach: { kind: 'every' }, filter: {}, after: { isEmpty: true, value: '', name, id }, limit: PAGE + 1 }));
 
     expect([
       rowsOfIndex(plan, 'ships_listing_idx'),
@@ -120,7 +120,7 @@ describe("Harbour's read at 3,000 ships", () => {
   });
 
   it("is estimated under Postgres's JIT threshold, page and numbers alike", async () => {
-    const page = await costOf(harbourPageStatement(fleetId, { reach: { kind: 'every' }, limit: PAGE + 1 }));
+    const page = await costOf(harbourPageStatement(fleetId, { reach: { kind: 'every' }, filter: {}, limit: PAGE + 1 }));
     const counts = await costOf(harbourCountsStatement(fleetId, { kind: 'every' }));
 
     expect([page < JIT_ABOVE_COST, counts < JIT_ABOVE_COST]).toEqual([true, true]);

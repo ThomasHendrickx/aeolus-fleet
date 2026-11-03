@@ -9,7 +9,7 @@ export function ModelHint({ model, now }: { model: NonNullable<ListedShip['model
   return (
     <Tooltip>
       <TooltipTrigger
-        render={<span data-testid="fleet-model-hint" className="min-w-0 truncate font-mono text-id text-muted-foreground" />}
+        render={<span data-testid="fleet-model-hint" className="min-w-10 truncate font-mono text-id text-muted-foreground" />}
       >
         {model.id}
         <span className="sr-only">, {stated}</span>

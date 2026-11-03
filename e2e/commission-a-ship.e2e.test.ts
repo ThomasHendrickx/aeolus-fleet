@@ -63,6 +63,7 @@ async function signedInPage(): Promise<Page> {
   await signIn(page, OPERATOR);
   await page.waitForURL(`${web.url}/`);
   await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+  await page.goto('/?view=list');
   return page;
 }
 
@@ -224,7 +225,7 @@ describe('commissioning a ship in the console', () => {
     await expect(isValid(first)).resolves.toBe(true);
 
     // No confirm: the new prompt is issued at once, and the dialog says the old one stops working.
-    await row.getByRole('button', { name: 'Get starting prompt' }).click();
+    await row.getByRole('button', { name: 'Get the starting prompt' }).click();
     const dialog = page.getByTestId('starting-prompt-dialog');
     await dialog.getByText(/This prompt stops the one issued/).waitFor();
 
@@ -298,7 +299,7 @@ describe('claiming a commissioned ship', () => {
 
     await row.getByText('Crewed').waitFor();
     await expect(row.locator('[data-slot="location-tag"]').getAttribute('title')).resolves.toBe('Claude Code · Other: a ci runner');
-    await expect(row.getByRole('button', { name: 'Get starting prompt' }).count()).resolves.toBe(0);
+    await expect(row.getByRole('button', { name: 'Get the starting prompt' }).count()).resolves.toBe(0);
     await shipRow(page, 'argo').getByText(/· Chrome/).waitFor();
   });
 });
@@ -315,7 +316,7 @@ describe('releasing a crewed ship', () => {
 
     await row.getByText('Awaiting crew').waitFor();
     await expect(row.getByTestId('fleet-runs-on').count()).resolves.toBe(0);
-    await row.getByRole('button', { name: 'Get starting prompt' }).waitFor();
+    await row.getByRole('button', { name: 'Get the starting prompt' }).waitFor();
     await row.getByRole('link', { name: 'coxswain' }).click();
     await page.getByTestId('ship-header').getByText('No starting prompt issued').waitFor();
     await expect(sessionClient(crewToken).ship.whoami.query()).rejects.toThrow();
@@ -427,9 +428,8 @@ describe('retiring a ship', () => {
     await dialog.getByTestId('retire-typed-confirm').getByRole('textbox').fill('castaway');
     await retire.click();
 
+    // A retired ship is in no list (decision 0070).
     await row.waitFor({ state: 'detached' });
-    await page.getByTestId('fleet-show-retired').click();
-    await shipRow(page, 'castaway').getByText('Retired', { exact: true }).waitFor();
     await expect(
       database.delivery.count({ where: { recipientShip: { name: 'castaway' }, state: 'abandoned' } }),
     ).resolves.toBe(1);

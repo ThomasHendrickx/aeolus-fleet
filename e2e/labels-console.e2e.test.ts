@@ -106,6 +106,7 @@ async function signedIn(): Promise<Page> {
   const page = await context.newPage();
   await signIn(page, OPERATOR);
   await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+  await page.goto('/?view=list');
   // Live shows once the page is hydrated and subscribed: a click before that does nothing.
   await page.getByRole('banner').getByText('Live', { exact: true }).waitFor(WITHIN);
   return page;
@@ -118,14 +119,14 @@ async function listed(page: Page): Promise<string[]> {
   return names.filter((name) => name !== 'argo');
 }
 
-/** Picks a value in the open label picker; the URL then carries it. */
+/** Picks a value under its key in the open Labels menu, then closes it; the URL then carries it. */
 async function pick(page: Page, label: { key: string; value: string }): Promise<void> {
-  // The open one: a picker that just closed may still be fading out beside it.
-  const popover = page.locator('[data-testid="label-filter-popover"][data-open]');
+  // The open one: a menu that just closed may still be fading out beside it.
+  const popover = page.locator('[data-testid="fleet-filter-labels-popover"][data-open]');
   await popover.waitFor();
-  await popover.getByTestId('label-picker-key').filter({ hasText: label.key }).click();
-  await popover.getByTestId('label-picker-value').filter({ hasText: label.value }).click();
+  await popover.getByRole('group', { name: label.key, exact: true }).getByRole('button', { name: new RegExp(`^${label.value}\\s*\\d+$`) }).click();
   await expect.poll(() => new URL(page.url()).searchParams.getAll('label'), WITHIN).toContain(idOf(`${label.key}=${label.value}`));
+  await page.keyboard.press('Escape');
 }
 
 describe('Labels in the console', () => {
@@ -166,6 +167,7 @@ describe('Labels in the console', () => {
 
   it('defines a label on the Labels page, changes its values at once, refuses removing a value ships carry, and deletes a label no ship carries', async () => {
     const page = await signedIn();
+    await page.getByTestId('overview-more').click();
     await page.getByTestId('overview-labels').click();
     await page.getByRole('heading', { name: 'Labels', exact: true }).waitFor();
 

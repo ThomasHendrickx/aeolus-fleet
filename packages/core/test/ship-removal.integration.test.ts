@@ -236,7 +236,7 @@ describe('a removed ship in the reads (D4)', () => {
     expect(discovered.ships.map((ship) => ship.id)).not.toContain(removed);
     expect(picked.ships.map((ship) => ship.id)).not.toContain(removed);
     expect(owners.ships.map((ship) => ship.id)).not.toContain(removed);
-    expect(types).not.toContain('planner');
+    expect(types.map(({ type }) => type)).not.toContain('planner');
     expect(counts.find((count) => count.kind === 'agent')?.retired ?? 0).toBe(0);
   });
 });

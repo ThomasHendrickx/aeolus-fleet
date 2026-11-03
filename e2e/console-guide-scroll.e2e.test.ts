@@ -16,8 +16,8 @@ import { unwrap } from '../packages/core/src/testing/result.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
 // The guide (decision 0024) brings a step's anchor into view before it points
-// at it, at desktop and phone widths. The anchor is a retired ship's row, in
-// the middle of a long overview with retired ships shown, and the window ends
+// at it, at desktop and phone widths. The anchor is a ship's row, in the
+// middle of the overview's long list, and the window ends
 // just above it: the step's popover then fits above the anchor, so nothing
 // else scrolls the page.
 
@@ -58,14 +58,13 @@ beforeAll(async () => {
     unwrap(await core.commissionShip(argo, { idempotencyKey: newKey(), name: `builder-${String(index)}`, type: 'builder' }));
     unwrap(await core.commissionShip(argo, { idempotencyKey: newKey(), name: `warden-${String(index)}`, type: 'warden' }));
   }
-  const old = unwrap(await core.commissionShip(argo, { idempotencyKey: newKey(), name: 'old', type: 'reviewer' }));
-  unwrap(await core.retireShip(argo, { shipId: old.shipId }));
+  unwrap(await core.commissionShip(argo, { idempotencyKey: newKey(), name: 'old', type: 'reviewer' }));
   await installation().guide.set.mutate({
     guide: {
       audience: 'viewers',
       steps: [
         { path: '/inbox', title: 'Messages to argo', text: 'What the fleet sends the operator.' },
-        { path: '/?retired=1', anchor, title: 'Retired ships', text: 'A retired ship keeps its read-only page.' },
+        { path: '/?view=list', anchor, title: 'A ship', text: 'Each ship has its own page.' },
       ],
     },
   });
@@ -108,14 +107,14 @@ async function settledAnchorBox(page: Page): Promise<{ y: number; height: number
   await expect.poll(isSettled).toBe(true);
   const box = await anchorBox(page);
   if (box === null) {
-    throw new Error('The overview shows no retired ship.');
+    throw new Error('The list shows no ship named old.');
   }
   return box;
 }
 
 /** Ends the window just above the anchor, at the width the page has, with the page at its top. */
 async function foldJustAboveTheAnchor(page: Page): Promise<void> {
-  await page.goto('/?retired=1');
+  await page.goto('/?view=list');
   const box = await settledAnchorBox(page);
   const width = page.viewportSize()?.width ?? 0;
   await page.setViewportSize({ width, height: Math.floor(box.y) - BELOW_THE_FOLD });
@@ -136,7 +135,7 @@ describe('a guide step whose anchor is below the fold', () => {
     anchor = _width === 'phone' ? 'fleet-card-old' : 'fleet-row-old';
     await installation().guide.set.mutate({ guide: { audience: 'viewers', steps: [
       { path: '/inbox', title: 'Messages to argo', text: 'What the fleet sends the operator.' },
-      { path: '/?retired=1', anchor, title: 'Retired ships', text: 'A retired ship keeps its read-only page.' },
+      { path: '/?view=list', anchor, title: 'A ship', text: 'Each ship has its own page.' },
     ] } });
     const page = await signedInViewer(options);
     await foldJustAboveTheAnchor(page);
@@ -146,7 +145,7 @@ describe('a guide step whose anchor is below the fold', () => {
     await page.getByTestId('tour-step-next').click();
 
     const step = page.getByTestId('tour-step');
-    await step.getByText('Retired ships').waitFor();
+    await step.getByText('A ship', { exact: true }).waitFor();
     await expect.poll(() => step.getAttribute('data-placement')).toBe('anchored');
     await expect(isAnchorInView(page)).resolves.toBe(true);
   });

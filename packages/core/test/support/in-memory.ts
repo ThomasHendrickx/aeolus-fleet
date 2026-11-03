@@ -81,7 +81,8 @@ import type { ScopeNamespace } from '../../src/domain/registry/scope-namespace.j
 import { noNetworkSettings, type NetworkSettings } from '../../src/domain/registry/network-settings.js';
 import type { ReachRefusal } from '../../src/domain/registry/reach-refusal.js';
 import { shipCountsOf } from '../../src/domain/registry/ship-counts.js';
-import { harbourCountsOf, harbourStateOf, latestOf } from '../../src/domain/registry/harbour.js';
+import { harbourCountsOf, latestOf } from '../../src/domain/registry/harbour.js';
+import { harbourStateOf } from '@aeolus-fleet/common/rules';
 import { isSameCommissioner, type Ship } from '../../src/domain/registry/ship.js';
 import { listedShipOf } from '../../src/domain/registry/list-fleet.js';
 import type { ShipReport } from '../../src/domain/registry/ship-report.js';
@@ -1993,16 +1994,18 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
                     ]),
                   },
                   position: positionOf(listed, { sort: undefined, isInReach: true }),
+                  listed,
                 },
               ],
         )
         .sort((first, second) => comparePositions(undefined)(first.position, second.position));
+      const selected = ships.filter(({ listed }) => matchesShipFilter(listed, { filter: read.filter, isInReach: true }));
       if ('shipIds' in read) {
-        return Promise.resolve({ ships: ships.filter(({ ship }) => read.shipIds.includes(ship.id)), counts: null });
+        return Promise.resolve({ ships: selected.filter(({ ship }) => read.shipIds.includes(ship.id)).map(({ ship, position }) => ({ ship, position })), counts: null });
       }
       const { after, limit } = read;
-      const page = ships.filter(({ position }) => after === undefined || comparePositions(undefined)(position, after) > 0).slice(0, limit);
-      return Promise.resolve({ ships: page, counts: after === undefined ? harbourCountsOf(ships.map(({ ship }) => ship)) : null });
+      const page = selected.filter(({ position }) => after === undefined || comparePositions(undefined)(position, after) > 0).slice(0, limit);
+      return Promise.resolve({ ships: page.map(({ ship, position }) => ({ ship, position })), counts: after === undefined ? harbourCountsOf(ships.map(({ ship }) => ship)) : null });
     },
     counts: (fleetId, { reach, filter }) =>
       Promise.resolve(
@@ -2016,14 +2019,16 @@ export function createInMemoryCore(startAt = '2026-09-29T12:00:00.000Z'): InMemo
     types: (fleetId, { reach, status }) =>
       Promise.resolve(
         [
-          ...new Set(
+          ...Map.groupBy(
             state.ships
-              .filter((held) => held.fleetId === fleetId && held.removedAt === null && readsShip(reach, held.id))
-              .map((held) => listedShipOf(factsOf(held)))
-              .filter((listed) => status.includes(listed.status))
-              .map((listed) => listed.type),
+            .filter((held) => held.fleetId === fleetId && held.removedAt === null && readsShip(reach, held.id))
+            .map((held) => listedShipOf(factsOf(held)))
+            .filter((listed) => status.includes(listed.status)),
+            (listed) => listed.type,
           ),
-        ].toSorted(),
+        ]
+          .map(([type, ships]) => ({ type, ships: ships.length }))
+          .toSorted((first, second) => (first.type < second.type ? -1 : first.type > second.type ? 1 : 0)),
       ),
     labels: (fleetId) =>
       Promise.resolve(

@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { shipKindSchema, shipStatusSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
+import { HARBOUR_STATES } from '../rules/harbour.js';
 import { crewRequestKeySchema } from './crew-request.js';
 import { pageInputOf } from './page.js';
 
@@ -44,8 +45,8 @@ export type AgentKind = z.infer<typeof agentKindSchema>;
 
 /**
  * Which ships `fleet.list` and the counts read select, every filter combined
- * with AND: the search text its name or type holds, in any case; its exact
- * name; any of the
+ * with AND: the search text its name or type holds, in any case; the text
+ * its name holds, in any case (the overview's search); its exact name; any of the
  * statuses, types, ship kinds, crew request keys, ship ids and agent kinds picked; and
  * every label value id given (exact matches, decision 0031). A filter left
  * out selects every ship. `pluginShipIds` names the ships the console's
@@ -53,6 +54,7 @@ export type AgentKind = z.infer<typeof agentKindSchema>;
  */
 export const fleetListFilterSchema = z.object({
   query: z.string().optional(),
+  nameQuery: z.string().optional(),
   name: z.string().optional(),
   status: z.array(shipStatusSchema).optional(),
   type: z.array(z.string()).optional(),
@@ -64,6 +66,7 @@ export const fleetListFilterSchema = z.object({
   shipIds: z.array(idSchema('ship')).optional(),
   kind: z.array(agentKindSchema).optional(),
   pluginShipIds: z.array(idSchema('ship')).optional(),
+  state: z.array(z.enum(HARBOUR_STATES)).optional(),
 });
 
 /** Input of `fleet.shipCounts`: count only the ships the fleet snapshot's filter selects; none counts every ship. */
@@ -72,8 +75,8 @@ export const shipCountsInputSchema = z.object({ filter: fleetListFilterSchema.op
 /** Input of `fleet.shipTypes`: the types of the ships of any of these statuses; none asks the active ships. */
 export const shipTypesInputSchema = z.object({ status: z.array(shipStatusSchema).optional() }).optional();
 
-/** Output of `fleet.shipTypes`: each type once, sorted. */
-export const shipTypesOutputSchema = z.array(z.string());
+/** Output of `fleet.shipTypes`: each type once, sorted, with how many ships carry it. */
+export const shipTypesOutputSchema = z.array(z.object({ type: z.string(), ships: z.int().min(0) }));
 
 /** The columns `fleet.list` sorts by, as the overview shows them. */
 export const SHIP_SORT_COLUMNS = ['ship', 'status', 'report', 'runsOn', 'seen', 'requested'] as const;

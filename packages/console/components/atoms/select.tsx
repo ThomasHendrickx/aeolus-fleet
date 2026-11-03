@@ -70,18 +70,23 @@ function SelectContent({ className, children, ...props }: SelectPrimitive.Popup.
   );
 }
 
-function SelectItem({ className, children, ...props }: SelectPrimitive.Item.Props) {
+/**
+ * An item, its check at the end; or at the start, where a count sits at the
+ * end of the row (the overview's State filter).
+ */
+function SelectItem({ className, children, indicator = 'end', ...props }: SelectPrimitive.Item.Props & { indicator?: 'start' | 'end' }) {
   return (
     <SelectPrimitive.Item
       data-slot="select-item"
       className={classNames(
-        'relative flex h-8.5 items-center gap-2.5 rounded-sm pr-8 pl-2.5 text-body text-foreground outline-none select-none data-disabled:pointer-events-none data-disabled:opacity-45 data-highlighted:bg-accent',
+        'relative flex h-8.5 items-center gap-2.5 rounded-sm text-body text-foreground outline-none select-none data-disabled:pointer-events-none data-disabled:opacity-45 data-highlighted:bg-accent',
+        indicator === 'end' ? 'pr-8 pl-2.5' : 'pr-2.5 pl-8',
         className,
       )}
       {...props}
     >
-      <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
-      <SelectPrimitive.ItemIndicator className="absolute right-2.5 flex items-center">
+      <SelectPrimitive.ItemText className="flex min-w-0 flex-1 items-center gap-2.5">{children}</SelectPrimitive.ItemText>
+      <SelectPrimitive.ItemIndicator className={classNames('absolute flex items-center', indicator === 'end' ? 'right-2.5' : 'left-2.5')}>
         <Check aria-hidden className="size-(--size-icon)" />
       </SelectPrimitive.ItemIndicator>
     </SelectPrimitive.Item>

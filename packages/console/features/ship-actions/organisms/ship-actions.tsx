@@ -429,8 +429,19 @@ function ActionsIn({ layout, ship, actions }: { layout: ShipActionsLayout; ship:
   if (layout === 'next') {
     // At most one next step: a starting prompt for a ship awaiting crew, a new crew line for a silent member.
     const next = actions.find((action) => action.key === 'prompt' || (action.key === 'crew-line' && action.isPrimary === true));
+    if (next === undefined) {
+      return null;
+    }
+    // The fleet overview's list draws the starting prompt as plain muted words in the Report cell (docs/design/fleet-overview).
+    if (next.key === 'prompt') {
+      return (
+        <Button size="xs" variant="ghost" data-testid={next.testId} disabled={next.isDisabled} isLoading={next.isLoading} className="-ml-2 font-normal text-muted-foreground max-sm:h-(--size-control-touch) max-sm:text-body-touch" onClick={next.onSelect}>
+          Get the starting prompt
+        </Button>
+      );
+    }
     // On phone the next step is a full-width touch target (docs/design/conventions.md, "FleetTable").
-    return next ? <ActionButton action={{ ...next, isPrimary: false }} className="max-sm:h-(--size-control-touch) max-sm:w-full max-sm:text-body-touch" /> : null;
+    return <ActionButton action={{ ...next, isPrimary: false }} className="max-sm:h-(--size-control-touch) max-sm:w-full max-sm:text-body-touch" />;
   }
   if (layout === 'buttons') {
     const shown = actions.filter((action) => action.isMenuOnly !== true);

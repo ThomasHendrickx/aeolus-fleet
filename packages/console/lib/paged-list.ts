@@ -16,6 +16,8 @@ export interface PagedList<Item, Failure> {
   error: Failure | null;
   /** Whether the first page failed: nothing to show. */
   isFailed: boolean;
+  /** The rows are the last read's, kept while a new read's first page comes. */
+  isPlaceholder: boolean;
   hasMore: boolean;
   isLoadingMore: boolean;
   isLoadMoreFailed: boolean;
@@ -29,6 +31,7 @@ export function pagedListOf<Page extends { items: readonly unknown[] }, Failure>
     items: query.data?.pages.flatMap((page) => page.items),
     error: query.error,
     isFailed: query.isError && query.data === undefined,
+    isPlaceholder: query.isPlaceholderData,
     hasMore: query.hasNextPage,
     isLoadingMore: query.isFetchingNextPage,
     isLoadMoreFailed: query.isFetchNextPageError,

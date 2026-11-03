@@ -15,10 +15,10 @@ import { newKey } from '../packages/core/src/testing/keys.js';
 import { unwrap } from '../packages/core/src/testing/result.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
-// The overview's Kind filter and sortable headers, end to end: a ship crewed
-// from Claude Code, one from Codex and a trierarch's; the filter keeps one
-// kind or several (#815), on desktop and in the phone's Sheet, and a header
-// sorts the rows.
+// The overview's one bar and sortable headers, end to end (#1605): a
+// builder at work, a reviewer waiting and a trierarch's ship idle. The bar
+// filters the cards and the list the same, keeps its picks and the view in
+// the address, and on the phone moves into a Sheet; a header sorts the list.
 
 const INSTALLATION_TOKEN = 'aeolus_installation_test_0123456789abcdef';
 
@@ -34,6 +34,9 @@ function installation() {
   return createTRPCClient<AppRouter>({ links: [httpBatchLink({ url: `${serverUrl}/trpc`, headers: { 'x-aeolus-installation-token': INSTALLATION_TOKEN } })] }).installation;
 }
 
+/** builder works, reviewer waits, trierarch-mac has not reported: idle. */
+const REPORTS: Partial<Record<string, 'working' | 'blocked'>> = { builder: 'working', reviewer: 'blocked' };
+
 beforeAll(async () => {
   const databaseUrl = await createMigratedDatabase();
   database = createPrismaClient(databaseUrl);
@@ -48,7 +51,11 @@ beforeAll(async () => {
   const core = createUseCases({ prisma: database });
   for (const [name, type, harness] of [['builder', 'builder', 'claude-code'], ['reviewer', 'reviewer', 'codex'], ['trierarch-mac', 'trierarch', 'aeolus-trierarch']] as const) {
     const ship = unwrap(await core.commissionShip(argo, { idempotencyKey: newKey(), name, type }));
-    unwrap(await core.claimShip({ shipId: ship.shipId, secret: secretOf(ship.secret), location: { kind: 'DEVICE' }, harness }));
+    const { crewToken } = unwrap(await core.claimShip({ shipId: ship.shipId, secret: secretOf(ship.secret), location: { kind: 'DEVICE' }, harness }));
+    const report = REPORTS[name];
+    if (report !== undefined) {
+      unwrap(await core.report(unwrap(await core.authenticate.byCrewToken(crewToken)), { state: report }));
+    }
   }
 });
 
@@ -72,71 +79,81 @@ async function signedIn(device: Record<string, unknown> = {}): Promise<Page> {
   return page;
 }
 
+/** The names on Harbour's tiles, in the order shown. */
+async function tileNames(page: Page): Promise<string[]> {
+  const texts = await page.getByTestId('harbour').getByTestId('harbour-tile').allInnerTexts();
+  return texts.map((text) => text.split('\n')[0] ?? '');
+}
+
 async function rowNames(page: Page): Promise<string[]> {
   const rows = await page.getByRole('table', { name: 'Ships' }).locator('tbody tr').all();
   const ids = await Promise.all(rows.map((row) => row.getAttribute('data-testid')));
   return ids.map((id) => (id ?? '').replace('fleet-row-', ''));
 }
 
-describe('the Kind filter', () => {
-  it('keeps only the ships crewed from Codex, and keeps the choice in the URL', async () => {
+describe("the overview's bar", () => {
+  it('keeps only the reviewers by Type, in the cards and then the list, and keeps the pick and the view in the address', async () => {
     const page = await signedIn();
-    await page.getByTestId('fleet-row-reviewer').waitFor();
+    await expect.poll(() => tileNames(page)).toEqual(['argo', 'reviewer', 'builder', 'trierarch-mac']);
 
-    await page.getByTestId('fleet-filter-kind').click();
-    await page.getByRole('option', { name: 'Codex' }).click();
-    await page.waitForURL(/kind=codex/);
-
-    await expect(rowNames(page)).resolves.toEqual(['reviewer']);
-  });
-
-  it('keeps the ships crewed from Claude Code or Codex when both are picked, and keeps both in the URL', async () => {
-    const page = await signedIn();
-    await page.getByTestId('fleet-row-trierarch-mac').waitFor();
-
-    await page.getByTestId('fleet-filter-kind').click();
-    await page.getByRole('option', { name: 'Claude Code' }).click();
-    await page.getByRole('option', { name: 'Codex' }).click();
-    await page.waitForURL(/kind=claudeCode&kind=codex/);
+    await page.getByTestId('fleet-filter-type').click();
+    await page.getByTestId('fleet-filter-type-popover').getByRole('button', { name: /reviewer/ }).click();
+    await page.waitForURL(/type=reviewer/);
     await page.keyboard.press('Escape');
 
-    await expect(rowNames(page)).resolves.toEqual(['builder', 'reviewer']);
+    await expect.poll(() => tileNames(page)).toEqual(['reviewer']);
+    await page.getByTestId('fleet-count').getByText('1 of 4 ships').waitFor();
+    await page.getByTestId('fleet-view-list').click();
+    await page.waitForURL(/view=list/);
+    await expect.poll(() => rowNames(page)).toEqual(['reviewer']);
     await page.reload();
-    await page.getByTestId('fleet-row-builder').waitFor();
-    await expect(rowNames(page)).resolves.toEqual(['builder', 'reviewer']);
-    await expect(page.getByTestId('fleet-filter-kind').textContent()).resolves.toBe('Kind2 picked');
+    await expect.poll(() => rowNames(page)).toEqual(['reviewer']);
+    await expect(page.getByTestId('fleet-filter-type').textContent()).resolves.toBe('Typereviewer');
   });
 
-  it('keeps only the trierarchs from the phone Sheet', async () => {
-    const page = await signedIn(PHONE);
-    await page.getByTestId('fleet-card-builder').waitFor();
+  it('keeps only the working and idle ships by State in the list, argo among them, and Clear filters puts every ship back', async () => {
+    const page = await signedIn();
+    await page.goto('/?view=list');
+    await page.getByTestId('fleet-row-reviewer').waitFor();
 
-    await page.getByTestId('fleet-filters-open').click();
-    await page.getByRole('group', { name: 'Kind' }).getByRole('button', { name: 'Trierarch' }).click();
-    await page.getByTestId('fleet-filters-apply').click();
-    await page.getByTestId('fleet-filter-chips').getByText('Kind: Trierarch').waitFor();
+    await page.getByTestId('fleet-filter-state').click();
+    await page.getByRole('option', { name: /Working/ }).click();
+    await page.getByRole('option', { name: /Idle/ }).click();
+    await page.waitForURL(/state=working&state=idle/);
+    await page.keyboard.press('Escape');
 
-    await expect(page.getByRole('list', { name: 'Ships' }).getByRole('listitem').count()).resolves.toBe(1);
+    await expect.poll(() => rowNames(page)).toEqual(['argo', 'builder', 'trierarch-mac']);
+    await page.getByTestId('fleet-filters-clear').click();
+    await expect.poll(() => rowNames(page)).toEqual(['argo', 'builder', 'reviewer', 'trierarch-mac']);
   });
 
-  it('keeps the ships crewed from Claude Code or Codex when both are picked in the phone Sheet', async () => {
+  it('says no ship matches a search that finds none, and Clear search puts every ship back', async () => {
+    const page = await signedIn();
+    await page.getByTestId('fleet-search').fill('zz');
+
+    await page.getByTestId('fleet-no-match').getByText('No ships match “zz”.').waitFor();
+    await page.getByTestId('fleet-clear-filters').click();
+    await expect.poll(() => tileNames(page)).toEqual(['argo', 'reviewer', 'builder', 'trierarch-mac']);
+  });
+
+  it("keeps only the trierarch's ship by Type from the phone's Sheet, and shows the pick as a chip", async () => {
     const page = await signedIn(PHONE);
-    await page.getByTestId('fleet-card-builder').waitFor();
+    await expect.poll(() => tileNames(page)).toHaveLength(4);
 
     await page.getByTestId('fleet-filters-open').click();
-    const kinds = page.getByRole('group', { name: 'Kind' });
-    await kinds.getByRole('button', { name: 'Claude Code' }).click();
-    await kinds.getByRole('button', { name: 'Codex' }).click();
+    await page.getByRole('group', { name: 'Type' }).getByRole('button', { name: 'trierarch' }).click();
+    await page.getByTestId('fleet-filters-apply').getByText('Show 1 ship').waitFor();
     await page.getByTestId('fleet-filters-apply').click();
-    await page.getByTestId('fleet-filter-chips').getByText('Kind: Claude Code, Codex').waitFor();
 
-    await expect(page.getByRole('list', { name: 'Ships' }).getByRole('listitem').count()).resolves.toBe(2);
+    await page.getByTestId('fleet-filter-chips').getByText('Type: trierarch').waitFor();
+    await expect.poll(() => tileNames(page)).toEqual(['trierarch-mac']);
   });
 });
 
 describe('sorting by a header', () => {
   it('sorts by ship A to Z, then Z to A, then back to argo first', async () => {
     const page = await signedIn();
+    await page.goto('/?view=list');
     await page.getByTestId('fleet-row-trierarch-mac').waitFor();
     const header = page.getByTestId('fleet-sort-ship');
 

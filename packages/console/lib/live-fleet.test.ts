@@ -510,4 +510,45 @@ describe("Harbour live (docs/design/fleet-overview, \"The read Harbour needs\")"
     expect(live.askedOf('fleet.harbour') - wholeReads).toBeLessThanOrEqual(4);
     live.close();
   });
+
+  it("reloads a ship's tile under each loaded read's own filter: a tile the filter no longer selects leaves that read (#1605)", async () => {
+    const builder: HarbourTile = { id: newId('ship'), name: 'builder', kind: 'agent', state: 'working', note: 'Building', lastActivityAt: null };
+    const blocked: HarbourTile = { ...builder, state: 'waiting', note: 'Waiting for a review' };
+    const live = aLiveFleet({
+      'fleet.harbour': (asked) => {
+        const isAlone = typeof asked === 'object' && asked !== null && 'shipIds' in asked;
+        const isWorkingAsked = typeof asked === 'object' && asked !== null && 'filter' in asked && JSON.stringify(asked.filter).includes('working');
+        if (!isAlone) {
+          return { items: [builder], nextCursor: null, counts: counts(1, 0) };
+        }
+        return { items: isWorkingAsked ? [] : [blocked], nextCursor: null, counts: null };
+      },
+      'fleet.listedShip': () => aShip({}),
+    });
+    const working = new InfiniteQueryObserver(live.queryClient, live.trpc.fleet.harbour.infiniteQueryOptions({ limit: 500, filter: { state: ['working'] } }, { getNextPageParam: () => undefined }));
+    const every = new InfiniteQueryObserver(live.queryClient, live.trpc.fleet.harbour.infiniteQueryOptions({ limit: 500 }, { getNextPageParam: () => undefined }));
+    live.show(working);
+    live.show(every);
+    const tilesOf = (pages: typeof every) => pages.getCurrentResult().data?.pages.flatMap((page) => page.items);
+    await expect.poll(() => [tilesOf(working), tilesOf(every)]).toEqual([[builder], [builder]]);
+
+    live.onItem({ kind: 'event', event: anEvent('ShipReported', { shipId: builder.id, hasMessage: false }) });
+
+    await expect.poll(() => [tilesOf(working), tilesOf(every)]).toEqual([[], [blocked]]);
+    live.close();
+  });
+
+  it("reads Harbour's numbers again over the list, where no tile is loaded (#1605)", async () => {
+    let numbers = counts(0, 0);
+    const live = aLiveFleet({ 'fleet.harbour': () => ({ items: [], nextCursor: null, counts: numbers }), 'fleet.listedShip': () => aShip({}) });
+    const shown = new QueryObserver(live.queryClient, live.trpc.fleet.harbour.queryOptions({ limit: 1 }));
+    live.show(shown);
+    await expect.poll(() => shown.getCurrentResult().data?.counts).toEqual(counts(0, 0));
+
+    numbers = counts(0, 1);
+    live.onItem({ kind: 'event', event: anEvent('ShipCommissioned', { shipId: newId('ship'), hasMessage: false }) });
+
+    await expect.poll(() => shown.getCurrentResult().data?.counts).toEqual(counts(0, 1));
+    live.close();
+  });
 });

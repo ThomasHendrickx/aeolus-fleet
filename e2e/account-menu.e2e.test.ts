@@ -209,8 +209,8 @@ describe.each([
     await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
     // The live fleet reads the fleet again once it connects; only coming back to the page may ask it after that.
     await page.waitForLoadState('networkidle');
-    const held = holdOneAnswer(page, 'fleet.list');
-    const askedAgain = page.waitForRequest((request) => new URL(request.url()).pathname.includes('fleet.list'), { timeout: ASKED_AGAIN_MS });
+    const held = holdOneAnswer(page, 'fleet.harbour');
+    const askedAgain = page.waitForRequest((request) => new URL(request.url()).pathname.includes('fleet.harbour'), { timeout: ASKED_AGAIN_MS });
     // Coming back to the page asks its reads again, the fleet among them; TanStack Query hears it on window.
     await page.evaluate("window.dispatchEvent(new Event('visibilitychange'))");
     await askedAgain;

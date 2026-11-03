@@ -104,11 +104,14 @@ describe("an account's token renewed in the browser", () => {
     pagasae.issueTokensFor(TOKEN_SECONDS);
     const page = await newPage();
     await page.goto('/');
+    await page.getByTestId('overview-more').click();
     await page.getByTestId('overview-labels').getByText('Manage labels').waitFor();
+    await page.keyboard.press('Escape');
     const before = await tokenCookieOf(page);
 
     pagasae.changeScopes({ accountId: 'acc-mathilde', fleetId, scopes: ['fleet:read'] });
     await renewedFrom(page, before);
+    await page.getByTestId('overview-more').click();
 
     await page.getByTestId('overview-labels').getByText('View labels').waitFor();
   });

@@ -745,6 +745,23 @@ const statusOfShip = Prisma.sql`
     ELSE 'awaitingCrew'
   END`;
 
+/**
+ * A ship's Harbour state (common's harbourStateOf), for the ship `s` of the
+ * outer query alone, its open lease and alerts looked up for it: the State
+ * filter, in the listing and in the counts. harbour.ts reads the same rule
+ * from a lease already joined.
+ */
+const harbourStateOfShip = Prisma.sql`
+  CASE
+    WHEN EXISTS (SELECT 1 FROM alerts a WHERE a.fleet_id = s.fleet_id AND a.ship_id = s.id AND a.cleared_at IS NULL) THEN 'alert'
+    WHEN s.kind NOT IN ('operator', 'viewer')
+      AND NOT EXISTS (SELECT 1 FROM leases ol WHERE ol.fleet_id = s.fleet_id AND ol.ship_id = s.id AND ol.ended_at IS NULL) THEN 'waiting'
+    ELSE COALESCE(
+      (SELECT CASE ol.report_state WHEN 'blocked' THEN 'waiting' WHEN 'working' THEN 'working' END
+       FROM leases ol WHERE ol.fleet_id = s.fleet_id AND ol.ship_id = s.id AND ol.ended_at IS NULL),
+      'idle')
+  END`;
+
 /** Whether the caller reads the ship `s` of the outer query (decision 0034). */
 export function isInReachOfShip(reach: ReadReach): Prisma.Sql {
   return reach.kind === 'every' ? Prisma.sql`true` : Prisma.sql`s.id = ANY(${[...reach.shipIds]}::text[])`;
@@ -757,17 +774,19 @@ export function isInReachOfShip(reach: ReadReach): Prisma.Sql {
  * is never selected: nothing lists a remnant (decision 0070, D4).
  */
 export function shipFilterCondition(
-  { query, name, status = [], type = [], shipKind = [], crewRequest = [], assignedTo = [], needsCrew, valueIds = [], shipIds = [], kind = [], pluginShipIds = [] }: ShipFilter,
+  { query, nameQuery, name, status = [], type = [], shipKind = [], crewRequest = [], assignedTo = [], needsCrew, valueIds = [], shipIds = [], kind = [], pluginShipIds = [], state = [] }: ShipFilter,
   reach: ReadReach,
 ): Prisma.Sql {
   const needle = query?.trim().toLowerCase() ?? '';
+  const nameNeedle = nameQuery?.trim().toLowerCase() ?? '';
   const values = [...new Set(valueIds)];
   // A ship outside read reach shows its name, type and status only: what it does not show never selects it.
-  const isHiddenFilterPicked = crewRequest.length > 0 || assignedTo.length > 0 || needsCrew !== undefined || kind.length > 0 || values.length > 0;
+  const isHiddenFilterPicked = crewRequest.length > 0 || assignedTo.length > 0 || needsCrew !== undefined || kind.length > 0 || values.length > 0 || state.length > 0;
   const conditions = [
     Prisma.sql`AND s.removed_at IS NULL`,
     isHiddenFilterPicked ? Prisma.sql`AND ${isInReachOfShip(reach)}` : undefined,
     needle === '' ? undefined : Prisma.sql`AND (strpos(lower(s.name), ${needle}) > 0 OR strpos(lower(s.type), ${needle}) > 0)`,
+    nameNeedle === '' ? undefined : Prisma.sql`AND strpos(lower(s.name), ${nameNeedle}) > 0`,
     // An active ship's name is unique: ships_fleet_id_name_active_key finds the one ship.
     name === undefined ? undefined : Prisma.sql`AND s.name = ${name}`,
     // With the retired ones asked, the name in lower case lets ships_name_listing_every_status_idx find them all.
@@ -787,6 +806,8 @@ export function shipFilterCondition(
       : Prisma.sql`AND EXISTS (SELECT 1 FROM crew_requests acr
                                WHERE acr.fleet_id = s.fleet_id AND acr.ship_id = s.id AND acr.assigned_to_ship_id = ANY(${[...assignedTo]}::text[]))`,
     kind.length === 0 ? undefined : Prisma.sql`AND ${agentKindOfShip(pluginShipIds)} = ANY(${[...kind]}::text[])`,
+    // A retired ship has no Harbour state.
+    state.length === 0 ? undefined : Prisma.sql`AND s.retired_at IS NULL AND ${harbourStateOfShip} = ANY(${[...state]}::text[])`,
   ].filter((condition) => condition !== undefined);
   return Prisma.join(conditions, ' ');
 }
@@ -1021,12 +1042,14 @@ export function shipPositionOfRow(row: unknown): ShipPosition {
 
 /**
  * The types of the fleet's ships in `reach` of any of the statuses, each
- * once: for active ships alone, read from the type index without a ship row.
+ * once with how many ships carry it: for active ships alone, read from the
+ * type index without a ship row.
  */
 export function shipTypesStatement(fleetId: FleetId, { reach, status }: { reach: ReadReach; status: readonly ShipStatus[] }): Prisma.Sql {
   return Prisma.sql`
-    SELECT DISTINCT s.type FROM ships s
-    WHERE s.fleet_id = ${fleetId} AND ${isInReachOfShip(reach)} ${shipFilterCondition({ status }, reach)}`;
+    SELECT s.type, count(*)::int AS ships FROM ships s
+    WHERE s.fleet_id = ${fleetId} AND ${isInReachOfShip(reach)} ${shipFilterCondition({ status }, reach)}
+    GROUP BY s.type`;
 }
 
 export function createPrismaFleetListing(db: Db): FleetListing {
@@ -1068,9 +1091,11 @@ export function createPrismaFleetListing(db: Db): FleetListing {
       };
     },
     counts: (fleetId, { reach, filter }) => readShipCounts(db, { fleetId, reach, selected: shipFilterCondition(filter, reach) }),
-    types: async (fleetId, read) => z.array(z.object({ type: z.string() })).parse(await db.$queryRaw(shipTypesStatement(fleetId, read)))
-        .map(({ type }) => type)
-        .toSorted(),
+    types: async (fleetId, read) =>
+      z
+        .array(z.object({ type: z.string(), ships: z.int() }))
+        .parse(await db.$queryRaw(shipTypesStatement(fleetId, read)))
+        .toSorted((first, second) => (first.type < second.type ? -1 : first.type > second.type ? 1 : 0)),
     openAlerts: async (fleetId, { reach, cursor, limit }) =>
       // Newest first through alerts_open_idx; only the ships the reader reads (decision 0034).
       (

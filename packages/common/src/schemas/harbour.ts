@@ -3,26 +3,29 @@ import { z } from 'zod';
 import { shipKindSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
 import { HARBOUR_STATES } from '../rules/harbour.js';
-import { shipCursorSchema } from './label.js';
+import { fleetListFilterSchema, shipCursorSchema } from './label.js';
 import { pageInputOf } from './page.js';
 
 /** The most ships a live reload of Harbour's tiles names at once. */
 export const HARBOUR_SHIP_IDS_MAX = 100;
 
+/** The overview bar's filter on Harbour's tiles (docs/design/fleet-overview, #1605): search, state, type and label values, as `fleet.list` reads them. */
+export const harbourFilterSchema = fleetListFilterSchema.pick({ nameQuery: true, state: true, type: true, valueIds: true });
+
 /**
  * Input of `fleet.harbour` (docs/design/fleet-overview, "The read Harbour
  * needs"): a page, its cursor and size; or the ships whose tiles a live
- * event reloads, never both. One object, so a client reads its pages as any
- * paged list.
+ * event reloads, never both; either way only the ships the filter selects.
+ * One object, so a client reads its pages as any paged list.
  */
 export const harbourInputSchema = pageInputOf(shipCursorSchema)
-  .extend({ shipIds: z.array(idSchema('ship')).min(1).max(HARBOUR_SHIP_IDS_MAX).optional() })
+  .extend({ shipIds: z.array(idSchema('ship')).min(1).max(HARBOUR_SHIP_IDS_MAX).optional(), filter: harbourFilterSchema.optional() })
   .refine((input) => input.shipIds === undefined || (input.cursor === undefined && input.limit === undefined), { message: 'Ask for shipIds or for a page, not both' })
   .optional();
 
 export type HarbourInput = z.input<typeof harbourInputSchema>;
 
-/** Output of `fleet.harbour`: each ship's tile, where the next page starts, and the numbers on a first page only. */
+/** Output of `fleet.harbour`: each ship's tile, where the next page starts, and the numbers on a first page only, counting every ship whatever the filter. */
 export const harbourOutputSchema = z.object({
   items: z.array(
     z.object({

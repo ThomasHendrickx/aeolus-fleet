@@ -16,9 +16,8 @@ import { unwrap } from '../packages/core/src/testing/result.js';
 import { launchChromium, reserveWebUrl, startWeb, type RunningWeb } from './support/web.js';
 
 // Each part of a page asks its own read (performance design, decision 2): a
-// fleet snapshot that never answers holds up the ship list only, and the
-// overview's Stuck card still shows what it counts. The fleet has a ship
-// besides argo, so the overview shows its cards.
+// fleet list that never answers holds up the overview's table only, and
+// Harbour's numbers above it still show what they count.
 
 const INSTALLATION_TOKEN = 'aeolus_installation_test_0123456789abcdef';
 const SLOW_READ = 'fleet.list';
@@ -65,7 +64,7 @@ afterAll(async () => {
 });
 
 describe('a slow read', () => {
-  it("holds up no other part: the overview's Stuck card shows while the fleet snapshot never answers", async () => {
+  it("holds up no other part: Harbour's numbers show over the list while the fleet list never answers", async () => {
     const { ticket } = await installation().operators.issueSignInTicket.mutate({ fleetId });
     context = await browser.newContext({ baseURL: web.url });
     await context.route(carriesSlowRead, (route) => {
@@ -74,7 +73,9 @@ describe('a slow read', () => {
     const page = await context.newPage();
 
     await page.goto(`/sign-in/ticket?ticket=${encodeURIComponent(ticket)}`);
+    await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
+    await page.goto('/?view=list');
 
-    await page.getByTestId('overview-stuck').getByText('Delivering').waitFor();
+    await page.getByTestId('harbour-number-ships').getByText('2', { exact: true }).waitFor();
   });
 });

@@ -89,6 +89,10 @@ describe("fleet.list's filters on Postgres (decision 4 of the performance design
     await expect(namesSelected({ query: ' TEST ' })).resolves.toEqual(['crashed', 'crewing']);
   });
 
+  it("selects the ships whose name holds the overview's search, in any case, never by their type alone", async () => {
+    expect([await namesSelected({ nameQuery: ' CR ' }), await namesSelected({ nameQuery: 'tester' })]).toEqual([['crashed', 'crewing'], []]);
+  });
+
   it('selects the ships of any status picked: crewed counts argo, retired the retired ship', async () => {
     await expect(namesSelected({ status: ['crewed', 'retired'] })).resolves.toEqual(['argo', 'by-hand', 'old']);
   });
