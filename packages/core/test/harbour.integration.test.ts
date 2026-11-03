@@ -156,12 +156,21 @@ describe("Harbour's read on Postgres", () => {
   });
 });
 
+/** Each active ship of the fleet snapshot, the console's viewer ship too, by id with the state the rule gives it. */
+async function expectedListStates(): Promise<{ id: ShipId; state: HarbourState }[]> {
+  const ships = wholeShips((await core.useCases.listFleet(argo, { limit: 100 })).ships).filter((ship) => ship.status !== 'retired');
+  return ships.map((ship) => ({
+    id: ship.id,
+    state: harbourStateOf({ status: ship.status === 'awaitingCrew' ? 'awaitingCrew' : 'crewed', reportState: ship.report?.state ?? null, hasOpenAlert: ship.openAlertCount > 0 }),
+  }));
+}
+
 // The overview's State filter (#1605): fleet.list selects by Harbour's state in SQL, held to harbourStateOf as the read is.
 describe("fleet.list's State filter on Postgres", () => {
   it.each<{ state: HarbourState[] }>([{ state: ['alert'] }, { state: ['waiting'] }, { state: ['working'] }, { state: ['idle'] }, { state: ['alert', 'waiting'] }])(
     'selects the ships harbourStateOf puts in $state, for every status, report and alert',
     async ({ state }) => {
-      const expected = (await expectedTiles()).filter((tile) => state.includes(tile.state)).map((tile) => tile.id);
+      const expected = (await expectedListStates()).filter((ship) => state.includes(ship.state)).map((ship) => ship.id);
 
       const { ships } = await core.useCases.listFleet(argo, { state, limit: 100 });
 
@@ -170,7 +179,7 @@ describe("fleet.list's State filter on Postgres", () => {
   );
 
   it('counts the ships the State filter selects as fleet.list lists them', async () => {
-    const expected = (await expectedTiles()).filter((tile) => tile.state === 'waiting').length;
+    const expected = (await expectedListStates()).filter((ship) => ship.state === 'waiting').length;
 
     const counts = await core.useCases.countShips(argo, { filter: { state: ['waiting'] } });
 

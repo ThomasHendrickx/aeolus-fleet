@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { shipKindSchema, shipStatusSchema } from '../fleet/index.js';
 import { idSchema } from '../ids/index.js';
+import { HARBOUR_STATES } from '../rules/harbour.js';
 import { crewRequestKeySchema } from './crew-request.js';
 import { pageInputOf } from './page.js';
 
@@ -64,6 +65,7 @@ export const fleetListFilterSchema = z.object({
   shipIds: z.array(idSchema('ship')).optional(),
   kind: z.array(agentKindSchema).optional(),
   pluginShipIds: z.array(idSchema('ship')).optional(),
+  state: z.array(z.enum(HARBOUR_STATES)).optional(),
 });
 
 /** Input of `fleet.shipCounts`: count only the ships the fleet snapshot's filter selects; none counts every ship. */
