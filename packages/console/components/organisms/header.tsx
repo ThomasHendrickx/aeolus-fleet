@@ -1,6 +1,6 @@
-import { AppHeader, Button, type AvatarMenuProps } from '@aeolus-fleet/ui';
+import { AppHeader, Button } from '@aeolus-fleet/ui';
 import type { AppSwitcherModel } from '@aeolus-fleet/common/rules';
-import { ChevronRight, SquarePen } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import Link from 'next/link';
 
 import { LiveStatus, type LiveState } from '../molecules/live-status';
@@ -19,7 +19,6 @@ interface HeaderProps {
   live: LiveState;
   /** The switcher in the title; undefined until the session is read. */
   switcher: AppSwitcherModel | undefined;
-  account: AvatarMenuProps;
   /** Opens Compose, a new message as argo; without it the button is not shown. */
   onCompose?: () => void;
   /** Opens the CommandPalette; without it the search trigger is not shown. */
@@ -27,40 +26,43 @@ interface HeaderProps {
 }
 
 /**
- * Desktop top bar (docs/design/png/Header.png): the header every Aeolus app
- * shows (@aeolus-fleet/ui), with the switcher in the title, then
- * the breadcrumb, whose every level above the page links up to it; the live
- * connection status, whose dot always has its word, Compose, the
- * CommandPalette's search trigger with its ⌘K hint, and the avatar menu.
+ * Desktop top bar (docs/design/fleet-overview/console-desktop.html): the
+ * header every Aeolus app shows (@aeolus-fleet/ui), with the fleet in the
+ * title, which opens the fleets and apps; then the breadcrumb, whose every
+ * level above the page links up to it, and the live connection status, whose
+ * dot always has its word; at the end the CommandPalette's search field and
+ * Compose. The avatar menu sits in the Sidebar foot.
  */
-export function Header({ breadcrumb, parents = [], live, switcher, account, onCompose, onSearch }: HeaderProps) {
+export function Header({ breadcrumb, parents = [], live, switcher, onCompose, onSearch }: HeaderProps) {
   return (
     <AppHeader
       switcher={switcher}
-      account={account}
+      switcherLayout="fleet"
       onSearch={onSearch}
-      searchLabel="Search ships or jump to"
+      search="field"
+      searchLabel="Search"
       className="hidden sm:flex"
       actions={
-        <>
-          <LiveStatus state={live} />
-          {onCompose ? (
-            <Button size="sm" icon={<SquarePen aria-hidden />} data-testid="header-compose" onClick={onCompose}>
-              Compose
-            </Button>
-          ) : null}
-        </>
+        onCompose ? (
+          <Button size="sm" icon={<Plus aria-hidden />} data-testid="header-compose" onClick={onCompose}>
+            Compose
+          </Button>
+        ) : null
       }
     >
-      <ChevronRight aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
-      <nav aria-label="Breadcrumb" data-testid="header-breadcrumb" className="min-w-0 text-body">
-        <ol className="flex min-w-0 items-center gap-1.5">
+      <nav aria-label="Breadcrumb" data-testid="header-breadcrumb" className="-ml-2 flex min-w-0 items-center gap-3 text-body">
+        <ol className="flex min-w-0 items-center gap-1">
+          <li aria-hidden className="text-muted-foreground">
+            /
+          </li>
           {parents.map((level) => (
-            <li key={level.href} className="flex shrink-0 items-center gap-1.5">
+            <li key={level.href} className="flex shrink-0 items-center gap-1">
               <Link href={level.href} className="text-muted-foreground hover:text-foreground hover:underline">
                 {level.label}
               </Link>
-              <ChevronRight aria-hidden className="size-3.5 text-muted-foreground" />
+              <span aria-hidden className="text-muted-foreground">
+                /
+              </span>
             </li>
           ))}
           <li aria-current="page" className="truncate font-medium text-foreground">
@@ -68,6 +70,7 @@ export function Header({ breadcrumb, parents = [], live, switcher, account, onCo
           </li>
         </ol>
       </nav>
+      <LiveStatus state={live} />
     </AppHeader>
   );
 }

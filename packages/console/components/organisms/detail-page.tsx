@@ -20,7 +20,7 @@ interface DetailPageProps {
   live: LiveState;
   /** The header's switcher; undefined until the session is read. */
   switcher: AppSwitcherModel | undefined;
-  /** The avatar menu, in the Header. */
+  /** The avatar menu, handed with the rest of the frame: on desktop the Sidebar foot shows it, and the phone TopBar of a detail page is in detail mode, without one. */
   account: AvatarMenuProps;
   /** Opens Compose: the Header's button. */
   onCompose?: () => void;
@@ -38,10 +38,10 @@ interface DetailPageProps {
  * stacked ShipHeader and segmented Tabs, the TabBar's height kept free at
  * the bottom.
  */
-export function DetailPage({ title, parents, header, children, sheet, live, switcher, account, onCompose, onSearch, banner }: DetailPageProps) {
+export function DetailPage({ title, parents, header, children, sheet, live, switcher, onCompose, onSearch, banner }: DetailPageProps) {
   return (
     <>
-      <Header breadcrumb={title} parents={parents} live={live} switcher={switcher} account={account} onCompose={onCompose} onSearch={onSearch} />
+      <Header breadcrumb={title} parents={parents} live={live} switcher={switcher} onCompose={onCompose} onSearch={onSearch} />
       {banner}
       <TopBar title={title} live={live} back={parents[parents.length - 1] ?? parents[0]} />
       <main className="flex grow flex-col gap-4 px-6 py-5 max-sm:gap-3.5 max-sm:px-4 max-sm:pt-3.5 max-sm:pb-[calc(var(--size-tabbar)+var(--spacing)*4)]">

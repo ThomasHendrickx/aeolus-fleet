@@ -64,6 +64,7 @@ export function OverviewPage({ view, isCommissionAsked }: { view: FleetView; isC
     <ListPage
       {...frame}
       title="Fleet overview"
+      phoneTitle="Fleet"
       description={numbers.counts ? harbourSummaryOf(numbers.counts, { canCommission: access.canManage }) : undefined}
       isActionInTitleRow
       primaryAction={

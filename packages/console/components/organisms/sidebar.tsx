@@ -4,7 +4,7 @@ import { Activity, ChartColumn, Inbox, Network, Settings2, Shapes, Ship, ShipWhe
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
-import { Avatar } from '@aeolus-fleet/ui';
+import { Avatar, AvatarMenu, type AvatarMenuProps } from '@aeolus-fleet/ui';
 import { Badge } from '../atoms/badge';
 import { NavLinkIcon } from '../molecules/nav-link-icon';
 
@@ -30,6 +30,10 @@ interface SidebarProps {
   hasNetwork?: boolean;
   /** Whether Settings is offered: it holds the plugins, and only a session that manages the fleet changes them. */
   hasSettings?: boolean;
+  /** The avatar menu, in the foot; unset, no foot. */
+  account?: AvatarMenuProps;
+  /** The fleet in view, under the name in the foot; undefined until the session is read. */
+  fleetName?: string;
 }
 
 const ITEM =
@@ -124,9 +128,10 @@ function AttentionCount({ count, testId, words }: { count: number | undefined; t
  * (#245), and Usage; Operator inbox, which counts its open questions and open
  * messages in --primary; Network, the networking plugin's rules, for argo
  * while it is connected; and Settings, which holds the plugins. A count simply
- * hides until it is known.
+ * hides until it is known. The foot holds the avatar menu: who is signed in,
+ * and the fleet in view.
  */
-export function Sidebar({ active, inboxCount, stuckCount, needsCrewCount, hasSquadrons = false, hasTrierarchs = false, trierarchsCount, hasNetwork = false, hasSettings = false }: SidebarProps) {
+export function Sidebar({ active, inboxCount, stuckCount, needsCrewCount, hasSquadrons = false, hasTrierarchs = false, trierarchsCount, hasNetwork = false, hasSettings = false, account, fleetName }: SidebarProps) {
   return (
     <aside
       data-slot="sidebar"
@@ -185,6 +190,11 @@ export function Sidebar({ active, inboxCount, stuckCount, needsCrewCount, hasSqu
         {hasNetwork && <NavItem href="/network" label="Network" icon={<Network aria-hidden />} isActive={active === 'network'} testId="nav-network" />}
         {hasSettings && <NavItem href="/settings" label="Settings" icon={<Settings2 aria-hidden />} isActive={active === 'settings'} testId="nav-settings" />}
       </nav>
+      {account === undefined ? null : (
+        <div className="border-t border-border pt-2">
+          <AvatarMenu {...account} layout="row" {...(fleetName === undefined ? {} : { caption: fleetName })} className="max-lg:justify-center max-lg:[&_[data-slot=avatar-menu-words]]:sr-only" />
+        </div>
+      )}
     </aside>
   );
 }

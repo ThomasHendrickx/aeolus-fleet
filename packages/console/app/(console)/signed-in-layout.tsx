@@ -59,7 +59,7 @@ export function SignedInLayout({ children }: { children: ReactNode }) {
         ),
       }}
     >
-      <ConsoleFrame nav={{ active, inboxCount, stuckCount, ...pluginNav }}>
+      <ConsoleFrame nav={{ active, inboxCount, stuckCount, ...pluginNav }} account={account} {...(switcher === undefined ? {} : { fleetName: switcher.fleet.name })}>
         {children}
       </ConsoleFrame>
       <ComposeMessage isOpen={isComposing} onOpenChange={setIsComposing} />
