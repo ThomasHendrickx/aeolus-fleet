@@ -755,9 +755,9 @@ const harbourStateOfShip = Prisma.sql`
   CASE
     WHEN EXISTS (SELECT 1 FROM alerts a WHERE a.fleet_id = s.fleet_id AND a.ship_id = s.id AND a.cleared_at IS NULL) THEN 'alert'
     WHEN s.kind NOT IN ('operator', 'viewer')
-      AND NOT EXISTS (SELECT 1 FROM leases ol WHERE ol.fleet_id = s.fleet_id AND ol.ship_id = s.id AND ol.ended_at IS NULL) THEN 'waiting'
+      AND NOT EXISTS (SELECT 1 FROM leases ol WHERE ol.fleet_id = s.fleet_id AND ol.ship_id = s.id AND ol.ended_at IS NULL) THEN 'awaitingCrew'
     ELSE COALESCE(
-      (SELECT CASE ol.report_state WHEN 'blocked' THEN 'waiting' WHEN 'working' THEN 'working' END
+      (SELECT CASE ol.report_state WHEN 'blocked' THEN 'blocked' WHEN 'working' THEN 'working' END
        FROM leases ol WHERE ol.fleet_id = s.fleet_id AND ol.ship_id = s.id AND ol.ended_at IS NULL),
       'idle')
   END`;

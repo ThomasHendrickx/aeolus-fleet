@@ -18,12 +18,12 @@ describe('the view in the address', () => {
     expect([fleetViewParams(DEFAULT_FLEET_VIEW).toString(), readFleetView(new URLSearchParams(''))]).toEqual(['', DEFAULT_FLEET_VIEW]);
   });
 
-  it('writes the mockup’s address for cards with State Alert and Waiting, searched “er”', () => {
-    expect(fleetViewParams(view({ state: ['alert', 'waiting'], query: 'er' })).toString()).toBe('q=er&state=alert&state=waiting');
+  it('writes the mockup’s address for cards with State Alert and Blocked, searched “er”', () => {
+    expect(fleetViewParams(view({ state: ['alert', 'blocked'], query: 'er' })).toString()).toBe('q=er&state=alert&state=blocked');
   });
 
   it('keeps every filter when the view switches to the list', () => {
-    const cards = view({ state: ['alert', 'waiting'], type: ['builder'], labelValueIds: [HEMMA], query: 'er' });
+    const cards = view({ state: ['alert', 'blocked'], type: ['builder'], labelValueIds: [HEMMA], query: 'er' });
 
     const list = readFleetView(fleetViewParams({ ...cards, mode: 'list' }));
 
@@ -59,11 +59,11 @@ describe('the view in the address', () => {
 
 describe('the filters in force', () => {
   it('counts a filter with several values once, and each label value picked', () => {
-    expect(activeFilterCount(view({ state: ['alert', 'waiting'], type: ['builder'], labelValueIds: [HEMMA, BACKEND] }).filters)).toBe(4);
+    expect(activeFilterCount(view({ state: ['alert', 'blocked'], type: ['builder'], labelValueIds: [HEMMA, BACKEND] }).filters)).toBe(4);
   });
 
   it('names each in words for the phone’s chips, in the order of the controls', () => {
-    expect(activeFilterLabels(view({ type: ['builder'], state: ['alert', 'waiting'] }).filters)).toEqual(['State: Alert, Waiting', 'Type: builder']);
+    expect(activeFilterLabels(view({ type: ['builder'], state: ['alert', 'blocked'] }).filters)).toEqual(['State: Alert, Blocked', 'Type: builder']);
   });
 
   it('names none for the default filters', () => {

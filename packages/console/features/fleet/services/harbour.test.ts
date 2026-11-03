@@ -27,12 +27,12 @@ describe("harbourGroupsOf: Harbour's groups from the tiles fleet.harbour answers
   // Thomas, #1605: state, then last activity newest first, then name; a ship that never did anything last in its state.
   it('orders a state by last activity, newest first, then by name, a ship that never did anything last', () => {
     const tiles = [
-      aTile('walker-3', { state: 'waiting' }),
+      aTile('walker-3', { state: 'awaitingCrew' }),
       aTile('aeolus-fleet-infra', { state: 'working', lastActivityAt: '2026-11-03T11:56:00.000Z' }),
       aTile('mac-mini', { state: 'working', lastActivityAt: '2026-11-03T11:59:00.000Z' }),
       aTile('orchestrator-1', { state: 'working', lastActivityAt: '2026-11-03T12:00:00.000Z' }),
       aTile('design-bridge-fleet', { state: 'working', lastActivityAt: '2026-11-03T12:00:00.000Z' }),
-      aTile('builder-gateway', { state: 'waiting', lastActivityAt: '2026-11-03T11:35:00.000Z' }),
+      aTile('builder-gateway', { state: 'awaitingCrew', lastActivityAt: '2026-11-03T11:35:00.000Z' }),
     ];
 
     const names = harbourGroupsOf(tiles)[0]?.tiles.map((tile) => tile.name);
@@ -40,18 +40,19 @@ describe("harbourGroupsOf: Harbour's groups from the tiles fleet.harbour answers
     expect(names).toEqual(['builder-gateway', 'walker-3', 'design-bridge-fleet', 'orchestrator-1', 'mac-mini', 'aeolus-fleet-infra']);
   });
 
-  it('orders a group alerts first, then waiting, working and idle, each by name', () => {
+  it('orders a group alerts first, then awaiting crew, blocked, working and idle, each by name', () => {
     const tiles = [
       aTile('builder-ui'),
       aTile('walker-1', { state: 'working' }),
       aTile('builder-core', { state: 'working' }),
-      aTile('walker-2', { state: 'waiting' }),
+      aTile('walker-2', { state: 'awaitingCrew' }),
+      aTile('planner', { state: 'blocked' }),
       aTile('reviewer', { state: 'alert' }),
     ];
 
     const names = harbourGroupsOf(tiles)[0]?.tiles.map((tile) => tile.name);
 
-    expect(names).toEqual(['reviewer', 'walker-2', 'builder-core', 'walker-1', 'builder-ui']);
+    expect(names).toEqual(['reviewer', 'walker-2', 'planner', 'builder-core', 'walker-1', 'builder-ui']);
   });
 
   it('shows a ship once, where it first shows, when a live reload put it on a page that a later page also holds', () => {
@@ -66,18 +67,18 @@ describe("harbourGroupsOf: Harbour's groups from the tiles fleet.harbour answers
   });
 });
 
-// The overview's subtitle from Harbour's numbers (docs/design/fleet-overview): "19 ships: 8 working, 7 idle, 3 waiting, 1 with an alert".
+// The overview's subtitle from Harbour's numbers (docs/design/fleet-overview): "19 ships: 8 working, 7 idle, 2 awaiting crew, 1 blocked, 1 with an alert".
 describe("harbourSummaryOf: the overview's subtitle", () => {
   it('names the ships and each state they are in, working and idle first', () => {
-    expect(harbourSummaryOf({ ships: 19, alert: 1, waiting: 3, working: 8, idle: 7 }, { canCommission: true })).toBe('19 ships: 8 working, 7 idle, 3 waiting, 1 with an alert');
+    expect(harbourSummaryOf({ ships: 19, alert: 1, awaitingCrew: 2, blocked: 1, working: 8, idle: 7 }, { canCommission: true })).toBe('19 ships: 8 working, 7 idle, 2 awaiting crew, 1 blocked, 1 with an alert');
   });
 
   it('leaves out a state no ship is in', () => {
-    expect(harbourSummaryOf({ ships: 4, alert: 0, waiting: 0, working: 3, idle: 1 }, { canCommission: true })).toBe('4 ships: 3 working, 1 idle');
+    expect(harbourSummaryOf({ ships: 4, alert: 0, awaitingCrew: 0, blocked: 0, working: 3, idle: 1 }, { canCommission: true })).toBe('4 ships: 3 working, 1 idle');
   });
 
   it('says what to do next while argo is alone, to those who may commission', () => {
-    expect([harbourSummaryOf({ ships: 1, alert: 0, waiting: 0, working: 0, idle: 1 }, { canCommission: true }), harbourSummaryOf({ ships: 1, alert: 0, waiting: 0, working: 0, idle: 1 }, { canCommission: false })]).toEqual([
+    expect([harbourSummaryOf({ ships: 1, alert: 0, awaitingCrew: 0, blocked: 0, working: 0, idle: 1 }, { canCommission: true }), harbourSummaryOf({ ships: 1, alert: 0, awaitingCrew: 0, blocked: 0, working: 0, idle: 1 }, { canCommission: false })]).toEqual([
       'Only argo so far. Ships you commission appear here.',
       'Only argo so far.',
     ]);

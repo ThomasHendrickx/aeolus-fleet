@@ -1,6 +1,6 @@
 /**
  * Harbour (docs/design/fleet-overview, "The read Harbour needs"): each active
- * ship in one of four states (common's harbourStateOf), and the five
+ * ship in one of five states (common's harbourStateOf), and the five
  * numbers.
  */
 import type { ShipId, ShipKind } from '@aeolus-fleet/common';
@@ -28,7 +28,7 @@ export function latestOf(times: readonly (Date | null)[]): Date | null {
 
 /** The numbers over the ships Harbour shows. */
 export function harbourCountsOf(ships: readonly Pick<HarbourShip, 'state'>[]): HarbourCounts {
-  const counts: HarbourCounts = { ships: ships.length, alert: 0, waiting: 0, working: 0, idle: 0 };
+  const counts: HarbourCounts = { ships: ships.length, alert: 0, awaitingCrew: 0, blocked: 0, working: 0, idle: 0 };
   for (const { state } of ships) {
     counts[state] += 1;
   }

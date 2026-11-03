@@ -459,7 +459,7 @@ describe('the live fleet (performance design, decision 3)', () => {
 
 describe("Harbour live (docs/design/fleet-overview, \"The read Harbour needs\")", () => {
   type HarbourTile = HarbourOutput['items'][number];
-  const counts = (working: number, waiting: number) => ({ ships: 2, alert: 0, waiting, working, idle: 2 - working - waiting });
+  const counts = (working: number, blocked: number) => ({ ships: 2, alert: 0, awaitingCrew: 0, blocked, working, idle: 2 - working - blocked });
 
   /** Harbour's pages over a fake fleet.harbour: the whole fleet from `tiles`, a ship asked alone from `alone`, the numbers from `numbers`. */
   function aHarbour(input: { tiles: HarbourTile[]; alone: (shipId: unknown) => HarbourTile[]; numbers: () => ReturnType<typeof counts> }) {
@@ -482,7 +482,7 @@ describe("Harbour live (docs/design/fleet-overview, \"The read Harbour needs\")"
   it("replaces a ship's tile in place with the ship read alone, and reads Harbour's numbers again", async () => {
     const argo: HarbourTile = { id: newId('ship'), name: 'argo', kind: 'operator', state: 'idle', note: null, lastActivityAt: null };
     const builder: HarbourTile = { id: newId('ship'), name: 'builder', kind: 'agent', state: 'working', note: 'Building', lastActivityAt: null };
-    const blocked: HarbourTile = { ...builder, state: 'waiting', note: 'Waiting for a review', lastActivityAt: null };
+    const blocked: HarbourTile = { ...builder, state: 'blocked', note: 'Waiting for a review', lastActivityAt: null };
     let numbers = counts(1, 0);
     const { live, shown } = aHarbour({ tiles: [argo, builder], alone: () => [blocked], numbers: () => numbers });
     await expect.poll(shown).toBeDefined();
@@ -497,7 +497,7 @@ describe("Harbour live (docs/design/fleet-overview, \"The read Harbour needs\")"
   it('adds a ship Harbour did not show, and takes off one it no longer shows, without reading the fleet again', async () => {
     const argo: HarbourTile = { id: newId('ship'), name: 'argo', kind: 'operator', state: 'idle', note: null, lastActivityAt: null };
     const old: HarbourTile = { id: newId('ship'), name: 'old', kind: 'agent', state: 'idle', note: null, lastActivityAt: null };
-    const scout: HarbourTile = { id: newId('ship'), name: 'scout', kind: 'agent', state: 'waiting', note: null, lastActivityAt: null };
+    const scout: HarbourTile = { id: newId('ship'), name: 'scout', kind: 'agent', state: 'awaitingCrew', note: null, lastActivityAt: null };
     const { live, shown } = aHarbour({ tiles: [argo, old], alone: (shipId) => (shipId === scout.id ? [scout] : []), numbers: () => counts(0, 1) });
     await expect.poll(shown).toBeDefined();
     const wholeReads = live.askedOf('fleet.harbour');
@@ -513,7 +513,7 @@ describe("Harbour live (docs/design/fleet-overview, \"The read Harbour needs\")"
 
   it("reloads a ship's tile under each loaded read's own filter: a tile the filter no longer selects leaves that read (#1605)", async () => {
     const builder: HarbourTile = { id: newId('ship'), name: 'builder', kind: 'agent', state: 'working', note: 'Building', lastActivityAt: null };
-    const blocked: HarbourTile = { ...builder, state: 'waiting', note: 'Waiting for a review' };
+    const blocked: HarbourTile = { ...builder, state: 'blocked', note: 'Waiting for a review' };
     const live = aLiveFleet({
       'fleet.harbour': (asked) => {
         const isAlone = typeof asked === 'object' && asked !== null && 'shipIds' in asked;

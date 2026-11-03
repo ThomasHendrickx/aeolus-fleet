@@ -32,6 +32,11 @@ const LOOKS: Record<ShipStateShown, ShipStateLook> = {
   retired: { word: 'Retired', Icon: Archive, tone: 'ended' },
 };
 
+/** A state's word alone, for a title or a sentence: "Awaiting crew". */
+export function shipStateWordOf(state: ShipStateShown): string {
+  return LOOKS[state].word;
+}
+
 /** Text and icon in the tone's foreground; Idle in the muted foreground. */
 const TONE_TEXT: Record<Tone | 'none', string> = {
   attention: 'text-tone-attention-fg',

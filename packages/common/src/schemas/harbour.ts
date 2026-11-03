@@ -40,7 +40,7 @@ export const harbourOutputSchema = z.object({
     }),
   ),
   nextCursor: z.string().nullable(),
-  counts: z.object({ ships: z.int().min(0), alert: z.int().min(0), waiting: z.int().min(0), working: z.int().min(0), idle: z.int().min(0) }).nullable(),
+  counts: z.object({ ships: z.int().min(0), alert: z.int().min(0), awaitingCrew: z.int().min(0), blocked: z.int().min(0), working: z.int().min(0), idle: z.int().min(0) }).nullable(),
 });
 
 export type HarbourOutput = z.infer<typeof harbourOutputSchema>;

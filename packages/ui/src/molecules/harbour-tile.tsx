@@ -5,35 +5,30 @@ import type { HarbourState } from '@aeolus-fleet/common/rules';
 import { useRender } from '@base-ui/react/use-render';
 import { ArrowUpRight } from 'lucide-react';
 
+import { ShipState, shipStateWordOf } from '../atoms/ship-state.js';
 import { classNames } from '../class-names.js';
 import { lastActivityWordsOf } from './harbour-activity.js';
-import { HARBOUR_GROUP_LOOK, HARBOUR_STATE_WORDS, HarbourStateIcon, type HarbourGroupKind } from './harbour-state.js';
+import { HARBOUR_GROUP_LOOK, type HarbourGroupKind } from './harbour-state.js';
 
 /** A ship as its tile shows it: `fleet.harbour`'s tile, its group saying its kind. */
 export type HarbourTileShip = Pick<HarbourOutput['items'][number], 'id' | 'name' | 'state' | 'note' | 'lastActivityAt'>;
 
-/** A tile is filled in its state's tone; Idle stays plain, so colour marks only what is going on. */
+/** A tile is filled in its state's tone (docs/design/state-colours); Idle stays plain, so colour marks only what is going on. */
 const TILE_TONES: Record<HarbourState, string> = {
   alert: 'border-tone-attention-border bg-tone-attention-bg text-tone-attention-fg',
-  waiting: 'border-tone-waiting-border bg-tone-waiting-bg text-tone-waiting-fg',
-  working: 'border-tone-ok-border bg-tone-ok-bg text-tone-ok-fg',
+  awaitingCrew: 'border-tone-waiting-border bg-tone-waiting-bg text-tone-waiting-fg',
+  blocked: 'border-tone-blocked-border bg-tone-blocked-bg text-tone-blocked-fg',
+  working: 'border-tone-active-border bg-tone-active-bg text-tone-active-fg',
   idle: 'border-border bg-card text-muted-foreground',
 };
 
 /** On a link, hover and press give the border the state's colour. */
 const LINK_TONES: Record<HarbourState, string> = {
   alert: 'hover:border-tone-attention-fg active:border-tone-attention-fg',
-  waiting: 'hover:border-tone-waiting-fg active:border-tone-waiting-fg',
-  working: 'hover:border-tone-ok-fg active:border-tone-ok-fg',
+  awaitingCrew: 'hover:border-tone-waiting-fg active:border-tone-waiting-fg',
+  blocked: 'hover:border-tone-blocked-fg active:border-tone-blocked-fg',
+  working: 'hover:border-tone-active-fg active:border-tone-active-fg',
   idle: 'hover:border-muted-foreground active:border-muted-foreground',
-};
-
-/** The kind's square takes the state's tone; an Idle ship's stays plain. */
-const KIND_TONES: Record<HarbourState, string> = {
-  alert: 'border-current/25',
-  waiting: 'border-current/25',
-  working: 'border-current/25',
-  idle: 'border-border',
 };
 
 const TILE = 'relative grid h-full min-h-28 min-w-0 grid-rows-[auto_1fr_auto] gap-1 overflow-hidden rounded-md border px-3 py-2.5 no-underline';
@@ -59,7 +54,7 @@ export interface HarbourTileProps {
  * the console and Bridge: its kind, its whole name, what it is doing (its
  * report's note, two lines), its state and when it last did something. With
  * an href it opens the ship's page, the arrow showing on hover and focus. A
- * working ship's tile carries the live band, which stands still under
+ * working ship's tile carries the live band in Sea, which stands still under
  * reduced motion. The title holds "name: note" for the note cut short.
  */
 export function HarbourTile({ ship, kind, href, link, now }: HarbourTileProps) {
@@ -69,7 +64,7 @@ export function HarbourTile({ ship, kind, href, link, now }: HarbourTileProps) {
   const content = (
     <>
       <span className="flex min-w-0 items-start gap-2 pr-4.5">
-        <span data-testid="harbour-tile-kind" title={kindWord} className={classNames('inline-flex size-5.5 shrink-0 items-center justify-center rounded-md border bg-card/70', KIND_TONES[state])}>
+        <span data-testid="harbour-tile-kind" title={kindWord} className={classNames('inline-flex size-5.5 shrink-0 items-center justify-center rounded-md border bg-card/70', state === 'idle' ? 'border-border' : 'border-current/25')}>
           <KindIcon aria-hidden className="size-3.25" />
         </span>
         <span className="min-w-0 pt-0.5 text-meta leading-4.5 font-semibold wrap-anywhere text-foreground">{name}</span>
@@ -81,10 +76,7 @@ export function HarbourTile({ ship, kind, href, link, now }: HarbourTileProps) {
       ) : null}
       <span className="line-clamp-2 text-caption leading-4 text-muted-foreground">{note}</span>
       <span className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5">
-        <span className="inline-flex items-center gap-1 text-caption leading-4 font-medium">
-          <HarbourStateIcon state={state} />
-          {HARBOUR_STATE_WORDS[state]}
-        </span>
+        <ShipState state={state} size="caption" />
         <span data-testid="harbour-tile-age" className="text-caption whitespace-nowrap text-muted-foreground">
           {lastActivityWordsOf(ship.lastActivityAt, now)}
         </span>
@@ -93,7 +85,7 @@ export function HarbourTile({ ship, kind, href, link, now }: HarbourTileProps) {
         <i
           data-testid="harbour-tile-live"
           aria-hidden
-          className="absolute inset-x-0 bottom-0 h-0.5 animate-live-band bg-[linear-gradient(90deg,transparent,currentColor,transparent)] bg-size-[40%_100%] bg-no-repeat opacity-70 motion-reduce:animate-none motion-reduce:bg-current motion-reduce:bg-none motion-reduce:opacity-35"
+          className="absolute inset-x-0 bottom-0 h-0.5 animate-live-band bg-[linear-gradient(90deg,transparent,var(--live-band),transparent)] bg-size-[40%_100%] bg-no-repeat opacity-70 motion-reduce:animate-none motion-reduce:bg-live-band motion-reduce:bg-none motion-reduce:opacity-35"
         />
       ) : null}
     </>
@@ -104,7 +96,7 @@ export function HarbourTile({ ship, kind, href, link, now }: HarbourTileProps) {
     props: {
       'data-testid': 'harbour-tile',
       'data-state': state,
-      title: `${name}: ${note ?? HARBOUR_STATE_WORDS[state]}`,
+      title: `${name}: ${note ?? shipStateWordOf(state)}`,
       className: classNames(TILE, TILE_TONES[state], isLink ? classNames(LINK, LINK_TONES[state]) : undefined),
       ...(isLink ? { href } : {}),
       children: content,

@@ -98,15 +98,15 @@ describe('the overview rows', () => {
 });
 
 describe('the phone filters', () => {
-  it('filters to the waiting ships in the sheet, shows the filter as a chip and clears it', async () => {
+  it('filters to the ships awaiting crew in the sheet, shows the filter as a chip and clears it', async () => {
     const page = await signedIn(PHONE);
     await page.getByTestId('fleet-card-builder').waitFor();
 
     await page.getByRole('button', { name: 'Filter ships' }).click();
-    await page.getByRole('group', { name: 'State' }).getByRole('button', { name: 'Waiting' }).click();
+    await page.getByRole('group', { name: 'State' }).getByRole('button', { name: 'Awaiting crew' }).click();
     await page.getByRole('button', { name: 'Show 1 ship' }).click();
 
-    await page.getByTestId('fleet-filter-chips').getByText('State: Waiting').waitFor();
+    await page.getByTestId('fleet-filter-chips').getByText('State: Awaiting crew').waitFor();
     await page.getByRole('button', { name: 'Filter ships, 1 in force' }).waitFor();
     await expect(page.getByTestId('fleet-card-builder').count()).resolves.toBe(0);
     await page.getByTestId('fleet-filter-chips').getByRole('button', { name: 'Clear filters' }).click();

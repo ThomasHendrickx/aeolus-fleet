@@ -6,7 +6,7 @@ import { uniqueById } from '../../../lib/paged-list';
 /**
  * Harbour's groups and words (docs/design/fleet-overview): the tiles
  * `fleet.harbour` answers, each with the state the server worked out,
- * grouped by kind and ordered in each group alerts first, then waiting,
+ * grouped by kind and ordered in each group alerts first, then awaiting crew, blocked,
  * working and idle, each by last activity, newest first, then by name; and
  * the overview's subtitle from its numbers.
  */
@@ -61,7 +61,8 @@ export function harbourGroupsOf(tiles: readonly HarbourTile[]): HarbourGroup[] {
 const SUMMARY_PARTS: readonly { state: HarbourState; words: string }[] = [
   { state: 'working', words: 'working' },
   { state: 'idle', words: 'idle' },
-  { state: 'waiting', words: 'waiting' },
+  { state: 'awaitingCrew', words: 'awaiting crew' },
+  { state: 'blocked', words: 'blocked' },
   { state: 'alert', words: 'with an alert' },
 ];
 

@@ -60,6 +60,7 @@
   --color-tone-ended-bg: var(--tone-ended-bg);
   --color-tone-ended-fg: var(--tone-ended-fg);
   --color-tone-ended-border: var(--tone-ended-border);
+  --color-live-band: var(--live-band);
 }
 
 @theme {

@@ -7,7 +7,7 @@ import { DEFAULT_FLEET_VIEW, type FleetView } from '../../services/fleet-filter'
 import { FleetBar } from './fleet-bar';
 
 /** The mockup's fleet: 19 ships, as Harbour counts them. */
-const COUNTS = { ships: 19, alert: 1, waiting: 3, working: 8, idle: 7 };
+const COUNTS = { ships: 19, alert: 1, awaitingCrew: 2, blocked: 1, working: 8, idle: 7 };
 const TYPES = [
   { type: 'builder', ships: 1 },
   { type: 'designer', ships: 1 },
@@ -18,7 +18,7 @@ const TYPES = [
   { type: 'researcher', ships: 1 },
 ];
 const LABELS = labelContext([]);
-const FILTERED: FleetView = { ...DEFAULT_FLEET_VIEW, query: 'er', filters: { state: ['alert', 'waiting'], type: [], labelValueIds: [] } };
+const FILTERED: FleetView = { ...DEFAULT_FLEET_VIEW, query: 'er', filters: { state: ['alert', 'blocked'], type: [], labelValueIds: [] } };
 
 /** Keeps the view the way the overview keeps it in the address. */
 function StatefulFleetBar({ view: initial, shown, isUpdating = false }: { view: FleetView; shown: number | undefined; isUpdating?: boolean }) {
@@ -74,7 +74,7 @@ export const StateOpen: Story = {
   play: async ({ canvasElement }) => {
     await userEvent.click(within(canvasElement).getByTestId('fleet-filter-state'));
     const menu = within(canvasElement.ownerDocument.body);
-    await expect(await menu.findByRole('option', { name: /Waiting\s*3/ })).toHaveAttribute('aria-selected', 'true');
+    await expect(await menu.findByRole('option', { name: /Blocked\s*1/ })).toHaveAttribute('aria-selected', 'true');
     await expect(menu.getByRole('option', { name: /Working\s*8/ })).toHaveAttribute('aria-selected', 'false');
   },
 };
@@ -132,12 +132,12 @@ export const SwitchesToList: Story = {
 
 /** On the phone: the search, a filter button counting what is in force, the icon switch, and a chip per filter. */
 export const PhoneFiltered: Story = {
-  args: { view: { ...DEFAULT_FLEET_VIEW, filters: { state: ['alert', 'waiting'], type: ['builder'], labelValueIds: [] } }, shown: 1 },
+  args: { view: { ...DEFAULT_FLEET_VIEW, filters: { state: ['alert', 'blocked'], type: ['builder'], labelValueIds: [] } }, shown: 1 },
   globals: { viewport: { value: 'mobile1' } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByTestId('fleet-filters-open')).toHaveAccessibleName('Filter ships, 2 in force');
-    await expect(canvas.getByTestId('fleet-filter-chips')).toHaveTextContent('State: Alert, Waiting');
+    await expect(canvas.getByTestId('fleet-filter-chips')).toHaveTextContent('State: Alert, Blocked');
     await userEvent.click(canvas.getByRole('button', { name: 'Clear type' }));
     await expect(canvas.getByTestId('fleet-filters-open')).toHaveAccessibleName('Filter ships, 1 in force');
   },

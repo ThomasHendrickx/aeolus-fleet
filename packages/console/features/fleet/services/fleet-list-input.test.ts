@@ -21,8 +21,8 @@ describe("the overview's bar as fleet.list and fleet.harbour select by it", () =
   it('passes the states, types and label values picked', () => {
     const valueId = idSchema('labelValue').parse('lbv_01m3tbfspe96yf1rnr4ank9h0a');
 
-    expect(fleetListFilterOf(viewWith({ state: ['alert', 'waiting'], type: ['reviewer'], labelValueIds: [valueId] }))).toEqual({
-      state: ['alert', 'waiting'],
+    expect(fleetListFilterOf(viewWith({ state: ['alert', 'blocked'], type: ['reviewer'], labelValueIds: [valueId] }))).toEqual({
+      state: ['alert', 'blocked'],
       type: ['reviewer'],
       valueIds: [valueId],
     });
