@@ -2,6 +2,8 @@ import type { ShipKind, ShipStatus } from '../fleet/index.js';
 import type { LabelValueId, ShipId } from '../ids/index.js';
 import type { CrewRequestKey, CrewStatus } from '../schemas/crew-request.js';
 import type { AgentKind } from '../schemas/label.js';
+import type { ReportState } from '../schemas/report.js';
+import { harbourStateOf, type HarbourState } from './harbour.js';
 
 /**
  * Which ships `fleet.list` and the ship counts select (decision 4 of the
@@ -28,6 +30,8 @@ export interface ShipFilter {
   needsCrew?: 'withTrierarchs' | 'withoutTrierarchs';
   /** Any of these ships: a squadron's flagship and members, as the console resolves them. */
   shipIds?: readonly ShipId[];
+  /** Any of these Harbour states (harbourStateOf): the overview's State filter (docs/design/fleet-overview). */
+  state?: readonly HarbourState[];
   /** Any of these ship kinds: argo and the person ships, for an owner picker (decision 0045). */
   shipKind?: readonly ShipKind[];
   /** Any of these agent kinds (agentKindOf). */
@@ -46,6 +50,9 @@ export interface FilteredShip {
   harness: string | null;
   labels: readonly { valueId: LabelValueId }[];
   crewRequest: { assignedTo: { id: ShipId } | null; crewedBy: { id: ShipId } | null; status: CrewStatus | null } | null;
+  /** Its crew's report, while a session crews it. */
+  report: { state: ReportState } | null;
+  openAlertCount: number;
 }
 
 /** What the fleet snapshot's reads select by status when the caller asks none: the active ships, so retired ones come only when asked. */
@@ -127,12 +134,12 @@ export function carriesEvery(carried: readonly { valueId: LabelValueId }[], valu
 /**
  * Whether the filter selects the ship. A ship outside the caller's read reach
  * shows its name, type and status only (decision 0034), so the filters on
- * what it does not show (crew request and its trierarch, agent kind, label values) never
- * select it.
+ * what it does not show (crew request and its trierarch, agent kind, label
+ * values, Harbour state) never select it. A retired ship has no Harbour state.
  */
 export function matchesShipFilter(ship: FilteredShip, { filter, isInReach }: { filter: ShipFilter; isInReach: boolean }): boolean {
   const query = filter.query?.trim().toLowerCase() ?? '';
-  const isHiddenFilterPicked = filter.needsCrew !== undefined || [filter.crewRequest, filter.assignedTo, filter.kind, filter.valueIds].some((picked) => picked !== undefined && picked.length > 0);
+  const isHiddenFilterPicked = filter.needsCrew !== undefined || [filter.crewRequest, filter.assignedTo, filter.kind, filter.valueIds, filter.state].some((picked) => picked !== undefined && picked.length > 0);
   return (
     (isInReach || !isHiddenFilterPicked) &&
     (query === '' || ship.name.toLowerCase().includes(query) || ship.type.toLowerCase().includes(query)) &&
@@ -145,8 +152,17 @@ export function matchesShipFilter(ship: FilteredShip, { filter, isInReach }: { f
     (filter.needsCrew === undefined || isNeedingCrew(ship, { hasTrierarchs: filter.needsCrew === 'withTrierarchs' })) &&
     carriesEvery(ship.labels, filter.valueIds) &&
     isPicked(filter.shipIds, ship.id) &&
-    isPicked(filter.kind, agentKindOf(ship, filter.pluginShipIds))
+    isPicked(filter.kind, agentKindOf(ship, filter.pluginShipIds)) &&
+    isInStatePicked(filter.state, ship)
   );
+}
+
+/** Whether an active ship is in one of the Harbour states picked; nothing picked passes every ship. */
+function isInStatePicked(picked: readonly HarbourState[] | undefined, ship: FilteredShip): boolean {
+  if (picked === undefined || picked.length === 0) {
+    return true;
+  }
+  return ship.status !== 'retired' && picked.includes(harbourStateOf({ status: ship.status, reportState: ship.report?.state ?? null, hasOpenAlert: ship.openAlertCount > 0 }));
 }
 
 /** Whether the ship's crew request is assigned to one of the trierarchs picked; nothing picked passes every ship. */
