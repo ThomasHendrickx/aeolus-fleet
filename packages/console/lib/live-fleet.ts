@@ -196,7 +196,7 @@ export function harbourFilterOfKey(queryKey: readonly unknown[]): HarbourFilter 
     return undefined;
   }
   return {
-    ...(typeof filter.query === 'string' ? { query: filter.query } : {}),
+    ...(typeof filter.nameQuery === 'string' ? { nameQuery: filter.nameQuery } : {}),
     ...(filter.state === undefined ? {} : { state: valuesOf(filter.state).flatMap((value) => HARBOUR_STATES.find((state) => state === value) ?? []) }),
     ...(filter.type === undefined ? {} : { type: valuesOf(filter.type).filter((value) => typeof value === 'string') }),
     ...(filter.valueIds === undefined ? {} : { valueIds: valuesOf(filter.valueIds).filter(isLabelValueId) }),

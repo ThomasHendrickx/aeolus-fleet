@@ -14,6 +14,8 @@ import { harbourStateOf, type HarbourState } from './harbour.js';
 export interface ShipFilter {
   /** Text the ship's name or type holds, in any case. */
   query?: string;
+  /** Text the ship's name holds, in any case: the overview's search (docs/design/fleet-overview). */
+  nameQuery?: string;
   /** The ship's exact name: whether a ship has it, for a name field's hint. */
   name?: string;
   /** Any of these statuses. */
@@ -139,10 +141,12 @@ export function carriesEvery(carried: readonly { valueId: LabelValueId }[], valu
  */
 export function matchesShipFilter(ship: FilteredShip, { filter, isInReach }: { filter: ShipFilter; isInReach: boolean }): boolean {
   const query = filter.query?.trim().toLowerCase() ?? '';
+  const nameQuery = filter.nameQuery?.trim().toLowerCase() ?? '';
   const isHiddenFilterPicked = filter.needsCrew !== undefined || [filter.crewRequest, filter.assignedTo, filter.kind, filter.valueIds, filter.state].some((picked) => picked !== undefined && picked.length > 0);
   return (
     (isInReach || !isHiddenFilterPicked) &&
     (query === '' || ship.name.toLowerCase().includes(query) || ship.type.toLowerCase().includes(query)) &&
+    ship.name.toLowerCase().includes(nameQuery) &&
     (filter.name === undefined || ship.name === filter.name) &&
     isPicked(filter.status, ship.status) &&
     isPicked(filter.type, ship.type) &&

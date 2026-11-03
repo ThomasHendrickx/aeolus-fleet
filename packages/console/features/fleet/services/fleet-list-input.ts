@@ -11,7 +11,7 @@ import type { FleetSort } from './fleet-sort';
 export function fleetListFilterOf({ query, filters }: Pick<FleetView, 'query' | 'filters'>): FleetListFilter {
   const needle = query.trim();
   return {
-    ...(needle === '' ? {} : { query: needle }),
+    ...(needle === '' ? {} : { nameQuery: needle }),
     ...(filters.state.length === 0 ? {} : { state: [...filters.state] }),
     ...(filters.type.length === 0 ? {} : { type: [...filters.type] }),
     ...(filters.labelValueIds.length === 0 ? {} : { valueIds: [...filters.labelValueIds] }),

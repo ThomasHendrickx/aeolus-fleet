@@ -87,7 +87,7 @@ function SearchField({ view, onViewChange, isTouch }: Pick<FleetBarProps, 'view'
   return (
     <Input
       type="search"
-      aria-label="Search ships by name or type"
+      aria-label="Search ships by name"
       placeholder={isTouch ? 'Search ships' : 'Search ships by name'}
       data-testid={isTouch ? 'fleet-search-touch' : 'fleet-search'}
       value={view.query}

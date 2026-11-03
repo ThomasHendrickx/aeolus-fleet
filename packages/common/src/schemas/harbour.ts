@@ -10,7 +10,7 @@ import { pageInputOf } from './page.js';
 export const HARBOUR_SHIP_IDS_MAX = 100;
 
 /** The overview bar's filter on Harbour's tiles (docs/design/fleet-overview, #1605): search, state, type and label values, as `fleet.list` reads them. */
-export const harbourFilterSchema = fleetListFilterSchema.pick({ query: true, state: true, type: true, valueIds: true });
+export const harbourFilterSchema = fleetListFilterSchema.pick({ nameQuery: true, state: true, type: true, valueIds: true });
 
 /**
  * Input of `fleet.harbour` (docs/design/fleet-overview, "The read Harbour

@@ -774,10 +774,11 @@ export function isInReachOfShip(reach: ReadReach): Prisma.Sql {
  * is never selected: nothing lists a remnant (decision 0070, D4).
  */
 export function shipFilterCondition(
-  { query, name, status = [], type = [], shipKind = [], crewRequest = [], assignedTo = [], needsCrew, valueIds = [], shipIds = [], kind = [], pluginShipIds = [], state = [] }: ShipFilter,
+  { query, nameQuery, name, status = [], type = [], shipKind = [], crewRequest = [], assignedTo = [], needsCrew, valueIds = [], shipIds = [], kind = [], pluginShipIds = [], state = [] }: ShipFilter,
   reach: ReadReach,
 ): Prisma.Sql {
   const needle = query?.trim().toLowerCase() ?? '';
+  const nameNeedle = nameQuery?.trim().toLowerCase() ?? '';
   const values = [...new Set(valueIds)];
   // A ship outside read reach shows its name, type and status only: what it does not show never selects it.
   const isHiddenFilterPicked = crewRequest.length > 0 || assignedTo.length > 0 || needsCrew !== undefined || kind.length > 0 || values.length > 0 || state.length > 0;
@@ -785,6 +786,7 @@ export function shipFilterCondition(
     Prisma.sql`AND s.removed_at IS NULL`,
     isHiddenFilterPicked ? Prisma.sql`AND ${isInReachOfShip(reach)}` : undefined,
     needle === '' ? undefined : Prisma.sql`AND (strpos(lower(s.name), ${needle}) > 0 OR strpos(lower(s.type), ${needle}) > 0)`,
+    nameNeedle === '' ? undefined : Prisma.sql`AND strpos(lower(s.name), ${nameNeedle}) > 0`,
     // An active ship's name is unique: ships_fleet_id_name_active_key finds the one ship.
     name === undefined ? undefined : Prisma.sql`AND s.name = ${name}`,
     // With the retired ones asked, the name in lower case lets ships_name_listing_every_status_idx find them all.
