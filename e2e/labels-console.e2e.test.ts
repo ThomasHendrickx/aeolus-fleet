@@ -167,6 +167,7 @@ describe('Labels in the console', () => {
 
   it('defines a label on the Labels page, changes its values at once, refuses removing a value ships carry, and deletes a label no ship carries', async () => {
     const page = await signedIn();
+    await page.getByTestId('overview-more').click();
     await page.getByTestId('overview-labels').click();
     await page.getByRole('heading', { name: 'Labels', exact: true }).waitFor();
 
