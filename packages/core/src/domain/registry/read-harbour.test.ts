@@ -7,6 +7,7 @@ import { readReachScenario } from '../../../test/support/read-reach-scenario.js'
 import { newKey } from '../../testing/keys.js';
 import { unwrap } from '../../testing/result.js';
 import type { Crew, ShipCaller } from '../shared/caller.js';
+import type { HarbourFilter } from './read-harbour.js';
 
 /**
  * The read Harbour needs (docs/design/fleet-overview): every active ship the
@@ -27,8 +28,8 @@ beforeEach(async () => {
   registry = registryUseCases(core);
 });
 
-async function commission(name: string): Promise<ShipId> {
-  return unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name, type: 'builder' })).shipId;
+async function commission(name: string, type = 'builder'): Promise<ShipId> {
+  return unwrap(await registry.commissionShip(argo, { idempotencyKey: newKey(), name, type })).shipId;
 }
 
 async function crewed(name: string): Promise<Crew> {
@@ -112,6 +113,48 @@ describe("reading Harbour's ships", () => {
 
     expect(reader.ships.map((ship) => ship.id)).toEqual(whole.map((ship) => ship.id));
     expect(reader.counts?.ships).toBe(whole.length);
+  });
+
+  // The fleet overview's bar (#1605): search, State, Type and Labels filter the tiles; the numbers stay the whole fleet.
+  describe("filtered by the overview's bar", () => {
+    async function namesOf(filter: HarbourFilter) {
+      const harbour = await registry.readHarbour(argo, { filter });
+      return { names: harbour.ships.map((ship) => ship.name), counts: harbour.counts };
+    }
+
+    it('answers only the ships the filter selects, and still counts the whole fleet', async () => {
+      await aFleet();
+
+      const read = await namesOf({ state: ['waiting', 'alert'] });
+
+      expect(read).toEqual({ names: ['deploy-bot', 'planner', 'walker'], counts: { ships: 6, alert: 1, waiting: 2, working: 1, idle: 2 } });
+    });
+
+    it('selects by the search in the name or type, by type and by every label value picked, combined', async () => {
+      await aFleet();
+      await commission('reviewer-1', 'reviewer');
+      const reviewer2 = await commission('reviewer-2', 'reviewer');
+      const { values } = unwrap(await registry.defineLabel(argo, { key: 'team', values: ['core'] }));
+      const teamCore = values[0]?.id;
+      if (teamCore !== undefined) {
+        unwrap(await registry.assignLabel(argo, { shipId: reviewer2, valueId: teamCore }));
+      }
+
+      const [bySearch, byType, byLabel] = [await namesOf({ query: 'PLAN' }), await namesOf({ type: ['reviewer'], state: ['waiting'] }), await namesOf({ valueIds: teamCore === undefined ? [] : [teamCore] })];
+
+      expect([bySearch.names, byType.names, byLabel.names]).toEqual([['planner'], ['reviewer-1', 'reviewer-2'], ['reviewer-2']]);
+    });
+
+    it('reloads a ship asked only while the filter still selects it', async () => {
+      const { builder } = await aFleet();
+
+      const [selected, dropped] = [
+        await registry.readHarbour(argo, { shipIds: [builder.shipId], filter: { state: ['working'] } }),
+        await registry.readHarbour(argo, { shipIds: [builder.shipId], filter: { state: ['idle'] } }),
+      ];
+
+      expect([selected.ships.map((ship) => ship.name), dropped.ships]).toEqual([['builder'], []]);
+    });
   });
 
   describe("a ship's last activity", () => {
