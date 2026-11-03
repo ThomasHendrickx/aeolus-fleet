@@ -63,7 +63,7 @@ export function LabelFilterButton({ groups, picked, onPick }: Pick<LabelFilterPr
       picked={picked}
       onPick={onPick}
       trigger={
-        <Button variant="secondary" size="sm" icon={<Tag />} data-testid="fleet-filter-labels">
+        <Button variant="secondary" size="sm" icon={<Tag />} data-testid="fleet-filter-labels" className="h-(--size-control)">
           Labels
           {picked.length === 0 ? null : (
             <span className="inline-flex size-5 items-center justify-center rounded-full bg-primary text-caption font-semibold text-primary-foreground tabular-nums">

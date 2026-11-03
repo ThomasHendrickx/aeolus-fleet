@@ -28,9 +28,10 @@ function isHarbourState(value: string): value is HarbourState {
   return Object.hasOwn(STATE_WORDS, value);
 }
 
-function StateWord({ state }: { state: HarbourState }) {
+/** A state's icon and word: in its tone in the State menu, in the text colour on the phone's chips. */
+function StateWord({ state, isToned = true }: { state: HarbourState; isToned?: boolean }) {
   return (
-    <span className={classNames('inline-flex items-center gap-1.5', STATE_TONES[state])}>
+    <span className={classNames('inline-flex items-center gap-1.5', isToned ? STATE_TONES[state] : undefined)}>
       <HarbourStateIcon state={state} className="size-(--size-icon-sm) shrink-0" />
       {STATE_WORDS[state]}
     </span>
@@ -94,7 +95,7 @@ function SearchField({ view, onViewChange, isTouch }: Pick<FleetBarProps, 'view'
         onViewChange({ ...view, query: event.target.value });
       }}
       leadingIcon={<Search />}
-      className={isTouch ? 'h-(--size-control-touch) text-input-touch' : 'h-(--size-control-sm) text-meta'}
+      className={isTouch ? 'h-(--size-control-touch) text-input-touch' : 'h-(--size-control) text-meta'}
     />
   );
 }
@@ -185,7 +186,7 @@ function PhoneFilters({ view, onViewChange, types, labels, shown, isUpdating }: 
             label="State"
             items={Object.keys(STATE_WORDS)
               .filter(isHarbourState)
-              .map((state) => ({ value: state, content: <StateWord state={state} /> }))}
+              .map((state) => ({ value: state, content: <StateWord state={state} isToned={false} /> }))}
             picked={filters.state}
             onPickedChange={(picked) => {
               onViewChange(withFilters(view, { state: picked.filter(isHarbourState) }));
@@ -264,6 +265,7 @@ export function FleetBar({ view, onViewChange, counts, types, labels, shown, isU
             counts={counts && { total: counts.ships, of: counts }}
             renderItem={(value) => (isHarbourState(value) ? <StateWord state={value} /> : value)}
             testId="fleet-filter-state"
+            className="h-(--size-control)"
           />
           <TypeFilter
             types={types}
@@ -288,6 +290,7 @@ export function FleetBar({ view, onViewChange, counts, types, labels, shown, isU
               size="xs"
               icon={<X />}
               data-testid="fleet-filters-clear"
+              className="text-muted-foreground"
               onClick={() => {
                 onViewChange({ ...view, query: '', filters: DEFAULT_FLEET_VIEW.filters });
               }}
@@ -296,7 +299,7 @@ export function FleetBar({ view, onViewChange, counts, types, labels, shown, isU
             </Button>
           ) : null}
         </div>
-        <div className="flex h-(--size-control-sm) shrink-0 items-center gap-3">
+        <div className="flex h-(--size-control) shrink-0 items-center gap-3">
           <BarCount view={view} counts={counts} shown={shown} isUpdating={isUpdating} />
           <ViewSwitch mode={view.mode} onModeChange={changeMode} />
         </div>

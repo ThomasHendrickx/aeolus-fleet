@@ -21,6 +21,8 @@ export interface FilterSelectProps {
   size?: 'sm' | 'touch';
   /** Set on each value's item and on the one value named in the trigger, such as `font-mono` for ship types. */
   valueClassName?: string;
+  /** Set on the trigger, such as the overview bar's control height. */
+  className?: string;
   testId?: string;
 }
 
@@ -35,7 +37,7 @@ function Count({ value }: { value: number | undefined }) {
  * picked or counts several, in the pill the Labels button counts with. With
  * counts, each row says how many ships it holds, its check at the start.
  */
-export function FilterSelect({ label, items, picked, onPickedChange, counts, renderItem, size = 'sm', valueClassName, testId }: FilterSelectProps) {
+export function FilterSelect({ label, items, picked, onPickedChange, counts, renderItem, size = 'sm', valueClassName, className, testId }: FilterSelectProps) {
   const summary = pickedSummary(picked, items);
   const indicator = counts === undefined ? 'end' : 'start';
   return (
@@ -46,7 +48,7 @@ export function FilterSelect({ label, items, picked, onPickedChange, counts, ren
         onPickedChange(pickedAfter(picked, next));
       }}
     >
-      <SelectTrigger size={size} aria-label={label} data-testid={testId}>
+      <SelectTrigger size={size} aria-label={label} data-testid={testId} className={className}>
         <span className="flex items-center gap-1.5">
           <span className="text-muted-foreground">{label}</span>
           {summary.kind === 'several' ? (

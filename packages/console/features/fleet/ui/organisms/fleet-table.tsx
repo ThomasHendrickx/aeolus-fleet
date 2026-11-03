@@ -174,6 +174,17 @@ function ShipNameCell({ ship }: { ship: ListedShip }) {
   );
 }
 
+/** Each column's width: fixed while rows show, the same shares of the width while the message stands in for them. */
+const COLUMN_WIDTHS = [
+  { key: 'ship', rows: 'w-56', empty: 'w-[17.5%]' },
+  { key: 'status', rows: 'w-40', empty: 'w-[12.5%]' },
+  { key: 'report', rows: 'w-64', empty: 'w-[20%]' },
+  { key: 'squadron-and-labels', rows: 'w-56', empty: 'w-[17.5%]' },
+  { key: 'runs-on', rows: 'w-64', empty: 'w-[20%]' },
+  { key: 'seen', rows: 'w-28', empty: 'w-[8.75%]' },
+  { key: 'actions', rows: 'w-12', empty: 'w-[3.75%]' },
+] as const;
+
 /** The desktop columns with their headers, in table order, and the column each sorts by; Squadron and labels sorts by none. */
 const HEADS: readonly { key: string; column?: SortColumn; head: string }[] = [
   { key: 'ship', column: 'ship', head: 'Ship' },
@@ -204,17 +215,15 @@ function DesktopTable({
   sort?: FleetSort | null;
   onSort?: (column: SortColumn) => void;
 }) {
+  // With no rows, the header and the message fit the width rather than scrolling sideways.
+  const isEmpty = ships.length === 0 && empty !== undefined;
   return (
     <div className="max-sm:hidden">
-      <Table aria-label="Ships" className="min-w-320 table-fixed">
+      <Table aria-label="Ships" className={classNames('table-fixed', isEmpty ? 'w-full' : 'min-w-320')}>
         <colgroup>
-          <col className="w-56" />
-          <col className="w-40" />
-          <col className="w-64" />
-          <col className="w-56" />
-          <col className="w-64" />
-          <col className="w-28" />
-          <col className="w-12" />
+          {COLUMN_WIDTHS.map(({ key, rows, empty: emptyWidth }) => (
+            <col key={key} className={isEmpty ? emptyWidth : rows} />
+          ))}
         </colgroup>
         <TableHeader>
           <TableRow>

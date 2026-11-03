@@ -41,7 +41,7 @@ export function TypeFilter({ types, total, picked, onPickedChange }: TypeFilterP
       <PopoverTrigger
         aria-label="Type"
         data-testid="fleet-filter-type"
-        className="inline-flex h-(--size-control-sm) shrink-0 items-center gap-1.5 rounded-md border border-input bg-card px-2.5 text-meta whitespace-nowrap text-foreground shadow-sm transition-[border-color,box-shadow] duration-(--duration-fast) outline-none hover:bg-accent focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/22 data-popup-open:border-ring [&_svg]:size-(--size-icon-sm) [&_svg]:shrink-0"
+        className="inline-flex h-(--size-control) shrink-0 items-center gap-1.5 rounded-md border border-input bg-card px-2.5 text-meta whitespace-nowrap text-foreground shadow-sm transition-[border-color,box-shadow] duration-(--duration-fast) outline-none hover:bg-accent focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/22 data-popup-open:border-ring [&_svg]:size-(--size-icon-sm) [&_svg]:shrink-0"
       >
         <span className="text-muted-foreground">Type</span>
         {picked.length > 1 ? (
