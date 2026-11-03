@@ -12,9 +12,7 @@ interface GatewayConnectionProps {
   settings: ShownConnection | undefined;
   /** The read failed: shown with Try again. */
   loadError?: string;
-  onRetry: () => void;
-  /** Try again was pressed and the read has not answered yet. */
-  isRetrying: boolean;
+  onRetry: () => Promise<unknown>;
   isConnecting: boolean;
   /** Why the last Connect failed, as the gateway or the fleet says it. */
   connectError?: string;
@@ -31,9 +29,9 @@ interface GatewayConnectionProps {
  * while the gateway is on for the fleet: off, the browser learns nothing of
  * it (decision 0033).
  */
-export function GatewayConnection({ settings, loadError, onRetry, isRetrying, isConnecting, connectError, hasConnected, onConnect }: GatewayConnectionProps) {
+export function GatewayConnection({ settings, loadError, onRetry, isConnecting, connectError, hasConnected, onConnect }: GatewayConnectionProps) {
   if (loadError !== undefined) {
-    return <InlineError title="Couldn’t read the gateway" description={loadError} onRetry={onRetry} />;
+    return <InlineError title="Couldn’t read the gateway" description={loadError} onRetry={() => { void onRetry(); }} />;
   }
   if (settings === undefined) {
     return <LoadingSkeleton variant="detail" rows={2} label="Loading the gateway" />;
@@ -54,7 +52,7 @@ export function GatewayConnection({ settings, loadError, onRetry, isRetrying, is
             <span className="font-mono text-muted-foreground">({settings.ship?.shipId})</span>. It commissions an app ship for each outside party you approve.
           </p>
           {settings.scopes.kind === 'failed' ? (
-            <FailedScopesRead plugin="the gateway" shipName={settings.ship?.name ?? 'gateway'} reason={settings.scopes.reason} isRetrying={isRetrying} onRetry={onRetry} />
+            <FailedScopesRead plugin="the gateway" shipName={settings.ship?.name ?? 'gateway'} reason={settings.scopes.reason} onRetry={onRetry} />
           ) : (
             <MissingScopes
               plugin="the gateway"

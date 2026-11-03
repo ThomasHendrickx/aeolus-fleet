@@ -13,9 +13,7 @@ interface TrierarchPluginConnectionProps {
   settings: ShownConnection | undefined;
   /** The read failed: shown with Try again. */
   loadError?: string;
-  onRetry: () => void;
-  /** Try again was pressed and the read has not answered yet. */
-  isRetrying: boolean;
+  onRetry: () => Promise<unknown>;
   isConnecting: boolean;
   /** Why the last Connect failed, as the trierarch plugin or the fleet says it. */
   connectError?: string;
@@ -34,9 +32,9 @@ const WHAT_IT_DOES = 'Starts, restarts and stops sessions for crew requests on y
  * secret. Not set up (no AEOLUS_TRIERARCH_PLUGIN_URL, or off for this fleet)
  * is a normal state: it says what the plugin does and where to set it up.
  */
-export function TrierarchPluginConnection({ settings, loadError, onRetry, isRetrying, isConnecting, connectError, hasConnected, onConnect }: TrierarchPluginConnectionProps) {
+export function TrierarchPluginConnection({ settings, loadError, onRetry, isConnecting, connectError, hasConnected, onConnect }: TrierarchPluginConnectionProps) {
   if (loadError !== undefined) {
-    return <InlineError title="Couldn’t read the trierarch plugin" description={loadError} onRetry={onRetry} />;
+    return <InlineError title="Couldn’t read the trierarch plugin" description={loadError} onRetry={() => { void onRetry(); }} />;
   }
   if (settings === undefined) {
     return <LoadingSkeleton variant="detail" rows={2} label="Loading the trierarch plugin" />;
@@ -65,7 +63,7 @@ export function TrierarchPluginConnection({ settings, loadError, onRetry, isRetr
             <span className="font-mono text-muted-foreground">({settings.ship?.shipId})</span>
           </p>
           {settings.scopes.kind === 'failed' ? (
-            <FailedScopesRead plugin="the trierarch plugin" shipName={settings.ship?.name ?? 'trierarch-plugin'} reason={settings.scopes.reason} isRetrying={isRetrying} onRetry={onRetry} />
+            <FailedScopesRead plugin="the trierarch plugin" shipName={settings.ship?.name ?? 'trierarch-plugin'} reason={settings.scopes.reason} onRetry={onRetry} />
           ) : (
             <MissingScopes
               plugin="the trierarch plugin"

@@ -8,7 +8,7 @@ const SHIP_ID = 'shp_01m4jtkdcqe51e0v00c76eec2e';
 const meta = {
   title: 'Organisms/GatewayConnection',
   component: GatewayConnection,
-  args: { onRetry: () => undefined, onConnect: () => undefined, isConnecting: false, hasConnected: false, isRetrying: false },
+  args: { onRetry: () => Promise.resolve(), onConnect: () => undefined, isConnecting: false, hasConnected: false },
 } satisfies Meta<typeof GatewayConnection>;
 
 export default meta;
@@ -34,7 +34,7 @@ export const LoadFailed: Story = { args: { settings: undefined, loadError: 'the 
 
 /** The fleet did not answer the read of gateway's scopes (#1259): the connection stays shown, and under it the section error says the scopes are unknown, with Try again. */
 export const ScopesReadFailed: Story = {
-  args: { settings: { state: 'connected', ship: { shipId: SHIP_ID, name: 'gateway' }, lastShipId: SHIP_ID, scopes: { kind: 'failed', reason: 'The fleet did not answer' } }, onRetry: fn() },
+  args: { settings: { state: 'connected', ship: { shipId: SHIP_ID, name: 'gateway' }, lastShipId: SHIP_ID, scopes: { kind: 'failed', reason: 'The fleet did not answer' } }, onRetry: fn(() => Promise.resolve()) },
   play: async ({ canvasElement, args }) => {
     // Given the gateway connected as gateway, whose scopes the fleet did not answer for
     const canvas = within(canvasElement);
@@ -49,12 +49,5 @@ export const ScopesReadFailed: Story = {
 
     // Then the section is read again
     await expect(args.onRetry).toHaveBeenCalledOnce();
-  },
-};
-/** Try again pressed: the button shows it is working until the read answers. */
-export const RetryingScopesRead: Story = {
-  args: { ...ScopesReadFailed.args, isRetrying: true },
-  play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).getByRole('button', { name: 'Trying again…' })).toHaveAttribute('aria-busy', 'true');
   },
 };

@@ -12,9 +12,7 @@ interface SquadronsConnectionProps {
   settings: ShownConnection | undefined;
   /** The read failed: shown with Try again. */
   loadError?: string;
-  onRetry: () => void;
-  /** Try again was pressed and the read has not answered yet. */
-  isRetrying: boolean;
+  onRetry: () => Promise<unknown>;
   isConnecting: boolean;
   /** Why the last Connect squadrons failed, as squadrons or the fleet says it. */
   connectError?: string;
@@ -29,9 +27,9 @@ interface SquadronsConnectionProps {
  * ship and hands its secret to squadrons; the console never sees the secret.
  * Without squadrons it shows nothing: no trace of squadrons in the console.
  */
-export function SquadronsConnection({ settings, loadError, onRetry, isRetrying, isConnecting, connectError, hasConnected, onConnect }: SquadronsConnectionProps) {
+export function SquadronsConnection({ settings, loadError, onRetry, isConnecting, connectError, hasConnected, onConnect }: SquadronsConnectionProps) {
   if (loadError !== undefined) {
-    return <InlineError title="Couldn’t read squadrons" description={loadError} onRetry={onRetry} />;
+    return <InlineError title="Couldn’t read squadrons" description={loadError} onRetry={() => { void onRetry(); }} />;
   }
   if (settings === undefined) {
     return <LoadingSkeleton variant="detail" rows={2} label="Loading squadrons" />;
@@ -51,7 +49,7 @@ export function SquadronsConnection({ settings, loadError, onRetry, isRetrying, 
             <span className="font-mono text-muted-foreground">({settings.ship?.shipId})</span>
           </p>
           {settings.scopes.kind === 'failed' ? (
-            <FailedScopesRead plugin="squadrons" shipName={settings.ship?.name ?? 'squadrons'} reason={settings.scopes.reason} isRetrying={isRetrying} onRetry={onRetry} />
+            <FailedScopesRead plugin="squadrons" shipName={settings.ship?.name ?? 'squadrons'} reason={settings.scopes.reason} onRetry={onRetry} />
           ) : (
             <MissingScopes
               plugin="squadrons"
