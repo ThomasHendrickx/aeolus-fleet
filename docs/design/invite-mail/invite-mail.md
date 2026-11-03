@@ -71,6 +71,8 @@ The welcome page, for an account an admin added: "Welcome to Acme"; "**ada@acme.
 
 ### Q1. How does the mail name who added the person?
 
+Thomas answered 3 (3 Nov): "Lets leave PII out of this email". The mail and the welcome page name no admin: "An admin of Acme".
+
 1. **The admin's email.** Always there, and the address the person can answer (L2). (Picked.)
 2. The admin's handle, else the email. The handle is a ship's name, not a person's, and is null until set.
 3. Only "An admin of Acme", as today. Says nothing new.
