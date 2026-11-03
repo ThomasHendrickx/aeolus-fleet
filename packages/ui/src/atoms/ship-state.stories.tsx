@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, within } from 'storybook/test';
 
-import { SHIP_STATE_LOOKS, ShipState } from './ship-state.js';
+import { SHIP_STATES, ShipState } from './ship-state.js';
 
 const meta = {
   title: 'Ships/ShipState',
@@ -13,7 +13,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 /** Every state's mark carries its icon and its word, so it never rests on colour alone. */
-async function expectMark(canvasElement: HTMLElement, word: string, tone: string | null) {
+async function expectMark(canvasElement: HTMLElement, { word, tone }: { word: string; tone: string | null }) {
   const mark = within(canvasElement).getByTestId('ship-state');
   await expect(mark).toHaveTextContent(word);
   await expect(mark.querySelector('svg')).not.toBeNull();
@@ -23,50 +23,50 @@ async function expectMark(canvasElement: HTMLElement, word: string, tone: string
 /** Something is wrong: act now. Coral. */
 export const Alert: Story = {
   args: { state: 'alert' },
-  play: async ({ canvasElement }) => expectMark(canvasElement, 'Alert', 'attention'),
+  play: async ({ canvasElement }) => expectMark(canvasElement, { word: 'Alert', tone: 'attention' }),
 };
 
 /** No session holds the lease: waits on a person. Amber. */
 export const AwaitingCrew: Story = {
   args: { state: 'awaitingCrew' },
-  play: async ({ canvasElement }) => expectMark(canvasElement, 'Awaiting crew', 'waiting'),
+  play: async ({ canvasElement }) => expectMark(canvasElement, { word: 'Awaiting crew', tone: 'waiting' }),
 };
 
 /** The crew says it cannot go on. Violet. */
 export const Blocked: Story = {
   args: { state: 'blocked' },
-  play: async ({ canvasElement }) => expectMark(canvasElement, 'Blocked', 'blocked'),
+  play: async ({ canvasElement }) => expectMark(canvasElement, { word: 'Blocked', tone: 'blocked' }),
 };
 
 /** Live and in motion. Sea. */
 export const Working: Story = {
   args: { state: 'working' },
-  play: async ({ canvasElement }) => expectMark(canvasElement, 'Working', 'active'),
+  play: async ({ canvasElement }) => expectMark(canvasElement, { word: 'Working', tone: 'active' }),
 };
 
 /** Nothing going on: no tone, the muted foreground. */
 export const Idle: Story = {
   args: { state: 'idle' },
-  play: async ({ canvasElement }) => expectMark(canvasElement, 'Idle', null),
+  play: async ({ canvasElement }) => expectMark(canvasElement, { word: 'Idle', tone: null }),
 };
 
 /** The status beside the state: settled and well. Green. */
 export const Crewed: Story = {
   args: { state: 'crewed' },
-  play: async ({ canvasElement }) => expectMark(canvasElement, 'Crewed', 'ok'),
+  play: async ({ canvasElement }) => expectMark(canvasElement, { word: 'Crewed', tone: 'ok' }),
 };
 
 /** The status beside the state: over for good. Grey. */
 export const Retired: Story = {
   args: { state: 'retired' },
-  play: async ({ canvasElement }) => expectMark(canvasElement, 'Retired', 'ended'),
+  play: async ({ canvasElement }) => expectMark(canvasElement, { word: 'Retired', tone: 'ended' }),
 };
 
 /** As a badge, filled in its tone: the Alert badge after a ship's status in the console's list and on its page. */
 export const AlertBadge: Story = {
   args: { state: 'alert', isBadge: true },
   play: async ({ canvasElement }) => {
-    await expectMark(canvasElement, 'Alert', 'attention');
+    await expectMark(canvasElement, { word: 'Alert', tone: 'attention' });
     await expect(within(canvasElement).getByTestId('ship-state')).toHaveClass('rounded-full');
   },
 };
@@ -77,13 +77,13 @@ export const All: Story = {
     <div className="grid gap-3">
       {(['meta', 'caption'] as const).map((size) => (
         <div key={size} className="flex flex-wrap items-center gap-4">
-          {SHIP_STATE_LOOKS.map(({ state }) => (
+          {SHIP_STATES.map((state) => (
             <ShipState key={state} state={state} size={size} />
           ))}
         </div>
       ))}
       <div className="flex flex-wrap items-center gap-4">
-        {SHIP_STATE_LOOKS.map(({ state }) => (
+        {SHIP_STATES.map((state) => (
           <ShipState key={state} state={state} isBadge />
         ))}
       </div>
@@ -98,7 +98,7 @@ export const LightAndDark: Story = {
       {(['', 'dark'] as const).map((mode) => (
         <div key={mode || 'light'} className={`${mode} grid gap-3 bg-background p-4 text-foreground`}>
           <div className="flex flex-wrap items-center gap-4">
-            {SHIP_STATE_LOOKS.map(({ state }) => (
+            {SHIP_STATES.map((state) => (
               <ShipState key={state} state={state} />
             ))}
           </div>
