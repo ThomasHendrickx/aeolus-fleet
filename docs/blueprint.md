@@ -118,7 +118,7 @@ The operator runs the fleet: commissions ships, watches it sail, answers what re
 
 | Job to be done | What Aeolus gives them |
 | --- | --- |
-| Know what is sailing right now | Live fleet view: every active ship with name, type, location, uptime, last activity and inbox depth; the retired ones not removed only when the status filter asks for them, as `fleet.list` answers them |
+| Know what is sailing right now | Live fleet view: every active ship with name, type, location, uptime, last activity and inbox depth; the retired ones not removed only through `fleet.list` when its status asks for them |
 | See at a glance what needs a hand | Three counts above the fleet view, each opening what it counts: crewed, the active agent ships with a crew (argo and the viewer ship are the console's own and not counted) |
 | | Awaiting crew, with the ship that has waited longest, since its commission or since its last session ended (a released ship awaits crew again, with no status of its own) |
 | | Stuck deliveries, with since when the oldest waits (decision 0042) |

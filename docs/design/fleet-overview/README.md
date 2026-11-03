@@ -62,7 +62,7 @@ Pick: 1. Thomas's pick was "the whole fleet in one screen"; each call stays insi
 
 ## One view: cards or list
 
-Mockups for [#1605](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1605), step 1. Not approved yet; once approved they are the acceptance criteria for step 2.
+Mockups for [#1605](https://github.com/ThomasHendrickx/aeolus-fleet/issues/1605). Thomas approved them on 3 Nov with option 1 to every question below: they are the acceptance criteria.
 
 Thomas, 3 Nov: "the fleet overview page in console now has both the new view and the old list ... And i cant filter the new card view". On Bridge he chose one view with a switch between cards and list and one filter bar for both (state, type, label, search, applying to whichever view is shown, the view kept in the address), with: "Plus the harbour needs to be shared between bridge and console, just different screen width. --> so this is something that can go to ui package".
 
