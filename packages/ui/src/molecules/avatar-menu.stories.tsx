@@ -180,6 +180,6 @@ export const Row: Story = {
     await expect(trigger).toHaveTextContent('charlotte@acme.example');
     await expect(trigger).toHaveTextContent('Acme fleet');
     await userEvent.click(trigger);
-    await expect(await screen.findByTestId('avatar-menu-sign-out')).toBeVisible();
+    await expect(await screen.findByTestId('avatar-menu-signed-in-as')).toHaveTextContent('Signed in as your account');
   },
 };

@@ -5,7 +5,7 @@ import { useState, type ReactNode } from 'react';
 
 import type { AppSwitcherModel } from '@aeolus-fleet/common/rules';
 import { Button } from '../atoms/button.js';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '../atoms/dropdown-menu.js';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '../atoms/dropdown-menu.js';
 import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from '../atoms/sheet.js';
 import { classNames } from '../class-names.js';
 
@@ -13,10 +13,13 @@ interface AppSwitcherProps {
   switcher: AppSwitcherModel;
   /**
    * full: "Acme / Console ▾", the fleet part switching fleet and the app part
-   * switching app, each a menu. compact (phone, H6): "Console ▾", one bottom
-   * Sheet with the fleets, then the apps.
+   * switching app, each a menu. fleet: "Acme", one menu with the fleets, then
+   * the apps, for an app whose breadcrumb follows the fleet. compact (phone,
+   * H6): "Console ▾", one bottom Sheet with the fleets, then the apps.
    */
-  layout: 'full' | 'compact';
+  layout: 'full' | 'fleet' | 'compact';
+  /** compact: what the title reads in place of the app's name, such as the page's ("Fleet"). */
+  title?: string;
   className?: string;
 }
 
@@ -106,20 +109,16 @@ function SheetGroup({ label, children }: { label: string; children: ReactNode })
  * until the browser leaves. Without anywhere else to go it is plain text,
  * with no ▾.
  */
-export function AppSwitcher({ switcher, layout, className }: AppSwitcherProps) {
+export function AppSwitcher({ switcher, layout, title, className }: AppSwitcherProps) {
   const [opening, setOpening] = useState<Opening | undefined>(undefined);
   const { fleet, appLabel, fleets, apps, canSwitch } = switcher;
 
   if (!canSwitch) {
     return (
-      <p data-testid="app-switcher" className={classNames('flex min-w-0 items-center gap-1 px-1.5 text-body font-semibold text-foreground', className)}>
-        {layout === 'full' ? (
-          <>
-            <span className="truncate">{fleet.name}</span>
-            <span aria-hidden className="text-muted-foreground">/</span>
-          </>
-        ) : null}
-        <span className="truncate">{appLabel}</span>
+      <p data-testid="app-switcher" className={classNames('flex min-w-0 items-center gap-1 px-1.5 text-body font-semibold text-foreground', layout === 'fleet' && 'px-0 font-normal text-muted-foreground', className)}>
+        {layout === 'compact' ? null : <span className="truncate">{fleet.name}</span>}
+        {layout === 'full' ? <span aria-hidden className="text-muted-foreground">/</span> : null}
+        {layout === 'fleet' ? null : <span className="truncate">{title ?? appLabel}</span>}
       </p>
     );
   }
@@ -128,7 +127,7 @@ export function AppSwitcher({ switcher, layout, className }: AppSwitcherProps) {
     return (
       <Sheet>
         <SheetTrigger data-testid="app-switcher" aria-label={`Switch fleet or app: ${fleet.name}, ${appLabel}`} className={classNames(triggerClass, 'text-title-touch', className)}>
-          <span className="truncate">{appLabel}</span>
+          <span className="truncate">{title ?? appLabel}</span>
           {opening === undefined ? <ChevronDown aria-hidden className="size-(--size-icon) shrink-0 text-muted-foreground" /> : <LoaderCircle aria-hidden className="size-(--size-icon) shrink-0 animate-spin motion-reduce:animate-none" />}
         </SheetTrigger>
         <SheetContent side="bottom" data-testid="app-switcher-sheet" className="gap-3">
@@ -146,6 +145,34 @@ export function AppSwitcher({ switcher, layout, className }: AppSwitcherProps) {
           <SheetClose render={<Button size="touch" className="w-full" />}>Cancel</SheetClose>
         </SheetContent>
       </Sheet>
+    );
+  }
+
+  if (layout === 'fleet') {
+    return (
+      <nav aria-label="Fleet and app" data-testid="app-switcher" className={classNames('flex min-w-0 items-center', className)}>
+        <DropdownMenu>
+          <DropdownMenuTrigger data-testid="app-switcher-fleets" aria-label={`Fleet: ${fleet.name}, ${appLabel}. Switch fleet or app`} className={classNames(triggerClass, '-mx-1.5 font-normal text-muted-foreground hover:text-foreground')}>
+            <span className="truncate">{fleet.name}</span>
+            {opening === undefined ? null : <LoaderCircle aria-hidden className="size-(--size-icon-sm) shrink-0 animate-spin motion-reduce:animate-none" />}
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-56">
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Fleets</DropdownMenuLabel>
+              {fleets.map((choice) => (
+                <MenuChoice key={choice.id} url={choice.url} name={choice.name} isCurrent={choice.isCurrent} opening={opening} onOpen={setOpening} testId="app-switcher-fleet" />
+              ))}
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Apps</DropdownMenuLabel>
+              {apps.map((choice) => (
+                <MenuChoice key={choice.app} url={choice.url} name={choice.label} isCurrent={choice.isCurrent} opening={opening} onOpen={setOpening} testId="app-switcher-app" />
+              ))}
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </nav>
     );
   }
 
