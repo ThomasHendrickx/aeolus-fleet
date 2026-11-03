@@ -1,139 +1,76 @@
-import { idSchema, type ListedShip } from '@aeolus-fleet/common';
+import { idSchema } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
-import {
-  activeFilterCount,
-  activeFilterLabels,
-  DEFAULT_FLEET_VIEW,
-  fleetSquadrons,
-  fleetViewParams,
-  urlParamsOf,
-  type FleetView,
-} from './fleet-filter';
+import { activeFilterCount, activeFilterLabels, DEFAULT_FLEET_VIEW, fleetViewParams, isFiltered, urlParamsOf, type FleetView } from './fleet-filter';
 import { readFleetView } from './read-fleet-view';
 
-let nextId = 0;
-const ID_CHARACTERS = '0123456789abcdefghjkmnpqrstvwxyz';
+const HEMMA = idSchema('labelValue').parse('lbv_01m3tbfspe96yf1rnr4ank9h1a');
+const BACKEND = idSchema('labelValue').parse('lbv_01m3tbfspe96yf1rnr4ank9h4a');
 
-function aShip(overrides: Partial<ListedShip> & Pick<ListedShip, 'name'>): ListedShip {
-  nextId += 1;
-  return {
-    id: idSchema('ship').parse(`shp_01m3tbfspe96yf1rnr4ank9h${ID_CHARACTERS.charAt(nextId % ID_CHARACTERS.length)}a`),
-    type: 'builder',
-    kind: 'agent',
-    status: 'crewed',
-    startingPrompt: null,
-    location: { kind: 'DEVICE', description: null },
-    lastSeenAt: null,
-    ping: null,
-    scopes: ['messages:send', 'messages:receive'],
-    report: null, harness: null, model: null, activity: null, openAlertCount: 0, awaitingCrewSince: null, crewRequest: null, labels: [], retiredAt: null, ownerShipId: null,
-    ...overrides,
-  };
+function view(changes: Partial<FleetView['filters']> & { query?: string; mode?: FleetView['mode'] }): FleetView {
+  const { query = '', mode = 'cards', ...filters } = changes;
+  return { mode, query, filters: { ...DEFAULT_FLEET_VIEW.filters, ...filters }, sort: null };
 }
 
-const argo = aShip({ name: 'argo', type: 'operator', kind: 'operator' });
-const reviewer = aShip({ name: 'reviewer-01', type: 'reviewer' });
-const builder = aShip({ name: 'builder-web', status: 'awaitingCrew', location: null });
-
-function view(changes: Partial<FleetView['filters']> & { query?: string }): FleetView {
-  const { query = '', ...filters } = changes;
-  return { query, filters: { ...DEFAULT_FLEET_VIEW.filters, ...filters }, sort: null };
-}
-
-describe('the squadron filter', () => {
-  const squadronsOf = new Map([
-    [reviewer.id, { squadronId: 'team-a1b2c3', role: null }],
-    [builder.id, { squadronId: 'team-a1b2c3', role: 'builder' }],
-  ]);
-
-  it('lists each squadron once, sorted', () => {
-    expect(fleetSquadrons(new Map([...squadronsOf, [argo.id, { squadronId: 'docs-x7q2w9', role: 'writer' }]]))).toEqual(['docs-x7q2w9', 'team-a1b2c3']);
-  });
-});
-
-describe('the label filter (#102)', () => {
-  const PROJECT = { labelId: idSchema('label').parse('lbl_01m3tbfspe96yf1rnr4ank9h0a'), key: 'project' };
-  const HEMMA = { ...PROJECT, valueId: idSchema('labelValue').parse('lbv_01m3tbfspe96yf1rnr4ank9h1a'), value: 'hemma' };
-  const AEOLUS = { ...PROJECT, valueId: idSchema('labelValue').parse('lbv_01m3tbfspe96yf1rnr4ank9h2a'), value: 'aeolus' };
-  const BACKEND = { labelId: idSchema('label').parse('lbl_01m3tbfspe96yf1rnr4ank9h3a'), key: 'area', valueId: idSchema('labelValue').parse('lbv_01m3tbfspe96yf1rnr4ank9h4a'), value: 'backend' };
-  it('keeps the values picked in the URL, in order, and leaves out what is no label value id', () => {
-    const written = view({ labelValueIds: [HEMMA.valueId, BACKEND.valueId] });
-    expect(readFleetView(fleetViewParams(written))).toEqual(written);
-    expect(readFleetView(new URLSearchParams('label=hemma&label=' + AEOLUS.valueId)).filters.labelValueIds).toEqual([AEOLUS.valueId]);
+// The overview's address (docs/design/fleet-overview, "One view: cards or list"): `/` is cards with nothing filtered; view=list, state (repeated), type, label and q.
+describe('the view in the address', () => {
+  it('is cards with nothing filtered at /', () => {
+    expect([fleetViewParams(DEFAULT_FLEET_VIEW).toString(), readFleetView(new URLSearchParams(''))]).toEqual(['', DEFAULT_FLEET_VIEW]);
   });
 
-  it('counts each value picked as a filter in force', () => {
-    expect(activeFilterCount({ ...DEFAULT_FLEET_VIEW.filters, type: ['reviewer'], labelValueIds: [HEMMA.valueId, BACKEND.valueId] })).toBe(3);
-  });
-});
-
-describe('the view in the URL', () => {
-  it('leaves every default out', () => {
-    expect(fleetViewParams(DEFAULT_FLEET_VIEW).toString()).toBe('');
+  it('writes the mockup’s address for cards with State Alert and Waiting, searched “er”', () => {
+    expect(fleetViewParams(view({ state: ['alert', 'waiting'], query: 'er' })).toString()).toBe('q=er&state=alert&state=waiting');
   });
 
-  it('reads back what it wrote', () => {
-    const written = view({ query: 'rev', status: ['crewed'], crewRequest: ['crashed'], kind: ['claudeCode'], type: ['reviewer'], squadron: ['team-a1b2c3'], isRetiredShown: true });
-    expect(readFleetView(fleetViewParams(written))).toEqual(written);
-  });
+  it('keeps every filter when the view switches to the list', () => {
+    const cards = view({ state: ['alert', 'waiting'], type: ['builder'], labelValueIds: [HEMMA], query: 'er' });
 
-  it('keeps every value of a repeated parameter from the page’s search params', () => {
-    expect(urlParamsOf({ q: 'hemma', label: ['lbv_a', 'lbv_b'], crew: undefined }).toString()).toBe('q=hemma&label=lbv_a&label=lbv_b');
+    const list = readFleetView(fleetViewParams({ ...cards, mode: 'list' }));
+
+    expect(list).toEqual({ ...cards, mode: 'list' });
   });
 
   it('reads back several values picked in every filter, in the order picked', () => {
-    const written = view({ status: ['awaitingCrew', 'crewed'], crewRequest: ['needsCrew', 'crashed'], kind: ['codex', 'claudeCode'], type: ['reviewer', 'builder'], squadron: ['team-a1b2c3', 'docs-x7q2w9'] });
+    const written = view({ state: ['working', 'alert'], type: ['reviewer', 'builder'], labelValueIds: [BACKEND, HEMMA], mode: 'list' });
     expect(readFleetView(fleetViewParams(written))).toEqual(written);
   });
 
-  it('repeats a parameter once for each value picked', () => {
-    expect(fleetViewParams(view({ kind: ['claudeCode', 'codex'] })).toString()).toBe('kind=claudeCode&kind=codex');
+  it('keeps the list’s sort', () => {
+    const written: FleetView = { ...view({ mode: 'list' }), sort: { column: 'seen', direction: 'descending' } };
+    expect(readFleetView(fleetViewParams(written))).toEqual(written);
   });
 
-  it('leaves out a crew request stage it does not know, keeping the rest', () => {
-    expect(readFleetView(new URLSearchParams('crew=sailing&crew=needsCrew')).filters.crewRequest).toEqual(['needsCrew']);
+  it('leaves out a state, a view or a label it does not know, keeping the rest', () => {
+    expect(readFleetView(new URLSearchParams('view=grid&state=sailing&state=idle&label=hemma&label=' + HEMMA))).toEqual(view({ state: ['idle'], labelValueIds: [HEMMA] }));
   });
 
-  it('leaves out a kind it does not know, keeping the rest', () => {
-    expect(readFleetView(new URLSearchParams('kind=chat&kind=codex')).filters.kind).toEqual(['codex']);
-  });
-
-  it('leaves out a status it does not know, retired among them, keeping the rest', () => {
-    expect(readFleetView(new URLSearchParams('status=sailing&status=retired&status=crewed')).filters.status).toEqual(['crewed']);
-  });
-
-  it('reads a value repeated in the URL once', () => {
+  it('reads a value repeated in the address once', () => {
     expect(readFleetView(new URLSearchParams('type=reviewer&type=reviewer')).filters.type).toEqual(['reviewer']);
   });
-});
 
-describe('activeFilterCount', () => {
-  it('counts a filter with several values picked once', () => {
-    expect(activeFilterCount({ ...DEFAULT_FLEET_VIEW.filters, kind: ['claudeCode', 'codex'], status: ['crewed'] })).toBe(2);
+  it('no longer reads the filters the bar left behind', () => {
+    expect(readFleetView(new URLSearchParams('status=crewed&crew=needsCrew&kind=codex&squadron=a&retired=1'))).toEqual(DEFAULT_FLEET_VIEW);
+  });
+
+  it('keeps every value of a repeated parameter from the page’s search params', () => {
+    expect(urlParamsOf({ q: 'hemma', label: ['lbv_a', 'lbv_b'], view: undefined }).toString()).toBe('q=hemma&label=lbv_a&label=lbv_b');
   });
 });
 
-describe('activeFilterLabels', () => {
-  it('names every value picked in a filter, in the order picked', () => {
-    expect(activeFilterLabels({ ...DEFAULT_FLEET_VIEW.filters, kind: ['codex', 'claudeCode'], status: ['crewed', 'awaitingCrew'] })).toEqual([
-      'Status: Crewed, Awaiting crew',
-      'Kind: Codex, Claude Code',
-    ]);
+describe('the filters in force', () => {
+  it('counts a filter with several values once, and each label value picked', () => {
+    expect(activeFilterCount(view({ state: ['alert', 'waiting'], type: ['builder'], labelValueIds: [HEMMA, BACKEND] }).filters)).toBe(4);
+  });
+
+  it('names each in words for the phone’s chips, in the order of the controls', () => {
+    expect(activeFilterLabels(view({ type: ['builder'], state: ['alert', 'waiting'] }).filters)).toEqual(['State: Alert, Waiting', 'Type: builder']);
   });
 
   it('names none for the default filters', () => {
     expect(activeFilterLabels(DEFAULT_FLEET_VIEW.filters)).toEqual([]);
   });
 
-  it('names each filter in force, in the order of the controls', () => {
-    expect(activeFilterLabels({ status: ['awaitingCrew'], crewRequest: ['needsCrew'], kind: ['codex'], type: ['reviewer'], squadron: ['hemma-feature-a1b2c3'], isRetiredShown: true, labelValueIds: [] })).toEqual([
-      'Status: Awaiting crew',
-      'Crew request: Needs crew',
-      'Kind: Codex',
-      'Type: reviewer',
-      'Squadron: hemma-feature-a1b2c3',
-      'Retired shown',
-    ]);
+  it('says whether the search or a filter narrows the view', () => {
+    expect([isFiltered(DEFAULT_FLEET_VIEW), isFiltered(view({ query: ' ' })), isFiltered(view({ query: 'er' })), isFiltered(view({ state: ['idle'] }))]).toEqual([false, false, true, true]);
   });
 });
