@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { fn } from 'storybook/test';
+import { expect, fn, within } from 'storybook/test';
 import { Plus } from 'lucide-react';
 
 import { Button } from '@aeolus-fleet/ui';
@@ -43,5 +43,13 @@ export const WithAccount: Story = {
     actions: (
       <Button variant="ghost" size="touch" isIconOnly aria-label="Commission ship" icon={<Plus aria-hidden />} />
     ),
+  },
+};
+
+/** Titled by the page, as the fleet overview draws it ("Fleet"): the title opens the switcher. */
+export const Titled: Story = {
+  args: { isTitled: true, account: AVATAR_MENU },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByTestId('app-switcher')).toHaveTextContent(/^Fleet$/);
   },
 };

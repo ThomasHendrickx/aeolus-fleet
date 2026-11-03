@@ -3,6 +3,7 @@ import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { expect, within } from 'storybook/test';
 
 import { Sidebar } from './sidebar';
+import { AVATAR_MENU } from '../../lib/fixtures/header.fixtures';
 
 const meta = {
   title: 'Organisms/Sidebar',
@@ -77,5 +78,15 @@ export const WithNetwork: Story = {
     const navigation = within(canvasElement).getByRole('navigation', { name: 'Console' });
     const destinations = within(navigation).getAllByRole('link').map((link) => link.dataset.testid);
     await expect(destinations).toEqual(['nav-overview', 'nav-health', 'nav-needs-crew', 'nav-inbox', 'nav-network', 'nav-settings']);
+  },
+};
+
+/** The avatar menu in the foot: who is signed in and the fleet in view (docs/design/fleet-overview). */
+export const WithAccount: Story = {
+  args: { account: AVATAR_MENU, fleetName: 'Acme fleet' },
+  play: async ({ canvasElement }) => {
+    const foot = within(canvasElement).getByTestId('avatar-menu');
+    await expect(foot).toHaveTextContent('argo');
+    await expect(foot).toHaveTextContent('Acme fleet');
   },
 };
