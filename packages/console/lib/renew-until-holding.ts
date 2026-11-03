@@ -20,8 +20,16 @@ export interface RenewUntilHolding {
   wait: (ms: number) => Promise<void>;
 }
 
-/** `holds` when a fresh token carries every wanted scope, `lacks` when two renewals did not bring them, else what stopped the renewal. */
-export async function renewUntilHolding(input: RenewUntilHolding): Promise<'holds' | 'lacks' | Exclude<RenewalOutcome, 'renewed'>> {
+/** `holds` when a fresh token carries every wanted scope, `lacks` when two renewals did not bring them, `failed` when reading the session threw, else what stopped the renewal. */
+export async function renewUntilHolding(input: RenewUntilHolding): Promise<'holds' | 'lacks' | 'failed' | Exclude<RenewalOutcome, 'renewed'>> {
+  try {
+    return await renewTwice(input);
+  } catch {
+    return 'failed';
+  }
+}
+
+async function renewTwice(input: RenewUntilHolding): Promise<'holds' | 'lacks' | Exclude<RenewalOutcome, 'renewed'>> {
   const { wanted, retryAfterMs, renew, scopesNow, wait } = input;
   for (const attempt of [1, 2]) {
     if (attempt === 2) {
