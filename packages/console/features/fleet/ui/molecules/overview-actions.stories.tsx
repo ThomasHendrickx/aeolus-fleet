@@ -1,13 +1,17 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { Plus } from 'lucide-react';
-import { expect, within } from 'storybook/test';
+import { expect, userEvent, within } from 'storybook/test';
 
 import { Button } from '@aeolus-fleet/ui';
 import { OverviewActions } from './overview-actions';
 
 const PHONE = { viewport: { value: 'mobile1' } };
 
-/** The feature flags console mockup's Fleet overview states: the sealing entry only while the fleet's sealing flag is on. */
+/**
+ * The fleet overview's page actions (docs/design/fleet-overview): one "..."
+ * menu (labels, scopes, and sealing only while the fleet's sealing flag is
+ * on) and Commission ship, small on a phone too.
+ */
 const meta = {
   title: 'Molecules/OverviewActions',
   component: OverviewActions,
@@ -26,18 +30,33 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Flag on, fleet manager (fleet:keys): Manage sealing, as today. */
+/** The menu's entries once it is open, as the page lists them. */
+async function openedMenu(canvasElement: HTMLElement) {
+  await userEvent.click(within(canvasElement).getByRole('button', { name: 'More actions' }));
+  return within(canvasElement.ownerDocument.body).findByRole('menu');
+}
+
+/** Flag on, fleet manager (fleet:keys): the menu holds Manage labels, Manage scopes and Manage sealing, beside Commission. */
 export const ManageSealing: Story = {
   play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).getByRole('button', { name: 'Manage sealing' })).toHaveAttribute('href', '/sealing');
+    const menu = await openedMenu(canvasElement);
+
+    await expect(within(menu).getAllByRole('menuitem').map((item) => [item.textContent, item.getAttribute('href')])).toEqual([
+      ['Manage labels', '/labels'],
+      ['Manage scopes', '/scopes'],
+      ['Manage sealing', '/sealing'],
+    ]);
+    await expect(within(canvasElement).getByRole('button', { name: 'Commission' })).toBeVisible();
   },
 };
 
-/** Flag on, without fleet:keys: View sealing, as today. */
+/** Flag on, without labels:define, scopes:define or fleet:keys: View labels, View scopes and View sealing. */
 export const ViewSealing: Story = {
-  args: { sealing: 'view' },
+  args: { canDefineLabels: false, canDefineScopes: false, sealing: 'view' },
   play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).getByRole('button', { name: 'View sealing' })).toBeVisible();
+    const menu = await openedMenu(canvasElement);
+
+    await expect(within(menu).getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['View labels', 'View scopes', 'View sealing']);
   },
 };
 
@@ -45,7 +64,9 @@ export const ViewSealing: Story = {
 export const SealingFlagOff: Story = {
   args: { sealing: 'off' },
   play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).queryByRole('button', { name: /sealing/ })).toBeNull();
+    const menu = await openedMenu(canvasElement);
+
+    await expect(within(menu).queryByRole('menuitem', { name: /sealing/ })).toBeNull();
   },
 };
 
