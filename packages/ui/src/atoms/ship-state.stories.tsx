@@ -20,6 +20,12 @@ async function expectMark(canvasElement: HTMLElement, { word, tone }: { word: st
   await expect(mark).toHaveAttribute('data-tone', tone ?? 'none');
 }
 
+/** The sheet's measures (sheet.html, .st and .badge): the mark's height and the gap from icon to word. */
+async function expectDrawn(mark: HTMLElement, { height, gap }: { height: number; gap: string }) {
+  await expect(mark.getBoundingClientRect().height).toBe(height);
+  await expect(getComputedStyle(mark).columnGap).toBe(gap);
+}
+
 /** Something is wrong: act now. Coral. */
 export const Alert: Story = {
   args: { state: 'alert' },
@@ -67,7 +73,27 @@ export const AlertBadge: Story = {
   args: { state: 'alert', isBadge: true },
   play: async ({ canvasElement }) => {
     await expectMark(canvasElement, { word: 'Alert', tone: 'attention' });
-    await expect(within(canvasElement).getByTestId('ship-state')).toHaveClass('rounded-full');
+    const badge = within(canvasElement).getByTestId('ship-state');
+    await expect(badge).toHaveClass('rounded-full');
+    await expectDrawn(badge, { height: 21, gap: '5px' });
+  },
+};
+
+/** At caption size, on a tile or a number, the word is 12 px in a line 17 px tall, as the sheet draws it. */
+export const Caption: Story = {
+  args: { state: 'awaitingCrew', size: 'caption' },
+  play: async ({ canvasElement }) => {
+    await expectMark(canvasElement, { word: 'Awaiting crew', tone: 'waiting' });
+    await expectDrawn(within(canvasElement).getByTestId('ship-state'), { height: 17, gap: '5px' });
+  },
+};
+
+/** At meta size, in a list or on a page, the word is 13 px in a line 18 px tall, as the sheet draws it. */
+export const Meta: Story = {
+  args: { state: 'blocked', size: 'meta' },
+  play: async ({ canvasElement }) => {
+    await expectMark(canvasElement, { word: 'Blocked', tone: 'blocked' });
+    await expectDrawn(within(canvasElement).getByTestId('ship-state'), { height: 18, gap: '5px' });
   },
 };
 
