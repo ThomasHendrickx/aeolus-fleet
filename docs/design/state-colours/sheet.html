@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ship state colours: today and proposed (#1618)</title>
+<!-- Tone tokens from packages/ui/src/tokens.css; --tone-blocked-* is the proposed family (Q2). Stands alone; Geist if installed, else the system sans. -->
+<style>
+:root {
+  --background:oklch(0.99 0.002 247); --card:oklch(1 0 0); --muted:oklch(0.967 0.005 247); --secondary:oklch(0.955 0.007 247);
+  --foreground:oklch(0.22 0.02 257); --muted-foreground:oklch(0.5 0.02 257); --border:oklch(0.912 0.008 247);
+  --tone-waiting-bg:oklch(0.965 0.045 85); --tone-waiting-fg:oklch(0.47 0.1 62); --tone-waiting-border:oklch(0.87 0.08 80);
+  --tone-active-bg:oklch(0.955 0.03 250); --tone-active-fg:oklch(0.45 0.14 257); --tone-active-border:oklch(0.86 0.06 252);
+  --tone-ok-bg:oklch(0.96 0.04 155); --tone-ok-fg:oklch(0.44 0.1 155); --tone-ok-border:oklch(0.86 0.07 155);
+  --tone-attention-bg:oklch(0.957 0.028 25); --tone-attention-fg:oklch(0.5 0.19 27); --tone-attention-border:oklch(0.86 0.07 25);
+  --tone-ended-bg:oklch(0.957 0.005 247); --tone-ended-fg:oklch(0.47 0.015 257); --tone-ended-border:oklch(0.87 0.01 247);
+  --tone-blocked-bg:oklch(0.958 0.03 305); --tone-blocked-fg:oklch(0.47 0.15 305); --tone-blocked-border:oklch(0.86 0.07 305);
+  font-family: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+.dark {
+  color-scheme: dark;
+  --background:oklch(0.172 0.012 257); --card:oklch(0.2 0.013 257); --muted:oklch(0.228 0.012 257); --secondary:oklch(0.255 0.013 257);
+  --foreground:oklch(0.955 0.005 247); --muted-foreground:oklch(0.72 0.016 257); --border:oklch(0.29 0.014 257);
+  --tone-waiting-bg:oklch(0.29 0.055 72); --tone-waiting-fg:oklch(0.87 0.11 82); --tone-waiting-border:oklch(0.41 0.075 72);
+  --tone-active-bg:oklch(0.29 0.06 257); --tone-active-fg:oklch(0.85 0.08 252); --tone-active-border:oklch(0.42 0.09 257);
+  --tone-ok-bg:oklch(0.29 0.05 155); --tone-ok-fg:oklch(0.86 0.1 155); --tone-ok-border:oklch(0.41 0.07 155);
+  --tone-attention-bg:oklch(0.3 0.07 25); --tone-attention-fg:oklch(0.84 0.09 25); --tone-attention-border:oklch(0.45 0.11 25);
+  --tone-ended-bg:oklch(0.255 0.01 257); --tone-ended-fg:oklch(0.78 0.015 257); --tone-ended-border:oklch(0.36 0.012 257);
+  --tone-blocked-bg:oklch(0.29 0.06 305); --tone-blocked-fg:oklch(0.85 0.09 305); --tone-blocked-border:oklch(0.43 0.1 305);
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: #e6e9ee; }
+.theme { background: var(--background); color: var(--foreground); padding: 24px 28px 32px; }
+h1 { font-size: 20px; margin: 0 0 4px; }
+h2 { font-size: 15px; margin: 28px 0 10px; }
+p.note { margin: 0; font-size: 13px; color: var(--muted-foreground); max-width: 900px; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+th { font-size: 12px; font-weight: 600; color: var(--muted-foreground); background: var(--muted); }
+td.place { width: 220px; font-weight: 500; }
+td.place small { display: block; font-weight: 400; color: var(--muted-foreground); margin-top: 2px; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+svg.i { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.text { display: inline-flex; align-items: center; gap: 5px; font-weight: 500; }
+.fill { display: inline-flex; align-items: center; gap: 5px; font-weight: 500; padding: 2px 8px; border-radius: 9999px; border: 1px solid; font-size: 12px; }
+.count { display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 12px; padding: 4px 10px; border-radius: 6px; background: var(--card); border: 1px solid var(--border); }
+.count b { display: inline-block; min-width: 20px; padding: 0 6px; border-radius: 9999px; text-align: center; font-weight: 600; }
+.number { display: inline-flex; flex-direction: column; gap: 2px; min-width: 92px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); }
+.number .n { font-size: 20px; font-weight: 600; line-height: 1; }
+.number .w { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; }
+.tile { display: inline-flex; flex-direction: column; gap: 4px; width: 128px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); }
+.tile .name { font-family: "Geist Mono", ui-monospace, Menlo, monospace; font-size: 12px; color: var(--foreground); }
+.tile .w { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 500; }
+.legend td:first-child { width: 120px; }
+.sw { display: inline-block; width: 14px; height: 14px; border-radius: 4px; border: 1px solid; vertical-align: -2px; margin-right: 6px; }
+.clash { color: var(--tone-attention-fg); font-weight: 600; }
+.plain { color: var(--muted-foreground); }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="circle-dashed" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-dasharray="3.5 3"/></symbol>
+  <symbol id="user-check" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></symbol>
+  <symbol id="archive" viewBox="0 0 24 24"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></symbol>
+  <symbol id="triangle-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
+  <symbol id="circle-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></symbol>
+  <symbol id="hourglass" viewBox="0 0 24 24"><path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/></symbol>
+  <symbol id="circle-play" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></symbol>
+  <symbol id="circle-pause" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M10 15V9"/><path d="M14 15V9"/></symbol>
+  <symbol id="octagon-pause" viewBox="0 0 24 24"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/><path d="M10 15V9"/><path d="M14 15V9"/></symbol>
+  <symbol id="activity" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></symbol>
+  <symbol id="clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></symbol>
+  <symbol id="ship" viewBox="0 0 24 24"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/><path d="M12 10v4"/><path d="M12 2v3"/></symbol>
+</svg>
+<div id="light" class="theme"></div>
+<div id="dark" class="theme dark"></div>
+<script>
+// A look: [kind, word, icon, tone, extra]. kind: text (icon and word in the tone), fill (badge in the tone),
+// count (sidebar count), number (Harbour number card), tile (Harbour tile). tone null: no tone.
+const S = {
+  awaiting: ['Awaiting crew', 'circle-dashed'], crewed: ['Crewed', 'user-check'], retired: ['Retired', 'archive'],
+  alert: ['Alert', 'triangle-alert'], blocked: ['Blocked', 'octagon-pause'], working: ['Working', 'activity'], idle: ['Idle', 'circle-pause'],
+};
+const look = (kind, word, icon, tone, extra = {}) => ({ kind, word, icon, tone, ...extra });
+const P = (key, kind, tone, extra) => look(kind, S[key][0], S[key][1], tone, extra);
+
+const PLACES = [
+  { place: 'Console ship list, Status', src: 'StatusBadge',
+    today: [look('text', 'Awaiting crew', 'circle-dashed', 'waiting', { clash: 'C1' }), look('text', 'Crewed', 'user-check', 'ok', { clash: 'C2' }), look('fill', 'Alert', 'triangle-alert', 'attention'), look('text', 'Retired', 'archive', 'ended', { clash: 'C3' })],
+    proposed: [P('awaiting', 'text', 'waiting'), P('crewed', 'text', 'ok'), P('alert', 'fill', 'attention'), P('retired', 'text', 'ended')] },
+  { place: 'Console ship list, Report; ship page report line', src: 'ReportLine',
+    today: [look('text', 'Working', 'activity', 'active', { clash: 'C2' }), look('text', 'Blocked', 'octagon-pause', 'waiting', { clash: 'C1' }), look('text', 'Idle', 'circle-pause', 'ended', { clash: 'C3' })],
+    proposed: [P('working', 'text', 'active'), P('blocked', 'text', 'blocked'), P('idle', 'text', null)] },
+  { place: 'Ship page header', src: 'StatusBadge, then ReportLine',
+    today: [look('text', 'Crewed', 'user-check', 'ok'), look('text', 'Blocked', 'octagon-pause', 'waiting', { clash: 'C1' }), look('text', 'Awaiting crew', 'circle-dashed', 'waiting', { clash: 'C1' })],
+    proposed: [P('crewed', 'text', 'ok'), P('blocked', 'text', 'blocked'), P('awaiting', 'text', 'waiting')] },
+  { place: 'Needs crew, rows and sidebar count', src: 'needs-crew-list, sidebar',
+    today: [look('text', 'Needs crew', 'clock', 'waiting'), look('count', 'Needs crew', null, null, { n: 3, clash: 'grey count, amber rows' })],
+    proposed: [look('text', 'Needs crew', 'clock', 'waiting'), look('count', 'Needs crew', null, 'waiting', { n: 3 })] },
+  { place: 'Harbour numbers', src: 'console build, PR 1614, fleet-overview mockups',
+    today: [look('number', 'Alert', 'circle-alert', 'attention', { n: 1, filled: true }), look('number', 'Waiting', 'hourglass', 'waiting', { n: 4, clash: 'C1' }), look('number', 'Working', 'circle-play', 'ok', { n: 9, clash: 'C2' }), look('number', 'Idle', 'circle-pause', 'ended', { n: 6, clash: 'C3' })],
+    proposed: [P('alert', 'number', 'attention', { n: 1, filled: true }), P('awaiting', 'number', 'waiting', { n: 3 }), P('blocked', 'number', 'blocked', { n: 1 }), P('working', 'number', 'active', { n: 9 }), P('idle', 'number', null, { n: 6 })] },
+  { place: 'Harbour tiles', src: 'console build, PR 1614, fleet-overview mockups',
+    today: [look('tile', 'Alert', 'circle-alert', 'attention', { name: 'deploy-bot' }), look('tile', 'Waiting', 'hourglass', 'waiting', { name: 'review-1', clash: 'C1' }), look('tile', 'Waiting', 'hourglass', 'waiting', { name: 'docs-2', clash: 'C1' }), look('tile', 'Working', 'circle-play', 'ok', { name: 'build-3', clash: 'C2' }), look('tile', 'Idle', 'circle-pause', null, { name: 'triage' })],
+    proposed: [P('alert', 'tile', 'attention', { name: 'deploy-bot' }), P('awaiting', 'tile', 'waiting', { name: 'review-1' }), P('blocked', 'tile', 'blocked', { name: 'docs-2' }), P('working', 'tile', 'active', { name: 'build-3' }), P('idle', 'tile', null, { name: 'triage' })] },
+  { place: 'Bridge, Your fleet: numbers', src: 'aeolus-fleet-gateway, fleet-numbers.tsx',
+    today: [look('number', 'Alert', 'circle-alert', 'attention', { n: 1, filled: true }), look('number', 'Waiting', 'hourglass', 'waiting', { n: 2, clash: 'C1' }), look('number', 'Working', 'circle-play', 'ok', { n: 5, clash: 'C2' }), look('number', 'Idle', 'circle-pause', null, { n: 3, fg: true })],
+    proposed: [P('alert', 'number', 'attention', { n: 1, filled: true }), P('awaiting', 'number', 'waiting', { n: 1 }), P('blocked', 'number', 'blocked', { n: 1 }), P('working', 'number', 'active', { n: 5 }), P('idle', 'number', null, { n: 3 })] },
+  { place: 'Bridge, Your fleet: tiles', src: 'aeolus-fleet-gateway, fleet-wall.tsx',
+    today: [look('tile', 'Alert', 'circle-alert', 'attention', { name: 'inbox-agent' }), look('tile', 'Waiting', 'hourglass', 'waiting', { name: 'research', clash: 'C1' }), look('tile', 'Working', 'circle-play', 'ok', { name: 'writer', clash: 'C2' }), look('tile', 'Idle', 'circle-pause', null, { name: 'planner' })],
+    proposed: [P('alert', 'tile', 'attention', { name: 'inbox-agent' }), P('awaiting', 'tile', 'waiting', { name: 'research' }), P('blocked', 'tile', 'blocked', { name: 'scout' }), P('working', 'tile', 'active', { name: 'writer' }), P('idle', 'tile', null, { name: 'planner' })] },
+];
+
+const MEANINGS = [
+  ['attention', 'Red', 'Something is wrong: act now', 'Alert', 'Alert'],
+  ['waiting', 'Amber', 'Waits on a person', 'Awaiting crew, Blocked, Waiting (Harbour)', 'Awaiting crew, Needs crew'],
+  ['blocked', 'Violet (new)', 'The crew says it cannot go on', 'none', 'Blocked'],
+  ['active', 'Blue', 'In motion', 'Working (console only)', 'Working'],
+  ['ok', 'Green', 'Settled and well', 'Crewed, Working (Harbour, Bridge)', 'Crewed'],
+  ['ended', 'Grey', 'Over for good', 'Retired, Idle', 'Retired'],
+  [null, 'No tone', 'Nothing going on', 'Idle tile (Harbour, Bridge)', 'Idle, everywhere'],
+];
+
+const icon = (id) => id ? `<svg class="i"><use href="#${id}"/></svg>` : '';
+const fg = (t) => t ? `color:var(--tone-${t}-fg)` : '';
+const filled = (t) => t ? `background:var(--tone-${t}-bg);border-color:var(--tone-${t}-border)` : '';
+
+function render(l) {
+  switch (l.kind) {
+    case 'text': return `<span class="text" style="${l.tone ? fg(l.tone) : 'color:var(--muted-foreground)'}">${icon(l.icon)}${l.word}</span>`;
+    case 'fill': return `<span class="fill" style="${fg(l.tone)};${filled(l.tone)}">${icon(l.icon)}${l.word}</span>`;
+    case 'count': {
+      const pill = l.tone ? `${fg(l.tone)};${filled(l.tone)};border:1px solid` : 'background:var(--secondary);color:var(--foreground)';
+      return `<span class="count">${l.word} <b style="${pill}">${l.n}</b></span>`;
+    }
+    case 'number': {
+      const card = l.filled ? filled(l.tone) : '';
+      const tone = l.tone ? fg(l.tone) : (l.fg ? 'color:var(--foreground)' : '');
+      return `<span class="number" style="${card}"><span class="n" style="${tone}">${l.n}</span><span class="w" style="${tone || 'color:var(--muted-foreground)'}">${icon(l.icon)}${l.word}</span></span>`;
+    }
+    case 'tile': return `<span class="tile" style="${filled(l.tone)}"><span class="name">${l.name}</span><span class="w" style="${l.tone ? fg(l.tone) : 'color:var(--muted-foreground)'}">${icon(l.icon)}${l.word}</span></span>`;
+  }
+}
+const cell = (looks) => `<div class="row">${looks.map(render).join('')}</div>`;
+const clashes = (looks) => [...new Set(looks.map((l) => l.clash).filter(Boolean))].sort();
+
+function sheet(mode) {
+  const rows = PLACES.map((p) => {
+    const c = clashes(p.today);
+    return `<tr><td class="place">${p.place}<small>${p.src}</small></td><td>${cell(p.today)}${c.length ? `<div style="margin-top:6px;font-size:12px" class="clash">${c.join(', ')}</div>` : ''}</td><td>${cell(p.proposed)}</td></tr>`;
+  }).join('');
+  const legend = MEANINGS.map(([t, hue, meaning, today, proposed]) => `<tr><td><span class="sw" style="${t ? `${filled(t)};color:var(--tone-${t}-fg)` : 'background:var(--card);border-color:var(--border)'}"></span>${hue}</td><td><code>${t ? `--tone-${t}-*` : ''}</code></td><td>${meaning}</td><td>${today}</td><td>${proposed}</td></tr>`).join('');
+  return `<h1>Ship state colours, ${mode}</h1>
+<p class="note">Issue 1618. Today as built (console), PR 1614 and the fleet-overview mockups (Harbour), and branch bridge-your-fleet (Bridge). Proposed draws the picks of Q1 to Q4 in state-colours.md and decides nothing. C1 to C3: where one colour means two things (state-colours.md, section 2).</p>
+<h2>One meaning per colour</h2>
+<table class="legend"><tr><th>Colour</th><th>Token in @aeolus-fleet/ui</th><th>Meaning (proposed)</th><th>Ship states today</th><th>Ship states proposed</th></tr>${legend}</table>
+<h2>Every state in every place</h2>
+<table><tr><th>Place</th><th>Today</th><th>Proposed</th></tr>${rows}</table>`;
+}
+document.getElementById('light').innerHTML = sheet('light');
+document.getElementById('dark').innerHTML = sheet('dark');
+</script>
+</body>
+</html>
