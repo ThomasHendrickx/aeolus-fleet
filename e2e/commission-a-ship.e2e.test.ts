@@ -225,7 +225,7 @@ describe('commissioning a ship in the console', () => {
     await expect(isValid(first)).resolves.toBe(true);
 
     // No confirm: the new prompt is issued at once, and the dialog says the old one stops working.
-    await row.getByRole('button', { name: 'Get starting prompt' }).click();
+    await row.getByRole('button', { name: 'Get the starting prompt' }).click();
     const dialog = page.getByTestId('starting-prompt-dialog');
     await dialog.getByText(/This prompt stops the one issued/).waitFor();
 
@@ -299,7 +299,7 @@ describe('claiming a commissioned ship', () => {
 
     await row.getByText('Crewed').waitFor();
     await expect(row.locator('[data-slot="location-tag"]').getAttribute('title')).resolves.toBe('Claude Code · Other: a ci runner');
-    await expect(row.getByRole('button', { name: 'Get starting prompt' }).count()).resolves.toBe(0);
+    await expect(row.getByRole('button', { name: 'Get the starting prompt' }).count()).resolves.toBe(0);
     await shipRow(page, 'argo').getByText(/· Chrome/).waitFor();
   });
 });
@@ -316,7 +316,7 @@ describe('releasing a crewed ship', () => {
 
     await row.getByText('Awaiting crew').waitFor();
     await expect(row.getByTestId('fleet-runs-on').count()).resolves.toBe(0);
-    await row.getByRole('button', { name: 'Get starting prompt' }).waitFor();
+    await row.getByRole('button', { name: 'Get the starting prompt' }).waitFor();
     await row.getByRole('link', { name: 'coxswain' }).click();
     await page.getByTestId('ship-header').getByText('No starting prompt issued').waitFor();
     await expect(sessionClient(crewToken).ship.whoami.query()).rejects.toThrow();

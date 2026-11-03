@@ -123,7 +123,7 @@ describe('the live fleet overview', () => {
 
     await watched.getByText('Awaiting crew').waitFor({ timeout: LIVE_TIMEOUT_MS });
     await expect.poll(() => watched.getByTestId('fleet-runs-on').count(), { timeout: LIVE_TIMEOUT_MS }).toBe(0);
-    await watched.getByRole('button', { name: 'Get starting prompt' }).waitFor();
+    await watched.getByRole('button', { name: 'Get the starting prompt' }).waitFor();
     await watched.getByRole('link', { name: 'scout' }).click();
     await second.getByTestId('ship-header').getByText('No starting prompt issued').waitFor();
   });

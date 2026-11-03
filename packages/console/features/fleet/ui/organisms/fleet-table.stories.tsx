@@ -629,3 +629,57 @@ export const Alert: Story = {
 };
 export const AlertPhone: Story = { ...Alert, globals: { viewport: { value: 'mobile1' } } };
 export const AlertDark: Story = { ...Alert, globals: { theme: 'dark' } };
+
+/** The mockup's list rows (docs/design/fleet-overview, "1440, light: list"): a person, an app, a plugin and an agent beside argo. */
+const MOCKUP_ROWS = [
+  { ...argo, lastSeenAt: new Date(NOW.getTime() - 3 * HOUR_MS).toISOString() },
+  ship('h7aa', { name: 'aeolus-fleet-infra', type: 'infra', lastSeenAt: minutesBefore(4) }),
+  ship('h7ab', { name: 'attio', type: 'app', kind: 'app', harness: 'gateway', location: { kind: 'SERVER', description: null }, model: null, lastSeenAt: minutesBefore(180) }),
+  ship('h7ac', { name: 'gateway', type: 'plugin', kind: 'plugin', harness: 'gateway', location: { kind: 'SERVER', description: null }, model: null, lastSeenAt: minutesBefore(0.2) }),
+  ship('h7ad', { name: 'thomas', type: 'person', kind: 'person', harness: 'bridge', model: null, lastSeenAt: minutesBefore(12) }),
+];
+
+/** The console's content width at 1440: the window less the sidebar and the page's padding. */
+const CONTENT_AT_1440 = 1136;
+
+/**
+ * The list at 1440 as its mockup draws it: the type beside the name of every
+ * ship that is not an agent, when it was last seen in Harbour's words, every
+ * column in the width without scrolling sideways, and no sort arrows at rest.
+ */
+export const MockupRows: Story = {
+  args: { ships: MOCKUP_ROWS, labels: labelContext(MOCKUP_ROWS) },
+  decorators: [
+    (Story) => (
+      <div style={{ width: CONTENT_AT_1440 }}>
+        <Story />
+      </div>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const typeOf = (name: string) => within(canvas.getByTestId(`fleet-row-${name}`)).queryByTestId('fleet-type')?.textContent ?? null;
+    await expect(['argo', 'thomas', 'attio', 'gateway', 'aeolus-fleet-infra'].map(typeOf)).toEqual(['operator', 'person', 'app', 'plugin', null]);
+    await expect(['argo', 'aeolus-fleet-infra', 'gateway'].map((name) => within(canvas.getByTestId(`fleet-row-${name}`)).getByTestId('fleet-last-seen').textContent)).toEqual(['3 h', '4 min', 'now']);
+    const table = canvas.getByRole('table', { name: 'Ships' });
+    await expect(table.getBoundingClientRect().width).toBeLessThanOrEqual(CONTENT_AT_1440);
+    const icons = within(table).getAllByRole('columnheader').flatMap((header) => [...header.querySelectorAll('svg')]);
+    await expect(icons.map((icon) => getComputedStyle(icon).opacity)).toEqual(icons.map(() => '0'));
+  },
+};
+
+export const MockupRowsDark: Story = { ...MockupRows, globals: { theme: 'dark' } };
+
+/** The list at 375 as its mockup draws it: the name, the status with the type, the report, then where it runs and when it was last seen. */
+export const MockupRowsPhone: Story = {
+  args: { ships: MOCKUP_ROWS, labels: labelContext(MOCKUP_ROWS) },
+  globals: { viewport: { value: 'mobile1' } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const row = (name: string) => within(canvas.getByTestId(`fleet-card-${name}`));
+    await expect(['argo', 'aeolus-fleet-infra', 'attio'].map((name) => row(name).getByTestId('fleet-type').textContent)).toEqual(['operator', 'infra', 'app']);
+    await expect(['argo', 'aeolus-fleet-infra', 'attio'].map((name) => row(name).getByTestId('fleet-runs-on-line').textContent)).toEqual(['Console · Device · 3 h', 'Claude Code · Device · 4 min', 'gateway · Server · 3 h']);
+  },
+};
+
+export const MockupRowsPhoneDark: Story = { ...MockupRowsPhone, globals: { ...MockupRowsPhone.globals, theme: 'dark' } };
