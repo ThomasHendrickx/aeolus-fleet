@@ -162,8 +162,8 @@ describe("Harbour's read filtered by the overview's bar on Postgres", () => {
     const tiles = await expectedTiles();
     const expected = tiles.filter((tile) => ['alert', 'waiting'].includes(tile.state) && tile.name.includes('-0'));
 
-    const harbour = await core.useCases.readHarbour(argo, { filter: { state: ['alert', 'waiting'], query: '-0' } });
-    const reload = await core.useCases.readHarbour(argo, { shipIds: tiles.map((tile) => tile.id), filter: { state: ['alert', 'waiting'], query: '-0' } });
+    const harbour = await core.useCases.readHarbour(argo, { filter: { state: ['alert', 'waiting'], nameQuery: '-0' } });
+    const reload = await core.useCases.readHarbour(argo, { shipIds: tiles.map((tile) => tile.id), filter: { state: ['alert', 'waiting'], nameQuery: '-0' } });
 
     expect([harbour.ships, reload.ships, harbour.counts]).toEqual([expected, expected, harbourCountsOf(tiles)]);
   });
