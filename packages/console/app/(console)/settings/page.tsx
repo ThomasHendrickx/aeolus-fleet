@@ -63,6 +63,7 @@ export default function SettingsPage() {
           onRetry={() => {
             void settings.refetch();
           }}
+          isRetrying={settings.isRefetching}
           isConnecting={connect.isPending}
           connectError={connect.isError ? connect.error.message : undefined}
           hasConnected={connect.isSuccess}
@@ -78,6 +79,7 @@ export default function SettingsPage() {
           onRetry={() => {
             void trierarchPlugin.refetch();
           }}
+          isRetrying={trierarchPlugin.isRefetching}
           isConnecting={connectTrierarchPlugin.isPending}
           connectError={connectTrierarchPlugin.isError ? connectTrierarchPlugin.error.message : undefined}
           hasConnected={connectTrierarchPlugin.isSuccess}
@@ -93,6 +95,7 @@ export default function SettingsPage() {
           onRetry={() => {
             void gateway.refetch();
           }}
+          isRetrying={gateway.isRefetching}
           isConnecting={connectGateway.isPending}
           connectError={connectGateway.isError ? connectGateway.error.message : undefined}
           hasConnected={connectGateway.isSuccess}

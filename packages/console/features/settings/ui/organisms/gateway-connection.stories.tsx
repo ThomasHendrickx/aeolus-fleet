@@ -55,6 +55,6 @@ export const ScopesReadFailed: Story = {
 export const RetryingScopesRead: Story = {
   args: { ...ScopesReadFailed.args, isRetrying: true },
   play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).getByRole('button', { name: 'Trying again…' })).toBeDisabled();
+    await expect(within(canvasElement).getByRole('button', { name: 'Trying again…' })).toHaveAttribute('aria-busy', 'true');
   },
 };

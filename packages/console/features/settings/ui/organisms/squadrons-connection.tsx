@@ -4,6 +4,7 @@ import type { ShownConnection } from '../../../../lib/shown-connection';
 import { Button } from '@aeolus-fleet/ui';
 import { InlineError } from '../../../../components/molecules/inline-error';
 import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
+import { FailedScopesRead } from '../molecules/failed-scopes-read';
 import { MissingScopes } from '../molecules/missing-scopes';
 
 interface SquadronsConnectionProps {
@@ -12,6 +13,8 @@ interface SquadronsConnectionProps {
   /** The read failed: shown with Try again. */
   loadError?: string;
   onRetry: () => void;
+  /** Try again was pressed and the read has not answered yet. */
+  isRetrying: boolean;
   isConnecting: boolean;
   /** Why the last Connect squadrons failed, as squadrons or the fleet says it. */
   connectError?: string;
@@ -26,7 +29,7 @@ interface SquadronsConnectionProps {
  * ship and hands its secret to squadrons; the console never sees the secret.
  * Without squadrons it shows nothing: no trace of squadrons in the console.
  */
-export function SquadronsConnection({ settings, loadError, onRetry, isConnecting, connectError, hasConnected, onConnect }: SquadronsConnectionProps) {
+export function SquadronsConnection({ settings, loadError, onRetry, isRetrying, isConnecting, connectError, hasConnected, onConnect }: SquadronsConnectionProps) {
   if (loadError !== undefined) {
     return <InlineError title="Couldn’t read squadrons" description={loadError} onRetry={onRetry} />;
   }
@@ -47,16 +50,20 @@ export function SquadronsConnection({ settings, loadError, onRetry, isConnecting
             Connected as <span className="font-mono">{settings.ship?.name}</span>{' '}
             <span className="font-mono text-muted-foreground">({settings.ship?.shipId})</span>
           </p>
-          <MissingScopes
-            plugin="squadrons"
-            shipName={settings.ship?.name ?? 'squadrons'}
-            missingScopes={settings.scopes.kind === 'read' ? settings.scopes.missingScopes : []}
-            isGranting={isConnecting}
-            hasGranted={hasConnected}
-            {...(connectError === undefined ? {} : { grantError: connectError })}
-            onGrant={onConnect}
-            testId="settings-squadrons"
-          />
+          {settings.scopes.kind === 'failed' ? (
+            <FailedScopesRead plugin="squadrons" shipName={settings.ship?.name ?? 'squadrons'} reason={settings.scopes.reason} isRetrying={isRetrying} onRetry={onRetry} />
+          ) : (
+            <MissingScopes
+              plugin="squadrons"
+              shipName={settings.ship?.name ?? 'squadrons'}
+              missingScopes={settings.scopes.missingScopes}
+              isGranting={isConnecting}
+              hasGranted={hasConnected}
+              {...(connectError === undefined ? {} : { grantError: connectError })}
+              onGrant={onConnect}
+              testId="settings-squadrons"
+            />
+          )}
         </>
       ) : (
         <>

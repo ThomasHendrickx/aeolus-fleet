@@ -50,3 +50,6 @@ export const Page: Story = {
     onRetry: fn(),
   },
 };
+
+/** Try again pressed: it shows it is working until the read answers. */
+export const SectionRetrying: Story = { args: { ...SectionWithRetry.args, isRetrying: true } };

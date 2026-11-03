@@ -12,6 +12,8 @@ interface InlineErrorProps {
   detail?: string;
   /** Page and section: Try again. */
   onRetry?: () => void;
+  /** Try again was pressed and its read has not answered yet. */
+  isRetrying?: boolean;
   variant?: 'field' | 'section' | 'page';
   /** The field variant's id, for the field's aria-describedby. */
   id?: string;
@@ -30,6 +32,7 @@ export function InlineError({
   description,
   detail,
   onRetry,
+  isRetrying = false,
   variant = 'section',
   id,
   className,
@@ -66,8 +69,8 @@ export function InlineError({
           <p className="text-body font-medium">{title}</p>
           {description ? <p className="text-meta text-foreground">{description}</p> : null}
           {onRetry ? (
-            <Button size="xs" icon={<RotateCw aria-hidden />} onClick={onRetry} className="self-start">
-              Try again
+            <Button size="xs" icon={<RotateCw aria-hidden />} isLoading={isRetrying} onClick={onRetry} className="self-start">
+              {isRetrying ? 'Trying again…' : 'Try again'}
             </Button>
           ) : null}
         </div>

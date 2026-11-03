@@ -4,6 +4,7 @@ import type { ShownConnection } from '../../../../lib/shown-connection';
 import { Button } from '@aeolus-fleet/ui';
 import { InlineError } from '../../../../components/molecules/inline-error';
 import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
+import { FailedScopesRead } from '../molecules/failed-scopes-read';
 import { MissingScopes } from '../molecules/missing-scopes';
 
 interface GatewayConnectionProps {
@@ -12,6 +13,8 @@ interface GatewayConnectionProps {
   /** The read failed: shown with Try again. */
   loadError?: string;
   onRetry: () => void;
+  /** Try again was pressed and the read has not answered yet. */
+  isRetrying: boolean;
   isConnecting: boolean;
   /** Why the last Connect failed, as the gateway or the fleet says it. */
   connectError?: string;
@@ -28,7 +31,7 @@ interface GatewayConnectionProps {
  * while the gateway is on for the fleet: off, the browser learns nothing of
  * it (decision 0033).
  */
-export function GatewayConnection({ settings, loadError, onRetry, isConnecting, connectError, hasConnected, onConnect }: GatewayConnectionProps) {
+export function GatewayConnection({ settings, loadError, onRetry, isRetrying, isConnecting, connectError, hasConnected, onConnect }: GatewayConnectionProps) {
   if (loadError !== undefined) {
     return <InlineError title="Couldn’t read the gateway" description={loadError} onRetry={onRetry} />;
   }
@@ -50,16 +53,20 @@ export function GatewayConnection({ settings, loadError, onRetry, isConnecting, 
             Connected as <span className="font-mono">{settings.ship?.name}</span>{' '}
             <span className="font-mono text-muted-foreground">({settings.ship?.shipId})</span>. It commissions an app ship for each outside party you approve.
           </p>
-          <MissingScopes
-            plugin="the gateway"
-            shipName={settings.ship?.name ?? 'gateway'}
-            missingScopes={settings.scopes.kind === 'read' ? settings.scopes.missingScopes : []}
-            isGranting={isConnecting}
-            hasGranted={hasConnected}
-            {...(connectError === undefined ? {} : { grantError: connectError })}
-            onGrant={onConnect}
-            testId="settings-gateway"
-          />
+          {settings.scopes.kind === 'failed' ? (
+            <FailedScopesRead plugin="the gateway" shipName={settings.ship?.name ?? 'gateway'} reason={settings.scopes.reason} isRetrying={isRetrying} onRetry={onRetry} />
+          ) : (
+            <MissingScopes
+              plugin="the gateway"
+              shipName={settings.ship?.name ?? 'gateway'}
+              missingScopes={settings.scopes.missingScopes}
+              isGranting={isConnecting}
+              hasGranted={hasConnected}
+              {...(connectError === undefined ? {} : { grantError: connectError })}
+              onGrant={onConnect}
+              testId="settings-gateway"
+            />
+          )}
         </>
       ) : (
         <>
