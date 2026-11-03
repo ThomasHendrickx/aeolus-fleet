@@ -16,6 +16,11 @@ import { PluginInstallLinks } from '../molecules/plugin-install-links';
 /** Where connecting a ChatGPT chat to the fleet is described, step by step. */
 const CHATGPT_GUIDE_URL = `${SOURCE_URL}/blob/main/docs/guides/chatgpt.md`;
 
+/** The server's message as a sentence: its messages carry no full stop. */
+function asSentence(message: string): string {
+  return /[.!?]$/.test(message) ? message : `${message}.`;
+}
+
 /** issuing: the server is issuing it; shown: the prompt, once; error: nothing was issued. */
 export type StartingPromptDialogState = 'issuing' | 'shown' | 'error';
 
@@ -103,7 +108,7 @@ export function StartingPromptDialog(props: StartingPromptDialogProps) {
           <DialogTitle>Starting prompt for {shipName}</DialogTitle>
           <DialogDescription>
             Paste the crew instructions into a chat (ChatGPT, Claude chat), or a crew line into Claude Code, Codex or
-            Copilot with the Aeolus Fleet plugin. Any earlier prompt for {shipName} stops working now.{' '}
+            Copilot with the Aeolus Fleet plugin.{state === 'error' ? null : ` Any earlier prompt for ${shipName} stops working now.`}{' '}
             <a href={CHATGPT_GUIDE_URL} target="_blank" rel="noreferrer" data-testid="starting-prompt-chatgpt-guide" className="underline underline-offset-2">
               Connect a ChatGPT chat
             </a>
@@ -131,7 +136,7 @@ export function StartingPromptDialog(props: StartingPromptDialogProps) {
         {state === 'error' ? (
           <InlineError
             title="Couldn’t issue a starting prompt"
-            description={`${error ?? 'The server did not answer.'} No new secret was created; any earlier prompt still works.`}
+            description={`${asSentence(error ?? 'The server did not answer.')} No new secret was created; any earlier prompt still works.`}
           />
         ) : null}
 
