@@ -40,8 +40,12 @@ function HarbourNumber({ value, word, testId, valueTone, card }: { value: number
   );
 }
 
-/** The word under a number, smaller when Harbour is narrow; "Awaiting crew" may wrap there (Thomas, 3 Nov). */
-const WORD = 'min-w-0 items-start @max-[35rem]:gap-0.75 @max-[35rem]:text-[11px] @max-[35rem]:leading-3.5 [&_svg]:mt-0.5 @max-[35rem]:[&_svg]:mt-px @max-[35rem]:[&_svg]:size-3';
+/**
+ * The word under a number, smaller when Harbour is narrow; "Awaiting crew" may wrap there (Thomas, 3 Nov).
+ * On a phone (under 24rem) six numbers leave no room for an icon beside a word: the icon sits above it.
+ */
+const WORD =
+  'min-w-0 items-start @max-[35rem]:gap-0.75 @max-[35rem]:text-[11px] @max-[35rem]:leading-3.5 [&_svg]:mt-0.5 @max-[35rem]:[&_svg]:mt-px @max-[35rem]:[&_svg]:size-3 @max-[24rem]:flex-col @max-[24rem]:items-center';
 
 /**
  * Harbour's numbers (docs/design/fleet-overview, docs/design/state-colours):
