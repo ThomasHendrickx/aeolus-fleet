@@ -46,6 +46,7 @@ function start(
     registerRateLimit?: RateLimit;
     cookieDomain?: string;
     consoleOrigin?: string;
+    logger?: Parameters<typeof buildHttpServer>[0]['logger'];
   } = {},
 ) {
   server = buildHttpServer({
@@ -60,7 +61,7 @@ function start(
     checkDatabase: options.checkDatabase ?? reachable,
     latestMigration: options.latestMigration ?? (() => Promise.resolve(LATEST_MIGRATION)),
     clock: core.clock,
-    logger: false,
+    logger: options.logger ?? false,
     signInRateLimit: options.signInRateLimit,
     registerRateLimit: options.registerRateLimit,
     cookieDomain: options.cookieDomain,
@@ -151,6 +152,37 @@ describe('/health', () => {
 
     expect(response.statusCode).toBe(503);
     expect(response.json()).toEqual({ server: 'up', database: 'down' });
+  });
+});
+
+describe('the log at the default level', () => {
+  function logAt(level: string, lines: string[]) {
+    return {
+      level,
+      stream: {
+        write: (line: string) => {
+          lines.push(line);
+        },
+      },
+    };
+  }
+
+  it('holds no line for a routine request', async () => {
+    const lines: string[] = [];
+    start({ logger: logAt('info', lines) });
+
+    await server.inject({ method: 'GET', url: '/health' });
+
+    expect(lines).toEqual([]);
+  });
+
+  it('holds the request at debug, labelled with its id', async () => {
+    const lines: string[] = [];
+    start({ logger: logAt('debug', lines) });
+
+    await server.inject({ method: 'GET', url: '/health' });
+
+    expect(lines.map((line) => z.object({ msg: z.string(), reqId: z.string() }).parse(JSON.parse(line)).msg)).toEqual(['incoming request', 'request completed']);
   });
 });
 
