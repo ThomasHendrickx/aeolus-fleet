@@ -2,7 +2,7 @@ import type { FleetId, ShipId } from '@aeolus-fleet/common';
 import { SCOPES } from '@aeolus-fleet/common';
 import { createTRPCClient, httpBatchLink } from '@trpc/client';
 import type { FastifyInstance } from 'fastify';
-import type { Browser, BrowserContext, Page } from 'playwright';
+import type { Browser, BrowserContext, Page, Route } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createPrismaClient, type PrismaClient } from '../packages/core/src/adapters/prisma/client.js';
@@ -81,11 +81,17 @@ afterAll(async () => {
 
 const PHONE = { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true };
 
-async function signedIn(device: Record<string, unknown> = {}): Promise<Page> {
+/** Harbour's reads (fleet.harbour, alone or in a batch), held or failed by a test. */
+const HARBOUR_READ = /\/trpc\/[^?]*fleet\.harbour/;
+
+async function signedIn(device: Record<string, unknown> = {}, onHarbourRead?: (route: Route) => Promise<void>): Promise<Page> {
   const { ticket } = await installation().operators.issueSignInTicket.mutate({ fleetId });
   const context = await browser.newContext({ baseURL: web.url, ...device });
   contexts.push(context);
   const page = await context.newPage();
+  if (onHarbourRead !== undefined) {
+    await page.route(HARBOUR_READ, onHarbourRead);
+  }
   await page.goto(`/sign-in/ticket?ticket=${encodeURIComponent(ticket)}`);
   await page.getByRole('heading', { name: 'Fleet overview' }).waitFor();
   return page;
@@ -168,5 +174,26 @@ describe('Harbour on the fleet overview', () => {
 
     await tileOf(page, 'builder').getByText('Waiting', { exact: true }).waitFor();
     await expect(numbersOf(page)).resolves.toMatchObject({ waiting: '2\nWaiting', working: '0\nWorking' });
+  });
+
+  it('shows the shape that is coming while the fleet is read, without the bar or a line under the title', async () => {
+    const read = Promise.withResolvers<undefined>();
+    const page = await signedIn({}, async (route) => {
+      await read.promise;
+      await route.continue();
+    });
+
+    await page.getByTestId('harbour-loading').waitFor();
+
+    await expect(Promise.all([page.getByTestId('fleet-bar').count(), page.getByText('Loading your fleet').count()])).resolves.toEqual([0, 0]);
+    read.resolve(undefined);
+  });
+
+  it('says the read failed with Try again, without the bar or a line under the title', async () => {
+    const page = await signedIn({}, (route) => route.abort());
+
+    await page.getByTestId('harbour-error').waitFor();
+
+    await expect(Promise.all([page.getByTestId('harbour-retry').count(), page.getByTestId('fleet-bar').count(), page.getByText('Loading your fleet').count()])).resolves.toEqual([1, 0, 0]);
   });
 });
