@@ -152,6 +152,9 @@ export const PhoneTitled: Story = {
 export const PhoneTitledNothingToSwitch: Story = {
   args: { layout: 'compact', title: 'Fleet', switcher: appSwitcherOf({ list: undefined, fleet: { id: ACME, name: 'Acme' }, app: 'console' }) },
   play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).getByTestId('app-switcher')).toHaveTextContent(/^Fleet$/);
+    const switcher = within(canvasElement).getByTestId('app-switcher');
+    await expect(switcher).toHaveTextContent(/^Fleet$/);
+    // A title, as large as the one that opens the Sheet (text-title-touch), not body text.
+    await expect(Number.parseFloat(getComputedStyle(switcher).fontSize)).toBeGreaterThanOrEqual(20);
   },
 };

@@ -50,6 +50,10 @@ export const WithAccount: Story = {
 export const Titled: Story = {
   args: { isTitled: true, account: AVATAR_MENU },
   play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).getByTestId('app-switcher')).toHaveTextContent(/^Fleet$/);
+    const canvas = within(canvasElement);
+    await expect(canvas.getByTestId('app-switcher')).toHaveTextContent(/^Fleet$/);
+    // Live sits at the end, beside the avatar, as the mockup draws it.
+    const bar = canvas.getByTestId('app-switcher').closest('header')?.getBoundingClientRect();
+    await expect(canvas.getByText('Live').getBoundingClientRect().left).toBeGreaterThan((bar?.width ?? 0) / 2);
   },
 };
