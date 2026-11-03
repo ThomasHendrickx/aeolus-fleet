@@ -43,29 +43,19 @@ const TONE_TEXT: Record<Tone | 'none', string> = {
   none: 'text-muted-foreground',
 };
 
-/** A badge is filled in its tone; Idle's stays on the card. */
-const TONE_FILL: Record<Tone | 'none', string> = {
-  attention: 'border-tone-attention-border bg-tone-attention-bg',
-  waiting: 'border-tone-waiting-border bg-tone-waiting-bg',
-  blocked: 'border-tone-blocked-border bg-tone-blocked-bg',
-  active: 'border-tone-active-border bg-tone-active-bg',
-  ok: 'border-tone-ok-border bg-tone-ok-bg',
-  ended: 'border-tone-ended-border bg-tone-ended-bg',
-  none: 'border-border bg-card',
-};
+/** The sheet draws a caption word in a line 17 px tall, its normal line height, not the caption token's 16. */
+const SIZES = { meta: 'text-meta', caption: 'text-caption leading-4.25' } as const;
 
-const SIZES = { meta: 'text-meta', caption: 'text-caption' } as const;
-
-export interface ShipStateProps {
-  state: ShipStateShown;
-  /** Filled in its tone, as the Alert badge after a ship's status. */
-  isBadge?: boolean;
+interface ShipStateBase {
   /** The word's size: meta in a list or on a page, caption on a tile or a number. A badge is always caption. */
   size?: keyof typeof SIZES;
   className?: string;
 }
 
-/** A ship's state or status: its icon and word in its tone, plain or as a badge. */
+/** Only Alert has a badge: filled in its tone, after a ship's status. The sheet draws no other. */
+export type ShipStateProps = ShipStateBase & ({ state: 'alert'; isBadge?: boolean } | { state: Exclude<ShipStateShown, 'alert'>; isBadge?: never });
+
+/** A ship's state or status: its icon and word in its tone; Alert also as a badge. */
 export function ShipState({ state, isBadge = false, size = 'meta', className }: ShipStateProps) {
   const { word, Icon, tone: toneOrNone } = LOOKS[state];
   const tone = toneOrNone ?? 'none';
@@ -74,9 +64,9 @@ export function ShipState({ state, isBadge = false, size = 'meta', className }: 
       data-testid="ship-state"
       data-tone={tone}
       className={classNames(
-        'inline-flex items-center gap-1.5 font-medium',
+        'inline-flex items-center gap-1.25 font-medium',
         TONE_TEXT[tone],
-        isBadge ? classNames('rounded-full border px-2 py-px text-caption', TONE_FILL[tone]) : SIZES[size],
+        isBadge ? classNames('rounded-full border border-tone-attention-border bg-tone-attention-bg px-2 py-px', SIZES.caption) : SIZES[size],
         className,
       )}
     >

@@ -68,7 +68,7 @@ export const Retired: Story = {
   play: async ({ canvasElement }) => expectMark(canvasElement, { word: 'Retired', tone: 'ended' }),
 };
 
-/** As a badge, filled in its tone: the Alert badge after a ship's status in the console's list and on its page. */
+/** The one badge, filled in its tone: the Alert badge after a ship's status in the console's list and on its page. */
 export const AlertBadge: Story = {
   args: { state: 'alert', isBadge: true },
   play: async ({ canvasElement }) => {
@@ -80,7 +80,7 @@ export const AlertBadge: Story = {
 };
 
 /** At caption size, on a tile or a number, the word is 12 px in a line 17 px tall, as the sheet draws it. */
-export const Caption: Story = {
+export const CaptionSize: Story = {
   args: { state: 'awaitingCrew', size: 'caption' },
   play: async ({ canvasElement }) => {
     await expectMark(canvasElement, { word: 'Awaiting crew', tone: 'waiting' });
@@ -89,7 +89,7 @@ export const Caption: Story = {
 };
 
 /** At meta size, in a list or on a page, the word is 13 px in a line 18 px tall, as the sheet draws it. */
-export const Meta: Story = {
+export const MetaSize: Story = {
   args: { state: 'blocked', size: 'meta' },
   play: async ({ canvasElement }) => {
     await expectMark(canvasElement, { word: 'Blocked', tone: 'blocked' });
@@ -97,7 +97,7 @@ export const Meta: Story = {
   },
 };
 
-/** Every state and status, plain and as a badge, at the meta and caption sizes: the sheet's proposed column in one place. */
+/** Every state and status at the meta and caption sizes, then Crewed with the Alert badge: the sheet's proposed column in one place. */
 export const All: Story = {
   render: () => (
     <div className="grid gap-3">
@@ -108,10 +108,9 @@ export const All: Story = {
           ))}
         </div>
       ))}
-      <div className="flex flex-wrap items-center gap-4">
-        {SHIP_STATES.map((state) => (
-          <ShipState key={state} state={state} isBadge />
-        ))}
+      <div className="flex flex-wrap items-center gap-2">
+        <ShipState state="crewed" />
+        <ShipState state="alert" isBadge />
       </div>
     </div>
   ),
