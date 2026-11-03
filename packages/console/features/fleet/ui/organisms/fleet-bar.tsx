@@ -279,8 +279,8 @@ export function FleetBar({ view, onViewChange, counts, types, labels, shown, isU
             <LabelFilterButton
               groups={filterGroupsOf(labels)}
               picked={pickedChips(filters.labelValueIds, labels)}
-              onPick={(valueId) => {
-                onViewChange(withLabels(view, [...filters.labelValueIds, valueId]));
+              onPickedChange={(picked) => {
+                onViewChange(withLabels(view, picked));
               }}
             />
           )}
@@ -308,8 +308,8 @@ export function FleetBar({ view, onViewChange, counts, types, labels, shown, isU
         <PickedLabels
           groups={filterGroupsOf(labels)}
           picked={pickedChips(filters.labelValueIds, labels)}
-          onPick={(valueId) => {
-            onViewChange(withLabels(view, [...filters.labelValueIds, valueId]));
+          onPickedChange={(picked) => {
+            onViewChange(withLabels(view, picked));
           }}
           onRemove={(valueId) => {
             onViewChange(withLabels(view, filters.labelValueIds.filter((each) => each !== valueId)));

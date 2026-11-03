@@ -1,15 +1,16 @@
 'use client';
 
 import type { LabelValueId } from '@aeolus-fleet/common';
-import { ChevronDown, Plus, Tag, Tags } from 'lucide-react';
+import { Check, ChevronDown, Plus, Search, Tag, Tags } from 'lucide-react';
 import Link from 'next/link';
 import { useState, type ReactElement } from 'react';
 import dynamic from 'next/dynamic';
 
-import type { FilterGroup, LabelChip as LabelChipData } from '../../../../lib/labels';
-import { Button } from '@aeolus-fleet/ui';
+import type { FilterGroup, FilterKey, LabelChip as LabelChipData } from '../../../../lib/labels';
+import { Button, classNames } from '@aeolus-fleet/ui';
 import { Popover, PopoverContent, PopoverTrigger } from '../../../../components/atoms/popover';
 import { LabelChip } from '../../../../components/molecules/label-chip';
+import { FILTER_ROW, FILTER_TRIGGER } from '../molecules/type-filter';
 
 // Loads when its popover first opens, not with the page.
 const LabelPicker = dynamic(() => import('../../../../components/molecules/label-picker').then((module) => module.LabelPicker), { ssr: false });
@@ -18,53 +19,113 @@ interface LabelFilterProps {
   groups: readonly FilterGroup[];
   /** The values picked, as chips, in the order picked. */
   picked: readonly LabelChipData[];
+  /** The values picked after a press, in the order picked. */
+  onPickedChange: (picked: LabelValueId[]) => void;
+  /** Picks one value: the phone's picker. */
   onPick: (valueId: LabelValueId) => void;
   onRemove: (valueId: LabelValueId) => void;
   onClear: () => void;
 }
 
-/** The picker in its popover, with the rule under it. */
-function PickerPopover({ groups, picked, onPick, trigger }: Pick<LabelFilterProps, 'groups' | 'picked' | 'onPick'> & { trigger: ReactElement }) {
-  const [isOpen, setIsOpen] = useState(false);
+/** The keys whose key or any value holds the text found, each with only the values that match when the key itself does not. */
+function keysFound(groups: readonly FilterGroup[], find: string): FilterKey[] {
+  const needle = find.trim().toLowerCase();
+  const keys = groups.flatMap((group) => group.keys);
+  if (needle === '') {
+    return keys;
+  }
+  return keys.flatMap((key) => {
+    if (key.key.toLowerCase().includes(needle)) {
+      return [key];
+    }
+    const values = key.values.filter((value) => value.value.toLowerCase().includes(needle));
+    return values.length === 0 ? [] : [{ ...key, values }];
+  });
+}
+
+/**
+ * The label values in a popover (docs/design/fleet-overview, "Labels open"):
+ * Find a label, then each key with its values under it, each with how many
+ * ships carry it, checked when picked. A press picks or puts back a value;
+ * it stays open while values are picked.
+ */
+function LabelValuesPopover({ groups, picked, onPickedChange, trigger }: Pick<LabelFilterProps, 'groups' | 'picked' | 'onPickedChange'> & { trigger: ReactElement }) {
+  const [find, setFind] = useState('');
+  const pickedValueIds = picked.map((chip) => chip.valueId);
+  const keys = keysFound(groups, find);
   return (
-    <Popover open={isOpen} onOpenChange={setIsOpen}>
+    <Popover
+      onOpenChange={(isOpen) => {
+        if (!isOpen) {
+          setFind('');
+        }
+      }}
+    >
       <PopoverTrigger render={trigger} />
-      <PopoverContent align="start" sideOffset={6} className="w-80 p-2" data-testid="label-filter-popover">
-        <span className="block px-2 pt-1 pb-2 text-body font-medium">Filter by label</span>
-        <LabelPicker
-          groups={groups}
-          pickedValueIds={picked.map((chip) => chip.valueId)}
-          onPick={(valueId) => {
-            onPick(valueId);
-            setIsOpen(false);
-          }}
-        />
-        <p className="mt-2 flex items-center justify-between gap-2 border-t border-border px-2 pt-2 text-meta text-muted-foreground">
-          Exact matches, all must hold.
-          <Link href="/labels" className="font-medium text-foreground hover:underline" data-testid="label-filter-manage">
-            Manage labels
-          </Link>
-        </p>
+      <PopoverContent align="start" sideOffset={4} className="flex max-h-(--available-height) w-58 flex-col p-1" data-testid="fleet-filter-labels-popover">
+        <label className="flex h-8.5 items-center gap-2 border-b border-border px-2 text-meta text-muted-foreground [&_svg]:size-(--size-icon-sm)">
+          <Search aria-hidden />
+          <input
+            aria-label="Find a label"
+            placeholder="Find a label"
+            value={find}
+            onChange={(event) => {
+              setFind(event.target.value);
+            }}
+            className="min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground"
+          />
+        </label>
+        <div className="flex min-h-0 flex-col overflow-y-auto pt-1">
+          {keys.map((key) => (
+            <div key={key.labelId} role="group" aria-label={key.key} className="flex flex-col">
+              <span aria-hidden className="px-2.5 pt-2 pb-1 text-caption text-muted-foreground">
+                {key.key}
+              </span>
+              {key.values.map(({ valueId, value, shipCount }) => {
+                const isPicked = pickedValueIds.includes(valueId);
+                return (
+                  <button
+                    key={valueId}
+                    type="button"
+                    aria-pressed={isPicked}
+                    className={classNames(FILTER_ROW, 'relative')}
+                    onClick={() => {
+                      onPickedChange(isPicked ? pickedValueIds.filter((each) => each !== valueId) : [...pickedValueIds, valueId]);
+                    }}
+                  >
+                    {isPicked ? <Check aria-hidden className="absolute left-2.5 size-(--size-icon)" /> : null}
+                    <span className="min-w-0 flex-1 truncate font-mono text-meta">{value}</span>
+                    <span className="text-meta text-muted-foreground tabular-nums">{shipCount}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+          {keys.length === 0 ? (
+            <p className="px-2.5 py-2 text-meta text-muted-foreground">{find.trim() === '' ? 'No labels yet.' : `No label matches “${find.trim()}”.`}</p>
+          ) : null}
+        </div>
       </PopoverContent>
     </Popover>
   );
 }
 
 /**
- * The overview's label filter on desktop (canvas Labels, LbOverviewKey,
- * LbOverviewValue, LbOverviewFiltered; Q7): a Labels button with how many
- * values are picked, opening the picker; under the toolbar, the values picked
- * as "Ships with a and b", each with ×, Add and Clear labels.
+ * The overview's Labels filter on desktop (docs/design/fleet-overview): a
+ * trigger like State's and Type's, with how many values are picked, opening
+ * the values; under the bar, the values picked as "Ships with a and b",
+ * each with ×, Add and Clear labels.
  */
-export function LabelFilterButton({ groups, picked, onPick }: Pick<LabelFilterProps, 'groups' | 'picked' | 'onPick'>) {
+export function LabelFilterButton({ groups, picked, onPickedChange }: Pick<LabelFilterProps, 'groups' | 'picked' | 'onPickedChange'>) {
   return (
-    <PickerPopover
+    <LabelValuesPopover
       groups={groups}
       picked={picked}
-      onPick={onPick}
+      onPickedChange={onPickedChange}
       trigger={
-        <Button variant="secondary" size="sm" icon={<Tag />} data-testid="fleet-filter-labels" className="h-(--size-control)">
-          Labels
+        <button type="button" data-testid="fleet-filter-labels" className={FILTER_TRIGGER}>
+          <Tag aria-hidden />
+          <span className="font-medium">Labels</span>
           {picked.length === 0 ? null : (
             <span className="inline-flex size-5 items-center justify-center rounded-full bg-primary text-caption font-semibold text-primary-foreground tabular-nums">
               {picked.length}
@@ -72,14 +133,14 @@ export function LabelFilterButton({ groups, picked, onPick }: Pick<LabelFilterPr
             </span>
           )}
           <ChevronDown aria-hidden className="text-muted-foreground" />
-        </Button>
+        </button>
       }
     />
   );
 }
 
 /** The values picked, under the desktop toolbar: "Ships with a and b", Add and Clear labels. None while nothing is picked. */
-export function PickedLabels({ groups, picked, onPick, onRemove, onClear }: LabelFilterProps) {
+export function PickedLabels({ groups, picked, onPickedChange, onRemove, onClear }: Omit<LabelFilterProps, 'onPick'>) {
   if (picked.length === 0) {
     return null;
   }
@@ -98,10 +159,10 @@ export function PickedLabels({ groups, picked, onPick, onRemove, onClear }: Labe
           />
         </span>
       ))}
-      <PickerPopover
+      <LabelValuesPopover
         groups={groups}
         picked={picked}
-        onPick={onPick}
+        onPickedChange={onPickedChange}
         trigger={
           <Button variant="ghost" size="xs" icon={<Plus />}>
             Add
@@ -121,7 +182,7 @@ export function PickedLabels({ groups, picked, onPick, onRemove, onClear }: Labe
  * the values picked, each with ×, joined by "and", and Add label, which opens
  * the picker in place.
  */
-export function PhoneLabelFilter({ groups, picked, onPick, onRemove }: Omit<LabelFilterProps, 'onClear'>) {
+export function PhoneLabelFilter({ groups, picked, onPick, onRemove }: Omit<LabelFilterProps, 'onClear' | 'onPickedChange'>) {
   const [isPicking, setIsPicking] = useState(false);
   return (
     <div className="flex flex-col gap-2" data-testid="fleet-filter-labels-touch">

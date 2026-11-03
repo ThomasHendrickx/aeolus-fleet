@@ -16,7 +16,12 @@ export interface TypeFilterProps {
   onPickedChange: (picked: string[]) => void;
 }
 
-const ROW = 'flex h-8.5 w-full items-center gap-2.5 rounded-sm pr-2.5 pl-8 text-left text-body outline-none hover:bg-accent focus-visible:bg-accent';
+/** The bar's filter trigger: its word muted, what is picked after it, as State, Type and Labels show it. */
+export const FILTER_TRIGGER =
+  'inline-flex h-(--size-control) shrink-0 items-center gap-1.5 rounded-md border border-input bg-card px-2.5 text-meta whitespace-nowrap text-foreground shadow-sm transition-[border-color,box-shadow] duration-(--duration-fast) outline-none hover:bg-accent focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/22 data-popup-open:border-ring [&_svg]:size-(--size-icon-sm) [&_svg]:shrink-0';
+
+/** A row of a filter's popover, room on the left for the check. */
+export const FILTER_ROW = 'flex h-8.5 w-full items-center gap-2.5 rounded-sm pr-2.5 pl-8 text-left text-body outline-none hover:bg-accent focus-visible:bg-accent';
 
 /**
  * The overview's Type filter (docs/design/fleet-overview, "Type open:
@@ -41,7 +46,7 @@ export function TypeFilter({ types, total, picked, onPickedChange }: TypeFilterP
       <PopoverTrigger
         aria-label="Type"
         data-testid="fleet-filter-type"
-        className="inline-flex h-(--size-control) shrink-0 items-center gap-1.5 rounded-md border border-input bg-card px-2.5 text-meta whitespace-nowrap text-foreground shadow-sm transition-[border-color,box-shadow] duration-(--duration-fast) outline-none hover:bg-accent focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/22 data-popup-open:border-ring [&_svg]:size-(--size-icon-sm) [&_svg]:shrink-0"
+        className={FILTER_TRIGGER}
       >
         <span className="text-muted-foreground">Type</span>
         {picked.length > 1 ? (
@@ -71,7 +76,7 @@ export function TypeFilter({ types, total, picked, onPickedChange }: TypeFilterP
           <button
             type="button"
             aria-pressed={picked.length === 0}
-            className={ROW}
+            className={FILTER_ROW}
             onClick={() => {
               onPickedChange([]);
             }}
@@ -87,7 +92,7 @@ export function TypeFilter({ types, total, picked, onPickedChange }: TypeFilterP
                 key={type}
                 type="button"
                 aria-pressed={isPicked}
-                className={classNames(ROW, 'relative')}
+                className={classNames(FILTER_ROW, 'relative')}
                 onClick={() => {
                   onPickedChange(isPicked ? picked.filter((each) => each !== type) : [...picked, type]);
                 }}

@@ -11,7 +11,7 @@ const PICKED = pickedChips([carried(PROJECT, 'hemma').valueId, carried(AREA, 'ba
 const meta = {
   title: 'Organisms/LabelFilter',
   component: PickedLabels,
-  args: { groups: filterGroupsOf(CONTEXT), picked: PICKED, onPick: fn(), onRemove: fn(), onClear: fn() },
+  args: { groups: filterGroupsOf(CONTEXT), picked: PICKED, onPickedChange: fn(), onRemove: fn(), onClear: fn() },
 } satisfies Meta<typeof PickedLabels>;
 
 export default meta;
