@@ -40,7 +40,7 @@ export function ViewSwitch({ mode, onModeChange, size = 'sm' }: { mode: FleetVie
           key={each}
           value={each}
           aria-label={isTouch ? word : undefined}
-          data-testid={`fleet-view-${each}`}
+          data-testid={isTouch ? `fleet-view-${each}-touch` : `fleet-view-${each}`}
           className={classNames(
             'inline-flex cursor-pointer items-center justify-center text-muted-foreground outline-none hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring data-checked:bg-card data-checked:text-foreground data-checked:shadow-sm',
             isTouch ? 'h-9.5 w-10 rounded-lg [&_svg]:size-4.5' : 'h-6.5 gap-1.5 rounded-sm px-2.5 text-meta leading-none font-medium [&_svg]:size-3.5',
