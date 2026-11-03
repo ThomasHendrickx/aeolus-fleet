@@ -81,6 +81,8 @@ Either way the welcome page needs who added the account, so pagasae keeps it wit
 
 ### Q2. How long does the added mail's link work?
 
+Thomas answered 3 (3 Nov).
+
 1. 15 minutes, as today; the mail leans on the sign-in page for a fresh link.
 2. 24 hours.
 3. **7 days, the added mail only; the sign-in mail stays 15 minutes.** An added person may open the mail days later; a longer one-use link adds little, since whoever holds the mailbox can ask for a link at any time (L4, L5). (Picked.)
