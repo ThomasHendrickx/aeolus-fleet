@@ -4,7 +4,7 @@ import type { ShipId } from '@aeolus-fleet/common';
 import { Harbour, HarbourNumbers } from '@aeolus-fleet/ui';
 import { Ship } from 'lucide-react';
 import Link from 'next/link';
-import type { ReactNode } from 'react';
+import type { AnchorHTMLAttributes, ReactNode } from 'react';
 
 import { EmptyState } from '../../../components/molecules/empty-state';
 import { useLabelContext } from '../../../lib/fleet';
@@ -92,7 +92,7 @@ export function FleetOverview({
           groups={harbour.groups}
           now={now}
           hrefOf={(shipId) => `/ships/${shipId}`}
-          link={<Link href="/" />}
+          link={({ href, ...props }: AnchorHTMLAttributes<HTMLAnchorElement>) => <Link {...props} href={href ?? '/'} />}
           between={bar}
           empty={noMatch}
           state={isFailed ? 'error' : harbour.groups === undefined || counts === undefined ? 'loading' : 'ready'}
