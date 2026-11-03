@@ -44,7 +44,7 @@ function YourChip({ chip, labelKey, isBusy, onUnassign, onChange }: { chip: Labe
         render={
           <button
             type="button"
-            aria-label={`Change or remove ${chip.key}=${chip.value}`}
+            aria-label={`Change or remove ${chip.key}: ${chip.value}`}
             data-testid="ship-label-yours"
             disabled={isBusy}
             className="inline-flex items-center rounded-sm focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-60"
@@ -56,7 +56,7 @@ function YourChip({ chip, labelKey, isBusy, onUnassign, onChange }: { chip: Labe
       <PopoverContent align="start" sideOffset={6} className="w-72 p-1.5" data-testid="ship-label-menu">
         <span className="flex items-center justify-between px-2 pt-1 pb-1.5 text-meta">
           <span className="font-mono">
-            {chip.key}=<span className="text-muted-foreground">{chip.value}</span>
+            {chip.key}: <span className="text-muted-foreground">{chip.value}</span>
           </span>
           <span className="text-muted-foreground">Change the value</span>
         </span>

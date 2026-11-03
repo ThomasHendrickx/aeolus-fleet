@@ -33,7 +33,7 @@ interface ListPageProps {
   /**
    * The phone TopBar's title, in place of the switcher's app name, as the fleet overview's "Fleet"
    * (docs/design/fleet-overview/console-phone.html): the TopBar then holds no search or Compose icon, and the title row
-   * gives way to it below 640 px.
+   * gives way to it below 640 px, its title kept for assistive technology.
    */
   phoneTitle?: string;
   /** A TopBar of the page's own on phone, in place of the root one: an open inbox message's, in detail mode. */
@@ -78,7 +78,7 @@ export function ListPage({ title, description, titleMeta, primaryAction, isActio
       />
       )}
       <main className="flex grow flex-col gap-4 px-6 py-5 max-sm:gap-3.5 max-sm:px-4 max-sm:pt-3.5 max-sm:pb-[calc(var(--size-tabbar)+var(--spacing)*4)]">
-        <div className={classNames('flex flex-wrap items-start justify-between gap-4 max-sm:gap-3', isActionInTitleRow && 'max-sm:flex-nowrap', phoneTitle !== undefined && 'max-sm:hidden')}>
+        <div className={classNames('flex flex-wrap items-start justify-between gap-4 max-sm:gap-3', isActionInTitleRow && 'max-sm:flex-nowrap', phoneTitle !== undefined && 'max-sm:sr-only')}>
           <div className="flex min-w-0 flex-col gap-1">
             <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
               <h1 className="text-title font-semibold tracking-tight text-foreground max-sm:text-title-touch">{title}</h1>
@@ -88,7 +88,7 @@ export function ListPage({ title, description, titleMeta, primaryAction, isActio
               <p className="text-meta text-muted-foreground max-sm:text-body-touch">{description}</p>
             ) : null}
           </div>
-          {primaryAction ? <div className={classNames('shrink-0', !isActionInTitleRow && 'max-sm:w-full max-sm:[&>*]:w-full')}>{primaryAction}</div> : null}
+          {primaryAction ? <div className={classNames('shrink-0', !isActionInTitleRow && 'max-sm:w-full max-sm:[&>*]:w-full', phoneTitle !== undefined && 'max-sm:hidden')}>{primaryAction}</div> : null}
         </div>
         {toolbar}
         {children}
