@@ -432,7 +432,7 @@ export const CleanOverviewPhone: Story = {
     const name = within(row).getByRole('link', { name: 'launch-implementer' });
     const membership = within(row).getByRole('link', { name: SQUADRON_ID });
     await expect(membership.getBoundingClientRect().top).toBeGreaterThan(name.getBoundingClientRect().bottom);
-    await expect(within(row).getByTestId('fleet-model-hint')).toHaveTextContent('gpt-6.1-sol');
+    await expect(within(row).getByTestId('fleet-runs-on-line')).toHaveTextContent('Codex · Device · now');
     await expect(within(row).queryByText(/squadron=/)).not.toBeInTheDocument();
     await expect(within(canvas.getByTestId('fleet-card-builder-web')).queryByText(/Prompt issued/)).not.toBeInTheDocument();
     await expect(within(canvas.getByTestId('fleet-card-harbour-ios')).queryByText('Not stated yet')).not.toBeInTheDocument();

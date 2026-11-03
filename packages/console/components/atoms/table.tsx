@@ -73,11 +73,12 @@ function TableSortHead({
       <button
         type="button"
         onClick={onSort}
-        className="inline-flex h-7 items-center gap-1 rounded-sm px-2 font-medium hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring data-sorted:text-foreground"
+        className="group/sort inline-flex h-7 items-center gap-1 rounded-sm px-2 font-medium hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring data-sorted:text-foreground"
         data-sorted={direction === null ? undefined : ''}
       >
         {children}
-        <Icon aria-hidden className={classNames('size-3.5 shrink-0', direction === null ? 'opacity-50' : undefined)} />
+        {/* Unsorted, the arrows show only under the pointer or the focus, as the fleet overview's mockup draws its headers at rest. */}
+        <Icon aria-hidden className={classNames('size-3.5 shrink-0', direction === null ? 'opacity-0 group-hover/sort:opacity-50 group-focus-visible/sort:opacity-50' : undefined)} />
       </button>
     </TableHead>
   );

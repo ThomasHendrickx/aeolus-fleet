@@ -1,14 +1,14 @@
 'use client';
 
 import type { FleetId, ListedShip, ShipId } from '@aeolus-fleet/common';
-import { Eye, Flag, Plug, Ship, UserRound } from 'lucide-react';
+import { Eye, Flag, Plug, Ship } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { nextSort, type FleetSort, type SortColumn } from '../../services/fleet-sort';
 import { chipsOf, type LabelContext } from '../../../../lib/labels';
 import type { ShipInSquadron } from '../../../../lib/squadrons-view';
 import { counted } from '../../../../lib/sentence';
-import { classNames } from '@aeolus-fleet/ui';
+import { classNames, lastActivityWordsOf } from '@aeolus-fleet/ui';
 import { Badge } from '../../../../components/atoms/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableSortHead } from '../../../../components/atoms/table';
 import { EmptyState } from '../../../../components/molecules/empty-state';
@@ -16,7 +16,9 @@ import { InlineError } from '../../../../components/molecules/inline-error';
 import { LoadMore } from '../../../../components/molecules/load-more';
 import { LabelChips } from '../molecules/label-chips';
 import { LoadingSkeleton } from '../../../../components/molecules/loading-skeleton';
-import { LastSeen } from '../molecules/last-seen';
+import { harnessWord } from '../../../../lib/harness';
+import { locationKindWord } from '../../../../lib/location';
+import { lastSeen } from '../../../../lib/relative-time';
 import { ActivityLine } from '../../../../components/molecules/activity-line';
 import { LocationTag } from '../../../../components/molecules/location-tag';
 import { ModelHint } from '../molecules/model-hint';
@@ -66,20 +68,23 @@ export interface FleetTableProps {
 /** The labels cell's character budget before the rest fold into a link to the ship page. */
 const ROW_LABELS_WIDTH = 22;
 
+/** A ship's type in a kind chip, as the overview's mockup puts it beside the name or the status. */
+function TypeChip({ ship }: { ship: ListedShip }) {
+  return (
+    <Badge variant="kind" data-testid="fleet-type">
+      {ship.type}
+    </Badge>
+  );
+}
+
 /**
- * The chip beside a ship's name: argo's operator kind chip, the viewer ship's
- * viewer kind chip; with squadrons on, a flagship's flagship kind chip and a
- * member's SquadronTag. Other ships carry none: their type stays a filter.
+ * The chip beside a ship's name (docs/design/fleet-overview, the list): the
+ * type of every ship that is not an agent (argo, people, apps and plugins),
+ * the viewer ship's viewer chip; an agent the console's plugins run as
+ * carries the plugin chip, and with squadrons on, a flagship its flagship
+ * chip. Other agents carry none: their type stays a filter.
  */
 function NameChip({ ship, squadron, isPluginShip }: { ship: ListedShip; squadron: ShipInSquadron | undefined; isPluginShip: boolean }) {
-  if (ship.kind === 'operator') {
-    return (
-      <Badge variant="kind">
-        <UserRound aria-hidden />
-        operator
-      </Badge>
-    );
-  }
   if (ship.kind === 'viewer') {
     return (
       <Badge variant="kind" data-testid="fleet-viewer">
@@ -87,6 +92,9 @@ function NameChip({ ship, squadron, isPluginShip }: { ship: ListedShip; squadron
         viewer
       </Badge>
     );
+  }
+  if (ship.kind !== 'agent') {
+    return <TypeChip ship={ship} />;
   }
   if (isPluginShip) {
     return (
@@ -96,15 +104,50 @@ function NameChip({ ship, squadron, isPluginShip }: { ship: ListedShip; squadron
       </Badge>
     );
   }
-  if (squadron?.role === null) {
-    return (
-      <Badge variant="kind" data-testid="fleet-flagship">
-        <Flag aria-hidden />
-        flagship
-      </Badge>
-    );
+  return <FlagshipChip squadron={squadron} />;
+}
+
+function FlagshipChip({ squadron }: { squadron: ShipInSquadron | undefined }) {
+  if (squadron?.role !== null) {
+    return null;
   }
-  return null;
+  return (
+    <Badge variant="kind" data-testid="fleet-flagship">
+      <Flag aria-hidden />
+      flagship
+    </Badge>
+  );
+}
+
+/** When the fleet last heard from a ship's session, in Harbour's words ("4 min", "yesterday"), the full words in its title; nothing without a session. */
+function SeenTime({ seenAt, now, testId }: { seenAt: string | null; now: Date; testId?: string }) {
+  if (seenAt === null) {
+    return null;
+  }
+  return (
+    <time dateTime={seenAt} title={lastSeen(new Date(seenAt), now)} data-testid={testId} className="text-meta whitespace-nowrap text-muted-foreground">
+      {lastActivityWordsOf(seenAt, now)}
+    </time>
+  );
+}
+
+/** Where a crewed ship runs and when it was last seen, as one line of words on the phone: "Claude Code · Device · 4 min". */
+function RunsOnLine({ ship, now }: { ship: ListedShip; now: Date }) {
+  if (ship.status !== 'crewed' || ship.kind === 'viewer') {
+    return null;
+  }
+  const harness = ship.kind === 'operator' ? 'console' : ship.harness;
+  const location = ship.kind === 'operator' && ship.location !== null ? 'DEVICE' : ship.location?.kind;
+  const words = [
+    harness === null ? (ship.kind === 'agent' ? 'Harness unknown' : null) : harnessWord(harness),
+    location === undefined ? null : locationKindWord(location),
+    ship.lastSeenAt === null ? null : lastActivityWordsOf(ship.lastSeenAt, now),
+  ].filter((word) => word !== null);
+  return (
+    <span data-testid="fleet-runs-on-line" className="text-meta text-muted-foreground">
+      {words.join(' · ')}
+    </span>
+  );
 }
 
 /** Only the current session's harness, location and stated model belong in Runs on. */
@@ -113,7 +156,7 @@ function RunsOn({ ship, now }: { ship: ListedShip; now: Date }) {
     return null;
   }
   return (
-    <span data-testid="fleet-runs-on" className="flex min-w-0 items-center gap-3 max-sm:flex-wrap max-sm:gap-y-1">
+    <span data-testid="fleet-runs-on" className="flex min-w-0 items-center gap-2 overflow-hidden max-sm:flex-wrap max-sm:gap-y-1">
       <LocationTag
         // argo's signed-in console names its device, never a model.
         kind={ship.kind === 'operator' && ship.location !== null ? 'DEVICE' : (ship.location?.kind ?? null)}
@@ -174,15 +217,16 @@ function ShipNameCell({ ship }: { ship: ListedShip }) {
   );
 }
 
-/** Each column's width: fixed while rows show, the same shares of the width while the message stands in for them. */
+/** Each column's share of the width, as the overview's mockup draws it: every column in the page's width, never scrolling sideways. */
 const COLUMN_WIDTHS = [
-  { key: 'ship', rows: 'w-56', empty: 'w-[17.5%]' },
-  { key: 'status', rows: 'w-40', empty: 'w-[12.5%]' },
-  { key: 'report', rows: 'w-64', empty: 'w-[20%]' },
-  { key: 'squadron-and-labels', rows: 'w-56', empty: 'w-[17.5%]' },
-  { key: 'runs-on', rows: 'w-64', empty: 'w-[20%]' },
-  { key: 'seen', rows: 'w-28', empty: 'w-[8.75%]' },
-  { key: 'actions', rows: 'w-12', empty: 'w-[3.75%]' },
+  { key: 'ship', width: 'w-[18%]' },
+  { key: 'status', width: 'w-[13%]' },
+  { key: 'report', width: 'w-[20%]' },
+  { key: 'squadron-and-labels', width: 'w-[15%]' },
+  { key: 'runs-on', width: 'w-[25%]' },
+  { key: 'seen', width: 'w-[9%]' },
+  // The row menu's button whatever the width.
+  { key: 'actions', width: 'w-14' },
 ] as const;
 
 /** The desktop columns with their headers, in table order, and the column each sorts by; Squadron and labels sorts by none. */
@@ -215,14 +259,12 @@ function DesktopTable({
   sort?: FleetSort | null;
   onSort?: (column: SortColumn) => void;
 }) {
-  // With no rows, the header and the message fit the width rather than scrolling sideways.
-  const isEmpty = ships.length === 0 && empty !== undefined;
   return (
     <div className="max-sm:hidden">
-      <Table aria-label="Ships" className={classNames('table-fixed', isEmpty ? 'w-full' : 'min-w-320')}>
+      <Table aria-label="Ships" className="w-full table-fixed">
         <colgroup>
-          {COLUMN_WIDTHS.map(({ key, rows, empty: emptyWidth }) => (
-            <col key={key} className={isEmpty ? emptyWidth : rows} />
+          {COLUMN_WIDTHS.map(({ key, width }) => (
+            <col key={key} className={width} />
           ))}
         </colgroup>
         <TableHeader>
@@ -285,7 +327,7 @@ function DesktopTable({
               </TableCell>
               <TableCell>
                 <span className="flex min-w-0 items-center gap-2">
-                  <LastSeen seenAt={ship.lastSeenAt} now={now} testId="fleet-last-seen" />
+                  <SeenTime seenAt={ship.lastSeenAt} now={now} testId="fleet-last-seen" />
                   <ActivityLine activity={ship.activity} now={now} variant="row" testId="fleet-activity" />
                 </span>
               </TableCell>
@@ -317,8 +359,7 @@ function PhoneList({
   viewerFleetId,
   renderRowActions,
   squadronsOf,
-  pluginShipIds,
-}: Pick<FleetTableProps, 'highlightedShipIds' | 'now' | 'viewerFleetId' | 'renderRowActions' | 'squadronsOf' | 'pluginShipIds'> & { ships: readonly ListedShip[] }) {
+}: Pick<FleetTableProps, 'highlightedShipIds' | 'now' | 'viewerFleetId' | 'renderRowActions' | 'squadronsOf'> & { ships: readonly ListedShip[] }) {
   return (
     <ul aria-label="Ships" className="overflow-hidden rounded-lg border border-border bg-card sm:hidden">
       {ships.map((ship) => (
@@ -335,15 +376,12 @@ function PhoneList({
             <div className="flex flex-wrap items-center gap-2">
               <StatusBadge status={ship.status} />
               <AlertBadge ship={ship} />
-              <NameChip ship={ship} squadron={squadronsOf?.get(ship.id)} isPluginShip={pluginShipIds?.has(ship.id) ?? false} />
+              {ship.kind === 'viewer' ? <NameChip ship={ship} squadron={undefined} isPluginShip={false} /> : <TypeChip ship={ship} />}
+              <FlagshipChip squadron={ship.kind === 'agent' ? squadronsOf?.get(ship.id) : undefined} />
             </div>
             <ShipMetadata ship={ship} squadron={squadronsOf?.get(ship.id)} />
             <ReportCell ship={ship} now={now} viewerFleetId={viewerFleetId} next={renderRowActions?.(ship, 'next')} />
-            <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-              <RunsOn ship={ship} now={now} />
-              <LastSeen seenAt={ship.lastSeenAt} now={now} />
-              <ActivityLine activity={ship.activity} now={now} variant="row" />
-            </div>
+            <RunsOnLine ship={ship} now={now} />
           </div>
           {renderRowActions?.(ship, 'phone')}
         </li>

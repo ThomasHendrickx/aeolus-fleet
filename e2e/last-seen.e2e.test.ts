@@ -112,7 +112,7 @@ describe('last seen', () => {
     // The browser's clock follows the server's test clock.
     await page.clock.setFixedTime(new Date(calledAt.getTime() + 20_000));
     await page.goto('/?view=list');
-    await page.getByTestId('fleet-row-scout').getByRole('img', { name: 'Last seen 20 s ago' }).waitFor();
+    await page.getByTestId('fleet-row-scout').getByTitle('Last seen 20 s ago').waitFor();
     await page.goto(`/ships/${scout.shipId}`);
     await page.getByTestId('ship-last-seen').getByText('Last seen 20 s ago').waitFor();
 
@@ -138,7 +138,7 @@ describe("a crew's report", () => {
     await report.getByText('changed just now').waitFor();
     await page.goto('/?view=list');
     await page.getByTestId('fleet-row-lookout').getByTestId('fleet-report').getByText('waiting for review').waitFor();
-    await expect(page.getByTestId('fleet-row-lookout').getByTestId('fleet-last-seen').getAttribute('aria-label')).resolves.toMatch(/^Last seen /);
+    await expect(page.getByTestId('fleet-row-lookout').getByTestId('fleet-last-seen').getAttribute('title')).resolves.toMatch(/^Last seen /);
   });
 
   it('shows the details of a report folded on its page, live, and raw when unfolded', async () => {
