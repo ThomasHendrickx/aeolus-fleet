@@ -23,7 +23,7 @@ Feature designs, one folder each; the status of each is at its top:
 | [bridge](bridge/README.md) | Bridge: a person's one place to work with their fleet, and where else each job shows |
 | [e2e-encryption](e2e-encryption/e2e-encryption.md) | Who can read a fleet's messages: sealed fleets |
 | [feature-flags](feature-flags/feature-flags.md) | Feature flags per fleet |
-| [fleet-overview](fleet-overview/README.md) | The fleet and its ships' status at a glance: Harbour |
+| [fleet-overview](fleet-overview/README.md) | The fleet and its ships' status at a glance: Harbour; one view, cards or list, and Harbour shared with Bridge |
 | [gateway-scopes](gateway-scopes/gateway-scopes.md) | The gateway's tools by scope, and ships as Slack bots |
 | [header](header/README.md) | One header for every Aeolus app |
 | [headless](headless/headless.md) | The trierarch starts and talks to a session without a terminal |
