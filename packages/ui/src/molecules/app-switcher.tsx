@@ -115,7 +115,7 @@ export function AppSwitcher({ switcher, layout, title, className }: AppSwitcherP
 
   if (!canSwitch) {
     return (
-      <p data-testid="app-switcher" className={classNames('flex min-w-0 items-center gap-1 px-1.5 text-body font-semibold text-foreground', layout === 'fleet' && 'px-0 font-normal text-muted-foreground', className)}>
+      <p data-testid="app-switcher" className={classNames('flex min-w-0 items-center gap-1 px-1.5 text-body font-semibold text-foreground', layout === 'fleet' && 'px-0 font-normal text-muted-foreground', layout === 'compact' && title !== undefined && 'text-title-touch', className)}>
         {layout === 'compact' ? null : <span className="truncate">{fleet.name}</span>}
         {layout === 'full' ? <span aria-hidden className="text-muted-foreground">/</span> : null}
         {layout === 'fleet' ? null : <span className="truncate">{title ?? appLabel}</span>}

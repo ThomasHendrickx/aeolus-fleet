@@ -63,7 +63,7 @@ export function TopBar({ title, live, actions, back, switcher, isTitled = false,
           <p className="truncate px-1.5 text-title-touch font-semibold text-foreground">{isTitled ? title : 'Console'}</p>
         )
       )}
-      <LiveStatus state={live} />
+      <LiveStatus state={live} className={isTitled && !back ? 'ml-auto' : undefined} />
       {actions || search || (account && !back) ? (
         <div className="ml-auto flex items-center gap-1">
           {search ? (
