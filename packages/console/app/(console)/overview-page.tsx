@@ -64,7 +64,7 @@ export function OverviewPage({ view, isCommissionAsked }: { view: FleetView; isC
     <ListPage
       {...frame}
       title="Fleet overview"
-      description={numbers.counts ? harbourSummaryOf(numbers.counts, { canCommission: access.canManage }) : 'Loading your fleet'}
+      description={numbers.counts ? harbourSummaryOf(numbers.counts, { canCommission: access.canManage }) : undefined}
       primaryAction={
         <OverviewActions
           canDefineLabels={access.canDefineLabels}

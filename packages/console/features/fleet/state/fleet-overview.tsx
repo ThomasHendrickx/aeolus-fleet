@@ -66,11 +66,14 @@ export function FleetOverview({
   const counts = numbers.counts;
   const isOnlyArgo = counts !== undefined && counts.ships <= 1;
   const isUpdating = isCards ? harbour.isUpdating : ships.isPlaceholder;
+  const isFailed = isCards ? numbers.isFailed || harbour.isFailed : ships.isFailed;
+  // The bar filters what is read: while the first read runs or fails, there is nothing for it to filter.
+  const isRead = counts !== undefined && (isCards ? harbour.groups !== undefined : ships.items !== undefined);
   const clear = () => {
     onViewChange({ ...DEFAULT_FLEET_VIEW, mode: view.mode, sort: view.sort });
   };
 
-  const bar = isOnlyArgo ? null : (
+  const bar = isOnlyArgo || isFailed || !isRead ? null : (
     <FleetBar view={view} onViewChange={onViewChange} counts={counts} types={types} labels={labels} shown={isCards ? harbour.shown : listCounts?.shown} isUpdating={isUpdating} />
   );
   const noMatch = <NoMatch query={view.query} hasFilters={activeFilterCount(view.filters) > 0} fleetShips={counts?.ships} onClear={clear} />;
@@ -84,7 +87,6 @@ export function FleetOverview({
   ) : null;
 
   if (isCards) {
-    const isFailed = numbers.isFailed || harbour.isFailed;
     return (
       <section aria-label="Fleet" className="flex flex-col gap-3.5" data-testid="fleet-overview" data-view="cards">
         <Harbour
@@ -95,7 +97,7 @@ export function FleetOverview({
           link={({ href, ...props }: AnchorHTMLAttributes<HTMLAnchorElement>) => <Link {...props} href={href ?? '/'} />}
           between={bar}
           empty={noMatch}
-          state={isFailed ? 'error' : harbour.groups === undefined || counts === undefined ? 'loading' : 'ready'}
+          state={isFailed ? 'error' : isRead ? 'ready' : 'loading'}
           errorDetail={errorDetailOf(harbour.error ?? numbers.error)}
           onRetry={() => {
             numbers.retry();
