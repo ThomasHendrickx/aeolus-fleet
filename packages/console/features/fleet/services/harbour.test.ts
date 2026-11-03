@@ -1,7 +1,7 @@
 import { createIdGenerator, type HarbourOutput } from '@aeolus-fleet/common';
 import { describe, expect, it } from 'vitest';
 
-import { harbourGroupsOf } from './harbour';
+import { harbourGroupsOf, harbourSummaryOf } from './harbour';
 
 const newId = createIdGenerator();
 
@@ -46,6 +46,24 @@ describe("harbourGroupsOf: Harbour's groups from the tiles fleet.harbour answers
     expect(tiles?.map(({ name, state }) => ({ name, state }))).toEqual([
       { name: 'scout', state: 'working' },
       { name: 'builder', state: 'idle' },
+    ]);
+  });
+});
+
+// The overview's subtitle from Harbour's numbers (docs/design/fleet-overview): "19 ships: 8 working, 7 idle, 3 waiting, 1 with an alert".
+describe("harbourSummaryOf: the overview's subtitle", () => {
+  it('names the ships and each state they are in, working and idle first', () => {
+    expect(harbourSummaryOf({ ships: 19, alert: 1, waiting: 3, working: 8, idle: 7 }, { canCommission: true })).toBe('19 ships: 8 working, 7 idle, 3 waiting, 1 with an alert');
+  });
+
+  it('leaves out a state no ship is in', () => {
+    expect(harbourSummaryOf({ ships: 4, alert: 0, waiting: 0, working: 3, idle: 1 }, { canCommission: true })).toBe('4 ships: 3 working, 1 idle');
+  });
+
+  it('says what to do next while argo is alone, to those who may commission', () => {
+    expect([harbourSummaryOf({ ships: 1, alert: 0, waiting: 0, working: 0, idle: 1 }, { canCommission: true }), harbourSummaryOf({ ships: 1, alert: 0, waiting: 0, working: 0, idle: 1 }, { canCommission: false })]).toEqual([
+      'Only argo so far. Ships you commission appear here.',
+      'Only argo so far.',
     ]);
   });
 });
