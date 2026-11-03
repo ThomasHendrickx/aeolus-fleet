@@ -1,7 +1,7 @@
 import { SquarePen } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-import { Button, type AvatarMenuProps } from '@aeolus-fleet/ui';
+import { Button, classNames, type AvatarMenuProps } from '@aeolus-fleet/ui';
 import type { AppSwitcherModel } from '@aeolus-fleet/common/rules';
 import type { LiveState } from '../molecules/live-status';
 import { Header } from './header';
@@ -15,6 +15,8 @@ interface ListPageProps {
   titleMeta?: ReactNode;
   /** The page's one primary action, beside the title. */
   primaryAction?: ReactNode;
+  /** On phone the primary action stays small at the end of the title row, instead of a full-width row of its own. */
+  isActionInTitleRow?: boolean;
   /** Search and filters, under the title row. */
   toolbar?: ReactNode;
   live: LiveState;
@@ -40,7 +42,7 @@ interface ListPageProps {
  * row, the toolbar sits under it and the list fills the rest. On phone the
  * TabBar's height is kept free at the bottom.
  */
-export function ListPage({ title, description, titleMeta, primaryAction, toolbar, live, onCompose, onSearch, switcher, account, banner, phoneTopBar, children }: ListPageProps) {
+export function ListPage({ title, description, titleMeta, primaryAction, isActionInTitleRow = false, toolbar, live, onCompose, onSearch, switcher, account, banner, phoneTopBar, children }: ListPageProps) {
   return (
     <>
       <Header breadcrumb={title} live={live} switcher={switcher} account={account} onCompose={onCompose} onSearch={onSearch} />
@@ -69,7 +71,7 @@ export function ListPage({ title, description, titleMeta, primaryAction, toolbar
       />
       )}
       <main className="flex grow flex-col gap-4 px-6 py-5 max-sm:gap-3.5 max-sm:px-4 max-sm:pt-3.5 max-sm:pb-[calc(var(--size-tabbar)+var(--spacing)*4)]">
-        <div className="flex flex-wrap items-start justify-between gap-4 max-sm:gap-3">
+        <div className={classNames('flex flex-wrap items-start justify-between gap-4 max-sm:gap-3', isActionInTitleRow && 'max-sm:flex-nowrap')}>
           <div className="flex min-w-0 flex-col gap-1">
             <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
               <h1 className="text-title font-semibold tracking-tight text-foreground max-sm:text-title-touch">{title}</h1>
@@ -79,7 +81,7 @@ export function ListPage({ title, description, titleMeta, primaryAction, toolbar
               <p className="text-meta text-muted-foreground max-sm:text-body-touch">{description}</p>
             ) : null}
           </div>
-          {primaryAction ? <div className="shrink-0 max-sm:w-full max-sm:[&>*]:w-full">{primaryAction}</div> : null}
+          {primaryAction ? <div className={classNames('shrink-0', !isActionInTitleRow && 'max-sm:w-full max-sm:[&>*]:w-full')}>{primaryAction}</div> : null}
         </div>
         {toolbar}
         {children}

@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { Plus } from 'lucide-react';
-import { fn } from 'storybook/test';
+import { expect, fn, within } from 'storybook/test';
 
 import { Badge } from '../atoms/badge';
 import { Button } from '@aeolus-fleet/ui';
@@ -72,3 +72,26 @@ export const WithTitleMeta: Story = {
   ),
 };
 export const WithTitleMetaPhone: Story = { ...WithTitleMeta, globals: { viewport: { value: 'mobile1' } } };
+
+/** The fleet overview's actions stay small in the title row on phone (isActionInTitleRow), beside the title and not under its description. */
+export const ActionInTitleRowPhone: Story = {
+  args: {
+    description: '19 ships: 8 working, 7 idle, 3 waiting, 1 with an alert',
+    isActionInTitleRow: true,
+    primaryAction: (
+      <div className="flex items-center gap-2">
+        <Button isIconOnly aria-label="More actions" icon={<Plus aria-hidden />} />
+        <Button variant="primary" icon={<Plus aria-hidden />}>
+          Commission ship
+        </Button>
+      </div>
+    ),
+  },
+  globals: { viewport: { value: 'mobile1' } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const title = canvas.getByRole('heading', { name: 'Fleet overview' }).getBoundingClientRect();
+    const action = canvas.getByRole('button', { name: 'Commission ship' }).getBoundingClientRect();
+    await expect(action.top).toBeLessThan(title.bottom);
+  },
+};
