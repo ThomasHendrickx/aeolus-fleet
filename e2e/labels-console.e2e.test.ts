@@ -149,7 +149,7 @@ describe('Labels in the console', () => {
 
     await page.reload();
     await expect.poll(() => listed(page), WITHIN).toEqual(['hemma-api']);
-    await page.getByRole('button', { name: 'Remove area=backend' }).click();
+    await page.getByRole('button', { name: 'Remove area: backend' }).click();
     await expect.poll(() => listed(page), WITHIN).toEqual(['hemma-api', 'hemma-web']);
   });
 
