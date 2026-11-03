@@ -99,3 +99,13 @@ export const Issuing: Story = { args: { state: 'issuing', prompt: undefined, cre
 export const Failed: Story = {
   args: { state: 'error', prompt: undefined, crewLines: undefined, error: 'The server did not answer.' },
 };
+
+/** A refusal reads as two sentences, and the description no longer says the earlier prompt stops working, since nothing stopped (#1608). */
+export const Refused: Story = {
+  args: { shipName: 'writer', state: 'error', prompt: undefined, crewLines: undefined, error: 'The network rules do not allow this manage' },
+  play: async () => {
+    const dialog = await screen.findByTestId('starting-prompt-dialog');
+    await expect(dialog).toHaveTextContent('The network rules do not allow this manage. No new secret was created; any earlier prompt still works.');
+    await expect(dialog).not.toHaveTextContent('stops working now');
+  },
+};
