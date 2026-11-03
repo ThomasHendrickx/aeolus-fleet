@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import { expect, within } from 'storybook/test';
 
 import { ReportLine } from './report-line';
 import { REPORT_TASKS, VIEWER_FLEET_ID } from '../../lib/fixtures/report.fixtures';
@@ -14,13 +15,27 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+/** The report's state as ShipState draws it (docs/design/state-colours): its word and icon in the tone that means it. */
+async function expectState(canvasElement: HTMLElement, { word, tone }: { word: string; tone: string }) {
+  const state = within(within(canvasElement).getByTestId('ship-report')).getByTestId('ship-state');
+  await expect(state).toHaveTextContent(word);
+  await expect(state.querySelector('svg')).not.toBeNull();
+  await expect(state).toHaveAttribute('data-tone', tone);
+}
+
+/** Working in Sea, the active tone. */
 export const WorkingRow: Story = {
+  play: async ({ canvasElement }) => expectState(canvasElement, { word: 'Working', tone: 'active' }),
   args: { report: { state: 'working', note: 'Reviewing PR #322 (api)', task: null, step: null, reportedAt: '2026-10-03T07:08:00.000Z', reportChangedAt: '2026-10-03T07:08:00.000Z', detailsVersion: 0 } },
 };
+/** Blocked in violet: the crew says it cannot go on. */
 export const BlockedRow: Story = {
+  play: async ({ canvasElement }) => expectState(canvasElement, { word: 'Blocked', tone: 'blocked' }),
   args: { report: { state: 'blocked', note: 'checkout-e2e flaky, needs a decision on retries', task: null, step: null, reportedAt: '2026-10-03T07:09:26.000Z', reportChangedAt: '2026-10-03T07:09:26.000Z', detailsVersion: 0 } },
 };
+/** Idle carries no tone: the muted foreground. */
 export const IdleRow: Story = {
+  play: async ({ canvasElement }) => expectState(canvasElement, { word: 'Idle', tone: 'none' }),
   args: { report: { state: 'idle', note: 'Queue empty', task: null, step: null, reportedAt: '2026-10-03T07:09:42.000Z', reportChangedAt: '2026-10-03T07:09:42.000Z', detailsVersion: 0 } },
 };
 export const NoReportYet: Story = {};
@@ -28,6 +43,7 @@ export const ShipPage: Story = {
   args: { variant: 'full', report: { state: 'working', note: 'Reviewing PR #322 (api)', task: null, step: null, reportedAt: '2026-10-03T07:08:00.000Z', reportChangedAt: '2026-10-03T07:08:00.000Z', detailsVersion: 0 } },
 };
 export const ShipPageBlocked: Story = {
+  play: async ({ canvasElement }) => expectState(canvasElement, { word: 'Blocked', tone: 'blocked' }),
   args: { variant: 'full', report: { state: 'blocked', note: 'Waiting for go on 2.15', task: null, step: null, reportedAt: '2026-10-03T07:08:00.000Z', reportChangedAt: '2026-10-03T07:08:00.000Z', detailsVersion: 0 } },
 };
 export const ShipPageNone: Story = { args: { variant: 'full' } };
