@@ -7,8 +7,8 @@ import { uniqueById } from '../../../lib/paged-list';
  * Harbour's groups and words (docs/design/fleet-overview): the tiles
  * `fleet.harbour` answers, each with the state the server worked out,
  * grouped by kind and ordered in each group alerts first, then waiting,
- * working and idle, each by name; and the overview's subtitle from its
- * numbers.
+ * working and idle, each by last activity, newest first, then by name; and
+ * the overview's subtitle from its numbers.
  */
 export const HARBOUR_GROUPS = ['people', 'agents', 'plugins', 'gateway'] as const;
 
@@ -33,8 +33,15 @@ const GROUP_OF_KIND: Record<ShipKind, HarbourGroupKind | null> = {
   viewer: null,
 };
 
-function byStateThenName(first: HarbourTile, second: HarbourTile): number {
-  return HARBOUR_STATES.indexOf(first.state) - HARBOUR_STATES.indexOf(second.state) || first.name.localeCompare(second.name);
+/** A tile's last activity as a time to order by; one that never did anything comes after every other. */
+function activityTimeOf(tile: HarbourTile): number {
+  return tile.lastActivityAt === null ? Number.NEGATIVE_INFINITY : Date.parse(tile.lastActivityAt);
+}
+
+function byStateThenActivityThenName(first: HarbourTile, second: HarbourTile): number {
+  const byState = HARBOUR_STATES.indexOf(first.state) - HARBOUR_STATES.indexOf(second.state);
+  const byActivity = activityTimeOf(second) - activityTimeOf(first);
+  return byState || (Number.isNaN(byActivity) ? 0 : byActivity) || first.name.localeCompare(second.name);
 }
 
 /**
@@ -46,7 +53,7 @@ export function harbourGroupsOf(tiles: readonly HarbourTile[]): HarbourGroup[] {
   const shown = uniqueById(tiles);
   return HARBOUR_GROUPS.flatMap((kind) => {
     const ofKind = shown.filter((tile) => GROUP_OF_KIND[tile.kind] === kind);
-    return ofKind.length === 0 ? [] : [{ kind, tiles: ofKind.toSorted(byStateThenName) }];
+    return ofKind.length === 0 ? [] : [{ kind, tiles: ofKind.toSorted(byStateThenActivityThenName) }];
   });
 }
 

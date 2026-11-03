@@ -39,7 +39,7 @@ The state, as Thomas confirmed, first match wins: an open alert is Alert; awaiti
 - **Procedure:** `fleet.harbour`, query, `fleet:read`, scoped by `fleet_id` and the caller's read reach (decision 0034), as `fleet.list` is.
 - **Input:** `{ cursor?, limit? }`, limit at most 500, default 500; or `{ shipIds }`, at most 100, for the live reload of single tiles.
 - **Output:** `{ items: [{ id, name, kind, state, note }], nextCursor, counts }`, `counts` = `{ ships, alert, waiting, working, idle }` on the first page only (null on later pages and for `shipIds`).
-- **Order:** the listing order (argo first, then by name), so a page reads through `ships_listing_idx` by keyset; the browser groups the tiles and orders each group by state, then name.
+- **Order:** the listing order (argo first, then by name), so a page reads through `ships_listing_idx` by keyset; the browser groups the tiles and orders each group by state, then last activity newest first, then name; a ship that never did anything comes last in its state (Thomas, #1605).
 - **The statement:** active ships (`retired_at IS NULL`, every kind but viewer) in reach, `LEFT JOIN leases` on the open lease (`leases_ship_id_open_key`) for status, report state and note, and `EXISTS` an open alert (`alerts_open_on_ship_idx`); the state is one `CASE` in that order. The counts are one aggregate of the same `CASE` over the same ships, read through a partial index of the active ships, with the fleet's open alerts joined once rather than looked up per ship and per count. No new index.
 - **The rule:** `harbourStateOf` in `core/src/domain/registry`, pure; the integration test holds the `CASE` to it for every combination of status, report state and alert.
 - **Live:** a ship event (with `AlertRaised` and `AlertCleared` added, as in the Harbour PR) reads `fleet.harbour({ shipIds: [that ship] })` and replaces the tile in place, placing a new ship in its group; the counts query reloads, once at a time as `createLiveReloads` does. A resync reads it whole again. No interval refresh.
@@ -82,6 +82,7 @@ Built on what was approved: Harbour above, the fleet table as it is today ([Flee
 - **Pending.** A pick shows at once (#815); what is below dims and the count says Updating until the new result is in.
 - **No match:** "No ships match these filters." or "No ships match "query"." with Clear filters or Clear search, in either view. **argo alone:** no bar, as today, and the empty state with Commission your first ship.
 - **Phone:** the filters move into a bottom Sheet behind a filter button that shows how many are in force; each shows as a chip under the search. The switch keeps its icons. Tiles two a row.
+- **Order inside a group:** alerts first, then waiting, working, idle; inside a state the newest last activity first, then by name, a ship that never did anything last (Thomas, #1605).
 - **The tile** is Bridge's: kind icon, the whole name, what the ship is doing (two lines), its state and when it last did something ("now", "25 min", "yesterday", "2 d" up to 6 days, then "28 Oct"; "No activity yet" when it never did). Hover lifts it and shows the arrow; focus has the ring; a working tile carries the live band; reduced motion stills both. A click opens the ship's page.
 
 ### The shared part: Harbour in @aeolus-fleet/ui
