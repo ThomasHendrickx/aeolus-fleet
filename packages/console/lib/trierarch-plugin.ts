@@ -76,7 +76,14 @@ export function useConnectTrierarchPlugin() {
         },
         scopesNow: async () => (await queryClient.query({ ...trpc.console.session.queryOptions(), staleTime: 0 })).scopes,
         wait: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
-      }).then(() => queryClient.invalidateQueries({ queryKey: trpc.console.session.queryKey() }));
+      })
+        .then((outcome) => {
+          if (outcome === 'failed') {
+            // The connect succeeded; a failed renewal only means the person signs in again for the scope.
+            console.error('Renewing the account token after connecting the trierarch plugin failed');
+          }
+        })
+        .finally(() => queryClient.invalidateQueries({ queryKey: trpc.console.session.queryKey() }));
     },
   });
 }
