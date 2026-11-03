@@ -19,8 +19,8 @@ interface LabelChipProps {
 const MARKS: Record<Exclude<ChipMark, 'none'>, typeof Ship> = { 'trierarch-plugin': ShipWheel, squadrons: Boxes, ship: Ship, gone: TagX };
 
 /**
- * One label value a ship carries (canvas Labels, LabelChip): `key=value` in
- * mono, the key muted, with its owner's mark before it unless the label is
+ * One label value a ship carries (canvas Labels, LabelChip; docs/design/fleet-overview): `key: value` in
+ * mono, with its owner's mark before it unless the label is
  * yours (Q10). Its title names the owner, or says the label no longer
  * exists (#523); such a chip has a crossed-out tag and a dashed edge, so it
  * never looks like yours without a hover (#528). The same words are its
@@ -29,7 +29,7 @@ const MARKS: Record<Exclude<ChipMark, 'none'>, typeof Ship> = { 'trierarch-plugi
  */
 export function LabelChip({ chip, onRemove, testId, className, trailing, meaning }: LabelChipProps) {
   const Mark = chip.mark === 'none' ? null : MARKS[chip.mark];
-  const text = `${chip.key}=${chip.value}`;
+  const text = `${chip.key}: ${chip.value}`;
   const title = meaning === undefined ? chipTitleOf(chip) : `${chipTitleOf(chip)}. ${meaning}`;
   return (
     <span
@@ -45,10 +45,7 @@ export function LabelChip({ chip, onRemove, testId, className, trailing, meaning
       )}
     >
       {Mark === null ? null : <Mark aria-hidden />}
-      <span className="truncate">
-        <span className="text-muted-foreground">{chip.key}=</span>
-        <span className="font-medium">{chip.value}</span>
-      </span>
+      <span className="truncate">{text}</span>
       {trailing}
       {onRemove === undefined ? null : (
         <button

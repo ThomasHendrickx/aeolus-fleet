@@ -283,7 +283,7 @@ describe('retiredLabelsOf', () => {
   const context = labelContextOf(LABELS, { ships: SHIPS, isOperator: true });
 
   it('names the values a ship carries', () => {
-    expect(retiredLabelsOf(BUILDER, context)).toEqual({ carried: ['os: macos', 'project: hemma', 'area=backend'] });
+    expect(retiredLabelsOf(BUILDER, context)).toEqual({ carried: ['os=macos', 'project=hemma', 'area=backend'] });
   });
 
   it('counts the ships that carry each label an owner owns, as fleet.labels counts them', () => {
@@ -299,7 +299,7 @@ describe('retiredLabelsOf', () => {
 
 describe('retireLabelLines', () => {
   it('names the values a ship carries', () => {
-    expect(retireLabelLines({ carried: ['project=aeolus', 'area=review', 'cost: low'] })).toEqual(['Its 3 labels are removed with it: project=aeolus, area=review, cost=low.']);
+    expect(retireLabelLines({ carried: ['project=aeolus', 'area=review', 'cost=low'] })).toEqual(['Its 3 labels are removed with it: project=aeolus, area=review, cost=low.']);
   });
 
   it('names an owner’s labels and counts the ships that lose each, leaving out a label no ship carries', () => {
@@ -319,7 +319,7 @@ describe('retireLabelLines', () => {
   });
 
   it('says one label in the singular, carried by no ship', () => {
-    expect(retireLabelLines({ carried: ['os: macos'], owned: [{ key: 'site', carrierCount: 0 }] })).toEqual([
+    expect(retireLabelLines({ carried: ['os=macos'], owned: [{ key: 'site', carrierCount: 0 }] })).toEqual([
       'Its label is removed with it: os=macos.',
       'Its label retires with it: site. Nobody can assign it again.',
     ]);
